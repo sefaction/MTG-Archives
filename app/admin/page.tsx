@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { Nav } from "@/components/Nav";
 import { UserRole } from "@prisma/client";
+import { SubmitButton } from "@/components/feedback/SubmitButton";
 
 async function refresh() {
   "use server";
@@ -172,9 +173,12 @@ export default async function Page() {
           <label className="flex items-center gap-2">
             <input type="checkbox" name="isActive" defaultChecked /> active
           </label>
-          <button className="border px-3 py-2 md:col-span-4">
+          <SubmitButton
+            pendingLabel="Creating user…"
+            className="border px-3 py-2 md:col-span-4"
+          >
             Create User
-          </button>
+          </SubmitButton>
         </form>
       </section>
 
@@ -268,9 +272,12 @@ export default async function Page() {
                 <div className="text-xs text-zinc-500">
                   Owner: {u.player?.displayName ?? "will be created on save"}
                 </div>
-                <button className="border px-3 py-2 md:col-span-6">
+                <SubmitButton
+                  pendingLabel="Saving user…"
+                  className="border px-3 py-2 md:col-span-6"
+                >
                   Save User
-                </button>
+                </SubmitButton>
               </form>
               <form
                 action={async (fd) => {
@@ -320,7 +327,12 @@ export default async function Page() {
                   />{" "}
                   force change
                 </label>
-                <button className="border px-3 py-2">Reset Password</button>
+                <SubmitButton
+                  pendingLabel="Resetting…"
+                  className="border px-3 py-2"
+                >
+                  Reset Password
+                </SubmitButton>
               </form>
             </div>
           ))

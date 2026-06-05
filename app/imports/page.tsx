@@ -15,6 +15,9 @@ import {
   upsertScryfallCard,
 } from "@/lib/card-import";
 import { getCardByScryfallId, searchCards } from "@/lib/scryfall";
+import { SubmitButton } from "@/components/feedback/SubmitButton";
+import { ImportProgressPanel } from "@/components/ImportProgressPanel";
+import { calculateImportProgress } from "@/lib/import-progress";
 
 const aliases: Record<string, string[]> = {
   quantity: ["quantity", "count", "qty", "copies"],
@@ -1166,6 +1169,12 @@ export default async function ImportsPage({
         ).length,
       }
     : null;
+  const selectedProgress = selectedBatch
+    ? calculateImportProgress({
+        batchStatus: selectedBatch.status,
+        itemStatuses: selectedItems.map((item) => item.status),
+      })
+    : null;
 
   return (
     <main className="p-8 space-y-6">
@@ -1278,9 +1287,12 @@ export default async function ImportsPage({
               className="w-full border p-2 bg-zinc-900"
             />
           </label>
-          <button className="border px-3 py-2 md:col-span-2">
+          <SubmitButton
+            pendingLabel="Identifying cards…"
+            className="border px-3 py-2 md:col-span-2"
+          >
             Preview Import
-          </button>
+          </SubmitButton>
         </form>
       </section>
 
@@ -1317,9 +1329,12 @@ export default async function ImportsPage({
                 row history only. Inventory is not touched.
               </p>
               <form action={purgePreviewFailedImports}>
-                <button className="border border-amber-600 px-3 py-2">
+                <SubmitButton
+                  pendingLabel="Clearing…"
+                  className="border border-amber-600 px-3 py-2"
+                >
                   Confirm clear preview / failed
-                </button>
+                </SubmitButton>
               </form>
             </details>
             <details className="border border-red-800 rounded p-3">
@@ -1331,9 +1346,12 @@ export default async function ImportsPage({
                 is not touched.
               </p>
               <form action={deleteImportHistory}>
-                <button className="border border-red-700 px-3 py-2">
+                <SubmitButton
+                  pendingLabel="Deleting history…"
+                  className="border border-red-700 px-3 py-2"
+                >
                   Confirm delete history
-                </button>
+                </SubmitButton>
               </form>
             </details>
             <form
@@ -1345,20 +1363,22 @@ export default async function ImportsPage({
               <p className="text-zinc-400">
                 Admin-only retry across every batch.
               </p>
-              <button
+              <SubmitButton
+                pendingLabel="Retrying rows…"
                 name="mode"
                 value="normal_retry"
                 className="border px-3 py-2 mr-2"
               >
                 Retry unresolved rows
-              </button>
-              <button
+              </SubmitButton>
+              <SubmitButton
+                pendingLabel="Deep resolving…"
                 name="mode"
                 value="deep_resolve"
                 className="border px-3 py-2"
               >
                 Deep resolve unresolved rows
-              </button>
+              </SubmitButton>
             </form>
           </div>
         </section>
@@ -1376,26 +1396,34 @@ export default async function ImportsPage({
               {selectedBatch.status}
             </p>
           </div>
+          {selectedProgress ? (
+            <ImportProgressPanel
+              batchId={selectedBatch.id}
+              initialProgress={selectedProgress}
+            />
+          ) : null}
           <div className="flex flex-wrap gap-2 text-sm">
             <form action={retryUnresolvedRows}>
               <input type="hidden" name="batchId" value={selectedBatch.id} />
-              <button
+              <SubmitButton
+                pendingLabel="Retrying rows…"
                 name="mode"
                 value="normal_retry"
                 className="border px-3 py-2"
               >
                 Retry unresolved rows
-              </button>
+              </SubmitButton>
             </form>
             <form action={retryUnresolvedRows}>
               <input type="hidden" name="batchId" value={selectedBatch.id} />
-              <button
+              <SubmitButton
+                pendingLabel="Deep resolving…"
                 name="mode"
                 value="deep_resolve"
                 className="border px-3 py-2"
               >
                 Deep resolve unresolved rows
-              </button>
+              </SubmitButton>
             </form>
             {isAdmin ? (
               <details className="border border-zinc-700 rounded px-3 py-2">
@@ -1407,9 +1435,12 @@ export default async function ImportsPage({
                       name="batchId"
                       value={selectedBatch.id}
                     />
-                    <button className="border px-3 py-2">
+                    <SubmitButton
+                      pendingLabel="Deleting history…"
+                      className="border px-3 py-2"
+                    >
                       Delete history only
-                    </button>
+                    </SubmitButton>
                   </form>
                   {undoPreview ? (
                     <div className="border border-red-800 rounded p-3 space-y-2">
@@ -1442,9 +1473,12 @@ export default async function ImportsPage({
                             className="ml-2 border p-1 bg-zinc-900"
                           />
                         </label>
-                        <button className="border border-red-700 px-3 py-2">
+                        <SubmitButton
+                          pendingLabel="Undoing import…"
+                          className="border border-red-700 px-3 py-2"
+                        >
                           Undo import and delete created records
-                        </button>
+                        </SubmitButton>
                       </form>
                     </div>
                   ) : null}
@@ -1579,13 +1613,15 @@ export default async function ImportsPage({
                             value={selectedBatch.id}
                           />
                           <input type="hidden" name="itemId" value={item.id} />
-                          <button
+                          <SubmitButton
+                            pendingLabel="Retrying…"
                             name="mode"
                             value="normal_retry"
                             className="underline"
+                            minWidthClassName="min-w-20"
                           >
                             Retry row
-                          </button>
+                          </SubmitButton>
                         </form>
                         <form action={setRowSkipped}>
                           {item.status === "skipped" ? (
@@ -1596,7 +1632,13 @@ export default async function ImportsPage({
                                 value={item.id}
                               />
                               <input type="hidden" name="unskip" value="true" />
-                              <button className="underline">Unskip</button>
+                              <SubmitButton
+                                pendingLabel="Restoring…"
+                                className="underline"
+                                minWidthClassName="min-w-16"
+                              >
+                                Unskip
+                              </SubmitButton>
                             </>
                           ) : (
                             <>
@@ -1605,7 +1647,13 @@ export default async function ImportsPage({
                                 name="itemId"
                                 value={item.id}
                               />
-                              <button className="underline">Skip</button>
+                              <SubmitButton
+                                pendingLabel="Skipping…"
+                                className="underline"
+                                minWidthClassName="min-w-16"
+                              >
+                                Skip
+                              </SubmitButton>
                             </>
                           )}
                         </form>
@@ -1625,12 +1673,13 @@ export default async function ImportsPage({
           !selectedBatch.importType.endsWith(":preview") ? (
             <form action={confirmImport} className="flex gap-3 items-center">
               <input type="hidden" name="batchId" value={selectedBatch.id} />
-              <button
+              <SubmitButton
+                pendingLabel="Importing…"
                 disabled={unresolvedCount > 0}
                 className="border px-3 py-2 disabled:opacity-50"
               >
                 Confirm Import
-              </button>
+              </SubmitButton>
             </form>
           ) : null}
           {selectedBatch.importType.endsWith(":preview") ? (
@@ -1785,9 +1834,12 @@ export default async function ImportsPage({
                   className="w-full border p-2 bg-zinc-900"
                 />
               </label>
-              <button className="border px-3 py-2 md:col-span-5">
+              <SubmitButton
+                pendingLabel="Saving row…"
+                className="border px-3 py-2 md:col-span-5"
+              >
                 Save Row Edits
-              </button>
+              </SubmitButton>
             </form>
             <form
               method="get"
@@ -1848,7 +1900,12 @@ export default async function ImportsPage({
                     </div>
                     <div className="text-zinc-400">{card.type_line}</div>
                   </div>
-                  <button className="border px-3 py-2">Select</button>
+                  <SubmitButton
+                    pendingLabel="Resolving…"
+                    className="border px-3 py-2"
+                  >
+                    Select
+                  </SubmitButton>
                 </form>
               ))}
               {resolverResults.length === 0 ? (

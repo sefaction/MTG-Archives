@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ColumnDef,
   flexRender,
@@ -15,6 +16,7 @@ import {
   InventoryAuditEntry,
   InventoryAuditTrail,
 } from "./InventoryAuditTrail";
+import { SubmitButton } from "./feedback/SubmitButton";
 
 type PickRef = { id: string; name: string; color?: string };
 
@@ -272,6 +274,7 @@ export function InventoryBrowser({
   onSearchPrintings: (formData: FormData) => Promise<ScryfallResult[]>;
   onDeleteInventoryItem?: (formData: FormData) => Promise<void>;
 }) {
+  const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [selected, setSelected] = useState<InventoryRow | null>(null);
   const [editing, setEditing] = useState<InventoryRow | null>(null);
@@ -302,6 +305,7 @@ export function InventoryBrowser({
   const [message, setMessage] = useState<string>("");
   const [results, setResults] = useState<ScryfallResult[]>([]);
   const [confirmed, setConfirmed] = useState<ScryfallResult | null>(null);
+  const [searchingPrintings, setSearchingPrintings] = useState(false);
 
   const cols = useMemo<ColumnDef<InventoryRow>[]>(
     () => [
@@ -390,7 +394,11 @@ export function InventoryBrowser({
   return (
     <div className="space-y-3">
       {message ? (
-        <div className="border border-emerald-700 bg-emerald-950 text-emerald-300 p-2 text-sm">
+        <div
+          className="border border-emerald-700 bg-emerald-950 text-emerald-300 p-2 text-sm"
+          role="status"
+          aria-live="polite"
+        >
           {message}
         </div>
       ) : null}
@@ -656,6 +664,7 @@ export function InventoryBrowser({
                   await onSaveEdit(fd);
                   setMessage("Inventory item updated.");
                   setEditing(null);
+                  router.refresh();
                 } catch (e: any) {
                   setMessage(e?.message || "Failed to save inventory edit.");
                 }
@@ -800,7 +809,9 @@ export function InventoryBrowser({
                   />
                   <button
                     type="button"
-                    className="border px-2"
+                    className="border px-2 disabled:opacity-60"
+                    disabled={searchingPrintings}
+                    aria-disabled={searchingPrintings}
                     onClick={async () => {
                       const q =
                         (
@@ -808,13 +819,23 @@ export function InventoryBrowser({
                             "printingQuery",
                           ) as HTMLInputElement
                         )?.value || "";
-                      const f = new FormData();
-                      f.set("q", q);
-                      const r = await onSearchPrintings(f);
-                      setResults(r || []);
+                      setSearchingPrintings(true);
+                      try {
+                        const f = new FormData();
+                        f.set("q", q);
+                        const r = await onSearchPrintings(f);
+                        setResults(r || []);
+                        setMessage(
+                          `${r?.length || 0} Scryfall printings found.`,
+                        );
+                      } catch (e: any) {
+                        setMessage(e?.message || "Failed to search printings.");
+                      } finally {
+                        setSearchingPrintings(false);
+                      }
                     }}
                   >
-                    Search
+                    {searchingPrintings ? "Searching…" : "Search"}
                   </button>
                 </div>
                 <div className="max-h-40 overflow-auto space-y-1">
@@ -847,7 +868,9 @@ export function InventoryBrowser({
                 >
                   Cancel
                 </button>
-                <button className="border px-3">Save Changes</button>
+                <SubmitButton pendingLabel="Saving…" className="border px-3">
+                  Save Changes
+                </SubmitButton>
               </div>
             </form>
             {onDeleteInventoryItem ? (
@@ -875,9 +898,16 @@ export function InventoryBrowser({
                   <form
                     action={async (fd) => {
                       try {
+                        if (
+                          !window.confirm(
+                            "Delete this inventory item? This cannot be undone from this dialog.",
+                          )
+                        )
+                          return;
                         await onDeleteInventoryItem(fd);
                         setMessage("Inventory item deleted.");
                         setEditing(null);
+                        router.refresh();
                       } catch (e: any) {
                         setMessage(
                           e?.message || "Failed to delete inventory item.",
@@ -900,9 +930,12 @@ export function InventoryBrowser({
                         placeholder="Reason for deleting this inventory item"
                       />
                     </label>
-                    <button className="border border-red-700 px-3 py-2 text-red-100">
+                    <SubmitButton
+                      pendingLabel="Deleting…"
+                      className="border border-red-700 px-3 py-2 text-red-100"
+                    >
                       Confirm Delete Inventory Item
-                    </button>
+                    </SubmitButton>
                   </form>
                 </div>
               </details>

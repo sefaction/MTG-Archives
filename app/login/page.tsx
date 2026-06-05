@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { login } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Nav } from "@/components/Nav";
+import { SubmitButton } from "@/components/feedback/SubmitButton";
 
 export default async function LoginPage({
   searchParams,
@@ -64,9 +65,12 @@ export default async function LoginPage({
             className="mt-1 w-full rounded bg-zinc-900 p-2"
           />
         </label>
-        <button className="w-full rounded bg-sky-600 p-2 font-semibold">
+        <SubmitButton
+          pendingLabel="Signing in…"
+          className="w-full rounded bg-sky-600 p-2 font-semibold"
+        >
           Log in
-        </button>
+        </SubmitButton>
       </form>
     </main>
   );

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { isAdminUser, requireLogin } from "@/lib/auth";
 import { TradeStatus } from "@prisma/client";
 import { actOnTrade, confirmPhysicalTrade, createTrade } from "./actions";
+import { SubmitButton } from "@/components/feedback/SubmitButton";
 
 const activeStatuses: TradeStatus[] = [
   TradeStatus.PROPOSED,
@@ -298,9 +299,12 @@ export default async function TradesPage({
               className="w-full border p-2 bg-zinc-900"
             />
           </label>
-          <button className="border px-3 py-2 md:col-span-2">
+          <SubmitButton
+            pendingLabel="Proposing trade…"
+            className="border px-3 py-2 md:col-span-2"
+          >
             Submit Proposal
-          </button>
+          </SubmitButton>
         </form>
       </section>
 
@@ -460,13 +464,14 @@ export default async function TradesPage({
                             name="tradeId"
                             value={trade.id}
                           />
-                          <button
+                          <SubmitButton
+                            pendingLabel="Accepting trade…"
                             name="action"
                             value="accept"
                             className="border px-3 py-2"
                           >
                             Accept
-                          </button>
+                          </SubmitButton>
                         </form>
                         <form action={actOnTrade}>
                           <input
@@ -474,13 +479,14 @@ export default async function TradesPage({
                             name="tradeId"
                             value={trade.id}
                           />
-                          <button
+                          <SubmitButton
+                            pendingLabel="Declining trade…"
                             name="action"
                             value="decline"
                             className="border px-3 py-2"
                           >
                             Decline
-                          </button>
+                          </SubmitButton>
                         </form>
                       </>
                     ) : null}
@@ -492,21 +498,25 @@ export default async function TradesPage({
                           name="reason"
                           value="Cancelled by proposer."
                         />
-                        <button
+                        <SubmitButton
+                          pendingLabel="Cancelling trade…"
                           name="action"
                           value="cancel"
                           className="border px-3 py-2"
                         >
                           Cancel
-                        </button>
+                        </SubmitButton>
                       </form>
                     ) : null}
                     {userNeedsPhysical ? (
                       <form action={confirmPhysicalTrade}>
                         <input type="hidden" name="tradeId" value={trade.id} />
-                        <button className="border px-3 py-2">
+                        <SubmitButton
+                          pendingLabel="Confirming exchange…"
+                          className="border px-3 py-2"
+                        >
                           Confirm Physical Trade
-                        </button>
+                        </SubmitButton>
                       </form>
                     ) : null}
                     {userConfirmedPhysical ? (
@@ -536,13 +546,14 @@ export default async function TradesPage({
                             placeholder="admin cancel reason"
                             className="border p-2 bg-zinc-900"
                           />
-                          <button
+                          <SubmitButton
+                            pendingLabel="Cancelling trade…"
                             name="action"
                             value="cancel"
                             className="border px-3 py-2"
                           >
                             Admin Cancel
-                          </button>
+                          </SubmitButton>
                         </form>
                         <form
                           action={confirmPhysicalTrade}
@@ -560,9 +571,12 @@ export default async function TradesPage({
                             placeholder="force complete reason"
                             className="border p-2 bg-zinc-900"
                           />
-                          <button className="border px-3 py-2">
+                          <SubmitButton
+                            pendingLabel="Force completing…"
+                            className="border px-3 py-2"
+                          >
                             Force Complete
-                          </button>
+                          </SubmitButton>
                         </form>
                       </>
                     ) : null}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { logout, getCurrentUser, isAdminUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { SubmitButton } from "@/components/feedback/SubmitButton";
 
 const mainLinks = [
   { href: "/dashboard", label: "Dashboard" },
@@ -44,9 +45,13 @@ export async function Nav() {
               Account
             </Link>
             <form action={doLogout}>
-              <button className="rounded border border-zinc-700 px-3 py-1">
+              <SubmitButton
+                pendingLabel="Logging out…"
+                className="rounded border border-zinc-700 px-3 py-1"
+                minWidthClassName="min-w-20"
+              >
                 Log out
-              </button>
+              </SubmitButton>
             </form>
           </>
         ) : (

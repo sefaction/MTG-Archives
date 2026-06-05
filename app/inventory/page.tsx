@@ -7,6 +7,7 @@ import { FoilStatus, InventorySourceType } from "@prisma/client";
 import { searchCards, getCardByScryfallId } from "@/lib/scryfall";
 import { revalidatePath } from "next/cache";
 import { cleanupZeroQuantityInventory, deleteInventoryItem } from "./actions";
+import { SubmitButton } from "@/components/feedback/SubmitButton";
 
 export default async function InventoryPage({
   searchParams,
@@ -426,7 +427,12 @@ export default async function InventoryPage({
               </select>
             </label>
             <div className="col-span-2 md:col-span-5">
-              <button className="border px-3 py-2">Download CSV</button>
+              <SubmitButton
+                pendingLabel="Generating…"
+                className="border px-3 py-2"
+              >
+                Download CSV
+              </SubmitButton>
             </div>
           </form>
           <p className="text-xs text-zinc-400">
@@ -459,12 +465,13 @@ export default async function InventoryPage({
                 className="w-full border p-2 bg-zinc-900"
               />
             </label>
-            <button
+            <SubmitButton
+              pendingLabel="Cleaning up…"
               className="border px-3 py-2"
               disabled={zeroQuantityCount === 0}
             >
               Clean up zero-quantity inventory items
-            </button>
+            </SubmitButton>
           </form>
         </section>
       ) : null}

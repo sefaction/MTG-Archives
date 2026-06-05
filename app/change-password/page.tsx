@@ -4,6 +4,7 @@ import { Nav } from "@/components/Nav";
 import { getCurrentUser, hashPassword } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import { SubmitButton } from "@/components/feedback/SubmitButton";
 
 export default async function ChangePasswordPage({
   searchParams,
@@ -78,9 +79,12 @@ export default async function ChangePasswordPage({
             className="mt-1 w-full rounded bg-zinc-900 p-2"
           />
         </label>
-        <button className="w-full rounded bg-sky-600 p-2 font-semibold">
+        <SubmitButton
+          pendingLabel="Changing password…"
+          className="w-full rounded bg-sky-600 p-2 font-semibold"
+        >
           Change password
-        </button>
+        </SubmitButton>
       </form>
     </main>
   );
