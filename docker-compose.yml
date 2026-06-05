@@ -10,7 +10,7 @@ services:
     volumes:
       - ${POSTGRES_DATA_PATH:?POSTGRES_DATA_PATH must be set in .env}:/var/lib/postgresql/data
     ports:
-      - "${POSTGRES_HOST_PORT:-15435}:5432"
+      - "${POSTGRES_HOST_PORT:-15437}:5432"
 
   web:
     build:
@@ -49,4 +49,4 @@ services:
     depends_on:
       - postgres
     ports:
-      - "${WEB_HOST_PORT:-13001}:3000"
+      - "${WEB_HOST_PORT:-13003}:3000"
