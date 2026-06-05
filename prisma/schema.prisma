@@ -190,37 +190,86 @@ model PointCategory {
 }
 
 model Card {
-  id              String   @id @default(cuid())
-  scryfallId      String   @unique
-  oracleId        String?
-  name            String
-  manaCost        String?
-  manaValue       Float?
-  power           String?
-  toughness       String?
-  loyalty         String?
-  defense         String?
-  colors          Json?
-  colorIdentity   Json?
-  typeLine        String
-  oracleText      String?
-  setCode         String
-  keywords        Json?
-  legalities      Json?
-  setName         String?
-  collectorNumber String
-  rarity          String
-  imageUri        String?
-  artist          String?
-  imageUris       Json?
-  prices          Json?
-  purchaseUris    Json?
-  scryfallUri     String?
-  lastSyncedAt    DateTime?
-  ownerships      CardOwnership[]
-  pulls           Pull[]
-  inventoryItems  InventoryItem[]
-  importBatchItems ImportBatchItem[]
+  id                     String   @id @default(cuid())
+  scryfallId             String   @unique
+  oracleId               String?
+  multiverseIds          Json?
+  mtgoId                 Int?
+  arenaId                Int?
+  name                   String
+  printedName            String?
+  lang                   String?
+  releasedAt             DateTime?
+  layout                 String?
+  highresImage           Boolean?
+  imageStatus            String?
+  manaCost               String?
+  manaValue              Float?
+  power                  String?
+  toughness              String?
+  loyalty                String?
+  defense                String?
+  colors                 Json?
+  colorIdentity          Json?
+  colorIndicator         Json?
+  typeLine               String
+  printedTypeLine        String?
+  oracleText             String?
+  printedText            String?
+  setCode                String
+  setId                  String?
+  setType                String?
+  keywords               Json?
+  legalities             Json?
+  games                  Json?
+  reserved               Boolean?
+  foil                   Boolean?
+  nonfoil                Boolean?
+  finishes               Json?
+  oversized              Boolean?
+  promo                  Boolean?
+  reprint                Boolean?
+  variation              Boolean?
+  digital                Boolean?
+  fullArt                Boolean?
+  textless               Boolean?
+  booster                Boolean?
+  storySpotlight         Boolean?
+  setName                String?
+  collectorNumber        String
+  rarity                 String
+  artist                 String?
+  artistIds              Json?
+  illustrationId         String?
+  borderColor            String?
+  frame                  String?
+  frameEffects           Json?
+  securityStamp          String?
+  preview                Json?
+  imageUri               String?
+  imageUris              Json?
+  cardFaces              Json?
+  prices                 Json?
+  relatedUris            Json?
+  purchaseUris           Json?
+  scryfallUri            String?
+  apiUri                 String?
+  rawScryfallJson        Json?
+  scryfallFingerprint    String?
+  firstCachedAt          DateTime @default(now())
+  lastSyncedAt           DateTime?
+  lastFetchedAt          DateTime?
+  lastCheckedAt          DateTime?
+  lastChangedAt          DateTime?
+  priceLastFetchedAt     DateTime?
+  ownerships             CardOwnership[]
+  pulls                  Pull[]
+  inventoryItems         InventoryItem[]
+  importBatchItems       ImportBatchItem[]
+
+  @@index([oracleId])
+  @@index([setCode, collectorNumber])
+  @@index([name])
 }
 
 model Pull {

@@ -4,7 +4,7 @@ set -e
 echo "[entrypoint] Running Prisma migrations..."
 
 echo "[entrypoint] Ensuring persistent application directories exist..."
-for dir in "$UPLOADS_DATA_PATH" "$IMPORTS_DATA_PATH" "$EXPORTS_DATA_PATH" "$BACKUPS_DATA_PATH"; do
+for dir in "$UPLOADS_DATA_PATH" "$IMPORTS_DATA_PATH" "$EXPORTS_DATA_PATH" "$BACKUPS_DATA_PATH" "$SCRYFALL_CONTAINER_DATA_PATH"; do
   if [ -n "$dir" ]; then
     mkdir -p "$dir"
   fi

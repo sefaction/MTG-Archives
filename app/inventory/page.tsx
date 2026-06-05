@@ -4,7 +4,11 @@ import { Nav } from "@/components/Nav";
 import { prisma } from "@/lib/prisma";
 import { InventoryBrowser } from "@/components/InventoryBrowser";
 import { FoilStatus, InventorySourceType } from "@prisma/client";
-import { searchCards, getCardByScryfallId } from "@/lib/scryfall";
+import {
+  searchLocalThenScryfallCards,
+  upsertScryfallCard,
+} from "@/lib/card-import";
+import { formatScryfallError, getCardByScryfallIdResult } from "@/lib/scryfall";
 import { revalidatePath } from "next/cache";
 import { cleanupZeroQuantityInventory, deleteInventoryItem } from "./actions";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
@@ -115,8 +119,8 @@ export default async function InventoryPage({
     "use server";
     await requireAdmin();
     const q = String(fd.get("q") || "");
-    const r = await searchCards(q);
-    return r.slice(0, 20).map((c) => ({
+    const r = await searchLocalThenScryfallCards(q);
+    return r.cards.slice(0, 20).map((c) => ({
       id: c.id,
       name: c.name,
       set: c.set,
@@ -151,38 +155,10 @@ export default async function InventoryPage({
       if (existing) {
         cardId = existing.id;
       } else {
-        const cardData = await getCardByScryfallId(newScryfallId);
-        if (!cardData) throw new Error("Invalid printing selection");
-        const created = await prisma.card.create({
-          data: {
-            scryfallId: cardData.id,
-            oracleId: cardData.oracle_id ?? null,
-            name: cardData.name,
-            manaCost: cardData.mana_cost ?? null,
-            manaValue: cardData.cmc,
-            colors: cardData.colors ?? [],
-            colorIdentity: cardData.color_identity ?? [],
-            typeLine: cardData.type_line,
-            oracleText: cardData.oracle_text ?? null,
-            power: cardData.power ?? null,
-            toughness: cardData.toughness ?? null,
-            loyalty: cardData.loyalty ?? null,
-            defense: cardData.defense ?? null,
-            keywords: cardData.keywords ?? [],
-            legalities: cardData.legalities ?? {},
-            setCode: cardData.set,
-            setName: cardData.set_name,
-            collectorNumber: cardData.collector_number,
-            rarity: cardData.rarity,
-            artist: cardData.artist ?? null,
-            imageUri: cardData.image_uris?.normal ?? null,
-            imageUris: cardData.image_uris ?? {},
-            prices: cardData.prices ?? {},
-            purchaseUris: cardData.purchase_uris ?? {},
-            scryfallUri: cardData.scryfall_uri ?? null,
-            lastSyncedAt: new Date(),
-          },
-        });
+        const cardResult = await getCardByScryfallIdResult(newScryfallId);
+        if (!cardResult.ok)
+          throw new Error(formatScryfallError(cardResult.error));
+        const created = await upsertScryfallCard(cardResult.data);
         cardId = created.id;
       }
     }

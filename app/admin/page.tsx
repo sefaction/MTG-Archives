@@ -5,6 +5,11 @@ import { revalidatePath } from "next/cache";
 import { Nav } from "@/components/Nav";
 import { UserRole } from "@prisma/client";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
+import {
+  getScryfallRuntimeStatus,
+  getExactCardByNameResult,
+  formatScryfallError,
+} from "@/lib/scryfall";
 
 async function refresh() {
   "use server";
@@ -39,24 +44,32 @@ async function ensureOwnerForUser(
 
 export default async function Page() {
   await requireAdmin();
-  const [users, inventoryCount, openTrades] = await Promise.all([
-    prisma.user.findMany({
-      include: { player: true },
-      orderBy: { username: "asc" },
-    }),
-    prisma.inventoryItem.aggregate({
-      where: { quantity: { gt: 0 } },
-      _sum: { quantity: true },
-      _count: true,
-    }),
-    prisma.trade.count({
-      where: {
-        status: {
-          in: ["PROPOSED", "ACCEPTED_PENDING_EXCHANGE", "PARTIALLY_COMMITTED"],
+  const scryfallStatus = getScryfallRuntimeStatus();
+  const [users, inventoryCount, openTrades, cachedPrintings, dueForRefresh] =
+    await Promise.all([
+      prisma.user.findMany({
+        include: { player: true },
+        orderBy: { username: "asc" },
+      }),
+      prisma.inventoryItem.aggregate({
+        where: { quantity: { gt: 0 } },
+        _sum: { quantity: true },
+        _count: true,
+      }),
+      prisma.trade.count({
+        where: {
+          status: {
+            in: [
+              "PROPOSED",
+              "ACCEPTED_PENDING_EXCHANGE",
+              "PARTIALLY_COMMITTED",
+            ],
+          },
         },
-      },
-    }),
-  ]);
+      }),
+      prisma.card.count(),
+      prisma.card.count({ where: { lastCheckedAt: null } }),
+    ]);
 
   return (
     <main className="p-8 space-y-8">
@@ -81,6 +94,66 @@ export default async function Page() {
           <p className="text-sm text-zinc-400">Open trades</p>
           <p className="text-2xl font-bold">{openTrades}</p>
         </div>
+      </section>
+
+      <section className="space-y-3 rounded border border-zinc-800 p-4">
+        <div>
+          <h2 className="text-xl font-semibold">Scryfall status</h2>
+          <p className="text-sm text-zinc-400">
+            Live lookups use the shared throttled server-side client. Cached
+            card printings remain usable without contacting Scryfall on
+            inventory views.
+          </p>
+        </div>
+        <dl className="grid gap-3 text-sm md:grid-cols-3">
+          <div>
+            <dt className="text-zinc-400">API base URL</dt>
+            <dd>{scryfallStatus.apiBaseUrl}</dd>
+          </div>
+          <div>
+            <dt className="text-zinc-400">Throttle interval</dt>
+            <dd>{scryfallStatus.minRequestIntervalMs} ms/request/process</dd>
+          </div>
+          <div>
+            <dt className="text-zinc-400">Cached printings</dt>
+            <dd>{cachedPrintings}</dd>
+          </div>
+          <div>
+            <dt className="text-zinc-400">Never checked for freshness</dt>
+            <dd>{dueForRefresh}</dd>
+          </div>
+          <div>
+            <dt className="text-zinc-400">Last successful request</dt>
+            <dd>
+              {scryfallStatus.lastSuccessfulRequestAt?.toISOString() ??
+                "None in this process"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-zinc-400">Recent error category</dt>
+            <dd>{scryfallStatus.recentErrorKind ?? "None in this process"}</dd>
+          </div>
+          <div>
+            <dt className="text-zinc-400">Bulk data path</dt>
+            <dd>{scryfallStatus.bulkDataPath}</dd>
+          </div>
+        </dl>
+        <form
+          action={async () => {
+            "use server";
+            await requireAdmin();
+            const result = await getExactCardByNameResult("Sol Ring");
+            if (!result.ok) throw new Error(formatScryfallError(result.error));
+            revalidatePath("/admin");
+          }}
+        >
+          <SubmitButton
+            pendingLabel="Testing Scryfall…"
+            className="border px-3 py-2"
+          >
+            Test Scryfall Connectivity
+          </SubmitButton>
+        </form>
       </section>
 
       <section className="space-y-3">

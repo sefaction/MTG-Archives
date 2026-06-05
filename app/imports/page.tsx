@@ -12,9 +12,10 @@ import {
   findOrImportCard,
   normalizeCollectorNumber,
   normalizeSetCode,
+  searchLocalThenScryfallCards,
   upsertScryfallCard,
 } from "@/lib/card-import";
-import { getCardByScryfallId, searchCards } from "@/lib/scryfall";
+import { formatScryfallError, getCardByScryfallIdResult } from "@/lib/scryfall";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { ImportProgressPanel } from "@/components/ImportProgressPanel";
 import { calculateImportProgress } from "@/lib/import-progress";
@@ -333,8 +334,12 @@ async function retryOneImportItem(
       match.status === "matched" || match.status === "new"
         ? "resolved"
         : match.status;
-    const method = resolutionMethodFromMessage(match.message);
-    const confidence = confidenceFromStatus(nextStatus, match.message);
+    const method =
+      match.method?.toLowerCase() ?? resolutionMethodFromMessage(match.message);
+    const confidence =
+      match.confidence !== undefined
+        ? String(match.confidence)
+        : confidenceFromStatus(nextStatus, match.message);
     await recordResolutionAttempt(
       item,
       mode,
@@ -466,6 +471,10 @@ export default async function ImportsPage({
       persistCsvText(process.env.UPLOADS_DATA_PATH, storedFilename, text),
       persistCsvText(process.env.IMPORTS_DATA_PATH, storedFilename, text),
     ]);
+    const matchCache = new Map<
+      string,
+      Awaited<ReturnType<typeof findOrImportCard>>
+    >();
     for (const [index, row] of rows.entries()) {
       const rowNumber = index + 2;
       const parsedRow = parseRow(row, rowNumber);
@@ -475,7 +484,18 @@ export default async function ImportsPage({
       if (parsedRow.error) {
         status = "error";
       } else {
-        const match = await findOrImportCard(parsedRow);
+        const cacheKey = JSON.stringify({
+          scryfallId: parsedRow.scryfallId?.trim() || null,
+          name: parsedRow.name.trim().toLowerCase(),
+          setCode: normalizeSetCode(parsedRow.setCode) || null,
+          collectorNumber:
+            normalizeCollectorNumber(parsedRow.collectorNumber) || null,
+        });
+        let match = matchCache.get(cacheKey);
+        if (!match) {
+          match = await findOrImportCard(parsedRow);
+          matchCache.set(cacheKey, match);
+        }
         status = match.status;
         message = [
           match.message,
@@ -579,10 +599,14 @@ export default async function ImportsPage({
       item.importBatch.selectedPlayerId !== actionUserWithPlayer?.playerId
     )
       throw new Error("Not authorized for this import row.");
-    const cardData = await getCardByScryfallId(scryfallId);
-    if (!cardData)
-      throw new Error("Selected Scryfall card could not be found.");
-    const card = await upsertScryfallCard(cardData);
+    let card = await prisma.card.findUnique({ where: { scryfallId } });
+    if (!card) {
+      const cardResult = await getCardByScryfallIdResult(scryfallId);
+      if (!cardResult.ok) {
+        throw new Error(formatScryfallError(cardResult.error));
+      }
+      card = await upsertScryfallCard(cardResult.data);
+    }
     const previousWasMatched =
       Boolean(item.cardPrintingId) || importableStatuses.includes(item.status);
     const nextStatus = previousWasMatched ? "changed" : "resolved";
@@ -1112,8 +1136,11 @@ export default async function ImportsPage({
   const resolverQuery = resolverParsed
     ? buildResolverQuery(resolverParsed, params.resolverQ)
     : "";
-  const resolverResults =
-    resolverItem && resolverQuery ? await searchCards(resolverQuery) : [];
+  const resolverSearch =
+    resolverItem && resolverQuery
+      ? await searchLocalThenScryfallCards(resolverQuery)
+      : { cards: [], message: "" };
+  const resolverResults = resolverSearch.cards;
   const maintenanceSummary = isAdmin
     ? {
         previewFailed: await prisma.importBatch.count({
@@ -1860,7 +1887,12 @@ export default async function ImportsPage({
               <button className="border px-3">Search</button>
             </form>
             <div className="space-y-2">
-              <h3 className="font-semibold">Scryfall Results</h3>
+              <h3 className="font-semibold">Card Printing Results</h3>
+              {resolverSearch.message ? (
+                <p className="text-sm text-zinc-400" role="status">
+                  {resolverSearch.message}
+                </p>
+              ) : null}
               {resolverResults.slice(0, 20).map((card) => (
                 <form
                   key={card.id}

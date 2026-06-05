@@ -62,6 +62,7 @@ Permissions must allow the containers to write to their mounted directories. The
 - Inventory browsing, filtering, sorting, image/table views, CSV export, and admin editing.
 - CSV inventory import preview, Scryfall matching, manual resolution, retry, and commit workflow.
 - Scryfall-backed card metadata storage.
+- Cache-first Scryfall lookup with durable local printing metadata and throttled live API access.
 - One-for-one direct trade proposals with accept/decline/cancel, physical exchange confirmation, event history, snapshots, inventory transfer, and audit logs.
 
 ## Refactor status
@@ -81,3 +82,24 @@ docker compose logs -f web
 ## Deployment notes
 
 For Portainer/Unraid Git builds, keep `GIT_CONTEXT` pointed at this repository root and `DOCKERFILE_PATH=./Dockerfile`. If a previous iterative development migration left a failed Prisma marker, the entrypoint still attempts safe `migrate resolve` no-ops before `migrate deploy`.
+
+### Scryfall configuration
+
+Scryfall live API calls are centralized server-side and are used only for cache misses, manual search, and explicit refresh/maintenance operations. Configure the shared client with:
+
+```env
+SCRYFALL_API_BASE_URL=https://api.scryfall.com
+SCRYFALL_USER_AGENT=MTG-Archives/1.0
+SCRYFALL_MIN_REQUEST_INTERVAL_MS=100
+SCRYFALL_MAX_RETRIES=4
+SCRYFALL_REQUEST_TIMEOUT_MS=15000
+SCRYFALL_CACHE_ENABLED=true
+SCRYFALL_CARD_REFRESH_DAYS=30
+SCRYFALL_PRICE_REFRESH_HOURS=24
+SCRYFALL_BULK_DATA_ENABLED=true
+SCRYFALL_DATA_PATH=/mnt/user/appdata/mtg-archive/scryfall
+SCRYFALL_CONTAINER_DATA_PATH=/app/data/scryfall
+SCRYFALL_BULK_REFRESH_HOURS=24
+```
+
+`SCRYFALL_DATA_PATH` is bind-mounted into the container at `SCRYFALL_CONTAINER_DATA_PATH` for future bulk-catalog downloads. Normal inventory browsing uses card metadata already stored in PostgreSQL and does not call Scryfall.
