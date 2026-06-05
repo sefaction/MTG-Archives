@@ -1,0 +1,5 @@
+.env*
+*.prisma
+*.sh
+node_modules
+.next
