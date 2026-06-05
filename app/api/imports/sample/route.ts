@@ -10,7 +10,7 @@ export async function GET() {
   return new Response(SAMPLE, {
     headers: {
       'content-type': 'text/csv; charset=utf-8',
-      'content-disposition': 'attachment; filename="sample-pull-import.csv"',
+      'content-disposition': 'attachment; filename="sample-inventory-import.csv"',
     },
   });
 }

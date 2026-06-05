@@ -76,7 +76,7 @@ model League {
   name           String
   slug           String   @unique
   description    String?
-  appDisplayName String   @default("Box League")
+  appDisplayName String   @default("MTG Inventory")
   seasons        Season[]
   createdAt      DateTime @default(now())
 }
@@ -256,8 +256,8 @@ model InventoryItem {
   language         String   @default("EN")
   acquiredFromPullId String?
   acquiredFromPull Pull?    @relation(fields: [acquiredFromPullId], references: [id])
-  roundId          String
-  round            Round    @relation(fields: [roundId], references: [id])
+  roundId          String?
+  round            Round?   @relation(fields: [roundId], references: [id])
   notes            String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -292,8 +292,8 @@ model ImportBatch {
   selectedPlayer           Player   @relation("ImportBatchSelectedPlayer", fields: [selectedPlayerId], references: [id])
   selectedOriginalOpenerId String
   selectedOriginalOpener   Player   @relation("ImportBatchOriginalOpener", fields: [selectedOriginalOpenerId], references: [id])
-  selectedRoundId          String
-  selectedRound            Round    @relation(fields: [selectedRoundId], references: [id])
+  selectedRoundId          String?
+  selectedRound            Round?   @relation(fields: [selectedRoundId], references: [id])
   status                   String
   totalRows                Int      @default(0)
   matchedRows              Int      @default(0)
@@ -352,8 +352,8 @@ model ImportResolutionAttempt {
 
 model Trade {
   id                       String @id @default(cuid())
-  tradeRoundId             String
-  tradeRound               Round @relation(fields: [tradeRoundId], references: [id])
+  tradeRoundId             String?
+  tradeRound               Round? @relation(fields: [tradeRoundId], references: [id])
   proposerPlayerId         String
   proposerPlayer           Player @relation("TradeProposer", fields: [proposerPlayerId], references: [id])
   receiverPlayerId         String
