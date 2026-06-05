@@ -8,9 +8,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-mtginventory}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mtginventory}
     volumes:
-      - ${POSTGRES_DATA_PATH:-/mnt/user/appdata/mtg-inventory/postgres}:/var/lib/postgresql/data
+      - ${POSTGRES_DATA_PATH:-/mnt/user/appdata/mtg-archive/postgres}:/var/lib/postgresql/data
     ports:
-      - "${POSTGRES_HOST_PORT:-15435}:5432"
+      - "${POSTGRES_HOST_PORT:-15437}:5432"
 
   web:
     build:
@@ -26,4 +26,4 @@ services:
     depends_on:
       - postgres
     ports:
-      - "${WEB_HOST_PORT:-13001}:3000"
+      - "${WEB_HOST_PORT:-13003}:3000"
