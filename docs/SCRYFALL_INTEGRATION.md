@@ -38,3 +38,13 @@ The throttle is in-process. The default Compose deployment runs one web containe
 ## Bulk data status
 
 Persistent Scryfall bulk-data storage is now configured with `SCRYFALL_DATA_PATH` on the host and `SCRYFALL_CONTAINER_DATA_PATH` in the web container. Full streaming bulk import is intentionally deferred; it should be implemented as an explicit admin maintenance job rather than running during web startup.
+
+## Import resolution jobs
+
+The old “Deep resolve unresolved rows” action exposed the internal chunk size to users: it selected up to 50 rows, processed that one slice, and then stopped. The replacement workflow stores an `ImportResolutionJob` in PostgreSQL, starts or resumes one active job per import batch, and processes chunks internally until no automatically eligible rows remain.
+
+Job statuses are `QUEUED`, `RUNNING`, `COMPLETED`, `COMPLETED_WITH_REVIEW`, `FAILED`, `CANCELLED`, and `STALE`. Each job records row totals, processed/resolved counts, cache hits, Scryfall matches, manual-review rows, not-found rows, transient/failed rows, Scryfall request counts, chunk number, heartbeat, completion time, and an error summary.
+
+Automatic eligibility is intentionally conservative. Rows are skipped by the crawler when they are already linked to a card, already committed/skipped, ambiguous and requiring printing selection, missing deterministic data, or permanently classified as not found. The import commit step remains separate: resolution only links import rows to cached card printings and updates row status.
+
+The server loop uses `IMPORT_RESOLVE_BATCH_SIZE` for each internal chunk and `IMPORT_RESOLVE_MAX_BATCHES_PER_RUN=0` to continue until exhaustion. If a nonzero max is configured, the job stops as `STALE` with a resumable message after that many chunks. The progress endpoint marks old `RUNNING` jobs stale using `IMPORT_RESOLVE_STALE_JOB_TIMEOUT_MINUTES` so an interrupted container can resume remaining rows safely.

@@ -103,3 +103,16 @@ SCRYFALL_BULK_REFRESH_HOURS=24
 ```
 
 `SCRYFALL_DATA_PATH` is bind-mounted into the container at `SCRYFALL_CONTAINER_DATA_PATH` for future bulk-catalog downloads. Normal inventory browsing uses card metadata already stored in PostgreSQL and does not call Scryfall.
+
+### Import resolution jobs
+
+Card identification runs as a durable database-backed resolution job. The user starts one job and the server crawls through unresolved import rows in safe chunks until no automatically resolvable rows remain. Tune the internal batching and polling with:
+
+```env
+IMPORT_RESOLVE_BATCH_SIZE=50
+IMPORT_RESOLVE_MAX_BATCHES_PER_RUN=0
+IMPORT_RESOLVE_POLL_INTERVAL_MS=1500
+IMPORT_RESOLVE_STALE_JOB_TIMEOUT_MINUTES=15
+```
+
+`IMPORT_RESOLVE_MAX_BATCHES_PER_RUN=0` means a job continues through all eligible chunks. Set a nonzero value only when you intentionally want a safety stop after that many chunks.

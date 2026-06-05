@@ -19,6 +19,14 @@ import { formatScryfallError, getCardByScryfallIdResult } from "@/lib/scryfall";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { ImportProgressPanel } from "@/components/ImportProgressPanel";
 import { calculateImportProgress } from "@/lib/import-progress";
+import {
+  cancelImportResolutionJob,
+  createOrReuseImportResolutionJob,
+  getImportResolutionJobConfig,
+  isActiveImportResolutionStatus,
+  processImportResolutionJob,
+  serializeImportResolutionJob,
+} from "@/lib/import-resolution-job";
 
 const aliases: Record<string, string[]> = {
   quantity: ["quantity", "count", "qty", "copies"],
@@ -662,6 +670,73 @@ export default async function ImportsPage({
     redirect(`/imports?batchId=${item.importBatchId}`);
   }
 
+  async function startImportResolutionJob(fd: FormData) {
+    "use server";
+    const actionUser = await requireAuth();
+    const actionUserWithPlayer = await prisma.user.findUnique({
+      where: { id: actionUser.id },
+      include: { player: true },
+    });
+    const actionIsAdmin = isAdminUser(actionUser, actionUserWithPlayer?.player);
+    const batchId = String(fd.get("batchId") || "");
+    const batch = await prisma.importBatch.findUnique({
+      where: { id: batchId },
+    });
+    if (!batch) throw new Error("Import batch not found.");
+    if (
+      !actionIsAdmin &&
+      batch.selectedPlayerId !== actionUserWithPlayer?.playerId
+    )
+      throw new Error("Not authorized for this import batch.");
+
+    const { job, created } = await createOrReuseImportResolutionJob({
+      prisma,
+      importBatchId: batch.id,
+      createdByUserId: actionUser.id,
+    });
+
+    if (
+      created ||
+      job.status === "QUEUED" ||
+      ["FAILED", "STALE"].includes(job.status)
+    ) {
+      void processImportResolutionJob({
+        prisma,
+        jobId: job.id,
+        recordAttempt: recordResolutionAttempt,
+        buildQuery: (row) => buildResolverQuery(row as ParsedRow),
+        recalculateBatchCounts,
+      });
+    }
+
+    revalidatePath("/imports");
+    redirect(`/imports?batchId=${batch.id}`);
+  }
+
+  async function cancelResolutionJobAction(fd: FormData) {
+    "use server";
+    const actionUser = await requireAuth();
+    const actionUserWithPlayer = await prisma.user.findUnique({
+      where: { id: actionUser.id },
+      include: { player: true },
+    });
+    const actionIsAdmin = isAdminUser(actionUser, actionUserWithPlayer?.player);
+    const jobId = String(fd.get("jobId") || "");
+    const job = await prisma.importResolutionJob.findUnique({
+      where: { id: jobId },
+      include: { importBatch: true },
+    });
+    if (!job) throw new Error("Resolution job not found.");
+    if (
+      !actionIsAdmin &&
+      job.importBatch.selectedPlayerId !== actionUserWithPlayer?.playerId
+    )
+      throw new Error("Not authorized for this import batch.");
+    await cancelImportResolutionJob(prisma, job.id);
+    revalidatePath("/imports");
+    redirect(`/imports?batchId=${job.importBatchId}`);
+  }
+
   async function retryUnresolvedRows(fd: FormData) {
     "use server";
     const actionUser = await requireAuth();
@@ -1065,6 +1140,10 @@ export default async function ImportsPage({
           selectedPlayer: true,
           selectedOriginalOpener: true,
           selectedRound: true,
+          resolutionJobs: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
           items: {
             include: {
               cardPrinting: true,
@@ -1202,6 +1281,11 @@ export default async function ImportsPage({
         itemStatuses: selectedItems.map((item) => item.status),
       })
     : null;
+  const selectedResolutionJob = selectedBatch?.resolutionJobs?.[0] ?? null;
+  const selectedResolutionJobSnapshot = serializeImportResolutionJob(
+    selectedResolutionJob,
+  );
+  const importResolutionConfig = getImportResolutionJobConfig();
 
   return (
     <main className="p-8 space-y-6">
@@ -1427,31 +1511,59 @@ export default async function ImportsPage({
             <ImportProgressPanel
               batchId={selectedBatch.id}
               initialProgress={selectedProgress}
+              initialResolutionJob={selectedResolutionJobSnapshot}
+              pollIntervalMs={importResolutionConfig.pollIntervalMs}
             />
           ) : null}
           <div className="flex flex-wrap gap-2 text-sm">
-            <form action={retryUnresolvedRows}>
+            <form action={startImportResolutionJob}>
               <input type="hidden" name="batchId" value={selectedBatch.id} />
               <SubmitButton
-                pendingLabel="Retrying rows…"
-                name="mode"
-                value="normal_retry"
-                className="border px-3 py-2"
+                pendingLabel="Starting resolution…"
+                disabled={Boolean(
+                  selectedResolutionJob &&
+                  isActiveImportResolutionStatus(selectedResolutionJob.status),
+                )}
+                className="border px-3 py-2 disabled:opacity-50"
               >
-                Retry unresolved rows
+                {selectedResolutionJob &&
+                ["FAILED", "STALE"].includes(selectedResolutionJob.status)
+                  ? "Resume Resolution"
+                  : selectedResolutionJob?.status === "COMPLETED_WITH_REVIEW"
+                    ? "Resolve Remaining"
+                    : "Resolve Import"}
               </SubmitButton>
             </form>
-            <form action={retryUnresolvedRows}>
-              <input type="hidden" name="batchId" value={selectedBatch.id} />
-              <SubmitButton
-                pendingLabel="Deep resolving…"
-                name="mode"
-                value="deep_resolve"
+            {selectedResolutionJob &&
+            isActiveImportResolutionStatus(selectedResolutionJob.status) ? (
+              <form action={cancelResolutionJobAction}>
+                <input
+                  type="hidden"
+                  name="jobId"
+                  value={selectedResolutionJob.id}
+                />
+                <SubmitButton
+                  pendingLabel="Cancelling…"
+                  className="border border-red-700 px-3 py-2 text-red-200"
+                >
+                  Cancel Resolution
+                </SubmitButton>
+              </form>
+            ) : null}
+            {unresolvedCount > 0 ? (
+              <a
                 className="border px-3 py-2"
+                href={`/imports?batchId=${selectedBatch.id}&resolveItemId=${
+                  selectedItems.find(
+                    (item) =>
+                      !item.cardPrintingId &&
+                      ["ambiguous", "unmatched", "error"].includes(item.status),
+                  )?.id ?? ""
+                }`}
               >
-                Deep resolve unresolved rows
-              </SubmitButton>
-            </form>
+                Review Unmatched Cards
+              </a>
+            ) : null}
             {isAdmin ? (
               <details className="border border-zinc-700 rounded px-3 py-2">
                 <summary className="cursor-pointer">Batch maintenance</summary>

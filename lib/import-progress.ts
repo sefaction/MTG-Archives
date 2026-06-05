@@ -26,7 +26,12 @@ const readyStatuses = new Set([
   "changed",
   "imported",
 ]);
-const reviewStatuses = new Set(["unmatched", "ambiguous", "suggested_match"]);
+const reviewStatuses = new Set([
+  "unmatched",
+  "ambiguous",
+  "suggested_match",
+  "not_found",
+]);
 const failedStatuses = new Set(["error", "cannot_undo"]);
 
 export function calculateImportProgress(input: {

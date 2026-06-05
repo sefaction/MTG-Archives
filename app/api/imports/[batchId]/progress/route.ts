@@ -2,6 +2,12 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { canAccessImportBatch, requireLogin } from "@/lib/auth";
 import { calculateImportProgress } from "@/lib/import-progress";
+import {
+  getImportResolutionJobConfig,
+  getLatestImportResolutionJob,
+  markStaleImportResolutionJobs,
+  serializeImportResolutionJob,
+} from "@/lib/import-resolution-job";
 
 export async function GET(
   _request: NextRequest,
@@ -34,6 +40,13 @@ export async function GET(
       { success: false, message: "Not authorized for this import batch." },
       { status: 403 },
     );
+
+  await markStaleImportResolutionJobs(
+    prisma,
+    batch.id,
+    getImportResolutionJobConfig(),
+  );
+  const resolutionJob = await getLatestImportResolutionJob(prisma, batch.id);
   const progress = calculateImportProgress({
     batchStatus: batch.status,
     itemStatuses: batch.items.map((item) => item.status),
@@ -51,5 +64,6 @@ export async function GET(
       createdAt: batch.createdAt,
     },
     progress,
+    resolutionJob: serializeImportResolutionJob(resolutionJob),
   });
 }
