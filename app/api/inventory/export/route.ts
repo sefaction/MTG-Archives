@@ -1,4 +1,6 @@
 import { NextRequest } from "next/server";
+import path from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
 import { prisma } from "@/lib/prisma";
 import { canExportInventory, isAdminUser, requireLogin } from "@/lib/auth";
 
@@ -37,6 +39,13 @@ function buildCsv(headers: string[], rows: unknown[][]) {
 
 function todayStamp() {
   return new Date().toISOString().slice(0, 10);
+}
+
+async function persistExportFile(filename: string, csv: string) {
+  const directory = process.env.EXPORTS_DATA_PATH;
+  if (!directory) return;
+  await mkdir(directory, { recursive: true });
+  await writeFile(path.join(directory, path.basename(filename)), csv, "utf8");
 }
 
 function safeFilenamePart(value: string) {
@@ -253,10 +262,13 @@ export async function GET(request: NextRequest) {
     csv = buildCsv(headers, rows);
   }
 
+  const downloadFilename = `${filenameBase}-${todayStamp()}.csv`;
+  await persistExportFile(downloadFilename, csv);
+
   return new Response(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${filenameBase}-${todayStamp()}.csv"`,
+      "Content-Disposition": `attachment; filename="${downloadFilename}"`,
     },
   });
 }

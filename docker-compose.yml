@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-mtginventory}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mtginventory}
     volumes:
-      - ${POSTGRES_DATA_PATH:-/mnt/user/appdata/mtg-archive/postgres}:/var/lib/postgresql/data
+      - ${POSTGRES_DATA_PATH:?POSTGRES_DATA_PATH must be set in .env}:/var/lib/postgresql/data
     ports:
       - "${POSTGRES_HOST_PORT:-15437}:5432"
 
@@ -22,7 +22,18 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://mtginventory:mtginventory@postgres:5432/mtginventory?schema=public}
       NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-MTG Inventory}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-admin123}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_DISPLAY_NAME: ${ADMIN_DISPLAY_NAME:-Administrator}
+      UPLOADS_DATA_PATH: ${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}
+      IMPORTS_DATA_PATH: ${IMPORTS_DATA_PATH:?IMPORTS_DATA_PATH must be set in .env}
+      EXPORTS_DATA_PATH: ${EXPORTS_DATA_PATH:?EXPORTS_DATA_PATH must be set in .env}
+      BACKUPS_DATA_PATH: ${BACKUPS_DATA_PATH:?BACKUPS_DATA_PATH must be set in .env}
       NODE_ENV: production
+    volumes:
+      - ${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}:${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}
+      - ${IMPORTS_DATA_PATH:?IMPORTS_DATA_PATH must be set in .env}:${IMPORTS_DATA_PATH:?IMPORTS_DATA_PATH must be set in .env}
+      - ${EXPORTS_DATA_PATH:?EXPORTS_DATA_PATH must be set in .env}:${EXPORTS_DATA_PATH:?EXPORTS_DATA_PATH must be set in .env}
+      - ${BACKUPS_DATA_PATH:?BACKUPS_DATA_PATH must be set in .env}:${BACKUPS_DATA_PATH:?BACKUPS_DATA_PATH must be set in .env}
     depends_on:
       - postgres
     ports:

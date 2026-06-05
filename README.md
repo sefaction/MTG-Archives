@@ -15,7 +15,7 @@ Dockerized Next.js App Router application for tracking multi-user Magic: The Gat
 
 1. Copy `.env.example` to `.env`.
 2. Set `SEED_ADMIN_PASSWORD` to a strong temporary password.
-3. Set `POSTGRES_DATA_PATH` to persistent storage, for example `/mnt/user/appdata/mtg-inventory/postgres`.
+3. Review the persistent storage variables. The documented default base path is `/mnt/user/appdata/mtg-archive`; each subdirectory is configured with a complete path for Portainer/Unraid reliability.
 4. Start the stack:
 
 ```bash
@@ -30,10 +30,31 @@ See `.env.example` for the full list. Important settings:
 
 - `DATABASE_URL` should use the Compose service host `postgres` inside Docker.
 - `NEXT_PUBLIC_APP_NAME` controls visible branding and defaults to `MTG Inventory`.
-- `POSTGRES_DATA_PATH` should point at persistent storage.
+- `APP_DATA_PATH` documents the intended base host directory for persistent application data.
+- `POSTGRES_DATA_PATH`, `UPLOADS_DATA_PATH`, `IMPORTS_DATA_PATH`, `EXPORTS_DATA_PATH`, and `BACKUPS_DATA_PATH` must each point at host storage that survives container recreation.
 - `COOKIE_SECURE=false` is appropriate for HTTP/LAN deployments; set it to `true` behind HTTPS.
 - `RUN_SEED_ON_START=false` keeps startup free of demo data.
 - `ADMIN_USERNAME` and `SEED_ADMIN_PASSWORD` control bootstrap admin creation.
+
+## Persistent data directories
+
+All important application data is stored outside containers through host bind mounts. `.env.example` uses complete paths instead of `${APP_DATA_PATH}/...` nested expansion because Portainer and Unraid environment handling can vary.
+
+| Variable             | Purpose                                                       | Mounted service/path                |
+| -------------------- | ------------------------------------------------------------- | ----------------------------------- |
+| `POSTGRES_DATA_PATH` | PostgreSQL database files                                     | `postgres:/var/lib/postgresql/data` |
+| `UPLOADS_DATA_PATH`  | Raw uploaded files, including uploaded CSV files              | `web:$UPLOADS_DATA_PATH`            |
+| `IMPORTS_DATA_PATH`  | Retained import-processing files, including CSV import copies | `web:$IMPORTS_DATA_PATH`            |
+| `EXPORTS_DATA_PATH`  | Generated CSV export copies                                   | `web:$EXPORTS_DATA_PATH`            |
+| `BACKUPS_DATA_PATH`  | Reserved for future application-managed backups               | `web:$BACKUPS_DATA_PATH`            |
+
+Docker will usually create missing bind-mount source directories, and the web entrypoint also runs `mkdir -p` for the application-managed directories. For the most predictable Portainer/Unraid deployment, create them before first startup:
+
+```bash
+mkdir -p /mnt/user/appdata/mtg-archive/{postgres,uploads,imports,exports,backups}
+```
+
+Permissions must allow the containers to write to their mounted directories. The PostgreSQL directory must be writable by the official Postgres container user (commonly UID/GID `999`), and the uploads/imports/exports/backups directories must be writable by the web container. The current web image runs as root, but if that changes later, update ownership accordingly. Containers can be recreated without losing database, uploaded, imported, exported, or future backup data as long as these host directories are preserved. Empty directories are valid on first startup.
 
 ## Current capabilities
 

@@ -1,5 +1,7 @@
 export const dynamic = "force-dynamic";
 import Papa from "papaparse";
+import path from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { FoilStatus, InventorySourceType } from "@prisma/client";
@@ -25,6 +27,23 @@ const aliases: Record<string, string[]> = {
   notes: ["notes", "comment", "tag", "tags"],
   scryfallId: ["scryfall id", "scryfallid", "scryfall_id"],
 };
+
+function safeStoredFilename(prefix: string, originalName: string) {
+  const base = path
+    .basename(originalName || "inventory-import.csv")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-");
+  return `${prefix}-${base || "inventory-import.csv"}`;
+}
+
+async function persistCsvText(
+  directory: string | undefined,
+  filename: string,
+  text: string,
+) {
+  if (!directory) return;
+  await mkdir(directory, { recursive: true });
+  await writeFile(path.join(directory, filename), text, "utf8");
+}
 
 const importableStatuses = [
   "matched",
@@ -436,6 +455,14 @@ export default async function ImportsPage({
         createdByUserId: actionUser.id,
       },
     });
+    const storedFilename = safeStoredFilename(
+      batch.id,
+      file.name || "inventory-import.csv",
+    );
+    await Promise.all([
+      persistCsvText(process.env.UPLOADS_DATA_PATH, storedFilename, text),
+      persistCsvText(process.env.IMPORTS_DATA_PATH, storedFilename, text),
+    ]);
     for (const [index, row] of rows.entries()) {
       const rowNumber = index + 2;
       const parsedRow = parseRow(row, rowNumber);
