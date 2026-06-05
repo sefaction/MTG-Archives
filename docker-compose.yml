@@ -4,23 +4,23 @@ services:
     restart: unless-stopped
     pull_policy: always
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-boxleague}
-      POSTGRES_USER: ${POSTGRES_USER:-boxleague}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-boxleague}
+      POSTGRES_DB: ${POSTGRES_DB:-mtginventory}
+      POSTGRES_USER: ${POSTGRES_USER:-mtginventory}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mtginventory}
     volumes:
-      - ${POSTGRES_DATA_PATH:-/mnt/user/appdata/box-league/postgres}:/var/lib/postgresql/data
+      - ${POSTGRES_DATA_PATH:-/mnt/user/appdata/mtg-inventory/postgres}:/var/lib/postgresql/data
     ports:
       - "${POSTGRES_HOST_PORT:-15435}:5432"
 
   web:
     build:
-      context: ${GIT_CONTEXT:-https://github.com/sefaction/sealed-commander-league.git#main}
+      context: ${GIT_CONTEXT:-https://github.com/sefaction/MTG-Archives.git#main}
       dockerfile: ${DOCKERFILE_PATH:-./Dockerfile}
     pull_policy: build
     restart: unless-stopped
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql://boxleague:boxleague@postgres:5432/boxleague?schema=public}
-      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Box League}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://mtginventory:mtginventory@postgres:5432/mtginventory?schema=public}
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-MTG Inventory}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-admin123}
       NODE_ENV: production
     depends_on:
