@@ -1,59 +1,345 @@
-export const dynamic = 'force-dynamic';
-import { hashPassword, requireAdmin } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import { revalidatePath } from 'next/cache';
-import { Nav } from '@/components/Nav';
-import { RoundStatus, TradingStatus, UserRole } from '@prisma/client';
+export const dynamic = "force-dynamic";
+import { hashPassword, requireAdmin } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
+import { Nav } from "@/components/Nav";
+import { UserRole } from "@prisma/client";
+import { SubmitButton } from "@/components/feedback/SubmitButton";
 
-async function refresh() { 'use server'; await requireAdmin(); revalidatePath('/admin'); }
-
+async function refresh() {
+  "use server";
+  await requireAdmin();
+  revalidatePath("/admin");
+}
 function slugify(value: string) {
-  return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return (
+    value
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") || "user"
+  );
+}
+
+async function ensureOwnerForUser(
+  displayName: string,
+  existingPlayerId?: string | null,
+) {
+  if (existingPlayerId) return existingPlayerId;
+  const base = slugify(displayName);
+  let name = base;
+  let suffix = 1;
+  while (await prisma.player.findUnique({ where: { name } }))
+    name = `${base}-${suffix++}`;
+  const player = await prisma.player.create({
+    data: { name, displayName, active: true },
+  });
+  return player.id;
 }
 
 export default async function Page() {
   await requireAdmin();
-  const [players, users, leagues, seasons, rounds, boxes, categories] = await Promise.all([
-    prisma.player.findMany({ orderBy: { displayName: 'asc' } }),
-    prisma.user.findMany({ include: { player: true }, orderBy: { username: 'asc' } }),
-    prisma.league.findMany({ orderBy: { createdAt: 'desc' } }),
-    prisma.season.findMany({ include: { league: true }, orderBy: [{ year: 'desc' }] }),
-    prisma.round.findMany({ include: { season: { include: { league: true } } }, orderBy: [{ startDate: 'desc' }] }),
-    prisma.setBox.findMany({ include: { round: true, boxOwner: true }, orderBy: { setName: 'asc' } }),
-    prisma.pointCategory.findMany({ orderBy: { name: 'asc' } }),
+  const [users, inventoryCount, openTrades] = await Promise.all([
+    prisma.user.findMany({
+      include: { player: true },
+      orderBy: { username: "asc" },
+    }),
+    prisma.inventoryItem.aggregate({
+      where: { quantity: { gt: 0 } },
+      _sum: { quantity: true },
+      _count: true,
+    }),
+    prisma.trade.count({
+      where: {
+        status: {
+          in: ["PROPOSED", "ACCEPTED_PENDING_EXCHANGE", "PARTIALLY_COMMITTED"],
+        },
+      },
+    }),
   ]);
 
-  return <main className="p-8 space-y-8"><Nav /><h1 className="text-3xl font-bold">Admin Setup</h1>
+  return (
+    <main className="p-8 space-y-8">
+      <Nav />
+      <div>
+        <h1 className="text-3xl font-bold">Admin</h1>
+        <p className="text-zinc-400">
+          Manage local user accounts and monitor inventory/trade activity.
+        </p>
+      </div>
 
-<section className="space-y-2"><h2 className="text-xl font-semibold">Users</h2><p className="text-sm text-zinc-400">Admin-managed local accounts. Temporary passwords are hashed before saving; force password changes for new or reset accounts.</p>
-<form action={async (fd)=>{'use server';await requireAdmin();const password=String(fd.get('password')||'');const confirm=String(fd.get('confirmPassword')||'');if(password!==confirm) throw new Error('Temporary passwords must match.');const passwordHash=await hashPassword(password);await prisma.user.create({data:{username:String(fd.get('username')).trim(),email:String(fd.get('email')||'').trim().toLowerCase()||null,displayName:String(fd.get('displayName')||fd.get('username')).trim(),passwordHash,role:String(fd.get('role'))==='ADMIN'?UserRole.ADMIN:UserRole.PLAYER,playerId:String(fd.get('playerId')||'')||null,forcePasswordChange:fd.get('forcePasswordChange')==='on',isActive:fd.get('isActive')==='on'}});await refresh();}} className="grid md:grid-cols-4 gap-2 rounded border border-zinc-800 p-3"><input name="username" required placeholder="username" className="border p-2 bg-zinc-900"/><input name="email" placeholder="email optional" className="border p-2 bg-zinc-900"/><input name="displayName" placeholder="display name" className="border p-2 bg-zinc-900"/><select name="role" defaultValue="PLAYER" className="border p-2 bg-zinc-900"><option value="PLAYER">PLAYER</option><option value="ADMIN">ADMIN</option></select><input name="password" type="password" required minLength={8} placeholder="temporary password" className="border p-2 bg-zinc-900"/><input name="confirmPassword" type="password" required minLength={8} placeholder="confirm password" className="border p-2 bg-zinc-900"/><select name="playerId" className="border p-2 bg-zinc-900"><option value="">No linked player</option>{players.map(p=><option key={p.id} value={p.id}>{p.displayName}</option>)}</select><label className="flex items-center gap-2"><input type="checkbox" name="forcePasswordChange" defaultChecked/> force password change</label><label className="flex items-center gap-2"><input type="checkbox" name="isActive" defaultChecked/> active</label><button className="border px-3 py-2 md:col-span-4">Create User</button></form>
-<div className="space-y-3">{users.map(u=><div key={u.id} className="rounded border border-zinc-800 p-3 space-y-2"><form action={async(fd)=>{'use server';await requireAdmin();await prisma.user.update({where:{id:u.id},data:{username:String(fd.get('username')).trim(),email:String(fd.get('email')||'').trim().toLowerCase()||null,displayName:String(fd.get('displayName')||fd.get('username')).trim(),role:String(fd.get('role'))==='ADMIN'?UserRole.ADMIN:UserRole.PLAYER,playerId:String(fd.get('playerId')||'')||null,forcePasswordChange:fd.get('forcePasswordChange')==='on',isActive:fd.get('isActive')==='on'}});await refresh();}} className="grid md:grid-cols-6 gap-2"><input name="username" defaultValue={u.username} className="border p-2 bg-zinc-900"/><input name="email" defaultValue={u.email??''} className="border p-2 bg-zinc-900"/><input name="displayName" defaultValue={u.displayName} className="border p-2 bg-zinc-900"/><select name="role" defaultValue={u.role} className="border p-2 bg-zinc-900"><option value="PLAYER">PLAYER</option><option value="ADMIN">ADMIN</option></select><select name="playerId" defaultValue={u.playerId??''} className="border p-2 bg-zinc-900"><option value="">No linked player</option>{players.map(p=><option key={p.id} value={p.id}>{p.displayName}</option>)}</select><div className="flex gap-3"><label><input type="checkbox" name="isActive" defaultChecked={u.isActive}/> active</label><label><input type="checkbox" name="forcePasswordChange" defaultChecked={u.forcePasswordChange}/> force</label></div><button className="border px-3 py-2 md:col-span-6">Save User</button></form><form action={async(fd)=>{'use server';await requireAdmin();const password=String(fd.get('password')||'');const confirm=String(fd.get('confirmPassword')||'');if(password!==confirm) throw new Error('Passwords must match.');const passwordHash=await hashPassword(password);await prisma.user.update({where:{id:u.id},data:{passwordHash,forcePasswordChange:fd.get('forcePasswordChange')==='on'}});await refresh();}} className="flex flex-wrap gap-2 items-center text-sm"><span className="text-zinc-400">Reset password for {u.username}</span><input name="password" type="password" minLength={8} required placeholder="new temporary password" className="border p-1 bg-zinc-900"/><input name="confirmPassword" type="password" minLength={8} required placeholder="confirm" className="border p-1 bg-zinc-900"/><label><input type="checkbox" name="forcePasswordChange" defaultChecked/> force change</label><button className="border px-2">Reset Password</button><span className="text-zinc-500">Last login: {u.lastLoginAt?.toLocaleString() ?? 'never'}</span></form></div>)}</div>
-</section>
+      <section className="grid gap-4 md:grid-cols-3">
+        <div className="rounded border border-zinc-800 p-4">
+          <p className="text-sm text-zinc-400">Users</p>
+          <p className="text-2xl font-bold">{users.length}</p>
+        </div>
+        <div className="rounded border border-zinc-800 p-4">
+          <p className="text-sm text-zinc-400">Inventory entries</p>
+          <p className="text-2xl font-bold">{inventoryCount._count}</p>
+        </div>
+        <div className="rounded border border-zinc-800 p-4">
+          <p className="text-sm text-zinc-400">Open trades</p>
+          <p className="text-2xl font-bold">{openTrades}</p>
+        </div>
+      </section>
 
-<section className="space-y-2"><h2 className="text-xl font-semibold">Players</h2><p className="text-sm text-zinc-400">League members. Keep this section as your source of truth for active participants.</p>
-<form action={async (fd)=>{'use server';await requireAdmin();await prisma.player.create({data:{name:String(fd.get('name')),displayName:String(fd.get('displayName')),email:String(fd.get('email')||'')||null,color:String(fd.get('color')||'#64748b'),active:fd.get('active')==='on',isAdmin:fd.get('isAdmin')==='on'}});await refresh();}} className="flex gap-2 flex-wrap my-2"><input name="name" placeholder="Internal name" className="border p-1 bg-zinc-900"/><input name="displayName" placeholder="Display name" className="border p-1 bg-zinc-900"/><input name="email" placeholder="Email (optional)" className="border p-1 bg-zinc-900"/><label className="flex items-center gap-1">color <input type="color" name="color" defaultValue="#64748b" className="h-8 w-10 p-0 border"/></label><label><input type="checkbox" name="active" defaultChecked/> active</label><label><input type="checkbox" name="isAdmin"/> admin</label><button className="border px-2">Add</button></form>
-{players.map(p=><form key={p.id} action={async(fd)=>{'use server';await requireAdmin();if(fd.get('_delete')) await prisma.player.delete({where:{id:p.id}}); else await prisma.player.update({where:{id:p.id},data:{name:String(fd.get('name')),displayName:String(fd.get('displayName')),email:String(fd.get('email')||'')||null,color:String(fd.get('color')||'#64748b'),active:fd.get('active')==='on',isAdmin:fd.get('isAdmin')==='on'}});await refresh();}} className="flex gap-2 flex-wrap my-1"><input name="name" defaultValue={p.name} className="border p-1 bg-zinc-900"/><input name="displayName" defaultValue={p.displayName} className="border p-1 bg-zinc-900"/><input name="email" defaultValue={p.email ?? ''} className="border p-1 bg-zinc-900"/><label className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-sm border" style={{backgroundColor:p.color}} /> <input type="color" name="color" defaultValue={p.color} className="h-8 w-10 p-0 border"/></label><label><input type="checkbox" name="active" defaultChecked={p.active}/> active</label><label><input type="checkbox" name="isAdmin" defaultChecked={p.isAdmin}/> admin</label><button className="border px-2">Save</button><button name="_delete" value="1" className="border px-2">Delete</button></form>)}
-</section>
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold">Create user</h2>
+        <p className="text-sm text-zinc-400">
+          The current schema still links inventory ownership through an internal
+          owner record. New users are automatically linked to one so inventory,
+          imports, and trades continue to work.
+        </p>
+        <form
+          action={async (fd) => {
+            "use server";
+            await requireAdmin();
+            const password = String(fd.get("password") || "");
+            const confirm = String(fd.get("confirmPassword") || "");
+            if (password !== confirm)
+              throw new Error("Temporary passwords must match.");
+            const username = String(fd.get("username")).trim();
+            const displayName = String(
+              fd.get("displayName") || username,
+            ).trim();
+            const passwordHash = await hashPassword(password);
+            const playerId = await ensureOwnerForUser(displayName);
+            await prisma.user.create({
+              data: {
+                username,
+                email:
+                  String(fd.get("email") || "")
+                    .trim()
+                    .toLowerCase() || null,
+                displayName,
+                passwordHash,
+                role:
+                  String(fd.get("role")) === "ADMIN"
+                    ? UserRole.ADMIN
+                    : UserRole.PLAYER,
+                playerId,
+                forcePasswordChange: fd.get("forcePasswordChange") === "on",
+                isActive: fd.get("isActive") === "on",
+              },
+            });
+            await refresh();
+          }}
+          className="grid gap-2 rounded border border-zinc-800 p-3 md:grid-cols-4"
+        >
+          <input
+            name="username"
+            required
+            placeholder="username"
+            className="border p-2 bg-zinc-900"
+          />
+          <input
+            name="email"
+            placeholder="email optional"
+            className="border p-2 bg-zinc-900"
+          />
+          <input
+            name="displayName"
+            placeholder="display name"
+            className="border p-2 bg-zinc-900"
+          />
+          <select
+            name="role"
+            defaultValue="PLAYER"
+            className="border p-2 bg-zinc-900"
+          >
+            <option value="PLAYER">User</option>
+            <option value="ADMIN">Admin</option>
+          </select>
+          <input
+            name="password"
+            type="password"
+            required
+            minLength={8}
+            placeholder="temporary password"
+            className="border p-2 bg-zinc-900"
+          />
+          <input
+            name="confirmPassword"
+            type="password"
+            required
+            minLength={8}
+            placeholder="confirm password"
+            className="border p-2 bg-zinc-900"
+          />
+          <label className="flex items-center gap-2">
+            <input type="checkbox" name="forcePasswordChange" defaultChecked />{" "}
+            force password change
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" name="isActive" defaultChecked /> active
+          </label>
+          <SubmitButton
+            pendingLabel="Creating user…"
+            className="border px-3 py-2 md:col-span-4"
+          >
+            Create User
+          </SubmitButton>
+        </form>
+      </section>
 
-<section className="space-y-2"><h2 className="text-xl font-semibold">League (Yearly)</h2><p className="text-sm text-zinc-400">One yearly league (example: 2026 Box League). Type is stored in description for now.</p>
-<form action={async(fd)=>{'use server';await requireAdmin(); const name=String(fd.get('name')); const year=String(fd.get('year')); const leagueType=String(fd.get('leagueType')||'Sealed Commander'); await prisma.league.create({data:{name,slug:slugify(`${name}-${year}`),description:`Type: ${leagueType}`,appDisplayName:String(fd.get('appDisplayName')||name)}});await refresh();}} className="flex gap-2 flex-wrap my-2"><input name="name" placeholder="League name" className="border p-1 bg-zinc-900"/><input name="leagueType" placeholder="League type" className="border p-1 bg-zinc-900"/><input name="year" type="number" placeholder="Year" className="border p-1 bg-zinc-900"/><input name="appDisplayName" placeholder="App display name" className="border p-1 bg-zinc-900"/><button className="border px-2">Add</button></form>
-{leagues.map(l=><form key={l.id} action={async(fd)=>{'use server';await requireAdmin();if(fd.get('_delete')) await prisma.league.delete({where:{id:l.id}}); else {const name=String(fd.get('name')); const year=String(fd.get('year')); const leagueType=String(fd.get('leagueType')); await prisma.league.update({where:{id:l.id},data:{name,slug:slugify(`${name}-${year}`),description:`Type: ${leagueType}`,appDisplayName:String(fd.get('appDisplayName'))}});} await refresh();}} className="flex gap-2 flex-wrap my-1"><input name="name" defaultValue={l.name} className="border p-1 bg-zinc-900"/><input name="leagueType" defaultValue={(l.description || '').replace(/^Type:\s*/,'')} className="border p-1 bg-zinc-900"/><input name="year" type="number" defaultValue={new Date(l.createdAt).getUTCFullYear()} className="border p-1 bg-zinc-900"/><input name="appDisplayName" defaultValue={l.appDisplayName} className="border p-1 bg-zinc-900"/><button className="border px-2">Save</button><button name="_delete" value="1" className="border px-2">Delete</button></form>)}
-</section>
-
-<section className="space-y-2"><h2 className="text-xl font-semibold">Rounds (Monthly Games)</h2><p className="text-sm text-zinc-400">Each round is one monthly game day. Trade settings control the 1-for-1 trading window and per-opponent limit.</p>
-<form action={async(fd)=>{'use server';await requireAdmin();const seasonId=String(fd.get('seasonId')); const monthNumber=Number(fd.get('monthNumber')); const playDate=new Date(String(fd.get('playDate'))); await prisma.round.create({data:{seasonId,name:`Round ${monthNumber}`,monthNumber,startDate:playDate,endDate:null,status:fd.get('status') as RoundStatus,tradingEnabled:fd.get('tradingEnabled')==='on',tradingStatus:fd.get('tradingStatus') as TradingStatus,maxTradesPerOpponent:Number(fd.get('maxTradesPerOpponent')||3),allowFutureRoundCards:fd.get('allowFutureRoundCards')==='on',tradeStructure:'EXACTLY_ONE_FOR_ONE'}});await refresh();}} className="flex gap-2 flex-wrap my-2"><select name="seasonId" className="border p-1 bg-zinc-900">{seasons.map(s=><option key={s.id} value={s.id}>{s.league.name} ({s.year})</option>)}</select><input name="monthNumber" type="number" placeholder="Month #" className="border p-1 bg-zinc-900"/><input name="playDate" type="date" className="border p-1 bg-zinc-900"/><select name="status" className="border p-1 bg-zinc-900"><option>PLANNED</option><option>ACTIVE</option><option>COMPLETED</option></select><label><input type="checkbox" name="tradingEnabled"/> trading enabled</label><select name="tradingStatus" className="border p-1 bg-zinc-900"><option value="NOT_OPEN">not open</option><option value="OPEN">open</option><option value="CLOSED">closed</option></select><input name="maxTradesPerOpponent" type="number" min="1" defaultValue="3" className="border p-1 bg-zinc-900 w-24"/><label><input type="checkbox" name="allowFutureRoundCards"/> allow future cards</label><span className="text-sm text-zinc-400">Exactly 1-for-1</span><button className="border px-2">Add</button></form>
-{rounds.map(r=><form key={r.id} action={async(fd)=>{'use server';await requireAdmin();if(fd.get('_delete')) await prisma.round.delete({where:{id:r.id}}); else await prisma.round.update({where:{id:r.id},data:{seasonId:String(fd.get('seasonId')),monthNumber:Number(fd.get('monthNumber')),name:`Round ${Number(fd.get('monthNumber'))}`,startDate:new Date(String(fd.get('playDate'))),endDate:null,status:fd.get('status') as RoundStatus,tradingEnabled:fd.get('tradingEnabled')==='on',tradingStatus:fd.get('tradingStatus') as TradingStatus,maxTradesPerOpponent:Number(fd.get('maxTradesPerOpponent')||3),allowFutureRoundCards:fd.get('allowFutureRoundCards')==='on',tradeStructure:'EXACTLY_ONE_FOR_ONE'}});await refresh();}} className="flex gap-2 flex-wrap my-1"><select name="seasonId" defaultValue={r.seasonId} className="border p-1 bg-zinc-900">{seasons.map(s=><option key={s.id} value={s.id}>{s.league.name} ({s.year})</option>)}</select><input name="monthNumber" type="number" defaultValue={r.monthNumber} className="border p-1 bg-zinc-900"/><input name="playDate" type="date" defaultValue={r.startDate.toISOString().slice(0,10)} className="border p-1 bg-zinc-900"/><select name="status" defaultValue={r.status} className="border p-1 bg-zinc-900"><option>PLANNED</option><option>ACTIVE</option><option>COMPLETED</option></select><label><input type="checkbox" name="tradingEnabled" defaultChecked={r.tradingEnabled}/> trading enabled</label><select name="tradingStatus" defaultValue={r.tradingStatus} className="border p-1 bg-zinc-900"><option value="NOT_OPEN">not open</option><option value="OPEN">open</option><option value="CLOSED">closed</option></select><input name="maxTradesPerOpponent" type="number" min="1" defaultValue={r.maxTradesPerOpponent} className="border p-1 bg-zinc-900 w-24"/><label><input type="checkbox" name="allowFutureRoundCards" defaultChecked={r.allowFutureRoundCards}/> allow future cards</label><span className="text-sm text-zinc-400">Exactly 1-for-1</span><button className="border px-2">Save</button><button name="_delete" value="1" className="border px-2">Delete</button></form>)}
-</section>
-
-<section className="space-y-2"><h2 className="text-xl font-semibold">Set / Boxes (per round)</h2><p className="text-sm text-zinc-400">Box details for each monthly round. Pricing/pack split fields are stored in notes in this version.</p>
-<form action={async(fd)=>{'use server';await requireAdmin(); const price=String(fd.get('boxPrice')||''); const ppp=String(fd.get('packsPerPlayer')||''); const prize=String(fd.get('prizePacks')||''); const cpp=String(fd.get('cardsPerPack')||''); const extra=`price=${price}; packsPerPlayer=${ppp}; prizePacks=${prize}; cardsPerPack=${cpp}`; await prisma.setBox.create({data:{roundId:String(fd.get('roundId')),setName:String(fd.get('setName')),setCode:String(fd.get('setCode')),boxType:'Booster Box',boxOwnerId:String(fd.get('boxOwnerId')||'')||null,totalPacks:Number(fd.get('totalPacks')),notes:extra}});await refresh();}} className="flex gap-2 flex-wrap my-2"><select name="roundId" className="border p-1 bg-zinc-900">{rounds.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select><input name="setName" placeholder="Set name" className="border p-1 bg-zinc-900"/><input name="setCode" placeholder="Set code" className="border p-1 bg-zinc-900"/><select name="boxOwnerId" className="border p-1 bg-zinc-900"><option value="">Added by (none)</option>{players.map(p=><option key={p.id} value={p.id}>{p.displayName}</option>)}</select><input name="boxPrice" type="number" step="0.01" placeholder="Box price" className="border p-1 bg-zinc-900"/><input name="totalPacks" type="number" placeholder="Total packs" className="border p-1 bg-zinc-900"/><input name="packsPerPlayer" type="number" placeholder="Packs per player" className="border p-1 bg-zinc-900"/><input name="prizePacks" type="number" placeholder="Prize packs" className="border p-1 bg-zinc-900"/><input name="cardsPerPack" type="number" placeholder="Cards per pack" className="border p-1 bg-zinc-900"/><button className="border px-2">Add</button></form>
-{boxes.map(b=><form key={b.id} action={async(fd)=>{'use server';await requireAdmin();if(fd.get('_delete')) await prisma.setBox.delete({where:{id:b.id}}); else await prisma.setBox.update({where:{id:b.id},data:{roundId:String(fd.get('roundId')),setName:String(fd.get('setName')),setCode:String(fd.get('setCode')),boxOwnerId:String(fd.get('boxOwnerId')||'')||null,totalPacks:Number(fd.get('totalPacks'))}});await refresh();}} className="flex gap-2 flex-wrap my-1"><select name="roundId" defaultValue={b.roundId} className="border p-1 bg-zinc-900">{rounds.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select><input name="setName" defaultValue={b.setName} className="border p-1 bg-zinc-900"/><input name="setCode" defaultValue={b.setCode} className="border p-1 bg-zinc-900"/><select name="boxOwnerId" defaultValue={b.boxOwnerId ?? ''} className="border p-1 bg-zinc-900"><option value="">(none)</option>{players.map(p=><option key={p.id} value={p.id}>{p.displayName}</option>)}</select><input name="totalPacks" type="number" defaultValue={b.totalPacks} className="border p-1 bg-zinc-900"/><input readOnly value={b.notes ?? ''} className="border p-1 bg-zinc-900 min-w-[360px]"/><button className="border px-2">Save</button><button name="_delete" value="1" className="border px-2">Delete</button></form>)}
-</section>
-
-<section className="space-y-2"><h2 className="text-xl font-semibold">Point categories</h2><p className="text-sm text-zinc-400">Point rules. Suggested defaults: Win=3, Draw=2, Loss=1.</p>
-<form action={async(fd)=>{'use server';await requireAdmin();await prisma.pointCategory.create({data:{name:String(fd.get('name')),description:String(fd.get('description')||'')||null,defaultValue:Number(fd.get('defaultValue')),active:fd.get('active')==='on'}});await refresh();}} className="flex gap-2 flex-wrap my-2"><input name="name" placeholder="Category name (Win/Draw/Loss)" className="border p-1 bg-zinc-900"/><input name="description" placeholder="Description" className="border p-1 bg-zinc-900"/><input name="defaultValue" type="number" placeholder="Points" className="border p-1 bg-zinc-900"/><label><input type="checkbox" name="active" defaultChecked/> active</label><button className="border px-2">Add</button></form>
-{categories.map(c=><form key={c.id} action={async(fd)=>{'use server';await requireAdmin();if(fd.get('_delete')) await prisma.pointCategory.delete({where:{id:c.id}}); else await prisma.pointCategory.update({where:{id:c.id},data:{name:String(fd.get('name')),description:String(fd.get('description')||'')||null,defaultValue:Number(fd.get('defaultValue')),active:fd.get('active')==='on'}});await refresh();}} className="flex gap-2 flex-wrap my-1"><input name="name" defaultValue={c.name} className="border p-1 bg-zinc-900"/><input name="description" defaultValue={c.description ?? ''} className="border p-1 bg-zinc-900"/><input name="defaultValue" type="number" defaultValue={c.defaultValue} className="border p-1 bg-zinc-900"/><label><input type="checkbox" name="active" defaultChecked={c.active}/> active</label><button className="border px-2">Save</button><button name="_delete" value="1" className="border px-2">Delete</button></form>)}
-</section>
-
-</main>;
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold">Users</h2>
+        {users.length ? (
+          users.map((u) => (
+            <div
+              key={u.id}
+              className="rounded border border-zinc-800 p-3 space-y-2"
+            >
+              <form
+                action={async (fd) => {
+                  "use server";
+                  await requireAdmin();
+                  const displayName = String(
+                    fd.get("displayName") || fd.get("username"),
+                  ).trim();
+                  const playerId = await ensureOwnerForUser(
+                    displayName,
+                    u.playerId,
+                  );
+                  await prisma.user.update({
+                    where: { id: u.id },
+                    data: {
+                      username: String(fd.get("username")).trim(),
+                      email:
+                        String(fd.get("email") || "")
+                          .trim()
+                          .toLowerCase() || null,
+                      displayName,
+                      role:
+                        String(fd.get("role")) === "ADMIN"
+                          ? UserRole.ADMIN
+                          : UserRole.PLAYER,
+                      playerId,
+                      forcePasswordChange:
+                        fd.get("forcePasswordChange") === "on",
+                      isActive: fd.get("isActive") === "on",
+                    },
+                  });
+                  await prisma.player.update({
+                    where: { id: playerId },
+                    data: { displayName, active: fd.get("isActive") === "on" },
+                  });
+                  await refresh();
+                }}
+                className="grid gap-2 md:grid-cols-6"
+              >
+                <input
+                  name="username"
+                  defaultValue={u.username}
+                  className="border p-2 bg-zinc-900"
+                />
+                <input
+                  name="email"
+                  defaultValue={u.email ?? ""}
+                  className="border p-2 bg-zinc-900"
+                />
+                <input
+                  name="displayName"
+                  defaultValue={u.displayName}
+                  className="border p-2 bg-zinc-900"
+                />
+                <select
+                  name="role"
+                  defaultValue={u.role}
+                  className="border p-2 bg-zinc-900"
+                >
+                  <option value="PLAYER">User</option>
+                  <option value="ADMIN">Admin</option>
+                </select>
+                <div className="flex gap-3">
+                  <label>
+                    <input
+                      type="checkbox"
+                      name="isActive"
+                      defaultChecked={u.isActive}
+                    />{" "}
+                    active
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      name="forcePasswordChange"
+                      defaultChecked={u.forcePasswordChange}
+                    />{" "}
+                    force
+                  </label>
+                </div>
+                <div className="text-xs text-zinc-500">
+                  Owner: {u.player?.displayName ?? "will be created on save"}
+                </div>
+                <SubmitButton
+                  pendingLabel="Saving user…"
+                  className="border px-3 py-2 md:col-span-6"
+                >
+                  Save User
+                </SubmitButton>
+              </form>
+              <form
+                action={async (fd) => {
+                  "use server";
+                  await requireAdmin();
+                  const password = String(fd.get("password") || "");
+                  const confirm = String(fd.get("confirmPassword") || "");
+                  if (password !== confirm)
+                    throw new Error("Passwords must match.");
+                  const passwordHash = await hashPassword(password);
+                  await prisma.user.update({
+                    where: { id: u.id },
+                    data: {
+                      passwordHash,
+                      forcePasswordChange:
+                        fd.get("forcePasswordChange") === "on",
+                    },
+                  });
+                  await refresh();
+                }}
+                className="flex flex-wrap gap-2 items-center text-sm"
+              >
+                <span className="text-zinc-400">
+                  Reset password for {u.username}
+                </span>
+                <input
+                  name="password"
+                  type="password"
+                  minLength={8}
+                  required
+                  placeholder="new temporary password"
+                  className="border p-2 bg-zinc-900"
+                />
+                <input
+                  name="confirmPassword"
+                  type="password"
+                  minLength={8}
+                  required
+                  placeholder="confirm password"
+                  className="border p-2 bg-zinc-900"
+                />
+                <label>
+                  <input
+                    type="checkbox"
+                    name="forcePasswordChange"
+                    defaultChecked
+                  />{" "}
+                  force change
+                </label>
+                <SubmitButton
+                  pendingLabel="Resetting…"
+                  className="border px-3 py-2"
+                >
+                  Reset Password
+                </SubmitButton>
+              </form>
+            </div>
+          ))
+        ) : (
+          <p className="text-sm text-zinc-400">No users yet.</p>
+        )}
+      </section>
+    </main>
+  );
 }

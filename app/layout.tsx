@@ -1,11 +1,18 @@
-import './globals.css';
-import type { ReactNode } from 'react';
+import "./globals.css";
+import type { ReactNode } from "react";
+
+const appName = process.env.NEXT_PUBLIC_APP_NAME || "MTG Inventory";
 
 export const metadata = {
-  title: process.env.NEXT_PUBLIC_APP_NAME || 'Box League',
-  description: 'Sealed commander league tracker',
+  title: appName,
+  description:
+    "Multi-user Magic: The Gathering inventory and trading application",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
-  return <html lang="en"><body>{children}</body></html>;
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  );
 }

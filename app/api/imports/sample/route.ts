@@ -9,8 +9,9 @@ const SAMPLE = `Quantity,Name,Set Code,Collector Number,Foil,Condition,Notes,Scr
 export async function GET() {
   return new Response(SAMPLE, {
     headers: {
-      'content-type': 'text/csv; charset=utf-8',
-      'content-disposition': 'attachment; filename="sample-pull-import.csv"',
+      "content-type": "text/csv; charset=utf-8",
+      "content-disposition":
+        'attachment; filename="sample-inventory-import.csv"',
     },
   });
 }
