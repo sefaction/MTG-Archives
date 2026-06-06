@@ -1,30 +1,69 @@
-import Link from 'next/link';
-import { logout, getCurrentUser, isAdminUser } from '@/lib/auth';
-import { redirect } from 'next/navigation';
+import Link from "next/link";
+import { logout, getCurrentUser, isAdminUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { SubmitButton } from "@/components/feedback/SubmitButton";
 
-const publicLinks = ['dashboard', 'players', 'rounds', 'inventory', 'decks', 'wishlist', 'stats'];
-const playerLinks = ['pulls', 'imports', 'trades'];
-
-function title(s: string) {
-  return s[0].toUpperCase() + s.slice(1);
-}
+const mainLinks = [
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/inventory", label: "Inventory" },
+  { href: "/locations", label: "Locations" },
+  { href: "/imports", label: "Import" },
+  { href: "/trades", label: "Trades" },
+];
 
 export async function Nav() {
   const user = await getCurrentUser();
   const isAdmin = isAdminUser(user, user?.player);
-  const links = [...publicLinks, ...(user ? playerLinks : []), ...(isAdmin ? ['admin'] : [])];
+  const appName = process.env.NEXT_PUBLIC_APP_NAME || "MTG Inventory";
 
   async function doLogout() {
-    'use server';
+    "use server";
     await logout();
-    redirect('/dashboard');
+    redirect("/dashboard");
   }
 
-  return <nav className="mb-6 flex flex-wrap items-center justify-between gap-4">
-    <div className="flex flex-wrap gap-4">{links.map((s) => <Link key={s} href={`/${s}`}>{title(s)}</Link>)}</div>
-    <div className="flex items-center gap-3 text-sm text-zinc-300">
-      <span>{user ? `Logged in as ${user.player?.displayName || user.displayName || user.username}` : 'Guest mode'}</span>
-      {user ? <form action={doLogout}><button className="rounded border border-zinc-700 px-3 py-1">Logout</button></form> : <Link className="rounded border border-sky-700 px-3 py-1" href="/login">Login</Link>}
-    </div>
-  </nav>;
+  return (
+    <nav className="mb-6 flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center gap-4">
+        <Link href="/dashboard" className="font-bold text-sky-200">
+          {appName}
+        </Link>
+        {mainLinks.map((link) => (
+          <Link key={link.href} href={link.href}>
+            {link.label}
+          </Link>
+        ))}
+        {isAdmin ? <Link href="/admin">Admin</Link> : null}
+      </div>
+      <div className="flex items-center gap-3 text-sm text-zinc-300">
+        {user ? (
+          <>
+            <span>{user.displayName || user.username}</span>
+            <Link
+              className="rounded border border-zinc-700 px-3 py-1"
+              href="/change-password"
+            >
+              Account
+            </Link>
+            <form action={doLogout}>
+              <SubmitButton
+                pendingLabel="Logging out…"
+                className="rounded border border-zinc-700 px-3 py-1"
+                minWidthClassName="min-w-20"
+              >
+                Log out
+              </SubmitButton>
+            </form>
+          </>
+        ) : (
+          <Link
+            className="rounded border border-sky-700 px-3 py-1"
+            href="/login"
+          >
+            Log in
+          </Link>
+        )}
+      </div>
+    </nav>
+  );
 }
