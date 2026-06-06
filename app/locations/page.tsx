@@ -175,16 +175,35 @@ export default async function LocationsPage() {
         "Type DELETE or the location name to confirm deleting contents.",
       );
     }
-    await bulkDeleteInventoryItems(prisma, {
-      actorUserId: ctx.user.id,
-      where: { locationId },
-      sourceLocationId: locationId,
-      allowedOwnerId: ctx.admin
-        ? location.ownerPlayerId
-        : ctx.playerId || undefined,
-      reason: `Deleted all inventory contents in ${location.name}.`,
-      scope: "location",
-    });
+    try {
+      await bulkDeleteInventoryItems(prisma, {
+        actorUserId: ctx.user.id,
+        where: { locationId },
+        sourceLocationId: locationId,
+        allowedOwnerId: ctx.admin
+          ? location.ownerPlayerId
+          : ctx.playerId || undefined,
+        reason: `Deleted all inventory contents in ${location.name}.`,
+        scope: "location",
+      });
+    } catch (error: any) {
+      console.error("[location-contents-delete] failed", {
+        locationId,
+        actingUserId: ctx.user.id,
+        message: error?.message,
+        stack: error?.stack,
+      });
+      const rawMessage = String(error?.message || "");
+      const exposesPrismaInternals =
+        rawMessage.includes("Invalid `prisma.") ||
+        rawMessage.includes("Transaction API error") ||
+        rawMessage.includes("PrismaClient");
+      throw new Error(
+        exposesPrismaInternals || !rawMessage
+          ? "Delete failed unexpectedly. No inventory was removed. Check server logs for details."
+          : rawMessage,
+      );
+    }
     revalidatePath("/locations");
     revalidatePath("/inventory");
   }

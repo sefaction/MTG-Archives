@@ -759,12 +759,7 @@ export async function bulkMoveInventoryToLocation(
           data: { locationId: destination.id },
         });
       }
-      if (deleteSourceIds.length) {
-        await tx.inventoryItem.deleteMany({
-          where: { id: { in: deleteSourceIds } },
-        });
-      }
-      markBulkMoveTiming(transactionTiming, "move or delete source rows");
+      markBulkMoveTiming(transactionTiming, "move source rows");
 
       for (const chunk of chunkArray(
         auditLogs,
@@ -773,6 +768,13 @@ export async function bulkMoveInventoryToLocation(
         await tx.inventoryAuditLog.createMany({ data: chunk });
       }
       markBulkMoveTiming(transactionTiming, "insert audit logs");
+
+      if (deleteSourceIds.length) {
+        await tx.inventoryItem.deleteMany({
+          where: { id: { in: deleteSourceIds } },
+        });
+      }
+      markBulkMoveTiming(transactionTiming, "delete merged source rows");
       logBulkMoveTiming("transaction complete", transactionTiming, {
         movedEntries,
         movedCards,
@@ -976,9 +978,12 @@ export async function bulkDeleteInventoryItems(
       );
       markBulkMoveTiming(transactionTiming, "delete build audit plan");
 
-      await tx.inventoryItem.deleteMany({ where: { id: { in: rowIds } } });
-      markBulkMoveTiming(transactionTiming, "delete inventory rows");
-
+      console.info("[bulk-inventory-delete] transaction mutation plan", {
+        scope,
+        inventoryRowsToDelete: rowIds.length,
+        physicalQuantityToDelete: deletedCards,
+        auditLogRows: auditLogs.length,
+      });
       for (const chunk of chunkArray(
         auditLogs,
         AUDIT_LOG_CREATE_MANY_BATCH_SIZE,
@@ -986,10 +991,21 @@ export async function bulkDeleteInventoryItems(
         await tx.inventoryAuditLog.createMany({ data: chunk });
       }
       markBulkMoveTiming(transactionTiming, "delete insert audit logs");
+
+      const deleteResult = await tx.inventoryItem.deleteMany({
+        where: { id: { in: rowIds } },
+      });
+      if (deleteResult.count !== rowIds.length) {
+        throw new Error(
+          "Some inventory changed before deletion. Refresh and try again.",
+        );
+      }
+      markBulkMoveTiming(transactionTiming, "delete inventory rows");
       logBulkMoveTiming("delete transaction complete", transactionTiming, {
         scope,
         deletedEntries: rowsToDelete.length,
         deletedCards,
+        inventoryRowsDeleted: deleteResult.count,
         auditLogRows: auditLogs.length,
       });
 

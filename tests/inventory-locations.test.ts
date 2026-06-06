@@ -257,6 +257,14 @@ function makeBulkPrisma(itemsInput: any[], locationsInput: any[]) {
       },
       createMany: async ({ data }: any) => {
         counters.auditCreateManyCalls += 1;
+        for (const audit of data) {
+          if (
+            audit.inventoryItemId &&
+            !items.some((item) => item.id === audit.inventoryItemId)
+          ) {
+            throw new Error("audit references deleted inventory item");
+          }
+        }
         audits.push(...data);
         return { count: data.length };
       },
