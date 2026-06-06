@@ -257,31 +257,139 @@ export default async function InventoryPage({
     "use server";
     const actionUser = await requireLogin();
     const actionIsAdmin = isAdminUser(actionUser, actionUser.player);
-    if (!actionIsAdmin && !actionUser.playerId) {
-      throw new Error("Your account is not linked to an inventory owner.");
-    }
-    if (displayMode !== "exact") {
-      throw new Error("Bulk editing is available in Exact printings mode.");
-    }
+    const fieldNames = Array.from(new Set(Array.from(fd.keys()).map(String)));
     const destinationLocationId = String(fd.get("destinationLocationId") || "");
+    const clientDestinationLocationId = String(
+      fd.get("clientDestinationLocationId") || "",
+    );
     const selectionMode = String(fd.get("selectionMode") || "selected");
     const reason = String(fd.get("reason") || "Bulk location move.");
     const sourceLocationIdRaw = String(fd.get("sourceLocationId") || "");
-    const itemIds = JSON.parse(String(fd.get("itemIds") || "[]")) as string[];
-    const result = await bulkMoveInventoryToLocation(prisma, {
-      actorUserId: actionUser.id,
+    let itemIds: string[] = [];
+    try {
+      itemIds = JSON.parse(String(fd.get("itemIds") || "[]")) as string[];
+    } catch (error) {
+      console.error("[bulk-location-move] failed to parse selected item IDs", {
+        fieldNames,
+        error,
+      });
+      return {
+        success: false as const,
+        message: "Selected inventory IDs were not submitted correctly.",
+      };
+    }
+
+    console.info("[bulk-location-move] submit received", {
+      fieldNames,
+      destinationReceived: Boolean(destinationLocationId),
       destinationLocationId,
-      itemIds: selectionMode === "all" ? undefined : itemIds,
-      where: selectionMode === "all" ? where : undefined,
-      allowedOwnerId: actionIsAdmin
-        ? undefined
-        : actionUser.playerId || undefined,
-      sourceLocationId: sourceLocationIdRaw || undefined,
-      reason,
+      clientDestinationLocationId,
+      destinationMismatch:
+        Boolean(clientDestinationLocationId) &&
+        clientDestinationLocationId !== destinationLocationId,
+      selectionMode,
+      allMatchingFilters: selectionMode === "all",
+      selectedItemCount: itemIds.length,
+      sourceLocationId: sourceLocationIdRaw || null,
+      filters: where,
     });
-    revalidatePath("/inventory");
-    revalidatePath("/locations");
-    return result;
+
+    try {
+      if (!actionIsAdmin && !actionUser.playerId) {
+        return {
+          success: false as const,
+          message: "Your account is not linked to an inventory owner.",
+        };
+      }
+      if (displayMode !== "exact") {
+        return {
+          success: false as const,
+          message: "Bulk editing is available in Exact printings mode.",
+        };
+      }
+      if (!destinationLocationId) {
+        console.warn("[bulk-location-move] destination missing server-side", {
+          fieldNames,
+          clientDestinationLocationId,
+        });
+        return {
+          success: false as const,
+          message: "Choose a destination location before moving cards.",
+        };
+      }
+
+      const destination = await prisma.inventoryLocation.findUnique({
+        where: { id: destinationLocationId },
+        select: { id: true, ownerPlayerId: true, name: true },
+      });
+      console.info("[bulk-location-move] destination lookup", {
+        destinationLocationId,
+        found: Boolean(destination),
+        ownerPlayerId: destination?.ownerPlayerId ?? null,
+        destinationName: destination?.name ?? null,
+      });
+      if (!destination) {
+        return {
+          success: false as const,
+          message: "The selected destination location no longer exists.",
+        };
+      }
+
+      const allowedOwnerId = actionIsAdmin
+        ? destination.ownerPlayerId
+        : actionUser.playerId || undefined;
+      const previewWhere: any =
+        selectionMode === "all" ? { ...where } : { id: { in: itemIds } };
+      previewWhere.quantity = { gt: 0 };
+      if (sourceLocationIdRaw) previewWhere.locationId = sourceLocationIdRaw;
+      if (allowedOwnerId) previewWhere.currentOwnerId = allowedOwnerId;
+      const preview = await prisma.inventoryItem.aggregate({
+        where: previewWhere,
+        _count: { _all: true },
+        _sum: { quantity: true },
+      });
+      console.info("[bulk-location-move] matched rows preview", {
+        matchedInventoryRows: preview._count._all,
+        matchedLocationQuantityRows: preview._count._all,
+        matchedPhysicalCards: preview._sum.quantity ?? 0,
+        allowedOwnerId: allowedOwnerId ?? null,
+      });
+
+      console.info("[bulk-location-move] mutation starting", {
+        destinationLocationId,
+        selectionMode,
+      });
+      const result = await bulkMoveInventoryToLocation(prisma, {
+        actorUserId: actionUser.id,
+        destinationLocationId,
+        itemIds: selectionMode === "all" ? undefined : itemIds,
+        where: selectionMode === "all" ? where : undefined,
+        allowedOwnerId,
+        sourceLocationId: sourceLocationIdRaw || undefined,
+        reason,
+      });
+      console.info("[bulk-location-move] mutation committed", result);
+      console.info("[bulk-location-move] revalidation starting", {
+        paths: ["/inventory", "/locations"],
+      });
+      revalidatePath("/inventory");
+      revalidatePath("/locations");
+      return { success: true as const, ...result };
+    } catch (error: any) {
+      console.error("[bulk-location-move] failed", {
+        message: error?.message,
+        stack: error?.stack,
+        destinationLocationId,
+        selectionMode,
+        sourceLocationId: sourceLocationIdRaw || null,
+      });
+      return {
+        success: false as const,
+        message:
+          error?.message ||
+          "Bulk move failed before any inventory changes were committed.",
+      };
+    }
   }
 
   const exactItems = getInventoryExactPrintings(items);

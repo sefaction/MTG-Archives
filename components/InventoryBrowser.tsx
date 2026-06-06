@@ -18,6 +18,7 @@ import {
   InventoryAuditTrail,
 } from "./InventoryAuditTrail";
 import { SubmitButton } from "./feedback/SubmitButton";
+import { LoadingSpinner } from "./feedback/LoadingSpinner";
 
 type PickRef = { id: string; name: string; color?: string };
 
@@ -361,13 +362,17 @@ export function InventoryBrowser({
   initialPageSize: number;
   initialBrowsingMode: "paginated" | "infinite";
   currentLocationId?: string;
-  onBulkMoveLocation: (formData: FormData) => Promise<{
-    movedEntries: number;
-    movedCards: number;
-    skippedEntries: number;
-    destinationLocationName: string;
-    sourceLocationName?: string;
-  }>;
+  onBulkMoveLocation: (formData: FormData) => Promise<
+    | {
+        success: true;
+        movedEntries: number;
+        movedCards: number;
+        skippedEntries: number;
+        destinationLocationName: string;
+        sourceLocationName?: string;
+      }
+    | { success: false; message: string }
+  >;
   onSaveEdit: (formData: FormData) => Promise<void>;
   onSearchPrintings: (formData: FormData) => Promise<ScryfallResult[]>;
   onDeleteInventoryItem?: (formData: FormData) => Promise<void>;
@@ -409,6 +414,8 @@ export function InventoryBrowser({
   );
   const [allMatchingSelected, setAllMatchingSelected] = useState(false);
   const [movingBulk, setMovingBulk] = useState(false);
+  const [bulkDestinationLocationId, setBulkDestinationLocationId] =
+    useState("");
   const [pageSize, setPageSize] = useState(initialPageSize);
   const [browsingMode, setBrowsingMode] = useState<"paginated" | "infinite">(
     initialBrowsingMode,
@@ -755,17 +762,36 @@ export function InventoryBrowser({
           </div>
           {selectedEntriesCount > 0 ? (
             <form
-              action={async (fd) => {
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const form = event.currentTarget;
+                const fd = new FormData(form);
+                fd.set("destinationLocationId", bulkDestinationLocationId);
+                fd.set(
+                  "clientDestinationLocationId",
+                  bulkDestinationLocationId,
+                );
+                if (!bulkDestinationLocationId) {
+                  setMessage(
+                    "Choose a destination location before moving cards.",
+                  );
+                  return;
+                }
                 setMovingBulk(true);
                 setMessage(
                   `Moving ${selectedEntriesCount} entries (${selectedCardsCount} cards)…`,
                 );
                 try {
                   const result = await onBulkMoveLocation(fd);
+                  if (!result.success) {
+                    setMessage(result.message);
+                    return;
+                  }
                   setMessage(
                     `Moved ${result.movedCards} cards across ${result.movedEntries} entries to ${result.destinationLocationName}.`,
                   );
                   clearSelection();
+                  setBulkDestinationLocationId("");
                   router.refresh();
                 } catch (error: any) {
                   setMessage(error?.message || "Bulk move failed.");
@@ -795,6 +821,11 @@ export function InventoryBrowser({
                 <select
                   name="destinationLocationId"
                   required
+                  value={bulkDestinationLocationId}
+                  onChange={(event) =>
+                    setBulkDestinationLocationId(event.target.value)
+                  }
+                  disabled={movingBulk}
                   className="w-full border p-2 bg-zinc-900"
                 >
                   <option value="">Choose destination</option>
@@ -820,13 +851,19 @@ export function InventoryBrowser({
                   defaultValue="Bulk location move"
                 />
               </label>
-              <SubmitButton
-                pendingLabel={`Moving ${selectedEntriesCount} entries…`}
-                className="border px-3 py-2"
-                disabled={movingBulk}
+              <button
+                type="submit"
+                className="border px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={movingBulk || !bulkDestinationLocationId}
+                aria-disabled={movingBulk || !bulkDestinationLocationId}
               >
-                Move selected
-              </SubmitButton>
+                <span className="inline-flex items-center justify-center gap-2">
+                  {movingBulk ? <LoadingSpinner /> : null}
+                  {movingBulk
+                    ? `Moving ${selectedEntriesCount} entries…`
+                    : "Move selected"}
+                </span>
+              </button>
             </form>
           ) : null}
         </div>
