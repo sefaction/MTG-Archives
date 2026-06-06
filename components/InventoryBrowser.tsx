@@ -49,6 +49,8 @@ export type InventoryRow = {
     | "CORRECTION"
     | "PRIZE"
     | "OTHER";
+  effectiveVisibility?: "PRIVATE" | "PUBLIC";
+  locationVisibility?: "PRIVATE" | "PUBLIC" | "INHERIT";
   oracleText?: string;
   powerToughness?: string;
   power?: string;
@@ -120,6 +122,7 @@ const defaults: VisibilityState = {
   colorIdentity: true,
   priceUsd: true,
   foil: true,
+  effectiveVisibility: true,
   locationSummary: true,
 };
 
@@ -139,6 +142,10 @@ function getCardImage(row: InventoryRow) {
 
 function getRowSourceIds(row: InventoryRow) {
   return row.sourceItemIds?.length ? row.sourceItemIds : [row.id];
+}
+
+function friendlyVisibility(value?: InventoryRow["effectiveVisibility"]) {
+  return value === "PUBLIC" ? "Public" : "Private";
 }
 
 function friendlySource(value?: InventoryRow["sourceType"]) {
@@ -289,6 +296,9 @@ function CardDetail({
             </p>
             <p>
               <b>Source:</b> {friendlySource(row.sourceType)}
+            </p>
+            <p>
+              <b>Visibility:</b> {friendlyVisibility(row.effectiveVisibility)}
             </p>
             <p>
               <b>Notes:</b> {row.notes || "-"}
@@ -671,6 +681,11 @@ export function InventoryBrowser({
       { accessorKey: "colorIdentity", header: "Color Identity" },
       { accessorKey: "priceUsd", header: "Scryfall USD Price" },
       { accessorKey: "foilStatus", header: "Foil" },
+      {
+        accessorKey: "effectiveVisibility",
+        header: "Visibility",
+        cell: ({ row }) => friendlyVisibility(row.original.effectiveVisibility),
+      },
       {
         accessorKey: "sourceType",
         header: "Source",

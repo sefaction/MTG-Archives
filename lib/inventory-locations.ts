@@ -1,5 +1,6 @@
 import {
   InventoryItem,
+  Visibility,
   Prisma,
   PrismaClient,
   TradeStatus,
@@ -41,6 +42,7 @@ export async function ensureDefaultLocation(
         "Default location for inventory without a known physical location.",
       type: "Unassigned",
       active: true,
+      visibility: Visibility.INHERIT,
     },
   });
 }
@@ -63,6 +65,7 @@ export async function createLocation(
     name: string;
     description?: string | null;
     type?: string | null;
+    visibility?: Visibility;
   },
 ) {
   const name = assertValidLocationName(input.name);
@@ -85,6 +88,7 @@ export async function createLocation(
       description: input.description?.trim() || null,
       type: input.type?.trim() || null,
       active: true,
+      visibility: input.visibility ?? Visibility.INHERIT,
     },
   });
 }
@@ -98,6 +102,7 @@ export async function updateLocation(
     description?: string | null;
     type?: string | null;
     active?: boolean;
+    visibility?: Visibility;
   },
 ) {
   const name = assertValidLocationName(input.name);
@@ -119,6 +124,7 @@ export async function updateLocation(
       description: input.description?.trim() || null,
       type: input.type?.trim() || null,
       active: input.active ?? true,
+      visibility: input.visibility ?? Visibility.INHERIT,
     },
   });
 }

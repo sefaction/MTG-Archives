@@ -7,8 +7,13 @@ import {
 } from "@/lib/auth";
 import { Nav } from "@/components/Nav";
 import { prisma } from "@/lib/prisma";
+import { resolveInventoryVisibility } from "@/lib/visibility";
 import { InventoryBrowser } from "@/components/InventoryBrowser";
-import { FoilStatus, InventorySourceType } from "@prisma/client";
+import {
+  DefaultCollectionVisibility,
+  FoilStatus,
+  InventorySourceType,
+} from "@prisma/client";
 import {
   searchLocalThenScryfallCards,
   upsertScryfallCard,
@@ -112,6 +117,21 @@ export default async function InventoryPage({
       ? prisma.inventoryItem.count({ where: { quantity: { lte: 0 } } })
       : Promise.resolve(0),
   ]);
+
+  const ownerUsers = await prisma.user.findMany({
+    where: {
+      playerId: { in: Array.from(new Set(players.map((player) => player.id))) },
+    },
+    select: { playerId: true, inventoryDefaultVisibility: true },
+  });
+  const inventoryDefaultByPlayer = Object.fromEntries(
+    ownerUsers
+      .filter((ownerUser) => ownerUser.playerId)
+      .map((ownerUser) => [
+        ownerUser.playerId!,
+        ownerUser.inventoryDefaultVisibility,
+      ]),
+  );
 
   const activeOwnerId =
     p.ownerId || (!adminModeActive ? userWithPlayer?.playerId || "" : "");
@@ -518,7 +538,22 @@ export default async function InventoryPage({
     }
   }
 
-  const exactItems = getInventoryExactPrintings(items);
+  const visibilityFilteredItems = p.visibility
+    ? items.filter((item) => {
+        const effectiveVisibility = resolveInventoryVisibility(
+          inventoryDefaultByPlayer[item.currentOwnerId] ??
+            DefaultCollectionVisibility.PRIVATE,
+          item.location?.visibility ?? "INHERIT",
+        );
+        if (p.visibility === "public") return effectiveVisibility === "PUBLIC";
+        if (p.visibility === "private")
+          return effectiveVisibility === "PRIVATE";
+        if (p.visibility === "inherit")
+          return (item.location?.visibility ?? "INHERIT") === "INHERIT";
+        return true;
+      })
+    : items;
+  const exactItems = getInventoryExactPrintings(visibilityFilteredItems);
   const groupedItems = getInventoryGroupedByCard(exactItems);
   const displayItems = displayMode === "grouped" ? groupedItems : exactItems;
 
@@ -588,6 +623,12 @@ export default async function InventoryPage({
         foil: i.foil,
         foilStatus: i.foilStatus,
         sourceType: i.sourceType,
+        locationVisibility: i.location?.visibility ?? "INHERIT",
+        effectiveVisibility: resolveInventoryVisibility(
+          inventoryDefaultByPlayer[i.currentOwnerId] ??
+            DefaultCollectionVisibility.PRIVATE,
+          i.location?.visibility ?? "INHERIT",
+        ),
         oracleText: i.card.oracleText ?? "",
         powerToughness: [i.card.power, i.card.toughness]
           .filter(Boolean)
@@ -843,6 +884,16 @@ export default async function InventoryPage({
           >
             <option value="exact">Exact printings</option>
             <option value="grouped">Grouped by card name</option>
+          </select>
+          <select
+            name="visibility"
+            defaultValue={p.visibility}
+            className="border p-2 bg-zinc-900"
+          >
+            <option value="">all visibility</option>
+            <option value="public">effectively public</option>
+            <option value="private">effectively private</option>
+            <option value="inherit">uses account default</option>
           </select>
           <select
             name="locationId"

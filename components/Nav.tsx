@@ -15,6 +15,7 @@ const mainLinks = [
   { href: "/locations", label: "Locations" },
   { href: "/imports", label: "Import" },
   { href: "/trades", label: "Trades" },
+  { href: "/settings", label: "Settings" },
 ];
 
 export async function Nav() {

@@ -5,10 +5,17 @@ import {
   LocationContentsDeleteForm,
   type LocationContentsDeleteResult,
 } from "@/components/LocationContentsDeleteForm";
+import { LocationMoveForm } from "@/components/LocationMoveForm";
 import { Nav } from "@/components/Nav";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { getAccessScope, getCurrentUser, requireLogin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  effectiveVisibilityLabel,
+  resolveInventoryVisibility,
+  visibilityLabel,
+} from "@/lib/visibility";
+import { DefaultCollectionVisibility, Visibility } from "@prisma/client";
 import {
   bulkMoveInventoryToLocation,
   bulkDeleteInventoryItems,
@@ -17,6 +24,12 @@ import {
   ensureDefaultLocation,
   updateLocation,
 } from "@/lib/inventory-locations";
+
+function parseVisibility(value: FormDataEntryValue | null) {
+  return value === Visibility.PUBLIC || value === Visibility.PRIVATE
+    ? value
+    : Visibility.INHERIT;
+}
 
 async function getActionContext() {
   const user = await requireLogin();
@@ -64,6 +77,36 @@ export default async function LocationsPage() {
       { name: "asc" },
     ],
   });
+  const ownerUsers = locations.length
+    ? await prisma.user.findMany({
+        where: {
+          playerId: {
+            in: Array.from(
+              new Set(locations.map((location) => location.ownerPlayerId)),
+            ),
+          },
+        },
+        select: { playerId: true, inventoryDefaultVisibility: true },
+      })
+    : [];
+  const inventoryDefaultByPlayer = Object.fromEntries(
+    ownerUsers
+      .filter((ownerUser) => ownerUser.playerId)
+      .map((ownerUser) => [
+        ownerUser.playerId!,
+        ownerUser.inventoryDefaultVisibility,
+      ]),
+  );
+  const effectiveLocationVisibility = (location: {
+    ownerPlayerId: string;
+    visibility: Visibility;
+  }) =>
+    resolveInventoryVisibility(
+      inventoryDefaultByPlayer[location.ownerPlayerId] ??
+        DefaultCollectionVisibility.PRIVATE,
+      location.visibility,
+    );
+
   const quantities = locations.length
     ? await prisma.inventoryItem.groupBy({
         by: ["locationId"],
@@ -94,6 +137,7 @@ export default async function LocationsPage() {
       name: String(fd.get("name") || ""),
       description: String(fd.get("description") || "") || null,
       type: String(fd.get("type") || "") || null,
+      visibility: parseVisibility(fd.get("visibility")),
     });
     await prisma.inventoryAuditLog.create({
       data: {
@@ -123,6 +167,7 @@ export default async function LocationsPage() {
       description: String(fd.get("description") || "") || null,
       type: String(fd.get("type") || "") || null,
       active: fd.get("active") === "on",
+      visibility: parseVisibility(fd.get("visibility")),
     });
     await prisma.inventoryAuditLog.create({
       data: {
@@ -364,7 +409,7 @@ export default async function LocationsPage() {
         <h2 className="text-xl font-semibold">Create location</h2>
         <form
           action={createLocationAction}
-          className="grid gap-2 md:grid-cols-5"
+          className="grid gap-2 md:grid-cols-7"
         >
           {adminModeActive ? (
             <select
@@ -397,6 +442,15 @@ export default async function LocationsPage() {
             placeholder="description optional"
             className="border p-2 bg-zinc-900"
           />
+          <select
+            name="visibility"
+            defaultValue={Visibility.INHERIT}
+            className="border p-2 bg-zinc-900"
+          >
+            <option value={Visibility.INHERIT}>Use account default</option>
+            <option value={Visibility.PRIVATE}>Private</option>
+            <option value={Visibility.PUBLIC}>Public</option>
+          </select>
           <SubmitButton
             pendingLabel="Creating location…"
             className="border px-3 py-2"
@@ -412,55 +466,22 @@ export default async function LocationsPage() {
           Move every inventory entry from one location to another. Matching
           destination rows are merged and the operation is transactional.
         </p>
-        <form action={moveLocationAction} className="grid gap-2 md:grid-cols-4">
-          <label className="text-sm">
-            Source location
-            <select
-              name="sourceLocationId"
-              required
-              className="w-full border p-2 bg-zinc-900"
-            >
-              <option value="">Choose source</option>
-              {locations.map((location) => {
-                const counts = quantityByLocation[location.id] ?? {
-                  quantity: 0,
-                  entries: 0,
-                };
-                return (
-                  <option key={location.id} value={location.id}>
-                    {location.name} — {counts.quantity} cards / {counts.entries}{" "}
-                    entries
-                  </option>
-                );
-              })}
-            </select>
-          </label>
-          <label className="text-sm">
-            Destination location
-            <select
-              name="destinationLocationId"
-              required
-              className="w-full border p-2 bg-zinc-900"
-            >
-              <option value="">Choose destination</option>
-              {locations.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="confirmMove" />
-            Confirm moving all cards from the source location.
-          </label>
-          <SubmitButton
-            pendingLabel="Moving location…"
-            className="border px-3 py-2"
-          >
-            Move entire location
-          </SubmitButton>
-        </form>
+        <LocationMoveForm
+          moveAction={moveLocationAction}
+          locations={locations.map((location) => {
+            const counts = quantityByLocation[location.id] ?? {
+              quantity: 0,
+              entries: 0,
+            };
+            return {
+              id: location.id,
+              name: location.name,
+              entries: counts.entries,
+              quantity: counts.quantity,
+              effectiveVisibility: effectiveLocationVisibility(location),
+            };
+          })}
+        />
       </section>
 
       <section className="space-y-3">
@@ -480,6 +501,12 @@ export default async function LocationsPage() {
                 <span>
                   {counts.entries} inventory entries · {counts.quantity} total
                   cards
+                </span>
+                <span>
+                  Visibility: {visibilityLabel(location.visibility)} →{" "}
+                  {effectiveVisibilityLabel(
+                    effectiveLocationVisibility(location),
+                  )}
                 </span>
               </div>
               <form
@@ -502,6 +529,20 @@ export default async function LocationsPage() {
                   defaultValue={location.description ?? ""}
                   className="border p-2 bg-zinc-900 md:col-span-2"
                 />
+                <label className="text-sm">
+                  Visibility
+                  <select
+                    name="visibility"
+                    defaultValue={location.visibility}
+                    className="mt-1 w-full border p-2 bg-zinc-900"
+                  >
+                    <option value={Visibility.INHERIT}>
+                      Use account default
+                    </option>
+                    <option value={Visibility.PRIVATE}>Private</option>
+                    <option value={Visibility.PUBLIC}>Public</option>
+                  </select>
+                </label>
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
