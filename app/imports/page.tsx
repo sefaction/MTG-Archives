@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { FoilStatus, InventorySourceType } from "@prisma/client";
 import { Nav } from "@/components/Nav";
-import { isAdminUser, requireLogin as requireAuth } from "@/lib/auth";
+import { getAccessScope, requireLogin as requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   findOrImportCard,
@@ -403,8 +403,9 @@ async function assertAdminUser() {
     where: { id: actionUser.id },
     include: { player: true },
   });
-  if (!isAdminUser(actionUser, actionUserWithPlayer?.player))
-    throw new Error("Admin permissions required.");
+  const actionScope = await getAccessScope(actionUserWithPlayer ?? actionUser);
+  if (actionScope?.mode !== "admin")
+    throw new Error("Enter Admin Mode to use this action.");
   return actionUser;
 }
 
@@ -418,7 +419,8 @@ export default async function ImportsPage({
     where: { id: user.id },
     include: { player: true },
   });
-  const isAdmin = isAdminUser(user, userWithPlayer?.player);
+  const accessScope = await getAccessScope(userWithPlayer ?? user);
+  const isAdmin = accessScope?.mode === "admin";
   const params = await searchParams;
   const players = await prisma.player.findMany({
     where: { active: true },
@@ -436,7 +438,10 @@ export default async function ImportsPage({
       where: { id: actionUser.id },
       include: { player: true },
     });
-    const actionIsAdmin = isAdminUser(actionUser, actionUserWithPlayer?.player);
+    const actionScope = await getAccessScope(
+      actionUserWithPlayer ?? actionUser,
+    );
+    const actionIsAdmin = actionScope?.mode === "admin";
     if (!actionIsAdmin && !actionUserWithPlayer?.playerId)
       throw new Error(
         "Your login is not linked to an inventory owner. Ask an admin to save your account before importing.",
@@ -546,7 +551,10 @@ export default async function ImportsPage({
       where: { id: actionUser.id },
       include: { player: true },
     });
-    const actionIsAdmin = isAdminUser(actionUser, actionUserWithPlayer?.player);
+    const actionScope = await getAccessScope(
+      actionUserWithPlayer ?? actionUser,
+    );
+    const actionIsAdmin = actionScope?.mode === "admin";
     const itemId = String(fd.get("itemId") || "");
     const item = await prisma.importBatchItem.findUnique({
       where: { id: itemId },
@@ -602,7 +610,10 @@ export default async function ImportsPage({
       where: { id: actionUser.id },
       include: { player: true },
     });
-    const actionIsAdmin = isAdminUser(actionUser, actionUserWithPlayer?.player);
+    const actionScope = await getAccessScope(
+      actionUserWithPlayer ?? actionUser,
+    );
+    const actionIsAdmin = actionScope?.mode === "admin";
     const itemId = String(fd.get("itemId") || "");
     const scryfallId = String(fd.get("scryfallId") || "");
     const item = await prisma.importBatchItem.findUnique({
@@ -646,7 +657,10 @@ export default async function ImportsPage({
       where: { id: actionUser.id },
       include: { player: true },
     });
-    const actionIsAdmin = isAdminUser(actionUser, actionUserWithPlayer?.player);
+    const actionScope = await getAccessScope(
+      actionUserWithPlayer ?? actionUser,
+    );
+    const actionIsAdmin = actionScope?.mode === "admin";
     const itemId = String(fd.get("itemId") || "");
     const item = await prisma.importBatchItem.findUnique({
       where: { id: itemId },
@@ -685,7 +699,10 @@ export default async function ImportsPage({
       where: { id: actionUser.id },
       include: { player: true },
     });
-    const actionIsAdmin = isAdminUser(actionUser, actionUserWithPlayer?.player);
+    const actionScope = await getAccessScope(
+      actionUserWithPlayer ?? actionUser,
+    );
+    const actionIsAdmin = actionScope?.mode === "admin";
     const batchId = String(fd.get("batchId") || "");
     const batch = await prisma.importBatch.findUnique({
       where: { id: batchId },
@@ -728,7 +745,10 @@ export default async function ImportsPage({
       where: { id: actionUser.id },
       include: { player: true },
     });
-    const actionIsAdmin = isAdminUser(actionUser, actionUserWithPlayer?.player);
+    const actionScope = await getAccessScope(
+      actionUserWithPlayer ?? actionUser,
+    );
+    const actionIsAdmin = actionScope?.mode === "admin";
     const jobId = String(fd.get("jobId") || "");
     const job = await prisma.importResolutionJob.findUnique({
       where: { id: jobId },
@@ -752,7 +772,10 @@ export default async function ImportsPage({
       where: { id: actionUser.id },
       include: { player: true },
     });
-    const actionIsAdmin = isAdminUser(actionUser, actionUserWithPlayer?.player);
+    const actionScope = await getAccessScope(
+      actionUserWithPlayer ?? actionUser,
+    );
+    const actionIsAdmin = actionScope?.mode === "admin";
     const batchId = String(fd.get("batchId") || "");
     const itemId = String(fd.get("itemId") || "");
     const mode =
@@ -981,7 +1004,10 @@ export default async function ImportsPage({
       where: { id: actionUser.id },
       include: { player: true },
     });
-    const actionIsAdmin = isAdminUser(actionUser, actionUserWithPlayer?.player);
+    const actionScope = await getAccessScope(
+      actionUserWithPlayer ?? actionUser,
+    );
+    const actionIsAdmin = actionScope?.mode === "admin";
     const batchId = String(fd.get("batchId"));
     const batch = await prisma.importBatch.findUnique({
       where: { id: batchId },
@@ -1330,6 +1356,11 @@ export default async function ImportsPage({
       </div>
       <section className="border border-zinc-800 rounded p-4 space-y-3">
         <h2 className="text-xl font-semibold">Inventory CSV Import</h2>
+        <p className="rounded border border-zinc-800 p-2 text-sm text-zinc-300">
+          {isAdmin
+            ? "Admin mode: choose the target owner explicitly for this import."
+            : "Importing into your inventory."}
+        </p>
         <p className="text-sm text-zinc-400">
           Accepts MTG Inventory sample columns or Moxfield collection exports
           with Count, Name, Edition, Condition, Language, Foil, and Collector

@@ -1,5 +1,5 @@
 export const dynamic = "force-dynamic";
-import { hashPassword, requireAdmin } from "@/lib/auth";
+import { hashPassword, requireAdminMode } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { Nav } from "@/components/Nav";
@@ -13,7 +13,7 @@ import {
 
 async function refresh() {
   "use server";
-  await requireAdmin();
+  await requireAdminMode();
   revalidatePath("/admin");
 }
 function slugify(value: string) {
@@ -43,7 +43,7 @@ async function ensureOwnerForUser(
 }
 
 export default async function Page() {
-  await requireAdmin();
+  await requireAdminMode();
   const scryfallStatus = getScryfallRuntimeStatus();
   const [users, inventoryCount, openTrades, cachedPrintings, dueForRefresh] =
     await Promise.all([
@@ -141,7 +141,7 @@ export default async function Page() {
         <form
           action={async () => {
             "use server";
-            await requireAdmin();
+            await requireAdminMode();
             const result = await getExactCardByNameResult("Sol Ring");
             if (!result.ok) throw new Error(formatScryfallError(result.error));
             revalidatePath("/admin");
@@ -166,7 +166,7 @@ export default async function Page() {
         <form
           action={async (fd) => {
             "use server";
-            await requireAdmin();
+            await requireAdminMode();
             const password = String(fd.get("password") || "");
             const confirm = String(fd.get("confirmPassword") || "");
             if (password !== confirm)
@@ -266,7 +266,7 @@ export default async function Page() {
               <form
                 action={async (fd) => {
                   "use server";
-                  await requireAdmin();
+                  await requireAdminMode();
                   const displayName = String(
                     fd.get("displayName") || fd.get("username"),
                   ).trim();
@@ -355,7 +355,7 @@ export default async function Page() {
               <form
                 action={async (fd) => {
                   "use server";
-                  await requireAdmin();
+                  await requireAdminMode();
                   const password = String(fd.get("password") || "");
                   const confirm = String(fd.get("confirmPassword") || "");
                   if (password !== confirm)

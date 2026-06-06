@@ -1,8 +1,8 @@
 export const dynamic = "force-dynamic";
 import {
+  getAccessScope,
   getCurrentUser,
-  isAdminUser,
-  requireAdmin,
+  requireAdminMode,
   requireLogin,
 } from "@/lib/auth";
 import { Nav } from "@/components/Nav";
@@ -33,7 +33,8 @@ export default async function InventoryPage({
 }) {
   const user = await getCurrentUser();
   const userWithPlayer = user;
-  const isAdmin = isAdminUser(user, user?.player);
+  const accessScope = user ? await getAccessScope(user) : null;
+  const adminModeActive = accessScope?.mode === "admin";
 
   const p = await searchParams;
   const where: any = { quantity: { gt: 0 } };
@@ -58,7 +59,7 @@ export default async function InventoryPage({
       ...(where.card || {}),
       typeLine: { contains: p.typeLine, mode: "insensitive" },
     };
-  if (!isAdmin) {
+  if (!adminModeActive) {
     where.currentOwnerId = userWithPlayer?.playerId || "__no_owner__";
   } else if (p.ownerId) {
     where.currentOwnerId = p.ownerId;
@@ -112,13 +113,16 @@ export default async function InventoryPage({
     }),
     prisma.player.findMany({ orderBy: { displayName: "asc" } }),
     prisma.round.findMany({ orderBy: { startDate: "desc" } }),
-    isAdmin
+    adminModeActive
       ? prisma.inventoryItem.count({ where: { quantity: { lte: 0 } } })
       : Promise.resolve(0),
   ]);
 
   const activeOwnerId =
-    p.ownerId || (!isAdmin ? userWithPlayer?.playerId || "" : "");
+    p.ownerId || (!adminModeActive ? userWithPlayer?.playerId || "" : "");
+  const visiblePlayers = adminModeActive
+    ? players
+    : players.filter((player) => player.id === userWithPlayer?.playerId);
   const locations = activeOwnerId
     ? await getLocationsForOwner(prisma, activeOwnerId)
     : await prisma.inventoryLocation.findMany({
@@ -160,7 +164,7 @@ export default async function InventoryPage({
 
   async function onSearchPrintings(fd: FormData) {
     "use server";
-    await requireAdmin();
+    await requireAdminMode();
     const q = String(fd.get("q") || "");
     const r = await searchLocalThenScryfallCards(q);
     return r.cards.slice(0, 20).map((c) => ({
@@ -176,7 +180,7 @@ export default async function InventoryPage({
 
   async function onSaveEdit(fd: FormData) {
     "use server";
-    const actionUser = await requireAdmin();
+    const actionUser = await requireAdminMode();
     const inventoryItemId = String(fd.get("inventoryItemId") || "");
     const quantity = Number(fd.get("quantity"));
     if (!Number.isInteger(quantity) || quantity <= 0)
@@ -257,7 +261,8 @@ export default async function InventoryPage({
   async function onBulkMoveLocation(fd: FormData) {
     "use server";
     const actionUser = await requireLogin();
-    const actionIsAdmin = isAdminUser(actionUser, actionUser.player);
+    const actionScope = await getAccessScope(actionUser);
+    const actionIsAdmin = actionScope?.mode === "admin";
     const fieldNames = Array.from(new Set(Array.from(fd.keys()).map(String)));
     const destinationLocationId = String(fd.get("destinationLocationId") || "");
     const clientDestinationLocationId = String(
@@ -407,7 +412,8 @@ export default async function InventoryPage({
   async function onBulkDeleteInventory(fd: FormData) {
     "use server";
     const actionUser = await requireLogin();
-    const actionIsAdmin = isAdminUser(actionUser, actionUser.player);
+    const actionScope = await getAccessScope(actionUser);
+    const actionIsAdmin = actionScope?.mode === "admin";
     const selectionMode = String(fd.get("selectionMode") || "selected");
     const sourceLocationIdRaw = String(fd.get("sourceLocationId") || "");
     const reason = String(fd.get("reason") || "Inventory deleted.").trim();
@@ -443,6 +449,13 @@ export default async function InventoryPage({
         return {
           success: false as const,
           message: "Choose inventory to delete.",
+        };
+      }
+      if (actionIsAdmin && !p.ownerId && selectionMode === "all") {
+        return {
+          success: false as const,
+          message:
+            "Filter to one current owner before deleting all matching inventory in Admin Mode.",
         };
       }
       const allowedOwnerId = actionIsAdmin
@@ -656,6 +669,11 @@ export default async function InventoryPage({
     <main className="p-8 space-y-4">
       <Nav />
       <h1 className="text-3xl font-bold">Inventory</h1>
+      <p className="rounded border border-zinc-800 p-3 text-sm text-zinc-300">
+        {adminModeActive
+          ? "Showing inventory across all users. Filter to one owner before broad bulk deletes."
+          : "Showing your inventory."}
+      </p>
       {user ? (
         <section className="border border-zinc-800 rounded p-3 space-y-2">
           <h2 className="font-semibold">Export Inventory</h2>
@@ -710,8 +728,10 @@ export default async function InventoryPage({
               >
                 <option value="filtered">Current filtered view</option>
                 <option value="my">My inventory</option>
-                {isAdmin ? <option value="all">All inventory</option> : null}
-                {isAdmin ? (
+                {adminModeActive ? (
+                  <option value="all">All inventory</option>
+                ) : null}
+                {adminModeActive ? (
                   <option value="owner">Selected current owner</option>
                 ) : null}
               </select>
@@ -724,9 +744,9 @@ export default async function InventoryPage({
                 className="w-full border p-2 bg-zinc-900"
               >
                 <option value="">
-                  {isAdmin ? "all owners" : "my inventory"}
+                  {adminModeActive ? "all owners" : "my inventory"}
                 </option>
-                {players.map((pl) => (
+                {visiblePlayers.map((pl) => (
                   <option key={pl.id} value={pl.id}>
                     {pl.displayName}
                   </option>
@@ -779,7 +799,7 @@ export default async function InventoryPage({
           Guest mode is read-only. Log in to export inventory or make changes.
         </p>
       )}
-      {isAdmin ? (
+      {adminModeActive ? (
         <section className="border border-zinc-800 rounded p-3 space-y-2">
           <h2 className="font-semibold">Inventory Maintenance</h2>
           <p className="text-sm text-zinc-400">
@@ -831,25 +851,31 @@ export default async function InventoryPage({
             placeholder="type line contains"
             className="border p-2 bg-zinc-900"
           />
-          <select
-            name="ownerId"
-            defaultValue={p.ownerId}
-            className="border p-2 bg-zinc-900"
-          >
-            <option value="">current owner</option>
-            {players.map((pl) => (
-              <option key={pl.id} value={pl.id}>
-                {pl.displayName}
-              </option>
-            ))}
-          </select>
+          {adminModeActive ? (
+            <select
+              name="ownerId"
+              defaultValue={p.ownerId}
+              className="border p-2 bg-zinc-900"
+            >
+              <option value="">current owner</option>
+              {visiblePlayers.map((pl) => (
+                <option key={pl.id} value={pl.id}>
+                  {pl.displayName}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <p className="rounded border border-zinc-800 p-2 text-sm text-zinc-400">
+              Showing your inventory
+            </p>
+          )}
           <select
             name="originalOpenerId"
             defaultValue={p.originalOpenerId}
             className="border p-2 bg-zinc-900"
           >
             <option value="">original opener</option>
-            {players.map((pl) => (
+            {visiblePlayers.map((pl) => (
               <option key={pl.id} value={pl.id}>
                 {pl.displayName}
               </option>
@@ -954,7 +980,7 @@ export default async function InventoryPage({
       </details>
       <InventoryBrowser
         rows={rows}
-        players={players.map((p) => ({
+        players={visiblePlayers.map((p) => ({
           id: p.id,
           name: p.displayName,
           color: p.color,
@@ -962,7 +988,7 @@ export default async function InventoryPage({
         rounds={rounds.map((r) => ({ id: r.id, name: r.name }))}
         locations={locations.map((l) => ({ id: l.id, name: l.name }))}
         cardLabels={cardLabels}
-        isAdmin={isAdmin}
+        isAdmin={adminModeActive}
         displayMode={displayMode}
         totalMatchingCount={
           displayMode === "grouped" ? groupedItems.length : exactItems.length

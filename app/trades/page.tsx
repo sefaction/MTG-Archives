@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { Nav } from "@/components/Nav";
 import { prisma } from "@/lib/prisma";
-import { isAdminUser, requireLogin } from "@/lib/auth";
+import { getAccessScope, requireLogin } from "@/lib/auth";
 import { TradeStatus } from "@prisma/client";
 import { actOnTrade, confirmPhysicalTrade, createTrade } from "./actions";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
@@ -89,7 +89,8 @@ export default async function TradesPage({
   searchParams: Promise<SearchParams>;
 }) {
   const user = await requireLogin();
-  const isAdmin = isAdminUser(user, user.player);
+  const accessScope = await getAccessScope(user);
+  const isAdmin = accessScope?.mode === "admin";
   const params = await searchParams;
   const players = await prisma.player.findMany({
     where: { active: true },

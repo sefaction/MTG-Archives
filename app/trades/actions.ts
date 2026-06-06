@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { isAdminUser, requireLogin } from "@/lib/auth";
+import { getAccessScope, requireLogin } from "@/lib/auth";
 import { InventorySourceType, TradeStatus } from "@prisma/client";
 import { ensureDefaultLocation } from "@/lib/inventory-locations";
 import { revalidatePath } from "next/cache";
@@ -149,7 +149,8 @@ async function loadTradeForAction(tradeId: string) {
 
 export async function createTrade(fd: FormData) {
   const actor = await requireLogin();
-  const actorIsAdmin = isAdminUser(actor, actor.player);
+  const actorScope = await getAccessScope(actor);
+  const actorIsAdmin = actorScope?.mode === "admin";
   const proposerPlayerId = actorIsAdmin
     ? String(fd.get("proposerPlayerId") || "")
     : actor.playerId!;
@@ -187,7 +188,8 @@ export async function createTrade(fd: FormData) {
 
 export async function actOnTrade(fd: FormData) {
   const actor = await requireLogin();
-  const actorIsAdmin = isAdminUser(actor, actor.player);
+  const actorScope = await getAccessScope(actor);
+  const actorIsAdmin = actorScope?.mode === "admin";
   const tradeId = String(fd.get("tradeId") || "");
   const action = String(fd.get("action") || "");
   const trade = await loadTradeForAction(tradeId);
@@ -515,7 +517,8 @@ async function completeTradeIfReady(
 
 export async function confirmPhysicalTrade(fd: FormData) {
   const actor = await requireLogin();
-  const actorIsAdmin = isAdminUser(actor, actor.player);
+  const actorScope = await getAccessScope(actor);
+  const actorIsAdmin = actorScope?.mode === "admin";
   const trade = await loadTradeForAction(String(fd.get("tradeId") || ""));
   if (!physicalStatuses.includes(trade.status))
     throw new Error("This trade is not awaiting physical confirmation.");

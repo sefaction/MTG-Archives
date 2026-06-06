@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { canAccessImportBatch, requireLogin } from "@/lib/auth";
+import { canAccessImportBatch, getAccessScope, requireLogin } from "@/lib/auth";
 import { calculateImportProgress } from "@/lib/import-progress";
 import {
   getImportResolutionJobConfig,
@@ -35,7 +35,8 @@ export async function GET(
       { success: false, message: "Import batch not found." },
       { status: 404 },
     );
-  if (!canAccessImportBatch(user, batch))
+  const accessScope = await getAccessScope(user);
+  if (!canAccessImportBatch(user, batch, accessScope?.mode === "admin"))
     return Response.json(
       { success: false, message: "Not authorized for this import batch." },
       { status: 403 },

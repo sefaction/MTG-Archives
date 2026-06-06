@@ -6,7 +6,23 @@ import type { User, Player } from "@prisma/client";
 import { UserRole } from "@prisma/client";
 
 const COOKIE_NAME = "boxleague_session";
+const ADMIN_MODE_COOKIE_NAME = "mtg_admin_mode";
 export type CurrentUser = User & { player: Player | null };
+
+export type AccessScope =
+  | {
+      mode: "user";
+      userId: string;
+      playerId: string | null;
+      isAdminUser: boolean;
+    }
+  | {
+      mode: "admin";
+      userId: string;
+      playerId: string | null;
+      isAdminUser: true;
+      canViewAllUsers: true;
+    };
 
 export function isAdminUser(
   user?: Pick<User, "role" | "username"> | null,
@@ -17,6 +33,65 @@ export function isAdminUser(
     user?.username === (process.env.ADMIN_USERNAME || "admin") ||
     Boolean(player?.isAdmin)
   );
+}
+
+export async function isAdminModeEnabled(user?: CurrentUser | null) {
+  if (!isAdminUser(user, user?.player)) return false;
+  return (await cookies()).get(ADMIN_MODE_COOKIE_NAME)?.value === "1";
+}
+
+export function resolveAccessScope(
+  user: CurrentUser,
+  adminModeEnabled: boolean,
+): AccessScope {
+  const userIsAdmin = isAdminUser(user, user.player);
+  if (userIsAdmin && adminModeEnabled) {
+    return {
+      mode: "admin",
+      userId: user.id,
+      playerId: user.playerId,
+      isAdminUser: true,
+      canViewAllUsers: true,
+    };
+  }
+  return {
+    mode: "user",
+    userId: user.id,
+    playerId: user.playerId,
+    isAdminUser: userIsAdmin,
+  };
+}
+
+export async function getAccessScope(user?: CurrentUser | null) {
+  const currentUser = user ?? (await getCurrentUser());
+  if (!currentUser) return null;
+  return resolveAccessScope(currentUser, await isAdminModeEnabled(currentUser));
+}
+
+export async function setAdminMode(enabled: boolean) {
+  const user = await requireLogin();
+  if (!isAdminUser(user, user.player)) {
+    throw new Error("You do not have permission to use admin mode.");
+  }
+  const cookieStore = await cookies();
+  if (enabled) {
+    cookieStore.set(ADMIN_MODE_COOKIE_NAME, "1", {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.COOKIE_SECURE === "true",
+      path: "/",
+      maxAge: 60 * 60 * 12,
+    });
+  } else {
+    cookieStore.delete({ name: ADMIN_MODE_COOKIE_NAME, path: "/" });
+  }
+}
+
+export async function requireAdminMode() {
+  const user = await requireLogin();
+  if (!isAdminUser(user, user.player)) redirect("/dashboard?auth=denied");
+  if (!(await isAdminModeEnabled(user))) redirect("/dashboard?auth=admin-mode");
+  return user;
 }
 
 export async function hashPassword(password: string) {
@@ -100,26 +175,39 @@ export async function requirePlayerOrAdmin() {
   return user;
 }
 
-export function canImportForPlayer(user: CurrentUser, playerId: string) {
-  return isAdminUser(user, user.player) || user.playerId === playerId;
+export function canImportForPlayer(
+  user: CurrentUser,
+  playerId: string,
+  adminModeEnabled = false,
+) {
+  return (
+    (isAdminUser(user, user.player) && adminModeEnabled) ||
+    user.playerId === playerId
+  );
 }
 
 export function canAccessImportBatch(
   user: CurrentUser,
   batch: { selectedPlayerId: string },
+  adminModeEnabled = false,
 ) {
   return (
-    isAdminUser(user, user.player) || user.playerId === batch.selectedPlayerId
+    (isAdminUser(user, user.player) && adminModeEnabled) ||
+    user.playerId === batch.selectedPlayerId
   );
 }
 
-export function canExportInventory(user: CurrentUser, ownerId?: string | null) {
+export function canExportInventory(
+  user: CurrentUser,
+  ownerId?: string | null,
+  adminModeEnabled = false,
+) {
   return (
-    isAdminUser(user, user.player) ||
+    (isAdminUser(user, user.player) && adminModeEnabled) ||
     Boolean(user.playerId && (!ownerId || ownerId === user.playerId))
   );
 }
 
-export function canEditInventory(user: CurrentUser) {
-  return isAdminUser(user, user.player);
+export function canEditInventory(user: CurrentUser, adminModeEnabled = false) {
+  return isAdminUser(user, user.player) && adminModeEnabled;
 }

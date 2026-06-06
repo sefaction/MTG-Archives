@@ -1,6 +1,6 @@
 "use server";
 
-import { requireAdmin } from "@/lib/auth";
+import { requireAdminMode } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { TradeStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -29,7 +29,7 @@ async function assertNotReserved(inventoryItemId: string) {
 }
 
 export async function deleteInventoryItem(fd: FormData) {
-  const admin = await requireAdmin();
+  const admin = await requireAdminMode();
   const inventoryItemId = String(fd.get("inventoryItemId") || "");
   const reason = String(
     fd.get("deleteReason") || fd.get("reason") || "",
@@ -65,7 +65,7 @@ export async function deleteInventoryItem(fd: FormData) {
 }
 
 export async function cleanupZeroQuantityInventory(fd?: FormData) {
-  const admin = await requireAdmin();
+  const admin = await requireAdminMode();
   const reason = String(
     fd?.get("reason") || "Admin cleanup of zero-quantity inventory items.",
   );

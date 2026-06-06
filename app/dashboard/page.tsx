@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Nav } from "@/components/Nav";
-import { getCurrentUser, isAdminUser } from "@/lib/auth";
+import { getAccessScope, getCurrentUser } from "@/lib/auth";
 import { TradeStatus } from "@prisma/client";
 
 const openTradeStatuses = [
@@ -18,14 +18,17 @@ export default async function DashboardPage({
 }) {
   const params = await searchParams;
   const user = await getCurrentUser();
-  const isAdmin = isAdminUser(user, user?.player);
+  const accessScope = user ? await getAccessScope(user) : null;
+  const adminModeActive = accessScope?.mode === "admin";
   const ownerId = user?.playerId ?? "";
   const authMessage =
     params.auth === "required"
       ? "Please log in to access this page."
       : params.auth === "denied"
         ? "You do not have permission to access that page."
-        : "";
+        : params.auth === "admin-mode"
+          ? "Enter Admin Mode to use that action."
+          : "";
 
   const [
     uniqueEntries,
@@ -76,16 +79,16 @@ export default async function DashboardPage({
           take: 5,
         })
       : Promise.resolve([]),
-    isAdmin
+    adminModeActive
       ? prisma.user.count({ where: { isActive: true } })
       : Promise.resolve(0),
-    isAdmin
+    adminModeActive
       ? prisma.inventoryItem.aggregate({
           where: { quantity: { gt: 0 } },
           _sum: { quantity: true },
         })
       : Promise.resolve({ _sum: { quantity: 0 } }),
-    isAdmin
+    adminModeActive
       ? prisma.trade.count({ where: { status: { in: openTradeStatuses } } })
       : Promise.resolve(0),
   ]);
@@ -94,9 +97,13 @@ export default async function DashboardPage({
     <main className="p-8 space-y-6">
       <Nav />
       <div>
-        <h1 className="text-3xl font-bold">Inventory Dashboard</h1>
+        <h1 className="text-3xl font-bold">
+          {adminModeActive ? "Admin Dashboard" : "My Dashboard"}
+        </h1>
         <p className="text-zinc-400">
-          A quick view of your MTG inventory and open trade activity.
+          {adminModeActive
+            ? "A global view of users, inventory, and open trade activity."
+            : "A quick view of your MTG inventory and open trade activity."}
         </p>
       </div>
       {authMessage ? (
@@ -173,7 +180,7 @@ export default async function DashboardPage({
           </p>
         )}
       </section>
-      {isAdmin ? (
+      {adminModeActive ? (
         <section className="rounded border border-zinc-800 p-4">
           <h2 className="mb-3 text-xl font-semibold">Admin overview</h2>
           <div className="grid gap-4 md:grid-cols-3">

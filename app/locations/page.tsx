@@ -7,7 +7,7 @@ import {
 } from "@/components/LocationContentsDeleteForm";
 import { Nav } from "@/components/Nav";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
-import { getCurrentUser, isAdminUser, requireLogin } from "@/lib/auth";
+import { getAccessScope, getCurrentUser, requireLogin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   bulkMoveInventoryToLocation,
@@ -24,7 +24,8 @@ async function getActionContext() {
     where: { id: user.id },
     include: { player: true },
   });
-  const admin = isAdminUser(user, userWithPlayer?.player);
+  const scope = await getAccessScope(userWithPlayer ?? user);
+  const admin = scope?.mode === "admin";
   if (!userWithPlayer?.playerId && !admin)
     throw new Error("Your account is not linked to an inventory owner.");
   return { user, playerId: userWithPlayer?.playerId ?? null, admin };
@@ -42,8 +43,9 @@ export default async function LocationsPage() {
       </main>
     );
   }
-  const isAdmin = isAdminUser(user, user.player);
-  const owners = isAdmin
+  const accessScope = await getAccessScope(user);
+  const adminModeActive = accessScope?.mode === "admin";
+  const owners = adminModeActive
     ? await prisma.player.findMany({ orderBy: { displayName: "asc" } })
     : user.player
       ? [user.player]
@@ -51,7 +53,7 @@ export default async function LocationsPage() {
   for (const owner of owners) await ensureDefaultLocation(prisma, owner.id);
   const selectedOwnerId = user.playerId || owners[0]?.id || "";
   const locations = await prisma.inventoryLocation.findMany({
-    where: isAdmin ? {} : { ownerPlayerId: selectedOwnerId },
+    where: adminModeActive ? {} : { ownerPlayerId: selectedOwnerId },
     include: {
       ownerPlayer: true,
       _count: { select: { inventoryItems: true } },
@@ -351,6 +353,11 @@ export default async function LocationsPage() {
           Manage storage locations such as boxes, shelves, binders, and
           deckboxes.
         </p>
+        <p className="mt-2 rounded border border-zinc-800 p-3 text-sm text-zinc-300">
+          {adminModeActive
+            ? "Admin mode: showing locations across users."
+            : "Showing your locations."}
+        </p>
       </div>
 
       <section className="rounded border border-zinc-800 p-4 space-y-3">
@@ -359,7 +366,7 @@ export default async function LocationsPage() {
           action={createLocationAction}
           className="grid gap-2 md:grid-cols-5"
         >
-          {isAdmin ? (
+          {adminModeActive ? (
             <select
               name="ownerPlayerId"
               defaultValue={selectedOwnerId}

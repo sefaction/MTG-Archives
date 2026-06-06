@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import path from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
 import { prisma } from "@/lib/prisma";
-import { canExportInventory, isAdminUser, requireLogin } from "@/lib/auth";
+import { canExportInventory, getAccessScope, requireLogin } from "@/lib/auth";
 
 function csvEscape(value: unknown) {
   const text = value === null || value === undefined ? "" : String(value);
@@ -59,11 +59,11 @@ function safeFilenamePart(value: string) {
 
 export async function GET(request: NextRequest) {
   const user = await requireLogin();
-  const userWithPlayer = user;
-  const isAdmin = isAdminUser(user, user.player);
+  const accessScope = await getAccessScope(user);
+  const adminModeActive = accessScope?.mode === "admin";
   const signedInPlayerId = user.playerId;
 
-  if (!signedInPlayerId && !isAdmin) {
+  if (!signedInPlayerId && !adminModeActive) {
     return new Response(
       "Your login is not linked to an inventory owner, so there is no inventory to export.",
       { status: 403 },
@@ -77,14 +77,14 @@ export async function GET(request: NextRequest) {
   const roundId = params.get("roundId") || "";
   const foilFormat = params.get("foilFormat") || "moxfield";
 
-  if (!canExportInventory(user, ownerId || signedInPlayerId)) {
+  if (!canExportInventory(user, ownerId || signedInPlayerId, adminModeActive)) {
     return new Response("Not authorized to export that inventory.", {
       status: 403,
     });
   }
 
   const where: any = { quantity: { gt: 0 } };
-  if (!isAdmin) {
+  if (!adminModeActive) {
     where.currentOwnerId = signedInPlayerId;
   } else if (scope === "my" && signedInPlayerId) {
     where.currentOwnerId = signedInPlayerId;
@@ -185,7 +185,7 @@ export async function GET(request: NextRequest) {
 
   let csv: string;
   if (format === "moxfield") {
-    filenameBase = `moxfield-inventory-${safeFilenamePart(selectedOwner?.displayName || userWithPlayer?.player?.displayName || (isAdmin && scope === "all" ? "all" : "my"))}`;
+    filenameBase = `moxfield-inventory-${safeFilenamePart(selectedOwner?.displayName || user.player?.displayName || (adminModeActive && scope === "all" ? "all" : "my"))}`;
     const headers = [
       "Count",
       "Name",
