@@ -4,25 +4,52 @@ services:
     restart: unless-stopped
     pull_policy: always
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-boxleague}
-      POSTGRES_USER: ${POSTGRES_USER:-boxleague}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-boxleague}
+      POSTGRES_DB: ${POSTGRES_DB:-mtginventory}
+      POSTGRES_USER: ${POSTGRES_USER:-mtginventory}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mtginventory}
     volumes:
-      - ${POSTGRES_DATA_PATH:-/mnt/user/appdata/box-league/postgres}:/var/lib/postgresql/data
+      - ${POSTGRES_DATA_PATH:?POSTGRES_DATA_PATH must be set in .env}:/var/lib/postgresql/data
     ports:
       - "${POSTGRES_HOST_PORT:-15435}:5432"
 
   web:
     build:
-      context: ${GIT_CONTEXT:-https://github.com/sefaction/sealed-commander-league.git#main}
+      context: ${GIT_CONTEXT:-https://github.com/sefaction/MTG-Archives.git#main}
       dockerfile: ${DOCKERFILE_PATH:-./Dockerfile}
     pull_policy: build
     restart: unless-stopped
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql://boxleague:boxleague@postgres:5432/boxleague?schema=public}
-      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Box League}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://mtginventory:mtginventory@postgres:5432/mtginventory?schema=public}
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-MTG Inventory}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-admin123}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_DISPLAY_NAME: ${ADMIN_DISPLAY_NAME:-Administrator}
+      UPLOADS_DATA_PATH: ${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}
+      IMPORTS_DATA_PATH: ${IMPORTS_DATA_PATH:?IMPORTS_DATA_PATH must be set in .env}
+      EXPORTS_DATA_PATH: ${EXPORTS_DATA_PATH:?EXPORTS_DATA_PATH must be set in .env}
+      BACKUPS_DATA_PATH: ${BACKUPS_DATA_PATH:?BACKUPS_DATA_PATH must be set in .env}
+      SCRYFALL_API_BASE_URL: ${SCRYFALL_API_BASE_URL:-https://api.scryfall.com}
+      SCRYFALL_USER_AGENT: ${SCRYFALL_USER_AGENT:-MTG-Archives/1.0}
+      SCRYFALL_MIN_REQUEST_INTERVAL_MS: ${SCRYFALL_MIN_REQUEST_INTERVAL_MS:-100}
+      SCRYFALL_MAX_RETRIES: ${SCRYFALL_MAX_RETRIES:-4}
+      SCRYFALL_REQUEST_TIMEOUT_MS: ${SCRYFALL_REQUEST_TIMEOUT_MS:-15000}
+      SCRYFALL_CACHE_ENABLED: ${SCRYFALL_CACHE_ENABLED:-true}
+      SCRYFALL_CARD_REFRESH_DAYS: ${SCRYFALL_CARD_REFRESH_DAYS:-30}
+      SCRYFALL_PRICE_REFRESH_HOURS: ${SCRYFALL_PRICE_REFRESH_HOURS:-24}
+      SCRYFALL_BULK_DATA_ENABLED: ${SCRYFALL_BULK_DATA_ENABLED:-true}
+      SCRYFALL_CONTAINER_DATA_PATH: ${SCRYFALL_CONTAINER_DATA_PATH:-/app/data/scryfall}
+      SCRYFALL_BULK_REFRESH_HOURS: ${SCRYFALL_BULK_REFRESH_HOURS:-24}
+      IMPORT_RESOLVE_BATCH_SIZE: ${IMPORT_RESOLVE_BATCH_SIZE:-50}
+      IMPORT_RESOLVE_MAX_BATCHES_PER_RUN: ${IMPORT_RESOLVE_MAX_BATCHES_PER_RUN:-0}
+      IMPORT_RESOLVE_POLL_INTERVAL_MS: ${IMPORT_RESOLVE_POLL_INTERVAL_MS:-1500}
+      IMPORT_RESOLVE_STALE_JOB_TIMEOUT_MINUTES: ${IMPORT_RESOLVE_STALE_JOB_TIMEOUT_MINUTES:-15}
       NODE_ENV: production
+    volumes:
+      - ${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}:${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}
+      - ${IMPORTS_DATA_PATH:?IMPORTS_DATA_PATH must be set in .env}:${IMPORTS_DATA_PATH:?IMPORTS_DATA_PATH must be set in .env}
+      - ${EXPORTS_DATA_PATH:?EXPORTS_DATA_PATH must be set in .env}:${EXPORTS_DATA_PATH:?EXPORTS_DATA_PATH must be set in .env}
+      - ${BACKUPS_DATA_PATH:?BACKUPS_DATA_PATH must be set in .env}:${BACKUPS_DATA_PATH:?BACKUPS_DATA_PATH must be set in .env}
+      - ${SCRYFALL_DATA_PATH:?SCRYFALL_DATA_PATH must be set in .env}:${SCRYFALL_CONTAINER_DATA_PATH:-/app/data/scryfall}
     depends_on:
       - postgres
     ports:
