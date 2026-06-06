@@ -74,7 +74,6 @@ export async function GET(request: NextRequest) {
   const format = params.get("format") === "moxfield" ? "moxfield" : "full";
   const scope = params.get("scope") || "my";
   const ownerId = params.get("ownerId") || "";
-  const roundId = params.get("roundId") || "";
   const foilFormat = params.get("foilFormat") || "moxfield";
 
   if (!canExportInventory(user, ownerId || signedInPlayerId, adminModeActive)) {
@@ -92,7 +91,6 @@ export async function GET(request: NextRequest) {
     where.currentOwnerId = ownerId;
   }
 
-  if (roundId) where.roundId = roundId;
   if (params.get("locationId")) where.locationId = params.get("locationId");
   const cardWhere: any = {};
   const cardName = params.get("cardName")?.trim();
@@ -117,8 +115,6 @@ export async function GET(request: NextRequest) {
         : undefined,
     };
   if (Object.keys(cardWhere).length) where.card = cardWhere;
-  if (params.get("originalOpenerId"))
-    where.originalOpenerId = params.get("originalOpenerId");
   if (params.get("foil") === "true") where.foil = true;
   if (params.get("foil") === "false") where.foil = false;
 
@@ -136,8 +132,6 @@ export async function GET(request: NextRequest) {
     include: {
       card: true,
       currentOwner: true,
-      originalOpener: true,
-      round: true,
       location: true,
     },
     orderBy: [
@@ -205,9 +199,8 @@ export async function GET(request: NextRequest) {
       [
         "MTGInventory",
         `Owner:${item.currentOwner.displayName}`,
-        `AcquisitionGroup:${item.round?.name ?? "None"}`,
+        `Source:${item.sourceType}`,
         `Location:${item.location?.name ?? "Unassigned"}`,
-        `OriginalOwner:${item.originalOpener.displayName}`,
       ].join(", "),
     ]);
     csv = buildCsv(headers, rows);
@@ -228,10 +221,8 @@ export async function GET(request: NextRequest) {
       "Condition",
       "Language",
       "Owner",
-      "Original Owner",
-      "Acquisition Group",
       "Location",
-      "Source Type",
+      "Source",
       "Scryfall ID",
       "Oracle ID",
       "USD Price",
@@ -254,8 +245,6 @@ export async function GET(request: NextRequest) {
       item.condition || "NM",
       item.language || "EN",
       item.currentOwner.displayName,
-      item.originalOpener.displayName,
-      item.round?.name ?? "",
       item.location?.name ?? "Unassigned",
       item.sourceType,
       item.card.scryfallId,

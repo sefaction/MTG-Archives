@@ -15,14 +15,13 @@ type LabelMap = Record<string, string>;
 type Props = {
   entries?: InventoryAuditEntry[];
   playerLabels: LabelMap;
-  roundLabels: LabelMap;
   cardLabels: LabelMap;
 };
 
 const FIELD_LABELS: Record<string, string> = {
   currentOwnerId: "Current Owner",
-  originalOpenerId: "Original Opener",
-  roundId: "Round Opened",
+  originalOpenerId: "Legacy Original Owner",
+  roundId: "Legacy Source Group",
   cardId: "Card Printing",
   cardPrintingId: "Card Printing",
   quantity: "Quantity",
@@ -73,7 +72,7 @@ function friendlyEnum(value: string) {
 function formatValue(
   field: string,
   value: unknown,
-  lookups: Pick<Props, "playerLabels" | "roundLabels" | "cardLabels">,
+  lookups: Pick<Props, "playerLabels" | "cardLabels">,
 ) {
   const normalized = normalize(value);
   if (normalized === null) return "—";
@@ -81,7 +80,7 @@ function formatValue(
 
   if (field === "currentOwnerId" || field === "originalOpenerId")
     return lookups.playerLabels[raw] || raw;
-  if (field === "roundId") return lookups.roundLabels[raw] || raw;
+  if (field === "roundId") return raw;
   if (field === "cardId" || field === "cardPrintingId")
     return lookups.cardLabels[raw] || raw;
   if (field === "foilStatus" || field === "sourceType")
@@ -93,7 +92,7 @@ function formatValue(
 
 function getChangedFields(
   entry: InventoryAuditEntry,
-  lookups: Pick<Props, "playerLabels" | "roundLabels" | "cardLabels">,
+  lookups: Pick<Props, "playerLabels" | "cardLabels">,
 ) {
   const fields = Array.from(
     new Set([
@@ -119,7 +118,6 @@ function getChangedFields(
 export function InventoryAuditTrail({
   entries = [],
   playerLabels,
-  roundLabels,
   cardLabels,
 }: Props) {
   if (!entries.length) {
@@ -135,7 +133,6 @@ export function InventoryAuditTrail({
       {entries.map((entry) => {
         const changedFields = getChangedFields(entry, {
           playerLabels,
-          roundLabels,
           cardLabels,
         });
         return (

@@ -68,7 +68,7 @@ Permissions must allow the containers to write to their mounted directories. The
 
 ## Refactor status
 
-This project was copied from a Sealed Commander League application. The first inventory refactor removes league navigation and demo seed data while keeping legacy database tables in place for safe migration. See `docs/INVENTORY_REFACTOR.md` for the remaining migration plan and `docs/INVENTORY_LOCATIONS.md` for the location/grouped-view design notes.
+MTG Archives is now focused on inventory, locations, imports, trades, and card metadata. Legacy compatibility tables are kept internally so existing deployments can migrate safely, but normal user workflows no longer expose legacy intake/source-group setup. See `docs/INVENTORY_REFACTOR.md` for the compatibility plan and `docs/INVENTORY_LOCATIONS.md` for the location/grouped-view design notes.
 
 ## Useful commands
 

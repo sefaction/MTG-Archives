@@ -30,7 +30,6 @@ type TradeSnapshot = {
   collectorNumber?: string;
   imageUri?: string | null;
   imageUris?: { small?: string; normal?: string } | null;
-  roundName?: string;
 };
 type TradeCard = {
   card: {
@@ -40,7 +39,6 @@ type TradeCard = {
     setCode?: string | null;
     collectorNumber?: string | null;
   };
-  round?: { name: string } | null;
 } | null;
 
 function snapshot(value: unknown): TradeSnapshot {
@@ -72,15 +70,11 @@ function itemLabel(item: {
   condition: string;
   foilStatus: string;
   quantity: number;
-  round?: { name: string } | null;
 }) {
-  return `${item.card.name} (${item.card.setCode.toUpperCase()} #${item.card.collectorNumber}) • ${item.foilStatus.toLowerCase()} • ${item.condition} • ${item.round?.name ?? "No acquisition group"} • qty ${item.quantity}`;
+  return `${item.card.name} (${item.card.setCode.toUpperCase()} #${item.card.collectorNumber}) • ${item.foilStatus.toLowerCase()} • ${item.condition} • qty ${item.quantity}`;
 }
 function cardName(item: TradeCard, snap: TradeSnapshot) {
   return item?.card.name ?? snap.cardName ?? "Transferred inventory item";
-}
-function roundName(item: TradeCard, snap: TradeSnapshot) {
-  return item?.round?.name ?? snap.roundName ?? "No acquisition group";
 }
 
 export default async function TradesPage({
@@ -120,8 +114,6 @@ export default async function TradesPage({
     include: {
       card: true,
       currentOwner: true,
-      originalOpener: true,
-      round: true,
     },
     orderBy: [
       { currentOwner: { displayName: "asc" } },
@@ -138,11 +130,10 @@ export default async function TradesPage({
           ],
         },
     include: {
-      tradeRound: true,
       proposerPlayer: true,
       receiverPlayer: true,
-      offeredInventoryItem: { include: { card: true, round: true } },
-      requestedInventoryItem: { include: { card: true, round: true } },
+      offeredInventoryItem: { include: { card: true } },
+      requestedInventoryItem: { include: { card: true } },
       events: {
         orderBy: { createdAt: "asc" },
         include: { actorPlayer: true, actorUser: true },
@@ -345,9 +336,6 @@ export default async function TradesPage({
                   <div className="flex flex-wrap justify-between gap-3">
                     <div>
                       <h3 className="font-semibold">
-                        {trade.tradeRound?.name
-                          ? `${trade.tradeRound.name}: `
-                          : ""}
                         {trade.proposerPlayer.displayName} ↔{" "}
                         {trade.receiverPlayer.displayName}
                       </h3>
@@ -391,13 +379,7 @@ export default async function TradesPage({
                             offeredSnapshot,
                           )}
                         </div>
-                        <div className="text-xs text-zinc-400">
-                          qty 1 •{" "}
-                          {roundName(
-                            trade.offeredInventoryItem,
-                            offeredSnapshot,
-                          )}
-                        </div>
+                        <div className="text-xs text-zinc-400">qty 1</div>
                       </div>
                     </div>
                     <div className="flex gap-3 rounded border border-zinc-900 p-2">
@@ -424,13 +406,7 @@ export default async function TradesPage({
                             requestedSnapshot,
                           )}
                         </div>
-                        <div className="text-xs text-zinc-400">
-                          qty 1 •{" "}
-                          {roundName(
-                            trade.requestedInventoryItem,
-                            requestedSnapshot,
-                          )}
-                        </div>
+                        <div className="text-xs text-zinc-400">qty 1</div>
                       </div>
                     </div>
                   </div>

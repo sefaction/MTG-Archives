@@ -426,9 +426,6 @@ export default async function ImportsPage({
     where: { active: true },
     orderBy: { displayName: "asc" },
   });
-  const rounds = await prisma.round.findMany({
-    orderBy: { startDate: "desc" },
-  });
   const defaultPlayer = userWithPlayer?.player ?? players[0];
 
   async function previewImport(fd: FormData) {
@@ -449,17 +446,14 @@ export default async function ImportsPage({
     const selectedPlayerId = actionIsAdmin
       ? String(fd.get("selectedPlayerId") || "")
       : String(actionUserWithPlayer!.playerId);
-    const selectedOriginalOpenerId = actionIsAdmin
-      ? String(fd.get("selectedOriginalOpenerId") || selectedPlayerId)
-      : String(actionUserWithPlayer!.playerId);
-    const selectedRoundId = String(fd.get("selectedRoundId") || "");
+    const selectedOriginalOpenerId = selectedPlayerId;
     const file = fd.get("csvFile") as File | null;
     const duplicateBehavior = ["add", "separate", "preview"].includes(
       String(fd.get("duplicateBehavior")),
     )
       ? String(fd.get("duplicateBehavior"))
       : "add";
-    if (!selectedPlayerId || !selectedOriginalOpenerId || !file)
+    if (!selectedPlayerId || !file)
       throw new Error("Owner and CSV file are required.");
     const text = await file.text();
     const parsed = Papa.parse<Record<string, string>>(text, {
@@ -478,7 +472,7 @@ export default async function ImportsPage({
         filename: file.name || "inventory-import.csv",
         selectedPlayerId,
         selectedOriginalOpenerId,
-        selectedRoundId: selectedRoundId || null,
+        selectedRoundId: null,
         status: "PREVIEW",
         totalRows: rows.length,
         createdByUserId: actionUser.id,
@@ -929,7 +923,8 @@ export default async function ImportsPage({
             where: { id: item.id },
             data: {
               status: "undone",
-              message: "Pull deleted; inventory item was already gone.",
+              message:
+                "Legacy source record deleted; inventory item was already gone.",
             },
           });
           continue;
@@ -1103,41 +1098,26 @@ export default async function ImportsPage({
           })
         : null;
       const locationId = rowLocation?.id ?? defaultLocation.id;
-      const pull = batch.selectedRoundId
-        ? await prisma.pull.create({
-            data: {
-              roundId: batch.selectedRoundId,
-              playerId: batch.selectedOriginalOpenerId,
-              cardId: item.cardPrintingId,
-              quantity,
-              foil: foilStatus !== FoilStatus.NONFOIL,
-              condition,
-              notes: parsedRow.notes || null,
-            },
-          })
-        : null;
       const matchingWhere = {
         currentOwnerId: batch.selectedPlayerId,
-        originalOpenerId: batch.selectedOriginalOpenerId,
+        originalOpenerId: batch.selectedPlayerId,
         cardId: item.cardPrintingId,
         foil: foilStatus !== FoilStatus.NONFOIL,
         foilStatus,
         condition,
         language: parsedRow.language || "EN",
-        roundId: batch.selectedRoundId ?? null,
         locationId,
         quantity: { gt: 0 },
       };
       const createData = {
         currentOwnerId: batch.selectedPlayerId,
-        originalOpenerId: batch.selectedOriginalOpenerId,
+        originalOpenerId: batch.selectedPlayerId,
         cardId: item.cardPrintingId,
         quantity,
         foil: foilStatus !== FoilStatus.NONFOIL,
         foilStatus,
         condition,
-        acquiredFromPullId: pull?.id ?? null,
-        roundId: batch.selectedRoundId ?? null,
+        acquiredFromPullId: null,
         notes: parsedRow.notes || null,
         sourceType: InventorySourceType.CSV_PULL_IMPORT,
         language: parsedRow.language || "EN",
@@ -1163,7 +1143,7 @@ export default async function ImportsPage({
         data: {
           status: "imported",
           inventoryItemId: inventory.id,
-          pullId: pull?.id ?? null,
+          pullId: null,
           quantityImported: quantity,
           duplicateBehaviorUsed: duplicateBehavior,
           createdNewInventoryItem: !existingInventory,
@@ -1193,8 +1173,6 @@ export default async function ImportsPage({
         where: { id: params.batchId },
         include: {
           selectedPlayer: true,
-          selectedOriginalOpener: true,
-          selectedRound: true,
           resolutionJobs: {
             orderBy: { createdAt: "desc" },
             take: 1,
@@ -1225,7 +1203,6 @@ export default async function ImportsPage({
     where: historyWhere,
     include: {
       selectedPlayer: true,
-      selectedRound: true,
       items: { select: { status: true } },
     },
     orderBy: { createdAt: "desc" },
@@ -1307,8 +1284,9 @@ export default async function ImportsPage({
   const undoPreview = selectedBatch
     ? {
         totalItems: selectedItems.length,
-        pullRecords: selectedItems.filter((item) => Boolean(item.pullId))
-          .length,
+        legacySourceRecords: selectedItems.filter((item) =>
+          Boolean(item.pullId),
+        ).length,
         inventoryDeletes: selectedItems.filter(
           (item) =>
             item.status === "imported" &&
@@ -1393,20 +1371,6 @@ export default async function ImportsPage({
                   ))}
                 </select>
               </label>
-              <label className="text-sm">
-                Original opener
-                <select
-                  name="selectedOriginalOpenerId"
-                  defaultValue={defaultPlayer?.id}
-                  className="w-full border p-2 bg-zinc-900"
-                >
-                  {players.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.displayName}
-                    </option>
-                  ))}
-                </select>
-              </label>
             </>
           ) : (
             <>
@@ -1415,27 +1379,8 @@ export default async function ImportsPage({
                 name="selectedPlayerId"
                 value={defaultPlayer?.id ?? ""}
               />
-              <input
-                type="hidden"
-                name="selectedOriginalOpenerId"
-                value={defaultPlayer?.id ?? ""}
-              />
             </>
           )}
-          <label className="text-sm">
-            Acquisition group (optional)
-            <select
-              name="selectedRoundId"
-              className="w-full border p-2 bg-zinc-900"
-            >
-              <option value="">No legacy round</option>
-              {rounds.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-          </label>
           <label className="text-sm">
             Duplicate behavior
             <select
@@ -1565,9 +1510,8 @@ export default async function ImportsPage({
               Preview: {selectedBatch.filename}
             </h2>
             <p className="text-sm text-zinc-400">
-              Owner: {selectedBatch.selectedPlayer.displayName} • Acquisition
-              group: {selectedBatch.selectedRound?.name ?? "None"} • Status:{" "}
-              {selectedBatch.status}
+              Owner: {selectedBatch.selectedPlayer.displayName} • Import batch:{" "}
+              {selectedBatch.id} • Status: {selectedBatch.status}
             </p>
           </div>
           {selectedProgress ? (
@@ -1650,11 +1594,11 @@ export default async function ImportsPage({
                         Undo preview for {selectedBatch.filename}
                       </p>
                       <p>
-                        Total items: {undoPreview.totalItems} • Legacy pull rows
-                        to delete: {undoPreview.pullRecords} • Inventory
-                        deletes: {undoPreview.inventoryDeletes} • Quantity
-                        reductions: {undoPreview.quantityReductions} • Cannot
-                        undo: {undoPreview.cannotUndo}
+                        Total items: {undoPreview.totalItems} • Legacy source
+                        records to delete: {undoPreview.legacySourceRecords} •
+                        Inventory deletes: {undoPreview.inventoryDeletes} •
+                        Quantity reductions: {undoPreview.quantityReductions} •
+                        Cannot undo: {undoPreview.cannotUndo}
                       </p>
                       {undoPreview.cannotUndo ? (
                         <p className="text-amber-300">
@@ -2153,7 +2097,6 @@ export default async function ImportsPage({
                 <th>Filename</th>
                 <th>Date</th>
                 <th>Owner</th>
-                <th>Acquisition group</th>
                 <th>Total</th>
                 <th>Imported</th>
                 <th>Skipped</th>
@@ -2182,7 +2125,6 @@ export default async function ImportsPage({
                     </td>
                     <td>{batch.createdAt.toLocaleString()}</td>
                     <td>{batch.selectedPlayer.displayName}</td>
-                    <td>{batch.selectedRound?.name ?? "None"}</td>
                     <td>{batch.totalRows}</td>
                     <td>{batch.matchedRows}</td>
                     <td>{batch.skippedRows}</td>

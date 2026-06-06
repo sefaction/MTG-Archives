@@ -296,13 +296,11 @@ export async function moveInventoryQuantity(
       where: {
         id: { not: source.id },
         currentOwnerId: source.currentOwnerId,
-        originalOpenerId: source.originalOpenerId,
         cardId: source.cardId,
         foil: source.foil,
         foilStatus: source.foilStatus,
         condition: source.condition,
         language: source.language,
-        roundId: source.roundId,
         locationId: input.toLocationId,
         quantity: { gt: 0 },
       },
@@ -430,13 +428,11 @@ function logBulkMoveTiming(
 function inventoryMoveKey(item: BulkMoveInventoryRow) {
   return [
     item.currentOwnerId,
-    item.originalOpenerId,
     item.cardId,
     String(item.foil),
     item.foilStatus,
     item.condition,
     item.language,
-    item.roundId ?? "",
   ].join("\u001f");
 }
 

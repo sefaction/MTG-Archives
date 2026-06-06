@@ -42,8 +42,6 @@ export async function deleteInventoryItem(fd: FormData) {
     include: {
       card: true,
       currentOwner: true,
-      originalOpener: true,
-      round: true,
     },
   });
   if (!item) throw new Error("Inventory item not found.");
@@ -86,8 +84,6 @@ export async function cleanupZeroQuantityInventory(fd?: FormData) {
     include: {
       card: true,
       currentOwner: true,
-      originalOpener: true,
-      round: true,
     },
   });
   await prisma.$transaction(async (tx) => {

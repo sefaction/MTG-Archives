@@ -30,10 +30,6 @@ export type InventoryRow = {
   currentOwnerId: string;
   currentOwner: string;
   currentOwnerColor?: string;
-  originalOpenerId: string;
-  originalOpener: string;
-  roundId: string;
-  roundOpened: string;
   setCode: string;
   setName?: string;
   rarity: string;
@@ -117,7 +113,6 @@ const defaults: VisibilityState = {
   cardName: true,
   quantity: true,
   currentOwner: true,
-  originalOpener: true,
   setCode: true,
   rarity: true,
   manaCost: true,
@@ -125,7 +120,6 @@ const defaults: VisibilityState = {
   colorIdentity: true,
   priceUsd: true,
   foil: true,
-  roundOpened: true,
   locationSummary: true,
 };
 
@@ -145,6 +139,27 @@ function getCardImage(row: InventoryRow) {
 
 function getRowSourceIds(row: InventoryRow) {
   return row.sourceItemIds?.length ? row.sourceItemIds : [row.id];
+}
+
+function friendlySource(value?: InventoryRow["sourceType"]) {
+  switch (value) {
+    case "CSV_PULL_IMPORT":
+      return "Import";
+    case "PULL":
+      return "Legacy";
+    case "TRADE":
+      return "Trade";
+    case "MANUAL":
+      return "Manual add";
+    case "CORRECTION":
+      return "Correction";
+    case "PRIZE":
+      return "Prize";
+    case "OTHER":
+      return "Other";
+    default:
+      return "Unknown";
+  }
 }
 
 function CardDetail({
@@ -267,19 +282,13 @@ function CardDetail({
               <b>Owner:</b> {row.currentOwner}
             </p>
             <p>
-              <b>Original Owner:</b> {row.originalOpener}
-            </p>
-            <p>
-              <b>Acquisition Group:</b> {row.roundOpened}
-            </p>
-            <p>
               <b>Foil:</b> {row.foilStatus || (row.foil ? "FOIL" : "NONFOIL")}
             </p>
             <p>
               <b>Condition:</b> {row.condition || "-"}
             </p>
             <p>
-              <b>Source Type:</b> {row.sourceType || "-"}
+              <b>Source:</b> {friendlySource(row.sourceType)}
             </p>
             <p>
               <b>Notes:</b> {row.notes || "-"}
@@ -345,7 +354,6 @@ function CardDetail({
 export function InventoryBrowser({
   rows,
   players,
-  rounds,
   locations,
   cardLabels,
   isAdmin,
@@ -363,7 +371,6 @@ export function InventoryBrowser({
 }: {
   rows: InventoryRow[];
   players: PickRef[];
-  rounds: PickRef[];
   locations: PickRef[];
   cardLabels: Record<string, string>;
   isAdmin: boolean;
@@ -657,7 +664,6 @@ export function InventoryBrowser({
           </span>
         ),
       },
-      { accessorKey: "originalOpener", header: "Original Owner" },
       { accessorKey: "setCode", header: "Set" },
       { accessorKey: "rarity", header: "Rarity" },
       { accessorKey: "manaCost", header: "Mana Cost" },
@@ -665,7 +671,11 @@ export function InventoryBrowser({
       { accessorKey: "colorIdentity", header: "Color Identity" },
       { accessorKey: "priceUsd", header: "Scryfall USD Price" },
       { accessorKey: "foilStatus", header: "Foil" },
-      { accessorKey: "roundOpened", header: "Acquisition Group" },
+      {
+        accessorKey: "sourceType",
+        header: "Source",
+        cell: ({ row }) => friendlySource(row.original.sourceType),
+      },
       {
         id: "actions",
         header: "Actions",
@@ -1250,9 +1260,6 @@ export function InventoryBrowser({
               playerLabels={Object.fromEntries(
                 players.map((p) => [p.id, p.name]),
               )}
-              roundLabels={Object.fromEntries(
-                rounds.map((r) => [r.id, r.name]),
-              )}
               cardLabels={cardLabels}
             />
           </div>
@@ -1299,36 +1306,6 @@ export function InventoryBrowser({
                     {players.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="text-sm">
-                  Original opener
-                  <select
-                    name="originalOpenerId"
-                    defaultValue={editing.originalOpenerId}
-                    className="w-full border p-1 bg-zinc-900"
-                  >
-                    <option value="">(none)</option>
-                    {players.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="text-sm">
-                  Acquisition group
-                  <select
-                    name="roundId"
-                    defaultValue={editing.roundId}
-                    className="w-full border p-1 bg-zinc-900"
-                  >
-                    <option value="">(none)</option>
-                    {rounds.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
                       </option>
                     ))}
                   </select>
@@ -1391,10 +1368,8 @@ export function InventoryBrowser({
                     defaultValue={editing.sourceType || "CORRECTION"}
                     className="w-full border p-1 bg-zinc-900"
                   >
-                    <option value="PULL">legacy pull</option>
-                    <option value="CSV_PULL_IMPORT">
-                      csv inventory import
-                    </option>
+                    <option value="PULL">legacy</option>
+                    <option value="CSV_PULL_IMPORT">import</option>
                     <option value="TRADE">trade</option>
                     <option value="MANUAL">manual</option>
                     <option value="CORRECTION">correction</option>

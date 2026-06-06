@@ -64,8 +64,6 @@ export default async function InventoryPage({
   } else if (p.ownerId) {
     where.currentOwnerId = p.ownerId;
   }
-  if (p.originalOpenerId) where.originalOpenerId = p.originalOpenerId;
-  if (p.roundId) where.roundId = p.roundId;
   if (p.locationId) where.locationId = p.locationId;
   if (p.hasLocation === "unassigned")
     where.location = { normalizedName: "unassigned" };
@@ -95,14 +93,12 @@ export default async function InventoryPage({
     : 50;
   const initialBrowsingMode: "paginated" | "infinite" =
     p.browse === "infinite" ? "infinite" : "paginated";
-  const [items, players, rounds, zeroQuantityCount] = await Promise.all([
+  const [items, players, zeroQuantityCount] = await Promise.all([
     prisma.inventoryItem.findMany({
       where,
       include: {
         card: true,
         currentOwner: true,
-        originalOpener: true,
-        round: true,
         location: true,
         auditLogs: {
           orderBy: { createdAt: "desc" },
@@ -112,7 +108,6 @@ export default async function InventoryPage({
       orderBy: { createdAt: "desc" },
     }),
     prisma.player.findMany({ orderBy: { displayName: "asc" } }),
-    prisma.round.findMany({ orderBy: { startDate: "desc" } }),
     adminModeActive
       ? prisma.inventoryItem.count({ where: { quantity: { lte: 0 } } })
       : Promise.resolve(0),
@@ -210,8 +205,6 @@ export default async function InventoryPage({
       }
     }
 
-    const roundIdRaw = String(fd.get("roundId") || "");
-    const originalOpenerRaw = String(fd.get("originalOpenerId") || "");
     const foilStatus = String(fd.get("foilStatus") || "NONFOIL") as FoilStatus;
     const locationIdRaw = String(fd.get("locationId") || "");
     const defaultLocation = await ensureDefaultLocation(prisma, currentOwnerId);
@@ -229,8 +222,6 @@ export default async function InventoryPage({
       where: { id: inventoryItemId },
       data: {
         currentOwnerId,
-        originalOpenerId: originalOpenerRaw || before.originalOpenerId,
-        roundId: roundIdRaw || null,
         quantity,
         foilStatus,
         foil: foilStatus !== FoilStatus.NONFOIL,
@@ -576,9 +567,6 @@ export default async function InventoryPage({
         currentOwnerId: i.currentOwnerId,
         currentOwner: i.currentOwner.displayName,
         currentOwnerColor: i.currentOwner.color || "#64748b",
-        originalOpenerId: i.originalOpenerId,
-        originalOpener: i.originalOpener.displayName,
-        roundId: i.roundId ?? "",
         setCode: i.card.setCode.toUpperCase(),
         setName: i.card.setName ?? "",
         rarity: i.card.rarity,
@@ -600,7 +588,6 @@ export default async function InventoryPage({
         foil: i.foil,
         foilStatus: i.foilStatus,
         sourceType: i.sourceType,
-        roundOpened: i.round?.name ?? "No acquisition group",
         oracleText: i.card.oracleText ?? "",
         powerToughness: [i.card.power, i.card.toughness]
           .filter(Boolean)
@@ -685,11 +672,6 @@ export default async function InventoryPage({
             <input type="hidden" name="cardName" value={p.cardName || ""} />
             <input type="hidden" name="oracleText" value={p.oracleText || ""} />
             <input type="hidden" name="typeLine" value={p.typeLine || ""} />
-            <input
-              type="hidden"
-              name="originalOpenerId"
-              value={p.originalOpenerId || ""}
-            />
             <input type="hidden" name="set" value={p.set || ""} />
             <input type="hidden" name="rarity" value={p.rarity || ""} />
             <input type="hidden" name="foil" value={p.foil || ""} />
@@ -749,21 +731,6 @@ export default async function InventoryPage({
                 {visiblePlayers.map((pl) => (
                   <option key={pl.id} value={pl.id}>
                     {pl.displayName}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="text-sm">
-              Acquisition group
-              <select
-                name="roundId"
-                defaultValue={p.roundId || ""}
-                className="w-full border p-2 bg-zinc-900"
-              >
-                <option value="">all groups</option>
-                {rounds.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
                   </option>
                 ))}
               </select>
@@ -870,18 +837,6 @@ export default async function InventoryPage({
             </p>
           )}
           <select
-            name="originalOpenerId"
-            defaultValue={p.originalOpenerId}
-            className="border p-2 bg-zinc-900"
-          >
-            <option value="">original opener</option>
-            {visiblePlayers.map((pl) => (
-              <option key={pl.id} value={pl.id}>
-                {pl.displayName}
-              </option>
-            ))}
-          </select>
-          <select
             name="displayMode"
             defaultValue={displayMode}
             className="border p-2 bg-zinc-900"
@@ -898,18 +853,6 @@ export default async function InventoryPage({
             {locations.map((location) => (
               <option key={location.id} value={location.id}>
                 {location.name}
-              </option>
-            ))}
-          </select>
-          <select
-            name="roundId"
-            defaultValue={p.roundId}
-            className="border p-2 bg-zinc-900"
-          >
-            <option value="">acquisition group</option>
-            {rounds.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
               </option>
             ))}
           </select>
@@ -985,7 +928,6 @@ export default async function InventoryPage({
           name: p.displayName,
           color: p.color,
         }))}
-        rounds={rounds.map((r) => ({ id: r.id, name: r.name }))}
         locations={locations.map((l) => ({ id: l.id, name: l.name }))}
         cardLabels={cardLabels}
         isAdmin={adminModeActive}

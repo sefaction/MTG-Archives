@@ -23,7 +23,6 @@ const physicalStatuses: TradeStatus[] = [
 ];
 
 type ProposedTradeData = {
-  tradeRoundId?: string | null;
   proposerPlayerId: string;
   receiverPlayerId: string;
   offeredInventoryItemId: string;
@@ -51,9 +50,6 @@ function inventorySnapshot(item: InventoryForSnapshot) {
     notes: item.notes,
     currentOwnerId: item.currentOwnerId,
     currentOwnerName: item.currentOwner.displayName,
-    originalOpenerId: item.originalOpenerId,
-    roundId: item.roundId,
-    roundName: item.round?.name ?? null,
   };
 }
 
@@ -62,16 +58,11 @@ async function validateProposedTrade(data: ProposedTradeData) {
     throw new Error("Proposer and recipient must be different users.");
   if (data.offeredInventoryItemId === data.requestedInventoryItemId)
     throw new Error("Trades must be exactly one card for one card.");
-  const [round, offered, requested] = await Promise.all([
-    data.tradeRoundId
-      ? prisma.round.findUnique({ where: { id: data.tradeRoundId } })
-      : Promise.resolve(null),
+  const [offered, requested] = await Promise.all([
     prisma.inventoryItem.findUnique({
       where: { id: data.offeredInventoryItemId },
       include: {
         currentOwner: true,
-        originalOpener: true,
-        round: true,
         card: true,
       },
     }),
@@ -79,8 +70,6 @@ async function validateProposedTrade(data: ProposedTradeData) {
       where: { id: data.requestedInventoryItemId },
       include: {
         currentOwner: true,
-        originalOpener: true,
-        round: true,
         card: true,
       },
     }),
@@ -113,7 +102,7 @@ async function validateProposedTrade(data: ProposedTradeData) {
     requested.quantity - reservationCount(requested.id) < 1
   )
     throw new Error("That card is already reserved in another active trade.");
-  return { round, offered, requested };
+  return { offered, requested };
 }
 
 async function loadTradeForAction(tradeId: string) {
@@ -122,13 +111,10 @@ async function loadTradeForAction(tradeId: string) {
     include: {
       proposerPlayer: true,
       receiverPlayer: true,
-      tradeRound: true,
       offeredInventoryItem: {
         include: {
           card: true,
           currentOwner: true,
-          originalOpener: true,
-          round: true,
           auditLogs: true,
         },
       },
@@ -136,8 +122,6 @@ async function loadTradeForAction(tradeId: string) {
         include: {
           card: true,
           currentOwner: true,
-          originalOpener: true,
-          round: true,
           auditLogs: true,
         },
       },
@@ -156,9 +140,7 @@ export async function createTrade(fd: FormData) {
     : actor.playerId!;
   if (!actorIsAdmin && proposerPlayerId !== actor.playerId)
     throw new Error("Users cannot propose trades for another user.");
-  const tradeRoundId = String(fd.get("tradeRoundId") || "") || null;
   const data = {
-    tradeRoundId,
     proposerPlayerId,
     receiverPlayerId: String(fd.get("receiverPlayerId") || ""),
     offeredInventoryItemId: String(fd.get("offeredInventoryItemId") || ""),
@@ -351,13 +333,11 @@ async function addToReceiver(
   const existing = await tx.inventoryItem.findFirst({
     where: {
       currentOwnerId: toPlayerId,
-      originalOpenerId: item.originalOpenerId,
       cardId: item.cardId,
       foil: item.foil,
       foilStatus: item.foilStatus,
       condition: item.condition,
       language: item.language,
-      roundId: item.roundId,
       locationId: destinationLocation.id,
       quantity: { gt: 0 },
     },
@@ -396,7 +376,7 @@ async function addToReceiver(
     const created = await tx.inventoryItem.create({
       data: {
         currentOwnerId: toPlayerId,
-        originalOpenerId: item.originalOpenerId,
+        originalOpenerId: toPlayerId,
         cardId: item.cardId,
         quantity: 1,
         foil: item.foil,
@@ -404,7 +384,7 @@ async function addToReceiver(
         sourceType: InventorySourceType.TRADE,
         condition: item.condition,
         language: item.language,
-        roundId: item.roundId ?? null,
+        roundId: null,
         locationId: destinationLocation.id,
         notes: item.notes,
       },
@@ -450,8 +430,6 @@ async function completeTradeIfReady(
       include: {
         card: true,
         currentOwner: true,
-        originalOpener: true,
-        round: true,
         auditLogs: true,
       },
     });
@@ -460,8 +438,6 @@ async function completeTradeIfReady(
       include: {
         card: true,
         currentOwner: true,
-        originalOpener: true,
-        round: true,
         auditLogs: true,
       },
     });

@@ -5,7 +5,8 @@ import { prisma } from "./prisma";
 import type { User, Player } from "@prisma/client";
 import { UserRole } from "@prisma/client";
 
-const COOKIE_NAME = "boxleague_session";
+const COOKIE_NAME = "mtg_inventory_session";
+const LEGACY_COOKIE_NAME = "boxleague_session";
 const ADMIN_MODE_COOKIE_NAME = "mtg_admin_mode";
 export type CurrentUser = User & { player: Player | null };
 
@@ -101,7 +102,10 @@ export async function hashPassword(password: string) {
 }
 
 export async function getCurrentUser(): Promise<CurrentUser | null> {
-  const session = (await cookies()).get(COOKIE_NAME)?.value;
+  const cookieStore = await cookies();
+  const session =
+    cookieStore.get(COOKIE_NAME)?.value ??
+    cookieStore.get(LEGACY_COOKIE_NAME)?.value;
   if (!session) return null;
   const user = await prisma.user.findUnique({
     where: { id: session },
@@ -137,18 +141,23 @@ export async function login(identifier: string, password: string) {
     data: { lastLoginAt: new Date() },
   });
   const cookieSecure = process.env.COOKIE_SECURE === "true";
-  (await cookies()).set(COOKIE_NAME, user.id, {
+  const cookieStore = await cookies();
+  cookieStore.set(COOKIE_NAME, user.id, {
     httpOnly: true,
     sameSite: "lax",
     secure: cookieSecure,
     path: "/",
     maxAge: 60 * 60 * 24 * 30,
   });
+  cookieStore.delete({ name: LEGACY_COOKIE_NAME, path: "/" });
   return { ok: true as const, forcePasswordChange: user.forcePasswordChange };
 }
 
 export async function logout() {
-  (await cookies()).delete({ name: COOKIE_NAME, path: "/" });
+  const cookieStore = await cookies();
+  cookieStore.delete({ name: COOKIE_NAME, path: "/" });
+  cookieStore.delete({ name: LEGACY_COOKIE_NAME, path: "/" });
+  cookieStore.delete({ name: ADMIN_MODE_COOKIE_NAME, path: "/" });
 }
 
 export async function requireLogin() {
