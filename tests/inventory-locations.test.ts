@@ -261,6 +261,9 @@ function makeBulkPrisma(itemsInput: any[], locationsInput: any[]) {
         return { count: data.length };
       },
     },
+    trade: {
+      findMany: async () => [],
+    },
   };
   return {
     prisma: {
@@ -378,6 +381,137 @@ test("bulk move 800 entries uses bulk audit insertion instead of per-row audit c
   assert.equal(counters.auditCreateCalls, 0);
   assert.equal(counters.auditCreateManyCalls, 2);
   assert.equal(counters.updateManyCalls, 1);
+});
+
+test("bulk delete selected rows removes inventory without deleting card metadata", async () => {
+  const { bulkDeleteInventoryItems } =
+    await import("../lib/inventory-locations");
+  const { prisma, items, audits, counters } = makeBulkPrisma(
+    [
+      {
+        id: "delete-me",
+        currentOwnerId: "owner-1",
+        originalOpenerId: "owner-1",
+        cardId: "card-keep-catalog",
+        foil: false,
+        foilStatus: "NONFOIL",
+        condition: "NM",
+        language: "EN",
+        roundId: null,
+        sourceType: "MANUAL",
+        acquiredFromPullId: null,
+        notes: null,
+        locationId: "loc-unassigned",
+        quantity: 4,
+      },
+      {
+        id: "keep-me",
+        currentOwnerId: "owner-1",
+        originalOpenerId: "owner-1",
+        cardId: "card-keep-catalog",
+        foil: false,
+        foilStatus: "NONFOIL",
+        condition: "NM",
+        language: "EN",
+        roundId: null,
+        sourceType: "MANUAL",
+        acquiredFromPullId: null,
+        notes: null,
+        locationId: "loc-box",
+        quantity: 2,
+      },
+    ],
+    [
+      { id: "loc-unassigned", ownerPlayerId: "owner-1", name: "Unassigned" },
+      { id: "loc-box", ownerPlayerId: "owner-1", name: "Box-0001" },
+    ],
+  );
+
+  const result = await bulkDeleteInventoryItems(prisma as any, {
+    actorUserId: "user-1",
+    itemIds: ["delete-me"],
+    allowedOwnerId: "owner-1",
+    reason: "Test delete",
+    scope: "selected",
+  });
+
+  assert.equal(result.deletedEntries, 1);
+  assert.equal(result.deletedCards, 4);
+  assert.equal(
+    items.some((item) => item.id === "delete-me"),
+    false,
+  );
+  assert.equal(
+    items.some((item) => item.cardId === "card-keep-catalog"),
+    true,
+  );
+  assert.equal(items.find((item) => item.id === "keep-me")?.quantity, 2);
+  assert.equal(audits.length, 1);
+  assert.equal(audits[0].changeType, "bulk_inventory_delete_selected");
+  assert.equal(counters.auditCreateCalls, 0);
+  assert.equal(counters.auditCreateManyCalls, 1);
+});
+
+test("delete location contents only removes inventory from that location", async () => {
+  const { bulkDeleteInventoryItems } =
+    await import("../lib/inventory-locations");
+  const { prisma, items, audits } = makeBulkPrisma(
+    [
+      {
+        id: "unassigned-copy",
+        currentOwnerId: "owner-1",
+        originalOpenerId: "owner-1",
+        cardId: "card-sol-ring",
+        foil: false,
+        foilStatus: "NONFOIL",
+        condition: "NM",
+        language: "EN",
+        roundId: null,
+        sourceType: "MANUAL",
+        acquiredFromPullId: null,
+        notes: null,
+        locationId: "loc-unassigned",
+        quantity: 3,
+      },
+      {
+        id: "box-copy",
+        currentOwnerId: "owner-1",
+        originalOpenerId: "owner-1",
+        cardId: "card-sol-ring",
+        foil: false,
+        foilStatus: "NONFOIL",
+        condition: "NM",
+        language: "EN",
+        roundId: null,
+        sourceType: "MANUAL",
+        acquiredFromPullId: null,
+        notes: null,
+        locationId: "loc-box",
+        quantity: 2,
+      },
+    ],
+    [
+      { id: "loc-unassigned", ownerPlayerId: "owner-1", name: "Unassigned" },
+      { id: "loc-box", ownerPlayerId: "owner-1", name: "Box-0001" },
+    ],
+  );
+
+  const result = await bulkDeleteInventoryItems(prisma as any, {
+    actorUserId: "user-1",
+    where: { locationId: "loc-unassigned" },
+    sourceLocationId: "loc-unassigned",
+    allowedOwnerId: "owner-1",
+    scope: "location",
+  });
+
+  assert.equal(result.deletedEntries, 1);
+  assert.equal(result.deletedCards, 3);
+  assert.equal(
+    items.some((item) => item.locationId === "loc-unassigned"),
+    false,
+  );
+  assert.equal(items.find((item) => item.id === "box-copy")?.quantity, 2);
+  assert.equal(audits[0].changeType, "location_contents_deleted");
 });
 
 test("bulk move all from one location rejects same source and destination", async () => {

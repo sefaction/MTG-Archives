@@ -153,12 +153,14 @@ function CardDetail({
   isAdmin,
   onEdit,
   onAudit,
+  onDelete,
 }: {
   row: InventoryRow;
   onClose: () => void;
   isAdmin: boolean;
   onEdit: () => void;
   onAudit: () => void;
+  onDelete?: () => void;
 }) {
   const legalities = row.legalities || {};
   return (
@@ -178,6 +180,14 @@ function CardDetail({
             <button onClick={onAudit} className="border px-2">
               Audit Trail
             </button>
+            {onDelete ? (
+              <button
+                onClick={onDelete}
+                className="border border-red-700 px-2 text-red-200"
+              >
+                Delete inventory entry
+              </button>
+            ) : null}
             <button onClick={onClose} className="border px-2">
               Close
             </button>
@@ -346,6 +356,7 @@ export function InventoryBrowser({
   initialBrowsingMode,
   currentLocationId,
   onBulkMoveLocation,
+  onBulkDeleteInventory,
   onSaveEdit,
   onSearchPrintings,
   onDeleteInventoryItem,
@@ -370,6 +381,16 @@ export function InventoryBrowser({
         skippedEntries: number;
         destinationLocationName: string;
         sourceLocationName?: string;
+      }
+    | { success: false; message: string }
+  >;
+  onBulkDeleteInventory: (formData: FormData) => Promise<
+    | {
+        success: true;
+        deletedEntries: number;
+        deletedCards: number;
+        scope: "selected" | "matching" | "location";
+        locationName?: string;
       }
     | { success: false; message: string }
   >;
@@ -414,6 +435,7 @@ export function InventoryBrowser({
   );
   const [allMatchingSelected, setAllMatchingSelected] = useState(false);
   const [movingBulk, setMovingBulk] = useState(false);
+  const [deletingBulk, setDeletingBulk] = useState(false);
   const [bulkDestinationLocationId, setBulkDestinationLocationId] =
     useState("");
   const [pageSize, setPageSize] = useState(initialPageSize);
@@ -438,7 +460,10 @@ export function InventoryBrowser({
           (row.sourceItemIds ?? [row.id]).some((id) => selectedItemIds.has(id)),
         )
         .reduce((sum, row) => sum + row.quantity, 0);
-  const selectedItemIdList = Array.from(selectedItemIds);
+  const selectedItemIdList = useMemo(
+    () => Array.from(selectedItemIds),
+    [selectedItemIds],
+  );
 
   const isRowSelected = useCallback(
     (row: InventoryRow) =>
@@ -447,10 +472,98 @@ export function InventoryBrowser({
     [allMatchingSelected, selectedItemIds],
   );
 
-  function clearSelection() {
+  const clearSelection = useCallback(() => {
     setSelectedItemIds(new Set());
     setAllMatchingSelected(false);
-  }
+  }, []);
+
+  const submitBulkDelete = useCallback(
+    async (input?: {
+      itemIds?: string[];
+      entriesCount?: number;
+      cardsCount?: number;
+      cardName?: string;
+    }) => {
+      const itemIds = input?.itemIds ?? selectedItemIdList;
+      const entriesCount = input?.entriesCount ?? selectedEntriesCount;
+      const cardsCount = input?.cardsCount ?? selectedCardsCount;
+      const selectionMode = input?.itemIds
+        ? "selected"
+        : allMatchingSelected
+          ? "all"
+          : "selected";
+      if (!entriesCount || (selectionMode === "selected" && !itemIds.length)) {
+        setMessage("Choose inventory to delete.");
+        return;
+      }
+      const subject = input?.cardName
+        ? `${cardsCount} copies of ${input.cardName}`
+        : selectionMode === "all"
+          ? `${entriesCount} matching inventory entries containing ${cardsCount} total cards`
+          : `${entriesCount} selected inventory entries containing ${cardsCount} total cards`;
+      if (entriesCount >= 100 || selectionMode === "all") {
+        const typed = window.prompt(
+          `Delete ${subject}? This cannot be undone. Type DELETE to confirm.`,
+        );
+        if (typed !== "DELETE") {
+          setMessage(
+            "Deletion cancelled. Type DELETE to confirm large deletes.",
+          );
+          return;
+        }
+      } else if (!window.confirm(`Delete ${subject}? This cannot be undone.`)) {
+        setMessage("Deletion cancelled.");
+        return;
+      }
+
+      const fd = new FormData();
+      fd.set("selectionMode", selectionMode);
+      fd.set("itemIds", JSON.stringify(itemIds));
+      fd.set("sourceLocationId", currentLocationId || "");
+      fd.set(
+        "confirmDelete",
+        entriesCount >= 100 || selectionMode === "all" ? "DELETE" : "confirmed",
+      );
+      fd.set(
+        "reason",
+        input?.cardName
+          ? `Deleted ${input.cardName} from inventory.`
+          : "Bulk inventory delete",
+      );
+
+      setDeletingBulk(true);
+      setMessage(`Deleting ${entriesCount} entries (${cardsCount} cards)…`);
+      try {
+        const result = await onBulkDeleteInventory(fd);
+        if (!result.success) {
+          setMessage(result.message);
+          return;
+        }
+        setMessage(
+          `Deleted ${result.deletedCards} cards across ${result.deletedEntries} inventory entries.`,
+        );
+        clearSelection();
+        if (input?.itemIds) setSelected(null);
+        router.refresh();
+      } catch (error: any) {
+        setMessage(
+          error?.message || "Delete failed. No inventory was removed.",
+        );
+      } finally {
+        setDeletingBulk(false);
+      }
+    },
+    [
+      allMatchingSelected,
+      clearSelection,
+      currentLocationId,
+      onBulkDeleteInventory,
+      router,
+      selectedCardsCount,
+      selectedEntriesCount,
+      selectedItemIdList,
+    ],
+  );
 
   function updateBrowseQuery(next: { pageSize?: number; browse?: string }) {
     if (typeof window === "undefined") return;
@@ -464,7 +577,7 @@ export function InventoryBrowser({
     clearSelection();
     setPagination((current) => ({ ...current, pageIndex: 0 }));
     setInfiniteLimit(pageSize);
-  }, [rows, displayMode, pageSize]);
+  }, [rows, displayMode, pageSize, clearSelection]);
 
   useEffect(() => {
     if (browsingMode !== "infinite") return;
@@ -553,32 +666,55 @@ export function InventoryBrowser({
       { accessorKey: "priceUsd", header: "Scryfall USD Price" },
       { accessorKey: "foilStatus", header: "Foil" },
       { accessorKey: "roundOpened", header: "Acquisition Group" },
-      ...(isAdmin
-        ? [
-            {
-              id: "actions",
-              header: "Actions",
-              cell: ({ row }: any) =>
-                row.original.displayMode === "exact" &&
-                (row.original.sourceItemIds?.length ?? 1) === 1 ? (
-                  <button
-                    className="border px-2"
-                    onClick={() => {
-                      setEditing(row.original);
-                      setConfirmed(null);
-                      setResults([]);
-                    }}
-                  >
-                    Edit
-                  </button>
-                ) : (
-                  <span className="text-xs text-zinc-500">Grouped</span>
-                ),
-            },
-          ]
-        : []),
+      {
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }: any) => {
+          const exact = row.original.displayMode === "exact";
+          const single = (row.original.sourceItemIds?.length ?? 1) === 1;
+          return exact ? (
+            <div className="flex flex-wrap gap-1">
+              {isAdmin && single ? (
+                <button
+                  className="border px-2"
+                  onClick={() => {
+                    setEditing(row.original);
+                    setConfirmed(null);
+                    setResults([]);
+                  }}
+                >
+                  Edit
+                </button>
+              ) : null}
+              <button
+                className="border border-red-700 px-2 text-red-200"
+                disabled={deletingBulk}
+                onClick={() =>
+                  submitBulkDelete({
+                    itemIds: getRowSourceIds(row.original),
+                    entriesCount: getRowSourceIds(row.original).length,
+                    cardsCount: row.original.quantity,
+                    cardName: row.original.cardName,
+                  })
+                }
+              >
+                Delete
+              </button>
+            </div>
+          ) : (
+            <span className="text-xs text-zinc-500">Grouped</span>
+          );
+        },
+      },
     ],
-    [isAdmin, displayMode, selectionAvailable, isRowSelected],
+    [
+      isAdmin,
+      displayMode,
+      selectionAvailable,
+      isRowSelected,
+      deletingBulk,
+      submitBulkDelete,
+    ],
   );
 
   const effectivePagination =
@@ -866,6 +1002,30 @@ export function InventoryBrowser({
               </button>
             </form>
           ) : null}
+          {selectedEntriesCount > 0 ? (
+            <div className="flex flex-wrap items-center gap-2 border-t border-zinc-800 pt-3 text-sm">
+              <span className="text-red-200">
+                Delete scope:{" "}
+                {allMatchingSelected ? "all matching filters" : "selected rows"}{" "}
+                · {selectedEntriesCount} entries · {selectedCardsCount} cards
+              </span>
+              <button
+                type="button"
+                className="border border-red-700 px-3 py-2 text-red-200 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={deletingBulk}
+                onClick={() => submitBulkDelete()}
+              >
+                <span className="inline-flex items-center justify-center gap-2">
+                  {deletingBulk ? <LoadingSpinner /> : null}
+                  {deletingBulk
+                    ? `Deleting ${selectedEntriesCount} entries…`
+                    : allMatchingSelected
+                      ? "Delete all matching"
+                      : "Delete selected"}
+                </span>
+              </button>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -1053,6 +1213,17 @@ export function InventoryBrowser({
             setAuditRow(selected);
             setSelected(null);
           }}
+          onDelete={
+            selected.displayMode === "exact"
+              ? () =>
+                  submitBulkDelete({
+                    itemIds: getRowSourceIds(selected),
+                    entriesCount: getRowSourceIds(selected).length,
+                    cardsCount: selected.quantity,
+                    cardName: selected.cardName,
+                  })
+              : undefined
+          }
         />
       ) : null}
 

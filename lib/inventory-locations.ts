@@ -1,4 +1,9 @@
-import { InventoryItem, Prisma, PrismaClient } from "@prisma/client";
+import {
+  InventoryItem,
+  Prisma,
+  PrismaClient,
+  TradeStatus,
+} from "@prisma/client";
 
 export function normalizeLocationName(name: string) {
   return name.trim().replace(/\s+/g, " ").toLowerCase();
@@ -352,6 +357,19 @@ export type BulkMoveInventoryResult = {
   destinationLocationName: string;
   sourceLocationName?: string;
 };
+
+export type BulkDeleteInventoryResult = {
+  deletedEntries: number;
+  deletedCards: number;
+  scope: "selected" | "matching" | "location";
+  locationName?: string;
+};
+
+const activeInventoryTradeStatuses: TradeStatus[] = [
+  TradeStatus.PROPOSED,
+  TradeStatus.ACCEPTED_PENDING_EXCHANGE,
+  TradeStatus.PARTIALLY_COMMITTED,
+];
 
 const AUDIT_LOG_CREATE_MANY_BATCH_SIZE = 500;
 const BULK_MOVE_TRANSACTION_TIMEOUT_MS = 30_000;
@@ -785,6 +803,214 @@ export async function bulkMoveInventoryToLocation(
     movedEntries: result.movedEntries,
     movedCards: result.movedCards,
     skippedEntries: result.skippedEntries,
+  });
+  return result;
+}
+
+export async function bulkDeleteInventoryItems(
+  prisma: PrismaClient,
+  input: {
+    actorUserId: string;
+    itemIds?: string[];
+    where?: Record<string, unknown>;
+    allowedOwnerId?: string;
+    sourceLocationId?: string;
+    reason?: string;
+    scope?: "selected" | "matching" | "location";
+  },
+): Promise<BulkDeleteInventoryResult> {
+  if (!input.itemIds?.length && !input.where)
+    throw new Error("Choose inventory to delete.");
+
+  const timing = startBulkMoveTiming();
+  const distinctItemIds = input.itemIds?.length
+    ? Array.from(new Set(input.itemIds))
+    : undefined;
+  const scope =
+    input.scope ?? (distinctItemIds?.length ? "selected" : "matching");
+
+  const sourceLocation = input.sourceLocationId
+    ? await prisma.inventoryLocation.findUnique({
+        where: { id: input.sourceLocationId },
+        select: { id: true, ownerPlayerId: true, name: true },
+      })
+    : null;
+  if (input.sourceLocationId && !sourceLocation)
+    throw new Error("Location not found.");
+  if (
+    input.allowedOwnerId &&
+    sourceLocation &&
+    sourceLocation.ownerPlayerId !== input.allowedOwnerId
+  ) {
+    throw new Error("You do not have permission to delete this inventory.");
+  }
+  markBulkMoveTiming(timing, "delete load source location");
+
+  const itemWhere: any = distinctItemIds?.length
+    ? { id: { in: distinctItemIds } }
+    : { ...(input.where ?? {}) };
+  itemWhere.quantity = { gt: 0 };
+  if (input.sourceLocationId) itemWhere.locationId = input.sourceLocationId;
+  if (input.allowedOwnerId) itemWhere.currentOwnerId = input.allowedOwnerId;
+  markBulkMoveTiming(timing, "delete build selection query");
+
+  const preview = await prisma.inventoryItem.aggregate({
+    where: itemWhere,
+    _count: { _all: true },
+    _sum: { quantity: true },
+  });
+  markBulkMoveTiming(timing, "delete preview count");
+  console.info("[bulk-inventory-delete] preview", {
+    scope,
+    sourceLocationId: input.sourceLocationId ?? null,
+    itemIdCount: distinctItemIds?.length ?? null,
+    matchedInventoryRows: preview._count._all,
+    matchedPhysicalCards: preview._sum.quantity ?? 0,
+  });
+
+  const result = await prisma.$transaction(
+    async (tx) => {
+      const transactionTiming = startBulkMoveTiming();
+      const rowsToDelete = await tx.inventoryItem.findMany({
+        where: itemWhere,
+        select: {
+          id: true,
+          currentOwnerId: true,
+          originalOpenerId: true,
+          cardId: true,
+          foil: true,
+          foilStatus: true,
+          condition: true,
+          language: true,
+          roundId: true,
+          locationId: true,
+          quantity: true,
+          sourceType: true,
+          acquiredFromPullId: true,
+          notes: true,
+        },
+        orderBy: { createdAt: "asc" },
+      });
+      markBulkMoveTiming(transactionTiming, "delete load rows");
+
+      if (
+        distinctItemIds?.length &&
+        rowsToDelete.length !== distinctItemIds.length
+      ) {
+        throw new Error(
+          "Some inventory changed before deletion. Refresh and try again.",
+        );
+      }
+      if (!rowsToDelete.length) {
+        throw new Error(
+          scope === "location"
+            ? "This location has no inventory to delete."
+            : "Choose inventory to delete.",
+        );
+      }
+      for (const item of rowsToDelete) {
+        if (
+          input.allowedOwnerId &&
+          item.currentOwnerId !== input.allowedOwnerId
+        ) {
+          throw new Error(
+            "You do not have permission to delete this inventory.",
+          );
+        }
+        if (item.quantity <= 0)
+          throw new Error("Inventory quantity must be positive.");
+      }
+
+      const rowIds = rowsToDelete.map((item) => item.id);
+      const activeTrades = await tx.trade.findMany({
+        where: {
+          status: { in: activeInventoryTradeStatuses },
+          OR: [
+            { offeredInventoryItemId: { in: rowIds } },
+            { requestedInventoryItemId: { in: rowIds } },
+          ],
+        },
+        select: { id: true },
+      });
+      if (activeTrades.length) {
+        throw new Error(
+          "Some selected inventory is reserved in active trades and cannot be deleted.",
+        );
+      }
+      markBulkMoveTiming(transactionTiming, "delete validate active trades");
+
+      const reason = input.reason || "Inventory deleted.";
+      const auditLogs: Prisma.InventoryAuditLogCreateManyInput[] =
+        rowsToDelete.map((item) => {
+          const beforeJson = auditSnapshot(item, {
+            sourceLocationId: item.locationId,
+            sourceLocationName: sourceLocationNameForAudit(
+              item,
+              sourceLocation,
+            ),
+            quantityDeleted: item.quantity,
+            deleteScope: scope,
+          });
+          return {
+            inventoryItemId: item.id,
+            changedByUserId: input.actorUserId,
+            changeType:
+              scope === "location"
+                ? "location_contents_deleted"
+                : scope === "matching"
+                  ? "bulk_inventory_delete_matching"
+                  : "bulk_inventory_delete_selected",
+            beforeJson,
+            afterJson: {
+              ...beforeJson,
+              quantity: 0,
+              quantityDeleted: item.quantity,
+              deleted: true,
+            },
+            reason,
+          };
+        });
+      const deletedCards = rowsToDelete.reduce(
+        (sum, item) => sum + item.quantity,
+        0,
+      );
+      markBulkMoveTiming(transactionTiming, "delete build audit plan");
+
+      await tx.inventoryItem.deleteMany({ where: { id: { in: rowIds } } });
+      markBulkMoveTiming(transactionTiming, "delete inventory rows");
+
+      for (const chunk of chunkArray(
+        auditLogs,
+        AUDIT_LOG_CREATE_MANY_BATCH_SIZE,
+      )) {
+        await tx.inventoryAuditLog.createMany({ data: chunk });
+      }
+      markBulkMoveTiming(transactionTiming, "delete insert audit logs");
+      logBulkMoveTiming("delete transaction complete", transactionTiming, {
+        scope,
+        deletedEntries: rowsToDelete.length,
+        deletedCards,
+        auditLogRows: auditLogs.length,
+      });
+
+      return {
+        deletedEntries: rowsToDelete.length,
+        deletedCards,
+        scope,
+        locationName: sourceLocation?.name,
+      };
+    },
+    {
+      timeout: BULK_MOVE_TRANSACTION_TIMEOUT_MS,
+      maxWait: BULK_MOVE_TRANSACTION_MAX_WAIT_MS,
+    },
+  );
+  markBulkMoveTiming(timing, "delete execute transaction");
+  logBulkMoveTiming("bulk delete complete", timing, {
+    scope,
+    sourceLocationId: input.sourceLocationId ?? null,
+    deletedEntries: result.deletedEntries,
+    deletedCards: result.deletedCards,
   });
   return result;
 }

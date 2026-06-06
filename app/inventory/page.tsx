@@ -23,6 +23,7 @@ import {
   getInventoryGroupedByCard,
   getLocationsForOwner,
   bulkMoveInventoryToLocation,
+  bulkDeleteInventoryItems,
 } from "@/lib/inventory-locations";
 
 export default async function InventoryPage({
@@ -398,6 +399,116 @@ export default async function InventoryPage({
           ? "Bulk move took too long and was rolled back. Try a smaller selection, or use a background bulk move workflow once available."
           : exposesPrismaInternals || !rawMessage
             ? "Bulk move failed before any inventory changes were committed. Check the server logs for the diagnostic bulk-location-move entry."
+            : rawMessage,
+      };
+    }
+  }
+
+  async function onBulkDeleteInventory(fd: FormData) {
+    "use server";
+    const actionUser = await requireLogin();
+    const actionIsAdmin = isAdminUser(actionUser, actionUser.player);
+    const selectionMode = String(fd.get("selectionMode") || "selected");
+    const sourceLocationIdRaw = String(fd.get("sourceLocationId") || "");
+    const reason = String(fd.get("reason") || "Inventory deleted.").trim();
+    const confirmDelete = String(fd.get("confirmDelete") || "").trim();
+    let itemIds: string[] = [];
+    try {
+      itemIds = JSON.parse(String(fd.get("itemIds") || "[]")) as string[];
+    } catch (error) {
+      console.error("[bulk-inventory-delete] failed to parse selected IDs", {
+        error,
+      });
+      return {
+        success: false as const,
+        message: "Selected inventory IDs were not submitted correctly.",
+      };
+    }
+
+    try {
+      if (!actionIsAdmin && !actionUser.playerId) {
+        return {
+          success: false as const,
+          message: "Your account is not linked to an inventory owner.",
+        };
+      }
+      if (displayMode !== "exact") {
+        return {
+          success: false as const,
+          message:
+            "Bulk delete is available in Exact printings mode so you can choose specific printings.",
+        };
+      }
+      if (selectionMode !== "all" && !itemIds.length) {
+        return {
+          success: false as const,
+          message: "Choose inventory to delete.",
+        };
+      }
+      const allowedOwnerId = actionIsAdmin
+        ? p.ownerId || undefined
+        : actionUser.playerId || undefined;
+      const previewWhere: any =
+        selectionMode === "all" ? { ...where } : { id: { in: itemIds } };
+      previewWhere.quantity = { gt: 0 };
+      if (sourceLocationIdRaw) previewWhere.locationId = sourceLocationIdRaw;
+      if (allowedOwnerId) previewWhere.currentOwnerId = allowedOwnerId;
+      const preview = await prisma.inventoryItem.aggregate({
+        where: previewWhere,
+        _count: { _all: true },
+        _sum: { quantity: true },
+      });
+      console.info("[bulk-inventory-delete] matched rows preview", {
+        selectionMode,
+        sourceLocationId: sourceLocationIdRaw || null,
+        matchedInventoryRows: preview._count._all,
+        matchedPhysicalCards: preview._sum.quantity ?? 0,
+        allowedOwnerId: allowedOwnerId ?? null,
+      });
+      if (!preview._count._all) {
+        return {
+          success: false as const,
+          message: "Choose inventory to delete.",
+        };
+      }
+      if (
+        (preview._count._all >= 100 || selectionMode === "all") &&
+        confirmDelete !== "DELETE"
+      ) {
+        return {
+          success: false as const,
+          message: "Type DELETE to confirm deleting this inventory.",
+        };
+      }
+      const result = await bulkDeleteInventoryItems(prisma, {
+        actorUserId: actionUser.id,
+        itemIds: selectionMode === "all" ? undefined : itemIds,
+        where: selectionMode === "all" ? where : undefined,
+        allowedOwnerId,
+        sourceLocationId: sourceLocationIdRaw || undefined,
+        reason: reason || "Inventory deleted.",
+        scope: selectionMode === "all" ? "matching" : "selected",
+      });
+      revalidatePath("/inventory");
+      revalidatePath("/locations");
+      return { success: true as const, ...result };
+    } catch (error: any) {
+      console.error("[bulk-inventory-delete] failed", {
+        message: error?.message,
+        stack: error?.stack,
+        selectionMode,
+        sourceLocationId: sourceLocationIdRaw || null,
+      });
+      const rawMessage = String(error?.message || "");
+      const exposesPrismaInternals =
+        rawMessage.includes("Invalid `prisma.") ||
+        rawMessage.includes("Transaction API error") ||
+        rawMessage.includes("PrismaClient");
+      return {
+        success: false as const,
+        message:
+          exposesPrismaInternals || !rawMessage
+            ? "Delete failed. No inventory was removed."
             : rawMessage,
       };
     }
@@ -864,6 +975,7 @@ export default async function InventoryPage({
         initialBrowsingMode={initialBrowsingMode}
         currentLocationId={p.locationId || ""}
         onBulkMoveLocation={onBulkMoveLocation}
+        onBulkDeleteInventory={onBulkDeleteInventory}
         onSaveEdit={onSaveEdit}
         onSearchPrintings={onSearchPrintings}
         onDeleteInventoryItem={deleteInventoryItem}

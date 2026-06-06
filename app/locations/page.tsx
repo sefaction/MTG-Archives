@@ -7,6 +7,7 @@ import { getCurrentUser, isAdminUser, requireLogin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   bulkMoveInventoryToLocation,
+  bulkDeleteInventoryItems,
   createLocation,
   deleteUnusedLocation,
   ensureDefaultLocation,
@@ -151,6 +152,38 @@ export default async function LocationsPage() {
       where: { locationId: sourceLocationId },
       allowedOwnerId: ctx.admin ? undefined : ctx.playerId || undefined,
       reason: "Move all inventory from one location to another.",
+    });
+    revalidatePath("/locations");
+    revalidatePath("/inventory");
+  }
+
+  async function deleteLocationContentsAction(fd: FormData) {
+    "use server";
+    const ctx = await getActionContext();
+    const locationId = String(fd.get("locationId") || "");
+    const confirmDelete = String(fd.get("confirmDeleteContents") || "").trim();
+    const location = await prisma.inventoryLocation.findUnique({
+      where: { id: locationId },
+      select: { id: true, ownerPlayerId: true, name: true },
+    });
+    if (!location) throw new Error("Location not found.");
+    if (!ctx.admin && location.ownerPlayerId !== ctx.playerId) {
+      throw new Error("Not authorized for this location.");
+    }
+    if (confirmDelete !== "DELETE" && confirmDelete !== location.name) {
+      throw new Error(
+        "Type DELETE or the location name to confirm deleting contents.",
+      );
+    }
+    await bulkDeleteInventoryItems(prisma, {
+      actorUserId: ctx.user.id,
+      where: { locationId },
+      sourceLocationId: locationId,
+      allowedOwnerId: ctx.admin
+        ? location.ownerPlayerId
+        : ctx.playerId || undefined,
+      reason: `Deleted all inventory contents in ${location.name}.`,
+      scope: "location",
     });
     revalidatePath("/locations");
     revalidatePath("/inventory");
@@ -349,6 +382,30 @@ export default async function LocationsPage() {
                   Save
                 </SubmitButton>
               </form>
+              {counts.quantity > 0 ? (
+                <form
+                  action={deleteLocationContentsAction}
+                  className="space-y-2 rounded border border-red-900/60 p-2"
+                >
+                  <input type="hidden" name="locationId" value={location.id} />
+                  <p className="text-xs text-red-200">
+                    Delete all {counts.quantity} cards across {counts.entries}{" "}
+                    inventory entries in {location.name}. This keeps the
+                    location and card metadata.
+                  </p>
+                  <input
+                    name="confirmDeleteContents"
+                    placeholder={`Type DELETE or ${location.name}`}
+                    className="w-full border border-red-800 bg-zinc-900 p-2 text-sm"
+                  />
+                  <SubmitButton
+                    pendingLabel="Deleting contents…"
+                    className="border border-red-700 px-3 py-1 text-red-200"
+                  >
+                    Delete contents
+                  </SubmitButton>
+                </form>
+              ) : null}
               <form action={deleteLocationAction} className="space-y-2">
                 <input type="hidden" name="locationId" value={location.id} />
                 <label className="flex items-center gap-2 text-xs text-zinc-300">
