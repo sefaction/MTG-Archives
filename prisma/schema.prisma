@@ -98,27 +98,28 @@ model Season {
 }
 
 model Player {
-  id                          String           @id @default(cuid())
-  name                        String           @unique
-  displayName                 String           @unique
+  id                          String              @id @default(cuid())
+  name                        String              @unique
+  displayName                 String              @unique
   email                       String?
-  active                      Boolean          @default(true)
-  isAdmin                     Boolean          @default(false)
-  color                       String           @default("#64748b")
+  active                      Boolean             @default(true)
+  isAdmin                     Boolean             @default(false)
+  color                       String              @default("#64748b")
   memberships                 LeaguePlayer[]
-  openedCards                 CardOwnership[]  @relation("OpenedBy")
-  ownedCards                  CardOwnership[]  @relation("OwnedBy")
+  openedCards                 CardOwnership[]     @relation("OpenedBy")
+  ownedCards                  CardOwnership[]     @relation("OwnedBy")
   users                       User[]
   pointEvents                 PointEvent[]
   packAllocations             PackAllocation[]
-  ownedBoxes                  SetBox[]         @relation("BoxOwner")
+  ownedBoxes                  SetBox[]            @relation("BoxOwner")
   pulls                       Pull[]
-  inventoryOwned              InventoryItem[]  @relation("InventoryCurrentOwner")
-  inventoryOpened             InventoryItem[]  @relation("InventoryOriginalOpener")
-  importBatchesSelected       ImportBatch[]    @relation("ImportBatchSelectedPlayer")
-  importBatchesOriginalOpened ImportBatch[]    @relation("ImportBatchOriginalOpener")
-  tradesProposed              Trade[]          @relation("TradeProposer")
-  tradesReceived              Trade[]          @relation("TradeReceiver")
+  inventoryOwned              InventoryItem[]     @relation("InventoryCurrentOwner")
+  inventoryOpened             InventoryItem[]     @relation("InventoryOriginalOpener")
+  inventoryLocations          InventoryLocation[]
+  importBatchesSelected       ImportBatch[]       @relation("ImportBatchSelectedPlayer")
+  importBatchesOriginalOpened ImportBatch[]       @relation("ImportBatchOriginalOpener")
+  tradesProposed              Trade[]             @relation("TradeProposer")
+  tradesReceived              Trade[]             @relation("TradeReceiver")
   tradeEvents                 TradeEvent[]
 }
 
@@ -292,6 +293,23 @@ model Pull {
   importBatchItems ImportBatchItem[]
 }
 
+model InventoryLocation {
+  id             String          @id @default(cuid())
+  ownerPlayerId  String
+  ownerPlayer    Player          @relation(fields: [ownerPlayerId], references: [id])
+  name           String
+  normalizedName String
+  description    String?
+  type           String?
+  active         Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  inventoryItems InventoryItem[]
+
+  @@unique([ownerPlayerId, normalizedName])
+  @@index([ownerPlayerId, active])
+}
+
 model InventoryItem {
   id                 String              @id @default(cuid())
   currentOwnerId     String
@@ -305,6 +323,8 @@ model InventoryItem {
   foilStatus         FoilStatus          @default(NONFOIL)
   sourceType         InventorySourceType @default(PULL)
   condition          String
+  locationId         String?
+  location           InventoryLocation?  @relation(fields: [locationId], references: [id])
   language           String              @default("EN")
   acquiredFromPullId String?
   acquiredFromPull   Pull?               @relation(fields: [acquiredFromPullId], references: [id])
@@ -318,7 +338,8 @@ model InventoryItem {
   offeredTrades      Trade[]             @relation("OfferedInventoryItem")
   requestedTrades    Trade[]             @relation("RequestedInventoryItem")
 
-  @@unique([currentOwnerId, originalOpenerId, cardId, foil, condition, roundId])
+  @@index([currentOwnerId, cardId, foilStatus, condition, language])
+  @@index([locationId])
 }
 
 model InventoryAuditLog {

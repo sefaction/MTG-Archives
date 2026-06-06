@@ -59,7 +59,8 @@ Permissions must allow the containers to write to their mounted directories. The
 ## Current capabilities
 
 - Admin-managed local users with roles and forced password-change workflow.
-- Inventory browsing, filtering, sorting, image/table views, CSV export, and admin editing.
+- Inventory browsing, filtering, sorting, exact-printing and grouped-by-card views, location breakdowns, CSV export, and admin editing.
+- Per-owner inventory locations such as boxes, binders, shelves, and an automatic `Unassigned` default for migrated inventory.
 - CSV inventory import preview, Scryfall matching, manual resolution, retry, and commit workflow.
 - Scryfall-backed card metadata storage.
 - Cache-first Scryfall lookup with durable local printing metadata and throttled live API access.
@@ -67,7 +68,7 @@ Permissions must allow the containers to write to their mounted directories. The
 
 ## Refactor status
 
-This project was copied from a Sealed Commander League application. The first inventory refactor removes league navigation and demo seed data while keeping legacy database tables in place for safe migration. See `docs/INVENTORY_REFACTOR.md` for the remaining migration plan.
+This project was copied from a Sealed Commander League application. The first inventory refactor removes league navigation and demo seed data while keeping legacy database tables in place for safe migration. See `docs/INVENTORY_REFACTOR.md` for the remaining migration plan and `docs/INVENTORY_LOCATIONS.md` for the location/grouped-view design notes.
 
 ## Useful commands
 

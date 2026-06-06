@@ -6,6 +6,7 @@ import { SubmitButton } from "@/components/feedback/SubmitButton";
 const mainLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/inventory", label: "Inventory" },
+  { href: "/locations", label: "Locations" },
   { href: "/imports", label: "Import" },
   { href: "/trades", label: "Trades" },
 ];

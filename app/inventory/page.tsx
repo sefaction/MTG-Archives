@@ -12,6 +12,12 @@ import { formatScryfallError, getCardByScryfallIdResult } from "@/lib/scryfall";
 import { revalidatePath } from "next/cache";
 import { cleanupZeroQuantityInventory, deleteInventoryItem } from "./actions";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
+import {
+  ensureDefaultLocation,
+  getInventoryExactPrintings,
+  getInventoryGroupedByCard,
+  getLocationsForOwner,
+} from "@/lib/inventory-locations";
 
 export default async function InventoryPage({
   searchParams,
@@ -24,11 +30,17 @@ export default async function InventoryPage({
 
   const p = await searchParams;
   const where: any = { quantity: { gt: 0 } };
-  if (p.cardName)
-    where.card = {
-      ...(where.card || {}),
-      name: { contains: p.cardName, mode: "insensitive" },
-    };
+  if (p.cardName) {
+    const search = p.cardName.trim();
+    where.OR = [
+      { card: { name: { contains: search, mode: "insensitive" } } },
+      { card: { setCode: { contains: search.toLowerCase() } } },
+      { card: { setName: { contains: search, mode: "insensitive" } } },
+      { card: { collectorNumber: { contains: search, mode: "insensitive" } } },
+      { card: { typeLine: { contains: search, mode: "insensitive" } } },
+      { location: { name: { contains: search, mode: "insensitive" } } },
+    ];
+  }
   if (p.oracleText)
     where.card = {
       ...(where.card || {}),
@@ -42,6 +54,9 @@ export default async function InventoryPage({
   if (p.ownerId) where.currentOwnerId = p.ownerId;
   if (p.originalOpenerId) where.originalOpenerId = p.originalOpenerId;
   if (p.roundId) where.roundId = p.roundId;
+  if (p.locationId) where.locationId = p.locationId;
+  if (p.hasLocation === "unassigned")
+    where.location = { normalizedName: "unassigned" };
   if (p.set)
     where.card = { ...(where.card || {}), setCode: p.set.toLowerCase() };
   if (p.rarity) where.card = { ...(where.card || {}), rarity: p.rarity };
@@ -60,6 +75,8 @@ export default async function InventoryPage({
   const priceMin = p.priceMin ? Number(p.priceMin) : undefined;
   const priceMax = p.priceMax ? Number(p.priceMax) : undefined;
 
+  const displayMode: "exact" | "grouped" =
+    p.displayMode === "grouped" ? "grouped" : "exact";
   const [items, players, rounds, zeroQuantityCount] = await Promise.all([
     prisma.inventoryItem.findMany({
       where,
@@ -68,6 +85,7 @@ export default async function InventoryPage({
         currentOwner: true,
         originalOpener: true,
         round: true,
+        location: true,
         auditLogs: {
           orderBy: { createdAt: "desc" },
           include: { changedByUser: { include: { player: true } } },
@@ -81,6 +99,14 @@ export default async function InventoryPage({
       ? prisma.inventoryItem.count({ where: { quantity: { lte: 0 } } })
       : Promise.resolve(0),
   ]);
+
+  const activeOwnerId =
+    p.ownerId || (!isAdmin ? userWithPlayer?.playerId || "" : "");
+  const locations = activeOwnerId
+    ? await getLocationsForOwner(prisma, activeOwnerId)
+    : await prisma.inventoryLocation.findMany({
+        orderBy: [{ ownerPlayer: { displayName: "asc" } }, { name: "asc" }],
+      });
 
   const auditCardIds = Array.from(
     new Set(
@@ -166,6 +192,17 @@ export default async function InventoryPage({
     const roundIdRaw = String(fd.get("roundId") || "");
     const originalOpenerRaw = String(fd.get("originalOpenerId") || "");
     const foilStatus = String(fd.get("foilStatus") || "NONFOIL") as FoilStatus;
+    const locationIdRaw = String(fd.get("locationId") || "");
+    const defaultLocation = await ensureDefaultLocation(prisma, currentOwnerId);
+    const targetLocationId = locationIdRaw || defaultLocation.id;
+    const targetLocation = await prisma.inventoryLocation.findUnique({
+      where: { id: targetLocationId },
+    });
+    if (!targetLocation || targetLocation.ownerPlayerId !== currentOwnerId) {
+      throw new Error(
+        "Selected location does not belong to the current owner.",
+      );
+    }
 
     const updated = await prisma.inventoryItem.update({
       where: { id: inventoryItemId },
@@ -177,6 +214,7 @@ export default async function InventoryPage({
         foilStatus,
         foil: foilStatus !== FoilStatus.NONFOIL,
         condition: String(fd.get("condition") || before.condition),
+        locationId: targetLocationId,
         notes: String(fd.get("notes") || "") || null,
         sourceType: String(
           fd.get("sourceType") || "CORRECTION",
@@ -199,76 +237,117 @@ export default async function InventoryPage({
     revalidatePath("/inventory");
   }
 
-  const rows = items
-    .map((i) => ({
-      id: i.id,
-      cardId: i.cardId,
-      cardName: i.card.name,
-      quantity: i.quantity,
-      currentOwnerId: i.currentOwnerId,
-      currentOwner: i.currentOwner.displayName,
-      currentOwnerColor: i.currentOwner.color || "#64748b",
-      originalOpenerId: i.originalOpenerId,
-      originalOpener: i.originalOpener.displayName,
-      roundId: i.roundId ?? "",
-      setCode: i.card.setCode.toUpperCase(),
-      setName: i.card.setName ?? "",
-      rarity: i.card.rarity,
-      manaCost: i.card.manaCost ?? "",
-      manaValue: i.card.manaValue ?? undefined,
-      typeLine: i.card.typeLine,
-      colorIdentity: Array.isArray(i.card.colorIdentity)
-        ? i.card.colorIdentity.join(",")
-        : JSON.stringify(i.card.colorIdentity ?? ""),
-      colors: Array.isArray(i.card.colors)
-        ? i.card.colors.join(",")
-        : JSON.stringify(i.card.colors ?? ""),
-      priceUsd: (i.card.prices as any)?.usd ?? "",
-      priceUsdFoil: (i.card.prices as any)?.usd_foil ?? "",
-      priceUsdEtched: (i.card.prices as any)?.usd_etched ?? "",
-      priceEur: (i.card.prices as any)?.eur ?? "",
-      priceEurFoil: (i.card.prices as any)?.eur_foil ?? "",
-      priceTix: (i.card.prices as any)?.tix ?? "",
-      foil: i.foil,
-      foilStatus: i.foilStatus,
-      sourceType: i.sourceType,
-      roundOpened: i.round?.name ?? "No acquisition group",
-      oracleText: i.card.oracleText ?? "",
-      powerToughness: [i.card.power, i.card.toughness]
-        .filter(Boolean)
-        .join("/"),
-      power: i.card.power ?? "",
-      toughness: i.card.toughness ?? "",
-      loyalty: i.card.loyalty ?? "",
-      defense: i.card.defense ?? "",
-      legalities: (i.card.legalities as any) ?? {},
-      artist: i.card.artist ?? "",
-      collectorNumber: i.card.collectorNumber,
-      keywords: Array.isArray(i.card.keywords)
-        ? i.card.keywords.join(", ")
-        : JSON.stringify(i.card.keywords ?? ""),
-      notes: i.notes ?? "",
-      condition: i.condition,
-      imageUri:
-        (i.card.imageUris as any)?.normal ??
-        (i.card.imageUris as any)?.small ??
-        i.card.imageUri ??
-        "",
-      imageSmall: (i.card.imageUris as any)?.small ?? "",
-      scryfallUri: i.card.scryfallUri ?? "",
-      auditHistory: i.auditLogs.map((a) => ({
-        id: a.id,
-        changeType: a.changeType,
-        reason: a.reason ?? "",
-        createdAt: a.createdAt.toISOString(),
-        changedBy:
-          a.changedByUser?.player?.displayName ??
-          a.changedByUser?.username ??
+  const exactItems = getInventoryExactPrintings(items);
+  const groupedItems = getInventoryGroupedByCard(exactItems);
+  const displayItems = displayMode === "grouped" ? groupedItems : exactItems;
+
+  const rows = displayItems
+    .map((entry: any) => {
+      const i = displayMode === "grouped" ? entry.representative : entry;
+      return {
+        id: i.id,
+        cardId: i.cardId,
+        cardName: i.card.name,
+        quantity: entry.quantity ?? i.quantity,
+        displayMode,
+        sourceItemIds: i.sourceItemIds ?? [i.id],
+        printingCount: entry.printingCount ?? 1,
+        locationCount: entry.locationCount ?? i.locationBreakdown?.length ?? 1,
+        locationSummary:
+          displayMode === "grouped"
+            ? `${entry.quantity} total · ${entry.printingCount} printings · ${entry.locationCount} locations`
+            : (i.locationSummary ??
+              (i.location?.name
+                ? `${i.location.name}: ${i.quantity}`
+                : "Unassigned")),
+        locationBreakdown: i.locationBreakdown ?? [
+          {
+            locationId: i.locationId ?? null,
+            name: i.location?.name ?? "Unassigned",
+            quantity: i.quantity,
+          },
+        ],
+        printings:
+          displayMode === "grouped"
+            ? entry.printings.map((p: any) => ({
+                id: p.id,
+                cardName: p.card.name,
+                setCode: p.card.setCode.toUpperCase(),
+                collectorNumber: p.card.collectorNumber,
+                foilStatus: p.foilStatus,
+                condition: p.condition,
+                language: p.language,
+                quantity: p.quantity,
+                locationBreakdown: p.locationBreakdown,
+              }))
+            : [],
+        locationId: i.locationId ?? "",
+        locationName: i.location?.name ?? "Unassigned",
+        currentOwnerId: i.currentOwnerId,
+        currentOwner: i.currentOwner.displayName,
+        currentOwnerColor: i.currentOwner.color || "#64748b",
+        originalOpenerId: i.originalOpenerId,
+        originalOpener: i.originalOpener.displayName,
+        roundId: i.roundId ?? "",
+        setCode: i.card.setCode.toUpperCase(),
+        setName: i.card.setName ?? "",
+        rarity: i.card.rarity,
+        manaCost: i.card.manaCost ?? "",
+        manaValue: i.card.manaValue ?? undefined,
+        typeLine: i.card.typeLine,
+        colorIdentity: Array.isArray(i.card.colorIdentity)
+          ? i.card.colorIdentity.join(",")
+          : JSON.stringify(i.card.colorIdentity ?? ""),
+        colors: Array.isArray(i.card.colors)
+          ? i.card.colors.join(",")
+          : JSON.stringify(i.card.colors ?? ""),
+        priceUsd: (i.card.prices as any)?.usd ?? "",
+        priceUsdFoil: (i.card.prices as any)?.usd_foil ?? "",
+        priceUsdEtched: (i.card.prices as any)?.usd_etched ?? "",
+        priceEur: (i.card.prices as any)?.eur ?? "",
+        priceEurFoil: (i.card.prices as any)?.eur_foil ?? "",
+        priceTix: (i.card.prices as any)?.tix ?? "",
+        foil: i.foil,
+        foilStatus: i.foilStatus,
+        sourceType: i.sourceType,
+        roundOpened: i.round?.name ?? "No acquisition group",
+        oracleText: i.card.oracleText ?? "",
+        powerToughness: [i.card.power, i.card.toughness]
+          .filter(Boolean)
+          .join("/"),
+        power: i.card.power ?? "",
+        toughness: i.card.toughness ?? "",
+        loyalty: i.card.loyalty ?? "",
+        defense: i.card.defense ?? "",
+        legalities: (i.card.legalities as any) ?? {},
+        artist: i.card.artist ?? "",
+        collectorNumber: i.card.collectorNumber,
+        keywords: Array.isArray(i.card.keywords)
+          ? i.card.keywords.join(", ")
+          : JSON.stringify(i.card.keywords ?? ""),
+        notes: i.notes ?? "",
+        condition: i.condition,
+        imageUri:
+          (i.card.imageUris as any)?.normal ??
+          (i.card.imageUris as any)?.small ??
+          i.card.imageUri ??
           "",
-        beforeJson: a.beforeJson as Record<string, unknown>,
-        afterJson: a.afterJson as Record<string, unknown>,
-      })),
-    }))
+        imageSmall: (i.card.imageUris as any)?.small ?? "",
+        scryfallUri: i.card.scryfallUri ?? "",
+        auditHistory: (i.auditLogs ?? []).map((a: any) => ({
+          id: a.id,
+          changeType: a.changeType,
+          reason: a.reason ?? "",
+          createdAt: a.createdAt.toISOString(),
+          changedBy:
+            a.changedByUser?.player?.displayName ??
+            a.changedByUser?.username ??
+            "",
+          beforeJson: a.beforeJson as Record<string, unknown>,
+          afterJson: a.afterJson as Record<string, unknown>,
+        })),
+      };
+    })
     .filter((row) => {
       if (colorIdentityNeedle) {
         const colorHaystack = row.colorIdentity.toUpperCase();
@@ -337,6 +416,7 @@ export default async function InventoryPage({
             <input type="hidden" name="keyword" value={p.keyword || ""} />
             <input type="hidden" name="priceMin" value={p.priceMin || ""} />
             <input type="hidden" name="priceMax" value={p.priceMax || ""} />
+            <input type="hidden" name="locationId" value={p.locationId || ""} />
             <label className="text-sm">
               Format
               <select name="format" className="w-full border p-2 bg-zinc-900">
@@ -499,6 +579,26 @@ export default async function InventoryPage({
             ))}
           </select>
           <select
+            name="displayMode"
+            defaultValue={displayMode}
+            className="border p-2 bg-zinc-900"
+          >
+            <option value="exact">Exact printings</option>
+            <option value="grouped">Grouped by card name</option>
+          </select>
+          <select
+            name="locationId"
+            defaultValue={p.locationId}
+            className="border p-2 bg-zinc-900"
+          >
+            <option value="">all locations</option>
+            {locations.map((location) => (
+              <option key={location.id} value={location.id}>
+                {location.name}
+              </option>
+            ))}
+          </select>
+          <select
             name="roundId"
             defaultValue={p.roundId}
             className="border p-2 bg-zinc-900"
@@ -583,8 +683,10 @@ export default async function InventoryPage({
           color: p.color,
         }))}
         rounds={rounds.map((r) => ({ id: r.id, name: r.name }))}
+        locations={locations.map((l) => ({ id: l.id, name: l.name }))}
         cardLabels={cardLabels}
         isAdmin={isAdmin}
+        displayMode={displayMode}
         onSaveEdit={onSaveEdit}
         onSearchPrintings={onSearchPrintings}
         onDeleteInventoryItem={deleteInventoryItem}

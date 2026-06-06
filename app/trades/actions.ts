@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { isAdminUser, requireLogin } from "@/lib/auth";
 import { InventorySourceType, TradeStatus } from "@prisma/client";
+import { ensureDefaultLocation } from "@/lib/inventory-locations";
 import { revalidatePath } from "next/cache";
 import {
   assertCanAcceptTrade,
@@ -344,6 +345,7 @@ async function addToReceiver(
   actorUserId: string,
   reason: string,
 ) {
+  const destinationLocation = await ensureDefaultLocation(tx, toPlayerId);
   const existing = await tx.inventoryItem.findFirst({
     where: {
       currentOwnerId: toPlayerId,
@@ -354,6 +356,7 @@ async function addToReceiver(
       condition: item.condition,
       language: item.language,
       roundId: item.roundId,
+      locationId: destinationLocation.id,
       quantity: { gt: 0 },
     },
   });
@@ -400,6 +403,7 @@ async function addToReceiver(
         condition: item.condition,
         language: item.language,
         roundId: item.roundId ?? null,
+        locationId: destinationLocation.id,
         notes: item.notes,
       },
     });

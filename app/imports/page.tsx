@@ -27,6 +27,11 @@ import {
   processImportResolutionJob,
   serializeImportResolutionJob,
 } from "@/lib/import-resolution-job";
+import {
+  ensureDefaultLocation,
+  getLocationsForOwner,
+  normalizeLocationName,
+} from "@/lib/inventory-locations";
 
 const aliases: Record<string, string[]> = {
   quantity: ["quantity", "count", "qty", "copies"],
@@ -37,6 +42,7 @@ const aliases: Record<string, string[]> = {
   condition: ["condition"],
   language: ["language", "lang"],
   notes: ["notes", "comment", "tag", "tags"],
+  location: ["location", "location name", "storage", "storage location"],
   scryfallId: ["scryfall id", "scryfallid", "scryfall_id"],
 };
 
@@ -76,6 +82,7 @@ type ParsedRow = {
   condition: string;
   language: string;
   notes?: string;
+  locationName?: string;
   scryfallId?: string;
   warning?: string;
   error?: string;
@@ -201,6 +208,7 @@ function parseRow(row: Record<string, string>, rowNumber: number): ParsedRow {
     condition,
     language,
     notes: getCell(row, "notes") || undefined,
+    locationName: getCell(row, "location") || undefined,
     scryfallId: getCell(row, "scryfallId") || undefined,
     warning: foil.warning || undefined,
     error: errors.length ? `Row ${rowNumber}: ${errors.join(" ")}` : undefined,
@@ -999,6 +1007,16 @@ export default async function ImportsPage({
       throw new Error(
         "Resolve or skip all unmatched/ambiguous rows before importing.",
       );
+    const defaultLocationIdRaw = String(fd.get("destinationLocationId") || "");
+    const defaultLocation = defaultLocationIdRaw
+      ? await prisma.inventoryLocation.findFirst({
+          where: {
+            id: defaultLocationIdRaw,
+            ownerPlayerId: batch.selectedPlayerId,
+          },
+        })
+      : await ensureDefaultLocation(prisma, batch.selectedPlayerId);
+    if (!defaultLocation) throw new Error("Destination location not found.");
     let skippedRows = 0,
       committedRows = 0,
       errorRows = 0;
@@ -1050,6 +1068,15 @@ export default async function ImportsPage({
         parsedRow.foilStatus ||
         "NONFOIL") as FoilStatus;
       const condition = item.parsedCondition || parsedRow.condition || "NM";
+      const rowLocation = parsedRow.locationName
+        ? await prisma.inventoryLocation.findFirst({
+            where: {
+              ownerPlayerId: batch.selectedPlayerId,
+              normalizedName: normalizeLocationName(parsedRow.locationName),
+            },
+          })
+        : null;
+      const locationId = rowLocation?.id ?? defaultLocation.id;
       const pull = batch.selectedRoundId
         ? await prisma.pull.create({
             data: {
@@ -1072,6 +1099,7 @@ export default async function ImportsPage({
         condition,
         language: parsedRow.language || "EN",
         roundId: batch.selectedRoundId ?? null,
+        locationId,
         quantity: { gt: 0 },
       };
       const createData = {
@@ -1087,6 +1115,7 @@ export default async function ImportsPage({
         notes: parsedRow.notes || null,
         sourceType: InventorySourceType.CSV_PULL_IMPORT,
         language: parsedRow.language || "EN",
+        locationId,
       };
       const existingInventory =
         duplicateBehavior === "separate"
@@ -1178,6 +1207,9 @@ export default async function ImportsPage({
   });
 
   const selectedItems = selectedBatch?.items ?? [];
+  const locationsForSelectedOwner = selectedBatch
+    ? await getLocationsForOwner(prisma, selectedBatch.selectedPlayerId)
+    : [];
   const summary = {
     total: selectedItems.length,
     ready: selectedItems.filter(
@@ -1728,6 +1760,7 @@ export default async function ImportsPage({
                       <td>{item.parsedFoilStatus}</td>
                       <td>{item.parsedCondition}</td>
                       <td>{parsed.language}</td>
+                      <td>{parsed.locationName || "—"}</td>
                       <td>
                         <span
                           className={`inline-block rounded border px-2 py-1 text-xs ${statusBadgeClass(item.status)}`}
@@ -1810,8 +1843,24 @@ export default async function ImportsPage({
           ) : null}
           {selectedBatch.status === "PREVIEW" &&
           !selectedBatch.importType.endsWith(":preview") ? (
-            <form action={confirmImport} className="flex gap-3 items-center">
+            <form
+              action={confirmImport}
+              className="flex flex-wrap gap-3 items-end"
+            >
               <input type="hidden" name="batchId" value={selectedBatch.id} />
+              <label className="text-sm">
+                Destination location
+                <select
+                  name="destinationLocationId"
+                  className="block border p-2 bg-zinc-900"
+                >
+                  {locationsForSelectedOwner.map((location) => (
+                    <option key={location.id} value={location.id}>
+                      {location.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <SubmitButton
                 pendingLabel="Importing…"
                 disabled={unresolvedCount > 0}
@@ -1858,6 +1907,7 @@ export default async function ImportsPage({
                 <p>Foil: {resolverParsed.foilStatus}</p>
                 <p>Condition: {resolverItem.parsedCondition}</p>
                 <p>Language: {resolverParsed.language}</p>
+                <p>Imported location: {resolverParsed.locationName || "—"}</p>
                 <p>Notes: {resolverParsed.notes || "—"}</p>
               </div>
               <div className="border border-zinc-800 rounded p-3 space-y-1">

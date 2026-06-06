@@ -67,6 +67,33 @@ export type InventoryRow = {
   imageSmall?: string;
   scryfallUri?: string;
   condition?: string;
+  displayMode?: "exact" | "grouped";
+  sourceItemIds?: string[];
+  printingCount?: number;
+  locationCount?: number;
+  locationId?: string;
+  locationName?: string;
+  locationSummary?: string;
+  locationBreakdown?: Array<{
+    locationId: string | null;
+    name: string;
+    quantity: number;
+  }>;
+  printings?: Array<{
+    id: string;
+    cardName: string;
+    setCode: string;
+    collectorNumber: string;
+    foilStatus?: string;
+    condition?: string;
+    language?: string;
+    quantity: number;
+    locationBreakdown: Array<{
+      locationId: string | null;
+      name: string;
+      quantity: number;
+    }>;
+  }>;
   priceUsdEtched?: string;
   priceEur?: string;
   priceEurFoil?: string;
@@ -97,6 +124,7 @@ const defaults: VisibilityState = {
   priceUsd: true,
   foil: true,
   roundOpened: true,
+  locationSummary: true,
 };
 
 function isHexColor(value?: string) {
@@ -201,8 +229,24 @@ function CardDetail({
               <b>Artist:</b> {row.artist || "-"}
             </p>
             <p>
-              <b>Quantity:</b> {row.quantity}
+              <b>Total Quantity:</b> {row.quantity}
             </p>
+            <p>
+              <b>Location Summary:</b>{" "}
+              {row.locationSummary || row.locationName || "Unassigned"}
+            </p>
+            {row.locationBreakdown?.length ? (
+              <div>
+                <b>Location Breakdown:</b>
+                <ul className="mt-1 list-disc pl-5">
+                  {row.locationBreakdown.map((location) => (
+                    <li key={location.locationId ?? location.name}>
+                      {location.name}: {location.quantity}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             <p>
               <b>Owner:</b> {row.currentOwner}
             </p>
@@ -224,6 +268,33 @@ function CardDetail({
             <p>
               <b>Notes:</b> {row.notes || "-"}
             </p>
+            {row.displayMode === "grouped" && row.printings?.length ? (
+              <div>
+                <b>Owned Printings:</b>
+                <div className="mt-2 space-y-2">
+                  {row.printings.map((printing) => (
+                    <div
+                      key={printing.id}
+                      className="rounded border border-zinc-800 p-2"
+                    >
+                      <div className="font-semibold">
+                        {printing.cardName} ({printing.setCode}) #
+                        {printing.collectorNumber}
+                      </div>
+                      <div className="text-zinc-400">
+                        {printing.foilStatus} · {printing.condition} ·{" "}
+                        {printing.language} · Qty {printing.quantity}
+                      </div>
+                      <div className="text-zinc-300">
+                        {printing.locationBreakdown
+                          .map((loc) => `${loc.name}: ${loc.quantity}`)
+                          .join(" · ")}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             <p>
               <b>Legalities:</b> CMD {legalities.commander || "-"} | STD{" "}
               {legalities.standard || "-"} | PIO {legalities.pioneer || "-"} |
@@ -259,8 +330,10 @@ export function InventoryBrowser({
   rows,
   players,
   rounds,
+  locations,
   cardLabels,
   isAdmin,
+  displayMode,
   onSaveEdit,
   onSearchPrintings,
   onDeleteInventoryItem,
@@ -268,8 +341,10 @@ export function InventoryBrowser({
   rows: InventoryRow[];
   players: PickRef[];
   rounds: PickRef[];
+  locations: PickRef[];
   cardLabels: Record<string, string>;
   isAdmin: boolean;
+  displayMode: "exact" | "grouped";
   onSaveEdit: (formData: FormData) => Promise<void>;
   onSearchPrintings: (formData: FormData) => Promise<ScryfallResult[]>;
   onDeleteInventoryItem?: (formData: FormData) => Promise<void>;
@@ -321,7 +396,14 @@ export function InventoryBrowser({
           </button>
         ),
       },
-      { accessorKey: "quantity", header: "Quantity" },
+      { accessorKey: "quantity", header: "Total cards" },
+      { accessorKey: "locationSummary", header: "Location summary" },
+      ...(displayMode === "grouped"
+        ? [
+            { accessorKey: "printingCount", header: "Printings" },
+            { accessorKey: "locationCount", header: "Locations" },
+          ]
+        : []),
       {
         accessorKey: "currentOwner",
         header: "Owner",
@@ -351,23 +433,27 @@ export function InventoryBrowser({
             {
               id: "actions",
               header: "Actions",
-              cell: ({ row }: any) => (
-                <button
-                  className="border px-2"
-                  onClick={() => {
-                    setEditing(row.original);
-                    setConfirmed(null);
-                    setResults([]);
-                  }}
-                >
-                  Edit
-                </button>
-              ),
+              cell: ({ row }: any) =>
+                row.original.displayMode === "exact" &&
+                (row.original.sourceItemIds?.length ?? 1) === 1 ? (
+                  <button
+                    className="border px-2"
+                    onClick={() => {
+                      setEditing(row.original);
+                      setConfirmed(null);
+                      setResults([]);
+                    }}
+                  >
+                    Edit
+                  </button>
+                ) : (
+                  <span className="text-xs text-zinc-500">Grouped</span>
+                ),
             },
           ]
         : []),
     ],
-    [isAdmin],
+    [isAdmin, displayMode],
   );
 
   const table = useReactTable({
@@ -564,7 +650,9 @@ export function InventoryBrowser({
                 </div>
                 <div className="text-xs text-zinc-400 flex items-center gap-2">
                   <span>
-                    {row.setCode} · {row.rarity}
+                    {row.displayMode === "grouped"
+                      ? `${row.printingCount} printings`
+                      : `${row.setCode} · ${row.rarity}`}
                   </span>
                   <span className="inline-flex items-center gap-1">
                     <span
@@ -718,6 +806,21 @@ export function InventoryBrowser({
                     {rounds.map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-sm">
+                  Location
+                  <select
+                    name="locationId"
+                    defaultValue={editing.locationId || ""}
+                    className="w-full border p-1 bg-zinc-900"
+                  >
+                    <option value="">Unassigned</option>
+                    {locations.map((location) => (
+                      <option key={location.id} value={location.id}>
+                        {location.name}
                       </option>
                     ))}
                   </select>

@@ -93,6 +93,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (roundId) where.roundId = roundId;
+  if (params.get("locationId")) where.locationId = params.get("locationId");
   const cardWhere: any = {};
   const cardName = params.get("cardName")?.trim();
   const oracleText = params.get("oracleText")?.trim();
@@ -137,6 +138,7 @@ export async function GET(request: NextRequest) {
       currentOwner: true,
       originalOpener: true,
       round: true,
+      location: true,
     },
     orderBy: [
       { currentOwner: { displayName: "asc" } },
@@ -204,6 +206,7 @@ export async function GET(request: NextRequest) {
         "MTGInventory",
         `Owner:${item.currentOwner.displayName}`,
         `AcquisitionGroup:${item.round?.name ?? "None"}`,
+        `Location:${item.location?.name ?? "Unassigned"}`,
         `OriginalOwner:${item.originalOpener.displayName}`,
       ].join(", "),
     ]);
@@ -227,6 +230,7 @@ export async function GET(request: NextRequest) {
       "Owner",
       "Original Owner",
       "Acquisition Group",
+      "Location",
       "Source Type",
       "Scryfall ID",
       "Oracle ID",
@@ -252,6 +256,7 @@ export async function GET(request: NextRequest) {
       item.currentOwner.displayName,
       item.originalOpener.displayName,
       item.round?.name ?? "",
+      item.location?.name ?? "Unassigned",
       item.sourceType,
       item.card.scryfallId,
       item.card.oracleId || "",
