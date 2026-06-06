@@ -3,6 +3,13 @@ set -e
 
 echo "[entrypoint] Running Prisma migrations..."
 
+echo "[entrypoint] Ensuring persistent application directories exist..."
+for dir in "$UPLOADS_DATA_PATH" "$IMPORTS_DATA_PATH" "$EXPORTS_DATA_PATH" "$BACKUPS_DATA_PATH" "$SCRYFALL_CONTAINER_DATA_PATH"; do
+  if [ -n "$dir" ]; then
+    mkdir -p "$dir"
+  fi
+done
+
 if [ "${WIPE_DB_ON_START:-false}" = "true" ]; then
   echo "[entrypoint] WIPE_DB_ON_START=true -> resetting database (destructive)."
   npx prisma migrate reset --force --skip-generate
