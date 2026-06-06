@@ -282,6 +282,7 @@ function makeBulkPrisma(itemsInput: any[], locationsInput: any[]) {
       },
     },
     items,
+    locations,
     audits,
     counters,
   };
@@ -463,7 +464,7 @@ test("bulk delete selected rows removes inventory without deleting card metadata
 test("delete location contents only removes inventory from that location", async () => {
   const { bulkDeleteInventoryItems } =
     await import("../lib/inventory-locations");
-  const { prisma, items, audits } = makeBulkPrisma(
+  const { prisma, items, locations, audits } = makeBulkPrisma(
     [
       {
         id: "unassigned-copy",
@@ -514,12 +515,46 @@ test("delete location contents only removes inventory from that location", async
 
   assert.equal(result.deletedEntries, 1);
   assert.equal(result.deletedCards, 3);
+  assert.equal(result.inventoryEntriesTouched, 1);
+  assert.equal(result.locationQuantityRowsDeleted, 1);
+  assert.equal(result.parentInventoryRowsDeleted, 1);
+  assert.equal(result.physicalQuantityDeleted, 3);
   assert.equal(
     items.some((item) => item.locationId === "loc-unassigned"),
     false,
   );
   assert.equal(items.find((item) => item.id === "box-copy")?.quantity, 2);
+  assert.equal(
+    locations.some((location) => location.id === "loc-unassigned"),
+    true,
+  );
   assert.equal(audits[0].changeType, "location_contents_deleted");
+  assert.doesNotThrow(() => structuredClone(result));
+});
+
+test("delete location contents reports an empty location without deleting the location", async () => {
+  const { bulkDeleteInventoryItems } =
+    await import("../lib/inventory-locations");
+  const { prisma, locations } = makeBulkPrisma(
+    [],
+    [{ id: "loc-empty", ownerPlayerId: "owner-1", name: "Empty Box" }],
+  );
+
+  await assert.rejects(
+    () =>
+      bulkDeleteInventoryItems(prisma as any, {
+        actorUserId: "user-1",
+        where: { locationId: "loc-empty" },
+        sourceLocationId: "loc-empty",
+        allowedOwnerId: "owner-1",
+        scope: "location",
+      }),
+    /This location has no inventory to delete/,
+  );
+  assert.equal(
+    locations.some((location) => location.id === "loc-empty"),
+    true,
+  );
 });
 
 test("bulk move all from one location rejects same source and destination", async () => {

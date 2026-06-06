@@ -1,6 +1,10 @@
 export const dynamic = "force-dynamic";
 
 import { revalidatePath } from "next/cache";
+import {
+  LocationContentsDeleteForm,
+  type LocationContentsDeleteResult,
+} from "@/components/LocationContentsDeleteForm";
 import { Nav } from "@/components/Nav";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { getCurrentUser, isAdminUser, requireLogin } from "@/lib/auth";
@@ -58,15 +62,17 @@ export default async function LocationsPage() {
       { name: "asc" },
     ],
   });
-  const quantities = await prisma.inventoryItem.groupBy({
-    by: ["locationId"],
-    where: {
-      locationId: { in: locations.map((l) => l.id) },
-      quantity: { gt: 0 },
-    },
-    _sum: { quantity: true },
-    _count: true,
-  });
+  const quantities = locations.length
+    ? await prisma.inventoryItem.groupBy({
+        by: ["locationId"],
+        where: {
+          locationId: { in: locations.map((l) => l.id) },
+          quantity: { gt: 0 },
+        },
+        _sum: { quantity: true },
+        _count: true,
+      })
+    : [];
   const quantityByLocation = Object.fromEntries(
     quantities.map((q) => [
       q.locationId ?? "",
@@ -157,26 +163,95 @@ export default async function LocationsPage() {
     revalidatePath("/inventory");
   }
 
-  async function deleteLocationContentsAction(fd: FormData) {
+  async function deleteLocationContentsAction(
+    fd: FormData,
+  ): Promise<LocationContentsDeleteResult> {
     "use server";
-    const ctx = await getActionContext();
     const locationId = String(fd.get("locationId") || "");
     const confirmDelete = String(fd.get("confirmDeleteContents") || "").trim();
-    const location = await prisma.inventoryLocation.findUnique({
-      where: { id: locationId },
-      select: { id: true, ownerPlayerId: true, name: true },
-    });
-    if (!location) throw new Error("Location not found.");
-    if (!ctx.admin && location.ownerPlayerId !== ctx.playerId) {
-      throw new Error("Not authorized for this location.");
-    }
-    if (confirmDelete !== "DELETE" && confirmDelete !== location.name) {
-      throw new Error(
-        "Type DELETE or the location name to confirm deleting contents.",
-      );
-    }
+    const startedAt = Date.now();
+
     try {
-      await bulkDeleteInventoryItems(prisma, {
+      if (!locationId) {
+        return {
+          success: false,
+          message: "Choose a location before deleting contents.",
+        };
+      }
+
+      const ctx = await getActionContext();
+      console.info("[location-contents-delete] request", {
+        actingUserId: ctx.user.id,
+        locationId,
+        admin: ctx.admin,
+        ownerScope: ctx.admin ? "admin" : ctx.playerId,
+        confirmationProvided: Boolean(confirmDelete),
+      });
+
+      const location = await prisma.inventoryLocation.findUnique({
+        where: { id: locationId },
+        select: { id: true, ownerPlayerId: true, name: true },
+      });
+      console.info("[location-contents-delete] location lookup", {
+        actingUserId: ctx.user.id,
+        locationId,
+        found: Boolean(location),
+        ownerPlayerId: location?.ownerPlayerId ?? null,
+        locationName: location?.name ?? null,
+      });
+
+      if (!location) {
+        return { success: false, message: "Location not found." };
+      }
+      if (!ctx.admin && location.ownerPlayerId !== ctx.playerId) {
+        return {
+          success: false,
+          message:
+            "You do not have permission to delete this location's contents.",
+        };
+      }
+      if (confirmDelete !== "DELETE" && confirmDelete !== location.name) {
+        return {
+          success: false,
+          message:
+            "Type DELETE or the location name to confirm deleting contents.",
+        };
+      }
+
+      const preview = await prisma.inventoryItem.aggregate({
+        where: {
+          locationId,
+          quantity: { gt: 0 },
+          currentOwnerId: ctx.admin
+            ? location.ownerPlayerId
+            : ctx.playerId || undefined,
+        },
+        _count: { _all: true },
+        _sum: { quantity: true },
+      });
+      console.info("[location-contents-delete] preview", {
+        actingUserId: ctx.user.id,
+        locationId,
+        locationName: location.name,
+        ownerPlayerId: location.ownerPlayerId,
+        matchedInventoryRows: preview._count._all,
+        matchedPhysicalCards: preview._sum.quantity ?? 0,
+      });
+
+      if (!preview._count._all || !(preview._sum.quantity ?? 0)) {
+        return {
+          success: false,
+          message: "This location has no inventory to delete.",
+        };
+      }
+
+      console.info("[location-contents-delete] mutation starting", {
+        actingUserId: ctx.user.id,
+        locationId,
+        matchedInventoryRows: preview._count._all,
+        matchedPhysicalCards: preview._sum.quantity ?? 0,
+      });
+      const result = await bulkDeleteInventoryItems(prisma, {
         actorUserId: ctx.user.id,
         where: { locationId },
         sourceLocationId: locationId,
@@ -186,26 +261,60 @@ export default async function LocationsPage() {
         reason: `Deleted all inventory contents in ${location.name}.`,
         scope: "location",
       });
-    } catch (error: any) {
-      console.error("[location-contents-delete] failed", {
-        locationId,
+      console.info("[location-contents-delete] mutation committed", {
         actingUserId: ctx.user.id,
+        locationId,
+        locationName: location.name,
+        deletedEntries: result.deletedEntries,
+        deletedCards: result.deletedCards,
+        auditRowsExpected: result.deletedEntries,
+        durationMs: Date.now() - startedAt,
+      });
+
+      revalidatePath("/locations");
+      revalidatePath("/inventory");
+      console.info("[location-contents-delete] revalidated", {
+        actingUserId: ctx.user.id,
+        locationId,
+        paths: ["/locations", "/inventory"],
+      });
+
+      return {
+        success: true,
+        message: `Deleted ${result.deletedCards} cards across ${result.deletedEntries} inventory entries from ${location.name}.`,
+        deletedEntries: result.deletedEntries,
+        deletedCards: result.deletedCards,
+        locationName: location.name,
+      };
+    } catch (error: any) {
+      console.error("[location-contents-delete] unexpected failure", {
+        locationId,
         message: error?.message,
+        name: error?.name,
         stack: error?.stack,
+        durationMs: Date.now() - startedAt,
       });
       const rawMessage = String(error?.message || "");
+      const safeMessages = [
+        "This location has no inventory to delete.",
+        "Some inventory changed before deletion. Refresh and try again.",
+        "Some selected inventory is reserved in active trades and cannot be deleted.",
+        "You do not have permission to delete this inventory.",
+      ];
       const exposesPrismaInternals =
         rawMessage.includes("Invalid `prisma.") ||
         rawMessage.includes("Transaction API error") ||
-        rawMessage.includes("PrismaClient");
-      throw new Error(
-        exposesPrismaInternals || !rawMessage
-          ? "Delete failed unexpectedly. No inventory was removed. Check server logs for details."
-          : rawMessage,
-      );
+        rawMessage.includes("PrismaClient") ||
+        rawMessage.includes("Foreign key constraint") ||
+        rawMessage.includes("Unique constraint");
+      return {
+        success: false,
+        message:
+          !exposesPrismaInternals && safeMessages.includes(rawMessage)
+            ? rawMessage
+            : "Delete contents failed unexpectedly. No inventory was removed. Check server logs for details.",
+      };
     }
-    revalidatePath("/locations");
-    revalidatePath("/inventory");
   }
 
   async function deleteLocationAction(fd: FormData) {
@@ -401,30 +510,13 @@ export default async function LocationsPage() {
                   Save
                 </SubmitButton>
               </form>
-              {counts.quantity > 0 ? (
-                <form
-                  action={deleteLocationContentsAction}
-                  className="space-y-2 rounded border border-red-900/60 p-2"
-                >
-                  <input type="hidden" name="locationId" value={location.id} />
-                  <p className="text-xs text-red-200">
-                    Delete all {counts.quantity} cards across {counts.entries}{" "}
-                    inventory entries in {location.name}. This keeps the
-                    location and card metadata.
-                  </p>
-                  <input
-                    name="confirmDeleteContents"
-                    placeholder={`Type DELETE or ${location.name}`}
-                    className="w-full border border-red-800 bg-zinc-900 p-2 text-sm"
-                  />
-                  <SubmitButton
-                    pendingLabel="Deleting contents…"
-                    className="border border-red-700 px-3 py-1 text-red-200"
-                  >
-                    Delete contents
-                  </SubmitButton>
-                </form>
-              ) : null}
+              <LocationContentsDeleteForm
+                locationId={location.id}
+                locationName={location.name}
+                entryCount={counts.entries}
+                cardCount={counts.quantity}
+                deleteAction={deleteLocationContentsAction}
+              />
               <form action={deleteLocationAction} className="space-y-2">
                 <input type="hidden" name="locationId" value={location.id} />
                 <label className="flex items-center gap-2 text-xs text-zinc-300">

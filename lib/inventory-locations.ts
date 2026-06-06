@@ -361,6 +361,10 @@ export type BulkMoveInventoryResult = {
 export type BulkDeleteInventoryResult = {
   deletedEntries: number;
   deletedCards: number;
+  inventoryEntriesTouched: number;
+  locationQuantityRowsDeleted: number;
+  parentInventoryRowsDeleted: number;
+  physicalQuantityDeleted: number;
   scope: "selected" | "matching" | "location";
   locationName?: string;
 };
@@ -1012,6 +1016,10 @@ export async function bulkDeleteInventoryItems(
       return {
         deletedEntries: rowsToDelete.length,
         deletedCards,
+        inventoryEntriesTouched: rowsToDelete.length,
+        locationQuantityRowsDeleted: deleteResult.count,
+        parentInventoryRowsDeleted: deleteResult.count,
+        physicalQuantityDeleted: deletedCards,
         scope,
         locationName: sourceLocation?.name,
       };
