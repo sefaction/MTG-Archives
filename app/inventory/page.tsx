@@ -383,11 +383,22 @@ export default async function InventoryPage({
         selectionMode,
         sourceLocationId: sourceLocationIdRaw || null,
       });
+      const rawMessage = String(error?.message || "");
+      const isTransactionTimeout =
+        rawMessage.includes("Transaction already closed") ||
+        rawMessage.includes("expired transaction") ||
+        rawMessage.includes("interactive transaction timeout");
+      const exposesPrismaInternals =
+        rawMessage.includes("Invalid `prisma.") ||
+        rawMessage.includes("Transaction API error") ||
+        rawMessage.includes("PrismaClient");
       return {
         success: false as const,
-        message:
-          error?.message ||
-          "Bulk move failed before any inventory changes were committed.",
+        message: isTransactionTimeout
+          ? "Bulk move took too long and was rolled back. Try a smaller selection, or use a background bulk move workflow once available."
+          : exposesPrismaInternals || !rawMessage
+            ? "Bulk move failed before any inventory changes were committed. Check the server logs for the diagnostic bulk-location-move entry."
+            : rawMessage,
       };
     }
   }

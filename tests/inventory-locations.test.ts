@@ -152,52 +152,59 @@ function makeBulkPrisma(itemsInput: any[], locationsInput: any[]) {
   const items = itemsInput.map((item) => ({ ...item }));
   const locations = locationsInput.map((location) => ({ ...location }));
   const audits: any[] = [];
+  const counters = {
+    auditCreateCalls: 0,
+    auditCreateManyCalls: 0,
+    updateManyCalls: 0,
+    deleteManyCalls: 0,
+    transactionOptions: null as any,
+  };
+  const matchesWhere = (item: any, where: any) => {
+    if (where.id?.in && !where.id.in.includes(item.id)) return false;
+    if (where.id?.not && item.id === where.id.not) return false;
+    if (where.locationId && item.locationId !== where.locationId) return false;
+    if (where.currentOwnerId && item.currentOwnerId !== where.currentOwnerId)
+      return false;
+    if (
+      where.originalOpenerId &&
+      item.originalOpenerId !== where.originalOpenerId
+    )
+      return false;
+    if (where.cardId && item.cardId !== where.cardId) return false;
+    if (where.foil !== undefined && item.foil !== where.foil) return false;
+    if (where.foilStatus && item.foilStatus !== where.foilStatus) return false;
+    if (where.condition && item.condition !== where.condition) return false;
+    if (where.language && item.language !== where.language) return false;
+    if (where.roundId !== undefined && item.roundId !== where.roundId)
+      return false;
+    if (
+      where.quantity?.gt !== undefined &&
+      !(item.quantity > where.quantity.gt)
+    )
+      return false;
+    return true;
+  };
   const delegate = {
     inventoryLocation: {
       findUnique: async ({ where }: any) =>
         locations.find((location) => location.id === where.id) ?? null,
     },
     inventoryItem: {
+      aggregate: async ({ where }: any) => {
+        const matching = items.filter((item) => matchesWhere(item, where));
+        return {
+          _count: { _all: matching.length },
+          _sum: {
+            quantity: matching.reduce((sum, item) => sum + item.quantity, 0),
+          },
+        };
+      },
       findMany: async ({ where }: any) =>
         items
-          .filter((item) => {
-            if (where.id?.in && !where.id.in.includes(item.id)) return false;
-            if (where.locationId && item.locationId !== where.locationId)
-              return false;
-            if (
-              where.currentOwnerId &&
-              item.currentOwnerId !== where.currentOwnerId
-            )
-              return false;
-            if (
-              where.quantity?.gt !== undefined &&
-              !(item.quantity > where.quantity.gt)
-            )
-              return false;
-            return true;
-          })
-          .map((item) => ({
-            ...item,
-            location:
-              locations.find((location) => location.id === item.locationId) ??
-              null,
-            card: { name: item.cardName ?? "Sol Ring" },
-          })),
+          .filter((item) => matchesWhere(item, where))
+          .map((item) => ({ ...item })),
       findFirst: async ({ where }: any) =>
-        items.find(
-          (item) =>
-            item.id !== where.id.not &&
-            item.currentOwnerId === where.currentOwnerId &&
-            item.originalOpenerId === where.originalOpenerId &&
-            item.cardId === where.cardId &&
-            item.foil === where.foil &&
-            item.foilStatus === where.foilStatus &&
-            item.condition === where.condition &&
-            item.language === where.language &&
-            item.roundId === where.roundId &&
-            item.locationId === where.locationId &&
-            item.quantity > where.quantity.gt,
-        ) ?? null,
+        items.find((item) => matchesWhere(item, where)) ?? null,
       update: async ({ where, data }: any) => {
         const item = items.find((candidate) => candidate.id === where.id);
         if (!item) throw new Error("item not found");
@@ -205,6 +212,32 @@ function makeBulkPrisma(itemsInput: any[], locationsInput: any[]) {
         if (data.quantity?.decrement) item.quantity -= data.quantity.decrement;
         if (data.locationId !== undefined) item.locationId = data.locationId;
         return { ...item };
+      },
+      updateMany: async ({ where, data }: any) => {
+        counters.updateManyCalls += 1;
+        let count = 0;
+        for (const item of items) {
+          if (!matchesWhere(item, where)) continue;
+          if (data.quantity?.increment)
+            item.quantity += data.quantity.increment;
+          if (data.quantity?.decrement)
+            item.quantity -= data.quantity.decrement;
+          if (data.locationId !== undefined) item.locationId = data.locationId;
+          count += 1;
+        }
+        return { count };
+      },
+      deleteMany: async ({ where }: any) => {
+        counters.deleteManyCalls += 1;
+        const ids = new Set(where.id?.in ?? []);
+        let count = 0;
+        for (let index = items.length - 1; index >= 0; index -= 1) {
+          if (ids.has(items[index].id)) {
+            items.splice(index, 1);
+            count += 1;
+          }
+        }
+        return { count };
       },
       delete: async ({ where }: any) => {
         const index = items.findIndex((candidate) => candidate.id === where.id);
@@ -218,24 +251,35 @@ function makeBulkPrisma(itemsInput: any[], locationsInput: any[]) {
     },
     inventoryAuditLog: {
       create: async ({ data }: any) => {
+        counters.auditCreateCalls += 1;
         audits.push(data);
         return data;
+      },
+      createMany: async ({ data }: any) => {
+        counters.auditCreateManyCalls += 1;
+        audits.push(...data);
+        return { count: data.length };
       },
     },
   };
   return {
     prisma: {
-      $transaction: async (fn: any) => fn(delegate),
+      ...delegate,
+      $transaction: async (fn: any, options: any) => {
+        counters.transactionOptions = options;
+        return fn(delegate);
+      },
     },
     items,
     audits,
+    counters,
   };
 }
 
 test("bulk move selected rows merges matching destination rows and preserves total quantity", async () => {
   const { bulkMoveInventoryToLocation } =
     await import("../lib/inventory-locations");
-  const { prisma, items, audits } = makeBulkPrisma(
+  const { prisma, items, audits, counters } = makeBulkPrisma(
     [
       {
         id: "source",
@@ -283,6 +327,57 @@ test("bulk move selected rows merges matching destination rows and preserves tot
   assert.equal(items[0].id, "dest-existing");
   assert.equal(items[0].quantity, 5);
   assert.equal(audits.length, 2);
+  assert.equal(counters.auditCreateCalls, 0);
+  assert.equal(counters.auditCreateManyCalls, 1);
+  assert.ok(counters.transactionOptions.timeout >= 30000);
+});
+
+test("bulk move 800 entries uses bulk audit insertion instead of per-row audit creates", async () => {
+  const { bulkMoveInventoryToLocation } =
+    await import("../lib/inventory-locations");
+  const sourceItems = Array.from({ length: 800 }, (_, index) => ({
+    id: `source-${index}`,
+    currentOwnerId: "owner-1",
+    originalOpenerId: "owner-1",
+    cardId: `card-${index}`,
+    foil: false,
+    foilStatus: "NONFOIL",
+    condition: "NM",
+    language: "EN",
+    roundId: null,
+    sourceType: "IMPORT",
+    acquiredFromPullId: null,
+    notes: null,
+    locationId: "loc-unassigned",
+    quantity: index < 200 ? 2 : 1,
+  }));
+  const { prisma, items, audits, counters } = makeBulkPrisma(sourceItems, [
+    { id: "loc-unassigned", ownerPlayerId: "owner-1", name: "Unassigned" },
+    { id: "loc-box", ownerPlayerId: "owner-1", name: "Box-0001" },
+  ]);
+
+  const result = await bulkMoveInventoryToLocation(prisma as any, {
+    actorUserId: "user-1",
+    destinationLocationId: "loc-box",
+    where: { locationId: "loc-unassigned" },
+    sourceLocationId: "loc-unassigned",
+    allowedOwnerId: "owner-1",
+  });
+
+  assert.equal(result.movedEntries, 800);
+  assert.equal(result.movedCards, 1000);
+  assert.equal(
+    items.filter((item) => item.locationId === "loc-unassigned").length,
+    0,
+  );
+  assert.equal(
+    items.filter((item) => item.locationId === "loc-box").length,
+    800,
+  );
+  assert.equal(audits.length, 800);
+  assert.equal(counters.auditCreateCalls, 0);
+  assert.equal(counters.auditCreateManyCalls, 2);
+  assert.equal(counters.updateManyCalls, 1);
 });
 
 test("bulk move all from one location rejects same source and destination", async () => {
