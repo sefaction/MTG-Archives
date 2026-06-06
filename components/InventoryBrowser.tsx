@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ColumnDef,
+  PaginationState,
   flexRender,
   getCoreRowModel,
   getPaginationRowModel,
@@ -139,6 +140,10 @@ function withOpacity(hexColor: string, opacity: number) {
 }
 function getCardImage(row: InventoryRow) {
   return row.imageUri || row.imageSmall || "";
+}
+
+function getRowSourceIds(row: InventoryRow) {
+  return row.sourceItemIds?.length ? row.sourceItemIds : [row.id];
 }
 
 function CardDetail({
@@ -334,6 +339,12 @@ export function InventoryBrowser({
   cardLabels,
   isAdmin,
   displayMode,
+  totalMatchingCount,
+  totalMatchingCards,
+  initialPageSize,
+  initialBrowsingMode,
+  currentLocationId,
+  onBulkMoveLocation,
   onSaveEdit,
   onSearchPrintings,
   onDeleteInventoryItem,
@@ -345,6 +356,18 @@ export function InventoryBrowser({
   cardLabels: Record<string, string>;
   isAdmin: boolean;
   displayMode: "exact" | "grouped";
+  totalMatchingCount: number;
+  totalMatchingCards: number;
+  initialPageSize: number;
+  initialBrowsingMode: "paginated" | "infinite";
+  currentLocationId?: string;
+  onBulkMoveLocation: (formData: FormData) => Promise<{
+    movedEntries: number;
+    movedCards: number;
+    skippedEntries: number;
+    destinationLocationName: string;
+    sourceLocationName?: string;
+  }>;
   onSaveEdit: (formData: FormData) => Promise<void>;
   onSearchPrintings: (formData: FormData) => Promise<ScryfallResult[]>;
   onDeleteInventoryItem?: (formData: FormData) => Promise<void>;
@@ -381,9 +404,104 @@ export function InventoryBrowser({
   const [results, setResults] = useState<ScryfallResult[]>([]);
   const [confirmed, setConfirmed] = useState<ScryfallResult | null>(null);
   const [searchingPrintings, setSearchingPrintings] = useState(false);
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [allMatchingSelected, setAllMatchingSelected] = useState(false);
+  const [movingBulk, setMovingBulk] = useState(false);
+  const [pageSize, setPageSize] = useState(initialPageSize);
+  const [browsingMode, setBrowsingMode] = useState<"paginated" | "infinite">(
+    initialBrowsingMode,
+  );
+  const [infiniteLimit, setInfiniteLimit] = useState(initialPageSize);
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: initialPageSize,
+  });
+  const infiniteSentinelRef = useRef<HTMLDivElement | null>(null);
+
+  const selectionAvailable = displayMode === "exact";
+  const selectedEntriesCount = allMatchingSelected
+    ? totalMatchingCount
+    : selectedItemIds.size;
+  const selectedCardsCount = allMatchingSelected
+    ? totalMatchingCards
+    : rows
+        .filter((row) =>
+          (row.sourceItemIds ?? [row.id]).some((id) => selectedItemIds.has(id)),
+        )
+        .reduce((sum, row) => sum + row.quantity, 0);
+  const selectedItemIdList = Array.from(selectedItemIds);
+
+  const isRowSelected = useCallback(
+    (row: InventoryRow) =>
+      allMatchingSelected ||
+      getRowSourceIds(row).every((id) => selectedItemIds.has(id)),
+    [allMatchingSelected, selectedItemIds],
+  );
+
+  function clearSelection() {
+    setSelectedItemIds(new Set());
+    setAllMatchingSelected(false);
+  }
+
+  function updateBrowseQuery(next: { pageSize?: number; browse?: string }) {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (next.pageSize) params.set("pageSize", String(next.pageSize));
+    if (next.browse) params.set("browse", next.browse);
+    router.replace(`${window.location.pathname}?${params.toString()}`);
+  }
+
+  useEffect(() => {
+    clearSelection();
+    setPagination((current) => ({ ...current, pageIndex: 0 }));
+    setInfiniteLimit(pageSize);
+  }, [rows, displayMode, pageSize]);
+
+  useEffect(() => {
+    if (browsingMode !== "infinite") return;
+    const node = infiniteSentinelRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        setInfiniteLimit((current) =>
+          Math.min(rows.length, current + pageSize),
+        );
+      }
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [browsingMode, pageSize, rows.length]);
 
   const cols = useMemo<ColumnDef<InventoryRow>[]>(
     () => [
+      ...(selectionAvailable
+        ? [
+            {
+              id: "select",
+              header: () => <span className="sr-only">Select</span>,
+              cell: ({ row }: any) => (
+                <input
+                  type="checkbox"
+                  aria-label={`Select ${row.original.cardName}`}
+                  checked={isRowSelected(row.original)}
+                  onChange={(event) => {
+                    const ids = getRowSourceIds(row.original);
+                    setAllMatchingSelected(false);
+                    setSelectedItemIds((current) => {
+                      const next = new Set(current);
+                      if (event.target.checked)
+                        ids.forEach((id) => next.add(id));
+                      else ids.forEach((id) => next.delete(id));
+                      return next;
+                    });
+                  }}
+                />
+              ),
+            } satisfies ColumnDef<InventoryRow>,
+          ]
+        : []),
       {
         accessorKey: "cardName",
         header: "Card Name",
@@ -453,14 +571,20 @@ export function InventoryBrowser({
           ]
         : []),
     ],
-    [isAdmin, displayMode],
+    [isAdmin, displayMode, selectionAvailable, isRowSelected],
   );
+
+  const effectivePagination =
+    browsingMode === "infinite"
+      ? { pageIndex: 0, pageSize: Math.max(1, infiniteLimit) }
+      : pagination;
 
   const table = useReactTable({
     data: rows,
     columns: cols,
-    state: { sorting, columnVisibility },
+    state: { sorting, columnVisibility, pagination: effectivePagination },
     onSortingChange: setSorting,
+    onPaginationChange: setPagination,
     onColumnVisibilityChange: (v) => {
       const next = typeof v === "function" ? v(columnVisibility) : v;
       setColumnVisibility(next);
@@ -546,7 +670,167 @@ export function InventoryBrowser({
             </button>
           </>
         ) : null}
+        <span className="text-sm ml-4">Page size:</span>
+        <select
+          value={pageSize}
+          onChange={(event) => {
+            const next = Number(event.target.value);
+            setPageSize(next);
+            setPagination({ pageIndex: 0, pageSize: next });
+            setInfiniteLimit(next);
+            updateBrowseQuery({ pageSize: next });
+          }}
+          className="border px-2 py-1 bg-zinc-900"
+        >
+          {[10, 25, 50, 100, 250].map((size) => (
+            <option key={size} value={size}>
+              {size}
+            </option>
+          ))}
+        </select>
+        <span className="text-sm ml-4">Browsing mode:</span>
+        <select
+          value={browsingMode}
+          onChange={(event) => {
+            const next = event.target.value as "paginated" | "infinite";
+            setBrowsingMode(next);
+            setInfiniteLimit(pageSize);
+            setPagination((current) => ({ ...current, pageIndex: 0 }));
+            updateBrowseQuery({ browse: next });
+          }}
+          className="border px-2 py-1 bg-zinc-900"
+        >
+          <option value="paginated">Paginated</option>
+          <option value="infinite">Infinite scroll</option>
+        </select>
       </div>
+
+      {!selectionAvailable ? (
+        <div className="border border-amber-800 bg-amber-950/40 text-amber-200 p-2 text-sm">
+          Bulk editing is available in Exact printings mode. Switch to Exact
+          printings to select specific inventory entries.
+        </div>
+      ) : (
+        <div className="border border-zinc-800 bg-zinc-950 p-3 space-y-3">
+          <div className="flex flex-wrap gap-2 items-center text-sm">
+            <button
+              type="button"
+              className="border px-2 py-1"
+              onClick={() => {
+                setAllMatchingSelected(false);
+                setSelectedItemIds((current) => {
+                  const next = new Set(current);
+                  table
+                    .getRowModel()
+                    .rows.flatMap((row) => getRowSourceIds(row.original))
+                    .forEach((id) => next.add(id));
+                  return next;
+                });
+              }}
+            >
+              {browsingMode === "infinite" ? "Select loaded" : "Select visible"}
+            </button>
+            <button
+              type="button"
+              className="border px-2 py-1"
+              onClick={() => {
+                setSelectedItemIds(new Set());
+                setAllMatchingSelected(true);
+              }}
+            >
+              Select all matching filters
+            </button>
+            <button
+              type="button"
+              className="border px-2 py-1"
+              onClick={clearSelection}
+            >
+              Clear selection
+            </button>
+            <span className="text-zinc-300">
+              {allMatchingSelected
+                ? `All ${totalMatchingCount} matching inventory entries are selected.`
+                : `${selectedEntriesCount} selected`}
+            </span>
+          </div>
+          {selectedEntriesCount > 0 ? (
+            <form
+              action={async (fd) => {
+                setMovingBulk(true);
+                setMessage(
+                  `Moving ${selectedEntriesCount} entries (${selectedCardsCount} cards)…`,
+                );
+                try {
+                  const result = await onBulkMoveLocation(fd);
+                  setMessage(
+                    `Moved ${result.movedCards} cards across ${result.movedEntries} entries to ${result.destinationLocationName}.`,
+                  );
+                  clearSelection();
+                  router.refresh();
+                } catch (error: any) {
+                  setMessage(error?.message || "Bulk move failed.");
+                } finally {
+                  setMovingBulk(false);
+                }
+              }}
+              className="grid gap-2 md:grid-cols-[1fr_1fr_2fr_auto] items-end"
+            >
+              <input
+                type="hidden"
+                name="selectionMode"
+                value={allMatchingSelected ? "all" : "selected"}
+              />
+              <input
+                type="hidden"
+                name="itemIds"
+                value={JSON.stringify(selectedItemIdList)}
+              />
+              <input
+                type="hidden"
+                name="sourceLocationId"
+                value={currentLocationId || ""}
+              />
+              <label className="text-sm">
+                Move to location
+                <select
+                  name="destinationLocationId"
+                  required
+                  className="w-full border p-2 bg-zinc-900"
+                >
+                  <option value="">Choose destination</option>
+                  {locations.map((location) => (
+                    <option key={location.id} value={location.id}>
+                      {location.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm">
+                Preview
+                <div className="border border-zinc-700 p-2 text-zinc-300">
+                  {selectedEntriesCount} entries · {selectedCardsCount} cards
+                  {currentLocationId ? " · current location filter only" : ""}
+                </div>
+              </label>
+              <label className="text-sm">
+                Reason
+                <input
+                  name="reason"
+                  className="w-full border p-2 bg-zinc-900"
+                  defaultValue="Bulk location move"
+                />
+              </label>
+              <SubmitButton
+                pendingLabel={`Moving ${selectedEntriesCount} entries…`}
+                className="border px-3 py-2"
+                disabled={movingBulk}
+              >
+                Move selected
+              </SubmitButton>
+            </form>
+          ) : null}
+        </div>
+      )}
 
       {viewMode === "table" ? (
         <>
@@ -614,79 +898,110 @@ export function InventoryBrowser({
             const row = r.original;
             const ownerColor = getPlayerColor(row.currentOwnerColor);
             return (
-              <button
-                key={row.id}
-                onClick={() => setSelected(row)}
-                className="text-left border rounded p-2 bg-zinc-900 hover:bg-zinc-800"
-                style={{
-                  borderColor: ownerColor,
-                  background: `linear-gradient(180deg, ${withOpacity(ownerColor, 0.13)} 0%, rgba(24,24,27,0.95) 50%)`,
-                  boxShadow: `0 0 18px ${withOpacity(ownerColor, 0.28)}`,
-                }}
-              >
-                <div className="relative">
-                  {getCardImage(row) ? (
-                    <img
-                      src={getCardImage(row)}
-                      alt={row.cardName}
-                      className="w-full rounded aspect-[63/88] object-cover"
-                    />
-                  ) : (
-                    <div className="w-full rounded aspect-[63/88] border border-zinc-700 flex items-center justify-center text-xs text-zinc-400 p-2">
-                      {row.cardName}
-                    </div>
-                  )}
-                  <span className="absolute top-1 right-1 bg-black/80 text-white text-xs px-2 py-0.5 rounded">
-                    x{row.quantity}
-                  </span>
-                  {row.foilStatus && row.foilStatus !== "NONFOIL" ? (
-                    <span className="absolute top-1 left-1 bg-amber-400 text-black text-[10px] px-1 rounded">
-                      {row.foilStatus}
+              <div key={row.id} className="relative">
+                {selectionAvailable ? (
+                  <input
+                    type="checkbox"
+                    aria-label={`Select ${row.cardName}`}
+                    className="absolute left-2 top-2 z-10 h-5 w-5"
+                    checked={isRowSelected(row)}
+                    onChange={(event) => {
+                      const ids = getRowSourceIds(row);
+                      setAllMatchingSelected(false);
+                      setSelectedItemIds((current) => {
+                        const next = new Set(current);
+                        if (event.target.checked)
+                          ids.forEach((id) => next.add(id));
+                        else ids.forEach((id) => next.delete(id));
+                        return next;
+                      });
+                    }}
+                  />
+                ) : null}
+                <button
+                  onClick={() => setSelected(row)}
+                  className="w-full text-left border rounded p-2 bg-zinc-900 hover:bg-zinc-800"
+                  style={{
+                    borderColor: ownerColor,
+                    background: `linear-gradient(180deg, ${withOpacity(ownerColor, 0.13)} 0%, rgba(24,24,27,0.95) 50%)`,
+                    boxShadow: `0 0 18px ${withOpacity(ownerColor, 0.28)}`,
+                  }}
+                >
+                  <div className="relative">
+                    {getCardImage(row) ? (
+                      <img
+                        src={getCardImage(row)}
+                        alt={row.cardName}
+                        className="w-full rounded aspect-[63/88] object-cover"
+                      />
+                    ) : (
+                      <div className="w-full rounded aspect-[63/88] border border-zinc-700 flex items-center justify-center text-xs text-zinc-400 p-2">
+                        {row.cardName}
+                      </div>
+                    )}
+                    <span className="absolute top-1 right-1 bg-black/80 text-white text-xs px-2 py-0.5 rounded">
+                      x{row.quantity}
                     </span>
-                  ) : null}
-                </div>
-                <div className="mt-2 text-sm font-medium truncate">
-                  {row.cardName}
-                </div>
-                <div className="text-xs text-zinc-400 flex items-center gap-2">
-                  <span>
-                    {row.displayMode === "grouped"
-                      ? `${row.printingCount} printings`
-                      : `${row.setCode} · ${row.rarity}`}
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <span
-                      className="h-2 w-2 rounded-full"
-                      style={{ backgroundColor: ownerColor }}
-                    />
-                    {row.currentOwner}
-                  </span>
-                </div>
-              </button>
+                    {row.foilStatus && row.foilStatus !== "NONFOIL" ? (
+                      <span className="absolute top-1 left-1 bg-amber-400 text-black text-[10px] px-1 rounded">
+                        {row.foilStatus}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-2 text-sm font-medium truncate">
+                    {row.cardName}
+                  </div>
+                  <div className="text-xs text-zinc-400 flex items-center gap-2">
+                    <span>
+                      {row.displayMode === "grouped"
+                        ? `${row.printingCount} printings`
+                        : `${row.setCode} · ${row.rarity}`}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <span
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: ownerColor }}
+                      />
+                      {row.currentOwner}
+                    </span>
+                  </div>
+                </button>
+              </div>
             );
           })}
         </div>
       )}
-      <div className="flex gap-2 items-center">
-        <button
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-          className="border px-2"
+      {browsingMode === "paginated" ? (
+        <div className="flex gap-2 items-center">
+          <button
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+            className="border px-2"
+          >
+            Prev
+          </button>
+          <span>
+            Page {table.getState().pagination.pageIndex + 1} /{" "}
+            {table.getPageCount() || 1}
+          </span>
+          <button
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+            className="border px-2"
+          >
+            Next
+          </button>
+        </div>
+      ) : (
+        <div
+          ref={infiniteSentinelRef}
+          className="py-3 text-center text-sm text-zinc-400"
         >
-          Prev
-        </button>
-        <span>
-          Page {table.getState().pagination.pageIndex + 1} /{" "}
-          {table.getPageCount() || 1}
-        </span>
-        <button
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-          className="border px-2"
-        >
-          Next
-        </button>
-      </div>
+          {infiniteLimit < rows.length
+            ? "Loading more as you scroll…"
+            : `End of results · ${rows.length} loaded`}
+        </div>
+      )}
 
       {selected ? (
         <CardDetail

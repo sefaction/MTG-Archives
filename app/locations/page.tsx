@@ -6,6 +6,7 @@ import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { getCurrentUser, isAdminUser, requireLogin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
+  bulkMoveInventoryToLocation,
   createLocation,
   deleteUnusedLocation,
   ensureDefaultLocation,
@@ -129,6 +130,32 @@ export default async function LocationsPage() {
     revalidatePath("/inventory");
   }
 
+  async function moveLocationAction(fd: FormData) {
+    "use server";
+    const ctx = await getActionContext();
+    const sourceLocationId = String(fd.get("sourceLocationId") || "");
+    const destinationLocationId = String(fd.get("destinationLocationId") || "");
+    if (fd.get("confirmMove") !== "on") {
+      throw new Error("Confirm the full-location move before applying it.");
+    }
+    if (!sourceLocationId || !destinationLocationId) {
+      throw new Error("Choose both source and destination locations.");
+    }
+    if (sourceLocationId === destinationLocationId) {
+      throw new Error("Source and destination locations must be different.");
+    }
+    await bulkMoveInventoryToLocation(prisma, {
+      actorUserId: ctx.user.id,
+      destinationLocationId,
+      sourceLocationId,
+      where: { locationId: sourceLocationId },
+      allowedOwnerId: ctx.admin ? undefined : ctx.playerId || undefined,
+      reason: "Move all inventory from one location to another.",
+    });
+    revalidatePath("/locations");
+    revalidatePath("/inventory");
+  }
+
   async function deleteLocationAction(fd: FormData) {
     "use server";
     const ctx = await getActionContext();
@@ -207,6 +234,63 @@ export default async function LocationsPage() {
             className="border px-3 py-2"
           >
             Create Location
+          </SubmitButton>
+        </form>
+      </section>
+
+      <section className="rounded border border-zinc-800 p-4 space-y-3">
+        <h2 className="text-xl font-semibold">Move an entire location</h2>
+        <p className="text-sm text-zinc-400">
+          Move every inventory entry from one location to another. Matching
+          destination rows are merged and the operation is transactional.
+        </p>
+        <form action={moveLocationAction} className="grid gap-2 md:grid-cols-4">
+          <label className="text-sm">
+            Source location
+            <select
+              name="sourceLocationId"
+              required
+              className="w-full border p-2 bg-zinc-900"
+            >
+              <option value="">Choose source</option>
+              {locations.map((location) => {
+                const counts = quantityByLocation[location.id] ?? {
+                  quantity: 0,
+                  entries: 0,
+                };
+                return (
+                  <option key={location.id} value={location.id}>
+                    {location.name} — {counts.quantity} cards / {counts.entries}{" "}
+                    entries
+                  </option>
+                );
+              })}
+            </select>
+          </label>
+          <label className="text-sm">
+            Destination location
+            <select
+              name="destinationLocationId"
+              required
+              className="w-full border p-2 bg-zinc-900"
+            >
+              <option value="">Choose destination</option>
+              {locations.map((location) => (
+                <option key={location.id} value={location.id}>
+                  {location.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="confirmMove" />
+            Confirm moving all cards from the source location.
+          </label>
+          <SubmitButton
+            pendingLabel="Moving location…"
+            className="border px-3 py-2"
+          >
+            Move entire location
           </SubmitButton>
         </form>
       </section>

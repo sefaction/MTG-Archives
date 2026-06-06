@@ -34,3 +34,11 @@ Trades continue to transfer from the selected inventory row. Because rows now ca
 - The current storage model uses one inventory row per location rather than a separate child quantity table. This is safer for the first migration, but a future refactor can split quantities into `InventoryLocationQuantity` records.
 - The inventory page displays exact multi-location totals and grouped card totals, but moving quantities between locations is currently available through service code and admin row edits rather than a dedicated end-user drawer control.
 - Trade proposal UI does not yet let the recipient choose a destination location; received cards default to `Unassigned`.
+
+## Bulk moves and scalable browsing
+
+The inventory browser now includes a bulk toolbar in **Exact printings** mode. Users can select individual rows, select visible/loaded rows, or select all rows matching the current server-rendered filters, then move those records to a destination location. The server reuses the active filter closure for all-matching moves and validates the destination owner before applying changes.
+
+The Locations page includes a full-location move workflow for operations such as moving every card from `Unassigned` to `Box-0001`. The operation requires confirmation, validates source and destination ownership, merges matching destination rows, deletes merged source rows, and writes inventory audit logs.
+
+Inventory browsing now defaults to a 50-row page size and supports 10, 25, 50, 100, and 250 row pages. An optional Infinite scroll browsing mode increases the number of client-rendered rows as the user scrolls. This first pass still builds exact/grouped totals from the server-rendered result set so exact multi-location totals remain correct; a future pass should move the list endpoint to database-level cursor pagination for very large inventories.

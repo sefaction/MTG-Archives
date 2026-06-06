@@ -59,8 +59,8 @@ Permissions must allow the containers to write to their mounted directories. The
 ## Current capabilities
 
 - Admin-managed local users with roles and forced password-change workflow.
-- Inventory browsing, filtering, sorting, exact-printing and grouped-by-card views, location breakdowns, CSV export, and admin editing.
-- Per-owner inventory locations such as boxes, binders, shelves, and an automatic `Unassigned` default for migrated inventory.
+- Inventory browsing, filtering, sorting, page-size controls, infinite-scroll browsing mode, exact-printing and grouped-by-card views, location breakdowns, CSV export, and admin editing.
+- Per-owner inventory locations such as boxes, binders, shelves, an automatic `Unassigned` default for migrated inventory, and bulk location move workflows.
 - CSV inventory import preview, Scryfall matching, manual resolution, retry, and commit workflow.
 - Scryfall-backed card metadata storage.
 - Cache-first Scryfall lookup with durable local printing metadata and throttled live API access.

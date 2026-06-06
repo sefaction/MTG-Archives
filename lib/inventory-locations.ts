@@ -344,3 +344,199 @@ export async function moveInventoryQuantity(
     return created.id;
   });
 }
+
+export type BulkMoveInventoryResult = {
+  movedEntries: number;
+  movedCards: number;
+  skippedEntries: number;
+  destinationLocationName: string;
+  sourceLocationName?: string;
+};
+
+export async function bulkMoveInventoryToLocation(
+  prisma: PrismaClient,
+  input: {
+    actorUserId: string;
+    destinationLocationId: string;
+    itemIds?: string[];
+    where?: Record<string, unknown>;
+    allowedOwnerId?: string;
+    sourceLocationId?: string;
+    reason?: string;
+  },
+): Promise<BulkMoveInventoryResult> {
+  if (!input.destinationLocationId)
+    throw new Error("Destination location is required.");
+  if (!input.itemIds?.length && !input.where)
+    throw new Error("Select inventory to move first.");
+
+  return prisma.$transaction(async (tx) => {
+    const destination = await tx.inventoryLocation.findUnique({
+      where: { id: input.destinationLocationId },
+    });
+    if (!destination) throw new Error("Destination location not found.");
+    if (
+      input.allowedOwnerId &&
+      destination.ownerPlayerId !== input.allowedOwnerId
+    ) {
+      throw new Error(
+        "Destination location does not belong to your inventory.",
+      );
+    }
+    if (input.sourceLocationId && input.sourceLocationId === destination.id) {
+      throw new Error("Source and destination locations must be different.");
+    }
+
+    const sourceLocation = input.sourceLocationId
+      ? await tx.inventoryLocation.findUnique({
+          where: { id: input.sourceLocationId },
+        })
+      : null;
+    if (input.sourceLocationId && !sourceLocation)
+      throw new Error("Source location not found.");
+    if (
+      sourceLocation &&
+      sourceLocation.ownerPlayerId !== destination.ownerPlayerId
+    ) {
+      throw new Error(
+        "Source and destination locations must belong to the same owner.",
+      );
+    }
+
+    const itemWhere: any = input.itemIds?.length
+      ? { id: { in: input.itemIds } }
+      : { ...(input.where ?? {}) };
+    itemWhere.quantity = { gt: 0 };
+    if (input.sourceLocationId) itemWhere.locationId = input.sourceLocationId;
+    if (input.allowedOwnerId) itemWhere.currentOwnerId = input.allowedOwnerId;
+
+    const items = await tx.inventoryItem.findMany({
+      where: itemWhere,
+      include: { location: true, card: true },
+      orderBy: { createdAt: "asc" },
+    });
+    if (input.itemIds?.length && items.length !== new Set(input.itemIds).size) {
+      throw new Error(
+        "Some selected inventory entries are no longer available or are not authorized.",
+      );
+    }
+    if (!items.length)
+      throw new Error("No matching inventory entries were found to move.");
+
+    let movedEntries = 0;
+    let movedCards = 0;
+    let skippedEntries = 0;
+    const reason = input.reason || `Bulk move to ${destination.name}.`;
+
+    for (const item of items) {
+      if (item.currentOwnerId !== destination.ownerPlayerId) {
+        throw new Error(
+          "All moved inventory must belong to the destination location owner.",
+        );
+      }
+      if (item.locationId === destination.id) {
+        skippedEntries += 1;
+        continue;
+      }
+      const quantityToMove = item.quantity;
+      if (quantityToMove <= 0)
+        throw new Error("Inventory quantity must be positive.");
+
+      const matching = await tx.inventoryItem.findFirst({
+        where: {
+          id: { not: item.id },
+          currentOwnerId: item.currentOwnerId,
+          originalOpenerId: item.originalOpenerId,
+          cardId: item.cardId,
+          foil: item.foil,
+          foilStatus: item.foilStatus,
+          condition: item.condition,
+          language: item.language,
+          roundId: item.roundId,
+          locationId: destination.id,
+          quantity: { gt: 0 },
+        },
+      });
+
+      const beforeJson = {
+        ...item,
+        sourceLocationId: item.locationId,
+        sourceLocationName: item.location?.name ?? "Unassigned",
+        destinationLocationId: destination.id,
+        destinationLocationName: destination.name,
+        quantityMoved: quantityToMove,
+      } as any;
+
+      if (matching) {
+        const matchingBefore = {
+          ...matching,
+          destinationLocationId: destination.id,
+          destinationLocationName: destination.name,
+          quantityMoved: quantityToMove,
+        } as any;
+        const updatedDestination = await tx.inventoryItem.update({
+          where: { id: matching.id },
+          data: { quantity: { increment: quantityToMove } },
+        });
+        await tx.inventoryAuditLog.create({
+          data: {
+            inventoryItemId: updatedDestination.id,
+            changedByUserId: input.actorUserId,
+            changeType: "bulk_location_move_received",
+            beforeJson: matchingBefore,
+            afterJson: {
+              ...updatedDestination,
+              destinationLocationId: destination.id,
+              destinationLocationName: destination.name,
+              quantityMoved: quantityToMove,
+            } as any,
+            reason,
+          },
+        });
+        await tx.inventoryAuditLog.create({
+          data: {
+            inventoryItemId: item.id,
+            changedByUserId: input.actorUserId,
+            changeType: "bulk_location_move_merged_source",
+            beforeJson,
+            afterJson: { ...beforeJson, quantity: 0, deleted: true },
+            reason,
+          },
+        });
+        await tx.inventoryItem.delete({ where: { id: item.id } });
+      } else {
+        const updated = await tx.inventoryItem.update({
+          where: { id: item.id },
+          data: { locationId: destination.id },
+        });
+        await tx.inventoryAuditLog.create({
+          data: {
+            inventoryItemId: updated.id,
+            changedByUserId: input.actorUserId,
+            changeType: "bulk_location_move",
+            beforeJson,
+            afterJson: {
+              ...updated,
+              sourceLocationId: item.locationId,
+              sourceLocationName: item.location?.name ?? "Unassigned",
+              destinationLocationId: destination.id,
+              destinationLocationName: destination.name,
+              quantityMoved: quantityToMove,
+            } as any,
+            reason,
+          },
+        });
+      }
+      movedEntries += 1;
+      movedCards += quantityToMove;
+    }
+
+    return {
+      movedEntries,
+      movedCards,
+      skippedEntries,
+      destinationLocationName: destination.name,
+      sourceLocationName: sourceLocation?.name,
+    };
+  });
+}

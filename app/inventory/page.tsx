@@ -1,5 +1,10 @@
 export const dynamic = "force-dynamic";
-import { getCurrentUser, isAdminUser, requireAdmin } from "@/lib/auth";
+import {
+  getCurrentUser,
+  isAdminUser,
+  requireAdmin,
+  requireLogin,
+} from "@/lib/auth";
 import { Nav } from "@/components/Nav";
 import { prisma } from "@/lib/prisma";
 import { InventoryBrowser } from "@/components/InventoryBrowser";
@@ -17,6 +22,7 @@ import {
   getInventoryExactPrintings,
   getInventoryGroupedByCard,
   getLocationsForOwner,
+  bulkMoveInventoryToLocation,
 } from "@/lib/inventory-locations";
 
 export default async function InventoryPage({
@@ -51,7 +57,11 @@ export default async function InventoryPage({
       ...(where.card || {}),
       typeLine: { contains: p.typeLine, mode: "insensitive" },
     };
-  if (p.ownerId) where.currentOwnerId = p.ownerId;
+  if (!isAdmin) {
+    where.currentOwnerId = userWithPlayer?.playerId || "__no_owner__";
+  } else if (p.ownerId) {
+    where.currentOwnerId = p.ownerId;
+  }
   if (p.originalOpenerId) where.originalOpenerId = p.originalOpenerId;
   if (p.roundId) where.roundId = p.roundId;
   if (p.locationId) where.locationId = p.locationId;
@@ -77,6 +87,12 @@ export default async function InventoryPage({
 
   const displayMode: "exact" | "grouped" =
     p.displayMode === "grouped" ? "grouped" : "exact";
+  const pageSizeOptions = [10, 25, 50, 100, 250];
+  const initialPageSize = pageSizeOptions.includes(Number(p.pageSize))
+    ? Number(p.pageSize)
+    : 50;
+  const initialBrowsingMode: "paginated" | "infinite" =
+    p.browse === "infinite" ? "infinite" : "paginated";
   const [items, players, rounds, zeroQuantityCount] = await Promise.all([
     prisma.inventoryItem.findMany({
       where,
@@ -235,6 +251,37 @@ export default async function InventoryPage({
     });
 
     revalidatePath("/inventory");
+  }
+
+  async function onBulkMoveLocation(fd: FormData) {
+    "use server";
+    const actionUser = await requireLogin();
+    const actionIsAdmin = isAdminUser(actionUser, actionUser.player);
+    if (!actionIsAdmin && !actionUser.playerId) {
+      throw new Error("Your account is not linked to an inventory owner.");
+    }
+    if (displayMode !== "exact") {
+      throw new Error("Bulk editing is available in Exact printings mode.");
+    }
+    const destinationLocationId = String(fd.get("destinationLocationId") || "");
+    const selectionMode = String(fd.get("selectionMode") || "selected");
+    const reason = String(fd.get("reason") || "Bulk location move.");
+    const sourceLocationIdRaw = String(fd.get("sourceLocationId") || "");
+    const itemIds = JSON.parse(String(fd.get("itemIds") || "[]")) as string[];
+    const result = await bulkMoveInventoryToLocation(prisma, {
+      actorUserId: actionUser.id,
+      destinationLocationId,
+      itemIds: selectionMode === "all" ? undefined : itemIds,
+      where: selectionMode === "all" ? where : undefined,
+      allowedOwnerId: actionIsAdmin
+        ? undefined
+        : actionUser.playerId || undefined,
+      sourceLocationId: sourceLocationIdRaw || undefined,
+      reason,
+    });
+    revalidatePath("/inventory");
+    revalidatePath("/locations");
+    return result;
   }
 
   const exactItems = getInventoryExactPrintings(items);
@@ -687,6 +734,17 @@ export default async function InventoryPage({
         cardLabels={cardLabels}
         isAdmin={isAdmin}
         displayMode={displayMode}
+        totalMatchingCount={
+          displayMode === "grouped" ? groupedItems.length : exactItems.length
+        }
+        totalMatchingCards={displayItems.reduce(
+          (sum: number, entry: any) => sum + (entry.quantity ?? 0),
+          0,
+        )}
+        initialPageSize={initialPageSize}
+        initialBrowsingMode={initialBrowsingMode}
+        currentLocationId={p.locationId || ""}
+        onBulkMoveLocation={onBulkMoveLocation}
         onSaveEdit={onSaveEdit}
         onSearchPrintings={onSearchPrintings}
         onDeleteInventoryItem={deleteInventoryItem}
