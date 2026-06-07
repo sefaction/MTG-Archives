@@ -1,6 +1,6 @@
 "use server";
 
-import { requireAdminMode } from "@/lib/auth";
+import { getAccessScope, requireLogin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { TradeStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -29,7 +29,9 @@ async function assertNotReserved(inventoryItemId: string) {
 }
 
 export async function deleteInventoryItem(fd: FormData) {
-  const admin = await requireAdminMode();
+  const actionUser = await requireLogin();
+  const actionScope = await getAccessScope(actionUser);
+  const actionIsAdmin = actionScope?.mode === "admin";
   const inventoryItemId = String(fd.get("inventoryItemId") || "");
   const reason = String(
     fd.get("deleteReason") || fd.get("reason") || "",
@@ -45,13 +47,23 @@ export async function deleteInventoryItem(fd: FormData) {
     },
   });
   if (!item) throw new Error("Inventory item not found.");
+  if (!actionIsAdmin) {
+    if (!actionUser.playerId) {
+      throw new Error("Your account is not linked to an inventory owner.");
+    }
+    if (item.currentOwnerId !== actionUser.playerId) {
+      throw new Error("You can only delete inventory you own.");
+    }
+  }
   const beforeJson = { ...item } as any;
   await prisma.$transaction(async (tx) => {
     await tx.inventoryAuditLog.create({
       data: {
         inventoryItemId: item.id,
-        changedByUserId: admin.id,
-        changeType: "admin_delete_inventory",
+        changedByUserId: actionUser.id,
+        changeType: actionIsAdmin
+          ? "admin_delete_inventory"
+          : "user_delete_inventory",
         reason,
         beforeJson,
         afterJson: { ...beforeJson, deleted: true },
@@ -63,7 +75,9 @@ export async function deleteInventoryItem(fd: FormData) {
 }
 
 export async function cleanupZeroQuantityInventory(fd?: FormData) {
-  const admin = await requireAdminMode();
+  const admin = await requireLogin();
+  const adminScope = await getAccessScope(admin);
+  if (adminScope?.mode !== "admin") throw new Error("Admin mode is required.");
   const reason = String(
     fd?.get("reason") || "Admin cleanup of zero-quantity inventory items.",
   );

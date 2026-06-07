@@ -69,6 +69,7 @@ export type InventoryRow = {
   collectorNumber?: string;
   keywords?: string;
   notes?: string;
+  language?: string;
   imageUri?: string;
   imageSmall?: string;
   scryfallUri?: string;
@@ -149,9 +150,12 @@ const READ_ONLY_CAPABILITIES: InventoryCapabilities = {
   canViewVisibility: false,
 };
 
-function defaultCapabilities(isAdmin: boolean): InventoryCapabilities {
+function defaultCapabilities(uiMode: InventoryUiMode): InventoryCapabilities {
+  if (uiMode === "public-readonly") return READ_ONLY_CAPABILITIES;
+
+  const isAdminEditable = uiMode === "admin-editable";
   return {
-    canEdit: isAdmin,
+    canEdit: true,
     canMove: true,
     canDelete: true,
     canBulkSelect: true,
@@ -159,7 +163,7 @@ function defaultCapabilities(isAdmin: boolean): InventoryCapabilities {
     canBulkDelete: true,
     canViewAuditTrail: true,
     canViewPrivateSourceInfo: true,
-    canViewOwnerAdminFields: isAdmin,
+    canViewOwnerAdminFields: isAdminEditable,
     canViewVisibility: true,
   };
 }
@@ -583,12 +587,8 @@ export function InventoryBrowser({
   });
   const infiniteSentinelRef = useRef<HTMLDivElement | null>(null);
   const capabilities = useMemo<InventoryCapabilities>(() => {
-    const base =
-      uiMode === "public-readonly"
-        ? READ_ONLY_CAPABILITIES
-        : defaultCapabilities(isAdmin);
-    return { ...base, ...capabilityOverrides };
-  }, [capabilityOverrides, isAdmin, uiMode]);
+    return { ...defaultCapabilities(uiMode), ...capabilityOverrides };
+  }, [capabilityOverrides, uiMode]);
 
   const pageHref = useCallback(
     (page: number) => {
@@ -1623,7 +1623,7 @@ export function InventoryBrowser({
         </div>
       ) : null}
 
-      {editing && isAdmin ? (
+      {editing && capabilities.canEdit ? (
         <div
           className="fixed inset-0 z-50 bg-black/60"
           onClick={() => setEditing(null)}
@@ -1656,21 +1656,30 @@ export function InventoryBrowser({
                 name="existingCardId"
                 value={editing.cardId}
               />
+              {!capabilities.canViewOwnerAdminFields ? (
+                <input
+                  type="hidden"
+                  name="currentOwnerId"
+                  value={editing.currentOwnerId}
+                />
+              ) : null}
               <div className="grid md:grid-cols-2 gap-2">
-                <label className="text-sm">
-                  Current owner
-                  <select
-                    name="currentOwnerId"
-                    defaultValue={editing.currentOwnerId}
-                    className="w-full border p-1 bg-zinc-900"
-                  >
-                    {players.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                {capabilities.canViewOwnerAdminFields ? (
+                  <label className="text-sm">
+                    Current owner
+                    <select
+                      name="currentOwnerId"
+                      defaultValue={editing.currentOwnerId}
+                      className="w-full border p-1 bg-zinc-900"
+                    >
+                      {players.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
                 <label className="text-sm">
                   Location
                   <select
@@ -1723,30 +1732,43 @@ export function InventoryBrowser({
                   </select>
                 </label>
                 <label className="text-sm">
-                  Source type
-                  <select
-                    name="sourceType"
-                    defaultValue={editing.sourceType || "CORRECTION"}
-                    className="w-full border p-1 bg-zinc-900"
-                  >
-                    <option value="PULL">legacy</option>
-                    <option value="CSV_PULL_IMPORT">import</option>
-                    <option value="TRADE">trade</option>
-                    <option value="MANUAL">manual</option>
-                    <option value="CORRECTION">correction</option>
-                    <option value="PRIZE">prize</option>
-                    <option value="OTHER">other</option>
-                  </select>
-                </label>
-                <label className="text-sm">
-                  Reason
+                  Language
                   <input
-                    name="reason"
-                    required
+                    name="language"
+                    defaultValue={editing.language || "EN"}
                     className="w-full border p-1 bg-zinc-900"
-                    placeholder="Reason for change"
+                    maxLength={8}
                   />
                 </label>
+                {capabilities.canViewOwnerAdminFields ? (
+                  <>
+                    <label className="text-sm">
+                      Source type
+                      <select
+                        name="sourceType"
+                        defaultValue={editing.sourceType || "CORRECTION"}
+                        className="w-full border p-1 bg-zinc-900"
+                      >
+                        <option value="PULL">legacy</option>
+                        <option value="CSV_PULL_IMPORT">import</option>
+                        <option value="TRADE">trade</option>
+                        <option value="MANUAL">manual</option>
+                        <option value="CORRECTION">correction</option>
+                        <option value="PRIZE">prize</option>
+                        <option value="OTHER">other</option>
+                      </select>
+                    </label>
+                    <label className="text-sm">
+                      Admin correction reason
+                      <input
+                        name="reason"
+                        required
+                        className="w-full border p-1 bg-zinc-900"
+                        placeholder="Reason for change"
+                      />
+                    </label>
+                  </>
+                ) : null}
               </div>
               <label className="text-sm block">
                 Notes
@@ -1756,78 +1778,84 @@ export function InventoryBrowser({
                   className="w-full border p-1 bg-zinc-900"
                 />
               </label>
-              <div className="border border-zinc-800 p-2 text-sm">
-                Current printing: {editing.cardName} ({editing.setCode}) #
-                {editing.collectorNumber || "-"} • {editing.rarity}
-              </div>
-              <div className="border border-zinc-800 p-2 space-y-2">
-                <div className="font-semibold text-sm">Change Printing</div>
-                <div className="flex gap-2">
-                  <input
-                    id="printingQuery"
-                    name="printingQuery"
-                    className="border p-1 bg-zinc-900 flex-1"
-                    placeholder="Search Scryfall"
-                  />
-                  <button
-                    type="button"
-                    className="border px-2 disabled:opacity-60"
-                    disabled={searchingPrintings}
-                    aria-disabled={searchingPrintings}
-                    onClick={async () => {
-                      const q =
-                        (
-                          document.getElementById(
-                            "printingQuery",
-                          ) as HTMLInputElement
-                        )?.value || "";
-                      setSearchingPrintings(true);
-                      try {
-                        const f = new FormData();
-                        f.set("q", q);
-                        if (!onSearchPrintings) {
-                          setMessage(
-                            "Printing search is unavailable in read-only mode.",
-                          );
-                          return;
-                        }
-                        const r = await onSearchPrintings(f);
-                        setResults(r || []);
-                        setMessage(
-                          `${r?.length || 0} Scryfall printings found.`,
-                        );
-                      } catch (e: any) {
-                        setMessage(e?.message || "Failed to search printings.");
-                      } finally {
-                        setSearchingPrintings(false);
-                      }
-                    }}
-                  >
-                    {searchingPrintings ? "Searching…" : "Search"}
-                  </button>
-                </div>
-                <div className="max-h-40 overflow-auto space-y-1">
-                  {results.map((r) => (
-                    <button
-                      type="button"
-                      key={r.id}
-                      onClick={() => setConfirmed(r)}
-                      className={`w-full text-left border p-1 ${confirmed?.id === r.id ? "border-emerald-500" : "border-zinc-700"}`}
-                    >
-                      {r.name} ({r.set.toUpperCase()}) #{r.collector_number} •{" "}
-                      {r.rarity}
-                    </button>
-                  ))}
-                </div>
-                <input
-                  type="hidden"
-                  name="newScryfallId"
-                  value={confirmed?.id || ""}
-                />
-                <div className="text-xs text-zinc-400">
-                  Select a search result to confirm printing replacement.
-                </div>
-              </div>
+              {capabilities.canViewOwnerAdminFields ? (
+                <>
+                  <div className="border border-zinc-800 p-2 text-sm">
+                    Current printing: {editing.cardName} ({editing.setCode}) #
+                    {editing.collectorNumber || "-"} • {editing.rarity}
+                  </div>
+                  <div className="border border-zinc-800 p-2 space-y-2">
+                    <div className="font-semibold text-sm">Change Printing</div>
+                    <div className="flex gap-2">
+                      <input
+                        id="printingQuery"
+                        name="printingQuery"
+                        className="border p-1 bg-zinc-900 flex-1"
+                        placeholder="Search Scryfall"
+                      />
+                      <button
+                        type="button"
+                        className="border px-2 disabled:opacity-60"
+                        disabled={searchingPrintings}
+                        aria-disabled={searchingPrintings}
+                        onClick={async () => {
+                          const q =
+                            (
+                              document.getElementById(
+                                "printingQuery",
+                              ) as HTMLInputElement
+                            )?.value || "";
+                          setSearchingPrintings(true);
+                          try {
+                            const f = new FormData();
+                            f.set("q", q);
+                            if (!onSearchPrintings) {
+                              setMessage(
+                                "Printing search is unavailable in read-only mode.",
+                              );
+                              return;
+                            }
+                            const r = await onSearchPrintings(f);
+                            setResults(r || []);
+                            setMessage(
+                              `${r?.length || 0} Scryfall printings found.`,
+                            );
+                          } catch (e: any) {
+                            setMessage(
+                              e?.message || "Failed to search printings.",
+                            );
+                          } finally {
+                            setSearchingPrintings(false);
+                          }
+                        }}
+                      >
+                        {searchingPrintings ? "Searching…" : "Search"}
+                      </button>
+                    </div>
+                    <div className="max-h-40 overflow-auto space-y-1">
+                      {results.map((r) => (
+                        <button
+                          type="button"
+                          key={r.id}
+                          onClick={() => setConfirmed(r)}
+                          className={`w-full text-left border p-1 ${confirmed?.id === r.id ? "border-emerald-500" : "border-zinc-700"}`}
+                        >
+                          {r.name} ({r.set.toUpperCase()}) #{r.collector_number}{" "}
+                          • {r.rarity}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="hidden"
+                      name="newScryfallId"
+                      value={confirmed?.id || ""}
+                    />
+                    <div className="text-xs text-zinc-400">
+                      Select a search result to confirm printing replacement.
+                    </div>
+                  </div>
+                </>
+              ) : null}
               <div className="flex gap-2 justify-end">
                 <button
                   type="button"
@@ -1841,7 +1869,7 @@ export function InventoryBrowser({
                 </SubmitButton>
               </div>
             </form>
-            {onDeleteInventoryItem ? (
+            {capabilities.canDelete && onDeleteInventoryItem ? (
               <details className="mt-4 rounded border border-red-900/70 bg-red-950/20 p-3 text-sm">
                 <summary className="cursor-pointer font-semibold text-red-200">
                   Delete Inventory Item

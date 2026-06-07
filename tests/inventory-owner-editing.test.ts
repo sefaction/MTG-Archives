@@ -1,0 +1,80 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import test from "node:test";
+
+const inventoryBrowser = fs.readFileSync(
+  "components/InventoryBrowser.tsx",
+  "utf8",
+);
+const inventoryPage = fs.readFileSync("app/inventory/page.tsx", "utf8");
+const inventoryActions = fs.readFileSync("app/inventory/actions.ts", "utf8");
+
+test("owner-editable inventory browser restores normal user edit controls", () => {
+  assert.match(
+    inventoryBrowser,
+    /uiMode = isAdmin \? "admin-editable" : "owner-editable"/,
+  );
+  assert.match(
+    inventoryBrowser,
+    /function defaultCapabilities\(uiMode: InventoryUiMode\)/,
+  );
+  assert.match(
+    inventoryBrowser,
+    /const isAdminEditable = uiMode === "admin-editable"/,
+  );
+  assert.match(inventoryBrowser, /canEdit: true/);
+  assert.match(inventoryBrowser, /canViewOwnerAdminFields: isAdminEditable/);
+  assert.match(inventoryBrowser, /editing && capabilities\.canEdit/);
+});
+
+test("normal edit form hides admin-only owner, source, and printing controls", () => {
+  assert.match(
+    inventoryBrowser,
+    /!capabilities\.canViewOwnerAdminFields \? \(/,
+  );
+  assert.match(inventoryBrowser, /name="currentOwnerId"/);
+  assert.match(inventoryBrowser, /Admin correction reason/);
+  assert.match(inventoryBrowser, /Change Printing/);
+  assert.match(inventoryBrowser, /capabilities\.canViewOwnerAdminFields \? \(/);
+  assert.match(inventoryBrowser, /name="language"/);
+});
+
+test("inventory edit action authorizes normal users by item ownership server-side", () => {
+  assert.match(inventoryPage, /const actionUser = await requireLogin\(\)/);
+  assert.match(
+    inventoryPage,
+    /const actionIsAdmin = actionScope\?\.mode === "admin"/,
+  );
+  assert.match(
+    inventoryPage,
+    /before\.currentOwnerId !== actionUser\.playerId/,
+  );
+  assert.match(inventoryPage, /You can only edit inventory you own/);
+  assert.match(
+    inventoryPage,
+    /submittedOwnerId[\s\S]*submittedOwnerId !== currentOwnerId/,
+  );
+  assert.match(inventoryPage, /You cannot change the current owner/);
+});
+
+test("normal edit action only mutates owner-safe fields and audits as user inventory edit", () => {
+  assert.match(inventoryPage, /language: String\(fd\.get\("language"\)/);
+  assert.match(
+    inventoryPage,
+    /sourceType: actionIsAdmin[\s\S]*: before\.sourceType/,
+  );
+  assert.match(inventoryPage, /const newScryfallId = actionIsAdmin[\s\S]*: ""/);
+  assert.match(inventoryPage, /"user_inventory_edit"/);
+  assert.match(inventoryPage, /"admin_inventory_correction"/);
+});
+
+test("individual delete keeps owner authorization instead of admin-only access", () => {
+  assert.match(inventoryActions, /const actionUser = await requireLogin\(\)/);
+  assert.match(
+    inventoryActions,
+    /item\.currentOwnerId !== actionUser\.playerId/,
+  );
+  assert.match(inventoryActions, /You can only delete inventory you own/);
+  assert.match(inventoryActions, /"user_delete_inventory"/);
+  assert.match(inventoryActions, /"admin_delete_inventory"/);
+});

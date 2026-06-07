@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   canAccessImportBatch,
+  canEditInventory,
   canExportInventory,
   canImportForPlayer,
   resolveAccessScope,
@@ -78,4 +79,15 @@ test("owner-sensitive helpers require admin mode for cross-owner access", () => 
     canAccessImportBatch(admin, { selectedPlayerId: "other-owner" }, true),
     true,
   );
+});
+
+test("inventory edit helper allows self-owned edits without admin mode", () => {
+  const regular = user({ playerId: "owner-1" });
+  const admin = user({ role: UserRole.ADMIN, playerId: "admin-owner" });
+
+  assert.equal(canEditInventory(regular, "owner-1", false), true);
+  assert.equal(canEditInventory(regular, "other-owner", false), false);
+  assert.equal(canEditInventory(admin, "admin-owner", false), true);
+  assert.equal(canEditInventory(admin, "other-owner", false), false);
+  assert.equal(canEditInventory(admin, "other-owner", true), true);
 });

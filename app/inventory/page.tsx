@@ -385,21 +385,44 @@ export default async function InventoryPage({
 
   async function onSaveEdit(fd: FormData) {
     "use server";
-    const actionUser = await requireAdminMode();
+    const actionUser = await requireLogin();
+    const actionScope = await getAccessScope(actionUser);
+    const actionIsAdmin = actionScope?.mode === "admin";
     const inventoryItemId = String(fd.get("inventoryItemId") || "");
     const quantity = Number(fd.get("quantity"));
     if (!Number.isInteger(quantity) || quantity <= 0)
       throw new Error("Quantity must be a positive integer");
-    const currentOwnerId = String(fd.get("currentOwnerId") || "");
-    if (!currentOwnerId) throw new Error("Current owner is required");
 
     const before = await prisma.inventoryItem.findUnique({
       where: { id: inventoryItemId },
     });
     if (!before) throw new Error("Inventory item not found");
+    if (!actionIsAdmin) {
+      if (!actionUser.playerId) {
+        throw new Error("Your account is not linked to an inventory owner.");
+      }
+      if (before.currentOwnerId !== actionUser.playerId) {
+        throw new Error("You can only edit inventory you own.");
+      }
+    }
 
-    let cardId = String(fd.get("existingCardId") || before.cardId);
-    const newScryfallId = String(fd.get("newScryfallId") || "");
+    const submittedOwnerId = String(fd.get("currentOwnerId") || "");
+    const currentOwnerId = actionIsAdmin
+      ? submittedOwnerId
+      : before.currentOwnerId;
+    if (!currentOwnerId) throw new Error("Current owner is required");
+    if (
+      !actionIsAdmin &&
+      submittedOwnerId &&
+      submittedOwnerId !== currentOwnerId
+    ) {
+      throw new Error("You cannot change the current owner.");
+    }
+
+    let cardId = before.cardId;
+    const newScryfallId = actionIsAdmin
+      ? String(fd.get("newScryfallId") || "")
+      : "";
     if (newScryfallId) {
       const existing = await prisma.card.findUnique({
         where: { scryfallId: newScryfallId },
@@ -436,11 +459,14 @@ export default async function InventoryPage({
         foilStatus,
         foil: foilStatus !== FoilStatus.NONFOIL,
         condition: String(fd.get("condition") || before.condition),
+        language: String(fd.get("language") || before.language || "EN"),
         locationId: targetLocationId,
         notes: String(fd.get("notes") || "") || null,
-        sourceType: String(
-          fd.get("sourceType") || "CORRECTION",
-        ) as InventorySourceType,
+        sourceType: actionIsAdmin
+          ? (String(
+              fd.get("sourceType") || "CORRECTION",
+            ) as InventorySourceType)
+          : before.sourceType,
         cardId,
       },
     });
@@ -449,7 +475,11 @@ export default async function InventoryPage({
       data: {
         inventoryItemId: updated.id,
         changedByUserId: actionUser.id,
-        changeType: newScryfallId ? "printing_correction" : "manual_edit",
+        changeType: actionIsAdmin
+          ? newScryfallId
+            ? "printing_correction"
+            : "admin_inventory_correction"
+          : "user_inventory_edit",
         beforeJson: before as any,
         afterJson: updated as any,
         reason: String(fd.get("reason") || "") || null,
@@ -825,6 +855,7 @@ export default async function InventoryPage({
         foil: i.foil,
         foilStatus: i.foilStatus,
         sourceType: i.sourceType,
+        language: i.language,
         locationVisibility: i.location?.visibility ?? "INHERIT",
         effectiveVisibility: resolveInventoryVisibility(
           inventoryDefaultByPlayer[i.currentOwnerId] ??

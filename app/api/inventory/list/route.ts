@@ -201,6 +201,7 @@ function rowsFromDisplayItems({
         foil: i.foil,
         foilStatus: i.foilStatus,
         sourceType: i.sourceType,
+        language: i.language,
         locationVisibility: i.location?.visibility ?? "INHERIT",
         effectiveVisibility: resolveInventoryVisibility(
           inventoryDefaultByPlayer[i.currentOwnerId] ??
