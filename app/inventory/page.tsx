@@ -77,6 +77,56 @@ export default async function InventoryPage({
   if (p.rarity) where.card = { ...(where.card || {}), rarity: p.rarity };
   if (p.foil === "true") where.foil = true;
   if (p.foil === "false") where.foil = false;
+  if (p.visibility === "public") {
+    where.AND = [
+      ...(where.AND || []),
+      {
+        OR: [
+          { location: { visibility: "PUBLIC" } },
+          {
+            location: { visibility: "INHERIT" },
+            currentOwner: {
+              users: { some: { inventoryDefaultVisibility: "PUBLIC" } },
+            },
+          },
+          {
+            locationId: null,
+            currentOwner: {
+              users: { some: { inventoryDefaultVisibility: "PUBLIC" } },
+            },
+          },
+        ],
+      },
+    ];
+  }
+  if (p.visibility === "private") {
+    where.AND = [
+      ...(where.AND || []),
+      {
+        OR: [
+          { location: { visibility: "PRIVATE" } },
+          {
+            location: { visibility: "INHERIT" },
+            currentOwner: {
+              users: { some: { inventoryDefaultVisibility: "PRIVATE" } },
+            },
+          },
+          {
+            locationId: null,
+            currentOwner: {
+              users: { some: { inventoryDefaultVisibility: "PRIVATE" } },
+            },
+          },
+        ],
+      },
+    ];
+  }
+  if (p.visibility === "inherit") {
+    where.AND = [
+      ...(where.AND || []),
+      { OR: [{ location: { visibility: "INHERIT" } }, { locationId: null }] },
+    ];
+  }
   if (p.manaValueMin || p.manaValueMax)
     where.card = {
       ...(where.card || {}),
@@ -98,6 +148,8 @@ export default async function InventoryPage({
     : 50;
   const initialBrowsingMode: "paginated" | "infinite" =
     p.browse === "infinite" ? "infinite" : "paginated";
+  const sortField = p.sort || "cardName";
+  const sortDirection: "asc" | "desc" = p.sortDir === "desc" ? "desc" : "asc";
   const currentPage =
     initialBrowsingMode === "infinite"
       ? 1
@@ -133,29 +185,97 @@ export default async function InventoryPage({
     orderBy: [{ cardId: "asc" }] as any,
   };
 
-  const [pageGroups, allGroups, players, zeroQuantityCount] = await Promise.all(
-    [
-      displayMode === "grouped"
-        ? prisma.inventoryItem.groupBy({
-            ...groupedGroupBy,
-            skip: querySkip,
-            take: queryPageSize,
-          })
-        : prisma.inventoryItem.groupBy({
-            ...exactGroupBy,
-            skip: querySkip,
-            take: queryPageSize,
-          }),
-      displayMode === "grouped"
-        ? prisma.inventoryItem.groupBy(groupedGroupBy)
-        : prisma.inventoryItem.groupBy(exactGroupBy),
-      prisma.player.findMany({ orderBy: { displayName: "asc" } }),
-      adminModeActive
-        ? prisma.inventoryItem.count({ where: { quantity: { lte: 0 } } })
-        : Promise.resolve(0),
-    ],
+  const [allGroups, players, zeroQuantityCount] = await Promise.all([
+    displayMode === "grouped"
+      ? prisma.inventoryItem.groupBy(groupedGroupBy)
+      : prisma.inventoryItem.groupBy(exactGroupBy),
+    prisma.player.findMany({ orderBy: { displayName: "asc" } }),
+    adminModeActive
+      ? prisma.inventoryItem.count({ where: { quantity: { lte: 0 } } })
+      : Promise.resolve(0),
+  ]);
+  const cardSortData = await prisma.card.findMany({
+    where: {
+      id: {
+        in: Array.from(
+          new Set((allGroups as any[]).map((group) => group.cardId)),
+        ),
+      },
+    },
+    select: {
+      id: true,
+      name: true,
+      setCode: true,
+      rarity: true,
+      manaValue: true,
+      prices: true,
+      colorIdentity: true,
+      keywords: true,
+    },
+  });
+  const cardSortById = new Map(cardSortData.map((card) => [card.id, card]));
+  const compareValues = (left: any, right: any) => {
+    if (typeof left === "number" || typeof right === "number") {
+      return (Number(left) || 0) - (Number(right) || 0);
+    }
+    return String(left ?? "").localeCompare(String(right ?? ""), undefined, {
+      sensitivity: "base",
+      numeric: true,
+    });
+  };
+  const groupMatchesClientSafeFilters = (group: any) => {
+    const card = cardSortById.get(group.cardId) as any;
+    const colorIdentityNeedle = p.colorIdentity?.trim().toUpperCase();
+    const keywordNeedle = p.keyword?.trim().toLowerCase();
+    const priceMin = p.priceMin ? Number(p.priceMin) : undefined;
+    const priceMax = p.priceMax ? Number(p.priceMax) : undefined;
+    if (colorIdentityNeedle) {
+      const colorIdentity = Array.isArray(card?.colorIdentity)
+        ? card.colorIdentity.join(",")
+        : JSON.stringify(card?.colorIdentity ?? "");
+      if (!colorIdentity.toUpperCase().includes(colorIdentityNeedle))
+        return false;
+    }
+    if (keywordNeedle) {
+      const keywords = Array.isArray(card?.keywords)
+        ? card.keywords.join(", ")
+        : JSON.stringify(card?.keywords ?? "");
+      if (!keywords.toLowerCase().includes(keywordNeedle)) return false;
+    }
+    const usdPrice = card?.prices?.usd ? Number(card.prices.usd) : undefined;
+    if (
+      priceMin !== undefined &&
+      (usdPrice === undefined || Number.isNaN(usdPrice) || usdPrice < priceMin)
+    )
+      return false;
+    if (
+      priceMax !== undefined &&
+      (usdPrice === undefined || Number.isNaN(usdPrice) || usdPrice > priceMax)
+    )
+      return false;
+    return true;
+  };
+  const sortValue = (group: any) => {
+    const card = cardSortById.get(group.cardId) as any;
+    if (sortField === "quantity") return group._sum?.quantity ?? 0;
+    if (sortField === "setCode") return card?.setCode ?? "";
+    if (sortField === "rarity") return card?.rarity ?? "";
+    if (sortField === "manaValue") return card?.manaValue ?? 0;
+    if (sortField === "priceUsd") return Number(card?.prices?.usd ?? 0);
+    return card?.name ?? "";
+  };
+  const filteredGroups = (allGroups as any[]).filter(
+    groupMatchesClientSafeFilters,
   );
-  const totalMatchingCount = allGroups.length;
+  const sortedGroups = [...filteredGroups].sort((left, right) => {
+    const direction = sortDirection === "desc" ? -1 : 1;
+    const primary =
+      compareValues(sortValue(left), sortValue(right)) * direction;
+    if (primary) return primary;
+    return compareValues(left.cardId, right.cardId);
+  });
+  const pageGroups = sortedGroups.slice(querySkip, querySkip + queryPageSize);
+  const totalMatchingCount = filteredGroups.length;
   const totalPages = Math.max(1, Math.ceil(totalMatchingCount / queryPageSize));
 
   const pageGroupWhere =
@@ -194,6 +314,10 @@ export default async function InventoryPage({
       displayMode,
       currentPage,
       pageSize: queryPageSize,
+      sortField,
+      sortDirection,
+      firstReturnedCardName:
+        cardSortById.get(pageGroups[0]?.cardId)?.name ?? null,
       rowsReturned: pageGroups.length,
       rawRowsHydratedForVisibleGroups: items.length,
       totalMatchingCount,
@@ -1053,6 +1177,8 @@ export default async function InventoryPage({
         infiniteApiPath="/api/inventory/list"
         initialPageSize={initialPageSize}
         initialBrowsingMode={initialBrowsingMode}
+        initialSortField={sortField}
+        initialSortDirection={sortDirection}
         currentLocationId={p.locationId || ""}
         onBulkMoveLocation={onBulkMoveLocation}
         onBulkDeleteInventory={onBulkDeleteInventory}

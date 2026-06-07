@@ -23,8 +23,13 @@ const publicInventoryListApi = fs.readFileSync(
 
 test("authenticated inventory list uses one server-side page source of truth", () => {
   assert.match(inventoryPage, /queryPageSize = initialPageSize/);
-  assert.match(inventoryPage, /skip: querySkip/);
-  assert.match(inventoryPage, /take: queryPageSize/);
+  assert.ok(
+    inventoryPage.includes("const sortedGroups = [...filteredGroups].sort"),
+  );
+  assert.match(
+    inventoryPage,
+    /sortedGroups\.slice\(querySkip, querySkip \+ queryPageSize\)/,
+  );
   assert.match(
     inventoryPage,
     /totalPages = Math\.max\(1, Math\.ceil\(totalMatchingCount \/ queryPageSize\)\)/,
@@ -38,13 +43,23 @@ test("authenticated inventory list uses one server-side page source of truth", (
 });
 
 test("global public inventory query is bounded by real server page size", () => {
-  assert.match(publicInventoryQueries, /skip: \(page - 1\) \* pageSize/);
-  assert.match(publicInventoryQueries, /take: pageSize/);
-  assert.match(publicInventoryQueries, /totalMatchingCount: allGroups\.length/);
+  assert.ok(
+    publicInventoryQueries.includes(
+      "const sortedGroups = [...filteredGroups].sort",
+    ),
+  );
+  assert.match(
+    publicInventoryQueries,
+    /sortedGroups\.slice\(\(page - 1\) \* pageSize, page \* pageSize\)/,
+  );
+  assert.match(
+    publicInventoryQueries,
+    /totalMatchingCount: filteredGroups\.length/,
+  );
   assert.match(publicInventoryQueries, /server-side page query diagnostics/);
   assert.match(
     publicInventoryQueries,
-    /hasNextPage: page \* pageSize < allGroups\.length/,
+    /hasNextPage: page \* pageSize < filteredGroups\.length/,
   );
   assert.doesNotMatch(
     publicInventoryQueries,
@@ -76,8 +91,13 @@ test("inventory browser exposes real server pagination and infinite-scroll count
 
 test("infinite-scroll APIs use the same bounded server page model", () => {
   assert.match(inventoryPage, /infiniteApiPath="\/api\/inventory\/list"/);
-  assert.match(inventoryListApi, /skip: \(page - 1\) \* pageSize/);
-  assert.match(inventoryListApi, /take: pageSize/);
+  assert.ok(
+    inventoryListApi.includes("const sortedGroups = [...filteredGroups].sort"),
+  );
+  assert.match(
+    inventoryListApi,
+    /sortedGroups\.slice\(\(page - 1\) \* pageSize, page \* pageSize\)/,
+  );
   assert.match(inventoryListApi, /hasNextPage: page < totalPages/);
   assert.match(
     inventoryListApi,
@@ -101,6 +121,35 @@ test("public infinite-scroll API preserves public-only server paging", () => {
     /nextPage: result\.hasNextPage \? result\.page \+ 1 : null/,
   );
   assert.match(publicInventoryListApi, /toInventoryBrowserRows/);
+});
+
+test("sorting is server-authoritative and resets page state", () => {
+  assert.match(inventoryBrowser, /function updateSortQuery/);
+  assert.match(inventoryBrowser, /params\.set\("sort", primarySort\.id\)/);
+  assert.match(inventoryBrowser, /params\.delete\("page"\)/);
+  assert.doesNotMatch(inventoryBrowser, /getSortedRowModel/);
+  assert.match(inventoryPage, /const sortField = p\.sort \|\| "cardName"/);
+  assert.match(inventoryPage, /localeCompare/);
+  assert.match(inventoryPage, /card\?\.name \?\? ""/);
+  assert.match(inventoryListApi, /const sortField = p\.sort \|\| "cardName"/);
+  assert.match(
+    publicInventoryQueries,
+    /const sortField = filters\.sort \|\| "cardName"/,
+  );
+});
+
+test("full-dataset client-safe filters run before paging", () => {
+  assert.match(
+    inventoryPage,
+    /const filteredGroups = \(allGroups as any\[\]\)\.filter/,
+  );
+  assert.match(inventoryListApi, /groupMatchesClientSafeFilters/);
+  assert.match(publicInventoryQueries, /groupMatchesClientSafeFilters/);
+  assert.match(inventoryPage, /totalMatchingCount = filteredGroups\.length/);
+  assert.match(
+    publicInventoryQueries,
+    /totalMatchingCount: filteredGroups\.length/,
+  );
 });
 
 test("inventory card images use lazy asynchronous loading with dimensions", () => {

@@ -221,6 +221,8 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
     : 50;
   const initialBrowsingMode: "paginated" | "infinite" =
     p.browse === "infinite" ? "infinite" : "paginated";
+  const sortField = p.sort || "cardName";
+  const sortDirection: "asc" | "desc" = p.sortDir === "desc" ? "desc" : "asc";
 
   const result = await getGlobalPublicInventory({
     ...(p as PublicInventoryFilters),
@@ -425,6 +427,8 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
           infiniteApiPath="/api/public/inventory/list"
           initialPageSize={initialPageSize}
           initialBrowsingMode={initialBrowsingMode}
+          initialSortField={sortField}
+          initialSortDirection={sortDirection}
           currentLocationId={p.locationName || ""}
         />
       ) : (

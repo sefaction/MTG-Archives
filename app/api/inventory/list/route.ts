@@ -54,6 +54,56 @@ function buildInventoryWhere(
   if (p.rarity) where.card = { ...(where.card || {}), rarity: p.rarity };
   if (p.foil === "true") where.foil = true;
   if (p.foil === "false") where.foil = false;
+  if (p.visibility === "public") {
+    where.AND = [
+      ...(where.AND || []),
+      {
+        OR: [
+          { location: { visibility: "PUBLIC" } },
+          {
+            location: { visibility: "INHERIT" },
+            currentOwner: {
+              users: { some: { inventoryDefaultVisibility: "PUBLIC" } },
+            },
+          },
+          {
+            locationId: null,
+            currentOwner: {
+              users: { some: { inventoryDefaultVisibility: "PUBLIC" } },
+            },
+          },
+        ],
+      },
+    ];
+  }
+  if (p.visibility === "private") {
+    where.AND = [
+      ...(where.AND || []),
+      {
+        OR: [
+          { location: { visibility: "PRIVATE" } },
+          {
+            location: { visibility: "INHERIT" },
+            currentOwner: {
+              users: { some: { inventoryDefaultVisibility: "PRIVATE" } },
+            },
+          },
+          {
+            locationId: null,
+            currentOwner: {
+              users: { some: { inventoryDefaultVisibility: "PRIVATE" } },
+            },
+          },
+        ],
+      },
+    ];
+  }
+  if (p.visibility === "inherit") {
+    where.AND = [
+      ...(where.AND || []),
+      { OR: [{ location: { visibility: "INHERIT" } }, { locationId: null }] },
+    ];
+  }
   if (p.manaValueMin || p.manaValueMax)
     where.card = {
       ...(where.card || {}),
@@ -219,6 +269,8 @@ export async function GET(request: Request) {
     ? Number(p.pageSize)
     : 50;
   const page = Math.max(1, Number(p.page || "1") || 1);
+  const sortField = p.sort || "cardName";
+  const sortDirection: "asc" | "desc" = p.sortDir === "desc" ? "desc" : "asc";
   const where = buildInventoryWhere(p, adminModeActive, user.playerId);
 
   const exactGroupBy = {
@@ -247,18 +299,7 @@ export async function GET(request: Request) {
     _count: { _all: true as const },
     orderBy: [{ cardId: "asc" }] as any,
   };
-  const [pageGroups, allGroups, ownerUsers] = await Promise.all([
-    displayMode === "grouped"
-      ? prisma.inventoryItem.groupBy({
-          ...groupedGroupBy,
-          skip: (page - 1) * pageSize,
-          take: pageSize,
-        })
-      : prisma.inventoryItem.groupBy({
-          ...exactGroupBy,
-          skip: (page - 1) * pageSize,
-          take: pageSize,
-        }),
+  const [allGroups, ownerUsers] = await Promise.all([
     displayMode === "grouped"
       ? prisma.inventoryItem.groupBy(groupedGroupBy)
       : prisma.inventoryItem.groupBy(exactGroupBy),
@@ -266,6 +307,87 @@ export async function GET(request: Request) {
       select: { playerId: true, inventoryDefaultVisibility: true },
     }),
   ]);
+  const cardSortData = await prisma.card.findMany({
+    where: {
+      id: {
+        in: Array.from(
+          new Set((allGroups as any[]).map((group) => group.cardId)),
+        ),
+      },
+    },
+    select: {
+      id: true,
+      name: true,
+      setCode: true,
+      rarity: true,
+      manaValue: true,
+      prices: true,
+      colorIdentity: true,
+      keywords: true,
+    },
+  });
+  const cardSortById = new Map(cardSortData.map((card) => [card.id, card]));
+  const compareValues = (left: any, right: any) => {
+    if (typeof left === "number" || typeof right === "number") {
+      return (Number(left) || 0) - (Number(right) || 0);
+    }
+    return String(left ?? "").localeCompare(String(right ?? ""), undefined, {
+      sensitivity: "base",
+      numeric: true,
+    });
+  };
+  const groupMatchesClientSafeFilters = (group: any) => {
+    const card = cardSortById.get(group.cardId) as any;
+    const colorIdentityNeedle = p.colorIdentity?.trim().toUpperCase();
+    const keywordNeedle = p.keyword?.trim().toLowerCase();
+    const priceMin = p.priceMin ? Number(p.priceMin) : undefined;
+    const priceMax = p.priceMax ? Number(p.priceMax) : undefined;
+    if (colorIdentityNeedle) {
+      const colorIdentity = Array.isArray(card?.colorIdentity)
+        ? card.colorIdentity.join(",")
+        : JSON.stringify(card?.colorIdentity ?? "");
+      if (!colorIdentity.toUpperCase().includes(colorIdentityNeedle))
+        return false;
+    }
+    if (keywordNeedle) {
+      const keywords = Array.isArray(card?.keywords)
+        ? card.keywords.join(", ")
+        : JSON.stringify(card?.keywords ?? "");
+      if (!keywords.toLowerCase().includes(keywordNeedle)) return false;
+    }
+    const usdPrice = card?.prices?.usd ? Number(card.prices.usd) : undefined;
+    if (
+      priceMin !== undefined &&
+      (usdPrice === undefined || Number.isNaN(usdPrice) || usdPrice < priceMin)
+    )
+      return false;
+    if (
+      priceMax !== undefined &&
+      (usdPrice === undefined || Number.isNaN(usdPrice) || usdPrice > priceMax)
+    )
+      return false;
+    return true;
+  };
+  const sortValue = (group: any) => {
+    const card = cardSortById.get(group.cardId) as any;
+    if (sortField === "quantity") return group._sum?.quantity ?? 0;
+    if (sortField === "setCode") return card?.setCode ?? "";
+    if (sortField === "rarity") return card?.rarity ?? "";
+    if (sortField === "manaValue") return card?.manaValue ?? 0;
+    if (sortField === "priceUsd") return Number(card?.prices?.usd ?? 0);
+    return card?.name ?? "";
+  };
+  const filteredGroups = (allGroups as any[]).filter(
+    groupMatchesClientSafeFilters,
+  );
+  const sortedGroups = [...filteredGroups].sort((left, right) => {
+    const direction = sortDirection === "desc" ? -1 : 1;
+    const primary =
+      compareValues(sortValue(left), sortValue(right)) * direction;
+    if (primary) return primary;
+    return compareValues(left.cardId, right.cardId);
+  });
+  const pageGroups = sortedGroups.slice((page - 1) * pageSize, page * pageSize);
   const pageGroupWhere =
     displayMode === "grouped"
       ? {
@@ -315,7 +437,7 @@ export async function GET(request: Request) {
   const exactItems = getInventoryExactPrintings(visibilityFilteredItems as any);
   const groupedItems = getInventoryGroupedByCard(exactItems as any);
   const displayItems = displayMode === "grouped" ? groupedItems : exactItems;
-  const totalMatchingCount = allGroups.length;
+  const totalMatchingCount = filteredGroups.length;
   const totalPages = Math.max(1, Math.ceil(totalMatchingCount / pageSize));
   return NextResponse.json({
     rows: rowsFromDisplayItems({

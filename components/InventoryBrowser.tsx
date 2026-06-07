@@ -7,7 +7,6 @@ import {
   PaginationState,
   flexRender,
   getCoreRowModel,
-  getSortedRowModel,
   SortingState,
   useReactTable,
   VisibilityState,
@@ -439,6 +438,8 @@ export function InventoryBrowser({
   infiniteApiPath,
   initialPageSize,
   initialBrowsingMode,
+  initialSortField = "cardName",
+  initialSortDirection = "asc",
   currentLocationId,
   onBulkMoveLocation,
   onBulkDeleteInventory,
@@ -464,6 +465,8 @@ export function InventoryBrowser({
   infiniteApiPath?: string;
   initialPageSize: number;
   initialBrowsingMode: "paginated" | "infinite";
+  initialSortField?: string;
+  initialSortDirection?: "asc" | "desc";
   currentLocationId?: string;
   onBulkMoveLocation?: (formData: FormData) => Promise<
     | {
@@ -491,7 +494,11 @@ export function InventoryBrowser({
   onDeleteInventoryItem?: (formData: FormData) => Promise<void>;
 }) {
   const router = useRouter();
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const [sorting, setSorting] = useState<SortingState>(
+    initialSortField
+      ? [{ id: initialSortField, desc: initialSortDirection === "desc" }]
+      : [],
+  );
   const [selected, setSelected] = useState<InventoryRow | null>(null);
   const [editing, setEditing] = useState<InventoryRow | null>(null);
   const [auditRow, setAuditRow] = useState<InventoryRow | null>(null);
@@ -699,6 +706,21 @@ export function InventoryBrowser({
     ],
   );
 
+  function updateSortQuery(nextSorting: SortingState) {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const primarySort = nextSorting[0];
+    if (primarySort) {
+      params.set("sort", primarySort.id);
+      params.set("sortDir", primarySort.desc ? "desc" : "asc");
+    } else {
+      params.delete("sort");
+      params.delete("sortDir");
+    }
+    params.delete("page");
+    router.replace(`${window.location.pathname}?${params.toString()}`);
+  }
+
   function updateBrowseQuery(next: { pageSize?: number; browse?: string }) {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -711,6 +733,11 @@ export function InventoryBrowser({
   useEffect(() => {
     clearSelection();
     setPagination((current) => ({ ...current, pageIndex: 0 }));
+    setSorting(
+      initialSortField
+        ? [{ id: initialSortField, desc: initialSortDirection === "desc" }]
+        : [],
+    );
     setLoadedRows(rows);
     setInfiniteHasNextPage(hasNextPage);
     setNextInfinitePage(currentPage + 1);
@@ -723,6 +750,8 @@ export function InventoryBrowser({
     clearSelection,
     currentPage,
     hasNextPage,
+    initialSortDirection,
+    initialSortField,
     queryKey,
   ]);
 
@@ -958,7 +987,12 @@ export function InventoryBrowser({
     data: renderedRows,
     columns: cols,
     state: { sorting, columnVisibility, pagination: effectivePagination },
-    onSortingChange: setSorting,
+    onSortingChange: (updater) => {
+      const nextSorting =
+        typeof updater === "function" ? updater(sorting) : updater;
+      setSorting(nextSorting);
+      updateSortQuery(nextSorting);
+    },
     onPaginationChange: setPagination,
     onColumnVisibilityChange: (v) => {
       const next = typeof v === "function" ? v(columnVisibility) : v;
@@ -966,7 +1000,6 @@ export function InventoryBrowser({
       localStorage.setItem("inventoryColumns", JSON.stringify(next));
     },
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
   });
   const sizeClass =
     cardSize === "small"
