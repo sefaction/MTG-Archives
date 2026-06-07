@@ -64,6 +64,7 @@ export async function getPublicProfileBySlug(publicSlug: string) {
       isActive: true,
     },
     select: {
+      id: true,
       displayName: true,
       publicDisplayName: true,
       publicSlug: true,
@@ -270,6 +271,7 @@ const publicInventoryInclude = {
   location: true,
   currentOwner: {
     select: {
+      id: true,
       displayName: true,
       color: true,
       users: {
