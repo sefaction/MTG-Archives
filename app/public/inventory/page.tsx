@@ -229,16 +229,9 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
   const rows = toInventoryBrowserRows({ displayItems, displayMode });
   const ownerFilter = p.owner || "";
   const pageParams = Object.fromEntries(
-    Object.entries(p).filter(([, value]) => value),
-  );
-  const previousPageHref = `/public/inventory?${new URLSearchParams({
-    ...pageParams,
-    page: String(Math.max(1, result.page - 1)),
-  }).toString()}`;
-  const nextPageHref = `/public/inventory?${new URLSearchParams({
-    ...pageParams,
-    page: String(result.page + 1),
-  }).toString()}`;
+    Object.entries(p).filter(([key, value]) => value && key !== "page"),
+  ) as Record<string, string>;
+  const pageHrefBase = new URLSearchParams(pageParams).toString();
 
   return (
     <main className="p-8 space-y-6">
@@ -260,8 +253,8 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
         <h1 className="text-3xl font-bold">Public inventory</h1>
         <p className="text-zinc-400">
           Browse public cards from all collections that opted in. Showing{" "}
-          {result.visibleCards} public cards on this server-loaded page. Private
-          users, locations, quantities, imports, and audit logs are excluded
+          {result.visibleCards} public cards on this page. Private users,
+          locations, quantities, imports, and audit logs are excluded
           server-side.
         </p>
       </header>
@@ -391,7 +384,7 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
           >
             {[10, 25, 50, 100, 250].map((size) => (
               <option key={size} value={size}>
-                {size} per server page
+                {size}
               </option>
             ))}
           </select>
@@ -403,29 +396,6 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
           </div>
         </form>
       </details>
-
-      <div className="flex flex-wrap items-center gap-3 rounded border border-zinc-800 p-3 text-sm text-zinc-300">
-        <span>
-          Server page {result.page} · loaded {result.rawRowsLoaded} public raw
-          rows for this chunk
-        </span>
-        <Link
-          className={`border px-3 py-1 ${
-            result.page <= 1 ? "pointer-events-none opacity-50" : ""
-          }`}
-          href={previousPageHref}
-        >
-          Previous server page
-        </Link>
-        <Link
-          className={`border px-3 py-1 ${
-            !result.hasNextPage ? "pointer-events-none opacity-50" : ""
-          }`}
-          href={nextPageHref}
-        >
-          Next server page
-        </Link>
-      </div>
 
       {rows.length ? (
         <InventoryBrowser
@@ -439,11 +409,16 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
           isAdmin={false}
           uiMode="public-readonly"
           displayMode={displayMode}
-          totalMatchingCount={displayItems.length}
+          totalMatchingCount={result.totalMatchingCount}
           totalMatchingCards={displayItems.reduce(
             (sum: number, entry: any) => sum + (entry.quantity ?? 0),
             0,
           )}
+          currentPage={Math.min(result.page, result.totalPages)}
+          totalPages={result.totalPages}
+          hasPreviousPage={result.page > 1}
+          hasNextPage={result.hasNextPage}
+          pageHrefBase={pageHrefBase}
           initialPageSize={initialPageSize}
           initialBrowsingMode={initialBrowsingMode}
           currentLocationId={p.locationName || ""}
