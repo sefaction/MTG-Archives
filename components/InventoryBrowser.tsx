@@ -111,6 +111,52 @@ export type ScryfallResult = {
   image_uris?: { normal?: string; small?: string };
 };
 
+export type InventoryUiMode =
+  | "owner-editable"
+  | "admin-editable"
+  | "public-readonly";
+
+export type InventoryCapabilities = {
+  canEdit: boolean;
+  canMove: boolean;
+  canDelete: boolean;
+  canBulkSelect: boolean;
+  canBulkMove: boolean;
+  canBulkDelete: boolean;
+  canViewAuditTrail: boolean;
+  canViewPrivateSourceInfo: boolean;
+  canViewOwnerAdminFields: boolean;
+  canViewVisibility: boolean;
+};
+
+const READ_ONLY_CAPABILITIES: InventoryCapabilities = {
+  canEdit: false,
+  canMove: false,
+  canDelete: false,
+  canBulkSelect: false,
+  canBulkMove: false,
+  canBulkDelete: false,
+  canViewAuditTrail: false,
+  canViewPrivateSourceInfo: false,
+  canViewOwnerAdminFields: false,
+  canViewVisibility: false,
+};
+
+function defaultCapabilities(isAdmin: boolean): InventoryCapabilities {
+  return {
+    canEdit: isAdmin,
+    canMove: true,
+    canDelete: true,
+    canBulkSelect: true,
+    canBulkMove: true,
+    canBulkDelete: true,
+    canViewAuditTrail: true,
+    canViewPrivateSourceInfo: true,
+    canViewOwnerAdminFields: isAdmin,
+    canViewVisibility: true,
+  };
+}
+
 const defaults: VisibilityState = {
   cardName: true,
   quantity: true,
@@ -172,16 +218,16 @@ function friendlySource(value?: InventoryRow["sourceType"]) {
 function CardDetail({
   row,
   onClose,
-  isAdmin,
+  capabilities,
   onEdit,
   onAudit,
   onDelete,
 }: {
   row: InventoryRow;
   onClose: () => void;
-  isAdmin: boolean;
-  onEdit: () => void;
-  onAudit: () => void;
+  capabilities: InventoryCapabilities;
+  onEdit?: () => void;
+  onAudit?: () => void;
   onDelete?: () => void;
 }) {
   const legalities = row.legalities || {};
@@ -194,15 +240,17 @@ function CardDetail({
         <div className="flex items-start justify-between mb-4">
           <h2 className="text-xl font-bold">{row.cardName}</h2>
           <div className="flex gap-2">
-            {isAdmin ? (
+            {capabilities.canEdit && onEdit ? (
               <button onClick={onEdit} className="border px-2">
                 Edit Inventory Item
               </button>
             ) : null}
-            <button onClick={onAudit} className="border px-2">
-              Audit Trail
-            </button>
-            {onDelete ? (
+            {capabilities.canViewAuditTrail && onAudit ? (
+              <button onClick={onAudit} className="border px-2">
+                Audit Trail
+              </button>
+            ) : null}
+            {capabilities.canDelete && onDelete ? (
               <button
                 onClick={onDelete}
                 className="border border-red-700 px-2 text-red-200"
@@ -285,24 +333,32 @@ function CardDetail({
                 </ul>
               </div>
             ) : null}
-            <p>
-              <b>Owner:</b> {row.currentOwner}
-            </p>
+            {capabilities.canViewOwnerAdminFields ? (
+              <p>
+                <b>Owner:</b> {row.currentOwner}
+              </p>
+            ) : null}
             <p>
               <b>Foil:</b> {row.foilStatus || (row.foil ? "FOIL" : "NONFOIL")}
             </p>
             <p>
               <b>Condition:</b> {row.condition || "-"}
             </p>
-            <p>
-              <b>Source:</b> {friendlySource(row.sourceType)}
-            </p>
-            <p>
-              <b>Visibility:</b> {friendlyVisibility(row.effectiveVisibility)}
-            </p>
-            <p>
-              <b>Notes:</b> {row.notes || "-"}
-            </p>
+            {capabilities.canViewPrivateSourceInfo ? (
+              <p>
+                <b>Source:</b> {friendlySource(row.sourceType)}
+              </p>
+            ) : null}
+            {capabilities.canViewVisibility ? (
+              <p>
+                <b>Visibility:</b> {friendlyVisibility(row.effectiveVisibility)}
+              </p>
+            ) : null}
+            {capabilities.canViewPrivateSourceInfo ? (
+              <p>
+                <b>Notes:</b> {row.notes || "-"}
+              </p>
+            ) : null}
             {row.displayMode === "grouped" && row.printings?.length ? (
               <div>
                 <b>Owned Printings:</b>
@@ -367,6 +423,8 @@ export function InventoryBrowser({
   locations,
   cardLabels,
   isAdmin,
+  uiMode = isAdmin ? "admin-editable" : "owner-editable",
+  capabilities: capabilityOverrides,
   displayMode,
   totalMatchingCount,
   totalMatchingCards,
@@ -384,13 +442,15 @@ export function InventoryBrowser({
   locations: PickRef[];
   cardLabels: Record<string, string>;
   isAdmin: boolean;
+  uiMode?: InventoryUiMode;
+  capabilities?: Partial<InventoryCapabilities>;
   displayMode: "exact" | "grouped";
   totalMatchingCount: number;
   totalMatchingCards: number;
   initialPageSize: number;
   initialBrowsingMode: "paginated" | "infinite";
   currentLocationId?: string;
-  onBulkMoveLocation: (formData: FormData) => Promise<
+  onBulkMoveLocation?: (formData: FormData) => Promise<
     | {
         success: true;
         movedEntries: number;
@@ -401,7 +461,7 @@ export function InventoryBrowser({
       }
     | { success: false; message: string }
   >;
-  onBulkDeleteInventory: (formData: FormData) => Promise<
+  onBulkDeleteInventory?: (formData: FormData) => Promise<
     | {
         success: true;
         deletedEntries: number;
@@ -411,8 +471,8 @@ export function InventoryBrowser({
       }
     | { success: false; message: string }
   >;
-  onSaveEdit: (formData: FormData) => Promise<void>;
-  onSearchPrintings: (formData: FormData) => Promise<ScryfallResult[]>;
+  onSaveEdit?: (formData: FormData) => Promise<void>;
+  onSearchPrintings?: (formData: FormData) => Promise<ScryfallResult[]>;
   onDeleteInventoryItem?: (formData: FormData) => Promise<void>;
 }) {
   const router = useRouter();
@@ -465,8 +525,16 @@ export function InventoryBrowser({
     pageSize: initialPageSize,
   });
   const infiniteSentinelRef = useRef<HTMLDivElement | null>(null);
+  const capabilities = useMemo<InventoryCapabilities>(() => {
+    const base =
+      uiMode === "public-readonly"
+        ? READ_ONLY_CAPABILITIES
+        : defaultCapabilities(isAdmin);
+    return { ...base, ...capabilityOverrides };
+  }, [capabilityOverrides, isAdmin, uiMode]);
 
-  const selectionAvailable = displayMode === "exact";
+  const selectionAvailable =
+    displayMode === "exact" && capabilities.canBulkSelect;
   const selectedEntriesCount = allMatchingSelected
     ? totalMatchingCount
     : selectedItemIds.size;
@@ -501,6 +569,10 @@ export function InventoryBrowser({
       cardsCount?: number;
       cardName?: string;
     }) => {
+      if (!capabilities.canDelete || !onBulkDeleteInventory) {
+        setMessage("This inventory is read-only.");
+        return;
+      }
       const itemIds = input?.itemIds ?? selectedItemIdList;
       const entriesCount = input?.entriesCount ?? selectedEntriesCount;
       const cardsCount = input?.cardsCount ?? selectedCardsCount;
@@ -574,6 +646,7 @@ export function InventoryBrowser({
       allMatchingSelected,
       clearSelection,
       currentLocationId,
+      capabilities.canDelete,
       onBulkDeleteInventory,
       router,
       selectedCardsCount,
@@ -659,21 +732,27 @@ export function InventoryBrowser({
             { accessorKey: "locationCount", header: "Locations" },
           ]
         : []),
-      {
-        accessorKey: "currentOwner",
-        header: "Owner",
-        cell: ({ row }) => (
-          <span className="inline-flex items-center gap-2">
-            <span
-              className="h-2.5 w-2.5 rounded-full"
-              style={{
-                backgroundColor: getPlayerColor(row.original.currentOwnerColor),
-              }}
-            />
-            {row.original.currentOwner}
-          </span>
-        ),
-      },
+      ...(capabilities.canViewOwnerAdminFields
+        ? [
+            {
+              accessorKey: "currentOwner",
+              header: "Owner",
+              cell: ({ row }: any) => (
+                <span className="inline-flex items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{
+                      backgroundColor: getPlayerColor(
+                        row.original.currentOwnerColor,
+                      ),
+                    }}
+                  />
+                  {row.original.currentOwner}
+                </span>
+              ),
+            } satisfies ColumnDef<InventoryRow>,
+          ]
+        : []),
       { accessorKey: "setCode", header: "Set" },
       { accessorKey: "rarity", header: "Rarity" },
       { accessorKey: "manaCost", header: "Mana Cost" },
@@ -681,59 +760,78 @@ export function InventoryBrowser({
       { accessorKey: "colorIdentity", header: "Color Identity" },
       { accessorKey: "priceUsd", header: "Scryfall USD Price" },
       { accessorKey: "foilStatus", header: "Foil" },
-      {
-        accessorKey: "effectiveVisibility",
-        header: "Visibility",
-        cell: ({ row }) => friendlyVisibility(row.original.effectiveVisibility),
-      },
-      {
-        accessorKey: "sourceType",
-        header: "Source",
-        cell: ({ row }) => friendlySource(row.original.sourceType),
-      },
-      {
-        id: "actions",
-        header: "Actions",
-        cell: ({ row }: any) => {
-          const exact = row.original.displayMode === "exact";
-          const single = (row.original.sourceItemIds?.length ?? 1) === 1;
-          return exact ? (
-            <div className="flex flex-wrap gap-1">
-              {isAdmin && single ? (
-                <button
-                  className="border px-2"
-                  onClick={() => {
-                    setEditing(row.original);
-                    setConfirmed(null);
-                    setResults([]);
-                  }}
-                >
-                  Edit
-                </button>
-              ) : null}
-              <button
-                className="border border-red-700 px-2 text-red-200"
-                disabled={deletingBulk}
-                onClick={() =>
-                  submitBulkDelete({
-                    itemIds: getRowSourceIds(row.original),
-                    entriesCount: getRowSourceIds(row.original).length,
-                    cardsCount: row.original.quantity,
-                    cardName: row.original.cardName,
-                  })
-                }
-              >
-                Delete
-              </button>
-            </div>
-          ) : (
-            <span className="text-xs text-zinc-500">Grouped</span>
-          );
-        },
-      },
+      ...(capabilities.canViewVisibility
+        ? [
+            {
+              accessorKey: "effectiveVisibility",
+              header: "Visibility",
+              cell: ({ row }: any) =>
+                friendlyVisibility(row.original.effectiveVisibility),
+            } satisfies ColumnDef<InventoryRow>,
+          ]
+        : []),
+      ...(capabilities.canViewPrivateSourceInfo
+        ? [
+            {
+              accessorKey: "sourceType",
+              header: "Source",
+              cell: ({ row }: any) => friendlySource(row.original.sourceType),
+            } satisfies ColumnDef<InventoryRow>,
+          ]
+        : []),
+      ...(capabilities.canEdit || capabilities.canDelete
+        ? [
+            {
+              id: "actions",
+              header: "Actions",
+              cell: ({ row }: any) => {
+                const exact = row.original.displayMode === "exact";
+                const single = (row.original.sourceItemIds?.length ?? 1) === 1;
+                return exact ? (
+                  <div className="flex flex-wrap gap-1">
+                    {capabilities.canEdit && single ? (
+                      <button
+                        className="border px-2"
+                        onClick={() => {
+                          setEditing(row.original);
+                          setConfirmed(null);
+                          setResults([]);
+                        }}
+                      >
+                        Edit
+                      </button>
+                    ) : null}
+                    {capabilities.canDelete ? (
+                      <button
+                        className="border border-red-700 px-2 text-red-200"
+                        disabled={deletingBulk}
+                        onClick={() =>
+                          submitBulkDelete({
+                            itemIds: getRowSourceIds(row.original),
+                            entriesCount: getRowSourceIds(row.original).length,
+                            cardsCount: row.original.quantity,
+                            cardName: row.original.cardName,
+                          })
+                        }
+                      >
+                        Delete
+                      </button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <span className="text-xs text-zinc-500">Grouped</span>
+                );
+              },
+            } satisfies ColumnDef<InventoryRow>,
+          ]
+        : []),
     ],
     [
-      isAdmin,
+      capabilities.canDelete,
+      capabilities.canEdit,
+      capabilities.canViewOwnerAdminFields,
+      capabilities.canViewPrivateSourceInfo,
+      capabilities.canViewVisibility,
       displayMode,
       selectionAvailable,
       isRowSelected,
@@ -780,7 +878,12 @@ export function InventoryBrowser({
           {message}
         </div>
       ) : null}
-      {isAdmin ? (
+      {uiMode === "public-readonly" ? (
+        <div className="border border-emerald-800 bg-emerald-950/30 text-emerald-200 p-2 text-sm">
+          Public read-only mode. You can browse this collection, but edit, move,
+          delete, import, trade, and audit controls are unavailable.
+        </div>
+      ) : isAdmin ? (
         <div className="border border-sky-800 bg-sky-950/40 text-sky-200 p-2 text-sm">
           Admin edit mode is active. Use the Actions column in Table View, or
           open a card detail from either view and choose Edit Inventory Item.
@@ -873,12 +976,12 @@ export function InventoryBrowser({
         </select>
       </div>
 
-      {!selectionAvailable ? (
+      {capabilities.canBulkSelect && !selectionAvailable ? (
         <div className="border border-amber-800 bg-amber-950/40 text-amber-200 p-2 text-sm">
           Bulk editing is available in Exact printings mode. Switch to Exact
           printings to select specific inventory entries.
         </div>
-      ) : (
+      ) : capabilities.canBulkSelect ? (
         <div className="border border-zinc-800 bg-zinc-950 p-3 space-y-3">
           <div className="flex flex-wrap gap-2 items-center text-sm">
             <button
@@ -921,7 +1024,7 @@ export function InventoryBrowser({
                 : `${selectedEntriesCount} selected`}
             </span>
           </div>
-          {selectedEntriesCount > 0 ? (
+          {selectedEntriesCount > 0 && capabilities.canBulkMove ? (
             <form
               onSubmit={async (event) => {
                 event.preventDefault();
@@ -943,6 +1046,10 @@ export function InventoryBrowser({
                   `Moving ${selectedEntriesCount} entries (${selectedCardsCount} cards)…`,
                 );
                 try {
+                  if (!onBulkMoveLocation) {
+                    setMessage("This inventory is read-only.");
+                    return;
+                  }
                   const result = await onBulkMoveLocation(fd);
                   if (!result.success) {
                     setMessage(result.message);
@@ -1027,7 +1134,7 @@ export function InventoryBrowser({
               </button>
             </form>
           ) : null}
-          {selectedEntriesCount > 0 ? (
+          {selectedEntriesCount > 0 && capabilities.canBulkDelete ? (
             <div className="flex flex-wrap items-center gap-2 border-t border-zinc-800 pt-3 text-sm">
               <span className="text-red-200">
                 Delete scope:{" "}
@@ -1052,7 +1159,7 @@ export function InventoryBrowser({
             </div>
           ) : null}
         </div>
-      )}
+      ) : null}
 
       {viewMode === "table" ? (
         <>
@@ -1179,13 +1286,15 @@ export function InventoryBrowser({
                         ? `${row.printingCount} printings`
                         : `${row.setCode} · ${row.rarity}`}
                     </span>
-                    <span className="inline-flex items-center gap-1">
-                      <span
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: ownerColor }}
-                      />
-                      {row.currentOwner}
-                    </span>
+                    {capabilities.canViewOwnerAdminFields ? (
+                      <span className="inline-flex items-center gap-1">
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: ownerColor }}
+                        />
+                        {row.currentOwner}
+                      </span>
+                    ) : null}
                   </div>
                 </button>
               </div>
@@ -1229,17 +1338,25 @@ export function InventoryBrowser({
         <CardDetail
           row={selected}
           onClose={() => setSelected(null)}
-          isAdmin={isAdmin}
-          onEdit={() => {
-            setEditing(selected);
-            setSelected(null);
-          }}
-          onAudit={() => {
-            setAuditRow(selected);
-            setSelected(null);
-          }}
+          capabilities={capabilities}
+          onEdit={
+            capabilities.canEdit
+              ? () => {
+                  setEditing(selected);
+                  setSelected(null);
+                }
+              : undefined
+          }
+          onAudit={
+            capabilities.canViewAuditTrail
+              ? () => {
+                  setAuditRow(selected);
+                  setSelected(null);
+                }
+              : undefined
+          }
           onDelete={
-            selected.displayMode === "exact"
+            capabilities.canDelete && selected.displayMode === "exact"
               ? () =>
                   submitBulkDelete({
                     itemIds: getRowSourceIds(selected),
@@ -1252,7 +1369,7 @@ export function InventoryBrowser({
         />
       ) : null}
 
-      {auditRow ? (
+      {auditRow && capabilities.canViewAuditTrail ? (
         <div
           className="fixed inset-0 z-50 bg-black/60"
           onClick={() => setAuditRow(null)}
@@ -1294,6 +1411,10 @@ export function InventoryBrowser({
             <form
               action={async (fd) => {
                 try {
+                  if (!onSaveEdit)
+                    throw new Error(
+                      "Editing is unavailable in read-only mode.",
+                    );
                   await onSaveEdit(fd);
                   setMessage("Inventory item updated.");
                   setEditing(null);
@@ -1439,6 +1560,12 @@ export function InventoryBrowser({
                       try {
                         const f = new FormData();
                         f.set("q", q);
+                        if (!onSearchPrintings) {
+                          setMessage(
+                            "Printing search is unavailable in read-only mode.",
+                          );
+                          return;
+                        }
                         const r = await onSearchPrintings(f);
                         setResults(r || []);
                         setMessage(
