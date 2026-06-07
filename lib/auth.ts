@@ -217,6 +217,13 @@ export function canExportInventory(
   );
 }
 
-export function canEditInventory(user: CurrentUser, adminModeEnabled = false) {
-  return isAdminUser(user, user.player) && adminModeEnabled;
+export function canEditInventory(
+  user: CurrentUser,
+  ownerId?: string | null,
+  adminModeEnabled = false,
+) {
+  return (
+    (isAdminUser(user, user.player) && adminModeEnabled) ||
+    Boolean(user.playerId && (!ownerId || ownerId === user.playerId))
+  );
 }
