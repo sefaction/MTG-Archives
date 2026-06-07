@@ -359,6 +359,17 @@ export async function getGlobalPublicInventory(
               playerId: { not: null },
             },
           },
+          OR: [
+            { visibility: Visibility.PUBLIC },
+            {
+              visibility: Visibility.INHERIT,
+              ownerPlayer: {
+                users: {
+                  some: publicUserWhere(DefaultCollectionVisibility.PUBLIC),
+                },
+              },
+            },
+          ],
         },
         OR: [
           { visibility: Visibility.PUBLIC },
