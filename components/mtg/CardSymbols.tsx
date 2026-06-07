@@ -7,15 +7,25 @@ export {
   ColorIdentityIcons,
   ColorIdentitySymbols,
 } from "./ColorIdentitySymbols";
+export { CardManaCost } from "./CardManaCost";
 export { ManaCost } from "./ManaCost";
 export { ManaSymbol } from "./ManaSymbol";
 
 const rarityClasses: Record<string, string> = {
-  common: "opacity-80",
-  uncommon: "opacity-90 invert-[0.72] sepia saturate-0",
-  rare: "opacity-95 sepia saturate-150 hue-rotate-[350deg]",
-  mythic: "opacity-95 sepia saturate-200 hue-rotate-[330deg]",
+  common: "mtg-set-symbol-rarity-common",
+  uncommon: "mtg-set-symbol-rarity-uncommon",
+  rare: "mtg-set-symbol-rarity-rare",
+  mythic: "mtg-set-symbol-rarity-mythic",
+  bonus: "mtg-set-symbol-rarity-rare",
+  special: "mtg-set-symbol-rarity-rare",
 };
+
+function getRarityClass(rarity?: string | null) {
+  return (
+    rarityClasses[(rarity ?? "").trim().toLowerCase()] ??
+    "mtg-set-symbol-rarity-common"
+  );
+}
 
 export function SetSymbol({
   setCode,
@@ -32,20 +42,29 @@ export function SetSymbol({
   const iconUrl = getScryfallSetIconUrl(setCode);
   const code = setCode?.trim().toUpperCase() || "-";
   const label = formatSetLabel(setCode, setName);
+  const rarityClass = getRarityClass(rarity);
   return (
     <span className="mtg-set-symbol-group gap-1.5" title={label}>
       {iconUrl && !iconFailed ? (
-        <img
-          src={iconUrl}
-          alt=""
-          aria-hidden="true"
-          loading="lazy"
-          decoding="async"
-          width={18}
-          height={18}
-          className={`mtg-set-symbol brightness-0 invert dark:brightness-0 dark:invert ${rarityClasses[(rarity ?? "").toLowerCase()] ?? ""}`}
-          onError={() => setIconFailed(true)}
-        />
+        <>
+          <span
+            aria-hidden="true"
+            className={`mtg-set-symbol mtg-set-symbol-mask ${rarityClass}`}
+            style={{
+              maskImage: `url(${iconUrl})`,
+              WebkitMaskImage: `url(${iconUrl})`,
+            }}
+          />
+          <img
+            src={iconUrl}
+            alt=""
+            aria-hidden="true"
+            loading="lazy"
+            decoding="async"
+            className="hidden"
+            onError={() => setIconFailed(true)}
+          />
+        </>
       ) : null}
       {showText ? (
         <span>{code}</span>

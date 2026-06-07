@@ -83,7 +83,13 @@ export type ScryfallCard = {
   preview?: unknown;
   image_uris?: Record<string, string>;
   card_faces?: Array<
-    Record<string, unknown> & { image_uris?: Record<string, string> }
+    Record<string, unknown> & {
+      name?: string;
+      mana_cost?: string;
+      type_line?: string;
+      oracle_text?: string;
+      image_uris?: Record<string, string>;
+    }
   >;
   prices?: Record<string, string | null>;
   related_uris?: Record<string, string>;

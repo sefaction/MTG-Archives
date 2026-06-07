@@ -24,7 +24,7 @@ const publicCollectionQueries = fs.readFileSync(
 test("global public inventory page reuses the shared inventory browser in read-only mode", () => {
   assert.match(globalPublicInventoryPage, /<InventoryBrowser/);
   assert.match(globalPublicInventoryPage, /uiMode="public-readonly"/);
-  assert.match(inventoryBrowser, /<ManaCost value=\{row\.original\.manaCost\}/);
+  assert.match(inventoryBrowser, /<CardManaCost card=\{row\.original\}/);
   assert.match(
     inventoryBrowser,
     /<ColorIdentityIcons value=\{row\.original\.colorIdentity\}/,

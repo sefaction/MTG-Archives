@@ -3,6 +3,12 @@ import fs from "node:fs";
 import test from "node:test";
 
 import {
+  getDisplayManaCosts,
+  getManaFacesForDto,
+  getManaCostSeparatorText,
+} from "../lib/mtg/mana-display";
+
+import {
   formatSetLabel,
   getManaFontClassName,
   getScryfallSetIconUrl,
@@ -172,4 +178,100 @@ test("set labels retain readable fallback text", () => {
   );
   assert.equal(formatSetLabel("xyz", null), "XYZ");
   assert.equal(formatSetLabel(null, null), "Unknown set");
+});
+
+const cardManaCostComponent = fs.readFileSync(
+  "components/mtg/CardManaCost.tsx",
+  "utf8",
+);
+
+// Face-aware mana tests intentionally use lightweight DTO-shaped objects so
+// inventory pages never need raw Scryfall JSON in browser rows.
+test("face-aware mana costs prefer normal top-level costs", () => {
+  assert.deepEqual(getDisplayManaCosts({ manaCost: "{2}{W}" }), {
+    kind: "single",
+    manaCost: "{2}{W}",
+  });
+});
+
+test("face-aware mana costs fall back to the first card face cost", () => {
+  assert.deepEqual(
+    getDisplayManaCosts({
+      manaCost: "",
+      layout: "transform",
+      manaFaces: [
+        { name: "Aang, Swift Savior", manaCost: "{1}{W}" },
+        { name: "Aang and La, Ocean's Fury", manaCost: "" },
+      ],
+    }),
+    { kind: "single", manaCost: "{1}{W}" },
+  );
+});
+
+test("face-aware mana costs separate MDFC, split, and adventure costs", () => {
+  assert.deepEqual(
+    getDisplayManaCosts({
+      layout: "modal_dfc",
+      manaFaces: [
+        { name: "Front", manaCost: "{2}{G}" },
+        { name: "Back", manaCost: "{1}{U}" },
+      ],
+    }),
+    {
+      kind: "faces",
+      separator: "modal",
+      faces: [
+        { name: "Front", manaCost: "{2}{G}" },
+        { name: "Back", manaCost: "{1}{U}" },
+      ],
+    },
+  );
+  assert.equal(getManaCostSeparatorText("modal"), "//");
+  assert.equal(
+    getDisplayManaCosts({
+      layout: "split",
+      manaFaces: [{ manaCost: "{R}" }, { manaCost: "{G}" }],
+    }).kind,
+    "faces",
+  );
+  assert.equal(
+    getDisplayManaCosts({
+      layout: "adventure",
+      manaFaces: [{ manaCost: "{1}{W}{W}" }, { manaCost: "{1}{W}" }],
+    }).kind,
+    "faces",
+  );
+});
+
+test("face-aware mana costs show a dash when no cost exists and tolerate malformed face data", () => {
+  assert.deepEqual(getDisplayManaCosts({ manaCost: null, cardFaces: null }), {
+    kind: "none",
+  });
+  assert.deepEqual(
+    getManaFacesForDto([null, "bad", { name: "Face", mana_cost: "{U}" }]),
+    [{ name: "Face", manaCost: "{U}" }],
+  );
+});
+
+test("CardManaCost component renders Mana font costs with a visible face separator", () => {
+  assert.match(cardManaCostComponent, /getDisplayManaCosts/);
+  assert.match(cardManaCostComponent, /<ManaCost value=\{face\.manaCost\}/);
+  assert.match(cardManaCostComponent, /mtg-face-mana-separator/);
+  assert.match(cardManaCostComponent, /showFaceNames/);
+  assert.match(globalStyles, /\.mtg-face-mana-costs[\s\S]*align-items: center/);
+});
+
+test("set symbol rarity classes cover Scryfall rarities and graceful fallbacks", () => {
+  assert.match(cardSymbolsComponent, /common: "mtg-set-symbol-rarity-common"/);
+  assert.match(
+    cardSymbolsComponent,
+    /uncommon: "mtg-set-symbol-rarity-uncommon"/,
+  );
+  assert.match(cardSymbolsComponent, /rare: "mtg-set-symbol-rarity-rare"/);
+  assert.match(cardSymbolsComponent, /mythic: "mtg-set-symbol-rarity-mythic"/);
+  assert.match(cardSymbolsComponent, /bonus: "mtg-set-symbol-rarity-rare"/);
+  assert.match(cardSymbolsComponent, /special: "mtg-set-symbol-rarity-rare"/);
+  assert.match(cardSymbolsComponent, /mtg-set-symbol-rarity-common/);
+  assert.match(cardSymbolsComponent, /mtg-set-symbol-mask/);
+  assert.match(globalStyles, /\.mtg-set-symbol-rarity-rare/);
 });

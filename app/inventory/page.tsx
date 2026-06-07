@@ -31,6 +31,7 @@ import {
   bulkMoveInventoryToLocation,
   bulkDeleteInventoryItems,
 } from "@/lib/inventory-locations";
+import { getManaFacesForDto } from "@/lib/mtg/mana-display";
 
 export default async function InventoryPage({
   searchParams,
@@ -788,6 +789,7 @@ export default async function InventoryPage({
                 cardName: p.card.name,
                 setCode: p.card.setCode.toUpperCase(),
                 collectorNumber: p.card.collectorNumber,
+                rarity: p.card.rarity,
                 foilStatus: p.foilStatus,
                 condition: p.condition,
                 language: p.language,
@@ -804,6 +806,8 @@ export default async function InventoryPage({
         setName: i.card.setName ?? "",
         rarity: i.card.rarity,
         manaCost: i.card.manaCost ?? "",
+        manaFaces: getManaFacesForDto(i.card.cardFaces),
+        layout: i.card.layout ?? "",
         manaValue: i.card.manaValue ?? undefined,
         typeLine: i.card.typeLine,
         colorIdentity: Array.isArray(i.card.colorIdentity)
