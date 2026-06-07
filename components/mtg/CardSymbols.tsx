@@ -33,10 +33,7 @@ export function SetSymbol({
   const code = setCode?.trim().toUpperCase() || "-";
   const label = formatSetLabel(setCode, setName);
   return (
-    <span
-      className="inline-flex items-center gap-1.5 align-middle"
-      title={label}
-    >
+    <span className="mtg-set-symbol-group gap-1.5" title={label}>
       {iconUrl && !iconFailed ? (
         <img
           src={iconUrl}
@@ -46,7 +43,7 @@ export function SetSymbol({
           decoding="async"
           width={18}
           height={18}
-          className={`h-4 w-4 shrink-0 brightness-0 invert dark:brightness-0 dark:invert ${rarityClasses[(rarity ?? "").toLowerCase()] ?? ""}`}
+          className={`mtg-set-symbol brightness-0 invert dark:brightness-0 dark:invert ${rarityClasses[(rarity ?? "").toLowerCase()] ?? ""}`}
           onError={() => setIconFailed(true)}
         />
       ) : null}
@@ -69,7 +66,7 @@ export function SetLabel({
   rarity?: string | null;
 }) {
   return (
-    <span className="inline-flex flex-wrap items-center gap-1.5">
+    <span className="mtg-set-symbol-group flex-wrap gap-1.5">
       <SetSymbol
         setCode={setCode}
         setName={setName}

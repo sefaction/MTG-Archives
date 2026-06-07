@@ -187,8 +187,10 @@ test("inventory renders reusable mana and set symbol components", () => {
   assert.match(cardSymbols, /getScryfallSetIconUrl/);
   assert.match(cardSymbols, /loading="lazy"/);
   assert.match(manaCostComponent, /parseManaCost/);
+  assert.match(manaCostComponent, /mtg-symbol-group/);
   assert.match(manaCostComponent, /<ManaSymbol/);
   assert.match(colorIdentityComponent, /parseColorIdentity/);
+  assert.match(colorIdentityComponent, /mtg-symbol-group/);
   assert.match(colorIdentityComponent, /<ManaSymbol/);
 });
 

@@ -23,6 +23,11 @@ const colorIdentityComponent = fs.readFileSync(
   "utf8",
 );
 const rootLayout = fs.readFileSync("app/layout.tsx", "utf8");
+const globalStyles = fs.readFileSync("app/globals.css", "utf8");
+const cardSymbolsComponent = fs.readFileSync(
+  "components/mtg/CardSymbols.tsx",
+  "utf8",
+);
 
 const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
 
@@ -115,13 +120,40 @@ test("color identity parser supports comma, compact, JSON, and array formats", (
   );
 });
 
-test("MTG symbol components render Mana font symbols and fallback text", () => {
+test("MTG symbol components render aligned Mana font symbols and fallback text", () => {
   assert.match(manaCostComponent, /parseManaCost/);
-  assert.match(manaCostComponent, /<ManaSymbol/);
+  assert.match(
+    manaCostComponent,
+    /className="mtg-symbol-group flex-wrap gap-0\.5"/,
+  );
+  assert.match(manaCostComponent, /text-zinc-500">-<\/span>/);
+  assert.match(manaCostComponent, /<ManaSymbol[\s\S]*ariaHidden/);
   assert.match(colorIdentityComponent, /parseColorIdentity/);
-  assert.match(colorIdentityComponent, /<ManaSymbol/);
+  assert.match(
+    colorIdentityComponent,
+    /className="mtg-symbol-group flex-wrap gap-0\.5"/,
+  );
+  assert.match(colorIdentityComponent, /text-zinc-500">-<\/span>/);
+  assert.match(colorIdentityComponent, /<ManaSymbol[\s\S]*ariaHidden/);
+  assert.match(manaSymbolComponent, /mtg-mana-symbol/);
   assert.match(manaSymbolComponent, /data-mana-symbol/);
   assert.match(manaSymbolComponent, /data-mana-fallback/);
+  assert.match(globalStyles, /\.mtg-mana-symbol[\s\S]*align-items: center/);
+  assert.match(globalStyles, /\.mtg-mana-symbol\.ms-cost[\s\S]*height: 1\.3em/);
+});
+
+test("set symbol component renders icons and text in an aligned wrapper", () => {
+  assert.match(
+    cardSymbolsComponent,
+    /className="mtg-set-symbol-group gap-1\.5"/,
+  );
+  assert.match(cardSymbolsComponent, /className=\{`mtg-set-symbol/);
+  assert.match(cardSymbolsComponent, /<span>\{code\}<\/span>/);
+  assert.match(
+    globalStyles,
+    /\.mtg-set-symbol-group[\s\S]*align-items: center/,
+  );
+  assert.match(globalStyles, /\.mtg-set-symbol[\s\S]*height: 1\.1em/);
 });
 
 test("set icon helper resolves safe Scryfall set icon URLs and rejects unsafe codes", () => {

@@ -1360,7 +1360,7 @@ export function InventoryBrowser({
                     {hg.headers.map((h) => (
                       <th
                         key={h.id}
-                        className="p-2 text-left border-b border-zinc-800 cursor-pointer"
+                        className="p-2 text-left align-middle border-b border-zinc-800 cursor-pointer"
                         onClick={h.column.getToggleSortingHandler()}
                       >
                         {flexRender(h.column.columnDef.header, h.getContext())}
@@ -1383,7 +1383,7 @@ export function InventoryBrowser({
                     }}
                   >
                     {r.getVisibleCells().map((c) => (
-                      <td key={c.id} className="p-2">
+                      <td key={c.id} className="p-2 align-middle">
                         {c.column.columnDef.cell
                           ? flexRender(c.column.columnDef.cell, c.getContext())
                           : String(c.getValue() ?? "")}

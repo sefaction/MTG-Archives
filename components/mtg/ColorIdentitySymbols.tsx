@@ -15,12 +15,12 @@ export function ColorIdentitySymbols({
     return <span>{Array.isArray(value) ? value.join(",") : value}</span>;
   return (
     <span
-      className="inline-flex flex-wrap items-center gap-1 align-middle leading-none"
+      className="mtg-symbol-group flex-wrap gap-0.5"
       aria-label={`Color identity: ${tokens.map((token) => token.symbol).join(", ")}`}
       title={tokens.map((token) => token.symbol).join("")}
     >
       {tokens.map((token) => (
-        <ManaSymbol key={token.symbol} token={token} />
+        <ManaSymbol key={token.symbol} token={token} ariaHidden />
       ))}
     </span>
   );

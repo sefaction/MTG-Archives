@@ -7,12 +7,12 @@ export function ManaCost({ value }: { value?: string | null }) {
   if (!tokens.length) return <span>{value}</span>;
   return (
     <span
-      className="inline-flex flex-wrap items-center gap-1 align-middle leading-none"
+      className="mtg-symbol-group flex-wrap gap-0.5"
       aria-label={tokens.map((token) => token.label).join(", ")}
       title={value}
     >
       {tokens.map((token, index) => (
-        <ManaSymbol key={`${token.raw}-${index}`} token={token} />
+        <ManaSymbol key={`${token.raw}-${index}`} token={token} ariaHidden />
       ))}
     </span>
   );
