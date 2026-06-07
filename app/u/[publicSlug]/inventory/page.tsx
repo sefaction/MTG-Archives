@@ -1,11 +1,6 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { DefaultCollectionVisibility, Visibility } from "@prisma/client";
-import {
-  getInventoryExactPrintings,
-  getInventoryGroupedByCard,
-} from "@/lib/inventory-locations";
-import { prisma } from "@/lib/prisma";
+import { PublicCollectionNav } from "@/components/PublicCollectionNav";
+import { getPublicInventoryBySlug } from "@/lib/public-collection";
 
 export const dynamic = "force-dynamic";
 
@@ -13,16 +8,6 @@ type PageProps = {
   params: Promise<{ publicSlug: string }>;
   searchParams: Promise<{ q?: string; view?: string }>;
 };
-
-function publicVisibilityWhere(defaultVisibility: DefaultCollectionVisibility) {
-  if (defaultVisibility === DefaultCollectionVisibility.PUBLIC) {
-    return [
-      { locationId: null },
-      { location: { visibility: { not: Visibility.PRIVATE }, active: true } },
-    ];
-  }
-  return [{ location: { visibility: Visibility.PUBLIC, active: true } }];
-}
 
 function cardImage(row: {
   card: { imageUri?: string | null; imageUris?: unknown };
@@ -40,52 +25,18 @@ export default async function PublicInventoryPage({
 }: PageProps) {
   const { publicSlug } = await params;
   const sp = await searchParams;
-  const viewer = await prisma.user.findUnique({
-    where: { publicSlug },
-    include: { player: true },
-  });
-  if (!viewer?.publicProfileEnabled || !viewer.playerId) notFound();
-
   const q = sp.q?.trim() || "";
   const view = sp.view === "exact" ? "exact" : "grouped";
-  const cardWhere = q
-    ? {
-        OR: [
-          { name: { contains: q, mode: "insensitive" as const } },
-          { typeLine: { contains: q, mode: "insensitive" as const } },
-          { oracleText: { contains: q, mode: "insensitive" as const } },
-        ],
-      }
-    : undefined;
+  const result = await getPublicInventoryBySlug(publicSlug, { q });
+  if (!result) notFound();
 
-  const inventory = await prisma.inventoryItem.findMany({
-    where: {
-      currentOwnerId: viewer.playerId,
-      quantity: { gt: 0 },
-      OR: publicVisibilityWhere(viewer.inventoryDefaultVisibility),
-      ...(cardWhere ? { card: cardWhere } : {}),
-    },
-    include: {
-      card: true,
-      location: true,
-    },
-    orderBy: [{ card: { name: "asc" } }, { card: { setCode: "asc" } }],
-  });
-
-  const exactRows = getInventoryExactPrintings(inventory as any);
-  const groupedRows = getInventoryGroupedByCard(exactRows as any);
-  const visibleCards = exactRows.reduce((sum, row) => sum + row.quantity, 0);
-  const displayName = viewer.publicDisplayName || viewer.displayName;
+  const { profile, exactRows, groupedRows, visibleCards } = result;
+  const displayName = profile.publicDisplayName || profile.displayName;
 
   return (
     <main className="p-8 space-y-6">
+      <PublicCollectionNav publicSlug={publicSlug} displayName={displayName} />
       <header className="space-y-2">
-        <Link
-          className="text-sm text-sky-300 underline"
-          href={`/u/${publicSlug}`}
-        >
-          {displayName}
-        </Link>
         <h1 className="text-3xl font-bold">
           {displayName}&apos;s public inventory
         </h1>
@@ -178,7 +129,7 @@ export default async function PublicInventoryPage({
 
       {!exactRows.length ? (
         <p className="rounded border border-zinc-800 p-4 text-zinc-400">
-          No public inventory matches this search.
+          No public inventory is available.
         </p>
       ) : null}
     </main>
