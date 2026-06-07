@@ -26,6 +26,7 @@ export type PublicInventoryFilters = {
   locationId?: string;
   locationName?: string;
   owner?: string;
+  displayMode?: string;
   page?: string;
   pageSize?: string;
 };
@@ -302,78 +303,134 @@ export async function getGlobalPublicInventory(
     ? Number(filters.pageSize)
     : 50;
   const page = Math.max(1, Number(filters.page || "1") || 1);
-  const rawPageSize = pageSize * 5;
+  const displayMode =
+    (filters as any).displayMode === "exact" ? "exact" : "grouped";
+  const where = buildPublicInventoryWhere(filters);
   const startedAt = Date.now();
-  const inventory = await prisma.inventoryItem.findMany({
-    where: buildPublicInventoryWhere(filters),
-    include: publicInventoryInclude,
-    orderBy: [{ card: { name: "asc" } }, { card: { setCode: "asc" } }],
-    skip: (page - 1) * rawPageSize,
-    take: rawPageSize + 1,
-  });
-
-  const publicProfiles = await prisma.user.findMany({
-    where: {
-      isActive: true,
-      publicProfileEnabled: true,
-      publicSlug: { not: null },
-      playerId: { not: null },
-    },
-    select: {
-      publicSlug: true,
-      publicDisplayName: true,
-      displayName: true,
-    },
-    orderBy: { publicDisplayName: "asc" },
-  });
-
-  const publicLocations = await prisma.inventoryLocation.findMany({
-    where: {
-      ownerPlayer: {
-        users: {
-          some: {
-            isActive: true,
-            publicProfileEnabled: true,
-            playerId: { not: null },
-          },
+  const exactGroupBy = {
+    by: ["cardId", "foilStatus", "condition", "language"] as any,
+    where,
+    _sum: { quantity: true as const },
+    _count: { _all: true as const },
+    orderBy: [
+      { cardId: "asc" },
+      { foilStatus: "asc" },
+      { condition: "asc" },
+      { language: "asc" },
+    ] as any,
+  };
+  const groupedGroupBy = {
+    by: ["cardId"] as any,
+    where,
+    _sum: { quantity: true as const },
+    _count: { _all: true as const },
+    orderBy: [{ cardId: "asc" }] as any,
+  };
+  const [pageGroups, allGroups, publicProfiles, publicLocations] =
+    await Promise.all([
+      displayMode === "grouped"
+        ? prisma.inventoryItem.groupBy({
+            ...groupedGroupBy,
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+          })
+        : prisma.inventoryItem.groupBy({
+            ...exactGroupBy,
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+          }),
+      displayMode === "grouped"
+        ? prisma.inventoryItem.groupBy(groupedGroupBy)
+        : prisma.inventoryItem.groupBy(exactGroupBy),
+      prisma.user.findMany({
+        where: {
+          isActive: true,
+          publicProfileEnabled: true,
+          publicSlug: { not: null },
+          playerId: { not: null },
         },
-      },
-      OR: [
-        { visibility: Visibility.PUBLIC },
-        {
-          visibility: Visibility.INHERIT,
+        select: {
+          publicSlug: true,
+          publicDisplayName: true,
+          displayName: true,
+        },
+        orderBy: { publicDisplayName: "asc" },
+      }),
+      prisma.inventoryLocation.findMany({
+        where: {
           ownerPlayer: {
             users: {
-              some: publicUserWhere(DefaultCollectionVisibility.PUBLIC),
+              some: {
+                isActive: true,
+                publicProfileEnabled: true,
+                playerId: { not: null },
+              },
             },
           },
+          OR: [
+            { visibility: Visibility.PUBLIC },
+            {
+              visibility: Visibility.INHERIT,
+              ownerPlayer: {
+                users: {
+                  some: publicUserWhere(DefaultCollectionVisibility.PUBLIC),
+                },
+              },
+            },
+          ],
         },
-      ],
-    },
-    select: { name: true },
-    distinct: ["name"],
-    orderBy: { name: "asc" },
-  });
+        select: { name: true },
+        distinct: ["name"],
+        orderBy: { name: "asc" },
+      }),
+    ]);
 
-  const hasNextPage = inventory.length > rawPageSize;
-  const pageInventory = hasNextPage
-    ? inventory.slice(0, rawPageSize)
-    : inventory;
+  const pageWhere =
+    displayMode === "grouped"
+      ? {
+          ...where,
+          cardId: { in: (pageGroups as any[]).map((group) => group.cardId) },
+        }
+      : {
+          ...where,
+          OR: (pageGroups as any[]).map((group) => ({
+            cardId: group.cardId,
+            foilStatus: group.foilStatus,
+            condition: group.condition,
+            language: group.language,
+          })),
+        };
+  const inventory = pageGroups.length
+    ? await prisma.inventoryItem.findMany({
+        where: pageWhere,
+        include: publicInventoryInclude,
+        orderBy: [{ card: { name: "asc" } }, { card: { setCode: "asc" } }],
+      })
+    : [];
+
   const filteredInventory = filterPublicInventoryByClientSafeFilters(
-    pageInventory as any,
+    inventory as any,
     filters,
   );
   const elapsedMs = Date.now() - startedAt;
-  if (elapsedMs > 1000 || inventory.length > rawPageSize) {
-    console.warn("[public-inventory-list] paged query diagnostics", {
+  if (elapsedMs > 1000 || inventory.length > pageSize * 10) {
+    console.warn("[public-inventory-list] server-side page query diagnostics", {
       elapsedMs,
       page,
       pageSize,
-      rawPageSize,
-      rawRowsLoaded: inventory.length,
-      filteredRows: filteredInventory.length,
-      hasNextPage,
+      rowsReturned: pageGroups.length,
+      rawRowsHydratedForVisibleGroups: inventory.length,
+      totalMatchingCount: allGroups.length,
     });
+  }
+  if (pageGroups.length > pageSize) {
+    console.warn(
+      "[public-inventory-list] query returned more rows than requested page size",
+      {
+        rowsReturned: pageGroups.length,
+        pageSize,
+      },
+    );
   }
 
   return {
@@ -385,8 +442,9 @@ export async function getGlobalPublicInventory(
     publicLocations,
     page,
     pageSize,
-    hasNextPage,
-    rawRowsLoaded: pageInventory.length,
+    totalMatchingCount: allGroups.length,
+    totalPages: Math.max(1, Math.ceil(allGroups.length / pageSize)),
+    hasNextPage: page * pageSize < allGroups.length,
     visibleCards: filteredInventory.reduce((sum, row) => sum + row.quantity, 0),
   };
 }
