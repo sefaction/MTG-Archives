@@ -11,6 +11,7 @@ const inventoryBrowser = fs.readFileSync(
   "components/InventoryBrowser.tsx",
   "utf8",
 );
+const cardSymbols = fs.readFileSync("components/mtg/CardSymbols.tsx", "utf8");
 const schema = fs.readFileSync("prisma/schema.prisma", "utf8");
 const inventoryLocations = fs.readFileSync(
   "lib/inventory-locations.ts",
@@ -162,6 +163,21 @@ test("full-dataset client-safe filters run before paging", () => {
     publicInventoryQueries,
     /totalMatchingCount: filteredGroups\.length/,
   );
+});
+
+test("inventory renders reusable mana and set symbol components", () => {
+  assert.match(inventoryBrowser, /<ManaCost value=\{row\.original\.manaCost\}/);
+  assert.match(
+    inventoryBrowser,
+    /<ColorIdentityIcons value=\{row\.original\.colorIdentity\}/,
+  );
+  assert.match(
+    inventoryBrowser,
+    /<SetSymbol[\s\S]*setCode=\{row\.original\.setCode\}/,
+  );
+  assert.match(inventoryBrowser, /<SetLabel[\s\S]*setCode=\{row\.setCode\}/);
+  assert.match(cardSymbols, /getScryfallSetIconUrl/);
+  assert.match(cardSymbols, /loading="lazy"/);
 });
 
 test("inventory card images use lazy asynchronous loading with dimensions", () => {

@@ -17,6 +17,12 @@ import {
 } from "./InventoryAuditTrail";
 import { SubmitButton } from "./feedback/SubmitButton";
 import { LoadingSpinner } from "./feedback/LoadingSpinner";
+import {
+  ColorIdentityIcons,
+  ManaCost,
+  SetLabel,
+  SetSymbol,
+} from "./mtg/CardSymbols";
 
 type PickRef = { id: string; name: string; color?: string };
 
@@ -281,7 +287,7 @@ function CardDetail({
           </div>
           <div className="space-y-2 text-sm">
             <p>
-              <b>Mana Cost:</b> {row.manaCost || "-"}
+              <b>Mana Cost:</b> <ManaCost value={row.manaCost} />
             </p>
             <p>
               <b>Type Line:</b> {row.typeLine}
@@ -302,10 +308,16 @@ function CardDetail({
               <b>Colors:</b> {row.colors || "-"}
             </p>
             <p>
-              <b>Color Identity:</b> {row.colorIdentity || "-"}
+              <b>Color Identity:</b>{" "}
+              <ColorIdentityIcons value={row.colorIdentity} />
             </p>
             <p>
-              <b>Set:</b> {row.setName || "-"} ({row.setCode})
+              <b>Set:</b>{" "}
+              <SetLabel
+                setCode={row.setCode}
+                setName={row.setName}
+                rarity={row.rarity}
+              />
             </p>
             <p>
               <b>Collector #:</b> {row.collectorNumber || "-"}
@@ -371,7 +383,8 @@ function CardDetail({
                       className="rounded border border-zinc-800 p-2"
                     >
                       <div className="font-semibold">
-                        {printing.cardName} ({printing.setCode}) #
+                        {printing.cardName} (
+                        <SetSymbol setCode={printing.setCode} />) #
                         {printing.collectorNumber}
                       </div>
                       <div className="text-zinc-400">
@@ -890,11 +903,31 @@ export function InventoryBrowser({
             } satisfies ColumnDef<InventoryRow>,
           ]
         : []),
-      { accessorKey: "setCode", header: "Set" },
+      {
+        accessorKey: "setCode",
+        header: "Set",
+        cell: ({ row }) => (
+          <SetSymbol
+            setCode={row.original.setCode}
+            setName={row.original.setName}
+            rarity={row.original.rarity}
+          />
+        ),
+      },
       { accessorKey: "rarity", header: "Rarity" },
-      { accessorKey: "manaCost", header: "Mana Cost" },
+      {
+        accessorKey: "manaCost",
+        header: "Mana Cost",
+        cell: ({ row }) => <ManaCost value={row.original.manaCost} />,
+      },
       { accessorKey: "typeLine", header: "Type Line" },
-      { accessorKey: "colorIdentity", header: "Color Identity" },
+      {
+        accessorKey: "colorIdentity",
+        header: "Color Identity",
+        cell: ({ row }) => (
+          <ColorIdentityIcons value={row.original.colorIdentity} />
+        ),
+      },
       { accessorKey: "priceUsd", header: "Scryfall USD Price" },
       { accessorKey: "foilStatus", header: "Foil" },
       ...(capabilities.canViewVisibility
@@ -1425,11 +1458,28 @@ export function InventoryBrowser({
                   <div className="mt-2 text-sm font-medium truncate">
                     {row.cardName}
                   </div>
+                  {row.manaCost || row.colorIdentity ? (
+                    <div className="mt-1 flex flex-wrap items-center gap-1 text-xs">
+                      {row.manaCost ? <ManaCost value={row.manaCost} /> : null}
+                      {!row.manaCost && row.colorIdentity ? (
+                        <ColorIdentityIcons value={row.colorIdentity} />
+                      ) : null}
+                    </div>
+                  ) : null}
                   <div className="text-xs text-zinc-400 flex items-center gap-2">
-                    <span>
-                      {row.displayMode === "grouped"
-                        ? `${row.printingCount} printings`
-                        : `${row.setCode} · ${row.rarity}`}
+                    <span className="inline-flex items-center gap-1.5">
+                      {row.displayMode === "grouped" ? (
+                        `${row.printingCount} printings`
+                      ) : (
+                        <>
+                          <SetSymbol
+                            setCode={row.setCode}
+                            setName={row.setName}
+                            rarity={row.rarity}
+                          />
+                          <span>· {row.rarity}</span>
+                        </>
+                      )}
                     </span>
                     {capabilities.canViewOwnerAdminFields ? (
                       <span className="inline-flex items-center gap-1">
