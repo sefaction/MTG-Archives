@@ -12,6 +12,14 @@ const inventoryBrowser = fs.readFileSync(
   "utf8",
 );
 const cardSymbols = fs.readFileSync("components/mtg/CardSymbols.tsx", "utf8");
+const manaCostComponent = fs.readFileSync(
+  "components/mtg/ManaCost.tsx",
+  "utf8",
+);
+const colorIdentityComponent = fs.readFileSync(
+  "components/mtg/ColorIdentitySymbols.tsx",
+  "utf8",
+);
 const schema = fs.readFileSync("prisma/schema.prisma", "utf8");
 const inventoryLocations = fs.readFileSync(
   "lib/inventory-locations.ts",
@@ -178,6 +186,10 @@ test("inventory renders reusable mana and set symbol components", () => {
   assert.match(inventoryBrowser, /<SetLabel[\s\S]*setCode=\{row\.setCode\}/);
   assert.match(cardSymbols, /getScryfallSetIconUrl/);
   assert.match(cardSymbols, /loading="lazy"/);
+  assert.match(manaCostComponent, /parseManaCost/);
+  assert.match(manaCostComponent, /<ManaSymbol/);
+  assert.match(colorIdentityComponent, /parseColorIdentity/);
+  assert.match(colorIdentityComponent, /<ManaSymbol/);
 });
 
 test("inventory card images use lazy asynchronous loading with dimensions", () => {

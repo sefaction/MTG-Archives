@@ -1,3 +1,4 @@
+import "mana-font/css/mana.css";
 import "./globals.css";
 import type { ReactNode } from "react";
 
