@@ -170,6 +170,65 @@ export function locationSummary(
   return `${total} copies in ${parts.length} locations`;
 }
 
+type InventoryPageGroupLike = {
+  currentOwnerId?: string | null;
+  cardId: string;
+  foilStatus?: string | null;
+  condition?: string | null;
+  language?: string | null;
+};
+
+type InventoryPageItemLike = InventoryPageGroupLike & {
+  id?: string;
+  createdAt?: Date | string;
+};
+
+export function inventoryPageGroupKey(
+  value: InventoryPageGroupLike,
+  displayMode: "exact" | "grouped",
+  includeOwner = true,
+) {
+  if (displayMode === "grouped") return value.cardId;
+  return [
+    ...(includeOwner ? [value.currentOwnerId ?? ""] : []),
+    value.cardId,
+    value.foilStatus ?? "",
+    value.condition ?? "",
+    value.language ?? "",
+  ].join("|");
+}
+
+export function orderInventoryItemsByPageGroups<
+  T extends InventoryPageItemLike,
+>(
+  items: T[],
+  pageGroups: InventoryPageGroupLike[],
+  displayMode: "exact" | "grouped",
+) {
+  const includeOwner = pageGroups.some((group) => group.currentOwnerId);
+  const groupOrder = new Map(
+    pageGroups.map((group, index) => [
+      inventoryPageGroupKey(group, displayMode, includeOwner),
+      index,
+    ]),
+  );
+  return [...items].sort((left, right) => {
+    const leftOrder =
+      groupOrder.get(inventoryPageGroupKey(left, displayMode, includeOwner)) ??
+      Number.MAX_SAFE_INTEGER;
+    const rightOrder =
+      groupOrder.get(inventoryPageGroupKey(right, displayMode, includeOwner)) ??
+      Number.MAX_SAFE_INTEGER;
+    if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+    const leftCreated = left.createdAt ? new Date(left.createdAt).getTime() : 0;
+    const rightCreated = right.createdAt
+      ? new Date(right.createdAt).getTime()
+      : 0;
+    if (leftCreated !== rightCreated) return rightCreated - leftCreated;
+    return String(left.id ?? "").localeCompare(String(right.id ?? ""));
+  });
+}
+
 export function getInventoryExactPrintings<T extends InventoryWithCardLocation>(
   items: T[],
 ) {
