@@ -6,6 +6,7 @@ import {
   getInventoryGroupedByCard,
   locationSummary,
   normalizeLocationName,
+  orderInventoryItemsByPageGroups,
 } from "../lib/inventory-locations";
 
 function makeItem(overrides: any = {}) {
@@ -589,5 +590,71 @@ test("bulk move all from one location rejects same source and destination", asyn
         allowedOwnerId: "owner-1",
       }),
     /Source and destination locations must be different/,
+  );
+});
+
+test("page group ordering preserves descending card-name page order after hydration", () => {
+  const pageGroups = [
+    { cardId: "card-z" },
+    { cardId: "card-y" },
+    { cardId: "card-x" },
+    { cardId: "card-w" },
+  ];
+  const hydratedItems = [
+    makeItem({ id: "w", cardId: "card-w", cardName: "Warden" }),
+    makeItem({ id: "x", cardId: "card-x", cardName: "Xorn" }),
+    makeItem({ id: "y", cardId: "card-y", cardName: "Yavimaya" }),
+    makeItem({ id: "z", cardId: "card-z", cardName: "Zetalpa" }),
+  ];
+
+  const ordered = orderInventoryItemsByPageGroups(
+    hydratedItems,
+    pageGroups,
+    "grouped",
+  );
+
+  assert.deepEqual(
+    ordered.map((item) => item.card.name),
+    ["Zetalpa", "Yavimaya", "Xorn", "Warden"],
+  );
+});
+
+test("exact page group ordering uses exact-printing keys without reversing the selected page", () => {
+  const pageGroups = [
+    {
+      currentOwnerId: "owner-1",
+      cardId: "card-z",
+      foilStatus: "NONFOIL",
+      condition: "NM",
+      language: "EN",
+    },
+    {
+      currentOwnerId: "owner-1",
+      cardId: "card-y",
+      foilStatus: "FOIL",
+      condition: "LP",
+      language: "EN",
+    },
+  ];
+  const hydratedItems = [
+    makeItem({
+      id: "y",
+      cardId: "card-y",
+      cardName: "Yavimaya",
+      foilStatus: "FOIL",
+      condition: "LP",
+    }),
+    makeItem({ id: "z", cardId: "card-z", cardName: "Zetalpa" }),
+  ];
+
+  const ordered = orderInventoryItemsByPageGroups(
+    hydratedItems,
+    pageGroups,
+    "exact",
+  );
+
+  assert.deepEqual(
+    ordered.map((item) => item.card.name),
+    ["Zetalpa", "Yavimaya"],
   );
 });
