@@ -73,8 +73,8 @@ function getGlobalPublicExactPrintings(items: any[]) {
     if (!existing) {
       groups.set(key, {
         ...item,
-        id: `public-exact-${groups.size}`,
-        cardId: `public-card-${groups.size}`,
+        id: `public-exact-${key}`,
+        cardId: item.cardId,
         currentOwnerId: "public",
         currentOwner: {
           displayName: ownerName,
@@ -110,7 +110,7 @@ function toInventoryBrowserRows({
 }) {
   return displayItems.map((entry: any, rowIndex: number) => {
     const i = displayMode === "grouped" ? entry.representative : entry;
-    const publicRowId = `public-global-${displayMode}-${rowIndex}`;
+    const publicRowId = `public-global-${displayMode}-${entry.id ?? i.id ?? i.cardId ?? rowIndex}`;
     const collectionCount = new Set(
       (displayMode === "grouped"
         ? entry.printings.flatMap(
@@ -222,7 +222,10 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
   const initialBrowsingMode: "paginated" | "infinite" =
     p.browse === "infinite" ? "infinite" : "paginated";
 
-  const result = await getGlobalPublicInventory(p as PublicInventoryFilters);
+  const result = await getGlobalPublicInventory({
+    ...(p as PublicInventoryFilters),
+    page: initialBrowsingMode === "infinite" ? "1" : p.page,
+  });
   const exactRows = getGlobalPublicExactPrintings(result.inventory);
   const groupedRows = getInventoryGroupedByCard(exactRows as any);
   const displayItems = displayMode === "grouped" ? groupedRows : exactRows;
@@ -419,6 +422,7 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
           hasPreviousPage={result.page > 1}
           hasNextPage={result.hasNextPage}
           pageHrefBase={pageHrefBase}
+          infiniteApiPath="/api/public/inventory/list"
           initialPageSize={initialPageSize}
           initialBrowsingMode={initialBrowsingMode}
           currentLocationId={p.locationName || ""}

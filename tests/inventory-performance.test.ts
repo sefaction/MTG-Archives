@@ -12,6 +12,14 @@ const inventoryBrowser = fs.readFileSync(
   "utf8",
 );
 const schema = fs.readFileSync("prisma/schema.prisma", "utf8");
+const inventoryListApi = fs.readFileSync(
+  "app/api/inventory/list/route.ts",
+  "utf8",
+);
+const publicInventoryListApi = fs.readFileSync(
+  "app/api/public/inventory/list/route.ts",
+  "utf8",
+);
 
 test("authenticated inventory list uses one server-side page source of truth", () => {
   assert.match(inventoryPage, /queryPageSize = initialPageSize/);
@@ -48,18 +56,51 @@ test("inventory browser exposes real server pagination and infinite-scroll count
   assert.match(inventoryBrowser, /Page \{currentPage\} of/);
   assert.match(
     inventoryBrowser,
-    /Loaded \$\{rows\.length\} of \$\{totalMatchingCount\}/,
+    /Loaded \$\{loadedRows\.length\} of \$\{totalMatchingCount\}/,
   );
   assert.match(
     inventoryBrowser,
-    /router\.prefetch\(pageHref\(currentPage \+ 1\)\)/,
+    /fetch\(`\$\{infiniteApiPath\}\?\$\{params\.toString\(\)\}`/,
   );
+  assert.match(inventoryBrowser, /setLoadedRows\(\(current\) =>/);
+  assert.match(inventoryBrowser, /const appended = payload\.rows\.filter/);
+  assert.match(inventoryBrowser, /rootMargin: "600px 0px"/);
+  assert.match(inventoryBrowser, /Retry/);
   assert.match(inventoryBrowser, /Select loaded/);
   assert.match(inventoryBrowser, /Select visible/);
   assert.doesNotMatch(
     inventoryBrowser,
     /getPaginationRowModel|table\.nextPage\(|table\.previousPage\(/,
   );
+});
+
+test("infinite-scroll APIs use the same bounded server page model", () => {
+  assert.match(inventoryPage, /infiniteApiPath="\/api\/inventory\/list"/);
+  assert.match(inventoryListApi, /skip: \(page - 1\) \* pageSize/);
+  assert.match(inventoryListApi, /take: pageSize/);
+  assert.match(inventoryListApi, /hasNextPage: page < totalPages/);
+  assert.match(
+    inventoryListApi,
+    /nextPage: page < totalPages \? page \+ 1 : null/,
+  );
+  assert.match(inventoryListApi, /getCurrentUser\(\)/);
+  assert.match(inventoryListApi, /getAccessScope\(user\)/);
+  assert.match(inventoryListApi, /rowsFromDisplayItems/);
+  assert.match(inventoryPage, /initialBrowsingMode === "infinite"/);
+});
+
+test("public infinite-scroll API preserves public-only server paging", () => {
+  assert.match(
+    inventoryPage + publicInventoryQueries,
+    /initialBrowsingMode === "infinite"/,
+  );
+  assert.match(publicInventoryListApi, /getGlobalPublicInventory/);
+  assert.match(publicInventoryListApi, /hasNextPage: result\.hasNextPage/);
+  assert.match(
+    publicInventoryListApi,
+    /nextPage: result\.hasNextPage \? result\.page \+ 1 : null/,
+  );
+  assert.match(publicInventoryListApi, /toInventoryBrowserRows/);
 });
 
 test("inventory card images use lazy asynchronous loading with dimensions", () => {

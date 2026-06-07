@@ -98,7 +98,10 @@ export default async function InventoryPage({
     : 50;
   const initialBrowsingMode: "paginated" | "infinite" =
     p.browse === "infinite" ? "infinite" : "paginated";
-  const currentPage = Math.max(1, Number(p.page || "1") || 1);
+  const currentPage =
+    initialBrowsingMode === "infinite"
+      ? 1
+      : Math.max(1, Number(p.page || "1") || 1);
   const queryPageSize = initialPageSize;
   const querySkip = (currentPage - 1) * queryPageSize;
   const inventoryQueryStartedAt = process.hrtime.bigint();
@@ -1047,6 +1050,7 @@ export default async function InventoryPage({
         hasPreviousPage={currentPage > 1}
         hasNextPage={currentPage < totalPages}
         pageHrefBase={pageHrefBase}
+        infiniteApiPath="/api/inventory/list"
         initialPageSize={initialPageSize}
         initialBrowsingMode={initialBrowsingMode}
         currentLocationId={p.locationId || ""}

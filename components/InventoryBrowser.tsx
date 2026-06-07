@@ -436,6 +436,7 @@ export function InventoryBrowser({
   hasNextPage = false,
   hasPreviousPage = false,
   pageHrefBase,
+  infiniteApiPath,
   initialPageSize,
   initialBrowsingMode,
   currentLocationId,
@@ -460,6 +461,7 @@ export function InventoryBrowser({
   hasNextPage?: boolean;
   hasPreviousPage?: boolean;
   pageHrefBase?: string;
+  infiniteApiPath?: string;
   initialPageSize: number;
   initialBrowsingMode: "paginated" | "infinite";
   currentLocationId?: string;
@@ -532,7 +534,23 @@ export function InventoryBrowser({
   const [browsingMode, setBrowsingMode] = useState<"paginated" | "infinite">(
     initialBrowsingMode,
   );
-  const [infiniteLimit, setInfiniteLimit] = useState(rows.length);
+  const [loadedRows, setLoadedRows] = useState<InventoryRow[]>(rows);
+  const [infiniteHasNextPage, setInfiniteHasNextPage] = useState(hasNextPage);
+  const [nextInfinitePage, setNextInfinitePage] = useState(currentPage + 1);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState("");
+  const queryKey = useMemo(
+    () =>
+      JSON.stringify({
+        pageHrefBase: pageHrefBase || "",
+        displayMode,
+        pageSize,
+        uiMode,
+        infiniteApiPath: infiniteApiPath || "",
+      }),
+    [displayMode, infiniteApiPath, pageHrefBase, pageSize, uiMode],
+  );
+  const queryKeyRef = useRef(queryKey);
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: initialPageSize,
@@ -560,12 +578,13 @@ export function InventoryBrowser({
 
   const selectionAvailable =
     displayMode === "exact" && capabilities.canBulkSelect;
+  const renderedRows = browsingMode === "infinite" ? loadedRows : rows;
   const selectedEntriesCount = allMatchingSelected
     ? totalMatchingCount
     : selectedItemIds.size;
   const selectedCardsCount = allMatchingSelected
     ? totalMatchingCards
-    : rows
+    : renderedRows
         .filter((row) =>
           (row.sourceItemIds ?? [row.id]).some((id) => selectedItemIds.has(id)),
         )
@@ -685,40 +704,93 @@ export function InventoryBrowser({
     const params = new URLSearchParams(window.location.search);
     if (next.pageSize) params.set("pageSize", String(next.pageSize));
     if (next.browse) params.set("browse", next.browse);
+    params.delete("page");
     router.replace(`${window.location.pathname}?${params.toString()}`);
   }
 
   useEffect(() => {
     clearSelection();
     setPagination((current) => ({ ...current, pageIndex: 0 }));
-    setInfiniteLimit(rows.length);
-  }, [rows, displayMode, pageSize, clearSelection]);
-
-  useEffect(() => {
-    if (browsingMode !== "infinite") return;
-    const node = infiniteSentinelRef.current;
-    if (!node) return;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
-        setInfiniteLimit((current) =>
-          Math.min(rows.length, current + pageSize),
-        );
-        if (hasNextPage && pageHref) {
-          router.prefetch(pageHref(currentPage + 1));
-        }
-      }
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
+    setLoadedRows(rows);
+    setInfiniteHasNextPage(hasNextPage);
+    setNextInfinitePage(currentPage + 1);
+    setLoadMoreError("");
+    queryKeyRef.current = queryKey;
   }, [
-    browsingMode,
+    rows,
+    displayMode,
+    pageSize,
+    clearSelection,
     currentPage,
     hasNextPage,
-    pageHref,
-    pageSize,
-    rows.length,
-    router,
+    queryKey,
   ]);
+
+  const loadMoreRows = useCallback(async () => {
+    if (
+      browsingMode !== "infinite" ||
+      !infiniteApiPath ||
+      !infiniteHasNextPage ||
+      isLoadingMore
+    )
+      return;
+    const requestQueryKey = queryKeyRef.current;
+    const params = new URLSearchParams(pageHrefBase || "");
+    params.set("page", String(nextInfinitePage));
+    params.set("browse", "infinite");
+    setIsLoadingMore(true);
+    setLoadMoreError("");
+    try {
+      const response = await fetch(`${infiniteApiPath}?${params.toString()}`, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) throw new Error(`Request failed (${response.status})`);
+      const payload: {
+        rows: InventoryRow[];
+        hasNextPage: boolean;
+        nextPage?: number;
+        totalMatchingCount?: number;
+      } = await response.json();
+      if (queryKeyRef.current !== requestQueryKey) return;
+      setLoadedRows((current) => {
+        const seen = new Set(current.map((row) => row.id));
+        const appended = payload.rows.filter((row) => !seen.has(row.id));
+        return [...current, ...appended];
+      });
+      setInfiniteHasNextPage(payload.hasNextPage);
+      setNextInfinitePage(payload.nextPage ?? nextInfinitePage + 1);
+    } catch (error: any) {
+      if (queryKeyRef.current !== requestQueryKey) return;
+      setLoadMoreError(error?.message || "Failed to load more results.");
+    } finally {
+      if (queryKeyRef.current === requestQueryKey) setIsLoadingMore(false);
+    }
+  }, [
+    browsingMode,
+    infiniteApiPath,
+    infiniteHasNextPage,
+    isLoadingMore,
+    nextInfinitePage,
+    pageHrefBase,
+  ]);
+
+  useEffect(() => {
+    if (browsingMode !== "infinite" || !infiniteHasNextPage || loadMoreError)
+      return;
+    const node = infiniteSentinelRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          void loadMoreRows();
+        }
+      },
+      { root: null, rootMargin: "600px 0px", threshold: 0 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [browsingMode, infiniteHasNextPage, loadMoreError, loadMoreRows]);
 
   const cols = useMemo<ColumnDef<InventoryRow>[]>(
     () => [
@@ -878,12 +950,12 @@ export function InventoryBrowser({
 
   const effectivePagination =
     browsingMode === "infinite"
-      ? { pageIndex: 0, pageSize: Math.max(1, infiniteLimit) }
+      ? { pageIndex: 0, pageSize: Math.max(1, renderedRows.length) }
       : { pageIndex: 0, pageSize: Math.max(1, rows.length) };
 
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table manages its own stable table instance API.
   const table = useReactTable({
-    data: rows,
+    data: renderedRows,
     columns: cols,
     state: { sorting, columnVisibility, pagination: effectivePagination },
     onSortingChange: setSorting,
@@ -984,7 +1056,7 @@ export function InventoryBrowser({
             const next = Number(event.target.value);
             setPageSize(next);
             setPagination({ pageIndex: 0, pageSize: next });
-            setInfiniteLimit(rows.length);
+            setLoadedRows(rows);
             updateBrowseQuery({ pageSize: next });
           }}
           className="border px-2 py-1 bg-zinc-900"
@@ -1001,7 +1073,7 @@ export function InventoryBrowser({
           onChange={(event) => {
             const next = event.target.value as "paginated" | "infinite";
             setBrowsingMode(next);
-            setInfiniteLimit(rows.length);
+            setLoadedRows(rows);
             setPagination((current) => ({ ...current, pageIndex: 0 }));
             updateBrowseQuery({ browse: next });
           }}
@@ -1368,9 +1440,27 @@ export function InventoryBrowser({
           ref={infiniteSentinelRef}
           className="py-3 text-center text-sm text-zinc-400"
         >
-          {hasNextPage
-            ? `Loaded ${rows.length} of ${totalMatchingCount}. Next page is prefetched for fast browsing.`
-            : `End of results · ${rows.length} loaded of ${totalMatchingCount}`}
+          {loadMoreError ? (
+            <span className="inline-flex items-center gap-2 text-red-300">
+              Failed to load more results: {loadMoreError}
+              <button
+                type="button"
+                className="border px-2"
+                onClick={() => {
+                  setLoadMoreError("");
+                  void loadMoreRows();
+                }}
+              >
+                Retry
+              </button>
+            </span>
+          ) : isLoadingMore ? (
+            "Loading more…"
+          ) : infiniteHasNextPage ? (
+            `Loaded ${loadedRows.length} of ${totalMatchingCount}. Loading more as you scroll…`
+          ) : (
+            `End of results · ${loadedRows.length} loaded of ${totalMatchingCount}`
+          )}
         </div>
       )}
 
