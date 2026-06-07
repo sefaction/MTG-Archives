@@ -7,7 +7,10 @@ import {
   resolveDeckVisibility,
   resolveInventoryVisibility,
 } from "../lib/visibility";
-import { publicInventoryVisibilityWhere } from "../lib/public-collection";
+import {
+  globalPublicInventoryLocationWhere,
+  publicInventoryVisibilityWhere,
+} from "../lib/public-collection";
 
 test("inventory visibility inherits private account default", () => {
   assert.equal(
@@ -87,4 +90,19 @@ test("public inventory where excludes private locations when account default is 
       { location: { active: true, visibility: { not: Visibility.PRIVATE } } },
     ],
   );
+});
+
+test("global public location where applies visibility to inventory locations", () => {
+  const where = globalPublicInventoryLocationWhere() as any;
+  assert.equal(where.active, true);
+  assert.deepEqual(where.OR[0], { visibility: Visibility.PUBLIC });
+  assert.equal(where.OR[1].visibility, Visibility.INHERIT);
+  assert.equal(
+    where.OR[1].ownerPlayer.users.some.inventoryDefaultVisibility,
+    DefaultCollectionVisibility.PUBLIC,
+  );
+  assert.equal(where.ownerPlayer.users.some.publicProfileEnabled, true);
+  assert.equal(where.ownerPlayer.users.some.isActive, true);
+  assert.equal(where.ownerPlayer.OR, undefined);
+  assert.equal(where.ownerPlayer.visibility, undefined);
 });
