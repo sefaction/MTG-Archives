@@ -7,7 +7,6 @@ import {
   PaginationState,
   flexRender,
   getCoreRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   SortingState,
   useReactTable,
@@ -432,6 +431,11 @@ export function InventoryBrowser({
   displayMode,
   totalMatchingCount,
   totalMatchingCards,
+  currentPage = 1,
+  totalPages = 1,
+  hasNextPage = false,
+  hasPreviousPage = false,
+  pageHrefBase,
   initialPageSize,
   initialBrowsingMode,
   currentLocationId,
@@ -451,6 +455,11 @@ export function InventoryBrowser({
   displayMode: "exact" | "grouped";
   totalMatchingCount: number;
   totalMatchingCards: number;
+  currentPage?: number;
+  totalPages?: number;
+  hasNextPage?: boolean;
+  hasPreviousPage?: boolean;
+  pageHrefBase?: string;
   initialPageSize: number;
   initialBrowsingMode: "paginated" | "infinite";
   currentLocationId?: string;
@@ -523,7 +532,7 @@ export function InventoryBrowser({
   const [browsingMode, setBrowsingMode] = useState<"paginated" | "infinite">(
     initialBrowsingMode,
   );
-  const [infiniteLimit, setInfiniteLimit] = useState(initialPageSize);
+  const [infiniteLimit, setInfiniteLimit] = useState(rows.length);
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: initialPageSize,
@@ -536,6 +545,18 @@ export function InventoryBrowser({
         : defaultCapabilities(isAdmin);
     return { ...base, ...capabilityOverrides };
   }, [capabilityOverrides, isAdmin, uiMode]);
+
+  const pageHref = useCallback(
+    (page: number) => {
+      const params = new URLSearchParams(
+        pageHrefBase ||
+          (typeof window !== "undefined" ? window.location.search : ""),
+      );
+      params.set("page", String(Math.max(1, page)));
+      return `${typeof window !== "undefined" ? window.location.pathname : ""}?${params.toString()}`;
+    },
+    [pageHrefBase],
+  );
 
   const selectionAvailable =
     displayMode === "exact" && capabilities.canBulkSelect;
@@ -670,7 +691,7 @@ export function InventoryBrowser({
   useEffect(() => {
     clearSelection();
     setPagination((current) => ({ ...current, pageIndex: 0 }));
-    setInfiniteLimit(pageSize);
+    setInfiniteLimit(rows.length);
   }, [rows, displayMode, pageSize, clearSelection]);
 
   useEffect(() => {
@@ -682,11 +703,22 @@ export function InventoryBrowser({
         setInfiniteLimit((current) =>
           Math.min(rows.length, current + pageSize),
         );
+        if (hasNextPage && pageHref) {
+          router.prefetch(pageHref(currentPage + 1));
+        }
       }
     });
     observer.observe(node);
     return () => observer.disconnect();
-  }, [browsingMode, pageSize, rows.length]);
+  }, [
+    browsingMode,
+    currentPage,
+    hasNextPage,
+    pageHref,
+    pageSize,
+    rows.length,
+    router,
+  ]);
 
   const cols = useMemo<ColumnDef<InventoryRow>[]>(
     () => [
@@ -847,8 +879,9 @@ export function InventoryBrowser({
   const effectivePagination =
     browsingMode === "infinite"
       ? { pageIndex: 0, pageSize: Math.max(1, infiniteLimit) }
-      : pagination;
+      : { pageIndex: 0, pageSize: Math.max(1, rows.length) };
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table manages its own stable table instance API.
   const table = useReactTable({
     data: rows,
     columns: cols,
@@ -862,7 +895,6 @@ export function InventoryBrowser({
     },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
   });
   const sizeClass =
     cardSize === "small"
@@ -952,7 +984,7 @@ export function InventoryBrowser({
             const next = Number(event.target.value);
             setPageSize(next);
             setPagination({ pageIndex: 0, pageSize: next });
-            setInfiniteLimit(next);
+            setInfiniteLimit(rows.length);
             updateBrowseQuery({ pageSize: next });
           }}
           className="border px-2 py-1 bg-zinc-900"
@@ -969,7 +1001,7 @@ export function InventoryBrowser({
           onChange={(event) => {
             const next = event.target.value as "paginated" | "infinite";
             setBrowsingMode(next);
-            setInfiniteLimit(pageSize);
+            setInfiniteLimit(rows.length);
             setPagination((current) => ({ ...current, pageIndex: 0 }));
             updateBrowseQuery({ browse: next });
           }}
@@ -1313,22 +1345,22 @@ export function InventoryBrowser({
       {browsingMode === "paginated" ? (
         <div className="flex gap-2 items-center">
           <button
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-            className="border px-2"
+            onClick={() => pageHref && router.push(pageHref(currentPage - 1))}
+            disabled={!hasPreviousPage}
+            className="border px-2 disabled:opacity-50"
           >
-            Prev
+            Previous page
           </button>
           <span>
-            Page {table.getState().pagination.pageIndex + 1} /{" "}
-            {table.getPageCount() || 1}
+            {totalMatchingCount} matching cards · Page {currentPage} of{" "}
+            {totalPages || 1}
           </span>
           <button
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-            className="border px-2"
+            onClick={() => pageHref && router.push(pageHref(currentPage + 1))}
+            disabled={!hasNextPage}
+            className="border px-2 disabled:opacity-50"
           >
-            Next
+            Next page
           </button>
         </div>
       ) : (
@@ -1336,9 +1368,9 @@ export function InventoryBrowser({
           ref={infiniteSentinelRef}
           className="py-3 text-center text-sm text-zinc-400"
         >
-          {infiniteLimit < rows.length
-            ? "Loading more as you scroll…"
-            : `End of results · ${rows.length} loaded`}
+          {hasNextPage
+            ? `Loaded ${rows.length} of ${totalMatchingCount}. Next page is prefetched for fast browsing.`
+            : `End of results · ${rows.length} loaded of ${totalMatchingCount}`}
         </div>
       )}
 
