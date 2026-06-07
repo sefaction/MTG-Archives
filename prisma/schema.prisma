@@ -86,6 +86,8 @@ model User {
   importResolutionJobs       ImportResolutionJob[]
   createdTrades              Trade[]                     @relation("TradeCreatedBy")
   tradeEvents                TradeEvent[]
+
+  @@index([publicProfileEnabled, isActive, inventoryDefaultVisibility])
 }
 
 model League {
@@ -325,6 +327,8 @@ model InventoryLocation {
 
   @@unique([ownerPlayerId, normalizedName])
   @@index([ownerPlayerId, active])
+  @@index([ownerPlayerId, visibility, active])
+  @@index([visibility, active])
 }
 
 model InventoryItem {
@@ -356,7 +360,11 @@ model InventoryItem {
   requestedTrades    Trade[]             @relation("RequestedInventoryItem")
 
   @@index([currentOwnerId, cardId, foilStatus, condition, language])
+  @@index([currentOwnerId, quantity, createdAt])
   @@index([locationId])
+  @@index([locationId, quantity])
+  @@index([cardId, quantity])
+  @@index([foilStatus, condition, language])
 }
 
 model InventoryAuditLog {

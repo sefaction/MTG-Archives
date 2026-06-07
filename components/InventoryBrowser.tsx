@@ -269,6 +269,10 @@ function CardDetail({
               <img
                 src={getCardImage(row)}
                 alt={row.cardName}
+                loading="lazy"
+                decoding="async"
+                width={240}
+                height={336}
                 className="w-full rounded"
               />
             ) : (
@@ -1261,6 +1265,10 @@ export function InventoryBrowser({
                       <img
                         src={getCardImage(row)}
                         alt={row.cardName}
+                        loading="lazy"
+                        decoding="async"
+                        width={265}
+                        height={370}
                         className="w-full rounded aspect-[63/88] object-cover"
                       />
                     ) : (

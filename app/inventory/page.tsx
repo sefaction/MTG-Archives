@@ -98,25 +98,44 @@ export default async function InventoryPage({
     : 50;
   const initialBrowsingMode: "paginated" | "infinite" =
     p.browse === "infinite" ? "infinite" : "paginated";
-  const [items, players, zeroQuantityCount] = await Promise.all([
-    prisma.inventoryItem.findMany({
-      where,
-      include: {
-        card: true,
-        currentOwner: true,
-        location: true,
-        auditLogs: {
-          orderBy: { createdAt: "desc" },
-          include: { changedByUser: { include: { player: true } } },
+  const currentPage = Math.max(1, Number(p.page || "1") || 1);
+  const rawPageMultiplier = displayMode === "grouped" ? 5 : 2;
+  const rawPageSize = initialPageSize * rawPageMultiplier;
+  const rawSkip = (currentPage - 1) * rawPageSize;
+  const inventoryQueryStartedAt = process.hrtime.bigint();
+  const [items, players, zeroQuantityCount, totalRawMatchingCount] =
+    await Promise.all([
+      prisma.inventoryItem.findMany({
+        where,
+        include: {
+          card: true,
+          currentOwner: true,
+          location: true,
         },
-      },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.player.findMany({ orderBy: { displayName: "asc" } }),
-    adminModeActive
-      ? prisma.inventoryItem.count({ where: { quantity: { lte: 0 } } })
-      : Promise.resolve(0),
-  ]);
+        orderBy: { createdAt: "desc" },
+        skip: rawSkip,
+        take: rawPageSize + 1,
+      }),
+      prisma.player.findMany({ orderBy: { displayName: "asc" } }),
+      adminModeActive
+        ? prisma.inventoryItem.count({ where: { quantity: { lte: 0 } } })
+        : Promise.resolve(0),
+      prisma.inventoryItem.count({ where }),
+    ]);
+  const inventoryQueryMs =
+    Number(process.hrtime.bigint() - inventoryQueryStartedAt) / 1_000_000;
+  if (inventoryQueryMs > 1000 || items.length > rawPageSize) {
+    console.warn("[inventory-list] paged query diagnostics", {
+      elapsedMs: inventoryQueryMs,
+      displayMode,
+      currentPage,
+      rawPageSize,
+      rawRowsLoaded: items.length,
+      totalRawMatchingCount,
+    });
+  }
+  const hasNextPage = items.length > rawPageSize;
+  const pagedItems = hasNextPage ? items.slice(0, rawPageSize) : items;
 
   const ownerUsers = await prisma.user.findMany({
     where: {
@@ -144,38 +163,12 @@ export default async function InventoryPage({
         orderBy: [{ ownerPlayer: { displayName: "asc" } }, { name: "asc" }],
       });
 
-  const auditCardIds = Array.from(
-    new Set(
-      items.flatMap((item) =>
-        item.auditLogs.flatMap((audit) => {
-          const beforeJson = audit.beforeJson as Record<string, unknown>;
-          const afterJson = audit.afterJson as Record<string, unknown>;
-          return [beforeJson?.cardId, afterJson?.cardId].filter(
-            (value): value is string =>
-              typeof value === "string" && value.length > 0,
-          );
-        }),
-      ),
-    ),
-  );
-
-  const auditCards = auditCardIds.length
-    ? await prisma.card.findMany({
-        where: { id: { in: auditCardIds } },
-        select: { id: true, name: true, setCode: true, collectorNumber: true },
-      })
-    : [];
-
-  const cardLabels = Object.fromEntries([
-    ...items.map((item) => [
+  const cardLabels = Object.fromEntries(
+    pagedItems.map((item) => [
       item.cardId,
       `${item.card.name} (${item.card.setCode.toUpperCase()}) #${item.card.collectorNumber}`,
     ]),
-    ...auditCards.map((card) => [
-      card.id,
-      `${card.name} (${card.setCode.toUpperCase()}) #${card.collectorNumber}`,
-    ]),
-  ]);
+  );
 
   async function onSearchPrintings(fd: FormData) {
     "use server";
@@ -539,7 +532,7 @@ export default async function InventoryPage({
   }
 
   const visibilityFilteredItems = p.visibility
-    ? items.filter((item) => {
+    ? pagedItems.filter((item) => {
         const effectiveVisibility = resolveInventoryVisibility(
           inventoryDefaultByPlayer[item.currentOwnerId] ??
             DefaultCollectionVisibility.PRIVATE,
@@ -552,10 +545,21 @@ export default async function InventoryPage({
           return (item.location?.visibility ?? "INHERIT") === "INHERIT";
         return true;
       })
-    : items;
+    : pagedItems;
   const exactItems = getInventoryExactPrintings(visibilityFilteredItems);
   const groupedItems = getInventoryGroupedByCard(exactItems);
   const displayItems = displayMode === "grouped" ? groupedItems : exactItems;
+  const pageParams = Object.fromEntries(
+    Object.entries(p).filter(([, value]) => value),
+  );
+  const previousPageHref = `/inventory?${new URLSearchParams({
+    ...pageParams,
+    page: String(Math.max(1, currentPage - 1)),
+  }).toString()}`;
+  const nextPageHref = `/inventory?${new URLSearchParams({
+    ...pageParams,
+    page: String(currentPage + 1),
+  }).toString()}`;
 
   const rows = displayItems
     .map((entry: any) => {
@@ -652,18 +656,7 @@ export default async function InventoryPage({
           "",
         imageSmall: (i.card.imageUris as any)?.small ?? "",
         scryfallUri: i.card.scryfallUri ?? "",
-        auditHistory: (i.auditLogs ?? []).map((a: any) => ({
-          id: a.id,
-          changeType: a.changeType,
-          reason: a.reason ?? "",
-          createdAt: a.createdAt.toISOString(),
-          changedBy:
-            a.changedByUser?.player?.displayName ??
-            a.changedByUser?.username ??
-            "",
-          beforeJson: a.beforeJson as Record<string, unknown>,
-          afterJson: a.afterJson as Record<string, unknown>,
-        })),
+        auditHistory: [],
       };
     })
     .filter((row) => {
@@ -972,6 +965,24 @@ export default async function InventoryPage({
           </div>
         </form>
       </details>
+      <div className="flex flex-wrap items-center gap-3 rounded border border-zinc-800 p-3 text-sm text-zinc-300">
+        <span>
+          Server page {currentPage} · loaded {pagedItems.length} raw rows of{" "}
+          {totalRawMatchingCount} matching rows
+        </span>
+        <a
+          className={`border px-3 py-1 ${currentPage <= 1 ? "pointer-events-none opacity-50" : ""}`}
+          href={previousPageHref}
+        >
+          Previous server page
+        </a>
+        <a
+          className={`border px-3 py-1 ${!hasNextPage ? "pointer-events-none opacity-50" : ""}`}
+          href={nextPageHref}
+        >
+          Next server page
+        </a>
+      </div>
       <InventoryBrowser
         rows={rows}
         players={visiblePlayers.map((p) => ({

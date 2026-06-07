@@ -26,6 +26,8 @@ export type PublicInventoryFilters = {
   locationId?: string;
   locationName?: string;
   owner?: string;
+  page?: string;
+  pageSize?: string;
 };
 
 export function publicInventoryVisibilityWhere(
@@ -295,10 +297,19 @@ export async function getPublicInventoryBySlug(
 export async function getGlobalPublicInventory(
   filters: PublicInventoryFilters = {},
 ) {
+  const pageSizeOptions = [10, 25, 50, 100, 250];
+  const pageSize = pageSizeOptions.includes(Number(filters.pageSize))
+    ? Number(filters.pageSize)
+    : 50;
+  const page = Math.max(1, Number(filters.page || "1") || 1);
+  const rawPageSize = pageSize * 5;
+  const startedAt = Date.now();
   const inventory = await prisma.inventoryItem.findMany({
     where: buildPublicInventoryWhere(filters),
     include: publicInventoryInclude,
     orderBy: [{ card: { name: "asc" } }, { card: { setCode: "asc" } }],
+    skip: (page - 1) * rawPageSize,
+    take: rawPageSize + 1,
   });
 
   const publicProfiles = await prisma.user.findMany({
@@ -344,10 +355,26 @@ export async function getGlobalPublicInventory(
     orderBy: { name: "asc" },
   });
 
+  const hasNextPage = inventory.length > rawPageSize;
+  const pageInventory = hasNextPage
+    ? inventory.slice(0, rawPageSize)
+    : inventory;
   const filteredInventory = filterPublicInventoryByClientSafeFilters(
-    inventory as any,
+    pageInventory as any,
     filters,
   );
+  const elapsedMs = Date.now() - startedAt;
+  if (elapsedMs > 1000 || inventory.length > rawPageSize) {
+    console.warn("[public-inventory-list] paged query diagnostics", {
+      elapsedMs,
+      page,
+      pageSize,
+      rawPageSize,
+      rawRowsLoaded: inventory.length,
+      filteredRows: filteredInventory.length,
+      hasNextPage,
+    });
+  }
 
   return {
     inventory: filteredInventory,
@@ -356,6 +383,10 @@ export async function getGlobalPublicInventory(
       displayName: profile.publicDisplayName || profile.displayName,
     })),
     publicLocations,
+    page,
+    pageSize,
+    hasNextPage,
+    rawRowsLoaded: pageInventory.length,
     visibleCards: filteredInventory.reduce((sum, row) => sum + row.quantity, 0),
   };
 }
