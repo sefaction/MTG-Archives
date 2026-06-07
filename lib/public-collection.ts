@@ -134,6 +134,32 @@ function publicUserWhere(defaultVisibility: DefaultCollectionVisibility) {
   } satisfies Prisma.UserWhereInput;
 }
 
+export function globalPublicInventoryLocationWhere(): Prisma.InventoryLocationWhereInput {
+  return {
+    active: true,
+    ownerPlayer: {
+      users: {
+        some: {
+          isActive: true,
+          publicProfileEnabled: true,
+          playerId: { not: null },
+        },
+      },
+    },
+    OR: [
+      { visibility: Visibility.PUBLIC },
+      {
+        visibility: Visibility.INHERIT,
+        ownerPlayer: {
+          users: {
+            some: publicUserWhere(DefaultCollectionVisibility.PUBLIC),
+          },
+        },
+      },
+    ],
+  };
+}
+
 function publicOwnerVisibilityWhere(
   defaultVisibility: DefaultCollectionVisibility,
 ): Prisma.InventoryItemWhereInput {
@@ -192,7 +218,7 @@ function buildPublicInventoryWhere(
   };
   if (Object.keys(cardWhere).length) where.card = cardWhere;
   if (filters.locationName?.trim()) {
-    (where as any).location = { name: filters.locationName.trim() };
+    where.location = { name: filters.locationName.trim() };
   } else if (filters.locationId) where.locationId = filters.locationId;
   if (filters.foil === "true") where.foil = true;
   if (filters.foil === "false") where.foil = false;
@@ -350,39 +376,7 @@ export async function getGlobalPublicInventory(
       orderBy: { publicDisplayName: "asc" },
     }),
     prisma.inventoryLocation.findMany({
-      where: {
-        ownerPlayer: {
-          users: {
-            some: {
-              isActive: true,
-              publicProfileEnabled: true,
-              playerId: { not: null },
-            },
-          },
-          OR: [
-            { visibility: Visibility.PUBLIC },
-            {
-              visibility: Visibility.INHERIT,
-              ownerPlayer: {
-                users: {
-                  some: publicUserWhere(DefaultCollectionVisibility.PUBLIC),
-                },
-              },
-            },
-          ],
-        },
-        OR: [
-          { visibility: Visibility.PUBLIC },
-          {
-            visibility: Visibility.INHERIT,
-            ownerPlayer: {
-              users: {
-                some: publicUserWhere(DefaultCollectionVisibility.PUBLIC),
-              },
-            },
-          },
-        ],
-      },
+      where: globalPublicInventoryLocationWhere(),
       select: { name: true },
       distinct: ["name"],
       orderBy: { name: "asc" },
