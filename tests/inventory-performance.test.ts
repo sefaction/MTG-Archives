@@ -174,7 +174,7 @@ test("full-dataset client-safe filters run before paging", () => {
 });
 
 test("inventory renders reusable mana and set symbol components", () => {
-  assert.match(inventoryBrowser, /<ManaCost value=\{row\.original\.manaCost\}/);
+  assert.match(inventoryBrowser, /<CardManaCost card=\{row\.original\}/);
   assert.match(
     inventoryBrowser,
     /<ColorIdentityIcons value=\{row\.original\.colorIdentity\}/,

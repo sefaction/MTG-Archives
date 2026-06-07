@@ -4,6 +4,7 @@ import {
   PublicInventoryFilters,
 } from "@/lib/public-collection";
 import { getInventoryGroupedByCard } from "@/lib/inventory-locations";
+import { getManaFacesForDto } from "@/lib/mtg/mana-display";
 
 type PublicOwner = {
   displayName: string;
@@ -133,6 +134,7 @@ function toInventoryBrowserRows({
               cardName: printing.card.name,
               setCode: printing.card.setCode.toUpperCase(),
               collectorNumber: printing.card.collectorNumber,
+              rarity: printing.card.rarity,
               foilStatus: printing.foilStatus,
               condition: printing.condition,
               language: printing.language,
@@ -158,6 +160,8 @@ function toInventoryBrowserRows({
       setName: i.card.setName ?? "",
       rarity: i.card.rarity,
       manaCost: i.card.manaCost ?? "",
+      manaFaces: getManaFacesForDto(i.card.cardFaces),
+      layout: i.card.layout ?? "",
       manaValue: i.card.manaValue ?? undefined,
       typeLine: i.card.typeLine,
       colorIdentity: Array.isArray(i.card.colorIdentity)

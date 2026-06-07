@@ -8,6 +8,7 @@ import {
   getInventoryGroupedByCard,
   orderInventoryItemsByPageGroups,
 } from "@/lib/inventory-locations";
+import { getManaFacesForDto } from "@/lib/mtg/mana-display";
 
 const pageSizeOptions = [10, 25, 50, 100, 250];
 
@@ -181,6 +182,8 @@ function rowsFromDisplayItems({
         setName: i.card.setName ?? "",
         rarity: i.card.rarity,
         manaCost: i.card.manaCost ?? "",
+        manaFaces: getManaFacesForDto(i.card.cardFaces),
+        layout: i.card.layout ?? "",
         manaValue: i.card.manaValue ?? undefined,
         typeLine: i.card.typeLine,
         colorIdentity: Array.isArray(i.card.colorIdentity)

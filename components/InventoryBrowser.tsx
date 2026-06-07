@@ -18,8 +18,8 @@ import {
 import { SubmitButton } from "./feedback/SubmitButton";
 import { LoadingSpinner } from "./feedback/LoadingSpinner";
 import {
+  CardManaCost,
   ColorIdentityIcons,
-  ManaCost,
   SetLabel,
   SetSymbol,
 } from "./mtg/CardSymbols";
@@ -38,6 +38,8 @@ export type InventoryRow = {
   setName?: string;
   rarity: string;
   manaCost?: string;
+  manaFaces?: Array<{ name?: string; manaCost?: string | null }>;
+  layout?: string;
   manaValue?: number;
   typeLine: string;
   colorIdentity: string;
@@ -88,6 +90,7 @@ export type InventoryRow = {
     cardName: string;
     setCode: string;
     collectorNumber: string;
+    rarity?: string;
     foilStatus?: string;
     condition?: string;
     language?: string;
@@ -287,7 +290,7 @@ function CardDetail({
           </div>
           <div className="space-y-2 text-sm">
             <p>
-              <b>Mana Cost:</b> <ManaCost value={row.manaCost} />
+              <b>Mana Cost:</b> <CardManaCost card={row} showFaceNames />
             </p>
             <p>
               <b>Type Line:</b> {row.typeLine}
@@ -384,8 +387,11 @@ function CardDetail({
                     >
                       <div className="font-semibold">
                         {printing.cardName} (
-                        <SetSymbol setCode={printing.setCode} />) #
-                        {printing.collectorNumber}
+                        <SetSymbol
+                          setCode={printing.setCode}
+                          rarity={printing.rarity}
+                        />
+                        ) #{printing.collectorNumber}
                       </div>
                       <div className="text-zinc-400">
                         {printing.foilStatus} · {printing.condition} ·{" "}
@@ -918,7 +924,7 @@ export function InventoryBrowser({
       {
         accessorKey: "manaCost",
         header: "Mana Cost",
-        cell: ({ row }) => <ManaCost value={row.original.manaCost} />,
+        cell: ({ row }) => <CardManaCost card={row.original} />,
       },
       { accessorKey: "typeLine", header: "Type Line" },
       {
@@ -1458,10 +1464,16 @@ export function InventoryBrowser({
                   <div className="mt-2 text-sm font-medium truncate">
                     {row.cardName}
                   </div>
-                  {row.manaCost || row.colorIdentity ? (
+                  {row.manaCost ||
+                  row.manaFaces?.length ||
+                  row.colorIdentity ? (
                     <div className="mt-1 flex flex-wrap items-center gap-1 text-xs">
-                      {row.manaCost ? <ManaCost value={row.manaCost} /> : null}
-                      {!row.manaCost && row.colorIdentity ? (
+                      {row.manaCost || row.manaFaces?.length ? (
+                        <CardManaCost card={row} />
+                      ) : null}
+                      {!row.manaCost &&
+                      !row.manaFaces?.length &&
+                      row.colorIdentity ? (
                         <ColorIdentityIcons value={row.colorIdentity} />
                       ) : null}
                     </div>
