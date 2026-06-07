@@ -1,14 +1,42 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
 
 import {
   formatSetLabel,
+  getManaFontClassName,
   getScryfallSetIconUrl,
   parseColorIdentity,
   parseManaCost,
 } from "../lib/mtg/symbols";
 
-test("mana costs parse common symbols in order", () => {
+const manaCostComponent = fs.readFileSync(
+  "components/mtg/ManaCost.tsx",
+  "utf8",
+);
+const manaSymbolComponent = fs.readFileSync(
+  "components/mtg/ManaSymbol.tsx",
+  "utf8",
+);
+const colorIdentityComponent = fs.readFileSync(
+  "components/mtg/ColorIdentitySymbols.tsx",
+  "utf8",
+);
+const rootLayout = fs.readFileSync("app/layout.tsx", "utf8");
+const globalStyles = fs.readFileSync("app/globals.css", "utf8");
+const cardSymbolsComponent = fs.readFileSync(
+  "components/mtg/CardSymbols.tsx",
+  "utf8",
+);
+
+const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
+
+test("mana-font package and global CSS are wired", () => {
+  assert.equal(typeof packageJson.dependencies["mana-font"], "string");
+  assert.match(rootLayout, /import "mana-font\/css\/mana\.css"/);
+});
+
+test("mana costs parse common symbols in order with Mana font classes", () => {
   const tokens = parseManaCost("{2}{W}{U}");
   assert.deepEqual(
     tokens.map((token) => token.symbol),
@@ -18,13 +46,31 @@ test("mana costs parse common symbols in order", () => {
     tokens.map((token) => token.label),
     ["2 generic mana", "white mana", "blue mana"],
   );
+  assert.deepEqual(
+    tokens.map((token) => token.manaClassName),
+    [
+      "ms ms-cost ms-shadow ms-2",
+      "ms ms-cost ms-shadow ms-w",
+      "ms ms-cost ms-shadow ms-u",
+    ],
+  );
 });
 
 test("mana costs parse hybrid and phyrexian symbols", () => {
-  const tokens = parseManaCost("{W/U}{B/P}{S}{X}");
+  const tokens = parseManaCost("{W/U}{2/W}{B/P}{S}{X}");
   assert.deepEqual(
     tokens.map((token) => token.symbol),
-    ["W/U", "B/P", "S", "X"],
+    ["W/U", "2/W", "B/P", "S", "X"],
+  );
+  assert.deepEqual(
+    tokens.map((token) => token.manaClassName),
+    [
+      "ms ms-cost ms-shadow ms-wu",
+      "ms ms-cost ms-shadow ms-2w",
+      "ms ms-cost ms-shadow ms-bp",
+      "ms ms-cost ms-shadow ms-s",
+      "ms ms-cost ms-shadow ms-x",
+    ],
   );
   assert.equal(
     tokens.every((token) => token.isKnown),
@@ -38,7 +84,24 @@ test("mana parser handles empty and malformed values gracefully", () => {
   assert.deepEqual(parseManaCost("not a mana cost"), []);
 });
 
-test("color identity parser supports comma and compact formats", () => {
+test("unknown mana symbols are preserved as readable fallbacks", () => {
+  const tokens = parseManaCost("{CHAOS}{W}");
+  assert.equal(tokens[0]?.symbol, "CHAOS");
+  assert.equal(tokens[0]?.isKnown, false);
+  assert.equal(tokens[0]?.manaClassName, null);
+  assert.equal(tokens[0]?.label, "CHAOS mana");
+  assert.equal(tokens[1]?.manaClassName, "ms ms-cost ms-shadow ms-w");
+});
+
+test("Mana font class mapper matches installed class naming", () => {
+  assert.equal(getManaFontClassName("W"), "ms ms-cost ms-shadow ms-w");
+  assert.equal(getManaFontClassName("W/U"), "ms ms-cost ms-shadow ms-wu");
+  assert.equal(getManaFontClassName("W/P"), "ms ms-cost ms-shadow ms-wp");
+  assert.equal(getManaFontClassName("T"), "ms ms-cost ms-shadow ms-tap");
+  assert.equal(getManaFontClassName("NOPE"), null);
+});
+
+test("color identity parser supports comma, compact, JSON, and array formats", () => {
   assert.deepEqual(
     parseColorIdentity("W,U").map((token) => token.symbol),
     ["W", "U"],
@@ -47,6 +110,50 @@ test("color identity parser supports comma and compact formats", () => {
     parseColorIdentity("WUBRG").map((token) => token.symbol),
     ["W", "U", "B", "R", "G"],
   );
+  assert.deepEqual(
+    parseColorIdentity('["W","U"]').map((token) => token.symbol),
+    ["W", "U"],
+  );
+  assert.deepEqual(
+    parseColorIdentity(["B", "R"]).map((token) => token.symbol),
+    ["B", "R"],
+  );
+});
+
+test("MTG symbol components render aligned Mana font symbols and fallback text", () => {
+  assert.match(manaCostComponent, /parseManaCost/);
+  assert.match(
+    manaCostComponent,
+    /className="mtg-symbol-group flex-wrap gap-0\.5"/,
+  );
+  assert.match(manaCostComponent, /text-zinc-500">-<\/span>/);
+  assert.match(manaCostComponent, /<ManaSymbol[\s\S]*ariaHidden/);
+  assert.match(colorIdentityComponent, /parseColorIdentity/);
+  assert.match(
+    colorIdentityComponent,
+    /className="mtg-symbol-group flex-wrap gap-0\.5"/,
+  );
+  assert.match(colorIdentityComponent, /text-zinc-500">-<\/span>/);
+  assert.match(colorIdentityComponent, /<ManaSymbol[\s\S]*ariaHidden/);
+  assert.match(manaSymbolComponent, /mtg-mana-symbol/);
+  assert.match(manaSymbolComponent, /data-mana-symbol/);
+  assert.match(manaSymbolComponent, /data-mana-fallback/);
+  assert.match(globalStyles, /\.mtg-mana-symbol[\s\S]*align-items: center/);
+  assert.match(globalStyles, /\.mtg-mana-symbol\.ms-cost[\s\S]*height: 1\.3em/);
+});
+
+test("set symbol component renders icons and text in an aligned wrapper", () => {
+  assert.match(
+    cardSymbolsComponent,
+    /className="mtg-set-symbol-group gap-1\.5"/,
+  );
+  assert.match(cardSymbolsComponent, /className=\{`mtg-set-symbol/);
+  assert.match(cardSymbolsComponent, /<span>\{code\}<\/span>/);
+  assert.match(
+    globalStyles,
+    /\.mtg-set-symbol-group[\s\S]*align-items: center/,
+  );
+  assert.match(globalStyles, /\.mtg-set-symbol[\s\S]*height: 1\.1em/);
 });
 
 test("set icon helper resolves safe Scryfall set icon URLs and rejects unsafe codes", () => {
