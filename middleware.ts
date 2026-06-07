@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const SESSION_COOKIE_NAMES = ["mtg_inventory_session", "boxleague_session"];
-const PUBLIC_PREFIXES = ["/", "/login", "/u", "/api/public"];
+const PUBLIC_PREFIXES = ["/", "/login", "/public", "/u", "/api/public"];
 const PROTECTED_PREFIXES = [
   "/admin",
   "/change-password",

@@ -28,11 +28,17 @@ export default async function LoginPage({
   return (
     <main className="mx-auto max-w-lg p-8">
       <Nav />
-      <div className="mb-4">
+      <div className="mb-4 space-y-3">
         <h1 className="text-3xl font-bold">Log in to MTG Inventory</h1>
         <p className="text-sm text-zinc-400">
           Use your local account to manage inventory, imports, and trades.
         </p>
+        <a
+          className="inline-block rounded border border-sky-700 px-3 py-2 text-sm"
+          href="/public/inventory"
+        >
+          Browse public inventory
+        </a>
       </div>
       {params.error ? (
         <p className="mb-3 rounded border border-red-800 bg-red-950/40 p-3 text-red-100">

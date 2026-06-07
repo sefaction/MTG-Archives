@@ -17,8 +17,11 @@ export default function HomePage() {
           <Link href="/dashboard" className="border px-3 py-2">
             Open Dashboard
           </Link>
+          <Link href="/public/inventory" className="border px-3 py-2">
+            Browse Public Inventory
+          </Link>
           <Link href="/inventory" className="border px-3 py-2">
-            Browse Inventory
+            Browse My Inventory
           </Link>
           <Link href="/login" className="border px-3 py-2">
             Log in

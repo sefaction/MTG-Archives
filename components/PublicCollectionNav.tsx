@@ -15,8 +15,11 @@ export function PublicCollectionNav({
           {appName}
         </Link>
         <Link href={`/u/${publicSlug}`}>{displayName}</Link>
-        <Link href={`/u/${publicSlug}/inventory`}>Public inventory</Link>
-        <Link href={`/u/${publicSlug}/decks`}>Public decks</Link>
+        <Link href="/public/inventory">All public inventory</Link>
+        <Link href={`/public/inventory?owner=${publicSlug}`}>
+          This collection
+        </Link>
+        <Link href="/public/decks">Public decks</Link>
       </div>
       <Link className="rounded border border-sky-700 px-3 py-1" href="/login">
         Log in
