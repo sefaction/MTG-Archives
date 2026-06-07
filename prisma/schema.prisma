@@ -51,24 +51,41 @@ enum UserRole {
   ADMIN
 }
 
+enum DefaultCollectionVisibility {
+  PRIVATE
+  PUBLIC
+}
+
+enum Visibility {
+  PRIVATE
+  PUBLIC
+  INHERIT
+}
+
 model User {
-  id                  String   @id @default(cuid())
-  username            String   @unique
-  email               String?  @unique
-  displayName         String
-  passwordHash        String
-  role                UserRole @default(PLAYER)
-  playerId            String?
-  player              Player?  @relation(fields: [playerId], references: [id])
-  forcePasswordChange Boolean  @default(false)
-  isActive            Boolean  @default(true)
-  lastLoginAt         DateTime?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  inventoryAuditLogs  InventoryAuditLog[]
-  importBatches       ImportBatch[]
-  createdTrades       Trade[] @relation("TradeCreatedBy")
-  tradeEvents         TradeEvent[]
+  id                         String                      @id @default(cuid())
+  username                   String                      @unique
+  email                      String?                     @unique
+  displayName                String
+  passwordHash               String
+  role                       UserRole                    @default(PLAYER)
+  playerId                   String?
+  player                     Player?                     @relation(fields: [playerId], references: [id])
+  forcePasswordChange        Boolean                     @default(false)
+  isActive                   Boolean                     @default(true)
+  lastLoginAt                DateTime?
+  inventoryDefaultVisibility DefaultCollectionVisibility @default(PRIVATE)
+  deckDefaultVisibility      DefaultCollectionVisibility @default(PRIVATE)
+  publicProfileEnabled       Boolean                     @default(false)
+  publicSlug                 String?                     @unique
+  publicDisplayName          String?
+  createdAt                  DateTime                    @default(now())
+  updatedAt                  DateTime                    @updatedAt
+  inventoryAuditLogs         InventoryAuditLog[]
+  importBatches              ImportBatch[]
+  importResolutionJobs       ImportResolutionJob[]
+  createdTrades              Trade[]                     @relation("TradeCreatedBy")
+  tradeEvents                TradeEvent[]
 }
 
 model League {
@@ -76,20 +93,20 @@ model League {
   name           String
   slug           String   @unique
   description    String?
-  appDisplayName String   @default("Box League")
+  appDisplayName String   @default("MTG Inventory")
   seasons        Season[]
   createdAt      DateTime @default(now())
 }
 
 model Season {
-  id          String       @id @default(cuid())
+  id          String         @id @default(cuid())
   leagueId    String
-  league      League       @relation(fields: [leagueId], references: [id])
+  league      League         @relation(fields: [leagueId], references: [id])
   name        String
   year        Int
   startDate   DateTime
   endDate     DateTime?
-  active      Boolean      @default(false)
+  active      Boolean        @default(false)
   rounds      Round[]
   memberships LeaguePlayer[]
 
@@ -97,28 +114,29 @@ model Season {
 }
 
 model Player {
-  id              String           @id @default(cuid())
-  name            String           @unique
-  displayName     String           @unique
-  email           String?
-  active          Boolean          @default(true)
-  isAdmin         Boolean          @default(false)
-  color           String           @default("#64748b")
-  memberships     LeaguePlayer[]
-  openedCards     CardOwnership[]  @relation("OpenedBy")
-  ownedCards      CardOwnership[]  @relation("OwnedBy")
-  users           User[]
-  pointEvents     PointEvent[]
-  packAllocations PackAllocation[]
-  ownedBoxes      SetBox[]         @relation("BoxOwner")
-  pulls           Pull[]
-  inventoryOwned  InventoryItem[]  @relation("InventoryCurrentOwner")
-  inventoryOpened InventoryItem[]  @relation("InventoryOriginalOpener")
-  importBatchesSelected ImportBatch[] @relation("ImportBatchSelectedPlayer")
-  importBatchesOriginalOpened ImportBatch[] @relation("ImportBatchOriginalOpener")
-  tradesProposed Trade[] @relation("TradeProposer")
-  tradesReceived Trade[] @relation("TradeReceiver")
-  tradeEvents TradeEvent[]
+  id                          String              @id @default(cuid())
+  name                        String              @unique
+  displayName                 String              @unique
+  email                       String?
+  active                      Boolean             @default(true)
+  isAdmin                     Boolean             @default(false)
+  color                       String              @default("#64748b")
+  memberships                 LeaguePlayer[]
+  openedCards                 CardOwnership[]     @relation("OpenedBy")
+  ownedCards                  CardOwnership[]     @relation("OwnedBy")
+  users                       User[]
+  pointEvents                 PointEvent[]
+  packAllocations             PackAllocation[]
+  ownedBoxes                  SetBox[]            @relation("BoxOwner")
+  pulls                       Pull[]
+  inventoryOwned              InventoryItem[]     @relation("InventoryCurrentOwner")
+  inventoryOpened             InventoryItem[]     @relation("InventoryOriginalOpener")
+  inventoryLocations          InventoryLocation[]
+  importBatchesSelected       ImportBatch[]       @relation("ImportBatchSelectedPlayer")
+  importBatchesOriginalOpened ImportBatch[]       @relation("ImportBatchOriginalOpener")
+  tradesProposed              Trade[]             @relation("TradeProposer")
+  tradesReceived              Trade[]             @relation("TradeReceiver")
+  tradeEvents                 TradeEvent[]
 }
 
 model LeaguePlayer {
@@ -127,38 +145,40 @@ model LeaguePlayer {
   playerId String
   season   Season @relation(fields: [seasonId], references: [id])
   player   Player @relation(fields: [playerId], references: [id])
+
   @@unique([seasonId, playerId])
 }
 
 model Round {
-  id             String   @id @default(cuid())
-  seasonId       String
-  season         Season   @relation(fields: [seasonId], references: [id])
-  name           String
-  monthNumber    Int
-  startDate      DateTime
-  endDate        DateTime?
-  status         RoundStatus @default(PLANNED)
-  points         PointEvent[]
-  setBoxes       SetBox[]
-  packAllocations PackAllocation[]
-  pulls          Pull[]
-  inventoryItems InventoryItem[]
-  importBatches ImportBatch[]
-  trades Trade[]
-  tradingEnabled Boolean @default(false)
-  tradingStatus TradingStatus @default(NOT_OPEN)
-  maxTradesPerOpponent Int @default(3)
-  allowFutureRoundCards Boolean @default(false)
-  tradeStructure String @default("EXACTLY_ONE_FOR_ONE")
-  createdAt      DateTime @default(now())
+  id                    String           @id @default(cuid())
+  seasonId              String
+  season                Season           @relation(fields: [seasonId], references: [id])
+  name                  String
+  monthNumber           Int
+  startDate             DateTime
+  endDate               DateTime?
+  status                RoundStatus      @default(PLANNED)
+  points                PointEvent[]
+  setBoxes              SetBox[]
+  packAllocations       PackAllocation[]
+  pulls                 Pull[]
+  inventoryItems        InventoryItem[]
+  importBatches         ImportBatch[]
+  trades                Trade[]
+  tradingEnabled        Boolean          @default(false)
+  tradingStatus         TradingStatus    @default(NOT_OPEN)
+  maxTradesPerOpponent  Int              @default(3)
+  allowFutureRoundCards Boolean          @default(false)
+  tradeStructure        String           @default("EXACTLY_ONE_FOR_ONE")
+  createdAt             DateTime         @default(now())
+
   @@unique([seasonId, monthNumber])
 }
 
 model SetBox {
-  id         String @id @default(cuid())
+  id         String  @id @default(cuid())
   roundId    String
-  round      Round  @relation(fields: [roundId], references: [id])
+  round      Round   @relation(fields: [roundId], references: [id])
   setName    String
   setCode    String
   boxType    String
@@ -169,174 +189,277 @@ model SetBox {
 }
 
 model PackAllocation {
-  id            String @id @default(cuid())
-  roundId        String
-  round          Round  @relation(fields: [roundId], references: [id])
-  playerId       String
-  player         Player @relation(fields: [playerId], references: [id])
-  packsAssigned  Int
-  packsOpened    Int
-  notes          String?
+  id            String  @id @default(cuid())
+  roundId       String
+  round         Round   @relation(fields: [roundId], references: [id])
+  playerId      String
+  player        Player  @relation(fields: [playerId], references: [id])
+  packsAssigned Int
+  packsOpened   Int
+  notes         String?
 
   @@unique([roundId, playerId])
 }
 
 model PointCategory {
-  id           String @id @default(cuid())
-  name         String @unique
+  id           String  @id @default(cuid())
+  name         String  @unique
   description  String?
   defaultValue Int
   active       Boolean @default(true)
 }
 
 model Card {
-  id              String   @id @default(cuid())
-  scryfallId      String   @unique
-  oracleId        String?
-  name            String
-  manaCost        String?
-  manaValue       Float?
-  power           String?
-  toughness       String?
-  loyalty         String?
-  defense         String?
-  colors          Json?
-  colorIdentity   Json?
-  typeLine        String
-  oracleText      String?
-  setCode         String
-  keywords        Json?
-  legalities      Json?
-  setName         String?
-  collectorNumber String
-  rarity          String
-  imageUri        String?
-  artist          String?
-  imageUris       Json?
-  prices          Json?
-  purchaseUris    Json?
-  scryfallUri     String?
-  lastSyncedAt    DateTime?
-  ownerships      CardOwnership[]
-  pulls           Pull[]
-  inventoryItems  InventoryItem[]
-  importBatchItems ImportBatchItem[]
+  id                  String            @id @default(cuid())
+  scryfallId          String            @unique
+  oracleId            String?
+  multiverseIds       Json?
+  mtgoId              Int?
+  arenaId             Int?
+  name                String
+  printedName         String?
+  lang                String?
+  releasedAt          DateTime?
+  layout              String?
+  highresImage        Boolean?
+  imageStatus         String?
+  manaCost            String?
+  manaValue           Float?
+  power               String?
+  toughness           String?
+  loyalty             String?
+  defense             String?
+  colors              Json?
+  colorIdentity       Json?
+  colorIndicator      Json?
+  typeLine            String
+  printedTypeLine     String?
+  oracleText          String?
+  printedText         String?
+  setCode             String
+  setId               String?
+  setType             String?
+  keywords            Json?
+  legalities          Json?
+  games               Json?
+  reserved            Boolean?
+  foil                Boolean?
+  nonfoil             Boolean?
+  finishes            Json?
+  oversized           Boolean?
+  promo               Boolean?
+  reprint             Boolean?
+  variation           Boolean?
+  digital             Boolean?
+  fullArt             Boolean?
+  textless            Boolean?
+  booster             Boolean?
+  storySpotlight      Boolean?
+  setName             String?
+  collectorNumber     String
+  rarity              String
+  artist              String?
+  artistIds           Json?
+  illustrationId      String?
+  borderColor         String?
+  frame               String?
+  frameEffects        Json?
+  securityStamp       String?
+  preview             Json?
+  imageUri            String?
+  imageUris           Json?
+  cardFaces           Json?
+  prices              Json?
+  relatedUris         Json?
+  purchaseUris        Json?
+  scryfallUri         String?
+  apiUri              String?
+  rawScryfallJson     Json?
+  scryfallFingerprint String?
+  firstCachedAt       DateTime          @default(now())
+  lastSyncedAt        DateTime?
+  lastFetchedAt       DateTime?
+  lastCheckedAt       DateTime?
+  lastChangedAt       DateTime?
+  priceLastFetchedAt  DateTime?
+  ownerships          CardOwnership[]
+  pulls               Pull[]
+  inventoryItems      InventoryItem[]
+  importBatchItems    ImportBatchItem[]
+
+  @@index([oracleId])
+  @@index([setCode, collectorNumber])
+  @@index([name])
 }
 
 model Pull {
-  id         String   @id @default(cuid())
-  roundId     String
-  round       Round    @relation(fields: [roundId], references: [id])
-  playerId    String
-  player      Player   @relation(fields: [playerId], references: [id])
-  cardId      String
-  card        Card     @relation(fields: [cardId], references: [id])
-  quantity    Int
-  foil        Boolean  @default(false)
-  condition   String
-  notes       String?
-  createdAt   DateTime @default(now())
-  inventoryItems InventoryItem[]
+  id               String            @id @default(cuid())
+  roundId          String
+  round            Round             @relation(fields: [roundId], references: [id])
+  playerId         String
+  player           Player            @relation(fields: [playerId], references: [id])
+  cardId           String
+  card             Card              @relation(fields: [cardId], references: [id])
+  quantity         Int
+  foil             Boolean           @default(false)
+  condition        String
+  notes            String?
+  createdAt        DateTime          @default(now())
+  inventoryItems   InventoryItem[]
   importBatchItems ImportBatchItem[]
+}
+
+model InventoryLocation {
+  id             String          @id @default(cuid())
+  ownerPlayerId  String
+  ownerPlayer    Player          @relation(fields: [ownerPlayerId], references: [id])
+  name           String
+  normalizedName String
+  description    String?
+  type           String?
+  active         Boolean         @default(true)
+  visibility     Visibility      @default(INHERIT)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  inventoryItems InventoryItem[]
+
+  @@unique([ownerPlayerId, normalizedName])
+  @@index([ownerPlayerId, active])
 }
 
 model InventoryItem {
-  id               String   @id @default(cuid())
-  currentOwnerId   String
-  currentOwner     Player   @relation("InventoryCurrentOwner", fields: [currentOwnerId], references: [id])
-  originalOpenerId String
-  originalOpener   Player   @relation("InventoryOriginalOpener", fields: [originalOpenerId], references: [id])
-  cardId           String
-  card             Card     @relation(fields: [cardId], references: [id])
-  quantity         Int
-  foil             Boolean  @default(false)
-  foilStatus       FoilStatus @default(NONFOIL)
-  sourceType       InventorySourceType @default(PULL)
-  condition        String
-  language         String   @default("EN")
+  id                 String              @id @default(cuid())
+  currentOwnerId     String
+  currentOwner       Player              @relation("InventoryCurrentOwner", fields: [currentOwnerId], references: [id])
+  originalOpenerId   String
+  originalOpener     Player              @relation("InventoryOriginalOpener", fields: [originalOpenerId], references: [id])
+  cardId             String
+  card               Card                @relation(fields: [cardId], references: [id])
+  quantity           Int
+  foil               Boolean             @default(false)
+  foilStatus         FoilStatus          @default(NONFOIL)
+  sourceType         InventorySourceType @default(PULL)
+  condition          String
+  locationId         String?
+  location           InventoryLocation?  @relation(fields: [locationId], references: [id])
+  language           String              @default("EN")
   acquiredFromPullId String?
-  acquiredFromPull Pull?    @relation(fields: [acquiredFromPullId], references: [id])
-  roundId          String
-  round            Round    @relation(fields: [roundId], references: [id])
-  notes            String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  auditLogs        InventoryAuditLog[]
-  importBatchItems ImportBatchItem[]
-  offeredTrades Trade[] @relation("OfferedInventoryItem")
-  requestedTrades Trade[] @relation("RequestedInventoryItem")
+  acquiredFromPull   Pull?               @relation(fields: [acquiredFromPullId], references: [id])
+  roundId            String?
+  round              Round?              @relation(fields: [roundId], references: [id])
+  notes              String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  auditLogs          InventoryAuditLog[]
+  importBatchItems   ImportBatchItem[]
+  offeredTrades      Trade[]             @relation("OfferedInventoryItem")
+  requestedTrades    Trade[]             @relation("RequestedInventoryItem")
 
-  @@unique([currentOwnerId, originalOpenerId, cardId, foil, condition, roundId])
+  @@index([currentOwnerId, cardId, foilStatus, condition, language])
+  @@index([locationId])
 }
 
 model InventoryAuditLog {
-  id              String   @id @default(cuid())
+  id              String         @id @default(cuid())
   inventoryItemId String?
   inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id])
   changedByUserId String?
-  changedByUser   User?    @relation(fields: [changedByUserId], references: [id])
+  changedByUser   User?          @relation(fields: [changedByUserId], references: [id])
   changeType      String
   beforeJson      Json
   afterJson       Json
   reason          String?
-  createdAt       DateTime @default(now())
+  createdAt       DateTime       @default(now())
   tradeId         String?
-  trade           Trade?   @relation(fields: [tradeId], references: [id])
+  trade           Trade?         @relation(fields: [tradeId], references: [id])
 }
 
 model ImportBatch {
-  id                       String   @id @default(cuid())
+  id                       String                @id @default(cuid())
   importType               String
   filename                 String
   selectedPlayerId         String
-  selectedPlayer           Player   @relation("ImportBatchSelectedPlayer", fields: [selectedPlayerId], references: [id])
+  selectedPlayer           Player                @relation("ImportBatchSelectedPlayer", fields: [selectedPlayerId], references: [id])
   selectedOriginalOpenerId String
-  selectedOriginalOpener   Player   @relation("ImportBatchOriginalOpener", fields: [selectedOriginalOpenerId], references: [id])
-  selectedRoundId          String
-  selectedRound            Round    @relation(fields: [selectedRoundId], references: [id])
+  selectedOriginalOpener   Player                @relation("ImportBatchOriginalOpener", fields: [selectedOriginalOpenerId], references: [id])
+  selectedRoundId          String?
+  selectedRound            Round?                @relation(fields: [selectedRoundId], references: [id])
   status                   String
-  totalRows                Int      @default(0)
-  matchedRows              Int      @default(0)
-  skippedRows              Int      @default(0)
-  warningRows              Int      @default(0)
-  errorRows                Int      @default(0)
-  createdAt                DateTime @default(now())
+  totalRows                Int                   @default(0)
+  matchedRows              Int                   @default(0)
+  skippedRows              Int                   @default(0)
+  warningRows              Int                   @default(0)
+  errorRows                Int                   @default(0)
+  createdAt                DateTime              @default(now())
   createdByUserId          String?
-  createdByUser            User?    @relation(fields: [createdByUserId], references: [id])
+  createdByUser            User?                 @relation(fields: [createdByUserId], references: [id])
   items                    ImportBatchItem[]
+  resolutionJobs           ImportResolutionJob[]
+}
+
+model ImportResolutionJob {
+  id                     String      @id @default(cuid())
+  importBatchId          String
+  importBatch            ImportBatch @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+  status                 String      @default("QUEUED")
+  totalRows              Int         @default(0)
+  unresolvedRowsAtStart  Int         @default(0)
+  eligibleRowsAtStart    Int         @default(0)
+  processedRows          Int         @default(0)
+  resolvedRows           Int         @default(0)
+  cacheHitRows           Int         @default(0)
+  scryfallMatchRows      Int         @default(0)
+  manualReviewRows       Int         @default(0)
+  notFoundRows           Int         @default(0)
+  transientErrorRows     Int         @default(0)
+  failedRows             Int         @default(0)
+  scryfallRequestsMade   Int         @default(0)
+  scryfallRateLimitWaits Int         @default(0)
+  currentChunk           Int         @default(0)
+  currentMessage         String?
+  startedAt              DateTime?
+  lastHeartbeatAt        DateTime?
+  completedAt            DateTime?
+  errorSummary           String?
+  createdByUserId        String?
+  createdByUser          User?       @relation(fields: [createdByUserId], references: [id])
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
+
+  @@index([importBatchId, status])
 }
 
 model ImportBatchItem {
-  id               String   @id @default(cuid())
-  importBatchId    String
-  importBatch      ImportBatch @relation(fields: [importBatchId], references: [id])
-  rowNumber        Int
-  rawRowJson       Json
-  parsedRowJson    Json
-  status           String
-  message          String?
-  inventoryItemId  String?
-  inventoryItem    InventoryItem? @relation(fields: [inventoryItemId], references: [id])
-  pullId           String?
-  pull             Pull? @relation(fields: [pullId], references: [id])
-  cardPrintingId   String?
-  cardPrinting     Card? @relation(fields: [cardPrintingId], references: [id])
-  parsedFoilStatus String?
-  parsedCondition  String?
-  quantityImported Int?
-  duplicateBehaviorUsed String?
-  createdNewInventoryItem Boolean?
+  id                           String                    @id @default(cuid())
+  importBatchId                String
+  importBatch                  ImportBatch               @relation(fields: [importBatchId], references: [id])
+  rowNumber                    Int
+  rawRowJson                   Json
+  parsedRowJson                Json
+  status                       String
+  message                      String?
+  inventoryItemId              String?
+  inventoryItem                InventoryItem?            @relation(fields: [inventoryItemId], references: [id])
+  pullId                       String?
+  pull                         Pull?                     @relation(fields: [pullId], references: [id])
+  cardPrintingId               String?
+  cardPrinting                 Card?                     @relation(fields: [cardPrintingId], references: [id])
+  parsedFoilStatus             String?
+  parsedCondition              String?
+  quantityImported             Int?
+  duplicateBehaviorUsed        String?
+  createdNewInventoryItem      Boolean?
   updatedExistingInventoryItem Boolean?
-  beforeQuantity Int?
-  afterQuantity Int?
-  resolutionAttempts ImportResolutionAttempt[]
+  beforeQuantity               Int?
+  afterQuantity                Int?
+  resolutionAttempts           ImportResolutionAttempt[]
 }
 
 model ImportResolutionAttempt {
-  id                    String   @id @default(cuid())
+  id                    String          @id @default(cuid())
   importBatchItemId     String
   importBatchItem       ImportBatchItem @relation(fields: [importBatchItemId], references: [id])
-  attemptedAt           DateTime @default(now())
+  attemptedAt           DateTime        @default(now())
   mode                  String
   previousStatus        String
   newStatus             String
@@ -351,22 +474,22 @@ model ImportResolutionAttempt {
 }
 
 model Trade {
-  id                       String @id @default(cuid())
-  tradeRoundId             String
-  tradeRound               Round @relation(fields: [tradeRoundId], references: [id])
+  id                       String              @id @default(cuid())
+  tradeRoundId             String?
+  tradeRound               Round?              @relation(fields: [tradeRoundId], references: [id])
   proposerPlayerId         String
-  proposerPlayer           Player @relation("TradeProposer", fields: [proposerPlayerId], references: [id])
+  proposerPlayer           Player              @relation("TradeProposer", fields: [proposerPlayerId], references: [id])
   receiverPlayerId         String
-  receiverPlayer           Player @relation("TradeReceiver", fields: [receiverPlayerId], references: [id])
+  receiverPlayer           Player              @relation("TradeReceiver", fields: [receiverPlayerId], references: [id])
   offeredInventoryItemId   String?
-  offeredInventoryItem     InventoryItem? @relation("OfferedInventoryItem", fields: [offeredInventoryItemId], references: [id])
+  offeredInventoryItem     InventoryItem?      @relation("OfferedInventoryItem", fields: [offeredInventoryItemId], references: [id])
   offeredSnapshotJson      Json?
   requestedInventoryItemId String?
-  requestedInventoryItem   InventoryItem? @relation("RequestedInventoryItem", fields: [requestedInventoryItemId], references: [id])
+  requestedInventoryItem   InventoryItem?      @relation("RequestedInventoryItem", fields: [requestedInventoryItemId], references: [id])
   requestedSnapshotJson    Json?
-  status                   TradeStatus @default(PROPOSED)
+  status                   TradeStatus         @default(PROPOSED)
   message                  String?
-  proposedAt               DateTime @default(now())
+  proposedAt               DateTime            @default(now())
   acceptedAt               DateTime?
   declinedAt               DateTime?
   cancelledAt              DateTime?
@@ -374,43 +497,43 @@ model Trade {
   receiverCommittedAt      DateTime?
   completedAt              DateTime?
   createdByUserId          String?
-  createdByUser            User? @relation("TradeCreatedBy", fields: [createdByUserId], references: [id])
-  updatedAt                DateTime @updatedAt
+  createdByUser            User?               @relation("TradeCreatedBy", fields: [createdByUserId], references: [id])
+  updatedAt                DateTime            @updatedAt
   events                   TradeEvent[]
   inventoryAuditLogs       InventoryAuditLog[]
 }
 
 model TradeEvent {
-  id            String @id @default(cuid())
+  id            String   @id @default(cuid())
   tradeId       String
-  trade         Trade @relation(fields: [tradeId], references: [id])
+  trade         Trade    @relation(fields: [tradeId], references: [id])
   eventType     String
   actorUserId   String?
-  actorUser     User? @relation(fields: [actorUserId], references: [id])
+  actorUser     User?    @relation(fields: [actorUserId], references: [id])
   actorPlayerId String?
-  actorPlayer   Player? @relation(fields: [actorPlayerId], references: [id])
+  actorPlayer   Player?  @relation(fields: [actorPlayerId], references: [id])
   message       String?
   metadataJson  Json?
   createdAt     DateTime @default(now())
 }
 
 model CardOwnership {
-  id               String   @id @default(cuid())
+  id               String @id @default(cuid())
   cardId           String
   originalOpenerId String
   currentOwnerId   String
-  quantity         Int      @default(1)
-  card             Card     @relation(fields: [cardId], references: [id])
-  originalOpener   Player   @relation("OpenedBy", fields: [originalOpenerId], references: [id])
-  currentOwner     Player   @relation("OwnedBy", fields: [currentOwnerId], references: [id])
+  quantity         Int    @default(1)
+  card             Card   @relation(fields: [cardId], references: [id])
+  originalOpener   Player @relation("OpenedBy", fields: [originalOpenerId], references: [id])
+  currentOwner     Player @relation("OwnedBy", fields: [currentOwnerId], references: [id])
 }
 
 model PointEvent {
-  id          String   @id @default(cuid())
+  id          String @id @default(cuid())
   roundId     String
   playerId    String
   description String
   points      Int
-  round       Round    @relation(fields: [roundId], references: [id])
-  player      Player   @relation(fields: [playerId], references: [id])
+  round       Round  @relation(fields: [roundId], references: [id])
+  player      Player @relation(fields: [playerId], references: [id])
 }
