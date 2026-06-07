@@ -62,6 +62,25 @@ enum Visibility {
   INHERIT
 }
 
+enum DeckFormat {
+  COMMANDER
+  STANDARD
+  MODERN
+  PIONEER
+  LEGACY
+  VINTAGE
+  PAUPER
+  CASUAL
+  OTHER
+}
+
+enum DeckSection {
+  MAINBOARD
+  SIDEBOARD
+  COMMANDER
+  MAYBEBOARD
+}
+
 model User {
   id                         String                      @id @default(cuid())
   username                   String                      @unique
@@ -86,8 +105,10 @@ model User {
   importResolutionJobs       ImportResolutionJob[]
   createdTrades              Trade[]                     @relation("TradeCreatedBy")
   tradeEvents                TradeEvent[]
+  decks                      Deck[]
 
   @@index([publicProfileEnabled, isActive, inventoryDefaultVisibility])
+  @@index([publicProfileEnabled, isActive, deckDefaultVisibility])
 }
 
 model League {
@@ -288,6 +309,7 @@ model Card {
   pulls               Pull[]
   inventoryItems      InventoryItem[]
   importBatchItems    ImportBatchItem[]
+  deckCards           DeckCard[]
 
   @@index([oracleId])
   @@index([setCode, collectorNumber])
@@ -309,6 +331,46 @@ model Pull {
   createdAt        DateTime          @default(now())
   inventoryItems   InventoryItem[]
   importBatchItems ImportBatchItem[]
+}
+
+model Deck {
+  id           String     @id @default(cuid())
+  ownerUserId  String
+  ownerUser    User       @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  format       DeckFormat @default(CASUAL)
+  visibility   Visibility @default(INHERIT)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  cards        DeckCard[]
+
+  @@index([ownerUserId, updatedAt])
+  @@index([visibility, updatedAt])
+  @@index([format])
+}
+
+model DeckCard {
+  id          String      @id @default(cuid())
+  deckId      String
+  deck        Deck        @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  cardId      String?
+  card        Card?       @relation(fields: [cardId], references: [id], onDelete: SetNull)
+  scryfallId  String?
+  oracleId    String?
+  cardName    String
+  section     DeckSection @default(MAINBOARD)
+  quantity    Int         @default(1)
+  isCommander Boolean     @default(false)
+  notes       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([deckId, section])
+  @@index([cardId])
+  @@index([scryfallId])
+  @@index([oracleId])
+  @@index([cardName])
 }
 
 model InventoryLocation {
