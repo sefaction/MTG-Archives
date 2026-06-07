@@ -12,6 +12,10 @@ const inventoryBrowser = fs.readFileSync(
   "utf8",
 );
 const schema = fs.readFileSync("prisma/schema.prisma", "utf8");
+const inventoryLocations = fs.readFileSync(
+  "lib/inventory-locations.ts",
+  "utf8",
+);
 const inventoryListApi = fs.readFileSync(
   "app/api/inventory/list/route.ts",
   "utf8",
@@ -121,6 +125,14 @@ test("public infinite-scroll API preserves public-only server paging", () => {
     /nextPage: result\.hasNextPage \? result\.page \+ 1 : null/,
   );
   assert.match(publicInventoryListApi, /toInventoryBrowserRows/);
+});
+
+test("sorted page order is preserved after row hydration", () => {
+  assert.match(inventoryLocations, /orderInventoryItemsByPageGroups/);
+  assert.match(inventoryPage, /orderInventoryItemsByPageGroups\(/);
+  assert.match(inventoryListApi, /orderInventoryItemsByPageGroups\(/);
+  assert.match(publicInventoryQueries, /orderInventoryItemsByPageGroups\(/);
+  assert.match(inventoryLocations, /inventoryPageGroupKey/);
 });
 
 test("sorting is server-authoritative and resets page state", () => {

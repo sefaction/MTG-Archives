@@ -27,6 +27,7 @@ import {
   getInventoryExactPrintings,
   getInventoryGroupedByCard,
   getLocationsForOwner,
+  orderInventoryItemsByPageGroups,
   bulkMoveInventoryToLocation,
   bulkDeleteInventoryItems,
 } from "@/lib/inventory-locations";
@@ -726,8 +727,13 @@ export default async function InventoryPage({
     }
   }
 
+  const orderedItems = orderInventoryItemsByPageGroups(
+    items,
+    pageGroups,
+    displayMode,
+  );
   const visibilityFilteredItems = p.visibility
-    ? items.filter((item) => {
+    ? orderedItems.filter((item) => {
         const effectiveVisibility = resolveInventoryVisibility(
           inventoryDefaultByPlayer[item.currentOwnerId] ??
             DefaultCollectionVisibility.PRIVATE,
@@ -740,7 +746,7 @@ export default async function InventoryPage({
           return (item.location?.visibility ?? "INHERIT") === "INHERIT";
         return true;
       })
-    : items;
+    : orderedItems;
   const exactItems = getInventoryExactPrintings(visibilityFilteredItems);
   const groupedItems = getInventoryGroupedByCard(exactItems);
   const displayItems = displayMode === "grouped" ? groupedItems : exactItems;

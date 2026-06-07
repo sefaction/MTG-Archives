@@ -6,6 +6,7 @@ import {
 import {
   getInventoryExactPrintings,
   getInventoryGroupedByCard,
+  orderInventoryItemsByPageGroups,
 } from "@/lib/inventory-locations";
 import { prisma } from "@/lib/prisma";
 
@@ -487,8 +488,13 @@ export async function getGlobalPublicInventory(
       })
     : [];
 
+  const orderedInventory = orderInventoryItemsByPageGroups(
+    inventory,
+    pageGroups,
+    displayMode,
+  );
   const filteredInventory = filterPublicInventoryByClientSafeFilters(
-    inventory as any,
+    orderedInventory,
     filters,
   );
   const elapsedMs = Date.now() - startedAt;

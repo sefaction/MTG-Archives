@@ -6,6 +6,7 @@ import { resolveInventoryVisibility } from "@/lib/visibility";
 import {
   getInventoryExactPrintings,
   getInventoryGroupedByCard,
+  orderInventoryItemsByPageGroups,
 } from "@/lib/inventory-locations";
 
 const pageSizeOptions = [10, 25, 50, 100, 250];
@@ -419,8 +420,13 @@ export async function GET(request: Request) {
         ownerUser.inventoryDefaultVisibility,
       ]),
   );
+  const orderedItems = orderInventoryItemsByPageGroups(
+    items,
+    pageGroups,
+    displayMode,
+  );
   const visibilityFilteredItems = p.visibility
-    ? items.filter((item) => {
+    ? orderedItems.filter((item) => {
         const effectiveVisibility = resolveInventoryVisibility(
           inventoryDefaultByPlayer[item.currentOwnerId] ??
             DefaultCollectionVisibility.PRIVATE,
@@ -433,7 +439,7 @@ export async function GET(request: Request) {
           return (item.location?.visibility ?? "INHERIT") === "INHERIT";
         return true;
       })
-    : items;
+    : orderedItems;
   const exactItems = getInventoryExactPrintings(visibilityFilteredItems as any);
   const groupedItems = getInventoryGroupedByCard(exactItems as any);
   const displayItems = displayMode === "grouped" ? groupedItems : exactItems;
