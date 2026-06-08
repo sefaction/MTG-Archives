@@ -199,8 +199,7 @@ export default async function SettingsPage({
               </option>
             </select>
             <span className="mt-1 block text-xs text-zinc-400">
-              Deck pages are planned; this setting is stored now for future deck
-              visibility controls.
+              Decks that use the account default resolve to this setting.
             </span>
           </label>
         </div>
