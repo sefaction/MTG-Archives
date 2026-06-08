@@ -10,10 +10,15 @@ import {
   canManageDeck,
   canViewDeck,
   deckCardCount,
+  deckRowCount,
+  deckSectionQuantityTotals,
+  deckTotalQuantity,
   normalizePositiveQuantity,
   publicDeckWhere,
   summarizeDeckCardOwnership,
+  summarizeDeckOwnershipTotals,
 } from "../lib/decks";
+import { mergeDeckOptimizationRowsForTest } from "../lib/deck-optimization";
 import { resolveAccessScope } from "../lib/auth";
 import { resolveDeckVisibility } from "../lib/visibility";
 
@@ -432,4 +437,123 @@ test("decklist commit merge helper combines duplicate card and section lines", (
       { cardId: "card-1", quantity: 1, section: DeckSection.SIDEBOARD },
     ],
   );
+});
+
+test("deck totals sum quantities separately from row counts", () => {
+  const cards = [
+    { quantity: 1, section: DeckSection.COMMANDER },
+    { quantity: 60, section: DeckSection.MAINBOARD },
+    { quantity: 15, section: DeckSection.SIDEBOARD },
+    { quantity: 7, section: DeckSection.MAYBEBOARD },
+  ];
+  assert.equal(deckTotalQuantity(cards), 76);
+  assert.equal(deckRowCount(cards), 3);
+  const sections = deckSectionQuantityTotals(cards);
+  assert.equal(sections.COMMANDER, 1);
+  assert.equal(sections.MAINBOARD, 60);
+  assert.equal(sections.SIDEBOARD, 15);
+  assert.equal(sections.MAYBEBOARD, 7);
+});
+
+test("deck ownership totals sum exact owned, other owned, and missing quantities", () => {
+  const totals = summarizeDeckOwnershipTotals(
+    [
+      { cardId: "a", oracleId: "oa", cardName: "Bolt", quantity: 4 },
+      { cardId: "c", oracleId: "oc", cardName: "Island", quantity: 2 },
+    ],
+    [
+      { quantity: 2, card: { id: "a", oracleId: "oa", name: "Bolt" } },
+      { quantity: 3, card: { id: "b", oracleId: "oa", name: "Bolt" } },
+    ],
+  );
+  assert.deepEqual(totals, {
+    totalQuantity: 6,
+    exactOwned: 2,
+    otherOwned: 2,
+    missing: 2,
+  });
+});
+
+test("import review quantity totals exclude excluded rows from ready totals", () => {
+  const parsed = parseDecklistText(`
+4 Lightning Bolt
+1 Sol Ring
+Bad Card
+`);
+  const resolved = buildDeckImportResolution([
+    {
+      ...parsed.lines[0],
+      selectedCardId: "bolt",
+      selectedCardSummary: {
+        cardId: "bolt",
+        scryfallId: "sf-bolt",
+        name: "Lightning Bolt",
+        setCode: "clu",
+        setName: "Ravnica Clue Edition",
+        collectorNumber: "141",
+        rarity: "common",
+        priceUsd: 1,
+      },
+      resolutionStatus: "MANUALLY_SELECTED",
+    },
+    {
+      ...parsed.lines[1],
+      selectedCardId: "ring",
+      selectedCardSummary: {
+        cardId: "ring",
+        scryfallId: "sf-ring",
+        name: "Sol Ring",
+        setCode: "cmm",
+        setName: "Commander Masters",
+        collectorNumber: "400",
+        rarity: "uncommon",
+        priceUsd: 1,
+      },
+      included: false,
+      resolutionStatus: "MANUALLY_SELECTED",
+    },
+    parsed.lines[2],
+  ]);
+  assert.equal(resolved.summary.parsedCardLines, 3);
+  assert.equal(resolved.summary.totalPastedLines, 3);
+  // buildDeckImportResolution has server-side totals; client summary mirrors these values.
+  assert.equal(
+    resolved.lines.reduce((total, line) => total + (line.quantity ?? 0), 0),
+    6,
+  );
+  assert.equal(
+    resolved.lines
+      .filter((line) => line.included && line.selectedCardId)
+      .reduce((total, line) => total + (line.quantity ?? 0), 0),
+    4,
+  );
+});
+
+test("bulk optimization merge helper preserves quantity when proposed printing matches existing row", () => {
+  const result = mergeDeckOptimizationRowsForTest(
+    [
+      {
+        id: "row-a",
+        cardId: "printing-a",
+        section: DeckSection.MAINBOARD,
+        quantity: 1,
+      },
+      {
+        id: "row-b",
+        cardId: "printing-b",
+        section: DeckSection.MAINBOARD,
+        quantity: 1,
+      },
+    ],
+    { id: "row-a", proposedCardId: "printing-b" },
+  );
+  assert.equal(result.merged, 1);
+  assert.deepEqual(result.rows, [
+    {
+      id: "row-b",
+      cardId: "printing-b",
+      section: DeckSection.MAINBOARD,
+      quantity: 2,
+    },
+  ]);
 });

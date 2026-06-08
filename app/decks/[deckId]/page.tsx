@@ -13,7 +13,11 @@ import {
   deckFormatLabel,
   deckSectionLabel,
   deckSections,
+  deckRowCount,
+  deckSectionQuantityTotals,
+  deckTotalQuantity,
   summarizeDeckCardOwnership,
+  summarizeDeckOwnershipTotals,
 } from "@/lib/decks";
 import { prisma } from "@/lib/prisma";
 import { resolveDeckVisibility, visibilityLabel } from "@/lib/visibility";
@@ -25,6 +29,7 @@ import {
 } from "../actions";
 import { DeckCardPicker } from "@/components/DeckCardPicker";
 import { DeckImportPanel } from "@/components/DeckImportPanel";
+import { DeckBulkActions } from "@/components/DeckBulkActions";
 
 export default async function DeckDetailPage({
   params,
@@ -57,6 +62,23 @@ export default async function DeckDetailPage({
         include: { card: true, location: true },
       })
     : [];
+  const sectionTotals = deckSectionQuantityTotals(deck.cards);
+  const ownershipTotals = summarizeDeckOwnershipTotals(
+    deck.cards,
+    inventoryItems,
+  );
+  const bulkRows = deck.cards.map((deckCard) => {
+    const owned = summarizeDeckCardOwnership(deckCard, inventoryItems);
+    return {
+      id: deckCard.id,
+      cardName: deckCard.cardName,
+      section: deckCard.section,
+      quantity: deckCard.quantity,
+      exactOwned: owned.exactOwned,
+      otherOwned: owned.otherOwned,
+      missing: owned.missing,
+    };
+  });
 
   return (
     <main className="p-8 space-y-6">
@@ -90,6 +112,47 @@ export default async function DeckDetailPage({
           </form>
         ) : null}
       </div>
+
+      <section className="grid gap-3 rounded border border-zinc-800 p-4 text-sm md:grid-cols-4">
+        <div>
+          <span className="text-zinc-400">Total cards</span>
+          <div className="text-xl font-semibold">
+            {deckTotalQuantity(deck.cards)}
+          </div>
+        </div>
+        <div>
+          <span className="text-zinc-400">Deck rows</span>
+          <div className="text-xl font-semibold">
+            {deckRowCount(deck.cards)}
+          </div>
+        </div>
+        <div>
+          <span className="text-zinc-400">Owned exact</span>
+          <div className="text-xl font-semibold text-emerald-300">
+            {ownershipTotals.exactOwned}
+          </div>
+        </div>
+        <div>
+          <span className="text-zinc-400">Missing</span>
+          <div className="text-xl font-semibold text-amber-200">
+            {ownershipTotals.missing}
+          </div>
+        </div>
+        {deckSections.map((section) => (
+          <div key={section}>
+            <span className="text-zinc-400">
+              {deckSectionLabel(section)} cards
+            </span>
+            <div className="font-semibold">{sectionTotals[section]}</div>
+          </div>
+        ))}
+        <div>
+          <span className="text-zinc-400">Owned other printing</span>
+          <div className="font-semibold text-sky-200">
+            {ownershipTotals.otherOwned}
+          </div>
+        </div>
+      </section>
 
       {canEdit ? (
         <section className="grid gap-4 lg:grid-cols-2">
@@ -169,6 +232,8 @@ export default async function DeckDetailPage({
           </div>
         </section>
       ) : null}
+
+      {canEdit ? <DeckBulkActions deckId={deck.id} rows={bulkRows} /> : null}
 
       <section className="space-y-6">
         {deckSections.map((section) => {

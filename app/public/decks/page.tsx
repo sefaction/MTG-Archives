@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { deckCardCount, deckFormatLabel, publicDeckWhere } from "@/lib/decks";
+import {
+  deckFormatLabel,
+  deckRowCount,
+  deckTotalQuantity,
+  publicDeckWhere,
+} from "@/lib/decks";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +54,8 @@ export default async function PublicDecksPage() {
               {deck.ownerUser.publicDisplayName || deck.ownerUser.displayName}
             </p>
             <p className="text-sm">
-              {deckFormatLabel(deck.format)} · {deckCardCount(deck.cards)} cards
+              {deckFormatLabel(deck.format)} · {deckTotalQuantity(deck.cards)}{" "}
+              cards · {deckRowCount(deck.cards)} rows
             </p>
           </Link>
         ))}

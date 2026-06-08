@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PublicCollectionNav } from "@/components/PublicCollectionNav";
-import { deckCardCount, deckFormatLabel, publicDeckWhere } from "@/lib/decks";
+import {
+  deckFormatLabel,
+  deckRowCount,
+  deckTotalQuantity,
+  publicDeckWhere,
+} from "@/lib/decks";
 import { getPublicProfileBySlug } from "@/lib/public-collection";
 import { prisma } from "@/lib/prisma";
 
@@ -34,7 +39,8 @@ export default async function PublicUserDecksPage({
           >
             <h2 className="text-xl font-semibold text-sky-100">{deck.name}</h2>
             <p className="text-sm">
-              {deckFormatLabel(deck.format)} · {deckCardCount(deck.cards)} cards
+              {deckFormatLabel(deck.format)} · {deckTotalQuantity(deck.cards)}{" "}
+              cards · {deckRowCount(deck.cards)} rows
             </p>
           </Link>
         ))}

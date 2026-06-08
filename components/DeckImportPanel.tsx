@@ -37,16 +37,37 @@ const resolvedStatuses: DeckImportStatus[] = [
   "MANUALLY_SELECTED",
 ];
 
+function lineQuantity(line: Pick<DeckImportReviewLine, "quantity">) {
+  return line.quantity ?? 0;
+}
+
 function summarize(
   lines: DeckImportReviewLine[],
   skipped: DeckImportReviewLine[],
 ) {
+  const resolved = lines.filter((line) =>
+    resolvedStatuses.includes(line.resolutionStatus),
+  );
+  const unresolved = lines.filter((line) => !line.selectedCardId);
+  const excluded = lines.filter((line) => !line.included);
+  const ready = lines.filter((line) => line.included && line.selectedCardId);
   return {
     totalPastedLines: lines.length + skipped.length,
     parsedCardLines: lines.length,
-    resolved: lines.filter((line) =>
-      resolvedStatuses.includes(line.resolutionStatus),
-    ).length,
+    totalCardQuantityParsed: lines.reduce(
+      (total, line) => total + lineQuantity(line),
+      0,
+    ),
+    resolved: resolved.length,
+    resolvedTotalQuantity: resolved.reduce(
+      (total, line) => total + lineQuantity(line),
+      0,
+    ),
+    unresolvedRows: unresolved.length,
+    unresolvedTotalQuantity: unresolved.reduce(
+      (total, line) => total + lineQuantity(line),
+      0,
+    ),
     ownedMatches: lines.filter(
       (line) => line.resolutionStatus === "RESOLVED_OWNED_PRINTING",
     ).length,
@@ -65,9 +86,16 @@ function summarize(
       .length,
     parseErrors: lines.filter((line) => line.resolutionStatus === "PARSE_ERROR")
       .length,
-    excluded: lines.filter((line) => !line.included).length,
-    readyToCommit: lines.filter((line) => line.included && line.selectedCardId)
-      .length,
+    excluded: excluded.length,
+    excludedTotalQuantity: excluded.reduce(
+      (total, line) => total + lineQuantity(line),
+      0,
+    ),
+    readyToCommit: ready.length,
+    readyToCommitTotalQuantity: ready.reduce(
+      (total, line) => total + lineQuantity(line),
+      0,
+    ),
     unresolvedIncluded: lines.filter(
       (line) => line.included && !line.selectedCardId,
     ).length,
@@ -184,16 +212,21 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
           <div className="grid gap-2 text-xs text-zinc-300 md:grid-cols-6">
             <span>Total lines: {summary.totalPastedLines}</span>
             <span>Card rows: {summary.parsedCardLines}</span>
-            <span>Resolved: {summary.resolved}</span>
+            <span>Total cards parsed: {summary.totalCardQuantityParsed}</span>
+            <span>Resolved rows: {summary.resolved}</span>
+            <span>Resolved cards: {summary.resolvedTotalQuantity}</span>
             <span>Owned: {summary.ownedMatches}</span>
             <span>Cheapest: {summary.cheapestSelections}</span>
             <span>Manual: {summary.manualSelections}</span>
             <span>Needs review: {summary.needsReview}</span>
+            <span>Unresolved cards: {summary.unresolvedTotalQuantity}</span>
             <span>Not found: {summary.notFound}</span>
             <span>Parse errors: {summary.parseErrors}</span>
             <span>Warnings: {summary.warnings}</span>
-            <span>Excluded: {summary.excluded}</span>
-            <span>Ready: {summary.readyToCommit}</span>
+            <span>Excluded rows: {summary.excluded}</span>
+            <span>Excluded cards: {summary.excludedTotalQuantity}</span>
+            <span>Ready rows: {summary.readyToCommit}</span>
+            <span>Ready cards: {summary.readyToCommitTotalQuantity}</span>
           </div>
           {summary.unresolvedIncluded > 0 ? (
             <p className="rounded border border-amber-800 bg-amber-950/30 p-2 text-sm text-amber-100">

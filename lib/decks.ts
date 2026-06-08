@@ -170,3 +170,56 @@ export function summarizeDeckCardOwnership(
     locationSummary: locations.slice(0, 3).join(", "),
   };
 }
+
+export function deckRowCount(cards: Array<{ section: DeckSection | string }>) {
+  return cards.filter((card) => card.section !== DeckSection.MAYBEBOARD).length;
+}
+
+export function deckTotalQuantity(
+  cards: Array<{ quantity: number; section: DeckSection | string }>,
+) {
+  return cards
+    .filter((card) => card.section !== DeckSection.MAYBEBOARD)
+    .reduce((total, card) => total + card.quantity, 0);
+}
+
+export function deckSectionQuantityTotals(
+  cards: Array<{ quantity: number; section: DeckSection | string }>,
+) {
+  return deckSections.reduce(
+    (totals, section) => ({
+      ...totals,
+      [section]: cards
+        .filter((card) => card.section === section)
+        .reduce((total, card) => total + card.quantity, 0),
+    }),
+    {} as Record<DeckSection, number>,
+  );
+}
+
+export function summarizeDeckOwnershipTotals(
+  deckCards: DeckOwnershipInput[],
+  inventoryItems: InventoryOwnershipInput[],
+) {
+  return deckCards.reduce(
+    (totals, deckCard) => {
+      const owned = summarizeDeckCardOwnership(deckCard, inventoryItems);
+      return {
+        totalQuantity: totals.totalQuantity + deckCard.quantity,
+        exactOwned:
+          totals.exactOwned + Math.min(deckCard.quantity, owned.exactOwned),
+        otherOwned:
+          totals.otherOwned +
+          Math.min(
+            Math.max(
+              0,
+              deckCard.quantity - Math.min(deckCard.quantity, owned.exactOwned),
+            ),
+            owned.otherOwned,
+          ),
+        missing: totals.missing + owned.missing,
+      };
+    },
+    { totalQuantity: 0, exactOwned: 0, otherOwned: 0, missing: 0 },
+  );
+}

@@ -6,7 +6,7 @@ import { Nav } from "@/components/Nav";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { getAccessScope, requireLogin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { deckCardCount, deckFormatLabel } from "@/lib/decks";
+import { deckFormatLabel, deckRowCount, deckTotalQuantity } from "@/lib/decks";
 import { visibilityLabel } from "@/lib/visibility";
 import { createDeck, deleteDeck } from "./actions";
 
@@ -105,7 +105,8 @@ export default async function DecksPage() {
               {adminModeActive ? <th className="p-3">Owner</th> : null}
               <th className="p-3">Format</th>
               <th className="p-3">Visibility</th>
-              <th className="p-3">Card count</th>
+              <th className="p-3">Total cards</th>
+              <th className="p-3">Deck rows</th>
               <th className="p-3">Updated</th>
               <th className="p-3">Actions</th>
             </tr>
@@ -121,7 +122,8 @@ export default async function DecksPage() {
                 ) : null}
                 <td className="p-3">{deckFormatLabel(deck.format)}</td>
                 <td className="p-3">{visibilityLabel(deck.visibility)}</td>
-                <td className="p-3">{deckCardCount(deck.cards)}</td>
+                <td className="p-3">{deckTotalQuantity(deck.cards)} cards</td>
+                <td className="p-3">{deckRowCount(deck.cards)} rows</td>
                 <td className="p-3">{deck.updatedAt.toLocaleDateString()}</td>
                 <td className="p-3">
                   <div className="flex flex-wrap gap-2">
@@ -149,7 +151,7 @@ export default async function DecksPage() {
               <tr>
                 <td
                   className="p-6 text-zinc-400"
-                  colSpan={adminModeActive ? 7 : 6}
+                  colSpan={adminModeActive ? 8 : 7}
                 >
                   No decks yet.
                 </td>
