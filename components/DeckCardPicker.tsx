@@ -1,0 +1,203 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { DeckSection } from "@prisma/client";
+import { ManaCost } from "@/components/mtg/ManaCost";
+import { SetSymbol } from "@/components/mtg/CardSymbols";
+import { SubmitButton } from "@/components/feedback/SubmitButton";
+import { deckSectionLabel } from "@/lib/decks";
+import type {
+  DeckCardSearchResponse,
+  DeckCardSearchResult,
+} from "@/lib/deck-search";
+import { addDeckCard } from "@/app/decks/actions";
+
+export function DeckCardPicker({
+  deckId,
+  defaultSection,
+  sections,
+}: {
+  deckId: string;
+  defaultSection: DeckSection;
+  sections: DeckSection[];
+}) {
+  const [query, setQuery] = useState("");
+  const [includeScryfall, setIncludeScryfall] = useState(false);
+  const [response, setResponse] = useState<DeckCardSearchResponse | null>(null);
+  const [selected, setSelected] = useState<DeckCardSearchResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const requestId = useRef(0);
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) return;
+    const id = ++requestId.current;
+    const timeout = window.setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ q: trimmed });
+        if (includeScryfall) params.set("scryfall", "1");
+        const res = await fetch(`/api/decks/card-search?${params.toString()}`);
+        if (!res.ok) throw new Error("Search failed.");
+        const json = (await res.json()) as DeckCardSearchResponse;
+        if (requestId.current === id) setResponse(json);
+      } catch (e) {
+        if (requestId.current === id)
+          setError(e instanceof Error ? e.message : "Search failed.");
+      } finally {
+        if (requestId.current === id) setLoading(false);
+      }
+    }, 350);
+    return () => window.clearTimeout(timeout);
+  }, [query, includeScryfall]);
+
+  const results = response?.results ?? [];
+  const selectedLabel = useMemo(
+    () =>
+      selected
+        ? `${selected.name} — ${selected.setCode.toUpperCase()} #${selected.collectorNumber}`
+        : "No printing selected",
+    [selected],
+  );
+
+  return (
+    <section className="space-y-3 rounded border border-zinc-800 p-4">
+      <h2 className="text-xl font-semibold">Add card</h2>
+      <label className="block text-sm">
+        Search for a card or printing
+        <input
+          value={query}
+          onChange={(event) => {
+            const next = event.target.value;
+            setQuery(next);
+            setSelected(null);
+            setResponse(null);
+            setError("");
+            setLoading(next.trim().length >= 2);
+          }}
+          placeholder="Search any Magic card"
+          className="mt-1 w-full border bg-zinc-900 p-2"
+        />
+      </label>
+      <label className="flex items-center gap-2 text-xs text-zinc-300">
+        <input
+          type="checkbox"
+          checked={includeScryfall}
+          onChange={(event) => {
+            setIncludeScryfall(event.target.checked);
+            setSelected(null);
+            setResponse(null);
+            setError("");
+            setLoading(query.trim().length >= 2);
+          }}
+        />
+        Broaden with Scryfall results
+      </label>
+      <div className="text-sm text-zinc-400" aria-live="polite">
+        {loading ? "Searching local cache and Scryfall…" : response?.message}
+        {error ? <span className="text-red-300">{error}</span> : null}
+      </div>
+      {query.trim().length >= 2 && !loading && results.length === 0 ? (
+        <p className="rounded border border-zinc-800 p-3 text-sm text-zinc-400">
+          No printings found.
+        </p>
+      ) : null}
+      <div className="max-h-96 space-y-2 overflow-auto">
+        {results.map((result) => (
+          <button
+            type="button"
+            key={result.cardId}
+            onClick={() => setSelected(result)}
+            className={`grid w-full gap-3 rounded border p-2 text-left md:grid-cols-[64px_1fr] ${selected?.cardId === result.cardId ? "border-sky-500 bg-sky-950/30" : result.ownedExactQuantity > 0 ? "border-emerald-800 bg-emerald-950/20" : "border-zinc-800 bg-zinc-950"}`}
+          >
+            {result.imageUri ? (
+              <img
+                src={result.imageUri}
+                alt=""
+                className="h-20 w-14 rounded object-cover"
+              />
+            ) : (
+              <div className="h-20 w-14 rounded bg-zinc-800" />
+            )}
+            <span className="space-y-1">
+              <span className="flex flex-wrap items-center gap-2">
+                <strong className="text-sky-100">{result.name}</strong>
+                <ManaCost value={result.manaCost} />
+                <SetSymbol
+                  setCode={result.setCode}
+                  setName={result.setName}
+                  rarity={result.rarity}
+                />
+              </span>
+              <span className="block text-xs text-zinc-300">
+                {result.typeLine}
+              </span>
+              <span className="block text-xs text-zinc-400">
+                {result.setName} · #{result.collectorNumber} · {result.rarity} ·{" "}
+                {result.priceLabel} ·{" "}
+                {result.finishes.join(", ") || "finish unknown"}
+              </span>
+              <span className="flex flex-wrap gap-1 text-xs">
+                {result.badges.map((badge) => (
+                  <span key={badge} className="rounded bg-zinc-800 px-2 py-0.5">
+                    {badge}
+                  </span>
+                ))}
+                {result.ownedOtherPrintingQuantity ? (
+                  <span className="rounded bg-amber-950 px-2 py-0.5 text-amber-100">
+                    Other printings owned: {result.ownedOtherPrintingQuantity}
+                  </span>
+                ) : null}
+              </span>
+            </span>
+          </button>
+        ))}
+      </div>
+      <form
+        action={addDeckCard}
+        className="grid gap-3 rounded border border-zinc-800 p-3 md:grid-cols-3"
+      >
+        <input type="hidden" name="deckId" value={deckId} />
+        <input type="hidden" name="cardId" value={selected?.cardId ?? ""} />
+        <p className="text-sm text-zinc-300 md:col-span-3">
+          Selected: <span className="text-sky-100">{selectedLabel}</span>
+        </p>
+        <label className="text-sm">
+          Section
+          <select
+            name="section"
+            defaultValue={defaultSection}
+            className="mt-1 w-full border bg-zinc-900 p-2"
+          >
+            {sections.map((section) => (
+              <option key={section} value={section}>
+                {deckSectionLabel(section)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm">
+          Quantity
+          <input
+            name="quantity"
+            type="number"
+            min={1}
+            defaultValue={1}
+            className="mt-1 w-full border bg-zinc-900 p-2"
+          />
+        </label>
+        <label className="text-sm">
+          Notes
+          <input name="notes" className="mt-1 w-full border bg-zinc-900 p-2" />
+        </label>
+        <SubmitButton
+          pendingLabel="Adding…"
+          disabled={!selected}
+          className="rounded border border-sky-700 px-3 py-2 text-sky-100 md:col-span-3"
+        >
+          Add selected printing
+        </SubmitButton>
+      </form>
+    </section>
+  );
+}
