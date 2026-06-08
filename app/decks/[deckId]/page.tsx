@@ -188,6 +188,14 @@ export default async function DeckDetailPage({
         : null,
     };
   });
+  const deckWishlistMissing = editorRows.reduce(
+    (total, row) => total + row.commitmentMissing,
+    0,
+  );
+  const deckWishlistAvailable = editorRows.reduce(
+    (total, row) => total + Math.min(row.commitmentMissing, row.available),
+    0,
+  );
 
   return (
     <main className="p-8 space-y-6">
@@ -317,6 +325,19 @@ export default async function DeckDetailPage({
             {ownershipTotals.missing}
           </div>
         </div>
+        {canEdit ? (
+          <div>
+            <span className="text-zinc-400">Wishlist needs</span>
+            <div className="text-xl font-semibold text-amber-200">
+              <Link href="/wishlist?tab=decks">
+                {deckWishlistMissing} needed
+              </Link>
+            </div>
+            <div className="text-xs text-emerald-300">
+              {deckWishlistAvailable} available to commit
+            </div>
+          </div>
+        ) : null}
         <div>
           <span className="text-zinc-400">Owned exact</span>
           <div className="font-semibold text-emerald-300">
