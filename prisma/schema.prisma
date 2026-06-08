@@ -81,6 +81,11 @@ enum DeckSection {
   MAYBEBOARD
 }
 
+enum InventoryLocationKind {
+  NORMAL
+  DECK
+}
+
 model User {
   id                         String                      @id @default(cuid())
   username                   String                      @unique
@@ -344,6 +349,7 @@ model Deck {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   cards        DeckCard[]
+  deckLocation InventoryLocation?
 
   @@index([ownerUserId, updatedAt])
   @@index([visibility, updatedAt])
@@ -374,21 +380,26 @@ model DeckCard {
 }
 
 model InventoryLocation {
-  id             String          @id @default(cuid())
+  id             String                @id @default(cuid())
   ownerPlayerId  String
-  ownerPlayer    Player          @relation(fields: [ownerPlayerId], references: [id])
+  ownerPlayer    Player                @relation(fields: [ownerPlayerId], references: [id])
   name           String
   normalizedName String
   description    String?
   type           String?
-  active         Boolean         @default(true)
-  visibility     Visibility      @default(INHERIT)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  kind           InventoryLocationKind @default(NORMAL)
+  deckId         String?               @unique
+  deck           Deck?                 @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  systemManaged  Boolean               @default(false)
+  active         Boolean               @default(true)
+  visibility     Visibility            @default(INHERIT)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
   inventoryItems InventoryItem[]
 
   @@unique([ownerPlayerId, normalizedName])
   @@index([ownerPlayerId, active])
+  @@index([ownerPlayerId, kind, active])
   @@index([ownerPlayerId, visibility, active])
   @@index([visibility, active])
 }

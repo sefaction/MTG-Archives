@@ -6,7 +6,7 @@ import { Nav } from "@/components/Nav";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { getAccessScope, requireLogin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { deckFormatLabel, deckRowCount, deckTotalQuantity } from "@/lib/decks";
+import { deckFormatLabel, deckSectionSummaryParts } from "@/lib/decks";
 import { visibilityLabel } from "@/lib/visibility";
 import { createDeck, deleteDeck } from "./actions";
 
@@ -105,8 +105,7 @@ export default async function DecksPage() {
               {adminModeActive ? <th className="p-3">Owner</th> : null}
               <th className="p-3">Format</th>
               <th className="p-3">Visibility</th>
-              <th className="p-3">Total cards</th>
-              <th className="p-3">Deck rows</th>
+              <th className="p-3">Cards</th>
               <th className="p-3">Updated</th>
               <th className="p-3">Actions</th>
             </tr>
@@ -122,8 +121,9 @@ export default async function DecksPage() {
                 ) : null}
                 <td className="p-3">{deckFormatLabel(deck.format)}</td>
                 <td className="p-3">{visibilityLabel(deck.visibility)}</td>
-                <td className="p-3">{deckTotalQuantity(deck.cards)} cards</td>
-                <td className="p-3">{deckRowCount(deck.cards)} rows</td>
+                <td className="p-3">
+                  {deckSectionSummaryParts(deck.cards).join(" · ")}
+                </td>
                 <td className="p-3">{deck.updatedAt.toLocaleDateString()}</td>
                 <td className="p-3">
                   <div className="flex flex-wrap gap-2">

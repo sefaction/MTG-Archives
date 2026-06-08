@@ -5,6 +5,7 @@ import {
   Prisma,
   Visibility,
 } from "@prisma/client";
+import { summarizeDeckCommitmentOwnership } from "./deck-commitments";
 import { resolveDeckVisibility } from "./visibility";
 
 export const deckFormatLabels: Record<DeckFormat, string> = {
@@ -100,11 +101,17 @@ export function publicDeckWhere(): Prisma.DeckWhereInput {
   };
 }
 
+export function isDeckTotalSection(section: DeckSection | string) {
+  return (
+    section !== DeckSection.SIDEBOARD && section !== DeckSection.MAYBEBOARD
+  );
+}
+
 export function deckCardCount(
   cards: Array<{ quantity: number; section: DeckSection | string }>,
 ) {
   return cards
-    .filter((card) => card.section !== DeckSection.MAYBEBOARD)
+    .filter((card) => isDeckTotalSection(card.section))
     .reduce((total, card) => total + card.quantity, 0);
 }
 
@@ -116,8 +123,14 @@ export type DeckOwnershipInput = {
 };
 
 export type InventoryOwnershipInput = {
+  id?: string;
   quantity: number;
-  location?: { name: string } | null;
+  location?: {
+    id?: string;
+    name: string;
+    kind?: string;
+    deckId?: string | null;
+  } | null;
   card: { id: string; oracleId?: string | null; name: string };
 };
 
@@ -128,46 +141,32 @@ function normalizeName(name: string) {
 export function summarizeDeckCardOwnership(
   deckCard: DeckOwnershipInput,
   inventoryItems: InventoryOwnershipInput[],
+  deckId?: string | null,
 ) {
-  const exactItems = deckCard.cardId
-    ? inventoryItems.filter((item) => item.card.id === deckCard.cardId)
-    : [];
-  const fallbackItems = inventoryItems.filter((item) => {
-    if (deckCard.oracleId && item.card.oracleId === deckCard.oracleId)
-      return true;
-    return normalizeName(item.card.name) === normalizeName(deckCard.cardName);
-  });
-  const fallbackOnlyItems = fallbackItems.filter(
-    (item) => !deckCard.cardId || item.card.id !== deckCard.cardId,
+  const summary = summarizeDeckCommitmentOwnership(
+    deckCard,
+    inventoryItems.map((item) => ({
+      id: item.id,
+      cardId: item.card.id,
+      quantity: item.quantity,
+      card: item.card,
+      location: item.location
+        ? {
+            id: item.location.id ?? "",
+            name: item.location.name,
+            kind: item.location.kind,
+            deckId: item.location.deckId,
+          }
+        : null,
+    })),
+    deckId,
   );
-  const exactOwned = exactItems.reduce(
-    (total, item) => total + item.quantity,
-    0,
-  );
-  const otherOwned = fallbackOnlyItems.reduce(
-    (total, item) => total + item.quantity,
-    0,
-  );
-  const owned = exactOwned + otherOwned;
-  const locations = [
-    ...new Set(
-      [...exactItems, ...fallbackOnlyItems]
-        .map((item) => item.location?.name)
-        .filter((name): name is string => Boolean(name)),
-    ),
-  ];
   return {
-    owned,
-    exactOwned,
-    otherOwned,
-    needed: deckCard.quantity,
-    missing: Math.max(0, deckCard.quantity - owned),
-    exactMissing: Math.max(0, deckCard.quantity - exactOwned),
-    enoughOwned: owned >= deckCard.quantity,
+    ...summary,
+    exactMissing: Math.max(0, deckCard.quantity - summary.exactOwned),
     matchType: deckCard.cardId
       ? "Exact printing + other printings"
       : "Oracle/name fallback",
-    locationSummary: locations.slice(0, 3).join(", "),
   };
 }
 
@@ -179,7 +178,7 @@ export function deckTotalQuantity(
   cards: Array<{ quantity: number; section: DeckSection | string }>,
 ) {
   return cards
-    .filter((card) => card.section !== DeckSection.MAYBEBOARD)
+    .filter((card) => isDeckTotalSection(card.section))
     .reduce((total, card) => total + card.quantity, 0);
 }
 
@@ -222,4 +221,27 @@ export function summarizeDeckOwnershipTotals(
     },
     { totalQuantity: 0, exactOwned: 0, otherOwned: 0, missing: 0 },
   );
+}
+
+export function pluralizeDeckCount(count: number, singular: string) {
+  return `${count} ${singular}${count === 1 ? "" : "s"}`;
+}
+
+export function deckSectionSummaryParts(
+  cards: Array<{ quantity: number; section: DeckSection | string }>,
+) {
+  const sectionTotals = deckSectionQuantityTotals(cards);
+  return [
+    `${deckTotalQuantity(cards)} total cards`,
+    ...(sectionTotals.COMMANDER > 0
+      ? [pluralizeDeckCount(sectionTotals.COMMANDER, "commander")]
+      : []),
+    `${sectionTotals.MAINBOARD} mainboard`,
+    ...(sectionTotals.SIDEBOARD > 0
+      ? [`${sectionTotals.SIDEBOARD} sideboard`]
+      : []),
+    ...(sectionTotals.MAYBEBOARD > 0
+      ? [`${sectionTotals.MAYBEBOARD} maybeboard`]
+      : []),
+  ];
 }

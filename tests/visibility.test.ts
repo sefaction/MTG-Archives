@@ -78,7 +78,18 @@ test("public slugs are normalized and validated without exposing emails", () => 
 test("public inventory where allows only explicitly public locations when account default is private", () => {
   assert.deepEqual(
     publicInventoryVisibilityWhere(DefaultCollectionVisibility.PRIVATE),
-    [{ location: { active: true, visibility: Visibility.PUBLIC } }],
+    [
+      {
+        location: {
+          active: true,
+          kind: "NORMAL",
+          visibility: Visibility.PUBLIC,
+        },
+      },
+      {
+        location: { active: true, kind: "DECK", visibility: Visibility.PUBLIC },
+      },
+    ],
   );
 });
 
@@ -87,7 +98,30 @@ test("public inventory where excludes private locations when account default is 
     publicInventoryVisibilityWhere(DefaultCollectionVisibility.PUBLIC),
     [
       { locationId: null },
-      { location: { active: true, visibility: { not: Visibility.PRIVATE } } },
+      {
+        location: {
+          active: true,
+          kind: "NORMAL",
+          visibility: { not: Visibility.PRIVATE },
+        },
+      },
+      {
+        location: {
+          active: true,
+          kind: "DECK",
+          OR: [
+            { visibility: Visibility.PUBLIC },
+            {
+              visibility: Visibility.INHERIT,
+              deck: {
+                ownerUser: {
+                  deckDefaultVisibility: DefaultCollectionVisibility.PUBLIC,
+                },
+              },
+            },
+          ],
+        },
+      },
     ],
   );
 });
@@ -95,6 +129,7 @@ test("public inventory where excludes private locations when account default is 
 test("global public location where applies visibility to inventory locations", () => {
   const where = globalPublicInventoryLocationWhere() as any;
   assert.equal(where.active, true);
+  assert.equal(where.kind, "NORMAL");
   assert.deepEqual(where.OR[0], { visibility: Visibility.PUBLIC });
   assert.equal(where.OR[1].visibility, Visibility.INHERIT);
   assert.equal(

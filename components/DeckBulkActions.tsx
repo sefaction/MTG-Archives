@@ -115,7 +115,7 @@ export function DeckBulkActions({
     <section className="space-y-3 rounded border border-zinc-800 p-4">
       <h2 className="text-xl font-semibold">Bulk printing tools</h2>
       <p className="text-sm text-zinc-400">
-        Select deck rows, preview printing swaps, then apply only the changes
+        Select deck entries, preview printing swaps, then apply only the changes
         you include. Inventory is never modified.
       </p>
       <div className="flex flex-wrap gap-2 text-sm">
@@ -124,7 +124,7 @@ export function DeckBulkActions({
           className="rounded border border-zinc-700 px-2 py-1"
           onClick={() => setSelectedIds(rows.map((row) => row.id))}
         >
-          Select all deck rows
+          Select all deck entries
         </button>
         <button
           type="button"
