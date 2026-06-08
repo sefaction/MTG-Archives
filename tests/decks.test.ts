@@ -171,7 +171,11 @@ test("inventory awareness supports exact printing and oracle/name fallback", () 
   assert.equal(fallback.matchType, "Oracle/name fallback");
 });
 
-import { parseDecklistText, mergeImportLines } from "../lib/deck-import";
+import {
+  parseDecklistText,
+  mergeImportLines,
+  buildDeckImportResolution,
+} from "../lib/deck-import";
 import {
   orderDeckSearchResults,
   compareCheapestPlayableCards,
@@ -190,19 +194,68 @@ Sideboard
 Negate
 `);
 
-  assert.equal(parsed.length, 4);
-  assert.equal(parsed[0].section, DeckSection.COMMANDER);
-  assert.equal(parsed[0].quantity, 1);
-  assert.equal(parsed[0].cardName, "Atraxa, Praetors' Voice");
-  assert.equal(parsed[1].section, DeckSection.MAINBOARD);
-  assert.equal(parsed[1].quantity, 4);
-  assert.equal(parsed[1].setCode, "sld");
-  assert.equal(parsed[1].collectorNumber, "123");
-  assert.equal(parsed[2].setCode, "cmm");
-  assert.equal(parsed[2].collectorNumber, "400");
-  assert.equal(parsed[3].section, DeckSection.SIDEBOARD);
-  assert.equal(parsed[3].cardName, "Negate");
-  assert.equal(parsed[3].warning, "Missing quantity; assumed 1.");
+  assert.equal(parsed.lines.length, 4);
+  assert.equal(parsed.skippedLines.length, 3);
+  assert.equal(parsed.lines[0].section, DeckSection.COMMANDER);
+  assert.equal(parsed.lines[0].quantity, 1);
+  assert.equal(parsed.lines[0].parsedName, "Atraxa, Praetors' Voice");
+  assert.equal(parsed.lines[1].section, DeckSection.MAINBOARD);
+  assert.equal(parsed.lines[1].quantity, 4);
+  assert.equal(parsed.lines[1].parsedSetCode, "sld");
+  assert.equal(parsed.lines[1].parsedCollectorNumber, "123");
+  assert.equal(parsed.lines[2].parsedSetCode, "cmm");
+  assert.equal(parsed.lines[2].parsedCollectorNumber, "400");
+  assert.equal(parsed.lines[3].section, DeckSection.SIDEBOARD);
+  assert.equal(parsed.lines[3].parsedName, "Negate");
+  assert.deepEqual(parsed.lines[3].warnings, ["Missing quantity; assumed 1."]);
+  assert.equal(parsed.lines[3].rawLine, "Negate");
+  assert.equal(parsed.lines[3].lineNumber, 10);
+  assert.equal(parsed.skippedLines[0].resolutionStatus, "SKIPPED");
+});
+
+test("deck import review summary includes failures, warnings, skipped, excluded, and ready rows", () => {
+  const parsed = parseDecklistText(`
+Commander
+1 Sol Ring
+Bad malformed card line
+1 Missing Card (BAD) 999
+`);
+  const ready = {
+    ...parsed.lines[0],
+    selectedCardId: "card-1",
+    selectedCardSummary: {
+      cardId: "card-1",
+      scryfallId: "sf-1",
+      name: "Sol Ring",
+      setCode: "cmm",
+      setName: "Commander Masters",
+      collectorNumber: "400",
+      rarity: "uncommon",
+      priceUsd: 1.23,
+    },
+    resolutionStatus: "MANUALLY_SELECTED" as const,
+  };
+  const notFound = {
+    ...parsed.lines[2],
+    resolutionStatus: "NOT_FOUND" as const,
+    resolutionMessage: "No card found.",
+    errors: ["No card found."],
+  };
+  const excludedWarning = { ...parsed.lines[1], included: false };
+  const review = buildDeckImportResolution(
+    [ready, excludedWarning, notFound],
+    parsed.skippedLines,
+  );
+
+  assert.equal(review.lines.length, 3);
+  assert.equal(review.skippedLines.length, 1);
+  assert.equal(review.summary.totalPastedLines, 4);
+  assert.equal(review.summary.readyToCommit, 1);
+  assert.equal(review.summary.manualSelections, 1);
+  assert.equal(review.summary.notFound, 1);
+  assert.equal(review.summary.excluded, 1);
+  assert.equal(review.summary.skipped, 1);
+  assert.equal(review.lines[2].rawLine, "1 Missing Card (BAD) 999");
 });
 
 test("search results order owned printings before local and Scryfall printings", () => {

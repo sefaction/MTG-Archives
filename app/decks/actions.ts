@@ -189,16 +189,37 @@ export async function commitDeckImport(fd: FormData) {
   const deckId = formString(fd, "deckId");
   await requireManagedDeck(deckId);
   const mode = formString(fd, "mode") === "replace" ? "replace" : "merge";
+  const unresolvedIncludedCount = Number(
+    fd.get("unresolvedIncludedCount") || 0,
+  );
+  if (unresolvedIncludedCount > 0) {
+    throw new Error(
+      `Resolve or exclude ${unresolvedIncludedCount} unresolved lines before committing.`,
+    );
+  }
   const raw = formString(fd, "linesJson");
   const parsed = JSON.parse(raw || "[]") as Array<{
-    cardId?: string;
-    quantity: number;
-    section: DeckSection;
+    cardId?: string | null;
+    quantity?: number | null;
+    section?: DeckSection | null;
+    included?: boolean;
     notes?: string;
   }>;
   const lines = parsed.filter(
-    (line) =>
-      line.cardId && Number.isInteger(line.quantity) && line.quantity > 0,
+    (
+      line,
+    ): line is {
+      cardId: string;
+      quantity: number;
+      section: DeckSection;
+      included: boolean;
+      notes?: string;
+    } =>
+      line.included !== false &&
+      Boolean(line.cardId) &&
+      Number.isInteger(line.quantity) &&
+      Number(line.quantity) > 0 &&
+      Boolean(line.section),
   );
   if (lines.length === 0)
     throw new Error("No resolved decklist lines to commit.");

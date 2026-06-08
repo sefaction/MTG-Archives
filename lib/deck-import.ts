@@ -14,52 +14,71 @@ import {
   getOwnershipByCard,
 } from "./deck-search";
 
-export type ParsedDecklistLine = {
-  lineNumber: number;
-  rawLine: string;
-  quantity: number;
-  cardName: string;
-  setCode?: string;
-  collectorNumber?: string;
-  section: DeckSection;
-  foil: boolean;
-  warning?: string;
-};
-
 export type DeckImportStatus =
-  | "OWNED_PRINTING_SELECTED"
-  | "CHEAPEST_PRINTING_SELECTED"
-  | "EXACT_PRINTING_SELECTED"
+  | "RESOLVED_EXACT_PRINTING"
+  | "RESOLVED_OWNED_PRINTING"
+  | "RESOLVED_CHEAPEST_PRINTING"
+  | "MANUALLY_SELECTED"
   | "NEEDS_REVIEW"
+  | "AMBIGUOUS"
   | "NOT_FOUND"
+  | "PARSE_WARNING"
+  | "PARSE_ERROR"
+  | "SKIPPED"
   | "ERROR";
 
-export type ResolvedDeckImportLine = ParsedDecklistLine & {
-  status: DeckImportStatus;
-  resolutionMethod: string;
-  cardId?: string;
-  scryfallId?: string;
-  matchedName?: string;
-  setName?: string | null;
-  matchedSetCode?: string;
-  collector?: string;
-  rarity?: string;
-  priceUsd?: number | null;
+export type DeckImportCardSummary = {
+  cardId: string;
+  scryfallId: string;
+  name: string;
+  setCode: string;
+  setName: string | null;
+  collectorNumber: string;
+  rarity: string;
+  priceUsd: number | null;
+};
+
+export type DeckImportReviewLine = {
+  id: string;
+  rawLine: string;
+  lineNumber: number;
+  section: DeckSection | null;
+  quantity: number | null;
+  parsedName: string | null;
+  parsedSetCode: string | null;
+  parsedCollectorNumber: string | null;
+  foil: boolean | null;
+  selectedCardId: string | null;
+  selectedCardSummary: DeckImportCardSummary | null;
   ownedQuantity: number;
-  locationSummary: string;
-  error?: string;
+  locationSummary: string | null;
+  resolutionStatus: DeckImportStatus;
+  resolutionMessage: string;
+  warnings: string[];
+  errors: string[];
+  included: boolean;
 };
 
 export type DeckImportResolution = {
-  lines: ResolvedDeckImportLine[];
+  lines: DeckImportReviewLine[];
+  skippedLines: DeckImportReviewLine[];
   summary: {
-    parsed: number;
+    totalPastedLines: number;
+    parsedCardLines: number;
+    resolved: number;
     ownedMatches: number;
-    localCacheHits: number;
-    scryfallMatches: number;
     cheapestSelections: number;
+    exactMatches: number;
+    manualSelections: number;
     needsReview: number;
+    ambiguous: number;
     notFound: number;
+    parseWarnings: number;
+    parseErrors: number;
+    errors: number;
+    skipped: number;
+    excluded: number;
+    readyToCommit: number;
     dedupedLookups: number;
   };
 };
@@ -71,6 +90,13 @@ const sectionMap: Record<string, DeckSection> = {
   maindeck: DeckSection.MAINBOARD,
   mainboard: DeckSection.MAINBOARD,
   deck: DeckSection.MAINBOARD,
+  creatures: DeckSection.MAINBOARD,
+  artifacts: DeckSection.MAINBOARD,
+  enchantments: DeckSection.MAINBOARD,
+  instants: DeckSection.MAINBOARD,
+  sorceries: DeckSection.MAINBOARD,
+  planeswalkers: DeckSection.MAINBOARD,
+  lands: DeckSection.MAINBOARD,
   side: DeckSection.SIDEBOARD,
   sideboard: DeckSection.SIDEBOARD,
   maybe: DeckSection.MAYBEBOARD,
@@ -78,19 +104,62 @@ const sectionMap: Record<string, DeckSection> = {
   considering: DeckSection.MAYBEBOARD,
 };
 
+function reviewId(lineNumber: number) {
+  return `line-${lineNumber}`;
+}
+
 function parseSectionHeader(line: string) {
   return sectionMap[line.trim().replace(/:$/, "").toLowerCase()];
+}
+
+function emptyReviewLine(input: {
+  rawLine: string;
+  lineNumber: number;
+  section: DeckSection | null;
+  quantity?: number | null;
+  parsedName?: string | null;
+  setCode?: string | null;
+  collectorNumber?: string | null;
+  foil?: boolean | null;
+  status: DeckImportStatus;
+  message: string;
+  warnings?: string[];
+  errors?: string[];
+  included?: boolean;
+}): DeckImportReviewLine {
+  return {
+    id: reviewId(input.lineNumber),
+    rawLine: input.rawLine,
+    lineNumber: input.lineNumber,
+    section: input.section,
+    quantity: input.quantity ?? null,
+    parsedName: input.parsedName ?? null,
+    parsedSetCode: input.setCode ?? null,
+    parsedCollectorNumber: input.collectorNumber ?? null,
+    foil: input.foil ?? null,
+    selectedCardId: null,
+    selectedCardSummary: null,
+    ownedQuantity: 0,
+    locationSummary: null,
+    resolutionStatus: input.status,
+    resolutionMessage: input.message,
+    warnings: input.warnings ?? [],
+    errors: input.errors ?? [],
+    included: input.included ?? true,
+  };
 }
 
 export function parseDecklistText(
   text: string,
   defaultSection: DeckSection = DeckSection.MAINBOARD,
-): ParsedDecklistLine[] {
-  const lines: ParsedDecklistLine[] = [];
+): { lines: DeckImportReviewLine[]; skippedLines: DeckImportReviewLine[] } {
+  const lines: DeckImportReviewLine[] = [];
+  const skippedLines: DeckImportReviewLine[] = [];
   let section = defaultSection;
   text.split(/\r?\n/).forEach((raw, index) => {
     const rawLine = raw;
     let line = raw.trim();
+    const lineNumber = index + 1;
     if (
       !line ||
       line.startsWith("//") ||
@@ -98,25 +167,48 @@ export function parseDecklistText(
       line.startsWith(";")
     )
       return;
+
     const header = parseSectionHeader(line);
     if (header) {
       section = header;
+      skippedLines.push(
+        emptyReviewLine({
+          rawLine,
+          lineNumber,
+          section,
+          status: "SKIPPED",
+          message: `Section header mapped to ${section.toLowerCase()}.`,
+          included: false,
+        }),
+      );
       return;
     }
+
     line = line.replace(/^\d+\s+x\s+/i, (m) => m.replace(/x/i, ""));
     const qtyMatch = line.match(/^(\d+)\s*x?\s+(.+)$/i);
+    const warnings: string[] = [];
     if (!qtyMatch) {
-      lines.push({
-        lineNumber: index + 1,
-        rawLine,
-        quantity: 1,
-        cardName: line,
-        section,
-        foil: /foil/i.test(line),
-        warning: "Missing quantity; assumed 1.",
-      });
+      const parsedName = line.trim();
+      warnings.push("Missing quantity; assumed 1.");
+      lines.push(
+        emptyReviewLine({
+          rawLine,
+          lineNumber,
+          quantity: 1,
+          parsedName,
+          section,
+          foil: /foil/i.test(line),
+          status: parsedName ? "PARSE_WARNING" : "PARSE_ERROR",
+          message: parsedName
+            ? "Could not find an explicit quantity; assumed 1 and needs verification."
+            : "Could not parse this line.",
+          warnings,
+          errors: parsedName ? [] : ["Missing card name."],
+        }),
+      );
       return;
     }
+
     const quantity = Math.max(1, Number(qtyMatch[1]));
     let rest = qtyMatch[2].trim();
     const foil = /\*F\*|\bfoil\b/i.test(rest);
@@ -131,25 +223,42 @@ export function parseDecklistText(
       rest = paren[1].trim();
       setCode = normalizeSetCode(paren[2]);
       collectorNumber = normalizeCollectorNumber(paren[3]);
+      if (setCode && !collectorNumber) {
+        warnings.push("Set code was provided without a collector number.");
+      }
     }
     const hash = rest.match(/^(.*?)\s+#([A-Za-z0-9-]+)\s*$/);
     if (hash) {
       rest = hash[1].trim();
       collectorNumber = normalizeCollectorNumber(hash[2]);
+      if (!setCode)
+        warnings.push("Collector number was provided without a set code.");
     }
-    lines.push({
-      lineNumber: index + 1,
-      rawLine,
-      quantity,
-      cardName: rest,
-      setCode,
-      collectorNumber,
-      section,
-      foil,
-      warning: rest ? undefined : "Missing card name.",
-    });
+
+    lines.push(
+      emptyReviewLine({
+        rawLine,
+        lineNumber,
+        quantity,
+        parsedName: rest,
+        setCode,
+        collectorNumber,
+        section,
+        foil,
+        status: rest
+          ? warnings.length
+            ? "PARSE_WARNING"
+            : "NEEDS_REVIEW"
+          : "PARSE_ERROR",
+        message: rest
+          ? "Parsed and queued for resolution."
+          : "Could not parse this line.",
+        warnings,
+        errors: rest ? [] : ["Missing card name."],
+      }),
+    );
   });
-  return lines;
+  return { lines, skippedLines };
 }
 
 async function ownedPrintingsForName(ownerPlayerId: string, name: string) {
@@ -219,139 +328,239 @@ async function cheapestPrintingForName(
   return candidates;
 }
 
-async function exactPrinting(line: ParsedDecklistLine) {
-  if (!line.setCode || !line.collectorNumber) return null;
+async function exactPrinting(line: DeckImportReviewLine) {
+  if (!line.parsedSetCode || !line.parsedCollectorNumber || !line.parsedName)
+    return null;
   const match = await findOrImportCard({
-    name: line.cardName,
-    setCode: line.setCode,
-    collectorNumber: line.collectorNumber,
+    name: line.parsedName,
+    setCode: line.parsedSetCode,
+    collectorNumber: line.parsedCollectorNumber,
   });
   if (match.card) return match.card as Card;
   return null;
 }
 
+function cardSummary(card: Card): DeckImportCardSummary {
+  return {
+    cardId: card.id,
+    scryfallId: card.scryfallId,
+    name: card.name,
+    setCode: card.setCode,
+    setName: card.setName,
+    collectorNumber: card.collectorNumber,
+    rarity: card.rarity,
+    priceUsd: cardPriceUsd(card),
+  };
+}
+
+async function withSelectedCard(
+  line: DeckImportReviewLine,
+  card: Card,
+  status: DeckImportStatus,
+  message: string,
+  ownerPlayerId?: string | null,
+) {
+  const ownership = await getOwnershipByCard(ownerPlayerId, [card.id]);
+  const exact = ownership.get(card.id);
+  return {
+    ...line,
+    selectedCardId: card.id,
+    selectedCardSummary: cardSummary(card),
+    ownedQuantity: exact?.quantity ?? 0,
+    locationSummary: exact?.locations.slice(0, 3).join(", ") ?? null,
+    resolutionStatus: status,
+    resolutionMessage: message,
+    included: true,
+  } satisfies DeckImportReviewLine;
+}
+
 export async function resolveParsedDecklist(
-  lines: ParsedDecklistLine[],
+  parsed:
+    | { lines: DeckImportReviewLine[]; skippedLines: DeckImportReviewLine[] }
+    | DeckImportReviewLine[],
   ownerPlayerId?: string | null,
 ): Promise<DeckImportResolution> {
+  const inputLines = Array.isArray(parsed) ? parsed : parsed.lines;
+  const skippedLines = Array.isArray(parsed) ? [] : parsed.skippedLines;
   const cheapestCache = new Map<string, Card[]>();
-  const resolved: ResolvedDeckImportLine[] = [];
-  for (const line of lines) {
-    if (line.warning && !line.cardName) {
+  const resolved: DeckImportReviewLine[] = [];
+
+  for (const line of inputLines) {
+    if (!line.parsedName || line.resolutionStatus === "PARSE_ERROR") {
       resolved.push({
         ...line,
-        status: "NEEDS_REVIEW",
-        resolutionMethod: "Parse warning",
-        ownedQuantity: 0,
-        locationSummary: "",
+        resolutionStatus: "PARSE_ERROR",
+        resolutionMessage:
+          line.resolutionMessage || "Could not parse this line.",
+        included: false,
       });
       continue;
     }
     try {
       let card: Card | null = null;
-      let status: DeckImportStatus = "NEEDS_REVIEW";
-      let method = "Needs review";
-      if (line.setCode && line.collectorNumber) {
+      if (line.parsedSetCode && line.parsedCollectorNumber) {
         card = await exactPrinting(line);
-        status = card ? "EXACT_PRINTING_SELECTED" : "NOT_FOUND";
-        method = card
-          ? "Exact set/collector selected"
-          : "Exact set/collector not found";
-      } else if (ownerPlayerId) {
-        const owned = await ownedPrintingsForName(ownerPlayerId, line.cardName);
-        if (owned.length > 0) {
-          card = owned[0].card;
-          status = "OWNED_PRINTING_SELECTED";
-          method =
-            "Owned printing selected by quantity, price, and deterministic fallback";
+        if (card) {
+          resolved.push(
+            await withSelectedCard(
+              line,
+              card,
+              "RESOLVED_EXACT_PRINTING",
+              "Exact printing selected.",
+              ownerPlayerId,
+            ),
+          );
+        } else {
+          resolved.push({
+            ...line,
+            resolutionStatus: "NOT_FOUND",
+            resolutionMessage: "Exact set/collector number was not found.",
+            errors: [
+              ...line.errors,
+              "Exact set/collector number was not found.",
+            ],
+          });
         }
-      }
-      if (!card && status !== "NOT_FOUND") {
-        const candidates = await cheapestPrintingForName(
-          line.cardName,
-          cheapestCache,
-        );
-        card = candidates[0] ?? null;
-        status = card ? "CHEAPEST_PRINTING_SELECTED" : "NOT_FOUND";
-        method = card
-          ? "Cheapest playable paper English printing selected"
-          : "No printing found";
-      }
-      if (!card) {
-        resolved.push({
-          ...line,
-          status,
-          resolutionMethod: method,
-          ownedQuantity: 0,
-          locationSummary: "",
-        });
         continue;
       }
-      const ownership = await getOwnershipByCard(ownerPlayerId, [card.id]);
-      const exact = ownership.get(card.id);
-      resolved.push({
-        ...line,
-        status,
-        resolutionMethod: method,
-        cardId: card.id,
-        scryfallId: card.scryfallId,
-        matchedName: card.name,
-        setName: card.setName,
-        matchedSetCode: card.setCode,
-        collector: card.collectorNumber,
-        rarity: card.rarity,
-        priceUsd: cardPriceUsd(card),
-        ownedQuantity: exact?.quantity ?? 0,
-        locationSummary: exact?.locations.slice(0, 3).join(", ") ?? "",
-      });
+
+      if (ownerPlayerId) {
+        const owned = await ownedPrintingsForName(
+          ownerPlayerId,
+          line.parsedName,
+        );
+        if (owned.length > 0) {
+          resolved.push(
+            await withSelectedCard(
+              line,
+              owned[0].card,
+              "RESOLVED_OWNED_PRINTING",
+              "Owned printing selected by quantity, price, and deterministic fallback.",
+              ownerPlayerId,
+            ),
+          );
+          continue;
+        }
+      }
+
+      const candidates = await cheapestPrintingForName(
+        line.parsedName,
+        cheapestCache,
+      );
+      card = candidates[0] ?? null;
+      if (card) {
+        resolved.push(
+          await withSelectedCard(
+            line,
+            card,
+            "RESOLVED_CHEAPEST_PRINTING",
+            "Cheapest playable paper English printing selected.",
+            ownerPlayerId,
+          ),
+        );
+      } else {
+        resolved.push({
+          ...line,
+          resolutionStatus: "NOT_FOUND",
+          resolutionMessage: `No card found for "${line.parsedName}".`,
+          errors: [...line.errors, `No card found for "${line.parsedName}".`],
+        });
+      }
     } catch (error) {
       resolved.push({
         ...line,
-        status: "ERROR",
-        resolutionMethod: "Resolution error",
-        ownedQuantity: 0,
-        locationSummary: "",
-        error: error instanceof Error ? error.message : "Unknown error",
+        resolutionStatus: "ERROR",
+        resolutionMessage:
+          error instanceof Error ? error.message : "Resolution error.",
+        errors: [
+          ...line.errors,
+          error instanceof Error ? error.message : "Resolution error.",
+        ],
       });
     }
   }
+  return buildDeckImportResolution(resolved, skippedLines, cheapestCache.size);
+}
+
+export function buildDeckImportResolution(
+  lines: DeckImportReviewLine[],
+  skippedLines: DeckImportReviewLine[] = [],
+  dedupedLookups = 0,
+): DeckImportResolution {
+  const resolvedStatuses: DeckImportStatus[] = [
+    "RESOLVED_EXACT_PRINTING",
+    "RESOLVED_OWNED_PRINTING",
+    "RESOLVED_CHEAPEST_PRINTING",
+    "MANUALLY_SELECTED",
+  ];
   return {
-    lines: resolved,
+    lines,
+    skippedLines,
     summary: {
-      parsed: lines.length,
-      ownedMatches: resolved.filter(
-        (l) => l.status === "OWNED_PRINTING_SELECTED",
+      totalPastedLines: lines.length + skippedLines.length,
+      parsedCardLines: lines.length,
+      resolved: lines.filter((line) =>
+        resolvedStatuses.includes(line.resolutionStatus),
       ).length,
-      localCacheHits: resolved.filter((l) => l.cardId).length,
-      scryfallMatches: resolved.filter(
-        (l) =>
-          l.status === "CHEAPEST_PRINTING_SELECTED" ||
-          l.status === "EXACT_PRINTING_SELECTED",
+      ownedMatches: lines.filter(
+        (line) => line.resolutionStatus === "RESOLVED_OWNED_PRINTING",
       ).length,
-      cheapestSelections: resolved.filter(
-        (l) => l.status === "CHEAPEST_PRINTING_SELECTED",
+      cheapestSelections: lines.filter(
+        (line) => line.resolutionStatus === "RESOLVED_CHEAPEST_PRINTING",
       ).length,
-      needsReview: resolved.filter(
-        (l) => l.status === "NEEDS_REVIEW" || l.status === "ERROR",
+      exactMatches: lines.filter(
+        (line) => line.resolutionStatus === "RESOLVED_EXACT_PRINTING",
       ).length,
-      notFound: resolved.filter((l) => l.status === "NOT_FOUND").length,
-      dedupedLookups: cheapestCache.size,
+      manualSelections: lines.filter(
+        (line) => line.resolutionStatus === "MANUALLY_SELECTED",
+      ).length,
+      needsReview: lines.filter(
+        (line) => line.resolutionStatus === "NEEDS_REVIEW",
+      ).length,
+      ambiguous: lines.filter((line) => line.resolutionStatus === "AMBIGUOUS")
+        .length,
+      notFound: lines.filter((line) => line.resolutionStatus === "NOT_FOUND")
+        .length,
+      parseWarnings: lines.filter(
+        (line) =>
+          line.resolutionStatus === "PARSE_WARNING" || line.warnings.length > 0,
+      ).length,
+      parseErrors: lines.filter(
+        (line) => line.resolutionStatus === "PARSE_ERROR",
+      ).length,
+      errors: lines.filter(
+        (line) => line.resolutionStatus === "ERROR" || line.errors.length > 0,
+      ).length,
+      skipped: skippedLines.length,
+      excluded: lines.filter((line) => !line.included).length,
+      readyToCommit: lines.filter(
+        (line) => line.included && Boolean(line.selectedCardId),
+      ).length,
+      dedupedLookups,
     },
   };
 }
 
 export function mergeImportLines(
-  lines: Array<{ cardId?: string; quantity: number; section: DeckSection }>,
+  lines: Array<{
+    cardId?: string;
+    selectedCardId?: string | null;
+    quantity?: number | null;
+    section?: DeckSection | null;
+    included?: boolean;
+  }>,
 ) {
   const merged = new Map<
     string,
     { cardId: string; quantity: number; section: DeckSection }
   >();
   for (const line of lines) {
-    if (!line.cardId) continue;
-    const key = `${line.cardId}:${line.section}`;
+    const cardId = line.cardId ?? line.selectedCardId ?? undefined;
+    if (!cardId || line.included === false || !line.section || !line.quantity)
+      continue;
+    const key = `${cardId}:${line.section}`;
     const current = merged.get(key) ?? {
-      cardId: line.cardId,
+      cardId,
       section: line.section,
       quantity: 0,
     };
