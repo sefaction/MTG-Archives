@@ -15,6 +15,7 @@ export type WishlistCardSummary = Pick<
   | "name"
   | "manaCost"
   | "typeLine"
+  | "colorIdentity"
   | "setCode"
   | "setName"
   | "collectorNumber"
@@ -332,6 +333,7 @@ const cardSelect = {
   name: true,
   manaCost: true,
   typeLine: true,
+  colorIdentity: true,
   setCode: true,
   setName: true,
   collectorNumber: true,

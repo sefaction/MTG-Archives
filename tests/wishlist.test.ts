@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { DeckSection, InventoryLocationKind } from "@prisma/client";
 import { buildWishlistView } from "../lib/wishlist";
@@ -11,6 +12,7 @@ function card(overrides: any = {}) {
     name: overrides.name ?? "Lightning Bolt",
     manaCost: overrides.manaCost ?? "{R}",
     typeLine: overrides.typeLine ?? "Instant",
+    colorIdentity: overrides.colorIdentity ?? ["R"],
     setCode: overrides.setCode ?? "clu",
     setName: overrides.setName ?? "Ravnica Clue Edition",
     collectorNumber: overrides.collectorNumber ?? "141",
@@ -240,4 +242,36 @@ test("inventory-aware counts separate available and committed deck copies", () =
   assert.equal(view.groups[0].inventory.available, 2);
   assert.equal(view.groups[0].inventory.committedToDecks, 1);
   assert.equal(view.summary.missingFromInventoryQuantity, 0);
+});
+
+test("wishlist page is private and renders inventory-style table shell", () => {
+  const page = readFileSync("app/wishlist/page.tsx", "utf8");
+  const table = readFileSync("components/WishlistTable.tsx", "utf8");
+  assert.match(page, /requireLogin\(\)/);
+  assert.match(page, /<WishlistTable groups=\{groups\}/);
+  assert.match(table, /<table className="w-full text-sm">/);
+  assert.match(table, /Columns/);
+});
+
+test("wishlist table defaults and row action menu are compact", () => {
+  const table = readFileSync("components/WishlistTable.tsx", "utf8");
+  for (const label of [
+    "Card Name",
+    "Wanted Qty",
+    "Owned Total",
+    "Available",
+    "Missing",
+    "Source",
+    "Decks",
+    "Price",
+    "Priority",
+    "Actions",
+  ]) {
+    assert.match(table, new RegExp(label));
+  }
+  assert.match(table, /RowActionMenu/);
+  assert.match(table, /View details/);
+  assert.match(table, /Commit available copy/);
+  assert.match(table, /Use owned printing/);
+  assert.match(table, /Use cheapest printing/);
 });
