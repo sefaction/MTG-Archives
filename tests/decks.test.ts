@@ -155,10 +155,12 @@ test("inventory awareness supports exact printing and oracle/name fallback", () 
     },
     inventory,
   );
-  assert.equal(exact.owned, 1);
-  assert.equal(exact.missing, 1);
-  assert.equal(exact.matchType, "Exact printing");
-  assert.equal(exact.locationSummary, "Box-0003");
+  assert.equal(exact.exactOwned, 1);
+  assert.equal(exact.otherOwned, 2);
+  assert.equal(exact.owned, 3);
+  assert.equal(exact.missing, 0);
+  assert.equal(exact.matchType, "Exact printing + other printings");
+  assert.equal(exact.locationSummary, "Box-0003, Binder");
 
   const fallback = summarizeDeckCardOwnership(
     { oracleId: "oracle-a", cardName: "Lightning Bolt", quantity: 2 },
@@ -167,4 +169,214 @@ test("inventory awareness supports exact printing and oracle/name fallback", () 
   assert.equal(fallback.owned, 3);
   assert.equal(fallback.missing, 0);
   assert.equal(fallback.matchType, "Oracle/name fallback");
+});
+
+import { parseDecklistText, mergeImportLines } from "../lib/deck-import";
+import {
+  orderDeckSearchResults,
+  compareCheapestPlayableCards,
+} from "../lib/deck-search";
+
+test("decklist parser handles quantities, sections, set codes, collector numbers, blanks, and malformed lines", () => {
+  const parsed = parseDecklistText(`
+Commander
+1 Atraxa, Praetors' Voice
+
+Mainboard
+4 Lightning Bolt [SLD] 123
+1 Sol Ring (CMM) 400
+// comment
+Sideboard
+Negate
+`);
+
+  assert.equal(parsed.length, 4);
+  assert.equal(parsed[0].section, DeckSection.COMMANDER);
+  assert.equal(parsed[0].quantity, 1);
+  assert.equal(parsed[0].cardName, "Atraxa, Praetors' Voice");
+  assert.equal(parsed[1].section, DeckSection.MAINBOARD);
+  assert.equal(parsed[1].quantity, 4);
+  assert.equal(parsed[1].setCode, "sld");
+  assert.equal(parsed[1].collectorNumber, "123");
+  assert.equal(parsed[2].setCode, "cmm");
+  assert.equal(parsed[2].collectorNumber, "400");
+  assert.equal(parsed[3].section, DeckSection.SIDEBOARD);
+  assert.equal(parsed[3].cardName, "Negate");
+  assert.equal(parsed[3].warning, "Missing quantity; assumed 1.");
+});
+
+test("search results order owned printings before local and Scryfall printings", () => {
+  const ordered = orderDeckSearchResults([
+    {
+      cardId: "s",
+      scryfallId: "s",
+      oracleId: null,
+      name: "Bolt",
+      manaCost: null,
+      typeLine: "Instant",
+      setCode: "sld",
+      setName: "SLD",
+      collectorNumber: "1",
+      rarity: "rare",
+      imageUri: null,
+      priceUsd: 0.1,
+      priceLabel: "$0.10",
+      ownedQuantity: 0,
+      ownedExactQuantity: 0,
+      ownedOtherPrintingQuantity: 0,
+      locationSummary: "",
+      finishes: [],
+      source: "scryfall",
+      badges: [],
+    },
+    {
+      cardId: "l",
+      scryfallId: "l",
+      oracleId: null,
+      name: "Bolt",
+      manaCost: null,
+      typeLine: "Instant",
+      setCode: "lea",
+      setName: "LEA",
+      collectorNumber: "1",
+      rarity: "common",
+      imageUri: null,
+      priceUsd: 0.2,
+      priceLabel: "$0.20",
+      ownedQuantity: 0,
+      ownedExactQuantity: 0,
+      ownedOtherPrintingQuantity: 0,
+      locationSummary: "",
+      finishes: [],
+      source: "local",
+      badges: [],
+    },
+    {
+      cardId: "o",
+      scryfallId: "o",
+      oracleId: null,
+      name: "Bolt",
+      manaCost: null,
+      typeLine: "Instant",
+      setCode: "clu",
+      setName: "CLU",
+      collectorNumber: "1",
+      rarity: "common",
+      imageUri: null,
+      priceUsd: 1.2,
+      priceLabel: "$1.20",
+      ownedQuantity: 3,
+      ownedExactQuantity: 3,
+      ownedOtherPrintingQuantity: 0,
+      locationSummary: "Box",
+      finishes: [],
+      source: "owned",
+      badges: [],
+    },
+  ]);
+
+  assert.deepEqual(
+    ordered.map((result) => result.cardId),
+    ["o", "l", "s"],
+  );
+});
+
+test("cheapest playable comparison prefers paper english priced cards", () => {
+  const base = {
+    id: "a",
+    scryfallId: "a",
+    oracleId: "oracle",
+    multiverseIds: [],
+    mtgoId: null,
+    arenaId: null,
+    name: "Test Card",
+    printedName: null,
+    lang: "en",
+    releasedAt: new Date("2024-01-01"),
+    layout: "normal",
+    highresImage: null,
+    imageStatus: null,
+    manaCost: null,
+    manaValue: 1,
+    power: null,
+    toughness: null,
+    loyalty: null,
+    defense: null,
+    colors: [],
+    colorIdentity: [],
+    colorIndicator: [],
+    typeLine: "Creature",
+    printedTypeLine: null,
+    oracleText: null,
+    printedText: null,
+    setCode: "aaa",
+    setId: null,
+    setType: "expansion",
+    keywords: [],
+    legalities: {},
+    games: ["paper"],
+    reserved: null,
+    foil: null,
+    nonfoil: true,
+    finishes: ["nonfoil"],
+    oversized: false,
+    promo: null,
+    reprint: null,
+    variation: null,
+    digital: false,
+    fullArt: null,
+    textless: null,
+    booster: null,
+    storySpotlight: null,
+    setName: "A",
+    collectorNumber: "1",
+    rarity: "common",
+    artist: null,
+    artistIds: [],
+    illustrationId: null,
+    borderColor: null,
+    frame: null,
+    frameEffects: [],
+    securityStamp: null,
+    preview: {},
+    imageUri: null,
+    imageUris: {},
+    cardFaces: [],
+    prices: { usd: "0.50" },
+    relatedUris: {},
+    purchaseUris: {},
+    scryfallUri: null,
+    apiUri: null,
+    rawScryfallJson: {},
+    scryfallFingerprint: null,
+    firstCachedAt: new Date(),
+    lastSyncedAt: null,
+    lastFetchedAt: null,
+    lastCheckedAt: null,
+    lastChangedAt: null,
+    priceLastFetchedAt: null,
+  } as any;
+  const digitalCheap = {
+    ...base,
+    id: "d",
+    digital: true,
+    games: ["arena"],
+    prices: { usd: "0.01" },
+  };
+  assert(compareCheapestPlayableCards(base, digitalCheap) < 0);
+});
+
+test("decklist commit merge helper combines duplicate card and section lines", () => {
+  assert.deepEqual(
+    mergeImportLines([
+      { cardId: "card-1", quantity: 1, section: DeckSection.MAINBOARD },
+      { cardId: "card-1", quantity: 3, section: DeckSection.MAINBOARD },
+      { cardId: "card-1", quantity: 1, section: DeckSection.SIDEBOARD },
+      { quantity: 99, section: DeckSection.MAINBOARD },
+    ]),
+    [
+      { cardId: "card-1", quantity: 4, section: DeckSection.MAINBOARD },
+      { cardId: "card-1", quantity: 1, section: DeckSection.SIDEBOARD },
+    ],
+  );
 });

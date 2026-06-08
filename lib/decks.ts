@@ -137,22 +137,36 @@ export function summarizeDeckCardOwnership(
       return true;
     return normalizeName(item.card.name) === normalizeName(deckCard.cardName);
   });
-  const matchedItems = exactItems.length > 0 ? exactItems : fallbackItems;
-  const owned = matchedItems.reduce((total, item) => total + item.quantity, 0);
+  const fallbackOnlyItems = fallbackItems.filter(
+    (item) => !deckCard.cardId || item.card.id !== deckCard.cardId,
+  );
+  const exactOwned = exactItems.reduce(
+    (total, item) => total + item.quantity,
+    0,
+  );
+  const otherOwned = fallbackOnlyItems.reduce(
+    (total, item) => total + item.quantity,
+    0,
+  );
+  const owned = exactOwned + otherOwned;
   const locations = [
     ...new Set(
-      matchedItems
+      [...exactItems, ...fallbackOnlyItems]
         .map((item) => item.location?.name)
         .filter((name): name is string => Boolean(name)),
     ),
   ];
   return {
     owned,
+    exactOwned,
+    otherOwned,
     needed: deckCard.quantity,
     missing: Math.max(0, deckCard.quantity - owned),
+    exactMissing: Math.max(0, deckCard.quantity - exactOwned),
     enoughOwned: owned >= deckCard.quantity,
-    matchType:
-      exactItems.length > 0 ? "Exact printing" : "Oracle/name fallback",
+    matchType: deckCard.cardId
+      ? "Exact printing + other printings"
+      : "Oracle/name fallback",
     locationSummary: locations.slice(0, 3).join(", "),
   };
 }

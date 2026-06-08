@@ -7,7 +7,6 @@ import { Nav } from "@/components/Nav";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { CardManaCost, SetSymbol } from "@/components/mtg/CardSymbols";
 import { getAccessScope, getCurrentUser } from "@/lib/auth";
-import { searchLocalThenScryfallCards } from "@/lib/card-import";
 import {
   canManageDeck,
   canViewDeck,
@@ -19,24 +18,22 @@ import {
 import { prisma } from "@/lib/prisma";
 import { resolveDeckVisibility, visibilityLabel } from "@/lib/visibility";
 import {
-  addDeckCard,
   deleteDeck,
   removeDeckCard,
   updateDeck,
   updateDeckCard,
 } from "../actions";
+import { DeckCardPicker } from "@/components/DeckCardPicker";
+import { DeckImportPanel } from "@/components/DeckImportPanel";
 
 export default async function DeckDetailPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ deckId: string }>;
-  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const user = await getCurrentUser();
   const scope = user ? await getAccessScope(user) : null;
   const { deckId } = await params;
-  const p = await searchParams;
   const deck = await prisma.deck.findUnique({
     where: { id: deckId },
     include: {
@@ -54,9 +51,6 @@ export default async function DeckDetailPage({
     deck.ownerUser.deckDefaultVisibility,
     deck.visibility,
   );
-  const search = (p.cardSearch || "").trim();
-  const searchResults =
-    canEdit && search ? await searchLocalThenScryfallCards(search) : null;
   const inventoryItems = user?.playerId
     ? await prisma.inventoryItem.findMany({
         where: { currentOwnerId: user.playerId, quantity: { gt: 0 } },
@@ -161,90 +155,18 @@ export default async function DeckDetailPage({
             </SubmitButton>
           </form>
 
-          <section className="space-y-3 rounded border border-zinc-800 p-4">
-            <h2 className="text-xl font-semibold">Add card</h2>
-            <form className="flex gap-2">
-              <input
-                name="cardSearch"
-                defaultValue={search}
-                placeholder="Search cached cards, then Scryfall"
-                className="flex-1 border bg-zinc-900 p-2"
-              />
-              <button className="rounded border border-zinc-700 px-3 py-2">
-                Search
-              </button>
-            </form>
-            {searchResults ? (
-              <p className="text-sm text-zinc-400">{searchResults.message}</p>
-            ) : null}
-            <form action={addDeckCard} className="grid gap-3 md:grid-cols-2">
-              <input type="hidden" name="deckId" value={deck.id} />
-              <label className="text-sm md:col-span-2">
-                Selected printing
-                <select
-                  name="scryfallId"
-                  className="mt-1 w-full border bg-zinc-900 p-2"
-                >
-                  <option value="">Generic card-name entry</option>
-                  {searchResults?.cards.slice(0, 25).map((card) => (
-                    <option key={card.id} value={card.id}>
-                      {card.name} — {card.set?.toUpperCase()} #
-                      {card.collector_number}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-sm md:col-span-2">
-                Card name for generic/fallback entry
-                <input
-                  name="cardName"
-                  defaultValue={search}
-                  className="mt-1 w-full border bg-zinc-900 p-2"
-                />
-              </label>
-              <label className="text-sm">
-                Section
-                <select
-                  name="section"
-                  defaultValue={
-                    deck.format === DeckFormat.COMMANDER
-                      ? DeckSection.COMMANDER
-                      : DeckSection.MAINBOARD
-                  }
-                  className="mt-1 w-full border bg-zinc-900 p-2"
-                >
-                  {deckSections.map((section) => (
-                    <option key={section} value={section}>
-                      {deckSectionLabel(section)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-sm">
-                Quantity
-                <input
-                  name="quantity"
-                  type="number"
-                  min={1}
-                  defaultValue={1}
-                  className="mt-1 w-full border bg-zinc-900 p-2"
-                />
-              </label>
-              <label className="text-sm md:col-span-2">
-                Notes
-                <input
-                  name="notes"
-                  className="mt-1 w-full border bg-zinc-900 p-2"
-                />
-              </label>
-              <SubmitButton
-                pendingLabel="Adding…"
-                className="rounded border border-sky-700 px-3 py-2 text-sky-100 md:col-span-2"
-              >
-                Add card
-              </SubmitButton>
-            </form>
-          </section>
+          <div className="space-y-4">
+            <DeckCardPicker
+              deckId={deck.id}
+              defaultSection={
+                deck.format === DeckFormat.COMMANDER
+                  ? DeckSection.COMMANDER
+                  : DeckSection.MAINBOARD
+              }
+              sections={deckSections}
+            />
+            <DeckImportPanel deckId={deck.id} />
+          </div>
         </section>
       ) : null}
 
@@ -326,11 +248,17 @@ export default async function DeckDetailPage({
                                   : "text-amber-200"
                               }
                             >
-                              Owned: {owned.owned} / Needed: {deckCard.quantity}
+                              Owned exact printing: {owned.exactOwned} /{" "}
+                              {deckCard.quantity}
                             </span>
                             <div>
+                              {owned.otherOwned > 0
+                                ? `Owned other printings: ${owned.otherOwned}`
+                                : "No other printings owned"}
+                            </div>
+                            <div>
                               {owned.missing > 0
-                                ? `Missing ${owned.missing}`
+                                ? `Missing: ${owned.missing}`
                                 : "Enough owned"}
                             </div>
                             {owned.locationSummary ? (

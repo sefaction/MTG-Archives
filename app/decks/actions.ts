@@ -101,6 +101,7 @@ export async function deleteDeck(fd: FormData) {
 export async function addDeckCard(fd: FormData) {
   const deckId = formString(fd, "deckId");
   await requireManagedDeck(deckId);
+  const cardId = formString(fd, "cardId");
   const scryfallId = formString(fd, "scryfallId");
   const cardName = formString(fd, "cardName");
   const section = enumValue(
@@ -111,36 +112,44 @@ export async function addDeckCard(fd: FormData) {
   const quantity = normalizePositiveQuantity(fd.get("quantity"));
   const notes = formString(fd, "notes") || null;
 
-  if (!scryfallId && !cardName)
-    throw new Error("Choose a card or enter a card name.");
+  let card = cardId
+    ? await prisma.card.findUnique({ where: { id: cardId } })
+    : null;
+  if (!card && scryfallId) {
+    const match = await findOrImportCard({
+      scryfallId,
+      name: cardName || scryfallId,
+    });
+    card = match.card;
+  }
+  if (!card)
+    throw new Error(
+      "Select a specific card printing before adding it to the deck.",
+    );
 
-  const match = scryfallId
-    ? await findOrImportCard({ scryfallId, name: cardName || scryfallId })
-    : await findOrImportCard({ name: cardName });
-
-  if (match.card) {
-    await prisma.deckCard.create({
+  const existing = await prisma.deckCard.findFirst({
+    where: { deckId, cardId: card.id, section },
+  });
+  if (existing) {
+    await prisma.deckCard.update({
+      where: { id: existing.id },
       data: {
-        deckId,
-        cardId: match.card.id,
-        scryfallId: match.card.scryfallId,
-        oracleId: match.card.oracleId,
-        cardName: match.card.name,
-        section,
-        quantity,
-        isCommander: section === DeckSection.COMMANDER,
-        notes,
+        quantity: existing.quantity + quantity,
+        notes: notes || existing.notes,
       },
     });
   } else {
     await prisma.deckCard.create({
       data: {
         deckId,
-        cardName,
+        cardId: card.id,
+        scryfallId: card.scryfallId,
+        oracleId: card.oracleId,
+        cardName: card.name,
         section,
         quantity,
         isCommander: section === DeckSection.COMMANDER,
-        notes: notes ?? match.message,
+        notes,
       },
     });
   }
@@ -173,5 +182,63 @@ export async function removeDeckCard(fd: FormData) {
   const deckCardId = formString(fd, "deckCardId");
   await requireManagedDeck(deckId);
   await prisma.deckCard.deleteMany({ where: { id: deckCardId, deckId } });
+  revalidatePath(`/decks/${deckId}`);
+}
+
+export async function commitDeckImport(fd: FormData) {
+  const deckId = formString(fd, "deckId");
+  await requireManagedDeck(deckId);
+  const mode = formString(fd, "mode") === "replace" ? "replace" : "merge";
+  const raw = formString(fd, "linesJson");
+  const parsed = JSON.parse(raw || "[]") as Array<{
+    cardId?: string;
+    quantity: number;
+    section: DeckSection;
+    notes?: string;
+  }>;
+  const lines = parsed.filter(
+    (line) =>
+      line.cardId && Number.isInteger(line.quantity) && line.quantity > 0,
+  );
+  if (lines.length === 0)
+    throw new Error("No resolved decklist lines to commit.");
+  await prisma.$transaction(async (tx) => {
+    if (mode === "replace") {
+      await tx.deckCard.deleteMany({ where: { deckId } });
+    }
+    for (const line of lines) {
+      const card = await tx.card.findUnique({
+        where: { id: line.cardId },
+        select: { id: true, name: true, scryfallId: true, oracleId: true },
+      });
+      if (!card) continue;
+      const existing = await tx.deckCard.findFirst({
+        where: { deckId, cardId: card.id, section: line.section },
+      });
+      if (existing) {
+        await tx.deckCard.update({
+          where: { id: existing.id },
+          data: {
+            quantity: existing.quantity + line.quantity,
+            notes: line.notes || existing.notes,
+          },
+        });
+      } else {
+        await tx.deckCard.create({
+          data: {
+            deckId,
+            cardId: card.id,
+            scryfallId: card.scryfallId,
+            oracleId: card.oracleId,
+            cardName: card.name,
+            section: line.section,
+            quantity: line.quantity,
+            isCommander: line.section === DeckSection.COMMANDER,
+            notes: line.notes || null,
+          },
+        });
+      }
+    }
+  });
   revalidatePath(`/decks/${deckId}`);
 }
