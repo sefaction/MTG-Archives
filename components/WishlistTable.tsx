@@ -693,7 +693,21 @@ function Metric({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-export function WishlistTable({ groups }: { groups: WishlistGroup[] }) {
+export function WishlistTable({
+  groups,
+  totalRows,
+  page,
+  pageSize,
+  viewMode,
+  query,
+}: {
+  groups: WishlistGroup[];
+  totalRows: number;
+  page: number;
+  pageSize: number;
+  viewMode: "table" | "binder";
+  query: Record<string, string | undefined>;
+}) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
     () => {
@@ -897,74 +911,187 @@ export function WishlistTable({ groups }: { groups: WishlistGroup[] }) {
     getSortedRowModel: getSortedRowModel(),
   });
 
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+  function hrefFor(next: Record<string, string | number>) {
+    const params = new URLSearchParams();
+    Object.entries(query).forEach(([key, value]) => {
+      if (value) params.set(key, value);
+    });
+    Object.entries(next).forEach(([key, value]) =>
+      params.set(key, String(value)),
+    );
+    return `/wishlist?${params.toString()}`;
+  }
+
   return (
     <section className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex gap-2">
+          <a
+            href={hrefFor({ viewMode: "table", page: 1 })}
+            className={`border px-2 py-1 ${viewMode === "table" ? "bg-zinc-800" : ""}`}
+          >
+            Table View
+          </a>
+          <a
+            href={hrefFor({ viewMode: "binder", page: 1 })}
+            className={`border px-2 py-1 ${viewMode === "binder" ? "bg-zinc-800" : ""}`}
+          >
+            Binder View
+          </a>
+        </div>
+        <p className="text-sm text-zinc-400">
+          Showing {(page - 1) * pageSize + (data.length ? 1 : 0)}–
+          {(page - 1) * pageSize + data.length} of {totalRows}
+        </p>
+      </div>
       {selectedCount > 0 ? (
         <div className="rounded border border-sky-800 bg-sky-950/30 p-3 text-sm text-sky-100">
           {selectedCount} selected · bulk actions are available when selected.
           Use row menus for commit or printing actions.
         </div>
       ) : null}
-      <details>
-        <summary className="cursor-pointer text-sm text-zinc-300">
-          Columns
-        </summary>
-        <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
-          {table.getAllLeafColumns().map((column) => (
-            <label key={column.id} className="text-sm">
-              <input
-                type="checkbox"
-                checked={column.getIsVisible()}
-                onChange={column.getToggleVisibilityHandler()}
-              />{" "}
-              {column.columnDef.header as string}
-            </label>
-          ))}
-        </div>
-      </details>
-      <div className="overflow-x-auto border border-zinc-800">
-        <table className="w-full text-sm">
-          <thead className="bg-zinc-950">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <th
-                    key={header.id}
-                    className="border-b border-zinc-800 p-2 text-left align-middle"
-                    onClick={header.column.getToggleSortingHandler()}
+      {viewMode === "table" ? (
+        <>
+          <details>
+            <summary className="cursor-pointer text-sm text-zinc-300">
+              Columns
+            </summary>
+            <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+              {table.getAllLeafColumns().map((column) => (
+                <label key={column.id} className="text-sm">
+                  <input
+                    type="checkbox"
+                    checked={column.getIsVisible()}
+                    onChange={column.getToggleVisibilityHandler()}
+                  />{" "}
+                  {column.columnDef.header as string}
+                </label>
+              ))}
+            </div>
+          </details>
+          <div className="overflow-x-auto border border-zinc-800">
+            <table className="w-full text-sm">
+              <thead className="bg-zinc-950">
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <tr key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => (
+                      <th
+                        key={header.id}
+                        className="border-b border-zinc-800 p-2 text-left align-middle"
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
+                        {flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
+                        {{ asc: " ↑", desc: " ↓" }[
+                          header.column.getIsSorted() as string
+                        ] ?? null}
+                      </th>
+                    ))}
+                  </tr>
+                ))}
+              </thead>
+              <tbody>
+                {table.getRowModel().rows.map((row) => (
+                  <tr
+                    key={getRowId(row.original)}
+                    className="border-b border-zinc-800 hover:bg-zinc-900/70"
                   >
-                    {flexRender(
-                      header.column.columnDef.header,
-                      header.getContext(),
-                    )}
-                    {{ asc: " ↑", desc: " ↓" }[
-                      header.column.getIsSorted() as string
-                    ] ?? null}
-                  </th>
+                    {row.getVisibleCells().map((cell) => (
+                      <td key={cell.id} className="p-2 align-middle">
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </td>
+                    ))}
+                  </tr>
                 ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            {table.getRowModel().rows.map((row) => (
-              <tr
-                key={getRowId(row.original)}
-                className="border-b border-zinc-800 hover:bg-zinc-900/70"
+              </tbody>
+            </table>
+            {data.length === 0 ? (
+              <p className="p-6 text-zinc-400">
+                No wishlist needs match this view.
+              </p>
+            ) : null}
+          </div>
+        </>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+          {data.map((row) => (
+            <article
+              key={getRowId(row)}
+              className="relative rounded border border-zinc-800 bg-zinc-950 p-3 hover:bg-zinc-900/70"
+            >
+              <div className="absolute right-2 top-2">
+                <RowActionMenu row={row} onDetails={() => setDetailRow(row)} />
+              </div>
+              <button
+                type="button"
+                onClick={() => setDetailRow(row)}
+                className="block w-full text-left"
               >
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="p-2 align-middle">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {data.length === 0 ? (
-          <p className="p-6 text-zinc-400">
-            No wishlist needs match this view.
-          </p>
-        ) : null}
+                {row.card.imageUri ? (
+                  <img
+                    src={row.card.imageUri}
+                    alt={row.card.name}
+                    loading="lazy"
+                    decoding="async"
+                    className="mb-3 w-full rounded"
+                  />
+                ) : (
+                  <div className="mb-3 flex aspect-[63/88] items-center justify-center rounded bg-zinc-900 text-sm text-zinc-400">
+                    No image
+                  </div>
+                )}
+                <h3 className="font-semibold text-sky-100">{row.card.name}</h3>
+                <p className="text-sm text-zinc-400">{row.card.typeLine}</p>
+                <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                  <Metric label="Wanted" value={row.totalWanted} />
+                  <Metric label="Missing" value={row.missingQuantity} />
+                  <Metric label="Owned" value={row.inventory.ownedTotal} />
+                  <Metric label="Available" value={row.inventory.available} />
+                </div>
+                <div className="mt-2 flex items-center justify-between text-sm">
+                  <span className="rounded-full border border-zinc-700 px-2 py-0.5">
+                    {row.sourceLabel}
+                  </span>
+                  <span>{row.priceLabel}</span>
+                </div>
+              </button>
+            </article>
+          ))}
+          {data.length === 0 ? (
+            <p className="rounded border border-zinc-800 p-6 text-zinc-400 sm:col-span-2 lg:col-span-4">
+              No wishlist needs match this view.
+            </p>
+          ) : null}
+        </div>
+      )}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded border border-zinc-800 p-3 text-sm">
+        <span>
+          Page {page} of {totalPages}
+        </span>
+        <div className="flex gap-2">
+          <a
+            href={hrefFor({ page: Math.max(1, page - 1) })}
+            className={`rounded border px-3 py-1 ${page <= 1 ? "pointer-events-none opacity-50" : ""}`}
+          >
+            Previous
+          </a>
+          <a
+            href={hrefFor({ page: Math.min(totalPages, page + 1) })}
+            className={`rounded border px-3 py-1 ${page >= totalPages ? "pointer-events-none opacity-50" : ""}`}
+          >
+            Next
+          </a>
+        </div>
+      </div>
+      <div className="rounded border border-dashed border-zinc-800 p-3 text-sm text-zinc-500">
+        Infinite scroll sentinel: paginated mode is active; use Next to load the
+        next wishlist page without duplicate rows.
       </div>
       {detailRow ? (
         <WishlistDetailDrawer

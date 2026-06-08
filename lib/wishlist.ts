@@ -14,7 +14,9 @@ export type WishlistCardSummary = Pick<
   | "oracleId"
   | "name"
   | "manaCost"
+  | "manaValue"
   | "typeLine"
+  | "oracleText"
   | "colorIdentity"
   | "setCode"
   | "setName"
@@ -432,7 +434,9 @@ const cardSelect = {
   oracleId: true,
   name: true,
   manaCost: true,
+  manaValue: true,
   typeLine: true,
+  oracleText: true,
   colorIdentity: true,
   setCode: true,
   setName: true,

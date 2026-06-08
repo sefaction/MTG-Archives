@@ -11,6 +11,8 @@ function card(overrides: any = {}) {
     oracleId: overrides.oracleId ?? "oracle-a",
     name: overrides.name ?? "Lightning Bolt",
     manaCost: overrides.manaCost ?? "{R}",
+    manaValue: overrides.manaValue ?? 1,
+    oracleText: overrides.oracleText ?? "Deal 3 damage to any target.",
     typeLine: overrides.typeLine ?? "Instant",
     colorIdentity: overrides.colorIdentity ?? ["R"],
     setCode: overrides.setCode ?? "clu",
@@ -248,7 +250,7 @@ test("wishlist page is private and renders inventory-style table shell", () => {
   const page = readFileSync("app/wishlist/page.tsx", "utf8");
   const table = readFileSync("components/WishlistTable.tsx", "utf8");
   assert.match(page, /requireLogin\(\)/);
-  assert.match(page, /<WishlistTable groups=\{groups\}/);
+  assert.match(page, /<WishlistTable\s+groups=\{pageGroups\}/);
   assert.match(table, /<table className="w-full text-sm">/);
   assert.match(table, /Columns/);
 });
@@ -303,5 +305,28 @@ test("wishlist drawer contains granular editing and manipulation sections", () =
     "Change wishlist printing",
   ]) {
     assert.match(drawer, new RegExp(label));
+  }
+});
+
+test("wishlist page includes inventory-style view, advanced filter, sort, and paging controls", () => {
+  const page = readFileSync("app/wishlist/page.tsx", "utf8");
+  const table = readFileSync("components/WishlistTable.tsx", "utf8");
+  assert.match(table, /Table View/);
+  assert.match(table, /Binder View/);
+  assert.match(table, /loading="lazy"/);
+  assert.match(table, /Previous/);
+  assert.match(table, /Next/);
+  assert.match(table, /Infinite scroll sentinel/);
+  assert.match(page, /Advanced Filters/);
+  assert.match(page, /Clear Filters/);
+  assert.match(page, /pageSize/);
+  for (const filter of [
+    "Owned status",
+    "Color identity",
+    "Mana min",
+    "Price max",
+    "Available to commit",
+  ]) {
+    assert.match(page, new RegExp(filter));
   }
 });
