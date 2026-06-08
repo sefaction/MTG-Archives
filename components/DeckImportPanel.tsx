@@ -51,13 +51,26 @@ function summarize(
   const unresolved = lines.filter((line) => !line.selectedCardId);
   const excluded = lines.filter((line) => !line.included);
   const ready = lines.filter((line) => line.included && line.selectedCardId);
+  const sectionTotals = deckSections.reduce(
+    (totals, section) => ({
+      ...totals,
+      [section]: lines
+        .filter((line) => line.section === section)
+        .reduce((total, line) => total + lineQuantity(line), 0),
+    }),
+    {} as Record<DeckSection, number>,
+  );
   return {
     totalPastedLines: lines.length + skipped.length,
     parsedCardLines: lines.length,
-    totalCardQuantityParsed: lines.reduce(
-      (total, line) => total + lineQuantity(line),
-      0,
-    ),
+    totalCardQuantityParsed: lines
+      .filter(
+        (line) =>
+          line.section !== DeckSection.SIDEBOARD &&
+          line.section !== DeckSection.MAYBEBOARD,
+      )
+      .reduce((total, line) => total + lineQuantity(line), 0),
+    sectionTotals,
     resolved: resolved.length,
     resolvedTotalQuantity: resolved.reduce(
       (total, line) => total + lineQuantity(line),
@@ -180,7 +193,7 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
       <h2 className="text-xl font-semibold">Paste decklist</h2>
       <p className="text-sm text-zinc-400">
         Every non-comment pasted line is kept visible in review. Resolve or
-        exclude problem rows before committing.
+        exclude problem lines before committing.
       </p>
       <textarea
         value={text}
@@ -210,22 +223,28 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
       {lines.length || skippedLines.length ? (
         <div className="space-y-3">
           <div className="grid gap-2 text-xs text-zinc-300 md:grid-cols-6">
-            <span>Total lines: {summary.totalPastedLines}</span>
-            <span>Card rows: {summary.parsedCardLines}</span>
-            <span>Total cards parsed: {summary.totalCardQuantityParsed}</span>
-            <span>Resolved rows: {summary.resolved}</span>
-            <span>Resolved cards: {summary.resolvedTotalQuantity}</span>
+            <span>Parsed lines: {summary.parsedCardLines}</span>
+            <span>Total cards: {summary.totalCardQuantityParsed}</span>
+            <span>Commander: {summary.sectionTotals.COMMANDER}</span>
+            <span>Mainboard: {summary.sectionTotals.MAINBOARD}</span>
+            {summary.sectionTotals.SIDEBOARD > 0 ? (
+              <span>Sideboard: {summary.sectionTotals.SIDEBOARD}</span>
+            ) : null}
+            {summary.sectionTotals.MAYBEBOARD > 0 ? (
+              <span>Maybeboard: {summary.sectionTotals.MAYBEBOARD}</span>
+            ) : null}
+            <span>Resolved: {summary.resolved}</span>
+            <span>Needs review: {summary.needsReview}</span>
+            <span>Not found: {summary.notFound}</span>
             <span>Owned: {summary.ownedMatches}</span>
             <span>Cheapest: {summary.cheapestSelections}</span>
             <span>Manual: {summary.manualSelections}</span>
-            <span>Needs review: {summary.needsReview}</span>
             <span>Unresolved cards: {summary.unresolvedTotalQuantity}</span>
-            <span>Not found: {summary.notFound}</span>
             <span>Parse errors: {summary.parseErrors}</span>
             <span>Warnings: {summary.warnings}</span>
-            <span>Excluded rows: {summary.excluded}</span>
+            <span>Excluded lines: {summary.excluded}</span>
             <span>Excluded cards: {summary.excludedTotalQuantity}</span>
-            <span>Ready rows: {summary.readyToCommit}</span>
+            <span>Ready lines: {summary.readyToCommit}</span>
             <span>Ready cards: {summary.readyToCommitTotalQuantity}</span>
           </div>
           {summary.unresolvedIncluded > 0 ? (
@@ -317,7 +336,7 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
               }
               className="rounded border border-sky-700 px-3 py-2 text-sky-100"
             >
-              Commit {summary.readyToCommit} resolved rows
+              Commit {summary.readyToCommit} resolved lines
             </SubmitButton>
             {commitError ? (
               <span className="text-sm text-red-300">{commitError}</span>

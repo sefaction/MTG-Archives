@@ -25,7 +25,7 @@ export async function POST(
     : null;
   if (!rowIds.length || !section) {
     return Response.json(
-      { error: "Select deck rows and a destination section." },
+      { error: "Select deck entries and a destination section." },
       { status: 400 },
     );
   }

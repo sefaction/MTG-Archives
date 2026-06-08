@@ -10,14 +10,13 @@ import {
   canManageDeck,
   canViewDeck,
   deckFormatLabel,
-  deckSectionLabel,
   deckSections,
-  deckRowCount,
   deckSectionQuantityTotals,
   deckTotalQuantity,
   summarizeDeckCardOwnership,
   summarizeDeckOwnershipTotals,
 } from "@/lib/decks";
+import { cardPriceNumber } from "@/lib/deck-view";
 import { prisma } from "@/lib/prisma";
 import { resolveDeckVisibility, visibilityLabel } from "@/lib/visibility";
 import { deleteDeck, updateDeck } from "../actions";
@@ -61,6 +60,31 @@ export default async function DeckDetailPage({
     deck.cards,
     inventoryItems,
   );
+  const pricedCards = deck.cards
+    .filter((deckCard) => deckCard.section !== DeckSection.MAYBEBOARD)
+    .map((deckCard) => {
+      const price = cardPriceNumber(deckCard.card?.prices);
+      return price == null ? null : price * deckCard.quantity;
+    })
+    .filter((price): price is number => price !== null);
+  const estimatedPrice = pricedCards.length
+    ? pricedCards.reduce((total, price) => total + price, 0)
+    : null;
+  const manaValueCards = deck.cards.filter(
+    (deckCard) =>
+      deckCard.section !== DeckSection.MAYBEBOARD &&
+      typeof deckCard.card?.manaValue === "number",
+  );
+  const averageManaValue = manaValueCards.length
+    ? manaValueCards.reduce(
+        (total, deckCard) =>
+          total + (deckCard.card?.manaValue ?? 0) * deckCard.quantity,
+        0,
+      ) /
+      manaValueCards.reduce((total, deckCard) => total + deckCard.quantity, 0)
+    : null;
+  const usesCommander =
+    deck.format === DeckFormat.COMMANDER || sectionTotals.COMMANDER > 0;
   const editorRows = deck.cards.map((deckCard) => {
     const owned = summarizeDeckCardOwnership(deckCard, inventoryItems);
     return {
@@ -195,38 +219,64 @@ export default async function DeckDetailPage({
             {deckTotalQuantity(deck.cards)}
           </div>
         </div>
-        <div>
-          <span className="text-zinc-400">Deck rows</span>
-          <div className="text-xl font-semibold">
-            {deckRowCount(deck.cards)}
+        {usesCommander ? (
+          <div>
+            <span className="text-zinc-400">Commander</span>
+            <div className="text-xl font-semibold">
+              {sectionTotals.COMMANDER}
+            </div>
           </div>
-        </div>
+        ) : null}
         <div>
-          <span className="text-zinc-400">Owned exact</span>
-          <div className="text-xl font-semibold text-emerald-300">
-            {ownershipTotals.exactOwned}
+          <span className="text-zinc-400">Mainboard</span>
+          <div className="text-xl font-semibold">{sectionTotals.MAINBOARD}</div>
+        </div>
+        {sectionTotals.SIDEBOARD > 0 ? (
+          <div>
+            <span className="text-zinc-400">Sideboard</span>
+            <div className="text-xl font-semibold">
+              {sectionTotals.SIDEBOARD}
+            </div>
           </div>
-        </div>
+        ) : null}
+        {sectionTotals.MAYBEBOARD > 0 ? (
+          <div>
+            <span className="text-zinc-400">Maybeboard</span>
+            <div className="text-xl font-semibold">
+              {sectionTotals.MAYBEBOARD}
+            </div>
+          </div>
+        ) : null}
         <div>
-          <span className="text-zinc-400">Missing</span>
+          <span className="text-zinc-400">Missing cards</span>
           <div className="text-xl font-semibold text-amber-200">
             {ownershipTotals.missing}
           </div>
         </div>
-        {deckSections.map((section) => (
-          <div key={section}>
-            <span className="text-zinc-400">
-              {deckSectionLabel(section)} cards
-            </span>
-            <div className="font-semibold">{sectionTotals[section]}</div>
+        <div>
+          <span className="text-zinc-400">Owned exact</span>
+          <div className="font-semibold text-emerald-300">
+            {ownershipTotals.exactOwned}
           </div>
-        ))}
+        </div>
         <div>
           <span className="text-zinc-400">Owned other printing</span>
           <div className="font-semibold text-sky-200">
             {ownershipTotals.otherOwned}
           </div>
         </div>
+        {estimatedPrice != null ? (
+          <div>
+            <span className="text-zinc-400">Estimated price</span>
+            <div className="font-semibold">${estimatedPrice.toFixed(2)}</div>
+          </div>
+        ) : null}
+        {averageManaValue != null ? (
+          <div>
+            <span className="text-zinc-400">Average mana value</span>
+            <div className="font-semibold">{averageManaValue.toFixed(2)}</div>
+          </div>
+        ) : null}
       </section>
 
       {canEdit ? (

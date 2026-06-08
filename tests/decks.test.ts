@@ -12,6 +12,7 @@ import {
   deckCardCount,
   deckRowCount,
   deckSectionQuantityTotals,
+  deckSectionSummaryParts,
   deckTotalQuantity,
   normalizePositiveQuantity,
   publicDeckWhere,
@@ -122,14 +123,14 @@ test("public deck where includes public and inherited-public decks only", () => 
   });
 });
 
-test("deck card counts exclude maybeboard quantities", () => {
+test("deck card counts exclude sideboard and maybeboard quantities", () => {
   assert.equal(
     deckCardCount([
       { quantity: 60, section: DeckSection.MAINBOARD },
       { quantity: 15, section: DeckSection.SIDEBOARD },
       { quantity: 4, section: DeckSection.MAYBEBOARD },
     ]),
-    75,
+    60,
   );
 });
 
@@ -449,8 +450,15 @@ test("deck totals sum quantities separately from row counts", () => {
     { quantity: 15, section: DeckSection.SIDEBOARD },
     { quantity: 7, section: DeckSection.MAYBEBOARD },
   ];
-  assert.equal(deckTotalQuantity(cards), 76);
+  assert.equal(deckTotalQuantity(cards), 61);
   assert.equal(deckRowCount(cards), 3);
+  assert.deepEqual(deckSectionSummaryParts(cards), [
+    "61 total cards",
+    "1 commander",
+    "60 mainboard",
+    "15 sideboard",
+    "7 maybeboard",
+  ]);
   const sections = deckSectionQuantityTotals(cards);
   assert.equal(sections.COMMANDER, 1);
   assert.equal(sections.MAINBOARD, 60);

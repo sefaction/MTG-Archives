@@ -300,7 +300,7 @@ export function DeckListEditor({
     if (!rowIds.length || !canEdit) return;
     if (
       !window.confirm(
-        `Remove ${rowIds.length} deck rows (${selectedQuantity} total cards) from this deck? Inventory will not be modified.`,
+        `Remove ${rowIds.length} deck entries (${selectedQuantity} total cards) from this deck? Inventory will not be modified.`,
       )
     )
       return;
