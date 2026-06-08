@@ -18,7 +18,10 @@ import {
   summarizeDeckCardOwnership,
   summarizeDeckOwnershipTotals,
 } from "../lib/decks";
-import { mergeDeckOptimizationRowsForTest } from "../lib/deck-optimization";
+import {
+  mergeDeckOptimizationRowsForTest,
+  mergeDeckSectionMoveRowsForTest,
+} from "../lib/deck-optimization";
 import { resolveAccessScope } from "../lib/auth";
 import { resolveDeckVisibility } from "../lib/visibility";
 
@@ -554,6 +557,36 @@ test("bulk optimization merge helper preserves quantity when proposed printing m
       cardId: "printing-b",
       section: DeckSection.MAINBOARD,
       quantity: 2,
+    },
+  ]);
+});
+
+test("bulk section move merge helper preserves quantity and target section", () => {
+  const result = mergeDeckSectionMoveRowsForTest(
+    [
+      {
+        id: "row-a",
+        cardId: "printing-a",
+        section: DeckSection.SIDEBOARD,
+        quantity: 2,
+        notes: "move me",
+      },
+      {
+        id: "row-b",
+        cardId: "printing-a",
+        section: DeckSection.MAINBOARD,
+        quantity: 3,
+      },
+    ],
+    { ids: ["row-a"], section: DeckSection.MAINBOARD },
+  );
+  assert.equal(result.merged, 1);
+  assert.deepEqual(result.rows, [
+    {
+      id: "row-b",
+      cardId: "printing-a",
+      section: DeckSection.MAINBOARD,
+      quantity: 5,
     },
   ]);
 });

@@ -165,14 +165,45 @@ export async function updateDeckCard(fd: FormData) {
     formString(fd, "section"),
     DeckSection.MAINBOARD,
   );
-  await prisma.deckCard.updateMany({
-    where: { id: deckCardId, deckId },
-    data: {
-      quantity: normalizePositiveQuantity(fd.get("quantity")),
-      section,
-      isCommander: section === DeckSection.COMMANDER,
-      notes: formString(fd, "notes") || null,
-    },
+  const quantity = normalizePositiveQuantity(fd.get("quantity"));
+  const notes = formString(fd, "notes") || null;
+  await prisma.$transaction(async (tx) => {
+    const deckCard = await tx.deckCard.findFirst({
+      where: { id: deckCardId, deckId },
+    });
+    if (!deckCard) throw new Error("Deck card not found.");
+    const duplicate = deckCard.cardId
+      ? await tx.deckCard.findFirst({
+          where: {
+            deckId,
+            cardId: deckCard.cardId,
+            section,
+            id: { not: deckCard.id },
+          },
+        })
+      : null;
+    if (duplicate) {
+      await tx.deckCard.update({
+        where: { id: duplicate.id },
+        data: {
+          quantity: duplicate.quantity + quantity,
+          notes: notes || duplicate.notes,
+          isCommander:
+            duplicate.isCommander || section === DeckSection.COMMANDER,
+        },
+      });
+      await tx.deckCard.delete({ where: { id: deckCard.id } });
+    } else {
+      await tx.deckCard.update({
+        where: { id: deckCard.id },
+        data: {
+          quantity,
+          section,
+          isCommander: section === DeckSection.COMMANDER,
+          notes,
+        },
+      });
+    }
   });
   revalidatePath(`/decks/${deckId}`);
 }

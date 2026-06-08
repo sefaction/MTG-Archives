@@ -404,3 +404,37 @@ export function mergeDeckOptimizationRowsForTest(
   output.push({ ...changed, cardId: change.proposedCardId });
   return { rows: output, merged: 0 };
 }
+
+export function mergeDeckSectionMoveRowsForTest(
+  rows: Array<{
+    id: string;
+    cardId: string | null;
+    section: DeckSection;
+    quantity: number;
+    notes?: string | null;
+  }>,
+  change: { ids: string[]; section: DeckSection },
+) {
+  let merged = 0;
+  const output = rows.map((row) => ({ ...row }));
+  for (const id of change.ids) {
+    const current = output.find((row) => row.id === id);
+    if (!current || current.section === change.section) continue;
+    const duplicate = current.cardId
+      ? output.find(
+          (row) =>
+            row.id !== current.id &&
+            row.cardId === current.cardId &&
+            row.section === change.section,
+        )
+      : null;
+    if (duplicate) {
+      duplicate.quantity += current.quantity;
+      output.splice(output.indexOf(current), 1);
+      merged += 1;
+    } else {
+      current.section = change.section;
+    }
+  }
+  return { rows: output, merged };
+}

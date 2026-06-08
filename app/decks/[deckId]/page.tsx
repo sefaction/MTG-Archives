@@ -5,7 +5,6 @@ import { notFound } from "next/navigation";
 import { DeckFormat, DeckSection, Visibility } from "@prisma/client";
 import { Nav } from "@/components/Nav";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
-import { CardManaCost, SetSymbol } from "@/components/mtg/CardSymbols";
 import { getAccessScope, getCurrentUser } from "@/lib/auth";
 import {
   canManageDeck,
@@ -21,15 +20,10 @@ import {
 } from "@/lib/decks";
 import { prisma } from "@/lib/prisma";
 import { resolveDeckVisibility, visibilityLabel } from "@/lib/visibility";
-import {
-  deleteDeck,
-  removeDeckCard,
-  updateDeck,
-  updateDeckCard,
-} from "../actions";
+import { deleteDeck, updateDeck } from "../actions";
 import { DeckCardPicker } from "@/components/DeckCardPicker";
 import { DeckImportPanel } from "@/components/DeckImportPanel";
-import { DeckBulkActions } from "@/components/DeckBulkActions";
+import { DeckListEditor } from "@/components/DeckListEditor";
 
 export default async function DeckDetailPage({
   params,
@@ -67,16 +61,37 @@ export default async function DeckDetailPage({
     deck.cards,
     inventoryItems,
   );
-  const bulkRows = deck.cards.map((deckCard) => {
+  const editorRows = deck.cards.map((deckCard) => {
     const owned = summarizeDeckCardOwnership(deckCard, inventoryItems);
     return {
       id: deckCard.id,
       cardName: deckCard.cardName,
       section: deckCard.section,
       quantity: deckCard.quantity,
+      notes: deckCard.notes,
+      isCommander: deckCard.isCommander,
       exactOwned: owned.exactOwned,
       otherOwned: owned.otherOwned,
       missing: owned.missing,
+      enoughOwned: owned.enoughOwned,
+      matchType: owned.matchType,
+      locationSummary: owned.locationSummary,
+      card: deckCard.card
+        ? {
+            id: deckCard.card.id,
+            name: deckCard.card.name,
+            manaCost: deckCard.card.manaCost,
+            manaFaces: null,
+            cardFaces: deckCard.card.cardFaces,
+            layout: deckCard.card.layout,
+            typeLine: deckCard.card.typeLine,
+            setCode: deckCard.card.setCode,
+            setName: deckCard.card.setName,
+            collectorNumber: deckCard.card.collectorNumber,
+            rarity: deckCard.card.rarity,
+            prices: deckCard.card.prices,
+          }
+        : null,
     };
   });
 
@@ -233,203 +248,12 @@ export default async function DeckDetailPage({
         </section>
       ) : null}
 
-      {canEdit ? <DeckBulkActions deckId={deck.id} rows={bulkRows} /> : null}
-
-      <section className="space-y-6">
-        {deckSections.map((section) => {
-          const cards = deck.cards.filter((card) => card.section === section);
-          if (
-            cards.length === 0 &&
-            section === DeckSection.COMMANDER &&
-            deck.format !== DeckFormat.COMMANDER
-          )
-            return null;
-          return (
-            <div key={section} className="rounded border border-zinc-800">
-              <h2 className="border-b border-zinc-800 bg-zinc-900 p-3 text-xl font-semibold">
-                {deckSectionLabel(section)}
-              </h2>
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="text-left text-zinc-300">
-                    <tr>
-                      <th className="p-3">Qty</th>
-                      <th className="p-3">Card</th>
-                      <th className="p-3">Mana</th>
-                      <th className="p-3">Set</th>
-                      <th className="p-3">Type</th>
-                      <th className="p-3">Owned</th>
-                      <th className="p-3">Notes / Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cards.map((deckCard) => {
-                      const owned = summarizeDeckCardOwnership(
-                        deckCard,
-                        inventoryItems,
-                      );
-                      return (
-                        <tr
-                          key={deckCard.id}
-                          className="border-t border-zinc-800 align-top"
-                        >
-                          <td className="p-3 font-semibold">
-                            {deckCard.quantity}
-                          </td>
-                          <td className="p-3">
-                            {deckCard.cardName}
-                            <div className="text-xs text-zinc-500">
-                              {owned.matchType}
-                            </div>
-                          </td>
-                          <td className="p-3">
-                            {deckCard.card ? (
-                              <CardManaCost card={deckCard.card} />
-                            ) : (
-                              <span className="text-zinc-500">-</span>
-                            )}
-                          </td>
-                          <td className="p-3">
-                            {deckCard.card ? (
-                              <SetSymbol
-                                setCode={deckCard.card.setCode}
-                                setName={deckCard.card.setName}
-                                rarity={deckCard.card.rarity}
-                              />
-                            ) : (
-                              <span className="text-zinc-500">Generic</span>
-                            )}
-                          </td>
-                          <td className="p-3">
-                            {deckCard.card?.typeLine ?? (
-                              <span className="text-zinc-500">Unresolved</span>
-                            )}
-                          </td>
-                          <td className="p-3">
-                            <span
-                              className={
-                                owned.enoughOwned
-                                  ? "text-emerald-300"
-                                  : "text-amber-200"
-                              }
-                            >
-                              Owned exact printing: {owned.exactOwned} /{" "}
-                              {deckCard.quantity}
-                            </span>
-                            <div>
-                              {owned.otherOwned > 0
-                                ? `Owned other printings: ${owned.otherOwned}`
-                                : "No other printings owned"}
-                            </div>
-                            <div>
-                              {owned.missing > 0
-                                ? `Missing: ${owned.missing}`
-                                : "Enough owned"}
-                            </div>
-                            {owned.locationSummary ? (
-                              <div className="text-xs text-zinc-400">
-                                Owned in {owned.locationSummary}
-                              </div>
-                            ) : null}
-                          </td>
-                          <td className="p-3">
-                            {canEdit ? (
-                              <div className="space-y-2">
-                                <form
-                                  action={updateDeckCard}
-                                  className="flex flex-wrap items-end gap-2"
-                                >
-                                  <input
-                                    type="hidden"
-                                    name="deckId"
-                                    value={deck.id}
-                                  />
-                                  <input
-                                    type="hidden"
-                                    name="deckCardId"
-                                    value={deckCard.id}
-                                  />
-                                  <label className="text-xs">
-                                    Qty
-                                    <input
-                                      name="quantity"
-                                      type="number"
-                                      min={1}
-                                      defaultValue={deckCard.quantity}
-                                      className="mt-1 w-20 border bg-zinc-900 p-1"
-                                    />
-                                  </label>
-                                  <label className="text-xs">
-                                    Section
-                                    <select
-                                      name="section"
-                                      defaultValue={deckCard.section}
-                                      className="mt-1 border bg-zinc-900 p-1"
-                                    >
-                                      {deckSections.map((s) => (
-                                        <option key={s} value={s}>
-                                          {deckSectionLabel(s)}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </label>
-                                  <label className="text-xs">
-                                    Notes
-                                    <input
-                                      name="notes"
-                                      defaultValue={deckCard.notes ?? ""}
-                                      className="mt-1 border bg-zinc-900 p-1"
-                                    />
-                                  </label>
-                                  <SubmitButton
-                                    pendingLabel="Saving…"
-                                    className="rounded border border-zinc-700 px-2 py-1"
-                                    minWidthClassName="min-w-16"
-                                  >
-                                    Save
-                                  </SubmitButton>
-                                </form>
-                                <form action={removeDeckCard}>
-                                  <input
-                                    type="hidden"
-                                    name="deckId"
-                                    value={deck.id}
-                                  />
-                                  <input
-                                    type="hidden"
-                                    name="deckCardId"
-                                    value={deckCard.id}
-                                  />
-                                  <SubmitButton
-                                    pendingLabel="Removing…"
-                                    className="rounded border border-red-800 px-2 py-1 text-red-200"
-                                    minWidthClassName="min-w-20"
-                                  >
-                                    Remove
-                                  </SubmitButton>
-                                </form>
-                              </div>
-                            ) : (
-                              (deckCard.notes ?? "")
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {cards.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="p-4 text-zinc-500">
-                          No cards in this section.
-                        </td>
-                      </tr>
-                    ) : null}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          );
-        })}
-      </section>
+      <DeckListEditor
+        deckId={deck.id}
+        rows={editorRows}
+        sections={deckSections}
+        canEdit={canEdit}
+      />
     </main>
   );
 }
