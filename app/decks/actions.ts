@@ -11,6 +11,12 @@ import {
 import { getAccessScope, requireLogin } from "@/lib/auth";
 import { findOrImportCard } from "@/lib/card-import";
 import { prisma } from "@/lib/prisma";
+import {
+  inventoryAuditAction,
+  recordInventoryAudit,
+  recordInventoryAuditMany,
+  type InventoryAuditCreateManyEntry,
+} from "@/lib/inventory-audit";
 import { canManageDeck, normalizePositiveQuantity } from "@/lib/decks";
 import {
   auditDeckMoveSnapshot,
@@ -331,34 +337,31 @@ export async function commitDeckCardToDeck(fd: FormData) {
       toLocationId: deckLocation.id,
       quantity,
     });
-    await tx.inventoryAuditLog.create({
-      data: {
-        inventoryItemId: move.destinationInventoryItemId,
-        changedByUserId: user.id,
-        changeType: "commit_to_deck",
-        beforeJson: auditDeckMoveSnapshot(beforeSource, {
-          deckId: deck.id,
-          deckName: deck.name,
-          sourceLocationId: beforeSource.locationId,
-          sourceLocationName: source.location?.name ?? "Unassigned",
-          destinationLocationId: deckLocation.id,
-          destinationLocationName: deckLocation.name,
-          quantityMoved: quantity,
-        }),
-        afterJson: auditDeckMoveSnapshot(
-          { ...beforeSource, locationId: deckLocation.id, quantity },
-          {
-            deckId: deck.id,
-            deckName: deck.name,
-            sourceLocationId: beforeSource.locationId,
-            sourceLocationName: source.location?.name ?? "Unassigned",
-            destinationLocationId: deckLocation.id,
-            destinationLocationName: deckLocation.name,
-            quantityMoved: quantity,
-          },
-        ),
-        reason: `Committed ${quantity} ${source.card.name} to ${deck.name}.`,
-      },
+    const metadata = deckMoveAuditMetadata({
+      deckId: deck.id,
+      deckName: deck.name,
+      cardName: source.card.name,
+      sourceLocationId: beforeSource.locationId,
+      sourceLocationName: source.location?.name ?? "Unassigned",
+      destinationLocationId: deckLocation.id,
+      destinationLocationName: deckLocation.name,
+      quantityMoved: quantity,
+      beforeSourceQuantity: beforeSource.quantity,
+      afterSourceQuantity: move.sourceAfterQuantity,
+      beforeDestinationQuantity: move.destinationBeforeQuantity,
+      afterDestinationQuantity: move.destinationAfterQuantity,
+    });
+    await recordInventoryAudit({
+      tx,
+      inventoryItemId: move.auditInventoryItemId,
+      actingUserId: user.id,
+      action: inventoryAuditAction.committedToDeck,
+      before: auditDeckMoveSnapshot(beforeSource, metadata),
+      after: auditDeckMoveSnapshot(
+        { ...beforeSource, locationId: deckLocation.id, quantity },
+        metadata,
+      ),
+      reason: `Committed ${quantity} ${source.card.name} to ${deck.name}.`,
     });
   });
   revalidatePath(`/decks/${deckId}`);
@@ -389,6 +392,7 @@ export async function bulkCommitDeckCardsToDeck(fd: FormData) {
 
   await prisma.$transaction(async (tx) => {
     const deckLocation = await ensureDeckLocation(tx, deck);
+    const auditLogs: InventoryAuditCreateManyEntry[] = [];
     for (const moveInput of validMoves) {
       const quantity = Math.min(999, Number(moveInput.quantity));
       const [deckCard, source] = await Promise.all([
@@ -449,40 +453,37 @@ export async function bulkCommitDeckCardsToDeck(fd: FormData) {
         toLocationId: deckLocation.id,
         quantity: quantityToMove,
       });
-      await tx.inventoryAuditLog.create({
-        data: {
-          inventoryItemId: move.destinationInventoryItemId,
-          changedByUserId: user.id,
-          changeType: "bulk_commit_to_deck",
-          beforeJson: auditDeckMoveSnapshot(source, {
-            deckId: deck.id,
-            deckName: deck.name,
-            sourceLocationId: source.locationId,
-            sourceLocationName: source.location?.name ?? "Unassigned",
-            destinationLocationId: deckLocation.id,
-            destinationLocationName: deckLocation.name,
-            quantityMoved: quantityToMove,
-          }),
-          afterJson: auditDeckMoveSnapshot(
-            {
-              ...source,
-              locationId: deckLocation.id,
-              quantity: quantityToMove,
-            },
-            {
-              deckId: deck.id,
-              deckName: deck.name,
-              sourceLocationId: source.locationId,
-              sourceLocationName: source.location?.name ?? "Unassigned",
-              destinationLocationId: deckLocation.id,
-              destinationLocationName: deckLocation.name,
-              quantityMoved: quantityToMove,
-            },
-          ),
-          reason: `Bulk committed ${quantityToMove} ${source.card.name} to ${deck.name}.`,
-        },
+      const metadata = deckMoveAuditMetadata({
+        deckId: deck.id,
+        deckName: deck.name,
+        cardName: source.card.name,
+        sourceLocationId: source.locationId,
+        sourceLocationName: source.location?.name ?? "Unassigned",
+        destinationLocationId: deckLocation.id,
+        destinationLocationName: deckLocation.name,
+        quantityMoved: quantityToMove,
+        beforeSourceQuantity: source.quantity,
+        afterSourceQuantity: move.sourceAfterQuantity,
+        beforeDestinationQuantity: move.destinationBeforeQuantity,
+        afterDestinationQuantity: move.destinationAfterQuantity,
+      });
+      auditLogs.push({
+        inventoryItemId: move.auditInventoryItemId,
+        changedByUserId: user.id,
+        changeType: inventoryAuditAction.bulkCommittedToDeck,
+        beforeJson: auditDeckMoveSnapshot(source, metadata),
+        afterJson: auditDeckMoveSnapshot(
+          {
+            ...source,
+            locationId: deckLocation.id,
+            quantity: quantityToMove,
+          },
+          metadata,
+        ),
+        reason: `Bulk committed ${quantityToMove} ${source.card.name} to ${deck.name}.`,
       });
     }
+    await recordInventoryAuditMany({ tx, entries: auditLogs });
   });
   revalidatePath(`/decks/${deckId}`);
   revalidatePath("/inventory");
@@ -545,34 +546,31 @@ export async function returnDeckCardToInventory(fd: FormData) {
       toLocationId: destination.id,
       quantity,
     });
-    await tx.inventoryAuditLog.create({
-      data: {
-        inventoryItemId: move.destinationInventoryItemId,
-        changedByUserId: user.id,
-        changeType: "return_from_deck",
-        beforeJson: auditDeckMoveSnapshot(beforeSource, {
-          deckId: deck.id,
-          deckName: deck.name,
-          sourceLocationId: source.locationId,
-          sourceLocationName: source.location?.name ?? "Deck location",
-          destinationLocationId: destination.id,
-          destinationLocationName: destination.name,
-          quantityMoved: quantity,
-        }),
-        afterJson: auditDeckMoveSnapshot(
-          { ...beforeSource, locationId: destination.id, quantity },
-          {
-            deckId: deck.id,
-            deckName: deck.name,
-            sourceLocationId: source.locationId,
-            sourceLocationName: source.location?.name ?? "Deck location",
-            destinationLocationId: destination.id,
-            destinationLocationName: destination.name,
-            quantityMoved: quantity,
-          },
-        ),
-        reason: `Returned ${quantity} ${source.card.name} from ${deck.name} to ${destination.name}.`,
-      },
+    const metadata = deckMoveAuditMetadata({
+      deckId: deck.id,
+      deckName: deck.name,
+      cardName: source.card.name,
+      sourceLocationId: source.locationId,
+      sourceLocationName: source.location?.name ?? "Deck location",
+      destinationLocationId: destination.id,
+      destinationLocationName: destination.name,
+      quantityMoved: quantity,
+      beforeSourceQuantity: beforeSource.quantity,
+      afterSourceQuantity: move.sourceAfterQuantity,
+      beforeDestinationQuantity: move.destinationBeforeQuantity,
+      afterDestinationQuantity: move.destinationAfterQuantity,
+    });
+    await recordInventoryAudit({
+      tx,
+      inventoryItemId: move.auditInventoryItemId,
+      actingUserId: user.id,
+      action: inventoryAuditAction.returnedFromDeck,
+      before: auditDeckMoveSnapshot(beforeSource, metadata),
+      after: auditDeckMoveSnapshot(
+        { ...beforeSource, locationId: destination.id, quantity },
+        metadata,
+      ),
+      reason: `Returned ${quantity} ${source.card.name} from ${deck.name} to ${destination.name}.`,
     });
   });
   revalidatePath(`/decks/${deckId}`);
@@ -659,6 +657,36 @@ export async function commitDeckImport(fd: FormData) {
   revalidatePath(`/decks/${deckId}`);
 }
 
+function deckMoveAuditMetadata(input: {
+  deckId: string;
+  deckName: string;
+  cardName: string;
+  sourceLocationId: string | null;
+  sourceLocationName: string;
+  destinationLocationId: string;
+  destinationLocationName: string;
+  quantityMoved: number;
+  beforeSourceQuantity: number;
+  afterSourceQuantity: number;
+  beforeDestinationQuantity: number;
+  afterDestinationQuantity: number;
+}) {
+  return {
+    deckId: input.deckId,
+    deckName: input.deckName,
+    cardName: input.cardName,
+    sourceLocationId: input.sourceLocationId,
+    sourceLocationName: input.sourceLocationName,
+    destinationLocationId: input.destinationLocationId,
+    destinationLocationName: input.destinationLocationName,
+    quantityMoved: input.quantityMoved,
+    beforeSourceQuantity: input.beforeSourceQuantity,
+    afterSourceQuantity: input.afterSourceQuantity,
+    beforeDestinationQuantity: input.beforeDestinationQuantity,
+    afterDestinationQuantity: input.afterDestinationQuantity,
+  };
+}
+
 async function moveInventoryQuantityWithinTransaction(
   tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
   input: {
@@ -699,13 +727,29 @@ async function moveInventoryQuantityWithinTransaction(
         data: { quantity: { increment: input.quantity } },
       });
       await tx.inventoryItem.delete({ where: { id: source.id } });
-      return { source, destinationInventoryItemId: matching.id, merged: true };
+      return {
+        source,
+        destinationInventoryItemId: matching.id,
+        auditInventoryItemId: matching.id,
+        merged: true,
+        sourceAfterQuantity: 0,
+        destinationBeforeQuantity: matching.quantity,
+        destinationAfterQuantity: matching.quantity + input.quantity,
+      };
     }
     await tx.inventoryItem.update({
       where: { id: source.id },
       data: { locationId: input.toLocationId },
     });
-    return { source, destinationInventoryItemId: source.id, merged: false };
+    return {
+      source,
+      destinationInventoryItemId: source.id,
+      auditInventoryItemId: source.id,
+      merged: false,
+      sourceAfterQuantity: 0,
+      destinationBeforeQuantity: 0,
+      destinationAfterQuantity: source.quantity,
+    };
   }
   await tx.inventoryItem.update({
     where: { id: source.id },
@@ -716,7 +760,15 @@ async function moveInventoryQuantityWithinTransaction(
       where: { id: matching.id },
       data: { quantity: { increment: input.quantity } },
     });
-    return { source, destinationInventoryItemId: matching.id, merged: true };
+    return {
+      source,
+      destinationInventoryItemId: matching.id,
+      auditInventoryItemId: source.id,
+      merged: true,
+      sourceAfterQuantity: source.quantity - input.quantity,
+      destinationBeforeQuantity: matching.quantity,
+      destinationAfterQuantity: matching.quantity + input.quantity,
+    };
   }
   const {
     id: _id,
@@ -727,5 +779,13 @@ async function moveInventoryQuantityWithinTransaction(
   const created = await tx.inventoryItem.create({
     data: { ...copy, quantity: input.quantity, locationId: input.toLocationId },
   });
-  return { source, destinationInventoryItemId: created.id, merged: false };
+  return {
+    source,
+    destinationInventoryItemId: created.id,
+    auditInventoryItemId: source.id,
+    merged: false,
+    sourceAfterQuantity: source.quantity - input.quantity,
+    destinationBeforeQuantity: 0,
+    destinationAfterQuantity: input.quantity,
+  };
 }
