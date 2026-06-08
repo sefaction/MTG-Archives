@@ -525,6 +525,8 @@ export function InventoryBrowser({
   const [selected, setSelected] = useState<InventoryRow | null>(null);
   const [editing, setEditing] = useState<InventoryRow | null>(null);
   const [auditRow, setAuditRow] = useState<InventoryRow | null>(null);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState("");
   const [viewMode, setViewMode] = useState<"table" | "binder">(() =>
     typeof window !== "undefined"
       ? (localStorage.getItem("inventoryViewMode") as any) || "table"
@@ -615,6 +617,30 @@ export function InventoryBrowser({
           (row.sourceItemIds ?? [row.id]).some((id) => selectedItemIds.has(id)),
         )
         .reduce((sum, row) => sum + row.quantity, 0);
+
+  async function openAuditTrail(row: InventoryRow) {
+    setSelected(null);
+    setAuditRow({ ...row, auditHistory: row.auditHistory || [] });
+    setAuditLoading(true);
+    setAuditError("");
+    try {
+      const itemIds = getRowSourceIds(row).join(",");
+      const response = await fetch(
+        `/api/inventory/audit?itemIds=${encodeURIComponent(itemIds)}`,
+      );
+      if (!response.ok) throw new Error("Audit trail could not be loaded.");
+      const data = (await response.json()) as {
+        entries?: InventoryAuditEntry[];
+      };
+      setAuditRow({ ...row, auditHistory: data.entries || [] });
+    } catch (error) {
+      console.error("[inventory-audit] load failed", error);
+      setAuditError("Audit trail could not be loaded.");
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
   const selectedItemIdList = useMemo(
     () => Array.from(selectedItemIds),
     [selectedItemIds],
@@ -1574,10 +1600,7 @@ export function InventoryBrowser({
           }
           onAudit={
             capabilities.canViewAuditTrail
-              ? () => {
-                  setAuditRow(selected);
-                  setSelected(null);
-                }
+              ? () => void openAuditTrail(selected)
               : undefined
           }
           onDelete={
@@ -1612,6 +1635,15 @@ export function InventoryBrowser({
                 Close
               </button>
             </div>
+            {auditLoading ? (
+              <div className="rounded border border-zinc-800 p-4 text-sm text-zinc-400">
+                Loading audit trail…
+              </div>
+            ) : auditError ? (
+              <div className="rounded border border-red-800 bg-red-950/30 p-4 text-sm text-red-200">
+                {auditError}
+              </div>
+            ) : null}
             <InventoryAuditTrail
               entries={auditRow.auditHistory}
               playerLabels={Object.fromEntries(
