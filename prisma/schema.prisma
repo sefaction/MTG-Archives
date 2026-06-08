@@ -111,6 +111,7 @@ model User {
   createdTrades              Trade[]                     @relation("TradeCreatedBy")
   tradeEvents                TradeEvent[]
   decks                      Deck[]
+  wishlistItems              WishlistItem[]
 
   @@index([publicProfileEnabled, isActive, inventoryDefaultVisibility])
   @@index([publicProfileEnabled, isActive, deckDefaultVisibility])
@@ -315,6 +316,7 @@ model Card {
   inventoryItems      InventoryItem[]
   importBatchItems    ImportBatchItem[]
   deckCards           DeckCard[]
+  wishlistItems       WishlistItem[]
 
   @@index([oracleId])
   @@index([setCode, collectorNumber])
@@ -377,6 +379,26 @@ model DeckCard {
   @@index([scryfallId])
   @@index([oracleId])
   @@index([cardName])
+}
+
+model WishlistItem {
+  id               String   @id @default(cuid())
+  ownerUserId      String
+  ownerUser        User     @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  cardId           String
+  card             Card     @relation(fields: [cardId], references: [id], onDelete: Restrict)
+  quantity         Int      @default(1)
+  priority         String?
+  notes            String?
+  desiredFinish    String?
+  desiredCondition String?
+  desiredLanguage  String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([ownerUserId, cardId])
+  @@index([ownerUserId, updatedAt])
+  @@index([cardId])
 }
 
 model InventoryLocation {

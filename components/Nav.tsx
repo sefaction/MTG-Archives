@@ -13,6 +13,7 @@ const mainLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/inventory", label: "Inventory" },
   { href: "/decks", label: "Decks" },
+  { href: "/wishlist", label: "Wishlist" },
   { href: "/locations", label: "Locations" },
   { href: "/imports", label: "Import" },
   { href: "/trades", label: "Trades" },
