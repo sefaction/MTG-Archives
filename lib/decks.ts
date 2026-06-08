@@ -100,11 +100,17 @@ export function publicDeckWhere(): Prisma.DeckWhereInput {
   };
 }
 
+export function isDeckTotalSection(section: DeckSection | string) {
+  return (
+    section !== DeckSection.SIDEBOARD && section !== DeckSection.MAYBEBOARD
+  );
+}
+
 export function deckCardCount(
   cards: Array<{ quantity: number; section: DeckSection | string }>,
 ) {
   return cards
-    .filter((card) => card.section !== DeckSection.MAYBEBOARD)
+    .filter((card) => isDeckTotalSection(card.section))
     .reduce((total, card) => total + card.quantity, 0);
 }
 
@@ -179,7 +185,7 @@ export function deckTotalQuantity(
   cards: Array<{ quantity: number; section: DeckSection | string }>,
 ) {
   return cards
-    .filter((card) => card.section !== DeckSection.MAYBEBOARD)
+    .filter((card) => isDeckTotalSection(card.section))
     .reduce((total, card) => total + card.quantity, 0);
 }
 
@@ -222,4 +228,27 @@ export function summarizeDeckOwnershipTotals(
     },
     { totalQuantity: 0, exactOwned: 0, otherOwned: 0, missing: 0 },
   );
+}
+
+export function pluralizeDeckCount(count: number, singular: string) {
+  return `${count} ${singular}${count === 1 ? "" : "s"}`;
+}
+
+export function deckSectionSummaryParts(
+  cards: Array<{ quantity: number; section: DeckSection | string }>,
+) {
+  const sectionTotals = deckSectionQuantityTotals(cards);
+  return [
+    `${deckTotalQuantity(cards)} total cards`,
+    ...(sectionTotals.COMMANDER > 0
+      ? [pluralizeDeckCount(sectionTotals.COMMANDER, "commander")]
+      : []),
+    `${sectionTotals.MAINBOARD} mainboard`,
+    ...(sectionTotals.SIDEBOARD > 0
+      ? [`${sectionTotals.SIDEBOARD} sideboard`]
+      : []),
+    ...(sectionTotals.MAYBEBOARD > 0
+      ? [`${sectionTotals.MAYBEBOARD} maybeboard`]
+      : []),
+  ];
 }

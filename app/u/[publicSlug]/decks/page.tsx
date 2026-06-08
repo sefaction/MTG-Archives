@@ -3,8 +3,7 @@ import { notFound } from "next/navigation";
 import { PublicCollectionNav } from "@/components/PublicCollectionNav";
 import {
   deckFormatLabel,
-  deckRowCount,
-  deckTotalQuantity,
+  deckSectionSummaryParts,
   publicDeckWhere,
 } from "@/lib/decks";
 import { getPublicProfileBySlug } from "@/lib/public-collection";
@@ -39,8 +38,8 @@ export default async function PublicUserDecksPage({
           >
             <h2 className="text-xl font-semibold text-sky-100">{deck.name}</h2>
             <p className="text-sm">
-              {deckFormatLabel(deck.format)} · {deckTotalQuantity(deck.cards)}{" "}
-              cards · {deckRowCount(deck.cards)} rows
+              {deckFormatLabel(deck.format)} ·{" "}
+              {deckSectionSummaryParts(deck.cards).join(" · ")}
             </p>
           </Link>
         ))}
