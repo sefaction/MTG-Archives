@@ -75,7 +75,8 @@ export default async function DeckDetailPage({
       missing: owned.missing,
       enoughOwned: owned.enoughOwned,
       matchType: owned.matchType,
-      locationSummary: owned.locationSummary,
+      locationSummary: canEdit ? owned.locationSummary : "",
+      createdAt: deckCard.createdAt.toISOString(),
       card: deckCard.card
         ? {
             id: deckCard.card.id,
@@ -90,6 +91,11 @@ export default async function DeckDetailPage({
             collectorNumber: deckCard.card.collectorNumber,
             rarity: deckCard.card.rarity,
             prices: deckCard.card.prices,
+            imageUri: deckCard.card.imageUri,
+            imageUris: deckCard.card.imageUris,
+            manaValue: deckCard.card.manaValue,
+            colorIdentity: deckCard.card.colorIdentity,
+            colors: deckCard.card.colors,
           }
         : null,
     };
@@ -127,6 +133,60 @@ export default async function DeckDetailPage({
           </form>
         ) : null}
       </div>
+
+      <section
+        className="rounded border border-zinc-800 bg-zinc-950/80 p-4"
+        aria-label="Deck toolbar"
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          {canEdit ? (
+            <>
+              <a
+                href="#add-card"
+                className="rounded border border-sky-700 px-3 py-2 text-sky-100"
+              >
+                Add card
+              </a>
+              <a
+                href="#paste-decklist"
+                className="rounded border border-zinc-700 px-3 py-2"
+              >
+                Paste decklist
+              </a>
+              <a
+                href="#bulk-edit"
+                className="rounded border border-zinc-700 px-3 py-2"
+              >
+                Bulk edit
+              </a>
+              <a
+                href="#bulk-edit"
+                className="rounded border border-emerald-700 px-3 py-2 text-emerald-100"
+              >
+                Optimize printings
+              </a>
+              <button
+                type="button"
+                disabled
+                className="rounded border border-zinc-800 px-3 py-2 text-zinc-500"
+                title="Export is coming later"
+              >
+                Export · coming later
+              </button>
+              <a
+                href="#deck-settings"
+                className="rounded border border-zinc-700 px-3 py-2"
+              >
+                Deck settings
+              </a>
+            </>
+          ) : (
+            <span className="rounded border border-zinc-800 px-3 py-2 text-zinc-400">
+              Public read-only deck browser
+            </span>
+          )}
+        </div>
+      </section>
 
       <section className="grid gap-3 rounded border border-zinc-800 p-4 text-sm md:grid-cols-4">
         <div>
@@ -174,6 +234,7 @@ export default async function DeckDetailPage({
           <form
             action={updateDeck}
             className="space-y-3 rounded border border-zinc-800 p-4"
+            id="deck-settings"
           >
             <h2 className="text-xl font-semibold">Deck settings</h2>
             <input type="hidden" name="deckId" value={deck.id} />
@@ -234,16 +295,20 @@ export default async function DeckDetailPage({
           </form>
 
           <div className="space-y-4">
-            <DeckCardPicker
-              deckId={deck.id}
-              defaultSection={
-                deck.format === DeckFormat.COMMANDER
-                  ? DeckSection.COMMANDER
-                  : DeckSection.MAINBOARD
-              }
-              sections={deckSections}
-            />
-            <DeckImportPanel deckId={deck.id} />
+            <div id="add-card">
+              <DeckCardPicker
+                deckId={deck.id}
+                defaultSection={
+                  deck.format === DeckFormat.COMMANDER
+                    ? DeckSection.COMMANDER
+                    : DeckSection.MAINBOARD
+                }
+                sections={deckSections}
+              />
+            </div>
+            <div id="paste-decklist">
+              <DeckImportPanel deckId={deck.id} />
+            </div>
           </div>
         </section>
       ) : null}
@@ -253,6 +318,10 @@ export default async function DeckDetailPage({
         rows={editorRows}
         sections={deckSections}
         canEdit={canEdit}
+        defaultGroupMode={
+          deck.format === DeckFormat.COMMANDER ? "type" : "section"
+        }
+        showPrivateInventory={canEdit}
       />
     </main>
   );
