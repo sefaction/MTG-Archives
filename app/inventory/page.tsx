@@ -12,6 +12,7 @@ import { InventoryBrowser } from "@/components/InventoryBrowser";
 import {
   DefaultCollectionVisibility,
   FoilStatus,
+  InventoryLocationKind,
   InventorySourceType,
 } from "@prisma/client";
 import {
@@ -72,6 +73,23 @@ export default async function InventoryPage({
     where.currentOwnerId = p.ownerId;
   }
   if (p.locationId) where.locationId = p.locationId;
+  if (p.commitment === "available") {
+    where.AND = [
+      ...(where.AND || []),
+      {
+        OR: [
+          { locationId: null },
+          { location: { kind: InventoryLocationKind.NORMAL } },
+        ],
+      },
+    ];
+  }
+  if (p.commitment === "committed") {
+    where.location = {
+      ...(where.location || {}),
+      kind: InventoryLocationKind.DECK,
+    };
+  }
   if (p.hasLocation === "unassigned")
     where.location = { normalizedName: "unassigned" };
   if (p.set)
@@ -957,6 +975,7 @@ export default async function InventoryPage({
             <input type="hidden" name="priceMin" value={p.priceMin || ""} />
             <input type="hidden" name="priceMax" value={p.priceMax || ""} />
             <input type="hidden" name="locationId" value={p.locationId || ""} />
+            <input type="hidden" name="commitment" value={p.commitment || ""} />
             <label className="text-sm">
               Format
               <select name="format" className="w-full border p-2 bg-zinc-900">
@@ -1125,9 +1144,19 @@ export default async function InventoryPage({
             <option value="">all locations</option>
             {locations.map((location) => (
               <option key={location.id} value={location.id}>
+                {location.kind === InventoryLocationKind.DECK ? "Deck: " : ""}
                 {location.name}
               </option>
             ))}
+          </select>
+          <select
+            name="commitment"
+            defaultValue={p.commitment}
+            className="border p-2 bg-zinc-900"
+          >
+            <option value="">All inventory</option>
+            <option value="available">Available inventory only</option>
+            <option value="committed">Committed to decks only</option>
           </select>
           <input
             name="set"

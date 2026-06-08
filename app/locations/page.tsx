@@ -15,7 +15,11 @@ import {
   resolveInventoryVisibility,
   visibilityLabel,
 } from "@/lib/visibility";
-import { DefaultCollectionVisibility, Visibility } from "@prisma/client";
+import {
+  DefaultCollectionVisibility,
+  InventoryLocationKind,
+  Visibility,
+} from "@prisma/client";
 import {
   bulkMoveInventoryToLocation,
   bulkDeleteInventoryItems,
@@ -69,6 +73,7 @@ export default async function LocationsPage() {
     where: adminModeActive ? {} : { ownerPlayerId: selectedOwnerId },
     include: {
       ownerPlayer: true,
+      deck: true,
       _count: { select: { inventoryItems: true } },
     },
     orderBy: [
@@ -123,6 +128,12 @@ export default async function LocationsPage() {
       q.locationId ?? "",
       { quantity: q._sum.quantity ?? 0, entries: q._count },
     ]),
+  );
+  const normalLocations = locations.filter(
+    (location) => location.kind === InventoryLocationKind.NORMAL,
+  );
+  const deckLocations = locations.filter(
+    (location) => location.kind === InventoryLocationKind.DECK,
   );
 
   async function createLocationAction(fd: FormData) {
@@ -468,7 +479,7 @@ export default async function LocationsPage() {
         </p>
         <LocationMoveForm
           moveAction={moveLocationAction}
-          locations={locations.map((location) => {
+          locations={normalLocations.map((location) => {
             const counts = quantityByLocation[location.id] ?? {
               quantity: 0,
               entries: 0,
@@ -484,9 +495,55 @@ export default async function LocationsPage() {
         />
       </section>
 
+      {deckLocations.length ? (
+        <section className="space-y-3 rounded border border-emerald-900/60 p-4">
+          <h2 className="text-xl font-semibold">Deck locations</h2>
+          <p className="text-sm text-zinc-400">
+            Deck locations are system-managed. Use deck actions to commit cards
+            to decks or return them to normal inventory.
+          </p>
+          {deckLocations.map((location) => {
+            const counts = quantityByLocation[location.id] ?? {
+              quantity: 0,
+              entries: 0,
+            };
+            return (
+              <div
+                key={location.id}
+                className="rounded border border-emerald-900/60 p-3 text-sm"
+              >
+                <div className="flex flex-wrap justify-between gap-2">
+                  <span className="font-semibold text-emerald-100">
+                    {location.name}
+                  </span>
+                  <span className="rounded border border-emerald-700 px-2 py-0.5 text-xs text-emerald-100">
+                    Deck
+                  </span>
+                  <span>{location.ownerPlayer.displayName}</span>
+                  <span>
+                    {counts.entries} inventory entries · {counts.quantity} total
+                    cards
+                  </span>
+                  <span>
+                    Visibility: {visibilityLabel(location.visibility)} →{" "}
+                    {effectiveVisibilityLabel(
+                      effectiveLocationVisibility(location),
+                    )}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-zinc-400">
+                  Tied deck: {location.deck?.name ?? "deleted deck"}. Rename,
+                  delete, and movement controls are disabled here.
+                </p>
+              </div>
+            );
+          })}
+        </section>
+      ) : null}
+
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold">Existing locations</h2>
-        {locations.map((location) => {
+        <h2 className="text-xl font-semibold">Existing normal locations</h2>
+        {normalLocations.map((location) => {
           const counts = quantityByLocation[location.id] ?? {
             quantity: 0,
             entries: 0,

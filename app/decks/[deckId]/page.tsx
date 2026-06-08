@@ -2,7 +2,12 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { DeckFormat, DeckSection, Visibility } from "@prisma/client";
+import {
+  DeckFormat,
+  DeckSection,
+  InventoryLocationKind,
+  Visibility,
+} from "@prisma/client";
 import { Nav } from "@/components/Nav";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { getAccessScope, getCurrentUser } from "@/lib/auth";
@@ -17,6 +22,8 @@ import {
   summarizeDeckOwnershipTotals,
 } from "@/lib/decks";
 import { cardPriceNumber } from "@/lib/deck-view";
+import { matchesDeckCardPrinting } from "@/lib/deck-commitments";
+import { ensureDefaultLocation } from "@/lib/inventory-locations";
 import { prisma } from "@/lib/prisma";
 import { resolveDeckVisibility, visibilityLabel } from "@/lib/visibility";
 import { deleteDeck, updateDeck } from "../actions";
@@ -49,10 +56,22 @@ export default async function DeckDetailPage({
     deck.ownerUser.deckDefaultVisibility,
     deck.visibility,
   );
-  const inventoryItems = user?.playerId
+  const inventoryOwnerId = canEdit ? deck.ownerUser.playerId : null;
+  if (inventoryOwnerId) await ensureDefaultLocation(prisma, inventoryOwnerId);
+  const inventoryItems = inventoryOwnerId
     ? await prisma.inventoryItem.findMany({
-        where: { currentOwnerId: user.playerId, quantity: { gt: 0 } },
+        where: { currentOwnerId: inventoryOwnerId, quantity: { gt: 0 } },
         include: { card: true, location: true },
+      })
+    : [];
+  const normalLocations = inventoryOwnerId
+    ? await prisma.inventoryLocation.findMany({
+        where: {
+          ownerPlayerId: inventoryOwnerId,
+          kind: InventoryLocationKind.NORMAL,
+          active: true,
+        },
+        orderBy: { name: "asc" },
       })
     : [];
   const sectionTotals = deckSectionQuantityTotals(deck.cards);
@@ -86,7 +105,7 @@ export default async function DeckDetailPage({
   const usesCommander =
     deck.format === DeckFormat.COMMANDER || sectionTotals.COMMANDER > 0;
   const editorRows = deck.cards.map((deckCard) => {
-    const owned = summarizeDeckCardOwnership(deckCard, inventoryItems);
+    const owned = summarizeDeckCardOwnership(deckCard, inventoryItems, deck.id);
     return {
       id: deckCard.id,
       cardName: deckCard.cardName,
@@ -100,6 +119,51 @@ export default async function DeckDetailPage({
       enoughOwned: owned.enoughOwned,
       matchType: owned.matchType,
       locationSummary: canEdit ? owned.locationSummary : "",
+      available: owned.available,
+      availableExact: owned.availableExact,
+      availableOther: owned.availableOther,
+      committedToThisDeck: owned.committedToThisDeck,
+      committedToOtherDecks: owned.committedToOtherDecks,
+      commitmentMissing: owned.commitmentMissing,
+      commitOptions: canEdit
+        ? inventoryItems
+            .filter(
+              (item) =>
+                item.location?.kind !== InventoryLocationKind.DECK &&
+                Boolean(matchesDeckCardPrinting(deckCard, item)),
+            )
+            .map((item) => ({
+              inventoryItemId: item.id,
+              quantity: item.quantity,
+              cardName: item.card.name,
+              setCode: item.card.setCode,
+              collectorNumber: item.card.collectorNumber,
+              locationName: item.location?.name ?? "Unassigned",
+              matchType: matchesDeckCardPrinting(deckCard, item) ?? "other",
+            }))
+            .sort((left, right) => {
+              if (left.matchType !== right.matchType)
+                return left.matchType === "exact" ? -1 : 1;
+              return left.locationName.localeCompare(right.locationName);
+            })
+        : [],
+      returnOptions: canEdit
+        ? inventoryItems
+            .filter(
+              (item) =>
+                item.location?.deckId === deck.id &&
+                Boolean(matchesDeckCardPrinting(deckCard, item)),
+            )
+            .map((item) => ({
+              inventoryItemId: item.id,
+              quantity: item.quantity,
+              cardName: item.card.name,
+              setCode: item.card.setCode,
+              collectorNumber: item.card.collectorNumber,
+              locationName: item.location?.name ?? "Deck location",
+              matchType: matchesDeckCardPrinting(deckCard, item) ?? "other",
+            }))
+        : [],
       createdAt: deckCard.createdAt.toISOString(),
       card: deckCard.card
         ? {
@@ -372,6 +436,10 @@ export default async function DeckDetailPage({
           deck.format === DeckFormat.COMMANDER ? "type" : "section"
         }
         showPrivateInventory={canEdit}
+        normalLocations={normalLocations.map((location) => ({
+          id: location.id,
+          name: location.name,
+        }))}
       />
     </main>
   );

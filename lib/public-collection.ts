@@ -40,19 +40,51 @@ export function publicInventoryVisibilityWhere(
   if (defaultVisibility === DefaultCollectionVisibility.PUBLIC) {
     return [
       { locationId: null },
-      { location: { active: true, visibility: { not: Visibility.PRIVATE } } },
+      {
+        location: {
+          active: true,
+          kind: "NORMAL",
+          visibility: { not: Visibility.PRIVATE },
+        },
+      },
+      {
+        location: {
+          active: true,
+          kind: "DECK",
+          OR: [
+            { visibility: Visibility.PUBLIC },
+            {
+              visibility: Visibility.INHERIT,
+              deck: {
+                ownerUser: {
+                  deckDefaultVisibility: DefaultCollectionVisibility.PUBLIC,
+                },
+              },
+            },
+          ],
+        },
+      },
     ];
   }
-  return [{ location: { active: true, visibility: Visibility.PUBLIC } }];
+  return [
+    {
+      location: { active: true, kind: "NORMAL", visibility: Visibility.PUBLIC },
+    },
+    { location: { active: true, kind: "DECK", visibility: Visibility.PUBLIC } },
+  ];
 }
 
 export function publicLocationVisibilityWhere(
   defaultVisibility: DefaultCollectionVisibility,
 ): Prisma.InventoryLocationWhereInput {
   if (defaultVisibility === DefaultCollectionVisibility.PUBLIC) {
-    return { active: true, visibility: { not: Visibility.PRIVATE } };
+    return {
+      active: true,
+      kind: "NORMAL",
+      visibility: { not: Visibility.PRIVATE },
+    };
   }
-  return { active: true, visibility: Visibility.PUBLIC };
+  return { active: true, kind: "NORMAL", visibility: Visibility.PUBLIC };
 }
 
 export async function getPublicProfileBySlug(publicSlug: string) {
@@ -139,6 +171,7 @@ function publicUserWhere(defaultVisibility: DefaultCollectionVisibility) {
 export function globalPublicInventoryLocationWhere(): Prisma.InventoryLocationWhereInput {
   return {
     active: true,
+    kind: "NORMAL",
     ownerPlayer: {
       users: {
         some: {
