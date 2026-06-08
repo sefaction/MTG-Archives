@@ -64,6 +64,23 @@ export type WishlistInventoryCounts = {
   committedToOtherDecks: number;
 };
 
+export type WishlistInventoryBreakdown = {
+  availableByLocation: Array<{ name: string; quantity: number }>;
+  committedByDeck: Array<{ name: string; quantity: number }>;
+  exactOwned: number;
+  exactAvailable: number;
+  otherPrintingOwned: number;
+  otherPrintingAvailable: number;
+  otherPrintings: Array<{
+    cardId: string;
+    name: string;
+    setCode: string;
+    collectorNumber: string;
+    quantity: number;
+    available: number;
+  }>;
+};
+
 export type WishlistGroup = {
   key: string;
   card: WishlistCardSummary;
@@ -71,6 +88,7 @@ export type WishlistGroup = {
   deckQuantity: number;
   totalWanted: number;
   inventory: WishlistInventoryCounts;
+  inventoryBreakdown: WishlistInventoryBreakdown;
   estimatedPrice: number | null;
   estimatedMissingCost: number | null;
   sources: { manual: WishlistManualSource[]; decks: WishlistDeckSource[] };
@@ -111,7 +129,13 @@ type BuildInput = {
     id: string;
     cardId: string;
     quantity: number;
-    card: { id: string; oracleId: string | null; name: string };
+    card: {
+      id: string;
+      oracleId: string | null;
+      name: string;
+      setCode?: string | null;
+      collectorNumber?: string | null;
+    };
     location: {
       id: string;
       name: string;
@@ -137,6 +161,81 @@ function isDeckLocation(
   return (
     location?.kind === InventoryLocationKind.DECK || Boolean(location?.deckId)
   );
+}
+
+function inventoryBreakdownForCard(
+  inventoryItems: BuildInput["inventoryItems"],
+  card: WishlistCardSummary,
+): WishlistInventoryBreakdown {
+  const key = cardIdentity(card);
+  const availableLocations = new Map<string, number>();
+  const committedDecks = new Map<string, number>();
+  const otherPrintings = new Map<
+    string,
+    {
+      cardId: string;
+      name: string;
+      setCode: string;
+      collectorNumber: string;
+      quantity: number;
+      available: number;
+    }
+  >();
+  let exactOwned = 0;
+  let exactAvailable = 0;
+  let otherPrintingOwned = 0;
+  let otherPrintingAvailable = 0;
+
+  for (const item of inventoryItems) {
+    if (cardIdentity(item.card) !== key) continue;
+    const deckLoc = isDeckLocation(item.location);
+    const locationName = item.location?.name || "Unassigned";
+    const exact = item.cardId === card.id;
+    if (exact) {
+      exactOwned += item.quantity;
+      if (!deckLoc) exactAvailable += item.quantity;
+    } else {
+      otherPrintingOwned += item.quantity;
+      if (!deckLoc) otherPrintingAvailable += item.quantity;
+      const current = otherPrintings.get(item.cardId) ?? {
+        cardId: item.cardId,
+        name: item.card.name,
+        setCode: item.card.setCode || "",
+        collectorNumber: item.card.collectorNumber || "",
+        quantity: 0,
+        available: 0,
+      };
+      current.quantity += item.quantity;
+      if (!deckLoc) current.available += item.quantity;
+      otherPrintings.set(item.cardId, current);
+    }
+    if (deckLoc) {
+      committedDecks.set(
+        locationName,
+        (committedDecks.get(locationName) ?? 0) + item.quantity,
+      );
+    } else {
+      availableLocations.set(
+        locationName,
+        (availableLocations.get(locationName) ?? 0) + item.quantity,
+      );
+    }
+  }
+
+  return {
+    availableByLocation: [...availableLocations.entries()].map(
+      ([name, quantity]) => ({ name, quantity }),
+    ),
+    committedByDeck: [...committedDecks.entries()].map(([name, quantity]) => ({
+      name,
+      quantity,
+    })),
+    exactOwned,
+    exactAvailable,
+    otherPrintingOwned,
+    otherPrintingAvailable,
+    otherPrintings: [...otherPrintings.values()],
+  };
 }
 
 function addCountsForCard(
@@ -176,6 +275,7 @@ export function buildWishlistView(input: BuildInput): WishlistView {
       deckQuantity: 0,
       totalWanted: 0,
       inventory: addCountsForCard(input.inventoryItems, card),
+      inventoryBreakdown: inventoryBreakdownForCard(input.inventoryItems, card),
       estimatedPrice,
       estimatedMissingCost: null,
       sources: { manual: [], decks: [] },
@@ -379,7 +479,15 @@ export async function getWishlistView(
             id: true,
             cardId: true,
             quantity: true,
-            card: { select: { id: true, oracleId: true, name: true } },
+            card: {
+              select: {
+                id: true,
+                oracleId: true,
+                name: true,
+                setCode: true,
+                collectorNumber: true,
+              },
+            },
             location: {
               select: { id: true, name: true, kind: true, deckId: true },
             },

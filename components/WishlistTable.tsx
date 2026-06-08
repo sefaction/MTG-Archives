@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import {
   ColumnDef,
   SortingState,
@@ -11,13 +11,21 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
+import type {
+  DeckCardSearchResponse,
+  DeckCardSearchResult,
+} from "@/lib/deck-search";
 import type { WishlistGroup } from "@/lib/wishlist";
 import { CardManaCost, ColorIdentityIcons, SetSymbol } from "./mtg/CardSymbols";
 import { SubmitButton } from "./feedback/SubmitButton";
 import { commitDeckCardToDeck } from "@/app/decks/actions";
 import {
   addManualWishlistItem,
+  changeManualWishlistPrinting,
+  changeWishlistDeckCardPrinting,
   removeManualWishlistItem,
+  switchManualWishlistToCheapestPrinting,
+  switchManualWishlistToOwnedPrinting,
   switchWishlistDeckCardToCheapestPrinting,
   switchWishlistDeckCardToOwnedPrinting,
   updateManualWishlistItem,
@@ -87,9 +95,6 @@ function RowActionMenu({
   onDetails: () => void;
 }) {
   const firstDeckNeed = row.sources.decks[0];
-  const firstCommitOption = row.sources.decks.flatMap((need) =>
-    need.commitOptions.map((option) => ({ need, option })),
-  )[0];
   const firstManual = row.sources.manual[0];
 
   return (
@@ -112,9 +117,7 @@ function RowActionMenu({
           <input type="hidden" name="cardId" value={row.card.id} />
           <input type="hidden" name="quantity" value="1" />
           <button className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-zinc-800">
-            {firstManual
-              ? "Add manual quantity"
-              : "Add manual wishlist quantity"}
+            Quick add manual quantity
           </button>
         </form>
         {firstManual ? (
@@ -125,76 +128,135 @@ function RowActionMenu({
             </button>
           </form>
         ) : null}
-        {firstCommitOption ? (
-          <form action={commitDeckCardToDeck}>
-            <input
-              type="hidden"
-              name="deckId"
-              value={firstCommitOption.need.deckId}
-            />
-            <input
-              type="hidden"
-              name="deckCardId"
-              value={firstCommitOption.need.deckCardId}
-            />
-            <input
-              type="hidden"
-              name="inventoryItemId"
-              value={firstCommitOption.option.inventoryItemId}
-            />
-            <input
-              type="hidden"
-              name="quantity"
-              value={Math.min(
-                firstCommitOption.option.quantity,
-                firstCommitOption.need.missingQuantity,
-              )}
-            />
-            <button className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-zinc-800">
-              Commit available copy
-            </button>
-          </form>
-        ) : null}
         {firstDeckNeed ? (
-          <>
-            <form action={switchWishlistDeckCardToOwnedPrinting}>
-              <input type="hidden" name="deckId" value={firstDeckNeed.deckId} />
-              <input
-                type="hidden"
-                name="deckCardId"
-                value={firstDeckNeed.deckCardId}
-              />
-              <button className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-zinc-800">
-                Use owned printing
-              </button>
-            </form>
-            <form action={switchWishlistDeckCardToCheapestPrinting}>
-              <input type="hidden" name="deckId" value={firstDeckNeed.deckId} />
-              <input
-                type="hidden"
-                name="deckCardId"
-                value={firstDeckNeed.deckCardId}
-              />
-              <button className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-zinc-800">
-                Use cheapest printing
-              </button>
-            </form>
-            <Link
-              href={`/decks/${firstDeckNeed.deckId}`}
-              className="block rounded px-3 py-2 text-sm hover:bg-zinc-800"
-            >
-              View deck
-            </Link>
-          </>
+          <Link
+            href={`/decks/${firstDeckNeed.deckId}`}
+            className="block rounded px-3 py-2 text-sm hover:bg-zinc-800"
+          >
+            View deck
+          </Link>
         ) : null}
-        <Link
-          href={`/inventory?q=${encodeURIComponent(row.card.name)}`}
-          className="block rounded px-3 py-2 text-sm hover:bg-zinc-800"
-        >
-          View in inventory
-        </Link>
+        {row.inventory.ownedTotal > 0 ? (
+          <Link
+            href={`/inventory?q=${encodeURIComponent(row.card.name)}`}
+            className="block rounded px-3 py-2 text-sm hover:bg-zinc-800"
+          >
+            View in inventory
+          </Link>
+        ) : null}
       </div>
     </details>
+  );
+}
+
+function WishlistPrintingPicker({
+  label,
+  action,
+  hiddenFields,
+  defaultQuery,
+}: {
+  label: string;
+  action: (fd: FormData) => void | Promise<void>;
+  hiddenFields: Record<string, string>;
+  defaultQuery: string;
+}) {
+  const [query, setQuery] = useState(defaultQuery);
+  const [results, setResults] = useState<DeckCardSearchResult[]>([]);
+  const [selected, setSelected] = useState<DeckCardSearchResult | null>(null);
+  const [message, setMessage] = useState(
+    "Search owned/local printings first; use Scryfall fallback if needed.",
+  );
+  const [pending, startTransition] = useTransition();
+
+  function search(includeScryfall = false) {
+    const clean = query.trim();
+    if (clean.length < 2) {
+      setMessage("Enter at least two characters.");
+      return;
+    }
+    startTransition(async () => {
+      setMessage(
+        includeScryfall
+          ? "Searching server Scryfall fallback…"
+          : "Searching owned and local printings…",
+      );
+      const res = await fetch(
+        `/api/decks/card-search?q=${encodeURIComponent(clean)}${includeScryfall ? "&scryfall=1" : ""}`,
+      );
+      const json = (await res.json()) as DeckCardSearchResponse;
+      setResults(json.results);
+      setSelected(json.results[0] ?? null);
+      setMessage(json.message);
+    });
+  }
+
+  return (
+    <div className="space-y-2 rounded border border-zinc-800 p-3">
+      <h4 className="font-medium">{label}</h4>
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="text-xs text-zinc-400">
+          Printing search
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            className="mt-1 block min-w-56 border bg-zinc-900 p-2 text-sm text-zinc-100"
+          />
+        </label>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => search(false)}
+          className="rounded border border-sky-700 px-3 py-2 text-sm text-sky-100 disabled:opacity-60"
+        >
+          Search local
+        </button>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => search(true)}
+          className="rounded border border-zinc-700 px-3 py-2 text-sm disabled:opacity-60"
+        >
+          Search Scryfall
+        </button>
+      </div>
+      <p className="text-xs text-zinc-500">
+        {pending ? "Searching…" : message}
+      </p>
+      {results.length ? (
+        <form action={action} className="grid gap-2 md:grid-cols-[1fr_auto]">
+          {Object.entries(hiddenFields).map(([name, value]) => (
+            <input key={name} type="hidden" name={name} value={value} />
+          ))}
+          <input type="hidden" name="cardId" value={selected?.cardId || ""} />
+          <select
+            value={selected?.cardId || ""}
+            onChange={(event) =>
+              setSelected(
+                results.find(
+                  (result) => result.cardId === event.target.value,
+                ) ?? null,
+              )
+            }
+            className="border bg-zinc-900 p-2 text-sm"
+          >
+            {results.map((result) => (
+              <option key={result.cardId} value={result.cardId}>
+                {result.name} — {result.setCode.toUpperCase()} #
+                {result.collectorNumber} · owned {result.ownedExactQuantity} (+
+                {result.ownedOtherPrintingQuantity} other) · {result.priceLabel}
+              </option>
+            ))}
+          </select>
+          <SubmitButton
+            pendingLabel="Changing…"
+            className="rounded border border-emerald-700 px-3 py-2 text-sm text-emerald-100"
+            disabled={!selected}
+          >
+            Change printing
+          </SubmitButton>
+        </form>
+      ) : null}
+    </div>
   );
 }
 
@@ -208,7 +270,7 @@ function WishlistDetailDrawer({
   return (
     <div className="fixed inset-0 z-50 bg-black/50" onClick={onClose}>
       <div
-        className="absolute right-0 top-0 h-full w-full max-w-2xl overflow-y-auto border-l border-zinc-800 bg-zinc-950 p-4"
+        className="absolute right-0 top-0 h-full w-full max-w-3xl overflow-y-auto border-l border-zinc-800 bg-zinc-950 p-4"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-4">
@@ -226,7 +288,8 @@ function WishlistDetailDrawer({
             Close
           </button>
         </div>
-        <div className="grid gap-4 md:grid-cols-[220px_1fr]">
+
+        <section className="grid gap-4 md:grid-cols-[220px_1fr]">
           <div className="rounded border border-zinc-800 bg-zinc-900 p-2">
             {row.card.imageUri ? (
               <img
@@ -241,6 +304,7 @@ function WishlistDetailDrawer({
             )}
           </div>
           <div className="space-y-3 text-sm">
+            <h3 className="font-semibold">Card summary</h3>
             <p>
               <b>Mana Cost:</b> <CardManaCost card={row.card} showFaceNames />
             </p>
@@ -249,7 +313,10 @@ function WishlistDetailDrawer({
             </p>
             <p>
               <b>Set:</b> {row.card.setCode.toUpperCase()} #
-              {row.card.collectorNumber} · {row.card.rarity}
+              {row.card.collectorNumber}
+            </p>
+            <p>
+              <b>Rarity:</b> {row.card.rarity}
             </p>
             <p>
               <b>Color Identity:</b>{" "}
@@ -258,91 +325,358 @@ function WishlistDetailDrawer({
             <p>
               <b>Price:</b> {row.priceLabel}
             </p>
-            <div className="grid grid-cols-2 gap-2">
-              <Metric label="Wanted Qty" value={row.totalWanted} />
-              <Metric label="Manual Qty" value={row.manualQuantity} />
-              <Metric label="Deck Needed Qty" value={row.deckQuantity} />
-              <Metric label="Owned Total" value={row.inventory.ownedTotal} />
-              <Metric label="Available" value={row.inventory.available} />
-              <Metric
-                label="Committed"
-                value={row.inventory.committedToDecks}
-              />
-            </div>
+            <p>
+              <b>Source:</b> {row.sourceLabel}
+            </p>
           </div>
-        </div>
+        </section>
+
+        <section className="mt-4 space-y-2">
+          <h3 className="font-semibold">Quantity summary</h3>
+          <p className="text-sm text-zinc-400">
+            Available means owned but not committed to a deck. Deck-derived
+            needs remain until copies are committed to the relevant deck
+            location.
+          </p>
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+            <Metric label="Wanted Qty" value={row.totalWanted} />
+            <Metric label="Manual Qty" value={row.manualQuantity} />
+            <Metric label="Deck Needed Qty" value={row.deckQuantity} />
+            <Metric label="Owned Total" value={row.inventory.ownedTotal} />
+            <Metric label="Available" value={row.inventory.available} />
+            <Metric label="Committed" value={row.inventory.committedToDecks} />
+            <Metric label="Missing" value={row.missingQuantity} />
+          </div>
+        </section>
+
         <section className="mt-4 space-y-3">
-          <h3 className="font-semibold">Manual wishlist</h3>
+          <h3 className="font-semibold">Manual wishlist controls</h3>
           {row.sources.manual.length ? (
             row.sources.manual.map((item) => (
               <form
                 key={item.id}
                 action={updateManualWishlistItem}
-                className="grid gap-2 rounded border border-zinc-800 p-3 md:grid-cols-[80px_120px_1fr_auto]"
+                className="grid gap-2 rounded border border-zinc-800 p-3 md:grid-cols-[90px_130px_1fr_auto_auto]"
               >
                 <input type="hidden" name="wishlistItemId" value={item.id} />
-                <input
-                  name="quantity"
-                  type="number"
-                  min="1"
-                  defaultValue={item.quantity}
-                  className="border bg-zinc-900 p-2"
-                />
-                <input
-                  name="priority"
-                  defaultValue={item.priority || ""}
-                  placeholder="Priority"
-                  className="border bg-zinc-900 p-2"
-                />
-                <input
-                  name="notes"
-                  defaultValue={item.notes || ""}
-                  placeholder="Notes"
-                  className="border bg-zinc-900 p-2"
-                />
+                <label className="text-xs text-zinc-400">
+                  Qty
+                  <input
+                    name="quantity"
+                    type="number"
+                    min="1"
+                    defaultValue={item.quantity}
+                    className="mt-1 w-full border bg-zinc-900 p-2 text-zinc-100"
+                  />
+                </label>
+                <label className="text-xs text-zinc-400">
+                  Priority
+                  <input
+                    name="priority"
+                    defaultValue={item.priority || ""}
+                    placeholder="Priority"
+                    className="mt-1 w-full border bg-zinc-900 p-2 text-zinc-100"
+                  />
+                </label>
+                <label className="text-xs text-zinc-400">
+                  Notes
+                  <input
+                    name="notes"
+                    defaultValue={item.notes || ""}
+                    placeholder="Notes"
+                    className="mt-1 w-full border bg-zinc-900 p-2 text-zinc-100"
+                  />
+                </label>
                 <SubmitButton
                   pendingLabel="Saving…"
                   className="rounded border px-3 py-2"
                 >
                   Save
                 </SubmitButton>
+                <SubmitButton
+                  formAction={removeManualWishlistItem}
+                  pendingLabel="Removing…"
+                  className="rounded border border-red-800 px-3 py-2 text-red-200"
+                >
+                  Remove
+                </SubmitButton>
               </form>
             ))
           ) : (
-            <p className="text-zinc-400">No manual wishlist entry.</p>
+            <form
+              action={addManualWishlistItem}
+              className="grid gap-2 rounded border border-zinc-800 p-3 md:grid-cols-[90px_130px_1fr_auto]"
+            >
+              <input type="hidden" name="cardId" value={row.card.id} />
+              <label className="text-xs text-zinc-400">
+                Qty
+                <input
+                  name="quantity"
+                  type="number"
+                  min="1"
+                  defaultValue="1"
+                  className="mt-1 w-full border bg-zinc-900 p-2 text-zinc-100"
+                />
+              </label>
+              <label className="text-xs text-zinc-400">
+                Priority
+                <input
+                  name="priority"
+                  placeholder="Priority"
+                  className="mt-1 w-full border bg-zinc-900 p-2 text-zinc-100"
+                />
+              </label>
+              <label className="text-xs text-zinc-400">
+                Notes
+                <input
+                  name="notes"
+                  placeholder="Notes"
+                  className="mt-1 w-full border bg-zinc-900 p-2 text-zinc-100"
+                />
+              </label>
+              <SubmitButton
+                pendingLabel="Adding…"
+                className="rounded border border-emerald-700 px-3 py-2 text-emerald-100"
+              >
+                Add manual quantity
+              </SubmitButton>
+            </form>
           )}
         </section>
+
         <section className="mt-4 space-y-3">
-          <h3 className="font-semibold">Deck-derived breakdown</h3>
+          <h3 className="font-semibold">Needed for decks</h3>
           {row.sources.decks.length ? (
             row.sources.decks.map((need) => (
               <div
                 key={need.deckCardId}
-                className="rounded border border-zinc-800 p-3 text-sm"
+                className="space-y-3 rounded border border-zinc-800 p-3 text-sm"
               >
-                <Link
-                  href={`/decks/${need.deckId}`}
-                  className="font-medium text-sky-200"
-                >
-                  {need.deckName}
-                </Link>
-                <p className="text-zinc-400">
-                  {need.section.toLowerCase()} · required{" "}
-                  {need.requiredQuantity} · committed here{" "}
-                  {need.committedQuantity} · committed other decks{" "}
-                  {need.committedToOtherDecks} · missing {need.missingQuantity}
-                </p>
-                <p className="text-zinc-500">
-                  Selected printing:{" "}
-                  {need.selectedPrinting?.setCode.toUpperCase()} #
-                  {need.selectedPrinting?.collectorNumber}; available to commit{" "}
-                  {need.availableExact + need.availableOther} (
-                  {need.availableExact} exact, {need.availableOther} other)
-                </p>
+                <div>
+                  <Link
+                    href={`/decks/${need.deckId}`}
+                    className="font-medium text-sky-200"
+                  >
+                    {need.deckName}
+                  </Link>
+                  <p className="text-zinc-400">
+                    {need.section.toLowerCase()} · required{" "}
+                    {need.requiredQuantity} · committed to this deck{" "}
+                    {need.committedQuantity} · committed to other decks{" "}
+                    {need.committedToOtherDecks} · missing{" "}
+                    {need.missingQuantity}
+                  </p>
+                  <p className="text-zinc-500">
+                    Selected printing: {need.selectedPrinting?.name} —{" "}
+                    {need.selectedPrinting?.setCode.toUpperCase()} #
+                    {need.selectedPrinting?.collectorNumber}; available exact{" "}
+                    {need.availableExact}, other printings {need.availableOther}
+                  </p>
+                </div>
+                {need.commitOptions.length ? (
+                  <form
+                    action={commitDeckCardToDeck}
+                    className="grid gap-2 md:grid-cols-[1fr_90px_auto]"
+                  >
+                    <input type="hidden" name="deckId" value={need.deckId} />
+                    <input
+                      type="hidden"
+                      name="deckCardId"
+                      value={need.deckCardId}
+                    />
+                    <label className="text-xs text-zinc-400">
+                      Source location
+                      <select
+                        name="inventoryItemId"
+                        className="mt-1 w-full border bg-zinc-900 p-2 text-zinc-100"
+                      >
+                        {need.commitOptions.map((option) => (
+                          <option
+                            key={option.inventoryItemId}
+                            value={option.inventoryItemId}
+                          >
+                            {option.locationName}: {option.quantity}{" "}
+                            {option.exact ? "exact" : "other printing"}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="text-xs text-zinc-400">
+                      Qty
+                      <input
+                        name="quantity"
+                        type="number"
+                        min="1"
+                        max={need.missingQuantity}
+                        defaultValue="1"
+                        className="mt-1 w-full border bg-zinc-900 p-2 text-zinc-100"
+                      />
+                    </label>
+                    <SubmitButton
+                      pendingLabel="Committing…"
+                      className="rounded border border-emerald-700 px-3 py-2 text-emerald-100"
+                    >
+                      Commit available copy
+                    </SubmitButton>
+                  </form>
+                ) : (
+                  <p className="text-zinc-500">
+                    No available uncommitted copies to commit.
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <form action={switchWishlistDeckCardToOwnedPrinting}>
+                    <input type="hidden" name="deckId" value={need.deckId} />
+                    <input
+                      type="hidden"
+                      name="deckCardId"
+                      value={need.deckCardId}
+                    />
+                    <SubmitButton
+                      pendingLabel="Switching…"
+                      className="rounded border border-sky-700 px-3 py-2 text-sky-100"
+                    >
+                      Use owned printing for this deck card
+                    </SubmitButton>
+                  </form>
+                  <form action={switchWishlistDeckCardToCheapestPrinting}>
+                    <input type="hidden" name="deckId" value={need.deckId} />
+                    <input
+                      type="hidden"
+                      name="deckCardId"
+                      value={need.deckCardId}
+                    />
+                    <SubmitButton
+                      pendingLabel="Switching…"
+                      className="rounded border border-violet-700 px-3 py-2 text-violet-100"
+                    >
+                      Use cheapest printing for this deck card
+                    </SubmitButton>
+                  </form>
+                  <Link
+                    href={`/decks/${need.deckId}`}
+                    className="rounded border border-zinc-700 px-3 py-2"
+                  >
+                    View deck
+                  </Link>
+                </div>
+                <WishlistPrintingPicker
+                  label="Change deck card printing"
+                  action={changeWishlistDeckCardPrinting}
+                  hiddenFields={{
+                    deckId: need.deckId,
+                    deckCardId: need.deckCardId,
+                  }}
+                  defaultQuery={row.card.name}
+                />
               </div>
             ))
           ) : (
             <p className="text-zinc-400">No deck-derived needs.</p>
+          )}
+        </section>
+
+        <section className="mt-4 space-y-3">
+          <h3 className="font-semibold">Inventory availability breakdown</h3>
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="rounded border border-zinc-800 p-3">
+              <h4 className="font-medium">Available to commit</h4>
+              {row.inventoryBreakdown.availableByLocation.length ? (
+                row.inventoryBreakdown.availableByLocation.map((part) => (
+                  <p key={part.name} className="text-sm text-zinc-300">
+                    {part.name}: {part.quantity}
+                  </p>
+                ))
+              ) : (
+                <p className="text-sm text-zinc-500">No available copies.</p>
+              )}
+            </div>
+            <div className="rounded border border-zinc-800 p-3">
+              <h4 className="font-medium">Committed to decks</h4>
+              {row.inventoryBreakdown.committedByDeck.length ? (
+                row.inventoryBreakdown.committedByDeck.map((part) => (
+                  <p key={part.name} className="text-sm text-zinc-300">
+                    {part.name}: {part.quantity}
+                  </p>
+                ))
+              ) : (
+                <p className="text-sm text-zinc-500">No committed copies.</p>
+              )}
+            </div>
+            <div className="rounded border border-zinc-800 p-3">
+              <h4 className="font-medium">Exact selected printing owned</h4>
+              <p className="text-sm text-zinc-300">
+                Owned {row.inventoryBreakdown.exactOwned}; available{" "}
+                {row.inventoryBreakdown.exactAvailable}
+              </p>
+            </div>
+            <div className="rounded border border-zinc-800 p-3">
+              <h4 className="font-medium">Owned in other printings</h4>
+              <p className="text-sm text-zinc-300">
+                Owned {row.inventoryBreakdown.otherPrintingOwned}; available{" "}
+                {row.inventoryBreakdown.otherPrintingAvailable}
+              </p>
+              {row.inventoryBreakdown.otherPrintings.map((printing) => (
+                <p key={printing.cardId} className="text-sm text-zinc-400">
+                  {printing.name} — {printing.setCode.toUpperCase()} #
+                  {printing.collectorNumber}: {printing.quantity} owned,{" "}
+                  {printing.available} available
+                </p>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-4 space-y-3">
+          <h3 className="font-semibold">Printing tools</h3>
+          {row.sources.manual.length ? (
+            row.sources.manual.map((item) => (
+              <div
+                key={item.id}
+                className="space-y-3 rounded border border-zinc-800 p-3"
+              >
+                <h4 className="font-medium">Manual wishlist printing</h4>
+                <div className="flex flex-wrap gap-2">
+                  <form action={switchManualWishlistToOwnedPrinting}>
+                    <input
+                      type="hidden"
+                      name="wishlistItemId"
+                      value={item.id}
+                    />
+                    <SubmitButton
+                      pendingLabel="Switching…"
+                      className="rounded border border-sky-700 px-3 py-2 text-sky-100"
+                    >
+                      Use owned printing
+                    </SubmitButton>
+                  </form>
+                  <form action={switchManualWishlistToCheapestPrinting}>
+                    <input
+                      type="hidden"
+                      name="wishlistItemId"
+                      value={item.id}
+                    />
+                    <SubmitButton
+                      pendingLabel="Switching…"
+                      className="rounded border border-violet-700 px-3 py-2 text-violet-100"
+                    >
+                      Use cheapest printing
+                    </SubmitButton>
+                  </form>
+                </div>
+                <WishlistPrintingPicker
+                  label="Change wishlist printing"
+                  action={changeManualWishlistPrinting}
+                  hiddenFields={{ wishlistItemId: item.id }}
+                  defaultQuery={row.card.name}
+                />
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-zinc-400">
+              Add a manual wishlist entry above to manage wishlist printing
+              preferences.
+            </p>
           )}
         </section>
       </div>

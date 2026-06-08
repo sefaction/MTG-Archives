@@ -271,7 +271,37 @@ test("wishlist table defaults and row action menu are compact", () => {
   }
   assert.match(table, /RowActionMenu/);
   assert.match(table, /View details/);
-  assert.match(table, /Commit available copy/);
-  assert.match(table, /Use owned printing/);
-  assert.match(table, /Use cheapest printing/);
+  const rowMenu = table.slice(
+    table.indexOf("function RowActionMenu"),
+    table.indexOf("function WishlistPrintingPicker"),
+  );
+  assert.match(rowMenu, /Quick add manual quantity/);
+  assert.match(rowMenu, /View deck/);
+  assert.match(rowMenu, /View in inventory/);
+  assert.doesNotMatch(rowMenu, /Commit available copy/);
+  assert.doesNotMatch(rowMenu, /Use owned printing/);
+  assert.doesNotMatch(rowMenu, /Use cheapest printing/);
+});
+
+test("wishlist drawer contains granular editing and manipulation sections", () => {
+  const table = readFileSync("components/WishlistTable.tsx", "utf8");
+  const drawer = table.slice(
+    table.indexOf("function WishlistDetailDrawer"),
+    table.indexOf("function Metric"),
+  );
+  for (const label of [
+    "Card summary",
+    "Quantity summary",
+    "Manual wishlist controls",
+    "Needed for decks",
+    "Inventory availability breakdown",
+    "Printing tools",
+    "Commit available copy",
+    "Use owned printing for this deck card",
+    "Use cheapest printing for this deck card",
+    "Change deck card printing",
+    "Change wishlist printing",
+  ]) {
+    assert.match(drawer, new RegExp(label));
+  }
 });
