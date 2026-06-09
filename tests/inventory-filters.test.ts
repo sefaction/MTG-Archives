@@ -98,7 +98,13 @@ test("advanced search UI uses token autocomplete and keeps display mode outside 
   assert.match(filterUi, /TYPE_SUGGESTIONS/);
   assert.match(filterUi, /name="typeTokens"/);
   assert.match(filterUi, /onKeyDown/);
-  assert.match(filterUi, /inventory-card-name-options/);
+  assert.match(filterUi, /function AutocompleteInput/);
+  assert.match(filterUi, /function TokenAutocompleteInput/);
+  assert.match(filterUi, /function AutocompleteSuggestionList/);
+  assert.match(filterUi, /function FilterChipBar/);
+  assert.match(filterUi, /label="Type line"/);
+  assert.match(filterUi, /label="Set"/);
+  assert.match(filterUi, /aria-label={`Remove/);
   assert.doesNotMatch(filterUi, /Common card types/);
   assert.match(browserUi, /Display:/);
   assert.match(browserUi, /displayMode: next/);

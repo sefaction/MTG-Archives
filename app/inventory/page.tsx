@@ -812,7 +812,11 @@ export default async function InventoryPage({
         ? String(value).split(",")
         : [];
   };
-  const clearFiltersHref = `/inventory?displayMode=${encodeURIComponent(displayMode)}`;
+  const clearFilterParams = new URLSearchParams();
+  clearFilterParams.set("displayMode", displayMode);
+  if (p.pageSize) clearFilterParams.set("pageSize", String(p.pageSize));
+  if (p.browse) clearFilterParams.set("browse", String(p.browse));
+  const clearFiltersHref = `/inventory?${clearFilterParams.toString()}`;
 
   return (
     <main className="p-8 space-y-4">

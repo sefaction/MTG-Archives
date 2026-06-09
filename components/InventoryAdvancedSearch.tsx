@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { ManaSymbol } from "./mtg/ManaSymbol";
 
 export type FilterOption = { value: string; label: string };
@@ -19,6 +19,18 @@ type InventoryAdvancedSearchProps = {
   clearHref: string;
 };
 
+type AutocompleteOption = {
+  value: string;
+  label: string;
+  description?: string;
+};
+type FilterChipItem = {
+  key: string;
+  label: string;
+  value: string;
+  href: string;
+};
+
 const TYPE_SUGGESTIONS = [
   "Basic",
   "Legendary",
@@ -32,27 +44,27 @@ const TYPE_SUGGESTIONS = [
   "Land",
   "Planeswalker",
   "Sorcery",
-  "Aura",
-  "Equipment",
-  "Vehicle",
-  "Saga",
-  "Food",
-  "Treasure",
-  "Clue",
-  "Blood",
   "Angel",
+  "Aura",
+  "Beast",
+  "Blood",
+  "Clue",
   "Dragon",
-  "Human",
+  "Elemental",
   "Elf",
+  "Equipment",
+  "Food",
   "Goblin",
-  "Zombie",
-  "Vampire",
-  "Wizard",
-  "Warrior",
+  "Human",
+  "Saga",
   "Soldier",
   "Spirit",
-  "Beast",
-  "Elemental",
+  "Treasure",
+  "Vampire",
+  "Vehicle",
+  "Warrior",
+  "Wizard",
+  "Zombie",
 ];
 
 const RARITY_OPTIONS = [
@@ -114,6 +126,401 @@ function titleCase(value: string) {
     .join(" ");
 }
 
+function optionLabel(options: FilterOption[], value: string) {
+  return options.find((option) => option.value === value)?.label || value;
+}
+
+function paramsToUrlSearchParams(
+  params: InventoryAdvancedSearchProps["params"],
+) {
+  const next = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (Array.isArray(value)) {
+      value.forEach((entry) => next.append(key, entry));
+      return;
+    }
+    if (value !== undefined) next.set(key, value);
+  });
+  return next;
+}
+
+function hrefWithParams(actionPath: string, params: URLSearchParams) {
+  const query = params.toString();
+  return query ? `${actionPath}?${query}` : actionPath;
+}
+
+function removeOneParamValue(
+  params: InventoryAdvancedSearchProps["params"],
+  actionPath: string,
+  key: string,
+  valueToRemove?: string,
+  extraKeysWhenEmpty: string[] = [],
+) {
+  const next = paramsToUrlSearchParams(params);
+  const remaining = values(params, key).filter(
+    (value) =>
+      valueToRemove === undefined ||
+      value.toLowerCase() !== valueToRemove.toLowerCase(),
+  );
+  next.delete(key);
+  remaining.forEach((value) => next.append(key, value));
+  if (!remaining.length)
+    extraKeysWhenEmpty.forEach((keyName) => next.delete(keyName));
+  next.delete("page");
+  return hrefWithParams(actionPath, next);
+}
+
+function removeWholeParam(
+  params: InventoryAdvancedSearchProps["params"],
+  actionPath: string,
+  key: string,
+  extraKeys: string[] = [],
+) {
+  const next = paramsToUrlSearchParams(params);
+  next.delete(key);
+  extraKeys.forEach((keyName) => next.delete(keyName));
+  next.delete("page");
+  return hrefWithParams(actionPath, next);
+}
+
+function filterSuggestions(
+  options: AutocompleteOption[],
+  input: string,
+  selected: string[] = [],
+  limit = 8,
+) {
+  const needle = input.trim().toLowerCase();
+  if (!needle) return [];
+  const selectedSet = new Set(selected.map((value) => value.toLowerCase()));
+  return options
+    .filter((option) => {
+      const haystack =
+        `${option.value} ${option.label} ${option.description || ""}`.toLowerCase();
+      return (
+        haystack.includes(needle) &&
+        !selectedSet.has(option.value.toLowerCase())
+      );
+    })
+    .slice(0, limit);
+}
+
+function AutocompleteSuggestionList({
+  id,
+  options,
+  highlighted,
+  onChoose,
+}: {
+  id: string;
+  options: AutocompleteOption[];
+  highlighted: number;
+  onChoose: (option: AutocompleteOption) => void;
+}) {
+  if (!options.length) return null;
+  return (
+    <div
+      id={id}
+      role="listbox"
+      className="absolute z-40 mt-1 max-h-64 w-full overflow-auto rounded border border-zinc-700 bg-zinc-950 p-1 text-sm shadow-xl"
+    >
+      {options.map((option, index) => (
+        <button
+          key={`${option.value}-${option.label}`}
+          type="button"
+          role="option"
+          aria-selected={index === highlighted}
+          className={`block w-full rounded px-2 py-1.5 text-left ${
+            index === highlighted
+              ? "bg-sky-950 text-sky-100"
+              : "hover:bg-zinc-800"
+          }`}
+          onMouseDown={(event) => {
+            event.preventDefault();
+            onChoose(option);
+          }}
+        >
+          <span className="block font-medium">{option.label}</span>
+          {option.description ? (
+            <span className="block text-xs text-zinc-400">
+              {option.description}
+            </span>
+          ) : null}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function AutocompleteInput({
+  label,
+  name,
+  initialValue,
+  placeholder,
+  options,
+}: {
+  label: string;
+  name: string;
+  initialValue: string;
+  placeholder: string;
+  options: AutocompleteOption[];
+}) {
+  const inputId = useId();
+  const listId = `${inputId}-listbox`;
+  const [value, setValue] = useState(initialValue);
+  const [open, setOpen] = useState(false);
+  const [highlighted, setHighlighted] = useState(0);
+  const suggestions = useMemo(
+    () => filterSuggestions(options, value, [], 10),
+    [options, value],
+  );
+
+  function choose(option: AutocompleteOption) {
+    setValue(option.value);
+    setOpen(false);
+    setHighlighted(0);
+  }
+
+  return (
+    <div className="relative">
+      <label className="text-xs font-medium text-zinc-300" htmlFor={inputId}>
+        {label}
+      </label>
+      <input
+        id={inputId}
+        name={name}
+        value={value}
+        onChange={(event) => {
+          setValue(event.target.value);
+          setOpen(true);
+          setHighlighted(0);
+        }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown" && suggestions.length) {
+            event.preventDefault();
+            setOpen(true);
+            setHighlighted((current) => (current + 1) % suggestions.length);
+          }
+          if (event.key === "ArrowUp" && suggestions.length) {
+            event.preventDefault();
+            setOpen(true);
+            setHighlighted(
+              (current) =>
+                (current - 1 + suggestions.length) % suggestions.length,
+            );
+          }
+          if (event.key === "Enter" && open && suggestions[highlighted]) {
+            event.preventDefault();
+            choose(suggestions[highlighted]);
+          }
+          if (event.key === "Escape") {
+            setOpen(false);
+          }
+        }}
+        onBlur={() => setOpen(false)}
+        placeholder={placeholder}
+        autoComplete="off"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-haspopup="listbox"
+        aria-controls={open && suggestions.length ? listId : undefined}
+        aria-expanded={open && suggestions.length ? "true" : "false"}
+        className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 p-2 text-sm"
+      />
+      {open ? (
+        <AutocompleteSuggestionList
+          id={listId}
+          options={suggestions}
+          highlighted={highlighted}
+          onChoose={choose}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function TokenAutocompleteInput({
+  label,
+  name,
+  initialTokens,
+  placeholder,
+  options,
+  normalizeToken = titleCase,
+  tokenLabel,
+}: {
+  label: string;
+  name: string;
+  initialTokens: string[];
+  placeholder: string;
+  options: AutocompleteOption[];
+  normalizeToken?: (value: string) => string;
+  tokenLabel?: (value: string) => string;
+}) {
+  const inputId = useId();
+  const listId = `${inputId}-listbox`;
+  const [tokens, setTokens] = useState<string[]>(
+    initialTokens.map(normalizeToken),
+  );
+  const [input, setInput] = useState("");
+  const [open, setOpen] = useState(false);
+  const [highlighted, setHighlighted] = useState(0);
+  const suggestions = useMemo(
+    () => filterSuggestions(options, input, tokens, 8),
+    [input, options, tokens],
+  );
+
+  function addToken(value: string) {
+    const token = normalizeToken(value);
+    if (!token) return;
+    setTokens((current) =>
+      current.some((entry) => entry.toLowerCase() === token.toLowerCase())
+        ? current
+        : [...current, token],
+    );
+    setInput("");
+    setOpen(false);
+    setHighlighted(0);
+  }
+
+  function choose(option: AutocompleteOption) {
+    addToken(option.value);
+  }
+
+  return (
+    <div className="relative">
+      <input type="hidden" name={name} value={tokens.join(",")} />
+      <label className="text-xs font-medium text-zinc-300" htmlFor={inputId}>
+        {label}
+      </label>
+      <div className="mt-1 flex min-h-10 flex-wrap items-center gap-1 rounded border border-zinc-700 bg-zinc-900 px-2 py-1">
+        {tokens.map((token) => (
+          <FilterChip
+            key={token}
+            label={label === "Type line" ? "Type" : label}
+            value={tokenLabel?.(token) || token}
+            onRemove={() =>
+              setTokens((current) => current.filter((entry) => entry !== token))
+            }
+          />
+        ))}
+        <input
+          id={inputId}
+          value={input}
+          onChange={(event) => {
+            setInput(event.target.value);
+            setOpen(true);
+            setHighlighted(0);
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown" && suggestions.length) {
+              event.preventDefault();
+              setOpen(true);
+              setHighlighted((current) => (current + 1) % suggestions.length);
+            }
+            if (event.key === "ArrowUp" && suggestions.length) {
+              event.preventDefault();
+              setOpen(true);
+              setHighlighted(
+                (current) =>
+                  (current - 1 + suggestions.length) % suggestions.length,
+              );
+            }
+            if (event.key === "Enter" && input.trim()) {
+              event.preventDefault();
+              addToken(suggestions[highlighted]?.value || input);
+            }
+            if (event.key === "Escape") {
+              setOpen(false);
+            }
+            if (event.key === "Backspace" && !input && tokens.length) {
+              setTokens((current) => current.slice(0, -1));
+            }
+          }}
+          onBlur={() => setOpen(false)}
+          placeholder={tokens.length ? "Add another…" : placeholder}
+          autoComplete="off"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-haspopup="listbox"
+          aria-controls={open && suggestions.length ? listId : undefined}
+          aria-expanded={open && suggestions.length ? "true" : "false"}
+          className="min-w-32 flex-1 bg-transparent px-1 py-1 text-sm outline-none"
+        />
+      </div>
+      {open ? (
+        <AutocompleteSuggestionList
+          id={listId}
+          options={suggestions}
+          highlighted={highlighted}
+          onChoose={choose}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function FilterChip({
+  label,
+  value,
+  href,
+  onRemove,
+}: {
+  label: string;
+  value: string;
+  href?: string;
+  onRemove?: () => void;
+}) {
+  const content = (
+    <>
+      <span className="font-medium">{label}:</span> {value}
+      <span aria-hidden="true" className="ml-1 text-sky-300">
+        ×
+      </span>
+    </>
+  );
+  const className =
+    "inline-flex items-center gap-1 rounded-full bg-sky-950 px-2 py-0.5 text-xs text-sky-100 hover:bg-sky-900";
+
+  if (href) {
+    return (
+      <a
+        href={href}
+        className={className}
+        aria-label={`Remove ${label}: ${value}`}
+      >
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className={className}
+      onClick={onRemove}
+      aria-label={`Remove ${label}: ${value}`}
+    >
+      {content}
+    </button>
+  );
+}
+
+function FilterChipBar({ chips }: { chips: FilterChipItem[] }) {
+  if (!chips.length) return null;
+  return (
+    <div className="flex flex-wrap gap-1" aria-label="Active filters">
+      {chips.map((chip) => (
+        <FilterChip
+          key={chip.key}
+          label={chip.label}
+          value={chip.value}
+          href={chip.href}
+        />
+      ))}
+    </div>
+  );
+}
+
 function MultiSelectDropdown({
   label,
   name,
@@ -159,113 +566,6 @@ function MultiSelectDropdown({
         ))}
       </div>
     </details>
-  );
-}
-
-function TypeTokenInput({ initialTokens }: { initialTokens: string[] }) {
-  const [tokens, setTokens] = useState<string[]>(initialTokens.map(titleCase));
-  const [input, setInput] = useState("");
-  const [highlighted, setHighlighted] = useState(0);
-  const suggestions = useMemo(() => {
-    const needle = input.trim().toLowerCase();
-    if (!needle) return [];
-    return TYPE_SUGGESTIONS.filter(
-      (suggestion) =>
-        suggestion.toLowerCase().includes(needle) &&
-        !tokens.some(
-          (token) => token.toLowerCase() === suggestion.toLowerCase(),
-        ),
-    ).slice(0, 6);
-  }, [input, tokens]);
-
-  function addToken(value: string) {
-    const token = titleCase(value);
-    if (!token) return;
-    setTokens((current) =>
-      current.some((entry) => entry.toLowerCase() === token.toLowerCase())
-        ? current
-        : [...current, token],
-    );
-    setInput("");
-    setHighlighted(0);
-  }
-
-  return (
-    <div className="relative">
-      <input type="hidden" name="typeTokens" value={tokens.join(",")} />
-      <label
-        className="text-xs font-medium text-zinc-300"
-        htmlFor="type-token-input"
-      >
-        Type tokens
-      </label>
-      <div className="mt-1 flex min-h-10 flex-wrap items-center gap-1 rounded border border-zinc-700 bg-zinc-900 px-2 py-1">
-        {tokens.map((token) => (
-          <span
-            key={token}
-            className="inline-flex items-center gap-1 rounded-full bg-sky-950 px-2 py-0.5 text-xs text-sky-100"
-          >
-            {token}
-            <button
-              type="button"
-              aria-label={`Remove ${token} type filter`}
-              className="text-sky-300 hover:text-white"
-              onClick={() =>
-                setTokens((current) =>
-                  current.filter((entry) => entry !== token),
-                )
-              }
-            >
-              ×
-            </button>
-          </span>
-        ))}
-        <input
-          id="type-token-input"
-          value={input}
-          onChange={(event) => setInput(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "ArrowDown" && suggestions.length) {
-              event.preventDefault();
-              setHighlighted((current) => (current + 1) % suggestions.length);
-            }
-            if (event.key === "ArrowUp" && suggestions.length) {
-              event.preventDefault();
-              setHighlighted(
-                (current) =>
-                  (current - 1 + suggestions.length) % suggestions.length,
-              );
-            }
-            if (event.key === "Enter" && input.trim()) {
-              event.preventDefault();
-              addToken(suggestions[highlighted] || input);
-            }
-            if (event.key === "Backspace" && !input && tokens.length) {
-              setTokens((current) => current.slice(0, -1));
-            }
-          }}
-          placeholder={tokens.length ? "Add another…" : "Legendary, Angel…"}
-          className="min-w-32 flex-1 bg-transparent px-1 py-1 text-sm outline-none"
-        />
-      </div>
-      {suggestions.length ? (
-        <div className="absolute z-40 mt-1 w-full rounded border border-zinc-700 bg-zinc-950 p-1 text-sm shadow-xl">
-          {suggestions.map((suggestion, index) => (
-            <button
-              key={suggestion}
-              type="button"
-              className={`block w-full rounded px-2 py-1 text-left ${index === highlighted ? "bg-zinc-800" : ""}`}
-              onMouseDown={(event) => {
-                event.preventDefault();
-                addToken(suggestion);
-              }}
-            >
-              {suggestion}
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
   );
 }
 
@@ -315,14 +615,149 @@ function ColorIdentityControls({
   );
 }
 
-function activeChip(label: string, value?: string | string[]) {
-  const text = Array.isArray(value) ? value.filter(Boolean).join(", ") : value;
-  if (!text) return null;
-  return (
-    <span key={label} className="rounded-full bg-zinc-800 px-2 py-1 text-xs">
-      {label}: {text}
-    </span>
+function buildActiveChips({
+  params,
+  actionPath,
+  rarity,
+  finish,
+  source,
+  locationId,
+  locationOptions,
+  typeTokens,
+  colorIdentity,
+}: {
+  params: InventoryAdvancedSearchProps["params"];
+  actionPath: string;
+  rarity: string[];
+  finish: string[];
+  source: string[];
+  locationId: string[];
+  locationOptions: FilterOption[];
+  typeTokens: string[];
+  colorIdentity: string[];
+}) {
+  const chips: FilterChipItem[] = [];
+  const pushWhole = (
+    key: string,
+    label: string,
+    value?: string,
+    extraKeys: string[] = [],
+  ) => {
+    if (!value) return;
+    chips.push({
+      key: `${key}-${value}`,
+      label,
+      value,
+      href: removeWholeParam(params, actionPath, key, extraKeys),
+    });
+  };
+  const pushOne = (
+    key: string,
+    label: string,
+    value: string,
+    displayValue = value,
+    extraKeysWhenEmpty: string[] = [],
+  ) => {
+    if (!value) return;
+    chips.push({
+      key: `${key}-${value}`,
+      label,
+      value: displayValue,
+      href: removeOneParamValue(
+        params,
+        actionPath,
+        key,
+        value,
+        extraKeysWhenEmpty,
+      ),
+    });
+  };
+
+  pushWhole("cardName", "Name", first(params, "cardName"));
+  pushWhole("oracleText", "Oracle", first(params, "oracleText"));
+  typeTokens.forEach((token) =>
+    pushOne(
+      values(params, "typeTokens").length ? "typeTokens" : "type",
+      "Type",
+      token,
+      titleCase(token),
+    ),
   );
+  values(params, "set").forEach((set) =>
+    pushOne("set", "Set", set, set.toUpperCase()),
+  );
+  rarity.forEach((value) =>
+    pushOne("rarity", "Rarity", value, titleCase(value)),
+  );
+  finish.forEach((value) =>
+    pushOne(
+      values(params, "finish").length ? "finish" : "foil",
+      "Finish",
+      value,
+      titleCase(value),
+    ),
+  );
+  values(params, "language").forEach((value) =>
+    pushOne("language", "Language", value, value.toUpperCase()),
+  );
+  source.forEach((value) =>
+    pushOne("source", "Source", value, optionLabel(SOURCE_OPTIONS, value)),
+  );
+  locationId.forEach((value) =>
+    pushOne(
+      value === "unassigned" && !values(params, "locationId").length
+        ? "hasLocation"
+        : "locationId",
+      "Location",
+      value,
+      optionLabel(locationOptions, value),
+    ),
+  );
+  pushWhole("visibility", "Visibility", first(params, "visibility"));
+  pushWhole("ownerId", "Owner", first(params, "ownerId"));
+  pushWhole("commitment", "Inventory", first(params, "commitment"));
+  colorIdentity.forEach((value) => {
+    const mode =
+      COLOR_MODE_OPTIONS.find(
+        (option) => option.value === first(params, "colorIdentityMode"),
+      )?.label || "All";
+    pushOne(
+      "colorIdentity",
+      "Color Identity",
+      value,
+      `${mode} ${optionLabel(COLOR_OPTIONS, value)}`,
+      ["colorIdentityMode"],
+    );
+  });
+  const mvOp = first(params, "mvOp");
+  if (mvOp === "between") {
+    const min = first(params, "mvMin") || first(params, "manaValueMin");
+    const max = first(params, "mvMax") || first(params, "manaValueMax");
+    pushWhole("mvOp", "Mana Value", `${min || "…"}–${max || "…"}`, [
+      "mv",
+      "mvMin",
+      "mvMax",
+      "manaValueMin",
+      "manaValueMax",
+    ]);
+  } else if (mvOp && first(params, "mv")) {
+    const opLabel =
+      { eq: "=", lt: "<", lte: "<=", gt: ">", gte: ">=" }[mvOp] || mvOp;
+    pushWhole("mvOp", "Mana Value", `${opLabel} ${first(params, "mv")}`, [
+      "mv",
+    ]);
+  }
+  pushWhole(
+    "priceMin",
+    "Price",
+    first(params, "priceMin") ? `>= ${first(params, "priceMin")}` : "",
+  );
+  pushWhole(
+    "priceMax",
+    "Price",
+    first(params, "priceMax") ? `<= ${first(params, "priceMax")}` : "",
+  );
+  return chips;
 }
 
 export function InventoryAdvancedSearch({
@@ -368,21 +803,30 @@ export function InventoryAdvancedSearch({
       label: `${location.kind === "DECK" ? "Deck: " : ""}${location.label}`,
     })),
   ];
-  const activeChips = [
-    activeChip("Name", first(params, "cardName")),
-    activeChip("Type", typeTokens.map(titleCase)),
-    activeChip("Oracle", first(params, "oracleText")),
-    activeChip("Set", values(params, "set")),
-    activeChip("Rarity", rarity.map(titleCase)),
-    activeChip("Finish", finish.map(titleCase)),
-    activeChip(
-      "Color ID",
-      colorIdentity.length
-        ? `${COLOR_MODE_OPTIONS.find((option) => option.value === first(params, "colorIdentityMode"))?.label || "All"} ${colorIdentity.join(",")}`
-        : "",
-    ),
-    activeChip("Location", locationId),
-  ].filter(Boolean);
+  const cardOptions = cardNameOptions.map((name) => ({
+    value: name,
+    label: name,
+  }));
+  const setAutocompleteOptions = setOptions.map((set) => ({
+    value: set.value,
+    label: set.label,
+    description: set.value.toUpperCase(),
+  }));
+  const typeOptions = TYPE_SUGGESTIONS.map((type) => ({
+    value: type,
+    label: type,
+  }));
+  const activeChips = buildActiveChips({
+    params,
+    actionPath,
+    rarity,
+    finish,
+    source,
+    locationId,
+    locationOptions,
+    typeTokens,
+    colorIdentity,
+  });
 
   return (
     <details open className="rounded border border-zinc-800 bg-zinc-950/40 p-3">
@@ -392,24 +836,41 @@ export function InventoryAdvancedSearch({
       <form className="mt-3 space-y-3" action={actionPath}>
         <input type="hidden" name="page" value="1" />
         <input type="hidden" name="displayMode" value={displayMode} />
+        {first(params, "pageSize") ? (
+          <input
+            type="hidden"
+            name="pageSize"
+            value={first(params, "pageSize")}
+          />
+        ) : null}
+        {first(params, "browse") ? (
+          <input type="hidden" name="browse" value={first(params, "browse")} />
+        ) : null}
+        {first(params, "sort") ? (
+          <input type="hidden" name="sort" value={first(params, "sort")} />
+        ) : null}
+        {first(params, "sortDir") ? (
+          <input
+            type="hidden"
+            name="sortDir"
+            value={first(params, "sortDir")}
+          />
+        ) : null}
         <div className="grid gap-2 lg:grid-cols-[minmax(13rem,1.2fr)_minmax(16rem,1.4fr)_minmax(13rem,1fr)_minmax(13rem,1fr)]">
-          <label className="text-xs font-medium text-zinc-300">
-            Card name
-            <input
-              name="cardName"
-              list="inventory-card-name-options"
-              defaultValue={first(params, "cardName")}
-              placeholder="Sol Ring"
-              className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 p-2 text-sm"
-              autoComplete="off"
-            />
-            <datalist id="inventory-card-name-options">
-              {cardNameOptions.map((name) => (
-                <option key={name} value={name} />
-              ))}
-            </datalist>
-          </label>
-          <TypeTokenInput initialTokens={typeTokens} />
+          <AutocompleteInput
+            label="Card name"
+            name="cardName"
+            initialValue={first(params, "cardName")}
+            placeholder="Sol Ring"
+            options={cardOptions}
+          />
+          <TokenAutocompleteInput
+            label="Type line"
+            name="typeTokens"
+            initialTokens={typeTokens}
+            placeholder="Legendary, Angel…"
+            options={typeOptions}
+          />
           <label className="text-xs font-medium text-zinc-300">
             Oracle text
             <input
@@ -419,23 +880,15 @@ export function InventoryAdvancedSearch({
               className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 p-2 text-sm"
             />
           </label>
-          <label className="text-xs font-medium text-zinc-300">
-            Set / expansion
-            <input
-              name="set"
-              list="inventory-set-options"
-              defaultValue={values(params, "set").join(",")}
-              placeholder="TLA or Avatar"
-              className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 p-2 text-sm"
-            />
-            <datalist id="inventory-set-options">
-              {setOptions.map((set) => (
-                <option key={set.value} value={set.value}>
-                  {set.label}
-                </option>
-              ))}
-            </datalist>
-          </label>
+          <TokenAutocompleteInput
+            label="Set"
+            name="set"
+            initialTokens={values(params, "set")}
+            placeholder="TLA or Avatar"
+            options={setAutocompleteOptions}
+            normalizeToken={(value) => value.trim().toLowerCase()}
+            tokenLabel={(value) => value.toUpperCase()}
+          />
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -552,14 +1005,16 @@ export function InventoryAdvancedSearch({
               <option value="gte">&gt;=</option>
               <option value="between">Between</option>
             </select>
-            <input
-              name="mv"
-              type="number"
-              step="0.5"
-              defaultValue={first(params, "mv")}
-              placeholder="Value"
-              className="w-20 rounded border border-zinc-700 bg-zinc-900 px-2 py-1"
-            />
+            {mvOp && mvOp !== "between" ? (
+              <input
+                name="mv"
+                type="number"
+                step="0.5"
+                defaultValue={first(params, "mv")}
+                placeholder="Value"
+                className="w-20 rounded border border-zinc-700 bg-zinc-900 px-2 py-1"
+              />
+            ) : null}
             {mvOp === "between" ? (
               <>
                 <input
@@ -606,11 +1061,7 @@ export function InventoryAdvancedSearch({
           </div>
         </div>
 
-        {activeChips.length ? (
-          <div className="flex flex-wrap gap-1" aria-label="Active filters">
-            {activeChips}
-          </div>
-        ) : null}
+        <FilterChipBar chips={activeChips} />
 
         <div className="flex flex-wrap gap-2">
           <button className="rounded border border-sky-700 px-3 py-2 text-sm text-sky-100 hover:bg-sky-950">

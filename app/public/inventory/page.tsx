@@ -272,7 +272,11 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
         ? String(value).split(",")
         : [];
   };
-  const clearFiltersHref = `/public/inventory?displayMode=${encodeURIComponent(displayMode)}`;
+  const clearFilterParams = new URLSearchParams();
+  clearFilterParams.set("displayMode", displayMode);
+  if (p.pageSize) clearFilterParams.set("pageSize", String(p.pageSize));
+  if (p.browse) clearFilterParams.set("browse", String(p.browse));
+  const clearFiltersHref = `/public/inventory?${clearFilterParams.toString()}`;
 
   return (
     <main className="p-8 space-y-6">
