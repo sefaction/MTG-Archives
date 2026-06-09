@@ -110,6 +110,7 @@ export default async function TradesPage({
     where: {
       currentOwnerId: { in: [proposerId, receiverId].filter(Boolean) },
       quantity: { gt: 0 },
+      OR: [{ locationId: null }, { location: { kind: "NORMAL" } }],
     },
     include: {
       card: true,

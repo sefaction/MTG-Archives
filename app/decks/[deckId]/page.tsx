@@ -2,7 +2,12 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { DeckFormat, DeckSection, Visibility } from "@prisma/client";
+import {
+  DeckFormat,
+  DeckSection,
+  InventoryLocationKind,
+  Visibility,
+} from "@prisma/client";
 import { Nav } from "@/components/Nav";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { getAccessScope, getCurrentUser } from "@/lib/auth";
@@ -10,9 +15,7 @@ import {
   canManageDeck,
   canViewDeck,
   deckFormatLabel,
-  deckSectionLabel,
   deckSections,
-  deckRowCount,
   deckSectionQuantityTotals,
   deckTotalQuantity,
   summarizeDeckCardOwnership,
@@ -61,9 +64,11 @@ export default async function DeckDetailPage({
     deck.ownerUser.deckDefaultVisibility,
     deck.visibility,
   );
-  const inventoryItems = user?.playerId
+  const inventoryOwnerId = canEdit ? deck.ownerUser.playerId : null;
+  if (inventoryOwnerId) await ensureDefaultLocation(prisma, inventoryOwnerId);
+  const inventoryItems = inventoryOwnerId
     ? await prisma.inventoryItem.findMany({
-        where: { currentOwnerId: user.playerId, quantity: { gt: 0 } },
+        where: { currentOwnerId: inventoryOwnerId, quantity: { gt: 0 } },
         include: { card: true, location: true },
       })
     : [];
@@ -93,8 +98,33 @@ export default async function DeckDetailPage({
     deck.cards,
     inventoryItems,
   );
+  const pricedCards = deck.cards
+    .filter((deckCard) => deckCard.section !== DeckSection.MAYBEBOARD)
+    .map((deckCard) => {
+      const price = cardPriceNumber(deckCard.card?.prices);
+      return price == null ? null : price * deckCard.quantity;
+    })
+    .filter((price): price is number => price !== null);
+  const estimatedPrice = pricedCards.length
+    ? pricedCards.reduce((total, price) => total + price, 0)
+    : null;
+  const manaValueCards = deck.cards.filter(
+    (deckCard) =>
+      deckCard.section !== DeckSection.MAYBEBOARD &&
+      typeof deckCard.card?.manaValue === "number",
+  );
+  const averageManaValue = manaValueCards.length
+    ? manaValueCards.reduce(
+        (total, deckCard) =>
+          total + (deckCard.card?.manaValue ?? 0) * deckCard.quantity,
+        0,
+      ) /
+      manaValueCards.reduce((total, deckCard) => total + deckCard.quantity, 0)
+    : null;
+  const usesCommander =
+    deck.format === DeckFormat.COMMANDER || sectionTotals.COMMANDER > 0;
   const editorRows = deck.cards.map((deckCard) => {
-    const owned = summarizeDeckCardOwnership(deckCard, inventoryItems);
+    const owned = summarizeDeckCardOwnership(deckCard, inventoryItems, deck.id);
     return {
       id: deckCard.id,
       cardName: deckCard.cardName,
@@ -135,6 +165,14 @@ export default async function DeckDetailPage({
         : null,
     };
   });
+  const deckWishlistMissing = editorRows.reduce(
+    (total, row) => total + row.commitmentMissing,
+    0,
+  );
+  const deckWishlistAvailable = editorRows.reduce(
+    (total, row) => total + Math.min(row.commitmentMissing, row.available),
+    0,
+  );
 
   return (
     <main className="p-8 space-y-6">
@@ -232,12 +270,14 @@ export default async function DeckDetailPage({
             {deckTotalQuantity(deck.cards)}
           </div>
         </div>
-        <div>
-          <span className="text-zinc-400">Deck rows</span>
-          <div className="text-xl font-semibold">
-            {deckRowCount(deck.cards)}
+        {usesCommander ? (
+          <div>
+            <span className="text-zinc-400">Commander</span>
+            <div className="text-xl font-semibold">
+              {sectionTotals.COMMANDER}
+            </div>
           </div>
-        </div>
+        ) : null}
         <div>
           <span className="text-zinc-400">Committed inventory</span>
           <div className="text-xl font-semibold text-amber-100">
@@ -250,26 +290,65 @@ export default async function DeckDetailPage({
             {ownershipTotals.exactOwned}
           </div>
         </div>
+        {sectionTotals.SIDEBOARD > 0 ? (
+          <div>
+            <span className="text-zinc-400">Sideboard</span>
+            <div className="text-xl font-semibold">
+              {sectionTotals.SIDEBOARD}
+            </div>
+          </div>
+        ) : null}
+        {sectionTotals.MAYBEBOARD > 0 ? (
+          <div>
+            <span className="text-zinc-400">Maybeboard</span>
+            <div className="text-xl font-semibold">
+              {sectionTotals.MAYBEBOARD}
+            </div>
+          </div>
+        ) : null}
         <div>
-          <span className="text-zinc-400">Missing</span>
+          <span className="text-zinc-400">Missing cards</span>
           <div className="text-xl font-semibold text-amber-200">
             {ownershipTotals.missing}
           </div>
         </div>
-        {deckSections.map((section) => (
-          <div key={section}>
-            <span className="text-zinc-400">
-              {deckSectionLabel(section)} cards
-            </span>
-            <div className="font-semibold">{sectionTotals[section]}</div>
+        {canEdit ? (
+          <div>
+            <span className="text-zinc-400">Wishlist needs</span>
+            <div className="text-xl font-semibold text-amber-200">
+              <Link href="/wishlist?tab=decks">
+                {deckWishlistMissing} needed
+              </Link>
+            </div>
+            <div className="text-xs text-emerald-300">
+              {deckWishlistAvailable} available to commit
+            </div>
           </div>
-        ))}
+        ) : null}
+        <div>
+          <span className="text-zinc-400">Owned exact</span>
+          <div className="font-semibold text-emerald-300">
+            {ownershipTotals.exactOwned}
+          </div>
+        </div>
         <div>
           <span className="text-zinc-400">Owned other printing</span>
           <div className="font-semibold text-sky-200">
             {ownershipTotals.otherOwned}
           </div>
         </div>
+        {estimatedPrice != null ? (
+          <div>
+            <span className="text-zinc-400">Estimated price</span>
+            <div className="font-semibold">${estimatedPrice.toFixed(2)}</div>
+          </div>
+        ) : null}
+        {averageManaValue != null ? (
+          <div>
+            <span className="text-zinc-400">Average mana value</span>
+            <div className="font-semibold">{averageManaValue.toFixed(2)}</div>
+          </div>
+        ) : null}
       </section>
 
       {canEdit ? (

@@ -12,12 +12,17 @@ import {
   deckCardCount,
   deckRowCount,
   deckSectionQuantityTotals,
+  deckSectionSummaryParts,
   deckTotalQuantity,
   normalizePositiveQuantity,
   publicDeckWhere,
   summarizeDeckCardOwnership,
   summarizeDeckOwnershipTotals,
 } from "../lib/decks";
+import {
+  deckLocationName,
+  summarizeDeckCommitmentOwnership,
+} from "../lib/deck-commitments";
 import {
   mergeDeckOptimizationRowsForTest,
   mergeDeckSectionMoveRowsForTest,
@@ -122,15 +127,69 @@ test("public deck where includes public and inherited-public decks only", () => 
   });
 });
 
-test("deck card counts exclude maybeboard quantities", () => {
+test("deck card counts exclude sideboard and maybeboard quantities", () => {
   assert.equal(
     deckCardCount([
       { quantity: 60, section: DeckSection.MAINBOARD },
       { quantity: 15, section: DeckSection.SIDEBOARD },
       { quantity: 4, section: DeckSection.MAYBEBOARD },
     ]),
-    75,
+    60,
   );
+});
+
+test("deck commitment ownership distinguishes available and committed quantities", () => {
+  const summary = summarizeDeckCommitmentOwnership(
+    {
+      cardId: "sol-ring-a",
+      oracleId: "oracle-sol",
+      cardName: "Sol Ring",
+      quantity: 1,
+    },
+    [
+      {
+        cardId: "sol-ring-a",
+        quantity: 2,
+        card: { id: "sol-ring-a", oracleId: "oracle-sol", name: "Sol Ring" },
+        location: { id: "box", name: "Box-0001", kind: "NORMAL", deckId: null },
+      },
+      {
+        cardId: "sol-ring-a",
+        quantity: 1,
+        card: { id: "sol-ring-a", oracleId: "oracle-sol", name: "Sol Ring" },
+        location: {
+          id: "deck-a-location",
+          name: "Deck: A",
+          kind: "DECK",
+          deckId: "deck-a",
+        },
+      },
+      {
+        cardId: "sol-ring-b",
+        quantity: 1,
+        card: { id: "sol-ring-b", oracleId: "oracle-sol", name: "Sol Ring" },
+        location: {
+          id: "deck-b-location",
+          name: "Deck: B",
+          kind: "DECK",
+          deckId: "deck-b",
+        },
+      },
+    ],
+    "deck-a",
+  );
+
+  assert.equal(summary.owned, 4);
+  assert.equal(summary.available, 2);
+  assert.equal(summary.committedToThisDeck, 1);
+  assert.equal(summary.committedToOtherDecks, 1);
+  assert.equal(summary.missing, 0);
+  assert.equal(summary.commitmentMissing, 0);
+  assert.match(summary.locationSummary, /Box-0001: 2/);
+});
+
+test("deck location names are generated as system deck locations", () => {
+  assert.equal(deckLocationName(" Queen   Marchesa "), "Deck: Queen Marchesa");
 });
 
 test("deck card quantity normalization prevents zero and negative quantities", () => {
@@ -168,7 +227,7 @@ test("inventory awareness supports exact printing and oracle/name fallback", () 
   assert.equal(exact.owned, 3);
   assert.equal(exact.missing, 0);
   assert.equal(exact.matchType, "Exact printing + other printings");
-  assert.equal(exact.locationSummary, "Box-0003, Binder");
+  assert.equal(exact.locationSummary, "Box-0003: 1 · Binder: 2");
 
   const fallback = summarizeDeckCardOwnership(
     { oracleId: "oracle-a", cardName: "Lightning Bolt", quantity: 2 },
@@ -449,8 +508,15 @@ test("deck totals sum quantities separately from row counts", () => {
     { quantity: 15, section: DeckSection.SIDEBOARD },
     { quantity: 7, section: DeckSection.MAYBEBOARD },
   ];
-  assert.equal(deckTotalQuantity(cards), 76);
+  assert.equal(deckTotalQuantity(cards), 61);
   assert.equal(deckRowCount(cards), 3);
+  assert.deepEqual(deckSectionSummaryParts(cards), [
+    "61 total cards",
+    "1 commander",
+    "60 mainboard",
+    "15 sideboard",
+    "7 maybeboard",
+  ]);
   const sections = deckSectionQuantityTotals(cards);
   assert.equal(sections.COMMANDER, 1);
   assert.equal(sections.MAINBOARD, 60);

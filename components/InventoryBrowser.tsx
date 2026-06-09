@@ -23,6 +23,11 @@ import {
   SetLabel,
   SetSymbol,
 } from "./mtg/CardSymbols";
+import {
+  collectionCardGridClass,
+  normalizeCollectionCardSize,
+  type CollectionCardSize,
+} from "./cardGrid";
 
 type PickRef = { id: string; name: string; color?: string };
 
@@ -525,14 +530,16 @@ export function InventoryBrowser({
   const [selected, setSelected] = useState<InventoryRow | null>(null);
   const [editing, setEditing] = useState<InventoryRow | null>(null);
   const [auditRow, setAuditRow] = useState<InventoryRow | null>(null);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState("");
   const [viewMode, setViewMode] = useState<"table" | "binder">(() =>
     typeof window !== "undefined"
       ? (localStorage.getItem("inventoryViewMode") as any) || "table"
       : "table",
   );
-  const [cardSize, setCardSize] = useState<"small" | "medium" | "large">(() =>
+  const [cardSize, setCardSize] = useState<CollectionCardSize>(() =>
     typeof window !== "undefined"
-      ? (localStorage.getItem("inventoryCardSize") as any) || "medium"
+      ? normalizeCollectionCardSize(localStorage.getItem("inventoryCardSize"))
       : "medium",
   );
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
@@ -615,6 +622,30 @@ export function InventoryBrowser({
           (row.sourceItemIds ?? [row.id]).some((id) => selectedItemIds.has(id)),
         )
         .reduce((sum, row) => sum + row.quantity, 0);
+
+  async function openAuditTrail(row: InventoryRow) {
+    setSelected(null);
+    setAuditRow({ ...row, auditHistory: row.auditHistory || [] });
+    setAuditLoading(true);
+    setAuditError("");
+    try {
+      const itemIds = getRowSourceIds(row).join(",");
+      const response = await fetch(
+        `/api/inventory/audit?itemIds=${encodeURIComponent(itemIds)}`,
+      );
+      if (!response.ok) throw new Error("Audit trail could not be loaded.");
+      const data = (await response.json()) as {
+        entries?: InventoryAuditEntry[];
+      };
+      setAuditRow({ ...row, auditHistory: data.entries || [] });
+    } catch (error) {
+      console.error("[inventory-audit] load failed", error);
+      setAuditError("Audit trail could not be loaded.");
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
   const selectedItemIdList = useMemo(
     () => Array.from(selectedItemIds),
     [selectedItemIds],
@@ -740,11 +771,16 @@ export function InventoryBrowser({
     router.replace(`${window.location.pathname}?${params.toString()}`);
   }
 
-  function updateBrowseQuery(next: { pageSize?: number; browse?: string }) {
+  function updateBrowseQuery(next: {
+    pageSize?: number;
+    browse?: string;
+    displayMode?: "exact" | "grouped";
+  }) {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     if (next.pageSize) params.set("pageSize", String(next.pageSize));
     if (next.browse) params.set("browse", next.browse);
+    if (next.displayMode) params.set("displayMode", next.displayMode);
     params.delete("page");
     router.replace(`${window.location.pathname}?${params.toString()}`);
   }
@@ -1040,12 +1076,7 @@ export function InventoryBrowser({
     },
     getCoreRowModel: getCoreRowModel(),
   });
-  const sizeClass =
-    cardSize === "small"
-      ? "grid-cols-2 md:grid-cols-4 lg:grid-cols-8"
-      : cardSize === "large"
-        ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-5"
-        : "grid-cols-2 md:grid-cols-4 lg:grid-cols-6";
+  const sizeClass = collectionCardGridClass(cardSize);
 
   return (
     <div className="space-y-3">
@@ -1089,6 +1120,20 @@ export function InventoryBrowser({
         >
           Binder View
         </button>
+        <span className="text-sm ml-4">Display:</span>
+        <select
+          value={displayMode}
+          onChange={(event) => {
+            const next = event.target.value as "exact" | "grouped";
+            setLoadedRows(rows);
+            setPagination((current) => ({ ...current, pageIndex: 0 }));
+            updateBrowseQuery({ displayMode: next });
+          }}
+          className="border px-2 py-1 bg-zinc-900"
+        >
+          <option value="exact">Exact printings</option>
+          <option value="grouped">Grouped by card</option>
+        </select>
         {viewMode === "binder" ? (
           <>
             <span className="text-sm ml-4">Card Size:</span>
@@ -1574,10 +1619,7 @@ export function InventoryBrowser({
           }
           onAudit={
             capabilities.canViewAuditTrail
-              ? () => {
-                  setAuditRow(selected);
-                  setSelected(null);
-                }
+              ? () => void openAuditTrail(selected)
               : undefined
           }
           onDelete={
@@ -1612,6 +1654,15 @@ export function InventoryBrowser({
                 Close
               </button>
             </div>
+            {auditLoading ? (
+              <div className="rounded border border-zinc-800 p-4 text-sm text-zinc-400">
+                Loading audit trail…
+              </div>
+            ) : auditError ? (
+              <div className="rounded border border-red-800 bg-red-950/30 p-4 text-sm text-red-200">
+                {auditError}
+              </div>
+            ) : null}
             <InventoryAuditTrail
               entries={auditRow.auditHistory}
               playerLabels={Object.fromEntries(

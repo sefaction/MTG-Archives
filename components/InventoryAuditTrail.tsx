@@ -62,11 +62,49 @@ function valuesEqual(before: unknown, after: unknown) {
   return stableStringify(before) === stableStringify(after);
 }
 
-function friendlyEnum(value: string) {
+export function friendlyEnum(value: string) {
   return value
     .toLowerCase()
     .replace(/_/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function auditText(value: unknown) {
+  if (value === undefined || value === null || value === "") return "—";
+  return String(value);
+}
+
+export function inventoryAuditSummary(entry: InventoryAuditEntry) {
+  const after = entry.afterJson || {};
+  const before = entry.beforeJson || {};
+  const data = { ...before, ...after } as Record<string, unknown>;
+  const actor = entry.changedBy || "Someone";
+  const quantity = auditText(data.quantityMoved ?? data.quantity);
+  const cardName = auditText(data.cardName ?? data.cardId);
+  const source = auditText(data.sourceLocationName ?? data.sourceLocationId);
+  const destination = auditText(
+    data.destinationLocationName ?? data.destinationLocationId,
+  );
+  const deckName = auditText(data.deckName ?? data.deckId);
+
+  switch (entry.changeType) {
+    case "committed_to_deck":
+      return `${actor} committed ${quantity} ${cardName} from ${source} to ${destination}.`;
+    case "bulk_committed_to_deck":
+      return `${actor} bulk committed ${quantity} ${cardName} from ${source} to ${destination}.`;
+    case "returned_from_deck":
+      return `${actor} returned ${quantity} ${cardName} from ${source} to ${destination}.`;
+    case "bulk_returned_from_deck":
+      return `${actor} bulk returned ${quantity} ${cardName} from ${source} to ${destination}.`;
+    case "commit_to_deck":
+      return `${actor} committed ${quantity} ${cardName} from ${source} to Deck: ${deckName}.`;
+    case "bulk_commit_to_deck":
+      return `${actor} bulk committed ${quantity} ${cardName} from ${source} to Deck: ${deckName}.`;
+    case "return_from_deck":
+      return `${actor} returned ${quantity} ${cardName} from ${source} to ${destination}.`;
+    default:
+      return null;
+  }
 }
 
 function formatValue(
@@ -135,6 +173,7 @@ export function InventoryAuditTrail({
           playerLabels,
           cardLabels,
         });
+        const summary = inventoryAuditSummary(entry);
         return (
           <section
             key={entry.id}
@@ -144,6 +183,7 @@ export function InventoryAuditTrail({
               <div className="font-semibold">
                 {friendlyEnum(entry.changeType)}
               </div>
+              {summary ? <div className="text-zinc-200">{summary}</div> : null}
               <div className="text-zinc-400">
                 {new Date(entry.createdAt).toLocaleString()}
               </div>

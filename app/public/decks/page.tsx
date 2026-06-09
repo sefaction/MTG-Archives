@@ -2,8 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import {
   deckFormatLabel,
-  deckRowCount,
-  deckTotalQuantity,
+  deckSectionSummaryParts,
   publicDeckWhere,
 } from "@/lib/decks";
 
@@ -54,8 +53,8 @@ export default async function PublicDecksPage() {
               {deck.ownerUser.publicDisplayName || deck.ownerUser.displayName}
             </p>
             <p className="text-sm">
-              {deckFormatLabel(deck.format)} · {deckTotalQuantity(deck.cards)}{" "}
-              cards · {deckRowCount(deck.cards)} rows
+              {deckFormatLabel(deck.format)} ·{" "}
+              {deckSectionSummaryParts(deck.cards).join(" · ")}
             </p>
           </Link>
         ))}

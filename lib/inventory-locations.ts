@@ -1,5 +1,6 @@
 import {
   InventoryItem,
+  InventoryLocationKind,
   Visibility,
   Prisma,
   PrismaClient,
@@ -69,6 +70,11 @@ export async function createLocation(
   },
 ) {
   const name = assertValidLocationName(input.name);
+  if (name.toLowerCase().startsWith("deck:")) {
+    throw new Error(
+      "Deck locations are system-managed. Commit cards from a deck page instead.",
+    );
+  }
   const normalizedName = normalizeLocationName(name);
   const duplicate = await prisma.inventoryLocation.findUnique({
     where: {
@@ -116,6 +122,15 @@ export async function updateLocation(
   });
   if (duplicate)
     throw new Error(`Location “${name}” already exists for this owner.`);
+  const existing = await prisma.inventoryLocation.findFirst({
+    where: { id: input.id, ownerPlayerId: input.ownerPlayerId },
+  });
+  if (!existing) throw new Error("Location not found.");
+  if (existing.systemManaged || existing.kind === InventoryLocationKind.DECK) {
+    throw new Error(
+      "Deck locations are system-managed and cannot be edited here.",
+    );
+  }
   return prisma.inventoryLocation.update({
     where: { id: input.id },
     data: {
@@ -133,6 +148,17 @@ export async function deleteUnusedLocation(
   prisma: PrismaClient,
   locationId: string,
 ) {
+  const location = await prisma.inventoryLocation.findUnique({
+    where: { id: locationId },
+  });
+  if (
+    location?.systemManaged ||
+    location?.kind === InventoryLocationKind.DECK
+  ) {
+    throw new Error(
+      "Deck locations are system-managed and cannot be deleted here.",
+    );
+  }
   const count = await prisma.inventoryItem.count({
     where: { locationId, quantity: { gt: 0 } },
   });
@@ -551,6 +577,8 @@ export async function bulkMoveInventoryToLocation(
     allowedOwnerId?: string;
     sourceLocationId?: string;
     reason?: string;
+    allowSystemManagedDestination?: boolean;
+    allowSystemManagedSource?: boolean;
   },
 ): Promise<BulkMoveInventoryResult> {
   if (!input.destinationLocationId)
@@ -565,9 +593,24 @@ export async function bulkMoveInventoryToLocation(
 
   const destination = await prisma.inventoryLocation.findUnique({
     where: { id: input.destinationLocationId },
-    select: { id: true, ownerPlayerId: true, name: true },
+    select: {
+      id: true,
+      ownerPlayerId: true,
+      name: true,
+      kind: true,
+      systemManaged: true,
+    },
   });
   if (!destination) throw new Error("Destination location not found.");
+  if (
+    (destination.systemManaged ||
+      destination.kind === InventoryLocationKind.DECK) &&
+    !input.allowSystemManagedDestination
+  ) {
+    throw new Error(
+      "Deck locations are system-managed. Use deck commit actions to move cards into a deck.",
+    );
+  }
   if (
     input.allowedOwnerId &&
     destination.ownerPlayerId !== input.allowedOwnerId
@@ -582,11 +625,27 @@ export async function bulkMoveInventoryToLocation(
   const sourceLocation = input.sourceLocationId
     ? await prisma.inventoryLocation.findUnique({
         where: { id: input.sourceLocationId },
-        select: { id: true, ownerPlayerId: true, name: true },
+        select: {
+          id: true,
+          ownerPlayerId: true,
+          name: true,
+          kind: true,
+          systemManaged: true,
+        },
       })
     : null;
   if (input.sourceLocationId && !sourceLocation)
     throw new Error("Source location not found.");
+  if (
+    sourceLocation &&
+    (sourceLocation.systemManaged ||
+      sourceLocation.kind === InventoryLocationKind.DECK) &&
+    !input.allowSystemManagedSource
+  ) {
+    throw new Error(
+      "Deck locations are system-managed. Use Return to inventory from the deck page.",
+    );
+  }
   if (
     sourceLocation &&
     sourceLocation.ownerPlayerId !== destination.ownerPlayerId
@@ -884,6 +943,7 @@ export async function bulkDeleteInventoryItems(
     sourceLocationId?: string;
     reason?: string;
     scope?: "selected" | "matching" | "location";
+    allowSystemManagedSource?: boolean;
   },
 ): Promise<BulkDeleteInventoryResult> {
   if (!input.itemIds?.length && !input.where)
@@ -899,11 +959,27 @@ export async function bulkDeleteInventoryItems(
   const sourceLocation = input.sourceLocationId
     ? await prisma.inventoryLocation.findUnique({
         where: { id: input.sourceLocationId },
-        select: { id: true, ownerPlayerId: true, name: true },
+        select: {
+          id: true,
+          ownerPlayerId: true,
+          name: true,
+          kind: true,
+          systemManaged: true,
+        },
       })
     : null;
   if (input.sourceLocationId && !sourceLocation)
     throw new Error("Location not found.");
+  if (
+    sourceLocation &&
+    (sourceLocation.systemManaged ||
+      sourceLocation.kind === InventoryLocationKind.DECK) &&
+    !input.allowSystemManagedSource
+  ) {
+    throw new Error(
+      "Deck locations are system-managed. Return cards from the deck page before deleting committed inventory.",
+    );
+  }
   if (
     input.allowedOwnerId &&
     sourceLocation &&
@@ -920,6 +996,20 @@ export async function bulkDeleteInventoryItems(
   if (input.sourceLocationId) itemWhere.locationId = input.sourceLocationId;
   if (input.allowedOwnerId) itemWhere.currentOwnerId = input.allowedOwnerId;
   markBulkMoveTiming(timing, "delete build selection query");
+
+  if (
+    !input.allowSystemManagedSource &&
+    typeof (prisma.inventoryItem as any).count === "function"
+  ) {
+    const deckCommittedMatches = await prisma.inventoryItem.count({
+      where: { ...itemWhere, location: { kind: InventoryLocationKind.DECK } },
+    });
+    if (deckCommittedMatches > 0) {
+      throw new Error(
+        "Committed deck inventory cannot be deleted in bulk. Return it from the deck page first.",
+      );
+    }
+  }
 
   const preview = await prisma.inventoryItem.aggregate({
     where: itemWhere,

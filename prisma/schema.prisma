@@ -81,6 +81,11 @@ enum DeckSection {
   MAYBEBOARD
 }
 
+enum InventoryLocationKind {
+  NORMAL
+  DECK
+}
+
 model User {
   id                         String                      @id @default(cuid())
   username                   String                      @unique
@@ -106,6 +111,7 @@ model User {
   createdTrades              Trade[]                     @relation("TradeCreatedBy")
   tradeEvents                TradeEvent[]
   decks                      Deck[]
+  wishlistItems              WishlistItem[]
 
   @@index([publicProfileEnabled, isActive, inventoryDefaultVisibility])
   @@index([publicProfileEnabled, isActive, deckDefaultVisibility])
@@ -310,6 +316,7 @@ model Card {
   inventoryItems      InventoryItem[]
   importBatchItems    ImportBatchItem[]
   deckCards           DeckCard[]
+  wishlistItems       WishlistItem[]
 
   @@index([oracleId])
   @@index([setCode, collectorNumber])
@@ -344,6 +351,7 @@ model Deck {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   cards        DeckCard[]
+  deckLocation InventoryLocation?
 
   @@index([ownerUserId, updatedAt])
   @@index([visibility, updatedAt])
@@ -373,22 +381,47 @@ model DeckCard {
   @@index([cardName])
 }
 
+model WishlistItem {
+  id               String   @id @default(cuid())
+  ownerUserId      String
+  ownerUser        User     @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  cardId           String
+  card             Card     @relation(fields: [cardId], references: [id], onDelete: Restrict)
+  quantity         Int      @default(1)
+  priority         String?
+  notes            String?
+  desiredFinish    String?
+  desiredCondition String?
+  desiredLanguage  String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([ownerUserId, cardId])
+  @@index([ownerUserId, updatedAt])
+  @@index([cardId])
+}
+
 model InventoryLocation {
-  id             String          @id @default(cuid())
+  id             String                @id @default(cuid())
   ownerPlayerId  String
-  ownerPlayer    Player          @relation(fields: [ownerPlayerId], references: [id])
+  ownerPlayer    Player                @relation(fields: [ownerPlayerId], references: [id])
   name           String
   normalizedName String
   description    String?
   type           String?
-  active         Boolean         @default(true)
-  visibility     Visibility      @default(INHERIT)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  kind           InventoryLocationKind @default(NORMAL)
+  deckId         String?               @unique
+  deck           Deck?                 @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  systemManaged  Boolean               @default(false)
+  active         Boolean               @default(true)
+  visibility     Visibility            @default(INHERIT)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
   inventoryItems InventoryItem[]
 
   @@unique([ownerPlayerId, normalizedName])
   @@index([ownerPlayerId, active])
+  @@index([ownerPlayerId, kind, active])
   @@index([ownerPlayerId, visibility, active])
   @@index([visibility, active])
 }

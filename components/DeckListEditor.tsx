@@ -182,6 +182,33 @@ export function DeckListEditor({
   const otherOwnedIds = rows
     .filter((row) => row.exactOwned < row.quantity && row.otherOwned > 0)
     .map((row) => row.id);
+  const bulkCommitMoves = rows
+    .map((row) => {
+      const option = [...row.commitOptions].sort((left, right) => {
+        if (left.matchType !== right.matchType)
+          return left.matchType === "exact" ? -1 : 1;
+        return left.locationName.localeCompare(right.locationName);
+      })[0];
+      const quantity = Math.min(row.commitmentMissing, option?.quantity ?? 0);
+      if (!option || quantity <= 0) return null;
+      return {
+        deckCardId: row.id,
+        inventoryItemId: option.inventoryItemId,
+        quantity,
+        cardName: row.cardName,
+        source: option.locationName,
+        availableExact: row.availableExact,
+        availableOther: row.availableOther,
+        alreadyCommitted: row.committedToThisDeck,
+        needed: row.quantity,
+        remainingMissing: Math.max(0, row.commitmentMissing - quantity),
+        warning:
+          option.matchType === "exact"
+            ? ""
+            : "Uses another owned printing and updates this deck row.",
+      };
+    })
+    .filter((move): move is NonNullable<typeof move> => Boolean(move));
 
   function selectIds(ids: string[]) {
     setSelected(new Set(ids));
@@ -316,7 +343,7 @@ export function DeckListEditor({
     if (!rowIds.length || !canEdit) return;
     if (
       !window.confirm(
-        `Remove ${rowIds.length} deck rows (${selectedQuantity} total cards) from this deck? Inventory will not be modified.`,
+        `Remove ${rowIds.length} deck entries (${selectedQuantity} total cards) from this deck? Inventory will not be modified.`,
       )
     )
       return;
@@ -1163,7 +1190,12 @@ function ReturnCommittedCopies({
       setMessage(
         `Returned ${result.movedCards} copies to ${result.destinationLocationName}.`,
       );
-      window.location.reload();
+      if (!res.ok) throw new Error("Printing search failed.");
+      const json = (await res.json()) as DeckCardSearchResponse;
+      if (requestId.current === id) {
+        setResults(json.results);
+        setStatus(json.message);
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Return failed.");
     } finally {
@@ -1511,5 +1543,250 @@ function PreviewPrinting({
         {printing.setCode.toUpperCase()} #{printing.collectorNumber}
       </div>
     </div>
+  );
+}
+
+function CommitmentPanel({
+  deckId,
+  row,
+  canEdit,
+  normalLocations,
+}: {
+  deckId: string;
+  row: DeckEditorRow;
+  canEdit: boolean;
+  normalLocations: NormalLocationOption[];
+}) {
+  return (
+    <section className="space-y-3 rounded border border-emerald-900/60 bg-emerald-950/10 p-3 text-sm">
+      <div>
+        <h4 className="font-semibold text-emerald-100">Physical commitment</h4>
+        <p className="text-zinc-300">
+          Needed {row.quantity} · Owned total {row.exactOwned + row.otherOwned}{" "}
+          · Available inventory {row.available} · Committed to this deck{" "}
+          {row.committedToThisDeck}/{row.quantity} · Committed to another deck{" "}
+          {row.committedToOtherDecks} · Missing {row.missing}
+        </p>
+      </div>
+      {row.committedToThisDeck >= row.quantity ? (
+        <p className="rounded border border-emerald-800 bg-emerald-950/40 p-2 text-emerald-100">
+          Committed {row.committedToThisDeck}/{row.quantity}
+        </p>
+      ) : row.available > 0 ? (
+        <p className="rounded border border-sky-800 bg-sky-950/30 p-2 text-sky-100">
+          Available {row.available}; {row.commitmentMissing} still uncommitted.
+        </p>
+      ) : (
+        <p className="rounded border border-amber-800 bg-amber-950/30 p-2 text-amber-100">
+          Missing available inventory for {row.commitmentMissing} deck cards.
+        </p>
+      )}
+      {canEdit && row.commitOptions.length ? (
+        <form
+          action={commitDeckCardToDeck}
+          className="grid gap-2 md:grid-cols-4"
+        >
+          <input type="hidden" name="deckId" value={deckId} />
+          <input type="hidden" name="deckCardId" value={row.id} />
+          <label className="text-xs md:col-span-2">
+            Commit from available inventory
+            <select
+              name="inventoryItemId"
+              className="mt-1 w-full border bg-zinc-900 p-2"
+            >
+              {row.commitOptions.map((option) => (
+                <option
+                  key={option.inventoryItemId}
+                  value={option.inventoryItemId}
+                >
+                  {option.locationName}: {option.quantity} × {option.cardName} (
+                  {option.setCode.toUpperCase()} #{option.collectorNumber})
+                  {option.matchType === "exact"
+                    ? " · exact"
+                    : " · other printing"}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs">
+            Quantity
+            <input
+              name="quantity"
+              type="number"
+              min={1}
+              max={Math.max(1, row.commitmentMissing)}
+              defaultValue={Math.max(
+                1,
+                Math.min(row.commitmentMissing, row.available),
+              )}
+              className="mt-1 w-full border bg-zinc-900 p-2"
+            />
+          </label>
+          <SubmitButton
+            pendingLabel="Committing…"
+            className="self-end rounded border border-emerald-700 px-3 py-2 text-emerald-100"
+          >
+            Commit to deck
+          </SubmitButton>
+        </form>
+      ) : null}
+      {canEdit && row.returnOptions.length && normalLocations.length ? (
+        <form
+          action={returnDeckCardToInventory}
+          className="grid gap-2 md:grid-cols-5"
+        >
+          <input type="hidden" name="deckId" value={deckId} />
+          <input type="hidden" name="deckCardId" value={row.id} />
+          <label className="text-xs md:col-span-2">
+            Return committed copy
+            <select
+              name="inventoryItemId"
+              className="mt-1 w-full border bg-zinc-900 p-2"
+            >
+              {row.returnOptions.map((option) => (
+                <option
+                  key={option.inventoryItemId}
+                  value={option.inventoryItemId}
+                >
+                  {option.quantity} × {option.cardName} (
+                  {option.setCode.toUpperCase()} #{option.collectorNumber})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs">
+            Destination
+            <select
+              name="destinationLocationId"
+              className="mt-1 w-full border bg-zinc-900 p-2"
+            >
+              {normalLocations.map((location) => (
+                <option key={location.id} value={location.id}>
+                  {location.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs">
+            Quantity
+            <input
+              name="quantity"
+              type="number"
+              min={1}
+              defaultValue={1}
+              className="mt-1 w-full border bg-zinc-900 p-2"
+            />
+          </label>
+          <SubmitButton
+            pendingLabel="Returning…"
+            className="self-end rounded border border-zinc-700 px-3 py-2"
+          >
+            Return to inventory
+          </SubmitButton>
+        </form>
+      ) : null}
+    </section>
+  );
+}
+
+function BulkCommitPreview({
+  deckId,
+  moves,
+  cancel,
+}: {
+  deckId: string;
+  moves: Array<{
+    deckCardId: string;
+    inventoryItemId: string;
+    quantity: number;
+    cardName: string;
+    source: string;
+    availableExact: number;
+    availableOther: number;
+    alreadyCommitted: number;
+    needed: number;
+    remainingMissing: number;
+    warning: string;
+  }>;
+  cancel: () => void;
+}) {
+  return (
+    <section className="rounded border border-emerald-800 bg-emerald-950/10 p-3 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-lg font-semibold text-emerald-100">
+          Preview commit all available cards
+        </h3>
+        <button
+          type="button"
+          className="rounded border border-zinc-700 px-2 py-1"
+          onClick={cancel}
+        >
+          Cancel
+        </button>
+      </div>
+      <p className="mt-1 text-zinc-400">
+        Review proposed moves before applying. This preview only pulls from
+        available inventory, never from other deck locations.
+      </p>
+      <div className="mt-3 overflow-x-auto">
+        <table className="min-w-full text-left text-xs">
+          <thead className="text-zinc-300">
+            <tr>
+              <th className="p-2">Deck card</th>
+              <th className="p-2">Needed</th>
+              <th className="p-2">Already committed</th>
+              <th className="p-2">Available exact</th>
+              <th className="p-2">Available other</th>
+              <th className="p-2">Proposed source</th>
+              <th className="p-2">Proposed quantity</th>
+              <th className="p-2">Remaining missing</th>
+              <th className="p-2">Warnings</th>
+            </tr>
+          </thead>
+          <tbody>
+            {moves.map((move) => (
+              <tr key={move.deckCardId} className="border-t border-zinc-800">
+                <td className="p-2">{move.cardName}</td>
+                <td className="p-2">{move.needed}</td>
+                <td className="p-2">{move.alreadyCommitted}</td>
+                <td className="p-2">{move.availableExact}</td>
+                <td className="p-2">{move.availableOther}</td>
+                <td className="p-2">{move.source}</td>
+                <td className="p-2">{move.quantity}</td>
+                <td className="p-2">{move.remainingMissing}</td>
+                <td className="p-2 text-amber-200">{move.warning || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <form
+        action={bulkCommitDeckCardsToDeck}
+        className="mt-3 flex flex-wrap items-center gap-3"
+      >
+        <input type="hidden" name="deckId" value={deckId} />
+        <input
+          type="hidden"
+          name="movesJson"
+          value={JSON.stringify(
+            moves.map((move) => ({
+              deckCardId: move.deckCardId,
+              inventoryItemId: move.inventoryItemId,
+              quantity: move.quantity,
+            })),
+          )}
+        />
+        <SubmitButton
+          pendingLabel="Committing…"
+          className="rounded border border-emerald-700 px-3 py-2 text-emerald-100"
+        >
+          Apply commit preview
+        </SubmitButton>
+        <span className="text-zinc-400">
+          {moves.reduce((total, move) => total + move.quantity, 0)} cards will
+          move into this deck.
+        </span>
+      </form>
+    </section>
   );
 }

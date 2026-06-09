@@ -2,10 +2,21 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { DeckFormat, DeckSection, Visibility } from "@prisma/client";
+import {
+  DeckFormat,
+  DeckSection,
+  InventoryLocationKind,
+  Visibility,
+} from "@prisma/client";
 import { getAccessScope, requireLogin } from "@/lib/auth";
 import { findOrImportCard } from "@/lib/card-import";
 import { prisma } from "@/lib/prisma";
+import {
+  inventoryAuditAction,
+  recordInventoryAudit,
+  recordInventoryAuditMany,
+  type InventoryAuditCreateManyEntry,
+} from "@/lib/inventory-audit";
 import { canManageDeck, normalizePositiveQuantity } from "@/lib/decks";
 import {
   findSystemDeckLocation,
@@ -74,6 +85,11 @@ export async function updateDeck(fd: FormData) {
   if (adminMode && deck.ownerUserId !== user.id) {
     console.info("admin_update_deck", { deckId, changedByUserId: user.id });
   }
+  const visibility = enumValue(
+    Visibility,
+    formString(fd, "visibility"),
+    Visibility.INHERIT,
+  );
   await prisma.deck.update({
     where: { id: deckId },
     data: {
@@ -84,13 +100,20 @@ export async function updateDeck(fd: FormData) {
         formString(fd, "format"),
         DeckFormat.CASUAL,
       ),
-      visibility: enumValue(
-        Visibility,
-        formString(fd, "visibility"),
-        Visibility.INHERIT,
-      ),
+      visibility,
     },
   });
+  const existingDeckLocation = await prisma.inventoryLocation.findUnique({
+    where: { deckId },
+  });
+  if (existingDeckLocation) {
+    await ensureDeckLocation(prisma, {
+      id: deckId,
+      name,
+      visibility,
+      ownerUser: { playerId: deck.ownerUser.playerId },
+    });
+  }
   revalidatePath("/decks");
   revalidatePath(`/decks/${deckId}`);
 }
@@ -360,6 +383,328 @@ export async function removeDeckCard(fd: FormData) {
   revalidatePath("/locations");
 }
 
+export async function commitDeckCardToDeck(fd: FormData) {
+  const deckId = formString(fd, "deckId");
+  const deckCardId = formString(fd, "deckCardId");
+  const inventoryItemId = formString(fd, "inventoryItemId");
+  const quantity = normalizePositiveQuantity(fd.get("quantity"));
+  const { user, deck } = await requireManagedDeck(deckId);
+  if (!deck.ownerUser.playerId) {
+    throw new Error("Deck owner is not linked to an inventory owner.");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const [deckCard, source] = await Promise.all([
+      tx.deckCard.findFirst({ where: { id: deckCardId, deckId } }),
+      tx.inventoryItem.findFirst({
+        where: {
+          id: inventoryItemId,
+          currentOwnerId: deck.ownerUser.playerId!,
+          quantity: { gt: 0 },
+        },
+        include: { card: true, location: true },
+      }),
+    ]);
+    if (!deckCard) throw new Error("Deck card not found.");
+    if (!source) throw new Error("Available inventory copy not found.");
+    if (source.location?.kind === InventoryLocationKind.DECK) {
+      throw new Error(
+        "Choose available inventory, not a card already committed to a deck.",
+      );
+    }
+    const matchType = matchesDeckCardPrinting(deckCard, {
+      id: source.id,
+      cardId: source.cardId,
+      quantity: source.quantity,
+      card: source.card,
+      location: source.location,
+    });
+    if (!matchType)
+      throw new Error("Selected inventory does not match this deck card.");
+
+    const deckLocation = await ensureDeckLocation(tx, deck);
+    const committedItems = await tx.inventoryItem.findMany({
+      where: {
+        currentOwnerId: deck.ownerUser.playerId!,
+        quantity: { gt: 0 },
+        locationId: deckLocation.id,
+      },
+      include: { card: true, location: true },
+    });
+    const committed = summarizeDeckCommitmentOwnership(
+      deckCard,
+      committedItems,
+      deck.id,
+    );
+    const remainingNeeded = Math.max(
+      0,
+      deckCard.quantity - committed.committedToThisDeck,
+    );
+    if (quantity > remainingNeeded) {
+      throw new Error(
+        `Only ${remainingNeeded} more cards can be committed for this deck row.`,
+      );
+    }
+
+    if (matchType === "other") {
+      await tx.deckCard.update({
+        where: { id: deckCard.id },
+        data: {
+          cardId: source.card.id,
+          scryfallId: source.card.scryfallId,
+          oracleId: source.card.oracleId,
+          cardName: source.card.name,
+        },
+      });
+    }
+
+    const beforeSource = source;
+    const move = await moveInventoryQuantityWithinTransaction(tx, {
+      inventoryItemId: source.id,
+      toLocationId: deckLocation.id,
+      quantity,
+    });
+    const metadata = deckMoveAuditMetadata({
+      deckId: deck.id,
+      deckName: deck.name,
+      cardName: source.card.name,
+      sourceLocationId: beforeSource.locationId,
+      sourceLocationName: source.location?.name ?? "Unassigned",
+      destinationLocationId: deckLocation.id,
+      destinationLocationName: deckLocation.name,
+      quantityMoved: quantity,
+      beforeSourceQuantity: beforeSource.quantity,
+      afterSourceQuantity: move.sourceAfterQuantity,
+      beforeDestinationQuantity: move.destinationBeforeQuantity,
+      afterDestinationQuantity: move.destinationAfterQuantity,
+    });
+    await recordInventoryAudit({
+      tx,
+      inventoryItemId: move.auditInventoryItemId,
+      actingUserId: user.id,
+      action: inventoryAuditAction.committedToDeck,
+      before: auditDeckMoveSnapshot(beforeSource, metadata),
+      after: auditDeckMoveSnapshot(
+        { ...beforeSource, locationId: deckLocation.id, quantity },
+        metadata,
+      ),
+      reason: `Committed ${quantity} ${source.card.name} to ${deck.name}.`,
+    });
+  });
+  revalidatePath(`/decks/${deckId}`);
+  revalidatePath("/inventory");
+  revalidatePath("/locations");
+}
+
+export async function bulkCommitDeckCardsToDeck(fd: FormData) {
+  const deckId = formString(fd, "deckId");
+  const raw = formString(fd, "movesJson");
+  const moves = JSON.parse(raw || "[]") as Array<{
+    deckCardId?: string;
+    inventoryItemId?: string;
+    quantity?: number;
+  }>;
+  const validMoves = moves.filter(
+    (move) =>
+      move.deckCardId &&
+      move.inventoryItemId &&
+      Number.isInteger(move.quantity) &&
+      Number(move.quantity) > 0,
+  );
+  if (!validMoves.length) throw new Error("No available cards to commit.");
+  const { user, deck } = await requireManagedDeck(deckId);
+  if (!deck.ownerUser.playerId) {
+    throw new Error("Deck owner is not linked to an inventory owner.");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const deckLocation = await ensureDeckLocation(tx, deck);
+    const auditLogs: InventoryAuditCreateManyEntry[] = [];
+    for (const moveInput of validMoves) {
+      const quantity = Math.min(999, Number(moveInput.quantity));
+      const [deckCard, source] = await Promise.all([
+        tx.deckCard.findFirst({
+          where: { id: moveInput.deckCardId!, deckId },
+        }),
+        tx.inventoryItem.findFirst({
+          where: {
+            id: moveInput.inventoryItemId!,
+            currentOwnerId: deck.ownerUser.playerId!,
+            quantity: { gt: 0 },
+          },
+          include: { card: true, location: true },
+        }),
+      ]);
+      if (!deckCard || !source) continue;
+      if (source.location?.kind === InventoryLocationKind.DECK) continue;
+      const matchType = matchesDeckCardPrinting(deckCard, {
+        id: source.id,
+        cardId: source.cardId,
+        quantity: source.quantity,
+        card: source.card,
+        location: source.location,
+      });
+      if (!matchType) continue;
+      const committedItems = await tx.inventoryItem.findMany({
+        where: {
+          currentOwnerId: deck.ownerUser.playerId!,
+          quantity: { gt: 0 },
+          locationId: deckLocation.id,
+        },
+        include: { card: true, location: true },
+      });
+      const committed = summarizeDeckCommitmentOwnership(
+        deckCard,
+        committedItems,
+        deck.id,
+      );
+      const quantityToMove = Math.min(
+        quantity,
+        source.quantity,
+        Math.max(0, deckCard.quantity - committed.committedToThisDeck),
+      );
+      if (quantityToMove <= 0) continue;
+      if (matchType === "other") {
+        await tx.deckCard.update({
+          where: { id: deckCard.id },
+          data: {
+            cardId: source.card.id,
+            scryfallId: source.card.scryfallId,
+            oracleId: source.card.oracleId,
+            cardName: source.card.name,
+          },
+        });
+      }
+      const move = await moveInventoryQuantityWithinTransaction(tx, {
+        inventoryItemId: source.id,
+        toLocationId: deckLocation.id,
+        quantity: quantityToMove,
+      });
+      const metadata = deckMoveAuditMetadata({
+        deckId: deck.id,
+        deckName: deck.name,
+        cardName: source.card.name,
+        sourceLocationId: source.locationId,
+        sourceLocationName: source.location?.name ?? "Unassigned",
+        destinationLocationId: deckLocation.id,
+        destinationLocationName: deckLocation.name,
+        quantityMoved: quantityToMove,
+        beforeSourceQuantity: source.quantity,
+        afterSourceQuantity: move.sourceAfterQuantity,
+        beforeDestinationQuantity: move.destinationBeforeQuantity,
+        afterDestinationQuantity: move.destinationAfterQuantity,
+      });
+      auditLogs.push({
+        inventoryItemId: move.auditInventoryItemId,
+        changedByUserId: user.id,
+        changeType: inventoryAuditAction.bulkCommittedToDeck,
+        beforeJson: auditDeckMoveSnapshot(source, metadata),
+        afterJson: auditDeckMoveSnapshot(
+          {
+            ...source,
+            locationId: deckLocation.id,
+            quantity: quantityToMove,
+          },
+          metadata,
+        ),
+        reason: `Bulk committed ${quantityToMove} ${source.card.name} to ${deck.name}.`,
+      });
+    }
+    await recordInventoryAuditMany({ tx, entries: auditLogs });
+  });
+  revalidatePath(`/decks/${deckId}`);
+  revalidatePath("/inventory");
+  revalidatePath("/locations");
+}
+
+export async function returnDeckCardToInventory(fd: FormData) {
+  const deckId = formString(fd, "deckId");
+  const deckCardId = formString(fd, "deckCardId");
+  const inventoryItemId = formString(fd, "inventoryItemId");
+  const destinationLocationId = formString(fd, "destinationLocationId");
+  const quantity = normalizePositiveQuantity(fd.get("quantity"));
+  const { user, deck } = await requireManagedDeck(deckId);
+  if (!deck.ownerUser.playerId) {
+    throw new Error("Deck owner is not linked to an inventory owner.");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const [deckCard, source, destination] = await Promise.all([
+      tx.deckCard.findFirst({ where: { id: deckCardId, deckId } }),
+      tx.inventoryItem.findFirst({
+        where: {
+          id: inventoryItemId,
+          currentOwnerId: deck.ownerUser.playerId!,
+          quantity: { gt: 0 },
+          location: { deckId: deck.id, kind: InventoryLocationKind.DECK },
+        },
+        include: { card: true, location: true },
+      }),
+      tx.inventoryLocation.findFirst({
+        where: {
+          id: destinationLocationId,
+          ownerPlayerId: deck.ownerUser.playerId!,
+          kind: InventoryLocationKind.NORMAL,
+          active: true,
+        },
+      }),
+    ]);
+    if (!deckCard) throw new Error("Deck card not found.");
+    if (!source) throw new Error("Committed deck inventory not found.");
+    if (!destination)
+      throw new Error("Choose an active normal inventory location.");
+    if (
+      !matchesDeckCardPrinting(deckCard, {
+        id: source.id,
+        cardId: source.cardId,
+        quantity: source.quantity,
+        card: source.card,
+        location: source.location,
+      })
+    ) {
+      throw new Error(
+        "Selected committed inventory does not match this deck card.",
+      );
+    }
+
+    const beforeSource = source;
+    const move = await moveInventoryQuantityWithinTransaction(tx, {
+      inventoryItemId: source.id,
+      toLocationId: destination.id,
+      quantity,
+    });
+    const metadata = deckMoveAuditMetadata({
+      deckId: deck.id,
+      deckName: deck.name,
+      cardName: source.card.name,
+      sourceLocationId: source.locationId,
+      sourceLocationName: source.location?.name ?? "Deck location",
+      destinationLocationId: destination.id,
+      destinationLocationName: destination.name,
+      quantityMoved: quantity,
+      beforeSourceQuantity: beforeSource.quantity,
+      afterSourceQuantity: move.sourceAfterQuantity,
+      beforeDestinationQuantity: move.destinationBeforeQuantity,
+      afterDestinationQuantity: move.destinationAfterQuantity,
+    });
+    await recordInventoryAudit({
+      tx,
+      inventoryItemId: move.auditInventoryItemId,
+      actingUserId: user.id,
+      action: inventoryAuditAction.returnedFromDeck,
+      before: auditDeckMoveSnapshot(beforeSource, metadata),
+      after: auditDeckMoveSnapshot(
+        { ...beforeSource, locationId: destination.id, quantity },
+        metadata,
+      ),
+      reason: `Returned ${quantity} ${source.card.name} from ${deck.name} to ${destination.name}.`,
+    });
+  });
+  revalidatePath(`/decks/${deckId}`);
+  revalidatePath("/inventory");
+  revalidatePath("/locations");
+}
+
 export async function commitDeckImport(fd: FormData) {
   const deckId = formString(fd, "deckId");
   await requireManagedDeck(deckId);
@@ -452,4 +797,137 @@ export async function commitDeckImport(fd: FormData) {
     }
   });
   revalidatePath(`/decks/${deckId}`);
+}
+
+function deckMoveAuditMetadata(input: {
+  deckId: string;
+  deckName: string;
+  cardName: string;
+  sourceLocationId: string | null;
+  sourceLocationName: string;
+  destinationLocationId: string;
+  destinationLocationName: string;
+  quantityMoved: number;
+  beforeSourceQuantity: number;
+  afterSourceQuantity: number;
+  beforeDestinationQuantity: number;
+  afterDestinationQuantity: number;
+}) {
+  return {
+    deckId: input.deckId,
+    deckName: input.deckName,
+    cardName: input.cardName,
+    sourceLocationId: input.sourceLocationId,
+    sourceLocationName: input.sourceLocationName,
+    destinationLocationId: input.destinationLocationId,
+    destinationLocationName: input.destinationLocationName,
+    quantityMoved: input.quantityMoved,
+    beforeSourceQuantity: input.beforeSourceQuantity,
+    afterSourceQuantity: input.afterSourceQuantity,
+    beforeDestinationQuantity: input.beforeDestinationQuantity,
+    afterDestinationQuantity: input.afterDestinationQuantity,
+  };
+}
+
+async function moveInventoryQuantityWithinTransaction(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  input: {
+    inventoryItemId: string;
+    toLocationId: string;
+    quantity: number;
+  },
+) {
+  const source = await tx.inventoryItem.findUnique({
+    where: { id: input.inventoryItemId },
+  });
+  if (!source) throw new Error("Inventory item not found.");
+  if (!Number.isInteger(input.quantity) || input.quantity <= 0) {
+    throw new Error("Quantity must be positive.");
+  }
+  if (source.quantity < input.quantity) {
+    throw new Error(
+      "Cannot move more cards than this inventory entry contains.",
+    );
+  }
+  const matching = await tx.inventoryItem.findFirst({
+    where: {
+      id: { not: source.id },
+      currentOwnerId: source.currentOwnerId,
+      cardId: source.cardId,
+      foil: source.foil,
+      foilStatus: source.foilStatus,
+      condition: source.condition,
+      language: source.language,
+      locationId: input.toLocationId,
+      quantity: { gt: 0 },
+    },
+  });
+  if (source.quantity === input.quantity) {
+    if (matching) {
+      await tx.inventoryItem.update({
+        where: { id: matching.id },
+        data: { quantity: { increment: input.quantity } },
+      });
+      await tx.inventoryItem.delete({ where: { id: source.id } });
+      return {
+        source,
+        destinationInventoryItemId: matching.id,
+        auditInventoryItemId: matching.id,
+        merged: true,
+        sourceAfterQuantity: 0,
+        destinationBeforeQuantity: matching.quantity,
+        destinationAfterQuantity: matching.quantity + input.quantity,
+      };
+    }
+    await tx.inventoryItem.update({
+      where: { id: source.id },
+      data: { locationId: input.toLocationId },
+    });
+    return {
+      source,
+      destinationInventoryItemId: source.id,
+      auditInventoryItemId: source.id,
+      merged: false,
+      sourceAfterQuantity: 0,
+      destinationBeforeQuantity: 0,
+      destinationAfterQuantity: source.quantity,
+    };
+  }
+  await tx.inventoryItem.update({
+    where: { id: source.id },
+    data: { quantity: { decrement: input.quantity } },
+  });
+  if (matching) {
+    await tx.inventoryItem.update({
+      where: { id: matching.id },
+      data: { quantity: { increment: input.quantity } },
+    });
+    return {
+      source,
+      destinationInventoryItemId: matching.id,
+      auditInventoryItemId: source.id,
+      merged: true,
+      sourceAfterQuantity: source.quantity - input.quantity,
+      destinationBeforeQuantity: matching.quantity,
+      destinationAfterQuantity: matching.quantity + input.quantity,
+    };
+  }
+  const {
+    id: _id,
+    createdAt: _createdAt,
+    updatedAt: _updatedAt,
+    ...copy
+  } = source;
+  const created = await tx.inventoryItem.create({
+    data: { ...copy, quantity: input.quantity, locationId: input.toLocationId },
+  });
+  return {
+    source,
+    destinationInventoryItemId: created.id,
+    auditInventoryItemId: source.id,
+    merged: false,
+    sourceAfterQuantity: source.quantity - input.quantity,
+    destinationBeforeQuantity: 0,
+    destinationAfterQuantity: input.quantity,
+  };
 }

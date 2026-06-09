@@ -12,6 +12,7 @@ import { InventoryBrowser } from "@/components/InventoryBrowser";
 import {
   DefaultCollectionVisibility,
   FoilStatus,
+  InventoryLocationKind,
   InventorySourceType,
 } from "@prisma/client";
 import {
@@ -22,6 +23,7 @@ import { formatScryfallError, getCardByScryfallIdResult } from "@/lib/scryfall";
 import { revalidatePath } from "next/cache";
 import { cleanupZeroQuantityInventory, deleteInventoryItem } from "./actions";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
+import { InventoryAdvancedSearch } from "@/components/InventoryAdvancedSearch";
 import {
   ensureDefaultLocation,
   getInventoryExactPrintings,
@@ -32,11 +34,17 @@ import {
   bulkDeleteInventoryItems,
 } from "@/lib/inventory-locations";
 import { getManaFacesForDto } from "@/lib/mtg/mana-display";
+import {
+  buildInventoryWhereFromFilters,
+  inventoryCardMatchesPostFilters,
+  parseInventoryFilters,
+  INVENTORY_FILTER_PARAM_KEYS,
+} from "@/lib/inventory-filters";
 
 export default async function InventoryPage({
   searchParams,
 }: {
-  searchParams: Promise<Record<string, string | undefined>>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const user = await getCurrentUser();
   const userWithPlayer = user;
@@ -44,103 +52,11 @@ export default async function InventoryPage({
   const adminModeActive = accessScope?.mode === "admin";
 
   const p = await searchParams;
-  const where: any = { quantity: { gt: 0 } };
-  if (p.cardName) {
-    const search = p.cardName.trim();
-    where.OR = [
-      { card: { name: { contains: search, mode: "insensitive" } } },
-      { card: { setCode: { contains: search.toLowerCase() } } },
-      { card: { setName: { contains: search, mode: "insensitive" } } },
-      { card: { collectorNumber: { contains: search, mode: "insensitive" } } },
-      { card: { typeLine: { contains: search, mode: "insensitive" } } },
-      { location: { name: { contains: search, mode: "insensitive" } } },
-    ];
-  }
-  if (p.oracleText)
-    where.card = {
-      ...(where.card || {}),
-      oracleText: { contains: p.oracleText, mode: "insensitive" },
-    };
-  if (p.typeLine)
-    where.card = {
-      ...(where.card || {}),
-      typeLine: { contains: p.typeLine, mode: "insensitive" },
-    };
-  if (!adminModeActive) {
-    where.currentOwnerId = userWithPlayer?.playerId || "__no_owner__";
-  } else if (p.ownerId) {
-    where.currentOwnerId = p.ownerId;
-  }
-  if (p.locationId) where.locationId = p.locationId;
-  if (p.hasLocation === "unassigned")
-    where.location = { normalizedName: "unassigned" };
-  if (p.set)
-    where.card = { ...(where.card || {}), setCode: p.set.toLowerCase() };
-  if (p.rarity) where.card = { ...(where.card || {}), rarity: p.rarity };
-  if (p.foil === "true") where.foil = true;
-  if (p.foil === "false") where.foil = false;
-  if (p.visibility === "public") {
-    where.AND = [
-      ...(where.AND || []),
-      {
-        OR: [
-          { location: { visibility: "PUBLIC" } },
-          {
-            location: { visibility: "INHERIT" },
-            currentOwner: {
-              users: { some: { inventoryDefaultVisibility: "PUBLIC" } },
-            },
-          },
-          {
-            locationId: null,
-            currentOwner: {
-              users: { some: { inventoryDefaultVisibility: "PUBLIC" } },
-            },
-          },
-        ],
-      },
-    ];
-  }
-  if (p.visibility === "private") {
-    where.AND = [
-      ...(where.AND || []),
-      {
-        OR: [
-          { location: { visibility: "PRIVATE" } },
-          {
-            location: { visibility: "INHERIT" },
-            currentOwner: {
-              users: { some: { inventoryDefaultVisibility: "PRIVATE" } },
-            },
-          },
-          {
-            locationId: null,
-            currentOwner: {
-              users: { some: { inventoryDefaultVisibility: "PRIVATE" } },
-            },
-          },
-        ],
-      },
-    ];
-  }
-  if (p.visibility === "inherit") {
-    where.AND = [
-      ...(where.AND || []),
-      { OR: [{ location: { visibility: "INHERIT" } }, { locationId: null }] },
-    ];
-  }
-  if (p.manaValueMin || p.manaValueMax)
-    where.card = {
-      ...(where.card || {}),
-      manaValue: {
-        gte: p.manaValueMin ? Number(p.manaValueMin) : undefined,
-        lte: p.manaValueMax ? Number(p.manaValueMax) : undefined,
-      },
-    };
-  const colorIdentityNeedle = p.colorIdentity?.trim().toUpperCase();
-  const keywordNeedle = p.keyword?.trim().toLowerCase();
-  const priceMin = p.priceMin ? Number(p.priceMin) : undefined;
-  const priceMax = p.priceMax ? Number(p.priceMax) : undefined;
+  const filters = parseInventoryFilters(p);
+  const where: any = buildInventoryWhereFromFilters(filters, {
+    adminModeActive,
+    playerId: userWithPlayer?.playerId,
+  });
 
   const displayMode: "exact" | "grouped" =
     p.displayMode === "grouped" ? "grouped" : "exact";
@@ -212,6 +128,7 @@ export default async function InventoryPage({
       manaValue: true,
       prices: true,
       colorIdentity: true,
+      colors: true,
       keywords: true,
     },
   });
@@ -225,38 +142,8 @@ export default async function InventoryPage({
       numeric: true,
     });
   };
-  const groupMatchesClientSafeFilters = (group: any) => {
-    const card = cardSortById.get(group.cardId) as any;
-    const colorIdentityNeedle = p.colorIdentity?.trim().toUpperCase();
-    const keywordNeedle = p.keyword?.trim().toLowerCase();
-    const priceMin = p.priceMin ? Number(p.priceMin) : undefined;
-    const priceMax = p.priceMax ? Number(p.priceMax) : undefined;
-    if (colorIdentityNeedle) {
-      const colorIdentity = Array.isArray(card?.colorIdentity)
-        ? card.colorIdentity.join(",")
-        : JSON.stringify(card?.colorIdentity ?? "");
-      if (!colorIdentity.toUpperCase().includes(colorIdentityNeedle))
-        return false;
-    }
-    if (keywordNeedle) {
-      const keywords = Array.isArray(card?.keywords)
-        ? card.keywords.join(", ")
-        : JSON.stringify(card?.keywords ?? "");
-      if (!keywords.toLowerCase().includes(keywordNeedle)) return false;
-    }
-    const usdPrice = card?.prices?.usd ? Number(card.prices.usd) : undefined;
-    if (
-      priceMin !== undefined &&
-      (usdPrice === undefined || Number.isNaN(usdPrice) || usdPrice < priceMin)
-    )
-      return false;
-    if (
-      priceMax !== undefined &&
-      (usdPrice === undefined || Number.isNaN(usdPrice) || usdPrice > priceMax)
-    )
-      return false;
-    return true;
-  };
+  const groupMatchesClientSafeFilters = (group: any) =>
+    inventoryCardMatchesPostFilters(cardSortById.get(group.cardId), filters);
   const sortValue = (group: any) => {
     const card = cardSortById.get(group.cardId) as any;
     if (sortField === "quantity") return group._sum?.quantity ?? 0;
@@ -349,8 +236,9 @@ export default async function InventoryPage({
       ]),
   );
 
+  const ownerParam = Array.isArray(p.ownerId) ? p.ownerId[0] : p.ownerId;
   const activeOwnerId =
-    p.ownerId || (!adminModeActive ? userWithPlayer?.playerId || "" : "");
+    ownerParam || (!adminModeActive ? userWithPlayer?.playerId || "" : "");
   const visiblePlayers = adminModeActive
     ? players
     : players.filter((player) => player.id === userWithPlayer?.playerId);
@@ -359,6 +247,8 @@ export default async function InventoryPage({
     : await prisma.inventoryLocation.findMany({
         orderBy: [{ ownerPlayer: { displayName: "asc" } }, { name: "asc" }],
       });
+  const setOptions: Array<{ setCode: string; setName: string | null }> = [];
+  const cardNameOptions: string[] = [];
 
   const cardLabels = Object.fromEntries(
     items.map((item) => [
@@ -690,7 +580,7 @@ export default async function InventoryPage({
         };
       }
       const allowedOwnerId = actionIsAdmin
-        ? p.ownerId || undefined
+        ? ownerParam || undefined
         : actionUser.playerId || undefined;
       const previewWhere: any =
         selectionMode === "all" ? { ...where } : { id: { in: itemIds } };
@@ -763,21 +653,7 @@ export default async function InventoryPage({
     pageGroups,
     displayMode,
   );
-  const visibilityFilteredItems = p.visibility
-    ? orderedItems.filter((item) => {
-        const effectiveVisibility = resolveInventoryVisibility(
-          inventoryDefaultByPlayer[item.currentOwnerId] ??
-            DefaultCollectionVisibility.PRIVATE,
-          item.location?.visibility ?? "INHERIT",
-        );
-        if (p.visibility === "public") return effectiveVisibility === "PUBLIC";
-        if (p.visibility === "private")
-          return effectiveVisibility === "PRIVATE";
-        if (p.visibility === "inherit")
-          return (item.location?.visibility ?? "INHERIT") === "INHERIT";
-        return true;
-      })
-    : orderedItems;
+  const visibilityFilteredItems = orderedItems;
   const exactItems = getInventoryExactPrintings(visibilityFilteredItems);
   const groupedItems = getInventoryGroupedByCard(exactItems);
   const displayItems = displayMode === "grouped" ? groupedItems : exactItems;
@@ -888,32 +764,35 @@ export default async function InventoryPage({
         auditHistory: [],
       };
     })
-    .filter((row) => {
-      if (colorIdentityNeedle) {
-        const colorHaystack = row.colorIdentity.toUpperCase();
-        if (!colorHaystack.includes(colorIdentityNeedle)) return false;
-      }
-      if (keywordNeedle) {
-        const keywordHaystack = row.keywords.toLowerCase();
-        if (!keywordHaystack.includes(keywordNeedle)) return false;
-      }
-      const usdPrice = row.priceUsd ? Number(row.priceUsd) : undefined;
-      if (
-        priceMin !== undefined &&
-        (usdPrice === undefined ||
-          Number.isNaN(usdPrice) ||
-          usdPrice < priceMin)
-      )
-        return false;
-      if (
-        priceMax !== undefined &&
-        (usdPrice === undefined ||
-          Number.isNaN(usdPrice) ||
-          usdPrice > priceMax)
-      )
-        return false;
-      return true;
-    });
+    .filter((row) =>
+      inventoryCardMatchesPostFilters(
+        {
+          colorIdentity: row.colorIdentity,
+          colors: row.colors,
+          keywords: row.keywords,
+          prices: {
+            usd: row.priceUsd,
+            usd_foil: row.priceUsdFoil,
+            usd_etched: row.priceUsdEtched,
+          },
+        },
+        filters,
+      ),
+    );
+
+  const selected = (key: string) => {
+    const value = (p as Record<string, any>)[key];
+    return Array.isArray(value)
+      ? value.flatMap((entry) => String(entry).split(","))
+      : value
+        ? String(value).split(",")
+        : [];
+  };
+  const clearFilterParams = new URLSearchParams();
+  clearFilterParams.set("displayMode", displayMode);
+  if (p.pageSize) clearFilterParams.set("pageSize", String(p.pageSize));
+  if (p.browse) clearFilterParams.set("browse", String(p.browse));
+  const clearFiltersHref = `/inventory?${clearFilterParams.toString()}`;
 
   return (
     <main className="p-8 space-y-4">
@@ -932,31 +811,22 @@ export default async function InventoryPage({
             method="get"
             className="grid grid-cols-2 md:grid-cols-5 gap-2 items-end"
           >
-            <input type="hidden" name="cardName" value={p.cardName || ""} />
-            <input type="hidden" name="oracleText" value={p.oracleText || ""} />
-            <input type="hidden" name="typeLine" value={p.typeLine || ""} />
-            <input type="hidden" name="set" value={p.set || ""} />
-            <input type="hidden" name="rarity" value={p.rarity || ""} />
-            <input type="hidden" name="foil" value={p.foil || ""} />
-            <input
-              type="hidden"
-              name="colorIdentity"
-              value={p.colorIdentity || ""}
-            />
-            <input
-              type="hidden"
-              name="manaValueMin"
-              value={p.manaValueMin || ""}
-            />
-            <input
-              type="hidden"
-              name="manaValueMax"
-              value={p.manaValueMax || ""}
-            />
-            <input type="hidden" name="keyword" value={p.keyword || ""} />
-            <input type="hidden" name="priceMin" value={p.priceMin || ""} />
-            <input type="hidden" name="priceMax" value={p.priceMax || ""} />
-            <input type="hidden" name="locationId" value={p.locationId || ""} />
+            {INVENTORY_FILTER_PARAM_KEYS.map((key) => {
+              const value = (p as Record<string, any>)[key];
+              const values = Array.isArray(value)
+                ? value
+                : value
+                  ? [value]
+                  : [];
+              return values.map((entry) => (
+                <input
+                  key={`${key}-${entry}`}
+                  type="hidden"
+                  name={key}
+                  value={entry}
+                />
+              ));
+            })}
             <label className="text-sm">
               Format
               <select name="format" className="w-full border p-2 bg-zinc-900">
@@ -1058,142 +928,27 @@ export default async function InventoryPage({
           </form>
         </section>
       ) : null}
-      <details open className="border border-zinc-800 rounded p-3">
-        <summary className="cursor-pointer font-semibold">
-          Advanced Filters
-        </summary>
-        <form className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
-          <input
-            name="cardName"
-            defaultValue={p.cardName}
-            placeholder="card name contains"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="oracleText"
-            defaultValue={p.oracleText}
-            placeholder="oracle text contains"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="typeLine"
-            defaultValue={p.typeLine}
-            placeholder="type line contains"
-            className="border p-2 bg-zinc-900"
-          />
-          {adminModeActive ? (
-            <select
-              name="ownerId"
-              defaultValue={p.ownerId}
-              className="border p-2 bg-zinc-900"
-            >
-              <option value="">current owner</option>
-              {visiblePlayers.map((pl) => (
-                <option key={pl.id} value={pl.id}>
-                  {pl.displayName}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <p className="rounded border border-zinc-800 p-2 text-sm text-zinc-400">
-              Showing your inventory
-            </p>
-          )}
-          <select
-            name="displayMode"
-            defaultValue={displayMode}
-            className="border p-2 bg-zinc-900"
-          >
-            <option value="exact">Exact printings</option>
-            <option value="grouped">Grouped by card name</option>
-          </select>
-          <select
-            name="visibility"
-            defaultValue={p.visibility}
-            className="border p-2 bg-zinc-900"
-          >
-            <option value="">all visibility</option>
-            <option value="public">effectively public</option>
-            <option value="private">effectively private</option>
-            <option value="inherit">uses account default</option>
-          </select>
-          <select
-            name="locationId"
-            defaultValue={p.locationId}
-            className="border p-2 bg-zinc-900"
-          >
-            <option value="">all locations</option>
-            {locations.map((location) => (
-              <option key={location.id} value={location.id}>
-                {location.name}
-              </option>
-            ))}
-          </select>
-          <input
-            name="set"
-            defaultValue={p.set}
-            placeholder="set"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="rarity"
-            defaultValue={p.rarity}
-            placeholder="rarity"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="colorIdentity"
-            defaultValue={p.colorIdentity}
-            placeholder="color identity"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="manaValueMin"
-            defaultValue={p.manaValueMin}
-            placeholder="mana value min"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="manaValueMax"
-            defaultValue={p.manaValueMax}
-            placeholder="mana value max"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="keyword"
-            defaultValue={p.keyword}
-            placeholder="keyword contains"
-            className="border p-2 bg-zinc-900"
-          />
-          <select
-            name="foil"
-            defaultValue={p.foil}
-            className="border p-2 bg-zinc-900"
-          >
-            <option value="">foil/nonfoil</option>
-            <option value="true">foil</option>
-            <option value="false">nonfoil</option>
-          </select>
-          <input
-            name="priceMin"
-            defaultValue={p.priceMin}
-            placeholder="price min"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="priceMax"
-            defaultValue={p.priceMax}
-            placeholder="price max"
-            className="border p-2 bg-zinc-900"
-          />
-          <div className="col-span-2 flex gap-2">
-            <button className="border px-3">Apply</button>
-            <a href="/inventory" className="border px-3 py-2">
-              Clear Filters
-            </a>
-          </div>
-        </form>
-      </details>
+      <InventoryAdvancedSearch
+        actionPath="/inventory"
+        params={p}
+        displayMode={displayMode}
+        isAdmin={adminModeActive}
+        players={visiblePlayers.map((player) => ({
+          value: player.id,
+          label: player.displayName,
+        }))}
+        locations={locations.map((location) => ({
+          value: location.id,
+          label: location.name,
+          kind: location.kind,
+        }))}
+        setOptions={setOptions.map((set) => ({
+          value: set.setCode,
+          label: `${set.setCode.toUpperCase()} — ${set.setName || set.setCode.toUpperCase()}`,
+        }))}
+        cardNameOptions={cardNameOptions}
+        clearHref={clearFiltersHref}
+      />
       <InventoryBrowser
         rows={rows}
         players={visiblePlayers.map((p) => ({
@@ -1218,9 +973,9 @@ export default async function InventoryPage({
         infiniteApiPath="/api/inventory/list"
         initialPageSize={initialPageSize}
         initialBrowsingMode={initialBrowsingMode}
-        initialSortField={sortField}
+        initialSortField={String(sortField)}
         initialSortDirection={sortDirection}
-        currentLocationId={p.locationId || ""}
+        currentLocationId={selected("locationId")[0] || ""}
         onBulkMoveLocation={onBulkMoveLocation}
         onBulkDeleteInventory={onBulkDeleteInventory}
         onSaveEdit={onSaveEdit}

@@ -2,7 +2,11 @@
 
 import { prisma } from "@/lib/prisma";
 import { getAccessScope, requireLogin } from "@/lib/auth";
-import { InventorySourceType, TradeStatus } from "@prisma/client";
+import {
+  InventoryLocationKind,
+  InventorySourceType,
+  TradeStatus,
+} from "@prisma/client";
 import { ensureDefaultLocation } from "@/lib/inventory-locations";
 import { revalidatePath } from "next/cache";
 import {
@@ -64,6 +68,7 @@ async function validateProposedTrade(data: ProposedTradeData) {
       include: {
         currentOwner: true,
         card: true,
+        location: true,
       },
     }),
     prisma.inventoryItem.findUnique({
@@ -71,6 +76,7 @@ async function validateProposedTrade(data: ProposedTradeData) {
       include: {
         currentOwner: true,
         card: true,
+        location: true,
       },
     }),
   ]);
@@ -82,6 +88,14 @@ async function validateProposedTrade(data: ProposedTradeData) {
     );
   if (offered.quantity < 1 || requested.quantity < 1)
     throw new Error("Both selected cards must have available quantity.");
+  if (
+    offered.location?.kind === InventoryLocationKind.DECK ||
+    requested.location?.kind === InventoryLocationKind.DECK
+  ) {
+    throw new Error(
+      "Cards committed to decks are excluded from normal trade availability. Return them to inventory first.",
+    );
+  }
   const reservationRows = await prisma.trade.findMany({
     where: {
       status: { in: activeStatuses },

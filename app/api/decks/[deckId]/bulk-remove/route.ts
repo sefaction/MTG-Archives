@@ -28,7 +28,7 @@ export async function POST(
     : [];
   if (!rowIds.length) {
     return Response.json(
-      { error: "Select deck rows to remove." },
+      { error: "Select deck entries to remove." },
       { status: 400 },
     );
   }
