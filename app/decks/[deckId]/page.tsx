@@ -21,15 +21,23 @@ import {
   summarizeDeckCardOwnership,
   summarizeDeckOwnershipTotals,
 } from "@/lib/decks";
-import { cardPriceNumber } from "@/lib/deck-view";
-import { matchesDeckCardPrinting } from "@/lib/deck-commitments";
-import { ensureDefaultLocation } from "@/lib/inventory-locations";
+import {
+  getDeckCommittedSummary,
+  isNormalInventoryLocation,
+} from "@/lib/deck-inventory";
 import { prisma } from "@/lib/prisma";
 import { resolveDeckVisibility, visibilityLabel } from "@/lib/visibility";
-import { deleteDeck, updateDeck } from "../actions";
+import {
+  deleteDeck,
+  returnAllCommittedDeckInventory,
+  updateDeck,
+} from "../actions";
 import { DeckCardPicker } from "@/components/DeckCardPicker";
 import { DeckImportPanel } from "@/components/DeckImportPanel";
-import { DeckListEditor } from "@/components/DeckListEditor";
+import {
+  DeckListEditor,
+  type DeckReturnLocation,
+} from "@/components/DeckListEditor";
 
 export default async function DeckDetailPage({
   params,
@@ -64,16 +72,27 @@ export default async function DeckDetailPage({
         include: { card: true, location: true },
       })
     : [];
-  const normalLocations = inventoryOwnerId
-    ? await prisma.inventoryLocation.findMany({
-        where: {
-          ownerPlayerId: inventoryOwnerId,
-          kind: InventoryLocationKind.NORMAL,
-          active: true,
-        },
-        orderBy: { name: "asc" },
-      })
+  const normalReturnLocations: DeckReturnLocation[] = deck.ownerUser.playerId
+    ? (
+        await prisma.inventoryLocation.findMany({
+          where: { ownerPlayerId: deck.ownerUser.playerId, active: true },
+          orderBy: [{ normalizedName: "asc" }],
+        })
+      )
+        .filter(isNormalInventoryLocation)
+        .map((location) => ({ id: location.id, name: location.name }))
     : [];
+  const committedSummary = deck.ownerUser.playerId
+    ? await getDeckCommittedSummary(prisma, {
+        deckId: deck.id,
+        ownerPlayerId: deck.ownerUser.playerId,
+      })
+    : {
+        deckLocation: null,
+        committedEntries: 0,
+        committedQuantity: 0,
+        byCardId: {},
+      };
   const sectionTotals = deckSectionQuantityTotals(deck.cards);
   const ownershipTotals = summarizeDeckOwnershipTotals(
     deck.cards,
@@ -119,51 +138,9 @@ export default async function DeckDetailPage({
       enoughOwned: owned.enoughOwned,
       matchType: owned.matchType,
       locationSummary: canEdit ? owned.locationSummary : "",
-      available: owned.available,
-      availableExact: owned.availableExact,
-      availableOther: owned.availableOther,
-      committedToThisDeck: owned.committedToThisDeck,
-      committedToOtherDecks: owned.committedToOtherDecks,
-      commitmentMissing: owned.commitmentMissing,
-      commitOptions: canEdit
-        ? inventoryItems
-            .filter(
-              (item) =>
-                item.location?.kind !== InventoryLocationKind.DECK &&
-                Boolean(matchesDeckCardPrinting(deckCard, item)),
-            )
-            .map((item) => ({
-              inventoryItemId: item.id,
-              quantity: item.quantity,
-              cardName: item.card.name,
-              setCode: item.card.setCode,
-              collectorNumber: item.card.collectorNumber,
-              locationName: item.location?.name ?? "Unassigned",
-              matchType: matchesDeckCardPrinting(deckCard, item) ?? "other",
-            }))
-            .sort((left, right) => {
-              if (left.matchType !== right.matchType)
-                return left.matchType === "exact" ? -1 : 1;
-              return left.locationName.localeCompare(right.locationName);
-            })
-        : [],
-      returnOptions: canEdit
-        ? inventoryItems
-            .filter(
-              (item) =>
-                item.location?.deckId === deck.id &&
-                Boolean(matchesDeckCardPrinting(deckCard, item)),
-            )
-            .map((item) => ({
-              inventoryItemId: item.id,
-              quantity: item.quantity,
-              cardName: item.card.name,
-              setCode: item.card.setCode,
-              collectorNumber: item.card.collectorNumber,
-              locationName: item.location?.name ?? "Deck location",
-              matchType: matchesDeckCardPrinting(deckCard, item) ?? "other",
-            }))
-        : [],
+      committedQuantity: deckCard.cardId
+        ? (committedSummary.byCardId[deckCard.cardId] ?? 0)
+        : 0,
       createdAt: deckCard.createdAt.toISOString(),
       card: deckCard.card
         ? {
@@ -217,16 +194,12 @@ export default async function DeckDetailPage({
           ) : null}
         </section>
         {canEdit ? (
-          <form action={deleteDeck}>
-            <input type="hidden" name="deckId" value={deck.id} />
-            <SubmitButton
-              pendingLabel="Deleting…"
-              className="rounded border border-red-800 px-3 py-2 text-red-200"
-              confirmMessage={`Delete deck “${deck.name}”? Inventory and card metadata will not be deleted.`}
-            >
-              Delete deck
-            </SubmitButton>
-          </form>
+          <a
+            href="#safe-delete"
+            className="rounded border border-red-800 px-3 py-2 text-red-200"
+          >
+            Delete deck
+          </a>
         ) : null}
       </div>
 
@@ -254,6 +227,12 @@ export default async function DeckDetailPage({
                 className="rounded border border-zinc-700 px-3 py-2"
               >
                 Bulk edit
+              </a>
+              <a
+                href="#return-committed"
+                className="rounded border border-amber-700 px-3 py-2 text-amber-100"
+              >
+                Return all committed cards
               </a>
               <a
                 href="#bulk-edit"
@@ -300,8 +279,16 @@ export default async function DeckDetailPage({
           </div>
         ) : null}
         <div>
-          <span className="text-zinc-400">Mainboard</span>
-          <div className="text-xl font-semibold">{sectionTotals.MAINBOARD}</div>
+          <span className="text-zinc-400">Committed inventory</span>
+          <div className="text-xl font-semibold text-amber-100">
+            {committedSummary.committedQuantity}
+          </div>
+        </div>
+        <div>
+          <span className="text-zinc-400">Owned exact</span>
+          <div className="text-xl font-semibold text-emerald-300">
+            {ownershipTotals.exactOwned}
+          </div>
         </div>
         {sectionTotals.SIDEBOARD > 0 ? (
           <div>
@@ -363,6 +350,109 @@ export default async function DeckDetailPage({
           </div>
         ) : null}
       </section>
+
+      {canEdit ? (
+        <section className="grid gap-4 lg:grid-cols-2">
+          <form
+            action={returnAllCommittedDeckInventory}
+            id="return-committed"
+            className="space-y-3 rounded border border-amber-900 bg-amber-950/10 p-4"
+          >
+            <h2 className="text-xl font-semibold">
+              Return committed cards to inventory
+            </h2>
+            <p className="text-sm text-zinc-300">
+              This affects physical committed inventory only. The deck list
+              stays intact. Currently physically in deck:{" "}
+              {committedSummary.committedQuantity} cards across{" "}
+              {committedSummary.committedEntries} inventory entries.
+            </p>
+            <input type="hidden" name="deckId" value={deck.id} />
+            <label className="block text-sm">
+              Destination normal inventory location
+              <select
+                name="destinationLocationId"
+                required
+                className="mt-1 w-full border bg-zinc-900 p-2"
+              >
+                <option value="">Choose a location…</option>
+                {normalReturnLocations.map((location) => (
+                  <option key={location.id} value={location.id}>
+                    {location.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <SubmitButton
+              pendingLabel="Returning…"
+              disabled={
+                committedSummary.committedQuantity === 0 ||
+                normalReturnLocations.length === 0
+              }
+              className="rounded border border-amber-700 px-3 py-2 text-amber-100 disabled:opacity-60"
+              confirmMessage="Return all physical cards from this deck location to the selected inventory location? The deck list will not be changed."
+            >
+              Return all committed cards
+            </SubmitButton>
+          </form>
+
+          <form
+            action={deleteDeck}
+            id="safe-delete"
+            className="space-y-3 rounded border border-red-900 bg-red-950/10 p-4"
+          >
+            <h2 className="text-xl font-semibold text-red-100">
+              Safe deck deletion
+            </h2>
+            <input type="hidden" name="deckId" value={deck.id} />
+            <p className="text-sm text-zinc-300">
+              Delete deck list “{deck.name}”.{" "}
+              {committedSummary.committedQuantity > 0
+                ? `This deck currently contains ${committedSummary.committedQuantity} committed physical cards in ${committedSummary.committedEntries} inventory entries. Choose a location to return them to before deletion.`
+                : "No committed physical inventory is currently in this deck location."}
+            </p>
+            {committedSummary.committedQuantity > 0 ? (
+              <>
+                <label className="block text-sm">
+                  Destination normal inventory location
+                  <select
+                    name="destinationLocationId"
+                    required
+                    className="mt-1 w-full border bg-zinc-900 p-2"
+                  >
+                    <option value="">Choose a location…</option>
+                    {normalReturnLocations.map((location) => (
+                      <option key={location.id} value={location.id}>
+                        {location.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-sm">
+                  Type DELETE to confirm
+                  <input
+                    name="strongConfirmation"
+                    className="mt-1 w-full border bg-zinc-900 p-2"
+                  />
+                </label>
+              </>
+            ) : null}
+            <SubmitButton
+              pendingLabel="Deleting…"
+              className="rounded border border-red-800 px-3 py-2 text-red-200"
+              confirmMessage={
+                committedSummary.committedQuantity > 0
+                  ? "Return committed physical cards to the selected location and delete this deck list? Inventory will not be deleted."
+                  : `Delete deck “${deck.name}”? Inventory and card metadata will not be deleted.`
+              }
+            >
+              {committedSummary.committedQuantity > 0
+                ? `Return ${committedSummary.committedQuantity} cards and delete this deck`
+                : "Delete deck"}
+            </SubmitButton>
+          </form>
+        </section>
+      ) : null}
 
       {canEdit ? (
         <section className="grid gap-4 lg:grid-cols-2">
@@ -457,10 +547,7 @@ export default async function DeckDetailPage({
           deck.format === DeckFormat.COMMANDER ? "type" : "section"
         }
         showPrivateInventory={canEdit}
-        normalLocations={normalLocations.map((location) => ({
-          id: location.id,
-          name: location.name,
-        }))}
+        returnLocations={normalReturnLocations}
       />
     </main>
   );
