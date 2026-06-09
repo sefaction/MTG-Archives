@@ -209,8 +209,10 @@ function toInventoryBrowserRows({
 }
 
 export async function GET(request: Request) {
-  const params = Object.fromEntries(
-    new URL(request.url).searchParams.entries(),
+  const searchParams = new URL(request.url).searchParams;
+  const params = Array.from(new Set(searchParams.keys())).reduce(
+    (acc, key) => ({ ...acc, [key]: searchParams.getAll(key).join(",") }),
+    {} as Record<string, string>,
   );
   const displayMode: "exact" | "grouped" =
     params.displayMode === "exact" ? "exact" : "grouped";

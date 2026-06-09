@@ -9,6 +9,10 @@ import {
   orderInventoryItemsByPageGroups,
 } from "@/lib/inventory-locations";
 import { prisma } from "@/lib/prisma";
+import {
+  inventoryCardMatchesPostFilters,
+  parseInventoryFilters,
+} from "@/lib/inventory-filters";
 
 export type PublicInventoryFilters = {
   q?: string;
@@ -18,7 +22,16 @@ export type PublicInventoryFilters = {
   set?: string;
   rarity?: string;
   foil?: string;
+  finish?: string;
+  type?: string;
+  colors?: string;
+  colorMode?: string;
   colorIdentity?: string;
+  colorIdentityMode?: string;
+  mvOp?: string;
+  mv?: string;
+  mvMin?: string;
+  mvMax?: string;
   manaValueMin?: string;
   manaValueMax?: string;
   keyword?: string;
@@ -110,6 +123,7 @@ export async function getPublicProfileBySlug(publicSlug: string) {
 function buildPublicCardWhere(filters: PublicInventoryFilters) {
   const cardWhere: Prisma.CardWhereInput = {};
   const q = filters.q?.trim();
+  const structured = parseInventoryFilters(filters as any);
   if (filters.cardName?.trim()) {
     cardWhere.name = { contains: filters.cardName.trim(), mode: "insensitive" };
   }
@@ -125,14 +139,24 @@ function buildPublicCardWhere(filters: PublicInventoryFilters) {
       mode: "insensitive",
     };
   }
-  if (filters.set?.trim()) cardWhere.setCode = filters.set.trim().toLowerCase();
-  if (filters.rarity?.trim()) cardWhere.rarity = filters.rarity.trim();
-  if (filters.manaValueMin || filters.manaValueMax) {
-    cardWhere.manaValue = {
-      gte: filters.manaValueMin ? Number(filters.manaValueMin) : undefined,
-      lte: filters.manaValueMax ? Number(filters.manaValueMax) : undefined,
-    };
-  }
+  if (structured.rarities.length)
+    cardWhere.rarity = { in: structured.rarities };
+  else if (filters.rarity?.trim()) cardWhere.rarity = filters.rarity.trim();
+  const mvCondition =
+    structured.mvOp === "between"
+      ? { gte: structured.mvMin, lte: structured.mvMax }
+      : structured.mvOp === "eq" && structured.mv !== undefined
+        ? structured.mv
+        : structured.mvOp === "lt" && structured.mv !== undefined
+          ? { lt: structured.mv }
+          : structured.mvOp === "lte" && structured.mv !== undefined
+            ? { lte: structured.mv }
+            : structured.mvOp === "gt" && structured.mv !== undefined
+              ? { gt: structured.mv }
+              : structured.mvOp === "gte" && structured.mv !== undefined
+                ? { gte: structured.mv }
+                : undefined;
+  if (mvCondition !== undefined) cardWhere.manaValue = mvCondition;
   const queryWhere: Prisma.InventoryItemWhereInput | undefined = q
     ? {
         OR: [
@@ -209,6 +233,7 @@ function buildPublicInventoryWhere(
   publicSlug?: string,
 ) {
   const { cardWhere, queryWhere } = buildPublicCardWhere(filters);
+  const structured = parseInventoryFilters(filters as any);
   const and: Prisma.InventoryItemWhereInput[] = [
     {
       OR: [
@@ -247,6 +272,29 @@ function buildPublicInventoryWhere(
     });
   }
 
+  if (structured.typeTokens.length) {
+    and.push({
+      AND: structured.typeTokens.map((type) => ({
+        card: { typeLine: { contains: type, mode: "insensitive" } },
+      })),
+    });
+  }
+  if (structured.types.length) {
+    and.push({
+      OR: structured.types.map((type) => ({
+        card: { typeLine: { contains: type, mode: "insensitive" } },
+      })),
+    });
+  }
+  if (structured.sets.length) {
+    and.push({
+      OR: structured.sets.flatMap((set) => [
+        { card: { setCode: { equals: set, mode: "insensitive" } } },
+        { card: { setName: { contains: set, mode: "insensitive" } } },
+      ]),
+    });
+  }
+
   const where: Prisma.InventoryItemWhereInput = {
     quantity: { gt: 0 },
     AND: and,
@@ -255,8 +303,10 @@ function buildPublicInventoryWhere(
   if (filters.locationName?.trim()) {
     where.location = { name: filters.locationName.trim() };
   } else if (filters.locationId) where.locationId = filters.locationId;
-  if (filters.foil === "true") where.foil = true;
-  if (filters.foil === "false") where.foil = false;
+  if (structured.finishes.length)
+    where.foilStatus = { in: structured.finishes };
+  else if (filters.foil === "true") where.foil = true;
+  else if (filters.foil === "false") where.foil = false;
   return where;
 }
 
@@ -264,39 +314,10 @@ function filterPublicInventoryByClientSafeFilters(
   inventory: Array<{ card: any; quantity: number }>,
   filters: PublicInventoryFilters,
 ) {
-  const colorIdentityNeedle = filters.colorIdentity?.trim().toUpperCase();
-  const keywordNeedle = filters.keyword?.trim().toLowerCase();
-  const priceMin = filters.priceMin ? Number(filters.priceMin) : undefined;
-  const priceMax = filters.priceMax ? Number(filters.priceMax) : undefined;
-  return inventory.filter((item) => {
-    if (colorIdentityNeedle) {
-      const colorIdentity = Array.isArray(item.card.colorIdentity)
-        ? item.card.colorIdentity.join(",")
-        : JSON.stringify(item.card.colorIdentity ?? "");
-      if (!colorIdentity.toUpperCase().includes(colorIdentityNeedle))
-        return false;
-    }
-    if (keywordNeedle) {
-      const keywords = Array.isArray(item.card.keywords)
-        ? item.card.keywords.join(", ")
-        : JSON.stringify(item.card.keywords ?? "");
-      if (!keywords.toLowerCase().includes(keywordNeedle)) return false;
-    }
-    const usdPrice = (item.card.prices as any)?.usd
-      ? Number((item.card.prices as any).usd)
-      : undefined;
-    if (
-      priceMin !== undefined &&
-      (usdPrice === undefined || Number.isNaN(usdPrice) || usdPrice < priceMin)
-    )
-      return false;
-    if (
-      priceMax !== undefined &&
-      (usdPrice === undefined || Number.isNaN(usdPrice) || usdPrice > priceMax)
-    )
-      return false;
-    return true;
-  });
+  const structured = parseInventoryFilters(filters as any);
+  return inventory.filter((item) =>
+    inventoryCardMatchesPostFilters(item.card, structured),
+  );
 }
 
 const publicInventoryInclude = {
@@ -434,6 +455,7 @@ export async function getGlobalPublicInventory(
       manaValue: true,
       prices: true,
       colorIdentity: true,
+      colors: true,
       keywords: true,
     },
   });
@@ -447,38 +469,12 @@ export async function getGlobalPublicInventory(
       numeric: true,
     });
   };
-  const groupMatchesClientSafeFilters = (group: any) => {
-    const card = cardSortById.get(group.cardId) as any;
-    const colorIdentityNeedle = filters.colorIdentity?.trim().toUpperCase();
-    const keywordNeedle = filters.keyword?.trim().toLowerCase();
-    const priceMin = filters.priceMin ? Number(filters.priceMin) : undefined;
-    const priceMax = filters.priceMax ? Number(filters.priceMax) : undefined;
-    if (colorIdentityNeedle) {
-      const colorIdentity = Array.isArray(card?.colorIdentity)
-        ? card.colorIdentity.join(",")
-        : JSON.stringify(card?.colorIdentity ?? "");
-      if (!colorIdentity.toUpperCase().includes(colorIdentityNeedle))
-        return false;
-    }
-    if (keywordNeedle) {
-      const keywords = Array.isArray(card?.keywords)
-        ? card.keywords.join(", ")
-        : JSON.stringify(card?.keywords ?? "");
-      if (!keywords.toLowerCase().includes(keywordNeedle)) return false;
-    }
-    const usdPrice = card?.prices?.usd ? Number(card.prices.usd) : undefined;
-    if (
-      priceMin !== undefined &&
-      (usdPrice === undefined || Number.isNaN(usdPrice) || usdPrice < priceMin)
-    )
-      return false;
-    if (
-      priceMax !== undefined &&
-      (usdPrice === undefined || Number.isNaN(usdPrice) || usdPrice > priceMax)
-    )
-      return false;
-    return true;
-  };
+  const structuredFilters = parseInventoryFilters(filters as any);
+  const groupMatchesClientSafeFilters = (group: any) =>
+    inventoryCardMatchesPostFilters(
+      cardSortById.get(group.cardId),
+      structuredFilters,
+    );
   const sortValue = (group: any) => {
     const card = cardSortById.get(group.cardId) as any;
     if (sortField === "quantity") return group._sum?.quantity ?? 0;
