@@ -18,12 +18,23 @@ import {
   summarizeDeckCardOwnership,
   summarizeDeckOwnershipTotals,
 } from "@/lib/decks";
+import {
+  getDeckCommittedSummary,
+  isNormalInventoryLocation,
+} from "@/lib/deck-inventory";
 import { prisma } from "@/lib/prisma";
 import { resolveDeckVisibility, visibilityLabel } from "@/lib/visibility";
-import { deleteDeck, updateDeck } from "../actions";
+import {
+  deleteDeck,
+  returnAllCommittedDeckInventory,
+  updateDeck,
+} from "../actions";
 import { DeckCardPicker } from "@/components/DeckCardPicker";
 import { DeckImportPanel } from "@/components/DeckImportPanel";
-import { DeckListEditor } from "@/components/DeckListEditor";
+import {
+  DeckListEditor,
+  type DeckReturnLocation,
+} from "@/components/DeckListEditor";
 
 export default async function DeckDetailPage({
   params,
@@ -56,6 +67,27 @@ export default async function DeckDetailPage({
         include: { card: true, location: true },
       })
     : [];
+  const normalReturnLocations: DeckReturnLocation[] = deck.ownerUser.playerId
+    ? (
+        await prisma.inventoryLocation.findMany({
+          where: { ownerPlayerId: deck.ownerUser.playerId, active: true },
+          orderBy: [{ normalizedName: "asc" }],
+        })
+      )
+        .filter(isNormalInventoryLocation)
+        .map((location) => ({ id: location.id, name: location.name }))
+    : [];
+  const committedSummary = deck.ownerUser.playerId
+    ? await getDeckCommittedSummary(prisma, {
+        deckId: deck.id,
+        ownerPlayerId: deck.ownerUser.playerId,
+      })
+    : {
+        deckLocation: null,
+        committedEntries: 0,
+        committedQuantity: 0,
+        byCardId: {},
+      };
   const sectionTotals = deckSectionQuantityTotals(deck.cards);
   const ownershipTotals = summarizeDeckOwnershipTotals(
     deck.cards,
@@ -75,7 +107,11 @@ export default async function DeckDetailPage({
       missing: owned.missing,
       enoughOwned: owned.enoughOwned,
       matchType: owned.matchType,
-      locationSummary: owned.locationSummary,
+      locationSummary: canEdit ? owned.locationSummary : "",
+      committedQuantity: deckCard.cardId
+        ? (committedSummary.byCardId[deckCard.cardId] ?? 0)
+        : 0,
+      createdAt: deckCard.createdAt.toISOString(),
       card: deckCard.card
         ? {
             id: deckCard.card.id,
@@ -90,6 +126,11 @@ export default async function DeckDetailPage({
             collectorNumber: deckCard.card.collectorNumber,
             rarity: deckCard.card.rarity,
             prices: deckCard.card.prices,
+            imageUri: deckCard.card.imageUri,
+            imageUris: deckCard.card.imageUris,
+            manaValue: deckCard.card.manaValue,
+            colorIdentity: deckCard.card.colorIdentity,
+            colors: deckCard.card.colors,
           }
         : null,
     };
@@ -115,18 +156,74 @@ export default async function DeckDetailPage({
           ) : null}
         </section>
         {canEdit ? (
-          <form action={deleteDeck}>
-            <input type="hidden" name="deckId" value={deck.id} />
-            <SubmitButton
-              pendingLabel="Deleting…"
-              className="rounded border border-red-800 px-3 py-2 text-red-200"
-              confirmMessage={`Delete deck “${deck.name}”? Inventory and card metadata will not be deleted.`}
-            >
-              Delete deck
-            </SubmitButton>
-          </form>
+          <a
+            href="#safe-delete"
+            className="rounded border border-red-800 px-3 py-2 text-red-200"
+          >
+            Delete deck
+          </a>
         ) : null}
       </div>
+
+      <section
+        className="rounded border border-zinc-800 bg-zinc-950/80 p-4"
+        aria-label="Deck toolbar"
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          {canEdit ? (
+            <>
+              <a
+                href="#add-card"
+                className="rounded border border-sky-700 px-3 py-2 text-sky-100"
+              >
+                Add card
+              </a>
+              <a
+                href="#paste-decklist"
+                className="rounded border border-zinc-700 px-3 py-2"
+              >
+                Paste decklist
+              </a>
+              <a
+                href="#bulk-edit"
+                className="rounded border border-zinc-700 px-3 py-2"
+              >
+                Bulk edit
+              </a>
+              <a
+                href="#return-committed"
+                className="rounded border border-amber-700 px-3 py-2 text-amber-100"
+              >
+                Return all committed cards
+              </a>
+              <a
+                href="#bulk-edit"
+                className="rounded border border-emerald-700 px-3 py-2 text-emerald-100"
+              >
+                Optimize printings
+              </a>
+              <button
+                type="button"
+                disabled
+                className="rounded border border-zinc-800 px-3 py-2 text-zinc-500"
+                title="Export is coming later"
+              >
+                Export · coming later
+              </button>
+              <a
+                href="#deck-settings"
+                className="rounded border border-zinc-700 px-3 py-2"
+              >
+                Deck settings
+              </a>
+            </>
+          ) : (
+            <span className="rounded border border-zinc-800 px-3 py-2 text-zinc-400">
+              Public read-only deck browser
+            </span>
+          )}
+        </div>
+      </section>
 
       <section className="grid gap-3 rounded border border-zinc-800 p-4 text-sm md:grid-cols-4">
         <div>
@@ -139,6 +236,12 @@ export default async function DeckDetailPage({
           <span className="text-zinc-400">Deck rows</span>
           <div className="text-xl font-semibold">
             {deckRowCount(deck.cards)}
+          </div>
+        </div>
+        <div>
+          <span className="text-zinc-400">Committed inventory</span>
+          <div className="text-xl font-semibold text-amber-100">
+            {committedSummary.committedQuantity}
           </div>
         </div>
         <div>
@@ -172,8 +275,112 @@ export default async function DeckDetailPage({
       {canEdit ? (
         <section className="grid gap-4 lg:grid-cols-2">
           <form
+            action={returnAllCommittedDeckInventory}
+            id="return-committed"
+            className="space-y-3 rounded border border-amber-900 bg-amber-950/10 p-4"
+          >
+            <h2 className="text-xl font-semibold">
+              Return committed cards to inventory
+            </h2>
+            <p className="text-sm text-zinc-300">
+              This affects physical committed inventory only. The deck list
+              stays intact. Currently physically in deck:{" "}
+              {committedSummary.committedQuantity} cards across{" "}
+              {committedSummary.committedEntries} inventory entries.
+            </p>
+            <input type="hidden" name="deckId" value={deck.id} />
+            <label className="block text-sm">
+              Destination normal inventory location
+              <select
+                name="destinationLocationId"
+                required
+                className="mt-1 w-full border bg-zinc-900 p-2"
+              >
+                <option value="">Choose a location…</option>
+                {normalReturnLocations.map((location) => (
+                  <option key={location.id} value={location.id}>
+                    {location.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <SubmitButton
+              pendingLabel="Returning…"
+              disabled={
+                committedSummary.committedQuantity === 0 ||
+                normalReturnLocations.length === 0
+              }
+              className="rounded border border-amber-700 px-3 py-2 text-amber-100 disabled:opacity-60"
+              confirmMessage="Return all physical cards from this deck location to the selected inventory location? The deck list will not be changed."
+            >
+              Return all committed cards
+            </SubmitButton>
+          </form>
+
+          <form
+            action={deleteDeck}
+            id="safe-delete"
+            className="space-y-3 rounded border border-red-900 bg-red-950/10 p-4"
+          >
+            <h2 className="text-xl font-semibold text-red-100">
+              Safe deck deletion
+            </h2>
+            <input type="hidden" name="deckId" value={deck.id} />
+            <p className="text-sm text-zinc-300">
+              Delete deck list “{deck.name}”.{" "}
+              {committedSummary.committedQuantity > 0
+                ? `This deck currently contains ${committedSummary.committedQuantity} committed physical cards in ${committedSummary.committedEntries} inventory entries. Choose a location to return them to before deletion.`
+                : "No committed physical inventory is currently in this deck location."}
+            </p>
+            {committedSummary.committedQuantity > 0 ? (
+              <>
+                <label className="block text-sm">
+                  Destination normal inventory location
+                  <select
+                    name="destinationLocationId"
+                    required
+                    className="mt-1 w-full border bg-zinc-900 p-2"
+                  >
+                    <option value="">Choose a location…</option>
+                    {normalReturnLocations.map((location) => (
+                      <option key={location.id} value={location.id}>
+                        {location.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-sm">
+                  Type DELETE to confirm
+                  <input
+                    name="strongConfirmation"
+                    className="mt-1 w-full border bg-zinc-900 p-2"
+                  />
+                </label>
+              </>
+            ) : null}
+            <SubmitButton
+              pendingLabel="Deleting…"
+              className="rounded border border-red-800 px-3 py-2 text-red-200"
+              confirmMessage={
+                committedSummary.committedQuantity > 0
+                  ? "Return committed physical cards to the selected location and delete this deck list? Inventory will not be deleted."
+                  : `Delete deck “${deck.name}”? Inventory and card metadata will not be deleted.`
+              }
+            >
+              {committedSummary.committedQuantity > 0
+                ? `Return ${committedSummary.committedQuantity} cards and delete this deck`
+                : "Delete deck"}
+            </SubmitButton>
+          </form>
+        </section>
+      ) : null}
+
+      {canEdit ? (
+        <section className="grid gap-4 lg:grid-cols-2">
+          <form
             action={updateDeck}
             className="space-y-3 rounded border border-zinc-800 p-4"
+            id="deck-settings"
           >
             <h2 className="text-xl font-semibold">Deck settings</h2>
             <input type="hidden" name="deckId" value={deck.id} />
@@ -234,16 +441,20 @@ export default async function DeckDetailPage({
           </form>
 
           <div className="space-y-4">
-            <DeckCardPicker
-              deckId={deck.id}
-              defaultSection={
-                deck.format === DeckFormat.COMMANDER
-                  ? DeckSection.COMMANDER
-                  : DeckSection.MAINBOARD
-              }
-              sections={deckSections}
-            />
-            <DeckImportPanel deckId={deck.id} />
+            <div id="add-card">
+              <DeckCardPicker
+                deckId={deck.id}
+                defaultSection={
+                  deck.format === DeckFormat.COMMANDER
+                    ? DeckSection.COMMANDER
+                    : DeckSection.MAINBOARD
+                }
+                sections={deckSections}
+              />
+            </div>
+            <div id="paste-decklist">
+              <DeckImportPanel deckId={deck.id} />
+            </div>
           </div>
         </section>
       ) : null}
@@ -253,6 +464,11 @@ export default async function DeckDetailPage({
         rows={editorRows}
         sections={deckSections}
         canEdit={canEdit}
+        defaultGroupMode={
+          deck.format === DeckFormat.COMMANDER ? "type" : "section"
+        }
+        showPrivateInventory={canEdit}
+        returnLocations={normalReturnLocations}
       />
     </main>
   );

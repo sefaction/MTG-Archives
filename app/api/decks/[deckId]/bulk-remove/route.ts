@@ -3,6 +3,10 @@ import { revalidatePath } from "next/cache";
 import { getAccessScope, requireLogin } from "@/lib/auth";
 import { canManageDeck } from "@/lib/decks";
 import { prisma } from "@/lib/prisma";
+import {
+  getDeckCommittedSummary,
+  returnCommittedInventoryFromDeckTx,
+} from "@/lib/deck-inventory";
 
 export async function POST(
   request: NextRequest,
@@ -11,7 +15,10 @@ export async function POST(
   const user = await requireLogin();
   const scope = await getAccessScope(user);
   const { deckId } = await params;
-  const deck = await prisma.deck.findUnique({ where: { id: deckId } });
+  const deck = await prisma.deck.findUnique({
+    where: { id: deckId },
+    include: { ownerUser: { select: { playerId: true } } },
+  });
   if (!deck || !canManageDeck(user, deck, scope?.mode === "admin")) {
     return Response.json({ error: "Not authorized." }, { status: 403 });
   }
@@ -25,15 +32,61 @@ export async function POST(
       { status: 400 },
     );
   }
-  const rows = await prisma.deckCard.findMany({
-    where: { deckId, id: { in: rowIds } },
-    select: { id: true, quantity: true },
-  });
-  const deletedQuantity = rows.reduce((total, row) => total + row.quantity, 0);
-  await prisma.deckCard.deleteMany({
-    where: { deckId, id: { in: rows.map((row) => row.id) } },
-  });
-  revalidatePath(`/decks/${deckId}`);
-  revalidatePath("/decks");
-  return Response.json({ deletedRows: rows.length, deletedQuantity });
+  const destinationLocationId =
+    typeof body.destinationLocationId === "string"
+      ? body.destinationLocationId
+      : "";
+  try {
+    let deletedQuantity = 0;
+    let deletedRows = 0;
+    await prisma.$transaction(async (tx) => {
+      const rows = await tx.deckCard.findMany({
+        where: { deckId, id: { in: rowIds } },
+        select: { id: true, quantity: true, cardId: true },
+      });
+      const ownerPlayerId = deck.ownerUser.playerId;
+      if (ownerPlayerId) {
+        const committed = await getDeckCommittedSummary(tx, {
+          deckId,
+          ownerPlayerId,
+        });
+        const committedCardIds = rows
+          .map((row) => row.cardId)
+          .filter((cardId): cardId is string =>
+            Boolean(cardId && committed.byCardId[cardId]),
+          );
+        if (committedCardIds.length) {
+          if (!destinationLocationId) {
+            throw new Error(
+              "Selected rows have committed physical cards. Choose a destination location to return them before removing deck-list rows.",
+            );
+          }
+          await returnCommittedInventoryFromDeckTx(tx, {
+            actorUserId: user.id,
+            ownerPlayerId,
+            deckId,
+            deckName: deck.name,
+            destinationLocationId,
+            mode: "returned_from_deck_for_remove",
+            cardIds: committedCardIds,
+          });
+        }
+      }
+      deletedQuantity = rows.reduce((total, row) => total + row.quantity, 0);
+      deletedRows = rows.length;
+      await tx.deckCard.deleteMany({
+        where: { deckId, id: { in: rows.map((row) => row.id) } },
+      });
+    });
+    revalidatePath(`/decks/${deckId}`);
+    revalidatePath("/decks");
+    revalidatePath("/inventory");
+    revalidatePath("/locations");
+    return Response.json({ deletedRows, deletedQuantity });
+  } catch (error) {
+    return Response.json(
+      { error: error instanceof Error ? error.message : "Bulk remove failed." },
+      { status: 400 },
+    );
+  }
 }
