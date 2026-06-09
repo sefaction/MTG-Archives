@@ -9,6 +9,11 @@ import {
   orderInventoryItemsByPageGroups,
 } from "@/lib/inventory-locations";
 import { getManaFacesForDto } from "@/lib/mtg/mana-display";
+import {
+  buildInventoryWhereFromFilters,
+  inventoryCardMatchesPostFilters,
+  parseInventoryFilters,
+} from "@/lib/inventory-filters";
 
 const pageSizeOptions = [10, 25, 50, 100, 250];
 
@@ -16,123 +21,19 @@ function paramsFromUrl(request: Request) {
   return Object.fromEntries(new URL(request.url).searchParams.entries());
 }
 
-function buildInventoryWhere(
-  p: Record<string, string>,
-  adminModeActive: boolean,
-  playerId?: string | null,
-) {
-  const where: any = { quantity: { gt: 0 } };
-  if (p.cardName) {
-    const search = p.cardName.trim();
-    where.OR = [
-      { card: { name: { contains: search, mode: "insensitive" } } },
-      { card: { setCode: { contains: search.toLowerCase() } } },
-      { card: { setName: { contains: search, mode: "insensitive" } } },
-      { card: { collectorNumber: { contains: search, mode: "insensitive" } } },
-      { card: { typeLine: { contains: search, mode: "insensitive" } } },
-      { location: { name: { contains: search, mode: "insensitive" } } },
-    ];
-  }
-  if (p.oracleText)
-    where.card = {
-      ...(where.card || {}),
-      oracleText: { contains: p.oracleText, mode: "insensitive" },
-    };
-  if (p.typeLine)
-    where.card = {
-      ...(where.card || {}),
-      typeLine: { contains: p.typeLine, mode: "insensitive" },
-    };
-  if (!adminModeActive) {
-    where.currentOwnerId = playerId || "__no_owner__";
-  } else if (p.ownerId) {
-    where.currentOwnerId = p.ownerId;
-  }
-  if (p.locationId) where.locationId = p.locationId;
-  if (p.hasLocation === "unassigned")
-    where.location = { normalizedName: "unassigned" };
-  if (p.set)
-    where.card = { ...(where.card || {}), setCode: p.set.toLowerCase() };
-  if (p.rarity) where.card = { ...(where.card || {}), rarity: p.rarity };
-  if (p.foil === "true") where.foil = true;
-  if (p.foil === "false") where.foil = false;
-  if (p.visibility === "public") {
-    where.AND = [
-      ...(where.AND || []),
-      {
-        OR: [
-          { location: { visibility: "PUBLIC" } },
-          {
-            location: { visibility: "INHERIT" },
-            currentOwner: {
-              users: { some: { inventoryDefaultVisibility: "PUBLIC" } },
-            },
-          },
-          {
-            locationId: null,
-            currentOwner: {
-              users: { some: { inventoryDefaultVisibility: "PUBLIC" } },
-            },
-          },
-        ],
-      },
-    ];
-  }
-  if (p.visibility === "private") {
-    where.AND = [
-      ...(where.AND || []),
-      {
-        OR: [
-          { location: { visibility: "PRIVATE" } },
-          {
-            location: { visibility: "INHERIT" },
-            currentOwner: {
-              users: { some: { inventoryDefaultVisibility: "PRIVATE" } },
-            },
-          },
-          {
-            locationId: null,
-            currentOwner: {
-              users: { some: { inventoryDefaultVisibility: "PRIVATE" } },
-            },
-          },
-        ],
-      },
-    ];
-  }
-  if (p.visibility === "inherit") {
-    where.AND = [
-      ...(where.AND || []),
-      { OR: [{ location: { visibility: "INHERIT" } }, { locationId: null }] },
-    ];
-  }
-  if (p.manaValueMin || p.manaValueMax)
-    where.card = {
-      ...(where.card || {}),
-      manaValue: {
-        gte: p.manaValueMin ? Number(p.manaValueMin) : undefined,
-        lte: p.manaValueMax ? Number(p.manaValueMax) : undefined,
-      },
-    };
-  return where;
-}
-
 function rowsFromDisplayItems({
   displayItems,
   displayMode,
   inventoryDefaultByPlayer,
   p,
+  filters,
 }: {
   displayItems: any[];
   displayMode: "exact" | "grouped";
   inventoryDefaultByPlayer: Record<string, DefaultCollectionVisibility>;
   p: Record<string, string>;
+  filters: ReturnType<typeof parseInventoryFilters>;
 }) {
-  const colorIdentityNeedle = p.colorIdentity?.trim().toUpperCase();
-  const keywordNeedle = p.keyword?.trim().toLowerCase();
-  const priceMin = p.priceMin ? Number(p.priceMin) : undefined;
-  const priceMax = p.priceMax ? Number(p.priceMax) : undefined;
-
   return displayItems
     .map((entry: any) => {
       const i = displayMode === "grouped" ? entry.representative : entry;
@@ -234,31 +135,21 @@ function rowsFromDisplayItems({
         auditHistory: [],
       };
     })
-    .filter((row) => {
-      if (
-        colorIdentityNeedle &&
-        !row.colorIdentity.toUpperCase().includes(colorIdentityNeedle)
-      )
-        return false;
-      if (keywordNeedle && !row.keywords.toLowerCase().includes(keywordNeedle))
-        return false;
-      const usdPrice = row.priceUsd ? Number(row.priceUsd) : undefined;
-      if (
-        priceMin !== undefined &&
-        (usdPrice === undefined ||
-          Number.isNaN(usdPrice) ||
-          usdPrice < priceMin)
-      )
-        return false;
-      if (
-        priceMax !== undefined &&
-        (usdPrice === undefined ||
-          Number.isNaN(usdPrice) ||
-          usdPrice > priceMax)
-      )
-        return false;
-      return true;
-    });
+    .filter((row) =>
+      inventoryCardMatchesPostFilters(
+        {
+          colorIdentity: row.colorIdentity,
+          colors: row.colors,
+          keywords: row.keywords,
+          prices: {
+            usd: row.priceUsd,
+            usd_foil: row.priceUsdFoil,
+            usd_etched: row.priceUsdEtched,
+          },
+        },
+        filters,
+      ),
+    );
 }
 
 export async function GET(request: Request) {
@@ -276,7 +167,11 @@ export async function GET(request: Request) {
   const page = Math.max(1, Number(p.page || "1") || 1);
   const sortField = p.sort || "cardName";
   const sortDirection: "asc" | "desc" = p.sortDir === "desc" ? "desc" : "asc";
-  const where = buildInventoryWhere(p, adminModeActive, user.playerId);
+  const filters = parseInventoryFilters(new URL(request.url).searchParams);
+  const where = buildInventoryWhereFromFilters(filters, {
+    adminModeActive,
+    playerId: user.playerId,
+  });
 
   const exactGroupBy = {
     by: [
@@ -341,38 +236,8 @@ export async function GET(request: Request) {
       numeric: true,
     });
   };
-  const groupMatchesClientSafeFilters = (group: any) => {
-    const card = cardSortById.get(group.cardId) as any;
-    const colorIdentityNeedle = p.colorIdentity?.trim().toUpperCase();
-    const keywordNeedle = p.keyword?.trim().toLowerCase();
-    const priceMin = p.priceMin ? Number(p.priceMin) : undefined;
-    const priceMax = p.priceMax ? Number(p.priceMax) : undefined;
-    if (colorIdentityNeedle) {
-      const colorIdentity = Array.isArray(card?.colorIdentity)
-        ? card.colorIdentity.join(",")
-        : JSON.stringify(card?.colorIdentity ?? "");
-      if (!colorIdentity.toUpperCase().includes(colorIdentityNeedle))
-        return false;
-    }
-    if (keywordNeedle) {
-      const keywords = Array.isArray(card?.keywords)
-        ? card.keywords.join(", ")
-        : JSON.stringify(card?.keywords ?? "");
-      if (!keywords.toLowerCase().includes(keywordNeedle)) return false;
-    }
-    const usdPrice = card?.prices?.usd ? Number(card.prices.usd) : undefined;
-    if (
-      priceMin !== undefined &&
-      (usdPrice === undefined || Number.isNaN(usdPrice) || usdPrice < priceMin)
-    )
-      return false;
-    if (
-      priceMax !== undefined &&
-      (usdPrice === undefined || Number.isNaN(usdPrice) || usdPrice > priceMax)
-    )
-      return false;
-    return true;
-  };
+  const groupMatchesClientSafeFilters = (group: any) =>
+    inventoryCardMatchesPostFilters(cardSortById.get(group.cardId), filters);
   const sortValue = (group: any) => {
     const card = cardSortById.get(group.cardId) as any;
     if (sortField === "quantity") return group._sum?.quantity ?? 0;
@@ -429,21 +294,7 @@ export async function GET(request: Request) {
     pageGroups,
     displayMode,
   );
-  const visibilityFilteredItems = p.visibility
-    ? orderedItems.filter((item) => {
-        const effectiveVisibility = resolveInventoryVisibility(
-          inventoryDefaultByPlayer[item.currentOwnerId] ??
-            DefaultCollectionVisibility.PRIVATE,
-          item.location?.visibility ?? "INHERIT",
-        );
-        if (p.visibility === "public") return effectiveVisibility === "PUBLIC";
-        if (p.visibility === "private")
-          return effectiveVisibility === "PRIVATE";
-        if (p.visibility === "inherit")
-          return (item.location?.visibility ?? "INHERIT") === "INHERIT";
-        return true;
-      })
-    : orderedItems;
+  const visibilityFilteredItems = orderedItems;
   const exactItems = getInventoryExactPrintings(visibilityFilteredItems as any);
   const groupedItems = getInventoryGroupedByCard(exactItems as any);
   const displayItems = displayMode === "grouped" ? groupedItems : exactItems;
@@ -455,6 +306,7 @@ export async function GET(request: Request) {
       displayMode,
       inventoryDefaultByPlayer,
       p,
+      filters,
     }),
     page,
     pageSize,

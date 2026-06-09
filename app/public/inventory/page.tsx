@@ -10,7 +10,7 @@ import { getManaFacesForDto } from "@/lib/mtg/mana-display";
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  searchParams: Promise<Record<string, string | undefined>>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
 type PublicOwner = {
@@ -229,8 +229,13 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
   const sortDirection: "asc" | "desc" = p.sortDir === "desc" ? "desc" : "asc";
 
   const result = await getGlobalPublicInventory({
-    ...(p as PublicInventoryFilters),
-    page: initialBrowsingMode === "infinite" ? "1" : p.page,
+    ...(p as any as PublicInventoryFilters),
+    page:
+      initialBrowsingMode === "infinite"
+        ? "1"
+        : Array.isArray(p.page)
+          ? p.page[0]
+          : p.page,
   });
   const exactRows = getGlobalPublicExactPrintings(result.inventory);
   const groupedRows = getInventoryGroupedByCard(exactRows as any);
@@ -240,7 +245,46 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
   const pageParams = Object.fromEntries(
     Object.entries(p).filter(([key, value]) => value && key !== "page"),
   ) as Record<string, string>;
-  const pageHrefBase = new URLSearchParams(pageParams).toString();
+  const pageHrefBase = new URLSearchParams(
+    pageParams as Record<string, string>,
+  ).toString();
+
+  const selected = (key: string) => {
+    const value = (p as Record<string, any>)[key];
+    return Array.isArray(value)
+      ? value.flatMap((entry) => String(entry).split(","))
+      : value
+        ? String(value).split(",")
+        : [];
+  };
+  const isSelected = (key: string, value: string) =>
+    selected(key).includes(value);
+  const typeOptions = [
+    "artifact",
+    "battle",
+    "creature",
+    "enchantment",
+    "instant",
+    "land",
+    "planeswalker",
+    "sorcery",
+  ];
+  const rarityOptions = [
+    ["common", "Common"],
+    ["uncommon", "Uncommon"],
+    ["rare", "Rare"],
+    ["mythic", "Mythic"],
+    ["special", "Special"],
+    ["bonus", "Bonus"],
+  ];
+  const colorOptions = [
+    ["W", "White"],
+    ["U", "Blue"],
+    ["B", "Black"],
+    ["R", "Red"],
+    ["G", "Green"],
+    ["C", "Colorless"],
+  ];
 
   return (
     <main className="p-8 space-y-6">
@@ -268,137 +312,282 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
         </p>
       </header>
 
-      <details open className="border border-zinc-800 rounded p-3">
+      <details
+        open
+        className="border border-zinc-800 rounded p-3 bg-zinc-950/40"
+      >
         <summary className="cursor-pointer font-semibold">
           Public inventory filters
         </summary>
-        <form className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
-          <input
-            name="q"
-            defaultValue={p.q}
-            placeholder="search public cards, sets, locations, collections"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="cardName"
-            defaultValue={p.cardName}
-            placeholder="card name contains"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="oracleText"
-            defaultValue={p.oracleText}
-            placeholder="oracle text contains"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="typeLine"
-            defaultValue={p.typeLine}
-            placeholder="type line contains"
-            className="border p-2 bg-zinc-900"
-          />
-          <select
-            name="displayMode"
-            defaultValue={displayMode}
-            className="border p-2 bg-zinc-900"
-          >
-            <option value="grouped">Grouped by card name</option>
-            <option value="exact">Exact printings</option>
-          </select>
-          <select
-            name="owner"
-            defaultValue={ownerFilter}
-            className="border p-2 bg-zinc-900"
-          >
-            <option value="">all public collections</option>
-            {result.publicProfiles.map((profile) => (
-              <option key={profile.publicSlug} value={profile.publicSlug}>
-                {profile.displayName}
-              </option>
-            ))}
-          </select>
-          <select
-            name="locationName"
-            defaultValue={p.locationName}
-            className="border p-2 bg-zinc-900"
-          >
-            <option value="">all public location names</option>
-            {result.publicLocations.map((location) => (
-              <option key={location.name} value={location.name}>
-                {location.name}
-              </option>
-            ))}
-          </select>
-          <input
-            name="set"
-            defaultValue={p.set}
-            placeholder="set"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="rarity"
-            defaultValue={p.rarity}
-            placeholder="rarity"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="colorIdentity"
-            defaultValue={p.colorIdentity}
-            placeholder="color identity"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="manaValueMin"
-            defaultValue={p.manaValueMin}
-            placeholder="mana value min"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="manaValueMax"
-            defaultValue={p.manaValueMax}
-            placeholder="mana value max"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="keyword"
-            defaultValue={p.keyword}
-            placeholder="keyword contains"
-            className="border p-2 bg-zinc-900"
-          />
-          <select
-            name="foil"
-            defaultValue={p.foil}
-            className="border p-2 bg-zinc-900"
-          >
-            <option value="">foil/nonfoil</option>
-            <option value="true">foil</option>
-            <option value="false">nonfoil</option>
-          </select>
-          <input
-            name="priceMin"
-            defaultValue={p.priceMin}
-            placeholder="price min"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="priceMax"
-            defaultValue={p.priceMax}
-            placeholder="price max"
-            className="border p-2 bg-zinc-900"
-          />
-          <select
-            name="pageSize"
-            defaultValue={String(result.pageSize)}
-            className="border p-2 bg-zinc-900"
-          >
-            {[10, 25, 50, 100, 250].map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
-          <div className="col-span-2 flex gap-2">
-            <button className="border px-3">Apply</button>
+        <form className="mt-4 space-y-4" action="/public/inventory">
+          <input type="hidden" name="page" value="1" />
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <fieldset className="rounded border border-zinc-800 p-3 space-y-2">
+              <legend className="px-1 text-sm font-semibold">Basic</legend>
+              <input
+                name="q"
+                defaultValue={p.q}
+                placeholder="search public cards, sets, locations, collections"
+                className="w-full border p-2 bg-zinc-900"
+              />
+              <input
+                name="cardName"
+                defaultValue={p.cardName}
+                placeholder="card name contains"
+                className="w-full border p-2 bg-zinc-900"
+              />
+              <input
+                name="oracleText"
+                defaultValue={p.oracleText}
+                placeholder="oracle text contains"
+                className="w-full border p-2 bg-zinc-900"
+              />
+              <input
+                name="typeLine"
+                defaultValue={p.typeLine}
+                placeholder="type line contains"
+                className="w-full border p-2 bg-zinc-900"
+              />
+              <div className="grid grid-cols-2 gap-1 text-sm">
+                {typeOptions.map((type) => (
+                  <label
+                    key={type}
+                    className="flex items-center gap-2 rounded border border-zinc-800 px-2 py-1 capitalize"
+                  >
+                    <input
+                      type="checkbox"
+                      name="type"
+                      value={type}
+                      defaultChecked={isSelected("type", type)}
+                    />
+                    {type}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset className="rounded border border-zinc-800 p-3 space-y-2">
+              <legend className="px-1 text-sm font-semibold">Colors</legend>
+              <select
+                name="colorIdentityMode"
+                defaultValue={p.colorIdentityMode || "include"}
+                className="w-full border p-2 bg-zinc-900"
+                aria-label="Color identity matching mode"
+              >
+                <option value="include">Include all selected colors</option>
+                <option value="exact">Exactly these colors</option>
+                <option value="atMost">At most these colors</option>
+                <option value="atLeast">At least these colors</option>
+                <option value="any">Any selected color</option>
+              </select>
+              <div className="grid grid-cols-3 gap-1 text-sm">
+                {colorOptions.map(([value, label]) => (
+                  <label
+                    key={value}
+                    className="flex items-center gap-2 rounded border border-zinc-800 px-2 py-1"
+                  >
+                    <input
+                      type="checkbox"
+                      name="colorIdentity"
+                      value={value}
+                      defaultChecked={isSelected("colorIdentity", value)}
+                      aria-label={`Color identity ${label}`}
+                    />
+                    {value}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset className="rounded border border-zinc-800 p-3 space-y-2">
+              <legend className="px-1 text-sm font-semibold">Printing</legend>
+              <select
+                name="displayMode"
+                defaultValue={displayMode}
+                className="w-full border p-2 bg-zinc-900"
+              >
+                <option value="grouped">Grouped by card name</option>
+                <option value="exact">Exact printings</option>
+              </select>
+              <select
+                name="owner"
+                defaultValue={ownerFilter}
+                className="w-full border p-2 bg-zinc-900"
+              >
+                <option value="">all public collections</option>
+                {result.publicProfiles.map((profile) => (
+                  <option key={profile.publicSlug} value={profile.publicSlug}>
+                    {profile.displayName}
+                  </option>
+                ))}
+              </select>
+              <select
+                name="locationName"
+                defaultValue={p.locationName}
+                className="w-full border p-2 bg-zinc-900"
+              >
+                <option value="">all public location names</option>
+                {result.publicLocations.map((location) => (
+                  <option key={location.name} value={location.name}>
+                    {location.name}
+                  </option>
+                ))}
+              </select>
+              <input
+                name="set"
+                defaultValue={selected("set").join(",")}
+                placeholder="set code or name"
+                className="w-full border p-2 bg-zinc-900"
+              />
+              <input
+                name="language"
+                defaultValue={selected("language").join(",")}
+                placeholder="language (EN, JA)"
+                className="w-full border p-2 bg-zinc-900"
+              />
+            </fieldset>
+            <fieldset className="rounded border border-zinc-800 p-3 space-y-2">
+              <legend className="px-1 text-sm font-semibold">
+                Mana / price
+              </legend>
+              <select
+                name="mvOp"
+                defaultValue={
+                  p.mvOp || (p.manaValueMin || p.manaValueMax ? "between" : "")
+                }
+                className="w-full border p-2 bg-zinc-900"
+              >
+                <option value="">Any mana value</option>
+                <option value="eq">Equals</option>
+                <option value="lt">Less than</option>
+                <option value="lte">≤</option>
+                <option value="gt">Greater than</option>
+                <option value="gte">≥</option>
+                <option value="between">Between</option>
+              </select>
+              <div className="grid grid-cols-3 gap-2">
+                <input
+                  name="mv"
+                  type="number"
+                  step="0.5"
+                  defaultValue={p.mv}
+                  placeholder="value"
+                  className="border p-2 bg-zinc-900"
+                />
+                <input
+                  name="mvMin"
+                  type="number"
+                  step="0.5"
+                  defaultValue={p.mvMin || p.manaValueMin}
+                  placeholder="min"
+                  className="border p-2 bg-zinc-900"
+                />
+                <input
+                  name="mvMax"
+                  type="number"
+                  step="0.5"
+                  defaultValue={p.mvMax || p.manaValueMax}
+                  placeholder="max"
+                  className="border p-2 bg-zinc-900"
+                />
+              </div>
+              <input
+                name="keyword"
+                defaultValue={p.keyword}
+                placeholder="keyword contains"
+                className="w-full border p-2 bg-zinc-900"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  name="priceMin"
+                  type="number"
+                  step="0.01"
+                  defaultValue={p.priceMin}
+                  placeholder="USD min"
+                  className="border p-2 bg-zinc-900"
+                />
+                <input
+                  name="priceMax"
+                  type="number"
+                  step="0.01"
+                  defaultValue={p.priceMax}
+                  placeholder="USD max"
+                  className="border p-2 bg-zinc-900"
+                />
+              </div>
+            </fieldset>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <fieldset className="rounded border border-zinc-800 p-3">
+              <legend className="px-1 text-sm font-semibold">Rarity</legend>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-1 text-sm">
+                {rarityOptions.map(([value, label]) => (
+                  <label
+                    key={value}
+                    className="flex items-center gap-2 rounded border border-zinc-800 px-2 py-1"
+                  >
+                    <input
+                      type="checkbox"
+                      name="rarity"
+                      value={value}
+                      defaultChecked={isSelected("rarity", value)}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset className="rounded border border-zinc-800 p-3">
+              <legend className="px-1 text-sm font-semibold">Finish</legend>
+              <div className="grid grid-cols-3 gap-1 text-sm">
+                <label className="flex items-center gap-2 rounded border border-zinc-800 px-2 py-1">
+                  <input
+                    type="checkbox"
+                    name="finish"
+                    value="nonfoil"
+                    defaultChecked={
+                      isSelected("finish", "nonfoil") || p.foil === "false"
+                    }
+                  />
+                  Nonfoil
+                </label>
+                <label className="flex items-center gap-2 rounded border border-zinc-800 px-2 py-1">
+                  <input
+                    type="checkbox"
+                    name="finish"
+                    value="foil"
+                    defaultChecked={
+                      isSelected("finish", "foil") || p.foil === "true"
+                    }
+                  />
+                  Foil
+                </label>
+                <label className="flex items-center gap-2 rounded border border-zinc-800 px-2 py-1">
+                  <input
+                    type="checkbox"
+                    name="finish"
+                    value="etched"
+                    defaultChecked={isSelected("finish", "etched")}
+                  />
+                  Etched
+                </label>
+              </div>
+            </fieldset>
+            <label className="text-sm">
+              Page size
+              <select
+                name="pageSize"
+                defaultValue={String(result.pageSize)}
+                className="mt-1 w-full border p-2 bg-zinc-900"
+              >
+                {[10, 25, 50, 100, 250].map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="flex gap-2">
+            <button className="border px-3 py-2">Apply filters</button>
             <Link href="/public/inventory" className="border px-3 py-2">
               Clear Filters
             </Link>
@@ -431,9 +620,9 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
           infiniteApiPath="/api/public/inventory/list"
           initialPageSize={initialPageSize}
           initialBrowsingMode={initialBrowsingMode}
-          initialSortField={sortField}
+          initialSortField={String(sortField)}
           initialSortDirection={sortDirection}
-          currentLocationId={p.locationName || ""}
+          currentLocationId={selected("locationName")[0] || ""}
         />
       ) : (
         <div className="rounded border border-zinc-800 p-4 text-zinc-400">
