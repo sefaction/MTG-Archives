@@ -10,6 +10,7 @@ export const INVENTORY_FILTER_PARAM_KEYS = [
   "oracleText",
   "typeLine",
   "type",
+  "typeTokens",
   "set",
   "rarity",
   "finish",
@@ -45,6 +46,7 @@ export type InventoryFilters = {
   oracleText?: string;
   typeLine?: string;
   types: string[];
+  typeTokens: string[];
   sets: string[];
   rarities: string[];
   finishes: FoilStatus[];
@@ -204,6 +206,13 @@ export function parseInventoryFilters(params: ParamSource): InventoryFilters {
     types: Array.from(
       new Set(list(params, "type").map((v) => v.toLowerCase())),
     ),
+    typeTokens: Array.from(
+      new Set(
+        [...list(params, "typeTokens"), ...list(params, "typeToken")]
+          .map((v) => v.trim())
+          .filter(Boolean),
+      ),
+    ),
     sets: Array.from(new Set(list(params, "set").map((v) => v.toLowerCase()))),
     rarities: Array.from(
       new Set(
@@ -302,6 +311,12 @@ export function buildInventoryWhereFromFilters(
   if (filters.typeLine)
     mergeCardWhere(where, {
       typeLine: { contains: filters.typeLine, mode: "insensitive" },
+    });
+  if (filters.typeTokens.length)
+    appendAnd(where, {
+      AND: filters.typeTokens.map((type) => ({
+        card: { typeLine: { contains: type, mode: "insensitive" } },
+      })),
     });
   if (filters.types.length)
     appendAnd(where, {

@@ -223,6 +223,7 @@ export async function GET(request: Request) {
       manaValue: true,
       prices: true,
       colorIdentity: true,
+      colors: true,
       keywords: true,
     },
   });

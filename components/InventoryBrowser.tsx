@@ -771,11 +771,16 @@ export function InventoryBrowser({
     router.replace(`${window.location.pathname}?${params.toString()}`);
   }
 
-  function updateBrowseQuery(next: { pageSize?: number; browse?: string }) {
+  function updateBrowseQuery(next: {
+    pageSize?: number;
+    browse?: string;
+    displayMode?: "exact" | "grouped";
+  }) {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     if (next.pageSize) params.set("pageSize", String(next.pageSize));
     if (next.browse) params.set("browse", next.browse);
+    if (next.displayMode) params.set("displayMode", next.displayMode);
     params.delete("page");
     router.replace(`${window.location.pathname}?${params.toString()}`);
   }
@@ -1115,6 +1120,20 @@ export function InventoryBrowser({
         >
           Binder View
         </button>
+        <span className="text-sm ml-4">Display:</span>
+        <select
+          value={displayMode}
+          onChange={(event) => {
+            const next = event.target.value as "exact" | "grouped";
+            setLoadedRows(rows);
+            setPagination((current) => ({ ...current, pageIndex: 0 }));
+            updateBrowseQuery({ displayMode: next });
+          }}
+          className="border px-2 py-1 bg-zinc-900"
+        >
+          <option value="exact">Exact printings</option>
+          <option value="grouped">Grouped by card</option>
+        </select>
         {viewMode === "binder" ? (
           <>
             <span className="text-sm ml-4">Card Size:</span>

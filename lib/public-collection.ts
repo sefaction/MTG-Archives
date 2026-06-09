@@ -272,6 +272,13 @@ function buildPublicInventoryWhere(
     });
   }
 
+  if (structured.typeTokens.length) {
+    and.push({
+      AND: structured.typeTokens.map((type) => ({
+        card: { typeLine: { contains: type, mode: "insensitive" } },
+      })),
+    });
+  }
   if (structured.types.length) {
     and.push({
       OR: structured.types.map((type) => ({
@@ -448,6 +455,7 @@ export async function getGlobalPublicInventory(
       manaValue: true,
       prices: true,
       colorIdentity: true,
+      colors: true,
       keywords: true,
     },
   });
