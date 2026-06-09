@@ -3,6 +3,11 @@ import path from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
 import { prisma } from "@/lib/prisma";
 import { canExportInventory, getAccessScope, requireLogin } from "@/lib/auth";
+import {
+  buildInventoryWhereFromFilters,
+  inventoryCardMatchesPostFilters,
+  parseInventoryFilters,
+} from "@/lib/inventory-filters";
 
 function csvEscape(value: unknown) {
   const text = value === null || value === undefined ? "" : String(value);
@@ -82,50 +87,20 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const where: any = { quantity: { gt: 0 } };
+  const filters = parseInventoryFilters(params);
+  const where: any = buildInventoryWhereFromFilters(filters, {
+    adminModeActive,
+    playerId: signedInPlayerId,
+  });
   if (!adminModeActive) {
     where.currentOwnerId = signedInPlayerId;
   } else if (scope === "my" && signedInPlayerId) {
     where.currentOwnerId = signedInPlayerId;
   } else if ((scope === "owner" || scope === "filtered") && ownerId) {
     where.currentOwnerId = ownerId;
+  } else if (scope === "all") {
+    delete where.currentOwnerId;
   }
-
-  if (params.get("locationId")) where.locationId = params.get("locationId");
-  const cardWhere: any = {};
-  const cardName = params.get("cardName")?.trim();
-  const oracleText = params.get("oracleText")?.trim();
-  const typeLine = params.get("typeLine")?.trim();
-  const set = params.get("set")?.trim();
-  const rarity = params.get("rarity")?.trim();
-  if (cardName) cardWhere.name = { contains: cardName, mode: "insensitive" };
-  if (oracleText)
-    cardWhere.oracleText = { contains: oracleText, mode: "insensitive" };
-  if (typeLine)
-    cardWhere.typeLine = { contains: typeLine, mode: "insensitive" };
-  if (set) cardWhere.setCode = set.toLowerCase();
-  if (rarity) cardWhere.rarity = rarity;
-  if (params.get("manaValueMin") || params.get("manaValueMax"))
-    cardWhere.manaValue = {
-      gte: params.get("manaValueMin")
-        ? Number(params.get("manaValueMin"))
-        : undefined,
-      lte: params.get("manaValueMax")
-        ? Number(params.get("manaValueMax"))
-        : undefined,
-    };
-  if (Object.keys(cardWhere).length) where.card = cardWhere;
-  if (params.get("foil") === "true") where.foil = true;
-  if (params.get("foil") === "false") where.foil = false;
-
-  const colorIdentityNeedle = params.get("colorIdentity")?.trim().toUpperCase();
-  const keywordNeedle = params.get("keyword")?.trim().toLowerCase();
-  const priceMin = params.get("priceMin")
-    ? Number(params.get("priceMin"))
-    : undefined;
-  const priceMax = params.get("priceMax")
-    ? Number(params.get("priceMax"))
-    : undefined;
 
   const allItems = await prisma.inventoryItem.findMany({
     where,
@@ -140,37 +115,9 @@ export async function GET(request: NextRequest) {
     ],
   });
 
-  const items = allItems.filter((item) => {
-    if (colorIdentityNeedle) {
-      const identity = Array.isArray(item.card.colorIdentity)
-        ? item.card.colorIdentity.join("")
-        : JSON.stringify(item.card.colorIdentity ?? "");
-      if (!identity.toUpperCase().includes(colorIdentityNeedle)) return false;
-    }
-    if (keywordNeedle) {
-      const keywords = Array.isArray(item.card.keywords)
-        ? item.card.keywords.join(" ")
-        : JSON.stringify(item.card.keywords ?? "");
-      if (!keywords.toLowerCase().includes(keywordNeedle)) return false;
-    }
-    const usd = priceValue(item.card.prices, "usd");
-    const usdNumber = usd ? Number(usd) : undefined;
-    if (
-      priceMin !== undefined &&
-      (usdNumber === undefined ||
-        Number.isNaN(usdNumber) ||
-        usdNumber < priceMin)
-    )
-      return false;
-    if (
-      priceMax !== undefined &&
-      (usdNumber === undefined ||
-        Number.isNaN(usdNumber) ||
-        usdNumber > priceMax)
-    )
-      return false;
-    return true;
-  });
+  const items = allItems.filter((item) =>
+    inventoryCardMatchesPostFilters(item.card, filters),
+  );
 
   const selectedOwner = ownerId
     ? await prisma.player.findUnique({ where: { id: ownerId } })
