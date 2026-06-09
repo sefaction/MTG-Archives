@@ -17,6 +17,11 @@ import type {
 } from "@/lib/deck-search";
 import type { WishlistGroup } from "@/lib/wishlist";
 import { CardManaCost, ColorIdentityIcons, SetSymbol } from "./mtg/CardSymbols";
+import {
+  collectionCardGridClass,
+  normalizeCollectionCardSize,
+  type CollectionCardSize,
+} from "./cardGrid";
 import { SubmitButton } from "./feedback/SubmitButton";
 import { commitDeckCardToDeck } from "@/app/decks/actions";
 import {
@@ -699,6 +704,7 @@ export function WishlistTable({
   page,
   pageSize,
   viewMode,
+  cardSize: initialCardSize,
   query,
 }: {
   groups: WishlistGroup[];
@@ -706,8 +712,23 @@ export function WishlistTable({
   page: number;
   pageSize: number;
   viewMode: "table" | "binder";
+  cardSize: CollectionCardSize;
   query: Record<string, string | undefined>;
 }) {
+  const [activeViewMode, setActiveViewMode] = useState<"table" | "binder">(
+    () => {
+      if (typeof window === "undefined") return viewMode;
+      const stored = localStorage.getItem("wishlistViewMode");
+      return stored === "table" || stored === "binder" ? stored : viewMode;
+    },
+  );
+  const [cardSize, setCardSize] = useState<CollectionCardSize>(() =>
+    typeof window !== "undefined"
+      ? normalizeCollectionCardSize(
+          localStorage.getItem("wishlistCardSize") || initialCardSize,
+        )
+      : initialCardSize,
+  );
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
     () => {
@@ -917,28 +938,59 @@ export function WishlistTable({
     Object.entries(query).forEach(([key, value]) => {
       if (value) params.set(key, value);
     });
+    params.set("viewMode", activeViewMode);
+    params.set("cardSize", cardSize);
     Object.entries(next).forEach(([key, value]) =>
       params.set(key, String(value)),
     );
     return `/wishlist?${params.toString()}`;
   }
 
+  const sizeClass = collectionCardGridClass(cardSize);
+
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-2">
-          <a
-            href={hrefFor({ viewMode: "table", page: 1 })}
-            className={`border px-2 py-1 ${viewMode === "table" ? "bg-zinc-800" : ""}`}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-zinc-400">View:</span>
+          <button
+            type="button"
+            className={`border px-2 py-1 ${activeViewMode === "table" ? "bg-zinc-800" : ""}`}
+            onClick={() => {
+              setActiveViewMode("table");
+              localStorage.setItem("wishlistViewMode", "table");
+            }}
           >
             Table View
-          </a>
-          <a
-            href={hrefFor({ viewMode: "binder", page: 1 })}
-            className={`border px-2 py-1 ${viewMode === "binder" ? "bg-zinc-800" : ""}`}
+          </button>
+          <button
+            type="button"
+            className={`border px-2 py-1 ${activeViewMode === "binder" ? "bg-zinc-800" : ""}`}
+            onClick={() => {
+              setActiveViewMode("binder");
+              localStorage.setItem("wishlistViewMode", "binder");
+            }}
           >
             Binder View
-          </a>
+          </button>
+          {activeViewMode === "binder" ? (
+            <>
+              <span className="ml-2 text-sm text-zinc-400">Card Size:</span>
+              {(["small", "medium", "large"] as const).map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  className={`border px-2 py-1 capitalize ${cardSize === size ? "bg-zinc-800" : ""}`}
+                  onClick={() => {
+                    setCardSize(size);
+                    localStorage.setItem("wishlistCardSize", size);
+                  }}
+                >
+                  {size[0].toUpperCase() + size.slice(1)}
+                </button>
+              ))}
+            </>
+          ) : null}
         </div>
         <p className="text-sm text-zinc-400">
           Showing {(page - 1) * pageSize + (data.length ? 1 : 0)}–
@@ -951,7 +1003,7 @@ export function WishlistTable({
           Use row menus for commit or printing actions.
         </div>
       ) : null}
-      {viewMode === "table" ? (
+      {activeViewMode === "table" ? (
         <>
           <details>
             <summary className="cursor-pointer text-sm text-zinc-300">
@@ -1019,7 +1071,7 @@ export function WishlistTable({
           </div>
         </>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+        <div className={`grid gap-3 ${sizeClass}`}>
           {data.map((row) => (
             <article
               key={getRowId(row)}
@@ -1039,7 +1091,9 @@ export function WishlistTable({
                     alt={row.card.name}
                     loading="lazy"
                     decoding="async"
-                    className="mb-3 w-full rounded"
+                    width={265}
+                    height={370}
+                    className="mb-3 aspect-[63/88] w-full rounded object-cover"
                   />
                 ) : (
                   <div className="mb-3 flex aspect-[63/88] items-center justify-center rounded bg-zinc-900 text-sm text-zinc-400">

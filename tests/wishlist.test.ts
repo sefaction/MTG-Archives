@@ -313,6 +313,15 @@ test("wishlist page includes inventory-style view, advanced filter, sort, and pa
   const table = readFileSync("components/WishlistTable.tsx", "utf8");
   assert.match(table, /Table View/);
   assert.match(table, /Binder View/);
+  assert.match(table, /Card Size:/);
+  assert.match(table, /wishlistViewMode/);
+  assert.match(table, /wishlistCardSize/);
+  assert.match(table, /\["small", "medium", "large"\]/);
+  assert.match(table, /size\[0\]\.toUpperCase\(\) \+ size\.slice\(1\)/);
+  assert.match(table, /collectionCardGridClass\(cardSize\)/);
+  assert.match(table, /width=\{265\}/);
+  assert.match(table, /height=\{370\}/);
+  assert.match(table, /aspect-\[63\/88\]/);
   assert.match(table, /loading="lazy"/);
   assert.match(table, /Previous/);
   assert.match(table, /Next/);
@@ -329,4 +338,17 @@ test("wishlist page includes inventory-style view, advanced filter, sort, and pa
   ]) {
     assert.match(page, new RegExp(filter));
   }
+});
+
+test("shared collection card grid sizing matches inventory binder density", () => {
+  const grid = readFileSync("components/cardGrid.ts", "utf8");
+  const inventory = readFileSync("components/InventoryBrowser.tsx", "utf8");
+  const wishlist = readFileSync("components/WishlistTable.tsx", "utf8");
+  assert.match(grid, /grid-cols-2 md:grid-cols-4 lg:grid-cols-8/);
+  assert.match(grid, /grid-cols-2 md:grid-cols-4 lg:grid-cols-6/);
+  assert.match(grid, /grid-cols-2 md:grid-cols-3 lg:grid-cols-5/);
+  assert.match(inventory, /collectionCardGridClass\(cardSize\)/);
+  assert.match(wishlist, /collectionCardGridClass\(cardSize\)/);
+  assert.match(inventory, /inventoryCardSize/);
+  assert.match(wishlist, /wishlistCardSize/);
 });

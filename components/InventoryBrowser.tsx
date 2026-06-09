@@ -23,6 +23,11 @@ import {
   SetLabel,
   SetSymbol,
 } from "./mtg/CardSymbols";
+import {
+  collectionCardGridClass,
+  normalizeCollectionCardSize,
+  type CollectionCardSize,
+} from "./cardGrid";
 
 type PickRef = { id: string; name: string; color?: string };
 
@@ -532,9 +537,9 @@ export function InventoryBrowser({
       ? (localStorage.getItem("inventoryViewMode") as any) || "table"
       : "table",
   );
-  const [cardSize, setCardSize] = useState<"small" | "medium" | "large">(() =>
+  const [cardSize, setCardSize] = useState<CollectionCardSize>(() =>
     typeof window !== "undefined"
-      ? (localStorage.getItem("inventoryCardSize") as any) || "medium"
+      ? normalizeCollectionCardSize(localStorage.getItem("inventoryCardSize"))
       : "medium",
   );
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
@@ -1066,12 +1071,7 @@ export function InventoryBrowser({
     },
     getCoreRowModel: getCoreRowModel(),
   });
-  const sizeClass =
-    cardSize === "small"
-      ? "grid-cols-2 md:grid-cols-4 lg:grid-cols-8"
-      : cardSize === "large"
-        ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-5"
-        : "grid-cols-2 md:grid-cols-4 lg:grid-cols-6";
+  const sizeClass = collectionCardGridClass(cardSize);
 
   return (
     <div className="space-y-3">

@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { Nav } from "@/components/Nav";
 import { WishlistSearchAdd } from "@/components/WishlistSearchAdd";
 import { WishlistTable } from "@/components/WishlistTable";
+import { normalizeCollectionCardSize } from "@/components/cardGrid";
 import { requireLogin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getWishlistView, type WishlistGroup } from "@/lib/wishlist";
@@ -141,6 +142,7 @@ export default async function WishlistPage({
   const ownedStatus = params.ownedStatus || "";
   const sort = params.sort || "need";
   const viewMode = params.viewMode === "binder" ? "binder" : "table";
+  const cardSize = normalizeCollectionCardSize(params.cardSize);
   const pageSize = Math.min(100, asNumber(params.pageSize, 25));
   const page = Math.max(1, asNumber(params.page, 1));
   const view = await getWishlistView(prisma, user.id, user.playerId);
@@ -257,6 +259,7 @@ export default async function WishlistPage({
           <label className="text-sm">
             View
             <input type="hidden" name="viewMode" value={viewMode} />
+            <input type="hidden" name="cardSize" value={cardSize} />
             <select
               name="tab"
               defaultValue={tab}
@@ -466,6 +469,7 @@ export default async function WishlistPage({
         page={safePage}
         pageSize={pageSize}
         viewMode={viewMode}
+        cardSize={cardSize}
         query={params}
       />
     </main>
