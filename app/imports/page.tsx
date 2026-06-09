@@ -20,6 +20,16 @@ import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { ImportProgressPanel } from "@/components/ImportProgressPanel";
 import { calculateImportProgress } from "@/lib/import-progress";
 import {
+  filterImportReviewItems,
+  finalImportStatuses,
+  getImportReviewBucket,
+  getImportReviewSummary,
+  importReviewFilters,
+  importableStatuses,
+  isImportItemReadyToCommit,
+  normalizeImportReviewFilter,
+} from "@/lib/import-review";
+import {
   cancelImportResolutionJob,
   createOrReuseImportResolutionJob,
   getImportResolutionJobConfig,
@@ -63,15 +73,6 @@ async function persistCsvText(
   await writeFile(path.join(directory, filename), text, "utf8");
 }
 
-const importableStatuses = [
-  "matched",
-  "new",
-  "resolved",
-  "manually_resolved",
-  "changed",
-];
-const finalStatuses = [...importableStatuses, "imported"];
-
 type ParsedRow = {
   quantity: number;
   name: string;
@@ -92,6 +93,8 @@ type SearchParams = {
   batchId?: string;
   resolveItemId?: string;
   resolverQ?: string;
+  status?: string;
+  q?: string;
 };
 
 function norm(value: string) {
@@ -250,12 +253,37 @@ function buildResolverQuery(parsed: ParsedRow, override?: string) {
     return `!"${parsed.name}" set:${parsed.setCode}`;
   return parsed.name || "";
 }
+function buildImportReviewUrl(
+  batchId: string,
+  options: {
+    status?: string;
+    q?: string;
+    resolveItemId?: string | null;
+    resolverQ?: string | null;
+  } = {},
+) {
+  const query = new URLSearchParams({ batchId });
+  if (options.status && options.status !== "all")
+    query.set("status", options.status);
+  if (options.q) query.set("q", options.q);
+  if (options.resolveItemId) query.set("resolveItemId", options.resolveItemId);
+  if (options.resolverQ) query.set("resolverQ", options.resolverQ);
+  return `/imports?${query.toString()}`;
+}
+
+function getReturnReviewOptions(fd: FormData) {
+  return {
+    status: String(fd.get("returnStatus") || ""),
+    q: String(fd.get("returnQ") || ""),
+  };
+}
+
 async function recalculateBatchCounts(batchId: string) {
   const items = await prisma.importBatchItem.findMany({
     where: { importBatchId: batchId },
   });
   const matchedRows = items.filter((item) =>
-    finalStatuses.includes(item.status),
+    finalImportStatuses.includes(item.status),
   ).length;
   const skippedRows = items.filter((item) => item.status === "skipped").length;
   const warningRows = items.filter((item) =>
@@ -535,7 +563,8 @@ export default async function ImportsPage({
       });
     }
     await recalculateBatchCounts(batch.id);
-    redirect(`/imports?batchId=${batch.id}`);
+    revalidatePath("/imports");
+    redirect(buildImportReviewUrl(batch.id));
   }
 
   async function updateImportRow(fd: FormData) {
@@ -594,7 +623,13 @@ export default async function ImportsPage({
     });
     await recalculateBatchCounts(item.importBatchId);
     revalidatePath("/imports");
-    redirect(`/imports?batchId=${item.importBatchId}&resolveItemId=${item.id}`);
+    const returnOptions = getReturnReviewOptions(fd);
+    redirect(
+      buildImportReviewUrl(item.importBatchId, {
+        ...returnOptions,
+        resolveItemId: item.id,
+      }),
+    );
   }
 
   async function resolveImportRow(fd: FormData) {
@@ -641,7 +676,9 @@ export default async function ImportsPage({
     });
     await recalculateBatchCounts(item.importBatchId);
     revalidatePath("/imports");
-    redirect(`/imports?batchId=${item.importBatchId}`);
+    redirect(
+      buildImportReviewUrl(item.importBatchId, getReturnReviewOptions(fd)),
+    );
   }
 
   async function setRowSkipped(fd: FormData) {
@@ -683,7 +720,9 @@ export default async function ImportsPage({
     });
     await recalculateBatchCounts(item.importBatchId);
     revalidatePath("/imports");
-    redirect(`/imports?batchId=${item.importBatchId}`);
+    redirect(
+      buildImportReviewUrl(item.importBatchId, getReturnReviewOptions(fd)),
+    );
   }
 
   async function startImportResolutionJob(fd: FormData) {
@@ -729,7 +768,7 @@ export default async function ImportsPage({
     }
 
     revalidatePath("/imports");
-    redirect(`/imports?batchId=${batch.id}`);
+    redirect(buildImportReviewUrl(batch.id, getReturnReviewOptions(fd)));
   }
 
   async function cancelResolutionJobAction(fd: FormData) {
@@ -756,7 +795,9 @@ export default async function ImportsPage({
       throw new Error("Not authorized for this import batch.");
     await cancelImportResolutionJob(prisma, job.id);
     revalidatePath("/imports");
-    redirect(`/imports?batchId=${job.importBatchId}`);
+    redirect(
+      buildImportReviewUrl(job.importBatchId, getReturnReviewOptions(fd)),
+    );
   }
 
   async function retryUnresolvedRows(fd: FormData) {
@@ -989,7 +1030,7 @@ export default async function ImportsPage({
     });
     revalidatePath("/imports");
     revalidatePath("/inventory");
-    redirect(`/imports?batchId=${batch.id}`);
+    redirect(buildImportReviewUrl(batch.id, getReturnReviewOptions(fd)));
   }
 
   async function confirmImport(fd: FormData) {
@@ -1019,15 +1060,6 @@ export default async function ImportsPage({
       throw new Error(
         "This batch was created as preview only. Upload again with an import duplicate behavior to commit it.",
       );
-    const unresolved = batch.items.filter(
-      (item) =>
-        item.status !== "skipped" &&
-        (!item.cardPrintingId || !importableStatuses.includes(item.status)),
-    );
-    if (unresolved.length)
-      throw new Error(
-        "Resolve or skip all unmatched/ambiguous rows before importing.",
-      );
     const defaultLocationIdRaw = String(fd.get("destinationLocationId") || "");
     const defaultLocation = defaultLocationIdRaw
       ? await prisma.inventoryLocation.findFirst({
@@ -1037,33 +1069,26 @@ export default async function ImportsPage({
           },
         })
       : await ensureDefaultLocation(prisma, batch.selectedPlayerId);
-    if (!defaultLocation) throw new Error("Destination location not found.");
-    let skippedRows = 0,
-      committedRows = 0,
+    if (!defaultLocation)
+      throw new Error("Choose a destination location before committing.");
+
+    const readyItems = batch.items.filter(isImportItemReadyToCommit);
+    if (!readyItems.length)
+      throw new Error("No resolved cards are ready to commit.");
+
+    let committedRows = 0,
       errorRows = 0;
-    for (const item of batch.items) {
-      if (item.status === "skipped") {
-        await prisma.importBatchItem.update({
-          where: { id: item.id },
-          data: { status: "skipped" },
-        });
-        skippedRows++;
-        continue;
-      }
-      if (!item.cardPrintingId || !importableStatuses.includes(item.status)) {
-        await prisma.importBatchItem.update({
-          where: { id: item.id },
-          data: { status: "error", message: "Not importable at confirm time." },
-        });
-        errorRows++;
-        continue;
-      }
+    for (const item of readyItems) {
+      const lockedItem = await prisma.importBatchItem.findUnique({
+        where: { id: item.id },
+      });
+      if (!lockedItem || !isImportItemReadyToCommit(lockedItem)) continue;
       const card = await prisma.card.findUnique({
-        where: { id: item.cardPrintingId },
+        where: { id: lockedItem.cardPrintingId! },
       });
       if (!card) {
         await prisma.importBatchItem.update({
-          where: { id: item.id },
+          where: { id: lockedItem.id },
           data: {
             status: "error",
             message: "Selected card printing no longer exists.",
@@ -1072,11 +1097,11 @@ export default async function ImportsPage({
         errorRows++;
         continue;
       }
-      const parsedRow = item.parsedRowJson as ParsedRow;
+      const parsedRow = lockedItem.parsedRowJson as ParsedRow;
       const quantity = Number(parsedRow.quantity);
       if (!Number.isInteger(quantity) || quantity <= 0) {
         await prisma.importBatchItem.update({
-          where: { id: item.id },
+          where: { id: lockedItem.id },
           data: {
             status: "error",
             message: "Quantity must be a positive integer.",
@@ -1085,10 +1110,11 @@ export default async function ImportsPage({
         errorRows++;
         continue;
       }
-      const foilStatus = (item.parsedFoilStatus ||
+      const foilStatus = (lockedItem.parsedFoilStatus ||
         parsedRow.foilStatus ||
         "NONFOIL") as FoilStatus;
-      const condition = item.parsedCondition || parsedRow.condition || "NM";
+      const condition =
+        lockedItem.parsedCondition || parsedRow.condition || "NM";
       const rowLocation = parsedRow.locationName
         ? await prisma.inventoryLocation.findFirst({
             where: {
@@ -1101,7 +1127,7 @@ export default async function ImportsPage({
       const matchingWhere = {
         currentOwnerId: batch.selectedPlayerId,
         originalOpenerId: batch.selectedPlayerId,
-        cardId: item.cardPrintingId,
+        cardId: lockedItem.cardPrintingId!,
         foil: foilStatus !== FoilStatus.NONFOIL,
         foilStatus,
         condition,
@@ -1112,7 +1138,7 @@ export default async function ImportsPage({
       const createData = {
         currentOwnerId: batch.selectedPlayerId,
         originalOpenerId: batch.selectedPlayerId,
-        cardId: item.cardPrintingId,
+        cardId: lockedItem.cardPrintingId!,
         quantity,
         foil: foilStatus !== FoilStatus.NONFOIL,
         foilStatus,
@@ -1139,7 +1165,7 @@ export default async function ImportsPage({
           })
         : await prisma.inventoryItem.create({ data: createData });
       await prisma.importBatchItem.update({
-        where: { id: item.id },
+        where: { id: lockedItem.id },
         data: {
           status: "imported",
           inventoryItemId: inventory.id,
@@ -1150,22 +1176,38 @@ export default async function ImportsPage({
           updatedExistingInventoryItem: Boolean(existingInventory),
           beforeQuantity,
           afterQuantity: inventory.quantity,
+          message: `Committed ${quantity} card${quantity === 1 ? "" : "s"} to inventory.`,
         },
       });
       committedRows++;
     }
+    const remainingItems = await prisma.importBatchItem.findMany({
+      where: { importBatchId: batch.id },
+    });
+    const remainingSummary = getImportReviewSummary(remainingItems);
     await prisma.importBatch.update({
       where: { id: batch.id },
       data: {
-        status: errorRows ? "IMPORTED_WITH_ERRORS" : "IMPORTED",
-        skippedRows,
-        matchedRows: committedRows,
-        errorRows,
+        status:
+          errorRows > 0
+            ? "IMPORTED_WITH_ERRORS"
+            : remainingSummary.readyToCommit > 0
+              ? "PARTIALLY_IMPORTED"
+              : remainingSummary.needsReview + remainingSummary.unresolved > 0
+                ? "IMPORTED_WITH_REVIEW"
+                : "IMPORTED",
+        skippedRows: remainingSummary.skipped,
+        matchedRows: remainingSummary.committed,
+        warningRows: remainingSummary.warnings,
+        errorRows:
+          remainingSummary.failed +
+          remainingSummary.needsReview +
+          remainingSummary.unresolved,
       },
     });
     revalidatePath("/imports");
     revalidatePath("/inventory");
-    redirect(`/imports?batchId=${batch.id}`);
+    redirect(buildImportReviewUrl(batch.id, getReturnReviewOptions(fd)));
   }
 
   const selectedBatch = params.batchId
@@ -1210,39 +1252,34 @@ export default async function ImportsPage({
   });
 
   const selectedItems = selectedBatch?.items ?? [];
+  const activeReviewFilter = normalizeImportReviewFilter(params.status);
+  const reviewSearch = String(params.q || "").trim();
+  const filteredItems = filterImportReviewItems(
+    selectedItems,
+    activeReviewFilter,
+    reviewSearch,
+  );
   const locationsForSelectedOwner = selectedBatch
     ? await getLocationsForOwner(prisma, selectedBatch.selectedPlayerId)
     : [];
-  const summary = {
-    total: selectedItems.length,
-    ready: selectedItems.filter(
-      (item) =>
-        item.status !== "skipped" &&
-        item.cardPrintingId &&
-        importableStatuses.includes(item.status),
-    ).length,
-    matched: selectedItems.filter((item) => item.status === "matched").length,
-    new: selectedItems.filter((item) => item.status === "new").length,
-    manual: selectedItems.filter((item) =>
-      ["resolved", "manually_resolved", "changed"].includes(item.status),
-    ).length,
-    unmatched: selectedItems.filter((item) => item.status === "unmatched")
+  const summary = getImportReviewSummary(selectedItems);
+  const filterCounts = {
+    all: selectedItems.length,
+    resolved: filterImportReviewItems(selectedItems, "resolved").length,
+    "needs-review": filterImportReviewItems(selectedItems, "needs-review")
       .length,
-    ambiguous: selectedItems.filter((item) => item.status === "ambiguous")
-      .length,
-    warnings: selectedItems.filter((item) =>
-      Boolean(
-        item.message?.toLowerCase().includes("warning") ||
-        (item.parsedRowJson as ParsedRow).warning,
-      ),
-    ).length,
-    skipped: selectedItems.filter((item) => item.status === "skipped").length,
+    unresolved: filterImportReviewItems(selectedItems, "unresolved").length,
+    failed: filterImportReviewItems(selectedItems, "failed").length,
+    skipped: filterImportReviewItems(selectedItems, "skipped").length,
+    committed: filterImportReviewItems(selectedItems, "committed").length,
   };
-  const unresolvedCount = selectedItems.filter(
-    (item) =>
-      item.status !== "skipped" &&
-      (!item.cardPrintingId || !importableStatuses.includes(item.status)),
-  ).length;
+  const unresolvedCount =
+    summary.needsReview + summary.unresolved + summary.failed;
+  const firstProblemItem = selectedItems.find((item) =>
+    ["needs-review", "unresolved", "failed"].includes(
+      getImportReviewBucket(item),
+    ),
+  );
   const resolverItem = params.resolveItemId
     ? selectedItems.find((item) => item.id === params.resolveItemId)
     : null;
@@ -1322,6 +1359,25 @@ export default async function ImportsPage({
     selectedResolutionJob,
   );
   const importResolutionConfig = getImportResolutionJobConfig();
+  const canCommitSelectedBatch = Boolean(
+    selectedBatch &&
+    selectedBatch.status === "PREVIEW" &&
+    !selectedBatch.importType.endsWith(":preview") &&
+    summary.readyToCommit > 0,
+  );
+  const commitBlockedReason = selectedBatch?.importType.endsWith(":preview")
+    ? "This batch is preview only. Upload again with an import behavior to commit records."
+    : selectedBatch && ["IMPORTED", "UNDONE"].includes(selectedBatch.status)
+      ? "This import has already been committed or closed."
+      : summary.readyToCommit <= 0
+        ? "No cards are ready to commit."
+        : unresolvedCount > 0
+          ? `${unresolvedCount} rows still need review. You can commit ${summary.readyToCommit} ready rows now or resolve remaining rows first.`
+          : "Ready to commit.";
+  const defaultDestinationLocation = locationsForSelectedOwner[0];
+  const inventoryLink = defaultDestinationLocation
+    ? `/inventory?locationId=${defaultDestinationLocation.id}`
+    : "/inventory";
 
   return (
     <main className="p-8 space-y-6">
@@ -1522,6 +1578,134 @@ export default async function ImportsPage({
               pollIntervalMs={importResolutionConfig.pollIntervalMs}
             />
           ) : null}
+          <div className="sticky top-2 z-30 rounded border border-zinc-700 bg-zinc-950/95 p-3 shadow-xl backdrop-blur space-y-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="font-semibold">{selectedBatch.filename}</div>
+                <p className="text-sm text-zinc-400">
+                  Destination owner: {selectedBatch.selectedPlayer.displayName}
+                  {defaultDestinationLocation
+                    ? ` • Destination: ${defaultDestinationLocation.name}`
+                    : ""}
+                </p>
+                <p className="text-sm text-zinc-300">
+                  {summary.parsedLines} parsed lines · {summary.totalCards}{" "}
+                  total cards · {summary.resolved} resolved ·{" "}
+                  {summary.needsReview + summary.unresolved + summary.failed}{" "}
+                  need review · {summary.readyToCommit} ready to commit ·{" "}
+                  {summary.committed} already committed
+                </p>
+                {!canCommitSelectedBatch ? (
+                  <p className="text-xs text-amber-300">
+                    {commitBlockedReason}
+                  </p>
+                ) : unresolvedCount > 0 ? (
+                  <p className="text-xs text-amber-300">
+                    {commitBlockedReason}
+                  </p>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap gap-2 text-sm">
+                <form action={startImportResolutionJob}>
+                  <input
+                    type="hidden"
+                    name="batchId"
+                    value={selectedBatch.id}
+                  />
+                  <input
+                    type="hidden"
+                    name="returnStatus"
+                    value={activeReviewFilter}
+                  />
+                  <input type="hidden" name="returnQ" value={reviewSearch} />
+                  <SubmitButton
+                    pendingLabel="Starting resolution…"
+                    disabled={Boolean(
+                      selectedResolutionJob &&
+                      isActiveImportResolutionStatus(
+                        selectedResolutionJob.status,
+                      ),
+                    )}
+                    className="border px-3 py-2 disabled:opacity-50"
+                  >
+                    {selectedResolutionJob &&
+                    ["FAILED", "STALE"].includes(selectedResolutionJob.status)
+                      ? "Resume Resolution"
+                      : selectedResolutionJob?.status ===
+                          "COMPLETED_WITH_REVIEW"
+                        ? "Resolve Remaining"
+                        : "Resolve Cards"}
+                  </SubmitButton>
+                </form>
+                {firstProblemItem ? (
+                  <a
+                    className="border px-3 py-2"
+                    href={buildImportReviewUrl(selectedBatch.id, {
+                      status: "unresolved",
+                      q: reviewSearch,
+                      resolveItemId: firstProblemItem.id,
+                    })}
+                  >
+                    Review Unresolved
+                  </a>
+                ) : null}
+                {!["IMPORTED", "UNDONE"].includes(selectedBatch.status) &&
+                !selectedBatch.importType.endsWith(":preview") ? (
+                  <form
+                    action={confirmImport}
+                    className="flex gap-2 items-center"
+                  >
+                    <input
+                      type="hidden"
+                      name="batchId"
+                      value={selectedBatch.id}
+                    />
+                    <input
+                      type="hidden"
+                      name="returnStatus"
+                      value={activeReviewFilter}
+                    />
+                    <input type="hidden" name="returnQ" value={reviewSearch} />
+                    <select
+                      name="destinationLocationId"
+                      className="border p-2 bg-zinc-900"
+                      aria-label="Destination location"
+                    >
+                      {locationsForSelectedOwner.map((location) => (
+                        <option key={location.id} value={location.id}>
+                          {location.name}
+                        </option>
+                      ))}
+                    </select>
+                    <SubmitButton
+                      pendingLabel="Committing import…"
+                      disabled={!canCommitSelectedBatch}
+                      confirmMessage={
+                        summary.readyToCommit >= 100
+                          ? `Commit ${summary.readyToCommit} ready rows to ${defaultDestinationLocation?.name ?? "inventory"}?`
+                          : undefined
+                      }
+                      className="border border-emerald-700 px-3 py-2 text-emerald-100 disabled:opacity-50"
+                    >
+                      {unresolvedCount > 0
+                        ? "Commit Ready Cards"
+                        : "Commit Import"}
+                    </SubmitButton>
+                  </form>
+                ) : selectedBatch.status.includes("IMPORTED") ? (
+                  <a
+                    className="border border-emerald-700 px-3 py-2"
+                    href={inventoryLink}
+                  >
+                    View Inventory
+                  </a>
+                ) : null}
+                <a className="border px-3 py-2" href="/imports">
+                  Cancel
+                </a>
+              </div>
+            </div>
+          </div>
           <div className="flex flex-wrap gap-2 text-sm">
             <form action={startImportResolutionJob}>
               <input type="hidden" name="batchId" value={selectedBatch.id} />
@@ -1634,15 +1818,15 @@ export default async function ImportsPage({
           </div>
           <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-9 gap-2 text-sm">
             {[
-              ["Total rows", summary.total, "border-zinc-700"],
-              ["Ready", summary.ready, "border-emerald-700"],
-              ["Matched", summary.matched, "border-emerald-700"],
-              ["New", summary.new, "border-sky-700"],
-              ["Manual", summary.manual, "border-purple-700"],
-              ["Unmatched", summary.unmatched, "border-red-800"],
-              ["Ambiguous", summary.ambiguous, "border-amber-700"],
-              ["Warnings", summary.warnings, "border-yellow-700"],
+              ["Parsed lines", summary.parsedLines, "border-zinc-700"],
+              ["Ready to commit", summary.readyToCommit, "border-emerald-700"],
+              ["Resolved", summary.resolved, "border-emerald-700"],
+              ["Needs review", summary.needsReview, "border-amber-700"],
+              ["Unresolved", summary.unresolved, "border-red-800"],
+              ["Failed", summary.failed, "border-red-900"],
               ["Skipped", summary.skipped, "border-zinc-600"],
+              ["Committed", summary.committed, "border-emerald-800"],
+              ["Warnings", summary.warnings, "border-yellow-700"],
             ].map(([label, value, border]) => (
               <div
                 key={String(label)}
@@ -1654,24 +1838,87 @@ export default async function ImportsPage({
             ))}
           </div>
           <div className="h-3 overflow-hidden rounded bg-zinc-900 flex">
-            {summary.total
+            {summary.parsedLines
               ? [
-                  ["bg-emerald-600", summary.matched],
-                  ["bg-sky-600", summary.new],
-                  ["bg-purple-600", summary.manual],
-                  ["bg-red-700", summary.unmatched],
-                  ["bg-amber-600", summary.ambiguous],
+                  ["bg-emerald-600", summary.resolved],
+                  ["bg-amber-600", summary.needsReview],
+                  ["bg-red-700", summary.unresolved + summary.failed],
                   ["bg-zinc-600", summary.skipped],
+                  ["bg-emerald-800", summary.committed],
                 ].map(([cls, count], index) => (
                   <div
                     key={index}
                     className={String(cls)}
                     style={{
-                      width: `${(Number(count) / summary.total) * 100}%`,
+                      width: `${(Number(count) / summary.parsedLines) * 100}%`,
                     }}
                   />
                 ))
               : null}
+          </div>
+          <div className="rounded border border-zinc-800 bg-zinc-950 p-3 space-y-3">
+            <form method="get" className="flex flex-wrap gap-2 items-end">
+              <input type="hidden" name="batchId" value={selectedBatch.id} />
+              <input type="hidden" name="status" value={activeReviewFilter} />
+              <label className="flex-1 min-w-64 text-sm">
+                Search import rows
+                <input
+                  name="q"
+                  defaultValue={reviewSearch}
+                  placeholder="Card, raw row, set, collector #, error, location…"
+                  className="mt-1 w-full border p-2 bg-zinc-900"
+                />
+              </label>
+              <button className="border px-3 py-2">Search</button>
+              {reviewSearch ? (
+                <a
+                  className="border px-3 py-2"
+                  href={buildImportReviewUrl(selectedBatch.id, {
+                    status: activeReviewFilter,
+                  })}
+                >
+                  Clear search
+                </a>
+              ) : null}
+            </form>
+            <div
+              className="flex flex-wrap gap-2 text-sm"
+              aria-label="Import row status filters"
+            >
+              {importReviewFilters.map((filter) => {
+                const count = filterCounts[filter.key];
+                const active = activeReviewFilter === filter.key;
+                return (
+                  <a
+                    key={filter.key}
+                    className={`rounded border px-3 py-2 ${
+                      active
+                        ? "border-sky-500 bg-sky-950 text-sky-100"
+                        : "border-zinc-700 text-zinc-200"
+                    }`}
+                    href={buildImportReviewUrl(selectedBatch.id, {
+                      status: filter.key,
+                      q: reviewSearch,
+                    })}
+                  >
+                    {filter.label} {count}
+                  </a>
+                );
+              })}
+              <a
+                className="rounded border border-amber-600 px-3 py-2 text-amber-100"
+                href={buildImportReviewUrl(selectedBatch.id, {
+                  status: "unresolved",
+                  q: reviewSearch,
+                })}
+              >
+                Needs review / unresolved only
+              </a>
+            </div>
+            <p className="text-sm text-zinc-400">
+              Showing {filteredItems.length} of {selectedItems.length} parsed
+              rows.
+            </p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -1688,13 +1935,14 @@ export default async function ImportsPage({
                   <th>Foil Status</th>
                   <th>Condition</th>
                   <th>Language</th>
+                  <th>Location</th>
                   <th>Status</th>
                   <th>Message</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {selectedItems.map((item) => {
+                {filteredItems.map((item) => {
                   const parsed = item.parsedRowJson as ParsedRow;
                   const img = cardImage(item.cardPrinting);
                   const actionLabel =
@@ -1749,7 +1997,11 @@ export default async function ImportsPage({
                       <td className="space-y-1">
                         <a
                           className="block underline"
-                          href={`/imports?batchId=${selectedBatch.id}&resolveItemId=${item.id}`}
+                          href={buildImportReviewUrl(selectedBatch.id, {
+                            status: activeReviewFilter,
+                            q: reviewSearch,
+                            resolveItemId: item.id,
+                          })}
                         >
                           {actionLabel}
                         </a>
@@ -1760,6 +2012,16 @@ export default async function ImportsPage({
                             value={selectedBatch.id}
                           />
                           <input type="hidden" name="itemId" value={item.id} />
+                          <input
+                            type="hidden"
+                            name="returnStatus"
+                            value={activeReviewFilter}
+                          />
+                          <input
+                            type="hidden"
+                            name="returnQ"
+                            value={reviewSearch}
+                          />
                           <SubmitButton
                             pendingLabel="Retrying…"
                             name="mode"
@@ -1778,6 +2040,16 @@ export default async function ImportsPage({
                                 name="itemId"
                                 value={item.id}
                               />
+                              <input
+                                type="hidden"
+                                name="returnStatus"
+                                value={activeReviewFilter}
+                              />
+                              <input
+                                type="hidden"
+                                name="returnQ"
+                                value={reviewSearch}
+                              />
                               <input type="hidden" name="unskip" value="true" />
                               <SubmitButton
                                 pendingLabel="Restoring…"
@@ -1793,6 +2065,16 @@ export default async function ImportsPage({
                                 type="hidden"
                                 name="itemId"
                                 value={item.id}
+                              />
+                              <input
+                                type="hidden"
+                                name="returnStatus"
+                                value={activeReviewFilter}
+                              />
+                              <input
+                                type="hidden"
+                                name="returnQ"
+                                value={reviewSearch}
                               />
                               <SubmitButton
                                 pendingLabel="Skipping…"
@@ -1813,16 +2095,22 @@ export default async function ImportsPage({
           </div>
           {unresolvedCount > 0 ? (
             <p className="rounded border border-red-800 bg-red-950/40 p-3 text-sm text-red-100">
-              Resolve or skip all unmatched/ambiguous rows before importing.
+              {commitBlockedReason}
             </p>
           ) : null}
-          {selectedBatch.status === "PREVIEW" &&
+          {!["IMPORTED", "UNDONE"].includes(selectedBatch.status) &&
           !selectedBatch.importType.endsWith(":preview") ? (
             <form
               action={confirmImport}
               className="flex flex-wrap gap-3 items-end"
             >
               <input type="hidden" name="batchId" value={selectedBatch.id} />
+              <input
+                type="hidden"
+                name="returnStatus"
+                value={activeReviewFilter}
+              />
+              <input type="hidden" name="returnQ" value={reviewSearch} />
               <label className="text-sm">
                 Destination location
                 <select
@@ -1837,11 +2125,16 @@ export default async function ImportsPage({
                 </select>
               </label>
               <SubmitButton
-                pendingLabel="Importing…"
-                disabled={unresolvedCount > 0}
-                className="border px-3 py-2 disabled:opacity-50"
+                pendingLabel="Committing import…"
+                disabled={!canCommitSelectedBatch}
+                confirmMessage={
+                  summary.readyToCommit >= 100
+                    ? `Commit ${summary.readyToCommit} ready rows to inventory?`
+                    : undefined
+                }
+                className="border border-emerald-700 px-3 py-2 disabled:opacity-50"
               >
-                Confirm Import
+                {unresolvedCount > 0 ? "Commit Ready Cards" : "Commit Import"}
               </SubmitButton>
             </form>
           ) : null}
@@ -1870,7 +2163,10 @@ export default async function ImportsPage({
               </div>
               <a
                 className="border px-2"
-                href={`/imports?batchId=${selectedBatch.id}`}
+                href={buildImportReviewUrl(selectedBatch.id, {
+                  status: activeReviewFilter,
+                  q: reviewSearch,
+                })}
               >
                 Close
               </a>
@@ -1942,6 +2238,12 @@ export default async function ImportsPage({
               className="border border-zinc-800 rounded p-3 grid md:grid-cols-5 gap-2"
             >
               <input type="hidden" name="itemId" value={resolverItem.id} />
+              <input
+                type="hidden"
+                name="returnStatus"
+                value={activeReviewFilter}
+              />
+              <input type="hidden" name="returnQ" value={reviewSearch} />
               <label className="text-sm">
                 Quantity
                 <input
@@ -2037,6 +2339,12 @@ export default async function ImportsPage({
                   className="border border-zinc-800 rounded p-2 flex gap-3 items-center"
                 >
                   <input type="hidden" name="itemId" value={resolverItem.id} />
+                  <input
+                    type="hidden"
+                    name="returnStatus"
+                    value={activeReviewFilter}
+                  />
+                  <input type="hidden" name="returnQ" value={reviewSearch} />
                   <input type="hidden" name="scryfallId" value={card.id} />
                   {cardImage({
                     imageUris:
