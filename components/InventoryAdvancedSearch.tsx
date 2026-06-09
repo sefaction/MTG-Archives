@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { ManaSymbol } from "./mtg/ManaSymbol";
 
 export type FilterOption = { value: string; label: string };
@@ -16,6 +16,7 @@ type InventoryAdvancedSearchProps = {
   locations?: FilterLocationOption[];
   setOptions?: FilterOption[];
   cardNameOptions?: string[];
+  suggestionsEndpoint?: string;
   clearHref: string;
 };
 
@@ -30,42 +31,6 @@ type FilterChipItem = {
   value: string;
   href: string;
 };
-
-const TYPE_SUGGESTIONS = [
-  "Basic",
-  "Legendary",
-  "Snow",
-  "World",
-  "Artifact",
-  "Battle",
-  "Creature",
-  "Enchantment",
-  "Instant",
-  "Land",
-  "Planeswalker",
-  "Sorcery",
-  "Angel",
-  "Aura",
-  "Beast",
-  "Blood",
-  "Clue",
-  "Dragon",
-  "Elemental",
-  "Elf",
-  "Equipment",
-  "Food",
-  "Goblin",
-  "Human",
-  "Saga",
-  "Soldier",
-  "Spirit",
-  "Treasure",
-  "Vampire",
-  "Vehicle",
-  "Warrior",
-  "Wizard",
-  "Zombie",
-];
 
 const RARITY_OPTIONS = [
   { value: "common", label: "Common" },
@@ -204,18 +169,91 @@ function filterSuggestions(
     .slice(0, limit);
 }
 
+function useAutocompleteSuggestions({
+  endpoint,
+  kind,
+  input,
+  staticOptions,
+  selected = [],
+  limit = 30,
+}: {
+  endpoint?: string;
+  kind: "cardName" | "typeLine" | "set";
+  input: string;
+  staticOptions: AutocompleteOption[];
+  selected?: string[];
+  limit?: number;
+}) {
+  const [remoteOptions, setRemoteOptions] = useState<AutocompleteOption[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const query = input.trim();
+
+  useEffect(() => {
+    if (!endpoint || query.length < 1) return;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      setLoading(true);
+      try {
+        const url = new URL(endpoint, window.location.origin);
+        const current = new URLSearchParams(window.location.search);
+        current.forEach((value, key) => {
+          if (!url.searchParams.has(key)) url.searchParams.append(key, value);
+        });
+        url.searchParams.set("kind", kind);
+        url.searchParams.set("q", query);
+        url.searchParams.set("limit", String(limit));
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) throw new Error("Suggestion request failed");
+        const payload = (await response.json()) as {
+          suggestions?: AutocompleteOption[];
+          hasMore?: boolean;
+        };
+        setRemoteOptions(payload.suggestions || []);
+        setHasMore(Boolean(payload.hasMore));
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setRemoteOptions([]);
+          setHasMore(false);
+        }
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }, 200);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeout);
+    };
+  }, [endpoint, kind, limit, query]);
+
+  const options = endpoint
+    ? query.length < 1
+      ? []
+      : remoteOptions
+    : filterSuggestions(staticOptions, input, selected, limit);
+  return {
+    options,
+    hasMore: endpoint && query.length < 1 ? false : hasMore,
+    loading: endpoint && query.length < 1 ? false : loading,
+  };
+}
+
 function AutocompleteSuggestionList({
   id,
   options,
   highlighted,
   onChoose,
+  hasMore = false,
+  loading = false,
 }: {
   id: string;
   options: AutocompleteOption[];
   highlighted: number;
   onChoose: (option: AutocompleteOption) => void;
+  hasMore?: boolean;
+  loading?: boolean;
 }) {
-  if (!options.length) return null;
+  if (!options.length && !hasMore && !loading) return null;
   return (
     <div
       id={id}
@@ -246,6 +284,16 @@ function AutocompleteSuggestionList({
           ) : null}
         </button>
       ))}
+      {loading ? (
+        <div className="px-2 py-1.5 text-xs text-zinc-400">
+          Loading suggestions…
+        </div>
+      ) : null}
+      {hasMore ? (
+        <div className="px-2 py-1.5 text-xs text-zinc-400">
+          More matches available, keep typing…
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -256,22 +304,33 @@ function AutocompleteInput({
   initialValue,
   placeholder,
   options,
+  suggestionsEndpoint,
+  suggestionKind,
 }: {
   label: string;
   name: string;
   initialValue: string;
   placeholder: string;
   options: AutocompleteOption[];
+  suggestionsEndpoint?: string;
+  suggestionKind: "cardName" | "typeLine" | "set";
 }) {
   const inputId = useId();
   const listId = `${inputId}-listbox`;
   const [value, setValue] = useState(initialValue);
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(0);
-  const suggestions = useMemo(
-    () => filterSuggestions(options, value, [], 10),
-    [options, value],
-  );
+  const {
+    options: suggestions,
+    hasMore,
+    loading,
+  } = useAutocompleteSuggestions({
+    endpoint: suggestionsEndpoint,
+    kind: suggestionKind,
+    input: value,
+    staticOptions: options,
+    limit: 30,
+  });
 
   function choose(option: AutocompleteOption) {
     setValue(option.value);
@@ -332,6 +391,8 @@ function AutocompleteInput({
           options={suggestions}
           highlighted={highlighted}
           onChoose={choose}
+          hasMore={hasMore}
+          loading={loading}
         />
       ) : null}
     </div>
@@ -346,6 +407,8 @@ function TokenAutocompleteInput({
   options,
   normalizeToken = titleCase,
   tokenLabel,
+  suggestionsEndpoint,
+  suggestionKind,
 }: {
   label: string;
   name: string;
@@ -354,6 +417,8 @@ function TokenAutocompleteInput({
   options: AutocompleteOption[];
   normalizeToken?: (value: string) => string;
   tokenLabel?: (value: string) => string;
+  suggestionsEndpoint?: string;
+  suggestionKind: "cardName" | "typeLine" | "set";
 }) {
   const inputId = useId();
   const listId = `${inputId}-listbox`;
@@ -363,10 +428,18 @@ function TokenAutocompleteInput({
   const [input, setInput] = useState("");
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(0);
-  const suggestions = useMemo(
-    () => filterSuggestions(options, input, tokens, 8),
-    [input, options, tokens],
-  );
+  const {
+    options: suggestions,
+    hasMore,
+    loading,
+  } = useAutocompleteSuggestions({
+    endpoint: suggestionsEndpoint,
+    kind: suggestionKind,
+    input,
+    staticOptions: options,
+    selected: tokens,
+    limit: 30,
+  });
 
   function addToken(value: string) {
     const token = normalizeToken(value);
@@ -453,6 +526,8 @@ function TokenAutocompleteInput({
           options={suggestions}
           highlighted={highlighted}
           onChoose={choose}
+          hasMore={hasMore}
+          loading={loading}
         />
       ) : null}
     </div>
@@ -770,6 +845,9 @@ export function InventoryAdvancedSearch({
   locations = [],
   setOptions = [],
   cardNameOptions = [],
+  suggestionsEndpoint = isPublic
+    ? "/api/inventory/filter-suggestions?public=1"
+    : "/api/inventory/filter-suggestions",
   clearHref,
 }: InventoryAdvancedSearchProps) {
   const rarity = values(params, "rarity");
@@ -812,10 +890,7 @@ export function InventoryAdvancedSearch({
     label: set.label,
     description: set.value.toUpperCase(),
   }));
-  const typeOptions = TYPE_SUGGESTIONS.map((type) => ({
-    value: type,
-    label: type,
-  }));
+  const typeOptions: AutocompleteOption[] = [];
   const activeChips = buildActiveChips({
     params,
     actionPath,
@@ -863,6 +938,8 @@ export function InventoryAdvancedSearch({
             initialValue={first(params, "cardName")}
             placeholder="Sol Ring"
             options={cardOptions}
+            suggestionsEndpoint={suggestionsEndpoint}
+            suggestionKind="cardName"
           />
           <TokenAutocompleteInput
             label="Type line"
@@ -870,6 +947,8 @@ export function InventoryAdvancedSearch({
             initialTokens={typeTokens}
             placeholder="Legendary, Angel…"
             options={typeOptions}
+            suggestionsEndpoint={suggestionsEndpoint}
+            suggestionKind="typeLine"
           />
           <label className="text-xs font-medium text-zinc-300">
             Oracle text
@@ -888,6 +967,8 @@ export function InventoryAdvancedSearch({
             options={setAutocompleteOptions}
             normalizeToken={(value) => value.trim().toLowerCase()}
             tokenLabel={(value) => value.toUpperCase()}
+            suggestionsEndpoint={suggestionsEndpoint}
+            suggestionKind="set"
           />
         </div>
 

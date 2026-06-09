@@ -247,32 +247,8 @@ export default async function InventoryPage({
     : await prisma.inventoryLocation.findMany({
         orderBy: [{ ownerPlayer: { displayName: "asc" } }, { name: "asc" }],
       });
-  const setOptions = await prisma.card.findMany({
-    distinct: ["setCode"],
-    select: { setCode: true, setName: true },
-    orderBy: [{ setCode: "asc" }],
-  });
-  const ownedCardNameRows = await prisma.inventoryItem.findMany({
-    where: {
-      quantity: { gt: 0 },
-      ...(activeOwnerId ? { currentOwnerId: activeOwnerId } : {}),
-    },
-    select: { card: { select: { name: true } } },
-    orderBy: { card: { name: "asc" } },
-    take: 150,
-  });
-  const cachedCardNameRows = await prisma.card.findMany({
-    distinct: ["name"],
-    select: { name: true },
-    orderBy: { name: "asc" },
-    take: 250,
-  });
-  const cardNameOptions = Array.from(
-    new Set([
-      ...ownedCardNameRows.map((row) => row.card.name),
-      ...cachedCardNameRows.map((row) => row.name),
-    ]),
-  ).slice(0, 300);
+  const setOptions: Array<{ setCode: string; setName: string | null }> = [];
+  const cardNameOptions: string[] = [];
 
   const cardLabels = Object.fromEntries(
     items.map((item) => [

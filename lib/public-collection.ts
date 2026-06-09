@@ -228,7 +228,7 @@ function publicOwnerVisibilityWhere(
   };
 }
 
-function buildPublicInventoryWhere(
+export function buildPublicInventoryWhere(
   filters: PublicInventoryFilters,
   publicSlug?: string,
 ) {

@@ -7,6 +7,11 @@ import {
   parseInventoryFilters,
   removeInventoryFilterParams,
 } from "../lib/inventory-filters";
+import {
+  extractTypeLineTokens,
+  extractTypeLineTokensFromCard,
+  suggestionScopeSearchParams,
+} from "../lib/inventory-filter-suggestions";
 
 test("inventory filter parser normalizes multi-select values", () => {
   const params = new URLSearchParams();
@@ -85,6 +90,57 @@ test("clear filters removes structured inventory query params", () => {
   assert.equal(params.get("displayMode"), "grouped");
 });
 
+test("type-line suggestion helper extracts scoped autocomplete tokens", () => {
+  assert.deepEqual(
+    extractTypeLineTokens("Legendary Creature — Human Avatar Ally"),
+    ["Legendary", "Creature", "Human", "Avatar", "Ally"],
+  );
+  assert.deepEqual(extractTypeLineTokens("Artifact Creature — Construct"), [
+    "Artifact",
+    "Creature",
+    "Construct",
+  ]);
+  assert.deepEqual(extractTypeLineTokens("Instant — Lesson"), [
+    "Instant",
+    "Lesson",
+  ]);
+  assert.deepEqual(
+    extractTypeLineTokensFromCard({
+      typeLine: "Legendary Creature — Human Avatar Ally",
+      cardFaces: [
+        { type_line: "Creature — Avatar" },
+        { type_line: "Legendary Enchantment — Shrine" },
+      ],
+    }),
+    [
+      "Legendary",
+      "Creature",
+      "Human",
+      "Avatar",
+      "Ally",
+      "Enchantment",
+      "Shrine",
+    ],
+  );
+});
+
+test("suggestion scope params keep owner and visibility scope without typed filters", () => {
+  const scoped = suggestionScopeSearchParams(
+    new URLSearchParams(
+      "cardName=sol&typeTokens=Angel&set=tla&owner=public-slug&ownerId=player-1&locationId=box-1&visibility=public&page=3",
+    ),
+  );
+
+  assert.equal(scoped.get("owner"), "public-slug");
+  assert.equal(scoped.get("ownerId"), "player-1");
+  assert.equal(scoped.get("locationId"), "box-1");
+  assert.equal(scoped.get("visibility"), "public");
+  assert.equal(scoped.get("cardName"), null);
+  assert.equal(scoped.get("typeTokens"), null);
+  assert.equal(scoped.get("set"), null);
+  assert.equal(scoped.get("page"), null);
+});
+
 test("advanced search UI uses token autocomplete and keeps display mode outside filters", async () => {
   const [filterUi, browserUi] = await Promise.all([
     import("node:fs/promises").then((fs) =>
@@ -95,7 +151,9 @@ test("advanced search UI uses token autocomplete and keeps display mode outside 
     ),
   ]);
 
-  assert.match(filterUi, /TYPE_SUGGESTIONS/);
+  assert.doesNotMatch(filterUi, /TYPE_SUGGESTIONS/);
+  assert.match(filterUi, /suggestionsEndpoint/);
+  assert.match(filterUi, /url\.searchParams\.set\("kind", kind\)/);
   assert.match(filterUi, /name="typeTokens"/);
   assert.match(filterUi, /onKeyDown/);
   assert.match(filterUi, /function AutocompleteInput/);

@@ -239,20 +239,8 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
           ? p.page[0]
           : p.page,
   });
-  const [setOptions, cardNameRows] = await Promise.all([
-    prisma.card.findMany({
-      distinct: ["setCode"],
-      select: { setCode: true, setName: true },
-      orderBy: [{ setCode: "asc" }],
-      take: 400,
-    }),
-    prisma.card.findMany({
-      distinct: ["name"],
-      select: { name: true },
-      orderBy: { name: "asc" },
-      take: 300,
-    }),
-  ]);
+  const setOptions: Array<{ setCode: string; setName: string | null }> = [];
+  const cardNameRows: Array<{ name: string }> = [];
   const exactRows = getGlobalPublicExactPrintings(result.inventory);
   const groupedRows = getInventoryGroupedByCard(exactRows as any);
   const displayItems = displayMode === "grouped" ? groupedRows : exactRows;
