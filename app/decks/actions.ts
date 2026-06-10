@@ -19,6 +19,12 @@ import {
 } from "@/lib/inventory-audit";
 import { canManageDeck, normalizePositiveQuantity } from "@/lib/decks";
 import {
+  auditDeckMoveSnapshot,
+  ensureDeckLocation,
+  matchesDeckCardPrinting,
+  summarizeDeckCommitmentOwnership,
+} from "@/lib/deck-commitments";
+import {
   findSystemDeckLocation,
   getDeckCommittedSummary,
   returnCommittedInventoryFromDeckTx,

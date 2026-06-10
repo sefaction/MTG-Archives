@@ -25,6 +25,12 @@ import {
   getDeckCommittedSummary,
   isNormalInventoryLocation,
 } from "@/lib/deck-inventory";
+import {
+  isDeckLocation,
+  matchesDeckCardPrinting,
+} from "@/lib/deck-commitments";
+import { cardPriceNumber } from "@/lib/deck-view";
+import { ensureDefaultLocation } from "@/lib/inventory-locations";
 import { prisma } from "@/lib/prisma";
 import { resolveDeckVisibility, visibilityLabel } from "@/lib/visibility";
 import {
@@ -125,6 +131,41 @@ export default async function DeckDetailPage({
     deck.format === DeckFormat.COMMANDER || sectionTotals.COMMANDER > 0;
   const editorRows = deck.cards.map((deckCard) => {
     const owned = summarizeDeckCardOwnership(deckCard, inventoryItems, deck.id);
+    const matchingItems = inventoryItems
+      .map((item) => ({
+        item,
+        matchType: matchesDeckCardPrinting(deckCard, {
+          id: item.id,
+          cardId: item.cardId,
+          quantity: item.quantity,
+          card: item.card,
+          location: item.location,
+        }),
+      }))
+      .filter(
+        (entry): entry is typeof entry & { matchType: "exact" | "other" } =>
+          entry.matchType !== null,
+      );
+    const commitOptions = matchingItems
+      .filter(({ item }) => !isDeckLocation(item.location))
+      .map(({ item, matchType }) => ({
+        inventoryItemId: item.id,
+        locationName: item.location?.name ?? "Unassigned",
+        quantity: item.quantity,
+        cardName: item.card.name,
+        setCode: item.card.setCode,
+        collectorNumber: item.card.collectorNumber,
+        matchType,
+      }));
+    const returnOptions = matchingItems
+      .filter(({ item }) => item.location?.deckId === deck.id)
+      .map(({ item }) => ({
+        inventoryItemId: item.id,
+        quantity: item.quantity,
+        cardName: item.card.name,
+        setCode: item.card.setCode,
+        collectorNumber: item.card.collectorNumber,
+      }));
     return {
       id: deckCard.id,
       cardName: deckCard.cardName,
@@ -134,6 +175,14 @@ export default async function DeckDetailPage({
       isCommander: deckCard.isCommander,
       exactOwned: owned.exactOwned,
       otherOwned: owned.otherOwned,
+      available: owned.available,
+      availableExact: owned.availableExact,
+      availableOther: owned.availableOther,
+      committedToThisDeck: owned.committedToThisDeck,
+      committedToOtherDecks: owned.committedToOtherDecks,
+      commitmentMissing: owned.commitmentMissing,
+      commitOptions,
+      returnOptions,
       missing: owned.missing,
       enoughOwned: owned.enoughOwned,
       matchType: owned.matchType,
