@@ -5,7 +5,13 @@ import { DeckSection } from "@prisma/client";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { SetSymbol } from "@/components/mtg/CardSymbols";
 import { ManaCost } from "@/components/mtg/ManaCost";
-import { removeDeckCard, updateDeckCard } from "@/app/decks/actions";
+import {
+  bulkCommitDeckCardsToDeck,
+  commitDeckCardToDeck,
+  removeDeckCard,
+  returnDeckCardToInventory,
+  updateDeckCard,
+} from "@/app/decks/actions";
 import { deckSectionLabel } from "@/lib/decks";
 import type {
   DeckCardSearchResponse,
@@ -33,6 +39,28 @@ export type DeckEditorRow = {
   isCommander: boolean;
   exactOwned: number;
   otherOwned: number;
+  available: number;
+  availableExact: number;
+  availableOther: number;
+  committedToThisDeck: number;
+  committedToOtherDecks: number;
+  commitmentMissing: number;
+  commitOptions: Array<{
+    inventoryItemId: string;
+    locationName: string;
+    quantity: number;
+    cardName: string;
+    setCode: string;
+    collectorNumber: string;
+    matchType: "exact" | "other";
+  }>;
+  returnOptions: Array<{
+    inventoryItemId: string;
+    quantity: number;
+    cardName: string;
+    setCode: string;
+    collectorNumber: string;
+  }>;
   missing: number;
   enoughOwned: boolean;
   matchType: string;
@@ -1190,12 +1218,6 @@ function ReturnCommittedCopies({
       setMessage(
         `Returned ${result.movedCards} copies to ${result.destinationLocationName}.`,
       );
-      if (!res.ok) throw new Error("Printing search failed.");
-      const json = (await res.json()) as DeckCardSearchResponse;
-      if (requestId.current === id) {
-        setResults(json.results);
-        setStatus(json.message);
-      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Return failed.");
     } finally {
@@ -1555,7 +1577,7 @@ function CommitmentPanel({
   deckId: string;
   row: DeckEditorRow;
   canEdit: boolean;
-  normalLocations: NormalLocationOption[];
+  normalLocations: DeckReturnLocation[];
 }) {
   return (
     <section className="space-y-3 rounded border border-emerald-900/60 bg-emerald-950/10 p-3 text-sm">
