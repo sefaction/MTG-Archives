@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { InventoryBrowser } from "@/components/InventoryBrowser";
+import { InventoryAdvancedSearch } from "@/components/InventoryAdvancedSearch";
 import {
   getGlobalPublicInventory,
   PublicInventoryFilters,
@@ -10,7 +11,7 @@ import { getManaFacesForDto } from "@/lib/mtg/mana-display";
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  searchParams: Promise<Record<string, string | undefined>>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
 type PublicOwner = {
@@ -229,18 +230,40 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
   const sortDirection: "asc" | "desc" = p.sortDir === "desc" ? "desc" : "asc";
 
   const result = await getGlobalPublicInventory({
-    ...(p as PublicInventoryFilters),
-    page: initialBrowsingMode === "infinite" ? "1" : p.page,
+    ...(p as any as PublicInventoryFilters),
+    page:
+      initialBrowsingMode === "infinite"
+        ? "1"
+        : Array.isArray(p.page)
+          ? p.page[0]
+          : p.page,
   });
+  const setOptions: Array<{ setCode: string; setName: string | null }> = [];
+  const cardNameRows: Array<{ name: string }> = [];
   const exactRows = getGlobalPublicExactPrintings(result.inventory);
   const groupedRows = getInventoryGroupedByCard(exactRows as any);
   const displayItems = displayMode === "grouped" ? groupedRows : exactRows;
   const rows = toInventoryBrowserRows({ displayItems, displayMode });
-  const ownerFilter = p.owner || "";
   const pageParams = Object.fromEntries(
     Object.entries(p).filter(([key, value]) => value && key !== "page"),
   ) as Record<string, string>;
-  const pageHrefBase = new URLSearchParams(pageParams).toString();
+  const pageHrefBase = new URLSearchParams(
+    pageParams as Record<string, string>,
+  ).toString();
+
+  const selected = (key: string) => {
+    const value = (p as Record<string, any>)[key];
+    return Array.isArray(value)
+      ? value.flatMap((entry) => String(entry).split(","))
+      : value
+        ? String(value).split(",")
+        : [];
+  };
+  const clearFilterParams = new URLSearchParams();
+  clearFilterParams.set("displayMode", displayMode);
+  if (p.pageSize) clearFilterParams.set("pageSize", String(p.pageSize));
+  if (p.browse) clearFilterParams.set("browse", String(p.browse));
+  const clearFiltersHref = `/public/inventory?${clearFilterParams.toString()}`;
 
   return (
     <main className="p-8 space-y-6">
@@ -268,143 +291,18 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
         </p>
       </header>
 
-      <details open className="border border-zinc-800 rounded p-3">
-        <summary className="cursor-pointer font-semibold">
-          Public inventory filters
-        </summary>
-        <form className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
-          <input
-            name="q"
-            defaultValue={p.q}
-            placeholder="search public cards, sets, locations, collections"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="cardName"
-            defaultValue={p.cardName}
-            placeholder="card name contains"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="oracleText"
-            defaultValue={p.oracleText}
-            placeholder="oracle text contains"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="typeLine"
-            defaultValue={p.typeLine}
-            placeholder="type line contains"
-            className="border p-2 bg-zinc-900"
-          />
-          <select
-            name="displayMode"
-            defaultValue={displayMode}
-            className="border p-2 bg-zinc-900"
-          >
-            <option value="grouped">Grouped by card name</option>
-            <option value="exact">Exact printings</option>
-          </select>
-          <select
-            name="owner"
-            defaultValue={ownerFilter}
-            className="border p-2 bg-zinc-900"
-          >
-            <option value="">all public collections</option>
-            {result.publicProfiles.map((profile) => (
-              <option key={profile.publicSlug} value={profile.publicSlug}>
-                {profile.displayName}
-              </option>
-            ))}
-          </select>
-          <select
-            name="locationName"
-            defaultValue={p.locationName}
-            className="border p-2 bg-zinc-900"
-          >
-            <option value="">all public location names</option>
-            {result.publicLocations.map((location) => (
-              <option key={location.name} value={location.name}>
-                {location.name}
-              </option>
-            ))}
-          </select>
-          <input
-            name="set"
-            defaultValue={p.set}
-            placeholder="set"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="rarity"
-            defaultValue={p.rarity}
-            placeholder="rarity"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="colorIdentity"
-            defaultValue={p.colorIdentity}
-            placeholder="color identity"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="manaValueMin"
-            defaultValue={p.manaValueMin}
-            placeholder="mana value min"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="manaValueMax"
-            defaultValue={p.manaValueMax}
-            placeholder="mana value max"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="keyword"
-            defaultValue={p.keyword}
-            placeholder="keyword contains"
-            className="border p-2 bg-zinc-900"
-          />
-          <select
-            name="foil"
-            defaultValue={p.foil}
-            className="border p-2 bg-zinc-900"
-          >
-            <option value="">foil/nonfoil</option>
-            <option value="true">foil</option>
-            <option value="false">nonfoil</option>
-          </select>
-          <input
-            name="priceMin"
-            defaultValue={p.priceMin}
-            placeholder="price min"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="priceMax"
-            defaultValue={p.priceMax}
-            placeholder="price max"
-            className="border p-2 bg-zinc-900"
-          />
-          <select
-            name="pageSize"
-            defaultValue={String(result.pageSize)}
-            className="border p-2 bg-zinc-900"
-          >
-            {[10, 25, 50, 100, 250].map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
-          <div className="col-span-2 flex gap-2">
-            <button className="border px-3">Apply</button>
-            <Link href="/public/inventory" className="border px-3 py-2">
-              Clear Filters
-            </Link>
-          </div>
-        </form>
-      </details>
+      <InventoryAdvancedSearch
+        actionPath="/public/inventory"
+        params={p}
+        displayMode={displayMode}
+        isPublic
+        setOptions={setOptions.map((set) => ({
+          value: set.setCode,
+          label: `${set.setCode.toUpperCase()} — ${set.setName || set.setCode.toUpperCase()}`,
+        }))}
+        cardNameOptions={cardNameRows.map((card) => card.name)}
+        clearHref={clearFiltersHref}
+      />
 
       {rows.length ? (
         <InventoryBrowser
@@ -431,9 +329,9 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
           infiniteApiPath="/api/public/inventory/list"
           initialPageSize={initialPageSize}
           initialBrowsingMode={initialBrowsingMode}
-          initialSortField={sortField}
+          initialSortField={String(sortField)}
           initialSortDirection={sortDirection}
-          currentLocationId={p.locationName || ""}
+          currentLocationId={selected("locationName")[0] || ""}
         />
       ) : (
         <div className="rounded border border-zinc-800 p-4 text-zinc-400">
