@@ -7,6 +7,7 @@ import {
 } from "@/lib/public-collection";
 import { getInventoryGroupedByCard } from "@/lib/inventory-locations";
 import { getManaFacesForDto } from "@/lib/mtg/mana-display";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 

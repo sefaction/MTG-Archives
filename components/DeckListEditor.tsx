@@ -5,13 +5,7 @@ import { DeckSection } from "@prisma/client";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { SetSymbol } from "@/components/mtg/CardSymbols";
 import { ManaCost } from "@/components/mtg/ManaCost";
-import {
-  bulkCommitDeckCardsToDeck,
-  commitDeckCardToDeck,
-  removeDeckCard,
-  returnDeckCardToInventory,
-  updateDeckCard,
-} from "@/app/decks/actions";
+import { removeDeckCard, updateDeckCard } from "@/app/decks/actions";
 import { deckSectionLabel } from "@/lib/decks";
 import type {
   DeckCardSearchResponse,
@@ -22,12 +16,13 @@ import {
   buildDeckGroups,
   cardManaValue,
   cardPriceNumber,
-  compareDeckRows,
   ownershipStatus,
   type DeckGroupMode,
   type DeckSortMode,
   type DeckViewMode,
 } from "@/lib/deck-view";
+
+export type DeckReturnLocation = { id: string; name: string };
 
 export type DeckEditorRow = {
   id: string;
@@ -42,14 +37,7 @@ export type DeckEditorRow = {
   enoughOwned: boolean;
   matchType: string;
   locationSummary: string;
-  available: number;
-  availableExact: number;
-  availableOther: number;
-  committedToThisDeck: number;
-  committedToOtherDecks: number;
-  commitmentMissing: number;
-  commitOptions: DeckCommitOption[];
-  returnOptions: DeckCommitOption[];
+  committedQuantity: number;
   createdAt: string;
   card: {
     id: string;
@@ -71,18 +59,6 @@ export type DeckEditorRow = {
     colors: unknown;
   } | null;
 };
-
-type DeckCommitOption = {
-  inventoryItemId: string;
-  quantity: number;
-  cardName: string;
-  setCode: string;
-  collectorNumber: string;
-  locationName: string;
-  matchType: string;
-};
-
-type NormalLocationOption = { id: string; name: string };
 
 const viewModes: Array<{ value: DeckViewMode; label: string }> = [
   { value: "text", label: "Text" },
@@ -143,13 +119,6 @@ function ownedBadge(row: DeckEditorRow, showLocations: boolean) {
         Exact {row.exactOwned}/{row.quantity}
       </span>
       {row.otherOwned ? <span>· Other {row.otherOwned}</span> : null}
-      <span>· Available {row.available}</span>
-      <span>
-        · Committed {row.committedToThisDeck}/{row.quantity}
-      </span>
-      {row.committedToOtherDecks ? (
-        <span>· Other decks {row.committedToOtherDecks}</span>
-      ) : null}
       {row.missing ? <span>· Missing {row.missing}</span> : null}
       {showLocations && row.locationSummary ? (
         <span>· {row.locationSummary}</span>
@@ -165,7 +134,7 @@ export function DeckListEditor({
   canEdit,
   defaultGroupMode = "type",
   showPrivateInventory = false,
-  normalLocations = [],
+  returnLocations = [],
 }: {
   deckId: string;
   rows: DeckEditorRow[];
@@ -173,7 +142,7 @@ export function DeckListEditor({
   canEdit: boolean;
   defaultGroupMode?: DeckGroupMode;
   showPrivateInventory?: boolean;
-  normalLocations?: NormalLocationOption[];
+  returnLocations?: DeckReturnLocation[];
 }) {
   const [viewMode, setViewMode] = useState<DeckViewMode>("text");
   const [groupMode, setGroupMode] = useState<DeckGroupMode>(defaultGroupMode);
@@ -187,12 +156,8 @@ export function DeckListEditor({
   );
   const [pending, setPending] = useState("");
   const [message, setMessage] = useState("");
-  const [commitPreviewOpen, setCommitPreviewOpen] = useState(false);
+  const [returnDestinationId, setReturnDestinationId] = useState("");
 
-  const sortedRows = useMemo(
-    () => [...rows].sort((a, b) => compareDeckRows(a, b, sortMode)),
-    [rows, sortMode],
-  );
   const groups = useMemo(
     () => buildDeckGroups(rows, groupMode, sortMode),
     [rows, groupMode, sortMode],
@@ -204,6 +169,10 @@ export function DeckListEditor({
   );
   const selectedQuantity = selectedRows.reduce(
     (total, row) => total + row.quantity,
+    0,
+  );
+  const selectedCommittedQuantity = selectedRows.reduce(
+    (total, row) => total + row.committedQuantity,
     0,
   );
   const missingIds = rows.filter((row) => row.missing > 0).map((row) => row.id);
@@ -338,7 +307,18 @@ export function DeckListEditor({
       const res = await fetch(`/api/decks/${deckId}/bulk-move`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rowIds, section: moveSection }),
+        body: JSON.stringify({
+          rowIds,
+          section: moveSection,
+          destinationLocationId: returnDestinationId,
+          maybeboardCommittedMode:
+            moveSection === DeckSection.MAYBEBOARD &&
+            selectedCommittedQuantity > 0
+              ? returnDestinationId
+                ? "return"
+                : ""
+              : undefined,
+        }),
       });
       if (!res.ok)
         throw new Error((await res.json()).error ?? "Bulk move failed.");
@@ -373,7 +353,10 @@ export function DeckListEditor({
       const res = await fetch(`/api/decks/${deckId}/bulk-remove`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rowIds }),
+        body: JSON.stringify({
+          rowIds,
+          destinationLocationId: returnDestinationId,
+        }),
       });
       if (!res.ok)
         throw new Error((await res.json()).error ?? "Bulk remove failed.");
@@ -395,6 +378,45 @@ export function DeckListEditor({
     }
   }
 
+  async function returnSelectedCommitted() {
+    const rowIds = [...selected];
+    if (!rowIds.length || !canEdit) return;
+    if (!returnDestinationId) {
+      setMessage(
+        "Choose a destination location for returned committed inventory.",
+      );
+      return;
+    }
+    setPending("Returning selected committed cards…");
+    setMessage("");
+    try {
+      const res = await fetch(`/api/decks/${deckId}/return-committed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rowIds,
+          destinationLocationId: returnDestinationId,
+        }),
+      });
+      if (!res.ok)
+        throw new Error((await res.json()).error ?? "Return failed.");
+      const result = (await res.json()) as {
+        movedEntries: number;
+        movedCards: number;
+        skippedEntries: number;
+        destinationLocationName: string;
+      };
+      setMessage(
+        `Returned ${result.movedCards} committed cards to ${result.destinationLocationName}. ${result.skippedEntries} selected inventory entries had no committed copies.`,
+      );
+      setSelected(new Set());
+      window.location.reload();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Return failed.");
+    } finally {
+      setPending("");
+    }
+  }
   return (
     <section className="space-y-4" id="deck-workspace">
       <div className="rounded border border-zinc-800 bg-zinc-950/80 p-3">
@@ -489,6 +511,21 @@ export function DeckListEditor({
             >
               Clear selection
             </button>
+            <label className="flex items-center gap-1 text-xs text-zinc-300">
+              Return destination
+              <select
+                value={returnDestinationId}
+                onChange={(event) => setReturnDestinationId(event.target.value)}
+                className="border bg-zinc-900 p-1"
+              >
+                <option value="">Choose…</option>
+                {returnLocations.map((location) => (
+                  <option key={location.id} value={location.id}>
+                    {location.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <button
               type="button"
               className="rounded border border-emerald-700 px-2 py-1 text-emerald-100"
@@ -505,20 +542,13 @@ export function DeckListEditor({
             >
               Preview missing → cheapest
             </button>
-            <button
-              type="button"
-              className="rounded border border-emerald-700 px-2 py-1 text-emerald-100"
-              disabled={Boolean(pending) || bulkCommitMoves.length === 0}
-              onClick={() => setCommitPreviewOpen(true)}
-            >
-              Commit all available cards
-            </button>
           </div>
           {selectedRows.length ? (
             <div className="flex flex-wrap items-center gap-2 rounded border border-sky-900 bg-sky-950/30 p-2 text-sm">
               <strong>{selectedRows.length} rows selected</strong>
               <span className="text-zinc-300">
-                {selectedQuantity} total cards
+                {selectedQuantity} deck-list cards · {selectedCommittedQuantity}{" "}
+                physically committed
               </span>
               <button
                 type="button"
@@ -551,6 +581,14 @@ export function DeckListEditor({
               </select>
               <button
                 type="button"
+                className="rounded border border-amber-700 px-2 py-1 text-amber-100"
+                disabled={Boolean(pending) || selectedCommittedQuantity === 0}
+                onClick={returnSelectedCommitted}
+              >
+                Return selected committed cards
+              </button>
+              <button
+                type="button"
                 className="rounded border border-zinc-700 px-2 py-1"
                 disabled={Boolean(pending)}
                 onClick={bulkMove}
@@ -580,14 +618,6 @@ export function DeckListEditor({
         </p>
       )}
 
-      {canEdit && commitPreviewOpen ? (
-        <BulkCommitPreview
-          deckId={deckId}
-          moves={bulkCommitMoves}
-          cancel={() => setCommitPreviewOpen(false)}
-        />
-      ) : null}
-
       {canEdit && preview ? (
         <OptimizationPreview
           preview={preview}
@@ -612,7 +642,7 @@ export function DeckListEditor({
           previewOwned={(rowId) => loadPreview("owned", [rowId])}
           previewCheapest={(rowId) => loadPreview("cheapest", [rowId])}
           showPrivateInventory={showPrivateInventory}
-          normalLocations={normalLocations}
+          returnLocations={returnLocations}
         />
       ) : (
         <VisualDeckView
@@ -628,7 +658,7 @@ export function DeckListEditor({
           previewCheapest={(rowId) => loadPreview("cheapest", [rowId])}
           mode={viewMode}
           showPrivateInventory={showPrivateInventory}
-          normalLocations={normalLocations}
+          returnLocations={returnLocations}
         />
       )}
 
@@ -653,7 +683,7 @@ function TextDeckView(props: {
   previewOwned: (rowId: string) => void;
   previewCheapest: (rowId: string) => void;
   showPrivateInventory: boolean;
-  normalLocations: NormalLocationOption[];
+  returnLocations: DeckReturnLocation[];
 }) {
   return (
     <div className="grid gap-4 xl:grid-cols-2">
@@ -765,7 +795,7 @@ function TextDeckRow({
               sections={props.sections}
               canEdit={props.canEdit}
               showPrivateInventory={props.showPrivateInventory}
-              normalLocations={props.normalLocations}
+              returnLocations={props.returnLocations}
             />
           </td>
         </tr>
@@ -855,7 +885,7 @@ function VisualDeckView(
                         sections={props.sections}
                         canEdit={props.canEdit}
                         showPrivateInventory={props.showPrivateInventory}
-                        normalLocations={props.normalLocations}
+                        returnLocations={props.returnLocations}
                       />
                     </div>
                   ) : null}
@@ -940,14 +970,14 @@ function RowEditor({
   sections,
   canEdit,
   showPrivateInventory,
-  normalLocations,
+  returnLocations,
 }: {
   deckId: string;
   row: DeckEditorRow;
   sections: DeckSection[];
   canEdit: boolean;
   showPrivateInventory: boolean;
-  normalLocations: NormalLocationOption[];
+  returnLocations: DeckReturnLocation[];
 }) {
   return (
     <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
@@ -972,18 +1002,15 @@ function RowEditor({
               : "Generic card row"}
           </p>
           <div className="mt-2">{ownedBadge(row, showPrivateInventory)}</div>
+          <p className="mt-1 text-sm text-amber-100">
+            Physically in deck: {row.committedQuantity}
+          </p>
           {showPrivateInventory && row.locationSummary ? (
             <p className="mt-1 text-xs text-zinc-400">
               Location summary: {row.locationSummary}
             </p>
           ) : null}
         </div>
-        <CommitmentPanel
-          deckId={deckId}
-          row={row}
-          canEdit={canEdit}
-          normalLocations={normalLocations}
-        />
         {canEdit ? (
           <div className="grid gap-4 xl:grid-cols-2">
             <form
@@ -1025,6 +1052,44 @@ function RowEditor({
                   rows={3}
                 />
               </label>
+              {row.committedQuantity > 0 ? (
+                <div className="md:col-span-3 rounded border border-amber-900 bg-amber-950/20 p-2 text-sm">
+                  <p className="text-amber-100">
+                    This card has {row.committedQuantity} committed physical
+                    copies. If moving it to Maybeboard, choose how to handle
+                    those copies.
+                  </p>
+                  <label className="mt-2 block">
+                    Maybeboard committed-copy handling
+                    <select
+                      name="maybeboardCommittedMode"
+                      defaultValue="return"
+                      className="mt-1 w-full border bg-zinc-900 p-2"
+                    >
+                      <option value="return">
+                        Move to Maybeboard and return committed copies
+                      </option>
+                      <option value="keep">
+                        Move to Maybeboard but keep copies physically in deck
+                      </option>
+                    </select>
+                  </label>
+                  <label className="mt-2 block">
+                    Destination location for returned copies
+                    <select
+                      name="destinationLocationId"
+                      className="mt-1 w-full border bg-zinc-900 p-2"
+                    >
+                      <option value="">Choose a location…</option>
+                      {returnLocations.map((location) => (
+                        <option key={location.id} value={location.id}>
+                          {location.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              ) : null}
               <SubmitButton
                 pendingLabel="Saving…"
                 className="rounded border border-sky-700 px-3 py-2 text-sky-100 md:col-span-2"
@@ -1033,14 +1098,40 @@ function RowEditor({
               </SubmitButton>
             </form>
             <div className="space-y-3 rounded border border-zinc-800 p-3">
+              <ReturnCommittedCopies
+                deckId={deckId}
+                row={row}
+                returnLocations={returnLocations}
+              />
               <PrintingPicker deckId={deckId} row={row} />
               <form action={removeDeckCard}>
                 <input type="hidden" name="deckId" value={deckId} />
                 <input type="hidden" name="deckCardId" value={row.id} />
+                {row.committedQuantity > 0 ? (
+                  <label className="mb-2 block text-sm">
+                    Return committed copies to this location before removing
+                    <select
+                      name="destinationLocationId"
+                      required
+                      className="mt-1 w-full border bg-zinc-900 p-2"
+                    >
+                      <option value="">Choose a location…</option>
+                      {returnLocations.map((location) => (
+                        <option key={location.id} value={location.id}>
+                          {location.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
                 <SubmitButton
                   pendingLabel="Removing…"
                   className="rounded border border-red-800 px-3 py-2 text-red-200"
-                  confirmMessage={`Remove ${row.cardName} from this deck? Inventory will not be modified.`}
+                  confirmMessage={
+                    row.committedQuantity > 0
+                      ? `Return committed copies of ${row.cardName} to the selected location, then remove this deck-list row? Inventory will not be deleted.`
+                      : `Remove ${row.cardName} from this deck list? Inventory will not be modified.`
+                  }
                 >
                   Remove
                 </SubmitButton>
@@ -1049,6 +1140,120 @@ function RowEditor({
           </div>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+function ReturnCommittedCopies({
+  deckId,
+  row,
+  returnLocations,
+}: {
+  deckId: string;
+  row: DeckEditorRow;
+  returnLocations: DeckReturnLocation[];
+}) {
+  const [quantity, setQuantity] = useState(Math.max(1, row.committedQuantity));
+  const [destinationLocationId, setDestinationLocationId] = useState("");
+  const [message, setMessage] = useState("");
+  const [pending, setPending] = useState(false);
+  if (!row.card?.id || row.committedQuantity <= 0) {
+    return (
+      <p className="rounded border border-zinc-800 p-2 text-sm text-zinc-400">
+        No committed physical copies to return for this row.
+      </p>
+    );
+  }
+  async function returnCopies() {
+    if (!destinationLocationId) {
+      setMessage("Choose a destination location.");
+      return;
+    }
+    setPending(true);
+    setMessage("");
+    try {
+      const res = await fetch(`/api/decks/${deckId}/return-committed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cardId: row.card?.id,
+          quantity,
+          destinationLocationId,
+        }),
+      });
+      if (!res.ok)
+        throw new Error((await res.json()).error ?? "Return failed.");
+      const result = (await res.json()) as {
+        movedCards: number;
+        destinationLocationName: string;
+      };
+      setMessage(
+        `Returned ${result.movedCards} copies to ${result.destinationLocationName}.`,
+      );
+      if (!res.ok) throw new Error("Printing search failed.");
+      const json = (await res.json()) as DeckCardSearchResponse;
+      if (requestId.current === id) {
+        setResults(json.results);
+        setStatus(json.message);
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Return failed.");
+    } finally {
+      setPending(false);
+    }
+  }
+  return (
+    <div className="space-y-2 rounded border border-amber-900 bg-amber-950/10 p-2">
+      <h4 className="font-semibold text-amber-100">Return committed copies</h4>
+      <p className="text-xs text-zinc-300">
+        {row.committedQuantity} physical copies are currently committed to this
+        deck. Returning them keeps the deck-list row intact.
+      </p>
+      <label className="block text-sm">
+        Quantity
+        <input
+          type="number"
+          min={1}
+          max={row.committedQuantity}
+          value={quantity}
+          onChange={(event) =>
+            setQuantity(
+              Math.max(
+                1,
+                Math.min(
+                  row.committedQuantity,
+                  Number(event.target.value) || 1,
+                ),
+              ),
+            )
+          }
+          className="mt-1 w-full border bg-zinc-900 p-2"
+        />
+      </label>
+      <label className="block text-sm">
+        Destination location
+        <select
+          value={destinationLocationId}
+          onChange={(event) => setDestinationLocationId(event.target.value)}
+          className="mt-1 w-full border bg-zinc-900 p-2"
+        >
+          <option value="">Choose a location…</option>
+          {returnLocations.map((location) => (
+            <option key={location.id} value={location.id}>
+              {location.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={returnCopies}
+        className="rounded border border-amber-700 px-3 py-2 text-amber-100 disabled:opacity-60"
+      >
+        {pending ? "Returning…" : "Return committed copies"}
+      </button>
+      {message ? <p className="text-xs text-zinc-400">{message}</p> : null}
     </div>
   );
 }
