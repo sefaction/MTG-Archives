@@ -36,17 +36,40 @@ export async function POST(
     : [];
   const quantity = Number(body.quantity);
   let cardIds: string[] | undefined;
+  let skippedRows = 0;
   if (rowIds.length) {
     const rows = await prisma.deckCard.findMany({
-      where: { deckId, id: { in: rowIds }, cardId: { not: null } },
-      select: { cardId: true },
+      where: { deckId, id: { in: rowIds } },
+      select: { id: true, cardId: true },
     });
-    cardIds = rows
-      .map((row) => row.cardId)
-      .filter((id): id is string => Boolean(id));
+    const committed = await prisma.inventoryItem.groupBy({
+      by: ["cardId"],
+      where: {
+        currentOwnerId: ownerPlayerId,
+        quantity: { gt: 0 },
+        location: { deckId, kind: "DECK" },
+      },
+      _sum: { quantity: true },
+    });
+    const committedCardIds = new Set(
+      committed
+        .filter((entry) => (entry._sum.quantity ?? 0) > 0)
+        .map((entry) => entry.cardId),
+    );
+    const rowsWithCommittedCopies = rows.filter(
+      (row) => row.cardId && committedCardIds.has(row.cardId),
+    );
+    skippedRows = Math.max(0, rowIds.length - rowsWithCommittedCopies.length);
+    cardIds = [
+      ...new Set(
+        rowsWithCommittedCopies
+          .map((row) => row.cardId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
     if (!cardIds.length) {
       return Response.json(
-        { error: "Selected rows do not have committed printable cards." },
+        { error: "Selected rows do not have committed inventory to return." },
         { status: 400 },
       );
     }
@@ -70,7 +93,7 @@ export async function POST(
     revalidatePath(`/decks/${deckId}`);
     revalidatePath("/inventory");
     revalidatePath("/locations");
-    return Response.json(result);
+    return Response.json({ ...result, skippedRows });
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : "Return failed." },

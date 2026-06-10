@@ -141,7 +141,7 @@ export async function deleteDeck(fd: FormData) {
       `This deck has ${committed.committedQuantity} committed physical cards. Choose a destination location before deleting it.`,
     );
   }
-  if (committed.committedQuantity >= 20 && strongConfirmation !== "DELETE") {
+  if (committed.committedQuantity > 0 && strongConfirmation !== "DELETE") {
     throw new Error(
       "Type DELETE to confirm returning committed inventory and deleting this deck.",
     );
