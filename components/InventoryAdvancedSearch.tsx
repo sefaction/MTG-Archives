@@ -8,6 +8,7 @@ export type FilterLocationOption = FilterOption & { kind?: string };
 
 export type InventoryAdvancedSearchCapabilities = {
   showOwnerScopeControls: boolean;
+  showOwnerFilter: boolean;
   showVisibilityFilter: boolean;
   showSourceFilter: boolean;
   showInventoryScopeFilter: boolean;
@@ -23,7 +24,11 @@ type InventoryAdvancedSearchProps = {
   capabilities?: Partial<InventoryAdvancedSearchCapabilities>;
   players?: FilterOption[];
   locations?: FilterLocationOption[];
+  ownerParamName?: "ownerId" | "owner";
+  ownerFilterLabel?: string;
+  ownerAllLabel?: string;
   locationParamName?: "locationId" | "locationName";
+  includeUnassignedLocationOption?: boolean;
   setOptions?: FilterOption[];
   cardNameOptions?: string[];
   suggestionsEndpoint?: string;
@@ -706,6 +711,8 @@ function buildActiveChips({
   rarity,
   finish,
   source,
+  ownerParamName,
+  ownerFilterLabel,
   locationValues,
   locationParamName,
   locationOptions,
@@ -718,6 +725,8 @@ function buildActiveChips({
   rarity: string[];
   finish: string[];
   source: string[];
+  ownerParamName: "ownerId" | "owner";
+  ownerFilterLabel: string;
   locationValues: string[];
   locationParamName: "locationId" | "locationName";
   locationOptions: FilterOption[];
@@ -808,8 +817,9 @@ function buildActiveChips({
   }
   if (capabilities.showVisibilityFilter)
     pushWhole("visibility", "Visibility", first(params, "visibility"));
-  if (capabilities.showOwnerScopeControls)
-    pushWhole("ownerId", "Owner", first(params, "ownerId"));
+  if (capabilities.showOwnerFilter || capabilities.showOwnerScopeControls) {
+    pushWhole(ownerParamName, ownerFilterLabel, first(params, ownerParamName));
+  }
   if (capabilities.showInventoryScopeFilter)
     pushWhole("commitment", "Inventory", first(params, "commitment"));
   colorIdentity.forEach((value) => {
@@ -865,7 +875,11 @@ export function InventoryAdvancedSearch({
   capabilities: capabilityOverrides,
   players = [],
   locations = [],
+  ownerParamName = isPublic ? "owner" : "ownerId",
+  ownerFilterLabel = isPublic ? "Current owner" : "Owner",
+  ownerAllLabel = isPublic ? "All public owners" : "All owners",
   locationParamName = isPublic ? "locationName" : "locationId",
+  includeUnassignedLocationOption = !isPublic,
   setOptions = [],
   cardNameOptions = [],
   suggestionsEndpoint = isPublic
@@ -875,6 +889,7 @@ export function InventoryAdvancedSearch({
 }: InventoryAdvancedSearchProps) {
   const capabilities: InventoryAdvancedSearchCapabilities = {
     showOwnerScopeControls: isAdmin && !isPublic,
+    showOwnerFilter: isPublic,
     showVisibilityFilter: !isPublic,
     showSourceFilter: !isPublic,
     showInventoryScopeFilter: !isPublic,
@@ -906,7 +921,9 @@ export function InventoryAdvancedSearch({
       : "");
   const [mvOp, setMvOp] = useState(initialMvOp);
   const locationOptions = [
-    { value: "unassigned", label: "Unassigned" },
+    ...(includeUnassignedLocationOption
+      ? [{ value: "unassigned", label: "Unassigned" }]
+      : []),
     ...locations.map((location) => ({
       value: location.value,
       label: `${location.kind === "DECK" ? "Deck: " : ""}${location.label}`,
@@ -928,6 +945,8 @@ export function InventoryAdvancedSearch({
     rarity,
     finish,
     source,
+    ownerParamName,
+    ownerFilterLabel,
     locationValues: selectedLocationValues,
     locationParamName,
     locationOptions,
@@ -1063,15 +1082,16 @@ export function InventoryAdvancedSearch({
               compact
             />
           ) : null}
-          {capabilities.showOwnerScopeControls ? (
+          {capabilities.showOwnerFilter ||
+          capabilities.showOwnerScopeControls ? (
             <label className="min-w-48 rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-sm">
-              <span className="text-zinc-400">Owner: </span>
+              <span className="text-zinc-400">{ownerFilterLabel}: </span>
               <select
-                name="ownerId"
-                defaultValue={first(params, "ownerId")}
+                name={ownerParamName}
+                defaultValue={first(params, ownerParamName)}
                 className="bg-transparent outline-none"
               >
-                <option value="">All owners</option>
+                <option value="">{ownerAllLabel}</option>
                 {players.map((player) => (
                   <option key={player.value} value={player.value}>
                     {player.label}

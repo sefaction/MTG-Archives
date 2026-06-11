@@ -188,6 +188,20 @@ function buildPublicCardWhere(filters: PublicInventoryFilters) {
   return { cardWhere, queryWhere };
 }
 
+function publicOwnerDisplayName(user: {
+  publicDisplayName?: string | null;
+  displayName?: string | null;
+  player?: { displayName?: string | null; name?: string | null } | null;
+}) {
+  return (
+    user.publicDisplayName?.trim() ||
+    user.player?.displayName?.trim() ||
+    user.displayName?.trim() ||
+    user.player?.name?.trim() ||
+    "Owner"
+  );
+}
+
 function publicUserWhere(defaultVisibility: DefaultCollectionVisibility) {
   return {
     isActive: true,
@@ -197,7 +211,9 @@ function publicUserWhere(defaultVisibility: DefaultCollectionVisibility) {
   } satisfies Prisma.UserWhereInput;
 }
 
-export function globalPublicInventoryLocationWhere(): Prisma.InventoryLocationWhereInput {
+export function globalPublicInventoryLocationWhere(
+  ownerPublicSlug?: string,
+): Prisma.InventoryLocationWhereInput {
   return {
     active: true,
     kind: "NORMAL",
@@ -207,6 +223,7 @@ export function globalPublicInventoryLocationWhere(): Prisma.InventoryLocationWh
           isActive: true,
           publicProfileEnabled: true,
           playerId: { not: null },
+          ...(ownerPublicSlug ? { publicSlug: ownerPublicSlug } : {}),
         },
       },
     },
@@ -427,6 +444,11 @@ export async function getGlobalPublicInventory(
     _count: { _all: true as const },
     orderBy: [{ cardId: "asc" }] as any,
   };
+  const ownerPublicSlug = filters.owner?.trim() || undefined;
+  const publicOwnerInventoryWhere = buildPublicInventoryWhere({});
+  const publicLocationInventoryWhere = buildPublicInventoryWhere(
+    ownerPublicSlug ? { owner: ownerPublicSlug } : {},
+  );
   const [allGroups, publicProfiles, publicLocations] = await Promise.all([
     displayMode === "grouped"
       ? prisma.inventoryItem.groupBy(groupedGroupBy)
@@ -437,16 +459,21 @@ export async function getGlobalPublicInventory(
         publicProfileEnabled: true,
         publicSlug: { not: null },
         playerId: { not: null },
+        player: { inventoryOwned: { some: publicOwnerInventoryWhere } },
       },
       select: {
         publicSlug: true,
         publicDisplayName: true,
         displayName: true,
+        player: { select: { displayName: true, name: true } },
       },
-      orderBy: { publicDisplayName: "asc" },
+      orderBy: [{ publicDisplayName: "asc" }, { displayName: "asc" }],
     }),
     prisma.inventoryLocation.findMany({
-      where: globalPublicInventoryLocationWhere(),
+      where: {
+        ...globalPublicInventoryLocationWhere(ownerPublicSlug),
+        inventoryItems: { some: publicLocationInventoryWhere },
+      },
       select: { name: true },
       distinct: ["name"],
       orderBy: { name: "asc" },
@@ -570,7 +597,7 @@ export async function getGlobalPublicInventory(
     inventory: filteredInventory,
     publicProfiles: publicProfiles.map((profile) => ({
       publicSlug: profile.publicSlug!,
-      displayName: profile.publicDisplayName || profile.displayName,
+      displayName: publicOwnerDisplayName(profile),
     })),
     publicLocations,
     page,

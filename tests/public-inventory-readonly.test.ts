@@ -84,6 +84,12 @@ test("global public inventory query enforces public profile and location visibil
 test("public inventory search keeps browsing filters and removes private/admin filters", () => {
   assert.match(globalPublicInventoryPage, /<InventoryAdvancedSearch/);
   assert.match(globalPublicInventoryPage, /isPublic/);
+  assert.match(globalPublicInventoryPage, /ownerParamName="owner"/);
+  assert.match(globalPublicInventoryPage, /ownerFilterLabel="Current owner"/);
+  assert.match(
+    globalPublicInventoryPage,
+    /players=\{result\.publicProfiles\.map/,
+  );
   assert.match(globalPublicInventoryPage, /locationParamName="locationName"/);
   assert.match(
     globalPublicInventoryPage,
@@ -97,6 +103,8 @@ test("public inventory search keeps browsing filters and removes private/admin f
   assert.match(inventorySearch, /label="Rarity"/);
   assert.match(inventorySearch, /label="Finish"/);
   assert.match(inventorySearch, /Language/);
+  assert.match(inventorySearch, /Current owner/);
+  assert.match(inventorySearch, /name=\{ownerParamName\}/);
   assert.match(inventorySearch, /label="Location"/);
   assert.match(inventorySearch, /Color ID/);
   assert.match(inventorySearch, /Mana value/);
@@ -107,6 +115,7 @@ test("public inventory search keeps browsing filters and removes private/admin f
   assert.match(inventorySearch, /showVisibilityFilter: !isPublic/);
   assert.match(inventorySearch, /showSourceFilter: !isPublic/);
   assert.match(inventorySearch, /showInventoryScopeFilter: !isPublic/);
+  assert.match(inventorySearch, /showOwnerFilter: isPublic/);
   assert.match(inventorySearch, /showOwnerScopeControls: isAdmin && !isPublic/);
 });
 
@@ -135,7 +144,7 @@ test("public inventory browser keeps read-only browse controls and hides write/a
   assert.doesNotMatch(globalPublicInventoryPage, /Export Inventory/);
   assert.doesNotMatch(globalPublicInventoryPage, /Download CSV/);
   assert.doesNotMatch(globalPublicInventoryPage, /Moxfield foil/);
-  assert.doesNotMatch(globalPublicInventoryPage, /Current owner/);
+  assert.match(globalPublicInventoryPage, /Current owner/);
   assert.doesNotMatch(globalPublicInventoryPage, /Scope/);
   assert.doesNotMatch(globalPublicInventoryPage, /onBulkMoveLocation=/);
   assert.doesNotMatch(globalPublicInventoryPage, /onBulkDeleteInventory=/);
@@ -153,12 +162,27 @@ test("public inventory data and autocomplete routes are scoped to public-safe da
   );
   assert.match(publicCollectionQueries, /globalPublicInventoryLocationWhere/);
   assert.match(publicCollectionQueries, /publicInventoryVisibilityWhere/);
+  assert.match(publicCollectionQueries, /publicOwnerDisplayName/);
+  assert.match(
+    publicCollectionQueries,
+    /player:\s*\{ inventoryOwned:\s*\{ some: publicOwnerInventoryWhere \} \}/,
+  );
+  assert.match(publicCollectionQueries, /publicSlug:\s*\{ not: null \}/);
+  assert.match(
+    publicCollectionQueries,
+    /inventoryItems:\s*\{ some: publicLocationInventoryWhere \}/,
+  );
+  assert.match(
+    publicCollectionQueries,
+    /ownerPublicSlug \? \{ publicSlug: ownerPublicSlug \} : \{\}/,
+  );
   assert.match(publicCollectionQueries, /select:\s*\{\s*name: true\s*\}/);
   assert.match(filterSuggestionsApi, /buildPublicInventoryWhere/);
   assert.match(
     filterSuggestionsApi,
     /url\.searchParams\.get\("public"\) === "1"/,
   );
+  assert.match(filterSuggestionScope, /"owner"/);
   assert.match(filterSuggestionScope, /"locationName"/);
   assert.doesNotMatch(
     publicInventoryListApi,

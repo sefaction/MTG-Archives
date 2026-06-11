@@ -292,11 +292,19 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
         params={p}
         displayMode={displayMode}
         isPublic
+        players={result.publicProfiles.map((owner) => ({
+          value: owner.publicSlug,
+          label: owner.displayName,
+        }))}
+        ownerParamName="owner"
+        ownerFilterLabel="Current owner"
+        ownerAllLabel="All public owners"
         locations={result.publicLocations.map((location) => ({
           value: location.name,
           label: location.name,
         }))}
         locationParamName="locationName"
+        includeUnassignedLocationOption={false}
         setOptions={setOptions.map((set) => ({
           value: set.setCode,
           label: `${set.setCode.toUpperCase()} — ${set.setName || set.setCode.toUpperCase()}`,
