@@ -1,4 +1,8 @@
-import { Prisma, type PrismaClient } from "@prisma/client";
+import {
+  InventoryLocationKind,
+  Prisma,
+  type PrismaClient,
+} from "@prisma/client";
 import { normalizeLocationName } from "./inventory-locations";
 
 export const DECK_LOCATION_TYPE = "Deck";
@@ -56,16 +60,25 @@ export function deckLocationNormalizedName(deckId: string) {
 export function isSystemDeckLocation(location: {
   type?: string | null;
   normalizedName?: string | null;
+  kind?: InventoryLocationKind | string | null;
+  deckId?: string | null;
+  systemManaged?: boolean | null;
 }) {
   return (
+    location.kind === InventoryLocationKind.DECK ||
+    Boolean(location.deckId) ||
     location.type === DECK_LOCATION_TYPE ||
-    Boolean(location.normalizedName?.startsWith("deck-"))
+    Boolean(location.normalizedName?.startsWith("deck-")) ||
+    Boolean(location.systemManaged)
   );
 }
 
 export function isNormalInventoryLocation(location: {
   type?: string | null;
   normalizedName?: string | null;
+  kind?: InventoryLocationKind | string | null;
+  deckId?: string | null;
+  systemManaged?: boolean | null;
   active?: boolean | null;
 }) {
   return location.active !== false && !isSystemDeckLocation(location);
@@ -124,11 +137,20 @@ export async function findSystemDeckLocation(
     where: {
       ownerPlayerId: input.ownerPlayerId,
       OR: [
+        { deckId: input.deckId },
         { normalizedName: deckLocationNormalizedName(input.deckId) },
         { type: DECK_LOCATION_TYPE, description: { contains: input.deckId } },
       ],
     },
-    select: { id: true, name: true, normalizedName: true, type: true },
+    select: {
+      id: true,
+      name: true,
+      normalizedName: true,
+      type: true,
+      kind: true,
+      deckId: true,
+      systemManaged: true,
+    },
   });
 }
 
@@ -179,6 +201,9 @@ async function validateDestinationLocation(
       normalizedName: true,
       type: true,
       active: true,
+      kind: true,
+      deckId: true,
+      systemManaged: true,
     },
   });
   if (!destination) throw new Error("Destination location not found.");
@@ -293,10 +318,12 @@ export async function returnCommittedInventoryFromDeckTx(
           data: { quantity: { decrement: quantityToMove } },
         });
       }
+      const sourceAuditInventoryItemId =
+        quantityToMove === item.quantity ? matching.id : item.id;
       await tx.inventoryAuditLog.createMany({
         data: [
           {
-            inventoryItemId: item.id,
+            inventoryItemId: sourceAuditInventoryItemId,
             changedByUserId: input.actorUserId,
             changeType: input.mode,
             beforeJson: sourceBefore,

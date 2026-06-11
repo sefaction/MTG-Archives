@@ -56,6 +56,7 @@ export type DeckEditorRow = {
   }>;
   returnOptions: Array<{
     inventoryItemId: string;
+    locationName: string;
     quantity: number;
     cardName: string;
     setCode: string;
@@ -431,11 +432,11 @@ export function DeckListEditor({
       const result = (await res.json()) as {
         movedEntries: number;
         movedCards: number;
-        skippedEntries: number;
+        skippedRows: number;
         destinationLocationName: string;
       };
       setMessage(
-        `Returned ${result.movedCards} committed cards to ${result.destinationLocationName}. ${result.skippedEntries} selected inventory entries had no committed copies.`,
+        `Returned ${result.movedCards} committed cards from ${result.movedEntries} inventory entries. Skipped ${result.skippedRows} selected rows with no committed copies.`,
       );
       setSelected(new Set());
       window.location.reload();
@@ -1126,6 +1127,7 @@ function RowEditor({
               </SubmitButton>
             </form>
             <div className="space-y-3 rounded border border-zinc-800 p-3">
+              <CommitInventoryToDeck deckId={deckId} row={row} />
               <ReturnCommittedCopies
                 deckId={deckId}
                 row={row}
@@ -1172,6 +1174,122 @@ function RowEditor({
   );
 }
 
+function sortedCommitOptions(row: DeckEditorRow) {
+  return [...row.commitOptions]
+    .filter((option) => option.quantity > 0)
+    .sort((a, b) => {
+      if (a.matchType !== b.matchType) {
+        return a.matchType === "exact" ? -1 : 1;
+      }
+      return (
+        a.locationName.localeCompare(b.locationName) ||
+        a.setCode.localeCompare(b.setCode) ||
+        a.collectorNumber.localeCompare(b.collectorNumber)
+      );
+    });
+}
+
+function CommitInventoryToDeck({
+  deckId,
+  row,
+}: {
+  deckId: string;
+  row: DeckEditorRow;
+}) {
+  const options = useMemo(() => sortedCommitOptions(row), [row]);
+  const [selectedInventoryItemId, setSelectedInventoryItemId] = useState(
+    options[0]?.inventoryItemId ?? "",
+  );
+  const selectedOption =
+    options.find(
+      (option) => option.inventoryItemId === selectedInventoryItemId,
+    ) ?? options[0];
+  const remainingNeeded = Math.max(
+    0,
+    row.commitmentMissing ?? row.quantity - row.committedQuantity,
+  );
+  const fullyCommitted =
+    row.committedQuantity >= row.quantity || remainingNeeded <= 0;
+  const quantityMax = selectedOption
+    ? Math.max(1, Math.min(selectedOption.quantity, remainingNeeded))
+    : 1;
+
+  return (
+    <section className="space-y-2 rounded border border-emerald-900 bg-emerald-950/10 p-2">
+      <h4 className="font-semibold text-emerald-100">
+        Commit inventory to deck
+      </h4>
+      <p className="text-xs text-zinc-300">
+        Move available inventory copies into this deck&apos;s system location
+        for this specific deck-list row.
+      </p>
+      {fullyCommitted ? (
+        <p className="rounded border border-emerald-800 bg-emerald-950/40 p-2 text-sm text-emerald-100">
+          This deck row is fully committed.
+        </p>
+      ) : options.length ? (
+        <form
+          action={commitDeckCardToDeck}
+          className="grid gap-2 md:grid-cols-4"
+        >
+          <input type="hidden" name="deckId" value={deckId} />
+          <input type="hidden" name="deckCardId" value={row.id} />
+          <label className="text-xs md:col-span-2">
+            Source inventory
+            <select
+              name="inventoryItemId"
+              value={selectedOption?.inventoryItemId ?? ""}
+              onChange={(event) =>
+                setSelectedInventoryItemId(event.target.value)
+              }
+              className="mt-1 w-full border bg-zinc-900 p-2"
+            >
+              {options.map((option) => (
+                <option
+                  key={option.inventoryItemId}
+                  value={option.inventoryItemId}
+                >
+                  {option.locationName} — {option.cardName} —{" "}
+                  {option.setCode.toUpperCase()} #{option.collectorNumber} —{" "}
+                  {option.quantity} available
+                  {option.matchType === "other" ? " — other printing" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs">
+            Quantity
+            <input
+              key={selectedOption?.inventoryItemId ?? "quantity"}
+              name="quantity"
+              type="number"
+              min={1}
+              max={quantityMax}
+              defaultValue={quantityMax}
+              className="mt-1 w-full border bg-zinc-900 p-2"
+            />
+          </label>
+          <SubmitButton
+            pendingLabel="Committing…"
+            className="self-end rounded border border-emerald-700 px-3 py-2 text-emerald-100"
+          >
+            Commit to deck
+          </SubmitButton>
+          <p className="text-xs text-zinc-400 md:col-span-4">
+            {selectedOption
+              ? `${remainingNeeded} still needed for this row; selected source has ${selectedOption.quantity} available.`
+              : `${remainingNeeded} still needed for this row.`}
+          </p>
+        </form>
+      ) : (
+        <p className="rounded border border-zinc-800 p-2 text-sm text-zinc-400">
+          No available inventory copies to commit for this row.
+        </p>
+      )}
+    </section>
+  );
+}
+
 function ReturnCommittedCopies({
   deckId,
   row,
@@ -1181,102 +1299,91 @@ function ReturnCommittedCopies({
   row: DeckEditorRow;
   returnLocations: DeckReturnLocation[];
 }) {
-  const [quantity, setQuantity] = useState(Math.max(1, row.committedQuantity));
-  const [destinationLocationId, setDestinationLocationId] = useState("");
-  const [message, setMessage] = useState("");
-  const [pending, setPending] = useState(false);
-  if (!row.card?.id || row.committedQuantity <= 0) {
-    return (
-      <p className="rounded border border-zinc-800 p-2 text-sm text-zinc-400">
-        No committed physical copies to return for this row.
-      </p>
-    );
+  const options = useMemo(
+    () => [...row.returnOptions].filter((option) => option.quantity > 0),
+    [row.returnOptions],
+  );
+  const [selectedInventoryItemId, setSelectedInventoryItemId] = useState(
+    options[0]?.inventoryItemId ?? "",
+  );
+  const selectedOption =
+    options.find(
+      (option) => option.inventoryItemId === selectedInventoryItemId,
+    ) ?? options[0];
+  const quantityMax = selectedOption ? Math.max(1, selectedOption.quantity) : 1;
+
+  if (!options.length) {
+    return null;
   }
-  async function returnCopies() {
-    if (!destinationLocationId) {
-      setMessage("Choose a destination location.");
-      return;
-    }
-    setPending(true);
-    setMessage("");
-    try {
-      const res = await fetch(`/api/decks/${deckId}/return-committed`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          cardId: row.card?.id,
-          quantity,
-          destinationLocationId,
-        }),
-      });
-      if (!res.ok)
-        throw new Error((await res.json()).error ?? "Return failed.");
-      const result = (await res.json()) as {
-        movedCards: number;
-        destinationLocationName: string;
-      };
-      setMessage(
-        `Returned ${result.movedCards} copies to ${result.destinationLocationName}.`,
-      );
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Return failed.");
-    } finally {
-      setPending(false);
-    }
-  }
+
   return (
-    <div className="space-y-2 rounded border border-amber-900 bg-amber-950/10 p-2">
+    <section className="space-y-2 rounded border border-amber-900 bg-amber-950/10 p-2">
       <h4 className="font-semibold text-amber-100">Return committed copies</h4>
       <p className="text-xs text-zinc-300">
-        {row.committedQuantity} physical copies are currently committed to this
-        deck. Returning them keeps the deck-list row intact.
+        Return physical inventory from this deck&apos;s system location. The
+        deck-list row stays intact.
       </p>
-      <label className="block text-sm">
-        Quantity
-        <input
-          type="number"
-          min={1}
-          max={row.committedQuantity}
-          value={quantity}
-          onChange={(event) =>
-            setQuantity(
-              Math.max(
-                1,
-                Math.min(
-                  row.committedQuantity,
-                  Number(event.target.value) || 1,
-                ),
-              ),
-            )
-          }
-          className="mt-1 w-full border bg-zinc-900 p-2"
-        />
-      </label>
-      <label className="block text-sm">
-        Destination location
-        <select
-          value={destinationLocationId}
-          onChange={(event) => setDestinationLocationId(event.target.value)}
-          className="mt-1 w-full border bg-zinc-900 p-2"
-        >
-          <option value="">Choose a location…</option>
-          {returnLocations.map((location) => (
-            <option key={location.id} value={location.id}>
-              {location.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <button
-        type="button"
-        disabled={pending}
-        onClick={returnCopies}
-        className="rounded border border-amber-700 px-3 py-2 text-amber-100 disabled:opacity-60"
+      <form
+        action={returnDeckCardToInventory}
+        className="grid gap-2 md:grid-cols-5"
       >
-        {pending ? "Returning…" : "Return committed copies"}
-      </button>
-      {message ? <p className="text-xs text-zinc-400">{message}</p> : null}
-    </div>
+        <input type="hidden" name="deckId" value={deckId} />
+        <input type="hidden" name="deckCardId" value={row.id} />
+        <label className="text-xs md:col-span-2">
+          Committed source
+          <select
+            name="inventoryItemId"
+            value={selectedOption?.inventoryItemId ?? ""}
+            onChange={(event) => setSelectedInventoryItemId(event.target.value)}
+            className="mt-1 w-full border bg-zinc-900 p-2"
+          >
+            {options.map((option) => (
+              <option
+                key={option.inventoryItemId}
+                value={option.inventoryItemId}
+              >
+                {option.locationName} — {option.cardName} —{" "}
+                {option.setCode.toUpperCase()} #{option.collectorNumber} —{" "}
+                {option.quantity} committed
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-xs">
+          Destination
+          <select
+            name="destinationLocationId"
+            required
+            className="mt-1 w-full border bg-zinc-900 p-2"
+          >
+            <option value="">Choose…</option>
+            {returnLocations.map((location) => (
+              <option key={location.id} value={location.id}>
+                {location.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-xs">
+          Quantity
+          <input
+            key={selectedOption?.inventoryItemId ?? "return-quantity"}
+            name="quantity"
+            type="number"
+            min={1}
+            max={quantityMax}
+            defaultValue={1}
+            className="mt-1 w-full border bg-zinc-900 p-2"
+          />
+        </label>
+        <SubmitButton
+          pendingLabel="Returning…"
+          className="self-end rounded border border-amber-700 px-3 py-2 text-amber-100"
+        >
+          Return to inventory
+        </SubmitButton>
+      </form>
+    </section>
   );
 }
 
@@ -1565,149 +1672,6 @@ function PreviewPrinting({
         {printing.setCode.toUpperCase()} #{printing.collectorNumber}
       </div>
     </div>
-  );
-}
-
-function CommitmentPanel({
-  deckId,
-  row,
-  canEdit,
-  normalLocations,
-}: {
-  deckId: string;
-  row: DeckEditorRow;
-  canEdit: boolean;
-  normalLocations: DeckReturnLocation[];
-}) {
-  return (
-    <section className="space-y-3 rounded border border-emerald-900/60 bg-emerald-950/10 p-3 text-sm">
-      <div>
-        <h4 className="font-semibold text-emerald-100">Physical commitment</h4>
-        <p className="text-zinc-300">
-          Needed {row.quantity} · Owned total {row.exactOwned + row.otherOwned}{" "}
-          · Available inventory {row.available} · Committed to this deck{" "}
-          {row.committedToThisDeck}/{row.quantity} · Committed to another deck{" "}
-          {row.committedToOtherDecks} · Missing {row.missing}
-        </p>
-      </div>
-      {row.committedToThisDeck >= row.quantity ? (
-        <p className="rounded border border-emerald-800 bg-emerald-950/40 p-2 text-emerald-100">
-          Committed {row.committedToThisDeck}/{row.quantity}
-        </p>
-      ) : row.available > 0 ? (
-        <p className="rounded border border-sky-800 bg-sky-950/30 p-2 text-sky-100">
-          Available {row.available}; {row.commitmentMissing} still uncommitted.
-        </p>
-      ) : (
-        <p className="rounded border border-amber-800 bg-amber-950/30 p-2 text-amber-100">
-          Missing available inventory for {row.commitmentMissing} deck cards.
-        </p>
-      )}
-      {canEdit && row.commitOptions.length ? (
-        <form
-          action={commitDeckCardToDeck}
-          className="grid gap-2 md:grid-cols-4"
-        >
-          <input type="hidden" name="deckId" value={deckId} />
-          <input type="hidden" name="deckCardId" value={row.id} />
-          <label className="text-xs md:col-span-2">
-            Commit from available inventory
-            <select
-              name="inventoryItemId"
-              className="mt-1 w-full border bg-zinc-900 p-2"
-            >
-              {row.commitOptions.map((option) => (
-                <option
-                  key={option.inventoryItemId}
-                  value={option.inventoryItemId}
-                >
-                  {option.locationName}: {option.quantity} × {option.cardName} (
-                  {option.setCode.toUpperCase()} #{option.collectorNumber})
-                  {option.matchType === "exact"
-                    ? " · exact"
-                    : " · other printing"}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-xs">
-            Quantity
-            <input
-              name="quantity"
-              type="number"
-              min={1}
-              max={Math.max(1, row.commitmentMissing)}
-              defaultValue={Math.max(
-                1,
-                Math.min(row.commitmentMissing, row.available),
-              )}
-              className="mt-1 w-full border bg-zinc-900 p-2"
-            />
-          </label>
-          <SubmitButton
-            pendingLabel="Committing…"
-            className="self-end rounded border border-emerald-700 px-3 py-2 text-emerald-100"
-          >
-            Commit to deck
-          </SubmitButton>
-        </form>
-      ) : null}
-      {canEdit && row.returnOptions.length && normalLocations.length ? (
-        <form
-          action={returnDeckCardToInventory}
-          className="grid gap-2 md:grid-cols-5"
-        >
-          <input type="hidden" name="deckId" value={deckId} />
-          <input type="hidden" name="deckCardId" value={row.id} />
-          <label className="text-xs md:col-span-2">
-            Return committed copy
-            <select
-              name="inventoryItemId"
-              className="mt-1 w-full border bg-zinc-900 p-2"
-            >
-              {row.returnOptions.map((option) => (
-                <option
-                  key={option.inventoryItemId}
-                  value={option.inventoryItemId}
-                >
-                  {option.quantity} × {option.cardName} (
-                  {option.setCode.toUpperCase()} #{option.collectorNumber})
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-xs">
-            Destination
-            <select
-              name="destinationLocationId"
-              className="mt-1 w-full border bg-zinc-900 p-2"
-            >
-              {normalLocations.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-xs">
-            Quantity
-            <input
-              name="quantity"
-              type="number"
-              min={1}
-              defaultValue={1}
-              className="mt-1 w-full border bg-zinc-900 p-2"
-            />
-          </label>
-          <SubmitButton
-            pendingLabel="Returning…"
-            className="self-end rounded border border-zinc-700 px-3 py-2"
-          >
-            Return to inventory
-          </SubmitButton>
-        </form>
-      ) : null}
-    </section>
   );
 }
 

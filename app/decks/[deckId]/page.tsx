@@ -161,6 +161,7 @@ export default async function DeckDetailPage({
       .filter(({ item }) => item.location?.deckId === deck.id)
       .map(({ item }) => ({
         inventoryItemId: item.id,
+        locationName: item.location?.name ?? "Deck",
         quantity: item.quantity,
         cardName: item.card.name,
         setCode: item.card.setCode,
@@ -496,7 +497,7 @@ export default async function DeckDetailPage({
               }
             >
               {committedSummary.committedQuantity > 0
-                ? `Return ${committedSummary.committedQuantity} cards and delete this deck`
+                ? "Return committed cards and delete deck"
                 : "Delete deck"}
             </SubmitButton>
           </form>
