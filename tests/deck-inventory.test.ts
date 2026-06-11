@@ -129,10 +129,24 @@ function makeDeckInventoryTx(itemsInput: any[], locationsInput: any[]) {
       },
       inventoryAuditLog: {
         create: async ({ data }: any) => {
+          if (
+            data.inventoryItemId &&
+            !items.some((item) => item.id === data.inventoryItemId)
+          ) {
+            throw new Error("audit references deleted inventory item");
+          }
           audits.push(data);
           return data;
         },
         createMany: async ({ data }: any) => {
+          for (const audit of data) {
+            if (
+              audit.inventoryItemId &&
+              !items.some((item) => item.id === audit.inventoryItemId)
+            ) {
+              throw new Error("audit references deleted inventory item");
+            }
+          }
           audits.push(...data);
           return { count: data.length };
         },
@@ -321,5 +335,169 @@ test("return all committed inventory empties the deck location without deleting 
       .filter((item) => item.locationId === "box")
       .reduce((sum, item) => sum + item.quantity, 0),
     3,
+  );
+});
+
+test("returning a full committed item into an empty destination audits the surviving moved item", async () => {
+  const { returnCommittedInventoryFromDeckTx } =
+    await import("../lib/deck-inventory");
+  const { tx, items, audits } = makeDeckInventoryTx(
+    [deckInventoryItem({ id: "committed", quantity: 1 })],
+    [
+      {
+        id: "deck-location",
+        ownerPlayerId: "owner-1",
+        name: "Deck: Test",
+        normalizedName: "deck test",
+        type: "Deck",
+        kind: "DECK",
+        deckId: "deck-1",
+        systemManaged: true,
+        active: true,
+      },
+      {
+        id: "box",
+        ownerPlayerId: "owner-1",
+        name: "Box-0001",
+        normalizedName: "box-0001",
+        type: "Box",
+        kind: "NORMAL",
+        deckId: null,
+        systemManaged: false,
+        active: true,
+      },
+    ],
+  );
+
+  const result = await returnCommittedInventoryFromDeckTx(tx as any, {
+    actorUserId: "user-1",
+    ownerPlayerId: "owner-1",
+    deckId: "deck-1",
+    deckName: "Test",
+    destinationLocationId: "box",
+    mode: "returned_from_deck",
+  });
+
+  assert.equal(result.movedCards, 1);
+  assert.equal(
+    items.find((item) => item.id === "committed")?.locationId,
+    "box",
+  );
+  assert.equal(audits.length, 1);
+  assert.equal(audits[0].inventoryItemId, "committed");
+});
+
+test("returning a full committed item into a matching destination audits the surviving destination", async () => {
+  const { returnCommittedInventoryFromDeckTx } =
+    await import("../lib/deck-inventory");
+  const { tx, items, audits } = makeDeckInventoryTx(
+    [
+      deckInventoryItem({ id: "committed", quantity: 2 }),
+      deckInventoryItem({ id: "destination", locationId: "box", quantity: 3 }),
+    ],
+    [
+      {
+        id: "deck-location",
+        ownerPlayerId: "owner-1",
+        name: "Deck: Test",
+        normalizedName: "deck test",
+        type: "Deck",
+        kind: "DECK",
+        deckId: "deck-1",
+        systemManaged: true,
+        active: true,
+      },
+      {
+        id: "box",
+        ownerPlayerId: "owner-1",
+        name: "Box-0001",
+        normalizedName: "box-0001",
+        type: "Box",
+        kind: "NORMAL",
+        deckId: null,
+        systemManaged: false,
+        active: true,
+      },
+    ],
+  );
+
+  const result = await returnCommittedInventoryFromDeckTx(tx as any, {
+    actorUserId: "user-1",
+    ownerPlayerId: "owner-1",
+    deckId: "deck-1",
+    deckName: "Test",
+    destinationLocationId: "box",
+    mode: "returned_from_deck",
+  });
+
+  assert.equal(result.movedCards, 2);
+  assert.equal(
+    items.some((item) => item.id === "committed"),
+    false,
+  );
+  assert.equal(items.find((item) => item.id === "destination")?.quantity, 5);
+  assert.equal(audits.length, 2);
+  assert.deepEqual(
+    audits.map((audit) => audit.inventoryItemId),
+    ["destination", "destination"],
+  );
+});
+
+test("delete-deck committed return merge audits destination stack instead of deleted deck item", async () => {
+  const { returnCommittedInventoryFromDeckTx } =
+    await import("../lib/deck-inventory");
+  const { tx, items, audits } = makeDeckInventoryTx(
+    [
+      deckInventoryItem({ id: "committed", quantity: 1 }),
+      deckInventoryItem({ id: "destination", locationId: "box", quantity: 4 }),
+    ],
+    [
+      {
+        id: "deck-location",
+        ownerPlayerId: "owner-1",
+        name: "Deck: Test",
+        normalizedName: "deck test",
+        type: "Deck",
+        kind: "DECK",
+        deckId: "deck-1",
+        systemManaged: true,
+        active: true,
+      },
+      {
+        id: "box",
+        ownerPlayerId: "owner-1",
+        name: "Box-0001",
+        normalizedName: "box-0001",
+        type: "Box",
+        kind: "NORMAL",
+        deckId: null,
+        systemManaged: false,
+        active: true,
+      },
+    ],
+  );
+
+  const result = await returnCommittedInventoryFromDeckTx(tx as any, {
+    actorUserId: "user-1",
+    ownerPlayerId: "owner-1",
+    deckId: "deck-1",
+    deckName: "Test",
+    destinationLocationId: "box",
+    mode: "returned_from_deck_for_delete",
+  });
+
+  assert.equal(result.movedCards, 1);
+  assert.equal(
+    items.some((item) => item.id === "committed"),
+    false,
+  );
+  assert.equal(items.find((item) => item.id === "destination")?.quantity, 5);
+  assert.equal(
+    audits.some((audit) => audit.inventoryItemId === "committed"),
+    false,
+  );
+  assert.equal(
+    audits.every((audit) => audit.inventoryItemId === "destination"),
+    true,
   );
 });

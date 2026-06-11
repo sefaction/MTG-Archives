@@ -930,7 +930,7 @@ async function moveInventoryQuantityWithinTransaction(
   return {
     source,
     destinationInventoryItemId: created.id,
-    auditInventoryItemId: source.id,
+    auditInventoryItemId: created.id,
     merged: false,
     sourceAfterQuantity: source.quantity - input.quantity,
     destinationBeforeQuantity: 0,

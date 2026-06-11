@@ -318,10 +318,12 @@ export async function returnCommittedInventoryFromDeckTx(
           data: { quantity: { decrement: quantityToMove } },
         });
       }
+      const sourceAuditInventoryItemId =
+        quantityToMove === item.quantity ? matching.id : item.id;
       await tx.inventoryAuditLog.createMany({
         data: [
           {
-            inventoryItemId: item.id,
+            inventoryItemId: sourceAuditInventoryItemId,
             changedByUserId: input.actorUserId,
             changeType: input.mode,
             beforeJson: sourceBefore,

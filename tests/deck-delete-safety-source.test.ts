@@ -29,3 +29,12 @@ test("deck delete UI requires destination and explicit DELETE before returning c
   assert.match(page, /name="strongConfirmation"/);
   assert.match(page, /Return committed cards and delete deck/);
 });
+
+test("deck move helper returns surviving audit target ids for merged and newly-created destinations", () => {
+  assert.match(actions, /auditInventoryItemId: matching\.id/);
+  assert.match(
+    actions,
+    /destinationInventoryItemId: created\.id,\n\s*auditInventoryItemId: created\.id/,
+  );
+  assert.match(actions, /inventoryItemId: move\.auditInventoryItemId/);
+});
