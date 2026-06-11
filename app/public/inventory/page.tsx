@@ -7,7 +7,6 @@ import {
 } from "@/lib/public-collection";
 import { getInventoryGroupedByCard } from "@/lib/inventory-locations";
 import { getManaFacesForDto } from "@/lib/mtg/mana-display";
-import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -84,7 +83,6 @@ function getGlobalPublicExactPrintings(items: any[]) {
           color: item.currentOwner?.color || "#64748b",
         },
         quantity: item.quantity,
-        sourceItemIds: [`public-source-${index}`],
         ownerBreakdown: [ownerPart],
         locationBreakdown: [locationPart],
         locationSummary: locationSummary([locationPart]),
@@ -92,7 +90,6 @@ function getGlobalPublicExactPrintings(items: any[]) {
       return;
     }
     existing.quantity += item.quantity;
-    existing.sourceItemIds.push(`public-source-${index}`);
     existing.ownerBreakdown.push(ownerPart);
     const previousLocation = existing.locationBreakdown.find(
       (part: PublicLocationPart) => part.name === locationPart.name,
@@ -128,7 +125,6 @@ function toInventoryBrowserRows({
       cardName: i.card.name,
       quantity: entry.quantity ?? i.quantity,
       displayMode,
-      sourceItemIds: [publicRowId],
       printingCount: entry.printingCount ?? 1,
       locationCount: entry.locationCount ?? i.locationBreakdown?.length ?? 1,
       locationSummary:
@@ -212,7 +208,6 @@ function toInventoryBrowserRows({
         "",
       imageSmall: (i.card.imageUris as any)?.small ?? "",
       scryfallUri: i.card.scryfallUri ?? "",
-      auditHistory: [],
     };
   });
 }
@@ -220,7 +215,7 @@ function toInventoryBrowserRows({
 export default async function PublicInventoryPage({ searchParams }: PageProps) {
   const p = await searchParams;
   const displayMode: "exact" | "grouped" =
-    p.displayMode === "exact" ? "exact" : "grouped";
+    p.displayMode === "grouped" ? "grouped" : "exact";
   const pageSizeOptions = [10, 25, 50, 100, 250];
   const initialPageSize = pageSizeOptions.includes(Number(p.pageSize))
     ? Number(p.pageSize)
@@ -297,6 +292,11 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
         params={p}
         displayMode={displayMode}
         isPublic
+        locations={result.publicLocations.map((location) => ({
+          value: location.name,
+          label: location.name,
+        }))}
+        locationParamName="locationName"
         setOptions={setOptions.map((set) => ({
           value: set.setCode,
           label: `${set.setCode.toUpperCase()} — ${set.setName || set.setCode.toUpperCase()}`,

@@ -1089,12 +1089,7 @@ export function InventoryBrowser({
           {message}
         </div>
       ) : null}
-      {uiMode === "public-readonly" ? (
-        <div className="border border-emerald-800 bg-emerald-950/30 text-emerald-200 p-2 text-sm">
-          Public read-only mode. You can browse this collection, but edit, move,
-          delete, import, trade, and audit controls are unavailable.
-        </div>
-      ) : isAdmin ? (
+      {isAdmin ? (
         <div className="border border-sky-800 bg-sky-950/40 text-sky-200 p-2 text-sm">
           Admin edit mode is active. Use the Actions column in Table View, or
           open a card detail from either view and choose Edit Inventory Item.

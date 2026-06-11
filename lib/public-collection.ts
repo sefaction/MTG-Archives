@@ -37,8 +37,8 @@ export type PublicInventoryFilters = {
   keyword?: string;
   priceMin?: string;
   priceMax?: string;
-  locationId?: string;
-  locationName?: string;
+  locationId?: string | string[];
+  locationName?: string | string[];
   owner?: string;
   displayMode?: string;
   sort?: string;
@@ -118,6 +118,11 @@ export async function getPublicProfileBySlug(publicSlug: string) {
       deckDefaultVisibility: true,
     },
   });
+}
+
+function publicFilterValues(value: string | string[] | undefined): string[] {
+  if (Array.isArray(value)) return value.flatMap((entry) => entry.split(","));
+  return value ? value.split(",") : [];
 }
 
 function buildPublicCardWhere(filters: PublicInventoryFilters) {
@@ -300,9 +305,17 @@ export function buildPublicInventoryWhere(
     AND: and,
   };
   if (Object.keys(cardWhere).length) where.card = cardWhere;
-  if (filters.locationName?.trim()) {
-    where.location = { name: filters.locationName.trim() };
-  } else if (filters.locationId) where.locationId = filters.locationId;
+  const publicLocationNames = publicFilterValues(filters.locationName).filter(
+    Boolean,
+  );
+  const publicLocationIds = publicFilterValues(filters.locationId).filter(
+    Boolean,
+  );
+  if (publicLocationNames.length) {
+    where.location = { name: { in: publicLocationNames } };
+  } else if (publicLocationIds.length) {
+    where.locationId = { in: publicLocationIds };
+  }
   if (structured.finishes.length)
     where.foilStatus = { in: structured.finishes };
   else if (filters.foil === "true") where.foil = true;
