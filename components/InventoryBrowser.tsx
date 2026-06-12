@@ -28,6 +28,17 @@ import {
   normalizeCollectionCardSize,
   type CollectionCardSize,
 } from "./cardGrid";
+import {
+  cn,
+  filterButtonClass,
+  filterDangerButtonClass,
+  filterInputClass,
+  filterLabelClass,
+  filterPanelClass,
+  filterPrimaryButtonClass,
+  filterSelectClass,
+  filterTextareaClass,
+} from "./filterStyles";
 
 type PickRef = { id: string; name: string; color?: string };
 
@@ -257,24 +268,33 @@ function CardDetail({
           <h2 className="text-xl font-bold">{row.cardName}</h2>
           <div className="flex gap-2">
             {capabilities.canEdit && onEdit ? (
-              <button onClick={onEdit} className="border px-2">
+              <button
+                onClick={onEdit}
+                className={cn(filterButtonClass, "px-2 py-1")}
+              >
                 Edit Inventory Item
               </button>
             ) : null}
             {capabilities.canViewAuditTrail && onAudit ? (
-              <button onClick={onAudit} className="border px-2">
+              <button
+                onClick={onAudit}
+                className={cn(filterButtonClass, "px-2 py-1")}
+              >
                 Audit Trail
               </button>
             ) : null}
             {capabilities.canDelete && onDelete ? (
               <button
                 onClick={onDelete}
-                className="border border-red-700 px-2 text-red-200"
+                className={cn(filterDangerButtonClass, "px-2 py-1")}
               >
                 Delete inventory entry
               </button>
             ) : null}
-            <button onClick={onClose} className="border px-2">
+            <button
+              onClick={onClose}
+              className={cn(filterButtonClass, "px-2 py-1")}
+            >
               Close
             </button>
           </div>
@@ -1003,7 +1023,7 @@ export function InventoryBrowser({
                   <div className="flex flex-wrap gap-1">
                     {capabilities.canEdit && single ? (
                       <button
-                        className="border px-2"
+                        className={cn(filterButtonClass, "px-2 py-1")}
                         onClick={() => {
                           setEditing(row.original);
                           setConfirmed(null);
@@ -1015,7 +1035,7 @@ export function InventoryBrowser({
                     ) : null}
                     {capabilities.canDelete ? (
                       <button
-                        className="border border-red-700 px-2 text-red-200"
+                        className={cn(filterDangerButtonClass, "px-2 py-1")}
                         disabled={deletingBulk}
                         onClick={() =>
                           submitBulkDelete({
@@ -1089,21 +1109,20 @@ export function InventoryBrowser({
           {message}
         </div>
       ) : null}
-      {uiMode === "public-readonly" ? (
-        <div className="border border-emerald-800 bg-emerald-950/30 text-emerald-200 p-2 text-sm">
-          Public read-only mode. You can browse this collection, but edit, move,
-          delete, import, trade, and audit controls are unavailable.
-        </div>
-      ) : isAdmin ? (
+      {isAdmin ? (
         <div className="border border-sky-800 bg-sky-950/40 text-sky-200 p-2 text-sm">
           Admin edit mode is active. Use the Actions column in Table View, or
           open a card detail from either view and choose Edit Inventory Item.
         </div>
       ) : null}
       <div className="flex flex-wrap gap-2 items-center">
-        <span className="text-sm">View:</span>
+        <span className={filterLabelClass}>View:</span>
         <button
-          className={`border px-2 ${viewMode === "table" ? "bg-zinc-800" : ""}`}
+          className={cn(
+            filterButtonClass,
+            "px-2 py-1",
+            viewMode === "table" && "bg-zinc-800",
+          )}
           onClick={() => {
             setViewMode("table");
             localStorage.setItem("inventoryViewMode", "table");
@@ -1112,7 +1131,11 @@ export function InventoryBrowser({
           Table View
         </button>
         <button
-          className={`border px-2 ${viewMode === "binder" ? "bg-zinc-800" : ""}`}
+          className={cn(
+            filterButtonClass,
+            "px-2 py-1",
+            viewMode === "binder" && "bg-zinc-800",
+          )}
           onClick={() => {
             setViewMode("binder");
             localStorage.setItem("inventoryViewMode", "binder");
@@ -1120,7 +1143,7 @@ export function InventoryBrowser({
         >
           Binder View
         </button>
-        <span className="text-sm ml-4">Display:</span>
+        <span className={cn(filterLabelClass, "ml-4")}>Display:</span>
         <select
           value={displayMode}
           onChange={(event) => {
@@ -1129,16 +1152,20 @@ export function InventoryBrowser({
             setPagination((current) => ({ ...current, pageIndex: 0 }));
             updateBrowseQuery({ displayMode: next });
           }}
-          className="border px-2 py-1 bg-zinc-900"
+          className={filterSelectClass}
         >
           <option value="exact">Exact printings</option>
           <option value="grouped">Grouped by card</option>
         </select>
         {viewMode === "binder" ? (
           <>
-            <span className="text-sm ml-4">Card Size:</span>
+            <span className={cn(filterLabelClass, "ml-4")}>Card Size:</span>
             <button
-              className={`border px-2 ${cardSize === "small" ? "bg-zinc-800" : ""}`}
+              className={cn(
+                filterButtonClass,
+                "px-2 py-1",
+                cardSize === "small" && "bg-zinc-800",
+              )}
               onClick={() => {
                 setCardSize("small");
                 localStorage.setItem("inventoryCardSize", "small");
@@ -1147,7 +1174,11 @@ export function InventoryBrowser({
               Small
             </button>
             <button
-              className={`border px-2 ${cardSize === "medium" ? "bg-zinc-800" : ""}`}
+              className={cn(
+                filterButtonClass,
+                "px-2 py-1",
+                cardSize === "medium" && "bg-zinc-800",
+              )}
               onClick={() => {
                 setCardSize("medium");
                 localStorage.setItem("inventoryCardSize", "medium");
@@ -1156,7 +1187,11 @@ export function InventoryBrowser({
               Medium
             </button>
             <button
-              className={`border px-2 ${cardSize === "large" ? "bg-zinc-800" : ""}`}
+              className={cn(
+                filterButtonClass,
+                "px-2 py-1",
+                cardSize === "large" && "bg-zinc-800",
+              )}
               onClick={() => {
                 setCardSize("large");
                 localStorage.setItem("inventoryCardSize", "large");
@@ -1166,7 +1201,7 @@ export function InventoryBrowser({
             </button>
           </>
         ) : null}
-        <span className="text-sm ml-4">Page size:</span>
+        <span className={cn(filterLabelClass, "ml-4")}>Page size:</span>
         <select
           value={pageSize}
           onChange={(event) => {
@@ -1176,7 +1211,7 @@ export function InventoryBrowser({
             setLoadedRows(rows);
             updateBrowseQuery({ pageSize: next });
           }}
-          className="border px-2 py-1 bg-zinc-900"
+          className={filterSelectClass}
         >
           {[10, 25, 50, 100, 250].map((size) => (
             <option key={size} value={size}>
@@ -1184,7 +1219,7 @@ export function InventoryBrowser({
             </option>
           ))}
         </select>
-        <span className="text-sm ml-4">Browsing mode:</span>
+        <span className={cn(filterLabelClass, "ml-4")}>Browsing mode:</span>
         <select
           value={browsingMode}
           onChange={(event) => {
@@ -1194,7 +1229,7 @@ export function InventoryBrowser({
             setPagination((current) => ({ ...current, pageIndex: 0 }));
             updateBrowseQuery({ browse: next });
           }}
-          className="border px-2 py-1 bg-zinc-900"
+          className={filterSelectClass}
         >
           <option value="paginated">Paginated</option>
           <option value="infinite">Infinite scroll</option>
@@ -1207,11 +1242,11 @@ export function InventoryBrowser({
           printings to select specific inventory entries.
         </div>
       ) : capabilities.canBulkSelect ? (
-        <div className="border border-zinc-800 bg-zinc-950 p-3 space-y-3">
+        <div className={cn(filterPanelClass, "space-y-3")}>
           <div className="flex flex-wrap gap-2 items-center text-sm">
             <button
               type="button"
-              className="border px-2 py-1"
+              className={cn(filterButtonClass, "px-2 py-1")}
               onClick={() => {
                 setAllMatchingSelected(false);
                 setSelectedItemIds((current) => {
@@ -1228,7 +1263,7 @@ export function InventoryBrowser({
             </button>
             <button
               type="button"
-              className="border px-2 py-1"
+              className={cn(filterButtonClass, "px-2 py-1")}
               onClick={() => {
                 setSelectedItemIds(new Set());
                 setAllMatchingSelected(true);
@@ -1238,7 +1273,7 @@ export function InventoryBrowser({
             </button>
             <button
               type="button"
-              className="border px-2 py-1"
+              className={cn(filterButtonClass, "px-2 py-1")}
               onClick={clearSelection}
             >
               Clear selection
@@ -1309,7 +1344,7 @@ export function InventoryBrowser({
                 name="sourceLocationId"
                 value={currentLocationId || ""}
               />
-              <label className="text-sm">
+              <label className={filterLabelClass}>
                 Move to location
                 <select
                   name="destinationLocationId"
@@ -1319,7 +1354,7 @@ export function InventoryBrowser({
                     setBulkDestinationLocationId(event.target.value)
                   }
                   disabled={movingBulk}
-                  className="w-full border p-2 bg-zinc-900"
+                  className={cn(filterSelectClass, "w-full")}
                 >
                   <option value="">Choose destination</option>
                   {locations.map((location) => (
@@ -1329,24 +1364,24 @@ export function InventoryBrowser({
                   ))}
                 </select>
               </label>
-              <label className="text-sm">
+              <label className={filterLabelClass}>
                 Preview
-                <div className="border border-zinc-700 p-2 text-zinc-300">
+                <div className="min-h-10 rounded-md border border-zinc-700 bg-zinc-900 p-2 text-zinc-300">
                   {selectedEntriesCount} entries · {selectedCardsCount} cards
                   {currentLocationId ? " · current location filter only" : ""}
                 </div>
               </label>
-              <label className="text-sm">
+              <label className={filterLabelClass}>
                 Reason
                 <input
                   name="reason"
-                  className="w-full border p-2 bg-zinc-900"
+                  className={cn(filterInputClass, "w-full")}
                   defaultValue="Bulk location move"
                 />
               </label>
               <button
                 type="submit"
-                className="border px-3 py-2 disabled:cursor-not-allowed disabled:opacity-60"
+                className={filterPrimaryButtonClass}
                 disabled={movingBulk || !bulkDestinationLocationId}
                 aria-disabled={movingBulk || !bulkDestinationLocationId}
               >
@@ -1368,7 +1403,7 @@ export function InventoryBrowser({
               </span>
               <button
                 type="button"
-                className="border border-red-700 px-3 py-2 text-red-200 disabled:cursor-not-allowed disabled:opacity-60"
+                className={filterDangerButtonClass}
                 disabled={deletingBulk}
                 onClick={() => submitBulkDelete()}
               >
@@ -1389,10 +1424,17 @@ export function InventoryBrowser({
       {viewMode === "table" ? (
         <>
           <details>
-            <summary className="cursor-pointer">Columns</summary>
+            <summary
+              className={cn(
+                filterButtonClass,
+                "inline-flex cursor-pointer list-none px-2 py-1",
+              )}
+            >
+              Columns
+            </summary>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
               {table.getAllLeafColumns().map((c) => (
-                <label key={c.id} className="text-sm">
+                <label key={c.id} className={filterLabelClass}>
                   <input
                     type="checkbox"
                     checked={c.getIsVisible()}
@@ -1559,7 +1601,7 @@ export function InventoryBrowser({
           <button
             onClick={() => pageHref && router.push(pageHref(currentPage - 1))}
             disabled={!hasPreviousPage}
-            className="border px-2 disabled:opacity-50"
+            className={cn(filterButtonClass, "px-2 py-1")}
           >
             Previous page
           </button>
@@ -1570,7 +1612,7 @@ export function InventoryBrowser({
           <button
             onClick={() => pageHref && router.push(pageHref(currentPage + 1))}
             disabled={!hasNextPage}
-            className="border px-2 disabled:opacity-50"
+            className={cn(filterButtonClass, "px-2 py-1")}
           >
             Next page
           </button>
@@ -1585,7 +1627,7 @@ export function InventoryBrowser({
               Failed to load more results: {loadMoreError}
               <button
                 type="button"
-                className="border px-2"
+                className={cn(filterButtonClass, "px-2 py-1")}
                 onClick={() => {
                   setLoadMoreError("");
                   void loadMoreRows();
@@ -1650,7 +1692,10 @@ export function InventoryBrowser({
                 <h2 className="text-xl font-bold">Audit Trail</h2>
                 <p className="text-sm text-zinc-400">{auditRow.cardName}</p>
               </div>
-              <button onClick={() => setAuditRow(null)} className="border px-2">
+              <button
+                onClick={() => setAuditRow(null)}
+                className={cn(filterButtonClass, "px-2 py-1")}
+              >
                 Close
               </button>
             </div>
@@ -1716,12 +1761,12 @@ export function InventoryBrowser({
               ) : null}
               <div className="grid md:grid-cols-2 gap-2">
                 {capabilities.canViewOwnerAdminFields ? (
-                  <label className="text-sm">
+                  <label className={filterLabelClass}>
                     Current owner
                     <select
                       name="currentOwnerId"
                       defaultValue={editing.currentOwnerId}
-                      className="w-full border p-1 bg-zinc-900"
+                      className={cn(filterSelectClass, "w-full")}
                     >
                       {players.map((p) => (
                         <option key={p.id} value={p.id}>
@@ -1731,12 +1776,12 @@ export function InventoryBrowser({
                     </select>
                   </label>
                 ) : null}
-                <label className="text-sm">
+                <label className={filterLabelClass}>
                   Location
                   <select
                     name="locationId"
                     defaultValue={editing.locationId || ""}
-                    className="w-full border p-1 bg-zinc-900"
+                    className={cn(filterSelectClass, "w-full")}
                   >
                     <option value="">Unassigned</option>
                     {locations.map((location) => (
@@ -1746,34 +1791,34 @@ export function InventoryBrowser({
                     ))}
                   </select>
                 </label>
-                <label className="text-sm">
+                <label className={filterLabelClass}>
                   Quantity
                   <input
                     name="quantity"
                     type="number"
                     min={1}
                     defaultValue={editing.quantity}
-                    className="w-full border p-1 bg-zinc-900"
+                    className={cn(filterInputClass, "w-full")}
                   />
                 </label>
-                <label className="text-sm">
+                <label className={filterLabelClass}>
                   Foil status
                   <select
                     name="foilStatus"
                     defaultValue={editing.foilStatus || "NONFOIL"}
-                    className="w-full border p-1 bg-zinc-900"
+                    className={cn(filterSelectClass, "w-full")}
                   >
                     <option value="NONFOIL">nonfoil</option>
                     <option value="FOIL">foil</option>
                     <option value="ETCHED">etched</option>
                   </select>
                 </label>
-                <label className="text-sm">
+                <label className={filterLabelClass}>
                   Condition
                   <select
                     name="condition"
                     defaultValue={editing.condition || "NM"}
-                    className="w-full border p-1 bg-zinc-900"
+                    className={cn(filterSelectClass, "w-full")}
                   >
                     <option>NM</option>
                     <option>LP</option>
@@ -1782,23 +1827,23 @@ export function InventoryBrowser({
                     <option>DMG</option>
                   </select>
                 </label>
-                <label className="text-sm">
+                <label className={filterLabelClass}>
                   Language
                   <input
                     name="language"
                     defaultValue={editing.language || "EN"}
-                    className="w-full border p-1 bg-zinc-900"
+                    className={cn(filterInputClass, "w-full")}
                     maxLength={8}
                   />
                 </label>
                 {capabilities.canViewOwnerAdminFields ? (
                   <>
-                    <label className="text-sm">
+                    <label className={filterLabelClass}>
                       Source type
                       <select
                         name="sourceType"
                         defaultValue={editing.sourceType || "CORRECTION"}
-                        className="w-full border p-1 bg-zinc-900"
+                        className={cn(filterSelectClass, "w-full")}
                       >
                         <option value="PULL">legacy</option>
                         <option value="CSV_PULL_IMPORT">import</option>
@@ -1809,24 +1854,24 @@ export function InventoryBrowser({
                         <option value="OTHER">other</option>
                       </select>
                     </label>
-                    <label className="text-sm">
+                    <label className={filterLabelClass}>
                       Admin correction reason
                       <input
                         name="reason"
                         required
-                        className="w-full border p-1 bg-zinc-900"
+                        className={cn(filterInputClass, "w-full")}
                         placeholder="Reason for change"
                       />
                     </label>
                   </>
                 ) : null}
               </div>
-              <label className="text-sm block">
+              <label className={cn(filterLabelClass, "block")}>
                 Notes
                 <textarea
                   name="notes"
                   defaultValue={editing.notes || ""}
-                  className="w-full border p-1 bg-zinc-900"
+                  className={cn(filterTextareaClass, "w-full")}
                 />
               </label>
               {capabilities.canViewOwnerAdminFields ? (
@@ -1841,12 +1886,12 @@ export function InventoryBrowser({
                       <input
                         id="printingQuery"
                         name="printingQuery"
-                        className="border p-1 bg-zinc-900 flex-1"
+                        className={cn(filterInputClass, "flex-1")}
                         placeholder="Search Scryfall"
                       />
                       <button
                         type="button"
-                        className="border px-2 disabled:opacity-60"
+                        className={filterButtonClass}
                         disabled={searchingPrintings}
                         aria-disabled={searchingPrintings}
                         onClick={async () => {
@@ -1910,12 +1955,15 @@ export function InventoryBrowser({
               <div className="flex gap-2 justify-end">
                 <button
                   type="button"
-                  className="border px-3"
+                  className={filterButtonClass}
                   onClick={() => setEditing(null)}
                 >
                   Cancel
                 </button>
-                <SubmitButton pendingLabel="Saving…" className="border px-3">
+                <SubmitButton
+                  pendingLabel="Saving…"
+                  className={filterButtonClass}
+                >
                   Save Changes
                 </SubmitButton>
               </div>
@@ -1973,13 +2021,13 @@ export function InventoryBrowser({
                       <input
                         name="deleteReason"
                         required
-                        className="mt-1 w-full border p-2 bg-zinc-900"
+                        className={cn(filterInputClass, "mt-1 w-full")}
                         placeholder="Reason for deleting this inventory item"
                       />
                     </label>
                     <SubmitButton
                       pendingLabel="Deleting…"
-                      className="border border-red-700 px-3 py-2 text-red-100"
+                      className={filterDangerButtonClass}
                     >
                       Confirm Delete Inventory Item
                     </SubmitButton>

@@ -25,6 +25,12 @@ import { cleanupZeroQuantityInventory, deleteInventoryItem } from "./actions";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { InventoryAdvancedSearch } from "@/components/InventoryAdvancedSearch";
 import {
+  cn,
+  filterFieldClass,
+  filterPrimaryButtonClass,
+  filterSelectClass,
+} from "@/components/filterStyles";
+import {
   ensureDefaultLocation,
   getInventoryExactPrintings,
   getInventoryGroupedByCard,
@@ -827,19 +833,22 @@ export default async function InventoryPage({
                 />
               ));
             })}
-            <label className="text-sm">
+            <label className={filterFieldClass}>
               Format
-              <select name="format" className="w-full border p-2 bg-zinc-900">
+              <select
+                name="format"
+                className={cn(filterSelectClass, "mt-1 w-full")}
+              >
                 <option value="full">MTG Inventory Full CSV</option>
                 <option value="moxfield">Moxfield Collection CSV</option>
               </select>
             </label>
-            <label className="text-sm">
+            <label className={filterFieldClass}>
               Scope
               <select
                 name="scope"
                 defaultValue="my"
-                className="w-full border p-2 bg-zinc-900"
+                className={cn(filterSelectClass, "mt-1 w-full")}
               >
                 <option value="filtered">Current filtered view</option>
                 <option value="my">My inventory</option>
@@ -851,12 +860,12 @@ export default async function InventoryPage({
                 ) : null}
               </select>
             </label>
-            <label className="text-sm">
+            <label className={filterFieldClass}>
               Current owner
               <select
                 name="ownerId"
                 defaultValue={p.ownerId || userWithPlayer?.playerId || ""}
-                className="w-full border p-2 bg-zinc-900"
+                className={cn(filterSelectClass, "mt-1 w-full")}
               >
                 <option value="">
                   {adminModeActive ? "all owners" : "my inventory"}
@@ -868,11 +877,11 @@ export default async function InventoryPage({
                 ))}
               </select>
             </label>
-            <label className="text-sm">
+            <label className={filterFieldClass}>
               Moxfield foil
               <select
                 name="foilFormat"
-                className="w-full border p-2 bg-zinc-900"
+                className={cn(filterSelectClass, "mt-1 w-full")}
               >
                 <option value="moxfield">foil or blank</option>
                 <option value="boolean">true / false</option>
@@ -882,7 +891,7 @@ export default async function InventoryPage({
             <div className="col-span-2 md:col-span-5">
               <SubmitButton
                 pendingLabel="Generating…"
-                className="border px-3 py-2"
+                className={filterPrimaryButtonClass}
               >
                 Download CSV
               </SubmitButton>
@@ -915,12 +924,12 @@ export default async function InventoryPage({
               <input
                 name="reason"
                 defaultValue="Admin cleanup of zero-quantity inventory items."
-                className="w-full border p-2 bg-zinc-900"
+                className={cn(filterSelectClass, "mt-1 w-full")}
               />
             </label>
             <SubmitButton
               pendingLabel="Cleaning up…"
-              className="border px-3 py-2"
+              className={filterPrimaryButtonClass}
               disabled={zeroQuantityCount === 0}
             >
               Clean up zero-quantity inventory items

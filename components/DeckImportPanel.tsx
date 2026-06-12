@@ -15,6 +15,13 @@ import type {
   DeckCardSearchResult,
 } from "@/lib/deck-search";
 import { commitDeckImport } from "@/app/decks/actions";
+import {
+  cn,
+  filterFieldClass,
+  filterInputClass,
+  filterSelectClass,
+  filterTextareaClass,
+} from "@/components/filterStyles";
 
 const statusLabel: Record<DeckImportStatus, string> = {
   RESOLVED_EXACT_PRINTING: "Exact printing selected",
@@ -199,7 +206,7 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
         value={text}
         onChange={(event) => setText(event.target.value)}
         rows={8}
-        className="w-full border bg-zinc-900 p-2 font-mono text-sm"
+        className={cn(filterTextareaClass, "w-full font-mono text-sm")}
         placeholder={
           "Commander\n1 Atraxa, Praetors' Voice\n\nCreatures\n1 Sol Ring (CMM) 400\n4 Lightning Bolt\nSol Rign"
         }
@@ -310,13 +317,13 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
               name="unresolvedIncludedCount"
               value={summary.unresolvedIncluded}
             />
-            <label className="text-sm">
+            <label className={filterFieldClass}>
               Commit mode
               <select
                 name="mode"
                 value={mode}
                 onChange={(event) => setMode(event.target.value)}
-                className="ml-2 border bg-zinc-900 p-2"
+                className={cn(filterSelectClass, "ml-2")}
               >
                 <option value="merge">
                   Append / merge with existing cards
@@ -382,10 +389,10 @@ function ReviewLine({
         <code className="text-xs text-zinc-400">{line.rawLine}</code>
       </td>
       <td className="p-2">
-        <label className="block text-xs">
+        <label className={cn(filterFieldClass, "block")}>
           Qty
           <input
-            className="mt-1 w-16 border bg-zinc-900 p-1"
+            className={cn(filterInputClass, "mt-1 w-16")}
             type="number"
             min={1}
             value={line.quantity ?? ""}
@@ -397,10 +404,10 @@ function ReviewLine({
             }
           />
         </label>
-        <label className="mt-1 block text-xs">
+        <label className={cn(filterFieldClass, "mt-1 block")}>
           Name
           <input
-            className="mt-1 w-48 border bg-zinc-900 p-1"
+            className={cn(filterInputClass, "mt-1 w-48")}
             value={line.parsedName ?? ""}
             onChange={(event) =>
               updateLine((current) => ({
@@ -429,7 +436,7 @@ function ReviewLine({
               section: event.target.value as DeckSection,
             }))
           }
-          className="border bg-zinc-900 p-1"
+          className={filterSelectClass}
         >
           {deckSections.map((section) => (
             <option key={section} value={section}>
@@ -560,7 +567,7 @@ function ManualResolve({
           setError("");
           setLoading(next.trim().length >= 2);
         }}
-        className="w-full border bg-zinc-900 p-1"
+        className={cn(filterInputClass, "w-full")}
         placeholder="Search printing"
       />
       <div className="text-xs text-zinc-400">

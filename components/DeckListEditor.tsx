@@ -27,6 +27,15 @@ import {
   type DeckSortMode,
   type DeckViewMode,
 } from "@/lib/deck-view";
+import {
+  cn,
+  filterButtonClass,
+  filterFieldClass,
+  filterInputClass,
+  filterPrimaryButtonClass,
+  filterSelectClass,
+  filterTextareaClass,
+} from "@/components/filterStyles";
 
 export type DeckReturnLocation = { id: string; name: string };
 
@@ -450,14 +459,14 @@ export function DeckListEditor({
     <section className="space-y-4" id="deck-workspace">
       <div className="rounded border border-zinc-800 bg-zinc-950/80 p-3">
         <div className="flex flex-wrap items-end gap-3">
-          <label className="text-sm">
+          <label className={filterFieldClass}>
             View
             <select
               value={viewMode}
               onChange={(event) =>
                 setViewMode(event.target.value as DeckViewMode)
               }
-              className="ml-2 border bg-zinc-900 p-2"
+              className={cn(filterSelectClass, "ml-2")}
             >
               {viewModes.map((mode) => (
                 <option key={mode.value} value={mode.value}>
@@ -466,14 +475,14 @@ export function DeckListEditor({
               ))}
             </select>
           </label>
-          <label className="text-sm">
+          <label className={filterFieldClass}>
             Group by
             <select
               value={groupMode}
               onChange={(event) =>
                 setGroupMode(event.target.value as DeckGroupMode)
               }
-              className="ml-2 border bg-zinc-900 p-2"
+              className={cn(filterSelectClass, "ml-2")}
             >
               {groupModes.map((mode) => (
                 <option key={mode.value} value={mode.value}>
@@ -482,14 +491,14 @@ export function DeckListEditor({
               ))}
             </select>
           </label>
-          <label className="text-sm">
+          <label className={filterFieldClass}>
             Sort by
             <select
               value={sortMode}
               onChange={(event) =>
                 setSortMode(event.target.value as DeckSortMode)
               }
-              className="ml-2 border bg-zinc-900 p-2"
+              className={cn(filterSelectClass, "ml-2")}
             >
               {sortModes.map((mode) => (
                 <option key={mode.value} value={mode.value}>
@@ -557,7 +566,10 @@ export function DeckListEditor({
             </label>
             <button
               type="button"
-              className="rounded border border-emerald-700 px-2 py-1 text-emerald-100"
+              className={cn(
+                filterPrimaryButtonClass,
+                "px-2 py-1 border-emerald-700 text-emerald-100 hover:bg-emerald-950/40",
+              )}
               disabled={Boolean(pending)}
               onClick={() => loadPreview("owned", otherOwnedIds)}
             >
@@ -581,7 +593,10 @@ export function DeckListEditor({
               </span>
               <button
                 type="button"
-                className="rounded border border-emerald-700 px-2 py-1 text-emerald-100"
+                className={cn(
+                  filterPrimaryButtonClass,
+                  "px-2 py-1 border-emerald-700 text-emerald-100 hover:bg-emerald-950/40",
+                )}
                 disabled={Boolean(pending)}
                 onClick={() => loadPreview("owned", [...selected])}
               >
@@ -975,7 +990,10 @@ function CardActions({
         <>
           <button
             type="button"
-            className="rounded border border-emerald-700 px-2 py-1 text-emerald-100"
+            className={cn(
+              filterPrimaryButtonClass,
+              "px-2 py-1 border-emerald-700 text-emerald-100 hover:bg-emerald-950/40",
+            )}
             onClick={previewOwned}
           >
             Use owned printing
@@ -1048,22 +1066,22 @@ function RowEditor({
             >
               <input type="hidden" name="deckId" value={deckId} />
               <input type="hidden" name="deckCardId" value={row.id} />
-              <label className="text-sm">
+              <label className={filterFieldClass}>
                 Quantity
                 <input
                   name="quantity"
                   type="number"
                   min={1}
                   defaultValue={row.quantity}
-                  className="mt-1 w-full border bg-zinc-900 p-2"
+                  className={cn(filterInputClass, "mt-1 w-full")}
                 />
               </label>
-              <label className="text-sm">
+              <label className={filterFieldClass}>
                 Section
                 <select
                   name="section"
                   defaultValue={row.section}
-                  className="mt-1 w-full border bg-zinc-900 p-2"
+                  className={cn(filterSelectClass, "mt-1 w-full")}
                 >
                   {sections.map((section) => (
                     <option key={section} value={section}>
@@ -1072,12 +1090,12 @@ function RowEditor({
                   ))}
                 </select>
               </label>
-              <label className="text-sm md:col-span-3">
+              <label className={cn(filterFieldClass, "md:col-span-3")}>
                 Notes
                 <textarea
                   name="notes"
                   defaultValue={row.notes ?? ""}
-                  className="mt-1 w-full border bg-zinc-900 p-2"
+                  className={cn(filterTextareaClass, "mt-1 w-full")}
                   rows={3}
                 />
               </label>
@@ -1088,12 +1106,12 @@ function RowEditor({
                     copies. If moving it to Maybeboard, choose how to handle
                     those copies.
                   </p>
-                  <label className="mt-2 block">
+                  <label className={cn(filterFieldClass, "mt-2 block")}>
                     Maybeboard committed-copy handling
                     <select
                       name="maybeboardCommittedMode"
                       defaultValue="return"
-                      className="mt-1 w-full border bg-zinc-900 p-2"
+                      className={cn(filterSelectClass, "mt-1 w-full")}
                     >
                       <option value="return">
                         Move to Maybeboard and return committed copies
@@ -1103,11 +1121,11 @@ function RowEditor({
                       </option>
                     </select>
                   </label>
-                  <label className="mt-2 block">
+                  <label className={cn(filterFieldClass, "mt-2 block")}>
                     Destination location for returned copies
                     <select
                       name="destinationLocationId"
-                      className="mt-1 w-full border bg-zinc-900 p-2"
+                      className={cn(filterSelectClass, "mt-1 w-full")}
                     >
                       <option value="">Choose a location…</option>
                       {returnLocations.map((location) => (
@@ -1121,7 +1139,7 @@ function RowEditor({
               ) : null}
               <SubmitButton
                 pendingLabel="Saving…"
-                className="rounded border border-sky-700 px-3 py-2 text-sky-100 md:col-span-2"
+                className={cn(filterPrimaryButtonClass, "md:col-span-2")}
               >
                 Save quantity, section, notes
               </SubmitButton>
@@ -1138,12 +1156,12 @@ function RowEditor({
                 <input type="hidden" name="deckId" value={deckId} />
                 <input type="hidden" name="deckCardId" value={row.id} />
                 {row.committedQuantity > 0 ? (
-                  <label className="mb-2 block text-sm">
+                  <label className={cn(filterFieldClass, "mb-2 block")}>
                     Return committed copies to this location before removing
                     <select
                       name="destinationLocationId"
                       required
-                      className="mt-1 w-full border bg-zinc-900 p-2"
+                      className={cn(filterSelectClass, "mt-1 w-full")}
                     >
                       <option value="">Choose a location…</option>
                       {returnLocations.map((location) => (
@@ -1234,7 +1252,7 @@ function CommitInventoryToDeck({
         >
           <input type="hidden" name="deckId" value={deckId} />
           <input type="hidden" name="deckCardId" value={row.id} />
-          <label className="text-xs md:col-span-2">
+          <label className={cn(filterFieldClass, "md:col-span-2")}>
             Source inventory
             <select
               name="inventoryItemId"
@@ -1242,7 +1260,7 @@ function CommitInventoryToDeck({
               onChange={(event) =>
                 setSelectedInventoryItemId(event.target.value)
               }
-              className="mt-1 w-full border bg-zinc-900 p-2"
+              className={cn(filterSelectClass, "mt-1 w-full")}
             >
               {options.map((option) => (
                 <option
@@ -1257,7 +1275,7 @@ function CommitInventoryToDeck({
               ))}
             </select>
           </label>
-          <label className="text-xs">
+          <label className={filterFieldClass}>
             Quantity
             <input
               key={selectedOption?.inventoryItemId ?? "quantity"}
@@ -1266,12 +1284,15 @@ function CommitInventoryToDeck({
               min={1}
               max={quantityMax}
               defaultValue={quantityMax}
-              className="mt-1 w-full border bg-zinc-900 p-2"
+              className={cn(filterInputClass, "mt-1 w-full")}
             />
           </label>
           <SubmitButton
             pendingLabel="Committing…"
-            className="self-end rounded border border-emerald-700 px-3 py-2 text-emerald-100"
+            className={cn(
+              filterPrimaryButtonClass,
+              "self-end border-emerald-700 text-emerald-100 hover:bg-emerald-950/40",
+            )}
           >
             Commit to deck
           </SubmitButton>
@@ -1329,13 +1350,13 @@ function ReturnCommittedCopies({
       >
         <input type="hidden" name="deckId" value={deckId} />
         <input type="hidden" name="deckCardId" value={row.id} />
-        <label className="text-xs md:col-span-2">
+        <label className={cn(filterFieldClass, "md:col-span-2")}>
           Committed source
           <select
             name="inventoryItemId"
             value={selectedOption?.inventoryItemId ?? ""}
             onChange={(event) => setSelectedInventoryItemId(event.target.value)}
-            className="mt-1 w-full border bg-zinc-900 p-2"
+            className={cn(filterSelectClass, "mt-1 w-full")}
           >
             {options.map((option) => (
               <option
@@ -1349,12 +1370,12 @@ function ReturnCommittedCopies({
             ))}
           </select>
         </label>
-        <label className="text-xs">
+        <label className={filterFieldClass}>
           Destination
           <select
             name="destinationLocationId"
             required
-            className="mt-1 w-full border bg-zinc-900 p-2"
+            className={cn(filterSelectClass, "mt-1 w-full")}
           >
             <option value="">Choose…</option>
             {returnLocations.map((location) => (
@@ -1364,7 +1385,7 @@ function ReturnCommittedCopies({
             ))}
           </select>
         </label>
-        <label className="text-xs">
+        <label className={filterFieldClass}>
           Quantity
           <input
             key={selectedOption?.inventoryItemId ?? "return-quantity"}
@@ -1373,12 +1394,15 @@ function ReturnCommittedCopies({
             min={1}
             max={quantityMax}
             defaultValue={1}
-            className="mt-1 w-full border bg-zinc-900 p-2"
+            className={cn(filterInputClass, "mt-1 w-full")}
           />
         </label>
         <SubmitButton
           pendingLabel="Returning…"
-          className="self-end rounded border border-amber-700 px-3 py-2 text-amber-100"
+          className={cn(
+            filterPrimaryButtonClass,
+            "self-end border-amber-700 text-amber-100 hover:bg-amber-950/40",
+          )}
         >
           Return to inventory
         </SubmitButton>
@@ -1764,7 +1788,10 @@ function BulkCommitPreview({
         />
         <SubmitButton
           pendingLabel="Committing…"
-          className="rounded border border-emerald-700 px-3 py-2 text-emerald-100"
+          className={cn(
+            filterPrimaryButtonClass,
+            "border-emerald-700 text-emerald-100 hover:bg-emerald-950/40",
+          )}
         >
           Apply commit preview
         </SubmitButton>

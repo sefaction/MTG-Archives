@@ -44,6 +44,16 @@ import {
   DeckListEditor,
   type DeckReturnLocation,
 } from "@/components/DeckListEditor";
+import {
+  cn,
+  filterButtonClass,
+  filterDangerButtonClass,
+  filterFieldClass,
+  filterInputClass,
+  filterPrimaryButtonClass,
+  filterSelectClass,
+  filterTextareaClass,
+} from "@/components/filterStyles";
 
 export default async function DeckDetailPage({
   params,
@@ -244,10 +254,7 @@ export default async function DeckDetailPage({
           ) : null}
         </section>
         {canEdit ? (
-          <a
-            href="#safe-delete"
-            className="rounded border border-red-800 px-3 py-2 text-red-200"
-          >
+          <a href="#safe-delete" className={filterDangerButtonClass}>
             Delete deck
           </a>
         ) : null}
@@ -260,27 +267,21 @@ export default async function DeckDetailPage({
         <div className="flex flex-wrap items-center gap-2">
           {canEdit ? (
             <>
-              <a
-                href="#add-card"
-                className="rounded border border-sky-700 px-3 py-2 text-sky-100"
-              >
+              <a href="#add-card" className={filterPrimaryButtonClass}>
                 Add card
               </a>
-              <a
-                href="#paste-decklist"
-                className="rounded border border-zinc-700 px-3 py-2"
-              >
+              <a href="#paste-decklist" className={filterButtonClass}>
                 Paste decklist
               </a>
-              <a
-                href="#bulk-edit"
-                className="rounded border border-zinc-700 px-3 py-2"
-              >
+              <a href="#bulk-edit" className={filterButtonClass}>
                 Bulk edit
               </a>
               <a
                 href="#return-committed"
-                className="rounded border border-amber-700 px-3 py-2 text-amber-100"
+                className={cn(
+                  filterPrimaryButtonClass,
+                  "border-amber-700 text-amber-100 hover:bg-amber-950/40",
+                )}
               >
                 Return all committed cards
               </a>
@@ -298,10 +299,7 @@ export default async function DeckDetailPage({
               >
                 Export · coming later
               </button>
-              <a
-                href="#deck-settings"
-                className="rounded border border-zinc-700 px-3 py-2"
-              >
+              <a href="#deck-settings" className={filterButtonClass}>
                 Deck settings
               </a>
             </>
@@ -418,12 +416,12 @@ export default async function DeckDetailPage({
               {committedSummary.committedEntries} inventory entries.
             </p>
             <input type="hidden" name="deckId" value={deck.id} />
-            <label className="block text-sm">
+            <label className={cn(filterFieldClass, "block")}>
               Destination normal inventory location
               <select
                 name="destinationLocationId"
                 required
-                className="mt-1 w-full border bg-zinc-900 p-2"
+                className={cn(filterSelectClass, "mt-1 w-full")}
               >
                 <option value="">Choose a location…</option>
                 {normalReturnLocations.map((location) => (
@@ -439,7 +437,10 @@ export default async function DeckDetailPage({
                 committedSummary.committedQuantity === 0 ||
                 normalReturnLocations.length === 0
               }
-              className="rounded border border-amber-700 px-3 py-2 text-amber-100 disabled:opacity-60"
+              className={cn(
+                filterPrimaryButtonClass,
+                "border-amber-700 text-amber-100 hover:bg-amber-950/40",
+              )}
               confirmMessage="Return all physical cards from this deck location to the selected inventory location? The deck list will not be changed."
             >
               Return all committed cards
@@ -463,12 +464,12 @@ export default async function DeckDetailPage({
             </p>
             {committedSummary.committedQuantity > 0 ? (
               <>
-                <label className="block text-sm">
+                <label className={cn(filterFieldClass, "block")}>
                   Destination normal inventory location
                   <select
                     name="destinationLocationId"
                     required
-                    className="mt-1 w-full border bg-zinc-900 p-2"
+                    className={cn(filterSelectClass, "mt-1 w-full")}
                   >
                     <option value="">Choose a location…</option>
                     {normalReturnLocations.map((location) => (
@@ -478,18 +479,18 @@ export default async function DeckDetailPage({
                     ))}
                   </select>
                 </label>
-                <label className="block text-sm">
+                <label className={cn(filterFieldClass, "block")}>
                   Type DELETE to confirm
                   <input
                     name="strongConfirmation"
-                    className="mt-1 w-full border bg-zinc-900 p-2"
+                    className={cn(filterInputClass, "mt-1 w-full")}
                   />
                 </label>
               </>
             ) : null}
             <SubmitButton
               pendingLabel="Deleting…"
-              className="rounded border border-red-800 px-3 py-2 text-red-200"
+              className={filterDangerButtonClass}
               confirmMessage={
                 committedSummary.committedQuantity > 0
                   ? "Return committed physical cards to the selected location and delete this deck list? Inventory will not be deleted."
@@ -513,31 +514,31 @@ export default async function DeckDetailPage({
           >
             <h2 className="text-xl font-semibold">Deck settings</h2>
             <input type="hidden" name="deckId" value={deck.id} />
-            <label className="block text-sm">
+            <label className={cn(filterFieldClass, "block")}>
               Name
               <input
                 name="name"
                 defaultValue={deck.name}
                 required
-                className="mt-1 w-full border bg-zinc-900 p-2"
+                className={cn(filterInputClass, "mt-1 w-full")}
               />
             </label>
-            <label className="block text-sm">
+            <label className={cn(filterFieldClass, "block")}>
               Description
               <textarea
                 name="description"
                 defaultValue={deck.description ?? ""}
                 rows={3}
-                className="mt-1 w-full border bg-zinc-900 p-2"
+                className={cn(filterTextareaClass, "mt-1 w-full")}
               />
             </label>
             <div className="grid gap-3 md:grid-cols-2">
-              <label className="text-sm">
+              <label className={filterFieldClass}>
                 Format
                 <select
                   name="format"
                   defaultValue={deck.format}
-                  className="mt-1 w-full border bg-zinc-900 p-2"
+                  className={cn(filterSelectClass, "mt-1 w-full")}
                 >
                   {Object.values(DeckFormat).map((format) => (
                     <option key={format} value={format}>
@@ -546,12 +547,12 @@ export default async function DeckDetailPage({
                   ))}
                 </select>
               </label>
-              <label className="text-sm">
+              <label className={filterFieldClass}>
                 Visibility
                 <select
                   name="visibility"
                   defaultValue={deck.visibility}
-                  className="mt-1 w-full border bg-zinc-900 p-2"
+                  className={cn(filterSelectClass, "mt-1 w-full")}
                 >
                   {Object.values(Visibility).map((visibility) => (
                     <option key={visibility} value={visibility}>
@@ -563,7 +564,7 @@ export default async function DeckDetailPage({
             </div>
             <SubmitButton
               pendingLabel="Saving…"
-              className="rounded border border-sky-700 px-3 py-2 text-sky-100"
+              className={filterPrimaryButtonClass}
             >
               Save deck settings
             </SubmitButton>

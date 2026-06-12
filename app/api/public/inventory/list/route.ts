@@ -75,7 +75,6 @@ function getGlobalPublicExactPrintings(items: any[]) {
           color: item.currentOwner?.color || "#64748b",
         },
         quantity: item.quantity,
-        sourceItemIds: [`public-source-${index}`],
         ownerBreakdown: [ownerPart],
         locationBreakdown: [locationPart],
         locationSummary: locationSummary([locationPart]),
@@ -83,7 +82,6 @@ function getGlobalPublicExactPrintings(items: any[]) {
       return;
     }
     existing.quantity += item.quantity;
-    existing.sourceItemIds.push(`public-source-${index}`);
     existing.ownerBreakdown.push(ownerPart);
     const previousLocation = existing.locationBreakdown.find(
       (part: PublicLocationPart) => part.name === locationPart.name,
@@ -119,7 +117,6 @@ function toInventoryBrowserRows({
       cardName: i.card.name,
       quantity: entry.quantity ?? i.quantity,
       displayMode,
-      sourceItemIds: [publicRowId],
       printingCount: entry.printingCount ?? 1,
       locationCount: entry.locationCount ?? i.locationBreakdown?.length ?? 1,
       locationSummary:
@@ -203,7 +200,6 @@ function toInventoryBrowserRows({
         "",
       imageSmall: (i.card.imageUris as any)?.small ?? "",
       scryfallUri: i.card.scryfallUri ?? "",
-      auditHistory: [],
     };
   });
 }
@@ -215,7 +211,7 @@ export async function GET(request: Request) {
     {} as Record<string, string>,
   );
   const displayMode: "exact" | "grouped" =
-    params.displayMode === "exact" ? "exact" : "grouped";
+    params.displayMode === "grouped" ? "grouped" : "exact";
   const result = await getGlobalPublicInventory(
     params as PublicInventoryFilters,
   );
