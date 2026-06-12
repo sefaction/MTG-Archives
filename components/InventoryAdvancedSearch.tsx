@@ -8,6 +8,7 @@ import {
   filterInlineFieldClass,
   filterInputClass,
   filterLabelClass,
+  filterOptionClass,
   filterPanelClass,
   filterPrimaryButtonClass,
   filterSelectClass,
@@ -686,7 +687,11 @@ function ColorIdentityControls({
         title="Any = one selected color; All = every selected color; Exact = no extras; At most = subset; At least = superset."
       >
         {COLOR_MODE_OPTIONS.map((option) => (
-          <option key={option.value} value={option.value}>
+          <option
+            className={filterOptionClass}
+            key={option.value}
+            value={option.value}
+          >
             {option.label}
           </option>
         ))}
@@ -1072,14 +1077,26 @@ export function InventoryAdvancedSearch({
               <select
                 name="visibility"
                 defaultValue={first(params, "visibility")}
-                className="bg-transparent text-zinc-100 outline-none"
+                className={cn(filterSelectClass, "min-w-32")}
               >
-                <option value="">Any</option>
-                <option value="public">Public</option>
-                <option value="private">Private</option>
-                <option value="inherit">Default</option>
-                <option value="explicitPublic">Explicit public</option>
-                <option value="explicitPrivate">Explicit private</option>
+                <option className={filterOptionClass} value="">
+                  Any
+                </option>
+                <option className={filterOptionClass} value="public">
+                  Public
+                </option>
+                <option className={filterOptionClass} value="private">
+                  Private
+                </option>
+                <option className={filterOptionClass} value="inherit">
+                  Default
+                </option>
+                <option className={filterOptionClass} value="explicitPublic">
+                  Explicit public
+                </option>
+                <option className={filterOptionClass} value="explicitPrivate">
+                  Explicit private
+                </option>
               </select>
             </label>
           ) : null}
@@ -1099,11 +1116,17 @@ export function InventoryAdvancedSearch({
               <select
                 name={ownerParamName}
                 defaultValue={first(params, ownerParamName)}
-                className="bg-transparent text-zinc-100 outline-none"
+                className={cn(filterSelectClass, "min-w-32")}
               >
-                <option value="">{ownerAllLabel}</option>
+                <option className={filterOptionClass} value="">
+                  {ownerAllLabel}
+                </option>
                 {players.map((player) => (
-                  <option key={player.value} value={player.value}>
+                  <option
+                    className={filterOptionClass}
+                    key={player.value}
+                    value={player.value}
+                  >
                     {player.label}
                   </option>
                 ))}
@@ -1116,11 +1139,17 @@ export function InventoryAdvancedSearch({
               <select
                 name="commitment"
                 defaultValue={first(params, "commitment")}
-                className="bg-transparent text-zinc-100 outline-none"
+                className={cn(filterSelectClass, "min-w-32")}
               >
-                <option value="">All</option>
-                <option value="available">Available</option>
-                <option value="committed">Committed</option>
+                <option className={filterOptionClass} value="">
+                  All
+                </option>
+                <option className={filterOptionClass} value="available">
+                  Available
+                </option>
+                <option className={filterOptionClass} value="committed">
+                  Committed
+                </option>
               </select>
             </label>
           ) : null}
@@ -1139,13 +1168,27 @@ export function InventoryAdvancedSearch({
               onChange={(event) => setMvOp(event.target.value)}
               className={filterSelectClass}
             >
-              <option value="">Any</option>
-              <option value="eq">=</option>
-              <option value="lt">&lt;</option>
-              <option value="lte">&lt;=</option>
-              <option value="gt">&gt;</option>
-              <option value="gte">&gt;=</option>
-              <option value="between">Between</option>
+              <option className={filterOptionClass} value="">
+                Any
+              </option>
+              <option className={filterOptionClass} value="eq">
+                =
+              </option>
+              <option className={filterOptionClass} value="lt">
+                &lt;
+              </option>
+              <option className={filterOptionClass} value="lte">
+                &lt;=
+              </option>
+              <option className={filterOptionClass} value="gt">
+                &gt;
+              </option>
+              <option className={filterOptionClass} value="gte">
+                &gt;=
+              </option>
+              <option className={filterOptionClass} value="between">
+                Between
+              </option>
             </select>
             {mvOp && mvOp !== "between" ? (
               <input

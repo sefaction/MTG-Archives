@@ -19,6 +19,8 @@ export const filterInputClass = filterControlClass;
 
 export const filterSelectClass = cn(filterControlClass, "pr-8");
 
+export const filterOptionClass = "bg-zinc-900 text-zinc-100";
+
 export const filterTextareaClass = cn(filterControlClass, "min-h-24");
 
 export const filterButtonClass =

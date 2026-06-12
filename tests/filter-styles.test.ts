@@ -33,6 +33,7 @@ function assertUsesSharedStyles(source: string, name: string) {
 test("filter style tokens define the shared dark form language", () => {
   assert.match(filterStyles, /filterInputClass/);
   assert.match(filterStyles, /filterSelectClass/);
+  assert.match(filterStyles, /filterOptionClass/);
   assert.match(filterStyles, /filterButtonClass/);
   assert.match(filterStyles, /filterPrimaryButtonClass/);
   assert.match(filterStyles, /bg-zinc-900/);
@@ -40,15 +41,32 @@ test("filter style tokens define the shared dark form language", () => {
   assert.match(filterStyles, /focus:border-sky-500/);
   assert.match(filterStyles, /disabled:cursor-not-allowed/);
   assert.match(filterStyles, /placeholder:text-zinc-500/);
+  assert.match(filterStyles, /filterOptionClass = "bg-zinc-900 text-zinc-100"/);
 });
 
 test("inventory filter controls use shared dark filter styling", () => {
   assertUsesSharedStyles(inventorySearch, "InventoryAdvancedSearch");
   assertUsesSharedStyles(inventoryBrowser, "InventoryBrowser");
   assertUsesSharedStyles(inventoryPage, "inventory page export controls");
-  assert.match(inventorySearch, /name=\{ownerParamName\}/);
+  assert.match(
+    inventorySearch,
+    /name=\{ownerParamName\}[\s\S]*?className=\{cn\(filterSelectClass, "min-w-32"\)\}/,
+  );
+  assert.match(
+    inventorySearch,
+    /name=\{ownerParamName\}[\s\S]*?<option className=\{filterOptionClass\}/,
+  );
   assert.match(inventorySearch, /label="Location"/);
-  assert.match(inventorySearch, /name="commitment"/);
+  assert.match(
+    inventorySearch,
+    /name="commitment"[\s\S]*?className=\{cn\(filterSelectClass, "min-w-32"\)\}/,
+  );
+  assert.match(inventorySearch, /value="available"[\s\S]*?Available/);
+  assert.match(inventorySearch, /value="committed"[\s\S]*?Committed/);
+  assert.match(
+    inventorySearch,
+    /name="commitment"[\s\S]*?<option className=\{filterOptionClass\} value="available"/,
+  );
   assert.match(inventoryBrowser, /Display:/);
   assert.match(inventoryBrowser, /Page size:/);
   assert.match(inventoryBrowser, /Browsing mode:/);
