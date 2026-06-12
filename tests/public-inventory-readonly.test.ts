@@ -125,7 +125,7 @@ test("public inventory browser keeps read-only browse controls and hides write/a
   assert.match(inventoryBrowser, /Display:/);
   assert.match(inventoryBrowser, /Page size:/);
   assert.match(inventoryBrowser, /Browsing mode:/);
-  assert.match(inventoryBrowser, />Columns</);
+  assert.match(inventoryBrowser, /Columns/);
   assert.match(inventoryBrowser, /header: "Card Name"/);
   assert.match(inventoryBrowser, /header: "Total cards"/);
   assert.match(inventoryBrowser, /header: "Location summary"/);

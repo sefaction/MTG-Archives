@@ -35,6 +35,14 @@ import {
   switchWishlistDeckCardToOwnedPrinting,
   updateManualWishlistItem,
 } from "@/app/wishlist/actions";
+import {
+  cn,
+  filterButtonClass,
+  filterFieldClass,
+  filterInputClass,
+  filterPrimaryButtonClass,
+  filterSelectClass,
+} from "./filterStyles";
 
 type WishlistTableRow = WishlistGroup & {
   missingQuantity: number;
@@ -199,19 +207,19 @@ function WishlistPrintingPicker({
     <div className="space-y-2 rounded border border-zinc-800 p-3">
       <h4 className="font-medium">{label}</h4>
       <div className="flex flex-wrap items-end gap-2">
-        <label className="text-xs text-zinc-400">
+        <label className={cn(filterFieldClass, "text-zinc-400")}>
           Printing search
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            className="mt-1 block min-w-56 border bg-zinc-900 p-2 text-sm text-zinc-100"
+            className={cn(filterInputClass, "mt-1 block min-w-56")}
           />
         </label>
         <button
           type="button"
           disabled={pending}
           onClick={() => search(false)}
-          className="rounded border border-sky-700 px-3 py-2 text-sm text-sky-100 disabled:opacity-60"
+          className={filterPrimaryButtonClass}
         >
           Search local
         </button>
@@ -219,7 +227,7 @@ function WishlistPrintingPicker({
           type="button"
           disabled={pending}
           onClick={() => search(true)}
-          className="rounded border border-zinc-700 px-3 py-2 text-sm disabled:opacity-60"
+          className={filterButtonClass}
         >
           Search Scryfall
         </button>
@@ -242,7 +250,7 @@ function WishlistPrintingPicker({
                 ) ?? null,
               )
             }
-            className="border bg-zinc-900 p-2 text-sm"
+            className={filterSelectClass}
           >
             {results.map((result) => (
               <option key={result.cardId} value={result.cardId}>
@@ -254,7 +262,10 @@ function WishlistPrintingPicker({
           </select>
           <SubmitButton
             pendingLabel="Changing…"
-            className="rounded border border-emerald-700 px-3 py-2 text-sm text-emerald-100"
+            className={cn(
+              filterPrimaryButtonClass,
+              "border-emerald-700 text-emerald-100 hover:bg-emerald-950/40",
+            )}
             disabled={!selected}
           >
             Change printing
@@ -364,32 +375,32 @@ function WishlistDetailDrawer({
                 className="grid gap-2 rounded border border-zinc-800 p-3 md:grid-cols-[90px_130px_1fr_auto_auto]"
               >
                 <input type="hidden" name="wishlistItemId" value={item.id} />
-                <label className="text-xs text-zinc-400">
+                <label className={cn(filterFieldClass, "text-zinc-400")}>
                   Qty
                   <input
                     name="quantity"
                     type="number"
                     min="1"
                     defaultValue={item.quantity}
-                    className="mt-1 w-full border bg-zinc-900 p-2 text-zinc-100"
+                    className={cn(filterInputClass, "mt-1 w-full")}
                   />
                 </label>
-                <label className="text-xs text-zinc-400">
+                <label className={cn(filterFieldClass, "text-zinc-400")}>
                   Priority
                   <input
                     name="priority"
                     defaultValue={item.priority || ""}
                     placeholder="Priority"
-                    className="mt-1 w-full border bg-zinc-900 p-2 text-zinc-100"
+                    className={cn(filterInputClass, "mt-1 w-full")}
                   />
                 </label>
-                <label className="text-xs text-zinc-400">
+                <label className={cn(filterFieldClass, "text-zinc-400")}>
                   Notes
                   <input
                     name="notes"
                     defaultValue={item.notes || ""}
                     placeholder="Notes"
-                    className="mt-1 w-full border bg-zinc-900 p-2 text-zinc-100"
+                    className={cn(filterInputClass, "mt-1 w-full")}
                   />
                 </label>
                 <SubmitButton
@@ -413,35 +424,38 @@ function WishlistDetailDrawer({
               className="grid gap-2 rounded border border-zinc-800 p-3 md:grid-cols-[90px_130px_1fr_auto]"
             >
               <input type="hidden" name="cardId" value={row.card.id} />
-              <label className="text-xs text-zinc-400">
+              <label className={cn(filterFieldClass, "text-zinc-400")}>
                 Qty
                 <input
                   name="quantity"
                   type="number"
                   min="1"
                   defaultValue="1"
-                  className="mt-1 w-full border bg-zinc-900 p-2 text-zinc-100"
+                  className={cn(filterInputClass, "mt-1 w-full")}
                 />
               </label>
-              <label className="text-xs text-zinc-400">
+              <label className={cn(filterFieldClass, "text-zinc-400")}>
                 Priority
                 <input
                   name="priority"
                   placeholder="Priority"
-                  className="mt-1 w-full border bg-zinc-900 p-2 text-zinc-100"
+                  className={cn(filterInputClass, "mt-1 w-full")}
                 />
               </label>
-              <label className="text-xs text-zinc-400">
+              <label className={cn(filterFieldClass, "text-zinc-400")}>
                 Notes
                 <input
                   name="notes"
                   placeholder="Notes"
-                  className="mt-1 w-full border bg-zinc-900 p-2 text-zinc-100"
+                  className={cn(filterInputClass, "mt-1 w-full")}
                 />
               </label>
               <SubmitButton
                 pendingLabel="Adding…"
-                className="rounded border border-emerald-700 px-3 py-2 text-emerald-100"
+                className={cn(
+                  filterPrimaryButtonClass,
+                  "border-emerald-700 text-emerald-100 hover:bg-emerald-950/40",
+                )}
               >
                 Add manual quantity
               </SubmitButton>
@@ -489,11 +503,11 @@ function WishlistDetailDrawer({
                       name="deckCardId"
                       value={need.deckCardId}
                     />
-                    <label className="text-xs text-zinc-400">
+                    <label className={cn(filterFieldClass, "text-zinc-400")}>
                       Source location
                       <select
                         name="inventoryItemId"
-                        className="mt-1 w-full border bg-zinc-900 p-2 text-zinc-100"
+                        className={cn(filterInputClass, "mt-1 w-full")}
                       >
                         {need.commitOptions.map((option) => (
                           <option
@@ -506,7 +520,7 @@ function WishlistDetailDrawer({
                         ))}
                       </select>
                     </label>
-                    <label className="text-xs text-zinc-400">
+                    <label className={cn(filterFieldClass, "text-zinc-400")}>
                       Qty
                       <input
                         name="quantity"
@@ -514,12 +528,15 @@ function WishlistDetailDrawer({
                         min="1"
                         max={need.missingQuantity}
                         defaultValue="1"
-                        className="mt-1 w-full border bg-zinc-900 p-2 text-zinc-100"
+                        className={cn(filterInputClass, "mt-1 w-full")}
                       />
                     </label>
                     <SubmitButton
                       pendingLabel="Committing…"
-                      className="rounded border border-emerald-700 px-3 py-2 text-emerald-100"
+                      className={cn(
+                        filterPrimaryButtonClass,
+                        "border-emerald-700 text-emerald-100 hover:bg-emerald-950/40",
+                      )}
                     >
                       Commit available copy
                     </SubmitButton>
@@ -539,7 +556,7 @@ function WishlistDetailDrawer({
                     />
                     <SubmitButton
                       pendingLabel="Switching…"
-                      className="rounded border border-sky-700 px-3 py-2 text-sky-100"
+                      className={filterPrimaryButtonClass}
                     >
                       Use owned printing for this deck card
                     </SubmitButton>
@@ -560,7 +577,7 @@ function WishlistDetailDrawer({
                   </form>
                   <Link
                     href={`/decks/${need.deckId}`}
-                    className="rounded border border-zinc-700 px-3 py-2"
+                    className={filterButtonClass}
                   >
                     View deck
                   </Link>
@@ -650,7 +667,7 @@ function WishlistDetailDrawer({
                     />
                     <SubmitButton
                       pendingLabel="Switching…"
-                      className="rounded border border-sky-700 px-3 py-2 text-sky-100"
+                      className={filterPrimaryButtonClass}
                     >
                       Use owned printing
                     </SubmitButton>
