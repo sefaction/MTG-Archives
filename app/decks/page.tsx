@@ -9,6 +9,14 @@ import { prisma } from "@/lib/prisma";
 import { deckFormatLabel, deckSectionSummaryParts } from "@/lib/decks";
 import { visibilityLabel } from "@/lib/visibility";
 import { createDeck, deleteDeck } from "./actions";
+import {
+  cn,
+  filterFieldClass,
+  filterInputClass,
+  filterPrimaryButtonClass,
+  filterSelectClass,
+  filterTextareaClass,
+} from "@/components/filterStyles";
 
 export default async function DecksPage() {
   const user = await requireLogin();
@@ -43,20 +51,20 @@ export default async function DecksPage() {
         action={createDeck}
         className="grid gap-3 rounded border border-zinc-800 p-4 md:grid-cols-5"
       >
-        <label className="text-sm md:col-span-2">
+        <label className={cn(filterFieldClass, "md:col-span-2")}>
           Deck name
           <input
             name="name"
             required
-            className="mt-1 w-full border bg-zinc-900 p-2"
+            className={cn(filterInputClass, "mt-1 w-full")}
           />
         </label>
-        <label className="text-sm">
+        <label className={filterFieldClass}>
           Format
           <select
             name="format"
             defaultValue={DeckFormat.CASUAL}
-            className="mt-1 w-full border bg-zinc-900 p-2"
+            className={cn(filterSelectClass, "mt-1 w-full")}
           >
             {Object.values(DeckFormat).map((format) => (
               <option key={format} value={format}>
@@ -65,12 +73,12 @@ export default async function DecksPage() {
             ))}
           </select>
         </label>
-        <label className="text-sm">
+        <label className={filterFieldClass}>
           Visibility
           <select
             name="visibility"
             defaultValue={Visibility.INHERIT}
-            className="mt-1 w-full border bg-zinc-900 p-2"
+            className={cn(filterSelectClass, "mt-1 w-full")}
           >
             {Object.values(Visibility).map((visibility) => (
               <option key={visibility} value={visibility}>
@@ -82,17 +90,17 @@ export default async function DecksPage() {
         <div className="flex items-end">
           <SubmitButton
             pendingLabel="Creating…"
-            className="w-full rounded border border-sky-700 px-3 py-2 text-sky-100"
+            className={cn(filterPrimaryButtonClass, "w-full")}
           >
             Create deck
           </SubmitButton>
         </div>
-        <label className="text-sm md:col-span-5">
+        <label className={cn(filterFieldClass, "md:col-span-5")}>
           Description
           <textarea
             name="description"
             rows={2}
-            className="mt-1 w-full border bg-zinc-900 p-2"
+            className={cn(filterTextareaClass, "mt-1 w-full")}
           />
         </label>
       </form>

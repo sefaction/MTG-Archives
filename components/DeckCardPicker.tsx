@@ -6,6 +6,12 @@ import { ManaCost } from "@/components/mtg/ManaCost";
 import { SetSymbol } from "@/components/mtg/CardSymbols";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { deckSectionLabel } from "@/lib/decks";
+import {
+  cn,
+  filterFieldClass,
+  filterInputClass,
+  filterSelectClass,
+} from "@/components/filterStyles";
 import type {
   DeckCardSearchResponse,
   DeckCardSearchResult,
@@ -63,7 +69,7 @@ export function DeckCardPicker({
   return (
     <section className="space-y-3 rounded border border-zinc-800 p-4">
       <h2 className="text-xl font-semibold">Add card</h2>
-      <label className="block text-sm">
+      <label className={cn(filterFieldClass, "block")}>
         Search for a card or printing
         <input
           value={query}
@@ -76,7 +82,7 @@ export function DeckCardPicker({
             setLoading(next.trim().length >= 2);
           }}
           placeholder="Search any Magic card"
-          className="mt-1 w-full border bg-zinc-900 p-2"
+          className={cn(filterInputClass, "mt-1 w-full")}
         />
       </label>
       <label className="flex items-center gap-2 text-xs text-zinc-300">
@@ -162,12 +168,12 @@ export function DeckCardPicker({
         <p className="text-sm text-zinc-300 md:col-span-3">
           Selected: <span className="text-sky-100">{selectedLabel}</span>
         </p>
-        <label className="text-sm">
+        <label className={filterFieldClass}>
           Section
           <select
             name="section"
             defaultValue={defaultSection}
-            className="mt-1 w-full border bg-zinc-900 p-2"
+            className={cn(filterSelectClass, "mt-1 w-full")}
           >
             {sections.map((section) => (
               <option key={section} value={section}>
@@ -176,19 +182,19 @@ export function DeckCardPicker({
             ))}
           </select>
         </label>
-        <label className="text-sm">
+        <label className={filterFieldClass}>
           Quantity
           <input
             name="quantity"
             type="number"
             min={1}
             defaultValue={1}
-            className="mt-1 w-full border bg-zinc-900 p-2"
+            className={cn(filterInputClass, "mt-1 w-full")}
           />
         </label>
-        <label className="text-sm">
+        <label className={filterFieldClass}>
           Notes
-          <input name="notes" className="mt-1 w-full border bg-zinc-900 p-2" />
+          <input name="notes" className={cn(filterInputClass, "mt-1 w-full")} />
         </label>
         <SubmitButton
           pendingLabel="Adding…"

@@ -7,6 +7,14 @@ import { normalizeCollectionCardSize } from "@/components/cardGrid";
 import { requireLogin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getWishlistView, type WishlistGroup } from "@/lib/wishlist";
+import {
+  cn,
+  filterButtonClass,
+  filterFieldClass,
+  filterInputClass,
+  filterPrimaryButtonClass,
+  filterSelectClass,
+} from "@/components/filterStyles";
 
 function money(value: number | null) {
   return value === null ? "—" : `$${value.toFixed(2)}`;
@@ -247,23 +255,23 @@ export default async function WishlistPage({
 
       <form className="space-y-3 rounded border border-zinc-800 p-4">
         <div className="flex flex-wrap items-end gap-3">
-          <label className="text-sm">
+          <label className={filterFieldClass}>
             Search
             <input
               name="q"
               defaultValue={params.q || ""}
-              className="mt-1 block border bg-zinc-900 p-2"
+              className={cn(filterInputClass, "mt-1 block")}
               placeholder="Card, text, set, deck, notes"
             />
           </label>
-          <label className="text-sm">
+          <label className={filterFieldClass}>
             View
             <input type="hidden" name="viewMode" value={viewMode} />
             <input type="hidden" name="cardSize" value={cardSize} />
             <select
               name="tab"
               defaultValue={tab}
-              className="mt-1 block border bg-zinc-900 p-2"
+              className={cn(filterSelectClass, "mt-1 block")}
             >
               <option value="all">All</option>
               <option value="manual">Manual</option>
@@ -274,12 +282,12 @@ export default async function WishlistPage({
               <option value="out">Not in Stock</option>
             </select>
           </label>
-          <label className="text-sm">
+          <label className={filterFieldClass}>
             Sort
             <select
               name="sort"
               defaultValue={sort}
-              className="mt-1 block border bg-zinc-900 p-2"
+              className={cn(filterSelectClass, "mt-1 block")}
             >
               <option value="need">Wanted quantity</option>
               <option value="name">Card name</option>
@@ -297,12 +305,12 @@ export default async function WishlistPage({
               <option value="mana">Mana value</option>
             </select>
           </label>
-          <label className="text-sm">
+          <label className={filterFieldClass}>
             Page size
             <select
               name="pageSize"
               defaultValue={pageSize}
-              className="mt-1 block border bg-zinc-900 p-2"
+              className={cn(filterSelectClass, "mt-1 block")}
             >
               <option value="10">10</option>
               <option value="25">25</option>
@@ -311,27 +319,27 @@ export default async function WishlistPage({
             </select>
           </label>
           <input type="hidden" name="page" value="1" />
-          <button className="rounded border border-sky-700 px-3 py-2 text-sky-100">
-            Apply
-          </button>
-          <a
-            href="/wishlist"
-            className="rounded border border-zinc-700 px-3 py-2 text-sm"
-          >
+          <button className={filterPrimaryButtonClass}>Apply</button>
+          <a href="/wishlist" className={filterButtonClass}>
             Clear Filters
           </a>
         </div>
         <details>
-          <summary className="cursor-pointer text-sm text-zinc-300">
+          <summary
+            className={cn(
+              filterButtonClass,
+              "inline-flex cursor-pointer list-none",
+            )}
+          >
             Advanced Filters
           </summary>
           <div className="mt-3 grid gap-3 md:grid-cols-4">
-            <label className="text-sm">
+            <label className={filterFieldClass}>
               Source
               <select
                 name="source"
                 defaultValue={source}
-                className="mt-1 w-full border bg-zinc-900 p-2"
+                className={cn(filterSelectClass, "mt-1 w-full")}
               >
                 <option value="">Any</option>
                 <option value="manual">Manual</option>
@@ -339,20 +347,20 @@ export default async function WishlistPage({
                 <option value="manual + deck">Manual + Deck</option>
               </select>
             </label>
-            <label className="text-sm">
+            <label className={filterFieldClass}>
               Deck
               <input
                 name="deck"
                 defaultValue={params.deck || ""}
-                className="mt-1 w-full border bg-zinc-900 p-2"
+                className={cn(filterInputClass, "mt-1 w-full")}
               />
             </label>
-            <label className="text-sm">
+            <label className={filterFieldClass}>
               Owned status
               <select
                 name="ownedStatus"
                 defaultValue={ownedStatus}
-                className="mt-1 w-full border bg-zinc-900 p-2"
+                className={cn(filterSelectClass, "mt-1 w-full")}
               >
                 <option value="">Any</option>
                 <option value="owned">Owned</option>
@@ -361,84 +369,84 @@ export default async function WishlistPage({
                 <option value="fully-available">Fully available</option>
               </select>
             </label>
-            <label className="text-sm">
+            <label className={filterFieldClass}>
               Priority
               <input
                 name="priority"
                 defaultValue={params.priority || ""}
-                className="mt-1 w-full border bg-zinc-900 p-2"
+                className={cn(filterInputClass, "mt-1 w-full")}
               />
             </label>
-            <label className="text-sm">
+            <label className={filterFieldClass}>
               Set
               <input
                 name="set"
                 defaultValue={params.set || ""}
-                className="mt-1 w-full border bg-zinc-900 p-2"
+                className={cn(filterInputClass, "mt-1 w-full")}
               />
             </label>
-            <label className="text-sm">
+            <label className={filterFieldClass}>
               Rarity
               <input
                 name="rarity"
                 defaultValue={params.rarity || ""}
-                className="mt-1 w-full border bg-zinc-900 p-2"
+                className={cn(filterInputClass, "mt-1 w-full")}
               />
             </label>
-            <label className="text-sm">
+            <label className={filterFieldClass}>
               Color identity
               <input
                 name="color"
                 defaultValue={params.color || ""}
-                className="mt-1 w-full border bg-zinc-900 p-2"
+                className={cn(filterInputClass, "mt-1 w-full")}
               />
             </label>
-            <label className="text-sm">
+            <label className={filterFieldClass}>
               Type line
               <input
                 name="type"
                 defaultValue={params.type || ""}
-                className="mt-1 w-full border bg-zinc-900 p-2"
+                className={cn(filterInputClass, "mt-1 w-full")}
               />
             </label>
-            <label className="text-sm">
+            <label className={filterFieldClass}>
               Finish
               <input
                 name="finish"
                 defaultValue={params.finish || ""}
-                className="mt-1 w-full border bg-zinc-900 p-2"
+                className={cn(filterInputClass, "mt-1 w-full")}
               />
             </label>
-            <label className="text-sm">
+            <label className={filterFieldClass}>
               Mana min
               <input
                 name="manaMin"
                 defaultValue={params.manaMin || ""}
-                className="mt-1 w-full border bg-zinc-900 p-2"
+                className={cn(filterInputClass, "mt-1 w-full")}
               />
             </label>
-            <label className="text-sm">
+            <label className={filterFieldClass}>
               Mana max
               <input
                 name="manaMax"
                 defaultValue={params.manaMax || ""}
-                className="mt-1 w-full border bg-zinc-900 p-2"
+                className={cn(filterInputClass, "mt-1 w-full")}
               />
             </label>
-            <label className="text-sm">
+            <label className={filterFieldClass}>
               Price min
               <input
                 name="priceMin"
                 defaultValue={params.priceMin || ""}
-                className="mt-1 w-full border bg-zinc-900 p-2"
+                className={cn(filterInputClass, "mt-1 w-full")}
               />
             </label>
-            <label className="text-sm">
+            <label className={filterFieldClass}>
               Price max
               <input
                 name="priceMax"
                 defaultValue={params.priceMax || ""}
-                className="mt-1 w-full border bg-zinc-900 p-2"
+                className={cn(filterInputClass, "mt-1 w-full")}
               />
             </label>
             <label className="flex items-center gap-2 text-sm">

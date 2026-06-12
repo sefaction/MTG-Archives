@@ -2,9 +2,28 @@
 
 import { useEffect, useId, useState } from "react";
 import { ManaSymbol } from "./mtg/ManaSymbol";
+import {
+  cn,
+  filterButtonClass,
+  filterInlineFieldClass,
+  filterInputClass,
+  filterLabelClass,
+  filterPanelClass,
+  filterPrimaryButtonClass,
+  filterSelectClass,
+} from "./filterStyles";
 
 export type FilterOption = { value: string; label: string };
 export type FilterLocationOption = FilterOption & { kind?: string };
+
+export type InventoryAdvancedSearchCapabilities = {
+  showOwnerScopeControls: boolean;
+  showOwnerFilter: boolean;
+  showVisibilityFilter: boolean;
+  showSourceFilter: boolean;
+  showInventoryScopeFilter: boolean;
+  showLocationFilter: boolean;
+};
 
 type InventoryAdvancedSearchProps = {
   actionPath: string;
@@ -12,8 +31,14 @@ type InventoryAdvancedSearchProps = {
   displayMode: "exact" | "grouped";
   isAdmin?: boolean;
   isPublic?: boolean;
+  capabilities?: Partial<InventoryAdvancedSearchCapabilities>;
   players?: FilterOption[];
   locations?: FilterLocationOption[];
+  ownerParamName?: "ownerId" | "owner";
+  ownerFilterLabel?: string;
+  ownerAllLabel?: string;
+  locationParamName?: "locationId" | "locationName";
+  includeUnassignedLocationOption?: boolean;
   setOptions?: FilterOption[];
   cardNameOptions?: string[];
   suggestionsEndpoint?: string;
@@ -258,7 +283,7 @@ function AutocompleteSuggestionList({
     <div
       id={id}
       role="listbox"
-      className="absolute z-40 mt-1 max-h-64 w-full overflow-auto rounded border border-zinc-700 bg-zinc-950 p-1 text-sm shadow-xl"
+      className="absolute z-40 mt-1 max-h-64 w-full overflow-auto rounded-md border border-zinc-700 bg-zinc-950 p-1 text-sm shadow-xl shadow-black/30"
     >
       {options.map((option, index) => (
         <button
@@ -340,7 +365,7 @@ function AutocompleteInput({
 
   return (
     <div className="relative">
-      <label className="text-xs font-medium text-zinc-300" htmlFor={inputId}>
+      <label className={filterLabelClass} htmlFor={inputId}>
         {label}
       </label>
       <input
@@ -383,7 +408,7 @@ function AutocompleteInput({
         aria-haspopup="listbox"
         aria-controls={open && suggestions.length ? listId : undefined}
         aria-expanded={open && suggestions.length ? "true" : "false"}
-        className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 p-2 text-sm"
+        className={cn(filterInputClass, "mt-1 w-full")}
       />
       {open ? (
         <AutocompleteSuggestionList
@@ -461,10 +486,10 @@ function TokenAutocompleteInput({
   return (
     <div className="relative">
       <input type="hidden" name={name} value={tokens.join(",")} />
-      <label className="text-xs font-medium text-zinc-300" htmlFor={inputId}>
+      <label className={filterLabelClass} htmlFor={inputId}>
         {label}
       </label>
-      <div className="mt-1 flex min-h-10 flex-wrap items-center gap-1 rounded border border-zinc-700 bg-zinc-900 px-2 py-1">
+      <div className="mt-1 flex min-h-10 flex-wrap items-center gap-1 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 transition-colors focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/30">
         {tokens.map((token) => (
           <FilterChip
             key={token}
@@ -517,7 +542,7 @@ function TokenAutocompleteInput({
           aria-haspopup="listbox"
           aria-controls={open && suggestions.length ? listId : undefined}
           aria-expanded={open && suggestions.length ? "true" : "false"}
-          className="min-w-32 flex-1 bg-transparent px-1 py-1 text-sm outline-none"
+          className="min-w-32 flex-1 bg-transparent px-1 py-1 text-sm text-zinc-100 outline-none placeholder:text-zinc-500"
         />
       </div>
       {open ? (
@@ -613,7 +638,7 @@ function MultiSelectDropdown({
     .filter((option) => selected.includes(option.value))
     .map((option) => option.label);
   return (
-    <details className="relative min-w-44 rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-sm">
+    <details className={cn(filterInlineFieldClass, "relative min-w-44")}>
       <summary className="cursor-pointer list-none">
         <span className="text-zinc-400">{label}: </span>
         <span className="text-zinc-100">
@@ -624,7 +649,7 @@ function MultiSelectDropdown({
             : "Any"}
         </span>
       </summary>
-      <div className="absolute z-30 mt-2 max-h-64 min-w-56 overflow-auto rounded border border-zinc-700 bg-zinc-950 p-2 shadow-xl">
+      <div className="absolute z-30 mt-2 max-h-64 min-w-56 overflow-auto rounded-md border border-zinc-700 bg-zinc-950 p-2 shadow-xl shadow-black/30">
         {options.map((option) => (
           <label
             key={option.value}
@@ -652,12 +677,12 @@ function ColorIdentityControls({
   mode: string;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded border border-zinc-800 bg-zinc-950/70 p-2 text-sm">
-      <span className="text-xs font-medium text-zinc-300">Color ID</span>
+    <div className="flex min-h-10 flex-wrap items-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 p-2 text-sm text-zinc-100 transition-colors focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/30">
+      <span className={filterLabelClass}>Color ID</span>
       <select
         name="colorIdentityMode"
         defaultValue={mode || "include"}
-        className="rounded border border-zinc-700 bg-zinc-900 px-2 py-1"
+        className={filterSelectClass}
         title="Any = one selected color; All = every selected color; Exact = no extras; At most = subset; At least = superset."
       >
         {COLOR_MODE_OPTIONS.map((option) => (
@@ -696,20 +721,28 @@ function buildActiveChips({
   rarity,
   finish,
   source,
-  locationId,
+  ownerParamName,
+  ownerFilterLabel,
+  locationValues,
+  locationParamName,
   locationOptions,
   typeTokens,
   colorIdentity,
+  capabilities,
 }: {
   params: InventoryAdvancedSearchProps["params"];
   actionPath: string;
   rarity: string[];
   finish: string[];
   source: string[];
-  locationId: string[];
+  ownerParamName: "ownerId" | "owner";
+  ownerFilterLabel: string;
+  locationValues: string[];
+  locationParamName: "locationId" | "locationName";
   locationOptions: FilterOption[];
   typeTokens: string[];
   colorIdentity: string[];
+  capabilities: InventoryAdvancedSearchCapabilities;
 }) {
   const chips: FilterChipItem[] = [];
   const pushWhole = (
@@ -775,22 +808,30 @@ function buildActiveChips({
   values(params, "language").forEach((value) =>
     pushOne("language", "Language", value, value.toUpperCase()),
   );
-  source.forEach((value) =>
-    pushOne("source", "Source", value, optionLabel(SOURCE_OPTIONS, value)),
-  );
-  locationId.forEach((value) =>
-    pushOne(
-      value === "unassigned" && !values(params, "locationId").length
-        ? "hasLocation"
-        : "locationId",
-      "Location",
-      value,
-      optionLabel(locationOptions, value),
-    ),
-  );
-  pushWhole("visibility", "Visibility", first(params, "visibility"));
-  pushWhole("ownerId", "Owner", first(params, "ownerId"));
-  pushWhole("commitment", "Inventory", first(params, "commitment"));
+  if (capabilities.showSourceFilter) {
+    source.forEach((value) =>
+      pushOne("source", "Source", value, optionLabel(SOURCE_OPTIONS, value)),
+    );
+  }
+  if (capabilities.showLocationFilter) {
+    locationValues.forEach((value) =>
+      pushOne(
+        value === "unassigned" && !values(params, locationParamName).length
+          ? "hasLocation"
+          : locationParamName,
+        "Location",
+        value,
+        optionLabel(locationOptions, value),
+      ),
+    );
+  }
+  if (capabilities.showVisibilityFilter)
+    pushWhole("visibility", "Visibility", first(params, "visibility"));
+  if (capabilities.showOwnerFilter || capabilities.showOwnerScopeControls) {
+    pushWhole(ownerParamName, ownerFilterLabel, first(params, ownerParamName));
+  }
+  if (capabilities.showInventoryScopeFilter)
+    pushWhole("commitment", "Inventory", first(params, "commitment"));
   colorIdentity.forEach((value) => {
     const mode =
       COLOR_MODE_OPTIONS.find(
@@ -841,8 +882,14 @@ export function InventoryAdvancedSearch({
   displayMode,
   isAdmin = false,
   isPublic = false,
+  capabilities: capabilityOverrides,
   players = [],
   locations = [],
+  ownerParamName = isPublic ? "owner" : "ownerId",
+  ownerFilterLabel = isPublic ? "Current owner" : "Owner",
+  ownerAllLabel = isPublic ? "All public owners" : "All owners",
+  locationParamName = isPublic ? "locationName" : "locationId",
+  includeUnassignedLocationOption = !isPublic,
   setOptions = [],
   cardNameOptions = [],
   suggestionsEndpoint = isPublic
@@ -850,6 +897,15 @@ export function InventoryAdvancedSearch({
     : "/api/inventory/filter-suggestions",
   clearHref,
 }: InventoryAdvancedSearchProps) {
+  const capabilities: InventoryAdvancedSearchCapabilities = {
+    showOwnerScopeControls: isAdmin && !isPublic,
+    showOwnerFilter: isPublic,
+    showVisibilityFilter: !isPublic,
+    showSourceFilter: !isPublic,
+    showInventoryScopeFilter: !isPublic,
+    showLocationFilter: true,
+    ...capabilityOverrides,
+  };
   const rarity = values(params, "rarity");
   const finish = values(params, "finish").length
     ? values(params, "finish")
@@ -859,10 +915,10 @@ export function InventoryAdvancedSearch({
         ? ["nonfoil"]
         : [];
   const source = values(params, "source");
-  const locationId =
-    values(params, "locationId").length ||
+  const selectedLocationValues =
+    values(params, locationParamName).length ||
     first(params, "hasLocation") !== "unassigned"
-      ? values(params, "locationId")
+      ? values(params, locationParamName)
       : ["unassigned"];
   const typeTokens = values(params, "typeTokens").length
     ? values(params, "typeTokens")
@@ -875,7 +931,9 @@ export function InventoryAdvancedSearch({
       : "");
   const [mvOp, setMvOp] = useState(initialMvOp);
   const locationOptions = [
-    { value: "unassigned", label: "Unassigned" },
+    ...(includeUnassignedLocationOption
+      ? [{ value: "unassigned", label: "Unassigned" }]
+      : []),
     ...locations.map((location) => ({
       value: location.value,
       label: `${location.kind === "DECK" ? "Deck: " : ""}${location.label}`,
@@ -897,14 +955,18 @@ export function InventoryAdvancedSearch({
     rarity,
     finish,
     source,
-    locationId,
+    ownerParamName,
+    ownerFilterLabel,
+    locationValues: selectedLocationValues,
+    locationParamName,
     locationOptions,
     typeTokens,
     colorIdentity,
+    capabilities,
   });
 
   return (
-    <details open className="rounded border border-zinc-800 bg-zinc-950/40 p-3">
+    <details open className={filterPanelClass}>
       <summary className="cursor-pointer font-semibold">
         Advanced Inventory Search
       </summary>
@@ -950,13 +1012,13 @@ export function InventoryAdvancedSearch({
             suggestionsEndpoint={suggestionsEndpoint}
             suggestionKind="typeLine"
           />
-          <label className="text-xs font-medium text-zinc-300">
+          <label className={filterLabelClass}>
             Oracle text
             <input
               name="oracleText"
               defaultValue={first(params, "oracleText")}
               placeholder="draw a card"
-              className="mt-1 w-full rounded border border-zinc-700 bg-zinc-900 p-2 text-sm"
+              className={cn(filterInputClass, "mt-1 w-full")}
             />
           </label>
           <TokenAutocompleteInput
@@ -986,31 +1048,31 @@ export function InventoryAdvancedSearch({
             options={FINISH_OPTIONS}
             selected={finish}
           />
-          <label className="min-w-32 rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-sm">
+          <label className={cn(filterInlineFieldClass, "min-w-32")}>
             <span className="text-zinc-400">Language</span>
             <input
               name="language"
               defaultValue={values(params, "language").join(",")}
               placeholder="Any"
-              className="ml-2 w-20 bg-transparent outline-none"
+              className="ml-2 w-20 bg-transparent text-zinc-100 outline-none placeholder:text-zinc-500"
             />
           </label>
-          {!isPublic ? (
+          {capabilities.showLocationFilter ? (
             <MultiSelectDropdown
               label="Location"
-              name="locationId"
+              name={locationParamName}
               options={locationOptions}
-              selected={locationId}
+              selected={selectedLocationValues}
               compact
             />
           ) : null}
-          {!isPublic ? (
-            <label className="min-w-44 rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-sm">
+          {capabilities.showVisibilityFilter ? (
+            <label className={cn(filterInlineFieldClass, "min-w-44")}>
               <span className="text-zinc-400">Visibility: </span>
               <select
                 name="visibility"
                 defaultValue={first(params, "visibility")}
-                className="bg-transparent outline-none"
+                className="bg-transparent text-zinc-100 outline-none"
               >
                 <option value="">Any</option>
                 <option value="public">Public</option>
@@ -1021,7 +1083,7 @@ export function InventoryAdvancedSearch({
               </select>
             </label>
           ) : null}
-          {!isPublic ? (
+          {capabilities.showSourceFilter ? (
             <MultiSelectDropdown
               label="Source"
               name="source"
@@ -1030,15 +1092,16 @@ export function InventoryAdvancedSearch({
               compact
             />
           ) : null}
-          {isAdmin && !isPublic ? (
-            <label className="min-w-48 rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-sm">
-              <span className="text-zinc-400">Owner: </span>
+          {capabilities.showOwnerFilter ||
+          capabilities.showOwnerScopeControls ? (
+            <label className={cn(filterInlineFieldClass, "min-w-48")}>
+              <span className="text-zinc-400">{ownerFilterLabel}: </span>
               <select
-                name="ownerId"
-                defaultValue={first(params, "ownerId")}
-                className="bg-transparent outline-none"
+                name={ownerParamName}
+                defaultValue={first(params, ownerParamName)}
+                className="bg-transparent text-zinc-100 outline-none"
               >
-                <option value="">All owners</option>
+                <option value="">{ownerAllLabel}</option>
                 {players.map((player) => (
                   <option key={player.value} value={player.value}>
                     {player.label}
@@ -1047,13 +1110,13 @@ export function InventoryAdvancedSearch({
               </select>
             </label>
           ) : null}
-          {!isPublic ? (
-            <label className="min-w-44 rounded border border-zinc-700 bg-zinc-950 px-2 py-1 text-sm">
+          {capabilities.showInventoryScopeFilter ? (
+            <label className={cn(filterInlineFieldClass, "min-w-44")}>
               <span className="text-zinc-400">Inventory: </span>
               <select
                 name="commitment"
                 defaultValue={first(params, "commitment")}
-                className="bg-transparent outline-none"
+                className="bg-transparent text-zinc-100 outline-none"
               >
                 <option value="">All</option>
                 <option value="available">Available</option>
@@ -1068,15 +1131,13 @@ export function InventoryAdvancedSearch({
             selected={colorIdentity}
             mode={first(params, "colorIdentityMode")}
           />
-          <div className="flex flex-wrap items-center gap-2 rounded border border-zinc-800 bg-zinc-950/70 p-2 text-sm">
-            <span className="text-xs font-medium text-zinc-300">
-              Mana value
-            </span>
+          <div className="flex min-h-10 flex-wrap items-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 p-2 text-sm text-zinc-100 transition-colors focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/30">
+            <span className={filterLabelClass}>Mana value</span>
             <select
               name="mvOp"
               value={mvOp}
               onChange={(event) => setMvOp(event.target.value)}
-              className="rounded border border-zinc-700 bg-zinc-900 px-2 py-1"
+              className={filterSelectClass}
             >
               <option value="">Any</option>
               <option value="eq">=</option>
@@ -1093,7 +1154,7 @@ export function InventoryAdvancedSearch({
                 step="0.5"
                 defaultValue={first(params, "mv")}
                 placeholder="Value"
-                className="w-20 rounded border border-zinc-700 bg-zinc-900 px-2 py-1"
+                className={cn(filterInputClass, "w-20")}
               />
             ) : null}
             {mvOp === "between" ? (
@@ -1106,7 +1167,7 @@ export function InventoryAdvancedSearch({
                     first(params, "mvMin") || first(params, "manaValueMin")
                   }
                   placeholder="Min"
-                  className="w-20 rounded border border-zinc-700 bg-zinc-900 px-2 py-1"
+                  className={cn(filterInputClass, "w-20")}
                 />
                 <input
                   name="mvMax"
@@ -1116,20 +1177,20 @@ export function InventoryAdvancedSearch({
                     first(params, "mvMax") || first(params, "manaValueMax")
                   }
                   placeholder="Max"
-                  className="w-20 rounded border border-zinc-700 bg-zinc-900 px-2 py-1"
+                  className={cn(filterInputClass, "w-20")}
                 />
               </>
             ) : null}
           </div>
-          <div className="flex flex-wrap items-center gap-2 rounded border border-zinc-800 bg-zinc-950/70 p-2 text-sm">
-            <span className="text-xs font-medium text-zinc-300">USD</span>
+          <div className="flex min-h-10 flex-wrap items-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 p-2 text-sm text-zinc-100 transition-colors focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/30">
+            <span className={filterLabelClass}>USD</span>
             <input
               name="priceMin"
               type="number"
               step="0.01"
               defaultValue={first(params, "priceMin")}
               placeholder="Min"
-              className="w-24 rounded border border-zinc-700 bg-zinc-900 px-2 py-1"
+              className={cn(filterInputClass, "w-24")}
             />
             <input
               name="priceMax"
@@ -1137,7 +1198,7 @@ export function InventoryAdvancedSearch({
               step="0.01"
               defaultValue={first(params, "priceMax")}
               placeholder="Max"
-              className="w-24 rounded border border-zinc-700 bg-zinc-900 px-2 py-1"
+              className={cn(filterInputClass, "w-24")}
             />
           </div>
         </div>
@@ -1145,13 +1206,8 @@ export function InventoryAdvancedSearch({
         <FilterChipBar chips={activeChips} />
 
         <div className="flex flex-wrap gap-2">
-          <button className="rounded border border-sky-700 px-3 py-2 text-sm text-sky-100 hover:bg-sky-950">
-            Apply filters
-          </button>
-          <a
-            href={clearHref}
-            className="rounded border border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-900"
-          >
+          <button className={filterPrimaryButtonClass}>Apply filters</button>
+          <a href={clearHref} className={filterButtonClass}>
             Clear filters
           </a>
         </div>
