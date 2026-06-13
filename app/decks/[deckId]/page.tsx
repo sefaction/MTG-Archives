@@ -30,6 +30,7 @@ import {
   matchesDeckCardPrinting,
 } from "@/lib/deck-commitments";
 import { cardPriceNumber } from "@/lib/deck-view";
+import { selectPreferredCardPrice } from "@/lib/price-history";
 import { ensureDefaultLocation } from "@/lib/inventory-locations";
 import { prisma } from "@/lib/prisma";
 import { resolveDeckVisibility, visibilityLabel } from "@/lib/visibility";
@@ -68,7 +69,16 @@ export default async function DeckDetailPage({
     include: {
       ownerUser: true,
       cards: {
-        include: { card: true },
+        include: {
+          card: {
+            include: {
+              priceSnapshots: {
+                orderBy: [{ observedDate: "desc" }],
+                take: 24,
+              },
+            },
+          },
+        },
         orderBy: [{ section: "asc" }, { cardName: "asc" }],
       },
     },
@@ -117,7 +127,12 @@ export default async function DeckDetailPage({
   const pricedCards = deck.cards
     .filter((deckCard) => deckCard.section !== DeckSection.MAYBEBOARD)
     .map((deckCard) => {
-      const price = cardPriceNumber(deckCard.card?.prices);
+      const preferredPrice = selectPreferredCardPrice(
+        deckCard.card?.priceSnapshots,
+        deckCard.card?.prices,
+      );
+      const price =
+        preferredPrice?.amount ?? cardPriceNumber(deckCard.card?.prices);
       return price == null ? null : price * deckCard.quantity;
     })
     .filter((price): price is number => price !== null);

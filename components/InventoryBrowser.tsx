@@ -61,6 +61,16 @@ export type InventoryRow = {
   colorIdentity: string;
   priceUsd?: string;
   priceUsdFoil?: string;
+  preferredPriceLabel?: string;
+  priceSourceLabel?: string;
+  priceHistory?: Array<{
+    provider: string;
+    finish: string;
+    priceType: string;
+    currency: string;
+    price: string;
+    observedDate: string;
+  }>;
   foil: boolean;
   foilStatus?: "NONFOIL" | "FOIL" | "ETCHED";
   sourceType?:
@@ -443,11 +453,48 @@ function CardDetail({
               VIN {legalities.vintage || "-"} | PAU {legalities.pauper || "-"}
             </p>
             <p>
-              <b>Prices:</b> USD {row.priceUsd || "-"} / USD Foil{" "}
-              {row.priceUsdFoil || "-"} / USD Etched {row.priceUsdEtched || "-"}{" "}
-              / EUR {row.priceEur || "-"} / EUR Foil {row.priceEurFoil || "-"} /
-              TIX {row.priceTix || "-"}
+              <b>Preferred price:</b> {row.preferredPriceLabel || "—"}
+              {row.priceSourceLabel ? ` · ${row.priceSourceLabel}` : ""}
             </p>
+            <p>
+              <b>Scryfall fallback prices:</b> USD {row.priceUsd || "-"} / USD
+              Foil {row.priceUsdFoil || "-"} / USD Etched{" "}
+              {row.priceUsdEtched || "-"} / EUR {row.priceEur || "-"} / EUR Foil{" "}
+              {row.priceEurFoil || "-"} / TIX {row.priceTix || "-"}
+            </p>
+            {row.priceHistory?.length ? (
+              <div className="space-y-1">
+                <b>Recent MTGJSON price history:</b>
+                <div className="overflow-x-auto">
+                  <table className="mt-1 min-w-full text-xs">
+                    <thead className="text-zinc-400">
+                      <tr>
+                        <th className="pr-3 text-left">Date</th>
+                        <th className="pr-3 text-left">Provider</th>
+                        <th className="pr-3 text-left">Finish</th>
+                        <th className="pr-3 text-left">Type</th>
+                        <th className="text-left">Price</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {row.priceHistory.slice(0, 8).map((entry) => (
+                        <tr
+                          key={`${entry.provider}-${entry.finish}-${entry.priceType}-${entry.currency}-${entry.observedDate}`}
+                        >
+                          <td className="pr-3">{entry.observedDate}</td>
+                          <td className="pr-3">{entry.provider}</td>
+                          <td className="pr-3">{entry.finish}</td>
+                          <td className="pr-3">{entry.priceType}</td>
+                          <td>
+                            {entry.currency} {entry.price}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
             {row.scryfallUri ? (
               <p>
                 <a
@@ -990,7 +1037,7 @@ export function InventoryBrowser({
           <ColorIdentityIcons value={row.original.colorIdentity} />
         ),
       },
-      { accessorKey: "priceUsd", header: "Scryfall USD Price" },
+      { accessorKey: "preferredPriceLabel", header: "Preferred Price" },
       { accessorKey: "foilStatus", header: "Foil" },
       ...(capabilities.canViewVisibility
         ? [

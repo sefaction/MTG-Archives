@@ -351,7 +351,14 @@ function filterPublicInventoryByClientSafeFilters(
 }
 
 const publicInventoryInclude = {
-  card: true,
+  card: {
+    include: {
+      priceSnapshots: {
+        orderBy: [{ observedDate: "desc" }],
+        take: 24,
+      },
+    },
+  },
   location: true,
   currentOwner: {
     select: {

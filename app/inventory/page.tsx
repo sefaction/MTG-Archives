@@ -41,6 +41,12 @@ import {
 } from "@/lib/inventory-locations";
 import { getManaFacesForDto } from "@/lib/mtg/mana-display";
 import {
+  finishForFoilStatus,
+  formatSelectedPrice,
+  selectPreferredCardPrice,
+  providerLabel,
+} from "@/lib/price-history";
+import {
   buildInventoryWhereFromFilters,
   inventoryCardMatchesPostFilters,
   parseInventoryFilters,
@@ -194,7 +200,14 @@ export default async function InventoryPage({
     ? await prisma.inventoryItem.findMany({
         where: pageGroupWhere,
         include: {
-          card: true,
+          card: {
+            include: {
+              priceSnapshots: {
+                orderBy: [{ observedDate: "desc" }],
+                take: 24,
+              },
+            },
+          },
           currentOwner: true,
           location: true,
         },
@@ -734,6 +747,25 @@ export default async function InventoryPage({
         priceEur: (i.card.prices as any)?.eur ?? "",
         priceEurFoil: (i.card.prices as any)?.eur_foil ?? "",
         priceTix: (i.card.prices as any)?.tix ?? "",
+        preferredPriceLabel: formatSelectedPrice(
+          selectPreferredCardPrice(i.card.priceSnapshots, i.card.prices, {
+            finish: finishForFoilStatus(i.foilStatus),
+          }),
+        ),
+        priceSourceLabel:
+          selectPreferredCardPrice(i.card.priceSnapshots, i.card.prices, {
+            finish: finishForFoilStatus(i.foilStatus),
+          })?.source === "mtgjson"
+            ? "MTGJSON"
+            : "Scryfall fallback",
+        priceHistory: (i.card.priceSnapshots || []).map((snapshot: any) => ({
+          provider: providerLabel(snapshot.provider),
+          finish: snapshot.finish,
+          priceType: snapshot.priceType,
+          currency: snapshot.currency,
+          price: Number(snapshot.price).toFixed(2),
+          observedDate: snapshot.observedDate.toISOString().slice(0, 10),
+        })),
         foil: i.foil,
         foilStatus: i.foilStatus,
         sourceType: i.sourceType,

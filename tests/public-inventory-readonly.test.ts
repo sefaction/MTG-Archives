@@ -134,7 +134,7 @@ test("public inventory browser keeps read-only browse controls and hides write/a
   assert.match(inventoryBrowser, /header: "Mana Cost"/);
   assert.match(inventoryBrowser, /header: "Type Line"/);
   assert.match(inventoryBrowser, /header: "Color Identity"/);
-  assert.match(inventoryBrowser, /header: "Scryfall USD Price"/);
+  assert.match(inventoryBrowser, /header: "Preferred Price"/);
   assert.match(inventoryBrowser, /header: "Foil"/);
   assert.match(inventoryBrowser, /capabilities\.canBulkSelect/);
   assert.match(
