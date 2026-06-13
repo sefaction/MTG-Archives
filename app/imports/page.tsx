@@ -19,6 +19,7 @@ import { formatScryfallError, getCardByScryfallIdResult } from "@/lib/scryfall";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { ImportProgressPanel } from "@/components/ImportProgressPanel";
 import { SingleCardInventoryAdd } from "@/components/SingleCardInventoryAdd";
+import { CollapsiblePanel } from "@/components/CollapsiblePanel";
 import { calculateImportProgress } from "@/lib/import-progress";
 import {
   filterImportReviewItems,
@@ -43,6 +44,13 @@ import {
   getLocationsForOwner,
   normalizeLocationName,
 } from "@/lib/inventory-locations";
+import { INVENTORY_FILTER_PARAM_KEYS } from "@/lib/inventory-filters";
+import {
+  cn,
+  filterFieldClass,
+  filterPrimaryButtonClass,
+  filterSelectClass,
+} from "@/components/filterStyles";
 
 const aliases: Record<string, string[]> = {
   quantity: ["quantity", "count", "qty", "copies"],
@@ -97,6 +105,8 @@ type SearchParams = {
   status?: string;
   q?: string;
   singleCardAdded?: string;
+  exportTools?: string;
+  ownerId?: string;
 };
 
 function norm(value: string) {
@@ -1406,6 +1416,98 @@ export default async function ImportsPage({
         defaultLocationId={manualDefaultLocation?.id}
         added={params.singleCardAdded === "1"}
       />
+
+      <CollapsiblePanel
+        title="Export Inventory"
+        summary="Download CSV exports"
+        defaultOpen={params.exportTools === "1"}
+      >
+        <form
+          action="/api/inventory/export"
+          method="get"
+          className="grid grid-cols-2 md:grid-cols-5 gap-2 items-end"
+        >
+          {INVENTORY_FILTER_PARAM_KEYS.map((key) => {
+            const value = (params as Record<string, any>)[key];
+            const values = Array.isArray(value) ? value : value ? [value] : [];
+            return values.map((entry) => (
+              <input
+                key={`${key}-${entry}`}
+                type="hidden"
+                name={key}
+                value={entry}
+              />
+            ));
+          })}
+          <label className={filterFieldClass}>
+            Format
+            <select
+              name="format"
+              className={cn(filterSelectClass, "mt-1 w-full")}
+            >
+              <option value="full">MTG Inventory Full CSV</option>
+              <option value="moxfield">Moxfield Collection CSV</option>
+            </select>
+          </label>
+          <label className={filterFieldClass}>
+            Scope
+            <select
+              name="scope"
+              defaultValue="my"
+              className={cn(filterSelectClass, "mt-1 w-full")}
+            >
+              <option value="filtered">Current filtered view</option>
+              <option value="my">My inventory</option>
+              {isAdmin ? <option value="all">All inventory</option> : null}
+              {isAdmin ? (
+                <option value="owner">Selected current owner</option>
+              ) : null}
+            </select>
+          </label>
+          <label className={filterFieldClass}>
+            Current owner
+            <select
+              name="ownerId"
+              defaultValue={
+                (params.ownerId as string) || userWithPlayer?.playerId || ""
+              }
+              className={cn(filterSelectClass, "mt-1 w-full")}
+            >
+              <option value="">
+                {isAdmin ? "all owners" : "my inventory"}
+              </option>
+              {players.map((pl) => (
+                <option key={pl.id} value={pl.id}>
+                  {pl.displayName}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={filterFieldClass}>
+            Moxfield foil
+            <select
+              name="foilFormat"
+              className={cn(filterSelectClass, "mt-1 w-full")}
+            >
+              <option value="moxfield">foil or blank</option>
+              <option value="boolean">true / false</option>
+              <option value="text">foil / nonfoil</option>
+            </select>
+          </label>
+          <div className="col-span-2 md:col-span-5">
+            <SubmitButton
+              pendingLabel="Generating…"
+              className={filterPrimaryButtonClass}
+            >
+              Download CSV
+            </SubmitButton>
+          </div>
+        </form>
+        <p className="text-xs text-zinc-400">
+          Exports are generated server-side. Non-admin users are always limited
+          to their own inventory even if a different scope is submitted.
+        </p>
+      </CollapsiblePanel>
 
       <section className="border border-zinc-800 rounded p-4 space-y-3">
         <h2 className="text-xl font-semibold">Inventory CSV Import</h2>
