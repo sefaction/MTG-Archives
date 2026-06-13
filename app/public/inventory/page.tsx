@@ -8,6 +8,12 @@ import {
 } from "@/lib/public-collection";
 import { getInventoryGroupedByCard } from "@/lib/inventory-locations";
 import { getManaFacesForDto } from "@/lib/mtg/mana-display";
+import {
+  finishForFoilStatus,
+  formatSelectedPrice,
+  providerLabel,
+  selectPreferredCardPrice,
+} from "@/lib/price-history";
 
 export const dynamic = "force-dynamic";
 
@@ -182,6 +188,25 @@ function toInventoryBrowserRows({
       priceEur: (i.card.prices as any)?.eur ?? "",
       priceEurFoil: (i.card.prices as any)?.eur_foil ?? "",
       priceTix: (i.card.prices as any)?.tix ?? "",
+      preferredPriceLabel: formatSelectedPrice(
+        selectPreferredCardPrice(i.card.priceSnapshots, i.card.prices, {
+          finish: finishForFoilStatus(i.foilStatus),
+        }),
+      ),
+      priceSourceLabel:
+        selectPreferredCardPrice(i.card.priceSnapshots, i.card.prices, {
+          finish: finishForFoilStatus(i.foilStatus),
+        })?.source === "mtgjson"
+          ? "MTGJSON"
+          : "Scryfall fallback",
+      priceHistory: (i.card.priceSnapshots || []).map((snapshot: any) => ({
+        provider: providerLabel(snapshot.provider),
+        finish: snapshot.finish,
+        priceType: snapshot.priceType,
+        currency: snapshot.currency,
+        price: Number(snapshot.price).toFixed(2),
+        observedDate: snapshot.observedDate.toISOString().slice(0, 10),
+      })),
       foil: i.foil,
       foilStatus: i.foilStatus,
       effectiveVisibility: "PUBLIC" as const,
@@ -260,6 +285,8 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
   clearFilterParams.set("displayMode", displayMode);
   if (p.pageSize) clearFilterParams.set("pageSize", String(p.pageSize));
   if (p.browse) clearFilterParams.set("browse", String(p.browse));
+  if (p.sort) clearFilterParams.set("sort", String(p.sort));
+  if (p.sortDir) clearFilterParams.set("sortDir", String(p.sortDir));
   const clearFiltersHref = `/public/inventory?${clearFilterParams.toString()}`;
 
   return (

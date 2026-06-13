@@ -241,6 +241,7 @@ model PointCategory {
 model Card {
   id                  String            @id @default(cuid())
   scryfallId          String            @unique
+  mtgjsonUuid         String?           @unique
   oracleId            String?
   multiverseIds       Json?
   mtgoId              Int?
@@ -317,10 +318,33 @@ model Card {
   importBatchItems    ImportBatchItem[]
   deckCards           DeckCard[]
   wishlistItems       WishlistItem[]
+  priceSnapshots      CardPriceSnapshot[]
 
   @@index([oracleId])
   @@index([setCode, collectorNumber])
   @@index([name])
+}
+
+model CardPriceSnapshot {
+  id           String   @id @default(cuid())
+  cardId       String
+  card         Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  mtgjsonUuid  String?
+  provider     String
+  finish       String
+  priceType    String
+  currency     String
+  price        Decimal  @db.Decimal(12, 4)
+  observedDate DateTime
+  importedAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([cardId, provider, finish, priceType, currency, observedDate])
+  @@index([cardId, observedDate])
+  @@index([provider, observedDate])
+  @@index([observedDate])
+  @@index([mtgjsonUuid])
 }
 
 model Pull {
