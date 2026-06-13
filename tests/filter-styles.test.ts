@@ -3,6 +3,10 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const filterStyles = readFileSync("components/filterStyles.ts", "utf8");
+const collapsiblePanel = readFileSync(
+  "components/CollapsiblePanel.tsx",
+  "utf8",
+);
 const inventorySearch = readFileSync(
   "components/InventoryAdvancedSearch.tsx",
   "utf8",
@@ -44,6 +48,16 @@ test("filter style tokens define the shared dark form language", () => {
   assert.match(filterStyles, /filterOptionClass = "bg-zinc-900 text-zinc-100"/);
 });
 
+test("collapsible panels use accessible shared dark styling", () => {
+  assert.match(collapsiblePanel, /filterPanelClass/);
+  assert.match(collapsiblePanel, /type="button"/);
+  assert.match(collapsiblePanel, /aria-expanded=\{open\}/);
+  assert.match(collapsiblePanel, /aria-controls=\{panelId\}/);
+  assert.match(collapsiblePanel, /id=\{panelId\}/);
+  assert.match(collapsiblePanel, /hidden=\{!open\}/);
+  assert.match(collapsiblePanel, /focus:ring-2/);
+});
+
 test("inventory filter controls use shared dark filter styling", () => {
   assertUsesSharedStyles(inventorySearch, "InventoryAdvancedSearch");
   assertUsesSharedStyles(inventoryBrowser, "InventoryBrowser");
@@ -76,6 +90,11 @@ test("public inventory keeps owner/location filters while using shared styling",
   assert.match(publicInventoryPage, /ownerFilterLabel="Current owner"/);
   assert.match(publicInventoryPage, /locationParamName="locationName"/);
   assert.match(inventorySearch, /showOwnerFilter: isPublic/);
+  assert.match(
+    inventoryPage,
+    /<CollapsiblePanel[\s\S]*?title="Export Inventory"/,
+  );
+  assert.match(inventoryPage, /summary="Download CSV exports"/);
   assert.doesNotMatch(publicInventoryPage, /Export Inventory/);
   assert.doesNotMatch(publicInventoryPage, /onBulkDeleteInventory=/);
 });

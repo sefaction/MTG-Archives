@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
+import { CollapsiblePanel } from "./CollapsiblePanel";
 import { ManaSymbol } from "./mtg/ManaSymbol";
 import {
   cn,
@@ -9,7 +10,6 @@ import {
   filterInputClass,
   filterLabelClass,
   filterOptionClass,
-  filterPanelClass,
   filterPrimaryButtonClass,
   filterSelectClass,
 } from "./filterStyles";
@@ -970,12 +970,18 @@ export function InventoryAdvancedSearch({
     capabilities,
   });
 
+  const activeFilterSummary = activeChips.length
+    ? `${activeChips.length} ${activeChips.length === 1 ? "filter" : "filters"} active`
+    : "Optional filters hidden";
+
   return (
-    <details open className={filterPanelClass}>
-      <summary className="cursor-pointer font-semibold">
-        Advanced Inventory Search
-      </summary>
-      <form className="mt-3 space-y-3" action={actionPath}>
+    <CollapsiblePanel
+      title="Advanced Inventory Search"
+      defaultOpen={false}
+      summary={activeFilterSummary}
+    >
+      {activeChips.length ? <FilterChipBar chips={activeChips} /> : null}
+      <form className="space-y-3" action={actionPath}>
         <input type="hidden" name="page" value="1" />
         <input type="hidden" name="displayMode" value={displayMode} />
         {first(params, "pageSize") ? (
@@ -1255,6 +1261,6 @@ export function InventoryAdvancedSearch({
           </a>
         </div>
       </form>
-    </details>
+    </CollapsiblePanel>
   );
 }
