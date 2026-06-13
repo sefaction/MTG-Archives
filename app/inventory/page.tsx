@@ -25,6 +25,7 @@ import { cleanupZeroQuantityInventory, deleteInventoryItem } from "./actions";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { CollapsiblePanel } from "@/components/CollapsiblePanel";
 import { InventoryAdvancedSearch } from "@/components/InventoryAdvancedSearch";
+import { InventoryQuickCardNameSearch } from "@/components/InventoryQuickCardNameSearch";
 import {
   cn,
   filterFieldClass,
@@ -941,6 +942,7 @@ export default async function InventoryPage({
           </form>
         </section>
       ) : null}
+      <InventoryQuickCardNameSearch actionPath="/inventory" params={p} />
       <InventoryAdvancedSearch
         actionPath="/inventory"
         params={p}

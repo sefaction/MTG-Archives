@@ -11,6 +11,10 @@ const inventorySearch = readFileSync(
   "components/InventoryAdvancedSearch.tsx",
   "utf8",
 );
+const quickCardNameSearch = readFileSync(
+  "components/InventoryQuickCardNameSearch.tsx",
+  "utf8",
+);
 const inventoryBrowser = readFileSync(
   "components/InventoryBrowser.tsx",
   "utf8",
@@ -56,6 +60,32 @@ test("collapsible panels use accessible shared dark styling", () => {
   assert.match(collapsiblePanel, /id=\{panelId\}/);
   assert.match(collapsiblePanel, /hidden=\{!open\}/);
   assert.match(collapsiblePanel, /focus:ring-2/);
+});
+
+test("quick card name search shares the canonical cardName filter", () => {
+  assert.match(quickCardNameSearch, /name="cardName"/);
+  assert.match(quickCardNameSearch, /defaultValue=\{cardName\}/);
+  assert.match(
+    quickCardNameSearch,
+    /OMITTED_PARAMS = new Set\(\["cardName", "page"\]\)/,
+  );
+  assert.match(quickCardNameSearch, /next\.set\("cardName", nextCardName\)/);
+  assert.match(quickCardNameSearch, /next\.set\("page", "1"\)/);
+  assert.match(quickCardNameSearch, /filterInputClass/);
+  assert.match(inventorySearch, /name="cardName"/);
+  assert.match(inventorySearch, /initialValue=\{first\(params, "cardName"\)\}/);
+  assert.match(inventorySearch, /pushWhole\("cardName", "Name"/);
+});
+
+test("inventory pages render quick search outside advanced search", () => {
+  assert.match(
+    inventoryPage,
+    /<InventoryQuickCardNameSearch actionPath="\/inventory" params=\{p\} \/>[\s\S]*?<InventoryAdvancedSearch/,
+  );
+  assert.match(
+    publicInventoryPage,
+    /<InventoryQuickCardNameSearch actionPath="\/public\/inventory" params=\{p\} \/>[\s\S]*?<InventoryAdvancedSearch/,
+  );
 });
 
 test("inventory filter controls use shared dark filter styling", () => {
