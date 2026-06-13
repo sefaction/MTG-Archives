@@ -72,6 +72,7 @@ export type DeckEditorRow = {
     collectorNumber: string;
   }>;
   missing: number;
+  isBasicLand?: boolean;
   enoughOwned: boolean;
   matchType: string;
   locationSummary: string;
@@ -143,21 +144,34 @@ function ownedBadge(row: DeckEditorRow, showLocations: boolean) {
   const color =
     status === "Owned exact"
       ? "border-emerald-700 bg-emerald-950/40 text-emerald-100"
-      : status === "Owned other printing"
-        ? "border-sky-700 bg-sky-950/40 text-sky-100"
-        : status === "Partial"
-          ? "border-amber-700 bg-amber-950/40 text-amber-100"
-          : "border-red-800 bg-red-950/30 text-red-100";
+      : status === "Basic land"
+        ? "border-zinc-700 bg-zinc-900/70 text-zinc-100"
+        : status === "Owned other printing"
+          ? "border-sky-700 bg-sky-950/40 text-sky-100"
+          : status === "Partial"
+            ? "border-amber-700 bg-amber-950/40 text-amber-100"
+            : "border-red-800 bg-red-950/30 text-red-100";
   return (
     <span
       className={`inline-flex flex-wrap gap-1 rounded border px-2 py-0.5 text-xs ${color}`}
     >
       <span>{status}</span>
-      <span>
-        Exact {row.exactOwned}/{row.quantity}
-      </span>
-      {row.otherOwned ? <span>· Other {row.otherOwned}</span> : null}
-      {row.missing ? <span>· Missing {row.missing}</span> : null}
+      {row.isBasicLand ? (
+        <span>· not wishlisted</span>
+      ) : (
+        <span>
+          Exact {row.exactOwned}/{row.quantity}
+        </span>
+      )}
+      {row.isBasicLand && row.committedToThisDeck ? (
+        <span>· {row.committedToThisDeck} committed</span>
+      ) : null}
+      {!row.isBasicLand && row.otherOwned ? (
+        <span>· Other {row.otherOwned}</span>
+      ) : null}
+      {!row.isBasicLand && row.missing ? (
+        <span>· Missing {row.missing}</span>
+      ) : null}
       {showLocations && row.locationSummary ? (
         <span>· {row.locationSummary}</span>
       ) : null}
