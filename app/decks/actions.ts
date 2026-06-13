@@ -5,11 +5,17 @@ import { redirect } from "next/navigation";
 import {
   DeckFormat,
   DeckSection,
+  FoilStatus,
   InventoryLocationKind,
   Visibility,
 } from "@prisma/client";
 import { getAccessScope, requireLogin } from "@/lib/auth";
 import { findOrImportCard } from "@/lib/card-import";
+import {
+  addInventoryCardToLocation,
+  normalizeManualInventoryQuantity,
+} from "@/lib/inventory-manual";
+import { moveInventoryQuantityWithinTransaction } from "@/lib/inventory-move";
 import { prisma } from "@/lib/prisma";
 import {
   inventoryAuditAction,
@@ -383,6 +389,120 @@ export async function removeDeckCard(fd: FormData) {
       }
     }
     await tx.deckCard.deleteMany({ where: { id: deckCardId, deckId } });
+  });
+  revalidatePath(`/decks/${deckId}`);
+  revalidatePath("/inventory");
+  revalidatePath("/locations");
+}
+
+export async function addRealCopyToDeck(fd: FormData) {
+  const deckId = formString(fd, "deckId");
+  const deckCardId = formString(fd, "deckCardId");
+  const cardId = formString(fd, "cardId");
+  const locationId = formString(fd, "locationId");
+  const quantity = normalizeManualInventoryQuantity(fd.get("quantity"));
+  const commitImmediately = formString(fd, "commitImmediately") === "on";
+  const { user, deck } = await requireManagedDeck(deckId);
+  if (!deck.ownerUser.playerId) {
+    throw new Error("Deck owner is not linked to an inventory owner.");
+  }
+  if (!cardId) throw new Error("Select a printing before adding inventory.");
+  if (!locationId) throw new Error("Choose a destination location.");
+
+  await prisma.$transaction(async (tx) => {
+    const [deckCard, selectedCard] = await Promise.all([
+      tx.deckCard.findFirst({ where: { id: deckCardId, deckId } }),
+      tx.card.findUnique({ where: { id: cardId } }),
+    ]);
+    if (!deckCard) throw new Error("Deck card not found.");
+    if (!selectedCard)
+      throw new Error("Selected card printing no longer exists.");
+
+    const deckLocation = commitImmediately
+      ? await ensureDeckLocation(tx, deck)
+      : null;
+    const remainingNeeded = Math.max(
+      0,
+      deckCard.quantity -
+        (commitImmediately && deckLocation
+          ? summarizeDeckCommitmentOwnership(
+              deckCard,
+              await tx.inventoryItem.findMany({
+                where: {
+                  currentOwnerId: deck.ownerUser.playerId!,
+                  quantity: { gt: 0 },
+                  locationId: deckLocation.id,
+                },
+                include: { card: true, location: true },
+              }),
+              deck.id,
+            ).committedToThisDeck
+          : 0),
+    );
+    if (commitImmediately && quantity > remainingNeeded) {
+      throw new Error(
+        `Only ${remainingNeeded} more cards can be committed for this deck row.`,
+      );
+    }
+
+    const added = await addInventoryCardToLocation(tx, {
+      ownerPlayerId: deck.ownerUser.playerId!,
+      cardId: selectedCard.id,
+      locationId,
+      quantity,
+      foilStatus: formString(fd, "foilStatus") || FoilStatus.NONFOIL,
+      condition: formString(fd, "condition") || "NM",
+      language: formString(fd, "language") || "EN",
+      notes: formString(fd, "notes") || null,
+      actingUserId: user.id,
+      reason: `Added real copy for ${deck.name}.`,
+    });
+
+    if (!commitImmediately || !deckLocation) return;
+
+    if (deckCard.cardId !== selectedCard.id) {
+      await tx.deckCard.update({
+        where: { id: deckCard.id },
+        data: {
+          cardId: selectedCard.id,
+          scryfallId: selectedCard.scryfallId,
+          oracleId: selectedCard.oracleId,
+          cardName: selectedCard.name,
+        },
+      });
+    }
+
+    const move = await moveInventoryQuantityWithinTransaction(tx, {
+      inventoryItemId: added.inventory.id,
+      toLocationId: deckLocation.id,
+      quantity,
+    });
+    const metadata = deckMoveAuditMetadata({
+      deckId: deck.id,
+      deckName: deck.name,
+      cardName: selectedCard.name,
+      sourceLocationId: added.location.id,
+      sourceLocationName: added.location.name,
+      destinationLocationId: deckLocation.id,
+      destinationLocationName: deckLocation.name,
+      quantityMoved: quantity,
+      beforeSourceQuantity: move.source.quantity,
+      afterSourceQuantity: move.sourceAfterQuantity,
+      beforeDestinationQuantity: move.destinationBeforeQuantity,
+      afterDestinationQuantity: move.destinationAfterQuantity,
+    });
+    await recordInventoryAudit({
+      tx,
+      inventoryItemId: move.auditInventoryItemId,
+      actingUserId: user.id,
+      action: inventoryAuditAction.committedToDeck,
+      before: auditDeckMoveSnapshot(move.source, metadata),
+      after: auditDeckMoveSnapshot(
+        { ...move.source, locationId: deckLocation.id, quantity },
+        metadata,
+      ),
+      reason: `Added and committed ${quantity} ${selectedCard.name} to ${deck.name}.`,
+    });
   });
   revalidatePath(`/decks/${deckId}`);
   revalidatePath("/inventory");
@@ -832,108 +952,5 @@ function deckMoveAuditMetadata(input: {
     afterSourceQuantity: input.afterSourceQuantity,
     beforeDestinationQuantity: input.beforeDestinationQuantity,
     afterDestinationQuantity: input.afterDestinationQuantity,
-  };
-}
-
-async function moveInventoryQuantityWithinTransaction(
-  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
-  input: {
-    inventoryItemId: string;
-    toLocationId: string;
-    quantity: number;
-  },
-) {
-  const source = await tx.inventoryItem.findUnique({
-    where: { id: input.inventoryItemId },
-  });
-  if (!source) throw new Error("Inventory item not found.");
-  if (!Number.isInteger(input.quantity) || input.quantity <= 0) {
-    throw new Error("Quantity must be positive.");
-  }
-  if (source.quantity < input.quantity) {
-    throw new Error(
-      "Cannot move more cards than this inventory entry contains.",
-    );
-  }
-  const matching = await tx.inventoryItem.findFirst({
-    where: {
-      id: { not: source.id },
-      currentOwnerId: source.currentOwnerId,
-      cardId: source.cardId,
-      foil: source.foil,
-      foilStatus: source.foilStatus,
-      condition: source.condition,
-      language: source.language,
-      locationId: input.toLocationId,
-      quantity: { gt: 0 },
-    },
-  });
-  if (source.quantity === input.quantity) {
-    if (matching) {
-      await tx.inventoryItem.update({
-        where: { id: matching.id },
-        data: { quantity: { increment: input.quantity } },
-      });
-      await tx.inventoryItem.delete({ where: { id: source.id } });
-      return {
-        source,
-        destinationInventoryItemId: matching.id,
-        auditInventoryItemId: matching.id,
-        merged: true,
-        sourceAfterQuantity: 0,
-        destinationBeforeQuantity: matching.quantity,
-        destinationAfterQuantity: matching.quantity + input.quantity,
-      };
-    }
-    await tx.inventoryItem.update({
-      where: { id: source.id },
-      data: { locationId: input.toLocationId },
-    });
-    return {
-      source,
-      destinationInventoryItemId: source.id,
-      auditInventoryItemId: source.id,
-      merged: false,
-      sourceAfterQuantity: 0,
-      destinationBeforeQuantity: 0,
-      destinationAfterQuantity: source.quantity,
-    };
-  }
-  await tx.inventoryItem.update({
-    where: { id: source.id },
-    data: { quantity: { decrement: input.quantity } },
-  });
-  if (matching) {
-    await tx.inventoryItem.update({
-      where: { id: matching.id },
-      data: { quantity: { increment: input.quantity } },
-    });
-    return {
-      source,
-      destinationInventoryItemId: matching.id,
-      auditInventoryItemId: source.id,
-      merged: true,
-      sourceAfterQuantity: source.quantity - input.quantity,
-      destinationBeforeQuantity: matching.quantity,
-      destinationAfterQuantity: matching.quantity + input.quantity,
-    };
-  }
-  const {
-    id: _id,
-    createdAt: _createdAt,
-    updatedAt: _updatedAt,
-    ...copy
-  } = source;
-  const created = await tx.inventoryItem.create({
-    data: { ...copy, quantity: input.quantity, locationId: input.toLocationId },
-  });
-  return {
-    source,
-    destinationInventoryItemId: created.id,
-    auditInventoryItemId: created.id,
-    merged: false,
-    sourceAfterQuantity: source.quantity - input.quantity,
-    destinationBeforeQuantity: 0,
-    destinationAfterQuantity: input.quantity,
   };
 }

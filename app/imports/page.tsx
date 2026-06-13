@@ -18,6 +18,7 @@ import {
 import { formatScryfallError, getCardByScryfallIdResult } from "@/lib/scryfall";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { ImportProgressPanel } from "@/components/ImportProgressPanel";
+import { SingleCardInventoryAdd } from "@/components/SingleCardInventoryAdd";
 import { calculateImportProgress } from "@/lib/import-progress";
 import {
   filterImportReviewItems,
@@ -95,6 +96,7 @@ type SearchParams = {
   resolverQ?: string;
   status?: string;
   q?: string;
+  singleCardAdded?: string;
 };
 
 function norm(value: string) {
@@ -1259,6 +1261,14 @@ export default async function ImportsPage({
     activeReviewFilter,
     reviewSearch,
   );
+  const manualDefaultLocation = userWithPlayer?.playerId
+    ? await ensureDefaultLocation(prisma, userWithPlayer.playerId)
+    : null;
+  const manualLocations = userWithPlayer?.playerId
+    ? (await getLocationsForOwner(prisma, userWithPlayer.playerId)).filter(
+        (location) => location.kind !== "DECK",
+      )
+    : [];
   const locationsForSelectedOwner = selectedBatch
     ? await getLocationsForOwner(prisma, selectedBatch.selectedPlayerId)
     : [];
@@ -1388,6 +1398,15 @@ export default async function ImportsPage({
           Download sample inventory import CSV
         </a>
       </div>
+      <SingleCardInventoryAdd
+        locations={manualLocations.map((location) => ({
+          id: location.id,
+          name: location.name,
+        }))}
+        defaultLocationId={manualDefaultLocation?.id}
+        added={params.singleCardAdded === "1"}
+      />
+
       <section className="border border-zinc-800 rounded p-4 space-y-3">
         <h2 className="text-xl font-semibold">Inventory CSV Import</h2>
         <p className="rounded border border-zinc-800 p-2 text-sm text-zinc-300">
