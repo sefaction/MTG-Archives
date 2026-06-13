@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { DeckSection } from "@prisma/client";
+import { DeckSection, FoilStatus } from "@prisma/client";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { SetSymbol } from "@/components/mtg/CardSymbols";
 import { ManaCost } from "@/components/mtg/ManaCost";
 import {
   bulkCommitDeckCardsToDeck,
+  addRealCopyToDeck,
   commitDeckCardToDeck,
   removeDeckCard,
   returnDeckCardToInventory,
@@ -1160,6 +1161,11 @@ function RowEditor({
             </form>
             <div className="space-y-3 rounded border border-zinc-800 p-3">
               <CommitInventoryToDeck deckId={deckId} row={row} />
+              <AddRealCopyToDeck
+                deckId={deckId}
+                row={row}
+                locations={returnLocations}
+              />
               <ReturnCommittedCopies
                 deckId={deckId}
                 row={row}
@@ -1321,6 +1327,199 @@ function CommitInventoryToDeck({
           No available inventory copies to commit for this row.
         </p>
       )}
+    </section>
+  );
+}
+
+function AddRealCopyToDeck({
+  deckId,
+  row,
+  locations,
+}: {
+  deckId: string;
+  row: DeckEditorRow;
+  locations: DeckReturnLocation[];
+}) {
+  const [query, setQuery] = useState(row.cardName);
+  const [results, setResults] = useState<DeckCardSearchResult[]>([]);
+  const [selected, setSelected] = useState<DeckCardSearchResult | null>(null);
+  const [status, setStatus] = useState(
+    "Use the current deck printing, or search to choose the printing you acquired.",
+  );
+  const [loading, setLoading] = useState(false);
+  const defaultCardId = selected?.cardId ?? row.card?.id ?? "";
+  const remainingNeeded = Math.max(0, row.commitmentMissing);
+  const defaultQuantity = Math.max(1, Math.min(remainingNeeded || 1, 1));
+  const selectedLabel = selected
+    ? `${selected.name} — ${selected.setCode.toUpperCase()} #${selected.collectorNumber}`
+    : row.card
+      ? `${row.card.name} — ${row.card.setCode.toUpperCase()} #${row.card.collectorNumber}`
+      : "Search and select a printing";
+
+  async function search() {
+    const term = query.trim();
+    if (term.length < 2) {
+      setStatus("Enter at least 2 characters.");
+      return;
+    }
+    setLoading(true);
+    setStatus(
+      "Searching owned printings, local cache, then Scryfall fallback…",
+    );
+    try {
+      const res = await fetch(
+        `/api/decks/card-search?q=${encodeURIComponent(term)}&scryfall=1`,
+      );
+      if (!res.ok) throw new Error("Printing search failed.");
+      const json = (await res.json()) as DeckCardSearchResponse;
+      setResults(json.results);
+      setStatus(json.message);
+    } catch (error) {
+      setStatus(
+        error instanceof Error ? error.message : "Printing search failed.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section className="space-y-2 rounded border border-sky-900 bg-sky-950/10 p-2">
+      <h4 className="font-semibold text-sky-100">Add real copy</h4>
+      <p className="text-xs text-zinc-300">
+        Add a physical copy of this printing to inventory, optionally committing
+        it to this deck immediately.
+      </p>
+      <div className="flex gap-2">
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          className={cn(filterInputClass, "w-full")}
+          placeholder="Search printings"
+        />
+        <button
+          type="button"
+          onClick={search}
+          disabled={loading}
+          className="rounded border border-zinc-700 px-3 py-2 text-sm"
+        >
+          {loading ? "Searching…" : "Search"}
+        </button>
+      </div>
+      <p className="text-xs text-zinc-400" aria-live="polite">
+        {status}
+      </p>
+      <div className="max-h-44 space-y-2 overflow-auto">
+        {results.map((result) => (
+          <button
+            key={result.cardId}
+            type="button"
+            onClick={() => setSelected(result)}
+            className={`w-full rounded border p-2 text-left text-sm ${selected?.cardId === result.cardId ? "border-sky-500 bg-sky-950/30" : "border-zinc-800"}`}
+          >
+            <span className="flex flex-wrap items-center gap-2">
+              <strong>{result.name}</strong>
+              <ManaCost value={result.manaCost} />
+              <SetSymbol
+                setCode={result.setCode}
+                setName={result.setName}
+                rarity={result.rarity}
+              />
+            </span>
+            <span className="block text-xs text-zinc-400">
+              {result.typeLine} · {result.setName} ·{" "}
+              {result.setCode.toUpperCase()} #{result.collectorNumber} ·{" "}
+              {result.rarity} · {result.priceLabel}
+            </span>
+          </button>
+        ))}
+      </div>
+      <form action={addRealCopyToDeck} className="grid gap-2 md:grid-cols-4">
+        <input type="hidden" name="deckId" value={deckId} />
+        <input type="hidden" name="deckCardId" value={row.id} />
+        <input type="hidden" name="cardId" value={defaultCardId} />
+        <p className="text-xs text-zinc-300 md:col-span-4">
+          Printing: <span className="text-sky-100">{selectedLabel}</span>
+        </p>
+        <label className={filterFieldClass}>
+          Quantity
+          <input
+            name="quantity"
+            type="number"
+            min={1}
+            max={remainingNeeded || row.quantity}
+            defaultValue={defaultQuantity}
+            className={cn(filterInputClass, "mt-1 w-full")}
+          />
+        </label>
+        <label className={filterFieldClass}>
+          Finish
+          <select
+            name="foilStatus"
+            defaultValue={FoilStatus.NONFOIL}
+            className={cn(filterSelectClass, "mt-1 w-full")}
+          >
+            <option value={FoilStatus.NONFOIL}>Nonfoil</option>
+            <option value={FoilStatus.FOIL}>Foil</option>
+            <option value={FoilStatus.ETCHED}>Etched</option>
+          </select>
+        </label>
+        <label className={filterFieldClass}>
+          Condition
+          <input
+            name="condition"
+            defaultValue="NM"
+            className={cn(filterInputClass, "mt-1 w-full")}
+          />
+        </label>
+        <label className={filterFieldClass}>
+          Language
+          <input
+            name="language"
+            defaultValue="EN"
+            className={cn(filterInputClass, "mt-1 w-full")}
+          />
+        </label>
+        <label className={cn(filterFieldClass, "md:col-span-2")}>
+          Normal inventory location
+          <select
+            name="locationId"
+            required
+            defaultValue={locations[0]?.id ?? ""}
+            className={cn(filterSelectClass, "mt-1 w-full")}
+          >
+            <option value="">Choose…</option>
+            {locations.map((location) => (
+              <option key={location.id} value={location.id}>
+                {location.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex items-center gap-2 self-end text-sm text-zinc-300 md:col-span-2">
+          <input
+            name="commitImmediately"
+            type="checkbox"
+            defaultChecked={remainingNeeded > 0}
+          />
+          Commit to this deck immediately
+        </label>
+        <input
+          type="hidden"
+          name="notes"
+          value={`Added for deck row ${row.cardName}`}
+        />
+        <SubmitButton
+          pendingLabel="Adding…"
+          disabled={!defaultCardId || locations.length === 0}
+          className={cn(
+            filterPrimaryButtonClass,
+            "md:col-span-4 border-sky-700 text-sky-100 hover:bg-sky-950/40",
+          )}
+        >
+          Add real copy
+        </SubmitButton>
+      </form>
     </section>
   );
 }
