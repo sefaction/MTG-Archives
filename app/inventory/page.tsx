@@ -23,7 +23,9 @@ import { formatScryfallError, getCardByScryfallIdResult } from "@/lib/scryfall";
 import { revalidatePath } from "next/cache";
 import { cleanupZeroQuantityInventory, deleteInventoryItem } from "./actions";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
+import { CollapsiblePanel } from "@/components/CollapsiblePanel";
 import { InventoryAdvancedSearch } from "@/components/InventoryAdvancedSearch";
+import { InventoryQuickCardNameSearch } from "@/components/InventoryQuickCardNameSearch";
 import {
   cn,
   filterFieldClass,
@@ -810,8 +812,11 @@ export default async function InventoryPage({
           : "Showing your inventory."}
       </p>
       {user ? (
-        <section className="border border-zinc-800 rounded p-3 space-y-2">
-          <h2 className="font-semibold">Export Inventory</h2>
+        <CollapsiblePanel
+          title="Export Inventory"
+          summary="Download CSV exports"
+          defaultOpen={false}
+        >
           <form
             action="/api/inventory/export"
             method="get"
@@ -902,7 +907,7 @@ export default async function InventoryPage({
             limited to their own inventory even if a different scope is
             submitted.
           </p>
-        </section>
+        </CollapsiblePanel>
       ) : (
         <p className="rounded border border-zinc-800 p-3 text-sm text-zinc-400">
           Guest mode is read-only. Log in to export inventory or make changes.
@@ -937,6 +942,7 @@ export default async function InventoryPage({
           </form>
         </section>
       ) : null}
+      <InventoryQuickCardNameSearch actionPath="/inventory" params={p} />
       <InventoryAdvancedSearch
         actionPath="/inventory"
         params={p}

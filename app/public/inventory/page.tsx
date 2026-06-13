@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { InventoryBrowser } from "@/components/InventoryBrowser";
 import { InventoryAdvancedSearch } from "@/components/InventoryAdvancedSearch";
+import { InventoryQuickCardNameSearch } from "@/components/InventoryQuickCardNameSearch";
 import {
   getGlobalPublicInventory,
   PublicInventoryFilters,
@@ -287,6 +288,7 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
         </p>
       </header>
 
+      <InventoryQuickCardNameSearch actionPath="/public/inventory" params={p} />
       <InventoryAdvancedSearch
         actionPath="/public/inventory"
         params={p}
