@@ -29,6 +29,7 @@ import {
 } from "../lib/deck-optimization";
 import { resolveAccessScope } from "../lib/auth";
 import { resolveDeckVisibility } from "../lib/visibility";
+import { isBasicLandCard } from "../lib/card-types";
 
 function user(overrides: any = {}) {
   return {
@@ -655,4 +656,111 @@ test("bulk section move merge helper preserves quantity and target section", () 
       quantity: 5,
     },
   ]);
+});
+
+test("basic land detection uses type metadata including snow basics and faces", () => {
+  for (const typeLine of [
+    "Basic Land — Plains",
+    "Basic Land — Island",
+    "Basic Land — Swamp",
+    "Basic Land — Mountain",
+    "Basic Land — Forest",
+    "Basic Land — Wastes",
+    "Basic Snow Land — Forest",
+  ]) {
+    assert.equal(isBasicLandCard({ typeLine }), true, typeLine);
+  }
+  assert.equal(
+    isBasicLandCard({ cardFaces: [{ typeLine: "Basic Land — Plains" }] }),
+    true,
+  );
+  for (const typeLine of [
+    "Land",
+    "Legendary Land",
+    "Snow Land",
+    "Creature Land",
+    "Artifact Land",
+    "Land — Urza's",
+    "Basic Creature",
+  ]) {
+    assert.equal(isBasicLandCard({ typeLine }), false, typeLine);
+  }
+});
+
+test("basic lands are not missing or wishlist missing while retaining commitment slots", () => {
+  const forest = summarizeDeckCardOwnership(
+    {
+      cardId: "forest-special",
+      oracleId: "oracle-forest",
+      cardName: "Forest",
+      quantity: 10,
+      card: { typeLine: "Basic Land — Forest" },
+    },
+    [],
+    "deck-1",
+  );
+
+  assert.equal(forest.isBasicLand, true);
+  assert.equal(forest.missing, 0);
+  assert.equal(forest.wishlistMissing, 0);
+  assert.equal(forest.enoughOwned, true);
+  assert.equal(forest.commitmentMissing, 10);
+
+  const totals = summarizeDeckOwnershipTotals(
+    [
+      {
+        cardId: "forest-special",
+        oracleId: "oracle-forest",
+        cardName: "Forest",
+        quantity: 10,
+        card: { typeLine: "Basic Land — Forest" },
+      },
+      {
+        cardId: "island-special",
+        oracleId: "oracle-island",
+        cardName: "Island",
+        quantity: 10,
+        card: { typeLine: "Basic Land — Island" },
+      },
+      {
+        cardId: "sol-ring",
+        oracleId: "oracle-sol-ring",
+        cardName: "Sol Ring",
+        quantity: 1,
+        card: { typeLine: "Artifact" },
+      },
+    ],
+    [],
+  );
+  assert.equal(totals.totalQuantity, 21);
+  assert.equal(totals.missing, 1);
+});
+
+test("owned special basic-land printings can still be committed", () => {
+  const summary = summarizeDeckCardOwnership(
+    {
+      cardId: "forest-special",
+      oracleId: "oracle-forest",
+      cardName: "Forest",
+      quantity: 1,
+      card: { typeLine: "Basic Land — Forest" },
+    },
+    [
+      {
+        id: "inv-forest",
+        quantity: 1,
+        card: {
+          id: "forest-special",
+          oracleId: "oracle-forest",
+          name: "Forest",
+        },
+        location: { id: "box", name: "Box", kind: "NORMAL", deckId: null },
+      },
+    ],
+    "deck-1",
+  );
+
+  assert.equal(summary.missing, 0);
+  assert.equal(summary.availableExact, 1);
+  assert.equal(summary.commitmentMissing, 1);
 });

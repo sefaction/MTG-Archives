@@ -110,7 +110,7 @@ test("public inventory search keeps browsing filters and removes private/admin f
   assert.match(inventorySearch, /Mana value/);
   assert.match(inventorySearch, /USD/);
   assert.match(inventorySearch, /Apply filters/);
-  assert.match(inventorySearch, /Clear filters/);
+  assert.match(inventorySearch, /Clear Filters/);
   assert.match(inventorySearch, /FilterChipBar/);
   assert.match(inventorySearch, /showVisibilityFilter: !isPublic/);
   assert.match(inventorySearch, /showSourceFilter: !isPublic/);

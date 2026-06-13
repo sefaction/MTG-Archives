@@ -352,3 +352,87 @@ test("shared collection card grid sizing matches inventory binder density", () =
   assert.match(inventory, /inventoryCardSize/);
   assert.match(wishlist, /wishlistCardSize/);
 });
+
+test("deck-derived wishlist excludes basic lands but keeps nonbasic needs", () => {
+  const forest = card({
+    id: "forest-special",
+    scryfallId: "forest-sf",
+    oracleId: "oracle-forest",
+    name: "Forest",
+    manaCost: "",
+    manaValue: 0,
+    typeLine: "Basic Land — Forest",
+    colorIdentity: ["G"],
+  });
+  const island = card({
+    id: "island-special",
+    scryfallId: "island-sf",
+    oracleId: "oracle-island",
+    name: "Island",
+    manaCost: "",
+    manaValue: 0,
+    typeLine: "Basic Land — Island",
+    colorIdentity: ["U"],
+  });
+  const solRing = card({
+    id: "sol-ring",
+    scryfallId: "sol-ring-sf",
+    oracleId: "oracle-sol-ring",
+    name: "Sol Ring",
+    manaCost: "{1}",
+    manaValue: 1,
+    typeLine: "Artifact",
+    colorIdentity: [],
+  });
+
+  const view = buildWishlistView({
+    manualItems: [],
+    decks: [
+      {
+        id: "deck-1",
+        name: "Basics and Ring",
+        cards: [
+          {
+            id: "dc-forest",
+            cardId: forest.id,
+            scryfallId: forest.scryfallId,
+            oracleId: forest.oracleId,
+            cardName: forest.name,
+            section: DeckSection.MAINBOARD,
+            quantity: 10,
+            card: forest,
+          },
+          {
+            id: "dc-island",
+            cardId: island.id,
+            scryfallId: island.scryfallId,
+            oracleId: island.oracleId,
+            cardName: island.name,
+            section: DeckSection.MAINBOARD,
+            quantity: 10,
+            card: island,
+          },
+          {
+            id: "dc-sol",
+            cardId: solRing.id,
+            scryfallId: solRing.scryfallId,
+            oracleId: solRing.oracleId,
+            cardName: solRing.name,
+            section: DeckSection.MAINBOARD,
+            quantity: 1,
+            card: solRing,
+          },
+        ],
+      },
+    ],
+    inventoryItems: [],
+  });
+
+  assert.equal(view.summary.totalWantedQuantity, 1);
+  assert.equal(view.summary.missingFromInventoryQuantity, 1);
+  assert.deepEqual(
+    view.groups.map((group) => group.card.name),
+    ["Sol Ring"],
+  );
+  assert.equal(view.groups[0].sources.decks[0].missingQuantity, 1);
+});

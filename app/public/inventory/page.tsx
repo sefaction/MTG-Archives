@@ -260,6 +260,8 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
   clearFilterParams.set("displayMode", displayMode);
   if (p.pageSize) clearFilterParams.set("pageSize", String(p.pageSize));
   if (p.browse) clearFilterParams.set("browse", String(p.browse));
+  if (p.sort) clearFilterParams.set("sort", String(p.sort));
+  if (p.sortDir) clearFilterParams.set("sortDir", String(p.sortDir));
   const clearFiltersHref = `/public/inventory?${clearFilterParams.toString()}`;
 
   return (

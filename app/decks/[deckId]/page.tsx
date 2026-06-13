@@ -195,6 +195,7 @@ export default async function DeckDetailPage({
       commitOptions,
       returnOptions,
       missing: owned.missing,
+      isBasicLand: owned.isBasicLand,
       enoughOwned: owned.enoughOwned,
       matchType: owned.matchType,
       locationSummary: canEdit ? owned.locationSummary : "",
@@ -226,11 +227,11 @@ export default async function DeckDetailPage({
     };
   });
   const deckWishlistMissing = editorRows.reduce(
-    (total, row) => total + row.commitmentMissing,
+    (total, row) => total + row.missing,
     0,
   );
   const deckWishlistAvailable = editorRows.reduce(
-    (total, row) => total + Math.min(row.commitmentMissing, row.available),
+    (total, row) => total + Math.min(row.missing, row.available),
     0,
   );
 
