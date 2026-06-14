@@ -7,6 +7,7 @@ import {
   Visibility,
 } from "@prisma/client";
 import {
+  DEFAULT_DECK_CARD_SECTION,
   canManageDeck,
   canViewDeck,
   deckCardCount,
@@ -61,6 +62,10 @@ function deck(overrides: any = {}) {
     },
   };
 }
+
+test("new deck cards default to mainboard", () => {
+  assert.equal(DEFAULT_DECK_CARD_SECTION, DeckSection.MAINBOARD);
+});
 
 test("deck CRUD policy allows owners and requires admin mode for cross-user edits", () => {
   const owner = user({ id: "user-1" });
@@ -346,6 +351,7 @@ test("search results order owned printings before local and Scryfall printings",
       ownedExactQuantity: 0,
       ownedOtherPrintingQuantity: 0,
       locationSummary: "",
+      availableLocations: [],
       finishes: [],
       source: "scryfall",
       badges: [],
@@ -368,6 +374,7 @@ test("search results order owned printings before local and Scryfall printings",
       ownedExactQuantity: 0,
       ownedOtherPrintingQuantity: 0,
       locationSummary: "",
+      availableLocations: [],
       finishes: [],
       source: "local",
       badges: [],
@@ -390,6 +397,9 @@ test("search results order owned printings before local and Scryfall printings",
       ownedExactQuantity: 3,
       ownedOtherPrintingQuantity: 0,
       locationSummary: "Box",
+      availableLocations: [
+        { inventoryItemId: "inv-o", locationName: "Box", quantity: 3 },
+      ],
       finishes: [],
       source: "owned",
       badges: [],
