@@ -44,11 +44,9 @@ import {
   finishForFoilStatus,
   formatSelectedPrice,
   selectPreferredCardPrice,
-  providerLabel,
-  priceChangePercent,
-  formatPercentChange,
 } from "@/lib/price-history";
 import { compareInventoryGroups } from "@/lib/inventory-sort";
+import { getLatestPriceSnapshotsForCards } from "@/lib/pricing-analytics";
 import {
   buildInventoryWhereFromFilters,
   inventoryCardMatchesPostFilters,
@@ -143,10 +141,6 @@ export default async function InventoryPage({
       rarity: true,
       manaValue: true,
       prices: true,
-      priceSnapshots: {
-        orderBy: [{ observedDate: "desc" }],
-        take: 16,
-      },
       collectorNumber: true,
       typeLine: true,
       manaCost: true,
@@ -155,7 +149,19 @@ export default async function InventoryPage({
       keywords: true,
     },
   });
-  const cardSortById = new Map(cardSortData.map((card) => [card.id, card]));
+  const latestPriceStartedAt = process.hrtime.bigint();
+  const latestPriceSnapshotsByCard = await getLatestPriceSnapshotsForCards(
+    cardSortData.map((card) => card.id),
+    { provider: preferredPriceProvider },
+  );
+  const latestPriceLookupMs =
+    Number(process.hrtime.bigint() - latestPriceStartedAt) / 1_000_000;
+  const cardSortById = new Map(
+    cardSortData.map((card) => [
+      card.id,
+      { ...card, priceSnapshots: latestPriceSnapshotsByCard.get(card.id) || [] },
+    ]),
+  );
   const groupMatchesClientSafeFilters = (group: any) =>
     inventoryCardMatchesPostFilters(cardSortById.get(group.cardId), filters);
   const filteredGroups = (allGroups as any[]).filter(
@@ -198,10 +204,6 @@ export default async function InventoryPage({
         include: {
           card: {
             include: {
-              priceSnapshots: {
-                orderBy: [{ observedDate: "desc" }],
-                take: 24,
-              },
             },
           },
           currentOwner: true,
@@ -225,6 +227,9 @@ export default async function InventoryPage({
       rowsReturned: pageGroups.length,
       rawRowsHydratedForVisibleGroups: items.length,
       totalMatchingCount,
+      priceLookupMs: latestPriceLookupMs,
+      priceRowsLoaded: Array.from(latestPriceSnapshotsByCard.values()).reduce((sum, rows) => sum + rows.length, 0),
+      latestPriceProjection: "batched-card-price-snapshot-distinct",
     });
   }
   if (pageGroups.length > queryPageSize) {
@@ -242,6 +247,9 @@ export default async function InventoryPage({
     },
     select: { playerId: true, inventoryDefaultVisibility: true },
   });
+  for (const item of items as any[]) {
+    item.card.priceSnapshots = latestPriceSnapshotsByCard.get(item.cardId) || [];
+  }
   const inventoryDefaultByPlayer = Object.fromEntries(
     ownerUsers
       .filter((ownerUser) => ownerUser.playerId)
@@ -757,29 +765,10 @@ export default async function InventoryPage({
             ? "MTGJSON"
             : "Scryfall fallback",
         priceHistoryUrl: `/api/cards/${i.cardId}/price-history`,
-        priceChange7Day: formatPercentChange(
-          priceChangePercent(i.card.priceSnapshots || [], 7, {
-            finish: finishForFoilStatus(i.foilStatus),
-          }),
-        ),
-        priceChange30Day: formatPercentChange(
-          priceChangePercent(i.card.priceSnapshots || [], 30, {
-            finish: finishForFoilStatus(i.foilStatus),
-          }),
-        ),
-        priceChange90Day: formatPercentChange(
-          priceChangePercent(i.card.priceSnapshots || [], 90, {
-            finish: finishForFoilStatus(i.foilStatus),
-          }),
-        ),
-        priceHistory: (i.card.priceSnapshots || []).map((snapshot: any) => ({
-          provider: providerLabel(snapshot.provider),
-          finish: snapshot.finish,
-          priceType: snapshot.priceType,
-          currency: snapshot.currency,
-          price: Number(snapshot.price).toFixed(2),
-          observedDate: snapshot.observedDate.toISOString().slice(0, 10),
-        })),
+        priceChange7Day: "",
+        priceChange30Day: "",
+        priceChange90Day: "",
+        priceHistory: [],
         foil: i.foil,
         foilStatus: i.foilStatus,
         sourceType: i.sourceType,
@@ -860,6 +849,7 @@ export default async function InventoryPage({
     <main className="p-8 space-y-4">
       <Nav />
       <h1 className="text-3xl font-bold">Inventory</h1>
+          <a className="text-sm text-sky-300 underline" href="/pricing">View value trends</a>
       <p className="rounded border border-zinc-800 p-3 text-sm text-zinc-300">
         {adminModeActive
           ? "Showing inventory across all users. Filter to one owner before broad bulk deletes."
