@@ -13,7 +13,10 @@
     "prisma:bootstrap-admin": "tsx prisma/bootstrap-admin.ts",
     "typecheck": "tsc --noEmit",
     "format": "npx prettier --check .",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "prices:map-mtgjson-cards": "tsx scripts/import-mtgjson-prices.ts map",
+    "prices:import:today": "tsx scripts/import-mtgjson-prices.ts today",
+    "prices:import:history": "tsx scripts/import-mtgjson-prices.ts history"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",
