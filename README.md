@@ -36,7 +36,6 @@ See `.env.example` for the full list. Important settings:
 - `COOKIE_SECURE=false` is appropriate for HTTP/LAN deployments; set it to `true` behind HTTPS.
 - `RUN_SEED_ON_START=false` keeps startup free of demo data.
 - `ADMIN_USERNAME` and `SEED_ADMIN_PASSWORD` control bootstrap admin creation.
-- `MTGJSON_BASE_URL`, `MTGJSON_PRICE_PROVIDER_DEFAULT`, `MTGJSON_PRICE_CURRENCY_DEFAULT`, and `MTGJSON_PRICE_IMPORT_ENABLED` configure manual/admin-triggered MTGJSON price imports. Price imports do not run on startup unless a future deployment explicitly opts into that behavior.
 
 ## Persistent data directories
 
@@ -80,12 +79,10 @@ npm run prisma:generate
 npm run prisma:migrate
 npm run prisma:bootstrap-admin
 npm run build
-npm run worker:prices
 npm run prices:map-mtgjson-cards
 npm run prices:import:today
 npm run prices:import:history
 docker compose logs -f web
-docker compose logs -f price-worker
 ```
 
 ## Deployment notes

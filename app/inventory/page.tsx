@@ -44,9 +44,6 @@ import {
   finishForFoilStatus,
   formatSelectedPrice,
   selectPreferredCardPrice,
-  providerLabel,
-  priceChangePercent,
-  formatPercentChange,
 } from "@/lib/price-history";
 import { compareInventoryGroups } from "@/lib/inventory-sort";
 import {
@@ -83,7 +80,6 @@ export default async function InventoryPage({
     p.browse === "infinite" ? "infinite" : "paginated";
   const sortField = p.sort || "cardName";
   const sortDirection: "asc" | "desc" = p.sortDir === "desc" ? "desc" : "asc";
-  const preferredPriceProvider = user?.preferredPriceProvider || "tcgplayer";
   const currentPage =
     initialBrowsingMode === "infinite"
       ? 1
@@ -143,10 +139,6 @@ export default async function InventoryPage({
       rarity: true,
       manaValue: true,
       prices: true,
-      priceSnapshots: {
-        orderBy: [{ observedDate: "desc" }],
-        take: 16,
-      },
       collectorNumber: true,
       typeLine: true,
       manaCost: true,
@@ -168,7 +160,6 @@ export default async function InventoryPage({
       cardSortById,
       String(sortField),
       sortDirection,
-      preferredPriceProvider,
     ),
   );
   const pageGroups = sortedGroups.slice(querySkip, querySkip + queryPageSize);
@@ -196,14 +187,7 @@ export default async function InventoryPage({
     ? await prisma.inventoryItem.findMany({
         where: pageGroupWhere,
         include: {
-          card: {
-            include: {
-              priceSnapshots: {
-                orderBy: [{ observedDate: "desc" }],
-                take: 24,
-              },
-            },
-          },
+          card: true,
           currentOwner: true,
           location: true,
         },
@@ -744,42 +728,15 @@ export default async function InventoryPage({
         priceEurFoil: (i.card.prices as any)?.eur_foil ?? "",
         priceTix: (i.card.prices as any)?.tix ?? "",
         preferredPriceLabel: formatSelectedPrice(
-          selectPreferredCardPrice(i.card.priceSnapshots, i.card.prices, {
-            finish: finishForFoilStatus(i.foilStatus),
-            preferredProvider: preferredPriceProvider,
-          }),
-        ),
-        priceSourceLabel:
-          selectPreferredCardPrice(i.card.priceSnapshots, i.card.prices, {
-            finish: finishForFoilStatus(i.foilStatus),
-            preferredProvider: preferredPriceProvider,
-          })?.source === "mtgjson"
-            ? "MTGJSON"
-            : "Scryfall fallback",
-        priceHistoryUrl: `/api/cards/${i.cardId}/price-history`,
-        priceChange7Day: formatPercentChange(
-          priceChangePercent(i.card.priceSnapshots || [], 7, {
+          selectPreferredCardPrice(undefined, i.card.prices, {
             finish: finishForFoilStatus(i.foilStatus),
           }),
         ),
-        priceChange30Day: formatPercentChange(
-          priceChangePercent(i.card.priceSnapshots || [], 30, {
-            finish: finishForFoilStatus(i.foilStatus),
-          }),
-        ),
-        priceChange90Day: formatPercentChange(
-          priceChangePercent(i.card.priceSnapshots || [], 90, {
-            finish: finishForFoilStatus(i.foilStatus),
-          }),
-        ),
-        priceHistory: (i.card.priceSnapshots || []).map((snapshot: any) => ({
-          provider: providerLabel(snapshot.provider),
-          finish: snapshot.finish,
-          priceType: snapshot.priceType,
-          currency: snapshot.currency,
-          price: Number(snapshot.price).toFixed(2),
-          observedDate: snapshot.observedDate.toISOString().slice(0, 10),
-        })),
+        priceSourceLabel: "Scryfall",
+        priceChange7Day: "",
+        priceChange30Day: "",
+        priceChange90Day: "",
+        priceHistory: [],
         foil: i.foil,
         foilStatus: i.foilStatus,
         sourceType: i.sourceType,
@@ -860,6 +817,7 @@ export default async function InventoryPage({
     <main className="p-8 space-y-4">
       <Nav />
       <h1 className="text-3xl font-bold">Inventory</h1>
+          <a className="text-sm text-sky-300 underline" href="/pricing">View value trends</a>
       <p className="rounded border border-zinc-800 p-3 text-sm text-zinc-300">
         {adminModeActive
           ? "Showing inventory across all users. Filter to one owner before broad bulk deletes."

@@ -1,7 +1,3 @@
-import {
-  selectPreferredCardPrice,
-  type PriceSnapshotLike,
-} from "./price-history";
 
 export const INVENTORY_SORT_FIELDS = [
   "cardName",
@@ -129,19 +125,9 @@ export function inventorySortValue(
         value: colorIdentitySortKey(card?.colorIdentity),
       };
     case "priceUsd": {
-      const selected =
-        preferredProvider === "scryfall"
-          ? null
-          : selectPreferredCardPrice(
-              card?.priceSnapshots as PriceSnapshotLike[],
-              card?.prices,
-              {
-                preferredProvider: preferredProvider || undefined,
-              },
-            );
       return {
         kind: "number",
-        value: selected?.amount ?? scryfallUsdPrice(card),
+        value: scryfallUsdPrice(card),
         nullsLast: true,
       };
     }

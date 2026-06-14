@@ -12,10 +12,7 @@ import { getManaFacesForDto } from "@/lib/mtg/mana-display";
 import {
   finishForFoilStatus,
   formatSelectedPrice,
-  providerLabel,
   selectPreferredCardPrice,
-  priceChangePercent,
-  formatPercentChange,
 } from "@/lib/price-history";
 import {
   buildInventoryWhereFromFilters,
@@ -36,14 +33,12 @@ function rowsFromDisplayItems({
   inventoryDefaultByPlayer,
   p,
   filters,
-  preferredPriceProvider,
 }: {
   displayItems: any[];
   displayMode: "exact" | "grouped";
   inventoryDefaultByPlayer: Record<string, DefaultCollectionVisibility>;
   p: Record<string, string>;
   filters: ReturnType<typeof parseInventoryFilters>;
-  preferredPriceProvider: string;
 }) {
   return displayItems
     .map((entry: any) => {
@@ -111,42 +106,15 @@ function rowsFromDisplayItems({
         priceEurFoil: (i.card.prices as any)?.eur_foil ?? "",
         priceTix: (i.card.prices as any)?.tix ?? "",
         preferredPriceLabel: formatSelectedPrice(
-          selectPreferredCardPrice(i.card.priceSnapshots, i.card.prices, {
-            finish: finishForFoilStatus(i.foilStatus),
-            preferredProvider: preferredPriceProvider,
-          }),
-        ),
-        priceSourceLabel:
-          selectPreferredCardPrice(i.card.priceSnapshots, i.card.prices, {
-            finish: finishForFoilStatus(i.foilStatus),
-            preferredProvider: preferredPriceProvider,
-          })?.source === "mtgjson"
-            ? "MTGJSON"
-            : "Scryfall fallback",
-        priceHistoryUrl: `/api/cards/${i.cardId}/price-history`,
-        priceChange7Day: formatPercentChange(
-          priceChangePercent(i.card.priceSnapshots || [], 7, {
+          selectPreferredCardPrice(undefined, i.card.prices, {
             finish: finishForFoilStatus(i.foilStatus),
           }),
         ),
-        priceChange30Day: formatPercentChange(
-          priceChangePercent(i.card.priceSnapshots || [], 30, {
-            finish: finishForFoilStatus(i.foilStatus),
-          }),
-        ),
-        priceChange90Day: formatPercentChange(
-          priceChangePercent(i.card.priceSnapshots || [], 90, {
-            finish: finishForFoilStatus(i.foilStatus),
-          }),
-        ),
-        priceHistory: (i.card.priceSnapshots || []).map((snapshot: any) => ({
-          provider: providerLabel(snapshot.provider),
-          finish: snapshot.finish,
-          priceType: snapshot.priceType,
-          currency: snapshot.currency,
-          price: Number(snapshot.price).toFixed(2),
-          observedDate: snapshot.observedDate.toISOString().slice(0, 10),
-        })),
+        priceSourceLabel: "Scryfall",
+        priceChange7Day: "",
+        priceChange30Day: "",
+        priceChange90Day: "",
+        priceHistory: [],
         foil: i.foil,
         foilStatus: i.foilStatus,
         sourceType: i.sourceType,
@@ -215,7 +183,6 @@ export async function GET(request: Request) {
   const page = Math.max(1, Number(p.page || "1") || 1);
   const sortField = p.sort || "cardName";
   const sortDirection: "asc" | "desc" = p.sortDir === "desc" ? "desc" : "asc";
-  const preferredPriceProvider = user?.preferredPriceProvider || "tcgplayer";
   const filters = parseInventoryFilters(new URL(request.url).searchParams);
   const where = buildInventoryWhereFromFilters(filters, {
     adminModeActive,
@@ -271,10 +238,6 @@ export async function GET(request: Request) {
       rarity: true,
       manaValue: true,
       prices: true,
-      priceSnapshots: {
-        orderBy: [{ observedDate: "desc" }],
-        take: 16,
-      },
       collectorNumber: true,
       typeLine: true,
       manaCost: true,
@@ -296,7 +259,6 @@ export async function GET(request: Request) {
       cardSortById,
       sortField,
       sortDirection,
-      preferredPriceProvider,
     ),
   );
   const pageGroups = sortedGroups.slice((page - 1) * pageSize, page * pageSize);
@@ -320,14 +282,7 @@ export async function GET(request: Request) {
     ? await prisma.inventoryItem.findMany({
         where: pageGroupWhere,
         include: {
-          card: {
-            include: {
-              priceSnapshots: {
-                orderBy: [{ observedDate: "desc" }],
-                take: 24,
-              },
-            },
-          },
+          card: true,
           currentOwner: true,
           location: true,
         },
@@ -360,7 +315,6 @@ export async function GET(request: Request) {
       inventoryDefaultByPlayer,
       p,
       filters,
-      preferredPriceProvider,
     }),
     page,
     pageSize,

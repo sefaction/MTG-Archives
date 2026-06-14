@@ -11,7 +11,6 @@ import {
   normalizePublicSlug,
 } from "@/lib/visibility";
 import { DefaultCollectionVisibility } from "@prisma/client";
-import { PRICE_PROVIDER_OPTIONS } from "@/lib/price-history";
 
 function parseDefaultVisibility(value: FormDataEntryValue | null) {
   return value === DefaultCollectionVisibility.PUBLIC
@@ -76,11 +75,6 @@ export default async function SettingsPage({
         publicProfileEnabled,
         publicDisplayName,
         publicSlug,
-        preferredPriceProvider: PRICE_PROVIDER_OPTIONS.some(
-          (option) => option.value === String(fd.get("preferredPriceProvider")),
-        )
-          ? String(fd.get("preferredPriceProvider"))
-          : "tcgplayer",
       },
     });
 
@@ -94,7 +88,6 @@ export default async function SettingsPage({
           publicProfileEnabled: before.publicProfileEnabled,
           publicDisplayName: before.publicDisplayName,
           publicSlug: before.publicSlug,
-          preferredPriceProvider: before.preferredPriceProvider,
         },
         afterJson: {
           inventoryDefaultVisibility: updated.inventoryDefaultVisibility,
@@ -102,7 +95,6 @@ export default async function SettingsPage({
           publicProfileEnabled: updated.publicProfileEnabled,
           publicDisplayName: updated.publicDisplayName,
           publicSlug: updated.publicSlug,
-          preferredPriceProvider: updated.preferredPriceProvider,
         },
         reason: "Collection visibility settings updated.",
       },
@@ -212,24 +204,7 @@ export default async function SettingsPage({
           </label>
         </div>
 
-        <label className="text-sm">
-          Preferred pricing source
-          <select
-            name="preferredPriceProvider"
-            defaultValue={user.preferredPriceProvider}
-            className="mt-1 w-full border bg-zinc-900 p-2"
-          >
-            {PRICE_PROVIDER_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <span className="mt-1 block text-xs text-zinc-400">
-            Inventory and deck values prefer this MTGJSON provider, then fall
-            back through other MTGJSON providers and Scryfall prices.
-          </span>
-        </label>
+
 
         {user.publicSlug ? (
           <p className="text-sm text-sky-200">
