@@ -10,10 +10,19 @@ import {
 } from "@/lib/inventory-locations";
 import { getManaFacesForDto } from "@/lib/mtg/mana-display";
 import {
+  finishForFoilStatus,
+  formatSelectedPrice,
+  providerLabel,
+  selectPreferredCardPrice,
+  priceChangePercent,
+  formatPercentChange,
+} from "@/lib/price-history";
+import {
   buildInventoryWhereFromFilters,
   inventoryCardMatchesPostFilters,
   parseInventoryFilters,
 } from "@/lib/inventory-filters";
+import { compareInventoryGroups } from "@/lib/inventory-sort";
 
 const pageSizeOptions = [10, 25, 50, 100, 250];
 
@@ -27,12 +36,14 @@ function rowsFromDisplayItems({
   inventoryDefaultByPlayer,
   p,
   filters,
+  preferredPriceProvider,
 }: {
   displayItems: any[];
   displayMode: "exact" | "grouped";
   inventoryDefaultByPlayer: Record<string, DefaultCollectionVisibility>;
   p: Record<string, string>;
   filters: ReturnType<typeof parseInventoryFilters>;
+  preferredPriceProvider: string;
 }) {
   return displayItems
     .map((entry: any) => {
@@ -99,6 +110,43 @@ function rowsFromDisplayItems({
         priceEur: (i.card.prices as any)?.eur ?? "",
         priceEurFoil: (i.card.prices as any)?.eur_foil ?? "",
         priceTix: (i.card.prices as any)?.tix ?? "",
+        preferredPriceLabel: formatSelectedPrice(
+          selectPreferredCardPrice(i.card.priceSnapshots, i.card.prices, {
+            finish: finishForFoilStatus(i.foilStatus),
+            preferredProvider: preferredPriceProvider,
+          }),
+        ),
+        priceSourceLabel:
+          selectPreferredCardPrice(i.card.priceSnapshots, i.card.prices, {
+            finish: finishForFoilStatus(i.foilStatus),
+            preferredProvider: preferredPriceProvider,
+          })?.source === "mtgjson"
+            ? "MTGJSON"
+            : "Scryfall fallback",
+        priceHistoryUrl: `/api/cards/${i.cardId}/price-history`,
+        priceChange7Day: formatPercentChange(
+          priceChangePercent(i.card.priceSnapshots || [], 7, {
+            finish: finishForFoilStatus(i.foilStatus),
+          }),
+        ),
+        priceChange30Day: formatPercentChange(
+          priceChangePercent(i.card.priceSnapshots || [], 30, {
+            finish: finishForFoilStatus(i.foilStatus),
+          }),
+        ),
+        priceChange90Day: formatPercentChange(
+          priceChangePercent(i.card.priceSnapshots || [], 90, {
+            finish: finishForFoilStatus(i.foilStatus),
+          }),
+        ),
+        priceHistory: (i.card.priceSnapshots || []).map((snapshot: any) => ({
+          provider: providerLabel(snapshot.provider),
+          finish: snapshot.finish,
+          priceType: snapshot.priceType,
+          currency: snapshot.currency,
+          price: Number(snapshot.price).toFixed(2),
+          observedDate: snapshot.observedDate.toISOString().slice(0, 10),
+        })),
         foil: i.foil,
         foilStatus: i.foilStatus,
         sourceType: i.sourceType,
@@ -167,6 +215,7 @@ export async function GET(request: Request) {
   const page = Math.max(1, Number(p.page || "1") || 1);
   const sortField = p.sort || "cardName";
   const sortDirection: "asc" | "desc" = p.sortDir === "desc" ? "desc" : "asc";
+  const preferredPriceProvider = user?.preferredPriceProvider || "tcgplayer";
   const filters = parseInventoryFilters(new URL(request.url).searchParams);
   const where = buildInventoryWhereFromFilters(filters, {
     adminModeActive,
@@ -222,42 +271,34 @@ export async function GET(request: Request) {
       rarity: true,
       manaValue: true,
       prices: true,
+      priceSnapshots: {
+        orderBy: [{ observedDate: "desc" }],
+        take: 16,
+      },
+      collectorNumber: true,
+      typeLine: true,
+      manaCost: true,
       colorIdentity: true,
       colors: true,
       keywords: true,
     },
   });
   const cardSortById = new Map(cardSortData.map((card) => [card.id, card]));
-  const compareValues = (left: any, right: any) => {
-    if (typeof left === "number" || typeof right === "number") {
-      return (Number(left) || 0) - (Number(right) || 0);
-    }
-    return String(left ?? "").localeCompare(String(right ?? ""), undefined, {
-      sensitivity: "base",
-      numeric: true,
-    });
-  };
   const groupMatchesClientSafeFilters = (group: any) =>
     inventoryCardMatchesPostFilters(cardSortById.get(group.cardId), filters);
-  const sortValue = (group: any) => {
-    const card = cardSortById.get(group.cardId) as any;
-    if (sortField === "quantity") return group._sum?.quantity ?? 0;
-    if (sortField === "setCode") return card?.setCode ?? "";
-    if (sortField === "rarity") return card?.rarity ?? "";
-    if (sortField === "manaValue") return card?.manaValue ?? 0;
-    if (sortField === "priceUsd") return Number(card?.prices?.usd ?? 0);
-    return card?.name ?? "";
-  };
   const filteredGroups = (allGroups as any[]).filter(
     groupMatchesClientSafeFilters,
   );
-  const sortedGroups = [...filteredGroups].sort((left, right) => {
-    const direction = sortDirection === "desc" ? -1 : 1;
-    const primary =
-      compareValues(sortValue(left), sortValue(right)) * direction;
-    if (primary) return primary;
-    return compareValues(left.cardId, right.cardId);
-  });
+  const sortedGroups = [...filteredGroups].sort((left, right) =>
+    compareInventoryGroups(
+      left,
+      right,
+      cardSortById,
+      sortField,
+      sortDirection,
+      preferredPriceProvider,
+    ),
+  );
   const pageGroups = sortedGroups.slice((page - 1) * pageSize, page * pageSize);
   const pageGroupWhere =
     displayMode === "grouped"
@@ -278,7 +319,18 @@ export async function GET(request: Request) {
   const items = pageGroups.length
     ? await prisma.inventoryItem.findMany({
         where: pageGroupWhere,
-        include: { card: true, currentOwner: true, location: true },
+        include: {
+          card: {
+            include: {
+              priceSnapshots: {
+                orderBy: [{ observedDate: "desc" }],
+                take: 24,
+              },
+            },
+          },
+          currentOwner: true,
+          location: true,
+        },
         orderBy: [{ card: { name: "asc" } }, { createdAt: "desc" }],
       })
     : [];
@@ -308,6 +360,7 @@ export async function GET(request: Request) {
       inventoryDefaultByPlayer,
       p,
       filters,
+      preferredPriceProvider,
     }),
     page,
     pageSize,

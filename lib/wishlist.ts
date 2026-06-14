@@ -4,6 +4,7 @@ import {
   InventoryLocationKind,
   PrismaClient,
 } from "@prisma/client";
+import { isBasicLandCard } from "./card-types";
 import { cardPriceUsd } from "./deck-search";
 import { matchesDeckCardPrinting } from "./deck-commitments";
 
@@ -304,7 +305,7 @@ export function buildWishlistView(input: BuildInput): WishlistView {
 
   for (const deck of input.decks) {
     for (const deckCard of deck.cards) {
-      if (!deckCard.card) continue;
+      if (!deckCard.card || isBasicLandCard(deckCard.card)) continue;
       const committedQuantity = input.inventoryItems.reduce((total, item) => {
         if (item.location?.deckId !== deck.id) return total;
         return matchesDeckCardPrinting(deckCard, item)

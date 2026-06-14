@@ -5,6 +5,14 @@ import {
 } from "@/lib/public-collection";
 import { getInventoryGroupedByCard } from "@/lib/inventory-locations";
 import { getManaFacesForDto } from "@/lib/mtg/mana-display";
+import {
+  finishForFoilStatus,
+  formatSelectedPrice,
+  providerLabel,
+  selectPreferredCardPrice,
+  priceChangePercent,
+  formatPercentChange,
+} from "@/lib/price-history";
 
 type PublicOwner = {
   displayName: string;
@@ -173,6 +181,41 @@ function toInventoryBrowserRows({
       priceEur: (i.card.prices as any)?.eur ?? "",
       priceEurFoil: (i.card.prices as any)?.eur_foil ?? "",
       priceTix: (i.card.prices as any)?.tix ?? "",
+      preferredPriceLabel: formatSelectedPrice(
+        selectPreferredCardPrice(i.card.priceSnapshots, i.card.prices, {
+          finish: finishForFoilStatus(i.foilStatus),
+        }),
+      ),
+      priceSourceLabel:
+        selectPreferredCardPrice(i.card.priceSnapshots, i.card.prices, {
+          finish: finishForFoilStatus(i.foilStatus),
+        })?.source === "mtgjson"
+          ? "MTGJSON"
+          : "Scryfall fallback",
+      priceHistoryUrl: `/api/cards/${i.cardId}/price-history`,
+      priceChange7Day: formatPercentChange(
+        priceChangePercent(i.card.priceSnapshots || [], 7, {
+          finish: finishForFoilStatus(i.foilStatus),
+        }),
+      ),
+      priceChange30Day: formatPercentChange(
+        priceChangePercent(i.card.priceSnapshots || [], 30, {
+          finish: finishForFoilStatus(i.foilStatus),
+        }),
+      ),
+      priceChange90Day: formatPercentChange(
+        priceChangePercent(i.card.priceSnapshots || [], 90, {
+          finish: finishForFoilStatus(i.foilStatus),
+        }),
+      ),
+      priceHistory: (i.card.priceSnapshots || []).map((snapshot: any) => ({
+        provider: providerLabel(snapshot.provider),
+        finish: snapshot.finish,
+        priceType: snapshot.priceType,
+        currency: snapshot.currency,
+        price: Number(snapshot.price).toFixed(2),
+        observedDate: snapshot.observedDate.toISOString().slice(0, 10),
+      })),
       foil: i.foil,
       foilStatus: i.foilStatus,
       effectiveVisibility: "PUBLIC" as const,

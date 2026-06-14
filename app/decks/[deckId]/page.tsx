@@ -30,6 +30,7 @@ import {
   matchesDeckCardPrinting,
 } from "@/lib/deck-commitments";
 import { cardPriceNumber } from "@/lib/deck-view";
+import { selectPreferredCardPrice } from "@/lib/price-history";
 import { ensureDefaultLocation } from "@/lib/inventory-locations";
 import { prisma } from "@/lib/prisma";
 import { resolveDeckVisibility, visibilityLabel } from "@/lib/visibility";
@@ -68,7 +69,16 @@ export default async function DeckDetailPage({
     include: {
       ownerUser: true,
       cards: {
-        include: { card: true },
+        include: {
+          card: {
+            include: {
+              priceSnapshots: {
+                orderBy: [{ observedDate: "desc" }],
+                take: 24,
+              },
+            },
+          },
+        },
         orderBy: [{ section: "asc" }, { cardName: "asc" }],
       },
     },
@@ -80,6 +90,7 @@ export default async function DeckDetailPage({
     deck.ownerUser.deckDefaultVisibility,
     deck.visibility,
   );
+  const preferredPriceProvider = user?.preferredPriceProvider || "tcgplayer";
   const inventoryOwnerId = canEdit ? deck.ownerUser.playerId : null;
   if (inventoryOwnerId) await ensureDefaultLocation(prisma, inventoryOwnerId);
   const inventoryItems = inventoryOwnerId
@@ -117,7 +128,13 @@ export default async function DeckDetailPage({
   const pricedCards = deck.cards
     .filter((deckCard) => deckCard.section !== DeckSection.MAYBEBOARD)
     .map((deckCard) => {
-      const price = cardPriceNumber(deckCard.card?.prices);
+      const preferredPrice = selectPreferredCardPrice(
+        deckCard.card?.priceSnapshots,
+        deckCard.card?.prices,
+        { preferredProvider: preferredPriceProvider },
+      );
+      const price =
+        preferredPrice?.amount ?? cardPriceNumber(deckCard.card?.prices);
       return price == null ? null : price * deckCard.quantity;
     })
     .filter((price): price is number => price !== null);
@@ -195,6 +212,7 @@ export default async function DeckDetailPage({
       commitOptions,
       returnOptions,
       missing: owned.missing,
+      isBasicLand: owned.isBasicLand,
       enoughOwned: owned.enoughOwned,
       matchType: owned.matchType,
       locationSummary: canEdit ? owned.locationSummary : "",
@@ -226,11 +244,11 @@ export default async function DeckDetailPage({
     };
   });
   const deckWishlistMissing = editorRows.reduce(
-    (total, row) => total + row.commitmentMissing,
+    (total, row) => total + row.missing,
     0,
   );
   const deckWishlistAvailable = editorRows.reduce(
-    (total, row) => total + Math.min(row.commitmentMissing, row.available),
+    (total, row) => total + Math.min(row.missing, row.available),
     0,
   );
 
