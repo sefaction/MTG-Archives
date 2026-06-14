@@ -34,6 +34,7 @@ export type MtgjsonPriceImportReport = {
   duplicatesSkipped: number;
   providersImported: string[];
   errors: string[];
+  memorySafeImporter?: string;
 };
 export type MtgjsonCardMappingReport = {
   scanned: number;
@@ -144,7 +145,7 @@ export function parseMtgjsonPricePayload(payload: unknown) {
   );
 }
 
-export async function fetchMtgjsonPricePayload(kind: MtgjsonPriceImportKind) {
+export async function fetchMtgjsonPriceResponse(kind: MtgjsonPriceImportKind) {
   const url = mtgjsonPriceFileUrl(kind);
   const response = await fetch(url, {
     headers: { accept: "application/json" },
@@ -152,7 +153,7 @@ export async function fetchMtgjsonPricePayload(kind: MtgjsonPriceImportKind) {
   if (!response.ok) {
     throw new Error(`MTGJSON download failed (${response.status}) for ${url}`);
   }
-  return response.json();
+  return response;
 }
 
 export async function fetchMtgjsonIdentifierPayload() {
@@ -196,6 +197,290 @@ function firstString(...values: unknown[]) {
     if (typeof value === "string" && value.trim()) return value.trim();
   }
   return "";
+}
+
+type PriceEntry = { uuid: string; formats?: unknown };
+
+async function localCardDiagnostics(
+  db: Pick<Prisma.TransactionClient, "card">,
+) {
+  const [localCards, localCardsWithMtgjsonUuidBefore] = await Promise.all([
+    "count" in db.card ? db.card.count() : Promise.resolve(0),
+    "count" in db.card
+      ? db.card.count({ where: { mtgjsonUuid: { not: null } } })
+      : Promise.resolve(0),
+  ]);
+  return {
+    localCards,
+    localCardsWithMtgjsonUuidBefore,
+    localCardsWithoutMtgjsonUuidBefore: Math.max(
+      0,
+      localCards - localCardsWithMtgjsonUuidBefore,
+    ),
+  };
+}
+
+async function mappedLocalCardsByUuid(
+  db: Pick<Prisma.TransactionClient, "card">,
+) {
+  const cards = await db.card.findMany({
+    where: { mtgjsonUuid: { not: null } },
+    select: { id: true, mtgjsonUuid: true },
+  });
+  return new Map(
+    cards.flatMap((card) =>
+      card.mtgjsonUuid ? [[card.mtgjsonUuid, card.id] as const] : [],
+    ),
+  );
+}
+
+function zeroMappingReport(
+  source: MtgjsonPriceImportKind,
+  diagnostics: Awaited<ReturnType<typeof localCardDiagnostics>>,
+  mappingReport?: MtgjsonCardMappingReport | null,
+): MtgjsonPriceImportReport {
+  return {
+    source,
+    totalMtgjsonCards: 0,
+    localCards: mappingReport?.localCards ?? diagnostics.localCards,
+    localCardsWithMtgjsonUuidBefore:
+      mappingReport?.localCardsWithMtgjsonUuidBefore ??
+      diagnostics.localCardsWithMtgjsonUuidBefore,
+    localCardsWithoutMtgjsonUuidBefore:
+      mappingReport?.localCardsWithoutMtgjsonUuidBefore ??
+      diagnostics.localCardsWithoutMtgjsonUuidBefore,
+    localCardsMappedThisRun: mappingReport?.mapped ?? 0,
+    ambiguousLocalCards: mappingReport?.ambiguous ?? 0,
+    unmatchedLocalCards: mappingReport?.unmatched ?? 0,
+    matchedLocalCards: 0,
+    unmatchedUuids: 0,
+    snapshotsSkippedForUnmappedUuid: 0,
+    snapshotsParsed: 0,
+    snapshotsInserted: 0,
+    duplicatesSkipped: 0,
+    providersImported: [],
+    errors: [
+      "No local cards are mapped to MTGJSON UUIDs yet. Run MTGJSON card mapping before importing prices.",
+    ],
+    memorySafeImporter: "early-exit-no-price-download",
+  };
+}
+
+async function insertPriceRows(
+  db: Pick<Prisma.TransactionClient, "cardPriceSnapshot">,
+  rows: Prisma.CardPriceSnapshotCreateManyInput[],
+) {
+  if (!rows.length) return 0;
+  const result = await db.cardPriceSnapshot.createMany({
+    data: rows,
+    skipDuplicates: true,
+  });
+  return result.count;
+}
+
+export async function* streamMtgjsonPriceEntriesFromTextChunks(
+  chunks: AsyncIterable<string>,
+  wantedUuids?: Set<string>,
+): AsyncGenerator<PriceEntry> {
+  let buffer = "";
+  let state: "findData" | "key" | "value" | "done" = "findData";
+  let currentUuid = "";
+  let currentWanted = false;
+  for await (const chunk of chunks) {
+    buffer += chunk;
+    while (state !== "done") {
+      if (state === "findData") {
+        const match = /"data"\s*:/.exec(buffer);
+        if (!match) {
+          buffer = buffer.slice(Math.max(0, buffer.length - 16));
+          break;
+        }
+        const objectStart = buffer.indexOf("{", match.index + match[0].length);
+        if (objectStart === -1) break;
+        buffer = buffer.slice(objectStart + 1);
+        state = "key";
+      }
+      if (state === "key") {
+        const trimmedStart = buffer.search(/\S/);
+        if (trimmedStart === -1) break;
+        buffer = buffer.slice(trimmedStart);
+        if (buffer[0] === "}") {
+          state = "done";
+          break;
+        }
+        if (buffer[0] === ",") {
+          buffer = buffer.slice(1);
+          continue;
+        }
+        if (buffer[0] !== '"') {
+          throw new Error("Invalid MTGJSON price payload while reading UUID key.");
+        }
+        let escaped = false;
+        let keyEnd = -1;
+        for (let index = 1; index < buffer.length; index += 1) {
+          const char = buffer[index];
+          if (escaped) {
+            escaped = false;
+            continue;
+          }
+          if (char === "\\") {
+            escaped = true;
+            continue;
+          }
+          if (char === '"') {
+            keyEnd = index;
+            break;
+          }
+        }
+        if (keyEnd === -1) break;
+        currentUuid = JSON.parse(buffer.slice(0, keyEnd + 1));
+        currentWanted = !wantedUuids || wantedUuids.has(currentUuid);
+        const colon = buffer.indexOf(":", keyEnd + 1);
+        if (colon === -1) break;
+        buffer = buffer.slice(colon + 1);
+        state = "value";
+      }
+      if (state === "value") {
+        const valueStart = buffer.search(/\S/);
+        if (valueStart === -1) break;
+        buffer = buffer.slice(valueStart);
+        let depth = 0;
+        let inString = false;
+        let escaped = false;
+        let started = false;
+        let valueEnd = -1;
+        for (let index = 0; index < buffer.length; index += 1) {
+          const char = buffer[index];
+          if (inString) {
+            if (escaped) {
+              escaped = false;
+            } else if (char === "\\") {
+              escaped = true;
+            } else if (char === '"') {
+              inString = false;
+            }
+            continue;
+          }
+          if (char === '"') {
+            inString = true;
+            started = true;
+            continue;
+          }
+          if (char === "{" || char === "[") {
+            depth += 1;
+            started = true;
+            continue;
+          }
+          if (char === "}" || char === "]") {
+            depth -= 1;
+            if (started && depth === 0) {
+              valueEnd = index + 1;
+              break;
+            }
+          }
+        }
+        if (valueEnd === -1) break;
+        const rawValue = buffer.slice(0, valueEnd);
+        buffer = buffer.slice(valueEnd);
+        yield {
+          uuid: currentUuid,
+          formats: currentWanted ? JSON.parse(rawValue) : undefined,
+        };
+        state = "key";
+      }
+    }
+  }
+  if (state !== "done") {
+    throw new Error("Invalid MTGJSON price payload: data object was incomplete.");
+  }
+}
+
+async function* responseTextChunks(response: Response) {
+  if (!response.body) {
+    throw new Error("MTGJSON response did not include a readable stream.");
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    if (value) yield decoder.decode(value, { stream: true });
+  }
+  const final = decoder.decode();
+  if (final) yield final;
+}
+
+export async function importMtgjsonPriceEntries(
+  db: Pick<Prisma.TransactionClient, "card" | "cardPriceSnapshot">,
+  entries: AsyncIterable<PriceEntry>,
+  source: MtgjsonPriceImportKind,
+  mappingReport?: MtgjsonCardMappingReport | null,
+): Promise<MtgjsonPriceImportReport> {
+  const diagnostics = await localCardDiagnostics(db);
+  const cardByUuid = await mappedLocalCardsByUuid(db);
+  if (!cardByUuid.size) return zeroMappingReport(source, diagnostics, mappingReport);
+
+  const rows: Prisma.CardPriceSnapshotCreateManyInput[] = [];
+  const providers = new Set<string>();
+  let totalMtgjsonCards = 0;
+  let unmatchedUuids = 0;
+  let snapshotsSkippedForUnmappedUuid = 0;
+  let snapshotsParsed = 0;
+  let snapshotsInserted = 0;
+  const flush = async () => {
+    snapshotsInserted += await insertPriceRows(db, rows.splice(0, rows.length));
+  };
+  for await (const entry of entries) {
+    totalMtgjsonCards += 1;
+    const cardId = cardByUuid.get(entry.uuid);
+    if (!cardId) {
+      unmatchedUuids += 1;
+      continue;
+    }
+    const snapshots = parseMtgjsonPriceSnapshotsForCard(
+      entry.uuid,
+      entry.formats,
+    );
+    snapshotsParsed += snapshots.length;
+    for (const snapshot of snapshots) {
+      providers.add(snapshot.provider);
+      rows.push({
+        cardId,
+        mtgjsonUuid: entry.uuid,
+        provider: snapshot.provider,
+        finish: snapshot.finish,
+        priceType: snapshot.priceType,
+        currency: snapshot.currency,
+        price: new Prisma.Decimal(snapshot.price),
+        observedDate: snapshot.observedDate,
+      });
+    }
+    if (rows.length >= 1000) await flush();
+  }
+  await flush();
+  return {
+    source,
+    totalMtgjsonCards,
+    localCards: mappingReport?.localCards ?? diagnostics.localCards,
+    localCardsWithMtgjsonUuidBefore:
+      mappingReport?.localCardsWithMtgjsonUuidBefore ??
+      diagnostics.localCardsWithMtgjsonUuidBefore,
+    localCardsWithoutMtgjsonUuidBefore:
+      mappingReport?.localCardsWithoutMtgjsonUuidBefore ??
+      diagnostics.localCardsWithoutMtgjsonUuidBefore,
+    localCardsMappedThisRun: mappingReport?.mapped ?? 0,
+    ambiguousLocalCards: mappingReport?.ambiguous ?? 0,
+    unmatchedLocalCards: mappingReport?.unmatched ?? 0,
+    matchedLocalCards: cardByUuid.size,
+    unmatchedUuids,
+    snapshotsSkippedForUnmappedUuid,
+    snapshotsParsed,
+    snapshotsInserted,
+    duplicatesSkipped: snapshotsParsed - snapshotsInserted,
+    providersImported: Array.from(providers).sort(),
+    errors: [],
+    memorySafeImporter: "streaming-json-entry-parser",
+  };
 }
 
 export async function importMtgjsonPricePayload(
@@ -287,6 +572,7 @@ export async function importMtgjsonPricePayload(
             "No local cards are mapped to MTGJSON UUIDs yet. Run MTGJSON card mapping before importing prices.",
           ]
         : [],
+    memorySafeImporter: "in-memory-fixture-parser",
   };
 }
 
@@ -299,15 +585,20 @@ export async function importMtgjsonPrices(
       "MTGJSON price imports are disabled by MTGJSON_PRICE_IMPORT_ENABLED=false.",
     );
   }
-  const [mappingPayload, payload] = await Promise.all([
-    fetchMtgjsonIdentifierPayload(),
-    fetchMtgjsonPricePayload(kind),
-  ]);
+  const mappingPayload = await fetchMtgjsonIdentifierPayload();
   const mappingReport = await mapMtgjsonIdentifiersToLocalCards(
     db,
     mappingPayload,
   );
-  return importMtgjsonPricePayload(db, payload, kind, mappingReport);
+  const diagnostics = await localCardDiagnostics(db);
+  const cardByUuid = await mappedLocalCardsByUuid(db);
+  if (!cardByUuid.size) return zeroMappingReport(kind, diagnostics, mappingReport);
+  const response = await fetchMtgjsonPriceResponse(kind);
+  const entries = streamMtgjsonPriceEntriesFromTextChunks(
+    responseTextChunks(response),
+    new Set(cardByUuid.keys()),
+  );
+  return importMtgjsonPriceEntries(db, entries, kind, mappingReport);
 }
 
 export async function mapMtgjsonIdentifiersToLocalCards(

@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminMode } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import {
-  importMtgjsonPrices,
-  mapMtgjsonCards,
-  type MtgjsonPriceImportKind,
-} from "@/lib/mtgjson-prices";
+import { mapMtgjsonCards, type MtgjsonPriceImportKind } from "@/lib/mtgjson-prices";
 
 export async function POST(request: NextRequest) {
   await requireAdminMode();
@@ -16,16 +12,17 @@ export async function POST(request: NextRequest) {
   }
   const kind: MtgjsonPriceImportKind =
     body?.kind === "history" ? "history" : "today";
-  try {
-    const report = await importMtgjsonPrices(prisma, kind);
-    return NextResponse.json({ ok: true, report });
-  } catch (error: any) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: String(error?.message || "MTGJSON price import failed."),
-      },
-      { status: 500 },
-    );
-  }
+  return NextResponse.json(
+    {
+      ok: false,
+      kind,
+      error:
+        "Large MTGJSON price imports must be run with the streaming CLI importer from the app container.",
+      command:
+        kind === "history"
+          ? "npm run prices:import:history"
+          : "npm run prices:import:today",
+    },
+    { status: 400 },
+  );
 }

@@ -4,11 +4,7 @@ import { requireAdminMode } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Nav } from "@/components/Nav";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
-import {
-  importMtgjsonTodayAction,
-  backfillMtgjsonHistoryAction,
-  mapMtgjsonCardsAction,
-} from "./actions";
+import { mapMtgjsonCardsAction } from "./actions";
 import { mtgjsonPriceFileUrl } from "@/lib/mtgjson-prices";
 import {
   collectionValueHistory,
@@ -132,22 +128,14 @@ export default async function AdminPricesPage() {
               Map MTGJSON card UUIDs
             </SubmitButton>
           </form>
-          <form action={importMtgjsonTodayAction}>
-            <SubmitButton
-              pendingLabel="Importing…"
-              className="rounded bg-sky-700 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-600"
-            >
-              Import today’s prices
-            </SubmitButton>
-          </form>
-          <form action={backfillMtgjsonHistoryAction}>
-            <SubmitButton
-              pendingLabel="Backfilling…"
-              className="rounded border border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-900"
-            >
-              Backfill 90-day price history
-            </SubmitButton>
-          </form>
+        </div>
+        <div className="rounded border border-amber-800 bg-amber-950/30 p-3 text-sm text-amber-100">
+          Large MTGJSON price imports run through the streaming CLI importer to
+          avoid Next.js request timeouts and V8 string-size limits. From the app
+          container, run:
+          <pre className="mt-2 overflow-x-auto rounded bg-black/30 p-2 text-xs text-amber-50">
+            npm run prices:import:today{"\n"}npm run prices:import:history
+          </pre>
         </div>
       </section>
 

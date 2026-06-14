@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
+  importMtgjsonPriceEntries,
   importMtgjsonPricePayload,
   mapMtgjsonIdentifiersToLocalCards,
   parseMtgjsonPriceSnapshotsForCard,
+  streamMtgjsonPriceEntriesFromTextChunks,
 } from "../lib/mtgjson-prices";
 import {
   formatSelectedPrice,
@@ -131,6 +133,57 @@ test("MTGJSON price import is idempotent and reports unmatched UUIDs", async () 
   assert.equal(second.duplicatesSkipped, 5);
   assert.equal(db.rows.length, 5);
   assert.deepEqual(first.providersImported, ["cardkingdom", "tcgplayer"]);
+});
+
+test("streaming MTGJSON importer filters to mapped local UUIDs and batches inserts", async () => {
+  const db = mockDb();
+  async function* chunks() {
+    const json = JSON.stringify(fixture);
+    for (let index = 0; index < json.length; index += 17) {
+      yield json.slice(index, index + 17);
+    }
+  }
+  const entries = streamMtgjsonPriceEntriesFromTextChunks(
+    chunks(),
+    new Set(["uuid-sol-ring"]),
+  );
+  const report = await importMtgjsonPriceEntries(db, entries, "today");
+  assert.equal(report.memorySafeImporter, "streaming-json-entry-parser");
+  assert.equal(report.totalMtgjsonCards, 2);
+  assert.equal(report.matchedLocalCards, 1);
+  assert.equal(report.unmatchedUuids, 1);
+  assert.equal(report.snapshotsParsed, 5);
+  assert.equal(report.snapshotsInserted, 5);
+});
+
+test("streaming import exits before reading price entries when no cards are mapped", async () => {
+  let iterated = false;
+  async function* entries() {
+    iterated = true;
+    yield { uuid: "uuid-sol-ring", formats: fixture.data["uuid-sol-ring"] };
+  }
+  const report = await importMtgjsonPriceEntries(
+    {
+      card: {
+        async count({ where }: any = {}) {
+          return where?.mtgjsonUuid?.not === null ? 0 : 1;
+        },
+        async findMany() {
+          return [];
+        },
+      },
+      cardPriceSnapshot: {
+        async createMany() {
+          throw new Error("should not insert without mapped cards");
+        },
+      },
+    } as any,
+    entries(),
+    "today",
+  );
+  assert.equal(iterated, false);
+  assert.equal(report.memorySafeImporter, "early-exit-no-price-download");
+  assert.match(report.errors[0], /No local cards are mapped/);
 });
 
 test("MTGJSON identifier mapping uses Scryfall and tuple matches safely", async () => {
@@ -322,6 +375,7 @@ test("schema and admin route define MTGJSON price storage and admin-only imports
   );
   const adminPage = readFileSync("app/admin/prices/page.tsx", "utf8");
   const script = readFileSync("scripts/import-mtgjson-prices.ts", "utf8");
+  const priceImporter = readFileSync("lib/mtgjson-prices.ts", "utf8");
   assert.match(schema, /mtgjsonUuid\s+String\?\s+@unique/);
   assert.match(schema, /model CardPriceSnapshot/);
   assert.match(
@@ -330,8 +384,10 @@ test("schema and admin route define MTGJSON price storage and admin-only imports
   );
   assert.match(migration, /CREATE TABLE "CardPriceSnapshot"/);
   assert.match(adminRoute, /requireAdminMode/);
-  assert.match(adminPage, /Import today’s prices/);
+  assert.match(adminPage, /streaming CLI importer/);
   assert.match(adminPage, /Map MTGJSON card UUIDs/);
-  assert.match(adminPage, /Backfill 90-day price history/);
   assert.match(script, /mapMtgjsonCards/);
+  assert.doesNotMatch(priceImporter, /response\.text\(/);
+  assert.doesNotMatch(priceImporter, /fetchMtgjsonPricePayload/);
+  assert.match(priceImporter, /streamMtgjsonPriceEntriesFromTextChunks/);
 });

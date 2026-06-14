@@ -2,7 +2,7 @@
 
 import { requireAdminMode } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { importMtgjsonPrices, mapMtgjsonCards } from "@/lib/mtgjson-prices";
+import { mapMtgjsonCards } from "@/lib/mtgjson-prices";
 import { revalidatePath } from "next/cache";
 
 export async function mapMtgjsonCardsAction() {
@@ -14,14 +14,14 @@ export async function mapMtgjsonCardsAction() {
 
 export async function importMtgjsonTodayAction() {
   await requireAdminMode();
-  const report = await importMtgjsonPrices(prisma, "today");
-  console.info("[mtgjson-prices] today import", report);
-  revalidatePath("/admin/prices");
+  throw new Error(
+    "Large MTGJSON price imports must be run from the app container with npm run prices:import:today.",
+  );
 }
 
 export async function backfillMtgjsonHistoryAction() {
   await requireAdminMode();
-  const report = await importMtgjsonPrices(prisma, "history");
-  console.info("[mtgjson-prices] history import", report);
-  revalidatePath("/admin/prices");
+  throw new Error(
+    "Large MTGJSON history imports must be run from the app container with npm run prices:import:history.",
+  );
 }
