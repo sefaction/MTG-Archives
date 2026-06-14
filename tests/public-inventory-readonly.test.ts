@@ -110,7 +110,7 @@ test("public inventory search keeps browsing filters and removes private/admin f
   assert.match(inventorySearch, /Mana value/);
   assert.match(inventorySearch, /USD/);
   assert.match(inventorySearch, /Apply filters/);
-  assert.match(inventorySearch, /Clear filters/);
+  assert.match(inventorySearch, /Clear Filters/);
   assert.match(inventorySearch, /FilterChipBar/);
   assert.match(inventorySearch, /showVisibilityFilter: !isPublic/);
   assert.match(inventorySearch, /showSourceFilter: !isPublic/);
@@ -134,7 +134,7 @@ test("public inventory browser keeps read-only browse controls and hides write/a
   assert.match(inventoryBrowser, /header: "Mana Cost"/);
   assert.match(inventoryBrowser, /header: "Type Line"/);
   assert.match(inventoryBrowser, /header: "Color Identity"/);
-  assert.match(inventoryBrowser, /header: "Scryfall USD Price"/);
+  assert.match(inventoryBrowser, /header: "Preferred Price"/);
   assert.match(inventoryBrowser, /header: "Foil"/);
   assert.match(inventoryBrowser, /capabilities\.canBulkSelect/);
   assert.match(

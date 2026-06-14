@@ -23,12 +23,10 @@ import { formatScryfallError, getCardByScryfallIdResult } from "@/lib/scryfall";
 import { revalidatePath } from "next/cache";
 import { cleanupZeroQuantityInventory, deleteInventoryItem } from "./actions";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
-import { CollapsiblePanel } from "@/components/CollapsiblePanel";
 import { InventoryAdvancedSearch } from "@/components/InventoryAdvancedSearch";
 import { InventoryQuickCardNameSearch } from "@/components/InventoryQuickCardNameSearch";
 import {
   cn,
-  filterFieldClass,
   filterPrimaryButtonClass,
   filterSelectClass,
 } from "@/components/filterStyles";
@@ -42,6 +40,15 @@ import {
   bulkDeleteInventoryItems,
 } from "@/lib/inventory-locations";
 import { getManaFacesForDto } from "@/lib/mtg/mana-display";
+import {
+  finishForFoilStatus,
+  formatSelectedPrice,
+  selectPreferredCardPrice,
+  providerLabel,
+  priceChangePercent,
+  formatPercentChange,
+} from "@/lib/price-history";
+import { compareInventoryGroups } from "@/lib/inventory-sort";
 import {
   buildInventoryWhereFromFilters,
   inventoryCardMatchesPostFilters,
@@ -76,6 +83,7 @@ export default async function InventoryPage({
     p.browse === "infinite" ? "infinite" : "paginated";
   const sortField = p.sort || "cardName";
   const sortDirection: "asc" | "desc" = p.sortDir === "desc" ? "desc" : "asc";
+  const preferredPriceProvider = user?.preferredPriceProvider || "tcgplayer";
   const currentPage =
     initialBrowsingMode === "infinite"
       ? 1
@@ -135,42 +143,34 @@ export default async function InventoryPage({
       rarity: true,
       manaValue: true,
       prices: true,
+      priceSnapshots: {
+        orderBy: [{ observedDate: "desc" }],
+        take: 16,
+      },
+      collectorNumber: true,
+      typeLine: true,
+      manaCost: true,
       colorIdentity: true,
       colors: true,
       keywords: true,
     },
   });
   const cardSortById = new Map(cardSortData.map((card) => [card.id, card]));
-  const compareValues = (left: any, right: any) => {
-    if (typeof left === "number" || typeof right === "number") {
-      return (Number(left) || 0) - (Number(right) || 0);
-    }
-    return String(left ?? "").localeCompare(String(right ?? ""), undefined, {
-      sensitivity: "base",
-      numeric: true,
-    });
-  };
   const groupMatchesClientSafeFilters = (group: any) =>
     inventoryCardMatchesPostFilters(cardSortById.get(group.cardId), filters);
-  const sortValue = (group: any) => {
-    const card = cardSortById.get(group.cardId) as any;
-    if (sortField === "quantity") return group._sum?.quantity ?? 0;
-    if (sortField === "setCode") return card?.setCode ?? "";
-    if (sortField === "rarity") return card?.rarity ?? "";
-    if (sortField === "manaValue") return card?.manaValue ?? 0;
-    if (sortField === "priceUsd") return Number(card?.prices?.usd ?? 0);
-    return card?.name ?? "";
-  };
   const filteredGroups = (allGroups as any[]).filter(
     groupMatchesClientSafeFilters,
   );
-  const sortedGroups = [...filteredGroups].sort((left, right) => {
-    const direction = sortDirection === "desc" ? -1 : 1;
-    const primary =
-      compareValues(sortValue(left), sortValue(right)) * direction;
-    if (primary) return primary;
-    return compareValues(left.cardId, right.cardId);
-  });
+  const sortedGroups = [...filteredGroups].sort((left, right) =>
+    compareInventoryGroups(
+      left,
+      right,
+      cardSortById,
+      String(sortField),
+      sortDirection,
+      preferredPriceProvider,
+    ),
+  );
   const pageGroups = sortedGroups.slice(querySkip, querySkip + queryPageSize);
   const totalMatchingCount = filteredGroups.length;
   const totalPages = Math.max(1, Math.ceil(totalMatchingCount / queryPageSize));
@@ -196,7 +196,14 @@ export default async function InventoryPage({
     ? await prisma.inventoryItem.findMany({
         where: pageGroupWhere,
         include: {
-          card: true,
+          card: {
+            include: {
+              priceSnapshots: {
+                orderBy: [{ observedDate: "desc" }],
+                take: 24,
+              },
+            },
+          },
           currentOwner: true,
           location: true,
         },
@@ -736,6 +743,43 @@ export default async function InventoryPage({
         priceEur: (i.card.prices as any)?.eur ?? "",
         priceEurFoil: (i.card.prices as any)?.eur_foil ?? "",
         priceTix: (i.card.prices as any)?.tix ?? "",
+        preferredPriceLabel: formatSelectedPrice(
+          selectPreferredCardPrice(i.card.priceSnapshots, i.card.prices, {
+            finish: finishForFoilStatus(i.foilStatus),
+            preferredProvider: preferredPriceProvider,
+          }),
+        ),
+        priceSourceLabel:
+          selectPreferredCardPrice(i.card.priceSnapshots, i.card.prices, {
+            finish: finishForFoilStatus(i.foilStatus),
+            preferredProvider: preferredPriceProvider,
+          })?.source === "mtgjson"
+            ? "MTGJSON"
+            : "Scryfall fallback",
+        priceHistoryUrl: `/api/cards/${i.cardId}/price-history`,
+        priceChange7Day: formatPercentChange(
+          priceChangePercent(i.card.priceSnapshots || [], 7, {
+            finish: finishForFoilStatus(i.foilStatus),
+          }),
+        ),
+        priceChange30Day: formatPercentChange(
+          priceChangePercent(i.card.priceSnapshots || [], 30, {
+            finish: finishForFoilStatus(i.foilStatus),
+          }),
+        ),
+        priceChange90Day: formatPercentChange(
+          priceChangePercent(i.card.priceSnapshots || [], 90, {
+            finish: finishForFoilStatus(i.foilStatus),
+          }),
+        ),
+        priceHistory: (i.card.priceSnapshots || []).map((snapshot: any) => ({
+          provider: providerLabel(snapshot.provider),
+          finish: snapshot.finish,
+          priceType: snapshot.priceType,
+          currency: snapshot.currency,
+          price: Number(snapshot.price).toFixed(2),
+          observedDate: snapshot.observedDate.toISOString().slice(0, 10),
+        })),
         foil: i.foil,
         foilStatus: i.foilStatus,
         sourceType: i.sourceType,
@@ -800,7 +844,17 @@ export default async function InventoryPage({
   clearFilterParams.set("displayMode", displayMode);
   if (p.pageSize) clearFilterParams.set("pageSize", String(p.pageSize));
   if (p.browse) clearFilterParams.set("browse", String(p.browse));
+  if (p.sort) clearFilterParams.set("sort", String(p.sort));
+  if (p.sortDir) clearFilterParams.set("sortDir", String(p.sortDir));
   const clearFiltersHref = `/inventory?${clearFilterParams.toString()}`;
+  const importExportParams = new URLSearchParams();
+  INVENTORY_FILTER_PARAM_KEYS.forEach((key) => {
+    const value = (p as Record<string, any>)[key];
+    const values = Array.isArray(value) ? value : value ? [value] : [];
+    values.forEach((entry) => importExportParams.append(key, String(entry)));
+  });
+  importExportParams.set("exportTools", "1");
+  const importExportHref = `/imports?${importExportParams.toString()}`;
 
   return (
     <main className="p-8 space-y-4">
@@ -812,107 +866,18 @@ export default async function InventoryPage({
           : "Showing your inventory."}
       </p>
       {user ? (
-        <CollapsiblePanel
-          title="Export Inventory"
-          summary="Download CSV exports"
-          defaultOpen={false}
-        >
-          <form
-            action="/api/inventory/export"
-            method="get"
-            className="grid grid-cols-2 md:grid-cols-5 gap-2 items-end"
-          >
-            {INVENTORY_FILTER_PARAM_KEYS.map((key) => {
-              const value = (p as Record<string, any>)[key];
-              const values = Array.isArray(value)
-                ? value
-                : value
-                  ? [value]
-                  : [];
-              return values.map((entry) => (
-                <input
-                  key={`${key}-${entry}`}
-                  type="hidden"
-                  name={key}
-                  value={entry}
-                />
-              ));
-            })}
-            <label className={filterFieldClass}>
-              Format
-              <select
-                name="format"
-                className={cn(filterSelectClass, "mt-1 w-full")}
-              >
-                <option value="full">MTG Inventory Full CSV</option>
-                <option value="moxfield">Moxfield Collection CSV</option>
-              </select>
-            </label>
-            <label className={filterFieldClass}>
-              Scope
-              <select
-                name="scope"
-                defaultValue="my"
-                className={cn(filterSelectClass, "mt-1 w-full")}
-              >
-                <option value="filtered">Current filtered view</option>
-                <option value="my">My inventory</option>
-                {adminModeActive ? (
-                  <option value="all">All inventory</option>
-                ) : null}
-                {adminModeActive ? (
-                  <option value="owner">Selected current owner</option>
-                ) : null}
-              </select>
-            </label>
-            <label className={filterFieldClass}>
-              Current owner
-              <select
-                name="ownerId"
-                defaultValue={p.ownerId || userWithPlayer?.playerId || ""}
-                className={cn(filterSelectClass, "mt-1 w-full")}
-              >
-                <option value="">
-                  {adminModeActive ? "all owners" : "my inventory"}
-                </option>
-                {visiblePlayers.map((pl) => (
-                  <option key={pl.id} value={pl.id}>
-                    {pl.displayName}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className={filterFieldClass}>
-              Moxfield foil
-              <select
-                name="foilFormat"
-                className={cn(filterSelectClass, "mt-1 w-full")}
-              >
-                <option value="moxfield">foil or blank</option>
-                <option value="boolean">true / false</option>
-                <option value="text">foil / nonfoil</option>
-              </select>
-            </label>
-            <div className="col-span-2 md:col-span-5">
-              <SubmitButton
-                pendingLabel="Generating…"
-                className={filterPrimaryButtonClass}
-              >
-                Download CSV
-              </SubmitButton>
-            </div>
-          </form>
-          <p className="text-xs text-zinc-400">
-            Exports are generated server-side. Non-admin users are always
-            limited to their own inventory even if a different scope is
-            submitted.
-          </p>
-        </CollapsiblePanel>
-      ) : (
-        <p className="rounded border border-zinc-800 p-3 text-sm text-zinc-400">
-          Guest mode is read-only. Log in to export inventory or make changes.
-        </p>
-      )}
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded border border-zinc-800 p-3 text-sm">
+          <div>
+            <h2 className="font-semibold">Import / Export tools</h2>
+            <p className="text-zinc-400">
+              Add single cards, bulk import CSVs, or download inventory exports.
+            </p>
+          </div>
+          <a className={filterPrimaryButtonClass} href={importExportHref}>
+            Import / Export
+          </a>
+        </section>
+      ) : null}
       {adminModeActive ? (
         <section className="border border-zinc-800 rounded p-3 space-y-2">
           <h2 className="font-semibold">Inventory Maintenance</h2>

@@ -13,6 +13,7 @@ import {
   inventoryCardMatchesPostFilters,
   parseInventoryFilters,
 } from "@/lib/inventory-filters";
+import { compareInventoryGroups } from "@/lib/inventory-sort";
 
 export type PublicInventoryFilters = {
   q?: string;
@@ -351,7 +352,14 @@ function filterPublicInventoryByClientSafeFilters(
 }
 
 const publicInventoryInclude = {
-  card: true,
+  card: {
+    include: {
+      priceSnapshots: {
+        orderBy: [{ observedDate: "desc" }],
+        take: 24,
+      },
+    },
+  },
   location: true,
   currentOwner: {
     select: {
@@ -494,46 +502,31 @@ export async function getGlobalPublicInventory(
       rarity: true,
       manaValue: true,
       prices: true,
+      priceSnapshots: {
+        orderBy: [{ observedDate: "desc" }],
+        take: 16,
+      },
+      collectorNumber: true,
+      typeLine: true,
+      manaCost: true,
       colorIdentity: true,
       colors: true,
       keywords: true,
     },
   });
   const cardSortById = new Map(cardSortData.map((card) => [card.id, card]));
-  const compareValues = (left: any, right: any) => {
-    if (typeof left === "number" || typeof right === "number") {
-      return (Number(left) || 0) - (Number(right) || 0);
-    }
-    return String(left ?? "").localeCompare(String(right ?? ""), undefined, {
-      sensitivity: "base",
-      numeric: true,
-    });
-  };
   const structuredFilters = parseInventoryFilters(filters as any);
   const groupMatchesClientSafeFilters = (group: any) =>
     inventoryCardMatchesPostFilters(
       cardSortById.get(group.cardId),
       structuredFilters,
     );
-  const sortValue = (group: any) => {
-    const card = cardSortById.get(group.cardId) as any;
-    if (sortField === "quantity") return group._sum?.quantity ?? 0;
-    if (sortField === "setCode") return card?.setCode ?? "";
-    if (sortField === "rarity") return card?.rarity ?? "";
-    if (sortField === "manaValue") return card?.manaValue ?? 0;
-    if (sortField === "priceUsd") return Number(card?.prices?.usd ?? 0);
-    return card?.name ?? "";
-  };
   const filteredGroups = (allGroups as any[]).filter(
     groupMatchesClientSafeFilters,
   );
-  const sortedGroups = [...filteredGroups].sort((left, right) => {
-    const direction = sortDirection === "desc" ? -1 : 1;
-    const primary =
-      compareValues(sortValue(left), sortValue(right)) * direction;
-    if (primary) return primary;
-    return compareValues(left.cardId, right.cardId);
-  });
+  const sortedGroups = [...filteredGroups].sort((left, right) =>
+    compareInventoryGroups(left, right, cardSortById, sortField, sortDirection),
+  );
   const pageGroups = sortedGroups.slice((page - 1) * pageSize, page * pageSize);
 
   const pageWhere =

@@ -4,6 +4,7 @@ import test from "node:test";
 
 const actions = readFileSync("app/decks/actions.ts", "utf8");
 const page = readFileSync("app/decks/[deckId]/page.tsx", "utf8");
+const inventoryMove = readFileSync("lib/inventory-move.ts", "utf8");
 
 test("deleteDeck requires DELETE confirmation for any committed inventory", () => {
   assert.match(
@@ -31,9 +32,9 @@ test("deck delete UI requires destination and explicit DELETE before returning c
 });
 
 test("deck move helper returns surviving audit target ids for merged and newly-created destinations", () => {
-  assert.match(actions, /auditInventoryItemId: matching\.id/);
+  assert.match(inventoryMove, /auditInventoryItemId: matching\.id/);
   assert.match(
-    actions,
+    inventoryMove,
     /destinationInventoryItemId: created\.id,\n\s*auditInventoryItemId: created\.id/,
   );
   assert.match(actions, /inventoryItemId: move\.auditInventoryItemId/);
