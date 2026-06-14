@@ -28,6 +28,7 @@ const deckListEditor = readFileSync("components/DeckListEditor.tsx", "utf8");
 const deckPage = readFileSync("app/decks/[deckId]/page.tsx", "utf8");
 const decksPage = readFileSync("app/decks/page.tsx", "utf8");
 const wishlistPage = readFileSync("app/wishlist/page.tsx", "utf8");
+const importsPage = readFileSync("app/imports/page.tsx", "utf8");
 
 function assertUsesSharedStyles(source: string, name: string) {
   assert.match(source, /filterStyles/, `${name} imports shared filter styles`);
@@ -64,12 +65,13 @@ test("collapsible panels use accessible shared dark styling", () => {
 
 test("quick card name search shares the canonical cardName filter", () => {
   assert.match(quickCardNameSearch, /name="cardName"/);
-  assert.match(quickCardNameSearch, /defaultValue=\{cardName\}/);
+  assert.match(quickCardNameSearch, /value=\{value\}/);
+  assert.match(quickCardNameSearch, /setValue\(cardName\)/);
   assert.match(
     quickCardNameSearch,
     /OMITTED_PARAMS = new Set\(\["cardName", "page"\]\)/,
   );
-  assert.match(quickCardNameSearch, /next\.set\("cardName", nextCardName\)/);
+  assert.match(quickCardNameSearch, /next\.set\("cardName", clean\)/);
   assert.match(quickCardNameSearch, /next\.set\("page", "1"\)/);
   assert.match(quickCardNameSearch, /filterInputClass/);
   assert.match(inventorySearch, /name="cardName"/);
@@ -91,7 +93,8 @@ test("inventory pages render quick search outside advanced search", () => {
 test("inventory filter controls use shared dark filter styling", () => {
   assertUsesSharedStyles(inventorySearch, "InventoryAdvancedSearch");
   assertUsesSharedStyles(inventoryBrowser, "InventoryBrowser");
-  assertUsesSharedStyles(inventoryPage, "inventory page export controls");
+  assertUsesSharedStyles(inventoryPage, "inventory page import/export link");
+  assertUsesSharedStyles(importsPage, "imports page export controls");
   assert.match(
     inventorySearch,
     /name=\{ownerParamName\}[\s\S]*?className=\{cn\(filterSelectClass, "min-w-32"\)\}/,
@@ -120,13 +123,43 @@ test("public inventory keeps owner/location filters while using shared styling",
   assert.match(publicInventoryPage, /ownerFilterLabel="Current owner"/);
   assert.match(publicInventoryPage, /locationParamName="locationName"/);
   assert.match(inventorySearch, /showOwnerFilter: isPublic/);
-  assert.match(
-    inventoryPage,
-    /<CollapsiblePanel[\s\S]*?title="Export Inventory"/,
-  );
-  assert.match(inventoryPage, /summary="Download CSV exports"/);
+  assert.doesNotMatch(inventoryPage, /title="Export Inventory"/);
+  assert.match(inventoryPage, /Import \/ Export/);
+  assert.match(inventoryPage, /href=\{importExportHref\}/);
+  assert.match(importsPage, /title="Export Inventory"/);
+  assert.match(importsPage, /summary="Download CSV exports"/);
   assert.doesNotMatch(publicInventoryPage, /Export Inventory/);
   assert.doesNotMatch(publicInventoryPage, /onBulkDeleteInventory=/);
+});
+
+test("inventory autocomplete and Enter handling apply canonical filters", () => {
+  assert.match(quickCardNameSearch, /suggestionsEndpoint/);
+  assert.match(quickCardNameSearch, /kind", "cardName"/);
+  assert.match(
+    quickCardNameSearch,
+    /navigateWithCardName\(suggestions\[highlighted\]\.value\)/,
+  );
+  assert.match(quickCardNameSearch, /onKeyDown=\{handleKeyDown\}/);
+  assert.match(inventorySearch, /chooseAndSubmit/);
+  assert.match(inventorySearch, /form\?\.requestSubmit\(\)/);
+  assert.match(inventorySearch, /addTokenAndSubmit/);
+});
+
+test("active filter chips and Clear Filters render outside collapsed advanced search", () => {
+  assert.match(
+    inventorySearch,
+    /activeChips\.length \? \([\s\S]*?<FilterChipBar chips=\{activeChips\} \/>[\s\S]*?Clear Filters[\s\S]*?<CollapsiblePanel/,
+  );
+  assert.match(inventorySearch, /aria-label="Active filters"/);
+  assert.match(inventorySearch, /href=\{chip\.href\}/);
+  assert.match(
+    inventoryPage,
+    /if \(p\.sort\) clearFilterParams\.set\("sort", String\(p\.sort\)\)/,
+  );
+  assert.match(
+    publicInventoryPage,
+    /if \(p\.sort\) clearFilterParams\.set\("sort", String\(p\.sort\)\)/,
+  );
 });
 
 test("deck and wishlist filter controls use shared filter styles", () => {
