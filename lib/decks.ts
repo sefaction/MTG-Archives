@@ -5,6 +5,7 @@ import {
   Prisma,
   Visibility,
 } from "@prisma/client";
+import { isBasicLandCard } from "./card-types";
 import { summarizeDeckCommitmentOwnership } from "./deck-commitments";
 import { resolveDeckVisibility } from "./visibility";
 
@@ -120,6 +121,9 @@ export type DeckOwnershipInput = {
   oracleId?: string | null;
   cardName: string;
   quantity: number;
+  typeLine?: string | null;
+  cardFaces?: unknown;
+  card?: { typeLine?: string | null; cardFaces?: unknown } | null;
 };
 
 export type InventoryOwnershipInput = {
@@ -161,9 +165,19 @@ export function summarizeDeckCardOwnership(
     })),
     deckId,
   );
+  const basicLand = isBasicLandCard({
+    typeLine: deckCard.typeLine ?? deckCard.card?.typeLine,
+    cardFaces: deckCard.cardFaces ?? deckCard.card?.cardFaces,
+  });
   return {
     ...summary,
-    exactMissing: Math.max(0, deckCard.quantity - summary.exactOwned),
+    missing: basicLand ? 0 : summary.missing,
+    enoughOwned: basicLand ? true : summary.enoughOwned,
+    isBasicLand: basicLand,
+    wishlistMissing: basicLand ? 0 : summary.missing,
+    exactMissing: basicLand
+      ? 0
+      : Math.max(0, deckCard.quantity - summary.exactOwned),
     matchType: deckCard.cardId
       ? "Exact printing + other printings"
       : "Oracle/name fallback",

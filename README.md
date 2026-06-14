@@ -9,6 +9,7 @@ Dockerized Next.js App Router application for tracking multi-user Magic: The Gat
 - Tailwind CSS
 - Local username/password authentication with admin-created accounts
 - Scryfall card search and printing metadata
+- MTGJSON provider-specific card price snapshots and local price history
 - Docker Compose / Portainer deployment support
 
 ## Fresh install
@@ -35,6 +36,7 @@ See `.env.example` for the full list. Important settings:
 - `COOKIE_SECURE=false` is appropriate for HTTP/LAN deployments; set it to `true` behind HTTPS.
 - `RUN_SEED_ON_START=false` keeps startup free of demo data.
 - `ADMIN_USERNAME` and `SEED_ADMIN_PASSWORD` control bootstrap admin creation.
+- `MTGJSON_BASE_URL`, `MTGJSON_PRICE_PROVIDER_DEFAULT`, `MTGJSON_PRICE_CURRENCY_DEFAULT`, and `MTGJSON_PRICE_IMPORT_ENABLED` configure manual/admin-triggered MTGJSON price imports. Price imports do not run on startup unless a future deployment explicitly opts into that behavior.
 
 ## Persistent data directories
 
@@ -63,6 +65,7 @@ Permissions must allow the containers to write to their mounted directories. The
 - Per-owner inventory locations such as boxes, binders, shelves, an automatic `Unassigned` default for migrated inventory, and bulk location move workflows.
 - CSV inventory import preview, Scryfall matching, manual resolution, retry, and commit workflow.
 - Scryfall-backed card metadata storage.
+- MTGJSON `AllPricesToday` / `AllPrices` import support for provider, finish, price-type, currency, and observed-date price snapshots; inventory and deck value displays prefer local MTGJSON prices and fall back to Scryfall prices when no snapshot exists.
 - Cache-first Scryfall lookup with durable local printing metadata and throttled live API access.
 - One-for-one direct trade proposals with accept/decline/cancel, physical exchange confirmation, event history, snapshots, inventory transfer, and audit logs.
 
@@ -77,6 +80,9 @@ npm run prisma:generate
 npm run prisma:migrate
 npm run prisma:bootstrap-admin
 npm run build
+npm run prices:map-mtgjson-cards
+npm run prices:import:today
+npm run prices:import:history
 docker compose logs -f web
 ```
 

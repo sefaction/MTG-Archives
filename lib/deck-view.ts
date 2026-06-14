@@ -1,4 +1,5 @@
 import { DeckSection } from "@prisma/client";
+import { isBasicLandCard } from "./card-types";
 
 export type DeckViewMode = "text" | "grid" | "spoiler";
 export type DeckGroupMode =
@@ -27,6 +28,7 @@ export type DeckViewRow = {
   exactOwned: number;
   otherOwned: number;
   missing: number;
+  isBasicLand?: boolean;
   createdAt?: string | Date | null;
   card: {
     name: string;
@@ -93,6 +95,7 @@ export function cardColorLabel(row: DeckViewRow) {
 }
 
 export function ownershipStatus(row: DeckViewRow) {
+  if (row.isBasicLand || isBasicLandCard(row.card)) return "Basic land";
   if (row.exactOwned >= row.quantity) return "Owned exact";
   if (row.exactOwned + row.otherOwned >= row.quantity)
     return "Owned other printing";
@@ -150,6 +153,7 @@ function groupRank(label: string, mode: DeckGroupMode) {
     return [
       "Owned exact",
       "Owned other printing",
+      "Basic land",
       "Partial",
       "Missing",
     ].indexOf(label);

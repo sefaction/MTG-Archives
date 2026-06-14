@@ -79,6 +79,11 @@ export default async function Page() {
         <p className="text-zinc-400">
           Manage local user accounts and monitor inventory/trade activity.
         </p>
+        <p className="mt-2 text-sm">
+          <a className="underline" href="/admin/prices">
+            Manage MTGJSON price imports
+          </a>
+        </p>
       </div>
 
       <section className="grid gap-4 md:grid-cols-3">
