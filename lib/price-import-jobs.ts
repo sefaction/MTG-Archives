@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import os from "node:os";
 import { prisma } from "./prisma";
 import {
   importMtgjsonPrices,
@@ -13,6 +14,7 @@ export const PRICE_IMPORT_JOB_TYPES = [
 ] as const;
 export type PriceImportJobType = (typeof PRICE_IMPORT_JOB_TYPES)[number];
 export const ACTIVE_PRICE_JOB_STATUSES = ["queued", "running"] as const;
+export const PRICE_WORKER_STALE_AFTER_MS = 2 * 60 * 1000;
 
 export function isPriceImportJobType(value: unknown): value is PriceImportJobType {
   return PRICE_IMPORT_JOB_TYPES.includes(value as PriceImportJobType);
@@ -63,6 +65,50 @@ export async function listPriceImportJobs(
   });
 }
 
+export async function listPriceWorkerHeartbeats(
+  db: Pick<Prisma.TransactionClient, "priceWorkerHeartbeat"> = prisma,
+  take = 5,
+) {
+  return db.priceWorkerHeartbeat.findMany({
+    take,
+    orderBy: { lastSeenAt: "desc" },
+  });
+}
+
+export function isPriceWorkerHeartbeatFresh(
+  heartbeat: { lastSeenAt: Date | string } | null | undefined,
+  now = new Date(),
+) {
+  if (!heartbeat) return false;
+  const lastSeenAt =
+    heartbeat.lastSeenAt instanceof Date
+      ? heartbeat.lastSeenAt
+      : new Date(heartbeat.lastSeenAt);
+  return now.getTime() - lastSeenAt.getTime() <= PRICE_WORKER_STALE_AFTER_MS;
+}
+
+export async function updatePriceWorkerHeartbeat(
+  workerId: string,
+  db: Pick<Prisma.TransactionClient, "priceWorkerHeartbeat"> = prisma,
+) {
+  const now = new Date();
+  return db.priceWorkerHeartbeat.upsert({
+    where: { workerId },
+    update: {
+      lastSeenAt: now,
+      hostname: os.hostname(),
+      version: process.env.npm_package_version || null,
+    },
+    create: {
+      workerId,
+      startedAt: now,
+      lastSeenAt: now,
+      hostname: os.hostname(),
+      version: process.env.npm_package_version || null,
+    },
+  });
+}
+
 export async function claimNextPriceImportJob(
   workerId: string,
   db: Pick<Prisma.TransactionClient, "priceImportJob"> = prisma,
@@ -82,7 +128,9 @@ export async function claimNextPriceImportJob(
     },
   });
   if (claimed.count !== 1) return null;
-  return db.priceImportJob.findUnique({ where: { id: queued.id } });
+  const job = await db.priceImportJob.findUnique({ where: { id: queued.id } });
+  if (job) console.info(`[price-worker] claimed job ${job.id} type ${job.type}`);
+  return job;
 }
 
 export async function updatePriceImportJobProgress(
@@ -123,6 +171,7 @@ export async function runPriceImportJob(
         errorMessage: null,
       },
     });
+    console.info(`[price-worker] succeeded job ${job.id}`);
     return result;
   } catch (error: any) {
     await db.priceImportJob.update({
@@ -134,6 +183,7 @@ export async function runPriceImportJob(
         errorMessage: String(error?.message || error),
       },
     });
+    console.error(`[price-worker] failed job ${job.id}: ${String(error?.message || error)}`);
     throw error;
   }
 }

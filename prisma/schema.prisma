@@ -140,6 +140,19 @@ model PriceImportJob {
   @@index([type, createdAt])
 }
 
+model PriceWorkerHeartbeat {
+  id         String   @id @default(cuid())
+  workerId   String   @unique
+  startedAt  DateTime @default(now())
+  lastSeenAt DateTime @updatedAt
+  hostname   String?
+  version    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([lastSeenAt])
+}
+
 model League {
   id             String   @id @default(cuid())
   name           String

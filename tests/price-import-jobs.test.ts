@@ -4,15 +4,19 @@ import test from "node:test";
 import {
   claimNextPriceImportJob,
   createPriceImportJob,
+  isPriceWorkerHeartbeatFresh,
   isPriceImportJobType,
   listPriceImportJobs,
   runPriceImportJob,
+  updatePriceWorkerHeartbeat,
 } from "../lib/price-import-jobs";
 
 function mockJobDb() {
   const jobs: any[] = [];
+  const heartbeats: any[] = [];
   return {
     jobs,
+    heartbeats,
     priceImportJob: {
       async findFirst({ where }: any = {}) {
         return (
@@ -61,6 +65,30 @@ function mockJobDb() {
         return job;
       },
     },
+    priceWorkerHeartbeat: {
+      async upsert({ where, update, create }: any) {
+        let heartbeat = heartbeats.find(
+          (candidate) => candidate.workerId === where.workerId,
+        );
+        if (heartbeat) {
+          Object.assign(heartbeat, update, { updatedAt: new Date() });
+          return heartbeat;
+        }
+        heartbeat = {
+          id: `heartbeat-${heartbeats.length + 1}`,
+          ...create,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        heartbeats.push(heartbeat);
+        return heartbeat;
+      },
+      async findMany({ take }: any = {}) {
+        return [...heartbeats]
+          .sort((a, b) => b.lastSeenAt.getTime() - a.lastSeenAt.getTime())
+          .slice(0, take || 5);
+      },
+    },
   } as any;
 }
 
@@ -94,6 +122,30 @@ test("worker claims a queued job atomically", async () => {
   assert.equal(secondClaim, null);
 });
 
+test("worker heartbeat is created, updated, and classified by freshness", async () => {
+  const db = mockJobDb();
+  const first = await updatePriceWorkerHeartbeat("worker-a", db);
+  const second = await updatePriceWorkerHeartbeat("worker-a", db);
+  assert.equal(db.heartbeats.length, 1);
+  assert.equal(first.workerId, "worker-a");
+  assert.equal(second.workerId, "worker-a");
+  assert.equal(isPriceWorkerHeartbeatFresh(second), true);
+  assert.equal(
+    isPriceWorkerHeartbeatFresh(
+      { lastSeenAt: new Date(Date.now() - 3 * 60 * 1000) },
+      new Date(),
+    ),
+    false,
+  );
+});
+
+test("price worker script can be imported without starting the loop", async () => {
+  process.env.PRICE_WORKER_TEST_MODE = "true";
+  const workerModule = await import("../scripts/price-worker");
+  assert.equal(typeof workerModule.startPriceWorker, "function");
+  assert.equal(typeof workerModule.sleep, "function");
+});
+
 test("worker marks unsupported claimed jobs as failed with an error", async () => {
   const db = mockJobDb();
   db.jobs.push({ id: "job-bad", type: "unknown", status: "running", createdAt: new Date() });
@@ -107,11 +159,18 @@ test("admin pricing page and worker source expose background job workflow", () =
   const jobsRoute = readFileSync("app/api/admin/prices/jobs/route.ts", "utf8");
   const worker = readFileSync("scripts/price-worker.ts", "utf8");
   const compose = readFileSync("docker-compose.yml", "utf8");
-  assert.match(adminPage, /Import today's prices/);
+  assert.match(adminPage, /Import today(&apos;|')s prices/);
   assert.match(adminPage, /Backfill price history/);
+  assert.match(adminPage, /Price worker:/);
+  assert.match(adminPage, /No price worker is online/);
   assert.match(adminPage, /PriceImportJobsPanel/);
   assert.match(jobsRoute, /createPriceImportJob/);
   assert.match(jobsRoute, /listPriceImportJobs/);
+  assert.match(jobsRoute, /listPriceWorkerHeartbeats/);
+  assert.match(worker, /updatePriceWorkerHeartbeat/);
+  assert.match(worker, /polling for queued jobs/);
+  assert.match(worker, /PRICE_WORKER_TEST_MODE/);
   assert.match(worker, /runOnePriceImportJob/);
   assert.match(compose, /price-worker:/);
+  assert.match(compose, /PRICE_WORKER_HEARTBEAT_INTERVAL_MS/);
 });

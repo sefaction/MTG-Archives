@@ -3,13 +3,25 @@ import { requireAdminMode } from "@/lib/auth";
 import {
   createPriceImportJob,
   isPriceImportJobType,
+  isPriceWorkerHeartbeatFresh,
   listPriceImportJobs,
+  listPriceWorkerHeartbeats,
 } from "@/lib/price-import-jobs";
 
 export async function GET() {
   await requireAdminMode();
-  const jobs = await listPriceImportJobs(undefined, 20);
-  return NextResponse.json({ ok: true, jobs });
+  const [jobs, heartbeats] = await Promise.all([
+    listPriceImportJobs(undefined, 20),
+    listPriceWorkerHeartbeats(undefined, 5),
+  ]);
+  return NextResponse.json({
+    ok: true,
+    jobs,
+    worker: {
+      online: isPriceWorkerHeartbeatFresh(heartbeats[0]),
+      heartbeats,
+    },
+  });
 }
 
 export async function POST(request: NextRequest) {

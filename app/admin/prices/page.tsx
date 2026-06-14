@@ -18,6 +18,10 @@ import {
   PRICE_PROVIDER_OPTIONS,
   providerLabel,
 } from "@/lib/price-history";
+import {
+  isPriceWorkerHeartbeatFresh,
+  listPriceWorkerHeartbeats,
+} from "@/lib/price-import-jobs";
 
 export default async function AdminPricesPage() {
   await requireAdminMode();
@@ -28,6 +32,7 @@ export default async function AdminPricesPage() {
     lastSnapshot,
     inventoryItems,
     recentJobs,
+    workerHeartbeats,
   ] = await Promise.all([
     prisma.cardPriceSnapshot.count(),
     prisma.card.count({ where: { mtgjsonUuid: { not: null } } }),
@@ -57,6 +62,7 @@ export default async function AdminPricesPage() {
       orderBy: { createdAt: "desc" },
       include: { requestedBy: { select: { displayName: true, username: true } } },
     }),
+    listPriceWorkerHeartbeats(undefined, 5),
   ]);
   const unmatchedCards = await prisma.card.count({
     where: { mtgjsonUuid: null },
@@ -156,6 +162,30 @@ export default async function AdminPricesPage() {
             </SubmitButton>
           </form>
         </div>
+        <div
+          className={`rounded border p-3 text-sm ${
+            isPriceWorkerHeartbeatFresh(workerHeartbeats[0])
+              ? "border-emerald-800 bg-emerald-950/20 text-emerald-100"
+              : "border-amber-800 bg-amber-950/20 text-amber-100"
+          }`}
+        >
+          Price worker:{" "}
+          {isPriceWorkerHeartbeatFresh(workerHeartbeats[0])
+            ? "Online"
+            : "Not detected"}
+          {workerHeartbeats[0]?.lastSeenAt ? (
+            <span className="text-zinc-300">
+              {" "}
+              · Last heartbeat {workerHeartbeats[0].lastSeenAt.toISOString()}
+            </span>
+          ) : null}
+          {!isPriceWorkerHeartbeatFresh(workerHeartbeats[0]) ? (
+            <p className="mt-1 text-xs">
+              No price worker is online. Jobs will remain queued until the
+              price-worker service starts.
+            </p>
+          ) : null}
+        </div>
         <div className="rounded border border-zinc-800 bg-zinc-950/50 p-3 text-sm text-zinc-300">
           Buttons queue database-backed background jobs processed by the price
           worker, so browser tabs and request timeouts do not control the
@@ -168,6 +198,12 @@ export default async function AdminPricesPage() {
 
       <PriceImportJobsPanel
         initialJobs={JSON.parse(JSON.stringify(recentJobs))}
+        initialWorker={JSON.parse(
+          JSON.stringify({
+            online: isPriceWorkerHeartbeatFresh(workerHeartbeats[0]),
+            heartbeats: workerHeartbeats,
+          }),
+        )}
       />
 
       <section className="space-y-3 rounded border border-zinc-800 p-4">
