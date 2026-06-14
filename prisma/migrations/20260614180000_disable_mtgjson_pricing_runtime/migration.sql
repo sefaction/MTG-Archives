@@ -1,0 +1,3 @@
+-- MTGJSON pricing/history runtime is disabled in the application.
+-- Keep existing pricing tables/columns dormant for now to avoid locking or
+-- dropping potentially large production tables during the stability rollback.

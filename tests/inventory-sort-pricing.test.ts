@@ -3,9 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { compareInventoryGroups } from "../lib/inventory-sort";
 import {
-  collectionValueHistory,
   formatPercentChange,
-  inventoryValueByProvider,
   selectPreferredCardPrice,
 } from "../lib/price-history";
 
@@ -25,16 +23,6 @@ const cards = new Map<string, any>([
       manaValue: 5,
       colorIdentity: ["W"],
       prices: { usd: "10.00" },
-      priceSnapshots: [
-        {
-          provider: "tcgplayer",
-          finish: "normal",
-          priceType: "retail",
-          currency: "USD",
-          price: "12.00",
-          observedDate: new Date("2026-06-14T00:00:00Z"),
-        },
-      ],
     },
   ],
   [
@@ -47,16 +35,6 @@ const cards = new Map<string, any>([
       manaValue: 1,
       colorIdentity: [],
       prices: { usd: "2.00" },
-      priceSnapshots: [
-        {
-          provider: "cardkingdom",
-          finish: "normal",
-          priceType: "retail",
-          currency: "USD",
-          price: "3.00",
-          observedDate: new Date("2026-06-14T00:00:00Z"),
-        },
-      ],
     },
   ],
   [
@@ -69,31 +47,19 @@ const cards = new Map<string, any>([
       manaValue: null,
       colorIdentity: ["W", "U"],
       prices: { usd: "100.00" },
-      priceSnapshots: [],
     },
   ],
 ]);
 
-function sortedIds(
-  sort: string,
-  direction: "asc" | "desc" = "asc",
-  preferredProvider?: string,
-) {
+function sortedIds(sort: string, direction: "asc" | "desc" = "asc") {
   return [...groups]
     .sort((left, right) =>
-      compareInventoryGroups(
-        left,
-        right,
-        cards,
-        sort,
-        direction,
-        preferredProvider,
-      ),
+      compareInventoryGroups(left, right, cards, sort, direction),
     )
     .map((group) => group.cardId);
 }
 
-test("inventory sorting is type-aware for numeric, natural, semantic, and price columns", () => {
+test("inventory sorting remains type-aware and uses Scryfall price fields", () => {
   assert.deepEqual(sortedIds("quantity"), ["c", "b", "a"]);
   assert.deepEqual(sortedIds("quantity", "desc"), ["a", "b", "c"]);
   assert.deepEqual(sortedIds("collectorNumber"), ["b", "a", "c"]);
@@ -101,110 +67,31 @@ test("inventory sorting is type-aware for numeric, natural, semantic, and price 
   assert.deepEqual(sortedIds("manaValue"), ["b", "a", "c"]);
   assert.deepEqual(sortedIds("colorIdentity"), ["b", "a", "c"]);
   assert.deepEqual(sortedIds("priceUsd"), ["b", "a", "c"]);
-  assert.deepEqual(sortedIds("priceUsd", "asc", "cardkingdom"), [
-    "b",
-    "a",
-    "c",
-  ]);
 });
 
-test("preferred pricing provider and Scryfall fallback are applied", () => {
-  const snapshots = [
-    {
-      provider: "tcgplayer",
-      finish: "normal",
-      priceType: "retail",
-      currency: "USD",
-      price: "4.00",
-      observedDate: new Date("2026-06-14T00:00:00Z"),
-    },
-    {
-      provider: "cardkingdom",
-      finish: "normal",
-      priceType: "retail",
-      currency: "USD",
-      price: "5.00",
-      observedDate: new Date("2026-06-14T00:00:00Z"),
-    },
-  ];
+test("Scryfall fallback prices are still selected and formatted", () => {
+  assert.equal(selectPreferredCardPrice([], { usd: "1.00" })?.provider, "scryfall");
   assert.equal(
-    selectPreferredCardPrice(
-      snapshots,
-      { usd: "1.00" },
-      { preferredProvider: "cardkingdom" },
-    )?.provider,
-    "cardkingdom",
+    selectPreferredCardPrice([], { usd_foil: "2.50" }, { finish: "foil" })
+      ?.amount,
+    2.5,
   );
-  assert.equal(
-    selectPreferredCardPrice(
-      snapshots,
-      { usd: "1.00" },
-      { preferredProvider: "scryfall" },
-    )?.provider,
-    "scryfall",
-  );
-  assert.equal(
-    selectPreferredCardPrice([], { usd: "1.00" })?.provider,
-    "scryfall",
-  );
-});
-
-test("collection value history multiplies quantities by provider snapshots", () => {
-  const items = [
-    {
-      quantity: 2,
-      foilStatus: "NONFOIL",
-      card: {
-        prices: { usd: "1.00" },
-        priceSnapshots: [
-          {
-            provider: "tcgplayer",
-            finish: "normal",
-            priceType: "retail",
-            currency: "USD",
-            price: "3.00",
-            observedDate: new Date("2026-06-14T00:00:00Z"),
-          },
-          {
-            provider: "tcgplayer",
-            finish: "normal",
-            priceType: "retail",
-            currency: "USD",
-            price: "2.00",
-            observedDate: new Date("2026-06-13T00:00:00Z"),
-          },
-        ],
-      },
-    },
-  ];
-  assert.equal(
-    inventoryValueByProvider(items, { preferredProvider: "tcgplayer" }),
-    6,
-  );
-  assert.deepEqual(collectionValueHistory(items, { provider: "tcgplayer" }), [
-    { date: "2026-06-14", value: 6 },
-    { date: "2026-06-13", value: 4 },
-  ]);
   assert.equal(formatPercentChange(12.345), "+12.3%");
 });
 
-test("pricing UI exposes preference and history entry points", () => {
+test("MTGJSON pricing UI and history entry points are removed from main surfaces", () => {
   const settings = readFileSync("app/settings/page.tsx", "utf8");
-  const inventoryBrowser = readFileSync(
-    "components/InventoryBrowser.tsx",
-    "utf8",
-  );
-  const historyRoute = readFileSync(
-    "app/api/cards/[cardId]/price-history/route.ts",
-    "utf8",
-  );
+  const inventoryPage = readFileSync("app/inventory/page.tsx", "utf8");
+  const inventoryApi = readFileSync("app/api/inventory/list/route.ts", "utf8");
   const adminPrices = readFileSync("app/admin/prices/page.tsx", "utf8");
-  assert.match(settings, /Preferred pricing source/);
-  assert.match(settings, /preferredPriceProvider/);
-  assert.match(inventoryBrowser, /View price history JSON/);
-  assert.match(inventoryBrowser, /7d/);
-  assert.match(historyRoute, /provider/);
-  assert.match(historyRoute, /finish/);
-  assert.match(historyRoute, /sevenDay/);
-  assert.match(adminPrices, /Collection value history/);
+  const packageJson = readFileSync("package.json", "utf8");
+  const compose = readFileSync("docker-compose.yml", "utf8");
+
+  assert.doesNotMatch(settings, /preferredPriceProvider|Preferred pricing source/);
+  assert.doesNotMatch(inventoryPage, /CardPriceSnapshot|pricing-analytics|priceSnapshots/);
+  assert.doesNotMatch(inventoryApi, /CardPriceSnapshot|pricing-analytics|priceSnapshots/);
+  assert.match(adminPrices, /Pricing history disabled/);
+  assert.doesNotMatch(adminPrices, /PriceImportJobsPanel|price-worker|queue/);
+  assert.doesNotMatch(packageJson, /worker:prices|prices:import|prices:map/);
+  assert.doesNotMatch(compose, /price-worker/);
 });

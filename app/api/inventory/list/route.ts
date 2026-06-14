@@ -20,7 +20,6 @@ import {
   parseInventoryFilters,
 } from "@/lib/inventory-filters";
 import { compareInventoryGroups } from "@/lib/inventory-sort";
-import { getLatestPriceSnapshotsForCards } from "@/lib/pricing-analytics";
 
 const pageSizeOptions = [10, 25, 50, 100, 250];
 
@@ -34,14 +33,12 @@ function rowsFromDisplayItems({
   inventoryDefaultByPlayer,
   p,
   filters,
-  preferredPriceProvider,
 }: {
   displayItems: any[];
   displayMode: "exact" | "grouped";
   inventoryDefaultByPlayer: Record<string, DefaultCollectionVisibility>;
   p: Record<string, string>;
   filters: ReturnType<typeof parseInventoryFilters>;
-  preferredPriceProvider: string;
 }) {
   return displayItems
     .map((entry: any) => {
@@ -109,19 +106,11 @@ function rowsFromDisplayItems({
         priceEurFoil: (i.card.prices as any)?.eur_foil ?? "",
         priceTix: (i.card.prices as any)?.tix ?? "",
         preferredPriceLabel: formatSelectedPrice(
-          selectPreferredCardPrice(i.card.priceSnapshots, i.card.prices, {
+          selectPreferredCardPrice(undefined, i.card.prices, {
             finish: finishForFoilStatus(i.foilStatus),
-            preferredProvider: preferredPriceProvider,
           }),
         ),
-        priceSourceLabel:
-          selectPreferredCardPrice(i.card.priceSnapshots, i.card.prices, {
-            finish: finishForFoilStatus(i.foilStatus),
-            preferredProvider: preferredPriceProvider,
-          })?.source === "mtgjson"
-            ? "MTGJSON"
-            : "Scryfall fallback",
-        priceHistoryUrl: `/api/cards/${i.cardId}/price-history`,
+        priceSourceLabel: "Scryfall",
         priceChange7Day: "",
         priceChange30Day: "",
         priceChange90Day: "",
@@ -194,7 +183,6 @@ export async function GET(request: Request) {
   const page = Math.max(1, Number(p.page || "1") || 1);
   const sortField = p.sort || "cardName";
   const sortDirection: "asc" | "desc" = p.sortDir === "desc" ? "desc" : "asc";
-  const preferredPriceProvider = user?.preferredPriceProvider || "tcgplayer";
   const filters = parseInventoryFilters(new URL(request.url).searchParams);
   const where = buildInventoryWhereFromFilters(filters, {
     adminModeActive,
@@ -258,35 +246,7 @@ export async function GET(request: Request) {
       keywords: true,
     },
   });
-  const inventoryMtgjsonPricesEnabled =
-    process.env.ENABLE_INVENTORY_MTGJSON_PRICES !== "false";
-  const latestPriceStartedAt = process.hrtime.bigint();
-  let latestPriceSnapshotsByCard = new Map<string, any[]>();
-  let latestPriceLookupError: string | null = null;
-  if (inventoryMtgjsonPricesEnabled) {
-    try {
-      latestPriceSnapshotsByCard = await getLatestPriceSnapshotsForCards(
-        cardSortData.map((card) => card.id),
-        { provider: preferredPriceProvider },
-      );
-    } catch (error: any) {
-      latestPriceLookupError = String(error?.message || error);
-      console.error("[inventory-list] latest price lookup failed", {
-        route: "app/api/inventory/list/route.ts",
-        cardIds: cardSortData.length,
-        preferredPriceProvider,
-        error: latestPriceLookupError,
-      });
-    }
-  }
-  const latestPriceLookupMs =
-    Number(process.hrtime.bigint() - latestPriceStartedAt) / 1_000_000;
-  const cardSortById = new Map(
-    cardSortData.map((card) => [
-      card.id,
-      { ...card, priceSnapshots: latestPriceSnapshotsByCard.get(card.id) || [] },
-    ]),
-  );
+  const cardSortById = new Map(cardSortData.map((card) => [card.id, card]));
   const groupMatchesClientSafeFilters = (group: any) =>
     inventoryCardMatchesPostFilters(cardSortById.get(group.cardId), filters);
   const filteredGroups = (allGroups as any[]).filter(
@@ -299,7 +259,6 @@ export async function GET(request: Request) {
       cardSortById,
       sortField,
       sortDirection,
-      preferredPriceProvider,
     ),
   );
   const pageGroups = sortedGroups.slice((page - 1) * pageSize, page * pageSize);
@@ -330,9 +289,6 @@ export async function GET(request: Request) {
         orderBy: [{ card: { name: "asc" } }, { createdAt: "desc" }],
       })
     : [];
-  for (const item of items as any[]) {
-    item.card.priceSnapshots = latestPriceSnapshotsByCard.get(item.cardId) || [];
-  }
   const inventoryDefaultByPlayer = Object.fromEntries(
     ownerUsers
       .filter((ownerUser) => ownerUser.playerId)
@@ -359,7 +315,6 @@ export async function GET(request: Request) {
       inventoryDefaultByPlayer,
       p,
       filters,
-      preferredPriceProvider,
     }),
     page,
     pageSize,

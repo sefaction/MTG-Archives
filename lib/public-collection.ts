@@ -352,14 +352,7 @@ function filterPublicInventoryByClientSafeFilters(
 }
 
 const publicInventoryInclude = {
-  card: {
-    include: {
-      priceSnapshots: {
-        orderBy: [{ observedDate: "desc" }],
-        take: 24,
-      },
-    },
-  },
+  card: true,
   location: true,
   currentOwner: {
     select: {
@@ -502,10 +495,6 @@ export async function getGlobalPublicInventory(
       rarity: true,
       manaValue: true,
       prices: true,
-      priceSnapshots: {
-        orderBy: [{ observedDate: "desc" }],
-        take: 16,
-      },
       collectorNumber: true,
       typeLine: true,
       manaCost: true,

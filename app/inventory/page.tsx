@@ -46,7 +46,6 @@ import {
   selectPreferredCardPrice,
 } from "@/lib/price-history";
 import { compareInventoryGroups } from "@/lib/inventory-sort";
-import { getLatestPriceSnapshotsForCards } from "@/lib/pricing-analytics";
 import {
   buildInventoryWhereFromFilters,
   inventoryCardMatchesPostFilters,
@@ -81,7 +80,6 @@ export default async function InventoryPage({
     p.browse === "infinite" ? "infinite" : "paginated";
   const sortField = p.sort || "cardName";
   const sortDirection: "asc" | "desc" = p.sortDir === "desc" ? "desc" : "asc";
-  const preferredPriceProvider = user?.preferredPriceProvider || "tcgplayer";
   const currentPage =
     initialBrowsingMode === "infinite"
       ? 1
@@ -149,35 +147,7 @@ export default async function InventoryPage({
       keywords: true,
     },
   });
-  const inventoryMtgjsonPricesEnabled =
-    process.env.ENABLE_INVENTORY_MTGJSON_PRICES !== "false";
-  const latestPriceStartedAt = process.hrtime.bigint();
-  let latestPriceSnapshotsByCard = new Map<string, any[]>();
-  let latestPriceLookupError: string | null = null;
-  if (inventoryMtgjsonPricesEnabled) {
-    try {
-      latestPriceSnapshotsByCard = await getLatestPriceSnapshotsForCards(
-        cardSortData.map((card) => card.id),
-        { provider: preferredPriceProvider },
-      );
-    } catch (error: any) {
-      latestPriceLookupError = String(error?.message || error);
-      console.error("[inventory-list] latest price lookup failed", {
-        route: "app/inventory/page.tsx",
-        cardIds: cardSortData.length,
-        preferredPriceProvider,
-        error: latestPriceLookupError,
-      });
-    }
-  }
-  const latestPriceLookupMs =
-    Number(process.hrtime.bigint() - latestPriceStartedAt) / 1_000_000;
-  const cardSortById = new Map(
-    cardSortData.map((card) => [
-      card.id,
-      { ...card, priceSnapshots: latestPriceSnapshotsByCard.get(card.id) || [] },
-    ]),
-  );
+  const cardSortById = new Map(cardSortData.map((card) => [card.id, card]));
   const groupMatchesClientSafeFilters = (group: any) =>
     inventoryCardMatchesPostFilters(cardSortById.get(group.cardId), filters);
   const filteredGroups = (allGroups as any[]).filter(
@@ -190,7 +160,6 @@ export default async function InventoryPage({
       cardSortById,
       String(sortField),
       sortDirection,
-      preferredPriceProvider,
     ),
   );
   const pageGroups = sortedGroups.slice(querySkip, querySkip + queryPageSize);
@@ -240,10 +209,6 @@ export default async function InventoryPage({
       rowsReturned: pageGroups.length,
       rawRowsHydratedForVisibleGroups: items.length,
       totalMatchingCount,
-      priceLookupMs: latestPriceLookupMs,
-      priceRowsLoaded: Array.from(latestPriceSnapshotsByCard.values()).reduce((sum, rows) => sum + rows.length, 0),
-      latestPriceProjection: inventoryMtgjsonPricesEnabled ? "batched-card-price-snapshot-distinct" : "disabled",
-      latestPriceLookupError,
     });
   }
   if (pageGroups.length > queryPageSize) {
@@ -261,9 +226,6 @@ export default async function InventoryPage({
     },
     select: { playerId: true, inventoryDefaultVisibility: true },
   });
-  for (const item of items as any[]) {
-    item.card.priceSnapshots = latestPriceSnapshotsByCard.get(item.cardId) || [];
-  }
   const inventoryDefaultByPlayer = Object.fromEntries(
     ownerUsers
       .filter((ownerUser) => ownerUser.playerId)
@@ -766,19 +728,11 @@ export default async function InventoryPage({
         priceEurFoil: (i.card.prices as any)?.eur_foil ?? "",
         priceTix: (i.card.prices as any)?.tix ?? "",
         preferredPriceLabel: formatSelectedPrice(
-          selectPreferredCardPrice(i.card.priceSnapshots, i.card.prices, {
+          selectPreferredCardPrice(undefined, i.card.prices, {
             finish: finishForFoilStatus(i.foilStatus),
-            preferredProvider: preferredPriceProvider,
           }),
         ),
-        priceSourceLabel:
-          selectPreferredCardPrice(i.card.priceSnapshots, i.card.prices, {
-            finish: finishForFoilStatus(i.foilStatus),
-            preferredProvider: preferredPriceProvider,
-          })?.source === "mtgjson"
-            ? "MTGJSON"
-            : "Scryfall fallback",
-        priceHistoryUrl: `/api/cards/${i.cardId}/price-history`,
+        priceSourceLabel: "Scryfall",
         priceChange7Day: "",
         priceChange30Day: "",
         priceChange90Day: "",
