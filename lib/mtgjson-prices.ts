@@ -48,6 +48,11 @@ export type MtgjsonCardMappingReport = {
 };
 export type MtgjsonImportProgress = Partial<MtgjsonPriceImportReport> & {
   phase: string;
+  scannedMtgjsonCards?: number;
+  mtgjsonCardsScanned?: number;
+  alreadyMapped?: number;
+  mappedThisRun?: number;
+  ambiguousSkipped?: number;
 };
 export type MtgjsonProgressCallback = (
   progress: MtgjsonImportProgress,
@@ -163,6 +168,11 @@ export async function fetchMtgjsonPriceResponse(kind: MtgjsonPriceImportKind) {
 }
 
 export async function fetchMtgjsonIdentifierPayload() {
+  const response = await fetchMtgjsonIdentifierResponse();
+  return response.json();
+}
+
+export async function fetchMtgjsonIdentifierResponse() {
   const url = mtgjsonIdentifierFileUrl();
   const response = await fetch(url, {
     headers: { accept: "application/json" },
@@ -170,7 +180,7 @@ export async function fetchMtgjsonIdentifierPayload() {
   if (!response.ok) {
     throw new Error(`MTGJSON download failed (${response.status}) for ${url}`);
   }
-  return response.json();
+  return response;
 }
 
 function normalizeIdentifierText(value: unknown) {
@@ -206,6 +216,16 @@ function firstString(...values: unknown[]) {
 }
 
 type PriceEntry = { uuid: string; formats?: unknown };
+type MtgjsonIdentifierEntry = { uuid: string; card: any };
+type LocalMtgjsonMappingCard = {
+  id: string;
+  scryfallId: string | null;
+  mtgjsonUuid: string | null;
+  setCode: string | null;
+  collectorNumber: string | null;
+  name: string;
+  lang: string | null;
+};
 
 async function localCardDiagnostics(
   db: Pick<Prisma.TransactionClient, "card">,
@@ -401,6 +421,14 @@ export async function* streamMtgjsonPriceEntriesFromTextChunks(
   }
 }
 
+export async function* streamMtgjsonIdentifierEntriesFromTextChunks(
+  chunks: AsyncIterable<string>,
+): AsyncGenerator<MtgjsonIdentifierEntry> {
+  for await (const entry of streamMtgjsonPriceEntriesFromTextChunks(chunks)) {
+    yield { uuid: entry.uuid, card: entry.formats };
+  }
+}
+
 async function* responseTextChunks(response: Response) {
   if (!response.body) {
     throw new Error("MTGJSON response did not include a readable stream.");
@@ -437,9 +465,10 @@ export async function importMtgjsonPriceEntries(
   const flush = async () => {
     snapshotsInserted += await insertPriceRows(db, rows.splice(0, rows.length));
     await options.onProgress?.({
-      phase: "importing_prices",
+      phase: "streaming_prices",
       source,
       totalMtgjsonCards,
+      scannedMtgjsonCards: totalMtgjsonCards,
       matchedLocalCards: cardByUuid.size,
       unmatchedUuids,
       snapshotsParsed,
@@ -605,21 +634,172 @@ export async function importMtgjsonPrices(
       "MTGJSON price imports are disabled by MTGJSON_PRICE_IMPORT_ENABLED=false.",
     );
   }
-  const mappingPayload = await fetchMtgjsonIdentifierPayload();
-  const mappingReport = await mapMtgjsonIdentifiersToLocalCards(
-    db,
-    mappingPayload,
-    options,
-  );
   const diagnostics = await localCardDiagnostics(db);
   const cardByUuid = await mappedLocalCardsByUuid(db);
-  if (!cardByUuid.size) return zeroMappingReport(kind, diagnostics, mappingReport);
+  if (!cardByUuid.size) return zeroMappingReport(kind, diagnostics);
   const response = await fetchMtgjsonPriceResponse(kind);
   const entries = streamMtgjsonPriceEntriesFromTextChunks(
     responseTextChunks(response),
     new Set(cardByUuid.keys()),
   );
-  return importMtgjsonPriceEntries(db, entries, kind, mappingReport, options);
+  return importMtgjsonPriceEntries(db, entries, kind, null, options);
+}
+
+function buildLocalCardMappingIndexes(localCards: LocalMtgjsonMappingCard[]) {
+  const byScryfallId = new Map<string, string[]>();
+  const byExactTuple = new Map<string, string[]>();
+  const bySetCollector = new Map<string, string[]>();
+  const existingUuidToCard = new Map<string, string>();
+  for (const card of localCards) {
+    addCandidate(byScryfallId, normalizeIdentifierText(card.scryfallId), card.id);
+    addCandidate(
+      byExactTuple,
+      tupleKey([
+        card.setCode,
+        normalizeCollectorNumber(card.collectorNumber),
+        card.name,
+      ]),
+      card.id,
+    );
+    addCandidate(
+      bySetCollector,
+      tupleKey([card.setCode, normalizeCollectorNumber(card.collectorNumber)]),
+      card.id,
+    );
+    if (card.mtgjsonUuid) existingUuidToCard.set(card.mtgjsonUuid, card.id);
+  }
+  return { byScryfallId, byExactTuple, bySetCollector, existingUuidToCard };
+}
+
+function mtgjsonCardMappingKeys(cardData: any) {
+  const identifiers = cardData?.identifiers || {};
+  const setCode = firstString(cardData?.setCode, cardData?.set, cardData?.setCodeV3);
+  const collectorNumber = normalizeCollectorNumber(
+    firstString(cardData?.number, cardData?.collectorNumber),
+  );
+  const name = firstString(cardData?.name, cardData?.faceName);
+  return {
+    scryfallId: normalizeIdentifierText(
+      firstString(identifiers.scryfallId, cardData?.scryfallId),
+    ),
+    exactTuple: tupleKey([setCode, collectorNumber, name]),
+    setCollectorTuple: tupleKey([setCode, collectorNumber]),
+  };
+}
+
+async function loadLocalCardsForMtgjsonMapping(
+  db: Pick<Prisma.TransactionClient, "card">,
+) {
+  return db.card.findMany({
+    select: {
+      id: true,
+      scryfallId: true,
+      mtgjsonUuid: true,
+      setCode: true,
+      collectorNumber: true,
+      name: true,
+      lang: true,
+    },
+  }) as Promise<LocalMtgjsonMappingCard[]>;
+}
+
+export async function mapMtgjsonIdentifierEntriesToLocalCards(
+  db: Pick<Prisma.TransactionClient, "card">,
+  entries: AsyncIterable<MtgjsonIdentifierEntry>,
+  options: { onProgress?: MtgjsonProgressCallback } = {},
+  loadedLocalCards?: LocalMtgjsonMappingCard[],
+): Promise<MtgjsonCardMappingReport> {
+  const localCards = loadedLocalCards ?? (await loadLocalCardsForMtgjsonMapping(db));
+  const localCardsWithMtgjsonUuidBefore = localCards.filter(
+    (card) => card.mtgjsonUuid,
+  ).length;
+  const indexes = buildLocalCardMappingIndexes(localCards);
+  const mappedCardIds = new Set(
+    localCards.flatMap((card) => (card.mtgjsonUuid ? [card.id] : [])),
+  );
+  const existingUuidByCardId = new Map(
+    localCards.flatMap((card) =>
+      card.mtgjsonUuid ? [[card.id, card.mtgjsonUuid] as const] : [],
+    ),
+  );
+  let scanned = 0;
+  let mapped = 0;
+  let alreadyMapped = 0;
+  let ambiguous = 0;
+  let unmatched = 0;
+  const emitProgress = async () => {
+    await options.onProgress?.({
+      phase: "mapping_mtgjson_cards",
+      localCards: localCards.length,
+      localCardsWithMtgjsonUuidBefore,
+      localCardsWithoutMtgjsonUuidBefore:
+        localCards.length - localCardsWithMtgjsonUuidBefore,
+      localCardsMappedThisRun: mapped,
+      mappedThisRun: mapped,
+      mtgjsonCardsScanned: scanned,
+      alreadyMapped,
+      ambiguousLocalCards: ambiguous,
+      ambiguousSkipped: ambiguous,
+      unmatchedLocalCards: Math.max(0, localCards.length - mappedCardIds.size),
+      errors: [],
+    });
+  };
+  for await (const { uuid: mtgjsonUuid, card: cardData } of entries) {
+    scanned += 1;
+    const alreadyAssignedCardId = indexes.existingUuidToCard.get(mtgjsonUuid);
+    const keys = mtgjsonCardMappingKeys(cardData);
+    const candidates =
+      (keys.scryfallId && indexes.byScryfallId.get(keys.scryfallId)) ||
+      indexes.byExactTuple.get(keys.exactTuple) ||
+      indexes.bySetCollector.get(keys.setCollectorTuple) ||
+      [];
+    const uniqueCandidates = Array.from(new Set(candidates));
+    if (uniqueCandidates.length !== 1) {
+      if (uniqueCandidates.length > 1) ambiguous += 1;
+      else unmatched += 1;
+      if (scanned % 1000 === 0) await emitProgress();
+      continue;
+    }
+    const cardId = uniqueCandidates[0];
+    if (alreadyAssignedCardId && alreadyAssignedCardId !== cardId) {
+      ambiguous += 1;
+      if (scanned % 1000 === 0) await emitProgress();
+      continue;
+    }
+    const existingUuidForCard = existingUuidByCardId.get(cardId);
+    if (existingUuidForCard && existingUuidForCard !== mtgjsonUuid) {
+      ambiguous += 1;
+      if (scanned % 1000 === 0) await emitProgress();
+      continue;
+    }
+    if (alreadyAssignedCardId === cardId || existingUuidForCard === mtgjsonUuid) {
+      alreadyMapped += 1;
+      if (scanned % 1000 === 0) await emitProgress();
+      continue;
+    }
+    await db.card.update({
+      where: { id: cardId },
+      data: { mtgjsonUuid },
+    });
+    indexes.existingUuidToCard.set(mtgjsonUuid, cardId);
+    mappedCardIds.add(cardId);
+    existingUuidByCardId.set(cardId, mtgjsonUuid);
+    mapped += 1;
+    if (scanned % 1000 === 0) await emitProgress();
+  }
+  const report = {
+    scanned,
+    localCards: localCards.length,
+    localCardsWithMtgjsonUuidBefore,
+    localCardsWithoutMtgjsonUuidBefore:
+      localCards.length - localCardsWithMtgjsonUuidBefore,
+    mapped,
+    alreadyMapped,
+    ambiguous,
+    unmatched,
+  };
+  await emitProgress();
+  return report;
 }
 
 export async function mapMtgjsonIdentifiersToLocalCards(
@@ -633,140 +813,54 @@ export async function mapMtgjsonIdentifiersToLocalCards(
       "Invalid MTGJSON identifiers payload: expected data object keyed by card UUID.",
     );
   }
-  const localCards = await db.card.findMany({
-    select: {
-      id: true,
-      scryfallId: true,
-      mtgjsonUuid: true,
-      setCode: true,
-      collectorNumber: true,
-      name: true,
-      lang: true,
-    },
-  });
-  const byScryfallId = new Map<string, string[]>();
-  const byExactTuple = new Map<string, string[]>();
-  const byFallbackTuple = new Map<string, string[]>();
-  const existingUuidToCard = new Map<string, string>();
-  for (const card of localCards) {
-    addCandidate(byScryfallId, normalizeIdentifierText(card.scryfallId), card.id);
-    addCandidate(
-      byExactTuple,
-      tupleKey([
-        card.setCode,
-        normalizeCollectorNumber(card.collectorNumber),
-        card.name,
-        card.lang || "en",
-      ]),
-      card.id,
-    );
-    addCandidate(
-      byFallbackTuple,
-      tupleKey([
-        card.setCode,
-        normalizeCollectorNumber(card.collectorNumber),
-        card.name,
-      ]),
-      card.id,
-    );
-    if (card.mtgjsonUuid) existingUuidToCard.set(card.mtgjsonUuid, card.id);
-  }
-  const localCardsWithMtgjsonUuidBefore = localCards.filter(
-    (card) => card.mtgjsonUuid,
-  ).length;
-  let mapped = 0;
-  let alreadyMapped = 0;
-  let ambiguous = 0;
-  let unmatched = 0;
-  for (const [mtgjsonUuid, cardData] of Object.entries(
-    data as Record<string, any>,
-  )) {
-    const identifiers = cardData?.identifiers || {};
-    const alreadyAssignedCardId = existingUuidToCard.get(mtgjsonUuid);
-    const scryfallId = firstString(identifiers.scryfallId, cardData?.scryfallId);
-    const exactTuple = tupleKey([
-      firstString(cardData?.setCode, cardData?.set, cardData?.setCodeV3),
-      normalizeCollectorNumber(
-        firstString(cardData?.number, cardData?.collectorNumber),
-      ),
-      firstString(cardData?.name, cardData?.faceName),
-      firstString(cardData?.language, cardData?.lang, "en"),
-    ]);
-    const fallbackTuple = tupleKey([
-      firstString(cardData?.setCode, cardData?.set, cardData?.setCodeV3),
-      normalizeCollectorNumber(
-        firstString(cardData?.number, cardData?.collectorNumber),
-      ),
-      firstString(cardData?.name, cardData?.faceName),
-    ]);
-    const candidates =
-      (scryfallId && byScryfallId.get(normalizeIdentifierText(scryfallId))) ||
-      byExactTuple.get(exactTuple) ||
-      byFallbackTuple.get(fallbackTuple) ||
-      [];
-    const uniqueCandidates = Array.from(new Set(candidates));
-    if (uniqueCandidates.length !== 1) {
-      if (uniqueCandidates.length > 1) ambiguous += 1;
-      else unmatched += 1;
-      continue;
-    }
-    const cardId = uniqueCandidates[0];
-    if (alreadyAssignedCardId && alreadyAssignedCardId !== cardId) {
-      ambiguous += 1;
-      continue;
-    }
-    if (alreadyAssignedCardId === cardId) {
-      alreadyMapped += 1;
-      continue;
-    }
-    await db.card.update({
-      where: { id: cardId },
-      data: { mtgjsonUuid },
-    });
-    existingUuidToCard.set(mtgjsonUuid, cardId);
-    mapped += 1;
-    if ((mapped + alreadyMapped + ambiguous + unmatched) % 1000 === 0) {
-      await options.onProgress?.({
-        phase: "mapping_cards",
-        localCards: localCards.length,
-        localCardsWithMtgjsonUuidBefore,
-        localCardsWithoutMtgjsonUuidBefore:
-          localCards.length - localCardsWithMtgjsonUuidBefore,
-        localCardsMappedThisRun: mapped,
-        ambiguousLocalCards: ambiguous,
-        unmatchedLocalCards: unmatched,
-        errors: [],
-      });
+  async function* entries() {
+    for (const [uuid, card] of Object.entries(data as Record<string, any>)) {
+      yield { uuid, card };
     }
   }
-  const report = {
-    scanned: Object.keys(data).length,
-    localCards: localCards.length,
-    localCardsWithMtgjsonUuidBefore,
-    localCardsWithoutMtgjsonUuidBefore:
-      localCards.length - localCardsWithMtgjsonUuidBefore,
-    mapped,
-    alreadyMapped,
-    ambiguous,
-    unmatched,
-  };
-  await options.onProgress?.({
-    phase: "mapping_cards",
-    localCards: report.localCards,
-    localCardsWithMtgjsonUuidBefore: report.localCardsWithMtgjsonUuidBefore,
-    localCardsWithoutMtgjsonUuidBefore: report.localCardsWithoutMtgjsonUuidBefore,
-    localCardsMappedThisRun: report.mapped,
-    ambiguousLocalCards: report.ambiguous,
-    unmatchedLocalCards: report.unmatched,
-    errors: [],
-  });
-  return report;
+  return mapMtgjsonIdentifierEntriesToLocalCards(db, entries(), options);
 }
 
 export async function mapMtgjsonCards(
   db: Pick<Prisma.TransactionClient, "card">,
   options: { onProgress?: MtgjsonProgressCallback } = {},
 ) {
-  const payload = await fetchMtgjsonIdentifierPayload();
-  return mapMtgjsonIdentifiersToLocalCards(db, payload, options);
+  const localCards = await loadLocalCardsForMtgjsonMapping(db);
+  const localCardsWithMtgjsonUuidBefore = localCards.filter(
+    (card) => card.mtgjsonUuid,
+  ).length;
+  if (!localCards.length || localCardsWithMtgjsonUuidBefore === localCards.length) {
+    const report = {
+      scanned: 0,
+      localCards: localCards.length,
+      localCardsWithMtgjsonUuidBefore,
+      localCardsWithoutMtgjsonUuidBefore:
+        localCards.length - localCardsWithMtgjsonUuidBefore,
+      mapped: 0,
+      alreadyMapped: localCardsWithMtgjsonUuidBefore,
+      ambiguous: 0,
+      unmatched: 0,
+    };
+    await options.onProgress?.({
+      phase: "mapping_mtgjson_cards",
+      localCards: report.localCards,
+      localCardsWithMtgjsonUuidBefore:
+        report.localCardsWithMtgjsonUuidBefore,
+      localCardsWithoutMtgjsonUuidBefore:
+        report.localCardsWithoutMtgjsonUuidBefore,
+      localCardsMappedThisRun: 0,
+      mtgjsonCardsScanned: 0,
+      alreadyMapped: report.alreadyMapped,
+      ambiguousLocalCards: 0,
+      ambiguousSkipped: 0,
+      unmatchedLocalCards: report.localCardsWithoutMtgjsonUuidBefore,
+      errors: [],
+    });
+    return report;
+  }
+  const response = await fetchMtgjsonIdentifierResponse();
+  const entries = streamMtgjsonIdentifierEntriesFromTextChunks(
+    responseTextChunks(response),
+  );
+  return mapMtgjsonIdentifierEntriesToLocalCards(db, entries, options, localCards);
 }

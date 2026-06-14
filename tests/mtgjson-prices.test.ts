@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
+  importMtgjsonPrices,
   importMtgjsonPriceEntries,
   importMtgjsonPricePayload,
+  mapMtgjsonIdentifierEntriesToLocalCards,
   mapMtgjsonIdentifiersToLocalCards,
   parseMtgjsonPriceSnapshotsForCard,
+  streamMtgjsonIdentifierEntriesFromTextChunks,
   streamMtgjsonPriceEntriesFromTextChunks,
 } from "../lib/mtgjson-prices";
 import {
@@ -156,6 +159,65 @@ test("streaming MTGJSON importer filters to mapped local UUIDs and batches inser
   assert.equal(report.snapshotsInserted, 5);
 });
 
+test("importMtgjsonPrices streams price response without full-body parsing", async () => {
+  const db = mockDb();
+  const originalFetch = globalThis.fetch;
+  const progress: any[] = [];
+  let fetchedUrl = "";
+  let jsonCalled = false;
+  let textCalled = false;
+  let arrayBufferCalled = false;
+  globalThis.fetch = (async (url: RequestInfo | URL) => {
+    fetchedUrl = String(url);
+    const encoder = new TextEncoder();
+    const json = JSON.stringify(fixture);
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (let index = 0; index < json.length; index += 23) {
+          controller.enqueue(encoder.encode(json.slice(index, index + 23)));
+        }
+        controller.close();
+      },
+    });
+    return {
+      ok: true,
+      status: 200,
+      body,
+      async json() {
+        jsonCalled = true;
+        throw new Error("response.json() must not be called for price imports");
+      },
+      async text() {
+        textCalled = true;
+        throw new Error("response.text() must not be called for price imports");
+      },
+      async arrayBuffer() {
+        arrayBufferCalled = true;
+        throw new Error(
+          "response.arrayBuffer() must not be called for price imports",
+        );
+      },
+    } as unknown as Response;
+  }) as typeof fetch;
+  try {
+    const report = await importMtgjsonPrices(db, "today", {
+      onProgress(progressUpdate) {
+        progress.push(progressUpdate);
+      },
+    });
+    assert.match(fetchedUrl, /AllPricesToday\.json$/);
+    assert.equal(jsonCalled, false);
+    assert.equal(textCalled, false);
+    assert.equal(arrayBufferCalled, false);
+    assert.equal(report.memorySafeImporter, "streaming-json-entry-parser");
+    assert.equal(report.snapshotsParsed, 5);
+    assert.equal(report.snapshotsInserted, 5);
+    assert.equal(progress.some((entry) => entry.phase === "streaming_prices"), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("streaming import exits before reading price entries when no cards are mapped", async () => {
   let iterated = false;
   async function* entries() {
@@ -267,6 +329,139 @@ test("MTGJSON identifier mapping uses Scryfall and tuple matches safely", async 
     { where: { id: "card-scryfall" }, data: { mtgjsonUuid: "uuid-clear" } },
     { where: { id: "card-tuple" }, data: { mtgjsonUuid: "uuid-tuple" } },
   ]);
+});
+
+test("streaming MTGJSON identifier mapping matches safely without overwrites", async () => {
+  const updates: any[] = [];
+  const progress: any[] = [];
+  const localCards = [
+    {
+      id: "card-scryfall",
+      scryfallId: "sf-clear",
+      mtgjsonUuid: null,
+      setCode: "LTC",
+      collectorNumber: "314",
+      name: "Sol Ring",
+      lang: "en",
+    },
+    {
+      id: "card-tuple",
+      scryfallId: "sf-other",
+      mtgjsonUuid: null,
+      setCode: "WHO",
+      collectorNumber: "10",
+      name: "Forest",
+      lang: "en",
+    },
+    {
+      id: "card-set-collector",
+      scryfallId: null,
+      mtgjsonUuid: null,
+      setCode: "ABC",
+      collectorNumber: "7",
+      name: "Unique by Number",
+      lang: "en",
+    },
+    {
+      id: "card-ambiguous-a",
+      scryfallId: null,
+      mtgjsonUuid: null,
+      setCode: "DUP",
+      collectorNumber: "1",
+      name: "Ambiguous A",
+      lang: "en",
+    },
+    {
+      id: "card-ambiguous-b",
+      scryfallId: null,
+      mtgjsonUuid: null,
+      setCode: "DUP",
+      collectorNumber: "1",
+      name: "Ambiguous B",
+      lang: "en",
+    },
+    {
+      id: "card-existing",
+      scryfallId: "sf-existing",
+      mtgjsonUuid: "uuid-existing",
+      setCode: "OLD",
+      collectorNumber: "1",
+      name: "Already Mapped",
+      lang: "en",
+    },
+  ];
+  async function* chunks() {
+    const json = JSON.stringify({
+      data: {
+        "uuid-clear": { identifiers: { scryfallId: "sf-clear" } },
+        "uuid-tuple": {
+          setCode: "WHO",
+          number: "010",
+          name: "Forest",
+          identifiers: {},
+        },
+        "uuid-set-collector": {
+          setCode: "ABC",
+          number: "7",
+          name: "Different Printed Name",
+          identifiers: {},
+        },
+        "uuid-ambiguous": {
+          setCode: "DUP",
+          number: "1",
+          name: "No Exact Local Name",
+          identifiers: {},
+        },
+        "uuid-existing": { identifiers: { scryfallId: "sf-existing" } },
+        "uuid-conflicting": {
+          setCode: "OLD",
+          number: "1",
+          name: "Already Mapped",
+          identifiers: {},
+        },
+        "uuid-unmatched": { identifiers: { scryfallId: "sf-missing" } },
+      },
+    });
+    for (let index = 0; index < json.length; index += 19) {
+      yield json.slice(index, index + 19);
+    }
+  }
+  const report = await mapMtgjsonIdentifierEntriesToLocalCards(
+    {
+      card: {
+        async findMany() {
+          return localCards;
+        },
+        async update(update: any) {
+          updates.push(update);
+          return update;
+        },
+      },
+    } as any,
+    streamMtgjsonIdentifierEntriesFromTextChunks(chunks()),
+    {
+      onProgress(progressUpdate) {
+        progress.push(progressUpdate);
+      },
+    },
+  );
+  assert.equal(report.scanned, 7);
+  assert.equal(report.mapped, 3);
+  assert.equal(report.alreadyMapped, 1);
+  assert.equal(report.ambiguous, 2);
+  assert.equal(report.unmatched, 1);
+  assert.deepEqual(updates, [
+    { where: { id: "card-scryfall" }, data: { mtgjsonUuid: "uuid-clear" } },
+    { where: { id: "card-tuple" }, data: { mtgjsonUuid: "uuid-tuple" } },
+    {
+      where: { id: "card-set-collector" },
+      data: { mtgjsonUuid: "uuid-set-collector" },
+    },
+  ]);
+  assert.equal(
+    progress.some((entry) => entry.phase === "mapping_mtgjson_cards"),
+    true,
+  );
 });
 
 test("MTGJSON price import warns clearly when no local cards are mapped", async () => {
@@ -389,5 +584,16 @@ test("schema and admin route define MTGJSON price storage and admin-only imports
   assert.match(script, /mapMtgjsonCards/);
   assert.doesNotMatch(priceImporter, /response\.text\(/);
   assert.doesNotMatch(priceImporter, /fetchMtgjsonPricePayload/);
+  assert.doesNotMatch(
+    priceImporter.match(/export async function importMtgjsonPrices[\s\S]*?\n}/)?.[0] ||
+      "",
+    /fetchMtgjsonIdentifierPayload|response\.(json|text|arrayBuffer)\(|JSON\.parse\(/,
+  );
+  assert.doesNotMatch(
+    priceImporter.match(/export async function mapMtgjsonCards[\s\S]*?\n}/)?.[0] ||
+      "",
+    /fetchMtgjsonIdentifierPayload|response\.(json|text|arrayBuffer)\(|JSON\.parse\(/,
+  );
   assert.match(priceImporter, /streamMtgjsonPriceEntriesFromTextChunks/);
+  assert.match(priceImporter, /streamMtgjsonIdentifierEntriesFromTextChunks/);
 });
