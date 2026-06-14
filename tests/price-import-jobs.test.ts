@@ -154,6 +154,80 @@ test("worker marks unsupported claimed jobs as failed with an error", async () =
   assert.match(db.jobs[0].errorMessage, /Unsupported/);
 });
 
+test("worker price import job streams MTGJSON prices without response.json", async () => {
+  const db = mockJobDb() as any;
+  const insertedRows: any[] = [];
+  db.jobs.push({
+    id: "job-price",
+    type: "import_prices_today",
+    status: "running",
+    createdAt: new Date(),
+    progressJson: {},
+  });
+  db.card = {
+    async count({ where }: any = {}) {
+      return where?.mtgjsonUuid?.not === null ? 1 : 1;
+    },
+    async findMany() {
+      return [{ id: "card-sol-ring", mtgjsonUuid: "uuid-sol-ring" }];
+    },
+  };
+  db.cardPriceSnapshot = {
+    async createMany({ data }: any) {
+      insertedRows.push(...data);
+      return { count: data.length };
+    },
+  };
+  const originalFetch = globalThis.fetch;
+  let jsonCalled = false;
+  globalThis.fetch = (async () => {
+    const encoder = new TextEncoder();
+    const payload = JSON.stringify({
+      data: {
+        "uuid-sol-ring": {
+          paper: {
+            tcgplayer: {
+              currency: "USD",
+              retail: { normal: { "2026-06-13": 2.25 } },
+            },
+          },
+        },
+        "uuid-unmatched": {
+          paper: {
+            tcgplayer: {
+              currency: "USD",
+              retail: { normal: { "2026-06-13": 1.25 } },
+            },
+          },
+        },
+      },
+    });
+    return {
+      ok: true,
+      status: 200,
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode(payload));
+          controller.close();
+        },
+      }),
+      async json() {
+        jsonCalled = true;
+        throw new Error("worker must not call response.json()");
+      },
+    } as unknown as Response;
+  }) as typeof fetch;
+  try {
+    await runPriceImportJob(db.jobs[0], db);
+    assert.equal(jsonCalled, false);
+    assert.equal(db.jobs[0].status, "succeeded");
+    assert.equal(insertedRows.length, 1);
+    assert.equal(db.jobs[0].resultJson.memorySafeImporter, "streaming-json-entry-parser");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("admin pricing page and worker source expose background job workflow", () => {
   const adminPage = readFileSync("app/admin/prices/page.tsx", "utf8");
   const jobsRoute = readFileSync("app/api/admin/prices/jobs/route.ts", "utf8");
