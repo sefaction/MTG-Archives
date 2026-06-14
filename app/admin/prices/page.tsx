@@ -99,6 +99,7 @@ export default async function AdminPricesPage() {
       <Nav />
       <div>
         <h1 className="text-3xl font-bold">Price imports</h1>
+          <a className="text-sm text-sky-300 underline" href="/pricing">Open pricing analytics</a>
         <p className="text-zinc-400">
           MTGJSON prices are imported on demand and stored as local
           provider-specific snapshots.

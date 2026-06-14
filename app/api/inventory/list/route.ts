@@ -12,10 +12,7 @@ import { getManaFacesForDto } from "@/lib/mtg/mana-display";
 import {
   finishForFoilStatus,
   formatSelectedPrice,
-  providerLabel,
   selectPreferredCardPrice,
-  priceChangePercent,
-  formatPercentChange,
 } from "@/lib/price-history";
 import {
   buildInventoryWhereFromFilters,
@@ -23,6 +20,7 @@ import {
   parseInventoryFilters,
 } from "@/lib/inventory-filters";
 import { compareInventoryGroups } from "@/lib/inventory-sort";
+import { getLatestPriceSnapshotsForCards } from "@/lib/pricing-analytics";
 
 const pageSizeOptions = [10, 25, 50, 100, 250];
 
@@ -124,29 +122,10 @@ function rowsFromDisplayItems({
             ? "MTGJSON"
             : "Scryfall fallback",
         priceHistoryUrl: `/api/cards/${i.cardId}/price-history`,
-        priceChange7Day: formatPercentChange(
-          priceChangePercent(i.card.priceSnapshots || [], 7, {
-            finish: finishForFoilStatus(i.foilStatus),
-          }),
-        ),
-        priceChange30Day: formatPercentChange(
-          priceChangePercent(i.card.priceSnapshots || [], 30, {
-            finish: finishForFoilStatus(i.foilStatus),
-          }),
-        ),
-        priceChange90Day: formatPercentChange(
-          priceChangePercent(i.card.priceSnapshots || [], 90, {
-            finish: finishForFoilStatus(i.foilStatus),
-          }),
-        ),
-        priceHistory: (i.card.priceSnapshots || []).map((snapshot: any) => ({
-          provider: providerLabel(snapshot.provider),
-          finish: snapshot.finish,
-          priceType: snapshot.priceType,
-          currency: snapshot.currency,
-          price: Number(snapshot.price).toFixed(2),
-          observedDate: snapshot.observedDate.toISOString().slice(0, 10),
-        })),
+        priceChange7Day: "",
+        priceChange30Day: "",
+        priceChange90Day: "",
+        priceHistory: [],
         foil: i.foil,
         foilStatus: i.foilStatus,
         sourceType: i.sourceType,
@@ -271,10 +250,6 @@ export async function GET(request: Request) {
       rarity: true,
       manaValue: true,
       prices: true,
-      priceSnapshots: {
-        orderBy: [{ observedDate: "desc" }],
-        take: 16,
-      },
       collectorNumber: true,
       typeLine: true,
       manaCost: true,
@@ -283,7 +258,19 @@ export async function GET(request: Request) {
       keywords: true,
     },
   });
-  const cardSortById = new Map(cardSortData.map((card) => [card.id, card]));
+  const latestPriceStartedAt = process.hrtime.bigint();
+  const latestPriceSnapshotsByCard = await getLatestPriceSnapshotsForCards(
+    cardSortData.map((card) => card.id),
+    { provider: preferredPriceProvider },
+  );
+  const latestPriceLookupMs =
+    Number(process.hrtime.bigint() - latestPriceStartedAt) / 1_000_000;
+  const cardSortById = new Map(
+    cardSortData.map((card) => [
+      card.id,
+      { ...card, priceSnapshots: latestPriceSnapshotsByCard.get(card.id) || [] },
+    ]),
+  );
   const groupMatchesClientSafeFilters = (group: any) =>
     inventoryCardMatchesPostFilters(cardSortById.get(group.cardId), filters);
   const filteredGroups = (allGroups as any[]).filter(
@@ -322,10 +309,6 @@ export async function GET(request: Request) {
         include: {
           card: {
             include: {
-              priceSnapshots: {
-                orderBy: [{ observedDate: "desc" }],
-                take: 24,
-              },
             },
           },
           currentOwner: true,
@@ -334,6 +317,9 @@ export async function GET(request: Request) {
         orderBy: [{ card: { name: "asc" } }, { createdAt: "desc" }],
       })
     : [];
+  for (const item of items as any[]) {
+    item.card.priceSnapshots = latestPriceSnapshotsByCard.get(item.cardId) || [];
+  }
   const inventoryDefaultByPlayer = Object.fromEntries(
     ownerUsers
       .filter((ownerUser) => ownerUser.playerId)
