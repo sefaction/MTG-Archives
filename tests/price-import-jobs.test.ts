@@ -154,11 +154,87 @@ test("worker marks unsupported claimed jobs as failed with an error", async () =
   assert.match(db.jobs[0].errorMessage, /Unsupported/);
 });
 
+test("worker price import job streams MTGJSON prices without response.json", async () => {
+  const db = mockJobDb() as any;
+  const insertedRows: any[] = [];
+  db.jobs.push({
+    id: "job-price",
+    type: "import_prices_today",
+    status: "running",
+    createdAt: new Date(),
+    progressJson: {},
+  });
+  db.card = {
+    async count({ where }: any = {}) {
+      return where?.mtgjsonUuid?.not === null ? 1 : 1;
+    },
+    async findMany() {
+      return [{ id: "card-sol-ring", mtgjsonUuid: "uuid-sol-ring" }];
+    },
+  };
+  db.cardPriceSnapshot = {
+    async createMany({ data }: any) {
+      insertedRows.push(...data);
+      return { count: data.length };
+    },
+  };
+  const originalFetch = globalThis.fetch;
+  let jsonCalled = false;
+  globalThis.fetch = (async () => {
+    const encoder = new TextEncoder();
+    const payload = JSON.stringify({
+      data: {
+        "uuid-sol-ring": {
+          paper: {
+            tcgplayer: {
+              currency: "USD",
+              retail: { normal: { "2026-06-13": 2.25 } },
+            },
+          },
+        },
+        "uuid-unmatched": {
+          paper: {
+            tcgplayer: {
+              currency: "USD",
+              retail: { normal: { "2026-06-13": 1.25 } },
+            },
+          },
+        },
+      },
+    });
+    return {
+      ok: true,
+      status: 200,
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode(payload));
+          controller.close();
+        },
+      }),
+      async json() {
+        jsonCalled = true;
+        throw new Error("worker must not call response.json()");
+      },
+    } as unknown as Response;
+  }) as typeof fetch;
+  try {
+    await runPriceImportJob(db.jobs[0], db);
+    assert.equal(jsonCalled, false);
+    assert.equal(db.jobs[0].status, "succeeded");
+    assert.equal(insertedRows.length, 1);
+    assert.equal(db.jobs[0].resultJson.memorySafeImporter, "streaming-json-entry-parser");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("admin pricing page and worker source expose background job workflow", () => {
   const adminPage = readFileSync("app/admin/prices/page.tsx", "utf8");
   const jobsRoute = readFileSync("app/api/admin/prices/jobs/route.ts", "utf8");
   const worker = readFileSync("scripts/price-worker.ts", "utf8");
   const compose = readFileSync("docker-compose.yml", "utf8");
+  const dockerfile = readFileSync("Dockerfile", "utf8");
+  const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
   assert.match(adminPage, /Import today(&apos;|')s prices/);
   assert.match(adminPage, /Backfill price history/);
   assert.match(adminPage, /Price worker:/);
@@ -171,6 +247,11 @@ test("admin pricing page and worker source expose background job workflow", () =
   assert.match(worker, /polling for queued jobs/);
   assert.match(worker, /PRICE_WORKER_TEST_MODE/);
   assert.match(worker, /runOnePriceImportJob/);
+  assert.equal(packageJson.scripts["worker:prices"], "tsx scripts/price-worker.ts");
+  assert.match(dockerfile, /COPY --from=builder \/app\/scripts \.\/scripts/);
+  assert.match(dockerfile, /COPY --from=builder \/app\/lib \.\/lib/);
+  assert.match(dockerfile, /COPY --from=builder \/app\/tsconfig\.json \.\/tsconfig\.json/);
   assert.match(compose, /price-worker:/);
+  assert.match(compose, /command: npm run worker:prices/);
   assert.match(compose, /PRICE_WORKER_HEARTBEAT_INTERVAL_MS/);
 });

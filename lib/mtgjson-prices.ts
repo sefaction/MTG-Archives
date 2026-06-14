@@ -48,6 +48,7 @@ export type MtgjsonCardMappingReport = {
 };
 export type MtgjsonImportProgress = Partial<MtgjsonPriceImportReport> & {
   phase: string;
+  scannedMtgjsonCards?: number;
 };
 export type MtgjsonProgressCallback = (
   progress: MtgjsonImportProgress,
@@ -437,9 +438,10 @@ export async function importMtgjsonPriceEntries(
   const flush = async () => {
     snapshotsInserted += await insertPriceRows(db, rows.splice(0, rows.length));
     await options.onProgress?.({
-      phase: "importing_prices",
+      phase: "streaming_prices",
       source,
       totalMtgjsonCards,
+      scannedMtgjsonCards: totalMtgjsonCards,
       matchedLocalCards: cardByUuid.size,
       unmatchedUuids,
       snapshotsParsed,
@@ -605,21 +607,15 @@ export async function importMtgjsonPrices(
       "MTGJSON price imports are disabled by MTGJSON_PRICE_IMPORT_ENABLED=false.",
     );
   }
-  const mappingPayload = await fetchMtgjsonIdentifierPayload();
-  const mappingReport = await mapMtgjsonIdentifiersToLocalCards(
-    db,
-    mappingPayload,
-    options,
-  );
   const diagnostics = await localCardDiagnostics(db);
   const cardByUuid = await mappedLocalCardsByUuid(db);
-  if (!cardByUuid.size) return zeroMappingReport(kind, diagnostics, mappingReport);
+  if (!cardByUuid.size) return zeroMappingReport(kind, diagnostics);
   const response = await fetchMtgjsonPriceResponse(kind);
   const entries = streamMtgjsonPriceEntriesFromTextChunks(
     responseTextChunks(response),
     new Set(cardByUuid.keys()),
   );
-  return importMtgjsonPriceEntries(db, entries, kind, mappingReport, options);
+  return importMtgjsonPriceEntries(db, entries, kind, null, options);
 }
 
 export async function mapMtgjsonIdentifiersToLocalCards(

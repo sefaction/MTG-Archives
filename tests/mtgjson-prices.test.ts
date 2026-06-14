@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
+  importMtgjsonPrices,
   importMtgjsonPriceEntries,
   importMtgjsonPricePayload,
   mapMtgjsonIdentifiersToLocalCards,
@@ -154,6 +155,65 @@ test("streaming MTGJSON importer filters to mapped local UUIDs and batches inser
   assert.equal(report.unmatchedUuids, 1);
   assert.equal(report.snapshotsParsed, 5);
   assert.equal(report.snapshotsInserted, 5);
+});
+
+test("importMtgjsonPrices streams price response without full-body parsing", async () => {
+  const db = mockDb();
+  const originalFetch = globalThis.fetch;
+  const progress: any[] = [];
+  let fetchedUrl = "";
+  let jsonCalled = false;
+  let textCalled = false;
+  let arrayBufferCalled = false;
+  globalThis.fetch = (async (url: RequestInfo | URL) => {
+    fetchedUrl = String(url);
+    const encoder = new TextEncoder();
+    const json = JSON.stringify(fixture);
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (let index = 0; index < json.length; index += 23) {
+          controller.enqueue(encoder.encode(json.slice(index, index + 23)));
+        }
+        controller.close();
+      },
+    });
+    return {
+      ok: true,
+      status: 200,
+      body,
+      async json() {
+        jsonCalled = true;
+        throw new Error("response.json() must not be called for price imports");
+      },
+      async text() {
+        textCalled = true;
+        throw new Error("response.text() must not be called for price imports");
+      },
+      async arrayBuffer() {
+        arrayBufferCalled = true;
+        throw new Error(
+          "response.arrayBuffer() must not be called for price imports",
+        );
+      },
+    } as unknown as Response;
+  }) as typeof fetch;
+  try {
+    const report = await importMtgjsonPrices(db, "today", {
+      onProgress(progressUpdate) {
+        progress.push(progressUpdate);
+      },
+    });
+    assert.match(fetchedUrl, /AllPricesToday\.json$/);
+    assert.equal(jsonCalled, false);
+    assert.equal(textCalled, false);
+    assert.equal(arrayBufferCalled, false);
+    assert.equal(report.memorySafeImporter, "streaming-json-entry-parser");
+    assert.equal(report.snapshotsParsed, 5);
+    assert.equal(report.snapshotsInserted, 5);
+    assert.equal(progress.some((entry) => entry.phase === "streaming_prices"), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("streaming import exits before reading price entries when no cards are mapped", async () => {
@@ -389,5 +449,10 @@ test("schema and admin route define MTGJSON price storage and admin-only imports
   assert.match(script, /mapMtgjsonCards/);
   assert.doesNotMatch(priceImporter, /response\.text\(/);
   assert.doesNotMatch(priceImporter, /fetchMtgjsonPricePayload/);
+  assert.doesNotMatch(
+    priceImporter.match(/export async function importMtgjsonPrices[\s\S]*?\n}/)?.[0] ||
+      "",
+    /fetchMtgjsonIdentifierPayload|response\.(json|text|arrayBuffer)\(|JSON\.parse\(/,
+  );
   assert.match(priceImporter, /streamMtgjsonPriceEntriesFromTextChunks/);
 });
