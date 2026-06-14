@@ -103,6 +103,7 @@ model User {
   publicProfileEnabled       Boolean                     @default(false)
   publicSlug                 String?                     @unique
   publicDisplayName          String?
+  preferredPriceProvider     String                      @default("tcgplayer")
   createdAt                  DateTime                    @default(now())
   updatedAt                  DateTime                    @updatedAt
   inventoryAuditLogs         InventoryAuditLog[]

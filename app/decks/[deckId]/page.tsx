@@ -90,6 +90,7 @@ export default async function DeckDetailPage({
     deck.ownerUser.deckDefaultVisibility,
     deck.visibility,
   );
+  const preferredPriceProvider = user?.preferredPriceProvider || "tcgplayer";
   const inventoryOwnerId = canEdit ? deck.ownerUser.playerId : null;
   if (inventoryOwnerId) await ensureDefaultLocation(prisma, inventoryOwnerId);
   const inventoryItems = inventoryOwnerId
@@ -130,6 +131,7 @@ export default async function DeckDetailPage({
       const preferredPrice = selectPreferredCardPrice(
         deckCard.card?.priceSnapshots,
         deckCard.card?.prices,
+        { preferredProvider: preferredPriceProvider },
       );
       const price =
         preferredPrice?.amount ?? cardPriceNumber(deckCard.card?.prices);

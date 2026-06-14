@@ -45,7 +45,10 @@ import {
   formatSelectedPrice,
   selectPreferredCardPrice,
   providerLabel,
+  priceChangePercent,
+  formatPercentChange,
 } from "@/lib/price-history";
+import { compareInventoryGroups } from "@/lib/inventory-sort";
 import {
   buildInventoryWhereFromFilters,
   inventoryCardMatchesPostFilters,
@@ -80,6 +83,7 @@ export default async function InventoryPage({
     p.browse === "infinite" ? "infinite" : "paginated";
   const sortField = p.sort || "cardName";
   const sortDirection: "asc" | "desc" = p.sortDir === "desc" ? "desc" : "asc";
+  const preferredPriceProvider = user?.preferredPriceProvider || "tcgplayer";
   const currentPage =
     initialBrowsingMode === "infinite"
       ? 1
@@ -139,42 +143,34 @@ export default async function InventoryPage({
       rarity: true,
       manaValue: true,
       prices: true,
+      priceSnapshots: {
+        orderBy: [{ observedDate: "desc" }],
+        take: 16,
+      },
+      collectorNumber: true,
+      typeLine: true,
+      manaCost: true,
       colorIdentity: true,
       colors: true,
       keywords: true,
     },
   });
   const cardSortById = new Map(cardSortData.map((card) => [card.id, card]));
-  const compareValues = (left: any, right: any) => {
-    if (typeof left === "number" || typeof right === "number") {
-      return (Number(left) || 0) - (Number(right) || 0);
-    }
-    return String(left ?? "").localeCompare(String(right ?? ""), undefined, {
-      sensitivity: "base",
-      numeric: true,
-    });
-  };
   const groupMatchesClientSafeFilters = (group: any) =>
     inventoryCardMatchesPostFilters(cardSortById.get(group.cardId), filters);
-  const sortValue = (group: any) => {
-    const card = cardSortById.get(group.cardId) as any;
-    if (sortField === "quantity") return group._sum?.quantity ?? 0;
-    if (sortField === "setCode") return card?.setCode ?? "";
-    if (sortField === "rarity") return card?.rarity ?? "";
-    if (sortField === "manaValue") return card?.manaValue ?? 0;
-    if (sortField === "priceUsd") return Number(card?.prices?.usd ?? 0);
-    return card?.name ?? "";
-  };
   const filteredGroups = (allGroups as any[]).filter(
     groupMatchesClientSafeFilters,
   );
-  const sortedGroups = [...filteredGroups].sort((left, right) => {
-    const direction = sortDirection === "desc" ? -1 : 1;
-    const primary =
-      compareValues(sortValue(left), sortValue(right)) * direction;
-    if (primary) return primary;
-    return compareValues(left.cardId, right.cardId);
-  });
+  const sortedGroups = [...filteredGroups].sort((left, right) =>
+    compareInventoryGroups(
+      left,
+      right,
+      cardSortById,
+      String(sortField),
+      sortDirection,
+      preferredPriceProvider,
+    ),
+  );
   const pageGroups = sortedGroups.slice(querySkip, querySkip + queryPageSize);
   const totalMatchingCount = filteredGroups.length;
   const totalPages = Math.max(1, Math.ceil(totalMatchingCount / queryPageSize));
@@ -750,14 +746,32 @@ export default async function InventoryPage({
         preferredPriceLabel: formatSelectedPrice(
           selectPreferredCardPrice(i.card.priceSnapshots, i.card.prices, {
             finish: finishForFoilStatus(i.foilStatus),
+            preferredProvider: preferredPriceProvider,
           }),
         ),
         priceSourceLabel:
           selectPreferredCardPrice(i.card.priceSnapshots, i.card.prices, {
             finish: finishForFoilStatus(i.foilStatus),
+            preferredProvider: preferredPriceProvider,
           })?.source === "mtgjson"
             ? "MTGJSON"
             : "Scryfall fallback",
+        priceHistoryUrl: `/api/cards/${i.cardId}/price-history`,
+        priceChange7Day: formatPercentChange(
+          priceChangePercent(i.card.priceSnapshots || [], 7, {
+            finish: finishForFoilStatus(i.foilStatus),
+          }),
+        ),
+        priceChange30Day: formatPercentChange(
+          priceChangePercent(i.card.priceSnapshots || [], 30, {
+            finish: finishForFoilStatus(i.foilStatus),
+          }),
+        ),
+        priceChange90Day: formatPercentChange(
+          priceChangePercent(i.card.priceSnapshots || [], 90, {
+            finish: finishForFoilStatus(i.foilStatus),
+          }),
+        ),
         priceHistory: (i.card.priceSnapshots || []).map((snapshot: any) => ({
           provider: providerLabel(snapshot.provider),
           finish: snapshot.finish,

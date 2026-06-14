@@ -13,6 +13,8 @@ import {
   formatSelectedPrice,
   providerLabel,
   selectPreferredCardPrice,
+  priceChangePercent,
+  formatPercentChange,
 } from "@/lib/price-history";
 
 export const dynamic = "force-dynamic";
@@ -199,6 +201,22 @@ function toInventoryBrowserRows({
         })?.source === "mtgjson"
           ? "MTGJSON"
           : "Scryfall fallback",
+      priceHistoryUrl: `/api/cards/${i.cardId}/price-history`,
+      priceChange7Day: formatPercentChange(
+        priceChangePercent(i.card.priceSnapshots || [], 7, {
+          finish: finishForFoilStatus(i.foilStatus),
+        }),
+      ),
+      priceChange30Day: formatPercentChange(
+        priceChangePercent(i.card.priceSnapshots || [], 30, {
+          finish: finishForFoilStatus(i.foilStatus),
+        }),
+      ),
+      priceChange90Day: formatPercentChange(
+        priceChangePercent(i.card.priceSnapshots || [], 90, {
+          finish: finishForFoilStatus(i.foilStatus),
+        }),
+      ),
       priceHistory: (i.card.priceSnapshots || []).map((snapshot: any) => ({
         provider: providerLabel(snapshot.provider),
         finish: snapshot.finish,

@@ -20,6 +20,14 @@ export type SelectedPrice = {
   source: "mtgjson" | "scryfall";
 };
 
+export const PRICE_PROVIDER_OPTIONS = [
+  { value: "tcgplayer", label: "TCGplayer" },
+  { value: "cardkingdom", label: "Card Kingdom" },
+  { value: "cardmarket", label: "Cardmarket" },
+  { value: "cardsphere", label: "Cardsphere" },
+  { value: "scryfall", label: "Scryfall fallback" },
+];
+
 export const DEFAULT_PRICE_PROVIDER_PRIORITY = [
   process.env.MTGJSON_PRICE_PROVIDER_DEFAULT || "tcgplayer",
   "tcgplayer",
@@ -36,6 +44,7 @@ export function providerLabel(provider: string) {
     cardmarket: "Cardmarket",
     cardsphere: "Cardsphere",
     cardhoarder: "Cardhoarder",
+    scryfall: "Scryfall",
   };
   return labels[provider] || provider;
 }
@@ -152,6 +161,9 @@ export function selectPreferredCardPrice(
     currency?: string;
   } = {},
 ) {
+  if (options.preferredProvider === "scryfall") {
+    return scryfallFallbackPrice(scryfallPrices, options.finish);
+  }
   return (
     selectLatestMtgjsonPrice(snapshots, options) ||
     scryfallFallbackPrice(scryfallPrices, options.finish)
@@ -198,12 +210,20 @@ export function priceChangePercent(
   return ((latest.amount - baseline.amount) / baseline.amount) * 100;
 }
 
+export function formatPercentChange(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(value))
+    return "";
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(1)}%`;
+}
+
 export function inventoryValueByProvider(
   items: Array<{
     quantity: number;
     card: { prices?: unknown; priceSnapshots?: PriceSnapshotLike[] | null };
     foilStatus?: FoilStatus | string | null;
   }>,
+  options: { preferredProvider?: string } = {},
 ) {
   return items.reduce((total, item) => {
     const price = selectPreferredCardPrice(
@@ -211,8 +231,74 @@ export function inventoryValueByProvider(
       item.card.prices,
       {
         finish: finishForFoilStatus(item.foilStatus),
+        preferredProvider: options.preferredProvider,
       },
     );
     return total + (price?.amount ?? 0) * item.quantity;
   }, 0);
+}
+
+export function latestPricesByProvider(snapshots: PriceSnapshotLike[] = []) {
+  const latest = new Map<
+    string,
+    PriceSnapshotLike & { amount: number; observed: Date }
+  >();
+  for (const snapshot of snapshots) {
+    if (snapshot.priceType !== "retail") continue;
+    const amount = priceNumber(snapshot.price);
+    if (amount === null) continue;
+    const observed = new Date(snapshot.observedDate);
+    const key = `${snapshot.provider}|${snapshot.finish}|${snapshot.currency}`;
+    const previous = latest.get(key);
+    if (!previous || observed > previous.observed) {
+      latest.set(key, { ...snapshot, amount, observed });
+    }
+  }
+  return Array.from(latest.values()).sort(
+    (a, b) =>
+      a.provider.localeCompare(b.provider) ||
+      a.finish.localeCompare(b.finish) ||
+      a.currency.localeCompare(b.currency),
+  );
+}
+
+export function collectionValueHistory(
+  items: Array<{
+    quantity: number;
+    card: { priceSnapshots?: PriceSnapshotLike[] | null; prices?: unknown };
+    foilStatus?: FoilStatus | string | null;
+  }>,
+  options: { provider?: string; days?: number; currency?: string } = {},
+) {
+  const provider =
+    options.provider ||
+    process.env.MTGJSON_PRICE_PROVIDER_DEFAULT ||
+    "tcgplayer";
+  const currency = (
+    options.currency ||
+    process.env.MTGJSON_PRICE_CURRENCY_DEFAULT ||
+    "USD"
+  ).toUpperCase();
+  const days = options.days ?? 30;
+  const byDate = new Map<string, number>();
+  for (const item of items) {
+    const finish = finishForFoilStatus(item.foilStatus);
+    for (const snapshot of item.card.priceSnapshots || []) {
+      if (
+        snapshot.provider !== provider ||
+        snapshot.finish !== finish ||
+        snapshot.priceType !== "retail" ||
+        snapshot.currency.toUpperCase() !== currency
+      )
+        continue;
+      const amount = priceNumber(snapshot.price);
+      if (amount === null) continue;
+      const date = new Date(snapshot.observedDate).toISOString().slice(0, 10);
+      byDate.set(date, (byDate.get(date) || 0) + amount * item.quantity);
+    }
+  }
+  return Array.from(byDate.entries())
+    .sort(([a], [b]) => b.localeCompare(a))
+    .slice(0, days)
+    .map(([date, value]) => ({ date, value }));
 }

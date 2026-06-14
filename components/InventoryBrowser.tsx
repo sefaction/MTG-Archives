@@ -63,6 +63,10 @@ export type InventoryRow = {
   priceUsdFoil?: string;
   preferredPriceLabel?: string;
   priceSourceLabel?: string;
+  priceHistoryUrl?: string;
+  priceChange7Day?: string;
+  priceChange30Day?: string;
+  priceChange90Day?: string;
   priceHistory?: Array<{
     provider: string;
     finish: string;
@@ -464,7 +468,24 @@ function CardDetail({
             </p>
             {row.priceHistory?.length ? (
               <div className="space-y-1">
-                <b>Recent MTGJSON price history:</b>
+                <div className="flex flex-wrap items-center gap-2">
+                  <b>Price history:</b>
+                  {row.priceHistoryUrl ? (
+                    <a
+                      className="text-xs text-sky-300 underline"
+                      href={row.priceHistoryUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      View price history JSON
+                    </a>
+                  ) : null}
+                </div>
+                <p className="text-xs text-zinc-400">
+                  7d {row.priceChange7Day || "—"} · 30d{" "}
+                  {row.priceChange30Day || "—"} · 90d{" "}
+                  {row.priceChange90Day || "—"}
+                </p>
                 <div className="overflow-x-auto">
                   <table className="mt-1 min-w-full text-xs">
                     <thead className="text-zinc-400">
