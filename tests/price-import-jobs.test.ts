@@ -228,6 +228,72 @@ test("worker price import job streams MTGJSON prices without response.json", asy
   }
 });
 
+test("worker MTGJSON mapping job streams identifiers without response.json", async () => {
+  const db = mockJobDb() as any;
+  const updates: any[] = [];
+  db.jobs.push({
+    id: "job-map",
+    type: "map_mtgjson_cards",
+    status: "running",
+    createdAt: new Date(),
+    progressJson: {},
+  });
+  db.card = {
+    async findMany() {
+      return [
+        {
+          id: "card-sol-ring",
+          scryfallId: "sf-sol-ring",
+          mtgjsonUuid: null,
+          setCode: "LTC",
+          collectorNumber: "314",
+          name: "Sol Ring",
+          lang: "en",
+        },
+      ];
+    },
+    async update(update: any) {
+      updates.push(update);
+      return update;
+    },
+  };
+  const originalFetch = globalThis.fetch;
+  let jsonCalled = false;
+  globalThis.fetch = (async () => {
+    const encoder = new TextEncoder();
+    const payload = JSON.stringify({
+      data: {
+        "uuid-sol-ring": { identifiers: { scryfallId: "sf-sol-ring" } },
+      },
+    });
+    return {
+      ok: true,
+      status: 200,
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encoder.encode(payload));
+          controller.close();
+        },
+      }),
+      async json() {
+        jsonCalled = true;
+        throw new Error("mapping worker must not call response.json()");
+      },
+    } as unknown as Response;
+  }) as typeof fetch;
+  try {
+    await runPriceImportJob(db.jobs[0], db);
+    assert.equal(jsonCalled, false);
+    assert.equal(db.jobs[0].status, "succeeded");
+    assert.equal(db.jobs[0].resultJson.mapped, 1);
+    assert.deepEqual(updates, [
+      { where: { id: "card-sol-ring" }, data: { mtgjsonUuid: "uuid-sol-ring" } },
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("admin pricing page and worker source expose background job workflow", () => {
   const adminPage = readFileSync("app/admin/prices/page.tsx", "utf8");
   const jobsRoute = readFileSync("app/api/admin/prices/jobs/route.ts", "utf8");

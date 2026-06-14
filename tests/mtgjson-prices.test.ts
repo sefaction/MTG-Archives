@@ -5,8 +5,10 @@ import {
   importMtgjsonPrices,
   importMtgjsonPriceEntries,
   importMtgjsonPricePayload,
+  mapMtgjsonIdentifierEntriesToLocalCards,
   mapMtgjsonIdentifiersToLocalCards,
   parseMtgjsonPriceSnapshotsForCard,
+  streamMtgjsonIdentifierEntriesFromTextChunks,
   streamMtgjsonPriceEntriesFromTextChunks,
 } from "../lib/mtgjson-prices";
 import {
@@ -329,6 +331,139 @@ test("MTGJSON identifier mapping uses Scryfall and tuple matches safely", async 
   ]);
 });
 
+test("streaming MTGJSON identifier mapping matches safely without overwrites", async () => {
+  const updates: any[] = [];
+  const progress: any[] = [];
+  const localCards = [
+    {
+      id: "card-scryfall",
+      scryfallId: "sf-clear",
+      mtgjsonUuid: null,
+      setCode: "LTC",
+      collectorNumber: "314",
+      name: "Sol Ring",
+      lang: "en",
+    },
+    {
+      id: "card-tuple",
+      scryfallId: "sf-other",
+      mtgjsonUuid: null,
+      setCode: "WHO",
+      collectorNumber: "10",
+      name: "Forest",
+      lang: "en",
+    },
+    {
+      id: "card-set-collector",
+      scryfallId: null,
+      mtgjsonUuid: null,
+      setCode: "ABC",
+      collectorNumber: "7",
+      name: "Unique by Number",
+      lang: "en",
+    },
+    {
+      id: "card-ambiguous-a",
+      scryfallId: null,
+      mtgjsonUuid: null,
+      setCode: "DUP",
+      collectorNumber: "1",
+      name: "Ambiguous A",
+      lang: "en",
+    },
+    {
+      id: "card-ambiguous-b",
+      scryfallId: null,
+      mtgjsonUuid: null,
+      setCode: "DUP",
+      collectorNumber: "1",
+      name: "Ambiguous B",
+      lang: "en",
+    },
+    {
+      id: "card-existing",
+      scryfallId: "sf-existing",
+      mtgjsonUuid: "uuid-existing",
+      setCode: "OLD",
+      collectorNumber: "1",
+      name: "Already Mapped",
+      lang: "en",
+    },
+  ];
+  async function* chunks() {
+    const json = JSON.stringify({
+      data: {
+        "uuid-clear": { identifiers: { scryfallId: "sf-clear" } },
+        "uuid-tuple": {
+          setCode: "WHO",
+          number: "010",
+          name: "Forest",
+          identifiers: {},
+        },
+        "uuid-set-collector": {
+          setCode: "ABC",
+          number: "7",
+          name: "Different Printed Name",
+          identifiers: {},
+        },
+        "uuid-ambiguous": {
+          setCode: "DUP",
+          number: "1",
+          name: "No Exact Local Name",
+          identifiers: {},
+        },
+        "uuid-existing": { identifiers: { scryfallId: "sf-existing" } },
+        "uuid-conflicting": {
+          setCode: "OLD",
+          number: "1",
+          name: "Already Mapped",
+          identifiers: {},
+        },
+        "uuid-unmatched": { identifiers: { scryfallId: "sf-missing" } },
+      },
+    });
+    for (let index = 0; index < json.length; index += 19) {
+      yield json.slice(index, index + 19);
+    }
+  }
+  const report = await mapMtgjsonIdentifierEntriesToLocalCards(
+    {
+      card: {
+        async findMany() {
+          return localCards;
+        },
+        async update(update: any) {
+          updates.push(update);
+          return update;
+        },
+      },
+    } as any,
+    streamMtgjsonIdentifierEntriesFromTextChunks(chunks()),
+    {
+      onProgress(progressUpdate) {
+        progress.push(progressUpdate);
+      },
+    },
+  );
+  assert.equal(report.scanned, 7);
+  assert.equal(report.mapped, 3);
+  assert.equal(report.alreadyMapped, 1);
+  assert.equal(report.ambiguous, 2);
+  assert.equal(report.unmatched, 1);
+  assert.deepEqual(updates, [
+    { where: { id: "card-scryfall" }, data: { mtgjsonUuid: "uuid-clear" } },
+    { where: { id: "card-tuple" }, data: { mtgjsonUuid: "uuid-tuple" } },
+    {
+      where: { id: "card-set-collector" },
+      data: { mtgjsonUuid: "uuid-set-collector" },
+    },
+  ]);
+  assert.equal(
+    progress.some((entry) => entry.phase === "mapping_mtgjson_cards"),
+    true,
+  );
+});
+
 test("MTGJSON price import warns clearly when no local cards are mapped", async () => {
   const db = {
     card: {
@@ -454,5 +589,11 @@ test("schema and admin route define MTGJSON price storage and admin-only imports
       "",
     /fetchMtgjsonIdentifierPayload|response\.(json|text|arrayBuffer)\(|JSON\.parse\(/,
   );
+  assert.doesNotMatch(
+    priceImporter.match(/export async function mapMtgjsonCards[\s\S]*?\n}/)?.[0] ||
+      "",
+    /fetchMtgjsonIdentifierPayload|response\.(json|text|arrayBuffer)\(|JSON\.parse\(/,
+  );
   assert.match(priceImporter, /streamMtgjsonPriceEntriesFromTextChunks/);
+  assert.match(priceImporter, /streamMtgjsonIdentifierEntriesFromTextChunks/);
 });
