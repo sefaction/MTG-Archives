@@ -4,7 +4,12 @@ import { requireAdminMode } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Nav } from "@/components/Nav";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
-import { mapMtgjsonCardsAction } from "./actions";
+import { PriceImportJobsPanel } from "@/components/PriceImportJobsPanel";
+import {
+  backfillMtgjsonHistoryAction,
+  importMtgjsonTodayAction,
+  mapMtgjsonCardsAction,
+} from "./actions";
 import { mtgjsonPriceFileUrl } from "@/lib/mtgjson-prices";
 import {
   collectionValueHistory,
@@ -22,6 +27,7 @@ export default async function AdminPricesPage() {
     providerRows,
     lastSnapshot,
     inventoryItems,
+    recentJobs,
   ] = await Promise.all([
     prisma.cardPriceSnapshot.count(),
     prisma.card.count({ where: { mtgjsonUuid: { not: null } } }),
@@ -45,6 +51,11 @@ export default async function AdminPricesPage() {
           },
         },
       },
+    }),
+    prisma.priceImportJob.findMany({
+      take: 10,
+      orderBy: { createdAt: "desc" },
+      include: { requestedBy: { select: { displayName: true, username: true } } },
     }),
   ]);
   const unmatchedCards = await prisma.card.count({
@@ -128,16 +139,36 @@ export default async function AdminPricesPage() {
               Map MTGJSON card UUIDs
             </SubmitButton>
           </form>
+          <form action={importMtgjsonTodayAction}>
+            <SubmitButton
+              pendingLabel="Queueing…"
+              className="rounded bg-sky-700 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-600"
+            >
+              Import today&apos;s prices
+            </SubmitButton>
+          </form>
+          <form action={backfillMtgjsonHistoryAction}>
+            <SubmitButton
+              pendingLabel="Queueing…"
+              className="rounded border border-zinc-700 px-3 py-2 text-sm hover:bg-zinc-900"
+            >
+              Backfill price history
+            </SubmitButton>
+          </form>
         </div>
-        <div className="rounded border border-amber-800 bg-amber-950/30 p-3 text-sm text-amber-100">
-          Large MTGJSON price imports run through the streaming CLI importer to
-          avoid Next.js request timeouts and V8 string-size limits. From the app
-          container, run:
+        <div className="rounded border border-zinc-800 bg-zinc-950/50 p-3 text-sm text-zinc-300">
+          Buttons queue database-backed background jobs processed by the price
+          worker, so browser tabs and request timeouts do not control the
+          import. Advanced fallback from the app container:
           <pre className="mt-2 overflow-x-auto rounded bg-black/30 p-2 text-xs text-amber-50">
             npm run prices:import:today{"\n"}npm run prices:import:history
           </pre>
         </div>
       </section>
+
+      <PriceImportJobsPanel
+        initialJobs={JSON.parse(JSON.stringify(recentJobs))}
+      />
 
       <section className="space-y-3 rounded border border-zinc-800 p-4">
         <h2 className="text-xl font-semibold">Providers available</h2>

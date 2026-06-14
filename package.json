@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit",
     "format": "npx prettier --check .",
     "test": "tsx --test tests/*.test.ts",
+    "worker:prices": "tsx scripts/price-worker.ts",
     "prices:map-mtgjson-cards": "tsx scripts/import-mtgjson-prices.ts map",
     "prices:import:today": "tsx scripts/import-mtgjson-prices.ts today",
     "prices:import:history": "tsx scripts/import-mtgjson-prices.ts history"

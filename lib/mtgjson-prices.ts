@@ -46,6 +46,12 @@ export type MtgjsonCardMappingReport = {
   ambiguous: number;
   unmatched: number;
 };
+export type MtgjsonImportProgress = Partial<MtgjsonPriceImportReport> & {
+  phase: string;
+};
+export type MtgjsonProgressCallback = (
+  progress: MtgjsonImportProgress,
+) => Promise<void> | void;
 
 type PricePoints = Record<string, Record<string, unknown> | undefined>;
 type PriceList = {
@@ -415,6 +421,7 @@ export async function importMtgjsonPriceEntries(
   entries: AsyncIterable<PriceEntry>,
   source: MtgjsonPriceImportKind,
   mappingReport?: MtgjsonCardMappingReport | null,
+  options: { onProgress?: MtgjsonProgressCallback } = {},
 ): Promise<MtgjsonPriceImportReport> {
   const diagnostics = await localCardDiagnostics(db);
   const cardByUuid = await mappedLocalCardsByUuid(db);
@@ -429,6 +436,18 @@ export async function importMtgjsonPriceEntries(
   let snapshotsInserted = 0;
   const flush = async () => {
     snapshotsInserted += await insertPriceRows(db, rows.splice(0, rows.length));
+    await options.onProgress?.({
+      phase: "importing_prices",
+      source,
+      totalMtgjsonCards,
+      matchedLocalCards: cardByUuid.size,
+      unmatchedUuids,
+      snapshotsParsed,
+      snapshotsInserted,
+      duplicatesSkipped: snapshotsParsed - snapshotsInserted,
+      providersImported: Array.from(providers).sort(),
+      errors: [],
+    });
   };
   for await (const entry of entries) {
     totalMtgjsonCards += 1;
@@ -455,7 +474,7 @@ export async function importMtgjsonPriceEntries(
         observedDate: snapshot.observedDate,
       });
     }
-    if (rows.length >= 1000) await flush();
+    if (rows.length >= 1000 || totalMtgjsonCards % 5000 === 0) await flush();
   }
   await flush();
   return {
@@ -579,6 +598,7 @@ export async function importMtgjsonPricePayload(
 export async function importMtgjsonPrices(
   db: Pick<Prisma.TransactionClient, "card" | "cardPriceSnapshot">,
   kind: MtgjsonPriceImportKind,
+  options: { onProgress?: MtgjsonProgressCallback } = {},
 ) {
   if (process.env.MTGJSON_PRICE_IMPORT_ENABLED === "false") {
     throw new Error(
@@ -589,6 +609,7 @@ export async function importMtgjsonPrices(
   const mappingReport = await mapMtgjsonIdentifiersToLocalCards(
     db,
     mappingPayload,
+    options,
   );
   const diagnostics = await localCardDiagnostics(db);
   const cardByUuid = await mappedLocalCardsByUuid(db);
@@ -598,12 +619,13 @@ export async function importMtgjsonPrices(
     responseTextChunks(response),
     new Set(cardByUuid.keys()),
   );
-  return importMtgjsonPriceEntries(db, entries, kind, mappingReport);
+  return importMtgjsonPriceEntries(db, entries, kind, mappingReport, options);
 }
 
 export async function mapMtgjsonIdentifiersToLocalCards(
   db: Pick<Prisma.TransactionClient, "card">,
   identifiersPayload: unknown,
+  options: { onProgress?: MtgjsonProgressCallback } = {},
 ): Promise<MtgjsonCardMappingReport> {
   const data = (identifiersPayload as any)?.data;
   if (!data || typeof data !== "object") {
@@ -703,8 +725,21 @@ export async function mapMtgjsonIdentifiersToLocalCards(
     });
     existingUuidToCard.set(mtgjsonUuid, cardId);
     mapped += 1;
+    if ((mapped + alreadyMapped + ambiguous + unmatched) % 1000 === 0) {
+      await options.onProgress?.({
+        phase: "mapping_cards",
+        localCards: localCards.length,
+        localCardsWithMtgjsonUuidBefore,
+        localCardsWithoutMtgjsonUuidBefore:
+          localCards.length - localCardsWithMtgjsonUuidBefore,
+        localCardsMappedThisRun: mapped,
+        ambiguousLocalCards: ambiguous,
+        unmatchedLocalCards: unmatched,
+        errors: [],
+      });
+    }
   }
-  return {
+  const report = {
     scanned: Object.keys(data).length,
     localCards: localCards.length,
     localCardsWithMtgjsonUuidBefore,
@@ -715,11 +750,23 @@ export async function mapMtgjsonIdentifiersToLocalCards(
     ambiguous,
     unmatched,
   };
+  await options.onProgress?.({
+    phase: "mapping_cards",
+    localCards: report.localCards,
+    localCardsWithMtgjsonUuidBefore: report.localCardsWithMtgjsonUuidBefore,
+    localCardsWithoutMtgjsonUuidBefore: report.localCardsWithoutMtgjsonUuidBefore,
+    localCardsMappedThisRun: report.mapped,
+    ambiguousLocalCards: report.ambiguous,
+    unmatchedLocalCards: report.unmatched,
+    errors: [],
+  });
+  return report;
 }
 
 export async function mapMtgjsonCards(
   db: Pick<Prisma.TransactionClient, "card">,
+  options: { onProgress?: MtgjsonProgressCallback } = {},
 ) {
   const payload = await fetchMtgjsonIdentifierPayload();
-  return mapMtgjsonIdentifiersToLocalCards(db, payload);
+  return mapMtgjsonIdentifiersToLocalCards(db, payload, options);
 }

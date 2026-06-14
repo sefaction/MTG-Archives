@@ -113,9 +113,31 @@ model User {
   tradeEvents                TradeEvent[]
   decks                      Deck[]
   wishlistItems              WishlistItem[]
+  priceImportJobs            PriceImportJob[]
 
   @@index([publicProfileEnabled, isActive, inventoryDefaultVisibility])
   @@index([publicProfileEnabled, isActive, deckDefaultVisibility])
+}
+
+model PriceImportJob {
+  id            String    @id @default(cuid())
+  type          String
+  status        String
+  requestedById String?
+  requestedBy   User?     @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+  source        String?
+  provider      String?
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  heartbeatAt   DateTime?
+  progressJson  Json?
+  resultJson    Json?
+  errorMessage  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([type, createdAt])
 }
 
 model League {

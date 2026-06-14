@@ -384,7 +384,7 @@ test("schema and admin route define MTGJSON price storage and admin-only imports
   );
   assert.match(migration, /CREATE TABLE "CardPriceSnapshot"/);
   assert.match(adminRoute, /requireAdminMode/);
-  assert.match(adminPage, /streaming CLI importer/);
+  assert.match(adminPage, /background jobs processed by the price/);
   assert.match(adminPage, /Map MTGJSON card UUIDs/);
   assert.match(script, /mapMtgjsonCards/);
   assert.doesNotMatch(priceImporter, /response\.text\(/);

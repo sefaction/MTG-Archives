@@ -1,27 +1,23 @@
 "use server";
 
 import { requireAdminMode } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { mapMtgjsonCards } from "@/lib/mtgjson-prices";
+import { createPriceImportJob } from "@/lib/price-import-jobs";
 import { revalidatePath } from "next/cache";
 
 export async function mapMtgjsonCardsAction() {
-  await requireAdminMode();
-  const report = await mapMtgjsonCards(prisma);
-  console.info("[mtgjson-prices] card mapping", report);
+  const user = await requireAdminMode();
+  await createPriceImportJob("map_mtgjson_cards", user.id);
   revalidatePath("/admin/prices");
 }
 
 export async function importMtgjsonTodayAction() {
-  await requireAdminMode();
-  throw new Error(
-    "Large MTGJSON price imports must be run from the app container with npm run prices:import:today.",
-  );
+  const user = await requireAdminMode();
+  await createPriceImportJob("import_prices_today", user.id);
+  revalidatePath("/admin/prices");
 }
 
 export async function backfillMtgjsonHistoryAction() {
-  await requireAdminMode();
-  throw new Error(
-    "Large MTGJSON history imports must be run from the app container with npm run prices:import:history.",
-  );
+  const user = await requireAdminMode();
+  await createPriceImportJob("import_prices_history", user.id);
+  revalidatePath("/admin/prices");
 }
