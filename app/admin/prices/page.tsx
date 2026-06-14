@@ -7,6 +7,7 @@ import { SubmitButton } from "@/components/feedback/SubmitButton";
 import {
   importMtgjsonTodayAction,
   backfillMtgjsonHistoryAction,
+  mapMtgjsonCardsAction,
 } from "./actions";
 import { mtgjsonPriceFileUrl } from "@/lib/mtgjson-prices";
 import {
@@ -123,6 +124,14 @@ export default async function AdminPricesPage() {
           so run it intentionally.
         </p>
         <div className="flex flex-wrap gap-3">
+          <form action={mapMtgjsonCardsAction}>
+            <SubmitButton
+              pendingLabel="Mapping…"
+              className="rounded border border-emerald-700 px-3 py-2 text-sm font-semibold text-emerald-100 hover:bg-emerald-950/40"
+            >
+              Map MTGJSON card UUIDs
+            </SubmitButton>
+          </form>
           <form action={importMtgjsonTodayAction}>
             <SubmitButton
               pendingLabel="Importing…"

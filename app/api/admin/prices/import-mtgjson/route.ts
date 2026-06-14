@@ -3,12 +3,17 @@ import { requireAdminMode } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   importMtgjsonPrices,
+  mapMtgjsonCards,
   type MtgjsonPriceImportKind,
 } from "@/lib/mtgjson-prices";
 
 export async function POST(request: NextRequest) {
   await requireAdminMode();
   const body = await request.json().catch(() => ({}));
+  if (body?.kind === "map") {
+    const report = await mapMtgjsonCards(prisma);
+    return NextResponse.json({ ok: true, report });
+  }
   const kind: MtgjsonPriceImportKind =
     body?.kind === "history" ? "history" : "today";
   try {

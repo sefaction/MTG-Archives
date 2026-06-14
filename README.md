@@ -80,6 +80,7 @@ npm run prisma:generate
 npm run prisma:migrate
 npm run prisma:bootstrap-admin
 npm run build
+npm run prices:map-mtgjson-cards
 npm run prices:import:today
 npm run prices:import:history
 docker compose logs -f web

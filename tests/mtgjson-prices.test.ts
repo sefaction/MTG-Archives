@@ -49,8 +49,24 @@ function mockDb() {
   return {
     rows,
     card: {
-      async findMany() {
-        return [{ id: "card-sol-ring", mtgjsonUuid: "uuid-sol-ring" }];
+      async count({ where }: any = {}) {
+        return where?.mtgjsonUuid?.not === null ? 1 : 1;
+      },
+      async findMany(args: any = {}) {
+        if (args.where?.mtgjsonUuid?.in) {
+          return [{ id: "card-sol-ring", mtgjsonUuid: "uuid-sol-ring" }];
+        }
+        return [
+          {
+            id: "card-sol-ring",
+            scryfallId: "sf-sol-ring",
+            mtgjsonUuid: "uuid-sol-ring",
+            setCode: "LTC",
+            collectorNumber: "314",
+            name: "Sol Ring",
+            lang: "en",
+          },
+        ];
       },
     },
     cardPriceSnapshot: {
@@ -105,8 +121,11 @@ test("MTGJSON price import is idempotent and reports unmatched UUIDs", async () 
   const first = await importMtgjsonPricePayload(db, fixture, "today");
   const second = await importMtgjsonPricePayload(db, fixture, "today");
   assert.equal(first.totalMtgjsonCards, 2);
+  assert.equal(first.localCards, 1);
+  assert.equal(first.localCardsWithMtgjsonUuidBefore, 1);
   assert.equal(first.matchedLocalCards, 1);
   assert.equal(first.unmatchedUuids, 1);
+  assert.equal(first.snapshotsSkippedForUnmappedUuid, 1);
   assert.equal(first.snapshotsInserted, 5);
   assert.equal(second.snapshotsInserted, 0);
   assert.equal(second.duplicatesSkipped, 5);
@@ -114,15 +133,50 @@ test("MTGJSON price import is idempotent and reports unmatched UUIDs", async () 
   assert.deepEqual(first.providersImported, ["cardkingdom", "tcgplayer"]);
 });
 
-test("MTGJSON identifier mapping assigns UUIDs only through Scryfall IDs", async () => {
+test("MTGJSON identifier mapping uses Scryfall and tuple matches safely", async () => {
   const updates: any[] = [];
   const report = await mapMtgjsonIdentifiersToLocalCards(
     {
       card: {
-        async findMany({ where }: any) {
-          if (where.scryfallId === "sf-clear")
-            return [{ id: "card-clear", mtgjsonUuid: null }];
-          return [];
+        async findMany() {
+          return [
+            {
+              id: "card-scryfall",
+              scryfallId: "sf-clear",
+              mtgjsonUuid: null,
+              setCode: "LTC",
+              collectorNumber: "314",
+              name: "Sol Ring",
+              lang: "en",
+            },
+            {
+              id: "card-tuple",
+              scryfallId: "sf-other",
+              mtgjsonUuid: null,
+              setCode: "WHO",
+              collectorNumber: "10",
+              name: "Forest",
+              lang: "en",
+            },
+            {
+              id: "card-ambiguous-a",
+              scryfallId: "sf-a",
+              mtgjsonUuid: null,
+              setCode: "ABC",
+              collectorNumber: "1",
+              name: "Ambiguous Card",
+              lang: "en",
+            },
+            {
+              id: "card-ambiguous-b",
+              scryfallId: "sf-b",
+              mtgjsonUuid: null,
+              setCode: "ABC",
+              collectorNumber: "1",
+              name: "Ambiguous Card",
+              lang: "en",
+            },
+          ];
         },
         async update(update: any) {
           updates.push(update);
@@ -133,20 +187,58 @@ test("MTGJSON identifier mapping assigns UUIDs only through Scryfall IDs", async
     {
       data: {
         "uuid-clear": { identifiers: { scryfallId: "sf-clear" } },
+        "uuid-tuple": {
+          setCode: "WHO",
+          number: "010",
+          name: "Forest",
+          language: "en",
+          identifiers: {},
+        },
+        "uuid-ambiguous": {
+          setCode: "ABC",
+          number: "1",
+          name: "Ambiguous Card",
+          language: "en",
+          identifiers: {},
+        },
         "uuid-missing": { identifiers: { scryfallId: "sf-missing" } },
-        "uuid-no-id": { identifiers: {} },
       },
     },
   );
-  assert.deepEqual(report, {
-    scanned: 3,
-    mapped: 1,
-    ambiguous: 0,
-    unmatched: 2,
-  });
+  assert.equal(report.scanned, 4);
+  assert.equal(report.localCards, 4);
+  assert.equal(report.mapped, 2);
+  assert.equal(report.ambiguous, 1);
+  assert.equal(report.unmatched, 1);
   assert.deepEqual(updates, [
-    { where: { id: "card-clear" }, data: { mtgjsonUuid: "uuid-clear" } },
+    { where: { id: "card-scryfall" }, data: { mtgjsonUuid: "uuid-clear" } },
+    { where: { id: "card-tuple" }, data: { mtgjsonUuid: "uuid-tuple" } },
   ]);
+});
+
+test("MTGJSON price import warns clearly when no local cards are mapped", async () => {
+  const db = {
+    card: {
+      async count({ where }: any = {}) {
+        return where?.mtgjsonUuid?.not === null ? 0 : 1;
+      },
+      async findMany() {
+        return [];
+      },
+    },
+    cardPriceSnapshot: {
+      async createMany() {
+        throw new Error("should not insert without mapped cards");
+      },
+    },
+  } as any;
+  const report = await importMtgjsonPricePayload(db, fixture, "today");
+  assert.equal(report.localCards, 1);
+  assert.equal(report.localCardsWithMtgjsonUuidBefore, 0);
+  assert.equal(report.matchedLocalCards, 0);
+  assert.equal(report.snapshotsParsed, 0);
+  assert.equal(report.snapshotsInserted, 0);
+  assert.match(report.errors[0], /No local cards are mapped/);
 });
 
 test("latest price helper prefers MTGJSON providers and falls back to Scryfall", () => {
@@ -229,6 +321,7 @@ test("schema and admin route define MTGJSON price storage and admin-only imports
     "utf8",
   );
   const adminPage = readFileSync("app/admin/prices/page.tsx", "utf8");
+  const script = readFileSync("scripts/import-mtgjson-prices.ts", "utf8");
   assert.match(schema, /mtgjsonUuid\s+String\?\s+@unique/);
   assert.match(schema, /model CardPriceSnapshot/);
   assert.match(
@@ -238,5 +331,7 @@ test("schema and admin route define MTGJSON price storage and admin-only imports
   assert.match(migration, /CREATE TABLE "CardPriceSnapshot"/);
   assert.match(adminRoute, /requireAdminMode/);
   assert.match(adminPage, /Import today’s prices/);
+  assert.match(adminPage, /Map MTGJSON card UUIDs/);
   assert.match(adminPage, /Backfill 90-day price history/);
+  assert.match(script, /mapMtgjsonCards/);
 });
