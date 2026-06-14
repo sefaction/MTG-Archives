@@ -159,6 +159,8 @@ test("admin pricing page and worker source expose background job workflow", () =
   const jobsRoute = readFileSync("app/api/admin/prices/jobs/route.ts", "utf8");
   const worker = readFileSync("scripts/price-worker.ts", "utf8");
   const compose = readFileSync("docker-compose.yml", "utf8");
+  const dockerfile = readFileSync("Dockerfile", "utf8");
+  const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
   assert.match(adminPage, /Import today(&apos;|')s prices/);
   assert.match(adminPage, /Backfill price history/);
   assert.match(adminPage, /Price worker:/);
@@ -171,6 +173,11 @@ test("admin pricing page and worker source expose background job workflow", () =
   assert.match(worker, /polling for queued jobs/);
   assert.match(worker, /PRICE_WORKER_TEST_MODE/);
   assert.match(worker, /runOnePriceImportJob/);
+  assert.equal(packageJson.scripts["worker:prices"], "tsx scripts/price-worker.ts");
+  assert.match(dockerfile, /COPY --from=builder \/app\/scripts \.\/scripts/);
+  assert.match(dockerfile, /COPY --from=builder \/app\/lib \.\/lib/);
+  assert.match(dockerfile, /COPY --from=builder \/app\/tsconfig\.json \.\/tsconfig\.json/);
   assert.match(compose, /price-worker:/);
+  assert.match(compose, /command: npm run worker:prices/);
   assert.match(compose, /PRICE_WORKER_HEARTBEAT_INTERVAL_MS/);
 });
