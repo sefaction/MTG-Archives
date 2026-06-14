@@ -258,11 +258,27 @@ export async function GET(request: Request) {
       keywords: true,
     },
   });
+  const inventoryMtgjsonPricesEnabled =
+    process.env.ENABLE_INVENTORY_MTGJSON_PRICES !== "false";
   const latestPriceStartedAt = process.hrtime.bigint();
-  const latestPriceSnapshotsByCard = await getLatestPriceSnapshotsForCards(
-    cardSortData.map((card) => card.id),
-    { provider: preferredPriceProvider },
-  );
+  let latestPriceSnapshotsByCard = new Map<string, any[]>();
+  let latestPriceLookupError: string | null = null;
+  if (inventoryMtgjsonPricesEnabled) {
+    try {
+      latestPriceSnapshotsByCard = await getLatestPriceSnapshotsForCards(
+        cardSortData.map((card) => card.id),
+        { provider: preferredPriceProvider },
+      );
+    } catch (error: any) {
+      latestPriceLookupError = String(error?.message || error);
+      console.error("[inventory-list] latest price lookup failed", {
+        route: "app/api/inventory/list/route.ts",
+        cardIds: cardSortData.length,
+        preferredPriceProvider,
+        error: latestPriceLookupError,
+      });
+    }
+  }
   const latestPriceLookupMs =
     Number(process.hrtime.bigint() - latestPriceStartedAt) / 1_000_000;
   const cardSortById = new Map(
@@ -307,10 +323,7 @@ export async function GET(request: Request) {
     ? await prisma.inventoryItem.findMany({
         where: pageGroupWhere,
         include: {
-          card: {
-            include: {
-            },
-          },
+          card: true,
           currentOwner: true,
           location: true,
         },

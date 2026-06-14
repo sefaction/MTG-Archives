@@ -378,6 +378,8 @@ model CardPriceSnapshot {
 
   @@unique([cardId, provider, finish, priceType, currency, observedDate])
   @@index([cardId, observedDate])
+  @@index([cardId, provider, finish, priceType, currency, observedDate])
+  @@index([provider, currency, observedDate])
   @@index([provider, observedDate])
   @@index([observedDate])
   @@index([mtgjsonUuid])

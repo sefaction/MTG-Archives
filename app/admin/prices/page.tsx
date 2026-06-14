@@ -11,13 +11,7 @@ import {
   mapMtgjsonCardsAction,
 } from "./actions";
 import { mtgjsonPriceFileUrl } from "@/lib/mtgjson-prices";
-import {
-  collectionValueHistory,
-  formatSelectedPrice,
-  inventoryValueByProvider,
-  PRICE_PROVIDER_OPTIONS,
-  providerLabel,
-} from "@/lib/price-history";
+import { providerLabel } from "@/lib/price-history";
 import {
   isPriceWorkerHeartbeatFresh,
   listPriceWorkerHeartbeats,
@@ -25,38 +19,33 @@ import {
 
 export default async function AdminPricesPage() {
   await requireAdminMode();
+  const adminStatsEnabled = process.env.ENABLE_ADMIN_PRICE_STATS !== "false";
+  const adminStatsStartedAt = process.hrtime.bigint();
   const [
     snapshotCount,
     matchedCards,
     providerRows,
     lastSnapshot,
-    inventoryItems,
     recentJobs,
     workerHeartbeats,
   ] = await Promise.all([
-    prisma.cardPriceSnapshot.count(),
-    prisma.card.count({ where: { mtgjsonUuid: { not: null } } }),
-    prisma.cardPriceSnapshot.groupBy({
-      by: ["provider"],
-      _count: { _all: true },
-    }),
-    prisma.cardPriceSnapshot.findFirst({ orderBy: { importedAt: "desc" } }),
-    prisma.inventoryItem.findMany({
-      where: { quantity: { gt: 0 } },
-      select: {
-        quantity: true,
-        foilStatus: true,
-        card: {
-          select: {
-            prices: true,
-            priceSnapshots: {
-              orderBy: [{ observedDate: "desc" }],
-              take: 90,
-            },
-          },
-        },
-      },
-    }),
+    adminStatsEnabled ? prisma.cardPriceSnapshot.count() : Promise.resolve(null),
+    adminStatsEnabled
+      ? prisma.card.count({ where: { mtgjsonUuid: { not: null } } })
+      : Promise.resolve(null),
+    adminStatsEnabled
+      ? prisma.cardPriceSnapshot.findMany({
+          distinct: ["provider"],
+          select: { provider: true },
+          orderBy: { provider: "asc" },
+        })
+      : Promise.resolve([]),
+    adminStatsEnabled
+      ? prisma.cardPriceSnapshot.findFirst({
+          orderBy: { importedAt: "desc" },
+          select: { importedAt: true, observedDate: true },
+        })
+      : Promise.resolve(null),
     prisma.priceImportJob.findMany({
       take: 10,
       orderBy: { createdAt: "desc" },
@@ -64,35 +53,19 @@ export default async function AdminPricesPage() {
     }),
     listPriceWorkerHeartbeats(undefined, 5),
   ]);
-  const unmatchedCards = await prisma.card.count({
-    where: { mtgjsonUuid: null },
-  });
+  const adminStatsMs = Number(process.hrtime.bigint() - adminStatsStartedAt) / 1_000_000;
+  if (adminStatsMs > 500) {
+    console.warn("[admin-prices] pricing stats diagnostics", {
+      elapsedMs: adminStatsMs,
+      adminStatsEnabled,
+      providerRows: providerRows.length,
+      fullHistoryQueried: false,
+    });
+  }
+  const unmatchedCards = adminStatsEnabled
+    ? await prisma.card.count({ where: { mtgjsonUuid: null } })
+    : null;
   const providers = providerRows.map((row) => row.provider).sort();
-  const providerValueRows = PRICE_PROVIDER_OPTIONS.filter(
-    (option) => option.value !== "scryfall",
-  ).map((option) => ({
-    provider: option.value,
-    label: option.label,
-    value: inventoryValueByProvider(
-      inventoryItems.map((item) => ({
-        quantity: item.quantity,
-        foilStatus: item.foilStatus,
-        card: item.card,
-      })),
-      { preferredProvider: option.value },
-    ),
-  }));
-  const historyRows = collectionValueHistory(
-    inventoryItems.map((item) => ({
-      quantity: item.quantity,
-      foilStatus: item.foilStatus,
-      card: item.card,
-    })),
-    {
-      provider: process.env.MTGJSON_PRICE_PROVIDER_DEFAULT || "tcgplayer",
-      days: 14,
-    },
-  );
 
   return (
     <main className="space-y-6 p-8">
@@ -109,13 +82,13 @@ export default async function AdminPricesPage() {
       <section className="grid gap-4 md:grid-cols-3">
         <div className="rounded border border-zinc-800 p-4">
           <p className="text-sm text-zinc-400">Snapshots stored</p>
-          <p className="text-2xl font-bold">{snapshotCount}</p>
+          <p className="text-2xl font-bold">{snapshotCount ?? "Disabled"}</p>
         </div>
         <div className="rounded border border-zinc-800 p-4">
           <p className="text-sm text-zinc-400">Cards mapped to MTGJSON</p>
-          <p className="text-2xl font-bold">{matchedCards}</p>
+          <p className="text-2xl font-bold">{matchedCards ?? "Disabled"}</p>
           <p className="text-xs text-zinc-500">
-            Unmapped local cards: {unmatchedCards}
+            Unmapped local cards: {unmatchedCards ?? "Disabled"}
           </p>
         </div>
         <div className="rounded border border-zinc-800 p-4">
@@ -217,55 +190,10 @@ export default async function AdminPricesPage() {
       </section>
 
       <section className="space-y-3 rounded border border-zinc-800 p-4">
-        <h2 className="text-xl font-semibold">Collection value history</h2>
-        <p className="text-sm text-zinc-400">
-          Current collection value by provider and recent daily value points are
-          calculated from inventory quantities and stored MTGJSON snapshots.
-        </p>
-        <div className="grid gap-3 md:grid-cols-4">
-          {providerValueRows.map((row) => (
-            <div
-              key={row.provider}
-              className="rounded border border-zinc-800 p-3"
-            >
-              <p className="text-xs text-zinc-400">{row.label}</p>
-              <p className="text-lg font-semibold">
-                {formatSelectedPrice({
-                  amount: row.value,
-                  provider: row.provider,
-                  providerLabel: row.label,
-                  finish: "normal",
-                  priceType: "retail",
-                  currency: "USD",
-                  observedDate: new Date(),
-                  source: "mtgjson",
-                })}
-              </p>
-            </div>
-          ))}
-        </div>
-        {historyRows.length ? (
-          <table className="text-sm">
-            <thead className="text-zinc-400">
-              <tr>
-                <th className="pr-4 text-left">Date</th>
-                <th className="text-left">Value</th>
-              </tr>
-            </thead>
-            <tbody>
-              {historyRows.map((row) => (
-                <tr key={row.date}>
-                  <td className="pr-4">{row.date}</td>
-                  <td>${row.value.toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p className="text-sm text-zinc-500">
-            Import MTGJSON history to populate collection value history.
-          </p>
-        )}
+        <h2 className="text-xl font-semibold">Pricing analytics</h2>
+        <p className="sr-only">Collection value history moved to dedicated analytics.</p>
+        <p className="text-sm text-zinc-400">Heavy collection value and trend calculations are available on the dedicated pricing page.</p>
+        <a className="text-sm text-sky-300 underline" href="/pricing">Open pricing analytics</a>
       </section>
     </main>
   );

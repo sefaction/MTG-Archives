@@ -41,6 +41,18 @@ export default async function PricingPage({
   const user = await requireLogin();
   const accessScope = await getAccessScope(user);
   if (!accessScope) return null;
+  const pricingAnalyticsEnabled = process.env.ENABLE_PRICING_ANALYTICS !== "false";
+  if (!pricingAnalyticsEnabled) {
+    return (
+      <main className="space-y-6 p-8">
+        <Nav />
+        <h1 className="text-3xl font-bold">Pricing analytics</h1>
+        <p className="rounded border border-amber-800 bg-amber-950/20 p-4 text-amber-100">
+          Pricing analytics are temporarily disabled by ENABLE_PRICING_ANALYTICS=false.
+        </p>
+      </main>
+    );
+  }
   const params = await searchParams;
   const scope = (params.scope === "location" || params.scope === "card" ? params.scope : "collection") as PricingScope;
   const range = (["7", "30", "90", "all"].includes(String(params.range)) ? String(params.range) : "30") as PricingRange;

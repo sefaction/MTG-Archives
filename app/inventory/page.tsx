@@ -149,11 +149,27 @@ export default async function InventoryPage({
       keywords: true,
     },
   });
+  const inventoryMtgjsonPricesEnabled =
+    process.env.ENABLE_INVENTORY_MTGJSON_PRICES !== "false";
   const latestPriceStartedAt = process.hrtime.bigint();
-  const latestPriceSnapshotsByCard = await getLatestPriceSnapshotsForCards(
-    cardSortData.map((card) => card.id),
-    { provider: preferredPriceProvider },
-  );
+  let latestPriceSnapshotsByCard = new Map<string, any[]>();
+  let latestPriceLookupError: string | null = null;
+  if (inventoryMtgjsonPricesEnabled) {
+    try {
+      latestPriceSnapshotsByCard = await getLatestPriceSnapshotsForCards(
+        cardSortData.map((card) => card.id),
+        { provider: preferredPriceProvider },
+      );
+    } catch (error: any) {
+      latestPriceLookupError = String(error?.message || error);
+      console.error("[inventory-list] latest price lookup failed", {
+        route: "app/inventory/page.tsx",
+        cardIds: cardSortData.length,
+        preferredPriceProvider,
+        error: latestPriceLookupError,
+      });
+    }
+  }
   const latestPriceLookupMs =
     Number(process.hrtime.bigint() - latestPriceStartedAt) / 1_000_000;
   const cardSortById = new Map(
@@ -202,10 +218,7 @@ export default async function InventoryPage({
     ? await prisma.inventoryItem.findMany({
         where: pageGroupWhere,
         include: {
-          card: {
-            include: {
-            },
-          },
+          card: true,
           currentOwner: true,
           location: true,
         },
@@ -229,7 +242,8 @@ export default async function InventoryPage({
       totalMatchingCount,
       priceLookupMs: latestPriceLookupMs,
       priceRowsLoaded: Array.from(latestPriceSnapshotsByCard.values()).reduce((sum, rows) => sum + rows.length, 0),
-      latestPriceProjection: "batched-card-price-snapshot-distinct",
+      latestPriceProjection: inventoryMtgjsonPricesEnabled ? "batched-card-price-snapshot-distinct" : "disabled",
+      latestPriceLookupError,
     });
   }
   if (pageGroups.length > queryPageSize) {

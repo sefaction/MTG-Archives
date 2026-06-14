@@ -25,6 +25,7 @@ test("pricing analytics helpers expose collection, location, card, movers, and p
   const helper = readFileSync("lib/pricing-analytics.ts", "utf8");
   assert.match(helper, /getPricingAnalytics/);
   assert.match(helper, /getLatestPriceSnapshotsForCards/);
+  assert.match(helper, /distinct: \["cardId", "provider", "finish", "priceType", "currency"\]/);
   assert.match(helper, /scope === "location"/);
   assert.match(helper, /scope === "card"/);
   assert.match(helper, /topGainers/);
@@ -45,4 +46,24 @@ test("inventory page uses latest price projection and avoids full history joins"
   }
   assert.match(inventory, /priceLookupMs/);
   assert.match(inventory, /latestPriceProjection/);
+  assert.match(inventory, /ENABLE_INVENTORY_MTGJSON_PRICES/);
+  assert.match(inventory, /latest price lookup failed/);
+});
+
+
+test("admin pricing page remains operational without heavy history analytics", () => {
+  const adminPrices = readFileSync("app/admin/prices/page.tsx", "utf8");
+  assert.match(adminPrices, /ENABLE_ADMIN_PRICE_STATS/);
+  assert.match(adminPrices, /PriceImportJobsPanel/);
+  assert.match(adminPrices, /listPriceWorkerHeartbeats/);
+  assert.doesNotMatch(adminPrices, /inventoryItem\.findMany\(\{[\s\S]*priceSnapshots/);
+  assert.doesNotMatch(adminPrices, /collectionValueHistory|inventoryValueByProvider|providerValueRows|historyRows/);
+});
+
+test("pricing feature flags and snapshot indexes are present", () => {
+  const pricingPage = readFileSync("app/pricing/page.tsx", "utf8");
+  const schema = readFileSync("prisma/schema.prisma", "utf8");
+  assert.match(pricingPage, /ENABLE_PRICING_ANALYTICS/);
+  assert.match(schema, /@@index\(\[cardId, provider, finish, priceType, currency, observedDate\]\)/);
+  assert.match(schema, /@@index\(\[provider, currency, observedDate\]\)/);
 });
