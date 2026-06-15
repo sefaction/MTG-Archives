@@ -220,6 +220,10 @@ export function DeckListEditor({
     () => rows.filter((row) => selected.has(row.id)),
     [rows, selected],
   );
+  const selectedDrawerRow = useMemo(
+    () => rows.find((row) => row.id === expanded) ?? null,
+    [rows, expanded],
+  );
   const selectedQuantity = selectedRows.reduce(
     (total, row) => total + row.quantity,
     0,
@@ -721,6 +725,18 @@ export function DeckListEditor({
         />
       )}
 
+      <DeckEntryDrawer
+        deckId={deckId}
+        row={selectedDrawerRow}
+        sections={sections}
+        canEdit={canEdit}
+        showPrivateInventory={showPrivateInventory}
+        returnLocations={returnLocations}
+        onClose={() => setExpanded(null)}
+        previewOwned={(rowId) => loadPreview("owned", [rowId])}
+        previewCheapest={(rowId) => loadPreview("cheapest", [rowId])}
+      />
+
       {rows.length === 0 ? (
         <p className="rounded border border-zinc-800 p-4 text-zinc-400">
           No cards in this deck yet.
@@ -745,7 +761,7 @@ function TextDeckView(props: {
   returnLocations: DeckReturnLocation[];
 }) {
   return (
-    <div className="grid gap-4 xl:grid-cols-2">
+    <div className="space-y-3">
       {props.groups.map((group) => (
         <section key={group.label} className="rounded border border-zinc-800">
           <GroupHeader
@@ -757,13 +773,17 @@ function TextDeckView(props: {
             <table className="min-w-full text-sm">
               <thead className="text-left text-zinc-300">
                 <tr>
-                  {props.canEdit ? <th className="p-3">Select</th> : null}
-                  <th className="p-3">Qty</th>
-                  <th className="p-3">Card</th>
-                  <th className="p-3">Mana</th>
-                  <th className="p-3">Printing</th>
-                  <th className="p-3">Owned</th>
-                  <th className="p-3">Actions</th>
+                  {props.canEdit ? (
+                    <th className="px-2 py-1.5">Select</th>
+                  ) : null}
+                  <th className="px-2 py-1.5">Qty</th>
+                  <th className="px-2 py-1.5">Card</th>
+                  <th className="px-2 py-1.5">MV / Mana</th>
+                  <th className="px-2 py-1.5">Section</th>
+                  <th className="px-2 py-1.5">Inventory</th>
+                  <th className="px-2 py-1.5">
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -785,81 +805,61 @@ function TextDeckRow({
 }: { row: DeckEditorRow } & Parameters<typeof TextDeckView>[0]) {
   const expanded = props.expanded === row.id;
   return (
-    <>
-      <tr className="border-t border-zinc-800 align-top hover:bg-zinc-900/40">
-        {props.canEdit ? (
-          <td className="p-3">
-            <input
-              aria-label={`Select ${row.cardName}`}
-              type="checkbox"
-              checked={props.selected.has(row.id)}
-              onChange={(event) =>
-                props.toggleSelected(row.id, event.target.checked)
-              }
-            />
-          </td>
-        ) : null}
-        <td className="p-3 font-semibold">{row.quantity}</td>
-        <td className="p-3">
-          <button
-            type="button"
-            className="text-left text-sky-100 hover:underline"
-            onClick={() => props.setExpanded(expanded ? null : row.id)}
-          >
-            {row.cardName}
-          </button>
-          <div className="text-xs text-zinc-500">
-            {row.card?.typeLine ?? row.matchType}
-          </div>
-          {row.notes ? (
-            <div className="mt-1 text-xs text-zinc-400">Notes: {row.notes}</div>
-          ) : null}
-        </td>
-        <td className="p-3">
-          <ManaCost value={row.card?.manaCost ?? null} />
-        </td>
-        <td className="p-3">
-          {row.card ? (
-            <>
-              <SetSymbol
-                setCode={row.card.setCode}
-                setName={row.card.setName}
-                rarity={row.card.rarity}
-              />{" "}
-              <span className="text-xs text-zinc-400">
-                #{row.card.collectorNumber} · {priceLabel(row.card.prices)}
-              </span>
-            </>
-          ) : (
-            <span className="text-zinc-500">Generic</span>
-          )}
-        </td>
-        <td className="p-3">{ownedBadge(row, props.showPrivateInventory)}</td>
-        <td className="p-3">
-          <CardActions
-            canEdit={props.canEdit}
-            expanded={expanded}
-            toggleExpanded={() => props.setExpanded(expanded ? null : row.id)}
-            previewOwned={() => props.previewOwned(row.id)}
-            previewCheapest={() => props.previewCheapest(row.id)}
+    <tr
+      className={cn(
+        "border-t border-zinc-800 align-middle hover:bg-zinc-900/50",
+        expanded && "bg-sky-950/20",
+      )}
+    >
+      {props.canEdit ? (
+        <td className="px-2 py-1.5">
+          <input
+            aria-label={`Select ${row.cardName}`}
+            type="checkbox"
+            checked={props.selected.has(row.id)}
+            onChange={(event) =>
+              props.toggleSelected(row.id, event.target.checked)
+            }
           />
         </td>
-      </tr>
-      {expanded ? (
-        <tr className="border-t border-sky-900 bg-sky-950/10 align-top">
-          <td colSpan={props.canEdit ? 7 : 6} className="p-4">
-            <RowEditor
-              deckId={props.deckId}
-              row={row}
-              sections={props.sections}
-              canEdit={props.canEdit}
-              showPrivateInventory={props.showPrivateInventory}
-              returnLocations={props.returnLocations}
-            />
-          </td>
-        </tr>
       ) : null}
-    </>
+      <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold text-zinc-100">
+        {row.quantity}
+      </td>
+      <td className="min-w-[220px] px-2 py-1.5">
+        <button
+          type="button"
+          className="text-left font-medium text-sky-100 hover:underline"
+          onClick={() => props.setExpanded(row.id)}
+        >
+          {row.cardName}
+        </button>
+        <div className="line-clamp-1 text-xs text-zinc-400">
+          {row.card?.typeLine ?? row.matchType}
+        </div>
+        {row.card ? (
+          <div className="text-[11px] text-zinc-500">
+            {row.card.setCode.toUpperCase()} #{row.card.collectorNumber}
+          </div>
+        ) : null}
+      </td>
+      <td className="whitespace-nowrap px-2 py-1.5 text-xs text-zinc-300">
+        <span className="mr-1 text-zinc-500">MV {cardManaValue(row)}</span>
+        <ManaCost value={row.card?.manaCost ?? null} />
+      </td>
+      <td className="whitespace-nowrap px-2 py-1.5 text-xs text-zinc-300">
+        {deckSectionLabel(row.section)}
+      </td>
+      <td className="px-2 py-1.5">
+        {ownedBadge(row, props.showPrivateInventory)}
+      </td>
+      <td className="px-2 py-1.5 text-right">
+        <CardActions
+          expanded={expanded}
+          toggleExpanded={() => props.setExpanded(row.id)}
+        />
+      </td>
+    </tr>
   );
 }
 
@@ -927,27 +927,10 @@ function VisualDeckView(
                   </div>
                   <div className="mt-2">
                     <CardActions
-                      canEdit={props.canEdit}
                       expanded={expanded}
-                      toggleExpanded={() =>
-                        props.setExpanded(expanded ? null : row.id)
-                      }
-                      previewOwned={() => props.previewOwned(row.id)}
-                      previewCheapest={() => props.previewCheapest(row.id)}
+                      toggleExpanded={() => props.setExpanded(row.id)}
                     />
                   </div>
-                  {expanded ? (
-                    <div className="mt-3">
-                      <RowEditor
-                        deckId={props.deckId}
-                        row={row}
-                        sections={props.sections}
-                        canEdit={props.canEdit}
-                        showPrivateInventory={props.showPrivateInventory}
-                        returnLocations={props.returnLocations}
-                      />
-                    </div>
-                  ) : null}
                 </article>
               );
             })}
@@ -980,48 +963,111 @@ function GroupHeader({
 }
 
 function CardActions({
-  canEdit,
   expanded,
   toggleExpanded,
+}: {
+  expanded: boolean;
+  toggleExpanded: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-200 hover:border-sky-700 hover:text-sky-100"
+      onClick={toggleExpanded}
+      aria-label={
+        expanded ? "Deck entry details open" : "Open deck entry details"
+      }
+    >
+      {expanded ? "Details open" : "Details"}
+    </button>
+  );
+}
+
+function DeckEntryDrawer({
+  deckId,
+  row,
+  sections,
+  canEdit,
+  showPrivateInventory,
+  returnLocations,
+  onClose,
   previewOwned,
   previewCheapest,
 }: {
+  deckId: string;
+  row: DeckEditorRow | null;
+  sections: DeckSection[];
   canEdit: boolean;
-  expanded: boolean;
-  toggleExpanded: () => void;
-  previewOwned: () => void;
-  previewCheapest: () => void;
+  showPrivateInventory: boolean;
+  returnLocations: DeckReturnLocation[];
+  onClose: () => void;
+  previewOwned: (rowId: string) => void;
+  previewCheapest: (rowId: string) => void;
 }) {
+  if (!row) return null;
+
   return (
-    <div className="flex flex-wrap gap-2 text-xs">
+    <div className="fixed inset-0 z-40" role="dialog" aria-modal="true">
       <button
         type="button"
-        className="rounded border border-zinc-700 px-2 py-1"
-        onClick={toggleExpanded}
-      >
-        {expanded ? "Close details" : canEdit ? "Edit/details" : "Details"}
-      </button>
-      {canEdit ? (
-        <>
+        className="absolute inset-0 bg-black/60"
+        aria-label="Close deck entry details"
+        onClick={onClose}
+      />
+      <aside className="absolute inset-x-0 bottom-0 max-h-[92vh] overflow-y-auto rounded-t-2xl border border-zinc-800 bg-zinc-950 shadow-2xl md:inset-y-0 md:left-auto md:right-0 md:w-[min(92vw,760px)] md:rounded-l-2xl md:rounded-tr-none">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-zinc-800 bg-zinc-950/95 p-4 backdrop-blur">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-zinc-500">
+              Deck entry details
+            </p>
+            <h2 className="text-xl font-semibold text-sky-100">
+              {row.cardName}
+            </h2>
+            <p className="text-sm text-zinc-400">
+              {row.quantity} × {deckSectionLabel(row.section)} · MV{" "}
+              {cardManaValue(row)} · {row.card?.typeLine ?? row.matchType}
+            </p>
+          </div>
           <button
             type="button"
-            className={cn(
-              filterPrimaryButtonClass,
-              "px-2 py-1 border-emerald-700 text-emerald-100 hover:bg-emerald-950/40",
-            )}
-            onClick={previewOwned}
+            className="rounded border border-zinc-700 px-3 py-1 text-sm text-zinc-200"
+            onClick={onClose}
           >
-            Use owned printing
+            Close
           </button>
-          <button
-            type="button"
-            className="rounded border border-sky-700 px-2 py-1 text-sky-100"
-            onClick={previewCheapest}
-          >
-            Use cheapest printing
-          </button>
-        </>
-      ) : null}
+        </div>
+        <div className="space-y-3 p-4">
+          {canEdit ? (
+            <div className="flex flex-wrap gap-2 rounded border border-zinc-800 bg-zinc-900/40 p-2 text-sm">
+              <button
+                type="button"
+                className={cn(
+                  filterPrimaryButtonClass,
+                  "px-2 py-1 border-emerald-700 text-emerald-100 hover:bg-emerald-950/40",
+                )}
+                onClick={() => previewOwned(row.id)}
+              >
+                Use owned printing
+              </button>
+              <button
+                type="button"
+                className="rounded border border-sky-700 px-2 py-1 text-sky-100"
+                onClick={() => previewCheapest(row.id)}
+              >
+                Use cheapest printing
+              </button>
+            </div>
+          ) : null}
+          <RowEditor
+            deckId={deckId}
+            row={row}
+            sections={sections}
+            canEdit={canEdit}
+            showPrivateInventory={showPrivateInventory}
+            returnLocations={returnLocations}
+          />
+        </div>
+      </aside>
     </div>
   );
 }
@@ -1074,7 +1120,7 @@ function RowEditor({
           ) : null}
         </div>
         {canEdit ? (
-          <div className="grid gap-4 xl:grid-cols-2">
+          <div className="space-y-3">
             <form
               action={updateDeckCard}
               className="grid gap-3 rounded border border-zinc-800 p-3 md:grid-cols-3"

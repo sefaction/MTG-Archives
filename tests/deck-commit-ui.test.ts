@@ -92,3 +92,23 @@ test("deck bulk tools include selected committed inventory return workflow", () 
     /Skipped \$\{result\.skippedRows\} selected rows with no committed copies/,
   );
 });
+
+test("deck list rows stay compact and delegate details to a responsive drawer", () => {
+  assert.match(source, /function DeckEntryDrawer/);
+  assert.match(source, /role="dialog" aria-modal="true"/);
+  assert.match(
+    source,
+    /md:right-0 md:w=\{\"\[min\(92vw,760px\)\]\"\}|md:w-\[min\(92vw,760px\)\]/,
+  );
+  assert.match(source, /Deck entry details/);
+  assert.match(source, /<RowEditor[\s\S]*returnLocations=\{returnLocations\}/);
+  assert.match(source, /<th className="px-2 py-1\.5">Qty<\/th>/);
+  assert.match(source, /<th className="px-2 py-1\.5">MV \/ Mana<\/th>/);
+  assert.match(source, /<th className="px-2 py-1\.5">Section<\/th>/);
+  const textRow = source.slice(
+    source.indexOf("function TextDeckRow"),
+    source.indexOf("function VisualDeckView"),
+  );
+  assert.doesNotMatch(textRow, /Use owned printing/);
+  assert.doesNotMatch(textRow, /Use cheapest printing/);
+});
