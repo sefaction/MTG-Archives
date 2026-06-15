@@ -577,11 +577,7 @@ export default async function DeckDetailPage({
             <div id="add-card">
               <DeckCardPicker
                 deckId={deck.id}
-                defaultSection={
-                  deck.format === DeckFormat.COMMANDER
-                    ? DeckSection.COMMANDER
-                    : DeckSection.MAINBOARD
-                }
+                defaultSection={DeckSection.MAINBOARD}
                 sections={deckSections}
               />
             </div>
