@@ -1,4 +1,4 @@
-import { Card, Prisma } from "@prisma/client";
+import { Card, InventoryLocationKind, Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { normalizeCardName, upsertScryfallCard } from "./card-import";
 import { formatScryfallError, searchCardsResult } from "./scryfall";
@@ -21,6 +21,11 @@ export type DeckCardSearchResult = {
   ownedExactQuantity: number;
   ownedOtherPrintingQuantity: number;
   locationSummary: string;
+  availableLocations: Array<{
+    inventoryItemId: string;
+    locationName: string;
+    quantity: number;
+  }>;
   finishes: string[];
   source: "owned" | "local" | "scryfall";
   badges: string[];
@@ -103,6 +108,7 @@ export async function getOwnershipByCard(
   });
   const map = new Map<string, { quantity: number; locations: string[] }>();
   for (const item of items) {
+    if (item.location?.kind === InventoryLocationKind.DECK) continue;
     const current = map.get(item.cardId) ?? { quantity: 0, locations: [] };
     current.quantity += item.quantity;
     if (item.location?.name && !current.locations.includes(item.location.name))
@@ -180,6 +186,7 @@ function cardToResult(
     ownedExactQuantity,
     ownedOtherPrintingQuantity,
     locationSummary: exact?.locations.slice(0, 3).join(", ") ?? "",
+    availableLocations: [],
     finishes,
     source,
     badges,
@@ -269,19 +276,51 @@ export async function searchDeckCardPrintings(input: {
     ),
   ]);
   const localIds = new Set(local.map((card) => card.id));
+  const availableItems = input.ownerPlayerId
+    ? await prisma.inventoryItem.findMany({
+        where: {
+          currentOwnerId: input.ownerPlayerId,
+          quantity: { gt: 0 },
+          cardId: { in: allCards.map((card) => card.id) },
+          location: { kind: { not: InventoryLocationKind.DECK } },
+        },
+        include: { location: true },
+        orderBy: [{ location: { name: "asc" } }],
+      })
+    : [];
+  const availableByCard = new Map<
+    string,
+    DeckCardSearchResult["availableLocations"]
+  >();
+  for (const item of availableItems) {
+    const locationName = item.location?.name ?? "Unassigned";
+    const list = availableByCard.get(item.cardId) ?? [];
+    list.push({
+      inventoryItemId: item.id,
+      locationName,
+      quantity: item.quantity,
+    });
+    availableByCard.set(item.cardId, list);
+  }
+
   const results = orderDeckSearchResults(
-    allCards.map((card) =>
-      cardToResult(
-        card,
-        ownership,
-        oracleTotals,
-        ownership.get(card.id)?.quantity
-          ? "owned"
-          : localIds.has(card.id)
-            ? "local"
-            : "scryfall",
-      ),
-    ),
+    allCards
+      .map((card) =>
+        cardToResult(
+          card,
+          ownership,
+          oracleTotals,
+          ownership.get(card.id)?.quantity
+            ? "owned"
+            : localIds.has(card.id)
+              ? "local"
+              : "scryfall",
+        ),
+      )
+      .map((result) => ({
+        ...result,
+        availableLocations: availableByCard.get(result.cardId) ?? [],
+      })),
   ).slice(0, limit);
   return {
     query,

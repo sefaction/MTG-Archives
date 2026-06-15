@@ -23,7 +23,11 @@ import {
   recordInventoryAuditMany,
   type InventoryAuditCreateManyEntry,
 } from "@/lib/inventory-audit";
-import { canManageDeck, normalizePositiveQuantity } from "@/lib/decks";
+import {
+  DEFAULT_DECK_CARD_SECTION,
+  canManageDeck,
+  normalizePositiveQuantity,
+} from "@/lib/decks";
 import {
   auditDeckMoveSnapshot,
   ensureDeckLocation,
@@ -219,9 +223,11 @@ export async function addDeckCard(fd: FormData) {
   const section = enumValue(
     DeckSection,
     formString(fd, "section"),
-    DeckSection.MAINBOARD,
+    DEFAULT_DECK_CARD_SECTION,
   );
   const quantity = normalizePositiveQuantity(fd.get("quantity"));
+  const commitImmediately = formString(fd, "commitImmediately") === "on";
+  const inventoryItemId = formString(fd, "inventoryItemId");
   const notes = formString(fd, "notes") || null;
 
   let card = cardId
@@ -239,33 +245,92 @@ export async function addDeckCard(fd: FormData) {
       "Select a specific card printing before adding it to the deck.",
     );
 
-  const existing = await prisma.deckCard.findFirst({
-    where: { deckId, cardId: card.id, section },
-  });
-  if (existing) {
-    await prisma.deckCard.update({
-      where: { id: existing.id },
-      data: {
-        quantity: existing.quantity + quantity,
-        notes: notes || existing.notes,
-      },
-    });
-  } else {
-    await prisma.deckCard.create({
-      data: {
-        deckId,
-        cardId: card.id,
-        scryfallId: card.scryfallId,
-        oracleId: card.oracleId,
-        cardName: card.name,
-        section,
-        quantity,
-        isCommander: section === DeckSection.COMMANDER,
-        notes,
-      },
-    });
+  const { user, deck } = await requireManagedDeck(deckId);
+  if (commitImmediately && !deck.ownerUser.playerId) {
+    throw new Error("Deck owner is not linked to an inventory owner.");
   }
+  if (commitImmediately && !inventoryItemId) {
+    throw new Error("Choose an owned inventory location to commit from.");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const existing = await tx.deckCard.findFirst({
+      where: { deckId, cardId: card.id, section },
+    });
+    if (existing) {
+      await tx.deckCard.update({
+        where: { id: existing.id },
+        data: {
+          quantity: existing.quantity + quantity,
+          notes: notes || existing.notes,
+        },
+      });
+    } else {
+      await tx.deckCard.create({
+        data: {
+          deckId,
+          cardId: card.id,
+          scryfallId: card.scryfallId,
+          oracleId: card.oracleId,
+          cardName: card.name,
+          section,
+          quantity,
+          isCommander: section === DeckSection.COMMANDER,
+          notes,
+        },
+      });
+    }
+
+    if (!commitImmediately) return;
+
+    const source = await tx.inventoryItem.findFirst({
+      where: {
+        id: inventoryItemId,
+        currentOwnerId: deck.ownerUser.playerId!,
+        cardId: card.id,
+        quantity: { gte: quantity },
+      },
+      include: { card: true, location: true },
+    });
+    if (!source || source.location?.kind === InventoryLocationKind.DECK) {
+      throw new Error("Available matching inventory copy not found.");
+    }
+    const deckLocation = await ensureDeckLocation(tx, deck);
+    const move = await moveInventoryQuantityWithinTransaction(tx, {
+      inventoryItemId: source.id,
+      toLocationId: deckLocation.id,
+      quantity,
+    });
+    const metadata = deckMoveAuditMetadata({
+      deckId: deck.id,
+      deckName: deck.name,
+      cardName: card.name,
+      sourceLocationId: source.locationId,
+      sourceLocationName: source.location?.name ?? "Unassigned",
+      destinationLocationId: deckLocation.id,
+      destinationLocationName: deckLocation.name,
+      quantityMoved: quantity,
+      beforeSourceQuantity: source.quantity,
+      afterSourceQuantity: move.sourceAfterQuantity,
+      beforeDestinationQuantity: move.destinationBeforeQuantity,
+      afterDestinationQuantity: move.destinationAfterQuantity,
+    });
+    await recordInventoryAudit({
+      tx,
+      inventoryItemId: move.auditInventoryItemId,
+      actingUserId: user.id,
+      action: inventoryAuditAction.committedToDeck,
+      before: auditDeckMoveSnapshot(source, metadata),
+      after: auditDeckMoveSnapshot(
+        { ...source, locationId: deckLocation.id, quantity },
+        metadata,
+      ),
+      reason: `Added and committed ${quantity} ${card.name} to ${deck.name}.`,
+    });
+  });
   revalidatePath(`/decks/${deckId}`);
+  revalidatePath("/inventory");
+  revalidatePath("/locations");
 }
 
 export async function updateDeckCard(fd: FormData) {
@@ -274,7 +339,7 @@ export async function updateDeckCard(fd: FormData) {
   const section = enumValue(
     DeckSection,
     formString(fd, "section"),
-    DeckSection.MAINBOARD,
+    DEFAULT_DECK_CARD_SECTION,
   );
   const quantity = normalizePositiveQuantity(fd.get("quantity"));
   const notes = formString(fd, "notes") || null;
