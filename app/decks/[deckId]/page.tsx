@@ -38,6 +38,7 @@ import {
   returnAllCommittedDeckInventory,
   updateDeck,
 } from "../actions";
+import { DeckActionPanels } from "@/components/DeckActionPanels";
 import { DeckCardPicker } from "@/components/DeckCardPicker";
 import { DeckImportPanel } from "@/components/DeckImportPanel";
 import {
@@ -46,7 +47,6 @@ import {
 } from "@/components/DeckListEditor";
 import {
   cn,
-  filterButtonClass,
   filterDangerButtonClass,
   filterFieldClass,
   filterInputClass,
@@ -256,341 +256,188 @@ export default async function DeckDetailPage({
             </p>
           ) : null}
         </section>
-        {canEdit ? (
-          <a href="#safe-delete" className={filterDangerButtonClass}>
-            Delete deck
-          </a>
-        ) : null}
       </div>
 
-      <section
-        className="rounded border border-zinc-800 bg-zinc-950/80 p-4"
-        aria-label="Deck toolbar"
-      >
-        <div className="flex flex-wrap items-center gap-2">
-          {canEdit ? (
-            <>
-              <a href="#add-card" className={filterPrimaryButtonClass}>
-                Add card
-              </a>
-              <a href="#paste-decklist" className={filterButtonClass}>
-                Paste decklist
-              </a>
-              <a href="#bulk-edit" className={filterButtonClass}>
-                Bulk edit
-              </a>
-              <a
-                href="#return-committed"
+      {canEdit ? (
+        <DeckActionPanels
+          deckName={deck.name}
+          committedQuantity={committedSummary.committedQuantity}
+          canReturnCommitted={
+            committedSummary.committedQuantity > 0 &&
+            normalReturnLocations.length > 0
+          }
+          addCard={
+            <DeckCardPicker
+              deckId={deck.id}
+              defaultSection={DeckSection.MAINBOARD}
+              sections={deckSections}
+            />
+          }
+          pasteDecklist={<DeckImportPanel deckId={deck.id} />}
+          returnCommitted={
+            <form
+              action={returnAllCommittedDeckInventory}
+              id="return-committed"
+              className="space-y-3"
+            >
+              <p className="text-sm text-zinc-300">
+                This affects physical committed inventory only. The deck list
+                stays intact. Currently physically in deck:{" "}
+                {committedSummary.committedQuantity} cards across{" "}
+                {committedSummary.committedEntries} inventory entries.
+              </p>
+              <input type="hidden" name="deckId" value={deck.id} />
+              <label className={cn(filterFieldClass, "block")}>
+                Destination normal inventory location
+                <select
+                  name="destinationLocationId"
+                  required
+                  className={cn(filterSelectClass, "mt-1 w-full")}
+                >
+                  <option value="">Choose a location…</option>
+                  {normalReturnLocations.map((location) => (
+                    <option key={location.id} value={location.id}>
+                      {location.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <SubmitButton
+                pendingLabel="Returning…"
+                disabled={
+                  committedSummary.committedQuantity === 0 ||
+                  normalReturnLocations.length === 0
+                }
                 className={cn(
                   filterPrimaryButtonClass,
                   "border-amber-700 text-amber-100 hover:bg-amber-950/40",
                 )}
+                confirmMessage="Return all physical cards from this deck location to the selected inventory location? The deck list will not be changed."
               >
                 Return all committed cards
-              </a>
-              <a
-                href="#bulk-edit"
-                className="rounded border border-emerald-700 px-3 py-2 text-emerald-100"
-              >
-                Optimize printings
-              </a>
-              <button
-                type="button"
-                disabled
-                className="rounded border border-zinc-800 px-3 py-2 text-zinc-500"
-                title="Export is coming later"
-              >
-                Export · coming later
-              </button>
-              <a href="#deck-settings" className={filterButtonClass}>
-                Deck settings
-              </a>
-            </>
-          ) : (
-            <span className="rounded border border-zinc-800 px-3 py-2 text-zinc-400">
-              Public read-only deck browser
-            </span>
-          )}
-        </div>
-      </section>
-
-      <section className="grid gap-3 rounded border border-zinc-800 p-4 text-sm md:grid-cols-4">
-        <div>
-          <span className="text-zinc-400">Total cards</span>
-          <div className="text-xl font-semibold">
-            {deckTotalQuantity(deck.cards)}
-          </div>
-        </div>
-        {usesCommander ? (
-          <div>
-            <span className="text-zinc-400">Commander</span>
-            <div className="text-xl font-semibold">
-              {sectionTotals.COMMANDER}
-            </div>
-          </div>
-        ) : null}
-        <div>
-          <span className="text-zinc-400">Committed inventory</span>
-          <div className="text-xl font-semibold text-amber-100">
-            {committedSummary.committedQuantity}
-          </div>
-        </div>
-        <div>
-          <span className="text-zinc-400">Owned exact</span>
-          <div className="text-xl font-semibold text-emerald-300">
-            {ownershipTotals.exactOwned}
-          </div>
-        </div>
-        {sectionTotals.SIDEBOARD > 0 ? (
-          <div>
-            <span className="text-zinc-400">Sideboard</span>
-            <div className="text-xl font-semibold">
-              {sectionTotals.SIDEBOARD}
-            </div>
-          </div>
-        ) : null}
-        {sectionTotals.MAYBEBOARD > 0 ? (
-          <div>
-            <span className="text-zinc-400">Maybeboard</span>
-            <div className="text-xl font-semibold">
-              {sectionTotals.MAYBEBOARD}
-            </div>
-          </div>
-        ) : null}
-        <div>
-          <span className="text-zinc-400">Missing cards</span>
-          <div className="text-xl font-semibold text-amber-200">
-            {ownershipTotals.missing}
-          </div>
-        </div>
-        {canEdit ? (
-          <div>
-            <span className="text-zinc-400">Wishlist needs</span>
-            <div className="text-xl font-semibold text-amber-200">
-              <Link href="/wishlist?tab=decks">
-                {deckWishlistMissing} needed
-              </Link>
-            </div>
-            <div className="text-xs text-emerald-300">
-              {deckWishlistAvailable} available to commit
-            </div>
-          </div>
-        ) : null}
-        <div>
-          <span className="text-zinc-400">Owned exact</span>
-          <div className="font-semibold text-emerald-300">
-            {ownershipTotals.exactOwned}
-          </div>
-        </div>
-        <div>
-          <span className="text-zinc-400">Owned other printing</span>
-          <div className="font-semibold text-sky-200">
-            {ownershipTotals.otherOwned}
-          </div>
-        </div>
-        {estimatedPrice != null ? (
-          <div>
-            <span className="text-zinc-400">Estimated price</span>
-            <div className="font-semibold">${estimatedPrice.toFixed(2)}</div>
-          </div>
-        ) : null}
-        {averageManaValue != null ? (
-          <div>
-            <span className="text-zinc-400">Average mana value</span>
-            <div className="font-semibold">{averageManaValue.toFixed(2)}</div>
-          </div>
-        ) : null}
-      </section>
-
-      {canEdit ? (
-        <section className="grid gap-4 lg:grid-cols-2">
-          <form
-            action={returnAllCommittedDeckInventory}
-            id="return-committed"
-            className="space-y-3 rounded border border-amber-900 bg-amber-950/10 p-4"
-          >
-            <h2 className="text-xl font-semibold">
-              Return committed cards to inventory
-            </h2>
-            <p className="text-sm text-zinc-300">
-              This affects physical committed inventory only. The deck list
-              stays intact. Currently physically in deck:{" "}
-              {committedSummary.committedQuantity} cards across{" "}
-              {committedSummary.committedEntries} inventory entries.
-            </p>
-            <input type="hidden" name="deckId" value={deck.id} />
-            <label className={cn(filterFieldClass, "block")}>
-              Destination normal inventory location
-              <select
-                name="destinationLocationId"
-                required
-                className={cn(filterSelectClass, "mt-1 w-full")}
-              >
-                <option value="">Choose a location…</option>
-                {normalReturnLocations.map((location) => (
-                  <option key={location.id} value={location.id}>
-                    {location.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <SubmitButton
-              pendingLabel="Returning…"
-              disabled={
-                committedSummary.committedQuantity === 0 ||
-                normalReturnLocations.length === 0
-              }
-              className={cn(
-                filterPrimaryButtonClass,
-                "border-amber-700 text-amber-100 hover:bg-amber-950/40",
-              )}
-              confirmMessage="Return all physical cards from this deck location to the selected inventory location? The deck list will not be changed."
-            >
-              Return all committed cards
-            </SubmitButton>
-          </form>
-
-          <form
-            action={deleteDeck}
-            id="safe-delete"
-            className="space-y-3 rounded border border-red-900 bg-red-950/10 p-4"
-          >
-            <h2 className="text-xl font-semibold text-red-100">
-              Safe deck deletion
-            </h2>
-            <input type="hidden" name="deckId" value={deck.id} />
-            <p className="text-sm text-zinc-300">
-              Delete deck list “{deck.name}”.{" "}
-              {committedSummary.committedQuantity > 0
-                ? `This deck currently contains ${committedSummary.committedQuantity} committed physical cards in ${committedSummary.committedEntries} inventory entries. Choose a location to return them to before deletion.`
-                : "No committed physical inventory is currently in this deck location."}
-            </p>
-            {committedSummary.committedQuantity > 0 ? (
-              <>
-                <label className={cn(filterFieldClass, "block")}>
-                  Destination normal inventory location
+              </SubmitButton>
+            </form>
+          }
+          settings={
+            <form action={updateDeck} className="space-y-3" id="deck-settings">
+              <input type="hidden" name="deckId" value={deck.id} />
+              <label className={cn(filterFieldClass, "block")}>
+                Name
+                <input
+                  name="name"
+                  defaultValue={deck.name}
+                  required
+                  className={cn(filterInputClass, "mt-1 w-full")}
+                />
+              </label>
+              <label className={cn(filterFieldClass, "block")}>
+                Description
+                <textarea
+                  name="description"
+                  defaultValue={deck.description ?? ""}
+                  rows={3}
+                  className={cn(filterTextareaClass, "mt-1 w-full")}
+                />
+              </label>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className={filterFieldClass}>
+                  Format
                   <select
-                    name="destinationLocationId"
-                    required
+                    name="format"
+                    defaultValue={deck.format}
                     className={cn(filterSelectClass, "mt-1 w-full")}
                   >
-                    <option value="">Choose a location…</option>
-                    {normalReturnLocations.map((location) => (
-                      <option key={location.id} value={location.id}>
-                        {location.name}
+                    {Object.values(DeckFormat).map((format) => (
+                      <option key={format} value={format}>
+                        {deckFormatLabel(format)}
                       </option>
                     ))}
                   </select>
                 </label>
-                <label className={cn(filterFieldClass, "block")}>
-                  Type DELETE to confirm
-                  <input
-                    name="strongConfirmation"
-                    className={cn(filterInputClass, "mt-1 w-full")}
-                  />
+                <label className={filterFieldClass}>
+                  Visibility
+                  <select
+                    name="visibility"
+                    defaultValue={deck.visibility}
+                    className={cn(filterSelectClass, "mt-1 w-full")}
+                  >
+                    {Object.values(Visibility).map((visibility) => (
+                      <option key={visibility} value={visibility}>
+                        {visibilityLabel(visibility)}
+                      </option>
+                    ))}
+                  </select>
                 </label>
-              </>
-            ) : null}
-            <SubmitButton
-              pendingLabel="Deleting…"
-              className={filterDangerButtonClass}
-              confirmMessage={
-                committedSummary.committedQuantity > 0
-                  ? "Return committed physical cards to the selected location and delete this deck list? Inventory will not be deleted."
-                  : `Delete deck “${deck.name}”? Inventory and card metadata will not be deleted.`
-              }
-            >
-              {committedSummary.committedQuantity > 0
-                ? "Return committed cards and delete deck"
-                : "Delete deck"}
-            </SubmitButton>
-          </form>
-        </section>
-      ) : null}
-
-      {canEdit ? (
-        <section className="grid gap-4 lg:grid-cols-2">
-          <form
-            action={updateDeck}
-            className="space-y-3 rounded border border-zinc-800 p-4"
-            id="deck-settings"
-          >
-            <h2 className="text-xl font-semibold">Deck settings</h2>
-            <input type="hidden" name="deckId" value={deck.id} />
-            <label className={cn(filterFieldClass, "block")}>
-              Name
-              <input
-                name="name"
-                defaultValue={deck.name}
-                required
-                className={cn(filterInputClass, "mt-1 w-full")}
-              />
-            </label>
-            <label className={cn(filterFieldClass, "block")}>
-              Description
-              <textarea
-                name="description"
-                defaultValue={deck.description ?? ""}
-                rows={3}
-                className={cn(filterTextareaClass, "mt-1 w-full")}
-              />
-            </label>
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className={filterFieldClass}>
-                Format
-                <select
-                  name="format"
-                  defaultValue={deck.format}
-                  className={cn(filterSelectClass, "mt-1 w-full")}
-                >
-                  {Object.values(DeckFormat).map((format) => (
-                    <option key={format} value={format}>
-                      {deckFormatLabel(format)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className={filterFieldClass}>
-                Visibility
-                <select
-                  name="visibility"
-                  defaultValue={deck.visibility}
-                  className={cn(filterSelectClass, "mt-1 w-full")}
-                >
-                  {Object.values(Visibility).map((visibility) => (
-                    <option key={visibility} value={visibility}>
-                      {visibilityLabel(visibility)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <SubmitButton
-              pendingLabel="Saving…"
-              className={filterPrimaryButtonClass}
-            >
-              Save deck settings
-            </SubmitButton>
-          </form>
-
-          <div className="space-y-4">
-            <div id="add-card">
-              <DeckCardPicker
-                deckId={deck.id}
-                defaultSection={
-                  deck.format === DeckFormat.COMMANDER
-                    ? DeckSection.COMMANDER
-                    : DeckSection.MAINBOARD
+              </div>
+              <SubmitButton
+                pendingLabel="Saving…"
+                className={filterPrimaryButtonClass}
+              >
+                Save deck settings
+              </SubmitButton>
+            </form>
+          }
+          deleteDeck={
+            <form action={deleteDeck} id="safe-delete" className="space-y-3">
+              <input type="hidden" name="deckId" value={deck.id} />
+              <p className="text-sm text-zinc-300">
+                Delete deck list “{deck.name}”.{" "}
+                {committedSummary.committedQuantity > 0
+                  ? `This deck currently contains ${committedSummary.committedQuantity} committed physical cards in ${committedSummary.committedEntries} inventory entries. Choose a location to return them to before deletion.`
+                  : "No committed physical inventory is currently in this deck location."}
+              </p>
+              {committedSummary.committedQuantity > 0 ? (
+                <>
+                  <label className={cn(filterFieldClass, "block")}>
+                    Destination normal inventory location
+                    <select
+                      name="destinationLocationId"
+                      required
+                      className={cn(filterSelectClass, "mt-1 w-full")}
+                    >
+                      <option value="">Choose a location…</option>
+                      {normalReturnLocations.map((location) => (
+                        <option key={location.id} value={location.id}>
+                          {location.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className={cn(filterFieldClass, "block")}>
+                    Type DELETE to confirm
+                    <input
+                      name="strongConfirmation"
+                      className={cn(filterInputClass, "mt-1 w-full")}
+                    />
+                  </label>
+                </>
+              ) : null}
+              <SubmitButton
+                pendingLabel="Deleting…"
+                className={filterDangerButtonClass}
+                confirmMessage={
+                  committedSummary.committedQuantity > 0
+                    ? "Return committed physical cards to the selected location and delete this deck list? Inventory will not be deleted."
+                    : `Delete deck “${deck.name}”? Inventory and card metadata will not be deleted.`
                 }
-                sections={deckSections}
-              />
-            </div>
-            <div id="paste-decklist">
-              <DeckImportPanel deckId={deck.id} />
-            </div>
-          </div>
+              >
+                {committedSummary.committedQuantity > 0
+                  ? "Return committed cards and delete deck"
+                  : "Delete deck"}
+              </SubmitButton>
+            </form>
+          }
+        />
+      ) : (
+        <section
+          className="rounded border border-zinc-800 bg-zinc-950/80 p-3"
+          aria-label="Deck action toolbar"
+        >
+          <span className="rounded border border-zinc-800 px-3 py-2 text-zinc-400">
+            Public read-only deck browser
+          </span>
         </section>
-      ) : null}
+      )}
 
       <DeckListEditor
         deckId={deck.id}
