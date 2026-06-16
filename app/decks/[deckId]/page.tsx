@@ -260,6 +260,7 @@ export default async function DeckDetailPage({
 
       {canEdit ? (
         <DeckActionPanels
+          deckName={deck.name}
           committedQuantity={committedSummary.committedQuantity}
           canReturnCommitted={
             committedSummary.committedQuantity > 0 &&

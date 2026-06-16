@@ -12,14 +12,16 @@ test("deck detail page uses compact action panels instead of always-expanded pag
     /<section className="grid gap-4 lg:grid-cols-2">/,
   );
   assert.doesNotMatch(pageSource, /<a href="#safe-delete"/);
-  assert.match(panelSource, /useState<DeckActionPanelId>\(null\)/);
   assert.match(
     panelSource,
-    /setActivePanel\(\(current\) => \(current === panel \? null : panel\)\)/,
+    /useState<DeckActionPanelId \| null>\([\s\S]*?null,[\s\S]*?\)/,
   );
+  assert.match(panelSource, /role="dialog" aria-modal="true"/);
+  assert.match(panelSource, /aria-label="Deck action panels"/);
+  assert.match(panelSource, /Escape/);
   assert.match(
     panelSource,
-    /Open an action only when needed; the deck list stays visible below\./,
+    /Open one compact action drawer when needed; the deck list stays\s*visible\s*below\./,
   );
 });
 
@@ -29,7 +31,7 @@ test("deck action toolbar exposes compact entry points for page-level workflows"
     "Paste decklist",
     "Return committed",
     "Deck settings",
-    "More: Delete deck",
+    "Delete deck",
   ]) {
     assert.match(panelSource, new RegExp(label));
   }
@@ -38,6 +40,9 @@ test("deck action toolbar exposes compact entry points for page-level workflows"
   assert.match(pageSource, /returnCommitted=\{/);
   assert.match(pageSource, /settings=\{/);
   assert.match(pageSource, /deleteDeck=\{/);
+  assert.match(panelSource, /activePanel === "add-card"[\s\S]*?\? addCard/);
+  assert.match(panelSource, /activePanel === "paste-decklist"/);
+  assert.match(panelSource, /activePanel === "settings"/);
 });
 
 test("collapsed deck action panels preserve existing form submissions", () => {
