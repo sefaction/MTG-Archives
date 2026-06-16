@@ -23,6 +23,7 @@ import {
   moveDeckFolder,
   moveDeckToFolder,
   renameDeckFolder,
+  updateDeck,
 } from "./actions";
 import {
   cn,
@@ -70,6 +71,153 @@ export default async function DecksPage({
         : decks;
   const countFor = (folderId: string | null) =>
     decks.filter((deck) => deck.folderId === folderId).length;
+  const folderById = new Map(
+    folderOptions.map((folder) => [folder.id, folder]),
+  );
+  const childFoldersByParent = new Map<string, typeof folderOptions>();
+  for (const folder of folderOptions) {
+    const key = folder.parentId ?? "";
+    childFoldersByParent.set(key, [
+      ...(childFoldersByParent.get(key) ?? []),
+      folder,
+    ]);
+  }
+
+  function folderPath(folderId?: string | null) {
+    if (!folderId) return "Uncategorized";
+    return folderById.get(folderId)?.path ?? "Unknown folder";
+  }
+
+  function renderFolderActions(folder: (typeof folderOptions)[number]) {
+    return (
+      <details className="relative ml-auto">
+        <summary
+          className="flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-sky-700"
+          aria-label={`Folder actions for ${folder.name}`}
+        >
+          ⋯
+        </summary>
+        <div className="absolute right-0 z-20 mt-1 w-64 space-y-2 rounded border border-zinc-700 bg-zinc-950 p-2 shadow-xl">
+          <form action={createDeckFolder} className="space-y-1">
+            <input type="hidden" name="parentId" value={folder.id} />
+            <input
+              name="name"
+              placeholder="New subfolder"
+              className={cn(filterInputClass, "w-full text-xs")}
+            />
+            <SubmitButton
+              pendingLabel="Adding…"
+              className="w-full rounded border border-zinc-700 px-2 py-1 text-left text-xs"
+            >
+              New subfolder
+            </SubmitButton>
+          </form>
+          <form action={renameDeckFolder} className="space-y-1">
+            <input type="hidden" name="folderId" value={folder.id} />
+            <input
+              name="name"
+              defaultValue={folder.name}
+              className={cn(filterInputClass, "w-full text-xs")}
+            />
+            <SubmitButton
+              pendingLabel="Renaming…"
+              className="w-full rounded border border-zinc-700 px-2 py-1 text-left text-xs"
+            >
+              Rename
+            </SubmitButton>
+          </form>
+          <form action={moveDeckFolder} className="space-y-1">
+            <input type="hidden" name="folderId" value={folder.id} />
+            <select
+              name="parentId"
+              defaultValue={folder.parentId ?? ""}
+              className={cn(filterSelectClass, "w-full text-xs")}
+            >
+              <option value="">Top level</option>
+              {folderOptions
+                .filter((option) => option.id !== folder.id)
+                .map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {folderSelectLabel(option)}
+                  </option>
+                ))}
+            </select>
+            <SubmitButton
+              pendingLabel="Moving…"
+              className="w-full rounded border border-zinc-700 px-2 py-1 text-left text-xs"
+            >
+              Move folder
+            </SubmitButton>
+          </form>
+          <form
+            action={deleteDeckFolder}
+            className="border-t border-zinc-800 pt-2"
+          >
+            <input type="hidden" name="folderId" value={folder.id} />
+            <SubmitButton
+              pendingLabel="Deleting…"
+              className="w-full rounded border border-red-800 px-2 py-1 text-left text-xs text-red-200"
+              confirmMessage={`Delete folder “${folder.name}”? Decks and child folders will move up one level.`}
+            >
+              Delete folder
+            </SubmitButton>
+          </form>
+        </div>
+      </details>
+    );
+  }
+
+  function renderFolderTree(parentId = "", depth = 0): React.ReactNode {
+    return (childFoldersByParent.get(parentId) ?? []).map((folder) => {
+      const children = childFoldersByParent.get(folder.id) ?? [];
+      const row = (
+        <div
+          className={cn(
+            "flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-sm",
+            selectedFolder === folder.id
+              ? "bg-sky-950 text-sky-100"
+              : "text-zinc-300 hover:bg-zinc-900",
+          )}
+        >
+          <span className="w-4 text-center text-zinc-500">
+            {children.length ? "▾" : ""}
+          </span>
+          <Link
+            href={`/decks?folder=${folder.id}`}
+            className="min-w-0 flex-1 truncate"
+            title={folder.path}
+          >
+            <span aria-hidden="true">📁</span> {folder.name}
+            <span className="ml-1 text-xs text-zinc-500">
+              ({countFor(folder.id)})
+            </span>
+          </Link>
+          {renderFolderActions(folder)}
+        </div>
+      );
+
+      if (!children.length) {
+        return (
+          <div key={folder.id} style={{ marginLeft: `${depth * 0.85}rem` }}>
+            {row}
+          </div>
+        );
+      }
+
+      return (
+        <details
+          key={folder.id}
+          open
+          style={{ marginLeft: `${depth * 0.85}rem` }}
+        >
+          <summary className="list-none">{row}</summary>
+          <div className="ml-3 border-l border-zinc-800 pl-2">
+            {renderFolderTree(folder.id, 0)}
+          </div>
+        </details>
+      );
+    });
+  }
 
   return (
     <main className="p-8 space-y-6">
@@ -87,190 +235,111 @@ export default async function DecksPage({
         ) : null}
       </section>
 
-      <form
-        action={createDeck}
-        className="grid gap-3 rounded border border-zinc-800 p-4 md:grid-cols-6"
-      >
-        <label className={cn(filterFieldClass, "md:col-span-2")}>
-          Deck name
-          <input
-            name="name"
-            required
-            className={cn(filterInputClass, "mt-1 w-full")}
-          />
-        </label>
-        <label className={filterFieldClass}>
-          Format
-          <select
-            name="format"
-            defaultValue={DeckFormat.CASUAL}
-            className={cn(filterSelectClass, "mt-1 w-full")}
-          >
-            {Object.values(DeckFormat).map((format) => (
-              <option key={format} value={format}>
-                {deckFormatLabel(format)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className={filterFieldClass}>
-          Visibility
-          <select
-            name="visibility"
-            defaultValue={Visibility.INHERIT}
-            className={cn(filterSelectClass, "mt-1 w-full")}
-          >
-            {Object.values(Visibility).map((visibility) => (
-              <option key={visibility} value={visibility}>
-                {visibilityLabel(visibility)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className={filterFieldClass}>
-          Folder
-          <select
-            name="folderId"
-            className={cn(filterSelectClass, "mt-1 w-full")}
-          >
-            <option value="">Uncategorized</option>
-            {folderOptions.map((folder) => (
-              <option key={folder.id} value={folder.id}>
-                {folderSelectLabel(folder)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="flex items-end">
-          <SubmitButton
-            pendingLabel="Creating…"
-            className={cn(filterPrimaryButtonClass, "w-full")}
-          >
-            Create deck
-          </SubmitButton>
-        </div>
-        <label className={cn(filterFieldClass, "md:col-span-6")}>
-          Description
-          <textarea
-            name="description"
-            rows={2}
-            className={cn(filterTextareaClass, "mt-1 w-full")}
-          />
-        </label>
-      </form>
+      <details className="rounded border border-zinc-800 bg-zinc-950/60 p-3">
+        <summary className="cursor-pointer text-sm font-semibold text-sky-100">
+          + New deck
+        </summary>
+        <form action={createDeck} className="mt-3 grid gap-3 md:grid-cols-6">
+          <label className={cn(filterFieldClass, "md:col-span-2")}>
+            Deck name
+            <input
+              name="name"
+              required
+              className={cn(filterInputClass, "mt-1 w-full")}
+            />
+          </label>
+          <label className={filterFieldClass}>
+            Format
+            <select
+              name="format"
+              defaultValue={DeckFormat.CASUAL}
+              className={cn(filterSelectClass, "mt-1 w-full")}
+            >
+              {Object.values(DeckFormat).map((format) => (
+                <option key={format} value={format}>
+                  {deckFormatLabel(format)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={filterFieldClass}>
+            Visibility
+            <select
+              name="visibility"
+              defaultValue={Visibility.INHERIT}
+              className={cn(filterSelectClass, "mt-1 w-full")}
+            >
+              {Object.values(Visibility).map((visibility) => (
+                <option key={visibility} value={visibility}>
+                  {visibilityLabel(visibility)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={filterFieldClass}>
+            Folder
+            <select
+              name="folderId"
+              className={cn(filterSelectClass, "mt-1 w-full")}
+            >
+              <option value="">Uncategorized</option>
+              {folderOptions.map((folder) => (
+                <option key={folder.id} value={folder.id}>
+                  {folderSelectLabel(folder)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="flex items-end">
+            <SubmitButton
+              pendingLabel="Creating…"
+              className={cn(filterPrimaryButtonClass, "w-full")}
+            >
+              Create deck
+            </SubmitButton>
+          </div>
+          <label className={cn(filterFieldClass, "md:col-span-6")}>
+            Description
+            <textarea
+              name="description"
+              rows={2}
+              className={cn(filterTextareaClass, "mt-1 w-full")}
+            />
+          </label>
+        </form>
+      </details>
 
       <section className="grid gap-4 lg:grid-cols-[18rem_1fr]">
         <aside className="space-y-3 rounded border border-zinc-800 p-3">
           <div className="flex items-center justify-between gap-2">
             <h2 className="font-semibold">Folders</h2>
           </div>
-          <nav className="space-y-1 text-sm">
+          <nav className="space-y-1 text-sm" aria-label="Deck folders">
             <Link
               className={cn(
-                "block rounded px-2 py-1",
+                "flex items-center justify-between rounded px-2 py-1",
                 selectedFolder === "all"
                   ? "bg-sky-950 text-sky-100"
                   : "text-zinc-300 hover:bg-zinc-900",
               )}
               href="/decks"
             >
-              All decks ({decks.length})
+              <span>All decks</span>
+              <span className="text-xs text-zinc-500">{decks.length}</span>
             </Link>
             <Link
               className={cn(
-                "block rounded px-2 py-1",
+                "flex items-center justify-between rounded px-2 py-1",
                 selectedFolder === DECK_FOLDER_UNCATEGORIZED_VALUE
                   ? "bg-sky-950 text-sky-100"
                   : "text-zinc-300 hover:bg-zinc-900",
               )}
               href={`/decks?folder=${DECK_FOLDER_UNCATEGORIZED_VALUE}`}
             >
-              Uncategorized ({countFor(null)})
+              <span>Uncategorized</span>
+              <span className="text-xs text-zinc-500">{countFor(null)}</span>
             </Link>
-            {folderOptions.map((folder) => (
-              <div
-                key={folder.id}
-                className="space-y-1"
-                style={{ marginLeft: `${folder.depth * 0.75}rem` }}
-              >
-                <Link
-                  className={cn(
-                    "block rounded px-2 py-1",
-                    selectedFolder === folder.id
-                      ? "bg-sky-950 text-sky-100"
-                      : "text-zinc-300 hover:bg-zinc-900",
-                  )}
-                  href={`/decks?folder=${folder.id}`}
-                >
-                  {folder.name} ({countFor(folder.id)})
-                </Link>
-                <details className="px-2 text-xs text-zinc-400">
-                  <summary>Actions</summary>
-                  <div className="mt-2 space-y-2">
-                    <form action={createDeckFolder} className="flex gap-1">
-                      <input type="hidden" name="parentId" value={folder.id} />
-                      <input
-                        name="name"
-                        placeholder="New subfolder"
-                        className={cn(filterInputClass, "min-w-0 flex-1")}
-                      />
-                      <SubmitButton
-                        pendingLabel="Adding…"
-                        className="rounded border border-zinc-700 px-2"
-                      >
-                        Add
-                      </SubmitButton>
-                    </form>
-                    <form action={renameDeckFolder} className="flex gap-1">
-                      <input type="hidden" name="folderId" value={folder.id} />
-                      <input
-                        name="name"
-                        defaultValue={folder.name}
-                        className={cn(filterInputClass, "min-w-0 flex-1")}
-                      />
-                      <SubmitButton
-                        pendingLabel="Renaming…"
-                        className="rounded border border-zinc-700 px-2"
-                      >
-                        Rename
-                      </SubmitButton>
-                    </form>
-                    <form action={moveDeckFolder} className="flex gap-1">
-                      <input type="hidden" name="folderId" value={folder.id} />
-                      <select
-                        name="parentId"
-                        className={cn(filterSelectClass, "min-w-0 flex-1")}
-                      >
-                        <option value="">Top level</option>
-                        {folderOptions
-                          .filter((option) => option.id !== folder.id)
-                          .map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {folderSelectLabel(option)}
-                            </option>
-                          ))}
-                      </select>
-                      <SubmitButton
-                        pendingLabel="Moving…"
-                        className="rounded border border-zinc-700 px-2"
-                      >
-                        Move
-                      </SubmitButton>
-                    </form>
-                    <form action={deleteDeckFolder}>
-                      <input type="hidden" name="folderId" value={folder.id} />
-                      <SubmitButton
-                        pendingLabel="Deleting…"
-                        className="rounded border border-red-800 px-2 py-1 text-red-200"
-                        confirmMessage={`Delete folder “${folder.name}”? Decks and child folders will move up one level.`}
-                      >
-                        Delete
-                      </SubmitButton>
-                    </form>
-                  </div>
-                </details>
-              </div>
-            ))}
+            <div className="space-y-0.5 pt-1">{renderFolderTree()}</div>
           </nav>
           <form
             action={createDeckFolder}
@@ -323,53 +392,167 @@ export default async function DecksPage({
                       )}
                     />
                   </td>
-                  <td className="p-3">
-                    <form action={moveDeckToFolder} className="flex gap-2">
-                      <input type="hidden" name="deckId" value={deck.id} />
-                      <select
-                        name="folderId"
-                        defaultValue={deck.folderId ?? ""}
-                        className={cn(filterSelectClass, "max-w-48")}
-                      >
-                        <option value="">Uncategorized</option>
-                        {folderOptions.map((folder) => (
-                          <option key={folder.id} value={folder.id}>
-                            {folderSelectLabel(folder)}
-                          </option>
-                        ))}
-                      </select>
-                      <SubmitButton
-                        pendingLabel="Moving…"
-                        className="rounded border border-zinc-700 px-2 py-1"
-                      >
-                        Move
-                      </SubmitButton>
-                    </form>
+                  <td className="max-w-56 p-3 text-zinc-300">
+                    <span
+                      className="block truncate"
+                      title={folderPath(deck.folderId)}
+                    >
+                      {folderPath(deck.folderId)}
+                    </span>
                   </td>
                   <td className="p-3">{visibilityLabel(deck.visibility)}</td>
                   <td className="p-3">
                     {deckSectionSummaryParts(deck.cards).join(" · ")}
                   </td>
                   <td className="p-3">{deck.updatedAt.toLocaleDateString()}</td>
-                  <td className="p-3">
-                    <div className="flex flex-wrap gap-2">
-                      <Link
-                        className="rounded border border-zinc-700 px-2 py-1"
-                        href={`/decks/${deck.id}`}
+                  <td className="p-3 text-right">
+                    <details className="relative inline-block text-left">
+                      <summary
+                        className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded border border-zinc-700 text-lg text-zinc-300 hover:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-sky-700"
+                        aria-label={`Actions for ${deck.name}`}
                       >
-                        View/Edit
-                      </Link>
-                      <form action={deleteDeck}>
-                        <input type="hidden" name="deckId" value={deck.id} />
-                        <SubmitButton
-                          pendingLabel="Deleting…"
-                          className="rounded border border-red-800 px-2 py-1 text-red-200"
-                          confirmMessage={`Delete deck “${deck.name}”? Inventory and card metadata will not be deleted.`}
+                        ⋮
+                      </summary>
+                      <div className="absolute right-0 z-20 mt-1 w-72 space-y-2 rounded border border-zinc-700 bg-zinc-950 p-2 shadow-xl">
+                        <Link
+                          className="block rounded px-2 py-1 text-sm text-sky-100 hover:bg-zinc-900"
+                          href={`/decks/${deck.id}`}
                         >
-                          Delete
-                        </SubmitButton>
-                      </form>
-                    </div>
+                          Open deck
+                        </Link>
+                        <form
+                          action={moveDeckToFolder}
+                          className="space-y-1 border-t border-zinc-800 pt-2"
+                        >
+                          <input type="hidden" name="deckId" value={deck.id} />
+                          <label className="block text-xs text-zinc-400">
+                            Move to folder
+                            <select
+                              name="folderId"
+                              defaultValue={deck.folderId ?? ""}
+                              className={cn(
+                                filterSelectClass,
+                                "mt-1 w-full text-xs",
+                              )}
+                            >
+                              <option value="">Uncategorized</option>
+                              {folderOptions.map((folder) => (
+                                <option key={folder.id} value={folder.id}>
+                                  {folder.path}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <SubmitButton
+                            pendingLabel="Moving…"
+                            className="w-full rounded border border-zinc-700 px-2 py-1 text-left text-xs"
+                          >
+                            Save folder
+                          </SubmitButton>
+                        </form>
+                        <form
+                          action={updateDeck}
+                          className="space-y-1 border-t border-zinc-800 pt-2"
+                        >
+                          <input type="hidden" name="deckId" value={deck.id} />
+                          <input
+                            type="hidden"
+                            name="description"
+                            value={deck.description ?? ""}
+                          />
+                          <input
+                            type="hidden"
+                            name="format"
+                            value={deck.format}
+                          />
+                          <input
+                            type="hidden"
+                            name="visibility"
+                            value={deck.visibility}
+                          />
+                          <input
+                            type="hidden"
+                            name="folderId"
+                            value={deck.folderId ?? ""}
+                          />
+                          <label className="block text-xs text-zinc-400">
+                            Rename
+                            <input
+                              name="name"
+                              defaultValue={deck.name}
+                              className={cn(
+                                filterInputClass,
+                                "mt-1 w-full text-xs",
+                              )}
+                            />
+                          </label>
+                          <SubmitButton
+                            pendingLabel="Renaming…"
+                            className="w-full rounded border border-zinc-700 px-2 py-1 text-left text-xs"
+                          >
+                            Save name
+                          </SubmitButton>
+                        </form>
+                        <form
+                          action={updateDeck}
+                          className="space-y-1 border-t border-zinc-800 pt-2"
+                        >
+                          <input type="hidden" name="deckId" value={deck.id} />
+                          <input type="hidden" name="name" value={deck.name} />
+                          <input
+                            type="hidden"
+                            name="description"
+                            value={deck.description ?? ""}
+                          />
+                          <input
+                            type="hidden"
+                            name="format"
+                            value={deck.format}
+                          />
+                          <input
+                            type="hidden"
+                            name="folderId"
+                            value={deck.folderId ?? ""}
+                          />
+                          <label className="block text-xs text-zinc-400">
+                            Visibility
+                            <select
+                              name="visibility"
+                              defaultValue={deck.visibility}
+                              className={cn(
+                                filterSelectClass,
+                                "mt-1 w-full text-xs",
+                              )}
+                            >
+                              {Object.values(Visibility).map((visibility) => (
+                                <option key={visibility} value={visibility}>
+                                  {visibilityLabel(visibility)}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <SubmitButton
+                            pendingLabel="Saving…"
+                            className="w-full rounded border border-zinc-700 px-2 py-1 text-left text-xs"
+                          >
+                            Save visibility
+                          </SubmitButton>
+                        </form>
+                        <form
+                          action={deleteDeck}
+                          className="border-t border-zinc-800 pt-2"
+                        >
+                          <input type="hidden" name="deckId" value={deck.id} />
+                          <SubmitButton
+                            pendingLabel="Deleting…"
+                            className="w-full rounded border border-red-800 px-2 py-1 text-left text-xs text-red-200"
+                            confirmMessage={`Delete deck “${deck.name}”? Inventory and card metadata will not be deleted.`}
+                          >
+                            Delete deck
+                          </SubmitButton>
+                        </form>
+                      </div>
+                    </details>
                   </td>
                 </tr>
               ))}
@@ -377,7 +560,7 @@ export default async function DecksPage({
                 <tr>
                   <td
                     className="p-6 text-zinc-400"
-                    colSpan={adminModeActive ? 8 : 7}
+                    colSpan={adminModeActive ? 9 : 8}
                   >
                     No decks in this folder.
                   </td>
