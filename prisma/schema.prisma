@@ -111,6 +111,7 @@ model User {
   createdTrades              Trade[]                     @relation("TradeCreatedBy")
   tradeEvents                TradeEvent[]
   decks                      Deck[]
+  deckFolders                DeckFolder[]
   wishlistItems              WishlistItem[]
 
   @@index([publicProfileEnabled, isActive, inventoryDefaultVisibility])
@@ -349,6 +350,8 @@ model Deck {
   description  String?
   format       DeckFormat @default(CASUAL)
   visibility   Visibility @default(INHERIT)
+  folderId     String?
+  folder       DeckFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   cards        DeckCard[]
@@ -357,6 +360,27 @@ model Deck {
   @@index([ownerUserId, updatedAt])
   @@index([visibility, updatedAt])
   @@index([format])
+  @@index([folderId])
+}
+
+model DeckFolder {
+  id          String       @id @default(cuid())
+  ownerUserId String
+  ownerUser   User         @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      DeckFolder?  @relation("DeckFolderChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children    DeckFolder[] @relation("DeckFolderChildren")
+  name        String
+  sortOrder   Int          @default(0)
+  color       String?
+  icon        String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  decks       Deck[]
+
+  @@index([ownerUserId])
+  @@index([parentId])
+  @@unique([ownerUserId, parentId, name])
 }
 
 model DeckCard {
