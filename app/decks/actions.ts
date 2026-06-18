@@ -39,6 +39,7 @@ import {
   getDeckCommittedSummary,
   returnCommittedInventoryFromDeckTx,
 } from "@/lib/deck-inventory";
+import { DECK_FOLDER_ROOT_VALUE, canMoveFolder } from "@/lib/deck-folders";
 
 function formString(fd: FormData, name: string) {
   return String(fd.get(name) || "").trim();
