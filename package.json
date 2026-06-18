@@ -11,6 +11,13 @@
     "prisma:migrate": "prisma migrate deploy",
     "prisma:seed": "prisma db seed",
     "prisma:bootstrap-admin": "tsx prisma/bootstrap-admin.ts",
+    "backup:create": "tsx scripts/backup-create.ts",
+    "backup:list": "tsx scripts/backup-list.ts",
+    "backup:restore": "tsx scripts/backup-restore.ts",
+    "ui:test": "playwright test",
+    "ui:test:headed": "playwright test --headed",
+    "ui:report": "playwright show-report",
+    "verify": "npm.cmd run prisma:generate && npm.cmd run typecheck && npm.cmd test && npm.cmd run build && npm.cmd run ui:test",
     "typecheck": "tsc --noEmit",
     "format": "npx prettier --check .",
     "test": "tsx --test tests/*.test.ts"
@@ -27,6 +34,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.0",
     "@types/node": "^22.15.21",
     "@types/papaparse": "^5.5.2",
     "@types/react": "^19.1.5",
