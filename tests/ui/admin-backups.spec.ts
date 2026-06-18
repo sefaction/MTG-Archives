@@ -47,7 +47,11 @@ test("admin can reach backups page without restore actions", async ({ page }) =>
     page.getByRole("heading", { level: 1, name: "Backups" }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Create Backup" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Upload Backup" })).toBeVisible();
   await expect(page.getByText("Restore command")).toBeVisible();
   await expect(page.getByText("Recent backups")).toBeVisible();
+  if ((await page.getByRole("button", { name: "Restore Backup" }).count()) > 0) {
+    await expect(page.getByText("Destructive. Type RESTORE").first()).toBeVisible();
+  }
   await expect(page.getByRole("button", { name: /^restore$/i })).toHaveCount(0);
 });

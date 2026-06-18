@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import test from "node:test";
 
 import {
   getBackupDir,
+  getBackupPathForFilename,
   getDefaultAppdataPaths,
   parseDatabaseUrl,
   restoreBackup,
@@ -118,6 +120,25 @@ test("restore CLI requires explicit --force", async () => {
   assert.match(source, /restoreBackup\(backupPath, \{ force \}\)/);
 });
 
+test("backup filename resolution rejects traversal and non-backup names", () => {
+  assert.equal(
+    getBackupPathForFilename(
+      "mtg-archives-backup-20260618-120000.tar.gz",
+      "/app/backups",
+    ),
+    join("/app/backups", "mtg-archives-backup-20260618-120000.tar.gz"),
+  );
+
+  assert.throws(
+    () => getBackupPathForFilename("../mtg-archives-backup-20260618-120000.tar.gz"),
+    /Invalid backup filename/,
+  );
+  assert.throws(
+    () => getBackupPathForFilename("not-a-backup.tar.gz"),
+    /Invalid backup filename/,
+  );
+});
+
 test("Docker image installs PostgreSQL client tools and copies backup scripts", async () => {
   const dockerfile = await readFile("Dockerfile", "utf8");
 
@@ -139,5 +160,18 @@ test("admin backup page is admin-mode protected and exposes create UI", async ()
 
   assert.match(page, /requireAdminMode/);
   assert.match(page, /Create Backup/);
-  assert.doesNotMatch(page, /backup:restore.*action/);
+  assert.match(page, /Upload Backup/);
+  assert.match(page, /Restore Backup/);
+  assert.match(page, /confirmFilename/);
+  assert.match(page, /RESTORE/);
+});
+
+test("admin backup upload route requires admin mode and validates archives", async () => {
+  const route = await readFile("app/api/admin/backups/upload/route.ts", "utf8");
+  const middleware = await readFile("middleware.ts", "utf8");
+
+  assert.match(route, /isAdminModeEnabled/);
+  assert.match(route, /saveUploadedBackupArchive/);
+  assert.match(route, /\.tar\.gz/);
+  assert.match(middleware, /"\/api\/admin"/);
 });

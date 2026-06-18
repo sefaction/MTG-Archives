@@ -8,13 +8,14 @@ import {
   mkdtemp,
   readdir,
   readFile,
+  rename,
   rm,
   stat,
   writeFile,
 } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { constants } from "node:fs";
-import { dirname, join, parse, resolve, sep } from "node:path";
+import { basename, dirname, join, parse, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
 
 const BACKUP_PREFIX = "mtg-archives-backup-";
@@ -75,6 +76,11 @@ export type BackupListEntry = {
   sizeBytes: number;
   createdAt: string | null;
   manifest: BackupManifest | null;
+};
+
+export type RestoreOptions = {
+  force?: boolean;
+  confirmation?: string;
 };
 
 export function loadEnvFile(path = ".env") {
@@ -257,6 +263,54 @@ export async function listBackups(
   return entries;
 }
 
+export function getBackupPathForFilename(
+  filename: string,
+  backupDir = resolve(getBackupDir()),
+) {
+  const cleanFilename = filename.trim();
+  if (
+    !cleanFilename ||
+    cleanFilename !== basename(cleanFilename) ||
+    !cleanFilename.startsWith(BACKUP_PREFIX) ||
+    !cleanFilename.endsWith(BACKUP_SUFFIX)
+  ) {
+    throw new Error("Invalid backup filename.");
+  }
+  return join(backupDir, cleanFilename);
+}
+
+export async function saveUploadedBackupArchive(
+  content: Buffer,
+  originalFilename: string,
+) {
+  loadEnvFile();
+  if (content.byteLength === 0) throw new Error("Uploaded backup is empty.");
+  const backupDir = resolve(getBackupDir());
+  await mkdir(backupDir, { recursive: true });
+  const filename = uploadedBackupFilename(originalFilename);
+  const finalPath = getBackupPathForFilename(filename, backupDir);
+  const tempPath = join(
+    backupDir,
+    `.upload-${timestampForFilename()}-${Math.random().toString(36).slice(2)}.tar.gz`,
+  );
+
+  await writeFile(tempPath, content);
+  try {
+    const manifest = await readManifestFromBackup(tempPath);
+    validateManifest(manifest);
+    await rename(tempPath, finalPath);
+    return {
+      path: finalPath,
+      filename,
+      manifest,
+      sizeBytes: (await stat(finalPath)).size,
+    };
+  } catch (error) {
+    await rm(tempPath, { force: true });
+    throw error;
+  }
+}
+
 export async function applyRetention(backupDir = resolve(getBackupDir())) {
   const count = Number(process.env.BACKUP_RETENTION_COUNT || 0);
   const days = Number(process.env.BACKUP_RETENTION_DAYS || 0);
@@ -286,7 +340,10 @@ export async function applyRetention(backupDir = resolve(getBackupDir())) {
   return deleted;
 }
 
-export async function restoreBackup(backupPath: string, options: { force?: boolean } = {}) {
+export async function restoreBackup(
+  backupPath: string,
+  options: RestoreOptions = {},
+) {
   loadEnvFile();
   if (!backupPath) throw new Error("Backup path is required.");
   const fullBackupPath = resolve(backupPath);
@@ -315,7 +372,7 @@ export async function restoreBackup(backupPath: string, options: { force?: boole
     };
   }
 
-  await requireRestoreConfirmation();
+  await requireRestoreConfirmation(options.confirmation);
   const schema = connection.schema || "public";
   await runCommand(
     "psql",
@@ -456,7 +513,8 @@ function validateManifest(manifest: BackupManifest) {
   }
 }
 
-async function requireRestoreConfirmation() {
+async function requireRestoreConfirmation(confirmation?: string) {
+  if (confirmation === "RESTORE") return;
   if (process.env.BACKUP_RESTORE_CONFIRM === "RESTORE") return;
   const rl = createInterface({ input, output });
   try {
@@ -497,6 +555,17 @@ function timestampFromBackupFilename(filename: string) {
     6,
     8,
   )}T${time.slice(0, 2)}:${time.slice(2, 4)}:${time.slice(4, 6)}Z`;
+}
+
+function uploadedBackupFilename(originalFilename: string) {
+  const cleanName = basename(originalFilename.trim());
+  if (
+    cleanName.startsWith(BACKUP_PREFIX) &&
+    cleanName.endsWith(BACKUP_SUFFIX)
+  ) {
+    return cleanName;
+  }
+  return `${BACKUP_PREFIX}${timestampForFilename()}-uploaded${BACKUP_SUFFIX}`;
 }
 
 function restoreReadme() {

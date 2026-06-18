@@ -60,6 +60,9 @@ Playwright:
 - Base URL: http://127.0.0.1:13001
 - Browser smoke tests live under tests/ui.
 - Traces, screenshots, and videos are retained for failed UI tests.
+- The backup page has GUI upload/restore controls; UI tests may verify that
+  they render, but must not click destructive restore unless the exact target
+  has been explicitly approved.
 
 Important safety rules:
 - Do not run docker compose down -v unless explicitly asked.
