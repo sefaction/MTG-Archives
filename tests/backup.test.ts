@@ -178,6 +178,13 @@ test("admin backup upload route requires admin mode and validates archives", asy
   assert.match(middleware, /"\/api\/admin"/);
 });
 
+test("Next config allows large GUI backup uploads", async () => {
+  const config = await readFile("next.config.ts", "utf8");
+
+  assert.match(config, /middlewareClientMaxBodySize/);
+  assert.match(config, /1gb/);
+});
+
 test("admin backup download route requires admin mode and streams archives", async () => {
   const route = await readFile(
     "app/api/admin/backups/download/[filename]/route.ts",
