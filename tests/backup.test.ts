@@ -175,3 +175,19 @@ test("admin backup upload route requires admin mode and validates archives", asy
   assert.match(route, /\.tar\.gz/);
   assert.match(middleware, /"\/api\/admin"/);
 });
+
+test("admin backup download route requires admin mode and streams archives", async () => {
+  const route = await readFile(
+    "app/api/admin/backups/download/[filename]/route.ts",
+    "utf8",
+  );
+  const page = await readFile("app/admin/backups/page.tsx", "utf8");
+
+  assert.match(route, /isAdminModeEnabled/);
+  assert.match(route, /getBackupPathForFilename/);
+  assert.match(route, /readManifestFromBackup/);
+  assert.match(route, /Content-Disposition/);
+  assert.match(route, /createReadStream/);
+  assert.match(page, /Download/);
+  assert.match(page, /encodeURIComponent/);
+});

@@ -50,6 +50,12 @@ test("admin can reach backups page without restore actions", async ({ page }) =>
   await expect(page.getByRole("button", { name: "Upload Backup" })).toBeVisible();
   await expect(page.getByText("Restore command")).toBeVisible();
   await expect(page.getByText("Recent backups")).toBeVisible();
+  if ((await page.getByRole("link", { name: "Download" }).count()) > 0) {
+    await expect(page.getByRole("link", { name: "Download" }).first()).toHaveAttribute(
+      "href",
+      /\/api\/admin\/backups\/download\//,
+    );
+  }
   if ((await page.getByRole("button", { name: "Restore Backup" }).count()) > 0) {
     await expect(page.getByText("Destructive. Type RESTORE").first()).toBeVisible();
   }

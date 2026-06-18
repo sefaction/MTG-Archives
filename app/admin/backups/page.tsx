@@ -146,6 +146,7 @@ export default async function AdminBackupsPage({
                   <th className="p-3">Size</th>
                   <th className="p-3">Included</th>
                   <th className="p-3">Database</th>
+                  <th className="p-3">Download</th>
                   <th className="p-3">Restore</th>
                 </tr>
               </thead>
@@ -166,6 +167,22 @@ export default async function AdminBackupsPage({
                     </td>
                     <td className="p-3">
                       {backup.manifest?.database.name ?? "Unknown"}
+                    </td>
+                    <td className="p-3">
+                      {backup.manifest ? (
+                        <a
+                          className="inline-block border border-zinc-700 px-3 py-2"
+                          href={`/api/admin/backups/download/${encodeURIComponent(
+                            backup.filename,
+                          )}`}
+                        >
+                          Download
+                        </a>
+                      ) : (
+                        <span className="text-xs text-zinc-500">
+                          Unavailable
+                        </span>
+                      )}
                     </td>
                     <td className="min-w-80 p-3">
                       {backup.manifest ? (
