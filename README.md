@@ -111,6 +111,34 @@ For scheduled backups in cron, Portainer, or Unraid, run the same command on you
 docker compose run --rm web npm run backup:create
 ```
 
+## Local Codex + Docker + Playwright workflow
+
+The local Docker app is expected at `http://127.0.0.1:13001`. After changing UI or server code, rebuild the local app when needed:
+
+```bash
+docker compose up -d --build
+```
+
+Run the full repeatable validation loop:
+
+```bash
+npm.cmd run verify
+```
+
+`verify` runs Prisma generation, TypeScript checks, source tests, production build, and Playwright UI smoke tests. UI tests use `playwright.config.ts` and retain traces, screenshots, and videos for failures under `test-results/playwright`; open the HTML report with:
+
+```bash
+npm.cmd run ui:report
+```
+
+Use headed mode when you need to watch the browser:
+
+```bash
+npm.cmd run ui:test:headed
+```
+
+Do not use `docker compose down -v`, delete Docker volumes, wipe/reset the database, or perform destructive restore testing unless the exact target has been explicitly approved.
+
 ## Current capabilities
 
 - Admin-managed local users with roles and forced password-change workflow.
