@@ -4,3 +4,10 @@ node_modules
 .env.local
 coverage
 npm-debug.log*
+
+# Local Docker development data
+.local-data/
+docker-compose.override.yml
+
+# TypeScript build cache
+*.tsbuildinfo
