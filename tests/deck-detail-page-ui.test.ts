@@ -54,3 +54,21 @@ test("collapsed deck action panels preserve existing form submissions", () => {
   assert.match(pageSource, /name="strongConfirmation"/);
   assert.match(pageSource, /name="destinationLocationId"/);
 });
+
+test("deck detail inventory loading is scoped and avoids full owner inventory hydration", () => {
+  assert.doesNotMatch(
+    pageSource,
+    /where:\s*\{\s*currentOwnerId:\s*inventoryOwnerId,\s*quantity:\s*\{\s*gt:\s*0\s*\}\s*\}\s*,\s*include:\s*\{\s*card:\s*true,\s*location:\s*true\s*\}/,
+  );
+  assert.match(pageSource, /OR: inventoryWhereClauses/);
+  assert.match(
+    pageSource,
+    /select:\s*\{[\s\S]*cardId: true[\s\S]*quantity: true/,
+  );
+  assert.match(
+    pageSource,
+    /byCardId: new Map<string, DeckPageInventoryItem\[\]>/,
+  );
+  assert.match(pageSource, /candidatesForDeckCard\(deckCard, inventoryMaps\)/);
+  assert.match(pageSource, /DEBUG_DECK_PERFORMANCE/);
+});

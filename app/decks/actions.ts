@@ -28,7 +28,6 @@ import {
   canManageDeck,
   normalizePositiveQuantity,
 } from "@/lib/decks";
-import { DECK_FOLDER_ROOT_VALUE, canMoveFolder } from "@/lib/deck-folders";
 import {
   auditDeckMoveSnapshot,
   ensureDeckLocation,

@@ -25,7 +25,6 @@ import {
   deckSectionQuantityTotals,
   deckTotalQuantity,
   summarizeDeckCardOwnership,
-  summarizeDeckOwnershipTotals,
 } from "@/lib/decks";
 import {
   getDeckCommittedSummary,
@@ -60,6 +59,63 @@ import {
   filterSelectClass,
   filterTextareaClass,
 } from "@/components/filterStyles";
+
+type DeckPageInventoryItem = {
+  id: string;
+  cardId: string;
+  quantity: number;
+  locationId: string | null;
+  card: {
+    id: string;
+    oracleId: string | null;
+    name: string;
+    setCode: string;
+    collectorNumber: string;
+  };
+  location: {
+    id: string;
+    name: string;
+    kind: InventoryLocationKind;
+    deckId: string | null;
+  } | null;
+};
+
+function normalizeDeckMatchName(name: string) {
+  return name.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function unique<T>(values: Array<T | null | undefined>) {
+  return [...new Set(values.filter((value): value is T => Boolean(value)))];
+}
+
+function candidatesForDeckCard(
+  deckCard: {
+    cardId?: string | null;
+    oracleId?: string | null;
+    cardName: string;
+  },
+  maps: {
+    byCardId: Map<string, DeckPageInventoryItem[]>;
+    byOracleId: Map<string, DeckPageInventoryItem[]>;
+    byName: Map<string, DeckPageInventoryItem[]>;
+  },
+) {
+  const seen = new Set<string>();
+  const candidates: DeckPageInventoryItem[] = [];
+  function push(items: DeckPageInventoryItem[] | undefined) {
+    for (const item of items ?? []) {
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      candidates.push(item);
+    }
+  }
+  if (deckCard.cardId) push(maps.byCardId.get(deckCard.cardId));
+  if (deckCard.oracleId) push(maps.byOracleId.get(deckCard.oracleId));
+  if (!deckCard.oracleId) {
+    push(maps.byName.get(normalizeDeckMatchName(deckCard.cardName)));
+  }
+  return candidates;
+}
 
 export default async function DeckDetailPage({
   params,
@@ -99,12 +155,86 @@ export default async function DeckDetailPage({
   );
   const inventoryOwnerId = canEdit ? deck.ownerUser.playerId : null;
   if (inventoryOwnerId) await ensureDefaultLocation(prisma, inventoryOwnerId);
-  const inventoryItems = inventoryOwnerId
-    ? await prisma.inventoryItem.findMany({
-        where: { currentOwnerId: inventoryOwnerId, quantity: { gt: 0 } },
-        include: { card: true, location: true },
-      })
-    : [];
+
+  const deckCardIds = unique(deck.cards.map((card) => card.cardId));
+  const deckOracleIds = unique(deck.cards.map((card) => card.oracleId));
+  const genericDeckNames = unique(
+    deck.cards
+      .filter((card) => !card.oracleId)
+      .map((card) => card.cardName.trim().replace(/\s+/g, " ")),
+  );
+  const inventoryWhereClauses = [
+    deckCardIds.length ? { cardId: { in: deckCardIds } } : null,
+    deckOracleIds.length ? { card: { oracleId: { in: deckOracleIds } } } : null,
+    genericDeckNames.length
+      ? { card: { name: { in: genericDeckNames } } }
+      : null,
+  ].filter((clause): clause is NonNullable<typeof clause> => Boolean(clause));
+  const inventoryItems: DeckPageInventoryItem[] =
+    inventoryOwnerId && inventoryWhereClauses.length
+      ? await prisma.inventoryItem.findMany({
+          where: {
+            currentOwnerId: inventoryOwnerId,
+            quantity: { gt: 0 },
+            OR: inventoryWhereClauses,
+          },
+          select: {
+            id: true,
+            cardId: true,
+            quantity: true,
+            locationId: true,
+            card: {
+              select: {
+                id: true,
+                oracleId: true,
+                name: true,
+                setCode: true,
+                collectorNumber: true,
+              },
+            },
+            location: {
+              select: {
+                id: true,
+                name: true,
+                kind: true,
+                deckId: true,
+              },
+            },
+          },
+        })
+      : [];
+  const inventoryMaps = inventoryItems.reduce(
+    (maps, item) => {
+      const byCard = maps.byCardId.get(item.cardId) ?? [];
+      byCard.push(item);
+      maps.byCardId.set(item.cardId, byCard);
+      if (item.card.oracleId) {
+        const byOracle = maps.byOracleId.get(item.card.oracleId) ?? [];
+        byOracle.push(item);
+        maps.byOracleId.set(item.card.oracleId, byOracle);
+      }
+      const normalizedName = normalizeDeckMatchName(item.card.name);
+      const byName = maps.byName.get(normalizedName) ?? [];
+      byName.push(item);
+      maps.byName.set(normalizedName, byName);
+      return maps;
+    },
+    {
+      byCardId: new Map<string, DeckPageInventoryItem[]>(),
+      byOracleId: new Map<string, DeckPageInventoryItem[]>(),
+      byName: new Map<string, DeckPageInventoryItem[]>(),
+    },
+  );
+  if (process.env.DEBUG_DECK_PERFORMANCE === "true") {
+    console.info("[deck-detail] diagnostics", {
+      deckId: deck.id,
+      deckCardCount: deck.cards.length,
+      inventoryCandidateCount: inventoryItems.length,
+      exactCardKeys: deckCardIds.length,
+      oracleKeys: deckOracleIds.length,
+      genericNameKeys: genericDeckNames.length,
+    });
+  }
   const normalReturnLocations: DeckReturnLocation[] = deck.ownerUser.playerId
     ? (
         await prisma.inventoryLocation.findMany({
@@ -127,10 +257,6 @@ export default async function DeckDetailPage({
         byCardId: {},
       };
   const sectionTotals = deckSectionQuantityTotals(deck.cards);
-  const ownershipTotals = summarizeDeckOwnershipTotals(
-    deck.cards,
-    inventoryItems,
-  );
   const pricedCards = deck.cards
     .filter((deckCard) => deckCard.section !== DeckSection.MAYBEBOARD)
     .map((deckCard) => {
@@ -157,8 +283,13 @@ export default async function DeckDetailPage({
   const usesCommander =
     deck.format === DeckFormat.COMMANDER || sectionTotals.COMMANDER > 0;
   const editorRows = deck.cards.map((deckCard) => {
-    const owned = summarizeDeckCardOwnership(deckCard, inventoryItems, deck.id);
-    const matchingItems = inventoryItems
+    const rowInventoryItems = candidatesForDeckCard(deckCard, inventoryMaps);
+    const owned = summarizeDeckCardOwnership(
+      deckCard,
+      rowInventoryItems,
+      deck.id,
+    );
+    const matchingItems = rowInventoryItems
       .map((item) => ({
         item,
         matchType: matchesDeckCardPrinting(deckCard, {
@@ -243,6 +374,21 @@ export default async function DeckDetailPage({
         : null,
     };
   });
+  const ownershipTotals = editorRows.reduce(
+    (totals, row) => ({
+      totalQuantity: totals.totalQuantity + row.quantity,
+      exactOwned: totals.exactOwned + Math.min(row.quantity, row.exactOwned),
+      otherOwned:
+        totals.otherOwned +
+        Math.min(
+          Math.max(0, row.quantity - Math.min(row.quantity, row.exactOwned)),
+          row.otherOwned,
+        ),
+      missing: totals.missing + row.missing,
+    }),
+    { totalQuantity: 0, exactOwned: 0, otherOwned: 0, missing: 0 },
+  );
+
   const deckWishlistMissing = editorRows.reduce(
     (total, row) => total + row.missing,
     0,
@@ -356,7 +502,7 @@ export default async function DeckDetailPage({
                   className={cn(filterTextareaClass, "mt-1 w-full")}
                 />
               </label>
-              <div className="grid gap-3 md:grid-cols-3">
+              <div className="grid gap-3 md:grid-cols-2">
                 <label className={filterFieldClass}>
                   Format
                   <select
@@ -381,21 +527,6 @@ export default async function DeckDetailPage({
                     {Object.values(Visibility).map((visibility) => (
                       <option key={visibility} value={visibility}>
                         {visibilityLabel(visibility)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className={filterFieldClass}>
-                  Folder
-                  <select
-                    name="folderId"
-                    defaultValue={deck.folderId ?? ""}
-                    className={cn(filterSelectClass, "mt-1 w-full")}
-                  >
-                    <option value="">Uncategorized</option>
-                    {folderOptions.map((folder) => (
-                      <option key={folder.id} value={folder.id}>
-                        {folderSelectLabel(folder)}
                       </option>
                     ))}
                   </select>
