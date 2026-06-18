@@ -54,6 +54,19 @@ function enumValue<T extends Record<string, string>>(
     : fallback;
 }
 
+async function requireManagedFolder(folderId: string) {
+  const user = await requireLogin();
+  const scope = await getAccessScope(user);
+  const folder = await prisma.deckFolder.findUnique({
+    where: { id: folderId },
+  });
+  if (!folder) throw new Error("Folder not found.");
+  if (scope?.mode !== "admin" && folder.ownerUserId !== user.id) {
+    throw new Error("You can only manage your own folders.");
+  }
+  return { user, folder, adminMode: scope?.mode === "admin" };
+}
+
 async function requireManagedDeck(deckId: string) {
   const user = await requireLogin();
   const scope = await getAccessScope(user);
@@ -66,6 +79,116 @@ async function requireManagedDeck(deckId: string) {
     throw new Error("You can only edit your own decks.");
   }
   return { user, deck, adminMode: scope?.mode === "admin" };
+}
+
+async function ensureUniqueFolderName(
+  ownerUserId: string,
+  parentId: string | null,
+  name: string,
+  exceptId?: string,
+) {
+  const existing = await prisma.deckFolder.findFirst({
+    where: {
+      ownerUserId,
+      parentId,
+      name,
+      ...(exceptId ? { id: { not: exceptId } } : {}),
+    },
+    select: { id: true },
+  });
+  if (existing)
+    throw new Error(
+      "Folder names must be unique within the same parent folder.",
+    );
+}
+
+async function validatedFolderId(ownerUserId: string, folderId: string) {
+  if (!folderId || folderId === DECK_FOLDER_ROOT_VALUE) return null;
+  const folder = await prisma.deckFolder.findFirst({
+    where: { id: folderId, ownerUserId },
+    select: { id: true },
+  });
+  if (!folder) throw new Error("Choose a folder owned by the deck owner.");
+  return folder.id;
+}
+
+export async function createDeckFolder(fd: FormData) {
+  const user = await requireLogin();
+  const name = formString(fd, "name");
+  if (!name) throw new Error("Folder name is required.");
+  const parentId = await validatedFolderId(user.id, formString(fd, "parentId"));
+  await ensureUniqueFolderName(user.id, parentId, name);
+  await prisma.deckFolder.create({
+    data: { ownerUserId: user.id, parentId, name },
+  });
+  revalidatePath("/decks");
+}
+
+export async function renameDeckFolder(fd: FormData) {
+  const folderId = formString(fd, "folderId");
+  const name = formString(fd, "name");
+  if (!name) throw new Error("Folder name is required.");
+  const { folder } = await requireManagedFolder(folderId);
+  await ensureUniqueFolderName(
+    folder.ownerUserId,
+    folder.parentId,
+    name,
+    folderId,
+  );
+  await prisma.deckFolder.update({ where: { id: folderId }, data: { name } });
+  revalidatePath("/decks");
+}
+
+export async function moveDeckFolder(fd: FormData) {
+  const folderId = formString(fd, "folderId");
+  const { folder } = await requireManagedFolder(folderId);
+  const parentId = await validatedFolderId(
+    folder.ownerUserId,
+    formString(fd, "parentId"),
+  );
+  const folders = await prisma.deckFolder.findMany({
+    where: { ownerUserId: folder.ownerUserId },
+    select: { id: true, parentId: true },
+  });
+  if (!canMoveFolder(folderId, parentId, folders)) {
+    throw new Error(
+      "A folder cannot be moved under itself or one of its descendants.",
+    );
+  }
+  await prisma.deckFolder.update({
+    where: { id: folderId },
+    data: { parentId },
+  });
+  revalidatePath("/decks");
+}
+
+export async function deleteDeckFolder(fd: FormData) {
+  const folderId = formString(fd, "folderId");
+  const { folder } = await requireManagedFolder(folderId);
+  await prisma.$transaction(async (tx) => {
+    await tx.deck.updateMany({
+      where: { folderId },
+      data: { folderId: folder.parentId },
+    });
+    await tx.deckFolder.updateMany({
+      where: { parentId: folderId },
+      data: { parentId: folder.parentId },
+    });
+    await tx.deckFolder.delete({ where: { id: folderId } });
+  });
+  revalidatePath("/decks");
+}
+
+export async function moveDeckToFolder(fd: FormData) {
+  const deckId = formString(fd, "deckId");
+  const { deck } = await requireManagedDeck(deckId);
+  const folderId = await validatedFolderId(
+    deck.ownerUserId,
+    formString(fd, "folderId"),
+  );
+  await prisma.deck.update({ where: { id: deckId }, data: { folderId } });
+  revalidatePath("/decks");
+  revalidatePath(`/decks/${deckId}`);
 }
 
 export async function createDeck(fd: FormData) {
@@ -87,6 +210,7 @@ export async function createDeck(fd: FormData) {
         formString(fd, "visibility"),
         Visibility.INHERIT,
       ),
+      folderId: await validatedFolderId(user.id, formString(fd, "folderId")),
     },
   });
   revalidatePath("/decks");
@@ -117,6 +241,10 @@ export async function updateDeck(fd: FormData) {
         DeckFormat.CASUAL,
       ),
       visibility,
+      folderId: await validatedFolderId(
+        deck.ownerUserId,
+        formString(fd, "folderId"),
+      ),
     },
   });
   const existingDeckLocation = await prisma.inventoryLocation.findUnique({

@@ -11,6 +11,12 @@ import {
 import { Nav } from "@/components/Nav";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { getAccessScope, getCurrentUser } from "@/lib/auth";
+import { ColorIdentitySymbols } from "@/components/mtg/ColorIdentitySymbols";
+import {
+  buildDeckFolderOptions,
+  calculateDeckColorIdentity,
+  folderSelectLabel,
+} from "@/lib/deck-folders";
 import {
   canManageDeck,
   canViewDeck,
@@ -134,6 +140,15 @@ export default async function DeckDetailPage({
   if (!deck || !canViewDeck(user, deck, scope?.mode === "admin")) notFound();
 
   const canEdit = canManageDeck(user, deck, scope?.mode === "admin");
+  const folderOptions = canEdit
+    ? buildDeckFolderOptions(
+        await prisma.deckFolder.findMany({
+          where: { ownerUserId: deck.ownerUserId },
+          orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+        }),
+      )
+    : [];
+  const deckColorIdentity = calculateDeckColorIdentity(deck.cards, deck.format);
   const effectiveVisibility = resolveDeckVisibility(
     deck.ownerUser.deckDefaultVisibility,
     deck.visibility,
@@ -393,8 +408,10 @@ export default async function DeckDetailPage({
           </Link>
           <h1 className="text-3xl font-bold">{deck.name}</h1>
           <p className="text-zinc-400">
-            {deckFormatLabel(deck.format)} · {visibilityLabel(deck.visibility)}{" "}
-            · Effective {effectiveVisibility.toLowerCase()}
+            {deckFormatLabel(deck.format)} ·{" "}
+            <ColorIdentitySymbols value={deckColorIdentity} /> ·{" "}
+            {visibilityLabel(deck.visibility)} · Effective{" "}
+            {effectiveVisibility.toLowerCase()}
           </p>
           {deck.description ? (
             <p className="max-w-3xl whitespace-pre-wrap text-zinc-300">
