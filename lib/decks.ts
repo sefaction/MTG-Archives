@@ -28,6 +28,8 @@ export const deckSectionLabels: Record<DeckSection, string> = {
   MAYBEBOARD: "Maybeboard",
 };
 
+export const DEFAULT_DECK_CARD_SECTION = DeckSection.MAINBOARD;
+
 export const deckSections: DeckSection[] = [
   DeckSection.COMMANDER,
   DeckSection.MAINBOARD,

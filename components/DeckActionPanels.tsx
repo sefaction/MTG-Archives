@@ -1,0 +1,244 @@
+"use client";
+
+import { ReactNode, useEffect, useMemo, useState } from "react";
+import {
+  cn,
+  filterButtonClass,
+  filterPrimaryButtonClass,
+} from "@/components/filterStyles";
+
+type DeckActionPanelId =
+  | "add-card"
+  | "paste-decklist"
+  | "return-committed"
+  | "settings"
+  | "delete";
+
+type DeckActionItem = {
+  id: DeckActionPanelId;
+  label: string;
+  shortLabel: string;
+  disabled?: boolean;
+  danger?: boolean;
+  primary?: boolean;
+};
+
+export function DeckActionPanels({
+  deckName,
+  committedQuantity,
+  canReturnCommitted,
+  addCard,
+  pasteDecklist,
+  returnCommitted,
+  settings,
+  deleteDeck,
+}: {
+  deckName: string;
+  committedQuantity: number;
+  canReturnCommitted: boolean;
+  addCard: ReactNode;
+  pasteDecklist: ReactNode;
+  returnCommitted: ReactNode;
+  settings: ReactNode;
+  deleteDeck: ReactNode;
+}) {
+  const [activePanel, setActivePanel] = useState<DeckActionPanelId | null>(
+    null,
+  );
+
+  const actions = useMemo<DeckActionItem[]>(
+    () => [
+      {
+        id: "add-card",
+        label: "Add card",
+        shortLabel: "Add",
+        primary: true,
+      },
+      { id: "paste-decklist", label: "Paste decklist", shortLabel: "Import" },
+      {
+        id: "return-committed",
+        label: `Return committed (${committedQuantity})`,
+        shortLabel: "Return",
+        disabled: !canReturnCommitted,
+      },
+      { id: "settings", label: "Deck settings", shortLabel: "Settings" },
+      {
+        id: "delete",
+        label: "Delete deck",
+        shortLabel: "More",
+        danger: true,
+      },
+    ],
+    [canReturnCommitted, committedQuantity],
+  );
+
+  useEffect(() => {
+    if (!activePanel) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setActivePanel(null);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [activePanel]);
+
+  const activeAction = actions.find((action) => action.id === activePanel);
+  const activeContent =
+    activePanel === "add-card"
+      ? addCard
+      : activePanel === "paste-decklist"
+        ? pasteDecklist
+        : activePanel === "return-committed"
+          ? returnCommitted
+          : activePanel === "settings"
+            ? settings
+            : activePanel === "delete"
+              ? deleteDeck
+              : null;
+
+  return (
+    <section
+      className="rounded border border-zinc-800 bg-zinc-950/80 p-2"
+      aria-label="Deck action toolbar"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        {actions.map((action) => (
+          <ActionButton
+            key={action.id}
+            active={activePanel === action.id}
+            onClick={() => setActivePanel(action.id)}
+            disabled={action.disabled}
+            primary={action.primary}
+            danger={action.danger}
+          >
+            {action.label}
+          </ActionButton>
+        ))}
+        <a href="#bulk-edit" className={filterButtonClass}>
+          Bulk edit
+        </a>
+        <a
+          href="#bulk-edit"
+          className="rounded border border-emerald-700 px-3 py-2 text-sm text-emerald-100"
+        >
+          Optimize printings
+        </a>
+      </div>
+
+      {activePanel && activeAction ? (
+        <div className="fixed inset-0 z-40" role="dialog" aria-modal="true">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/60"
+            aria-label="Close deck actions"
+            onClick={() => setActivePanel(null)}
+          />
+          <aside
+            className={cn(
+              "absolute inset-y-0 right-0 flex w-full max-w-lg flex-col border-l border-zinc-800 bg-zinc-950 shadow-2xl",
+              activePanel === "paste-decklist" && "md:max-w-2xl",
+            )}
+          >
+            <header className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-950/95 p-3 backdrop-blur">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold">Deck actions</h2>
+                  <p className="line-clamp-1 text-xs text-zinc-400">
+                    {deckName}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="rounded border border-zinc-700 px-2 py-1 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  onClick={() => setActivePanel(null)}
+                >
+                  Close
+                </button>
+              </div>
+              <nav
+                className="mt-3 flex gap-1 overflow-x-auto text-sm"
+                aria-label="Deck action panels"
+              >
+                {actions.map((action) => (
+                  <button
+                    key={action.id}
+                    type="button"
+                    disabled={action.disabled}
+                    className={cn(
+                      "whitespace-nowrap rounded border border-zinc-800 px-2 py-1 text-zinc-300 focus:outline-none focus:ring-2 focus:ring-sky-500",
+                      activePanel === action.id &&
+                        "border-sky-600 bg-sky-950/40 text-sky-100",
+                      action.danger && "border-red-950 text-red-200",
+                      action.disabled && "cursor-not-allowed opacity-50",
+                    )}
+                    onClick={() => setActivePanel(action.id)}
+                  >
+                    {action.shortLabel}
+                  </button>
+                ))}
+              </nav>
+            </header>
+            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <h3
+                  className={cn(
+                    "text-base font-semibold",
+                    activeAction.danger && "text-red-100",
+                  )}
+                >
+                  {activeAction.label}
+                </h3>
+                {activePanel === "return-committed" &&
+                committedQuantity === 0 ? (
+                  <span className="text-xs text-zinc-500">
+                    No committed cards to return.
+                  </span>
+                ) : null}
+              </div>
+              <div className="deck-action-panel-body space-y-2 text-sm">
+                {activeContent}
+              </div>
+            </div>
+          </aside>
+        </div>
+      ) : (
+        <p className="mt-1 text-xs text-zinc-500">
+          Open one compact action drawer when needed; the deck list stays
+          visible below.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function ActionButton({
+  active,
+  onClick,
+  disabled,
+  primary,
+  danger,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+  primary?: boolean;
+  danger?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      className={cn(
+        primary ? filterPrimaryButtonClass : filterButtonClass,
+        "px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500",
+        danger && "border-red-900 text-red-200 hover:bg-red-950/40",
+        active && "border-sky-500 bg-sky-950/40 text-sky-100",
+        disabled && "cursor-not-allowed opacity-50",
+      )}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
