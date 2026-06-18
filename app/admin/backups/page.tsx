@@ -4,7 +4,14 @@ import { revalidatePath } from "next/cache";
 import { Nav } from "@/components/Nav";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { requireAdminMode } from "@/lib/auth";
-import { createBackup, formatBytes, getBackupDir, listBackups } from "@/lib/backup";
+import {
+  createBackup,
+  formatBytes,
+  getBackupDir,
+  getBackupPathForFilename,
+  listBackups,
+  restoreBackup,
+} from "@/lib/backup";
 
 async function createBackupAction() {
   "use server";
@@ -13,8 +20,36 @@ async function createBackupAction() {
   revalidatePath("/admin/backups");
 }
 
-export default async function AdminBackupsPage() {
+async function restoreBackupAction(formData: FormData) {
+  "use server";
   await requireAdminMode();
+  const filename = String(formData.get("filename") || "").trim();
+  const confirmFilename = String(formData.get("confirmFilename") || "").trim();
+  const confirmation = String(formData.get("confirmation") || "").trim();
+  if (filename !== confirmFilename) {
+    throw new Error("Backup filename confirmation did not match.");
+  }
+  if (confirmation !== "RESTORE") {
+    throw new Error("Type RESTORE to confirm this destructive restore.");
+  }
+  console.warn("[backup-restore] admin requested web restore", {
+    filename,
+    requestedAt: new Date().toISOString(),
+  });
+  await restoreBackup(getBackupPathForFilename(filename), {
+    force: true,
+    confirmation,
+  });
+  revalidatePath("/admin/backups");
+}
+
+export default async function AdminBackupsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
+  await requireAdminMode();
+  const params = await searchParams;
   const backups = await listBackups();
   const backupDir = getBackupDir();
 
@@ -31,8 +66,50 @@ export default async function AdminBackupsPage() {
           </p>
         </div>
         <form action={createBackupAction}>
-          <SubmitButton pendingLabel="Creating backup..." className="border px-3 py-2">
+          <SubmitButton
+            pendingLabel="Creating backup..."
+            className="border px-3 py-2"
+          >
             Create Backup
+          </SubmitButton>
+        </form>
+      </section>
+
+      {params.uploaded ? (
+        <p className="rounded border border-emerald-800 bg-emerald-950/40 p-3 text-sm text-emerald-100">
+          Backup uploaded and validated.
+        </p>
+      ) : null}
+      {params.error ? (
+        <p className="rounded border border-red-800 bg-red-950/40 p-3 text-sm text-red-100">
+          {params.error}
+        </p>
+      ) : null}
+
+      <section className="space-y-3 rounded border border-zinc-800 p-4">
+        <h2 className="text-xl font-semibold">Upload backup</h2>
+        <p className="text-sm text-zinc-400">
+          Upload a previously created MTG Archives backup archive. The archive
+          is validated before it is added to the backup directory.
+        </p>
+        <form
+          action="/api/admin/backups/upload"
+          method="post"
+          encType="multipart/form-data"
+          className="flex flex-wrap gap-3"
+        >
+          <input
+            name="backupFile"
+            type="file"
+            accept=".tar.gz,application/gzip,application/x-gzip"
+            required
+            className="max-w-full rounded border border-zinc-700 bg-zinc-900 p-2"
+          />
+          <SubmitButton
+            pendingLabel="Uploading backup..."
+            className="border px-3 py-2"
+          >
+            Upload Backup
           </SubmitButton>
         </form>
       </section>
@@ -52,8 +129,8 @@ export default async function AdminBackupsPage() {
           </div>
         </dl>
         <p className="text-sm text-zinc-500">
-          Restore is intentionally CLI-only. Run it from the app container or a
-          backup utility container while the app is in maintenance mode.
+          Restore replaces the configured database schema and included appdata.
+          Prefer maintenance mode or a quiet local instance before restoring.
         </p>
       </section>
 
@@ -69,6 +146,7 @@ export default async function AdminBackupsPage() {
                   <th className="p-3">Size</th>
                   <th className="p-3">Included</th>
                   <th className="p-3">Database</th>
+                  <th className="p-3">Restore</th>
                 </tr>
               </thead>
               <tbody>
@@ -88,6 +166,42 @@ export default async function AdminBackupsPage() {
                     </td>
                     <td className="p-3">
                       {backup.manifest?.database.name ?? "Unknown"}
+                    </td>
+                    <td className="min-w-80 p-3">
+                      {backup.manifest ? (
+                        <form action={restoreBackupAction} className="space-y-2">
+                          <input
+                            type="hidden"
+                            name="filename"
+                            value={backup.filename}
+                          />
+                          <p className="text-xs text-red-200">
+                            Destructive. Type RESTORE and this exact filename.
+                          </p>
+                          <input
+                            name="confirmation"
+                            placeholder="RESTORE"
+                            required
+                            className="w-full rounded border border-red-800 bg-zinc-950 p-2 text-sm"
+                          />
+                          <input
+                            name="confirmFilename"
+                            placeholder={backup.filename}
+                            required
+                            className="w-full rounded border border-zinc-700 bg-zinc-950 p-2 font-mono text-xs"
+                          />
+                          <SubmitButton
+                            pendingLabel="Restoring..."
+                            className="border border-red-700 px-3 py-2 text-red-100"
+                          >
+                            Restore Backup
+                          </SubmitButton>
+                        </form>
+                      ) : (
+                        <span className="text-xs text-zinc-500">
+                          Restore unavailable until manifest can be read.
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}

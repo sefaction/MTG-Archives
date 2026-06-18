@@ -12,6 +12,7 @@ const PROTECTED_PREFIXES = [
   "/trades",
   "/api/imports",
   "/api/inventory",
+  "/api/admin",
   "/api/scryfall",
 ];
 
