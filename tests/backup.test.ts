@@ -162,8 +162,10 @@ test("admin backup page is admin-mode protected and exposes create UI", async ()
   assert.match(page, /Create Backup/);
   assert.match(page, /Upload Backup/);
   assert.match(page, /Restore Backup/);
+  assert.match(page, /Delete Backup/);
   assert.match(page, /confirmFilename/);
   assert.match(page, /RESTORE/);
+  assert.match(page, /DELETE/);
 });
 
 test("admin backup upload route requires admin mode and validates archives", async () => {
@@ -190,4 +192,16 @@ test("admin backup download route requires admin mode and streams archives", asy
   assert.match(route, /createReadStream/);
   assert.match(page, /Download/);
   assert.match(page, /encodeURIComponent/);
+});
+
+test("backup deletion uses the shared filename guard", async () => {
+  const source = await readFile("lib/backup.ts", "utf8");
+  const page = await readFile("app/admin/backups/page.tsx", "utf8");
+
+  assert.match(source, /deleteBackupByFilename/);
+  assert.match(source, /getBackupPathForFilename\(filename, backupDir\)/);
+  assert.match(source, /readManifestFromBackup\(backupPath\)/);
+  assert.match(source, /Refusing to delete a backup outside BACKUP_DIR/);
+  assert.match(page, /deleteBackupAction/);
+  assert.match(page, /deleteBackupByFilename/);
 });

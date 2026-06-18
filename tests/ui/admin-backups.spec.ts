@@ -59,5 +59,8 @@ test("admin can reach backups page without restore actions", async ({ page }) =>
   if ((await page.getByRole("button", { name: "Restore Backup" }).count()) > 0) {
     await expect(page.getByText("Destructive. Type RESTORE").first()).toBeVisible();
   }
+  if ((await page.getByRole("button", { name: "Delete Backup" }).count()) > 0) {
+    await expect(page.getByText("Type DELETE").first()).toBeVisible();
+  }
   await expect(page.getByRole("button", { name: /^restore$/i })).toHaveCount(0);
 });

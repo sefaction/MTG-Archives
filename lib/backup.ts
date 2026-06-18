@@ -311,6 +311,18 @@ export async function saveUploadedBackupArchive(
   }
 }
 
+export async function deleteBackupByFilename(filename: string) {
+  loadEnvFile();
+  const backupDir = resolve(getBackupDir());
+  const backupPath = getBackupPathForFilename(filename, backupDir);
+  if (resolve(dirname(backupPath)) !== backupDir) {
+    throw new Error("Refusing to delete a backup outside BACKUP_DIR.");
+  }
+  await readManifestFromBackup(backupPath);
+  await rm(backupPath, { force: false });
+  return backupPath;
+}
+
 export async function applyRetention(backupDir = resolve(getBackupDir())) {
   const count = Number(process.env.BACKUP_RETENTION_COUNT || 0);
   const days = Number(process.env.BACKUP_RETENTION_DAYS || 0);

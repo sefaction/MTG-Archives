@@ -6,6 +6,7 @@ import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { requireAdminMode } from "@/lib/auth";
 import {
   createBackup,
+  deleteBackupByFilename,
   formatBytes,
   getBackupDir,
   getBackupPathForFilename,
@@ -40,6 +41,26 @@ async function restoreBackupAction(formData: FormData) {
     force: true,
     confirmation,
   });
+  revalidatePath("/admin/backups");
+}
+
+async function deleteBackupAction(formData: FormData) {
+  "use server";
+  await requireAdminMode();
+  const filename = String(formData.get("filename") || "").trim();
+  const confirmFilename = String(formData.get("confirmFilename") || "").trim();
+  const confirmation = String(formData.get("confirmation") || "").trim();
+  if (filename !== confirmFilename) {
+    throw new Error("Backup filename confirmation did not match.");
+  }
+  if (confirmation !== "DELETE") {
+    throw new Error("Type DELETE to confirm backup deletion.");
+  }
+  console.warn("[backup-delete] admin deleted backup", {
+    filename,
+    requestedAt: new Date().toISOString(),
+  });
+  await deleteBackupByFilename(filename);
   revalidatePath("/admin/backups");
 }
 
@@ -148,6 +169,7 @@ export default async function AdminBackupsPage({
                   <th className="p-3">Database</th>
                   <th className="p-3">Download</th>
                   <th className="p-3">Restore</th>
+                  <th className="p-3">Delete</th>
                 </tr>
               </thead>
               <tbody>
@@ -217,6 +239,43 @@ export default async function AdminBackupsPage({
                       ) : (
                         <span className="text-xs text-zinc-500">
                           Restore unavailable until manifest can be read.
+                        </span>
+                      )}
+                    </td>
+                    <td className="min-w-80 p-3">
+                      {backup.manifest ? (
+                        <form action={deleteBackupAction} className="space-y-2">
+                          <input
+                            type="hidden"
+                            name="filename"
+                            value={backup.filename}
+                          />
+                          <p className="text-xs text-red-200">
+                            Deletes only this backup archive. Type DELETE and
+                            this exact filename.
+                          </p>
+                          <input
+                            name="confirmation"
+                            placeholder="DELETE"
+                            required
+                            className="w-full rounded border border-red-800 bg-zinc-950 p-2 text-sm"
+                          />
+                          <input
+                            name="confirmFilename"
+                            placeholder={backup.filename}
+                            required
+                            className="w-full rounded border border-zinc-700 bg-zinc-950 p-2 font-mono text-xs"
+                          />
+                          <SubmitButton
+                            pendingLabel="Deleting..."
+                            className="border border-red-700 px-3 py-2 text-red-100"
+                          >
+                            Delete Backup
+                          </SubmitButton>
+                        </form>
+                      ) : (
+                        <span className="text-xs text-zinc-500">
+                          Delete unavailable until manifest can be read.
                         </span>
                       )}
                     </td>
