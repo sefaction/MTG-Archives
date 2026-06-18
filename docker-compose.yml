@@ -28,6 +28,7 @@ services:
       IMPORTS_DATA_PATH: ${IMPORTS_DATA_PATH:?IMPORTS_DATA_PATH must be set in .env}
       EXPORTS_DATA_PATH: ${EXPORTS_DATA_PATH:?EXPORTS_DATA_PATH must be set in .env}
       BACKUPS_DATA_PATH: ${BACKUPS_DATA_PATH:?BACKUPS_DATA_PATH must be set in .env}
+      BACKUP_DIR: ${BACKUP_DIR:-/app/backups}
       SCRYFALL_API_BASE_URL: ${SCRYFALL_API_BASE_URL:-https://api.scryfall.com}
       SCRYFALL_USER_AGENT: ${SCRYFALL_USER_AGENT:-MTG-Archives/1.0}
       SCRYFALL_MIN_REQUEST_INTERVAL_MS: ${SCRYFALL_MIN_REQUEST_INTERVAL_MS:-100}
@@ -48,9 +49,34 @@ services:
       - ${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}:${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}
       - ${IMPORTS_DATA_PATH:?IMPORTS_DATA_PATH must be set in .env}:${IMPORTS_DATA_PATH:?IMPORTS_DATA_PATH must be set in .env}
       - ${EXPORTS_DATA_PATH:?EXPORTS_DATA_PATH must be set in .env}:${EXPORTS_DATA_PATH:?EXPORTS_DATA_PATH must be set in .env}
-      - ${BACKUPS_DATA_PATH:?BACKUPS_DATA_PATH must be set in .env}:${BACKUPS_DATA_PATH:?BACKUPS_DATA_PATH must be set in .env}
+      - ${BACKUPS_DATA_PATH:?BACKUPS_DATA_PATH must be set in .env}:${BACKUP_DIR:-/app/backups}
       - ${SCRYFALL_DATA_PATH:?SCRYFALL_DATA_PATH must be set in .env}:${SCRYFALL_CONTAINER_DATA_PATH:-/app/data/scryfall}
     depends_on:
       - postgres
     ports:
       - "${WEB_HOST_PORT:-13003}:3000"
+
+  backup:
+    build:
+      context: ${GIT_CONTEXT:-https://github.com/sefaction/MTG-Archives.git#main}
+      dockerfile: ${DOCKERFILE_PATH:-./Dockerfile}
+    pull_policy: build
+    profiles:
+      - backup
+    command: npm run backup:create
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://mtginventory:mtginventory@postgres:5432/mtginventory?schema=public}
+      BACKUP_DIR: ${BACKUP_DIR:-/app/backups}
+      UPLOADS_DATA_PATH: ${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}
+      IMPORTS_DATA_PATH: ${IMPORTS_DATA_PATH:?IMPORTS_DATA_PATH must be set in .env}
+      EXPORTS_DATA_PATH: ${EXPORTS_DATA_PATH:?EXPORTS_DATA_PATH must be set in .env}
+      SCRYFALL_CONTAINER_DATA_PATH: ${SCRYFALL_CONTAINER_DATA_PATH:-/app/data/scryfall}
+      NODE_ENV: production
+    volumes:
+      - ${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}:${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}
+      - ${IMPORTS_DATA_PATH:?IMPORTS_DATA_PATH must be set in .env}:${IMPORTS_DATA_PATH:?IMPORTS_DATA_PATH must be set in .env}
+      - ${EXPORTS_DATA_PATH:?EXPORTS_DATA_PATH must be set in .env}:${EXPORTS_DATA_PATH:?EXPORTS_DATA_PATH must be set in .env}
+      - ${BACKUPS_DATA_PATH:?BACKUPS_DATA_PATH must be set in .env}:${BACKUP_DIR:-/app/backups}
+      - ${SCRYFALL_DATA_PATH:?SCRYFALL_DATA_PATH must be set in .env}:${SCRYFALL_CONTAINER_DATA_PATH:-/app/data/scryfall}
+    depends_on:
+      - postgres

@@ -83,6 +83,10 @@ export default async function Page() {
           <a className="underline" href="/admin/prices">
             Manage MTGJSON price imports
           </a>
+          <span className="mx-2 text-zinc-600">|</span>
+          <a className="underline" href="/admin/backups">
+            Manage backups
+          </a>
         </p>
       </div>
 

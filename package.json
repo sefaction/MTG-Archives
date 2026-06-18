@@ -11,6 +11,9 @@
     "prisma:migrate": "prisma migrate deploy",
     "prisma:seed": "prisma db seed",
     "prisma:bootstrap-admin": "tsx prisma/bootstrap-admin.ts",
+    "backup:create": "tsx scripts/backup-create.ts",
+    "backup:list": "tsx scripts/backup-list.ts",
+    "backup:restore": "tsx scripts/backup-restore.ts",
     "typecheck": "tsc --noEmit",
     "format": "npx prettier --check .",
     "test": "tsx --test tests/*.test.ts"

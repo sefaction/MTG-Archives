@@ -33,6 +33,8 @@ See `.env.example` for the full list. Important settings:
 - `NEXT_PUBLIC_APP_NAME` controls visible branding and defaults to `MTG Inventory`.
 - `APP_DATA_PATH` documents the intended base host directory for persistent application data.
 - `POSTGRES_DATA_PATH`, `UPLOADS_DATA_PATH`, `IMPORTS_DATA_PATH`, `EXPORTS_DATA_PATH`, and `BACKUPS_DATA_PATH` must each point at host storage that survives container recreation.
+- `BACKUP_DIR` is the in-container backup destination and defaults to `/app/backups`; Compose mounts `BACKUPS_DATA_PATH` there.
+- `BACKUP_RETENTION_DAYS` and `BACKUP_RETENTION_COUNT` optionally prune old `mtg-archives-backup-*.tar.gz` files after successful backup creation.
 - `COOKIE_SECURE=false` is appropriate for HTTP/LAN deployments; set it to `true` behind HTTPS.
 - `RUN_SEED_ON_START=false` keeps startup free of demo data.
 - `ADMIN_USERNAME` and `SEED_ADMIN_PASSWORD` control bootstrap admin creation.
@@ -47,7 +49,7 @@ All important application data is stored outside containers through host bind mo
 | `UPLOADS_DATA_PATH`  | Raw uploaded files, including uploaded CSV files              | `web:$UPLOADS_DATA_PATH`            |
 | `IMPORTS_DATA_PATH`  | Retained import-processing files, including CSV import copies | `web:$IMPORTS_DATA_PATH`            |
 | `EXPORTS_DATA_PATH`  | Generated CSV export copies                                   | `web:$EXPORTS_DATA_PATH`            |
-| `BACKUPS_DATA_PATH`  | Reserved for future application-managed backups               | `web:$BACKUPS_DATA_PATH`            |
+| `BACKUPS_DATA_PATH`  | Full database/appdata backup bundles                          | `web:$BACKUP_DIR`                   |
 
 Docker will usually create missing bind-mount source directories, and the web entrypoint also runs `mkdir -p` for the application-managed directories. For the most predictable Portainer/Unraid deployment, create them before first startup:
 
@@ -56,6 +58,58 @@ mkdir -p /mnt/user/appdata/mtg-archive/{postgres,uploads,imports,exports,backups
 ```
 
 Permissions must allow the containers to write to their mounted directories. The PostgreSQL directory must be writable by the official Postgres container user (commonly UID/GID `999`), and the uploads/imports/exports/backups directories must be writable by the web container. The current web image runs as root, but if that changes later, update ownership accordingly. Containers can be recreated without losing database, uploaded, imported, exported, or future backup data as long as these host directories are preserved. Empty directories are valid on first startup.
+
+## Backups and restore
+
+Backups preserve live application data, not the Docker image. The primary backup artifact is a PostgreSQL custom-format dump created with `pg_dump -Fc`, bundled with a manifest and any configured persistent appdata directories.
+
+Backup bundle format:
+
+```text
+mtg-archives-backup-YYYYMMDD-HHMMSS.tar.gz
+  manifest.json
+  database.dump
+  appdata.tar.gz optional
+  README-restore.txt
+```
+
+`manifest.json` includes the app name, creation time, backup version, database name/host/port/schema, git SHA when available, runtime diagnostics, and whether appdata was included. It does not include `.env`, `DATABASE_URL`, database passwords, or other secrets.
+
+Create a backup from the app container:
+
+```bash
+docker compose run --rm web npm run backup:create
+```
+
+Or use the backup profile service:
+
+```bash
+docker compose --profile backup run --rm backup
+```
+
+List backups:
+
+```bash
+docker compose run --rm web npm run backup:list
+```
+
+Restore is intentionally CLI-only. Stop or put the app in maintenance mode first, then run:
+
+```bash
+docker compose run --rm web npm run backup:restore -- /app/backups/mtg-archives-backup-YYYYMMDD-HHMMSS.tar.gz --force
+```
+
+Without `--force`, restore prints a dry-run summary and exits. With `--force`, the command requires typing `RESTORE`, drops and recreates the configured PostgreSQL schema, restores `database.dump` with `pg_restore`, and replaces included appdata directories from `appdata.tar.gz`.
+
+Backups are written to `BACKUP_DIR`, defaulting to `/app/backups`. In Docker Compose that path is mounted from the persistent host `BACKUPS_DATA_PATH`, so backups survive container recreation. Do not point `BACKUP_DIR` at a disposable container-only path in production.
+
+The admin-only page at `/admin/backups` can create backups and list recent backup manifests. It does not expose public download links and does not perform restore from the browser.
+
+For scheduled backups in cron, Portainer, or Unraid, run the same command on your desired schedule:
+
+```bash
+docker compose run --rm web npm run backup:create
+```
 
 ## Current capabilities
 
