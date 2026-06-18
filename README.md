@@ -103,7 +103,7 @@ Without `--force`, restore prints a dry-run summary and exits. With `--force`, t
 
 Backups are written to `BACKUP_DIR`, defaulting to `/app/backups`. In Docker Compose that path is mounted from the persistent host `BACKUPS_DATA_PATH`, so backups survive container recreation. Do not point `BACKUP_DIR` at a disposable container-only path in production.
 
-The admin-only page at `/admin/backups` can create backups, upload a previously created `.tar.gz` backup archive, list recent backup manifests, and restore from a listed backup. Browser restore is destructive and requires typing `RESTORE` plus the exact backup filename. It does not expose public download links.
+The admin-only page at `/admin/backups` can create backups, upload a previously created `.tar.gz` backup archive, list recent backup manifests, download a listed backup, delete a listed backup, and restore from a listed backup. Browser restore is destructive and requires typing `RESTORE` plus the exact backup filename. Browser delete requires typing `DELETE` plus the exact backup filename and only removes that backup archive from `BACKUP_DIR`. Downloads are served only through admin-mode-protected routes; no public download links are exposed.
 
 For scheduled backups in cron, Portainer, or Unraid, run the same command on your desired schedule:
 
