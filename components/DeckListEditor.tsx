@@ -180,6 +180,114 @@ function ownedBadge(row: DeckEditorRow, showLocations: boolean) {
   );
 }
 
+function commitmentBadge(row: DeckEditorRow) {
+  const committed = row.committedToThisDeck;
+  const status =
+    row.isBasicLand && committed === 0
+      ? "Basic land"
+      : row.commitmentMissing <= 0 || committed >= row.quantity
+        ? "Committed"
+        : committed > 0
+          ? "Partially committed"
+          : row.available > 0
+            ? "Ready to commit"
+            : "Missing";
+  const color =
+    status === "Committed"
+      ? "border-emerald-700 bg-emerald-950/40 text-emerald-100"
+      : status === "Partially committed"
+        ? "border-amber-700 bg-amber-950/40 text-amber-100"
+        : status === "Ready to commit"
+          ? "border-sky-700 bg-sky-950/40 text-sky-100"
+          : status === "Basic land"
+            ? "border-zinc-700 bg-zinc-900/70 text-zinc-100"
+            : "border-red-800 bg-red-950/30 text-red-100";
+
+  return (
+    <span
+      className={cn(
+        "inline-flex whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium",
+        color,
+      )}
+    >
+      {status}
+    </span>
+  );
+}
+
+function InventoryBreakdown({
+  row,
+  showPrivateInventory,
+}: {
+  row: DeckEditorRow;
+  showPrivateInventory: boolean;
+}) {
+  return (
+    <section className="space-y-3 rounded border border-zinc-800 p-3">
+      <div>
+        <h3 className="font-semibold text-zinc-100">Inventory status</h3>
+        <p className="text-sm text-zinc-400">
+          Detailed ownership and location information for this deck row.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {ownedBadge(row, false)}
+        {commitmentBadge(row)}
+      </div>
+      <dl className="grid gap-2 text-sm sm:grid-cols-2">
+        <div className="rounded border border-zinc-800 bg-zinc-900/40 p-2">
+          <dt className="text-xs uppercase tracking-wide text-zinc-500">
+            Exact owned
+          </dt>
+          <dd className="text-zinc-100">{row.exactOwned}</dd>
+        </div>
+        <div className="rounded border border-zinc-800 bg-zinc-900/40 p-2">
+          <dt className="text-xs uppercase tracking-wide text-zinc-500">
+            Other printings
+          </dt>
+          <dd className="text-zinc-100">{row.otherOwned}</dd>
+        </div>
+        <div className="rounded border border-zinc-800 bg-zinc-900/40 p-2">
+          <dt className="text-xs uppercase tracking-wide text-zinc-500">
+            Available to commit
+          </dt>
+          <dd className="text-zinc-100">{row.available}</dd>
+        </div>
+        <div className="rounded border border-zinc-800 bg-zinc-900/40 p-2">
+          <dt className="text-xs uppercase tracking-wide text-zinc-500">
+            Physically in deck
+          </dt>
+          <dd className="text-zinc-100">{row.committedToThisDeck}</dd>
+        </div>
+        {row.committedToOtherDecks > 0 ? (
+          <div className="rounded border border-zinc-800 bg-zinc-900/40 p-2">
+            <dt className="text-xs uppercase tracking-wide text-zinc-500">
+              In other decks
+            </dt>
+            <dd className="text-zinc-100">{row.committedToOtherDecks}</dd>
+          </div>
+        ) : null}
+        {row.missing > 0 ? (
+          <div className="rounded border border-zinc-800 bg-zinc-900/40 p-2">
+            <dt className="text-xs uppercase tracking-wide text-zinc-500">
+              Missing
+            </dt>
+            <dd className="text-zinc-100">{row.missing}</dd>
+          </div>
+        ) : null}
+      </dl>
+      {showPrivateInventory && row.locationSummary ? (
+        <div className="rounded border border-zinc-800 bg-zinc-900/40 p-2">
+          <h4 className="text-xs uppercase tracking-wide text-zinc-500">
+            Location summary
+          </h4>
+          <p className="mt-1 text-sm text-zinc-300">{row.locationSummary}</p>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 export function DeckListEditor({
   deckId,
   rows,
@@ -851,7 +959,7 @@ function TextDeckRow({
         {deckSectionLabel(row.section)}
       </td>
       <td className="px-2 py-1.5">
-        {ownedBadge(row, props.showPrivateInventory)}
+        {commitmentBadge(row)}
       </td>
       <td className="px-2 py-1.5 text-right">
         <CardActions
@@ -923,7 +1031,7 @@ function VisualDeckView(
                     </div>
                   </button>
                   <div className="mt-2">
-                    {ownedBadge(row, props.showPrivateInventory)}
+                    {commitmentBadge(row)}
                   </div>
                   <div className="mt-2">
                     <CardActions
@@ -1004,7 +1112,15 @@ function DeckEntryDrawer({
   previewOwned: (rowId: string) => void;
   previewCheapest: (rowId: string) => void;
 }) {
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "inventory" | "commit"
+  >("overview");
   if (!row) return null;
+  const tabs = [
+    { id: "overview", label: "Overview" },
+    { id: "inventory", label: "Inventory" },
+    ...(canEdit ? [{ id: "commit" as const, label: "Commit" }] : []),
+  ] as const;
 
   return (
     <div className="fixed inset-0 z-40" role="dialog" aria-modal="true">
@@ -1023,7 +1139,15 @@ function DeckEntryDrawer({
             <h2 className="text-xl font-semibold text-sky-100">
               {row.cardName}
             </h2>
-            <p className="text-sm text-zinc-400">
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-zinc-400">
+              <span>
+                {row.quantity} in {deckSectionLabel(row.section)}
+              </span>
+              <span>MV {cardManaValue(row)}</span>
+              <ManaCost value={row.card?.manaCost ?? null} />
+              {commitmentBadge(row)}
+            </div>
+            <p className="hidden text-sm text-zinc-400">
               {row.quantity} × {deckSectionLabel(row.section)} · MV{" "}
               {cardManaValue(row)} · {row.card?.typeLine ?? row.matchType}
             </p>
@@ -1036,28 +1160,32 @@ function DeckEntryDrawer({
             Close
           </button>
         </div>
-        <div className="space-y-3 p-4">
-          {canEdit ? (
-            <div className="flex flex-wrap gap-2 rounded border border-zinc-800 bg-zinc-900/40 p-2 text-sm">
+        <div className="border-b border-zinc-800 px-4 pt-3">
+          <div
+            className="flex gap-2"
+            role="tablist"
+            aria-label="Deck row details"
+          >
+            {tabs.map((tab) => (
               <button
+                key={tab.id}
                 type="button"
+                role="tab"
+                aria-selected={activeTab === tab.id}
                 className={cn(
-                  filterPrimaryButtonClass,
-                  "px-2 py-1 border-emerald-700 text-emerald-100 hover:bg-emerald-950/40",
+                  "rounded-t border border-b-0 border-zinc-800 px-3 py-2 text-sm text-zinc-300",
+                  activeTab === tab.id
+                    ? "bg-zinc-900 text-sky-100"
+                    : "bg-zinc-950 hover:bg-zinc-900",
                 )}
-                onClick={() => previewOwned(row.id)}
+                onClick={() => setActiveTab(tab.id)}
               >
-                Use owned printing
+                {tab.label}
               </button>
-              <button
-                type="button"
-                className="rounded border border-sky-700 px-2 py-1 text-sky-100"
-                onClick={() => previewCheapest(row.id)}
-              >
-                Use cheapest printing
-              </button>
-            </div>
-          ) : null}
+            ))}
+          </div>
+        </div>
+        <div className="space-y-3 p-4">
           <RowEditor
             deckId={deckId}
             row={row}
@@ -1065,6 +1193,9 @@ function DeckEntryDrawer({
             canEdit={canEdit}
             showPrivateInventory={showPrivateInventory}
             returnLocations={returnLocations}
+            activeTab={activeTab}
+            previewOwned={previewOwned}
+            previewCheapest={previewCheapest}
           />
         </div>
       </aside>
@@ -1079,6 +1210,9 @@ function RowEditor({
   canEdit,
   showPrivateInventory,
   returnLocations,
+  activeTab,
+  previewOwned,
+  previewCheapest,
 }: {
   deckId: string;
   row: DeckEditorRow;
@@ -1086,6 +1220,9 @@ function RowEditor({
   canEdit: boolean;
   showPrivateInventory: boolean;
   returnLocations: DeckReturnLocation[];
+  activeTab: "overview" | "inventory" | "commit";
+  previewOwned: (rowId: string) => void;
+  previewCheapest: (rowId: string) => void;
 }) {
   return (
     <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
@@ -1099,32 +1236,62 @@ function RowEditor({
         )}
       </div>
       <div className="space-y-3">
-        <div>
-          <h3 className="text-lg font-semibold text-sky-100">{row.cardName}</h3>
-          <p className="text-sm text-zinc-300">
-            {row.card?.typeLine ?? "No selected printing"}
-          </p>
-          <p className="text-sm text-zinc-400">
-            {row.card
-              ? `${row.card.setCode.toUpperCase()} #${row.card.collectorNumber} · ${row.card.rarity} · ${priceLabel(row.card.prices)}`
-              : "Generic card row"}
-          </p>
-          <div className="mt-2">{ownedBadge(row, showPrivateInventory)}</div>
-          <p className="mt-1 text-sm text-amber-100">
-            Physically in deck: {row.committedQuantity}
-          </p>
-          {showPrivateInventory && row.locationSummary ? (
-            <p className="mt-1 text-xs text-zinc-400">
-              Location summary: {row.locationSummary}
+        {activeTab === "overview" ? (
+          <div className="space-y-3">
+            <h3 className="text-lg font-semibold text-sky-100">
+              {row.cardName}
+            </h3>
+            <p className="text-sm text-zinc-300">
+              {row.card?.typeLine ?? "No selected printing"}
             </p>
-          ) : null}
-        </div>
+            <p className="text-sm text-zinc-400">
+              {row.card
+                ? `${row.card.setCode.toUpperCase()} #${row.card.collectorNumber} · ${row.card.rarity} · ${priceLabel(row.card.prices)}`
+                : "Generic card row"}
+            </p>
+            <div className="mt-2">{commitmentBadge(row)}</div>
+            <p className="text-xs text-zinc-400">
+              Inventory detail and commit controls are available in the
+              Inventory and Commit tabs.
+            </p>
+          </div>
+        ) : null}
+        {activeTab === "inventory" ? (
+          <div className="space-y-3">
+            <InventoryBreakdown
+              row={row}
+              showPrivateInventory={showPrivateInventory}
+            />
+            {canEdit ? (
+              <div className="flex flex-wrap gap-2 rounded border border-zinc-800 bg-zinc-900/40 p-2 text-sm">
+                <button
+                  type="button"
+                  className={cn(
+                    filterPrimaryButtonClass,
+                    "px-2 py-1 border-emerald-700 text-emerald-100 hover:bg-emerald-950/40",
+                  )}
+                  onClick={() => previewOwned(row.id)}
+                >
+                  Use owned printing
+                </button>
+                <button
+                  type="button"
+                  className="rounded border border-sky-700 px-2 py-1 text-sky-100"
+                  onClick={() => previewCheapest(row.id)}
+                >
+                  Use cheapest printing
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         {canEdit ? (
           <div className="space-y-3">
-            <form
-              action={updateDeckCard}
-              className="grid gap-3 rounded border border-zinc-800 p-3 md:grid-cols-3"
-            >
+            {activeTab === "overview" ? (
+              <form
+                action={updateDeckCard}
+                className="grid gap-3 rounded border border-zinc-800 p-3 md:grid-cols-3"
+              >
               <input type="hidden" name="deckId" value={deckId} />
               <input type="hidden" name="deckCardId" value={row.id} />
               <label className={filterFieldClass}>
@@ -1204,8 +1371,10 @@ function RowEditor({
               >
                 Save quantity, section, notes
               </SubmitButton>
-            </form>
-            <div className="space-y-3 rounded border border-zinc-800 p-3">
+              </form>
+            ) : null}
+            {activeTab === "commit" ? (
+              <div className="space-y-3 rounded border border-zinc-800 p-3">
               <CommitInventoryToDeck deckId={deckId} row={row} />
               <AddRealCopyToDeck
                 deckId={deckId}
@@ -1250,7 +1419,8 @@ function RowEditor({
                   Remove
                 </SubmitButton>
               </form>
-            </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>

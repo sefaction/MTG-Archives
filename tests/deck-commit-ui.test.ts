@@ -112,3 +112,14 @@ test("deck list rows stay compact and delegate details to a responsive drawer", 
   assert.doesNotMatch(textRow, /Use owned printing/);
   assert.doesNotMatch(textRow, /Use cheapest printing/);
 });
+
+test("deck row drawer separates inventory and commit details into tabs", () => {
+  assert.match(source, /function commitmentBadge/);
+  assert.match(source, /role="tablist"/);
+  assert.match(source, /Overview/);
+  assert.match(source, /Inventory/);
+  assert.match(source, /Commit/);
+  assert.match(source, /<InventoryBreakdown/);
+  assert.match(source, /activeTab === "commit"/);
+  assert.match(source, /Ready to commit/);
+});
