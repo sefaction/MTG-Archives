@@ -3,6 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { LoadingSpinner } from "@/components/feedback/LoadingSpinner";
+import {
+  cn,
+  filterDangerButtonClass,
+  filterInputClass,
+} from "@/components/filterStyles";
 
 export type LocationContentsDeleteResult = {
   success: boolean;
@@ -54,14 +59,14 @@ export function LocationContentsDeleteForm({
 
   if (isEmpty) {
     return (
-      <div className="rounded border border-zinc-800 p-2 text-xs text-zinc-400">
+      <div className="rounded border border-zinc-800 bg-zinc-950/50 p-2 text-xs text-zinc-400">
         This location is empty. Delete contents is disabled.
       </div>
     );
   }
 
   return (
-    <div className="space-y-2 rounded border border-red-900/60 p-2">
+    <div className="space-y-2 rounded border border-red-900/60 bg-red-950/10 p-2">
       <p className="text-xs text-red-200">
         Delete all {cardCount} cards across {entryCount} inventory entries in{" "}
         {locationName}. This keeps the location and card metadata.
@@ -70,14 +75,14 @@ export function LocationContentsDeleteForm({
         value={confirmText}
         onChange={(event) => setConfirmText(event.target.value)}
         placeholder={`Type DELETE or ${locationName}`}
-        className="w-full border border-red-800 bg-zinc-900 p-2 text-sm"
+        className={cn(filterInputClass, "w-full border-red-800")}
         disabled={isPending}
       />
       <button
         type="button"
         onClick={submitDelete}
         disabled={isPending}
-        className="inline-flex items-center gap-2 border border-red-700 px-3 py-1 text-red-200 disabled:cursor-not-allowed disabled:opacity-60"
+        className={cn(filterDangerButtonClass, "inline-flex items-center gap-2")}
       >
         {isPending ? <LoadingSpinner className="h-3 w-3" /> : null}
         {isPending ? "Deleting contents…" : "Delete contents"}
