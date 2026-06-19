@@ -213,6 +213,8 @@ const defaults: VisibilityState = {
   locationSummary: true,
 };
 
+const INVENTORY_SCROLL_STORAGE_KEY = "mtg-inventory-scroll-y";
+
 function isHexColor(value?: string) {
   return Boolean(value && /^#[0-9a-fA-F]{6}$/.test(value));
 }
@@ -685,6 +687,14 @@ export function InventoryBrowser({
     return { ...defaultCapabilities(uiMode), ...capabilityOverrides };
   }, [capabilityOverrides, uiMode]);
 
+  function rememberScrollPosition() {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem(
+      INVENTORY_SCROLL_STORAGE_KEY,
+      String(window.scrollY),
+    );
+  }
+
   const pageHref = useCallback(
     (page: number) => {
       const params = new URLSearchParams(
@@ -856,7 +866,10 @@ export function InventoryBrowser({
       params.delete("sortDir");
     }
     params.delete("page");
-    router.replace(`${window.location.pathname}?${params.toString()}`);
+    rememberScrollPosition();
+    router.replace(`${window.location.pathname}?${params.toString()}`, {
+      scroll: false,
+    });
   }
 
   function updateBrowseQuery(next: {
@@ -870,7 +883,10 @@ export function InventoryBrowser({
     if (next.browse) params.set("browse", next.browse);
     if (next.displayMode) params.set("displayMode", next.displayMode);
     params.delete("page");
-    router.replace(`${window.location.pathname}?${params.toString()}`);
+    rememberScrollPosition();
+    router.replace(`${window.location.pathname}?${params.toString()}`, {
+      scroll: false,
+    });
   }
 
   useEffect(() => {
@@ -897,6 +913,18 @@ export function InventoryBrowser({
     initialSortField,
     queryKey,
   ]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const rawScrollY = window.sessionStorage.getItem(
+      INVENTORY_SCROLL_STORAGE_KEY,
+    );
+    if (!rawScrollY) return;
+    window.sessionStorage.removeItem(INVENTORY_SCROLL_STORAGE_KEY);
+    const scrollY = Number(rawScrollY);
+    if (!Number.isFinite(scrollY)) return;
+    window.requestAnimationFrame(() => window.scrollTo(0, scrollY));
+  }, [rows, displayMode]);
 
   const loadMoreRows = useCallback(async () => {
     if (
