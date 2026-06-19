@@ -26,11 +26,13 @@ test("inventory table row actions use a compact overflow menu", () => {
   );
 });
 
-test("inventory detail drawer exposes stack movement controls", () => {
+test("inventory edit workflow exposes stack split and merge controls", () => {
   assert.match(inventoryBrowser, /Copies by location/);
-  assert.match(inventoryBrowser, /onMoveInventoryCopies/);
+  assert.match(inventoryBrowser, /onSplitInventoryStack/);
   assert.match(inventoryBrowser, /inventoryItemId/);
-  assert.match(inventoryBrowser, /Move copies/);
+  assert.match(inventoryBrowser, /Split stack/);
+  assert.match(inventoryBrowser, /Save stack/);
+  assert.match(inventoryBrowser, /Matching stacks merge automatically/);
   assert.match(inventoryBrowser, /Use deck return/);
-  assert.match(inventoryBrowser, /location\.id !== stack\.locationId/);
+  assert.match(inventoryBrowser, /capabilities\.canEdit \? \(/);
 });

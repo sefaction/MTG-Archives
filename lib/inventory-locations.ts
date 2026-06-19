@@ -1,6 +1,8 @@
 import {
+  FoilStatus,
   InventoryItem,
   InventoryLocationKind,
+  InventorySourceType,
   Visibility,
   Prisma,
   PrismaClient,
@@ -485,6 +487,319 @@ export type MoveInventoryQuantityBetweenLocationsResult = {
   merged: boolean;
   sourceDeleted: boolean;
 };
+
+type InventoryStackMutationTarget = {
+  cardId: string;
+  locationId: string;
+  quantity: number;
+  foilStatus: string;
+  condition: string;
+  language: string;
+  sourceType?: InventorySourceType;
+  notes?: string | null;
+};
+
+function stackMergeWhere(
+  source: InventoryItem,
+  target: InventoryStackMutationTarget,
+  exceptId: string,
+) {
+  return {
+    id: { not: exceptId },
+    currentOwnerId: source.currentOwnerId,
+    originalOpenerId: source.originalOpenerId,
+    cardId: target.cardId,
+    foil: target.foilStatus !== FoilStatus.NONFOIL,
+    foilStatus: target.foilStatus as FoilStatus,
+    condition: target.condition,
+    language: target.language,
+    sourceType: target.sourceType ?? source.sourceType,
+    acquiredFromPullId: source.acquiredFromPullId,
+    roundId: source.roundId,
+    notes: target.notes ?? null,
+    locationId: target.locationId,
+    quantity: { gt: 0 },
+  };
+}
+
+async function validateStackMutationTarget(
+  tx: Prisma.TransactionClient,
+  source: InventoryItem & {
+    location: {
+      id: string;
+      name: string;
+      ownerPlayerId: string;
+      active: boolean;
+      kind: InventoryLocationKind;
+      systemManaged: boolean;
+    } | null;
+  },
+  input: {
+    allowedOwnerId?: string;
+    targetOwnerId?: string;
+    targetLocationId: string;
+    quantity: number;
+  },
+) {
+  if (input.allowedOwnerId && source.currentOwnerId !== input.allowedOwnerId) {
+    throw new Error("You cannot manage this inventory item.");
+  }
+  if (
+    source.location &&
+    (source.location.kind === InventoryLocationKind.DECK ||
+      source.location.systemManaged)
+  ) {
+    throw new Error(
+      "Committed deck inventory must be changed with the deck return workflow.",
+    );
+  }
+  if (!Number.isInteger(input.quantity) || input.quantity <= 0) {
+    throw new Error("Quantity must be a positive integer.");
+  }
+
+  const targetOwnerId = input.targetOwnerId || source.currentOwnerId;
+  const targetLocation = await tx.inventoryLocation.findUnique({
+    where: { id: input.targetLocationId },
+    select: {
+      id: true,
+      ownerPlayerId: true,
+      name: true,
+      active: true,
+      kind: true,
+      systemManaged: true,
+    },
+  });
+  if (!targetLocation) throw new Error("Selected location not found.");
+  if (!targetLocation.active) throw new Error("Selected location is inactive.");
+  if (
+    targetLocation.kind !== InventoryLocationKind.NORMAL ||
+    targetLocation.systemManaged
+  ) {
+    throw new Error(
+      "Deck locations are system-managed. Use deck workflows for committed cards.",
+    );
+  }
+  if (targetLocation.ownerPlayerId !== targetOwnerId) {
+    throw new Error("Selected location does not belong to the current owner.");
+  }
+  if (targetLocation.ownerPlayerId !== source.currentOwnerId) {
+    throw new Error("Stack edits must stay within the same inventory owner.");
+  }
+  return targetLocation;
+}
+
+export async function updateInventoryStack(
+  prisma: PrismaClient,
+  input: {
+    inventoryItemId: string;
+    actorUserId: string;
+    allowedOwnerId?: string;
+    target: InventoryStackMutationTarget;
+    reason?: string | null;
+  },
+) {
+  if (!input.inventoryItemId) throw new Error("Inventory item not found.");
+  return prisma.$transaction(async (tx) => {
+    const source = await tx.inventoryItem.findUnique({
+      where: { id: input.inventoryItemId },
+      include: {
+        location: {
+          select: {
+            id: true,
+            name: true,
+            ownerPlayerId: true,
+            active: true,
+            kind: true,
+            systemManaged: true,
+          },
+        },
+      },
+    });
+    if (!source) throw new Error("Inventory item not found.");
+    await validateStackMutationTarget(tx, source, {
+      allowedOwnerId: input.allowedOwnerId,
+      targetOwnerId: source.currentOwnerId,
+      targetLocationId: input.target.locationId,
+      quantity: input.target.quantity,
+    });
+
+    const matching = await tx.inventoryItem.findFirst({
+      where: stackMergeWhere(source, input.target, source.id),
+    });
+    const beforeJson = source as unknown as Prisma.InputJsonObject;
+    if (matching) {
+      const updatedDestination = await tx.inventoryItem.update({
+        where: { id: matching.id },
+        data: { quantity: { increment: input.target.quantity } },
+      });
+      await tx.inventoryAuditLog.create({
+        data: {
+          inventoryItemId: updatedDestination.id,
+          changedByUserId: input.actorUserId,
+          changeType: "inventory_stack_merged",
+          beforeJson,
+          afterJson: {
+            ...(updatedDestination as unknown as Prisma.InputJsonObject),
+            mergedSourceInventoryItemId: source.id,
+            mergedQuantity: input.target.quantity,
+          },
+          reason: input.reason || "Inventory stack edited and merged.",
+        },
+      });
+      await tx.inventoryItem.delete({ where: { id: source.id } });
+      return {
+        inventoryItemId: updatedDestination.id,
+        merged: true,
+        deletedSourceId: source.id,
+      };
+    }
+
+    const updated = await tx.inventoryItem.update({
+      where: { id: source.id },
+      data: {
+        cardId: input.target.cardId,
+        quantity: input.target.quantity,
+        foilStatus: input.target.foilStatus as FoilStatus,
+        foil: input.target.foilStatus !== FoilStatus.NONFOIL,
+        condition: input.target.condition,
+        language: input.target.language,
+        locationId: input.target.locationId,
+        sourceType: input.target.sourceType ?? source.sourceType,
+        notes: input.target.notes ?? null,
+      },
+    });
+    await tx.inventoryAuditLog.create({
+      data: {
+        inventoryItemId: updated.id,
+        changedByUserId: input.actorUserId,
+        changeType: "inventory_stack_edited",
+        beforeJson,
+        afterJson: updated as unknown as Prisma.InputJsonObject,
+        reason: input.reason || "Inventory stack edited.",
+      },
+    });
+    return { inventoryItemId: updated.id, merged: false };
+  });
+}
+
+export async function splitInventoryStack(
+  prisma: PrismaClient,
+  input: {
+    inventoryItemId: string;
+    actorUserId: string;
+    allowedOwnerId?: string;
+    target: InventoryStackMutationTarget;
+    reason?: string | null;
+  },
+) {
+  if (!input.inventoryItemId) throw new Error("Inventory item not found.");
+  return prisma.$transaction(async (tx) => {
+    const source = await tx.inventoryItem.findUnique({
+      where: { id: input.inventoryItemId },
+      include: {
+        location: {
+          select: {
+            id: true,
+            name: true,
+            ownerPlayerId: true,
+            active: true,
+            kind: true,
+            systemManaged: true,
+          },
+        },
+      },
+    });
+    if (!source) throw new Error("Inventory item not found.");
+    await validateStackMutationTarget(tx, source, {
+      allowedOwnerId: input.allowedOwnerId,
+      targetOwnerId: source.currentOwnerId,
+      targetLocationId: input.target.locationId,
+      quantity: input.target.quantity,
+    });
+    if (input.target.quantity >= source.quantity) {
+      throw new Error("Split quantity must be less than the source stack.");
+    }
+
+    const matching = await tx.inventoryItem.findFirst({
+      where: stackMergeWhere(source, input.target, source.id),
+    });
+    const sourceAfterQuantity = source.quantity - input.target.quantity;
+    const sourceAfter = await tx.inventoryItem.update({
+      where: { id: source.id },
+      data: { quantity: sourceAfterQuantity },
+    });
+    const destination = matching
+      ? await tx.inventoryItem.update({
+          where: { id: matching.id },
+          data: { quantity: { increment: input.target.quantity } },
+        })
+      : await tx.inventoryItem.create({
+          data: {
+            currentOwnerId: source.currentOwnerId,
+            originalOpenerId: source.originalOpenerId,
+            cardId: input.target.cardId,
+            quantity: input.target.quantity,
+            foilStatus: input.target.foilStatus as FoilStatus,
+            foil: input.target.foilStatus !== FoilStatus.NONFOIL,
+            condition: input.target.condition,
+            language: input.target.language,
+            locationId: input.target.locationId,
+            sourceType: input.target.sourceType ?? source.sourceType,
+            acquiredFromPullId: source.acquiredFromPullId,
+            roundId: source.roundId,
+            notes: input.target.notes ?? null,
+          },
+        });
+
+    const metadata = {
+      splitSourceInventoryItemId: source.id,
+      splitDestinationInventoryItemId: destination.id,
+      splitQuantity: input.target.quantity,
+      sourceBeforeQuantity: source.quantity,
+      sourceAfterQuantity,
+      destinationBeforeQuantity: matching?.quantity ?? 0,
+      destinationAfterQuantity: destination.quantity,
+      mergedIntoExistingDestination: Boolean(matching),
+    };
+    await tx.inventoryAuditLog.createMany({
+      data: [
+        {
+          inventoryItemId: sourceAfter.id,
+          changedByUserId: input.actorUserId,
+          changeType: "inventory_stack_split_source",
+          beforeJson: source as unknown as Prisma.InputJsonObject,
+          afterJson: {
+            ...(sourceAfter as unknown as Prisma.InputJsonObject),
+            ...metadata,
+          },
+          reason: input.reason || "Inventory stack split.",
+        },
+        {
+          inventoryItemId: destination.id,
+          changedByUserId: input.actorUserId,
+          changeType: matching
+            ? "inventory_stack_split_merged_destination"
+            : "inventory_stack_split_destination",
+          beforeJson: {
+            ...(matching as unknown as Prisma.InputJsonObject),
+            ...metadata,
+          },
+          afterJson: {
+            ...(destination as unknown as Prisma.InputJsonObject),
+            ...metadata,
+          },
+          reason: input.reason || "Inventory stack split.",
+        },
+      ],
+    });
+    return {
+      sourceInventoryItemId: sourceAfter.id,
+      destinationInventoryItemId: destination.id,
+      splitQuantity: input.target.quantity,
+      merged: Boolean(matching),
+    };
+  });
+}
 
 export async function moveInventoryQuantityBetweenLocations(
   prisma: PrismaClient,

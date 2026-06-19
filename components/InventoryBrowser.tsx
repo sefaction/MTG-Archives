@@ -275,94 +275,33 @@ function CardDetail({
   row,
   onClose,
   capabilities,
-  locations,
   onEdit,
   onAudit,
   onDelete,
-  onMoveStack,
 }: {
   row: InventoryRow;
   onClose: () => void;
   capabilities: InventoryCapabilities;
-  locations: PickRef[];
   onEdit?: () => void;
   onAudit?: () => void;
   onDelete?: () => void;
-  onMoveStack?: (formData: FormData) => Promise<void>;
 }) {
   const legalities = row.legalities || {};
-  const [movingStackId, setMovingStackId] = useState("");
-  const [moveQuantity, setMoveQuantity] = useState(1);
-  const [moveDestinationId, setMoveDestinationId] = useState("");
-  const [moveError, setMoveError] = useState("");
-  const [movePending, setMovePending] = useState(false);
-  const moveLocations = useMemo(
-    () =>
-      locations.filter(
-        (location) =>
-          location.kind !== "DECK" &&
-          location.active !== false &&
-          (!location.ownerPlayerId ||
-            location.ownerPlayerId === row.currentOwnerId),
-      ),
-    [locations, row.currentOwnerId],
-  );
-  const locationStacks = row.locationBreakdown ?? [];
-
-  function stackCanMove(stack: InventoryLocationStack) {
-    return Boolean(
-      capabilities.canMove &&
-      onMoveStack &&
-      stack.inventoryItemId &&
-      stack.quantity > 0 &&
-      stack.locationKind !== "DECK" &&
-      !stack.locationSystemManaged,
-    );
+  const locationStacks: InventoryLocationStack[] = [];
+  const moveLocations: PickRef[] = [];
+  const movingStackId = "";
+  const moveQuantity = 1;
+  const moveDestinationId = "";
+  const movePending = false;
+  const moveError = "";
+  const setMoveQuantity = (_quantity: number) => {};
+  const setMoveDestinationId = (_locationId: string) => {};
+  const setMovingStackId = (_inventoryItemId: string) => {};
+  function stackCanMove(_stack: InventoryLocationStack) {
+    return false;
   }
-
-  async function submitMove(stack: InventoryLocationStack) {
-    if (!onMoveStack || !stack.inventoryItemId) return;
-    const quantity = Math.max(1, Math.floor(Number(moveQuantity) || 0));
-    if (!moveDestinationId) {
-      setMoveError("Choose a destination location.");
-      return;
-    }
-    if (quantity > stack.quantity) {
-      setMoveError("Quantity cannot exceed this stack.");
-      return;
-    }
-    const fd = new FormData();
-    fd.set("inventoryItemId", stack.inventoryItemId);
-    fd.set("destinationLocationId", moveDestinationId);
-    fd.set("quantity", String(quantity));
-    fd.set(
-      "reason",
-      `Moved ${quantity} ${row.cardName} from inventory detail.`,
-    );
-    setMovePending(true);
-    setMoveError("");
-    try {
-      await onMoveStack(fd);
-      setMovingStackId("");
-      setMoveDestinationId("");
-      setMoveQuantity(1);
-    } catch (error: any) {
-      setMoveError(error?.message || "Move failed.");
-    } finally {
-      setMovePending(false);
-    }
-  }
-
-  function startMove(stack: InventoryLocationStack) {
-    setMovingStackId(stack.inventoryItemId || "");
-    setMoveQuantity(1);
-    const firstDestination = moveLocations.find(
-      (location) => location.id !== stack.locationId,
-    );
-    setMoveDestinationId(firstDestination?.id ?? "");
-    setMoveError("");
-  }
-
+  function startMove(_stack: InventoryLocationStack) {}
+  async function submitMove(_stack: InventoryLocationStack) {}
   return (
     <div className="fixed inset-0 z-50 bg-black/50" onClick={onClose}>
       <div
@@ -773,6 +712,7 @@ export function InventoryBrowser({
   onBulkMoveLocation,
   onBulkDeleteInventory,
   onMoveInventoryCopies,
+  onSplitInventoryStack,
   onSaveEdit,
   onSearchPrintings,
   onDeleteInventoryItem,
@@ -829,6 +769,7 @@ export function InventoryBrowser({
       }
     | { success: false; message: string }
   >;
+  onSplitInventoryStack?: (formData: FormData) => Promise<void>;
   onSaveEdit?: (formData: FormData) => Promise<void>;
   onSearchPrintings?: (formData: FormData) => Promise<ScryfallResult[]>;
   onDeleteInventoryItem?: (formData: FormData) => Promise<void>;
@@ -868,6 +809,8 @@ export function InventoryBrowser({
     },
   );
   const [message, setMessage] = useState<string>("");
+  const [editingStackId, setEditingStackId] = useState("");
+  const [splittingStackId, setSplittingStackId] = useState("");
   const [results, setResults] = useState<ScryfallResult[]>([]);
   const [confirmed, setConfirmed] = useState<ScryfallResult | null>(null);
   const [searchingPrintings, setSearchingPrintings] = useState(false);
@@ -908,6 +851,18 @@ export function InventoryBrowser({
   const capabilities = useMemo<InventoryCapabilities>(() => {
     return { ...defaultCapabilities(uiMode), ...capabilityOverrides };
   }, [capabilityOverrides, uiMode]);
+  const editableNormalLocations = useMemo(
+    () =>
+      locations.filter(
+        (location) =>
+          location.kind !== "DECK" &&
+          location.active !== false &&
+          (!editing?.currentOwnerId ||
+            !location.ownerPlayerId ||
+            location.ownerPlayerId === editing.currentOwnerId),
+      ),
+    [editing?.currentOwnerId, locations],
+  );
 
   function rememberScrollPosition() {
     if (typeof window === "undefined") return;
@@ -1355,7 +1310,6 @@ export function InventoryBrowser({
               header: "Actions",
               cell: ({ row }: any) => {
                 const exact = row.original.displayMode === "exact";
-                const single = (row.original.sourceItemIds?.length ?? 1) === 1;
                 return exact ? (
                   <details className="relative">
                     <summary
@@ -1372,7 +1326,7 @@ export function InventoryBrowser({
                       >
                         View details
                       </button>
-                      {capabilities.canEdit && single ? (
+                      {capabilities.canEdit ? (
                         <button
                           type="button"
                           className="w-full rounded px-2 py-1 text-left text-xs text-zinc-200 hover:bg-zinc-900"
@@ -2006,9 +1960,8 @@ export function InventoryBrowser({
           row={selected}
           onClose={() => setSelected(null)}
           capabilities={capabilities}
-          locations={locations}
           onEdit={
-            capabilities.canEdit
+            capabilities.canEdit && selected.displayMode === "exact"
               ? () => {
                   setEditing(selected);
                   setSelected(null);
@@ -2029,11 +1982,6 @@ export function InventoryBrowser({
                     cardsCount: selected.quantity,
                     cardName: selected.cardName,
                   })
-              : undefined
-          }
-          onMoveStack={
-            capabilities.canMove && onMoveInventoryCopies
-              ? submitStackMove
               : undefined
           }
         />
@@ -2090,245 +2038,734 @@ export function InventoryBrowser({
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-semibold mb-2">Edit Inventory Item</h3>
-            <form
-              action={async (fd) => {
-                try {
-                  if (!onSaveEdit)
-                    throw new Error(
-                      "Editing is unavailable in read-only mode.",
-                    );
-                  await onSaveEdit(fd);
-                  setMessage("Inventory item updated.");
-                  setEditing(null);
-                  router.refresh();
-                } catch (e: any) {
-                  setMessage(e?.message || "Failed to save inventory edit.");
-                }
-              }}
-              className="space-y-3"
-            >
-              <input type="hidden" name="inventoryItemId" value={editing.id} />
-              <input
-                type="hidden"
-                name="existingCardId"
-                value={editing.cardId}
-              />
-              {!capabilities.canViewOwnerAdminFields ? (
-                <input
-                  type="hidden"
-                  name="currentOwnerId"
-                  value={editing.currentOwnerId}
-                />
-              ) : null}
-              <div className="grid md:grid-cols-2 gap-2">
-                {capabilities.canViewOwnerAdminFields ? (
-                  <label className={filterLabelClass}>
-                    Current owner
-                    <select
-                      name="currentOwnerId"
-                      defaultValue={editing.currentOwnerId}
-                      className={cn(filterSelectClass, "w-full")}
-                    >
-                      {players.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-                <label className={filterLabelClass}>
-                  Location
-                  <select
-                    name="locationId"
-                    defaultValue={editing.locationId || ""}
-                    className={cn(filterSelectClass, "w-full")}
-                  >
-                    <option value="">Unassigned</option>
-                    {locations.map((location) => (
-                      <option key={location.id} value={location.id}>
-                        {location.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className={filterLabelClass}>
-                  Quantity
-                  <input
-                    name="quantity"
-                    type="number"
-                    min={1}
-                    defaultValue={editing.quantity}
-                    className={cn(filterInputClass, "w-full")}
-                  />
-                </label>
-                <label className={filterLabelClass}>
-                  Foil status
-                  <select
-                    name="foilStatus"
-                    defaultValue={editing.foilStatus || "NONFOIL"}
-                    className={cn(filterSelectClass, "w-full")}
-                  >
-                    <option value="NONFOIL">nonfoil</option>
-                    <option value="FOIL">foil</option>
-                    <option value="ETCHED">etched</option>
-                  </select>
-                </label>
-                <label className={filterLabelClass}>
-                  Condition
-                  <select
-                    name="condition"
-                    defaultValue={editing.condition || "NM"}
-                    className={cn(filterSelectClass, "w-full")}
-                  >
-                    <option>NM</option>
-                    <option>LP</option>
-                    <option>MP</option>
-                    <option>HP</option>
-                    <option>DMG</option>
-                  </select>
-                </label>
-                <label className={filterLabelClass}>
-                  Language
-                  <input
-                    name="language"
-                    defaultValue={editing.language || "EN"}
-                    className={cn(filterInputClass, "w-full")}
-                    maxLength={8}
-                  />
-                </label>
-                {capabilities.canViewOwnerAdminFields ? (
-                  <>
-                    <label className={filterLabelClass}>
-                      Source type
-                      <select
-                        name="sourceType"
-                        defaultValue={editing.sourceType || "CORRECTION"}
-                        className={cn(filterSelectClass, "w-full")}
-                      >
-                        <option value="PULL">legacy</option>
-                        <option value="CSV_PULL_IMPORT">import</option>
-                        <option value="TRADE">trade</option>
-                        <option value="MANUAL">manual</option>
-                        <option value="CORRECTION">correction</option>
-                        <option value="PRIZE">prize</option>
-                        <option value="OTHER">other</option>
-                      </select>
-                    </label>
-                    <label className={filterLabelClass}>
-                      Admin correction reason
-                      <input
-                        name="reason"
-                        required
-                        className={cn(filterInputClass, "w-full")}
-                        placeholder="Reason for change"
-                      />
-                    </label>
-                  </>
+            <section className="mb-4 rounded border border-zinc-800 bg-zinc-950/60 p-3 text-sm">
+              <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h4 className="font-semibold">Copies by location</h4>
+                  <p className="text-xs text-zinc-400">
+                    Edit a stack directly, or split part of it into another
+                    stack. Matching stacks merge automatically.
+                  </p>
+                </div>
+                {confirmed ? (
+                  <span className="rounded border border-emerald-700 bg-emerald-950/40 px-2 py-1 text-xs text-emerald-200">
+                    Selected printing: {confirmed.set.toUpperCase()} #
+                    {confirmed.collector_number}
+                  </span>
                 ) : null}
               </div>
-              <label className={cn(filterLabelClass, "block")}>
-                Notes
-                <textarea
-                  name="notes"
-                  defaultValue={editing.notes || ""}
-                  className={cn(filterTextareaClass, "w-full")}
-                />
-              </label>
               {capabilities.canViewOwnerAdminFields ? (
-                <>
-                  <div className="border border-zinc-800 p-2 text-sm">
+                <div className="mb-3 rounded border border-zinc-800 bg-black/20 p-2">
+                  <div className="mb-2 text-xs text-zinc-400">
                     Current printing: {editing.cardName} ({editing.setCode}) #
-                    {editing.collectorNumber || "-"} • {editing.rarity}
+                    {editing.collectorNumber || "-"}
                   </div>
-                  <div className="border border-zinc-800 p-2 space-y-2">
-                    <div className="font-semibold text-sm">Change Printing</div>
-                    <div className="flex gap-2">
-                      <input
-                        id="printingQuery"
-                        name="printingQuery"
-                        className={cn(filterInputClass, "flex-1")}
-                        placeholder="Search Scryfall"
-                      />
-                      <button
-                        type="button"
-                        className={filterButtonClass}
-                        disabled={searchingPrintings}
-                        aria-disabled={searchingPrintings}
-                        onClick={async () => {
-                          const q =
-                            (
-                              document.getElementById(
-                                "printingQuery",
-                              ) as HTMLInputElement
-                            )?.value || "";
-                          setSearchingPrintings(true);
-                          try {
-                            const f = new FormData();
-                            f.set("q", q);
-                            if (!onSearchPrintings) {
-                              setMessage(
-                                "Printing search is unavailable in read-only mode.",
-                              );
-                              return;
-                            }
-                            const r = await onSearchPrintings(f);
-                            setResults(r || []);
+                  <div className="flex gap-2">
+                    <input
+                      id="stackPrintingQuery"
+                      name="stackPrintingQuery"
+                      className={cn(filterInputClass, "flex-1")}
+                      placeholder="Search Scryfall to change selected stack printing"
+                    />
+                    <button
+                      type="button"
+                      className={filterButtonClass}
+                      disabled={searchingPrintings}
+                      aria-disabled={searchingPrintings}
+                      onClick={async () => {
+                        const q =
+                          (
+                            document.getElementById(
+                              "stackPrintingQuery",
+                            ) as HTMLInputElement
+                          )?.value || "";
+                        setSearchingPrintings(true);
+                        try {
+                          const f = new FormData();
+                          f.set("q", q);
+                          if (!onSearchPrintings) {
                             setMessage(
-                              `${r?.length || 0} Scryfall printings found.`,
+                              "Printing search is unavailable in read-only mode.",
                             );
-                          } catch (e: any) {
-                            setMessage(
-                              e?.message || "Failed to search printings.",
-                            );
-                          } finally {
-                            setSearchingPrintings(false);
+                            return;
                           }
-                        }}
-                      >
-                        {searchingPrintings ? "Searching…" : "Search"}
-                      </button>
-                    </div>
-                    <div className="max-h-40 overflow-auto space-y-1">
+                          const r = await onSearchPrintings(f);
+                          setResults(r || []);
+                          setMessage(
+                            `${r?.length || 0} Scryfall printings found.`,
+                          );
+                        } catch (e: any) {
+                          setMessage(
+                            e?.message || "Failed to search printings.",
+                          );
+                        } finally {
+                          setSearchingPrintings(false);
+                        }
+                      }}
+                    >
+                      {searchingPrintings ? "Searching..." : "Search"}
+                    </button>
+                  </div>
+                  {results.length ? (
+                    <div className="mt-2 max-h-40 overflow-auto space-y-1">
                       {results.map((r) => (
                         <button
                           type="button"
                           key={r.id}
                           onClick={() => setConfirmed(r)}
-                          className={`w-full text-left border p-1 ${confirmed?.id === r.id ? "border-emerald-500" : "border-zinc-700"}`}
+                          className={`w-full rounded border p-1 text-left text-xs ${
+                            confirmed?.id === r.id
+                              ? "border-emerald-500 bg-emerald-950/30"
+                              : "border-zinc-700 hover:bg-zinc-900"
+                          }`}
                         >
                           {r.name} ({r.set.toUpperCase()}) #{r.collector_number}{" "}
-                          • {r.rarity}
+                          - {r.rarity}
                         </button>
                       ))}
                     </div>
-                    <input
-                      type="hidden"
-                      name="newScryfallId"
-                      value={confirmed?.id || ""}
-                    />
-                    <div className="text-xs text-zinc-400">
-                      Select a search result to confirm printing replacement.
-                    </div>
+                  ) : null}
+                  <div className="mt-2 text-xs text-zinc-500">
+                    Select a result, then save or split a stack to apply that
+                    printing to that stack.
                   </div>
-                </>
+                </div>
               ) : null}
-              <div className="flex gap-2 justify-end">
-                <button
-                  type="button"
-                  className={filterButtonClass}
-                  onClick={() => setEditing(null)}
-                >
-                  Cancel
-                </button>
-                <SubmitButton
-                  pendingLabel="Saving…"
-                  className={filterButtonClass}
-                >
-                  Save Changes
-                </SubmitButton>
+              <div className="space-y-2">
+                {(editing.locationBreakdown?.length
+                  ? editing.locationBreakdown
+                  : [
+                      {
+                        inventoryItemId: editing.id,
+                        locationId: editing.locationId || null,
+                        name: editing.locationName || "Unassigned",
+                        quantity: editing.quantity,
+                        foilStatus: editing.foilStatus,
+                        condition: editing.condition,
+                        language: editing.language,
+                        sourceType: editing.sourceType,
+                      },
+                    ]
+                ).map((stack, index) => {
+                  const stackId = stack.inventoryItemId || "";
+                  const stackKey = stackId || `${stack.locationId}-${index}`;
+                  const isDeckStack =
+                    stack.locationKind === "DECK" ||
+                    stack.locationSystemManaged;
+                  const stackSummary = [
+                    `${stack.quantity} ${stack.quantity === 1 ? "copy" : "copies"}`,
+                    stack.foilStatus || editing.foilStatus,
+                    stack.condition || editing.condition,
+                    stack.language || editing.language,
+                    stack.sourceType
+                      ? friendlySource(
+                          stack.sourceType as InventoryRow["sourceType"],
+                        )
+                      : friendlySource(editing.sourceType),
+                  ].filter(Boolean);
+                  const defaultLocationId = stack.locationId || "";
+                  const defaultFoilStatus =
+                    stack.foilStatus || editing.foilStatus || "NONFOIL";
+                  const defaultCondition =
+                    stack.condition || editing.condition || "NM";
+                  const defaultLanguage =
+                    stack.language || editing.language || "EN";
+                  const defaultSourceType =
+                    stack.sourceType || editing.sourceType || "CORRECTION";
+                  const stackFormFields = (
+                    <>
+                      <input
+                        type="hidden"
+                        name="inventoryItemId"
+                        value={stackId}
+                      />
+                      <input
+                        type="hidden"
+                        name="existingCardId"
+                        value={editing.cardId}
+                      />
+                      <input
+                        type="hidden"
+                        name="currentOwnerId"
+                        value={editing.currentOwnerId}
+                      />
+                      <input
+                        type="hidden"
+                        name="newScryfallId"
+                        value={confirmed?.id || ""}
+                      />
+                    </>
+                  );
+                  return (
+                    <div
+                      key={stackKey}
+                      className="rounded border border-zinc-800 bg-zinc-900/80 p-2"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <div className="font-medium">{stack.name}</div>
+                          <div className="text-xs text-zinc-400">
+                            {stackSummary.join(" Â· ")}
+                          </div>
+                        </div>
+                        {isDeckStack ? (
+                          <span className="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-400">
+                            Use deck return
+                          </span>
+                        ) : stackId ? (
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              className={cn(filterButtonClass, "px-2 py-1")}
+                              onClick={() => {
+                                setEditingStackId(
+                                  editingStackId === stackId ? "" : stackId,
+                                );
+                                setSplittingStackId("");
+                              }}
+                            >
+                              {editingStackId === stackId ? "Cancel" : "Edit"}
+                            </button>
+                            <button
+                              type="button"
+                              className={cn(filterButtonClass, "px-2 py-1")}
+                              onClick={() => {
+                                setSplittingStackId(
+                                  splittingStackId === stackId ? "" : stackId,
+                                );
+                                setEditingStackId("");
+                              }}
+                              disabled={stack.quantity < 2}
+                            >
+                              {splittingStackId === stackId
+                                ? "Cancel"
+                                : "Split"}
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                      {editingStackId === stackId ? (
+                        <form
+                          action={async (fd) => {
+                            try {
+                              if (!onSaveEdit) {
+                                throw new Error(
+                                  "Editing is unavailable in read-only mode.",
+                                );
+                              }
+                              await onSaveEdit(fd);
+                              setMessage("Inventory stack updated.");
+                              setEditing(null);
+                              setEditingStackId("");
+                              router.refresh();
+                            } catch (e: any) {
+                              setMessage(
+                                e?.message || "Failed to save stack edit.",
+                              );
+                            }
+                          }}
+                          className="mt-3 grid gap-2 rounded border border-zinc-800 bg-black/20 p-2"
+                        >
+                          {stackFormFields}
+                          <div className="grid gap-2 md:grid-cols-3">
+                            <label className={filterLabelClass}>
+                              Quantity
+                              <input
+                                name="quantity"
+                                type="number"
+                                min={1}
+                                defaultValue={stack.quantity}
+                                className={cn(filterInputClass, "mt-1 w-full")}
+                              />
+                            </label>
+                            <label className={filterLabelClass}>
+                              Location
+                              <select
+                                name="locationId"
+                                defaultValue={defaultLocationId}
+                                className={cn(filterSelectClass, "mt-1 w-full")}
+                              >
+                                {editableNormalLocations.map((location) => (
+                                  <option key={location.id} value={location.id}>
+                                    {location.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <label className={filterLabelClass}>
+                              Foil status
+                              <select
+                                name="foilStatus"
+                                defaultValue={defaultFoilStatus}
+                                className={cn(filterSelectClass, "mt-1 w-full")}
+                              >
+                                <option value="NONFOIL">nonfoil</option>
+                                <option value="FOIL">foil</option>
+                                <option value="ETCHED">etched</option>
+                              </select>
+                            </label>
+                            <label className={filterLabelClass}>
+                              Condition
+                              <select
+                                name="condition"
+                                defaultValue={defaultCondition}
+                                className={cn(filterSelectClass, "mt-1 w-full")}
+                              >
+                                <option>NM</option>
+                                <option>LP</option>
+                                <option>MP</option>
+                                <option>HP</option>
+                                <option>DMG</option>
+                              </select>
+                            </label>
+                            <label className={filterLabelClass}>
+                              Language
+                              <input
+                                name="language"
+                                defaultValue={defaultLanguage}
+                                className={cn(filterInputClass, "mt-1 w-full")}
+                                maxLength={8}
+                              />
+                            </label>
+                            {capabilities.canViewOwnerAdminFields ? (
+                              <label className={filterLabelClass}>
+                                Source type
+                                <select
+                                  name="sourceType"
+                                  defaultValue={defaultSourceType}
+                                  className={cn(
+                                    filterSelectClass,
+                                    "mt-1 w-full",
+                                  )}
+                                >
+                                  <option value="PULL">legacy</option>
+                                  <option value="CSV_PULL_IMPORT">
+                                    import
+                                  </option>
+                                  <option value="TRADE">trade</option>
+                                  <option value="MANUAL">manual</option>
+                                  <option value="CORRECTION">correction</option>
+                                  <option value="PRIZE">prize</option>
+                                  <option value="OTHER">other</option>
+                                </select>
+                              </label>
+                            ) : null}
+                          </div>
+                          <label className={filterLabelClass}>
+                            Notes
+                            <textarea
+                              name="notes"
+                              defaultValue={editing.notes || ""}
+                              className={cn(filterTextareaClass, "mt-1 w-full")}
+                            />
+                          </label>
+                          <label className={filterLabelClass}>
+                            Reason
+                            <input
+                              name="reason"
+                              className={cn(filterInputClass, "mt-1 w-full")}
+                              defaultValue="Inventory stack edit."
+                              required={capabilities.canViewOwnerAdminFields}
+                            />
+                          </label>
+                          <div className="flex justify-end">
+                            <SubmitButton
+                              pendingLabel="Saving..."
+                              className={filterPrimaryButtonClass}
+                            >
+                              Save stack
+                            </SubmitButton>
+                          </div>
+                        </form>
+                      ) : null}
+                      {splittingStackId === stackId ? (
+                        <form
+                          action={async (fd) => {
+                            try {
+                              if (!onSplitInventoryStack) {
+                                throw new Error(
+                                  "Splitting is unavailable in read-only mode.",
+                                );
+                              }
+                              await onSplitInventoryStack(fd);
+                              setMessage("Inventory stack split.");
+                              setEditing(null);
+                              setSplittingStackId("");
+                              router.refresh();
+                            } catch (e: any) {
+                              setMessage(
+                                e?.message ||
+                                  "Failed to split inventory stack.",
+                              );
+                            }
+                          }}
+                          className="mt-3 grid gap-2 rounded border border-zinc-800 bg-black/20 p-2"
+                        >
+                          {stackFormFields}
+                          <div className="grid gap-2 md:grid-cols-3">
+                            <label className={filterLabelClass}>
+                              Split quantity
+                              <input
+                                name="quantity"
+                                type="number"
+                                min={1}
+                                max={Math.max(1, stack.quantity - 1)}
+                                defaultValue={1}
+                                className={cn(filterInputClass, "mt-1 w-full")}
+                              />
+                            </label>
+                            <label className={filterLabelClass}>
+                              New location
+                              <select
+                                name="locationId"
+                                defaultValue={defaultLocationId}
+                                className={cn(filterSelectClass, "mt-1 w-full")}
+                              >
+                                {editableNormalLocations.map((location) => (
+                                  <option key={location.id} value={location.id}>
+                                    {location.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <label className={filterLabelClass}>
+                              Foil status
+                              <select
+                                name="foilStatus"
+                                defaultValue={defaultFoilStatus}
+                                className={cn(filterSelectClass, "mt-1 w-full")}
+                              >
+                                <option value="NONFOIL">nonfoil</option>
+                                <option value="FOIL">foil</option>
+                                <option value="ETCHED">etched</option>
+                              </select>
+                            </label>
+                            <label className={filterLabelClass}>
+                              Condition
+                              <select
+                                name="condition"
+                                defaultValue={defaultCondition}
+                                className={cn(filterSelectClass, "mt-1 w-full")}
+                              >
+                                <option>NM</option>
+                                <option>LP</option>
+                                <option>MP</option>
+                                <option>HP</option>
+                                <option>DMG</option>
+                              </select>
+                            </label>
+                            <label className={filterLabelClass}>
+                              Language
+                              <input
+                                name="language"
+                                defaultValue={defaultLanguage}
+                                className={cn(filterInputClass, "mt-1 w-full")}
+                                maxLength={8}
+                              />
+                            </label>
+                            {capabilities.canViewOwnerAdminFields ? (
+                              <label className={filterLabelClass}>
+                                Source type
+                                <select
+                                  name="sourceType"
+                                  defaultValue={defaultSourceType}
+                                  className={cn(
+                                    filterSelectClass,
+                                    "mt-1 w-full",
+                                  )}
+                                >
+                                  <option value="PULL">legacy</option>
+                                  <option value="CSV_PULL_IMPORT">
+                                    import
+                                  </option>
+                                  <option value="TRADE">trade</option>
+                                  <option value="MANUAL">manual</option>
+                                  <option value="CORRECTION">correction</option>
+                                  <option value="PRIZE">prize</option>
+                                  <option value="OTHER">other</option>
+                                </select>
+                              </label>
+                            ) : null}
+                          </div>
+                          <label className={filterLabelClass}>
+                            Notes for split stack
+                            <textarea
+                              name="notes"
+                              defaultValue={editing.notes || ""}
+                              className={cn(filterTextareaClass, "mt-1 w-full")}
+                            />
+                          </label>
+                          <label className={filterLabelClass}>
+                            Reason
+                            <input
+                              name="reason"
+                              className={cn(filterInputClass, "mt-1 w-full")}
+                              defaultValue="Inventory stack split."
+                              required={capabilities.canViewOwnerAdminFields}
+                            />
+                          </label>
+                          <div className="flex justify-end">
+                            <SubmitButton
+                              pendingLabel="Splitting..."
+                              className={filterPrimaryButtonClass}
+                            >
+                              Split stack
+                            </SubmitButton>
+                          </div>
+                        </form>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
-            </form>
+            </section>
+            {false ? (
+              <form
+                action={async (fd) => {
+                  try {
+                    if (!onSaveEdit)
+                      throw new Error(
+                        "Editing is unavailable in read-only mode.",
+                      );
+                    await onSaveEdit(fd);
+                    setMessage("Inventory item updated.");
+                    setEditing(null);
+                    router.refresh();
+                  } catch (e: any) {
+                    setMessage(e?.message || "Failed to save inventory edit.");
+                  }
+                }}
+                className="space-y-3"
+              >
+                <input
+                  type="hidden"
+                  name="inventoryItemId"
+                  value={editing!.id}
+                />
+                <input
+                  type="hidden"
+                  name="existingCardId"
+                  value={editing!.cardId}
+                />
+                {!capabilities.canViewOwnerAdminFields ? (
+                  <input
+                    type="hidden"
+                    name="currentOwnerId"
+                    value={editing!.currentOwnerId}
+                  />
+                ) : null}
+                <div className="grid md:grid-cols-2 gap-2">
+                  {capabilities.canViewOwnerAdminFields ? (
+                    <label className={filterLabelClass}>
+                      Current owner
+                      <select
+                        name="currentOwnerId"
+                        defaultValue={editing!.currentOwnerId}
+                        className={cn(filterSelectClass, "w-full")}
+                      >
+                        {players.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
+                  <label className={filterLabelClass}>
+                    Location
+                    <select
+                      name="locationId"
+                      defaultValue={editing!.locationId || ""}
+                      className={cn(filterSelectClass, "w-full")}
+                    >
+                      <option value="">Unassigned</option>
+                      {locations.map((location) => (
+                        <option key={location.id} value={location.id}>
+                          {location.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className={filterLabelClass}>
+                    Quantity
+                    <input
+                      name="quantity"
+                      type="number"
+                      min={1}
+                      defaultValue={editing!.quantity}
+                      className={cn(filterInputClass, "w-full")}
+                    />
+                  </label>
+                  <label className={filterLabelClass}>
+                    Foil status
+                    <select
+                      name="foilStatus"
+                      defaultValue={editing!.foilStatus || "NONFOIL"}
+                      className={cn(filterSelectClass, "w-full")}
+                    >
+                      <option value="NONFOIL">nonfoil</option>
+                      <option value="FOIL">foil</option>
+                      <option value="ETCHED">etched</option>
+                    </select>
+                  </label>
+                  <label className={filterLabelClass}>
+                    Condition
+                    <select
+                      name="condition"
+                      defaultValue={editing!.condition || "NM"}
+                      className={cn(filterSelectClass, "w-full")}
+                    >
+                      <option>NM</option>
+                      <option>LP</option>
+                      <option>MP</option>
+                      <option>HP</option>
+                      <option>DMG</option>
+                    </select>
+                  </label>
+                  <label className={filterLabelClass}>
+                    Language
+                    <input
+                      name="language"
+                      defaultValue={editing!.language || "EN"}
+                      className={cn(filterInputClass, "w-full")}
+                      maxLength={8}
+                    />
+                  </label>
+                  {capabilities.canViewOwnerAdminFields ? (
+                    <>
+                      <label className={filterLabelClass}>
+                        Source type
+                        <select
+                          name="sourceType"
+                          defaultValue={editing!.sourceType || "CORRECTION"}
+                          className={cn(filterSelectClass, "w-full")}
+                        >
+                          <option value="PULL">legacy</option>
+                          <option value="CSV_PULL_IMPORT">import</option>
+                          <option value="TRADE">trade</option>
+                          <option value="MANUAL">manual</option>
+                          <option value="CORRECTION">correction</option>
+                          <option value="PRIZE">prize</option>
+                          <option value="OTHER">other</option>
+                        </select>
+                      </label>
+                      <label className={filterLabelClass}>
+                        Admin correction reason
+                        <input
+                          name="reason"
+                          required
+                          className={cn(filterInputClass, "w-full")}
+                          placeholder="Reason for change"
+                        />
+                      </label>
+                    </>
+                  ) : null}
+                </div>
+                <label className={cn(filterLabelClass, "block")}>
+                  Notes
+                  <textarea
+                    name="notes"
+                    defaultValue={editing!.notes || ""}
+                    className={cn(filterTextareaClass, "w-full")}
+                  />
+                </label>
+                {capabilities.canViewOwnerAdminFields ? (
+                  <>
+                    <div className="border border-zinc-800 p-2 text-sm">
+                      Current printing: {editing!.cardName} ({editing!.setCode})
+                      #{editing!.collectorNumber || "-"} • {editing!.rarity}
+                    </div>
+                    <div className="border border-zinc-800 p-2 space-y-2">
+                      <div className="font-semibold text-sm">
+                        Change Printing
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          id="printingQuery"
+                          name="printingQuery"
+                          className={cn(filterInputClass, "flex-1")}
+                          placeholder="Search Scryfall"
+                        />
+                        <button
+                          type="button"
+                          className={filterButtonClass}
+                          disabled={searchingPrintings}
+                          aria-disabled={searchingPrintings}
+                          onClick={async () => {
+                            const q =
+                              (
+                                document.getElementById(
+                                  "printingQuery",
+                                ) as HTMLInputElement
+                              )?.value || "";
+                            setSearchingPrintings(true);
+                            try {
+                              const f = new FormData();
+                              f.set("q", q);
+                              if (!onSearchPrintings) {
+                                setMessage(
+                                  "Printing search is unavailable in read-only mode.",
+                                );
+                                return;
+                              }
+                              const r = await onSearchPrintings(f);
+                              setResults(r || []);
+                              setMessage(
+                                `${r?.length || 0} Scryfall printings found.`,
+                              );
+                            } catch (e: any) {
+                              setMessage(
+                                e?.message || "Failed to search printings.",
+                              );
+                            } finally {
+                              setSearchingPrintings(false);
+                            }
+                          }}
+                        >
+                          {searchingPrintings ? "Searching…" : "Search"}
+                        </button>
+                      </div>
+                      <div className="max-h-40 overflow-auto space-y-1">
+                        {results.map((r) => (
+                          <button
+                            type="button"
+                            key={r.id}
+                            onClick={() => setConfirmed(r)}
+                            className={`w-full text-left border p-1 ${confirmed?.id === r.id ? "border-emerald-500" : "border-zinc-700"}`}
+                          >
+                            {r.name} ({r.set.toUpperCase()}) #
+                            {r.collector_number} • {r.rarity}
+                          </button>
+                        ))}
+                      </div>
+                      <input
+                        type="hidden"
+                        name="newScryfallId"
+                        value={confirmed?.id || ""}
+                      />
+                      <div className="text-xs text-zinc-400">
+                        Select a search result to confirm printing replacement.
+                      </div>
+                    </div>
+                  </>
+                ) : null}
+                <div className="flex gap-2 justify-end">
+                  <button
+                    type="button"
+                    className={filterButtonClass}
+                    onClick={() => setEditing(null)}
+                  >
+                    Cancel
+                  </button>
+                  <SubmitButton
+                    pendingLabel="Saving…"
+                    className={filterButtonClass}
+                  >
+                    Save Changes
+                  </SubmitButton>
+                </div>
+              </form>
+            ) : null}
             {capabilities.canDelete && onDeleteInventoryItem ? (
               <details className="mt-4 rounded border border-red-900/70 bg-red-950/20 p-3 text-sm">
                 <summary className="cursor-pointer font-semibold text-red-200">
@@ -2342,7 +2779,7 @@ export function InventoryBrowser({
                   <div className="grid md:grid-cols-2 gap-2 text-zinc-300">
                     <div>Quantity: {editing.quantity}</div>
                     <div>
-                      Set: {editing.setCode} #{editing.collectorNumber || "-"}
+                      Set: {editing.setCode} #{editing!.collectorNumber || "-"}
                     </div>
                     <div>
                       Foil:{" "}
