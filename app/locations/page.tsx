@@ -21,6 +21,15 @@ import {
   Visibility,
 } from "@prisma/client";
 import {
+  cn,
+  filterDangerButtonClass,
+  filterFieldClass,
+  filterInputClass,
+  filterPanelClass,
+  filterPrimaryButtonClass,
+  filterSelectClass,
+} from "@/components/filterStyles";
+import {
   bulkMoveInventoryToLocation,
   bulkDeleteInventoryItems,
   createLocation,
@@ -33,6 +42,12 @@ function parseVisibility(value: FormDataEntryValue | null) {
   return value === Visibility.PUBLIC || value === Visibility.PRIVATE
     ? value
     : Visibility.INHERIT;
+}
+
+function visibilityTone(value: "PRIVATE" | "PUBLIC") {
+  return value === "PUBLIC"
+    ? "border-emerald-700 bg-emerald-950/30 text-emerald-100"
+    : "border-zinc-700 bg-zinc-900 text-zinc-200";
 }
 
 async function getActionContext() {
@@ -135,6 +150,75 @@ export default async function LocationsPage() {
   const deckLocations = locations.filter(
     (location) => location.kind === InventoryLocationKind.DECK,
   );
+  type NormalLocation = (typeof normalLocations)[number];
+  const countsForLocation = (locationId: string) =>
+    quantityByLocation[locationId] ?? { quantity: 0, entries: 0 };
+  const normalLocationGroups = Array.from(
+    normalLocations
+      .reduce(
+        (ownerMap, location) => {
+          const counts = countsForLocation(location.id);
+          let ownerGroup = ownerMap.get(location.ownerPlayerId);
+          if (!ownerGroup) {
+            ownerGroup = {
+              id: location.ownerPlayerId,
+              name: location.ownerPlayer.displayName,
+              quantity: 0,
+              entries: 0,
+              types: new Map<
+                string,
+                {
+                  label: string;
+                  quantity: number;
+                  entries: number;
+                  locations: NormalLocation[];
+                }
+              >(),
+            };
+            ownerMap.set(location.ownerPlayerId, ownerGroup);
+          }
+          const typeLabel = location.type?.trim() || "Unsorted";
+          let typeGroup = ownerGroup.types.get(typeLabel);
+          if (!typeGroup) {
+            typeGroup = {
+              label: typeLabel,
+              quantity: 0,
+              entries: 0,
+              locations: [],
+            };
+            ownerGroup.types.set(typeLabel, typeGroup);
+          }
+          ownerGroup.quantity += counts.quantity;
+          ownerGroup.entries += counts.entries;
+          typeGroup.quantity += counts.quantity;
+          typeGroup.entries += counts.entries;
+          typeGroup.locations.push(location);
+          return ownerMap;
+        },
+        new Map<
+          string,
+          {
+            id: string;
+            name: string;
+            quantity: number;
+            entries: number;
+            types: Map<
+              string,
+              {
+                label: string;
+                quantity: number;
+                entries: number;
+                locations: NormalLocation[];
+              }
+            >;
+          }
+        >(),
+      )
+      .values(),
+  ).map((ownerGroup) => ({
+    ...ownerGroup,
+    types: Array.from(ownerGroup.types.values()),
+  }));
 
   async function createLocationAction(fd: FormData) {
     "use server";
@@ -416,17 +500,17 @@ export default async function LocationsPage() {
         </p>
       </div>
 
-      <section className="rounded border border-zinc-800 p-4 space-y-3">
+      <section className={cn(filterPanelClass, "space-y-3")}>
         <h2 className="text-xl font-semibold">Create location</h2>
         <form
           action={createLocationAction}
-          className="grid gap-2 md:grid-cols-7"
+          className="grid gap-3 md:grid-cols-7"
         >
           {adminModeActive ? (
             <select
               name="ownerPlayerId"
               defaultValue={selectedOwnerId}
-              className="border p-2 bg-zinc-900"
+              className={filterSelectClass}
             >
               {owners.map((owner) => (
                 <option key={owner.id} value={owner.id}>
@@ -441,22 +525,22 @@ export default async function LocationsPage() {
             name="name"
             required
             placeholder="Box-0001"
-            className="border p-2 bg-zinc-900"
+            className={filterInputClass}
           />
           <input
             name="type"
             placeholder="Box, Binder, Shelf"
-            className="border p-2 bg-zinc-900"
+            className={filterInputClass}
           />
           <input
             name="description"
             placeholder="description optional"
-            className="border p-2 bg-zinc-900"
+            className={filterInputClass}
           />
           <select
             name="visibility"
             defaultValue={Visibility.INHERIT}
-            className="border p-2 bg-zinc-900"
+            className={filterSelectClass}
           >
             <option value={Visibility.INHERIT}>Use account default</option>
             <option value={Visibility.PRIVATE}>Private</option>
@@ -464,14 +548,14 @@ export default async function LocationsPage() {
           </select>
           <SubmitButton
             pendingLabel="Creating location…"
-            className="border px-3 py-2"
+            className={filterPrimaryButtonClass}
           >
             Create Location
           </SubmitButton>
         </form>
       </section>
 
-      <section className="rounded border border-zinc-800 p-4 space-y-3">
+      <section className={cn(filterPanelClass, "space-y-3")}>
         <h2 className="text-xl font-semibold">Move an entire location</h2>
         <p className="text-sm text-zinc-400">
           Move every inventory entry from one location to another. Matching
@@ -496,44 +580,52 @@ export default async function LocationsPage() {
       </section>
 
       {deckLocations.length ? (
-        <section className="space-y-3 rounded border border-emerald-900/60 p-4">
-          <h2 className="text-xl font-semibold">Deck locations</h2>
-          <p className="text-sm text-zinc-400">
-            Deck locations are system-managed. Use deck actions to commit cards
-            to decks or return them to normal inventory.
-          </p>
+        <section className={cn(filterPanelClass, "space-y-3")}>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold">Deck locations</h2>
+              <p className="text-sm text-zinc-400">
+                System-managed locations created by deck commitments.
+              </p>
+            </div>
+            <span className="rounded border border-emerald-800 bg-emerald-950/30 px-2 py-1 text-xs text-emerald-100">
+              Read-only here
+            </span>
+          </div>
           {deckLocations.map((location) => {
             const counts = quantityByLocation[location.id] ?? {
               quantity: 0,
               entries: 0,
             };
+            const effectiveVisibility = effectiveLocationVisibility(location);
             return (
               <div
                 key={location.id}
-                className="rounded border border-emerald-900/60 p-3 text-sm"
+                className="rounded border border-zinc-800 bg-zinc-950/60 p-3 text-sm"
               >
-                <div className="flex flex-wrap justify-between gap-2">
-                  <span className="font-semibold text-emerald-100">
-                    {location.name}
-                  </span>
+                <div className="grid gap-2 md:grid-cols-[1fr_auto_auto_auto] md:items-center">
+                  <div>
+                    <p className="font-semibold text-emerald-100">
+                      {location.name}
+                    </p>
+                    <p className="text-xs text-zinc-500">
+                      Tied deck: {location.deck?.name ?? "deleted deck"}
+                    </p>
+                  </div>
                   <span className="rounded border border-emerald-700 px-2 py-0.5 text-xs text-emerald-100">
                     Deck
                   </span>
-                  <span>{location.ownerPlayer.displayName}</span>
-                  <span>
-                    {counts.entries} inventory entries · {counts.quantity} total
-                    cards
+                  <span className="text-zinc-300">
+                    {location.ownerPlayer.displayName}
                   </span>
-                  <span>
-                    Visibility: {visibilityLabel(location.visibility)} →{" "}
-                    {effectiveVisibilityLabel(
-                      effectiveLocationVisibility(location),
-                    )}
+                  <span className="text-zinc-300">
+                    {counts.quantity} cards / {counts.entries} entries
                   </span>
                 </div>
-                <p className="mt-2 text-xs text-zinc-400">
-                  Tied deck: {location.deck?.name ?? "deleted deck"}. Rename,
-                  delete, and movement controls are disabled here.
+                <p className="mt-2 text-xs text-zinc-500">
+                  Visibility: {visibilityLabel(location.visibility)} to{" "}
+                  {effectiveVisibilityLabel(effectiveVisibility)}. Rename,
+                  delete, and move controls are handled from the deck.
                 </p>
               </div>
             );
@@ -542,119 +634,351 @@ export default async function LocationsPage() {
       ) : null}
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold">Existing normal locations</h2>
-        {normalLocations.map((location) => {
-          const counts = quantityByLocation[location.id] ?? {
-            quantity: 0,
-            entries: 0,
-          };
-          return (
-            <div
-              key={location.id}
-              className="rounded border border-zinc-800 p-3 space-y-2"
-            >
-              <div className="flex flex-wrap justify-between gap-2 text-sm text-zinc-400">
-                <span>{location.ownerPlayer.displayName}</span>
-                <span>
-                  {counts.entries} inventory entries · {counts.quantity} total
-                  cards
-                </span>
-                <span>
-                  Visibility: {visibilityLabel(location.visibility)} →{" "}
-                  {effectiveVisibilityLabel(
-                    effectiveLocationVisibility(location),
-                  )}
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold">Normal locations</h2>
+            <p className="text-sm text-zinc-400">
+              Boxes, binders, shelves, and other editable inventory locations,
+              grouped like the deck folder view.
+            </p>
+          </div>
+          <span className="text-sm text-zinc-500">
+            {normalLocations.length} locations
+          </span>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-[18rem_1fr]">
+          <aside className="space-y-3 rounded border border-zinc-800 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-semibold">Location tree</h3>
+              <span className="text-xs text-zinc-500">
+                {normalLocations.length}
+              </span>
+            </div>
+            <nav className="space-y-1 text-sm" aria-label="Locations tree">
+              <div className="flex items-center justify-between rounded bg-sky-950 px-2 py-1 text-sky-100">
+                <span>All normal locations</span>
+                <span className="text-xs text-zinc-400">
+                  {normalLocations.length}
                 </span>
               </div>
-              <form
-                action={updateLocationAction}
-                className="grid gap-2 md:grid-cols-6"
+              <div className="space-y-1 pt-1">
+                {normalLocationGroups.map((ownerGroup) => (
+                  <details key={ownerGroup.id} open>
+                    <summary className="list-none">
+                      <div className="flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-zinc-300 hover:bg-zinc-900">
+                        <span className="w-4 text-center text-zinc-500">
+                          -
+                        </span>
+                        <span className="min-w-0 flex-1 truncate">
+                          {ownerGroup.name}
+                        </span>
+                        <span className="text-xs text-zinc-500">
+                          {ownerGroup.quantity}
+                        </span>
+                      </div>
+                    </summary>
+                    <div className="ml-3 space-y-0.5 border-l border-zinc-800 pl-2">
+                      {ownerGroup.types.map((typeGroup) => (
+                        <details key={`${ownerGroup.id}-${typeGroup.label}`} open>
+                          <summary className="list-none">
+                            <div className="flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-zinc-300 hover:bg-zinc-900">
+                              <span className="w-4 text-center text-zinc-500">
+                                -
+                              </span>
+                              <span className="min-w-0 flex-1 truncate">
+                                {typeGroup.label}
+                              </span>
+                              <span className="text-xs text-zinc-500">
+                                {typeGroup.locations.length}
+                              </span>
+                            </div>
+                          </summary>
+                          <div className="ml-3 space-y-0.5 border-l border-zinc-800 pl-2">
+                            {typeGroup.locations.map((location) => {
+                              const counts = countsForLocation(location.id);
+                              const effectiveVisibility =
+                                effectiveLocationVisibility(location);
+                              return (
+                                <div
+                                  key={location.id}
+                                  className="flex min-w-0 items-center justify-between gap-2 rounded px-1 py-0.5 text-zinc-300 hover:bg-zinc-900"
+                                >
+                                  <span className="min-w-0 truncate">
+                                    {location.name}
+                                  </span>
+                                  <span
+                                    className={cn(
+                                      "rounded border px-1.5 py-0.5 text-[11px]",
+                                      visibilityTone(effectiveVisibility),
+                                    )}
+                                  >
+                                    {counts.quantity}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </details>
+                      ))}
+                    </div>
+                  </details>
+                ))}
+              </div>
+            </nav>
+          </aside>
+          <div className="space-y-3">
+            {normalLocationGroups.map((ownerGroup) => (
+              <details
+                key={ownerGroup.id}
+                open
+                className="rounded border border-zinc-800 bg-zinc-950/40"
               >
-                <input type="hidden" name="locationId" value={location.id} />
-                <input
-                  name="name"
-                  defaultValue={location.name}
-                  className="border p-2 bg-zinc-900"
-                />
-                <input
-                  name="type"
-                  defaultValue={location.type ?? ""}
-                  className="border p-2 bg-zinc-900"
-                />
-                <input
-                  name="description"
-                  defaultValue={location.description ?? ""}
-                  className="border p-2 bg-zinc-900 md:col-span-2"
-                />
-                <label className="text-sm">
-                  Visibility
-                  <select
-                    name="visibility"
-                    defaultValue={location.visibility}
-                    className="mt-1 w-full border p-2 bg-zinc-900"
-                  >
-                    <option value={Visibility.INHERIT}>
-                      Use account default
-                    </option>
-                    <option value={Visibility.PRIVATE}>Private</option>
-                    <option value={Visibility.PUBLIC}>Public</option>
-                  </select>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    name="active"
-                    defaultChecked={location.active}
-                  />{" "}
-                  Active
-                </label>
-                <SubmitButton
-                  pendingLabel="Saving…"
-                  className="border px-3 py-2"
-                >
-                  Save
-                </SubmitButton>
-              </form>
-              <LocationContentsDeleteForm
-                locationId={location.id}
-                locationName={location.name}
-                entryCount={counts.entries}
-                cardCount={counts.quantity}
-                deleteAction={deleteLocationContentsAction}
-              />
-              <form action={deleteLocationAction} className="space-y-2">
-                <input type="hidden" name="locationId" value={location.id} />
-                <label className="flex items-center gap-2 text-xs text-zinc-300">
-                  <input
-                    type="checkbox"
-                    name="confirmDelete"
-                    disabled={
-                      counts.quantity > 0 ||
-                      location.normalizedName === "unassigned"
-                    }
-                  />
-                  Confirm deleting this unused location.
-                </label>
-                <SubmitButton
-                  pendingLabel="Deleting…"
-                  className="border border-red-700 px-3 py-1 text-red-200"
-                  disabled={
-                    counts.quantity > 0 ||
-                    location.normalizedName === "unassigned"
-                  }
-                >
-                  Delete unused location
-                </SubmitButton>
-                {counts.quantity > 0 ? (
-                  <p className="mt-1 text-xs text-amber-300">
-                    This location still contains inventory. Move or remove those
-                    cards before deleting it.
-                  </p>
-                ) : null}
-              </form>
-            </div>
-          );
-        })}
+                <summary className="list-none border-b border-zinc-800 px-3 py-2">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold text-zinc-100">
+                        {ownerGroup.name}
+                      </h3>
+                      <p className="text-xs text-zinc-500">
+                        {ownerGroup.types.length} location groups
+                      </p>
+                    </div>
+                    <span className="text-sm text-zinc-300">
+                      {ownerGroup.quantity} cards / {ownerGroup.entries} entries
+                    </span>
+                  </div>
+                </summary>
+                <div className="space-y-3 p-3">
+                  {ownerGroup.types.map((typeGroup) => (
+                    <details
+                      key={`${ownerGroup.id}-${typeGroup.label}`}
+                      open
+                      className="border-l border-zinc-800 pl-3"
+                    >
+                      <summary className="list-none rounded px-2 py-1 text-sm text-zinc-300 hover:bg-zinc-900">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-medium text-zinc-200">
+                            {typeGroup.label}
+                          </span>
+                          <span className="text-xs text-zinc-500">
+                            {typeGroup.locations.length} locations /{" "}
+                            {typeGroup.quantity} cards
+                          </span>
+                        </div>
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        {typeGroup.locations.map((location) => {
+                          const counts = countsForLocation(location.id);
+                          const effectiveVisibility =
+                            effectiveLocationVisibility(location);
+                          const canDeleteLocation =
+                            counts.quantity <= 0 &&
+                            location.normalizedName !== "unassigned";
+                          return (
+                            <article
+                              key={location.id}
+                              className="rounded border border-zinc-800 bg-zinc-950/50"
+                            >
+                              <div className="grid gap-3 p-3 md:grid-cols-[1.4fr_auto_auto_auto] md:items-center">
+                                <div>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <h4 className="font-semibold text-zinc-100">
+                                      {location.name}
+                                    </h4>
+                                    {!location.active ? (
+                                      <span className="rounded border border-zinc-700 px-2 py-0.5 text-xs text-zinc-400">
+                                        Inactive
+                                      </span>
+                                    ) : null}
+                                    <span
+                                      className={cn(
+                                        "rounded border px-2 py-0.5 text-xs",
+                                        visibilityTone(effectiveVisibility),
+                                      )}
+                                    >
+                                      {effectiveVisibilityLabel(
+                                        effectiveVisibility,
+                                      )}
+                                    </span>
+                                  </div>
+                                  <p className="mt-1 text-xs text-zinc-500">
+                                    {location.description ||
+                                      "No description set."}
+                                  </p>
+                                </div>
+                                <div className="text-sm text-zinc-300">
+                                  <span className="font-semibold text-zinc-100">
+                                    {counts.quantity}
+                                  </span>{" "}
+                                  cards
+                                </div>
+                                <div className="text-sm text-zinc-300">
+                                  <span className="font-semibold text-zinc-100">
+                                    {counts.entries}
+                                  </span>{" "}
+                                  entries
+                                </div>
+                                <details className="group justify-self-start md:justify-self-end">
+                                  <summary className="cursor-pointer list-none rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 transition-colors hover:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-sky-500/30">
+                                    Manage
+                                  </summary>
+                                  <div className="mt-3 space-y-4 border-t border-zinc-800 pt-3 md:w-[min(720px,80vw)]">
+                                    <form
+                                      action={updateLocationAction}
+                                      className="grid gap-3 md:grid-cols-6"
+                                    >
+                                      <input
+                                        type="hidden"
+                                        name="locationId"
+                                        value={location.id}
+                                      />
+                                      <label className={filterFieldClass}>
+                                        Name
+                                        <input
+                                          name="name"
+                                          defaultValue={location.name}
+                                          className={cn(
+                                            filterInputClass,
+                                            "mt-1 w-full",
+                                          )}
+                                        />
+                                      </label>
+                                      <label className={filterFieldClass}>
+                                        Type
+                                        <input
+                                          name="type"
+                                          defaultValue={location.type ?? ""}
+                                          className={cn(
+                                            filterInputClass,
+                                            "mt-1 w-full",
+                                          )}
+                                        />
+                                      </label>
+                                      <label
+                                        className={cn(
+                                          filterFieldClass,
+                                          "md:col-span-2",
+                                        )}
+                                      >
+                                        Description
+                                        <input
+                                          name="description"
+                                          defaultValue={
+                                            location.description ?? ""
+                                          }
+                                          className={cn(
+                                            filterInputClass,
+                                            "mt-1 w-full",
+                                          )}
+                                        />
+                                      </label>
+                                      <label className={filterFieldClass}>
+                                        Visibility
+                                        <select
+                                          name="visibility"
+                                          defaultValue={location.visibility}
+                                          className={cn(
+                                            filterSelectClass,
+                                            "mt-1 w-full",
+                                          )}
+                                        >
+                                          <option value={Visibility.INHERIT}>
+                                            Use account default
+                                          </option>
+                                          <option value={Visibility.PRIVATE}>
+                                            Private
+                                          </option>
+                                          <option value={Visibility.PUBLIC}>
+                                            Public
+                                          </option>
+                                        </select>
+                                      </label>
+                                      <label className="flex items-center gap-2 self-end text-sm text-zinc-300">
+                                        <input
+                                          type="checkbox"
+                                          name="active"
+                                          defaultChecked={location.active}
+                                        />{" "}
+                                        Active
+                                      </label>
+                                      <SubmitButton
+                                        pendingLabel="Saving..."
+                                        className={cn(
+                                          filterPrimaryButtonClass,
+                                          "md:col-span-2",
+                                        )}
+                                      >
+                                        Save location
+                                      </SubmitButton>
+                                    </form>
+                                    <div className="rounded border border-red-950/70 bg-red-950/10 p-3">
+                                      <h5 className="text-sm font-semibold text-red-100">
+                                        Danger zone
+                                      </h5>
+                                      <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                                        <LocationContentsDeleteForm
+                                          locationId={location.id}
+                                          locationName={location.name}
+                                          entryCount={counts.entries}
+                                          cardCount={counts.quantity}
+                                          deleteAction={
+                                            deleteLocationContentsAction
+                                          }
+                                        />
+                                        <form
+                                          action={deleteLocationAction}
+                                          className="space-y-2 rounded border border-zinc-800 p-2"
+                                        >
+                                          <input
+                                            type="hidden"
+                                            name="locationId"
+                                            value={location.id}
+                                          />
+                                          <label className="flex items-center gap-2 text-xs text-zinc-300">
+                                            <input
+                                              type="checkbox"
+                                              name="confirmDelete"
+                                              disabled={!canDeleteLocation}
+                                            />
+                                            Confirm deleting this unused
+                                            location.
+                                          </label>
+                                          <SubmitButton
+                                            pendingLabel="Deleting..."
+                                            className={filterDangerButtonClass}
+                                            disabled={!canDeleteLocation}
+                                          >
+                                            Delete unused location
+                                          </SubmitButton>
+                                          {!canDeleteLocation ? (
+                                            <p className="text-xs text-amber-300">
+                                              {counts.quantity > 0
+                                                ? "Move or remove inventory before deleting this location."
+                                                : "The default Unassigned location cannot be deleted."}
+                                            </p>
+                                          ) : null}
+                                        </form>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </details>
+                              </div>
+                              <p className="border-t border-zinc-900 px-3 py-2 text-xs text-zinc-500">
+                                Visibility setting:{" "}
+                                {visibilityLabel(location.visibility)} to{" "}
+                                {effectiveVisibilityLabel(effectiveVisibility)}
+                              </p>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    </details>
+                  ))}
+                </div>
+              </details>
+            ))}
+          </div>
+        </div>
       </section>
     </main>
   );

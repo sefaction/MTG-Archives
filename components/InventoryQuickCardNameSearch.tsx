@@ -2,6 +2,7 @@
 
 import type { FormEvent, KeyboardEvent } from "react";
 import { useEffect, useId, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   cn,
   filterButtonClass,
@@ -23,6 +24,7 @@ type AutocompleteOption = {
 };
 
 const OMITTED_PARAMS = new Set(["cardName", "page"]);
+const INVENTORY_SCROLL_STORAGE_KEY = "mtg-inventory-scroll-y";
 
 function paramEntries(params: InventoryQuickCardNameSearchProps["params"]) {
   return Object.entries(params).flatMap(([key, value]) => {
@@ -48,6 +50,7 @@ export function InventoryQuickCardNameSearch({
     ? "/api/inventory/filter-suggestions?public=1"
     : "/api/inventory/filter-suggestions",
 }: InventoryQuickCardNameSearchProps) {
+  const router = useRouter();
   const inputId = useId();
   const listId = `${inputId}-listbox`;
   const entries = paramEntries(params);
@@ -119,7 +122,11 @@ export function InventoryQuickCardNameSearch({
   }
 
   function navigateWithCardName(nextCardName: string) {
-    window.location.assign(buildUrl(nextCardName));
+    window.sessionStorage.setItem(
+      INVENTORY_SCROLL_STORAGE_KEY,
+      String(window.scrollY),
+    );
+    router.replace(buildUrl(nextCardName), { scroll: false });
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {

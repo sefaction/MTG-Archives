@@ -2,6 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
+import {
+  cn,
+  filterFieldClass,
+  filterPrimaryButtonClass,
+  filterSelectClass,
+} from "@/components/filterStyles";
 
 export type LocationMoveOption = {
   id: string;
@@ -41,15 +47,15 @@ export function LocationMoveForm({ locations, moveAction }: Props) {
       : "";
 
   return (
-    <form action={moveAction} className="grid gap-2 md:grid-cols-4">
-      <label className="text-sm">
+    <form action={moveAction} className="grid gap-3 md:grid-cols-4">
+      <label className={filterFieldClass}>
         Source location
         <select
           name="sourceLocationId"
           required
           value={sourceId}
           onChange={(event) => setSourceId(event.target.value)}
-          className="w-full border p-2 bg-zinc-900"
+          className={cn(filterSelectClass, "mt-1 w-full")}
         >
           <option value="">Choose source</option>
           {locations.map((location) => (
@@ -60,14 +66,14 @@ export function LocationMoveForm({ locations, moveAction }: Props) {
           ))}
         </select>
       </label>
-      <label className="text-sm">
+      <label className={filterFieldClass}>
         Destination location
         <select
           name="destinationLocationId"
           required
           value={destinationId}
           onChange={(event) => setDestinationId(event.target.value)}
-          className="w-full border p-2 bg-zinc-900"
+          className={cn(filterSelectClass, "mt-1 w-full")}
         >
           <option value="">Choose destination</option>
           {locations.map((location) => (
@@ -77,7 +83,7 @@ export function LocationMoveForm({ locations, moveAction }: Props) {
           ))}
         </select>
       </label>
-      <label className="flex items-center gap-2 text-sm">
+      <label className="flex items-center gap-2 self-end text-sm text-zinc-300">
         <input type="checkbox" name="confirmMove" />
         Confirm moving all cards from the source location.
       </label>
@@ -94,7 +100,7 @@ export function LocationMoveForm({ locations, moveAction }: Props) {
         ) : null}
         <SubmitButton
           pendingLabel="Moving location…"
-          className="border px-3 py-2"
+          className={filterPrimaryButtonClass}
         >
           Move entire location
         </SubmitButton>

@@ -6,6 +6,14 @@ import { getAccessScope, requireLogin } from "@/lib/auth";
 import { TradeStatus } from "@prisma/client";
 import { actOnTrade, confirmPhysicalTrade, createTrade } from "./actions";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
+import { TradeBuilder, type TradeBuilderItem } from "@/components/TradeBuilder";
+import {
+  cn,
+  filterButtonClass,
+  filterFieldClass,
+  filterPanelClass,
+  filterSelectClass,
+} from "@/components/filterStyles";
 
 const activeStatuses: TradeStatus[] = [
   TradeStatus.PROPOSED,
@@ -164,6 +172,19 @@ export default async function TradesPage({
   const partnerInventory = inventory.filter(
     (item) => item.currentOwnerId === receiverId,
   );
+  const toTradeBuilderItem = (
+    item: (typeof inventory)[number],
+  ): TradeBuilderItem => ({
+    id: item.id,
+    cardName: item.card.name,
+    setCode: item.card.setCode,
+    collectorNumber: item.card.collectorNumber,
+    condition: item.condition,
+    foilStatus: item.foilStatus,
+    quantity: item.quantity,
+    available: available(item.id, item.quantity),
+    imageUri: cardImage(item),
+  });
   const sections = [
     [
       "My Active Trades",
@@ -200,21 +221,21 @@ export default async function TradesPage({
     <main className="p-8 space-y-6">
       <Nav />
       <h1 className="text-3xl font-bold">Trades</h1>
-      <section className="rounded border border-zinc-800 p-4 space-y-3">
-        <h2 className="text-xl font-semibold">Create 1-for-1 Trade Proposal</h2>
+      <section className={cn(filterPanelClass, "space-y-3")}>
+        <h2 className="text-xl font-semibold">Create Trade Proposal</h2>
         <p className="text-sm text-zinc-400">
-          Trades reserve exactly one offered card and one requested card.
-          Inventory only transfers after both users confirm the physical
-          exchange.
+          Pick a card from each inventory side. Trades reserve the selected
+          cards and only transfer inventory after both users confirm the
+          physical exchange.
         </p>
         <form method="get" className="grid md:grid-cols-3 gap-2">
           {isAdmin ? (
-            <label className="text-sm">
+            <label className={filterFieldClass}>
               Proposer
               <select
                 name="proposerId"
                 defaultValue={proposerId}
-                className="w-full border p-2 bg-zinc-900"
+                className={cn(filterSelectClass, "mt-1 w-full")}
               >
                 {players.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -224,12 +245,12 @@ export default async function TradesPage({
               </select>
             </label>
           ) : null}
-          <label className="text-sm">
+          <label className={filterFieldClass}>
             Trade partner
             <select
               name="receiverId"
               defaultValue={receiverId}
-              className="w-full border p-2 bg-zinc-900"
+              className={cn(filterSelectClass, "mt-1 w-full")}
             >
               {players
                 .filter((p) => p.id !== proposerId)
@@ -240,8 +261,18 @@ export default async function TradesPage({
                 ))}
             </select>
           </label>
-          <button className="border px-3 py-2 md:self-end">Load cards</button>
+          <button className={cn(filterButtonClass, "md:self-end")}>
+            Load cards
+          </button>
         </form>
+        <TradeBuilder
+          createTradeAction={createTrade}
+          proposerPlayerId={isAdmin ? proposerId : undefined}
+          receiverPlayerId={receiverId}
+          offerItems={myInventory.map(toTradeBuilderItem)}
+          requestItems={partnerInventory.map(toTradeBuilderItem)}
+        />
+        {false ? (
         <form action={createTrade} className="grid md:grid-cols-2 gap-3">
           <input type="hidden" name="receiverPlayerId" value={receiverId} />
           {isAdmin ? (
@@ -299,6 +330,7 @@ export default async function TradesPage({
             Submit Proposal
           </SubmitButton>
         </form>
+        ) : null}
       </section>
 
       {sections.map(([title, trades]) => (

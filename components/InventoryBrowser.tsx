@@ -213,6 +213,8 @@ const defaults: VisibilityState = {
   locationSummary: true,
 };
 
+const INVENTORY_SCROLL_STORAGE_KEY = "mtg-inventory-scroll-y";
+
 function isHexColor(value?: string) {
   return Boolean(value && /^#[0-9a-fA-F]{6}$/.test(value));
 }
@@ -685,6 +687,14 @@ export function InventoryBrowser({
     return { ...defaultCapabilities(uiMode), ...capabilityOverrides };
   }, [capabilityOverrides, uiMode]);
 
+  function rememberScrollPosition() {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem(
+      INVENTORY_SCROLL_STORAGE_KEY,
+      String(window.scrollY),
+    );
+  }
+
   const pageHref = useCallback(
     (page: number) => {
       const params = new URLSearchParams(
@@ -856,7 +866,10 @@ export function InventoryBrowser({
       params.delete("sortDir");
     }
     params.delete("page");
-    router.replace(`${window.location.pathname}?${params.toString()}`);
+    rememberScrollPosition();
+    router.replace(`${window.location.pathname}?${params.toString()}`, {
+      scroll: false,
+    });
   }
 
   function updateBrowseQuery(next: {
@@ -870,7 +883,10 @@ export function InventoryBrowser({
     if (next.browse) params.set("browse", next.browse);
     if (next.displayMode) params.set("displayMode", next.displayMode);
     params.delete("page");
-    router.replace(`${window.location.pathname}?${params.toString()}`);
+    rememberScrollPosition();
+    router.replace(`${window.location.pathname}?${params.toString()}`, {
+      scroll: false,
+    });
   }
 
   useEffect(() => {
@@ -897,6 +913,18 @@ export function InventoryBrowser({
     initialSortField,
     queryKey,
   ]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const rawScrollY = window.sessionStorage.getItem(
+      INVENTORY_SCROLL_STORAGE_KEY,
+    );
+    if (!rawScrollY) return;
+    window.sessionStorage.removeItem(INVENTORY_SCROLL_STORAGE_KEY);
+    const scrollY = Number(rawScrollY);
+    if (!Number.isFinite(scrollY)) return;
+    window.requestAnimationFrame(() => window.scrollTo(0, scrollY));
+  }, [rows, displayMode]);
 
   const loadMoreRows = useCallback(async () => {
     if (
@@ -1088,22 +1116,38 @@ export function InventoryBrowser({
                 const exact = row.original.displayMode === "exact";
                 const single = (row.original.sourceItemIds?.length ?? 1) === 1;
                 return exact ? (
-                  <div className="flex flex-wrap gap-1">
+                  <details className="relative">
+                    <summary
+                      className="flex h-7 w-7 cursor-pointer list-none items-center justify-center rounded text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-sky-700"
+                      aria-label={`Actions for ${row.original.cardName}`}
+                    >
+                      ...
+                    </summary>
+                    <div className="absolute right-0 z-20 mt-1 w-48 space-y-1 rounded border border-zinc-700 bg-zinc-950 p-2 shadow-xl">
+                      <button
+                        type="button"
+                        className="w-full rounded px-2 py-1 text-left text-xs text-zinc-200 hover:bg-zinc-900"
+                        onClick={() => setSelected(row.original)}
+                      >
+                        View details
+                      </button>
                     {capabilities.canEdit && single ? (
                       <button
-                        className={cn(filterButtonClass, "px-2 py-1")}
+                        type="button"
+                        className="w-full rounded px-2 py-1 text-left text-xs text-zinc-200 hover:bg-zinc-900"
                         onClick={() => {
                           setEditing(row.original);
                           setConfirmed(null);
                           setResults([]);
                         }}
                       >
-                        Edit
+                        Edit inventory
                       </button>
                     ) : null}
                     {capabilities.canDelete ? (
                       <button
-                        className={cn(filterDangerButtonClass, "px-2 py-1")}
+                        type="button"
+                        className="w-full rounded px-2 py-1 text-left text-xs text-red-200 hover:bg-red-950/40"
                         disabled={deletingBulk}
                         onClick={() =>
                           submitBulkDelete({
@@ -1114,10 +1158,11 @@ export function InventoryBrowser({
                           })
                         }
                       >
-                        Delete
+                        Delete inventory
                       </button>
                     ) : null}
-                  </div>
+                    </div>
+                  </details>
                 ) : (
                   <span className="text-xs text-zinc-500">Grouped</span>
                 );
