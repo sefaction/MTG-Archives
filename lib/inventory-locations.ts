@@ -186,6 +186,20 @@ type InventoryWithCardLocation = InventoryItem & {
   currentOwner?: { displayName: string; color: string };
 };
 
+export type InventoryLocationBreakdownEntry = {
+  inventoryItemId?: string;
+  locationId: string | null;
+  name: string;
+  quantity: number;
+  foilStatus?: string | null;
+  condition?: string | null;
+  language?: string | null;
+  sourceType?: string | null;
+  locationKind?: InventoryLocationKind | null;
+  locationActive?: boolean | null;
+  locationSystemManaged?: boolean | null;
+};
+
 export function locationSummary(
   parts: Array<{ name: string; quantity: number }>,
 ) {
@@ -262,11 +276,7 @@ export function getInventoryExactPrintings<T extends InventoryWithCardLocation>(
     string,
     T & {
       sourceItemIds: string[];
-      locationBreakdown: Array<{
-        locationId: string | null;
-        name: string;
-        quantity: number;
-      }>;
+      locationBreakdown: InventoryLocationBreakdownEntry[];
       locationSummary: string;
     }
   >();
@@ -279,9 +289,17 @@ export function getInventoryExactPrintings<T extends InventoryWithCardLocation>(
       item.language,
     ].join("|");
     const loc = {
+      inventoryItemId: item.id,
       locationId: item.locationId ?? null,
       name: item.location?.name ?? "Unassigned",
       quantity: item.quantity,
+      foilStatus: item.foilStatus,
+      condition: item.condition,
+      language: item.language,
+      sourceType: item.sourceType,
+      locationKind: (item.location as any)?.kind ?? null,
+      locationActive: (item.location as any)?.active ?? null,
+      locationSystemManaged: (item.location as any)?.systemManaged ?? null,
     };
     const existing = groups.get(key);
     if (!existing) {
@@ -295,18 +313,31 @@ export function getInventoryExactPrintings<T extends InventoryWithCardLocation>(
     } else {
       existing.quantity += item.quantity;
       existing.sourceItemIds.push(item.id);
-      const prev = existing.locationBreakdown.find(
-        (p) => p.locationId === loc.locationId,
+      existing.locationBreakdown.push(loc);
+      existing.locationSummary = locationSummary(
+        aggregateLocationBreakdown(existing.locationBreakdown),
       );
-      if (prev) prev.quantity += loc.quantity;
-      else existing.locationBreakdown.push(loc);
-      existing.locationSummary = locationSummary(existing.locationBreakdown);
     }
   }
   return Array.from(groups.values()).map((row) => ({
     ...row,
-    locationSummary: locationSummary(row.locationBreakdown),
+    locationSummary: locationSummary(
+      aggregateLocationBreakdown(row.locationBreakdown),
+    ),
   }));
+}
+
+function aggregateLocationBreakdown(
+  parts: Array<{ locationId: string | null; name: string; quantity: number }>,
+) {
+  const byLocation = new Map<string, { name: string; quantity: number }>();
+  for (const part of parts) {
+    const key = part.locationId ?? `name:${part.name}`;
+    const existing = byLocation.get(key);
+    if (existing) existing.quantity += part.quantity;
+    else byLocation.set(key, { name: part.name, quantity: part.quantity });
+  }
+  return Array.from(byLocation.values());
 }
 
 export function normalizedCardGroupKey(card: {
@@ -436,6 +467,272 @@ export async function moveInventoryQuantity(
       },
     });
     return created.id;
+  });
+}
+
+export type MoveInventoryQuantityBetweenLocationsResult = {
+  inventoryItemId: string;
+  destinationInventoryItemId: string;
+  auditInventoryItemId: string;
+  cardName: string;
+  sourceLocationName: string;
+  destinationLocationName: string;
+  quantityMoved: number;
+  sourceBeforeQuantity: number;
+  sourceAfterQuantity: number;
+  destinationBeforeQuantity: number;
+  destinationAfterQuantity: number;
+  merged: boolean;
+  sourceDeleted: boolean;
+};
+
+export async function moveInventoryQuantityBetweenLocations(
+  prisma: PrismaClient,
+  input: {
+    inventoryItemId: string;
+    destinationLocationId: string;
+    quantity: number;
+    actorUserId: string;
+    allowedOwnerId?: string;
+    reason?: string;
+  },
+): Promise<MoveInventoryQuantityBetweenLocationsResult> {
+  if (!input.inventoryItemId) throw new Error("Inventory item not found.");
+  if (!input.destinationLocationId)
+    throw new Error("Destination location is required.");
+  if (!Number.isInteger(input.quantity) || input.quantity <= 0) {
+    throw new Error("Quantity must be positive.");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const source = await tx.inventoryItem.findUnique({
+      where: { id: input.inventoryItemId },
+      include: {
+        card: { select: { name: true } },
+        location: {
+          select: {
+            id: true,
+            name: true,
+            ownerPlayerId: true,
+            active: true,
+            kind: true,
+            systemManaged: true,
+          },
+        },
+      },
+    });
+    if (!source) throw new Error("Inventory item not found.");
+    if (source.quantity <= 0) throw new Error("Inventory stack is empty.");
+    if (
+      input.allowedOwnerId &&
+      source.currentOwnerId !== input.allowedOwnerId
+    ) {
+      throw new Error("You cannot manage this inventory item.");
+    }
+    if (source.locationId === input.destinationLocationId) {
+      throw new Error("Cannot move cards to the same location.");
+    }
+    if (
+      source.location &&
+      (source.location.kind === InventoryLocationKind.DECK ||
+        source.location.systemManaged)
+    ) {
+      throw new Error(
+        "Committed deck inventory must be moved with the deck return workflow.",
+      );
+    }
+    if (source.quantity < input.quantity) {
+      throw new Error("Cannot move more copies than this stack contains.");
+    }
+
+    const destination = await tx.inventoryLocation.findUnique({
+      where: { id: input.destinationLocationId },
+      select: {
+        id: true,
+        ownerPlayerId: true,
+        name: true,
+        active: true,
+        kind: true,
+        systemManaged: true,
+      },
+    });
+    if (!destination) throw new Error("Destination location not found.");
+    if (!destination.active)
+      throw new Error("Destination location is inactive.");
+    if (
+      destination.kind !== InventoryLocationKind.NORMAL ||
+      destination.systemManaged
+    ) {
+      throw new Error(
+        "Deck locations are system-managed. Use deck commit actions to move cards into a deck.",
+      );
+    }
+    if (destination.ownerPlayerId !== source.currentOwnerId) {
+      throw new Error("Destination location does not belong to this owner.");
+    }
+    if (
+      source.location &&
+      source.location.ownerPlayerId !== destination.ownerPlayerId
+    ) {
+      throw new Error(
+        "Source and destination locations must belong to the same owner.",
+      );
+    }
+
+    const matching = await tx.inventoryItem.findFirst({
+      where: {
+        id: { not: source.id },
+        currentOwnerId: source.currentOwnerId,
+        originalOpenerId: source.originalOpenerId,
+        cardId: source.cardId,
+        foil: source.foil,
+        foilStatus: source.foilStatus,
+        condition: source.condition,
+        language: source.language,
+        sourceType: source.sourceType,
+        acquiredFromPullId: source.acquiredFromPullId,
+        roundId: source.roundId,
+        notes: source.notes,
+        locationId: destination.id,
+        quantity: { gt: 0 },
+      },
+    });
+
+    const sourceBeforeQuantity = source.quantity;
+    const destinationBeforeQuantity = matching?.quantity ?? 0;
+    const sourceLocationName = source.location?.name ?? "Unassigned";
+    const metadata: Prisma.InputJsonObject = {
+      action: "moved_between_locations",
+      cardName: source.card.name,
+      quantityMoved: input.quantity,
+      sourceLocationId: source.locationId,
+      sourceLocationName,
+      destinationLocationId: destination.id,
+      destinationLocationName: destination.name,
+      sourceBeforeQuantity,
+      destinationBeforeQuantity,
+    };
+
+    let destinationInventoryItemId = source.id;
+    let auditInventoryItemId = source.id;
+    let sourceAfterQuantity = 0;
+    let destinationAfterQuantity = input.quantity;
+    let merged = false;
+    let sourceDeleted = false;
+
+    if (source.quantity === input.quantity) {
+      if (matching) {
+        await tx.inventoryItem.update({
+          where: { id: matching.id },
+          data: { quantity: { increment: input.quantity } },
+        });
+        destinationInventoryItemId = matching.id;
+        auditInventoryItemId = matching.id;
+        destinationAfterQuantity = matching.quantity + input.quantity;
+        merged = true;
+        sourceDeleted = true;
+      } else {
+        await tx.inventoryItem.update({
+          where: { id: source.id },
+          data: { locationId: destination.id },
+        });
+        destinationAfterQuantity = source.quantity;
+      }
+    } else {
+      await tx.inventoryItem.update({
+        where: { id: source.id },
+        data: { quantity: { decrement: input.quantity } },
+      });
+      sourceAfterQuantity = source.quantity - input.quantity;
+      if (matching) {
+        await tx.inventoryItem.update({
+          where: { id: matching.id },
+          data: { quantity: { increment: input.quantity } },
+        });
+        destinationInventoryItemId = matching.id;
+        destinationAfterQuantity = matching.quantity + input.quantity;
+        merged = true;
+      } else {
+        const {
+          id: _id,
+          createdAt: _createdAt,
+          updatedAt: _updatedAt,
+          card: _card,
+          location: _location,
+          ...copy
+        } = source;
+        const created = await tx.inventoryItem.create({
+          data: {
+            ...copy,
+            quantity: input.quantity,
+            locationId: destination.id,
+          },
+        });
+        destinationInventoryItemId = created.id;
+        auditInventoryItemId = created.id;
+      }
+    }
+
+    const beforeJson: Prisma.InputJsonObject = {
+      inventoryItemId: source.id,
+      currentOwnerId: source.currentOwnerId,
+      originalOpenerId: source.originalOpenerId,
+      cardId: source.cardId,
+      foil: source.foil,
+      foilStatus: source.foilStatus,
+      condition: source.condition,
+      language: source.language,
+      sourceType: source.sourceType,
+      acquiredFromPullId: source.acquiredFromPullId,
+      roundId: source.roundId,
+      locationId: source.locationId,
+      quantity: source.quantity,
+      notes: source.notes,
+      ...metadata,
+      sourceAfterQuantity,
+      destinationAfterQuantity,
+    };
+    const afterJson: Prisma.InputJsonObject = {
+      ...beforeJson,
+      inventoryItemId: destinationInventoryItemId,
+      locationId: destination.id,
+      quantity: destinationAfterQuantity,
+      merged,
+      sourceDeleted,
+    };
+
+    await tx.inventoryAuditLog.create({
+      data: {
+        inventoryItemId: auditInventoryItemId,
+        changedByUserId: input.actorUserId,
+        changeType: "moved_between_locations",
+        beforeJson,
+        afterJson,
+        reason:
+          input.reason ||
+          `Moved ${input.quantity} ${source.card.name} to ${destination.name}.`,
+      },
+    });
+
+    if (sourceDeleted) {
+      await tx.inventoryItem.delete({ where: { id: source.id } });
+    }
+
+    return {
+      inventoryItemId: source.id,
+      destinationInventoryItemId,
+      auditInventoryItemId,
+      cardName: source.card.name,
+      sourceLocationName,
+      destinationLocationName: destination.name,
+      quantityMoved: input.quantity,
+      sourceBeforeQuantity,
+      sourceAfterQuantity,
+      destinationBeforeQuantity,
+      destinationAfterQuantity,
+      merged,
+      sourceDeleted,
+    };
   });
 }
 

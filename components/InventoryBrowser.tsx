@@ -40,7 +40,28 @@ import {
   filterTextareaClass,
 } from "./filterStyles";
 
-type PickRef = { id: string; name: string; color?: string };
+type PickRef = {
+  id: string;
+  name: string;
+  color?: string;
+  ownerPlayerId?: string;
+  active?: boolean;
+  kind?: "NORMAL" | "DECK";
+};
+
+type InventoryLocationStack = {
+  inventoryItemId?: string;
+  locationId: string | null;
+  name: string;
+  quantity: number;
+  foilStatus?: string | null;
+  condition?: string | null;
+  language?: string | null;
+  sourceType?: string | null;
+  locationKind?: "NORMAL" | "DECK" | null;
+  locationActive?: boolean | null;
+  locationSystemManaged?: boolean | null;
+};
 
 export type InventoryRow = {
   id: string;
@@ -111,11 +132,7 @@ export type InventoryRow = {
   locationId?: string;
   locationName?: string;
   locationSummary?: string;
-  locationBreakdown?: Array<{
-    locationId: string | null;
-    name: string;
-    quantity: number;
-  }>;
+  locationBreakdown?: InventoryLocationStack[];
   printings?: Array<{
     id: string;
     cardName: string;
@@ -126,11 +143,7 @@ export type InventoryRow = {
     condition?: string;
     language?: string;
     quantity: number;
-    locationBreakdown: Array<{
-      locationId: string | null;
-      name: string;
-      quantity: number;
-    }>;
+    locationBreakdown: InventoryLocationStack[];
   }>;
   priceUsdEtched?: string;
   priceEur?: string;
@@ -262,18 +275,94 @@ function CardDetail({
   row,
   onClose,
   capabilities,
+  locations,
   onEdit,
   onAudit,
   onDelete,
+  onMoveStack,
 }: {
   row: InventoryRow;
   onClose: () => void;
   capabilities: InventoryCapabilities;
+  locations: PickRef[];
   onEdit?: () => void;
   onAudit?: () => void;
   onDelete?: () => void;
+  onMoveStack?: (formData: FormData) => Promise<void>;
 }) {
   const legalities = row.legalities || {};
+  const [movingStackId, setMovingStackId] = useState("");
+  const [moveQuantity, setMoveQuantity] = useState(1);
+  const [moveDestinationId, setMoveDestinationId] = useState("");
+  const [moveError, setMoveError] = useState("");
+  const [movePending, setMovePending] = useState(false);
+  const moveLocations = useMemo(
+    () =>
+      locations.filter(
+        (location) =>
+          location.kind !== "DECK" &&
+          location.active !== false &&
+          (!location.ownerPlayerId ||
+            location.ownerPlayerId === row.currentOwnerId),
+      ),
+    [locations, row.currentOwnerId],
+  );
+  const locationStacks = row.locationBreakdown ?? [];
+
+  function stackCanMove(stack: InventoryLocationStack) {
+    return Boolean(
+      capabilities.canMove &&
+      onMoveStack &&
+      stack.inventoryItemId &&
+      stack.quantity > 0 &&
+      stack.locationKind !== "DECK" &&
+      !stack.locationSystemManaged,
+    );
+  }
+
+  async function submitMove(stack: InventoryLocationStack) {
+    if (!onMoveStack || !stack.inventoryItemId) return;
+    const quantity = Math.max(1, Math.floor(Number(moveQuantity) || 0));
+    if (!moveDestinationId) {
+      setMoveError("Choose a destination location.");
+      return;
+    }
+    if (quantity > stack.quantity) {
+      setMoveError("Quantity cannot exceed this stack.");
+      return;
+    }
+    const fd = new FormData();
+    fd.set("inventoryItemId", stack.inventoryItemId);
+    fd.set("destinationLocationId", moveDestinationId);
+    fd.set("quantity", String(quantity));
+    fd.set(
+      "reason",
+      `Moved ${quantity} ${row.cardName} from inventory detail.`,
+    );
+    setMovePending(true);
+    setMoveError("");
+    try {
+      await onMoveStack(fd);
+      setMovingStackId("");
+      setMoveDestinationId("");
+      setMoveQuantity(1);
+    } catch (error: any) {
+      setMoveError(error?.message || "Move failed.");
+    } finally {
+      setMovePending(false);
+    }
+  }
+
+  function startMove(stack: InventoryLocationStack) {
+    setMovingStackId(stack.inventoryItemId || "");
+    setMoveQuantity(1);
+    const firstDestination = moveLocations.find(
+      (location) => location.id !== stack.locationId,
+    );
+    setMoveDestinationId(firstDestination?.id ?? "");
+    setMoveError("");
+  }
+
   return (
     <div className="fixed inset-0 z-50 bg-black/50" onClick={onClose}>
       <div
@@ -383,16 +472,138 @@ function CardDetail({
               <b>Location Summary:</b>{" "}
               {row.locationSummary || row.locationName || "Unassigned"}
             </p>
-            {row.locationBreakdown?.length ? (
-              <div>
-                <b>Location Breakdown:</b>
-                <ul className="mt-1 list-disc pl-5">
-                  {row.locationBreakdown.map((location) => (
-                    <li key={location.locationId ?? location.name}>
-                      {location.name}: {location.quantity}
-                    </li>
-                  ))}
-                </ul>
+            {locationStacks.length ? (
+              <div className="rounded border border-zinc-800 bg-zinc-950/60 p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <b>Copies by location</b>
+                  <span className="text-xs text-zinc-500">
+                    Move normal inventory stacks directly.
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {locationStacks.map((stack, index) => {
+                    const key =
+                      stack.inventoryItemId ?? `${stack.locationId}-${index}`;
+                    const canMove = stackCanMove(stack);
+                    const moving = movingStackId === stack.inventoryItemId;
+                    const destinations = moveLocations.filter(
+                      (location) => location.id !== stack.locationId,
+                    );
+                    return (
+                      <div
+                        key={key}
+                        className="rounded border border-zinc-800 bg-zinc-900/80 p-2"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <div className="font-medium">{stack.name}</div>
+                            <div className="text-xs text-zinc-400">
+                              {stack.quantity}{" "}
+                              {stack.quantity === 1 ? "copy" : "copies"}
+                              {stack.foilStatus ? ` · ${stack.foilStatus}` : ""}
+                              {stack.condition ? ` · ${stack.condition}` : ""}
+                              {stack.language ? ` · ${stack.language}` : ""}
+                              {stack.sourceType
+                                ? ` · ${friendlySource(stack.sourceType as any)}`
+                                : ""}
+                            </div>
+                          </div>
+                          {canMove ? (
+                            <button
+                              type="button"
+                              className={cn(filterButtonClass, "px-2 py-1")}
+                              onClick={() =>
+                                moving ? setMovingStackId("") : startMove(stack)
+                              }
+                            >
+                              {moving ? "Cancel" : "Move"}
+                            </button>
+                          ) : stack.locationKind === "DECK" ||
+                            stack.locationSystemManaged ? (
+                            <span className="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-400">
+                              Use deck return
+                            </span>
+                          ) : null}
+                        </div>
+                        {moving ? (
+                          <div className="mt-3 grid gap-2 rounded border border-zinc-800 bg-black/20 p-2">
+                            <div className="text-xs text-zinc-400">
+                              From: {stack.name} - Available: {stack.quantity}
+                            </div>
+                            <div className="grid gap-2 sm:grid-cols-[110px_1fr_auto]">
+                              <label className={filterLabelClass}>
+                                Quantity
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={stack.quantity}
+                                  value={moveQuantity}
+                                  onChange={(event) =>
+                                    setMoveQuantity(Number(event.target.value))
+                                  }
+                                  className={cn(
+                                    filterInputClass,
+                                    "mt-1 w-full",
+                                  )}
+                                />
+                              </label>
+                              <label className={filterLabelClass}>
+                                To location
+                                <select
+                                  value={moveDestinationId}
+                                  onChange={(event) =>
+                                    setMoveDestinationId(event.target.value)
+                                  }
+                                  className={cn(
+                                    filterSelectClass,
+                                    "mt-1 w-full",
+                                  )}
+                                >
+                                  <option value="">Choose location</option>
+                                  {destinations.map((location) => (
+                                    <option
+                                      key={location.id}
+                                      value={location.id}
+                                    >
+                                      {location.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <div className="flex items-end gap-2">
+                                <button
+                                  type="button"
+                                  className={cn(filterButtonClass, "px-2 py-1")}
+                                  onClick={() =>
+                                    setMoveQuantity(stack.quantity)
+                                  }
+                                >
+                                  All
+                                </button>
+                                <button
+                                  type="button"
+                                  className={cn(
+                                    filterPrimaryButtonClass,
+                                    "px-2 py-1",
+                                  )}
+                                  disabled={movePending || !destinations.length}
+                                  onClick={() => void submitMove(stack)}
+                                >
+                                  {movePending ? "Moving..." : "Move copies"}
+                                </button>
+                              </div>
+                            </div>
+                            {moveError ? (
+                              <div className="text-xs text-red-300">
+                                {moveError}
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             ) : null}
             {capabilities.canViewOwnerAdminFields ? (
@@ -561,6 +772,7 @@ export function InventoryBrowser({
   currentLocationId,
   onBulkMoveLocation,
   onBulkDeleteInventory,
+  onMoveInventoryCopies,
   onSaveEdit,
   onSearchPrintings,
   onDeleteInventoryItem,
@@ -604,6 +816,16 @@ export function InventoryBrowser({
         deletedCards: number;
         scope: "selected" | "matching" | "location";
         locationName?: string;
+      }
+    | { success: false; message: string }
+  >;
+  onMoveInventoryCopies?: (formData: FormData) => Promise<
+    | {
+        success: true;
+        cardName: string;
+        quantityMoved: number;
+        sourceLocationName: string;
+        destinationLocationName: string;
       }
     | { success: false; message: string }
   >;
@@ -760,6 +982,25 @@ export function InventoryBrowser({
     setSelectedItemIds(new Set());
     setAllMatchingSelected(false);
   }, []);
+
+  const submitStackMove = useCallback(
+    async (fd: FormData) => {
+      if (!capabilities.canMove || !onMoveInventoryCopies) {
+        throw new Error("This inventory is read-only.");
+      }
+      rememberScrollPosition();
+      const result = await onMoveInventoryCopies(fd);
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+      setMessage(
+        `Moved ${result.quantityMoved} ${result.cardName} from ${result.sourceLocationName} to ${result.destinationLocationName}.`,
+      );
+      setSelected(null);
+      router.refresh();
+    },
+    [capabilities.canMove, onMoveInventoryCopies, router],
+  );
 
   const submitBulkDelete = useCallback(
     async (input?: {
@@ -1131,36 +1372,37 @@ export function InventoryBrowser({
                       >
                         View details
                       </button>
-                    {capabilities.canEdit && single ? (
-                      <button
-                        type="button"
-                        className="w-full rounded px-2 py-1 text-left text-xs text-zinc-200 hover:bg-zinc-900"
-                        onClick={() => {
-                          setEditing(row.original);
-                          setConfirmed(null);
-                          setResults([]);
-                        }}
-                      >
-                        Edit inventory
-                      </button>
-                    ) : null}
-                    {capabilities.canDelete ? (
-                      <button
-                        type="button"
-                        className="w-full rounded px-2 py-1 text-left text-xs text-red-200 hover:bg-red-950/40"
-                        disabled={deletingBulk}
-                        onClick={() =>
-                          submitBulkDelete({
-                            itemIds: getRowSourceIds(row.original),
-                            entriesCount: getRowSourceIds(row.original).length,
-                            cardsCount: row.original.quantity,
-                            cardName: row.original.cardName,
-                          })
-                        }
-                      >
-                        Delete inventory
-                      </button>
-                    ) : null}
+                      {capabilities.canEdit && single ? (
+                        <button
+                          type="button"
+                          className="w-full rounded px-2 py-1 text-left text-xs text-zinc-200 hover:bg-zinc-900"
+                          onClick={() => {
+                            setEditing(row.original);
+                            setConfirmed(null);
+                            setResults([]);
+                          }}
+                        >
+                          Edit inventory
+                        </button>
+                      ) : null}
+                      {capabilities.canDelete ? (
+                        <button
+                          type="button"
+                          className="w-full rounded px-2 py-1 text-left text-xs text-red-200 hover:bg-red-950/40"
+                          disabled={deletingBulk}
+                          onClick={() =>
+                            submitBulkDelete({
+                              itemIds: getRowSourceIds(row.original),
+                              entriesCount: getRowSourceIds(row.original)
+                                .length,
+                              cardsCount: row.original.quantity,
+                              cardName: row.original.cardName,
+                            })
+                          }
+                        >
+                          Delete inventory
+                        </button>
+                      ) : null}
                     </div>
                   </details>
                 ) : (
@@ -1764,6 +2006,7 @@ export function InventoryBrowser({
           row={selected}
           onClose={() => setSelected(null)}
           capabilities={capabilities}
+          locations={locations}
           onEdit={
             capabilities.canEdit
               ? () => {
@@ -1786,6 +2029,11 @@ export function InventoryBrowser({
                     cardsCount: selected.quantity,
                     cardName: selected.cardName,
                   })
+              : undefined
+          }
+          onMoveStack={
+            capabilities.canMove && onMoveInventoryCopies
+              ? submitStackMove
               : undefined
           }
         />

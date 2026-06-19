@@ -38,6 +38,7 @@ import {
   orderInventoryItemsByPageGroups,
   bulkMoveInventoryToLocation,
   bulkDeleteInventoryItems,
+  moveInventoryQuantityBetweenLocations,
 } from "@/lib/inventory-locations";
 import { getManaFacesForDto } from "@/lib/mtg/mana-display";
 import {
@@ -647,6 +648,64 @@ export default async function InventoryPage({
     }
   }
 
+  async function onMoveInventoryCopies(fd: FormData) {
+    "use server";
+    const actionUser = await requireLogin();
+    const actionScope = await getAccessScope(actionUser);
+    const actionIsAdmin = actionScope?.mode === "admin";
+    const inventoryItemId = String(fd.get("inventoryItemId") || "");
+    const destinationLocationId = String(fd.get("destinationLocationId") || "");
+    const quantity = Number(fd.get("quantity"));
+    const reason = String(fd.get("reason") || "").trim();
+
+    try {
+      if (!actionIsAdmin && !actionUser.playerId) {
+        return {
+          success: false as const,
+          message: "Your account is not linked to an inventory owner.",
+        };
+      }
+      const result = await moveInventoryQuantityBetweenLocations(prisma, {
+        inventoryItemId,
+        destinationLocationId,
+        quantity,
+        actorUserId: actionUser.id,
+        allowedOwnerId: actionIsAdmin
+          ? ownerParam || undefined
+          : actionUser.playerId || undefined,
+        reason: reason || undefined,
+      });
+      revalidatePath("/inventory");
+      revalidatePath("/locations");
+      return {
+        success: true as const,
+        cardName: result.cardName,
+        quantityMoved: result.quantityMoved,
+        sourceLocationName: result.sourceLocationName,
+        destinationLocationName: result.destinationLocationName,
+      };
+    } catch (error: any) {
+      console.error("[inventory-stack-move] failed", {
+        message: error?.message,
+        stack: error?.stack,
+        inventoryItemId,
+        destinationLocationId,
+      });
+      const rawMessage = String(error?.message || "");
+      const exposesPrismaInternals =
+        rawMessage.includes("Invalid `prisma.") ||
+        rawMessage.includes("Transaction API error") ||
+        rawMessage.includes("PrismaClient");
+      return {
+        success: false as const,
+        message:
+          exposesPrismaInternals || !rawMessage
+            ? "Move failed. No inventory was changed."
+            : rawMessage,
+      };
+    }
+  }
+
   const orderedItems = orderInventoryItemsByPageGroups(
     items,
     pageGroups,
@@ -682,9 +741,17 @@ export default async function InventoryPage({
                 : "Unassigned")),
         locationBreakdown: i.locationBreakdown ?? [
           {
+            inventoryItemId: i.id,
             locationId: i.locationId ?? null,
             name: i.location?.name ?? "Unassigned",
             quantity: i.quantity,
+            foilStatus: i.foilStatus,
+            condition: i.condition,
+            language: i.language,
+            sourceType: i.sourceType,
+            locationKind: i.location?.kind ?? null,
+            locationActive: i.location?.active ?? null,
+            locationSystemManaged: i.location?.systemManaged ?? null,
           },
         ],
         printings:
@@ -817,7 +884,9 @@ export default async function InventoryPage({
     <main className="p-8 space-y-4">
       <Nav />
       <h1 className="text-3xl font-bold">Inventory</h1>
-          <a className="text-sm text-sky-300 underline" href="/pricing">View value trends</a>
+      <a className="text-sm text-sky-300 underline" href="/pricing">
+        View value trends
+      </a>
       <p className="rounded border border-zinc-800 p-3 text-sm text-zinc-300">
         {adminModeActive
           ? "Showing inventory across all users. Filter to one owner before broad bulk deletes."
@@ -894,7 +963,13 @@ export default async function InventoryPage({
           name: p.displayName,
           color: p.color,
         }))}
-        locations={locations.map((l) => ({ id: l.id, name: l.name }))}
+        locations={locations.map((l) => ({
+          id: l.id,
+          name: l.name,
+          ownerPlayerId: l.ownerPlayerId,
+          active: l.active,
+          kind: l.kind,
+        }))}
         cardLabels={cardLabels}
         isAdmin={adminModeActive}
         displayMode={displayMode}
@@ -916,6 +991,7 @@ export default async function InventoryPage({
         currentLocationId={selected("locationId")[0] || ""}
         onBulkMoveLocation={onBulkMoveLocation}
         onBulkDeleteInventory={onBulkDeleteInventory}
+        onMoveInventoryCopies={onMoveInventoryCopies}
         onSaveEdit={onSaveEdit}
         onSearchPrintings={onSearchPrintings}
         onDeleteInventoryItem={deleteInventoryItem}

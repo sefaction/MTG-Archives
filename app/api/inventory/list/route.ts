@@ -61,9 +61,17 @@ function rowsFromDisplayItems({
                 : "Unassigned")),
         locationBreakdown: i.locationBreakdown ?? [
           {
+            inventoryItemId: i.id,
             locationId: i.locationId ?? null,
             name: i.location?.name ?? "Unassigned",
             quantity: i.quantity,
+            foilStatus: i.foilStatus,
+            condition: i.condition,
+            language: i.language,
+            sourceType: i.sourceType,
+            locationKind: i.location?.kind ?? null,
+            locationActive: i.location?.active ?? null,
+            locationSystemManaged: i.location?.systemManaged ?? null,
           },
         ],
         printings:
@@ -253,13 +261,7 @@ export async function GET(request: Request) {
     groupMatchesClientSafeFilters,
   );
   const sortedGroups = [...filteredGroups].sort((left, right) =>
-    compareInventoryGroups(
-      left,
-      right,
-      cardSortById,
-      sortField,
-      sortDirection,
-    ),
+    compareInventoryGroups(left, right, cardSortById, sortField, sortDirection),
   );
   const pageGroups = sortedGroups.slice((page - 1) * pageSize, page * pageSize);
   const pageGroupWhere =
