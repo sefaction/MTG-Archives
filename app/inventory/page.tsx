@@ -38,6 +38,9 @@ import {
   orderInventoryItemsByPageGroups,
   bulkMoveInventoryToLocation,
   bulkDeleteInventoryItems,
+  moveInventoryQuantityBetweenLocations,
+  splitInventoryStack,
+  updateInventoryStack,
 } from "@/lib/inventory-locations";
 import { getManaFacesForDto } from "@/lib/mtg/mana-display";
 import {
@@ -296,16 +299,9 @@ export default async function InventoryPage({
     }
 
     const submittedOwnerId = String(fd.get("currentOwnerId") || "");
-    const currentOwnerId = actionIsAdmin
-      ? submittedOwnerId
-      : before.currentOwnerId;
-    if (!currentOwnerId) throw new Error("Current owner is required");
-    if (
-      !actionIsAdmin &&
-      submittedOwnerId &&
-      submittedOwnerId !== currentOwnerId
-    ) {
-      throw new Error("You cannot change the current owner.");
+    const currentOwnerId = before.currentOwnerId;
+    if (submittedOwnerId && submittedOwnerId !== currentOwnerId) {
+      throw new Error("Stack edits cannot change inventory owner.");
     }
 
     let cardId = before.cardId;
@@ -340,13 +336,16 @@ export default async function InventoryPage({
       );
     }
 
-    const updated = await prisma.inventoryItem.update({
-      where: { id: inventoryItemId },
-      data: {
-        currentOwnerId,
+    await updateInventoryStack(prisma, {
+      inventoryItemId,
+      actorUserId: actionUser.id,
+      allowedOwnerId: actionIsAdmin
+        ? ownerParam || before.currentOwnerId
+        : actionUser.playerId || undefined,
+      target: {
+        cardId,
         quantity,
         foilStatus,
-        foil: foilStatus !== FoilStatus.NONFOIL,
         condition: String(fd.get("condition") || before.condition),
         language: String(fd.get("language") || before.language || "EN"),
         locationId: targetLocationId,
@@ -356,26 +355,93 @@ export default async function InventoryPage({
               fd.get("sourceType") || "CORRECTION",
             ) as InventorySourceType)
           : before.sourceType,
-        cardId,
       },
-    });
-
-    await prisma.inventoryAuditLog.create({
-      data: {
-        inventoryItemId: updated.id,
-        changedByUserId: actionUser.id,
-        changeType: actionIsAdmin
-          ? newScryfallId
-            ? "printing_correction"
-            : "admin_inventory_correction"
-          : "user_inventory_edit",
-        beforeJson: before as any,
-        afterJson: updated as any,
-        reason: String(fd.get("reason") || "") || null,
-      },
+      reason:
+        String(fd.get("reason") || "") ||
+        (newScryfallId ? "Printing correction." : "Inventory stack edit."),
     });
 
     revalidatePath("/inventory");
+  }
+
+  async function onSplitInventoryStack(fd: FormData) {
+    "use server";
+    const actionUser = await requireLogin();
+    const actionScope = await getAccessScope(actionUser);
+    const actionIsAdmin = actionScope?.mode === "admin";
+    const inventoryItemId = String(fd.get("inventoryItemId") || "");
+    const quantity = Number(fd.get("quantity"));
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      throw new Error("Split quantity must be a positive integer.");
+    }
+
+    const before = await prisma.inventoryItem.findUnique({
+      where: { id: inventoryItemId },
+    });
+    if (!before) throw new Error("Inventory item not found.");
+    if (!actionIsAdmin) {
+      if (!actionUser.playerId) {
+        throw new Error("Your account is not linked to an inventory owner.");
+      }
+      if (before.currentOwnerId !== actionUser.playerId) {
+        throw new Error("You can only split inventory you own.");
+      }
+    }
+
+    let cardId = before.cardId;
+    const newScryfallId = actionIsAdmin
+      ? String(fd.get("newScryfallId") || "")
+      : "";
+    if (newScryfallId) {
+      const existing = await prisma.card.findUnique({
+        where: { scryfallId: newScryfallId },
+      });
+      if (existing) {
+        cardId = existing.id;
+      } else {
+        const cardResult = await getCardByScryfallIdResult(newScryfallId);
+        if (!cardResult.ok)
+          throw new Error(formatScryfallError(cardResult.error));
+        const created = await upsertScryfallCard(cardResult.data);
+        cardId = created.id;
+      }
+    }
+
+    const foilStatus = String(fd.get("foilStatus") || before.foilStatus);
+    const locationIdRaw = String(fd.get("locationId") || "");
+    const defaultLocation = await ensureDefaultLocation(
+      prisma,
+      before.currentOwnerId,
+    );
+    const targetLocationId = locationIdRaw || defaultLocation.id;
+    await splitInventoryStack(prisma, {
+      inventoryItemId,
+      actorUserId: actionUser.id,
+      allowedOwnerId: actionIsAdmin
+        ? ownerParam || before.currentOwnerId
+        : actionUser.playerId || undefined,
+      target: {
+        cardId,
+        quantity,
+        foilStatus,
+        condition: String(fd.get("condition") || before.condition),
+        language: String(fd.get("language") || before.language || "EN"),
+        locationId: targetLocationId,
+        notes: String(fd.get("notes") || "") || null,
+        sourceType: actionIsAdmin
+          ? (String(
+              fd.get("sourceType") || before.sourceType,
+            ) as InventorySourceType)
+          : before.sourceType,
+      },
+      reason:
+        String(fd.get("reason") || "") ||
+        (newScryfallId
+          ? "Split stack with printing correction."
+          : "Inventory stack split."),
+    });
+    revalidatePath("/inventory");
+    revalidatePath("/locations");
   }
 
   async function onBulkMoveLocation(fd: FormData) {
@@ -647,6 +713,64 @@ export default async function InventoryPage({
     }
   }
 
+  async function onMoveInventoryCopies(fd: FormData) {
+    "use server";
+    const actionUser = await requireLogin();
+    const actionScope = await getAccessScope(actionUser);
+    const actionIsAdmin = actionScope?.mode === "admin";
+    const inventoryItemId = String(fd.get("inventoryItemId") || "");
+    const destinationLocationId = String(fd.get("destinationLocationId") || "");
+    const quantity = Number(fd.get("quantity"));
+    const reason = String(fd.get("reason") || "").trim();
+
+    try {
+      if (!actionIsAdmin && !actionUser.playerId) {
+        return {
+          success: false as const,
+          message: "Your account is not linked to an inventory owner.",
+        };
+      }
+      const result = await moveInventoryQuantityBetweenLocations(prisma, {
+        inventoryItemId,
+        destinationLocationId,
+        quantity,
+        actorUserId: actionUser.id,
+        allowedOwnerId: actionIsAdmin
+          ? ownerParam || undefined
+          : actionUser.playerId || undefined,
+        reason: reason || undefined,
+      });
+      revalidatePath("/inventory");
+      revalidatePath("/locations");
+      return {
+        success: true as const,
+        cardName: result.cardName,
+        quantityMoved: result.quantityMoved,
+        sourceLocationName: result.sourceLocationName,
+        destinationLocationName: result.destinationLocationName,
+      };
+    } catch (error: any) {
+      console.error("[inventory-stack-move] failed", {
+        message: error?.message,
+        stack: error?.stack,
+        inventoryItemId,
+        destinationLocationId,
+      });
+      const rawMessage = String(error?.message || "");
+      const exposesPrismaInternals =
+        rawMessage.includes("Invalid `prisma.") ||
+        rawMessage.includes("Transaction API error") ||
+        rawMessage.includes("PrismaClient");
+      return {
+        success: false as const,
+        message:
+          exposesPrismaInternals || !rawMessage
+            ? "Move failed. No inventory was changed."
+            : rawMessage,
+      };
+    }
+  }
+
   const orderedItems = orderInventoryItemsByPageGroups(
     items,
     pageGroups,
@@ -682,9 +806,17 @@ export default async function InventoryPage({
                 : "Unassigned")),
         locationBreakdown: i.locationBreakdown ?? [
           {
+            inventoryItemId: i.id,
             locationId: i.locationId ?? null,
             name: i.location?.name ?? "Unassigned",
             quantity: i.quantity,
+            foilStatus: i.foilStatus,
+            condition: i.condition,
+            language: i.language,
+            sourceType: i.sourceType,
+            locationKind: i.location?.kind ?? null,
+            locationActive: i.location?.active ?? null,
+            locationSystemManaged: i.location?.systemManaged ?? null,
           },
         ],
         printings:
@@ -712,6 +844,7 @@ export default async function InventoryPage({
         rarity: i.card.rarity,
         manaCost: i.card.manaCost ?? "",
         manaFaces: getManaFacesForDto(i.card.cardFaces),
+        cardFaces: Array.isArray(i.card.cardFaces) ? i.card.cardFaces : [],
         layout: i.card.layout ?? "",
         manaValue: i.card.manaValue ?? undefined,
         typeLine: i.card.typeLine,
@@ -817,7 +950,9 @@ export default async function InventoryPage({
     <main className="p-8 space-y-4">
       <Nav />
       <h1 className="text-3xl font-bold">Inventory</h1>
-          <a className="text-sm text-sky-300 underline" href="/pricing">View value trends</a>
+      <a className="text-sm text-sky-300 underline" href="/pricing">
+        View value trends
+      </a>
       <p className="rounded border border-zinc-800 p-3 text-sm text-zinc-300">
         {adminModeActive
           ? "Showing inventory across all users. Filter to one owner before broad bulk deletes."
@@ -894,7 +1029,13 @@ export default async function InventoryPage({
           name: p.displayName,
           color: p.color,
         }))}
-        locations={locations.map((l) => ({ id: l.id, name: l.name }))}
+        locations={locations.map((l) => ({
+          id: l.id,
+          name: l.name,
+          ownerPlayerId: l.ownerPlayerId,
+          active: l.active,
+          kind: l.kind,
+        }))}
         cardLabels={cardLabels}
         isAdmin={adminModeActive}
         displayMode={displayMode}
@@ -916,6 +1057,8 @@ export default async function InventoryPage({
         currentLocationId={selected("locationId")[0] || ""}
         onBulkMoveLocation={onBulkMoveLocation}
         onBulkDeleteInventory={onBulkDeleteInventory}
+        onMoveInventoryCopies={onMoveInventoryCopies}
+        onSplitInventoryStack={onSplitInventoryStack}
         onSaveEdit={onSaveEdit}
         onSearchPrintings={onSearchPrintings}
         onDeleteInventoryItem={deleteInventoryItem}

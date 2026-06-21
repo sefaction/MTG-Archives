@@ -61,9 +61,17 @@ function rowsFromDisplayItems({
                 : "Unassigned")),
         locationBreakdown: i.locationBreakdown ?? [
           {
+            inventoryItemId: i.id,
             locationId: i.locationId ?? null,
             name: i.location?.name ?? "Unassigned",
             quantity: i.quantity,
+            foilStatus: i.foilStatus,
+            condition: i.condition,
+            language: i.language,
+            sourceType: i.sourceType,
+            locationKind: i.location?.kind ?? null,
+            locationActive: i.location?.active ?? null,
+            locationSystemManaged: i.location?.systemManaged ?? null,
           },
         ],
         printings:
@@ -90,6 +98,7 @@ function rowsFromDisplayItems({
         rarity: i.card.rarity,
         manaCost: i.card.manaCost ?? "",
         manaFaces: getManaFacesForDto(i.card.cardFaces),
+        cardFaces: Array.isArray(i.card.cardFaces) ? i.card.cardFaces : [],
         layout: i.card.layout ?? "",
         manaValue: i.card.manaValue ?? undefined,
         typeLine: i.card.typeLine,
@@ -253,13 +262,7 @@ export async function GET(request: Request) {
     groupMatchesClientSafeFilters,
   );
   const sortedGroups = [...filteredGroups].sort((left, right) =>
-    compareInventoryGroups(
-      left,
-      right,
-      cardSortById,
-      sortField,
-      sortDirection,
-    ),
+    compareInventoryGroups(left, right, cardSortById, sortField, sortDirection),
   );
   const pageGroups = sortedGroups.slice((page - 1) * pageSize, page * pageSize);
   const pageGroupWhere =

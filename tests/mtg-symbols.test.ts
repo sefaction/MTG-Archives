@@ -153,7 +153,9 @@ test("set symbol component renders icons and text in an aligned wrapper", () => 
     cardSymbolsComponent,
     /className="mtg-set-symbol-group gap-1\.5"/,
   );
-  assert.match(cardSymbolsComponent, /className=\{`mtg-set-symbol/);
+  assert.match(cardSymbolsComponent, /"mtg-set-symbol mtg-set-symbol-mask"/);
+  assert.match(cardSymbolsComponent, /className\?: string/);
+  assert.match(cardSymbolsComponent, /symbolClassName\?: string/);
   assert.match(cardSymbolsComponent, /<span>\{code\}<\/span>/);
   assert.match(
     globalStyles,

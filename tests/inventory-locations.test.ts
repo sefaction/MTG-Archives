@@ -176,6 +176,13 @@ function makeBulkPrisma(itemsInput: any[], locationsInput: any[]) {
     if (where.foilStatus && item.foilStatus !== where.foilStatus) return false;
     if (where.condition && item.condition !== where.condition) return false;
     if (where.language && item.language !== where.language) return false;
+    if (where.sourceType && item.sourceType !== where.sourceType) return false;
+    if (
+      where.acquiredFromPullId !== undefined &&
+      item.acquiredFromPullId !== where.acquiredFromPullId
+    )
+      return false;
+    if (where.notes !== undefined && item.notes !== where.notes) return false;
     if (where.roundId !== undefined && item.roundId !== where.roundId)
       return false;
     if (
@@ -206,9 +213,28 @@ function makeBulkPrisma(itemsInput: any[], locationsInput: any[]) {
           .map((item) => ({ ...item })),
       findFirst: async ({ where }: any) =>
         items.find((item) => matchesWhere(item, where)) ?? null,
+      findUnique: async ({ where, include }: any) => {
+        const item = items.find((candidate) => candidate.id === where.id);
+        if (!item) return null;
+        return {
+          ...item,
+          ...(include?.card
+            ? { card: item.card ?? { name: item.cardName ?? "Sol Ring" } }
+            : {}),
+          ...(include?.location
+            ? {
+                location:
+                  locations.find(
+                    (location) => location.id === item.locationId,
+                  ) ?? null,
+              }
+            : {}),
+        };
+      },
       update: async ({ where, data }: any) => {
         const item = items.find((candidate) => candidate.id === where.id);
         if (!item) throw new Error("item not found");
+        if (typeof data.quantity === "number") item.quantity = data.quantity;
         if (data.quantity?.increment) item.quantity += data.quantity.increment;
         if (data.quantity?.decrement) item.quantity -= data.quantity.decrement;
         if (data.locationId !== undefined) item.locationId = data.locationId;
@@ -219,6 +245,7 @@ function makeBulkPrisma(itemsInput: any[], locationsInput: any[]) {
         let count = 0;
         for (const item of items) {
           if (!matchesWhere(item, where)) continue;
+          if (typeof data.quantity === "number") item.quantity = data.quantity;
           if (data.quantity?.increment)
             item.quantity += data.quantity.increment;
           if (data.quantity?.decrement)
@@ -253,6 +280,12 @@ function makeBulkPrisma(itemsInput: any[], locationsInput: any[]) {
     inventoryAuditLog: {
       create: async ({ data }: any) => {
         counters.auditCreateCalls += 1;
+        if (
+          data.inventoryItemId &&
+          !items.some((item) => item.id === data.inventoryItemId)
+        ) {
+          throw new Error("audit references deleted inventory item");
+        }
         audits.push(data);
         return data;
       },
@@ -590,6 +623,572 @@ test("bulk move all from one location rejects same source and destination", asyn
         allowedOwnerId: "owner-1",
       }),
     /Source and destination locations must be different/,
+  );
+});
+
+test("stack move partially moves into an existing matching destination stack", async () => {
+  const { moveInventoryQuantityBetweenLocations } =
+    await import("../lib/inventory-locations");
+  const { prisma, items, audits } = makeBulkPrisma(
+    [
+      {
+        id: "source",
+        currentOwnerId: "owner-1",
+        originalOpenerId: "owner-1",
+        cardId: "card-sol-ring",
+        cardName: "Sol Ring",
+        foil: false,
+        foilStatus: "NONFOIL",
+        condition: "NM",
+        language: "EN",
+        sourceType: "MANUAL",
+        acquiredFromPullId: null,
+        roundId: null,
+        notes: null,
+        locationId: "loc-box-3",
+        quantity: 3,
+      },
+      {
+        id: "destination",
+        currentOwnerId: "owner-1",
+        originalOpenerId: "owner-1",
+        cardId: "card-sol-ring",
+        foil: false,
+        foilStatus: "NONFOIL",
+        condition: "NM",
+        language: "EN",
+        sourceType: "MANUAL",
+        acquiredFromPullId: null,
+        roundId: null,
+        notes: null,
+        locationId: "loc-box-2",
+        quantity: 1,
+      },
+    ],
+    [
+      {
+        id: "loc-box-3",
+        ownerPlayerId: "owner-1",
+        name: "Box 3",
+        active: true,
+        kind: "NORMAL",
+        systemManaged: false,
+      },
+      {
+        id: "loc-box-2",
+        ownerPlayerId: "owner-1",
+        name: "Box 2",
+        active: true,
+        kind: "NORMAL",
+        systemManaged: false,
+      },
+    ],
+  );
+
+  const result = await moveInventoryQuantityBetweenLocations(prisma as any, {
+    actorUserId: "user-1",
+    inventoryItemId: "source",
+    destinationLocationId: "loc-box-2",
+    quantity: 1,
+    allowedOwnerId: "owner-1",
+  });
+
+  assert.equal(items.find((item) => item.id === "source")?.quantity, 2);
+  assert.equal(items.find((item) => item.id === "destination")?.quantity, 2);
+  assert.equal(result.auditInventoryItemId, "source");
+  assert.equal(result.merged, true);
+  assert.equal(audits.length, 1);
+  assert.equal(audits[0].inventoryItemId, "source");
+  assert.equal(
+    items.some((item) => item.quantity === 0),
+    false,
+  );
+});
+
+test("stack move fully moves into an existing matching destination stack without audit FK risk", async () => {
+  const { moveInventoryQuantityBetweenLocations } =
+    await import("../lib/inventory-locations");
+  const { prisma, items, audits } = makeBulkPrisma(
+    [
+      {
+        id: "source",
+        currentOwnerId: "owner-1",
+        originalOpenerId: "owner-1",
+        cardId: "card-sol-ring",
+        cardName: "Sol Ring",
+        foil: false,
+        foilStatus: "NONFOIL",
+        condition: "NM",
+        language: "EN",
+        sourceType: "MANUAL",
+        acquiredFromPullId: null,
+        roundId: null,
+        notes: null,
+        locationId: "loc-box-3",
+        quantity: 3,
+      },
+      {
+        id: "destination",
+        currentOwnerId: "owner-1",
+        originalOpenerId: "owner-1",
+        cardId: "card-sol-ring",
+        foil: false,
+        foilStatus: "NONFOIL",
+        condition: "NM",
+        language: "EN",
+        sourceType: "MANUAL",
+        acquiredFromPullId: null,
+        roundId: null,
+        notes: null,
+        locationId: "loc-box-2",
+        quantity: 1,
+      },
+    ],
+    [
+      {
+        id: "loc-box-3",
+        ownerPlayerId: "owner-1",
+        name: "Box 3",
+        active: true,
+        kind: "NORMAL",
+        systemManaged: false,
+      },
+      {
+        id: "loc-box-2",
+        ownerPlayerId: "owner-1",
+        name: "Box 2",
+        active: true,
+        kind: "NORMAL",
+        systemManaged: false,
+      },
+    ],
+  );
+
+  const result = await moveInventoryQuantityBetweenLocations(prisma as any, {
+    actorUserId: "user-1",
+    inventoryItemId: "source",
+    destinationLocationId: "loc-box-2",
+    quantity: 3,
+    allowedOwnerId: "owner-1",
+  });
+
+  assert.equal(
+    items.some((item) => item.id === "source"),
+    false,
+  );
+  assert.equal(items.find((item) => item.id === "destination")?.quantity, 4);
+  assert.equal(result.auditInventoryItemId, "destination");
+  assert.equal(result.sourceDeleted, true);
+  assert.equal(audits[0].inventoryItemId, "destination");
+  assert.equal(
+    items.some((item) => item.quantity === 0),
+    false,
+  );
+});
+
+test("stack move partially moves into an empty destination by creating a stack", async () => {
+  const { moveInventoryQuantityBetweenLocations } =
+    await import("../lib/inventory-locations");
+  const { prisma, items, audits } = makeBulkPrisma(
+    [
+      {
+        id: "source",
+        currentOwnerId: "owner-1",
+        originalOpenerId: "owner-1",
+        cardId: "card-sol-ring",
+        cardName: "Sol Ring",
+        foil: false,
+        foilStatus: "NONFOIL",
+        condition: "NM",
+        language: "EN",
+        sourceType: "MANUAL",
+        acquiredFromPullId: null,
+        roundId: null,
+        notes: null,
+        locationId: "loc-box-3",
+        quantity: 3,
+      },
+    ],
+    [
+      {
+        id: "loc-box-3",
+        ownerPlayerId: "owner-1",
+        name: "Box 3",
+        active: true,
+        kind: "NORMAL",
+        systemManaged: false,
+      },
+      {
+        id: "loc-box-2",
+        ownerPlayerId: "owner-1",
+        name: "Box 2",
+        active: true,
+        kind: "NORMAL",
+        systemManaged: false,
+      },
+    ],
+  );
+
+  const result = await moveInventoryQuantityBetweenLocations(prisma as any, {
+    actorUserId: "user-1",
+    inventoryItemId: "source",
+    destinationLocationId: "loc-box-2",
+    quantity: 1,
+    allowedOwnerId: "owner-1",
+  });
+
+  assert.equal(items.find((item) => item.id === "source")?.quantity, 2);
+  const created = items.find((item) => item.id !== "source");
+  assert.equal(created?.quantity, 1);
+  assert.equal(created?.locationId, "loc-box-2");
+  assert.equal(result.auditInventoryItemId, created?.id);
+  assert.equal(audits[0].inventoryItemId, created?.id);
+});
+
+test("stack move fully moves into an empty destination by relocating the source stack", async () => {
+  const { moveInventoryQuantityBetweenLocations } =
+    await import("../lib/inventory-locations");
+  const { prisma, items, audits } = makeBulkPrisma(
+    [
+      {
+        id: "source",
+        currentOwnerId: "owner-1",
+        originalOpenerId: "owner-1",
+        cardId: "card-sol-ring",
+        cardName: "Sol Ring",
+        foil: false,
+        foilStatus: "NONFOIL",
+        condition: "NM",
+        language: "EN",
+        sourceType: "MANUAL",
+        acquiredFromPullId: null,
+        roundId: null,
+        notes: null,
+        locationId: "loc-box-3",
+        quantity: 3,
+      },
+    ],
+    [
+      {
+        id: "loc-box-3",
+        ownerPlayerId: "owner-1",
+        name: "Box 3",
+        active: true,
+        kind: "NORMAL",
+        systemManaged: false,
+      },
+      {
+        id: "loc-box-2",
+        ownerPlayerId: "owner-1",
+        name: "Box 2",
+        active: true,
+        kind: "NORMAL",
+        systemManaged: false,
+      },
+    ],
+  );
+
+  const result = await moveInventoryQuantityBetweenLocations(prisma as any, {
+    actorUserId: "user-1",
+    inventoryItemId: "source",
+    destinationLocationId: "loc-box-2",
+    quantity: 3,
+    allowedOwnerId: "owner-1",
+  });
+
+  assert.equal(items.length, 1);
+  assert.equal(items[0].id, "source");
+  assert.equal(items[0].locationId, "loc-box-2");
+  assert.equal(items[0].quantity, 3);
+  assert.equal(result.auditInventoryItemId, "source");
+  assert.equal(audits[0].inventoryItemId, "source");
+});
+
+test("stack move rejects invalid quantities, same location, foreign owner, inactive destinations, and non-owner sources", async () => {
+  const { moveInventoryQuantityBetweenLocations } =
+    await import("../lib/inventory-locations");
+  const { prisma } = makeBulkPrisma(
+    [
+      {
+        id: "source",
+        currentOwnerId: "owner-1",
+        originalOpenerId: "owner-1",
+        cardId: "card-sol-ring",
+        cardName: "Sol Ring",
+        foil: false,
+        foilStatus: "NONFOIL",
+        condition: "NM",
+        language: "EN",
+        sourceType: "MANUAL",
+        acquiredFromPullId: null,
+        roundId: null,
+        notes: null,
+        locationId: "loc-box-3",
+        quantity: 3,
+      },
+    ],
+    [
+      {
+        id: "loc-box-3",
+        ownerPlayerId: "owner-1",
+        name: "Box 3",
+        active: true,
+        kind: "NORMAL",
+        systemManaged: false,
+      },
+      {
+        id: "loc-box-2",
+        ownerPlayerId: "owner-1",
+        name: "Box 2",
+        active: true,
+        kind: "NORMAL",
+        systemManaged: false,
+      },
+      {
+        id: "loc-other-owner",
+        ownerPlayerId: "owner-2",
+        name: "Other Owner Box",
+        active: true,
+        kind: "NORMAL",
+        systemManaged: false,
+      },
+      {
+        id: "loc-inactive",
+        ownerPlayerId: "owner-1",
+        name: "Inactive Box",
+        active: false,
+        kind: "NORMAL",
+        systemManaged: false,
+      },
+    ],
+  );
+  const base = {
+    actorUserId: "user-1",
+    inventoryItemId: "source",
+    destinationLocationId: "loc-box-2",
+    allowedOwnerId: "owner-1",
+  };
+
+  await assert.rejects(
+    () =>
+      moveInventoryQuantityBetweenLocations(prisma as any, {
+        ...base,
+        quantity: 0,
+      }),
+    /Quantity must be positive/,
+  );
+  await assert.rejects(
+    () =>
+      moveInventoryQuantityBetweenLocations(prisma as any, {
+        ...base,
+        quantity: 4,
+      }),
+    /Cannot move more copies/,
+  );
+  await assert.rejects(
+    () =>
+      moveInventoryQuantityBetweenLocations(prisma as any, {
+        ...base,
+        destinationLocationId: "loc-box-3",
+        quantity: 1,
+      }),
+    /same location/,
+  );
+  await assert.rejects(
+    () =>
+      moveInventoryQuantityBetweenLocations(prisma as any, {
+        ...base,
+        destinationLocationId: "loc-other-owner",
+        quantity: 1,
+      }),
+    /does not belong/,
+  );
+  await assert.rejects(
+    () =>
+      moveInventoryQuantityBetweenLocations(prisma as any, {
+        ...base,
+        destinationLocationId: "loc-inactive",
+        quantity: 1,
+      }),
+    /inactive/,
+  );
+  await assert.rejects(
+    () =>
+      moveInventoryQuantityBetweenLocations(prisma as any, {
+        ...base,
+        quantity: 1,
+        allowedOwnerId: "owner-2",
+      }),
+    /cannot manage/,
+  );
+});
+
+test("stack edit merges into an existing matching stack and audits the survivor", async () => {
+  const { updateInventoryStack } = await import("../lib/inventory-locations");
+  const { prisma, items, audits } = makeBulkPrisma(
+    [
+      {
+        id: "source",
+        currentOwnerId: "owner-1",
+        originalOpenerId: "owner-1",
+        cardId: "card-sol-ring",
+        foil: false,
+        foilStatus: "NONFOIL",
+        condition: "LP",
+        language: "EN",
+        sourceType: "MANUAL",
+        acquiredFromPullId: null,
+        roundId: null,
+        notes: null,
+        locationId: "loc-box-3",
+        quantity: 2,
+      },
+      {
+        id: "destination",
+        currentOwnerId: "owner-1",
+        originalOpenerId: "owner-1",
+        cardId: "card-sol-ring",
+        foil: false,
+        foilStatus: "NONFOIL",
+        condition: "NM",
+        language: "EN",
+        sourceType: "MANUAL",
+        acquiredFromPullId: null,
+        roundId: null,
+        notes: null,
+        locationId: "loc-box-2",
+        quantity: 3,
+      },
+    ],
+    [
+      {
+        id: "loc-box-3",
+        ownerPlayerId: "owner-1",
+        name: "Box 3",
+        active: true,
+        kind: "NORMAL",
+        systemManaged: false,
+      },
+      {
+        id: "loc-box-2",
+        ownerPlayerId: "owner-1",
+        name: "Box 2",
+        active: true,
+        kind: "NORMAL",
+        systemManaged: false,
+      },
+    ],
+  );
+
+  const result = await updateInventoryStack(prisma as any, {
+    actorUserId: "user-1",
+    inventoryItemId: "source",
+    allowedOwnerId: "owner-1",
+    target: {
+      cardId: "card-sol-ring",
+      locationId: "loc-box-2",
+      quantity: 2,
+      foilStatus: "NONFOIL",
+      condition: "NM",
+      language: "EN",
+      sourceType: "MANUAL",
+      notes: null,
+    },
+  });
+
+  assert.equal(result.inventoryItemId, "destination");
+  assert.equal(result.merged, true);
+  assert.equal(
+    items.some((item) => item.id === "source"),
+    false,
+  );
+  assert.equal(items.find((item) => item.id === "destination")?.quantity, 5);
+  assert.equal(audits[0].inventoryItemId, "destination");
+  assert.equal(audits[0].changeType, "inventory_stack_merged");
+});
+
+test("stack split can merge the split quantity into an existing matching stack", async () => {
+  const { splitInventoryStack } = await import("../lib/inventory-locations");
+  const { prisma, items, audits } = makeBulkPrisma(
+    [
+      {
+        id: "source",
+        currentOwnerId: "owner-1",
+        originalOpenerId: "owner-1",
+        cardId: "card-sol-ring",
+        foil: false,
+        foilStatus: "NONFOIL",
+        condition: "LP",
+        language: "EN",
+        sourceType: "MANUAL",
+        acquiredFromPullId: null,
+        roundId: null,
+        notes: null,
+        locationId: "loc-box-3",
+        quantity: 4,
+      },
+      {
+        id: "destination",
+        currentOwnerId: "owner-1",
+        originalOpenerId: "owner-1",
+        cardId: "card-sol-ring",
+        foil: true,
+        foilStatus: "FOIL",
+        condition: "NM",
+        language: "EN",
+        sourceType: "MANUAL",
+        acquiredFromPullId: null,
+        roundId: null,
+        notes: "trade binder copy",
+        locationId: "loc-box-2",
+        quantity: 1,
+      },
+    ],
+    [
+      {
+        id: "loc-box-3",
+        ownerPlayerId: "owner-1",
+        name: "Box 3",
+        active: true,
+        kind: "NORMAL",
+        systemManaged: false,
+      },
+      {
+        id: "loc-box-2",
+        ownerPlayerId: "owner-1",
+        name: "Box 2",
+        active: true,
+        kind: "NORMAL",
+        systemManaged: false,
+      },
+    ],
+  );
+
+  const result = await splitInventoryStack(prisma as any, {
+    actorUserId: "user-1",
+    inventoryItemId: "source",
+    allowedOwnerId: "owner-1",
+    target: {
+      cardId: "card-sol-ring",
+      locationId: "loc-box-2",
+      quantity: 2,
+      foilStatus: "FOIL",
+      condition: "NM",
+      language: "EN",
+      sourceType: "MANUAL",
+      notes: "trade binder copy",
+    },
+  });
+
+  assert.equal(result.sourceInventoryItemId, "source");
+  assert.equal(result.destinationInventoryItemId, "destination");
+  assert.equal(result.merged, true);
+  assert.equal(items.find((item) => item.id === "source")?.quantity, 2);
+  assert.equal(items.find((item) => item.id === "destination")?.quantity, 3);
+  assert.equal(audits.length, 2);
+  assert.deepEqual(
+    audits.map((audit) => audit.inventoryItemId),
+    ["source", "destination"],
   );
 });
 

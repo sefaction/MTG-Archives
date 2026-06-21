@@ -54,18 +54,18 @@ test("inventory edit action authorizes normal users by item ownership server-sid
     inventoryPage,
     /submittedOwnerId[\s\S]*submittedOwnerId !== currentOwnerId/,
   );
-  assert.match(inventoryPage, /You cannot change the current owner/);
+  assert.match(inventoryPage, /Stack edits cannot change inventory owner/);
 });
 
-test("normal edit action only mutates owner-safe fields and audits as user inventory edit", () => {
+test("normal edit action delegates stack-safe fields to the inventory stack helper", () => {
   assert.match(inventoryPage, /language: String\(fd\.get\("language"\)/);
   assert.match(
     inventoryPage,
     /sourceType: actionIsAdmin[\s\S]*: before\.sourceType/,
   );
   assert.match(inventoryPage, /const newScryfallId = actionIsAdmin[\s\S]*: ""/);
-  assert.match(inventoryPage, /"user_inventory_edit"/);
-  assert.match(inventoryPage, /"admin_inventory_correction"/);
+  assert.match(inventoryPage, /updateInventoryStack\(prisma/);
+  assert.match(inventoryPage, /splitInventoryStack\(prisma/);
 });
 
 test("individual delete keeps owner authorization instead of admin-only access", () => {
