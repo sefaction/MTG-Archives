@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  getInventoryCardImagePair,
+  type InventoryCardImageFace,
+} from "@/lib/inventory-card-images";
+import {
   ColumnDef,
   PaginationState,
   flexRender,
@@ -64,7 +68,7 @@ type InventoryLocationStack = {
   locationSystemManaged?: boolean | null;
 };
 
-type InventoryCardFace = {
+type InventoryCardFace = InventoryCardImageFace & {
   name?: string | null;
   manaCost?: string | null;
   mana_cost?: string | null;
@@ -243,6 +247,10 @@ const defaults: VisibilityState = {
 };
 
 const INVENTORY_SCROLL_STORAGE_KEY = "mtg-inventory-scroll-y";
+const detailBlockClass = "rounded border border-zinc-800 bg-zinc-950/70";
+const detailHeaderClass =
+  "border-b border-zinc-800 bg-zinc-900 px-3 py-2 text-xs font-semibold uppercase tracking-normal text-zinc-200";
+const detailBodyClass = "space-y-3 p-3";
 
 function isHexColor(value?: string) {
   return Boolean(value && /^#[0-9a-fA-F]{6}$/.test(value));
@@ -398,6 +406,147 @@ function CardFaceMechanics({
   );
 }
 
+function CardImageFlipper({ row }: { row: InventoryRow }) {
+  const [showBack, setShowBack] = useState(false);
+  const { front, back } = getInventoryCardImagePair(row);
+  const canFlip = Boolean(front && back);
+  const currentLabel = showBack ? "Show front face" : "Show back face";
+
+  return (
+    <div className="rounded border border-zinc-800 bg-zinc-900 p-2">
+      {front ? (
+        <>
+          <div className="[perspective:1000px]">
+            <div
+              className={cn(
+                "relative aspect-[63/88] w-full transition-transform duration-500 motion-reduce:transition-none",
+                "[transform-style:preserve-3d]",
+              )}
+              style={{
+                transform: showBack ? "rotateY(180deg)" : "rotateY(0deg)",
+              }}
+            >
+              <img
+                src={front}
+                alt={row.cardName}
+                loading="lazy"
+                decoding="async"
+                width={240}
+                height={336}
+                className="absolute inset-0 h-full w-full rounded object-cover [backface-visibility:hidden]"
+              />
+              {back ? (
+                <img
+                  src={back}
+                  alt={`${row.cardName} back face`}
+                  loading="lazy"
+                  decoding="async"
+                  width={240}
+                  height={336}
+                  className="absolute inset-0 h-full w-full rounded object-cover [backface-visibility:hidden] [transform:rotateY(180deg)]"
+                />
+              ) : null}
+            </div>
+          </div>
+          {canFlip ? (
+            <button
+              type="button"
+              aria-label={currentLabel}
+              className={cn(
+                filterButtonClass,
+                "mt-2 inline-flex w-full justify-center px-2 py-1 text-xs",
+              )}
+              onClick={() => setShowBack((value) => !value)}
+            >
+              {currentLabel}
+            </button>
+          ) : null}
+        </>
+      ) : (
+        <div className="aspect-[63/88] flex items-center justify-center text-sm text-zinc-400">
+          No image
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InventoryDetailPanel({
+  row,
+  capabilities,
+  visibleLocationBreakdown,
+  priceLabel,
+}: {
+  row: InventoryRow;
+  capabilities: InventoryCapabilities;
+  visibleLocationBreakdown: InventoryLocationStack[];
+  priceLabel: string;
+}) {
+  return (
+    <section className={detailBlockClass}>
+      <div className={detailHeaderClass}>Inventory</div>
+      <div className={detailBodyClass}>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <div className="text-xs uppercase text-zinc-500">Quantity</div>
+            {row.quantity}
+          </div>
+          <div>
+            <div className="text-xs uppercase text-zinc-500">Price</div>
+            {priceLabel}
+          </div>
+          <div>
+            <div className="text-xs uppercase text-zinc-500">Condition</div>
+            {row.condition || "-"}
+          </div>
+          {capabilities.canViewVisibility ? (
+            <div>
+              <div className="text-xs uppercase text-zinc-500">Visibility</div>
+              {friendlyVisibility(row.effectiveVisibility)}
+            </div>
+          ) : null}
+          {capabilities.canViewOwnerAdminFields ? (
+            <div>
+              <div className="text-xs uppercase text-zinc-500">Owner</div>
+              {row.currentOwner}
+            </div>
+          ) : null}
+          {capabilities.canViewPrivateSourceInfo ? (
+            <div>
+              <div className="text-xs uppercase text-zinc-500">Source</div>
+              {friendlySource(row.sourceType)}
+            </div>
+          ) : null}
+        </div>
+        {visibleLocationBreakdown.length ? (
+          <div className="border-t border-zinc-800 pt-3">
+            <div className="mb-2 text-xs font-semibold uppercase text-zinc-500">
+              Copies by location
+            </div>
+            <div className="space-y-1">
+              {visibleLocationBreakdown.map((location, index) => (
+                <div
+                  key={`${location.locationId ?? location.name}-${index}`}
+                  className="flex items-center justify-between rounded bg-zinc-900 px-2 py-1"
+                >
+                  <span>{location.name}</span>
+                  <span className="font-semibold">{location.quantity}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {capabilities.canViewPrivateSourceInfo && row.notes ? (
+          <div className="border-t border-zinc-800 pt-3">
+            <div className="text-xs uppercase text-zinc-500">Notes</div>
+            <div>{row.notes}</div>
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 function CardDetail({
   row,
   onClose,
@@ -443,10 +592,6 @@ function CardDetail({
     ["Oathbreaker", legalities.oathbreaker],
   ].filter(([, value]) => value);
   const visibleLocationBreakdown = row.locationBreakdown ?? [];
-  const detailBlockClass = "rounded border border-zinc-800 bg-zinc-950/70";
-  const detailHeaderClass =
-    "border-b border-zinc-800 bg-zinc-900 px-3 py-2 text-xs font-semibold uppercase tracking-normal text-zinc-200";
-  const detailBodyClass = "space-y-3 p-3";
   return (
     <div className="fixed inset-0 z-50 bg-black/50" onClick={onClose}>
       <div
@@ -488,24 +633,16 @@ function CardDetail({
             </button>
           </div>
         </div>
-        <div className="grid md:grid-cols-[240px_1fr] gap-4">
-          <div className="rounded border border-zinc-800 bg-zinc-900 p-2">
-            {getCardImage(row) ? (
-              <img
-                src={getCardImage(row)}
-                alt={row.cardName}
-                loading="lazy"
-                decoding="async"
-                width={240}
-                height={336}
-                className="w-full rounded"
-              />
-            ) : (
-              <div className="aspect-[63/88] flex items-center justify-center text-sm text-zinc-400">
-                No image
-              </div>
-            )}
-          </div>
+        <div className="grid gap-4 md:grid-cols-[240px_1fr]">
+          <aside className="space-y-3 text-sm">
+            <CardImageFlipper row={row} />
+            <InventoryDetailPanel
+              row={row}
+              capabilities={capabilities}
+              visibleLocationBreakdown={visibleLocationBreakdown}
+              priceLabel={priceLabel}
+            />
+          </aside>
           <div className="space-y-3 text-sm">
             <section className={detailBlockClass}>
               <div className="flex items-center justify-between gap-3 border-b border-zinc-800 bg-zinc-900 px-3 py-2">
@@ -588,18 +725,20 @@ function CardDetail({
 
             <section className={detailBlockClass}>
               <div className={detailHeaderClass}>Legalities</div>
-              <div className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-1.5 p-3 sm:grid-cols-2">
                 {legalityFormats.map(([format, status]) => {
                   const legal = String(status).toLowerCase() === "legal";
                   return (
                     <div
                       key={format}
-                      className="grid min-h-8 grid-cols-[1fr_5.75rem] items-center gap-2 rounded border border-zinc-800 bg-zinc-900/60 px-2"
+                      className="grid min-h-8 grid-cols-[minmax(0,1fr)_4.75rem] items-center gap-2 rounded border border-zinc-800 bg-zinc-900/60 px-2"
                     >
-                      <span className="truncate">{format}</span>
+                      <span className="truncate text-xs font-medium text-zinc-200">
+                        {format}
+                      </span>
                       <span
                         className={cn(
-                          "inline-flex h-5 w-full items-center justify-center rounded px-2 text-[11px] font-semibold uppercase",
+                          "inline-flex h-5 w-full items-center justify-center rounded px-1.5 text-[10px] font-semibold uppercase",
                           legal
                             ? "bg-emerald-900/70 text-emerald-100"
                             : "bg-zinc-700 text-zinc-200",
@@ -610,80 +749,6 @@ function CardDetail({
                     </div>
                   );
                 })}
-              </div>
-            </section>
-
-            <section className={detailBlockClass}>
-              <div className={detailHeaderClass}>Inventory</div>
-              <div className={detailBodyClass}>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <div className="text-xs uppercase text-zinc-500">
-                      Quantity
-                    </div>
-                    {row.quantity}
-                  </div>
-                  <div>
-                    <div className="text-xs uppercase text-zinc-500">Price</div>
-                    {priceLabel}
-                  </div>
-                  <div>
-                    <div className="text-xs uppercase text-zinc-500">
-                      Condition
-                    </div>
-                    {row.condition || "-"}
-                  </div>
-                  {capabilities.canViewVisibility ? (
-                    <div>
-                      <div className="text-xs uppercase text-zinc-500">
-                        Visibility
-                      </div>
-                      {friendlyVisibility(row.effectiveVisibility)}
-                    </div>
-                  ) : null}
-                  {capabilities.canViewOwnerAdminFields ? (
-                    <div>
-                      <div className="text-xs uppercase text-zinc-500">
-                        Owner
-                      </div>
-                      {row.currentOwner}
-                    </div>
-                  ) : null}
-                  {capabilities.canViewPrivateSourceInfo ? (
-                    <div>
-                      <div className="text-xs uppercase text-zinc-500">
-                        Source
-                      </div>
-                      {friendlySource(row.sourceType)}
-                    </div>
-                  ) : null}
-                </div>
-                {visibleLocationBreakdown.length ? (
-                  <div className="border-t border-zinc-800 pt-3">
-                    <div className="mb-2 text-xs font-semibold uppercase text-zinc-500">
-                      Copies by location
-                    </div>
-                    <div className="space-y-1">
-                      {visibleLocationBreakdown.map((location, index) => (
-                        <div
-                          key={`${location.locationId ?? location.name}-${index}`}
-                          className="flex items-center justify-between rounded bg-zinc-900 px-2 py-1"
-                        >
-                          <span>{location.name}</span>
-                          <span className="font-semibold">
-                            {location.quantity}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-                {capabilities.canViewPrivateSourceInfo && row.notes ? (
-                  <div className="border-t border-zinc-800 pt-3">
-                    <div className="text-xs uppercase text-zinc-500">Notes</div>
-                    <div>{row.notes}</div>
-                  </div>
-                ) : null}
               </div>
             </section>
 
