@@ -52,6 +52,12 @@ test("inventory edit workflow exposes stack split and merge controls", () => {
 
 test("inventory detail drawer uses readable card information blocks", () => {
   assert.match(inventoryBrowser, /type InventoryCardFace =/);
+  assert.match(inventoryBrowser, /function CardImageFlipper/);
+  assert.match(inventoryBrowser, /function InventoryDetailPanel/);
+  assert.match(inventoryBrowser, /getInventoryCardImagePair/);
+  assert.match(inventoryBrowser, /Show back face/);
+  assert.match(inventoryBrowser, /Show front face/);
+  assert.match(inventoryBrowser, /aria-label=\{currentLabel\}/);
   assert.match(inventoryBrowser, /function normalizeCardFaces/);
   assert.match(inventoryBrowser, /function CardFaceMechanics/);
   assert.match(inventoryBrowser, /const cardFaces = normalizeCardFaces\(row\)/);
@@ -64,10 +70,25 @@ test("inventory detail drawer uses readable card information blocks", () => {
   assert.match(inventoryBrowser, />\s*Treatment\s*<\/div>/);
   assert.match(inventoryBrowser, />\s*Legalities\s*<\/div>/);
   assert.match(inventoryBrowser, /const legalityFormats =/);
-  assert.match(inventoryBrowser, /grid min-h-8 grid-cols-\[1fr_5\.75rem\]/);
+  assert.match(
+    inventoryBrowser,
+    /grid min-h-8 grid-cols-\[minmax\(0,1fr\)_4\.75rem\]/,
+  );
+  assert.match(inventoryBrowser, /truncate text-xs font-medium/);
   assert.match(inventoryBrowser, /inline-flex h-5 w-full/);
   assert.match(inventoryBrowser, />\s*Inventory\s*<\/div>/);
   assert.match(inventoryBrowser, />\s*Price\s*<\/div>/);
+  assert.match(
+    inventoryBrowser,
+    /<aside className="space-y-3 text-sm">[\s\S]*<CardImageFlipper row=\{row\} \/>[\s\S]*<InventoryDetailPanel/,
+  );
+  assert.equal(
+    (inventoryBrowser.match(/>\s*Inventory\s*<\/div>/g) || []).length,
+    1,
+  );
+  assert.match(inventoryBrowser, /\[transform-style:preserve-3d\]/);
+  assert.match(inventoryBrowser, /\[backface-visibility:hidden\]/);
+  assert.match(inventoryBrowser, /motion-reduce:transition-none/);
   assert.match(inventoryBrowser, /visibleLocationBreakdown/);
   assert.match(inventoryBrowser, /View on Scryfall/);
   assert.doesNotMatch(inventoryBrowser, /Location Summary/);
