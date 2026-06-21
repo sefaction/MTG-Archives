@@ -204,6 +204,7 @@ function toInventoryBrowserRows({
       legalities: (i.card.legalities as any) ?? {},
       artist: i.card.artist ?? "",
       collectorNumber: i.card.collectorNumber,
+      releasedAt: i.card.releasedAt?.toISOString().slice(0, 10) ?? "",
       keywords: Array.isArray(i.card.keywords)
         ? i.card.keywords.join(", ")
         : JSON.stringify(i.card.keywords ?? ""),

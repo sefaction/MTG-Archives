@@ -423,7 +423,10 @@ export async function getGlobalPublicInventory(
     (filters as any).displayMode === "exact" ? "exact" : "grouped";
   const sortField = filters.sort || "cardName";
   const sortDirection: "asc" | "desc" =
-    filters.sortDir === "desc" ? "desc" : "asc";
+    filters.sortDir === "desc" ||
+    (!filters.sortDir && sortField === "releasedAt")
+      ? "desc"
+      : "asc";
   const where = buildPublicInventoryWhere(filters);
   const startedAt = Date.now();
   const exactGroupBy = {
@@ -496,6 +499,7 @@ export async function getGlobalPublicInventory(
       manaValue: true,
       prices: true,
       collectorNumber: true,
+      releasedAt: true,
       typeLine: true,
       manaCost: true,
       colorIdentity: true,

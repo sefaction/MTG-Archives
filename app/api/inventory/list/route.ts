@@ -145,6 +145,7 @@ function rowsFromDisplayItems({
         legalities: (i.card.legalities as any) ?? {},
         artist: i.card.artist ?? "",
         collectorNumber: i.card.collectorNumber,
+        releasedAt: i.card.releasedAt?.toISOString().slice(0, 10) ?? "",
         keywords: Array.isArray(i.card.keywords)
           ? i.card.keywords.join(", ")
           : JSON.stringify(i.card.keywords ?? ""),
@@ -191,7 +192,10 @@ export async function GET(request: Request) {
     : 50;
   const page = Math.max(1, Number(p.page || "1") || 1);
   const sortField = p.sort || "cardName";
-  const sortDirection: "asc" | "desc" = p.sortDir === "desc" ? "desc" : "asc";
+  const sortDirection: "asc" | "desc" =
+    p.sortDir === "desc" || (!p.sortDir && sortField === "releasedAt")
+      ? "desc"
+      : "asc";
   const filters = parseInventoryFilters(new URL(request.url).searchParams);
   const where = buildInventoryWhereFromFilters(filters, {
     adminModeActive,
@@ -248,6 +252,7 @@ export async function GET(request: Request) {
       manaValue: true,
       prices: true,
       collectorNumber: true,
+      releasedAt: true,
       typeLine: true,
       manaCost: true,
       colorIdentity: true,

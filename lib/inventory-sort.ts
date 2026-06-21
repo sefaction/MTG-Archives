@@ -1,9 +1,9 @@
-
 export const INVENTORY_SORT_FIELDS = [
   "cardName",
   "quantity",
   "setCode",
   "collectorNumber",
+  "releasedAt",
   "rarity",
   "manaCost",
   "manaValue",
@@ -98,6 +98,12 @@ export function inventorySortValue(
       return {
         kind: "collector",
         value: parseCollectorNumber(card?.collectorNumber),
+      };
+    case "releasedAt":
+      return {
+        kind: "number",
+        value: card?.releasedAt ? new Date(card.releasedAt).getTime() : null,
+        nullsLast: true,
       };
     case "rarity":
       return {
