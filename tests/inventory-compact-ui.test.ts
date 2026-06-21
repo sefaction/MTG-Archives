@@ -6,6 +6,10 @@ const inventoryBrowser = readFileSync(
   "components/InventoryBrowser.tsx",
   "utf8",
 );
+const inventoryAdvancedSearch = readFileSync(
+  "components/InventoryAdvancedSearch.tsx",
+  "utf8",
+);
 const inventoryPage = readFileSync("app/inventory/page.tsx", "utf8");
 const inventoryListRoute = readFileSync(
   "app/api/inventory/list/route.ts",
@@ -19,6 +23,8 @@ const publicInventoryListRoute = readFileSync(
   "app/api/public/inventory/list/route.ts",
   "utf8",
 );
+const inventorySort = readFileSync("lib/inventory-sort.ts", "utf8");
+const publicCollection = readFileSync("lib/public-collection.ts", "utf8");
 
 test("inventory table row actions use a compact overflow menu", () => {
   assert.match(
@@ -67,6 +73,8 @@ test("inventory detail drawer uses readable card information blocks", () => {
   assert.match(inventoryBrowser, /const treatment =/);
   assert.match(inventoryBrowser, />\s*Printing\s*<\/div>/);
   assert.match(inventoryBrowser, /symbolClassName="h-5 w-5"/);
+  assert.match(inventoryBrowser, />\s*Released\s*<\/div>/);
+  assert.match(inventoryBrowser, /formatReleaseDate\(row\.releasedAt\)/);
   assert.match(inventoryBrowser, />\s*Treatment\s*<\/div>/);
   assert.match(inventoryBrowser, />\s*Legalities\s*<\/div>/);
   assert.match(inventoryBrowser, /const legalityFormats =/);
@@ -107,6 +115,77 @@ test("inventory rows include face data for split multi-face cards", () => {
     assert.match(
       source,
       /cardFaces: Array\.isArray\(i\.card\.cardFaces\) \? i\.card\.cardFaces : \[\]/,
+    );
+  }
+});
+
+test("inventory page keeps utility actions compact near results controls", () => {
+  assert.doesNotMatch(inventoryPage, /Import \/ Export tools/);
+  assert.match(
+    inventoryPage,
+    /importExportHref=\{user \? importExportHref : undefined\}/,
+  );
+  assert.match(inventoryBrowser, /importExportHref\?: string/);
+  assert.match(inventoryBrowser, />\s*Actions\s*<\/span>/);
+  assert.match(inventoryBrowser, /href=\{importExportHref\}/);
+  assert.doesNotMatch(inventoryBrowser, /Select visible/);
+  assert.doesNotMatch(inventoryBrowser, /Select loaded/);
+});
+
+test("inventory advanced search separates mechanical and collection filters", () => {
+  assert.match(
+    inventoryAdvancedSearch,
+    /Card text and printing[\s\S]*Color and mana[\s\S]*Collection fields/,
+  );
+  assert.match(
+    inventoryAdvancedSearch,
+    /Collection fields[\s\S]*<span className=\{filterLabelClass\}>USD<\/span>/,
+  );
+  assert.doesNotMatch(inventoryAdvancedSearch, /Color, mana, and price/);
+  assert.match(inventoryAdvancedSearch, /grid items-end gap-3/);
+  assert.match(
+    inventoryPage,
+    /<InventoryAdvancedSearch[\s\S]*<InventoryQuickCardNameSearch/,
+  );
+});
+
+test("inventory table keeps required columns fixed and optional columns default off", () => {
+  assert.match(inventoryBrowser, /effectiveVisibility: false/);
+  assert.match(inventoryBrowser, /sourceType: false/);
+  assert.match(inventoryBrowser, /releasedAt: false/);
+  assert.match(inventoryBrowser, /id: "select"[\s\S]*enableHiding: false/);
+  assert.match(inventoryBrowser, /id: "actions"[\s\S]*enableHiding: false/);
+  assert.match(
+    inventoryBrowser,
+    /getAllLeafColumns\(\)[\s\S]*filter\(\(c\) => c\.getCanHide\(\)\)/,
+  );
+});
+
+test("inventory release date is sortable and hidden by default", () => {
+  assert.match(inventorySort, /"releasedAt"/);
+  assert.match(
+    inventorySort,
+    /case "releasedAt":[\s\S]*new Date\(card\.releasedAt\)\.getTime\(\)/,
+  );
+  assert.match(inventoryBrowser, /accessorKey: "releasedAt"/);
+  assert.match(inventoryBrowser, /header: "Released"/);
+  assert.match(inventoryBrowser, /sortDescFirst: true/);
+  for (const source of [
+    inventoryPage,
+    inventoryListRoute,
+    publicInventoryPage,
+    publicInventoryListRoute,
+  ]) {
+    assert.match(
+      source,
+      /releasedAt: i\.card\.releasedAt\?\.toISOString\(\)\.slice\(0, 10\) \?\? ""/,
+    );
+  }
+  for (const source of [inventoryPage, inventoryListRoute, publicCollection]) {
+    assert.match(source, /releasedAt: true/);
+    assert.match(
+      source,
+      /!.*sortDir[\s\S]*sortField === "releasedAt"[\s\S]*\? "desc"/,
     );
   }
 });

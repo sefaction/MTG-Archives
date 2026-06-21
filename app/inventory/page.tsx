@@ -82,7 +82,10 @@ export default async function InventoryPage({
   const initialBrowsingMode: "paginated" | "infinite" =
     p.browse === "infinite" ? "infinite" : "paginated";
   const sortField = p.sort || "cardName";
-  const sortDirection: "asc" | "desc" = p.sortDir === "desc" ? "desc" : "asc";
+  const sortDirection: "asc" | "desc" =
+    p.sortDir === "desc" || (!p.sortDir && sortField === "releasedAt")
+      ? "desc"
+      : "asc";
   const currentPage =
     initialBrowsingMode === "infinite"
       ? 1
@@ -143,6 +146,7 @@ export default async function InventoryPage({
       manaValue: true,
       prices: true,
       collectorNumber: true,
+      releasedAt: true,
       typeLine: true,
       manaCost: true,
       colorIdentity: true,
@@ -891,6 +895,7 @@ export default async function InventoryPage({
         legalities: (i.card.legalities as any) ?? {},
         artist: i.card.artist ?? "",
         collectorNumber: i.card.collectorNumber,
+        releasedAt: i.card.releasedAt?.toISOString().slice(0, 10) ?? "",
         keywords: Array.isArray(i.card.keywords)
           ? i.card.keywords.join(", ")
           : JSON.stringify(i.card.keywords ?? ""),
@@ -958,19 +963,6 @@ export default async function InventoryPage({
           ? "Showing inventory across all users. Filter to one owner before broad bulk deletes."
           : "Showing your inventory."}
       </p>
-      {user ? (
-        <section className="flex flex-wrap items-center justify-between gap-3 rounded border border-zinc-800 p-3 text-sm">
-          <div>
-            <h2 className="font-semibold">Import / Export tools</h2>
-            <p className="text-zinc-400">
-              Add single cards, bulk import CSVs, or download inventory exports.
-            </p>
-          </div>
-          <a className={filterPrimaryButtonClass} href={importExportHref}>
-            Import / Export
-          </a>
-        </section>
-      ) : null}
       {adminModeActive ? (
         <section className="border border-zinc-800 rounded p-3 space-y-2">
           <h2 className="font-semibold">Inventory Maintenance</h2>
@@ -1000,7 +992,6 @@ export default async function InventoryPage({
           </form>
         </section>
       ) : null}
-      <InventoryQuickCardNameSearch actionPath="/inventory" params={p} />
       <InventoryAdvancedSearch
         actionPath="/inventory"
         params={p}
@@ -1022,6 +1013,7 @@ export default async function InventoryPage({
         cardNameOptions={cardNameOptions}
         clearHref={clearFiltersHref}
       />
+      <InventoryQuickCardNameSearch actionPath="/inventory" params={p} />
       <InventoryBrowser
         rows={rows}
         players={visiblePlayers.map((p) => ({
@@ -1062,6 +1054,7 @@ export default async function InventoryPage({
         onSaveEdit={onSaveEdit}
         onSearchPrintings={onSearchPrintings}
         onDeleteInventoryItem={deleteInventoryItem}
+        importExportHref={user ? importExportHref : undefined}
       />
     </main>
   );

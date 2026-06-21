@@ -138,6 +138,7 @@ export type InventoryRow = {
   legalities?: Record<string, string>;
   artist?: string;
   collectorNumber?: string;
+  releasedAt?: string;
   keywords?: string;
   notes?: string;
   language?: string;
@@ -242,7 +243,9 @@ const defaults: VisibilityState = {
   colorIdentity: true,
   priceUsd: true,
   foil: true,
-  effectiveVisibility: true,
+  effectiveVisibility: false,
+  sourceType: false,
+  releasedAt: false,
   locationSummary: true,
 };
 
@@ -257,6 +260,18 @@ function isHexColor(value?: string) {
 }
 function getPlayerColor(color?: string) {
   return isHexColor(color) ? color! : "#64748b";
+}
+
+function formatReleaseDate(value?: string | null) {
+  if (!value) return "-";
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(date);
 }
 function withOpacity(hexColor: string, opacity: number) {
   const c = getPlayerColor(hexColor).replace("#", "");
@@ -707,6 +722,12 @@ function CardDetail({
                   {row.collectorNumber || "-"}
                 </div>
                 <div>
+                  <div className="text-xs uppercase text-zinc-500">
+                    Released
+                  </div>
+                  {formatReleaseDate(row.releasedAt)}
+                </div>
+                <div>
                   <div className="text-xs uppercase text-zinc-500">Rarity</div>
                   {row.rarity || "-"}
                 </div>
@@ -800,6 +821,7 @@ export function InventoryBrowser({
   onSaveEdit,
   onSearchPrintings,
   onDeleteInventoryItem,
+  importExportHref,
 }: {
   rows: InventoryRow[];
   players: PickRef[];
@@ -857,6 +879,7 @@ export function InventoryBrowser({
   onSaveEdit?: (formData: FormData) => Promise<void>;
   onSearchPrintings?: (formData: FormData) => Promise<ScryfallResult[]>;
   onDeleteInventoryItem?: (formData: FormData) => Promise<void>;
+  importExportHref?: string;
 }) {
   const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>(
@@ -1278,6 +1301,7 @@ export function InventoryBrowser({
         ? [
             {
               id: "select",
+              enableHiding: false,
               header: () => <span className="sr-only">Select</span>,
               cell: ({ row }: any) => (
                 <input
@@ -1352,6 +1376,12 @@ export function InventoryBrowser({
           />
         ),
       },
+      {
+        accessorKey: "releasedAt",
+        header: "Released",
+        sortDescFirst: true,
+        cell: ({ row }) => formatReleaseDate(row.original.releasedAt),
+      },
       { accessorKey: "rarity", header: "Rarity" },
       {
         accessorKey: "manaCost",
@@ -1391,6 +1421,7 @@ export function InventoryBrowser({
         ? [
             {
               id: "actions",
+              enableHiding: false,
               header: "Actions",
               cell: ({ row }: any) => {
                 const exact = row.original.displayMode === "exact";
@@ -1637,23 +1668,17 @@ export function InventoryBrowser({
       ) : capabilities.canBulkSelect ? (
         <div className={cn(filterPanelClass, "space-y-3")}>
           <div className="flex flex-wrap gap-2 items-center text-sm">
-            <button
-              type="button"
-              className={cn(filterButtonClass, "px-2 py-1")}
-              onClick={() => {
-                setAllMatchingSelected(false);
-                setSelectedItemIds((current) => {
-                  const next = new Set(current);
-                  table
-                    .getRowModel()
-                    .rows.flatMap((row) => getRowSourceIds(row.original))
-                    .forEach((id) => next.add(id));
-                  return next;
-                });
-              }}
-            >
-              {browsingMode === "infinite" ? "Select loaded" : "Select visible"}
-            </button>
+            <span className="text-xs font-semibold uppercase text-zinc-500">
+              Actions
+            </span>
+            {importExportHref ? (
+              <a
+                className={cn(filterButtonClass, "px-2 py-1")}
+                href={importExportHref}
+              >
+                Import / Export
+              </a>
+            ) : null}
             <button
               type="button"
               className={cn(filterButtonClass, "px-2 py-1")}
@@ -1826,16 +1851,19 @@ export function InventoryBrowser({
               Columns
             </summary>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
-              {table.getAllLeafColumns().map((c) => (
-                <label key={c.id} className={filterLabelClass}>
-                  <input
-                    type="checkbox"
-                    checked={c.getIsVisible()}
-                    onChange={c.getToggleVisibilityHandler()}
-                  />{" "}
-                  {c.columnDef.header as string}
-                </label>
-              ))}
+              {table
+                .getAllLeafColumns()
+                .filter((c) => c.getCanHide())
+                .map((c) => (
+                  <label key={c.id} className={filterLabelClass}>
+                    <input
+                      type="checkbox"
+                      checked={c.getIsVisible()}
+                      onChange={c.getToggleVisibilityHandler()}
+                    />{" "}
+                    {c.columnDef.header as string}
+                  </label>
+                ))}
             </div>
           </details>
           <div className="overflow-x-auto border border-zinc-800">
