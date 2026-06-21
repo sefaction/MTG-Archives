@@ -20,6 +20,7 @@ import { LoadingSpinner } from "./feedback/LoadingSpinner";
 import {
   CardManaCost,
   ColorIdentityIcons,
+  ManaCost,
   SetLabel,
   SetSymbol,
 } from "./mtg/CardSymbols";
@@ -63,6 +64,20 @@ type InventoryLocationStack = {
   locationSystemManaged?: boolean | null;
 };
 
+type InventoryCardFace = {
+  name?: string | null;
+  manaCost?: string | null;
+  mana_cost?: string | null;
+  typeLine?: string | null;
+  type_line?: string | null;
+  oracleText?: string | null;
+  oracle_text?: string | null;
+  power?: string | null;
+  toughness?: string | null;
+  loyalty?: string | null;
+  defense?: string | null;
+};
+
 export type InventoryRow = {
   id: string;
   cardId: string;
@@ -76,6 +91,7 @@ export type InventoryRow = {
   rarity: string;
   manaCost?: string;
   manaFaces?: Array<{ name?: string; manaCost?: string | null }>;
+  cardFaces?: InventoryCardFace[];
   layout?: string;
   manaValue?: number;
   typeLine: string;
@@ -271,6 +287,117 @@ function friendlySource(value?: InventoryRow["sourceType"]) {
   }
 }
 
+function normalizeCardFaces(row: InventoryRow) {
+  return (row.cardFaces ?? [])
+    .map((face) => ({
+      name: face.name?.trim() ?? "",
+      manaCost: (face.manaCost ?? face.mana_cost ?? "").trim(),
+      typeLine: (face.typeLine ?? face.type_line ?? "").trim(),
+      oracleText: (face.oracleText ?? face.oracle_text ?? "").trim(),
+      power: face.power?.trim() ?? "",
+      toughness: face.toughness?.trim() ?? "",
+      loyalty: face.loyalty?.trim() ?? "",
+      defense: face.defense?.trim() ?? "",
+    }))
+    .filter(
+      (face) =>
+        face.name ||
+        face.manaCost ||
+        face.typeLine ||
+        face.oracleText ||
+        face.power ||
+        face.toughness ||
+        face.loyalty ||
+        face.defense,
+    );
+}
+
+function oracleParagraphs(text?: string | null) {
+  return (text || "")
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function FaceStats({
+  powerToughness,
+  power,
+  toughness,
+  loyalty,
+  defense,
+}: {
+  powerToughness?: string | null;
+  power?: string | null;
+  toughness?: string | null;
+  loyalty?: string | null;
+  defense?: string | null;
+}) {
+  const displayPowerToughness =
+    powerToughness || [power, toughness].filter(Boolean).join("/");
+  if (!displayPowerToughness && !loyalty && !defense) return null;
+  return (
+    <div className="flex flex-wrap gap-2 border-t border-zinc-800 pt-2">
+      {displayPowerToughness ? (
+        <span className="rounded border border-zinc-700 bg-zinc-900 px-2 py-1 font-semibold">
+          {displayPowerToughness}
+        </span>
+      ) : null}
+      {loyalty ? (
+        <span className="rounded border border-zinc-700 bg-zinc-900 px-2 py-1">
+          Loyalty {loyalty}
+        </span>
+      ) : null}
+      {defense ? (
+        <span className="rounded border border-zinc-700 bg-zinc-900 px-2 py-1">
+          Defense {defense}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function CardFaceMechanics({
+  face,
+  index,
+}: {
+  face: ReturnType<typeof normalizeCardFaces>[number];
+  index: number;
+}) {
+  const paragraphs = oracleParagraphs(face.oracleText);
+  return (
+    <div className={cn(index > 0 && "border-t border-zinc-800 pt-3")}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          {face.name ? <div className="font-semibold">{face.name}</div> : null}
+          <div className="mt-1 font-medium text-zinc-200">
+            {face.typeLine || "-"}
+          </div>
+        </div>
+        {face.manaCost ? (
+          <div className="shrink-0">
+            <ManaCost value={face.manaCost} />
+          </div>
+        ) : null}
+      </div>
+      {paragraphs.length ? (
+        <div className="mt-3 space-y-2 leading-relaxed text-zinc-100">
+          {paragraphs.map((paragraph, paragraphIndex) => (
+            <p key={`${paragraphIndex}-${paragraph.slice(0, 16)}`}>
+              {paragraph}
+            </p>
+          ))}
+        </div>
+      ) : null}
+      <FaceStats
+        power={face.power}
+        toughness={face.toughness}
+        loyalty={face.loyalty}
+        defense={face.defense}
+      />
+    </div>
+  );
+}
+
 function CardDetail({
   row,
   onClose,
@@ -287,21 +414,39 @@ function CardDetail({
   onDelete?: () => void;
 }) {
   const legalities = row.legalities || {};
-  const locationStacks: InventoryLocationStack[] = [];
-  const moveLocations: PickRef[] = [];
-  const movingStackId = "";
-  const moveQuantity = 1;
-  const moveDestinationId = "";
-  const movePending = false;
-  const moveError = "";
-  const setMoveQuantity = (_quantity: number) => {};
-  const setMoveDestinationId = (_locationId: string) => {};
-  const setMovingStackId = (_inventoryItemId: string) => {};
-  function stackCanMove(_stack: InventoryLocationStack) {
-    return false;
-  }
-  function startMove(_stack: InventoryLocationStack) {}
-  async function submitMove(_stack: InventoryLocationStack) {}
+  const cardFaces = normalizeCardFaces(row);
+  const topLevelOracleParagraphs = oracleParagraphs(row.oracleText);
+  const hasPowerToughness = Boolean(
+    row.powerToughness || row.power || row.toughness,
+  );
+  const hasLoyalty = Boolean(row.loyalty);
+  const hasDefense = Boolean(row.defense);
+  const treatment = row.foilStatus || (row.foil ? "FOIL" : "NONFOIL");
+  const priceLabel =
+    row.preferredPriceLabel ||
+    row.priceUsd ||
+    row.priceUsdFoil ||
+    row.priceUsdEtched ||
+    "-";
+  const legalityFormats = [
+    ["Standard", legalities.standard],
+    ["Pioneer", legalities.pioneer],
+    ["Modern", legalities.modern],
+    ["Legacy", legalities.legacy],
+    ["Vintage", legalities.vintage],
+    ["Commander", legalities.commander],
+    ["Pauper", legalities.pauper],
+    ["Brawl", legalities.brawl],
+    ["Historic", legalities.historic],
+    ["Alchemy", legalities.alchemy],
+    ["Penny", legalities.penny],
+    ["Oathbreaker", legalities.oathbreaker],
+  ].filter(([, value]) => value);
+  const visibleLocationBreakdown = row.locationBreakdown ?? [];
+  const detailBlockClass = "rounded border border-zinc-800 bg-zinc-950/70";
+  const detailHeaderClass =
+    "border-b border-zinc-800 bg-zinc-900 px-3 py-2 text-xs font-semibold uppercase tracking-normal text-zinc-200";
+  const detailBodyClass = "space-y-3 p-3";
   return (
     <div className="fixed inset-0 z-50 bg-black/50" onClick={onClose}>
       <div
@@ -361,313 +506,187 @@ function CardDetail({
               </div>
             )}
           </div>
-          <div className="space-y-2 text-sm">
-            <p>
-              <b>Mana Cost:</b> <CardManaCost card={row} showFaceNames />
-            </p>
-            <p>
-              <b>Type Line:</b> {row.typeLine}
-            </p>
-            <p>
-              <b>Oracle Text:</b> {row.oracleText || "-"}
-            </p>
-            <p>
-              <b>Power/Toughness:</b> {row.powerToughness || "-"}
-            </p>
-            <p>
-              <b>Loyalty:</b> {row.loyalty || "-"}
-            </p>
-            <p>
-              <b>Defense:</b> {row.defense || "-"}
-            </p>
-            <p>
-              <b>Colors:</b> {row.colors || "-"}
-            </p>
-            <p>
-              <b>Color Identity:</b>{" "}
-              <ColorIdentityIcons value={row.colorIdentity} />
-            </p>
-            <p>
-              <b>Set:</b>{" "}
-              <SetLabel
-                setCode={row.setCode}
-                setName={row.setName}
-                rarity={row.rarity}
-              />
-            </p>
-            <p>
-              <b>Collector #:</b> {row.collectorNumber || "-"}
-            </p>
-            <p>
-              <b>Rarity:</b> {row.rarity}
-            </p>
-            <p>
-              <b>Artist:</b> {row.artist || "-"}
-            </p>
-            <p>
-              <b>Total Quantity:</b> {row.quantity}
-            </p>
-            <p>
-              <b>Location Summary:</b>{" "}
-              {row.locationSummary || row.locationName || "Unassigned"}
-            </p>
-            {locationStacks.length ? (
-              <div className="rounded border border-zinc-800 bg-zinc-950/60 p-3">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <b>Copies by location</b>
-                  <span className="text-xs text-zinc-500">
-                    Move normal inventory stacks directly.
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {locationStacks.map((stack, index) => {
-                    const key =
-                      stack.inventoryItemId ?? `${stack.locationId}-${index}`;
-                    const canMove = stackCanMove(stack);
-                    const moving = movingStackId === stack.inventoryItemId;
-                    const destinations = moveLocations.filter(
-                      (location) => location.id !== stack.locationId,
-                    );
-                    return (
-                      <div
-                        key={key}
-                        className="rounded border border-zinc-800 bg-zinc-900/80 p-2"
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div>
-                            <div className="font-medium">{stack.name}</div>
-                            <div className="text-xs text-zinc-400">
-                              {stack.quantity}{" "}
-                              {stack.quantity === 1 ? "copy" : "copies"}
-                              {stack.foilStatus ? ` · ${stack.foilStatus}` : ""}
-                              {stack.condition ? ` · ${stack.condition}` : ""}
-                              {stack.language ? ` · ${stack.language}` : ""}
-                              {stack.sourceType
-                                ? ` · ${friendlySource(stack.sourceType as any)}`
-                                : ""}
-                            </div>
-                          </div>
-                          {canMove ? (
-                            <button
-                              type="button"
-                              className={cn(filterButtonClass, "px-2 py-1")}
-                              onClick={() =>
-                                moving ? setMovingStackId("") : startMove(stack)
-                              }
-                            >
-                              {moving ? "Cancel" : "Move"}
-                            </button>
-                          ) : stack.locationKind === "DECK" ||
-                            stack.locationSystemManaged ? (
-                            <span className="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-400">
-                              Use deck return
-                            </span>
-                          ) : null}
-                        </div>
-                        {moving ? (
-                          <div className="mt-3 grid gap-2 rounded border border-zinc-800 bg-black/20 p-2">
-                            <div className="text-xs text-zinc-400">
-                              From: {stack.name} - Available: {stack.quantity}
-                            </div>
-                            <div className="grid gap-2 sm:grid-cols-[110px_1fr_auto]">
-                              <label className={filterLabelClass}>
-                                Quantity
-                                <input
-                                  type="number"
-                                  min={1}
-                                  max={stack.quantity}
-                                  value={moveQuantity}
-                                  onChange={(event) =>
-                                    setMoveQuantity(Number(event.target.value))
-                                  }
-                                  className={cn(
-                                    filterInputClass,
-                                    "mt-1 w-full",
-                                  )}
-                                />
-                              </label>
-                              <label className={filterLabelClass}>
-                                To location
-                                <select
-                                  value={moveDestinationId}
-                                  onChange={(event) =>
-                                    setMoveDestinationId(event.target.value)
-                                  }
-                                  className={cn(
-                                    filterSelectClass,
-                                    "mt-1 w-full",
-                                  )}
-                                >
-                                  <option value="">Choose location</option>
-                                  {destinations.map((location) => (
-                                    <option
-                                      key={location.id}
-                                      value={location.id}
-                                    >
-                                      {location.name}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-                              <div className="flex items-end gap-2">
-                                <button
-                                  type="button"
-                                  className={cn(filterButtonClass, "px-2 py-1")}
-                                  onClick={() =>
-                                    setMoveQuantity(stack.quantity)
-                                  }
-                                >
-                                  All
-                                </button>
-                                <button
-                                  type="button"
-                                  className={cn(
-                                    filterPrimaryButtonClass,
-                                    "px-2 py-1",
-                                  )}
-                                  disabled={movePending || !destinations.length}
-                                  onClick={() => void submitMove(stack)}
-                                >
-                                  {movePending ? "Moving..." : "Move copies"}
-                                </button>
-                              </div>
-                            </div>
-                            {moveError ? (
-                              <div className="text-xs text-red-300">
-                                {moveError}
-                              </div>
-                            ) : null}
-                          </div>
-                        ) : null}
-                      </div>
-                    );
-                  })}
+          <div className="space-y-3 text-sm">
+            <section className={detailBlockClass}>
+              <div className="flex items-center justify-between gap-3 border-b border-zinc-800 bg-zinc-900 px-3 py-2">
+                <h3 className="font-semibold">{row.cardName}</h3>
+                <div className="shrink-0">
+                  <CardManaCost card={row} showFaceNames={!cardFaces.length} />
                 </div>
               </div>
-            ) : null}
-            {capabilities.canViewOwnerAdminFields ? (
-              <p>
-                <b>Owner:</b> {row.currentOwner}
-              </p>
-            ) : null}
-            <p>
-              <b>Foil:</b> {row.foilStatus || (row.foil ? "FOIL" : "NONFOIL")}
-            </p>
-            <p>
-              <b>Condition:</b> {row.condition || "-"}
-            </p>
-            {capabilities.canViewPrivateSourceInfo ? (
-              <p>
-                <b>Source:</b> {friendlySource(row.sourceType)}
-              </p>
-            ) : null}
-            {capabilities.canViewVisibility ? (
-              <p>
-                <b>Visibility:</b> {friendlyVisibility(row.effectiveVisibility)}
-              </p>
-            ) : null}
-            {capabilities.canViewPrivateSourceInfo ? (
-              <p>
-                <b>Notes:</b> {row.notes || "-"}
-              </p>
-            ) : null}
-            {row.displayMode === "grouped" && row.printings?.length ? (
-              <div>
-                <b>Owned Printings:</b>
-                <div className="mt-2 space-y-2">
-                  {row.printings.map((printing) => (
-                    <div
-                      key={printing.id}
-                      className="rounded border border-zinc-800 p-2"
-                    >
-                      <div className="font-semibold">
-                        {printing.cardName} (
-                        <SetSymbol
-                          setCode={printing.setCode}
-                          rarity={printing.rarity}
-                        />
-                        ) #{printing.collectorNumber}
-                      </div>
-                      <div className="text-zinc-400">
-                        {printing.foilStatus} · {printing.condition} ·{" "}
-                        {printing.language} · Qty {printing.quantity}
-                      </div>
-                      <div className="text-zinc-300">
-                        {printing.locationBreakdown
-                          .map((loc) => `${loc.name}: ${loc.quantity}`)
-                          .join(" · ")}
-                      </div>
+              <div className={detailBodyClass}>
+                {cardFaces.length ? (
+                  cardFaces.map((face, index) => (
+                    <CardFaceMechanics
+                      key={`${face.name || "face"}-${index}`}
+                      face={face}
+                      index={index}
+                    />
+                  ))
+                ) : (
+                  <>
+                    <div className="border-b border-zinc-800 pb-2 font-medium">
+                      {row.typeLine || "-"}
                     </div>
-                  ))}
+                    {topLevelOracleParagraphs.length ? (
+                      <div className="space-y-2 leading-relaxed text-zinc-100">
+                        {topLevelOracleParagraphs.map((paragraph, index) => (
+                          <p key={`${index}-${paragraph.slice(0, 16)}`}>
+                            {paragraph}
+                          </p>
+                        ))}
+                      </div>
+                    ) : null}
+                    {hasPowerToughness || hasLoyalty || hasDefense ? (
+                      <FaceStats
+                        powerToughness={row.powerToughness}
+                        power={row.power}
+                        toughness={row.toughness}
+                        loyalty={row.loyalty}
+                        defense={row.defense}
+                      />
+                    ) : null}
+                  </>
+                )}
+              </div>
+            </section>
+
+            <section className={detailBlockClass}>
+              <div className={detailHeaderClass}>Printing</div>
+              <div className="grid grid-cols-2 gap-3 p-3">
+                <div>
+                  <div className="text-xs uppercase text-zinc-500">Set</div>
+                  <SetLabel
+                    setCode={row.setCode}
+                    setName={row.setName}
+                    rarity={row.rarity}
+                    symbolClassName="h-5 w-5"
+                  />
+                </div>
+                <div>
+                  <div className="text-xs uppercase text-zinc-500">
+                    Collector #
+                  </div>
+                  {row.collectorNumber || "-"}
+                </div>
+                <div>
+                  <div className="text-xs uppercase text-zinc-500">Rarity</div>
+                  {row.rarity || "-"}
+                </div>
+                <div>
+                  <div className="text-xs uppercase text-zinc-500">
+                    Treatment
+                  </div>
+                  {treatment}
+                </div>
+                <div className="col-span-2">
+                  <div className="text-xs uppercase text-zinc-500">Artist</div>
+                  {row.artist || "-"}
                 </div>
               </div>
-            ) : null}
-            <p>
-              <b>Legalities:</b> CMD {legalities.commander || "-"} | STD{" "}
-              {legalities.standard || "-"} | PIO {legalities.pioneer || "-"} |
-              MOD {legalities.modern || "-"} | LEG {legalities.legacy || "-"} |
-              VIN {legalities.vintage || "-"} | PAU {legalities.pauper || "-"}
-            </p>
-            <p>
-              <b>Preferred price:</b> {row.preferredPriceLabel || "—"}
-              {row.priceSourceLabel ? ` · ${row.priceSourceLabel}` : ""}
-            </p>
-            <p>
-              <b>Scryfall fallback prices:</b> USD {row.priceUsd || "-"} / USD
-              Foil {row.priceUsdFoil || "-"} / USD Etched{" "}
-              {row.priceUsdEtched || "-"} / EUR {row.priceEur || "-"} / EUR Foil{" "}
-              {row.priceEurFoil || "-"} / TIX {row.priceTix || "-"}
-            </p>
-            {row.priceHistory?.length ? (
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <b>Price history:</b>
-                  {row.priceHistoryUrl ? (
-                    <a
-                      className="text-xs text-sky-300 underline"
-                      href={row.priceHistoryUrl}
-                      target="_blank"
-                      rel="noreferrer"
+            </section>
+
+            <section className={detailBlockClass}>
+              <div className={detailHeaderClass}>Legalities</div>
+              <div className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-3">
+                {legalityFormats.map(([format, status]) => {
+                  const legal = String(status).toLowerCase() === "legal";
+                  return (
+                    <div
+                      key={format}
+                      className="grid min-h-8 grid-cols-[1fr_5.75rem] items-center gap-2 rounded border border-zinc-800 bg-zinc-900/60 px-2"
                     >
-                      View price history JSON
-                    </a>
+                      <span className="truncate">{format}</span>
+                      <span
+                        className={cn(
+                          "inline-flex h-5 w-full items-center justify-center rounded px-2 text-[11px] font-semibold uppercase",
+                          legal
+                            ? "bg-emerald-900/70 text-emerald-100"
+                            : "bg-zinc-700 text-zinc-200",
+                        )}
+                      >
+                        {String(status).replace("_", " ")}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className={detailBlockClass}>
+              <div className={detailHeaderClass}>Inventory</div>
+              <div className={detailBodyClass}>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="text-xs uppercase text-zinc-500">
+                      Quantity
+                    </div>
+                    {row.quantity}
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase text-zinc-500">Price</div>
+                    {priceLabel}
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase text-zinc-500">
+                      Condition
+                    </div>
+                    {row.condition || "-"}
+                  </div>
+                  {capabilities.canViewVisibility ? (
+                    <div>
+                      <div className="text-xs uppercase text-zinc-500">
+                        Visibility
+                      </div>
+                      {friendlyVisibility(row.effectiveVisibility)}
+                    </div>
+                  ) : null}
+                  {capabilities.canViewOwnerAdminFields ? (
+                    <div>
+                      <div className="text-xs uppercase text-zinc-500">
+                        Owner
+                      </div>
+                      {row.currentOwner}
+                    </div>
+                  ) : null}
+                  {capabilities.canViewPrivateSourceInfo ? (
+                    <div>
+                      <div className="text-xs uppercase text-zinc-500">
+                        Source
+                      </div>
+                      {friendlySource(row.sourceType)}
+                    </div>
                   ) : null}
                 </div>
-                <p className="text-xs text-zinc-400">
-                  7d {row.priceChange7Day || "—"} · 30d{" "}
-                  {row.priceChange30Day || "—"} · 90d{" "}
-                  {row.priceChange90Day || "—"}
-                </p>
-                <div className="overflow-x-auto">
-                  <table className="mt-1 min-w-full text-xs">
-                    <thead className="text-zinc-400">
-                      <tr>
-                        <th className="pr-3 text-left">Date</th>
-                        <th className="pr-3 text-left">Provider</th>
-                        <th className="pr-3 text-left">Finish</th>
-                        <th className="pr-3 text-left">Type</th>
-                        <th className="text-left">Price</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {row.priceHistory.slice(0, 8).map((entry) => (
-                        <tr
-                          key={`${entry.provider}-${entry.finish}-${entry.priceType}-${entry.currency}-${entry.observedDate}`}
+                {visibleLocationBreakdown.length ? (
+                  <div className="border-t border-zinc-800 pt-3">
+                    <div className="mb-2 text-xs font-semibold uppercase text-zinc-500">
+                      Copies by location
+                    </div>
+                    <div className="space-y-1">
+                      {visibleLocationBreakdown.map((location, index) => (
+                        <div
+                          key={`${location.locationId ?? location.name}-${index}`}
+                          className="flex items-center justify-between rounded bg-zinc-900 px-2 py-1"
                         >
-                          <td className="pr-3">{entry.observedDate}</td>
-                          <td className="pr-3">{entry.provider}</td>
-                          <td className="pr-3">{entry.finish}</td>
-                          <td className="pr-3">{entry.priceType}</td>
-                          <td>
-                            {entry.currency} {entry.price}
-                          </td>
-                        </tr>
+                          <span>{location.name}</span>
+                          <span className="font-semibold">
+                            {location.quantity}
+                          </span>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
+                    </div>
+                  </div>
+                ) : null}
+                {capabilities.canViewPrivateSourceInfo && row.notes ? (
+                  <div className="border-t border-zinc-800 pt-3">
+                    <div className="text-xs uppercase text-zinc-500">Notes</div>
+                    <div>{row.notes}</div>
+                  </div>
+                ) : null}
               </div>
-            ) : null}
+            </section>
+
             {row.scryfallUri ? (
               <p>
                 <a

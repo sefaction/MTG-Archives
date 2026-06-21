@@ -98,6 +98,7 @@ function rowsFromDisplayItems({
         rarity: i.card.rarity,
         manaCost: i.card.manaCost ?? "",
         manaFaces: getManaFacesForDto(i.card.cardFaces),
+        cardFaces: Array.isArray(i.card.cardFaces) ? i.card.cardFaces : [],
         layout: i.card.layout ?? "",
         manaValue: i.card.manaValue ?? undefined,
         typeLine: i.card.typeLine,

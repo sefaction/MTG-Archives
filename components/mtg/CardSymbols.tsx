@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatSetLabel, getScryfallSetIconUrl } from "@/lib/mtg/symbols";
+import { cn } from "../filterStyles";
 
 export {
   ColorIdentityIcons,
@@ -32,11 +33,13 @@ export function SetSymbol({
   setName,
   rarity,
   showText = true,
+  className,
 }: {
   setCode?: string | null;
   setName?: string | null;
   rarity?: string | null;
   showText?: boolean;
+  className?: string;
 }) {
   const [iconFailed, setIconFailed] = useState(false);
   const iconUrl = getScryfallSetIconUrl(setCode);
@@ -49,7 +52,11 @@ export function SetSymbol({
         <>
           <span
             aria-hidden="true"
-            className={`mtg-set-symbol mtg-set-symbol-mask ${rarityClass}`}
+            className={cn(
+              "mtg-set-symbol mtg-set-symbol-mask",
+              rarityClass,
+              className,
+            )}
             style={{
               maskImage: `url(${iconUrl})`,
               WebkitMaskImage: `url(${iconUrl})`,
@@ -79,10 +86,12 @@ export function SetLabel({
   setCode,
   setName,
   rarity,
+  symbolClassName,
 }: {
   setCode?: string | null;
   setName?: string | null;
   rarity?: string | null;
+  symbolClassName?: string;
 }) {
   return (
     <span className="mtg-set-symbol-group flex-wrap gap-1.5">
@@ -91,6 +100,7 @@ export function SetLabel({
         setName={setName}
         rarity={rarity}
         showText={false}
+        className={symbolClassName}
       />
       <span>{formatSetLabel(setCode, setName)}</span>
     </span>
