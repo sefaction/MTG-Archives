@@ -10,8 +10,8 @@ import {
 
 import {
   formatSetLabel,
+  getKeyruneSetClassName,
   getManaFontClassName,
-  getScryfallSetIconUrl,
   parseColorIdentity,
   parseManaCost,
 } from "../lib/mtg/symbols";
@@ -39,6 +39,8 @@ const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
 
 test("mana-font package and global CSS are wired", () => {
   assert.equal(typeof packageJson.dependencies["mana-font"], "string");
+  assert.equal(typeof packageJson.dependencies["keyrune"], "string");
+  assert.match(rootLayout, /import "keyrune\/css\/keyrune\.css"/);
   assert.match(rootLayout, /import "mana-font\/css\/mana\.css"/);
 });
 
@@ -153,24 +155,26 @@ test("set symbol component renders icons and text in an aligned wrapper", () => 
     cardSymbolsComponent,
     /className="mtg-set-symbol-group gap-1\.5"/,
   );
-  assert.match(cardSymbolsComponent, /"mtg-set-symbol mtg-set-symbol-mask"/);
+  assert.match(cardSymbolsComponent, /"ss mtg-set-symbol"/);
+  assert.match(cardSymbolsComponent, /getKeyruneSetClassName/);
   assert.match(cardSymbolsComponent, /className\?: string/);
   assert.match(cardSymbolsComponent, /symbolClassName\?: string/);
   assert.match(cardSymbolsComponent, /<span>\{code\}<\/span>/);
+  assert.doesNotMatch(cardSymbolsComponent, /getScryfallSetIconUrl/);
+  assert.doesNotMatch(cardSymbolsComponent, /maskImage/);
   assert.match(
     globalStyles,
     /\.mtg-set-symbol-group[\s\S]*align-items: center/,
   );
-  assert.match(globalStyles, /\.mtg-set-symbol[\s\S]*height: 1\.1em/);
+  assert.match(globalStyles, /\.mtg-set-symbol[\s\S]*height: 1\.35em/);
+  assert.match(globalStyles, /\.mtg-set-symbol-common[\s\S]*#d4d4d8/);
 });
 
-test("set icon helper resolves safe Scryfall set icon URLs and rejects unsafe codes", () => {
-  assert.equal(
-    getScryfallSetIconUrl("CMM"),
-    "https://svgs.scryfall.io/sets/cmm.svg",
-  );
-  assert.equal(getScryfallSetIconUrl("../bad"), null);
-  assert.equal(getScryfallSetIconUrl(""), null);
+test("set icon helper resolves safe local Keyrune classes and rejects unsafe codes", () => {
+  assert.equal(getKeyruneSetClassName("CMM"), "ss-cmm");
+  assert.equal(getKeyruneSetClassName("PLIST"), "ss-plst");
+  assert.equal(getKeyruneSetClassName("../bad"), null);
+  assert.equal(getKeyruneSetClassName(""), null);
 });
 
 test("set labels retain readable fallback text", () => {
@@ -264,16 +268,13 @@ test("CardManaCost component renders Mana font costs with a visible face separat
 });
 
 test("set symbol rarity classes cover Scryfall rarities and graceful fallbacks", () => {
-  assert.match(cardSymbolsComponent, /common: "mtg-set-symbol-rarity-common"/);
-  assert.match(
-    cardSymbolsComponent,
-    /uncommon: "mtg-set-symbol-rarity-uncommon"/,
-  );
-  assert.match(cardSymbolsComponent, /rare: "mtg-set-symbol-rarity-rare"/);
-  assert.match(cardSymbolsComponent, /mythic: "mtg-set-symbol-rarity-mythic"/);
-  assert.match(cardSymbolsComponent, /bonus: "mtg-set-symbol-rarity-rare"/);
-  assert.match(cardSymbolsComponent, /special: "mtg-set-symbol-rarity-rare"/);
-  assert.match(cardSymbolsComponent, /mtg-set-symbol-rarity-common/);
-  assert.match(cardSymbolsComponent, /mtg-set-symbol-mask/);
-  assert.match(globalStyles, /\.mtg-set-symbol-rarity-rare/);
+  assert.match(cardSymbolsComponent, /common: "mtg-set-symbol-common"/);
+  assert.match(cardSymbolsComponent, /uncommon: "ss-uncommon"/);
+  assert.match(cardSymbolsComponent, /rare: "ss-rare"/);
+  assert.match(cardSymbolsComponent, /mythic: "ss-mythic"/);
+  assert.match(cardSymbolsComponent, /mythic_rare: "ss-mythic"/);
+  assert.match(cardSymbolsComponent, /bonus: "ss-rare"/);
+  assert.match(cardSymbolsComponent, /special: "ss-rare"/);
+  assert.match(cardSymbolsComponent, /"mtg-set-symbol-common"/);
+  assert.doesNotMatch(globalStyles, /mtg-set-symbol-rarity-rare/);
 });

@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { formatSetLabel, getScryfallSetIconUrl } from "@/lib/mtg/symbols";
+import { formatSetLabel, getKeyruneSetClassName } from "@/lib/mtg/symbols";
 import { cn } from "../filterStyles";
 
 export {
@@ -13,18 +12,19 @@ export { ManaCost } from "./ManaCost";
 export { ManaSymbol } from "./ManaSymbol";
 
 const rarityClasses: Record<string, string> = {
-  common: "mtg-set-symbol-rarity-common",
-  uncommon: "mtg-set-symbol-rarity-uncommon",
-  rare: "mtg-set-symbol-rarity-rare",
-  mythic: "mtg-set-symbol-rarity-mythic",
-  bonus: "mtg-set-symbol-rarity-rare",
-  special: "mtg-set-symbol-rarity-rare",
+  common: "mtg-set-symbol-common",
+  uncommon: "ss-uncommon",
+  rare: "ss-rare",
+  mythic: "ss-mythic",
+  mythic_rare: "ss-mythic",
+  bonus: "ss-rare",
+  special: "ss-rare",
 };
 
 function getRarityClass(rarity?: string | null) {
   return (
     rarityClasses[(rarity ?? "").trim().toLowerCase()] ??
-    "mtg-set-symbol-rarity-common"
+    "mtg-set-symbol-common"
   );
 }
 
@@ -41,37 +41,22 @@ export function SetSymbol({
   showText?: boolean;
   className?: string;
 }) {
-  const [iconFailed, setIconFailed] = useState(false);
-  const iconUrl = getScryfallSetIconUrl(setCode);
   const code = setCode?.trim().toUpperCase() || "-";
   const label = formatSetLabel(setCode, setName);
   const rarityClass = getRarityClass(rarity);
+  const setClassName = getKeyruneSetClassName(setCode);
   return (
     <span className="mtg-set-symbol-group gap-1.5" title={label}>
-      {iconUrl && !iconFailed ? (
-        <>
-          <span
-            aria-hidden="true"
-            className={cn(
-              "mtg-set-symbol mtg-set-symbol-mask",
-              rarityClass,
-              className,
-            )}
-            style={{
-              maskImage: `url(${iconUrl})`,
-              WebkitMaskImage: `url(${iconUrl})`,
-            }}
-          />
-          <img
-            src={iconUrl}
-            alt=""
-            aria-hidden="true"
-            loading="lazy"
-            decoding="async"
-            className="hidden"
-            onError={() => setIconFailed(true)}
-          />
-        </>
+      {setClassName ? (
+        <i
+          aria-hidden="true"
+          className={cn(
+            "ss mtg-set-symbol",
+            setClassName,
+            rarityClass,
+            className,
+          )}
+        />
       ) : null}
       {showText ? (
         <span>{code}</span>

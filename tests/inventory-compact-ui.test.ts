@@ -66,6 +66,11 @@ test("inventory detail drawer uses readable card information blocks", () => {
   assert.match(inventoryBrowser, /aria-label=\{currentLabel\}/);
   assert.match(inventoryBrowser, /function normalizeCardFaces/);
   assert.match(inventoryBrowser, /function CardFaceMechanics/);
+  assert.match(inventoryBrowser, /function OracleText/);
+  assert.match(inventoryBrowser, /text\.split/);
+  assert.ok(inventoryBrowser.includes("\\{[^{}]+\\}"));
+  assert.match(inventoryBrowser, /<ManaSymbol[\s\S]*token=\{symbol\}/);
+  assert.match(inventoryBrowser, /<OracleText text=\{paragraph\} \/>/);
   assert.match(inventoryBrowser, /const cardFaces = normalizeCardFaces\(row\)/);
   assert.match(inventoryBrowser, /showFaceNames=\{!cardFaces\.length\}/);
   assert.match(inventoryBrowser, /const hasPowerToughness = Boolean/);

@@ -25,6 +25,7 @@ import {
   CardManaCost,
   ColorIdentityIcons,
   ManaCost,
+  ManaSymbol,
   SetLabel,
   SetSymbol,
 } from "./mtg/CardSymbols";
@@ -342,6 +343,25 @@ function oracleParagraphs(text?: string | null) {
     .filter(Boolean);
 }
 
+function OracleText({ text }: { text: string }) {
+  const parts = text.split(/(\{[^{}]+\})/g).filter(Boolean);
+  return (
+    <>
+      {parts.map((part, index) => {
+        const symbol = part.match(/^\{([^{}]+)\}$/)?.[1];
+        if (!symbol) return <span key={`${index}-${part}`}>{part}</span>;
+        return (
+          <ManaSymbol
+            key={`${index}-${part}`}
+            token={symbol}
+            className="mx-0.5 text-[1.05em]"
+          />
+        );
+      })}
+    </>
+  );
+}
+
 function FaceStats({
   powerToughness,
   power,
@@ -406,7 +426,7 @@ function CardFaceMechanics({
         <div className="mt-3 space-y-2 leading-relaxed text-zinc-100">
           {paragraphs.map((paragraph, paragraphIndex) => (
             <p key={`${paragraphIndex}-${paragraph.slice(0, 16)}`}>
-              {paragraph}
+              <OracleText text={paragraph} />
             </p>
           ))}
         </div>
@@ -684,7 +704,7 @@ function CardDetail({
                       <div className="space-y-2 leading-relaxed text-zinc-100">
                         {topLevelOracleParagraphs.map((paragraph, index) => (
                           <p key={`${index}-${paragraph.slice(0, 16)}`}>
-                            {paragraph}
+                            <OracleText text={paragraph} />
                           </p>
                         ))}
                       </div>

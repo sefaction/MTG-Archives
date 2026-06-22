@@ -242,10 +242,16 @@ export function parseColorIdentity(input?: ColorIdentityInput): ManaToken[] {
     .filter((token): token is ManaToken => Boolean(token));
 }
 
-export function getScryfallSetIconUrl(setCode?: string | null) {
+const keyruneSetCodeAliases: Record<string, string> = {
+  con: "conflux",
+  plist: "plst",
+  pmei: "media",
+};
+
+export function getKeyruneSetClassName(setCode?: string | null) {
   const normalized = setCode?.trim().toLowerCase();
-  if (!normalized || !/^[a-z0-9_]+$/.test(normalized)) return null;
-  return `https://svgs.scryfall.io/sets/${normalized}.svg`;
+  if (!normalized || !/^[a-z0-9_-]+$/.test(normalized)) return null;
+  return `ss-${keyruneSetCodeAliases[normalized] ?? normalized}`;
 }
 
 export function formatSetLabel(
