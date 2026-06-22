@@ -94,8 +94,9 @@ test("inventory browser exposes real server pagination and infinite-scroll count
   assert.match(inventoryBrowser, /const appended = payload\.rows\.filter/);
   assert.match(inventoryBrowser, /rootMargin: "600px 0px"/);
   assert.match(inventoryBrowser, /Retry/);
-  assert.match(inventoryBrowser, /Select loaded/);
-  assert.match(inventoryBrowser, /Select visible/);
+  assert.match(inventoryBrowser, />\s*Actions\s*<\/span>/);
+  assert.doesNotMatch(inventoryBrowser, /Select loaded/);
+  assert.doesNotMatch(inventoryBrowser, /Select visible/);
   assert.doesNotMatch(
     inventoryBrowser,
     /getPaginationRowModel|table\.nextPage\(|table\.previousPage\(/,
@@ -151,7 +152,10 @@ test("sorting is server-authoritative and resets page state", () => {
   assert.doesNotMatch(inventoryBrowser, /getSortedRowModel/);
   assert.match(inventoryPage, /const sortField = p\.sort \|\| "cardName"/);
   assert.match(inventoryPage, /compareInventoryGroups/);
-  assert.doesNotMatch(inventoryPage, /preferredPriceProvider|pricing-analytics|priceSnapshots/);
+  assert.doesNotMatch(
+    inventoryPage,
+    /preferredPriceProvider|pricing-analytics|priceSnapshots/,
+  );
   assert.match(inventoryListApi, /const sortField = p\.sort \|\| "cardName"/);
   assert.match(
     publicInventoryQueries,
@@ -184,8 +188,9 @@ test("inventory renders reusable mana and set symbol components", () => {
     /<SetSymbol[\s\S]*setCode=\{row\.original\.setCode\}/,
   );
   assert.match(inventoryBrowser, /<SetLabel[\s\S]*setCode=\{row\.setCode\}/);
-  assert.match(cardSymbols, /getScryfallSetIconUrl/);
-  assert.match(cardSymbols, /loading="lazy"/);
+  assert.match(cardSymbols, /getKeyruneSetClassName/);
+  assert.match(cardSymbols, /"ss mtg-set-symbol"/);
+  assert.doesNotMatch(cardSymbols, /getScryfallSetIconUrl/);
   assert.match(manaCostComponent, /parseManaCost/);
   assert.match(manaCostComponent, /mtg-symbol-group/);
   assert.match(manaCostComponent, /<ManaSymbol/);

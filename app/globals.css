@@ -70,37 +70,17 @@ a {
   }
 
   .mtg-set-symbol {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     flex: 0 0 auto;
-    width: 1.1em;
-    height: 1.1em;
-    object-fit: contain;
+    width: 1.35em;
+    height: 1.35em;
+    font-size: 1.35em;
     vertical-align: middle;
   }
 
-  .mtg-set-symbol-mask {
-    background-color: currentColor;
-    mask-position: center;
-    mask-repeat: no-repeat;
-    mask-size: contain;
-    -webkit-mask-position: center;
-    -webkit-mask-repeat: no-repeat;
-    -webkit-mask-size: contain;
-  }
-
-  .mtg-set-symbol-rarity-common {
-    color: #9ca3af;
-  }
-
-  .mtg-set-symbol-rarity-uncommon {
-    color: #c0c7d1;
-  }
-
-  .mtg-set-symbol-rarity-rare {
-    color: #d4af37;
-  }
-
-  .mtg-set-symbol-rarity-mythic {
-    color: #c2410c;
+  .mtg-set-symbol-common {
+    color: #d4d4d8;
   }
 }

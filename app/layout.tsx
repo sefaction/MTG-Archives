@@ -1,3 +1,4 @@
+import "keyrune/css/keyrune.css";
 import "mana-font/css/mana.css";
 import "./globals.css";
 import type { ReactNode } from "react";
