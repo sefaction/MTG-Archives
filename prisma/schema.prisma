@@ -301,6 +301,7 @@ model Card {
   imageUris           Json?
   cardFaces           Json?
   prices              Json?
+  allParts            Json?
   relatedUris         Json?
   purchaseUris        Json?
   scryfallUri         String?

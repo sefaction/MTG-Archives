@@ -20,6 +20,10 @@ import {
   parseInventoryFilters,
 } from "@/lib/inventory-filters";
 import { compareInventoryGroups } from "@/lib/inventory-sort";
+import {
+  buildRelatedCardMetadataByScryfallId,
+  enrichAllPartsWithLocalCardMetadata,
+} from "@/lib/inventory-related-cards";
 
 const pageSizeOptions = [10, 25, 50, 100, 250];
 
@@ -33,12 +37,14 @@ function rowsFromDisplayItems({
   inventoryDefaultByPlayer,
   p,
   filters,
+  relatedCardsByScryfallId,
 }: {
   displayItems: any[];
   displayMode: "exact" | "grouped";
   inventoryDefaultByPlayer: Record<string, DefaultCollectionVisibility>;
   p: Record<string, string>;
   filters: ReturnType<typeof parseInventoryFilters>;
+  relatedCardsByScryfallId: Map<string, any>;
 }) {
   return displayItems
     .map((entry: any) => {
@@ -99,6 +105,10 @@ function rowsFromDisplayItems({
         manaCost: i.card.manaCost ?? "",
         manaFaces: getManaFacesForDto(i.card.cardFaces),
         cardFaces: Array.isArray(i.card.cardFaces) ? i.card.cardFaces : [],
+        allParts: enrichAllPartsWithLocalCardMetadata(
+          i.card.allParts,
+          relatedCardsByScryfallId,
+        ),
         layout: i.card.layout ?? "",
         manaValue: i.card.manaValue ?? undefined,
         typeLine: i.card.typeLine,
@@ -314,6 +324,8 @@ export async function GET(request: Request) {
   const exactItems = getInventoryExactPrintings(visibilityFilteredItems as any);
   const groupedItems = getInventoryGroupedByCard(exactItems as any);
   const displayItems = displayMode === "grouped" ? groupedItems : exactItems;
+  const relatedCardsByScryfallId =
+    await buildRelatedCardMetadataByScryfallId(displayItems);
   const totalMatchingCount = filteredGroups.length;
   const totalPages = Math.max(1, Math.ceil(totalMatchingCount / pageSize));
   return NextResponse.json({
@@ -323,6 +335,7 @@ export async function GET(request: Request) {
       inventoryDefaultByPlayer,
       p,
       filters,
+      relatedCardsByScryfallId,
     }),
     page,
     pageSize,

@@ -83,6 +83,23 @@ type InventoryCardFace = InventoryCardImageFace & {
   defense?: string | null;
 };
 
+type InventoryRelatedPart = {
+  id?: string | null;
+  component?: string | null;
+  name?: string | null;
+  typeLine?: string | null;
+  type_line?: string | null;
+  uri?: string | null;
+  scryfallUri?: string | null;
+  scryfall_uri?: string | null;
+  imageUri?: string | null;
+  image_uri?: string | null;
+  imageUris?: InventoryCardFace["imageUris"];
+  image_uris?: InventoryCardFace["image_uris"];
+  setCode?: string | null;
+  collectorNumber?: string | null;
+};
+
 export type InventoryRow = {
   id: string;
   cardId: string;
@@ -97,6 +114,7 @@ export type InventoryRow = {
   manaCost?: string;
   manaFaces?: Array<{ name?: string; manaCost?: string | null }>;
   cardFaces?: InventoryCardFace[];
+  allParts?: InventoryRelatedPart[];
   layout?: string;
   manaValue?: number;
   typeLine: string;
@@ -506,6 +524,65 @@ function CardImageFlipper({ row }: { row: InventoryRow }) {
   );
 }
 
+function getMeldPartner(row: InventoryRow) {
+  const allParts = row.allParts ?? [];
+  if (!allParts.length) return null;
+
+  const hasMeldParts =
+    row.layout === "meld" ||
+    allParts.some((part) =>
+      ["meld_part", "meld_result"].includes(part.component ?? ""),
+    );
+  if (!hasMeldParts) return null;
+
+  const currentName = row.cardName.toLowerCase();
+  const isDifferentCard = (part: InventoryRelatedPart) =>
+    part.name && part.name.toLowerCase() !== currentName;
+  const partner = allParts.find(
+    (part) => part.component === "meld_part" && isDifferentCard(part),
+  );
+
+  if (!partner?.name) return null;
+  return {
+    name: partner.name,
+    typeLine: partner.typeLine ?? partner.type_line ?? "",
+    scryfallUri: partner.scryfallUri ?? partner.scryfall_uri ?? "",
+  };
+}
+
+function MeldPartnerLink({ row }: { row: InventoryRow }) {
+  const partner = getMeldPartner(row);
+  if (!partner) return null;
+
+  return (
+    <div className="rounded border border-zinc-800 bg-zinc-900 p-2 text-xs text-zinc-300">
+      <div className="font-semibold text-zinc-100">Meld partner</div>
+      <div className="mt-1">{partner.name}</div>
+      {partner.typeLine ? (
+        <div className="mt-1 text-zinc-500">{partner.typeLine}</div>
+      ) : null}
+      <div className="mt-2 flex flex-wrap gap-2">
+        <a
+          className="underline"
+          href={`/inventory?cardName=${encodeURIComponent(partner.name)}`}
+        >
+          Find in inventory
+        </a>
+        {partner.scryfallUri ? (
+          <a
+            className="underline"
+            href={partner.scryfallUri}
+            target="_blank"
+            rel="noreferrer"
+          >
+            View on Scryfall
+          </a>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function InventoryDetailPanel({
   row,
   capabilities,
@@ -671,6 +748,7 @@ function CardDetail({
         <div className="grid gap-4 md:grid-cols-[240px_1fr]">
           <aside className="space-y-3 text-sm">
             <CardImageFlipper row={row} />
+            <MeldPartnerLink row={row} />
             <InventoryDetailPanel
               row={row}
               capabilities={capabilities}

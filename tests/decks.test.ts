@@ -473,6 +473,7 @@ test("cheapest playable comparison prefers paper english priced cards", () => {
     imageUri: null,
     imageUris: {},
     cardFaces: [],
+    allParts: [],
     prices: { usd: "0.50" },
     relatedUris: {},
     purchaseUris: {},

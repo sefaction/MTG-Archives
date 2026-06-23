@@ -92,6 +92,15 @@ export type ScryfallCard = {
     }
   >;
   prices?: Record<string, string | null>;
+  all_parts?: Array<{
+    id?: string;
+    object?: string;
+    component?: string;
+    name?: string;
+    type_line?: string;
+    uri?: string;
+    scryfall_uri?: string;
+  }>;
   related_uris?: Record<string, string>;
   purchase_uris?: Record<string, string>;
   scryfall_uri?: string;

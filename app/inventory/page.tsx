@@ -55,6 +55,10 @@ import {
   parseInventoryFilters,
   INVENTORY_FILTER_PARAM_KEYS,
 } from "@/lib/inventory-filters";
+import {
+  buildRelatedCardMetadataByScryfallId,
+  enrichAllPartsWithLocalCardMetadata,
+} from "@/lib/inventory-related-cards";
 
 export default async function InventoryPage({
   searchParams,
@@ -784,6 +788,8 @@ export default async function InventoryPage({
   const exactItems = getInventoryExactPrintings(visibilityFilteredItems);
   const groupedItems = getInventoryGroupedByCard(exactItems);
   const displayItems = displayMode === "grouped" ? groupedItems : exactItems;
+  const relatedCardsByScryfallId =
+    await buildRelatedCardMetadataByScryfallId(displayItems);
   const pageParams = Object.fromEntries(
     Object.entries(p).filter(([key, value]) => value && key !== "page"),
   ) as Record<string, string>;
@@ -849,6 +855,10 @@ export default async function InventoryPage({
         manaCost: i.card.manaCost ?? "",
         manaFaces: getManaFacesForDto(i.card.cardFaces),
         cardFaces: Array.isArray(i.card.cardFaces) ? i.card.cardFaces : [],
+        allParts: enrichAllPartsWithLocalCardMetadata(
+          i.card.allParts,
+          relatedCardsByScryfallId,
+        ),
         layout: i.card.layout ?? "",
         manaValue: i.card.manaValue ?? undefined,
         typeLine: i.card.typeLine,

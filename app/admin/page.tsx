@@ -87,6 +87,10 @@ export default async function Page() {
           <a className="underline" href="/admin/backups">
             Manage backups
           </a>
+          <span className="mx-2 text-zinc-600">|</span>
+          <a className="underline" href="/admin/metadata">
+            Refresh card metadata
+          </a>
         </p>
       </div>
 

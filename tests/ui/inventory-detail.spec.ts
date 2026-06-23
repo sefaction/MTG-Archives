@@ -64,3 +64,34 @@ test("inventory detail drawer renders card information blocks", async ({
   await expect(page.getByText("Location Summary")).toHaveCount(0);
   await expect(page.getByText("Scryfall fallback prices")).toHaveCount(0);
 });
+
+test("inventory detail drawer supports meld card flip and partner links", async ({
+  page,
+}) => {
+  await logInAsAdmin(page);
+  await page.goto("/inventory?cardName=Hanweir");
+
+  await expect(
+    page.getByRole("heading", { level: 1, name: /inventory/i }),
+  ).toBeVisible();
+
+  const firstActions = page
+    .getByRole("button", { name: /actions for/i })
+    .first();
+  test.skip(
+    (await firstActions.count()) === 0,
+    "Local database has no Hanweir meld inventory rows to inspect.",
+  );
+
+  await firstActions.click();
+  await page.getByRole("button", { name: "View details" }).click();
+
+  await expect(page.getByRole("button", { name: "Show back face" })).toBeVisible();
+  await page.getByRole("button", { name: "Show back face" }).click();
+  await expect(page.getByRole("button", { name: "Show front face" })).toBeVisible();
+  await expect(page.getByText("Meld partner")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Find in inventory" })).toBeVisible();
+  expect(
+    await page.getByRole("link", { name: "View on Scryfall" }).count(),
+  ).toBeGreaterThanOrEqual(2);
+});
