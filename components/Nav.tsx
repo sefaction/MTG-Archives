@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
+import { AdminModeToggle } from "@/components/AdminModeToggle";
 
 const mainLinks = [
   { href: "/dashboard", label: "Dashboard" },
@@ -21,6 +22,18 @@ const mainLinks = [
   { href: "/settings", label: "Settings" },
 ];
 
+function getSafeReturnTo(formData: FormData) {
+  const returnTo = formData.get("returnTo");
+  if (
+    typeof returnTo !== "string" ||
+    !returnTo.startsWith("/") ||
+    returnTo.startsWith("//")
+  ) {
+    return "/dashboard";
+  }
+  return returnTo;
+}
+
 export async function Nav() {
   const user = await getCurrentUser();
   const userIsAdmin = isAdminUser(user, user?.player);
@@ -33,16 +46,16 @@ export async function Nav() {
     redirect("/dashboard");
   }
 
-  async function enterAdminMode() {
+  async function enterAdminMode(formData: FormData) {
     "use server";
     await setAdminMode(true);
-    redirect("/dashboard");
+    redirect(getSafeReturnTo(formData));
   }
 
-  async function exitAdminMode() {
+  async function exitAdminMode(formData: FormData) {
     "use server";
     await setAdminMode(false);
-    redirect("/dashboard");
+    redirect(getSafeReturnTo(formData));
   }
 
   return (
@@ -69,19 +82,11 @@ export async function Nav() {
             <>
               <span>{user.displayName || user.username}</span>
               {userIsAdmin ? (
-                <form action={adminModeActive ? exitAdminMode : enterAdminMode}>
-                  <SubmitButton
-                    pendingLabel={adminModeActive ? "Exiting…" : "Entering…"}
-                    className={`rounded border px-3 py-1 ${
-                      adminModeActive
-                        ? "border-amber-500 text-amber-100"
-                        : "border-sky-700 text-sky-100"
-                    }`}
-                    minWidthClassName="min-w-32"
-                  >
-                    {adminModeActive ? "Exit Admin Mode" : "Enter Admin Mode"}
-                  </SubmitButton>
-                </form>
+                <AdminModeToggle
+                  active={adminModeActive}
+                  enterAction={enterAdminMode}
+                  exitAction={exitAdminMode}
+                />
               ) : null}
               <Link
                 className="rounded border border-zinc-700 px-3 py-1"
@@ -91,7 +96,7 @@ export async function Nav() {
               </Link>
               <form action={doLogout}>
                 <SubmitButton
-                  pendingLabel="Logging out…"
+                  pendingLabel="Logging out..."
                   className="rounded border border-zinc-700 px-3 py-1"
                   minWidthClassName="min-w-20"
                 >

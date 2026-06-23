@@ -39,7 +39,13 @@ test("admin can reach backups page without restore actions", async ({ page }) =>
   await page.goto("/admin/backups");
 
   if (page.url().includes("auth=admin-mode")) {
-    await page.getByRole("button", { name: /enter admin mode/i }).click();
+    await page.goto("/dashboard");
+    const enterAdminMode = page.getByRole("button", {
+      name: /enter admin mode/i,
+    });
+    if (await enterAdminMode.isVisible()) {
+      await enterAdminMode.click();
+    }
     await page.goto("/admin/backups");
   }
 

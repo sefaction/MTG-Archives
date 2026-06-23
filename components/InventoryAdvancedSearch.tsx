@@ -1,6 +1,8 @@
 "use client";
 
+import type { FormEvent } from "react";
 import { useEffect, useId, useState } from "react";
+import { useRouter } from "next/navigation";
 import { CollapsiblePanel } from "./CollapsiblePanel";
 import { ManaSymbol } from "./mtg/ManaSymbol";
 import {
@@ -98,6 +100,9 @@ const COLOR_MODE_OPTIONS = [
   { value: "atMost", label: "At most" },
   { value: "atLeast", label: "At least" },
 ];
+
+const INVENTORY_SCROLL_STORAGE_KEY = "mtg-inventory-scroll-y";
+const ADVANCED_SEARCH_PANEL_STORAGE_KEY = "mtg-inventory-advanced-search-open";
 
 function values(params: InventoryAdvancedSearchProps["params"], key: string) {
   const value = params[key];
@@ -918,6 +923,7 @@ export function InventoryAdvancedSearch({
     : "/api/inventory/filter-suggestions",
   clearHref,
 }: InventoryAdvancedSearchProps) {
+  const router = useRouter();
   const capabilities: InventoryAdvancedSearchCapabilities = {
     showOwnerScopeControls: isAdmin && !isPublic,
     showOwnerFilter: isPublic,
@@ -990,6 +996,27 @@ export function InventoryAdvancedSearch({
     ? `${activeChips.length} ${activeChips.length === 1 ? "filter" : "filters"} active`
     : "Optional filters hidden";
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const next = new URLSearchParams();
+    formData.forEach((value, key) => {
+      const text = String(value).trim();
+      if (!text) return;
+      next.append(key, text);
+    });
+    next.set("page", "1");
+    window.sessionStorage.setItem(
+      INVENTORY_SCROLL_STORAGE_KEY,
+      String(window.scrollY),
+    );
+    window.sessionStorage.setItem(ADVANCED_SEARCH_PANEL_STORAGE_KEY, "open");
+    const query = next.toString();
+    router.replace(query ? `${actionPath}?${query}` : actionPath, {
+      scroll: false,
+    });
+  }
+
   return (
     <>
       {activeChips.length ? (
@@ -1004,8 +1031,9 @@ export function InventoryAdvancedSearch({
         title="Advanced Inventory Search"
         defaultOpen={false}
         summary={activeFilterSummary}
+        storageKey={ADVANCED_SEARCH_PANEL_STORAGE_KEY}
       >
-        <form className="space-y-3" action={actionPath}>
+        <form className="space-y-3" action={actionPath} onSubmit={handleSubmit}>
           <input type="hidden" name="page" value="1" />
           <input type="hidden" name="displayMode" value={displayMode} />
           {first(params, "pageSize") ? (
