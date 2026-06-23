@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { cn, filterPanelClass } from "./filterStyles";
 
 type CollapsiblePanelProps = {
@@ -11,6 +11,7 @@ type CollapsiblePanelProps = {
   summary?: ReactNode;
   className?: string;
   contentClassName?: string;
+  storageKey?: string;
 };
 
 export function CollapsiblePanel({
@@ -20,10 +21,31 @@ export function CollapsiblePanel({
   summary,
   className,
   contentClassName,
+  storageKey,
 }: CollapsiblePanelProps) {
   const [open, setOpen] = useState(defaultOpen);
   const generatedId = useId();
   const panelId = `collapsible-panel-${generatedId}`;
+
+  useEffect(() => {
+    if (!storageKey) return;
+    const timeout = window.setTimeout(() => {
+      const stored = window.sessionStorage.getItem(storageKey);
+      if (stored === "open") setOpen(true);
+      if (stored === "closed") setOpen(false);
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [storageKey]);
+
+  const toggleOpen = () => {
+    setOpen((current) => {
+      const next = !current;
+      if (storageKey) {
+        window.sessionStorage.setItem(storageKey, next ? "open" : "closed");
+      }
+      return next;
+    });
+  };
 
   return (
     <section className={cn(filterPanelClass, "space-y-3", className)}>
@@ -32,7 +54,7 @@ export function CollapsiblePanel({
         className="flex w-full items-center justify-between gap-3 rounded-md border border-zinc-800 bg-zinc-900/70 px-3 py-2 text-left transition-colors hover:border-zinc-700 hover:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-sky-500/40"
         aria-expanded={open}
         aria-controls={panelId}
-        onClick={() => setOpen((current) => !current)}
+        onClick={toggleOpen}
       >
         <span className="min-w-0">
           <span className="block font-semibold text-zinc-100">{title}</span>
