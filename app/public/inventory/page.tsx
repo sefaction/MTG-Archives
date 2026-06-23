@@ -13,6 +13,10 @@ import {
   formatSelectedPrice,
   selectPreferredCardPrice,
 } from "@/lib/price-history";
+import {
+  buildRelatedCardMetadataByScryfallId,
+  enrichAllPartsWithLocalCardMetadata,
+} from "@/lib/inventory-related-cards";
 
 export const dynamic = "force-dynamic";
 
@@ -110,9 +114,11 @@ function getGlobalPublicExactPrintings(items: any[]) {
 function toInventoryBrowserRows({
   displayItems,
   displayMode,
+  relatedCardsByScryfallId,
 }: {
   displayItems: any[];
   displayMode: "exact" | "grouped";
+  relatedCardsByScryfallId: Map<string, any>;
 }) {
   return displayItems.map((entry: any, rowIndex: number) => {
     const i = displayMode === "grouped" ? entry.representative : entry;
@@ -173,6 +179,10 @@ function toInventoryBrowserRows({
       manaCost: i.card.manaCost ?? "",
       manaFaces: getManaFacesForDto(i.card.cardFaces),
       cardFaces: Array.isArray(i.card.cardFaces) ? i.card.cardFaces : [],
+      allParts: enrichAllPartsWithLocalCardMetadata(
+        i.card.allParts,
+        relatedCardsByScryfallId,
+      ),
       layout: i.card.layout ?? "",
       manaValue: i.card.manaValue ?? undefined,
       typeLine: i.card.typeLine,
@@ -257,7 +267,13 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
   const exactRows = getGlobalPublicExactPrintings(result.inventory);
   const groupedRows = getInventoryGroupedByCard(exactRows as any);
   const displayItems = displayMode === "grouped" ? groupedRows : exactRows;
-  const rows = toInventoryBrowserRows({ displayItems, displayMode });
+  const relatedCardsByScryfallId =
+    await buildRelatedCardMetadataByScryfallId(displayItems);
+  const rows = toInventoryBrowserRows({
+    displayItems,
+    displayMode,
+    relatedCardsByScryfallId,
+  });
   const pageParams = Object.fromEntries(
     Object.entries(p).filter(([key, value]) => value && key !== "page"),
   ) as Record<string, string>;

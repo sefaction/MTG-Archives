@@ -130,6 +130,7 @@ function cardWriteData(cardData: ScryfallCard) {
       cardData.image_uris ?? cardData.card_faces?.[0]?.image_uris ?? {},
     cardFaces: cardData.card_faces ?? [],
     prices: cardData.prices ?? {},
+    allParts: cardData.all_parts ?? [],
     relatedUris: cardData.related_uris ?? {},
     purchaseUris: cardData.purchase_uris ?? {},
     scryfallUri: cardData.scryfall_uri ?? null,

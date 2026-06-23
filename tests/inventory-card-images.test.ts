@@ -31,6 +31,42 @@ test("multi-face rows use two face image URLs", () => {
   );
 });
 
+test("meld rows expose the melded face as the back image", () => {
+  assert.deepEqual(
+    getInventoryCardImagePair({
+      layout: "meld",
+      cardFaces: [
+        { image_uris: { normal: "https://img.example/meld-front.jpg" } },
+        { image_uris: { normal: "https://img.example/meld-result.jpg" } },
+      ],
+    }),
+    {
+      front: "https://img.example/meld-front.jpg",
+      back: "https://img.example/meld-result.jpg",
+    },
+  );
+});
+
+test("meld rows can use the related meld result image as the back image", () => {
+  assert.deepEqual(
+    getInventoryCardImagePair({
+      layout: "meld",
+      imageUri: "https://img.example/meld-part.jpg",
+      cardFaces: [],
+      allParts: [
+        {
+          component: "meld_result",
+          imageUris: { normal: "https://img.example/meld-result.jpg" },
+        },
+      ],
+    }),
+    {
+      front: "https://img.example/meld-part.jpg",
+      back: "https://img.example/meld-result.jpg",
+    },
+  );
+});
+
 test("multi-face rows without a second face image do not expose a back image", () => {
   assert.deepEqual(
     getInventoryCardImagePair({

@@ -25,6 +25,8 @@ const publicInventoryListRoute = readFileSync(
 );
 const inventorySort = readFileSync("lib/inventory-sort.ts", "utf8");
 const publicCollection = readFileSync("lib/public-collection.ts", "utf8");
+const prismaSchema = readFileSync("prisma/schema.prisma", "utf8");
+const cardImport = readFileSync("lib/card-import.ts", "utf8");
 
 test("inventory table row actions use a compact overflow menu", () => {
   assert.match(
@@ -59,6 +61,13 @@ test("inventory edit workflow exposes stack split and merge controls", () => {
 test("inventory detail drawer uses readable card information blocks", () => {
   assert.match(inventoryBrowser, /type InventoryCardFace =/);
   assert.match(inventoryBrowser, /function CardImageFlipper/);
+  assert.match(inventoryBrowser, /type InventoryRelatedPart =/);
+  assert.match(inventoryBrowser, /function getMeldPartner/);
+  assert.match(inventoryBrowser, /function MeldPartnerLink/);
+  assert.match(inventoryBrowser, /Meld partner/);
+  assert.match(inventoryBrowser, /component === "meld_part"/);
+  assert.match(inventoryBrowser, /Find in inventory/);
+  assert.match(inventoryBrowser, /View on Scryfall/);
   assert.match(inventoryBrowser, /function InventoryDetailPanel/);
   assert.match(inventoryBrowser, /getInventoryCardImagePair/);
   assert.match(inventoryBrowser, /Show back face/);
@@ -95,6 +104,10 @@ test("inventory detail drawer uses readable card information blocks", () => {
     inventoryBrowser,
     /<aside className="space-y-3 text-sm">[\s\S]*<CardImageFlipper row=\{row\} \/>[\s\S]*<InventoryDetailPanel/,
   );
+  assert.match(
+    inventoryBrowser,
+    /<aside className="space-y-3 text-sm">[\s\S]*<CardImageFlipper row=\{row\} \/>[\s\S]*<MeldPartnerLink row=\{row\} \/>[\s\S]*<InventoryDetailPanel/,
+  );
   assert.equal(
     (inventoryBrowser.match(/>\s*Inventory\s*<\/div>/g) || []).length,
     1,
@@ -111,6 +124,8 @@ test("inventory detail drawer uses readable card information blocks", () => {
 });
 
 test("inventory rows include face data for split multi-face cards", () => {
+  assert.match(prismaSchema, /allParts\s+Json\?/);
+  assert.match(cardImport, /allParts: cardData\.all_parts \?\? \[\]/);
   for (const source of [
     inventoryPage,
     inventoryListRoute,
@@ -120,6 +135,10 @@ test("inventory rows include face data for split multi-face cards", () => {
     assert.match(
       source,
       /cardFaces: Array\.isArray\(i\.card\.cardFaces\) \? i\.card\.cardFaces : \[\]/,
+    );
+    assert.match(
+      source,
+      /allParts: enrichAllPartsWithLocalCardMetadata\(/,
     );
   }
 });
