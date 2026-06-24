@@ -3,13 +3,45 @@
 @tailwind utilities;
 
 body {
-  @apply bg-zinc-950 text-zinc-100;
+  @apply min-h-screen bg-[#090d0c] text-stone-100 antialiased;
+  background-image:
+    linear-gradient(180deg, rgba(18, 27, 24, 0.92), rgba(9, 13, 12, 0.98) 18rem),
+    linear-gradient(90deg, rgba(18, 69, 72, 0.1), rgba(84, 64, 27, 0.08) 55%, rgba(22, 50, 33, 0.1));
 }
+
 a {
-  @apply text-sky-400 hover:text-sky-300;
+  @apply text-cyan-300 transition-colors hover:text-amber-200;
+}
+
+::selection {
+  @apply bg-amber-300 text-zinc-950;
 }
 
 @layer components {
+  .app-nav {
+    @apply rounded-lg border border-[#2c352f] bg-[#101614]/95 px-4 py-3 shadow-lg shadow-black/25;
+  }
+
+  .app-nav-link {
+    @apply rounded-md px-2 py-1 text-sm font-medium text-stone-300 transition-colors hover:bg-emerald-950/40 hover:text-amber-100;
+  }
+
+  .app-nav-brand {
+    @apply rounded-md px-2 py-1 font-bold tracking-wide text-amber-100 transition-colors hover:bg-amber-950/30 hover:text-amber-50;
+  }
+
+  .app-panel {
+    @apply rounded-lg border border-[#2a332d] bg-[#111715]/90 shadow-sm shadow-black/20;
+  }
+
+  .app-card {
+    @apply rounded-md border border-[#29312c] bg-[#131a17] shadow-sm shadow-black/20 transition-colors hover:border-[#3d4b40] hover:bg-[#161f1b];
+  }
+
+  .app-muted {
+    @apply text-stone-400;
+  }
+
   .mtg-symbol-group {
     display: inline-flex;
     align-items: center;
@@ -82,5 +114,23 @@ a {
 
   .mtg-set-symbol-common {
     color: #d4d4d8;
+  }
+}
+
+@layer base {
+  table {
+    @apply text-sm;
+  }
+
+  thead {
+    @apply border-b border-[#303a33] bg-[#141c18] text-stone-300;
+  }
+
+  tbody tr {
+    @apply border-[#252d28] transition-colors;
+  }
+
+  tbody tr:hover {
+    @apply bg-emerald-950/20;
   }
 }

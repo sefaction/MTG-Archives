@@ -61,26 +61,35 @@ export async function Nav() {
   return (
     <>
       {adminModeActive ? (
-        <div className="mb-4 rounded border border-amber-700 bg-amber-950/40 p-3 text-sm text-amber-100">
+        <div className="mb-4 rounded-lg border border-amber-700/70 bg-amber-950/30 px-4 py-3 text-sm font-medium text-amber-100 shadow-sm shadow-black/20">
           Admin mode is active. You can view and manage inventory across users.
         </div>
       ) : null}
-      <nav className="mb-6 flex flex-wrap items-center justify-between gap-4">
+      <nav className="app-nav mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-4">
-          <Link href="/dashboard" className="font-bold text-sky-200">
+          <Link href="/dashboard" className="app-nav-brand">
             {appName}
           </Link>
           {mainLinks.map((link) => (
-            <Link key={link.href} href={link.href}>
+            <Link key={link.href} href={link.href} className="app-nav-link">
               {link.label}
             </Link>
           ))}
-          {adminModeActive ? <Link href="/admin">Admin</Link> : null}
+          {adminModeActive ? (
+            <Link
+              href="/admin"
+              className="rounded-md border border-amber-700/60 bg-amber-950/30 px-2 py-1 text-sm font-medium text-amber-100 hover:border-amber-500 hover:text-amber-50"
+            >
+              Admin
+            </Link>
+          ) : null}
         </div>
-        <div className="flex items-center gap-3 text-sm text-zinc-300">
+        <div className="flex items-center gap-3 text-sm text-stone-300">
           {user ? (
             <>
-              <span>{user.displayName || user.username}</span>
+              <span className="text-stone-300">
+                {user.displayName || user.username}
+              </span>
               {userIsAdmin ? (
                 <AdminModeToggle
                   active={adminModeActive}
@@ -89,7 +98,7 @@ export async function Nav() {
                 />
               ) : null}
               <Link
-                className="rounded border border-zinc-700 px-3 py-1"
+                className="rounded-md border border-[#364139] px-3 py-1 text-stone-200 hover:border-cyan-700 hover:bg-cyan-950/20 hover:text-cyan-100"
                 href="/change-password"
               >
                 Account
@@ -97,7 +106,7 @@ export async function Nav() {
               <form action={doLogout}>
                 <SubmitButton
                   pendingLabel="Logging out..."
-                  className="rounded border border-zinc-700 px-3 py-1"
+                  className="rounded-md border border-[#364139] px-3 py-1 text-stone-200 hover:border-[#4a584d] hover:bg-[#17201b]"
                   minWidthClassName="min-w-20"
                 >
                   Log out
@@ -106,7 +115,7 @@ export async function Nav() {
             </>
           ) : (
             <Link
-              className="rounded border border-sky-700 px-3 py-1"
+              className="rounded-md border border-cyan-700 bg-cyan-950/30 px-3 py-1 text-cyan-100 hover:border-cyan-500 hover:bg-cyan-900/40"
               href="/login"
             >
               Log in

@@ -70,8 +70,8 @@ export function AdminModeToggle({
         pendingLabel={active ? "Exiting..." : "Entering..."}
         className={`rounded border px-3 py-1 ${
           active
-            ? "border-amber-500 text-amber-100"
-            : "border-sky-700 text-sky-100"
+            ? "border-amber-600 bg-amber-950/30 text-amber-100 hover:border-amber-400 hover:bg-amber-900/30"
+            : "border-cyan-700 bg-cyan-950/30 text-cyan-100 hover:border-cyan-500 hover:bg-cyan-900/40"
         }`}
         minWidthClassName="min-w-32"
       >
