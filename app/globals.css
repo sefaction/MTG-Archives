@@ -2,44 +2,311 @@
 @tailwind components;
 @tailwind utilities;
 
+:root,
+[data-theme="golgari"] {
+  color-scheme: dark;
+  --app-bg: #090d0c;
+  --app-bg-pattern:
+    linear-gradient(
+      180deg,
+      rgba(18, 27, 24, 0.92),
+      rgba(9, 13, 12, 0.98) 18rem
+    ),
+    linear-gradient(
+      90deg,
+      rgba(18, 69, 72, 0.1),
+      rgba(84, 64, 27, 0.08) 55%,
+      rgba(22, 50, 33, 0.1)
+    );
+  --app-text: #f5f5f4;
+  --app-muted: #a8a29e;
+  --app-surface: #111715;
+  --app-surface-2: #101614;
+  --app-surface-3: #131a17;
+  --app-control: #0d1210;
+  --app-border: #2a332d;
+  --app-border-strong: #4a584d;
+  --app-link: #67e8f9;
+  --app-link-hover: #fde68a;
+  --app-accent: #22d3ee;
+  --app-accent-contrast: #ecfeff;
+  --app-accent-soft: rgba(8, 145, 178, 0.34);
+  --app-focus: rgba(34, 211, 238, 0.25);
+  --app-selection-bg: #fcd34d;
+  --app-selection-text: #18181b;
+  --app-table-head: #141c18;
+  --app-table-border: #252d28;
+  --app-row-hover: rgba(6, 78, 59, 0.22);
+  --app-shadow: rgba(0, 0, 0, 0.25);
+  --app-common-symbol: #f4f4f5;
+}
+
+[data-theme="azorius"] {
+  color-scheme: light;
+  --app-bg: #eef5fb;
+  --app-bg-pattern:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.96),
+      rgba(238, 245, 251, 0.96) 20rem
+    ),
+    linear-gradient(
+      90deg,
+      rgba(37, 99, 235, 0.08),
+      rgba(14, 165, 233, 0.08) 52%,
+      rgba(234, 179, 8, 0.05)
+    );
+  --app-text: #172033;
+  --app-muted: #526078;
+  --app-surface: #ffffff;
+  --app-surface-2: #f8fbff;
+  --app-surface-3: #eef5ff;
+  --app-control: #ffffff;
+  --app-border: #c9d7e8;
+  --app-border-strong: #8aa7c8;
+  --app-link: #075985;
+  --app-link-hover: #92400e;
+  --app-accent: #2563eb;
+  --app-accent-contrast: #eff6ff;
+  --app-accent-soft: rgba(37, 99, 235, 0.12);
+  --app-focus: rgba(37, 99, 235, 0.22);
+  --app-selection-bg: #bfdbfe;
+  --app-selection-text: #0f172a;
+  --app-table-head: #e6eef8;
+  --app-table-border: #d7e2ef;
+  --app-row-hover: rgba(37, 99, 235, 0.08);
+  --app-shadow: rgba(15, 23, 42, 0.12);
+  --app-common-symbol: #52525b;
+}
+
+[data-theme="izzet"] {
+  color-scheme: dark;
+  --app-bg: #07111f;
+  --app-bg-pattern:
+    linear-gradient(
+      180deg,
+      rgba(10, 22, 42, 0.96),
+      rgba(7, 17, 31, 0.98) 19rem
+    ),
+    linear-gradient(
+      90deg,
+      rgba(14, 165, 233, 0.12),
+      rgba(249, 115, 22, 0.09) 55%,
+      rgba(59, 130, 246, 0.1)
+    );
+  --app-text: #f1f5f9;
+  --app-muted: #a3b3c7;
+  --app-surface: #0d1b2f;
+  --app-surface-2: #0b1728;
+  --app-surface-3: #10233d;
+  --app-control: #081525;
+  --app-border: #223a5b;
+  --app-border-strong: #3d628f;
+  --app-link: #7dd3fc;
+  --app-link-hover: #fdba74;
+  --app-accent: #fb923c;
+  --app-accent-contrast: #fff7ed;
+  --app-accent-soft: rgba(251, 146, 60, 0.22);
+  --app-focus: rgba(125, 211, 252, 0.28);
+  --app-selection-bg: #fed7aa;
+  --app-selection-text: #111827;
+  --app-table-head: #10233d;
+  --app-table-border: #1c3552;
+  --app-row-hover: rgba(14, 165, 233, 0.12);
+  --app-shadow: rgba(0, 0, 0, 0.28);
+  --app-common-symbol: #f8fafc;
+}
+
+[data-theme="selesnya"] {
+  color-scheme: light;
+  --app-bg: #f4f7ef;
+  --app-bg-pattern:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 250, 0.96),
+      rgba(244, 247, 239, 0.98) 19rem
+    ),
+    linear-gradient(
+      90deg,
+      rgba(34, 197, 94, 0.09),
+      rgba(202, 138, 4, 0.06) 55%,
+      rgba(20, 184, 166, 0.06)
+    );
+  --app-text: #1f2a21;
+  --app-muted: #5b685a;
+  --app-surface: #fffefa;
+  --app-surface-2: #f8fbf2;
+  --app-surface-3: #eef5e7;
+  --app-control: #fffefa;
+  --app-border: #cfdcc5;
+  --app-border-strong: #95ad87;
+  --app-link: #166534;
+  --app-link-hover: #854d0e;
+  --app-accent: #15803d;
+  --app-accent-contrast: #f0fdf4;
+  --app-accent-soft: rgba(21, 128, 61, 0.12);
+  --app-focus: rgba(21, 128, 61, 0.22);
+  --app-selection-bg: #bbf7d0;
+  --app-selection-text: #132016;
+  --app-table-head: #e8f0df;
+  --app-table-border: #d8e5ce;
+  --app-row-hover: rgba(21, 128, 61, 0.08);
+  --app-shadow: rgba(31, 42, 33, 0.12);
+  --app-common-symbol: #52525b;
+}
+
+[data-theme="rakdos"] {
+  color-scheme: dark;
+  --app-bg: #120b0d;
+  --app-bg-pattern:
+    linear-gradient(
+      180deg,
+      rgba(31, 15, 18, 0.96),
+      rgba(18, 11, 13, 0.98) 18rem
+    ),
+    linear-gradient(
+      90deg,
+      rgba(220, 38, 38, 0.1),
+      rgba(180, 83, 9, 0.08) 56%,
+      rgba(127, 29, 29, 0.12)
+    );
+  --app-text: #fff1f2;
+  --app-muted: #c6a7a8;
+  --app-surface: #1b1114;
+  --app-surface-2: #180f12;
+  --app-surface-3: #231417;
+  --app-control: #130b0e;
+  --app-border: #44262b;
+  --app-border-strong: #74333b;
+  --app-link: #fca5a5;
+  --app-link-hover: #fcd34d;
+  --app-accent: #ef4444;
+  --app-accent-contrast: #fff1f2;
+  --app-accent-soft: rgba(239, 68, 68, 0.2);
+  --app-focus: rgba(248, 113, 113, 0.26);
+  --app-selection-bg: #fecaca;
+  --app-selection-text: #1f1214;
+  --app-table-head: #211316;
+  --app-table-border: #351e23;
+  --app-row-hover: rgba(127, 29, 29, 0.22);
+  --app-shadow: rgba(0, 0, 0, 0.3);
+  --app-common-symbol: #fafafa;
+}
+
+[data-theme="lotus"] {
+  color-scheme: light;
+  --app-bg: #f7f4fb;
+  --app-bg-pattern:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.96),
+      rgba(247, 244, 251, 0.98) 18rem
+    ),
+    linear-gradient(
+      90deg,
+      rgba(124, 58, 237, 0.08),
+      rgba(20, 184, 166, 0.08) 52%,
+      rgba(219, 39, 119, 0.05)
+    );
+  --app-text: #261f34;
+  --app-muted: #625873;
+  --app-surface: #ffffff;
+  --app-surface-2: #fbf9ff;
+  --app-surface-3: #f1ebfb;
+  --app-control: #ffffff;
+  --app-border: #d9cdec;
+  --app-border-strong: #a88dd2;
+  --app-link: #6d28d9;
+  --app-link-hover: #0f766e;
+  --app-accent: #7c3aed;
+  --app-accent-contrast: #faf5ff;
+  --app-accent-soft: rgba(124, 58, 237, 0.12);
+  --app-focus: rgba(124, 58, 237, 0.22);
+  --app-selection-bg: #ddd6fe;
+  --app-selection-text: #241637;
+  --app-table-head: #efe8fa;
+  --app-table-border: #e3d8f1;
+  --app-row-hover: rgba(124, 58, 237, 0.08);
+  --app-shadow: rgba(38, 31, 52, 0.12);
+  --app-common-symbol: #52525b;
+}
+
 body {
-  @apply min-h-screen bg-[#090d0c] text-stone-100 antialiased;
-  background-image:
-    linear-gradient(180deg, rgba(18, 27, 24, 0.92), rgba(9, 13, 12, 0.98) 18rem),
-    linear-gradient(90deg, rgba(18, 69, 72, 0.1), rgba(84, 64, 27, 0.08) 55%, rgba(22, 50, 33, 0.1));
+  min-height: 100vh;
+  color: var(--app-text);
+  background-color: var(--app-bg);
+  background-image: var(--app-bg-pattern);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 a {
-  @apply text-cyan-300 transition-colors hover:text-amber-200;
+  color: var(--app-link);
+  transition: color 150ms ease;
+}
+
+a:hover {
+  color: var(--app-link-hover);
 }
 
 ::selection {
-  @apply bg-amber-300 text-zinc-950;
+  color: var(--app-selection-text);
+  background: var(--app-selection-bg);
 }
 
 @layer components {
   .app-nav {
-    @apply rounded-lg border border-[#2c352f] bg-[#101614]/95 px-4 py-3 shadow-lg shadow-black/25;
+    border: 1px solid var(--app-border);
+    background: color-mix(in srgb, var(--app-surface-2) 95%, transparent);
+    box-shadow: 0 10px 15px -3px var(--app-shadow);
+    @apply rounded-lg px-4 py-3;
   }
 
   .app-nav-link {
-    @apply rounded-md px-2 py-1 text-sm font-medium text-stone-300 transition-colors hover:bg-emerald-950/40 hover:text-amber-100;
+    color: var(--app-muted);
+    @apply rounded-md px-2 py-1 text-sm font-medium transition-colors;
+  }
+
+  .app-nav-link:hover {
+    color: var(--app-link-hover);
+    background: var(--app-accent-soft);
   }
 
   .app-nav-brand {
-    @apply rounded-md px-2 py-1 font-bold tracking-wide text-amber-100 transition-colors hover:bg-amber-950/30 hover:text-amber-50;
+    color: var(--app-link-hover);
+    @apply rounded-md px-2 py-1 font-bold tracking-wide transition-colors;
+  }
+
+  .app-nav-brand:hover {
+    color: var(--app-accent-contrast);
+    background: var(--app-accent-soft);
   }
 
   .app-panel {
-    @apply rounded-lg border border-[#2a332d] bg-[#111715]/90 shadow-sm shadow-black/20;
+    border: 1px solid var(--app-border);
+    background: color-mix(in srgb, var(--app-surface) 92%, transparent);
+    box-shadow: 0 1px 2px 0 var(--app-shadow);
+    @apply rounded-lg;
   }
 
   .app-card {
-    @apply rounded-md border border-[#29312c] bg-[#131a17] shadow-sm shadow-black/20 transition-colors hover:border-[#3d4b40] hover:bg-[#161f1b];
+    border: 1px solid var(--app-border);
+    background: var(--app-surface-3);
+    box-shadow: 0 1px 2px 0 var(--app-shadow);
+    @apply rounded-md transition-colors;
+  }
+
+  .app-card:hover {
+    border-color: var(--app-border-strong);
+    background: color-mix(
+      in srgb,
+      var(--app-surface-3) 86%,
+      var(--app-accent) 14%
+    );
   }
 
   .app-muted {
-    @apply text-stone-400;
+    color: var(--app-muted);
   }
 
   .mtg-symbol-group {
@@ -96,7 +363,7 @@ a {
     display: inline-flex;
     align-items: center;
     padding: 0 0.25rem;
-    color: rgb(113 113 122);
+    color: var(--app-muted);
     font-size: 0.85em;
     line-height: 1;
   }
@@ -113,7 +380,7 @@ a {
   }
 
   .mtg-set-symbol-common {
-    color: #d4d4d8;
+    color: var(--app-common-symbol);
   }
 }
 
@@ -123,14 +390,17 @@ a {
   }
 
   thead {
-    @apply border-b border-[#303a33] bg-[#141c18] text-stone-300;
+    color: var(--app-muted);
+    border-bottom: 1px solid var(--app-border);
+    background: var(--app-table-head);
   }
 
   tbody tr {
-    @apply border-[#252d28] transition-colors;
+    border-color: var(--app-table-border);
+    transition: background-color 150ms ease;
   }
 
   tbody tr:hover {
-    @apply bg-emerald-950/20;
+    background: var(--app-row-hover);
   }
 }

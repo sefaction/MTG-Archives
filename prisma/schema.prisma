@@ -98,6 +98,7 @@ model User {
   forcePasswordChange        Boolean                     @default(false)
   isActive                   Boolean                     @default(true)
   lastLoginAt                DateTime?
+  theme                      String                      @default("golgari")
   inventoryDefaultVisibility DefaultCollectionVisibility @default(PRIVATE)
   deckDefaultVisibility      DefaultCollectionVisibility @default(PRIVATE)
   publicProfileEnabled       Boolean                     @default(false)

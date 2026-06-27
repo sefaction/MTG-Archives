@@ -39,18 +39,21 @@ function assertUsesSharedStyles(source: string, name: string) {
   );
 }
 
-test("filter style tokens define the shared dark form language", () => {
+test("filter style tokens define the shared theme-aware form language", () => {
   assert.match(filterStyles, /filterInputClass/);
   assert.match(filterStyles, /filterSelectClass/);
   assert.match(filterStyles, /filterOptionClass/);
   assert.match(filterStyles, /filterButtonClass/);
   assert.match(filterStyles, /filterPrimaryButtonClass/);
-  assert.match(filterStyles, /bg-zinc-900/);
-  assert.match(filterStyles, /border-zinc-700/);
-  assert.match(filterStyles, /focus:border-sky-500/);
+  assert.match(filterStyles, /var\(--app-control\)/);
+  assert.match(filterStyles, /var\(--app-border\)/);
+  assert.match(filterStyles, /var\(--app-accent\)/);
   assert.match(filterStyles, /disabled:cursor-not-allowed/);
-  assert.match(filterStyles, /placeholder:text-zinc-500/);
-  assert.match(filterStyles, /filterOptionClass = "bg-zinc-900 text-zinc-100"/);
+  assert.match(filterStyles, /placeholder:text-\[var\(--app-muted\)\]/);
+  assert.match(
+    filterStyles,
+    /filterOptionClass =\s*"bg-\[var\(--app-control\)\] text-\[var\(--app-text\)\]"/,
+  );
 });
 
 test("collapsible panels use accessible shared dark styling", () => {

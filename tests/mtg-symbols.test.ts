@@ -167,7 +167,10 @@ test("set symbol component renders icons and text in an aligned wrapper", () => 
     /\.mtg-set-symbol-group[\s\S]*align-items: center/,
   );
   assert.match(globalStyles, /\.mtg-set-symbol[\s\S]*height: 1\.35em/);
-  assert.match(globalStyles, /\.mtg-set-symbol-common[\s\S]*#d4d4d8/);
+  assert.match(
+    globalStyles,
+    /\.mtg-set-symbol-common[\s\S]*var\(--app-common-symbol\)/,
+  );
 });
 
 test("set icon helper resolves safe local Keyrune classes and rejects unsafe codes", () => {
