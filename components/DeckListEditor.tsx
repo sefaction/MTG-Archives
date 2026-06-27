@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { type ReactNode, useMemo, useRef, useState } from "react";
 import { DeckSection, FoilStatus } from "@prisma/client";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { SetSymbol } from "@/components/mtg/CardSymbols";
@@ -135,9 +135,7 @@ function priceLabel(prices: unknown) {
 
 function imageUri(row: DeckEditorRow) {
   const images = row.card?.imageUris as
-    | { normal?: string; small?: string; art_crop?: string }
-    | null
-    | undefined;
+    { normal?: string; small?: string; art_crop?: string } | null | undefined;
   return images?.normal ?? images?.small ?? row.card?.imageUri ?? "";
 }
 
@@ -216,6 +214,10 @@ function commitmentBadge(row: DeckEditorRow) {
   );
 }
 
+function isFullyCommitted(row: DeckEditorRow) {
+  return row.commitmentMissing <= 0 || row.committedToThisDeck >= row.quantity;
+}
+
 function ownedStatusBadge(row: DeckEditorRow) {
   const status = ownershipStatus(row);
   const color =
@@ -238,6 +240,29 @@ function ownedStatusBadge(row: DeckEditorRow) {
     >
       {status}
     </span>
+  );
+}
+
+function listOwnershipBadge(row: DeckEditorRow) {
+  return isFullyCommitted(row) ? commitmentBadge(row) : ownedStatusBadge(row);
+}
+
+function listCommitmentBadge(row: DeckEditorRow) {
+  return isFullyCommitted(row) ? (
+    <span className="text-xs text-stone-600">—</span>
+  ) : (
+    commitmentBadge(row)
+  );
+}
+
+function listStatusBadges(row: DeckEditorRow) {
+  return isFullyCommitted(row) ? (
+    commitmentBadge(row)
+  ) : (
+    <>
+      {ownedStatusBadge(row)}
+      {commitmentBadge(row)}
+    </>
   );
 }
 
@@ -319,6 +344,7 @@ export function DeckListEditor({
   rows,
   sections,
   canEdit,
+  actionControls,
   defaultGroupMode = "type",
   showPrivateInventory = false,
   returnLocations = [],
@@ -327,6 +353,7 @@ export function DeckListEditor({
   rows: DeckEditorRow[];
   sections: DeckSection[];
   canEdit: boolean;
+  actionControls?: ReactNode;
   defaultGroupMode?: DeckGroupMode;
   showPrivateInventory?: boolean;
   returnLocations?: DeckReturnLocation[];
@@ -625,6 +652,179 @@ export function DeckListEditor({
           <div className="pb-2 text-xs font-semibold uppercase tracking-wide text-amber-200">
             Builder
           </div>
+          {actionControls}
+          {canEdit ? (
+            <details className="relative" id="bulk-edit">
+              <summary
+                className={cn(
+                  filterButtonClass,
+                  "list-none cursor-pointer px-3 py-1.5 text-sm marker:hidden",
+                )}
+              >
+                Selection
+                {selectedRows.length ? ` (${selectedRows.length})` : ""}
+              </summary>
+              <div className="absolute left-0 top-full z-30 mt-2 w-[min(38rem,calc(100vw-2rem))] rounded-lg border border-[#364139] bg-[#101614] p-3 shadow-xl shadow-black/40">
+                <div className="grid gap-2 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      className={cn(filterButtonClass, "px-2 py-1")}
+                      onClick={() =>
+                        selectIds(currentGroupRows.map((row) => row.id))
+                      }
+                    >
+                      Select all in current view
+                    </button>
+                    <button
+                      type="button"
+                      className={cn(filterButtonClass, "px-2 py-1")}
+                      onClick={() => selectIds(missingIds)}
+                    >
+                      Select all missing
+                    </button>
+                    <button
+                      type="button"
+                      className={cn(filterButtonClass, "px-2 py-1")}
+                      onClick={() => selectIds(unownedExactIds)}
+                    >
+                      Select all unowned exact printings
+                    </button>
+                    <button
+                      type="button"
+                      className={cn(filterButtonClass, "px-2 py-1")}
+                      onClick={() => selectIds([])}
+                    >
+                      Clear selection
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="flex items-center gap-1 text-xs text-stone-300">
+                      Return destination
+                      <select
+                        value={returnDestinationId}
+                        onChange={(event) =>
+                          setReturnDestinationId(event.target.value)
+                        }
+                        className={filterSelectClass}
+                      >
+                        <option value="">Choose...</option>
+                        {returnLocations.map((location) => (
+                          <option key={location.id} value={location.id}>
+                            {location.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button
+                      type="button"
+                      className={cn(
+                        filterPrimaryButtonClass,
+                        "border-emerald-700 px-2 py-1 text-emerald-100 hover:bg-emerald-950/40",
+                      )}
+                      disabled={Boolean(pending)}
+                      onClick={() => loadPreview("owned", otherOwnedIds)}
+                    >
+                      Preview missing to owned
+                    </button>
+                    <button
+                      type="button"
+                      className={cn(
+                        filterButtonClass,
+                        "px-2 py-1 text-cyan-100",
+                      )}
+                      disabled={Boolean(pending)}
+                      onClick={() => loadPreview("cheapest", missingIds)}
+                    >
+                      Preview missing to cheapest
+                    </button>
+                  </div>
+                  {selectedRows.length ? (
+                    <div className="grid gap-2 rounded-md border border-cyan-900 bg-cyan-950/20 p-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <strong>{selectedRows.length} rows selected</strong>
+                        <span className="text-stone-300">
+                          {selectedQuantity} deck-list cards /{" "}
+                          {selectedCommittedQuantity} physically committed
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          className={cn(
+                            filterPrimaryButtonClass,
+                            "border-emerald-700 px-2 py-1 text-emerald-100 hover:bg-emerald-950/40",
+                          )}
+                          disabled={Boolean(pending)}
+                          onClick={() => loadPreview("owned", [...selected])}
+                        >
+                          Switch selected to owned printings
+                        </button>
+                        <button
+                          type="button"
+                          className={cn(
+                            filterButtonClass,
+                            "px-2 py-1 text-cyan-100",
+                          )}
+                          disabled={Boolean(pending)}
+                          onClick={() => loadPreview("cheapest", [...selected])}
+                        >
+                          Switch selected to cheapest printings
+                        </button>
+                        <select
+                          value={moveSection}
+                          onChange={(event) =>
+                            setMoveSection(event.target.value as DeckSection)
+                          }
+                          className={filterSelectClass}
+                        >
+                          {sections.map((section) => (
+                            <option key={section} value={section}>
+                              {deckSectionLabel(section)}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          className={cn(
+                            filterButtonClass,
+                            "px-2 py-1 text-amber-100",
+                          )}
+                          disabled={
+                            Boolean(pending) || selectedCommittedQuantity === 0
+                          }
+                          onClick={returnSelectedCommitted}
+                        >
+                          Return selected committed cards
+                        </button>
+                        <button
+                          type="button"
+                          className={cn(filterButtonClass, "px-2 py-1")}
+                          disabled={Boolean(pending)}
+                          onClick={bulkMove}
+                        >
+                          Move selected
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-md border border-red-800 bg-red-950/30 px-2 py-1 text-red-100 hover:border-red-600"
+                          disabled={Boolean(pending)}
+                          onClick={bulkRemove}
+                        >
+                          Remove selected
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                  <p className="text-sm text-stone-400" aria-live="polite">
+                    {pending ||
+                      message ||
+                      "Select cards to move, remove, or preview printing optimization without changing inventory."}
+                  </p>
+                </div>
+              </div>
+            </details>
+          ) : null}
           <label className={filterFieldClass}>
             View
             <select
@@ -680,155 +880,12 @@ export function DeckListEditor({
         </div>
       </div>
 
-      {canEdit ? (
-        <div
-          className="sticky top-0 z-10 space-y-2 rounded-lg border border-[#2a332d] bg-[#101614]/95 p-2 shadow-lg shadow-black/25 backdrop-blur"
-          id="bulk-edit"
-        >
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-xs font-semibold uppercase tracking-wide text-amber-200">
-              Selection
-            </span>
-            <button
-              type="button"
-              className={cn(filterButtonClass, "px-2 py-1")}
-              onClick={() => selectIds(currentGroupRows.map((row) => row.id))}
-            >
-              Select all in current view
-            </button>
-            <button
-              type="button"
-              className={cn(filterButtonClass, "px-2 py-1")}
-              onClick={() => selectIds(missingIds)}
-            >
-              Select all missing
-            </button>
-            <button
-              type="button"
-              className={cn(filterButtonClass, "px-2 py-1")}
-              onClick={() => selectIds(unownedExactIds)}
-            >
-              Select all unowned exact printings
-            </button>
-            <button
-              type="button"
-              className={cn(filterButtonClass, "px-2 py-1")}
-              onClick={() => selectIds([])}
-            >
-              Clear selection
-            </button>
-            <label className="flex items-center gap-1 text-xs text-stone-300">
-              Return destination
-              <select
-                value={returnDestinationId}
-                onChange={(event) => setReturnDestinationId(event.target.value)}
-                className={filterSelectClass}
-              >
-                <option value="">Choose…</option>
-                {returnLocations.map((location) => (
-                  <option key={location.id} value={location.id}>
-                    {location.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              className={cn(
-                filterPrimaryButtonClass,
-                "px-2 py-1 border-emerald-700 text-emerald-100 hover:bg-emerald-950/40",
-              )}
-              disabled={Boolean(pending)}
-              onClick={() => loadPreview("owned", otherOwnedIds)}
-            >
-              Preview missing → owned
-            </button>
-            <button
-              type="button"
-              className={cn(filterButtonClass, "px-2 py-1 text-cyan-100")}
-              disabled={Boolean(pending)}
-              onClick={() => loadPreview("cheapest", missingIds)}
-            >
-              Preview missing → cheapest
-            </button>
-          </div>
-          {selectedRows.length ? (
-            <div className="flex flex-wrap items-center gap-2 rounded-md border border-cyan-900 bg-cyan-950/20 p-2 text-sm">
-              <strong>{selectedRows.length} rows selected</strong>
-              <span className="text-stone-300">
-                {selectedQuantity} deck-list cards · {selectedCommittedQuantity}{" "}
-                physically committed
-              </span>
-              <button
-                type="button"
-                className={cn(
-                  filterPrimaryButtonClass,
-                  "px-2 py-1 border-emerald-700 text-emerald-100 hover:bg-emerald-950/40",
-                )}
-                disabled={Boolean(pending)}
-                onClick={() => loadPreview("owned", [...selected])}
-              >
-                Switch selected to owned printings
-              </button>
-              <button
-                type="button"
-                className={cn(filterButtonClass, "px-2 py-1 text-cyan-100")}
-                disabled={Boolean(pending)}
-                onClick={() => loadPreview("cheapest", [...selected])}
-              >
-                Switch selected to cheapest printings
-              </button>
-              <select
-                value={moveSection}
-                onChange={(event) =>
-                  setMoveSection(event.target.value as DeckSection)
-                }
-                className={filterSelectClass}
-              >
-                {sections.map((section) => (
-                  <option key={section} value={section}>
-                    {deckSectionLabel(section)}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                className={cn(filterButtonClass, "px-2 py-1 text-amber-100")}
-                disabled={Boolean(pending) || selectedCommittedQuantity === 0}
-                onClick={returnSelectedCommitted}
-              >
-                Return selected committed cards
-              </button>
-              <button
-                type="button"
-                className={cn(filterButtonClass, "px-2 py-1")}
-                disabled={Boolean(pending)}
-                onClick={bulkMove}
-              >
-                Move selected
-              </button>
-              <button
-                type="button"
-                className="rounded-md border border-red-800 bg-red-950/30 px-2 py-1 text-red-100 hover:border-red-600"
-                disabled={Boolean(pending)}
-                onClick={bulkRemove}
-              >
-                Remove selected
-              </button>
-            </div>
-          ) : null}
-          <p className="text-sm text-stone-400" aria-live="polite">
-            {pending ||
-              message ||
-              "Select cards to move, remove, or preview printing optimization without changing inventory."}
-          </p>
-        </div>
-      ) : (
+      {!canEdit ? (
         <p className="app-panel p-3 text-sm text-stone-400">
           Read-only deck view. You can change view, grouping, sorting, and open
           card details; editing and inventory locations are hidden.
         </p>
-      )}
+      ) : null}
 
       {canEdit && preview ? (
         <OptimizationPreview
@@ -954,17 +1011,17 @@ function CompactDeckRow({
   ...props
 }: { row: DeckEditorRow } & DeckViewProps) {
   const expanded = props.expanded === row.id;
-  const ownedStatus = ownershipStatus(row);
-  const ownedTone =
-    ownedStatus === "Owned exact" || ownedStatus === "Basic land"
+  const fullyCommitted = isFullyCommitted(row);
+  const ownedStatus = fullyCommitted ? "Committed" : ownershipStatus(row);
+  const ownedTone = fullyCommitted
+    ? "bg-emerald-500"
+    : ownedStatus === "Owned exact" || ownedStatus === "Basic land"
       ? "bg-emerald-500"
       : ownedStatus === "Owned other printing"
         ? "bg-cyan-400"
         : ownedStatus === "Partial"
           ? "bg-amber-400"
           : "bg-red-500";
-  const committed =
-    row.commitmentMissing <= 0 || row.committedToThisDeck >= row.quantity;
   return (
     <div
       className={cn(
@@ -1000,13 +1057,19 @@ function CompactDeckRow({
           className={cn("h-2 w-2 rounded-full", ownedTone)}
           title={ownedStatus}
         />
-        <span
-          className={cn(
-            "h-2 w-2 rounded-full",
-            committed ? "bg-amber-300" : "bg-red-500",
-          )}
-          title={committed ? "Committed" : "Not fully committed"}
-        />
+        {!fullyCommitted ? (
+          <span
+            className={cn(
+              "h-2 w-2 rounded-full",
+              row.committedToThisDeck > 0 ? "bg-amber-300" : "bg-red-500",
+            )}
+            title={
+              row.committedToThisDeck > 0
+                ? "Partially committed"
+                : "Not fully committed"
+            }
+          />
+        ) : null}
         <button
           type="button"
           className="rounded px-1 text-[11px] text-stone-400 hover:bg-[#1b241f] hover:text-cyan-100"
@@ -1035,9 +1098,7 @@ function CompactGroupHeader({
 }) {
   return (
     <div className="flex items-center justify-between gap-2 border-b border-[#2a332d] bg-[#121915] px-2 py-1">
-      <h2 className="truncate text-sm font-semibold text-stone-100">
-        {label}
-      </h2>
+      <h2 className="truncate text-sm font-semibold text-stone-100">{label}</h2>
       <span className="whitespace-nowrap text-xs text-stone-400">
         {quantity} / {rows.length}
       </span>
@@ -1088,7 +1149,10 @@ function TextDeckView(props: DeckViewProps) {
   );
 }
 
-function TextDeckRow({ row, ...props }: { row: DeckEditorRow } & DeckViewProps) {
+function TextDeckRow({
+  row,
+  ...props
+}: { row: DeckEditorRow } & DeckViewProps) {
   const expanded = props.expanded === row.id;
   return (
     <tr
@@ -1131,17 +1195,15 @@ function TextDeckRow({ row, ...props }: { row: DeckEditorRow } & DeckViewProps) 
         <ManaCost value={row.card?.manaCost ?? null} />
       </td>
       <td className="max-w-[20rem] px-2 py-1.5 text-xs text-stone-300">
-        <span className="line-clamp-1">{row.card?.typeLine ?? row.matchType}</span>
+        <span className="line-clamp-1">
+          {row.card?.typeLine ?? row.matchType}
+        </span>
       </td>
       <td className="whitespace-nowrap px-2 py-1.5 text-xs text-stone-300">
         {deckSectionLabel(row.section)}
       </td>
-      <td className="px-2 py-1.5">
-        {ownedStatusBadge(row)}
-      </td>
-      <td className="px-2 py-1.5">
-        {commitmentBadge(row)}
-      </td>
+      <td className="px-2 py-1.5">{listOwnershipBadge(row)}</td>
+      <td className="px-2 py-1.5">{listCommitmentBadge(row)}</td>
       <td className="whitespace-nowrap px-2 py-1.5 text-xs text-stone-300">
         {priceLabel(row.card?.prices)}
       </td>
@@ -1155,17 +1217,12 @@ function TextDeckRow({ row, ...props }: { row: DeckEditorRow } & DeckViewProps) 
   );
 }
 
-function VisualDeckView(
-  props: DeckViewProps & { mode: "grid" | "spoiler" },
-) {
+function VisualDeckView(props: DeckViewProps & { mode: "grid" | "spoiler" }) {
   const tileClass = props.mode === "spoiler" ? "w-56" : "w-40";
   return (
     <div className="space-y-4">
       {props.groups.map((group) => (
-        <section
-          key={group.label}
-          className="app-panel p-3"
-        >
+        <section key={group.label} className="app-panel p-3">
           <GroupHeader
             label={group.label}
             rows={group.rows}
@@ -1175,10 +1232,7 @@ function VisualDeckView(
             {group.rows.map((row) => {
               const expanded = props.expanded === row.id;
               return (
-                <article
-                  key={row.id}
-                  className={`${tileClass} app-card p-2`}
-                >
+                <article key={row.id} className={`${tileClass} app-card p-2`}>
                   {props.canEdit ? (
                     <input
                       aria-label={`Select ${row.cardName}`}
@@ -1214,11 +1268,8 @@ function VisualDeckView(
                       {priceLabel(row.card?.prices)}
                     </div>
                   </button>
-                  <div className="mt-2">
-                    {ownedStatusBadge(row)}
-                  </div>
-                  <div className="mt-1">
-                    {commitmentBadge(row)}
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {listStatusBadges(row)}
                   </div>
                   <div className="mt-2">
                     <CardActions
@@ -1479,133 +1530,133 @@ function RowEditor({
                 action={updateDeckCard}
                 className="grid gap-3 rounded border border-zinc-800 p-3 md:grid-cols-3"
               >
-              <input type="hidden" name="deckId" value={deckId} />
-              <input type="hidden" name="deckCardId" value={row.id} />
-              <label className={filterFieldClass}>
-                Quantity
-                <input
-                  name="quantity"
-                  type="number"
-                  min={1}
-                  defaultValue={row.quantity}
-                  className={cn(filterInputClass, "mt-1 w-full")}
-                />
-              </label>
-              <label className={filterFieldClass}>
-                Section
-                <select
-                  name="section"
-                  defaultValue={row.section}
-                  className={cn(filterSelectClass, "mt-1 w-full")}
-                >
-                  {sections.map((section) => (
-                    <option key={section} value={section}>
-                      {deckSectionLabel(section)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className={cn(filterFieldClass, "md:col-span-3")}>
-                Notes
-                <textarea
-                  name="notes"
-                  defaultValue={row.notes ?? ""}
-                  className={cn(filterTextareaClass, "mt-1 w-full")}
-                  rows={3}
-                />
-              </label>
-              {row.committedQuantity > 0 ? (
-                <div className="md:col-span-3 rounded border border-amber-900 bg-amber-950/20 p-2 text-sm">
-                  <p className="text-amber-100">
-                    This card has {row.committedQuantity} committed physical
-                    copies. If moving it to Maybeboard, choose how to handle
-                    those copies.
-                  </p>
-                  <label className={cn(filterFieldClass, "mt-2 block")}>
-                    Maybeboard committed-copy handling
-                    <select
-                      name="maybeboardCommittedMode"
-                      defaultValue="return"
-                      className={cn(filterSelectClass, "mt-1 w-full")}
-                    >
-                      <option value="return">
-                        Move to Maybeboard and return committed copies
+                <input type="hidden" name="deckId" value={deckId} />
+                <input type="hidden" name="deckCardId" value={row.id} />
+                <label className={filterFieldClass}>
+                  Quantity
+                  <input
+                    name="quantity"
+                    type="number"
+                    min={1}
+                    defaultValue={row.quantity}
+                    className={cn(filterInputClass, "mt-1 w-full")}
+                  />
+                </label>
+                <label className={filterFieldClass}>
+                  Section
+                  <select
+                    name="section"
+                    defaultValue={row.section}
+                    className={cn(filterSelectClass, "mt-1 w-full")}
+                  >
+                    {sections.map((section) => (
+                      <option key={section} value={section}>
+                        {deckSectionLabel(section)}
                       </option>
-                      <option value="keep">
-                        Move to Maybeboard but keep copies physically in deck
-                      </option>
-                    </select>
-                  </label>
-                  <label className={cn(filterFieldClass, "mt-2 block")}>
-                    Destination location for returned copies
-                    <select
-                      name="destinationLocationId"
-                      className={cn(filterSelectClass, "mt-1 w-full")}
-                    >
-                      <option value="">Choose a location…</option>
-                      {returnLocations.map((location) => (
-                        <option key={location.id} value={location.id}>
-                          {location.name}
+                    ))}
+                  </select>
+                </label>
+                <label className={cn(filterFieldClass, "md:col-span-3")}>
+                  Notes
+                  <textarea
+                    name="notes"
+                    defaultValue={row.notes ?? ""}
+                    className={cn(filterTextareaClass, "mt-1 w-full")}
+                    rows={3}
+                  />
+                </label>
+                {row.committedQuantity > 0 ? (
+                  <div className="md:col-span-3 rounded border border-amber-900 bg-amber-950/20 p-2 text-sm">
+                    <p className="text-amber-100">
+                      This card has {row.committedQuantity} committed physical
+                      copies. If moving it to Maybeboard, choose how to handle
+                      those copies.
+                    </p>
+                    <label className={cn(filterFieldClass, "mt-2 block")}>
+                      Maybeboard committed-copy handling
+                      <select
+                        name="maybeboardCommittedMode"
+                        defaultValue="return"
+                        className={cn(filterSelectClass, "mt-1 w-full")}
+                      >
+                        <option value="return">
+                          Move to Maybeboard and return committed copies
                         </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              ) : null}
-              <SubmitButton
-                pendingLabel="Saving…"
-                className={cn(filterPrimaryButtonClass, "md:col-span-2")}
-              >
-                Save quantity, section, notes
-              </SubmitButton>
+                        <option value="keep">
+                          Move to Maybeboard but keep copies physically in deck
+                        </option>
+                      </select>
+                    </label>
+                    <label className={cn(filterFieldClass, "mt-2 block")}>
+                      Destination location for returned copies
+                      <select
+                        name="destinationLocationId"
+                        className={cn(filterSelectClass, "mt-1 w-full")}
+                      >
+                        <option value="">Choose a location…</option>
+                        {returnLocations.map((location) => (
+                          <option key={location.id} value={location.id}>
+                            {location.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                ) : null}
+                <SubmitButton
+                  pendingLabel="Saving…"
+                  className={cn(filterPrimaryButtonClass, "md:col-span-2")}
+                >
+                  Save quantity, section, notes
+                </SubmitButton>
               </form>
             ) : null}
             {activeTab === "commit" ? (
               <div className="space-y-3 rounded border border-zinc-800 p-3">
-              <CommitInventoryToDeck deckId={deckId} row={row} />
-              <AddRealCopyToDeck
-                deckId={deckId}
-                row={row}
-                locations={returnLocations}
-              />
-              <ReturnCommittedCopies
-                deckId={deckId}
-                row={row}
-                returnLocations={returnLocations}
-              />
-              <PrintingPicker deckId={deckId} row={row} />
-              <form action={removeDeckCard}>
-                <input type="hidden" name="deckId" value={deckId} />
-                <input type="hidden" name="deckCardId" value={row.id} />
-                {row.committedQuantity > 0 ? (
-                  <label className={cn(filterFieldClass, "mb-2 block")}>
-                    Return committed copies to this location before removing
-                    <select
-                      name="destinationLocationId"
-                      required
-                      className={cn(filterSelectClass, "mt-1 w-full")}
-                    >
-                      <option value="">Choose a location…</option>
-                      {returnLocations.map((location) => (
-                        <option key={location.id} value={location.id}>
-                          {location.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-                <SubmitButton
-                  pendingLabel="Removing…"
-                  className="rounded border border-red-800 px-3 py-2 text-red-200"
-                  confirmMessage={
-                    row.committedQuantity > 0
-                      ? `Return committed copies of ${row.cardName} to the selected location, then remove this deck-list row? Inventory will not be deleted.`
-                      : `Remove ${row.cardName} from this deck list? Inventory will not be modified.`
-                  }
-                >
-                  Remove
-                </SubmitButton>
-              </form>
+                <CommitInventoryToDeck deckId={deckId} row={row} />
+                <AddRealCopyToDeck
+                  deckId={deckId}
+                  row={row}
+                  locations={returnLocations}
+                />
+                <ReturnCommittedCopies
+                  deckId={deckId}
+                  row={row}
+                  returnLocations={returnLocations}
+                />
+                <PrintingPicker deckId={deckId} row={row} />
+                <form action={removeDeckCard}>
+                  <input type="hidden" name="deckId" value={deckId} />
+                  <input type="hidden" name="deckCardId" value={row.id} />
+                  {row.committedQuantity > 0 ? (
+                    <label className={cn(filterFieldClass, "mb-2 block")}>
+                      Return committed copies to this location before removing
+                      <select
+                        name="destinationLocationId"
+                        required
+                        className={cn(filterSelectClass, "mt-1 w-full")}
+                      >
+                        <option value="">Choose a location…</option>
+                        {returnLocations.map((location) => (
+                          <option key={location.id} value={location.id}>
+                            {location.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
+                  <SubmitButton
+                    pendingLabel="Removing…"
+                    className="rounded border border-red-800 px-3 py-2 text-red-200"
+                    confirmMessage={
+                      row.committedQuantity > 0
+                        ? `Return committed copies of ${row.cardName} to the selected location, then remove this deck-list row? Inventory will not be deleted.`
+                        : `Remove ${row.cardName} from this deck list? Inventory will not be modified.`
+                    }
+                  >
+                    Remove
+                  </SubmitButton>
+                </form>
               </div>
             ) : null}
           </div>

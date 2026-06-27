@@ -24,8 +24,9 @@ test("deck detail page uses compact action panels instead of always-expanded pag
   assert.match(panelSource, /Escape/);
   assert.match(
     panelSource,
-    /Open one compact action drawer when needed; the deck list stays\s*visible\s*below\./,
+    /<summary[\s\S]*?>[\s\S]*Actions[\s\S]*?<\/summary>/,
   );
+  assert.match(pageSource, /actionControls=\{/);
 });
 
 test("deck action toolbar exposes compact entry points for page-level workflows", () => {

@@ -3,13 +3,24 @@ import { hashPassword, requireAdminMode } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { Nav } from "@/components/Nav";
-import { UserRole } from "@prisma/client";
+import { Prisma, UserRole } from "@prisma/client";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import {
   getScryfallRuntimeStatus,
   getExactCardByNameResult,
   formatScryfallError,
 } from "@/lib/scryfall";
+
+const panelClass =
+  "rounded-lg border border-[#2a332d] bg-[#101614] shadow-sm shadow-black/20";
+const panelHeaderClass = "border-b border-[#2a332d] bg-[#121915] px-4 py-3";
+const inputClass =
+  "rounded-md border border-[#364139] bg-[#0d1210] px-3 py-2 text-sm text-stone-100 outline-none placeholder:text-stone-500 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/25";
+const selectClass = `${inputClass} pr-8`;
+const buttonClass =
+  "rounded-md border border-[#364139] bg-[#111715] px-3 py-2 text-sm text-stone-100 transition-colors hover:border-[#4a584d] hover:bg-[#17201b] focus:outline-none focus:ring-2 focus:ring-cyan-500/25";
+const primaryButtonClass =
+  "rounded-md border border-cyan-700 bg-cyan-950/40 px-3 py-2 text-sm font-medium text-cyan-100 transition-colors hover:border-cyan-500 hover:bg-cyan-900/40 focus:outline-none focus:ring-2 focus:ring-cyan-500/35";
 
 async function refresh() {
   "use server";
@@ -72,359 +83,481 @@ export default async function Page() {
     ]);
 
   return (
-    <main className="p-8 space-y-8">
+    <main className="space-y-6 p-8">
       <Nav />
-      <div>
-        <h1 className="text-3xl font-bold">Admin</h1>
-        <p className="text-zinc-400">
-          Manage local user accounts and monitor inventory/trade activity.
-        </p>
-        <p className="mt-2 text-sm">
-          <a className="underline" href="/admin/prices">
-            Manage MTGJSON price imports
-          </a>
-          <span className="mx-2 text-zinc-600">|</span>
-          <a className="underline" href="/admin/backups">
-            Manage backups
-          </a>
-          <span className="mx-2 text-zinc-600">|</span>
-          <a className="underline" href="/admin/metadata">
-            Refresh card metadata
-          </a>
-        </p>
-      </div>
-
-      <section className="grid gap-4 md:grid-cols-3">
-        <div className="rounded border border-zinc-800 p-4">
-          <p className="text-sm text-zinc-400">Users</p>
-          <p className="text-2xl font-bold">{users.length}</p>
-        </div>
-        <div className="rounded border border-zinc-800 p-4">
-          <p className="text-sm text-zinc-400">Inventory entries</p>
-          <p className="text-2xl font-bold">{inventoryCount._count}</p>
-        </div>
-        <div className="rounded border border-zinc-800 p-4">
-          <p className="text-sm text-zinc-400">Open trades</p>
-          <p className="text-2xl font-bold">{openTrades}</p>
-        </div>
-      </section>
-
-      <section className="space-y-3 rounded border border-zinc-800 p-4">
+      <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold">Scryfall status</h2>
-          <p className="text-sm text-zinc-400">
-            Live lookups use the shared throttled server-side client. Cached
-            card printings remain usable without contacting Scryfall on
-            inventory views.
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber-200">
+            System console
+          </p>
+          <h1 className="text-3xl font-bold text-stone-50">Admin</h1>
+          <p className="text-sm text-stone-400">
+            Manage accounts, service health, backups, and card metadata.
           </p>
         </div>
-        <dl className="grid gap-3 text-sm md:grid-cols-3">
-          <div>
-            <dt className="text-zinc-400">API base URL</dt>
-            <dd>{scryfallStatus.apiBaseUrl}</dd>
+        <nav className="flex flex-wrap gap-2 text-sm" aria-label="Admin tools">
+          {[
+            ["Backups", "/admin/backups"],
+            ["Metadata", "/admin/metadata"],
+            ["Pricing", "/admin/prices"],
+          ].map(([label, href]) => (
+            <a key={href} className={buttonClass} href={href}>
+              {label}
+            </a>
+          ))}
+        </nav>
+      </header>
+
+      <section className="grid gap-3 md:grid-cols-4">
+        {[
+          ["Users", users.length, "Local accounts"],
+          ["Inventory rows", inventoryCount._count, "Active stack records"],
+          [
+            "Physical cards",
+            inventoryCount._sum.quantity ?? 0,
+            "Tracked quantity",
+          ],
+          ["Open trades", openTrades, "Needs attention"],
+        ].map(([label, value, note]) => (
+          <div key={String(label)} className={`${panelClass} p-4`}>
+            <p className="text-xs uppercase tracking-wide text-stone-500">
+              {label}
+            </p>
+            <p className="mt-1 text-2xl font-semibold text-stone-50">
+              {String(value)}
+            </p>
+            <p className="text-xs text-stone-500">{note}</p>
           </div>
-          <div>
-            <dt className="text-zinc-400">Throttle interval</dt>
-            <dd>{scryfallStatus.minRequestIntervalMs} ms/request/process</dd>
-          </div>
-          <div>
-            <dt className="text-zinc-400">Cached printings</dt>
-            <dd>{cachedPrintings}</dd>
-          </div>
-          <div>
-            <dt className="text-zinc-400">Never checked for freshness</dt>
-            <dd>{dueForRefresh}</dd>
-          </div>
-          <div>
-            <dt className="text-zinc-400">Last successful request</dt>
-            <dd>
-              {scryfallStatus.lastSuccessfulRequestAt?.toISOString() ??
-                "None in this process"}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-zinc-400">Recent error category</dt>
-            <dd>{scryfallStatus.recentErrorKind ?? "None in this process"}</dd>
-          </div>
-          <div>
-            <dt className="text-zinc-400">Bulk data path</dt>
-            <dd>{scryfallStatus.bulkDataPath}</dd>
-          </div>
-        </dl>
-        <form
-          action={async () => {
-            "use server";
-            await requireAdminMode();
-            const result = await getExactCardByNameResult("Sol Ring");
-            if (!result.ok) throw new Error(formatScryfallError(result.error));
-            revalidatePath("/admin");
-          }}
-        >
-          <SubmitButton
-            pendingLabel="Testing Scryfall…"
-            className="border px-3 py-2"
-          >
-            Test Scryfall Connectivity
-          </SubmitButton>
-        </form>
+        ))}
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-xl font-semibold">Create user</h2>
-        <p className="text-sm text-zinc-400">
-          The current schema still links inventory ownership through an internal
-          owner record. New users are automatically linked to one so inventory,
-          imports, and trades continue to work.
-        </p>
-        <form
-          action={async (fd) => {
-            "use server";
-            await requireAdminMode();
-            const password = String(fd.get("password") || "");
-            const confirm = String(fd.get("confirmPassword") || "");
-            if (password !== confirm)
-              throw new Error("Temporary passwords must match.");
-            const username = String(fd.get("username")).trim();
-            const displayName = String(
-              fd.get("displayName") || username,
-            ).trim();
-            const passwordHash = await hashPassword(password);
-            const playerId = await ensureOwnerForUser(displayName);
-            await prisma.user.create({
-              data: {
-                username,
-                email:
-                  String(fd.get("email") || "")
-                    .trim()
-                    .toLowerCase() || null,
-                displayName,
-                passwordHash,
-                role:
-                  String(fd.get("role")) === "ADMIN"
-                    ? UserRole.ADMIN
-                    : UserRole.PLAYER,
-                playerId,
-                forcePasswordChange: fd.get("forcePasswordChange") === "on",
-                isActive: fd.get("isActive") === "on",
-              },
-            });
-            await refresh();
-          }}
-          className="grid gap-2 rounded border border-zinc-800 p-3 md:grid-cols-4"
-        >
-          <input
-            name="username"
-            required
-            placeholder="username"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="email"
-            placeholder="email optional"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="displayName"
-            placeholder="display name"
-            className="border p-2 bg-zinc-900"
-          />
-          <select
-            name="role"
-            defaultValue="PLAYER"
-            className="border p-2 bg-zinc-900"
-          >
-            <option value="PLAYER">User</option>
-            <option value="ADMIN">Admin</option>
-          </select>
-          <input
-            name="password"
-            type="password"
-            required
-            minLength={8}
-            placeholder="temporary password"
-            className="border p-2 bg-zinc-900"
-          />
-          <input
-            name="confirmPassword"
-            type="password"
-            required
-            minLength={8}
-            placeholder="confirm password"
-            className="border p-2 bg-zinc-900"
-          />
-          <label className="flex items-center gap-2">
-            <input type="checkbox" name="forcePasswordChange" defaultChecked />{" "}
-            force password change
-          </label>
-          <label className="flex items-center gap-2">
-            <input type="checkbox" name="isActive" defaultChecked /> active
-          </label>
-          <SubmitButton
-            pendingLabel="Creating user…"
-            className="border px-3 py-2 md:col-span-4"
-          >
-            Create User
-          </SubmitButton>
-        </form>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-xl font-semibold">Users</h2>
-        {users.length ? (
-          users.map((u) => (
-            <div
-              key={u.id}
-              className="rounded border border-zinc-800 p-3 space-y-2"
+      <section className={panelClass}>
+        <div className={panelHeaderClass}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-stone-100">
+                Scryfall service
+              </h2>
+              <p className="text-sm text-stone-400">
+                Live lookups use the shared throttled server-side client.
+              </p>
+            </div>
+            <form
+              action={async () => {
+                "use server";
+                await requireAdminMode();
+                const result = await getExactCardByNameResult("Sol Ring");
+                if (!result.ok)
+                  throw new Error(formatScryfallError(result.error));
+                revalidatePath("/admin");
+              }}
             >
-              <form
-                action={async (fd) => {
-                  "use server";
-                  await requireAdminMode();
-                  const displayName = String(
-                    fd.get("displayName") || fd.get("username"),
-                  ).trim();
-                  const playerId = await ensureOwnerForUser(
-                    displayName,
-                    u.playerId,
-                  );
-                  await prisma.user.update({
-                    where: { id: u.id },
-                    data: {
-                      username: String(fd.get("username")).trim(),
-                      email:
+              <SubmitButton
+                pendingLabel="Testing Scryfall..."
+                className={primaryButtonClass}
+              >
+                Test Connection
+              </SubmitButton>
+            </form>
+          </div>
+        </div>
+        <dl className="grid gap-3 p-4 text-sm md:grid-cols-3">
+          {[
+            ["API base URL", scryfallStatus.apiBaseUrl],
+            [
+              "Throttle interval",
+              `${scryfallStatus.minRequestIntervalMs} ms/request/process`,
+            ],
+            ["Cached printings", cachedPrintings],
+            ["Never checked", dueForRefresh],
+            [
+              "Last successful request",
+              scryfallStatus.lastSuccessfulRequestAt?.toISOString() ??
+                "None in this process",
+            ],
+            [
+              "Recent error",
+              scryfallStatus.recentErrorKind ?? "None in this process",
+            ],
+            ["Bulk data path", scryfallStatus.bulkDataPath],
+          ].map(([label, value]) => (
+            <div
+              key={String(label)}
+              className="rounded-md border border-[#2a332d] bg-[#0d1210] p-3"
+            >
+              <dt className="text-xs uppercase tracking-wide text-stone-500">
+                {label}
+              </dt>
+              <dd className="mt-1 break-words text-stone-100">
+                {String(value)}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      <section className={panelClass}>
+        <details>
+          <summary className={`${panelHeaderClass} cursor-pointer list-none`}>
+            <span className="flex flex-wrap items-center justify-between gap-3">
+              <span>
+                <span className="block text-lg font-semibold text-stone-100">
+                  Create user
+                </span>
+                <span className="block text-sm text-stone-400">
+                  Add a local login and automatically link an inventory owner.
+                </span>
+              </span>
+              <span className={buttonClass}>New User</span>
+            </span>
+          </summary>
+          <form
+            action={async (fd) => {
+              "use server";
+              await requireAdminMode();
+              const password = String(fd.get("password") || "");
+              const confirm = String(fd.get("confirmPassword") || "");
+              if (password !== confirm)
+                throw new Error("Temporary passwords must match.");
+              const username = String(fd.get("username")).trim();
+              if (!username) throw new Error("Username is required.");
+              const email =
+                String(fd.get("email") || "")
+                  .trim()
+                  .toLowerCase() || null;
+              const duplicateFilters: Prisma.UserWhereInput[] = [
+                { username: { equals: username, mode: "insensitive" } },
+              ];
+              if (email) {
+                duplicateFilters.push({
+                  email: { equals: email, mode: "insensitive" },
+                });
+              }
+              const duplicateUser = await prisma.user.findFirst({
+                where: {
+                  OR: duplicateFilters,
+                },
+              });
+              if (duplicateUser) {
+                throw new Error(
+                  "A user with that username or email already exists.",
+                );
+              }
+              const displayName = String(
+                fd.get("displayName") || username,
+              ).trim();
+              const passwordHash = await hashPassword(password);
+              const playerId = await ensureOwnerForUser(displayName);
+              await prisma.user.create({
+                data: {
+                  username,
+                  email,
+                  displayName,
+                  passwordHash,
+                  role:
+                    String(fd.get("role")) === "ADMIN"
+                      ? UserRole.ADMIN
+                      : UserRole.PLAYER,
+                  playerId,
+                  forcePasswordChange: fd.get("forcePasswordChange") === "on",
+                  isActive: fd.get("isActive") === "on",
+                },
+              });
+              await refresh();
+            }}
+            className="grid gap-3 p-4 md:grid-cols-4"
+          >
+            <input
+              name="username"
+              required
+              placeholder="Username"
+              className={inputClass}
+            />
+            <input
+              name="email"
+              placeholder="Email optional"
+              className={inputClass}
+            />
+            <input
+              name="displayName"
+              placeholder="Display name"
+              className={inputClass}
+            />
+            <select name="role" defaultValue="PLAYER" className={selectClass}>
+              <option value="PLAYER">User</option>
+              <option value="ADMIN">Admin</option>
+            </select>
+            <input
+              name="password"
+              type="password"
+              required
+              minLength={8}
+              placeholder="Temporary password"
+              className={inputClass}
+            />
+            <input
+              name="confirmPassword"
+              type="password"
+              required
+              minLength={8}
+              placeholder="Confirm password"
+              className={inputClass}
+            />
+            <label className="flex items-center gap-2 rounded-md border border-[#2a332d] bg-[#0d1210] px-3 py-2 text-sm text-stone-300">
+              <input
+                type="checkbox"
+                name="forcePasswordChange"
+                defaultChecked
+              />{" "}
+              force password change
+            </label>
+            <label className="flex items-center gap-2 rounded-md border border-[#2a332d] bg-[#0d1210] px-3 py-2 text-sm text-stone-300">
+              <input type="checkbox" name="isActive" defaultChecked /> active
+            </label>
+            <SubmitButton
+              pendingLabel="Creating user…"
+              className={`${primaryButtonClass} md:col-span-4`}
+            >
+              Create User
+            </SubmitButton>
+          </form>
+        </details>
+      </section>
+
+      <section className={panelClass}>
+        <div className={panelHeaderClass}>
+          <h2 className="text-lg font-semibold text-stone-100">Users</h2>
+          <p className="text-sm text-stone-400">
+            Review account status, ownership links, and password actions.
+          </p>
+        </div>
+        <div className="divide-y divide-[#2a332d]">
+          {users.length ? (
+            users.map((u) => (
+              <div key={u.id} className="space-y-3 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-base font-semibold text-stone-100">
+                        {u.displayName}
+                      </h3>
+                      <span className="rounded-full border border-[#364139] px-2 py-0.5 text-xs text-stone-300">
+                        @{u.username}
+                      </span>
+                      <span className="rounded-full border border-cyan-900 bg-cyan-950/25 px-2 py-0.5 text-xs text-cyan-100">
+                        {u.role === UserRole.ADMIN ? "Admin" : "User"}
+                      </span>
+                      <span
+                        className={
+                          u.isActive
+                            ? "rounded-full border border-emerald-900 bg-emerald-950/25 px-2 py-0.5 text-xs text-emerald-100"
+                            : "rounded-full border border-red-900 bg-red-950/25 px-2 py-0.5 text-xs text-red-100"
+                        }
+                      >
+                        {u.isActive ? "Active" : "Inactive"}
+                      </span>
+                      {u.forcePasswordChange ? (
+                        <span className="rounded-full border border-amber-900 bg-amber-950/25 px-2 py-0.5 text-xs text-amber-100">
+                          Password reset required
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 text-xs text-stone-500">
+                      {u.email ?? "No email"} · Owner:{" "}
+                      {u.player?.displayName ?? "created on save"}
+                    </p>
+                  </div>
+                </div>
+                <details>
+                  <summary
+                    className={`${buttonClass} inline-flex cursor-pointer list-none`}
+                  >
+                    Account
+                  </summary>
+                  <form
+                    action={async (fd) => {
+                      "use server";
+                      await requireAdminMode();
+                      const displayName = String(
+                        fd.get("displayName") || fd.get("username"),
+                      ).trim();
+                      const username = String(fd.get("username")).trim();
+                      if (!username) throw new Error("Username is required.");
+                      const email =
                         String(fd.get("email") || "")
                           .trim()
-                          .toLowerCase() || null,
-                      displayName,
-                      role:
-                        String(fd.get("role")) === "ADMIN"
-                          ? UserRole.ADMIN
-                          : UserRole.PLAYER,
-                      playerId,
-                      forcePasswordChange:
-                        fd.get("forcePasswordChange") === "on",
-                      isActive: fd.get("isActive") === "on",
-                    },
-                  });
-                  await prisma.player.update({
-                    where: { id: playerId },
-                    data: { displayName, active: fd.get("isActive") === "on" },
-                  });
-                  await refresh();
-                }}
-                className="grid gap-2 md:grid-cols-6"
-              >
-                <input
-                  name="username"
-                  defaultValue={u.username}
-                  className="border p-2 bg-zinc-900"
-                />
-                <input
-                  name="email"
-                  defaultValue={u.email ?? ""}
-                  className="border p-2 bg-zinc-900"
-                />
-                <input
-                  name="displayName"
-                  defaultValue={u.displayName}
-                  className="border p-2 bg-zinc-900"
-                />
-                <select
-                  name="role"
-                  defaultValue={u.role}
-                  className="border p-2 bg-zinc-900"
-                >
-                  <option value="PLAYER">User</option>
-                  <option value="ADMIN">Admin</option>
-                </select>
-                <div className="flex gap-3">
-                  <label>
+                          .toLowerCase() || null;
+                      const duplicateFilters: Prisma.UserWhereInput[] = [
+                        { username: { equals: username, mode: "insensitive" } },
+                      ];
+                      if (email) {
+                        duplicateFilters.push({
+                          email: { equals: email, mode: "insensitive" },
+                        });
+                      }
+                      const duplicateUser = await prisma.user.findFirst({
+                        where: {
+                          id: { not: u.id },
+                          OR: duplicateFilters,
+                        },
+                      });
+                      if (duplicateUser) {
+                        throw new Error(
+                          "A user with that username or email already exists.",
+                        );
+                      }
+                      const playerId = await ensureOwnerForUser(
+                        displayName,
+                        u.playerId,
+                      );
+                      await prisma.user.update({
+                        where: { id: u.id },
+                        data: {
+                          username,
+                          email,
+                          displayName,
+                          role:
+                            String(fd.get("role")) === "ADMIN"
+                              ? UserRole.ADMIN
+                              : UserRole.PLAYER,
+                          playerId,
+                          forcePasswordChange:
+                            fd.get("forcePasswordChange") === "on",
+                          isActive: fd.get("isActive") === "on",
+                        },
+                      });
+                      await prisma.player.update({
+                        where: { id: playerId },
+                        data: {
+                          displayName,
+                          active: fd.get("isActive") === "on",
+                        },
+                      });
+                      await refresh();
+                    }}
+                    className="mt-3 grid gap-3 md:grid-cols-6"
+                  >
                     <input
-                      type="checkbox"
-                      name="isActive"
-                      defaultChecked={u.isActive}
-                    />{" "}
-                    active
-                  </label>
-                  <label>
+                      name="username"
+                      defaultValue={u.username}
+                      className={inputClass}
+                    />
                     <input
-                      type="checkbox"
-                      name="forcePasswordChange"
-                      defaultChecked={u.forcePasswordChange}
-                    />{" "}
-                    force
-                  </label>
-                </div>
-                <div className="text-xs text-zinc-500">
-                  Owner: {u.player?.displayName ?? "will be created on save"}
-                </div>
-                <SubmitButton
-                  pendingLabel="Saving user…"
-                  className="border px-3 py-2 md:col-span-6"
-                >
-                  Save User
-                </SubmitButton>
-              </form>
-              <form
-                action={async (fd) => {
-                  "use server";
-                  await requireAdminMode();
-                  const password = String(fd.get("password") || "");
-                  const confirm = String(fd.get("confirmPassword") || "");
-                  if (password !== confirm)
-                    throw new Error("Passwords must match.");
-                  const passwordHash = await hashPassword(password);
-                  await prisma.user.update({
-                    where: { id: u.id },
-                    data: {
-                      passwordHash,
-                      forcePasswordChange:
-                        fd.get("forcePasswordChange") === "on",
-                    },
-                  });
-                  await refresh();
-                }}
-                className="flex flex-wrap gap-2 items-center text-sm"
-              >
-                <span className="text-zinc-400">
-                  Reset password for {u.username}
-                </span>
-                <input
-                  name="password"
-                  type="password"
-                  minLength={8}
-                  required
-                  placeholder="new temporary password"
-                  className="border p-2 bg-zinc-900"
-                />
-                <input
-                  name="confirmPassword"
-                  type="password"
-                  minLength={8}
-                  required
-                  placeholder="confirm password"
-                  className="border p-2 bg-zinc-900"
-                />
-                <label>
-                  <input
-                    type="checkbox"
-                    name="forcePasswordChange"
-                    defaultChecked
-                  />{" "}
-                  force change
-                </label>
-                <SubmitButton
-                  pendingLabel="Resetting…"
-                  className="border px-3 py-2"
-                >
-                  Reset Password
-                </SubmitButton>
-              </form>
-            </div>
-          ))
-        ) : (
-          <p className="text-sm text-zinc-400">No users yet.</p>
-        )}
+                      name="email"
+                      defaultValue={u.email ?? ""}
+                      className={inputClass}
+                    />
+                    <input
+                      name="displayName"
+                      defaultValue={u.displayName}
+                      className={inputClass}
+                    />
+                    <select
+                      name="role"
+                      defaultValue={u.role}
+                      className={selectClass}
+                    >
+                      <option value="PLAYER">User</option>
+                      <option value="ADMIN">Admin</option>
+                    </select>
+                    <div className="flex gap-3 rounded-md border border-[#2a332d] bg-[#0d1210] px-3 py-2 text-sm text-stone-300">
+                      <label className="flex items-center gap-1">
+                        <input
+                          type="checkbox"
+                          name="isActive"
+                          defaultChecked={u.isActive}
+                        />{" "}
+                        active
+                      </label>
+                      <label className="flex items-center gap-1">
+                        <input
+                          type="checkbox"
+                          name="forcePasswordChange"
+                          defaultChecked={u.forcePasswordChange}
+                        />{" "}
+                        force
+                      </label>
+                    </div>
+                    <div className="rounded-md border border-[#2a332d] bg-[#0d1210] px-3 py-2 text-xs text-stone-500">
+                      Owner:{" "}
+                      {u.player?.displayName ?? "will be created on save"}
+                    </div>
+                    <SubmitButton
+                      pendingLabel="Saving user…"
+                      className={`${primaryButtonClass} md:col-span-6`}
+                    >
+                      Save User
+                    </SubmitButton>
+                  </form>
+                </details>
+                <details>
+                  <summary
+                    className={`${buttonClass} inline-flex cursor-pointer list-none`}
+                  >
+                    Reset Password
+                  </summary>
+                  <form
+                    action={async (fd) => {
+                      "use server";
+                      await requireAdminMode();
+                      const password = String(fd.get("password") || "");
+                      const confirm = String(fd.get("confirmPassword") || "");
+                      if (password !== confirm)
+                        throw new Error("Passwords must match.");
+                      const passwordHash = await hashPassword(password);
+                      await prisma.user.update({
+                        where: { id: u.id },
+                        data: {
+                          passwordHash,
+                          forcePasswordChange:
+                            fd.get("forcePasswordChange") === "on",
+                        },
+                      });
+                      await refresh();
+                    }}
+                    className="mt-3 flex flex-wrap items-center gap-2 text-sm"
+                  >
+                    <span className="text-stone-400">
+                      Reset password for {u.username}
+                    </span>
+                    <input
+                      name="password"
+                      type="password"
+                      minLength={8}
+                      required
+                      placeholder="New temporary password"
+                      className={inputClass}
+                    />
+                    <input
+                      name="confirmPassword"
+                      type="password"
+                      minLength={8}
+                      required
+                      placeholder="Confirm password"
+                      className={inputClass}
+                    />
+                    <label className="flex items-center gap-1 rounded-md border border-[#2a332d] bg-[#0d1210] px-3 py-2 text-stone-300">
+                      <input
+                        type="checkbox"
+                        name="forcePasswordChange"
+                        defaultChecked
+                      />{" "}
+                      force change
+                    </label>
+                    <SubmitButton
+                      pendingLabel="Resetting…"
+                      className={primaryButtonClass}
+                    >
+                      Reset Password
+                    </SubmitButton>
+                  </form>
+                </details>
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-zinc-400">No users yet.</p>
+          )}
+        </div>
       </section>
     </main>
   );

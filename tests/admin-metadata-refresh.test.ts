@@ -14,7 +14,7 @@ const refreshRoute = readFileSync(
 test("admin metadata page is protected and linked from admin", () => {
   assert.match(adminMetadataPage, /await requireAdminMode\(\)/);
   assert.match(adminMetadataPage, /<AdminMetadataRefreshPanel \/>/);
-  assert.match(adminPage, /href="\/admin\/metadata"/);
+  assert.match(adminPage, /\["Metadata", "\/admin\/metadata"\]/);
 });
 
 test("metadata refresh route requires admin mode", () => {

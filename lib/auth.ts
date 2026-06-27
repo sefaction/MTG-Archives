@@ -31,7 +31,8 @@ export function isAdminUser(
 ) {
   return (
     user?.role === UserRole.ADMIN ||
-    user?.username === (process.env.ADMIN_USERNAME || "admin") ||
+    user?.username.toLowerCase() ===
+      (process.env.ADMIN_USERNAME || "admin").toLowerCase() ||
     Boolean(player?.isAdmin)
   );
 }
@@ -120,8 +121,8 @@ export async function login(identifier: string, password: string) {
   const user = await prisma.user.findFirst({
     where: {
       OR: [
-        { username: cleanIdentifier },
-        { email: cleanIdentifier.toLowerCase() },
+        { username: { equals: cleanIdentifier, mode: "insensitive" } },
+        { email: { equals: cleanIdentifier, mode: "insensitive" } },
       ],
     },
   });

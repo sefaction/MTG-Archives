@@ -85,6 +85,8 @@ test("deck row editor renders individual return controls wired to returnDeckCard
 test("deck bulk tools include selected committed inventory return workflow", () => {
   assert.match(source, /function returnSelectedCommitted/);
   assert.match(source, /\/api\/decks\/\$\{deckId\}\/return-committed/);
+  assert.match(source, /actionControls\?: ReactNode/);
+  assert.match(source, /<summary[\s\S]*?>[\s\S]*Selection/);
   assert.match(source, /Return selected committed cards/);
   assert.match(source, /destinationLocationId: returnDestinationId/);
   assert.match(
@@ -130,6 +132,9 @@ test("deck builder defaults to compact multi-column text view", () => {
 
 test("deck row drawer separates inventory and commit details into tabs", () => {
   assert.match(source, /function commitmentBadge/);
+  assert.match(source, /function isFullyCommitted/);
+  assert.match(source, /function listStatusBadges/);
+  assert.match(source, /function listOwnershipBadge/);
   assert.match(source, /role="tablist"/);
   assert.match(source, /Overview/);
   assert.match(source, /Inventory/);

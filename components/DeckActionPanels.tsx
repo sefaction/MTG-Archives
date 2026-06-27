@@ -8,11 +8,7 @@ import {
 } from "@/components/filterStyles";
 
 type DeckActionPanelId =
-  | "add-card"
-  | "paste-decklist"
-  | "return-committed"
-  | "settings"
-  | "delete";
+  "add-card" | "paste-decklist" | "return-committed" | "settings" | "delete";
 
 type DeckActionItem = {
   id: DeckActionPanelId;
@@ -96,33 +92,42 @@ export function DeckActionPanels({
               : null;
 
   return (
-    <section className="app-panel p-2" aria-label="Deck action toolbar">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="px-1 text-xs font-semibold uppercase tracking-wide text-amber-200">
-          Actions
-        </span>
-        {actions.map((action) => (
-          <ActionButton
-            key={action.id}
-            active={activePanel === action.id}
-            onClick={() => setActivePanel(action.id)}
-            disabled={action.disabled}
-            primary={action.primary}
-            danger={action.danger}
-          >
-            {action.label}
-          </ActionButton>
-        ))}
-        <a href="#bulk-edit" className={filterButtonClass}>
-          Bulk edit
-        </a>
-        <a
-          href="#bulk-edit"
-          className="rounded-md border border-emerald-700 bg-emerald-950/20 px-3 py-2 text-sm text-emerald-100 hover:border-emerald-500"
+    <div className="relative" aria-label="Deck action toolbar">
+      <details className="group relative">
+        <summary
+          className={cn(
+            filterPrimaryButtonClass,
+            "list-none cursor-pointer px-3 py-1.5 text-sm marker:hidden",
+          )}
         >
-          Optimize printings
-        </a>
-      </div>
+          Actions
+        </summary>
+        <div className="absolute left-0 top-full z-30 mt-2 w-64 rounded-lg border border-[#364139] bg-[#101614] p-2 shadow-xl shadow-black/40">
+          <div className="grid gap-1">
+            {actions.map((action) => (
+              <ActionButton
+                key={action.id}
+                active={activePanel === action.id}
+                onClick={() => setActivePanel(action.id)}
+                disabled={action.disabled}
+                primary={action.primary}
+                danger={action.danger}
+              >
+                {action.label}
+              </ActionButton>
+            ))}
+            <a href="#bulk-edit" className={cn(filterButtonClass, "text-left")}>
+              Bulk edit
+            </a>
+            <a
+              href="#bulk-edit"
+              className="rounded-md border border-emerald-700 bg-emerald-950/20 px-3 py-2 text-sm text-emerald-100 hover:border-emerald-500"
+            >
+              Optimize printings
+            </a>
+          </div>
+        </div>
+      </details>
 
       {activePanel && activeAction ? (
         <div className="fixed inset-0 z-40" role="dialog" aria-modal="true">
@@ -200,13 +205,8 @@ export function DeckActionPanels({
             </div>
           </aside>
         </div>
-      ) : (
-        <p className="mt-1 text-xs text-zinc-500">
-          Open one compact action drawer when needed; the deck list stays
-          visible below.
-        </p>
-      )}
-    </section>
+      ) : null}
+    </div>
   );
 }
 
@@ -231,7 +231,7 @@ function ActionButton({
       disabled={disabled}
       className={cn(
         primary ? filterPrimaryButtonClass : filterButtonClass,
-        "px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500",
+        "w-full px-2.5 py-1.5 text-left text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500",
         danger && "border-red-900 text-red-200 hover:bg-red-950/40",
         active && "border-cyan-500 bg-cyan-950/40 text-cyan-100",
         disabled && "cursor-not-allowed opacity-50",
