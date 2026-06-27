@@ -103,7 +103,12 @@ test("deck list rows stay compact and delegate details to a responsive drawer", 
   assert.match(source, /Deck entry details/);
   assert.match(source, /<RowEditor[\s\S]*returnLocations=\{returnLocations\}/);
   assert.match(source, /<th className="px-2 py-1\.5">Qty<\/th>/);
-  assert.match(source, /<th className="px-2 py-1\.5">MV \/ Mana<\/th>/);
+  assert.match(source, /<th className="px-2 py-1\.5">Mana<\/th>/);
+  assert.match(source, /<th className="px-2 py-1\.5">Type<\/th>/);
+  assert.match(source, /<th className="px-2 py-1\.5">Owned<\/th>/);
+  assert.match(source, /<th className="px-2 py-1\.5">Commit<\/th>/);
+  assert.match(source, /<th className="px-2 py-1\.5">Price<\/th>/);
+  assert.match(source, /function ownedStatusBadge/);
   assert.match(source, /<th className="px-2 py-1\.5">Section<\/th>/);
   const textRow = source.slice(
     source.indexOf("function TextDeckRow"),
@@ -111,6 +116,16 @@ test("deck list rows stay compact and delegate details to a responsive drawer", 
   );
   assert.doesNotMatch(textRow, /Use owned printing/);
   assert.doesNotMatch(textRow, /Use cheapest printing/);
+});
+
+test("deck builder defaults to compact multi-column text view", () => {
+  assert.match(source, /useState<DeckViewMode>\("compact"\)/);
+  assert.match(source, /function CompactDeckView/);
+  assert.match(source, /md:columns-2/);
+  assert.match(source, /xl:columns-3/);
+  assert.match(source, /2xl:columns-4/);
+  assert.match(source, /label: "Compact text"/);
+  assert.match(source, /label: "Detailed table"/);
 });
 
 test("deck row drawer separates inventory and commit details into tabs", () => {

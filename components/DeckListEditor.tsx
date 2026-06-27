@@ -101,7 +101,8 @@ export type DeckEditorRow = {
 };
 
 const viewModes: Array<{ value: DeckViewMode; label: string }> = [
-  { value: "text", label: "Text" },
+  { value: "compact", label: "Compact text" },
+  { value: "text", label: "Detailed table" },
   { value: "grid", label: "Visual grid" },
   { value: "spoiler", label: "Visual spoiler" },
 ];
@@ -215,6 +216,31 @@ function commitmentBadge(row: DeckEditorRow) {
   );
 }
 
+function ownedStatusBadge(row: DeckEditorRow) {
+  const status = ownershipStatus(row);
+  const color =
+    status === "Owned exact"
+      ? "border-emerald-700 bg-emerald-950/40 text-emerald-100"
+      : status === "Basic land"
+        ? "border-[#4a584d] bg-[#151c18] text-stone-100"
+        : status === "Owned other printing"
+          ? "border-cyan-700 bg-cyan-950/40 text-cyan-100"
+          : status === "Partial"
+            ? "border-amber-700 bg-amber-950/40 text-amber-100"
+            : "border-red-800 bg-red-950/30 text-red-100";
+
+  return (
+    <span
+      className={cn(
+        "inline-flex whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium",
+        color,
+      )}
+    >
+      {status}
+    </span>
+  );
+}
+
 function InventoryBreakdown({
   row,
   showPrivateInventory,
@@ -305,7 +331,7 @@ export function DeckListEditor({
   showPrivateInventory?: boolean;
   returnLocations?: DeckReturnLocation[];
 }) {
-  const [viewMode, setViewMode] = useState<DeckViewMode>("text");
+  const [viewMode, setViewMode] = useState<DeckViewMode>("compact");
   const [groupMode, setGroupMode] = useState<DeckGroupMode>(defaultGroupMode);
   const [sortMode, setSortMode] = useState<DeckSortMode>("name");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -337,6 +363,16 @@ export function DeckListEditor({
     0,
   );
   const selectedCommittedQuantity = selectedRows.reduce(
+    (total, row) => total + row.committedQuantity,
+    0,
+  );
+  const totalQuantity = rows.reduce((total, row) => total + row.quantity, 0);
+  const exactOwnedQuantity = rows.reduce(
+    (total, row) => total + Math.min(row.quantity, row.exactOwned),
+    0,
+  );
+  const missingQuantity = rows.reduce((total, row) => total + row.missing, 0);
+  const committedQuantity = rows.reduce(
     (total, row) => total + row.committedQuantity,
     0,
   );
@@ -584,8 +620,11 @@ export function DeckListEditor({
   }
   return (
     <section className="space-y-4" id="deck-workspace">
-      <div className="rounded border border-zinc-800 bg-zinc-950/80 p-3">
+      <div className="app-panel p-2">
         <div className="flex flex-wrap items-end gap-3">
+          <div className="pb-2 text-xs font-semibold uppercase tracking-wide text-amber-200">
+            Builder
+          </div>
           <label className={filterFieldClass}>
             View
             <select
@@ -634,7 +673,7 @@ export function DeckListEditor({
               ))}
             </select>
           </label>
-          <div className="text-sm text-zinc-400">
+          <div className="pb-2 text-sm text-stone-400">
             {rows.reduce((total, row) => total + row.quantity, 0)} cards ·{" "}
             {rows.length} rows · data preserved while switching views
           </div>
@@ -643,45 +682,47 @@ export function DeckListEditor({
 
       {canEdit ? (
         <div
-          className="sticky top-0 z-10 space-y-3 rounded border border-zinc-800 bg-zinc-950/95 p-3 backdrop-blur"
+          className="sticky top-0 z-10 space-y-2 rounded-lg border border-[#2a332d] bg-[#101614]/95 p-2 shadow-lg shadow-black/25 backdrop-blur"
           id="bulk-edit"
         >
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="font-semibold">Bulk tools</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-amber-200">
+              Selection
+            </span>
             <button
               type="button"
-              className="rounded border border-zinc-700 px-2 py-1"
+              className={cn(filterButtonClass, "px-2 py-1")}
               onClick={() => selectIds(currentGroupRows.map((row) => row.id))}
             >
               Select all in current view
             </button>
             <button
               type="button"
-              className="rounded border border-zinc-700 px-2 py-1"
+              className={cn(filterButtonClass, "px-2 py-1")}
               onClick={() => selectIds(missingIds)}
             >
               Select all missing
             </button>
             <button
               type="button"
-              className="rounded border border-zinc-700 px-2 py-1"
+              className={cn(filterButtonClass, "px-2 py-1")}
               onClick={() => selectIds(unownedExactIds)}
             >
               Select all unowned exact printings
             </button>
             <button
               type="button"
-              className="rounded border border-zinc-700 px-2 py-1"
+              className={cn(filterButtonClass, "px-2 py-1")}
               onClick={() => selectIds([])}
             >
               Clear selection
             </button>
-            <label className="flex items-center gap-1 text-xs text-zinc-300">
+            <label className="flex items-center gap-1 text-xs text-stone-300">
               Return destination
               <select
                 value={returnDestinationId}
                 onChange={(event) => setReturnDestinationId(event.target.value)}
-                className="border bg-zinc-900 p-1"
+                className={filterSelectClass}
               >
                 <option value="">Choose…</option>
                 {returnLocations.map((location) => (
@@ -704,7 +745,7 @@ export function DeckListEditor({
             </button>
             <button
               type="button"
-              className="rounded border border-sky-700 px-2 py-1 text-sky-100"
+              className={cn(filterButtonClass, "px-2 py-1 text-cyan-100")}
               disabled={Boolean(pending)}
               onClick={() => loadPreview("cheapest", missingIds)}
             >
@@ -712,9 +753,9 @@ export function DeckListEditor({
             </button>
           </div>
           {selectedRows.length ? (
-            <div className="flex flex-wrap items-center gap-2 rounded border border-sky-900 bg-sky-950/30 p-2 text-sm">
+            <div className="flex flex-wrap items-center gap-2 rounded-md border border-cyan-900 bg-cyan-950/20 p-2 text-sm">
               <strong>{selectedRows.length} rows selected</strong>
-              <span className="text-zinc-300">
+              <span className="text-stone-300">
                 {selectedQuantity} deck-list cards · {selectedCommittedQuantity}{" "}
                 physically committed
               </span>
@@ -731,7 +772,7 @@ export function DeckListEditor({
               </button>
               <button
                 type="button"
-                className="rounded border border-sky-700 px-2 py-1 text-sky-100"
+                className={cn(filterButtonClass, "px-2 py-1 text-cyan-100")}
                 disabled={Boolean(pending)}
                 onClick={() => loadPreview("cheapest", [...selected])}
               >
@@ -742,7 +783,7 @@ export function DeckListEditor({
                 onChange={(event) =>
                   setMoveSection(event.target.value as DeckSection)
                 }
-                className="border bg-zinc-900 p-1"
+                className={filterSelectClass}
               >
                 {sections.map((section) => (
                   <option key={section} value={section}>
@@ -752,7 +793,7 @@ export function DeckListEditor({
               </select>
               <button
                 type="button"
-                className="rounded border border-amber-700 px-2 py-1 text-amber-100"
+                className={cn(filterButtonClass, "px-2 py-1 text-amber-100")}
                 disabled={Boolean(pending) || selectedCommittedQuantity === 0}
                 onClick={returnSelectedCommitted}
               >
@@ -760,7 +801,7 @@ export function DeckListEditor({
               </button>
               <button
                 type="button"
-                className="rounded border border-zinc-700 px-2 py-1"
+                className={cn(filterButtonClass, "px-2 py-1")}
                 disabled={Boolean(pending)}
                 onClick={bulkMove}
               >
@@ -768,7 +809,7 @@ export function DeckListEditor({
               </button>
               <button
                 type="button"
-                className="rounded border border-red-800 px-2 py-1 text-red-200"
+                className="rounded-md border border-red-800 bg-red-950/30 px-2 py-1 text-red-100 hover:border-red-600"
                 disabled={Boolean(pending)}
                 onClick={bulkRemove}
               >
@@ -776,14 +817,14 @@ export function DeckListEditor({
               </button>
             </div>
           ) : null}
-          <p className="text-sm text-zinc-400" aria-live="polite">
+          <p className="text-sm text-stone-400" aria-live="polite">
             {pending ||
               message ||
               "Select cards to move, remove, or preview printing optimization without changing inventory."}
           </p>
         </div>
       ) : (
-        <p className="rounded border border-zinc-800 p-3 text-sm text-zinc-400">
+        <p className="app-panel p-3 text-sm text-stone-400">
           Read-only deck view. You can change view, grouping, sorting, and open
           card details; editing and inventory locations are hidden.
         </p>
@@ -800,7 +841,22 @@ export function DeckListEditor({
         />
       ) : null}
 
-      {viewMode === "text" ? (
+      {viewMode === "compact" ? (
+        <CompactDeckView
+          deckId={deckId}
+          groups={groups}
+          sections={sections}
+          canEdit={canEdit}
+          selected={selected}
+          expanded={expanded}
+          setExpanded={setExpanded}
+          toggleSelected={toggleSelected}
+          previewOwned={(rowId) => loadPreview("owned", [rowId])}
+          previewCheapest={(rowId) => loadPreview("cheapest", [rowId])}
+          showPrivateInventory={showPrivateInventory}
+          returnLocations={returnLocations}
+        />
+      ) : viewMode === "text" ? (
         <TextDeckView
           deckId={deckId}
           groups={groups}
@@ -854,7 +910,7 @@ export function DeckListEditor({
   );
 }
 
-function TextDeckView(props: {
+type DeckViewProps = {
   deckId: string;
   groups: Array<{ label: string; rows: DeckEditorRow[]; quantity: number }>;
   sections: DeckSection[];
@@ -867,11 +923,133 @@ function TextDeckView(props: {
   previewCheapest: (rowId: string) => void;
   showPrivateInventory: boolean;
   returnLocations: DeckReturnLocation[];
+};
+
+function CompactDeckView(props: DeckViewProps) {
+  return (
+    <div className="columns-1 gap-3 [column-fill:_balance] md:columns-2 xl:columns-3 2xl:columns-4">
+      {props.groups.map((group) => (
+        <section
+          key={group.label}
+          className="mb-3 inline-block w-full break-inside-avoid rounded-md border border-[#2a332d] bg-[#101614]"
+        >
+          <CompactGroupHeader
+            label={group.label}
+            rows={group.rows}
+            quantity={group.quantity}
+          />
+          <div className="divide-y divide-[#222a25]">
+            {group.rows.map((row) => (
+              <CompactDeckRow key={row.id} row={row} {...props} />
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function CompactDeckRow({
+  row,
+  ...props
+}: { row: DeckEditorRow } & DeckViewProps) {
+  const expanded = props.expanded === row.id;
+  const ownedStatus = ownershipStatus(row);
+  const ownedTone =
+    ownedStatus === "Owned exact" || ownedStatus === "Basic land"
+      ? "bg-emerald-500"
+      : ownedStatus === "Owned other printing"
+        ? "bg-cyan-400"
+        : ownedStatus === "Partial"
+          ? "bg-amber-400"
+          : "bg-red-500";
+  const committed =
+    row.commitmentMissing <= 0 || row.committedToThisDeck >= row.quantity;
+  return (
+    <div
+      className={cn(
+        "grid grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-1 px-2 py-1 text-xs hover:bg-emerald-950/20",
+        expanded && "bg-cyan-950/20",
+      )}
+    >
+      {props.canEdit ? (
+        <input
+          aria-label={`Select ${row.cardName}`}
+          type="checkbox"
+          checked={props.selected.has(row.id)}
+          onChange={(event) =>
+            props.toggleSelected(row.id, event.target.checked)
+          }
+        />
+      ) : (
+        <span className="h-3 w-3" />
+      )}
+      <span className="w-5 text-right font-semibold text-stone-100">
+        {row.quantity}
+      </span>
+      <button
+        type="button"
+        className="min-w-0 truncate text-left font-medium text-cyan-100 hover:text-amber-100 hover:underline"
+        onClick={() => props.setExpanded(row.id)}
+        title={row.cardName}
+      >
+        {row.cardName}
+      </button>
+      <div className="flex items-center gap-1">
+        <span
+          className={cn("h-2 w-2 rounded-full", ownedTone)}
+          title={ownedStatus}
+        />
+        <span
+          className={cn(
+            "h-2 w-2 rounded-full",
+            committed ? "bg-amber-300" : "bg-red-500",
+          )}
+          title={committed ? "Committed" : "Not fully committed"}
+        />
+        <button
+          type="button"
+          className="rounded px-1 text-[11px] text-stone-400 hover:bg-[#1b241f] hover:text-cyan-100"
+          onClick={() => props.setExpanded(row.id)}
+          aria-label={`Open details for ${row.cardName}`}
+        >
+          ...
+        </button>
+      </div>
+      <div className="col-start-3 flex min-w-0 items-center gap-1 text-[11px] text-stone-500">
+        <span>MV {cardManaValue(row)}</span>
+        <ManaCost value={row.card?.manaCost ?? null} />
+      </div>
+    </div>
+  );
+}
+
+function CompactGroupHeader({
+  label,
+  rows,
+  quantity,
+}: {
+  label: string;
+  rows: DeckEditorRow[];
+  quantity: number;
 }) {
+  return (
+    <div className="flex items-center justify-between gap-2 border-b border-[#2a332d] bg-[#121915] px-2 py-1">
+      <h2 className="truncate text-sm font-semibold text-stone-100">
+        {label}
+      </h2>
+      <span className="whitespace-nowrap text-xs text-stone-400">
+        {quantity} / {rows.length}
+      </span>
+    </div>
+  );
+}
+
+function TextDeckView(props: DeckViewProps) {
   return (
     <div className="space-y-3">
       {props.groups.map((group) => (
-        <section key={group.label} className="rounded border border-zinc-800">
+        <section key={group.label} className="app-panel overflow-hidden">
           <GroupHeader
             label={group.label}
             rows={group.rows}
@@ -879,16 +1057,19 @@ function TextDeckView(props: {
           />
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="text-left text-zinc-300">
+              <thead className="text-left text-stone-300">
                 <tr>
                   {props.canEdit ? (
                     <th className="px-2 py-1.5">Select</th>
                   ) : null}
                   <th className="px-2 py-1.5">Qty</th>
                   <th className="px-2 py-1.5">Card</th>
-                  <th className="px-2 py-1.5">MV / Mana</th>
+                  <th className="px-2 py-1.5">Mana</th>
+                  <th className="px-2 py-1.5">Type</th>
                   <th className="px-2 py-1.5">Section</th>
-                  <th className="px-2 py-1.5">Inventory</th>
+                  <th className="px-2 py-1.5">Owned</th>
+                  <th className="px-2 py-1.5">Commit</th>
+                  <th className="px-2 py-1.5">Price</th>
                   <th className="px-2 py-1.5">
                     <span className="sr-only">Actions</span>
                   </th>
@@ -907,16 +1088,13 @@ function TextDeckView(props: {
   );
 }
 
-function TextDeckRow({
-  row,
-  ...props
-}: { row: DeckEditorRow } & Parameters<typeof TextDeckView>[0]) {
+function TextDeckRow({ row, ...props }: { row: DeckEditorRow } & DeckViewProps) {
   const expanded = props.expanded === row.id;
   return (
     <tr
       className={cn(
-        "border-t border-zinc-800 align-middle hover:bg-zinc-900/50",
-        expanded && "bg-sky-950/20",
+        "border-t border-[#252d28] align-middle hover:bg-emerald-950/20",
+        expanded && "bg-cyan-950/20",
       )}
     >
       {props.canEdit ? (
@@ -931,35 +1109,41 @@ function TextDeckRow({
           />
         </td>
       ) : null}
-      <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold text-zinc-100">
+      <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold text-stone-100">
         {row.quantity}
       </td>
       <td className="min-w-[220px] px-2 py-1.5">
         <button
           type="button"
-          className="text-left font-medium text-sky-100 hover:underline"
+          className="text-left font-medium text-cyan-100 hover:text-amber-100 hover:underline"
           onClick={() => props.setExpanded(row.id)}
         >
           {row.cardName}
         </button>
-        <div className="line-clamp-1 text-xs text-zinc-400">
-          {row.card?.typeLine ?? row.matchType}
-        </div>
         {row.card ? (
-          <div className="text-[11px] text-zinc-500">
+          <div className="text-[11px] text-stone-500">
             {row.card.setCode.toUpperCase()} #{row.card.collectorNumber}
           </div>
         ) : null}
       </td>
-      <td className="whitespace-nowrap px-2 py-1.5 text-xs text-zinc-300">
-        <span className="mr-1 text-zinc-500">MV {cardManaValue(row)}</span>
+      <td className="whitespace-nowrap px-2 py-1.5 text-xs text-stone-300">
+        <span className="mr-1 text-stone-500">MV {cardManaValue(row)}</span>
         <ManaCost value={row.card?.manaCost ?? null} />
       </td>
-      <td className="whitespace-nowrap px-2 py-1.5 text-xs text-zinc-300">
+      <td className="max-w-[20rem] px-2 py-1.5 text-xs text-stone-300">
+        <span className="line-clamp-1">{row.card?.typeLine ?? row.matchType}</span>
+      </td>
+      <td className="whitespace-nowrap px-2 py-1.5 text-xs text-stone-300">
         {deckSectionLabel(row.section)}
       </td>
       <td className="px-2 py-1.5">
+        {ownedStatusBadge(row)}
+      </td>
+      <td className="px-2 py-1.5">
         {commitmentBadge(row)}
+      </td>
+      <td className="whitespace-nowrap px-2 py-1.5 text-xs text-stone-300">
+        {priceLabel(row.card?.prices)}
       </td>
       <td className="px-2 py-1.5 text-right">
         <CardActions
@@ -972,7 +1156,7 @@ function TextDeckRow({
 }
 
 function VisualDeckView(
-  props: Parameters<typeof TextDeckView>[0] & { mode: "grid" | "spoiler" },
+  props: DeckViewProps & { mode: "grid" | "spoiler" },
 ) {
   const tileClass = props.mode === "spoiler" ? "w-56" : "w-40";
   return (
@@ -980,7 +1164,7 @@ function VisualDeckView(
       {props.groups.map((group) => (
         <section
           key={group.label}
-          className="rounded border border-zinc-800 p-3"
+          className="app-panel p-3"
         >
           <GroupHeader
             label={group.label}
@@ -993,7 +1177,7 @@ function VisualDeckView(
               return (
                 <article
                   key={row.id}
-                  className={`${tileClass} rounded border border-zinc-800 bg-zinc-950 p-2`}
+                  className={`${tileClass} app-card p-2`}
                 >
                   {props.canEdit ? (
                     <input
@@ -1017,20 +1201,23 @@ function VisualDeckView(
                         className="aspect-[488/680] w-full rounded object-cover"
                       />
                     ) : (
-                      <div className="flex aspect-[488/680] items-center justify-center rounded bg-zinc-800 text-xs text-zinc-500">
+                      <div className="flex aspect-[488/680] items-center justify-center rounded bg-[#0d1210] text-xs text-stone-500">
                         No image
                       </div>
                     )}
-                    <div className="mt-2 font-semibold text-sky-100">
+                    <div className="mt-2 font-semibold text-cyan-100">
                       {row.quantity} {row.cardName}
                     </div>
-                    <div className="text-xs text-zinc-400">
+                    <div className="text-xs text-stone-400">
                       MV {cardManaValue(row)} ·{" "}
                       {row.card?.setCode.toUpperCase() ?? "—"} ·{" "}
                       {priceLabel(row.card?.prices)}
                     </div>
                   </button>
                   <div className="mt-2">
+                    {ownedStatusBadge(row)}
+                  </div>
+                  <div className="mt-1">
                     {commitmentBadge(row)}
                   </div>
                   <div className="mt-2">
@@ -1059,10 +1246,10 @@ function GroupHeader({
   quantity: number;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-2">
+    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#2a332d] bg-[#121915] px-3 py-2">
       <h2 className="text-xl font-semibold">
         {label}{" "}
-        <span className="text-sm text-zinc-400">
+        <span className="text-sm text-stone-400">
           ({quantity} cards · {rows.length} rows)
         </span>
       </h2>
@@ -1080,7 +1267,7 @@ function CardActions({
   return (
     <button
       type="button"
-      className="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-200 hover:border-sky-700 hover:text-sky-100"
+      className="rounded-md border border-[#364139] px-2 py-1 text-xs text-stone-200 hover:border-cyan-700 hover:text-cyan-100"
       onClick={toggleExpanded}
       aria-label={
         expanded ? "Deck entry details open" : "Open deck entry details"

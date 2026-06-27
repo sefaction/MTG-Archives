@@ -96,11 +96,11 @@ export function DeckActionPanels({
               : null;
 
   return (
-    <section
-      className="rounded border border-zinc-800 bg-zinc-950/80 p-2"
-      aria-label="Deck action toolbar"
-    >
+    <section className="app-panel p-2" aria-label="Deck action toolbar">
       <div className="flex flex-wrap items-center gap-2">
+        <span className="px-1 text-xs font-semibold uppercase tracking-wide text-amber-200">
+          Actions
+        </span>
         {actions.map((action) => (
           <ActionButton
             key={action.id}
@@ -118,7 +118,7 @@ export function DeckActionPanels({
         </a>
         <a
           href="#bulk-edit"
-          className="rounded border border-emerald-700 px-3 py-2 text-sm text-emerald-100"
+          className="rounded-md border border-emerald-700 bg-emerald-950/20 px-3 py-2 text-sm text-emerald-100 hover:border-emerald-500"
         >
           Optimize printings
         </a>
@@ -134,21 +134,21 @@ export function DeckActionPanels({
           />
           <aside
             className={cn(
-              "absolute inset-y-0 right-0 flex w-full max-w-lg flex-col border-l border-zinc-800 bg-zinc-950 shadow-2xl",
+              "absolute inset-y-0 right-0 flex w-full max-w-lg flex-col border-l border-[#2a332d] bg-[#101614] shadow-2xl",
               activePanel === "paste-decklist" && "md:max-w-2xl",
             )}
           >
-            <header className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-950/95 p-3 backdrop-blur">
+            <header className="sticky top-0 z-10 border-b border-[#2a332d] bg-[#101614]/95 p-3 backdrop-blur">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-semibold">Deck actions</h2>
-                  <p className="line-clamp-1 text-xs text-zinc-400">
+                  <p className="line-clamp-1 text-xs text-stone-400">
                     {deckName}
                   </p>
                 </div>
                 <button
                   type="button"
-                  className="rounded border border-zinc-700 px-2 py-1 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  className="rounded-md border border-[#364139] px-2 py-1 text-sm text-stone-200 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   onClick={() => setActivePanel(null)}
                 >
                   Close
@@ -164,9 +164,9 @@ export function DeckActionPanels({
                     type="button"
                     disabled={action.disabled}
                     className={cn(
-                      "whitespace-nowrap rounded border border-zinc-800 px-2 py-1 text-zinc-300 focus:outline-none focus:ring-2 focus:ring-sky-500",
+                      "whitespace-nowrap rounded-md border border-[#364139] px-2 py-1 text-stone-300 focus:outline-none focus:ring-2 focus:ring-cyan-500",
                       activePanel === action.id &&
-                        "border-sky-600 bg-sky-950/40 text-sky-100",
+                        "border-cyan-600 bg-cyan-950/40 text-cyan-100",
                       action.danger && "border-red-950 text-red-200",
                       action.disabled && "cursor-not-allowed opacity-50",
                     )}
@@ -231,9 +231,9 @@ function ActionButton({
       disabled={disabled}
       className={cn(
         primary ? filterPrimaryButtonClass : filterButtonClass,
-        "px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500",
+        "px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500",
         danger && "border-red-900 text-red-200 hover:bg-red-950/40",
-        active && "border-sky-500 bg-sky-950/40 text-sky-100",
+        active && "border-cyan-500 bg-cyan-950/40 text-cyan-100",
         disabled && "cursor-not-allowed opacity-50",
       )}
       onClick={onClick}

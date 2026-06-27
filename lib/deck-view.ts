@@ -1,7 +1,7 @@
 import { DeckSection } from "@prisma/client";
 import { isBasicLandCard } from "./card-types";
 
-export type DeckViewMode = "text" | "grid" | "spoiler";
+export type DeckViewMode = "compact" | "text" | "grid" | "spoiler";
 export type DeckGroupMode =
   | "type"
   | "section"

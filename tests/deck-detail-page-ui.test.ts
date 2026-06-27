@@ -7,6 +7,9 @@ const panelSource = readFileSync("components/DeckActionPanels.tsx", "utf8");
 
 test("deck detail page uses compact action panels instead of always-expanded page forms", () => {
   assert.match(pageSource, /<DeckActionPanels/);
+  assert.match(pageSource, /Deck builder/);
+  assert.match(pageSource, /Exact owned/);
+  assert.match(pageSource, /Est\. value/);
   assert.doesNotMatch(
     pageSource,
     /<section className="grid gap-4 lg:grid-cols-2">/,

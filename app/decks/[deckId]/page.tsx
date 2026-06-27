@@ -399,27 +399,78 @@ export default async function DeckDetailPage({
   );
 
   return (
-    <main className="p-8 space-y-6">
+    <main className="space-y-6 p-8">
       <Nav />
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <section className="space-y-2">
-          <Link href="/decks" className="text-sm text-sky-200">
+      <section className="app-panel overflow-hidden">
+        <div className="border-b border-[#2a332d] bg-[#121915] px-5 py-4">
+          <Link href="/decks" className="text-sm text-cyan-300">
             ← Decks
           </Link>
-          <h1 className="text-3xl font-bold">{deck.name}</h1>
-          <p className="text-zinc-400">
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber-200">
+            Deck builder
+          </p>
+          <h1 className="text-3xl font-bold text-stone-50">{deck.name}</h1>
+          <p className="text-stone-400">
             {deckFormatLabel(deck.format)} ·{" "}
             <ColorIdentitySymbols value={deckColorIdentity} /> ·{" "}
             {visibilityLabel(deck.visibility)} · Effective{" "}
             {effectiveVisibility.toLowerCase()}
           </p>
           {deck.description ? (
-            <p className="max-w-3xl whitespace-pre-wrap text-zinc-300">
+            <p className="max-w-3xl whitespace-pre-wrap text-stone-300">
               {deck.description}
             </p>
           ) : null}
-        </section>
-      </div>
+        </div>
+        <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
+          {[
+            ["Mainboard", sectionTotals.MAINBOARD],
+            ["Commander", sectionTotals.COMMANDER],
+            ["Sideboard", sectionTotals.SIDEBOARD],
+            ["Maybeboard", sectionTotals.MAYBEBOARD],
+            [
+              "Est. value",
+              estimatedPrice == null ? "--" : `$${estimatedPrice.toFixed(2)}`,
+            ],
+          ].map(([label, value]) => (
+            <div
+              key={String(label)}
+              className="rounded-md border border-[#2a332d] bg-[#101614] p-3"
+            >
+              <p className="text-xs uppercase tracking-wide text-stone-500">
+                {label}
+              </p>
+              <p className="mt-1 text-lg font-semibold text-stone-100">
+                {String(value)}
+              </p>
+            </div>
+          ))}
+        </div>
+        <div className="grid gap-3 border-t border-[#2a332d] p-4 md:grid-cols-4">
+          {[
+            ["Exact owned", ownershipTotals.exactOwned, "text-emerald-100"],
+            ["Other owned", ownershipTotals.otherOwned, "text-cyan-100"],
+            ["Missing", ownershipTotals.missing, "text-red-100"],
+            [
+              "Committed",
+              committedSummary.committedQuantity,
+              "text-amber-100",
+            ],
+          ].map(([label, value, tone]) => (
+            <div
+              key={String(label)}
+              className="rounded-md border border-[#2a332d] bg-[#0d1210] p-3"
+            >
+              <p className="text-xs uppercase tracking-wide text-stone-500">
+                {label}
+              </p>
+              <p className={cn("mt-1 text-xl font-semibold", String(tone))}>
+                {String(value)}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {canEdit ? (
         <DeckActionPanels
@@ -593,10 +644,10 @@ export default async function DeckDetailPage({
         />
       ) : (
         <section
-          className="rounded border border-zinc-800 bg-zinc-950/80 p-3"
+          className="app-panel p-3"
           aria-label="Deck action toolbar"
         >
-          <span className="rounded border border-zinc-800 px-3 py-2 text-zinc-400">
+          <span className="rounded border border-[#364139] px-3 py-2 text-stone-400">
             Public read-only deck browser
           </span>
         </section>
