@@ -6,7 +6,12 @@ const adminPassword = process.env.UI_ADMIN_PASSWORD || "admin123";
 async function loginAndEnterAdminMode(page: import("@playwright/test").Page) {
   await page.goto("/");
 
-  if (await page.getByRole("link", { name: /^log in$/i }).first().isVisible()) {
+  if (
+    await page
+      .getByRole("link", { name: /^log in$/i })
+      .first()
+      .isVisible()
+  ) {
     await page.goto("/login");
   }
 
@@ -25,14 +30,14 @@ async function loginAndEnterAdminMode(page: import("@playwright/test").Page) {
     await page.waitForURL(/\/dashboard/);
   }
 
-  if (await page.getByRole("button", { name: /enter admin mode/i }).isVisible()) {
+  if (
+    await page.getByRole("button", { name: /enter admin mode/i }).isVisible()
+  ) {
     await page.getByRole("button", { name: /enter admin mode/i }).click();
   }
 }
 
-test("admin metadata page renders refresh-all controls", async ({
-  page,
-}) => {
+test("admin metadata page renders refresh-all controls", async ({ page }) => {
   await loginAndEnterAdminMode(page);
   await page.goto("/admin/metadata");
 
@@ -51,10 +56,20 @@ test("admin metadata page renders refresh-all controls", async ({
     page.getByRole("heading", { level: 1, name: "Card metadata" }),
   ).toBeVisible();
   await expect(page.getByText("Refresh card metadata")).toBeVisible();
-  await expect(page.getByText("Inventory quantities, locations, decks")).toBeVisible();
+  await expect(page.getByText("Commander bracket metadata")).toBeVisible();
+  await expect(
+    page.getByText("Inventory quantities, locations, decks"),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Refresh all card metadata" }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: /Refresh \d+ selected/ })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Scan for changes" })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Refresh bracket metadata" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Refresh \d+ selected/ }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Scan for changes" }),
+  ).toHaveCount(0);
 });

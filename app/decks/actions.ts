@@ -28,6 +28,7 @@ import {
   canManageDeck,
   normalizePositiveQuantity,
 } from "@/lib/decks";
+import { parseDeckBracket } from "@/lib/deck-brackets";
 import {
   auditDeckMoveSnapshot,
   ensureDeckLocation,
@@ -211,6 +212,8 @@ export async function createDeck(fd: FormData) {
         formString(fd, "visibility"),
         Visibility.INHERIT,
       ),
+      bracket: parseDeckBracket(fd.get("bracket")),
+      bracketUpdatedAt: fd.get("bracket") ? new Date() : null,
       folderId: await validatedFolderId(user.id, formString(fd, "folderId")),
     },
   });
@@ -231,6 +234,7 @@ export async function updateDeck(fd: FormData) {
     formString(fd, "visibility"),
     Visibility.INHERIT,
   );
+  const bracket = parseDeckBracket(fd.get("bracket"));
   await prisma.deck.update({
     where: { id: deckId },
     data: {
@@ -242,6 +246,9 @@ export async function updateDeck(fd: FormData) {
         DeckFormat.CASUAL,
       ),
       visibility,
+      bracket,
+      bracketUpdatedAt:
+        bracket !== deck.bracket ? new Date() : deck.bracketUpdatedAt,
       folderId: await validatedFolderId(
         deck.ownerUserId,
         formString(fd, "folderId"),

@@ -26,6 +26,7 @@ import {
   deckTotalQuantity,
   summarizeDeckCardOwnership,
 } from "@/lib/decks";
+import { bracketSelectOptions, formatDeckBracket } from "@/lib/deck-brackets";
 import {
   getDeckCommittedSummary,
   isNormalInventoryLocation,
@@ -411,7 +412,7 @@ export default async function DeckDetailPage({
           </p>
           <h1 className="text-3xl font-bold text-stone-50">{deck.name}</h1>
           <p className="text-stone-400">
-            {deckFormatLabel(deck.format)} ·{" "}
+            {deckFormatLabel(deck.format)} · {formatDeckBracket(deck.bracket)} ·{" "}
             <ColorIdentitySymbols value={deckColorIdentity} /> ·{" "}
             {visibilityLabel(deck.visibility)} · Effective{" "}
             {effectiveVisibility.toLowerCase()}
@@ -564,7 +565,7 @@ export default async function DeckDetailPage({
                       className={cn(filterTextareaClass, "mt-1 w-full")}
                     />
                   </label>
-                  <div className="grid gap-3 md:grid-cols-2">
+                  <div className="grid gap-3 md:grid-cols-3">
                     <label className={filterFieldClass}>
                       Format
                       <select
@@ -589,6 +590,23 @@ export default async function DeckDetailPage({
                         {Object.values(Visibility).map((visibility) => (
                           <option key={visibility} value={visibility}>
                             {visibilityLabel(visibility)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className={filterFieldClass}>
+                      Bracket
+                      <select
+                        name="bracket"
+                        defaultValue={deck.bracket ?? ""}
+                        className={cn(filterSelectClass, "mt-1 w-full")}
+                      >
+                        {bracketSelectOptions().map((option) => (
+                          <option
+                            key={option.value || "unset"}
+                            value={option.value}
+                          >
+                            {option.label}
                           </option>
                         ))}
                       </select>

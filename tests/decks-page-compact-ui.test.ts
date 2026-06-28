@@ -43,4 +43,5 @@ test("create deck form is collapsed behind a compact new deck disclosure", () =>
     /<details className="rounded border border-zinc-800 bg-zinc-950\/60 p-3">/,
   );
   assert.match(decksPage, /action=\{createDeck\}/);
+  assert.match(decksPage, /name="bracket"/);
 });

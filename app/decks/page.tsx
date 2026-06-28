@@ -7,6 +7,11 @@ import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { getAccessScope, requireLogin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { deckFormatLabel, deckSectionSummaryParts } from "@/lib/decks";
+import {
+  bracketSelectOptions,
+  formatDeckBracket,
+  parseDeckBracket,
+} from "@/lib/deck-brackets";
 import { ColorIdentitySymbols } from "@/components/mtg/ColorIdentitySymbols";
 import {
   buildDeckFolderOptions,
@@ -37,12 +42,14 @@ import {
 export default async function DecksPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ folder?: string }>;
+  searchParams?: Promise<{ folder?: string; bracket?: string }>;
 }) {
   const user = await requireLogin();
   const scope = await getAccessScope(user);
   const adminModeActive = scope?.mode === "admin";
-  const selectedFolder = (await searchParams)?.folder ?? "all";
+  const params = await searchParams;
+  const selectedFolder = params?.folder ?? "all";
+  const selectedBracket = parseDeckBracket(params?.bracket ?? null);
   const folders = await prisma.deckFolder.findMany({
     where: adminModeActive ? {} : { ownerUserId: user.id },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
@@ -63,12 +70,15 @@ export default async function DecksPage({
     },
     orderBy: { updatedAt: "desc" },
   });
-  const visibleDecks =
+  const folderFilteredDecks =
     selectedFolder === DECK_FOLDER_UNCATEGORIZED_VALUE
       ? decks.filter((deck) => !deck.folderId)
       : selectedFolder && selectedFolder !== "all"
         ? decks.filter((deck) => deck.folderId === selectedFolder)
         : decks;
+  const visibleDecks = selectedBracket
+    ? folderFilteredDecks.filter((deck) => deck.bracket === selectedBracket)
+    : folderFilteredDecks;
   const countFor = (folderId: string | null) =>
     decks.filter((deck) => deck.folderId === folderId).length;
   const folderById = new Map(
@@ -86,6 +96,16 @@ export default async function DecksPage({
   function folderPath(folderId?: string | null) {
     if (!folderId) return "Uncategorized";
     return folderById.get(folderId)?.path ?? "Unknown folder";
+  }
+
+  function decksHref(next: { folder?: string; bracket?: number | null }) {
+    const query = new URLSearchParams();
+    const folder = next.folder ?? selectedFolder;
+    const bracket = next.bracket === undefined ? selectedBracket : next.bracket;
+    if (folder && folder !== "all") query.set("folder", folder);
+    if (bracket) query.set("bracket", String(bracket));
+    const suffix = query.toString();
+    return suffix ? `/decks?${suffix}` : "/decks";
   }
 
   function renderFolderActions(folder: (typeof folderOptions)[number]) {
@@ -183,7 +203,7 @@ export default async function DecksPage({
             {children.length ? "▾" : ""}
           </span>
           <Link
-            href={`/decks?folder=${folder.id}`}
+            href={decksHref({ folder: folder.id })}
             className="min-w-0 flex-1 truncate"
             title={folder.path}
           >
@@ -239,7 +259,7 @@ export default async function DecksPage({
         <summary className="cursor-pointer text-sm font-semibold text-sky-100">
           + New deck
         </summary>
-        <form action={createDeck} className="mt-3 grid gap-3 md:grid-cols-6">
+        <form action={createDeck} className="mt-3 grid gap-3 md:grid-cols-7">
           <label className={cn(filterFieldClass, "md:col-span-2")}>
             Deck name
             <input
@@ -272,6 +292,20 @@ export default async function DecksPage({
               {Object.values(Visibility).map((visibility) => (
                 <option key={visibility} value={visibility}>
                   {visibilityLabel(visibility)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={filterFieldClass}>
+            Bracket
+            <select
+              name="bracket"
+              defaultValue=""
+              className={cn(filterSelectClass, "mt-1 w-full")}
+            >
+              {bracketSelectOptions().map((option) => (
+                <option key={option.value || "unset"} value={option.value}>
+                  {option.label}
                 </option>
               ))}
             </select>
@@ -322,7 +356,7 @@ export default async function DecksPage({
                   ? "bg-sky-950 text-sky-100"
                   : "text-zinc-300 hover:bg-zinc-900",
               )}
-              href="/decks"
+              href={decksHref({ folder: "all" })}
             >
               <span>All decks</span>
               <span className="text-xs text-zinc-500">{decks.length}</span>
@@ -334,7 +368,7 @@ export default async function DecksPage({
                   ? "bg-sky-950 text-sky-100"
                   : "text-zinc-300 hover:bg-zinc-900",
               )}
-              href={`/decks?folder=${DECK_FOLDER_UNCATEGORIZED_VALUE}`}
+              href={decksHref({ folder: DECK_FOLDER_UNCATEGORIZED_VALUE })}
             >
               <span>Uncategorized</span>
               <span className="text-xs text-zinc-500">{countFor(null)}</span>
@@ -358,6 +392,51 @@ export default async function DecksPage({
               Create folder
             </SubmitButton>
           </form>
+          <div className="space-y-2 border-t border-zinc-800 pt-3">
+            <h2 className="text-sm font-semibold">Brackets</h2>
+            <nav className="space-y-1 text-sm" aria-label="Deck brackets">
+              <Link
+                className={cn(
+                  "flex items-center justify-between rounded px-2 py-1",
+                  !selectedBracket
+                    ? "bg-sky-950 text-sky-100"
+                    : "text-zinc-300 hover:bg-zinc-900",
+                )}
+                href={decksHref({ bracket: null })}
+              >
+                <span>All brackets</span>
+                <span className="text-xs text-zinc-500">
+                  {folderFilteredDecks.length}
+                </span>
+              </Link>
+              {bracketSelectOptions()
+                .filter((option) => option.value)
+                .map((option) => {
+                  const bracket = Number(option.value);
+                  return (
+                    <Link
+                      key={option.value}
+                      className={cn(
+                        "flex items-center justify-between rounded px-2 py-1",
+                        selectedBracket === bracket
+                          ? "bg-sky-950 text-sky-100"
+                          : "text-zinc-300 hover:bg-zinc-900",
+                      )}
+                      href={decksHref({ bracket })}
+                    >
+                      <span>{option.label}</span>
+                      <span className="text-xs text-zinc-500">
+                        {
+                          folderFilteredDecks.filter(
+                            (deck) => deck.bracket === bracket,
+                          ).length
+                        }
+                      </span>
+                    </Link>
+                  );
+                })}
+            </nav>
+          </div>
         </aside>
         <div className="overflow-x-auto rounded border border-zinc-800">
           <table className="min-w-full text-sm">
@@ -365,6 +444,7 @@ export default async function DecksPage({
               <tr>
                 <th className="p-3">Deck</th>
                 {adminModeActive ? <th className="p-3">Owner</th> : null}
+                <th className="p-3">Bracket</th>
                 <th className="p-3">Format</th>
                 <th className="p-3">Colors</th>
                 <th className="p-3">Folder</th>
@@ -383,6 +463,7 @@ export default async function DecksPage({
                   {adminModeActive ? (
                     <td className="p-3">{deck.ownerUser.displayName}</td>
                   ) : null}
+                  <td className="p-3">{formatDeckBracket(deck.bracket)}</td>
                   <td className="p-3">{deckFormatLabel(deck.format)}</td>
                   <td className="p-3">
                     <ColorIdentitySymbols
@@ -472,6 +553,11 @@ export default async function DecksPage({
                           />
                           <input
                             type="hidden"
+                            name="bracket"
+                            value={deck.bracket ?? ""}
+                          />
+                          <input
+                            type="hidden"
                             name="folderId"
                             value={deck.folderId ?? ""}
                           />
@@ -514,6 +600,11 @@ export default async function DecksPage({
                             name="folderId"
                             value={deck.folderId ?? ""}
                           />
+                          <input
+                            type="hidden"
+                            name="bracket"
+                            value={deck.bracket ?? ""}
+                          />
                           <label className="block text-xs text-zinc-400">
                             Visibility
                             <select
@@ -539,6 +630,59 @@ export default async function DecksPage({
                           </SubmitButton>
                         </form>
                         <form
+                          action={updateDeck}
+                          className="space-y-1 border-t border-zinc-800 pt-2"
+                        >
+                          <input type="hidden" name="deckId" value={deck.id} />
+                          <input type="hidden" name="name" value={deck.name} />
+                          <input
+                            type="hidden"
+                            name="description"
+                            value={deck.description ?? ""}
+                          />
+                          <input
+                            type="hidden"
+                            name="format"
+                            value={deck.format}
+                          />
+                          <input
+                            type="hidden"
+                            name="visibility"
+                            value={deck.visibility}
+                          />
+                          <input
+                            type="hidden"
+                            name="folderId"
+                            value={deck.folderId ?? ""}
+                          />
+                          <label className="block text-xs text-zinc-400">
+                            Bracket
+                            <select
+                              name="bracket"
+                              defaultValue={deck.bracket ?? ""}
+                              className={cn(
+                                filterSelectClass,
+                                "mt-1 w-full text-xs",
+                              )}
+                            >
+                              {bracketSelectOptions().map((option) => (
+                                <option
+                                  key={option.value || "unset"}
+                                  value={option.value}
+                                >
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <SubmitButton
+                            pendingLabel="Savingâ€¦"
+                            className="w-full rounded border border-zinc-700 px-2 py-1 text-left text-xs"
+                          >
+                            Save bracket
+                          </SubmitButton>
+                        </form>
+                        <form
                           action={deleteDeck}
                           className="border-t border-zinc-800 pt-2"
                         >
@@ -560,7 +704,7 @@ export default async function DecksPage({
                 <tr>
                   <td
                     className="p-6 text-zinc-400"
-                    colSpan={adminModeActive ? 9 : 8}
+                    colSpan={adminModeActive ? 10 : 9}
                   >
                     No decks in this folder.
                   </td>

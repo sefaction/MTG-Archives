@@ -2,10 +2,13 @@ export const dynamic = "force-dynamic";
 
 import { Nav } from "@/components/Nav";
 import { AdminMetadataRefreshPanel } from "@/components/AdminMetadataRefreshPanel";
+import { AdminCommanderBracketPanel } from "@/components/AdminCommanderBracketPanel";
 import { requireAdminMode } from "@/lib/auth";
+import { getActiveCommanderBracketRuleSetSummary } from "@/lib/commander-brackets";
 
 export default async function AdminMetadataPage() {
   await requireAdminMode();
+  const activeRuleSet = await getActiveCommanderBracketRuleSetSummary();
 
   return (
     <main className="space-y-6 p-8">
@@ -19,6 +22,20 @@ export default async function AdminMetadataPage() {
         </p>
       </section>
       <AdminMetadataRefreshPanel />
+      <AdminCommanderBracketPanel
+        activeRuleSet={
+          activeRuleSet
+            ? {
+                name: activeRuleSet.name,
+                version: activeRuleSet.version,
+                source: activeRuleSet.source,
+                sourceUrl: activeRuleSet.sourceUrl,
+                refreshedAt: activeRuleSet.refreshedAt.toISOString(),
+                gameChangerCount: activeRuleSet._count.gameChangers,
+              }
+            : null
+        }
+      />
     </main>
   );
 }

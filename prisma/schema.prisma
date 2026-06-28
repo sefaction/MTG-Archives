@@ -352,6 +352,12 @@ model Deck {
   description  String?
   format       DeckFormat @default(CASUAL)
   visibility   Visibility @default(INHERIT)
+  bracket      Int?
+  bracketSuggested Int?
+  bracketConfidence String?
+  bracketAnalysisJson Json?
+  bracketUpdatedAt DateTime?
+  bracketAnalyzedAt DateTime?
   folderId     String?
   folder       DeckFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
   createdAt    DateTime   @default(now())
@@ -362,6 +368,7 @@ model Deck {
   @@index([ownerUserId, updatedAt])
   @@index([visibility, updatedAt])
   @@index([format])
+  @@index([bracket])
   @@index([folderId])
 }
 
@@ -405,6 +412,38 @@ model DeckCard {
   @@index([cardId])
   @@index([scryfallId])
   @@index([oracleId])
+  @@index([cardName])
+}
+
+model CommanderBracketRuleSet {
+  id           String                  @id @default(cuid())
+  name         String
+  version      String
+  source       String                  @default("scryfall")
+  sourceUrl    String?
+  effectiveAt  DateTime?
+  isActive     Boolean                 @default(false)
+  rulesJson    Json
+  refreshedAt  DateTime                @default(now())
+  createdAt    DateTime                @default(now())
+  gameChangers CommanderGameChanger[]
+
+  @@index([isActive, createdAt])
+}
+
+model CommanderGameChanger {
+  id         String                    @id @default(cuid())
+  ruleSetId  String
+  ruleSet    CommanderBracketRuleSet   @relation(fields: [ruleSetId], references: [id], onDelete: Cascade)
+  oracleId   String?
+  scryfallId String?
+  cardName   String
+  reason     String?
+  createdAt  DateTime                  @default(now())
+
+  @@index([ruleSetId])
+  @@index([oracleId])
+  @@index([scryfallId])
   @@index([cardName])
 }
 
