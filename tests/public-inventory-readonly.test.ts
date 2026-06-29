@@ -174,7 +174,7 @@ test("public inventory data and autocomplete routes are scoped to public-safe da
   );
   assert.match(
     publicCollectionQueries,
-    /ownerPublicSlug \? \{ publicSlug: ownerPublicSlug \} : \{\}/,
+    /publicSlug:\s*\{\s*in: ownerPublicSlugs\s*\}/,
   );
   assert.match(publicCollectionQueries, /select:\s*\{\s*name: true\s*\}/);
   assert.match(filterSuggestionsApi, /buildPublicInventoryWhere/);

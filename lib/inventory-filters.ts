@@ -30,6 +30,7 @@ export const INVENTORY_FILTER_PARAM_KEYS = [
   "priceMax",
   "locationId",
   "location",
+  "locationType",
   "hasLocation",
   "visibility",
   "source",
@@ -62,22 +63,19 @@ export type InventoryFilters = {
   priceMin?: number;
   priceMax?: number;
   locationIds: string[];
+  locationTypes: string[];
   includeUnassignedLocation: boolean;
   visibility?:
-    | "public"
-    | "private"
-    | "inherit"
-    | "explicitPublic"
-    | "explicitPrivate";
+    "public" | "private" | "inherit" | "explicitPublic" | "explicitPrivate";
   sources: InventorySourceType[];
   languages: string[];
   ownerId?: string;
+  ownerIds: string[];
   commitment?: "available" | "committed";
 };
 
 type ParamSource =
-  | URLSearchParams
-  | Record<string, string | string[] | undefined>;
+  URLSearchParams | Record<string, string | string[] | undefined>;
 
 const WUBRG = ["W", "U", "B", "R", "G"];
 const ALL_COLORS = [...WUBRG, "C"];
@@ -240,6 +238,7 @@ export function parseInventoryFilters(params: ParamSource): InventoryFilters {
         ),
       ),
     ),
+    locationTypes: Array.from(new Set(list(params, "locationType"))),
     includeUnassignedLocation:
       list(params, "locationId").includes("unassigned") ||
       list(params, "location").includes("unassigned") ||
@@ -256,6 +255,7 @@ export function parseInventoryFilters(params: ParamSource): InventoryFilters {
       new Set(list(params, "language").map((v) => v.toUpperCase())),
     ),
     ownerId: text(params, "ownerId"),
+    ownerIds: Array.from(new Set(list(params, "ownerId"))),
     commitment: text(params, "commitment") as InventoryFilters["commitment"],
   };
 }
@@ -341,6 +341,8 @@ export function buildInventoryWhereFromFilters(
 
   if (!options.adminModeActive)
     where.currentOwnerId = options.playerId || "__no_owner__";
+  else if (filters.ownerIds.length)
+    where.currentOwnerId = { in: filters.ownerIds };
   else if (filters.ownerId) where.currentOwnerId = filters.ownerId;
 
   if (filters.locationIds.length || filters.includeUnassignedLocation) {
@@ -354,6 +356,12 @@ export function buildInventoryWhereFromFilters(
       );
     appendAnd(where, { OR: locationOr });
   }
+  if (filters.locationTypes.length)
+    appendAnd(where, {
+      OR: filters.locationTypes.map((type) => ({
+        location: { type: { equals: type, mode: "insensitive" } },
+      })),
+    });
   if (filters.commitment === "available")
     appendAnd(where, {
       OR: [

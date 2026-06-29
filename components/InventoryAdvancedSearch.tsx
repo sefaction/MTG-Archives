@@ -37,6 +37,7 @@ type InventoryAdvancedSearchProps = {
   capabilities?: Partial<InventoryAdvancedSearchCapabilities>;
   players?: FilterOption[];
   locations?: FilterLocationOption[];
+  locationTypes?: FilterOption[];
   ownerParamName?: "ownerId" | "owner";
   ownerFilterLabel?: string;
   ownerAllLabel?: string;
@@ -649,12 +650,14 @@ function MultiSelectDropdown({
   options,
   selected,
   compact = false,
+  emptyLabel = "Any",
 }: {
   label: string;
   name: string;
   options: FilterOption[];
   selected: string[];
   compact?: boolean;
+  emptyLabel?: string;
 }) {
   const selectedLabels = options
     .filter((option) => selected.includes(option.value))
@@ -668,7 +671,7 @@ function MultiSelectDropdown({
             ? compact && selectedLabels.length > 2
               ? `${selectedLabels.slice(0, 2).join(", ")} +${selectedLabels.length - 2}`
               : selectedLabels.join(", ")
-            : "Any"}
+            : emptyLabel}
         </span>
       </summary>
       <div className="absolute z-30 mt-2 max-h-64 min-w-56 overflow-auto rounded-md border border-zinc-700 bg-zinc-950 p-2 shadow-xl shadow-black/30">
@@ -749,9 +752,12 @@ function buildActiveChips({
   source,
   ownerParamName,
   ownerFilterLabel,
+  ownerValues,
+  ownerOptions,
   locationValues,
   locationParamName,
   locationOptions,
+  locationTypeOptions,
   typeTokens,
   colorIdentity,
   capabilities,
@@ -763,9 +769,12 @@ function buildActiveChips({
   source: string[];
   ownerParamName: "ownerId" | "owner";
   ownerFilterLabel: string;
+  ownerValues: string[];
+  ownerOptions: FilterOption[];
   locationValues: string[];
   locationParamName: "locationId" | "locationName";
   locationOptions: FilterOption[];
+  locationTypeOptions: FilterOption[];
   typeTokens: string[];
   colorIdentity: string[];
   capabilities: InventoryAdvancedSearchCapabilities;
@@ -850,11 +859,26 @@ function buildActiveChips({
         optionLabel(locationOptions, value),
       ),
     );
+    values(params, "locationType").forEach((value) =>
+      pushOne(
+        "locationType",
+        "Location type",
+        value,
+        optionLabel(locationTypeOptions, value),
+      ),
+    );
   }
   if (capabilities.showVisibilityFilter)
     pushWhole("visibility", "Visibility", first(params, "visibility"));
   if (capabilities.showOwnerFilter || capabilities.showOwnerScopeControls) {
-    pushWhole(ownerParamName, ownerFilterLabel, first(params, ownerParamName));
+    ownerValues.forEach((value) =>
+      pushOne(
+        ownerParamName,
+        ownerFilterLabel,
+        value,
+        optionLabel(ownerOptions, value),
+      ),
+    );
   }
   if (capabilities.showInventoryScopeFilter)
     pushWhole("commitment", "Inventory", first(params, "commitment"));
@@ -911,6 +935,7 @@ export function InventoryAdvancedSearch({
   capabilities: capabilityOverrides,
   players = [],
   locations = [],
+  locationTypes = [],
   ownerParamName = isPublic ? "owner" : "ownerId",
   ownerFilterLabel = isPublic ? "Current owner" : "Owner",
   ownerAllLabel = isPublic ? "All public owners" : "All owners",
@@ -947,6 +972,8 @@ export function InventoryAdvancedSearch({
     first(params, "hasLocation") !== "unassigned"
       ? values(params, locationParamName)
       : ["unassigned"];
+  const selectedLocationTypes = values(params, "locationType");
+  const selectedOwnerValues = values(params, ownerParamName);
   const typeTokens = values(params, "typeTokens").length
     ? values(params, "typeTokens")
     : values(params, "type");
@@ -966,6 +993,14 @@ export function InventoryAdvancedSearch({
       label: `${location.kind === "DECK" ? "Deck: " : ""}${location.label}`,
     })),
   ];
+  const locationTypeOptions = locationTypes.map((type) => ({
+    value: type.value,
+    label: type.label,
+  }));
+  const ownerOptions = players.map((player) => ({
+    value: player.value,
+    label: player.label,
+  }));
   const cardOptions = cardNameOptions.map((name) => ({
     value: name,
     label: name,
@@ -984,9 +1019,12 @@ export function InventoryAdvancedSearch({
     source,
     ownerParamName,
     ownerFilterLabel,
+    ownerValues: selectedOwnerValues,
+    ownerOptions,
     locationValues: selectedLocationValues,
     locationParamName,
     locationOptions,
+    locationTypeOptions,
     typeTokens,
     colorIdentity,
     capabilities,
@@ -1213,13 +1251,24 @@ export function InventoryAdvancedSearch({
                 />
               </label>
               {capabilities.showLocationFilter ? (
-                <MultiSelectDropdown
-                  label="Location"
-                  name={locationParamName}
-                  options={locationOptions}
-                  selected={selectedLocationValues}
-                  compact
-                />
+                <>
+                  <MultiSelectDropdown
+                    label="Location"
+                    name={locationParamName}
+                    options={locationOptions}
+                    selected={selectedLocationValues}
+                    compact
+                  />
+                  {locationTypeOptions.length ? (
+                    <MultiSelectDropdown
+                      label="Location type"
+                      name="locationType"
+                      options={locationTypeOptions}
+                      selected={selectedLocationTypes}
+                      compact
+                    />
+                  ) : null}
+                </>
               ) : null}
               {capabilities.showVisibilityFilter ? (
                 <label className={cn(filterInlineFieldClass, "min-w-44")}>
@@ -1267,27 +1316,14 @@ export function InventoryAdvancedSearch({
               ) : null}
               {capabilities.showOwnerFilter ||
               capabilities.showOwnerScopeControls ? (
-                <label className={cn(filterInlineFieldClass, "min-w-48")}>
-                  <span className="text-zinc-400">{ownerFilterLabel}: </span>
-                  <select
-                    name={ownerParamName}
-                    defaultValue={first(params, ownerParamName)}
-                    className={cn(filterSelectClass, "min-w-32")}
-                  >
-                    <option className={filterOptionClass} value="">
-                      {ownerAllLabel}
-                    </option>
-                    {players.map((player) => (
-                      <option
-                        className={filterOptionClass}
-                        key={player.value}
-                        value={player.value}
-                      >
-                        {player.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <MultiSelectDropdown
+                  label={ownerFilterLabel}
+                  name={ownerParamName}
+                  options={ownerOptions}
+                  selected={selectedOwnerValues}
+                  emptyLabel={ownerAllLabel}
+                  compact
+                />
               ) : null}
               {capabilities.showInventoryScopeFilter ? (
                 <label className={cn(filterInlineFieldClass, "min-w-44")}>

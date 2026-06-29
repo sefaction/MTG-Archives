@@ -37,6 +37,11 @@ import {
   ensureDefaultLocation,
   updateLocation,
 } from "@/lib/inventory-locations";
+import {
+  isReservedLocationTypeName,
+  locationTypeNameFromForm,
+  normalizeLocationTypeName,
+} from "@/lib/location-types";
 
 function parseVisibility(value: FormDataEntryValue | null) {
   return value === Visibility.PUBLIC || value === Visibility.PRIVATE
@@ -82,6 +87,18 @@ export default async function LocationsPage() {
     : user.player
       ? [user.player]
       : [];
+  const allLocationTypes = await prisma.locationType.findMany({
+    where: { active: true },
+    include: {
+      createdByUser: {
+        select: { id: true, username: true, displayName: true },
+      },
+    },
+    orderBy: { name: "asc" },
+  });
+  const locationTypes = allLocationTypes.filter(
+    (type) => !isReservedLocationTypeName(type.name),
+  );
   for (const owner of owners) await ensureDefaultLocation(prisma, owner.id);
   const selectedOwnerId = user.playerId || owners[0]?.id || "";
   const locations = await prisma.inventoryLocation.findMany({
@@ -153,6 +170,25 @@ export default async function LocationsPage() {
   type NormalLocation = (typeof normalLocations)[number];
   const countsForLocation = (locationId: string) =>
     quantityByLocation[locationId] ?? { quantity: 0, entries: 0 };
+  const allLocationTypeUses = await prisma.inventoryLocation.findMany({
+    where: { type: { not: null } },
+    select: { type: true, ownerPlayerId: true },
+  });
+  const locationTypeUsage = new Map<
+    string,
+    { locations: number; ownerIds: Set<string> }
+  >();
+  for (const location of allLocationTypeUses) {
+    const key = normalizeLocationTypeName(location.type || "");
+    if (!key) continue;
+    const usage = locationTypeUsage.get(key) ?? {
+      locations: 0,
+      ownerIds: new Set<string>(),
+    };
+    usage.locations += 1;
+    usage.ownerIds.add(location.ownerPlayerId);
+    locationTypeUsage.set(key, usage);
+  }
   const normalLocationGroups = Array.from(
     normalLocations
       .reduce(
@@ -231,7 +267,9 @@ export default async function LocationsPage() {
       ownerPlayerId,
       name: String(fd.get("name") || ""),
       description: String(fd.get("description") || "") || null,
-      type: String(fd.get("type") || "") || null,
+      type: await locationTypeNameFromForm(prisma, fd, {
+        createdByUserId: ctx.user.id,
+      }),
       visibility: parseVisibility(fd.get("visibility")),
     });
     await prisma.inventoryAuditLog.create({
@@ -260,7 +298,9 @@ export default async function LocationsPage() {
       ownerPlayerId: before.ownerPlayerId,
       name: String(fd.get("name") || ""),
       description: String(fd.get("description") || "") || null,
-      type: String(fd.get("type") || "") || null,
+      type: await locationTypeNameFromForm(prisma, fd, {
+        createdByUserId: ctx.user.id,
+      }),
       active: fd.get("active") === "on",
       visibility: parseVisibility(fd.get("visibility")),
     });
@@ -484,6 +524,110 @@ export default async function LocationsPage() {
     revalidatePath("/inventory");
   }
 
+  async function deleteLocationTypeAction(fd: FormData) {
+    "use server";
+    const ctx = await getActionContext();
+    const id = String(fd.get("locationTypeId") || "");
+    const replacementTypeId = String(fd.get("replacementTypeId") || "");
+    if (fd.get("confirmDeleteType") !== "on") {
+      throw new Error("Confirm deletion before removing a location type.");
+    }
+    const locationType = await prisma.locationType.findUnique({
+      where: { id },
+    });
+    if (!locationType || !locationType.active) {
+      throw new Error("Location type not found.");
+    }
+    if (isReservedLocationTypeName(locationType.name)) {
+      throw new Error("Deck is a system-managed location type.");
+    }
+    const typeWhere = {
+      type: { equals: locationType.name, mode: "insensitive" as const },
+    };
+    const usage = await prisma.inventoryLocation.findMany({
+      where: typeWhere,
+      select: { id: true, ownerPlayerId: true },
+    });
+
+    if (!ctx.admin) {
+      if (locationType.createdByUserId !== ctx.user.id) {
+        throw new Error("You can only delete location types you created.");
+      }
+      if (!ctx.playerId) {
+        throw new Error("Your account is not linked to an inventory owner.");
+      }
+      const usedByAnotherOwner = usage.some(
+        (location) => location.ownerPlayerId !== ctx.playerId,
+      );
+      if (usedByAnotherOwner) {
+        throw new Error(
+          "This type is used by another user. Ask an admin to migrate or delete it.",
+        );
+      }
+      const cleared = await prisma.inventoryLocation.updateMany({
+        where: { ...typeWhere, ownerPlayerId: ctx.playerId },
+        data: { type: null },
+      });
+      await prisma.locationType.delete({ where: { id } });
+      await prisma.inventoryAuditLog.create({
+        data: {
+          changedByUserId: ctx.user.id,
+          changeType: "location_type_deleted",
+          beforeJson: locationType as any,
+          afterJson: {
+            deleted: true,
+            id,
+            clearedLocationCount: cleared.count,
+          },
+          reason: "Location type deleted by creator.",
+        },
+      });
+    } else {
+      let replacementType: { id: string; name: string } | null = null;
+      if (usage.length) {
+        if (!replacementTypeId) {
+          throw new Error("Choose a replacement type before admin deletion.");
+        }
+        if (replacementTypeId === id) {
+          throw new Error("Replacement type must be different.");
+        }
+        replacementType = await prisma.locationType.findUnique({
+          where: { id: replacementTypeId },
+          select: { id: true, name: true },
+        });
+        if (!replacementType) throw new Error("Replacement type not found.");
+      }
+      const migrated = replacementType
+        ? await prisma.inventoryLocation.updateMany({
+            where: typeWhere,
+            data: { type: replacementType.name },
+          })
+        : { count: 0 };
+      await prisma.locationType.delete({ where: { id } });
+      await prisma.inventoryAuditLog.create({
+        data: {
+          changedByUserId: ctx.user.id,
+          changeType: "location_type_deleted",
+          beforeJson: locationType as any,
+          afterJson: {
+            deleted: true,
+            id,
+            migratedLocationCount: migrated.count,
+            replacementTypeId: replacementType?.id ?? null,
+            replacementTypeName: replacementType?.name ?? null,
+          },
+          reason: replacementType
+            ? "Location type deleted by admin with migration."
+            : "Unused location type deleted by admin.",
+        },
+      });
+    }
+
+    revalidatePath("/locations");
+    revalidatePath("/inventory");
+    revalidatePath("/public/inventory");
+  }
+
   return (
     <main className="p-8 space-y-6">
       <Nav />
@@ -527,9 +671,22 @@ export default async function LocationsPage() {
             placeholder="Box-0001"
             className={filterInputClass}
           />
-          <input
+          <select
             name="type"
-            placeholder="Box, Binder, Shelf"
+            defaultValue=""
+            className={filterSelectClass}
+            aria-label="Location type"
+          >
+            <option value="">Choose type</option>
+            {locationTypes.map((type) => (
+              <option key={type.id} value={type.name}>
+                {type.name}
+              </option>
+            ))}
+          </select>
+          <input
+            name="newType"
+            placeholder="Or create type"
             className={filterInputClass}
           />
           <input
@@ -553,6 +710,156 @@ export default async function LocationsPage() {
             Create Location
           </SubmitButton>
         </form>
+      </section>
+
+      <section className={cn(filterPanelClass, "space-y-3")}>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold">Location types</h2>
+            <p className="text-sm text-zinc-400">
+              Shared type list used by every user when creating and filtering
+              locations.
+            </p>
+          </div>
+          <span className="text-sm text-zinc-500">
+            {locationTypes.length} active types
+          </span>
+        </div>
+        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {locationTypes.map((type) => {
+            const usage = locationTypeUsage.get(
+              normalizeLocationTypeName(type.name),
+            ) ?? { locations: 0, ownerIds: new Set<string>() };
+            const usedByAnotherOwner = user.playerId
+              ? Array.from(usage.ownerIds).some(
+                  (ownerId) => ownerId !== user.playerId,
+                )
+              : usage.ownerIds.size > 0;
+            const createdByCurrentUser = type.createdByUserId === user.id;
+            const normalUserCanDelete =
+              !adminModeActive && createdByCurrentUser && !usedByAnotherOwner;
+            const adminReplacementRequired =
+              adminModeActive && usage.locations > 0;
+            return (
+              <details
+                key={type.id}
+                className="rounded border border-zinc-800 bg-zinc-950/60 p-3"
+              >
+                <summary className="list-none">
+                  <div className="flex cursor-pointer items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-zinc-100">{type.name}</p>
+                      <p className="text-xs text-zinc-500">
+                        {usage.locations} locations / {usage.ownerIds.size}{" "}
+                        owners
+                      </p>
+                    </div>
+                    <span className="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-300">
+                      Manage
+                    </span>
+                  </div>
+                </summary>
+                <div className="mt-3 space-y-3 border-t border-zinc-800 pt-3">
+                  <div className="text-xs text-zinc-400">
+                    Created by:{" "}
+                    {type.createdByUser?.displayName ||
+                      type.createdByUser?.username ||
+                      "system / imported"}
+                  </div>
+                  {adminModeActive ? (
+                    <form
+                      action={deleteLocationTypeAction}
+                      className="space-y-2"
+                    >
+                      <input
+                        type="hidden"
+                        name="locationTypeId"
+                        value={type.id}
+                      />
+                      <label className={filterFieldClass}>
+                        Migrate locations to
+                        <select
+                          name="replacementTypeId"
+                          required={adminReplacementRequired}
+                          defaultValue=""
+                          className={cn(filterSelectClass, "mt-1 w-full")}
+                        >
+                          <option value="">
+                            {adminReplacementRequired
+                              ? "Choose replacement"
+                              : "No replacement needed"}
+                          </option>
+                          {locationTypes
+                            .filter((candidate) => candidate.id !== type.id)
+                            .map((candidate) => (
+                              <option key={candidate.id} value={candidate.id}>
+                                {candidate.name}
+                              </option>
+                            ))}
+                        </select>
+                      </label>
+                      <label className="flex items-center gap-2 text-xs text-zinc-300">
+                        <input type="checkbox" name="confirmDeleteType" />
+                        Delete this type
+                        {usage.locations
+                          ? ` and migrate ${usage.locations} locations.`
+                          : "."}
+                      </label>
+                      <SubmitButton
+                        pendingLabel="Deleting type..."
+                        className={filterDangerButtonClass}
+                      >
+                        Delete type
+                      </SubmitButton>
+                    </form>
+                  ) : (
+                    <form
+                      action={deleteLocationTypeAction}
+                      className="space-y-2"
+                    >
+                      <input
+                        type="hidden"
+                        name="locationTypeId"
+                        value={type.id}
+                      />
+                      <label className="flex items-center gap-2 text-xs text-zinc-300">
+                        <input
+                          type="checkbox"
+                          name="confirmDeleteType"
+                          disabled={!normalUserCanDelete}
+                        />
+                        Delete this type
+                      </label>
+                      <SubmitButton
+                        pendingLabel="Deleting type..."
+                        className={filterDangerButtonClass}
+                        disabled={!normalUserCanDelete}
+                      >
+                        Delete type
+                      </SubmitButton>
+                      {!createdByCurrentUser ? (
+                        <p className="text-xs text-zinc-500">
+                          Only the creator or an admin can delete this shared
+                          type.
+                        </p>
+                      ) : usedByAnotherOwner ? (
+                        <p className="text-xs text-amber-300">
+                          Another user has locations using this type. Ask an
+                          admin to migrate it.
+                        </p>
+                      ) : usage.locations ? (
+                        <p className="text-xs text-zinc-500">
+                          Deleting clears this type from your matching
+                          locations.
+                        </p>
+                      ) : null}
+                    </form>
+                  )}
+                </div>
+              </details>
+            );
+          })}
+        </div>
       </section>
 
       <section className={cn(filterPanelClass, "space-y-3")}>
@@ -666,9 +973,7 @@ export default async function LocationsPage() {
                   <details key={ownerGroup.id} open>
                     <summary className="list-none">
                       <div className="flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-zinc-300 hover:bg-zinc-900">
-                        <span className="w-4 text-center text-zinc-500">
-                          -
-                        </span>
+                        <span className="w-4 text-center text-zinc-500">-</span>
                         <span className="min-w-0 flex-1 truncate">
                           {ownerGroup.name}
                         </span>
@@ -679,7 +984,10 @@ export default async function LocationsPage() {
                     </summary>
                     <div className="ml-3 space-y-0.5 border-l border-zinc-800 pl-2">
                       {ownerGroup.types.map((typeGroup) => (
-                        <details key={`${ownerGroup.id}-${typeGroup.label}`} open>
+                        <details
+                          key={`${ownerGroup.id}-${typeGroup.label}`}
+                          open
+                        >
                           <summary className="list-none">
                             <div className="flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-zinc-300 hover:bg-zinc-900">
                               <span className="w-4 text-center text-zinc-500">
@@ -845,12 +1153,40 @@ export default async function LocationsPage() {
                                       </label>
                                       <label className={filterFieldClass}>
                                         Type
-                                        <input
+                                        <select
                                           name="type"
                                           defaultValue={location.type ?? ""}
                                           className={cn(
-                                            filterInputClass,
+                                            filterSelectClass,
                                             "mt-1 w-full",
+                                          )}
+                                        >
+                                          <option value="">Unsorted</option>
+                                          {location.type &&
+                                          !locationTypes.some(
+                                            (type) =>
+                                              type.name.toLowerCase() ===
+                                              location.type?.toLowerCase(),
+                                          ) ? (
+                                            <option value={location.type}>
+                                              {location.type}
+                                            </option>
+                                          ) : null}
+                                          {locationTypes.map((type) => (
+                                            <option
+                                              key={type.id}
+                                              value={type.name}
+                                            >
+                                              {type.name}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        <input
+                                          name="newType"
+                                          placeholder="Or create type"
+                                          className={cn(
+                                            filterInputClass,
+                                            "mt-2 w-full",
                                           )}
                                         />
                                       </label>

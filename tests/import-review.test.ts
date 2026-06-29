@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -98,4 +99,13 @@ test("commit eligibility excludes already committed and unresolved rows", () => 
   assert.equal(isImportItemReadyToCommit(rows[0]), true);
   assert.equal(isImportItemReadyToCommit(rows[1]), false);
   assert.equal(isImportItemReadyToCommit(rows[3]), false);
+});
+
+test("inventory imports only offer normal active non-system destinations", async () => {
+  const source = await readFile("app/imports/page.tsx", "utf8");
+
+  assert.match(source, /InventoryLocationKind\.NORMAL/);
+  assert.match(source, /systemManaged: false/);
+  assert.match(source, /!location\.systemManaged/);
+  assert.match(source, /location\.active/);
 });

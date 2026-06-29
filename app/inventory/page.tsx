@@ -59,6 +59,7 @@ import {
   buildRelatedCardMetadataByScryfallId,
   enrichAllPartsWithLocalCardMetadata,
 } from "@/lib/inventory-related-cards";
+import { getActiveLocationTypes } from "@/lib/location-types";
 
 export default async function InventoryPage({
   searchParams,
@@ -246,7 +247,12 @@ export default async function InventoryPage({
       ]),
   );
 
-  const ownerParam = Array.isArray(p.ownerId) ? p.ownerId[0] : p.ownerId;
+  const ownerParams = Array.isArray(p.ownerId)
+    ? p.ownerId.flatMap((entry) => String(entry).split(",")).filter(Boolean)
+    : p.ownerId
+      ? String(p.ownerId).split(",").filter(Boolean)
+      : [];
+  const ownerParam = ownerParams.length === 1 ? ownerParams[0] : "";
   const activeOwnerId =
     ownerParam || (!adminModeActive ? userWithPlayer?.playerId || "" : "");
   const visiblePlayers = adminModeActive
@@ -254,9 +260,21 @@ export default async function InventoryPage({
     : players.filter((player) => player.id === userWithPlayer?.playerId);
   const locations = activeOwnerId
     ? await getLocationsForOwner(prisma, activeOwnerId)
-    : await prisma.inventoryLocation.findMany({
-        orderBy: [{ ownerPlayer: { displayName: "asc" } }, { name: "asc" }],
-      });
+    : adminModeActive && ownerParams.length
+      ? await prisma.inventoryLocation.findMany({
+          where: { ownerPlayerId: { in: ownerParams } },
+          orderBy: [{ ownerPlayer: { displayName: "asc" } }, { name: "asc" }],
+        })
+      : await prisma.inventoryLocation.findMany({
+          orderBy: [{ ownerPlayer: { displayName: "asc" } }, { name: "asc" }],
+        });
+  const normalDestinationLocations = locations.filter(
+    (location) =>
+      location.active &&
+      location.kind === InventoryLocationKind.NORMAL &&
+      !location.systemManaged,
+  );
+  const locationTypes = await getActiveLocationTypes(prisma);
   const setOptions: Array<{ setCode: string; setName: string | null }> = [];
   const cardNameOptions: string[] = [];
 
@@ -1011,10 +1029,14 @@ export default async function InventoryPage({
           value: player.id,
           label: player.displayName,
         }))}
-        locations={locations.map((location) => ({
+        locations={normalDestinationLocations.map((location) => ({
           value: location.id,
           label: location.name,
           kind: location.kind,
+        }))}
+        locationTypes={locationTypes.map((type) => ({
+          value: type.name,
+          label: type.name,
         }))}
         setOptions={setOptions.map((set) => ({
           value: set.setCode,
@@ -1031,7 +1053,7 @@ export default async function InventoryPage({
           name: p.displayName,
           color: p.color,
         }))}
-        locations={locations.map((l) => ({
+        locations={normalDestinationLocations.map((l) => ({
           id: l.id,
           name: l.name,
           ownerPlayerId: l.ownerPlayerId,

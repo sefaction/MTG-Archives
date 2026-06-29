@@ -40,7 +40,8 @@ export type PublicInventoryFilters = {
   priceMax?: string;
   locationId?: string | string[];
   locationName?: string | string[];
-  owner?: string;
+  locationType?: string | string[];
+  owner?: string | string[];
   displayMode?: string;
   sort?: string;
   sortDir?: string;
@@ -213,8 +214,13 @@ function publicUserWhere(defaultVisibility: DefaultCollectionVisibility) {
 }
 
 export function globalPublicInventoryLocationWhere(
-  ownerPublicSlug?: string,
+  ownerPublicSlug?: string | string[],
 ): Prisma.InventoryLocationWhereInput {
+  const ownerPublicSlugs = Array.isArray(ownerPublicSlug)
+    ? ownerPublicSlug.filter(Boolean)
+    : ownerPublicSlug
+      ? [ownerPublicSlug]
+      : [];
   return {
     active: true,
     kind: "NORMAL",
@@ -224,7 +230,9 @@ export function globalPublicInventoryLocationWhere(
           isActive: true,
           publicProfileEnabled: true,
           playerId: { not: null },
-          ...(ownerPublicSlug ? { publicSlug: ownerPublicSlug } : {}),
+          ...(ownerPublicSlugs.length
+            ? { publicSlug: { in: ownerPublicSlugs } }
+            : {}),
         },
       },
     },
@@ -280,12 +288,13 @@ export function buildPublicInventoryWhere(
       },
     });
   }
-  if (filters.owner?.trim()) {
+  const publicOwnerSlugs = publicFilterValues(filters.owner).filter(Boolean);
+  if (publicOwnerSlugs.length) {
     and.push({
       currentOwner: {
         users: {
           some: {
-            publicSlug: filters.owner.trim(),
+            publicSlug: { in: publicOwnerSlugs },
             isActive: true,
             publicProfileEnabled: true,
             playerId: { not: null },
@@ -315,6 +324,13 @@ export function buildPublicInventoryWhere(
         { card: { setCode: { equals: set, mode: "insensitive" } } },
         { card: { setName: { contains: set, mode: "insensitive" } } },
       ]),
+    });
+  }
+  if (structured.locationTypes.length) {
+    and.push({
+      OR: structured.locationTypes.map((type) => ({
+        location: { type: { equals: type, mode: "insensitive" } },
+      })),
     });
   }
 
@@ -448,10 +464,10 @@ export async function getGlobalPublicInventory(
     _count: { _all: true as const },
     orderBy: [{ cardId: "asc" }] as any,
   };
-  const ownerPublicSlug = filters.owner?.trim() || undefined;
+  const ownerPublicSlugs = publicFilterValues(filters.owner).filter(Boolean);
   const publicOwnerInventoryWhere = buildPublicInventoryWhere({});
   const publicLocationInventoryWhere = buildPublicInventoryWhere(
-    ownerPublicSlug ? { owner: ownerPublicSlug } : {},
+    ownerPublicSlugs.length ? { owner: ownerPublicSlugs } : {},
   );
   const [allGroups, publicProfiles, publicLocations] = await Promise.all([
     displayMode === "grouped"
@@ -475,7 +491,7 @@ export async function getGlobalPublicInventory(
     }),
     prisma.inventoryLocation.findMany({
       where: {
-        ...globalPublicInventoryLocationWhere(ownerPublicSlug),
+        ...globalPublicInventoryLocationWhere(ownerPublicSlugs),
         inventoryItems: { some: publicLocationInventoryWhere },
       },
       select: { name: true },

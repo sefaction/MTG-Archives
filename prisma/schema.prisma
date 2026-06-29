@@ -114,6 +114,7 @@ model User {
   decks                      Deck[]
   deckFolders                DeckFolder[]
   wishlistItems              WishlistItem[]
+  createdLocationTypes       LocationType[]
 
   @@index([publicProfileEnabled, isActive, inventoryDefaultVisibility])
   @@index([publicProfileEnabled, isActive, deckDefaultVisibility])
@@ -490,6 +491,21 @@ model InventoryLocation {
   @@index([ownerPlayerId, kind, active])
   @@index([ownerPlayerId, visibility, active])
   @@index([visibility, active])
+}
+
+model LocationType {
+  id             String   @id @default(cuid())
+  name           String
+  normalizedName String   @unique
+  description    String?
+  active         Boolean  @default(true)
+  createdByUserId String?
+  createdByUser   User?    @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([active, name])
+  @@index([createdByUserId])
 }
 
 model InventoryItem {

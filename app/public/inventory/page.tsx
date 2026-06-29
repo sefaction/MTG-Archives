@@ -17,6 +17,8 @@ import {
   buildRelatedCardMetadataByScryfallId,
   enrichAllPartsWithLocalCardMetadata,
 } from "@/lib/inventory-related-cards";
+import { getActiveLocationTypes } from "@/lib/location-types";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -264,6 +266,7 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
   });
   const setOptions: Array<{ setCode: string; setName: string | null }> = [];
   const cardNameRows: Array<{ name: string }> = [];
+  const locationTypes = await getActiveLocationTypes(prisma);
   const exactRows = getGlobalPublicExactPrintings(result.inventory);
   const groupedRows = getInventoryGroupedByCard(exactRows as any);
   const displayItems = displayMode === "grouped" ? groupedRows : exactRows;
@@ -339,6 +342,10 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
         locations={result.publicLocations.map((location) => ({
           value: location.name,
           label: location.name,
+        }))}
+        locationTypes={locationTypes.map((type) => ({
+          value: type.name,
+          label: type.name,
         }))}
         locationParamName="locationName"
         includeUnassignedLocationOption={false}

@@ -51,7 +51,9 @@ export async function addInventoryCardToLocation(
   if (!location) throw new Error("Choose a destination location.");
   if (
     !input.allowDeckLocation &&
-    location.kind === InventoryLocationKind.DECK
+    (location.kind === InventoryLocationKind.DECK ||
+      location.systemManaged ||
+      location.type === "Deck")
   ) {
     throw new Error("Choose a normal inventory location.");
   }

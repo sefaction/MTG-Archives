@@ -4,7 +4,11 @@ import path from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { FoilStatus, InventorySourceType } from "@prisma/client";
+import {
+  FoilStatus,
+  InventoryLocationKind,
+  InventorySourceType,
+} from "@prisma/client";
 import { Nav } from "@/components/Nav";
 import { getAccessScope, requireLogin as requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -236,9 +240,7 @@ function cardImage(
   card?: { imageUri?: string | null; imageUris?: unknown } | null,
 ) {
   const images = card?.imageUris as
-    | { small?: string; normal?: string }
-    | null
-    | undefined;
+    { small?: string; normal?: string } | null | undefined;
   return images?.small ?? images?.normal ?? card?.imageUri ?? "";
 }
 function statusBadgeClass(status: string) {
@@ -1078,6 +1080,9 @@ export default async function ImportsPage({
           where: {
             id: defaultLocationIdRaw,
             ownerPlayerId: batch.selectedPlayerId,
+            active: true,
+            kind: InventoryLocationKind.NORMAL,
+            systemManaged: false,
           },
         })
       : await ensureDefaultLocation(prisma, batch.selectedPlayerId);
@@ -1132,6 +1137,9 @@ export default async function ImportsPage({
             where: {
               ownerPlayerId: batch.selectedPlayerId,
               normalizedName: normalizeLocationName(parsedRow.locationName),
+              active: true,
+              kind: InventoryLocationKind.NORMAL,
+              systemManaged: false,
             },
           })
         : null;
@@ -1276,11 +1284,21 @@ export default async function ImportsPage({
     : null;
   const manualLocations = userWithPlayer?.playerId
     ? (await getLocationsForOwner(prisma, userWithPlayer.playerId)).filter(
-        (location) => location.kind !== "DECK",
+        (location) =>
+          location.active &&
+          location.kind === InventoryLocationKind.NORMAL &&
+          !location.systemManaged,
       )
     : [];
   const locationsForSelectedOwner = selectedBatch
-    ? await getLocationsForOwner(prisma, selectedBatch.selectedPlayerId)
+    ? (
+        await getLocationsForOwner(prisma, selectedBatch.selectedPlayerId)
+      ).filter(
+        (location) =>
+          location.active &&
+          location.kind === InventoryLocationKind.NORMAL &&
+          !location.systemManaged,
+      )
     : [];
   const summary = getImportReviewSummary(selectedItems);
   const filterCounts = {

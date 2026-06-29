@@ -20,6 +20,8 @@ test("inventory filter parser normalizes multi-select values", () => {
   params.append("finish", "foil");
   params.append("finish", "etched");
   params.append("locationId", "box-1,box-2");
+  params.append("locationType", "Binder");
+  params.append("locationType", "Box");
   params.append("type", "creature");
   params.append("type", "artifact");
   params.append("typeTokens", "Legendary,Angel");
@@ -29,8 +31,25 @@ test("inventory filter parser normalizes multi-select values", () => {
   assert.deepEqual(filters.rarities, ["rare", "mythic", "common"]);
   assert.deepEqual(filters.finishes, [FoilStatus.FOIL, FoilStatus.ETCHED]);
   assert.deepEqual(filters.locationIds, ["box-1", "box-2"]);
+  assert.deepEqual(filters.locationTypes, ["Binder", "Box"]);
   assert.deepEqual(filters.types, ["creature", "artifact"]);
   assert.deepEqual(filters.typeTokens, ["Legendary", "Angel"]);
+});
+
+test("inventory location type filter applies to private inventory queries", () => {
+  const filters = parseInventoryFilters(
+    new URLSearchParams("locationType=Binder&locationType=Box"),
+  );
+  const where = buildInventoryWhereFromFilters(filters, {
+    adminModeActive: true,
+  });
+
+  assert.deepEqual(where.AND[0], {
+    OR: [
+      { location: { type: { equals: "Binder", mode: "insensitive" } } },
+      { location: { type: { equals: "Box", mode: "insensitive" } } },
+    ],
+  });
 });
 
 test("inventory filter parser supports mana value and price operators", () => {
@@ -49,6 +68,18 @@ test("inventory filter parser supports mana value and price operators", () => {
   });
   assert.deepEqual(where.card.manaValue, { lte: 3 });
   assert.equal(where.currentOwnerId, "player-1");
+});
+
+test("inventory owner filters support multiple selected owners", () => {
+  const filters = parseInventoryFilters(
+    new URLSearchParams("ownerId=player-1&ownerId=player-2"),
+  );
+  const where = buildInventoryWhereFromFilters(filters, {
+    adminModeActive: true,
+  });
+
+  assert.deepEqual(filters.ownerIds, ["player-1", "player-2"]);
+  assert.deepEqual(where.currentOwnerId, { in: ["player-1", "player-2"] });
 });
 
 test("type token filters require all selected type tokens", () => {

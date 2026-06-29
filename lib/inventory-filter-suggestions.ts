@@ -17,6 +17,7 @@ const SCOPE_FILTER_KEYS = [
   "owner",
   "locationId",
   "locationName",
+  "locationType",
   "location",
   "hasLocation",
   "visibility",
