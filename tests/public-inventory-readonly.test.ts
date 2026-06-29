@@ -16,6 +16,8 @@ const inventoryBrowser = fs.readFileSync(
 );
 const loginPage = fs.readFileSync("app/login/page.tsx", "utf8");
 const middleware = fs.readFileSync("middleware.ts", "utf8");
+const nav = fs.readFileSync("components/Nav.tsx", "utf8");
+const dashboardPage = fs.readFileSync("app/dashboard/page.tsx", "utf8");
 const publicCollectionQueries = fs.readFileSync(
   "lib/public-collection.ts",
   "utf8",
@@ -64,6 +66,10 @@ test("shared inventory browser defines public read-only capabilities", () => {
 test("public entry points and per-user compatibility route point at global public inventory", () => {
   assert.match(loginPage, /Browse public inventory/);
   assert.match(loginPage, /\/public\/inventory/);
+  assert.match(nav, /<Link href="\/" className="app-nav-brand">/);
+  assert.match(nav, /href: "\/public\/inventory", label: "Public"/);
+  assert.match(dashboardPage, /href="\/public\/inventory"/);
+  assert.match(dashboardPage, /Public Inventory/);
   assert.match(middleware, /"\/public"/);
   assert.match(
     perUserPublicInventoryPage,

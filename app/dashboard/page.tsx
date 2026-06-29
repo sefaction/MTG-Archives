@@ -134,7 +134,7 @@ export default async function DashboardPage({
           </div>
         ))}
       </div>
-      <section className="grid gap-3 md:grid-cols-3">
+      <section className="grid gap-3 md:grid-cols-4">
         <Link className="rounded border border-zinc-800 p-4" href="/inventory">
           <h2 className="font-semibold">Inventory</h2>
           <p className="text-sm text-zinc-400">
@@ -151,6 +151,15 @@ export default async function DashboardPage({
           <h2 className="font-semibold">Trades</h2>
           <p className="text-sm text-zinc-400">
             Create and respond to user-to-user trade proposals.
+          </p>
+        </Link>
+        <Link
+          className="rounded border border-zinc-800 p-4"
+          href="/public/inventory"
+        >
+          <h2 className="font-semibold">Public Inventory</h2>
+          <p className="text-sm text-zinc-400">
+            Browse public cards and collections shared by users.
           </p>
         </Link>
       </section>

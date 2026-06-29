@@ -13,6 +13,7 @@ import { AdminModeToggle } from "@/components/AdminModeToggle";
 const mainLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/inventory", label: "Inventory" },
+  { href: "/public/inventory", label: "Public" },
   { href: "/pricing", label: "Pricing" },
   { href: "/decks", label: "Decks" },
   { href: "/wishlist", label: "Wishlist" },
@@ -67,7 +68,7 @@ export async function Nav() {
       ) : null}
       <nav className="app-nav mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-4">
-          <Link href="/dashboard" className="app-nav-brand">
+          <Link href="/" className="app-nav-brand">
             {appName}
           </Link>
           {mainLinks.map((link) => (
