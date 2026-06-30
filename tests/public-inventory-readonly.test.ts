@@ -31,6 +31,10 @@ const publicInventoryListApi = fs.readFileSync(
   "app/api/public/inventory/list/route.ts",
   "utf8",
 );
+const publicInventoryActions = fs.readFileSync(
+  "app/public/inventory/actions.ts",
+  "utf8",
+);
 const inventorySearch = fs.readFileSync(
   "components/InventoryAdvancedSearch.tsx",
   "utf8",
@@ -115,9 +119,15 @@ test("grouped public inventory aggregates location breakdown across all printing
     /entry\.printings\.flatMap\(\s*\(printing: any\) => printing\.locationBreakdown \|\| \[\]/,
   );
   assert.match(publicInventoryPage, /locationBreakdown: rowLocationBreakdown/);
-  assert.match(publicInventoryPage, /locationCount: rowLocationBreakdown\.length/);
+  assert.match(
+    publicInventoryPage,
+    /locationCount: rowLocationBreakdown\.length/,
+  );
   assert.match(publicInventoryListApi, /aggregatePublicLocationBreakdown/);
-  assert.match(publicInventoryListApi, /locationBreakdown: rowLocationBreakdown/);
+  assert.match(
+    publicInventoryListApi,
+    /locationBreakdown: rowLocationBreakdown/,
+  );
 });
 
 test("public inventory search keeps browsing filters and removes private/admin filters", () => {
@@ -194,7 +204,17 @@ test("public inventory browser keeps read-only browse controls and hides write/a
 test("public inventory data and autocomplete routes are scoped to public-safe data", () => {
   assert.match(publicInventoryListApi, /getGlobalPublicInventory/);
   assert.match(publicInventoryListApi, /toInventoryBrowserRows/);
-  assert.doesNotMatch(publicInventoryListApi, /sourceItemIds/);
+  assert.match(globalPublicInventoryPage, /onAddTradeWishlist=/);
+  assert.match(inventoryBrowser, /Wishlist for trade/);
+  assert.match(publicInventoryListApi, /sourceItemIds/);
+  assert.match(publicInventoryPage, /sourceItemIds/);
+  assert.match(publicInventoryActions, /requireLogin\(\)/);
+  assert.match(publicInventoryActions, /buildPublicInventoryWhere/);
+  assert.match(publicInventoryActions, /tradeWishlistItem\.upsert/);
+  assert.match(
+    publicInventoryActions,
+    /You cannot trade-wishlist your own card/,
+  );
   assert.match(
     publicCollectionQueries,
     /publicFilterValues\(filters\.locationName\)/,

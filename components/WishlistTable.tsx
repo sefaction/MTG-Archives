@@ -61,6 +61,7 @@ const defaultVisibility: VisibilityState = {
   wantedQty: true,
   manualQty: false,
   deckNeededQty: false,
+  tradeQty: false,
   ownedTotal: true,
   available: true,
   committed: true,
@@ -109,6 +110,7 @@ function RowActionMenu({
 }) {
   const firstDeckNeed = row.sources.decks[0];
   const firstManual = row.sources.manual[0];
+  const firstTradeWant = row.sources.trade[0];
 
   return (
     <details className="relative inline-block text-left">
@@ -147,6 +149,18 @@ function RowActionMenu({
             className="block rounded px-3 py-2 text-sm hover:bg-zinc-800"
           >
             View deck
+          </Link>
+        ) : null}
+        {firstTradeWant ? (
+          <Link
+            href={`/trades?receiverId=${firstTradeWant.targetOwnerPlayerId}${
+              firstTradeWant.targetInventoryItemId
+                ? `&requestedInventoryItemId=${firstTradeWant.targetInventoryItemId}`
+                : ""
+            }`}
+            className="block rounded px-3 py-2 text-sm hover:bg-zinc-800"
+          >
+            Negotiate trade with {firstTradeWant.targetOwnerName}
           </Link>
         ) : null}
         {row.inventory.ownedTotal > 0 ? (
@@ -358,6 +372,7 @@ function WishlistDetailDrawer({
             <Metric label="Wanted Qty" value={row.totalWanted} />
             <Metric label="Manual Qty" value={row.manualQuantity} />
             <Metric label="Deck Needed Qty" value={row.deckQuantity} />
+            <Metric label="Trade Wanted Qty" value={row.tradeQuantity} />
             <Metric label="Owned Total" value={row.inventory.ownedTotal} />
             <Metric label="Available" value={row.inventory.available} />
             <Metric label="Committed" value={row.inventory.committedToDecks} />
@@ -460,6 +475,48 @@ function WishlistDetailDrawer({
                 Add manual quantity
               </SubmitButton>
             </form>
+          )}
+        </section>
+
+        <section className="mt-4 space-y-3">
+          <h3 className="font-semibold">Trade wishlist targets</h3>
+          {row.sources.trade.length ? (
+            <div className="grid gap-2">
+              {row.sources.trade.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded border border-zinc-800 p-3 text-sm"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="font-medium text-sky-100">
+                        {item.targetOwnerName}
+                      </p>
+                      <p className="text-zinc-400">
+                        Wants {item.quantity} copy
+                        {item.quantity === 1 ? "" : "ies"} from this public
+                        collection.
+                      </p>
+                      {item.notes ? (
+                        <p className="text-zinc-500">{item.notes}</p>
+                      ) : null}
+                    </div>
+                    <Link
+                      href={`/trades?receiverId=${item.targetOwnerPlayerId}${
+                        item.targetInventoryItemId
+                          ? `&requestedInventoryItemId=${item.targetInventoryItemId}`
+                          : ""
+                      }`}
+                      className={filterPrimaryButtonClass}
+                    >
+                      Negotiate
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-zinc-400">No trade wishlist targets.</p>
           )}
         </section>
 
@@ -850,6 +907,7 @@ export function WishlistTable({
         accessorKey: "deckQuantity",
         header: "Deck Needed Qty",
       },
+      { id: "tradeQty", accessorKey: "tradeQuantity", header: "Trade Qty" },
       {
         id: "ownedTotal",
         accessorFn: (row) => row.inventory.ownedTotal,

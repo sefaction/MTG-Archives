@@ -19,6 +19,7 @@ import {
 } from "@/lib/inventory-related-cards";
 import { getActiveLocationTypes } from "@/lib/location-types";
 import { prisma } from "@/lib/prisma";
+import { addPublicInventoryToTradeWishlist } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,7 @@ type PublicLocationPart = {
   locationId: string | null;
   name: string;
   quantity: number;
+  inventoryItemIds?: string[];
 };
 
 function publicOwnerFor(item: any): PublicOwner {
@@ -67,8 +69,13 @@ function aggregatePublicLocationBreakdown(parts: PublicLocationPart[]) {
   for (const part of parts) {
     const key = part.locationId ?? part.name;
     const existing = byLocation.get(key);
-    if (existing) existing.quantity += part.quantity;
-    else byLocation.set(key, { ...part });
+    if (existing) {
+      existing.quantity += part.quantity;
+      existing.inventoryItemIds = [
+        ...(existing.inventoryItemIds ?? []),
+        ...(part.inventoryItemIds ?? []),
+      ];
+    } else byLocation.set(key, { ...part });
   }
   return Array.from(byLocation.values());
 }
@@ -86,9 +93,10 @@ function getGlobalPublicExactPrintings(items: any[]) {
       item.language,
     ].join("|");
     const locationPart = {
-      locationId: null,
+      locationId: item.locationId ?? null,
       name: `${ownerName} — ${locationName}`,
       quantity: item.quantity,
+      inventoryItemIds: [item.id],
     };
     const ownerPart = {
       ownerName,
@@ -111,17 +119,24 @@ function getGlobalPublicExactPrintings(items: any[]) {
         quantity: item.quantity,
         ownerBreakdown: [ownerPart],
         locationBreakdown: [locationPart],
+        sourceItemIds: [item.id],
         locationSummary: locationSummary([locationPart]),
       });
       return;
     }
     existing.quantity += item.quantity;
+    existing.sourceItemIds.push(item.id);
     existing.ownerBreakdown.push(ownerPart);
     const previousLocation = existing.locationBreakdown.find(
       (part: PublicLocationPart) => part.name === locationPart.name,
     );
-    if (previousLocation) previousLocation.quantity += locationPart.quantity;
-    else existing.locationBreakdown.push(locationPart);
+    if (previousLocation) {
+      previousLocation.quantity += locationPart.quantity;
+      previousLocation.inventoryItemIds = [
+        ...(previousLocation.inventoryItemIds ?? []),
+        item.id,
+      ];
+    } else existing.locationBreakdown.push(locationPart);
     existing.locationSummary = locationSummary(existing.locationBreakdown);
   });
   return Array.from(groups.values());
@@ -161,6 +176,12 @@ function toInventoryBrowserRows({
             ),
           )
         : (i.locationBreakdown ?? []);
+    const sourceItemIds =
+      displayMode === "grouped"
+        ? entry.printings.flatMap(
+            (printing: any) => printing.sourceItemIds || [],
+          )
+        : (i.sourceItemIds ?? []);
     const ownerColors = Array.from(
       new Set(
         ownerBreakdown.map((owner: any) => owner.ownerColor).filter(Boolean),
@@ -173,6 +194,7 @@ function toInventoryBrowserRows({
     return {
       id: publicRowId,
       cardId: publicRowId,
+      sourceItemIds,
       cardName: i.card.name,
       quantity: entry.quantity ?? i.quantity,
       displayMode,
@@ -197,11 +219,13 @@ function toInventoryBrowserRows({
               quantity: printing.quantity,
               locationBreakdown: printing.locationBreakdown.map(
                 (location: any) => ({
-                  locationId: null,
+                  locationId: location.locationId ?? null,
                   name: location.name,
                   quantity: location.quantity,
+                  inventoryItemIds: location.inventoryItemIds ?? [],
                 }),
               ),
+              sourceItemIds: printing.sourceItemIds ?? [],
             }))
           : [],
       locationId: "",
@@ -422,6 +446,7 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
           initialSortField={String(sortField)}
           initialSortDirection={sortDirection}
           currentLocationId={selected("locationName")[0] || ""}
+          onAddTradeWishlist={addPublicInventoryToTradeWishlist}
         />
       ) : (
         <div className="rounded border border-zinc-800 p-4 text-zinc-400">

@@ -86,6 +86,13 @@ enum InventoryLocationKind {
   DECK
 }
 
+enum TradeWishlistStatus {
+  OPEN
+  IN_TRADE
+  FULFILLED
+  CANCELLED
+}
+
 model User {
   id                         String                      @id @default(cuid())
   username                   String                      @unique
@@ -114,6 +121,7 @@ model User {
   decks                      Deck[]
   deckFolders                DeckFolder[]
   wishlistItems              WishlistItem[]
+  tradeWishlistItems         TradeWishlistItem[]
   createdLocationTypes       LocationType[]
 
   @@index([publicProfileEnabled, isActive, inventoryDefaultVisibility])
@@ -164,6 +172,7 @@ model Player {
   inventoryOwned              InventoryItem[]     @relation("InventoryCurrentOwner")
   inventoryOpened             InventoryItem[]     @relation("InventoryOriginalOpener")
   inventoryLocations          InventoryLocation[]
+  tradeWishlistTargets        TradeWishlistItem[] @relation("TradeWishlistTargetOwner")
   importBatchesSelected       ImportBatch[]       @relation("ImportBatchSelectedPlayer")
   importBatchesOriginalOpened ImportBatch[]       @relation("ImportBatchOriginalOpener")
   tradesProposed              Trade[]             @relation("TradeProposer")
@@ -320,6 +329,7 @@ model Card {
   pulls               Pull[]
   inventoryItems      InventoryItem[]
   importBatchItems    ImportBatchItem[]
+  tradeWishlistItems  TradeWishlistItem[]
   deckCards           DeckCard[]
   wishlistItems       WishlistItem[]
 
@@ -493,6 +503,29 @@ model InventoryLocation {
   @@index([visibility, active])
 }
 
+model TradeWishlistItem {
+  id                    String              @id @default(cuid())
+  ownerUserId           String
+  ownerUser             User                @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  cardId                String
+  card                  Card                @relation(fields: [cardId], references: [id], onDelete: Restrict)
+  targetOwnerPlayerId   String
+  targetOwnerPlayer     Player              @relation("TradeWishlistTargetOwner", fields: [targetOwnerPlayerId], references: [id], onDelete: Cascade)
+  targetInventoryItemId String?
+  targetInventoryItem   InventoryItem?      @relation(fields: [targetInventoryItemId], references: [id], onDelete: SetNull)
+  quantity              Int                 @default(1)
+  status                TradeWishlistStatus @default(OPEN)
+  notes                 String?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  @@unique([ownerUserId, targetOwnerPlayerId, cardId])
+  @@index([ownerUserId, status, updatedAt])
+  @@index([targetOwnerPlayerId, status])
+  @@index([targetInventoryItemId])
+  @@index([cardId])
+}
+
 model LocationType {
   id             String   @id @default(cuid())
   name           String
@@ -533,6 +566,7 @@ model InventoryItem {
   updatedAt          DateTime            @updatedAt
   auditLogs          InventoryAuditLog[]
   importBatchItems   ImportBatchItem[]
+  tradeWishlistItems TradeWishlistItem[]
   offeredTrades      Trade[]             @relation("OfferedInventoryItem")
   requestedTrades    Trade[]             @relation("RequestedInventoryItem")
 

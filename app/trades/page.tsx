@@ -1,17 +1,19 @@
 export const dynamic = "force-dynamic";
 
+import Link from "next/link";
 import { Nav } from "@/components/Nav";
 import { prisma } from "@/lib/prisma";
 import { getAccessScope, requireLogin } from "@/lib/auth";
-import { TradeStatus } from "@prisma/client";
+import { TradeStatus, TradeWishlistStatus } from "@prisma/client";
 import { actOnTrade, confirmPhysicalTrade, createTrade } from "./actions";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
-import { TradeBuilder, type TradeBuilderItem } from "@/components/TradeBuilder";
+import { TradeBuilder } from "@/components/TradeBuilder";
 import {
   cn,
   filterButtonClass,
   filterFieldClass,
   filterPanelClass,
+  filterPrimaryButtonClass,
   filterSelectClass,
 } from "@/components/filterStyles";
 
@@ -31,7 +33,12 @@ const physicalStatuses: TradeStatus[] = [
   TradeStatus.PARTIALLY_COMMITTED,
 ];
 
-type SearchParams = { proposerId?: string; receiverId?: string };
+type SearchParams = {
+  proposerId?: string;
+  receiverId?: string;
+  offeredInventoryItemId?: string;
+  requestedInventoryItemId?: string;
+};
 type TradeSnapshot = {
   cardName?: string;
   setCode?: string;
@@ -57,9 +64,7 @@ function cardImage(
   snap: TradeSnapshot = {},
 ) {
   const images = item?.card?.imageUris as
-    | { small?: string; normal?: string }
-    | null
-    | undefined;
+    { small?: string; normal?: string } | null | undefined;
   return (
     images?.small ??
     images?.normal ??
@@ -73,16 +78,33 @@ function cardImage(
 function statusLabel(status: TradeStatus) {
   return status.toLowerCase();
 }
-function itemLabel(item: {
-  card: { name: string; setCode: string; collectorNumber: string };
+function cardName(item: TradeCard, snap: TradeSnapshot) {
+  return item?.card.name ?? snap.cardName ?? "Transferred inventory item";
+}
+function toTradeBuilderItem(item: {
+  id: string;
   condition: string;
   foilStatus: string;
   quantity: number;
+  card: {
+    name: string;
+    setCode: string;
+    collectorNumber: string;
+    imageUri?: string | null;
+    imageUris?: unknown;
+  };
 }) {
-  return `${item.card.name} (${item.card.setCode.toUpperCase()} #${item.card.collectorNumber}) • ${item.foilStatus.toLowerCase()} • ${item.condition} • qty ${item.quantity}`;
-}
-function cardName(item: TradeCard, snap: TradeSnapshot) {
-  return item?.card.name ?? snap.cardName ?? "Transferred inventory item";
+  return {
+    id: item.id,
+    cardName: item.card.name,
+    setCode: item.card.setCode,
+    collectorNumber: item.card.collectorNumber,
+    condition: item.condition,
+    foilStatus: item.foilStatus,
+    quantity: item.quantity,
+    available: item.quantity,
+    imageUri: cardImage(item),
+  };
 }
 
 export default async function TradesPage({
@@ -114,21 +136,6 @@ export default async function TradesPage({
       </main>
     );
 
-  const inventory = await prisma.inventoryItem.findMany({
-    where: {
-      currentOwnerId: { in: [proposerId, receiverId].filter(Boolean) },
-      quantity: { gt: 0 },
-      OR: [{ locationId: null }, { location: { kind: "NORMAL" } }],
-    },
-    include: {
-      card: true,
-      currentOwner: true,
-    },
-    orderBy: [
-      { currentOwner: { displayName: "asc" } },
-      { card: { name: "asc" } },
-    ],
-  });
   const visibleTrades = await prisma.trade.findMany({
     where: isAdmin
       ? {}
@@ -150,41 +157,57 @@ export default async function TradesPage({
     },
     orderBy: { proposedAt: "desc" },
   });
-  const activeReservations = await prisma.trade.findMany({
-    where: { status: { in: activeStatuses } },
-    select: { offeredInventoryItemId: true, requestedInventoryItemId: true },
-  });
-  const reservedCount = new Map<string, number>();
-  for (const trade of activeReservations) {
-    for (const id of [
-      trade.offeredInventoryItemId,
-      trade.requestedInventoryItemId,
-    ]) {
-      if (id) reservedCount.set(id, (reservedCount.get(id) || 0) + 1);
-    }
-  }
-  const available = (id: string, quantity: number) =>
-    Math.max(0, quantity - (reservedCount.get(id) || 0));
-
-  const myInventory = inventory.filter(
-    (item) => item.currentOwnerId === proposerId,
-  );
-  const partnerInventory = inventory.filter(
-    (item) => item.currentOwnerId === receiverId,
-  );
-  const toTradeBuilderItem = (
-    item: (typeof inventory)[number],
-  ): TradeBuilderItem => ({
-    id: item.id,
-    cardName: item.card.name,
-    setCode: item.card.setCode,
-    collectorNumber: item.card.collectorNumber,
-    condition: item.condition,
-    foilStatus: item.foilStatus,
-    quantity: item.quantity,
-    available: available(item.id, item.quantity),
-    imageUri: cardImage(item),
-  });
+  const [myTradeWishlist, wantedFromMe] = await Promise.all([
+    prisma.tradeWishlistItem.findMany({
+      where: { ownerUserId: user.id, status: TradeWishlistStatus.OPEN },
+      include: {
+        card: true,
+        targetOwnerPlayer: true,
+        targetInventoryItem: { include: { card: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 50,
+    }),
+    user.playerId
+      ? prisma.tradeWishlistItem.findMany({
+          where: {
+            targetOwnerPlayerId: user.playerId,
+            status: TradeWishlistStatus.OPEN,
+          },
+          include: {
+            ownerUser: true,
+            card: true,
+            targetInventoryItem: { include: { card: true } },
+          },
+          orderBy: { updatedAt: "desc" },
+          take: 50,
+        })
+      : Promise.resolve([]),
+  ]);
+  const [initialOfferedItem, initialRequestedItem] = await Promise.all([
+    params.offeredInventoryItemId
+      ? prisma.inventoryItem.findFirst({
+          where: {
+            id: params.offeredInventoryItemId,
+            currentOwnerId: proposerId,
+            quantity: { gt: 0 },
+            OR: [{ locationId: null }, { location: { kind: "NORMAL" } }],
+          },
+          include: { card: true },
+        })
+      : Promise.resolve(null),
+    params.requestedInventoryItemId
+      ? prisma.inventoryItem.findFirst({
+          where: {
+            id: params.requestedInventoryItemId,
+            currentOwnerId: receiverId,
+            quantity: { gt: 0 },
+            OR: [{ locationId: null }, { location: { kind: "NORMAL" } }],
+          },
+          include: { card: true },
+        })
+      : Promise.resolve(null),
+  ]);
   const sections = [
     [
       "My Active Trades",
@@ -221,14 +244,21 @@ export default async function TradesPage({
     <main className="p-8 space-y-6">
       <Nav />
       <h1 className="text-3xl font-bold">Trades</h1>
-      <section className={cn(filterPanelClass, "space-y-3")}>
-        <h2 className="text-xl font-semibold">Create Trade Proposal</h2>
-        <p className="text-sm text-zinc-400">
-          Pick a card from each inventory side. Trades reserve the selected
-          cards and only transfer inventory after both users confirm the
-          physical exchange.
-        </p>
-        <form method="get" className="grid md:grid-cols-3 gap-2">
+      <section className={cn(filterPanelClass, "space-y-4")}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold">Create Trade Proposal</h2>
+            <p className="max-w-3xl text-sm text-zinc-400">
+              Search each side as needed instead of loading full collections.
+              This keeps the page fast and gives us a cleaner path toward
+              multi-card negotiation and trade wishlists.
+            </p>
+          </div>
+          <span className="rounded border border-zinc-800 px-2 py-1 text-xs text-zinc-400">
+            1-for-1 foundation
+          </span>
+        </div>
+        <form method="get" className="grid gap-2 md:grid-cols-3">
           {isAdmin ? (
             <label className={filterFieldClass}>
               Proposer
@@ -262,75 +292,144 @@ export default async function TradesPage({
             </select>
           </label>
           <button className={cn(filterButtonClass, "md:self-end")}>
-            Load cards
+            Set partner
           </button>
         </form>
         <TradeBuilder
+          key={[
+            proposerId,
+            receiverId,
+            initialOfferedItem?.id ?? "",
+            initialRequestedItem?.id ?? "",
+          ].join(":")}
           createTradeAction={createTrade}
           proposerPlayerId={isAdmin ? proposerId : undefined}
+          proposerOwnerId={proposerId}
           receiverPlayerId={receiverId}
-          offerItems={myInventory.map(toTradeBuilderItem)}
-          requestItems={partnerInventory.map(toTradeBuilderItem)}
+          proposerName={
+            players.find((player) => player.id === proposerId)?.displayName ||
+            "You"
+          }
+          receiverName={
+            players.find((player) => player.id === receiverId)?.displayName ||
+            "Trade partner"
+          }
+          initialOfferedItem={
+            initialOfferedItem ? toTradeBuilderItem(initialOfferedItem) : null
+          }
+          initialRequestedItem={
+            initialRequestedItem
+              ? toTradeBuilderItem(initialRequestedItem)
+              : null
+          }
         />
-        {false ? (
-        <form action={createTrade} className="grid md:grid-cols-2 gap-3">
-          <input type="hidden" name="receiverPlayerId" value={receiverId} />
-          {isAdmin ? (
-            <input type="hidden" name="proposerPlayerId" value={proposerId} />
-          ) : null}
-          <label className="text-sm">
-            One card I am offering
-            <select
-              name="offeredInventoryItemId"
-              required
-              className="w-full border p-2 bg-zinc-900"
-            >
-              {myInventory.map((item) => (
-                <option
-                  key={item.id}
-                  disabled={available(item.id, item.quantity) < 1}
-                  value={item.id}
-                >
-                  {itemLabel(item)} • available{" "}
-                  {available(item.id, item.quantity)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm">
-            One card I am requesting
-            <select
-              name="requestedInventoryItemId"
-              required
-              className="w-full border p-2 bg-zinc-900"
-            >
-              {partnerInventory.map((item) => (
-                <option
-                  key={item.id}
-                  disabled={available(item.id, item.quantity) < 1}
-                  value={item.id}
-                >
-                  {itemLabel(item)} • available{" "}
-                  {available(item.id, item.quantity)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm md:col-span-2">
-            Message / notes
-            <textarea
-              name="message"
-              className="w-full border p-2 bg-zinc-900"
-            />
-          </label>
-          <SubmitButton
-            pendingLabel="Proposing trade…"
-            className="border px-3 py-2 md:col-span-2"
-          >
-            Submit Proposal
-          </SubmitButton>
-        </form>
-        ) : null}
+      </section>
+
+      <section className={cn(filterPanelClass, "space-y-4")}>
+        <div>
+          <h2 className="text-xl font-semibold">Trade Wishlist</h2>
+          <p className="text-sm text-zinc-400">
+            Public-inventory wants are collected here so either side can start a
+            focused negotiation without loading full collections.
+          </p>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="space-y-2">
+            <h3 className="font-semibold text-sky-100">Cards I want</h3>
+            {myTradeWishlist.length ? (
+              myTradeWishlist.map((item) => {
+                const image = cardImage(item.targetInventoryItem, {
+                  imageUri: item.card.imageUri,
+                  imageUris: item.card.imageUris as any,
+                });
+                return (
+                  <article
+                    key={item.id}
+                    className="flex gap-3 rounded border border-zinc-800 p-3"
+                  >
+                    {image ? (
+                      <img src={image} alt="" className="h-20 rounded" />
+                    ) : null}
+                    <div className="min-w-0 flex-1 text-sm">
+                      <p className="font-medium text-zinc-100">
+                        {item.card.name}
+                      </p>
+                      <p className="text-zinc-400">
+                        From {item.targetOwnerPlayer.displayName} · qty{" "}
+                        {item.quantity}
+                      </p>
+                      {item.notes ? (
+                        <p className="text-zinc-500">{item.notes}</p>
+                      ) : null}
+                    </div>
+                    <Link
+                      href={`/trades?receiverId=${item.targetOwnerPlayerId}${
+                        item.targetInventoryItemId
+                          ? `&requestedInventoryItemId=${item.targetInventoryItemId}`
+                          : ""
+                      }`}
+                      className={cn(filterPrimaryButtonClass, "self-start")}
+                    >
+                      Negotiate
+                    </Link>
+                  </article>
+                );
+              })
+            ) : (
+              <p className="text-sm text-zinc-500">
+                No public inventory trade wants yet.
+              </p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <h3 className="font-semibold text-sky-100">Wanted from me</h3>
+            {wantedFromMe.length ? (
+              wantedFromMe.map((item) => {
+                const image = cardImage(item.targetInventoryItem, {
+                  imageUri: item.card.imageUri,
+                  imageUris: item.card.imageUris as any,
+                });
+                return (
+                  <article
+                    key={item.id}
+                    className="flex gap-3 rounded border border-zinc-800 p-3"
+                  >
+                    {image ? (
+                      <img src={image} alt="" className="h-20 rounded" />
+                    ) : null}
+                    <div className="min-w-0 flex-1 text-sm">
+                      <p className="font-medium text-zinc-100">
+                        {item.card.name}
+                      </p>
+                      <p className="text-zinc-400">
+                        Wanted by{" "}
+                        {item.ownerUser.displayName || item.ownerUser.username}{" "}
+                        · qty {item.quantity}
+                      </p>
+                      {item.notes ? (
+                        <p className="text-zinc-500">{item.notes}</p>
+                      ) : null}
+                    </div>
+                    <Link
+                      href={`/trades?receiverId=${item.ownerUser.playerId || ""}${
+                        item.targetInventoryItemId
+                          ? `&offeredInventoryItemId=${item.targetInventoryItemId}`
+                          : ""
+                      }`}
+                      className={cn(filterPrimaryButtonClass, "self-start")}
+                    >
+                      Negotiate
+                    </Link>
+                  </article>
+                );
+              })
+            ) : (
+              <p className="text-sm text-zinc-500">
+                No one has wishlisted your public cards for trade yet.
+              </p>
+            )}
+          </div>
+        </div>
       </section>
 
       {sections.map(([title, trades]) => (

@@ -203,9 +203,7 @@ export type ScryfallResult = {
 };
 
 export type InventoryUiMode =
-  | "owner-editable"
-  | "admin-editable"
-  | "public-readonly";
+  "owner-editable" | "admin-editable" | "public-readonly";
 
 export type InventoryCapabilities = {
   canEdit: boolean;
@@ -674,6 +672,7 @@ function CardDetail({
   row,
   onClose,
   capabilities,
+  onAddTradeWishlist,
   onEdit,
   onAudit,
   onDelete,
@@ -681,6 +680,7 @@ function CardDetail({
   row: InventoryRow;
   onClose: () => void;
   capabilities: InventoryCapabilities;
+  onAddTradeWishlist?: (formData: FormData) => Promise<void>;
   onEdit?: () => void;
   onAudit?: () => void;
   onDelete?: () => void;
@@ -715,6 +715,7 @@ function CardDetail({
     ["Oathbreaker", legalities.oathbreaker],
   ].filter(([, value]) => value);
   const visibleLocationBreakdown = row.locationBreakdown ?? [];
+  const tradeWishlistInventoryItemId = getRowSourceIds(row)[0] ?? "";
   return (
     <div className="fixed inset-0 z-50 bg-black/50" onClick={onClose}>
       <div
@@ -724,6 +725,22 @@ function CardDetail({
         <div className="flex items-start justify-between mb-4">
           <h2 className="text-xl font-bold">{row.cardName}</h2>
           <div className="flex gap-2">
+            {onAddTradeWishlist && tradeWishlistInventoryItemId ? (
+              <form action={onAddTradeWishlist}>
+                <input
+                  type="hidden"
+                  name="inventoryItemId"
+                  value={tradeWishlistInventoryItemId}
+                />
+                <input type="hidden" name="quantity" value="1" />
+                <SubmitButton
+                  pendingLabel="Adding..."
+                  className={cn(filterPrimaryButtonClass, "px-2 py-1")}
+                >
+                  Wishlist for trade
+                </SubmitButton>
+              </form>
+            ) : null}
             {capabilities.canEdit && onEdit ? (
               <button
                 onClick={onEdit}
@@ -930,6 +947,7 @@ export function InventoryBrowser({
   onSaveEdit,
   onSearchPrintings,
   onDeleteInventoryItem,
+  onAddTradeWishlist,
   importExportHref,
 }: {
   rows: InventoryRow[];
@@ -988,6 +1006,7 @@ export function InventoryBrowser({
   onSaveEdit?: (formData: FormData) => Promise<void>;
   onSearchPrintings?: (formData: FormData) => Promise<ScryfallResult[]>;
   onDeleteInventoryItem?: (formData: FormData) => Promise<void>;
+  onAddTradeWishlist?: (formData: FormData) => Promise<void>;
   importExportHref?: string;
 }) {
   const router = useRouter();
@@ -2218,6 +2237,7 @@ export function InventoryBrowser({
           row={selected}
           onClose={() => setSelected(null)}
           capabilities={capabilities}
+          onAddTradeWishlist={onAddTradeWishlist}
           onEdit={
             capabilities.canEdit && selected.displayMode === "exact"
               ? () => {

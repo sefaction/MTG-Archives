@@ -201,6 +201,46 @@ test("manual and deck-derived needs combine by oracle identity with source break
   assert.equal(view.groups[0].sources.decks.length, 2);
 });
 
+test("trade wishlist wants combine with manual and deck sources", () => {
+  const view = buildWishlistView({
+    manualItems: [
+      {
+        id: "wish-1",
+        cardId: boltA.id,
+        quantity: 1,
+        priority: "High",
+        notes: "gift",
+        desiredFinish: null,
+        desiredCondition: null,
+        desiredLanguage: null,
+        card: boltA,
+      },
+    ],
+    decks: [],
+    tradeItems: [
+      {
+        id: "trade-wish-1",
+        cardId: boltA.id,
+        quantity: 2,
+        status: "OPEN",
+        notes: "Brian has these",
+        targetOwnerPlayerId: "player-brian",
+        targetOwnerName: "Brian",
+        targetInventoryItemId: "inv-brian-bolt",
+        card: boltA,
+      },
+    ],
+    inventoryItems: [],
+  });
+  assert.equal(view.groups.length, 1);
+  assert.equal(view.groups[0].sourceLabel, "Manual + Trade");
+  assert.equal(view.groups[0].manualQuantity, 1);
+  assert.equal(view.groups[0].tradeQuantity, 2);
+  assert.equal(view.groups[0].totalWanted, 3);
+  assert.equal(view.groups[0].sources.trade[0].targetOwnerName, "Brian");
+  assert.equal(view.summary.tradeRows, 1);
+});
+
 test("inventory-aware counts separate available and committed deck copies", () => {
   const view = buildWishlistView({
     manualItems: [
@@ -295,6 +335,7 @@ test("wishlist drawer contains granular editing and manipulation sections", () =
     "Card summary",
     "Quantity summary",
     "Manual wishlist controls",
+    "Trade wishlist targets",
     "Needed for decks",
     "Inventory availability breakdown",
     "Printing tools",
@@ -327,6 +368,11 @@ test("wishlist page includes inventory-style view, advanced filter, sort, and pa
   assert.match(table, /Next/);
   assert.match(table, /Infinite scroll sentinel/);
   assert.match(page, /Advanced Filters/);
+  assert.match(page, /Trade Wants/);
+  assert.match(page, /Trade-wanted quantity/);
+  assert.match(page, /Trade wants/);
+  assert.match(table, /Trade Wanted Qty/);
+  assert.match(table, /Negotiate trade with/);
   assert.match(page, /Clear Filters/);
   assert.match(page, /pageSize/);
   for (const filter of [

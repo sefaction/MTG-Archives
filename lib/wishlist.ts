@@ -3,6 +3,7 @@ import {
   DeckSection,
   InventoryLocationKind,
   PrismaClient,
+  TradeWishlistStatus,
 } from "@prisma/client";
 import { isBasicLandCard } from "./card-types";
 import { cardPriceUsd } from "./deck-search";
@@ -60,6 +61,17 @@ export type WishlistDeckSource = {
   }>;
 };
 
+export type WishlistTradeSource = {
+  id: string;
+  cardId: string;
+  quantity: number;
+  status: TradeWishlistStatus | string;
+  notes: string | null;
+  targetOwnerPlayerId: string;
+  targetOwnerName: string;
+  targetInventoryItemId: string | null;
+};
+
 export type WishlistInventoryCounts = {
   ownedTotal: number;
   available: number;
@@ -89,18 +101,24 @@ export type WishlistGroup = {
   card: WishlistCardSummary;
   manualQuantity: number;
   deckQuantity: number;
+  tradeQuantity: number;
   totalWanted: number;
   inventory: WishlistInventoryCounts;
   inventoryBreakdown: WishlistInventoryBreakdown;
   estimatedPrice: number | null;
   estimatedMissingCost: number | null;
-  sources: { manual: WishlistManualSource[]; decks: WishlistDeckSource[] };
-  sourceLabel: "Manual" | "Deck" | "Manual + Deck";
+  sources: {
+    manual: WishlistManualSource[];
+    decks: WishlistDeckSource[];
+    trade: WishlistTradeSource[];
+  };
+  sourceLabel: string;
 };
 
 export type WishlistSummary = {
   manualRows: number;
   deckRows: number;
+  tradeRows: number;
   totalWantedQuantity: number;
   missingFromInventoryQuantity: number;
   availableToCommitQuantity: number;
@@ -146,6 +164,7 @@ type BuildInput = {
       deckId: string | null;
     } | null;
   }>;
+  tradeItems?: Array<WishlistTradeSource & { card: WishlistCardSummary }>;
 };
 
 function cardIdentity(
@@ -276,12 +295,13 @@ export function buildWishlistView(input: BuildInput): WishlistView {
       card,
       manualQuantity: 0,
       deckQuantity: 0,
+      tradeQuantity: 0,
       totalWanted: 0,
       inventory: addCountsForCard(input.inventoryItems, card),
       inventoryBreakdown: inventoryBreakdownForCard(input.inventoryItems, card),
       estimatedPrice,
       estimatedMissingCost: null,
-      sources: { manual: [], decks: [] },
+      sources: { manual: [], decks: [], trade: [] },
       sourceLabel: "Manual",
     };
     groups.set(key, group);
@@ -366,14 +386,31 @@ export function buildWishlistView(input: BuildInput): WishlistView {
     }
   }
 
+  for (const item of input.tradeItems ?? []) {
+    const group = ensureGroup(item.card);
+    group.tradeQuantity += item.quantity;
+    group.sources.trade.push({
+      id: item.id,
+      cardId: item.cardId,
+      quantity: item.quantity,
+      status: item.status,
+      notes: item.notes,
+      targetOwnerPlayerId: item.targetOwnerPlayerId,
+      targetOwnerName: item.targetOwnerName,
+      targetInventoryItemId: item.targetInventoryItemId,
+    });
+  }
+
   for (const group of groups.values()) {
-    group.totalWanted = group.manualQuantity + group.deckQuantity;
-    group.sourceLabel =
-      group.manualQuantity > 0 && group.deckQuantity > 0
-        ? "Manual + Deck"
-        : group.manualQuantity > 0
-          ? "Manual"
-          : "Deck";
+    group.totalWanted =
+      group.manualQuantity + group.deckQuantity + group.tradeQuantity;
+    group.sourceLabel = [
+      group.manualQuantity > 0 ? "Manual" : "",
+      group.deckQuantity > 0 ? "Deck" : "",
+      group.tradeQuantity > 0 ? "Trade" : "",
+    ]
+      .filter(Boolean)
+      .join(" + ");
     const inventoryShortfall = Math.max(
       0,
       group.totalWanted - group.inventory.ownedTotal,
@@ -397,6 +434,10 @@ export function buildWishlistView(input: BuildInput): WishlistView {
       manualRows: input.manualItems.length,
       deckRows: ordered.reduce(
         (sum, group) => sum + group.sources.decks.length,
+        0,
+      ),
+      tradeRows: ordered.reduce(
+        (sum, group) => sum + group.sources.trade.length,
         0,
       ),
       totalWantedQuantity: ordered.reduce(
@@ -452,7 +493,7 @@ export async function getWishlistView(
   ownerUserId: string,
   ownerPlayerId: string | null | undefined,
 ) {
-  const [manualItems, decks, inventoryItems] = await Promise.all([
+  const [manualItems, decks, inventoryItems, tradeItems] = await Promise.all([
     prisma.wishlistItem.findMany({
       where: { ownerUserId },
       include: { card: { select: cardSelect } },
@@ -499,6 +540,29 @@ export async function getWishlistView(
           },
         })
       : Promise.resolve([]),
+    prisma.tradeWishlistItem.findMany({
+      where: { ownerUserId, status: TradeWishlistStatus.OPEN },
+      include: {
+        card: { select: cardSelect },
+        targetOwnerPlayer: { select: { id: true, displayName: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+    }),
   ]);
-  return buildWishlistView({ manualItems, decks, inventoryItems });
+  return buildWishlistView({
+    manualItems,
+    decks,
+    inventoryItems,
+    tradeItems: tradeItems.map((item) => ({
+      id: item.id,
+      cardId: item.cardId,
+      quantity: item.quantity,
+      status: item.status,
+      notes: item.notes,
+      targetOwnerPlayerId: item.targetOwnerPlayerId,
+      targetOwnerName: item.targetOwnerPlayer.displayName,
+      targetInventoryItemId: item.targetInventoryItemId,
+      card: item.card,
+    })),
+  });
 }
