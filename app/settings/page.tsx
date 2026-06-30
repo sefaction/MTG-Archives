@@ -12,6 +12,10 @@ import {
 } from "@/components/filterStyles";
 import { getAccessScope, getCurrentUser, requireLogin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  DEFAULT_PLAYER_COLOR,
+  normalizePlayerColor,
+} from "@/lib/player-colors";
 import { APP_THEMES, normalizeAppTheme } from "@/lib/themes";
 import {
   assertPublicSlug,
@@ -50,13 +54,17 @@ export default async function SettingsPage({
   async function updateVisibilitySettings(fd: FormData) {
     "use server";
     const actor = await requireLogin();
-    const before = await prisma.user.findUnique({ where: { id: actor.id } });
+    const before = await prisma.user.findUnique({
+      where: { id: actor.id },
+      include: { player: true },
+    });
     if (!before) throw new Error("User not found.");
 
     const publicProfileEnabled = fd.get("publicProfileEnabled") === "on";
     const theme = normalizeAppTheme(fd.get("theme"));
     const publicDisplayName =
       String(fd.get("publicDisplayName") || "").trim() || null;
+    const playerColor = normalizePlayerColor(fd.get("playerColor"));
     const publicSlugInput = String(fd.get("publicSlug") || "").trim();
     const publicSlug = publicProfileEnabled
       ? assertPublicSlug(publicSlugInput)
@@ -72,21 +80,31 @@ export default async function SettingsPage({
       if (duplicate) throw new Error("That public slug is already in use.");
     }
 
-    const updated = await prisma.user.update({
-      where: { id: actor.id },
-      data: {
-        inventoryDefaultVisibility: parseDefaultVisibility(
-          fd.get("inventoryDefaultVisibility"),
-        ),
-        deckDefaultVisibility: parseDefaultVisibility(
-          fd.get("deckDefaultVisibility"),
-        ),
-        theme,
-        publicProfileEnabled,
-        publicDisplayName,
-        publicSlug,
-      },
-    });
+    const [updated] = await prisma.$transaction([
+      prisma.user.update({
+        where: { id: actor.id },
+        data: {
+          inventoryDefaultVisibility: parseDefaultVisibility(
+            fd.get("inventoryDefaultVisibility"),
+          ),
+          deckDefaultVisibility: parseDefaultVisibility(
+            fd.get("deckDefaultVisibility"),
+          ),
+          theme,
+          publicProfileEnabled,
+          publicDisplayName,
+          publicSlug,
+        },
+      }),
+      ...(actor.playerId
+        ? [
+            prisma.player.update({
+              where: { id: actor.playerId },
+              data: { color: playerColor },
+            }),
+          ]
+        : []),
+    ]);
 
     await prisma.inventoryAuditLog.create({
       data: {
@@ -99,6 +117,7 @@ export default async function SettingsPage({
           publicDisplayName: before.publicDisplayName,
           publicSlug: before.publicSlug,
           theme: before.theme,
+          playerColor: before.player?.color ?? DEFAULT_PLAYER_COLOR,
         },
         afterJson: {
           inventoryDefaultVisibility: updated.inventoryDefaultVisibility,
@@ -107,6 +126,7 @@ export default async function SettingsPage({
           publicDisplayName: updated.publicDisplayName,
           publicSlug: updated.publicSlug,
           theme: updated.theme,
+          playerColor,
         },
         reason: "Collection visibility settings updated.",
       },
@@ -115,7 +135,10 @@ export default async function SettingsPage({
     revalidatePath("/settings");
     revalidatePath("/locations");
     revalidatePath("/inventory");
+    revalidatePath("/public/inventory");
     if (updated.publicSlug) revalidatePath(`/u/${updated.publicSlug}`);
+    if (updated.publicSlug)
+      revalidatePath(`/u/${updated.publicSlug}/inventory`);
   }
 
   return (
@@ -178,6 +201,41 @@ export default async function SettingsPage({
               </label>
             ))}
           </div>
+        </section>
+
+        <section className="space-y-4 border-t border-[var(--app-border)] pt-5">
+          <div>
+            <h2 className="text-base font-semibold">User identity</h2>
+            <p className="app-muted text-sm">
+              Your player color marks your cards in public inventory and
+              multi-user views.
+            </p>
+          </div>
+          <label className="text-sm">
+            Player color
+            <span className="mt-1 flex items-center gap-3">
+              <input
+                type="color"
+                name="playerColor"
+                defaultValue={normalizePlayerColor(user.player?.color)}
+                className="h-10 w-14 cursor-pointer rounded border border-[var(--app-border)] bg-transparent p-1"
+              />
+              <span
+                className="inline-flex items-center gap-2 rounded border border-[var(--app-border)] px-3 py-2 text-sm"
+                style={{
+                  borderColor: normalizePlayerColor(user.player?.color),
+                }}
+              >
+                <span
+                  className="h-3 w-3 rounded-full"
+                  style={{
+                    backgroundColor: normalizePlayerColor(user.player?.color),
+                  }}
+                />
+                {user.displayName}
+              </span>
+            </span>
+          </label>
         </section>
 
         <section className="space-y-4 border-t border-[var(--app-border)] pt-5">

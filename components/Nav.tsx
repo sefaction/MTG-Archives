@@ -9,6 +9,7 @@ import {
 import { redirect } from "next/navigation";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { AdminModeToggle } from "@/components/AdminModeToggle";
+import { normalizePlayerColor } from "@/lib/player-colors";
 
 const mainLinks = [
   { href: "/dashboard", label: "Dashboard" },
@@ -88,7 +89,13 @@ export async function Nav() {
         <div className="flex items-center gap-3 text-sm text-stone-300">
           {user ? (
             <>
-              <span className="text-stone-300">
+              <span className="inline-flex items-center gap-2 text-stone-300">
+                <span
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{
+                    backgroundColor: normalizePlayerColor(user.player?.color),
+                  }}
+                />
                 {user.displayName || user.username}
               </span>
               {userIsAdmin ? (

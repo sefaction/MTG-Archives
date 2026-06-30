@@ -296,6 +296,17 @@ function withOpacity(hexColor: string, opacity: number) {
   const c = getPlayerColor(hexColor).replace("#", "");
   return `rgba(${parseInt(c.slice(0, 2), 16)}, ${parseInt(c.slice(2, 4), 16)}, ${parseInt(c.slice(4, 6), 16)}, ${opacity})`;
 }
+
+function ownerColorStyles(hexColor?: string) {
+  const color = getPlayerColor(hexColor);
+  return {
+    color,
+    subtle: withOpacity(color, 0.12),
+    fill: withOpacity(color, 0.22),
+    strong: withOpacity(color, 0.42),
+  };
+}
+
 function getCardImage(row: InventoryRow) {
   return row.imageUri || row.imageSmall || "";
 }
@@ -1056,6 +1067,10 @@ export function InventoryBrowser({
   const capabilities = useMemo<InventoryCapabilities>(() => {
     return { ...defaultCapabilities(uiMode), ...capabilityOverrides };
   }, [capabilityOverrides, uiMode]);
+  const canShowPublicOwnerIdentity =
+    capabilities.canViewOwnerAdminFields || uiMode === "public-readonly";
+  const shouldShowOwnerColor =
+    capabilities.canViewOwnerAdminFields || uiMode === "public-readonly";
   const editableNormalLocations = useMemo(
     () =>
       locations.filter(
@@ -1442,24 +1457,31 @@ export function InventoryBrowser({
             { accessorKey: "locationCount", header: "Locations" },
           ]
         : []),
-      ...(capabilities.canViewOwnerAdminFields
+      ...(canShowPublicOwnerIdentity
         ? [
             {
               accessorKey: "currentOwner",
               header: "Owner",
-              cell: ({ row }: any) => (
-                <span className="inline-flex items-center gap-2">
+              cell: ({ row }: any) => {
+                const ownerStyles = ownerColorStyles(
+                  row.original.currentOwnerColor,
+                );
+                return (
                   <span
-                    className="h-2.5 w-2.5 rounded-full"
+                    className="inline-flex items-center gap-2 rounded-full border px-2 py-0.5 text-xs font-semibold"
                     style={{
-                      backgroundColor: getPlayerColor(
-                        row.original.currentOwnerColor,
-                      ),
+                      borderColor: ownerStyles.strong,
+                      backgroundColor: ownerStyles.fill,
                     }}
-                  />
-                  {row.original.currentOwner}
-                </span>
-              ),
+                  >
+                    <span
+                      className="h-2.5 w-2.5 rounded-full ring-1 ring-white/40"
+                      style={{ backgroundColor: ownerStyles.color }}
+                    />
+                    {row.original.currentOwner}
+                  </span>
+                );
+              },
             } satisfies ColumnDef<InventoryRow>,
           ]
         : []),
@@ -1583,9 +1605,9 @@ export function InventoryBrowser({
     [
       capabilities.canDelete,
       capabilities.canEdit,
-      capabilities.canViewOwnerAdminFields,
       capabilities.canViewPrivateSourceInfo,
       capabilities.canViewVisibility,
+      canShowPublicOwnerIdentity,
       displayMode,
       selectionAvailable,
       isRowSelected,
@@ -1982,27 +2004,37 @@ export function InventoryBrowser({
                 ))}
               </thead>
               <tbody>
-                {table.getRowModel().rows.map((r) => (
-                  <tr
-                    key={r.id}
-                    className="border-b border-zinc-800"
-                    style={{
-                      borderLeft: `4px solid ${getPlayerColor(r.original.currentOwnerColor)}`,
-                      backgroundColor: withOpacity(
-                        r.original.currentOwnerColor || "",
-                        0.06,
-                      ),
-                    }}
-                  >
-                    {r.getVisibleCells().map((c) => (
-                      <td key={c.id} className="p-2 align-middle">
-                        {c.column.columnDef.cell
-                          ? flexRender(c.column.columnDef.cell, c.getContext())
-                          : String(c.getValue() ?? "")}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
+                {table.getRowModel().rows.map((r) => {
+                  const ownerStyles = ownerColorStyles(
+                    r.original.currentOwnerColor,
+                  );
+                  return (
+                    <tr
+                      key={r.id}
+                      className="border-b border-zinc-800"
+                      style={
+                        shouldShowOwnerColor
+                          ? {
+                              borderLeft: `8px solid ${ownerStyles.color}`,
+                              background: `linear-gradient(90deg, ${ownerStyles.fill} 0%, ${ownerStyles.subtle} 18%, rgba(24,24,27,0.96) 72%)`,
+                              boxShadow: `inset 0 1px 0 ${ownerStyles.strong}`,
+                            }
+                          : undefined
+                      }
+                    >
+                      {r.getVisibleCells().map((c) => (
+                        <td key={c.id} className="p-2 align-middle">
+                          {c.column.columnDef.cell
+                            ? flexRender(
+                                c.column.columnDef.cell,
+                                c.getContext(),
+                              )
+                            : String(c.getValue() ?? "")}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -2011,7 +2043,7 @@ export function InventoryBrowser({
         <div className={`grid gap-3 ${sizeClass}`}>
           {table.getRowModel().rows.map((r) => {
             const row = r.original;
-            const ownerColor = getPlayerColor(row.currentOwnerColor);
+            const ownerStyles = ownerColorStyles(row.currentOwnerColor);
             return (
               <div key={row.id} className="relative">
                 {selectionAvailable ? (
@@ -2035,13 +2067,23 @@ export function InventoryBrowser({
                 ) : null}
                 <button
                   onClick={() => setSelected(row)}
-                  className="w-full text-left border rounded p-2 bg-zinc-900 hover:bg-zinc-800"
-                  style={{
-                    borderColor: ownerColor,
-                    background: `linear-gradient(180deg, ${withOpacity(ownerColor, 0.13)} 0%, rgba(24,24,27,0.95) 50%)`,
-                    boxShadow: `0 0 18px ${withOpacity(ownerColor, 0.28)}`,
-                  }}
+                  className="w-full overflow-hidden rounded border-2 bg-zinc-900 p-2 text-left hover:bg-zinc-800"
+                  style={
+                    shouldShowOwnerColor
+                      ? {
+                          borderColor: ownerStyles.color,
+                          background: `linear-gradient(180deg, ${ownerStyles.fill} 0%, rgba(24,24,27,0.98) 42%, rgba(24,24,27,0.95) 100%)`,
+                          boxShadow: `0 0 0 1px ${ownerStyles.strong}, 0 0 24px ${ownerStyles.strong}`,
+                        }
+                      : undefined
+                  }
                 >
+                  {shouldShowOwnerColor ? (
+                    <div
+                      className="-mx-2 -mt-2 mb-2 h-1.5"
+                      style={{ backgroundColor: ownerStyles.color }}
+                    />
+                  ) : null}
                   <div className="relative">
                     {getCardImage(row) ? (
                       <img
@@ -2099,11 +2141,17 @@ export function InventoryBrowser({
                         </>
                       )}
                     </span>
-                    {capabilities.canViewOwnerAdminFields ? (
-                      <span className="inline-flex items-center gap-1">
+                    {canShowPublicOwnerIdentity ? (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[0.7rem] font-semibold text-zinc-100"
+                        style={{
+                          borderColor: ownerStyles.strong,
+                          backgroundColor: ownerStyles.fill,
+                        }}
+                      >
                         <span
-                          className="h-2 w-2 rounded-full"
-                          style={{ backgroundColor: ownerColor }}
+                          className="h-2.5 w-2.5 rounded-full ring-1 ring-white/40"
+                          style={{ backgroundColor: ownerStyles.color }}
                         />
                         {row.currentOwner}
                       </span>

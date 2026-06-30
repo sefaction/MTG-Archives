@@ -10,6 +10,7 @@ const migration = readFileSync(
 );
 const layout = readFileSync("app/layout.tsx", "utf8");
 const settings = readFileSync("app/settings/page.tsx", "utf8");
+const playerColors = readFileSync("lib/player-colors.ts", "utf8");
 const globals = readFileSync("app/globals.css", "utf8");
 
 test("theme registry defines six selectable app themes", () => {
@@ -47,6 +48,16 @@ test("settings page renders and saves per-user theme selection", () => {
   assert.match(settings, /name="theme"/);
   assert.match(settings, /normalizeAppTheme\(fd\.get\("theme"\)\)/);
   assert.match(settings, /theme,/);
+});
+
+test("settings page renders and saves per-user identity color", () => {
+  assert.match(playerColors, /DEFAULT_PLAYER_COLOR = "#64748b"/);
+  assert.match(playerColors, /normalizePlayerColor/);
+  assert.match(settings, /name="playerColor"/);
+  assert.match(settings, /type="color"/);
+  assert.match(settings, /normalizePlayerColor\(fd\.get\("playerColor"\)\)/);
+  assert.match(settings, /prisma\.player\.update/);
+  assert.match(settings, /data: \{ color: playerColor \}/);
 });
 
 test("global stylesheet exposes theme tokens for each app theme", () => {

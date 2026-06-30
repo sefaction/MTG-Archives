@@ -18,6 +18,7 @@ import {
 type PublicOwner = {
   displayName: string;
   publicSlug?: string | null;
+  color: string;
 };
 
 type PublicLocationPart = {
@@ -32,6 +33,7 @@ function publicOwnerFor(item: any): PublicOwner {
     displayName:
       user?.publicDisplayName || user?.displayName || "Public collection",
     publicSlug: user?.publicSlug || null,
+    color: item.currentOwner?.color || "#64748b",
   };
 }
 
@@ -47,6 +49,17 @@ function locationSummary(parts: PublicLocationPart[]) {
   const ownerCount = new Set(parts.map((part) => part.name.split(" — ")[0]))
     .size;
   return `${total} public cards across ${ownerCount} collections`;
+}
+
+function aggregatePublicLocationBreakdown(parts: PublicLocationPart[]) {
+  const byLocation = new Map<string, PublicLocationPart>();
+  for (const part of parts) {
+    const key = part.locationId ?? part.name;
+    const existing = byLocation.get(key);
+    if (existing) existing.quantity += part.quantity;
+    else byLocation.set(key, { ...part });
+  }
+  return Array.from(byLocation.values());
 }
 
 function getGlobalPublicExactPrintings(items: any[]) {
@@ -69,6 +82,7 @@ function getGlobalPublicExactPrintings(items: any[]) {
     const ownerPart = {
       ownerName,
       publicSlug: owner.publicSlug,
+      ownerColor: owner.color,
       locationName,
       quantity: item.quantity,
     };
@@ -81,7 +95,7 @@ function getGlobalPublicExactPrintings(items: any[]) {
         currentOwnerId: "public",
         currentOwner: {
           displayName: ownerName,
-          color: item.currentOwner?.color || "#64748b",
+          color: owner.color,
         },
         quantity: item.quantity,
         ownerBreakdown: [ownerPart],
@@ -122,6 +136,29 @@ function toInventoryBrowserRows({
         : i.ownerBreakdown || []
       ).map((owner: any) => owner.publicSlug || owner.ownerName),
     ).size;
+    const ownerBreakdown =
+      displayMode === "grouped"
+        ? entry.printings.flatMap(
+            (printing: any) => printing.ownerBreakdown || [],
+          )
+        : i.ownerBreakdown || [];
+    const rowLocationBreakdown =
+      displayMode === "grouped"
+        ? aggregatePublicLocationBreakdown(
+            entry.printings.flatMap(
+              (printing: any) => printing.locationBreakdown || [],
+            ),
+          )
+        : (i.locationBreakdown ?? []);
+    const ownerColors = Array.from(
+      new Set(
+        ownerBreakdown.map((owner: any) => owner.ownerColor).filter(Boolean),
+      ),
+    );
+    const currentOwnerColor =
+      collectionCount === 1 && ownerColors.length === 1
+        ? String(ownerColors[0])
+        : "#64748b";
     return {
       id: publicRowId,
       cardId: publicRowId,
@@ -129,12 +166,12 @@ function toInventoryBrowserRows({
       quantity: entry.quantity ?? i.quantity,
       displayMode,
       printingCount: entry.printingCount ?? 1,
-      locationCount: entry.locationCount ?? i.locationBreakdown?.length ?? 1,
+      locationCount: rowLocationBreakdown.length || 1,
       locationSummary:
         displayMode === "grouped"
           ? `${entry.quantity} public cards · ${entry.printingCount} printings · ${collectionCount} collections`
           : (i.locationSummary ?? "Public collection"),
-      locationBreakdown: i.locationBreakdown ?? [],
+      locationBreakdown: rowLocationBreakdown,
       printings:
         displayMode === "grouped"
           ? entry.printings.map((printing: any, printingIndex: number) => ({
@@ -163,7 +200,7 @@ function toInventoryBrowserRows({
         collectionCount === 1
           ? i.currentOwner.displayName
           : "Public collections",
-      currentOwnerColor: i.currentOwner?.color || "#64748b",
+      currentOwnerColor,
       setCode: i.card.setCode.toUpperCase(),
       setName: i.card.setName ?? "",
       rarity: i.card.rarity,

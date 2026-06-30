@@ -22,6 +22,10 @@ const publicCollectionQueries = fs.readFileSync(
   "lib/public-collection.ts",
   "utf8",
 );
+const publicInventoryPage = fs.readFileSync(
+  "app/public/inventory/page.tsx",
+  "utf8",
+);
 
 const publicInventoryListApi = fs.readFileSync(
   "app/api/public/inventory/list/route.ts",
@@ -85,6 +89,35 @@ test("global public inventory query enforces public profile and location visibil
   assert.match(publicCollectionQueries, /select:\s*{\s*name: true\s*}/);
   assert.doesNotMatch(publicCollectionQueries, /email:\s*true/);
   assert.doesNotMatch(publicCollectionQueries, /auditLogs:\s*true/);
+});
+
+test("public inventory carries user identity colors into browse rows", () => {
+  assert.match(publicCollectionQueries, /color: true/);
+  assert.match(publicCollectionQueries, /color: profile\.player\?\.color/);
+  assert.match(publicInventoryPage, /ownerColor: owner\.color/);
+  assert.match(publicInventoryListApi, /ownerColor: owner\.color/);
+  assert.match(publicInventoryPage, /currentOwnerColor/);
+  assert.match(publicInventoryListApi, /currentOwnerColor/);
+  assert.match(publicInventoryPage, /collectionCount === 1/);
+  assert.match(inventoryBrowser, /canShowPublicOwnerIdentity/);
+  assert.match(inventoryBrowser, /uiMode === "public-readonly"/);
+  assert.match(inventoryBrowser, /shouldShowOwnerColor/);
+  assert.match(inventoryBrowser, /shouldShowOwnerColor\s*\?\s*{/);
+  assert.match(inventoryBrowser, /borderLeft: `8px solid/);
+  assert.match(inventoryBrowser, /border-2 bg-zinc-900/);
+  assert.match(inventoryBrowser, /ownerColorStyles/);
+});
+
+test("grouped public inventory aggregates location breakdown across all printings", () => {
+  assert.match(publicInventoryPage, /aggregatePublicLocationBreakdown/);
+  assert.match(
+    publicInventoryPage,
+    /entry\.printings\.flatMap\(\s*\(printing: any\) => printing\.locationBreakdown \|\| \[\]/,
+  );
+  assert.match(publicInventoryPage, /locationBreakdown: rowLocationBreakdown/);
+  assert.match(publicInventoryPage, /locationCount: rowLocationBreakdown\.length/);
+  assert.match(publicInventoryListApi, /aggregatePublicLocationBreakdown/);
+  assert.match(publicInventoryListApi, /locationBreakdown: rowLocationBreakdown/);
 });
 
 test("public inventory search keeps browsing filters and removes private/admin filters", () => {
