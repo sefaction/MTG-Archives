@@ -122,7 +122,6 @@ export type InventoryRow = {
   priceUsd?: string;
   priceUsdFoil?: string;
   preferredPriceLabel?: string;
-  priceSourceLabel?: string;
   priceHistoryUrl?: string;
   priceChange7Day?: string;
   priceChange30Day?: string;

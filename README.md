@@ -25,14 +25,44 @@ docker compose up -d --build
 
 On startup the web container runs Prisma migrations and then runs `prisma:bootstrap-admin` to ensure the configured admin account exists. `RUN_SEED_ON_START=false` by default; the application does not require demo data to start.
 
+## Deployment modes
+
+Local development uses `docker-compose.yml` plus `docker-compose.local.yml`.
+The local layer builds from the current checkout and stores persistent test data
+under `.local-data/`.
+
+Production and Unraid/Portainer deployments can pull prebuilt GHCR images using
+the compose overlays:
+
+```bash
+IMAGE_TAG=main docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.unraid.yml pull
+IMAGE_TAG=main docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.unraid.yml up -d
+```
+
+Platform branches publish branch-specific image tags. For example, this refactor
+branch can be tested with:
+
+```bash
+IMAGE_TAG=platform-pricing-worker-stack docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.unraid.yml pull
+IMAGE_TAG=platform-pricing-worker-stack docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.unraid.yml up -d
+```
+
+See `docs/DEPLOYMENT.md` for the full deployment contract and future worker
+service pattern.
+
 ## Environment variables
 
 See `.env.example` for the full list. Important settings:
 
 - `DATABASE_URL` should use the Compose service host `postgres` inside Docker.
+- `PRICING_DATABASE_URL` should use the Compose service host `pricing-postgres`
+  inside Docker. Pricing history, worker runs, logs, and future import jobs live
+  outside the main app database.
+- `REDIS_URL` should use `redis://redis:6379` inside Docker. Redis is reserved
+  for future pricing queue/cache work and is not required for page rendering.
 - `NEXT_PUBLIC_APP_NAME` controls visible branding and defaults to `MTG Inventory`.
 - `APP_DATA_PATH` documents the intended base host directory for persistent application data.
-- `POSTGRES_DATA_PATH`, `UPLOADS_DATA_PATH`, `IMPORTS_DATA_PATH`, `EXPORTS_DATA_PATH`, and `BACKUPS_DATA_PATH` must each point at host storage that survives container recreation.
+- `POSTGRES_DATA_PATH`, `PRICING_POSTGRES_DATA_PATH`, `REDIS_DATA_PATH`, `UPLOADS_DATA_PATH`, `IMPORTS_DATA_PATH`, `EXPORTS_DATA_PATH`, and `BACKUPS_DATA_PATH` must each point at host storage that survives container recreation.
 - `BACKUP_DIR` is the in-container backup destination and defaults to `/app/backups`; Compose mounts `BACKUPS_DATA_PATH` there.
 - `BACKUP_RETENTION_DAYS` and `BACKUP_RETENTION_COUNT` optionally prune old `mtg-archives-backup-*.tar.gz` files after successful backup creation.
 - `COOKIE_SECURE=false` is appropriate for HTTP/LAN deployments; set it to `true` behind HTTPS.
@@ -116,7 +146,7 @@ docker compose run --rm web npm run backup:create
 The local Docker app is expected at `http://127.0.0.1:13001`. After changing UI or server code, rebuild the local app when needed:
 
 ```bash
-docker compose up -d --build
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 ```
 
 Run the full repeatable validation loop:
@@ -169,7 +199,7 @@ docker compose logs -f web
 
 ## Deployment notes
 
-For Portainer/Unraid Git builds, keep `GIT_CONTEXT` pointed at this repository root and `DOCKERFILE_PATH=./Dockerfile`. If a previous iterative development migration left a failed Prisma marker, the entrypoint still attempts safe `migrate resolve` no-ops before `migrate deploy`.
+For Portainer/Unraid Git builds, keep `GIT_CONTEXT` pointed at this repository root and `DOCKERFILE_PATH=./Dockerfile`. For image-based deployments, prefer `docker-compose.prod.yml` with `IMAGE_TAG=main` or a branch-specific image tag. If a previous iterative development migration left a failed Prisma marker, the entrypoint still attempts safe `migrate resolve` no-ops before `migrate deploy`.
 
 ### Scryfall configuration
 

@@ -24,6 +24,20 @@ import {
 } from "@/lib/visibility";
 import { DefaultCollectionVisibility } from "@prisma/client";
 
+const PRICE_PROVIDERS = [
+  { value: "scryfall", label: "Scryfall" },
+  { value: "tcgplayer", label: "TCGplayer" },
+  { value: "cardmarket", label: "Cardmarket" },
+  { value: "cardhoarder", label: "Cardhoarder" },
+];
+
+function normalizePriceProvider(value: FormDataEntryValue | null) {
+  const provider = String(value || "scryfall").toLowerCase();
+  return PRICE_PROVIDERS.some((option) => option.value === provider)
+    ? provider
+    : "scryfall";
+}
+
 function parseDefaultVisibility(value: FormDataEntryValue | null) {
   return value === DefaultCollectionVisibility.PUBLIC
     ? DefaultCollectionVisibility.PUBLIC
@@ -65,6 +79,9 @@ export default async function SettingsPage({
     const publicDisplayName =
       String(fd.get("publicDisplayName") || "").trim() || null;
     const playerColor = normalizePlayerColor(fd.get("playerColor"));
+    const preferredPriceProvider = normalizePriceProvider(
+      fd.get("preferredPriceProvider"),
+    );
     const publicSlugInput = String(fd.get("publicSlug") || "").trim();
     const publicSlug = publicProfileEnabled
       ? assertPublicSlug(publicSlugInput)
@@ -91,6 +108,7 @@ export default async function SettingsPage({
             fd.get("deckDefaultVisibility"),
           ),
           theme,
+          preferredPriceProvider,
           publicProfileEnabled,
           publicDisplayName,
           publicSlug,
@@ -117,6 +135,7 @@ export default async function SettingsPage({
           publicDisplayName: before.publicDisplayName,
           publicSlug: before.publicSlug,
           theme: before.theme,
+          preferredPriceProvider: before.preferredPriceProvider,
           playerColor: before.player?.color ?? DEFAULT_PLAYER_COLOR,
         },
         afterJson: {
@@ -126,6 +145,7 @@ export default async function SettingsPage({
           publicDisplayName: updated.publicDisplayName,
           publicSlug: updated.publicSlug,
           theme: updated.theme,
+          preferredPriceProvider: updated.preferredPriceProvider,
           playerColor,
         },
         reason: "Collection visibility settings updated.",
@@ -235,6 +255,35 @@ export default async function SettingsPage({
                 {user.displayName}
               </span>
             </span>
+          </label>
+        </section>
+
+        <section className="space-y-4 border-t border-[var(--app-border)] pt-5">
+          <div>
+            <h2 className="text-base font-semibold">Pricing</h2>
+            <p className="app-muted text-sm">
+              Choose the source used when current pricing is available for a
+              card. Scryfall remains the fallback when a provider has no current
+              price.
+            </p>
+          </div>
+          <label className="text-sm">
+            Preferred pricing source
+            <select
+              name="preferredPriceProvider"
+              defaultValue={user.preferredPriceProvider || "scryfall"}
+              className={cn(filterSelectClass, "mt-1 w-full")}
+            >
+              {PRICE_PROVIDERS.map((provider) => (
+                <option
+                  key={provider.value}
+                  className={filterOptionClass}
+                  value={provider.value}
+                >
+                  {provider.label}
+                </option>
+              ))}
+            </select>
           </label>
         </section>
 

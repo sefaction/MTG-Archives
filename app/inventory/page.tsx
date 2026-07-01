@@ -895,9 +895,9 @@ export default async function InventoryPage({
         preferredPriceLabel: formatSelectedPrice(
           selectPreferredCardPrice(undefined, i.card.prices, {
             finish: finishForFoilStatus(i.foilStatus),
+            preferredProvider: userWithPlayer?.preferredPriceProvider,
           }),
         ),
-        priceSourceLabel: "Scryfall",
         priceChange7Day: "",
         priceChange30Day: "",
         priceChange90Day: "",

@@ -1,0 +1,69 @@
+services:
+  postgres:
+    volumes:
+      - ./.local-data/postgres:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_HOST_PORT:-15435}:5432"
+
+  pricing-postgres:
+    volumes: !override
+      - ./.local-data/pricing-postgres:/var/lib/postgresql/data
+    ports:
+      - "${PRICING_POSTGRES_HOST_PORT:-15436}:5432"
+
+  redis:
+    volumes: !override
+      - ./.local-data/redis:/data
+
+  web:
+    image: mtg-archives-web:local
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    pull_policy: build
+    environment:
+      UPLOADS_DATA_PATH: /app/data/uploads
+      IMPORTS_DATA_PATH: /app/data/imports
+      EXPORTS_DATA_PATH: /app/data/exports
+      BACKUPS_DATA_PATH: /app/data/backups
+      BACKUP_DIR: /app/data/backups
+      SCRYFALL_CONTAINER_DATA_PATH: /app/data/scryfall
+      SCRYFALL_DATA_PATH: /app/data/scryfall
+    volumes: !override
+      - ./.local-data/uploads:/app/data/uploads
+      - ./.local-data/imports:/app/data/imports
+      - ./.local-data/exports:/app/data/exports
+      - ./.local-data/backups:/app/data/backups
+      - ./.local-data/scryfall:/app/data/scryfall
+    ports:
+      - "${WEB_HOST_PORT:-13001}:3000"
+
+  pricing-worker:
+    image: mtg-archives-web:local
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    pull_policy: build
+    environment:
+      PRICING_IMPORT_MAX_CARDS: ${PRICING_IMPORT_MAX_CARDS:-25}
+
+  backup:
+    image: mtg-archives-web:local
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    pull_policy: build
+    environment:
+      UPLOADS_DATA_PATH: /app/data/uploads
+      IMPORTS_DATA_PATH: /app/data/imports
+      EXPORTS_DATA_PATH: /app/data/exports
+      BACKUPS_DATA_PATH: /app/data/backups
+      BACKUP_DIR: /app/data/backups
+      SCRYFALL_CONTAINER_DATA_PATH: /app/data/scryfall
+      SCRYFALL_DATA_PATH: /app/data/scryfall
+    volumes: !override
+      - ./.local-data/uploads:/app/data/uploads
+      - ./.local-data/imports:/app/data/imports
+      - ./.local-data/exports:/app/data/exports
+      - ./.local-data/backups:/app/data/backups
+      - ./.local-data/scryfall:/app/data/scryfall

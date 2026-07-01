@@ -12,7 +12,27 @@ services:
     ports:
       - "${POSTGRES_HOST_PORT:-15437}:5432"
 
+  pricing-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    pull_policy: always
+    environment:
+      POSTGRES_DB: ${PRICING_POSTGRES_DB:-mtgpricing}
+      POSTGRES_USER: ${PRICING_POSTGRES_USER:-mtgpricing}
+      POSTGRES_PASSWORD: ${PRICING_POSTGRES_PASSWORD:-mtgpricing}
+    volumes:
+      - ${PRICING_POSTGRES_DATA_PATH:-./.local-data/pricing-postgres}:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    pull_policy: always
+    command: redis-server --appendonly yes
+    volumes:
+      - ${REDIS_DATA_PATH:-./.local-data/redis}:/data
+
   web:
+    image: ${WEB_IMAGE:-ghcr.io/sefaction/mtg-archives-web:${IMAGE_TAG:-main}}
     build:
       context: ${GIT_CONTEXT:-https://github.com/sefaction/MTG-Archives.git#main}
       dockerfile: ${DOCKERFILE_PATH:-./Dockerfile}
@@ -56,7 +76,32 @@ services:
     ports:
       - "${WEB_HOST_PORT:-13003}:3000"
 
+  pricing-worker:
+    image: ${WEB_IMAGE:-ghcr.io/sefaction/mtg-archives-web:${IMAGE_TAG:-main}}
+    build:
+      context: ${GIT_CONTEXT:-https://github.com/sefaction/MTG-Archives.git#main}
+      dockerfile: ${DOCKERFILE_PATH:-./Dockerfile}
+    pull_policy: build
+    restart: unless-stopped
+    command: npm run worker:prices
+    environment:
+      PRICING_DATABASE_URL: ${PRICING_DATABASE_URL:-postgresql://mtgpricing:mtgpricing@pricing-postgres:5432/mtgpricing?schema=public}
+      APP_DATABASE_URL: ${DATABASE_URL:-postgresql://mtginventory:mtginventory@postgres:5432/mtginventory?schema=public}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      PRICING_WORKER_INTERVAL_MS: ${PRICING_WORKER_INTERVAL_MS:-15000}
+      PRICING_IMPORT_BATCH_SIZE: ${PRICING_IMPORT_BATCH_SIZE:-500}
+      PRICING_IMPORT_MAX_CARDS: ${PRICING_IMPORT_MAX_CARDS:-0}
+      MTGJSON_ALL_PRICES_URL: ${MTGJSON_ALL_PRICES_URL:-}
+      MTGJSON_BASE_URL: ${MTGJSON_BASE_URL:-https://mtgjson.com/api/v5}
+      MTGJSON_PRICE_PROVIDER_DEFAULT: ${MTGJSON_PRICE_PROVIDER_DEFAULT:-tcgplayer}
+      MTGJSON_PRICE_CURRENCY_DEFAULT: ${MTGJSON_PRICE_CURRENCY_DEFAULT:-USD}
+      NODE_ENV: production
+    depends_on:
+      - pricing-postgres
+      - redis
+
   backup:
+    image: ${WEB_IMAGE:-ghcr.io/sefaction/mtg-archives-web:${IMAGE_TAG:-main}}
     build:
       context: ${GIT_CONTEXT:-https://github.com/sefaction/MTG-Archives.git#main}
       dockerfile: ${DOCKERFILE_PATH:-./Dockerfile}

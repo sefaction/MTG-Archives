@@ -19,6 +19,7 @@ import {
 } from "@/lib/inventory-related-cards";
 import { getActiveLocationTypes } from "@/lib/location-types";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
 import { addPublicInventoryToTradeWishlist } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -146,10 +147,12 @@ function toInventoryBrowserRows({
   displayItems,
   displayMode,
   relatedCardsByScryfallId,
+  preferredPriceProvider,
 }: {
   displayItems: any[];
   displayMode: "exact" | "grouped";
   relatedCardsByScryfallId: Map<string, any>;
+  preferredPriceProvider?: string | null;
 }) {
   return displayItems.map((entry: any, rowIndex: number) => {
     const i = displayMode === "grouped" ? entry.representative : entry;
@@ -264,9 +267,9 @@ function toInventoryBrowserRows({
       preferredPriceLabel: formatSelectedPrice(
         selectPreferredCardPrice(undefined, i.card.prices, {
           finish: finishForFoilStatus(i.foilStatus),
+          preferredProvider: preferredPriceProvider || undefined,
         }),
       ),
-      priceSourceLabel: "Scryfall",
       priceChange7Day: "",
       priceChange30Day: "",
       priceChange90Day: "",
@@ -304,6 +307,7 @@ function toInventoryBrowserRows({
 }
 
 export default async function PublicInventoryPage({ searchParams }: PageProps) {
+  const viewer = await getCurrentUser();
   const p = await searchParams;
   const displayMode: "exact" | "grouped" =
     p.displayMode === "grouped" ? "grouped" : "exact";
@@ -337,6 +341,7 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
     displayItems,
     displayMode,
     relatedCardsByScryfallId,
+    preferredPriceProvider: viewer?.preferredPriceProvider,
   });
   const pageParams = Object.fromEntries(
     Object.entries(p).filter(([key, value]) => value && key !== "page"),

@@ -1,0 +1,28 @@
+services:
+  postgres:
+    volumes:
+      - ${POSTGRES_DATA_PATH:?POSTGRES_DATA_PATH must be set in .env}:/var/lib/postgresql/data
+
+  pricing-postgres:
+    volumes:
+      - ${PRICING_POSTGRES_DATA_PATH:?PRICING_POSTGRES_DATA_PATH must be set in .env}:/var/lib/postgresql/data
+
+  redis:
+    volumes:
+      - ${REDIS_DATA_PATH:?REDIS_DATA_PATH must be set in .env}:/data
+
+  web:
+    volumes: !override
+      - ${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}:${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}
+      - ${IMPORTS_DATA_PATH:?IMPORTS_DATA_PATH must be set in .env}:${IMPORTS_DATA_PATH:?IMPORTS_DATA_PATH must be set in .env}
+      - ${EXPORTS_DATA_PATH:?EXPORTS_DATA_PATH must be set in .env}:${EXPORTS_DATA_PATH:?EXPORTS_DATA_PATH must be set in .env}
+      - ${BACKUPS_DATA_PATH:?BACKUPS_DATA_PATH must be set in .env}:${BACKUP_DIR:-/app/backups}
+      - ${SCRYFALL_DATA_PATH:?SCRYFALL_DATA_PATH must be set in .env}:${SCRYFALL_CONTAINER_DATA_PATH:-/app/data/scryfall}
+
+  backup:
+    volumes: !override
+      - ${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}:${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}
+      - ${IMPORTS_DATA_PATH:?IMPORTS_DATA_PATH must be set in .env}:${IMPORTS_DATA_PATH:?IMPORTS_DATA_PATH must be set in .env}
+      - ${EXPORTS_DATA_PATH:?EXPORTS_DATA_PATH must be set in .env}:${EXPORTS_DATA_PATH:?EXPORTS_DATA_PATH must be set in .env}
+      - ${BACKUPS_DATA_PATH:?BACKUPS_DATA_PATH must be set in .env}:${BACKUP_DIR:-/app/backups}
+      - ${SCRYFALL_DATA_PATH:?SCRYFALL_DATA_PATH must be set in .env}:${SCRYFALL_CONTAINER_DATA_PATH:-/app/data/scryfall}

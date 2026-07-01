@@ -70,7 +70,29 @@ test("inventory sorting remains type-aware and uses Scryfall price fields", () =
 });
 
 test("Scryfall fallback prices are still selected and formatted", () => {
-  assert.equal(selectPreferredCardPrice([], { usd: "1.00" })?.provider, "scryfall");
+  assert.equal(
+    selectPreferredCardPrice([], { usd: "1.00" })?.provider,
+    "scryfall",
+  );
+  assert.equal(
+    selectPreferredCardPrice(
+      [],
+      {
+        usd: "1.00",
+        mtgjson: {
+          tcgplayer: {
+            normal: {
+              retail: {
+                USD: { amount: 3.5, observedDate: "2026-06-30" },
+              },
+            },
+          },
+        },
+      },
+      { preferredProvider: "tcgplayer" },
+    )?.provider,
+    "tcgplayer",
+  );
   assert.equal(
     selectPreferredCardPrice([], { usd_foil: "2.50" }, { finish: "foil" })
       ?.amount,
@@ -79,19 +101,25 @@ test("Scryfall fallback prices are still selected and formatted", () => {
   assert.equal(formatPercentChange(12.345), "+12.3%");
 });
 
-test("MTGJSON pricing UI and history entry points are removed from main surfaces", () => {
+test("MTGJSON pricing history stays off main inventory page load surfaces", () => {
   const settings = readFileSync("app/settings/page.tsx", "utf8");
   const inventoryPage = readFileSync("app/inventory/page.tsx", "utf8");
   const inventoryApi = readFileSync("app/api/inventory/list/route.ts", "utf8");
   const adminPrices = readFileSync("app/admin/prices/page.tsx", "utf8");
-  const packageJson = readFileSync("package.json", "utf8");
   const compose = readFileSync("docker-compose.yml", "utf8");
 
-  assert.doesNotMatch(settings, /preferredPriceProvider|Preferred pricing source/);
-  assert.doesNotMatch(inventoryPage, /CardPriceSnapshot|pricing-analytics|priceSnapshots/);
-  assert.doesNotMatch(inventoryApi, /CardPriceSnapshot|pricing-analytics|priceSnapshots/);
-  assert.match(adminPrices, /Pricing history disabled/);
-  assert.doesNotMatch(adminPrices, /PriceImportJobsPanel|price-worker|queue/);
-  assert.doesNotMatch(packageJson, /worker:prices|prices:import|prices:map/);
-  assert.doesNotMatch(compose, /price-worker/);
+  assert.match(settings, /preferredPriceProvider/);
+  assert.match(settings, /Preferred pricing source/);
+  assert.doesNotMatch(
+    inventoryPage,
+    /CardPriceSnapshot|pricing-analytics|priceSnapshots/,
+  );
+  assert.doesNotMatch(
+    inventoryApi,
+    /CardPriceSnapshot|pricing-analytics|priceSnapshots/,
+  );
+  assert.match(adminPrices, /Pricing worker/);
+  assert.match(adminPrices, /Queue refresh job/);
+  assert.match(compose, /pricing-worker/);
+  assert.match(compose, /pricing-postgres/);
 });

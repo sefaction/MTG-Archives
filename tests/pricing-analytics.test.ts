@@ -11,59 +11,60 @@ test("pricing analytics page and navigation are wired", () => {
   const adminPrices = readFileSync("app/admin/prices/page.tsx", "utf8");
   assert.match(nav, /href: "\/pricing"/);
   assert.match(inventory, /View value trends/);
-  assert.match(adminPrices, /Open pricing analytics/);
-  assert.match(pricingPage, /Pricing analytics/);
-  assert.match(pricingPage, /Collection/);
-  assert.match(pricingPage, /Location/);
-  assert.match(pricingPage, /Card/);
-  assert.match(pricingPage, /Top gainers/);
-  assert.match(pricingPage, /Top losers/);
-  assert.match(pricingPage, /Individual card price history/);
+  assert.match(adminPrices, /Pricing worker/);
+  assert.match(pricingPage, /Pricing analytics disabled/);
+  assert.match(pricingPage, /separate service/);
+  assert.doesNotMatch(pricingPage, /Top gainers|Top losers/);
 });
 
-test("pricing analytics helpers expose collection, location, card, movers, and permission filters", () => {
+test("pricing analytics helpers remain lightweight during worker scaffold phase", () => {
   const helper = readFileSync("lib/pricing-analytics.ts", "utf8");
   assert.match(helper, /getPricingAnalytics/);
-  assert.match(helper, /getLatestPriceSnapshotsForCards/);
-  assert.match(helper, /distinct: \["cardId", "provider", "finish", "priceType", "currency"\]/);
-  assert.match(helper, /scope === "location"/);
-  assert.match(helper, /scope === "card"/);
   assert.match(helper, /topGainers/);
   assert.match(helper, /topLosers/);
-  assert.match(helper, /currentOwnerId: accessScope\.playerId/);
   assert.match(helper, /valueChange/);
   assert.match(helper, /percentChange/);
+  assert.doesNotMatch(
+    helper,
+    /CardPriceSnapshot|priceSnapshots|PRICING_DATABASE_URL/,
+  );
   assert.equal(money(12.3), "$12.30");
 });
 
-test("inventory page uses latest price projection and avoids full history joins", () => {
+test("inventory page avoids pricing history database joins", () => {
   const inventory = readFileSync("app/inventory/page.tsx", "utf8");
   const apiList = readFileSync("app/api/inventory/list/route.ts", "utf8");
   for (const source of [inventory, apiList]) {
-    assert.match(source, /getLatestPriceSnapshotsForCards/);
-    assert.doesNotMatch(source, /priceSnapshots:\s*\{\s*orderBy:[\s\S]*take:\s*(16|24)/);
+    assert.doesNotMatch(source, /getLatestPriceSnapshotsForCards/);
+    assert.doesNotMatch(
+      source,
+      /priceSnapshots:\s*\{\s*orderBy:[\s\S]*take:\s*(16|24)/,
+    );
     assert.match(source, /priceHistory: \[\]/);
   }
-  assert.match(inventory, /priceLookupMs/);
-  assert.match(inventory, /latestPriceProjection/);
-  assert.match(inventory, /ENABLE_INVENTORY_MTGJSON_PRICES/);
-  assert.match(inventory, /latest price lookup failed/);
+  assert.doesNotMatch(inventory, /ENABLE_INVENTORY_MTGJSON_PRICES/);
 });
-
 
 test("admin pricing page remains operational without heavy history analytics", () => {
   const adminPrices = readFileSync("app/admin/prices/page.tsx", "utf8");
-  assert.match(adminPrices, /ENABLE_ADMIN_PRICE_STATS/);
-  assert.match(adminPrices, /PriceImportJobsPanel/);
-  assert.match(adminPrices, /listPriceWorkerHeartbeats/);
-  assert.doesNotMatch(adminPrices, /inventoryItem\.findMany\(\{[\s\S]*priceSnapshots/);
-  assert.doesNotMatch(adminPrices, /collectionValueHistory|inventoryValueByProvider|providerValueRows|historyRows/);
+  assert.match(adminPrices, /Queue refresh job/);
+  assert.match(adminPrices, /listPricingWorkerStatus/);
+  assert.doesNotMatch(adminPrices, /PriceImportJobsPanel/);
+  assert.doesNotMatch(
+    adminPrices,
+    /inventoryItem\.findMany\(\{[\s\S]*priceSnapshots/,
+  );
+  assert.doesNotMatch(
+    adminPrices,
+    /collectionValueHistory|inventoryValueByProvider|providerValueRows|historyRows/,
+  );
 });
 
-test("pricing feature flags and snapshot indexes are present", () => {
+test("pricing worker platform exposes snapshot indexes outside the main app schema", () => {
   const pricingPage = readFileSync("app/pricing/page.tsx", "utf8");
-  const schema = readFileSync("prisma/schema.prisma", "utf8");
-  assert.match(pricingPage, /ENABLE_PRICING_ANALYTICS/);
-  assert.match(schema, /@@index\(\[cardId, provider, finish, priceType, currency, observedDate\]\)/);
-  assert.match(schema, /@@index\(\[provider, currency, observedDate\]\)/);
+  const worker = readFileSync("scripts/pricing-worker.ts", "utf8");
+  assert.doesNotMatch(pricingPage, /ENABLE_PRICING_ANALYTICS/);
+  assert.match(worker, /price_snapshots_identity_key/);
+  assert.match(worker, /price_snapshots_provider_currency_observed_idx/);
+  assert.match(worker, /jsonb_to_recordset/);
 });
