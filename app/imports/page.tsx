@@ -51,7 +51,10 @@ import {
 import { INVENTORY_FILTER_PARAM_KEYS } from "@/lib/inventory-filters";
 import {
   cn,
+  filterButtonClass,
   filterFieldClass,
+  filterInputClass,
+  filterPanelClass,
   filterPrimaryButtonClass,
   filterSelectClass,
 } from "@/components/filterStyles";
@@ -578,7 +581,7 @@ export default async function ImportsPage({
     }
     await recalculateBatchCounts(batch.id);
     revalidatePath("/imports");
-    redirect(buildImportReviewUrl(batch.id));
+    redirect(`${buildImportReviewUrl(batch.id)}#import-review`);
   }
 
   async function updateImportRow(fd: FormData) {
@@ -919,15 +922,55 @@ export default async function ImportsPage({
 
   async function deleteImportHistory(fd: FormData) {
     "use server";
-    await assertAdminUser();
-    const batchId = String(fd.get("batchId") || "");
-    const where = batchId ? { importBatchId: batchId } : {};
-    await prisma.importResolutionAttempt.deleteMany({
-      where: batchId ? { importBatchItem: { importBatchId: batchId } } : {},
+    const actionUser = await requireAuth();
+    const actionUserWithPlayer = await prisma.user.findUnique({
+      where: { id: actionUser.id },
+      include: { player: true },
     });
-    await prisma.importBatchItem.deleteMany({ where });
+    const actionScope = await getAccessScope(
+      actionUserWithPlayer ?? actionUser,
+    );
+    const actionIsAdmin = actionScope?.mode === "admin";
+    const batchId = String(fd.get("batchId") || "");
+    let batchIds: string[];
+    if (batchId) {
+      const batch = await prisma.importBatch.findUnique({
+        where: { id: batchId },
+        select: { id: true, selectedPlayerId: true },
+      });
+      if (!batch) throw new Error("Import batch not found.");
+      if (
+        !actionIsAdmin &&
+        batch.selectedPlayerId !== actionUserWithPlayer?.playerId
+      )
+        throw new Error("Not authorized for this import batch.");
+      batchIds = [batch.id];
+    } else if (actionIsAdmin) {
+      const batches = await prisma.importBatch.findMany({
+        select: { id: true },
+      });
+      batchIds = batches.map((batch) => batch.id);
+    } else {
+      if (!actionUserWithPlayer?.playerId)
+        throw new Error("No player profile found for this user.");
+      const batches = await prisma.importBatch.findMany({
+        where: { selectedPlayerId: actionUserWithPlayer.playerId },
+        select: { id: true },
+      });
+      batchIds = batches.map((batch) => batch.id);
+    }
+    if (!batchIds.length) {
+      revalidatePath("/imports");
+      redirect("/imports");
+    }
+    await prisma.importResolutionAttempt.deleteMany({
+      where: { importBatchItem: { importBatchId: { in: batchIds } } },
+    });
+    await prisma.importBatchItem.deleteMany({
+      where: { importBatchId: { in: batchIds } },
+    });
     await prisma.importBatch.deleteMany({
-      where: batchId ? { id: batchId } : {},
+      where: { id: { in: batchIds } },
     });
     revalidatePath("/imports");
     redirect("/imports");
@@ -1270,6 +1313,9 @@ export default async function ImportsPage({
     orderBy: { createdAt: "desc" },
     take: 25,
   });
+  const latestImportedBatch = history.find((batch) =>
+    ["IMPORTED", "imported"].includes(batch.status),
+  );
 
   const selectedItems = selectedBatch?.items ?? [];
   const activeReviewFilter = normalizeImportReviewFilter(params.status);
@@ -1420,20 +1466,41 @@ export default async function ImportsPage({
   return (
     <main className="p-8 space-y-6">
       <Nav />
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold">Imports</h1>
-        <a className="border px-3 py-2" href="/api/imports/sample">
-          Download sample inventory import CSV
-        </a>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold">Imports</h1>
+          <p className="text-sm text-[var(--app-muted)]">
+            Upload inventory CSVs, review unresolved rows, and commit ready
+            cards from one workspace.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {selectedBatch ? (
+            <a className={filterButtonClass} href="#import-review">
+              Current import
+            </a>
+          ) : null}
+          <a className={filterButtonClass} href="/api/imports/sample">
+            Sample CSV
+          </a>
+        </div>
       </div>
-      <SingleCardInventoryAdd
-        locations={manualLocations.map((location) => ({
-          id: location.id,
-          name: location.name,
-        }))}
-        defaultLocationId={manualDefaultLocation?.id}
-        added={params.singleCardAdded === "1"}
-      />
+      <CollapsiblePanel
+        title="Add single card"
+        summary="Manual one-off inventory entry"
+        defaultOpen={params.singleCardAdded === "1"}
+        storageKey="imports-single-card-add"
+      >
+        <SingleCardInventoryAdd
+          locations={manualLocations.map((location) => ({
+            id: location.id,
+            name: location.name,
+          }))}
+          defaultLocationId={manualDefaultLocation?.id}
+          added={params.singleCardAdded === "1"}
+          embedded
+        />
+      </CollapsiblePanel>
 
       <CollapsiblePanel
         title="Export Inventory"
@@ -1527,37 +1594,36 @@ export default async function ImportsPage({
         </p>
       </CollapsiblePanel>
 
-      <section className="border border-zinc-800 rounded p-4 space-y-3">
-        <h2 className="text-xl font-semibold">Inventory CSV Import</h2>
-        <p className="rounded border border-zinc-800 p-2 text-sm text-zinc-300">
-          {isAdmin
-            ? "Admin mode: choose the target owner explicitly for this import."
-            : "Importing into your inventory."}
-        </p>
-        <p className="text-sm text-zinc-400">
-          Accepts MTG Inventory sample columns or Moxfield collection exports
-          with Count, Name, Edition, Condition, Language, Foil, and Collector
-          Number columns.
-        </p>
-        {!isAdmin && defaultPlayer ? (
-          <p className="text-sm text-zinc-300">
-            Importing inventory for:{" "}
-            <strong>{defaultPlayer.displayName}</strong>
-          </p>
-        ) : null}
+      <section className={cn(filterPanelClass, "space-y-4")}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">New CSV import</h2>
+            <p className="text-sm text-[var(--app-muted)]">
+              MTG Inventory sample files and Moxfield collection exports are
+              supported.
+            </p>
+          </div>
+          <span className="rounded-md border border-[var(--app-border)] bg-[var(--app-surface-2)] px-3 py-2 text-xs text-[var(--app-muted)]">
+            {isAdmin
+              ? "Admin mode: choose target owner"
+              : defaultPlayer
+                ? `Importing for ${defaultPlayer.displayName}`
+                : "Importing into your inventory"}
+          </span>
+        </div>
         <form
           action={previewImport}
-          className="grid md:grid-cols-2 gap-3"
+          className="grid gap-3 lg:grid-cols-[minmax(180px,0.8fr)_minmax(220px,1fr)_minmax(220px,1.1fr)_auto] lg:items-end"
           encType="multipart/form-data"
         >
           {isAdmin ? (
             <>
-              <label className="text-sm">
+              <label className={filterFieldClass}>
                 Current owner
                 <select
                   name="selectedPlayerId"
                   defaultValue={defaultPlayer?.id}
-                  className="w-full border p-2 bg-zinc-900"
+                  className={cn(filterSelectClass, "mt-1 w-full")}
                 >
                   {players.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -1576,11 +1642,11 @@ export default async function ImportsPage({
               />
             </>
           )}
-          <label className="text-sm">
+          <label className={filterFieldClass}>
             Duplicate behavior
             <select
               name="duplicateBehavior"
-              className="w-full border p-2 bg-zinc-900"
+              className={cn(filterSelectClass, "mt-1 w-full")}
             >
               <option value="add">
                 Add quantities to existing matching inventory item
@@ -1591,23 +1657,66 @@ export default async function ImportsPage({
               <option value="preview">Preview only</option>
             </select>
           </label>
-          <label className="text-sm md:col-span-2">
+          <label className={filterFieldClass}>
             CSV file
             <input
               name="csvFile"
               type="file"
               accept=".csv,text/csv"
               required
-              className="w-full border p-2 bg-zinc-900"
+              className={cn(filterInputClass, "mt-1 w-full")}
             />
           </label>
           <SubmitButton
             pendingLabel="Identifying cards…"
-            className="border px-3 py-2 md:col-span-2"
+            className={cn(filterPrimaryButtonClass, "lg:min-w-36")}
           >
             Preview Import
           </SubmitButton>
         </form>
+        <div className="border-t border-[var(--app-border)] pt-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold">Recent imports</h3>
+            <a className="text-xs underline" href="#import-history">
+              Full history
+            </a>
+          </div>
+          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {history.slice(0, 6).map((batch) => (
+              <a
+                key={batch.id}
+                className={cn(
+                  "rounded-md border p-3 text-sm transition-colors",
+                  selectedBatch?.id === batch.id
+                    ? "border-[var(--app-accent)] bg-[var(--app-accent-soft)]"
+                    : "border-[var(--app-border)] bg-[var(--app-surface)] hover:border-[var(--app-border-strong)]",
+                )}
+                href={`${buildImportReviewUrl(batch.id)}#import-review`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="block truncate font-medium">
+                    {batch.filename}
+                  </span>
+                  <span className="rounded border border-[var(--app-border)] px-2 py-0.5 text-[10px] uppercase text-[var(--app-muted)]">
+                    {batch.status}
+                  </span>
+                </div>
+                <div className="mt-1 text-xs text-[var(--app-muted)]">
+                  {batch.createdAt.toLocaleString()} -{" "}
+                  {batch.selectedPlayer.displayName}
+                </div>
+                <div className="mt-1 text-xs text-[var(--app-muted)]">
+                  {batch.totalRows} rows - {batch.errorRows} need review
+                </div>
+              </a>
+            ))}
+            {history.length === 0 ? (
+              <p className="rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-3 text-sm text-[var(--app-muted)]">
+                No imports yet. Upload a CSV to start a review batch.
+              </p>
+            ) : null}
+          </div>
+        </div>
       </section>
 
       {isAdmin && maintenanceSummary ? (
@@ -1633,7 +1742,39 @@ export default async function ImportsPage({
               </div>
             </div>
           </div>
-          <div className="grid md:grid-cols-3 gap-3 text-sm">
+          <div className="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
+            {latestImportedBatch ? (
+              <details className="border border-red-800 rounded p-3">
+                <summary className="cursor-pointer font-semibold">
+                  Undo most recent import
+                </summary>
+                <p className="my-2 text-zinc-400">
+                  Reverses tracked inventory changes from{" "}
+                  <strong>{latestImportedBatch.filename}</strong>. This is for
+                  the newest committed import only.
+                </p>
+                <form action={undoImportBatch} className="space-y-2">
+                  <input
+                    type="hidden"
+                    name="batchId"
+                    value={latestImportedBatch.id}
+                  />
+                  <label className="block">
+                    Type DELETE IMPORT
+                    <input
+                      name="confirmation"
+                      className="mt-1 w-full border p-2 bg-zinc-900"
+                    />
+                  </label>
+                  <SubmitButton
+                    pendingLabel="Undoing importâ€¦"
+                    className="border border-red-700 px-3 py-2"
+                  >
+                    Undo latest import
+                  </SubmitButton>
+                </form>
+              </details>
+            ) : null}
             <details className="border border-amber-800 rounded p-3">
               <summary className="cursor-pointer font-semibold">
                 Clear preview / failed imports
@@ -1653,7 +1794,7 @@ export default async function ImportsPage({
             </details>
             <details className="border border-red-800 rounded p-3">
               <summary className="cursor-pointer font-semibold">
-                Delete all import history only
+                Clear all import history
               </summary>
               <p className="my-2 text-zinc-400">
                 Deletes all ImportBatch and ImportBatchItem history. Inventory
@@ -1698,8 +1839,33 @@ export default async function ImportsPage({
         </section>
       ) : null}
 
+      {!isAdmin && history.length ? (
+        <section className={cn(filterPanelClass, "space-y-3")}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">Import history tools</h2>
+              <p className="text-sm text-[var(--app-muted)]">
+                Clear your own import batch history. Inventory records are not
+                changed.
+              </p>
+            </div>
+            <form action={deleteImportHistory}>
+              <SubmitButton
+                pendingLabel="Clearing historyâ€¦"
+                className="border border-red-700 px-3 py-2"
+              >
+                Clear my import history
+              </SubmitButton>
+            </form>
+          </div>
+        </section>
+      ) : null}
+
       {selectedBatch ? (
-        <section className="border border-zinc-800 rounded p-4 space-y-4">
+        <section
+          id="import-review"
+          className={cn(filterPanelClass, "scroll-mt-4 space-y-4")}
+        >
           <div>
             <h2 className="text-xl font-semibold">
               Preview: {selectedBatch.filename}
@@ -1717,8 +1883,8 @@ export default async function ImportsPage({
               pollIntervalMs={importResolutionConfig.pollIntervalMs}
             />
           ) : null}
-          <div className="sticky top-2 z-30 rounded border border-zinc-700 bg-zinc-950/95 p-3 shadow-xl backdrop-blur space-y-3">
-            <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="sticky top-2 z-30 rounded-lg border border-[var(--app-border-strong)] bg-[color-mix(in_srgb,var(--app-surface)_94%,transparent)] p-3 shadow-xl shadow-[var(--app-shadow)] backdrop-blur">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="font-semibold">{selectedBatch.filename}</div>
                 <p className="text-sm text-zinc-400">
@@ -1765,7 +1931,7 @@ export default async function ImportsPage({
                         selectedResolutionJob.status,
                       ),
                     )}
-                    className="border px-3 py-2 disabled:opacity-50"
+                    className={filterButtonClass}
                   >
                     {selectedResolutionJob &&
                     ["FAILED", "STALE"].includes(selectedResolutionJob.status)
@@ -1776,9 +1942,25 @@ export default async function ImportsPage({
                         : "Resolve Cards"}
                   </SubmitButton>
                 </form>
+                {selectedResolutionJob &&
+                isActiveImportResolutionStatus(selectedResolutionJob.status) ? (
+                  <form action={cancelResolutionJobAction}>
+                    <input
+                      type="hidden"
+                      name="jobId"
+                      value={selectedResolutionJob.id}
+                    />
+                    <SubmitButton
+                      pendingLabel="Cancellingâ€¦"
+                      className="rounded-md border border-red-700 bg-red-950/30 px-3 py-2 text-sm text-red-100 transition-colors hover:border-red-500 disabled:opacity-50"
+                    >
+                      Cancel Resolution
+                    </SubmitButton>
+                  </form>
+                ) : null}
                 {firstProblemItem ? (
                   <a
-                    className="border px-3 py-2"
+                    className={filterButtonClass}
                     href={buildImportReviewUrl(selectedBatch.id, {
                       status: "unresolved",
                       q: reviewSearch,
@@ -1807,7 +1989,7 @@ export default async function ImportsPage({
                     <input type="hidden" name="returnQ" value={reviewSearch} />
                     <select
                       name="destinationLocationId"
-                      className="border p-2 bg-zinc-900"
+                      className={filterSelectClass}
                       aria-label="Destination location"
                     >
                       {locationsForSelectedOwner.map((location) => (
@@ -1824,7 +2006,7 @@ export default async function ImportsPage({
                           ? `Commit ${summary.readyToCommit} ready rows to ${defaultDestinationLocation?.name ?? "inventory"}?`
                           : undefined
                       }
-                      className="border border-emerald-700 px-3 py-2 text-emerald-100 disabled:opacity-50"
+                      className="rounded-md border border-emerald-700 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-100 transition-colors hover:border-emerald-500 disabled:opacity-50"
                     >
                       {unresolvedCount > 0
                         ? "Commit Ready Cards"
@@ -1833,13 +2015,13 @@ export default async function ImportsPage({
                   </form>
                 ) : selectedBatch.status.includes("IMPORTED") ? (
                   <a
-                    className="border border-emerald-700 px-3 py-2"
+                    className="rounded-md border border-emerald-700 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-100"
                     href={inventoryLink}
                   >
                     View Inventory
                   </a>
                 ) : null}
-                <a className="border px-3 py-2" href="/imports">
+                <a className={filterButtonClass} href="/imports">
                   Cancel
                 </a>
               </div>
@@ -2239,10 +2421,7 @@ export default async function ImportsPage({
           ) : null}
           {!["IMPORTED", "UNDONE"].includes(selectedBatch.status) &&
           !selectedBatch.importType.endsWith(":preview") ? (
-            <form
-              action={confirmImport}
-              className="flex flex-wrap gap-3 items-end"
-            >
+            <form action={confirmImport} className="hidden" aria-hidden="true">
               <input type="hidden" name="batchId" value={selectedBatch.id} />
               <input
                 type="hidden"
@@ -2535,7 +2714,7 @@ export default async function ImportsPage({
         </section>
       ) : null}
 
-      <section className="space-y-2">
+      <section id="import-history" className="space-y-2 scroll-mt-4">
         <h2 className="text-xl font-semibold">Import History</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -2551,6 +2730,7 @@ export default async function ImportsPage({
                 <th>Warnings</th>
                 <th>Unmatched</th>
                 <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -2579,6 +2759,58 @@ export default async function ImportsPage({
                     <td>{batch.warningRows}</td>
                     <td>{batch.errorRows}</td>
                     <td>{batch.status}</td>
+                    <td>
+                      <details className="min-w-48 rounded border border-zinc-800 px-2 py-1">
+                        <summary className="cursor-pointer">Actions</summary>
+                        <div className="mt-2 space-y-2">
+                          <a
+                            className="block underline"
+                            href={`${buildImportReviewUrl(batch.id)}#import-review`}
+                          >
+                            Open review
+                          </a>
+                          <form action={deleteImportHistory}>
+                            <input
+                              type="hidden"
+                              name="batchId"
+                              value={batch.id}
+                            />
+                            <SubmitButton
+                              pendingLabel="Clearingâ€¦"
+                              className="underline"
+                              minWidthClassName="min-w-24"
+                            >
+                              Clear this history
+                            </SubmitButton>
+                          </form>
+                          {isAdmin &&
+                          ["IMPORTED", "imported"].includes(batch.status) ? (
+                            <form
+                              action={undoImportBatch}
+                              className="space-y-1"
+                            >
+                              <input
+                                type="hidden"
+                                name="batchId"
+                                value={batch.id}
+                              />
+                              <input
+                                name="confirmation"
+                                placeholder="DELETE IMPORT"
+                                className="w-full border p-1 bg-zinc-900"
+                              />
+                              <SubmitButton
+                                pendingLabel="Undoingâ€¦"
+                                className="underline text-red-200"
+                                minWidthClassName="min-w-20"
+                              >
+                                Undo import
+                              </SubmitButton>
+                            </form>
+                          ) : null}
+                        </div>
+                      </details>
+                    </td>
                   </tr>
                 );
               })}

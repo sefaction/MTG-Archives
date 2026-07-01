@@ -161,6 +161,9 @@ test("public inventory search keeps browsing filters and removes private/admin f
   assert.match(inventorySearch, /Apply filters/);
   assert.match(inventorySearch, /Clear Filters/);
   assert.match(inventorySearch, /FilterChipBar/);
+  assert.match(inventorySearch, /CLOSE_FILTER_DROPDOWNS_EVENT/);
+  assert.match(inventorySearch, /document\.addEventListener\("pointerdown"/);
+  assert.match(inventorySearch, /window\.dispatchEvent\(new Event/);
   assert.match(inventorySearch, /showVisibilityFilter: !isPublic/);
   assert.match(inventorySearch, /showSourceFilter: !isPublic/);
   assert.match(inventorySearch, /showInventoryScopeFilter: !isPublic/);

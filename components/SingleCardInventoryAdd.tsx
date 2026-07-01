@@ -25,10 +25,12 @@ export function SingleCardInventoryAdd({
   locations,
   defaultLocationId,
   added,
+  embedded = false,
 }: {
   locations: ManualAddLocation[];
   defaultLocationId?: string;
   added?: boolean;
+  embedded?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [includeScryfall, setIncludeScryfall] = useState(false);
@@ -73,15 +75,24 @@ export function SingleCardInventoryAdd({
   const results = response?.results ?? [];
 
   return (
-    <section className="space-y-3 rounded border border-sky-900 bg-sky-950/10 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-xl font-semibold">Add single card</h2>
-        {added ? (
-          <span className="rounded border border-emerald-700 px-2 py-1 text-sm text-emerald-100">
-            Card added to inventory.
-          </span>
-        ) : null}
-      </div>
+    <section
+      className={cn(
+        "space-y-3",
+        !embedded && "rounded border border-sky-900 bg-sky-950/10 p-4",
+      )}
+    >
+      {!embedded || added ? (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {!embedded ? (
+            <h2 className="text-xl font-semibold">Add single card</h2>
+          ) : null}
+          {added ? (
+            <span className="rounded border border-emerald-700 px-2 py-1 text-sm text-emerald-100">
+              Card added to inventory.
+            </span>
+          ) : null}
+        </div>
+      ) : null}
       <div className="grid gap-2 md:grid-cols-[1fr_auto]">
         <label className={filterFieldClass}>
           Search by card name or printing

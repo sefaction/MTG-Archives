@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CollapsiblePanel } from "./CollapsiblePanel";
 import { ManaSymbol } from "./mtg/ManaSymbol";
@@ -104,6 +104,7 @@ const COLOR_MODE_OPTIONS = [
 
 const INVENTORY_SCROLL_STORAGE_KEY = "mtg-inventory-scroll-y";
 const ADVANCED_SEARCH_PANEL_STORAGE_KEY = "mtg-inventory-advanced-search-open";
+const CLOSE_FILTER_DROPDOWNS_EVENT = "mtg-inventory-close-filter-dropdowns";
 
 function values(params: InventoryAdvancedSearchProps["params"], key: string) {
   const value = params[key];
@@ -659,22 +660,68 @@ function MultiSelectDropdown({
   compact?: boolean;
   emptyLabel?: string;
 }) {
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
   const selectedLabels = options
     .filter((option) => selected.includes(option.value))
     .map((option) => option.label);
+  const buttonId = useId();
+  const menuId = `${buttonId}-menu`;
+  const summaryLabel = selectedLabels.length
+    ? compact && selectedLabels.length > 2
+      ? `${selectedLabels.slice(0, 2).join(", ")} +${selectedLabels.length - 2}`
+      : selectedLabels.join(", ")
+    : emptyLabel;
+
+  useEffect(() => {
+    if (!open) return;
+    function handlePointerDown(event: PointerEvent) {
+      if (!dropdownRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    function closeDropdown() {
+      setOpen(false);
+    }
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener(CLOSE_FILTER_DROPDOWNS_EVENT, closeDropdown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener(CLOSE_FILTER_DROPDOWNS_EVENT, closeDropdown);
+    };
+  }, [open]);
+
   return (
-    <details className={cn(filterInlineFieldClass, "relative min-w-44")}>
-      <summary className="cursor-pointer list-none">
+    <div
+      ref={dropdownRef}
+      className={cn(filterInlineFieldClass, "relative min-w-44")}
+    >
+      <button
+        id={buttonId}
+        type="button"
+        className="text-left"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={menuId}
+        onClick={() => setOpen((current) => !current)}
+      >
         <span className="text-zinc-400">{label}: </span>
-        <span className="text-zinc-100">
-          {selectedLabels.length
-            ? compact && selectedLabels.length > 2
-              ? `${selectedLabels.slice(0, 2).join(", ")} +${selectedLabels.length - 2}`
-              : selectedLabels.join(", ")
-            : emptyLabel}
-        </span>
-      </summary>
-      <div className="absolute z-30 mt-2 max-h-64 min-w-56 overflow-auto rounded-md border border-zinc-700 bg-zinc-950 p-2 shadow-xl shadow-black/30">
+        <span className="text-zinc-100">{summaryLabel}</span>
+      </button>
+      <div
+        id={menuId}
+        role="listbox"
+        aria-labelledby={buttonId}
+        className={cn(
+          "absolute z-30 mt-2 max-h-64 min-w-56 overflow-auto rounded-md border border-zinc-700 bg-zinc-950 p-2 shadow-xl shadow-black/30",
+          !open && "hidden",
+        )}
+      >
         {options.map((option) => (
           <label
             key={option.value}
@@ -690,7 +737,7 @@ function MultiSelectDropdown({
           </label>
         ))}
       </div>
-    </details>
+    </div>
   );
 }
 
@@ -1036,6 +1083,7 @@ export function InventoryAdvancedSearch({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    window.dispatchEvent(new Event(CLOSE_FILTER_DROPDOWNS_EVENT));
     const formData = new FormData(event.currentTarget);
     const next = new URLSearchParams();
     formData.forEach((value, key) => {
