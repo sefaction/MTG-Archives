@@ -4,6 +4,8 @@ import test from "node:test";
 
 const tradesPage = readFileSync("app/trades/page.tsx", "utf8");
 const tradeBuilder = readFileSync("components/TradeBuilder.tsx", "utf8");
+const tradeActions = readFileSync("app/trades/actions.ts", "utf8");
+const wishlistTable = readFileSync("components/WishlistTable.tsx", "utf8");
 
 test("trades page renders the searchable trade builder instead of active inventory dropdowns", () => {
   assert.match(tradesPage, /<TradeBuilder/);
@@ -17,6 +19,7 @@ test("trades page renders the searchable trade builder instead of active invento
 
 test("trades page surfaces trade wishlist queues without preloading inventories", () => {
   assert.match(tradesPage, /Trade Wishlist/);
+  assert.match(tradesPage, /cancelTradeWishlistItem/);
   assert.match(tradesPage, /myTradeWishlist/);
   assert.match(tradesPage, /wantedFromMe/);
   assert.match(tradesPage, /tradeWishlistItem\.findMany/);
@@ -34,6 +37,27 @@ test("trades page surfaces trade wishlist queues without preloading inventories"
   assert.match(tradesPage, /initialRequestedItem=/);
   assert.match(tradesPage, /initialOfferedItem=/);
   assert.doesNotMatch(tradesPage, /include:\s*\{\s*location:\s*true\s*\}/);
+});
+
+test("trade wishlist cards can be cancelled without deleting history", () => {
+  assert.match(tradeActions, /export async function cancelTradeWishlistItem/);
+  assert.match(tradeActions, /TradeWishlistStatus\.CANCELLED/);
+  assert.match(
+    tradeActions,
+    /You can only cancel your own trade wishlist cards/,
+  );
+  assert.match(tradesPage, /name="tradeWishlistItemId"/);
+  assert.match(tradesPage, />\s*Cancel\s*</);
+  assert.match(wishlistTable, /cancelTradeWishlistItem/);
+  assert.match(wishlistTable, /name="tradeWishlistItemId"/);
+});
+
+test("trade history is moved behind a history tab", () => {
+  assert.match(tradesPage, /view\?: string/);
+  assert.match(tradesPage, /params\.view === "history"/);
+  assert.match(tradesPage, /href="\/trades\?view=history"/);
+  assert.match(tradesPage, /tradeView === "active"/);
+  assert.match(tradesPage, /historySections/);
 });
 
 test("trade builder keeps existing 1-for-1 server action fields", () => {

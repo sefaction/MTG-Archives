@@ -5,7 +5,12 @@ import { Nav } from "@/components/Nav";
 import { prisma } from "@/lib/prisma";
 import { getAccessScope, requireLogin } from "@/lib/auth";
 import { TradeStatus, TradeWishlistStatus } from "@prisma/client";
-import { actOnTrade, confirmPhysicalTrade, createTrade } from "./actions";
+import {
+  actOnTrade,
+  cancelTradeWishlistItem,
+  confirmPhysicalTrade,
+  createTrade,
+} from "./actions";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { TradeBuilder } from "@/components/TradeBuilder";
 import {
@@ -38,6 +43,7 @@ type SearchParams = {
   receiverId?: string;
   offeredInventoryItemId?: string;
   requestedInventoryItemId?: string;
+  view?: string;
 };
 type TradeSnapshot = {
   cardName?: string;
@@ -125,6 +131,7 @@ export default async function TradesPage({
     : user.playerId || "";
   const receiverId =
     params.receiverId || players.find((p) => p.id !== proposerId)?.id || "";
+  const tradeView = params.view === "history" ? "history" : "active";
   if (!isAdmin && !user.playerId)
     return (
       <main className="p-8">
@@ -208,7 +215,7 @@ export default async function TradesPage({
         })
       : Promise.resolve(null),
   ]);
-  const sections = [
+  const activeSections = [
     [
       "My Active Trades",
       visibleTrades.filter(
@@ -230,6 +237,8 @@ export default async function TradesPage({
       "Awaiting Physical Exchange",
       visibleTrades.filter((t) => physicalStatuses.includes(t.status)),
     ],
+  ] as const;
+  const historySections = [
     [
       "Completed",
       visibleTrades.filter((t) => t.status === TradeStatus.COMPLETED),
@@ -239,198 +248,249 @@ export default async function TradesPage({
       visibleTrades.filter((t) => terminalStatuses.includes(t.status)),
     ],
   ] as const;
+  const sections = tradeView === "history" ? historySections : activeSections;
 
   return (
     <main className="p-8 space-y-6">
       <Nav />
-      <h1 className="text-3xl font-bold">Trades</h1>
-      <section className={cn(filterPanelClass, "space-y-4")}>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-semibold">Create Trade Proposal</h2>
-            <p className="max-w-3xl text-sm text-zinc-400">
-              Search each side as needed instead of loading full collections.
-              This keeps the page fast and gives us a cleaner path toward
-              multi-card negotiation and trade wishlists.
-            </p>
-          </div>
-          <span className="rounded border border-zinc-800 px-2 py-1 text-xs text-zinc-400">
-            1-for-1 foundation
-          </span>
-        </div>
-        <form method="get" className="grid gap-2 md:grid-cols-3">
-          {isAdmin ? (
-            <label className={filterFieldClass}>
-              Proposer
-              <select
-                name="proposerId"
-                defaultValue={proposerId}
-                className={cn(filterSelectClass, "mt-1 w-full")}
-              >
-                {players.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.displayName}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-          <label className={filterFieldClass}>
-            Trade partner
-            <select
-              name="receiverId"
-              defaultValue={receiverId}
-              className={cn(filterSelectClass, "mt-1 w-full")}
-            >
-              {players
-                .filter((p) => p.id !== proposerId)
-                .map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.displayName}
-                  </option>
-                ))}
-            </select>
-          </label>
-          <button className={cn(filterButtonClass, "md:self-end")}>
-            Set partner
-          </button>
-        </form>
-        <TradeBuilder
-          key={[
-            proposerId,
-            receiverId,
-            initialOfferedItem?.id ?? "",
-            initialRequestedItem?.id ?? "",
-          ].join(":")}
-          createTradeAction={createTrade}
-          proposerPlayerId={isAdmin ? proposerId : undefined}
-          proposerOwnerId={proposerId}
-          receiverPlayerId={receiverId}
-          proposerName={
-            players.find((player) => player.id === proposerId)?.displayName ||
-            "You"
-          }
-          receiverName={
-            players.find((player) => player.id === receiverId)?.displayName ||
-            "Trade partner"
-          }
-          initialOfferedItem={
-            initialOfferedItem ? toTradeBuilderItem(initialOfferedItem) : null
-          }
-          initialRequestedItem={
-            initialRequestedItem
-              ? toTradeBuilderItem(initialRequestedItem)
-              : null
-          }
-        />
-      </section>
-
-      <section className={cn(filterPanelClass, "space-y-4")}>
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold">Trade Wishlist</h2>
+          <h1 className="text-3xl font-bold">Trades</h1>
           <p className="text-sm text-zinc-400">
-            Public-inventory wants are collected here so either side can start a
-            focused negotiation without loading full collections.
+            Build active negotiations by default. Completed and cancelled trades
+            live in history.
           </p>
         </div>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="space-y-2">
-            <h3 className="font-semibold text-sky-100">Cards I want</h3>
-            {myTradeWishlist.length ? (
-              myTradeWishlist.map((item) => {
-                const image = cardImage(item.targetInventoryItem, {
-                  imageUri: item.card.imageUri,
-                  imageUris: item.card.imageUris as any,
-                });
-                return (
-                  <article
-                    key={item.id}
-                    className="flex gap-3 rounded border border-zinc-800 p-3"
-                  >
-                    {image ? (
-                      <img src={image} alt="" className="h-20 rounded" />
-                    ) : null}
-                    <div className="min-w-0 flex-1 text-sm">
-                      <p className="font-medium text-zinc-100">
-                        {item.card.name}
-                      </p>
-                      <p className="text-zinc-400">
-                        From {item.targetOwnerPlayer.displayName} · qty{" "}
-                        {item.quantity}
-                      </p>
-                      {item.notes ? (
-                        <p className="text-zinc-500">{item.notes}</p>
-                      ) : null}
-                    </div>
-                    <Link
-                      href={`/trades?receiverId=${item.targetOwnerPlayerId}${
-                        item.targetInventoryItemId
-                          ? `&requestedInventoryItemId=${item.targetInventoryItemId}`
-                          : ""
-                      }`}
-                      className={cn(filterPrimaryButtonClass, "self-start")}
-                    >
-                      Negotiate
-                    </Link>
-                  </article>
-                );
-              })
-            ) : (
-              <p className="text-sm text-zinc-500">
-                No public inventory trade wants yet.
-              </p>
+        <nav className="flex gap-2" aria-label="Trade view">
+          <Link
+            href="/trades"
+            className={cn(
+              filterButtonClass,
+              tradeView === "active" && "border-sky-500 bg-sky-950/40",
             )}
-          </div>
-          <div className="space-y-2">
-            <h3 className="font-semibold text-sky-100">Wanted from me</h3>
-            {wantedFromMe.length ? (
-              wantedFromMe.map((item) => {
-                const image = cardImage(item.targetInventoryItem, {
-                  imageUri: item.card.imageUri,
-                  imageUris: item.card.imageUris as any,
-                });
-                return (
-                  <article
-                    key={item.id}
-                    className="flex gap-3 rounded border border-zinc-800 p-3"
-                  >
-                    {image ? (
-                      <img src={image} alt="" className="h-20 rounded" />
-                    ) : null}
-                    <div className="min-w-0 flex-1 text-sm">
-                      <p className="font-medium text-zinc-100">
-                        {item.card.name}
-                      </p>
-                      <p className="text-zinc-400">
-                        Wanted by{" "}
-                        {item.ownerUser.displayName || item.ownerUser.username}{" "}
-                        · qty {item.quantity}
-                      </p>
-                      {item.notes ? (
-                        <p className="text-zinc-500">{item.notes}</p>
-                      ) : null}
-                    </div>
-                    <Link
-                      href={`/trades?receiverId=${item.ownerUser.playerId || ""}${
-                        item.targetInventoryItemId
-                          ? `&offeredInventoryItemId=${item.targetInventoryItemId}`
-                          : ""
-                      }`}
-                      className={cn(filterPrimaryButtonClass, "self-start")}
-                    >
-                      Negotiate
-                    </Link>
-                  </article>
-                );
-              })
-            ) : (
-              <p className="text-sm text-zinc-500">
-                No one has wishlisted your public cards for trade yet.
-              </p>
+          >
+            Active
+          </Link>
+          <Link
+            href="/trades?view=history"
+            className={cn(
+              filterButtonClass,
+              tradeView === "history" && "border-sky-500 bg-sky-950/40",
             )}
-          </div>
-        </div>
-      </section>
+          >
+            History
+          </Link>
+        </nav>
+      </div>
+      {tradeView === "active" ? (
+        <>
+          <section className={cn(filterPanelClass, "space-y-4")}>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold">Create Trade Proposal</h2>
+                <p className="max-w-3xl text-sm text-zinc-400">
+                  Search each side as needed instead of loading full
+                  collections. This keeps the page fast and gives us a cleaner
+                  path toward multi-card negotiation and trade wishlists.
+                </p>
+              </div>
+              <span className="rounded border border-zinc-800 px-2 py-1 text-xs text-zinc-400">
+                1-for-1 foundation
+              </span>
+            </div>
+            <form method="get" className="grid gap-2 md:grid-cols-3">
+              {isAdmin ? (
+                <label className={filterFieldClass}>
+                  Proposer
+                  <select
+                    name="proposerId"
+                    defaultValue={proposerId}
+                    className={cn(filterSelectClass, "mt-1 w-full")}
+                  >
+                    {players.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.displayName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              <label className={filterFieldClass}>
+                Trade partner
+                <select
+                  name="receiverId"
+                  defaultValue={receiverId}
+                  className={cn(filterSelectClass, "mt-1 w-full")}
+                >
+                  {players
+                    .filter((p) => p.id !== proposerId)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.displayName}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <button className={cn(filterButtonClass, "md:self-end")}>
+                Set partner
+              </button>
+            </form>
+            <TradeBuilder
+              key={[
+                proposerId,
+                receiverId,
+                initialOfferedItem?.id ?? "",
+                initialRequestedItem?.id ?? "",
+              ].join(":")}
+              createTradeAction={createTrade}
+              proposerPlayerId={isAdmin ? proposerId : undefined}
+              proposerOwnerId={proposerId}
+              receiverPlayerId={receiverId}
+              proposerName={
+                players.find((player) => player.id === proposerId)
+                  ?.displayName || "You"
+              }
+              receiverName={
+                players.find((player) => player.id === receiverId)
+                  ?.displayName || "Trade partner"
+              }
+              initialOfferedItem={
+                initialOfferedItem
+                  ? toTradeBuilderItem(initialOfferedItem)
+                  : null
+              }
+              initialRequestedItem={
+                initialRequestedItem
+                  ? toTradeBuilderItem(initialRequestedItem)
+                  : null
+              }
+            />
+          </section>
+
+          <section className={cn(filterPanelClass, "space-y-4")}>
+            <div>
+              <h2 className="text-xl font-semibold">Trade Wishlist</h2>
+              <p className="text-sm text-zinc-400">
+                Public-inventory wants are collected here so either side can
+                start a focused negotiation without loading full collections.
+              </p>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="space-y-2">
+                <h3 className="font-semibold text-sky-100">Cards I want</h3>
+                {myTradeWishlist.length ? (
+                  myTradeWishlist.map((item) => {
+                    const image = cardImage(item.targetInventoryItem, {
+                      imageUri: item.card.imageUri,
+                      imageUris: item.card.imageUris as any,
+                    });
+                    return (
+                      <article
+                        key={item.id}
+                        className="flex gap-3 rounded border border-zinc-800 p-3"
+                      >
+                        {image ? (
+                          <img src={image} alt="" className="h-20 rounded" />
+                        ) : null}
+                        <div className="min-w-0 flex-1 text-sm">
+                          <p className="font-medium text-zinc-100">
+                            {item.card.name}
+                          </p>
+                          <p className="text-zinc-400">
+                            From {item.targetOwnerPlayer.displayName} · qty{" "}
+                            {item.quantity}
+                          </p>
+                          {item.notes ? (
+                            <p className="text-zinc-500">{item.notes}</p>
+                          ) : null}
+                        </div>
+                        <div className="flex shrink-0 flex-col gap-2">
+                          <Link
+                            href={`/trades?receiverId=${item.targetOwnerPlayerId}${
+                              item.targetInventoryItemId
+                                ? `&requestedInventoryItemId=${item.targetInventoryItemId}`
+                                : ""
+                            }`}
+                            className={filterPrimaryButtonClass}
+                          >
+                            Negotiate
+                          </Link>
+                          <form action={cancelTradeWishlistItem}>
+                            <input
+                              type="hidden"
+                              name="tradeWishlistItemId"
+                              value={item.id}
+                            />
+                            <SubmitButton
+                              pendingLabel="Cancelling..."
+                              className="rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-300 transition-colors hover:border-red-700 hover:text-red-100"
+                            >
+                              Cancel
+                            </SubmitButton>
+                          </form>
+                        </div>
+                      </article>
+                    );
+                  })
+                ) : (
+                  <p className="text-sm text-zinc-500">
+                    No public inventory trade wants yet.
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <h3 className="font-semibold text-sky-100">Wanted from me</h3>
+                {wantedFromMe.length ? (
+                  wantedFromMe.map((item) => {
+                    const image = cardImage(item.targetInventoryItem, {
+                      imageUri: item.card.imageUri,
+                      imageUris: item.card.imageUris as any,
+                    });
+                    return (
+                      <article
+                        key={item.id}
+                        className="flex gap-3 rounded border border-zinc-800 p-3"
+                      >
+                        {image ? (
+                          <img src={image} alt="" className="h-20 rounded" />
+                        ) : null}
+                        <div className="min-w-0 flex-1 text-sm">
+                          <p className="font-medium text-zinc-100">
+                            {item.card.name}
+                          </p>
+                          <p className="text-zinc-400">
+                            Wanted by{" "}
+                            {item.ownerUser.displayName ||
+                              item.ownerUser.username}{" "}
+                            · qty {item.quantity}
+                          </p>
+                          {item.notes ? (
+                            <p className="text-zinc-500">{item.notes}</p>
+                          ) : null}
+                        </div>
+                        <Link
+                          href={`/trades?receiverId=${item.ownerUser.playerId || ""}${
+                            item.targetInventoryItemId
+                              ? `&offeredInventoryItemId=${item.targetInventoryItemId}`
+                              : ""
+                          }`}
+                          className={cn(filterPrimaryButtonClass, "self-start")}
+                        >
+                          Negotiate
+                        </Link>
+                      </article>
+                    );
+                  })
+                ) : (
+                  <p className="text-sm text-zinc-500">
+                    No one has wishlisted your public cards for trade yet.
+                  </p>
+                )}
+              </div>
+            </div>
+          </section>
+        </>
+      ) : null}
 
       {sections.map(([title, trades]) => (
         <section key={title} className="space-y-3">

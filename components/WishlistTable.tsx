@@ -35,6 +35,7 @@ import {
   switchWishlistDeckCardToOwnedPrinting,
   updateManualWishlistItem,
 } from "@/app/wishlist/actions";
+import { cancelTradeWishlistItem } from "@/app/trades/actions";
 import {
   cn,
   filterButtonClass,
@@ -501,16 +502,31 @@ function WishlistDetailDrawer({
                         <p className="text-zinc-500">{item.notes}</p>
                       ) : null}
                     </div>
-                    <Link
-                      href={`/trades?receiverId=${item.targetOwnerPlayerId}${
-                        item.targetInventoryItemId
-                          ? `&requestedInventoryItemId=${item.targetInventoryItemId}`
-                          : ""
-                      }`}
-                      className={filterPrimaryButtonClass}
-                    >
-                      Negotiate
-                    </Link>
+                    <div className="flex flex-wrap gap-2">
+                      <Link
+                        href={`/trades?receiverId=${item.targetOwnerPlayerId}${
+                          item.targetInventoryItemId
+                            ? `&requestedInventoryItemId=${item.targetInventoryItemId}`
+                            : ""
+                        }`}
+                        className={filterPrimaryButtonClass}
+                      >
+                        Negotiate
+                      </Link>
+                      <form action={cancelTradeWishlistItem}>
+                        <input
+                          type="hidden"
+                          name="tradeWishlistItemId"
+                          value={item.id}
+                        />
+                        <SubmitButton
+                          pendingLabel="Cancelling..."
+                          className="rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-300 transition-colors hover:border-red-700 hover:text-red-100"
+                        >
+                          Cancel
+                        </SubmitButton>
+                      </form>
+                    </div>
                   </div>
                 </div>
               ))}

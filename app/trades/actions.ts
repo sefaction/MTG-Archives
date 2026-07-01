@@ -6,6 +6,7 @@ import {
   InventoryLocationKind,
   InventorySourceType,
   TradeStatus,
+  TradeWishlistStatus,
 } from "@prisma/client";
 import { ensureDefaultLocation } from "@/lib/inventory-locations";
 import { revalidatePath } from "next/cache";
@@ -180,6 +181,26 @@ export async function createTrade(fd: FormData) {
     },
   });
   revalidatePath("/trades");
+}
+
+export async function cancelTradeWishlistItem(fd: FormData) {
+  const actor = await requireLogin();
+  const actorScope = await getAccessScope(actor);
+  const actorIsAdmin = actorScope?.mode === "admin";
+  const tradeWishlistItemId = String(fd.get("tradeWishlistItemId") || "");
+  const item = await prisma.tradeWishlistItem.findUnique({
+    where: { id: tradeWishlistItemId },
+    select: { id: true, ownerUserId: true },
+  });
+  if (!item) throw new Error("Trade wishlist item not found.");
+  if (!actorIsAdmin && item.ownerUserId !== actor.id)
+    throw new Error("You can only cancel your own trade wishlist cards.");
+  await prisma.tradeWishlistItem.update({
+    where: { id: item.id },
+    data: { status: TradeWishlistStatus.CANCELLED },
+  });
+  revalidatePath("/trades");
+  revalidatePath("/wishlist");
 }
 
 export async function actOnTrade(fd: FormData) {
