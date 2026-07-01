@@ -4,6 +4,14 @@ import { randomUUID } from "node:crypto";
 export type PricingWorkerStatus = {
   available: boolean;
   error?: string;
+  stats: {
+    snapshotCount: number;
+    pricedCardCount: number;
+    latestObservedDate: string | null;
+    latestIngestedAt: string | null;
+    activeJobCount: number;
+    failedJobCount: number;
+  };
   heartbeats: Array<{
     worker_id: string;
     status: string;
@@ -96,8 +104,35 @@ function jsonQuery<T>(sql: string): T[] {
 
 export async function listPricingWorkerStatus(): Promise<PricingWorkerStatus> {
   try {
+    const [stats] = jsonQuery<PricingWorkerStatus["stats"]>(
+      `SELECT
+         COUNT(*)::int AS "snapshotCount",
+         COUNT(DISTINCT mtgjson_uuid)::int AS "pricedCardCount",
+         MAX(observed_date)::text AS "latestObservedDate",
+         MAX(ingested_at)::text AS "latestIngestedAt",
+         (
+           SELECT COUNT(*)::int
+           FROM price_import_jobs
+           WHERE status IN ('QUEUED', 'RUNNING')
+         ) AS "activeJobCount",
+         (
+           SELECT COUNT(*)::int
+           FROM price_import_jobs
+           WHERE status = 'FAILED'
+         ) AS "failedJobCount"
+       FROM price_snapshots`,
+    );
+
     return {
       available: true,
+      stats: stats ?? {
+        snapshotCount: 0,
+        pricedCardCount: 0,
+        latestObservedDate: null,
+        latestIngestedAt: null,
+        activeJobCount: 0,
+        failedJobCount: 0,
+      },
       heartbeats: jsonQuery(
         `SELECT worker_id, status, last_seen_at, message
          FROM price_worker_heartbeats
@@ -128,6 +163,14 @@ export async function listPricingWorkerStatus(): Promise<PricingWorkerStatus> {
     return {
       available: false,
       error: error instanceof Error ? error.message : String(error),
+      stats: {
+        snapshotCount: 0,
+        pricedCardCount: 0,
+        latestObservedDate: null,
+        latestIngestedAt: null,
+        activeJobCount: 0,
+        failedJobCount: 0,
+      },
       heartbeats: [],
       runs: [],
       jobs: [],

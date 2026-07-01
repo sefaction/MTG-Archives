@@ -41,9 +41,14 @@ test("pricing worker scripts are available without changing page rendering", () 
 test("admin pricing page exposes worker health, logs, and manual queueing", () => {
   assert.match(adminPrices, /Pricing worker/);
   assert.match(adminPrices, /Queue refresh job/);
+  assert.match(adminPrices, /Current price coverage/);
+  assert.match(adminPrices, /Historical snapshots/);
+  assert.match(adminPrices, /Latest observed price/);
+  assert.match(adminPrices, /Job queue/);
   assert.match(adminPrices, /Worker heartbeat/);
   assert.match(adminPrices, /Recent jobs/);
-  assert.match(adminPrices, /Snapshots/);
+  assert.match(adminPrices, /Progress/);
+  assert.match(adminPrices, /Worker error log/);
   assert.match(adminPrices, /Worker logs/);
   assert.match(adminPrices, /enqueuePricingRefreshJob/);
   assert.doesNotMatch(adminPrices, /inventoryItem\.findMany|price_snapshots/);
@@ -53,6 +58,8 @@ test("pricing worker store uses the separate pricing database and does not expos
   assert.match(workerStore, /PRICING_DATABASE_URL/);
   assert.match(workerStore, /price_worker_heartbeats/);
   assert.match(workerStore, /price_import_jobs/);
+  assert.match(workerStore, /snapshotCount/);
+  assert.match(workerStore, /activeJobCount/);
   assert.match(workerStore, /MTGJSON_REFRESH_ALL/);
   assert.doesNotMatch(workerStore, /process\.env\.DATABASE_URL/);
 });

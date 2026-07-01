@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdminMode } from "@/lib/auth";
 import { Nav } from "@/components/Nav";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
+import { prisma } from "@/lib/prisma";
 import {
   enqueuePricingRefreshJob,
   listPricingWorkerStatus,
@@ -40,9 +41,61 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
+function numberLabel(value: number | bigint | null | undefined) {
+  if (value == null) return "0";
+  return Number(value).toLocaleString();
+}
+
+async function getCurrentPriceProjectionStats() {
+  const [row] = await prisma.$queryRaw<
+    Array<{
+      projected_count: bigint;
+      eligible_count: bigint;
+      latest_projected_at: Date | null;
+    }>
+  >`
+    SELECT
+      COUNT(*) FILTER (WHERE prices ? 'mtgjson') AS projected_count,
+      COUNT(*) FILTER (WHERE "mtgjsonUuid" IS NOT NULL) AS eligible_count,
+      MAX("priceLastFetchedAt") FILTER (WHERE prices ? 'mtgjson') AS latest_projected_at
+    FROM "Card"
+  `;
+  return {
+    projectedCount: row?.projected_count ?? 0n,
+    eligibleCount: row?.eligible_count ?? 0n,
+    latestProjectedAt: row?.latest_projected_at ?? null,
+  };
+}
+
+function StatCard({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail?: string;
+}) {
+  return (
+    <div className="rounded border border-zinc-800 bg-zinc-900/60 p-3">
+      <div className="text-xs font-semibold uppercase text-zinc-500">
+        {label}
+      </div>
+      <div className="mt-2 text-2xl font-bold text-zinc-100">{value}</div>
+      {detail ? (
+        <div className="mt-1 text-xs text-zinc-500">{detail}</div>
+      ) : null}
+    </div>
+  );
+}
+
 export default async function AdminPricesPage() {
   await requireAdminMode();
-  const status = await listPricingWorkerStatus();
+  const [status, projection] = await Promise.all([
+    listPricingWorkerStatus(),
+    getCurrentPriceProjectionStats(),
+  ]);
+  const errorLogs = status.logs.filter((log) => log.level === "ERROR");
 
   return (
     <main className="space-y-6 p-8">
@@ -52,9 +105,9 @@ export default async function AdminPricesPage() {
           <div>
             <h1 className="text-3xl font-bold">Pricing worker</h1>
             <p className="mt-1 text-sm text-zinc-400">
-              Separate pricing database control plane. Inventory pages still use
-              lightweight stored Scryfall prices until import processing is
-              enabled.
+              Separate pricing database control plane. Inventory pages read the
+              latest projected card price from the main app database and keep
+              historical pricing out of page-load queries.
             </p>
           </div>
           <form action={enqueueRefreshJob}>
@@ -73,6 +126,33 @@ export default async function AdminPricesPage() {
             Pricing database is unavailable: {status.error}
           </div>
         ) : null}
+      </section>
+
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Current price coverage"
+          value={`${numberLabel(projection.projectedCount)} / ${numberLabel(
+            projection.eligibleCount,
+          )}`}
+          detail={`Last projected ${dateLabel(
+            projection.latestProjectedAt?.toISOString() ?? null,
+          )}`}
+        />
+        <StatCard
+          label="Historical snapshots"
+          value={numberLabel(status.stats.snapshotCount)}
+          detail={`${numberLabel(status.stats.pricedCardCount)} priced cards`}
+        />
+        <StatCard
+          label="Latest observed price"
+          value={dateLabel(status.stats.latestObservedDate)}
+          detail={`Ingested ${dateLabel(status.stats.latestIngestedAt)}`}
+        />
+        <StatCard
+          label="Job queue"
+          value={`${numberLabel(status.stats.activeJobCount)} active`}
+          detail={`${numberLabel(status.stats.failedJobCount)} failed jobs`}
+        />
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
@@ -115,22 +195,52 @@ export default async function AdminPricesPage() {
                 <tr>
                   <th className="py-2 pr-3">Type</th>
                   <th className="py-2 pr-3">Status</th>
-                  <th className="py-2 pr-3">Snapshots</th>
-                  <th className="py-2 pr-3">Created</th>
+                  <th className="py-2 pr-3">Progress</th>
+                  <th className="py-2 pr-3">Timing</th>
                 </tr>
               </thead>
               <tbody>
                 {status.jobs.map((job) => (
                   <tr key={job.id} className="border-t border-zinc-800">
-                    <td className="py-2 pr-3">{job.type}</td>
+                    <td className="py-2 pr-3 align-top">
+                      <div>{job.type}</div>
+                      <div className="mt-1 font-mono text-xs text-zinc-500">
+                        {job.id.slice(0, 8)}
+                      </div>
+                      {job.requested_by ? (
+                        <div className="mt-1 text-xs text-zinc-500">
+                          Requested by {job.requested_by}
+                        </div>
+                      ) : null}
+                    </td>
                     <td className="py-2 pr-3">
                       <StatusPill status={job.status} />
+                      {job.error ? (
+                        <details className="mt-2 max-w-sm text-xs text-red-200">
+                          <summary className="cursor-pointer text-red-300">
+                            Error
+                          </summary>
+                          <pre className="mt-2 whitespace-pre-wrap rounded border border-red-900/70 bg-red-950/30 p-2">
+                            {job.error}
+                          </pre>
+                        </details>
+                      ) : null}
                     </td>
                     <td className="py-2 pr-3 text-zinc-400">
-                      {job.processed_count} / {job.inserted_count}
+                      <div>{numberLabel(job.processed_count)} processed</div>
+                      <div className="text-xs text-zinc-500">
+                        {numberLabel(job.inserted_count)} inserted /{" "}
+                        {numberLabel(job.skipped_count)} skipped
+                      </div>
                     </td>
                     <td className="py-2 pr-3 text-zinc-400">
-                      {dateLabel(job.created_at)}
+                      <div>Created {dateLabel(job.created_at)}</div>
+                      <div className="text-xs text-zinc-500">
+                        Started {dateLabel(job.started_at)}
+                      </div>
+                      <div className="text-xs text-zinc-500">
+                        Finished {dateLabel(job.finished_at)}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -174,23 +284,48 @@ export default async function AdminPricesPage() {
         </div>
 
         <div className="rounded border border-zinc-800 bg-zinc-950/60 p-4">
-          <h2 className="text-lg font-semibold">Worker logs</h2>
-          <div className="mt-3 max-h-96 space-y-2 overflow-auto text-sm">
-            {status.logs.map((log) => (
-              <div key={log.id} className="rounded border border-zinc-800 p-3">
+          <h2 className="text-lg font-semibold">Worker error log</h2>
+          <div className="mt-3 max-h-72 space-y-2 overflow-auto text-sm">
+            {errorLogs.map((log) => (
+              <div
+                key={log.id}
+                className="rounded border border-red-900/70 bg-red-950/20 p-3"
+              >
                 <div className="flex items-center justify-between gap-3">
-                  <span className="uppercase text-zinc-500">{log.level}</span>
+                  <span className="uppercase text-red-300">{log.level}</span>
                   <span className="text-xs text-zinc-500">
                     {dateLabel(log.created_at)}
                   </span>
                 </div>
-                <p className="mt-2 text-zinc-300">{log.message}</p>
+                <p className="mt-2 text-red-100">{log.message}</p>
               </div>
             ))}
-            {!status.logs.length ? (
-              <p className="text-sm text-zinc-500">No worker logs recorded.</p>
+            {!errorLogs.length ? (
+              <p className="text-sm text-zinc-500">
+                No worker errors have been recorded.
+              </p>
             ) : null}
           </div>
+        </div>
+      </section>
+
+      <section className="rounded border border-zinc-800 bg-zinc-950/60 p-4">
+        <h2 className="text-lg font-semibold">Worker logs</h2>
+        <div className="mt-3 max-h-96 space-y-2 overflow-auto text-sm">
+          {status.logs.map((log) => (
+            <div key={log.id} className="rounded border border-zinc-800 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="uppercase text-zinc-500">{log.level}</span>
+                <span className="text-xs text-zinc-500">
+                  {dateLabel(log.created_at)}
+                </span>
+              </div>
+              <p className="mt-2 text-zinc-300">{log.message}</p>
+            </div>
+          ))}
+          {!status.logs.length ? (
+            <p className="text-sm text-zinc-500">No worker logs recorded.</p>
+          ) : null}
         </div>
       </section>
     </main>
