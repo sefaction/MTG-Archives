@@ -35,7 +35,7 @@ test("deck move helper returns surviving audit target ids for merged and newly-c
   assert.match(inventoryMove, /auditInventoryItemId: matching\.id/);
   assert.match(
     inventoryMove,
-    /destinationInventoryItemId: created\.id,\n\s*auditInventoryItemId: created\.id/,
+    /destinationInventoryItemId: created\.id,\r?\n\s*auditInventoryItemId: created\.id/,
   );
   assert.match(actions, /inventoryItemId: move\.auditInventoryItemId/);
 });
