@@ -96,6 +96,52 @@ test("supports a development cap for fixture-sized imports", () => {
   assert.equal(snapshots[0].mtgjsonUuid, "uuid-one");
 });
 
+test("target MTGJSON UUID filtering happens before the development cap", () => {
+  const snapshots = extractMtgjsonPriceSnapshots(
+    {
+      data: {
+        "unowned-one": {
+          paper: { tcgplayer: { retail: { normal: { "2026-06-30": 1 } } } },
+        },
+        "owned-one": {
+          paper: { tcgplayer: { retail: { normal: { "2026-06-30": 2 } } } },
+        },
+        "owned-two": {
+          paper: { tcgplayer: { retail: { normal: { "2026-06-30": 3 } } } },
+        },
+      },
+    },
+    {
+      maxCards: 1,
+      targetMtgjsonUuids: ["owned-one", "owned-two"],
+    },
+  );
+
+  assert.equal(snapshots.length, 1);
+  assert.equal(snapshots[0].mtgjsonUuid, "owned-one");
+});
+
+test("target MTGJSON UUID filtering skips unrelated cards", () => {
+  const snapshots = extractMtgjsonPriceSnapshots(
+    {
+      data: {
+        "unowned-one": {
+          paper: { tcgplayer: { retail: { normal: { "2026-06-30": 1 } } } },
+        },
+        "owned-one": {
+          paper: { tcgplayer: { retail: { normal: { "2026-06-30": 2 } } } },
+        },
+      },
+    },
+    {
+      targetMtgjsonUuids: ["owned-one"],
+    },
+  );
+
+  assert.equal(snapshots.length, 1);
+  assert.equal(snapshots[0].mtgjsonUuid, "owned-one");
+});
+
 test("preferred pricing selector uses current MTGJSON projection before Scryfall", () => {
   const price = selectPreferredCardPrice(
     [],

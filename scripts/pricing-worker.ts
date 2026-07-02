@@ -292,6 +292,23 @@ async function fetchMtgjsonAllPrices(opts: WorkerOptions) {
   return response.json();
 }
 
+function loadAppMtgjsonUuids(appDatabaseUrl: string | null) {
+  if (!appDatabaseUrl) return [];
+  const output = psqlOutput(
+    appDatabaseUrl,
+    `
+SELECT COALESCE(json_agg("mtgjsonUuid"), '[]'::json)
+FROM (
+  SELECT DISTINCT "mtgjsonUuid"
+  FROM "Card"
+  WHERE "mtgjsonUuid" IS NOT NULL
+  ORDER BY "mtgjsonUuid"
+) cards;
+`,
+  );
+  return JSON.parse(output || "[]") as string[];
+}
+
 function insertSnapshots(
   databaseUrl: string,
   snapshots: ReturnType<typeof extractMtgjsonPriceSnapshots>,
@@ -443,10 +460,12 @@ async function processRefreshAllJob(
       maxCards: opts.maxCards || null,
     },
   );
+  const targetMtgjsonUuids = loadAppMtgjsonUuids(opts.appDatabaseUrl);
   const payload = await fetchMtgjsonAllPrices(opts);
   const snapshots = extractMtgjsonPriceSnapshots(payload, {
     defaultCurrency: opts.defaultCurrency,
     maxCards: opts.maxCards,
+    targetMtgjsonUuids,
   });
   const inserted = insertSnapshots(
     opts.databaseUrl,
@@ -471,6 +490,7 @@ async function processRefreshAllJob(
       inserted,
       skipped: snapshots.length - inserted,
       projected,
+      targetCards: targetMtgjsonUuids.length,
     },
   );
   return { processed: snapshots.length, inserted, projected };

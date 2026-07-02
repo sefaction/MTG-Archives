@@ -20,6 +20,8 @@ test("pricing worker initializes a separate pricing database schema", () => {
   assert.match(worker, /redactDatabaseUrl/);
   assert.match(worker, /claimQueuedJobs/);
   assert.match(worker, /extractMtgjsonPriceSnapshots/);
+  assert.match(worker, /loadAppMtgjsonUuids/);
+  assert.match(worker, /targetMtgjsonUuids/);
   assert.match(worker, /insertSnapshots/);
   assert.match(worker, /publishCurrentPrices/);
   assert.match(worker, /APP_DATABASE_URL/);

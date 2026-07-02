@@ -12,6 +12,7 @@ export type MtgjsonPriceSnapshotInput = {
 export type MtgjsonPriceExtractOptions = {
   defaultCurrency?: string;
   maxCards?: number;
+  targetMtgjsonUuids?: Iterable<string> | null;
 };
 
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
@@ -93,7 +94,11 @@ export function extractMtgjsonPriceSnapshots(
   const opts: Required<MtgjsonPriceExtractOptions> = {
     defaultCurrency: options.defaultCurrency || "USD",
     maxCards: options.maxCards || 0,
+    targetMtgjsonUuids: options.targetMtgjsonUuids || null,
   };
+  const targetMtgjsonUuids = opts.targetMtgjsonUuids
+    ? new Set(Array.from(opts.targetMtgjsonUuids))
+    : null;
   const root =
     isRecord(payload) && isRecord(payload.data) ? payload.data : payload;
   if (!isRecord(root)) return [];
@@ -101,6 +106,7 @@ export function extractMtgjsonPriceSnapshots(
   const snapshots: MtgjsonPriceSnapshotInput[] = [];
   let cardsSeen = 0;
   for (const [mtgjsonUuid, cardPrices] of Object.entries(root)) {
+    if (targetMtgjsonUuids && !targetMtgjsonUuids.has(mtgjsonUuid)) continue;
     if (opts.maxCards > 0 && cardsSeen >= opts.maxCards) break;
     cardsSeen += 1;
     walkPrices(mtgjsonUuid, cardPrices, [], opts, snapshots);
