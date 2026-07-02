@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { Nav } from "@/components/Nav";
 import { prisma } from "@/lib/prisma";
 import { getAccessScope, requireLogin } from "@/lib/auth";
@@ -21,6 +22,10 @@ import {
   filterPrimaryButtonClass,
   filterSelectClass,
 } from "@/components/filterStyles";
+import {
+  TradeCardPreview,
+  type TradeCardSummary,
+} from "@/components/TradeCardPreview";
 
 const activeStatuses: TradeStatus[] = [
   TradeStatus.PROPOSED,
@@ -59,6 +64,11 @@ type TradeCard = {
     imageUris?: unknown;
     setCode?: string | null;
     collectorNumber?: string | null;
+    typeLine?: string | null;
+    oracleText?: string | null;
+    manaCost?: string | null;
+    rarity?: string | null;
+    prices?: unknown;
   };
 } | null;
 
@@ -111,6 +121,105 @@ function toTradeBuilderItem(item: {
     available: item.quantity,
     imageUri: cardImage(item),
   };
+}
+
+function selectedPriceLabel(prices: unknown) {
+  const values = prices && typeof prices === "object" ? (prices as any) : {};
+  const mtgjson =
+    values.mtgjson && typeof values.mtgjson === "object"
+      ? (values.mtgjson as any)
+      : {};
+  const value =
+    mtgjson.price ??
+    mtgjson.usd ??
+    values.usd ??
+    values.usd_foil ??
+    values.usd_etched ??
+    "";
+  return value ? `$${Number(value).toFixed(2)}` : "";
+}
+
+function toTradeCardSummary({
+  id,
+  item,
+  snap = {},
+  card,
+  ownerLabel,
+  roleLabel,
+  notes,
+}: {
+  id: string;
+  item?: any;
+  snap?: TradeSnapshot;
+  card?: any;
+  ownerLabel?: string;
+  roleLabel?: string;
+  notes?: string | null;
+}): TradeCardSummary {
+  const resolvedCard = item?.card ?? card ?? null;
+  return {
+    id,
+    name: resolvedCard?.name ?? snap.cardName ?? "Transferred inventory item",
+    imageUri: cardImage(item, snap),
+    setCode: resolvedCard?.setCode ?? snap.setCode ?? "",
+    collectorNumber:
+      resolvedCard?.collectorNumber ?? snap.collectorNumber ?? "",
+    typeLine: resolvedCard?.typeLine ?? "",
+    oracleText: resolvedCard?.oracleText ?? "",
+    manaCost: resolvedCard?.manaCost ?? "",
+    rarity: resolvedCard?.rarity ?? "",
+    condition: item?.condition ?? "",
+    foilStatus: item?.foilStatus ?? "",
+    quantity: item?.quantity ?? undefined,
+    ownerLabel,
+    roleLabel,
+    priceLabel: selectedPriceLabel(resolvedCard?.prices),
+    notes: notes ?? "",
+  };
+}
+
+function CompactSection({
+  title,
+  summary,
+  count,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  summary?: string;
+  count?: number;
+  children: ReactNode;
+  defaultOpen?: boolean;
+}) {
+  return (
+    <details
+      open={defaultOpen}
+      className={cn(filterPanelClass, "group space-y-3")}
+    >
+      <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3">
+        <span>
+          <span className="text-xl font-semibold">{title}</span>
+          {summary ? (
+            <span className="ml-3 text-sm text-zinc-400">{summary}</span>
+          ) : null}
+        </span>
+        <span className="flex items-center gap-2 text-sm text-zinc-400">
+          {typeof count === "number" ? (
+            <span className="rounded border border-zinc-800 px-2 py-1">
+              {count}
+            </span>
+          ) : null}
+          <span className="rounded border border-zinc-800 px-2 py-1 group-open:hidden">
+            Open
+          </span>
+          <span className="hidden rounded border border-zinc-800 px-2 py-1 group-open:inline">
+            Collapse
+          </span>
+        </span>
+      </summary>
+      <div className="pt-3">{children}</div>
+    </details>
+  );
 }
 
 export default async function TradesPage({
@@ -249,6 +358,14 @@ export default async function TradesPage({
     ],
   ] as const;
   const sections = tradeView === "history" ? historySections : activeSections;
+  const activeTradeCount = activeSections.reduce(
+    (sum, [, trades]) => sum + trades.length,
+    0,
+  );
+  const historyTradeCount = historySections.reduce(
+    (sum, [, trades]) => sum + trades.length,
+    0,
+  );
 
   return (
     <main className="p-8 space-y-6">
@@ -269,7 +386,7 @@ export default async function TradesPage({
               tradeView === "active" && "border-sky-500 bg-sky-950/40",
             )}
           >
-            Active
+            Active ({activeTradeCount})
           </Link>
           <Link
             href="/trades?view=history"
@@ -278,26 +395,26 @@ export default async function TradesPage({
               tradeView === "history" && "border-sky-500 bg-sky-950/40",
             )}
           >
-            History
+            History ({historyTradeCount})
           </Link>
         </nav>
       </div>
       {tradeView === "active" ? (
         <>
-          <section className={cn(filterPanelClass, "space-y-4")}>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-semibold">Create Trade Proposal</h2>
-                <p className="max-w-3xl text-sm text-zinc-400">
-                  Search each side as needed instead of loading full
-                  collections. This keeps the page fast and gives us a cleaner
-                  path toward multi-card negotiation and trade wishlists.
-                </p>
-              </div>
-              <span className="rounded border border-zinc-800 px-2 py-1 text-xs text-zinc-400">
-                1-for-1 foundation
-              </span>
-            </div>
+          <CompactSection
+            title="Create Trade Proposal"
+            summary={`Partner: ${
+              players.find((player) => player.id === receiverId)?.displayName ||
+              "choose partner"
+            }`}
+            defaultOpen={Boolean(
+              params.offeredInventoryItemId || params.requestedInventoryItemId,
+            )}
+          >
+            <p className="mb-3 max-w-3xl text-sm text-zinc-400">
+              Search each side only when you need to add a card. Current trade
+              rule is one card for one card.
+            </p>
             <form method="get" className="grid gap-2 md:grid-cols-3">
               {isAdmin ? (
                 <label className={filterFieldClass}>
@@ -365,136 +482,149 @@ export default async function TradesPage({
                   : null
               }
             />
-          </section>
+          </CompactSection>
 
-          <section className={cn(filterPanelClass, "space-y-4")}>
-            <div>
-              <h2 className="text-xl font-semibold">Trade Wishlist</h2>
-              <p className="text-sm text-zinc-400">
-                Public-inventory wants are collected here so either side can
-                start a focused negotiation without loading full collections.
-              </p>
-            </div>
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className="space-y-2">
-                <h3 className="font-semibold text-sky-100">Cards I want</h3>
-                {myTradeWishlist.length ? (
-                  myTradeWishlist.map((item) => {
-                    const image = cardImage(item.targetInventoryItem, {
-                      imageUri: item.card.imageUri,
-                      imageUris: item.card.imageUris as any,
-                    });
-                    return (
-                      <article
-                        key={item.id}
-                        className="flex gap-3 rounded border border-zinc-800 p-3"
-                      >
-                        {image ? (
-                          <img src={image} alt="" className="h-20 rounded" />
-                        ) : null}
-                        <div className="min-w-0 flex-1 text-sm">
-                          <p className="font-medium text-zinc-100">
-                            {item.card.name}
-                          </p>
-                          <p className="text-zinc-400">
-                            From {item.targetOwnerPlayer.displayName} · qty{" "}
-                            {item.quantity}
-                          </p>
-                          {item.notes ? (
-                            <p className="text-zinc-500">{item.notes}</p>
-                          ) : null}
-                        </div>
-                        <div className="flex shrink-0 flex-col gap-2">
+          <CompactSection
+            title="Trade Wishlist"
+            summary="Public-inventory wants grouped by direction"
+            count={myTradeWishlist.length + wantedFromMe.length}
+            defaultOpen
+          >
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+              <details open className="rounded border border-zinc-800 p-3">
+                <summary className="cursor-pointer font-semibold text-sky-100">
+                  Cards I want ({myTradeWishlist.length})
+                </summary>
+                <div className="mt-3 space-y-2">
+                  {myTradeWishlist.length ? (
+                    myTradeWishlist.map((item) => {
+                      const card = toTradeCardSummary({
+                        id: item.id,
+                        item: item.targetInventoryItem,
+                        card: item.card,
+                        ownerLabel: item.targetOwnerPlayer.displayName,
+                        roleLabel: "I want",
+                        notes: item.notes,
+                      });
+                      return (
+                        <article
+                          key={item.id}
+                          className="grid gap-3 rounded border border-zinc-800 p-3 md:grid-cols-[1fr_auto]"
+                        >
+                          <div className="space-y-2">
+                            <TradeCardPreview card={card} compact />
+                            <p className="text-zinc-400">
+                              From {item.targetOwnerPlayer.displayName} · qty{" "}
+                              {item.quantity}
+                            </p>
+                            {item.notes ? (
+                              <p className="text-zinc-500">{item.notes}</p>
+                            ) : null}
+                          </div>
+                          <div className="flex shrink-0 flex-col gap-2">
+                            <Link
+                              href={`/trades?receiverId=${item.targetOwnerPlayerId}${
+                                item.targetInventoryItemId
+                                  ? `&requestedInventoryItemId=${item.targetInventoryItemId}`
+                                  : ""
+                              }`}
+                              className={filterPrimaryButtonClass}
+                            >
+                              Negotiate
+                            </Link>
+                            <form action={cancelTradeWishlistItem}>
+                              <input
+                                type="hidden"
+                                name="tradeWishlistItemId"
+                                value={item.id}
+                              />
+                              <SubmitButton
+                                pendingLabel="Cancelling..."
+                                className="rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-300 transition-colors hover:border-red-700 hover:text-red-100"
+                              >
+                                Cancel
+                              </SubmitButton>
+                            </form>
+                          </div>
+                        </article>
+                      );
+                    })
+                  ) : (
+                    <p className="text-sm text-zinc-500">
+                      No public inventory trade wants yet.
+                    </p>
+                  )}
+                </div>
+              </details>
+              <details open className="rounded border border-zinc-800 p-3">
+                <summary className="cursor-pointer font-semibold text-sky-100">
+                  Wanted from me ({wantedFromMe.length})
+                </summary>
+                <div className="mt-3 space-y-3">
+                  {wantedFromMe.length ? (
+                    wantedFromMe.map((item) => {
+                      const card = toTradeCardSummary({
+                        id: item.id,
+                        item: item.targetInventoryItem,
+                        card: item.card,
+                        ownerLabel: "Your public inventory",
+                        roleLabel: `Wanted by ${
+                          item.ownerUser.displayName || item.ownerUser.username
+                        }`,
+                        notes: item.notes,
+                      });
+                      return (
+                        <article
+                          key={item.id}
+                          className="grid gap-3 rounded border border-zinc-800 p-3 md:grid-cols-[1fr_auto]"
+                        >
+                          <div className="space-y-2">
+                            <TradeCardPreview card={card} compact />
+                            <p className="text-zinc-400">
+                              Wanted by{" "}
+                              {item.ownerUser.displayName ||
+                                item.ownerUser.username}{" "}
+                              · qty {item.quantity}
+                            </p>
+                            {item.notes ? (
+                              <p className="text-zinc-500">{item.notes}</p>
+                            ) : null}
+                          </div>
                           <Link
-                            href={`/trades?receiverId=${item.targetOwnerPlayerId}${
+                            href={`/trades?receiverId=${item.ownerUser.playerId || ""}${
                               item.targetInventoryItemId
-                                ? `&requestedInventoryItemId=${item.targetInventoryItemId}`
+                                ? `&offeredInventoryItemId=${item.targetInventoryItemId}`
                                 : ""
                             }`}
-                            className={filterPrimaryButtonClass}
+                            className={cn(
+                              filterPrimaryButtonClass,
+                              "self-start",
+                            )}
                           >
                             Negotiate
                           </Link>
-                          <form action={cancelTradeWishlistItem}>
-                            <input
-                              type="hidden"
-                              name="tradeWishlistItemId"
-                              value={item.id}
-                            />
-                            <SubmitButton
-                              pendingLabel="Cancelling..."
-                              className="rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-300 transition-colors hover:border-red-700 hover:text-red-100"
-                            >
-                              Cancel
-                            </SubmitButton>
-                          </form>
-                        </div>
-                      </article>
-                    );
-                  })
-                ) : (
-                  <p className="text-sm text-zinc-500">
-                    No public inventory trade wants yet.
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <h3 className="font-semibold text-sky-100">Wanted from me</h3>
-                {wantedFromMe.length ? (
-                  wantedFromMe.map((item) => {
-                    const image = cardImage(item.targetInventoryItem, {
-                      imageUri: item.card.imageUri,
-                      imageUris: item.card.imageUris as any,
-                    });
-                    return (
-                      <article
-                        key={item.id}
-                        className="flex gap-3 rounded border border-zinc-800 p-3"
-                      >
-                        {image ? (
-                          <img src={image} alt="" className="h-20 rounded" />
-                        ) : null}
-                        <div className="min-w-0 flex-1 text-sm">
-                          <p className="font-medium text-zinc-100">
-                            {item.card.name}
-                          </p>
-                          <p className="text-zinc-400">
-                            Wanted by{" "}
-                            {item.ownerUser.displayName ||
-                              item.ownerUser.username}{" "}
-                            · qty {item.quantity}
-                          </p>
-                          {item.notes ? (
-                            <p className="text-zinc-500">{item.notes}</p>
-                          ) : null}
-                        </div>
-                        <Link
-                          href={`/trades?receiverId=${item.ownerUser.playerId || ""}${
-                            item.targetInventoryItemId
-                              ? `&offeredInventoryItemId=${item.targetInventoryItemId}`
-                              : ""
-                          }`}
-                          className={cn(filterPrimaryButtonClass, "self-start")}
-                        >
-                          Negotiate
-                        </Link>
-                      </article>
-                    );
-                  })
-                ) : (
-                  <p className="text-sm text-zinc-500">
-                    No one has wishlisted your public cards for trade yet.
-                  </p>
-                )}
-              </div>
+                        </article>
+                      );
+                    })
+                  ) : (
+                    <p className="text-sm text-zinc-500">
+                      No one has wishlisted your public cards for trade yet.
+                    </p>
+                  )}
+                </div>
+              </details>
             </div>
-          </section>
+          </CompactSection>
         </>
       ) : null}
 
-      {sections.map(([title, trades]) => (
-        <section key={title} className="space-y-3">
-          <h2 className="text-xl font-semibold">{title}</h2>
+      {sections.map(([title, trades], index) => (
+        <CompactSection
+          key={title}
+          title={title}
+          count={trades.length}
+          defaultOpen={index === 0 && trades.length > 0}
+        >
           {trades.length ? (
             trades.map((trade) => {
               const other =
@@ -520,6 +650,20 @@ export default async function TradesPage({
                   ? trade.receiverPlayer.displayName
                   : trade.proposerPlayer.displayName
                 : "";
+              const offeredCard = toTradeCardSummary({
+                id: `${trade.id}-offered`,
+                item: trade.offeredInventoryItem,
+                snap: offeredSnapshot,
+                ownerLabel: trade.proposerPlayer.displayName,
+                roleLabel: "Offered",
+              });
+              const requestedCard = toTradeCardSummary({
+                id: `${trade.id}-requested`,
+                item: trade.requestedInventoryItem,
+                snap: requestedSnapshot,
+                ownerLabel: trade.receiverPlayer.displayName,
+                roleLabel: "Requested",
+              });
               return (
                 <article
                   key={trade.id}
@@ -546,61 +690,9 @@ export default async function TradesPage({
                       <p className="text-sm text-zinc-300">{trade.message}</p>
                     ) : null}
                   </div>
-                  <div className="grid md:grid-cols-2 gap-3">
-                    <div className="flex gap-3 rounded border border-zinc-900 p-2">
-                      {cardImage(
-                        trade.offeredInventoryItem,
-                        offeredSnapshot,
-                      ) ? (
-                        <img
-                          src={cardImage(
-                            trade.offeredInventoryItem,
-                            offeredSnapshot,
-                          )}
-                          alt=""
-                          className="h-24 rounded"
-                        />
-                      ) : null}
-                      <div>
-                        <div className="text-xs text-zinc-400">
-                          Offered by {trade.proposerPlayer.displayName}
-                        </div>
-                        <div>
-                          {cardName(
-                            trade.offeredInventoryItem,
-                            offeredSnapshot,
-                          )}
-                        </div>
-                        <div className="text-xs text-zinc-400">qty 1</div>
-                      </div>
-                    </div>
-                    <div className="flex gap-3 rounded border border-zinc-900 p-2">
-                      {cardImage(
-                        trade.requestedInventoryItem,
-                        requestedSnapshot,
-                      ) ? (
-                        <img
-                          src={cardImage(
-                            trade.requestedInventoryItem,
-                            requestedSnapshot,
-                          )}
-                          alt=""
-                          className="h-24 rounded"
-                        />
-                      ) : null}
-                      <div>
-                        <div className="text-xs text-zinc-400">
-                          Requested from {trade.receiverPlayer.displayName}
-                        </div>
-                        <div>
-                          {cardName(
-                            trade.requestedInventoryItem,
-                            requestedSnapshot,
-                          )}
-                        </div>
-                        <div className="text-xs text-zinc-400">qty 1</div>
-                      </div>
-                    </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <TradeCardPreview card={offeredCard} />
+                    <TradeCardPreview card={requestedCard} />
                   </div>
                   <details className="text-sm">
                     <summary className="cursor-pointer">Timeline</summary>
@@ -756,7 +848,7 @@ export default async function TradesPage({
           ) : (
             <p className="text-sm text-zinc-400">No trades in this section.</p>
           )}
-        </section>
+        </CompactSection>
       ))}
     </main>
   );

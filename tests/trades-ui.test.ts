@@ -24,7 +24,9 @@ test("trades page surfaces trade wishlist queues without preloading inventories"
   assert.match(tradesPage, /wantedFromMe/);
   assert.match(tradesPage, /tradeWishlistItem\.findMany/);
   assert.match(tradesPage, /TradeWishlistStatus\.OPEN/);
-  assert.match(tradesPage, /Public-inventory wants are collected here/);
+  assert.match(tradesPage, /Public-inventory wants grouped by direction/);
+  assert.match(tradesPage, /<CompactSection/);
+  assert.match(tradesPage, /<TradeCardPreview/);
   assert.match(tradesPage, /Negotiate/);
   assert.match(
     tradesPage,
