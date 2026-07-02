@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdminMode } from "@/lib/auth";
 import { Nav } from "@/components/Nav";
+import { PricingDashboardAutoRefresh } from "@/components/admin/PricingDashboardAutoRefresh";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { prisma } from "@/lib/prisma";
 import {
@@ -110,6 +111,12 @@ export default async function AdminPricesPage({
     getCurrentPriceProjectionStats(),
   ]);
   const errorLogs = status.logs.filter((log) => log.level === "ERROR");
+  const autoRefresh =
+    Boolean(params.queued) ||
+    status.stats.activeJobCount > 0 ||
+    status.jobs.some(
+      (job) => job.status === "QUEUED" || job.status === "RUNNING",
+    );
 
   return (
     <main className="space-y-6 p-8">
@@ -151,6 +158,7 @@ export default async function AdminPricesPage({
             Pricing refresh could not be queued: {params.error}
           </div>
         ) : null}
+        <PricingDashboardAutoRefresh enabled={autoRefresh} />
       </section>
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -240,6 +248,13 @@ export default async function AdminPricesPage({
                     </td>
                     <td className="py-2 pr-3">
                       <StatusPill status={job.status} />
+                      {job.status === "QUEUED" || job.status === "RUNNING" ? (
+                        <div className="mt-2 text-xs text-sky-300">
+                          {job.status === "QUEUED"
+                            ? "Waiting for worker pickup"
+                            : "Worker is processing this job"}
+                        </div>
+                      ) : null}
                       {job.error ? (
                         <details className="mt-2 max-w-sm text-xs text-red-200">
                           <summary className="cursor-pointer text-red-300">

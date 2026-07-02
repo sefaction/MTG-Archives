@@ -7,6 +7,10 @@ const packageJson = readFileSync("package.json", "utf8");
 const inventoryPage = readFileSync("app/inventory/page.tsx", "utf8");
 const inventoryApi = readFileSync("app/api/inventory/list/route.ts", "utf8");
 const adminPrices = readFileSync("app/admin/prices/page.tsx", "utf8");
+const pricingAutoRefresh = readFileSync(
+  "components/admin/PricingDashboardAutoRefresh.tsx",
+  "utf8",
+);
 const workerStore = readFileSync("lib/pricing-worker-store.ts", "utf8");
 const compose = readFileSync("docker-compose.yml", "utf8");
 const localCompose = readFileSync("docker-compose.local.yml", "utf8");
@@ -25,6 +29,8 @@ test("pricing worker initializes a separate pricing database schema", () => {
   assert.match(worker, /targetMtgjsonUuids/);
   assert.match(worker, /insertSnapshots/);
   assert.match(worker, /publishCurrentPrices/);
+  assert.match(worker, /const batchSize = 25/);
+  assert.match(worker, /result\.error\?\.message/);
   assert.match(worker, /APP_DATABASE_URL/);
   assert.match(worker, /MTGJSON price fetch failed/);
 });
@@ -47,6 +53,11 @@ test("admin pricing page exposes worker health, logs, and manual queueing", () =
   assert.match(adminPrices, /Queue refresh job/);
   assert.match(adminPrices, /Pricing refresh queued/);
   assert.match(adminPrices, /Pricing refresh could not be queued/);
+  assert.match(adminPrices, /PricingDashboardAutoRefresh/);
+  assert.match(
+    pricingAutoRefresh,
+    /window\.location\.replace\("\/admin\/prices"\)/,
+  );
   assert.match(adminPrices, /Current price coverage/);
   assert.match(adminPrices, /Historical snapshots/);
   assert.match(adminPrices, /Latest observed price/);
@@ -77,6 +88,8 @@ test("pricing worker store uses the separate pricing database and does not expos
   assert.match(workerStore, /price_worker_heartbeats/);
   assert.match(workerStore, /price_import_jobs/);
   assert.match(workerStore, /snapshotCount/);
+  assert.match(workerStore, /MAX\(created_at\)::text AS "latestIngestedAt"/);
+  assert.doesNotMatch(workerStore, /ingested_at/);
   assert.match(workerStore, /activeJobCount/);
   assert.match(workerStore, /MTGJSON_REFRESH_ALL/);
   assert.doesNotMatch(workerStore, /process\.env\.DATABASE_URL/);

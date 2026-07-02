@@ -74,7 +74,10 @@ function psql(databaseUrl: string, sql: string) {
 
   if (result.status !== 0) {
     throw new Error(
-      result.stderr?.trim() || result.stdout?.trim() || "psql command failed",
+      result.error?.message ||
+        result.stderr?.trim() ||
+        result.stdout?.trim() ||
+        "psql command failed",
     );
   }
 }
@@ -89,7 +92,10 @@ function psqlOutput(databaseUrl: string, sql: string) {
 
   if (result.status !== 0) {
     throw new Error(
-      result.stderr?.trim() || result.stdout?.trim() || "psql command failed",
+      result.error?.message ||
+        result.stderr?.trim() ||
+        result.stdout?.trim() ||
+        "psql command failed",
     );
   }
 
@@ -409,7 +415,7 @@ function publishCurrentPrices(
   if (!appDatabaseUrl || !snapshots.length) return 0;
   const rows = buildCurrentPriceProjection(snapshots);
   let updated = 0;
-  const batchSize = 250;
+  const batchSize = 25;
   for (let start = 0; start < rows.length; start += batchSize) {
     const batch = rows.slice(start, start + batchSize);
     const output = psqlOutput(

@@ -109,7 +109,7 @@ export async function listPricingWorkerStatus(): Promise<PricingWorkerStatus> {
          COUNT(*)::int AS "snapshotCount",
          COUNT(DISTINCT mtgjson_uuid)::int AS "pricedCardCount",
          MAX(observed_date)::text AS "latestObservedDate",
-         MAX(ingested_at)::text AS "latestIngestedAt",
+         MAX(created_at)::text AS "latestIngestedAt",
          (
            SELECT COUNT(*)::int
            FROM price_import_jobs
