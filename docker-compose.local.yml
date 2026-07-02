@@ -45,7 +45,7 @@ services:
       dockerfile: ./Dockerfile
     pull_policy: build
     environment:
-      PRICING_IMPORT_MAX_CARDS: ${PRICING_IMPORT_MAX_CARDS:-25}
+      PRICING_IMPORT_MAX_CARDS: ${PRICING_IMPORT_MAX_CARDS:-0}
 
   backup:
     image: mtg-archives-web:local

@@ -9,6 +9,7 @@ const inventoryApi = readFileSync("app/api/inventory/list/route.ts", "utf8");
 const adminPrices = readFileSync("app/admin/prices/page.tsx", "utf8");
 const workerStore = readFileSync("lib/pricing-worker-store.ts", "utf8");
 const compose = readFileSync("docker-compose.yml", "utf8");
+const localCompose = readFileSync("docker-compose.local.yml", "utf8");
 
 test("pricing worker initializes a separate pricing database schema", () => {
   assert.match(worker, /PRICING_DATABASE_URL/);
@@ -62,6 +63,13 @@ test("admin pricing page exposes worker health, logs, and manual queueing", () =
 test("web service can queue pricing jobs through the pricing database", () => {
   assert.match(compose, /web:[\s\S]*PRICING_DATABASE_URL/);
   assert.match(compose, /web:[\s\S]*depends_on:[\s\S]*pricing-postgres/);
+});
+
+test("local pricing refreshes are not capped by default", () => {
+  assert.match(
+    localCompose,
+    /PRICING_IMPORT_MAX_CARDS: \$\{PRICING_IMPORT_MAX_CARDS:-0\}/,
+  );
 });
 
 test("pricing worker store uses the separate pricing database and does not expose secrets", () => {
