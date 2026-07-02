@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
 import {
   getGlobalPublicInventory,
   PublicInventoryFilters,
@@ -134,10 +135,12 @@ function toInventoryBrowserRows({
   displayItems,
   displayMode,
   relatedCardsByScryfallId,
+  preferredPriceProvider,
 }: {
   displayItems: any[];
   displayMode: "exact" | "grouped";
   relatedCardsByScryfallId: Map<string, any>;
+  preferredPriceProvider?: string | null;
 }) {
   return displayItems.map((entry: any, rowIndex: number) => {
     const i = displayMode === "grouped" ? entry.representative : entry;
@@ -252,9 +255,9 @@ function toInventoryBrowserRows({
       preferredPriceLabel: formatSelectedPrice(
         selectPreferredCardPrice(undefined, i.card.prices, {
           finish: finishForFoilStatus(i.foilStatus),
+          preferredProvider: preferredPriceProvider || undefined,
         }),
       ),
-      priceSourceLabel: "Scryfall",
       priceChange7Day: "",
       priceChange30Day: "",
       priceChange90Day: "",
@@ -292,6 +295,7 @@ function toInventoryBrowserRows({
 }
 
 export async function GET(request: Request) {
+  const viewer = await getCurrentUser();
   const searchParams = new URL(request.url).searchParams;
   const params = Array.from(new Set(searchParams.keys())).reduce(
     (acc, key) => ({ ...acc, [key]: searchParams.getAll(key).join(",") }),
@@ -312,6 +316,7 @@ export async function GET(request: Request) {
       displayItems,
       displayMode,
       relatedCardsByScryfallId,
+      preferredPriceProvider: viewer?.preferredPriceProvider,
     }),
     page: result.page,
     pageSize: result.pageSize,

@@ -152,10 +152,7 @@ test("sorting is server-authoritative and resets page state", () => {
   assert.doesNotMatch(inventoryBrowser, /getSortedRowModel/);
   assert.match(inventoryPage, /const sortField = p\.sort \|\| "cardName"/);
   assert.match(inventoryPage, /compareInventoryGroups/);
-  assert.doesNotMatch(
-    inventoryPage,
-    /preferredPriceProvider|pricing-analytics|priceSnapshots/,
-  );
+  assert.doesNotMatch(inventoryPage, /pricing-analytics|priceSnapshots/);
   assert.match(inventoryListApi, /const sortField = p\.sort \|\| "cardName"/);
   assert.match(
     publicInventoryQueries,

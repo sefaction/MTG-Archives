@@ -38,6 +38,7 @@ function rowsFromDisplayItems({
   p,
   filters,
   relatedCardsByScryfallId,
+  preferredPriceProvider,
 }: {
   displayItems: any[];
   displayMode: "exact" | "grouped";
@@ -45,6 +46,7 @@ function rowsFromDisplayItems({
   p: Record<string, string>;
   filters: ReturnType<typeof parseInventoryFilters>;
   relatedCardsByScryfallId: Map<string, any>;
+  preferredPriceProvider?: string | null;
 }) {
   return displayItems
     .map((entry: any) => {
@@ -127,9 +129,9 @@ function rowsFromDisplayItems({
         preferredPriceLabel: formatSelectedPrice(
           selectPreferredCardPrice(undefined, i.card.prices, {
             finish: finishForFoilStatus(i.foilStatus),
+            preferredProvider: preferredPriceProvider || undefined,
           }),
         ),
-        priceSourceLabel: "Scryfall",
         priceChange7Day: "",
         priceChange30Day: "",
         priceChange90Day: "",
@@ -336,6 +338,7 @@ export async function GET(request: Request) {
       p,
       filters,
       relatedCardsByScryfallId,
+      preferredPriceProvider: user?.preferredPriceProvider,
     }),
     page,
     pageSize,

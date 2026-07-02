@@ -169,7 +169,7 @@ test("inventory advanced search separates mechanical and collection filters", ()
   assert.match(inventoryAdvancedSearch, /grid items-end gap-3/);
   assert.match(
     inventoryPage,
-    /<InventoryAdvancedSearch[\s\S]*<InventoryQuickCardNameSearch/,
+    /<InventoryQuickCardNameSearch actionPath="\/inventory" params=\{p\} \/>[\s\S]*<InventoryAdvancedSearch/,
   );
 });
 

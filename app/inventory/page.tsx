@@ -895,9 +895,9 @@ export default async function InventoryPage({
         preferredPriceLabel: formatSelectedPrice(
           selectPreferredCardPrice(undefined, i.card.prices, {
             finish: finishForFoilStatus(i.foilStatus),
+            preferredProvider: userWithPlayer?.preferredPriceProvider,
           }),
         ),
-        priceSourceLabel: "Scryfall",
         priceChange7Day: "",
         priceChange30Day: "",
         priceChange90Day: "",
@@ -1020,6 +1020,7 @@ export default async function InventoryPage({
           </form>
         </section>
       ) : null}
+      <InventoryQuickCardNameSearch actionPath="/inventory" params={p} />
       <InventoryAdvancedSearch
         actionPath="/inventory"
         params={p}
@@ -1045,7 +1046,6 @@ export default async function InventoryPage({
         cardNameOptions={cardNameOptions}
         clearHref={clearFiltersHref}
       />
-      <InventoryQuickCardNameSearch actionPath="/inventory" params={p} />
       <InventoryBrowser
         rows={rows}
         players={visiblePlayers.map((p) => ({
