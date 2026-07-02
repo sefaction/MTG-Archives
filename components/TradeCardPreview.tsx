@@ -12,6 +12,7 @@ export type TradeCardSummary = {
   typeLine?: string;
   oracleText?: string;
   manaCost?: string;
+  colorIdentity?: unknown;
   rarity?: string;
   condition?: string;
   foilStatus?: string;
@@ -45,7 +46,7 @@ export function TradeCardPreview({
 }: {
   card: TradeCardSummary;
   compact?: boolean;
-  variant?: "row" | "spoiler";
+  variant?: "row" | "spoiler" | "text";
 }) {
   const [open, setOpen] = useState(false);
   const setLabel = [
@@ -60,7 +61,21 @@ export function TradeCardPreview({
 
   return (
     <>
-      {variant === "spoiler" ? (
+      {variant === "text" ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="block max-w-md text-left hover:text-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-700"
+          aria-label={`Open details for ${card.name}`}
+        >
+          <span className="block truncate font-medium text-zinc-100">
+            {card.name}
+          </span>
+          <span className="block truncate text-xs text-zinc-400">
+            {[setLabel, treatment].filter(Boolean).join(" / ")}
+          </span>
+        </button>
+      ) : variant === "spoiler" ? (
         <button
           type="button"
           onClick={() => setOpen(true)}

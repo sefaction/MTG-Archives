@@ -54,7 +54,10 @@ test("trade wishlist supports dense table, binder, and visual spoiler views", ()
   assert.match(tradesPage, /<table className="min-w-full text-left text-sm">/);
   assert.match(tradesPage, /view === "binder"/);
   assert.match(tradesPage, /variant="spoiler"/);
-  assert.match(tradeCardPreview, /variant\?: "row" \| "spoiler"/);
+  assert.match(tradesPage, /variant="text"/);
+  assert.match(tradesPage, /ColorIdentityIcons/);
+  assert.match(tradesPage, /playerColorStyle/);
+  assert.match(tradeCardPreview, /variant\?: "row" \| "spoiler" \| "text"/);
   assert.match(tradeCardPreview, /aspect-\[63\/88\]/);
 });
 
@@ -77,6 +80,12 @@ test("trade history is moved behind a history tab", () => {
   assert.match(tradesPage, /href="\/trades\?view=history"/);
   assert.match(tradesPage, /tradeView === "active"/);
   assert.match(tradesPage, /historySections/);
+});
+
+test("trades page avoids mojibake separators in visible copy", () => {
+  assert.doesNotMatch(tradesPage, /â|Â/);
+  assert.match(tradesPage, /<->/);
+  assert.match(tradesPage, /Accepting trade\.\.\./);
 });
 
 test("trade builder keeps existing 1-for-1 server action fields", () => {

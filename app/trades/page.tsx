@@ -26,6 +26,8 @@ import {
   TradeCardPreview,
   type TradeCardSummary,
 } from "@/components/TradeCardPreview";
+import { ColorIdentityIcons } from "@/components/mtg/CardSymbols";
+import { normalizePlayerColor } from "@/lib/player-colors";
 
 const activeStatuses: TradeStatus[] = [
   TradeStatus.PROPOSED,
@@ -70,6 +72,7 @@ type TradeCard = {
     oracleText?: string | null;
     manaCost?: string | null;
     rarity?: string | null;
+    colorIdentity?: unknown;
     prices?: unknown;
   };
 } | null;
@@ -172,6 +175,7 @@ function toTradeCardSummary({
     typeLine: resolvedCard?.typeLine ?? "",
     oracleText: resolvedCard?.oracleText ?? "",
     manaCost: resolvedCard?.manaCost ?? "",
+    colorIdentity: resolvedCard?.colorIdentity,
     rarity: resolvedCard?.rarity ?? "",
     condition: item?.condition ?? "",
     foilStatus: item?.foilStatus ?? "",
@@ -259,12 +263,17 @@ type TradeWishlistRow = {
   id: string;
   card: TradeCardSummary;
   personLabel: string;
+  personColor?: string | null;
   quantity: number;
   notes?: string | null;
   negotiateHref: string;
   negotiateLabel: string;
   cancelId?: string;
 };
+
+function playerColorStyle(color?: string | null) {
+  return { backgroundColor: normalizePlayerColor(color) };
+}
 
 function TradeWishlistActions({ row }: { row: TradeWishlistRow }) {
   return (
@@ -319,6 +328,7 @@ function TradeWishlistDirection({
               <thead className="bg-zinc-900 text-xs uppercase text-zinc-400">
                 <tr>
                   <th className="px-3 py-2 font-medium">Card</th>
+                  <th className="px-3 py-2 font-medium">Color</th>
                   <th className="px-3 py-2 font-medium">{personHeader}</th>
                   <th className="px-3 py-2 font-medium">Qty</th>
                   <th className="px-3 py-2 font-medium">Notes</th>
@@ -327,12 +337,37 @@ function TradeWishlistDirection({
               </thead>
               <tbody className="divide-y divide-zinc-800">
                 {rows.map((row) => (
-                  <tr key={row.id} className="align-middle">
-                    <td className="w-[38rem] px-3 py-2">
-                      <TradeCardPreview card={row.card} compact />
+                  <tr
+                    key={row.id}
+                    className="align-middle transition-colors hover:bg-zinc-900/60"
+                  >
+                    <td className="px-3 py-2">
+                      <TradeCardPreview
+                        card={row.card}
+                        compact
+                        variant="text"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <ColorIdentityIcons
+                        value={
+                          Array.isArray(row.card.colorIdentity)
+                            ? row.card.colorIdentity.map(String)
+                            : typeof row.card.colorIdentity === "string"
+                              ? row.card.colorIdentity
+                              : null
+                        }
+                      />
                     </td>
                     <td className="px-3 py-2 text-zinc-200">
-                      {row.personLabel}
+                      <span className="inline-flex items-center gap-2">
+                        <span
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={playerColorStyle(row.personColor)}
+                          aria-hidden="true"
+                        />
+                        {row.personLabel}
+                      </span>
                     </td>
                     <td className="px-3 py-2 text-zinc-200">{row.quantity}</td>
                     <td className="max-w-xs px-3 py-2 text-zinc-400">
@@ -464,7 +499,7 @@ export default async function TradesPage({
             status: TradeWishlistStatus.OPEN,
           },
           include: {
-            ownerUser: true,
+            ownerUser: { include: { player: true } },
             card: true,
             targetInventoryItem: { include: { card: true } },
           },
@@ -551,6 +586,7 @@ export default async function TradesPage({
         notes: item.notes,
       }),
       personLabel: item.targetOwnerPlayer.displayName,
+      personColor: item.targetOwnerPlayer.color,
       quantity: item.quantity,
       notes: item.notes,
       negotiateHref: `/trades?receiverId=${item.targetOwnerPlayerId}${
@@ -575,6 +611,7 @@ export default async function TradesPage({
         notes: item.notes,
       }),
       personLabel: requester,
+      personColor: item.ownerUser.player?.color,
       quantity: item.quantity,
       notes: item.notes,
       negotiateHref: `/trades?receiverId=${item.ownerUser.playerId || ""}${
@@ -790,13 +827,13 @@ export default async function TradesPage({
                   <div className="flex flex-wrap justify-between gap-3">
                     <div>
                       <h3 className="font-semibold">
-                        {trade.proposerPlayer.displayName} â†”{" "}
+                        {trade.proposerPlayer.displayName} {"<->"}{" "}
                         {trade.receiverPlayer.displayName}
                       </h3>
                       <p className="text-sm text-zinc-400">
-                        Status: {statusLabel(trade.status)} â€¢ Proposed{" "}
+                        Status: {statusLabel(trade.status)} - Proposed{" "}
                         {trade.proposedAt.toLocaleString()}{" "}
-                        {other ? `â€¢ Trade partner: ${other.displayName}` : ""}
+                        {other ? `- Trade partner: ${other.displayName}` : ""}
                       </p>
                       {receiverNeedsAction || userNeedsPhysical ? (
                         <span className="inline-block rounded border border-amber-700 px-2 py-1 text-xs text-amber-200">
@@ -823,7 +860,7 @@ export default async function TradesPage({
                           <span className="font-semibold">
                             {event.eventType}
                           </span>{" "}
-                          â€” {event.createdAt.toLocaleString()}{" "}
+                          - {event.createdAt.toLocaleString()}{" "}
                           {event.actorPlayer
                             ? `by ${event.actorPlayer.displayName}`
                             : event.actorUser
@@ -844,7 +881,7 @@ export default async function TradesPage({
                             value={trade.id}
                           />
                           <SubmitButton
-                            pendingLabel="Accepting tradeâ€¦"
+                            pendingLabel="Accepting trade..."
                             name="action"
                             value="accept"
                             className="border px-3 py-2"
@@ -859,7 +896,7 @@ export default async function TradesPage({
                             value={trade.id}
                           />
                           <SubmitButton
-                            pendingLabel="Declining tradeâ€¦"
+                            pendingLabel="Declining trade..."
                             name="action"
                             value="decline"
                             className="border px-3 py-2"
@@ -878,7 +915,7 @@ export default async function TradesPage({
                           value="Cancelled by proposer."
                         />
                         <SubmitButton
-                          pendingLabel="Cancelling tradeâ€¦"
+                          pendingLabel="Cancelling trade..."
                           name="action"
                           value="cancel"
                           className="border px-3 py-2"
@@ -891,7 +928,7 @@ export default async function TradesPage({
                       <form action={confirmPhysicalTrade}>
                         <input type="hidden" name="tradeId" value={trade.id} />
                         <SubmitButton
-                          pendingLabel="Confirming exchangeâ€¦"
+                          pendingLabel="Confirming exchange..."
                           className="border px-3 py-2"
                         >
                           Confirm Physical Trade
@@ -926,7 +963,7 @@ export default async function TradesPage({
                             className="border p-2 bg-zinc-900"
                           />
                           <SubmitButton
-                            pendingLabel="Cancelling tradeâ€¦"
+                            pendingLabel="Cancelling trade..."
                             name="action"
                             value="cancel"
                             className="border px-3 py-2"
@@ -951,7 +988,7 @@ export default async function TradesPage({
                             className="border p-2 bg-zinc-900"
                           />
                           <SubmitButton
-                            pendingLabel="Force completingâ€¦"
+                            pendingLabel="Force completing..."
                             className="border px-3 py-2"
                           >
                             Force Complete
