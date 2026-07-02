@@ -26,7 +26,9 @@ test("backup directory is configurable with safe default", () => {
   assert.equal(getBackupDir({}), "/app/backups");
   assert.equal(getBackupDir({ BACKUP_DIR: "/backups" }), "/backups");
   assert.equal(
-    getBackupDir({ BACKUPS_DATA_PATH: "/mnt/user/appdata/mtg-archive/backups" }),
+    getBackupDir({
+      BACKUPS_DATA_PATH: "/mnt/user/appdata/mtg-archive/backups",
+    }),
     "/mnt/user/appdata/mtg-archive/backups",
   );
 });
@@ -94,9 +96,17 @@ test("appdata defaults include persistent app directories but not backups", () =
 
   assert.deepEqual(
     paths.map((entry) => entry.archivePath),
-    ["appdata/uploads", "appdata/imports", "appdata/exports", "appdata/scryfall"],
+    [
+      "appdata/uploads",
+      "appdata/imports",
+      "appdata/exports",
+      "appdata/scryfall",
+    ],
   );
-  assert.equal(paths.some((entry) => entry.sourcePath.includes("backups")), false);
+  assert.equal(
+    paths.some((entry) => entry.sourcePath.includes("backups")),
+    false,
+  );
 });
 
 test("timestamped backup names use UTC compact format", () => {
@@ -130,7 +140,8 @@ test("backup filename resolution rejects traversal and non-backup names", () => 
   );
 
   assert.throws(
-    () => getBackupPathForFilename("../mtg-archives-backup-20260618-120000.tar.gz"),
+    () =>
+      getBackupPathForFilename("../mtg-archives-backup-20260618-120000.tar.gz"),
     /Invalid backup filename/,
   );
   assert.throws(
@@ -148,11 +159,22 @@ test("Docker image installs PostgreSQL client tools and copies backup scripts", 
 
 test("Compose and docs include backup run instructions", async () => {
   const compose = await readFile("docker-compose.yml", "utf8");
+  const unraidFlatCompose = await readFile(
+    "docker-compose.unraid.flat.yml",
+    "utf8",
+  );
   const readme = await readFile("README.md", "utf8");
+  const flatBackupBlock = unraidFlatCompose.slice(
+    unraidFlatCompose.indexOf("  backup:"),
+  );
 
   assert.match(compose, /backup:/);
   assert.match(compose, /npm run backup:create/);
+  assert.match(compose, /tail -f \/dev\/null/);
+  assert.match(flatBackupBlock, /tail -f \/dev\/null/);
+  assert.doesNotMatch(flatBackupBlock, /profiles:/);
   assert.match(readme, /docker compose run --rm web npm run backup:create/);
+  assert.match(readme, /docker compose exec backup npm run backup:create/);
 });
 
 test("admin backup page is admin-mode protected and exposes create UI", async () => {

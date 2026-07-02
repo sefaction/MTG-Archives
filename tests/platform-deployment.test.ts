@@ -22,6 +22,7 @@ test("web and backup services have a GHCR image identity for deployable stacks",
   assert.match(compose, /\$\{IMAGE_TAG:-main\}/);
   assert.match(compose, /backup:/);
   assert.match(compose, /npm run backup:create/);
+  assert.match(compose, /tail -f \/dev\/null/);
 });
 
 test("pricing worker stack is isolated from the main application database", () => {

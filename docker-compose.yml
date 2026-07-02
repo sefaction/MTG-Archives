@@ -110,7 +110,10 @@ services:
     pull_policy: build
     profiles:
       - backup
-    command: npm run backup:create
+    command:
+      - sh
+      - -lc
+      - echo 'Backup utility container ready. Run docker compose exec backup npm run backup:create'; tail -f /dev/null
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://mtginventory:mtginventory@postgres:5432/mtginventory?schema=public}
       BACKUP_DIR: ${BACKUP_DIR:-/app/backups}

@@ -111,10 +111,12 @@ Create a backup from the app container:
 docker compose run --rm web npm run backup:create
 ```
 
-Or use the backup profile service:
+Or use the backup utility service. This service is intended to stay running so
+Unraid/Portainer can reference it when a backup job needs to run:
 
 ```bash
-docker compose --profile backup run --rm backup
+docker compose --profile backup up -d backup
+docker compose exec backup npm run backup:create
 ```
 
 List backups:
@@ -135,10 +137,11 @@ Backups are written to `BACKUP_DIR`, defaulting to `/app/backups`. In Docker Com
 
 The admin-only page at `/admin/backups` can create backups, upload a previously created `.tar.gz` backup archive, list recent backup manifests, download a listed backup, delete a listed backup, and restore from a listed backup. Browser restore is destructive and requires typing `RESTORE` plus the exact backup filename. Browser delete requires typing `DELETE` plus the exact backup filename and only removes that backup archive from `BACKUP_DIR`. Downloads are served only through admin-mode-protected routes; no public download links are exposed.
 
-For scheduled backups in cron, Portainer, or Unraid, run the same command on your desired schedule:
+For scheduled backups in cron, Portainer, or Unraid, keep the backup utility
+container running and execute the backup command on your desired schedule:
 
 ```bash
-docker compose run --rm web npm run backup:create
+docker compose exec backup npm run backup:create
 ```
 
 ## Local Codex + Docker + Playwright workflow
