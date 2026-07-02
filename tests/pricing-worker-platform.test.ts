@@ -8,6 +8,7 @@ const inventoryPage = readFileSync("app/inventory/page.tsx", "utf8");
 const inventoryApi = readFileSync("app/api/inventory/list/route.ts", "utf8");
 const adminPrices = readFileSync("app/admin/prices/page.tsx", "utf8");
 const workerStore = readFileSync("lib/pricing-worker-store.ts", "utf8");
+const compose = readFileSync("docker-compose.yml", "utf8");
 
 test("pricing worker initializes a separate pricing database schema", () => {
   assert.match(worker, /PRICING_DATABASE_URL/);
@@ -41,6 +42,8 @@ test("pricing worker scripts are available without changing page rendering", () 
 test("admin pricing page exposes worker health, logs, and manual queueing", () => {
   assert.match(adminPrices, /Pricing worker/);
   assert.match(adminPrices, /Queue refresh job/);
+  assert.match(adminPrices, /Pricing refresh queued/);
+  assert.match(adminPrices, /Pricing refresh could not be queued/);
   assert.match(adminPrices, /Current price coverage/);
   assert.match(adminPrices, /Historical snapshots/);
   assert.match(adminPrices, /Latest observed price/);
@@ -52,6 +55,11 @@ test("admin pricing page exposes worker health, logs, and manual queueing", () =
   assert.match(adminPrices, /Worker logs/);
   assert.match(adminPrices, /enqueuePricingRefreshJob/);
   assert.doesNotMatch(adminPrices, /inventoryItem\.findMany|price_snapshots/);
+});
+
+test("web service can queue pricing jobs through the pricing database", () => {
+  assert.match(compose, /web:[\s\S]*PRICING_DATABASE_URL/);
+  assert.match(compose, /web:[\s\S]*depends_on:[\s\S]*pricing-postgres/);
 });
 
 test("pricing worker store uses the separate pricing database and does not expose secrets", () => {

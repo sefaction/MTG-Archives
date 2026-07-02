@@ -482,7 +482,7 @@ async function runOnce(opts: WorkerOptions) {
     opts.databaseUrl,
     `
 INSERT INTO price_worker_runs (id, worker_id, status, message)
-VALUES (${sqlString(runId)}, ${sqlString(opts.workerId)}, 'RUNNING', 'Pricing worker scaffold run started.');
+VALUES (${sqlString(runId)}, ${sqlString(opts.workerId)}, 'RUNNING', 'Pricing worker run started.');
 `,
   );
 
@@ -491,14 +491,14 @@ VALUES (${sqlString(runId)}, ${sqlString(opts.workerId)}, 'RUNNING', 'Pricing wo
       opts.databaseUrl,
       opts.workerId,
       "RUNNING",
-      "Worker scaffold run active.",
+      "Pricing worker run active.",
     );
     log(
       opts.databaseUrl,
       runId,
       opts.workerId,
       "info",
-      "Pricing worker scaffold run started.",
+      "Pricing worker run started.",
       {
         mtgjsonBaseUrl: process.env.MTGJSON_BASE_URL || null,
         redisUrlConfigured: Boolean(process.env.REDIS_URL),
@@ -553,7 +553,7 @@ SET status = 'SUCCEEDED',
     message = ${sqlString(
       jobs.length
         ? `Pricing worker processed ${jobs.length} queued job(s), ${processedSnapshots} snapshots, ${insertedSnapshots} inserted, ${projectedCards} cards projected.`
-        : "Pricing worker scaffold is healthy. Import processing will be added in a later phase.",
+        : "Pricing worker is healthy. No queued jobs found.",
     )}
 WHERE id = ${sqlString(runId)};
 `,
@@ -562,7 +562,7 @@ WHERE id = ${sqlString(runId)};
       opts.databaseUrl,
       opts.workerId,
       "IDLE",
-      "Worker scaffold is healthy.",
+      "Pricing worker is healthy.",
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

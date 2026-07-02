@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireAdminMode } from "@/lib/auth";
 import { Nav } from "@/components/Nav";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
@@ -13,8 +14,16 @@ import {
 async function enqueueRefreshJob() {
   "use server";
   const user = await requireAdminMode();
-  await enqueuePricingRefreshJob(user.username);
+  let jobId: string;
+  try {
+    jobId = await enqueuePricingRefreshJob(user.username);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unable to queue pricing job.";
+    redirect(`/admin/prices?error=${encodeURIComponent(message)}`);
+  }
   revalidatePath("/admin/prices");
+  redirect(`/admin/prices?queued=${encodeURIComponent(jobId)}`);
 }
 
 function dateLabel(value: string | null) {
@@ -89,8 +98,13 @@ function StatCard({
   );
 }
 
-export default async function AdminPricesPage() {
+export default async function AdminPricesPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
   await requireAdminMode();
+  const params = await searchParams;
   const [status, projection] = await Promise.all([
     listPricingWorkerStatus(),
     getCurrentPriceProjectionStats(),
@@ -124,6 +138,17 @@ export default async function AdminPricesPage() {
         {!status.available ? (
           <div className="rounded border border-red-800 bg-red-950/30 p-3 text-sm text-red-200">
             Pricing database is unavailable: {status.error}
+          </div>
+        ) : null}
+        {params.queued ? (
+          <div className="rounded border border-emerald-800 bg-emerald-950/30 p-3 text-sm text-emerald-100">
+            Pricing refresh queued. Job ID:{" "}
+            <span className="font-mono">{params.queued}</span>
+          </div>
+        ) : null}
+        {params.error ? (
+          <div className="rounded border border-red-800 bg-red-950/30 p-3 text-sm text-red-100">
+            Pricing refresh could not be queued: {params.error}
           </div>
         ) : null}
       </section>

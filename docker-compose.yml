@@ -40,6 +40,7 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://mtginventory:mtginventory@postgres:5432/mtginventory?schema=public}
+      PRICING_DATABASE_URL: ${PRICING_DATABASE_URL:-postgresql://mtgpricing:mtgpricing@pricing-postgres:5432/mtgpricing?schema=public}
       NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-MTG Inventory}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-admin123}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
@@ -73,6 +74,7 @@ services:
       - ${SCRYFALL_DATA_PATH:?SCRYFALL_DATA_PATH must be set in .env}:${SCRYFALL_CONTAINER_DATA_PATH:-/app/data/scryfall}
     depends_on:
       - postgres
+      - pricing-postgres
     ports:
       - "${WEB_HOST_PORT:-13003}:3000"
 
