@@ -73,6 +73,17 @@ IMAGE_TAG=platform-pricing-worker-stack docker compose -f docker-compose.yml -f 
 IMAGE_TAG=platform-pricing-worker-stack docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.unraid.yml up -d
 ```
 
+If your Unraid Compose Manager project only supports one compose file, use the
+standalone flattened file instead:
+
+```bash
+IMAGE_TAG=main docker compose -f docker-compose.unraid.flat.yml pull
+IMAGE_TAG=main docker compose -f docker-compose.unraid.flat.yml up -d
+```
+
+Do not use `docker-compose.unraid.yml` by itself. It is only an override layer
+and does not contain image definitions for every service.
+
 Keep persistent host paths in `.env` as complete paths. Avoid nested expansion
 for Unraid/Portainer reliability:
 

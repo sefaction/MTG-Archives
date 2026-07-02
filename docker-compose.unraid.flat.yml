@@ -1,0 +1,120 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    pull_policy: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-mtginventory}
+      POSTGRES_USER: ${POSTGRES_USER:-mtginventory}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mtginventory}
+    volumes:
+      - ${POSTGRES_DATA_PATH:?POSTGRES_DATA_PATH must be set in .env}:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_HOST_PORT:-15437}:5432"
+
+  pricing-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    pull_policy: always
+    environment:
+      POSTGRES_DB: ${PRICING_POSTGRES_DB:-mtgpricing}
+      POSTGRES_USER: ${PRICING_POSTGRES_USER:-mtgpricing}
+      POSTGRES_PASSWORD: ${PRICING_POSTGRES_PASSWORD:-mtgpricing}
+    volumes:
+      - ${PRICING_POSTGRES_DATA_PATH:?PRICING_POSTGRES_DATA_PATH must be set in .env}:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    pull_policy: always
+    command: redis-server --appendonly yes
+    volumes:
+      - ${REDIS_DATA_PATH:?REDIS_DATA_PATH must be set in .env}:/data
+
+  web:
+    image: ${WEB_IMAGE:-ghcr.io/sefaction/mtg-archives-web:${IMAGE_TAG:-main}}
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://mtginventory:mtginventory@postgres:5432/mtginventory?schema=public}
+      PRICING_DATABASE_URL: ${PRICING_DATABASE_URL:-postgresql://mtgpricing:mtgpricing@pricing-postgres:5432/mtgpricing?schema=public}
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-MTG Inventory}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-admin123}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_DISPLAY_NAME: ${ADMIN_DISPLAY_NAME:-Administrator}
+      UPLOADS_DATA_PATH: ${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}
+      IMPORTS_DATA_PATH: ${IMPORTS_DATA_PATH:?IMPORTS_DATA_PATH must be set in .env}
+      EXPORTS_DATA_PATH: ${EXPORTS_DATA_PATH:?EXPORTS_DATA_PATH must be set in .env}
+      BACKUPS_DATA_PATH: ${BACKUPS_DATA_PATH:?BACKUPS_DATA_PATH must be set in .env}
+      BACKUP_DIR: ${BACKUP_DIR:-/app/backups}
+      SCRYFALL_API_BASE_URL: ${SCRYFALL_API_BASE_URL:-https://api.scryfall.com}
+      SCRYFALL_USER_AGENT: ${SCRYFALL_USER_AGENT:-MTG-Archives/1.0}
+      SCRYFALL_MIN_REQUEST_INTERVAL_MS: ${SCRYFALL_MIN_REQUEST_INTERVAL_MS:-100}
+      SCRYFALL_MAX_RETRIES: ${SCRYFALL_MAX_RETRIES:-4}
+      SCRYFALL_REQUEST_TIMEOUT_MS: ${SCRYFALL_REQUEST_TIMEOUT_MS:-15000}
+      SCRYFALL_CACHE_ENABLED: ${SCRYFALL_CACHE_ENABLED:-true}
+      SCRYFALL_CARD_REFRESH_DAYS: ${SCRYFALL_CARD_REFRESH_DAYS:-30}
+      SCRYFALL_PRICE_REFRESH_HOURS: ${SCRYFALL_PRICE_REFRESH_HOURS:-24}
+      SCRYFALL_BULK_DATA_ENABLED: ${SCRYFALL_BULK_DATA_ENABLED:-true}
+      SCRYFALL_CONTAINER_DATA_PATH: ${SCRYFALL_CONTAINER_DATA_PATH:-/app/data/scryfall}
+      SCRYFALL_BULK_REFRESH_HOURS: ${SCRYFALL_BULK_REFRESH_HOURS:-24}
+      IMPORT_RESOLVE_BATCH_SIZE: ${IMPORT_RESOLVE_BATCH_SIZE:-50}
+      IMPORT_RESOLVE_MAX_BATCHES_PER_RUN: ${IMPORT_RESOLVE_MAX_BATCHES_PER_RUN:-0}
+      IMPORT_RESOLVE_POLL_INTERVAL_MS: ${IMPORT_RESOLVE_POLL_INTERVAL_MS:-1500}
+      IMPORT_RESOLVE_STALE_JOB_TIMEOUT_MINUTES: ${IMPORT_RESOLVE_STALE_JOB_TIMEOUT_MINUTES:-15}
+      NODE_ENV: production
+    volumes:
+      - ${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}:${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}
+      - ${IMPORTS_DATA_PATH:?IMPORTS_DATA_PATH must be set in .env}:${IMPORTS_DATA_PATH:?IMPORTS_DATA_PATH must be set in .env}
+      - ${EXPORTS_DATA_PATH:?EXPORTS_DATA_PATH must be set in .env}:${EXPORTS_DATA_PATH:?EXPORTS_DATA_PATH must be set in .env}
+      - ${BACKUPS_DATA_PATH:?BACKUPS_DATA_PATH must be set in .env}:${BACKUP_DIR:-/app/backups}
+      - ${SCRYFALL_DATA_PATH:?SCRYFALL_DATA_PATH must be set in .env}:${SCRYFALL_CONTAINER_DATA_PATH:-/app/data/scryfall}
+    depends_on:
+      - postgres
+      - pricing-postgres
+    ports:
+      - "${WEB_HOST_PORT:-13003}:3000"
+
+  pricing-worker:
+    image: ${WEB_IMAGE:-ghcr.io/sefaction/mtg-archives-web:${IMAGE_TAG:-main}}
+    pull_policy: always
+    restart: unless-stopped
+    command: npm run worker:prices
+    environment:
+      PRICING_DATABASE_URL: ${PRICING_DATABASE_URL:-postgresql://mtgpricing:mtgpricing@pricing-postgres:5432/mtgpricing?schema=public}
+      APP_DATABASE_URL: ${APP_DATABASE_URL:-postgresql://mtginventory:mtginventory@postgres:5432/mtginventory?schema=public}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      PRICING_WORKER_INTERVAL_MS: ${PRICING_WORKER_INTERVAL_MS:-15000}
+      PRICING_IMPORT_BATCH_SIZE: ${PRICING_IMPORT_BATCH_SIZE:-500}
+      PRICING_IMPORT_MAX_CARDS: ${PRICING_IMPORT_MAX_CARDS:-0}
+      MTGJSON_ALL_PRICES_URL: ${MTGJSON_ALL_PRICES_URL:-}
+      MTGJSON_BASE_URL: ${MTGJSON_BASE_URL:-https://mtgjson.com/api/v5}
+      MTGJSON_PRICE_PROVIDER_DEFAULT: ${MTGJSON_PRICE_PROVIDER_DEFAULT:-tcgplayer}
+      MTGJSON_PRICE_CURRENCY_DEFAULT: ${MTGJSON_PRICE_CURRENCY_DEFAULT:-USD}
+      NODE_ENV: production
+    depends_on:
+      - pricing-postgres
+      - redis
+
+  backup:
+    image: ${WEB_IMAGE:-ghcr.io/sefaction/mtg-archives-web:${IMAGE_TAG:-main}}
+    pull_policy: always
+    profiles:
+      - backup
+    command: npm run backup:create
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://mtginventory:mtginventory@postgres:5432/mtginventory?schema=public}
+      BACKUP_DIR: ${BACKUP_DIR:-/app/backups}
+      UPLOADS_DATA_PATH: ${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}
+      IMPORTS_DATA_PATH: ${IMPORTS_DATA_PATH:?IMPORTS_DATA_PATH must be set in .env}
+      EXPORTS_DATA_PATH: ${EXPORTS_DATA_PATH:?EXPORTS_DATA_PATH must be set in .env}
+      SCRYFALL_CONTAINER_DATA_PATH: ${SCRYFALL_CONTAINER_DATA_PATH:-/app/data/scryfall}
+      NODE_ENV: production
+    volumes:
+      - ${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}:${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}
+      - ${IMPORTS_DATA_PATH:?IMPORTS_DATA_PATH must be set in .env}:${IMPORTS_DATA_PATH:?IMPORTS_DATA_PATH must be set in .env}
+      - ${EXPORTS_DATA_PATH:?EXPORTS_DATA_PATH must be set in .env}:${EXPORTS_DATA_PATH:?EXPORTS_DATA_PATH must be set in .env}
+      - ${BACKUPS_DATA_PATH:?BACKUPS_DATA_PATH must be set in .env}:${BACKUP_DIR:-/app/backups}
+      - ${SCRYFALL_DATA_PATH:?SCRYFALL_DATA_PATH must be set in .env}:${SCRYFALL_CONTAINER_DATA_PATH:-/app/data/scryfall}
+    depends_on:
+      - postgres
