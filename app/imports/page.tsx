@@ -531,52 +531,50 @@ export default async function ImportsPage({
       persistCsvText(process.env.UPLOADS_DATA_PATH, storedFilename, text),
       persistCsvText(process.env.IMPORTS_DATA_PATH, storedFilename, text),
     ]);
-    const matchCache = new Map<
-      string,
-      Awaited<ReturnType<typeof findOrImportCard>>
-    >();
+    const itemsToCreate = [];
     for (const [index, row] of rows.entries()) {
       const rowNumber = index + 2;
       const parsedRow = parseRow(row, rowNumber);
       let status = "unmatched";
       let message = parsedRow.error || "";
-      let cardId: string | undefined;
       if (parsedRow.error) {
         status = "error";
       } else {
-        const cacheKey = JSON.stringify({
-          scryfallId: parsedRow.scryfallId?.trim() || null,
-          name: parsedRow.name.trim().toLowerCase(),
-          setCode: normalizeSetCode(parsedRow.setCode) || null,
-          collectorNumber:
-            normalizeCollectorNumber(parsedRow.collectorNumber) || null,
-        });
-        let match = matchCache.get(cacheKey);
-        if (!match) {
-          match = await findOrImportCard(parsedRow);
-          matchCache.set(cacheKey, match);
-        }
-        status = match.status;
         message = [
-          match.message,
+          "Queued for automatic resolution.",
           parsedRow.warning ? `Warning: ${parsedRow.warning}` : "",
         ]
           .filter(Boolean)
           .join(" ");
-        cardId = match.card?.id;
       }
-      await prisma.importBatchItem.create({
-        data: {
-          importBatchId: batch.id,
-          rowNumber,
-          rawRowJson: jsonSafe(row),
-          parsedRowJson: jsonSafe(parsedRow),
-          status,
-          message: message || null,
-          cardPrintingId: cardId,
-          parsedFoilStatus: parsedRow.foilStatus,
-          parsedCondition: parsedRow.condition,
-        },
+      itemsToCreate.push({
+        importBatchId: batch.id,
+        rowNumber,
+        rawRowJson: jsonSafe(row),
+        parsedRowJson: jsonSafe(parsedRow),
+        status,
+        message: message || null,
+        parsedFoilStatus: parsedRow.foilStatus,
+        parsedCondition: parsedRow.condition,
+      });
+    }
+    if (itemsToCreate.length) {
+      await prisma.importBatchItem.createMany({
+        data: itemsToCreate,
+      });
+    }
+    const { job, created } = await createOrReuseImportResolutionJob({
+      prisma,
+      importBatchId: batch.id,
+      createdByUserId: actionUser.id,
+    });
+    if (created || job.status === "QUEUED") {
+      void processImportResolutionJob({
+        prisma,
+        jobId: job.id,
+        recordAttempt: recordResolutionAttempt,
+        buildQuery: (row) => buildResolverQuery(row as ParsedRow),
+        recalculateBatchCounts,
       });
     }
     await recalculateBatchCounts(batch.id);

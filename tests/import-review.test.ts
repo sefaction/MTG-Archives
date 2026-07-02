@@ -109,3 +109,16 @@ test("inventory imports only offer normal active non-system destinations", async
   assert.match(source, /!location\.systemManaged/);
   assert.match(source, /location\.active/);
 });
+
+test("CSV upload queues background resolution instead of resolving every row inline", async () => {
+  const source = await readFile("app/imports/page.tsx", "utf8");
+  const previewImport = source.slice(
+    source.indexOf("async function previewImport"),
+    source.indexOf("async function updateImportRow"),
+  );
+
+  assert.match(previewImport, /createOrReuseImportResolutionJob/);
+  assert.match(previewImport, /processImportResolutionJob/);
+  assert.match(previewImport, /Queued for automatic resolution/);
+  assert.doesNotMatch(previewImport, /await findOrImportCard/);
+});
