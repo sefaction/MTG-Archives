@@ -5,6 +5,10 @@ import test from "node:test";
 const tradesPage = readFileSync("app/trades/page.tsx", "utf8");
 const tradeBuilder = readFileSync("components/TradeBuilder.tsx", "utf8");
 const tradeActions = readFileSync("app/trades/actions.ts", "utf8");
+const tradeCardPreview = readFileSync(
+  "components/TradeCardPreview.tsx",
+  "utf8",
+);
 const wishlistTable = readFileSync("components/WishlistTable.tsx", "utf8");
 
 test("trades page renders the searchable trade builder instead of active inventory dropdowns", () => {
@@ -19,6 +23,11 @@ test("trades page renders the searchable trade builder instead of active invento
 
 test("trades page surfaces trade wishlist queues without preloading inventories", () => {
   assert.match(tradesPage, /Trade Wishlist/);
+  assert.match(tradesPage, /wishlistView\?: string/);
+  assert.match(tradesPage, /TradeWishlistDirection/);
+  assert.match(tradesPage, /WishlistViewToggle/);
+  assert.match(tradesPage, /Visual spoiler/);
+  assert.match(tradesPage, /personHeader="Wanted by"/);
   assert.match(tradesPage, /cancelTradeWishlistItem/);
   assert.match(tradesPage, /myTradeWishlist/);
   assert.match(tradesPage, /wantedFromMe/);
@@ -39,6 +48,14 @@ test("trades page surfaces trade wishlist queues without preloading inventories"
   assert.match(tradesPage, /initialRequestedItem=/);
   assert.match(tradesPage, /initialOfferedItem=/);
   assert.doesNotMatch(tradesPage, /include:\s*\{\s*location:\s*true\s*\}/);
+});
+
+test("trade wishlist supports dense table, binder, and visual spoiler views", () => {
+  assert.match(tradesPage, /<table className="min-w-full text-left text-sm">/);
+  assert.match(tradesPage, /view === "binder"/);
+  assert.match(tradesPage, /variant="spoiler"/);
+  assert.match(tradeCardPreview, /variant\?: "row" \| "spoiler"/);
+  assert.match(tradeCardPreview, /aspect-\[63\/88\]/);
 });
 
 test("trade wishlist cards can be cancelled without deleting history", () => {

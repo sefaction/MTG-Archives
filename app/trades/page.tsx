@@ -1,4 +1,4 @@
-export const dynamic = "force-dynamic";
+﻿export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -49,7 +49,9 @@ type SearchParams = {
   offeredInventoryItemId?: string;
   requestedInventoryItemId?: string;
   view?: string;
+  wishlistView?: string;
 };
+type TradeWishlistView = "table" | "binder" | "spoiler";
 type TradeSnapshot = {
   cardName?: string;
   setCode?: string;
@@ -93,6 +95,9 @@ function cardImage(
 }
 function statusLabel(status: TradeStatus) {
   return status.toLowerCase();
+}
+function tradeWishlistView(value?: string): TradeWishlistView {
+  return value === "binder" || value === "spoiler" ? value : "table";
 }
 function cardName(item: TradeCard, snap: TradeSnapshot) {
   return item?.card.name ?? snap.cardName ?? "Transferred inventory item";
@@ -197,12 +202,12 @@ function CompactSection({
       className={cn(filterPanelClass, "group space-y-3")}
     >
       <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3">
-        <span>
-          <span className="text-xl font-semibold">{title}</span>
+        <div>
+          <h2 className="inline text-xl font-semibold">{title}</h2>
           {summary ? (
             <span className="ml-3 text-sm text-zinc-400">{summary}</span>
           ) : null}
-        </span>
+        </div>
         <span className="flex items-center gap-2 text-sm text-zinc-400">
           {typeof count === "number" ? (
             <span className="rounded border border-zinc-800 px-2 py-1">
@@ -218,6 +223,173 @@ function CompactSection({
         </span>
       </summary>
       <div className="pt-3">{children}</div>
+    </details>
+  );
+}
+
+function WishlistViewToggle({ active }: { active: TradeWishlistView }) {
+  const options: Array<{ value: TradeWishlistView; label: string }> = [
+    { value: "table", label: "Table" },
+    { value: "binder", label: "Binder" },
+    { value: "spoiler", label: "Visual spoiler" },
+  ];
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      {options.map((option) => (
+        <Link
+          key={option.value}
+          href={
+            option.value === "table"
+              ? "/trades"
+              : `/trades?wishlistView=${option.value}`
+          }
+          className={cn(
+            filterButtonClass,
+            active === option.value && "border-sky-500 bg-sky-950/40",
+          )}
+        >
+          {option.label}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+type TradeWishlistRow = {
+  id: string;
+  card: TradeCardSummary;
+  personLabel: string;
+  quantity: number;
+  notes?: string | null;
+  negotiateHref: string;
+  negotiateLabel: string;
+  cancelId?: string;
+};
+
+function TradeWishlistActions({ row }: { row: TradeWishlistRow }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Link href={row.negotiateHref} className={filterPrimaryButtonClass}>
+        {row.negotiateLabel}
+      </Link>
+      {row.cancelId ? (
+        <form action={cancelTradeWishlistItem}>
+          <input
+            type="hidden"
+            name="tradeWishlistItemId"
+            value={row.cancelId}
+          />
+          <SubmitButton
+            pendingLabel="Cancelling..."
+            className="rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-300 transition-colors hover:border-red-700 hover:text-red-100"
+          >
+            Cancel
+          </SubmitButton>
+        </form>
+      ) : null}
+    </div>
+  );
+}
+
+function TradeWishlistDirection({
+  title,
+  rows,
+  emptyMessage,
+  personHeader,
+  view,
+}: {
+  title: string;
+  rows: TradeWishlistRow[];
+  emptyMessage: string;
+  personHeader: string;
+  view: TradeWishlistView;
+}) {
+  return (
+    <details open className="rounded border border-zinc-800">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 border-b border-zinc-800 px-3 py-2">
+        <span className="font-semibold text-sky-100">{title}</span>
+        <span className="rounded border border-zinc-800 px-2 py-1 text-xs text-zinc-400">
+          {rows.length}
+        </span>
+      </summary>
+      {rows.length ? (
+        view === "table" ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-zinc-900 text-xs uppercase text-zinc-400">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Card</th>
+                  <th className="px-3 py-2 font-medium">{personHeader}</th>
+                  <th className="px-3 py-2 font-medium">Qty</th>
+                  <th className="px-3 py-2 font-medium">Notes</th>
+                  <th className="px-3 py-2 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800">
+                {rows.map((row) => (
+                  <tr key={row.id} className="align-middle">
+                    <td className="w-[38rem] px-3 py-2">
+                      <TradeCardPreview card={row.card} compact />
+                    </td>
+                    <td className="px-3 py-2 text-zinc-200">
+                      {row.personLabel}
+                    </td>
+                    <td className="px-3 py-2 text-zinc-200">{row.quantity}</td>
+                    <td className="max-w-xs px-3 py-2 text-zinc-400">
+                      {row.notes || "-"}
+                    </td>
+                    <td className="px-3 py-2">
+                      <TradeWishlistActions row={row} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : view === "binder" ? (
+          <div className="grid gap-3 p-3 md:grid-cols-2 2xl:grid-cols-3">
+            {rows.map((row) => (
+              <article
+                key={row.id}
+                className="rounded border border-zinc-800 bg-zinc-950/50 p-3"
+              >
+                <TradeCardPreview card={row.card} compact />
+                <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-zinc-400">
+                  <span>{personHeader}</span>
+                  <span className="text-right text-zinc-200">
+                    {row.personLabel}
+                  </span>
+                  <span>Quantity</span>
+                  <span className="text-right text-zinc-200">
+                    {row.quantity}
+                  </span>
+                </div>
+                {row.notes ? (
+                  <p className="mt-2 text-xs text-zinc-500">{row.notes}</p>
+                ) : null}
+                <div className="mt-3">
+                  <TradeWishlistActions row={row} />
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
+            {rows.map((row) => (
+              <article key={row.id} className="min-w-0">
+                <TradeCardPreview card={row.card} variant="spoiler" />
+                <div className="mt-2 space-y-1 text-xs text-zinc-400">
+                  <div className="truncate">{row.personLabel}</div>
+                  <div>Qty {row.quantity}</div>
+                  <TradeWishlistActions row={row} />
+                </div>
+              </article>
+            ))}
+          </div>
+        )
+      ) : (
+        <p className="p-3 text-sm text-zinc-500">{emptyMessage}</p>
+      )}
     </details>
   );
 }
@@ -241,6 +413,7 @@ export default async function TradesPage({
   const receiverId =
     params.receiverId || players.find((p) => p.id !== proposerId)?.id || "";
   const tradeView = params.view === "history" ? "history" : "active";
+  const activeWishlistView = tradeWishlistView(params.wishlistView);
   if (!isAdmin && !user.playerId)
     return (
       <main className="p-8">
@@ -366,6 +539,52 @@ export default async function TradesPage({
     (sum, [, trades]) => sum + trades.length,
     0,
   );
+  const myTradeWishlistRows: TradeWishlistRow[] = myTradeWishlist.map(
+    (item) => ({
+      id: item.id,
+      card: toTradeCardSummary({
+        id: item.id,
+        item: item.targetInventoryItem,
+        card: item.card,
+        ownerLabel: item.targetOwnerPlayer.displayName,
+        roleLabel: "I want",
+        notes: item.notes,
+      }),
+      personLabel: item.targetOwnerPlayer.displayName,
+      quantity: item.quantity,
+      notes: item.notes,
+      negotiateHref: `/trades?receiverId=${item.targetOwnerPlayerId}${
+        item.targetInventoryItemId
+          ? `&requestedInventoryItemId=${item.targetInventoryItemId}`
+          : ""
+      }`,
+      negotiateLabel: "Negotiate",
+      cancelId: item.id,
+    }),
+  );
+  const wantedFromMeRows: TradeWishlistRow[] = wantedFromMe.map((item) => {
+    const requester = item.ownerUser.displayName || item.ownerUser.username;
+    return {
+      id: item.id,
+      card: toTradeCardSummary({
+        id: item.id,
+        item: item.targetInventoryItem,
+        card: item.card,
+        ownerLabel: "Your public inventory",
+        roleLabel: `Wanted by ${requester}`,
+        notes: item.notes,
+      }),
+      personLabel: requester,
+      quantity: item.quantity,
+      notes: item.notes,
+      negotiateHref: `/trades?receiverId=${item.ownerUser.playerId || ""}${
+        item.targetInventoryItemId
+          ? `&offeredInventoryItemId=${item.targetInventoryItemId}`
+          : ""
+      }`,
+      negotiateLabel: "Negotiate",
+    };
+  });
 
   return (
     <main className="p-8 space-y-6">
@@ -487,132 +706,31 @@ export default async function TradesPage({
           <CompactSection
             title="Trade Wishlist"
             summary="Public-inventory wants grouped by direction"
-            count={myTradeWishlist.length + wantedFromMe.length}
+            count={myTradeWishlistRows.length + wantedFromMeRows.length}
             defaultOpen
           >
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-              <details open className="rounded border border-zinc-800 p-3">
-                <summary className="cursor-pointer font-semibold text-sky-100">
-                  Cards I want ({myTradeWishlist.length})
-                </summary>
-                <div className="mt-3 space-y-2">
-                  {myTradeWishlist.length ? (
-                    myTradeWishlist.map((item) => {
-                      const card = toTradeCardSummary({
-                        id: item.id,
-                        item: item.targetInventoryItem,
-                        card: item.card,
-                        ownerLabel: item.targetOwnerPlayer.displayName,
-                        roleLabel: "I want",
-                        notes: item.notes,
-                      });
-                      return (
-                        <article
-                          key={item.id}
-                          className="grid gap-3 rounded border border-zinc-800 p-3 md:grid-cols-[1fr_auto]"
-                        >
-                          <div className="space-y-2">
-                            <TradeCardPreview card={card} compact />
-                            <p className="text-zinc-400">
-                              From {item.targetOwnerPlayer.displayName} · qty{" "}
-                              {item.quantity}
-                            </p>
-                            {item.notes ? (
-                              <p className="text-zinc-500">{item.notes}</p>
-                            ) : null}
-                          </div>
-                          <div className="flex shrink-0 flex-col gap-2">
-                            <Link
-                              href={`/trades?receiverId=${item.targetOwnerPlayerId}${
-                                item.targetInventoryItemId
-                                  ? `&requestedInventoryItemId=${item.targetInventoryItemId}`
-                                  : ""
-                              }`}
-                              className={filterPrimaryButtonClass}
-                            >
-                              Negotiate
-                            </Link>
-                            <form action={cancelTradeWishlistItem}>
-                              <input
-                                type="hidden"
-                                name="tradeWishlistItemId"
-                                value={item.id}
-                              />
-                              <SubmitButton
-                                pendingLabel="Cancelling..."
-                                className="rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-300 transition-colors hover:border-red-700 hover:text-red-100"
-                              >
-                                Cancel
-                              </SubmitButton>
-                            </form>
-                          </div>
-                        </article>
-                      );
-                    })
-                  ) : (
-                    <p className="text-sm text-zinc-500">
-                      No public inventory trade wants yet.
-                    </p>
-                  )}
-                </div>
-              </details>
-              <details open className="rounded border border-zinc-800 p-3">
-                <summary className="cursor-pointer font-semibold text-sky-100">
-                  Wanted from me ({wantedFromMe.length})
-                </summary>
-                <div className="mt-3 space-y-3">
-                  {wantedFromMe.length ? (
-                    wantedFromMe.map((item) => {
-                      const card = toTradeCardSummary({
-                        id: item.id,
-                        item: item.targetInventoryItem,
-                        card: item.card,
-                        ownerLabel: "Your public inventory",
-                        roleLabel: `Wanted by ${
-                          item.ownerUser.displayName || item.ownerUser.username
-                        }`,
-                        notes: item.notes,
-                      });
-                      return (
-                        <article
-                          key={item.id}
-                          className="grid gap-3 rounded border border-zinc-800 p-3 md:grid-cols-[1fr_auto]"
-                        >
-                          <div className="space-y-2">
-                            <TradeCardPreview card={card} compact />
-                            <p className="text-zinc-400">
-                              Wanted by{" "}
-                              {item.ownerUser.displayName ||
-                                item.ownerUser.username}{" "}
-                              · qty {item.quantity}
-                            </p>
-                            {item.notes ? (
-                              <p className="text-zinc-500">{item.notes}</p>
-                            ) : null}
-                          </div>
-                          <Link
-                            href={`/trades?receiverId=${item.ownerUser.playerId || ""}${
-                              item.targetInventoryItemId
-                                ? `&offeredInventoryItemId=${item.targetInventoryItemId}`
-                                : ""
-                            }`}
-                            className={cn(
-                              filterPrimaryButtonClass,
-                              "self-start",
-                            )}
-                          >
-                            Negotiate
-                          </Link>
-                        </article>
-                      );
-                    })
-                  ) : (
-                    <p className="text-sm text-zinc-500">
-                      No one has wishlisted your public cards for trade yet.
-                    </p>
-                  )}
-                </div>
-              </details>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-zinc-400">
+                Dense table by default, with inventory-style card views when
+                image scanning is faster.
+              </p>
+              <WishlistViewToggle active={activeWishlistView} />
+            </div>
+            <div className="grid gap-4">
+              <TradeWishlistDirection
+                title={`Cards I want (${myTradeWishlistRows.length})`}
+                rows={myTradeWishlistRows}
+                emptyMessage="No public inventory trade wants yet."
+                personHeader="From"
+                view={activeWishlistView}
+              />
+              <TradeWishlistDirection
+                title={`Wanted from me (${wantedFromMeRows.length})`}
+                rows={wantedFromMeRows}
+                emptyMessage="No one has wishlisted your public cards for trade yet."
+                personHeader="Wanted by"
+                view={activeWishlistView}
+              />
             </div>
           </CompactSection>
         </>
@@ -672,13 +790,13 @@ export default async function TradesPage({
                   <div className="flex flex-wrap justify-between gap-3">
                     <div>
                       <h3 className="font-semibold">
-                        {trade.proposerPlayer.displayName} ↔{" "}
+                        {trade.proposerPlayer.displayName} â†”{" "}
                         {trade.receiverPlayer.displayName}
                       </h3>
                       <p className="text-sm text-zinc-400">
-                        Status: {statusLabel(trade.status)} • Proposed{" "}
+                        Status: {statusLabel(trade.status)} â€¢ Proposed{" "}
                         {trade.proposedAt.toLocaleString()}{" "}
-                        {other ? `• Trade partner: ${other.displayName}` : ""}
+                        {other ? `â€¢ Trade partner: ${other.displayName}` : ""}
                       </p>
                       {receiverNeedsAction || userNeedsPhysical ? (
                         <span className="inline-block rounded border border-amber-700 px-2 py-1 text-xs text-amber-200">
@@ -705,7 +823,7 @@ export default async function TradesPage({
                           <span className="font-semibold">
                             {event.eventType}
                           </span>{" "}
-                          — {event.createdAt.toLocaleString()}{" "}
+                          â€” {event.createdAt.toLocaleString()}{" "}
                           {event.actorPlayer
                             ? `by ${event.actorPlayer.displayName}`
                             : event.actorUser
@@ -726,7 +844,7 @@ export default async function TradesPage({
                             value={trade.id}
                           />
                           <SubmitButton
-                            pendingLabel="Accepting trade…"
+                            pendingLabel="Accepting tradeâ€¦"
                             name="action"
                             value="accept"
                             className="border px-3 py-2"
@@ -741,7 +859,7 @@ export default async function TradesPage({
                             value={trade.id}
                           />
                           <SubmitButton
-                            pendingLabel="Declining trade…"
+                            pendingLabel="Declining tradeâ€¦"
                             name="action"
                             value="decline"
                             className="border px-3 py-2"
@@ -760,7 +878,7 @@ export default async function TradesPage({
                           value="Cancelled by proposer."
                         />
                         <SubmitButton
-                          pendingLabel="Cancelling trade…"
+                          pendingLabel="Cancelling tradeâ€¦"
                           name="action"
                           value="cancel"
                           className="border px-3 py-2"
@@ -773,7 +891,7 @@ export default async function TradesPage({
                       <form action={confirmPhysicalTrade}>
                         <input type="hidden" name="tradeId" value={trade.id} />
                         <SubmitButton
-                          pendingLabel="Confirming exchange…"
+                          pendingLabel="Confirming exchangeâ€¦"
                           className="border px-3 py-2"
                         >
                           Confirm Physical Trade
@@ -808,7 +926,7 @@ export default async function TradesPage({
                             className="border p-2 bg-zinc-900"
                           />
                           <SubmitButton
-                            pendingLabel="Cancelling trade…"
+                            pendingLabel="Cancelling tradeâ€¦"
                             name="action"
                             value="cancel"
                             className="border px-3 py-2"
@@ -833,7 +951,7 @@ export default async function TradesPage({
                             className="border p-2 bg-zinc-900"
                           />
                           <SubmitButton
-                            pendingLabel="Force completing…"
+                            pendingLabel="Force completingâ€¦"
                             className="border px-3 py-2"
                           >
                             Force Complete
