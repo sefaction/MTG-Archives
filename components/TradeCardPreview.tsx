@@ -41,9 +41,11 @@ function DetailRow({
 export function TradeCardPreview({
   card,
   compact = false,
+  variant = "row",
 }: {
   card: TradeCardSummary;
   compact?: boolean;
+  variant?: "row" | "spoiler";
 }) {
   const [open, setOpen] = useState(false);
   const setLabel = [
@@ -58,48 +60,79 @@ export function TradeCardPreview({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className={cn(
-          "grid w-full grid-cols-[3.2rem_1fr] items-center gap-3 rounded border border-zinc-800 bg-zinc-950/60 p-2 text-left transition-colors hover:border-sky-700 hover:bg-zinc-900/80",
-          compact ? "grid-cols-[2.6rem_1fr]" : "",
-        )}
-        aria-label={`Open details for ${card.name}`}
-      >
-        {card.imageUri ? (
-          <img
-            src={card.imageUri}
-            alt=""
-            className={cn(
-              "h-20 w-[3.2rem] rounded object-cover",
-              compact && "h-14 w-[2.6rem]",
+      {variant === "spoiler" ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="group block w-full rounded border border-zinc-800 bg-zinc-950/60 p-2 text-left transition-colors hover:border-sky-700 hover:bg-zinc-900/80"
+          aria-label={`Open details for ${card.name}`}
+        >
+          <span className="block overflow-hidden rounded">
+            {card.imageUri ? (
+              <img
+                src={card.imageUri}
+                alt=""
+                className="aspect-[63/88] w-full object-cover transition-transform group-hover:scale-[1.02]"
+              />
+            ) : (
+              <span className="flex aspect-[63/88] w-full items-center justify-center rounded border border-zinc-800 text-xs text-zinc-500">
+                No image
+              </span>
             )}
-          />
-        ) : (
-          <div
-            className={cn(
-              "flex h-20 w-[3.2rem] items-center justify-center rounded border border-zinc-800 text-xs text-zinc-500",
-              compact && "h-14 w-[2.6rem]",
-            )}
-          >
-            No image
-          </div>
-        )}
-        <span className="min-w-0">
-          {card.roleLabel ? (
-            <span className="block text-xs uppercase text-zinc-500">
-              {card.roleLabel}
-            </span>
-          ) : null}
-          <span className="block truncate font-medium text-zinc-100">
+          </span>
+          <span className="mt-2 block truncate text-sm font-medium text-zinc-100">
             {card.name}
           </span>
           <span className="block truncate text-xs text-zinc-400">
-            {[setLabel, treatment, card.ownerLabel].filter(Boolean).join(" / ")}
+            {[setLabel, treatment].filter(Boolean).join(" / ")}
           </span>
-        </span>
-      </button>
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className={cn(
+            "grid w-full grid-cols-[3.2rem_1fr] items-center gap-3 rounded border border-zinc-800 bg-zinc-950/60 p-2 text-left transition-colors hover:border-sky-700 hover:bg-zinc-900/80",
+            compact ? "grid-cols-[2.6rem_1fr]" : "",
+          )}
+          aria-label={`Open details for ${card.name}`}
+        >
+          {card.imageUri ? (
+            <img
+              src={card.imageUri}
+              alt=""
+              className={cn(
+                "h-20 w-[3.2rem] rounded object-cover",
+                compact && "h-14 w-[2.6rem]",
+              )}
+            />
+          ) : (
+            <div
+              className={cn(
+                "flex h-20 w-[3.2rem] items-center justify-center rounded border border-zinc-800 text-xs text-zinc-500",
+                compact && "h-14 w-[2.6rem]",
+              )}
+            >
+              No image
+            </div>
+          )}
+          <span className="min-w-0">
+            {card.roleLabel ? (
+              <span className="block text-xs uppercase text-zinc-500">
+                {card.roleLabel}
+              </span>
+            ) : null}
+            <span className="block truncate font-medium text-zinc-100">
+              {card.name}
+            </span>
+            <span className="block truncate text-xs text-zinc-400">
+              {[setLabel, treatment, card.ownerLabel]
+                .filter(Boolean)
+                .join(" / ")}
+            </span>
+          </span>
+        </button>
+      )}
 
       {open ? (
         <div
