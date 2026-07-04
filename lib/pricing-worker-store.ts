@@ -50,6 +50,29 @@ export type PricingWorkerStatus = {
   }>;
 };
 
+export type PriceHistoryRange = "7" | "30" | "90" | "all";
+
+export type CardPriceHistoryPoint = {
+  observedDate: string;
+  price: number;
+};
+
+export type CardPriceHistoryChange = {
+  start: number | null;
+  current: number | null;
+  absolute: number | null;
+  percent: number | null;
+};
+
+export type CardPriceHistoryOptions = {
+  mtgjsonUuid: string;
+  provider?: string;
+  finish?: string;
+  priceType?: string;
+  currency?: string;
+  range?: PriceHistoryRange;
+};
+
 function pricingDatabaseUrl() {
   return process.env.PRICING_DATABASE_URL || "";
 }
@@ -63,6 +86,29 @@ function psqlDatabaseUrl(url: string) {
 function sqlString(value: string | null | undefined) {
   if (value == null) return "NULL";
   return `'${value.replace(/'/g, "''")}'`;
+}
+
+function cleanToken(value: string | null | undefined, fallback: string) {
+  const clean = value?.trim();
+  return clean && /^[a-zA-Z0-9_-]+$/.test(clean) ? clean : fallback;
+}
+
+function cleanCurrency(value: string | null | undefined) {
+  const clean = value?.trim().toUpperCase();
+  return clean && /^[A-Z]{3}$/.test(clean) ? clean : "USD";
+}
+
+export function normalizePriceHistoryRange(
+  value: string | null | undefined,
+): PriceHistoryRange {
+  return value === "7" || value === "30" || value === "90" || value === "all"
+    ? value
+    : "90";
+}
+
+function rangePredicate(range: PriceHistoryRange) {
+  if (range === "all") return "TRUE";
+  return `observed_date >= (CURRENT_DATE - INTERVAL '${Number(range)} days')`;
 }
 
 function runPsql(sql: string) {
@@ -100,6 +146,54 @@ function jsonQuery<T>(sql: string): T[] {
     `SELECT COALESCE(json_agg(row_to_json(rows)), '[]'::json) FROM (${sql}) rows;`,
   );
   return JSON.parse(output || "[]") as T[];
+}
+
+export function calculatePriceHistoryChange(
+  points: CardPriceHistoryPoint[],
+): CardPriceHistoryChange {
+  const start = points[0]?.price ?? null;
+  const current = points[points.length - 1]?.price ?? null;
+  const absolute =
+    start === null || current === null
+      ? null
+      : Number((current - start).toFixed(4));
+  const percent =
+    start === null || current === null || start === 0
+      ? null
+      : Number((((current - start) / start) * 100).toFixed(2));
+  return { start, current, absolute, percent };
+}
+
+export async function getCardPriceHistory(options: CardPriceHistoryOptions) {
+  const provider = cleanToken(options.provider, "tcgplayer");
+  const finish = cleanToken(options.finish, "normal");
+  const priceType = cleanToken(options.priceType, "retail");
+  const currency = cleanCurrency(options.currency);
+  const range = normalizePriceHistoryRange(options.range);
+  const points = jsonQuery<CardPriceHistoryPoint>(
+    `SELECT
+       observed_date::text AS "observedDate",
+       price::float8 AS price
+     FROM price_snapshots
+     WHERE mtgjson_uuid = ${sqlString(options.mtgjsonUuid)}
+       AND provider = ${sqlString(provider)}
+       AND finish = ${sqlString(finish)}
+       AND price_type = ${sqlString(priceType)}
+       AND currency = ${sqlString(currency)}
+       AND ${rangePredicate(range)}
+     ORDER BY observed_date ASC
+     LIMIT 400`,
+  );
+
+  return {
+    provider,
+    finish,
+    priceType,
+    currency,
+    range,
+    points,
+    change: calculatePriceHistoryChange(points),
+  };
 }
 
 export async function listPricingWorkerStatus(): Promise<PricingWorkerStatus> {
@@ -180,12 +274,20 @@ export async function listPricingWorkerStatus(): Promise<PricingWorkerStatus> {
 }
 
 export async function enqueuePricingRefreshJob(requestedBy: string | null) {
+  return enqueuePricingJob("MTGJSON_REFRESH_ALL", requestedBy);
+}
+
+export async function enqueueMtgjsonMappingJob(requestedBy: string | null) {
+  return enqueuePricingJob("MTGJSON_MAP_IDENTIFIERS", requestedBy);
+}
+
+async function enqueuePricingJob(type: string, requestedBy: string | null) {
   const id = randomUUID();
   runPsql(
     `INSERT INTO price_import_jobs (id, type, status, requested_by, payload_json)
      VALUES (
        ${sqlString(id)},
-       'MTGJSON_REFRESH_ALL',
+       ${sqlString(type)},
        'QUEUED',
        ${sqlString(requestedBy)},
        '{"source":"admin"}'::jsonb

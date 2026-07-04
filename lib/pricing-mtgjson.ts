@@ -9,6 +9,11 @@ export type MtgjsonPriceSnapshotInput = {
   rawJson: Record<string, unknown>;
 };
 
+export type MtgjsonIdentifierMappingInput = {
+  mtgjsonUuid: string;
+  scryfallId: string;
+};
+
 export type MtgjsonPriceExtractOptions = {
   defaultCurrency?: string;
   maxCards?: number;
@@ -112,4 +117,33 @@ export function extractMtgjsonPriceSnapshots(
     walkPrices(mtgjsonUuid, cardPrices, [], opts, snapshots);
   }
   return snapshots;
+}
+
+function firstString(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+export function extractMtgjsonIdentifierMappings(payload: unknown) {
+  const root =
+    isRecord(payload) && isRecord(payload.data) ? payload.data : payload;
+  if (!isRecord(root)) return [];
+
+  const mappings: MtgjsonIdentifierMappingInput[] = [];
+  const seenScryfallIds = new Set<string>();
+
+  for (const [mtgjsonUuidKey, card] of Object.entries(root)) {
+    if (!isRecord(card)) continue;
+    const identifiers = isRecord(card.identifiers) ? card.identifiers : {};
+    const mtgjsonUuid = firstString(card.uuid, mtgjsonUuidKey);
+    const scryfallId = firstString(identifiers.scryfallId, card.scryfallId);
+    if (!mtgjsonUuid || !scryfallId || seenScryfallIds.has(scryfallId))
+      continue;
+    seenScryfallIds.add(scryfallId);
+    mappings.push({ mtgjsonUuid, scryfallId });
+  }
+
+  return mappings;
 }
