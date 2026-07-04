@@ -3,22 +3,9 @@ import { isBasicLandCard } from "./card-types";
 
 export type DeckViewMode = "compact" | "text" | "grid" | "spoiler";
 export type DeckGroupMode =
-  | "type"
-  | "section"
-  | "mana"
-  | "color"
-  | "rarity"
-  | "set"
-  | "owned";
+  "type" | "section" | "mana" | "color" | "rarity" | "set" | "owned";
 export type DeckSortMode =
-  | "name"
-  | "mana"
-  | "type"
-  | "color"
-  | "price"
-  | "owned"
-  | "set"
-  | "added";
+  "name" | "mana" | "type" | "color" | "price" | "owned" | "set" | "added";
 
 export type DeckViewRow = {
   id: string;

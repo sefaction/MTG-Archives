@@ -20,6 +20,10 @@ export type TradeBuilderItem = {
   quantity: number;
   available: number;
   imageUri?: string;
+  typeLine?: string;
+  colorIdentity?: unknown;
+  priceLabel?: string;
+  locationName?: string;
 };
 
 type SearchState = {
@@ -42,6 +46,12 @@ type TradeBuilderProps = {
 
 function formatItemMeta(item: TradeBuilderItem) {
   return `${item.setCode.toUpperCase()} #${item.collectorNumber} / ${item.foilStatus.toLowerCase()} / ${item.condition}`;
+}
+
+function colorIdentityLabel(value: unknown) {
+  if (Array.isArray(value)) return value.map(String).join("") || "C";
+  if (typeof value === "string") return value.replace(/[^A-Za-z]/g, "") || "C";
+  return "C";
 }
 
 function emptySearchState(): SearchState {
@@ -93,6 +103,9 @@ function TradeSlot({
             <p className="mt-1 text-xs text-zinc-400">{formatItemMeta(item)}</p>
             <p className="mt-2 text-xs text-zinc-300">
               {item.available} available / {item.quantity} owned
+            </p>
+            <p className="mt-1 text-xs text-zinc-500">
+              {[item.priceLabel, item.locationName].filter(Boolean).join(" / ")}
             </p>
           </div>
         </div>
@@ -230,11 +243,23 @@ function TradeInventorySearch({
                     {item.cardName}
                   </span>
                   <span className="block truncate text-xs text-zinc-500">
-                    {formatItemMeta(item)}
+                    {[formatItemMeta(item), item.locationName]
+                      .filter(Boolean)
+                      .join(" / ")}
+                  </span>
+                  <span className="block truncate text-xs text-zinc-600">
+                    {[item.typeLine, item.priceLabel]
+                      .filter(Boolean)
+                      .join(" / ")}
                   </span>
                 </span>
-                <span className="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-300">
-                  {item.available}
+                <span className="flex flex-col items-end gap-1">
+                  <span className="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-300">
+                    {item.available}
+                  </span>
+                  <span className="rounded border border-zinc-800 px-2 py-1 text-xs text-zinc-500">
+                    {colorIdentityLabel(item.colorIdentity)}
+                  </span>
                 </span>
               </button>
             );
@@ -295,24 +320,40 @@ export function TradeBuilder({
         value={requested?.id ?? ""}
       />
 
-      <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-start">
-        <TradeSlot
-          title={`${proposerName} offers`}
-          emptyLabel="Search your inventory and select one card."
-          item={offered ?? undefined}
-          onClear={() => setOffered(null)}
-        />
-        <div className="flex items-center justify-center py-2 lg:min-h-36">
-          <span className="rounded-full border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-300">
-            proposal
+      <div className="sticky top-2 z-10 rounded border border-zinc-800 bg-zinc-950/95 p-3 shadow-xl shadow-black/20">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="font-semibold text-zinc-100">Proposal draft</h3>
+            <p className="text-xs text-zinc-400">
+              {proposerName} offers one card for one card from {receiverName}.
+            </p>
+          </div>
+          <span className="rounded border border-zinc-800 px-2 py-1 text-xs text-zinc-400">
+            {[
+              offered ? "Offer selected" : "Choose offer",
+              requested ? "Request selected" : "Choose request",
+            ].join(" / ")}
           </span>
         </div>
-        <TradeSlot
-          title={`${receiverName} gives`}
-          emptyLabel="Search their inventory and select one card."
-          item={requested ?? undefined}
-          onClear={() => setRequested(null)}
-        />
+        <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-start">
+          <TradeSlot
+            title={`${proposerName} offers`}
+            emptyLabel="Search your inventory and select one card."
+            item={offered ?? undefined}
+            onClear={() => setOffered(null)}
+          />
+          <div className="flex items-center justify-center py-2 lg:min-h-36">
+            <span className="rounded-full border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-300">
+              for
+            </span>
+          </div>
+          <TradeSlot
+            title={`${receiverName} gives`}
+            emptyLabel="Search their inventory and select one card."
+            item={requested ?? undefined}
+            onClear={() => setRequested(null)}
+          />
+        </div>
       </div>
 
       <div className="grid gap-3 lg:grid-cols-2">

@@ -82,7 +82,10 @@ export function LocationContentsDeleteForm({
         type="button"
         onClick={submitDelete}
         disabled={isPending}
-        className={cn(filterDangerButtonClass, "inline-flex items-center gap-2")}
+        className={cn(
+          filterDangerButtonClass,
+          "inline-flex items-center gap-2",
+        )}
       >
         {isPending ? <LoadingSpinner className="h-3 w-3" /> : null}
         {isPending ? "Deleting contents…" : "Delete contents"}

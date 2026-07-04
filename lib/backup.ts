@@ -92,7 +92,10 @@ export function loadEnvFile(path = ".env") {
       const index = line.indexOf("=");
       if (index === -1) continue;
       const key = line.slice(0, index).trim();
-      const value = line.slice(index + 1).trim().replace(/^["']|["']$/g, "");
+      const value = line
+        .slice(index + 1)
+        .trim()
+        .replace(/^["']|["']$/g, "");
       if (key && process.env[key] === undefined) process.env[key] = value;
     }
   } catch (error: any) {
@@ -100,7 +103,9 @@ export function loadEnvFile(path = ".env") {
   }
 }
 
-export function getBackupDir(env: Record<string, string | undefined> = process.env) {
+export function getBackupDir(
+  env: Record<string, string | undefined> = process.env,
+) {
   return env.BACKUP_DIR || env.BACKUPS_DATA_PATH || "/app/backups";
 }
 
@@ -243,7 +248,9 @@ export async function listBackups(
   await mkdir(backupDir, { recursive: true });
   const files = await readdir(backupDir);
   const backups = files
-    .filter((file) => file.startsWith(BACKUP_PREFIX) && file.endsWith(BACKUP_SUFFIX))
+    .filter(
+      (file) => file.startsWith(BACKUP_PREFIX) && file.endsWith(BACKUP_SUFFIX),
+    )
     .sort()
     .reverse();
 
@@ -335,12 +342,15 @@ export async function applyRetention(backupDir = resolve(getBackupDir())) {
     for (const entry of entries.slice(0, count)) keep.add(entry.path);
   }
   const cutoff =
-    days > 0 ? Date.now() - days * 24 * 60 * 60 * 1000 : Number.NEGATIVE_INFINITY;
+    days > 0
+      ? Date.now() - days * 24 * 60 * 60 * 1000
+      : Number.NEGATIVE_INFINITY;
 
   for (const entry of entries) {
     if (keep.has(entry.path)) continue;
     const createdAt = entry.createdAt ? Date.parse(entry.createdAt) : NaN;
-    const isExpiredByAge = days > 0 && Number.isFinite(createdAt) && createdAt < cutoff;
+    const isExpiredByAge =
+      days > 0 && Number.isFinite(createdAt) && createdAt < cutoff;
     const isExpiredByCount = count > 0 && entries.indexOf(entry) >= count;
     if (!isExpiredByAge && !isExpiredByCount) continue;
     if (resolve(dirname(entry.path)) !== resolve(backupDir)) {
@@ -398,7 +408,13 @@ export async function restoreBackup(
   );
   await runCommand(
     "pg_restore",
-    ["--dbname", connection.database, "--no-owner", "--no-acl", join(extractDir, DB_DUMP_FILENAME)],
+    [
+      "--dbname",
+      connection.database,
+      "--no-owner",
+      "--no-acl",
+      join(extractDir, DB_DUMP_FILENAME),
+    ],
     { env: buildPgEnv(connection) },
   );
 
@@ -412,7 +428,13 @@ export async function restoreBackup(
 export async function readManifestFromBackup(backupPath: string) {
   const workspace = await mkdtemp(join(tmpdir(), "mtg-archives-manifest-"));
   try {
-    await runCommand("tar", ["-xzf", backupPath, "-C", workspace, MANIFEST_FILENAME]);
+    await runCommand("tar", [
+      "-xzf",
+      backupPath,
+      "-C",
+      workspace,
+      MANIFEST_FILENAME,
+    ]);
     return JSON.parse(
       await readFile(join(workspace, MANIFEST_FILENAME), "utf8"),
     ) as BackupManifest;
@@ -472,7 +494,9 @@ async function prepareAppdataArchive(bundleRoot: string) {
     const sourcePath = resolve(entry.sourcePath);
     const info = await stat(sourcePath).catch(() => null);
     if (!info?.isDirectory()) continue;
-    await mkdir(dirname(join(bundleRoot, entry.archivePath)), { recursive: true });
+    await mkdir(dirname(join(bundleRoot, entry.archivePath)), {
+      recursive: true,
+    });
     await cp(sourcePath, join(bundleRoot, entry.archivePath), {
       recursive: true,
       dereference: false,
@@ -481,7 +505,13 @@ async function prepareAppdataArchive(bundleRoot: string) {
     existing.push({ ...entry, sourcePath });
   }
   if (existing.length === 0) return [];
-  await runCommand("tar", ["-czf", join(bundleRoot, APPDATA_ARCHIVE_FILENAME), "-C", bundleRoot, "appdata"]);
+  await runCommand("tar", [
+    "-czf",
+    join(bundleRoot, APPDATA_ARCHIVE_FILENAME),
+    "-C",
+    bundleRoot,
+    "appdata",
+  ]);
   await rm(stagingRoot, { recursive: true, force: true });
   return existing;
 }
@@ -500,14 +530,21 @@ async function restoreAppdata(extractDir: string, manifest: BackupManifest) {
     for (const child of await readdir(targetPath)) {
       await rm(join(targetPath, child), { recursive: true, force: true });
     }
-    await cp(join(extractDir, entry.archivePath), targetPath, { recursive: true });
+    await cp(join(extractDir, entry.archivePath), targetPath, {
+      recursive: true,
+    });
   }
 }
 
 function assertSafeRestoreTarget(targetPath: string) {
   const parsed = parse(targetPath);
-  if (targetPath === parsed.root || targetPath.length < parsed.root.length + 4) {
-    throw new Error(`Refusing to restore appdata into unsafe path: ${targetPath}`);
+  if (
+    targetPath === parsed.root ||
+    targetPath.length < parsed.root.length + 4
+  ) {
+    throw new Error(
+      `Refusing to restore appdata into unsafe path: ${targetPath}`,
+    );
   }
   if (isInsidePath(resolve(getBackupDir()), targetPath)) {
     throw new Error("Refusing to restore appdata into the backup directory.");
@@ -521,7 +558,9 @@ function validateManifest(manifest: BackupManifest) {
     manifest.database?.format !== "pg_dump_custom" ||
     manifest.database?.filename !== DB_DUMP_FILENAME
   ) {
-    throw new Error("Backup manifest is not compatible with this restore tool.");
+    throw new Error(
+      "Backup manifest is not compatible with this restore tool.",
+    );
   }
 }
 
@@ -560,7 +599,9 @@ async function getGitSha() {
 }
 
 function timestampFromBackupFilename(filename: string) {
-  const match = filename.match(/^mtg-archives-backup-(\d{8})-(\d{6})\.tar\.gz$/);
+  const match = filename.match(
+    /^mtg-archives-backup-(\d{8})-(\d{6})\.tar\.gz$/,
+  );
   if (!match) return null;
   const [, date, time] = match;
   return `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(
@@ -617,7 +658,8 @@ async function runCommand(
     child.on("error", reject);
     child.on("close", (code) => {
       if (code === 0) resolveCommand({ stdout, stderr });
-      else reject(new Error(`${command} exited with ${code}: ${stderr.trim()}`));
+      else
+        reject(new Error(`${command} exited with ${code}: ${stderr.trim()}`));
     });
   });
 }

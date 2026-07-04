@@ -86,11 +86,17 @@ test("inventory detail drawer supports meld card flip and partner links", async 
   await firstActions.click();
   await page.getByRole("button", { name: "View details" }).click();
 
-  await expect(page.getByRole("button", { name: "Show back face" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Show back face" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Show back face" }).click();
-  await expect(page.getByRole("button", { name: "Show front face" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Show front face" }),
+  ).toBeVisible();
   await expect(page.getByText("Meld partner")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Find in inventory" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Find in inventory" }),
+  ).toBeVisible();
   expect(
     await page.getByRole("link", { name: "View on Scryfall" }).count(),
   ).toBeGreaterThanOrEqual(2);

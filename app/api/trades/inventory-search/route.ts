@@ -15,6 +15,22 @@ function cardImage(card: { imageUri?: string | null; imageUris?: unknown }) {
   return imageUris?.small ?? imageUris?.normal ?? card.imageUri ?? "";
 }
 
+function selectedPriceLabel(prices: unknown) {
+  const values = prices && typeof prices === "object" ? (prices as any) : {};
+  const mtgjson =
+    values.mtgjson && typeof values.mtgjson === "object"
+      ? (values.mtgjson as any)
+      : {};
+  const value =
+    mtgjson.price ??
+    mtgjson.usd ??
+    values.usd ??
+    values.usd_foil ??
+    values.usd_etched ??
+    "";
+  return value ? `$${Number(value).toFixed(2)}` : "";
+}
+
 export async function GET(request: Request) {
   const actor = await requireLogin();
   const scope = await getAccessScope(actor);
@@ -63,7 +79,7 @@ export async function GET(request: Request) {
         ],
       },
     },
-    include: { card: true },
+    include: { card: true, location: true },
     orderBy: [{ card: { name: "asc" } }, { card: { setCode: "asc" } }],
     take: 24,
   });
@@ -105,6 +121,10 @@ export async function GET(request: Request) {
       quantity: item.quantity,
       available: Math.max(0, item.quantity - (reservedCount.get(item.id) || 0)),
       imageUri: cardImage(item.card),
+      typeLine: item.card.typeLine,
+      colorIdentity: item.card.colorIdentity,
+      priceLabel: selectedPriceLabel(item.card.prices),
+      locationName: item.location?.name ?? "Unassigned",
     })),
   });
 }

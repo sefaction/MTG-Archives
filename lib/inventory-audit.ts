@@ -22,8 +22,7 @@ export const inventoryAuditAction = {
 } as const;
 
 export type InventoryAuditAction =
-  | (typeof inventoryAuditAction)[keyof typeof inventoryAuditAction]
-  | string;
+  (typeof inventoryAuditAction)[keyof typeof inventoryAuditAction] | string;
 
 type InventoryAuditDelegate = Pick<
   Prisma.TransactionClient,
