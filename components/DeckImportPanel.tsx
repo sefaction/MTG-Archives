@@ -129,30 +129,59 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
   const [lines, setLines] = useState<DeckImportReviewLine[]>([]);
   const [skippedLines, setSkippedLines] = useState<DeckImportReviewLine[]>([]);
   const [loading, setLoading] = useState(false);
+  const [resolving, setResolving] = useState(false);
   const [error, setError] = useState("");
   const [mode, setMode] = useState("merge");
   const [commitError, setCommitError] = useState("");
 
+  async function fetchDecklistResolution(mode: "parse" | "resolve") {
+    const res = await fetch("/api/decks/import/resolve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, mode }),
+    });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new Error(
+        body && typeof body.error === "string"
+          ? body.error
+          : "Decklist resolution failed.",
+      );
+    }
+    return body as DeckImportResolution;
+  }
+
   async function resolveDecklist() {
+    let parsedReviewAvailable = false;
     setLoading(true);
+    setResolving(false);
     setError("");
     setCommitError("");
     setLines([]);
     setSkippedLines([]);
     try {
-      const res = await fetch("/api/decks/import/resolve", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-      if (!res.ok) throw new Error("Decklist resolution failed.");
-      const resolution = (await res.json()) as DeckImportResolution;
+      const parsed = await fetchDecklistResolution("parse");
+      setLines(parsed.lines);
+      setSkippedLines(parsed.skippedLines ?? []);
+      parsedReviewAvailable =
+        parsed.lines.length > 0 || (parsed.skippedLines ?? []).length > 0;
+      setLoading(false);
+
+      setResolving(true);
+      const resolution = await fetchDecklistResolution("resolve");
       setLines(resolution.lines);
       setSkippedLines(resolution.skippedLines ?? []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Decklist resolution failed.");
+      const message =
+        e instanceof Error ? e.message : "Decklist resolution failed.";
+      setError(
+        parsedReviewAvailable
+          ? `${message} Parsed review is still available; resolve unresolved rows manually.`
+          : message,
+      );
     } finally {
       setLoading(false);
+      setResolving(false);
     }
   }
 
@@ -215,15 +244,21 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
         <button
           type="button"
           onClick={resolveDecklist}
-          disabled={loading || !text.trim()}
+          disabled={loading || resolving || !text.trim()}
           className="rounded border border-sky-700 px-3 py-2 text-sky-100 disabled:opacity-60"
         >
-          {loading ? "Parsing and resolving…" : "Parse and review"}
+          {loading
+            ? "Parsing..."
+            : resolving
+              ? "Resolving printings..."
+              : "Parse and review"}
         </button>
         <span className="text-sm text-zinc-400" aria-live="polite">
           {loading
-            ? "Parsing → resolving local matches → resolving Scryfall matches → review ready…"
-            : error || (lines.length ? "Review ready." : "")}
+            ? "Parsing decklist..."
+            : resolving
+              ? "Review ready. Resolving local and Scryfall printing matches..."
+              : error || (lines.length ? "Review ready." : "")}
         </span>
       </div>
 
