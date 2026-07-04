@@ -480,22 +480,24 @@ model WishlistItem {
 }
 
 model InventoryLocation {
-  id             String                @id @default(cuid())
-  ownerPlayerId  String
-  ownerPlayer    Player                @relation(fields: [ownerPlayerId], references: [id])
-  name           String
-  normalizedName String
-  description    String?
-  type           String?
-  kind           InventoryLocationKind @default(NORMAL)
-  deckId         String?               @unique
-  deck           Deck?                 @relation(fields: [deckId], references: [id], onDelete: Cascade)
-  systemManaged  Boolean               @default(false)
-  active         Boolean               @default(true)
-  visibility     Visibility            @default(INHERIT)
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
-  inventoryItems InventoryItem[]
+  id                        String                @id @default(cuid())
+  ownerPlayerId             String
+  ownerPlayer               Player                @relation(fields: [ownerPlayerId], references: [id])
+  name                      String
+  normalizedName            String
+  description               String?
+  type                      String?
+  kind                      InventoryLocationKind @default(NORMAL)
+  deckId                    String?               @unique
+  deck                      Deck?                 @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  systemManaged             Boolean               @default(false)
+  active                    Boolean               @default(true)
+  visibility                Visibility            @default(INHERIT)
+  createdAt                 DateTime              @default(now())
+  updatedAt                 DateTime              @updatedAt
+  inventoryItems            InventoryItem[]
+  proposerTradeDestinations Trade[]               @relation("ProposerTradeDestination")
+  receiverTradeDestinations Trade[]               @relation("ReceiverTradeDestination")
 
   @@unique([ownerPlayerId, normalizedName])
   @@index([ownerPlayerId, active])
@@ -694,33 +696,40 @@ model ImportResolutionAttempt {
 }
 
 model Trade {
-  id                       String              @id @default(cuid())
-  tradeRoundId             String?
-  tradeRound               Round?              @relation(fields: [tradeRoundId], references: [id])
-  proposerPlayerId         String
-  proposerPlayer           Player              @relation("TradeProposer", fields: [proposerPlayerId], references: [id])
-  receiverPlayerId         String
-  receiverPlayer           Player              @relation("TradeReceiver", fields: [receiverPlayerId], references: [id])
-  offeredInventoryItemId   String?
-  offeredInventoryItem     InventoryItem?      @relation("OfferedInventoryItem", fields: [offeredInventoryItemId], references: [id])
-  offeredSnapshotJson      Json?
-  requestedInventoryItemId String?
-  requestedInventoryItem   InventoryItem?      @relation("RequestedInventoryItem", fields: [requestedInventoryItemId], references: [id])
-  requestedSnapshotJson    Json?
-  status                   TradeStatus         @default(PROPOSED)
-  message                  String?
-  proposedAt               DateTime            @default(now())
-  acceptedAt               DateTime?
-  declinedAt               DateTime?
-  cancelledAt              DateTime?
-  proposerCommittedAt      DateTime?
-  receiverCommittedAt      DateTime?
-  completedAt              DateTime?
-  createdByUserId          String?
-  createdByUser            User?               @relation("TradeCreatedBy", fields: [createdByUserId], references: [id])
-  updatedAt                DateTime            @updatedAt
-  events                   TradeEvent[]
-  inventoryAuditLogs       InventoryAuditLog[]
+  id                            String              @id @default(cuid())
+  tradeRoundId                  String?
+  tradeRound                    Round?              @relation(fields: [tradeRoundId], references: [id])
+  proposerPlayerId              String
+  proposerPlayer                Player              @relation("TradeProposer", fields: [proposerPlayerId], references: [id])
+  receiverPlayerId              String
+  receiverPlayer                Player              @relation("TradeReceiver", fields: [receiverPlayerId], references: [id])
+  offeredInventoryItemId        String?
+  offeredInventoryItem          InventoryItem?      @relation("OfferedInventoryItem", fields: [offeredInventoryItemId], references: [id])
+  offeredSnapshotJson           Json?
+  requestedInventoryItemId      String?
+  requestedInventoryItem        InventoryItem?      @relation("RequestedInventoryItem", fields: [requestedInventoryItemId], references: [id])
+  requestedSnapshotJson         Json?
+  status                        TradeStatus         @default(PROPOSED)
+  message                       String?
+  proposedAt                    DateTime            @default(now())
+  acceptedAt                    DateTime?
+  declinedAt                    DateTime?
+  cancelledAt                   DateTime?
+  proposerCommittedAt           DateTime?
+  receiverCommittedAt           DateTime?
+  proposerDestinationLocationId String?
+  proposerDestinationLocation   InventoryLocation?  @relation("ProposerTradeDestination", fields: [proposerDestinationLocationId], references: [id], onDelete: SetNull)
+  receiverDestinationLocationId String?
+  receiverDestinationLocation   InventoryLocation?  @relation("ReceiverTradeDestination", fields: [receiverDestinationLocationId], references: [id], onDelete: SetNull)
+  completedAt                   DateTime?
+  createdByUserId               String?
+  createdByUser                 User?               @relation("TradeCreatedBy", fields: [createdByUserId], references: [id])
+  updatedAt                     DateTime            @updatedAt
+  events                        TradeEvent[]
+  inventoryAuditLogs            InventoryAuditLog[]
+
+  @@index([proposerDestinationLocationId])
+  @@index([receiverDestinationLocationId])
 }
 
 model TradeEvent {

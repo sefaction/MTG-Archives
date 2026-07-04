@@ -361,10 +361,24 @@ async function addToReceiver(
     Awaited<ReturnType<typeof loadTradeForAction>>["offeredInventoryItem"]
   >,
   toPlayerId: string,
+  destinationLocationId: string | null | undefined,
   actorUserId: string,
   reason: string,
 ) {
-  const destinationLocation = await ensureDefaultLocation(tx, toPlayerId);
+  const destinationLocation = destinationLocationId
+    ? await tx.inventoryLocation.findFirst({
+        where: {
+          id: destinationLocationId,
+          ownerPlayerId: toPlayerId,
+          active: true,
+          kind: InventoryLocationKind.NORMAL,
+          systemManaged: false,
+        },
+      })
+    : await ensureDefaultLocation(tx, toPlayerId);
+  if (!destinationLocation) {
+    throw new Error("Selected trade destination location is not available.");
+  }
   const existing = await tx.inventoryItem.findFirst({
     where: {
       currentOwnerId: toPlayerId,
@@ -500,6 +514,7 @@ async function completeTradeIfReady(
       tradeId,
       offered as any,
       trade.receiverPlayerId,
+      trade.receiverDestinationLocationId,
       actorUserId,
       reason,
     );
@@ -508,6 +523,7 @@ async function completeTradeIfReady(
       tradeId,
       requested as any,
       trade.proposerPlayerId,
+      trade.proposerDestinationLocationId,
       actorUserId,
       reason,
     );
@@ -526,6 +542,25 @@ async function completeTradeIfReady(
   });
 }
 
+async function assertTradeDestinationLocation(
+  locationId: string,
+  ownerPlayerId: string,
+) {
+  const location = await prisma.inventoryLocation.findFirst({
+    where: {
+      id: locationId,
+      ownerPlayerId,
+      active: true,
+      kind: InventoryLocationKind.NORMAL,
+      systemManaged: false,
+    },
+    select: { id: true },
+  });
+  if (!location) {
+    throw new Error("Choose an active normal location for the incoming card.");
+  }
+}
+
 export async function confirmPhysicalTrade(fd: FormData) {
   const actor = await requireLogin();
   const actorScope = await getAccessScope(actor);
@@ -534,6 +569,7 @@ export async function confirmPhysicalTrade(fd: FormData) {
   if (!physicalStatuses.includes(trade.status))
     throw new Error("This trade is not awaiting physical confirmation.");
   const data: any = { status: TradeStatus.PARTIALLY_COMMITTED };
+  const destinationLocationId = String(fd.get("destinationLocationId") || "");
   let eventType = "physical_confirmed";
   if (actorIsAdmin && fd.get("forceComplete")) {
     const reason = String(fd.get("reason") || "");
@@ -554,11 +590,25 @@ export async function confirmPhysicalTrade(fd: FormData) {
   if (actor.playerId === trade.proposerPlayerId) {
     if (trade.proposerCommittedAt)
       throw new Error("You have already confirmed this physical exchange.");
+    if (destinationLocationId) {
+      await assertTradeDestinationLocation(
+        destinationLocationId,
+        actor.playerId,
+      );
+      data.proposerDestinationLocationId = destinationLocationId;
+    }
     data.proposerCommittedAt = new Date();
     eventType = "proposer_confirmed_physical_exchange";
   } else if (actor.playerId === trade.receiverPlayerId) {
     if (trade.receiverCommittedAt)
       throw new Error("You have already confirmed this physical exchange.");
+    if (destinationLocationId) {
+      await assertTradeDestinationLocation(
+        destinationLocationId,
+        actor.playerId,
+      );
+      data.receiverDestinationLocationId = destinationLocationId;
+    }
     data.receiverCommittedAt = new Date();
     eventType = "receiver_confirmed_physical_exchange";
   } else {
