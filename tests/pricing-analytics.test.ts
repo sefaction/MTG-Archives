@@ -12,13 +12,28 @@ test("pricing analytics page and navigation are wired", () => {
   assert.match(nav, /href: "\/pricing"/);
   assert.match(inventory, /View value trends/);
   assert.match(adminPrices, /Pricing worker/);
-  assert.match(pricingPage, /Pricing analytics disabled/);
-  assert.match(pricingPage, /separate service/);
-  assert.doesNotMatch(pricingPage, /Top gainers|Top losers/);
+  assert.match(pricingPage, /Pricing analytics/);
+  assert.match(pricingPage, /getPricingDashboard/);
+  assert.match(pricingPage, /enrichMovers/);
+  assert.match(pricingPage, /prisma\.card\.findMany/);
+  assert.match(pricingPage, /separate pricing database/);
+  assert.match(pricingPage, /Market movers/);
+  assert.match(pricingPage, /Data status/);
+  assert.match(pricingPage, /getCollectionValueSummary/);
+  assert.match(pricingPage, /Collection value/);
+  assert.match(pricingPage, /Value by location/);
+  assert.match(pricingPage, /Value by deck/);
+  assert.match(pricingPage, /selectPreferredCardPrice/);
+  assert.match(pricingPage, /Provider coverage/);
+  assert.match(pricingPage, /Top gainers/);
+  assert.match(pricingPage, /Top losers/);
+  assert.match(pricingPage, /Largest percentage moves/);
+  assert.match(pricingPage, /activeView === "data"/);
 });
 
 test("pricing analytics helpers remain lightweight during worker scaffold phase", () => {
   const helper = readFileSync("lib/pricing-analytics.ts", "utf8");
+  const workerStore = readFileSync("lib/pricing-worker-store.ts", "utf8");
   assert.match(helper, /getPricingAnalytics/);
   assert.match(helper, /topGainers/);
   assert.match(helper, /topLosers/);
@@ -28,6 +43,11 @@ test("pricing analytics helpers remain lightweight during worker scaffold phase"
     helper,
     /CardPriceSnapshot|priceSnapshots|PRICING_DATABASE_URL/,
   );
+  assert.match(workerStore, /getPricingDashboard/);
+  assert.match(workerStore, /topGainers/);
+  assert.match(workerStore, /topLosers/);
+  assert.match(workerStore, /topPercentMoves/);
+  assert.match(workerStore, /price_snapshots/);
   assert.equal(money(12.3), "$12.30");
 });
 
