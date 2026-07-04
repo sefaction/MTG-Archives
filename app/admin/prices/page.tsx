@@ -8,6 +8,7 @@ import { PricingDashboardAutoRefresh } from "@/components/admin/PricingDashboard
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { prisma } from "@/lib/prisma";
 import {
+  enqueueMtgjsonMappingJob,
   enqueuePricingRefreshJob,
   listPricingWorkerStatus,
 } from "@/lib/pricing-worker-store";
@@ -21,6 +22,21 @@ async function enqueueRefreshJob() {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unable to queue pricing job.";
+    redirect(`/admin/prices?error=${encodeURIComponent(message)}`);
+  }
+  revalidatePath("/admin/prices");
+  redirect(`/admin/prices?queued=${encodeURIComponent(jobId)}`);
+}
+
+async function enqueueMappingJob() {
+  "use server";
+  const user = await requireAdminMode();
+  let jobId: string;
+  try {
+    jobId = await enqueueMtgjsonMappingJob(user.username);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unable to queue mapping job.";
     redirect(`/admin/prices?error=${encodeURIComponent(message)}`);
   }
   revalidatePath("/admin/prices");
@@ -59,20 +75,26 @@ function numberLabel(value: number | bigint | null | undefined) {
 async function getCurrentPriceProjectionStats() {
   const [row] = await prisma.$queryRaw<
     Array<{
+      total_count: bigint;
       projected_count: bigint;
       eligible_count: bigint;
+      unmapped_count: bigint;
       latest_projected_at: Date | null;
     }>
   >`
     SELECT
+      COUNT(*) AS total_count,
       COUNT(*) FILTER (WHERE prices ? 'mtgjson') AS projected_count,
       COUNT(*) FILTER (WHERE "mtgjsonUuid" IS NOT NULL) AS eligible_count,
+      COUNT(*) FILTER (WHERE "mtgjsonUuid" IS NULL) AS unmapped_count,
       MAX("priceLastFetchedAt") FILTER (WHERE prices ? 'mtgjson') AS latest_projected_at
     FROM "Card"
   `;
   return {
+    totalCount: row?.total_count ?? 0n,
     projectedCount: row?.projected_count ?? 0n,
     eligibleCount: row?.eligible_count ?? 0n,
+    unmappedCount: row?.unmapped_count ?? 0n,
     latestProjectedAt: row?.latest_projected_at ?? null,
   };
 }
@@ -131,15 +153,26 @@ export default async function AdminPricesPage({
               historical pricing out of page-load queries.
             </p>
           </div>
-          <form action={enqueueRefreshJob}>
-            <SubmitButton
-              pendingLabel="Queueing..."
-              className="rounded border border-sky-700 px-3 py-2 text-sm text-sky-100 hover:bg-sky-950"
-              confirmMessage="Queue a pricing metadata refresh job?"
-            >
-              Queue refresh job
-            </SubmitButton>
-          </form>
+          <div className="flex flex-wrap gap-2">
+            <form action={enqueueMappingJob}>
+              <SubmitButton
+                pendingLabel="Queueing..."
+                className="rounded border border-zinc-700 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-900"
+                confirmMessage="Queue an MTGJSON identifier mapping job?"
+              >
+                Map MTGJSON IDs
+              </SubmitButton>
+            </form>
+            <form action={enqueueRefreshJob}>
+              <SubmitButton
+                pendingLabel="Queueing..."
+                className="rounded border border-sky-700 px-3 py-2 text-sm text-sky-100 hover:bg-sky-950"
+                confirmMessage="Queue a pricing metadata refresh job?"
+              >
+                Queue refresh job
+              </SubmitButton>
+            </form>
+          </div>
         </div>
 
         {!status.available ? (
@@ -161,7 +194,14 @@ export default async function AdminPricesPage({
         <PricingDashboardAutoRefresh enabled={autoRefresh} />
       </section>
 
-      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <StatCard
+          label="MTGJSON identity coverage"
+          value={`${numberLabel(projection.eligibleCount)} / ${numberLabel(
+            projection.totalCount,
+          )}`}
+          detail={`${numberLabel(projection.unmappedCount)} cards unmapped`}
+        />
         <StatCard
           label="Current price coverage"
           value={`${numberLabel(projection.projectedCount)} / ${numberLabel(

@@ -271,6 +271,24 @@ const detailHeaderClass =
   "border-b border-zinc-800 bg-zinc-900 px-3 py-2 text-xs font-semibold uppercase tracking-normal text-zinc-200";
 const detailBodyClass = "space-y-3 p-3";
 
+type CardPriceHistoryResponse = {
+  available: boolean;
+  card: { id: string; name: string; mtgjsonUuid: string | null } | null;
+  provider: string;
+  finish: string;
+  priceType: string;
+  currency: string;
+  range: "7" | "30" | "90" | "all";
+  points: Array<{ observedDate: string; price: number }>;
+  change: {
+    start: number | null;
+    current: number | null;
+    absolute: number | null;
+    percent: number | null;
+  };
+  error?: string;
+};
+
 function isHexColor(value?: string) {
   return Boolean(value && /^#[0-9a-fA-F]{6}$/.test(value));
 }
@@ -667,6 +685,164 @@ function InventoryDetailPanel({
   );
 }
 
+function priceHistoryFinish(row: InventoryRow) {
+  if (row.foilStatus === "FOIL") return "foil";
+  if (row.foilStatus === "ETCHED") return "etched";
+  return "normal";
+}
+
+function formatHistoryMoney(value: number | null | undefined, currency = "USD") {
+  if (value === null || value === undefined || !Number.isFinite(value))
+    return "-";
+  const prefix = currency === "USD" ? "$" : `${currency} `;
+  return `${prefix}${value.toFixed(2)}`;
+}
+
+function formatHistoryChange(
+  change: CardPriceHistoryResponse["change"],
+  currency: string,
+) {
+  if (change.absolute === null) return "-";
+  const sign = change.absolute > 0 ? "+" : "";
+  const percent =
+    change.percent === null ? "" : ` (${sign}${change.percent.toFixed(1)}%)`;
+  return `${sign}${formatHistoryMoney(change.absolute, currency)}${percent}`;
+}
+
+function CardPriceHistoryPanel({ row }: { row: InventoryRow }) {
+  const [open, setOpen] = useState(false);
+  const [history, setHistory] = useState<CardPriceHistoryResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const finish = priceHistoryFinish(row);
+
+  useEffect(() => {
+    if (!open || history) return;
+    let cancelled = false;
+    async function loadHistory() {
+      setLoading(true);
+      setError("");
+      try {
+        const params = new URLSearchParams({
+          cardId: row.cardId,
+          finish,
+          provider: "tcgplayer",
+          priceType: "retail",
+          currency: "USD",
+          range: "90",
+        });
+        const response = await fetch(`/api/pricing/card-history?${params}`);
+        const data = (await response.json()) as CardPriceHistoryResponse & {
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!response.ok) {
+          setError(data.error || "Unable to load price history.");
+          setHistory(null);
+          return;
+        }
+        setHistory(data);
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Unable to load price history.",
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void loadHistory();
+    return () => {
+      cancelled = true;
+    };
+  }, [finish, history, open, row.cardId]);
+
+  const points = history?.points ?? [];
+  const latestPoints = points.slice(-6).reverse();
+  return (
+    <section className={detailBlockClass}>
+      <button
+        type="button"
+        className={cn(
+          detailHeaderClass,
+          "flex w-full items-center justify-between text-left",
+        )}
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+      >
+        <span>Price history</span>
+        <span className="text-zinc-500">{open ? "Hide" : "Show"}</span>
+      </button>
+      {open ? (
+        <div className={detailBodyClass}>
+          {loading ? (
+            <div className="flex items-center gap-2 text-zinc-400">
+              <LoadingSpinner className="h-3 w-3" />
+              Loading price history...
+            </div>
+          ) : error ? (
+            <p className="text-red-200">{error}</p>
+          ) : history && !history.available ? (
+            <p className="text-zinc-400">
+              Pricing history is unavailable right now.
+            </p>
+          ) : history && !history.card?.mtgjsonUuid ? (
+            <p className="text-zinc-400">
+              This printing has not been mapped to MTGJSON yet.
+            </p>
+          ) : history && !points.length ? (
+            <p className="text-zinc-400">
+              No 90-day TCGplayer history has been imported for this printing.
+            </p>
+          ) : history ? (
+            <>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded border border-zinc-800 bg-zinc-900/70 p-2">
+                  <div className="text-xs uppercase text-zinc-500">Current</div>
+                  <div className="font-semibold">
+                    {formatHistoryMoney(
+                      history.change.current,
+                      history.currency,
+                    )}
+                  </div>
+                </div>
+                <div className="rounded border border-zinc-800 bg-zinc-900/70 p-2">
+                  <div className="text-xs uppercase text-zinc-500">Start</div>
+                  <div className="font-semibold">
+                    {formatHistoryMoney(history.change.start, history.currency)}
+                  </div>
+                </div>
+                <div className="rounded border border-zinc-800 bg-zinc-900/70 p-2">
+                  <div className="text-xs uppercase text-zinc-500">Change</div>
+                  <div className="font-semibold">
+                    {formatHistoryChange(history.change, history.currency)}
+                  </div>
+                </div>
+              </div>
+              <div className="overflow-hidden rounded border border-zinc-800">
+                {latestPoints.map((point) => (
+                  <div
+                    key={point.observedDate}
+                    className="flex justify-between border-t border-zinc-800 px-2 py-1 first:border-t-0"
+                  >
+                    <span className="text-zinc-400">{point.observedDate}</span>
+                    <span className="font-medium">
+                      {formatHistoryMoney(point.price, history.currency)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function CardDetail({
   row,
   onClose,
@@ -782,6 +958,9 @@ function CardDetail({
               visibleLocationBreakdown={visibleLocationBreakdown}
               priceLabel={priceLabel}
             />
+            {capabilities.canViewPrivateSourceInfo ? (
+              <CardPriceHistoryPanel row={row} />
+            ) : null}
           </aside>
           <div className="space-y-3 text-sm">
             <section className={detailBlockClass}>

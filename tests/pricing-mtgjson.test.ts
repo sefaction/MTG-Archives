@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { extractMtgjsonPriceSnapshots } from "../lib/pricing-mtgjson";
+import {
+  extractMtgjsonIdentifierMappings,
+  extractMtgjsonPriceSnapshots,
+} from "../lib/pricing-mtgjson";
 import {
   formatSelectedPrice,
   selectPreferredCardPrice,
@@ -140,6 +143,31 @@ test("target MTGJSON UUID filtering skips unrelated cards", () => {
 
   assert.equal(snapshots.length, 1);
   assert.equal(snapshots[0].mtgjsonUuid, "owned-one");
+});
+
+test("extracts MTGJSON identifier mappings by Scryfall id", () => {
+  const mappings = extractMtgjsonIdentifierMappings({
+    data: {
+      "mtgjson-uuid-one": {
+        identifiers: {
+          scryfallId: "scryfall-one",
+          scryfallOracleId: "oracle-one",
+        },
+      },
+      "mtgjson-uuid-two": {
+        uuid: "canonical-uuid-two",
+        identifiers: { scryfallId: "scryfall-two" },
+      },
+      "mtgjson-uuid-three": {
+        identifiers: { scryfallOracleId: "oracle-three" },
+      },
+    },
+  });
+
+  assert.deepEqual(mappings, [
+    { mtgjsonUuid: "mtgjson-uuid-one", scryfallId: "scryfall-one" },
+    { mtgjsonUuid: "canonical-uuid-two", scryfallId: "scryfall-two" },
+  ]);
 });
 
 test("preferred pricing selector uses current MTGJSON projection before Scryfall", () => {

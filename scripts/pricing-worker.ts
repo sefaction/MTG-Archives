@@ -1,7 +1,10 @@
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import os from "node:os";
-import { extractMtgjsonPriceSnapshots } from "../lib/pricing-mtgjson";
+import {
+  extractMtgjsonIdentifierMappings,
+  extractMtgjsonPriceSnapshots,
+} from "../lib/pricing-mtgjson";
 
 type WorkerOptions = {
   once: boolean;
@@ -10,9 +13,13 @@ type WorkerOptions = {
   databaseUrl: string;
   appDatabaseUrl: string | null;
   mtgjsonAllPricesUrl: string;
+  mtgjsonAllIdentifiersUrl: string;
   defaultCurrency: string;
   importBatchSize: number;
   maxCards: number;
+  autoScheduleEnabled: boolean;
+  dailyRefreshEnabled: boolean;
+  dailyIdentifierMappingEnabled: boolean;
 };
 
 const args = new Set(process.argv.slice(2));
@@ -22,6 +29,12 @@ function envInt(name: string, fallback: number) {
   if (!raw) return fallback;
   const parsed = Number.parseInt(raw, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function envBool(name: string, fallback: boolean) {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  return ["1", "true", "yes", "on"].includes(raw.toLowerCase());
 }
 
 function redactDatabaseUrl(url: string) {
@@ -58,9 +71,18 @@ function options(): WorkerOptions {
     mtgjsonAllPricesUrl:
       process.env.MTGJSON_ALL_PRICES_URL ||
       `${process.env.MTGJSON_BASE_URL || "https://mtgjson.com/api/v5"}/AllPricesToday.json`,
+    mtgjsonAllIdentifiersUrl:
+      process.env.MTGJSON_ALL_IDENTIFIERS_URL ||
+      `${process.env.MTGJSON_BASE_URL || "https://mtgjson.com/api/v5"}/AllIdentifiers.json`,
     defaultCurrency: process.env.MTGJSON_PRICE_CURRENCY_DEFAULT || "USD",
     importBatchSize: envInt("PRICING_IMPORT_BATCH_SIZE", 500),
     maxCards: envInt("PRICING_IMPORT_MAX_CARDS", 0),
+    autoScheduleEnabled: envBool("PRICING_AUTO_SCHEDULE_ENABLED", true),
+    dailyRefreshEnabled: envBool("PRICING_DAILY_REFRESH_ENABLED", true),
+    dailyIdentifierMappingEnabled: envBool(
+      "PRICING_DAILY_IDENTIFIER_MAPPING_ENABLED",
+      true,
+    ),
   };
 }
 
@@ -154,6 +176,16 @@ CREATE TABLE IF NOT EXISTS price_import_jobs (
   error TEXT
 );
 
+CREATE TABLE IF NOT EXISTS price_scheduler_runs (
+  id BIGSERIAL PRIMARY KEY,
+  schedule_key TEXT NOT NULL,
+  job_type TEXT NOT NULL,
+  scheduled_for DATE NOT NULL,
+  job_id TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  metadata_json JSONB
+);
+
 ALTER TABLE price_import_jobs
   ADD COLUMN IF NOT EXISTS processed_count INTEGER NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS inserted_count INTEGER NOT NULL DEFAULT 0,
@@ -195,6 +227,9 @@ CREATE INDEX IF NOT EXISTS price_snapshots_provider_currency_observed_idx
 
 CREATE INDEX IF NOT EXISTS price_import_jobs_status_created_idx
   ON price_import_jobs (status, created_at);
+
+CREATE UNIQUE INDEX IF NOT EXISTS price_scheduler_runs_key_date_idx
+  ON price_scheduler_runs (schedule_key, scheduled_for);
 
 CREATE INDEX IF NOT EXISTS price_worker_logs_created_idx
   ON price_worker_logs (created_at DESC);
@@ -240,6 +275,98 @@ VALUES (${sqlString(runId)}, ${sqlString(workerId)}, ${sqlString(level)}, ${sqlS
   );
 }
 
+function enqueueScheduledJob(
+  databaseUrl: string,
+  scheduleKey: string,
+  jobType: string,
+  workerId: string,
+) {
+  const jobId = randomUUID();
+  const output = psqlOutput(
+    databaseUrl,
+    `
+WITH inserted_schedule AS (
+  INSERT INTO price_scheduler_runs (
+    schedule_key,
+    job_type,
+    scheduled_for,
+    job_id,
+    metadata_json
+  )
+  VALUES (
+    ${sqlString(scheduleKey)},
+    ${sqlString(jobType)},
+    CURRENT_DATE,
+    ${sqlString(jobId)},
+    ${sqlJson({ source: "pricing-worker", workerId })}
+  )
+  ON CONFLICT (schedule_key, scheduled_for) DO NOTHING
+  RETURNING job_id
+),
+inserted_job AS (
+  INSERT INTO price_import_jobs (
+    id,
+    type,
+    status,
+    requested_by,
+    payload_json
+  )
+  SELECT
+    job_id,
+    ${sqlString(jobType)},
+    'QUEUED',
+    ${sqlString("pricing-worker")},
+    ${sqlJson({ source: "scheduler", scheduleKey })}
+  FROM inserted_schedule
+  RETURNING id
+)
+SELECT COALESCE(json_agg(id), '[]'::json) FROM inserted_job;
+`,
+  );
+  return (JSON.parse(output || "[]") as string[])[0] || null;
+}
+
+function enqueueDueScheduledJobs(opts: WorkerOptions, runId: string) {
+  if (!opts.autoScheduleEnabled) return [];
+  const enqueued: Array<{ jobId: string; type: string }> = [];
+  const schedules = [
+    opts.dailyIdentifierMappingEnabled
+      ? {
+          scheduleKey: "daily-mtgjson-identifiers",
+          jobType: "MTGJSON_MAP_IDENTIFIERS",
+        }
+      : null,
+    opts.dailyRefreshEnabled
+      ? {
+          scheduleKey: "daily-mtgjson-refresh",
+          jobType: "MTGJSON_REFRESH_ALL",
+        }
+      : null,
+  ].filter((schedule): schedule is { scheduleKey: string; jobType: string } =>
+    Boolean(schedule),
+  );
+
+  for (const schedule of schedules) {
+    const jobId = enqueueScheduledJob(
+      opts.databaseUrl,
+      schedule.scheduleKey,
+      schedule.jobType,
+      opts.workerId,
+    );
+    if (!jobId) continue;
+    enqueued.push({ jobId, type: schedule.jobType });
+    log(
+      opts.databaseUrl,
+      runId,
+      opts.workerId,
+      "info",
+      "Pricing scheduler queued job.",
+      { jobId, jobType: schedule.jobType, scheduleKey: schedule.scheduleKey },
+    );
+  }
+  return enqueued;
+}
+
 function claimQueuedJobs(databaseUrl: string) {
   const output = psqlOutput(
     databaseUrl,
@@ -261,7 +388,17 @@ WITH claimed AS (
 SELECT COALESCE(json_agg(row_to_json(claimed)), '[]'::json) FROM claimed;
 `,
   );
-  return JSON.parse(output || "[]") as Array<{ id: string; type: string }>;
+  const jobs = JSON.parse(output || "[]") as Array<{
+    id: string;
+    type: string;
+  }>;
+  const priority: Record<string, number> = {
+    MTGJSON_MAP_IDENTIFIERS: 0,
+    MTGJSON_REFRESH_ALL: 1,
+  };
+  return jobs.sort(
+    (a, b) => (priority[a.type] ?? 99) - (priority[b.type] ?? 99),
+  );
 }
 
 function completeJob(
@@ -298,6 +435,18 @@ async function fetchMtgjsonAllPrices(opts: WorkerOptions) {
   return response.json();
 }
 
+async function fetchMtgjsonAllIdentifiers(opts: WorkerOptions) {
+  const response = await fetch(opts.mtgjsonAllIdentifiersUrl, {
+    headers: { "user-agent": "MTG-Archives pricing-worker" },
+  });
+  if (!response.ok) {
+    throw new Error(
+      `MTGJSON identifier fetch failed with HTTP ${response.status} ${response.statusText}`,
+    );
+  }
+  return response.json();
+}
+
 function loadAppMtgjsonUuids(appDatabaseUrl: string | null) {
   if (!appDatabaseUrl) return [];
   const output = psqlOutput(
@@ -313,6 +462,50 @@ FROM (
 `,
   );
   return JSON.parse(output || "[]") as string[];
+}
+
+function publishMtgjsonIdentifierMappings(
+  appDatabaseUrl: string | null,
+  mappings: ReturnType<typeof extractMtgjsonIdentifierMappings>,
+  batchSize: number,
+) {
+  if (!appDatabaseUrl || !mappings.length) return 0;
+  let updated = 0;
+  for (let start = 0; start < mappings.length; start += batchSize) {
+    const batch = mappings.slice(start, start + batchSize);
+    const output = psqlOutput(
+      appDatabaseUrl,
+      `
+WITH input AS (
+  SELECT *
+  FROM jsonb_to_recordset(${sqlJson(batch)}::jsonb) AS row(
+    "mtgjsonUuid" text,
+    "scryfallId" text
+  )
+),
+updated AS (
+  UPDATE "Card" card
+  SET "mtgjsonUuid" = input."mtgjsonUuid"
+  FROM input
+  WHERE card."scryfallId" = input."scryfallId"
+    AND (
+      card."mtgjsonUuid" IS NULL OR
+      card."mtgjsonUuid" = input."mtgjsonUuid"
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM "Card" conflict_card
+      WHERE conflict_card."mtgjsonUuid" = input."mtgjsonUuid"
+        AND conflict_card.id <> card.id
+    )
+  RETURNING 1
+)
+SELECT count(*) FROM updated;
+`,
+    );
+    updated += Number.parseInt(output || "0", 10) || 0;
+  }
+  return updated;
 }
 
 function insertSnapshots(
@@ -502,6 +695,50 @@ async function processRefreshAllJob(
   return { processed: snapshots.length, inserted, projected };
 }
 
+async function processMapIdentifiersJob(
+  opts: WorkerOptions,
+  runId: string,
+  jobId: string,
+) {
+  log(
+    opts.databaseUrl,
+    runId,
+    opts.workerId,
+    "info",
+    "Fetching MTGJSON identifiers.",
+    {
+      jobId,
+      url: opts.mtgjsonAllIdentifiersUrl,
+    },
+  );
+  const payload = await fetchMtgjsonAllIdentifiers(opts);
+  const mappings = extractMtgjsonIdentifierMappings(payload);
+  const updated = publishMtgjsonIdentifierMappings(
+    opts.appDatabaseUrl,
+    mappings,
+    opts.importBatchSize,
+  );
+  completeJob(opts.databaseUrl, jobId, "SUCCEEDED", {
+    processed: mappings.length,
+    inserted: updated,
+    skipped: mappings.length - updated,
+  });
+  log(
+    opts.databaseUrl,
+    runId,
+    opts.workerId,
+    "info",
+    "MTGJSON identifiers mapped to app cards.",
+    {
+      jobId,
+      processed: mappings.length,
+      updated,
+      skipped: mappings.length - updated,
+    },
+  );
+  return { processed: mappings.length, updated };
+}
+
 async function runOnce(opts: WorkerOptions) {
   const runId = randomUUID();
   psql(
@@ -528,14 +765,21 @@ VALUES (${sqlString(runId)}, ${sqlString(opts.workerId)}, 'RUNNING', 'Pricing wo
       {
         mtgjsonBaseUrl: process.env.MTGJSON_BASE_URL || null,
         redisUrlConfigured: Boolean(process.env.REDIS_URL),
+        autoScheduleEnabled: opts.autoScheduleEnabled,
+        dailyRefreshEnabled: opts.dailyRefreshEnabled,
+        dailyIdentifierMappingEnabled: opts.dailyIdentifierMappingEnabled,
       },
     );
+    const scheduledJobs = enqueueDueScheduledJobs(opts, runId);
     const jobs = claimQueuedJobs(opts.databaseUrl);
     let processedSnapshots = 0;
     let insertedSnapshots = 0;
     let projectedCards = 0;
     for (const job of jobs) {
-      if (job.type !== "MTGJSON_REFRESH_ALL") {
+      if (
+        job.type !== "MTGJSON_REFRESH_ALL" &&
+        job.type !== "MTGJSON_MAP_IDENTIFIERS"
+      ) {
         completeJob(
           opts.databaseUrl,
           job.id,
@@ -546,10 +790,16 @@ VALUES (${sqlString(runId)}, ${sqlString(opts.workerId)}, 'RUNNING', 'Pricing wo
         continue;
       }
       try {
-        const result = await processRefreshAllJob(opts, runId, job.id);
-        processedSnapshots += result.processed;
-        insertedSnapshots += result.inserted;
-        projectedCards += result.projected;
+        if (job.type === "MTGJSON_MAP_IDENTIFIERS") {
+          const result = await processMapIdentifiersJob(opts, runId, job.id);
+          processedSnapshots += result.processed;
+          projectedCards += result.updated;
+        } else {
+          const result = await processRefreshAllJob(opts, runId, job.id);
+          processedSnapshots += result.processed;
+          insertedSnapshots += result.inserted;
+          projectedCards += result.projected;
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         completeJob(
@@ -579,7 +829,9 @@ SET status = 'SUCCEEDED',
     message = ${sqlString(
       jobs.length
         ? `Pricing worker processed ${jobs.length} queued job(s), ${processedSnapshots} snapshots, ${insertedSnapshots} inserted, ${projectedCards} cards projected.`
-        : "Pricing worker is healthy. No queued jobs found.",
+        : scheduledJobs.length
+          ? `Pricing scheduler queued ${scheduledJobs.length} job(s).`
+          : "Pricing worker is healthy. No queued jobs found.",
     )}
 WHERE id = ${sqlString(runId)};
 `,

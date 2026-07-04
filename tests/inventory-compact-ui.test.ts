@@ -117,9 +117,26 @@ test("inventory detail drawer uses readable card information blocks", () => {
   assert.match(inventoryBrowser, /motion-reduce:transition-none/);
   assert.match(inventoryBrowser, /visibleLocationBreakdown/);
   assert.match(inventoryBrowser, /View on Scryfall/);
+  assert.match(inventoryBrowser, /function CardPriceHistoryPanel/);
+  assert.match(inventoryBrowser, /\/api\/pricing\/card-history/);
+  assert.match(inventoryBrowser, />\s*Price history\s*<\/span>/);
+  assert.match(inventoryBrowser, /aria-expanded=\{open\}/);
+  assert.doesNotMatch(
+    inventoryBrowser,
+    /\}, \[finish, history, loading, open, row\.cardId\]\)/,
+  );
+  assert.match(
+    inventoryBrowser,
+    /capabilities\.canViewPrivateSourceInfo \? \([\s\S]*<CardPriceHistoryPanel row=\{row\} \/>/,
+  );
   assert.doesNotMatch(inventoryBrowser, /Location Summary/);
   assert.doesNotMatch(inventoryBrowser, /Scryfall fallback prices/);
   assert.doesNotMatch(inventoryBrowser, /Preferred price/);
+  assert.doesNotMatch(inventoryPage, /getCardPriceHistory|price_snapshots/);
+  assert.doesNotMatch(
+    inventoryListRoute,
+    /getCardPriceHistory|price_snapshots/,
+  );
   assert.doesNotMatch(inventoryBrowser, /<b>Colors:<\/b>/);
 });
 
@@ -136,10 +153,7 @@ test("inventory rows include face data for split multi-face cards", () => {
       source,
       /cardFaces: Array\.isArray\(i\.card\.cardFaces\) \? i\.card\.cardFaces : \[\]/,
     );
-    assert.match(
-      source,
-      /allParts: enrichAllPartsWithLocalCardMetadata\(/,
-    );
+    assert.match(source, /allParts: enrichAllPartsWithLocalCardMetadata\(/);
   }
 });
 
