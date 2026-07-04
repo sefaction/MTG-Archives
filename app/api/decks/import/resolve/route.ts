@@ -2,9 +2,17 @@ import { NextRequest } from "next/server";
 import { requireLogin } from "@/lib/auth";
 import {
   buildDeckImportResolution,
+  type DeckImportResolutionPolicy,
+  type DeckImportReviewLine,
   parseDecklistText,
   resolveParsedDecklist,
 } from "@/lib/deck-import";
+
+function cleanResolutionPolicy(value: unknown): DeckImportResolutionPolicy {
+  return value === "owned-only" || value === "cheapest-only"
+    ? value
+    : "owned-then-cheapest";
+}
 
 export async function POST(request: NextRequest) {
   const user = await requireLogin();
@@ -16,6 +24,15 @@ export async function POST(request: NextRequest) {
       buildDeckImportResolution(parsed.lines, parsed.skippedLines),
     );
   }
-  const resolution = await resolveParsedDecklist(parsed, user.playerId);
+  const policy = cleanResolutionPolicy(body.policy);
+  if (body.mode === "resolve-lines" && Array.isArray(body.lines)) {
+    const resolution = await resolveParsedDecklist(
+      body.lines as DeckImportReviewLine[],
+      user.playerId,
+      policy,
+    );
+    return Response.json(resolution);
+  }
+  const resolution = await resolveParsedDecklist(parsed, user.playerId, policy);
   return Response.json(resolution);
 }

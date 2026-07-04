@@ -14,6 +14,7 @@ type DeckActionItem = {
   id: DeckActionPanelId;
   label: string;
   shortLabel: string;
+  href?: string;
   disabled?: boolean;
   danger?: boolean;
   primary?: boolean;
@@ -25,6 +26,7 @@ export function DeckActionPanels({
   canReturnCommitted,
   addCard,
   pasteDecklist,
+  pasteDecklistHref,
   returnCommitted,
   settings,
   deleteDeck,
@@ -34,6 +36,7 @@ export function DeckActionPanels({
   canReturnCommitted: boolean;
   addCard: ReactNode;
   pasteDecklist: ReactNode;
+  pasteDecklistHref?: string;
   returnCommitted: ReactNode;
   settings: ReactNode;
   deleteDeck: ReactNode;
@@ -50,7 +53,12 @@ export function DeckActionPanels({
         shortLabel: "Add",
         primary: true,
       },
-      { id: "paste-decklist", label: "Paste decklist", shortLabel: "Import" },
+      {
+        id: "paste-decklist",
+        label: "Paste decklist",
+        shortLabel: "Import",
+        href: pasteDecklistHref,
+      },
       {
         id: "return-committed",
         label: `Return committed (${committedQuantity})`,
@@ -65,7 +73,7 @@ export function DeckActionPanels({
         danger: true,
       },
     ],
-    [canReturnCommitted, committedQuantity],
+    [canReturnCommitted, committedQuantity, pasteDecklistHref],
   );
 
   useEffect(() => {
@@ -104,18 +112,33 @@ export function DeckActionPanels({
         </summary>
         <div className="absolute left-0 top-full z-30 mt-2 w-64 rounded-lg border border-[#364139] bg-[#101614] p-2 shadow-xl shadow-black/40">
           <div className="grid gap-1">
-            {actions.map((action) => (
-              <ActionButton
-                key={action.id}
-                active={activePanel === action.id}
-                onClick={() => setActivePanel(action.id)}
-                disabled={action.disabled}
-                primary={action.primary}
-                danger={action.danger}
-              >
-                {action.label}
-              </ActionButton>
-            ))}
+            {actions.map((action) =>
+              action.href ? (
+                <a
+                  key={action.id}
+                  href={action.href}
+                  className={cn(
+                    action.primary
+                      ? filterPrimaryButtonClass
+                      : filterButtonClass,
+                    "w-full px-2.5 py-1.5 text-left text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500",
+                  )}
+                >
+                  {action.label}
+                </a>
+              ) : (
+                <ActionButton
+                  key={action.id}
+                  active={activePanel === action.id}
+                  onClick={() => setActivePanel(action.id)}
+                  disabled={action.disabled}
+                  primary={action.primary}
+                  danger={action.danger}
+                >
+                  {action.label}
+                </ActionButton>
+              ),
+            )}
             <a href="#bulk-edit" className={cn(filterButtonClass, "text-left")}>
               Bulk edit
             </a>
@@ -163,23 +186,33 @@ export function DeckActionPanels({
                 className="mt-3 flex gap-1 overflow-x-auto text-sm"
                 aria-label="Deck action panels"
               >
-                {actions.map((action) => (
-                  <button
-                    key={action.id}
-                    type="button"
-                    disabled={action.disabled}
-                    className={cn(
-                      "whitespace-nowrap rounded-md border border-[#364139] px-2 py-1 text-stone-300 focus:outline-none focus:ring-2 focus:ring-cyan-500",
-                      activePanel === action.id &&
-                        "border-cyan-600 bg-cyan-950/40 text-cyan-100",
-                      action.danger && "border-red-950 text-red-200",
-                      action.disabled && "cursor-not-allowed opacity-50",
-                    )}
-                    onClick={() => setActivePanel(action.id)}
-                  >
-                    {action.shortLabel}
-                  </button>
-                ))}
+                {actions.map((action) =>
+                  action.href ? (
+                    <a
+                      key={action.id}
+                      href={action.href}
+                      className="whitespace-nowrap rounded-md border border-[#364139] px-2 py-1 text-stone-300 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    >
+                      {action.shortLabel}
+                    </a>
+                  ) : (
+                    <button
+                      key={action.id}
+                      type="button"
+                      disabled={action.disabled}
+                      className={cn(
+                        "whitespace-nowrap rounded-md border border-[#364139] px-2 py-1 text-stone-300 focus:outline-none focus:ring-2 focus:ring-cyan-500",
+                        activePanel === action.id &&
+                          "border-cyan-600 bg-cyan-950/40 text-cyan-100",
+                        action.danger && "border-red-950 text-red-200",
+                        action.disabled && "cursor-not-allowed opacity-50",
+                      )}
+                      onClick={() => setActivePanel(action.id)}
+                    >
+                      {action.shortLabel}
+                    </button>
+                  ),
+                )}
               </nav>
             </header>
             <div className="min-h-0 flex-1 overflow-y-auto p-3">

@@ -7,6 +7,7 @@ import { SetSymbol } from "@/components/mtg/CardSymbols";
 import { deckSectionLabel, deckSections } from "@/lib/decks";
 import type {
   DeckImportResolution,
+  DeckImportResolutionPolicy,
   DeckImportReviewLine,
   DeckImportStatus,
 } from "@/lib/deck-import";
@@ -43,6 +44,26 @@ const resolvedStatuses: DeckImportStatus[] = [
   "RESOLVED_CHEAPEST_PRINTING",
   "MANUALLY_SELECTED",
 ];
+
+type ResolveProgress = {
+  total: number;
+  completed: number;
+  resolved: number;
+  needsReview: number;
+  currentLine: number | null;
+  currentName: string;
+};
+
+const CONCURRENT_RESOLUTION_REQUESTS = 4;
+
+const emptyProgress: ResolveProgress = {
+  total: 0,
+  completed: 0,
+  resolved: 0,
+  needsReview: 0,
+  currentLine: null,
+  currentName: "",
+};
 
 function lineQuantity(line: Pick<DeckImportReviewLine, "quantity">) {
   return line.quantity ?? 0;
@@ -132,13 +153,25 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
   const [resolving, setResolving] = useState(false);
   const [error, setError] = useState("");
   const [mode, setMode] = useState("merge");
+  const [resolutionPolicy, setResolutionPolicy] =
+    useState<DeckImportResolutionPolicy>("owned-then-cheapest");
+  const [resolveProgress, setResolveProgress] =
+    useState<ResolveProgress>(emptyProgress);
   const [commitError, setCommitError] = useState("");
 
-  async function fetchDecklistResolution(mode: "parse" | "resolve") {
+  async function fetchDecklistResolution(
+    mode: "parse" | "resolve" | "resolve-lines",
+    options: { lines?: DeckImportReviewLine[] } = {},
+  ) {
     const res = await fetch("/api/decks/import/resolve", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, mode }),
+      body: JSON.stringify({
+        text,
+        mode,
+        policy: resolutionPolicy,
+        lines: options.lines,
+      }),
     });
     const body = await res.json().catch(() => null);
     if (!res.ok) {
@@ -151,10 +184,76 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
     return body as DeckImportResolution;
   }
 
+  function mergeResolvedLines(nextLines: DeckImportReviewLine[]) {
+    setLines((current) => {
+      const byId = new Map(nextLines.map((line) => [line.id, line]));
+      return current.map((line) => byId.get(line.id) ?? line);
+    });
+  }
+
+  function canAutoResolve(line: DeckImportReviewLine) {
+    return Boolean(line.parsedName && line.resolutionStatus !== "PARSE_ERROR");
+  }
+
+  function waitForReviewPaint() {
+    return new Promise<void>((resolve) => {
+      requestAnimationFrame(() => resolve());
+    });
+  }
+
+  async function resolveLinesWithProgress(inputLines: DeckImportReviewLine[]) {
+    const resolvableLines = inputLines.filter(canAutoResolve);
+    setResolveProgress({
+      ...emptyProgress,
+      total: resolvableLines.length,
+    });
+    setResolving(true);
+    let nextLineIndex = 0;
+
+    async function resolveNextLine() {
+      const line = resolvableLines[nextLineIndex];
+      nextLineIndex += 1;
+      if (!line) return;
+
+      setResolveProgress((current) => ({
+        ...current,
+        currentLine: line.lineNumber,
+        currentName: line.parsedName ?? line.rawLine,
+      }));
+      const resolution = await fetchDecklistResolution("resolve-lines", {
+        lines: [line],
+      });
+      mergeResolvedLines(resolution.lines);
+      const resolvedCount = resolution.lines.filter((resolvedLine) =>
+        resolvedStatuses.includes(resolvedLine.resolutionStatus),
+      ).length;
+      setResolveProgress((current) => ({
+        ...current,
+        completed: current.completed + resolution.lines.length,
+        resolved: current.resolved + resolvedCount,
+        needsReview:
+          current.needsReview + resolution.lines.length - resolvedCount,
+        currentLine: null,
+        currentName: "",
+      }));
+      await resolveNextLine();
+    }
+
+    const workerCount = Math.min(
+      CONCURRENT_RESOLUTION_REQUESTS,
+      resolvableLines.length,
+    );
+    await Promise.all(
+      Array.from({ length: workerCount }, () => resolveNextLine()),
+    );
+    setResolving(false);
+  }
+
   async function resolveDecklist() {
     let parsedReviewAvailable = false;
     setLoading(true);
     setResolving(false);
+    setResolveProgress(emptyProgress);
     setError("");
     setCommitError("");
     setLines([]);
@@ -166,11 +265,9 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
       parsedReviewAvailable =
         parsed.lines.length > 0 || (parsed.skippedLines ?? []).length > 0;
       setLoading(false);
+      await waitForReviewPaint();
 
-      setResolving(true);
-      const resolution = await fetchDecklistResolution("resolve");
-      setLines(resolution.lines);
-      setSkippedLines(resolution.skippedLines ?? []);
+      await resolveLinesWithProgress(parsed.lines);
     } catch (e) {
       const message =
         e instanceof Error ? e.message : "Decklist resolution failed.";
@@ -185,10 +282,28 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
     }
   }
 
+  async function resolveUnresolvedLines() {
+    setError("");
+    setCommitError("");
+    try {
+      await resolveLinesWithProgress(
+        lines.filter((line) => line.included && !line.selectedCardId),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Decklist resolution failed.");
+    } finally {
+      setResolving(false);
+    }
+  }
+
   const summary = useMemo(
     () => summarize(lines, skippedLines),
     [lines, skippedLines],
   );
+  const progressPercent =
+    resolveProgress.total > 0
+      ? Math.round((resolveProgress.completed / resolveProgress.total) * 100)
+      : 0;
   const linesJson = useMemo(
     () =>
       JSON.stringify(
@@ -241,6 +356,25 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
         }
       />
       <div className="flex flex-wrap items-center gap-3">
+        <label className={cn(filterFieldClass, "min-w-64")}>
+          Bulk resolve
+          <select
+            value={resolutionPolicy}
+            onChange={(event) =>
+              setResolutionPolicy(
+                event.target.value as DeckImportResolutionPolicy,
+              )
+            }
+            disabled={loading || resolving}
+            className={cn(filterSelectClass, "mt-1 w-full")}
+          >
+            <option value="owned-then-cheapest">
+              Owned printing, then cheapest
+            </option>
+            <option value="owned-only">Owned printing only</option>
+            <option value="cheapest-only">Cheapest printing only</option>
+          </select>
+        </label>
         <button
           type="button"
           onClick={resolveDecklist}
@@ -264,6 +398,52 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
 
       {lines.length || skippedLines.length ? (
         <div className="space-y-3">
+          <div className="rounded border border-zinc-800 bg-zinc-950 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <div>
+                <div className="font-semibold text-zinc-100">
+                  Bulk resolution progress
+                </div>
+                <div className="text-zinc-400">
+                  {resolveProgress.total
+                    ? `${resolveProgress.completed} / ${resolveProgress.total} lines checked`
+                    : "No automatic resolution has started."}
+                  {resolveProgress.currentLine
+                    ? ` - Line ${resolveProgress.currentLine}: ${resolveProgress.currentName}`
+                    : ""}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={resolveUnresolvedLines}
+                disabled={
+                  loading || resolving || summary.unresolvedIncluded === 0
+                }
+                className="rounded border border-zinc-700 px-3 py-2 text-sm text-zinc-100 disabled:opacity-60"
+              >
+                Resolve unresolved lines
+              </button>
+            </div>
+            <div className="mt-3 h-2 overflow-hidden rounded bg-zinc-800">
+              <div
+                className="h-full bg-sky-500 transition-all"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+            <div className="mt-2 flex flex-wrap gap-3 text-xs text-zinc-400">
+              <span>{progressPercent}% complete</span>
+              <span>{resolveProgress.resolved} resolved</span>
+              <span>{resolveProgress.needsReview} still needs review</span>
+              <span>
+                Policy:{" "}
+                {resolutionPolicy === "owned-then-cheapest"
+                  ? "owned first, cheapest fallback"
+                  : resolutionPolicy === "owned-only"
+                    ? "owned only"
+                    : "cheapest only"}
+              </span>
+            </div>
+          </div>
           <div className="grid gap-2 text-xs text-zinc-300 md:grid-cols-6">
             <span>Parsed lines: {summary.parsedCardLines}</span>
             <span>Total cards: {summary.totalCardQuantityParsed}</span>

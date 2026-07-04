@@ -3,6 +3,10 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const pageSource = readFileSync("app/decks/[deckId]/page.tsx", "utf8");
+const importPageSource = readFileSync(
+  "app/decks/[deckId]/import/page.tsx",
+  "utf8",
+);
 const panelSource = readFileSync("components/DeckActionPanels.tsx", "utf8");
 const importPanelSource = readFileSync(
   "components/DeckImportPanel.tsx",
@@ -12,6 +16,7 @@ const importResolveRoute = readFileSync(
   "app/api/decks/import/resolve/route.ts",
   "utf8",
 );
+const deckImportHelper = readFileSync("lib/deck-import.ts", "utf8");
 
 test("deck detail page uses compact action panels instead of always-expanded page forms", () => {
   assert.match(pageSource, /<DeckActionPanels/);
@@ -49,6 +54,11 @@ test("deck action toolbar exposes compact entry points for page-level workflows"
   }
   assert.match(pageSource, /addCard=\{/);
   assert.match(pageSource, /pasteDecklist=\{/);
+  assert.match(
+    pageSource,
+    /pasteDecklistHref=\{`\/decks\/\$\{deck\.id\}\/import`\}/,
+  );
+  assert.match(panelSource, /href: pasteDecklistHref/);
   assert.match(pageSource, /returnCommitted=\{/);
   assert.match(pageSource, /settings=\{/);
   assert.match(pageSource, /deleteDeck=\{/);
@@ -59,7 +69,10 @@ test("deck action toolbar exposes compact entry points for page-level workflows"
 
 test("collapsed deck action panels preserve existing form submissions", () => {
   assert.match(pageSource, /<DeckCardPicker/);
-  assert.match(pageSource, /<DeckImportPanel deckId=\{deck\.id\} \/>/);
+  assert.match(pageSource, /Open deck import page/);
+  assert.match(pageSource, /\/decks\/\$\{deck\.id\}\/import/);
+  assert.match(importPageSource, /<DeckImportPanel deckId=\{deck\.id\} \/>/);
+  assert.match(importPageSource, /canManageDeck/);
   assert.match(pageSource, /action=\{returnAllCommittedDeckInventory\}/);
   assert.match(pageSource, /action=\{updateDeck\}/);
   assert.match(pageSource, /name="bracket"/);
@@ -70,14 +83,27 @@ test("collapsed deck action panels preserve existing form submissions", () => {
 
 test("deck paste review renders after parsing before slower printing resolution", () => {
   assert.match(importPanelSource, /fetchDecklistResolution\("parse"\)/);
-  assert.match(importPanelSource, /fetchDecklistResolution\("resolve"\)/);
+  assert.match(importPanelSource, /fetchDecklistResolution\("resolve-lines"/);
   assert.match(importPanelSource, /setLines\(parsed\.lines\)/);
-  assert.match(
-    importPanelSource,
-    /Review ready\. Resolving local and Scryfall printing matches/,
-  );
+  assert.match(importPanelSource, /Bulk resolution progress/);
+  assert.match(importPanelSource, /Resolve unresolved lines/);
+  assert.match(importPanelSource, /resolveProgress\.completed/);
   assert.match(importResolveRoute, /body\.mode === "parse"/);
+  assert.match(importResolveRoute, /body\.mode === "resolve-lines"/);
   assert.match(importResolveRoute, /buildDeckImportResolution/);
+});
+
+test("deck paste bulk resolution exposes owned-first and cheapest fallback policy", () => {
+  assert.match(importPanelSource, /Owned printing, then cheapest/);
+  assert.match(importPanelSource, /Owned printing only/);
+  assert.match(importPanelSource, /Cheapest printing only/);
+  assert.match(importPanelSource, /policy: resolutionPolicy/);
+  assert.match(importResolveRoute, /cleanResolutionPolicy/);
+  assert.match(deckImportHelper, /DeckImportResolutionPolicy/);
+  assert.match(deckImportHelper, /policy === "owned-then-cheapest"/);
+  assert.match(deckImportHelper, /policy === "owned-only"/);
+  assert.match(deckImportHelper, /policy === "cheapest-only"/);
+  assert.match(deckImportHelper, /No owned printing was found/);
 });
 
 test("deck detail inventory loading is scoped and avoids full owner inventory hydration", () => {
