@@ -5,7 +5,11 @@ import type { ReactNode } from "react";
 import { Nav } from "@/components/Nav";
 import { prisma } from "@/lib/prisma";
 import { getAccessScope, requireLogin } from "@/lib/auth";
-import { TradeStatus, TradeWishlistStatus } from "@prisma/client";
+import {
+  InventoryLocationKind,
+  TradeStatus,
+  TradeWishlistStatus,
+} from "@prisma/client";
 import {
   actOnTrade,
   cancelTradeWishlistItem,
@@ -28,6 +32,7 @@ import {
 } from "@/components/TradeCardPreview";
 import { ColorIdentityIcons } from "@/components/mtg/CardSymbols";
 import { normalizePlayerColor } from "@/lib/player-colors";
+import { ensureDefaultLocation } from "@/lib/inventory-locations";
 
 const activeStatuses: TradeStatus[] = [
   TradeStatus.PROPOSED,
@@ -468,6 +473,7 @@ export default async function TradesPage({
       </main>
     );
 
+  if (user.playerId) await ensureDefaultLocation(prisma, user.playerId);
   const visibleTrades = await prisma.trade.findMany({
     where: isAdmin
       ? {}
@@ -489,6 +495,17 @@ export default async function TradesPage({
     },
     orderBy: { proposedAt: "desc" },
   });
+  const myDestinationLocations = user.playerId
+    ? await prisma.inventoryLocation.findMany({
+        where: {
+          ownerPlayerId: user.playerId,
+          active: true,
+          kind: InventoryLocationKind.NORMAL,
+          systemManaged: false,
+        },
+        orderBy: { name: "asc" },
+      })
+    : [];
   const [myTradeWishlist, wantedFromMe] = await Promise.all([
     prisma.tradeWishlistItem.findMany({
       where: { ownerUserId: user.id, status: TradeWishlistStatus.OPEN },
@@ -849,6 +866,10 @@ export default async function TradesPage({
                 ownerLabel: trade.receiverPlayer.displayName,
                 roleLabel: "Requested",
               });
+              const incomingCard = userIsProposer ? requestedCard : offeredCard;
+              const savedDestinationLocationId = userIsProposer
+                ? trade.proposerDestinationLocationId
+                : trade.receiverDestinationLocationId;
               return (
                 <article
                   key={trade.id}
@@ -969,11 +990,33 @@ export default async function TradesPage({
                       </form>
                     ) : null}
                     {userNeedsPhysical ? (
-                      <form action={confirmPhysicalTrade}>
+                      <form
+                        action={confirmPhysicalTrade}
+                        className="flex flex-wrap items-end gap-2 rounded border border-zinc-800 bg-zinc-950/50 p-3"
+                      >
                         <input type="hidden" name="tradeId" value={trade.id} />
+                        <label className="min-w-64 text-sm text-zinc-300">
+                          Move incoming {incomingCard.name} to
+                          <select
+                            name="destinationLocationId"
+                            required
+                            defaultValue={
+                              savedDestinationLocationId ??
+                              myDestinationLocations[0]?.id ??
+                              ""
+                            }
+                            className={cn(filterSelectClass, "mt-1 w-full")}
+                          >
+                            {myDestinationLocations.map((location) => (
+                              <option key={location.id} value={location.id}>
+                                {location.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
                         <SubmitButton
                           pendingLabel="Confirming exchange..."
-                          className="border px-3 py-2"
+                          className={filterPrimaryButtonClass}
                         >
                           Confirm Physical Trade
                         </SubmitButton>

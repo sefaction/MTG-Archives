@@ -97,6 +97,20 @@ test("active trades are grouped into prioritized action queues", () => {
   assert.match(tradesPage, /Use As Template/);
 });
 
+test("physical trade confirmation captures incoming destination locations", () => {
+  const schema = readFileSync("prisma/schema.prisma", "utf8");
+  assert.match(schema, /proposerDestinationLocationId/);
+  assert.match(schema, /receiverDestinationLocationId/);
+  assert.match(tradesPage, /myDestinationLocations/);
+  assert.match(tradesPage, /name="destinationLocationId"/);
+  assert.match(tradesPage, /Move incoming \{incomingCard\.name\} to/);
+  assert.match(tradeActions, /assertTradeDestinationLocation/);
+  assert.match(tradeActions, /data\.proposerDestinationLocationId/);
+  assert.match(tradeActions, /data\.receiverDestinationLocationId/);
+  assert.match(tradeActions, /trade\.receiverDestinationLocationId/);
+  assert.match(tradeActions, /trade\.proposerDestinationLocationId/);
+});
+
 test("trade builder keeps existing 1-for-1 server action fields", () => {
   assert.match(tradeBuilder, /"use client"/);
   assert.match(tradeBuilder, /\/api\/trades\/inventory-search/);
