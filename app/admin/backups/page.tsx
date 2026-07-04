@@ -208,7 +208,10 @@ export default async function AdminBackupsPage({
                     </td>
                     <td className="min-w-80 p-3">
                       {backup.manifest ? (
-                        <form action={restoreBackupAction} className="space-y-2">
+                        <form
+                          action={restoreBackupAction}
+                          className="space-y-2"
+                        >
                           <input
                             type="hidden"
                             name="filename"

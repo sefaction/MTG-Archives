@@ -14,7 +14,8 @@ export type PricingAnalyticsOptions = {
 };
 
 export function money(value: number, currency = "USD") {
-  const prefix = currency.toUpperCase() === "USD" ? "$" : `${currency.toUpperCase()} `;
+  const prefix =
+    currency.toUpperCase() === "USD" ? "$" : `${currency.toUpperCase()} `;
   return `${prefix}${value.toFixed(2)}`;
 }
 
@@ -27,7 +28,9 @@ export async function getPricingFilterOptions() {
   };
 }
 
-export async function getPricingAnalytics(options: PricingAnalyticsOptions = {}) {
+export async function getPricingAnalytics(
+  options: PricingAnalyticsOptions = {},
+) {
   const currency = (options.currency || "USD").toUpperCase();
   const range = options.range || "30";
   const scope = options.scope || "collection";

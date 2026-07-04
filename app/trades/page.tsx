@@ -116,7 +116,11 @@ function toTradeBuilderItem(item: {
     collectorNumber: string;
     imageUri?: string | null;
     imageUris?: unknown;
+    typeLine?: string | null;
+    colorIdentity?: unknown;
+    prices?: unknown;
   };
+  location?: { name: string } | null;
 }) {
   return {
     id: item.id,
@@ -128,6 +132,10 @@ function toTradeBuilderItem(item: {
     quantity: item.quantity,
     available: item.quantity,
     imageUri: cardImage(item),
+    typeLine: item.card.typeLine ?? "",
+    colorIdentity: item.card.colorIdentity,
+    priceLabel: selectedPriceLabel(item.card.prices),
+    locationName: item.location?.name ?? "Unassigned",
   };
 }
 
@@ -532,28 +540,50 @@ export default async function TradesPage({
         })
       : Promise.resolve(null),
   ]);
+  const needsMyResponse = visibleTrades.filter(
+    (t) =>
+      t.status === TradeStatus.PROPOSED && t.receiverPlayerId === user.playerId,
+  );
+  const waitingOnPartnerResponse = visibleTrades.filter(
+    (t) =>
+      t.status === TradeStatus.PROPOSED && t.proposerPlayerId === user.playerId,
+  );
+  const needsMyPhysicalConfirmation = visibleTrades.filter(
+    (t) =>
+      physicalStatuses.includes(t.status) &&
+      ((t.proposerPlayerId === user.playerId && !t.proposerCommittedAt) ||
+        (t.receiverPlayerId === user.playerId && !t.receiverCommittedAt)),
+  );
+  const waitingOnPartnerPhysical = visibleTrades.filter(
+    (t) =>
+      physicalStatuses.includes(t.status) &&
+      ((t.proposerPlayerId === user.playerId &&
+        t.proposerCommittedAt &&
+        !t.receiverCommittedAt) ||
+        (t.receiverPlayerId === user.playerId &&
+          t.receiverCommittedAt &&
+          !t.proposerCommittedAt)),
+  );
+  const prioritizedActiveTradeIds = new Set(
+    [
+      needsMyResponse,
+      waitingOnPartnerResponse,
+      needsMyPhysicalConfirmation,
+      waitingOnPartnerPhysical,
+    ]
+      .flat()
+      .map((trade) => trade.id),
+  );
+  const otherActiveTrades = visibleTrades.filter(
+    (t) =>
+      activeStatuses.includes(t.status) && !prioritizedActiveTradeIds.has(t.id),
+  );
   const activeSections = [
-    [
-      "My Active Trades",
-      visibleTrades.filter(
-        (t) =>
-          activeStatuses.includes(t.status) &&
-          (t.proposerPlayerId === user.playerId ||
-            t.receiverPlayerId === user.playerId),
-      ),
-    ],
-    [
-      "Proposed To Me",
-      visibleTrades.filter(
-        (t) =>
-          t.status === TradeStatus.PROPOSED &&
-          t.receiverPlayerId === user.playerId,
-      ),
-    ],
-    [
-      "Awaiting Physical Exchange",
-      visibleTrades.filter((t) => physicalStatuses.includes(t.status)),
-    ],
+    ["Needs My Response", needsMyResponse],
+    ["Needs My Physical Confirmation", needsMyPhysicalConfirmation],
+    ["Waiting On Partner", waitingOnPartnerResponse],
+    ["Waiting On Partner Physical Confirmation", waitingOnPartnerPhysical],
+    ["Other Active Trades", otherActiveTrades],
   ] as const;
   const historySections = [
     [
@@ -841,6 +871,20 @@ export default async function TradesPage({
                         </span>
                       ) : null}
                     </div>
+                    {trade.status === TradeStatus.PROPOSED ? (
+                      <Link
+                        href={
+                          userIsReceiver
+                            ? `/trades?receiverId=${trade.proposerPlayerId}&offeredInventoryItemId=${trade.requestedInventoryItemId ?? ""}&requestedInventoryItemId=${trade.offeredInventoryItemId ?? ""}`
+                            : `/trades?receiverId=${trade.receiverPlayerId}&offeredInventoryItemId=${trade.offeredInventoryItemId ?? ""}&requestedInventoryItemId=${trade.requestedInventoryItemId ?? ""}`
+                        }
+                        className={cn(filterButtonClass, "self-start")}
+                      >
+                        {userIsReceiver
+                          ? "Counter From This"
+                          : "Use As Template"}
+                      </Link>
+                    ) : null}
                     {trade.message ? (
                       <p className="text-sm text-zinc-300">{trade.message}</p>
                     ) : null}

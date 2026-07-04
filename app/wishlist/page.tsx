@@ -228,9 +228,8 @@ export default async function WishlistPage({
         <h1 className="text-3xl font-bold">Wishlist</h1>
         <p className="text-zinc-400">
           Manual wants, trade targets, and deck-derived needs in an
-          inventory-style browser.
-          Deck cards are satisfied only by copies committed to that deck’s
-          system-managed location.
+          inventory-style browser. Deck cards are satisfied only by copies
+          committed to that deck’s system-managed location.
         </p>
       </section>
 

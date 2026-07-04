@@ -88,6 +88,15 @@ test("trades page avoids mojibake separators in visible copy", () => {
   assert.match(tradesPage, /Accepting trade\.\.\./);
 });
 
+test("active trades are grouped into prioritized action queues", () => {
+  assert.match(tradesPage, /Needs My Response/);
+  assert.match(tradesPage, /Needs My Physical Confirmation/);
+  assert.match(tradesPage, /Waiting On Partner/);
+  assert.match(tradesPage, /prioritizedActiveTradeIds/);
+  assert.match(tradesPage, /Counter From This/);
+  assert.match(tradesPage, /Use As Template/);
+});
+
 test("trade builder keeps existing 1-for-1 server action fields", () => {
   assert.match(tradeBuilder, /"use client"/);
   assert.match(tradeBuilder, /\/api\/trades\/inventory-search/);
@@ -97,7 +106,9 @@ test("trade builder keeps existing 1-for-1 server action fields", () => {
   assert.match(tradeBuilder, /name="receiverPlayerId"/);
   assert.match(tradeBuilder, /initialOfferedItem/);
   assert.match(tradeBuilder, /initialRequestedItem/);
-  assert.match(tradeBuilder, /multi-card negotiation and trade wishlists/);
+  assert.match(tradeBuilder, /Proposal draft/);
+  assert.match(tradeBuilder, /locationName/);
+  assert.match(tradeBuilder, /priceLabel/);
 });
 
 test("trade inventory search API only fetches matching tradeable rows", () => {
@@ -110,4 +121,6 @@ test("trade inventory search API only fetches matching tradeable rows", () => {
   assert.match(route, /InventoryLocationKind\.NORMAL/);
   assert.match(route, /activeTradeStatuses/);
   assert.match(route, /available: Math\.max/);
+  assert.match(route, /locationName/);
+  assert.match(route, /priceLabel/);
 });

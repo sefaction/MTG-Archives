@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const inventoryBrowser = readFileSync("components/InventoryBrowser.tsx", "utf8");
+const inventoryBrowser = readFileSync(
+  "components/InventoryBrowser.tsx",
+  "utf8",
+);
 const quickSearch = readFileSync(
   "components/InventoryQuickCardNameSearch.tsx",
   "utf8",
@@ -11,7 +14,10 @@ const advancedSearch = readFileSync(
   "components/InventoryAdvancedSearch.tsx",
   "utf8",
 );
-const collapsiblePanel = readFileSync("components/CollapsiblePanel.tsx", "utf8");
+const collapsiblePanel = readFileSync(
+  "components/CollapsiblePanel.tsx",
+  "utf8",
+);
 
 test("inventory control query updates preserve scroll position", () => {
   assert.match(inventoryBrowser, /INVENTORY_SCROLL_STORAGE_KEY/);
@@ -50,6 +56,9 @@ test("advanced inventory search preserves scroll and expanded state on submit", 
     /router\.replace\(query \? `\$\{actionPath\}\?\$\{query\}` : actionPath, \{\s*scroll: false,\s*\}\)/,
   );
   assert.match(collapsiblePanel, /storageKey\?: string/);
-  assert.match(collapsiblePanel, /window\.sessionStorage\.getItem\(storageKey\)/);
+  assert.match(
+    collapsiblePanel,
+    /window\.sessionStorage\.getItem\(storageKey\)/,
+  );
   assert.match(collapsiblePanel, /window\.sessionStorage\.setItem/);
 });

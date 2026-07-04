@@ -11,7 +11,10 @@ async function requireApiAdminMode() {
 
 export async function POST() {
   if (!(await requireApiAdminMode())) {
-    return NextResponse.json({ error: "Admin mode required." }, { status: 403 });
+    return NextResponse.json(
+      { error: "Admin mode required." },
+      { status: 403 },
+    );
   }
 
   try {

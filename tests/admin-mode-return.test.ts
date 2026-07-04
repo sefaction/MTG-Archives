@@ -16,6 +16,12 @@ test("admin mode toggle preserves current page and scroll state", () => {
   assert.match(nav, /returnTo\.startsWith\("\/"\)/);
   assert.match(nav, /returnTo\.startsWith\("\/\/"\)/);
   assert.match(nav, /redirect\(getSafeReturnTo\(formData\)\)/);
-  assert.doesNotMatch(nav, /await setAdminMode\(true\);\s*redirect\("\/dashboard"\)/);
-  assert.doesNotMatch(nav, /await setAdminMode\(false\);\s*redirect\("\/dashboard"\)/);
+  assert.doesNotMatch(
+    nav,
+    /await setAdminMode\(true\);\s*redirect\("\/dashboard"\)/,
+  );
+  assert.doesNotMatch(
+    nav,
+    /await setAdminMode\(false\);\s*redirect\("\/dashboard"\)/,
+  );
 });

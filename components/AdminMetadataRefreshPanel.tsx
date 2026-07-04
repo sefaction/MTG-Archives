@@ -25,7 +25,8 @@ export function AdminMetadataRefreshPanel() {
         method: "POST",
       });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.error || "Metadata refresh failed.");
+      if (!response.ok)
+        throw new Error(body.error || "Metadata refresh failed.");
       setResult(body);
     } catch (refreshError) {
       setError(
@@ -56,7 +57,9 @@ export function AdminMetadataRefreshPanel() {
         disabled={refreshing}
         className={cn(filterPrimaryButtonClass, "px-3 py-2")}
       >
-        {refreshing ? "Refreshing card metadata..." : "Refresh all card metadata"}
+        {refreshing
+          ? "Refreshing card metadata..."
+          : "Refresh all card metadata"}
       </button>
 
       {error ? (
