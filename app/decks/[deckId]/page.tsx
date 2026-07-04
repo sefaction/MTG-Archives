@@ -46,7 +46,6 @@ import {
 } from "../actions";
 import { DeckActionPanels } from "@/components/DeckActionPanels";
 import { DeckCardPicker } from "@/components/DeckCardPicker";
-import { DeckImportPanel } from "@/components/DeckImportPanel";
 import {
   DeckListEditor,
   type DeckReturnLocation,
@@ -495,7 +494,21 @@ export default async function DeckDetailPage({
                   sections={deckSections}
                 />
               }
-              pasteDecklist={<DeckImportPanel deckId={deck.id} />}
+              pasteDecklistHref={`/decks/${deck.id}/import`}
+              pasteDecklist={
+                <div className="space-y-3">
+                  <p className="text-sm text-zinc-300">
+                    Pasted decklists need a full-width review table with
+                    progress, bulk resolution, and manual printing controls.
+                  </p>
+                  <Link
+                    href={`/decks/${deck.id}/import`}
+                    className={filterPrimaryButtonClass}
+                  >
+                    Open deck import page
+                  </Link>
+                </div>
+              }
               returnCommitted={
                 <form
                   action={returnAllCommittedDeckInventory}

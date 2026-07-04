@@ -83,6 +83,9 @@ export type DeckImportResolution = {
   };
 };
 
+export type DeckImportResolutionPolicy =
+  "owned-then-cheapest" | "owned-only" | "cheapest-only";
+
 const sectionMap: Record<string, DeckSection> = {
   commander: DeckSection.COMMANDER,
   commanders: DeckSection.COMMANDER,
@@ -379,11 +382,16 @@ export async function resolveParsedDecklist(
     | { lines: DeckImportReviewLine[]; skippedLines: DeckImportReviewLine[] }
     | DeckImportReviewLine[],
   ownerPlayerId?: string | null,
+  policy: DeckImportResolutionPolicy = "owned-then-cheapest",
 ): Promise<DeckImportResolution> {
   const inputLines = Array.isArray(parsed) ? parsed : parsed.lines;
   const skippedLines = Array.isArray(parsed) ? [] : parsed.skippedLines;
   const cheapestCache = new Map<string, Card[]>();
   const resolved: DeckImportReviewLine[] = [];
+  const allowOwned =
+    policy === "owned-then-cheapest" || policy === "owned-only";
+  const allowCheapest =
+    policy === "owned-then-cheapest" || policy === "cheapest-only";
 
   for (const line of inputLines) {
     if (!line.parsedName || line.resolutionStatus === "PARSE_ERROR") {
@@ -424,7 +432,7 @@ export async function resolveParsedDecklist(
         continue;
       }
 
-      if (ownerPlayerId) {
+      if (ownerPlayerId && allowOwned) {
         const owned = await ownedPrintingsForName(
           ownerPlayerId,
           line.parsedName,
@@ -441,6 +449,18 @@ export async function resolveParsedDecklist(
           );
           continue;
         }
+      }
+
+      if (!allowCheapest) {
+        resolved.push({
+          ...line,
+          resolutionStatus: "NEEDS_REVIEW",
+          resolutionMessage:
+            policy === "owned-only"
+              ? "No owned printing was found. Choose a printing manually or change the bulk resolve option."
+              : "Choose a printing manually.",
+        });
+        continue;
       }
 
       const candidates = await cheapestPrintingForName(
