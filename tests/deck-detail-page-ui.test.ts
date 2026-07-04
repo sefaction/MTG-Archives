@@ -4,6 +4,14 @@ import test from "node:test";
 
 const pageSource = readFileSync("app/decks/[deckId]/page.tsx", "utf8");
 const panelSource = readFileSync("components/DeckActionPanels.tsx", "utf8");
+const importPanelSource = readFileSync(
+  "components/DeckImportPanel.tsx",
+  "utf8",
+);
+const importResolveRoute = readFileSync(
+  "app/api/decks/import/resolve/route.ts",
+  "utf8",
+);
 
 test("deck detail page uses compact action panels instead of always-expanded page forms", () => {
   assert.match(pageSource, /<DeckActionPanels/);
@@ -58,6 +66,18 @@ test("collapsed deck action panels preserve existing form submissions", () => {
   assert.match(pageSource, /action=\{deleteDeck\}/);
   assert.match(pageSource, /name="strongConfirmation"/);
   assert.match(pageSource, /name="destinationLocationId"/);
+});
+
+test("deck paste review renders after parsing before slower printing resolution", () => {
+  assert.match(importPanelSource, /fetchDecklistResolution\("parse"\)/);
+  assert.match(importPanelSource, /fetchDecklistResolution\("resolve"\)/);
+  assert.match(importPanelSource, /setLines\(parsed\.lines\)/);
+  assert.match(
+    importPanelSource,
+    /Review ready\. Resolving local and Scryfall printing matches/,
+  );
+  assert.match(importResolveRoute, /body\.mode === "parse"/);
+  assert.match(importResolveRoute, /buildDeckImportResolution/);
 });
 
 test("deck detail inventory loading is scoped and avoids full owner inventory hydration", () => {
