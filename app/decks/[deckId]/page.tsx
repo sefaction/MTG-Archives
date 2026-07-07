@@ -127,6 +127,46 @@ function candidatesForDeckCard(
   return candidates;
 }
 
+function DeckHealthCard({
+  label,
+  value,
+  detail,
+  percent,
+  tone,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  percent: number;
+  tone: "emerald" | "amber" | "cyan";
+}) {
+  const bar =
+    tone === "emerald"
+      ? "bg-emerald-400"
+      : tone === "amber"
+        ? "bg-amber-300"
+        : "bg-cyan-300";
+  return (
+    <div className="rounded-md border border-[#2a332d] bg-[#101614] px-3 py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-stone-500">
+            {label}
+          </p>
+          <p className="mt-1 text-sm text-stone-400">{detail}</p>
+        </div>
+        <p className="text-xl font-semibold text-stone-50">{value}</p>
+      </div>
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#070b09]">
+        <div
+          className={cn("h-full rounded-full", bar)}
+          style={{ width: `${Math.max(0, Math.min(100, percent))}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default async function DeckDetailPage({
   params,
 }: {
@@ -407,6 +447,17 @@ export default async function DeckDetailPage({
     (total, row) => total + Math.min(row.missing, row.available),
     0,
   );
+  const ownedCoverageTotal =
+    ownershipTotals.exactOwned + ownershipTotals.otherOwned;
+  const ownedCoveragePercent = ownershipTotals.totalQuantity
+    ? Math.round((ownedCoverageTotal / ownershipTotals.totalQuantity) * 100)
+    : 0;
+  const committedCoveragePercent = ownershipTotals.totalQuantity
+    ? Math.round(
+        (committedSummary.committedQuantity / ownershipTotals.totalQuantity) *
+          100,
+      )
+    : 0;
   const heroCard =
     deck.cards.find((card) => card.isCommander && card.card)?.card ??
     deck.cards.find(
@@ -477,47 +528,48 @@ export default async function DeckDetailPage({
             ) : null}
           </div>
         </div>
-        <div className="grid gap-2 p-2 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-3 p-3 lg:grid-cols-[1.2fr_1fr_1fr]">
+          <DeckHealthCard
+            label="Owned coverage"
+            value={`${ownedCoveragePercent}%`}
+            detail={`${ownershipTotals.exactOwned} exact, ${ownershipTotals.otherOwned} other, ${ownershipTotals.missing} missing`}
+            percent={ownedCoveragePercent}
+            tone="emerald"
+          />
+          <DeckHealthCard
+            label="Physical commitment"
+            value={`${committedCoveragePercent}%`}
+            detail={`${committedSummary.committedQuantity} committed of ${ownershipTotals.totalQuantity}`}
+            percent={committedCoveragePercent}
+            tone="amber"
+          />
+          <DeckHealthCard
+            label="Estimated value"
+            value={
+              estimatedPrice == null ? "--" : `$${estimatedPrice.toFixed(2)}`
+            }
+            detail={`${deckWishlistAvailable} missing cards available to commit`}
+            percent={Math.min(100, ownedCoveragePercent)}
+            tone="cyan"
+          />
+        </div>
+        <div className="grid gap-2 border-t border-[#2a332d] p-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
             ["Mainboard", sectionTotals.MAINBOARD],
             ["Commander", sectionTotals.COMMANDER],
             ["Sideboard", sectionTotals.SIDEBOARD],
             ["Maybeboard", sectionTotals.MAYBEBOARD],
-            [
-              "Est. value",
-              estimatedPrice == null ? "--" : `$${estimatedPrice.toFixed(2)}`,
-            ],
           ].map(([label, value]) => (
             <div
               key={String(label)}
-              className="rounded-md border border-[#2a332d] bg-[#101614] px-3 py-2"
+              className="flex items-center justify-between gap-2 rounded-md border border-[#2a332d] bg-[#0d1210] px-3 py-2"
             >
-              <p className="text-xs uppercase tracking-wide text-stone-500">
+              <span className="text-xs uppercase tracking-wide text-stone-500">
                 {label}
-              </p>
-              <p className="text-base font-semibold text-stone-100">
+              </span>
+              <span className="text-sm font-semibold text-stone-100">
                 {String(value)}
-              </p>
-            </div>
-          ))}
-        </div>
-        <div className="grid gap-2 border-t border-[#2a332d] p-2 md:grid-cols-4">
-          {[
-            ["Exact owned", ownershipTotals.exactOwned, "text-emerald-100"],
-            ["Other owned", ownershipTotals.otherOwned, "text-cyan-100"],
-            ["Missing", ownershipTotals.missing, "text-red-100"],
-            ["Committed", committedSummary.committedQuantity, "text-amber-100"],
-          ].map(([label, value, tone]) => (
-            <div
-              key={String(label)}
-              className="rounded-md border border-[#2a332d] bg-[#0d1210] px-3 py-2"
-            >
-              <p className="text-xs uppercase tracking-wide text-stone-500">
-                {label}
-              </p>
-              <p className={cn("text-base font-semibold", String(tone))}>
-                {String(value)}
-              </p>
+              </span>
             </div>
           ))}
         </div>
