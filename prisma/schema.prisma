@@ -252,9 +252,9 @@ model PointCategory {
 }
 
 model Card {
-  id                  String            @id @default(cuid())
-  scryfallId          String            @unique
-  mtgjsonUuid         String?           @unique
+  id                  String              @id @default(cuid())
+  scryfallId          String              @unique
+  mtgjsonUuid         String?             @unique
   oracleId            String?
   multiverseIds       Json?
   mtgoId              Int?
@@ -320,7 +320,7 @@ model Card {
   apiUri              String?
   rawScryfallJson     Json?
   scryfallFingerprint String?
-  firstCachedAt       DateTime          @default(now())
+  firstCachedAt       DateTime            @default(now())
   lastSyncedAt        DateTime?
   lastFetchedAt       DateTime?
   lastCheckedAt       DateTime?
@@ -357,25 +357,28 @@ model Pull {
 }
 
 model Deck {
-  id           String     @id @default(cuid())
-  ownerUserId  String
-  ownerUser    User       @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
-  name         String
-  description  String?
-  format       DeckFormat @default(CASUAL)
-  visibility   Visibility @default(INHERIT)
-  bracket      Int?
-  bracketSuggested Int?
-  bracketConfidence String?
+  id                  String             @id @default(cuid())
+  ownerUserId         String
+  ownerUser           User               @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  name                String
+  description         String?
+  format              DeckFormat         @default(CASUAL)
+  visibility          Visibility         @default(INHERIT)
+  bracket             Int?
+  bracketSuggested    Int?
+  bracketConfidence   String?
   bracketAnalysisJson Json?
-  bracketUpdatedAt DateTime?
-  bracketAnalyzedAt DateTime?
-  folderId     String?
-  folder       DeckFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  cards        DeckCard[]
-  deckLocation InventoryLocation?
+  bracketUpdatedAt    DateTime?
+  bracketAnalyzedAt   DateTime?
+  bannerPositionX     Int                @default(50)
+  bannerPositionY     Int                @default(50)
+  bannerZoom          Int                @default(100)
+  folderId            String?
+  folder              DeckFolder?        @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  cards               DeckCard[]
+  deckLocation        InventoryLocation?
 
   @@index([ownerUserId, updatedAt])
   @@index([visibility, updatedAt])
@@ -399,9 +402,9 @@ model DeckFolder {
   updatedAt   DateTime     @updatedAt
   decks       Deck[]
 
+  @@unique([ownerUserId, parentId, name])
   @@index([ownerUserId])
   @@index([parentId])
-  @@unique([ownerUserId, parentId, name])
 }
 
 model DeckCard {
@@ -428,30 +431,30 @@ model DeckCard {
 }
 
 model CommanderBracketRuleSet {
-  id           String                  @id @default(cuid())
+  id           String                 @id @default(cuid())
   name         String
   version      String
-  source       String                  @default("scryfall")
+  source       String                 @default("scryfall")
   sourceUrl    String?
   effectiveAt  DateTime?
-  isActive     Boolean                 @default(false)
+  isActive     Boolean                @default(false)
   rulesJson    Json
-  refreshedAt  DateTime                @default(now())
-  createdAt    DateTime                @default(now())
+  refreshedAt  DateTime               @default(now())
+  createdAt    DateTime               @default(now())
   gameChangers CommanderGameChanger[]
 
   @@index([isActive, createdAt])
 }
 
 model CommanderGameChanger {
-  id         String                    @id @default(cuid())
+  id         String                  @id @default(cuid())
   ruleSetId  String
-  ruleSet    CommanderBracketRuleSet   @relation(fields: [ruleSetId], references: [id], onDelete: Cascade)
+  ruleSet    CommanderBracketRuleSet @relation(fields: [ruleSetId], references: [id], onDelete: Cascade)
   oracleId   String?
   scryfallId String?
   cardName   String
   reason     String?
-  createdAt  DateTime                  @default(now())
+  createdAt  DateTime                @default(now())
 
   @@index([ruleSetId])
   @@index([oracleId])
@@ -530,15 +533,15 @@ model TradeWishlistItem {
 }
 
 model LocationType {
-  id             String   @id @default(cuid())
-  name           String
-  normalizedName String   @unique
-  description    String?
-  active         Boolean  @default(true)
+  id              String   @id @default(cuid())
+  name            String
+  normalizedName  String   @unique
+  description     String?
+  active          Boolean  @default(true)
   createdByUserId String?
   createdByUser   User?    @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@index([active, name])
   @@index([createdByUserId])

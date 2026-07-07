@@ -79,6 +79,10 @@ export type PricingDashboardOptions = {
   priceType?: string;
   currency?: string;
   range?: PriceHistoryRange;
+  ownedCards?: Array<{ mtgjsonUuid: string; quantity: number }>;
+  setCode?: string;
+  minPercentChange?: number | null;
+  changeDirection?: "all" | "gainers" | "losers";
 };
 
 export type PricingDashboardMover = {
@@ -92,6 +96,11 @@ export type PricingDashboardMover = {
   percentChange: number | null;
   startObservedDate: string;
   currentObservedDate: string;
+};
+
+export type PricingDashboardTrendPoint = {
+  observedDate: string;
+  value: number;
 };
 
 export type PricingDashboard = {
@@ -120,6 +129,7 @@ export type PricingDashboard = {
   topGainers: PricingDashboardMover[];
   topLosers: PricingDashboardMover[];
   topPercentMoves: PricingDashboardMover[];
+  valueTrend: PricingDashboardTrendPoint[];
 };
 
 function pricingDatabaseUrl() {
@@ -137,6 +147,10 @@ function sqlString(value: string | null | undefined) {
   return `'${value.replace(/'/g, "''")}'`;
 }
 
+function sqlNumber(value: number) {
+  return Number.isFinite(value) ? String(value) : "0";
+}
+
 function cleanToken(value: string | null | undefined, fallback: string) {
   const clean = value?.trim();
   return clean && /^[a-zA-Z0-9_-]+$/.test(clean) ? clean : fallback;
@@ -145,6 +159,39 @@ function cleanToken(value: string | null | undefined, fallback: string) {
 function cleanCurrency(value: string | null | undefined) {
   const clean = value?.trim().toUpperCase();
   return clean && /^[A-Z]{3}$/.test(clean) ? clean : "USD";
+}
+
+function cleanSetCode(value: string | null | undefined) {
+  const clean = value?.trim().toUpperCase();
+  return clean && /^[A-Z0-9_]{2,8}$/.test(clean) ? clean : "";
+}
+
+function cleanPercentThreshold(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return null;
+  return Math.max(0, Math.min(1000, value));
+}
+
+function cleanDirection(value: string | null | undefined) {
+  return value === "gainers" || value === "losers" ? value : "all";
+}
+
+function holdingsCte(ownedCards: PricingDashboardOptions["ownedCards"]) {
+  const cards = (ownedCards ?? [])
+    .filter((card) => card.mtgjsonUuid && card.quantity > 0)
+    .map((card) => ({
+      mtgjsonUuid: card.mtgjsonUuid,
+      quantity: Math.max(1, Math.trunc(card.quantity)),
+    }));
+  if (!cards.length) {
+    return "holdings(mtgjson_uuid, owned_quantity) AS (SELECT NULL::text, 0::int WHERE FALSE)";
+  }
+  const values = cards
+    .map(
+      (card) =>
+        `(${sqlString(card.mtgjsonUuid)}::text, ${sqlNumber(card.quantity)}::int)`,
+    )
+    .join(", ");
+  return `holdings(mtgjson_uuid, owned_quantity) AS (VALUES ${values})`;
 }
 
 export function normalizePriceHistoryRange(
@@ -182,15 +229,18 @@ function runPsql(sql: string) {
       "-q",
       "-t",
       "-A",
-      "-c",
-      sql,
+      "-f",
+      "-",
     ],
-    { encoding: "utf8", maxBuffer: 1024 * 1024 * 8 },
+    { encoding: "utf8", input: sql, maxBuffer: 1024 * 1024 * 8 },
   );
 
   if (result.status !== 0) {
     throw new Error(
-      result.stderr?.trim() || result.stdout?.trim() || "psql command failed",
+      result.error?.message ||
+        result.stderr?.trim() ||
+        result.stdout?.trim() ||
+        `psql command failed with status ${result.status}`,
     );
   }
 
@@ -277,6 +327,7 @@ function emptyPricingDashboard(
     topGainers: [],
     topLosers: [],
     topPercentMoves: [],
+    valueTrend: [],
   };
 }
 
@@ -288,42 +339,78 @@ export async function getPricingDashboard(
   const priceType = cleanToken(options.priceType, "retail");
   const currency = cleanCurrency(options.currency);
   const range = normalizePriceHistoryRange(options.range);
+  const setCode = cleanSetCode(options.setCode);
+  const minPercentChange = cleanPercentThreshold(options.minPercentChange);
+  const changeDirection = cleanDirection(options.changeDirection);
   const dashboardOptions = { provider, finish, priceType, currency, range };
+  const holdingsSql = holdingsCte(options.ownedCards);
+  const scopedSetSql = setCode
+    ? `AND upper(set_code) = ${sqlString(setCode)}`
+    : "";
+  const percentThresholdSql =
+    minPercentChange == null
+      ? ""
+      : `AND ABS("percentChange") >= ${sqlNumber(minPercentChange)}`;
+  const directionSql =
+    changeDirection === "gainers"
+      ? `AND "absoluteChange" > 0`
+      : changeDirection === "losers"
+        ? `AND "absoluteChange" < 0`
+        : "";
 
   try {
     const [stats] = jsonQuery<PricingDashboard["stats"]>(
-      `SELECT
+      `WITH ${holdingsSql},
+       scoped AS (
+         SELECT ps.*
+         FROM price_snapshots ps
+         JOIN holdings h ON h.mtgjson_uuid = ps.mtgjson_uuid
+         WHERE ps.mtgjson_uuid IS NOT NULL
+           ${scopedSetSql}
+       )
+       SELECT
          COUNT(*)::int AS "snapshotCount",
          COUNT(DISTINCT mtgjson_uuid)::int AS "pricedCardCount",
          MAX(observed_date)::text AS "latestObservedDate",
          MAX(created_at)::text AS "latestIngestedAt",
          COUNT(DISTINCT provider)::int AS "providerCount",
          COUNT(DISTINCT currency)::int AS "currencyCount"
-       FROM price_snapshots`,
+       FROM scoped`,
     );
 
     const providerCoverage = jsonQuery<PricingDashboard["providerCoverage"][0]>(
-      `SELECT
+      `WITH ${holdingsSql},
+       scoped AS (
+         SELECT ps.*
+         FROM price_snapshots ps
+         JOIN holdings h ON h.mtgjson_uuid = ps.mtgjson_uuid
+         WHERE ps.mtgjson_uuid IS NOT NULL
+           ${scopedSetSql}
+       )
+       SELECT
          provider,
          currency,
          COUNT(*)::int AS "snapshotCount",
          COUNT(DISTINCT mtgjson_uuid)::int AS "pricedCardCount",
          MAX(observed_date)::text AS "latestObservedDate"
-       FROM price_snapshots
+       FROM scoped
        GROUP BY provider, currency
        ORDER BY "snapshotCount" DESC, provider ASC, currency ASC
        LIMIT 12`,
     );
 
     const movementBaseSql = `
-      WITH filtered AS (
-        SELECT *
-        FROM price_snapshots
-        WHERE mtgjson_uuid IS NOT NULL
+      WITH ${holdingsSql},
+      filtered AS (
+        SELECT ps.*
+        FROM price_snapshots ps
+        JOIN holdings h ON h.mtgjson_uuid = ps.mtgjson_uuid
+        WHERE ps.mtgjson_uuid IS NOT NULL
           AND provider = ${sqlString(provider)}
           AND finish = ${sqlString(finish)}
           AND price_type = ${sqlString(priceType)}
           AND currency = ${sqlString(currency)}
+          ${scopedSetSql}
       ),
       bounds AS (
         SELECT MAX(observed_date) AS latest_observed_date
@@ -384,6 +471,8 @@ export async function getPricingDashboard(
        SELECT *
        FROM movement_rows
        WHERE "absoluteChange" > 0
+         ${percentThresholdSql}
+         ${directionSql}
        ORDER BY "absoluteChange" DESC, "currentPrice" DESC
        LIMIT 20`,
     );
@@ -392,6 +481,8 @@ export async function getPricingDashboard(
        SELECT *
        FROM movement_rows
        WHERE "absoluteChange" < 0
+         ${percentThresholdSql}
+         ${directionSql}
        ORDER BY "absoluteChange" ASC, "currentPrice" ASC
        LIMIT 20`,
     );
@@ -400,8 +491,48 @@ export async function getPricingDashboard(
        SELECT *
        FROM movement_rows
        WHERE "percentChange" IS NOT NULL
+         ${percentThresholdSql}
+         ${directionSql}
        ORDER BY ABS("percentChange") DESC, ABS("absoluteChange") DESC
        LIMIT 20`,
+    );
+
+    const valueTrend = jsonQuery<PricingDashboardTrendPoint>(
+      `WITH ${holdingsSql},
+       filtered AS (
+         SELECT ps.*, h.owned_quantity
+         FROM price_snapshots ps
+         JOIN holdings h ON h.mtgjson_uuid = ps.mtgjson_uuid
+         WHERE ps.mtgjson_uuid IS NOT NULL
+           AND provider = ${sqlString(provider)}
+           AND finish = ${sqlString(finish)}
+           AND price_type = ${sqlString(priceType)}
+           AND currency = ${sqlString(currency)}
+           ${scopedSetSql}
+       ),
+       bounds AS (
+         SELECT MAX(observed_date) AS latest_observed_date
+         FROM filtered
+       ),
+       daily_cards AS (
+         SELECT DISTINCT ON (f.observed_date, f.mtgjson_uuid)
+           f.observed_date,
+           f.mtgjson_uuid,
+           f.price,
+           f.owned_quantity
+         FROM filtered f
+         CROSS JOIN bounds b
+         WHERE b.latest_observed_date IS NOT NULL
+           AND ${anchoredRangePredicate(range)}
+         ORDER BY f.observed_date, f.mtgjson_uuid, f.created_at DESC
+       )
+       SELECT
+         observed_date::text AS "observedDate",
+         ROUND(SUM(price * owned_quantity)::numeric, 2)::float8 AS value
+       FROM daily_cards
+       GROUP BY observed_date
+       ORDER BY observed_date ASC
+       LIMIT 400`,
     );
 
     return {
@@ -412,6 +543,7 @@ export async function getPricingDashboard(
       topGainers,
       topLosers,
       topPercentMoves,
+      valueTrend,
     };
   } catch (error) {
     return emptyPricingDashboard(

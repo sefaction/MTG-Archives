@@ -46,6 +46,24 @@ function formString(fd: FormData, name: string) {
   return String(fd.get(name) || "").trim();
 }
 
+function formPercent(fd: FormData, name: string, fallback: number) {
+  const value = Number(fd.get(name));
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function formRange(
+  fd: FormData,
+  name: string,
+  fallback: number,
+  min: number,
+  max: number,
+) {
+  const value = Number(fd.get(name));
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(min, Math.min(max, Math.round(value)));
+}
+
 function enumValue<T extends Record<string, string>>(
   enumObject: T,
   value: string,
@@ -249,6 +267,9 @@ export async function updateDeck(fd: FormData) {
       bracket,
       bracketUpdatedAt:
         bracket !== deck.bracket ? new Date() : deck.bracketUpdatedAt,
+      bannerPositionX: formPercent(fd, "bannerPositionX", 50),
+      bannerPositionY: formPercent(fd, "bannerPositionY", 50),
+      bannerZoom: formRange(fd, "bannerZoom", 100, 60, 500),
       folderId: await validatedFolderId(
         deck.ownerUserId,
         formString(fd, "folderId"),

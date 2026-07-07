@@ -371,6 +371,13 @@ export function DeckListEditor({
   const [pending, setPending] = useState("");
   const [message, setMessage] = useState("");
   const [returnDestinationId, setReturnDestinationId] = useState("");
+  const [previewRowId, setPreviewRowId] = useState(
+    () =>
+      rows.find((row) => row.isCommander)?.id ??
+      rows.find((row) => imageUri(row))?.id ??
+      rows[0]?.id ??
+      "",
+  );
 
   const groups = useMemo(
     () => buildDeckGroups(rows, groupMode, sortMode),
@@ -384,6 +391,14 @@ export function DeckListEditor({
   const selectedDrawerRow = useMemo(
     () => rows.find((row) => row.id === expanded) ?? null,
     [rows, expanded],
+  );
+  const previewRow = useMemo(
+    () =>
+      rows.find((row) => row.id === previewRowId) ??
+      rows.find((row) => row.isCommander) ??
+      rows[0] ??
+      null,
+    [previewRowId, rows],
   );
   const selectedQuantity = selectedRows.reduce(
     (total, row) => total + row.quantity,
@@ -898,53 +913,62 @@ export function DeckListEditor({
         />
       ) : null}
 
-      {viewMode === "compact" ? (
-        <CompactDeckView
-          deckId={deckId}
-          groups={groups}
-          sections={sections}
-          canEdit={canEdit}
-          selected={selected}
-          expanded={expanded}
-          setExpanded={setExpanded}
-          toggleSelected={toggleSelected}
-          previewOwned={(rowId) => loadPreview("owned", [rowId])}
-          previewCheapest={(rowId) => loadPreview("cheapest", [rowId])}
-          showPrivateInventory={showPrivateInventory}
-          returnLocations={returnLocations}
+      <div className="grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)]">
+        <DeckPreviewRail
+          row={previewRow}
+          showLocations={showPrivateInventory}
         />
-      ) : viewMode === "text" ? (
-        <TextDeckView
-          deckId={deckId}
-          groups={groups}
-          sections={sections}
-          canEdit={canEdit}
-          selected={selected}
-          expanded={expanded}
-          setExpanded={setExpanded}
-          toggleSelected={toggleSelected}
-          previewOwned={(rowId) => loadPreview("owned", [rowId])}
-          previewCheapest={(rowId) => loadPreview("cheapest", [rowId])}
-          showPrivateInventory={showPrivateInventory}
-          returnLocations={returnLocations}
-        />
-      ) : (
-        <VisualDeckView
-          deckId={deckId}
-          groups={groups}
-          sections={sections}
-          canEdit={canEdit}
-          selected={selected}
-          expanded={expanded}
-          setExpanded={setExpanded}
-          toggleSelected={toggleSelected}
-          previewOwned={(rowId) => loadPreview("owned", [rowId])}
-          previewCheapest={(rowId) => loadPreview("cheapest", [rowId])}
-          mode={viewMode}
-          showPrivateInventory={showPrivateInventory}
-          returnLocations={returnLocations}
-        />
-      )}
+        {viewMode === "compact" ? (
+          <CompactDeckView
+            deckId={deckId}
+            groups={groups}
+            sections={sections}
+            canEdit={canEdit}
+            selected={selected}
+            expanded={expanded}
+            setExpanded={setExpanded}
+            setPreviewRowId={setPreviewRowId}
+            toggleSelected={toggleSelected}
+            previewOwned={(rowId) => loadPreview("owned", [rowId])}
+            previewCheapest={(rowId) => loadPreview("cheapest", [rowId])}
+            showPrivateInventory={showPrivateInventory}
+            returnLocations={returnLocations}
+          />
+        ) : viewMode === "text" ? (
+          <TextDeckView
+            deckId={deckId}
+            groups={groups}
+            sections={sections}
+            canEdit={canEdit}
+            selected={selected}
+            expanded={expanded}
+            setExpanded={setExpanded}
+            setPreviewRowId={setPreviewRowId}
+            toggleSelected={toggleSelected}
+            previewOwned={(rowId) => loadPreview("owned", [rowId])}
+            previewCheapest={(rowId) => loadPreview("cheapest", [rowId])}
+            showPrivateInventory={showPrivateInventory}
+            returnLocations={returnLocations}
+          />
+        ) : (
+          <VisualDeckView
+            deckId={deckId}
+            groups={groups}
+            sections={sections}
+            canEdit={canEdit}
+            selected={selected}
+            expanded={expanded}
+            setExpanded={setExpanded}
+            setPreviewRowId={setPreviewRowId}
+            toggleSelected={toggleSelected}
+            previewOwned={(rowId) => loadPreview("owned", [rowId])}
+            previewCheapest={(rowId) => loadPreview("cheapest", [rowId])}
+            mode={viewMode}
+            showPrivateInventory={showPrivateInventory}
+            returnLocations={returnLocations}
+          />
+        )}
+      </div>
 
       <DeckEntryDrawer
         deckId={deckId}
@@ -975,12 +999,101 @@ type DeckViewProps = {
   selected: Set<string>;
   expanded: string | null;
   setExpanded: (id: string | null) => void;
+  setPreviewRowId: (id: string) => void;
   toggleSelected: (rowId: string, checked: boolean) => void;
   previewOwned: (rowId: string) => void;
   previewCheapest: (rowId: string) => void;
   showPrivateInventory: boolean;
   returnLocations: DeckReturnLocation[];
 };
+
+function DeckPreviewRail({
+  row,
+  showLocations,
+}: {
+  row: DeckEditorRow | null;
+  showLocations: boolean;
+}) {
+  if (!row) {
+    return (
+      <aside className="hidden xl:block">
+        <div className="sticky top-4 rounded-lg border border-[#2a332d] bg-[#101614] p-3 text-sm text-stone-500">
+          Hover a card to preview it.
+        </div>
+      </aside>
+    );
+  }
+  return (
+    <aside className="hidden xl:block">
+      <div className="sticky top-4 space-y-3 rounded-lg border border-[#2a332d] bg-[#101614] p-3 shadow-xl shadow-black/20">
+        {imageUri(row) ? (
+          <img
+            src={imageUri(row)}
+            alt=""
+            className="aspect-[488/680] w-full rounded-md object-cover"
+          />
+        ) : (
+          <div className="flex aspect-[488/680] w-full items-center justify-center rounded-md bg-[#0d1210] text-xs text-stone-500">
+            No image
+          </div>
+        )}
+        <div>
+          <h2 className="text-base font-semibold text-cyan-100">
+            {row.cardName}
+          </h2>
+          <p className="mt-1 text-xs text-stone-400">
+            {row.quantity} in {deckSectionLabel(row.section)} · MV{" "}
+            {cardManaValue(row)}
+          </p>
+          <div className="mt-1">
+            <ManaCost value={row.card?.manaCost ?? null} />
+          </div>
+        </div>
+        <div className="grid gap-2 text-xs">
+          <PreviewDetail
+            label="Type"
+            value={row.card?.typeLine ?? row.matchType}
+          />
+          <PreviewDetail
+            label="Printing"
+            value={
+              row.card
+                ? `${row.card.setCode.toUpperCase()} #${row.card.collectorNumber} · ${row.card.rarity}`
+                : "No selected printing"
+            }
+          />
+          <PreviewDetail label="Price" value={priceLabel(row.card?.prices)} />
+          <PreviewDetail
+            label="Committed"
+            value={`${row.committedToThisDeck}/${row.quantity}`}
+          />
+          <PreviewDetail
+            label="Available"
+            value={`${row.available} total · ${row.availableExact} exact · ${row.availableOther} other`}
+          />
+          {showLocations && row.locationSummary ? (
+            <PreviewDetail label="Locations" value={row.locationSummary} />
+          ) : null}
+        </div>
+        <div className="flex flex-wrap gap-1">{listStatusBadges(row)}</div>
+        {row.notes ? (
+          <p className="rounded border border-[#2a332d] bg-[#0d1210] p-2 text-xs text-stone-400">
+            {row.notes}
+          </p>
+        ) : null}
+      </div>
+    </aside>
+  );
+}
+
+function PreviewDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-2">
+      <span className="text-stone-500">{label}</span>
+      <span className="min-w-0 text-stone-200">{value}</span>
+    </div>
+  );
+}
 
 function CompactDeckView(props: DeckViewProps) {
   return (
@@ -1028,6 +1141,7 @@ function CompactDeckRow({
         "grid grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-1 px-2 py-1 text-xs hover:bg-emerald-950/20",
         expanded && "bg-cyan-950/20",
       )}
+      onMouseEnter={() => props.setPreviewRowId(row.id)}
     >
       {props.canEdit ? (
         <input
@@ -1048,6 +1162,7 @@ function CompactDeckRow({
         type="button"
         className="min-w-0 truncate text-left font-medium text-cyan-100 hover:text-amber-100 hover:underline"
         onClick={() => props.setExpanded(row.id)}
+        onFocus={() => props.setPreviewRowId(row.id)}
         title={row.cardName}
       >
         {row.cardName}
@@ -1160,6 +1275,7 @@ function TextDeckRow({
         "border-t border-[#252d28] align-middle hover:bg-emerald-950/20",
         expanded && "bg-cyan-950/20",
       )}
+      onMouseEnter={() => props.setPreviewRowId(row.id)}
     >
       {props.canEdit ? (
         <td className="px-2 py-1.5">
@@ -1181,6 +1297,7 @@ function TextDeckRow({
           type="button"
           className="text-left font-medium text-cyan-100 hover:text-amber-100 hover:underline"
           onClick={() => props.setExpanded(row.id)}
+          onFocus={() => props.setPreviewRowId(row.id)}
         >
           {row.cardName}
         </button>
@@ -1232,7 +1349,11 @@ function VisualDeckView(props: DeckViewProps & { mode: "grid" | "spoiler" }) {
             {group.rows.map((row) => {
               const expanded = props.expanded === row.id;
               return (
-                <article key={row.id} className={`${tileClass} app-card p-2`}>
+                <article
+                  key={row.id}
+                  className={`${tileClass} app-card p-2`}
+                  onMouseEnter={() => props.setPreviewRowId(row.id)}
+                >
                   {props.canEdit ? (
                     <input
                       aria-label={`Select ${row.cardName}`}
@@ -1247,6 +1368,7 @@ function VisualDeckView(props: DeckViewProps & { mode: "grid" | "spoiler" }) {
                     type="button"
                     className="mt-1 block w-full text-left"
                     onClick={() => props.setExpanded(expanded ? null : row.id)}
+                    onFocus={() => props.setPreviewRowId(row.id)}
                   >
                     {imageUri(row) ? (
                       <img

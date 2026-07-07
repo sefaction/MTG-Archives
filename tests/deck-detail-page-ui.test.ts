@@ -8,6 +8,11 @@ const importPageSource = readFileSync(
   "utf8",
 );
 const panelSource = readFileSync("components/DeckActionPanels.tsx", "utf8");
+const bannerEditorSource = readFileSync(
+  "components/DeckBannerEditor.tsx",
+  "utf8",
+);
+const editorSource = readFileSync("components/DeckListEditor.tsx", "utf8");
 const importPanelSource = readFileSync(
   "components/DeckImportPanel.tsx",
   "utf8",
@@ -40,6 +45,32 @@ test("deck detail page uses compact action panels instead of always-expanded pag
     /<summary[\s\S]*?>[\s\S]*Actions[\s\S]*?<\/summary>/,
   );
   assert.match(pageSource, /actionControls=\{/);
+});
+
+test("deck detail page uses commander art and hover preview rail", () => {
+  assert.match(pageSource, /deckCardArtCrop/);
+  assert.match(pageSource, /heroCard/);
+  assert.match(pageSource, /backgroundImage/);
+  assert.match(pageSource, /backgroundPosition/);
+  assert.match(pageSource, /backgroundRepeat/);
+  assert.match(pageSource, /heroSize/);
+  assert.match(pageSource, /bannerPositionX/);
+  assert.match(pageSource, /bannerPositionY/);
+  assert.match(pageSource, /bannerZoom/);
+  assert.match(pageSource, /DeckBannerEditor/);
+  assert.match(bannerEditorSource, /onPointerDown/);
+  assert.match(bannerEditorSource, /backgroundSize: foregroundSize/);
+  assert.match(bannerEditorSource, /blur-2xl/);
+  assert.match(editorSource, /DeckPreviewRail/);
+  assert.match(editorSource, /previewRowId/);
+  assert.match(editorSource, /setPreviewRowId/);
+  assert.match(
+    editorSource,
+    /onMouseEnter=\{\(\) => props\.setPreviewRowId\(row\.id\)\}/,
+  );
+  assert.match(editorSource, /Available/);
+  assert.match(editorSource, /Committed/);
+  assert.match(editorSource, /Locations/);
 });
 
 test("deck action toolbar exposes compact entry points for page-level workflows", () => {
@@ -76,6 +107,9 @@ test("collapsed deck action panels preserve existing form submissions", () => {
   assert.match(pageSource, /action=\{returnAllCommittedDeckInventory\}/);
   assert.match(pageSource, /action=\{updateDeck\}/);
   assert.match(pageSource, /name="bracket"/);
+  assert.match(bannerEditorSource, /name="bannerPositionX"/);
+  assert.match(bannerEditorSource, /name="bannerPositionY"/);
+  assert.match(bannerEditorSource, /name="bannerZoom"/);
   assert.match(pageSource, /action=\{deleteDeck\}/);
   assert.match(pageSource, /name="strongConfirmation"/);
   assert.match(pageSource, /name="destinationLocationId"/);
