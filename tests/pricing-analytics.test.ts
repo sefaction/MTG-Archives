@@ -23,6 +23,12 @@ test("pricing analytics page and navigation are wired", () => {
   assert.match(pricingPage, /Collection value/);
   assert.match(pricingPage, /Value by location/);
   assert.match(pricingPage, /Value by deck/);
+  assert.match(pricingPage, /PricingFilters/);
+  assert.match(pricingPage, /TrendChart/);
+  assert.match(pricingPage, /ownedCards: collectionValue\.ownedCards/);
+  assert.match(pricingPage, /cleanSetFilter/);
+  assert.match(pricingPage, /cleanPercentFilter/);
+  assert.match(pricingPage, /if \(!isDeckLocation\)/);
   assert.match(pricingPage, /selectPreferredCardPrice/);
   assert.match(pricingPage, /Provider coverage/);
   assert.match(pricingPage, /Top gainers/);
@@ -44,6 +50,9 @@ test("pricing analytics helpers remain lightweight during worker scaffold phase"
     /CardPriceSnapshot|priceSnapshots|PRICING_DATABASE_URL/,
   );
   assert.match(workerStore, /getPricingDashboard/);
+  assert.match(workerStore, /holdingsCte/);
+  assert.match(workerStore, /minPercentChange/);
+  assert.match(workerStore, /valueTrend/);
   assert.match(workerStore, /topGainers/);
   assert.match(workerStore, /topLosers/);
   assert.match(workerStore, /topPercentMoves/);

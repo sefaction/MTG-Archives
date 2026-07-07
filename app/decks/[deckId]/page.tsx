@@ -50,6 +50,7 @@ import {
   DeckListEditor,
   type DeckReturnLocation,
 } from "@/components/DeckListEditor";
+import { DeckBannerEditor } from "@/components/DeckBannerEditor";
 import {
   cn,
   filterDangerButtonClass,
@@ -86,6 +87,15 @@ function normalizeDeckMatchName(name: string) {
 
 function unique<T>(values: Array<T | null | undefined>) {
   return [...new Set(values.filter((value): value is T => Boolean(value)))];
+}
+
+function deckCardArtCrop(card: {
+  imageUris: unknown;
+  imageUri: string | null;
+}) {
+  const images = card.imageUris as
+    { art_crop?: string; normal?: string; small?: string } | null | undefined;
+  return images?.art_crop ?? images?.normal ?? card.imageUri ?? "";
 }
 
 function candidatesForDeckCard(
@@ -397,30 +407,75 @@ export default async function DeckDetailPage({
     (total, row) => total + Math.min(row.missing, row.available),
     0,
   );
+  const heroCard =
+    deck.cards.find((card) => card.isCommander && card.card)?.card ??
+    deck.cards.find(
+      (card) => card.section === DeckSection.COMMANDER && card.card,
+    )?.card ??
+    deck.cards.find((card) => card.card)?.card ??
+    null;
+  const heroImage = heroCard ? deckCardArtCrop(heroCard) : "";
+  const heroPosition = `${deck.bannerPositionX}% ${deck.bannerPositionY}%`;
+  const heroSize = `auto ${deck.bannerZoom}%`;
 
   return (
     <main className="space-y-6 p-8">
       <Nav />
       <section className="app-panel overflow-hidden">
-        <div className="border-b border-[#2a332d] bg-[#121915] px-4 py-3">
-          <Link href="/decks" className="text-sm text-cyan-300">
-            ← Decks
-          </Link>
-          <p className="text-xs font-semibold uppercase tracking-wide text-amber-200">
-            Deck builder
-          </p>
-          <h1 className="text-3xl font-bold text-stone-50">{deck.name}</h1>
-          <p className="text-stone-400">
-            {deckFormatLabel(deck.format)} · {formatDeckBracket(deck.bracket)} ·{" "}
-            <ColorIdentitySymbols value={deckColorIdentity} /> ·{" "}
-            {visibilityLabel(deck.visibility)} · Effective{" "}
-            {effectiveVisibility.toLowerCase()}
-          </p>
-          {deck.description ? (
-            <p className="max-w-3xl whitespace-pre-wrap text-stone-300">
-              {deck.description}
-            </p>
+        <div className="relative min-h-64 overflow-hidden border-b border-[#2a332d] bg-[#121915]">
+          {heroImage ? (
+            <>
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 scale-110 opacity-75 blur-2xl saturate-150"
+                style={{
+                  backgroundImage: `url(${heroImage})`,
+                  backgroundPosition: heroPosition,
+                  backgroundSize: "cover",
+                }}
+              />
+              <div
+                aria-hidden="true"
+                className="absolute inset-0"
+                style={{
+                  background:
+                    "linear-gradient(90deg, rgba(8,12,10,.96) 0%, rgba(13,18,16,.86) 34%, rgba(13,18,16,.28) 72%, rgba(8,12,10,.82) 100%)",
+                }}
+              />
+              <div
+                aria-hidden="true"
+                className="absolute inset-0"
+                style={{
+                  backgroundImage: `url(${heroImage})`,
+                  backgroundPosition: heroPosition,
+                  backgroundRepeat: "no-repeat",
+                  backgroundSize: heroSize,
+                }}
+              />
+            </>
           ) : null}
+          <div className="relative flex min-h-64 flex-col justify-end gap-3 px-5 py-5 md:px-7">
+            <Link href="/decks" className="text-sm text-cyan-300">
+              ← Decks
+            </Link>
+            <p className="text-xs font-semibold uppercase tracking-wide text-amber-200">
+              Deck builder
+            </p>
+            <h1 className="max-w-4xl text-4xl font-bold tracking-normal text-stone-50 md:text-5xl">
+              {deck.name}
+            </h1>
+            <p className="mt-2 flex flex-wrap items-center gap-2 text-stone-300">
+              {deckFormatLabel(deck.format)} · {formatDeckBracket(deck.bracket)}{" "}
+              · <ColorIdentitySymbols value={deckColorIdentity} /> ·{" "}
+              {visibilityLabel(deck.visibility)} · Effective{" "}
+              {effectiveVisibility.toLowerCase()}
+            </p>
+            {deck.description ? (
+              <p className="mt-4 max-w-3xl whitespace-pre-wrap text-stone-200">
+                {deck.description}
+              </p>
+            ) : null}
+          </div>
         </div>
         <div className="grid gap-2 p-2 sm:grid-cols-2 lg:grid-cols-5">
           {[
@@ -625,6 +680,14 @@ export default async function DeckDetailPage({
                       </select>
                     </label>
                   </div>
+                  {heroImage ? (
+                    <DeckBannerEditor
+                      imageUrl={heroImage}
+                      initialPositionX={deck.bannerPositionX}
+                      initialPositionY={deck.bannerPositionY}
+                      initialZoom={deck.bannerZoom}
+                    />
+                  ) : null}
                   <SubmitButton
                     pendingLabel="Saving…"
                     className={filterPrimaryButtonClass}
