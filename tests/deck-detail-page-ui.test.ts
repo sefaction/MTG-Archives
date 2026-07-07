@@ -26,8 +26,10 @@ const deckImportHelper = readFileSync("lib/deck-import.ts", "utf8");
 test("deck detail page uses compact action panels instead of always-expanded page forms", () => {
   assert.match(pageSource, /<DeckActionPanels/);
   assert.match(pageSource, /Deck builder/);
-  assert.match(pageSource, /Exact owned/);
-  assert.match(pageSource, /Est\. value/);
+  assert.match(pageSource, /DeckHealthCard/);
+  assert.match(pageSource, /Owned coverage/);
+  assert.match(pageSource, /Physical commitment/);
+  assert.match(pageSource, /Estimated value/);
   assert.doesNotMatch(
     pageSource,
     /<section className="grid gap-4 lg:grid-cols-2">/,

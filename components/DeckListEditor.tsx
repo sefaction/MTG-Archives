@@ -1351,7 +1351,11 @@ function VisualDeckView(props: DeckViewProps & { mode: "grid" | "spoiler" }) {
               return (
                 <article
                   key={row.id}
-                  className={`${tileClass} app-card p-2`}
+                  className={cn(
+                    tileClass,
+                    "app-card p-2",
+                    expanded && "ring-1 ring-cyan-600",
+                  )}
                   onMouseEnter={() => props.setPreviewRowId(row.id)}
                 >
                   {props.canEdit ? (
