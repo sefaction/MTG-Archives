@@ -6,6 +6,7 @@ import {
   getCardByScryfallIdResult,
   getCardBySetAndCollectorResult,
   getExactCardByNameResult,
+  searchCardPrintsByNameResult,
   searchCardsResult,
   ScryfallCard,
 } from "./scryfall";
@@ -41,6 +42,21 @@ export function cardImageNormal(card: ScryfallCard) {
     card.card_faces?.[0]?.image_uris?.normal ??
     cardImageSmall(card)
   );
+}
+
+export function cardTypeLine(card: ScryfallCard) {
+  if (card.type_line?.trim()) return card.type_line;
+  const faceTypeLines = (card.card_faces ?? [])
+    .map((face) => face.type_line?.trim())
+    .filter((typeLine): typeLine is string => Boolean(typeLine));
+  return faceTypeLines.join(" // ") || "Unknown";
+}
+
+function cardFaceText(card: ScryfallCard, field: "mana_cost" | "oracle_text") {
+  const values = (card.card_faces ?? [])
+    .map((face) => face[field]?.trim())
+    .filter((value): value is string => Boolean(value));
+  return values.join(" // ") || null;
 }
 
 function parseDate(value?: string) {
@@ -80,14 +96,14 @@ function cardWriteData(cardData: ScryfallCard) {
     layout: cardData.layout ?? null,
     highresImage: cardData.highres_image ?? null,
     imageStatus: cardData.image_status ?? null,
-    manaCost: cardData.mana_cost ?? null,
+    manaCost: cardData.mana_cost ?? cardFaceText(cardData, "mana_cost"),
     manaValue: cardData.cmc,
     colors: cardData.colors ?? [],
     colorIdentity: cardData.color_identity ?? [],
     colorIndicator: cardData.color_indicator ?? [],
-    typeLine: cardData.type_line,
+    typeLine: cardTypeLine(cardData),
     printedTypeLine: cardData.printed_type_line ?? null,
-    oracleText: cardData.oracle_text ?? null,
+    oracleText: cardData.oracle_text ?? cardFaceText(cardData, "oracle_text"),
     printedText: cardData.printed_text ?? null,
     power: cardData.power ?? null,
     toughness: cardData.toughness ?? null,
@@ -488,7 +504,7 @@ export async function searchLocalThenScryfallCards(query: string) {
       message: "Showing locally cached card printings.",
     };
   }
-  const result = await searchCardsResult(trimmed);
+  const result = await searchCardPrintsByNameResult(trimmed);
   if (!result.ok)
     return {
       cards: [] as ScryfallCard[],

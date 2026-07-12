@@ -3,11 +3,13 @@ import test from "node:test";
 
 import {
   __resetScryfallClientForTests,
+  buildCardNameSearchQuery,
   getCardByScryfallIdResult,
   getCardBySetAndCollectorResult,
+  searchCardPrintsByNameResult,
   searchCardsResult,
 } from "../lib/scryfall";
-import { normalizeCollectorNumber } from "../lib/card-import";
+import { cardTypeLine, normalizeCollectorNumber } from "../lib/card-import";
 
 function jsonResponse(
   body: unknown,
@@ -113,6 +115,48 @@ test("Scryfall client retries transient upstream failures", async () => {
   const result = await getCardBySetAndCollectorResult("CMM", "001");
   assert.equal(result.ok, true);
   assert.equal(attempts, 2);
+});
+
+test("plain card name search quotes apostrophes for Scryfall grammar", async () => {
+  __resetScryfallClientForTests();
+  process.env.SCRYFALL_API_BASE_URL = "https://scryfall.test";
+  process.env.SCRYFALL_MIN_REQUEST_INTERVAL_MS = "0";
+  process.env.SCRYFALL_MAX_RETRIES = "0";
+
+  let seenUrl = "";
+  global.fetch = (async (input: RequestInfo | URL) => {
+    seenUrl = String(input);
+    return jsonResponse({ object: "list", data: [sampleCard] });
+  }) as typeof fetch;
+
+  const result = await searchCardPrintsByNameResult("Teferi's Ageless Insight");
+  assert.equal(result.ok, true);
+  const url = new URL(seenUrl);
+  assert.equal(url.pathname, "/cards/search");
+  assert.equal(url.searchParams.get("q"), `name:"Teferi's Ageless Insight"`);
+  assert.equal(url.searchParams.get("unique"), "prints");
+});
+
+test("plain card name search escapes double quotes inside Scryfall query", () => {
+  assert.equal(
+    buildCardNameSearchQuery('Kaito "The Fox"'),
+    'name:"Kaito \\"The Fox\\""',
+  );
+});
+
+test("reversible cards derive a required type line from card faces", () => {
+  assert.equal(
+    cardTypeLine({
+      ...sampleCard,
+      layout: "reversible_card",
+      type_line: undefined,
+      card_faces: [
+        { name: "Front", type_line: "Enchantment" },
+        { name: "Back", type_line: "Enchantment" },
+      ],
+    }),
+    "Enchantment // Enchantment",
+  );
 });
 
 test("collector numbers are preserved as strings", () => {

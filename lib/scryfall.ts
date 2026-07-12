@@ -63,7 +63,7 @@ export type ScryfallCard = {
   textless?: boolean;
   booster?: boolean;
   story_spotlight?: boolean;
-  type_line: string;
+  type_line?: string;
   printed_type_line?: string;
   oracle_text?: string;
   printed_text?: string;
@@ -504,6 +504,15 @@ export async function searchCardsResult(q: string) {
     {},
     "card_search",
   );
+}
+
+export function buildCardNameSearchQuery(name: string) {
+  const escaped = name.trim().replace(/"/g, '\\"');
+  return escaped ? `name:"${escaped}"` : "";
+}
+
+export async function searchCardPrintsByNameResult(name: string) {
+  return searchCardsResult(buildCardNameSearchQuery(name));
 }
 
 export async function submitCardCollectionResult(

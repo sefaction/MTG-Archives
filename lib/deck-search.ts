@@ -1,7 +1,10 @@
 import { Card, InventoryLocationKind, Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { normalizeCardName, upsertScryfallCard } from "./card-import";
-import { formatScryfallError, searchCardsResult } from "./scryfall";
+import {
+  formatScryfallError,
+  searchCardPrintsByNameResult,
+} from "./scryfall";
 
 export type DeckCardSearchResult = {
   cardId: string;
@@ -247,7 +250,7 @@ export async function searchDeckCardPrintings(input: {
     : "No cached printings found; searched Scryfall.";
   const shouldSearchScryfall = input.includeScryfall || local.length < 8;
   if (shouldSearchScryfall) {
-    const result = await searchCardsResult(query);
+    const result = await searchCardPrintsByNameResult(query);
     if (result.ok) {
       const existingIds = new Set(local.map((card) => card.scryfallId));
       const imported = await Promise.all(
