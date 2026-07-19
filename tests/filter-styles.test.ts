@@ -151,6 +151,22 @@ test("inventory autocomplete and Enter handling apply canonical filters", () => 
   assert.match(inventorySearch, /addTokenAndSubmit/);
 });
 
+test("color identity controls visibly track checkbox changes", () => {
+  assert.match(
+    inventorySearch,
+    /const \[activeColors, setActiveColors\] = useState\(selected\)/,
+  );
+  assert.match(
+    inventorySearch,
+    /checked=\{activeColors\.includes\(color\.value\)\}/,
+  );
+  assert.match(inventorySearch, /toggleColor\(color\.value, event\.target\.checked\)/);
+  assert.match(
+    inventorySearch,
+    /activeColors\.includes\(color\.value\)[\s\S]*?border-sky-400 bg-sky-950/,
+  );
+});
+
 test("active filter chips and Clear Filters render outside collapsed advanced search", () => {
   assert.match(
     inventorySearch,
