@@ -748,6 +748,16 @@ function ColorIdentityControls({
   selected: string[];
   mode: string;
 }) {
+  const [activeColors, setActiveColors] = useState(selected);
+
+  function toggleColor(value: string, checked: boolean) {
+    setActiveColors((current) =>
+      checked
+        ? Array.from(new Set([...current, value]))
+        : current.filter((color) => color !== value),
+    );
+  }
+
   return (
     <div className="flex min-h-10 flex-wrap items-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 p-2 text-sm text-zinc-100 transition-colors focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/30">
       <span className={filterLabelClass}>Color ID</span>
@@ -771,14 +781,17 @@ function ColorIdentityControls({
         {COLOR_OPTIONS.map((color) => (
           <label
             key={color.value}
-            className={`inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border ${selected.includes(color.value) ? "border-sky-400 bg-sky-950" : "border-zinc-700 bg-zinc-900"}`}
+            className={`inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border ${activeColors.includes(color.value) ? "border-sky-400 bg-sky-950" : "border-zinc-700 bg-zinc-900"}`}
             title={color.label}
           >
             <input
               type="checkbox"
               name="colorIdentity"
               value={color.value}
-              defaultChecked={selected.includes(color.value)}
+              checked={activeColors.includes(color.value)}
+              onChange={(event) =>
+                toggleColor(color.value, event.target.checked)
+              }
               aria-label={`Color identity ${color.label}`}
               className="sr-only"
             />
@@ -1213,6 +1226,7 @@ export function InventoryAdvancedSearch({
             </div>
             <div className="flex flex-wrap gap-2">
               <ColorIdentityControls
+                key={colorIdentity.join(",")}
                 selected={colorIdentity}
                 mode={first(params, "colorIdentityMode")}
               />
