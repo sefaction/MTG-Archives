@@ -385,6 +385,13 @@ export async function addDeckCard(fd: FormData) {
   const quantity = normalizePositiveQuantity(fd.get("quantity"));
   const commitImmediately = formString(fd, "commitImmediately") === "on";
   const inventoryItemId = formString(fd, "inventoryItemId");
+  const addInventoryCopy = formString(fd, "addInventoryCopy") === "on";
+  const commitNewInventoryCopy =
+    addInventoryCopy && formString(fd, "commitNewInventoryCopy") === "on";
+  const inventoryLocationId = formString(fd, "inventoryLocationId");
+  const inventoryQuantity = addInventoryCopy
+    ? normalizeManualInventoryQuantity(fd.get("inventoryQuantity"))
+    : 0;
   const notes = formString(fd, "notes") || null;
 
   let card = cardId
@@ -408,6 +415,24 @@ export async function addDeckCard(fd: FormData) {
   }
   if (commitImmediately && !inventoryItemId) {
     throw new Error("Choose an owned inventory location to commit from.");
+  }
+  if (addInventoryCopy && !deck.ownerUser.playerId) {
+    throw new Error("Deck owner is not linked to an inventory owner.");
+  }
+  if (addInventoryCopy && !inventoryLocationId) {
+    throw new Error(
+      "Choose a destination location for the new inventory copy.",
+    );
+  }
+  if (commitImmediately && addInventoryCopy) {
+    throw new Error(
+      "Choose either an existing inventory copy or a newly added physical copy.",
+    );
+  }
+  if (commitNewInventoryCopy && inventoryQuantity > quantity) {
+    throw new Error(
+      "Newly committed physical copies cannot exceed the deck quantity being added.",
+    );
   }
 
   await prisma.$transaction(async (tx) => {
@@ -436,6 +461,60 @@ export async function addDeckCard(fd: FormData) {
           notes,
         },
       });
+    }
+
+    if (addInventoryCopy) {
+      const added = await addInventoryCardToLocation(tx, {
+        ownerPlayerId: deck.ownerUser.playerId!,
+        cardId: card.id,
+        locationId: inventoryLocationId,
+        quantity: inventoryQuantity,
+        foilStatus: formString(fd, "inventoryFoilStatus") || FoilStatus.NONFOIL,
+        condition: formString(fd, "inventoryCondition") || "NM",
+        language: formString(fd, "inventoryLanguage") || "EN",
+        notes,
+        actingUserId: user.id,
+        reason: `Added physical copy while adding ${card.name} to ${deck.name}.`,
+      });
+
+      if (commitNewInventoryCopy) {
+        const deckLocation = await ensureDeckLocation(tx, deck);
+        const move = await moveInventoryQuantityWithinTransaction(tx, {
+          inventoryItemId: added.inventory.id,
+          toLocationId: deckLocation.id,
+          quantity: inventoryQuantity,
+        });
+        const metadata = deckMoveAuditMetadata({
+          deckId: deck.id,
+          deckName: deck.name,
+          cardName: card.name,
+          sourceLocationId: added.location.id,
+          sourceLocationName: added.location.name,
+          destinationLocationId: deckLocation.id,
+          destinationLocationName: deckLocation.name,
+          quantityMoved: inventoryQuantity,
+          beforeSourceQuantity: move.source.quantity,
+          afterSourceQuantity: move.sourceAfterQuantity,
+          beforeDestinationQuantity: move.destinationBeforeQuantity,
+          afterDestinationQuantity: move.destinationAfterQuantity,
+        });
+        await recordInventoryAudit({
+          tx,
+          inventoryItemId: move.auditInventoryItemId,
+          actingUserId: user.id,
+          action: inventoryAuditAction.committedToDeck,
+          before: auditDeckMoveSnapshot(move.source, metadata),
+          after: auditDeckMoveSnapshot(
+            {
+              ...move.source,
+              locationId: deckLocation.id,
+              quantity: inventoryQuantity,
+            },
+            metadata,
+          ),
+          reason: `Added and committed ${inventoryQuantity} new ${card.name} to ${deck.name}.`,
+        });
+      }
     }
 
     if (!commitImmediately) return;

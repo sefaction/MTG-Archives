@@ -217,8 +217,15 @@ test("single-card and deck add-real-copy UIs use deliberate printing search and 
   assert.match(deckEditor, /Commit to this deck immediately/);
   assert.match(deckEditor, /action=\{addRealCopyToDeck\}/);
 
+  const deckPicker = readFileSync("components/DeckCardPicker.tsx", "utf8");
+  assert.match(deckPicker, /Also add a physical copy to inventory/);
+  assert.match(deckPicker, /name="inventoryLocationId"/);
+  assert.match(deckPicker, /name="commitNewInventoryCopy"/);
+
   const deckActions = readFileSync("app/decks/actions.ts", "utf8");
   assert.match(deckActions, /requireManagedDeck\(deckId\)/);
   assert.match(deckActions, /quantity > remainingNeeded/);
   assert.match(deckActions, /tx\.deckCard\.update/);
+  assert.match(deckActions, /if \(addInventoryCopy\)/);
+  assert.match(deckActions, /Added physical copy while adding/);
 });
