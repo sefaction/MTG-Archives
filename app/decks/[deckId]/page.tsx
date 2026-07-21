@@ -599,6 +599,7 @@ export default async function DeckDetailPage({
                   deckId={deck.id}
                   defaultSection={DeckSection.MAINBOARD}
                   sections={deckSections}
+                  locations={normalReturnLocations}
                 />
               }
               pasteDecklistHref={`/decks/${deck.id}/import`}

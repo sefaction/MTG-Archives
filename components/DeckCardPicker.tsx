@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { DeckSection } from "@prisma/client";
+import { DeckSection, FoilStatus } from "@prisma/client";
 import { ManaCost } from "@/components/mtg/ManaCost";
 import { SetSymbol } from "@/components/mtg/CardSymbols";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
@@ -22,10 +22,12 @@ export function DeckCardPicker({
   deckId,
   defaultSection,
   sections,
+  locations,
 }: {
   deckId: string;
   defaultSection: DeckSection;
   sections: DeckSection[];
+  locations: Array<{ id: string; name: string }>;
 }) {
   const [query, setQuery] = useState("");
   const [includeScryfall, setIncludeScryfall] = useState(false);
@@ -34,6 +36,8 @@ export function DeckCardPicker({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [commitImmediately, setCommitImmediately] = useState(false);
+  const [addInventoryCopy, setAddInventoryCopy] = useState(false);
+  const [commitNewInventoryCopy, setCommitNewInventoryCopy] = useState(true);
   const requestId = useRef(0);
 
   useEffect(() => {
@@ -208,7 +212,10 @@ export function DeckCardPicker({
               name="commitImmediately"
               checked={commitImmediately}
               disabled={!selected || selectedAvailableLocations.length === 0}
-              onChange={(event) => setCommitImmediately(event.target.checked)}
+              onChange={(event) => {
+                setCommitImmediately(event.target.checked);
+                if (event.target.checked) setAddInventoryCopy(false);
+              }}
               className="mt-1"
             />
             <span>
@@ -246,6 +253,103 @@ export function DeckCardPicker({
                 ))}
               </select>
             </label>
+          ) : null}
+        </div>
+        <div className="space-y-2 rounded border border-sky-900 bg-sky-950/10 p-2 text-sm md:col-span-3">
+          <label className="flex items-start gap-2 text-zinc-200">
+            <input
+              type="checkbox"
+              name="addInventoryCopy"
+              checked={addInventoryCopy}
+              disabled={!selected || locations.length === 0}
+              onChange={(event) => {
+                setAddInventoryCopy(event.target.checked);
+                if (event.target.checked) setCommitImmediately(false);
+              }}
+              className="mt-1"
+            />
+            <span>
+              <span className="block font-medium">
+                Also add a physical copy to inventory
+              </span>
+              <span className="block text-xs text-zinc-400">
+                Record newly acquired copies of the selected printing while
+                adding it to the deck list.
+              </span>
+            </span>
+          </label>
+          {!locations.length ? (
+            <p className="text-xs text-amber-200">
+              Create a normal inventory location before adding physical copies.
+            </p>
+          ) : null}
+          {addInventoryCopy ? (
+            <div className="grid gap-2 md:grid-cols-4">
+              <label className={filterFieldClass}>
+                Physical quantity
+                <input
+                  name="inventoryQuantity"
+                  type="number"
+                  min={1}
+                  defaultValue={1}
+                  className={cn(filterInputClass, "mt-1 w-full")}
+                />
+              </label>
+              <label className={filterFieldClass}>
+                Finish
+                <select
+                  name="inventoryFoilStatus"
+                  defaultValue={FoilStatus.NONFOIL}
+                  className={cn(filterSelectClass, "mt-1 w-full")}
+                >
+                  <option value={FoilStatus.NONFOIL}>Nonfoil</option>
+                  <option value={FoilStatus.FOIL}>Foil</option>
+                  <option value={FoilStatus.ETCHED}>Etched</option>
+                </select>
+              </label>
+              <label className={filterFieldClass}>
+                Condition
+                <input
+                  name="inventoryCondition"
+                  defaultValue="NM"
+                  className={cn(filterInputClass, "mt-1 w-full")}
+                />
+              </label>
+              <label className={filterFieldClass}>
+                Language
+                <input
+                  name="inventoryLanguage"
+                  defaultValue="EN"
+                  className={cn(filterInputClass, "mt-1 w-full")}
+                />
+              </label>
+              <label className={cn(filterFieldClass, "md:col-span-2")}>
+                Normal inventory location
+                <select
+                  name="inventoryLocationId"
+                  required
+                  defaultValue={locations[0]?.id ?? ""}
+                  className={cn(filterSelectClass, "mt-1 w-full")}
+                >
+                  {locations.map((location) => (
+                    <option key={location.id} value={location.id}>
+                      {location.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-center gap-2 self-end text-sm text-zinc-300 md:col-span-2">
+                <input
+                  name="commitNewInventoryCopy"
+                  type="checkbox"
+                  checked={commitNewInventoryCopy}
+                  onChange={(event) =>
+                    setCommitNewInventoryCopy(event.target.checked)
+                  }
+                />
+                Commit the new copy to this deck immediately
+              </label>
+            </div>
           ) : null}
         </div>
         <label className={filterFieldClass}>
