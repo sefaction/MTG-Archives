@@ -19,6 +19,70 @@ export const INVENTORY_SORT_FIELDS = [
   "effectiveVisibility",
 ] as const;
 
+export function isInventoryLocationSort(sortField: string) {
+  return sortField === "locationName" || sortField === "locationSummary";
+}
+
+function inventoryGroupIdentity(group: any, groupFields: string[]) {
+  return JSON.stringify(groupFields.map((field) => group?.[field] ?? null));
+}
+
+export async function enrichInventoryGroupsForLocationSort(
+  db: any,
+  groups: any[],
+  where: any,
+  groupFields: string[],
+) {
+  if (!groups.length) return groups;
+  const locationGroups = await db.inventoryItem.groupBy({
+    by: [...groupFields, "locationId"],
+    where,
+    _count: { _all: true },
+  });
+  const locationIds = Array.from(
+    new Set(
+      locationGroups
+        .map((group: any) => group.locationId)
+        .filter((id: unknown): id is string => typeof id === "string"),
+    ),
+  );
+  const locations = locationIds.length
+    ? await db.inventoryLocation.findMany({
+        where: { id: { in: locationIds } },
+        select: { id: true, name: true },
+      })
+    : [];
+  const locationNameById = new Map<string, string>(
+    locations.map((location: any) => [location.id, location.name]),
+  );
+  const namesByGroup = new Map<string, Set<string>>();
+  for (const locationGroup of locationGroups) {
+    const key = inventoryGroupIdentity(locationGroup, groupFields);
+    const names = namesByGroup.get(key) ?? new Set<string>();
+    names.add(
+      locationGroup.locationId
+        ? (locationNameById.get(locationGroup.locationId) ?? "Unassigned")
+        : "Unassigned",
+    );
+    namesByGroup.set(key, names);
+  }
+  return groups.map((group) => {
+    const names = [
+      ...(namesByGroup.get(inventoryGroupIdentity(group, groupFields)) ?? []),
+    ].sort((left, right) =>
+      left.localeCompare(right, undefined, {
+        sensitivity: "base",
+        numeric: true,
+      }),
+    );
+    return {
+      ...group,
+      locationName: names[0] ?? "Unassigned",
+      locationSummary: names.join(" · ") || "Unassigned",
+    };
+  });
+}
+
 const RARITY_RANK: Record<string, number> = {
   common: 1,
   uncommon: 2,

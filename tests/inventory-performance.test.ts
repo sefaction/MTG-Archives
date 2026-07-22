@@ -161,10 +161,9 @@ test("sorting is server-authoritative and resets page state", () => {
 });
 
 test("full-dataset client-safe filters run before paging", () => {
-  assert.match(
-    inventoryPage,
-    /const filteredGroups = \(allGroups as any\[\]\)\.filter/,
-  );
+  assert.match(inventoryPage, /const filteredGroups = sortableGroups\.filter/);
+  assert.match(inventoryPage, /isInventoryLocationSort\(String\(sortField\)\)/);
+  assert.match(inventoryPage, /enrichInventoryGroupsForLocationSort/);
   assert.match(inventoryListApi, /groupMatchesClientSafeFilters/);
   assert.match(publicInventoryQueries, /groupMatchesClientSafeFilters/);
   assert.match(inventoryPage, /totalMatchingCount = filteredGroups\.length/);

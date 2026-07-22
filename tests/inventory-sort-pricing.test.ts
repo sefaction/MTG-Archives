@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { compareInventoryGroups } from "../lib/inventory-sort";
+import {
+  compareInventoryGroups,
+  enrichInventoryGroupsForLocationSort,
+} from "../lib/inventory-sort";
 import {
   formatPercentChange,
   selectPreferredCardPrice,
@@ -67,6 +70,40 @@ test("inventory sorting remains type-aware and uses Scryfall price fields", () =
   assert.deepEqual(sortedIds("manaValue"), ["b", "a", "c"]);
   assert.deepEqual(sortedIds("colorIdentity"), ["b", "a", "c"]);
   assert.deepEqual(sortedIds("priceUsd"), ["b", "a", "c"]);
+});
+
+test("location sorting enriches grouped rows before comparison", async () => {
+  const db = {
+    inventoryItem: {
+      groupBy: async () => [
+        { cardId: "a", locationId: "loc-z" },
+        { cardId: "b", locationId: "loc-a" },
+        { cardId: "c", locationId: "loc-m" },
+        { cardId: "c", locationId: "loc-a" },
+      ],
+    },
+    inventoryLocation: {
+      findMany: async () => [
+        { id: "loc-z", name: "Zulu Binder" },
+        { id: "loc-a", name: "Alpha Box" },
+        { id: "loc-m", name: "Middle Shelf" },
+      ],
+    },
+  };
+  const enriched = await enrichInventoryGroupsForLocationSort(db, groups, {}, [
+    "cardId",
+  ]);
+  const sorted = [...enriched]
+    .sort((left, right) =>
+      compareInventoryGroups(left, right, cards, "locationName", "asc"),
+    )
+    .map((group) => group.cardId);
+
+  assert.deepEqual(sorted, ["b", "c", "a"]);
+  assert.equal(
+    enriched.find((group) => group.cardId === "c")?.locationSummary,
+    "Alpha Box · Middle Shelf",
+  );
 });
 
 test("Scryfall fallback prices are still selected and formatted", () => {

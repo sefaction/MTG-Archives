@@ -13,7 +13,11 @@ import {
   inventoryCardMatchesPostFilters,
   parseInventoryFilters,
 } from "@/lib/inventory-filters";
-import { compareInventoryGroups } from "@/lib/inventory-sort";
+import {
+  compareInventoryGroups,
+  enrichInventoryGroupsForLocationSort,
+  isInventoryLocationSort,
+} from "@/lib/inventory-sort";
 
 export type PublicInventoryFilters = {
   q?: string;
@@ -500,12 +504,22 @@ export async function getGlobalPublicInventory(
       orderBy: { name: "asc" },
     }),
   ]);
+  const inventoryGroupFields =
+    displayMode === "grouped"
+      ? ["cardId"]
+      : ["cardId", "foilStatus", "condition", "language"];
+  const sortableGroups = isInventoryLocationSort(sortField)
+    ? await enrichInventoryGroupsForLocationSort(
+        prisma,
+        allGroups as any[],
+        where,
+        inventoryGroupFields,
+      )
+    : (allGroups as any[]);
   const cardSortData = await prisma.card.findMany({
     where: {
       id: {
-        in: Array.from(
-          new Set((allGroups as any[]).map((group) => group.cardId)),
-        ),
+        in: Array.from(new Set(sortableGroups.map((group) => group.cardId))),
       },
     },
     select: {
@@ -531,9 +545,7 @@ export async function getGlobalPublicInventory(
       cardSortById.get(group.cardId),
       structuredFilters,
     );
-  const filteredGroups = (allGroups as any[]).filter(
-    groupMatchesClientSafeFilters,
-  );
+  const filteredGroups = sortableGroups.filter(groupMatchesClientSafeFilters);
   const sortedGroups = [...filteredGroups].sort((left, right) =>
     compareInventoryGroups(left, right, cardSortById, sortField, sortDirection),
   );
