@@ -299,7 +299,7 @@ export default async function InventoryPage({
 
   async function onSearchPrintings(fd: FormData) {
     "use server";
-    await requireAdminMode();
+    await requireLogin();
     const q = String(fd.get("q") || "");
     const r = await searchLocalThenScryfallCards(q);
     return r.cards.slice(0, 20).map((c) => ({
@@ -343,9 +343,7 @@ export default async function InventoryPage({
     }
 
     let cardId = before.cardId;
-    const newScryfallId = actionIsAdmin
-      ? String(fd.get("newScryfallId") || "")
-      : "";
+    const newScryfallId = String(fd.get("newScryfallId") || "");
     if (newScryfallId) {
       const existing = await prisma.card.findUnique({
         where: { scryfallId: newScryfallId },
@@ -361,7 +359,11 @@ export default async function InventoryPage({
       }
     }
 
-    const foilStatus = String(fd.get("foilStatus") || "NONFOIL") as FoilStatus;
+    const foilStatusRaw = String(fd.get("foilStatus") || "NONFOIL");
+    if (!["NONFOIL", "FOIL", "ETCHED"].includes(foilStatusRaw)) {
+      throw new Error("Invalid foil status.");
+    }
+    const foilStatus = foilStatusRaw as FoilStatus;
     const locationIdRaw = String(fd.get("locationId") || "");
     const defaultLocation = await ensureDefaultLocation(prisma, currentOwnerId);
     const targetLocationId = locationIdRaw || defaultLocation.id;
@@ -427,9 +429,7 @@ export default async function InventoryPage({
     }
 
     let cardId = before.cardId;
-    const newScryfallId = actionIsAdmin
-      ? String(fd.get("newScryfallId") || "")
-      : "";
+    const newScryfallId = String(fd.get("newScryfallId") || "");
     if (newScryfallId) {
       const existing = await prisma.card.findUnique({
         where: { scryfallId: newScryfallId },
@@ -445,7 +445,11 @@ export default async function InventoryPage({
       }
     }
 
-    const foilStatus = String(fd.get("foilStatus") || before.foilStatus);
+    const foilStatusRaw = String(fd.get("foilStatus") || before.foilStatus);
+    if (!["NONFOIL", "FOIL", "ETCHED"].includes(foilStatusRaw)) {
+      throw new Error("Invalid foil status.");
+    }
+    const foilStatus = foilStatusRaw as FoilStatus;
     const locationIdRaw = String(fd.get("locationId") || "");
     const defaultLocation = await ensureDefaultLocation(
       prisma,
