@@ -26,6 +26,13 @@ test("import commit action is kept in the sticky command bar", () => {
   assert.match(source, /action=\{confirmImport\}\s+className="hidden"/);
 });
 
+test("import confirmation uses the selected destination location", () => {
+  assert.match(
+    source,
+    /confirmMessage=\{[\s\S]*?ready rows to \{selection\}\?[\s\S]*?confirmSelectionName="destinationLocationId"/,
+  );
+});
+
 test("import maintenance keeps single add collapsed and exposes history cleanup", () => {
   assert.match(source, /title="Add single card"/);
   assert.match(source, /storageKey="imports-single-card-add"/);
