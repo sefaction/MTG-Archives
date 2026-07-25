@@ -847,6 +847,7 @@ function CardDetail({
   row,
   onClose,
   capabilities,
+  deleting = false,
   onAddTradeWishlist,
   onEdit,
   onAudit,
@@ -855,10 +856,11 @@ function CardDetail({
   row: InventoryRow;
   onClose: () => void;
   capabilities: InventoryCapabilities;
+  deleting?: boolean;
   onAddTradeWishlist?: (formData: FormData) => Promise<void>;
   onEdit?: () => void;
   onAudit?: () => void;
-  onDelete?: () => void;
+  onDelete?: () => Promise<void>;
 }) {
   const legalities = row.legalities || {};
   const cardFaces = normalizeCardFaces(row);
@@ -934,10 +936,13 @@ function CardDetail({
             ) : null}
             {capabilities.canDelete && onDelete ? (
               <button
-                onClick={onDelete}
+                type="button"
+                disabled={deleting}
+                aria-disabled={deleting}
+                onClick={() => void onDelete()}
                 className={cn(filterDangerButtonClass, "px-2 py-1")}
               >
-                Delete inventory entry
+                {deleting ? "Deleting…" : "Delete inventory entry"}
               </button>
             ) : null}
             <button
@@ -2415,6 +2420,7 @@ export function InventoryBrowser({
           row={selected}
           onClose={() => setSelected(null)}
           capabilities={capabilities}
+          deleting={deletingBulk}
           onAddTradeWishlist={onAddTradeWishlist}
           onEdit={
             capabilities.canEdit && selected.displayMode === "exact"

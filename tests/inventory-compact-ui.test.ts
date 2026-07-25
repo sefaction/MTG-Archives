@@ -140,6 +140,18 @@ test("inventory detail drawer uses readable card information blocks", () => {
   assert.doesNotMatch(inventoryBrowser, /<b>Colors:<\/b>/);
 });
 
+test("inventory detail drawer delete is a guarded async button", () => {
+  assert.match(
+    inventoryBrowser,
+    /type="button"\s+disabled=\{deleting\}\s+aria-disabled=\{deleting\}\s+onClick=\{\(\) => void onDelete\(\)\}/,
+  );
+  assert.match(
+    inventoryBrowser,
+    /\{deleting \? "Deleting…" : "Delete inventory entry"\}/,
+  );
+  assert.match(inventoryBrowser, /deleting=\{deletingBulk\}/);
+});
+
 test("inventory rows include face data for split multi-face cards", () => {
   assert.match(prismaSchema, /allParts\s+Json\?/);
   assert.match(cardImport, /allParts: cardData\.all_parts \?\? \[\]/);
