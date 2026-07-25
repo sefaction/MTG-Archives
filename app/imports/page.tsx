@@ -2001,9 +2001,10 @@ export default async function ImportsPage({
                       disabled={!canCommitSelectedBatch}
                       confirmMessage={
                         summary.readyToCommit >= 100
-                          ? `Commit ${summary.readyToCommit} ready rows to ${defaultDestinationLocation?.name ?? "inventory"}?`
+                          ? `Commit ${summary.readyToCommit} ready rows to {selection}?`
                           : undefined
                       }
+                      confirmSelectionName="destinationLocationId"
                       className="rounded-md border border-emerald-700 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-100 transition-colors hover:border-emerald-500 disabled:opacity-50"
                     >
                       {unresolvedCount > 0
