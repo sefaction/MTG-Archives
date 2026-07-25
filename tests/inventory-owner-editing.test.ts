@@ -27,16 +27,29 @@ test("owner-editable inventory browser restores normal user edit controls", () =
   assert.match(inventoryBrowser, /editing && capabilities\.canEdit/);
 });
 
-test("normal edit form hides admin-only owner, source, and printing controls", () => {
+test("normal edit form hides admin-only owner and source controls", () => {
   assert.match(
     inventoryBrowser,
     /!capabilities\.canViewOwnerAdminFields \? \(/,
   );
   assert.match(inventoryBrowser, /name="currentOwnerId"/);
   assert.match(inventoryBrowser, /Admin correction reason/);
-  assert.match(inventoryBrowser, /Change Printing/);
   assert.match(inventoryBrowser, /capabilities\.canViewOwnerAdminFields \? \(/);
   assert.match(inventoryBrowser, /name="language"/);
+});
+
+test("owners can correct printing and foil status on their own stacks", () => {
+  assert.match(
+    inventoryBrowser,
+    /capabilities\.canEdit \? \([\s\S]*Current printing:[\s\S]*correct this printing or set/,
+  );
+  assert.match(inventoryBrowser, /name="newScryfallId"/);
+  assert.match(inventoryBrowser, /name="foilStatus"/);
+  assert.match(inventoryPage, /async function onSearchPrintings[\s\S]*requireLogin/);
+  assert.doesNotMatch(
+    inventoryPage,
+    /async function onSearchPrintings[\s\S]{0,120}requireAdminMode/,
+  );
 });
 
 test("inventory edit action authorizes normal users by item ownership server-side", () => {
@@ -63,7 +76,15 @@ test("normal edit action delegates stack-safe fields to the inventory stack help
     inventoryPage,
     /sourceType: actionIsAdmin[\s\S]*: before\.sourceType/,
   );
-  assert.match(inventoryPage, /const newScryfallId = actionIsAdmin[\s\S]*: ""/);
+  assert.equal(
+    (
+      inventoryPage.match(
+        /const newScryfallId = String\(fd\.get\("newScryfallId"\) \|\| ""\)/g,
+      ) ?? []
+    ).length,
+    2,
+  );
+  assert.match(inventoryPage, /Invalid foil status/);
   assert.match(inventoryPage, /updateInventoryStack\(prisma/);
   assert.match(inventoryPage, /splitInventoryStack\(prisma/);
 });

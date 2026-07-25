@@ -2426,6 +2426,8 @@ export function InventoryBrowser({
             capabilities.canEdit && selected.displayMode === "exact"
               ? () => {
                   setEditing(selected);
+                  setConfirmed(null);
+                  setResults([]);
                   setSelected(null);
                 }
               : undefined
@@ -2516,7 +2518,7 @@ export function InventoryBrowser({
                   </span>
                 ) : null}
               </div>
-              {capabilities.canViewOwnerAdminFields ? (
+              {capabilities.canEdit ? (
                 <div className="mb-3 rounded border border-zinc-800 bg-black/20 p-2">
                   <div className="mb-2 text-xs text-zinc-400">
                     Current printing: {editing.cardName} ({editing.setCode}) #
@@ -2527,7 +2529,7 @@ export function InventoryBrowser({
                       id="stackPrintingQuery"
                       name="stackPrintingQuery"
                       className={cn(filterInputClass, "flex-1")}
-                      placeholder="Search Scryfall to change selected stack printing"
+                      placeholder="Search Scryfall to correct this printing or set"
                     />
                     <button
                       type="button"
@@ -2588,8 +2590,8 @@ export function InventoryBrowser({
                     </div>
                   ) : null}
                   <div className="mt-2 text-xs text-zinc-500">
-                    Select a result, then save or split a stack to apply that
-                    printing to that stack.
+                    Select the correct result, then edit the affected stack and
+                    save it. You can also correct foil status in that stack.
                   </div>
                 </div>
               ) : null}
