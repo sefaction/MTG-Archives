@@ -208,7 +208,10 @@ test("single-card and deck add-real-copy UIs use deliberate printing search and 
     "utf8",
   );
   assert.match(singleCard, /Add single card/);
-  assert.match(singleCard, /Include Scryfall fallback for this search/);
+  assert.match(
+    singleCard,
+    /Include Scryfall fallback for plain-name searches/,
+  );
   assert.match(singleCard, /onClick=\{search\}/);
   assert.match(singleCard, /action=\{addSingleCardToInventory\}/);
 

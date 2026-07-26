@@ -41,7 +41,7 @@ test("normal edit form hides admin-only owner and source controls", () => {
 test("owners can correct printing and foil status on their own stacks", () => {
   assert.match(
     inventoryBrowser,
-    /capabilities\.canEdit \? \([\s\S]*Current printing:[\s\S]*correct this printing or set/,
+    /capabilities\.canEdit \? \([\s\S]*Current printing:[\s\S]*Card name or Scryfall query/,
   );
   assert.match(inventoryBrowser, /name="newScryfallId"/);
   assert.match(inventoryBrowser, /name="foilStatus"/);

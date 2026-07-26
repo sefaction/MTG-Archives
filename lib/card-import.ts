@@ -6,7 +6,8 @@ import {
   getCardByScryfallIdResult,
   getCardBySetAndCollectorResult,
   getExactCardByNameResult,
-  searchCardPrintsByNameResult,
+  hasScryfallSearchSyntax,
+  searchCardPrintsResult,
   searchCardsResult,
   ScryfallCard,
 } from "./scryfall";
@@ -454,22 +455,25 @@ export async function searchLocalThenScryfallCards(query: string) {
       cards: [] as ScryfallCard[],
       message: "Enter at least 2 characters.",
     };
-  const local = await prisma.card.findMany({
-    where: {
-      OR: [
-        { name: { contains: trimmed, mode: "insensitive" } },
-        {
-          setCode: {
-            equals: normalizeSetCode(trimmed) ?? trimmed,
-            mode: "insensitive",
-          },
+  const useScryfallSyntax = hasScryfallSearchSyntax(trimmed);
+  const local = useScryfallSyntax
+    ? []
+    : await prisma.card.findMany({
+        where: {
+          OR: [
+            { name: { contains: trimmed, mode: "insensitive" } },
+            {
+              setCode: {
+                equals: normalizeSetCode(trimmed) ?? trimmed,
+                mode: "insensitive",
+              },
+            },
+            { collectorNumber: trimmed },
+          ],
         },
-        { collectorNumber: trimmed },
-      ],
-    },
-    orderBy: [{ name: "asc" }, { releasedAt: "desc" }],
-    take: 20,
-  });
+        orderBy: [{ name: "asc" }, { releasedAt: "desc" }],
+        take: 20,
+      });
   if (local.length > 0) {
     return {
       cards: local.map((card) => ({
@@ -504,7 +508,7 @@ export async function searchLocalThenScryfallCards(query: string) {
       message: "Showing locally cached card printings.",
     };
   }
-  const result = await searchCardPrintsByNameResult(trimmed);
+  const result = await searchCardPrintsResult(trimmed);
   if (!result.ok)
     return {
       cards: [] as ScryfallCard[],

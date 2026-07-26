@@ -89,7 +89,7 @@ export function DeckCardPicker({
             setError("");
             setLoading(next.trim().length >= 2);
           }}
-          placeholder="Search any Magic card"
+          placeholder="Card name or Scryfall query, e.g. command tower set:c20"
           className={cn(filterInputClass, "mt-1 w-full")}
         />
       </label>
@@ -106,7 +106,7 @@ export function DeckCardPicker({
             setLoading(query.trim().length >= 2);
           }}
         />
-        Broaden with Scryfall results
+        Broaden plain-name searches with Scryfall results
       </label>
       <div className="text-sm text-zinc-400" aria-live="polite">
         {loading ? "Searching local cache and Scryfall…" : response?.message}

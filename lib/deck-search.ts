@@ -3,7 +3,8 @@ import { prisma } from "./prisma";
 import { normalizeCardName, upsertScryfallCard } from "./card-import";
 import {
   formatScryfallError,
-  searchCardPrintsByNameResult,
+  hasScryfallSearchSyntax,
+  searchCardPrintsResult,
 } from "./scryfall";
 
 export type DeckCardSearchResult = {
@@ -229,6 +230,7 @@ export async function searchDeckCardPrintings(input: {
       counts: { owned: 0, local: 0, scryfall: 0 },
     };
 
+  const useScryfallSyntax = hasScryfallSearchSyntax(query);
   const normalizedSet = query.toLowerCase();
   const localWhere: Prisma.CardWhereInput = {
     OR: [
@@ -238,19 +240,22 @@ export async function searchDeckCardPrintings(input: {
       { typeLine: { contains: query, mode: "insensitive" } },
     ],
   };
-  const local = await prisma.card.findMany({
-    where: localWhere,
-    orderBy: [{ name: "asc" }, { releasedAt: "desc" }],
-    take: limit,
-  });
+  const local = useScryfallSyntax
+    ? []
+    : await prisma.card.findMany({
+        where: localWhere,
+        orderBy: [{ name: "asc" }, { releasedAt: "desc" }],
+        take: limit,
+      });
 
   let scryfallCards: Card[] = [];
   let message = local.length
     ? "Showing cached printings; broadened with Scryfall when useful."
     : "No cached printings found; searched Scryfall.";
-  const shouldSearchScryfall = input.includeScryfall || local.length < 8;
+  const shouldSearchScryfall =
+    useScryfallSyntax || input.includeScryfall || local.length < 8;
   if (shouldSearchScryfall) {
-    const result = await searchCardPrintsByNameResult(query);
+    const result = await searchCardPrintsResult(query);
     if (result.ok) {
       const existingIds = new Set(local.map((card) => card.scryfallId));
       const imported = await Promise.all(

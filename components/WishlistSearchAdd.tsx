@@ -20,7 +20,7 @@ export function WishlistSearchAdd() {
   const [response, setResponse] = useState<DeckCardSearchResponse | null>(null);
   const [selected, setSelected] = useState<DeckCardSearchResult | null>(null);
   const [message, setMessage] = useState(
-    "Search owned printings and local cache first; include Scryfall when needed.",
+    "Search owned/local printings or use Scryfall syntax such as command tower set:c20.",
   );
   const [pending, startTransition] = useTransition();
 
@@ -56,7 +56,7 @@ export function WishlistSearchAdd() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             className={cn(filterInputClass, "mt-1 block min-w-72")}
-            placeholder="Lightning Bolt"
+            placeholder="Card name or Scryfall query, e.g. command tower set:c20"
           />
         </label>
         <button

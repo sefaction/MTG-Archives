@@ -37,7 +37,7 @@ export function SingleCardInventoryAdd({
   const [response, setResponse] = useState<DeckCardSearchResponse | null>(null);
   const [selected, setSelected] = useState<DeckCardSearchResult | null>(null);
   const [status, setStatus] = useState(
-    "Search local cached and owned printings first. Use the checkbox to include Scryfall fallback.",
+    "Search local printings or use Scryfall syntax such as command tower set:c20.",
   );
   const [loading, setLoading] = useState(false);
 
@@ -100,7 +100,7 @@ export function SingleCardInventoryAdd({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             className={cn(filterInputClass, "mt-1 w-full")}
-            placeholder="Sol Ring"
+            placeholder="Card name or Scryfall query, e.g. command tower set:c20"
           />
         </label>
         <button
@@ -118,7 +118,7 @@ export function SingleCardInventoryAdd({
           checked={includeScryfall}
           onChange={(event) => setIncludeScryfall(event.target.checked)}
         />
-        Include Scryfall fallback for this search
+        Include Scryfall fallback for plain-name searches
       </label>
       <p className="text-sm text-zinc-400" aria-live="polite">
         {status}

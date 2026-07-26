@@ -2529,7 +2529,7 @@ export function InventoryBrowser({
                       id="stackPrintingQuery"
                       name="stackPrintingQuery"
                       className={cn(filterInputClass, "flex-1")}
-                      placeholder="Search Scryfall to correct this printing or set"
+                      placeholder="Card name or Scryfall query, e.g. command tower set:c20"
                     />
                     <button
                       type="button"
@@ -3148,7 +3148,7 @@ export function InventoryBrowser({
                           id="printingQuery"
                           name="printingQuery"
                           className={cn(filterInputClass, "flex-1")}
-                          placeholder="Search Scryfall"
+                          placeholder="Card name or Scryfall query, e.g. command tower set:c20"
                         />
                         <button
                           type="button"

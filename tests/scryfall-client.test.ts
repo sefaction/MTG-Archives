@@ -4,9 +4,12 @@ import test from "node:test";
 import {
   __resetScryfallClientForTests,
   buildCardNameSearchQuery,
+  buildCardPrintingSearchQuery,
   getCardByScryfallIdResult,
   getCardBySetAndCollectorResult,
+  hasScryfallSearchSyntax,
   searchCardPrintsByNameResult,
+  searchCardPrintsResult,
   searchCardsResult,
 } from "../lib/scryfall";
 import { cardTypeLine, normalizeCollectorNumber } from "../lib/card-import";
@@ -141,6 +144,39 @@ test("plain card name search escapes double quotes inside Scryfall query", () =>
   assert.equal(
     buildCardNameSearchQuery('Kaito "The Fox"'),
     'name:"Kaito \\"The Fox\\""',
+  );
+});
+
+test("printing search preserves Scryfall operators", async () => {
+  __resetScryfallClientForTests();
+  process.env.SCRYFALL_API_BASE_URL = "https://scryfall.test";
+  process.env.SCRYFALL_MIN_REQUEST_INTERVAL_MS = "0";
+  process.env.SCRYFALL_MAX_RETRIES = "0";
+
+  let seenUrl = "";
+  global.fetch = (async (input: RequestInfo | URL) => {
+    seenUrl = String(input);
+    return jsonResponse({ object: "list", data: [sampleCard] });
+  }) as typeof fetch;
+
+  const query = "command tower set:c20";
+  const result = await searchCardPrintsResult(query);
+  assert.equal(result.ok, true);
+  assert.equal(new URL(seenUrl).searchParams.get("q"), query);
+});
+
+test("printing search distinguishes plain names from Scryfall syntax", () => {
+  assert.equal(hasScryfallSearchSyntax("Command Tower"), false);
+  assert.equal(hasScryfallSearchSyntax("command tower set:c20"), true);
+  assert.equal(hasScryfallSearchSyntax("t:artifact -is:digital"), true);
+  assert.equal(hasScryfallSearchSyntax("mv>=4 color:wu"), true);
+  assert.equal(
+    buildCardPrintingSearchQuery("Teferi's Ageless Insight"),
+    `name:"Teferi's Ageless Insight"`,
+  );
+  assert.equal(
+    buildCardPrintingSearchQuery("command tower set:c20"),
+    "command tower set:c20",
   );
 });
 
