@@ -16,6 +16,7 @@ import {
   assertCanDeclineTrade,
   isTerminalTradeStatus,
 } from "@/lib/trade-policy";
+import { fulfillCompletedTradeWishlists } from "@/lib/trade-wishlist";
 
 const activeStatuses: TradeStatus[] = [
   TradeStatus.PROPOSED,
@@ -527,6 +528,12 @@ async function completeTradeIfReady(
       actorUserId,
       reason,
     );
+    await fulfillCompletedTradeWishlists(tx, {
+      proposerPlayerId: trade.proposerPlayerId,
+      receiverPlayerId: trade.receiverPlayerId,
+      offeredCardId: offered.cardId,
+      requestedCardId: requested.cardId,
+    });
     await tx.trade.update({
       where: { id: tradeId },
       data: {
@@ -585,6 +592,7 @@ export async function confirmPhysicalTrade(fd: FormData) {
     });
     await completeTradeIfReady(trade.id, actor.id, true);
     revalidatePath("/trades");
+    revalidatePath("/wishlist");
     return;
   }
   if (actor.playerId === trade.proposerPlayerId) {
@@ -632,4 +640,5 @@ export async function confirmPhysicalTrade(fd: FormData) {
   });
   await completeTradeIfReady(trade.id, actor.id);
   revalidatePath("/trades");
+  revalidatePath("/wishlist");
 }
