@@ -24,7 +24,7 @@ export function assertValidLocationName(name: string) {
 }
 
 export async function ensureDefaultLocation(
-  prisma: PrismaClient,
+  prisma: PrismaClient | Prisma.TransactionClient,
   ownerPlayerId: string,
 ) {
   const existing = await prisma.inventoryLocation.findUnique({
