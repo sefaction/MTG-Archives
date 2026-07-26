@@ -511,6 +511,29 @@ export function buildCardNameSearchQuery(name: string) {
   return escaped ? `name:"${escaped}"` : "";
 }
 
+export function hasScryfallSearchSyntax(query: string) {
+  const trimmed = query.trim();
+  if (!trimmed) return false;
+  return (
+    /(^|\s)-?[a-z][a-z0-9_-]*(?::|<=|>=|=|<|>)\s*(?:"[^"]*"|\S+)/i.test(
+      trimmed,
+    ) ||
+    /(^|\s)(?:and|or|not)(?=\s|$)/i.test(trimmed) ||
+    /(^|\s)!(?=")/.test(trimmed)
+  );
+}
+
+export function buildCardPrintingSearchQuery(query: string) {
+  const trimmed = query.trim();
+  return hasScryfallSearchSyntax(trimmed)
+    ? trimmed
+    : buildCardNameSearchQuery(trimmed);
+}
+
+export async function searchCardPrintsResult(query: string) {
+  return searchCardsResult(buildCardPrintingSearchQuery(query));
+}
+
 export async function searchCardPrintsByNameResult(name: string) {
   return searchCardsResult(buildCardNameSearchQuery(name));
 }

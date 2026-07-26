@@ -2638,7 +2638,7 @@ export default async function ImportsPage({
                 name="resolverQ"
                 defaultValue={resolverQuery}
                 className="flex-1 border p-2 bg-zinc-900"
-                placeholder="Search Scryfall by name, set, or collector number"
+                placeholder="Card name or Scryfall query, e.g. command tower set:c20"
               />
               <button className="border px-3">Search</button>
             </form>

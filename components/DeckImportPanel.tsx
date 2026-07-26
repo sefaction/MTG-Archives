@@ -783,7 +783,7 @@ function ManualResolve({
           setLoading(next.trim().length >= 2);
         }}
         className={cn(filterInputClass, "w-full")}
-        placeholder="Search printing"
+        placeholder="Card name or Scryfall query, e.g. command tower set:c20"
       />
       <div className="text-xs text-zinc-400">
         {loading

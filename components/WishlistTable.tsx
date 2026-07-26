@@ -192,7 +192,7 @@ function WishlistPrintingPicker({
   const [results, setResults] = useState<DeckCardSearchResult[]>([]);
   const [selected, setSelected] = useState<DeckCardSearchResult | null>(null);
   const [message, setMessage] = useState(
-    "Search owned/local printings first; use Scryfall fallback if needed.",
+    "Search owned/local printings or use Scryfall syntax such as command tower set:c20.",
   );
   const [pending, startTransition] = useTransition();
 
@@ -228,6 +228,7 @@ function WishlistPrintingPicker({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             className={cn(filterInputClass, "mt-1 block min-w-56")}
+            placeholder="Card name or Scryfall query"
           />
         </label>
         <button

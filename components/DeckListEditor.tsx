@@ -1975,7 +1975,7 @@ function AddRealCopyToDeck({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           className={cn(filterInputClass, "w-full")}
-          placeholder="Search printings"
+          placeholder="Card name or Scryfall query, e.g. command tower set:c20"
         />
         <button
           type="button"
@@ -2277,7 +2277,7 @@ function PrintingPicker({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           className="w-full border bg-zinc-900 p-2 text-sm"
-          placeholder="Search printings"
+          placeholder="Card name or Scryfall query, e.g. command tower set:c20"
         />
         <button
           type="button"
