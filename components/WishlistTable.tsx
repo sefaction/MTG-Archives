@@ -46,7 +46,6 @@ import {
 } from "./filterStyles";
 
 type WishlistTableRow = WishlistGroup & {
-  missingQuantity: number;
   deckNamesLabel: string;
   deckNamesTitle: string;
   priorityLabel: string;
@@ -63,9 +62,7 @@ const defaultVisibility: VisibilityState = {
   manualQty: false,
   deckNeededQty: false,
   tradeQty: false,
-  ownedTotal: true,
   available: true,
-  committed: true,
   missing: true,
   source: true,
   decks: true,
@@ -309,8 +306,8 @@ function WishlistDetailDrawer({
           <div>
             <h2 className="text-xl font-bold text-sky-100">{row.card.name}</h2>
             <p className="text-sm text-zinc-400">
-              {row.sourceLabel} · wanted {row.totalWanted} · missing{" "}
-              {row.missingQuantity}
+              {row.sourceLabel} · need {row.needQuantity} · ready{" "}
+              {row.readyQuantity} · get {row.getQuantity}
             </p>
           </div>
           <button
@@ -366,19 +363,17 @@ function WishlistDetailDrawer({
         <section className="mt-4 space-y-2">
           <h3 className="font-semibold">Quantity summary</h3>
           <p className="text-sm text-zinc-400">
-            Available means owned but not committed to a deck. Deck-derived
-            needs remain until copies are committed to the relevant deck
-            location.
+            Ready counts uncommitted copies that can fill deck needs. Manual
+            requests and person-specific trade targets remain in Get until
+            completed.
           </p>
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-            <Metric label="Wanted Qty" value={row.totalWanted} />
+            <Metric label="Need" value={row.needQuantity} />
+            <Metric label="Ready" value={row.readyQuantity} />
+            <Metric label="Get" value={row.getQuantity} />
             <Metric label="Manual Qty" value={row.manualQuantity} />
             <Metric label="Deck Needed Qty" value={row.deckQuantity} />
             <Metric label="Trade Wanted Qty" value={row.tradeQuantity} />
-            <Metric label="Owned Total" value={row.inventory.ownedTotal} />
-            <Metric label="Available" value={row.inventory.available} />
-            <Metric label="Committed" value={row.inventory.committedToDecks} />
-            <Metric label="Missing" value={row.missingQuantity} />
           </div>
         </section>
 
@@ -676,7 +671,7 @@ function WishlistDetailDrawer({
           <h3 className="font-semibold">Inventory availability breakdown</h3>
           <div className="grid gap-3 md:grid-cols-2">
             <div className="rounded border border-zinc-800 p-3">
-              <h4 className="font-medium">Available to commit</h4>
+              <h4 className="font-medium">Uncommitted inventory</h4>
               {row.inventoryBreakdown.availableByLocation.length ? (
                 row.inventoryBreakdown.availableByLocation.map((part) => (
                   <p key={part.name} className="text-sm text-zinc-300">
@@ -836,13 +831,8 @@ export function WishlistTable({
   const data = useMemo<WishlistTableRow[]>(
     () =>
       groups.map((group) => {
-        const missingQuantity = Math.max(
-          0,
-          group.totalWanted - group.inventory.ownedTotal,
-        );
         return {
           ...group,
-          missingQuantity,
           deckNamesLabel: decksLabel(group),
           deckNamesTitle: group.sources.decks
             .map((deck) => deck.deckName)
@@ -917,7 +907,11 @@ export function WishlistTable({
           </button>
         ),
       },
-      { id: "wantedQty", accessorKey: "totalWanted", header: "Wanted Qty" },
+      {
+        id: "wantedQty",
+        accessorKey: "needQuantity",
+        header: "Need",
+      },
       { id: "manualQty", accessorKey: "manualQuantity", header: "Manual Qty" },
       {
         id: "deckNeededQty",
@@ -926,21 +920,15 @@ export function WishlistTable({
       },
       { id: "tradeQty", accessorKey: "tradeQuantity", header: "Trade Qty" },
       {
-        id: "ownedTotal",
-        accessorFn: (row) => row.inventory.ownedTotal,
-        header: "Owned Total",
-      },
-      {
         id: "available",
-        accessorFn: (row) => row.inventory.available,
-        header: "Available",
+        accessorKey: "readyQuantity",
+        header: "Ready",
       },
       {
-        id: "committed",
-        accessorFn: (row) => row.inventory.committedToDecks,
-        header: "Committed",
+        id: "missing",
+        accessorKey: "getQuantity",
+        header: "Get",
       },
-      { id: "missing", accessorKey: "missingQuantity", header: "Missing" },
       { id: "source", accessorKey: "sourceLabel", header: "Source" },
       {
         id: "decks",
@@ -1195,10 +1183,10 @@ export function WishlistTable({
                 <h3 className="font-semibold text-sky-100">{row.card.name}</h3>
                 <p className="text-sm text-zinc-400">{row.card.typeLine}</p>
                 <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                  <Metric label="Wanted" value={row.totalWanted} />
-                  <Metric label="Missing" value={row.missingQuantity} />
-                  <Metric label="Owned" value={row.inventory.ownedTotal} />
-                  <Metric label="Available" value={row.inventory.available} />
+                  <Metric label="Need" value={row.needQuantity} />
+                  <Metric label="Ready" value={row.readyQuantity} />
+                  <Metric label="Get" value={row.getQuantity} />
+                  <Metric label="Source" value={row.sourceLabel} />
                 </div>
                 <div className="mt-2 flex items-center justify-between text-sm">
                   <span className="rounded-full border border-zinc-700 px-2 py-0.5">
