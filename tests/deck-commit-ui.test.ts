@@ -143,3 +143,26 @@ test("deck row drawer separates inventory and commit details into tabs", () => {
   assert.match(source, /activeTab === "commit"/);
   assert.match(source, /Ready to commit/);
 });
+
+test("commit subtab orders inventory, printing, add-real-copy, and return controls", () => {
+  const start = source.indexOf('{activeTab === "commit"');
+  const end = source.indexOf("<form action={removeDeckCard}>", start);
+  const commitTab = source.slice(start, end);
+  const orderedControls = [
+    "<CommitInventoryToDeck",
+    "<PrintingPicker",
+    "<AddRealCopyToDeck",
+    "<ReturnCommittedCopies",
+  ];
+
+  for (const control of orderedControls) {
+    assert.ok(commitTab.includes(control), `${control} should be in Commit`);
+  }
+  for (let index = 1; index < orderedControls.length; index += 1) {
+    assert.ok(
+      commitTab.indexOf(orderedControls[index - 1]) <
+        commitTab.indexOf(orderedControls[index]),
+      `${orderedControls[index - 1]} should appear before ${orderedControls[index]}`,
+    );
+  }
+});

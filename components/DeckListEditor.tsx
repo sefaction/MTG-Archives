@@ -1738,13 +1738,13 @@ function RowEditor({
             {activeTab === "commit" ? (
               <div className="space-y-3 rounded border border-zinc-800 p-3">
                 <CommitInventoryToDeck deckId={deckId} row={row} />
+                <PrintingPicker deckId={deckId} row={row} />
                 <AddRealCopyToDeck deckId={deckId} row={row} />
                 <ReturnCommittedCopies
                   deckId={deckId}
                   row={row}
                   returnLocations={returnLocations}
                 />
-                <PrintingPicker deckId={deckId} row={row} />
                 <form action={removeDeckCard}>
                   <input type="hidden" name="deckId" value={deckId} />
                   <input type="hidden" name="deckCardId" value={row.id} />
