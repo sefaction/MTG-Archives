@@ -42,6 +42,7 @@ import {
   returnCommittedInventoryFromDeckTx,
 } from "@/lib/deck-inventory";
 import { DECK_FOLDER_ROOT_VALUE, canMoveFolder } from "@/lib/deck-folders";
+import { parseDeckTags, replaceDeckTags } from "@/lib/deck-tags";
 
 function formString(fd: FormData, name: string) {
   return String(fd.get(name) || "").trim();
@@ -216,25 +217,35 @@ export async function createDeck(fd: FormData) {
   const user = await requireLogin();
   const name = formString(fd, "name");
   if (!name) throw new Error("Deck name is required.");
-  const deck = await prisma.deck.create({
-    data: {
+  const tags = parseDeckTags(fd.get("tags"));
+  const folderId = await validatedFolderId(user.id, formString(fd, "folderId"));
+  const deck = await prisma.$transaction(async (tx) => {
+    const created = await tx.deck.create({
+      data: {
+        ownerUserId: user.id,
+        name,
+        description: formString(fd, "description") || null,
+        format: enumValue(
+          DeckFormat,
+          formString(fd, "format"),
+          DeckFormat.CASUAL,
+        ),
+        visibility: enumValue(
+          Visibility,
+          formString(fd, "visibility"),
+          Visibility.INHERIT,
+        ),
+        bracket: parseDeckBracket(fd.get("bracket")),
+        bracketUpdatedAt: fd.get("bracket") ? new Date() : null,
+        folderId,
+      },
+    });
+    await replaceDeckTags(tx, {
+      deckId: created.id,
       ownerUserId: user.id,
-      name,
-      description: formString(fd, "description") || null,
-      format: enumValue(
-        DeckFormat,
-        formString(fd, "format"),
-        DeckFormat.CASUAL,
-      ),
-      visibility: enumValue(
-        Visibility,
-        formString(fd, "visibility"),
-        Visibility.INHERIT,
-      ),
-      bracket: parseDeckBracket(fd.get("bracket")),
-      bracketUpdatedAt: fd.get("bracket") ? new Date() : null,
-      folderId: await validatedFolderId(user.id, formString(fd, "folderId")),
-    },
+      tags,
+    });
+    return created;
   });
   revalidatePath("/decks");
   redirect(`/decks/${deck.id}`);
@@ -254,28 +265,37 @@ export async function updateDeck(fd: FormData) {
     Visibility.INHERIT,
   );
   const bracket = parseDeckBracket(fd.get("bracket"));
-  await prisma.deck.update({
-    where: { id: deckId },
-    data: {
-      name,
-      description: formString(fd, "description") || null,
-      format: enumValue(
-        DeckFormat,
-        formString(fd, "format"),
-        DeckFormat.CASUAL,
-      ),
-      visibility,
-      bracket,
-      bracketUpdatedAt:
-        bracket !== deck.bracket ? new Date() : deck.bracketUpdatedAt,
-      bannerPositionX: formPercent(fd, "bannerPositionX", 50),
-      bannerPositionY: formPercent(fd, "bannerPositionY", 50),
-      bannerZoom: formRange(fd, "bannerZoom", 100, 60, 500),
-      folderId: await validatedFolderId(
-        deck.ownerUserId,
-        formString(fd, "folderId"),
-      ),
-    },
+  const tags = parseDeckTags(fd.get("tags"));
+  const folderId = await validatedFolderId(
+    deck.ownerUserId,
+    formString(fd, "folderId"),
+  );
+  await prisma.$transaction(async (tx) => {
+    await tx.deck.update({
+      where: { id: deckId },
+      data: {
+        name,
+        description: formString(fd, "description") || null,
+        format: enumValue(
+          DeckFormat,
+          formString(fd, "format"),
+          DeckFormat.CASUAL,
+        ),
+        visibility,
+        bracket,
+        bracketUpdatedAt:
+          bracket !== deck.bracket ? new Date() : deck.bracketUpdatedAt,
+        bannerPositionX: formPercent(fd, "bannerPositionX", 50),
+        bannerPositionY: formPercent(fd, "bannerPositionY", 50),
+        bannerZoom: formRange(fd, "bannerZoom", 100, 60, 500),
+        folderId,
+      },
+    });
+    await replaceDeckTags(tx, {
+      deckId,
+      ownerUserId: deck.ownerUserId,
+      tags,
+    });
   });
   const existingDeckLocation = await prisma.inventoryLocation.findUnique({
     where: { deckId },
