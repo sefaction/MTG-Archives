@@ -1153,34 +1153,40 @@ export function DeckWorkspace({
                     </>
                   ) : null}
                   <div className="flex min-h-[25rem] flex-col">
-                    <div className="rounded-lg border border-white/10 bg-black/45 p-3 shadow-xl backdrop-blur-sm">
+                    <div className="space-y-1.5">
                       <div className="flex items-start justify-between gap-3">
                         <Link
                           href={`/decks/${deck.id}`}
-                          className="min-w-0 flex-1 truncate text-xl font-bold text-white drop-shadow hover:text-sky-200"
+                          className="min-w-0 truncate rounded-md bg-black/40 px-2 py-1 text-xl font-bold text-white drop-shadow backdrop-blur-[2px] hover:text-sky-200"
                         >
                           {deck.name}
                         </Link>
-                        <ColorIdentitySymbols value={deck.colorIdentity} />
+                        <span className="shrink-0 rounded-md bg-black/35 px-1.5 py-1 backdrop-blur-[2px]">
+                          <ColorIdentitySymbols value={deck.colorIdentity} />
+                        </span>
                       </div>
                       {deck.commanderNames.length ? (
-                        <p className="mt-1 line-clamp-2 text-sm font-medium text-amber-100">
+                        <p className="inline-block max-w-full rounded-md bg-black/35 px-2 py-1 text-sm font-medium text-amber-100 drop-shadow backdrop-blur-[2px]">
                           {deck.commanderNames.join(" & ")}
                         </p>
                       ) : null}
-                      <div className="mt-3 flex items-center justify-between gap-3 text-sm text-zinc-100">
-                        <span>{deck.formatLabel}</span>
+                      <div className="flex flex-wrap items-center gap-1.5 text-sm text-zinc-100">
+                        <span className="rounded-md bg-black/35 px-2 py-1 backdrop-blur-[2px]">
+                          {deck.formatLabel}
+                        </span>
                         {deck.bracket ? (
-                          <span>Bracket {deck.bracket}</span>
+                          <span className="rounded-md bg-black/35 px-2 py-1 backdrop-blur-[2px]">
+                            Bracket {deck.bracket}
+                          </span>
                         ) : null}
                       </div>
-                      <div className="mt-3 flex items-start justify-between gap-3 border-t border-white/10 pt-3">
+                      <div className="flex items-start justify-between gap-3">
                         <button
                           type="button"
                           onClick={() =>
                             setFolderFilter(deck.folderId ?? UNCATEGORIZED)
                           }
-                          className="min-w-0 max-w-[45%] truncate text-left text-sm text-zinc-100 hover:text-sky-200"
+                          className="min-w-0 max-w-[45%] truncate rounded-md bg-black/35 px-2 py-1 text-left text-sm text-zinc-100 backdrop-blur-[2px] hover:text-sky-200"
                           title={deck.folderPath}
                         >
                           {deck.folderPath}
@@ -1200,17 +1206,20 @@ export function DeckWorkspace({
                       </div>
                     </div>
 
-                    <div className="mt-auto rounded-lg border border-white/10 bg-black/55 p-3 shadow-xl backdrop-blur-sm">
+                    <div className="mt-auto space-y-2">
                       <div className="flex items-center justify-between gap-3 text-xs text-zinc-200">
-                        <span title={deck.cardSummary}>
+                        <span
+                          className="rounded-md bg-black/35 px-2 py-1 backdrop-blur-[2px]"
+                          title={deck.cardSummary}
+                        >
                           {deck.cardCount} cards
                         </span>
-                        <span>
+                        <span className="rounded-md bg-black/35 px-2 py-1 backdrop-blur-[2px]">
                           Updated{" "}
                           {new Date(deck.updatedAt).toLocaleDateString()}
                         </span>
                       </div>
-                      <div className="mt-3">
+                      <div className="rounded-md bg-black/35 p-2 backdrop-blur-[2px]">
                         <div className="mb-1.5 flex items-center justify-between text-xs">
                           <span className="font-medium text-zinc-100">
                             Committal progress
@@ -1243,7 +1252,7 @@ export function DeckWorkspace({
                           />
                         </div>
                       </div>
-                      <div className="mt-4 flex gap-2">
+                      <div className="flex gap-2">
                         <Link
                           href={`/decks/${deck.id}`}
                           className="flex-1 rounded border border-zinc-500 bg-zinc-950/80 px-3 py-1.5 text-center text-sm font-medium text-white hover:bg-zinc-800"

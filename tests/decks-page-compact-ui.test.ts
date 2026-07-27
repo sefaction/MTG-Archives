@@ -36,6 +36,11 @@ test("deck cards present primary details and physical committal progress", () =>
   assert.match(deckWorkspace, /Committal progress/);
   assert.match(deckWorkspace, /role="progressbar"/);
   assert.match(deckWorkspace, /min-h-\[27rem\]/);
+  assert.match(deckWorkspace, /bg-black\/35 px-2 py-1/);
+  assert.doesNotMatch(
+    deckWorkspace,
+    /rounded-lg border border-white\/10 bg-black/,
+  );
 });
 
 test("tag and bracket clouds cycle between include, exclude, and neutral", () => {
