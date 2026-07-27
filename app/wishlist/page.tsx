@@ -40,25 +40,8 @@ function matchesTab(group: WishlistGroup, tab: string) {
   if (tab === "manual") return group.manualQuantity > 0;
   if (tab === "decks") return group.deckQuantity > 0;
   if (tab === "trades") return group.tradeQuantity > 0;
-  if (tab === "available")
-    return group.sources.decks.some((d) => d.availableUncommittedCopyExists);
-  if (tab === "missing") return group.totalWanted > group.inventory.ownedTotal;
-  if (tab === "stock") return group.inventory.ownedTotal > 0;
-  if (tab === "out") return group.inventory.ownedTotal === 0;
-  return true;
-}
-
-function ownedStatusMatches(group: WishlistGroup, status: string) {
-  if (!status) return true;
-  if (status === "owned") return group.inventory.ownedTotal > 0;
-  if (status === "not-owned") return group.inventory.ownedTotal === 0;
-  if (status === "partially-available")
-    return (
-      group.inventory.available > 0 &&
-      group.inventory.available < group.totalWanted
-    );
-  if (status === "fully-available")
-    return group.inventory.available >= group.totalWanted;
+  if (tab === "available") return group.readyQuantity > 0;
+  if (tab === "missing") return group.getQuantity > 0;
   return true;
 }
 
@@ -88,8 +71,6 @@ function rangeMatches(
 
 function sortGroups(groups: WishlistGroup[], sort: string) {
   return [...groups].sort((a, b) => {
-    const missingA = Math.max(0, a.totalWanted - a.inventory.ownedTotal);
-    const missingB = Math.max(0, b.totalWanted - b.inventory.ownedTotal);
     switch (sort) {
       case "name":
         return a.card.name.localeCompare(b.card.name);
@@ -99,14 +80,12 @@ function sortGroups(groups: WishlistGroup[], sort: string) {
         return b.deckQuantity - a.deckQuantity;
       case "trade":
         return b.tradeQuantity - a.tradeQuantity;
-      case "owned":
-        return b.inventory.ownedTotal - a.inventory.ownedTotal;
       case "available":
-        return b.inventory.available - a.inventory.available;
+        return b.readyQuantity - a.readyQuantity;
       case "missing":
-        return missingB - missingA;
+        return b.getQuantity - a.getQuantity;
       case "price":
-        return (b.estimatedMissingCost ?? -1) - (a.estimatedMissingCost ?? -1);
+        return (b.estimatedGetCost ?? -1) - (a.estimatedGetCost ?? -1);
       case "priority":
         return (a.sources.manual[0]?.priority || "zzz").localeCompare(
           b.sources.manual[0]?.priority || "zzz",
@@ -126,7 +105,7 @@ function sortGroups(groups: WishlistGroup[], sort: string) {
       case "need":
       default:
         return (
-          b.totalWanted - a.totalWanted ||
+          b.needQuantity - a.needQuantity ||
           a.card.name.localeCompare(b.card.name)
         );
     }
@@ -150,7 +129,6 @@ export default async function WishlistPage({
   const color = (params.color || "").trim().toLowerCase();
   const type = (params.type || "").trim().toLowerCase();
   const finish = (params.finish || "").trim().toLowerCase();
-  const ownedStatus = params.ownedStatus || "";
   const sort = params.sort || "need";
   const viewMode = params.viewMode === "binder" ? "binder" : "table";
   const cardSize = normalizeCollectionCardSize(params.cardSize);
@@ -183,12 +161,8 @@ export default async function WishlistPage({
         group.sources.decks.some((need) =>
           textIncludes(need.deckName, deck),
         )) &&
-      (!params.missingOnly || group.totalWanted > group.inventory.ownedTotal) &&
-      (!params.availableToCommit ||
-        group.sources.decks.some(
-          (need) => need.availableUncommittedCopyExists,
-        )) &&
-      ownedStatusMatches(group, ownedStatus) &&
+      (!params.missingOnly || group.getQuantity > 0) &&
+      (!params.availableToCommit || group.readyQuantity > 0) &&
       priorityMatches(group, priority) &&
       (!set ||
         textIncludes(group.card.setCode, set) ||
@@ -227,9 +201,18 @@ export default async function WishlistPage({
       <section className="space-y-2">
         <h1 className="text-3xl font-bold">Wishlist</h1>
         <p className="text-zinc-400">
-          Manual wants, trade targets, and deck-derived needs in an
-          inventory-style browser. Deck cards are satisfied only by copies
-          committed to that deck’s system-managed location.
+          Manual requests, trade targets, and unfilled deck slots in an
+          inventory-style browser.
+        </p>
+      </section>
+
+      <section className="rounded border border-sky-900/70 bg-sky-950/20 p-4">
+        <h2 className="font-semibold text-sky-100">How quantities work</h2>
+        <p className="mt-1 text-sm text-zinc-300">
+          <b>Need</b> is every open request. <b>Ready</b> is the uncommitted
+          inventory that can fill deck needs now. <b>Get</b> is what remains;
+          manual and person-specific trade wishes always stay in Get until
+          completed.
         </p>
       </section>
 
@@ -238,9 +221,9 @@ export default async function WishlistPage({
           ["Manual rows", view.summary.manualRows],
           ["Deck-needed rows", view.summary.deckRows],
           ["Trade wants", view.summary.tradeRows],
-          ["Total wanted", view.summary.totalWantedQuantity],
-          ["Missing from inventory", view.summary.missingFromInventoryQuantity],
-          ["Available to commit", view.summary.availableToCommitQuantity],
+          ["Need", view.summary.needQuantity],
+          ["Ready", view.summary.readyQuantity],
+          ["Get", view.summary.getQuantity],
         ].map(([label, value]) => (
           <div
             key={label}
@@ -252,10 +235,10 @@ export default async function WishlistPage({
         ))}
         <div className="rounded border border-zinc-800 bg-zinc-950 p-4 md:col-span-6">
           <div className="text-xs uppercase text-zinc-500">
-            Estimated cost for missing inventory
+            Estimated cost to get
           </div>
           <div className="text-2xl font-semibold text-emerald-100">
-            {money(view.summary.estimatedMissingCost)}
+            {money(view.summary.estimatedGetCost)}
           </div>
         </div>
       </section>
@@ -286,10 +269,8 @@ export default async function WishlistPage({
               <option value="manual">Manual</option>
               <option value="decks">Needed for Decks</option>
               <option value="trades">Trade Wants</option>
-              <option value="available">Available to Commit</option>
-              <option value="missing">Missing from Inventory</option>
-              <option value="stock">In Stock</option>
-              <option value="out">Not in Stock</option>
+              <option value="available">Ready</option>
+              <option value="missing">Get</option>
             </select>
           </label>
           <label className={filterFieldClass}>
@@ -299,14 +280,13 @@ export default async function WishlistPage({
               defaultValue={sort}
               className={cn(filterSelectClass, "mt-1 block")}
             >
-              <option value="need">Wanted quantity</option>
+              <option value="need">Need quantity</option>
               <option value="name">Card name</option>
               <option value="manual">Manual quantity</option>
               <option value="deck">Deck-needed quantity</option>
               <option value="trade">Trade-wanted quantity</option>
-              <option value="owned">Owned total</option>
-              <option value="available">Available quantity</option>
-              <option value="missing">Missing quantity</option>
+              <option value="available">Ready quantity</option>
+              <option value="missing">Get quantity</option>
               <option value="price">Price</option>
               <option value="priority">Priority</option>
               <option value="source">Source</option>
@@ -371,20 +351,6 @@ export default async function WishlistPage({
                 defaultValue={params.deck || ""}
                 className={cn(filterInputClass, "mt-1 w-full")}
               />
-            </label>
-            <label className={filterFieldClass}>
-              Owned status
-              <select
-                name="ownedStatus"
-                defaultValue={ownedStatus}
-                className={cn(filterSelectClass, "mt-1 w-full")}
-              >
-                <option value="">Any</option>
-                <option value="owned">Owned</option>
-                <option value="not-owned">Not owned</option>
-                <option value="partially-available">Partially available</option>
-                <option value="fully-available">Fully available</option>
-              </select>
             </label>
             <label className={filterFieldClass}>
               Priority
@@ -473,7 +439,7 @@ export default async function WishlistPage({
                 value="1"
                 defaultChecked={params.missingOnly === "1"}
               />{" "}
-              Missing only
+              Get only
             </label>
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -482,7 +448,7 @@ export default async function WishlistPage({
                 value="1"
                 defaultChecked={params.availableToCommit === "1"}
               />{" "}
-              Available to commit
+              Ready only
             </label>
           </div>
         </details>

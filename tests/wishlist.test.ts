@@ -102,7 +102,10 @@ test("deck-derived wishlist treats only committed-to-this-deck copies as satisfi
   assert.equal(view.groups[0].sources.decks[0].committedQuantity, 1);
   assert.equal(view.groups[0].sources.decks[0].missingQuantity, 3);
   assert.equal(view.groups[0].sources.decks[0].committedToOtherDecks, 1);
-  assert.equal(view.summary.availableToCommitQuantity, 2);
+  assert.equal(view.groups[0].needQuantity, 3);
+  assert.equal(view.groups[0].readyQuantity, 2);
+  assert.equal(view.groups[0].getQuantity, 1);
+  assert.equal(view.summary.readyQuantity, 2);
 });
 
 test("fully committed deck card does not appear as a derived need", () => {
@@ -197,7 +200,9 @@ test("manual and deck-derived needs combine by oracle identity with source break
   assert.equal(view.groups[0].sourceLabel, "Manual + Deck");
   assert.equal(view.groups[0].manualQuantity, 1);
   assert.equal(view.groups[0].deckQuantity, 3);
-  assert.equal(view.groups[0].totalWanted, 4);
+  assert.equal(view.groups[0].needQuantity, 4);
+  assert.equal(view.groups[0].readyQuantity, 0);
+  assert.equal(view.groups[0].getQuantity, 4);
   assert.equal(view.groups[0].sources.decks.length, 2);
 });
 
@@ -236,7 +241,9 @@ test("trade wishlist wants combine with manual and deck sources", () => {
   assert.equal(view.groups[0].sourceLabel, "Manual + Trade");
   assert.equal(view.groups[0].manualQuantity, 1);
   assert.equal(view.groups[0].tradeQuantity, 2);
-  assert.equal(view.groups[0].totalWanted, 3);
+  assert.equal(view.groups[0].needQuantity, 3);
+  assert.equal(view.groups[0].readyQuantity, 0);
+  assert.equal(view.groups[0].getQuantity, 3);
   assert.equal(view.groups[0].sources.trade[0].targetOwnerName, "Brian");
   assert.equal(view.summary.tradeRows, 1);
 });
@@ -283,7 +290,65 @@ test("inventory-aware counts separate available and committed deck copies", () =
   assert.equal(view.groups[0].inventory.ownedTotal, 3);
   assert.equal(view.groups[0].inventory.available, 2);
   assert.equal(view.groups[0].inventory.committedToDecks, 1);
-  assert.equal(view.summary.missingFromInventoryQuantity, 0);
+  assert.equal(view.groups[0].needQuantity, 3);
+  assert.equal(view.groups[0].readyQuantity, 0);
+  assert.equal(view.groups[0].getQuantity, 3);
+  assert.equal(view.summary.getQuantity, 3);
+});
+
+test("Need, Ready, and Get ignore copies assigned to other decks", () => {
+  const view = buildWishlistView({
+    manualItems: [],
+    decks: [
+      {
+        id: "deck-1",
+        name: "New Deck",
+        cards: [
+          {
+            id: "dc-1",
+            cardId: boltA.id,
+            scryfallId: boltA.scryfallId,
+            oracleId: boltA.oracleId,
+            cardName: boltA.name,
+            section: DeckSection.MAINBOARD,
+            quantity: 4,
+            card: boltA,
+          },
+        ],
+      },
+    ],
+    inventoryItems: [
+      inventory({
+        id: "unassigned",
+        quantity: 1,
+        location: {
+          id: "box",
+          name: "Box",
+          kind: InventoryLocationKind.NORMAL,
+          deckId: null,
+        },
+      }),
+      inventory({
+        id: "assigned-elsewhere",
+        quantity: 9,
+        location: {
+          id: "other-deck",
+          name: "Deck: Existing",
+          kind: InventoryLocationKind.DECK,
+          deckId: "deck-2",
+        },
+      }),
+    ],
+  });
+
+  assert.equal(view.groups[0].needQuantity, 4);
+  assert.equal(view.groups[0].inventory.ownedTotal, 10);
+  assert.equal(view.groups[0].inventory.available, 1);
+  assert.equal(view.groups[0].inventory.committedToDecks, 9);
+  assert.equal(view.groups[0].readyQuantity, 1);
+  assert.equal(view.groups[0].getQuantity, 3);
+  assert.equal(view.summary.readyQuantity, 1);
+  assert.equal(view.summary.getQuantity, 3);
 });
 
 test("wishlist page is private and renders inventory-style table shell", () => {
@@ -299,10 +364,9 @@ test("wishlist table defaults and row action menu are compact", () => {
   const table = readFileSync("components/WishlistTable.tsx", "utf8");
   for (const label of [
     "Card Name",
-    "Wanted Qty",
-    "Owned Total",
-    "Available",
-    "Missing",
+    "Need",
+    "Ready",
+    "Get",
     "Source",
     "Decks",
     "Price",
@@ -376,11 +440,10 @@ test("wishlist page includes inventory-style view, advanced filter, sort, and pa
   assert.match(page, /Clear Filters/);
   assert.match(page, /pageSize/);
   for (const filter of [
-    "Owned status",
     "Color identity",
     "Mana min",
     "Price max",
-    "Available to commit",
+    "Ready only",
   ]) {
     assert.match(page, new RegExp(filter));
   }
@@ -474,8 +537,9 @@ test("deck-derived wishlist excludes basic lands but keeps nonbasic needs", () =
     inventoryItems: [],
   });
 
-  assert.equal(view.summary.totalWantedQuantity, 1);
-  assert.equal(view.summary.missingFromInventoryQuantity, 1);
+  assert.equal(view.summary.needQuantity, 1);
+  assert.equal(view.summary.readyQuantity, 0);
+  assert.equal(view.summary.getQuantity, 1);
   assert.deepEqual(
     view.groups.map((group) => group.card.name),
     ["Sol Ring"],

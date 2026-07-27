@@ -102,11 +102,13 @@ export type WishlistGroup = {
   manualQuantity: number;
   deckQuantity: number;
   tradeQuantity: number;
-  totalWanted: number;
+  needQuantity: number;
+  readyQuantity: number;
+  getQuantity: number;
   inventory: WishlistInventoryCounts;
   inventoryBreakdown: WishlistInventoryBreakdown;
   estimatedPrice: number | null;
-  estimatedMissingCost: number | null;
+  estimatedGetCost: number | null;
   sources: {
     manual: WishlistManualSource[];
     decks: WishlistDeckSource[];
@@ -119,10 +121,10 @@ export type WishlistSummary = {
   manualRows: number;
   deckRows: number;
   tradeRows: number;
-  totalWantedQuantity: number;
-  missingFromInventoryQuantity: number;
-  availableToCommitQuantity: number;
-  estimatedMissingCost: number | null;
+  needQuantity: number;
+  readyQuantity: number;
+  getQuantity: number;
+  estimatedGetCost: number | null;
 };
 
 export type WishlistView = {
@@ -296,11 +298,13 @@ export function buildWishlistView(input: BuildInput): WishlistView {
       manualQuantity: 0,
       deckQuantity: 0,
       tradeQuantity: 0,
-      totalWanted: 0,
+      needQuantity: 0,
+      readyQuantity: 0,
+      getQuantity: 0,
       inventory: addCountsForCard(input.inventoryItems, card),
       inventoryBreakdown: inventoryBreakdownForCard(input.inventoryItems, card),
       estimatedPrice,
-      estimatedMissingCost: null,
+      estimatedGetCost: null,
       sources: { manual: [], decks: [], trade: [] },
       sourceLabel: "Manual",
     };
@@ -402,8 +406,18 @@ export function buildWishlistView(input: BuildInput): WishlistView {
   }
 
   for (const group of groups.values()) {
-    group.totalWanted =
+    group.needQuantity =
       group.manualQuantity + group.deckQuantity + group.tradeQuantity;
+    group.readyQuantity = Math.min(
+      group.deckQuantity,
+      group.inventory.available,
+    );
+    const deckCopiesToGet = Math.max(
+      0,
+      group.deckQuantity - group.readyQuantity,
+    );
+    group.getQuantity =
+      group.manualQuantity + group.tradeQuantity + deckCopiesToGet;
     group.sourceLabel = [
       group.manualQuantity > 0 ? "Manual" : "",
       group.deckQuantity > 0 ? "Deck" : "",
@@ -411,22 +425,18 @@ export function buildWishlistView(input: BuildInput): WishlistView {
     ]
       .filter(Boolean)
       .join(" + ");
-    const inventoryShortfall = Math.max(
-      0,
-      group.totalWanted - group.inventory.ownedTotal,
-    );
-    group.estimatedMissingCost =
+    group.estimatedGetCost =
       group.estimatedPrice === null
         ? null
-        : inventoryShortfall * group.estimatedPrice;
+        : group.getQuantity * group.estimatedPrice;
   }
 
   const ordered = [...groups.values()].sort(
     (a, b) =>
-      b.totalWanted - a.totalWanted || a.card.name.localeCompare(b.card.name),
+      b.needQuantity - a.needQuantity || a.card.name.localeCompare(b.card.name),
   );
   const knownCosts = ordered
-    .map((g) => g.estimatedMissingCost)
+    .map((g) => g.estimatedGetCost)
     .filter((value): value is number => value !== null);
   return {
     groups: ordered,
@@ -440,30 +450,13 @@ export function buildWishlistView(input: BuildInput): WishlistView {
         (sum, group) => sum + group.sources.trade.length,
         0,
       ),
-      totalWantedQuantity: ordered.reduce(
-        (sum, group) => sum + group.totalWanted,
+      needQuantity: ordered.reduce((sum, group) => sum + group.needQuantity, 0),
+      readyQuantity: ordered.reduce(
+        (sum, group) => sum + group.readyQuantity,
         0,
       ),
-      missingFromInventoryQuantity: ordered.reduce(
-        (sum, group) =>
-          sum + Math.max(0, group.totalWanted - group.inventory.ownedTotal),
-        0,
-      ),
-      availableToCommitQuantity: ordered.reduce(
-        (sum, group) =>
-          sum +
-          group.sources.decks.reduce(
-            (deckSum, deck) =>
-              deckSum +
-              Math.min(
-                deck.missingQuantity,
-                deck.availableExact + deck.availableOther,
-              ),
-            0,
-          ),
-        0,
-      ),
-      estimatedMissingCost: knownCosts.length
+      getQuantity: ordered.reduce((sum, group) => sum + group.getQuantity, 0),
+      estimatedGetCost: knownCosts.length
         ? knownCosts.reduce((sum, value) => sum + value, 0)
         : null,
     },
