@@ -179,16 +179,15 @@ function ownedBadge(row: DeckEditorRow, showLocations: boolean) {
 
 function commitmentBadge(row: DeckEditorRow) {
   const committed = row.committedToThisDeck;
-  const status =
-    row.isBasicLand && committed === 0
-      ? "Basic land"
-      : row.commitmentMissing <= 0 || committed >= row.quantity
-        ? "Committed"
-        : committed > 0
-          ? "Partially committed"
-          : row.available > 0
-            ? "Ready to commit"
-            : "Missing";
+  const status = row.isBasicLand
+    ? "Basic land covered"
+    : row.commitmentMissing <= 0 || committed >= row.quantity
+      ? "Committed"
+      : committed > 0
+        ? "Partially committed"
+        : row.available > 0
+          ? "Ready to commit"
+          : "Missing";
   const color =
     status === "Committed"
       ? "border-emerald-700 bg-emerald-950/40 text-emerald-100"
@@ -196,8 +195,8 @@ function commitmentBadge(row: DeckEditorRow) {
         ? "border-amber-700 bg-amber-950/40 text-amber-100"
         : status === "Ready to commit"
           ? "border-sky-700 bg-sky-950/40 text-sky-100"
-          : status === "Basic land"
-            ? "border-zinc-700 bg-zinc-900/70 text-zinc-100"
+          : status === "Basic land covered"
+            ? "border-emerald-700 bg-emerald-950/40 text-emerald-100"
             : "border-red-800 bg-red-950/30 text-red-100";
 
   return (
@@ -213,7 +212,11 @@ function commitmentBadge(row: DeckEditorRow) {
 }
 
 function isFullyCommitted(row: DeckEditorRow) {
-  return row.commitmentMissing <= 0 || row.committedToThisDeck >= row.quantity;
+  return (
+    Boolean(row.isBasicLand) ||
+    row.commitmentMissing <= 0 ||
+    row.committedToThisDeck >= row.quantity
+  );
 }
 
 function ownedStatusBadge(row: DeckEditorRow) {
@@ -1123,7 +1126,11 @@ function CompactDeckRow({
 }: { row: DeckEditorRow } & DeckViewProps) {
   const expanded = props.expanded === row.id;
   const fullyCommitted = isFullyCommitted(row);
-  const ownedStatus = fullyCommitted ? "Committed" : ownershipStatus(row);
+  const ownedStatus = row.isBasicLand
+    ? "Basic land covered"
+    : fullyCommitted
+      ? "Committed"
+      : ownershipStatus(row);
   const ownedTone = fullyCommitted
     ? "bg-emerald-500"
     : ownedStatus === "Owned exact" || ownedStatus === "Basic land"
