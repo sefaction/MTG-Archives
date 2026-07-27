@@ -40,6 +40,7 @@ import { cardPriceNumber } from "@/lib/deck-view";
 import { ensureDefaultLocation } from "@/lib/inventory-locations";
 import { prisma } from "@/lib/prisma";
 import { resolveDeckVisibility, visibilityLabel } from "@/lib/visibility";
+import { deckTagsText } from "@/lib/deck-tags";
 import {
   deleteDeck,
   returnAllCommittedDeckInventory,
@@ -180,6 +181,7 @@ export default async function DeckDetailPage({
     where: { id: deckId },
     include: {
       ownerUser: true,
+      tags: { include: { tag: true }, orderBy: { tag: { name: "asc" } } },
       cards: {
         include: {
           card: true,
@@ -511,6 +513,19 @@ export default async function DeckDetailPage({
               {visibilityLabel(deck.visibility)} · Effective{" "}
               {effectiveVisibility.toLowerCase()}
             </p>
+            {deck.tags.length ? (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {deck.tags.map(({ tag }) => (
+                  <Link
+                    key={tag.id}
+                    href={`/decks?tag=${encodeURIComponent(tag.id)}`}
+                    className="rounded-full border border-cyan-900 bg-cyan-950/50 px-2.5 py-1 text-xs text-cyan-100 hover:border-cyan-700"
+                  >
+                    {tag.name}
+                  </Link>
+                ))}
+              </div>
+            ) : null}
             {deck.description ? (
               <p className="mt-4 max-w-3xl whitespace-pre-wrap text-stone-200">
                 {deck.description}
@@ -676,7 +691,20 @@ export default async function DeckDetailPage({
                       className={cn(filterTextareaClass, "mt-1 w-full")}
                     />
                   </label>
-                  <div className="grid gap-3 md:grid-cols-3">
+                  <label className={cn(filterFieldClass, "block")}>
+                    Tags
+                    <input
+                      name="tags"
+                      defaultValue={deckTagsText(deck.tags)}
+                      placeholder="cEDH, upgraded precon, loaner"
+                      className={cn(filterInputClass, "mt-1 w-full")}
+                    />
+                    <span className="mt-1 block text-xs text-zinc-500">
+                      Separate tags with commas. Tags are reusable across your
+                      decks.
+                    </span>
+                  </label>
+                  <div className="grid gap-3 md:grid-cols-4">
                     <label className={filterFieldClass}>
                       Format
                       <select
@@ -718,6 +746,21 @@ export default async function DeckDetailPage({
                             value={option.value}
                           >
                             {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className={filterFieldClass}>
+                      Folder
+                      <select
+                        name="folderId"
+                        defaultValue={deck.folderId ?? ""}
+                        className={cn(filterSelectClass, "mt-1 w-full")}
+                      >
+                        <option value="">Uncategorized</option>
+                        {folderOptions.map((folder) => (
+                          <option key={folder.id} value={folder.id}>
+                            {folderSelectLabel(folder)}
                           </option>
                         ))}
                       </select>

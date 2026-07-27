@@ -121,6 +121,7 @@ model User {
   tradeEvents                TradeEvent[]
   decks                      Deck[]
   deckFolders                DeckFolder[]
+  deckTags                   DeckTag[]
   wishlistItems              WishlistItem[]
   tradeWishlistItems         TradeWishlistItem[]
   createdLocationTypes       LocationType[]
@@ -379,12 +380,38 @@ model Deck {
   updatedAt           DateTime           @updatedAt
   cards               DeckCard[]
   deckLocation        InventoryLocation?
+  tags                DeckTagAssignment[]
 
   @@index([ownerUserId, updatedAt])
   @@index([visibility, updatedAt])
   @@index([format])
   @@index([bracket])
   @@index([folderId])
+}
+
+model DeckTag {
+  id             String              @id @default(cuid())
+  ownerUserId    String
+  ownerUser      User                @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  name           String
+  normalizedName String
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  decks          DeckTagAssignment[]
+
+  @@unique([ownerUserId, normalizedName])
+  @@index([ownerUserId, name])
+}
+
+model DeckTagAssignment {
+  deckId    String
+  deck      Deck    @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  tagId     String
+  tag       DeckTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([deckId, tagId])
+  @@index([tagId, deckId])
 }
 
 model DeckFolder {

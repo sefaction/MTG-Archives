@@ -20,6 +20,7 @@ import {
   folderSelectLabel,
 } from "@/lib/deck-folders";
 import { visibilityLabel } from "@/lib/visibility";
+import { deckTagsText } from "@/lib/deck-tags";
 import {
   createDeck,
   createDeckFolder,
@@ -42,7 +43,7 @@ import {
 export default async function DecksPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ folder?: string; bracket?: string }>;
+  searchParams?: Promise<{ folder?: string; bracket?: string; tag?: string }>;
 }) {
   const user = await requireLogin();
   const scope = await getAccessScope(user);
@@ -50,13 +51,28 @@ export default async function DecksPage({
   const params = await searchParams;
   const selectedFolder = params?.folder ?? "all";
   const selectedBracket = parseDeckBracket(params?.bracket ?? null);
+  const tags = await prisma.deckTag.findMany({
+    where: adminModeActive ? {} : { ownerUserId: user.id },
+    include: {
+      ownerUser: { select: { displayName: true } },
+      _count: { select: { decks: true } },
+    },
+    orderBy: [{ name: "asc" }, { ownerUserId: "asc" }],
+  });
+  const selectedTag = tags.find((tag) => tag.id === params?.tag) ?? null;
+  const allDeckCount = await prisma.deck.count({
+    where: adminModeActive ? {} : { ownerUserId: user.id },
+  });
   const folders = await prisma.deckFolder.findMany({
     where: adminModeActive ? {} : { ownerUserId: user.id },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
   });
   const folderOptions = buildDeckFolderOptions(folders);
   const decks = await prisma.deck.findMany({
-    where: adminModeActive ? {} : { ownerUserId: user.id },
+    where: {
+      ...(adminModeActive ? {} : { ownerUserId: user.id }),
+      ...(selectedTag ? { tags: { some: { tagId: selectedTag.id } } } : {}),
+    },
     include: {
       cards: {
         select: {
@@ -67,6 +83,7 @@ export default async function DecksPage({
         },
       },
       ownerUser: true,
+      tags: { include: { tag: true }, orderBy: { tag: { name: "asc" } } },
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -98,12 +115,18 @@ export default async function DecksPage({
     return folderById.get(folderId)?.path ?? "Unknown folder";
   }
 
-  function decksHref(next: { folder?: string; bracket?: number | null }) {
+  function decksHref(next: {
+    folder?: string;
+    bracket?: number | null;
+    tag?: string | null;
+  }) {
     const query = new URLSearchParams();
     const folder = next.folder ?? selectedFolder;
     const bracket = next.bracket === undefined ? selectedBracket : next.bracket;
+    const tag = next.tag === undefined ? selectedTag?.id : next.tag;
     if (folder && folder !== "all") query.set("folder", folder);
     if (bracket) query.set("bracket", String(bracket));
+    if (tag) query.set("tag", tag);
     const suffix = query.toString();
     return suffix ? `/decks?${suffix}` : "/decks";
   }
@@ -340,6 +363,17 @@ export default async function DecksPage({
               className={cn(filterTextareaClass, "mt-1 w-full")}
             />
           </label>
+          <label className={cn(filterFieldClass, "md:col-span-6")}>
+            Tags
+            <input
+              name="tags"
+              placeholder="cEDH, upgraded precon, loaner"
+              className={cn(filterInputClass, "mt-1 w-full")}
+            />
+            <span className="mt-1 block text-xs text-zinc-500">
+              Separate tags with commas.
+            </span>
+          </label>
         </form>
       </details>
 
@@ -437,6 +471,43 @@ export default async function DecksPage({
                 })}
             </nav>
           </div>
+          <div className="space-y-2 border-t border-zinc-800 pt-3">
+            <h2 className="text-sm font-semibold">Tags</h2>
+            <nav className="space-y-1 text-sm" aria-label="Deck tags">
+              <Link
+                className={cn(
+                  "flex items-center justify-between rounded px-2 py-1",
+                  !selectedTag
+                    ? "bg-sky-950 text-sky-100"
+                    : "text-zinc-300 hover:bg-zinc-900",
+                )}
+                href={decksHref({ tag: null })}
+              >
+                <span>All tags</span>
+                <span className="text-xs text-zinc-500">{allDeckCount}</span>
+              </Link>
+              {tags.map((tag) => (
+                <Link
+                  key={tag.id}
+                  className={cn(
+                    "flex items-center justify-between rounded px-2 py-1",
+                    selectedTag?.id === tag.id
+                      ? "bg-sky-950 text-sky-100"
+                      : "text-zinc-300 hover:bg-zinc-900",
+                  )}
+                  href={decksHref({ tag: tag.id })}
+                >
+                  <span className="truncate">
+                    {tag.name}
+                    {adminModeActive ? ` · ${tag.ownerUser.displayName}` : ""}
+                  </span>
+                  <span className="text-xs text-zinc-500">
+                    {tag._count.decks}
+                  </span>
+                </Link>
+              ))}
+            </nav>
+          </div>
         </aside>
         <div className="overflow-x-auto rounded border border-zinc-800">
           <table className="min-w-full text-sm">
@@ -448,6 +519,7 @@ export default async function DecksPage({
                 <th className="p-3">Format</th>
                 <th className="p-3">Colors</th>
                 <th className="p-3">Folder</th>
+                <th className="p-3">Tags</th>
                 <th className="p-3">Visibility</th>
                 <th className="p-3">Cards</th>
                 <th className="p-3">Updated</th>
@@ -480,6 +552,23 @@ export default async function DecksPage({
                     >
                       {folderPath(deck.folderId)}
                     </span>
+                  </td>
+                  <td className="max-w-64 p-3">
+                    <div className="flex flex-wrap gap-1">
+                      {deck.tags.length ? (
+                        deck.tags.map(({ tag }) => (
+                          <Link
+                            key={tag.id}
+                            href={decksHref({ tag: tag.id })}
+                            className="rounded-full border border-cyan-900 bg-cyan-950/40 px-2 py-0.5 text-xs text-cyan-100 hover:border-cyan-700"
+                          >
+                            {tag.name}
+                          </Link>
+                        ))
+                      ) : (
+                        <span className="text-xs text-zinc-500">—</span>
+                      )}
+                    </div>
                   </td>
                   <td className="p-3">{visibilityLabel(deck.visibility)}</td>
                   <td className="p-3">
@@ -561,6 +650,11 @@ export default async function DecksPage({
                             name="folderId"
                             value={deck.folderId ?? ""}
                           />
+                          <input
+                            type="hidden"
+                            name="tags"
+                            value={deckTagsText(deck.tags)}
+                          />
                           <label className="block text-xs text-zinc-400">
                             Rename
                             <input
@@ -604,6 +698,11 @@ export default async function DecksPage({
                             type="hidden"
                             name="bracket"
                             value={deck.bracket ?? ""}
+                          />
+                          <input
+                            type="hidden"
+                            name="tags"
+                            value={deckTagsText(deck.tags)}
                           />
                           <label className="block text-xs text-zinc-400">
                             Visibility
@@ -655,6 +754,11 @@ export default async function DecksPage({
                             name="folderId"
                             value={deck.folderId ?? ""}
                           />
+                          <input
+                            type="hidden"
+                            name="tags"
+                            value={deckTagsText(deck.tags)}
+                          />
                           <label className="block text-xs text-zinc-400">
                             Bracket
                             <select
@@ -704,9 +808,9 @@ export default async function DecksPage({
                 <tr>
                   <td
                     className="p-6 text-zinc-400"
-                    colSpan={adminModeActive ? 10 : 9}
+                    colSpan={adminModeActive ? 11 : 10}
                   >
-                    No decks in this folder.
+                    No decks match the selected filters.
                   </td>
                 </tr>
               ) : null}
