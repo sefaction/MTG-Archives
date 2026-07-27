@@ -25,6 +25,7 @@ import {
   deckSectionQuantityTotals,
   deckTotalQuantity,
   summarizeDeckCardOwnership,
+  summarizeEffectiveDeckCoverage,
 } from "@/lib/decks";
 import { bracketSelectOptions, formatDeckBracket } from "@/lib/deck-brackets";
 import {
@@ -424,20 +425,7 @@ export default async function DeckDetailPage({
         : null,
     };
   });
-  const ownershipTotals = editorRows.reduce(
-    (totals, row) => ({
-      totalQuantity: totals.totalQuantity + row.quantity,
-      exactOwned: totals.exactOwned + Math.min(row.quantity, row.exactOwned),
-      otherOwned:
-        totals.otherOwned +
-        Math.min(
-          Math.max(0, row.quantity - Math.min(row.quantity, row.exactOwned)),
-          row.otherOwned,
-        ),
-      missing: totals.missing + row.missing,
-    }),
-    { totalQuantity: 0, exactOwned: 0, otherOwned: 0, missing: 0 },
-  );
+  const coverageTotals = summarizeEffectiveDeckCoverage(editorRows);
 
   const deckWishlistMissing = editorRows.reduce(
     (total, row) => total + row.missing,
@@ -448,13 +436,15 @@ export default async function DeckDetailPage({
     0,
   );
   const ownedCoverageTotal =
-    ownershipTotals.exactOwned + ownershipTotals.otherOwned;
-  const ownedCoveragePercent = ownershipTotals.totalQuantity
-    ? Math.round((ownedCoverageTotal / ownershipTotals.totalQuantity) * 100)
+    coverageTotals.exactOwned +
+    coverageTotals.otherOwned +
+    coverageTotals.assumedBasicLandOwned;
+  const ownedCoveragePercent = coverageTotals.totalQuantity
+    ? Math.round((ownedCoverageTotal / coverageTotals.totalQuantity) * 100)
     : 0;
-  const committedCoveragePercent = ownershipTotals.totalQuantity
+  const committedCoveragePercent = coverageTotals.totalQuantity
     ? Math.round(
-        (committedSummary.committedQuantity / ownershipTotals.totalQuantity) *
+        (coverageTotals.effectiveCommitted / coverageTotals.totalQuantity) *
           100,
       )
     : 0;
@@ -532,14 +522,14 @@ export default async function DeckDetailPage({
           <DeckHealthCard
             label="Owned coverage"
             value={`${ownedCoveragePercent}%`}
-            detail={`${ownershipTotals.exactOwned} exact, ${ownershipTotals.otherOwned} other, ${ownershipTotals.missing} missing`}
+            detail={`${coverageTotals.exactOwned} exact, ${coverageTotals.otherOwned} other, ${coverageTotals.assumedBasicLandOwned} basic lands assumed, ${coverageTotals.missing} missing`}
             percent={ownedCoveragePercent}
             tone="emerald"
           />
           <DeckHealthCard
-            label="Physical commitment"
+            label="Effective commitment"
             value={`${committedCoveragePercent}%`}
-            detail={`${committedSummary.committedQuantity} committed of ${ownershipTotals.totalQuantity}`}
+            detail={`${coverageTotals.physicallyCommitted} physical + ${coverageTotals.assumedBasicLandCommitted} basic lands assumed of ${coverageTotals.totalQuantity}`}
             percent={committedCoveragePercent}
             tone="amber"
           />
