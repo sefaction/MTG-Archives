@@ -30,7 +30,7 @@ test("deck detail page uses compact action panels instead of always-expanded pag
   assert.match(pageSource, /Deck builder/);
   assert.match(pageSource, /DeckHealthCard/);
   assert.match(pageSource, /Owned coverage/);
-  assert.match(pageSource, /Physical commitment/);
+  assert.match(pageSource, /Effective commitment/);
   assert.match(pageSource, /Estimated value/);
   assert.doesNotMatch(
     pageSource,

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const source = readFileSync("components/DeckListEditor.tsx", "utf8");
+const deckPage = readFileSync("app/decks/[deckId]/page.tsx", "utf8");
 
 test("deck row editor renders an individual commit form wired to the server action", () => {
   assert.match(
@@ -36,6 +37,26 @@ test("deck row commit controls are editable-only and explain unavailable states"
     source,
     /No available inventory copies to commit for this row\./,
   );
+});
+
+test("basic-land rows render as covered without disabling physical commit controls", () => {
+  assert.match(source, /Basic land covered/);
+  assert.match(
+    source,
+    /Boolean\(row\.isBasicLand\)[\s\S]*row\.commitmentMissing <= 0/,
+  );
+  assert.match(
+    source,
+    /const remainingNeeded = Math\.max\([\s\S]*row\.commitmentMissing/,
+  );
+});
+
+test("deck health cards distinguish effective coverage from physical inventory", () => {
+  assert.match(deckPage, /summarizeEffectiveDeckCoverage\(editorRows\)/);
+  assert.match(deckPage, /label="Effective commitment"/);
+  assert.match(deckPage, /basic lands assumed/);
+  assert.match(deckPage, /coverageTotals\.physicallyCommitted/);
+  assert.match(deckPage, /coverageTotals\.assumedBasicLandCommitted/);
 });
 
 test("deck row commit options are sorted and labeled for exact and other-printing matches", () => {

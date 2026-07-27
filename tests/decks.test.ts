@@ -18,6 +18,7 @@ import {
   normalizePositiveQuantity,
   publicDeckWhere,
   summarizeDeckCardOwnership,
+  summarizeEffectiveDeckCoverage,
   summarizeDeckOwnershipTotals,
 } from "../lib/decks";
 import {
@@ -749,6 +750,49 @@ test("basic lands are not missing or wishlist missing while retaining commitment
   );
   assert.equal(totals.totalQuantity, 21);
   assert.equal(totals.missing, 1);
+});
+
+test("basic lands fill effective ownership and commitment coverage without double counting physical copies", () => {
+  const totals = summarizeEffectiveDeckCoverage([
+    {
+      quantity: 10,
+      exactOwned: 2,
+      otherOwned: 1,
+      committedToThisDeck: 3,
+      isBasicLand: true,
+    },
+    {
+      quantity: 4,
+      exactOwned: 2,
+      otherOwned: 0,
+      committedToThisDeck: 1,
+      isBasicLand: false,
+    },
+  ]);
+
+  assert.deepEqual(totals, {
+    totalQuantity: 14,
+    exactOwned: 4,
+    otherOwned: 1,
+    assumedBasicLandOwned: 7,
+    missing: 2,
+    physicallyCommitted: 4,
+    assumedBasicLandCommitted: 7,
+    effectiveCommitted: 11,
+  });
+
+  const fullyPhysicalBasic = summarizeEffectiveDeckCoverage([
+    {
+      quantity: 5,
+      exactOwned: 5,
+      otherOwned: 0,
+      committedToThisDeck: 5,
+      isBasicLand: true,
+    },
+  ]);
+  assert.equal(fullyPhysicalBasic.assumedBasicLandOwned, 0);
+  assert.equal(fullyPhysicalBasic.assumedBasicLandCommitted, 0);
+  assert.equal(fullyPhysicalBasic.effectiveCommitted, 5);
 });
 
 test("owned special basic-land printings can still be committed", () => {
