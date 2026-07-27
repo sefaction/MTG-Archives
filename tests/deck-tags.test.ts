@@ -16,6 +16,7 @@ const migration = readFileSync(
 );
 const actions = readFileSync("app/decks/actions.ts", "utf8");
 const decksPage = readFileSync("app/decks/page.tsx", "utf8");
+const deckWorkspace = readFileSync("components/DeckWorkspace.tsx", "utf8");
 const deckPage = readFileSync("app/decks/[deckId]/page.tsx", "utf8");
 
 test("deck tags normalize whitespace and dedupe case-insensitively", () => {
@@ -77,12 +78,18 @@ test("deck create and settings updates synchronize tags transactionally", () => 
   );
 });
 
-test("deck pages edit, display, preserve, and filter tags", () => {
+test("deck pages edit, display, autocomplete, and filter tags", () => {
   assert.match(decksPage, /searchParams\?: Promise<\{[\s\S]*tag\?: string/);
-  assert.match(decksPage, /tags: \{ some: \{ tagId: selectedTag\.id \} \}/);
-  assert.match(decksPage, /aria-label="Deck tags"/);
-  assert.match(decksPage, /href=\{decksHref\(\{ tag: tag\.id \}\)\}/);
-  assert.match(decksPage, /value=\{deckTagsText\(deck\.tags\)\}/);
+  assert.match(decksPage, /initialTag=\{params\?\.tag/);
+  assert.match(deckWorkspace, /function TagEditor/);
+  assert.match(deckWorkspace, /aria-label="Tag suggestions"/);
+  assert.match(deckWorkspace, /Choose an existing tag/);
+  assert.match(deckWorkspace, /label="Tags"/);
+  assert.match(deckWorkspace, /includedTagIds/);
+  assert.match(deckWorkspace, /excludedTagIds/);
+  assert.match(deckWorkspace, /includeMode="all"/);
+  assert.match(deckWorkspace, /includeTag\(tag\.id\)/);
+  assert.match(deckWorkspace, /updateDeckFromIndex/);
   assert.match(deckPage, /defaultValue=\{deckTagsText\(deck\.tags\)\}/);
   assert.match(deckPage, /Separate tags with commas/);
   assert.match(deckPage, /\/decks\?tag=/);

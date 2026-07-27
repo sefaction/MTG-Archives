@@ -3,45 +3,75 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 
 const decksPage = readFileSync("app/decks/page.tsx", "utf8");
+const deckWorkspace = readFileSync("components/DeckWorkspace.tsx", "utf8");
+const actions = readFileSync("app/decks/actions.ts", "utf8");
 
-test("deck rows use compact overflow actions instead of repeated large buttons", () => {
-  assert.match(decksPage, /aria-label=\{`Actions for \$\{deck\.name\}`\}/);
-  assert.match(decksPage, /Open deck/);
-  assert.match(decksPage, /Move to folder/);
-  assert.match(decksPage, /Save folder/);
-  assert.match(decksPage, /Delete deck/);
-  assert.doesNotMatch(decksPage, /View\/Edit/);
+test("deck workspace defaults to a sortable table with an alternate card view", () => {
+  assert.match(deckWorkspace, /useState<ViewMode>\("table"\)/);
+  assert.match(deckWorkspace, />\s*Table\s*</);
+  assert.match(deckWorkspace, />\s*Cards\s*</);
+  assert.match(deckWorkspace, /function SortButton/);
+  assert.match(deckWorkspace, /field="name"/);
+  assert.match(deckWorkspace, /field="folder"/);
+  assert.match(deckWorkspace, /field="updated"/);
+});
+
+test("deck card view uses commander artwork with partner support", () => {
+  assert.match(decksPage, /commanderImages:/);
+  assert.match(decksPage, /deckCard\.isCommander/);
+  assert.match(deckWorkspace, /deck\.commanderImages\s*\.slice\(0, 2\)/);
+  assert.match(deckWorkspace, /backgroundImage: `url\(\$\{image\}\)`/);
+});
+
+test("tag and bracket clouds cycle between include, exclude, and neutral", () => {
+  assert.match(deckWorkspace, /function MultiStateFilterCloud/);
+  assert.match(deckWorkspace, /Click[\s\S]*to cycle include → exclude → clear/);
+  assert.match(deckWorkspace, />\s*Not\s*</);
+  assert.match(deckWorkspace, /includedTagIds/);
+  assert.match(deckWorkspace, /excludedTagIds/);
+  assert.match(deckWorkspace, /includedBrackets/);
+  assert.match(deckWorkspace, /excludedBrackets/);
+  assert.match(deckWorkspace, /includedTagIds\.some/);
+  assert.match(deckWorkspace, /excludedTagIds\.some/);
+  assert.match(deckWorkspace, /includedBrackets\.includes/);
+  assert.match(deckWorkspace, /excludedBrackets\.includes/);
+});
+
+test("folder structure changes require unlock and support drag and drop", () => {
+  assert.match(deckWorkspace, /organizationUnlocked/);
+  assert.match(deckWorkspace, /draggable=\{organizationUnlocked\}/);
+  assert.match(deckWorkspace, /onDragStart/);
+  assert.match(deckWorkspace, /onDrop/);
+  assert.match(deckWorkspace, /Drop here to move a folder to the top level/);
+  assert.match(
+    deckWorkspace,
+    /Folder structure[\s\S]*cannot change while locked/,
+  );
+  assert.match(deckWorkspace, /action=\{createDeckFolder\}/);
+  assert.match(deckWorkspace, /action=\{renameDeckFolder\}/);
+  assert.match(deckWorkspace, /action=\{deleteDeckFolder\}/);
+});
+
+test("deck rows open a focused index editor instead of nested action forms", () => {
+  assert.match(deckWorkspace, /setEditingDeck\(deck\)/);
+  assert.match(
+    deckWorkspace,
+    /Update its organization without leaving the deck list/,
+  );
+  assert.match(deckWorkspace, /action=\{saveDeckFromIndex\}/);
+  assert.match(deckWorkspace, /Open full deck settings/);
+  assert.match(actions, /export async function updateDeckFromIndex/);
   assert.doesNotMatch(
-    decksPage,
-    /<SubmitButton[\s\S]{0,160}>\s*Move\s*<\/SubmitButton>/,
+    deckWorkspace,
+    /<details className="relative inline-block text-left">/,
   );
 });
 
-test("folder sidebar renders as a compact tree with folder actions menu", () => {
-  assert.match(decksPage, /aria-label="Deck folders"/);
-  assert.match(decksPage, /renderFolderTree/);
-  assert.match(decksPage, /border-l border-zinc-800/);
-  assert.match(
-    decksPage,
-    /aria-label=\{`Folder actions for \$\{folder\.name\}`\}/,
-  );
-  assert.match(decksPage, /New subfolder/);
-  assert.match(decksPage, /Delete folder/);
-});
-
-test("deck folder column displays nested path with tooltip", () => {
-  assert.match(decksPage, /function folderPath/);
-  assert.match(decksPage, /folderById\.get\(folderId\)\?\.path/);
-  assert.match(decksPage, /title=\{folderPath\(deck\.folderId\)\}/);
-  assert.match(decksPage, /\{folderPath\(deck\.folderId\)\}/);
-});
-
-test("create deck form is collapsed behind a compact new deck disclosure", () => {
-  assert.match(decksPage, /\+ New deck/);
-  assert.match(
-    decksPage,
-    /<details className="rounded border border-zinc-800 bg-zinc-950\/60 p-3">/,
-  );
-  assert.match(decksPage, /action=\{createDeck\}/);
-  assert.match(decksPage, /name="bracket"/);
+test("folder paths and the compact new deck form are supplied to the workspace", () => {
+  assert.match(decksPage, /folderPath: deck\.folderId/);
+  assert.match(decksPage, /folderById\.get\(deck\.folderId\)\?\.path/);
+  assert.match(decksPage, /<DeckWorkspace/);
+  assert.match(deckWorkspace, /\+ New deck/);
+  assert.match(deckWorkspace, /action=\{createDeck\}/);
+  assert.match(deckWorkspace, /name="bracket"/);
 });
