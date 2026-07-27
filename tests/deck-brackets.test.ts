@@ -10,6 +10,7 @@ const migration = readFileSync(
 const helper = readFileSync("lib/deck-brackets.ts", "utf8");
 const actions = readFileSync("app/decks/actions.ts", "utf8");
 const decksPage = readFileSync("app/decks/page.tsx", "utf8");
+const deckWorkspace = readFileSync("components/DeckWorkspace.tsx", "utf8");
 const deckDetailPage = readFileSync("app/decks/[deckId]/page.tsx", "utf8");
 
 test("deck bracket fields are persisted for manual and suggested values", () => {
@@ -38,12 +39,15 @@ test("deck create and update actions persist manual bracket choice", () => {
   assert.match(actions, /bracketUpdatedAt/);
 });
 
-test("deck index exposes bracket list filtering and row editing", () => {
+test("deck index exposes bracket filtering, sorting, and quick editing", () => {
   assert.match(decksPage, /selectedBracket/);
-  assert.match(decksPage, /aria-label="Deck brackets"/);
-  assert.match(decksPage, /formatDeckBracket\(deck\.bracket\)/);
-  assert.match(decksPage, /Save bracket/);
-  assert.match(decksPage, /name="bracket"/);
+  assert.match(deckWorkspace, /label="Brackets"/);
+  assert.match(deckWorkspace, /includedBrackets/);
+  assert.match(deckWorkspace, /excludedBrackets/);
+  assert.match(deckWorkspace, /includeMode="any"/);
+  assert.match(deckWorkspace, /field="bracket"/);
+  assert.match(deckWorkspace, /name="bracket"/);
+  assert.match(deckWorkspace, /updateDeckFromIndex/);
 });
 
 test("deck detail header and settings expose bracket", () => {

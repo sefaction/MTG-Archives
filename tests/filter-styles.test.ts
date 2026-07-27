@@ -25,8 +25,8 @@ const publicInventoryPage = readFileSync(
   "utf8",
 );
 const deckListEditor = readFileSync("components/DeckListEditor.tsx", "utf8");
+const deckWorkspace = readFileSync("components/DeckWorkspace.tsx", "utf8");
 const deckPage = readFileSync("app/decks/[deckId]/page.tsx", "utf8");
-const decksPage = readFileSync("app/decks/page.tsx", "utf8");
 const wishlistPage = readFileSync("app/wishlist/page.tsx", "utf8");
 const importsPage = readFileSync("app/imports/page.tsx", "utf8");
 
@@ -160,7 +160,10 @@ test("color identity controls visibly track checkbox changes", () => {
     inventorySearch,
     /checked=\{activeColors\.includes\(color\.value\)\}/,
   );
-  assert.match(inventorySearch, /toggleColor\(color\.value, event\.target\.checked\)/);
+  assert.match(
+    inventorySearch,
+    /toggleColor\(color\.value, event\.target\.checked\)/,
+  );
   assert.match(
     inventorySearch,
     /activeColors\.includes\(color\.value\)[\s\S]*?border-sky-400 bg-sky-950/,
@@ -187,6 +190,6 @@ test("active filter chips and Clear Filters render outside collapsed advanced se
 test("deck and wishlist filter controls use shared filter styles", () => {
   assertUsesSharedStyles(deckListEditor, "DeckListEditor");
   assertUsesSharedStyles(deckPage, "deck detail page");
-  assertUsesSharedStyles(decksPage, "decks page");
+  assertUsesSharedStyles(deckWorkspace, "decks workspace");
   assertUsesSharedStyles(wishlistPage, "wishlist page");
 });

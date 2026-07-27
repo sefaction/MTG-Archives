@@ -213,6 +213,62 @@ export async function moveDeckToFolder(fd: FormData) {
   revalidatePath(`/decks/${deckId}`);
 }
 
+export async function updateDeckFromIndex(fd: FormData) {
+  const deckId = formString(fd, "deckId");
+  const { adminMode, user, deck } = await requireManagedDeck(deckId);
+  const name = formString(fd, "name");
+  if (!name) throw new Error("Deck name is required.");
+  if (adminMode && deck.ownerUserId !== user.id) {
+    console.info("admin_update_deck_from_index", {
+      deckId,
+      changedByUserId: user.id,
+    });
+  }
+  const visibility = enumValue(
+    Visibility,
+    formString(fd, "visibility"),
+    deck.visibility,
+  );
+  const bracket = parseDeckBracket(fd.get("bracket"));
+  const folderId = await validatedFolderId(
+    deck.ownerUserId,
+    formString(fd, "folderId"),
+  );
+  const tags = parseDeckTags(fd.get("tags"));
+  await prisma.$transaction(async (tx) => {
+    await tx.deck.update({
+      where: { id: deckId },
+      data: {
+        name,
+        format: enumValue(DeckFormat, formString(fd, "format"), deck.format),
+        visibility,
+        bracket,
+        bracketUpdatedAt:
+          bracket !== deck.bracket ? new Date() : deck.bracketUpdatedAt,
+        folderId,
+      },
+    });
+    await replaceDeckTags(tx, {
+      deckId,
+      ownerUserId: deck.ownerUserId,
+      tags,
+    });
+  });
+  const existingDeckLocation = await prisma.inventoryLocation.findUnique({
+    where: { deckId },
+  });
+  if (existingDeckLocation) {
+    await ensureDeckLocation(prisma, {
+      id: deckId,
+      name,
+      visibility,
+      ownerUser: { playerId: deck.ownerUser.playerId },
+    });
+  }
+  revalidatePath("/decks");
+  revalidatePath(`/decks/${deckId}`);
+}
+
 export async function createDeck(fd: FormData) {
   const user = await requireLogin();
   const name = formString(fd, "name");
