@@ -208,17 +208,21 @@ test("single-card and deck add-real-copy UIs use deliberate printing search and 
     "utf8",
   );
   assert.match(singleCard, /Add single card/);
-  assert.match(
-    singleCard,
-    /Include Scryfall fallback for plain-name searches/,
-  );
+  assert.match(singleCard, /Include Scryfall fallback for plain-name searches/);
   assert.match(singleCard, /onClick=\{search\}/);
   assert.match(singleCard, /action=\{addSingleCardToInventory\}/);
 
   const deckEditor = readFileSync("components/DeckListEditor.tsx", "utf8");
-  assert.match(deckEditor, /Add real copy/);
-  assert.match(deckEditor, /Commit to this deck immediately/);
-  assert.match(deckEditor, /action=\{addRealCopyToDeck\}/);
+  const addRealCopyUi = deckEditor.slice(
+    deckEditor.indexOf("function AddRealCopyToDeck"),
+    deckEditor.indexOf("function ReturnCommittedCopies"),
+  );
+  assert.match(addRealCopyUi, /Add real copy/);
+  assert.match(addRealCopyUi, /<DeckPrintingChooser/);
+  assert.match(addRealCopyUi, /Add and commit real copy/);
+  assert.match(addRealCopyUi, /action=\{addRealCopyToDeck\}/);
+  assert.doesNotMatch(addRealCopyUi, /Normal inventory location/);
+  assert.doesNotMatch(addRealCopyUi, /Commit to this deck immediately/);
 
   const deckPicker = readFileSync("components/DeckCardPicker.tsx", "utf8");
   assert.match(deckPicker, /Also add a physical copy to inventory/);
@@ -226,9 +230,21 @@ test("single-card and deck add-real-copy UIs use deliberate printing search and 
   assert.match(deckPicker, /name="commitNewInventoryCopy"/);
 
   const deckActions = readFileSync("app/decks/actions.ts", "utf8");
+  const addRealCopyAction = deckActions.slice(
+    deckActions.indexOf("export async function addRealCopyToDeck"),
+    deckActions.indexOf("export async function commitDeckCardToDeck"),
+  );
   assert.match(deckActions, /requireManagedDeck\(deckId\)/);
-  assert.match(deckActions, /quantity > remainingNeeded/);
-  assert.match(deckActions, /tx\.deckCard\.update/);
+  assert.match(addRealCopyAction, /quantity > remainingNeeded/);
+  assert.match(addRealCopyAction, /ensureDefaultLocation/);
+  assert.match(addRealCopyAction, /ensureDeckLocation/);
+  assert.match(addRealCopyAction, /selectedCardMatchesRow/);
+  assert.match(addRealCopyAction, /moveInventoryQuantityWithinTransaction/);
+  assert.doesNotMatch(addRealCopyAction, /formString\(fd, "locationId"\)/);
+  assert.doesNotMatch(
+    addRealCopyAction,
+    /formString\(fd, "commitImmediately"\)/,
+  );
   assert.match(deckActions, /if \(addInventoryCopy\)/);
   assert.match(deckActions, /Added physical copy while adding/);
 });

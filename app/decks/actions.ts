@@ -10,12 +10,13 @@ import {
   Visibility,
 } from "@prisma/client";
 import { getAccessScope, requireLogin } from "@/lib/auth";
-import { findOrImportCard } from "@/lib/card-import";
+import { findOrImportCard, normalizeCardName } from "@/lib/card-import";
 import {
   addInventoryCardToLocation,
   normalizeManualInventoryQuantity,
 } from "@/lib/inventory-manual";
 import { moveInventoryQuantityWithinTransaction } from "@/lib/inventory-move";
+import { ensureDefaultLocation } from "@/lib/inventory-locations";
 import { prisma } from "@/lib/prisma";
 import {
   inventoryAuditAction,
@@ -700,15 +701,12 @@ export async function addRealCopyToDeck(fd: FormData) {
   const deckId = formString(fd, "deckId");
   const deckCardId = formString(fd, "deckCardId");
   const cardId = formString(fd, "cardId");
-  const locationId = formString(fd, "locationId");
   const quantity = normalizeManualInventoryQuantity(fd.get("quantity"));
-  const commitImmediately = formString(fd, "commitImmediately") === "on";
   const { user, deck } = await requireManagedDeck(deckId);
   if (!deck.ownerUser.playerId) {
     throw new Error("Deck owner is not linked to an inventory owner.");
   }
   if (!cardId) throw new Error("Select a printing before adding inventory.");
-  if (!locationId) throw new Error("Choose a destination location.");
 
   await prisma.$transaction(async (tx) => {
     const [deckCard, selectedCard] = await Promise.all([
@@ -718,29 +716,36 @@ export async function addRealCopyToDeck(fd: FormData) {
     if (!deckCard) throw new Error("Deck card not found.");
     if (!selectedCard)
       throw new Error("Selected card printing no longer exists.");
+    const selectedCardMatchesRow =
+      deckCard.oracleId && selectedCard.oracleId
+        ? deckCard.oracleId === selectedCard.oracleId
+        : normalizeCardName(deckCard.cardName) ===
+          normalizeCardName(selectedCard.name);
+    if (!selectedCardMatchesRow) {
+      throw new Error("Choose a printing of this deck card.");
+    }
 
-    const deckLocation = commitImmediately
-      ? await ensureDeckLocation(tx, deck)
-      : null;
+    const [defaultLocation, deckLocation] = await Promise.all([
+      ensureDefaultLocation(tx, deck.ownerUser.playerId!),
+      ensureDeckLocation(tx, deck),
+    ]);
     const remainingNeeded = Math.max(
       0,
       deckCard.quantity -
-        (commitImmediately && deckLocation
-          ? summarizeDeckCommitmentOwnership(
-              deckCard,
-              await tx.inventoryItem.findMany({
-                where: {
-                  currentOwnerId: deck.ownerUser.playerId!,
-                  quantity: { gt: 0 },
-                  locationId: deckLocation.id,
-                },
-                include: { card: true, location: true },
-              }),
-              deck.id,
-            ).committedToThisDeck
-          : 0),
+        summarizeDeckCommitmentOwnership(
+          deckCard,
+          await tx.inventoryItem.findMany({
+            where: {
+              currentOwnerId: deck.ownerUser.playerId!,
+              quantity: { gt: 0 },
+              locationId: deckLocation.id,
+            },
+            include: { card: true, location: true },
+          }),
+          deck.id,
+        ).committedToThisDeck,
     );
-    if (commitImmediately && quantity > remainingNeeded) {
+    if (quantity > remainingNeeded) {
       throw new Error(
         `Only ${remainingNeeded} more cards can be committed for this deck row.`,
       );
@@ -749,17 +754,15 @@ export async function addRealCopyToDeck(fd: FormData) {
     const added = await addInventoryCardToLocation(tx, {
       ownerPlayerId: deck.ownerUser.playerId!,
       cardId: selectedCard.id,
-      locationId,
+      locationId: defaultLocation.id,
       quantity,
       foilStatus: formString(fd, "foilStatus") || FoilStatus.NONFOIL,
       condition: formString(fd, "condition") || "NM",
       language: formString(fd, "language") || "EN",
       notes: formString(fd, "notes") || null,
       actingUserId: user.id,
-      reason: `Added real copy for ${deck.name}.`,
+      reason: `Added real copy to commit to ${deck.name}.`,
     });
-
-    if (!commitImmediately || !deckLocation) return;
 
     if (deckCard.cardId !== selectedCard.id) {
       await tx.deckCard.update({

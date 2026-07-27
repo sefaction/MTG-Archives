@@ -8,7 +8,6 @@ const deckSearch = readFileSync("lib/deck-search.ts", "utf8");
 const printingSearchSurfaces = [
   "components/DeckCardPicker.tsx",
   "components/DeckImportPanel.tsx",
-  "components/DeckListEditor.tsx",
   "components/InventoryBrowser.tsx",
   "components/SingleCardInventoryAdd.tsx",
   "components/WishlistSearchAdd.tsx",
@@ -36,4 +35,11 @@ test("printing search surfaces advertise the shared Scryfall query contract", ()
       `${path} should explain Scryfall query support`,
     );
   }
+
+  const deckPrintingChooser = readFileSync(
+    "components/DeckPrintingChooser.tsx",
+    "utf8",
+  );
+  assert.match(deckPrintingChooser, /q: cardName/);
+  assert.doesNotMatch(deckPrintingChooser, /Card name or Scryfall query/);
 });
