@@ -22,6 +22,8 @@ const importResolveRoute = readFileSync(
   "utf8",
 );
 const deckImportHelper = readFileSync("lib/deck-import.ts", "utf8");
+const deckActionsSource = readFileSync("app/decks/actions.ts", "utf8");
+const scryfallSource = readFileSync("lib/scryfall.ts", "utf8");
 
 test("deck detail page uses compact action panels instead of always-expanded page forms", () => {
   assert.match(pageSource, /<DeckActionPanels/);
@@ -122,11 +124,54 @@ test("deck paste review renders after parsing before slower printing resolution"
   assert.match(importPanelSource, /fetchDecklistResolution\("resolve-lines"/);
   assert.match(importPanelSource, /setLines\(parsed\.lines\)/);
   assert.match(importPanelSource, /Bulk resolution progress/);
-  assert.match(importPanelSource, /Resolve unresolved lines/);
+  assert.match(importPanelSource, /Resolve unresolved entries/);
   assert.match(importPanelSource, /resolveProgress\.completed/);
   assert.match(importResolveRoute, /body\.mode === "parse"/);
   assert.match(importResolveRoute, /body\.mode === "resolve-lines"/);
   assert.match(importResolveRoute, /buildDeckImportResolution/);
+});
+
+test("deck import resolves sequential batches and prefers the local card catalog", () => {
+  assert.match(importPanelSource, /const RESOLUTION_BATCH_SIZE = 20/);
+  assert.match(
+    importPanelSource,
+    /resolvableLines\.slice\([\s\S]*offset \+ RESOLUTION_BATCH_SIZE/,
+  );
+  assert.match(importPanelSource, /lines: batch/);
+  assert.doesNotMatch(importPanelSource, /CONCURRENT_RESOLUTION_REQUESTS/);
+  assert.match(deckImportHelper, /if \(candidates\.length === 0\)/);
+  assert.match(scryfallSource, /SCRYFALL_MIN_REQUEST_INTERVAL_MS", 125/);
+});
+
+test("deck import distinguishes card entries, card copies, and physical inventory", () => {
+  assert.match(importPanelSource, /Card entries:/);
+  assert.match(importPanelSource, /Card copies:/);
+  assert.match(importPanelSource, /Physical copies:/);
+  assert.match(importPanelSource, /Create and commit inventory/);
+  assert.match(importPanelSource, /physicalFoilStatus/);
+  assert.match(importPanelSource, /physicalCondition/);
+  assert.match(importPanelSource, /physicalLanguage/);
+  assert.match(importPanelSource, /Import .* deck-list copies/);
+});
+
+test("deck import creates and commits selected physical copies in the deck transaction", () => {
+  assert.match(
+    deckActionsSource,
+    /export async function commitDeckImport[\s\S]*prisma\.\$transaction/,
+  );
+  assert.match(
+    deckActionsSource,
+    /physicalQuantity > quantity[\s\S]*Physical copy quantities/,
+  );
+  assert.match(
+    deckActionsSource,
+    /addInventoryCardToLocation\(tx,[\s\S]*moveInventoryQuantityWithinTransaction\(tx/,
+  );
+  assert.match(
+    deckActionsSource,
+    /action: inventoryAuditAction\.committedToDeck/,
+  );
+  assert.match(deckActionsSource, /revalidatePath\("\/inventory"\)/);
 });
 
 test("deck paste bulk resolution exposes owned-first and cheapest fallback policy", () => {

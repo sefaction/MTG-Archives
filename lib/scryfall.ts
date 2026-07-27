@@ -153,7 +153,7 @@ export function getScryfallConfig(): ClientConfig {
   return {
     baseUrl: baseUrl.replace(/\/+$/, ""),
     userAgent: process.env.SCRYFALL_USER_AGENT || DEFAULT_USER_AGENT,
-    minRequestIntervalMs: numericEnv("SCRYFALL_MIN_REQUEST_INTERVAL_MS", 100),
+    minRequestIntervalMs: numericEnv("SCRYFALL_MIN_REQUEST_INTERVAL_MS", 125),
     maxRetries: numericEnv("SCRYFALL_MAX_RETRIES", 4),
     timeoutMs: numericEnv("SCRYFALL_REQUEST_TIMEOUT_MS", 15_000),
   };

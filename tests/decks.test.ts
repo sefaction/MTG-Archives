@@ -284,6 +284,10 @@ Negate
   assert.deepEqual(parsed.lines[3].warnings, ["Missing quantity; assumed 1."]);
   assert.equal(parsed.lines[3].rawLine, "Negate");
   assert.equal(parsed.lines[3].lineNumber, 10);
+  assert.equal(parsed.lines[3].physicalQuantity, 0);
+  assert.equal(parsed.lines[3].physicalFoilStatus, "NONFOIL");
+  assert.equal(parsed.lines[3].physicalCondition, "NM");
+  assert.equal(parsed.lines[3].physicalLanguage, "EN");
   assert.equal(parsed.skippedLines[0].resolutionStatus, "SKIPPED");
 });
 
