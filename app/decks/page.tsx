@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { DeckFormat, Visibility } from "@prisma/client";
+import { DeckFormat, DeckSection, Visibility } from "@prisma/client";
 import { Nav } from "@/components/Nav";
 import {
   DeckWorkspace,
@@ -60,16 +60,27 @@ export default async function DecksPage({
       include: {
         cards: {
           select: {
+            cardId: true,
+            cardName: true,
             quantity: true,
             section: true,
             isCommander: true,
             card: {
               select: {
+                id: true,
                 colorIdentity: true,
                 colors: true,
                 imageUris: true,
                 imageUri: true,
               },
+            },
+          },
+        },
+        deckLocation: {
+          select: {
+            inventoryItems: {
+              where: { quantity: { gt: 0 } },
+              select: { cardId: true, quantity: true },
             },
           },
         },
@@ -93,37 +104,79 @@ export default async function DecksPage({
     count: tag._count.decks,
     ownerLabel: adminModeActive ? tag.ownerUser.displayName : undefined,
   }));
-  const workspaceDecks: DeckWorkspaceDeck[] = decks.map((deck) => ({
-    id: deck.id,
-    name: deck.name,
-    description: deck.description,
-    format: deck.format,
-    formatLabel: deckFormatLabel(deck.format),
-    visibility: deck.visibility,
-    visibilityLabel: visibilityLabel(deck.visibility),
-    bracket: deck.bracket,
-    folderId: deck.folderId,
-    folderPath: deck.folderId
-      ? (folderById.get(deck.folderId)?.path ?? "Unknown folder")
-      : "Uncategorized",
-    tags: deck.tags.map(({ tag }) => tag),
-    colorIdentity: calculateDeckColorIdentity(deck.cards, deck.format),
-    cardSummary: deckSectionSummaryParts(deck.cards).join(" · "),
-    cardCount: deck.cards.reduce((total, card) => total + card.quantity, 0),
-    commanderImages: [
-      ...new Set(
-        deck.cards
-          .filter(
-            (deckCard) =>
-              deckCard.isCommander || deckCard.section === "COMMANDER",
-          )
-          .map((deckCard) => deckCardArtCrop(deckCard.card))
-          .filter(Boolean),
-      ),
-    ],
-    updatedAt: deck.updatedAt.toISOString(),
-    ownerLabel: adminModeActive ? deck.ownerUser.displayName : undefined,
-  }));
+  const workspaceDecks: DeckWorkspaceDeck[] = decks.map((deck) => {
+    const primaryCards = deck.cards.filter(
+      (deckCard) =>
+        deckCard.section === DeckSection.MAINBOARD ||
+        deckCard.section === DeckSection.COMMANDER,
+    );
+    const requiredByCardId = new Map<string, number>();
+    for (const deckCard of primaryCards) {
+      if (!deckCard.cardId) continue;
+      requiredByCardId.set(
+        deckCard.cardId,
+        (requiredByCardId.get(deckCard.cardId) ?? 0) + deckCard.quantity,
+      );
+    }
+    const committedByCardId = new Map<string, number>();
+    for (const item of deck.deckLocation?.inventoryItems ?? []) {
+      committedByCardId.set(
+        item.cardId,
+        (committedByCardId.get(item.cardId) ?? 0) + item.quantity,
+      );
+    }
+    const committedCardCount = [...requiredByCardId].reduce(
+      (total, [cardId, required]) =>
+        total + Math.min(required, committedByCardId.get(cardId) ?? 0),
+      0,
+    );
+
+    return {
+      id: deck.id,
+      name: deck.name,
+      description: deck.description,
+      format: deck.format,
+      formatLabel: deckFormatLabel(deck.format),
+      visibility: deck.visibility,
+      visibilityLabel: visibilityLabel(deck.visibility),
+      bracket: deck.bracket,
+      folderId: deck.folderId,
+      folderPath: deck.folderId
+        ? (folderById.get(deck.folderId)?.path ?? "Unknown folder")
+        : "Uncategorized",
+      tags: deck.tags.map(({ tag }) => tag),
+      colorIdentity: calculateDeckColorIdentity(deck.cards, deck.format),
+      cardSummary: deckSectionSummaryParts(deck.cards).join(" · "),
+      cardCount: primaryCards.reduce((total, card) => total + card.quantity, 0),
+      committedCardCount,
+      commanderNames: [
+        ...new Set(
+          deck.cards
+            .filter(
+              (deckCard) =>
+                deckCard.isCommander ||
+                deckCard.section === DeckSection.COMMANDER,
+            )
+            .map((deckCard) => deckCard.cardName)
+            .filter(Boolean),
+        ),
+      ],
+      commanderImages: [
+        ...new Set(
+          deck.cards
+            .filter(
+              (deckCard) =>
+                deckCard.isCommander ||
+                deckCard.section === DeckSection.COMMANDER,
+            )
+            .map((deckCard) => deckCardArtCrop(deckCard.card))
+            .filter(Boolean),
+        ),
+      ],
+      updatedAt: deck.updatedAt.toISOString(),
+      ownerLabel: adminModeActive ? deck.ownerUser.displayName : undefined,
+    };
+  });
 
   return (
     <main className="space-y-6 p-4 sm:p-6 lg:p-8">

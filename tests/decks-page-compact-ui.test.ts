@@ -18,9 +18,24 @@ test("deck workspace defaults to a sortable table with an alternate card view", 
 
 test("deck card view uses commander artwork with partner support", () => {
   assert.match(decksPage, /commanderImages:/);
+  assert.match(decksPage, /commanderNames:/);
   assert.match(decksPage, /deckCard\.isCommander/);
   assert.match(deckWorkspace, /deck\.commanderImages\s*\.slice\(0, 2\)/);
   assert.match(deckWorkspace, /backgroundImage: `url\(\$\{image\}\)`/);
+});
+
+test("deck cards present primary details and physical committal progress", () => {
+  assert.match(decksPage, /deckCard\.section === DeckSection\.MAINBOARD/);
+  assert.match(decksPage, /deckCard\.section === DeckSection\.COMMANDER/);
+  assert.match(decksPage, /committedCardCount/);
+  assert.match(deckWorkspace, /deck\.commanderNames\.join\(" & "\)/);
+  assert.match(
+    deckWorkspace,
+    /ColorIdentitySymbols value=\{deck\.colorIdentity\}/,
+  );
+  assert.match(deckWorkspace, /Committal progress/);
+  assert.match(deckWorkspace, /role="progressbar"/);
+  assert.match(deckWorkspace, /min-h-\[27rem\]/);
 });
 
 test("tag and bracket clouds cycle between include, exclude, and neutral", () => {
