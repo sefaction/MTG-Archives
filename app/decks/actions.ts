@@ -1157,10 +1157,9 @@ export async function returnDeckCardToInventory(fd: FormData) {
 
 export async function commitDeckImport(fd: FormData) {
   const deckId = formString(fd, "deckId");
-  await requireManagedDeck(deckId);
+  const { user, deck } = await requireManagedDeck(deckId);
   const mode = formString(fd, "mode") === "replace" ? "replace" : "merge";
   if (mode === "replace") {
-    const { deck } = await requireManagedDeck(deckId);
     const ownerPlayerId = deck.ownerUser.playerId;
     if (ownerPlayerId) {
       const committed = await getDeckCommittedSummary(prisma, {
@@ -1189,29 +1188,74 @@ export async function commitDeckImport(fd: FormData) {
     section?: DeckSection | null;
     included?: boolean;
     notes?: string;
+    physicalQuantity?: number;
+    physicalFoilStatus?: FoilStatus | string;
+    physicalCondition?: string;
+    physicalLanguage?: string;
   }>;
-  const lines = parsed.filter(
-    (
-      line,
-    ): line is {
-      cardId: string;
-      quantity: number;
-      section: DeckSection;
-      included: boolean;
-      notes?: string;
-    } =>
-      line.included !== false &&
-      Boolean(line.cardId) &&
-      Number.isInteger(line.quantity) &&
-      Number(line.quantity) > 0 &&
-      Boolean(line.section),
-  );
+  const lines = parsed
+    .filter(
+      (line) =>
+        line.included !== false &&
+        Boolean(line.cardId) &&
+        Number.isInteger(line.quantity) &&
+        Number(line.quantity) > 0 &&
+        Boolean(line.section),
+    )
+    .map((line) => {
+      const quantity = Number(line.quantity);
+      const physicalQuantity = Number(line.physicalQuantity ?? 0);
+      if (
+        !Number.isInteger(physicalQuantity) ||
+        physicalQuantity < 0 ||
+        physicalQuantity > quantity
+      ) {
+        throw new Error(
+          "Physical copy quantities must be whole numbers no greater than their deck-list quantities.",
+        );
+      }
+      const physicalFoilStatus = Object.values(FoilStatus).includes(
+        line.physicalFoilStatus as FoilStatus,
+      )
+        ? (line.physicalFoilStatus as FoilStatus)
+        : FoilStatus.NONFOIL;
+      const physicalCondition = ["NM", "LP", "MP", "HP", "DMG"].includes(
+        line.physicalCondition || "",
+      )
+        ? line.physicalCondition!
+        : "NM";
+      return {
+        cardId: line.cardId!,
+        quantity,
+        section: line.section!,
+        notes: line.notes,
+        physicalQuantity,
+        physicalFoilStatus,
+        physicalCondition,
+        physicalLanguage:
+          line.physicalLanguage?.trim().toUpperCase().slice(0, 8) || "EN",
+      };
+    });
   if (lines.length === 0)
     throw new Error("No resolved decklist lines to commit.");
+  const physicalCopyCount = lines.reduce(
+    (total, line) => total + line.physicalQuantity,
+    0,
+  );
+  if (physicalCopyCount > 0 && !deck.ownerUser.playerId) {
+    throw new Error("Deck owner is not linked to an inventory owner.");
+  }
   await prisma.$transaction(async (tx) => {
     if (mode === "replace") {
       await tx.deckCard.deleteMany({ where: { deckId } });
     }
+    const inventoryLocations =
+      physicalCopyCount > 0
+        ? await Promise.all([
+            ensureDefaultLocation(tx, deck.ownerUser.playerId!),
+            ensureDeckLocation(tx, deck),
+          ])
+        : null;
     for (const line of lines) {
       const card = await tx.card.findUnique({
         where: { id: line.cardId },
@@ -1244,9 +1288,63 @@ export async function commitDeckImport(fd: FormData) {
           },
         });
       }
+      if (line.physicalQuantity > 0 && inventoryLocations) {
+        const [defaultLocation, deckLocation] = inventoryLocations;
+        const added = await addInventoryCardToLocation(tx, {
+          ownerPlayerId: deck.ownerUser.playerId!,
+          cardId: card.id,
+          locationId: defaultLocation.id,
+          quantity: line.physicalQuantity,
+          foilStatus: line.physicalFoilStatus,
+          condition: line.physicalCondition,
+          language: line.physicalLanguage,
+          notes: line.notes || null,
+          actingUserId: user.id,
+          reason: `Added during deck import for ${deck.name}.`,
+        });
+        const move = await moveInventoryQuantityWithinTransaction(tx, {
+          inventoryItemId: added.inventory.id,
+          toLocationId: deckLocation.id,
+          quantity: line.physicalQuantity,
+        });
+        const metadata = deckMoveAuditMetadata({
+          deckId: deck.id,
+          deckName: deck.name,
+          cardName: card.name,
+          sourceLocationId: added.location.id,
+          sourceLocationName: added.location.name,
+          destinationLocationId: deckLocation.id,
+          destinationLocationName: deckLocation.name,
+          quantityMoved: line.physicalQuantity,
+          beforeSourceQuantity: move.source.quantity,
+          afterSourceQuantity: move.sourceAfterQuantity,
+          beforeDestinationQuantity: move.destinationBeforeQuantity,
+          afterDestinationQuantity: move.destinationAfterQuantity,
+        });
+        await recordInventoryAudit({
+          tx,
+          inventoryItemId: move.auditInventoryItemId,
+          actingUserId: user.id,
+          action: inventoryAuditAction.committedToDeck,
+          before: auditDeckMoveSnapshot(move.source, metadata),
+          after: auditDeckMoveSnapshot(
+            {
+              ...move.source,
+              locationId: deckLocation.id,
+              quantity: line.physicalQuantity,
+            },
+            metadata,
+          ),
+          reason: `Imported and committed ${line.physicalQuantity} ${card.name} to ${deck.name}.`,
+        });
+      }
     }
   });
   revalidatePath(`/decks/${deckId}`);
+  if (physicalCopyCount > 0) {
+    revalidatePath("/inventory");
+    revalidatePath("/locations");
+  }
 }
 
 function deckMoveAuditMetadata(input: {

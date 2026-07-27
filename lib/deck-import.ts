@@ -1,4 +1,4 @@
-import { Card, DeckSection } from "@prisma/client";
+import { Card, DeckSection, FoilStatus } from "@prisma/client";
 import { prisma } from "./prisma";
 import {
   findOrImportCard,
@@ -57,6 +57,10 @@ export type DeckImportReviewLine = {
   warnings: string[];
   errors: string[];
   included: boolean;
+  physicalQuantity: number;
+  physicalFoilStatus: FoilStatus;
+  physicalCondition: string;
+  physicalLanguage: string;
 };
 
 export type DeckImportResolution = {
@@ -149,6 +153,10 @@ function emptyReviewLine(input: {
     warnings: input.warnings ?? [],
     errors: input.errors ?? [],
     included: input.included ?? true,
+    physicalQuantity: 0,
+    physicalFoilStatus: FoilStatus.NONFOIL,
+    physicalCondition: "NM",
+    physicalLanguage: "EN",
   };
 }
 
@@ -309,7 +317,7 @@ async function cheapestPrintingForName(
     })
   ).filter((card) => normalizeCardName(card.name) === key);
   let candidates = local;
-  if (candidates.length < 4) {
+  if (candidates.length === 0) {
     const result = await searchCardsResult(
       `!"${name.trim().replace(/"/g, '\\"')}" unique:prints`,
     );
@@ -474,7 +482,7 @@ export async function resolveParsedDecklist(
             line,
             card,
             "RESOLVED_CHEAPEST_PRINTING",
-            "Cheapest playable paper English printing selected.",
+            "Cheapest available playable paper English printing selected.",
             ownerPlayerId,
           ),
         );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { DeckSection } from "@prisma/client";
+import { DeckSection, FoilStatus } from "@prisma/client";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { SetSymbol } from "@/components/mtg/CardSymbols";
 import { deckSectionLabel, deckSections } from "@/lib/decks";
@@ -54,7 +54,7 @@ type ResolveProgress = {
   currentName: string;
 };
 
-const CONCURRENT_RESOLUTION_REQUESTS = 4;
+const RESOLUTION_BATCH_SIZE = 20;
 
 const emptyProgress: ResolveProgress = {
   total: 0,
@@ -140,6 +140,14 @@ function summarize(
     unresolvedIncluded: lines.filter(
       (line) => line.included && !line.selectedCardId,
     ).length,
+    physicalCopies: lines
+      .filter((line) => line.included && line.selectedCardId)
+      .reduce(
+        (total, line) =>
+          total +
+          Math.min(lineQuantity(line), Math.max(0, line.physicalQuantity ?? 0)),
+        0,
+      ),
     warnings: lines.filter((line) => line.warnings.length > 0).length,
     skipped: skipped.length,
   };
@@ -208,20 +216,23 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
       total: resolvableLines.length,
     });
     setResolving(true);
-    let nextLineIndex = 0;
-
-    async function resolveNextLine() {
-      const line = resolvableLines[nextLineIndex];
-      nextLineIndex += 1;
-      if (!line) return;
-
+    for (
+      let offset = 0;
+      offset < resolvableLines.length;
+      offset += RESOLUTION_BATCH_SIZE
+    ) {
+      const batch = resolvableLines.slice(
+        offset,
+        offset + RESOLUTION_BATCH_SIZE,
+      );
+      const firstLine = batch[0];
       setResolveProgress((current) => ({
         ...current,
-        currentLine: line.lineNumber,
-        currentName: line.parsedName ?? line.rawLine,
+        currentLine: firstLine?.lineNumber ?? null,
+        currentName: `${batch.length} card ${batch.length === 1 ? "entry" : "entries"}`,
       }));
       const resolution = await fetchDecklistResolution("resolve-lines", {
-        lines: [line],
+        lines: batch,
       });
       mergeResolvedLines(resolution.lines);
       const resolvedCount = resolution.lines.filter((resolvedLine) =>
@@ -236,16 +247,7 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
         currentLine: null,
         currentName: "",
       }));
-      await resolveNextLine();
     }
-
-    const workerCount = Math.min(
-      CONCURRENT_RESOLUTION_REQUESTS,
-      resolvableLines.length,
-    );
-    await Promise.all(
-      Array.from({ length: workerCount }, () => resolveNextLine()),
-    );
     setResolving(false);
   }
 
@@ -315,6 +317,10 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
           quantity: line.quantity,
           section: line.section,
           included: line.included,
+          physicalQuantity: line.physicalQuantity,
+          physicalFoilStatus: line.physicalFoilStatus,
+          physicalCondition: line.physicalCondition,
+          physicalLanguage: line.physicalLanguage,
           notes: `Imported from line ${line.lineNumber}: ${line.rawLine}`,
         })),
       ),
@@ -334,7 +340,7 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
     if (summary.unresolvedIncluded > 0) {
       event.preventDefault();
       setCommitError(
-        `Resolve or exclude ${summary.unresolvedIncluded} unresolved lines before committing.`,
+        `Resolve or exclude ${summary.unresolvedIncluded} unresolved card entries before importing.`,
       );
     }
   }
@@ -343,8 +349,8 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
     <section className="space-y-3 rounded border border-zinc-800 p-4">
       <h2 className="text-xl font-semibold">Paste decklist</h2>
       <p className="text-sm text-zinc-400">
-        Every non-comment pasted line is kept visible in review. Resolve or
-        exclude problem lines before committing.
+        Every card entry is kept visible in review. Resolve or exclude problem
+        entries before importing.
       </p>
       <textarea
         value={text}
@@ -406,10 +412,10 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
                 </div>
                 <div className="text-zinc-400">
                   {resolveProgress.total
-                    ? `${resolveProgress.completed} / ${resolveProgress.total} lines checked`
+                    ? `${resolveProgress.completed} / ${resolveProgress.total} card entries checked`
                     : "No automatic resolution has started."}
                   {resolveProgress.currentLine
-                    ? ` - Line ${resolveProgress.currentLine}: ${resolveProgress.currentName}`
+                    ? ` - Starting at pasted line ${resolveProgress.currentLine}: ${resolveProgress.currentName}`
                     : ""}
                 </div>
               </div>
@@ -421,7 +427,7 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
                 }
                 className="rounded border border-zinc-700 px-3 py-2 text-sm text-zinc-100 disabled:opacity-60"
               >
-                Resolve unresolved lines
+                Resolve unresolved entries
               </button>
             </div>
             <div className="mt-3 h-2 overflow-hidden rounded bg-zinc-800">
@@ -445,8 +451,8 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
             </div>
           </div>
           <div className="grid gap-2 text-xs text-zinc-300 md:grid-cols-6">
-            <span>Parsed lines: {summary.parsedCardLines}</span>
-            <span>Total cards: {summary.totalCardQuantityParsed}</span>
+            <span>Card entries: {summary.parsedCardLines}</span>
+            <span>Card copies: {summary.totalCardQuantityParsed}</span>
             <span>Commander: {summary.sectionTotals.COMMANDER}</span>
             <span>Mainboard: {summary.sectionTotals.MAINBOARD}</span>
             {summary.sectionTotals.SIDEBOARD > 0 ? (
@@ -464,15 +470,16 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
             <span>Unresolved cards: {summary.unresolvedTotalQuantity}</span>
             <span>Parse errors: {summary.parseErrors}</span>
             <span>Warnings: {summary.warnings}</span>
-            <span>Excluded lines: {summary.excluded}</span>
+            <span>Excluded entries: {summary.excluded}</span>
             <span>Excluded cards: {summary.excludedTotalQuantity}</span>
-            <span>Ready lines: {summary.readyToCommit}</span>
-            <span>Ready cards: {summary.readyToCommitTotalQuantity}</span>
+            <span>Ready entries: {summary.readyToCommit}</span>
+            <span>Ready copies: {summary.readyToCommitTotalQuantity}</span>
+            <span>Physical copies: {summary.physicalCopies}</span>
           </div>
           {summary.unresolvedIncluded > 0 ? (
             <p className="rounded border border-amber-800 bg-amber-950/30 p-2 text-sm text-amber-100">
-              Resolve or exclude {summary.unresolvedIncluded} unresolved lines
-              before committing.
+              Resolve or exclude {summary.unresolvedIncluded} unresolved card
+              entries before importing.
             </p>
           ) : null}
           <div className="overflow-x-auto rounded border border-zinc-800">
@@ -480,12 +487,13 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
               <thead className="bg-zinc-900 text-left text-zinc-300">
                 <tr>
                   <th className="p-2">Include</th>
-                  <th className="p-2">Line</th>
+                  <th className="p-2">Pasted line</th>
                   <th className="p-2">Parsed</th>
                   <th className="p-2">Section</th>
                   <th className="p-2">Status</th>
                   <th className="p-2">Selected printing</th>
                   <th className="p-2">Owned</th>
+                  <th className="p-2">Physical copies</th>
                   <th className="p-2">Actions</th>
                 </tr>
               </thead>
@@ -558,7 +566,10 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
               }
               className="rounded border border-sky-700 px-3 py-2 text-sky-100"
             >
-              Commit {summary.readyToCommit} resolved lines
+              Import {summary.readyToCommitTotalQuantity} deck-list copies
+              {summary.physicalCopies
+                ? ` and commit ${summary.physicalCopies} physical`
+                : ""}
             </SubmitButton>
             {commitError ? (
               <span className="text-sm text-red-300">{commitError}</span>
@@ -615,6 +626,10 @@ function ReviewLine({
               updateLine((current) => ({
                 ...current,
                 quantity: Number(event.target.value) || null,
+                physicalQuantity: Math.min(
+                  Number(event.target.value) || 0,
+                  current.physicalQuantity,
+                ),
               }))
             }
           />
@@ -702,6 +717,99 @@ function ReviewLine({
           </span>
         ) : (
           "Not owned"
+        )}
+      </td>
+      <td className="min-w-48 p-2">
+        <label className="flex items-center gap-2 text-xs text-zinc-200">
+          <input
+            type="checkbox"
+            checked={line.physicalQuantity > 0}
+            disabled={!line.selectedCardId || !line.included}
+            onChange={(event) =>
+              updateLine((current) => ({
+                ...current,
+                physicalQuantity: event.target.checked
+                  ? Math.max(1, current.quantity ?? 1)
+                  : 0,
+              }))
+            }
+          />
+          Create and commit inventory
+        </label>
+        {line.physicalQuantity > 0 ? (
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <label className={filterFieldClass}>
+              Quantity
+              <input
+                type="number"
+                min={1}
+                max={line.quantity ?? 1}
+                value={line.physicalQuantity}
+                onChange={(event) =>
+                  updateLine((current) => ({
+                    ...current,
+                    physicalQuantity: Math.min(
+                      current.quantity ?? 1,
+                      Math.max(1, Number(event.target.value) || 1),
+                    ),
+                  }))
+                }
+                className={cn(filterInputClass, "mt-1 w-full")}
+              />
+            </label>
+            <label className={filterFieldClass}>
+              Finish
+              <select
+                value={line.physicalFoilStatus}
+                onChange={(event) =>
+                  updateLine((current) => ({
+                    ...current,
+                    physicalFoilStatus: event.target.value as FoilStatus,
+                  }))
+                }
+                className={cn(filterSelectClass, "mt-1 w-full")}
+              >
+                <option value={FoilStatus.NONFOIL}>Nonfoil</option>
+                <option value={FoilStatus.FOIL}>Foil</option>
+                <option value={FoilStatus.ETCHED}>Etched</option>
+              </select>
+            </label>
+            <label className={filterFieldClass}>
+              Condition
+              <select
+                value={line.physicalCondition}
+                onChange={(event) =>
+                  updateLine((current) => ({
+                    ...current,
+                    physicalCondition: event.target.value,
+                  }))
+                }
+                className={cn(filterSelectClass, "mt-1 w-full")}
+              >
+                <option value="NM">NM</option>
+                <option value="LP">LP</option>
+                <option value="MP">MP</option>
+                <option value="HP">HP</option>
+                <option value="DMG">Damaged</option>
+              </select>
+            </label>
+            <label className={filterFieldClass}>
+              Language
+              <input
+                value={line.physicalLanguage}
+                maxLength={8}
+                onChange={(event) =>
+                  updateLine((current) => ({
+                    ...current,
+                    physicalLanguage: event.target.value.toUpperCase(),
+                  }))
+                }
+                className={cn(filterInputClass, "mt-1 w-full")}
+              />
+            </label>
+          </div>
+        ) : (
+          <p className="mt-1 text-xs text-zinc-500">Deck list only</p>
         )}
       </td>
       <td className="p-2">

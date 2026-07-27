@@ -239,6 +239,65 @@ export function summarizeDeckOwnershipTotals(
   );
 }
 
+export type DeckCoverageInput = {
+  quantity: number;
+  exactOwned: number;
+  otherOwned: number;
+  committedToThisDeck: number;
+  isBasicLand?: boolean;
+};
+
+export function summarizeEffectiveDeckCoverage(rows: DeckCoverageInput[]) {
+  return rows.reduce(
+    (totals, row) => {
+      const quantity = Math.max(0, row.quantity);
+      const exactOwned = Math.min(quantity, Math.max(0, row.exactOwned));
+      const otherOwned = Math.min(
+        quantity - exactOwned,
+        Math.max(0, row.otherOwned),
+      );
+      const physicallyCommitted = Math.min(
+        quantity,
+        Math.max(0, row.committedToThisDeck),
+      );
+      const assumedBasicLandOwned = row.isBasicLand
+        ? quantity - exactOwned - otherOwned
+        : 0;
+      const assumedBasicLandCommitted = row.isBasicLand
+        ? quantity - physicallyCommitted
+        : 0;
+
+      return {
+        totalQuantity: totals.totalQuantity + quantity,
+        exactOwned: totals.exactOwned + exactOwned,
+        otherOwned: totals.otherOwned + otherOwned,
+        assumedBasicLandOwned:
+          totals.assumedBasicLandOwned + assumedBasicLandOwned,
+        missing:
+          totals.missing +
+          (row.isBasicLand ? 0 : quantity - exactOwned - otherOwned),
+        physicallyCommitted: totals.physicallyCommitted + physicallyCommitted,
+        assumedBasicLandCommitted:
+          totals.assumedBasicLandCommitted + assumedBasicLandCommitted,
+        effectiveCommitted:
+          totals.effectiveCommitted +
+          physicallyCommitted +
+          assumedBasicLandCommitted,
+      };
+    },
+    {
+      totalQuantity: 0,
+      exactOwned: 0,
+      otherOwned: 0,
+      assumedBasicLandOwned: 0,
+      missing: 0,
+      physicallyCommitted: 0,
+      assumedBasicLandCommitted: 0,
+      effectiveCommitted: 0,
+    },
+  );
+}
+
 export function pluralizeDeckCount(count: number, singular: string) {
   return `${count} ${singular}${count === 1 ? "" : "s"}`;
 }
