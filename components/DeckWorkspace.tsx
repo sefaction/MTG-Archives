@@ -62,6 +62,8 @@ export type DeckWorkspaceDeck = {
   colorIdentity: string;
   cardSummary: string;
   cardCount: number;
+  committedCardCount: number;
+  commanderNames: string[];
   commanderImages: string[];
   updatedAt: string;
   ownerLabel?: string;
@@ -1126,7 +1128,7 @@ export function DeckWorkspace({
               {filteredDecks.map((deck) => (
                 <article
                   key={deck.id}
-                  className="group relative isolate min-h-64 overflow-hidden rounded-xl border border-zinc-800 bg-gradient-to-br from-zinc-950 to-zinc-900/70 p-4 transition hover:-translate-y-0.5 hover:border-zinc-700 hover:shadow-xl"
+                  className="group relative isolate min-h-[27rem] overflow-hidden rounded-xl border border-zinc-700 bg-gradient-to-br from-zinc-950 to-zinc-900/70 p-4 transition hover:-translate-y-0.5 hover:border-zinc-500 hover:shadow-2xl"
                 >
                   {deck.commanderImages.length ? (
                     <>
@@ -1139,65 +1141,124 @@ export function DeckWorkspace({
                           .map((image, index) => (
                             <div
                               key={`${image}-${index}`}
-                              className="min-w-0 flex-1 scale-105 bg-cover bg-center opacity-70 transition duration-300 group-hover:scale-100 group-hover:opacity-80"
+                              className="min-w-0 flex-1 scale-105 bg-cover bg-center opacity-85 transition duration-300 group-hover:scale-100 group-hover:opacity-95"
                               style={{ backgroundImage: `url(${image})` }}
                             />
                           ))}
                       </div>
                       <div
                         aria-hidden="true"
-                        className="absolute inset-0 -z-10 bg-gradient-to-b from-black/35 via-zinc-950/75 to-zinc-950"
+                        className="absolute inset-0 -z-10 bg-gradient-to-b from-black/70 via-black/10 to-black/85"
                       />
                     </>
                   ) : null}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <Link
-                        href={`/decks/${deck.id}`}
-                        className="block truncate text-lg font-semibold text-sky-100 hover:text-sky-300"
-                      >
-                        {deck.name}
-                      </Link>
-                      <p className="mt-0.5 text-sm text-zinc-400">
-                        {deck.formatLabel}
-                        {deck.bracket ? ` · Bracket ${deck.bracket}` : ""}
-                      </p>
+                  <div className="flex min-h-[25rem] flex-col">
+                    <div className="rounded-lg border border-white/10 bg-black/45 p-3 shadow-xl backdrop-blur-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <Link
+                          href={`/decks/${deck.id}`}
+                          className="min-w-0 flex-1 truncate text-xl font-bold text-white drop-shadow hover:text-sky-200"
+                        >
+                          {deck.name}
+                        </Link>
+                        <ColorIdentitySymbols value={deck.colorIdentity} />
+                      </div>
+                      {deck.commanderNames.length ? (
+                        <p className="mt-1 line-clamp-2 text-sm font-medium text-amber-100">
+                          {deck.commanderNames.join(" & ")}
+                        </p>
+                      ) : null}
+                      <div className="mt-3 flex items-center justify-between gap-3 text-sm text-zinc-100">
+                        <span>{deck.formatLabel}</span>
+                        {deck.bracket ? (
+                          <span>Bracket {deck.bracket}</span>
+                        ) : null}
+                      </div>
+                      <div className="mt-3 flex items-start justify-between gap-3 border-t border-white/10 pt-3">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFolderFilter(deck.folderId ?? UNCATEGORIZED)
+                          }
+                          className="min-w-0 max-w-[45%] truncate text-left text-sm text-zinc-100 hover:text-sky-200"
+                          title={deck.folderPath}
+                        >
+                          {deck.folderPath}
+                        </button>
+                        <div className="flex max-w-[55%] flex-wrap justify-end gap-1">
+                          {deck.tags.map((tag) => (
+                            <button
+                              key={tag.id}
+                              type="button"
+                              onClick={() => includeTag(tag.id)}
+                              className="rounded-full border border-cyan-700/80 bg-cyan-950/85 px-2 py-0.5 text-xs text-cyan-50 hover:border-cyan-400"
+                            >
+                              {tag.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                    <ColorIdentitySymbols value={deck.colorIdentity} />
-                  </div>
-                  <p className="mt-4 truncate text-sm text-zinc-300">
-                    {deck.folderPath}
-                  </p>
-                  <div className="mt-2 flex min-h-6 flex-wrap gap-1">
-                    {deck.tags.map((tag) => (
-                      <button
-                        key={tag.id}
-                        type="button"
-                        onClick={() => includeTag(tag.id)}
-                        className="rounded-full border border-cyan-900 bg-cyan-950/40 px-2 py-0.5 text-xs text-cyan-100"
-                      >
-                        {tag.name}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="mt-4 flex items-center justify-between border-t border-zinc-800 pt-3 text-xs text-zinc-500">
-                    <span title={deck.cardSummary}>{deck.cardCount} cards</span>
-                    <span>{new Date(deck.updatedAt).toLocaleDateString()}</span>
-                  </div>
-                  <div className="mt-3 flex gap-2">
-                    <Link
-                      href={`/decks/${deck.id}`}
-                      className="flex-1 rounded border border-zinc-700 px-3 py-1.5 text-center text-sm text-zinc-200 hover:bg-zinc-800"
-                    >
-                      Open deck
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => setEditingDeck(deck)}
-                      className="rounded border border-sky-900 px-3 py-1.5 text-sm text-sky-100 hover:bg-sky-950/60"
-                    >
-                      Edit
-                    </button>
+
+                    <div className="mt-auto rounded-lg border border-white/10 bg-black/55 p-3 shadow-xl backdrop-blur-sm">
+                      <div className="flex items-center justify-between gap-3 text-xs text-zinc-200">
+                        <span title={deck.cardSummary}>
+                          {deck.cardCount} cards
+                        </span>
+                        <span>
+                          Updated{" "}
+                          {new Date(deck.updatedAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div className="mt-3">
+                        <div className="mb-1.5 flex items-center justify-between text-xs">
+                          <span className="font-medium text-zinc-100">
+                            Committal progress
+                          </span>
+                          <span className="text-zinc-300">
+                            {deck.committedCardCount} / {deck.cardCount}
+                          </span>
+                        </div>
+                        <div
+                          className="h-2 overflow-hidden rounded-full bg-zinc-800"
+                          role="progressbar"
+                          aria-label={`${deck.name} committal progress`}
+                          aria-valuemin={0}
+                          aria-valuemax={deck.cardCount}
+                          aria-valuenow={deck.committedCardCount}
+                        >
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-amber-600 to-emerald-400"
+                            style={{
+                              width: `${
+                                deck.cardCount
+                                  ? Math.round(
+                                      (deck.committedCardCount /
+                                        deck.cardCount) *
+                                        100,
+                                    )
+                                  : 0
+                              }%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-4 flex gap-2">
+                        <Link
+                          href={`/decks/${deck.id}`}
+                          className="flex-1 rounded border border-zinc-500 bg-zinc-950/80 px-3 py-1.5 text-center text-sm font-medium text-white hover:bg-zinc-800"
+                        >
+                          Open deck
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => setEditingDeck(deck)}
+                          className="rounded border border-sky-700 bg-sky-950/80 px-3 py-1.5 text-sm font-medium text-sky-50 hover:bg-sky-900"
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </article>
               ))}
