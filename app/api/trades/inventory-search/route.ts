@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { InventoryLocationKind, TradeStatus } from "@prisma/client";
 import { getAccessScope, requireLogin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { buildReservedInventoryQuantities } from "@/lib/trade-lines";
+import { selectTradeCardPrice } from "@/lib/trade-value";
 
 const activeTradeStatuses: TradeStatus[] = [
   TradeStatus.PROPOSED,
@@ -13,22 +15,6 @@ function cardImage(card: { imageUri?: string | null; imageUris?: unknown }) {
   const imageUris = card.imageUris as
     { small?: string | null; normal?: string | null } | null | undefined;
   return imageUris?.small ?? imageUris?.normal ?? card.imageUri ?? "";
-}
-
-function selectedPriceLabel(prices: unknown) {
-  const values = prices && typeof prices === "object" ? (prices as any) : {};
-  const mtgjson =
-    values.mtgjson && typeof values.mtgjson === "object"
-      ? (values.mtgjson as any)
-      : {};
-  const value =
-    mtgjson.price ??
-    mtgjson.usd ??
-    values.usd ??
-    values.usd_foil ??
-    values.usd_etched ??
-    "";
-  return value ? `$${Number(value).toFixed(2)}` : "";
 }
 
 export async function GET(request: Request) {
@@ -85,46 +71,63 @@ export async function GET(request: Request) {
   });
 
   const itemIds = rows.map((row) => row.id);
-  const activeReservations = itemIds.length
-    ? await prisma.trade.findMany({
-        where: {
-          status: { in: activeTradeStatuses },
-          OR: [
-            { offeredInventoryItemId: { in: itemIds } },
-            { requestedInventoryItemId: { in: itemIds } },
-          ],
-        },
-        select: {
-          offeredInventoryItemId: true,
-          requestedInventoryItemId: true,
-        },
-      })
-    : [];
-  const reservedCount = new Map<string, number>();
-  for (const trade of activeReservations) {
-    for (const id of [
-      trade.offeredInventoryItemId,
-      trade.requestedInventoryItemId,
-    ]) {
-      if (id) reservedCount.set(id, (reservedCount.get(id) || 0) + 1);
-    }
-  }
+  const [activeLineReservations, activeLegacyReservations] = itemIds.length
+    ? await Promise.all([
+        prisma.tradeLine.findMany({
+          where: {
+            inventoryItemId: { in: itemIds },
+            trade: { status: { in: activeTradeStatuses } },
+          },
+          select: { inventoryItemId: true, quantity: true },
+        }),
+        prisma.trade.findMany({
+          where: {
+            status: { in: activeTradeStatuses },
+            lines: { none: {} },
+            OR: [
+              { offeredInventoryItemId: { in: itemIds } },
+              { requestedInventoryItemId: { in: itemIds } },
+            ],
+          },
+          select: {
+            offeredInventoryItemId: true,
+            requestedInventoryItemId: true,
+          },
+        }),
+      ])
+    : [[], []];
+  const reservedCount = buildReservedInventoryQuantities(
+    activeLineReservations,
+    activeLegacyReservations,
+  );
 
   return NextResponse.json({
-    items: rows.map((item) => ({
-      id: item.id,
-      cardName: item.card.name,
-      setCode: item.card.setCode,
-      collectorNumber: item.card.collectorNumber,
-      condition: item.condition,
-      foilStatus: item.foilStatus,
-      quantity: item.quantity,
-      available: Math.max(0, item.quantity - (reservedCount.get(item.id) || 0)),
-      imageUri: cardImage(item.card),
-      typeLine: item.card.typeLine,
-      colorIdentity: item.card.colorIdentity,
-      priceLabel: selectedPriceLabel(item.card.prices),
-      locationName: item.location?.name ?? "Unassigned",
-    })),
+    items: rows.map((item) => {
+      const price = selectTradeCardPrice(
+        item.card.prices,
+        item.foilStatus,
+        actor.preferredPriceProvider,
+      );
+      return {
+        id: item.id,
+        cardName: item.card.name,
+        setCode: item.card.setCode,
+        collectorNumber: item.card.collectorNumber,
+        condition: item.condition,
+        foilStatus: item.foilStatus,
+        quantity: item.quantity,
+        available: Math.max(
+          0,
+          item.quantity - (reservedCount.get(item.id) || 0),
+        ),
+        imageUri: cardImage(item.card),
+        typeLine: item.card.typeLine,
+        colorIdentity: item.card.colorIdentity,
+        priceLabel: price.label,
+        priceAmount: price.amount,
+        priceProvider: price.provider,
+        locationName: item.location?.name ?? "Unassigned",
+      };
+    }),
   });
 }

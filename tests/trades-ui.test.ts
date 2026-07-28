@@ -9,6 +9,16 @@ const tradeCardPreview = readFileSync(
   "components/TradeCardPreview.tsx",
   "utf8",
 );
+const tradeValueSummary = readFileSync(
+  "components/TradeValueSummary.tsx",
+  "utf8",
+);
+const tradeValue = readFileSync("lib/trade-value.ts", "utf8");
+const tradePairingCard = readFileSync(
+  "components/TradePairingCard.tsx",
+  "utf8",
+);
+const tradePairing = readFileSync("lib/trade-pairing.ts", "utf8");
 const wishlistTable = readFileSync("components/WishlistTable.tsx", "utf8");
 
 test("trades page renders the searchable trade builder instead of active inventory dropdowns", () => {
@@ -21,22 +31,23 @@ test("trades page renders the searchable trade builder instead of active invento
   assert.doesNotMatch(tradesPage, /\{false \? \(/);
 });
 
-test("trades page surfaces trade wishlist queues without preloading inventories", () => {
-  assert.match(tradesPage, /Trade Wishlist/);
-  assert.match(tradesPage, /wishlistView\?: string/);
-  assert.match(tradesPage, /TradeWishlistDirection/);
-  assert.match(tradesPage, /WishlistViewToggle/);
-  assert.match(tradesPage, /Visual spoiler/);
-  assert.match(tradesPage, /personHeader="Wanted by"/);
+test("trade desk groups wishlist queues around the selected partner", () => {
+  assert.match(tradesPage, /Trade Desk/);
+  assert.match(tradesPage, /TradeDeskLane/);
+  assert.match(tradesPage, /title="Cards I want"/);
+  assert.match(tradesPage, /title="Wanted from me"/);
+  assert.match(tradesPage, /partnerWants/);
+  assert.match(tradesPage, /row\.personId === receiverId/);
+  assert.match(tradesPage, /xl:grid-cols-/);
+  assert.match(tradesPage, /xl:sticky/);
   assert.match(tradesPage, /cancelTradeWishlistItem/);
   assert.match(tradesPage, /myTradeWishlist/);
   assert.match(tradesPage, /wantedFromMe/);
   assert.match(tradesPage, /tradeWishlistItem\.findMany/);
   assert.match(tradesPage, /TradeWishlistStatus\.OPEN/);
-  assert.match(tradesPage, /Public-inventory wants grouped by direction/);
-  assert.match(tradesPage, /<CompactSection/);
   assert.match(tradesPage, /<TradeCardPreview/);
-  assert.match(tradesPage, /Negotiate/);
+  assert.match(tradesPage, /actionLabel="Request"/);
+  assert.match(tradesPage, /actionLabel="Offer"/);
   assert.match(
     tradesPage,
     /requestedInventoryItemId=\$\{item\.targetInventoryItemId\}/,
@@ -50,15 +61,28 @@ test("trades page surfaces trade wishlist queues without preloading inventories"
   assert.doesNotMatch(tradesPage, /include:\s*\{\s*location:\s*true\s*\}/);
 });
 
-test("trade wishlist supports dense table, binder, and visual spoiler views", () => {
-  assert.match(tradesPage, /<table className="min-w-full text-left text-sm">/);
-  assert.match(tradesPage, /view === "binder"/);
-  assert.match(tradesPage, /variant="spoiler"/);
-  assert.match(tradesPage, /variant="text"/);
-  assert.match(tradesPage, /ColorIdentityIcons/);
+test("trade desk uses compact scrollable card lanes", () => {
+  assert.match(tradesPage, /max-h-\[42rem\]/);
+  assert.match(tradesPage, /overflow-y-auto/);
   assert.match(tradesPage, /playerColorStyle/);
-  assert.match(tradeCardPreview, /variant\?: "row" \| "spoiler" \| "text"/);
-  assert.match(tradeCardPreview, /aspect-\[63\/88\]/);
+  assert.match(tradesPage, /card\.priceLabel/);
+  assert.match(tradeCardPreview, /compact/);
+});
+
+test("wishlist cards can be clicked, dragged into slots, or paired together", () => {
+  assert.match(tradesPage, /Pairing board:/);
+  assert.match(tradesPage, /<TradePairingCard/);
+  assert.match(tradesPage, /pairingSide="requested"/);
+  assert.match(tradesPage, /pairingSide="offered"/);
+  assert.match(tradesPage, /pairingItem:/);
+  assert.match(tradeBuilder, /TRADE_PAIRING_ADD_EVENT/);
+  assert.match(tradeBuilder, /Drop cards here/);
+  assert.match(tradeBuilder, /onDrop=/);
+  assert.match(tradePairingCard, /draggable=\{Boolean\(payload\)\}/);
+  assert.match(tradePairingCard, /Drop to pair both cards/);
+  assert.match(tradePairingCard, /addItem\(incoming\)/);
+  assert.match(tradePairingCard, /addItem\(payload\)/);
+  assert.match(tradePairing, /application\/x-mtg-trade-card/);
 });
 
 test("trade wishlist cards can be cancelled without deleting history", () => {
@@ -74,12 +98,24 @@ test("trade wishlist cards can be cancelled without deleting history", () => {
   assert.match(wishlistTable, /name="tradeWishlistItemId"/);
 });
 
-test("trade history is moved behind a history tab", () => {
+test("trade desk, active trades, and history have separate tabs", () => {
   assert.match(tradesPage, /view\?: string/);
-  assert.match(tradesPage, /params\.view === "history"/);
-  assert.match(tradesPage, /href="\/trades\?view=history"/);
-  assert.match(tradesPage, /tradeView === "active"/);
+  assert.match(tradesPage, /TradePageView/);
+  assert.match(tradesPage, /label: "Trade Desk"/);
+  assert.match(tradesPage, /label: "Active Trades"/);
+  assert.match(tradesPage, /\/trades\?view=active/);
+  assert.match(tradesPage, /\/trades\?view=history/);
+  assert.match(tradesPage, /tradeView === "desk"/);
   assert.match(tradesPage, /historySections/);
+});
+
+test("active trade rows stay collapsed behind compact summaries", () => {
+  assert.match(tradesPage, /tradeSideLabel\(offeredCards\)/);
+  assert.match(tradesPage, /tradeSideLabel\(requestedCards\)/);
+  assert.match(tradesPage, /offeredCards\.map/);
+  assert.match(tradesPage, /requestedCards\.map/);
+  assert.match(tradesPage, /group-open:hidden/);
+  assert.match(tradesPage, /statusLabel\(trade\.status\)\.replaceAll/);
 });
 
 test("trades page avoids mojibake separators in visible copy", () => {
@@ -103,7 +139,7 @@ test("physical trade confirmation captures incoming destination locations", () =
   assert.match(schema, /receiverDestinationLocationId/);
   assert.match(tradesPage, /myDestinationLocations/);
   assert.match(tradesPage, /name="destinationLocationId"/);
-  assert.match(tradesPage, /Move incoming \{incomingCard\.name\} to/);
+  assert.match(tradesPage, /Move \{incomingCards\.length\} incoming card/);
   assert.match(tradeActions, /assertTradeDestinationLocation/);
   assert.match(tradeActions, /data\.proposerDestinationLocationId/);
   assert.match(tradeActions, /data\.receiverDestinationLocationId/);
@@ -111,18 +147,36 @@ test("physical trade confirmation captures incoming destination locations", () =
   assert.match(tradeActions, /trade\.proposerDestinationLocationId/);
 });
 
-test("trade builder keeps existing 1-for-1 server action fields", () => {
+test("trade builder supports multiple quantity-aware card lines", () => {
   assert.match(tradeBuilder, /"use client"/);
   assert.match(tradeBuilder, /\/api\/trades\/inventory-search/);
   assert.match(tradeBuilder, /Search cards/);
-  assert.match(tradeBuilder, /name="offeredInventoryItemId"/);
-  assert.match(tradeBuilder, /name="requestedInventoryItemId"/);
+  assert.match(tradeBuilder, /name="offeredLinesJson"/);
+  assert.match(tradeBuilder, /name="requestedLinesJson"/);
+  assert.match(tradeBuilder, /TradeDraftLine/);
+  assert.match(tradeBuilder, /onQuantityChange/);
   assert.match(tradeBuilder, /name="receiverPlayerId"/);
   assert.match(tradeBuilder, /initialOfferedItem/);
   assert.match(tradeBuilder, /initialRequestedItem/);
   assert.match(tradeBuilder, /Proposal draft/);
+  assert.match(tradeBuilder, /<details className="group/);
+  assert.match(tradeBuilder, /Add message or notes/);
+  assert.match(tradeBuilder, /Build a multi-card exchange/);
   assert.match(tradeBuilder, /locationName/);
   assert.match(tradeBuilder, /priceLabel/);
+});
+
+test("trade builder and active trades compare quantity-aware values", () => {
+  assert.match(tradeBuilder, /<TradeValueSummary/);
+  assert.match(tradeBuilder, /priceAmount: item\.priceAmount/);
+  assert.match(tradesPage, /<TradeValueSummary/);
+  assert.match(tradesPage, /preferredPriceProvider/);
+  assert.match(tradeValueSummary, /Known-value gap/);
+  assert.match(tradeValueSummary, /Estimate incomplete/);
+  assert.match(tradeValue, /selectPreferredCardPrice/);
+  assert.match(tradeValue, /line\.priceAmount \* quantity/);
+  assert.match(tradeActions, /priceAmount: price\.amount/);
+  assert.match(tradeActions, /actor\.preferredPriceProvider/);
 });
 
 test("trade inventory search API only fetches matching tradeable rows", () => {
@@ -134,7 +188,12 @@ test("trade inventory search API only fetches matching tradeable rows", () => {
   assert.match(route, /take: 24/);
   assert.match(route, /InventoryLocationKind\.NORMAL/);
   assert.match(route, /activeTradeStatuses/);
+  assert.match(route, /tradeLine\.findMany/);
+  assert.match(route, /buildReservedInventoryQuantities/);
+  assert.match(route, /lines: \{ none: \{\} \}/);
   assert.match(route, /available: Math\.max/);
   assert.match(route, /locationName/);
   assert.match(route, /priceLabel/);
+  assert.match(route, /priceAmount/);
+  assert.match(route, /selectTradeCardPrice/);
 });

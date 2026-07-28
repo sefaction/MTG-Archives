@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { getAccessScope, requireLogin } from "@/lib/auth";
 import {
   InventoryLocationKind,
+  TradeLineSide,
   TradeStatus,
   TradeWishlistStatus,
 } from "@prisma/client";
@@ -17,7 +18,7 @@ import {
   createTrade,
 } from "./actions";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
-import { TradeBuilder } from "@/components/TradeBuilder";
+import { TradeBuilder, type TradeBuilderItem } from "@/components/TradeBuilder";
 import {
   cn,
   filterButtonClass,
@@ -30,9 +31,12 @@ import {
   TradeCardPreview,
   type TradeCardSummary,
 } from "@/components/TradeCardPreview";
-import { ColorIdentityIcons } from "@/components/mtg/CardSymbols";
 import { normalizePlayerColor } from "@/lib/player-colors";
 import { ensureDefaultLocation } from "@/lib/inventory-locations";
+import { selectTradeCardPrice } from "@/lib/trade-value";
+import { TradeValueSummary } from "@/components/TradeValueSummary";
+import { TradePairingCard } from "@/components/TradePairingCard";
+import type { TradePairingSide } from "@/lib/trade-pairing";
 
 const activeStatuses: TradeStatus[] = [
   TradeStatus.PROPOSED,
@@ -56,15 +60,20 @@ type SearchParams = {
   offeredInventoryItemId?: string;
   requestedInventoryItemId?: string;
   view?: string;
-  wishlistView?: string;
 };
-type TradeWishlistView = "table" | "binder" | "spoiler";
+type TradePageView = "desk" | "active" | "history";
 type TradeSnapshot = {
   cardName?: string;
   setCode?: string;
   collectorNumber?: string;
   imageUri?: string | null;
   imageUris?: { small?: string; normal?: string } | null;
+  condition?: string;
+  foilStatus?: string;
+  tradeQuantity?: number;
+  priceAmount?: number | null;
+  priceLabel?: string;
+  priceProvider?: string;
 };
 type TradeCard = {
   card: {
@@ -104,29 +113,34 @@ function cardImage(
 function statusLabel(status: TradeStatus) {
   return status.toLowerCase();
 }
-function tradeWishlistView(value?: string): TradeWishlistView {
-  return value === "binder" || value === "spoiler" ? value : "table";
-}
 function cardName(item: TradeCard, snap: TradeSnapshot) {
   return item?.card.name ?? snap.cardName ?? "Transferred inventory item";
 }
-function toTradeBuilderItem(item: {
-  id: string;
-  condition: string;
-  foilStatus: string;
-  quantity: number;
-  card: {
-    name: string;
-    setCode: string;
-    collectorNumber: string;
-    imageUri?: string | null;
-    imageUris?: unknown;
-    typeLine?: string | null;
-    colorIdentity?: unknown;
-    prices?: unknown;
-  };
-  location?: { name: string } | null;
-}) {
+function toTradeBuilderItem(
+  item: {
+    id: string;
+    condition: string;
+    foilStatus: string;
+    quantity: number;
+    card: {
+      name: string;
+      setCode: string;
+      collectorNumber: string;
+      imageUri?: string | null;
+      imageUris?: unknown;
+      typeLine?: string | null;
+      colorIdentity?: unknown;
+      prices?: unknown;
+    };
+    location?: { name: string } | null;
+  },
+  preferredPriceProvider?: string | null,
+) {
+  const price = selectTradeCardPrice(
+    item.card.prices,
+    item.foilStatus,
+    preferredPriceProvider,
+  );
   return {
     id: item.id,
     cardName: item.card.name,
@@ -139,25 +153,11 @@ function toTradeBuilderItem(item: {
     imageUri: cardImage(item),
     typeLine: item.card.typeLine ?? "",
     colorIdentity: item.card.colorIdentity,
-    priceLabel: selectedPriceLabel(item.card.prices),
+    priceLabel: price.label,
+    priceAmount: price.amount,
+    priceProvider: price.provider,
     locationName: item.location?.name ?? "Unassigned",
   };
-}
-
-function selectedPriceLabel(prices: unknown) {
-  const values = prices && typeof prices === "object" ? (prices as any) : {};
-  const mtgjson =
-    values.mtgjson && typeof values.mtgjson === "object"
-      ? (values.mtgjson as any)
-      : {};
-  const value =
-    mtgjson.price ??
-    mtgjson.usd ??
-    values.usd ??
-    values.usd_foil ??
-    values.usd_etched ??
-    "";
-  return value ? `$${Number(value).toFixed(2)}` : "";
 }
 
 function toTradeCardSummary({
@@ -168,6 +168,8 @@ function toTradeCardSummary({
   ownerLabel,
   roleLabel,
   notes,
+  quantity,
+  preferredPriceProvider,
 }: {
   id: string;
   item?: any;
@@ -176,8 +178,21 @@ function toTradeCardSummary({
   ownerLabel?: string;
   roleLabel?: string;
   notes?: string | null;
+  quantity?: number;
+  preferredPriceProvider?: string | null;
 }): TradeCardSummary {
   const resolvedCard = item?.card ?? card ?? null;
+  const selectedPrice = resolvedCard
+    ? selectTradeCardPrice(
+        resolvedCard.prices,
+        item?.foilStatus ?? snap.foilStatus,
+        preferredPriceProvider,
+      )
+    : {
+        amount: snap.priceAmount ?? null,
+        label: snap.priceLabel ?? "",
+        provider: snap.priceProvider ?? "",
+      };
   return {
     id,
     name: resolvedCard?.name ?? snap.cardName ?? "Transferred inventory item",
@@ -190,14 +205,24 @@ function toTradeCardSummary({
     manaCost: resolvedCard?.manaCost ?? "",
     colorIdentity: resolvedCard?.colorIdentity,
     rarity: resolvedCard?.rarity ?? "",
-    condition: item?.condition ?? "",
-    foilStatus: item?.foilStatus ?? "",
-    quantity: item?.quantity ?? undefined,
+    condition: item?.condition ?? snap.condition ?? "",
+    foilStatus: item?.foilStatus ?? snap.foilStatus ?? "",
+    quantity: quantity ?? item?.quantity ?? snap.tradeQuantity ?? undefined,
     ownerLabel,
     roleLabel,
-    priceLabel: selectedPriceLabel(resolvedCard?.prices),
+    priceLabel: selectedPrice.label,
+    priceAmount: selectedPrice.amount,
+    priceProvider: selectedPrice.provider,
     notes: notes ?? "",
   };
+}
+
+function tradeSideLabel(cards: TradeCardSummary[]) {
+  if (cards.length === 1) {
+    return `${cards[0].quantity ?? 1}× ${cards[0].name}`;
+  }
+  const quantity = cards.reduce((sum, card) => sum + (card.quantity ?? 1), 0);
+  return `${quantity} cards · ${cards.length} lines`;
 }
 
 function CompactSection({
@@ -244,37 +269,10 @@ function CompactSection({
   );
 }
 
-function WishlistViewToggle({ active }: { active: TradeWishlistView }) {
-  const options: Array<{ value: TradeWishlistView; label: string }> = [
-    { value: "table", label: "Table" },
-    { value: "binder", label: "Binder" },
-    { value: "spoiler", label: "Visual spoiler" },
-  ];
-  return (
-    <div className="flex flex-wrap items-center gap-2 text-sm">
-      {options.map((option) => (
-        <Link
-          key={option.value}
-          href={
-            option.value === "table"
-              ? "/trades"
-              : `/trades?wishlistView=${option.value}`
-          }
-          className={cn(
-            filterButtonClass,
-            active === option.value && "border-sky-500 bg-sky-950/40",
-          )}
-        >
-          {option.label}
-        </Link>
-      ))}
-    </div>
-  );
-}
-
 type TradeWishlistRow = {
   id: string;
   card: TradeCardSummary;
+  personId: string;
   personLabel: string;
   personColor?: string | null;
   quantity: number;
@@ -282,163 +280,160 @@ type TradeWishlistRow = {
   negotiateHref: string;
   negotiateLabel: string;
   cancelId?: string;
+  pairingItem?: TradeBuilderItem | null;
 };
 
 function playerColorStyle(color?: string | null) {
   return { backgroundColor: normalizePlayerColor(color) };
 }
 
-function TradeWishlistActions({ row }: { row: TradeWishlistRow }) {
+function TradeDeskLane({
+  title,
+  subtitle,
+  rows,
+  emptyMessage,
+  actionLabel,
+  pairingSide,
+}: {
+  title: string;
+  subtitle: string;
+  rows: TradeWishlistRow[];
+  emptyMessage: string;
+  actionLabel: string;
+  pairingSide: TradePairingSide;
+}) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Link href={row.negotiateHref} className={filterPrimaryButtonClass}>
-        {row.negotiateLabel}
-      </Link>
-      {row.cancelId ? (
-        <form action={cancelTradeWishlistItem}>
-          <input
-            type="hidden"
-            name="tradeWishlistItemId"
-            value={row.cancelId}
-          />
-          <SubmitButton
-            pendingLabel="Cancelling..."
-            className="rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-300 transition-colors hover:border-red-700 hover:text-red-100"
-          >
-            Cancel
-          </SubmitButton>
-        </form>
-      ) : null}
-    </div>
+    <section className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/45">
+      <header className="border-b border-zinc-800 bg-zinc-900/70 px-3 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-semibold text-sky-100">{title}</h2>
+          <span className="rounded-full border border-zinc-700 px-2 py-0.5 text-xs text-zinc-400">
+            {rows.length}
+          </span>
+        </div>
+        <p className="mt-1 text-xs text-zinc-500">{subtitle}</p>
+      </header>
+      <div className="max-h-[42rem] space-y-2 overflow-y-auto p-2">
+        {rows.length ? (
+          rows.map((row) => (
+            <TradePairingCard
+              key={row.id}
+              side={pairingSide}
+              item={row.pairingItem}
+              addLabel={actionLabel}
+            >
+              <TradeCardPreview card={row.card} compact />
+              <div className="mt-2 flex items-center justify-between gap-2 text-xs">
+                <span className="text-zinc-400">
+                  Qty {row.quantity}
+                  {row.card.priceLabel ? ` · ${row.card.priceLabel}` : ""}
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-zinc-500">
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={playerColorStyle(row.personColor)}
+                    aria-hidden="true"
+                  />
+                  {row.personLabel}
+                </span>
+              </div>
+              {row.notes ? (
+                <p className="mt-2 line-clamp-2 text-xs text-zinc-500">
+                  {row.notes}
+                </p>
+              ) : null}
+              <div className="mt-2 flex items-center gap-2">
+                {!row.pairingItem ? (
+                  <Link
+                    href={row.negotiateHref}
+                    className={cn(
+                      filterPrimaryButtonClass,
+                      "flex-1 text-center",
+                    )}
+                  >
+                    Find tradeable copy
+                  </Link>
+                ) : (
+                  <span className="flex-1 text-[11px] text-zinc-600">
+                    Drop onto an opposite card to pair both.
+                  </span>
+                )}
+                {row.cancelId ? (
+                  <form action={cancelTradeWishlistItem}>
+                    <input
+                      type="hidden"
+                      name="tradeWishlistItemId"
+                      value={row.cancelId}
+                    />
+                    <SubmitButton
+                      pendingLabel="..."
+                      className={cn(filterButtonClass, "px-2 py-1.5 text-xs")}
+                    >
+                      Cancel
+                    </SubmitButton>
+                  </form>
+                ) : null}
+              </div>
+            </TradePairingCard>
+          ))
+        ) : (
+          <div className="rounded-lg border border-dashed border-zinc-800 px-3 py-8 text-center text-sm text-zinc-500">
+            {emptyMessage}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
-function TradeWishlistDirection({
-  title,
-  rows,
-  emptyMessage,
-  personHeader,
-  view,
+function TradeViewNav({
+  active,
+  activeTradeCount,
+  historyTradeCount,
 }: {
-  title: string;
-  rows: TradeWishlistRow[];
-  emptyMessage: string;
-  personHeader: string;
-  view: TradeWishlistView;
+  active: TradePageView;
+  activeTradeCount: number;
+  historyTradeCount: number;
 }) {
+  const options: Array<{
+    value: TradePageView;
+    label: string;
+    href: string;
+    count?: number;
+  }> = [
+    { value: "desk", label: "Trade Desk", href: "/trades" },
+    {
+      value: "active",
+      label: "Active Trades",
+      href: "/trades?view=active",
+      count: activeTradeCount,
+    },
+    {
+      value: "history",
+      label: "History",
+      href: "/trades?view=history",
+      count: historyTradeCount,
+    },
+  ];
   return (
-    <details open className="rounded border border-zinc-800">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 border-b border-zinc-800 px-3 py-2">
-        <span className="font-semibold text-sky-100">{title}</span>
-        <span className="rounded border border-zinc-800 px-2 py-1 text-xs text-zinc-400">
-          {rows.length}
-        </span>
-      </summary>
-      {rows.length ? (
-        view === "table" ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-zinc-900 text-xs uppercase text-zinc-400">
-                <tr>
-                  <th className="px-3 py-2 font-medium">Card</th>
-                  <th className="px-3 py-2 font-medium">Color</th>
-                  <th className="px-3 py-2 font-medium">{personHeader}</th>
-                  <th className="px-3 py-2 font-medium">Qty</th>
-                  <th className="px-3 py-2 font-medium">Notes</th>
-                  <th className="px-3 py-2 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-800">
-                {rows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="align-middle transition-colors hover:bg-zinc-900/60"
-                  >
-                    <td className="px-3 py-2">
-                      <TradeCardPreview
-                        card={row.card}
-                        compact
-                        variant="text"
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <ColorIdentityIcons
-                        value={
-                          Array.isArray(row.card.colorIdentity)
-                            ? row.card.colorIdentity.map(String)
-                            : typeof row.card.colorIdentity === "string"
-                              ? row.card.colorIdentity
-                              : null
-                        }
-                      />
-                    </td>
-                    <td className="px-3 py-2 text-zinc-200">
-                      <span className="inline-flex items-center gap-2">
-                        <span
-                          className="h-2.5 w-2.5 rounded-full"
-                          style={playerColorStyle(row.personColor)}
-                          aria-hidden="true"
-                        />
-                        {row.personLabel}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-zinc-200">{row.quantity}</td>
-                    <td className="max-w-xs px-3 py-2 text-zinc-400">
-                      {row.notes || "-"}
-                    </td>
-                    <td className="px-3 py-2">
-                      <TradeWishlistActions row={row} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : view === "binder" ? (
-          <div className="grid gap-3 p-3 md:grid-cols-2 2xl:grid-cols-3">
-            {rows.map((row) => (
-              <article
-                key={row.id}
-                className="rounded border border-zinc-800 bg-zinc-950/50 p-3"
-              >
-                <TradeCardPreview card={row.card} compact />
-                <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-zinc-400">
-                  <span>{personHeader}</span>
-                  <span className="text-right text-zinc-200">
-                    {row.personLabel}
-                  </span>
-                  <span>Quantity</span>
-                  <span className="text-right text-zinc-200">
-                    {row.quantity}
-                  </span>
-                </div>
-                {row.notes ? (
-                  <p className="mt-2 text-xs text-zinc-500">{row.notes}</p>
-                ) : null}
-                <div className="mt-3">
-                  <TradeWishlistActions row={row} />
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
-            {rows.map((row) => (
-              <article key={row.id} className="min-w-0">
-                <TradeCardPreview card={row.card} variant="spoiler" />
-                <div className="mt-2 space-y-1 text-xs text-zinc-400">
-                  <div className="truncate">{row.personLabel}</div>
-                  <div>Qty {row.quantity}</div>
-                  <TradeWishlistActions row={row} />
-                </div>
-              </article>
-            ))}
-          </div>
-        )
-      ) : (
-        <p className="p-3 text-sm text-zinc-500">{emptyMessage}</p>
-      )}
-    </details>
+    <nav
+      className="flex flex-wrap gap-2 rounded-lg border border-zinc-800 bg-zinc-950/40 p-1"
+      aria-label="Trade view"
+    >
+      {options.map((option) => (
+        <Link
+          key={option.value}
+          href={option.href}
+          className={cn(
+            "rounded-md px-3 py-2 text-sm text-zinc-400 transition-colors hover:bg-zinc-900 hover:text-zinc-100",
+            active === option.value && "bg-sky-950/60 text-sky-100",
+          )}
+        >
+          {option.label}
+          {typeof option.count === "number" ? ` (${option.count})` : ""}
+        </Link>
+      ))}
+    </nav>
   );
 }
 
@@ -460,8 +455,10 @@ export default async function TradesPage({
     : user.playerId || "";
   const receiverId =
     params.receiverId || players.find((p) => p.id !== proposerId)?.id || "";
-  const tradeView = params.view === "history" ? "history" : "active";
-  const activeWishlistView = tradeWishlistView(params.wishlistView);
+  const tradeView: TradePageView =
+    params.view === "active" || params.view === "history"
+      ? params.view
+      : "desk";
   if (!isAdmin && !user.playerId)
     return (
       <main className="p-8">
@@ -488,6 +485,10 @@ export default async function TradesPage({
       receiverPlayer: true,
       offeredInventoryItem: { include: { card: true } },
       requestedInventoryItem: { include: { card: true } },
+      lines: {
+        orderBy: [{ side: "asc" }, { position: "asc" }],
+        include: { inventoryItem: { include: { card: true } } },
+      },
       events: {
         orderBy: { createdAt: "asc" },
         include: { actorPlayer: true, actorUser: true },
@@ -512,7 +513,7 @@ export default async function TradesPage({
       include: {
         card: true,
         targetOwnerPlayer: true,
-        targetInventoryItem: { include: { card: true } },
+        targetInventoryItem: { include: { card: true, location: true } },
       },
       orderBy: { updatedAt: "desc" },
       take: 50,
@@ -526,7 +527,7 @@ export default async function TradesPage({
           include: {
             ownerUser: { include: { player: true } },
             card: true,
-            targetInventoryItem: { include: { card: true } },
+            targetInventoryItem: { include: { card: true, location: true } },
           },
           orderBy: { updatedAt: "desc" },
           take: 50,
@@ -612,7 +613,12 @@ export default async function TradesPage({
       visibleTrades.filter((t) => terminalStatuses.includes(t.status)),
     ],
   ] as const;
-  const sections = tradeView === "history" ? historySections : activeSections;
+  const sections =
+    tradeView === "history"
+      ? historySections
+      : tradeView === "active"
+        ? activeSections
+        : [];
   const activeTradeCount = activeSections.reduce(
     (sum, [, trades]) => sum + trades.length,
     0,
@@ -631,7 +637,9 @@ export default async function TradesPage({
         ownerLabel: item.targetOwnerPlayer.displayName,
         roleLabel: "I want",
         notes: item.notes,
+        preferredPriceProvider: user.preferredPriceProvider,
       }),
+      personId: item.targetOwnerPlayerId,
       personLabel: item.targetOwnerPlayer.displayName,
       personColor: item.targetOwnerPlayer.color,
       quantity: item.quantity,
@@ -643,6 +651,12 @@ export default async function TradesPage({
       }`,
       negotiateLabel: "Negotiate",
       cancelId: item.id,
+      pairingItem: item.targetInventoryItem
+        ? toTradeBuilderItem(
+            item.targetInventoryItem,
+            user.preferredPriceProvider,
+          )
+        : null,
     }),
   );
   const wantedFromMeRows: TradeWishlistRow[] = wantedFromMe.map((item) => {
@@ -656,7 +670,9 @@ export default async function TradesPage({
         ownerLabel: "Your public inventory",
         roleLabel: `Wanted by ${requester}`,
         notes: item.notes,
+        preferredPriceProvider: user.preferredPriceProvider,
       }),
+      personId: item.ownerUser.playerId || "",
       personLabel: requester,
       personColor: item.ownerUser.player?.color,
       quantity: item.quantity,
@@ -667,75 +683,69 @@ export default async function TradesPage({
           : ""
       }`,
       negotiateLabel: "Negotiate",
+      pairingItem: item.targetInventoryItem
+        ? toTradeBuilderItem(
+            item.targetInventoryItem,
+            user.preferredPriceProvider,
+          )
+        : null,
     };
   });
+  const selectedPartner =
+    players.find((player) => player.id === receiverId) ?? null;
+  const partnerWants = myTradeWishlistRows.filter(
+    (row) => row.personId === receiverId,
+  );
+  const partnerWantsFromMe = wantedFromMeRows.filter(
+    (row) => row.personId === receiverId,
+  );
 
   return (
-    <main className="p-8 space-y-6">
+    <main className="space-y-5 p-4 sm:p-6 xl:p-8">
       <Nav />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Trades</h1>
           <p className="text-sm text-zinc-400">
-            Build active negotiations by default. Completed and cancelled trades
-            live in history.
+            Pair wishlist cards, build proposals, and manage exchanges.
           </p>
         </div>
-        <nav className="flex gap-2" aria-label="Trade view">
-          <Link
-            href="/trades"
-            className={cn(
-              filterButtonClass,
-              tradeView === "active" && "border-sky-500 bg-sky-950/40",
-            )}
-          >
-            Active ({activeTradeCount})
-          </Link>
-          <Link
-            href="/trades?view=history"
-            className={cn(
-              filterButtonClass,
-              tradeView === "history" && "border-sky-500 bg-sky-950/40",
-            )}
-          >
-            History ({historyTradeCount})
-          </Link>
-        </nav>
+        <TradeViewNav
+          active={tradeView}
+          activeTradeCount={activeTradeCount}
+          historyTradeCount={historyTradeCount}
+        />
       </div>
-      {tradeView === "active" ? (
-        <>
-          <CompactSection
-            title="Create Trade Proposal"
-            summary={`Partner: ${
-              players.find((player) => player.id === receiverId)?.displayName ||
-              "choose partner"
-            }`}
-            defaultOpen={Boolean(
-              params.offeredInventoryItemId || params.requestedInventoryItemId,
-            )}
-          >
-            <p className="mb-3 max-w-3xl text-sm text-zinc-400">
-              Search each side only when you need to add a card. Current trade
-              rule is one card for one card.
-            </p>
-            <form method="get" className="grid gap-2 md:grid-cols-3">
+      {tradeView === "desk" ? (
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-end justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950/45 p-3">
+            <div>
+              <h2 className="text-lg font-semibold text-zinc-100">
+                Trade Desk
+              </h2>
+              <p className="text-xs text-zinc-500">
+                Choose one partner, then add cards from either wishlist lane or
+                inventory search.
+              </p>
+            </div>
+            <form method="get" className="flex flex-wrap items-end gap-2">
               {isAdmin ? (
-                <label className={filterFieldClass}>
+                <label className={cn(filterFieldClass, "min-w-44")}>
                   Proposer
                   <select
                     name="proposerId"
                     defaultValue={proposerId}
                     className={cn(filterSelectClass, "mt-1 w-full")}
                   >
-                    {players.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.displayName}
+                    {players.map((player) => (
+                      <option key={player.id} value={player.id}>
+                        {player.displayName}
                       </option>
                     ))}
                   </select>
                 </label>
               ) : null}
-              <label className={filterFieldClass}>
+              <label className={cn(filterFieldClass, "min-w-52")}>
                 Trade partner
                 <select
                   name="receiverId"
@@ -743,81 +753,83 @@ export default async function TradesPage({
                   className={cn(filterSelectClass, "mt-1 w-full")}
                 >
                   {players
-                    .filter((p) => p.id !== proposerId)
-                    .map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.displayName}
+                    .filter((player) => player.id !== proposerId)
+                    .map((player) => (
+                      <option key={player.id} value={player.id}>
+                        {player.displayName}
                       </option>
                     ))}
                 </select>
               </label>
-              <button className={cn(filterButtonClass, "md:self-end")}>
-                Set partner
-              </button>
+              <button className={filterButtonClass}>Load desk</button>
             </form>
-            <TradeBuilder
-              key={[
-                proposerId,
-                receiverId,
-                initialOfferedItem?.id ?? "",
-                initialRequestedItem?.id ?? "",
-              ].join(":")}
-              createTradeAction={createTrade}
-              proposerPlayerId={isAdmin ? proposerId : undefined}
-              proposerOwnerId={proposerId}
-              receiverPlayerId={receiverId}
-              proposerName={
-                players.find((player) => player.id === proposerId)
-                  ?.displayName || "You"
-              }
-              receiverName={
-                players.find((player) => player.id === receiverId)
-                  ?.displayName || "Trade partner"
-              }
-              initialOfferedItem={
-                initialOfferedItem
-                  ? toTradeBuilderItem(initialOfferedItem)
-                  : null
-              }
-              initialRequestedItem={
-                initialRequestedItem
-                  ? toTradeBuilderItem(initialRequestedItem)
-                  : null
-              }
-            />
-          </CompactSection>
+          </div>
 
-          <CompactSection
-            title="Trade Wishlist"
-            summary="Public-inventory wants grouped by direction"
-            count={myTradeWishlistRows.length + wantedFromMeRows.length}
-            defaultOpen
-          >
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-zinc-400">
-                Dense table by default, with inventory-style card views when
-                image scanning is faster.
-              </p>
-              <WishlistViewToggle active={activeWishlistView} />
-            </div>
-            <div className="grid gap-4">
-              <TradeWishlistDirection
-                title={`Cards I want (${myTradeWishlistRows.length})`}
-                rows={myTradeWishlistRows}
-                emptyMessage="No public inventory trade wants yet."
-                personHeader="From"
-                view={activeWishlistView}
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-lg border border-sky-900/60 bg-sky-950/20 px-3 py-2 text-center text-xs text-sky-100">
+            <span>Pairing board:</span>
+            <span className="text-zinc-400">
+              drag a wishlist card into its proposal slot, or drop it onto a
+              card in the opposite lane to add both.
+            </span>
+          </div>
+
+          <div className="grid items-start gap-3 xl:grid-cols-[minmax(15rem,0.85fr)_minmax(23rem,1.3fr)_minmax(15rem,0.85fr)]">
+            <TradeDeskLane
+              title="Cards I want"
+              subtitle={`From ${selectedPartner?.displayName || "this partner"}`}
+              rows={partnerWants}
+              emptyMessage={`You have no open wants from ${selectedPartner?.displayName || "this partner"}.`}
+              actionLabel="Request"
+              pairingSide="requested"
+            />
+            <div className="xl:sticky xl:top-3">
+              <TradeBuilder
+                key={[
+                  proposerId,
+                  receiverId,
+                  initialOfferedItem?.id ?? "",
+                  initialRequestedItem?.id ?? "",
+                ].join(":")}
+                createTradeAction={createTrade}
+                proposerPlayerId={isAdmin ? proposerId : undefined}
+                proposerOwnerId={proposerId}
+                receiverPlayerId={receiverId}
+                proposerName={
+                  players.find((player) => player.id === proposerId)
+                    ?.displayName || "You"
+                }
+                receiverName={
+                  players.find((player) => player.id === receiverId)
+                    ?.displayName || "Trade partner"
+                }
+                initialOfferedItem={
+                  initialOfferedItem
+                    ? toTradeBuilderItem(
+                        initialOfferedItem,
+                        user.preferredPriceProvider,
+                      )
+                    : null
+                }
+                initialRequestedItem={
+                  initialRequestedItem
+                    ? toTradeBuilderItem(
+                        initialRequestedItem,
+                        user.preferredPriceProvider,
+                      )
+                    : null
+                }
               />
-              <TradeWishlistDirection
-                title={`Wanted from me (${wantedFromMeRows.length})`}
-                rows={wantedFromMeRows}
-                emptyMessage="No one has wishlisted your public cards for trade yet."
-                personHeader="Wanted by"
-                view={activeWishlistView}
-              />
             </div>
-          </CompactSection>
-        </>
+            <TradeDeskLane
+              title="Wanted from me"
+              subtitle={`Requested by ${selectedPartner?.displayName || "this partner"}`}
+              rows={partnerWantsFromMe}
+              emptyMessage={`${selectedPartner?.displayName || "This partner"} has no open wants from your public inventory.`}
+              actionLabel="Offer"
+              pairingSide="offered"
+            />
+          </div>
+        </section>
       ) : null}
 
       {sections.map(([title, trades], index) => (
@@ -852,202 +864,252 @@ export default async function TradesPage({
                   ? trade.receiverPlayer.displayName
                   : trade.proposerPlayer.displayName
                 : "";
-              const offeredCard = toTradeCardSummary({
-                id: `${trade.id}-offered`,
-                item: trade.offeredInventoryItem,
-                snap: offeredSnapshot,
-                ownerLabel: trade.proposerPlayer.displayName,
-                roleLabel: "Offered",
-              });
-              const requestedCard = toTradeCardSummary({
-                id: `${trade.id}-requested`,
-                item: trade.requestedInventoryItem,
-                snap: requestedSnapshot,
-                ownerLabel: trade.receiverPlayer.displayName,
-                roleLabel: "Requested",
-              });
-              const incomingCard = userIsProposer ? requestedCard : offeredCard;
+              const offeredLines = trade.lines.filter(
+                (line) => line.side === TradeLineSide.PROPOSER,
+              );
+              const requestedLines = trade.lines.filter(
+                (line) => line.side === TradeLineSide.RECEIVER,
+              );
+              const offeredCards = offeredLines.length
+                ? offeredLines.map((line) =>
+                    toTradeCardSummary({
+                      id: line.id,
+                      item: line.inventoryItem,
+                      snap: snapshot(line.snapshotJson),
+                      ownerLabel: trade.proposerPlayer.displayName,
+                      roleLabel: "Offered",
+                      quantity: line.quantity,
+                      preferredPriceProvider: user.preferredPriceProvider,
+                    }),
+                  )
+                : [
+                    toTradeCardSummary({
+                      id: `${trade.id}-offered`,
+                      item: trade.offeredInventoryItem,
+                      snap: offeredSnapshot,
+                      ownerLabel: trade.proposerPlayer.displayName,
+                      roleLabel: "Offered",
+                      quantity: 1,
+                      preferredPriceProvider: user.preferredPriceProvider,
+                    }),
+                  ];
+              const requestedCards = requestedLines.length
+                ? requestedLines.map((line) =>
+                    toTradeCardSummary({
+                      id: line.id,
+                      item: line.inventoryItem,
+                      snap: snapshot(line.snapshotJson),
+                      ownerLabel: trade.receiverPlayer.displayName,
+                      roleLabel: "Requested",
+                      quantity: line.quantity,
+                      preferredPriceProvider: user.preferredPriceProvider,
+                    }),
+                  )
+                : [
+                    toTradeCardSummary({
+                      id: `${trade.id}-requested`,
+                      item: trade.requestedInventoryItem,
+                      snap: requestedSnapshot,
+                      ownerLabel: trade.receiverPlayer.displayName,
+                      roleLabel: "Requested",
+                      quantity: 1,
+                      preferredPriceProvider: user.preferredPriceProvider,
+                    }),
+                  ];
+              const incomingCards = userIsProposer
+                ? requestedCards
+                : offeredCards;
+              const templateOfferedId =
+                offeredLines[0]?.inventoryItemId ??
+                trade.offeredInventoryItemId ??
+                "";
+              const templateRequestedId =
+                requestedLines[0]?.inventoryItemId ??
+                trade.requestedInventoryItemId ??
+                "";
+              const canUseExactTemplate =
+                offeredCards.length === 1 &&
+                requestedCards.length === 1 &&
+                Boolean(templateOfferedId && templateRequestedId);
               const savedDestinationLocationId = userIsProposer
                 ? trade.proposerDestinationLocationId
                 : trade.receiverDestinationLocationId;
               return (
-                <article
+                <details
                   key={trade.id}
-                  className="rounded border border-zinc-800 p-4 space-y-3"
+                  className="group overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950/40"
                 >
-                  <div className="flex flex-wrap justify-between gap-3">
-                    <div>
-                      <h3 className="font-semibold">
+                  <summary className="grid cursor-pointer list-none items-center gap-3 p-3 transition-colors hover:bg-zinc-900/60 md:grid-cols-[minmax(12rem,0.8fr)_minmax(18rem,1.4fr)_auto]">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="truncate font-semibold">
+                          {other?.displayName || "Trade"}
+                        </h3>
+                        {receiverNeedsAction || userNeedsPhysical ? (
+                          <span className="shrink-0 rounded-full border border-amber-700 px-2 py-0.5 text-[11px] text-amber-200">
+                            Action needed
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="truncate text-xs text-zinc-500">
+                        {trade.proposedAt.toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="grid min-w-0 grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm">
+                      <span className="truncate rounded bg-zinc-900 px-2 py-1 text-zinc-200">
+                        {tradeSideLabel(offeredCards)}
+                      </span>
+                      <span className="text-zinc-600">for</span>
+                      <span className="truncate rounded bg-zinc-900 px-2 py-1 text-zinc-200">
+                        {tradeSideLabel(requestedCards)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-end gap-2">
+                      <span className="rounded-full border border-zinc-700 px-2 py-1 text-xs capitalize text-zinc-400">
+                        {statusLabel(trade.status).replaceAll("_", " ")}
+                      </span>
+                      <span className="text-xs text-zinc-500 group-open:hidden">
+                        Open
+                      </span>
+                      <span className="hidden text-xs text-zinc-500 group-open:inline">
+                        Close
+                      </span>
+                    </div>
+                  </summary>
+                  <div className="space-y-3 border-t border-zinc-800 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-sm text-zinc-400">
                         {trade.proposerPlayer.displayName} {"<->"}{" "}
                         {trade.receiverPlayer.displayName}
-                      </h3>
-                      <p className="text-sm text-zinc-400">
-                        Status: {statusLabel(trade.status)} - Proposed{" "}
-                        {trade.proposedAt.toLocaleString()}{" "}
-                        {other ? `- Trade partner: ${other.displayName}` : ""}
                       </p>
                       {receiverNeedsAction || userNeedsPhysical ? (
-                        <span className="inline-block rounded border border-amber-700 px-2 py-1 text-xs text-amber-200">
+                        <span className="rounded border border-amber-700 px-2 py-1 text-xs text-amber-200">
                           Action needed
                         </span>
                       ) : null}
+                      {trade.status === TradeStatus.PROPOSED ? (
+                        <Link
+                          href={
+                            canUseExactTemplate
+                              ? userIsReceiver
+                                ? `/trades?receiverId=${trade.proposerPlayerId}&offeredInventoryItemId=${templateRequestedId}&requestedInventoryItemId=${templateOfferedId}`
+                                : `/trades?receiverId=${trade.receiverPlayerId}&offeredInventoryItemId=${templateOfferedId}&requestedInventoryItemId=${templateRequestedId}`
+                              : `/trades?receiverId=${
+                                  userIsReceiver
+                                    ? trade.proposerPlayerId
+                                    : trade.receiverPlayerId
+                                }`
+                          }
+                          className={cn(filterButtonClass, "self-start")}
+                        >
+                          {canUseExactTemplate
+                            ? userIsReceiver
+                              ? "Counter From This"
+                              : "Use As Template"
+                            : userIsReceiver
+                              ? "Start New Counter"
+                              : "Start New Trade"}
+                        </Link>
+                      ) : null}
                     </div>
-                    {trade.status === TradeStatus.PROPOSED ? (
-                      <Link
-                        href={
-                          userIsReceiver
-                            ? `/trades?receiverId=${trade.proposerPlayerId}&offeredInventoryItemId=${trade.requestedInventoryItemId ?? ""}&requestedInventoryItemId=${trade.offeredInventoryItemId ?? ""}`
-                            : `/trades?receiverId=${trade.receiverPlayerId}&offeredInventoryItemId=${trade.offeredInventoryItemId ?? ""}&requestedInventoryItemId=${trade.requestedInventoryItemId ?? ""}`
-                        }
-                        className={cn(filterButtonClass, "self-start")}
-                      >
-                        {userIsReceiver
-                          ? "Counter From This"
-                          : "Use As Template"}
-                      </Link>
-                    ) : null}
                     {trade.message ? (
                       <p className="text-sm text-zinc-300">{trade.message}</p>
                     ) : null}
-                  </div>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <TradeCardPreview card={offeredCard} />
-                    <TradeCardPreview card={requestedCard} />
-                  </div>
-                  <details className="text-sm">
-                    <summary className="cursor-pointer">Timeline</summary>
-                    <div className="mt-2 space-y-1">
-                      {trade.events.map((event) => (
-                        <div
-                          key={event.id}
-                          className="border-l border-zinc-700 pl-2"
-                        >
-                          <span className="font-semibold">
-                            {event.eventType}
-                          </span>{" "}
-                          - {event.createdAt.toLocaleString()}{" "}
-                          {event.actorPlayer
-                            ? `by ${event.actorPlayer.displayName}`
-                            : event.actorUser
-                              ? `by ${event.actorUser.username}`
-                              : ""}
-                          <div className="text-zinc-400">{event.message}</div>
-                        </div>
-                      ))}
+                    <TradeValueSummary
+                      compact
+                      leftLabel={`${trade.proposerPlayer.displayName} offers`}
+                      rightLabel={`${trade.receiverPlayer.displayName} offers`}
+                      leftLines={offeredCards}
+                      rightLines={requestedCards}
+                    />
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <section className="space-y-2">
+                        <h4 className="text-xs font-semibold uppercase text-zinc-500">
+                          {trade.proposerPlayer.displayName} offers
+                        </h4>
+                        {offeredCards.map((card) => (
+                          <TradeCardPreview key={card.id} card={card} />
+                        ))}
+                      </section>
+                      <section className="space-y-2">
+                        <h4 className="text-xs font-semibold uppercase text-zinc-500">
+                          {trade.receiverPlayer.displayName} offers
+                        </h4>
+                        {requestedCards.map((card) => (
+                          <TradeCardPreview key={card.id} card={card} />
+                        ))}
+                      </section>
                     </div>
-                  </details>
-                  <div className="flex flex-wrap gap-2">
-                    {trade.status === TradeStatus.PROPOSED && userIsReceiver ? (
-                      <>
+                    <details className="text-sm">
+                      <summary className="cursor-pointer">Timeline</summary>
+                      <div className="mt-2 space-y-1">
+                        {trade.events.map((event) => (
+                          <div
+                            key={event.id}
+                            className="border-l border-zinc-700 pl-2"
+                          >
+                            <span className="font-semibold">
+                              {event.eventType}
+                            </span>{" "}
+                            - {event.createdAt.toLocaleString()}{" "}
+                            {event.actorPlayer
+                              ? `by ${event.actorPlayer.displayName}`
+                              : event.actorUser
+                                ? `by ${event.actorUser.username}`
+                                : ""}
+                            <div className="text-zinc-400">{event.message}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                    <div className="flex flex-wrap gap-2">
+                      {trade.status === TradeStatus.PROPOSED &&
+                      userIsReceiver ? (
+                        <>
+                          <form action={actOnTrade}>
+                            <input
+                              type="hidden"
+                              name="tradeId"
+                              value={trade.id}
+                            />
+                            <SubmitButton
+                              pendingLabel="Accepting trade..."
+                              name="action"
+                              value="accept"
+                              className="border px-3 py-2"
+                            >
+                              Accept
+                            </SubmitButton>
+                          </form>
+                          <form action={actOnTrade}>
+                            <input
+                              type="hidden"
+                              name="tradeId"
+                              value={trade.id}
+                            />
+                            <SubmitButton
+                              pendingLabel="Declining trade..."
+                              name="action"
+                              value="decline"
+                              className="border px-3 py-2"
+                            >
+                              Decline
+                            </SubmitButton>
+                          </form>
+                        </>
+                      ) : null}
+                      {trade.status === TradeStatus.PROPOSED &&
+                      userIsProposer ? (
                         <form action={actOnTrade}>
                           <input
                             type="hidden"
                             name="tradeId"
                             value={trade.id}
                           />
-                          <SubmitButton
-                            pendingLabel="Accepting trade..."
-                            name="action"
-                            value="accept"
-                            className="border px-3 py-2"
-                          >
-                            Accept
-                          </SubmitButton>
-                        </form>
-                        <form action={actOnTrade}>
                           <input
                             type="hidden"
-                            name="tradeId"
-                            value={trade.id}
-                          />
-                          <SubmitButton
-                            pendingLabel="Declining trade..."
-                            name="action"
-                            value="decline"
-                            className="border px-3 py-2"
-                          >
-                            Decline
-                          </SubmitButton>
-                        </form>
-                      </>
-                    ) : null}
-                    {trade.status === TradeStatus.PROPOSED && userIsProposer ? (
-                      <form action={actOnTrade}>
-                        <input type="hidden" name="tradeId" value={trade.id} />
-                        <input
-                          type="hidden"
-                          name="reason"
-                          value="Cancelled by proposer."
-                        />
-                        <SubmitButton
-                          pendingLabel="Cancelling trade..."
-                          name="action"
-                          value="cancel"
-                          className="border px-3 py-2"
-                        >
-                          Cancel
-                        </SubmitButton>
-                      </form>
-                    ) : null}
-                    {userNeedsPhysical ? (
-                      <form
-                        action={confirmPhysicalTrade}
-                        className="flex flex-wrap items-end gap-2 rounded border border-zinc-800 bg-zinc-950/50 p-3"
-                      >
-                        <input type="hidden" name="tradeId" value={trade.id} />
-                        <label className="min-w-64 text-sm text-zinc-300">
-                          Move incoming {incomingCard.name} to
-                          <select
-                            name="destinationLocationId"
-                            required
-                            defaultValue={
-                              savedDestinationLocationId ??
-                              myDestinationLocations[0]?.id ??
-                              ""
-                            }
-                            className={cn(filterSelectClass, "mt-1 w-full")}
-                          >
-                            {myDestinationLocations.map((location) => (
-                              <option key={location.id} value={location.id}>
-                                {location.name}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <SubmitButton
-                          pendingLabel="Confirming exchange..."
-                          className={filterPrimaryButtonClass}
-                        >
-                          Confirm Physical Trade
-                        </SubmitButton>
-                      </form>
-                    ) : null}
-                    {userConfirmedPhysical ? (
-                      <span className="rounded border border-emerald-800 px-3 py-2 text-sm text-emerald-200">
-                        You have confirmed physical exchange.
-                      </span>
-                    ) : null}
-                    {physicalStatuses.includes(trade.status) &&
-                    !userNeedsPhysical &&
-                    waitingPlayer ? (
-                      <span className="rounded border border-zinc-800 px-3 py-2 text-sm text-zinc-300">
-                        Waiting for {waitingPlayer} to confirm physical
-                        exchange.
-                      </span>
-                    ) : null}
-                    {isAdmin && !terminalStatuses.includes(trade.status) ? (
-                      <>
-                        <form action={actOnTrade} className="flex gap-1">
-                          <input
-                            type="hidden"
-                            name="tradeId"
-                            value={trade.id}
-                          />
-                          <input
                             name="reason"
-                            required
-                            placeholder="admin cancel reason"
-                            className="border p-2 bg-zinc-900"
+                            value="Cancelled by proposer."
                           />
                           <SubmitButton
                             pendingLabel="Cancelling trade..."
@@ -1055,36 +1117,116 @@ export default async function TradesPage({
                             value="cancel"
                             className="border px-3 py-2"
                           >
-                            Admin Cancel
+                            Cancel
                           </SubmitButton>
                         </form>
+                      ) : null}
+                      {userNeedsPhysical ? (
                         <form
                           action={confirmPhysicalTrade}
-                          className="flex gap-1"
+                          className="flex flex-wrap items-end gap-2 rounded border border-zinc-800 bg-zinc-950/50 p-3"
                         >
                           <input
                             type="hidden"
                             name="tradeId"
                             value={trade.id}
                           />
-                          <input type="hidden" name="forceComplete" value="1" />
-                          <input
-                            name="reason"
-                            required
-                            placeholder="force complete reason"
-                            className="border p-2 bg-zinc-900"
-                          />
+                          <label className="min-w-64 text-sm text-zinc-300">
+                            Move {incomingCards.length} incoming card{" "}
+                            {incomingCards.length === 1 ? "line" : "lines"} to
+                            <select
+                              name="destinationLocationId"
+                              required
+                              defaultValue={
+                                savedDestinationLocationId ??
+                                myDestinationLocations[0]?.id ??
+                                ""
+                              }
+                              className={cn(filterSelectClass, "mt-1 w-full")}
+                            >
+                              {myDestinationLocations.map((location) => (
+                                <option key={location.id} value={location.id}>
+                                  {location.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
                           <SubmitButton
-                            pendingLabel="Force completing..."
-                            className="border px-3 py-2"
+                            pendingLabel="Confirming exchange..."
+                            className={filterPrimaryButtonClass}
                           >
-                            Force Complete
+                            Confirm Physical Trade
                           </SubmitButton>
                         </form>
-                      </>
-                    ) : null}
+                      ) : null}
+                      {userConfirmedPhysical ? (
+                        <span className="rounded border border-emerald-800 px-3 py-2 text-sm text-emerald-200">
+                          You have confirmed physical exchange.
+                        </span>
+                      ) : null}
+                      {physicalStatuses.includes(trade.status) &&
+                      !userNeedsPhysical &&
+                      waitingPlayer ? (
+                        <span className="rounded border border-zinc-800 px-3 py-2 text-sm text-zinc-300">
+                          Waiting for {waitingPlayer} to confirm physical
+                          exchange.
+                        </span>
+                      ) : null}
+                      {isAdmin && !terminalStatuses.includes(trade.status) ? (
+                        <>
+                          <form action={actOnTrade} className="flex gap-1">
+                            <input
+                              type="hidden"
+                              name="tradeId"
+                              value={trade.id}
+                            />
+                            <input
+                              name="reason"
+                              required
+                              placeholder="admin cancel reason"
+                              className="border p-2 bg-zinc-900"
+                            />
+                            <SubmitButton
+                              pendingLabel="Cancelling trade..."
+                              name="action"
+                              value="cancel"
+                              className="border px-3 py-2"
+                            >
+                              Admin Cancel
+                            </SubmitButton>
+                          </form>
+                          <form
+                            action={confirmPhysicalTrade}
+                            className="flex gap-1"
+                          >
+                            <input
+                              type="hidden"
+                              name="tradeId"
+                              value={trade.id}
+                            />
+                            <input
+                              type="hidden"
+                              name="forceComplete"
+                              value="1"
+                            />
+                            <input
+                              name="reason"
+                              required
+                              placeholder="force complete reason"
+                              className="border p-2 bg-zinc-900"
+                            />
+                            <SubmitButton
+                              pendingLabel="Force completing..."
+                              className="border px-3 py-2"
+                            >
+                              Force Complete
+                            </SubmitButton>
+                          </form>
+                        </>
+                      ) : null}
+                    </div>
                   </div>
-                </article>
+                </details>
               );
             })
           ) : (
