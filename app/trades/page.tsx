@@ -61,7 +61,7 @@ type SearchParams = {
   requestedInventoryItemId?: string;
   view?: string;
 };
-type TradePageView = "desk" | "active" | "history";
+type TradePageView = "desk" | "wishlist" | "active" | "history";
 type TradeSnapshot = {
   cardName?: string;
   setCode?: string;
@@ -386,12 +386,153 @@ function TradeDeskLane({
   );
 }
 
+function groupTradeWishlistRows(rows: TradeWishlistRow[]) {
+  const groups = new Map<
+    string,
+    {
+      personId: string;
+      personLabel: string;
+      personColor?: string | null;
+      rows: TradeWishlistRow[];
+    }
+  >();
+  for (const row of rows) {
+    const current = groups.get(row.personId);
+    if (current) current.rows.push(row);
+    else {
+      groups.set(row.personId, {
+        personId: row.personId,
+        personLabel: row.personLabel,
+        personColor: row.personColor,
+        rows: [row],
+      });
+    }
+  }
+  return Array.from(groups.values()).sort((left, right) =>
+    left.personLabel.localeCompare(right.personLabel),
+  );
+}
+
+function TradeWishlistOverviewColumn({
+  title,
+  subtitle,
+  rows,
+  emptyMessage,
+}: {
+  title: string;
+  subtitle: string;
+  rows: TradeWishlistRow[];
+  emptyMessage: string;
+}) {
+  const groups = groupTradeWishlistRows(rows);
+  return (
+    <section className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/45">
+      <header className="border-b border-zinc-800 bg-zinc-900/70 px-3 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-semibold text-sky-100">{title}</h2>
+          <span className="rounded-full border border-zinc-700 px-2 py-0.5 text-xs text-zinc-400">
+            {rows.length}
+          </span>
+        </div>
+        <p className="mt-1 text-xs text-zinc-500">{subtitle}</p>
+      </header>
+      <div className="space-y-3 p-3">
+        {groups.length ? (
+          groups.map((group) => (
+            <section
+              key={group.personId}
+              className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950/55"
+            >
+              <header className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 bg-zinc-900/55 px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={playerColorStyle(group.personColor)}
+                    aria-hidden="true"
+                  />
+                  <h3 className="text-sm font-semibold text-zinc-200">
+                    {group.personLabel}
+                  </h3>
+                  <span className="text-xs text-zinc-500">
+                    {group.rows.length}{" "}
+                    {group.rows.length === 1 ? "card" : "cards"}
+                  </span>
+                </div>
+                <Link
+                  href={`/trades?receiverId=${group.personId}`}
+                  className={cn(filterPrimaryButtonClass, "text-xs")}
+                >
+                  Open Trade Desk
+                </Link>
+              </header>
+              <div className="grid gap-2 p-2 sm:grid-cols-2">
+                {group.rows.map((row) => (
+                  <article
+                    key={row.id}
+                    className="rounded-lg border border-zinc-800 bg-zinc-950/70 p-2"
+                  >
+                    <TradeCardPreview card={row.card} compact />
+                    <div className="mt-2 flex items-center justify-between gap-2 text-xs text-zinc-500">
+                      <span>Qty {row.quantity}</span>
+                      <span>{row.card.priceLabel || "Price unavailable"}</span>
+                    </div>
+                    {row.notes ? (
+                      <p className="mt-2 line-clamp-2 text-xs text-zinc-500">
+                        {row.notes}
+                      </p>
+                    ) : null}
+                    <div className="mt-2 flex items-center gap-2">
+                      <Link
+                        href={row.negotiateHref}
+                        className={cn(
+                          filterButtonClass,
+                          "flex-1 text-center text-xs",
+                        )}
+                      >
+                        Add at Trade Desk
+                      </Link>
+                      {row.cancelId ? (
+                        <form action={cancelTradeWishlistItem}>
+                          <input
+                            type="hidden"
+                            name="tradeWishlistItemId"
+                            value={row.cancelId}
+                          />
+                          <SubmitButton
+                            pendingLabel="..."
+                            className={cn(
+                              filterButtonClass,
+                              "px-2 py-1.5 text-xs",
+                            )}
+                          >
+                            Cancel
+                          </SubmitButton>
+                        </form>
+                      ) : null}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ))
+        ) : (
+          <div className="rounded-lg border border-dashed border-zinc-800 px-3 py-10 text-center text-sm text-zinc-500">
+            {emptyMessage}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function TradeViewNav({
   active,
+  wishlistCount,
   activeTradeCount,
   historyTradeCount,
 }: {
   active: TradePageView;
+  wishlistCount: number;
   activeTradeCount: number;
   historyTradeCount: number;
 }) {
@@ -402,6 +543,12 @@ function TradeViewNav({
     count?: number;
   }> = [
     { value: "desk", label: "Trade Desk", href: "/trades" },
+    {
+      value: "wishlist",
+      label: "Trade Wishlist",
+      href: "/trades?view=wishlist",
+      count: wishlistCount,
+    },
     {
       value: "active",
       label: "Active Trades",
@@ -456,7 +603,9 @@ export default async function TradesPage({
   const receiverId =
     params.receiverId || players.find((p) => p.id !== proposerId)?.id || "";
   const tradeView: TradePageView =
-    params.view === "active" || params.view === "history"
+    params.view === "wishlist" ||
+    params.view === "active" ||
+    params.view === "history"
       ? params.view
       : "desk";
   if (!isAdmin && !user.playerId)
@@ -712,10 +861,38 @@ export default async function TradesPage({
         </div>
         <TradeViewNav
           active={tradeView}
+          wishlistCount={myTradeWishlistRows.length + wantedFromMeRows.length}
           activeTradeCount={activeTradeCount}
           historyTradeCount={historyTradeCount}
         />
       </div>
+      {tradeView === "wishlist" ? (
+        <section className="space-y-3">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950/45 p-3">
+            <h2 className="text-lg font-semibold text-zinc-100">
+              Trade Wishlist
+            </h2>
+            <p className="mt-1 text-xs text-zinc-500">
+              Every open person-to-person want, grouped by trade partner. Open a
+              partner&apos;s desk to pair cards and build a proposal.
+            </p>
+          </div>
+          <div className="grid items-start gap-3 xl:grid-cols-2">
+            <TradeWishlistOverviewColumn
+              title="Cards I want"
+              subtitle="Cards you have requested from other owners."
+              rows={myTradeWishlistRows}
+              emptyMessage="You have no open trade-wishlist requests."
+            />
+            <TradeWishlistOverviewColumn
+              title="Wanted from me"
+              subtitle="Cards other owners have requested from you."
+              rows={wantedFromMeRows}
+              emptyMessage="No one currently has an open request from your inventory."
+            />
+          </div>
+        </section>
+      ) : null}
       {tradeView === "desk" ? (
         <section className="space-y-3">
           <div className="flex flex-wrap items-end justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950/45 p-3">

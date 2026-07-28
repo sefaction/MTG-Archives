@@ -83,6 +83,20 @@ test("trade wishlist surfaces render from public inventory, wishlist, and trades
     ).not.toHaveValue("[]");
   }
 
+  await page.goto("/trades?view=wishlist");
+  await expect(
+    page.getByRole("heading", { level: 2, name: "Trade Wishlist" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/Every open person-to-person want/),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Cards I want" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Wanted from me" }),
+  ).toBeVisible();
+
   await page.goto("/public/inventory?displayMode=exact&pageSize=10");
   if (
     await page.getByText("No public inventory is available yet.").isVisible()
