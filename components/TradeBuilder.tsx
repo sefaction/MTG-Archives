@@ -56,6 +56,7 @@ type TradeBuilderProps = {
   proposerPlayerId?: string;
   proposerOwnerId: string;
   receiverPlayerId: string;
+  counterTradeId?: string;
   proposerName: string;
   receiverName: string;
   initialOfferedItem?: TradeBuilderItem | null;
@@ -393,6 +394,7 @@ export function TradeBuilder({
   proposerPlayerId,
   proposerOwnerId,
   receiverPlayerId,
+  counterTradeId,
   proposerName,
   receiverName,
   initialOfferedItem,
@@ -462,6 +464,9 @@ export function TradeBuilder({
       className="space-y-3 rounded-xl border border-sky-900/70 bg-zinc-950/70 p-3 shadow-xl shadow-black/20"
     >
       <input type="hidden" name="receiverPlayerId" value={receiverPlayerId} />
+      {counterTradeId ? (
+        <input type="hidden" name="counterTradeId" value={counterTradeId} />
+      ) : null}
       {proposerPlayerId ? (
         <input type="hidden" name="proposerPlayerId" value={proposerPlayerId} />
       ) : null}
@@ -487,6 +492,12 @@ export function TradeBuilder({
       />
 
       <div>
+        {counterTradeId ? (
+          <div className="mb-3 rounded-lg border border-amber-800 bg-amber-950/25 px-3 py-2 text-xs text-amber-100">
+            Counter proposal: submitting this draft will decline and replace the
+            original proposal.
+          </div>
+        ) : null}
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="font-semibold text-sky-100">Proposal draft</h2>

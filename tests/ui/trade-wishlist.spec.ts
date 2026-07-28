@@ -57,6 +57,17 @@ test("trade wishlist surfaces render from public inventory, wishlist, and trades
   await expect(page.getByText("Pairing board:")).toBeVisible();
   await expect(page.getByText("Drop cards here")).toHaveCount(2);
 
+  await page.goto("/trades?counterTradeId=counter-test");
+  await expect(
+    page.getByText(
+      /Counter proposal: submitting this draft will decline and replace/,
+    ),
+  ).toBeVisible();
+  await expect(page.locator('input[name="counterTradeId"]')).toHaveValue(
+    "counter-test",
+  );
+
+  await page.goto("/trades");
   const requestButton = page.getByRole("button", { name: "Request" }).first();
   const offerButton = page.getByRole("button", { name: "Offer" }).first();
   const requestCount = await requestButton.count();
