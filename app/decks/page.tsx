@@ -8,8 +8,13 @@ import {
   type DeckWorkspaceTag,
 } from "@/components/DeckWorkspace";
 import { getAccessScope, requireLogin } from "@/lib/auth";
+import { isBasicLandCard } from "@/lib/card-types";
 import { prisma } from "@/lib/prisma";
-import { deckFormatLabel, deckSectionSummaryParts } from "@/lib/decks";
+import {
+  deckFormatLabel,
+  deckSectionSummaryParts,
+  summarizeEffectiveDeckCoverage,
+} from "@/lib/decks";
 import { bracketSelectOptions, parseDeckBracket } from "@/lib/deck-brackets";
 import {
   buildDeckFolderOptions,
@@ -70,6 +75,8 @@ export default async function DecksPage({
                 id: true,
                 colorIdentity: true,
                 colors: true,
+                typeLine: true,
+                cardFaces: true,
                 imageUris: true,
                 imageUri: true,
               },
@@ -110,13 +117,18 @@ export default async function DecksPage({
         deckCard.section === DeckSection.MAINBOARD ||
         deckCard.section === DeckSection.COMMANDER,
     );
-    const requiredByCardId = new Map<string, number>();
+    const requiredByCardId = new Map<
+      string,
+      { quantity: number; isBasicLand: boolean }
+    >();
     for (const deckCard of primaryCards) {
       if (!deckCard.cardId) continue;
-      requiredByCardId.set(
-        deckCard.cardId,
-        (requiredByCardId.get(deckCard.cardId) ?? 0) + deckCard.quantity,
-      );
+      const current = requiredByCardId.get(deckCard.cardId);
+      requiredByCardId.set(deckCard.cardId, {
+        quantity: (current?.quantity ?? 0) + deckCard.quantity,
+        isBasicLand:
+          Boolean(current?.isBasicLand) || isBasicLandCard(deckCard.card),
+      });
     }
     const committedByCardId = new Map<string, number>();
     for (const item of deck.deckLocation?.inventoryItems ?? []) {
@@ -125,11 +137,15 @@ export default async function DecksPage({
         (committedByCardId.get(item.cardId) ?? 0) + item.quantity,
       );
     }
-    const committedCardCount = [...requiredByCardId].reduce(
-      (total, [cardId, required]) =>
-        total + Math.min(required, committedByCardId.get(cardId) ?? 0),
-      0,
-    );
+    const committedCardCount = summarizeEffectiveDeckCoverage(
+      [...requiredByCardId].map(([cardId, { quantity, isBasicLand }]) => ({
+        quantity,
+        exactOwned: 0,
+        otherOwned: 0,
+        committedToThisDeck: committedByCardId.get(cardId) ?? 0,
+        isBasicLand,
+      })),
+    ).effectiveCommitted;
 
     return {
       id: deck.id,
