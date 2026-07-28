@@ -14,6 +14,7 @@ import { revalidatePath } from "next/cache";
 import {
   assertCanAcceptTrade,
   assertCanCancelTrade,
+  assertCanCounterTrade,
   assertCanDeclineTrade,
   isTerminalTradeStatus,
 } from "@/lib/trade-policy";
@@ -79,7 +80,10 @@ function inventorySnapshot(
   };
 }
 
-async function validateProposedTrade(data: ProposedTradeData) {
+async function validateProposedTrade(
+  data: ProposedTradeData,
+  ignoredReservationTradeId?: string,
+) {
   if (data.proposerPlayerId === data.receiverPlayerId)
     throw new Error("Proposer and recipient must be different users.");
   if (!data.offeredLines.length || !data.requestedLines.length) {
@@ -125,13 +129,21 @@ async function validateProposedTrade(data: ProposedTradeData) {
     prisma.tradeLine.findMany({
       where: {
         inventoryItemId: { in: itemIds },
-        trade: { status: { in: activeStatuses } },
+        trade: {
+          status: { in: activeStatuses },
+          ...(ignoredReservationTradeId
+            ? { id: { not: ignoredReservationTradeId } }
+            : {}),
+        },
       },
       select: { inventoryItemId: true, quantity: true },
     }),
     prisma.trade.findMany({
       where: {
         status: { in: activeStatuses },
+        ...(ignoredReservationTradeId
+          ? { id: { not: ignoredReservationTradeId } }
+          : {}),
         lines: { none: {} },
         OR: [
           { offeredInventoryItemId: { in: itemIds } },
@@ -229,50 +241,110 @@ export async function createTrade(fd: FormData) {
     receiverPlayerId: String(fd.get("receiverPlayerId") || ""),
     ...lineSelections,
   };
-  const { offered, requested } = await validateProposedTrade(data);
-  await prisma.trade.create({
-    data: {
-      proposerPlayerId: data.proposerPlayerId,
-      receiverPlayerId: data.receiverPlayerId,
-      status: TradeStatus.PROPOSED,
-      message: String(fd.get("message") || "") || null,
-      createdByUserId: actor.id,
-      lines: {
-        create: [
-          ...offered.map((line, position) => ({
-            side: TradeLineSide.PROPOSER,
-            inventoryItemId: line.item.id,
-            quantity: line.quantity,
-            position,
-            snapshotJson: inventorySnapshot(
-              line.item,
-              line.quantity,
-              actor.preferredPriceProvider,
-            ),
-          })),
-          ...requested.map((line, position) => ({
-            side: TradeLineSide.RECEIVER,
-            inventoryItemId: line.item.id,
-            quantity: line.quantity,
-            position,
-            snapshotJson: inventorySnapshot(
-              line.item,
-              line.quantity,
-              actor.preferredPriceProvider,
-            ),
-          })),
-        ],
-      },
-      events: {
-        create: {
-          eventType: "proposed",
-          actorUserId: actor.id,
-          actorPlayerId: actor.playerId,
-          message: `Trade proposed with ${offered.length} offered and ${requested.length} requested card lines.`,
+  const counterTradeId = String(fd.get("counterTradeId") || "").trim();
+  const counterSource = counterTradeId
+    ? await prisma.trade.findUnique({
+        where: { id: counterTradeId },
+        select: {
+          id: true,
+          proposerPlayerId: true,
+          receiverPlayerId: true,
+          status: true,
         },
+      })
+    : null;
+  if (counterTradeId && !counterSource) {
+    throw new Error("The trade being countered no longer exists.");
+  }
+  if (counterSource) {
+    assertCanCounterTrade({
+      actorOwnerId: actor.playerId,
+      isAdmin: actorIsAdmin,
+      proposerOwnerId: counterSource.proposerPlayerId,
+      recipientOwnerId: counterSource.receiverPlayerId,
+      status: counterSource.status,
+      counterProposerOwnerId: data.proposerPlayerId,
+      counterRecipientOwnerId: data.receiverPlayerId,
+    });
+  }
+  const { offered, requested } = await validateProposedTrade(
+    data,
+    counterSource?.id,
+  );
+  const createData = {
+    proposerPlayerId: data.proposerPlayerId,
+    receiverPlayerId: data.receiverPlayerId,
+    status: TradeStatus.PROPOSED,
+    message: String(fd.get("message") || "") || null,
+    createdByUserId: actor.id,
+    lines: {
+      create: [
+        ...offered.map((line, position) => ({
+          side: TradeLineSide.PROPOSER,
+          inventoryItemId: line.item.id,
+          quantity: line.quantity,
+          position,
+          snapshotJson: inventorySnapshot(
+            line.item,
+            line.quantity,
+            actor.preferredPriceProvider,
+          ),
+        })),
+        ...requested.map((line, position) => ({
+          side: TradeLineSide.RECEIVER,
+          inventoryItemId: line.item.id,
+          quantity: line.quantity,
+          position,
+          snapshotJson: inventorySnapshot(
+            line.item,
+            line.quantity,
+            actor.preferredPriceProvider,
+          ),
+        })),
+      ],
+    },
+    events: {
+      create: {
+        eventType: "proposed",
+        actorUserId: actor.id,
+        actorPlayerId: actor.playerId,
+        message: `${
+          counterSource ? `Counter to trade ${counterSource.id}. ` : ""
+        }Trade proposed with ${offered.length} offered and ${requested.length} requested card lines.`,
       },
     },
-  });
+  };
+  if (counterSource) {
+    await prisma.$transaction(async (tx) => {
+      const replaced = await tx.trade.updateMany({
+        where: {
+          id: counterSource.id,
+          status: TradeStatus.PROPOSED,
+        },
+        data: {
+          status: TradeStatus.DECLINED,
+          declinedAt: new Date(),
+        },
+      });
+      if (replaced.count !== 1) {
+        throw new Error(
+          "This trade changed before the counter was submitted. Reload and try again.",
+        );
+      }
+      const counter = await tx.trade.create({ data: createData });
+      await tx.tradeEvent.create({
+        data: {
+          tradeId: counterSource.id,
+          eventType: "countered",
+          actorUserId: actor.id,
+          actorPlayerId: actor.playerId,
+          message: `Replaced by counter proposal ${counter.id}.`,
+        },
+      });
+    });
+  } else {
+    await prisma.trade.create({ data: createData });
+  }
   revalidatePath("/trades");
 }
 

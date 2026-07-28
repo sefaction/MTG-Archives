@@ -59,6 +59,7 @@ type SearchParams = {
   receiverId?: string;
   offeredInventoryItemId?: string;
   requestedInventoryItemId?: string;
+  counterTradeId?: string;
   view?: string;
 };
 type TradePageView = "desk" | "wishlist" | "active" | "history";
@@ -964,6 +965,7 @@ export default async function TradesPage({
                 key={[
                   proposerId,
                   receiverId,
+                  params.counterTradeId ?? "",
                   initialOfferedItem?.id ?? "",
                   initialRequestedItem?.id ?? "",
                 ].join(":")}
@@ -971,6 +973,7 @@ export default async function TradesPage({
                 proposerPlayerId={isAdmin ? proposerId : undefined}
                 proposerOwnerId={proposerId}
                 receiverPlayerId={receiverId}
+                counterTradeId={params.counterTradeId}
                 proposerName={
                   players.find((player) => player.id === proposerId)
                     ?.displayName || "You"
@@ -1169,12 +1172,16 @@ export default async function TradesPage({
                           href={
                             canUseExactTemplate
                               ? userIsReceiver
-                                ? `/trades?receiverId=${trade.proposerPlayerId}&offeredInventoryItemId=${templateRequestedId}&requestedInventoryItemId=${templateOfferedId}`
+                                ? `/trades?receiverId=${trade.proposerPlayerId}&offeredInventoryItemId=${templateRequestedId}&requestedInventoryItemId=${templateOfferedId}&counterTradeId=${trade.id}`
                                 : `/trades?receiverId=${trade.receiverPlayerId}&offeredInventoryItemId=${templateOfferedId}&requestedInventoryItemId=${templateRequestedId}`
                               : `/trades?receiverId=${
                                   userIsReceiver
                                     ? trade.proposerPlayerId
                                     : trade.receiverPlayerId
+                                }${
+                                  userIsReceiver
+                                    ? `&counterTradeId=${trade.id}`
+                                    : ""
                                 }`
                           }
                           className={cn(filterButtonClass, "self-start")}

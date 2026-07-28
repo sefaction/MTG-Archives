@@ -145,6 +145,18 @@ test("active trades are grouped into prioritized action queues", () => {
   assert.match(tradesPage, /Use As Template/);
 });
 
+test("counter proposals explicitly replace their source trade", () => {
+  assert.match(tradesPage, /counterTradeId=\$\{trade\.id\}/);
+  assert.match(tradeBuilder, /name="counterTradeId"/);
+  assert.match(tradeBuilder, /decline and replace/);
+  assert.match(tradeActions, /ignoredReservationTradeId/);
+  assert.match(tradeActions, /id: \{ not: ignoredReservationTradeId \}/);
+  assert.match(tradeActions, /assertCanCounterTrade/);
+  assert.match(tradeActions, /status: TradeStatus\.DECLINED/);
+  assert.match(tradeActions, /eventType: "countered"/);
+  assert.match(tradeActions, /replaced\.count !== 1/);
+});
+
 test("physical trade confirmation captures incoming destination locations", () => {
   const schema = readFileSync("prisma/schema.prisma", "utf8");
   assert.match(schema, /proposerDestinationLocationId/);
