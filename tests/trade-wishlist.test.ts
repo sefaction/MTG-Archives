@@ -16,11 +16,41 @@ test("a completed trade matches each received card to the correct person-to-pers
         ownerPlayerId: "bob",
         targetOwnerPlayerId: "alice",
         cardId: "alice-card",
+        quantity: 1,
       },
       {
         ownerPlayerId: "alice",
         targetOwnerPlayerId: "bob",
         cardId: "bob-card",
+        quantity: 1,
+      },
+    ],
+  );
+});
+
+test("multi-card trades aggregate duplicate card quantities by wishlist target", () => {
+  assert.deepEqual(
+    buildCompletedTradeWishlistMatches({
+      proposerPlayerId: "alice",
+      receiverPlayerId: "bob",
+      offeredCards: [
+        { cardId: "alice-card", quantity: 2 },
+        { cardId: "alice-card", quantity: 1 },
+      ],
+      requestedCards: [{ cardId: "bob-card", quantity: 4 }],
+    }),
+    [
+      {
+        ownerPlayerId: "bob",
+        targetOwnerPlayerId: "alice",
+        cardId: "alice-card",
+        quantity: 3,
+      },
+      {
+        ownerPlayerId: "alice",
+        targetOwnerPlayerId: "bob",
+        cardId: "bob-card",
+        quantity: 4,
       },
     ],
   );
@@ -33,7 +63,7 @@ test("trade completion reconciles wishlist quantities in the inventory transacti
   assert.match(tradeActions, /await fulfillCompletedTradeWishlists\(tx,/);
   assert.match(tradeActions, /revalidatePath\("\/wishlist"\)/);
   assert.match(wishlistHelper, /TradeWishlistStatus\.FULFILLED/);
-  assert.match(wishlistHelper, /quantity: \{ decrement: 1 \}/);
+  assert.match(wishlistHelper, /quantity: \{ decrement: match\.quantity \}/);
   assert.match(
     wishlistHelper,
     /ownerUser: \{ playerId: match\.ownerPlayerId \}/,

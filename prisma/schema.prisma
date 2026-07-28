@@ -18,6 +18,11 @@ enum TradeStatus {
   CANCELED
 }
 
+enum TradeLineSide {
+  PROPOSER
+  RECEIVER
+}
+
 enum TradingStatus {
   NOT_OPEN
   OPEN
@@ -602,6 +607,7 @@ model InventoryItem {
   tradeWishlistItems TradeWishlistItem[]
   offeredTrades      Trade[]             @relation("OfferedInventoryItem")
   requestedTrades    Trade[]             @relation("RequestedInventoryItem")
+  tradeLines         TradeLine[]
 
   @@index([currentOwnerId, cardId, foilStatus, condition, language])
   @@index([currentOwnerId, quantity, createdAt])
@@ -755,11 +761,29 @@ model Trade {
   createdByUserId               String?
   createdByUser                 User?               @relation("TradeCreatedBy", fields: [createdByUserId], references: [id])
   updatedAt                     DateTime            @updatedAt
+  lines                         TradeLine[]
   events                        TradeEvent[]
   inventoryAuditLogs            InventoryAuditLog[]
 
   @@index([proposerDestinationLocationId])
   @@index([receiverDestinationLocationId])
+}
+
+model TradeLine {
+  id              String        @id @default(cuid())
+  tradeId         String
+  trade           Trade         @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  side            TradeLineSide
+  inventoryItemId String?
+  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+  quantity        Int           @default(1)
+  position        Int           @default(0)
+  snapshotJson    Json
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([tradeId, side, position])
+  @@index([inventoryItemId])
 }
 
 model TradeEvent {

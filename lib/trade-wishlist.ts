@@ -3,31 +3,56 @@ import { Prisma, TradeWishlistStatus } from "@prisma/client";
 export type CompletedTradeWishlistInput = {
   proposerPlayerId: string;
   receiverPlayerId: string;
-  offeredCardId: string;
-  requestedCardId: string;
+  offeredCardId?: string;
+  requestedCardId?: string;
+  offeredCards?: Array<{ cardId: string; quantity: number }>;
+  requestedCards?: Array<{ cardId: string; quantity: number }>;
 };
 
 export type CompletedTradeWishlistMatch = {
   ownerPlayerId: string;
   targetOwnerPlayerId: string;
   cardId: string;
+  quantity: number;
 };
 
 export function buildCompletedTradeWishlistMatches(
   input: CompletedTradeWishlistInput,
 ): CompletedTradeWishlistMatch[] {
-  return [
-    {
+  const matches = [
+    ...(
+      input.offeredCards ??
+      (input.offeredCardId
+        ? [{ cardId: input.offeredCardId, quantity: 1 }]
+        : [])
+    ).map((card) => ({
       ownerPlayerId: input.receiverPlayerId,
       targetOwnerPlayerId: input.proposerPlayerId,
-      cardId: input.offeredCardId,
-    },
-    {
+      ...card,
+    })),
+    ...(
+      input.requestedCards ??
+      (input.requestedCardId
+        ? [{ cardId: input.requestedCardId, quantity: 1 }]
+        : [])
+    ).map((card) => ({
       ownerPlayerId: input.proposerPlayerId,
       targetOwnerPlayerId: input.receiverPlayerId,
-      cardId: input.requestedCardId,
-    },
+      ...card,
+    })),
   ];
+  const grouped = new Map<string, CompletedTradeWishlistMatch>();
+  for (const match of matches) {
+    const key = [
+      match.ownerPlayerId,
+      match.targetOwnerPlayerId,
+      match.cardId,
+    ].join("|");
+    const existing = grouped.get(key);
+    if (existing) existing.quantity += match.quantity;
+    else grouped.set(key, { ...match });
+  }
+  return Array.from(grouped.values());
 }
 
 export async function fulfillCompletedTradeWishlists(
@@ -48,15 +73,13 @@ export async function fulfillCompletedTradeWishlists(
         status: { in: activeStatuses },
       };
 
-      // A completed 1-for-1 trade satisfies one requested copy. Preserve an
-      // entry that still requests additional copies from this same person.
       await tx.tradeWishlistItem.updateMany({
-        where: { ...where, quantity: { lte: 1 } },
+        where: { ...where, quantity: { lte: match.quantity } },
         data: { status: TradeWishlistStatus.FULFILLED },
       });
       await tx.tradeWishlistItem.updateMany({
-        where: { ...where, quantity: { gt: 1 } },
-        data: { quantity: { decrement: 1 } },
+        where: { ...where, quantity: { gt: match.quantity } },
+        data: { quantity: { decrement: match.quantity } },
       });
     }),
   );

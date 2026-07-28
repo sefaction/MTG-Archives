@@ -20,6 +20,8 @@ export type TradeCardSummary = {
   ownerLabel?: string;
   roleLabel?: string;
   priceLabel?: string;
+  priceAmount?: number | null;
+  priceProvider?: string;
   notes?: string;
 };
 
@@ -141,7 +143,12 @@ export function TradeCardPreview({
               {card.name}
             </span>
             <span className="block truncate text-xs text-zinc-400">
-              {[setLabel, treatment, card.ownerLabel]
+              {[
+                card.quantity ? `Qty ${card.quantity}` : "",
+                setLabel,
+                treatment,
+                card.ownerLabel,
+              ]
                 .filter(Boolean)
                 .join(" / ")}
             </span>
