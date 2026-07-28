@@ -102,11 +102,23 @@ test("trade desk, active trades, and history have separate tabs", () => {
   assert.match(tradesPage, /view\?: string/);
   assert.match(tradesPage, /TradePageView/);
   assert.match(tradesPage, /label: "Trade Desk"/);
+  assert.match(tradesPage, /label: "Trade Wishlist"/);
+  assert.match(tradesPage, /\/trades\?view=wishlist/);
   assert.match(tradesPage, /label: "Active Trades"/);
   assert.match(tradesPage, /\/trades\?view=active/);
   assert.match(tradesPage, /\/trades\?view=history/);
   assert.match(tradesPage, /tradeView === "desk"/);
   assert.match(tradesPage, /historySections/);
+});
+
+test("global trade wishlist groups every open want by person", () => {
+  assert.match(tradesPage, /TradeWishlistOverviewColumn/);
+  assert.match(tradesPage, /groupTradeWishlistRows/);
+  assert.match(tradesPage, /tradeView === "wishlist"/);
+  assert.match(tradesPage, /rows=\{myTradeWishlistRows\}/);
+  assert.match(tradesPage, /rows=\{wantedFromMeRows\}/);
+  assert.match(tradesPage, /Open Trade Desk/);
+  assert.match(tradesPage, /Every open person-to-person want/);
 });
 
 test("active trade rows stay collapsed behind compact summaries", () => {
