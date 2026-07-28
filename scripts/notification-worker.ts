@@ -1,4 +1,8 @@
 import { processHourlyWishlistDigests } from "../lib/wishlist-notification-digests";
+import {
+  builtInNotificationDeliveryHandlers,
+  processNotificationDeliveryQueue,
+} from "../lib/notification-delivery";
 
 function positiveInteger(value: string | undefined, fallback: number) {
   const parsed = Number(value);
@@ -26,6 +30,19 @@ async function tick() {
   } catch (error) {
     console.error(
       "[notification-worker] wishlist digest failed",
+      error instanceof Error ? error.message : error,
+    );
+  }
+  try {
+    const result = await processNotificationDeliveryQueue(
+      builtInNotificationDeliveryHandlers,
+    );
+    if (result.claimed) {
+      console.info("[notification-worker] outbound delivery complete", result);
+    }
+  } catch (error) {
+    console.error(
+      "[notification-worker] outbound delivery failed",
       error instanceof Error ? error.message : error,
     );
   }

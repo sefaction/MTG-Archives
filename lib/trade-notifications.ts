@@ -4,7 +4,11 @@ import { TRADE_NOTIFICATION_CATEGORY } from "@/lib/notification-preferences";
 
 type TradeNotificationStore = Pick<
   Prisma.TransactionClient,
-  "notification" | "notificationPreference" | "tradeEvent" | "user"
+  | "notification"
+  | "notificationDeliveryJob"
+  | "notificationPreference"
+  | "tradeEvent"
+  | "user"
 >;
 
 export type RecordTradeEventInput = {
