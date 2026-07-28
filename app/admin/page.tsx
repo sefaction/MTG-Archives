@@ -99,6 +99,7 @@ export default async function Page() {
           {[
             ["Backups", "/admin/backups"],
             ["Metadata", "/admin/metadata"],
+            ["Notifications", "/admin/notifications"],
             ["Pricing", "/admin/prices"],
           ].map(([label, href]) => (
             <a key={href} className={buttonClass} href={href}>

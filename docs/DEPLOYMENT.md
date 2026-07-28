@@ -125,7 +125,12 @@ The application also includes a lightweight `notification-worker`:
   notifications are authoritative application state;
 - it checks for completed hourly wishlist windows with
   `npm run worker:notifications`;
-- `NOTIFICATION_WORKER_INTERVAL_MS` controls the check interval, not the hourly
-  digest grouping;
+- it also claims database-backed outbound delivery jobs with expiring leases
+  and preserves each success or failure attempt;
+- `NOTIFICATION_WORKER_INTERVAL_MS` controls the check interval, not hourly
+  digest grouping, while `NOTIFICATION_DELIVERY_*` settings control batch size,
+  lease duration, attempt limits, and bounded exponential retry timing;
+- delivery queue health and failure history are available to administrators at
+  `/admin/notifications`;
 - the web application and immediate trade-event notifications continue to work
   when this worker is unavailable.

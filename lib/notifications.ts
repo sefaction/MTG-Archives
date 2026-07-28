@@ -1,10 +1,21 @@
 import type { Prisma } from "@prisma/client";
+import { enqueueNotificationDelivery } from "@/lib/notification-delivery";
 import { prisma } from "@/lib/prisma";
 
 const MAX_TITLE_LENGTH = 160;
 const MAX_MESSAGE_LENGTH = 800;
 
-type NotificationStore = Pick<Prisma.TransactionClient, "notification">;
+type NotificationStore = Pick<
+  Prisma.TransactionClient,
+  "notification" | "notificationDeliveryJob"
+>;
+
+export type NotificationDeliveryTarget = {
+  transport: string;
+  destinationKey: string;
+  payload?: Prisma.InputJsonValue;
+  maxAttempts?: number;
+};
 
 export type CreateNotificationInput = {
   recipientUserId: string;
@@ -17,6 +28,7 @@ export type CreateNotificationInput = {
   sourceType?: string | null;
   sourceId?: string | null;
   metadata?: Prisma.InputJsonValue;
+  deliveries?: NotificationDeliveryTarget[];
 };
 
 function requiredText(value: string, field: string, maxLength: number) {
@@ -59,21 +71,45 @@ export async function createNotification(
     metadataJson: input.metadata,
   };
 
-  if (sourceType && sourceId) {
-    return store.notification.upsert({
-      where: {
-        recipientUserId_sourceType_sourceId: {
-          recipientUserId: data.recipientUserId,
-          sourceType,
-          sourceId,
-        },
-      },
-      update: {},
-      create: data,
-    });
-  }
+  const notification =
+    sourceType && sourceId
+      ? await store.notification.upsert({
+          where: {
+            recipientUserId_sourceType_sourceId: {
+              recipientUserId: data.recipientUserId,
+              sourceType,
+              sourceId,
+            },
+          },
+          update: {},
+          create: data,
+        })
+      : await store.notification.create({ data });
 
-  return store.notification.create({ data });
+  for (const delivery of input.deliveries ?? []) {
+    await enqueueNotificationDelivery(
+      {
+        notificationId: notification.id,
+        transport: delivery.transport,
+        destinationKey: delivery.destinationKey,
+        maxAttempts: delivery.maxAttempts,
+        payload:
+          delivery.payload ??
+          ({
+            notificationId: notification.id,
+            recipientUserId: data.recipientUserId,
+            type: data.type,
+            category: data.category,
+            title: data.title,
+            message: data.message,
+            href: data.href,
+            metadata: data.metadataJson ?? null,
+          } satisfies Prisma.InputJsonObject),
+      },
+      store,
+    );
+  }
+  return notification;
 }
 
 export async function getUnreadNotificationCount(recipientUserId: string) {

@@ -61,9 +61,11 @@ See `.env.example` for the full list. Important settings:
 - `REDIS_URL` should use `redis://redis:6379` inside Docker. Redis is reserved
   for future pricing queue/cache work and is not required for page rendering.
 - `NOTIFICATION_WORKER_INTERVAL_MS` controls how often the lightweight
-  notification worker checks for completed hourly wishlist windows and defaults
-  to 60 seconds. Digest grouping remains hourly regardless of this check
-  interval.
+  notification worker checks for completed hourly wishlist windows and outbound
+  delivery jobs, and defaults to 60 seconds. Digest grouping remains hourly
+  regardless of this check interval.
+- `NOTIFICATION_DELIVERY_BATCH_SIZE`, `NOTIFICATION_DELIVERY_LEASE_MS`, and the
+  delivery retry settings control bounded, restart-safe outbound processing.
 - `NEXT_PUBLIC_APP_NAME` controls visible branding and defaults to `MTG Inventory`.
 - `APP_DATA_PATH` documents the intended base host directory for persistent application data.
 - `POSTGRES_DATA_PATH`, `PRICING_POSTGRES_DATA_PATH`, `REDIS_DATA_PATH`, `UPLOADS_DATA_PATH`, `IMPORTS_DATA_PATH`, `EXPORTS_DATA_PATH`, and `BACKUPS_DATA_PATH` must each point at host storage that survives container recreation.
@@ -74,9 +76,11 @@ See `.env.example` for the full list. Important settings:
 - `ADMIN_USERNAME` and `SEED_ADMIN_PASSWORD` control bootstrap admin creation.
 
 The `notification-worker` uses the main application database to turn recorded
-trade-wishlist activity into hourly local notification digests. It is not a
-page-load dependency; immediate trade notifications are stored transactionally
-with their trade events.
+trade-wishlist activity into hourly local notification digests and to process
+transport-neutral outbound delivery jobs. Claims use expiring leases, failures
+retain attempt history, and retry delays are bounded. It is not a page-load
+dependency; immediate trade notifications are stored transactionally with their
+trade events. Queue health is visible at `/admin/notifications`.
 
 ## Persistent data directories
 

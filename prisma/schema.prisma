@@ -98,6 +98,18 @@ enum TradeWishlistStatus {
   CANCELLED
 }
 
+enum NotificationDeliveryStatus {
+  PENDING
+  SENDING
+  SENT
+  FAILED
+}
+
+enum NotificationDeliveryAttemptStatus {
+  SENT
+  FAILED
+}
+
 model User {
   id                         String                      @id @default(cuid())
   username                   String                      @unique
@@ -823,11 +835,54 @@ model Notification {
   readAt          DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  deliveryJobs    NotificationDeliveryJob[]
 
   @@unique([recipientUserId, sourceType, sourceId])
   @@index([recipientUserId, readAt, createdAt])
   @@index([recipientUserId, createdAt])
   @@index([actorUserId])
+}
+
+model NotificationDeliveryJob {
+  id              String                     @id @default(cuid())
+  notificationId  String
+  notification    Notification               @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  transport       String
+  destinationKey  String
+  payloadJson     Json
+  status          NotificationDeliveryStatus @default(PENDING)
+  attemptCount    Int                        @default(0)
+  maxAttempts     Int                        @default(5)
+  nextAttemptAt   DateTime?                  @default(now())
+  claimToken      String?
+  claimedAt       DateTime?
+  claimExpiresAt  DateTime?
+  lastError       String?
+  sentAt          DateTime?
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+  attempts        NotificationDeliveryAttempt[]
+
+  @@unique([notificationId, transport, destinationKey])
+  @@index([status, nextAttemptAt])
+  @@index([status, claimExpiresAt])
+  @@index([transport, status, createdAt])
+  @@index([notificationId])
+}
+
+model NotificationDeliveryAttempt {
+  id              String                            @id @default(cuid())
+  jobId           String
+  job             NotificationDeliveryJob           @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  attemptNumber   Int
+  status          NotificationDeliveryAttemptStatus
+  errorMessage    String?
+  startedAt       DateTime
+  finishedAt      DateTime                          @default(now())
+
+  @@unique([jobId, attemptNumber])
+  @@index([status, finishedAt])
+  @@index([jobId, finishedAt])
 }
 
 model NotificationPreference {
