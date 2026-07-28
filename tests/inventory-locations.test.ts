@@ -19,6 +19,8 @@ function makeItem(overrides: any = {}) {
     foilStatus: overrides.foilStatus ?? "NONFOIL",
     condition: overrides.condition ?? "NM",
     language: overrides.language ?? "EN",
+    sourceType: overrides.sourceType ?? "MANUAL",
+    notes: overrides.notes ?? null,
     quantity: overrides.quantity ?? 1,
     locationId: overrides.locationId ?? null,
     location: overrides.location ?? null,
@@ -73,6 +75,36 @@ test("same exact printing in multiple locations shows one total and a location b
     ],
   );
   assert.equal(exactRows[0].sourceItemIds.length, 2);
+});
+
+test("exact printing groups condition aliases and notes but separates condition, finish, and language", () => {
+  const exactRows = getInventoryExactPrintings([
+    makeItem({
+      id: "legacy-near-mint",
+      condition: "NEAR_MINT",
+      notes: "Added for deck row Sol Ring",
+      sourceType: "MANUAL",
+    }),
+    makeItem({
+      id: "canonical-near-mint",
+      condition: "NM",
+      notes: null,
+      sourceType: "CSV_PULL_IMPORT",
+    }),
+    makeItem({ id: "played", condition: "LP" }),
+    makeItem({ id: "foil", foil: true, foilStatus: "FOIL" }),
+    makeItem({ id: "japanese", language: "JA" }),
+  ] as any[]);
+
+  assert.equal(exactRows.length, 4);
+  const nearMint = exactRows.find(
+    (row) =>
+      row.condition === "NM" &&
+      row.foilStatus === "NONFOIL" &&
+      row.language === "EN",
+  );
+  assert.equal(nearMint?.quantity, 2);
+  assert.equal(nearMint?.sourceItemIds.length, 2);
 });
 
 test("different printings of the same oracle card group into one card-name total", () => {
@@ -174,7 +206,14 @@ function makeBulkPrisma(itemsInput: any[], locationsInput: any[]) {
     if (where.cardId && item.cardId !== where.cardId) return false;
     if (where.foil !== undefined && item.foil !== where.foil) return false;
     if (where.foilStatus && item.foilStatus !== where.foilStatus) return false;
-    if (where.condition && item.condition !== where.condition) return false;
+    if (where.condition?.in && !where.condition.in.includes(item.condition))
+      return false;
+    if (
+      where.condition &&
+      !where.condition.in &&
+      item.condition !== where.condition
+    )
+      return false;
     if (where.language && item.language !== where.language) return false;
     if (where.sourceType && item.sourceType !== where.sourceType) return false;
     if (
@@ -1023,14 +1062,14 @@ test("stack move rejects invalid quantities, same location, foreign owner, inact
   );
 });
 
-test("stack edit merges into an existing matching stack and audits the survivor", async () => {
+test("stack edit merges condition aliases despite different notes and provenance", async () => {
   const { updateInventoryStack } = await import("../lib/inventory-locations");
   const { prisma, items, audits } = makeBulkPrisma(
     [
       {
         id: "source",
         currentOwnerId: "owner-1",
-        originalOpenerId: "owner-1",
+        originalOpenerId: "owner-2",
         cardId: "card-sol-ring",
         foil: false,
         foilStatus: "NONFOIL",
@@ -1050,12 +1089,12 @@ test("stack edit merges into an existing matching stack and audits the survivor"
         cardId: "card-sol-ring",
         foil: false,
         foilStatus: "NONFOIL",
-        condition: "NM",
+        condition: "NEAR_MINT",
         language: "EN",
-        sourceType: "MANUAL",
-        acquiredFromPullId: null,
-        roundId: null,
-        notes: null,
+        sourceType: "CSV_PULL_IMPORT",
+        acquiredFromPullId: "pull-1",
+        roundId: "round-1",
+        notes: "Imported copy",
         locationId: "loc-box-2",
         quantity: 3,
       },

@@ -78,7 +78,10 @@ test("inventory pages expose shared location type filters", async () => {
   assert.match(advancedSearch, /locationTypes\?: FilterOption\[\]/);
   assert.match(advancedSearch, /label="Location type"/);
   assert.match(advancedSearch, /name="locationType"/);
-  assert.match(inventoryPage, /locationTypes=\{locationTypes\.map/);
+  assert.match(
+    inventoryPage,
+    /locationTypes=\{\[[\s\S]*value: "Deck", label: "Deck"[\s\S]*locationTypes\.map/,
+  );
   assert.match(publicInventoryPage, /locationTypes=\{locationTypes\.map/);
 });
 

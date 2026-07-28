@@ -86,7 +86,9 @@ function createManualTx(overrides: any = {}) {
             item.cardId === where.cardId &&
             item.foil === where.foil &&
             item.foilStatus === where.foilStatus &&
-            item.condition === where.condition &&
+            (where.condition?.in
+              ? where.condition.in.includes(item.condition)
+              : item.condition === where.condition) &&
             item.language === where.language &&
             item.locationId === where.locationId &&
             item.quantity > 0,
@@ -95,6 +97,7 @@ function createManualTx(overrides: any = {}) {
         const item = inventoryItems.get(where.id);
         if (!item) throw new Error("missing inventory");
         if (data.quantity?.increment) item.quantity += data.quantity.increment;
+        if (data.condition !== undefined) item.condition = data.condition;
         if (data.notes !== undefined) item.notes = data.notes;
         if (data.sourceType !== undefined) item.sourceType = data.sourceType;
         inventoryItems.set(item.id, item);
@@ -150,7 +153,7 @@ test("manual single-card add increments matching stack by owner, location, finis
         quantity: 3,
         foil: false,
         foilStatus: FoilStatus.NONFOIL,
-        condition: "NM",
+        condition: "NEAR_MINT",
         language: "EN",
         locationId: "box",
       },
@@ -170,6 +173,7 @@ test("manual single-card add increments matching stack by owner, location, finis
   assert.equal(result.created, false);
   assert.equal(result.inventory.id, "existing");
   assert.equal(result.inventory.quantity, 7);
+  assert.equal(result.inventory.condition, "NM");
   assert.equal(auditLogs[0].inventoryItemId, "existing");
   assert.equal((auditLogs[0].afterJson as any).afterQuantity, 7);
 });
@@ -221,6 +225,7 @@ test("single-card and deck add-real-copy UIs use deliberate printing search and 
   assert.match(addRealCopyUi, /<DeckPrintingChooser/);
   assert.match(addRealCopyUi, /Add and commit real copy/);
   assert.match(addRealCopyUi, /action=\{addRealCopyToDeck\}/);
+  assert.doesNotMatch(addRealCopyUi, /Added for deck row/);
   assert.doesNotMatch(addRealCopyUi, /Normal inventory location/);
   assert.doesNotMatch(addRealCopyUi, /Commit to this deck immediately/);
 

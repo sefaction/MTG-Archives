@@ -48,6 +48,7 @@ import {
   getLocationsForOwner,
   normalizeLocationName,
 } from "@/lib/inventory-locations";
+import { normalizeInventoryCondition } from "@/lib/inventory-condition";
 import { INVENTORY_FILTER_PARAM_KEYS } from "@/lib/inventory-filters";
 import {
   cn,
@@ -152,28 +153,7 @@ function parseFoil(value: string) {
   };
 }
 function parseCondition(value: string) {
-  const v = norm(value);
-  if (!v) return "NM";
-  const map: Record<string, string> = {
-    nm: "NM",
-    "near mint": "NM",
-    nearmint: "NM",
-    lp: "LP",
-    "lightly played": "LP",
-    lightlyplayed: "LP",
-    sp: "LP",
-    "slightly played": "LP",
-    mp: "MP",
-    "moderately played": "MP",
-    moderatelyplayed: "MP",
-    hp: "HP",
-    "heavily played": "HP",
-    heavilyplayed: "HP",
-    dmg: "DMG",
-    damaged: "DMG",
-    poor: "DMG",
-  };
-  return map[v] ?? value.trim().toUpperCase();
+  return normalizeInventoryCondition(value);
 }
 function parseLanguage(value: string) {
   const v = norm(value);
@@ -1171,8 +1151,9 @@ export default async function ImportsPage({
       const foilStatus = (lockedItem.parsedFoilStatus ||
         parsedRow.foilStatus ||
         "NONFOIL") as FoilStatus;
-      const condition =
-        lockedItem.parsedCondition || parsedRow.condition || "NM";
+      const condition = normalizeInventoryCondition(
+        lockedItem.parsedCondition || parsedRow.condition,
+      );
       const rowLocation = parsedRow.locationName
         ? await prisma.inventoryLocation.findFirst({
             where: {

@@ -3,6 +3,7 @@ import {
   InventoryLocationKind,
   InventorySourceType,
 } from "@prisma/client";
+import { isReservedLocationTypeName } from "./location-types";
 
 export const INVENTORY_FILTER_PARAM_KEYS = [
   "cardName",
@@ -358,9 +359,15 @@ export function buildInventoryWhereFromFilters(
   }
   if (filters.locationTypes.length)
     appendAnd(where, {
-      OR: filters.locationTypes.map((type) => ({
-        location: { type: { equals: type, mode: "insensitive" } },
-      })),
+      OR: filters.locationTypes.map((type) =>
+        isReservedLocationTypeName(type)
+          ? { location: { kind: InventoryLocationKind.DECK } }
+          : {
+              location: {
+                type: { equals: type, mode: "insensitive" },
+              },
+            },
+      ),
     });
   if (filters.commitment === "available")
     appendAnd(where, {

@@ -1986,11 +1986,6 @@ function AddRealCopyToDeck({
             className={cn(filterInputClass, "mt-1 w-full")}
           />
         </label>
-        <input
-          type="hidden"
-          name="notes"
-          value={`Added for deck row ${row.cardName}`}
-        />
         {remainingNeeded <= 0 ? (
           <p className="rounded border border-emerald-800 bg-emerald-950/30 p-2 text-sm text-emerald-100 md:col-span-4">
             This deck row is already fully committed.

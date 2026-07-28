@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { equivalentInventoryConditions } from "./inventory-condition";
 
 export async function moveInventoryQuantityWithinTransaction(
   tx: Prisma.TransactionClient,
@@ -27,7 +28,7 @@ export async function moveInventoryQuantityWithinTransaction(
       cardId: source.cardId,
       foil: source.foil,
       foilStatus: source.foilStatus,
-      condition: source.condition,
+      condition: { in: equivalentInventoryConditions(source.condition) },
       language: source.language,
       locationId: input.toLocationId,
       quantity: { gt: 0 },

@@ -15,6 +15,7 @@ import {
   buildRelatedCardMetadataByScryfallId,
   enrichAllPartsWithLocalCardMetadata,
 } from "@/lib/inventory-related-cards";
+import { buildPublicTradeWishlistTargets } from "@/lib/public-trade-wishlist-targets";
 
 type PublicOwner = {
   displayName: string;
@@ -88,10 +89,18 @@ function getGlobalPublicExactPrintings(items: any[]) {
       inventoryItemIds: [item.id],
     };
     const ownerPart = {
+      ownerPlayerId: item.currentOwnerId,
       ownerName,
       publicSlug: owner.publicSlug,
       ownerColor: owner.color,
       locationName,
+      inventoryItemId: item.id,
+      cardId: item.cardId,
+      setCode: item.card.setCode,
+      collectorNumber: item.card.collectorNumber,
+      foilStatus: item.foilStatus,
+      condition: item.condition,
+      language: item.language,
       quantity: item.quantity,
     };
     const existing = groups.get(key);
@@ -136,11 +145,13 @@ function toInventoryBrowserRows({
   displayMode,
   relatedCardsByScryfallId,
   preferredPriceProvider,
+  viewerPlayerId,
 }: {
   displayItems: any[];
   displayMode: "exact" | "grouped";
   relatedCardsByScryfallId: Map<string, any>;
   preferredPriceProvider?: string | null;
+  viewerPlayerId?: string | null;
 }) {
   return displayItems.map((entry: any, rowIndex: number) => {
     const i = displayMode === "grouped" ? entry.representative : entry;
@@ -186,6 +197,10 @@ function toInventoryBrowserRows({
       id: publicRowId,
       cardId: publicRowId,
       sourceItemIds,
+      tradeWishlistTargets: buildPublicTradeWishlistTargets(
+        ownerBreakdown,
+        viewerPlayerId,
+      ),
       cardName: i.card.name,
       quantity: entry.quantity ?? i.quantity,
       displayMode,
@@ -317,6 +332,7 @@ export async function GET(request: Request) {
       displayMode,
       relatedCardsByScryfallId,
       preferredPriceProvider: viewer?.preferredPriceProvider,
+      viewerPlayerId: viewer?.playerId,
     }),
     page: result.page,
     pageSize: result.pageSize,

@@ -49,5 +49,7 @@ test("trade wishlist surfaces render from public inventory, wishlist, and trades
   const firstCard = page.locator("tbody button").first();
   await expect(firstCard).toBeVisible();
   await firstCard.click();
-  await expect(page.getByText("Wishlist for trade")).toBeVisible();
+  await expect(
+    page.getByText(/Wishlist from|Choose trade target/),
+  ).toBeVisible();
 });

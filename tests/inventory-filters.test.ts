@@ -52,6 +52,20 @@ test("inventory location type filter applies to private inventory queries", () =
   });
 });
 
+test("reserved Deck location type filters by system deck kind", () => {
+  const filters = parseInventoryFilters(
+    new URLSearchParams("locationType=Deck"),
+  );
+  const where = buildInventoryWhereFromFilters(filters, {
+    adminModeActive: false,
+    playerId: "player-1",
+  });
+
+  assert.deepEqual(where.AND[0], {
+    OR: [{ location: { kind: "DECK" } }],
+  });
+});
+
 test("inventory filter parser supports mana value and price operators", () => {
   const filters = parseInventoryFilters(
     new URLSearchParams("mvOp=lte&mv=3&priceMin=1.25&priceMax=4.5"),
