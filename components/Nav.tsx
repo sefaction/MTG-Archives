@@ -9,6 +9,8 @@ import {
 import { redirect } from "next/navigation";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { AdminModeToggle } from "@/components/AdminModeToggle";
+import { NotificationBell } from "@/components/NotificationBell";
+import { getUnreadNotificationCount } from "@/lib/notifications";
 import { normalizePlayerColor } from "@/lib/player-colors";
 
 const mainLinks = [
@@ -41,6 +43,9 @@ export async function Nav() {
   const userIsAdmin = isAdminUser(user, user?.player);
   const adminModeActive = await isAdminModeEnabled(user);
   const appName = process.env.NEXT_PUBLIC_APP_NAME || "MTG Inventory";
+  const unreadNotificationCount = user
+    ? await getUnreadNotificationCount(user.id)
+    : 0;
 
   async function doLogout() {
     "use server";
@@ -105,6 +110,11 @@ export async function Nav() {
                   exitAction={exitAdminMode}
                 />
               ) : null}
+              <NotificationBell
+                key={`notifications-${unreadNotificationCount}`}
+                appName={appName}
+                initialUnreadCount={unreadNotificationCount}
+              />
               <Link
                 className="rounded-md border border-[#364139] px-3 py-1 text-stone-200 hover:border-cyan-700 hover:bg-cyan-950/20 hover:text-cyan-100"
                 href="/change-password"
