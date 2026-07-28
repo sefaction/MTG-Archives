@@ -131,6 +131,8 @@ model User {
   tradeWishlistItems         TradeWishlistItem[]
   notifications              Notification[]              @relation("NotificationRecipient")
   notificationActions        Notification[]              @relation("NotificationActor")
+  notificationPreferences    NotificationPreference[]
+  wishlistNotificationEvents TradeWishlistNotificationActivity[]
   createdLocationTypes       LocationType[]
 
   @@index([publicProfileEnabled, isActive, inventoryDefaultVisibility])
@@ -187,6 +189,7 @@ model Player {
   tradesProposed              Trade[]             @relation("TradeProposer")
   tradesReceived              Trade[]             @relation("TradeReceiver")
   tradeEvents                 TradeEvent[]
+  wishlistNotificationTargets TradeWishlistNotificationActivity[]
 }
 
 model LeaguePlayer {
@@ -558,6 +561,7 @@ model TradeWishlistItem {
   notes                 String?
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
+  notificationActivities TradeWishlistNotificationActivity[]
 
   @@unique([ownerUserId, targetOwnerPlayerId, cardId])
   @@index([ownerUserId, status, updatedAt])
@@ -823,6 +827,37 @@ model Notification {
   @@unique([recipientUserId, sourceType, sourceId])
   @@index([recipientUserId, readAt, createdAt])
   @@index([recipientUserId, createdAt])
+  @@index([actorUserId])
+}
+
+model NotificationPreference {
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category     String
+  inAppEnabled Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@id([userId, category])
+  @@index([category, inAppEnabled])
+}
+
+model TradeWishlistNotificationActivity {
+  id                    String            @id @default(cuid())
+  actorUserId           String
+  actorUser             User              @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+  targetOwnerPlayerId   String
+  targetOwnerPlayer     Player            @relation(fields: [targetOwnerPlayerId], references: [id], onDelete: Cascade)
+  tradeWishlistItemId   String
+  tradeWishlistItem     TradeWishlistItem @relation(fields: [tradeWishlistItemId], references: [id], onDelete: Cascade)
+  cardName              String
+  quantityAdded         Int               @default(1)
+  processedAt           DateTime?
+  createdAt             DateTime          @default(now())
+
+  @@index([processedAt, createdAt])
+  @@index([targetOwnerPlayerId, processedAt, createdAt])
+  @@index([tradeWishlistItemId])
   @@index([actorUserId])
 }
 

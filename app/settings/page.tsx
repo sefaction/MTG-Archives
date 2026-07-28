@@ -16,6 +16,10 @@ import {
   DEFAULT_PLAYER_COLOR,
   normalizePlayerColor,
 } from "@/lib/player-colors";
+import {
+  getLocalNotificationPreferences,
+  setLocalNotificationPreferences,
+} from "@/lib/notification-preferences";
 import { APP_THEMES, normalizeAppTheme } from "@/lib/themes";
 import {
   assertPublicSlug,
@@ -64,6 +68,9 @@ export default async function SettingsPage({
   const scope = await getAccessScope(user);
   const adminModeActive = scope?.mode === "admin";
   const suggestedSlug = normalizePublicSlug(user.username || user.displayName);
+  const notificationPreferences = await getLocalNotificationPreferences(
+    user.id,
+  );
 
   async function updateVisibilitySettings(fd: FormData) {
     "use server";
@@ -73,8 +80,14 @@ export default async function SettingsPage({
       include: { player: true },
     });
     if (!before) throw new Error("User not found.");
+    const beforeNotificationPreferences = await getLocalNotificationPreferences(
+      actor.id,
+    );
 
     const publicProfileEnabled = fd.get("publicProfileEnabled") === "on";
+    const tradeNotifications = fd.get("tradeNotifications") === "on";
+    const wishlistDigestNotifications =
+      fd.get("wishlistDigestNotifications") === "on";
     const theme = normalizeAppTheme(fd.get("theme"));
     const publicDisplayName =
       String(fd.get("publicDisplayName") || "").trim() || null;
@@ -97,8 +110,8 @@ export default async function SettingsPage({
       if (duplicate) throw new Error("That public slug is already in use.");
     }
 
-    const [updated] = await prisma.$transaction([
-      prisma.user.update({
+    const updated = await prisma.$transaction(async (tx) => {
+      const savedUser = await tx.user.update({
         where: { id: actor.id },
         data: {
           inventoryDefaultVisibility: parseDefaultVisibility(
@@ -113,16 +126,23 @@ export default async function SettingsPage({
           publicDisplayName,
           publicSlug,
         },
-      }),
-      ...(actor.playerId
-        ? [
-            prisma.player.update({
-              where: { id: actor.playerId },
-              data: { color: playerColor },
-            }),
-          ]
-        : []),
-    ]);
+      });
+      if (actor.playerId) {
+        await tx.player.update({
+          where: { id: actor.playerId },
+          data: { color: playerColor },
+        });
+      }
+      await setLocalNotificationPreferences(
+        actor.id,
+        {
+          trades: tradeNotifications,
+          wishlistDigest: wishlistDigestNotifications,
+        },
+        tx,
+      );
+      return savedUser;
+    });
 
     await prisma.inventoryAuditLog.create({
       data: {
@@ -137,6 +157,9 @@ export default async function SettingsPage({
           theme: before.theme,
           preferredPriceProvider: before.preferredPriceProvider,
           playerColor: before.player?.color ?? DEFAULT_PLAYER_COLOR,
+          tradeNotifications: beforeNotificationPreferences.trades,
+          wishlistDigestNotifications:
+            beforeNotificationPreferences.wishlistDigest,
         },
         afterJson: {
           inventoryDefaultVisibility: updated.inventoryDefaultVisibility,
@@ -147,6 +170,8 @@ export default async function SettingsPage({
           theme: updated.theme,
           preferredPriceProvider: updated.preferredPriceProvider,
           playerColor,
+          tradeNotifications,
+          wishlistDigestNotifications,
         },
         reason: "Collection visibility settings updated.",
       },
@@ -284,6 +309,48 @@ export default async function SettingsPage({
                 </option>
               ))}
             </select>
+          </label>
+        </section>
+
+        <section className="space-y-4 border-t border-[var(--app-border)] pt-5">
+          <div>
+            <h2 className="text-base font-semibold">Notifications</h2>
+            <p className="app-muted text-sm">
+              Choose which quiet in-app updates appear in the header and
+              notification history.
+            </p>
+          </div>
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="tradeNotifications"
+              defaultChecked={notificationPreferences.trades}
+              className="mt-0.5"
+            />
+            <span>
+              <span className="block font-medium">Trade activity</span>
+              <span className="app-muted block text-xs">
+                Proposals, counters, status changes, and physical exchange
+                confirmations.
+              </span>
+            </span>
+          </label>
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="wishlistDigestNotifications"
+              defaultChecked={notificationPreferences.wishlistDigest}
+              className="mt-0.5"
+            />
+            <span>
+              <span className="block font-medium">
+                Hourly trade-wishlist digest
+              </span>
+              <span className="app-muted block text-xs">
+                Bundle new interest in your public cards into one quiet update
+                per hourly window.
+              </span>
+            </span>
           </label>
         </section>
 

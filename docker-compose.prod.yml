@@ -9,6 +9,11 @@ services:
     pull_policy: always
     restart: unless-stopped
 
+  notification-worker:
+    image: ${WEB_IMAGE:-ghcr.io/sefaction/mtg-archives-web:${IMAGE_TAG:-main}}
+    pull_policy: always
+    restart: unless-stopped
+
   backup:
     image: ${WEB_IMAGE:-ghcr.io/sefaction/mtg-archives-web:${IMAGE_TAG:-main}}
     pull_policy: always

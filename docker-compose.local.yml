@@ -47,6 +47,13 @@ services:
     environment:
       PRICING_IMPORT_MAX_CARDS: ${PRICING_IMPORT_MAX_CARDS:-0}
 
+  notification-worker:
+    image: mtg-archives-web:local
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    pull_policy: build
+
   backup:
     image: mtg-archives-web:local
     build:

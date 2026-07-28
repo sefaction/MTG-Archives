@@ -16,6 +16,8 @@
     "backup:restore": "tsx scripts/backup-restore.ts",
     "worker:prices": "tsx scripts/pricing-worker.ts",
     "worker:prices:once": "tsx scripts/pricing-worker.ts --once",
+    "worker:notifications": "tsx scripts/notification-worker.ts",
+    "worker:notifications:once": "tsx scripts/notification-worker.ts --once",
     "ui:test": "playwright test",
     "ui:test:headed": "playwright test --headed",
     "ui:report": "playwright show-report",
