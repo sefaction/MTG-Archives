@@ -118,3 +118,14 @@ This phase includes the first pricing worker stack:
 - `pricing-worker` starts with `npm run worker:prices`, initializes the pricing
   database schema, and writes heartbeat/run/log records. Actual MTGJSON import
   processing is intentionally left for a later phase.
+
+The application also includes a lightweight `notification-worker`:
+
+- it uses the main `DATABASE_URL` because wishlist activity and local
+  notifications are authoritative application state;
+- it checks for completed hourly wishlist windows with
+  `npm run worker:notifications`;
+- `NOTIFICATION_WORKER_INTERVAL_MS` controls the check interval, not the hourly
+  digest grouping;
+- the web application and immediate trade-event notifications continue to work
+  when this worker is unavailable.

@@ -35,6 +35,18 @@ test("pricing worker stack is isolated from the main application database", () =
   assert.doesNotMatch(worker, /\n      DATABASE_URL:/);
 });
 
+test("notification worker processes hourly digests from the main database", () => {
+  const worker = serviceBlock(compose, "notification-worker");
+  assert.match(worker, /DATABASE_URL/);
+  assert.match(worker, /npm run worker:notifications/);
+  assert.match(worker, /NOTIFICATION_WORKER_INTERVAL_MS/);
+  assert.match(worker, /web:\s*\n\s*condition: service_healthy/);
+  assert.match(serviceBlock(compose, "web"), /healthcheck:/);
+  assert.match(localCompose, /notification-worker:/);
+  assert.match(prodCompose, /notification-worker:/);
+  assert.match(deploymentDocs, /hourly wishlist windows/);
+});
+
 test("local compose layer builds from checkout and avoids machine-specific paths", () => {
   assert.match(localCompose, /context: \./);
   assert.match(localCompose, /mtg-archives-web:local/);

@@ -56,7 +56,7 @@ test("settings page renders and saves per-user identity color", () => {
   assert.match(settings, /name="playerColor"/);
   assert.match(settings, /type="color"/);
   assert.match(settings, /normalizePlayerColor\(fd\.get\("playerColor"\)\)/);
-  assert.match(settings, /prisma\.player\.update/);
+  assert.match(settings, /tx\.player\.update/);
   assert.match(settings, /data: \{ color: playerColor \}/);
 });
 

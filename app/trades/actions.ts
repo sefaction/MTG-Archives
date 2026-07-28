@@ -25,6 +25,7 @@ import {
   type TradeLineSelection,
 } from "@/lib/trade-lines";
 import { selectTradeCardPrice } from "@/lib/trade-value";
+import { recordTradeEvent } from "@/lib/trade-notifications";
 
 const activeStatuses: TradeStatus[] = [
   TradeStatus.PROPOSED,
@@ -303,19 +304,9 @@ export async function createTrade(fd: FormData) {
         })),
       ],
     },
-    events: {
-      create: {
-        eventType: "proposed",
-        actorUserId: actor.id,
-        actorPlayerId: actor.playerId,
-        message: `${
-          counterSource ? `Counter to trade ${counterSource.id}. ` : ""
-        }Trade proposed with ${offered.length} offered and ${requested.length} requested card lines.`,
-      },
-    },
   };
-  if (counterSource) {
-    await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
+    if (counterSource) {
       const replaced = await tx.trade.updateMany({
         where: {
           id: counterSource.id,
@@ -332,20 +323,45 @@ export async function createTrade(fd: FormData) {
         );
       }
       const counter = await tx.trade.create({ data: createData });
-      await tx.tradeEvent.create({
-        data: {
-          tradeId: counterSource.id,
-          eventType: "countered",
-          actorUserId: actor.id,
-          actorPlayerId: actor.playerId,
-          message: `Replaced by counter proposal ${counter.id}.`,
+      await recordTradeEvent(tx, {
+        tradeId: counterSource.id,
+        eventType: "countered",
+        actorUserId: actor.id,
+        actorPlayerId: actor.playerId,
+        message: `Replaced by counter proposal ${counter.id}.`,
+      });
+      await recordTradeEvent(tx, {
+        tradeId: counter.id,
+        eventType: "counter_proposed",
+        actorUserId: actor.id,
+        actorPlayerId: actor.playerId,
+        message: `Counter proposed with ${offered.length} offered and ${requested.length} requested card lines.`,
+        notification: {
+          type: "trade.countered",
+          title: `${actor.displayName} countered your trade`,
+          message: "Review the updated card exchange in Active Trades.",
+          recipientPlayerIds: [data.receiverPlayerId],
         },
       });
+      return;
+    }
+    const trade = await tx.trade.create({ data: createData });
+    await recordTradeEvent(tx, {
+      tradeId: trade.id,
+      eventType: "proposed",
+      actorUserId: actor.id,
+      actorPlayerId: actor.playerId,
+      message: `Trade proposed with ${offered.length} offered and ${requested.length} requested card lines.`,
+      notification: {
+        type: "trade.proposed",
+        title: `${actor.displayName} sent you a trade proposal`,
+        message: "Review the offered and requested cards in Active Trades.",
+        recipientPlayerIds: [data.receiverPlayerId],
+      },
     });
-  } else {
-    await prisma.trade.create({ data: createData });
-  }
+  });
   revalidatePath("/trades");
+  revalidatePath("/notifications");
 }
 
 export async function cancelTradeWishlistItem(fd: FormData) {
@@ -390,20 +406,27 @@ export async function actOnTrade(fd: FormData) {
       recipientOwnerId: trade.receiverPlayerId,
       status: trade.status,
     });
-    await prisma.trade.update({
-      where: { id: trade.id },
-      data: {
-        status: TradeStatus.ACCEPTED_PENDING_EXCHANGE,
-        acceptedAt: now,
-        events: {
-          create: {
-            eventType: "accepted",
-            actorUserId: actor.id,
-            actorPlayerId: actor.playerId,
-            message: "Trade accepted; awaiting physical exchange.",
-          },
+    await prisma.$transaction(async (tx) => {
+      await tx.trade.update({
+        where: { id: trade.id },
+        data: {
+          status: TradeStatus.ACCEPTED_PENDING_EXCHANGE,
+          acceptedAt: now,
         },
-      },
+      });
+      await recordTradeEvent(tx, {
+        tradeId: trade.id,
+        eventType: "accepted",
+        actorUserId: actor.id,
+        actorPlayerId: actor.playerId,
+        message: "Trade accepted; awaiting physical exchange.",
+        notification: {
+          type: "trade.accepted",
+          title: `${actor.displayName} accepted your trade`,
+          message: "The trade is ready for physical exchange confirmation.",
+          recipientPlayerIds: [trade.proposerPlayerId],
+        },
+      });
     });
   } else if (action === "decline") {
     assertCanDeclineTrade({
@@ -413,20 +436,28 @@ export async function actOnTrade(fd: FormData) {
       recipientOwnerId: trade.receiverPlayerId,
       status: trade.status,
     });
-    await prisma.trade.update({
-      where: { id: trade.id },
-      data: {
-        status: TradeStatus.DECLINED,
-        declinedAt: now,
-        events: {
-          create: {
-            eventType: "declined",
-            actorUserId: actor.id,
-            actorPlayerId: actor.playerId,
-            message: String(fd.get("reason") || "Trade declined."),
-          },
+    const reason = String(fd.get("reason") || "Trade declined.");
+    await prisma.$transaction(async (tx) => {
+      await tx.trade.update({
+        where: { id: trade.id },
+        data: {
+          status: TradeStatus.DECLINED,
+          declinedAt: now,
         },
-      },
+      });
+      await recordTradeEvent(tx, {
+        tradeId: trade.id,
+        eventType: "declined",
+        actorUserId: actor.id,
+        actorPlayerId: actor.playerId,
+        message: reason,
+        notification: {
+          type: "trade.declined",
+          title: `${actor.displayName} declined your trade`,
+          message: reason,
+          recipientPlayerIds: [trade.proposerPlayerId],
+        },
+      });
     });
   } else if (action === "cancel") {
     assertCanCancelTrade({
@@ -437,28 +468,40 @@ export async function actOnTrade(fd: FormData) {
       status: trade.status,
     });
     const reason = String(fd.get("reason") || "Trade cancelled.");
-    await prisma.trade.update({
-      where: { id: trade.id },
-      data: {
-        status: TradeStatus.CANCELLED,
-        cancelledAt: now,
-        events: {
-          create: {
-            eventType:
-              actorIsAdmin && actor.playerId !== trade.proposerPlayerId
-                ? "admin_cancelled"
-                : "cancelled",
-            actorUserId: actor.id,
-            actorPlayerId: actor.playerId,
-            message: reason,
-          },
+    const eventType =
+      actorIsAdmin && actor.playerId !== trade.proposerPlayerId
+        ? "admin_cancelled"
+        : "cancelled";
+    await prisma.$transaction(async (tx) => {
+      await tx.trade.update({
+        where: { id: trade.id },
+        data: {
+          status: TradeStatus.CANCELLED,
+          cancelledAt: now,
         },
-      },
+      });
+      await recordTradeEvent(tx, {
+        tradeId: trade.id,
+        eventType,
+        actorUserId: actor.id,
+        actorPlayerId: actor.playerId,
+        message: reason,
+        notification: {
+          type: "trade.cancelled",
+          title: `${actor.displayName} cancelled a trade`,
+          message: reason,
+          recipientPlayerIds:
+            eventType === "admin_cancelled"
+              ? [trade.proposerPlayerId, trade.receiverPlayerId]
+              : [trade.receiverPlayerId],
+        },
+      });
     });
   } else {
     throw new Error("Unknown trade action.");
   }
   revalidatePath("/trades");
+  revalidatePath("/notifications");
 }
 
 async function removeFromSource(
@@ -740,9 +783,18 @@ async function completeTradeIfReady(
         completedAt: new Date(),
         proposerCommittedAt: trade.proposerCommittedAt ?? new Date(),
         receiverCommittedAt: trade.receiverCommittedAt ?? new Date(),
-        events: {
-          create: { eventType: "completed", actorUserId, message: reason },
-        },
+      },
+    });
+    await recordTradeEvent(tx, {
+      tradeId,
+      eventType: "completed",
+      actorUserId,
+      message: reason,
+      notification: {
+        type: "trade.completed",
+        title: "Trade completed",
+        message: `${trade.proposerPlayer.displayName} and ${trade.receiverPlayer.displayName}'s inventory has been updated.`,
+        recipientPlayerIds: [trade.proposerPlayerId, trade.receiverPlayerId],
       },
     });
   });
@@ -780,20 +832,23 @@ export async function confirmPhysicalTrade(fd: FormData) {
   if (actorIsAdmin && fd.get("forceComplete")) {
     const reason = String(fd.get("reason") || "");
     if (!reason) throw new Error("Admin force complete requires a reason.");
-    await prisma.tradeEvent.create({
-      data: {
+    await prisma.$transaction((tx) =>
+      recordTradeEvent(tx, {
         tradeId: trade.id,
         eventType: "admin_force_complete",
         actorUserId: actor.id,
         actorPlayerId: actor.playerId,
         message: reason,
-      },
-    });
+      }),
+    );
     await completeTradeIfReady(trade.id, actor.id, true);
     revalidatePath("/trades");
     revalidatePath("/wishlist");
+    revalidatePath("/notifications");
     return;
   }
+  let otherParticipantId: string;
+  let willComplete = false;
   if (actor.playerId === trade.proposerPlayerId) {
     if (trade.proposerCommittedAt)
       throw new Error("You have already confirmed this physical exchange.");
@@ -806,6 +861,8 @@ export async function confirmPhysicalTrade(fd: FormData) {
     }
     data.proposerCommittedAt = new Date();
     eventType = "proposer_confirmed_physical_exchange";
+    otherParticipantId = trade.receiverPlayerId;
+    willComplete = Boolean(trade.receiverCommittedAt);
   } else if (actor.playerId === trade.receiverPlayerId) {
     if (trade.receiverCommittedAt)
       throw new Error("You have already confirmed this physical exchange.");
@@ -818,26 +875,36 @@ export async function confirmPhysicalTrade(fd: FormData) {
     }
     data.receiverCommittedAt = new Date();
     eventType = "receiver_confirmed_physical_exchange";
+    otherParticipantId = trade.proposerPlayerId;
+    willComplete = Boolean(trade.proposerCommittedAt);
   } else {
     throw new Error(
       "Only trade participants can confirm the physical exchange.",
     );
   }
-  await prisma.trade.update({
-    where: { id: trade.id },
-    data: {
-      ...data,
-      events: {
-        create: {
-          eventType,
-          actorUserId: actor.id,
-          actorPlayerId: actor.playerId,
-          message: "Physical exchange confirmed.",
-        },
-      },
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.trade.update({
+      where: { id: trade.id },
+      data,
+    });
+    await recordTradeEvent(tx, {
+      tradeId: trade.id,
+      eventType,
+      actorUserId: actor.id,
+      actorPlayerId: actor.playerId,
+      message: "Physical exchange confirmed.",
+      notification: willComplete
+        ? undefined
+        : {
+            type: "trade.physical_confirmed",
+            title: `${actor.displayName} confirmed the physical exchange`,
+            message: "Confirm your side when the cards have changed hands.",
+            recipientPlayerIds: [otherParticipantId],
+          },
+    });
   });
   await completeTradeIfReady(trade.id, actor.id);
   revalidatePath("/trades");
   revalidatePath("/wishlist");
+  revalidatePath("/notifications");
 }
