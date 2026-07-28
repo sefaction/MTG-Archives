@@ -21,6 +21,7 @@ import { getActiveLocationTypes } from "@/lib/location-types";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { addPublicInventoryToTradeWishlist } from "./actions";
+import { buildPublicTradeWishlistTargets } from "@/lib/public-trade-wishlist-targets";
 
 export const dynamic = "force-dynamic";
 
@@ -100,10 +101,18 @@ function getGlobalPublicExactPrintings(items: any[]) {
       inventoryItemIds: [item.id],
     };
     const ownerPart = {
+      ownerPlayerId: item.currentOwnerId,
       ownerName,
       publicSlug: owner.publicSlug,
       ownerColor: owner.color,
       locationName,
+      inventoryItemId: item.id,
+      cardId: item.cardId,
+      setCode: item.card.setCode,
+      collectorNumber: item.card.collectorNumber,
+      foilStatus: item.foilStatus,
+      condition: item.condition,
+      language: item.language,
       quantity: item.quantity,
     };
     const existing = groups.get(key);
@@ -148,11 +157,13 @@ function toInventoryBrowserRows({
   displayMode,
   relatedCardsByScryfallId,
   preferredPriceProvider,
+  viewerPlayerId,
 }: {
   displayItems: any[];
   displayMode: "exact" | "grouped";
   relatedCardsByScryfallId: Map<string, any>;
   preferredPriceProvider?: string | null;
+  viewerPlayerId?: string | null;
 }) {
   return displayItems.map((entry: any, rowIndex: number) => {
     const i = displayMode === "grouped" ? entry.representative : entry;
@@ -198,6 +209,10 @@ function toInventoryBrowserRows({
       id: publicRowId,
       cardId: publicRowId,
       sourceItemIds,
+      tradeWishlistTargets: buildPublicTradeWishlistTargets(
+        ownerBreakdown,
+        viewerPlayerId,
+      ),
       cardName: i.card.name,
       quantity: entry.quantity ?? i.quantity,
       displayMode,
@@ -342,6 +357,7 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
     displayMode,
     relatedCardsByScryfallId,
     preferredPriceProvider: viewer?.preferredPriceProvider,
+    viewerPlayerId: viewer?.playerId,
   });
   const pageParams = Object.fromEntries(
     Object.entries(p).filter(([key, value]) => value && key !== "page"),

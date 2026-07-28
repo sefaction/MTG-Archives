@@ -5,6 +5,10 @@ import {
   Prisma,
 } from "@prisma/client";
 import { inventoryAuditAction, recordInventoryAudit } from "./inventory-audit";
+import {
+  equivalentInventoryConditions,
+  normalizeInventoryCondition,
+} from "./inventory-condition";
 
 export type ManualInventoryAddInput = {
   ownerPlayerId: string;
@@ -58,7 +62,7 @@ export async function addInventoryCardToLocation(
     throw new Error("Choose a normal inventory location.");
   }
   const foilStatus = normalizeFoilStatus(input.foilStatus);
-  const condition = (input.condition || "NM").trim() || "NM";
+  const condition = normalizeInventoryCondition(input.condition);
   const language = (input.language || "EN").trim().toUpperCase() || "EN";
   const notes = input.notes?.trim() || null;
   const matchingWhere = {
@@ -67,7 +71,7 @@ export async function addInventoryCardToLocation(
     cardId: card.id,
     foil: foilStatus !== FoilStatus.NONFOIL,
     foilStatus,
-    condition,
+    condition: { in: equivalentInventoryConditions(condition) },
     language,
     locationId: location.id,
     quantity: { gt: 0 },
@@ -79,6 +83,7 @@ export async function addInventoryCardToLocation(
         where: { id: existing.id },
         data: {
           quantity: { increment: quantity },
+          condition,
           notes: notes ?? undefined,
           sourceType: InventorySourceType.MANUAL,
         },

@@ -208,7 +208,10 @@ test("public inventory data and autocomplete routes are scoped to public-safe da
   assert.match(publicInventoryListApi, /getGlobalPublicInventory/);
   assert.match(publicInventoryListApi, /toInventoryBrowserRows/);
   assert.match(globalPublicInventoryPage, /onAddTradeWishlist=/);
-  assert.match(inventoryBrowser, /Wishlist for trade/);
+  assert.match(inventoryBrowser, /Wishlist from/);
+  assert.match(inventoryBrowser, /Choose trade target/);
+  assert.match(publicInventoryListApi, /tradeWishlistTargets/);
+  assert.match(publicInventoryPage, /tradeWishlistTargets/);
   assert.match(publicInventoryListApi, /sourceItemIds/);
   assert.match(publicInventoryPage, /sourceItemIds/);
   assert.match(publicInventoryActions, /requireLogin\(\)/);

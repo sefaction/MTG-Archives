@@ -1051,10 +1051,13 @@ export default async function InventoryPage({
           label: location.name,
           kind: location.kind,
         }))}
-        locationTypes={locationTypes.map((type) => ({
-          value: type.name,
-          label: type.name,
-        }))}
+        locationTypes={[
+          { value: "Deck", label: "Deck" },
+          ...locationTypes.map((type) => ({
+            value: type.name,
+            label: type.name,
+          })),
+        ]}
         setOptions={setOptions.map((set) => ({
           value: set.setCode,
           label: `${set.setCode.toUpperCase()} — ${set.setName || set.setCode.toUpperCase()}`,

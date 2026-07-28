@@ -8,6 +8,10 @@ import {
   PrismaClient,
   TradeStatus,
 } from "@prisma/client";
+import {
+  equivalentInventoryConditions,
+  normalizeInventoryCondition,
+} from "./inventory-condition";
 
 export function normalizeLocationName(name: string) {
   return name.trim().replace(/\s+/g, " ").toLowerCase();
@@ -235,7 +239,7 @@ export function inventoryPageGroupKey(
     ...(includeOwner ? [value.currentOwnerId ?? ""] : []),
     value.cardId,
     value.foilStatus ?? "",
-    value.condition ?? "",
+    normalizeInventoryCondition(value.condition),
     value.language ?? "",
   ].join("|");
 }
@@ -283,11 +287,12 @@ export function getInventoryExactPrintings<T extends InventoryWithCardLocation>(
     }
   >();
   for (const item of items) {
+    const normalizedCondition = normalizeInventoryCondition(item.condition);
     const key = [
       item.currentOwnerId,
       item.cardId,
       item.foilStatus,
-      item.condition,
+      normalizedCondition,
       item.language,
     ].join("|");
     const loc = {
@@ -296,7 +301,7 @@ export function getInventoryExactPrintings<T extends InventoryWithCardLocation>(
       name: item.location?.name ?? "Unassigned",
       quantity: item.quantity,
       foilStatus: item.foilStatus,
-      condition: item.condition,
+      condition: normalizedCondition,
       language: item.language,
       sourceType: item.sourceType,
       locationKind: (item.location as any)?.kind ?? null,
@@ -307,6 +312,7 @@ export function getInventoryExactPrintings<T extends InventoryWithCardLocation>(
     if (!existing) {
       groups.set(key, {
         ...item,
+        condition: normalizedCondition,
         sourceItemIds: [item.id],
         quantity: item.quantity,
         locationBreakdown: [loc],
@@ -423,7 +429,9 @@ export async function moveInventoryQuantity(
         cardId: source.cardId,
         foil: source.foil,
         foilStatus: source.foilStatus,
-        condition: source.condition,
+        condition: {
+          in: equivalentInventoryConditions(source.condition),
+        },
         language: source.language,
         locationId: input.toLocationId,
         quantity: { gt: 0 },
@@ -507,16 +515,13 @@ function stackMergeWhere(
   return {
     id: { not: exceptId },
     currentOwnerId: source.currentOwnerId,
-    originalOpenerId: source.originalOpenerId,
     cardId: target.cardId,
     foil: target.foilStatus !== FoilStatus.NONFOIL,
     foilStatus: target.foilStatus as FoilStatus,
-    condition: target.condition,
+    condition: {
+      in: equivalentInventoryConditions(target.condition),
+    },
     language: target.language,
-    sourceType: target.sourceType ?? source.sourceType,
-    acquiredFromPullId: source.acquiredFromPullId,
-    roundId: source.roundId,
-    notes: target.notes ?? null,
     locationId: target.locationId,
     quantity: { gt: 0 },
   };
@@ -626,6 +631,9 @@ export async function updateInventoryStack(
     const matching = await tx.inventoryItem.findFirst({
       where: stackMergeWhere(source, input.target, source.id),
     });
+    const normalizedCondition = normalizeInventoryCondition(
+      input.target.condition,
+    );
     const beforeJson = source as unknown as Prisma.InputJsonObject;
     if (matching) {
       const updatedDestination = await tx.inventoryItem.update({
@@ -661,7 +669,7 @@ export async function updateInventoryStack(
         quantity: input.target.quantity,
         foilStatus: input.target.foilStatus as FoilStatus,
         foil: input.target.foilStatus !== FoilStatus.NONFOIL,
-        condition: input.target.condition,
+        condition: normalizedCondition,
         language: input.target.language,
         locationId: input.target.locationId,
         sourceType: input.target.sourceType ?? source.sourceType,
@@ -723,6 +731,9 @@ export async function splitInventoryStack(
     const matching = await tx.inventoryItem.findFirst({
       where: stackMergeWhere(source, input.target, source.id),
     });
+    const normalizedCondition = normalizeInventoryCondition(
+      input.target.condition,
+    );
     const sourceAfterQuantity = source.quantity - input.target.quantity;
     const sourceAfter = await tx.inventoryItem.update({
       where: { id: source.id },
@@ -741,7 +752,7 @@ export async function splitInventoryStack(
             quantity: input.target.quantity,
             foilStatus: input.target.foilStatus as FoilStatus,
             foil: input.target.foilStatus !== FoilStatus.NONFOIL,
-            condition: input.target.condition,
+            condition: normalizedCondition,
             language: input.target.language,
             locationId: input.target.locationId,
             sourceType: input.target.sourceType ?? source.sourceType,
@@ -898,16 +909,13 @@ export async function moveInventoryQuantityBetweenLocations(
       where: {
         id: { not: source.id },
         currentOwnerId: source.currentOwnerId,
-        originalOpenerId: source.originalOpenerId,
         cardId: source.cardId,
         foil: source.foil,
         foilStatus: source.foilStatus,
-        condition: source.condition,
+        condition: {
+          in: equivalentInventoryConditions(source.condition),
+        },
         language: source.language,
-        sourceType: source.sourceType,
-        acquiredFromPullId: source.acquiredFromPullId,
-        roundId: source.roundId,
-        notes: source.notes,
         locationId: destination.id,
         quantity: { gt: 0 },
       },
@@ -1134,7 +1142,7 @@ function inventoryMoveKey(item: BulkMoveInventoryRow) {
     item.cardId,
     String(item.foil),
     item.foilStatus,
-    item.condition,
+    normalizeInventoryCondition(item.condition),
     item.language,
   ].join("\u001f");
 }

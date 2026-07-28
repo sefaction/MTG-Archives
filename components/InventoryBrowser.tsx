@@ -166,6 +166,17 @@ export type InventoryRow = {
   condition?: string;
   displayMode?: "exact" | "grouped";
   sourceItemIds?: string[];
+  tradeWishlistTargets?: Array<{
+    inventoryItemId: string;
+    ownerName: string;
+    ownerColor?: string;
+    setCode: string;
+    collectorNumber: string;
+    foilStatus?: string;
+    condition?: string;
+    language?: string;
+    availableQuantity: number;
+  }>;
   printingCount?: number;
   locationCount?: number;
   locationId?: string;
@@ -691,7 +702,10 @@ function priceHistoryFinish(row: InventoryRow) {
   return "normal";
 }
 
-function formatHistoryMoney(value: number | null | undefined, currency = "USD") {
+function formatHistoryMoney(
+  value: number | null | undefined,
+  currency = "USD",
+) {
   if (value === null || value === undefined || !Number.isFinite(value))
     return "-";
   const prefix = currency === "USD" ? "$" : `${currency} `;
@@ -892,7 +906,7 @@ function CardDetail({
     ["Oathbreaker", legalities.oathbreaker],
   ].filter(([, value]) => value);
   const visibleLocationBreakdown = row.locationBreakdown ?? [];
-  const tradeWishlistInventoryItemId = getRowSourceIds(row)[0] ?? "";
+  const tradeWishlistTargets = row.tradeWishlistTargets ?? [];
   return (
     <div className="fixed inset-0 z-50 bg-black/50" onClick={onClose}>
       <div
@@ -902,21 +916,85 @@ function CardDetail({
         <div className="flex items-start justify-between mb-4">
           <h2 className="text-xl font-bold">{row.cardName}</h2>
           <div className="flex gap-2">
-            {onAddTradeWishlist && tradeWishlistInventoryItemId ? (
+            {onAddTradeWishlist && tradeWishlistTargets.length === 1 ? (
               <form action={onAddTradeWishlist}>
                 <input
                   type="hidden"
                   name="inventoryItemId"
-                  value={tradeWishlistInventoryItemId}
+                  value={tradeWishlistTargets[0].inventoryItemId}
                 />
                 <input type="hidden" name="quantity" value="1" />
                 <SubmitButton
                   pendingLabel="Adding..."
                   className={cn(filterPrimaryButtonClass, "px-2 py-1")}
                 >
-                  Wishlist for trade
+                  Wishlist from {tradeWishlistTargets[0].ownerName}
                 </SubmitButton>
               </form>
+            ) : null}
+            {onAddTradeWishlist && tradeWishlistTargets.length > 1 ? (
+              <details className="w-72">
+                <summary
+                  className={cn(
+                    filterPrimaryButtonClass,
+                    "cursor-pointer list-none px-2 py-1 text-center",
+                  )}
+                >
+                  Choose trade target
+                </summary>
+                <div className="mt-2 space-y-2 rounded-lg border border-zinc-700 bg-zinc-900 p-2 shadow-xl">
+                  <p className="px-1 text-xs text-zinc-400">
+                    Choose an owner and exact printing.
+                  </p>
+                  {tradeWishlistTargets.map((target) => (
+                    <form
+                      key={`${target.inventoryItemId}-${target.ownerName}`}
+                      action={onAddTradeWishlist}
+                      className="flex items-center justify-between gap-3 rounded border border-zinc-700 bg-zinc-950/70 p-2"
+                    >
+                      <input
+                        type="hidden"
+                        name="inventoryItemId"
+                        value={target.inventoryItemId}
+                      />
+                      <input type="hidden" name="quantity" value="1" />
+                      <div className="min-w-0 text-left">
+                        <div className="flex items-center gap-2 font-medium">
+                          <span
+                            className="h-2.5 w-2.5 shrink-0 rounded-full"
+                            style={{
+                              backgroundColor: target.ownerColor || "#64748b",
+                            }}
+                          />
+                          <span className="truncate">{target.ownerName}</span>
+                          <span className="text-xs text-zinc-500">
+                            ×{target.availableQuantity}
+                          </span>
+                        </div>
+                        <div className="mt-0.5 text-xs text-zinc-400">
+                          {[
+                            `${target.setCode.toUpperCase()} #${target.collectorNumber}`,
+                            target.foilStatus,
+                            target.condition,
+                            target.language,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </div>
+                      </div>
+                      <SubmitButton
+                        pendingLabel="Adding..."
+                        className={cn(
+                          filterButtonClass,
+                          "shrink-0 px-2 py-1 text-xs",
+                        )}
+                      >
+                        Select
+                      </SubmitButton>
+                    </form>
+                  ))}
+                </div>
+              </details>
             ) : null}
             {capabilities.canEdit && onEdit ? (
               <button
