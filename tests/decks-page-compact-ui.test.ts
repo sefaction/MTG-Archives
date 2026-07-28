@@ -24,9 +24,14 @@ test("deck card view uses commander artwork with partner support", () => {
   assert.match(deckWorkspace, /backgroundImage: `url\(\$\{image\}\)`/);
 });
 
-test("deck cards present primary details and physical committal progress", () => {
+test("deck cards present primary details and effective committal progress", () => {
   assert.match(decksPage, /deckCard\.section === DeckSection\.MAINBOARD/);
   assert.match(decksPage, /deckCard\.section === DeckSection\.COMMANDER/);
+  assert.match(decksPage, /typeLine: true/);
+  assert.match(decksPage, /cardFaces: true/);
+  assert.match(decksPage, /isBasicLandCard\(deckCard\.card\)/);
+  assert.match(decksPage, /summarizeEffectiveDeckCoverage/);
+  assert.match(decksPage, /\.effectiveCommitted/);
   assert.match(decksPage, /committedCardCount/);
   assert.match(deckWorkspace, /deck\.commanderNames\.join\(" & "\)/);
   assert.match(
