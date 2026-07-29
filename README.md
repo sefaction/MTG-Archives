@@ -66,6 +66,10 @@ See `.env.example` for the full list. Important settings:
   regardless of this check interval.
 - `NOTIFICATION_DELIVERY_BATCH_SIZE`, `NOTIFICATION_DELIVERY_LEASE_MS`, and the
   delivery retry settings control bounded, restart-safe outbound processing.
+- The web container generates the webhook master encryption key on first
+  startup at `$BACKUP_DIR/.system-secrets/notification-webhook.key`. The
+  notification worker reads the same protected file through the existing
+  `BACKUPS_DATA_PATH` mount, so no key variable is required.
 - `NEXT_PUBLIC_APP_NAME` controls visible branding and defaults to `MTG Inventory`.
 - `APP_DATA_PATH` documents the intended base host directory for persistent application data.
 - `POSTGRES_DATA_PATH`, `PRICING_POSTGRES_DATA_PATH`, `REDIS_DATA_PATH`, `UPLOADS_DATA_PATH`, `IMPORTS_DATA_PATH`, `EXPORTS_DATA_PATH`, and `BACKUPS_DATA_PATH` must each point at host storage that survives container recreation.
@@ -82,6 +86,19 @@ retain attempt history, and retry delays are bounded. It is not a page-load
 dependency; immediate trade notifications are stored transactionally with their
 trade events. Queue health is visible at `/admin/notifications`.
 
+Users manage signed webhook destinations at `/settings/webhooks`. Webhook
+delivery uses a versioned minimal JSON payload, HMAC-SHA256 signature headers,
+an eight-second timeout, a 16 KiB response cap, no redirects, and delivery-time
+DNS/IP checks. Public destinations require HTTPS. Private/LAN destinations
+require explicit admin-mode approval and still cannot target loopback,
+link-local, metadata, or multicast addresses.
+
+The generated webhook master key is intentionally not included in downloadable
+`mtg-archives-backup-*.tar.gz` archives. Preserve the hidden
+`BACKUPS_DATA_PATH/.system-secrets` directory with the server's protected
+appdata backup. A database restored without that key cannot decrypt previously
+saved webhook destinations; those destinations must be recreated.
+
 ## Persistent data directories
 
 All important application data is stored outside containers through host bind mounts. `.env.example` uses complete paths instead of `${APP_DATA_PATH}/...` nested expansion because Portainer and Unraid environment handling can vary.
@@ -92,7 +109,7 @@ All important application data is stored outside containers through host bind mo
 | `UPLOADS_DATA_PATH`  | Raw uploaded files, including uploaded CSV files              | `web:$UPLOADS_DATA_PATH`            |
 | `IMPORTS_DATA_PATH`  | Retained import-processing files, including CSV import copies | `web:$IMPORTS_DATA_PATH`            |
 | `EXPORTS_DATA_PATH`  | Generated CSV export copies                                   | `web:$EXPORTS_DATA_PATH`            |
-| `BACKUPS_DATA_PATH`  | Full database/appdata backup bundles                          | `web:$BACKUP_DIR`                   |
+| `BACKUPS_DATA_PATH`  | Backup bundles and the protected generated webhook master key | `web` and notification worker       |
 
 Docker will usually create missing bind-mount source directories, and the web entrypoint also runs `mkdir -p` for the application-managed directories. For the most predictable Portainer/Unraid deployment, create them before first startup:
 

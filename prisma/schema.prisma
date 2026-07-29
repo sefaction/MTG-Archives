@@ -144,6 +144,7 @@ model User {
   notifications              Notification[]              @relation("NotificationRecipient")
   notificationActions        Notification[]              @relation("NotificationActor")
   notificationPreferences    NotificationPreference[]
+  notificationWebhookEndpoints NotificationWebhookEndpoint[]
   wishlistNotificationEvents TradeWishlistNotificationActivity[]
   createdLocationTypes       LocationType[]
 
@@ -890,11 +891,31 @@ model NotificationPreference {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   category     String
   inAppEnabled Boolean  @default(true)
+  webhookEnabled Boolean @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   @@id([userId, category])
   @@index([category, inAppEnabled])
+  @@index([category, webhookEnabled])
+}
+
+model NotificationWebhookEndpoint {
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                String
+  urlEncrypted        String
+  urlHint             String
+  secretEncrypted     String
+  secretHint          String
+  enabled             Boolean  @default(true)
+  allowPrivateNetwork Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId, enabled, createdAt])
 }
 
 model TradeWishlistNotificationActivity {

@@ -134,3 +134,20 @@ The application also includes a lightweight `notification-worker`:
   `/admin/notifications`;
 - the web application and immediate trade-event notifications continue to work
   when this worker is unavailable.
+
+Signed webhook delivery does not require a manually configured key. On first
+startup, the web container generates a 32-byte master key at
+`$BACKUP_DIR/.system-secrets/notification-webhook.key`. Both the web and
+notification-worker services mount the same `BACKUPS_DATA_PATH`, so the worker
+can decrypt saved destinations after container recreation.
+
+The generated key is intentionally outside PostgreSQL and is not packaged into
+downloadable `mtg-archives-backup-*.tar.gz` archives. Include the hidden
+`BACKUPS_DATA_PATH/.system-secrets` directory in the server's protected appdata
+backup or copy it separately when moving the deployment. Restoring the database
+without this file requires recreating saved webhook destinations.
+
+Webhook destinations are managed at `/settings/webhooks`. Public destinations
+must use HTTPS. An administrator may explicitly approve an HTTP or HTTPS
+private/LAN destination, but loopback, link-local, metadata, multicast, unsafe
+redirect, oversized-response, and timeout protections remain active.

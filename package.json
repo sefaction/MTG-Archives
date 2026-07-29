@@ -11,6 +11,7 @@
     "prisma:migrate": "prisma migrate deploy",
     "prisma:seed": "prisma db seed",
     "prisma:bootstrap-admin": "tsx prisma/bootstrap-admin.ts",
+    "webhook:key:ensure": "tsx scripts/ensure-webhook-encryption-key.ts",
     "backup:create": "tsx scripts/backup-create.ts",
     "backup:list": "tsx scripts/backup-list.ts",
     "backup:restore": "tsx scripts/backup-restore.ts",

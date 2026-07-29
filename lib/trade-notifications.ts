@@ -7,6 +7,7 @@ type TradeNotificationStore = Pick<
   | "notification"
   | "notificationDeliveryJob"
   | "notificationPreference"
+  | "notificationWebhookEndpoint"
   | "tradeEvent"
   | "user"
 >;
