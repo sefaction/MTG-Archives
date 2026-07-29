@@ -77,6 +77,25 @@ test("deck detail page uses commander art and hover preview rail", () => {
   assert.match(editorSource, /Locations/);
 });
 
+test("deck cards reuse multi-face image flipping without per-card mana value labels", () => {
+  assert.match(editorSource, /function DeckCardImageFlipper/);
+  assert.match(editorSource, /getInventoryCardImagePair/);
+  assert.match(editorSource, /Show back face/);
+  assert.match(editorSource, /Show front face/);
+  assert.match(editorSource, /\[transform-style:preserve-3d\]/);
+  assert.match(editorSource, /\[backface-visibility:hidden\]/);
+  assert.match(
+    editorSource,
+    /<DeckCardImageFlipper key=\{row\.id\} row=\{row\}/,
+  );
+  assert.match(
+    editorSource,
+    /<DeckCardImageFlipper row=\{row\} className="mt-1"/,
+  );
+  assert.doesNotMatch(editorSource, />MV \{cardManaValue\(row\)\}</);
+  assert.doesNotMatch(editorSource, /· MV\{" "\}/);
+});
+
 test("deck action toolbar exposes compact entry points for page-level workflows", () => {
   for (const label of [
     "Add card",

@@ -18,6 +18,10 @@ import type { DeckCardSearchResult } from "@/lib/deck-search";
 import { DeckPrintingChooser } from "@/components/DeckPrintingChooser";
 import type { DeckOptimizationPreview } from "@/lib/deck-optimization";
 import {
+  getInventoryCardImagePair,
+  type InventoryCardImageFace,
+} from "@/lib/inventory-card-images";
+import {
   buildDeckGroups,
   cardManaValue,
   cardPriceNumber,
@@ -132,9 +136,88 @@ function priceLabel(prices: unknown) {
 }
 
 function imageUri(row: DeckEditorRow) {
+  return deckCardImagePair(row).front;
+}
+
+function deckCardImagePair(row: DeckEditorRow) {
   const images = row.card?.imageUris as
     { normal?: string; small?: string; art_crop?: string } | null | undefined;
-  return images?.normal ?? images?.small ?? row.card?.imageUri ?? "";
+  return getInventoryCardImagePair({
+    imageUri: images?.normal ?? row.card?.imageUri,
+    imageSmall: images?.small,
+    cardFaces: Array.isArray(row.card?.cardFaces)
+      ? (row.card.cardFaces as InventoryCardImageFace[])
+      : [],
+  });
+}
+
+function DeckCardImageFlipper({
+  row,
+  className,
+}: {
+  row: DeckEditorRow;
+  className?: string;
+}) {
+  const [showBack, setShowBack] = useState(false);
+  const { front, back } = deckCardImagePair(row);
+  const canFlip = Boolean(front && back);
+  const currentLabel = showBack ? "Show front face" : "Show back face";
+
+  return (
+    <div className={cn("space-y-2", className)}>
+      {front ? (
+        <div className="[perspective:1000px]">
+          <div
+            className={cn(
+              "relative aspect-[488/680] w-full transition-transform duration-500 motion-reduce:transition-none",
+              "[transform-style:preserve-3d]",
+            )}
+            style={{
+              transform: showBack ? "rotateY(180deg)" : "rotateY(0deg)",
+            }}
+          >
+            <img
+              src={front}
+              alt={row.cardName}
+              loading="lazy"
+              decoding="async"
+              width={488}
+              height={680}
+              className="absolute inset-0 h-full w-full rounded object-cover [backface-visibility:hidden]"
+            />
+            {back ? (
+              <img
+                src={back}
+                alt={`${row.cardName} back face`}
+                loading="lazy"
+                decoding="async"
+                width={488}
+                height={680}
+                className="absolute inset-0 h-full w-full rounded object-cover [backface-visibility:hidden] [transform:rotateY(180deg)]"
+              />
+            ) : null}
+          </div>
+        </div>
+      ) : (
+        <div className="flex aspect-[488/680] w-full items-center justify-center rounded bg-[#0d1210] text-xs text-stone-500">
+          No image
+        </div>
+      )}
+      {canFlip ? (
+        <button
+          type="button"
+          aria-label={currentLabel}
+          className={cn(
+            filterButtonClass,
+            "inline-flex w-full justify-center px-2 py-1 text-xs",
+          )}
+          onClick={() => setShowBack((value) => !value)}
+        >
+          {currentLabel}
+        </button>
+      ) : null}
+    </div>
+  );
 }
 
 function ownedBadge(row: DeckEditorRow, showLocations: boolean) {
@@ -1027,24 +1110,13 @@ function DeckPreviewRail({
   return (
     <aside className="hidden xl:block">
       <div className="sticky top-4 space-y-3 rounded-lg border border-[#2a332d] bg-[#101614] p-3 shadow-xl shadow-black/20">
-        {imageUri(row) ? (
-          <img
-            src={imageUri(row)}
-            alt=""
-            className="aspect-[488/680] w-full rounded-md object-cover"
-          />
-        ) : (
-          <div className="flex aspect-[488/680] w-full items-center justify-center rounded-md bg-[#0d1210] text-xs text-stone-500">
-            No image
-          </div>
-        )}
+        <DeckCardImageFlipper key={row.id} row={row} />
         <div>
           <h2 className="text-base font-semibold text-cyan-100">
             {row.cardName}
           </h2>
           <p className="mt-1 text-xs text-stone-400">
-            {row.quantity} in {deckSectionLabel(row.section)} · MV{" "}
-            {cardManaValue(row)}
+            {row.quantity} in {deckSectionLabel(row.section)}
           </p>
           <div className="mt-1">
             <ManaCost value={row.card?.manaCost ?? null} />
@@ -1200,7 +1272,6 @@ function CompactDeckRow({
         </button>
       </div>
       <div className="col-start-3 flex min-w-0 items-center gap-1 text-[11px] text-stone-500">
-        <span>MV {cardManaValue(row)}</span>
         <ManaCost value={row.card?.manaCost ?? null} />
       </div>
     </div>
@@ -1313,7 +1384,6 @@ function TextDeckRow({
         ) : null}
       </td>
       <td className="whitespace-nowrap px-2 py-1.5 text-xs text-stone-300">
-        <span className="mr-1 text-stone-500">MV {cardManaValue(row)}</span>
         <ManaCost value={row.card?.manaCost ?? null} />
       </td>
       <td className="max-w-[20rem] px-2 py-1.5 text-xs text-stone-300">
@@ -1373,28 +1443,17 @@ function VisualDeckView(props: DeckViewProps & { mode: "grid" | "spoiler" }) {
                       }
                     />
                   ) : null}
+                  <DeckCardImageFlipper row={row} className="mt-1" />
                   <button
                     type="button"
                     className="mt-1 block w-full text-left"
                     onClick={() => props.setExpanded(expanded ? null : row.id)}
                     onFocus={() => props.setPreviewRowId(row.id)}
                   >
-                    {imageUri(row) ? (
-                      <img
-                        src={imageUri(row)}
-                        alt=""
-                        className="aspect-[488/680] w-full rounded object-cover"
-                      />
-                    ) : (
-                      <div className="flex aspect-[488/680] items-center justify-center rounded bg-[#0d1210] text-xs text-stone-500">
-                        No image
-                      </div>
-                    )}
                     <div className="mt-2 font-semibold text-cyan-100">
                       {row.quantity} {row.cardName}
                     </div>
                     <div className="text-xs text-stone-400">
-                      MV {cardManaValue(row)} ·{" "}
                       {row.card?.setCode.toUpperCase() ?? "—"} ·{" "}
                       {priceLabel(row.card?.prices)}
                     </div>
@@ -1512,13 +1571,12 @@ function DeckEntryDrawer({
               <span>
                 {row.quantity} in {deckSectionLabel(row.section)}
               </span>
-              <span>MV {cardManaValue(row)}</span>
               <ManaCost value={row.card?.manaCost ?? null} />
               {commitmentBadge(row)}
             </div>
             <p className="hidden text-sm text-zinc-400">
-              {row.quantity} × {deckSectionLabel(row.section)} · MV{" "}
-              {cardManaValue(row)} · {row.card?.typeLine ?? row.matchType}
+              {row.quantity} × {deckSectionLabel(row.section)} ·{" "}
+              {row.card?.typeLine ?? row.matchType}
             </p>
           </div>
           <button
@@ -1596,13 +1654,7 @@ function RowEditor({
   return (
     <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
       <div>
-        {imageUri(row) ? (
-          <img src={imageUri(row)} alt="" className="w-full max-w-56 rounded" />
-        ) : (
-          <div className="flex aspect-[488/680] max-w-56 items-center justify-center rounded bg-zinc-800 text-zinc-500">
-            No image
-          </div>
-        )}
+        <DeckCardImageFlipper key={row.id} row={row} className="max-w-56" />
       </div>
       <div className="space-y-3">
         {activeTab === "overview" ? (
