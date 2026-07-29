@@ -9,6 +9,11 @@ export const LOCAL_NOTIFICATION_CATEGORIES = [
   WISHLIST_DIGEST_NOTIFICATION_CATEGORY,
 ] as const;
 
+export const WEBHOOK_NOTIFICATION_CATEGORIES = [
+  TRADE_NOTIFICATION_CATEGORY,
+  WISHLIST_DIGEST_NOTIFICATION_CATEGORY,
+] as const;
+
 type PreferenceStore = Pick<Prisma.TransactionClient, "notificationPreference">;
 
 export async function notificationCategoryEnabled(
@@ -68,6 +73,54 @@ export async function setLocalNotificationPreferences(
           userId,
           category: value.category,
           inAppEnabled: value.inAppEnabled,
+        },
+      }),
+    ),
+  );
+}
+
+export async function getWebhookNotificationPreferences(userId: string) {
+  const preferences = await prisma.notificationPreference.findMany({
+    where: {
+      userId,
+      category: { in: [...WEBHOOK_NOTIFICATION_CATEGORIES] },
+    },
+    select: { category: true, webhookEnabled: true },
+  });
+  const byCategory = new Map(
+    preferences.map((preference) => [
+      preference.category,
+      preference.webhookEnabled,
+    ]),
+  );
+  return {
+    trades: byCategory.get(TRADE_NOTIFICATION_CATEGORY) ?? false,
+    wishlistDigest:
+      byCategory.get(WISHLIST_DIGEST_NOTIFICATION_CATEGORY) ?? false,
+  };
+}
+
+export async function setWebhookNotificationPreferences(
+  userId: string,
+  input: { trades: boolean; wishlistDigest: boolean },
+  store: PreferenceStore = prisma,
+) {
+  const values = [
+    { category: TRADE_NOTIFICATION_CATEGORY, enabled: input.trades },
+    {
+      category: WISHLIST_DIGEST_NOTIFICATION_CATEGORY,
+      enabled: input.wishlistDigest,
+    },
+  ];
+  await Promise.all(
+    values.map((value) =>
+      store.notificationPreference.upsert({
+        where: { userId_category: { userId, category: value.category } },
+        update: { webhookEnabled: value.enabled },
+        create: {
+          userId,
+          category: value.category,
+          webhookEnabled: value.enabled,
         },
       }),
     ),

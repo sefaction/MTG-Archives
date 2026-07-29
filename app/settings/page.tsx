@@ -314,7 +314,12 @@ export default async function SettingsPage({
 
         <section className="space-y-4 border-t border-[var(--app-border)] pt-5">
           <div>
-            <h2 className="text-base font-semibold">Notifications</h2>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-base font-semibold">Notifications</h2>
+              <a href="/settings/webhooks" className={filterButtonClass}>
+                Manage webhooks
+              </a>
+            </div>
             <p className="app-muted text-sm">
               Choose which quiet in-app updates appear in the header and
               notification history.

@@ -6,8 +6,14 @@ const compose = readFileSync("docker-compose.yml", "utf8");
 const localCompose = readFileSync("docker-compose.local.yml", "utf8");
 const prodCompose = readFileSync("docker-compose.prod.yml", "utf8");
 const unraidCompose = readFileSync("docker-compose.unraid.yml", "utf8");
+const flatUnraidCompose = readFileSync(
+  "docker-compose.unraid.flat.yml",
+  "utf8",
+);
 const workflow = readFileSync(".github/workflows/docker-publish.yml", "utf8");
 const deploymentDocs = readFileSync("docs/DEPLOYMENT.md", "utf8");
+const entrypoint = readFileSync("docker-entrypoint.sh", "utf8");
+const envExample = readFileSync(".env.example", "utf8");
 
 function serviceBlock(source: string, serviceName: string) {
   const start = source.indexOf(`  ${serviceName}:`);
@@ -44,7 +50,24 @@ test("notification worker processes hourly digests from the main database", () =
   assert.match(serviceBlock(compose, "web"), /healthcheck:/);
   assert.match(localCompose, /notification-worker:/);
   assert.match(prodCompose, /notification-worker:/);
+  assert.match(flatUnraidCompose, /notification-worker:/);
   assert.match(deploymentDocs, /hourly wishlist windows/);
+});
+
+test("webhook encryption key is generated in shared persistent storage", () => {
+  const worker = serviceBlock(compose, "notification-worker");
+  const flatWorker = serviceBlock(flatUnraidCompose, "notification-worker");
+  assert.match(entrypoint, /npm run webhook:key:ensure/);
+  assert.match(worker, /BACKUP_DIR/);
+  assert.match(worker, /BACKUPS_DATA_PATH/);
+  assert.match(flatWorker, /BACKUP_DIR/);
+  assert.match(flatWorker, /BACKUPS_DATA_PATH/);
+  assert.match(
+    deploymentDocs,
+    /\.system-secrets\/notification-webhook\.key/,
+  );
+  assert.doesNotMatch(compose, /NOTIFICATION_WEBHOOK_ENCRYPTION_KEY/);
+  assert.doesNotMatch(envExample, /NOTIFICATION_WEBHOOK_ENCRYPTION_KEY/);
 });
 
 test("local compose layer builds from checkout and avoids machine-specific paths", () => {

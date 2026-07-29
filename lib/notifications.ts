@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { enqueueNotificationDelivery } from "@/lib/notification-delivery";
 import { prisma } from "@/lib/prisma";
+import { enqueueWebhookDeliveriesForNotification } from "@/lib/webhook-delivery";
 
 const MAX_TITLE_LENGTH = 160;
 const MAX_MESSAGE_LENGTH = 800;
@@ -8,7 +9,13 @@ const MAX_MESSAGE_LENGTH = 800;
 type NotificationStore = Pick<
   Prisma.TransactionClient,
   "notification" | "notificationDeliveryJob"
->;
+> &
+  Partial<
+    Pick<
+      Prisma.TransactionClient,
+      "notificationPreference" | "notificationWebhookEndpoint"
+    >
+  >;
 
 export type NotificationDeliveryTarget = {
   transport: string;
@@ -107,6 +114,12 @@ export async function createNotification(
           } satisfies Prisma.InputJsonObject),
       },
       store,
+    );
+  }
+  if (store.notificationPreference && store.notificationWebhookEndpoint) {
+    await enqueueWebhookDeliveriesForNotification(
+      notification,
+      store as Parameters<typeof enqueueWebhookDeliveriesForNotification>[1],
     );
   }
   return notification;

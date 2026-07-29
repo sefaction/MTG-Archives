@@ -10,6 +10,9 @@ for dir in "$UPLOADS_DATA_PATH" "$IMPORTS_DATA_PATH" "$EXPORTS_DATA_PATH" "$BACK
   fi
 done
 
+echo "[entrypoint] Ensuring persistent webhook encryption key exists..."
+npm run webhook:key:ensure
+
 if [ "${WIPE_DB_ON_START:-false}" = "true" ]; then
   echo "[entrypoint] WIPE_DB_ON_START=true -> resetting database (destructive)."
   npx prisma migrate reset --force --skip-generate

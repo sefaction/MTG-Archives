@@ -130,7 +130,10 @@ services:
       NOTIFICATION_DELIVERY_MAX_ATTEMPTS: ${NOTIFICATION_DELIVERY_MAX_ATTEMPTS:-5}
       NOTIFICATION_DELIVERY_RETRY_BASE_MS: ${NOTIFICATION_DELIVERY_RETRY_BASE_MS:-60000}
       NOTIFICATION_DELIVERY_RETRY_MAX_MS: ${NOTIFICATION_DELIVERY_RETRY_MAX_MS:-21600000}
+      BACKUP_DIR: ${BACKUP_DIR:-/app/backups}
       NODE_ENV: production
+    volumes:
+      - ${BACKUPS_DATA_PATH:?BACKUPS_DATA_PATH must be set in .env}:${BACKUP_DIR:-/app/backups}
     depends_on:
       postgres:
         condition: service_started

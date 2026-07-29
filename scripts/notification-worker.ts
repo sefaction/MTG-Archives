@@ -3,6 +3,15 @@ import {
   builtInNotificationDeliveryHandlers,
   processNotificationDeliveryQueue,
 } from "../lib/notification-delivery";
+import {
+  deliverNotificationWebhook,
+  WEBHOOK_TRANSPORT,
+} from "../lib/webhook-delivery";
+
+const deliveryHandlers = {
+  ...builtInNotificationDeliveryHandlers,
+  [WEBHOOK_TRANSPORT]: deliverNotificationWebhook,
+};
 
 function positiveInteger(value: string | undefined, fallback: number) {
   const parsed = Number(value);
@@ -34,9 +43,7 @@ async function tick() {
     );
   }
   try {
-    const result = await processNotificationDeliveryQueue(
-      builtInNotificationDeliveryHandlers,
-    );
+    const result = await processNotificationDeliveryQueue(deliveryHandlers);
     if (result.claimed) {
       console.info("[notification-worker] outbound delivery complete", result);
     }

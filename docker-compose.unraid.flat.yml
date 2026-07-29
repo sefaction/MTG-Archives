@@ -72,6 +72,14 @@ services:
     depends_on:
       - postgres
       - pricing-postgres
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget --spider --quiet http://127.0.0.1:3000/login || exit 1
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 10s
     ports:
       - "${WEB_HOST_PORT:-13003}:3000"
 
@@ -95,6 +103,29 @@ services:
     depends_on:
       - pricing-postgres
       - redis
+
+  notification-worker:
+    image: ${WEB_IMAGE:-ghcr.io/sefaction/mtg-archives-web:${IMAGE_TAG:-main}}
+    pull_policy: always
+    restart: unless-stopped
+    command: npm run worker:notifications
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://mtginventory:mtginventory@postgres:5432/mtginventory?schema=public}
+      NOTIFICATION_WORKER_INTERVAL_MS: ${NOTIFICATION_WORKER_INTERVAL_MS:-60000}
+      NOTIFICATION_DELIVERY_BATCH_SIZE: ${NOTIFICATION_DELIVERY_BATCH_SIZE:-20}
+      NOTIFICATION_DELIVERY_LEASE_MS: ${NOTIFICATION_DELIVERY_LEASE_MS:-300000}
+      NOTIFICATION_DELIVERY_MAX_ATTEMPTS: ${NOTIFICATION_DELIVERY_MAX_ATTEMPTS:-5}
+      NOTIFICATION_DELIVERY_RETRY_BASE_MS: ${NOTIFICATION_DELIVERY_RETRY_BASE_MS:-60000}
+      NOTIFICATION_DELIVERY_RETRY_MAX_MS: ${NOTIFICATION_DELIVERY_RETRY_MAX_MS:-21600000}
+      BACKUP_DIR: ${BACKUP_DIR:-/app/backups}
+      NODE_ENV: production
+    volumes:
+      - ${BACKUPS_DATA_PATH:?BACKUPS_DATA_PATH must be set in .env}:${BACKUP_DIR:-/app/backups}
+    depends_on:
+      postgres:
+        condition: service_started
+      web:
+        condition: service_healthy
 
   backup:
     image: ${WEB_IMAGE:-ghcr.io/sefaction/mtg-archives-web:${IMAGE_TAG:-main}}
