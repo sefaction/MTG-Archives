@@ -4,12 +4,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import {
+  buildDiscordWebhookPayload,
   buildWebhookPayload,
   createPinnedLookup,
   decryptWebhookValue,
   encryptWebhookValue,
   enqueueWebhookDeliveriesForNotification,
   resolveWebhookTarget,
+  validateDiscordWebhookUrl,
   validateWebhookUrlSyntax,
   webhookSecretHint,
   webhookSignature,
@@ -24,6 +26,10 @@ import {
 const schema = readFileSync("prisma/schema.prisma", "utf8");
 const migration = readFileSync(
   "prisma/migrations/20260728220000_signed_webhook_delivery/migration.sql",
+  "utf8",
+);
+const discordMigration = readFileSync(
+  "prisma/migrations/20260729010000_discord_webhook_destinations/migration.sql",
   "utf8",
 );
 const worker = readFileSync("scripts/notification-worker.ts", "utf8");
@@ -116,14 +122,14 @@ test("pinned webhook DNS lookup supports Node's single and all-address callbacks
   });
   assert.deepEqual(single, { address: "192.0.2.10", family: 4 });
 
-  const all = await new Promise<
-    string | { address: string; family: number }[]
-  >((resolve, reject) => {
-    lookup("ignored.example", { all: true }, (error, address) => {
-      if (error) reject(error);
-      else resolve(address);
-    });
-  });
+  const all = await new Promise<string | { address: string; family: number }[]>(
+    (resolve, reject) => {
+      lookup("ignored.example", { all: true }, (error, address) => {
+        if (error) reject(error);
+        else resolve(address);
+      });
+    },
+  );
   assert.deepEqual(all, [{ address: "192.0.2.10", family: 4 }]);
 });
 
@@ -176,6 +182,41 @@ test("versioned webhook payload avoids recipient and inventory detail", () => {
   assert.match(serialized, /Trade proposed/);
 });
 
+test("Discord destinations use official URLs and mention-safe embed payloads", () => {
+  const url = validateDiscordWebhookUrl(
+    "https://discord.com/api/webhooks/123456/token_value",
+  );
+  assert.equal(url.hostname, "discord.com");
+  assert.throws(
+    () =>
+      validateDiscordWebhookUrl(
+        "https://hooks.example.test/api/webhooks/123456/token_value",
+      ),
+    /official Discord webhook URL/,
+  );
+  assert.throws(
+    () => validateDiscordWebhookUrl("https://discord.com/api/webhooks/bad"),
+    /invalid/,
+  );
+
+  const generic = buildWebhookPayload({
+    notificationId: "notification-1",
+    type: "trade.proposed",
+    category: "trades",
+    title: "Trade proposed",
+    message: "@everyone A trade needs your review.",
+    href: "/trades?view=active",
+    createdAt: new Date("2026-07-28T20:00:00.000Z"),
+    test: true,
+  });
+  const discord = buildDiscordWebhookPayload(generic);
+  assert.deepEqual(discord.allowed_mentions, { parse: [] });
+  assert.match(JSON.stringify(discord), /"embeds"/);
+  assert.match(JSON.stringify(discord), /Trade proposed/);
+  assert.match(JSON.stringify(discord), /Test delivery/);
+  assert.match(JSON.stringify(discord), /trades\?view=active/);
+});
+
 test("enabled webhook categories enqueue one durable job per endpoint", async () => {
   const jobs: unknown[] = [];
   const store = {
@@ -216,11 +257,18 @@ test("phase four schema, queue integration, UI, and worker are wired", () => {
   assert.match(schema, /webhookEnabled Boolean\s+@default\(false\)/);
   assert.match(migration, /CREATE TABLE "NotificationWebhookEndpoint"/);
   assert.match(migration, /ADD COLUMN "webhookEnabled"/);
+  assert.match(schema, /deliveryType\s+String\s+@default\("SIGNED_JSON"\)/);
+  assert.match(discordMigration, /ADD COLUMN "deliveryType"/);
+  assert.match(discordMigration, /"secretEncrypted" DROP NOT NULL/);
   assert.match(notifications, /enqueueWebhookDeliveriesForNotification/);
   assert.match(worker, /deliverNotificationWebhook/);
   assert.match(settings, /Save webhook categories/);
   assert.match(settings, /Send test/);
   assert.match(settings, /Allow private\/LAN destination/);
+  assert.match(settings, /Discord message/);
+  assert.match(settings, /Signing secret \(generic JSON only\)/);
+  assert.match(settings, /Copy Webhook URL/);
+  assert.match(settings, /params\.error/);
   assert.match(settings, /X-MTG-Archives-Webhook-Signature/);
   assert.doesNotMatch(settings, /urlEncrypted\}/);
   assert.doesNotMatch(settings, /secretEncrypted\}/);

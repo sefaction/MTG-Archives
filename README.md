@@ -86,12 +86,15 @@ retain attempt history, and retry delays are bounded. It is not a page-load
 dependency; immediate trade notifications are stored transactionally with their
 trade events. Queue health is visible at `/admin/notifications`.
 
-Users manage signed webhook destinations at `/settings/webhooks`. Webhook
-delivery uses a versioned minimal JSON payload, HMAC-SHA256 signature headers,
-an eight-second timeout, a 16 KiB response cap, no redirects, and delivery-time
-DNS/IP checks. Public destinations require HTTPS. Private/LAN destinations
-require explicit admin-mode approval and still cannot target loopback,
-link-local, metadata, or multicast addresses.
+Users manage Discord and generic signed JSON destinations at
+`/settings/webhooks`. Discord destinations use an official Discord webhook URL
+and receive mention-safe embeds; they do not need a separate signing secret.
+Generic destinations receive a versioned minimal JSON payload with HMAC-SHA256
+signature headers. Both types use an eight-second timeout, a 16 KiB response
+cap, no redirects, and delivery-time DNS/IP checks. Public destinations require
+HTTPS. Private/LAN destinations are available only for generic JSON, require
+explicit admin-mode approval, and still cannot target loopback, link-local,
+metadata, or multicast addresses.
 
 The generated webhook master key is intentionally not included in downloadable
 `mtg-archives-backup-*.tar.gz` archives. Preserve the hidden
