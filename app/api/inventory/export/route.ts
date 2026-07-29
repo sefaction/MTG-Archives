@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import path from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
+import { InventoryLocationKind } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { canExportInventory, getAccessScope, requireLogin } from "@/lib/auth";
 import {
@@ -27,12 +28,10 @@ function priceValue(prices: unknown, key: string) {
     : "";
 }
 
-function moxfieldFoilValue(foilStatus: string, format: string) {
-  const isFoil = foilStatus === "FOIL" || foilStatus === "ETCHED";
-  if (format === "boolean") return isFoil ? "true" : "false";
-  if (format === "text")
-    return foilStatus === "NONFOIL" ? "nonfoil" : foilStatus.toLowerCase();
-  return isFoil ? "foil" : "";
+function moxfieldFoilValue(foilStatus: string) {
+  if (foilStatus === "ETCHED") return "etched";
+  if (foilStatus === "FOIL") return "foil";
+  return "";
 }
 
 function buildCsv(headers: string[], rows: unknown[][]) {
@@ -79,9 +78,53 @@ export async function GET(request: NextRequest) {
   const format = params.get("format") === "moxfield" ? "moxfield" : "full";
   const scope = params.get("scope") || "my";
   const ownerId = params.get("ownerId") || "";
-  const foilFormat = params.get("foilFormat") || "moxfield";
+  let effectiveOwnerId = ownerId || signedInPlayerId || "";
+  let selectedLocation: {
+    id: string;
+    name: string;
+    ownerPlayerId: string;
+  } | null = null;
 
-  if (!canExportInventory(user, ownerId || signedInPlayerId, adminModeActive)) {
+  if (scope === "location") {
+    const locationId = params.get("locationId") || "";
+    if (!locationId) {
+      return new Response("Choose a location to export.", { status: 400 });
+    }
+    const location = await prisma.inventoryLocation.findUnique({
+      where: { id: locationId },
+      select: {
+        id: true,
+        name: true,
+        ownerPlayerId: true,
+        active: true,
+        kind: true,
+        systemManaged: true,
+      },
+    });
+    if (
+      !location ||
+      !location.active ||
+      location.kind !== InventoryLocationKind.NORMAL ||
+      location.systemManaged
+    ) {
+      return new Response(
+        "Choose an active, normal inventory location. Export deck contents from the deck.",
+        { status: 400 },
+      );
+    }
+    if (ownerId && ownerId !== location.ownerPlayerId) {
+      return new Response(
+        "The selected location does not belong to that owner.",
+        {
+          status: 400,
+        },
+      );
+    }
+    selectedLocation = location;
+    effectiveOwnerId = location.ownerPlayerId;
+  }
+
+  if (!canExportInventory(user, effectiveOwnerId, adminModeActive)) {
     return new Response("Not authorized to export that inventory.", {
       status: 403,
     });
@@ -92,7 +135,10 @@ export async function GET(request: NextRequest) {
     adminModeActive,
     playerId: signedInPlayerId,
   });
-  if (!adminModeActive) {
+  if (selectedLocation) {
+    where.currentOwnerId = selectedLocation.ownerPlayerId;
+    where.locationId = selectedLocation.id;
+  } else if (!adminModeActive) {
     where.currentOwnerId = signedInPlayerId;
   } else if (scope === "my" && signedInPlayerId) {
     where.currentOwnerId = signedInPlayerId;
@@ -119,14 +165,16 @@ export async function GET(request: NextRequest) {
     inventoryCardMatchesPostFilters(item.card, filters),
   );
 
-  const selectedOwner = ownerId
-    ? await prisma.player.findUnique({ where: { id: ownerId } })
+  const selectedOwner = effectiveOwnerId
+    ? await prisma.player.findUnique({ where: { id: effectiveOwnerId } })
     : null;
-  let filenameBase = "mtg-inventory-full";
+  let filenameBase = selectedLocation
+    ? `mtg-inventory-${safeFilenamePart(selectedLocation.name)}`
+    : "mtg-inventory-full";
 
   let csv: string;
   if (format === "moxfield") {
-    filenameBase = `moxfield-inventory-${safeFilenamePart(selectedOwner?.displayName || user.player?.displayName || (adminModeActive && scope === "all" ? "all" : "my"))}`;
+    filenameBase = `moxfield-inventory-${safeFilenamePart(selectedLocation?.name || selectedOwner?.displayName || user.player?.displayName || (adminModeActive && scope === "all" ? "all" : "my"))}`;
     const headers = [
       "Count",
       "Name",
@@ -134,6 +182,7 @@ export async function GET(request: NextRequest) {
       "Condition",
       "Language",
       "Foil",
+      "Collector Number",
       "Tag",
     ];
     const rows = items.map((item) => [
@@ -142,7 +191,8 @@ export async function GET(request: NextRequest) {
       item.card.setCode.toUpperCase(),
       item.condition || "NM",
       item.language || "EN",
-      moxfieldFoilValue(item.foilStatus, foilFormat),
+      moxfieldFoilValue(item.foilStatus),
+      item.card.collectorNumber,
       [
         "MTGInventory",
         `Owner:${item.currentOwner.displayName}`,
