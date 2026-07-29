@@ -17,8 +17,12 @@ import { createNotification } from "@/lib/notifications";
 import { prisma } from "@/lib/prisma";
 import {
   buildWebhookPayload,
+  decryptWebhookValue,
   encryptWebhookValue,
+  parseWebhookEndpointType,
+  validateDiscordWebhookUrl,
   validateWebhookUrlSyntax,
+  WEBHOOK_ENDPOINT_TYPES,
   WEBHOOK_TRANSPORT,
   webhookEncryptionAvailable,
   webhookSecretHint,
@@ -42,6 +46,38 @@ function requiredSecret(value: FormDataEntryValue | null) {
     throw new Error("Signing secret must be between 16 and 512 characters.");
   }
   return secret;
+}
+
+const publicWebhookFormErrors = new Set([
+  "Webhook name is required.",
+  "Signing secret must be between 16 and 512 characters.",
+  "Enter admin mode before approving a private-network webhook.",
+  "A webhook with that name already exists.",
+  "Webhook URL is required and must be 2,048 characters or fewer.",
+  "Webhook URL is invalid.",
+  "Public webhook URLs must use HTTPS.",
+  "Webhook URL must use HTTP or HTTPS.",
+  "Webhook URLs cannot include embedded usernames or passwords.",
+  "Webhook URLs cannot include fragments.",
+  "Discord destinations must use an official Discord webhook URL.",
+  "Discord webhook URL is invalid.",
+  "Webhook endpoint not found.",
+  "Add a signing secret when changing a Discord destination to signed JSON.",
+]);
+
+function webhookFormErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  return publicWebhookFormErrors.has(message)
+    ? message
+    : "Webhook settings could not be saved. Check the application logs.";
+}
+
+function redirectWebhookFormError(error: unknown): never {
+  redirect(
+    `/settings/webhooks?error=${encodeURIComponent(
+      webhookFormErrorMessage(error),
+    )}`,
+  );
 }
 
 async function privateNetworkChoice(
@@ -79,26 +115,39 @@ async function ensureUniqueName(
 async function createEndpoint(formData: FormData) {
   "use server";
   const user = await requireLogin();
-  const name = requiredName(formData.get("name"));
-  const secret = requiredSecret(formData.get("secret"));
-  const allowPrivateNetwork = await privateNetworkChoice(user, formData);
-  const url = validateWebhookUrlSyntax(
-    String(formData.get("url") || ""),
-    allowPrivateNetwork,
-  ).toString();
-  await ensureUniqueName(user.id, name);
-  await prisma.notificationWebhookEndpoint.create({
-    data: {
-      userId: user.id,
-      name,
-      urlEncrypted: encryptWebhookValue(url),
-      urlHint: webhookUrlHint(url),
-      secretEncrypted: encryptWebhookValue(secret),
-      secretHint: webhookSecretHint(secret),
-      enabled: formData.get("enabled") === "on",
-      allowPrivateNetwork,
-    },
-  });
+  try {
+    const name = requiredName(formData.get("name"));
+    const deliveryType = parseWebhookEndpointType(formData.get("deliveryType"));
+    const isDiscord = deliveryType === WEBHOOK_ENDPOINT_TYPES.discord;
+    const secret = isDiscord ? null : requiredSecret(formData.get("secret"));
+    const allowPrivateNetwork = isDiscord
+      ? false
+      : await privateNetworkChoice(user, formData);
+    const url = (
+      isDiscord
+        ? validateDiscordWebhookUrl(String(formData.get("url") || ""))
+        : validateWebhookUrlSyntax(
+            String(formData.get("url") || ""),
+            allowPrivateNetwork,
+          )
+    ).toString();
+    await ensureUniqueName(user.id, name);
+    await prisma.notificationWebhookEndpoint.create({
+      data: {
+        userId: user.id,
+        name,
+        deliveryType,
+        urlEncrypted: encryptWebhookValue(url),
+        urlHint: webhookUrlHint(url),
+        secretEncrypted: secret ? encryptWebhookValue(secret) : null,
+        secretHint: secret ? webhookSecretHint(secret) : null,
+        enabled: formData.get("enabled") === "on",
+        allowPrivateNetwork,
+      },
+    });
+  } catch (error) {
+    redirectWebhookFormError(error);
+  }
   revalidatePath("/settings/webhooks");
   redirect("/settings/webhooks?created=1");
 }
@@ -106,67 +155,86 @@ async function createEndpoint(formData: FormData) {
 async function updateEndpoint(formData: FormData) {
   "use server";
   const user = await requireLogin();
-  const id = String(formData.get("endpointId") || "");
-  const existing = await prisma.notificationWebhookEndpoint.findFirst({
-    where: { id, userId: user.id },
-  });
-  if (!existing) throw new Error("Webhook endpoint not found.");
-  const name = requiredName(formData.get("name"));
-  await ensureUniqueName(user.id, name, existing.id);
-  const allowPrivateNetwork = await privateNetworkChoice(
-    user,
-    formData,
-    existing.allowPrivateNetwork,
-  );
-  const urlInput = String(formData.get("url") || "").trim();
-  const secretInput = String(formData.get("secret") || "").trim();
-  const enabled = formData.get("enabled") === "on";
-  const data: Prisma.NotificationWebhookEndpointUpdateInput = {
-    name,
-    enabled,
-    allowPrivateNetwork,
-  };
-  if (urlInput) {
-    const url = validateWebhookUrlSyntax(
-      urlInput,
-      allowPrivateNetwork,
-    ).toString();
-    data.urlEncrypted = encryptWebhookValue(url);
-    data.urlHint = webhookUrlHint(url);
-  }
-  if (secretInput) {
-    const secret = requiredSecret(secretInput);
-    data.secretEncrypted = encryptWebhookValue(secret);
-    data.secretHint = webhookSecretHint(secret);
-  }
-  await prisma.$transaction(async (tx) => {
-    await tx.notificationWebhookEndpoint.update({
-      where: { id: existing.id },
-      data,
+  try {
+    const id = String(formData.get("endpointId") || "");
+    const existing = await prisma.notificationWebhookEndpoint.findFirst({
+      where: { id, userId: user.id },
     });
-    if (!enabled) {
-      await tx.notificationDeliveryJob.updateMany({
-        where: {
-          transport: WEBHOOK_TRANSPORT,
-          destinationKey: existing.id,
-          status: {
-            in: [
-              NotificationDeliveryStatus.PENDING,
-              NotificationDeliveryStatus.FAILED,
-            ],
-          },
-        },
-        data: {
-          status: NotificationDeliveryStatus.FAILED,
-          nextAttemptAt: null,
-          lastError: "Webhook endpoint was disabled.",
-          claimToken: null,
-          claimedAt: null,
-          claimExpiresAt: null,
-        },
-      });
+    if (!existing) throw new Error("Webhook endpoint not found.");
+    const name = requiredName(formData.get("name"));
+    await ensureUniqueName(user.id, name, existing.id);
+    const deliveryType = parseWebhookEndpointType(formData.get("deliveryType"));
+    const isDiscord = deliveryType === WEBHOOK_ENDPOINT_TYPES.discord;
+    const allowPrivateNetwork = isDiscord
+      ? false
+      : await privateNetworkChoice(
+          user,
+          formData,
+          existing.allowPrivateNetwork,
+        );
+    const urlInput = String(formData.get("url") || "").trim();
+    const secretInput = String(formData.get("secret") || "").trim();
+    const enabled = formData.get("enabled") === "on";
+    const data: Prisma.NotificationWebhookEndpointUpdateInput = {
+      name,
+      deliveryType,
+      enabled,
+      allowPrivateNetwork,
+    };
+    if (urlInput) {
+      const url = (
+        isDiscord
+          ? validateDiscordWebhookUrl(urlInput)
+          : validateWebhookUrlSyntax(urlInput, allowPrivateNetwork)
+      ).toString();
+      data.urlEncrypted = encryptWebhookValue(url);
+      data.urlHint = webhookUrlHint(url);
+    } else if (deliveryType !== existing.deliveryType && isDiscord) {
+      validateDiscordWebhookUrl(decryptWebhookValue(existing.urlEncrypted));
     }
-  });
+    if (isDiscord) {
+      data.secretEncrypted = null;
+      data.secretHint = null;
+    } else if (secretInput) {
+      const secret = requiredSecret(secretInput);
+      data.secretEncrypted = encryptWebhookValue(secret);
+      data.secretHint = webhookSecretHint(secret);
+    } else if (!existing.secretEncrypted) {
+      throw new Error(
+        "Add a signing secret when changing a Discord destination to signed JSON.",
+      );
+    }
+    await prisma.$transaction(async (tx) => {
+      await tx.notificationWebhookEndpoint.update({
+        where: { id: existing.id },
+        data,
+      });
+      if (!enabled) {
+        await tx.notificationDeliveryJob.updateMany({
+          where: {
+            transport: WEBHOOK_TRANSPORT,
+            destinationKey: existing.id,
+            status: {
+              in: [
+                NotificationDeliveryStatus.PENDING,
+                NotificationDeliveryStatus.FAILED,
+              ],
+            },
+          },
+          data: {
+            status: NotificationDeliveryStatus.FAILED,
+            nextAttemptAt: null,
+            lastError: "Webhook endpoint was disabled.",
+            claimToken: null,
+            claimedAt: null,
+            claimExpiresAt: null,
+          },
+        });
+      }
+    });
+  } catch (error) {
+    redirectWebhookFormError(error);
+  }
   revalidatePath("/settings/webhooks");
   redirect("/settings/webhooks?saved=1");
 }
@@ -323,8 +391,9 @@ export default async function WebhookSettingsPage({
           </p>
           <h1 className="text-3xl font-bold">Webhooks</h1>
           <p className="app-muted mt-1 max-w-3xl text-sm">
-            Send selected notifications as signed versioned JSON. Delivery runs
-            in the background and never exposes saved URLs or signing secrets.
+            Send selected notifications as signed JSON or Discord messages.
+            Delivery runs in the background and never exposes saved URLs or
+            signing secrets.
           </p>
         </div>
         <a href="/settings" className={filterButtonClass}>
@@ -335,6 +404,11 @@ export default async function WebhookSettingsPage({
       {params.created || params.saved || params.preferences ? (
         <p className="rounded border border-emerald-800 bg-emerald-950/30 p-3 text-sm text-emerald-100">
           Webhook settings saved.
+        </p>
+      ) : null}
+      {params.error ? (
+        <p className="rounded border border-red-800 bg-red-950/30 p-3 text-sm text-red-100">
+          {params.error}
         </p>
       ) : null}
       {params.tested ? (
@@ -421,10 +495,26 @@ export default async function WebhookSettingsPage({
                 name="name"
                 required
                 maxLength={80}
-                placeholder="Home Assistant"
+                placeholder="Discord trades"
                 className={filterInputClass}
                 disabled={!encryptionReady}
               />
+            </label>
+            <label className="space-y-1 text-sm">
+              <span>Destination type</span>
+              <select
+                name="deliveryType"
+                defaultValue={WEBHOOK_ENDPOINT_TYPES.discord}
+                className={filterInputClass}
+                disabled={!encryptionReady}
+              >
+                <option value={WEBHOOK_ENDPOINT_TYPES.discord}>
+                  Discord message
+                </option>
+                <option value={WEBHOOK_ENDPOINT_TYPES.signedJson}>
+                  Generic signed JSON
+                </option>
+              </select>
             </label>
             <label className="space-y-1 text-sm">
               <span>Webhook URL</span>
@@ -432,21 +522,24 @@ export default async function WebhookSettingsPage({
                 name="url"
                 type="url"
                 required
-                placeholder="https://example.test/hooks/mtg"
+                placeholder="https://discord.com/api/webhooks/..."
                 className={filterInputClass}
                 disabled={!encryptionReady}
               />
+              <span className="app-muted block text-xs">
+                For Discord, use Server Settings → Integrations → Webhooks →
+                Copy Webhook URL. Channel and invite links will not work.
+              </span>
             </label>
             <label className="space-y-1 text-sm">
-              <span>Signing secret</span>
+              <span>Signing secret (generic JSON only)</span>
               <input
                 name="secret"
                 type="password"
-                required
                 minLength={16}
                 maxLength={512}
                 autoComplete="new-password"
-                placeholder="At least 16 characters"
+                placeholder="Not used for Discord"
                 className={filterInputClass}
                 disabled={!encryptionReady}
               />
@@ -466,8 +559,8 @@ export default async function WebhookSettingsPage({
                 <span>
                   Allow private/LAN destination
                   <span className="app-muted block text-xs">
-                    Requires admin mode. Loopback, link-local, and metadata
-                    destinations remain blocked.
+                    Generic JSON only. Requires admin mode. Loopback,
+                    link-local, and metadata destinations remain blocked.
                   </span>
                 </span>
               </label>
@@ -499,6 +592,11 @@ export default async function WebhookSettingsPage({
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-semibold">{endpoint.name}</h3>
+                    <span className="rounded border border-cyan-900 px-2 py-0.5 text-xs text-cyan-100">
+                      {endpoint.deliveryType === WEBHOOK_ENDPOINT_TYPES.discord
+                        ? "Discord"
+                        : "Signed JSON"}
+                    </span>
                     <span
                       className={
                         endpoint.enabled
@@ -515,7 +613,10 @@ export default async function WebhookSettingsPage({
                     ) : null}
                   </div>
                   <p className="app-muted mt-1 text-xs">
-                    {endpoint.urlHint} · secret {endpoint.secretHint}
+                    {endpoint.urlHint}
+                    {endpoint.secretHint
+                      ? ` · secret ${endpoint.secretHint}`
+                      : " · Discord URL token encrypted"}
                   </p>
                 </div>
                 <form action={testEndpoint}>
@@ -549,6 +650,21 @@ export default async function WebhookSettingsPage({
                     />
                   </label>
                   <label className="space-y-1 text-sm">
+                    <span>Destination type</span>
+                    <select
+                      name="deliveryType"
+                      defaultValue={endpoint.deliveryType}
+                      className={filterInputClass}
+                    >
+                      <option value={WEBHOOK_ENDPOINT_TYPES.discord}>
+                        Discord message
+                      </option>
+                      <option value={WEBHOOK_ENDPOINT_TYPES.signedJson}>
+                        Generic signed JSON
+                      </option>
+                    </select>
+                  </label>
+                  <label className="space-y-1 text-sm">
                     <span>Replace URL</span>
                     <input
                       name="url"
@@ -558,14 +674,18 @@ export default async function WebhookSettingsPage({
                     />
                   </label>
                   <label className="space-y-1 text-sm">
-                    <span>Replace signing secret</span>
+                    <span>Replace signing secret (generic JSON only)</span>
                     <input
                       name="secret"
                       type="password"
                       minLength={16}
                       maxLength={512}
                       autoComplete="new-password"
-                      placeholder={`Keep ${endpoint.secretHint}`}
+                      placeholder={
+                        endpoint.secretHint
+                          ? `Keep ${endpoint.secretHint}`
+                          : "Required only when changing to signed JSON"
+                      }
                       className={filterInputClass}
                     />
                   </label>
@@ -587,6 +707,10 @@ export default async function WebhookSettingsPage({
                       />
                       Allow private/LAN destination
                     </label>
+                    <p className="app-muted text-xs">
+                      Generic JSON only. Discord destinations must use an
+                      official public Discord webhook URL.
+                    </p>
                   </div>
                   <SubmitButton
                     pendingLabel="Saving…"
@@ -626,8 +750,9 @@ export default async function WebhookSettingsPage({
         <div className="border-b border-[var(--app-border)] p-4">
           <h2 className="text-lg font-semibold">Recent webhook deliveries</h2>
           <p className="app-muted text-sm">
-            Test and notification deliveries use the same queue, signatures,
-            timeout, response cap, and failure history.
+            All destinations use the same queue, timeout, response cap, and
+            failure history. Generic JSON is signed; Discord receives
+            mention-safe embeds.
           </p>
         </div>
         {recentJobs.length ? (
@@ -666,9 +791,9 @@ export default async function WebhookSettingsPage({
       </section>
 
       <section className={`${panelClass} p-4 text-sm`}>
-        <h2 className="font-semibold">Signature verification</h2>
+        <h2 className="font-semibold">Destination security</h2>
         <p className="app-muted mt-1">
-          Compute HMAC-SHA256 over{" "}
+          Generic JSON receivers compute HMAC-SHA256 over{" "}
           <code className="text-stone-200">
             timestamp + &quot;.&quot; + raw body
           </code>{" "}
@@ -678,6 +803,11 @@ export default async function WebhookSettingsPage({
           </code>{" "}
           header. The timestamp and stable delivery ID are sent in adjacent
           headers.
+        </p>
+        <p className="app-muted mt-2">
+          Discord destinations do not use a separate signing secret. The
+          encrypted Discord webhook URL contains Discord&apos;s token, and
+          messages disable all allowed mentions.
         </p>
       </section>
     </main>

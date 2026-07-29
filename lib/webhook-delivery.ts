@@ -18,6 +18,12 @@ import { loadWebhookEncryptionKey } from "@/lib/webhook-encryption-key";
 
 export const WEBHOOK_TRANSPORT = "webhook";
 export const WEBHOOK_PAYLOAD_VERSION = "1";
+export const WEBHOOK_ENDPOINT_TYPES = {
+  signedJson: "SIGNED_JSON",
+  discord: "DISCORD",
+} as const;
+export type WebhookEndpointType =
+  (typeof WEBHOOK_ENDPOINT_TYPES)[keyof typeof WEBHOOK_ENDPOINT_TYPES];
 export const WEBHOOK_NOTIFICATION_CATEGORIES = [
   "trades",
   "wishlist_digest",
@@ -27,6 +33,14 @@ const MAX_URL_LENGTH = 2_048;
 const MAX_RESPONSE_BYTES = 16 * 1_024;
 const DEFAULT_TIMEOUT_MS = 8_000;
 const ENCRYPTED_VALUE_VERSION = "v1";
+const discordWebhookHosts = new Set([
+  "discord.com",
+  "canary.discord.com",
+  "ptb.discord.com",
+  "discordapp.com",
+  "canary.discordapp.com",
+  "ptb.discordapp.com",
+]);
 
 const alwaysBlocked = new BlockList();
 alwaysBlocked.addSubnet("0.0.0.0", 8, "ipv4");
@@ -149,6 +163,28 @@ export function validateWebhookUrlSyntax(
   return url;
 }
 
+export function parseWebhookEndpointType(value: unknown): WebhookEndpointType {
+  return value === WEBHOOK_ENDPOINT_TYPES.discord
+    ? WEBHOOK_ENDPOINT_TYPES.discord
+    : WEBHOOK_ENDPOINT_TYPES.signedJson;
+}
+
+export function validateDiscordWebhookUrl(value: string) {
+  const url = validateWebhookUrlSyntax(value, false);
+  const hostname = url.hostname.toLowerCase().replace(/\.$/, "");
+  if (!discordWebhookHosts.has(hostname)) {
+    throw new Error(
+      "Discord destinations must use an official Discord webhook URL.",
+    );
+  }
+  if (
+    !/^\/api(?:\/v\d+)?\/webhooks\/\d+\/[A-Za-z0-9._-]+\/?$/.test(url.pathname)
+  ) {
+    throw new Error("Discord webhook URL is invalid.");
+  }
+  return url;
+}
+
 export function webhookUrlHint(value: string) {
   const url = new URL(value);
   return `${url.protocol}//${url.host}/…`;
@@ -228,6 +264,63 @@ export function buildWebhookPayload(input: {
       message: input.message,
       href: input.href,
     },
+  };
+}
+
+function jsonRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function jsonText(value: unknown, fallback = "") {
+  return typeof value === "string" ? value : fallback;
+}
+
+export function buildDiscordWebhookPayload(
+  payload: unknown,
+): Prisma.InputJsonObject {
+  const root = jsonRecord(payload);
+  const notification = jsonRecord(root?.notification);
+  const title = jsonText(notification?.title, "MTG Archives notification")
+    .trim()
+    .slice(0, 256);
+  const message = jsonText(
+    notification?.message,
+    "A new notification is available.",
+  )
+    .trim()
+    .slice(0, 4_096);
+  const category = jsonText(notification?.category, "system")
+    .trim()
+    .slice(0, 1_024);
+  const href = jsonText(notification?.href).trim().slice(0, 1_024);
+  const createdAt = jsonText(root?.createdAt);
+  const fields: Prisma.InputJsonObject[] = [
+    { name: "Category", value: category || "system", inline: true },
+  ];
+  if (href) {
+    fields.push({
+      name: "Open in MTG Archives",
+      value: `\`${href}\``,
+      inline: false,
+    });
+  }
+  return {
+    username: "MTG Archives",
+    allowed_mentions: { parse: [] },
+    embeds: [
+      {
+        title: title || "MTG Archives notification",
+        description: message || "A new notification is available.",
+        color: 0x22d3ee,
+        fields,
+        footer: {
+          text: root?.test === true ? "Test delivery" : "MTG Archives",
+        },
+        ...(createdAt ? { timestamp: createdAt } : {}),
+      },
+    ],
   };
 }
 
@@ -324,9 +417,9 @@ function payloadIsTest(payload: Prisma.JsonValue) {
 async function postWebhook(input: {
   url: string;
   allowPrivateNetwork: boolean;
-  secret: string;
+  secret?: string;
   idempotencyKey: string;
-  payload: Prisma.JsonValue;
+  payload: Prisma.JsonValue | Prisma.InputJsonValue;
   timeoutMs?: number;
 }) {
   const target = await resolveWebhookTarget(
@@ -335,7 +428,9 @@ async function postWebhook(input: {
   );
   const body = JSON.stringify(input.payload);
   const timestamp = Math.floor(Date.now() / 1_000).toString();
-  const signature = webhookSignature(input.secret, timestamp, body);
+  const signature = input.secret
+    ? webhookSignature(input.secret, timestamp, body)
+    : null;
   const request = target.url.protocol === "https:" ? httpsRequest : httpRequest;
   await new Promise<void>((resolve, reject) => {
     let settled = false;
@@ -355,9 +450,13 @@ async function postWebhook(input: {
           "Content-Type": "application/json",
           "Content-Length": Buffer.byteLength(body),
           "User-Agent": "MTG-Archives-Webhook/1",
-          "X-MTG-Archives-Webhook-Id": input.idempotencyKey,
-          "X-MTG-Archives-Webhook-Timestamp": timestamp,
-          "X-MTG-Archives-Webhook-Signature": `v1=${signature}`,
+          ...(signature
+            ? {
+                "X-MTG-Archives-Webhook-Id": input.idempotencyKey,
+                "X-MTG-Archives-Webhook-Timestamp": timestamp,
+                "X-MTG-Archives-Webhook-Signature": `v1=${signature}`,
+              }
+            : {}),
         },
         lookup: createPinnedLookup(target.address),
       },
@@ -399,6 +498,7 @@ export const deliverNotificationWebhook: NotificationDeliveryHandler = async ({
     where: { id: destinationKey },
     select: {
       enabled: true,
+      deliveryType: true,
       allowPrivateNetwork: true,
       urlEncrypted: true,
       secretEncrypted: true,
@@ -408,8 +508,23 @@ export const deliverNotificationWebhook: NotificationDeliveryHandler = async ({
   if (!endpoint.enabled && !payloadIsTest(payload)) {
     throw new Error("Webhook endpoint is disabled.");
   }
+  const url = decryptWebhookValue(endpoint.urlEncrypted);
+  if (endpoint.deliveryType === WEBHOOK_ENDPOINT_TYPES.discord) {
+    const discordUrl = validateDiscordWebhookUrl(url);
+    discordUrl.searchParams.set("wait", "true");
+    await postWebhook({
+      url: discordUrl.toString(),
+      allowPrivateNetwork: false,
+      idempotencyKey,
+      payload: buildDiscordWebhookPayload(payload),
+    });
+    return;
+  }
+  if (!endpoint.secretEncrypted) {
+    throw new Error("Signed webhook endpoint has no signing secret.");
+  }
   await postWebhook({
-    url: decryptWebhookValue(endpoint.urlEncrypted),
+    url,
     allowPrivateNetwork: endpoint.allowPrivateNetwork,
     secret: decryptWebhookValue(endpoint.secretEncrypted),
     idempotencyKey,

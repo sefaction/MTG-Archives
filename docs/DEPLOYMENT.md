@@ -147,7 +147,11 @@ downloadable `mtg-archives-backup-*.tar.gz` archives. Include the hidden
 backup or copy it separately when moving the deployment. Restoring the database
 without this file requires recreating saved webhook destinations.
 
-Webhook destinations are managed at `/settings/webhooks`. Public destinations
-must use HTTPS. An administrator may explicitly approve an HTTP or HTTPS
-private/LAN destination, but loopback, link-local, metadata, multicast, unsafe
+Webhook destinations are managed at `/settings/webhooks`. Choose **Discord
+message** for an official Discord webhook URL; no separate signing secret is
+needed because the encrypted URL contains Discord's webhook token. Discord
+receives a mention-safe embed payload. Choose **Generic signed JSON** for a
+custom receiver and provide its HMAC signing secret. Public destinations must
+use HTTPS. An administrator may explicitly approve an HTTP or HTTPS private/LAN
+generic destination, but loopback, link-local, metadata, multicast, unsafe
 redirect, oversized-response, and timeout protections remain active.
