@@ -53,6 +53,7 @@ import {
   type DeckReturnLocation,
 } from "@/components/DeckListEditor";
 import { DeckBannerEditor } from "@/components/DeckBannerEditor";
+import { DeckToolsNav } from "@/components/DeckToolsNav";
 import {
   cn,
   filterDangerButtonClass,
@@ -579,6 +580,8 @@ export default async function DeckDetailPage({
           ))}
         </div>
       </section>
+
+      <DeckToolsNav deckId={deck.id} active="builder" />
 
       <DeckListEditor
         deckId={deck.id}
