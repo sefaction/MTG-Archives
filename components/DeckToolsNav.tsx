@@ -12,7 +12,7 @@ const tools: Array<{
   { id: "builder", label: "Builder", path: "", available: true },
   { id: "analysis", label: "Analysis", path: "/analysis", available: true },
   { id: "hands", label: "Sample Hands", path: "/hands", available: true },
-  { id: "playtest", label: "Playtest", path: "/playtest", available: false },
+  { id: "playtest", label: "Playtest", path: "/playtest", available: true },
 ];
 
 export function DeckToolsNav({
