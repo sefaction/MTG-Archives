@@ -91,7 +91,7 @@ export async function Nav() {
             </Link>
           ) : null}
         </div>
-        <div className="flex items-center gap-3 text-sm text-stone-300">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-3 text-sm text-stone-300 lg:w-auto">
           {user ? (
             <>
               <span className="inline-flex items-center gap-2 text-stone-300">

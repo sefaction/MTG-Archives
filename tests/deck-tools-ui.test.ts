@@ -7,9 +7,11 @@ const analysisPage = readFileSync(
   "app/decks/[deckId]/analysis/page.tsx",
   "utf8",
 );
+const handsPage = readFileSync("app/decks/[deckId]/hands/page.tsx", "utf8");
 const builderPage = readFileSync("app/decks/[deckId]/page.tsx", "utf8");
 const navigation = readFileSync("components/DeckToolsNav.tsx", "utf8");
 const chart = readFileSync("components/ManaCurveAnalysis.tsx", "utf8");
+const sampleHands = readFileSync("components/SampleHands.tsx", "utf8");
 
 test("deck snapshot applies existing visibility policy and selects presentation-safe data", () => {
   assert.match(snapshotSource, /canViewDeck\(user, deck, adminModeEnabled\)/);
@@ -23,7 +25,7 @@ test("deck snapshot applies existing visibility policy and selects presentation-
   assert.doesNotMatch(snapshotSource, /committed/);
 });
 
-test("builder and analysis share coherent deck tools navigation", () => {
+test("builder, analysis, and sample hands share coherent deck tools navigation", () => {
   assert.match(
     builderPage,
     /<DeckToolsNav deckId=\{deck\.id\} active="builder"/,
@@ -32,10 +34,15 @@ test("builder and analysis share coherent deck tools navigation", () => {
     analysisPage,
     /<DeckToolsNav deckId=\{deck\.id\} active="analysis"/,
   );
+  assert.match(handsPage, /<DeckToolsNav deckId=\{deck\.id\} active="hands"/);
   assert.match(navigation, /Builder/);
   assert.match(navigation, /Analysis/);
   assert.match(navigation, /Sample Hands/);
   assert.match(navigation, /Playtest/);
+  assert.match(
+    navigation,
+    /\{ id: "hands", label: "Sample Hands", path: "\/hands", available: true \}/,
+  );
   assert.match(navigation, /aria-disabled="true"/);
   assert.match(navigation, /aria-current=/);
 });
@@ -72,4 +79,30 @@ test("mana value summary wording is consistent and visually compact", () => {
   assert.doesNotMatch(chart, /Average MV|Median MV/);
   assert.match(chart, /text-lg font-semibold text-stone-50/);
   assert.doesNotMatch(chart, /text-2xl font-semibold text-stone-50/);
+});
+
+test("sample hands route reuses the visibility-safe snapshot without writes", () => {
+  assert.match(handsPage, /loadVisibleDeckSnapshot/);
+  assert.match(handsPage, /notFound\(\)/);
+  assert.match(handsPage, /<SampleHands cards=\{deck\.cards\}/);
+  assert.match(handsPage, /Sideboard and/);
+  assert.match(handsPage, /maybeboard\s+cards are excluded/);
+  assert.doesNotMatch(handsPage, /prisma\./);
+  assert.doesNotMatch(sampleHands, /fetch\(|action=|\/api\//);
+});
+
+test("sample hands expose seeded deals, London mulligans, drawing, and card faces", () => {
+  assert.match(sampleHands, /createSampleHandState/);
+  assert.match(sampleHands, /mulliganSampleHand/);
+  assert.match(sampleHands, /keepSampleHand/);
+  assert.match(sampleHands, /requiredMulliganBottomCount/);
+  assert.match(sampleHands, /Draw another hand/);
+  assert.match(sampleHands, /Draw card/);
+  assert.match(sampleHands, /Deal seeded hand/);
+  assert.match(sampleHands, /Select for bottom/);
+  assert.match(sampleHands, /aria-pressed=/);
+  assert.match(sampleHands, /Show back face/);
+  assert.doesNotMatch(sampleHands, /Command zone/);
+  assert.match(sampleHands, /Average spell mana value/);
+  assert.match(sampleHands, /Expected lands/);
 });
