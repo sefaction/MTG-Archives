@@ -70,6 +70,10 @@ test("selected curve cards support compact, detailed, grid, and spoiler views", 
   assert.match(chart, /function AnalysisCardImage/);
   assert.match(chart, /Show back face/);
   assert.match(chart, /CardManaCost/);
+  assert.match(chart, /Compact curve cards/);
+  assert.match(chart, /Preview \$\{curveCard\.cardName\}/);
+  assert.match(chart, /onMouseEnter=/);
+  assert.match(chart, /aria-label="Card preview"/);
 });
 
 test("mana value summary wording is consistent and visually compact", () => {
