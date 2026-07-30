@@ -34,6 +34,7 @@ export type DeckSnapshotCardPrinting = {
   typeLine: string;
   colors: string[];
   colorIdentity: string[];
+  producedMana: string[] | null;
   layout: string | null;
   imageUri: string | null;
   imageUris: DeckSnapshotImageUris;
@@ -143,6 +144,7 @@ export async function loadVisibleDeckSnapshot(
               typeLine: true,
               colors: true,
               colorIdentity: true,
+              producedMana: true,
               layout: true,
               imageUri: true,
               imageUris: true,
@@ -180,6 +182,10 @@ export async function loadVisibleDeckSnapshot(
             ...entry.card,
             colors: stringArray(entry.card.colors),
             colorIdentity: stringArray(entry.card.colorIdentity),
+            producedMana:
+              entry.card.producedMana == null
+                ? null
+                : stringArray(entry.card.producedMana),
             imageUris: imageUris(entry.card.imageUris),
             cardFaces: cardFaces(entry.card.cardFaces),
           }

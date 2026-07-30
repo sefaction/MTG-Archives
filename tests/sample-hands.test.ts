@@ -30,6 +30,8 @@ function printing(
     typeLine: overrides.typeLine ?? "Creature — Test",
     colors: overrides.colors ?? ["G"],
     colorIdentity: overrides.colorIdentity ?? ["G"],
+    producedMana:
+      "producedMana" in overrides ? (overrides.producedMana ?? null) : [],
     layout: overrides.layout ?? "normal",
     imageUri: overrides.imageUri ?? null,
     imageUris: overrides.imageUris ?? {},

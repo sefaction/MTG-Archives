@@ -102,6 +102,7 @@ function cardWriteData(cardData: ScryfallCard) {
     colors: cardData.colors ?? [],
     colorIdentity: cardData.color_identity ?? [],
     colorIndicator: cardData.color_indicator ?? [],
+    producedMana: cardData.produced_mana ?? [],
     typeLine: cardTypeLine(cardData),
     printedTypeLine: cardData.printed_type_line ?? null,
     oracleText: cardData.oracle_text ?? cardFaceText(cardData, "oracle_text"),
@@ -487,6 +488,9 @@ export async function searchLocalThenScryfallCards(query: string) {
         cmc: card.manaValue ?? 0,
         color_identity: Array.isArray(card.colorIdentity)
           ? (card.colorIdentity as string[])
+          : [],
+        produced_mana: Array.isArray(card.producedMana)
+          ? (card.producedMana as string[])
           : [],
         type_line: card.typeLine,
         set: card.setCode,

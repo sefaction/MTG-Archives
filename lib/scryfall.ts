@@ -47,6 +47,7 @@ export type ScryfallCard = {
   colors?: string[];
   color_identity: string[];
   color_indicator?: string[];
+  produced_mana?: string[];
   keywords?: string[];
   legalities?: Record<string, string>;
   games?: string[];

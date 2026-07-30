@@ -24,6 +24,8 @@ function printing(
     typeLine: overrides.typeLine ?? "Creature — Test",
     colors: overrides.colors ?? ["G"],
     colorIdentity: overrides.colorIdentity ?? ["G"],
+    producedMana:
+      "producedMana" in overrides ? (overrides.producedMana ?? null) : [],
     layout: overrides.layout ?? "normal",
     imageUri: overrides.imageUri ?? null,
     imageUris: overrides.imageUris ?? {},
@@ -204,4 +206,129 @@ test("very high mana values use one bounded overflow bucket", () => {
   assert.equal(analysis.buckets.length, 13);
   assert.equal(overflow?.label, "12+");
   assert.equal(overflow?.totalQuantity, 3);
+});
+
+test("mana production separates fixed and flexible demand and weights quantities", async () => {
+  const { analyzeManaProduction } = await import("../lib/deck-analysis");
+  const analysis = analyzeManaProduction([
+    entry("hybrid-spell", {
+      cardName: "Flexible Spell",
+      quantity: 2,
+      card: printing({
+        manaCost: "{1}{W/U}{G/P}{C}",
+        typeLine: "Instant",
+      }),
+    }),
+    entry("forest", {
+      cardName: "Forest",
+      quantity: 5,
+      card: printing({
+        manaCost: null,
+        manaValue: 0,
+        typeLine: "Basic Land — Forest",
+        producedMana: ["G"],
+      }),
+    }),
+    entry("plaza", {
+      cardName: "Five-Color Plaza",
+      quantity: 2,
+      card: printing({
+        manaCost: null,
+        manaValue: 0,
+        typeLine: "Land",
+        producedMana: ["W", "U", "B", "R", "G"],
+      }),
+    }),
+  ]);
+
+  const white = analysis.colors.find((color) => color.color === "W")!;
+  const blue = analysis.colors.find((color) => color.color === "U")!;
+  const green = analysis.colors.find((color) => color.color === "G")!;
+  const colorless = analysis.colors.find((color) => color.color === "C")!;
+  assert.equal(analysis.totalDemandSymbols, 6);
+  assert.equal(analysis.landQuantity, 7);
+  assert.equal(white.flexibleDemand, 2);
+  assert.equal(blue.flexibleDemand, 2);
+  assert.equal(green.flexibleDemand, 2);
+  assert.equal(colorless.fixedDemand, 2);
+  assert.equal(white.sourceCount, 2);
+  assert.equal(green.sourceCount, 7);
+  assert.equal(green.lands.length, 2);
+});
+
+test("mana production handles snow, explicit colorless, land faces, and missing metadata", async () => {
+  const { analyzeManaProduction } = await import("../lib/deck-analysis");
+  const analysis = analyzeManaProduction([
+    entry("snow-spell", {
+      quantity: 3,
+      card: printing({
+        manaCost: "{S}{B}{B}",
+        typeLine: "Sorcery",
+      }),
+    }),
+    entry("modal", {
+      quantity: 2,
+      card: printing({
+        manaCost: "{1}{R}",
+        typeLine: "Sorcery // Land",
+        producedMana: ["R"],
+        cardFaces: [
+          {
+            name: "Spell",
+            manaCost: "{1}{R}",
+            typeLine: "Sorcery",
+            imageUris: {},
+          },
+          {
+            name: "Land",
+            manaCost: null,
+            typeLine: "Land",
+            imageUris: {},
+          },
+        ],
+      }),
+    }),
+    entry("unknown-land", {
+      quantity: 4,
+      card: printing({
+        manaCost: null,
+        typeLine: "Land",
+        producedMana: null,
+      }),
+    }),
+  ]);
+
+  assert.equal(analysis.snowDemand, 3);
+  assert.equal(analysis.landQuantity, 6);
+  assert.equal(analysis.missingProductionQuantity, 4);
+  assert.equal(analysis.incomplete, true);
+  assert.equal(
+    analysis.colors.find((color) => color.color === "R")?.sourceCount,
+    2,
+  );
+  assert.equal(
+    analysis.colors.find((color) => color.color === "B")?.fixedDemand,
+    6,
+  );
+});
+
+test("mana production follows commander and sideboard inclusion rules", async () => {
+  const { analyzeManaProduction } = await import("../lib/deck-analysis");
+  const cards = [
+    entry("main", {
+      card: printing({ manaCost: "{W}", typeLine: "Creature" }),
+    }),
+    entry("commander", {
+      section: DeckSection.COMMANDER,
+      isCommander: true,
+      card: printing({ manaCost: "{U}", typeLine: "Creature" }),
+    }),
+    entry("side", {
+      section: DeckSection.SIDEBOARD,
+      card: printing({ manaCost: "{R}", typeLine: "Instant" }),
+    }),
+  ];
+
+  assert.equal(analyzeManaProduction(cards).totalDemandSymbols, 2);
+  assert.equal(analyzeManaProduction(cards, false).totalDemandSymbols, 1);
 });

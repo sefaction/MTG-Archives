@@ -299,6 +299,7 @@ model Card {
   colors              Json?
   colorIdentity       Json?
   colorIndicator      Json?
+  producedMana        Json?
   typeLine            String
   printedTypeLine     String?
   oracleText          String?
