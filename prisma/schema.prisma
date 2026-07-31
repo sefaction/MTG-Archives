@@ -126,8 +126,6 @@ model User {
   preferredPriceProvider     String                      @default("scryfall")
   inventoryDefaultVisibility DefaultCollectionVisibility @default(PRIVATE)
   deckDefaultVisibility      DefaultCollectionVisibility @default(PRIVATE)
-  publicProfileEnabled       Boolean                     @default(false)
-  publicSlug                 String?                     @unique
   publicDisplayName          String?
   createdAt                  DateTime                    @default(now())
   updatedAt                  DateTime                    @updatedAt
@@ -148,8 +146,8 @@ model User {
   wishlistNotificationEvents TradeWishlistNotificationActivity[]
   createdLocationTypes       LocationType[]
 
-  @@index([publicProfileEnabled, isActive, inventoryDefaultVisibility])
-  @@index([publicProfileEnabled, isActive, deckDefaultVisibility])
+  @@index([isActive, inventoryDefaultVisibility])
+  @@index([isActive, deckDefaultVisibility])
 }
 
 model League {

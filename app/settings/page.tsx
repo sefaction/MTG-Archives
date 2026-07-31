@@ -21,11 +21,7 @@ import {
   setLocalNotificationPreferences,
 } from "@/lib/notification-preferences";
 import { APP_THEMES, normalizeAppTheme } from "@/lib/themes";
-import {
-  assertPublicSlug,
-  defaultVisibilityLabel,
-  normalizePublicSlug,
-} from "@/lib/visibility";
+import { defaultVisibilityLabel } from "@/lib/visibility";
 import { DefaultCollectionVisibility } from "@prisma/client";
 
 const PRICE_PROVIDERS = [
@@ -67,7 +63,6 @@ export default async function SettingsPage({
   }
   const scope = await getAccessScope(user);
   const adminModeActive = scope?.mode === "admin";
-  const suggestedSlug = normalizePublicSlug(user.username || user.displayName);
   const notificationPreferences = await getLocalNotificationPreferences(
     user.id,
   );
@@ -84,7 +79,6 @@ export default async function SettingsPage({
       actor.id,
     );
 
-    const publicProfileEnabled = fd.get("publicProfileEnabled") === "on";
     const tradeNotifications = fd.get("tradeNotifications") === "on";
     const wishlistDigestNotifications =
       fd.get("wishlistDigestNotifications") === "on";
@@ -95,21 +89,6 @@ export default async function SettingsPage({
     const preferredPriceProvider = normalizePriceProvider(
       fd.get("preferredPriceProvider"),
     );
-    const publicSlugInput = String(fd.get("publicSlug") || "").trim();
-    const publicSlug = publicProfileEnabled
-      ? assertPublicSlug(publicSlugInput)
-      : publicSlugInput
-        ? assertPublicSlug(publicSlugInput)
-        : before.publicSlug;
-
-    if (publicSlug) {
-      const duplicate = await prisma.user.findFirst({
-        where: { publicSlug, id: { not: actor.id } },
-        select: { id: true },
-      });
-      if (duplicate) throw new Error("That public slug is already in use.");
-    }
-
     const updated = await prisma.$transaction(async (tx) => {
       const savedUser = await tx.user.update({
         where: { id: actor.id },
@@ -122,9 +101,7 @@ export default async function SettingsPage({
           ),
           theme,
           preferredPriceProvider,
-          publicProfileEnabled,
           publicDisplayName,
-          publicSlug,
         },
       });
       if (actor.playerId) {
@@ -151,9 +128,7 @@ export default async function SettingsPage({
         beforeJson: {
           inventoryDefaultVisibility: before.inventoryDefaultVisibility,
           deckDefaultVisibility: before.deckDefaultVisibility,
-          publicProfileEnabled: before.publicProfileEnabled,
           publicDisplayName: before.publicDisplayName,
-          publicSlug: before.publicSlug,
           theme: before.theme,
           preferredPriceProvider: before.preferredPriceProvider,
           playerColor: before.player?.color ?? DEFAULT_PLAYER_COLOR,
@@ -164,9 +139,7 @@ export default async function SettingsPage({
         afterJson: {
           inventoryDefaultVisibility: updated.inventoryDefaultVisibility,
           deckDefaultVisibility: updated.deckDefaultVisibility,
-          publicProfileEnabled: updated.publicProfileEnabled,
           publicDisplayName: updated.publicDisplayName,
-          publicSlug: updated.publicSlug,
           theme: updated.theme,
           preferredPriceProvider: updated.preferredPriceProvider,
           playerColor,
@@ -181,9 +154,7 @@ export default async function SettingsPage({
     revalidatePath("/locations");
     revalidatePath("/inventory");
     revalidatePath("/public/inventory");
-    if (updated.publicSlug) revalidatePath(`/u/${updated.publicSlug}`);
-    if (updated.publicSlug)
-      revalidatePath(`/u/${updated.publicSlug}/inventory`);
+    revalidatePath("/public/decks");
   }
 
   return (
@@ -197,13 +168,12 @@ export default async function SettingsPage({
       <section className="space-y-2">
         <h1 className="text-2xl font-bold">Settings</h1>
         <p className="app-muted">
-          Choose your workspace theme and control whether your inventory and
-          future deck pages are private or public.
+          Choose your workspace theme and collection defaults.
         </p>
         {adminModeActive ? (
           <p className="rounded border border-amber-800 bg-amber-950/30 p-3 text-sm text-amber-100">
-            Admin mode is active, but these settings update your own public
-            collection profile only.
+            Admin mode is active, but these settings update only your own
+            account preferences.
           </p>
         ) : null}
       </section>
@@ -363,41 +333,22 @@ export default async function SettingsPage({
           <div>
             <h2 className="text-base font-semibold">Collection visibility</h2>
             <p className="app-muted text-sm">
-              New accounts stay private until you opt in.
+              Public decks appear in the public deck list. Inventory in public
+              locations appears in the public inventory browser.
             </p>
           </div>
 
-          <label className="flex items-center gap-2 text-sm">
+          <label className="block max-w-xl text-sm">
+            Public display name
             <input
-              type="checkbox"
-              name="publicProfileEnabled"
-              defaultChecked={user.publicProfileEnabled}
+              name="publicDisplayName"
+              defaultValue={user.publicDisplayName ?? user.displayName}
+              className={cn(filterInputClass, "mt-1 w-full")}
             />
-            Enable public collection page
+            <span className="app-muted mt-1 block text-xs">
+              Shown beside your cards and decks in public browsing.
+            </span>
           </label>
-          <p className="app-muted text-xs">
-            When disabled, public pages hide all inventory even if a location is
-            marked Public.
-          </p>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="text-sm">
-              Public display name
-              <input
-                name="publicDisplayName"
-                defaultValue={user.publicDisplayName ?? user.displayName}
-                className={cn(filterInputClass, "mt-1 w-full")}
-              />
-            </label>
-            <label className="text-sm">
-              Public slug
-              <input
-                name="publicSlug"
-                defaultValue={user.publicSlug ?? suggestedSlug}
-                className={cn(filterInputClass, "mt-1 w-full")}
-              />
-            </label>
-          </div>
 
           <div className="grid gap-3 md:grid-cols-2">
             <label className="text-sm">
@@ -452,14 +403,6 @@ export default async function SettingsPage({
           </div>
         </section>
 
-        {user.publicSlug ? (
-          <p className="text-sm text-sky-200">
-            Public inventory link:{" "}
-            <a className="underline" href={`/u/${user.publicSlug}/inventory`}>
-              /u/{user.publicSlug}/inventory
-            </a>
-          </p>
-        ) : null}
         <SubmitButton
           pendingLabel="Saving settings…"
           className={filterButtonClass}

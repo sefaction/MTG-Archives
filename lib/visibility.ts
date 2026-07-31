@@ -44,24 +44,3 @@ export function defaultVisibilityLabel(value: DefaultCollectionVisibility) {
 export function effectiveVisibilityLabel(value: EffectiveVisibility) {
   return value === DefaultCollectionVisibility.PUBLIC ? "Public" : "Private";
 }
-
-export function normalizePublicSlug(input: string) {
-  return input
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48);
-}
-
-export function assertPublicSlug(input: string) {
-  const slug = normalizePublicSlug(input);
-  if (!slug) throw new Error("Public slug is required.");
-  if (slug.length < 3)
-    throw new Error("Public slug must be at least 3 characters.");
-  if (!/^[a-z0-9][a-z0-9_-]*[a-z0-9]$/.test(slug))
-    throw new Error(
-      "Public slug may contain lowercase letters, numbers, hyphens, and underscores.",
-    );
-  return slug;
-}
