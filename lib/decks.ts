@@ -68,7 +68,6 @@ export function canViewDeck(
         visibility: Visibility;
         ownerUser: {
           deckDefaultVisibility: DefaultCollectionVisibility;
-          publicProfileEnabled: boolean;
           isActive: boolean;
         };
       }
@@ -78,7 +77,7 @@ export function canViewDeck(
 ) {
   if (!deck) return false;
   if (adminModeEnabled || user?.id === deck.ownerUserId) return true;
-  if (!deck.ownerUser.isActive || !deck.ownerUser.publicProfileEnabled) {
+  if (!deck.ownerUser.isActive) {
     return false;
   }
   return (
@@ -91,7 +90,7 @@ export function canViewDeck(
 
 export function publicDeckWhere(): Prisma.DeckWhereInput {
   return {
-    ownerUser: { isActive: true, publicProfileEnabled: true },
+    ownerUser: { isActive: true },
     OR: [
       { visibility: Visibility.PUBLIC },
       {

@@ -2,8 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { DefaultCollectionVisibility, Visibility } from "@prisma/client";
 import {
-  assertPublicSlug,
-  normalizePublicSlug,
   resolveDeckVisibility,
   resolveInventoryVisibility,
 } from "../lib/visibility";
@@ -69,12 +67,6 @@ test("deck visibility uses the same override semantics", () => {
   );
 });
 
-test("public slugs are normalized and validated without exposing emails", () => {
-  assert.equal(normalizePublicSlug("Mana Vault Trades!"), "mana-vault-trades");
-  assert.equal(assertPublicSlug("My Binder"), "my-binder");
-  assert.throws(() => assertPublicSlug("x"), /at least 3 characters/);
-});
-
 test("public inventory where allows only explicitly public locations when account default is private", () => {
   assert.deepEqual(
     publicInventoryVisibilityWhere(DefaultCollectionVisibility.PRIVATE),
@@ -136,7 +128,6 @@ test("global public location where applies visibility to inventory locations", (
     where.OR[1].ownerPlayer.users.some.inventoryDefaultVisibility,
     DefaultCollectionVisibility.PUBLIC,
   );
-  assert.equal(where.ownerPlayer.users.some.publicProfileEnabled, true);
   assert.equal(where.ownerPlayer.users.some.isActive, true);
   assert.equal(where.ownerPlayer.OR, undefined);
   assert.equal(where.ownerPlayer.visibility, undefined);

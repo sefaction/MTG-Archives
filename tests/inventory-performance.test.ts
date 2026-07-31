@@ -209,8 +209,5 @@ test("schema includes indexes for paged inventory and public visibility queries"
   assert.match(schema, /@@index\(\[locationId, quantity\]\)/);
   assert.match(schema, /@@index\(\[cardId, quantity\]\)/);
   assert.match(schema, /@@index\(\[ownerPlayerId, visibility, active\]\)/);
-  assert.match(
-    schema,
-    /@@index\(\[publicProfileEnabled, isActive, inventoryDefaultVisibility\]\)/,
-  );
+  assert.match(schema, /@@index\(\[isActive, inventoryDefaultVisibility\]\)/);
 });

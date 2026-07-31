@@ -15,7 +15,6 @@ export default async function PublicDecksPage() {
       cards: { select: { quantity: true, section: true } },
       ownerUser: {
         select: {
-          publicSlug: true,
           publicDisplayName: true,
           displayName: true,
         },

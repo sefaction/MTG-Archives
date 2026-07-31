@@ -3,11 +3,7 @@ import {
   Prisma,
   Visibility,
 } from "@prisma/client";
-import {
-  getInventoryExactPrintings,
-  getInventoryGroupedByCard,
-  orderInventoryItemsByPageGroups,
-} from "@/lib/inventory-locations";
+import { orderInventoryItemsByPageGroups } from "@/lib/inventory-locations";
 import { prisma } from "@/lib/prisma";
 import {
   inventoryCardMatchesPostFilters,
@@ -106,27 +102,6 @@ export function publicLocationVisibilityWhere(
   return { active: true, kind: "NORMAL", visibility: Visibility.PUBLIC };
 }
 
-export async function getPublicProfileBySlug(publicSlug: string) {
-  return prisma.user.findFirst({
-    where: {
-      publicSlug,
-      publicProfileEnabled: true,
-      playerId: { not: null },
-      isActive: true,
-    },
-    select: {
-      id: true,
-      displayName: true,
-      publicDisplayName: true,
-      publicSlug: true,
-      playerId: true,
-      player: { select: { color: true } },
-      inventoryDefaultVisibility: true,
-      deckDefaultVisibility: true,
-    },
-  });
-}
-
 function publicFilterValues(value: string | string[] | undefined): string[] {
   if (Array.isArray(value)) return value.flatMap((entry) => entry.split(","));
   return value ? value.split(",") : [];
@@ -183,7 +158,7 @@ function buildPublicCardWhere(filters: PublicInventoryFilters) {
             currentOwner: {
               users: {
                 some: {
-                  publicProfileEnabled: true,
+                  isActive: true,
                   publicDisplayName: { contains: q, mode: "insensitive" },
                 },
               },
@@ -212,32 +187,28 @@ function publicOwnerDisplayName(user: {
 function publicUserWhere(defaultVisibility: DefaultCollectionVisibility) {
   return {
     isActive: true,
-    publicProfileEnabled: true,
     playerId: { not: null },
     inventoryDefaultVisibility: defaultVisibility,
   } satisfies Prisma.UserWhereInput;
 }
 
 export function globalPublicInventoryLocationWhere(
-  ownerPublicSlug?: string | string[],
+  ownerPlayerId?: string | string[],
 ): Prisma.InventoryLocationWhereInput {
-  const ownerPublicSlugs = Array.isArray(ownerPublicSlug)
-    ? ownerPublicSlug.filter(Boolean)
-    : ownerPublicSlug
-      ? [ownerPublicSlug]
+  const ownerPlayerIds = Array.isArray(ownerPlayerId)
+    ? ownerPlayerId.filter(Boolean)
+    : ownerPlayerId
+      ? [ownerPlayerId]
       : [];
   return {
     active: true,
     kind: "NORMAL",
     ownerPlayer: {
+      ...(ownerPlayerIds.length ? { id: { in: ownerPlayerIds } } : {}),
       users: {
         some: {
           isActive: true,
-          publicProfileEnabled: true,
           playerId: { not: null },
-          ...(ownerPublicSlugs.length
-            ? { publicSlug: { in: ownerPublicSlugs } }
-            : {}),
         },
       },
     },
@@ -264,10 +235,7 @@ function publicOwnerVisibilityWhere(
   };
 }
 
-export function buildPublicInventoryWhere(
-  filters: PublicInventoryFilters,
-  publicSlug?: string,
-) {
+export function buildPublicInventoryWhere(filters: PublicInventoryFilters) {
   const { cardWhere, queryWhere } = buildPublicCardWhere(filters);
   const structured = parseInventoryFilters(filters as any);
   const and: Prisma.InventoryItemWhereInput[] = [
@@ -279,29 +247,14 @@ export function buildPublicInventoryWhere(
     },
   ];
   if (queryWhere) and.push(queryWhere);
-  if (publicSlug) {
+  const publicOwnerIds = publicFilterValues(filters.owner).filter(Boolean);
+  if (publicOwnerIds.length) {
     and.push({
       currentOwner: {
+        id: { in: publicOwnerIds },
         users: {
           some: {
-            publicSlug,
             isActive: true,
-            publicProfileEnabled: true,
-            playerId: { not: null },
-          },
-        },
-      },
-    });
-  }
-  const publicOwnerSlugs = publicFilterValues(filters.owner).filter(Boolean);
-  if (publicOwnerSlugs.length) {
-    and.push({
-      currentOwner: {
-        users: {
-          some: {
-            publicSlug: { in: publicOwnerSlugs },
-            isActive: true,
-            publicProfileEnabled: true,
             playerId: { not: null },
           },
         },
@@ -381,11 +334,10 @@ const publicInventoryInclude = {
       displayName: true,
       color: true,
       users: {
-        where: { isActive: true, publicProfileEnabled: true },
+        where: { isActive: true },
         select: {
           displayName: true,
           publicDisplayName: true,
-          publicSlug: true,
           inventoryDefaultVisibility: true,
         },
         orderBy: { createdAt: "asc" as const },
@@ -393,44 +345,6 @@ const publicInventoryInclude = {
     },
   },
 } satisfies Prisma.InventoryItemInclude;
-
-export async function getPublicInventoryBySlug(
-  publicSlug: string,
-  filters: PublicInventoryFilters = {},
-) {
-  const profile = await getPublicProfileBySlug(publicSlug);
-  if (!profile?.playerId) return null;
-
-  const inventory = await prisma.inventoryItem.findMany({
-    where: buildPublicInventoryWhere(filters, publicSlug),
-    include: publicInventoryInclude,
-    orderBy: [{ card: { name: "asc" } }, { card: { setCode: "asc" } }],
-  });
-
-  const publicLocations = await prisma.inventoryLocation.findMany({
-    where: {
-      ownerPlayerId: profile.playerId,
-      ...publicLocationVisibilityWhere(profile.inventoryDefaultVisibility),
-    },
-    select: { name: true },
-    orderBy: { name: "asc" },
-  });
-
-  const filteredInventory = filterPublicInventoryByClientSafeFilters(
-    inventory as any,
-    filters,
-  );
-  const exactRows = getInventoryExactPrintings(filteredInventory as any);
-  const groupedRows = getInventoryGroupedByCard(exactRows as any);
-
-  return {
-    profile,
-    publicLocations,
-    exactRows,
-    groupedRows,
-    visibleCards: exactRows.reduce((sum, row) => sum + row.quantity, 0),
-  };
-}
 
 export async function getGlobalPublicInventory(
   filters: PublicInventoryFilters = {},
@@ -469,10 +383,10 @@ export async function getGlobalPublicInventory(
     _count: { _all: true as const },
     orderBy: [{ cardId: "asc" }] as any,
   };
-  const ownerPublicSlugs = publicFilterValues(filters.owner).filter(Boolean);
+  const ownerPlayerIds = publicFilterValues(filters.owner).filter(Boolean);
   const publicOwnerInventoryWhere = buildPublicInventoryWhere({});
   const publicLocationInventoryWhere = buildPublicInventoryWhere(
-    ownerPublicSlugs.length ? { owner: ownerPublicSlugs } : {},
+    ownerPlayerIds.length ? { owner: ownerPlayerIds } : {},
   );
   const [allGroups, publicProfiles, publicLocations] = await Promise.all([
     displayMode === "grouped"
@@ -481,13 +395,11 @@ export async function getGlobalPublicInventory(
     prisma.user.findMany({
       where: {
         isActive: true,
-        publicProfileEnabled: true,
-        publicSlug: { not: null },
         playerId: { not: null },
         player: { inventoryOwned: { some: publicOwnerInventoryWhere } },
       },
       select: {
-        publicSlug: true,
+        playerId: true,
         publicDisplayName: true,
         displayName: true,
         player: { select: { displayName: true, name: true, color: true } },
@@ -496,7 +408,7 @@ export async function getGlobalPublicInventory(
     }),
     prisma.inventoryLocation.findMany({
       where: {
-        ...globalPublicInventoryLocationWhere(ownerPublicSlugs),
+        ...globalPublicInventoryLocationWhere(ownerPlayerIds),
         inventoryItems: { some: publicLocationInventoryWhere },
       },
       select: { name: true },
@@ -611,7 +523,7 @@ export async function getGlobalPublicInventory(
   return {
     inventory: filteredInventory,
     publicProfiles: publicProfiles.map((profile) => ({
-      publicSlug: profile.publicSlug!,
+      ownerPlayerId: profile.playerId!,
       displayName: publicOwnerDisplayName(profile),
       color: profile.player?.color ?? "#64748b",
     })),

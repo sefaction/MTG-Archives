@@ -58,7 +58,6 @@ function deck(overrides: any = {}) {
     ownerUser: {
       deckDefaultVisibility:
         overrides.deckDefaultVisibility ?? DefaultCollectionVisibility.PRIVATE,
-      publicProfileEnabled: overrides.publicProfileEnabled ?? true,
       isActive: overrides.isActive ?? true,
     },
   };
@@ -104,10 +103,7 @@ test("public/private deck visibility protects private decks", () => {
     true,
   );
   assert.equal(
-    canViewDeck(
-      null,
-      deck({ visibility: Visibility.PUBLIC, publicProfileEnabled: false }),
-    ),
+    canViewDeck(null, deck({ visibility: Visibility.PUBLIC, isActive: false })),
     false,
   );
   assert.equal(
@@ -121,7 +117,7 @@ test("public/private deck visibility protects private decks", () => {
 
 test("public deck where includes public and inherited-public decks only", () => {
   assert.deepEqual(publicDeckWhere(), {
-    ownerUser: { isActive: true, publicProfileEnabled: true },
+    ownerUser: { isActive: true },
     OR: [
       { visibility: Visibility.PUBLIC },
       {

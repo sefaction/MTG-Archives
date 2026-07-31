@@ -6,10 +6,6 @@ const globalPublicInventoryPage = fs.readFileSync(
   "app/public/inventory/page.tsx",
   "utf8",
 );
-const perUserPublicInventoryPage = fs.readFileSync(
-  "app/u/[publicSlug]/inventory/page.tsx",
-  "utf8",
-);
 const inventoryBrowser = fs.readFileSync(
   "components/InventoryBrowser.tsx",
   "utf8",
@@ -71,7 +67,7 @@ test("shared inventory browser defines public read-only capabilities", () => {
   assert.match(inventoryBrowser, /canViewPrivateSourceInfo: false/);
 });
 
-test("public entry points and per-user compatibility route point at global public inventory", () => {
+test("public entry points point at the global public inventory", () => {
   assert.match(loginPage, /Browse public inventory/);
   assert.match(loginPage, /\/public\/inventory/);
   assert.match(nav, /<Link href="\/" className="app-nav-brand">/);
@@ -79,15 +75,11 @@ test("public entry points and per-user compatibility route point at global publi
   assert.match(dashboardPage, /href="\/public\/inventory"/);
   assert.match(dashboardPage, /Public Inventory/);
   assert.match(middleware, /"\/public"/);
-  assert.match(
-    perUserPublicInventoryPage,
-    /redirect\(`\/public\/inventory\?owner=/,
-  );
 });
 
-test("global public inventory query enforces public profile and location visibility server-side", () => {
+test("global public inventory query enforces location visibility server-side", () => {
   assert.match(publicCollectionQueries, /getGlobalPublicInventory/);
-  assert.match(publicCollectionQueries, /publicProfileEnabled: true/);
+  assert.doesNotMatch(publicCollectionQueries, /publicProfileEnabled/);
   assert.match(publicCollectionQueries, /publicOwnerVisibilityWhere/);
   assert.match(publicCollectionQueries, /publicInventoryVisibilityWhere/);
   assert.match(publicCollectionQueries, /select:\s*{\s*name: true\s*}/);
@@ -232,15 +224,12 @@ test("public inventory data and autocomplete routes are scoped to public-safe da
     publicCollectionQueries,
     /player:\s*\{ inventoryOwned:\s*\{ some: publicOwnerInventoryWhere \} \}/,
   );
-  assert.match(publicCollectionQueries, /publicSlug:\s*\{ not: null \}/);
+  assert.match(publicCollectionQueries, /ownerPlayerId: profile\.playerId!/);
   assert.match(
     publicCollectionQueries,
     /inventoryItems:\s*\{ some: publicLocationInventoryWhere \}/,
   );
-  assert.match(
-    publicCollectionQueries,
-    /publicSlug:\s*\{\s*in: ownerPublicSlugs\s*\}/,
-  );
+  assert.match(publicCollectionQueries, /id:\s*\{ in: publicOwnerIds \}/);
   assert.match(publicCollectionQueries, /select:\s*\{\s*name: true\s*\}/);
   assert.match(filterSuggestionsApi, /buildPublicInventoryWhere/);
   assert.match(
