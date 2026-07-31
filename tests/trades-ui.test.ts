@@ -190,6 +190,22 @@ test("trade builder supports multiple quantity-aware card lines", () => {
   assert.match(tradeBuilder, /priceLabel/);
 });
 
+test("expected proposal conflicts render inline without hiding unexpected failures", () => {
+  assert.match(tradeBuilder, /useActionState/);
+  assert.match(tradeBuilder, /action=\{submitProposal\}/);
+  assert.match(
+    tradeBuilder,
+    /role=\{proposalState\.status === "error" \? "alert" : "status"\}/,
+  );
+  assert.match(tradeBuilder, /\{proposalState\.message\}/);
+  assert.match(
+    tradeActions,
+    /One or more selected quantities are already reserved or unavailable\./,
+  );
+  assert.match(tradeActions, /tradeProposalValidationState\(error\)/);
+  assert.match(tradeActions, /throw error/);
+});
+
 test("trade builder and active trades compare quantity-aware values", () => {
   assert.match(tradeBuilder, /<TradeValueSummary/);
   assert.match(tradeBuilder, /priceAmount: item\.priceAmount/);

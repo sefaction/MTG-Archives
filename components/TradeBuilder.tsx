@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { TradeValueSummary } from "@/components/TradeValueSummary";
@@ -13,6 +13,10 @@ import {
   type TradePairingPayload,
   type TradePairingSide,
 } from "@/lib/trade-pairing";
+import {
+  initialTradeProposalActionState,
+  type TradeProposalActionState,
+} from "@/lib/trade-proposal";
 import {
   cn,
   filterFieldClass,
@@ -52,7 +56,10 @@ type TradeDraftLine = {
 };
 
 type TradeBuilderProps = {
-  createTradeAction: (formData: FormData) => Promise<void>;
+  createTradeAction: (
+    previousState: TradeProposalActionState,
+    formData: FormData,
+  ) => Promise<TradeProposalActionState>;
   proposerPlayerId?: string;
   proposerOwnerId: string;
   receiverPlayerId: string;
@@ -400,6 +407,10 @@ export function TradeBuilder({
   initialOfferedItem,
   initialRequestedItem,
 }: TradeBuilderProps) {
+  const [proposalState, submitProposal] = useActionState(
+    createTradeAction,
+    initialTradeProposalActionState,
+  );
   const [offerSearch, setOfferSearch] = useState<SearchState>(emptySearchState);
   const [requestSearch, setRequestSearch] =
     useState<SearchState>(emptySearchState);
@@ -460,7 +471,7 @@ export function TradeBuilder({
 
   return (
     <form
-      action={createTradeAction}
+      action={submitProposal}
       className="space-y-3 rounded-xl border border-sky-900/70 bg-zinc-950/70 p-3 shadow-xl shadow-black/20"
     >
       <input type="hidden" name="receiverPlayerId" value={receiverPlayerId} />
@@ -606,6 +617,19 @@ export function TradeBuilder({
           Submit Proposal
         </SubmitButton>
       </div>
+      {proposalState.status !== "idle" ? (
+        <p
+          role={proposalState.status === "error" ? "alert" : "status"}
+          className={cn(
+            "rounded-md border px-3 py-2 text-sm",
+            proposalState.status === "error"
+              ? "border-red-800 bg-red-950/35 text-red-100"
+              : "border-emerald-800 bg-emerald-950/30 text-emerald-100",
+          )}
+        >
+          {proposalState.message}
+        </p>
+      ) : null}
       {disabledReason ? (
         <p className="text-sm text-amber-300">{disabledReason}</p>
       ) : null}
