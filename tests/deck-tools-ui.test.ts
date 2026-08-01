@@ -8,10 +8,16 @@ const analysisPage = readFileSync(
   "utf8",
 );
 const handsPage = readFileSync("app/decks/[deckId]/hands/page.tsx", "utf8");
+const playtestPage = readFileSync(
+  "app/decks/[deckId]/playtest/page.tsx",
+  "utf8",
+);
 const builderPage = readFileSync("app/decks/[deckId]/page.tsx", "utf8");
 const navigation = readFileSync("components/DeckToolsNav.tsx", "utf8");
 const chart = readFileSync("components/ManaCurveAnalysis.tsx", "utf8");
 const sampleHands = readFileSync("components/SampleHands.tsx", "utf8");
+const playtest = readFileSync("components/PlaytestSandbox.tsx", "utf8");
+const playtestReducer = readFileSync("lib/playtest.ts", "utf8");
 
 test("deck snapshot applies existing visibility policy and selects presentation-safe data", () => {
   assert.match(snapshotSource, /canViewDeck\(user, deck, adminModeEnabled\)/);
@@ -25,7 +31,7 @@ test("deck snapshot applies existing visibility policy and selects presentation-
   assert.doesNotMatch(snapshotSource, /committed/);
 });
 
-test("builder, analysis, and sample hands share coherent deck tools navigation", () => {
+test("builder, analysis, sample hands, and playtest share coherent navigation", () => {
   assert.match(
     builderPage,
     /<DeckToolsNav deckId=\{deck\.id\} active="builder"/,
@@ -35,6 +41,10 @@ test("builder, analysis, and sample hands share coherent deck tools navigation",
     /<DeckToolsNav deckId=\{deck\.id\} active="analysis"/,
   );
   assert.match(handsPage, /<DeckToolsNav deckId=\{deck\.id\} active="hands"/);
+  assert.match(
+    playtestPage,
+    /<DeckToolsNav deckId=\{deck\.id\} active="playtest"/,
+  );
   assert.match(navigation, /Builder/);
   assert.match(navigation, /Analysis/);
   assert.match(navigation, /Sample Hands/);
@@ -43,8 +53,32 @@ test("builder, analysis, and sample hands share coherent deck tools navigation",
     navigation,
     /\{ id: "hands", label: "Sample Hands", path: "\/hands", available: true \}/,
   );
+  assert.match(
+    navigation,
+    /\{ id: "playtest", label: "Playtest", path: "\/playtest", available: true \}/,
+  );
   assert.match(navigation, /aria-disabled="true"/);
   assert.match(navigation, /aria-current=/);
+});
+
+test("playtest route is visibility-safe, client-only, and reducer driven", () => {
+  assert.match(playtestPage, /loadVisibleDeckSnapshot/);
+  assert.match(playtestPage, /notFound\(\)/);
+  assert.match(playtestPage, /<PlaytestSandbox cards=\{deck\.cards\}/);
+  assert.doesNotMatch(playtestPage, /prisma\./);
+  assert.doesNotMatch(playtest, /fetch\(|action=|\/api\//);
+  assert.match(playtest, /useReducer/);
+  assert.match(playtest, /draggable/);
+  assert.match(playtest, /onDragStart/);
+  assert.match(playtest, /Card actions for/);
+  assert.match(playtest, /Search library/);
+  assert.match(playtest, /Next turn/);
+  assert.match(playtest, /Undo/);
+  assert.match(playtest, /Redo/);
+  assert.match(playtestReducer, /type: "MOVE_CARD"/);
+  assert.match(playtestReducer, /type: "SEARCH_LIBRARY"/);
+  assert.match(playtestReducer, /type: "RESTART"/);
+  assert.match(playtestReducer, /playtestHistoryReducer/);
 });
 
 test("analysis screen has interactive SVG and accessible table views", () => {
