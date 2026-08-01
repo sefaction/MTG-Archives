@@ -105,11 +105,10 @@ test("public inventory where supports multiple public owner filters", () => {
 
   assert.deepEqual((where.AND as any[])[1], {
     currentOwner: {
+      id: { in: ["brian", "codex"] },
       users: {
         some: {
-          publicSlug: { in: ["brian", "codex"] },
           isActive: true,
-          publicProfileEnabled: true,
           playerId: { not: null },
         },
       },

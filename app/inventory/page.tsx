@@ -34,6 +34,7 @@ import {
   ensureDefaultLocation,
   getInventoryExactPrintings,
   getInventoryGroupedByCard,
+  groupInventoryPageGroupsByCardName,
   getLocationsForOwner,
   orderInventoryItemsByPageGroups,
   bulkMoveInventoryToLocation,
@@ -159,6 +160,7 @@ export default async function InventoryPage({
     },
     select: {
       id: true,
+      oracleId: true,
       name: true,
       setCode: true,
       rarity: true,
@@ -176,7 +178,26 @@ export default async function InventoryPage({
   const cardSortById = new Map(cardSortData.map((card) => [card.id, card]));
   const groupMatchesClientSafeFilters = (group: any) =>
     inventoryCardMatchesPostFilters(cardSortById.get(group.cardId), filters);
-  const filteredGroups = sortableGroups.filter(groupMatchesClientSafeFilters);
+  const filteredPrintingGroups = sortableGroups.filter(
+    groupMatchesClientSafeFilters,
+  );
+  const orderedPrintingGroups = [...filteredPrintingGroups].sort(
+    (left, right) =>
+      compareInventoryGroups(
+        left,
+        right,
+        cardSortById,
+        String(sortField),
+        sortDirection,
+      ),
+  );
+  const filteredGroups =
+    displayMode === "grouped"
+      ? groupInventoryPageGroupsByCardName(
+          orderedPrintingGroups,
+          cardSortById,
+        )
+      : filteredPrintingGroups;
   const sortedGroups = [...filteredGroups].sort((left, right) =>
     compareInventoryGroups(
       left,
@@ -194,7 +215,11 @@ export default async function InventoryPage({
     displayMode === "grouped"
       ? {
           ...where,
-          cardId: { in: (pageGroups as any[]).map((group) => group.cardId) },
+          cardId: {
+            in: (pageGroups as any[]).flatMap(
+              (group) => group.cardIds ?? [group.cardId],
+            ),
+          },
         }
       : {
           ...where,

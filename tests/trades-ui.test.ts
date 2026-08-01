@@ -121,11 +121,16 @@ test("global trade wishlist groups every open want by person", () => {
   assert.match(tradesPage, /Every open person-to-person want/);
 });
 
-test("active trade rows stay collapsed behind compact summaries", () => {
-  assert.match(tradesPage, /tradeSideLabel\(offeredCards\)/);
-  assert.match(tradesPage, /tradeSideLabel\(requestedCards\)/);
-  assert.match(tradesPage, /offeredCards\.map/);
-  assert.match(tradesPage, /requestedCards\.map/);
+test("trade rows stay collapsed behind viewer-oriented compact summaries", () => {
+  assert.match(tradesPage, /const displayLeftCards = userIsReceiver/);
+  assert.match(tradesPage, /const displayRightCards = userIsReceiver/);
+  assert.match(tradesPage, /const displayLeftPlayer = userIsReceiver/);
+  assert.match(tradesPage, /tradeSideLabel\(displayLeftCards\)/);
+  assert.match(tradesPage, /tradeSideLabel\(displayRightCards\)/);
+  assert.match(tradesPage, /displayLeftCards\.map/);
+  assert.match(tradesPage, /displayRightCards\.map/);
+  assert.match(tradesPage, /leftLines=\{displayLeftCards\}/);
+  assert.match(tradesPage, /rightLines=\{displayRightCards\}/);
   assert.match(tradesPage, /group-open:hidden/);
   assert.match(tradesPage, /statusLabel\(trade\.status\)\.replaceAll/);
 });
@@ -188,6 +193,22 @@ test("trade builder supports multiple quantity-aware card lines", () => {
   assert.match(tradeBuilder, /Build a multi-card exchange/);
   assert.match(tradeBuilder, /locationName/);
   assert.match(tradeBuilder, /priceLabel/);
+});
+
+test("expected proposal conflicts render inline without hiding unexpected failures", () => {
+  assert.match(tradeBuilder, /useActionState/);
+  assert.match(tradeBuilder, /action=\{submitProposal\}/);
+  assert.match(
+    tradeBuilder,
+    /role=\{proposalState\.status === "error" \? "alert" : "status"\}/,
+  );
+  assert.match(tradeBuilder, /\{proposalState\.message\}/);
+  assert.match(
+    tradeActions,
+    /One or more selected quantities are already reserved or unavailable\./,
+  );
+  assert.match(tradeActions, /tradeProposalValidationState\(error\)/);
+  assert.match(tradeActions, /throw error/);
 });
 
 test("trade builder and active trades compare quantity-aware values", () => {

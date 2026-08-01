@@ -26,6 +26,12 @@ import {
 } from "@/lib/trade-lines";
 import { selectTradeCardPrice } from "@/lib/trade-value";
 import { recordTradeEvent } from "@/lib/trade-notifications";
+import {
+  asTradeProposalValidationError,
+  tradeProposalValidationState,
+  TradeProposalValidationError,
+  type TradeProposalActionState,
+} from "@/lib/trade-proposal";
 
 const activeStatuses: TradeStatus[] = [
   TradeStatus.PROPOSED,
@@ -86,9 +92,13 @@ async function validateProposedTrade(
   ignoredReservationTradeId?: string,
 ) {
   if (data.proposerPlayerId === data.receiverPlayerId)
-    throw new Error("Proposer and recipient must be different users.");
+    throw new TradeProposalValidationError(
+      "Proposer and recipient must be different users.",
+    );
   if (!data.offeredLines.length || !data.requestedLines.length) {
-    throw new Error("Choose at least one card on each side of the trade.");
+    throw new TradeProposalValidationError(
+      "Choose at least one card on each side of the trade.",
+    );
   }
   const selections = [...data.offeredLines, ...data.requestedLines];
   const itemIds = Array.from(
@@ -107,10 +117,10 @@ async function validateProposedTrade(
     lines.map((line) => {
       const item = itemById.get(line.inventoryItemId);
       if (!item || item.currentOwnerId !== expectedOwnerId) {
-        throw new Error(ownershipError);
+        throw new TradeProposalValidationError(ownershipError);
       }
       if (item.location?.kind === InventoryLocationKind.DECK) {
-        throw new Error(
+        throw new TradeProposalValidationError(
           "Cards committed to decks are excluded from normal trade availability. Return them to inventory first.",
         );
       }
@@ -166,7 +176,7 @@ async function validateProposedTrade(
       line.item.quantity - (reserved.get(line.item.id) ?? 0) <
       line.quantity
     ) {
-      throw new Error(
+      throw new TradeProposalValidationError(
         "One or more selected quantities are already reserved or unavailable.",
       );
     }
@@ -177,16 +187,20 @@ async function validateProposedTrade(
 function tradeLinesFromForm(fd: FormData) {
   const legacyOfferedId = String(fd.get("offeredInventoryItemId") || "");
   const legacyRequestedId = String(fd.get("requestedInventoryItemId") || "");
-  return {
-    offeredLines: parseTradeLineSelections(
-      fd.get("offeredLinesJson"),
-      legacyOfferedId || undefined,
-    ),
-    requestedLines: parseTradeLineSelections(
-      fd.get("requestedLinesJson"),
-      legacyRequestedId || undefined,
-    ),
-  };
+  try {
+    return {
+      offeredLines: parseTradeLineSelections(
+        fd.get("offeredLinesJson"),
+        legacyOfferedId || undefined,
+      ),
+      requestedLines: parseTradeLineSelections(
+        fd.get("requestedLinesJson"),
+        legacyRequestedId || undefined,
+      ),
+    };
+  } catch (error) {
+    throw asTradeProposalValidationError(error);
+  }
 }
 
 async function loadTradeForAction(tradeId: string) {
@@ -227,7 +241,7 @@ async function loadTradeForAction(tradeId: string) {
   return trade;
 }
 
-export async function createTrade(fd: FormData) {
+async function createTradeMutation(fd: FormData) {
   const actor = await requireLogin();
   const actorScope = await getAccessScope(actor);
   const actorIsAdmin = actorScope?.mode === "admin";
@@ -255,18 +269,24 @@ export async function createTrade(fd: FormData) {
       })
     : null;
   if (counterTradeId && !counterSource) {
-    throw new Error("The trade being countered no longer exists.");
+    throw new TradeProposalValidationError(
+      "The trade being countered no longer exists.",
+    );
   }
   if (counterSource) {
-    assertCanCounterTrade({
-      actorOwnerId: actor.playerId,
-      isAdmin: actorIsAdmin,
-      proposerOwnerId: counterSource.proposerPlayerId,
-      recipientOwnerId: counterSource.receiverPlayerId,
-      status: counterSource.status,
-      counterProposerOwnerId: data.proposerPlayerId,
-      counterRecipientOwnerId: data.receiverPlayerId,
-    });
+    try {
+      assertCanCounterTrade({
+        actorOwnerId: actor.playerId,
+        isAdmin: actorIsAdmin,
+        proposerOwnerId: counterSource.proposerPlayerId,
+        recipientOwnerId: counterSource.receiverPlayerId,
+        status: counterSource.status,
+        counterProposerOwnerId: data.proposerPlayerId,
+        counterRecipientOwnerId: data.receiverPlayerId,
+      });
+    } catch (error) {
+      throw asTradeProposalValidationError(error);
+    }
   }
   const { offered, requested } = await validateProposedTrade(
     data,
@@ -318,7 +338,7 @@ export async function createTrade(fd: FormData) {
         },
       });
       if (replaced.count !== 1) {
-        throw new Error(
+        throw new TradeProposalValidationError(
           "This trade changed before the counter was submitted. Reload and try again.",
         );
       }
@@ -362,6 +382,23 @@ export async function createTrade(fd: FormData) {
   });
   revalidatePath("/trades");
   revalidatePath("/notifications");
+}
+
+export async function createTrade(
+  _previousState: TradeProposalActionState,
+  fd: FormData,
+): Promise<TradeProposalActionState> {
+  try {
+    await createTradeMutation(fd);
+    return {
+      status: "success",
+      message: "Trade proposal sent.",
+    };
+  } catch (error) {
+    const validationState = tradeProposalValidationState(error);
+    if (validationState) return validationState;
+    throw error;
+  }
 }
 
 export async function cancelTradeWishlistItem(fd: FormData) {

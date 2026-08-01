@@ -1099,6 +1099,18 @@ export default async function TradesPage({
               const incomingCards = userIsProposer
                 ? requestedCards
                 : offeredCards;
+              const displayLeftCards = userIsReceiver
+                ? requestedCards
+                : offeredCards;
+              const displayRightCards = userIsReceiver
+                ? offeredCards
+                : requestedCards;
+              const displayLeftPlayer = userIsReceiver
+                ? trade.receiverPlayer
+                : trade.proposerPlayer;
+              const displayRightPlayer = userIsReceiver
+                ? trade.proposerPlayer
+                : trade.receiverPlayer;
               const templateOfferedId =
                 offeredLines[0]?.inventoryItemId ??
                 trade.offeredInventoryItemId ??
@@ -1137,11 +1149,11 @@ export default async function TradesPage({
                     </div>
                     <div className="grid min-w-0 grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm">
                       <span className="truncate rounded bg-zinc-900 px-2 py-1 text-zinc-200">
-                        {tradeSideLabel(offeredCards)}
+                        {tradeSideLabel(displayLeftCards)}
                       </span>
                       <span className="text-zinc-600">for</span>
                       <span className="truncate rounded bg-zinc-900 px-2 py-1 text-zinc-200">
-                        {tradeSideLabel(requestedCards)}
+                        {tradeSideLabel(displayRightCards)}
                       </span>
                     </div>
                     <div className="flex items-center justify-end gap-2">
@@ -1159,8 +1171,8 @@ export default async function TradesPage({
                   <div className="space-y-3 border-t border-zinc-800 p-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <p className="text-sm text-zinc-400">
-                        {trade.proposerPlayer.displayName} {"<->"}{" "}
-                        {trade.receiverPlayer.displayName}
+                        {displayLeftPlayer.displayName} {"<->"}{" "}
+                        {displayRightPlayer.displayName}
                       </p>
                       {receiverNeedsAction || userNeedsPhysical ? (
                         <span className="rounded border border-amber-700 px-2 py-1 text-xs text-amber-200">
@@ -1201,25 +1213,25 @@ export default async function TradesPage({
                     ) : null}
                     <TradeValueSummary
                       compact
-                      leftLabel={`${trade.proposerPlayer.displayName} offers`}
-                      rightLabel={`${trade.receiverPlayer.displayName} offers`}
-                      leftLines={offeredCards}
-                      rightLines={requestedCards}
+                      leftLabel={`${displayLeftPlayer.displayName} offers`}
+                      rightLabel={`${displayRightPlayer.displayName} offers`}
+                      leftLines={displayLeftCards}
+                      rightLines={displayRightCards}
                     />
                     <div className="grid gap-3 md:grid-cols-2">
                       <section className="space-y-2">
                         <h4 className="text-xs font-semibold uppercase text-zinc-500">
-                          {trade.proposerPlayer.displayName} offers
+                          {displayLeftPlayer.displayName} offers
                         </h4>
-                        {offeredCards.map((card) => (
+                        {displayLeftCards.map((card) => (
                           <TradeCardPreview key={card.id} card={card} />
                         ))}
                       </section>
                       <section className="space-y-2">
                         <h4 className="text-xs font-semibold uppercase text-zinc-500">
-                          {trade.receiverPlayer.displayName} offers
+                          {displayRightPlayer.displayName} offers
                         </h4>
-                        {requestedCards.map((card) => (
+                        {displayRightCards.map((card) => (
                           <TradeCardPreview key={card.id} card={card} />
                         ))}
                       </section>

@@ -121,7 +121,6 @@ export async function loadVisibleDeckSnapshot(
         select: {
           displayName: true,
           deckDefaultVisibility: true,
-          publicProfileEnabled: true,
           isActive: true,
         },
       },

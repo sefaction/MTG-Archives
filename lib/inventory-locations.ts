@@ -219,6 +219,7 @@ export function locationSummary(
 type InventoryPageGroupLike = {
   currentOwnerId?: string | null;
   cardId: string;
+  cardIds?: string[];
   foilStatus?: string | null;
   condition?: string | null;
   language?: string | null;
@@ -252,12 +253,17 @@ export function orderInventoryItemsByPageGroups<
   displayMode: "exact" | "grouped",
 ) {
   const includeOwner = pageGroups.some((group) => group.currentOwnerId);
-  const groupOrder = new Map(
-    pageGroups.map((group, index) => [
+  const groupOrder = new Map<string, number>();
+  pageGroups.forEach((group, index) => {
+    if (displayMode === "grouped" && group.cardIds?.length) {
+      group.cardIds.forEach((cardId) => groupOrder.set(cardId, index));
+      return;
+    }
+    groupOrder.set(
       inventoryPageGroupKey(group, displayMode, includeOwner),
       index,
-    ]),
-  );
+    );
+  });
   return [...items].sort((left, right) => {
     const leftOrder =
       groupOrder.get(inventoryPageGroupKey(left, displayMode, includeOwner)) ??
@@ -356,6 +362,47 @@ export function normalizedCardGroupKey(card: {
     card.oracleId ||
     `name:${card.name.trim().toLowerCase().replace(/\s+/g, " ")}`
   );
+}
+
+export function groupInventoryPageGroupsByCardName<
+  T extends {
+    cardId: string;
+    _sum?: { quantity?: number | null };
+    _count?: { _all?: number };
+  },
+>(
+  groups: T[],
+  cardById: Map<string, { oracleId?: string | null; name: string }>,
+) {
+  const grouped = new Map<
+    string,
+    T & {
+      cardIds: string[];
+      _sum: { quantity: number };
+      _count: { _all: number };
+    }
+  >();
+  for (const group of groups) {
+    const card = cardById.get(group.cardId);
+    if (!card) continue;
+    const key = normalizedCardGroupKey(card);
+    const existing = grouped.get(key);
+    if (!existing) {
+      grouped.set(key, {
+        ...group,
+        cardIds: [group.cardId],
+        _sum: { quantity: group._sum?.quantity ?? 0 },
+        _count: { _all: group._count?._all ?? 0 },
+      });
+      continue;
+    }
+    if (!existing.cardIds.includes(group.cardId)) {
+      existing.cardIds.push(group.cardId);
+    }
+    existing._sum.quantity += group._sum?.quantity ?? 0;
+    existing._count._all += group._count?._all ?? 0;
+  }
+  return Array.from(grouped.values());
 }
 
 export function getInventoryGroupedByCard<

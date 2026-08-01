@@ -22,7 +22,8 @@ const playtestReducer = readFileSync("lib/playtest.ts", "utf8");
 test("deck snapshot applies existing visibility policy and selects presentation-safe data", () => {
   assert.match(snapshotSource, /canViewDeck\(user, deck, adminModeEnabled\)/);
   assert.match(snapshotSource, /loadVisibleDeckSnapshot/);
-  assert.match(snapshotSource, /publicProfileEnabled: true/);
+  assert.match(snapshotSource, /isActive: true/);
+  assert.doesNotMatch(snapshotSource, /publicProfileEnabled/);
   assert.match(snapshotSource, /deckDefaultVisibility: true/);
   assert.match(snapshotSource, /manaValue: true/);
   assert.match(snapshotSource, /cardFaces: true/);

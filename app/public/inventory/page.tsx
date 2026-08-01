@@ -31,7 +31,6 @@ type PageProps = {
 
 type PublicOwner = {
   displayName: string;
-  publicSlug?: string | null;
   color: string;
 };
 
@@ -47,7 +46,6 @@ function publicOwnerFor(item: any): PublicOwner {
   return {
     displayName:
       user?.publicDisplayName || user?.displayName || "Public collection",
-    publicSlug: user?.publicSlug || null,
     color: item.currentOwner?.color || "#64748b",
   };
 }
@@ -103,7 +101,6 @@ function getGlobalPublicExactPrintings(items: any[]) {
     const ownerPart = {
       ownerPlayerId: item.currentOwnerId,
       ownerName,
-      publicSlug: owner.publicSlug,
       ownerColor: owner.color,
       locationName,
       inventoryItemId: item.id,
@@ -174,7 +171,7 @@ function toInventoryBrowserRows({
             (printing: any) => printing.ownerBreakdown || [],
           )
         : i.ownerBreakdown || []
-      ).map((owner: any) => owner.publicSlug || owner.ownerName),
+      ).map((owner: any) => owner.ownerPlayerId),
     ).size;
     const ownerBreakdown =
       displayMode === "grouped"
@@ -415,7 +412,7 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
         displayMode={displayMode}
         isPublic
         players={result.publicProfiles.map((owner) => ({
-          value: owner.publicSlug,
+          value: owner.ownerPlayerId,
           label: owner.displayName,
         }))}
         ownerParamName="owner"

@@ -6,6 +6,7 @@ import { resolveInventoryVisibility } from "@/lib/visibility";
 import {
   getInventoryExactPrintings,
   getInventoryGroupedByCard,
+  groupInventoryPageGroupsByCardName,
   orderInventoryItemsByPageGroups,
 } from "@/lib/inventory-locations";
 import { getManaFacesForDto } from "@/lib/mtg/mana-display";
@@ -272,6 +273,7 @@ export async function GET(request: Request) {
     },
     select: {
       id: true,
+      oracleId: true,
       name: true,
       setCode: true,
       rarity: true,
@@ -289,7 +291,23 @@ export async function GET(request: Request) {
   const cardSortById = new Map(cardSortData.map((card) => [card.id, card]));
   const groupMatchesClientSafeFilters = (group: any) =>
     inventoryCardMatchesPostFilters(cardSortById.get(group.cardId), filters);
-  const filteredGroups = sortableGroups.filter(groupMatchesClientSafeFilters);
+  const filteredPrintingGroups = sortableGroups.filter(
+    groupMatchesClientSafeFilters,
+  );
+  const orderedPrintingGroups = [...filteredPrintingGroups].sort(
+    (left, right) =>
+      compareInventoryGroups(
+        left,
+        right,
+        cardSortById,
+        sortField,
+        sortDirection,
+      ),
+  );
+  const filteredGroups =
+    displayMode === "grouped"
+      ? groupInventoryPageGroupsByCardName(orderedPrintingGroups, cardSortById)
+      : filteredPrintingGroups;
   const sortedGroups = [...filteredGroups].sort((left, right) =>
     compareInventoryGroups(left, right, cardSortById, sortField, sortDirection),
   );
@@ -298,7 +316,11 @@ export async function GET(request: Request) {
     displayMode === "grouped"
       ? {
           ...where,
-          cardId: { in: (pageGroups as any[]).map((group) => group.cardId) },
+          cardId: {
+            in: (pageGroups as any[]).flatMap(
+              (group) => group.cardIds ?? [group.cardId],
+            ),
+          },
         }
       : {
           ...where,
