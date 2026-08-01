@@ -3,7 +3,10 @@ import {
   Prisma,
   Visibility,
 } from "@prisma/client";
-import { orderInventoryItemsByPageGroups } from "@/lib/inventory-locations";
+import {
+  groupInventoryPageGroupsByCardName,
+  orderInventoryItemsByPageGroups,
+} from "@/lib/inventory-locations";
 import { prisma } from "@/lib/prisma";
 import {
   inventoryCardMatchesPostFilters,
@@ -436,6 +439,7 @@ export async function getGlobalPublicInventory(
     },
     select: {
       id: true,
+      oracleId: true,
       name: true,
       setCode: true,
       rarity: true,
@@ -457,7 +461,23 @@ export async function getGlobalPublicInventory(
       cardSortById.get(group.cardId),
       structuredFilters,
     );
-  const filteredGroups = sortableGroups.filter(groupMatchesClientSafeFilters);
+  const filteredPrintingGroups = sortableGroups.filter(
+    groupMatchesClientSafeFilters,
+  );
+  const orderedPrintingGroups = [...filteredPrintingGroups].sort(
+    (left, right) =>
+      compareInventoryGroups(
+        left,
+        right,
+        cardSortById,
+        sortField,
+        sortDirection,
+      ),
+  );
+  const filteredGroups =
+    displayMode === "grouped"
+      ? groupInventoryPageGroupsByCardName(orderedPrintingGroups, cardSortById)
+      : filteredPrintingGroups;
   const sortedGroups = [...filteredGroups].sort((left, right) =>
     compareInventoryGroups(left, right, cardSortById, sortField, sortDirection),
   );
@@ -467,7 +487,11 @@ export async function getGlobalPublicInventory(
     displayMode === "grouped"
       ? {
           ...where,
-          cardId: { in: (pageGroups as any[]).map((group) => group.cardId) },
+          cardId: {
+            in: (pageGroups as any[]).flatMap(
+              (group) => group.cardIds ?? [group.cardId],
+            ),
+          },
         }
       : {
           ...where,

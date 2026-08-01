@@ -60,6 +60,24 @@ test("settings page renders and saves per-user identity color", () => {
   assert.match(settings, /data: \{ color: playerColor \}/);
 });
 
+test("settings are organized as a responsive account dashboard", () => {
+  assert.match(settings, /aria-label="Settings sections"/);
+  for (const id of [
+    "appearance",
+    "identity",
+    "pricing",
+    "notifications",
+    "collection",
+  ]) {
+    assert.match(settings, new RegExp(`id="${id}"`));
+  }
+  assert.match(settings, /grid items-start gap-4 xl:grid-cols-2/);
+  assert.match(settings, /xl:col-span-2/);
+  assert.match(settings, /has-\[:checked\]:border-/);
+  assert.match(settings, /sticky bottom-3/);
+  assert.match(settings, /className=\{filterPrimaryButtonClass\}/);
+});
+
 test("global stylesheet exposes theme tokens for each app theme", () => {
   for (const id of [
     "golgari",

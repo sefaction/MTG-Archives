@@ -8,6 +8,8 @@ import {
   filterButtonClass,
   filterInputClass,
   filterOptionClass,
+  filterPanelClass,
+  filterPrimaryButtonClass,
   filterSelectClass,
 } from "@/components/filterStyles";
 import { getAccessScope, getCurrentUser, requireLogin } from "@/lib/auth";
@@ -165,250 +167,308 @@ export default async function SettingsPage({
           Settings saved.
         </p>
       ) : null}
-      <section className="space-y-2">
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="app-muted">
-          Choose your workspace theme and collection defaults.
-        </p>
+      <section className="app-panel flex flex-wrap items-start justify-between gap-4 p-4">
+        <div className="space-y-1">
+          <p className="app-muted text-xs font-medium uppercase tracking-wider">
+            Account
+          </p>
+          <h1 className="text-2xl font-bold">Settings</h1>
+          <p className="app-muted text-sm">
+            Personalize the workspace, notifications, and public collection.
+          </p>
+        </div>
+        <nav
+          aria-label="Settings sections"
+          className="flex flex-wrap gap-2 text-sm"
+        >
+          {[
+            ["appearance", "Appearance"],
+            ["identity", "Identity"],
+            ["pricing", "Pricing"],
+            ["notifications", "Notifications"],
+            ["collection", "Collection"],
+          ].map(([id, label]) => (
+            <a key={id} href={`#${id}`} className={filterButtonClass}>
+              {label}
+            </a>
+          ))}
+        </nav>
         {adminModeActive ? (
-          <p className="rounded border border-amber-800 bg-amber-950/30 p-3 text-sm text-amber-100">
+          <p className="w-full rounded border border-amber-800 bg-amber-950/30 p-3 text-sm text-amber-100">
             Admin mode is active, but these settings update only your own
             account preferences.
           </p>
         ) : null}
       </section>
 
-      <form
-        action={updateVisibilitySettings}
-        className="app-panel space-y-6 p-4"
-      >
-        <section className="space-y-3">
-          <div>
-            <h2 className="text-base font-semibold">Theme</h2>
-            <p className="app-muted text-sm">
-              Themes are saved per user and apply across the full app shell.
-            </p>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {APP_THEMES.map((theme) => (
-              <label
-                key={theme.id}
-                className="app-card flex cursor-pointer gap-3 p-3"
-              >
-                <input
-                  type="radio"
-                  name="theme"
-                  value={theme.id}
-                  defaultChecked={normalizeAppTheme(user.theme) === theme.id}
-                  className="mt-1"
-                />
-                <span className="space-y-1">
-                  <span className="flex items-center gap-2 font-medium">
-                    {theme.label}
-                    <span className="app-muted rounded border border-[var(--app-border)] px-1.5 py-0.5 text-[0.65rem] uppercase tracking-wide">
-                      {theme.mode}
+      <form action={updateVisibilitySettings} className="space-y-4">
+        <div className="grid items-start gap-4 xl:grid-cols-2">
+          <section
+            id="appearance"
+            className={cn(filterPanelClass, "space-y-3 xl:col-span-2")}
+          >
+            <div>
+              <p className="app-muted text-xs font-medium uppercase tracking-wider">
+                Workspace
+              </p>
+              <h2 className="text-lg font-semibold">Appearance</h2>
+              <p className="app-muted text-sm">
+                Themes are saved per user and apply across the full app shell.
+              </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {APP_THEMES.map((theme) => (
+                <label
+                  key={theme.id}
+                  className="app-card flex cursor-pointer gap-2 p-2.5 transition-colors has-[:checked]:border-[var(--app-accent)] has-[:checked]:bg-[var(--app-accent-soft)]"
+                >
+                  <input
+                    type="radio"
+                    name="theme"
+                    value={theme.id}
+                    defaultChecked={normalizeAppTheme(user.theme) === theme.id}
+                    className="mt-0.5"
+                  />
+                  <span className="space-y-1">
+                    <span className="flex items-center gap-2 font-medium">
+                      {theme.label}
+                      <span className="app-muted rounded border border-[var(--app-border)] px-1.5 py-0.5 text-[0.6rem] uppercase tracking-wide">
+                        {theme.mode}
+                      </span>
+                    </span>
+                    <span className="app-muted block text-xs">
+                      {theme.description}
                     </span>
                   </span>
+                </label>
+              ))}
+            </div>
+          </section>
+
+          <section id="identity" className={cn(filterPanelClass, "space-y-4")}>
+            <div>
+              <p className="app-muted text-xs font-medium uppercase tracking-wider">
+                Shared views
+              </p>
+              <h2 className="text-lg font-semibold">User identity</h2>
+              <p className="app-muted text-sm">
+                Your player color marks your cards in public inventory and
+                multi-user views.
+              </p>
+            </div>
+            <label className="flex flex-wrap items-center justify-between gap-3 text-sm">
+              <span>
+                <span className="block font-medium">Player color</span>
+                <span className="app-muted block text-xs">
+                  Used as your visual marker across shared screens.
+                </span>
+              </span>
+              <span className="flex items-center gap-2">
+                <input
+                  type="color"
+                  name="playerColor"
+                  defaultValue={normalizePlayerColor(user.player?.color)}
+                  className="h-9 w-12 cursor-pointer rounded border border-[var(--app-border)] bg-transparent p-1"
+                />
+                <span
+                  className="inline-flex items-center gap-2 rounded border border-[var(--app-border)] px-2.5 py-1.5 text-sm"
+                  style={{
+                    borderColor: normalizePlayerColor(user.player?.color),
+                  }}
+                >
+                  <span
+                    className="h-3 w-3 rounded-full"
+                    style={{
+                      backgroundColor: normalizePlayerColor(user.player?.color),
+                    }}
+                  />
+                  {user.displayName}
+                </span>
+              </span>
+            </label>
+          </section>
+
+          <section id="pricing" className={cn(filterPanelClass, "space-y-4")}>
+            <div>
+              <p className="app-muted text-xs font-medium uppercase tracking-wider">
+                Valuation
+              </p>
+              <h2 className="text-lg font-semibold">Pricing</h2>
+              <p className="app-muted text-sm">
+                Choose the source used when current pricing is available.
+              </p>
+            </div>
+            <label className="block text-sm">
+              Preferred pricing source
+              <select
+                name="preferredPriceProvider"
+                defaultValue={user.preferredPriceProvider || "scryfall"}
+                className={cn(filterSelectClass, "mt-1 w-full")}
+              >
+                {PRICE_PROVIDERS.map((provider) => (
+                  <option
+                    key={provider.value}
+                    className={filterOptionClass}
+                    value={provider.value}
+                  >
+                    {provider.label}
+                  </option>
+                ))}
+              </select>
+              <span className="app-muted mt-1 block text-xs">
+                Scryfall remains the fallback when the selected provider has no
+                current price.
+              </span>
+            </label>
+          </section>
+
+          <section
+            id="notifications"
+            className={cn(filterPanelClass, "space-y-4")}
+          >
+            <div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="app-muted text-xs font-medium uppercase tracking-wider">
+                    Updates
+                  </p>
+                  <h2 className="text-lg font-semibold">Notifications</h2>
+                </div>
+                <a href="/settings/webhooks" className={filterButtonClass}>
+                  Manage webhooks
+                </a>
+              </div>
+              <p className="app-muted text-sm">
+                Choose which quiet in-app updates appear in the header and
+                notification history.
+              </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+              <label className="app-card flex cursor-pointer items-start gap-2 p-3 text-sm">
+                <input
+                  type="checkbox"
+                  name="tradeNotifications"
+                  defaultChecked={notificationPreferences.trades}
+                  className="mt-0.5"
+                />
+                <span>
+                  <span className="block font-medium">Trade activity</span>
                   <span className="app-muted block text-xs">
-                    {theme.description}
+                    Proposals, counters, status changes, and exchanges.
                   </span>
                 </span>
               </label>
-            ))}
-          </div>
-        </section>
-
-        <section className="space-y-4 border-t border-[var(--app-border)] pt-5">
-          <div>
-            <h2 className="text-base font-semibold">User identity</h2>
-            <p className="app-muted text-sm">
-              Your player color marks your cards in public inventory and
-              multi-user views.
-            </p>
-          </div>
-          <label className="text-sm">
-            Player color
-            <span className="mt-1 flex items-center gap-3">
-              <input
-                type="color"
-                name="playerColor"
-                defaultValue={normalizePlayerColor(user.player?.color)}
-                className="h-10 w-14 cursor-pointer rounded border border-[var(--app-border)] bg-transparent p-1"
-              />
-              <span
-                className="inline-flex items-center gap-2 rounded border border-[var(--app-border)] px-3 py-2 text-sm"
-                style={{
-                  borderColor: normalizePlayerColor(user.player?.color),
-                }}
-              >
-                <span
-                  className="h-3 w-3 rounded-full"
-                  style={{
-                    backgroundColor: normalizePlayerColor(user.player?.color),
-                  }}
+              <label className="app-card flex cursor-pointer items-start gap-2 p-3 text-sm">
+                <input
+                  type="checkbox"
+                  name="wishlistDigestNotifications"
+                  defaultChecked={notificationPreferences.wishlistDigest}
+                  className="mt-0.5"
                 />
-                {user.displayName}
-              </span>
-            </span>
-          </label>
-        </section>
-
-        <section className="space-y-4 border-t border-[var(--app-border)] pt-5">
-          <div>
-            <h2 className="text-base font-semibold">Pricing</h2>
-            <p className="app-muted text-sm">
-              Choose the source used when current pricing is available for a
-              card. Scryfall remains the fallback when a provider has no current
-              price.
-            </p>
-          </div>
-          <label className="text-sm">
-            Preferred pricing source
-            <select
-              name="preferredPriceProvider"
-              defaultValue={user.preferredPriceProvider || "scryfall"}
-              className={cn(filterSelectClass, "mt-1 w-full")}
-            >
-              {PRICE_PROVIDERS.map((provider) => (
-                <option
-                  key={provider.value}
-                  className={filterOptionClass}
-                  value={provider.value}
-                >
-                  {provider.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </section>
-
-        <section className="space-y-4 border-t border-[var(--app-border)] pt-5">
-          <div>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-base font-semibold">Notifications</h2>
-              <a href="/settings/webhooks" className={filterButtonClass}>
-                Manage webhooks
-              </a>
+                <span>
+                  <span className="block font-medium">Wishlist digest</span>
+                  <span className="app-muted block text-xs">
+                    Bundle new interest in your public cards into one quiet
+                    update per hourly window.
+                  </span>
+                </span>
+              </label>
             </div>
-            <p className="app-muted text-sm">
-              Choose which quiet in-app updates appear in the header and
-              notification history.
-            </p>
-          </div>
-          <label className="flex items-start gap-2 text-sm">
-            <input
-              type="checkbox"
-              name="tradeNotifications"
-              defaultChecked={notificationPreferences.trades}
-              className="mt-0.5"
-            />
-            <span>
-              <span className="block font-medium">Trade activity</span>
-              <span className="app-muted block text-xs">
-                Proposals, counters, status changes, and physical exchange
-                confirmations.
-              </span>
-            </span>
-          </label>
-          <label className="flex items-start gap-2 text-sm">
-            <input
-              type="checkbox"
-              name="wishlistDigestNotifications"
-              defaultChecked={notificationPreferences.wishlistDigest}
-              className="mt-0.5"
-            />
-            <span>
-              <span className="block font-medium">
-                Hourly trade-wishlist digest
-              </span>
-              <span className="app-muted block text-xs">
-                Bundle new interest in your public cards into one quiet update
-                per hourly window.
-              </span>
-            </span>
-          </label>
-        </section>
+          </section>
 
-        <section className="space-y-4 border-t border-[var(--app-border)] pt-5">
-          <div>
-            <h2 className="text-base font-semibold">Collection visibility</h2>
-            <p className="app-muted text-sm">
-              Public decks appear in the public deck list. Inventory in public
-              locations appears in the public inventory browser.
-            </p>
-          </div>
+          <section
+            id="collection"
+            className={cn(filterPanelClass, "space-y-4")}
+          >
+            <div>
+              <p className="app-muted text-xs font-medium uppercase tracking-wider">
+                Sharing
+              </p>
+              <h2 className="text-lg font-semibold">Collection visibility</h2>
+              <p className="app-muted text-sm">
+                Public decks appear in the public deck list. Inventory in public
+                locations appears in the public inventory browser.
+              </p>
+            </div>
 
-          <label className="block max-w-xl text-sm">
-            Public display name
-            <input
-              name="publicDisplayName"
-              defaultValue={user.publicDisplayName ?? user.displayName}
-              className={cn(filterInputClass, "mt-1 w-full")}
-            />
-            <span className="app-muted mt-1 block text-xs">
-              Shown beside your cards and decks in public browsing.
-            </span>
-          </label>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="text-sm">
-              Inventory default visibility
-              <select
-                name="inventoryDefaultVisibility"
-                defaultValue={user.inventoryDefaultVisibility}
-                className={cn(filterSelectClass, "mt-1 w-full")}
-              >
-                <option
-                  className={filterOptionClass}
-                  value={DefaultCollectionVisibility.PRIVATE}
-                >
-                  Private by default
-                </option>
-                <option
-                  className={filterOptionClass}
-                  value={DefaultCollectionVisibility.PUBLIC}
-                >
-                  Public by default
-                </option>
-              </select>
+            <label className="block text-sm">
+              Public display name
+              <input
+                name="publicDisplayName"
+                defaultValue={user.publicDisplayName ?? user.displayName}
+                className={cn(filterInputClass, "mt-1 w-full")}
+              />
               <span className="app-muted mt-1 block text-xs">
-                {defaultVisibilityLabel(user.inventoryDefaultVisibility)}:
-                locations that use the account default resolve to this setting.
+                Shown beside your cards and decks in public browsing.
               </span>
             </label>
-            <label className="text-sm">
-              Deck default visibility
-              <select
-                name="deckDefaultVisibility"
-                defaultValue={user.deckDefaultVisibility}
-                className={cn(filterSelectClass, "mt-1 w-full")}
-              >
-                <option
-                  className={filterOptionClass}
-                  value={DefaultCollectionVisibility.PRIVATE}
-                >
-                  Private by default
-                </option>
-                <option
-                  className={filterOptionClass}
-                  value={DefaultCollectionVisibility.PUBLIC}
-                >
-                  Public by default
-                </option>
-              </select>
-              <span className="app-muted mt-1 block text-xs">
-                Decks that use the account default resolve to this setting.
-              </span>
-            </label>
-          </div>
-        </section>
 
-        <SubmitButton
-          pendingLabel="Saving settings…"
-          className={filterButtonClass}
-        >
-          Save settings
-        </SubmitButton>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-sm">
+                Inventory default visibility
+                <select
+                  name="inventoryDefaultVisibility"
+                  defaultValue={user.inventoryDefaultVisibility}
+                  className={cn(filterSelectClass, "mt-1 w-full")}
+                >
+                  <option
+                    className={filterOptionClass}
+                    value={DefaultCollectionVisibility.PRIVATE}
+                  >
+                    Private by default
+                  </option>
+                  <option
+                    className={filterOptionClass}
+                    value={DefaultCollectionVisibility.PUBLIC}
+                  >
+                    Public by default
+                  </option>
+                </select>
+                <span className="app-muted mt-1 block text-xs">
+                  {defaultVisibilityLabel(user.inventoryDefaultVisibility)}:
+                  locations that use the account default resolve to this
+                  setting.
+                </span>
+              </label>
+              <label className="text-sm">
+                Deck default visibility
+                <select
+                  name="deckDefaultVisibility"
+                  defaultValue={user.deckDefaultVisibility}
+                  className={cn(filterSelectClass, "mt-1 w-full")}
+                >
+                  <option
+                    className={filterOptionClass}
+                    value={DefaultCollectionVisibility.PRIVATE}
+                  >
+                    Private by default
+                  </option>
+                  <option
+                    className={filterOptionClass}
+                    value={DefaultCollectionVisibility.PUBLIC}
+                  >
+                    Public by default
+                  </option>
+                </select>
+                <span className="app-muted mt-1 block text-xs">
+                  Decks that use the account default resolve to this setting.
+                </span>
+              </label>
+            </div>
+          </section>
+        </div>
+
+        <div className="sticky bottom-3 z-20 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--app-border-strong)] bg-[color-mix(in_srgb,var(--app-surface)_94%,transparent)] px-4 py-3 shadow-xl shadow-[var(--app-shadow)] backdrop-blur">
+          <p className="app-muted text-sm">
+            Changes apply only after you save.
+          </p>
+          <SubmitButton
+            pendingLabel="Saving settings..."
+            className={filterPrimaryButtonClass}
+          >
+            Save settings
+          </SubmitButton>
+        </div>
       </form>
     </main>
   );

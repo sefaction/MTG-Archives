@@ -161,7 +161,17 @@ test("sorting is server-authoritative and resets page state", () => {
 });
 
 test("full-dataset client-safe filters run before paging", () => {
-  assert.match(inventoryPage, /const filteredGroups = sortableGroups\.filter/);
+  assert.match(
+    inventoryPage,
+    /const filteredPrintingGroups = sortableGroups\.filter/,
+  );
+  assert.match(inventoryPage, /groupInventoryPageGroupsByCardName\(/);
+  assert.match(inventoryListApi, /groupInventoryPageGroupsByCardName\(/);
+  assert.match(publicInventoryQueries, /groupInventoryPageGroupsByCardName\(/);
+  assert.match(
+    inventoryPage + inventoryListApi + publicInventoryQueries,
+    /group\.cardIds \?\? \[group\.cardId\]/,
+  );
   assert.match(inventoryPage, /isInventoryLocationSort\(String\(sortField\)\)/);
   assert.match(inventoryPage, /enrichInventoryGroupsForLocationSort/);
   assert.match(inventoryListApi, /groupMatchesClientSafeFilters/);

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   getInventoryExactPrintings,
   getInventoryGroupedByCard,
+  groupInventoryPageGroupsByCardName,
   locationSummary,
   normalizeLocationName,
   orderInventoryItemsByPageGroups,
@@ -168,6 +169,33 @@ test("grouping falls back to normalized card name when oracle id is missing", ()
 
   assert.equal(grouped.length, 1);
   assert.equal(grouped[0].quantity, 2);
+});
+
+test("card-name page groups keep every printing together before pagination", () => {
+  const cardById = new Map([
+    ["sol-ring-cmm", { oracleId: "oracle-sol-ring", name: "Sol Ring" }],
+    ["sol-ring-ltc", { oracleId: "oracle-sol-ring", name: "Sol Ring" }],
+    [
+      "arcane-signet",
+      { oracleId: "oracle-arcane-signet", name: "Arcane Signet" },
+    ],
+  ]);
+  const printingGroups = [
+    { cardId: "arcane-signet", _sum: { quantity: 1 }, _count: { _all: 1 } },
+    { cardId: "sol-ring-cmm", _sum: { quantity: 2 }, _count: { _all: 2 } },
+    { cardId: "sol-ring-ltc", _sum: { quantity: 3 }, _count: { _all: 3 } },
+  ];
+
+  const cardNameGroups = groupInventoryPageGroupsByCardName(
+    printingGroups,
+    cardById,
+  );
+  const solRingPage = cardNameGroups.slice(1, 2);
+
+  assert.equal(cardNameGroups.length, 2);
+  assert.deepEqual(solRingPage[0].cardIds, ["sol-ring-cmm", "sol-ring-ltc"]);
+  assert.equal(solRingPage[0]._sum.quantity, 5);
+  assert.equal(solRingPage[0]._count._all, 5);
 });
 
 test("location summary remains compact for many locations", () => {
