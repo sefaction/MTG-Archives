@@ -111,6 +111,16 @@ test("trade desk, active trades, and history have separate tabs", () => {
   assert.match(tradesPage, /historySections/);
 });
 
+test("declining a trade accepts an optional bounded note", () => {
+  assert.match(tradesPage, /Decline note \(optional\)/);
+  assert.match(tradesPage, /name="reason"/);
+  assert.match(tradesPage, /maxLength=\{1000\}/);
+  assert.match(tradesPage, /This note appears in trade history/);
+  assert.match(tradesPage, />\s*Decline trade\s*</);
+  assert.match(tradeActions, /normalizeTradeActionNote/);
+  assert.match(tradeActions, /"Trade declined\."/);
+});
+
 test("global trade wishlist groups every open want by person", () => {
   assert.match(tradesPage, /TradeWishlistOverviewColumn/);
   assert.match(tradesPage, /groupTradeWishlistRows/);

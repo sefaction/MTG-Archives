@@ -26,6 +26,7 @@ import {
   filterPanelClass,
   filterPrimaryButtonClass,
   filterSelectClass,
+  filterTextareaClass,
 } from "@/components/filterStyles";
 import {
   TradeCardPreview,
@@ -1355,21 +1356,54 @@ export default async function TradesPage({
                               Accept
                             </SubmitButton>
                           </form>
-                          <form action={actOnTrade}>
-                            <input
-                              type="hidden"
-                              name="tradeId"
-                              value={trade.id}
-                            />
-                            <SubmitButton
-                              pendingLabel="Declining trade..."
-                              name="action"
-                              value="decline"
-                              className="border px-3 py-2"
+                          <details className="w-full sm:w-auto">
+                            <summary
+                              className={cn(
+                                filterButtonClass,
+                                "cursor-pointer list-none px-3 py-2 text-center",
+                              )}
                             >
                               Decline
-                            </SubmitButton>
-                          </form>
+                            </summary>
+                            <form
+                              action={actOnTrade}
+                              className="mt-2 w-full space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/80 p-3 sm:w-80"
+                            >
+                              <input
+                                type="hidden"
+                                name="tradeId"
+                                value={trade.id}
+                              />
+                              <label className="block text-xs font-medium text-zinc-300">
+                                Decline note (optional)
+                                <textarea
+                                  name="reason"
+                                  rows={3}
+                                  maxLength={1000}
+                                  placeholder="Add a note for the proposer."
+                                  className={cn(
+                                    filterTextareaClass,
+                                    "mt-1 w-full resize-y",
+                                  )}
+                                />
+                              </label>
+                              <p className="text-xs text-zinc-500">
+                                This note appears in trade history and the
+                                decline notification.
+                              </p>
+                              <SubmitButton
+                                pendingLabel="Declining trade..."
+                                name="action"
+                                value="decline"
+                                className={cn(
+                                  filterButtonClass,
+                                  "w-full px-3 py-2",
+                                )}
+                              >
+                                Decline trade
+                              </SubmitButton>
+                            </form>
+                          </details>
                         </>
                       ) : null}
                       {trade.status === TradeStatus.PROPOSED &&
