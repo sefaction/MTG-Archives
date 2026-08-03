@@ -121,6 +121,24 @@ test("global trade wishlist groups every open want by person", () => {
   assert.match(tradesPage, /Every open person-to-person want/);
 });
 
+test("trade wishlist offers compact and card views", () => {
+  assert.match(tradesPage, /wishlistMode\?: string/);
+  assert.match(tradesPage, /type TradeWishlistMode = "compact" \| "cards"/);
+  assert.match(tradesPage, /params\.wishlistMode === "cards"/);
+  assert.match(tradesPage, /aria-label="Trade wishlist view"/);
+  assert.match(tradesPage, /wishlistMode=compact/);
+  assert.match(tradesPage, /wishlistMode=cards/);
+  assert.match(tradesPage, /variant="text"/);
+  assert.match(tradesPage, /mode=\{wishlistMode\}/);
+  assert.match(tradesPage, /TradeWishlistDrawerActions/);
+  assert.match(tradesPage, /drawerActions=/);
+  assert.match(tradesPage, />Card</);
+  assert.match(tradesPage, />Qty</);
+  assert.match(tradesPage, />Price</);
+  assert.match(tradeCardPreview, /drawerActions\?: ReactNode/);
+  assert.match(tradeCardPreview, /\{drawerActions\}/);
+});
+
 test("trade rows stay collapsed behind viewer-oriented compact summaries", () => {
   assert.match(tradesPage, /const displayLeftCards = userIsReceiver/);
   assert.match(tradesPage, /const displayRightCards = userIsReceiver/);

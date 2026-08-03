@@ -61,8 +61,10 @@ type SearchParams = {
   requestedInventoryItemId?: string;
   counterTradeId?: string;
   view?: string;
+  wishlistMode?: string;
 };
 type TradePageView = "desk" | "wishlist" | "active" | "history";
+type TradeWishlistMode = "compact" | "cards";
 type TradeSnapshot = {
   cardName?: string;
   setCode?: string;
@@ -414,16 +416,46 @@ function groupTradeWishlistRows(rows: TradeWishlistRow[]) {
   );
 }
 
+function TradeWishlistDrawerActions({ row }: { row: TradeWishlistRow }) {
+  return (
+    <>
+      <Link
+        href={row.negotiateHref}
+        className={cn(filterPrimaryButtonClass, "text-center text-xs")}
+      >
+        Add to Trade Desk
+      </Link>
+      {row.cancelId ? (
+        <form action={cancelTradeWishlistItem}>
+          <input
+            type="hidden"
+            name="tradeWishlistItemId"
+            value={row.cancelId}
+          />
+          <SubmitButton
+            pendingLabel="Cancelling..."
+            className={cn(filterButtonClass, "text-xs")}
+          >
+            Cancel request
+          </SubmitButton>
+        </form>
+      ) : null}
+    </>
+  );
+}
+
 function TradeWishlistOverviewColumn({
   title,
   subtitle,
   rows,
   emptyMessage,
+  mode,
 }: {
   title: string;
   subtitle: string;
   rows: TradeWishlistRow[];
   emptyMessage: string;
+  mode: TradeWishlistMode;
 }) {
   const groups = groupTradeWishlistRows(rows);
   return (
@@ -466,54 +498,66 @@ function TradeWishlistOverviewColumn({
                   Open Trade Desk
                 </Link>
               </header>
-              <div className="grid gap-2 p-2 sm:grid-cols-2">
-                {group.rows.map((row) => (
-                  <article
-                    key={row.id}
-                    className="rounded-lg border border-zinc-800 bg-zinc-950/70 p-2"
-                  >
-                    <TradeCardPreview card={row.card} compact />
-                    <div className="mt-2 flex items-center justify-between gap-2 text-xs text-zinc-500">
-                      <span>Qty {row.quantity}</span>
-                      <span>{row.card.priceLabel || "Price unavailable"}</span>
-                    </div>
-                    {row.notes ? (
-                      <p className="mt-2 line-clamp-2 text-xs text-zinc-500">
-                        {row.notes}
-                      </p>
-                    ) : null}
-                    <div className="mt-2 flex items-center gap-2">
-                      <Link
-                        href={row.negotiateHref}
-                        className={cn(
-                          filterButtonClass,
-                          "flex-1 text-center text-xs",
-                        )}
+              {mode === "compact" ? (
+                <div>
+                  <div className="hidden grid-cols-[minmax(0,1fr)_4rem_6rem] gap-3 border-b border-zinc-800 bg-zinc-950/40 px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-zinc-600 sm:grid">
+                    <span>Card</span>
+                    <span className="text-right">Qty</span>
+                    <span className="text-right">Price</span>
+                  </div>
+                  <div className="divide-y divide-zinc-800/80">
+                    {group.rows.map((row) => (
+                      <article
+                        key={row.id}
+                        className="grid gap-x-3 gap-y-1 px-3 py-1.5 transition-colors hover:bg-zinc-900/45 sm:grid-cols-[minmax(0,1fr)_4rem_6rem] sm:items-center"
                       >
-                        Add at Trade Desk
-                      </Link>
-                      {row.cancelId ? (
-                        <form action={cancelTradeWishlistItem}>
-                          <input
-                            type="hidden"
-                            name="tradeWishlistItemId"
-                            value={row.cancelId}
+                        <div className="min-w-0">
+                          <TradeCardPreview
+                            card={row.card}
+                            variant="text"
+                            drawerActions={
+                              <TradeWishlistDrawerActions row={row} />
+                            }
                           />
-                          <SubmitButton
-                            pendingLabel="..."
-                            className={cn(
-                              filterButtonClass,
-                              "px-2 py-1.5 text-xs",
-                            )}
-                          >
-                            Cancel
-                          </SubmitButton>
-                        </form>
+                        </div>
+                        <div className="text-xs text-zinc-500 sm:text-right">
+                          <span className="sm:hidden">Qty </span>
+                          {row.quantity}
+                        </div>
+                        <div className="text-xs text-zinc-500 sm:text-right">
+                          {row.card.priceLabel || "Unavailable"}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="grid gap-2 p-2 sm:grid-cols-2">
+                  {group.rows.map((row) => (
+                    <article
+                      key={row.id}
+                      className="rounded-lg border border-zinc-800 bg-zinc-950/70 p-2"
+                    >
+                      <TradeCardPreview
+                        card={row.card}
+                        compact
+                        drawerActions={<TradeWishlistDrawerActions row={row} />}
+                      />
+                      <div className="mt-2 flex items-center justify-between gap-2 text-xs text-zinc-500">
+                        <span>Qty {row.quantity}</span>
+                        <span>
+                          {row.card.priceLabel || "Price unavailable"}
+                        </span>
+                      </div>
+                      {row.notes ? (
+                        <p className="mt-2 line-clamp-2 text-xs text-zinc-500">
+                          {row.notes}
+                        </p>
                       ) : null}
-                    </div>
-                  </article>
-                ))}
-              </div>
+                    </article>
+                  ))}
+                </div>
+              )}
             </section>
           ))
         ) : (
@@ -609,6 +653,8 @@ export default async function TradesPage({
     params.view === "history"
       ? params.view
       : "desk";
+  const wishlistMode: TradeWishlistMode =
+    params.wishlistMode === "cards" ? "cards" : "compact";
   if (!isAdmin && !user.playerId)
     return (
       <main className="p-8">
@@ -869,14 +915,44 @@ export default async function TradesPage({
       </div>
       {tradeView === "wishlist" ? (
         <section className="space-y-3">
-          <div className="rounded-xl border border-zinc-800 bg-zinc-950/45 p-3">
-            <h2 className="text-lg font-semibold text-zinc-100">
-              Trade Wishlist
-            </h2>
-            <p className="mt-1 text-xs text-zinc-500">
-              Every open person-to-person want, grouped by trade partner. Open a
-              partner&apos;s desk to pair cards and build a proposal.
-            </p>
+          <div className="flex flex-wrap items-end justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-950/45 p-3">
+            <div>
+              <h2 className="text-lg font-semibold text-zinc-100">
+                Trade Wishlist
+              </h2>
+              <p className="mt-1 text-xs text-zinc-500">
+                Every open person-to-person want, grouped by trade partner. Open
+                a partner&apos;s desk to pair cards and build a proposal.
+              </p>
+            </div>
+            <div
+              className="flex rounded-lg border border-zinc-800 bg-zinc-950 p-1"
+              role="group"
+              aria-label="Trade wishlist view"
+            >
+              <Link
+                href="/trades?view=wishlist&wishlistMode=compact"
+                aria-current={wishlistMode === "compact" ? "page" : undefined}
+                className={cn(
+                  "rounded px-3 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:text-zinc-100",
+                  wishlistMode === "compact" &&
+                    "bg-zinc-800 text-zinc-100 shadow-sm",
+                )}
+              >
+                Compact
+              </Link>
+              <Link
+                href="/trades?view=wishlist&wishlistMode=cards"
+                aria-current={wishlistMode === "cards" ? "page" : undefined}
+                className={cn(
+                  "rounded px-3 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:text-zinc-100",
+                  wishlistMode === "cards" &&
+                    "bg-zinc-800 text-zinc-100 shadow-sm",
+                )}
+              >
+                Cards
+              </Link>
+            </div>
           </div>
           <div className="grid items-start gap-3 xl:grid-cols-2">
             <TradeWishlistOverviewColumn
@@ -884,12 +960,14 @@ export default async function TradesPage({
               subtitle="Cards you have requested from other owners."
               rows={myTradeWishlistRows}
               emptyMessage="You have no open trade-wishlist requests."
+              mode={wishlistMode}
             />
             <TradeWishlistOverviewColumn
               title="Wanted from me"
               subtitle="Cards other owners have requested from you."
               rows={wantedFromMeRows}
               emptyMessage="No one currently has an open request from your inventory."
+              mode={wishlistMode}
             />
           </div>
         </section>
