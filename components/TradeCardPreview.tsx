@@ -69,13 +69,13 @@ export function TradeCardPreview({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="block max-w-md text-left hover:text-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-700"
+          className="grid w-full min-w-0 gap-x-3 text-left hover:text-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-700 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-baseline"
           aria-label={`Open details for ${card.name}`}
         >
-          <span className="block truncate font-medium text-zinc-100">
+          <span className="min-w-0 truncate font-medium text-zinc-100">
             {card.name}
           </span>
-          <span className="block truncate text-xs text-zinc-400">
+          <span className="truncate text-xs text-zinc-400 sm:text-right">
             {[setLabel, treatment].filter(Boolean).join(" / ")}
           </span>
         </button>
