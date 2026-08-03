@@ -321,6 +321,8 @@ export function DeckWorkspace({
   initialTag = "",
   initialBracket = "",
   adminModeActive = false,
+  readOnly = false,
+  showOwner = adminModeActive,
 }: {
   decks: DeckWorkspaceDeck[];
   folders: DeckWorkspaceFolder[];
@@ -332,6 +334,8 @@ export function DeckWorkspace({
   initialTag?: string;
   initialBracket?: string;
   adminModeActive?: boolean;
+  readOnly?: boolean;
+  showOwner?: boolean;
 }) {
   const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>("table");
@@ -409,6 +413,7 @@ export function DeckWorkspace({
             deck.description ?? "",
             deck.folderPath,
             deck.formatLabel,
+            deck.ownerLabel ?? "",
             ...deck.tags.map((tag) => tag.name),
           ].join(" "),
         ).includes(needle)
@@ -687,99 +692,101 @@ export function DeckWorkspace({
         </div>
       </section>
 
-      <details className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-        <summary className="cursor-pointer font-semibold text-sky-100">
-          + New deck
-        </summary>
-        <form action={createDeck} className="mt-4 grid gap-3 md:grid-cols-6">
-          <label className={cn(filterFieldClass, "md:col-span-2")}>
-            Deck name
-            <input
-              name="name"
-              required
-              className={cn(filterInputClass, "mt-1 w-full")}
-            />
-          </label>
-          <label className={filterFieldClass}>
-            Format
-            <select
-              name="format"
-              defaultValue="CASUAL"
-              className={cn(filterSelectClass, "mt-1 w-full")}
-            >
-              {formatOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className={filterFieldClass}>
-            Bracket
-            <select
-              name="bracket"
-              defaultValue=""
-              className={cn(filterSelectClass, "mt-1 w-full")}
-            >
-              {bracketOptions.map((option) => (
-                <option key={option.value || "unset"} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className={filterFieldClass}>
-            Visibility
-            <select
-              name="visibility"
-              defaultValue="INHERIT"
-              className={cn(filterSelectClass, "mt-1 w-full")}
-            >
-              {visibilityOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className={filterFieldClass}>
-            Folder
-            <select
-              name="folderId"
-              className={cn(filterSelectClass, "mt-1 w-full")}
-            >
-              <option value="">Uncategorized</option>
-              {folders.map((folder) => (
-                <option key={folder.id} value={folder.id}>
-                  {folder.path}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className={cn(filterFieldClass, "md:col-span-3")}>
-            Description
-            <textarea
-              name="description"
-              rows={3}
-              className={cn(filterTextareaClass, "mt-1 w-full")}
-            />
-          </label>
-          <div className="md:col-span-3">
-            <span className={filterFieldClass}>Tags</span>
-            <div className="mt-1">
-              <TagEditor availableTags={tags} />
+      {!readOnly ? (
+        <details className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+          <summary className="cursor-pointer font-semibold text-sky-100">
+            + New deck
+          </summary>
+          <form action={createDeck} className="mt-4 grid gap-3 md:grid-cols-6">
+            <label className={cn(filterFieldClass, "md:col-span-2")}>
+              Deck name
+              <input
+                name="name"
+                required
+                className={cn(filterInputClass, "mt-1 w-full")}
+              />
+            </label>
+            <label className={filterFieldClass}>
+              Format
+              <select
+                name="format"
+                defaultValue="CASUAL"
+                className={cn(filterSelectClass, "mt-1 w-full")}
+              >
+                {formatOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={filterFieldClass}>
+              Bracket
+              <select
+                name="bracket"
+                defaultValue=""
+                className={cn(filterSelectClass, "mt-1 w-full")}
+              >
+                {bracketOptions.map((option) => (
+                  <option key={option.value || "unset"} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={filterFieldClass}>
+              Visibility
+              <select
+                name="visibility"
+                defaultValue="INHERIT"
+                className={cn(filterSelectClass, "mt-1 w-full")}
+              >
+                {visibilityOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={filterFieldClass}>
+              Folder
+              <select
+                name="folderId"
+                className={cn(filterSelectClass, "mt-1 w-full")}
+              >
+                <option value="">Uncategorized</option>
+                {folders.map((folder) => (
+                  <option key={folder.id} value={folder.id}>
+                    {folder.path}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={cn(filterFieldClass, "md:col-span-3")}>
+              Description
+              <textarea
+                name="description"
+                rows={3}
+                className={cn(filterTextareaClass, "mt-1 w-full")}
+              />
+            </label>
+            <div className="md:col-span-3">
+              <span className={filterFieldClass}>Tags</span>
+              <div className="mt-1">
+                <TagEditor availableTags={tags} />
+              </div>
             </div>
-          </div>
-          <div className="md:col-span-6 flex justify-end">
-            <SubmitButton
-              pendingLabel="Creating…"
-              className={filterPrimaryButtonClass}
-            >
-              Create deck
-            </SubmitButton>
-          </div>
-        </form>
-      </details>
+            <div className="md:col-span-6 flex justify-end">
+              <SubmitButton
+                pendingLabel="Creating…"
+                className={filterPrimaryButtonClass}
+              >
+                Create deck
+              </SubmitButton>
+            </div>
+          </form>
+        </details>
+      ) : null}
 
       <section className="grid gap-4 xl:grid-cols-[17rem_minmax(0,1fr)]">
         <aside className="self-start rounded-xl border border-zinc-800 bg-zinc-950/50 p-3 xl:sticky xl:top-4">
@@ -790,22 +797,24 @@ export function DeckWorkspace({
                 {organizationUnlocked ? "Organization unlocked" : "Browse mode"}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setOrganizationUnlocked((current) => !current);
-                setDraggedFolderId("");
-                setFolderMessage("");
-              }}
-              className={cn(
-                "rounded border px-2.5 py-1.5 text-xs font-medium",
-                organizationUnlocked
-                  ? "border-amber-700 bg-amber-950/40 text-amber-100"
-                  : "border-zinc-700 text-zinc-300 hover:bg-zinc-900",
-              )}
-            >
-              {organizationUnlocked ? "🔓 Lock" : "🔒 Unlock"}
-            </button>
+            {!readOnly ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setOrganizationUnlocked((current) => !current);
+                  setDraggedFolderId("");
+                  setFolderMessage("");
+                }}
+                className={cn(
+                  "rounded border px-2.5 py-1.5 text-xs font-medium",
+                  organizationUnlocked
+                    ? "border-amber-700 bg-amber-950/40 text-amber-100"
+                    : "border-zinc-700 text-zinc-300 hover:bg-zinc-900",
+                )}
+              >
+                {organizationUnlocked ? "🔓 Lock" : "🔒 Unlock"}
+              </button>
+            ) : null}
           </div>
           <nav className="space-y-1" aria-label="Deck folders">
             <button
@@ -976,7 +985,7 @@ export function DeckWorkspace({
                         Deck
                       </SortButton>
                     </th>
-                    {adminModeActive ? <th className="p-3">Owner</th> : null}
+                    {showOwner ? <th className="p-3">Owner</th> : null}
                     <th className="p-3">
                       <SortButton
                         field="format"
@@ -1060,7 +1069,7 @@ export function DeckWorkspace({
                           </span>
                         </div>
                       </td>
-                      {adminModeActive ? (
+                      {showOwner ? (
                         <td className="p-3 text-zinc-400">{deck.ownerLabel}</td>
                       ) : null}
                       <td className="p-3 text-zinc-300">{deck.formatLabel}</td>
@@ -1099,13 +1108,15 @@ export function DeckWorkspace({
                           >
                             Open
                           </Link>
-                          <button
-                            type="button"
-                            onClick={() => setEditingDeck(deck)}
-                            className="rounded border border-sky-900 px-2 py-1 text-xs text-sky-100 hover:bg-sky-950/60"
-                          >
-                            Edit
-                          </button>
+                          {!readOnly ? (
+                            <button
+                              type="button"
+                              onClick={() => setEditingDeck(deck)}
+                              className="rounded border border-sky-900 px-2 py-1 text-xs text-sky-100 hover:bg-sky-950/60"
+                            >
+                              Edit
+                            </button>
+                          ) : null}
                         </div>
                       </td>
                     </tr>
@@ -1113,7 +1124,7 @@ export function DeckWorkspace({
                   {!filteredDecks.length ? (
                     <tr>
                       <td
-                        colSpan={adminModeActive ? 9 : 8}
+                        colSpan={showOwner ? 9 : 8}
                         className="p-8 text-center text-zinc-500"
                       >
                         No decks match these filters.
@@ -1168,6 +1179,11 @@ export function DeckWorkspace({
                       {deck.commanderNames.length ? (
                         <p className="inline-block max-w-full rounded-md bg-black/35 px-2 py-1 text-sm font-medium text-amber-100 drop-shadow backdrop-blur-[2px]">
                           {deck.commanderNames.join(" & ")}
+                        </p>
+                      ) : null}
+                      {showOwner && deck.ownerLabel ? (
+                        <p className="inline-block max-w-full rounded-md bg-black/35 px-2 py-1 text-sm text-zinc-100 drop-shadow backdrop-blur-[2px]">
+                          By {deck.ownerLabel}
                         </p>
                       ) : null}
                       <div className="flex flex-wrap items-center gap-1.5 text-sm text-zinc-100">
@@ -1259,13 +1275,15 @@ export function DeckWorkspace({
                         >
                           Open deck
                         </Link>
-                        <button
-                          type="button"
-                          onClick={() => setEditingDeck(deck)}
-                          className="rounded border border-sky-700 bg-sky-950/80 px-3 py-1.5 text-sm font-medium text-sky-50 hover:bg-sky-900"
-                        >
-                          Edit
-                        </button>
+                        {!readOnly ? (
+                          <button
+                            type="button"
+                            onClick={() => setEditingDeck(deck)}
+                            className="rounded border border-sky-700 bg-sky-950/80 px-3 py-1.5 text-sm font-medium text-sky-50 hover:bg-sky-900"
+                          >
+                            Edit
+                          </button>
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -1276,7 +1294,7 @@ export function DeckWorkspace({
         </div>
       </section>
 
-      {editingDeck ? (
+      {!readOnly && editingDeck ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
           role="dialog"
