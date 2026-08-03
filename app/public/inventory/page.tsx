@@ -22,6 +22,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { addPublicInventoryToTradeWishlist } from "./actions";
 import { buildPublicTradeWishlistTargets } from "@/lib/public-trade-wishlist-targets";
+import { addDeckCard } from "@/app/decks/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -224,6 +225,7 @@ function toInventoryBrowserRows({
         displayMode === "grouped"
           ? entry.printings.map((printing: any, printingIndex: number) => ({
               id: `${publicRowId}-printing-${printingIndex}`,
+              cardId: printing.cardId,
               cardName: printing.card.name,
               setCode: printing.card.setCode.toUpperCase(),
               collectorNumber: printing.card.collectorNumber,
@@ -320,6 +322,17 @@ function toInventoryBrowserRows({
 
 export default async function PublicInventoryPage({ searchParams }: PageProps) {
   const viewer = await getCurrentUser();
+  const editableDecks = viewer
+    ? await prisma.deck.findMany({
+        where: { ownerUserId: viewer.id },
+        select: {
+          id: true,
+          name: true,
+          format: true,
+        },
+        orderBy: [{ name: "asc" }],
+      })
+    : [];
   const p = await searchParams;
   const displayMode: "exact" | "grouped" =
     p.displayMode === "grouped" ? "grouped" : "exact";
@@ -465,6 +478,12 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
           initialSortDirection={sortDirection}
           currentLocationId={selected("locationName")[0] || ""}
           onAddTradeWishlist={addPublicInventoryToTradeWishlist}
+          deckTargets={editableDecks.map((deck) => ({
+            id: deck.id,
+            name: deck.name,
+            format: deck.format,
+          }))}
+          onAddToDeck={addDeckCard}
         />
       ) : (
         <div className="rounded border border-zinc-800 p-4 text-zinc-400">
