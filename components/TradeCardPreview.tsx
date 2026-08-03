@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { cn, filterButtonClass } from "@/components/filterStyles";
 
 export type TradeCardSummary = {
@@ -45,10 +45,12 @@ export function TradeCardPreview({
   card,
   compact = false,
   variant = "row",
+  drawerActions,
 }: {
   card: TradeCardSummary;
   compact?: boolean;
   variant?: "row" | "spoiler" | "text";
+  drawerActions?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const setLabel = [
@@ -182,6 +184,12 @@ export function TradeCardPreview({
                 Close
               </button>
             </div>
+
+            {drawerActions ? (
+              <section className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
+                {drawerActions}
+              </section>
+            ) : null}
 
             <div className="grid gap-4 md:grid-cols-[220px_1fr]">
               <div className="rounded border border-zinc-800 bg-zinc-900 p-2">
