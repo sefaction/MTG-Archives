@@ -137,6 +137,10 @@ test("trade wishlist offers compact and card views", () => {
   assert.match(tradesPage, />Price</);
   assert.match(tradeCardPreview, /drawerActions\?: ReactNode/);
   assert.match(tradeCardPreview, /\{drawerActions\}/);
+  assert.match(
+    tradeCardPreview,
+    /sm:grid-cols-\[minmax\(0,1fr\)_auto\] sm:items-baseline/,
+  );
 });
 
 test("trade rows stay collapsed behind viewer-oriented compact summaries", () => {
