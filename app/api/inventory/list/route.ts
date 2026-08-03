@@ -91,6 +91,7 @@ function rowsFromDisplayItems({
           displayMode === "grouped"
             ? entry.printings.map((printing: any) => ({
                 id: printing.id,
+                cardId: printing.cardId,
                 cardName: printing.card.name,
                 setCode: printing.card.setCode.toUpperCase(),
                 collectorNumber: printing.card.collectorNumber,

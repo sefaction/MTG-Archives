@@ -65,6 +65,7 @@ import {
   enrichAllPartsWithLocalCardMetadata,
 } from "@/lib/inventory-related-cards";
 import { getActiveLocationTypes } from "@/lib/location-types";
+import { addDeckCard } from "@/app/decks/actions";
 
 export default async function InventoryPage({
   searchParams,
@@ -75,6 +76,18 @@ export default async function InventoryPage({
   const userWithPlayer = user;
   const accessScope = user ? await getAccessScope(user) : null;
   const adminModeActive = accessScope?.mode === "admin";
+  const editableDecks = user
+    ? await prisma.deck.findMany({
+        where: adminModeActive ? {} : { ownerUserId: user.id },
+        select: {
+          id: true,
+          name: true,
+          format: true,
+          ownerUser: { select: { displayName: true } },
+        },
+        orderBy: [{ name: "asc" }],
+      })
+    : [];
 
   const p = await searchParams;
   const filters = parseInventoryFilters(p);
@@ -193,10 +206,7 @@ export default async function InventoryPage({
   );
   const filteredGroups =
     displayMode === "grouped"
-      ? groupInventoryPageGroupsByCardName(
-          orderedPrintingGroups,
-          cardSortById,
-        )
+      ? groupInventoryPageGroupsByCardName(orderedPrintingGroups, cardSortById)
       : filteredPrintingGroups;
   const sortedGroups = [...filteredGroups].sort((left, right) =>
     compareInventoryGroups(
@@ -892,6 +902,7 @@ export default async function InventoryPage({
           displayMode === "grouped"
             ? entry.printings.map((p: any) => ({
                 id: p.id,
+                cardId: p.cardId,
                 cardName: p.card.name,
                 setCode: p.card.setCode.toUpperCase(),
                 collectorNumber: p.card.collectorNumber,
@@ -1130,6 +1141,13 @@ export default async function InventoryPage({
         onSaveEdit={onSaveEdit}
         onSearchPrintings={onSearchPrintings}
         onDeleteInventoryItem={deleteInventoryItem}
+        deckTargets={editableDecks.map((deck) => ({
+          id: deck.id,
+          name: deck.name,
+          format: deck.format,
+          ownerName: adminModeActive ? deck.ownerUser.displayName : undefined,
+        }))}
+        onAddToDeck={addDeckCard}
         importExportHref={user ? importExportHref : undefined}
       />
     </main>

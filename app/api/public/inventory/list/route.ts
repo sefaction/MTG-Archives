@@ -212,6 +212,7 @@ function toInventoryBrowserRows({
         displayMode === "grouped"
           ? entry.printings.map((printing: any, printingIndex: number) => ({
               id: `${publicRowId}-printing-${printingIndex}`,
+              cardId: printing.cardId,
               cardName: printing.card.name,
               setCode: printing.card.setCode.toUpperCase(),
               collectorNumber: printing.card.collectorNumber,

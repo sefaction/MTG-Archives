@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { DeckSection } from "@prisma/client";
+import { deckFormatLabel, deckSectionLabel } from "@/lib/decks";
 import {
   getInventoryCardImagePair,
   type InventoryCardImageFace,
@@ -53,6 +55,13 @@ type PickRef = {
   ownerPlayerId?: string;
   active?: boolean;
   kind?: "NORMAL" | "DECK";
+};
+
+export type InventoryDeckTarget = {
+  id: string;
+  name: string;
+  format: string;
+  ownerName?: string;
 };
 
 type InventoryLocationStack = {
@@ -185,6 +194,7 @@ export type InventoryRow = {
   locationBreakdown?: InventoryLocationStack[];
   printings?: Array<{
     id: string;
+    cardId: string;
     cardName: string;
     setCode: string;
     collectorNumber: string;
@@ -857,12 +867,145 @@ function CardPriceHistoryPanel({ row }: { row: InventoryRow }) {
   );
 }
 
+const inventoryDeckSections = [
+  DeckSection.MAINBOARD,
+  DeckSection.COMMANDER,
+  DeckSection.SIDEBOARD,
+  DeckSection.MAYBEBOARD,
+];
+
+function inventoryDeckPrintingOptions(row: InventoryRow) {
+  const options = new Map<string, string>();
+  if (row.displayMode === "grouped") {
+    for (const printing of row.printings ?? []) {
+      if (!printing.cardId || options.has(printing.cardId)) continue;
+      options.set(
+        printing.cardId,
+        `${printing.setCode.toUpperCase()} #${printing.collectorNumber}`,
+      );
+    }
+  }
+  if (!options.size && row.cardId) {
+    options.set(
+      row.cardId,
+      `${row.setCode.toUpperCase()} #${row.collectorNumber || "?"}`,
+    );
+  }
+  return Array.from(options, ([cardId, label]) => ({ cardId, label }));
+}
+
+function InventoryAddToDeckControl({
+  row,
+  deckTargets,
+  onAddToDeck,
+}: {
+  row: InventoryRow;
+  deckTargets: InventoryDeckTarget[];
+  onAddToDeck: (formData: FormData) => Promise<void>;
+}) {
+  const printingOptions = inventoryDeckPrintingOptions(row);
+  if (!deckTargets.length || !printingOptions.length) return null;
+
+  return (
+    <details className="relative w-full sm:w-80">
+      <summary
+        className={cn(
+          filterPrimaryButtonClass,
+          "cursor-pointer list-none px-2 py-1 text-center",
+        )}
+      >
+        Add to deck
+      </summary>
+      <form
+        action={onAddToDeck}
+        className="mt-2 space-y-2 rounded-lg border border-zinc-700 bg-zinc-900 p-3 text-left shadow-xl"
+      >
+        <p className="text-xs text-zinc-400">
+          Adds this printing to the deck list. Inventory stays where it is.
+        </p>
+        <label className={filterLabelClass}>
+          Deck
+          <select
+            name="deckId"
+            className={cn(filterSelectClass, "mt-1 w-full")}
+            required
+          >
+            {deckTargets.map((deck) => (
+              <option key={deck.id} value={deck.id}>
+                {deck.ownerName ? `${deck.ownerName} — ` : ""}
+                {deck.name} ({deckFormatLabel(deck.format)})
+              </option>
+            ))}
+          </select>
+        </label>
+        {printingOptions.length === 1 ? (
+          <input
+            type="hidden"
+            name="cardId"
+            value={printingOptions[0].cardId}
+          />
+        ) : (
+          <label className={filterLabelClass}>
+            Printing
+            <select
+              name="cardId"
+              className={cn(filterSelectClass, "mt-1 w-full")}
+              required
+            >
+              {printingOptions.map((printing) => (
+                <option key={printing.cardId} value={printing.cardId}>
+                  {printing.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <div className="grid grid-cols-[minmax(0,1fr)_5rem] gap-2">
+          <label className={filterLabelClass}>
+            Section
+            <select
+              name="section"
+              defaultValue={DeckSection.MAINBOARD}
+              className={cn(filterSelectClass, "mt-1 w-full")}
+            >
+              {inventoryDeckSections.map((section) => (
+                <option key={section} value={section}>
+                  {deckSectionLabel(section)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={filterLabelClass}>
+            Qty
+            <input
+              type="number"
+              name="quantity"
+              min={1}
+              max={999}
+              defaultValue={1}
+              className={cn(filterInputClass, "mt-1 w-full")}
+            />
+          </label>
+        </div>
+        <SubmitButton
+          pendingLabel="Adding..."
+          className={cn(filterPrimaryButtonClass, "w-full")}
+        >
+          Add to deck list
+        </SubmitButton>
+      </form>
+    </details>
+  );
+}
+
 function CardDetail({
   row,
   onClose,
   capabilities,
   deleting = false,
   onAddTradeWishlist,
+  deckTargets,
+  onAddToDeck,
   onEdit,
   onAudit,
   onDelete,
@@ -872,6 +1015,8 @@ function CardDetail({
   capabilities: InventoryCapabilities;
   deleting?: boolean;
   onAddTradeWishlist?: (formData: FormData) => Promise<void>;
+  deckTargets: InventoryDeckTarget[];
+  onAddToDeck?: (formData: FormData) => Promise<void>;
   onEdit?: () => void;
   onAudit?: () => void;
   onDelete?: () => Promise<void>;
@@ -915,7 +1060,14 @@ function CardDetail({
       >
         <div className="flex items-start justify-between mb-4">
           <h2 className="text-xl font-bold">{row.cardName}</h2>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
+            {onAddToDeck && deckTargets.length ? (
+              <InventoryAddToDeckControl
+                row={row}
+                deckTargets={deckTargets}
+                onAddToDeck={onAddToDeck}
+              />
+            ) : null}
             {onAddTradeWishlist && tradeWishlistTargets.length === 1 ? (
               <form action={onAddTradeWishlist}>
                 <input
@@ -1209,6 +1361,8 @@ export function InventoryBrowser({
   onSearchPrintings,
   onDeleteInventoryItem,
   onAddTradeWishlist,
+  deckTargets = [],
+  onAddToDeck,
   importExportHref,
 }: {
   rows: InventoryRow[];
@@ -1268,6 +1422,8 @@ export function InventoryBrowser({
   onSearchPrintings?: (formData: FormData) => Promise<ScryfallResult[]>;
   onDeleteInventoryItem?: (formData: FormData) => Promise<void>;
   onAddTradeWishlist?: (formData: FormData) => Promise<void>;
+  deckTargets?: InventoryDeckTarget[];
+  onAddToDeck?: (formData: FormData) => Promise<void>;
   importExportHref?: string;
 }) {
   const router = useRouter();
@@ -2500,6 +2656,8 @@ export function InventoryBrowser({
           capabilities={capabilities}
           deleting={deletingBulk}
           onAddTradeWishlist={onAddTradeWishlist}
+          deckTargets={deckTargets}
+          onAddToDeck={onAddToDeck}
           onEdit={
             capabilities.canEdit && selected.displayMode === "exact"
               ? () => {
