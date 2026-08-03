@@ -32,6 +32,7 @@ import {
   TradeProposalValidationError,
   type TradeProposalActionState,
 } from "@/lib/trade-proposal";
+import { normalizeTradeActionNote } from "@/lib/trade-notes";
 
 const activeStatuses: TradeStatus[] = [
   TradeStatus.PROPOSED,
@@ -473,7 +474,10 @@ export async function actOnTrade(fd: FormData) {
       recipientOwnerId: trade.receiverPlayerId,
       status: trade.status,
     });
-    const reason = String(fd.get("reason") || "Trade declined.");
+    const reason = normalizeTradeActionNote(
+      fd.get("reason"),
+      "Trade declined.",
+    );
     await prisma.$transaction(async (tx) => {
       await tx.trade.update({
         where: { id: trade.id },
