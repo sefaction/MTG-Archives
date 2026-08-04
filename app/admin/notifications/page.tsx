@@ -91,7 +91,9 @@ function StatusPill({ status }: { status: NotificationDeliveryStatus }) {
           ? "border-red-700/60 bg-red-950/40 text-red-200"
           : "border-amber-700/60 bg-amber-950/40 text-amber-200";
   return (
-    <span className={`rounded border px-2 py-0.5 text-xs font-semibold ${tone}`}>
+    <span
+      className={`rounded border px-2 py-0.5 text-xs font-semibold ${tone}`}
+    >
       {status}
     </span>
   );
@@ -124,6 +126,12 @@ export default async function AdminNotificationsPage({
           </p>
         </div>
         <div className="flex gap-2">
+          <a
+            href="/admin/notifications/trade-announcements"
+            className="rounded border border-purple-800 px-3 py-2 text-sm text-purple-100 hover:bg-purple-950/40"
+          >
+            Trade announcements
+          </a>
           <a
             href="/admin"
             className="rounded border border-stone-700 px-3 py-2 text-sm text-stone-200 hover:bg-stone-900"
@@ -224,15 +232,20 @@ export default async function AdminNotificationsPage({
                     <div className="flex flex-wrap items-center gap-2">
                       <StatusPill status={job.status} />
                       <span className="font-medium text-stone-100">
-                        {job.notification.title}
+                        {job.notification?.title ??
+                          (job.sourceType === "trade.completed"
+                            ? "Trade completed announcement"
+                            : job.sourceType)}
                       </span>
                       <span className="rounded border border-stone-700 px-2 py-0.5 text-xs text-stone-400">
                         {job.transport}
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-stone-500">
-                      {job.notification.recipientUser.displayName ||
-                        job.notification.recipientUser.username}{" "}
+                      {job.notification
+                        ? job.notification.recipientUser.displayName ||
+                          job.notification.recipientUser.username
+                        : "System event"}{" "}
                       · {job.destinationKey} · {job.attemptCount}/
                       {job.maxAttempts} attempts
                     </p>

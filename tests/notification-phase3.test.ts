@@ -65,7 +65,7 @@ test("delivery enqueue uses one durable job per notification target", async () =
   assert.equal(calls.length, 1);
   assert.match(
     JSON.stringify(calls[0]),
-    /notificationId_transport_destinationKey/,
+    /sourceType_sourceId_transport_destinationKey/,
   );
 });
 
@@ -91,9 +91,7 @@ test("notification and requested outbound jobs share the caller transaction", as
       title: "Trade proposed",
       sourceType: "trade_event",
       sourceId: "event-1",
-      deliveries: [
-        { transport: "webhook", destinationKey: "endpoint-1" },
-      ],
+      deliveries: [{ transport: "webhook", destinationKey: "endpoint-1" }],
     },
     store as never,
   );
@@ -201,7 +199,10 @@ test("failed delivery retains attempt history and a bounded retry", async () => 
   assert.equal(fixture.job.attemptCount, 1);
   assert.ok(fixture.job.nextAttemptAt instanceof Date);
   assert.equal(fixture.attempts.length, 1);
-  assert.match(JSON.stringify(fixture.attempts[0]), /Temporary endpoint failure/);
+  assert.match(
+    JSON.stringify(fixture.attempts[0]),
+    /Temporary endpoint failure/,
+  );
 });
 
 test("phase three schema, worker, operations, and admin visibility are wired", () => {

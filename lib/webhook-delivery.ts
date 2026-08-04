@@ -10,6 +10,7 @@ import { request as httpsRequest } from "node:https";
 import { BlockList, isIP, type LookupFunction } from "node:net";
 import type { Prisma } from "@prisma/client";
 import {
+  enqueueEventDelivery,
   enqueueNotificationDelivery,
   type NotificationDeliveryHandler,
 } from "@/lib/notification-delivery";
@@ -18,12 +19,29 @@ import { loadWebhookEncryptionKey } from "@/lib/webhook-encryption-key";
 
 export const WEBHOOK_TRANSPORT = "webhook";
 export const WEBHOOK_PAYLOAD_VERSION = "1";
+export const TRADE_ANNOUNCEMENT_DESTINATION_PREFIX = "trade-announcement:";
 export const WEBHOOK_ENDPOINT_TYPES = {
   signedJson: "SIGNED_JSON",
   discord: "DISCORD",
 } as const;
 export type WebhookEndpointType =
   (typeof WEBHOOK_ENDPOINT_TYPES)[keyof typeof WEBHOOK_ENDPOINT_TYPES];
+export type TradeAnnouncementCard = {
+  name: string;
+  quantity: number;
+  setCode?: string | null;
+  collectorNumber?: string | null;
+  imageUrl?: string | null;
+};
+export type TradeAnnouncementInput = {
+  tradeId: string;
+  proposerName: string;
+  receiverName: string;
+  offeredCards: TradeAnnouncementCard[];
+  requestedCards: TradeAnnouncementCard[];
+  createdAt: Date;
+  test?: boolean;
+};
 export const WEBHOOK_NOTIFICATION_CATEGORIES = [
   "trades",
   "wishlist_digest",
@@ -267,6 +285,38 @@ export function buildWebhookPayload(input: {
   };
 }
 
+function boundedAnnouncementCards(cards: TradeAnnouncementCard[]) {
+  return cards.slice(0, 50).map((card) => ({
+    name: card.name.trim().slice(0, 160) || "Unknown card",
+    quantity: Math.min(Math.max(Math.floor(card.quantity), 1), 999),
+    setCode: card.setCode?.trim().toUpperCase().slice(0, 12) || null,
+    collectorNumber: card.collectorNumber?.trim().slice(0, 32) || null,
+    imageUrl: card.imageUrl?.trim().slice(0, MAX_URL_LENGTH) || null,
+  }));
+}
+
+export function buildTradeAnnouncementPayload(
+  input: TradeAnnouncementInput,
+): Prisma.InputJsonObject {
+  return {
+    version: WEBHOOK_PAYLOAD_VERSION,
+    event: input.test ? "trade.announcement_test" : "trade.completed",
+    createdAt: input.createdAt.toISOString(),
+    test: Boolean(input.test),
+    trade: {
+      id: input.tradeId.trim().slice(0, 160),
+      proposer: {
+        name: input.proposerName.trim().slice(0, 160) || "Proposer",
+        cards: boundedAnnouncementCards(input.offeredCards),
+      },
+      receiver: {
+        name: input.receiverName.trim().slice(0, 160) || "Recipient",
+        cards: boundedAnnouncementCards(input.requestedCards),
+      },
+    },
+  };
+}
+
 function jsonRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -277,10 +327,102 @@ function jsonText(value: unknown, fallback = "") {
   return typeof value === "string" ? value : fallback;
 }
 
+function jsonNumber(value: unknown, fallback = 0) {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function discordTradeCardList(value: unknown) {
+  if (!Array.isArray(value)) return "No cards listed.";
+  const lines = value.slice(0, 50).map((entry) => {
+    const card = jsonRecord(entry);
+    const name = jsonText(card?.name, "Unknown card").slice(0, 160);
+    const quantity = Math.max(1, Math.floor(jsonNumber(card?.quantity, 1)));
+    const setCode = jsonText(card?.setCode).toUpperCase();
+    const collectorNumber = jsonText(card?.collectorNumber);
+    const printing = setCode
+      ? ` · ${setCode}${collectorNumber ? ` #${collectorNumber}` : ""}`
+      : "";
+    return `${quantity}× ${name}${printing}`;
+  });
+  let result = lines.join("\n") || "No cards listed.";
+  if (result.length > 1_024) result = `${result.slice(0, 1_010)}…`;
+  return result;
+}
+
+function discordTradeAnnouncementPayload(
+  root: Record<string, unknown>,
+): Prisma.InputJsonObject | null {
+  const trade = jsonRecord(root.trade);
+  const proposer = jsonRecord(trade?.proposer);
+  const receiver = jsonRecord(trade?.receiver);
+  if (!trade || !proposer || !receiver) return null;
+  const proposerName = jsonText(proposer.name, "Proposer").slice(0, 160);
+  const receiverName = jsonText(receiver.name, "Recipient").slice(0, 160);
+  const createdAt = jsonText(root.createdAt);
+  const imageEmbeds: Prisma.InputJsonObject[] = [];
+  const cards = [
+    ...(Array.isArray(proposer.cards) ? proposer.cards : []),
+    ...(Array.isArray(receiver.cards) ? receiver.cards : []),
+  ];
+  for (const entry of cards) {
+    if (imageEmbeds.length >= 8) break;
+    const card = jsonRecord(entry);
+    const imageUrl = jsonText(card?.imageUrl).trim();
+    if (!imageUrl) continue;
+    const name = jsonText(card?.name, "Card").slice(0, 240);
+    const quantity = Math.max(1, Math.floor(jsonNumber(card?.quantity, 1)));
+    imageEmbeds.push({
+      title: quantity > 1 ? `${quantity}× ${name}` : name,
+      color: 0xa855f7,
+      image: { url: imageUrl },
+    });
+  }
+  return {
+    username: "MTG Archives",
+    allowed_mentions: { parse: [] },
+    embeds: [
+      {
+        title:
+          root.test === true ? "Trade announcement test" : "Trade completed",
+        description: `${proposerName} and ${receiverName} completed a trade.`,
+        color: 0xa855f7,
+        fields: [
+          {
+            name: `${proposerName} sent`,
+            value: discordTradeCardList(proposer.cards),
+            inline: true,
+          },
+          {
+            name: `${receiverName} sent`,
+            value: discordTradeCardList(receiver.cards),
+            inline: true,
+          },
+        ],
+        footer: {
+          text:
+            root.test === true
+              ? "Test delivery · MTG Archives"
+              : "MTG Archives trade announcement",
+        },
+        ...(createdAt ? { timestamp: createdAt } : {}),
+      },
+      ...imageEmbeds,
+    ],
+  };
+}
+
 export function buildDiscordWebhookPayload(
   payload: unknown,
 ): Prisma.InputJsonObject {
   const root = jsonRecord(payload);
+  if (
+    root &&
+    (root.event === "trade.completed" ||
+      root.event === "trade.announcement_test")
+  ) {
+    const announcement = discordTradeAnnouncementPayload(root);
+    if (announcement) return announcement;
+  }
   const notification = jsonRecord(root?.notification);
   const title = jsonText(notification?.title, "MTG Archives notification")
     .trim()
@@ -353,6 +495,43 @@ type WebhookEnqueueStore = Pick<
   | "notificationPreference"
   | "notificationWebhookEndpoint"
 >;
+
+type TradeAnnouncementEnqueueStore = Pick<
+  Prisma.TransactionClient,
+  "notificationDeliveryJob" | "tradeAnnouncementWebhookEndpoint"
+>;
+
+export function tradeAnnouncementDestinationKey(endpointId: string) {
+  return `${TRADE_ANNOUNCEMENT_DESTINATION_PREFIX}${endpointId}`;
+}
+
+export async function enqueueTradeAnnouncementDeliveries(
+  input: TradeAnnouncementInput,
+  store: TradeAnnouncementEnqueueStore = prisma,
+) {
+  const endpoints = await store.tradeAnnouncementWebhookEndpoint.findMany({
+    where: { enabled: true },
+    select: { id: true },
+  });
+  const payload = buildTradeAnnouncementPayload(input);
+  return Promise.all(
+    endpoints.map((endpoint) =>
+      enqueueEventDelivery(
+        {
+          sourceType: input.test
+            ? "trade.announcement_test"
+            : "trade.completed",
+          sourceId: input.tradeId,
+          transport: WEBHOOK_TRANSPORT,
+          destinationKey: tradeAnnouncementDestinationKey(endpoint.id),
+          payload,
+          ...(input.test ? { maxAttempts: 1 } : {}),
+        },
+        store,
+      ),
+    ),
+  );
+}
 
 export async function enqueueWebhookDeliveriesForNotification(
   notification: {
@@ -494,16 +673,27 @@ export const deliverNotificationWebhook: NotificationDeliveryHandler = async ({
   destinationKey,
   payload,
 }) => {
-  const endpoint = await prisma.notificationWebhookEndpoint.findUnique({
-    where: { id: destinationKey },
-    select: {
-      enabled: true,
-      deliveryType: true,
-      allowPrivateNetwork: true,
-      urlEncrypted: true,
-      secretEncrypted: true,
-    },
-  });
+  const endpointSelect = {
+    enabled: true,
+    deliveryType: true,
+    allowPrivateNetwork: true,
+    urlEncrypted: true,
+    secretEncrypted: true,
+  } as const;
+  const announcementEndpointId = destinationKey.startsWith(
+    TRADE_ANNOUNCEMENT_DESTINATION_PREFIX,
+  )
+    ? destinationKey.slice(TRADE_ANNOUNCEMENT_DESTINATION_PREFIX.length)
+    : null;
+  const endpoint = announcementEndpointId
+    ? await prisma.tradeAnnouncementWebhookEndpoint.findUnique({
+        where: { id: announcementEndpointId },
+        select: endpointSelect,
+      })
+    : await prisma.notificationWebhookEndpoint.findUnique({
+        where: { id: destinationKey },
+        select: endpointSelect,
+      });
   if (!endpoint) throw new Error("Webhook endpoint no longer exists.");
   if (!endpoint.enabled && !payloadIsTest(payload)) {
     throw new Error("Webhook endpoint is disabled.");

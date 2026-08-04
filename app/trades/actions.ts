@@ -33,6 +33,7 @@ import {
   type TradeProposalActionState,
 } from "@/lib/trade-proposal";
 import { normalizeTradeActionNote } from "@/lib/trade-notes";
+import { enqueueTradeAnnouncementDeliveries } from "@/lib/webhook-delivery";
 
 const activeStatuses: TradeStatus[] = [
   TradeStatus.PROPOSED,
@@ -838,6 +839,55 @@ async function completeTradeIfReady(
         recipientPlayerIds: [trade.proposerPlayerId, trade.receiverPlayerId],
       },
     });
+    await enqueueTradeAnnouncementDeliveries(
+      {
+        tradeId,
+        proposerName: trade.proposerPlayer.displayName,
+        receiverName: trade.receiverPlayer.displayName,
+        offeredCards: resolvedLines
+          .filter((line) => line.side === TradeLineSide.PROPOSER)
+          .map((line) => {
+            const images = line.inventoryItem.card.imageUris as {
+              normal?: string;
+              small?: string;
+              large?: string;
+            } | null;
+            return {
+              name: line.inventoryItem.card.name,
+              quantity: line.quantity,
+              setCode: line.inventoryItem.card.setCode,
+              collectorNumber: line.inventoryItem.card.collectorNumber,
+              imageUrl:
+                images?.normal ??
+                images?.large ??
+                images?.small ??
+                line.inventoryItem.card.imageUri,
+            };
+          }),
+        requestedCards: resolvedLines
+          .filter((line) => line.side === TradeLineSide.RECEIVER)
+          .map((line) => {
+            const images = line.inventoryItem.card.imageUris as {
+              normal?: string;
+              small?: string;
+              large?: string;
+            } | null;
+            return {
+              name: line.inventoryItem.card.name,
+              quantity: line.quantity,
+              setCode: line.inventoryItem.card.setCode,
+              collectorNumber: line.inventoryItem.card.collectorNumber,
+              imageUrl:
+                images?.normal ??
+                images?.large ??
+                images?.small ??
+                line.inventoryItem.card.imageUri,
+            };
+          }),
+        createdAt: new Date(),
+      },
+      tx,
+    );
   });
 }
 

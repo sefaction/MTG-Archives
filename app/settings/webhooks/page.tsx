@@ -768,7 +768,7 @@ export default async function WebhookSettingsPage({
                     {job.status}
                   </span>
                   <span className="app-muted text-xs">
-                    {job.notification.title}
+                    {job.notification?.title ?? job.sourceType}
                   </span>
                 </div>
                 <p className="app-muted text-xs">
