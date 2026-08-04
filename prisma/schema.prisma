@@ -845,8 +845,10 @@ model Notification {
 
 model NotificationDeliveryJob {
   id              String                     @id @default(cuid())
-  notificationId  String
-  notification    Notification               @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  notificationId  String?
+  notification    Notification?              @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  sourceType      String                     @default("notification")
+  sourceId        String
   transport       String
   destinationKey  String
   payloadJson     Json
@@ -863,11 +865,27 @@ model NotificationDeliveryJob {
   updatedAt       DateTime                   @updatedAt
   attempts        NotificationDeliveryAttempt[]
 
-  @@unique([notificationId, transport, destinationKey])
+  @@unique([sourceType, sourceId, transport, destinationKey])
   @@index([status, nextAttemptAt])
   @@index([status, claimExpiresAt])
   @@index([transport, status, createdAt])
   @@index([notificationId])
+}
+
+model TradeAnnouncementWebhookEndpoint {
+  id                  String   @id @default(cuid())
+  name                String   @unique
+  deliveryType        String   @default("SIGNED_JSON")
+  urlEncrypted        String
+  urlHint             String
+  secretEncrypted     String?
+  secretHint          String?
+  enabled             Boolean  @default(true)
+  allowPrivateNetwork Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([enabled, createdAt])
 }
 
 model NotificationDeliveryAttempt {

@@ -12,14 +12,14 @@ const MAX_ERROR_LENGTH = 2_000;
 
 type DeliveryStore = Pick<
   PrismaClient,
-  | "$transaction"
-  | "notificationDeliveryAttempt"
-  | "notificationDeliveryJob"
+  "$transaction" | "notificationDeliveryAttempt" | "notificationDeliveryJob"
 >;
 
 export type NotificationDeliveryHandlerContext = {
   idempotencyKey: string;
-  notificationId: string;
+  notificationId: string | null;
+  sourceType: string;
+  sourceId: string;
   destinationKey: string;
   payload: Prisma.JsonValue;
 };
@@ -77,10 +77,7 @@ export function deliveryRetryAt(
   config: Pick<DeliveryWorkerConfig, "retryBaseMs" | "retryMaxMs">,
 ) {
   const exponent = Math.max(0, Math.floor(attemptNumber) - 1);
-  const delay = Math.min(
-    config.retryMaxMs,
-    config.retryBaseMs * 2 ** exponent,
-  );
+  const delay = Math.min(config.retryMaxMs, config.retryBaseMs * 2 ** exponent);
   return new Date(now.getTime() + delay);
 }
 
@@ -88,6 +85,55 @@ function requiredKey(value: string, field: string, maxLength = 160) {
   const normalized = value.trim();
   if (!normalized) throw new Error(`${field} is required.`);
   return normalized.slice(0, maxLength);
+}
+
+async function enqueueDelivery(
+  input: {
+    notificationId?: string | null;
+    sourceType: string;
+    sourceId: string;
+    transport: string;
+    destinationKey: string;
+    payload: Prisma.InputJsonValue;
+    maxAttempts?: number;
+  },
+  store: Pick<Prisma.TransactionClient, "notificationDeliveryJob"> = prisma,
+) {
+  const config = getDeliveryWorkerConfig();
+  const notificationId = input.notificationId
+    ? requiredKey(input.notificationId, "Notification ID")
+    : null;
+  const sourceType = requiredKey(input.sourceType, "Delivery source type", 80);
+  const sourceId = requiredKey(input.sourceId, "Delivery source ID", 160);
+  const transport = requiredKey(input.transport, "Delivery transport", 80);
+  const destinationKey = requiredKey(
+    input.destinationKey,
+    "Delivery destination",
+    200,
+  );
+  return store.notificationDeliveryJob.upsert({
+    where: {
+      sourceType_sourceId_transport_destinationKey: {
+        sourceType,
+        sourceId,
+        transport,
+        destinationKey,
+      },
+    },
+    update: {},
+    create: {
+      notificationId,
+      sourceType,
+      sourceId,
+      transport,
+      destinationKey,
+      payloadJson: input.payload,
+      maxAttempts: Math.max(
+        1,
+        Math.floor(input.maxAttempts ?? config.maxAttempts),
+      ),
+    },
+  });
 }
 
 export async function enqueueNotificationDelivery(
@@ -100,37 +146,28 @@ export async function enqueueNotificationDelivery(
   },
   store: Pick<Prisma.TransactionClient, "notificationDeliveryJob"> = prisma,
 ) {
-  const config = getDeliveryWorkerConfig();
-  const notificationId = requiredKey(
-    input.notificationId,
-    "Notification ID",
-  );
-  const transport = requiredKey(input.transport, "Delivery transport", 80);
-  const destinationKey = requiredKey(
-    input.destinationKey,
-    "Delivery destination",
-    200,
-  );
-  return store.notificationDeliveryJob.upsert({
-    where: {
-      notificationId_transport_destinationKey: {
-        notificationId,
-        transport,
-        destinationKey,
-      },
+  return enqueueDelivery(
+    {
+      ...input,
+      sourceType: "notification",
+      sourceId: input.notificationId,
     },
-    update: {},
-    create: {
-      notificationId,
-      transport,
-      destinationKey,
-      payloadJson: input.payload,
-      maxAttempts: Math.max(
-        1,
-        Math.floor(input.maxAttempts ?? config.maxAttempts),
-      ),
-    },
-  });
+    store,
+  );
+}
+
+export async function enqueueEventDelivery(
+  input: {
+    sourceType: string;
+    sourceId: string;
+    transport: string;
+    destinationKey: string;
+    payload: Prisma.InputJsonValue;
+    maxAttempts?: number;
+  },
+  store: Pick<Prisma.TransactionClient, "notificationDeliveryJob"> = prisma,
+) {
+  return enqueueDelivery(input, store);
 }
 
 type ClaimedDelivery = NotificationDeliveryJob & {
@@ -138,7 +175,7 @@ type ClaimedDelivery = NotificationDeliveryJob & {
     recipientUserId: string;
     type: string;
     category: string;
-  };
+  } | null;
 };
 
 export async function claimNotificationDeliveries(
@@ -302,6 +339,8 @@ export async function processNotificationDeliveryQueue(
       await handler({
         idempotencyKey: job.id,
         notificationId: job.notificationId,
+        sourceType: job.sourceType,
+        sourceId: job.sourceId,
         destinationKey: job.destinationKey,
         payload: job.payloadJson,
       });
