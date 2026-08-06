@@ -16,6 +16,7 @@ import {
   cancelTradeWishlistItem,
   confirmPhysicalTrade,
   createTrade,
+  updateTradeWishlistQuantity,
 } from "./actions";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { TradeBuilder, type TradeBuilderItem } from "@/components/TradeBuilder";
@@ -291,6 +292,42 @@ function playerColorStyle(color?: string | null) {
   return { backgroundColor: normalizePlayerColor(color) };
 }
 
+function TradeWishlistQuantityForm({
+  row,
+  compact = false,
+}: {
+  row: TradeWishlistRow;
+  compact?: boolean;
+}) {
+  if (!row.cancelId) return <span>{row.quantity}</span>;
+  return (
+    <form
+      action={updateTradeWishlistQuantity}
+      className="inline-flex items-center justify-end gap-1"
+    >
+      <input type="hidden" name="tradeWishlistItemId" value={row.cancelId} />
+      <input
+        type="number"
+        name="quantity"
+        min={1}
+        max={999}
+        defaultValue={row.quantity}
+        aria-label={`Wishlist quantity for ${row.card.name}`}
+        className={cn(
+          filterFieldClass,
+          compact ? "w-12 px-1 py-0.5 text-xs" : "w-16 px-2 py-1 text-xs",
+        )}
+      />
+      <SubmitButton
+        pendingLabel="..."
+        className={cn(filterButtonClass, "px-2 py-1 text-xs")}
+      >
+        Save
+      </SubmitButton>
+    </form>
+  );
+}
+
 function TradeDeskLane({
   title,
   subtitle,
@@ -426,6 +463,7 @@ function TradeWishlistDrawerActions({ row }: { row: TradeWishlistRow }) {
       >
         Add to Trade Desk
       </Link>
+      {row.cancelId ? <TradeWishlistQuantityForm row={row} /> : null}
       {row.cancelId ? (
         <form action={cancelTradeWishlistItem}>
           <input
@@ -501,7 +539,7 @@ function TradeWishlistOverviewColumn({
               </header>
               {mode === "compact" ? (
                 <div>
-                  <div className="hidden grid-cols-[minmax(0,1fr)_4rem_6rem] gap-3 border-b border-zinc-800 bg-zinc-950/40 px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-zinc-600 sm:grid">
+                  <div className="hidden grid-cols-[minmax(0,1fr)_8rem_6rem] gap-3 border-b border-zinc-800 bg-zinc-950/40 px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-zinc-600 sm:grid">
                     <span>Card</span>
                     <span className="text-right">Qty</span>
                     <span className="text-right">Price</span>
@@ -510,7 +548,7 @@ function TradeWishlistOverviewColumn({
                     {group.rows.map((row) => (
                       <article
                         key={row.id}
-                        className="grid gap-x-3 gap-y-1 px-3 py-1.5 transition-colors hover:bg-zinc-900/45 sm:grid-cols-[minmax(0,1fr)_4rem_6rem] sm:items-center"
+                        className="grid gap-x-3 gap-y-1 px-3 py-1.5 transition-colors hover:bg-zinc-900/45 sm:grid-cols-[minmax(0,1fr)_8rem_6rem] sm:items-center"
                       >
                         <div className="min-w-0">
                           <TradeCardPreview
@@ -523,7 +561,7 @@ function TradeWishlistOverviewColumn({
                         </div>
                         <div className="text-xs text-zinc-500 sm:text-right">
                           <span className="sm:hidden">Qty </span>
-                          {row.quantity}
+                          <TradeWishlistQuantityForm row={row} compact />
                         </div>
                         <div className="text-xs text-zinc-500 sm:text-right">
                           {row.card.priceLabel || "Unavailable"}
@@ -545,7 +583,10 @@ function TradeWishlistOverviewColumn({
                         drawerActions={<TradeWishlistDrawerActions row={row} />}
                       />
                       <div className="mt-2 flex items-center justify-between gap-2 text-xs text-zinc-500">
-                        <span>Qty {row.quantity}</span>
+                        <div className="inline-flex items-center gap-1">
+                          <span>Qty</span>
+                          <TradeWishlistQuantityForm row={row} compact />
+                        </div>
                         <span>
                           {row.card.priceLabel || "Price unavailable"}
                         </span>

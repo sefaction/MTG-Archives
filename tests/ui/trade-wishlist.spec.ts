@@ -42,6 +42,14 @@ test("trade wishlist surfaces render from public inventory, wishlist, and trades
   await expect(
     page.getByRole("heading", { name: "Wanted from me" }),
   ).toBeVisible();
+  const editableWishlistQuantity = page.getByLabel(/Wishlist quantity for/);
+  if (await editableWishlistQuantity.count()) {
+    await expect(editableWishlistQuantity.first()).toHaveAttribute("min", "1");
+    await expect(editableWishlistQuantity.first()).toHaveAttribute(
+      "max",
+      "999",
+    );
+  }
   await expect(
     page.getByText(/Build a multi-card exchange with/),
   ).toBeVisible();
@@ -121,4 +129,5 @@ test("trade wishlist surfaces render from public inventory, wishlist, and trades
   await expect(
     page.getByText(/Wishlist from|Choose trade target/),
   ).toBeVisible();
+  await expect(page.getByLabel(/Wishlist quantity from/).first()).toBeVisible();
 });

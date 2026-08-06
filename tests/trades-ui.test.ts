@@ -98,6 +98,23 @@ test("trade wishlist cards can be cancelled without deleting history", () => {
   assert.match(wishlistTable, /name="tradeWishlistItemId"/);
 });
 
+test("owners can edit the quantity of an open trade wishlist card", () => {
+  assert.match(
+    tradeActions,
+    /export async function updateTradeWishlistQuantity/,
+  );
+  assert.match(tradeActions, /quantity < 1 \|\| quantity > 999/);
+  assert.match(
+    tradeActions,
+    /You can only update your own trade wishlist cards/,
+  );
+  assert.match(tradeActions, /Only open trade wishlist cards can be updated/);
+  assert.match(tradesPage, /TradeWishlistQuantityForm/);
+  assert.match(tradesPage, /action=\{updateTradeWishlistQuantity\}/);
+  assert.match(tradesPage, /Wishlist quantity for/);
+  assert.match(tradesPage, />\s*Save\s*</);
+});
+
 test("trade desk, active trades, and history have separate tabs", () => {
   assert.match(tradesPage, /view\?: string/);
   assert.match(tradesPage, /TradePageView/);

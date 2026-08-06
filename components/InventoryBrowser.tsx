@@ -185,6 +185,8 @@ export type InventoryRow = {
     condition?: string;
     language?: string;
     availableQuantity: number;
+    wishlistItemId?: string;
+    wishlistedQuantity?: number;
   }>;
   printingCount?: number;
   locationCount?: number;
@@ -1069,18 +1071,42 @@ function CardDetail({
               />
             ) : null}
             {onAddTradeWishlist && tradeWishlistTargets.length === 1 ? (
-              <form action={onAddTradeWishlist}>
+              <form
+                action={onAddTradeWishlist}
+                className="flex items-center gap-2 rounded border border-zinc-700 bg-zinc-900/80 p-1"
+              >
                 <input
                   type="hidden"
                   name="inventoryItemId"
                   value={tradeWishlistTargets[0].inventoryItemId}
                 />
-                <input type="hidden" name="quantity" value="1" />
+                <label className="flex items-center gap-1 text-xs text-zinc-400">
+                  {tradeWishlistTargets[0].wishlistedQuantity ? (
+                    <span className="whitespace-nowrap text-emerald-300">
+                      Wishlisted ×{tradeWishlistTargets[0].wishlistedQuantity}
+                    </span>
+                  ) : (
+                    <span>Qty</span>
+                  )}
+                  <input
+                    type="number"
+                    name="quantity"
+                    min={1}
+                    max={999}
+                    defaultValue={
+                      tradeWishlistTargets[0].wishlistedQuantity ?? 1
+                    }
+                    aria-label={`Wishlist quantity from ${tradeWishlistTargets[0].ownerName}`}
+                    className={cn(filterInputClass, "w-14 px-1 py-0.5 text-xs")}
+                  />
+                </label>
                 <SubmitButton
-                  pendingLabel="Adding..."
+                  pendingLabel="Saving..."
                   className={cn(filterPrimaryButtonClass, "px-2 py-1")}
                 >
-                  Wishlist from {tradeWishlistTargets[0].ownerName}
+                  {tradeWishlistTargets[0].wishlistedQuantity
+                    ? "Update"
+                    : `Wishlist from ${tradeWishlistTargets[0].ownerName}`}
                 </SubmitButton>
               </form>
             ) : null}
@@ -1109,7 +1135,6 @@ function CardDetail({
                         name="inventoryItemId"
                         value={target.inventoryItemId}
                       />
-                      <input type="hidden" name="quantity" value="1" />
                       <div className="min-w-0 text-left">
                         <div className="flex items-center gap-2 font-medium">
                           <span
@@ -1133,15 +1158,32 @@ function CardDetail({
                             .filter(Boolean)
                             .join(" · ")}
                         </div>
+                        {target.wishlistedQuantity ? (
+                          <div className="mt-1 text-xs font-medium text-emerald-300">
+                            Already wishlisted ×{target.wishlistedQuantity}
+                          </div>
+                        ) : null}
                       </div>
+                      <input
+                        type="number"
+                        name="quantity"
+                        min={1}
+                        max={999}
+                        defaultValue={target.wishlistedQuantity ?? 1}
+                        aria-label={`Wishlist quantity from ${target.ownerName}`}
+                        className={cn(
+                          filterInputClass,
+                          "w-14 shrink-0 px-1 py-0.5 text-xs",
+                        )}
+                      />
                       <SubmitButton
-                        pendingLabel="Adding..."
+                        pendingLabel="Saving..."
                         className={cn(
                           filterButtonClass,
                           "shrink-0 px-2 py-1 text-xs",
                         )}
                       >
-                        Select
+                        {target.wishlistedQuantity ? "Update" : "Select"}
                       </SubmitButton>
                     </form>
                   ))}

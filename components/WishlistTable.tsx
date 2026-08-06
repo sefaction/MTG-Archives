@@ -35,7 +35,10 @@ import {
   switchWishlistDeckCardToOwnedPrinting,
   updateManualWishlistItem,
 } from "@/app/wishlist/actions";
-import { cancelTradeWishlistItem } from "@/app/trades/actions";
+import {
+  cancelTradeWishlistItem,
+  updateTradeWishlistQuantity,
+} from "@/app/trades/actions";
 import {
   cn,
   filterButtonClass,
@@ -499,6 +502,31 @@ function WishlistDetailDrawer({
                       ) : null}
                     </div>
                     <div className="flex flex-wrap gap-2">
+                      <form
+                        action={updateTradeWishlistQuantity}
+                        className="flex items-center gap-1"
+                      >
+                        <input
+                          type="hidden"
+                          name="tradeWishlistItemId"
+                          value={item.id}
+                        />
+                        <input
+                          type="number"
+                          name="quantity"
+                          min={1}
+                          max={999}
+                          defaultValue={item.quantity}
+                          aria-label={`Wishlist quantity from ${item.targetOwnerName}`}
+                          className={cn(filterInputClass, "w-16 px-2 py-1")}
+                        />
+                        <SubmitButton
+                          pendingLabel="Saving..."
+                          className={filterButtonClass}
+                        >
+                          Save
+                        </SubmitButton>
+                      </form>
                       <Link
                         href={`/trades?receiverId=${item.targetOwnerPlayerId}${
                           item.targetInventoryItemId
