@@ -434,6 +434,8 @@ test("wishlist page includes inventory-style view, advanced filter, sort, and pa
   assert.match(page, /Advanced Filters/);
   assert.match(page, /Trade Wants/);
   assert.match(page, /Trade-wanted quantity/);
+  assert.match(table, /updateTradeWishlistQuantity/);
+  assert.match(table, /Wishlist quantity from/);
   assert.match(page, /Trade wants/);
   assert.match(table, /Trade Wanted Qty/);
   assert.match(table, /Negotiate trade with/);

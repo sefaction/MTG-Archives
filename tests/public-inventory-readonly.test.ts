@@ -209,6 +209,15 @@ test("public inventory data and autocomplete routes are scoped to public-safe da
   assert.match(publicInventoryActions, /requireLogin\(\)/);
   assert.match(publicInventoryActions, /buildPublicInventoryWhere/);
   assert.match(publicInventoryActions, /tradeWishlistItem\.upsert/);
+  assert.match(publicInventoryActions, /quantity,/);
+  assert.doesNotMatch(
+    publicInventoryActions,
+    /quantity: \{ increment: quantity \}/,
+  );
+  assert.match(publicInventoryPage, /openTradeWishlist/);
+  assert.match(publicInventoryListApi, /openTradeWishlist/);
+  assert.match(inventoryBrowser, /Already wishlisted/);
+  assert.match(inventoryBrowser, /wishlistedQuantity/);
   assert.match(
     publicInventoryActions,
     /You cannot trade-wishlist your own card/,

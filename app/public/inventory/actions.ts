@@ -42,6 +42,16 @@ export async function addPublicInventoryToTradeWishlist(fd: FormData) {
   const quantity = positiveQuantity(fd.get("quantity"));
   const notes = formString(fd, "notes") || null;
   await prisma.$transaction(async (tx) => {
+    const existing = await tx.tradeWishlistItem.findUnique({
+      where: {
+        ownerUserId_targetOwnerPlayerId_cardId: {
+          ownerUserId: user.id,
+          targetOwnerPlayerId: item.currentOwnerId,
+          cardId: item.cardId,
+        },
+      },
+      select: { quantity: true, status: true },
+    });
     const wishlistItem = await tx.tradeWishlistItem.upsert({
       where: {
         ownerUserId_targetOwnerPlayerId_cardId: {
@@ -60,22 +70,27 @@ export async function addPublicInventoryToTradeWishlist(fd: FormData) {
         status: TradeWishlistStatus.OPEN,
       },
       update: {
-        quantity: { increment: quantity },
+        quantity,
         targetInventoryItemId: item.id,
         notes,
         status: TradeWishlistStatus.OPEN,
       },
     });
-    await recordTradeWishlistNotificationActivity(tx, {
-      actorUserId: user.id,
-      targetOwnerPlayerId: item.currentOwnerId,
-      tradeWishlistItemId: wishlistItem.id,
-      cardName: item.card.name,
-      quantityAdded: quantity,
-    });
+    const previouslyOpenQuantity =
+      existing?.status === TradeWishlistStatus.OPEN ? existing.quantity : 0;
+    const quantityAdded = Math.max(0, quantity - previouslyOpenQuantity);
+    if (quantityAdded > 0) {
+      await recordTradeWishlistNotificationActivity(tx, {
+        actorUserId: user.id,
+        targetOwnerPlayerId: item.currentOwnerId,
+        tradeWishlistItemId: wishlistItem.id,
+        cardName: item.card.name,
+        quantityAdded,
+      });
+    }
   });
 
-  console.info("trade_wishlist_item_added_from_public_inventory", {
+  console.info("trade_wishlist_item_saved_from_public_inventory", {
     ownerUserId: user.id,
     targetOwnerPlayerId: item.currentOwnerId,
     inventoryItemId: item.id,

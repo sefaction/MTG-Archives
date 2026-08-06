@@ -16,6 +16,7 @@ import {
   enrichAllPartsWithLocalCardMetadata,
 } from "@/lib/inventory-related-cards";
 import { buildPublicTradeWishlistTargets } from "@/lib/public-trade-wishlist-targets";
+import { prisma } from "@/lib/prisma";
 
 type PublicOwner = {
   displayName: string;
@@ -143,12 +144,19 @@ function toInventoryBrowserRows({
   relatedCardsByScryfallId,
   preferredPriceProvider,
   viewerPlayerId,
+  openTradeWishlist,
 }: {
   displayItems: any[];
   displayMode: "exact" | "grouped";
   relatedCardsByScryfallId: Map<string, any>;
   preferredPriceProvider?: string | null;
   viewerPlayerId?: string | null;
+  openTradeWishlist?: Array<{
+    id: string;
+    targetOwnerPlayerId: string;
+    cardId: string;
+    quantity: number;
+  }>;
 }) {
   return displayItems.map((entry: any, rowIndex: number) => {
     const i = displayMode === "grouped" ? entry.representative : entry;
@@ -197,6 +205,7 @@ function toInventoryBrowserRows({
       tradeWishlistTargets: buildPublicTradeWishlistTargets(
         ownerBreakdown,
         viewerPlayerId,
+        openTradeWishlist,
       ),
       cardName: i.card.name,
       quantity: entry.quantity ?? i.quantity,
@@ -320,6 +329,35 @@ export async function GET(request: Request) {
     params as PublicInventoryFilters,
   );
   const exactRows = getGlobalPublicExactPrintings(result.inventory);
+  const tradeWishlistSources = exactRows.flatMap(
+    (row: any) => row.ownerBreakdown || [],
+  );
+  const openTradeWishlist = viewer
+    ? await prisma.tradeWishlistItem.findMany({
+        where: {
+          ownerUserId: viewer.id,
+          status: "OPEN",
+          targetOwnerPlayerId: {
+            in: Array.from(
+              new Set(
+                tradeWishlistSources.map((source: any) => source.ownerPlayerId),
+              ),
+            ),
+          },
+          cardId: {
+            in: Array.from(
+              new Set(tradeWishlistSources.map((source: any) => source.cardId)),
+            ),
+          },
+        },
+        select: {
+          id: true,
+          targetOwnerPlayerId: true,
+          cardId: true,
+          quantity: true,
+        },
+      })
+    : [];
   const groupedRows = getInventoryGroupedByCard(exactRows as any);
   const displayItems = displayMode === "grouped" ? groupedRows : exactRows;
   const relatedCardsByScryfallId =
@@ -331,6 +369,7 @@ export async function GET(request: Request) {
       relatedCardsByScryfallId,
       preferredPriceProvider: viewer?.preferredPriceProvider,
       viewerPlayerId: viewer?.playerId,
+      openTradeWishlist,
     }),
     page: result.page,
     pageSize: result.pageSize,

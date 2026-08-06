@@ -423,6 +423,35 @@ export async function cancelTradeWishlistItem(fd: FormData) {
   revalidatePath("/wishlist");
 }
 
+export async function updateTradeWishlistQuantity(fd: FormData) {
+  const actor = await requireLogin();
+  const actorScope = await getAccessScope(actor);
+  const actorIsAdmin = actorScope?.mode === "admin";
+  const tradeWishlistItemId = String(fd.get("tradeWishlistItemId") || "");
+  const quantity = Number(fd.get("quantity"));
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) {
+    throw new Error("Trade wishlist quantity must be between 1 and 999.");
+  }
+  const item = await prisma.tradeWishlistItem.findUnique({
+    where: { id: tradeWishlistItemId },
+    select: { id: true, ownerUserId: true, status: true },
+  });
+  if (!item) throw new Error("Trade wishlist item not found.");
+  if (!actorIsAdmin && item.ownerUserId !== actor.id) {
+    throw new Error("You can only update your own trade wishlist cards.");
+  }
+  if (item.status !== TradeWishlistStatus.OPEN) {
+    throw new Error("Only open trade wishlist cards can be updated.");
+  }
+  await prisma.tradeWishlistItem.update({
+    where: { id: item.id },
+    data: { quantity },
+  });
+  revalidatePath("/trades");
+  revalidatePath("/wishlist");
+  revalidatePath("/public/inventory");
+}
+
 export async function actOnTrade(fd: FormData) {
   const actor = await requireLogin();
   const actorScope = await getAccessScope(actor);

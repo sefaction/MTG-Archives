@@ -22,13 +22,33 @@ export type PublicTradeWishlistTarget = {
   condition?: string;
   language?: string;
   availableQuantity: number;
+  wishlistItemId?: string;
+  wishlistedQuantity?: number;
 };
+
+export type OpenTradeWishlistMatch = {
+  id: string;
+  targetOwnerPlayerId: string;
+  cardId: string;
+  quantity: number;
+};
+
+export function publicTradeWishlistKey(ownerPlayerId: string, cardId: string) {
+  return `${ownerPlayerId}|${cardId}`;
+}
 
 export function buildPublicTradeWishlistTargets(
   sources: PublicTradeWishlistSource[],
   viewerPlayerId?: string | null,
+  openWishlist: OpenTradeWishlistMatch[] = [],
 ): PublicTradeWishlistTarget[] {
   const targets = new Map<string, PublicTradeWishlistTarget>();
+  const wishlistByOwnerAndCard = new Map(
+    openWishlist.map((item) => [
+      publicTradeWishlistKey(item.targetOwnerPlayerId, item.cardId),
+      item,
+    ]),
+  );
 
   for (const source of sources) {
     if (!source.inventoryItemId || source.ownerPlayerId === viewerPlayerId) {
@@ -48,6 +68,9 @@ export function buildPublicTradeWishlistTargets(
       continue;
     }
 
+    const wishlistItem = wishlistByOwnerAndCard.get(
+      publicTradeWishlistKey(source.ownerPlayerId, source.cardId),
+    );
     targets.set(key, {
       inventoryItemId: source.inventoryItemId,
       ownerName: source.ownerName,
@@ -58,6 +81,8 @@ export function buildPublicTradeWishlistTargets(
       condition: source.condition ?? undefined,
       language: source.language ?? undefined,
       availableQuantity: source.quantity,
+      wishlistItemId: wishlistItem?.id,
+      wishlistedQuantity: wishlistItem?.quantity,
     });
   }
 

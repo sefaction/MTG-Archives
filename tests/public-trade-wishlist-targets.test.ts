@@ -84,3 +84,35 @@ test("does not offer the viewer's own inventory as a wishlist target", () => {
     ["Bob"],
   );
 });
+
+test("annotates every matching printing with the viewer's existing owner-specific request", () => {
+  const targets = buildPublicTradeWishlistTargets(
+    [
+      source({}),
+      source({
+        inventoryItemId: "item-2",
+        foilStatus: "FOIL",
+      }),
+      source({
+        ownerPlayerId: "owner-2",
+        ownerName: "Bob",
+        inventoryItemId: "item-3",
+      }),
+    ],
+    "viewer",
+    [
+      {
+        id: "wishlist-1",
+        targetOwnerPlayerId: "owner-1",
+        cardId: "card-1",
+        quantity: 4,
+      },
+    ],
+  );
+
+  assert.equal(targets[0].wishlistItemId, "wishlist-1");
+  assert.equal(targets[0].wishlistedQuantity, 4);
+  assert.equal(targets[1].wishlistItemId, "wishlist-1");
+  assert.equal(targets[1].wishlistedQuantity, 4);
+  assert.equal(targets[2].wishlistedQuantity, undefined);
+});
