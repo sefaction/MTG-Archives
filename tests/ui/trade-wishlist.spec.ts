@@ -20,6 +20,16 @@ async function login(page: import("@playwright/test").Page) {
   }
 }
 
+test("public navigation stays public-only for signed-out visitors", async ({
+  page,
+}) => {
+  await page.goto("/public/inventory?displayMode=exact&pageSize=10");
+  await expect(page.getByRole("link", { name: /^Log in$/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Public home" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Account" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Log out" })).toHaveCount(0);
+});
+
 test("trade wishlist surfaces render from public inventory, wishlist, and trades", async ({
   page,
 }) => {
@@ -117,6 +127,10 @@ test("trade wishlist surfaces render from public inventory, wishlist, and trades
   ).toBeVisible();
 
   await page.goto("/public/inventory?displayMode=exact&pageSize=10");
+  await expect(page.getByRole("link", { name: "Account" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^Log in$/ })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Public decks" })).toBeVisible();
   if (
     await page.getByText("No public inventory is available yet.").isVisible()
   ) {

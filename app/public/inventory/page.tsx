@@ -23,6 +23,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { addPublicInventoryToTradeWishlist } from "./actions";
 import { buildPublicTradeWishlistTargets } from "@/lib/public-trade-wishlist-targets";
 import { addDeckCard } from "@/app/decks/actions";
+import { PublicNav } from "@/components/PublicNav";
 
 export const dynamic = "force-dynamic";
 
@@ -432,19 +433,7 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
 
   return (
     <main className="p-8 space-y-6">
-      <nav className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800 pb-4 text-sm">
-        <div className="flex flex-wrap gap-4">
-          <Link href="/" className="font-bold text-sky-200">
-            MTG Inventory
-          </Link>
-          <Link href="/public">Public home</Link>
-          <Link href="/public/inventory">Public inventory</Link>
-          <Link href="/public/decks">Public decks</Link>
-        </div>
-        <Link className="rounded border border-sky-700 px-3 py-1" href="/login">
-          Log in
-        </Link>
-      </nav>
+      <PublicNav />
 
       <header className="space-y-2">
         <h1 className="text-3xl font-bold">Public inventory</h1>

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { DeckFormat, DeckSection, Visibility } from "@prisma/client";
 import {
   DeckWorkspace,
@@ -19,6 +18,7 @@ import {
 } from "@/lib/decks";
 import { prisma } from "@/lib/prisma";
 import { visibilityLabel } from "@/lib/visibility";
+import { PublicNav } from "@/components/PublicNav";
 
 export const dynamic = "force-dynamic";
 
@@ -232,14 +232,7 @@ export default async function PublicDecksPage({
 
   return (
     <main className="space-y-6 p-4 sm:p-6 lg:p-8">
-      <nav className="flex flex-wrap gap-4 border-b border-zinc-800 pb-4 text-sm">
-        <Link href="/public" className="font-bold text-sky-200">
-          Public collections
-        </Link>
-        <Link href="/public/inventory">Public inventory</Link>
-        <Link href="/public/decks">Public decks</Link>
-        <Link href="/login">Log in</Link>
-      </nav>
+      <PublicNav />
       <section className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Public decks</h1>
