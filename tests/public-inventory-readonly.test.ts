@@ -147,6 +147,9 @@ test("public inventory search keeps browsing filters and removes private/admin f
   assert.match(inventorySearch, /Current owner/);
   assert.match(inventorySearch, /name=\{ownerParamName\}/);
   assert.match(inventorySearch, /label="Location"/);
+  assert.match(inventorySearch, /label="Card color"/);
+  assert.match(inventorySearch, /fieldName="colors"/);
+  assert.match(inventorySearch, /mode=\{first\(params, "colorMode"\)\}/);
   assert.match(inventorySearch, /Color ID/);
   assert.match(inventorySearch, /Mana value/);
   assert.match(inventorySearch, /USD/);
