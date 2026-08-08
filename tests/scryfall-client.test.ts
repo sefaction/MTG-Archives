@@ -13,6 +13,7 @@ import {
   searchCardsResult,
 } from "../lib/scryfall";
 import { cardTypeLine, normalizeCollectorNumber } from "../lib/card-import";
+import { effectiveCardColors } from "../lib/card-colors";
 
 function jsonResponse(
   body: unknown,
@@ -199,4 +200,13 @@ test("collector numbers are preserved as strings", () => {
   assert.equal(normalizeCollectorNumber("001"), "001");
   assert.equal(normalizeCollectorNumber("123a"), "123a");
   assert.equal(normalizeCollectorNumber("42★"), "42★");
+});
+
+test("face-specific Scryfall cards derive their inventory color from the front face", () => {
+  assert.deepEqual(
+    effectiveCardColors({
+      card_faces: [{ colors: ["W"] }, { colors: ["G"] }],
+    }),
+    ["W"],
+  );
 });

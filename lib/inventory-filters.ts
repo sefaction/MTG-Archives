@@ -4,6 +4,7 @@ import {
   InventorySourceType,
 } from "@prisma/client";
 import { isReservedLocationTypeName } from "./location-types";
+import { effectiveCardColors } from "./card-colors";
 
 export const INVENTORY_FILTER_PARAM_KEYS = [
   "cardName",
@@ -490,7 +491,11 @@ export function inventoryCardMatchesPostFilters(
     return false;
   if (
     filters.colors.length &&
-    !matchesColors(card?.colors, filters.colors, filters.colorMode)
+    !matchesColors(
+      effectiveCardColors(card ?? {}),
+      filters.colors,
+      filters.colorMode,
+    )
   )
     return false;
   if (filters.keyword) {

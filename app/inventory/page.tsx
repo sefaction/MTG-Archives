@@ -185,6 +185,7 @@ export default async function InventoryPage({
       manaCost: true,
       colorIdentity: true,
       colors: true,
+      cardFaces: true,
       keywords: true,
     },
   });
@@ -996,6 +997,7 @@ export default async function InventoryPage({
         {
           colorIdentity: row.colorIdentity,
           colors: row.colors,
+          cardFaces: row.cardFaces,
           keywords: row.keywords,
           prices: {
             usd: row.priceUsd,

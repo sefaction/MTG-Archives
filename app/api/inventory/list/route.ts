@@ -184,6 +184,7 @@ function rowsFromDisplayItems({
         {
           colorIdentity: row.colorIdentity,
           colors: row.colors,
+          cardFaces: row.cardFaces,
           keywords: row.keywords,
           prices: {
             usd: row.priceUsd,
@@ -286,6 +287,7 @@ export async function GET(request: Request) {
       manaCost: true,
       colorIdentity: true,
       colors: true,
+      cardFaces: true,
       keywords: true,
     },
   });

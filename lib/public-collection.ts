@@ -451,6 +451,7 @@ export async function getGlobalPublicInventory(
       manaCost: true,
       colorIdentity: true,
       colors: true,
+      cardFaces: true,
       keywords: true,
     },
   });
