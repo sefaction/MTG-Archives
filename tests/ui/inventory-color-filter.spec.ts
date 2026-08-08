@@ -31,6 +31,16 @@ async function logIn(page: import("@playwright/test").Page) {
   }
 }
 
+async function enterAdminMode(page: import("@playwright/test").Page) {
+  const enterButton = page.getByRole("button", { name: /enter admin mode/i });
+  if (await enterButton.isVisible()) {
+    await enterButton.click();
+    await expect(
+      page.getByRole("button", { name: /exit admin mode/i }),
+    ).toBeVisible();
+  }
+}
+
 test("advanced inventory search filters by exact card color combination", async ({
   page,
 }) => {
@@ -57,4 +67,23 @@ test("advanced inventory search filters by exact card color combination", async 
   await expect(
     page.getByRole("link", { name: "Remove Card color: Exact Blue" }).first(),
   ).toBeVisible();
+});
+
+test("white card filter includes Brigid's white front face", async ({
+  page,
+}) => {
+  await logIn(page);
+  await enterAdminMode(page);
+  await page.goto(
+    "/inventory?displayMode=exact&pageSize=10&cardName=Brigid%2C+Clachan%27s+Heart&colors=W&colorMode=exact",
+  );
+
+  await expect(
+    page
+      .getByText("Brigid, Clachan's Heart // Brigid, Doun's Mind", {
+        exact: true,
+      })
+      .first(),
+  ).toBeVisible();
+  await expect(page.getByText(/1 matching card/)).toBeVisible();
 });

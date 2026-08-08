@@ -145,6 +145,29 @@ test("card color filtering is distinct from color identity", () => {
   );
 });
 
+test("card color filtering uses the front face when Scryfall omits top-level colors", () => {
+  const whiteFilters = parseInventoryFilters(
+    new URLSearchParams("colors=W&colorMode=exact"),
+  );
+  const colorlessFilters = parseInventoryFilters(
+    new URLSearchParams("colors=C&colorMode=exact"),
+  );
+  const brigid = {
+    colors: [],
+    colorIdentity: ["G", "W"],
+    cardFaces: [
+      { name: "Brigid, Clachan's Heart", colors: ["W"] },
+      { name: "Brigid, Doun's Mind", colors: ["G"] },
+    ],
+  };
+
+  assert.equal(inventoryCardMatchesPostFilters(brigid, whiteFilters), true);
+  assert.equal(
+    inventoryCardMatchesPostFilters(brigid, colorlessFilters),
+    false,
+  );
+});
+
 test("clear filters removes structured inventory query params", () => {
   const params = new URLSearchParams(
     "cardName=sol&rarity=rare,mythic&finish=foil&page=3&sort=cardName&displayMode=grouped",

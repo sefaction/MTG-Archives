@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 
 import { prisma } from "./prisma";
+import { effectiveCardColors } from "./card-colors";
 import {
   formatScryfallError,
   getCardByScryfallIdResult,
@@ -99,7 +100,7 @@ function cardWriteData(cardData: ScryfallCard) {
     imageStatus: cardData.image_status ?? null,
     manaCost: cardData.mana_cost ?? cardFaceText(cardData, "mana_cost"),
     manaValue: cardData.cmc,
-    colors: cardData.colors ?? [],
+    colors: effectiveCardColors(cardData),
     colorIdentity: cardData.color_identity ?? [],
     colorIndicator: cardData.color_indicator ?? [],
     producedMana: cardData.produced_mana ?? [],
