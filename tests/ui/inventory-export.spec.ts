@@ -80,3 +80,57 @@ test("imports exports a whole collection or one normal location", async ({
     "Count,Name,Edition,Condition,Language,Foil,Collector Number,Tag",
   );
 });
+
+test("inventory bulk actions export only selected exact entries", async ({
+  page,
+}) => {
+  await logIn(page);
+  const adminModeButton = page.getByRole("button", {
+    name: "Enter Admin Mode",
+  });
+  if (await adminModeButton.isVisible()) {
+    await adminModeButton.click();
+    await expect(
+      page.getByRole("button", { name: /exit admin mode/i }),
+    ).toBeVisible();
+  }
+  await page.goto("/inventory?displayMode=exact&pageSize=10");
+
+  const cardCheckboxes = page.getByRole("checkbox", { name: /^Select / });
+  await expect(cardCheckboxes.first()).toBeVisible();
+  await cardCheckboxes.first().check();
+
+  const exportMenu = page
+    .locator("summary")
+    .filter({ hasText: "More actions" });
+  await expect(exportMenu).toBeVisible();
+  await exportMenu.click();
+
+  const selectedExportForm = page
+    .locator('form[action="/api/inventory/export"]')
+    .filter({ has: page.getByRole("button", { name: "Moxfield CSV" }) });
+  await expect(
+    selectedExportForm.locator('input[name="selectionMode"]'),
+  ).toHaveValue("selected");
+  const selectedIds = JSON.parse(
+    await selectedExportForm.locator('input[name="itemIds"]').inputValue(),
+  ) as string[];
+  expect(selectedIds.length).toBeGreaterThan(0);
+
+  const downloadPromise = page.waitForEvent("download");
+  await selectedExportForm
+    .getByRole("button", { name: "Moxfield CSV" })
+    .click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(
+    /^moxfield-inventory-selected-\d{4}-\d{2}-\d{2}\.csv$/,
+  );
+  const downloadPath = await download.path();
+  expect(downloadPath).toBeTruthy();
+  const csv = await readFile(downloadPath!, "utf8");
+  const rows = csv.trimEnd().split(/\r?\n/);
+  expect(rows[0]).toBe(
+    "Count,Name,Edition,Condition,Language,Foil,Collector Number,Tag",
+  );
+  expect(rows).toHaveLength(selectedIds.length + 1);
+});

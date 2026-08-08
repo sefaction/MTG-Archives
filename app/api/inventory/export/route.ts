@@ -61,7 +61,32 @@ function safeFilenamePart(value: string) {
   );
 }
 
-export async function GET(request: NextRequest) {
+const MAX_SELECTED_EXPORT_ITEMS = 5_000;
+
+function parseSelectedItemIds(params: URLSearchParams) {
+  if (params.get("scope") !== "selection") return null;
+  if (params.get("selectionMode") === "all") return null;
+
+  try {
+    const parsed = JSON.parse(params.get("itemIds") || "[]");
+    if (!Array.isArray(parsed)) return null;
+    const ids = Array.from(
+      new Set(
+        parsed.filter(
+          (value): value is string =>
+            typeof value === "string" &&
+            value.length > 0 &&
+            value.length <= 100,
+        ),
+      ),
+    );
+    return ids.length <= MAX_SELECTED_EXPORT_ITEMS ? ids : null;
+  } catch {
+    return null;
+  }
+}
+
+async function exportInventory(params: URLSearchParams) {
   const user = await requireLogin();
   const accessScope = await getAccessScope(user);
   const adminModeActive = accessScope?.mode === "admin";
@@ -74,9 +99,20 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const params = request.nextUrl.searchParams;
   const format = params.get("format") === "moxfield" ? "moxfield" : "full";
   const scope = params.get("scope") || "my";
+  const selectionMode =
+    params.get("selectionMode") === "all" ? "all" : "selected";
+  const selectedItemIds = parseSelectedItemIds(params);
+  if (
+    scope === "selection" &&
+    selectionMode === "selected" &&
+    (!selectedItemIds || selectedItemIds.length === 0)
+  ) {
+    return new Response("Choose at least one inventory entry to export.", {
+      status: 400,
+    });
+  }
   const ownerId = params.get("ownerId") || "";
   let effectiveOwnerId = ownerId || signedInPlayerId || "";
   let selectedLocation: {
@@ -147,6 +183,9 @@ export async function GET(request: NextRequest) {
   } else if (scope === "all") {
     delete where.currentOwnerId;
   }
+  if (scope === "selection" && selectionMode === "selected") {
+    where.id = { in: selectedItemIds };
+  }
 
   const allItems = await prisma.inventoryItem.findMany({
     where,
@@ -170,11 +209,16 @@ export async function GET(request: NextRequest) {
     : null;
   let filenameBase = selectedLocation
     ? `mtg-inventory-${safeFilenamePart(selectedLocation.name)}`
-    : "mtg-inventory-full";
+    : scope === "selection"
+      ? `mtg-inventory-${selectionMode === "all" ? "filtered" : "selected"}`
+      : "mtg-inventory-full";
 
   let csv: string;
   if (format === "moxfield") {
-    filenameBase = `moxfield-inventory-${safeFilenamePart(selectedLocation?.name || selectedOwner?.displayName || user.player?.displayName || (adminModeActive && scope === "all" ? "all" : "my"))}`;
+    filenameBase =
+      scope === "selection"
+        ? `moxfield-inventory-${selectionMode === "all" ? "filtered" : "selected"}`
+        : `moxfield-inventory-${safeFilenamePart(selectedLocation?.name || selectedOwner?.displayName || user.player?.displayName || (adminModeActive && scope === "all" ? "all" : "my"))}`;
     const headers = [
       "Count",
       "Name",
@@ -262,4 +306,24 @@ export async function GET(request: NextRequest) {
       "Content-Disposition": `attachment; filename="${downloadFilename}"`,
     },
   });
+}
+
+export async function GET(request: NextRequest) {
+  return exportInventory(request.nextUrl.searchParams);
+}
+
+export async function POST(request: NextRequest) {
+  const formData = await request.formData();
+  const params = new URLSearchParams(String(formData.get("filterQuery") || ""));
+  params.set("scope", "selection");
+  params.set(
+    "selectionMode",
+    formData.get("selectionMode") === "all" ? "all" : "selected",
+  );
+  params.set("itemIds", String(formData.get("itemIds") || "[]"));
+  params.set(
+    "format",
+    formData.get("format") === "moxfield" ? "moxfield" : "full",
+  );
+  return exportInventory(params);
 }
