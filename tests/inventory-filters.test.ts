@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { FoilStatus } from "@prisma/client";
 import {
   buildInventoryWhereFromFilters,
+  inventoryCardMatchesPostFilters,
   matchesColors,
   parseInventoryFilters,
   removeInventoryFilterParams,
@@ -119,6 +120,29 @@ test("inventory color identity modes match Scryfall-style set comparisons", () =
   assert.equal(matchesColors(["W", "U"], ["W"], "atLeast"), true);
   assert.equal(matchesColors(["B"], ["W", "U"], "any"), false);
   assert.equal(matchesColors([], ["C"], "exact"), true);
+});
+
+test("card color filtering is distinct from color identity", () => {
+  const filters = parseInventoryFilters(
+    new URLSearchParams("colors=C&colorMode=exact"),
+  );
+
+  assert.deepEqual(filters.colors, ["C"]);
+  assert.equal(filters.colorMode, "exact");
+  assert.equal(
+    inventoryCardMatchesPostFilters(
+      { colors: [], colorIdentity: ["R"] },
+      filters,
+    ),
+    true,
+  );
+  assert.equal(
+    inventoryCardMatchesPostFilters(
+      { colors: ["R"], colorIdentity: ["R"] },
+      filters,
+    ),
+    false,
+  );
 });
 
 test("clear filters removes structured inventory query params", () => {

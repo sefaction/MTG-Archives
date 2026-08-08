@@ -741,12 +741,20 @@ function MultiSelectDropdown({
   );
 }
 
-function ColorIdentityControls({
+function ColorControls({
   selected,
   mode,
+  fieldName,
+  modeFieldName,
+  label,
+  ariaLabel,
 }: {
   selected: string[];
   mode: string;
+  fieldName: "colors" | "colorIdentity";
+  modeFieldName: "colorMode" | "colorIdentityMode";
+  label: string;
+  ariaLabel: string;
 }) {
   const [activeColors, setActiveColors] = useState(selected);
 
@@ -760,9 +768,9 @@ function ColorIdentityControls({
 
   return (
     <div className="flex min-h-10 flex-wrap items-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 p-2 text-sm text-zinc-100 transition-colors focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/30">
-      <span className={filterLabelClass}>Color ID</span>
+      <span className={filterLabelClass}>{label}</span>
       <select
-        name="colorIdentityMode"
+        name={modeFieldName}
         defaultValue={mode || "include"}
         className={filterSelectClass}
         title="Any = one selected color; All = every selected color; Exact = no extras; At most = subset; At least = superset."
@@ -777,7 +785,7 @@ function ColorIdentityControls({
           </option>
         ))}
       </select>
-      <div className="flex flex-wrap gap-1" aria-label="Color identity">
+      <div className="flex flex-wrap gap-1" aria-label={ariaLabel}>
         {COLOR_OPTIONS.map((color) => (
           <label
             key={color.value}
@@ -786,13 +794,13 @@ function ColorIdentityControls({
           >
             <input
               type="checkbox"
-              name="colorIdentity"
+              name={fieldName}
               value={color.value}
               checked={activeColors.includes(color.value)}
               onChange={(event) =>
                 toggleColor(color.value, event.target.checked)
               }
-              aria-label={`Color identity ${color.label}`}
+              aria-label={`${ariaLabel} ${color.label}`}
               className="sr-only"
             />
             <ManaSymbol token={color.symbol} ariaHidden />
@@ -819,6 +827,7 @@ function buildActiveChips({
   locationOptions,
   locationTypeOptions,
   typeTokens,
+  colors,
   colorIdentity,
   capabilities,
 }: {
@@ -836,6 +845,7 @@ function buildActiveChips({
   locationOptions: FilterOption[];
   locationTypeOptions: FilterOption[];
   typeTokens: string[];
+  colors: string[];
   colorIdentity: string[];
   capabilities: InventoryAdvancedSearchCapabilities;
 }) {
@@ -942,6 +952,19 @@ function buildActiveChips({
   }
   if (capabilities.showInventoryScopeFilter)
     pushWhole("commitment", "Inventory", first(params, "commitment"));
+  colors.forEach((value) => {
+    const mode =
+      COLOR_MODE_OPTIONS.find(
+        (option) => option.value === first(params, "colorMode"),
+      )?.label || "All";
+    pushOne(
+      "colors",
+      "Card color",
+      value,
+      `${mode} ${optionLabel(COLOR_OPTIONS, value)}`,
+      ["colorMode"],
+    );
+  });
   colorIdentity.forEach((value) => {
     const mode =
       COLOR_MODE_OPTIONS.find(
@@ -1037,6 +1060,7 @@ export function InventoryAdvancedSearch({
   const typeTokens = values(params, "typeTokens").length
     ? values(params, "typeTokens")
     : values(params, "type");
+  const colors = values(params, "colors");
   const colorIdentity = values(params, "colorIdentity");
   const initialMvOp =
     first(params, "mvOp") ||
@@ -1086,6 +1110,7 @@ export function InventoryAdvancedSearch({
     locationOptions,
     locationTypeOptions,
     typeTokens,
+    colors,
     colorIdentity,
     capabilities,
   });
@@ -1225,10 +1250,23 @@ export function InventoryAdvancedSearch({
               Color and mana
             </div>
             <div className="flex flex-wrap gap-2">
-              <ColorIdentityControls
+              <ColorControls
+                key={`colors-${colors.join(",")}`}
+                selected={colors}
+                mode={first(params, "colorMode")}
+                fieldName="colors"
+                modeFieldName="colorMode"
+                label="Card color"
+                ariaLabel="Card color"
+              />
+              <ColorControls
                 key={colorIdentity.join(",")}
                 selected={colorIdentity}
                 mode={first(params, "colorIdentityMode")}
+                fieldName="colorIdentity"
+                modeFieldName="colorIdentityMode"
+                label="Color ID"
+                ariaLabel="Color identity"
               />
               <div className="flex min-h-10 flex-wrap items-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 p-2 text-sm text-zinc-100 transition-colors focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/30">
                 <span className={filterLabelClass}>Mana value</span>
