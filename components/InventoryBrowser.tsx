@@ -2294,6 +2294,56 @@ export function InventoryBrowser({
             >
               Clear selection
             </button>
+            {selectedEntriesCount > 0 ? (
+              <details className="group relative">
+                <summary
+                  className={cn(
+                    filterButtonClass,
+                    "cursor-pointer list-none px-2 py-1 marker:content-none",
+                  )}
+                >
+                  More actions ⋯
+                </summary>
+                <div className="absolute left-0 top-full z-30 mt-1 min-w-56 rounded-md border border-zinc-700 bg-zinc-950 p-1 shadow-xl">
+                  <div className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    Export {allMatchingSelected ? "matching" : "selected"}
+                  </div>
+                  {[
+                    ["full", "MTG Archives CSV"],
+                    ["moxfield", "Moxfield CSV"],
+                  ].map(([format, label]) => (
+                    <form
+                      key={format}
+                      action="/api/inventory/export"
+                      method="post"
+                    >
+                      <input
+                        type="hidden"
+                        name="filterQuery"
+                        value={pageHrefBase || ""}
+                      />
+                      <input
+                        type="hidden"
+                        name="selectionMode"
+                        value={allMatchingSelected ? "all" : "selected"}
+                      />
+                      <input
+                        type="hidden"
+                        name="itemIds"
+                        value={JSON.stringify(selectedItemIdList)}
+                      />
+                      <input type="hidden" name="format" value={format} />
+                      <button
+                        type="submit"
+                        className="w-full rounded px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800"
+                      >
+                        {label}
+                      </button>
+                    </form>
+                  ))}
+                </div>
+              </details>
+            ) : null}
             <span className="text-zinc-300">
               {allMatchingSelected
                 ? `All ${totalMatchingCount} matching inventory entries are selected.`
