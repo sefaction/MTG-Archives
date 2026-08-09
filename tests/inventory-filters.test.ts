@@ -168,6 +168,29 @@ test("card color filtering uses the front face when Scryfall omits top-level col
   );
 });
 
+test("card color filtering accepts serialized display-row colors", () => {
+  const whiteFilters = parseInventoryFilters(
+    new URLSearchParams("colors=W&colorMode=exact"),
+  );
+  const colorlessFilters = parseInventoryFilters(
+    new URLSearchParams("colors=C&colorMode=exact"),
+  );
+  const monoWhiteCard = {
+    colors: "W",
+    colorIdentity: "W",
+    cardFaces: [],
+  };
+
+  assert.equal(
+    inventoryCardMatchesPostFilters(monoWhiteCard, whiteFilters),
+    true,
+  );
+  assert.equal(
+    inventoryCardMatchesPostFilters(monoWhiteCard, colorlessFilters),
+    false,
+  );
+});
+
 test("clear filters removes structured inventory query params", () => {
   const params = new URLSearchParams(
     "cardName=sol&rarity=rare,mythic&finish=foil&page=3&sort=cardName&displayMode=grouped",
