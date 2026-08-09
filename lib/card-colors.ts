@@ -1,10 +1,14 @@
 const WUBRG = new Set(["W", "U", "B", "R", "G"]);
 
 function colorArray(value: unknown) {
-  if (!Array.isArray(value)) return [];
+  const values = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.replace(/[\[\]"']/g, "").split(/[,\s]+/)
+      : [];
   return Array.from(
     new Set(
-      value
+      values
         .map((color) => String(color).toUpperCase())
         .filter((color) => WUBRG.has(color)),
     ),
