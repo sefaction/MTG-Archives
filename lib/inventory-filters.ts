@@ -519,6 +519,44 @@ export function inventoryCardMatchesPostFilters(
   return true;
 }
 
+export async function constrainInventoryWhereToPostFilters(
+  prisma: any,
+  where: Record<string, unknown>,
+  filters: InventoryFilters,
+) {
+  const hasPostFilters =
+    filters.colorIdentity.length > 0 ||
+    filters.colors.length > 0 ||
+    Boolean(filters.keyword) ||
+    filters.priceMin !== undefined ||
+    filters.priceMax !== undefined;
+  if (!hasPostFilters) return where;
+
+  const candidateCards = (await prisma.inventoryItem.findMany({
+    where,
+    distinct: ["cardId"],
+    select: {
+      cardId: true,
+      card: {
+        select: {
+          colorIdentity: true,
+          colors: true,
+          cardFaces: true,
+          keywords: true,
+          prices: true,
+        },
+      },
+    },
+  })) as Array<{ cardId: string; card: any }>;
+  const matchingCardIds = candidateCards
+    .filter((candidate) =>
+      inventoryCardMatchesPostFilters(candidate.card, filters),
+    )
+    .map((candidate) => candidate.cardId);
+
+  return { ...where, cardId: { in: matchingCardIds } };
+}
+
 export function removeInventoryFilterParams(params: URLSearchParams) {
   INVENTORY_FILTER_PARAM_KEYS.forEach((key) => params.delete(key));
   params.delete("page");

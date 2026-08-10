@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { FoilStatus } from "@prisma/client";
 import {
   buildInventoryWhereFromFilters,
+  constrainInventoryWhereToPostFilters,
   inventoryCardMatchesPostFilters,
   matchesColors,
   parseInventoryFilters,
@@ -188,6 +189,73 @@ test("card color filtering accepts serialized display-row colors", () => {
   assert.equal(
     inventoryCardMatchesPostFilters(monoWhiteCard, colorlessFilters),
     false,
+  );
+});
+
+test("all-matching mutations constrain database candidates to post-filtered cards", async () => {
+  const filters = parseInventoryFilters(
+    new URLSearchParams("colors=W&colorMode=exact&keyword=flying"),
+  );
+  const where = {
+    quantity: { gt: 0 },
+    locationId: "source-location",
+  };
+  let receivedArgs: any;
+  const prisma = {
+    inventoryItem: {
+      findMany: async (args: any) => {
+        receivedArgs = args;
+        return [
+          {
+            cardId: "matching-white-card",
+            card: { colors: ["W"], keywords: ["Flying"] },
+          },
+          {
+            cardId: "nonmatching-blue-card",
+            card: { colors: ["U"], keywords: ["Flying"] },
+          },
+          {
+            cardId: "nonmatching-white-card",
+            card: { colors: ["W"], keywords: ["Vigilance"] },
+          },
+        ];
+      },
+    },
+  };
+
+  const constrained = await constrainInventoryWhereToPostFilters(
+    prisma,
+    where,
+    filters,
+  );
+
+  assert.equal(receivedArgs.where, where);
+  assert.deepEqual(receivedArgs.distinct, ["cardId"]);
+  assert.deepEqual(constrained, {
+    ...where,
+    cardId: { in: ["matching-white-card"] },
+  });
+});
+
+test("all-matching mutations preserve database-only filters without extra lookup", async () => {
+  const filters = parseInventoryFilters(
+    new URLSearchParams("cardName=Angel&locationId=source-location"),
+  );
+  const where = buildInventoryWhereFromFilters(filters, {
+    adminModeActive: false,
+    playerId: "player-1",
+  });
+  const prisma = {
+    inventoryItem: {
+      findMany: async () => {
+        throw new Error("post-filter lookup should not run");
+      },
+    },
+  };
+
+  assert.equal(
+    await constrainInventoryWhereToPostFilters(prisma, where, filters),
+    where,
   );
 });
 
