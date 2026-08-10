@@ -56,6 +56,7 @@ import {
 } from "@/lib/inventory-sort";
 import {
   buildInventoryWhereFromFilters,
+  constrainInventoryWhereToPostFilters,
   inventoryCardMatchesPostFilters,
   parseInventoryFilters,
   INVENTORY_FILTER_PARAM_KEYS,
@@ -613,8 +614,16 @@ export default async function InventoryPage({
       previewWhere.quantity = { gt: 0 };
       if (sourceLocationIdRaw) previewWhere.locationId = sourceLocationIdRaw;
       if (allowedOwnerId) previewWhere.currentOwnerId = allowedOwnerId;
+      const matchingWhere =
+        selectionMode === "all"
+          ? await constrainInventoryWhereToPostFilters(
+              prisma,
+              previewWhere,
+              filters,
+            )
+          : previewWhere;
       const preview = await prisma.inventoryItem.aggregate({
-        where: previewWhere,
+        where: matchingWhere,
         _count: { _all: true },
         _sum: { quantity: true as const },
       });
@@ -633,7 +642,7 @@ export default async function InventoryPage({
         actorUserId: actionUser.id,
         destinationLocationId,
         itemIds: selectionMode === "all" ? undefined : itemIds,
-        where: selectionMode === "all" ? where : undefined,
+        where: selectionMode === "all" ? matchingWhere : undefined,
         allowedOwnerId,
         sourceLocationId: sourceLocationIdRaw || undefined,
         reason,
@@ -730,8 +739,16 @@ export default async function InventoryPage({
       previewWhere.quantity = { gt: 0 };
       if (sourceLocationIdRaw) previewWhere.locationId = sourceLocationIdRaw;
       if (allowedOwnerId) previewWhere.currentOwnerId = allowedOwnerId;
+      const matchingWhere =
+        selectionMode === "all"
+          ? await constrainInventoryWhereToPostFilters(
+              prisma,
+              previewWhere,
+              filters,
+            )
+          : previewWhere;
       const preview = await prisma.inventoryItem.aggregate({
-        where: previewWhere,
+        where: matchingWhere,
         _count: { _all: true },
         _sum: { quantity: true as const },
       });
@@ -760,7 +777,7 @@ export default async function InventoryPage({
       const result = await bulkDeleteInventoryItems(prisma, {
         actorUserId: actionUser.id,
         itemIds: selectionMode === "all" ? undefined : itemIds,
-        where: selectionMode === "all" ? where : undefined,
+        where: selectionMode === "all" ? matchingWhere : undefined,
         allowedOwnerId,
         sourceLocationId: sourceLocationIdRaw || undefined,
         reason: reason || "Inventory deleted.",
