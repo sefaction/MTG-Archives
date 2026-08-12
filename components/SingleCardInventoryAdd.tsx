@@ -26,11 +26,13 @@ export function SingleCardInventoryAdd({
   defaultLocationId,
   added,
   embedded = false,
+  sectionSuggestions = [],
 }: {
   locations: ManualAddLocation[];
   defaultLocationId?: string;
   added?: boolean;
   embedded?: boolean;
+  sectionSuggestions?: string[];
 }) {
   const [query, setQuery] = useState("");
   const [includeScryfall, setIncludeScryfall] = useState(false);
@@ -166,6 +168,11 @@ export function SingleCardInventoryAdd({
         action={addSingleCardToInventory}
         className="grid gap-3 rounded border border-zinc-800 p-3 md:grid-cols-3"
       >
+        <datalist id="manual-location-sections">
+          {sectionSuggestions.map((section) => (
+            <option key={section} value={section} />
+          ))}
+        </datalist>
         <input type="hidden" name="cardId" value={selected?.cardId ?? ""} />
         <p className="text-sm text-zinc-300 md:col-span-3">
           Selected: <span className="text-sky-100">{selectedLabel}</span>
@@ -223,6 +230,16 @@ export function SingleCardInventoryAdd({
               </option>
             ))}
           </select>
+        </label>
+        <label className={cn(filterFieldClass, "md:col-span-3")}>
+          Section within location (optional)
+          <input
+            name="locationSection"
+            list="manual-location-sections"
+            maxLength={100}
+            className={cn(filterInputClass, "mt-1 w-full")}
+            placeholder="Type any section, e.g. Section 1"
+          />
         </label>
         <label className={cn(filterFieldClass, "md:col-span-3")}>
           Notes

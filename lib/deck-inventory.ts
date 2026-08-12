@@ -21,6 +21,7 @@ type DeckInventoryRow = {
   language: string;
   roundId: string | null;
   locationId: string | null;
+  locationSection: string | null;
   quantity: number;
   sourceType: string;
   acquiredFromPullId: string | null;
@@ -121,6 +122,7 @@ function itemSnapshot(
     language: item.language,
     roundId: item.roundId,
     locationId: item.locationId,
+    locationSection: item.locationSection,
     quantity: item.quantity,
     sourceType: item.sourceType,
     acquiredFromPullId: item.acquiredFromPullId,
@@ -272,6 +274,7 @@ export async function returnCommittedInventoryFromDeckTx(
     where: {
       currentOwnerId: input.ownerPlayerId,
       locationId: destination.id,
+      locationSection: null,
       quantity: { gt: 0 },
     },
   });
@@ -373,7 +376,7 @@ export async function returnCommittedInventoryFromDeckTx(
     } else if (quantityToMove === item.quantity) {
       await tx.inventoryItem.update({
         where: { id: item.id },
-        data: { locationId: destination.id },
+        data: { locationId: destination.id, locationSection: null },
       });
       await tx.inventoryAuditLog.create({
         data: {
@@ -395,6 +398,7 @@ export async function returnCommittedInventoryFromDeckTx(
       destinationByKey.set(moveKey(item), {
         ...item,
         locationId: destination.id,
+        locationSection: null,
       });
     } else {
       const created = await tx.inventoryItem.create({
@@ -408,6 +412,7 @@ export async function returnCommittedInventoryFromDeckTx(
           sourceType: item.sourceType as any,
           condition: item.condition,
           locationId: destination.id,
+          locationSection: null,
           language: item.language,
           acquiredFromPullId: item.acquiredFromPullId,
           roundId: item.roundId,

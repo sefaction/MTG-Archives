@@ -17,6 +17,71 @@ export function normalizeLocationName(name: string) {
   return name.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
+export type LocationPathNode = {
+  id: string;
+  name: string;
+  parentLocationId?: string | null;
+};
+
+export function buildLocationPathMap(locations: LocationPathNode[]) {
+  const byId = new Map(locations.map((location) => [location.id, location]));
+  const paths = new Map<string, string>();
+  const resolving = new Set<string>();
+
+  function resolve(location: LocationPathNode): string {
+    const cached = paths.get(location.id);
+    if (cached) return cached;
+    if (resolving.has(location.id)) return location.name;
+    resolving.add(location.id);
+    const parent = location.parentLocationId
+      ? byId.get(location.parentLocationId)
+      : undefined;
+    const path = parent
+      ? `${resolve(parent)} / ${location.name}`
+      : location.name;
+    resolving.delete(location.id);
+    paths.set(location.id, path);
+    return path;
+  }
+
+  locations.forEach(resolve);
+  return paths;
+}
+
+export function withLocationPaths<T extends LocationPathNode>(locations: T[]) {
+  const paths = buildLocationPathMap(locations);
+  return locations
+    .map((location) => ({
+      ...location,
+      path: paths.get(location.id) ?? location.name,
+    }))
+    .sort((left, right) => left.path.localeCompare(right.path));
+}
+
+export type LocationTreeNode<T extends LocationPathNode> = T & {
+  children: LocationTreeNode<T>[];
+};
+
+export function buildLocationTree<T extends LocationPathNode>(locations: T[]) {
+  const nodes = new Map<string, LocationTreeNode<T>>(
+    locations.map((location) => [location.id, { ...location, children: [] }]),
+  );
+  const roots: LocationTreeNode<T>[] = [];
+  for (const node of nodes.values()) {
+    const parent = node.parentLocationId
+      ? nodes.get(node.parentLocationId)
+      : undefined;
+    if (parent && parent.id !== node.id) parent.children.push(node);
+    else roots.push(node);
+  }
+  const sortNodes = (values: LocationTreeNode<T>[]) => {
+    values.sort((left, right) => left.name.localeCompare(right.name));
+    values.forEach((value) => sortNodes(value.children));
+  };
+  sortNodes(roots);
+  return roots;
+}
+
 export function assertValidLocationName(name: string) {
   const trimmed = name.trim();
   if (!trimmed) throw new Error("Location name is required.");
@@ -31,12 +96,11 @@ export async function ensureDefaultLocation(
   prisma: PrismaClient | Prisma.TransactionClient,
   ownerPlayerId: string,
 ) {
-  const existing = await prisma.inventoryLocation.findUnique({
+  const existing = await prisma.inventoryLocation.findFirst({
     where: {
-      ownerPlayerId_normalizedName: {
-        ownerPlayerId,
-        normalizedName: "unassigned",
-      },
+      ownerPlayerId,
+      parentLocationId: null,
+      normalizedName: "unassigned",
     },
   });
   if (existing) return existing;
@@ -59,10 +123,67 @@ export async function getLocationsForOwner(
   ownerPlayerId: string,
 ) {
   await ensureDefaultLocation(prisma, ownerPlayerId);
-  return prisma.inventoryLocation.findMany({
+  const locations = await prisma.inventoryLocation.findMany({
     where: { ownerPlayerId },
     orderBy: [{ active: "desc" }, { name: "asc" }],
   });
+  return withLocationPaths(locations);
+}
+
+async function assertValidLocationParent(
+  prisma: PrismaClient,
+  input: {
+    ownerPlayerId: string;
+    parentLocationId?: string | null;
+    locationId?: string;
+  },
+) {
+  const parentLocationId = input.parentLocationId || null;
+  if (!parentLocationId) return null;
+  if (parentLocationId === input.locationId)
+    throw new Error("A location cannot be its own parent.");
+
+  const ownerLocations = await prisma.inventoryLocation.findMany({
+    where: { ownerPlayerId: input.ownerPlayerId },
+    select: {
+      id: true,
+      parentLocationId: true,
+      normalizedName: true,
+      kind: true,
+      systemManaged: true,
+      active: true,
+    },
+  });
+  const byId = new Map(
+    ownerLocations.map((location) => [location.id, location]),
+  );
+  const parent = byId.get(parentLocationId);
+  if (!parent) throw new Error("Parent location not found for this owner.");
+  if (
+    parent.kind !== InventoryLocationKind.NORMAL ||
+    parent.systemManaged ||
+    parent.normalizedName === "unassigned"
+  ) {
+    throw new Error("Choose an ordinary inventory location as the parent.");
+  }
+  if (!parent.active)
+    throw new Error("An inactive location cannot be a parent.");
+
+  const visited = new Set<string>();
+  let current: typeof parent | undefined = parent;
+  while (current) {
+    if (current.id === input.locationId)
+      throw new Error(
+        "A location cannot be moved beneath one of its descendants.",
+      );
+    if (visited.has(current.id))
+      throw new Error("The location hierarchy contains a cycle.");
+    visited.add(current.id);
+    current = current.parentLocationId
+      ? byId.get(current.parentLocationId)
+      : undefined;
+  }
+  return parentLocationId;
 }
 
 export async function createLocation(
@@ -70,6 +191,7 @@ export async function createLocation(
   input: {
     ownerPlayerId: string;
     name: string;
+    parentLocationId?: string | null;
     description?: string | null;
     type?: string | null;
     visibility?: Visibility;
@@ -81,20 +203,21 @@ export async function createLocation(
       "Deck locations are system-managed. Commit cards from a deck page instead.",
     );
   }
+  const parentLocationId = await assertValidLocationParent(prisma, input);
   const normalizedName = normalizeLocationName(name);
-  const duplicate = await prisma.inventoryLocation.findUnique({
+  const duplicate = await prisma.inventoryLocation.findFirst({
     where: {
-      ownerPlayerId_normalizedName: {
-        ownerPlayerId: input.ownerPlayerId,
-        normalizedName,
-      },
+      ownerPlayerId: input.ownerPlayerId,
+      parentLocationId,
+      normalizedName,
     },
   });
   if (duplicate)
-    throw new Error(`Location “${name}” already exists for this owner.`);
+    throw new Error(`Location “${name}” already exists at this level.`);
   return prisma.inventoryLocation.create({
     data: {
       ownerPlayerId: input.ownerPlayerId,
+      parentLocationId,
       name,
       normalizedName,
       description: input.description?.trim() || null,
@@ -111,6 +234,7 @@ export async function updateLocation(
     id: string;
     ownerPlayerId: string;
     name: string;
+    parentLocationId?: string | null;
     description?: string | null;
     type?: string | null;
     active?: boolean;
@@ -119,15 +243,6 @@ export async function updateLocation(
 ) {
   const name = assertValidLocationName(input.name);
   const normalizedName = normalizeLocationName(name);
-  const duplicate = await prisma.inventoryLocation.findFirst({
-    where: {
-      ownerPlayerId: input.ownerPlayerId,
-      normalizedName,
-      id: { not: input.id },
-    },
-  });
-  if (duplicate)
-    throw new Error(`Location “${name}” already exists for this owner.`);
   const existing = await prisma.inventoryLocation.findFirst({
     where: { id: input.id, ownerPlayerId: input.ownerPlayerId },
   });
@@ -137,11 +252,38 @@ export async function updateLocation(
       "Deck locations are system-managed and cannot be edited here.",
     );
   }
+  if (input.active === false) {
+    const activeChildCount = await prisma.inventoryLocation.count({
+      where: { parentLocationId: input.id, active: true },
+    });
+    if (activeChildCount > 0)
+      throw new Error(
+        "Move or deactivate this location's active sub-locations first.",
+      );
+  }
+  const parentLocationId =
+    existing.normalizedName === "unassigned"
+      ? null
+      : await assertValidLocationParent(prisma, {
+          ...input,
+          locationId: input.id,
+        });
+  const duplicate = await prisma.inventoryLocation.findFirst({
+    where: {
+      ownerPlayerId: input.ownerPlayerId,
+      parentLocationId,
+      normalizedName,
+      id: { not: input.id },
+    },
+  });
+  if (duplicate)
+    throw new Error(`Location “${name}” already exists at this level.`);
   return prisma.inventoryLocation.update({
     where: { id: input.id },
     data: {
       name,
       normalizedName,
+      parentLocationId,
       description: input.description?.trim() || null,
       type: input.type?.trim() || null,
       active: input.active ?? true,
@@ -172,6 +314,13 @@ export async function deleteUnusedLocation(
     throw new Error(
       "This location still contains inventory. Move or remove those cards before deleting it.",
     );
+  const childCount = await prisma.inventoryLocation.count({
+    where: { parentLocationId: locationId },
+  });
+  if (childCount > 0)
+    throw new Error(
+      "This location still contains sub-locations. Move or delete them before deleting it.",
+    );
   return prisma.inventoryLocation.delete({ where: { id: locationId } });
 }
 
@@ -196,6 +345,7 @@ export type InventoryLocationBreakdownEntry = {
   inventoryItemId?: string;
   locationId: string | null;
   name: string;
+  section?: string | null;
   quantity: number;
   foilStatus?: string | null;
   condition?: string | null;
@@ -207,13 +357,27 @@ export type InventoryLocationBreakdownEntry = {
 };
 
 export function locationSummary(
-  parts: Array<{ name: string; quantity: number }>,
+  parts: Array<{ name: string; section?: string | null; quantity: number }>,
 ) {
   if (!parts.length) return "Unassigned";
   if (parts.length <= 2)
-    return parts.map((p) => `${p.name}: ${p.quantity}`).join(" · ");
+    return parts
+      .map(
+        (p) => `${p.name}${p.section ? ` / ${p.section}` : ""}: ${p.quantity}`,
+      )
+      .join(" · ");
   const total = parts.reduce((sum, p) => sum + p.quantity, 0);
   return `${total} copies in ${parts.length} locations`;
+}
+
+export function normalizeLocationSection(value: unknown) {
+  const section = String(value ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (section.length > 100) {
+    throw new Error("Section must be 100 characters or fewer.");
+  }
+  return section || null;
 }
 
 type InventoryPageGroupLike = {
@@ -305,6 +469,7 @@ export function getInventoryExactPrintings<T extends InventoryWithCardLocation>(
       inventoryItemId: item.id,
       locationId: item.locationId ?? null,
       name: item.location?.name ?? "Unassigned",
+      section: item.locationSection ?? null,
       quantity: item.quantity,
       foilStatus: item.foilStatus,
       condition: normalizedCondition,
@@ -342,14 +507,27 @@ export function getInventoryExactPrintings<T extends InventoryWithCardLocation>(
 }
 
 function aggregateLocationBreakdown(
-  parts: Array<{ locationId: string | null; name: string; quantity: number }>,
+  parts: Array<{
+    locationId: string | null;
+    name: string;
+    section?: string | null;
+    quantity: number;
+  }>,
 ) {
-  const byLocation = new Map<string, { name: string; quantity: number }>();
+  const byLocation = new Map<
+    string,
+    { name: string; section?: string | null; quantity: number }
+  >();
   for (const part of parts) {
-    const key = part.locationId ?? `name:${part.name}`;
+    const key = `${part.locationId ?? `name:${part.name}`}\u001f${part.section ?? ""}`;
     const existing = byLocation.get(key);
     if (existing) existing.quantity += part.quantity;
-    else byLocation.set(key, { name: part.name, quantity: part.quantity });
+    else
+      byLocation.set(key, {
+        name: part.name,
+        section: part.section,
+        quantity: part.quantity,
+      });
   }
   return Array.from(byLocation.values());
 }
@@ -455,12 +633,14 @@ export async function moveInventoryQuantity(
     inventoryItemId: string;
     fromLocationId: string | null;
     toLocationId: string;
+    toLocationSection?: string | null;
     quantity: number;
   },
 ) {
   if (!Number.isInteger(input.quantity) || input.quantity <= 0)
     throw new Error("Quantity must be positive.");
   return prisma.$transaction(async (tx) => {
+    const toLocationSection = normalizeLocationSection(input.toLocationSection);
     const source = await tx.inventoryItem.findUnique({
       where: { id: input.inventoryItemId },
     });
@@ -481,6 +661,7 @@ export async function moveInventoryQuantity(
         },
         language: source.language,
         locationId: input.toLocationId,
+        locationSection: toLocationSection,
         quantity: { gt: 0 },
       },
     });
@@ -495,7 +676,10 @@ export async function moveInventoryQuantity(
       }
       await tx.inventoryItem.update({
         where: { id: source.id },
-        data: { locationId: input.toLocationId },
+        data: {
+          locationId: input.toLocationId,
+          locationSection: toLocationSection,
+        },
       });
       return source.id;
     }
@@ -521,6 +705,7 @@ export async function moveInventoryQuantity(
         ...copy,
         quantity: input.quantity,
         locationId: input.toLocationId,
+        locationSection: toLocationSection,
       },
     });
     return created.id;
@@ -546,6 +731,7 @@ export type MoveInventoryQuantityBetweenLocationsResult = {
 type InventoryStackMutationTarget = {
   cardId: string;
   locationId: string;
+  locationSection?: string | null;
   quantity: number;
   foilStatus: string;
   condition: string;
@@ -570,6 +756,7 @@ function stackMergeWhere(
     },
     language: target.language,
     locationId: target.locationId,
+    locationSection: normalizeLocationSection(target.locationSection),
     quantity: { gt: 0 },
   };
 }
@@ -681,6 +868,9 @@ export async function updateInventoryStack(
     const normalizedCondition = normalizeInventoryCondition(
       input.target.condition,
     );
+    const locationSection = normalizeLocationSection(
+      input.target.locationSection,
+    );
     const beforeJson = source as unknown as Prisma.InputJsonObject;
     if (matching) {
       const updatedDestination = await tx.inventoryItem.update({
@@ -719,6 +909,7 @@ export async function updateInventoryStack(
         condition: normalizedCondition,
         language: input.target.language,
         locationId: input.target.locationId,
+        locationSection,
         sourceType: input.target.sourceType ?? source.sourceType,
         notes: input.target.notes ?? null,
       },
@@ -781,6 +972,9 @@ export async function splitInventoryStack(
     const normalizedCondition = normalizeInventoryCondition(
       input.target.condition,
     );
+    const locationSection = normalizeLocationSection(
+      input.target.locationSection,
+    );
     const sourceAfterQuantity = source.quantity - input.target.quantity;
     const sourceAfter = await tx.inventoryItem.update({
       where: { id: source.id },
@@ -802,6 +996,7 @@ export async function splitInventoryStack(
             condition: normalizedCondition,
             language: input.target.language,
             locationId: input.target.locationId,
+            locationSection,
             sourceType: input.target.sourceType ?? source.sourceType,
             acquiredFromPullId: source.acquiredFromPullId,
             roundId: source.roundId,
@@ -864,6 +1059,7 @@ export async function moveInventoryQuantityBetweenLocations(
   input: {
     inventoryItemId: string;
     destinationLocationId: string;
+    destinationLocationSection?: string | null;
     quantity: number;
     actorUserId: string;
     allowedOwnerId?: string;
@@ -902,8 +1098,15 @@ export async function moveInventoryQuantityBetweenLocations(
     ) {
       throw new Error("You cannot manage this inventory item.");
     }
-    if (source.locationId === input.destinationLocationId) {
-      throw new Error("Cannot move cards to the same location.");
+    const destinationLocationSection = normalizeLocationSection(
+      input.destinationLocationSection,
+    );
+    if (
+      source.locationId === input.destinationLocationId &&
+      normalizeLocationSection(source.locationSection) ===
+        destinationLocationSection
+    ) {
+      throw new Error("Cannot move cards to the same location and section.");
     }
     if (
       source.location &&
@@ -964,6 +1167,7 @@ export async function moveInventoryQuantityBetweenLocations(
         },
         language: source.language,
         locationId: destination.id,
+        locationSection: destinationLocationSection,
         quantity: { gt: 0 },
       },
     });
@@ -979,6 +1183,8 @@ export async function moveInventoryQuantityBetweenLocations(
       sourceLocationName,
       destinationLocationId: destination.id,
       destinationLocationName: destination.name,
+      sourceLocationSection: source.locationSection,
+      destinationLocationSection,
       sourceBeforeQuantity,
       destinationBeforeQuantity,
     };
@@ -1004,7 +1210,10 @@ export async function moveInventoryQuantityBetweenLocations(
       } else {
         await tx.inventoryItem.update({
           where: { id: source.id },
-          data: { locationId: destination.id },
+          data: {
+            locationId: destination.id,
+            locationSection: destinationLocationSection,
+          },
         });
         destinationAfterQuantity = source.quantity;
       }
@@ -1036,6 +1245,7 @@ export async function moveInventoryQuantityBetweenLocations(
             ...copy,
             quantity: input.quantity,
             locationId: destination.id,
+            locationSection: destinationLocationSection,
           },
         });
         destinationInventoryItemId = created.id;
@@ -1066,6 +1276,7 @@ export async function moveInventoryQuantityBetweenLocations(
       ...beforeJson,
       inventoryItemId: destinationInventoryItemId,
       locationId: destination.id,
+      locationSection: destinationLocationSection,
       quantity: destinationAfterQuantity,
       merged,
       sourceDeleted,
@@ -1147,6 +1358,7 @@ type BulkMoveInventoryRow = Pick<
   | "language"
   | "roundId"
   | "locationId"
+  | "locationSection"
   | "quantity"
   | "sourceType"
   | "acquiredFromPullId"
@@ -1218,6 +1430,7 @@ function auditSnapshot(
     language: item.language,
     roundId: item.roundId,
     locationId: item.locationId,
+    locationSection: item.locationSection,
     quantity: item.quantity,
     sourceType: item.sourceType,
     acquiredFromPullId: item.acquiredFromPullId,
@@ -1239,6 +1452,7 @@ export async function bulkMoveInventoryToLocation(
   input: {
     actorUserId: string;
     destinationLocationId: string;
+    destinationLocationSection?: string | null;
     itemIds?: string[];
     where?: Record<string, unknown>;
     allowedOwnerId?: string;
@@ -1252,6 +1466,16 @@ export async function bulkMoveInventoryToLocation(
     throw new Error("Destination location is required.");
   if (!input.itemIds?.length && !input.where)
     throw new Error("Select inventory to move first.");
+  const destinationLocationSection = normalizeLocationSection(
+    input.destinationLocationSection,
+  );
+  if (
+    input.sourceLocationId &&
+    input.sourceLocationId === input.destinationLocationId &&
+    input.destinationLocationSection === undefined
+  ) {
+    throw new Error("Source and destination locations must be different.");
+  }
 
   const timing = startBulkMoveTiming();
   const distinctItemIds = input.itemIds?.length
@@ -1283,9 +1507,6 @@ export async function bulkMoveInventoryToLocation(
     destination.ownerPlayerId !== input.allowedOwnerId
   ) {
     throw new Error("Destination location does not belong to your inventory.");
-  }
-  if (input.sourceLocationId && input.sourceLocationId === destination.id) {
-    throw new Error("Source and destination locations must be different.");
   }
   markBulkMoveTiming(timing, "load destination location");
 
@@ -1361,6 +1582,7 @@ export async function bulkMoveInventoryToLocation(
           language: true,
           roundId: true,
           locationId: true,
+          locationSection: true,
           quantity: true,
           sourceType: true,
           acquiredFromPullId: true,
@@ -1390,7 +1612,11 @@ export async function bulkMoveInventoryToLocation(
         }
         if (item.quantity <= 0)
           throw new Error("Inventory quantity must be positive.");
-        if (item.locationId === destination.id) {
+        if (
+          item.locationId === destination.id &&
+          normalizeLocationSection(item.locationSection) ===
+            destinationLocationSection
+        ) {
           skippedEntries += 1;
           return false;
         }
@@ -1410,6 +1636,7 @@ export async function bulkMoveInventoryToLocation(
         where: {
           currentOwnerId: destination.ownerPlayerId,
           locationId: destination.id,
+          locationSection: destinationLocationSection,
           quantity: { gt: 0 },
         },
         select: {
@@ -1423,6 +1650,7 @@ export async function bulkMoveInventoryToLocation(
           language: true,
           roundId: true,
           locationId: true,
+          locationSection: true,
           quantity: true,
           sourceType: true,
           acquiredFromPullId: true,
@@ -1498,7 +1726,9 @@ export async function bulkMoveInventoryToLocation(
               ),
               destinationLocationId: destination.id,
               destinationLocationName: destination.name,
+              destinationLocationSection,
               locationId: destination.id,
+              locationSection: destinationLocationSection,
               quantityMoved: quantityToMove,
             }),
             reason,
@@ -1547,7 +1777,10 @@ export async function bulkMoveInventoryToLocation(
       if (directMoveIds.length) {
         await tx.inventoryItem.updateMany({
           where: { id: { in: directMoveIds } },
-          data: { locationId: destination.id },
+          data: {
+            locationId: destination.id,
+            locationSection: destinationLocationSection,
+          },
         });
       }
       markBulkMoveTiming(transactionTiming, "move source rows");
@@ -1708,6 +1941,7 @@ export async function bulkDeleteInventoryItems(
           language: true,
           roundId: true,
           locationId: true,
+          locationSection: true,
           quantity: true,
           sourceType: true,
           acquiredFromPullId: true,

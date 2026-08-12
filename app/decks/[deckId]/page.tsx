@@ -37,7 +37,10 @@ import {
   matchesDeckCardPrinting,
 } from "@/lib/deck-commitments";
 import { cardPriceNumber } from "@/lib/deck-view";
-import { ensureDefaultLocation } from "@/lib/inventory-locations";
+import {
+  ensureDefaultLocation,
+  getLocationsForOwner,
+} from "@/lib/inventory-locations";
 import { prisma } from "@/lib/prisma";
 import { resolveDeckVisibility, visibilityLabel } from "@/lib/visibility";
 import { deckTagsText } from "@/lib/deck-tags";
@@ -290,14 +293,9 @@ export default async function DeckDetailPage({
     });
   }
   const normalReturnLocations: DeckReturnLocation[] = deck.ownerUser.playerId
-    ? (
-        await prisma.inventoryLocation.findMany({
-          where: { ownerPlayerId: deck.ownerUser.playerId, active: true },
-          orderBy: [{ normalizedName: "asc" }],
-        })
-      )
+    ? (await getLocationsForOwner(prisma, deck.ownerUser.playerId))
         .filter(isNormalInventoryLocation)
-        .map((location) => ({ id: location.id, name: location.name }))
+        .map((location) => ({ id: location.id, name: location.path }))
     : [];
   const committedSummary = deck.ownerUser.playerId
     ? await getDeckCommittedSummary(prisma, {

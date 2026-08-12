@@ -9,11 +9,13 @@ import {
   equivalentInventoryConditions,
   normalizeInventoryCondition,
 } from "./inventory-condition";
+import { normalizeLocationSection } from "./inventory-locations";
 
 export type ManualInventoryAddInput = {
   ownerPlayerId: string;
   cardId: string;
   locationId: string;
+  locationSection?: string | null;
   quantity: number;
   foilStatus?: FoilStatus | string | null;
   condition?: string | null;
@@ -65,6 +67,7 @@ export async function addInventoryCardToLocation(
   const condition = normalizeInventoryCondition(input.condition);
   const language = (input.language || "EN").trim().toUpperCase() || "EN";
   const notes = input.notes?.trim() || null;
+  const locationSection = normalizeLocationSection(input.locationSection);
   const matchingWhere = {
     currentOwnerId: input.ownerPlayerId,
     originalOpenerId: input.ownerPlayerId,
@@ -74,6 +77,7 @@ export async function addInventoryCardToLocation(
     condition: { in: equivalentInventoryConditions(condition) },
     language,
     locationId: location.id,
+    locationSection,
     quantity: { gt: 0 },
   };
   const existing = await tx.inventoryItem.findFirst({ where: matchingWhere });
@@ -102,6 +106,7 @@ export async function addInventoryCardToLocation(
           sourceType: InventorySourceType.MANUAL,
           language,
           locationId: location.id,
+          locationSection,
         },
       });
 
@@ -112,6 +117,7 @@ export async function addInventoryCardToLocation(
     collectorNumber: card.collectorNumber,
     locationId: location.id,
     locationName: location.name,
+    locationSection,
     quantityAdded: quantity,
     beforeQuantity,
     afterQuantity: inventory.quantity,

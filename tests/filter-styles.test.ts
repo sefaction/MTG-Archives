@@ -107,6 +107,9 @@ test("inventory filter controls use shared dark filter styling", () => {
     /name=\{ownerParamName\}[\s\S]*?<option className=\{filterOptionClass\}/,
   );
   assert.match(inventorySearch, /label="Location"/);
+  assert.match(inventorySearch, /label="Location"[\s\S]*?searchable/);
+  assert.match(inventorySearch, /Search \{label\.toLowerCase\(\)\} options/);
+  assert.match(inventorySearch, /No matching locations\./);
   assert.match(
     inventorySearch,
     /name="commitment"[\s\S]*?className=\{cn\(filterSelectClass, "min-w-32"\)\}/,
