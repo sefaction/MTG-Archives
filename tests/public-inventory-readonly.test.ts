@@ -85,6 +85,10 @@ test("global public inventory query enforces location visibility server-side", (
   assert.match(publicCollectionQueries, /select:\s*{\s*name: true\s*}/);
   assert.doesNotMatch(publicCollectionQueries, /email:\s*true/);
   assert.doesNotMatch(publicCollectionQueries, /auditLogs:\s*true/);
+  assert.match(
+    publicCollectionQueries,
+    /constrainInventoryWhereToScryfallQuery\(\s*prisma,\s*buildPublicInventoryWhere\(filters\),\s*filters\.scryfallQuery/,
+  );
 });
 
 test("public inventory carries user identity colors into browse rows", () => {
@@ -163,6 +167,12 @@ test("public inventory search keeps browsing filters and removes private/admin f
   assert.match(inventorySearch, /showSourceFilter: !isPublic/);
   assert.match(inventorySearch, /showInventoryScopeFilter: !isPublic/);
   assert.match(inventorySearch, /showOwnerFilter: isPublic/);
+  assert.match(inventorySearch, /showScryfallQuery: true/);
+  assert.match(
+    globalPublicInventoryPage,
+    /scryfallQueryError=\{result\.filterError\}/,
+  );
+  assert.match(publicInventoryListApi, /filterError: result\.filterError/);
   assert.match(inventorySearch, /showOwnerScopeControls: isAdmin && !isPublic/);
 });
 

@@ -17,10 +17,12 @@ import {
   enrichInventoryGroupsForLocationSort,
   isInventoryLocationSort,
 } from "@/lib/inventory-sort";
+import { constrainInventoryWhereToScryfallQuery } from "@/lib/inventory-scryfall-query";
 
 export type PublicInventoryFilters = {
   q?: string;
   cardName?: string;
+  scryfallQuery?: string;
   oracleText?: string;
   typeLine?: string;
   set?: string;
@@ -365,7 +367,12 @@ export async function getGlobalPublicInventory(
     (!filters.sortDir && sortField === "releasedAt")
       ? "desc"
       : "asc";
-  const where = buildPublicInventoryWhere(filters);
+  const scryfallConstraint = await constrainInventoryWhereToScryfallQuery(
+    prisma,
+    buildPublicInventoryWhere(filters),
+    filters.scryfallQuery,
+  );
+  const where = scryfallConstraint.where;
   const startedAt = Date.now();
   const exactGroupBy = {
     by: ["cardId", "foilStatus", "condition", "language"] as any,
@@ -559,5 +566,6 @@ export async function getGlobalPublicInventory(
     totalPages: Math.max(1, Math.ceil(filteredGroups.length / pageSize)),
     hasNextPage: page * pageSize < filteredGroups.length,
     visibleCards: filteredInventory.reduce((sum, row) => sum + row.quantity, 0),
+    filterError: scryfallConstraint.error,
   };
 }

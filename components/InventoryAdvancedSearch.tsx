@@ -1076,7 +1076,7 @@ export function InventoryAdvancedSearch({
     showSourceFilter: !isPublic,
     showInventoryScopeFilter: !isPublic,
     showLocationFilter: true,
-    showScryfallQuery: !isPublic,
+    showScryfallQuery: true,
     ...capabilityOverrides,
   };
   const rarity = values(params, "rarity");

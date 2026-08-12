@@ -60,11 +60,29 @@ test("advanced inventory search applies Scryfall syntax to local cards", async (
   ).toHaveCount(0);
 });
 
-test("anonymous public inventory does not expose a Scryfall API relay", async ({
+test("anonymous public inventory applies Scryfall syntax to public local cards", async ({
   page,
 }) => {
   await page.context().clearCookies();
   await page.goto("/public/inventory");
   await page.getByRole("button", { name: /Advanced Inventory Search/ }).click();
-  await expect(page.getByLabel("Query arguments")).toHaveCount(0);
+  const query = page.getByLabel("Query arguments");
+  await expect(query).toBeVisible();
+  await query.fill("t:creature");
+  await page.getByRole("button", { name: "Apply filters" }).click();
+
+  await expect(page).toHaveURL(/scryfallQuery=t%3Acreature/, {
+    timeout: 15_000,
+  });
+  await expect(page.getByLabel("Query arguments")).toHaveValue("t:creature");
+  const summary = page.getByText(/^\d+ matching cards · Page \d+ of \d+$/);
+  await expect(summary).toBeVisible();
+  const localMatchCount = Number(
+    (await summary.textContent())?.match(/^\d+/)?.[0],
+  );
+  expect(localMatchCount).toBeGreaterThan(0);
+  expect(localMatchCount).toBeLessThan(4_568);
+  await expect(
+    page.getByRole("alert").filter({ hasText: /Scryfall/ }),
+  ).toHaveCount(0);
 });
