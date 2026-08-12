@@ -27,6 +27,7 @@ test("inventory filter parser normalizes multi-select values", () => {
   params.append("type", "creature");
   params.append("type", "artifact");
   params.append("typeTokens", "Legendary,Angel");
+  params.append("scryfallQuery", "m:x OR m:{x}{x}");
 
   const filters = parseInventoryFilters(params);
 
@@ -36,6 +37,7 @@ test("inventory filter parser normalizes multi-select values", () => {
   assert.deepEqual(filters.locationTypes, ["Binder", "Box"]);
   assert.deepEqual(filters.types, ["creature", "artifact"]);
   assert.deepEqual(filters.typeTokens, ["Legendary", "Angel"]);
+  assert.equal(filters.scryfallQuery, "m:x OR m:{x}{x}");
 });
 
 test("inventory location type filter applies to private inventory queries", () => {

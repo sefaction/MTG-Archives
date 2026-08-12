@@ -9,6 +9,7 @@ import { effectiveCardColors } from "./card-colors";
 export const INVENTORY_FILTER_PARAM_KEYS = [
   "cardName",
   "name",
+  "scryfallQuery",
   "oracleText",
   "typeLine",
   "type",
@@ -47,6 +48,7 @@ export type NumericOp = "eq" | "lt" | "lte" | "gt" | "gte" | "between";
 
 export type InventoryFilters = {
   cardName?: string;
+  scryfallQuery?: string;
   oracleText?: string;
   typeLine?: string;
   types: string[];
@@ -203,6 +205,7 @@ export function parseInventoryFilters(params: ParamSource): InventoryFilters {
 
   return {
     cardName: text(params, "cardName", "name"),
+    scryfallQuery: text(params, "scryfallQuery"),
     oracleText: text(params, "oracleText"),
     typeLine: text(params, "typeLine"),
     types: Array.from(

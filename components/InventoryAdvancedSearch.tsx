@@ -26,6 +26,7 @@ export type InventoryAdvancedSearchCapabilities = {
   showSourceFilter: boolean;
   showInventoryScopeFilter: boolean;
   showLocationFilter: boolean;
+  showScryfallQuery: boolean;
 };
 
 type InventoryAdvancedSearchProps = {
@@ -47,6 +48,7 @@ type InventoryAdvancedSearchProps = {
   cardNameOptions?: string[];
   suggestionsEndpoint?: string;
   clearHref: string;
+  scryfallQueryError?: string;
 };
 
 type AutocompleteOption = {
@@ -915,6 +917,8 @@ function buildActiveChips({
   };
 
   pushWhole("cardName", "Name", first(params, "cardName"));
+  if (capabilities.showScryfallQuery)
+    pushWhole("scryfallQuery", "Scryfall", first(params, "scryfallQuery"));
   pushWhole("oracleText", "Oracle", first(params, "oracleText"));
   typeTokens.forEach((token) =>
     pushOne(
@@ -1062,6 +1066,7 @@ export function InventoryAdvancedSearch({
     ? "/api/inventory/filter-suggestions?public=1"
     : "/api/inventory/filter-suggestions",
   clearHref,
+  scryfallQueryError,
 }: InventoryAdvancedSearchProps) {
   const router = useRouter();
   const capabilities: InventoryAdvancedSearchCapabilities = {
@@ -1071,6 +1076,7 @@ export function InventoryAdvancedSearch({
     showSourceFilter: !isPublic,
     showInventoryScopeFilter: !isPublic,
     showLocationFilter: true,
+    showScryfallQuery: !isPublic,
     ...capabilityOverrides,
   };
   const rarity = values(params, "rarity");
@@ -1215,6 +1221,58 @@ export function InventoryAdvancedSearch({
               name="sortDir"
               value={first(params, "sortDir")}
             />
+          ) : null}
+          {capabilities.showScryfallQuery ? (
+            <section className="rounded border border-violet-900/70 bg-violet-950/20 p-3">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <div className="text-xs font-semibold uppercase text-violet-300">
+                    Scryfall arguments
+                  </div>
+                  <p className="mt-1 text-xs text-zinc-400">
+                    Use Scryfall syntax against cards in this inventory. These
+                    arguments combine with the structured filters below.
+                  </p>
+                </div>
+                <a
+                  href="https://scryfall.com/docs/syntax"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-violet-300 underline hover:text-violet-200"
+                >
+                  Scryfall syntax reference
+                </a>
+              </div>
+              <label className={cn(filterLabelClass, "mt-3 block")}>
+                Query arguments
+                <input
+                  name="scryfallQuery"
+                  defaultValue={first(params, "scryfallQuery")}
+                  maxLength={1000}
+                  spellCheck={false}
+                  className={cn(filterInputClass, "mt-1 w-full font-mono")}
+                  placeholder='m:x, m=x, or (t:creature o:"draw a card")'
+                  aria-describedby="scryfall-query-help"
+                />
+              </label>
+              <p
+                id="scryfall-query-help"
+                className="mt-2 text-xs text-zinc-500"
+              >
+                Example: <code className="text-zinc-300">m:x</code> includes X
+                in the mana cost; <code className="text-zinc-300">m=x</code>
+                matches a mana cost composed only of X. Expressions are parsed
+                locally and matched only against cards in this inventory.
+              </p>
+              {scryfallQueryError ? (
+                <p
+                  role="alert"
+                  className="mt-2 rounded border border-red-900 bg-red-950/40 px-3 py-2 text-sm text-red-200"
+                >
+                  {scryfallQueryError}
+                </p>
+              ) : null}
+            </section>
           ) : null}
           <section className="rounded border border-zinc-800 bg-zinc-950/50 p-3">
             <div className="mb-3 text-xs font-semibold uppercase text-zinc-500">

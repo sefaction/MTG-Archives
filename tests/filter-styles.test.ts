@@ -110,6 +110,11 @@ test("inventory filter controls use shared dark filter styling", () => {
   assert.match(inventorySearch, /label="Location"[\s\S]*?searchable/);
   assert.match(inventorySearch, /Search \{label\.toLowerCase\(\)\} options/);
   assert.match(inventorySearch, /No matching locations\./);
+  assert.match(inventorySearch, /Scryfall arguments/);
+  assert.match(inventorySearch, /name="scryfallQuery"/);
+  assert.match(inventorySearch, /m:x/);
+  assert.match(inventorySearch, /m=x/);
+  assert.match(inventorySearch, /scryfallQueryError/);
   assert.match(
     inventorySearch,
     /name="commitment"[\s\S]*?className=\{cn\(filterSelectClass, "min-w-32"\)\}/,
