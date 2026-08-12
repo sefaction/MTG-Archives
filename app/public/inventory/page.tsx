@@ -474,6 +474,7 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
         }))}
         cardNameOptions={cardNameRows.map((card) => card.name)}
         clearHref={clearFiltersHref}
+        scryfallQueryError={result.filterError}
       />
 
       {rows.length ? (

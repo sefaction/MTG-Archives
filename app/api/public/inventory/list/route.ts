@@ -377,5 +377,6 @@ export async function GET(request: Request) {
     totalPages: result.totalPages,
     hasNextPage: result.hasNextPage,
     nextPage: result.hasNextPage ? result.page + 1 : null,
+    filterError: result.filterError,
   });
 }
