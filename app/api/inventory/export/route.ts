@@ -9,6 +9,7 @@ import {
   inventoryCardMatchesPostFilters,
   parseInventoryFilters,
 } from "@/lib/inventory-filters";
+import { constrainInventoryWhereToScryfallQuery } from "@/lib/inventory-scryfall-query";
 
 function csvEscape(value: unknown) {
   const text = value === null || value === undefined ? "" : String(value);
@@ -167,7 +168,7 @@ async function exportInventory(params: URLSearchParams) {
   }
 
   const filters = parseInventoryFilters(params);
-  const where: any = buildInventoryWhereFromFilters(filters, {
+  let where: any = buildInventoryWhereFromFilters(filters, {
     adminModeActive,
     playerId: signedInPlayerId,
   });
@@ -186,6 +187,16 @@ async function exportInventory(params: URLSearchParams) {
   if (scope === "selection" && selectionMode === "selected") {
     where.id = { in: selectedItemIds };
   }
+
+  const scryfallConstraint = await constrainInventoryWhereToScryfallQuery(
+    prisma,
+    where,
+    filters.scryfallQuery,
+  );
+  if (scryfallConstraint.error) {
+    return Response.json({ error: scryfallConstraint.error }, { status: 400 });
+  }
+  where = scryfallConstraint.where;
 
   const allItems = await prisma.inventoryItem.findMany({
     where,

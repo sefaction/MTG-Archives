@@ -20,6 +20,7 @@ import {
   inventoryCardMatchesPostFilters,
   parseInventoryFilters,
 } from "@/lib/inventory-filters";
+import { constrainInventoryWhereToScryfallQuery } from "@/lib/inventory-scryfall-query";
 import {
   compareInventoryGroups,
   enrichInventoryGroupsForLocationSort,
@@ -218,10 +219,15 @@ export async function GET(request: Request) {
       ? "desc"
       : "asc";
   const filters = parseInventoryFilters(new URL(request.url).searchParams);
-  const where = buildInventoryWhereFromFilters(filters, {
-    adminModeActive,
-    playerId: user.playerId,
-  });
+  const scryfallConstraint = await constrainInventoryWhereToScryfallQuery(
+    prisma,
+    buildInventoryWhereFromFilters(filters, {
+      adminModeActive,
+      playerId: user.playerId,
+    }),
+    filters.scryfallQuery,
+  );
+  const where = scryfallConstraint.where;
 
   const exactGroupBy = {
     by: [
@@ -385,5 +391,6 @@ export async function GET(request: Request) {
     totalPages,
     hasNextPage: page < totalPages,
     nextPage: page < totalPages ? page + 1 : null,
+    filterError: scryfallConstraint.error,
   });
 }

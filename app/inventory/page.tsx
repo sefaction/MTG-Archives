@@ -62,6 +62,7 @@ import {
   parseInventoryFilters,
   INVENTORY_FILTER_PARAM_KEYS,
 } from "@/lib/inventory-filters";
+import { constrainInventoryWhereToScryfallQuery } from "@/lib/inventory-scryfall-query";
 import {
   buildRelatedCardMetadataByScryfallId,
   enrichAllPartsWithLocalCardMetadata,
@@ -93,10 +94,15 @@ export default async function InventoryPage({
 
   const p = await searchParams;
   const filters = parseInventoryFilters(p);
-  const where: any = buildInventoryWhereFromFilters(filters, {
-    adminModeActive,
-    playerId: userWithPlayer?.playerId,
-  });
+  const scryfallConstraint = await constrainInventoryWhereToScryfallQuery(
+    prisma,
+    buildInventoryWhereFromFilters(filters, {
+      adminModeActive,
+      playerId: userWithPlayer?.playerId,
+    }),
+    filters.scryfallQuery,
+  );
+  const where: any = scryfallConstraint.where;
 
   const displayMode: "exact" | "grouped" =
     p.displayMode === "grouped" ? "grouped" : "exact";
@@ -1134,6 +1140,7 @@ export default async function InventoryPage({
         }))}
         cardNameOptions={cardNameOptions}
         clearHref={clearFiltersHref}
+        scryfallQueryError={scryfallConstraint.error}
       />
       <InventoryBrowser
         rows={rows}
