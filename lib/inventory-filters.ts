@@ -33,6 +33,7 @@ export const INVENTORY_FILTER_PARAM_KEYS = [
   "locationId",
   "location",
   "locationType",
+  "locationSection",
   "hasLocation",
   "visibility",
   "source",
@@ -66,6 +67,7 @@ export type InventoryFilters = {
   priceMax?: number;
   locationIds: string[];
   locationTypes: string[];
+  locationSection?: string;
   includeUnassignedLocation: boolean;
   visibility?:
     "public" | "private" | "inherit" | "explicitPublic" | "explicitPrivate";
@@ -241,6 +243,7 @@ export function parseInventoryFilters(params: ParamSource): InventoryFilters {
       ),
     ),
     locationTypes: Array.from(new Set(list(params, "locationType"))),
+    locationSection: text(params, "locationSection"),
     includeUnassignedLocation:
       list(params, "locationId").includes("unassigned") ||
       list(params, "location").includes("unassigned") ||
@@ -370,6 +373,12 @@ export function buildInventoryWhereFromFilters(
             },
       ),
     });
+  if (filters.locationSection) {
+    where.locationSection = {
+      contains: filters.locationSection,
+      mode: "insensitive",
+    };
+  }
   if (filters.commitment === "available")
     appendAnd(where, {
       OR: [

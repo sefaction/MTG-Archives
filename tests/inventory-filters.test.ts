@@ -54,6 +54,21 @@ test("inventory location type filter applies to private inventory queries", () =
   });
 });
 
+test("inventory section filter matches on-demand placement labels", () => {
+  const filters = parseInventoryFilters(
+    new URLSearchParams("locationSection=Section+2"),
+  );
+  const where = buildInventoryWhereFromFilters(filters, {
+    adminModeActive: true,
+  });
+
+  assert.equal(filters.locationSection, "Section 2");
+  assert.deepEqual(where.locationSection, {
+    contains: "Section 2",
+    mode: "insensitive",
+  });
+});
+
 test("reserved Deck location type filters by system deck kind", () => {
   const filters = parseInventoryFilters(
     new URLSearchParams("locationType=Deck"),

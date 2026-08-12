@@ -652,6 +652,7 @@ function MultiSelectDropdown({
   selected,
   compact = false,
   emptyLabel = "Any",
+  searchable = false,
 }: {
   label: string;
   name: string;
@@ -659,9 +660,16 @@ function MultiSelectDropdown({
   selected: string[];
   compact?: boolean;
   emptyLabel?: string;
+  searchable?: boolean;
 }) {
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const matchesQuery = (option: FilterOption) =>
+    !normalizedQuery ||
+    option.label.toLocaleLowerCase().includes(normalizedQuery);
+  const matchingOptionCount = options.filter(matchesQuery).length;
   const selectedLabels = options
     .filter((option) => selected.includes(option.value))
     .map((option) => option.label);
@@ -722,9 +730,29 @@ function MultiSelectDropdown({
           !open && "hidden",
         )}
       >
+        {searchable ? (
+          <label className="mb-2 block border-b border-zinc-800 pb-2">
+            <span className="sr-only">
+              Search {label.toLowerCase()} options
+            </span>
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={`Search ${label.toLowerCase()}s`}
+              className={cn(filterInputClass, "w-full")}
+            />
+          </label>
+        ) : null}
+        {searchable && matchingOptionCount === 0 ? (
+          <p className="px-2 py-1 text-sm text-zinc-500">
+            No matching locations.
+          </p>
+        ) : null}
         {options.map((option) => (
           <label
             key={option.value}
+            hidden={!matchesQuery(option)}
             className="flex items-center gap-2 rounded px-2 py-1 hover:bg-zinc-800"
           >
             <input
@@ -937,6 +965,10 @@ function buildActiveChips({
         optionLabel(locationTypeOptions, value),
       ),
     );
+    const locationSection = first(params, "locationSection");
+    if (locationSection) {
+      pushOne("locationSection", "Section", locationSection, locationSection);
+    }
   }
   if (capabilities.showVisibilityFilter)
     pushWhole("visibility", "Visibility", first(params, "visibility"));
@@ -1358,6 +1390,7 @@ export function InventoryAdvancedSearch({
                     options={locationOptions}
                     selected={selectedLocationValues}
                     compact
+                    searchable
                   />
                   {locationTypeOptions.length ? (
                     <MultiSelectDropdown
@@ -1367,6 +1400,17 @@ export function InventoryAdvancedSearch({
                       selected={selectedLocationTypes}
                       compact
                     />
+                  ) : null}
+                  {!isPublic ? (
+                    <label className={filterLabelClass}>
+                      Section
+                      <input
+                        name="locationSection"
+                        defaultValue={first(params, "locationSection")}
+                        className={cn(filterInputClass, "mt-1 w-36")}
+                        placeholder="Any section"
+                      />
+                    </label>
                   ) : null}
                 </>
               ) : null}

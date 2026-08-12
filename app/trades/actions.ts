@@ -669,6 +669,7 @@ async function addToReceiver(
       condition: item.condition,
       language: item.language,
       locationId: destinationLocation.id,
+      locationSection: null,
       quantity: { gt: 0 },
     },
   });
@@ -716,6 +717,7 @@ async function addToReceiver(
         language: item.language,
         roundId: null,
         locationId: destinationLocation.id,
+        locationSection: null,
         notes: item.notes,
       },
     });

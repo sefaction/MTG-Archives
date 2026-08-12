@@ -68,6 +68,7 @@ type InventoryLocationStack = {
   inventoryItemId?: string;
   locationId: string | null;
   name: string;
+  section?: string | null;
   quantity: number;
   foilStatus?: string | null;
   condition?: string | null;
@@ -192,6 +193,7 @@ export type InventoryRow = {
   locationCount?: number;
   locationId?: string;
   locationName?: string;
+  locationSection?: string | null;
   locationSummary?: string;
   locationBreakdown?: InventoryLocationStack[];
   printings?: Array<{
@@ -690,7 +692,10 @@ function InventoryDetailPanel({
                   key={`${location.locationId ?? location.name}-${index}`}
                   className="flex items-center justify-between rounded bg-zinc-900 px-2 py-1"
                 >
-                  <span>{location.name}</span>
+                  <span>
+                    {location.name}
+                    {location.section ? ` / ${location.section}` : ""}
+                  </span>
                   <span className="font-semibold">{location.quantity}</span>
                 </div>
               ))}
@@ -1561,6 +1566,19 @@ export function InventoryBrowser({
       ),
     [editing?.currentOwnerId, locations],
   );
+  const locationSectionSuggestions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          rows.flatMap((row) =>
+            (row.locationBreakdown ?? [])
+              .map((stack) => stack.section?.trim())
+              .filter((section): section is string => Boolean(section)),
+          ),
+        ),
+      ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
+    [rows],
+  );
 
   function rememberScrollPosition() {
     if (typeof window === "undefined") return;
@@ -2122,6 +2140,11 @@ export function InventoryBrowser({
 
   return (
     <div className="space-y-3">
+      <datalist id="inventory-location-sections">
+        {locationSectionSuggestions.map((section) => (
+          <option key={section} value={section} />
+        ))}
+      </datalist>
       {message ? (
         <div
           className="border border-emerald-700 bg-emerald-950 text-emerald-300 p-2 text-sm"
@@ -2393,7 +2416,7 @@ export function InventoryBrowser({
                   setMovingBulk(false);
                 }
               }}
-              className="grid gap-2 md:grid-cols-[1fr_1fr_2fr_auto] items-end"
+              className="grid gap-2 md:grid-cols-[1fr_1fr_1fr_2fr_auto] items-end"
             >
               <input
                 type="hidden"
@@ -2429,6 +2452,16 @@ export function InventoryBrowser({
                     </option>
                   ))}
                 </select>
+              </label>
+              <label className={filterLabelClass}>
+                Section (optional)
+                <input
+                  name="destinationLocationSection"
+                  list="inventory-location-sections"
+                  maxLength={100}
+                  className={cn(filterInputClass, "w-full")}
+                  placeholder="e.g. Section 1"
+                />
               </label>
               <label className={filterLabelClass}>
                 Preview
@@ -2931,6 +2964,7 @@ export function InventoryBrowser({
                         inventoryItemId: editing.id,
                         locationId: editing.locationId || null,
                         name: editing.locationName || "Unassigned",
+                        section: editing.locationSection || null,
                         quantity: editing.quantity,
                         foilStatus: editing.foilStatus,
                         condition: editing.condition,
@@ -2995,7 +3029,10 @@ export function InventoryBrowser({
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
-                          <div className="font-medium">{stack.name}</div>
+                          <div className="font-medium">
+                            {stack.name}
+                            {stack.section ? ` / ${stack.section}` : ""}
+                          </div>
                           <div className="text-xs text-zinc-400">
                             {stackSummary.join(" Â· ")}
                           </div>
@@ -3095,6 +3132,17 @@ export function InventoryBrowser({
                                 <option value="FOIL">foil</option>
                                 <option value="ETCHED">etched</option>
                               </select>
+                            </label>
+                            <label className={filterLabelClass}>
+                              Section (optional)
+                              <input
+                                name="locationSection"
+                                list="inventory-location-sections"
+                                defaultValue={stack.section || ""}
+                                maxLength={100}
+                                className={cn(filterInputClass, "mt-1 w-full")}
+                                placeholder="e.g. Section 1"
+                              />
                             </label>
                             <label className={filterLabelClass}>
                               Condition
@@ -3231,6 +3279,17 @@ export function InventoryBrowser({
                                 <option value="FOIL">foil</option>
                                 <option value="ETCHED">etched</option>
                               </select>
+                            </label>
+                            <label className={filterLabelClass}>
+                              New section (optional)
+                              <input
+                                name="locationSection"
+                                list="inventory-location-sections"
+                                defaultValue={stack.section || ""}
+                                maxLength={100}
+                                className={cn(filterInputClass, "mt-1 w-full")}
+                                placeholder="e.g. Section 1"
+                              />
                             </label>
                             <label className={filterLabelClass}>
                               Condition

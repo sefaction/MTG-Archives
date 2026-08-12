@@ -28,6 +28,7 @@ export async function addSingleCardToInventory(fd: FormData) {
       ownerPlayerId: user.playerId!,
       cardId,
       locationId,
+      locationSection: formString(fd, "locationSection"),
       quantity,
       foilStatus: formString(fd, "foilStatus") || FoilStatus.NONFOIL,
       condition: formString(fd, "condition") || "NM",

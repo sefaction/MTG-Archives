@@ -33,6 +33,15 @@ test("import confirmation uses the selected destination location", () => {
   );
 });
 
+test("inventory imports accept an on-demand section for a whole batch or CSV row", () => {
+  assert.match(source, /destinationLocationSection/);
+  assert.match(source, /locationSection: getCell\(row, "section"\)/);
+  assert.match(
+    source,
+    /parsedRow\.locationSection \?\? defaultLocationSection/,
+  );
+});
+
 test("import maintenance keeps single add collapsed and exposes history cleanup", () => {
   assert.match(source, /title="Add single card"/);
   assert.match(source, /storageKey="imports-single-card-add"/);

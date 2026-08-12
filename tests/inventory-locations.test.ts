@@ -2,12 +2,19 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildLocationPathMap,
+  buildLocationTree,
+  createLocation,
+  deleteUnusedLocation,
   getInventoryExactPrintings,
   getInventoryGroupedByCard,
   groupInventoryPageGroupsByCardName,
   locationSummary,
   normalizeLocationName,
+  normalizeLocationSection,
   orderInventoryItemsByPageGroups,
+  updateLocation,
+  withLocationPaths,
 } from "../lib/inventory-locations";
 
 function makeItem(overrides: any = {}) {
@@ -24,6 +31,7 @@ function makeItem(overrides: any = {}) {
     notes: overrides.notes ?? null,
     quantity: overrides.quantity ?? 1,
     locationId: overrides.locationId ?? null,
+    locationSection: overrides.locationSection ?? null,
     location: overrides.location ?? null,
     card: {
       id: overrides.cardId ?? "card-sol-ring-cmm",
@@ -43,6 +51,155 @@ function makeItem(overrides: any = {}) {
 test("normalizes location names for per-owner uniqueness without changing display labels", () => {
   assert.equal(normalizeLocationName("  Box-0001  "), "box-0001");
   assert.equal(normalizeLocationName("Trade   Binder"), "trade binder");
+});
+
+test("normalizes optional on-demand location sections", () => {
+  assert.equal(normalizeLocationSection("  Section   1  "), "Section 1");
+  assert.equal(normalizeLocationSection(""), null);
+  assert.throws(() => normalizeLocationSection("x".repeat(101)), /100/);
+});
+
+test("location paths and trees preserve arbitrary nesting and duplicate sibling names across branches", () => {
+  const locations = [
+    { id: "shelf-a", name: "Shelf A", parentLocationId: null },
+    { id: "shelf-b", name: "Shelf B", parentLocationId: null },
+    { id: "box-a", name: "Box 1", parentLocationId: "shelf-a" },
+    { id: "box-b", name: "Box 1", parentLocationId: "shelf-b" },
+    { id: "row-a", name: "Row 2", parentLocationId: "box-a" },
+  ];
+
+  const paths = buildLocationPathMap(locations);
+  assert.equal(paths.get("row-a"), "Shelf A / Box 1 / Row 2");
+  assert.equal(paths.get("box-b"), "Shelf B / Box 1");
+  assert.deepEqual(
+    withLocationPaths(locations).map((location) => location.path),
+    [
+      "Shelf A",
+      "Shelf A / Box 1",
+      "Shelf A / Box 1 / Row 2",
+      "Shelf B",
+      "Shelf B / Box 1",
+    ],
+  );
+  const tree = buildLocationTree(locations);
+  assert.equal(tree.length, 2);
+  assert.equal(tree[0].children[0].children[0].id, "row-a");
+});
+
+test("location creation rejects a parent owned outside the location owner", async () => {
+  const prisma = {
+    inventoryLocation: {
+      findMany: async () => [],
+      findFirst: async () => null,
+      create: async () => {
+        throw new Error("create should not run");
+      },
+    },
+  };
+
+  await assert.rejects(
+    createLocation(prisma as any, {
+      ownerPlayerId: "owner-1",
+      parentLocationId: "other-owner-location",
+      name: "Row 1",
+    }),
+    /Parent location not found for this owner/,
+  );
+});
+
+test("location updates reject hierarchy cycles", async () => {
+  const prisma = {
+    inventoryLocation: {
+      findFirst: async () => ({
+        id: "shelf",
+        ownerPlayerId: "owner-1",
+        normalizedName: "shelf",
+        kind: "NORMAL",
+        systemManaged: false,
+      }),
+      findMany: async () => [
+        {
+          id: "shelf",
+          parentLocationId: null,
+          normalizedName: "shelf",
+          kind: "NORMAL",
+          systemManaged: false,
+          active: true,
+        },
+        {
+          id: "box",
+          parentLocationId: "shelf",
+          normalizedName: "box",
+          kind: "NORMAL",
+          systemManaged: false,
+          active: true,
+        },
+      ],
+      update: async () => {
+        throw new Error("update should not run");
+      },
+    },
+  };
+
+  await assert.rejects(
+    updateLocation(prisma as any, {
+      id: "shelf",
+      ownerPlayerId: "owner-1",
+      parentLocationId: "box",
+      name: "Shelf",
+    }),
+    /beneath one of its descendants/,
+  );
+});
+
+test("location deletion is blocked while sub-locations exist", async () => {
+  const prisma = {
+    inventoryLocation: {
+      findUnique: async () => ({
+        id: "shelf",
+        kind: "NORMAL",
+        systemManaged: false,
+      }),
+      count: async () => 1,
+      delete: async () => {
+        throw new Error("delete should not run");
+      },
+    },
+    inventoryItem: { count: async () => 0 },
+  };
+
+  await assert.rejects(
+    deleteUnusedLocation(prisma as any, "shelf"),
+    /still contains sub-locations/,
+  );
+});
+
+test("location deactivation is blocked while active sub-locations exist", async () => {
+  const prisma = {
+    inventoryLocation: {
+      findFirst: async () => ({
+        id: "shelf",
+        ownerPlayerId: "owner-1",
+        normalizedName: "shelf",
+        kind: "NORMAL",
+        systemManaged: false,
+      }),
+      count: async () => 1,
+      update: async () => {
+        throw new Error("update should not run");
+      },
+    },
+  };
+
+  await assert.rejects(
+    updateLocation(prisma as any, {
+      id: "shelf",
+      ownerPlayerId: "owner-1",
+      name: "Shelf",
+      active: false,
+    }),
+    /active sub-locations first/,
+  );
 });
 
 test("same exact printing in multiple locations shows one total and a location breakdown", () => {
@@ -224,6 +381,11 @@ function makeBulkPrisma(itemsInput: any[], locationsInput: any[]) {
     if (where.id?.in && !where.id.in.includes(item.id)) return false;
     if (where.id?.not && item.id === where.id.not) return false;
     if (where.locationId && item.locationId !== where.locationId) return false;
+    if (
+      where.locationSection !== undefined &&
+      (item.locationSection ?? null) !== where.locationSection
+    )
+      return false;
     if (where.currentOwnerId && item.currentOwnerId !== where.currentOwnerId)
       return false;
     if (
@@ -305,6 +467,8 @@ function makeBulkPrisma(itemsInput: any[], locationsInput: any[]) {
         if (data.quantity?.increment) item.quantity += data.quantity.increment;
         if (data.quantity?.decrement) item.quantity -= data.quantity.decrement;
         if (data.locationId !== undefined) item.locationId = data.locationId;
+        if (data.locationSection !== undefined)
+          item.locationSection = data.locationSection;
         return { ...item };
       },
       updateMany: async ({ where, data }: any) => {
@@ -318,6 +482,8 @@ function makeBulkPrisma(itemsInput: any[], locationsInput: any[]) {
           if (data.quantity?.decrement)
             item.quantity -= data.quantity.decrement;
           if (data.locationId !== undefined) item.locationId = data.locationId;
+          if (data.locationSection !== undefined)
+            item.locationSection = data.locationSection;
           count += 1;
         }
         return { count };
@@ -691,6 +857,42 @@ test("bulk move all from one location rejects same source and destination", asyn
       }),
     /Source and destination locations must be different/,
   );
+});
+
+test("bulk move can assign an on-demand section inside the same location", async () => {
+  const { bulkMoveInventoryToLocation } =
+    await import("../lib/inventory-locations");
+  const { prisma, items } = makeBulkPrisma(
+    [
+      {
+        id: "source",
+        currentOwnerId: "owner-1",
+        originalOpenerId: "owner-1",
+        cardId: "card-1",
+        foil: false,
+        foilStatus: "NONFOIL",
+        condition: "NM",
+        language: "EN",
+        roundId: null,
+        locationId: "loc-vault",
+        locationSection: null,
+        quantity: 6,
+      },
+    ],
+    [{ id: "loc-vault", ownerPlayerId: "owner-1", name: "Vault" }],
+  );
+
+  const result = await bulkMoveInventoryToLocation(prisma as any, {
+    actorUserId: "user-1",
+    destinationLocationId: "loc-vault",
+    destinationLocationSection: "  Section   1 ",
+    itemIds: ["source"],
+    allowedOwnerId: "owner-1",
+  });
+
+  assert.equal(result.movedCards, 6);
+  assert.equal(items[0].locationId, "loc-vault");
+  assert.equal(items[0].locationSection, "Section 1");
 });
 
 test("stack move partially moves into an existing matching destination stack", async () => {

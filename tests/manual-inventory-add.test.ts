@@ -91,6 +91,7 @@ function createManualTx(overrides: any = {}) {
               : item.condition === where.condition) &&
             item.language === where.language &&
             item.locationId === where.locationId &&
+            (item.locationSection ?? null) === where.locationSection &&
             item.quantity > 0,
         ) ?? null,
       update: async ({ where, data }: any) => {
@@ -176,6 +177,38 @@ test("manual single-card add increments matching stack by owner, location, finis
   assert.equal(result.inventory.condition, "NM");
   assert.equal(auditLogs[0].inventoryItemId, "existing");
   assert.equal((auditLogs[0].afterJson as any).afterQuantity, 7);
+});
+
+test("manual single-card add keeps different on-demand sections separate", async () => {
+  const { tx, inventoryItems } = createManualTx({
+    inventoryItems: [
+      {
+        id: "section-one",
+        currentOwnerId: "player-1",
+        originalOpenerId: "player-1",
+        cardId: "card-1",
+        quantity: 3,
+        foil: false,
+        foilStatus: FoilStatus.NONFOIL,
+        condition: "NM",
+        language: "EN",
+        locationId: "box",
+        locationSection: "Section 1",
+      },
+    ],
+  });
+
+  const result = await addInventoryCardToLocation(tx as any, {
+    ownerPlayerId: "player-1",
+    cardId: "card-1",
+    locationId: "box",
+    locationSection: "Section 2",
+    quantity: 2,
+  });
+
+  assert.equal(result.created, true);
+  assert.equal(result.inventory.locationSection, "Section 2");
+  assert.equal(inventoryItems.get("section-one")?.quantity, 3);
 });
 
 test("manual single-card add rejects deck locations by default but supports special basic-land printings", async () => {

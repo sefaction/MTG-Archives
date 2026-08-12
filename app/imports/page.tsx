@@ -48,6 +48,8 @@ import {
   ensureDefaultLocation,
   getLocationsForOwner,
   normalizeLocationName,
+  normalizeLocationSection,
+  withLocationPaths,
 } from "@/lib/inventory-locations";
 import { normalizeInventoryCondition } from "@/lib/inventory-condition";
 import {
@@ -70,6 +72,7 @@ const aliases: Record<string, string[]> = {
   language: ["language", "lang"],
   notes: ["notes", "comment", "tag", "tags"],
   location: ["location", "location name", "storage", "storage location"],
+  section: ["section", "location section", "storage section", "position"],
   scryfallId: ["scryfall id", "scryfallid", "scryfall_id"],
 };
 
@@ -101,6 +104,7 @@ type ParsedRow = {
   language: string;
   notes?: string;
   locationName?: string;
+  locationSection?: string;
   scryfallId?: string;
   warning?: string;
   error?: string;
@@ -212,6 +216,7 @@ function parseRow(row: Record<string, string>, rowNumber: number): ParsedRow {
     language,
     notes: getCell(row, "notes") || undefined,
     locationName: getCell(row, "location") || undefined,
+    locationSection: getCell(row, "section") || undefined,
     scryfallId: getCell(row, "scryfallId") || undefined,
     warning: foil.warning || undefined,
     error: errors.length ? `Row ${rowNumber}: ${errors.join(" ")}` : undefined,
@@ -1097,6 +1102,9 @@ export default async function ImportsPage({
         "This batch was created as preview only. Upload again with an import duplicate behavior to commit it.",
       );
     const defaultLocationIdRaw = String(fd.get("destinationLocationId") || "");
+    const defaultLocationSection = normalizeLocationSection(
+      fd.get("destinationLocationSection"),
+    );
     const defaultLocation = defaultLocationIdRaw
       ? await prisma.inventoryLocation.findFirst({
           where: {
@@ -1167,6 +1175,9 @@ export default async function ImportsPage({
           })
         : null;
       const locationId = rowLocation?.id ?? defaultLocation.id;
+      const locationSection = normalizeLocationSection(
+        parsedRow.locationSection ?? defaultLocationSection,
+      );
       const matchingWhere = {
         currentOwnerId: batch.selectedPlayerId,
         originalOpenerId: batch.selectedPlayerId,
@@ -1176,6 +1187,7 @@ export default async function ImportsPage({
         condition,
         language: parsedRow.language || "EN",
         locationId,
+        locationSection,
         quantity: { gt: 0 },
       };
       const createData = {
@@ -1191,6 +1203,7 @@ export default async function ImportsPage({
         sourceType: InventorySourceType.CSV_PULL_IMPORT,
         language: parsedRow.language || "EN",
         locationId,
+        locationSection,
       };
       const existingInventory =
         duplicateBehavior === "separate"
@@ -1316,12 +1329,26 @@ export default async function ImportsPage({
           !location.systemManaged,
       )
     : [];
+  const manualSectionSuggestions = userWithPlayer?.playerId
+    ? (
+        await prisma.inventoryItem.findMany({
+          where: {
+            currentOwnerId: userWithPlayer.playerId,
+            locationSection: { not: null },
+            quantity: { gt: 0 },
+          },
+          select: { locationSection: true },
+          distinct: ["locationSection"],
+          orderBy: { locationSection: "asc" },
+        })
+      ).flatMap((item) => (item.locationSection ? [item.locationSection] : []))
+    : [];
   const exportOwnerIds = isAdmin
     ? players.map((player) => player.id)
     : userWithPlayer?.playerId
       ? [userWithPlayer.playerId]
       : [];
-  const exportLocations = exportOwnerIds.length
+  const exportLocationRows = exportOwnerIds.length
     ? await prisma.inventoryLocation.findMany({
         where: {
           ownerPlayerId: { in: exportOwnerIds },
@@ -1332,11 +1359,13 @@ export default async function ImportsPage({
         select: {
           id: true,
           name: true,
+          parentLocationId: true,
           ownerPlayerId: true,
         },
         orderBy: [{ ownerPlayerId: "asc" }, { name: "asc" }],
       })
     : [];
+  const exportLocations = withLocationPaths(exportLocationRows);
   const exportOwners = (
     isAdmin
       ? players
@@ -1346,7 +1375,7 @@ export default async function ImportsPage({
     name: player.displayName,
     locations: exportLocations
       .filter((location) => location.ownerPlayerId === player.id)
-      .map((location) => ({ id: location.id, name: location.name })),
+      .map((location) => ({ id: location.id, name: location.path })),
   }));
   const requestedExportOwnerId = String(params.ownerId || "");
   const initialExportOwnerId = exportOwners.some(
@@ -1366,6 +1395,20 @@ export default async function ImportsPage({
           location.kind === InventoryLocationKind.NORMAL &&
           !location.systemManaged,
       )
+    : [];
+  const selectedOwnerSectionSuggestions = selectedBatch
+    ? (
+        await prisma.inventoryItem.findMany({
+          where: {
+            currentOwnerId: selectedBatch.selectedPlayerId,
+            locationSection: { not: null },
+            quantity: { gt: 0 },
+          },
+          select: { locationSection: true },
+          distinct: ["locationSection"],
+          orderBy: { locationSection: "asc" },
+        })
+      ).flatMap((item) => (item.locationSection ? [item.locationSection] : []))
     : [];
   const summary = getImportReviewSummary(selectedItems);
   const filterCounts = {
@@ -1515,9 +1558,10 @@ export default async function ImportsPage({
         <SingleCardInventoryAdd
           locations={manualLocations.map((location) => ({
             id: location.id,
-            name: location.name,
+            name: location.path,
           }))}
           defaultLocationId={manualDefaultLocation?.id}
+          sectionSuggestions={manualSectionSuggestions}
           added={params.singleCardAdded === "1"}
           embedded
         />
@@ -1916,7 +1960,7 @@ export default async function ImportsPage({
                 !selectedBatch.importType.endsWith(":preview") ? (
                   <form
                     action={confirmImport}
-                    className="flex gap-2 items-center"
+                    className="flex flex-wrap gap-2 items-center"
                   >
                     <input
                       type="hidden"
@@ -1936,10 +1980,23 @@ export default async function ImportsPage({
                     >
                       {locationsForSelectedOwner.map((location) => (
                         <option key={location.id} value={location.id}>
-                          {location.name}
+                          {location.path}
                         </option>
                       ))}
                     </select>
+                    <input
+                      name="destinationLocationSection"
+                      list="import-location-sections"
+                      maxLength={100}
+                      className={filterInputClass}
+                      aria-label="Section within location"
+                      placeholder="Section (optional)"
+                    />
+                    <datalist id="import-location-sections">
+                      {selectedOwnerSectionSuggestions.map((section) => (
+                        <option key={section} value={section} />
+                      ))}
+                    </datalist>
                     <SubmitButton
                       pendingLabel="Committing import…"
                       disabled={!canCommitSelectedBatch}
@@ -2247,7 +2304,12 @@ export default async function ImportsPage({
                       <td>{item.parsedFoilStatus}</td>
                       <td>{item.parsedCondition}</td>
                       <td>{parsed.language}</td>
-                      <td>{parsed.locationName || "—"}</td>
+                      <td>
+                        {parsed.locationName || "—"}
+                        {parsed.locationSection
+                          ? ` / ${parsed.locationSection}`
+                          : ""}
+                      </td>
                       <td>
                         <span
                           className={`inline-block rounded border px-2 py-1 text-xs ${statusBadgeClass(item.status)}`}
@@ -2380,10 +2442,18 @@ export default async function ImportsPage({
                 >
                   {locationsForSelectedOwner.map((location) => (
                     <option key={location.id} value={location.id}>
-                      {location.name}
+                      {location.path}
                     </option>
                   ))}
                 </select>
+                <input
+                  name="destinationLocationSection"
+                  list="import-location-sections"
+                  maxLength={100}
+                  className="block border p-2 bg-zinc-900"
+                  aria-label="Section within location"
+                  placeholder="Section (optional)"
+                />
               </label>
               <SubmitButton
                 pendingLabel="Committing import…"
@@ -2439,7 +2509,12 @@ export default async function ImportsPage({
                 <p>Foil: {resolverParsed.foilStatus}</p>
                 <p>Condition: {resolverItem.parsedCondition}</p>
                 <p>Language: {resolverParsed.language}</p>
-                <p>Imported location: {resolverParsed.locationName || "—"}</p>
+                <p>
+                  Imported location: {resolverParsed.locationName || "—"}
+                  {resolverParsed.locationSection
+                    ? ` / ${resolverParsed.locationSection}`
+                    : ""}
+                </p>
                 <p>Notes: {resolverParsed.notes || "—"}</p>
               </div>
               <div className="border border-zinc-800 rounded p-3 space-y-1">

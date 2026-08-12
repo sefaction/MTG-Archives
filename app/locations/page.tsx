@@ -32,10 +32,12 @@ import {
 import {
   bulkMoveInventoryToLocation,
   bulkDeleteInventoryItems,
+  buildLocationTree,
   createLocation,
   deleteUnusedLocation,
   ensureDefaultLocation,
   updateLocation,
+  withLocationPaths,
 } from "@/lib/inventory-locations";
 import {
   isReservedLocationTypeName,
@@ -146,7 +148,7 @@ export default async function LocationsPage() {
 
   const quantities = locations.length
     ? await prisma.inventoryItem.groupBy({
-        by: ["locationId"],
+        by: ["locationId", "locationSection"],
         where: {
           locationId: { in: locations.map((l) => l.id) },
           quantity: { gt: 0 },
@@ -155,19 +157,46 @@ export default async function LocationsPage() {
         _count: true,
       })
     : [];
-  const quantityByLocation = Object.fromEntries(
-    quantities.map((q) => [
-      q.locationId ?? "",
-      { quantity: q._sum.quantity ?? 0, entries: q._count },
-    ]),
-  );
-  const normalLocations = locations.filter(
+  const quantityByLocation: Record<
+    string,
+    { quantity: number; entries: number }
+  > = {};
+  const sectionsByLocation = new Map<
+    string,
+    Array<{ name: string; quantity: number }>
+  >();
+  for (const row of quantities) {
+    const locationId = row.locationId ?? "";
+    const current = quantityByLocation[locationId] ?? {
+      quantity: 0,
+      entries: 0,
+    };
+    current.quantity += row._sum.quantity ?? 0;
+    current.entries += row._count;
+    quantityByLocation[locationId] = current;
+    if (row.locationSection) {
+      const sections = sectionsByLocation.get(locationId) ?? [];
+      sections.push({
+        name: row.locationSection,
+        quantity: row._sum.quantity ?? 0,
+      });
+      sections.sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { numeric: true }),
+      );
+      sectionsByLocation.set(locationId, sections);
+    }
+  }
+  const locationsWithPaths = withLocationPaths(locations);
+  const normalLocations = locationsWithPaths.filter(
     (location) => location.kind === InventoryLocationKind.NORMAL,
   );
-  const deckLocations = locations.filter(
+  const deckLocations = locationsWithPaths.filter(
     (location) => location.kind === InventoryLocationKind.DECK,
   );
   type NormalLocation = (typeof normalLocations)[number];
+  type NormalLocationTreeNode = NormalLocation & {
+    children: NormalLocationTreeNode[];
+  };
   const countsForLocation = (locationId: string) =>
     quantityByLocation[locationId] ?? { quantity: 0, entries: 0 };
   const allLocationTypeUses = await prisma.inventoryLocation.findMany({
@@ -255,6 +284,106 @@ export default async function LocationsPage() {
     ...ownerGroup,
     types: Array.from(ownerGroup.types.values()),
   }));
+  const normalLocationTrees = new Map(
+    owners.map((owner) => [
+      owner.id,
+      buildLocationTree(
+        normalLocations.filter(
+          (location) => location.ownerPlayerId === owner.id,
+        ),
+      ) as NormalLocationTreeNode[],
+    ]),
+  );
+  const normalLocationById = new Map(
+    normalLocations.map((location) => [location.id, location]),
+  );
+  const isDescendantOf = (candidateId: string, ancestorId: string) => {
+    const visited = new Set<string>();
+    let current = normalLocationById.get(candidateId);
+    while (current?.parentLocationId && !visited.has(current.id)) {
+      if (current.parentLocationId === ancestorId) return true;
+      visited.add(current.id);
+      current = normalLocationById.get(current.parentLocationId);
+    }
+    return false;
+  };
+  const rolledUpCounts = new Map<
+    string,
+    { quantity: number; entries: number }
+  >();
+  const calculateRolledUpCounts = (
+    node: NormalLocationTreeNode,
+  ): { quantity: number; entries: number } => {
+    const direct = countsForLocation(node.id);
+    const total: { quantity: number; entries: number } = node.children.reduce(
+      (sum, child) => {
+        const childTotal = calculateRolledUpCounts(child);
+        return {
+          quantity: sum.quantity + childTotal.quantity,
+          entries: sum.entries + childTotal.entries,
+        };
+      },
+      { ...direct },
+    );
+    rolledUpCounts.set(node.id, total);
+    return total;
+  };
+  normalLocationTrees.forEach((roots) =>
+    roots.forEach(calculateRolledUpCounts),
+  );
+
+  function renderLocationTreeNodes(nodes: NormalLocationTreeNode[]) {
+    return nodes.map((location) => {
+      const direct = countsForLocation(location.id);
+      const total = rolledUpCounts.get(location.id) ?? direct;
+      const sections = sectionsByLocation.get(location.id) ?? [];
+      const content = (
+        <div className="flex min-w-0 items-center justify-between gap-2 rounded px-1 py-0.5 text-zinc-300 hover:bg-zinc-900">
+          <span className="min-w-0 truncate">{location.name}</span>
+          <span
+            className={cn(
+              "rounded border px-1.5 py-0.5 text-[11px]",
+              visibilityTone(effectiveLocationVisibility(location)),
+            )}
+            title={`${direct.quantity} cards directly here; ${total.quantity} including sub-locations`}
+          >
+            {direct.quantity === total.quantity
+              ? direct.quantity
+              : `${direct.quantity} / ${total.quantity}`}
+          </span>
+        </div>
+      );
+      const sectionContent = sections.length ? (
+        <div className="ml-3 space-y-0.5 border-l border-zinc-800 pl-2 text-xs text-zinc-500">
+          {sections.map((section) => (
+            <div
+              key={section.name}
+              className="flex items-center justify-between gap-2 px-1"
+            >
+              <span className="truncate">{section.name}</span>
+              <span>{section.quantity}</span>
+            </div>
+          ))}
+        </div>
+      ) : null;
+      if (!location.children.length)
+        return (
+          <div key={location.id}>
+            {content}
+            {sectionContent}
+          </div>
+        );
+      return (
+        <details key={location.id} open>
+          <summary className="list-none">{content}</summary>
+          <div className="ml-3 space-y-0.5 border-l border-zinc-800 pl-2">
+            {sectionContent}
+            {renderLocationTreeNodes(location.children)}
+          </div>
+        </details>
+      );
+    });
+  }
 
   async function createLocationAction(fd: FormData) {
     "use server";
@@ -266,6 +395,7 @@ export default async function LocationsPage() {
     const location = await createLocation(prisma, {
       ownerPlayerId,
       name: String(fd.get("name") || ""),
+      parentLocationId: String(fd.get("parentLocationId") || "") || null,
       description: String(fd.get("description") || "") || null,
       type: await locationTypeNameFromForm(prisma, fd, {
         createdByUserId: ctx.user.id,
@@ -297,6 +427,7 @@ export default async function LocationsPage() {
       id,
       ownerPlayerId: before.ownerPlayerId,
       name: String(fd.get("name") || ""),
+      parentLocationId: String(fd.get("parentLocationId") || "") || null,
       description: String(fd.get("description") || "") || null,
       type: await locationTypeNameFromForm(prisma, fd, {
         createdByUserId: ctx.user.id,
@@ -648,7 +779,7 @@ export default async function LocationsPage() {
         <h2 className="text-xl font-semibold">Create location</h2>
         <form
           action={createLocationAction}
-          className="grid gap-3 md:grid-cols-7"
+          className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"
         >
           {adminModeActive ? (
             <select
@@ -671,6 +802,28 @@ export default async function LocationsPage() {
             placeholder="Box-0001"
             className={filterInputClass}
           />
+          <select
+            name="parentLocationId"
+            defaultValue=""
+            className={filterSelectClass}
+            aria-label="Parent location"
+          >
+            <option value="">No parent (top level)</option>
+            {normalLocations
+              .filter(
+                (location) =>
+                  location.active &&
+                  !location.systemManaged &&
+                  location.normalizedName !== "unassigned",
+              )
+              .map((location) => (
+                <option key={location.id} value={location.id}>
+                  {adminModeActive
+                    ? `${location.ownerPlayer.displayName} — ${location.path}`
+                    : location.path}
+                </option>
+              ))}
+          </select>
           <select
             name="type"
             defaultValue=""
@@ -877,7 +1030,7 @@ export default async function LocationsPage() {
             };
             return {
               id: location.id,
-              name: location.name,
+              name: location.path,
               entries: counts.entries,
               quantity: counts.quantity,
               effectiveVisibility: effectiveLocationVisibility(location),
@@ -913,7 +1066,7 @@ export default async function LocationsPage() {
                 <div className="grid gap-2 md:grid-cols-[1fr_auto_auto_auto] md:items-center">
                   <div>
                     <p className="font-semibold text-emerald-100">
-                      {location.name}
+                      {location.path}
                     </p>
                     <p className="text-xs text-zinc-500">
                       Tied deck: {location.deck?.name ?? "deleted deck"}
@@ -983,51 +1136,9 @@ export default async function LocationsPage() {
                       </div>
                     </summary>
                     <div className="ml-3 space-y-0.5 border-l border-zinc-800 pl-2">
-                      {ownerGroup.types.map((typeGroup) => (
-                        <details
-                          key={`${ownerGroup.id}-${typeGroup.label}`}
-                          open
-                        >
-                          <summary className="list-none">
-                            <div className="flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-zinc-300 hover:bg-zinc-900">
-                              <span className="w-4 text-center text-zinc-500">
-                                -
-                              </span>
-                              <span className="min-w-0 flex-1 truncate">
-                                {typeGroup.label}
-                              </span>
-                              <span className="text-xs text-zinc-500">
-                                {typeGroup.locations.length}
-                              </span>
-                            </div>
-                          </summary>
-                          <div className="ml-3 space-y-0.5 border-l border-zinc-800 pl-2">
-                            {typeGroup.locations.map((location) => {
-                              const counts = countsForLocation(location.id);
-                              const effectiveVisibility =
-                                effectiveLocationVisibility(location);
-                              return (
-                                <div
-                                  key={location.id}
-                                  className="flex min-w-0 items-center justify-between gap-2 rounded px-1 py-0.5 text-zinc-300 hover:bg-zinc-900"
-                                >
-                                  <span className="min-w-0 truncate">
-                                    {location.name}
-                                  </span>
-                                  <span
-                                    className={cn(
-                                      "rounded border px-1.5 py-0.5 text-[11px]",
-                                      visibilityTone(effectiveVisibility),
-                                    )}
-                                  >
-                                    {counts.quantity}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </details>
-                      ))}
+                      {renderLocationTreeNodes(
+                        normalLocationTrees.get(ownerGroup.id) ?? [],
+                      )}
                     </div>
                   </details>
                 ))}
@@ -1060,7 +1171,6 @@ export default async function LocationsPage() {
                   {ownerGroup.types.map((typeGroup) => (
                     <details
                       key={`${ownerGroup.id}-${typeGroup.label}`}
-                      open
                       className="border-l border-zinc-800 pl-3"
                     >
                       <summary className="list-none rounded px-2 py-1 text-sm text-zinc-300 hover:bg-zinc-900">
@@ -1091,7 +1201,7 @@ export default async function LocationsPage() {
                                 <div>
                                   <div className="flex flex-wrap items-center gap-2">
                                     <h4 className="font-semibold text-zinc-100">
-                                      {location.name}
+                                      {location.path}
                                     </h4>
                                     {!location.active ? (
                                       <span className="rounded border border-zinc-700 px-2 py-0.5 text-xs text-zinc-400">
@@ -1150,6 +1260,50 @@ export default async function LocationsPage() {
                                             "mt-1 w-full",
                                           )}
                                         />
+                                      </label>
+                                      <label className={filterFieldClass}>
+                                        Parent
+                                        <select
+                                          name="parentLocationId"
+                                          defaultValue={
+                                            location.parentLocationId ?? ""
+                                          }
+                                          disabled={
+                                            location.normalizedName ===
+                                            "unassigned"
+                                          }
+                                          className={cn(
+                                            filterSelectClass,
+                                            "mt-1 w-full",
+                                          )}
+                                        >
+                                          <option value="">
+                                            No parent (top level)
+                                          </option>
+                                          {normalLocations
+                                            .filter(
+                                              (candidate) =>
+                                                candidate.ownerPlayerId ===
+                                                  location.ownerPlayerId &&
+                                                candidate.id !== location.id &&
+                                                candidate.active &&
+                                                !candidate.systemManaged &&
+                                                candidate.normalizedName !==
+                                                  "unassigned" &&
+                                                !isDescendantOf(
+                                                  candidate.id,
+                                                  location.id,
+                                                ),
+                                            )
+                                            .map((candidate) => (
+                                              <option
+                                                key={candidate.id}
+                                                value={candidate.id}
+                                              >
+                                                {candidate.path}
+                                              </option>
+                                            ))}
+                                        </select>
                                       </label>
                                       <label className={filterFieldClass}>
                                         Type

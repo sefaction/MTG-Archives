@@ -535,6 +535,9 @@ model InventoryLocation {
   id                        String                @id @default(cuid())
   ownerPlayerId             String
   ownerPlayer               Player                @relation(fields: [ownerPlayerId], references: [id])
+  parentLocationId          String?
+  parentLocation            InventoryLocation?    @relation("InventoryLocationHierarchy", fields: [parentLocationId], references: [id], onDelete: Restrict)
+  childLocations            InventoryLocation[]   @relation("InventoryLocationHierarchy")
   name                      String
   normalizedName            String
   description               String?
@@ -551,8 +554,9 @@ model InventoryLocation {
   proposerTradeDestinations Trade[]               @relation("ProposerTradeDestination")
   receiverTradeDestinations Trade[]               @relation("ReceiverTradeDestination")
 
-  @@unique([ownerPlayerId, normalizedName])
   @@index([ownerPlayerId, active])
+  @@index([parentLocationId])
+  @@index([ownerPlayerId, parentLocationId, active])
   @@index([ownerPlayerId, kind, active])
   @@index([ownerPlayerId, visibility, active])
   @@index([visibility, active])
@@ -612,6 +616,7 @@ model InventoryItem {
   condition          String
   locationId         String?
   location           InventoryLocation?  @relation(fields: [locationId], references: [id])
+  locationSection    String?
   language           String              @default("EN")
   acquiredFromPullId String?
   acquiredFromPull   Pull?               @relation(fields: [acquiredFromPullId], references: [id])
@@ -631,6 +636,7 @@ model InventoryItem {
   @@index([currentOwnerId, quantity, createdAt])
   @@index([locationId])
   @@index([locationId, quantity])
+  @@index([locationId, locationSection])
   @@index([cardId, quantity])
   @@index([foilStatus, condition, language])
 }

@@ -242,6 +242,7 @@ async function exportInventory(params: URLSearchParams) {
         `Owner:${item.currentOwner.displayName}`,
         `Source:${item.sourceType}`,
         `Location:${item.location?.name ?? "Unassigned"}`,
+        ...(item.locationSection ? [`Section:${item.locationSection}`] : []),
       ].join(", "),
     ]);
     csv = buildCsv(headers, rows);
@@ -263,6 +264,7 @@ async function exportInventory(params: URLSearchParams) {
       "Language",
       "Owner",
       "Location",
+      "Section",
       "Source",
       "Scryfall ID",
       "Oracle ID",
@@ -287,6 +289,7 @@ async function exportInventory(params: URLSearchParams) {
       item.language || "EN",
       item.currentOwner.displayName,
       item.location?.name ?? "Unassigned",
+      item.locationSection ?? "",
       item.sourceType,
       item.card.scryfallId,
       item.card.oracleId || "",

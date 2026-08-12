@@ -8,6 +8,11 @@ const deleteFormSource = readFileSync(
   "components/LocationContentsDeleteForm.tsx",
   "utf8",
 );
+const schemaSource = readFileSync("prisma/schema.prisma", "utf8");
+const hierarchyMigration = readFileSync(
+  "prisma/migrations/20260810020000_inventory_location_hierarchy/migration.sql",
+  "utf8",
+);
 
 test("locations page uses compact manage drawers for normal locations", () => {
   assert.match(pageSource, /Normal locations/);
@@ -31,4 +36,21 @@ test("locations controls use shared dark form styles", () => {
   assert.match(moveFormSource, /filterPrimaryButtonClass/);
   assert.match(deleteFormSource, /filterInputClass/);
   assert.match(deleteFormSource, /filterDangerButtonClass/);
+});
+
+test("locations support safe hierarchical parent selection and breadcrumb paths", () => {
+  assert.match(schemaSource, /parentLocationId\s+String\?/);
+  assert.match(schemaSource, /InventoryLocationHierarchy/);
+  assert.match(hierarchyMigration, /ON DELETE RESTRICT/);
+  assert.match(hierarchyMigration, /WHERE "parentLocationId" IS NULL/);
+  assert.match(hierarchyMigration, /WHERE "parentLocationId" IS NOT NULL/);
+  assert.match(pageSource, /name="parentLocationId"/);
+  assert.match(pageSource, /No parent \(top level\)/);
+  assert.match(pageSource, /buildLocationTree/);
+  assert.match(pageSource, /location\.path/);
+  assert.match(pageSource, /including sub-locations/);
+  assert.doesNotMatch(
+    pageSource,
+    /key=\{`\$\{ownerGroup\.id\}-\$\{typeGroup\.label\}`\}\s+open/,
+  );
 });

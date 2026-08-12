@@ -36,6 +36,7 @@ import {
   getInventoryGroupedByCard,
   groupInventoryPageGroupsByCardName,
   getLocationsForOwner,
+  withLocationPaths,
   orderInventoryItemsByPageGroups,
   bulkMoveInventoryToLocation,
   bulkDeleteInventoryItems,
@@ -307,7 +308,7 @@ export default async function InventoryPage({
   const visiblePlayers = adminModeActive
     ? players
     : players.filter((player) => player.id === userWithPlayer?.playerId);
-  const locations = activeOwnerId
+  const locationRows = activeOwnerId
     ? await getLocationsForOwner(prisma, activeOwnerId)
     : adminModeActive && ownerParams.length
       ? await prisma.inventoryLocation.findMany({
@@ -317,6 +318,7 @@ export default async function InventoryPage({
       : await prisma.inventoryLocation.findMany({
           orderBy: [{ ownerPlayer: { displayName: "asc" } }, { name: "asc" }],
         });
+  const locations = withLocationPaths(locationRows);
   const normalDestinationLocations = locations.filter(
     (location) =>
       location.active &&
@@ -426,6 +428,7 @@ export default async function InventoryPage({
         condition: String(fd.get("condition") || before.condition),
         language: String(fd.get("language") || before.language || "EN"),
         locationId: targetLocationId,
+        locationSection: String(fd.get("locationSection") || ""),
         notes: String(fd.get("notes") || "") || null,
         sourceType: actionIsAdmin
           ? (String(
@@ -506,6 +509,7 @@ export default async function InventoryPage({
         condition: String(fd.get("condition") || before.condition),
         language: String(fd.get("language") || before.language || "EN"),
         locationId: targetLocationId,
+        locationSection: String(fd.get("locationSection") || ""),
         notes: String(fd.get("notes") || "") || null,
         sourceType: actionIsAdmin
           ? (String(
@@ -530,6 +534,9 @@ export default async function InventoryPage({
     const actionIsAdmin = actionScope?.mode === "admin";
     const fieldNames = Array.from(new Set(Array.from(fd.keys()).map(String)));
     const destinationLocationId = String(fd.get("destinationLocationId") || "");
+    const destinationLocationSection = String(
+      fd.get("destinationLocationSection") || "",
+    );
     const clientDestinationLocationId = String(
       fd.get("clientDestinationLocationId") || "",
     );
@@ -595,6 +602,7 @@ export default async function InventoryPage({
       });
       console.info("[bulk-location-move] destination lookup", {
         destinationLocationId,
+        destinationLocationSection,
         found: Boolean(destination),
         ownerPlayerId: destination?.ownerPlayerId ?? null,
         destinationName: destination?.name ?? null,
@@ -641,6 +649,7 @@ export default async function InventoryPage({
       const result = await bulkMoveInventoryToLocation(prisma, {
         actorUserId: actionUser.id,
         destinationLocationId,
+        destinationLocationSection,
         itemIds: selectionMode === "all" ? undefined : itemIds,
         where: selectionMode === "all" ? matchingWhere : undefined,
         allowedOwnerId,
@@ -815,6 +824,9 @@ export default async function InventoryPage({
     const actionIsAdmin = actionScope?.mode === "admin";
     const inventoryItemId = String(fd.get("inventoryItemId") || "");
     const destinationLocationId = String(fd.get("destinationLocationId") || "");
+    const destinationLocationSection = String(
+      fd.get("destinationLocationSection") || "",
+    );
     const quantity = Number(fd.get("quantity"));
     const reason = String(fd.get("reason") || "").trim();
 
@@ -828,6 +840,7 @@ export default async function InventoryPage({
       const result = await moveInventoryQuantityBetweenLocations(prisma, {
         inventoryItemId,
         destinationLocationId,
+        destinationLocationSection,
         quantity,
         actorUserId: actionUser.id,
         allowedOwnerId: actionIsAdmin
@@ -906,6 +919,7 @@ export default async function InventoryPage({
             inventoryItemId: i.id,
             locationId: i.locationId ?? null,
             name: i.location?.name ?? "Unassigned",
+            section: i.locationSection ?? null,
             quantity: i.quantity,
             foilStatus: i.foilStatus,
             condition: i.condition,
@@ -934,6 +948,7 @@ export default async function InventoryPage({
             : [],
         locationId: i.locationId ?? "",
         locationName: i.location?.name ?? "Unassigned",
+        locationSection: i.locationSection ?? null,
         currentOwnerId: i.currentOwnerId,
         currentOwner: i.currentOwner.displayName,
         currentOwnerColor: i.currentOwner.color || "#64748b",
@@ -1103,7 +1118,7 @@ export default async function InventoryPage({
         }))}
         locations={normalDestinationLocations.map((location) => ({
           value: location.id,
-          label: location.name,
+          label: location.path,
           kind: location.kind,
         }))}
         locationTypes={[
@@ -1129,7 +1144,7 @@ export default async function InventoryPage({
         }))}
         locations={normalDestinationLocations.map((l) => ({
           id: l.id,
-          name: l.name,
+          name: l.path,
           ownerPlayerId: l.ownerPlayerId,
           active: l.active,
           kind: l.kind,

@@ -34,7 +34,10 @@ import {
   type TradeCardSummary,
 } from "@/components/TradeCardPreview";
 import { normalizePlayerColor } from "@/lib/player-colors";
-import { ensureDefaultLocation } from "@/lib/inventory-locations";
+import {
+  ensureDefaultLocation,
+  getLocationsForOwner,
+} from "@/lib/inventory-locations";
 import { selectTradeCardPrice } from "@/lib/trade-value";
 import { TradeValueSummary } from "@/components/TradeValueSummary";
 import { TradePairingCard } from "@/components/TradePairingCard";
@@ -735,15 +738,12 @@ export default async function TradesPage({
     orderBy: { proposedAt: "desc" },
   });
   const myDestinationLocations = user.playerId
-    ? await prisma.inventoryLocation.findMany({
-        where: {
-          ownerPlayerId: user.playerId,
-          active: true,
-          kind: InventoryLocationKind.NORMAL,
-          systemManaged: false,
-        },
-        orderBy: { name: "asc" },
-      })
+    ? (await getLocationsForOwner(prisma, user.playerId)).filter(
+        (location) =>
+          location.active &&
+          location.kind === InventoryLocationKind.NORMAL &&
+          !location.systemManaged,
+      )
     : [];
   const [myTradeWishlist, wantedFromMe] = await Promise.all([
     prisma.tradeWishlistItem.findMany({
@@ -1495,7 +1495,7 @@ export default async function TradesPage({
                             >
                               {myDestinationLocations.map((location) => (
                                 <option key={location.id} value={location.id}>
-                                  {location.name}
+                                  {location.path}
                                 </option>
                               ))}
                             </select>

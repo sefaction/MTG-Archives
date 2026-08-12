@@ -1,14 +1,17 @@
 import { Prisma } from "@prisma/client";
 import { equivalentInventoryConditions } from "./inventory-condition";
+import { normalizeLocationSection } from "./inventory-locations";
 
 export async function moveInventoryQuantityWithinTransaction(
   tx: Prisma.TransactionClient,
   input: {
     inventoryItemId: string;
     toLocationId: string;
+    toLocationSection?: string | null;
     quantity: number;
   },
 ) {
+  const toLocationSection = normalizeLocationSection(input.toLocationSection);
   const source = await tx.inventoryItem.findUnique({
     where: { id: input.inventoryItemId },
   });
@@ -31,6 +34,7 @@ export async function moveInventoryQuantityWithinTransaction(
       condition: { in: equivalentInventoryConditions(source.condition) },
       language: source.language,
       locationId: input.toLocationId,
+      locationSection: toLocationSection,
       quantity: { gt: 0 },
     },
   });
@@ -53,7 +57,10 @@ export async function moveInventoryQuantityWithinTransaction(
     }
     await tx.inventoryItem.update({
       where: { id: source.id },
-      data: { locationId: input.toLocationId },
+      data: {
+        locationId: input.toLocationId,
+        locationSection: toLocationSection,
+      },
     });
     return {
       source,
@@ -91,7 +98,12 @@ export async function moveInventoryQuantityWithinTransaction(
     ...copy
   } = source;
   const created = await tx.inventoryItem.create({
-    data: { ...copy, quantity: input.quantity, locationId: input.toLocationId },
+    data: {
+      ...copy,
+      quantity: input.quantity,
+      locationId: input.toLocationId,
+      locationSection: toLocationSection,
+    },
   });
   return {
     source,
