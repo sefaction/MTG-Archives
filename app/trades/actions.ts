@@ -420,7 +420,6 @@ export async function cancelTradeWishlistItem(fd: FormData) {
     data: { status: TradeWishlistStatus.CANCELLED },
   });
   revalidatePath("/trades");
-  revalidatePath("/wishlist");
 }
 
 export async function updateTradeWishlistQuantity(fd: FormData) {
@@ -448,7 +447,6 @@ export async function updateTradeWishlistQuantity(fd: FormData) {
     data: { quantity },
   });
   revalidatePath("/trades");
-  revalidatePath("/wishlist");
   revalidatePath("/public/inventory");
 }
 
@@ -965,7 +963,6 @@ export async function confirmPhysicalTrade(fd: FormData) {
     );
     await completeTradeIfReady(trade.id, actor.id, true);
     revalidatePath("/trades");
-    revalidatePath("/wishlist");
     revalidatePath("/notifications");
     return;
   }
@@ -1027,6 +1024,5 @@ export async function confirmPhysicalTrade(fd: FormData) {
   });
   await completeTradeIfReady(trade.id, actor.id);
   revalidatePath("/trades");
-  revalidatePath("/wishlist");
   revalidatePath("/notifications");
 }

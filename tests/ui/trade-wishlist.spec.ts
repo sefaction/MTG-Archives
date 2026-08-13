@@ -30,16 +30,19 @@ test("public navigation stays public-only for signed-out visitors", async ({
   await expect(page.getByRole("button", { name: "Log out" })).toHaveCount(0);
 });
 
-test("trade wishlist surfaces render from public inventory, wishlist, and trades", async ({
+test("trade wishlist stays separate from the normal wishlist", async ({
   page,
 }) => {
   await login(page);
 
-  await page.goto("/wishlist?tab=trades");
+  await page.goto("/wishlist");
   await expect(
     page.getByRole("heading", { level: 1, name: "Wishlist" }),
   ).toBeVisible();
-  await expect(page.getByText("Trade wants").first()).toBeVisible();
+  await expect(page.getByText("Trade wants")).toHaveCount(0);
+  await expect(page.getByRole("option", { name: "Trade Wants" })).toHaveCount(
+    0,
+  );
 
   await page.goto("/trades");
   await expect(

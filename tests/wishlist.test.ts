@@ -206,46 +206,12 @@ test("manual and deck-derived needs combine by oracle identity with source break
   assert.equal(view.groups[0].sources.decks.length, 2);
 });
 
-test("trade wishlist wants combine with manual and deck sources", () => {
-  const view = buildWishlistView({
-    manualItems: [
-      {
-        id: "wish-1",
-        cardId: boltA.id,
-        quantity: 1,
-        priority: "High",
-        notes: "gift",
-        desiredFinish: null,
-        desiredCondition: null,
-        desiredLanguage: null,
-        card: boltA,
-      },
-    ],
-    decks: [],
-    tradeItems: [
-      {
-        id: "trade-wish-1",
-        cardId: boltA.id,
-        quantity: 2,
-        status: "OPEN",
-        notes: "Brian has these",
-        targetOwnerPlayerId: "player-brian",
-        targetOwnerName: "Brian",
-        targetInventoryItemId: "inv-brian-bolt",
-        card: boltA,
-      },
-    ],
-    inventoryItems: [],
-  });
-  assert.equal(view.groups.length, 1);
-  assert.equal(view.groups[0].sourceLabel, "Manual + Trade");
-  assert.equal(view.groups[0].manualQuantity, 1);
-  assert.equal(view.groups[0].tradeQuantity, 2);
-  assert.equal(view.groups[0].needQuantity, 3);
-  assert.equal(view.groups[0].readyQuantity, 0);
-  assert.equal(view.groups[0].getQuantity, 3);
-  assert.equal(view.groups[0].sources.trade[0].targetOwnerName, "Brian");
-  assert.equal(view.summary.tradeRows, 1);
+test("normal wishlist is isolated from trade wishlist data", () => {
+  const wishlist = readFileSync("lib/wishlist.ts", "utf8");
+  assert.doesNotMatch(wishlist, /tradeWishlistItem/);
+  assert.doesNotMatch(wishlist, /TradeWishlist/);
+  assert.doesNotMatch(wishlist, /tradeQuantity/);
+  assert.doesNotMatch(wishlist, /sources\.trade/);
 });
 
 test("inventory-aware counts separate available and committed deck copies", () => {
@@ -399,7 +365,6 @@ test("wishlist drawer contains granular editing and manipulation sections", () =
     "Card summary",
     "Quantity summary",
     "Manual wishlist controls",
-    "Trade wishlist targets",
     "Needed for decks",
     "Inventory availability breakdown",
     "Printing tools",
@@ -432,13 +397,13 @@ test("wishlist page includes inventory-style view, advanced filter, sort, and pa
   assert.match(table, /Next/);
   assert.match(table, /Infinite scroll sentinel/);
   assert.match(page, /Advanced Filters/);
-  assert.match(page, /Trade Wants/);
-  assert.match(page, /Trade-wanted quantity/);
-  assert.match(table, /updateTradeWishlistQuantity/);
-  assert.match(table, /Wishlist quantity from/);
-  assert.match(page, /Trade wants/);
-  assert.match(table, /Trade Wanted Qty/);
-  assert.match(table, /Negotiate trade with/);
+  assert.doesNotMatch(page, /Trade Wants/);
+  assert.doesNotMatch(page, /Trade-wanted quantity/);
+  assert.doesNotMatch(table, /updateTradeWishlistQuantity/);
+  assert.doesNotMatch(table, /Wishlist quantity from/);
+  assert.doesNotMatch(page, /Trade wants/);
+  assert.doesNotMatch(table, /Trade Wanted Qty/);
+  assert.doesNotMatch(table, /Negotiate trade with/);
   assert.match(page, /Clear Filters/);
   assert.match(page, /pageSize/);
   for (const filter of [
