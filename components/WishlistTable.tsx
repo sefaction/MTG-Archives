@@ -36,10 +36,6 @@ import {
   updateManualWishlistItem,
 } from "@/app/wishlist/actions";
 import {
-  cancelTradeWishlistItem,
-  updateTradeWishlistQuantity,
-} from "@/app/trades/actions";
-import {
   cn,
   filterButtonClass,
   filterFieldClass,
@@ -64,7 +60,6 @@ const defaultVisibility: VisibilityState = {
   wantedQty: true,
   manualQty: false,
   deckNeededQty: false,
-  tradeQty: false,
   available: true,
   missing: true,
   source: true,
@@ -111,7 +106,6 @@ function RowActionMenu({
 }) {
   const firstDeckNeed = row.sources.decks[0];
   const firstManual = row.sources.manual[0];
-  const firstTradeWant = row.sources.trade[0];
 
   return (
     <details className="relative inline-block text-left">
@@ -150,18 +144,6 @@ function RowActionMenu({
             className="block rounded px-3 py-2 text-sm hover:bg-zinc-800"
           >
             View deck
-          </Link>
-        ) : null}
-        {firstTradeWant ? (
-          <Link
-            href={`/trades?receiverId=${firstTradeWant.targetOwnerPlayerId}${
-              firstTradeWant.targetInventoryItemId
-                ? `&requestedInventoryItemId=${firstTradeWant.targetInventoryItemId}`
-                : ""
-            }`}
-            className="block rounded px-3 py-2 text-sm hover:bg-zinc-800"
-          >
-            Negotiate trade with {firstTradeWant.targetOwnerName}
           </Link>
         ) : null}
         {row.inventory.ownedTotal > 0 ? (
@@ -367,8 +349,7 @@ function WishlistDetailDrawer({
           <h3 className="font-semibold">Quantity summary</h3>
           <p className="text-sm text-zinc-400">
             Ready counts uncommitted copies that can fill deck needs. Manual
-            requests and person-specific trade targets remain in Get until
-            completed.
+            requests remain in Get until completed.
           </p>
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
             <Metric label="Need" value={row.needQuantity} />
@@ -376,7 +357,6 @@ function WishlistDetailDrawer({
             <Metric label="Get" value={row.getQuantity} />
             <Metric label="Manual Qty" value={row.manualQuantity} />
             <Metric label="Deck Needed Qty" value={row.deckQuantity} />
-            <Metric label="Trade Wanted Qty" value={row.tradeQuantity} />
           </div>
         </section>
 
@@ -475,88 +455,6 @@ function WishlistDetailDrawer({
                 Add manual quantity
               </SubmitButton>
             </form>
-          )}
-        </section>
-
-        <section className="mt-4 space-y-3">
-          <h3 className="font-semibold">Trade wishlist targets</h3>
-          {row.sources.trade.length ? (
-            <div className="grid gap-2">
-              {row.sources.trade.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded border border-zinc-800 p-3 text-sm"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="font-medium text-sky-100">
-                        {item.targetOwnerName}
-                      </p>
-                      <p className="text-zinc-400">
-                        Wants {item.quantity} copy
-                        {item.quantity === 1 ? "" : "ies"} from this public
-                        collection.
-                      </p>
-                      {item.notes ? (
-                        <p className="text-zinc-500">{item.notes}</p>
-                      ) : null}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <form
-                        action={updateTradeWishlistQuantity}
-                        className="flex items-center gap-1"
-                      >
-                        <input
-                          type="hidden"
-                          name="tradeWishlistItemId"
-                          value={item.id}
-                        />
-                        <input
-                          type="number"
-                          name="quantity"
-                          min={1}
-                          max={999}
-                          defaultValue={item.quantity}
-                          aria-label={`Wishlist quantity from ${item.targetOwnerName}`}
-                          className={cn(filterInputClass, "w-16 px-2 py-1")}
-                        />
-                        <SubmitButton
-                          pendingLabel="Saving..."
-                          className={filterButtonClass}
-                        >
-                          Save
-                        </SubmitButton>
-                      </form>
-                      <Link
-                        href={`/trades?receiverId=${item.targetOwnerPlayerId}${
-                          item.targetInventoryItemId
-                            ? `&requestedInventoryItemId=${item.targetInventoryItemId}`
-                            : ""
-                        }`}
-                        className={filterPrimaryButtonClass}
-                      >
-                        Negotiate
-                      </Link>
-                      <form action={cancelTradeWishlistItem}>
-                        <input
-                          type="hidden"
-                          name="tradeWishlistItemId"
-                          value={item.id}
-                        />
-                        <SubmitButton
-                          pendingLabel="Cancelling..."
-                          className="rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-300 transition-colors hover:border-red-700 hover:text-red-100"
-                        >
-                          Cancel
-                        </SubmitButton>
-                      </form>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-zinc-400">No trade wishlist targets.</p>
           )}
         </section>
 
@@ -946,7 +844,6 @@ export function WishlistTable({
         accessorKey: "deckQuantity",
         header: "Deck Needed Qty",
       },
-      { id: "tradeQty", accessorKey: "tradeQuantity", header: "Trade Qty" },
       {
         id: "available",
         accessorKey: "readyQuantity",

@@ -19,7 +19,6 @@ const tradePairingCard = readFileSync(
   "utf8",
 );
 const tradePairing = readFileSync("lib/trade-pairing.ts", "utf8");
-const wishlistTable = readFileSync("components/WishlistTable.tsx", "utf8");
 
 test("trades page renders the searchable trade builder instead of active inventory dropdowns", () => {
   assert.match(tradesPage, /<TradeBuilder/);
@@ -94,8 +93,6 @@ test("trade wishlist cards can be cancelled without deleting history", () => {
   );
   assert.match(tradesPage, /name="tradeWishlistItemId"/);
   assert.match(tradesPage, />\s*Cancel\s*</);
-  assert.match(wishlistTable, /cancelTradeWishlistItem/);
-  assert.match(wishlistTable, /name="tradeWishlistItemId"/);
 });
 
 test("owners can edit the quantity of an open trade wishlist card", () => {

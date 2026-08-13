@@ -39,7 +39,6 @@ function colorIdentityLabel(value: unknown) {
 function matchesTab(group: WishlistGroup, tab: string) {
   if (tab === "manual") return group.manualQuantity > 0;
   if (tab === "decks") return group.deckQuantity > 0;
-  if (tab === "trades") return group.tradeQuantity > 0;
   if (tab === "available") return group.readyQuantity > 0;
   if (tab === "missing") return group.getQuantity > 0;
   return true;
@@ -78,8 +77,6 @@ function sortGroups(groups: WishlistGroup[], sort: string) {
         return b.manualQuantity - a.manualQuantity;
       case "deck":
         return b.deckQuantity - a.deckQuantity;
-      case "trade":
-        return b.tradeQuantity - a.tradeQuantity;
       case "available":
         return b.readyQuantity - a.readyQuantity;
       case "missing":
@@ -146,12 +143,7 @@ export default async function WishlistPage({
         textIncludes(group.card.setCode, q) ||
         textIncludes(group.card.setName, q) ||
         group.sources.decks.some((need) => textIncludes(need.deckName, q)) ||
-        group.sources.manual.some((item) => textIncludes(item.notes, q)) ||
-        group.sources.trade.some(
-          (item) =>
-            textIncludes(item.notes, q) ||
-            textIncludes(item.targetOwnerName, q),
-        ),
+        group.sources.manual.some((item) => textIncludes(item.notes, q)),
     );
   }
   groups = groups.filter(
@@ -201,8 +193,8 @@ export default async function WishlistPage({
       <section className="space-y-2">
         <h1 className="text-3xl font-bold">Wishlist</h1>
         <p className="text-zinc-400">
-          Manual requests, trade targets, and unfilled deck slots in an
-          inventory-style browser.
+          Manual requests and unfilled deck slots in an inventory-style
+          browser.
         </p>
       </section>
 
@@ -211,16 +203,14 @@ export default async function WishlistPage({
         <p className="mt-1 text-sm text-zinc-300">
           <b>Need</b> is every open request. <b>Ready</b> is the uncommitted
           inventory that can fill deck needs now. <b>Get</b> is what remains;
-          manual and person-specific trade wishes always stay in Get until
-          completed.
+          manual requests always stay in Get until completed.
         </p>
       </section>
 
-      <section className="grid gap-3 md:grid-cols-6">
+      <section className="grid gap-3 md:grid-cols-5">
         {[
           ["Manual rows", view.summary.manualRows],
           ["Deck-needed rows", view.summary.deckRows],
-          ["Trade wants", view.summary.tradeRows],
           ["Need", view.summary.needQuantity],
           ["Ready", view.summary.readyQuantity],
           ["Get", view.summary.getQuantity],
@@ -233,7 +223,7 @@ export default async function WishlistPage({
             <div className="text-2xl font-semibold text-sky-100">{value}</div>
           </div>
         ))}
-        <div className="rounded border border-zinc-800 bg-zinc-950 p-4 md:col-span-6">
+        <div className="rounded border border-zinc-800 bg-zinc-950 p-4 md:col-span-5">
           <div className="text-xs uppercase text-zinc-500">
             Estimated cost to get
           </div>
@@ -253,7 +243,7 @@ export default async function WishlistPage({
               name="q"
               defaultValue={params.q || ""}
               className={cn(filterInputClass, "mt-1 block")}
-              placeholder="Card, text, set, deck, trade target, notes"
+              placeholder="Card, text, set, deck, notes"
             />
           </label>
           <label className={filterFieldClass}>
@@ -268,7 +258,6 @@ export default async function WishlistPage({
               <option value="all">All</option>
               <option value="manual">Manual</option>
               <option value="decks">Needed for Decks</option>
-              <option value="trades">Trade Wants</option>
               <option value="available">Ready</option>
               <option value="missing">Get</option>
             </select>
@@ -284,7 +273,6 @@ export default async function WishlistPage({
               <option value="name">Card name</option>
               <option value="manual">Manual quantity</option>
               <option value="deck">Deck-needed quantity</option>
-              <option value="trade">Trade-wanted quantity</option>
               <option value="available">Ready quantity</option>
               <option value="missing">Get quantity</option>
               <option value="price">Price</option>
@@ -335,13 +323,7 @@ export default async function WishlistPage({
                 <option value="">Any</option>
                 <option value="manual">Manual</option>
                 <option value="deck">Deck</option>
-                <option value="trade">Trade</option>
                 <option value="manual + deck">Manual + Deck</option>
-                <option value="manual + trade">Manual + Trade</option>
-                <option value="deck + trade">Deck + Trade</option>
-                <option value="manual + deck + trade">
-                  Manual + Deck + Trade
-                </option>
               </select>
             </label>
             <label className={filterFieldClass}>

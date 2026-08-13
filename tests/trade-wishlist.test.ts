@@ -61,7 +61,7 @@ test("trade completion reconciles wishlist quantities in the inventory transacti
   const wishlistHelper = readFileSync("lib/trade-wishlist.ts", "utf8");
 
   assert.match(tradeActions, /await fulfillCompletedTradeWishlists\(tx,/);
-  assert.match(tradeActions, /revalidatePath\("\/wishlist"\)/);
+  assert.doesNotMatch(tradeActions, /revalidatePath\("\/wishlist"\)/);
   assert.match(wishlistHelper, /TradeWishlistStatus\.FULFILLED/);
   assert.match(wishlistHelper, /quantity: \{ decrement: match\.quantity \}/);
   assert.match(
