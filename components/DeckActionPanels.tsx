@@ -30,6 +30,7 @@ export function DeckActionPanels({
   returnCommitted,
   settings,
   deleteDeck,
+  inventoryCommitmentEnabled = true,
 }: {
   deckName: string;
   committedQuantity: number;
@@ -40,6 +41,7 @@ export function DeckActionPanels({
   returnCommitted: ReactNode;
   settings: ReactNode;
   deleteDeck: ReactNode;
+  inventoryCommitmentEnabled?: boolean;
 }) {
   const [activePanel, setActivePanel] = useState<DeckActionPanelId | null>(
     null,
@@ -59,12 +61,16 @@ export function DeckActionPanels({
         shortLabel: "Import",
         href: pasteDecklistHref,
       },
-      {
-        id: "return-committed",
-        label: `Return committed (${committedQuantity})`,
-        shortLabel: "Return",
-        disabled: !canReturnCommitted,
-      },
+      ...(inventoryCommitmentEnabled
+        ? [
+            {
+              id: "return-committed" as const,
+              label: `Return committed (${committedQuantity})`,
+              shortLabel: "Return",
+              disabled: !canReturnCommitted,
+            },
+          ]
+        : []),
       { id: "settings", label: "Deck settings", shortLabel: "Settings" },
       {
         id: "delete",
@@ -73,7 +79,12 @@ export function DeckActionPanels({
         danger: true,
       },
     ],
-    [canReturnCommitted, committedQuantity, pasteDecklistHref],
+    [
+      canReturnCommitted,
+      committedQuantity,
+      inventoryCommitmentEnabled,
+      pasteDecklistHref,
+    ],
   );
 
   useEffect(() => {

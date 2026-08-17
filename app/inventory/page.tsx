@@ -81,7 +81,10 @@ export default async function InventoryPage({
   const adminModeActive = accessScope?.mode === "admin";
   const editableDecks = user
     ? await prisma.deck.findMany({
-        where: adminModeActive ? {} : { ownerUserId: user.id },
+        where: {
+          commanderLeagueDeck: { is: null },
+          ...(adminModeActive ? {} : { ownerUserId: user.id }),
+        },
         select: {
           id: true,
           name: true,

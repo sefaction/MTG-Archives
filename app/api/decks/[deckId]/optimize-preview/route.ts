@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { getAccessScope, requireLogin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { canManageDeck } from "@/lib/decks";
+import { getDeckManagementPolicy } from "@/lib/deck-management-policy";
 import {
   buildDeckOptimizationPreview,
   DeckOptimizationMode,
@@ -14,11 +14,22 @@ export async function POST(
   const user = await requireLogin();
   const scope = await getAccessScope(user);
   const { deckId } = await params;
-  const deck = await prisma.deck.findUnique({ where: { id: deckId } });
-  if (!deck || !canManageDeck(user, deck, scope?.mode === "admin")) {
+  const policy = await getDeckManagementPolicy(
+    deckId,
+    user,
+    scope?.mode === "admin",
+  );
+  const { deck } = policy;
+  if (!deck || !policy.canManage) {
     return Response.json({ error: "Not authorized." }, { status: 403 });
   }
-  if (!user.playerId) {
+  if (policy.locked) {
+    return Response.json(
+      { error: "This League deck is locked." },
+      { status: 409 },
+    );
+  }
+  if (!deck.ownerUser.playerId) {
     return Response.json(
       { error: "Your account is not linked to an inventory owner." },
       { status: 400 },
@@ -32,7 +43,7 @@ export async function POST(
     : undefined;
   const preview = await buildDeckOptimizationPreview({
     deckId,
-    ownerPlayerId: user.playerId,
+    ownerPlayerId: deck.ownerUser.playerId,
     mode,
     rowIds,
   });

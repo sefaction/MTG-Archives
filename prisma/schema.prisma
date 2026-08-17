@@ -86,6 +86,29 @@ enum DeckSection {
   MAYBEBOARD
 }
 
+enum CommanderLeagueStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum CommanderLeagueMemberRole {
+  ADMIN
+  PLAYER
+}
+
+enum CommanderLeagueGameStatus {
+  COMPLETED
+  CANCELLED
+}
+
+enum CommanderLeagueResult {
+  WIN
+  LOSS
+  DRAW
+}
+
 enum InventoryLocationKind {
   NORMAL
   DECK
@@ -111,40 +134,43 @@ enum NotificationDeliveryAttemptStatus {
 }
 
 model User {
-  id                         String                      @id @default(cuid())
-  username                   String                      @unique
-  email                      String?                     @unique
-  displayName                String
-  passwordHash               String
-  role                       UserRole                    @default(PLAYER)
-  playerId                   String?
-  player                     Player?                     @relation(fields: [playerId], references: [id])
-  forcePasswordChange        Boolean                     @default(false)
-  isActive                   Boolean                     @default(true)
-  lastLoginAt                DateTime?
-  theme                      String                      @default("golgari")
-  preferredPriceProvider     String                      @default("scryfall")
-  inventoryDefaultVisibility DefaultCollectionVisibility @default(PRIVATE)
-  deckDefaultVisibility      DefaultCollectionVisibility @default(PRIVATE)
-  publicDisplayName          String?
-  createdAt                  DateTime                    @default(now())
-  updatedAt                  DateTime                    @updatedAt
-  inventoryAuditLogs         InventoryAuditLog[]
-  importBatches              ImportBatch[]
-  importResolutionJobs       ImportResolutionJob[]
-  createdTrades              Trade[]                     @relation("TradeCreatedBy")
-  tradeEvents                TradeEvent[]
-  decks                      Deck[]
-  deckFolders                DeckFolder[]
-  deckTags                   DeckTag[]
-  wishlistItems              WishlistItem[]
-  tradeWishlistItems         TradeWishlistItem[]
-  notifications              Notification[]              @relation("NotificationRecipient")
-  notificationActions        Notification[]              @relation("NotificationActor")
-  notificationPreferences    NotificationPreference[]
+  id                           String                              @id @default(cuid())
+  username                     String                              @unique
+  email                        String?                             @unique
+  displayName                  String
+  passwordHash                 String
+  role                         UserRole                            @default(PLAYER)
+  playerId                     String?
+  player                       Player?                             @relation(fields: [playerId], references: [id])
+  forcePasswordChange          Boolean                             @default(false)
+  isActive                     Boolean                             @default(true)
+  lastLoginAt                  DateTime?
+  theme                        String                              @default("golgari")
+  preferredPriceProvider       String                              @default("scryfall")
+  inventoryDefaultVisibility   DefaultCollectionVisibility         @default(PRIVATE)
+  deckDefaultVisibility        DefaultCollectionVisibility         @default(PRIVATE)
+  publicDisplayName            String?
+  createdAt                    DateTime                            @default(now())
+  updatedAt                    DateTime                            @updatedAt
+  inventoryAuditLogs           InventoryAuditLog[]
+  importBatches                ImportBatch[]
+  importResolutionJobs         ImportResolutionJob[]
+  createdTrades                Trade[]                             @relation("TradeCreatedBy")
+  tradeEvents                  TradeEvent[]
+  decks                        Deck[]
+  deckFolders                  DeckFolder[]
+  deckTags                     DeckTag[]
+  wishlistItems                WishlistItem[]
+  tradeWishlistItems           TradeWishlistItem[]
+  notifications                Notification[]                      @relation("NotificationRecipient")
+  notificationActions          Notification[]                      @relation("NotificationActor")
+  notificationPreferences      NotificationPreference[]
   notificationWebhookEndpoints NotificationWebhookEndpoint[]
-  wishlistNotificationEvents TradeWishlistNotificationActivity[]
-  createdLocationTypes       LocationType[]
+  wishlistNotificationEvents   TradeWishlistNotificationActivity[]
+  createdLocationTypes         LocationType[]
+  commanderLeaguesCreated      CommanderLeague[]                   @relation("CommanderLeagueCreatedBy")
+  commanderLeagueMemberships   CommanderLeagueMember[]
+  commanderLeagueGamesCreated  CommanderLeagueGame[]               @relation("CommanderLeagueGameCreatedBy")
 
   @@index([isActive, inventoryDefaultVisibility])
   @@index([isActive, deckDefaultVisibility])
@@ -176,29 +202,29 @@ model Season {
 }
 
 model Player {
-  id                          String              @id @default(cuid())
-  name                        String              @unique
-  displayName                 String              @unique
+  id                          String                              @id @default(cuid())
+  name                        String                              @unique
+  displayName                 String                              @unique
   email                       String?
-  active                      Boolean             @default(true)
-  isAdmin                     Boolean             @default(false)
-  color                       String              @default("#64748b")
+  active                      Boolean                             @default(true)
+  isAdmin                     Boolean                             @default(false)
+  color                       String                              @default("#64748b")
   memberships                 LeaguePlayer[]
-  openedCards                 CardOwnership[]     @relation("OpenedBy")
-  ownedCards                  CardOwnership[]     @relation("OwnedBy")
+  openedCards                 CardOwnership[]                     @relation("OpenedBy")
+  ownedCards                  CardOwnership[]                     @relation("OwnedBy")
   users                       User[]
   pointEvents                 PointEvent[]
   packAllocations             PackAllocation[]
-  ownedBoxes                  SetBox[]            @relation("BoxOwner")
+  ownedBoxes                  SetBox[]                            @relation("BoxOwner")
   pulls                       Pull[]
-  inventoryOwned              InventoryItem[]     @relation("InventoryCurrentOwner")
-  inventoryOpened             InventoryItem[]     @relation("InventoryOriginalOpener")
+  inventoryOwned              InventoryItem[]                     @relation("InventoryCurrentOwner")
+  inventoryOpened             InventoryItem[]                     @relation("InventoryOriginalOpener")
   inventoryLocations          InventoryLocation[]
-  tradeWishlistTargets        TradeWishlistItem[] @relation("TradeWishlistTargetOwner")
-  importBatchesSelected       ImportBatch[]       @relation("ImportBatchSelectedPlayer")
-  importBatchesOriginalOpened ImportBatch[]       @relation("ImportBatchOriginalOpener")
-  tradesProposed              Trade[]             @relation("TradeProposer")
-  tradesReceived              Trade[]             @relation("TradeReceiver")
+  tradeWishlistTargets        TradeWishlistItem[]                 @relation("TradeWishlistTargetOwner")
+  importBatchesSelected       ImportBatch[]                       @relation("ImportBatchSelectedPlayer")
+  importBatchesOriginalOpened ImportBatch[]                       @relation("ImportBatchOriginalOpener")
+  tradesProposed              Trade[]                             @relation("TradeProposer")
+  tradesReceived              Trade[]                             @relation("TradeReceiver")
   tradeEvents                 TradeEvent[]
   wishlistNotificationTargets TradeWishlistNotificationActivity[]
 }
@@ -274,88 +300,89 @@ model PointCategory {
 }
 
 model Card {
-  id                  String              @id @default(cuid())
-  scryfallId          String              @unique
-  mtgjsonUuid         String?             @unique
-  oracleId            String?
-  multiverseIds       Json?
-  mtgoId              Int?
-  arenaId             Int?
-  name                String
-  printedName         String?
-  lang                String?
-  releasedAt          DateTime?
-  layout              String?
-  highresImage        Boolean?
-  imageStatus         String?
-  manaCost            String?
-  manaValue           Float?
-  power               String?
-  toughness           String?
-  loyalty             String?
-  defense             String?
-  colors              Json?
-  colorIdentity       Json?
-  colorIndicator      Json?
-  producedMana        Json?
-  typeLine            String
-  printedTypeLine     String?
-  oracleText          String?
-  printedText         String?
-  setCode             String
-  setId               String?
-  setType             String?
-  keywords            Json?
-  legalities          Json?
-  games               Json?
-  reserved            Boolean?
-  foil                Boolean?
-  nonfoil             Boolean?
-  finishes            Json?
-  oversized           Boolean?
-  promo               Boolean?
-  reprint             Boolean?
-  variation           Boolean?
-  digital             Boolean?
-  fullArt             Boolean?
-  textless            Boolean?
-  booster             Boolean?
-  storySpotlight      Boolean?
-  setName             String?
-  collectorNumber     String
-  rarity              String
-  artist              String?
-  artistIds           Json?
-  illustrationId      String?
-  borderColor         String?
-  frame               String?
-  frameEffects        Json?
-  securityStamp       String?
-  preview             Json?
-  imageUri            String?
-  imageUris           Json?
-  cardFaces           Json?
-  prices              Json?
-  allParts            Json?
-  relatedUris         Json?
-  purchaseUris        Json?
-  scryfallUri         String?
-  apiUri              String?
-  rawScryfallJson     Json?
-  scryfallFingerprint String?
-  firstCachedAt       DateTime            @default(now())
-  lastSyncedAt        DateTime?
-  lastFetchedAt       DateTime?
-  lastCheckedAt       DateTime?
-  lastChangedAt       DateTime?
-  priceLastFetchedAt  DateTime?
-  ownerships          CardOwnership[]
-  pulls               Pull[]
-  inventoryItems      InventoryItem[]
-  importBatchItems    ImportBatchItem[]
-  tradeWishlistItems  TradeWishlistItem[]
-  deckCards           DeckCard[]
-  wishlistItems       WishlistItem[]
+  id                           String                            @id @default(cuid())
+  scryfallId                   String                            @unique
+  mtgjsonUuid                  String?                           @unique
+  oracleId                     String?
+  multiverseIds                Json?
+  mtgoId                       Int?
+  arenaId                      Int?
+  name                         String
+  printedName                  String?
+  lang                         String?
+  releasedAt                   DateTime?
+  layout                       String?
+  highresImage                 Boolean?
+  imageStatus                  String?
+  manaCost                     String?
+  manaValue                    Float?
+  power                        String?
+  toughness                    String?
+  loyalty                      String?
+  defense                      String?
+  colors                       Json?
+  colorIdentity                Json?
+  colorIndicator               Json?
+  producedMana                 Json?
+  typeLine                     String
+  printedTypeLine              String?
+  oracleText                   String?
+  printedText                  String?
+  setCode                      String
+  setId                        String?
+  setType                      String?
+  keywords                     Json?
+  legalities                   Json?
+  games                        Json?
+  reserved                     Boolean?
+  foil                         Boolean?
+  nonfoil                      Boolean?
+  finishes                     Json?
+  oversized                    Boolean?
+  promo                        Boolean?
+  reprint                      Boolean?
+  variation                    Boolean?
+  digital                      Boolean?
+  fullArt                      Boolean?
+  textless                     Boolean?
+  booster                      Boolean?
+  storySpotlight               Boolean?
+  setName                      String?
+  collectorNumber              String
+  rarity                       String
+  artist                       String?
+  artistIds                    Json?
+  illustrationId               String?
+  borderColor                  String?
+  frame                        String?
+  frameEffects                 Json?
+  securityStamp                String?
+  preview                      Json?
+  imageUri                     String?
+  imageUris                    Json?
+  cardFaces                    Json?
+  prices                       Json?
+  allParts                     Json?
+  relatedUris                  Json?
+  purchaseUris                 Json?
+  scryfallUri                  String?
+  apiUri                       String?
+  rawScryfallJson              Json?
+  scryfallFingerprint          String?
+  firstCachedAt                DateTime                          @default(now())
+  lastSyncedAt                 DateTime?
+  lastFetchedAt                DateTime?
+  lastCheckedAt                DateTime?
+  lastChangedAt                DateTime?
+  priceLastFetchedAt           DateTime?
+  ownerships                   CardOwnership[]
+  pulls                        Pull[]
+  inventoryItems               InventoryItem[]
+  importBatchItems             ImportBatchItem[]
+  tradeWishlistItems           TradeWishlistItem[]
+  deckCards                    DeckCard[]
+  wishlistItems                WishlistItem[]
+  commanderLeagueSnapshotCards CommanderLeagueDeckSnapshotCard[]
 
   @@index([oracleId])
   @@index([setCode, collectorNumber])
@@ -380,29 +407,30 @@ model Pull {
 }
 
 model Deck {
-  id                  String             @id @default(cuid())
+  id                  String               @id @default(cuid())
   ownerUserId         String
-  ownerUser           User               @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  ownerUser           User                 @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
   name                String
   description         String?
-  format              DeckFormat         @default(CASUAL)
-  visibility          Visibility         @default(INHERIT)
+  format              DeckFormat           @default(CASUAL)
+  visibility          Visibility           @default(INHERIT)
   bracket             Int?
   bracketSuggested    Int?
   bracketConfidence   String?
   bracketAnalysisJson Json?
   bracketUpdatedAt    DateTime?
   bracketAnalyzedAt   DateTime?
-  bannerPositionX     Int                @default(50)
-  bannerPositionY     Int                @default(50)
-  bannerZoom          Int                @default(100)
+  bannerPositionX     Int                  @default(50)
+  bannerPositionY     Int                  @default(50)
+  bannerZoom          Int                  @default(100)
   folderId            String?
-  folder              DeckFolder?        @relation(fields: [folderId], references: [id], onDelete: SetNull)
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
+  folder              DeckFolder?          @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
   cards               DeckCard[]
   deckLocation        InventoryLocation?
   tags                DeckTagAssignment[]
+  commanderLeagueDeck CommanderLeagueDeck?
 
   @@index([ownerUserId, updatedAt])
   @@index([visibility, updatedAt])
@@ -427,9 +455,9 @@ model DeckTag {
 
 model DeckTagAssignment {
   deckId    String
-  deck      Deck    @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  deck      Deck     @relation(fields: [deckId], references: [id], onDelete: Cascade)
   tagId     String
-  tag       DeckTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tag       DeckTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
   @@id([deckId, tagId])
@@ -477,6 +505,164 @@ model DeckCard {
   @@index([scryfallId])
   @@index([oracleId])
   @@index([cardName])
+}
+
+model CommanderLeague {
+  id              String                    @id @default(cuid())
+  name            String
+  slug            String                    @unique
+  description     String?
+  year            Int
+  status          CommanderLeagueStatus     @default(ACTIVE)
+  winPoints       Int                       @default(3)
+  drawPoints      Int                       @default(1)
+  lossPoints      Int                       @default(0)
+  createdByUserId String
+  createdByUser   User                      @relation("CommanderLeagueCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  members         CommanderLeagueMember[]
+  rounds          CommanderLeagueRound[]
+  games           CommanderLeagueGame[]
+  locations       CommanderLeagueLocation[]
+  decks           CommanderLeagueDeck[]
+
+  @@unique([name, year])
+  @@index([status, year])
+  @@index([createdByUserId])
+}
+
+model CommanderLeagueMember {
+  id          String                           @id @default(cuid())
+  leagueId    String
+  league      CommanderLeague                  @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User                             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  role        CommanderLeagueMemberRole        @default(PLAYER)
+  active      Boolean                          @default(true)
+  joinedAt    DateTime                         @default(now())
+  gameEntries CommanderLeagueGameParticipant[]
+  decks       CommanderLeagueDeck[]
+
+  @@unique([leagueId, userId])
+  @@index([userId, active])
+  @@index([leagueId, active])
+}
+
+model CommanderLeagueRound {
+  id          String                @id @default(cuid())
+  leagueId    String
+  league      CommanderLeague       @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  monthNumber Int
+  name        String
+  startDate   DateTime
+  endDate     DateTime
+  games       CommanderLeagueGame[]
+  decks       CommanderLeagueDeck[]
+
+  @@unique([leagueId, monthNumber])
+  @@index([leagueId, startDate])
+}
+
+model CommanderLeagueGame {
+  id              String                           @id @default(cuid())
+  leagueId        String
+  league          CommanderLeague                  @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  roundId         String
+  round           CommanderLeagueRound             @relation(fields: [roundId], references: [id], onDelete: Restrict)
+  playedAt        DateTime
+  status          CommanderLeagueGameStatus        @default(COMPLETED)
+  notes           String?
+  createdByUserId String
+  createdByUser   User                             @relation("CommanderLeagueGameCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  createdAt       DateTime                         @default(now())
+  updatedAt       DateTime                         @updatedAt
+  participants    CommanderLeagueGameParticipant[]
+
+  @@index([leagueId, playedAt])
+  @@index([roundId, playedAt])
+  @@index([createdByUserId])
+}
+
+model CommanderLeagueGameParticipant {
+  id             String                         @id @default(cuid())
+  gameId         String
+  game           CommanderLeagueGame            @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  memberId       String
+  member         CommanderLeagueMember          @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  result         CommanderLeagueResult
+  finishPosition Int?
+  pointsAwarded  Int
+  deckSubmission CommanderLeagueDeckSubmission?
+
+  @@unique([gameId, memberId])
+  @@index([memberId, result])
+  @@index([gameId, finishPosition])
+}
+
+model CommanderLeagueDeckSubmission {
+  id                 String                            @id @default(cuid())
+  participantId      String                            @unique
+  participant        CommanderLeagueGameParticipant    @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  sourceLeagueDeckId String?
+  sourceLeagueDeck   CommanderLeagueDeck?              @relation(fields: [sourceLeagueDeckId], references: [id], onDelete: SetNull)
+  deckName           String
+  submittedAt        DateTime                          @default(now())
+  cards              CommanderLeagueDeckSnapshotCard[]
+
+  @@index([sourceLeagueDeckId])
+}
+
+model CommanderLeagueDeck {
+  id            String                          @id @default(cuid())
+  leagueId      String
+  league        CommanderLeague                 @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  memberId      String
+  member        CommanderLeagueMember           @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  roundId       String
+  round         CommanderLeagueRound            @relation(fields: [roundId], references: [id], onDelete: Restrict)
+  archiveDeckId String                          @unique
+  archiveDeck   Deck                            @relation(fields: [archiveDeckId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?
+  submittedAt   DateTime                        @default(now())
+  createdAt     DateTime                        @default(now())
+  updatedAt     DateTime                        @updatedAt
+  submissions   CommanderLeagueDeckSubmission[]
+
+  @@unique([memberId, roundId])
+  @@index([leagueId, updatedAt])
+  @@index([roundId])
+}
+
+model CommanderLeagueDeckSnapshotCard {
+  id           String                        @id @default(cuid())
+  submissionId String
+  submission   CommanderLeagueDeckSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  cardId       String?
+  card         Card?                         @relation(fields: [cardId], references: [id], onDelete: SetNull)
+  scryfallId   String?
+  oracleId     String?
+  cardName     String
+  section      DeckSection
+  quantity     Int
+  isCommander  Boolean                       @default(false)
+
+  @@index([submissionId, section])
+  @@index([cardId])
+  @@index([oracleId])
+  @@index([cardName])
+}
+
+model CommanderLeagueLocation {
+  leagueId   String
+  league     CommanderLeague   @relation(fields: [leagueId], references: [id], onDelete: Cascade)
+  locationId String
+  location   InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  addedAt    DateTime          @default(now())
+
+  @@id([leagueId, locationId])
+  @@index([locationId])
 }
 
 model CommanderBracketRuleSet {
@@ -532,27 +718,28 @@ model WishlistItem {
 }
 
 model InventoryLocation {
-  id                        String                @id @default(cuid())
+  id                        String                    @id @default(cuid())
   ownerPlayerId             String
-  ownerPlayer               Player                @relation(fields: [ownerPlayerId], references: [id])
+  ownerPlayer               Player                    @relation(fields: [ownerPlayerId], references: [id])
   parentLocationId          String?
-  parentLocation            InventoryLocation?    @relation("InventoryLocationHierarchy", fields: [parentLocationId], references: [id], onDelete: Restrict)
-  childLocations            InventoryLocation[]   @relation("InventoryLocationHierarchy")
+  parentLocation            InventoryLocation?        @relation("InventoryLocationHierarchy", fields: [parentLocationId], references: [id], onDelete: Restrict)
+  childLocations            InventoryLocation[]       @relation("InventoryLocationHierarchy")
   name                      String
   normalizedName            String
   description               String?
   type                      String?
-  kind                      InventoryLocationKind @default(NORMAL)
-  deckId                    String?               @unique
-  deck                      Deck?                 @relation(fields: [deckId], references: [id], onDelete: Cascade)
-  systemManaged             Boolean               @default(false)
-  active                    Boolean               @default(true)
-  visibility                Visibility            @default(INHERIT)
-  createdAt                 DateTime              @default(now())
-  updatedAt                 DateTime              @updatedAt
+  kind                      InventoryLocationKind     @default(NORMAL)
+  deckId                    String?                   @unique
+  deck                      Deck?                     @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  systemManaged             Boolean                   @default(false)
+  active                    Boolean                   @default(true)
+  visibility                Visibility                @default(INHERIT)
+  createdAt                 DateTime                  @default(now())
+  updatedAt                 DateTime                  @updatedAt
   inventoryItems            InventoryItem[]
-  proposerTradeDestinations Trade[]               @relation("ProposerTradeDestination")
-  receiverTradeDestinations Trade[]               @relation("ReceiverTradeDestination")
+  proposerTradeDestinations Trade[]                   @relation("ProposerTradeDestination")
+  receiverTradeDestinations Trade[]                   @relation("ReceiverTradeDestination")
+  commanderLeagueLinks      CommanderLeagueLocation[]
 
   @@index([ownerPlayerId, active])
   @@index([parentLocationId])
@@ -563,20 +750,20 @@ model InventoryLocation {
 }
 
 model TradeWishlistItem {
-  id                    String              @id @default(cuid())
-  ownerUserId           String
-  ownerUser             User                @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
-  cardId                String
-  card                  Card                @relation(fields: [cardId], references: [id], onDelete: Restrict)
-  targetOwnerPlayerId   String
-  targetOwnerPlayer     Player              @relation("TradeWishlistTargetOwner", fields: [targetOwnerPlayerId], references: [id], onDelete: Cascade)
-  targetInventoryItemId String?
-  targetInventoryItem   InventoryItem?      @relation(fields: [targetInventoryItemId], references: [id], onDelete: SetNull)
-  quantity              Int                 @default(1)
-  status                TradeWishlistStatus @default(OPEN)
-  notes                 String?
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
+  id                     String                              @id @default(cuid())
+  ownerUserId            String
+  ownerUser              User                                @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  cardId                 String
+  card                   Card                                @relation(fields: [cardId], references: [id], onDelete: Restrict)
+  targetOwnerPlayerId    String
+  targetOwnerPlayer      Player                              @relation("TradeWishlistTargetOwner", fields: [targetOwnerPlayerId], references: [id], onDelete: Cascade)
+  targetInventoryItemId  String?
+  targetInventoryItem    InventoryItem?                      @relation(fields: [targetInventoryItemId], references: [id], onDelete: SetNull)
+  quantity               Int                                 @default(1)
+  status                 TradeWishlistStatus                 @default(OPEN)
+  notes                  String?
+  createdAt              DateTime                            @default(now())
+  updatedAt              DateTime                            @updatedAt
   notificationActivities TradeWishlistNotificationActivity[]
 
   @@unique([ownerUserId, targetOwnerPlayerId, cardId])
@@ -794,17 +981,17 @@ model Trade {
 }
 
 model TradeLine {
-  id              String        @id @default(cuid())
+  id              String         @id @default(cuid())
   tradeId         String
-  trade           Trade         @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  trade           Trade          @relation(fields: [tradeId], references: [id], onDelete: Cascade)
   side            TradeLineSide
   inventoryItemId String?
   inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
-  quantity        Int           @default(1)
-  position        Int           @default(0)
+  quantity        Int            @default(1)
+  position        Int            @default(0)
   snapshotJson    Json
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   @@index([tradeId, side, position])
   @@index([inventoryItemId])
@@ -825,11 +1012,11 @@ model TradeEvent {
 }
 
 model Notification {
-  id              String   @id @default(cuid())
+  id              String                    @id @default(cuid())
   recipientUserId String
-  recipientUser   User     @relation("NotificationRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
+  recipientUser   User                      @relation("NotificationRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
   actorUserId     String?
-  actorUser       User?    @relation("NotificationActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorUser       User?                     @relation("NotificationActor", fields: [actorUserId], references: [id], onDelete: SetNull)
   type            String
   category        String
   title           String
@@ -839,8 +1026,8 @@ model Notification {
   sourceId        String?
   metadataJson    Json?
   readAt          DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
   deliveryJobs    NotificationDeliveryJob[]
 
   @@unique([recipientUserId, sourceType, sourceId])
@@ -850,26 +1037,26 @@ model Notification {
 }
 
 model NotificationDeliveryJob {
-  id              String                     @id @default(cuid())
-  notificationId  String?
-  notification    Notification?              @relation(fields: [notificationId], references: [id], onDelete: Cascade)
-  sourceType      String                     @default("notification")
-  sourceId        String
-  transport       String
-  destinationKey  String
-  payloadJson     Json
-  status          NotificationDeliveryStatus @default(PENDING)
-  attemptCount    Int                        @default(0)
-  maxAttempts     Int                        @default(5)
-  nextAttemptAt   DateTime?                  @default(now())
-  claimToken      String?
-  claimedAt       DateTime?
-  claimExpiresAt  DateTime?
-  lastError       String?
-  sentAt          DateTime?
-  createdAt       DateTime                   @default(now())
-  updatedAt       DateTime                   @updatedAt
-  attempts        NotificationDeliveryAttempt[]
+  id             String                        @id @default(cuid())
+  notificationId String?
+  notification   Notification?                 @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  sourceType     String                        @default("notification")
+  sourceId       String
+  transport      String
+  destinationKey String
+  payloadJson    Json
+  status         NotificationDeliveryStatus    @default(PENDING)
+  attemptCount   Int                           @default(0)
+  maxAttempts    Int                           @default(5)
+  nextAttemptAt  DateTime?                     @default(now())
+  claimToken     String?
+  claimedAt      DateTime?
+  claimExpiresAt DateTime?
+  lastError      String?
+  sentAt         DateTime?
+  createdAt      DateTime                      @default(now())
+  updatedAt      DateTime                      @updatedAt
+  attempts       NotificationDeliveryAttempt[]
 
   @@unique([sourceType, sourceId, transport, destinationKey])
   @@index([status, nextAttemptAt])
@@ -895,14 +1082,14 @@ model TradeAnnouncementWebhookEndpoint {
 }
 
 model NotificationDeliveryAttempt {
-  id              String                            @id @default(cuid())
-  jobId           String
-  job             NotificationDeliveryJob           @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  attemptNumber   Int
-  status          NotificationDeliveryAttemptStatus
-  errorMessage    String?
-  startedAt       DateTime
-  finishedAt      DateTime                          @default(now())
+  id            String                            @id @default(cuid())
+  jobId         String
+  job           NotificationDeliveryJob           @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  attemptNumber Int
+  status        NotificationDeliveryAttemptStatus
+  errorMessage  String?
+  startedAt     DateTime
+  finishedAt    DateTime                          @default(now())
 
   @@unique([jobId, attemptNumber])
   @@index([status, finishedAt])
@@ -910,13 +1097,13 @@ model NotificationDeliveryAttempt {
 }
 
 model NotificationPreference {
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category     String
-  inAppEnabled Boolean  @default(true)
-  webhookEnabled Boolean @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category       String
+  inAppEnabled   Boolean  @default(true)
+  webhookEnabled Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@id([userId, category])
   @@index([category, inAppEnabled])
@@ -943,17 +1130,17 @@ model NotificationWebhookEndpoint {
 }
 
 model TradeWishlistNotificationActivity {
-  id                    String            @id @default(cuid())
-  actorUserId           String
-  actorUser             User              @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
-  targetOwnerPlayerId   String
-  targetOwnerPlayer     Player            @relation(fields: [targetOwnerPlayerId], references: [id], onDelete: Cascade)
-  tradeWishlistItemId   String
-  tradeWishlistItem     TradeWishlistItem @relation(fields: [tradeWishlistItemId], references: [id], onDelete: Cascade)
-  cardName              String
-  quantityAdded         Int               @default(1)
-  processedAt           DateTime?
-  createdAt             DateTime          @default(now())
+  id                  String            @id @default(cuid())
+  actorUserId         String
+  actorUser           User              @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+  targetOwnerPlayerId String
+  targetOwnerPlayer   Player            @relation(fields: [targetOwnerPlayerId], references: [id], onDelete: Cascade)
+  tradeWishlistItemId String
+  tradeWishlistItem   TradeWishlistItem @relation(fields: [tradeWishlistItemId], references: [id], onDelete: Cascade)
+  cardName            String
+  quantityAdded       Int               @default(1)
+  processedAt         DateTime?
+  createdAt           DateTime          @default(now())
 
   @@index([processedAt, createdAt])
   @@index([targetOwnerPlayerId, processedAt, createdAt])

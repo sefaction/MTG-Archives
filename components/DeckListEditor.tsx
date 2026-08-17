@@ -327,8 +327,10 @@ function ownedStatusBadge(row: DeckEditorRow) {
   );
 }
 
-function listOwnershipBadge(row: DeckEditorRow) {
-  return isFullyCommitted(row) ? commitmentBadge(row) : ownedStatusBadge(row);
+function listOwnershipBadge(row: DeckEditorRow, showCommitment = true) {
+  return showCommitment && isFullyCommitted(row)
+    ? commitmentBadge(row)
+    : ownedStatusBadge(row);
 }
 
 function listCommitmentBadge(row: DeckEditorRow) {
@@ -339,7 +341,8 @@ function listCommitmentBadge(row: DeckEditorRow) {
   );
 }
 
-function listStatusBadges(row: DeckEditorRow) {
+function listStatusBadges(row: DeckEditorRow, showCommitment = true) {
+  if (!showCommitment) return ownedStatusBadge(row);
   return isFullyCommitted(row) ? (
     commitmentBadge(row)
   ) : (
@@ -798,7 +801,9 @@ export function DeckListEditor({
                     </button>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <label className="flex items-center gap-1 text-xs text-stone-300">
+                    <label
+                      className={`${showPrivateInventory ? "flex" : "hidden"} items-center gap-1 text-xs text-stone-300`}
+                    >
                       Return destination
                       <select
                         value={returnDestinationId}
@@ -889,6 +894,7 @@ export function DeckListEditor({
                             filterButtonClass,
                             "px-2 py-1 text-amber-100",
                           )}
+                          hidden={!showPrivateInventory}
                           disabled={
                             Boolean(pending) || selectedCommittedQuantity === 0
                           }
@@ -1136,10 +1142,12 @@ function DeckPreviewRail({
             }
           />
           <PreviewDetail label="Price" value={priceLabel(row.card?.prices)} />
-          <PreviewDetail
-            label="Committed"
-            value={`${row.committedToThisDeck}/${row.quantity}`}
-          />
+          {showLocations ? (
+            <PreviewDetail
+              label="Committed"
+              value={`${row.committedToThisDeck}/${row.quantity}`}
+            />
+          ) : null}
           <PreviewDetail
             label="Available"
             value={`${row.available} total · ${row.availableExact} exact · ${row.availableOther} other`}
@@ -1148,7 +1156,9 @@ function DeckPreviewRail({
             <PreviewDetail label="Locations" value={row.locationSummary} />
           ) : null}
         </div>
-        <div className="flex flex-wrap gap-1">{listStatusBadges(row)}</div>
+        <div className="flex flex-wrap gap-1">
+          {listStatusBadges(row, showLocations)}
+        </div>
         {row.notes ? (
           <p className="rounded border border-[#2a332d] bg-[#0d1210] p-2 text-xs text-stone-400">
             {row.notes}
@@ -1197,7 +1207,7 @@ function CompactDeckRow({
   ...props
 }: { row: DeckEditorRow } & DeckViewProps) {
   const expanded = props.expanded === row.id;
-  const fullyCommitted = isFullyCommitted(row);
+  const fullyCommitted = props.showPrivateInventory && isFullyCommitted(row);
   const ownedStatus = row.isBasicLand
     ? "Basic land covered"
     : fullyCommitted
@@ -1249,7 +1259,7 @@ function CompactDeckRow({
           className={cn("h-2 w-2 rounded-full", ownedTone)}
           title={ownedStatus}
         />
-        {!fullyCommitted ? (
+        {props.showPrivateInventory && !fullyCommitted ? (
           <span
             className={cn(
               "h-2 w-2 rounded-full",
@@ -1320,7 +1330,9 @@ function TextDeckView(props: DeckViewProps) {
                   <th className="px-2 py-1.5">Type</th>
                   <th className="px-2 py-1.5">Section</th>
                   <th className="px-2 py-1.5">Owned</th>
-                  <th className="px-2 py-1.5">Commit</th>
+                  {props.showPrivateInventory ? (
+                    <th className="px-2 py-1.5">Commit</th>
+                  ) : null}
                   <th className="px-2 py-1.5">Price</th>
                   <th className="px-2 py-1.5">
                     <span className="sr-only">Actions</span>
@@ -1394,8 +1406,12 @@ function TextDeckRow({
       <td className="whitespace-nowrap px-2 py-1.5 text-xs text-stone-300">
         {deckSectionLabel(row.section)}
       </td>
-      <td className="px-2 py-1.5">{listOwnershipBadge(row)}</td>
-      <td className="px-2 py-1.5">{listCommitmentBadge(row)}</td>
+      <td className="px-2 py-1.5">
+        {listOwnershipBadge(row, props.showPrivateInventory)}
+      </td>
+      {props.showPrivateInventory ? (
+        <td className="px-2 py-1.5">{listCommitmentBadge(row)}</td>
+      ) : null}
       <td className="whitespace-nowrap px-2 py-1.5 text-xs text-stone-300">
         {priceLabel(row.card?.prices)}
       </td>
@@ -1459,7 +1475,7 @@ function VisualDeckView(props: DeckViewProps & { mode: "grid" | "spoiler" }) {
                     </div>
                   </button>
                   <div className="mt-2 flex flex-wrap gap-1">
-                    {listStatusBadges(row)}
+                    {listStatusBadges(row, props.showPrivateInventory)}
                   </div>
                   <div className="mt-2">
                     <CardActions
@@ -1546,8 +1562,17 @@ function DeckEntryDrawer({
   if (!row) return null;
   const tabs = [
     { id: "overview", label: "Overview" },
-    { id: "inventory", label: "Inventory" },
-    ...(canEdit ? [{ id: "commit" as const, label: "Commit" }] : []),
+    ...(showPrivateInventory
+      ? [{ id: "inventory" as const, label: "Inventory" }]
+      : []),
+    ...(canEdit
+      ? [
+          {
+            id: "commit" as const,
+            label: showPrivateInventory ? "Commit" : "Edit",
+          },
+        ]
+      : []),
   ] as const;
 
   return (
@@ -1572,7 +1597,7 @@ function DeckEntryDrawer({
                 {row.quantity} in {deckSectionLabel(row.section)}
               </span>
               <ManaCost value={row.card?.manaCost ?? null} />
-              {commitmentBadge(row)}
+              {showPrivateInventory ? commitmentBadge(row) : null}
             </div>
             <p className="hidden text-sm text-zinc-400">
               {row.quantity} × {deckSectionLabel(row.section)} ·{" "}
@@ -1670,11 +1695,15 @@ function RowEditor({
                 ? `${row.card.setCode.toUpperCase()} #${row.card.collectorNumber} · ${row.card.rarity} · ${priceLabel(row.card.prices)}`
                 : "Generic card row"}
             </p>
-            <div className="mt-2">{commitmentBadge(row)}</div>
-            <p className="text-xs text-zinc-400">
-              Inventory detail and commit controls are available in the
-              Inventory and Commit tabs.
-            </p>
+            {showPrivateInventory ? (
+              <>
+                <div className="mt-2">{commitmentBadge(row)}</div>
+                <p className="text-xs text-zinc-400">
+                  Inventory detail and commit controls are available in the
+                  Inventory and Commit tabs.
+                </p>
+              </>
+            ) : null}
           </div>
         ) : null}
         {activeTab === "inventory" ? (
@@ -1796,14 +1825,20 @@ function RowEditor({
             ) : null}
             {activeTab === "commit" ? (
               <div className="space-y-3 rounded border border-zinc-800 p-3">
-                <CommitInventoryToDeck deckId={deckId} row={row} />
+                {showPrivateInventory ? (
+                  <CommitInventoryToDeck deckId={deckId} row={row} />
+                ) : null}
                 <PrintingPicker deckId={deckId} row={row} />
-                <AddRealCopyToDeck deckId={deckId} row={row} />
-                <ReturnCommittedCopies
-                  deckId={deckId}
-                  row={row}
-                  returnLocations={returnLocations}
-                />
+                {showPrivateInventory ? (
+                  <>
+                    <AddRealCopyToDeck deckId={deckId} row={row} />
+                    <ReturnCommittedCopies
+                      deckId={deckId}
+                      row={row}
+                      returnLocations={returnLocations}
+                    />
+                  </>
+                ) : null}
                 <form action={removeDeckCard}>
                   <input type="hidden" name="deckId" value={deckId} />
                   <input type="hidden" name="deckCardId" value={row.id} />

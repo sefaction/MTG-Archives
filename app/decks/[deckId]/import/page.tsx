@@ -7,6 +7,7 @@ import { DeckImportPanel } from "@/components/DeckImportPanel";
 import { getAccessScope, getCurrentUser } from "@/lib/auth";
 import { canManageDeck, deckFormatLabel } from "@/lib/decks";
 import { prisma } from "@/lib/prisma";
+import { getDeckManagementPolicy } from "@/lib/deck-management-policy";
 
 export default async function DeckImportPage({
   params,
@@ -16,11 +17,14 @@ export default async function DeckImportPage({
   const user = await getCurrentUser();
   const scope = user ? await getAccessScope(user) : null;
   const { deckId } = await params;
-  const deck = await prisma.deck.findUnique({
-    where: { id: deckId },
-    include: { ownerUser: true },
-  });
-  if (!deck || !canManageDeck(user, deck, scope?.mode === "admin")) {
+  if (!user) notFound();
+  const policy = await getDeckManagementPolicy(
+    deckId,
+    user,
+    scope?.mode === "admin",
+  );
+  const { deck } = policy;
+  if (!deck || !policy.canManage || policy.locked) {
     notFound();
   }
 
@@ -39,7 +43,10 @@ export default async function DeckImportPage({
           <p className="text-stone-400">{deckFormatLabel(deck.format)}</p>
         </div>
         <div className="p-4">
-          <DeckImportPanel deckId={deck.id} />
+          <DeckImportPanel
+            deckId={deck.id}
+            inventoryCommitmentEnabled={!policy.isLeagueDeck}
+          />
         </div>
       </section>
     </main>

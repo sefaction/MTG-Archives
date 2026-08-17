@@ -23,11 +23,13 @@ export function DeckCardPicker({
   defaultSection,
   sections,
   locations,
+  inventoryCommitmentEnabled = true,
 }: {
   deckId: string;
   defaultSection: DeckSection;
   sections: DeckSection[];
   locations: Array<{ id: string; name: string }>;
+  inventoryCommitmentEnabled?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [includeScryfall, setIncludeScryfall] = useState(false);
@@ -205,7 +207,9 @@ export function DeckCardPicker({
           />
         </label>
 
-        <div className="space-y-2 rounded border border-zinc-800 bg-zinc-950/60 p-2 text-sm md:col-span-3">
+        <div
+          className={`${inventoryCommitmentEnabled ? "" : "hidden"} space-y-2 rounded border border-zinc-800 bg-zinc-950/60 p-2 text-sm md:col-span-3`}
+        >
           <label className="flex items-start gap-2 text-zinc-200">
             <input
               type="checkbox"
@@ -255,7 +259,9 @@ export function DeckCardPicker({
             </label>
           ) : null}
         </div>
-        <div className="space-y-2 rounded border border-sky-900 bg-sky-950/10 p-2 text-sm md:col-span-3">
+        <div
+          className={`${inventoryCommitmentEnabled ? "" : "hidden"} space-y-2 rounded border border-sky-900 bg-sky-950/10 p-2 text-sm md:col-span-3`}
+        >
           <label className="flex items-start gap-2 text-zinc-200">
             <input
               type="checkbox"

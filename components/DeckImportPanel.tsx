@@ -153,7 +153,13 @@ function summarize(
   };
 }
 
-export function DeckImportPanel({ deckId }: { deckId: string }) {
+export function DeckImportPanel({
+  deckId,
+  inventoryCommitmentEnabled = true,
+}: {
+  deckId: string;
+  inventoryCommitmentEnabled?: boolean;
+}) {
   const [text, setText] = useState("");
   const [lines, setLines] = useState<DeckImportReviewLine[]>([]);
   const [skippedLines, setSkippedLines] = useState<DeckImportReviewLine[]>([]);
@@ -474,7 +480,9 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
             <span>Excluded cards: {summary.excludedTotalQuantity}</span>
             <span>Ready entries: {summary.readyToCommit}</span>
             <span>Ready copies: {summary.readyToCommitTotalQuantity}</span>
-            <span>Physical copies: {summary.physicalCopies}</span>
+            {inventoryCommitmentEnabled ? (
+              <span>Physical copies: {summary.physicalCopies}</span>
+            ) : null}
           </div>
           {summary.unresolvedIncluded > 0 ? (
             <p className="rounded border border-amber-800 bg-amber-950/30 p-2 text-sm text-amber-100">
@@ -493,7 +501,9 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
                   <th className="p-2">Status</th>
                   <th className="p-2">Selected printing</th>
                   <th className="p-2">Owned</th>
-                  <th className="p-2">Physical copies</th>
+                  {inventoryCommitmentEnabled ? (
+                    <th className="p-2">Physical copies</th>
+                  ) : null}
                   <th className="p-2">Actions</th>
                 </tr>
               </thead>
@@ -502,6 +512,7 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
                   <ReviewLine
                     key={line.id}
                     line={line}
+                    inventoryCommitmentEnabled={inventoryCommitmentEnabled}
                     updateLine={(updater) => updateLine(line.id, updater)}
                   />
                 ))}
@@ -567,7 +578,7 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
               className="rounded border border-sky-700 px-3 py-2 text-sky-100"
             >
               Import {summary.readyToCommitTotalQuantity} deck-list copies
-              {summary.physicalCopies
+              {inventoryCommitmentEnabled && summary.physicalCopies
                 ? ` and commit ${summary.physicalCopies} physical`
                 : ""}
             </SubmitButton>
@@ -584,8 +595,10 @@ export function DeckImportPanel({ deckId }: { deckId: string }) {
 function ReviewLine({
   line,
   updateLine,
+  inventoryCommitmentEnabled,
 }: {
   line: DeckImportReviewLine;
+  inventoryCommitmentEnabled: boolean;
   updateLine: (
     updater: (line: DeckImportReviewLine) => DeckImportReviewLine,
   ) => void;
@@ -719,99 +732,101 @@ function ReviewLine({
           "Not owned"
         )}
       </td>
-      <td className="min-w-48 p-2">
-        <label className="flex items-center gap-2 text-xs text-zinc-200">
-          <input
-            type="checkbox"
-            checked={line.physicalQuantity > 0}
-            disabled={!line.selectedCardId || !line.included}
-            onChange={(event) =>
-              updateLine((current) => ({
-                ...current,
-                physicalQuantity: event.target.checked
-                  ? Math.max(1, current.quantity ?? 1)
-                  : 0,
-              }))
-            }
-          />
-          Create and commit inventory
-        </label>
-        {line.physicalQuantity > 0 ? (
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <label className={filterFieldClass}>
-              Quantity
-              <input
-                type="number"
-                min={1}
-                max={line.quantity ?? 1}
-                value={line.physicalQuantity}
-                onChange={(event) =>
-                  updateLine((current) => ({
-                    ...current,
-                    physicalQuantity: Math.min(
-                      current.quantity ?? 1,
-                      Math.max(1, Number(event.target.value) || 1),
-                    ),
-                  }))
-                }
-                className={cn(filterInputClass, "mt-1 w-full")}
-              />
-            </label>
-            <label className={filterFieldClass}>
-              Finish
-              <select
-                value={line.physicalFoilStatus}
-                onChange={(event) =>
-                  updateLine((current) => ({
-                    ...current,
-                    physicalFoilStatus: event.target.value as FoilStatus,
-                  }))
-                }
-                className={cn(filterSelectClass, "mt-1 w-full")}
-              >
-                <option value={FoilStatus.NONFOIL}>Nonfoil</option>
-                <option value={FoilStatus.FOIL}>Foil</option>
-                <option value={FoilStatus.ETCHED}>Etched</option>
-              </select>
-            </label>
-            <label className={filterFieldClass}>
-              Condition
-              <select
-                value={line.physicalCondition}
-                onChange={(event) =>
-                  updateLine((current) => ({
-                    ...current,
-                    physicalCondition: event.target.value,
-                  }))
-                }
-                className={cn(filterSelectClass, "mt-1 w-full")}
-              >
-                <option value="NM">NM</option>
-                <option value="LP">LP</option>
-                <option value="MP">MP</option>
-                <option value="HP">HP</option>
-                <option value="DMG">Damaged</option>
-              </select>
-            </label>
-            <label className={filterFieldClass}>
-              Language
-              <input
-                value={line.physicalLanguage}
-                maxLength={8}
-                onChange={(event) =>
-                  updateLine((current) => ({
-                    ...current,
-                    physicalLanguage: event.target.value.toUpperCase(),
-                  }))
-                }
-                className={cn(filterInputClass, "mt-1 w-full")}
-              />
-            </label>
-          </div>
-        ) : (
-          <p className="mt-1 text-xs text-zinc-500">Deck list only</p>
-        )}
-      </td>
+      {inventoryCommitmentEnabled ? (
+        <td className="min-w-48 p-2">
+          <label className="flex items-center gap-2 text-xs text-zinc-200">
+            <input
+              type="checkbox"
+              checked={line.physicalQuantity > 0}
+              disabled={!line.selectedCardId || !line.included}
+              onChange={(event) =>
+                updateLine((current) => ({
+                  ...current,
+                  physicalQuantity: event.target.checked
+                    ? Math.max(1, current.quantity ?? 1)
+                    : 0,
+                }))
+              }
+            />
+            Create and commit inventory
+          </label>
+          {line.physicalQuantity > 0 ? (
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <label className={filterFieldClass}>
+                Quantity
+                <input
+                  type="number"
+                  min={1}
+                  max={line.quantity ?? 1}
+                  value={line.physicalQuantity}
+                  onChange={(event) =>
+                    updateLine((current) => ({
+                      ...current,
+                      physicalQuantity: Math.min(
+                        current.quantity ?? 1,
+                        Math.max(1, Number(event.target.value) || 1),
+                      ),
+                    }))
+                  }
+                  className={cn(filterInputClass, "mt-1 w-full")}
+                />
+              </label>
+              <label className={filterFieldClass}>
+                Finish
+                <select
+                  value={line.physicalFoilStatus}
+                  onChange={(event) =>
+                    updateLine((current) => ({
+                      ...current,
+                      physicalFoilStatus: event.target.value as FoilStatus,
+                    }))
+                  }
+                  className={cn(filterSelectClass, "mt-1 w-full")}
+                >
+                  <option value={FoilStatus.NONFOIL}>Nonfoil</option>
+                  <option value={FoilStatus.FOIL}>Foil</option>
+                  <option value={FoilStatus.ETCHED}>Etched</option>
+                </select>
+              </label>
+              <label className={filterFieldClass}>
+                Condition
+                <select
+                  value={line.physicalCondition}
+                  onChange={(event) =>
+                    updateLine((current) => ({
+                      ...current,
+                      physicalCondition: event.target.value,
+                    }))
+                  }
+                  className={cn(filterSelectClass, "mt-1 w-full")}
+                >
+                  <option value="NM">NM</option>
+                  <option value="LP">LP</option>
+                  <option value="MP">MP</option>
+                  <option value="HP">HP</option>
+                  <option value="DMG">Damaged</option>
+                </select>
+              </label>
+              <label className={filterFieldClass}>
+                Language
+                <input
+                  value={line.physicalLanguage}
+                  maxLength={8}
+                  onChange={(event) =>
+                    updateLine((current) => ({
+                      ...current,
+                      physicalLanguage: event.target.value.toUpperCase(),
+                    }))
+                  }
+                  className={cn(filterInputClass, "mt-1 w-full")}
+                />
+              </label>
+            </div>
+          ) : (
+            <p className="mt-1 text-xs text-zinc-500">Deck list only</p>
+          )}
+        </td>
+      ) : null}
       <td className="p-2">
         <div className="space-y-2">
           <button

@@ -61,7 +61,10 @@ export default async function DecksPage({
       orderBy: [{ name: "asc" }, { ownerUserId: "asc" }],
     }),
     prisma.deck.findMany({
-      where: adminModeActive ? {} : { ownerUserId: user.id },
+      where: {
+        commanderLeagueDeck: { is: null },
+        ...(adminModeActive ? {} : { ownerUserId: user.id }),
+      },
       include: {
         cards: {
           select: {

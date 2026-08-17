@@ -125,7 +125,7 @@ test("collapsed deck action panels preserve existing form submissions", () => {
   assert.match(pageSource, /<DeckCardPicker/);
   assert.match(pageSource, /Open deck import page/);
   assert.match(pageSource, /\/decks\/\$\{deck\.id\}\/import/);
-  assert.match(importPageSource, /<DeckImportPanel deckId=\{deck\.id\} \/>/);
+  assert.match(importPageSource, /<DeckImportPanel[\s\S]*deckId=\{deck\.id\}/);
   assert.match(importPageSource, /canManageDeck/);
   assert.match(pageSource, /action=\{returnAllCommittedDeckInventory\}/);
   assert.match(pageSource, /action=\{updateDeck\}/);

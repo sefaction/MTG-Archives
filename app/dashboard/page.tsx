@@ -135,6 +135,16 @@ export default async function DashboardPage({
         ))}
       </div>
       <section className="grid gap-3 md:grid-cols-4">
+        <Link
+          className="rounded border border-cyan-800 bg-cyan-950/20 p-4"
+          href="/league"
+        >
+          <h2 className="font-semibold text-cyan-100">Commander League</h2>
+          <p className="text-sm text-zinc-400">
+            Enter the separate league workspace for games, standings, frozen
+            decks, and card statistics.
+          </p>
+        </Link>
         <Link className="rounded border border-zinc-800 p-4" href="/inventory">
           <h2 className="font-semibold">Inventory</h2>
           <p className="text-sm text-zinc-400">

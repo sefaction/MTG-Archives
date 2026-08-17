@@ -333,7 +333,10 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
   const viewer = await getCurrentUser();
   const editableDecks = viewer
     ? await prisma.deck.findMany({
-        where: { ownerUserId: viewer.id },
+        where: {
+          ownerUserId: viewer.id,
+          commanderLeagueDeck: { is: null },
+        },
         select: {
           id: true,
           name: true,
