@@ -17,6 +17,9 @@ export function LeagueNav({ leagueId }: { leagueId?: string }) {
           <Link className="app-nav-link" href={`/league/${leagueId}/decks`}>
             Decks
           </Link>
+          <Link className="app-nav-link" href={`/league/${leagueId}/stats`}>
+            Stats
+          </Link>
         </>
       ) : null}
       <Link className="app-nav-link" href="/dashboard">
