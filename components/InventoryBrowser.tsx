@@ -196,6 +196,7 @@ export type InventoryRow = {
   locationSection?: string | null;
   locationSummary?: string;
   locationBreakdown?: InventoryLocationStack[];
+  drawerLocationBreakdown?: InventoryLocationStack[];
   printings?: Array<{
     id: string;
     cardId: string;
@@ -1057,7 +1058,8 @@ function CardDetail({
     ["Penny", legalities.penny],
     ["Oathbreaker", legalities.oathbreaker],
   ].filter(([, value]) => value);
-  const visibleLocationBreakdown = row.locationBreakdown ?? [];
+  const visibleLocationBreakdown =
+    row.drawerLocationBreakdown ?? row.locationBreakdown ?? [];
   const tradeWishlistTargets = row.tradeWishlistTargets ?? [];
   return (
     <div className="fixed inset-0 z-50 bg-black/50" onClick={onClose}>

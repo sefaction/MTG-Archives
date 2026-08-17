@@ -510,13 +510,30 @@ export async function getGlobalPublicInventory(
             language: group.language,
           })),
         };
-  const inventory = pageGroups.length
-    ? await prisma.inventoryItem.findMany({
-        where: pageWhere,
-        include: publicInventoryInclude,
-        orderBy: [{ card: { name: "asc" } }, { card: { setCode: "asc" } }],
-      })
-    : [];
+  const pageCardIds = Array.from(
+    new Set(
+      (pageGroups as any[]).flatMap((group) =>
+        group.cardIds?.length ? group.cardIds : [group.cardId],
+      ),
+    ),
+  );
+  const [inventory, allPublicInventory] = pageGroups.length
+    ? await Promise.all([
+        prisma.inventoryItem.findMany({
+          where: pageWhere,
+          include: publicInventoryInclude,
+          orderBy: [{ card: { name: "asc" } }, { card: { setCode: "asc" } }],
+        }),
+        prisma.inventoryItem.findMany({
+          where: {
+            ...buildPublicInventoryWhere({}),
+            cardId: { in: pageCardIds },
+          },
+          include: publicInventoryInclude,
+          orderBy: [{ card: { name: "asc" } }, { card: { setCode: "asc" } }],
+        }),
+      ])
+    : [[], []];
 
   const orderedInventory = orderInventoryItemsByPageGroups(
     inventory,
@@ -554,6 +571,7 @@ export async function getGlobalPublicInventory(
 
   return {
     inventory: filteredInventory,
+    allPublicInventory,
     publicProfiles: publicProfiles.map((profile) => ({
       ownerPlayerId: profile.playerId!,
       displayName: publicOwnerDisplayName(profile),

@@ -126,6 +126,21 @@ test("grouped public inventory aggregates location breakdown across all printing
   );
 });
 
+test("public inventory drawers show every public owner location outside the active filters", () => {
+  assert.match(
+    publicCollectionQueries,
+    /allPublicInventory[\s\S]*buildPublicInventoryWhere\(\{\}\)/,
+  );
+  assert.match(globalPublicInventoryPage, /result\.allPublicInventory/);
+  assert.match(globalPublicInventoryPage, /drawerLocationBreakdown/);
+  assert.match(publicInventoryListApi, /result\.allPublicInventory/);
+  assert.match(publicInventoryListApi, /drawerLocationBreakdown/);
+  assert.match(
+    inventoryBrowser,
+    /row\.drawerLocationBreakdown \?\? row\.locationBreakdown/,
+  );
+});
+
 test("public inventory search keeps browsing filters and removes private/admin filters", () => {
   assert.match(globalPublicInventoryPage, /<InventoryAdvancedSearch/);
   assert.match(globalPublicInventoryPage, /isPublic/);
