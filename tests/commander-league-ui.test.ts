@@ -27,6 +27,10 @@ const deckLibrary = readFileSync(
   "utf8",
 );
 const leagueNav = readFileSync("components/league/LeagueNav.tsx", "utf8");
+const leagueStats = readFileSync(
+  "app/league/[leagueId]/stats/page.tsx",
+  "utf8",
+);
 const leagueDeckRoute = readFileSync(
   "app/league/[leagueId]/decks/[deckId]/page.tsx",
   "utf8",
@@ -126,4 +130,19 @@ test("league app exposes standings, card stats, public locations, and dashboard 
   assert.match(dashboard, /League inventory locations/);
   assert.match(archiveDashboard, /href="\/league"/);
   assert.match(archiveDashboard, /Commander League/);
+});
+
+test("league analytics exposes overall and per-player deck trends", () => {
+  assert.match(leagueNav, /\/stats/);
+  assert.match(leagueStats, /Overall league/);
+  assert.match(leagueStats, /Most-played cards/);
+  assert.match(leagueStats, /Most-played commanders/);
+  assert.match(leagueStats, /Monthly deck trends/);
+  assert.match(leagueStats, /Mana curve/);
+  assert.match(leagueStats, /Deck composition/);
+  assert.match(leagueStats, /Commander win rate/);
+  assert.match(leagueStats, /Color win rate/);
+  assert.match(leagueStats, /Card win rate/);
+  assert.match(leagueStats, /Signature cards/);
+  assert.match(leagueStats, /Set usage trends/);
 });
