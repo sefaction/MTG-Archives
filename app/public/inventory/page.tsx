@@ -82,18 +82,19 @@ function aggregatePublicLocationBreakdown(parts: PublicLocationPart[]) {
   return Array.from(byLocation.values());
 }
 
+function publicExactPrintingKey(item: any) {
+  return [item.cardId, item.foilStatus, item.condition, item.language].join(
+    "|",
+  );
+}
+
 function getGlobalPublicExactPrintings(items: any[]) {
   const groups = new Map<string, any>();
   items.forEach((item, index) => {
     const owner = publicOwnerFor(item);
     const ownerName = owner.displayName;
     const locationName = publicLocationName(item);
-    const key = [
-      item.cardId,
-      item.foilStatus,
-      item.condition,
-      item.language,
-    ].join("|");
+    const key = publicExactPrintingKey(item);
     const locationPart = {
       locationId: item.locationId ?? null,
       name: `${ownerName} — ${locationName}`,
@@ -158,6 +159,7 @@ function toInventoryBrowserRows({
   preferredPriceProvider,
   viewerPlayerId,
   openTradeWishlist,
+  allPublicExactRowsByKey,
 }: {
   displayItems: any[];
   displayMode: "exact" | "grouped";
@@ -170,6 +172,7 @@ function toInventoryBrowserRows({
     cardId: string;
     quantity: number;
   }>;
+  allPublicExactRowsByKey: Map<string, any>;
 }) {
   return displayItems.map((entry: any, rowIndex: number) => {
     const i = displayMode === "grouped" ? entry.representative : entry;
@@ -196,6 +199,17 @@ function toInventoryBrowserRows({
             ),
           )
         : (i.locationBreakdown ?? []);
+    const drawerLocationBreakdown =
+      displayMode === "grouped"
+        ? aggregatePublicLocationBreakdown(
+            entry.printings.flatMap(
+              (printing: any) =>
+                allPublicExactRowsByKey.get(publicExactPrintingKey(printing))
+                  ?.locationBreakdown ?? [],
+            ),
+          )
+        : (allPublicExactRowsByKey.get(publicExactPrintingKey(i))
+            ?.locationBreakdown ?? rowLocationBreakdown);
     const sourceItemIds =
       displayMode === "grouped"
         ? entry.printings.flatMap(
@@ -230,6 +244,7 @@ function toInventoryBrowserRows({
           ? `${entry.quantity} public cards · ${entry.printingCount} printings · ${collectionCount} collections`
           : (i.locationSummary ?? "Public collection"),
       locationBreakdown: rowLocationBreakdown,
+      drawerLocationBreakdown,
       printings:
         displayMode === "grouped"
           ? entry.printings.map((printing: any, printingIndex: number) => ({
@@ -243,14 +258,15 @@ function toInventoryBrowserRows({
               condition: printing.condition,
               language: printing.language,
               quantity: printing.quantity,
-              locationBreakdown: printing.locationBreakdown.map(
-                (location: any) => ({
-                  locationId: location.locationId ?? null,
-                  name: location.name,
-                  quantity: location.quantity,
-                  inventoryItemIds: location.inventoryItemIds ?? [],
-                }),
-              ),
+              locationBreakdown: (
+                allPublicExactRowsByKey.get(publicExactPrintingKey(printing))
+                  ?.locationBreakdown ?? printing.locationBreakdown
+              ).map((location: any) => ({
+                locationId: location.locationId ?? null,
+                name: location.name,
+                quantity: location.quantity,
+                inventoryItemIds: location.inventoryItemIds ?? [],
+              })),
               sourceItemIds: printing.sourceItemIds ?? [],
             }))
           : [],
@@ -370,6 +386,12 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
   const cardNameRows: Array<{ name: string }> = [];
   const locationTypes = await getActiveLocationTypes(prisma);
   const exactRows = getGlobalPublicExactPrintings(result.inventory);
+  const allPublicExactRows = getGlobalPublicExactPrintings(
+    result.allPublicInventory,
+  );
+  const allPublicExactRowsByKey = new Map(
+    allPublicExactRows.map((row: any) => [publicExactPrintingKey(row), row]),
+  );
   const tradeWishlistSources = exactRows.flatMap(
     (row: any) => row.ownerBreakdown || [],
   );
@@ -410,6 +432,7 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
     preferredPriceProvider: viewer?.preferredPriceProvider,
     viewerPlayerId: viewer?.playerId,
     openTradeWishlist,
+    allPublicExactRowsByKey,
   });
   const pageParams = Object.fromEntries(
     Object.entries(p).filter(([key, value]) => value && key !== "page"),

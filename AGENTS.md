@@ -23,3 +23,9 @@ When the user suggests a change:
 4. If changes are requested, revise the implementation and return it to the local Docker environment for another review.
 5. After the user explicitly approves the work, push it to a pull request and merge the pull request into `main`.
 6. Close any related open issues with notes linking to the pull request that resolved them.
+
+## GitHub authentication
+
+- Use the normal GitHub CLI browser flow: `gh auth login -h github.com -p https -w`.
+- Complete the authorization in the browser, then verify it with `gh auth status` before pushing.
+- The CLI process may remain open after the browser authorization succeeds; trust the follow-up status check rather than recording or handling tokens directly.
