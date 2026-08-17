@@ -192,11 +192,34 @@ export default async function DeckDetailPage({
         },
         orderBy: [{ section: "asc" }, { cardName: "asc" }],
       },
+      commanderLeagueDeck: {
+        include: {
+          round: true,
+          member: { include: { user: true } },
+          submissions: { select: { id: true } },
+          league: {
+            include: {
+              members: {
+                where: { userId: user?.id ?? "__anonymous__", active: true },
+              },
+            },
+          },
+        },
+      },
     },
   });
   if (!deck || !canViewDeck(user, deck, scope?.mode === "admin")) notFound();
 
-  const canEdit = canManageDeck(user, deck, scope?.mode === "admin");
+  const leagueDeck = deck.commanderLeagueDeck;
+  const leagueAdmin = leagueDeck?.league.members?.some(
+    (member) => member.role === "ADMIN",
+  );
+  const leagueLocked = Boolean(leagueDeck?.submissions.length);
+  const canEdit =
+    (canManageDeck(user, deck, scope?.mode === "admin") ||
+      Boolean(leagueAdmin)) &&
+    !leagueLocked;
+  const inventoryCommitmentEnabled = !leagueDeck;
   const folderOptions = canEdit
     ? buildDeckFolderOptions(
         await prisma.deckFolder.findMany({
@@ -497,11 +520,18 @@ export default async function DeckDetailPage({
             </>
           ) : null}
           <div className="relative flex min-h-64 flex-col justify-end gap-3 px-5 py-5 md:px-7">
-            <Link href="/decks" className="text-sm text-cyan-300">
-              ← Decks
+            <Link
+              href={
+                leagueDeck ? `/league/${leagueDeck.leagueId}/decks` : "/decks"
+              }
+              className="text-sm text-cyan-300"
+            >
+              ← {leagueDeck ? "League decks" : "Decks"}
             </Link>
             <p className="text-xs font-semibold uppercase tracking-wide text-amber-200">
-              Deck builder
+              {leagueDeck
+                ? `${leagueDeck.round.name} ${leagueDeck.league.year} submission · ${leagueDeck.member.user.displayName}`
+                : "Deck builder"}
             </p>
             <h1 className="max-w-4xl text-4xl font-bold tracking-normal text-stone-50 md:text-5xl">
               {deck.name}
@@ -540,19 +570,37 @@ export default async function DeckDetailPage({
             percent={ownedCoveragePercent}
             tone="emerald"
           />
-          <DeckHealthCard
-            label="Effective commitment"
-            value={`${committedCoveragePercent}%`}
-            detail={`${coverageTotals.physicallyCommitted} physical + ${coverageTotals.assumedBasicLandCommitted} basic lands assumed of ${coverageTotals.totalQuantity}`}
-            percent={committedCoveragePercent}
-            tone="amber"
-          />
+          {inventoryCommitmentEnabled ? (
+            <DeckHealthCard
+              label="Effective commitment"
+              value={`${committedCoveragePercent}%`}
+              detail={`${coverageTotals.physicallyCommitted} physical + ${coverageTotals.assumedBasicLandCommitted} basic lands assumed of ${coverageTotals.totalQuantity}`}
+              percent={committedCoveragePercent}
+              tone="amber"
+            />
+          ) : (
+            <DeckHealthCard
+              label="League decklist"
+              value={`${coverageTotals.totalQuantity} cards`}
+              detail={
+                leagueLocked
+                  ? "Locked to its first recorded match"
+                  : "Editable until used in a recorded match"
+              }
+              percent={leagueLocked ? 100 : 0}
+              tone="amber"
+            />
+          )}
           <DeckHealthCard
             label="Estimated value"
             value={
               estimatedPrice == null ? "--" : `$${estimatedPrice.toFixed(2)}`
             }
-            detail={`${deckWishlistAvailable} missing cards available to commit`}
+            detail={
+              inventoryCommitmentEnabled
+                ? `${deckWishlistAvailable} missing cards available to commit`
+                : "Public League deck value"
+            }
             percent={Math.min(100, ownedCoveragePercent)}
             tone="cyan"
           />
@@ -579,6 +627,25 @@ export default async function DeckDetailPage({
         </div>
       </section>
 
+      {leagueDeck ? (
+        <section className="app-panel flex flex-wrap items-center justify-between gap-3 border-cyan-900 p-4 text-sm">
+          <div>
+            <strong>Public Commander League deck</strong>
+            <p className="app-muted">
+              {leagueLocked
+                ? "Locked permanently because this list was submitted for a recorded match."
+                : "Uses the complete Archive builder without physical inventory commitment."}
+            </p>
+          </div>
+          <Link
+            href={`/league/${leagueDeck.leagueId}`}
+            className="rounded border border-cyan-700 px-3 py-2 text-cyan-100"
+          >
+            League dashboard
+          </Link>
+        </section>
+      ) : null}
+
       <DeckToolsNav deckId={deck.id} active="builder" />
 
       <DeckListEditor
@@ -589,14 +656,18 @@ export default async function DeckDetailPage({
         defaultGroupMode={
           deck.format === DeckFormat.COMMANDER ? "type" : "section"
         }
-        showPrivateInventory={canEdit}
-        returnLocations={normalReturnLocations}
+        showPrivateInventory={canEdit && inventoryCommitmentEnabled}
+        returnLocations={
+          inventoryCommitmentEnabled ? normalReturnLocations : []
+        }
         actionControls={
           canEdit ? (
             <DeckActionPanels
               deckName={deck.name}
+              inventoryCommitmentEnabled={inventoryCommitmentEnabled}
               committedQuantity={committedSummary.committedQuantity}
               canReturnCommitted={
+                inventoryCommitmentEnabled &&
                 committedSummary.committedQuantity > 0 &&
                 normalReturnLocations.length > 0
               }
@@ -606,6 +677,7 @@ export default async function DeckDetailPage({
                   defaultSection={DeckSection.MAINBOARD}
                   sections={deckSections}
                   locations={normalReturnLocations}
+                  inventoryCommitmentEnabled={inventoryCommitmentEnabled}
                 />
               }
               pasteDecklistHref={`/decks/${deck.id}/import`}

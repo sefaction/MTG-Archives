@@ -94,13 +94,43 @@ async function requireManagedDeck(deckId: string) {
   const scope = await getAccessScope(user);
   const deck = await prisma.deck.findUnique({
     where: { id: deckId },
-    include: { ownerUser: { select: { playerId: true } } },
+    include: {
+      ownerUser: { select: { playerId: true } },
+      commanderLeagueDeck: {
+        include: {
+          submissions: { select: { id: true } },
+          league: {
+            include: {
+              members: { where: { userId: user.id, active: true } },
+            },
+          },
+        },
+      },
+    },
   });
   if (!deck) throw new Error("Deck not found.");
-  if (!canManageDeck(user, deck, scope?.mode === "admin")) {
+  const leagueAdmin = deck.commanderLeagueDeck?.league.members.some(
+    (member) => member.role === "ADMIN",
+  );
+  if (!canManageDeck(user, deck, scope?.mode === "admin") && !leagueAdmin) {
     throw new Error("You can only edit your own decks.");
   }
+  if (deck.commanderLeagueDeck?.submissions.length) {
+    throw new Error(
+      "This League deck is locked because it has been submitted for a recorded match.",
+    );
+  }
   return { user, deck, adminMode: scope?.mode === "admin" };
+}
+
+function rejectLeagueInventoryCommitment(deck: {
+  commanderLeagueDeck?: unknown;
+}) {
+  if (deck.commanderLeagueDeck) {
+    throw new Error(
+      "League decks do not support physical inventory commitment.",
+    );
+  }
 }
 
 async function ensureUniqueFolderName(
@@ -216,6 +246,9 @@ export async function moveDeckToFolder(fd: FormData) {
 export async function updateDeckFromIndex(fd: FormData) {
   const deckId = formString(fd, "deckId");
   const { adminMode, user, deck } = await requireManagedDeck(deckId);
+  if (deck.commanderLeagueDeck) {
+    throw new Error("Manage League decks from the League workspace.");
+  }
   const name = formString(fd, "name");
   if (!name) throw new Error("Deck name is required.");
   if (adminMode && deck.ownerUserId !== user.id) {
@@ -332,12 +365,10 @@ export async function updateDeck(fd: FormData) {
       data: {
         name,
         description: formString(fd, "description") || null,
-        format: enumValue(
-          DeckFormat,
-          formString(fd, "format"),
-          DeckFormat.CASUAL,
-        ),
-        visibility,
+        format: deck.commanderLeagueDeck
+          ? DeckFormat.COMMANDER
+          : enumValue(DeckFormat, formString(fd, "format"), DeckFormat.CASUAL),
+        visibility: deck.commanderLeagueDeck ? Visibility.PUBLIC : visibility,
         bracket,
         bracketUpdatedAt:
           bracket !== deck.bracket ? new Date() : deck.bracketUpdatedAt,
@@ -430,6 +461,7 @@ export async function returnAllCommittedDeckInventory(fd: FormData) {
   const deckId = formString(fd, "deckId");
   const destinationLocationId = formString(fd, "destinationLocationId");
   const { user, deck } = await requireManagedDeck(deckId);
+  rejectLeagueInventoryCommitment(deck);
   const ownerPlayerId = deck.ownerUser.playerId;
   if (!ownerPlayerId)
     throw new Error("Deck owner does not have an inventory owner profile.");
@@ -487,6 +519,9 @@ export async function addDeckCard(fd: FormData) {
     );
 
   const { user, deck } = await requireManagedDeck(deckId);
+  if (deck.commanderLeagueDeck && (commitImmediately || addInventoryCopy)) {
+    rejectLeagueInventoryCommitment(deck);
+  }
   if (commitImmediately && !deck.ownerUser.playerId) {
     throw new Error("Deck owner is not linked to an inventory owner.");
   }
@@ -779,6 +814,7 @@ export async function addRealCopyToDeck(fd: FormData) {
   const cardId = formString(fd, "cardId");
   const quantity = normalizeManualInventoryQuantity(fd.get("quantity"));
   const { user, deck } = await requireManagedDeck(deckId);
+  rejectLeagueInventoryCommitment(deck);
   if (!deck.ownerUser.playerId) {
     throw new Error("Deck owner is not linked to an inventory owner.");
   }
@@ -1019,6 +1055,8 @@ export async function bulkCommitDeckCardsToDeck(fd: FormData) {
   );
   if (!validMoves.length) throw new Error("No available cards to commit.");
   const { user, deck } = await requireManagedDeck(deckId);
+  rejectLeagueInventoryCommitment(deck);
+  rejectLeagueInventoryCommitment(deck);
   if (!deck.ownerUser.playerId) {
     throw new Error("Deck owner is not linked to an inventory owner.");
   }
@@ -1130,6 +1168,7 @@ export async function returnDeckCardToInventory(fd: FormData) {
   const destinationLocationId = formString(fd, "destinationLocationId");
   const quantity = normalizePositiveQuantity(fd.get("quantity"));
   const { user, deck } = await requireManagedDeck(deckId);
+  rejectLeagueInventoryCommitment(deck);
   if (!deck.ownerUser.playerId) {
     throw new Error("Deck owner is not linked to an inventory owner.");
   }
@@ -1298,6 +1337,9 @@ export async function commitDeckImport(fd: FormData) {
     (total, line) => total + line.physicalQuantity,
     0,
   );
+  if (deck.commanderLeagueDeck && physicalCopyCount > 0) {
+    rejectLeagueInventoryCommitment(deck);
+  }
   if (physicalCopyCount > 0 && !deck.ownerUser.playerId) {
     throw new Error("Deck owner is not linked to an inventory owner.");
   }

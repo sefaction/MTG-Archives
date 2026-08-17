@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getAccessScope, requireLogin } from "@/lib/auth";
-import { canManageDeck } from "@/lib/decks";
 import { prisma } from "@/lib/prisma";
+import { getDeckManagementPolicy } from "@/lib/deck-management-policy";
 import {
   getDeckCommittedSummary,
   returnCommittedInventoryFromDeckTx,
@@ -15,12 +15,20 @@ export async function POST(
   const user = await requireLogin();
   const scope = await getAccessScope(user);
   const { deckId } = await params;
-  const deck = await prisma.deck.findUnique({
-    where: { id: deckId },
-    include: { ownerUser: { select: { playerId: true } } },
-  });
-  if (!deck || !canManageDeck(user, deck, scope?.mode === "admin")) {
+  const policy = await getDeckManagementPolicy(
+    deckId,
+    user,
+    scope?.mode === "admin",
+  );
+  const { deck } = policy;
+  if (!deck || !policy.canManage) {
     return Response.json({ error: "Not authorized." }, { status: 403 });
+  }
+  if (policy.locked) {
+    return Response.json(
+      { error: "This League deck is locked." },
+      { status: 409 },
+    );
   }
   const body = await request.json().catch(() => ({}));
   const rowIds = Array.isArray(body.rowIds)

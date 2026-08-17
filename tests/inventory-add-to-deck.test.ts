@@ -53,11 +53,9 @@ test("grouped inventory requires a real printing card id", () => {
 });
 
 test("private and public inventories provide only editable deck targets", () => {
-  assert.match(
-    inventoryPage,
-    /where: adminModeActive \? \{\} : \{ ownerUserId: user\.id \}/,
-  );
-  assert.match(publicInventoryPage, /where: \{ ownerUserId: viewer\.id \}/);
+  assert.match(inventoryPage, /commanderLeagueDeck: \{ is: null \}/);
+  assert.match(publicInventoryPage, /ownerUserId: viewer\.id/);
+  assert.match(publicInventoryPage, /commanderLeagueDeck: \{ is: null \}/);
   assert.doesNotMatch(publicInventoryPage, /getAccessScope/);
   assert.match(inventoryPage, /deckTargets=\{editableDecks\.map/);
   assert.match(publicInventoryPage, /deckTargets=\{editableDecks\.map/);
