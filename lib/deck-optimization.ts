@@ -3,6 +3,7 @@ import { prisma } from "./prisma";
 import { normalizeCardName, upsertScryfallCard } from "./card-import";
 import { formatScryfallError, searchCardsResult } from "./scryfall";
 import { cardPriceUsd, compareCheapestPlayableCards } from "./deck-search";
+import { leagueInventoryItemWhere } from "./commander-league-inventory";
 
 export type DeckOptimizationMode = "owned" | "cheapest";
 
@@ -83,15 +84,17 @@ function byOwnedPreference(quantityNeeded: number) {
 }
 
 async function ownedCandidates(input: {
-  ownerPlayerId: string;
+  ownerPlayerId?: string | null;
+  leagueId?: string | null;
   oracleId?: string | null;
   name: string;
 }) {
   const normalized = normalizeCardName(input.name);
   const items = await prisma.inventoryItem.findMany({
     where: {
-      currentOwnerId: input.ownerPlayerId,
-      quantity: { gt: 0 },
+      ...(input.leagueId
+        ? leagueInventoryItemWhere(input.leagueId)
+        : { currentOwnerId: input.ownerPlayerId!, quantity: { gt: 0 } }),
       card: input.oracleId
         ? { oracleId: input.oracleId }
         : { name: { equals: input.name, mode: "insensitive" } },
@@ -116,15 +119,25 @@ async function cheapestCandidates(input: {
   oracleId?: string | null;
   name: string;
   cache: Map<string, Card[]>;
+  leagueId?: string | null;
 }) {
   const key = input.oracleId
     ? `oracle:${input.oracleId}`
     : `name:${normalizeCardName(input.name)}`;
   if (input.cache.has(key)) return input.cache.get(key) ?? [];
   const local = await prisma.card.findMany({
-    where: input.oracleId
-      ? { oracleId: input.oracleId }
-      : { name: { equals: input.name, mode: "insensitive" } },
+    where: {
+      ...(input.oracleId
+        ? { oracleId: input.oracleId }
+        : { name: { equals: input.name, mode: "insensitive" } }),
+      ...(input.leagueId
+        ? {
+            inventoryItems: {
+              some: leagueInventoryItemWhere(input.leagueId),
+            },
+          }
+        : {}),
+    },
   });
   let candidates = input.oracleId
     ? local
@@ -132,7 +145,7 @@ async function cheapestCandidates(input: {
         (card) =>
           normalizeCardName(card.name) === normalizeCardName(input.name),
       );
-  if (candidates.length < 4) {
+  if (candidates.length < 4 && !input.leagueId) {
     const query = input.oracleId
       ? `oracleid:${input.oracleId} unique:prints`
       : `!"${input.name.replace(/"/g, '\\"')}" unique:prints`;
@@ -157,7 +170,8 @@ async function cheapestCandidates(input: {
 
 export async function buildDeckOptimizationPreview(input: {
   deckId: string;
-  ownerPlayerId: string;
+  ownerPlayerId?: string | null;
+  leagueId?: string | null;
   mode: DeckOptimizationMode;
   rowIds?: string[];
 }): Promise<DeckOptimizationPreview> {
@@ -177,6 +191,7 @@ export async function buildDeckOptimizationPreview(input: {
       const currentOwned = currentCard
         ? await ownedCandidates({
             ownerPlayerId: input.ownerPlayerId,
+            leagueId: input.leagueId,
             oracleId: null,
             name: currentCard.name,
           })
@@ -206,6 +221,7 @@ export async function buildDeckOptimizationPreview(input: {
         const owned = (
           await ownedCandidates({
             ownerPlayerId: input.ownerPlayerId,
+            leagueId: input.leagueId,
             oracleId: currentCard.oracleId,
             name: currentCard.name,
           })
@@ -275,6 +291,7 @@ export async function buildDeckOptimizationPreview(input: {
           oracleId: currentCard.oracleId,
           name: currentCard.name,
           cache: cheapestCache,
+          leagueId: input.leagueId,
         });
         const cheapest = candidates[0];
         if (!cheapest) {
@@ -298,6 +315,7 @@ export async function buildDeckOptimizationPreview(input: {
           (
             await ownedCandidates({
               ownerPlayerId: input.ownerPlayerId,
+              leagueId: input.leagueId,
               oracleId: null,
               name: cheapest.name,
             })

@@ -39,6 +39,18 @@ const archiveDeckBuilder = readFileSync("app/decks/[deckId]/page.tsx", "utf8");
 const deckListEditor = readFileSync("components/DeckListEditor.tsx", "utf8");
 const deckCardPicker = readFileSync("components/DeckCardPicker.tsx", "utf8");
 const deckImportPanel = readFileSync("components/DeckImportPanel.tsx", "utf8");
+const leagueCardSearch = readFileSync(
+  "app/api/league/card-search/route.ts",
+  "utf8",
+);
+const leagueInventoryScope = readFileSync(
+  "lib/commander-league-inventory.ts",
+  "utf8",
+);
+const deckImportResolver = readFileSync(
+  "app/api/decks/import/resolve/route.ts",
+  "utf8",
+);
 const deckIndex = readFileSync("app/decks/page.tsx", "utf8");
 const archiveDashboard = readFileSync("app/dashboard/page.tsx", "utf8");
 
@@ -124,9 +136,23 @@ test("league deck policy enforces public visibility, no commitment, and match lo
   assert.match(deckIndex, /commanderLeagueDeck: \{ is: null \}/);
 });
 
+test("every league deck printing path is scoped to linked League inventory", () => {
+  assert.match(archiveDeckBuilder, /api\/league\/card-search/);
+  assert.match(deckCardPicker, /cardSearchEndpoint/);
+  assert.match(deckListEditor, /cardSearchEndpoint/);
+  assert.match(deckImportPanel, /cardSearchEndpoint/);
+  assert.match(leagueCardSearch, /leagueId/);
+  assert.match(leagueCardSearch, /searchDeckCardPrintings\(\{/);
+  assert.match(leagueInventoryScope, /commanderLeagueLinks/);
+  assert.match(archiveDeckActions, /requireLeaguePrinting/);
+  assert.match(deckImportResolver, /commanderLeagueDeck\?\.leagueId/);
+});
+
 test("league app exposes standings, card stats, public locations, and dashboard entry", () => {
   assert.match(dashboard, /Standings/);
-  assert.match(dashboard, /Most-played cards/);
+  assert.doesNotMatch(dashboard, /Most-played cards/);
+  assert.doesNotMatch(dashboard, /Unique cards used/);
+  assert.match(leagueStats, /Most-played cards/);
   assert.match(dashboard, /League inventory locations/);
   assert.match(archiveDashboard, /href="\/league"/);
   assert.match(archiveDashboard, /Commander League/);

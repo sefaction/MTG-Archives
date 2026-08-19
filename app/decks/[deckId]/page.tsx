@@ -660,6 +660,11 @@ export default async function DeckDetailPage({
         returnLocations={
           inventoryCommitmentEnabled ? normalReturnLocations : []
         }
+        cardSearchEndpoint={
+          leagueDeck
+            ? `/api/league/card-search?leagueId=${leagueDeck.leagueId}&scope=deck`
+            : "/api/decks/card-search"
+        }
         actionControls={
           canEdit ? (
             <DeckActionPanels
@@ -678,6 +683,11 @@ export default async function DeckDetailPage({
                   sections={deckSections}
                   locations={normalReturnLocations}
                   inventoryCommitmentEnabled={inventoryCommitmentEnabled}
+                  cardSearchEndpoint={
+                    leagueDeck
+                      ? `/api/league/card-search?leagueId=${leagueDeck.leagueId}&scope=deck`
+                      : "/api/decks/card-search"
+                  }
                 />
               }
               pasteDecklistHref={`/decks/${deck.id}/import`}

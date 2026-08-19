@@ -46,6 +46,11 @@ export default async function DeckImportPage({
           <DeckImportPanel
             deckId={deck.id}
             inventoryCommitmentEnabled={!policy.isLeagueDeck}
+            cardSearchEndpoint={
+              deck.commanderLeagueDeck
+                ? `/api/league/card-search?leagueId=${deck.commanderLeagueDeck.leagueId}`
+                : "/api/decks/card-search"
+            }
           />
         </div>
       </section>

@@ -240,7 +240,8 @@ export default async function CommanderLeagueStatsPage({
           <h1 className="text-4xl font-bold">League statistics</h1>
           <p className="app-muted mt-2 max-w-3xl">
             Analytics use immutable deck snapshots from completed matches.
-            Sideboards and maybeboards are excluded.
+            Sideboards and maybeboards are excluded. Basic lands count toward
+            deck structure, but not card rankings or set usage.
           </p>
         </div>
         <form className="app-card flex items-end gap-2 p-3">

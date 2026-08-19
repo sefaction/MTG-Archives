@@ -246,6 +246,7 @@ export function buildLeagueDeckAnalytics(
   >();
   for (const submission of submissions) {
     for (const card of playableCards(submission.cards)) {
+      if (isBasicLand(card)) continue;
       if (!card.setCode) continue;
       const key = card.setCode.toLowerCase();
       const row = sets.get(key) ?? {

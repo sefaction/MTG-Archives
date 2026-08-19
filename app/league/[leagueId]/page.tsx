@@ -6,10 +6,7 @@ import { DefaultCollectionVisibility, Visibility } from "@prisma/client";
 import { GameEntryForm } from "@/components/league/GameEntryForm";
 import { LeagueNav } from "@/components/league/LeagueNav";
 import { requireLogin } from "@/lib/auth";
-import {
-  buildLeagueCardStats,
-  buildLeagueStandings,
-} from "@/lib/commander-league";
+import { buildLeagueStandings } from "@/lib/commander-league";
 import { prisma } from "@/lib/prisma";
 import {
   addLeagueLocation,
@@ -154,17 +151,6 @@ export default async function CommanderLeagueDashboard({
       })),
     ),
   );
-  const snapshotCards = league.games.flatMap((game) =>
-    game.participants.flatMap((participant) =>
-      (participant.deckSubmission?.cards || []).map((card) => ({
-        cardName: card.cardName,
-        oracleId: card.oracleId,
-        quantity: card.quantity,
-        isCommander: card.isCommander,
-      })),
-    ),
-  );
-  const cardStats = buildLeagueCardStats(snapshotCards);
   const locationCardCount = league.locations.reduce(
     (total, entry) =>
       total +
@@ -212,7 +198,7 @@ export default async function CommanderLeagueDashboard({
         </p>
       ) : null}
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {[
           ["Players", league.members.length],
           ["Games", league.games.length],
@@ -225,7 +211,6 @@ export default async function CommanderLeagueDashboard({
               0,
             ),
           ],
-          ["Unique cards used", cardStats.uniqueCards],
           ["League inventory", locationCardCount],
         ].map(([label, value]) => (
           <div key={String(label)} className="app-card p-4">
@@ -324,51 +309,6 @@ export default async function CommanderLeagueDashboard({
           />
         </section>
       ) : null}
-
-      <section className="grid gap-6 lg:grid-cols-2">
-        <div className="app-panel p-5">
-          <h2 className="text-2xl font-semibold">Most-played cards</h2>
-          <div className="mt-3 space-y-2">
-            {cardStats.topCards.map((card) => (
-              <div
-                key={`${card.cardName}-${card.appearances}`}
-                className="flex justify-between border-b border-zinc-800 pb-2"
-              >
-                <span>{card.cardName}</span>
-                <span className="app-muted text-sm">
-                  {card.appearances} decks · {card.copies} copies
-                </span>
-              </div>
-            ))}
-            {!cardStats.topCards.length ? (
-              <p className="app-muted text-sm">
-                Card statistics appear after deck submissions.
-              </p>
-            ) : null}
-          </div>
-        </div>
-        <div className="app-panel p-5">
-          <h2 className="text-2xl font-semibold">Commanders</h2>
-          <div className="mt-3 space-y-2">
-            {cardStats.commanders.map((card) => (
-              <div
-                key={card.cardName}
-                className="flex justify-between border-b border-zinc-800 pb-2"
-              >
-                <span>{card.cardName}</span>
-                <span className="app-muted text-sm">
-                  {card.appearances} appearances
-                </span>
-              </div>
-            ))}
-            {!cardStats.commanders.length ? (
-              <p className="app-muted text-sm">
-                Commander statistics appear after deck submissions.
-              </p>
-            ) : null}
-          </div>
-        </div>
-      </section>
 
       <section className="app-panel p-5">
         <h2 className="text-2xl font-semibold">Game history</h2>

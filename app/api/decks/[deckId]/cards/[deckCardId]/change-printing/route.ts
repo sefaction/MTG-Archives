@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { getAccessScope, requireLogin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getDeckManagementPolicy } from "@/lib/deck-management-policy";
+import { requireLeaguePrinting } from "@/lib/commander-league-inventory";
 
 export async function POST(
   request: NextRequest,
@@ -32,6 +33,22 @@ export async function POST(
       { error: "Select a specific printing before changing this row." },
       { status: 400 },
     );
+  }
+  if (policy.deck.commanderLeagueDeck) {
+    try {
+      await requireLeaguePrinting(
+        policy.deck.commanderLeagueDeck.leagueId,
+        cardId,
+      );
+    } catch (error) {
+      return Response.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Printing unavailable.",
+        },
+        { status: 400 },
+      );
+    }
   }
   let updatedRows = 0;
   let mergedRows = 0;

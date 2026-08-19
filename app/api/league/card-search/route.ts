@@ -9,10 +9,14 @@ export async function GET(request: NextRequest) {
   const membership = await prisma.commanderLeagueMember.findUnique({
     where: { leagueId_userId: { leagueId, userId: user.id } },
   });
-  if (!membership?.active) return Response.json({ error: "League membership required." }, { status: 403 });
+  if (!membership?.active)
+    return Response.json(
+      { error: "League membership required." },
+      { status: 403 },
+    );
   const result = await searchDeckCardPrintings({
     query: request.nextUrl.searchParams.get("q") || "",
-    ownerPlayerId: null,
+    leagueId,
     includeScryfall: true,
     limit: 75,
   });
