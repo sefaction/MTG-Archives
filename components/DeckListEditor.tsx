@@ -435,6 +435,7 @@ export function DeckListEditor({
   defaultGroupMode = "type",
   showPrivateInventory = false,
   returnLocations = [],
+  cardSearchEndpoint = "/api/decks/card-search",
 }: {
   deckId: string;
   rows: DeckEditorRow[];
@@ -444,6 +445,7 @@ export function DeckListEditor({
   defaultGroupMode?: DeckGroupMode;
   showPrivateInventory?: boolean;
   returnLocations?: DeckReturnLocation[];
+  cardSearchEndpoint?: string;
 }) {
   const [viewMode, setViewMode] = useState<DeckViewMode>("compact");
   const [groupMode, setGroupMode] = useState<DeckGroupMode>(defaultGroupMode);
@@ -1067,6 +1069,7 @@ export function DeckListEditor({
         canEdit={canEdit}
         showPrivateInventory={showPrivateInventory}
         returnLocations={returnLocations}
+        cardSearchEndpoint={cardSearchEndpoint}
         onClose={() => setExpanded(null)}
         previewOwned={(rowId) => loadPreview("owned", [rowId])}
         previewCheapest={(rowId) => loadPreview("cheapest", [rowId])}
@@ -1542,6 +1545,7 @@ function DeckEntryDrawer({
   canEdit,
   showPrivateInventory,
   returnLocations,
+  cardSearchEndpoint,
   onClose,
   previewOwned,
   previewCheapest,
@@ -1552,6 +1556,7 @@ function DeckEntryDrawer({
   canEdit: boolean;
   showPrivateInventory: boolean;
   returnLocations: DeckReturnLocation[];
+  cardSearchEndpoint: string;
   onClose: () => void;
   previewOwned: (rowId: string) => void;
   previewCheapest: (rowId: string) => void;
@@ -1645,6 +1650,7 @@ function DeckEntryDrawer({
             canEdit={canEdit}
             showPrivateInventory={showPrivateInventory}
             returnLocations={returnLocations}
+            cardSearchEndpoint={cardSearchEndpoint}
             activeTab={activeTab}
             previewOwned={previewOwned}
             previewCheapest={previewCheapest}
@@ -1662,6 +1668,7 @@ function RowEditor({
   canEdit,
   showPrivateInventory,
   returnLocations,
+  cardSearchEndpoint,
   activeTab,
   previewOwned,
   previewCheapest,
@@ -1672,6 +1679,7 @@ function RowEditor({
   canEdit: boolean;
   showPrivateInventory: boolean;
   returnLocations: DeckReturnLocation[];
+  cardSearchEndpoint: string;
   activeTab: "overview" | "inventory" | "commit";
   previewOwned: (rowId: string) => void;
   previewCheapest: (rowId: string) => void;
@@ -1828,7 +1836,11 @@ function RowEditor({
                 {showPrivateInventory ? (
                   <CommitInventoryToDeck deckId={deckId} row={row} />
                 ) : null}
-                <PrintingPicker deckId={deckId} row={row} />
+                <PrintingPicker
+                  deckId={deckId}
+                  row={row}
+                  cardSearchEndpoint={cardSearchEndpoint}
+                />
                 {showPrivateInventory ? (
                   <>
                     <AddRealCopyToDeck deckId={deckId} row={row} />
@@ -2196,9 +2208,11 @@ function ReturnCommittedCopies({
 function PrintingPicker({
   deckId,
   row,
+  cardSearchEndpoint,
 }: {
   deckId: string;
   row: DeckEditorRow;
+  cardSearchEndpoint: string;
 }) {
   const [selected, setSelected] = useState<DeckCardSearchResult | null>(null);
   const [changeStatus, setChangeStatus] = useState("");
@@ -2229,6 +2243,7 @@ function PrintingPicker({
         selectedCardId={selected?.cardId}
         onSelect={setSelected}
         showOwnership
+        cardSearchEndpoint={cardSearchEndpoint}
       />
       {changeStatus ? (
         <p className="text-xs text-zinc-400" aria-live="polite">

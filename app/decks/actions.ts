@@ -43,6 +43,7 @@ import {
 } from "@/lib/deck-inventory";
 import { DECK_FOLDER_ROOT_VALUE, canMoveFolder } from "@/lib/deck-folders";
 import { parseDeckTags, replaceDeckTags } from "@/lib/deck-tags";
+import { requireLeaguePrinting } from "@/lib/commander-league-inventory";
 
 function formString(fd: FormData, name: string) {
   return String(fd.get(name) || "").trim();
@@ -519,6 +520,9 @@ export async function addDeckCard(fd: FormData) {
     );
 
   const { user, deck } = await requireManagedDeck(deckId);
+  if (deck.commanderLeagueDeck) {
+    await requireLeaguePrinting(deck.commanderLeagueDeck.leagueId, card.id);
+  }
   if (deck.commanderLeagueDeck && (commitImmediately || addInventoryCopy)) {
     rejectLeagueInventoryCommitment(deck);
   }
@@ -1333,6 +1337,13 @@ export async function commitDeckImport(fd: FormData) {
     });
   if (lines.length === 0)
     throw new Error("No resolved decklist lines to commit.");
+  if (deck.commanderLeagueDeck) {
+    await Promise.all(
+      lines.map((line) =>
+        requireLeaguePrinting(deck.commanderLeagueDeck!.leagueId, line.cardId),
+      ),
+    );
+  }
   const physicalCopyCount = lines.reduce(
     (total, line) => total + line.physicalQuantity,
     0,

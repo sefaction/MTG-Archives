@@ -24,12 +24,14 @@ export function DeckCardPicker({
   sections,
   locations,
   inventoryCommitmentEnabled = true,
+  cardSearchEndpoint = "/api/decks/card-search",
 }: {
   deckId: string;
   defaultSection: DeckSection;
   sections: DeckSection[];
   locations: Array<{ id: string; name: string }>;
   inventoryCommitmentEnabled?: boolean;
+  cardSearchEndpoint?: string;
 }) {
   const [query, setQuery] = useState("");
   const [includeScryfall, setIncludeScryfall] = useState(false);
@@ -50,7 +52,9 @@ export function DeckCardPicker({
       try {
         const params = new URLSearchParams({ q: trimmed });
         if (includeScryfall) params.set("scryfall", "1");
-        const res = await fetch(`/api/decks/card-search?${params.toString()}`);
+        const res = await fetch(
+          `${cardSearchEndpoint}${cardSearchEndpoint.includes("?") ? "&" : "?"}${params.toString()}`,
+        );
         if (!res.ok) throw new Error("Search failed.");
         const json = (await res.json()) as DeckCardSearchResponse;
         if (requestId.current === id) setResponse(json);
@@ -62,7 +66,7 @@ export function DeckCardPicker({
       }
     }, 350);
     return () => window.clearTimeout(timeout);
-  }, [query, includeScryfall]);
+  }, [query, includeScryfall, cardSearchEndpoint]);
 
   const results = response?.results ?? [];
   const selectedAvailableLocations = selected?.availableLocations ?? [];

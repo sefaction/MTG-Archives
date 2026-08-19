@@ -55,6 +55,8 @@ const snapshots = [
       quantity: 36,
       manaValue: 0,
       typeLine: "Basic Land — Island",
+      setCode: "BAS",
+      setName: "Basic Set",
     }),
   ]),
   submission("a-feb", "alice", 2, "LOSS", [
@@ -69,6 +71,8 @@ const snapshots = [
       quantity: 38,
       manaValue: 0,
       typeLine: "Basic Land — Island",
+      setCode: "BAS",
+      setName: "Basic Set",
     }),
   ]),
   submission("b-jan", "bob", 1, "LOSS", [
@@ -83,6 +87,8 @@ const snapshots = [
       quantity: 40,
       manaValue: 0,
       typeLine: "Basic Land — Forest",
+      setCode: "BAS",
+      setName: "Basic Set",
     }),
   ]),
 ];
@@ -101,6 +107,10 @@ test("builds overall usage, win-rate, curve, composition, and set analytics", ()
   assert.equal(stats.manaCurve[7].cards, 1);
   assert.equal(stats.composition.spells, 3);
   assert.equal(stats.setUsage[0].setCode, "TST");
+  assert.equal(
+    stats.setUsage.some((row) => row.setCode === "BAS"),
+    false,
+  );
   assert.equal(stats.setUsage[0].monthlyAverage.length, 2);
 });
 

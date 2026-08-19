@@ -29,7 +29,7 @@ export async function POST(
       { status: 409 },
     );
   }
-  if (!deck.ownerUser.playerId) {
+  if (!deck.ownerUser.playerId && !deck.commanderLeagueDeck) {
     return Response.json(
       { error: "Your account is not linked to an inventory owner." },
       { status: 400 },
@@ -44,6 +44,7 @@ export async function POST(
   const preview = await buildDeckOptimizationPreview({
     deckId,
     ownerPlayerId: deck.ownerUser.playerId,
+    leagueId: deck.commanderLeagueDeck?.leagueId,
     mode,
     rowIds,
   });

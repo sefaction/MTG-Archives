@@ -156,9 +156,11 @@ function summarize(
 export function DeckImportPanel({
   deckId,
   inventoryCommitmentEnabled = true,
+  cardSearchEndpoint = "/api/decks/card-search",
 }: {
   deckId: string;
   inventoryCommitmentEnabled?: boolean;
+  cardSearchEndpoint?: string;
 }) {
   const [text, setText] = useState("");
   const [lines, setLines] = useState<DeckImportReviewLine[]>([]);
@@ -185,6 +187,7 @@ export function DeckImportPanel({
         mode,
         policy: resolutionPolicy,
         lines: options.lines,
+        deckId,
       }),
     });
     const body = await res.json().catch(() => null);
@@ -513,6 +516,7 @@ export function DeckImportPanel({
                     key={line.id}
                     line={line}
                     inventoryCommitmentEnabled={inventoryCommitmentEnabled}
+                    cardSearchEndpoint={cardSearchEndpoint}
                     updateLine={(updater) => updateLine(line.id, updater)}
                   />
                 ))}
@@ -596,9 +600,11 @@ function ReviewLine({
   line,
   updateLine,
   inventoryCommitmentEnabled,
+  cardSearchEndpoint,
 }: {
   line: DeckImportReviewLine;
   inventoryCommitmentEnabled: boolean;
+  cardSearchEndpoint: string;
   updateLine: (
     updater: (line: DeckImportReviewLine) => DeckImportReviewLine,
   ) => void;
@@ -849,7 +855,11 @@ function ReviewLine({
             {line.included ? "Exclude" : "Re-include"}
           </button>
           {manualOpen ? (
-            <ManualResolve line={line} updateLine={updateLine} />
+            <ManualResolve
+              line={line}
+              updateLine={updateLine}
+              cardSearchEndpoint={cardSearchEndpoint}
+            />
           ) : null}
         </div>
       </td>
@@ -860,8 +870,10 @@ function ReviewLine({
 function ManualResolve({
   line,
   updateLine,
+  cardSearchEndpoint,
 }: {
   line: DeckImportReviewLine;
+  cardSearchEndpoint: string;
   updateLine: (
     updater: (line: DeckImportReviewLine) => DeckImportReviewLine,
   ) => void;
@@ -879,7 +891,7 @@ function ManualResolve({
     const timeout = window.setTimeout(async () => {
       try {
         const res = await fetch(
-          `/api/decks/card-search?${new URLSearchParams({ q: trimmed, scryfall: "1" }).toString()}`,
+          `${cardSearchEndpoint}${cardSearchEndpoint.includes("?") ? "&" : "?"}${new URLSearchParams({ q: trimmed, scryfall: "1" }).toString()}`,
         );
         if (!res.ok) throw new Error("Search failed.");
         const json = (await res.json()) as DeckCardSearchResponse;
@@ -892,7 +904,7 @@ function ManualResolve({
       }
     }, 350);
     return () => window.clearTimeout(timeout);
-  }, [query]);
+  }, [query, cardSearchEndpoint]);
 
   return (
     <div className="w-80 space-y-2 rounded border border-zinc-800 bg-zinc-950 p-2">

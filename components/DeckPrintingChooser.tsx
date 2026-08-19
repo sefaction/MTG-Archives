@@ -22,11 +22,13 @@ export function DeckPrintingChooser({
   selectedCardId,
   onSelect,
   showOwnership = false,
+  cardSearchEndpoint = "/api/decks/card-search",
 }: {
   cardName: string;
   selectedCardId?: string | null;
   onSelect: (result: DeckCardSearchResult | null) => void;
   showOwnership?: boolean;
+  cardSearchEndpoint?: string;
 }) {
   const [results, setResults] = useState<DeckCardSearchResult[]>([]);
   const [selectedSet, setSelectedSet] = useState("");
@@ -57,7 +59,7 @@ export function DeckPrintingChooser({
         limit: "175",
       });
       const response = await fetch(
-        `/api/decks/card-search?${params.toString()}`,
+        `${cardSearchEndpoint}${cardSearchEndpoint.includes("?") ? "&" : "?"}${params.toString()}`,
       );
       if (!response.ok) throw new Error("Printing search failed.");
       const json = (await response.json()) as DeckCardSearchResponse;

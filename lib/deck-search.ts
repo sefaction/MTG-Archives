@@ -6,6 +6,7 @@ import {
   hasScryfallSearchSyntax,
   searchCardPrintsResult,
 } from "./scryfall";
+import { leagueInventoryItemWhere } from "./commander-league-inventory";
 
 export type DeckCardSearchResult = {
   cardId: string;
@@ -217,6 +218,7 @@ export function orderDeckSearchResults(results: DeckCardSearchResult[]) {
 export async function searchDeckCardPrintings(input: {
   query: string;
   ownerPlayerId?: string | null;
+  leagueId?: string | null;
   includeScryfall?: boolean;
   limit?: number;
 }): Promise<DeckCardSearchResponse> {
@@ -232,7 +234,7 @@ export async function searchDeckCardPrintings(input: {
 
   const useScryfallSyntax = hasScryfallSearchSyntax(query);
   const normalizedSet = query.toLowerCase();
-  const localWhere: Prisma.CardWhereInput = {
+  const cardMatchWhere: Prisma.CardWhereInput = {
     OR: [
       { name: { contains: query, mode: "insensitive" } },
       { setCode: { equals: normalizedSet, mode: "insensitive" } },
@@ -240,6 +242,18 @@ export async function searchDeckCardPrintings(input: {
       { typeLine: { contains: query, mode: "insensitive" } },
     ],
   };
+  const localWhere: Prisma.CardWhereInput = input.leagueId
+    ? {
+        AND: [
+          cardMatchWhere,
+          {
+            inventoryItems: {
+              some: leagueInventoryItemWhere(input.leagueId),
+            },
+          },
+        ],
+      }
+    : cardMatchWhere;
   const local = useScryfallSyntax
     ? []
     : await prisma.card.findMany({
@@ -248,6 +262,13 @@ export async function searchDeckCardPrintings(input: {
         take: limit,
       });
 
+  const leagueItems = input.leagueId
+    ? await prisma.inventoryItem.findMany({
+        where: leagueInventoryItemWhere(input.leagueId),
+        include: { card: true, location: true },
+      })
+    : [];
+  const leagueCardIds = new Set(leagueItems.map((item) => item.cardId));
   let scryfallCards: Card[] = [];
   let message = local.length
     ? "Showing cached printings; broadened with Scryfall when useful."
@@ -264,38 +285,70 @@ export async function searchDeckCardPrintings(input: {
           .filter((card) => !existingIds.has(card.id))
           .map((card) => upsertScryfallCard(card)),
       );
-      scryfallCards = imported;
-      message = `${local.length} cached and ${imported.length} Scryfall printings found.`;
+      scryfallCards = input.leagueId
+        ? imported.filter((card) => leagueCardIds.has(card.id))
+        : imported;
+      message = input.leagueId
+        ? `${local.length + scryfallCards.length} League inventory printings found.`
+        : `${local.length} cached and ${imported.length} Scryfall printings found.`;
     } else {
       message = `${local.length} cached printings found. Scryfall fallback failed: ${formatScryfallError(result.error)}`;
     }
   }
 
   const allCards = [...local, ...scryfallCards];
-  const ownership = await getOwnershipByCard(
-    input.ownerPlayerId,
-    allCards.map((card) => card.id),
-  );
-  const oracleTotals = await ownedOracleTotals(input.ownerPlayerId, [
+  const ownership = input.leagueId
+    ? leagueItems.reduce((map, item) => {
+        if (!allCards.some((card) => card.id === item.cardId)) return map;
+        const current = map.get(item.cardId) ?? { quantity: 0, locations: [] };
+        current.quantity += item.quantity;
+        if (
+          item.location?.name &&
+          !current.locations.includes(item.location.name)
+        )
+          current.locations.push(item.location.name);
+        map.set(item.cardId, current);
+        return map;
+      }, new Map<string, { quantity: number; locations: string[] }>())
+    : await getOwnershipByCard(
+        input.ownerPlayerId,
+        allCards.map((card) => card.id),
+      );
+  const oracleIds = [
     ...new Set(
       allCards
         .map((card) => card.oracleId)
         .filter((id): id is string => Boolean(id)),
     ),
-  ]);
+  ];
+  const oracleTotals = input.leagueId
+    ? leagueItems.reduce((map, item) => {
+        if (item.card.oracleId && oracleIds.includes(item.card.oracleId)) {
+          map.set(
+            item.card.oracleId,
+            (map.get(item.card.oracleId) ?? 0) + item.quantity,
+          );
+        }
+        return map;
+      }, new Map<string, number>())
+    : await ownedOracleTotals(input.ownerPlayerId, oracleIds);
   const localIds = new Set(local.map((card) => card.id));
-  const availableItems = input.ownerPlayerId
-    ? await prisma.inventoryItem.findMany({
-        where: {
-          currentOwnerId: input.ownerPlayerId,
-          quantity: { gt: 0 },
-          cardId: { in: allCards.map((card) => card.id) },
-          location: { kind: { not: InventoryLocationKind.DECK } },
-        },
-        include: { location: true },
-        orderBy: [{ location: { name: "asc" } }],
-      })
-    : [];
+  const availableItems = input.leagueId
+    ? leagueItems.filter((item) =>
+        allCards.some((card) => card.id === item.cardId),
+      )
+    : input.ownerPlayerId
+      ? await prisma.inventoryItem.findMany({
+          where: {
+            currentOwnerId: input.ownerPlayerId,
+            quantity: { gt: 0 },
+            cardId: { in: allCards.map((card) => card.id) },
+            location: { kind: { not: InventoryLocationKind.DECK } },
+          },
+          include: { location: true },
+          orderBy: [{ location: { name: "asc" } }],
+        })
+      : [];
   const availableByCard = new Map<
     string,
     DeckCardSearchResult["availableLocations"]

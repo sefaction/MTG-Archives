@@ -13,6 +13,10 @@ import {
   compareCheapestPlayableCards,
   getOwnershipByCard,
 } from "./deck-search";
+import {
+  isPrintingInLeague,
+  leagueInventoryItemWhere,
+} from "./commander-league-inventory";
 
 export type DeckImportStatus =
   | "RESOLVED_EXACT_PRINTING"
@@ -272,12 +276,18 @@ export function parseDecklistText(
   return { lines, skippedLines };
 }
 
-async function ownedPrintingsForName(ownerPlayerId: string, name: string) {
+async function inventoryPrintingsForName(input: {
+  ownerPlayerId?: string | null;
+  leagueId?: string | null;
+  name: string;
+}) {
+  const { ownerPlayerId, leagueId, name } = input;
   const normalized = normalizeCardName(name);
   const items = await prisma.inventoryItem.findMany({
     where: {
-      currentOwnerId: ownerPlayerId,
-      quantity: { gt: 0 },
+      ...(leagueId
+        ? leagueInventoryItemWhere(leagueId)
+        : { currentOwnerId: ownerPlayerId!, quantity: { gt: 0 } }),
       card: { name: { equals: name.trim(), mode: "insensitive" } },
     },
     include: { card: true, location: true },
@@ -308,16 +318,26 @@ async function ownedPrintingsForName(ownerPlayerId: string, name: string) {
 async function cheapestPrintingForName(
   name: string,
   cache: Map<string, Card[]>,
+  leagueId?: string | null,
 ) {
   const key = normalizeCardName(name);
   if (cache.has(key)) return cache.get(key) ?? [];
   const local = (
     await prisma.card.findMany({
-      where: { name: { equals: name.trim(), mode: "insensitive" } },
+      where: {
+        name: { equals: name.trim(), mode: "insensitive" },
+        ...(leagueId
+          ? {
+              inventoryItems: {
+                some: leagueInventoryItemWhere(leagueId),
+              },
+            }
+          : {}),
+      },
     })
   ).filter((card) => normalizeCardName(card.name) === key);
   let candidates = local;
-  if (candidates.length === 0) {
+  if (candidates.length === 0 && !leagueId) {
     const result = await searchCardsResult(
       `!"${name.trim().replace(/"/g, '\\"')}" unique:prints`,
     );
@@ -370,9 +390,19 @@ async function withSelectedCard(
   status: DeckImportStatus,
   message: string,
   ownerPlayerId?: string | null,
+  leagueId?: string | null,
 ) {
-  const ownership = await getOwnershipByCard(ownerPlayerId, [card.id]);
-  const exact = ownership.get(card.id);
+  const exact = leagueId
+    ? await prisma.inventoryItem
+        .aggregate({
+          where: { ...leagueInventoryItemWhere(leagueId), cardId: card.id },
+          _sum: { quantity: true },
+        })
+        .then((result) => ({
+          quantity: result._sum.quantity ?? 0,
+          locations: [],
+        }))
+    : (await getOwnershipByCard(ownerPlayerId, [card.id])).get(card.id);
   return {
     ...line,
     selectedCardId: card.id,
@@ -391,6 +421,7 @@ export async function resolveParsedDecklist(
     | DeckImportReviewLine[],
   ownerPlayerId?: string | null,
   policy: DeckImportResolutionPolicy = "owned-then-cheapest",
+  leagueId?: string | null,
 ): Promise<DeckImportResolution> {
   const inputLines = Array.isArray(parsed) ? parsed : parsed.lines;
   const skippedLines = Array.isArray(parsed) ? [] : parsed.skippedLines;
@@ -416,6 +447,13 @@ export async function resolveParsedDecklist(
       let card: Card | null = null;
       if (line.parsedSetCode && line.parsedCollectorNumber) {
         card = await exactPrinting(line);
+        if (
+          card &&
+          leagueId &&
+          !(await isPrintingInLeague(leagueId, card.id))
+        ) {
+          card = null;
+        }
         if (card) {
           resolved.push(
             await withSelectedCard(
@@ -424,6 +462,7 @@ export async function resolveParsedDecklist(
               "RESOLVED_EXACT_PRINTING",
               "Exact printing selected.",
               ownerPlayerId,
+              leagueId,
             ),
           );
         } else {
@@ -440,19 +479,23 @@ export async function resolveParsedDecklist(
         continue;
       }
 
-      if (ownerPlayerId && allowOwned) {
-        const owned = await ownedPrintingsForName(
+      if ((ownerPlayerId || leagueId) && allowOwned) {
+        const owned = await inventoryPrintingsForName({
           ownerPlayerId,
-          line.parsedName,
-        );
+          leagueId,
+          name: line.parsedName,
+        });
         if (owned.length > 0) {
           resolved.push(
             await withSelectedCard(
               line,
               owned[0].card,
               "RESOLVED_OWNED_PRINTING",
-              "Owned printing selected by quantity, price, and deterministic fallback.",
+              leagueId
+                ? "League inventory printing selected by quantity, price, and deterministic fallback."
+                : "Owned printing selected by quantity, price, and deterministic fallback.",
               ownerPlayerId,
+              leagueId,
             ),
           );
           continue;
@@ -474,6 +517,7 @@ export async function resolveParsedDecklist(
       const candidates = await cheapestPrintingForName(
         line.parsedName,
         cheapestCache,
+        leagueId,
       );
       card = candidates[0] ?? null;
       if (card) {
@@ -484,6 +528,7 @@ export async function resolveParsedDecklist(
             "RESOLVED_CHEAPEST_PRINTING",
             "Cheapest available playable paper English printing selected.",
             ownerPlayerId,
+            leagueId,
           ),
         );
       } else {
