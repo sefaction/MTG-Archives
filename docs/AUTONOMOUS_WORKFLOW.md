@@ -60,6 +60,14 @@ Acceptance criteria:
 - Foundry now records the durable workflow policy, wiki organization, scale targets, and approved inventory-organization requirements. Implementation status remains in GitHub and this setup checkpoint.
 - Direct read/write access to the relevant Obsidian Markdown notes was verified. Attaching the Foundry MTG Archives notes directory as a secondary desktop-project folder is recommended for reliable discovery. Full access and general desktop-app control still need verification in the desktop session.
 
-## Desktop handoff
+## Pilot checkpoint: 2026-09-19
+
+- The session now uses Full access with routine command approvals disabled. Direct repository and Foundry access works. The desktop helper responded during setup, but project placement remains user-confirmed rather than independently controlled in the ChatGPT UI.
+- The initial empty-response problem recovered after a web-container restart and startup completion. Validate HTTP from Windows after every deployment, even when the container health check passes.
+- Baseline: Prisma generation, typecheck and 501 automated tests passed. Eight browser workers overloaded the shared local baseline; a serial run isolated four outdated UI expectations. Tests now use one worker and updated expectations for the current app.
+- The vault pilot is implemented on `feature/vault-inventory-pilot`. See `docs/VAULT_PILOT.md` and issues #211–#214 for scope, safety decisions, validation commands and explicit limits. Final build/test evidence belongs in the pilot PR.
+- Recurring work is still not configured or active. Continue to require individual approval for every merge.
+
+## Continuing work
 
 Open this repository as a local project, use the Windows-native environment and PowerShell, and select the requested Full access permissions. Resume the existing conversation if it is available; otherwise read AGENTS.md, CODEX.md, this file, and the Foundry project hub before continuing. Verify command execution, editing, browser interaction, and Docker access. Finish setup, diagnose host access to the app, then implement the vault batch and open a PR. No PR may merge without explicit approval for that individual PR.

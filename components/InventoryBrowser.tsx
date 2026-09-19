@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { StorageDestinationPicker } from "./StorageDestinationPicker";
+import type { StorageLocation } from "@/lib/storage-sections";
 import { DeckSection } from "@prisma/client";
 import { deckFormatLabel, deckSectionLabel } from "@/lib/decks";
 import {
@@ -1382,6 +1384,7 @@ function CardDetail({
 
 export function InventoryBrowser({
   rows,
+  storageLocations = [],
   players,
   locations,
   cardLabels,
@@ -1415,6 +1418,7 @@ export function InventoryBrowser({
   importExportHref,
 }: {
   rows: InventoryRow[];
+  storageLocations?: StorageLocation[];
   players: PickRef[];
   locations: PickRef[];
   cardLabels: Record<string, string>;
@@ -1523,6 +1527,8 @@ export function InventoryBrowser({
   const [deletingBulk, setDeletingBulk] = useState(false);
   const [bulkDestinationLocationId, setBulkDestinationLocationId] =
     useState("");
+  const [bulkSection, setBulkSection] = useState("");
+  const [moveLimit, setMoveLimit] = useState("");
   const [pageSize, setPageSize] = useState(initialPageSize);
   const [browsingMode, setBrowsingMode] = useState<"paginated" | "infinite">(
     initialBrowsingMode,
@@ -1615,6 +1621,23 @@ export function InventoryBrowser({
           (row.sourceItemIds ?? [row.id]).some((id) => selectedItemIds.has(id)),
         )
         .reduce((sum, row) => sum + row.quantity, 0);
+  const selectedStacks = renderedRows
+    .filter((row) => getRowSourceIds(row).some((id) => selectedItemIds.has(id)))
+    .flatMap((row) => row.locationBreakdown ?? []);
+  const alreadyInDestination = selectedStacks
+    .filter(
+      (stack) =>
+        stack.locationId === bulkDestinationLocationId &&
+        (stack.section ?? "") === bulkSection.trim(),
+    )
+    .reduce((sum, stack) => sum + stack.quantity, 0);
+  const destinationRoom = storageLocations
+    .find((l) => l.id === bulkDestinationLocationId)
+    ?.sections.find((s) => s.name === bulkSection)?.capacity;
+  const currentOccupancy =
+    storageLocations
+      .find((l) => l.id === bulkDestinationLocationId)
+      ?.sections.find((s) => s.name === bulkSection)?.quantity ?? 0;
 
   async function openAuditTrail(row: InventoryRow) {
     setSelected(null);
@@ -2383,6 +2406,19 @@ export function InventoryBrowser({
                 const fd = new FormData(form);
                 fd.set("destinationLocationId", bulkDestinationLocationId);
                 fd.set(
+                  "expectedStacks",
+                  JSON.stringify(
+                    allMatchingSelected
+                      ? []
+                      : selectedStacks.map((stack) => ({
+                          id: stack.inventoryItemId,
+                          quantity: stack.quantity,
+                          locationId: stack.locationId,
+                          locationSection: stack.section ?? null,
+                        })),
+                  ),
+                );
+                fd.set(
                   "clientDestinationLocationId",
                   bulkDestinationLocationId,
                 );
@@ -2410,7 +2446,7 @@ export function InventoryBrowser({
                     `Moved ${result.movedCards} cards across ${result.movedEntries} entries to ${result.destinationLocationName}.`,
                   );
                   clearSelection();
-                  setBulkDestinationLocationId("");
+                  rememberScrollPosition();
                   router.refresh();
                 } catch (error: any) {
                   setMessage(error?.message || "Bulk move failed.");
@@ -2418,7 +2454,7 @@ export function InventoryBrowser({
                   setMovingBulk(false);
                 }
               }}
-              className="grid gap-2 md:grid-cols-[1fr_1fr_1fr_2fr_auto] items-end"
+              className="grid gap-3 lg:grid-cols-[2fr_1fr] items-end"
             >
               <input
                 type="hidden"
@@ -2435,36 +2471,86 @@ export function InventoryBrowser({
                 name="sourceLocationId"
                 value={currentLocationId || ""}
               />
-              <label className={filterLabelClass}>
-                Move to location
-                <select
-                  name="destinationLocationId"
-                  required
-                  value={bulkDestinationLocationId}
-                  onChange={(event) =>
-                    setBulkDestinationLocationId(event.target.value)
-                  }
-                  disabled={movingBulk}
-                  className={cn(filterSelectClass, "w-full")}
-                >
-                  <option value="">Choose destination</option>
-                  {locations.map((location) => (
-                    <option key={location.id} value={location.id}>
-                      {location.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className={filterLabelClass}>
-                Section (optional)
-                <input
-                  name="destinationLocationSection"
-                  list="inventory-location-sections"
-                  maxLength={100}
-                  className={cn(filterInputClass, "w-full")}
-                  placeholder="e.g. Section 1"
-                />
-              </label>
+              <StorageDestinationPicker
+                locations={storageLocations}
+                locationId={bulkDestinationLocationId}
+                onLocationChange={setBulkDestinationLocationId}
+                section={bulkSection}
+                onSectionChange={setBulkSection}
+                incomingQuantity={
+                  allMatchingSelected
+                    ? undefined
+                    : Math.min(
+                        Number(moveLimit) || Infinity,
+                        Math.max(0, selectedCardsCount - alreadyInDestination),
+                      )
+                }
+                disabled={movingBulk}
+              />
+              <div className="space-y-2">
+                <label className={filterLabelClass}>
+                  Maximum copies to move
+                  <input
+                    name="quantityLimit"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={moveLimit}
+                    onChange={(e) => setMoveLimit(e.target.value)}
+                    placeholder="All selected copies"
+                    className={cn(filterInputClass, "w-full")}
+                    disabled={movingBulk}
+                  />
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className={filterButtonClass}
+                    onClick={() => setMoveLimit("85")}
+                  >
+                    85 copies
+                  </button>
+                  <button
+                    type="button"
+                    className={filterButtonClass}
+                    disabled={
+                      destinationRoom == null ||
+                      currentOccupancy >= destinationRoom
+                    }
+                    onClick={() =>
+                      setMoveLimit(
+                        String(
+                          Math.max(
+                            1,
+                            (destinationRoom ?? 85) - currentOccupancy,
+                          ),
+                        ),
+                      )
+                    }
+                  >
+                    Fill remaining space
+                  </button>
+                  <button
+                    type="button"
+                    className={filterButtonClass}
+                    onClick={() => setMoveLimit("")}
+                  >
+                    All copies
+                  </button>
+                </div>
+                <p className="text-xs text-zinc-400">
+                  Moves up to this many physical copies, oldest stacks first;
+                  splits the last stack if needed. Copies already in the
+                  destination stay put.
+                </p>
+                {allMatchingSelected && (
+                  <p className="text-xs text-amber-200">
+                    All matching inventory is evaluated when submitted.
+                    Occupancy above is current; the final count may exceed
+                    capacity.
+                  </p>
+                )}
+              </div>
               <label className={filterLabelClass}>
                 Preview
                 <div className="min-h-10 rounded-md border border-zinc-700 bg-zinc-900 p-2 text-zinc-300">

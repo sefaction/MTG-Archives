@@ -12,6 +12,8 @@ import {
 import { Nav } from "@/components/Nav";
 import { getAccessScope, requireLogin as requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getStorageLocations } from "@/lib/storage-summary";
+import { StorageDestinationFields } from "@/components/StorageDestinationPicker";
 import {
   findOrImportCard,
   normalizeCollectorNumber,
@@ -1411,6 +1413,14 @@ export default async function ImportsPage({
       ).flatMap((item) => (item.locationSection ? [item.locationSection] : []))
     : [];
   const summary = getImportReviewSummary(selectedItems);
+  const importStorageLocations = await getStorageLocations(
+    prisma,
+    locationsForSelectedOwner,
+  );
+  const manualStorageLocations = await getStorageLocations(
+    prisma,
+    manualLocations,
+  );
   const filterCounts = {
     all: selectedItems.length,
     resolved: filterImportReviewItems(selectedItems, "resolved").length,
@@ -1556,6 +1566,7 @@ export default async function ImportsPage({
         storageKey="imports-single-card-add"
       >
         <SingleCardInventoryAdd
+          storageLocations={manualStorageLocations}
           locations={manualLocations.map((location) => ({
             id: location.id,
             name: location.path,
@@ -1973,25 +1984,24 @@ export default async function ImportsPage({
                       value={activeReviewFilter}
                     />
                     <input type="hidden" name="returnQ" value={reviewSearch} />
-                    <select
-                      name="destinationLocationId"
-                      className={filterSelectClass}
-                      aria-label="Destination location"
-                    >
-                      {locationsForSelectedOwner.map((location) => (
-                        <option key={location.id} value={location.id}>
-                          {location.path}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      name="destinationLocationSection"
-                      list="import-location-sections"
-                      maxLength={100}
-                      className={filterInputClass}
-                      aria-label="Section within location"
-                      placeholder="Section (optional)"
+                    <StorageDestinationFields
+                      locations={importStorageLocations}
+                      defaultLocationId={locationsForSelectedOwner[0]?.id}
+                      incomingQuantity={selectedItems
+                        .filter(isImportItemReadyToCommit)
+                        .reduce(
+                          (sum, item) =>
+                            sum +
+                            Number((item.parsedRowJson as ParsedRow).quantity),
+                          0,
+                        )}
                     />
+                    <p className="w-full text-xs text-zinc-400">
+                      Capacity preview assumes all ready copies use this
+                      destination. Row-specific locations or sections in the
+                      file take precedence; check those placements in the review
+                      before committing.
+                    </p>
                     <datalist id="import-location-sections">
                       {selectedOwnerSectionSuggestions.map((section) => (
                         <option key={section} value={section} />

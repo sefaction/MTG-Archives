@@ -7,6 +7,8 @@ import {
 } from "@/lib/auth";
 import { Nav } from "@/components/Nav";
 import { prisma } from "@/lib/prisma";
+import { getStorageLocations } from "@/lib/storage-summary";
+import { moveInventoryStorageBatch } from "@/lib/inventory-storage-move";
 import { resolveInventoryVisibility } from "@/lib/visibility";
 import { InventoryBrowser } from "@/components/InventoryBrowser";
 import {
@@ -38,9 +40,7 @@ import {
   getLocationsForOwner,
   withLocationPaths,
   orderInventoryItemsByPageGroups,
-  bulkMoveInventoryToLocation,
   bulkDeleteInventoryItems,
-  moveInventoryQuantityBetweenLocations,
   splitInventoryStack,
   updateInventoryStack,
 } from "@/lib/inventory-locations";
@@ -312,8 +312,9 @@ export default async function InventoryPage({
       ? String(p.ownerId).split(",").filter(Boolean)
       : [];
   const ownerParam = ownerParams.length === 1 ? ownerParams[0] : "";
-  const activeOwnerId =
-    ownerParam || (!adminModeActive ? userWithPlayer?.playerId || "" : "");
+  const activeOwnerId = adminModeActive
+    ? ownerParam
+    : userWithPlayer?.playerId || "";
   const visiblePlayers = adminModeActive
     ? players
     : players.filter((player) => player.id === userWithPlayer?.playerId);
@@ -324,9 +325,11 @@ export default async function InventoryPage({
           where: { ownerPlayerId: { in: ownerParams } },
           orderBy: [{ ownerPlayer: { displayName: "asc" } }, { name: "asc" }],
         })
-      : await prisma.inventoryLocation.findMany({
-          orderBy: [{ ownerPlayer: { displayName: "asc" } }, { name: "asc" }],
-        });
+      : adminModeActive
+        ? await prisma.inventoryLocation.findMany({
+            orderBy: [{ ownerPlayer: { displayName: "asc" } }, { name: "asc" }],
+          })
+        : [];
   const locations = withLocationPaths(locationRows);
   const normalDestinationLocations = locations.filter(
     (location) =>
@@ -335,6 +338,10 @@ export default async function InventoryPage({
       !location.systemManaged,
   );
   const locationTypes = await getActiveLocationTypes(prisma);
+  const storageLocations = await getStorageLocations(
+    prisma,
+    normalDestinationLocations,
+  );
   const setOptions: Array<{ setCode: string; setName: string | null }> = [];
   const cardNameOptions: string[] = [];
 
@@ -655,10 +662,14 @@ export default async function InventoryPage({
         destinationLocationId,
         selectionMode,
       });
-      const result = await bulkMoveInventoryToLocation(prisma, {
+      const result = await moveInventoryStorageBatch(prisma, {
         actorUserId: actionUser.id,
         destinationLocationId,
         destinationLocationSection,
+        quantityLimit: fd.get("quantityLimit")
+          ? Number(fd.get("quantityLimit"))
+          : undefined,
+        expectedStacks: JSON.parse(String(fd.get("expectedStacks") || "[]")),
         itemIds: selectionMode === "all" ? undefined : itemIds,
         where: selectionMode === "all" ? matchingWhere : undefined,
         allowedOwnerId,
@@ -846,11 +857,28 @@ export default async function InventoryPage({
           message: "Your account is not linked to an inventory owner.",
         };
       }
-      const result = await moveInventoryQuantityBetweenLocations(prisma, {
-        inventoryItemId,
+      const source = await prisma.inventoryItem.findUnique({
+        where: { id: inventoryItemId },
+        include: {
+          card: { select: { name: true } },
+          location: { select: { name: true } },
+        },
+      });
+      if (!source) throw new Error("Inventory item not found.");
+      if (
+        !Number.isSafeInteger(quantity) ||
+        quantity < 1 ||
+        quantity > source.quantity
+      )
+        throw new Error(
+          "Choose a positive quantity no greater than this stack contains.",
+        );
+      const result = await moveInventoryStorageBatch(prisma, {
+        itemIds: [inventoryItemId],
+        expectedStacks: [source],
         destinationLocationId,
         destinationLocationSection,
-        quantity,
+        quantityLimit: quantity,
         actorUserId: actionUser.id,
         allowedOwnerId: actionIsAdmin
           ? ownerParam || undefined
@@ -861,9 +889,9 @@ export default async function InventoryPage({
       revalidatePath("/locations");
       return {
         success: true as const,
-        cardName: result.cardName,
-        quantityMoved: result.quantityMoved,
-        sourceLocationName: result.sourceLocationName,
+        cardName: source.card.name,
+        quantityMoved: result.movedCards,
+        sourceLocationName: source.location?.name ?? "Unassigned",
         destinationLocationName: result.destinationLocationName,
       };
     } catch (error: any) {
@@ -1146,6 +1174,7 @@ export default async function InventoryPage({
         scryfallQueryError={scryfallConstraint.error}
       />
       <InventoryBrowser
+        storageLocations={storageLocations}
         rows={rows}
         players={visiblePlayers.map((p) => ({
           id: p.id,
@@ -1163,8 +1192,8 @@ export default async function InventoryPage({
         isAdmin={adminModeActive}
         displayMode={displayMode}
         totalMatchingCount={totalMatchingCount}
-        totalMatchingCards={displayItems.reduce(
-          (sum: number, entry: any) => sum + (entry.quantity ?? 0),
+        totalMatchingCards={filteredPrintingGroups.reduce(
+          (sum: number, entry: any) => sum + (entry._sum?.quantity ?? 0),
           0,
         )}
         currentPage={Math.min(currentPage, totalPages)}
@@ -1177,7 +1206,9 @@ export default async function InventoryPage({
         initialBrowsingMode={initialBrowsingMode}
         initialSortField={String(sortField)}
         initialSortDirection={sortDirection}
-        currentLocationId={selected("locationId")[0] || ""}
+        currentLocationId={
+          selected("locationId").length === 1 ? selected("locationId")[0] : ""
+        }
         onBulkMoveLocation={onBulkMoveLocation}
         onBulkDeleteInventory={onBulkDeleteInventory}
         onMoveInventoryCopies={onMoveInventoryCopies}

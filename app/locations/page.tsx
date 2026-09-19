@@ -10,6 +10,8 @@ import { Nav } from "@/components/Nav";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { getAccessScope, getCurrentUser, requireLogin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { moveInventoryStorageBatch } from "@/lib/inventory-storage-move";
+import { storageSections, spaceLabel, isVault } from "@/lib/storage-sections";
 import {
   effectiveVisibilityLabel,
   resolveInventoryVisibility,
@@ -30,7 +32,6 @@ import {
   filterSelectClass,
 } from "@/components/filterStyles";
 import {
-  bulkMoveInventoryToLocation,
   bulkDeleteInventoryItems,
   buildLocationTree,
   createLocation,
@@ -336,7 +337,10 @@ export default async function LocationsPage() {
     return nodes.map((location) => {
       const direct = countsForLocation(location.id);
       const total = rolledUpCounts.get(location.id) ?? direct;
-      const sections = sectionsByLocation.get(location.id) ?? [];
+      const sections = storageSections(
+        location.type,
+        sectionsByLocation.get(location.id) ?? [],
+      );
       const content = (
         <div className="flex min-w-0 items-center justify-between gap-2 rounded px-1 py-0.5 text-zinc-300 hover:bg-zinc-900">
           <span className="min-w-0 truncate">{location.name}</span>
@@ -361,7 +365,7 @@ export default async function LocationsPage() {
               className="flex items-center justify-between gap-2 px-1"
             >
               <span className="truncate">{section.name}</span>
-              <span>{section.quantity}</span>
+              <span>{spaceLabel(section)}</span>
             </div>
           ))}
         </div>
@@ -464,7 +468,21 @@ export default async function LocationsPage() {
     if (sourceLocationId === destinationLocationId) {
       throw new Error("Source and destination locations must be different.");
     }
-    await bulkMoveInventoryToLocation(prisma, {
+    const source = await prisma.inventoryLocation.findUnique({
+      where: { id: sourceLocationId },
+    });
+    const destination = await prisma.inventoryLocation.findUnique({
+      where: { id: destinationLocationId },
+    });
+    if (
+      !source ||
+      !destination ||
+      source.ownerPlayerId !== destination.ownerPlayerId
+    )
+      throw new Error("Source and destination must belong to the same owner.");
+    if (source.kind !== "NORMAL" || source.systemManaged)
+      throw new Error("Use the deck return workflow for committed inventory.");
+    await moveInventoryStorageBatch(prisma, {
       actorUserId: ctx.user.id,
       destinationLocationId,
       sourceLocationId,
@@ -831,6 +849,9 @@ export default async function LocationsPage() {
             aria-label="Location type"
           >
             <option value="">Choose type</option>
+            {!locationTypes.some((type) => isVault(type.name)) && (
+              <option value="Vault">Vault</option>
+            )}
             {locationTypes.map((type) => (
               <option key={type.id} value={type.name}>
                 {type.name}
@@ -862,6 +883,11 @@ export default async function LocationsPage() {
           >
             Create Location
           </SubmitButton>
+          <p className="text-xs text-zinc-400 md:col-span-2 xl:col-span-4">
+            Choose Vault to automatically provide Sect 0–5 with an advisory
+            capacity of 85 cards each. Other location types retain arbitrary
+            sections.
+          </p>
         </form>
       </section>
 
@@ -1019,7 +1045,8 @@ export default async function LocationsPage() {
         <h2 className="text-xl font-semibold">Move an entire location</h2>
         <p className="text-sm text-zinc-400">
           Move every inventory entry from one location to another. Matching
-          destination rows are merged and the operation is transactional.
+          stack identities and trade links are preserved. The operation is
+          transactional.
         </p>
         <LocationMoveForm
           moveAction={moveLocationAction}
@@ -1106,7 +1133,7 @@ export default async function LocationsPage() {
             {normalLocations.length} locations
           </span>
         </div>
-        <div className="grid gap-4 lg:grid-cols-[18rem_1fr]">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[18rem_minmax(0,1fr)]">
           <aside className="space-y-3 rounded border border-zinc-800 p-3">
             <div className="flex items-center justify-between gap-2">
               <h3 className="font-semibold">Location tree</h3>
@@ -1195,12 +1222,12 @@ export default async function LocationsPage() {
                           return (
                             <article
                               key={location.id}
-                              className="rounded border border-zinc-800 bg-zinc-950/50"
+                              className="min-w-0 rounded border border-zinc-800 bg-zinc-950/50"
                             >
                               <div className="grid gap-3 p-3 md:grid-cols-[1.4fr_auto_auto_auto] md:items-center">
                                 <div>
                                   <div className="flex flex-wrap items-center gap-2">
-                                    <h4 className="font-semibold text-zinc-100">
+                                    <h4 className="break-words font-semibold text-zinc-100">
                                       {location.path}
                                     </h4>
                                     {!location.active ? (
@@ -1453,6 +1480,66 @@ export default async function LocationsPage() {
                                   </div>
                                 </details>
                               </div>
+                              {isVault(location.type) && (
+                                <div
+                                  className="space-y-2 border-t border-zinc-800 p-3"
+                                  aria-label={`${location.name} sections`}
+                                >
+                                  <p className="text-xs text-zinc-400">
+                                    Vault sections · 85 physical cards per
+                                    section (advisory).
+                                  </p>
+                                  <div className="grid grid-cols-2 gap-2 xl:grid-cols-3">
+                                    {storageSections(
+                                      location.type,
+                                      sectionsByLocation.get(location.id) ?? [],
+                                    ).map((section) => (
+                                      <div
+                                        key={section.name}
+                                        className="rounded border border-zinc-700 p-2 text-xs"
+                                      >
+                                        <strong className="block">
+                                          {section.name}
+                                        </strong>
+                                        <span
+                                          className={
+                                            section.capacity !== null &&
+                                            section.quantity > section.capacity
+                                              ? "text-amber-200"
+                                              : "text-zinc-300"
+                                          }
+                                        >
+                                          {spaceLabel(section)}
+                                        </span>
+                                        {section.capacity !== null &&
+                                          section.quantity >
+                                            section.capacity && (
+                                            <p>All cards may not fit.</p>
+                                          )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <p className="text-xs text-zinc-400">
+                                    {counts.quantity -
+                                      (
+                                        sectionsByLocation.get(location.id) ??
+                                        []
+                                      ).reduce(
+                                        (sum, section) =>
+                                          sum + section.quantity,
+                                        0,
+                                      )}{" "}
+                                    cards without a section. Existing
+                                    assignments are unchanged.
+                                  </p>
+                                  <a
+                                    className="inline-block text-sm text-sky-300 underline"
+                                    href={`/inventory?locationId=${location.id}`}
+                                  >
+                                    Select and move cards in this vault
+                                  </a>
+                                </div>
+                              )}
                               <p className="border-t border-zinc-900 px-3 py-2 text-xs text-zinc-500">
                                 Visibility setting:{" "}
                                 {visibilityLabel(location.visibility)} to{" "}

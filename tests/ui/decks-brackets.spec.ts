@@ -41,10 +41,14 @@ test("decks page exposes bracket list and create controls", async ({
     page.getByRole("heading", { level: 1, name: "Decks" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("navigation", { name: "Deck brackets" }),
+    page.getByRole("heading", { name: "Brackets", exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole("link", { name: /All brackets/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Bracket 3/ })).toBeVisible();
+  await expect(page.locator('[aria-label="Brackets filters"]')).toBeVisible();
+  await expect(
+    page
+      .locator('[aria-label="Brackets filters"]')
+      .getByRole("button", { name: /Bracket 3/ }),
+  ).toBeVisible();
   await expect(
     page.getByRole("columnheader", { name: "Bracket" }),
   ).toBeVisible();
