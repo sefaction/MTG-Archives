@@ -65,7 +65,7 @@ Acceptance criteria:
 - The session now uses Full access with routine command approvals disabled. Direct repository and Foundry access works. The desktop helper responded during setup, but project placement remains user-confirmed rather than independently controlled in the ChatGPT UI.
 - The initial empty-response problem recovered after a web-container restart and startup completion. Validate HTTP from Windows after every deployment, even when the container health check passes.
 - Baseline: Prisma generation, typecheck and 501 automated tests passed. Eight browser workers overloaded the shared local baseline; a serial run isolated four outdated UI expectations. Tests now use one worker and updated expectations for the current app.
-- The vault pilot is implemented on `feature/vault-inventory-pilot`. See `docs/VAULT_PILOT.md` and issues #211–#214 for scope, safety decisions, validation commands and explicit limits. Final build/test evidence belongs in the pilot PR.
+- The vault pilot is implemented on `feature/vault-inventory-pilot` in PR #217. See `docs/VAULT_PILOT.md` for scope and limits, and `docs/LOCAL_REVIEW_BUILD.md` for the tested commit/image and final passing verification (504 automated tests; 25 browser passes and 2 explicit skips).
 - Recurring work is still not configured or active. Continue to require individual approval for every merge.
 
 ## Continuing work
