@@ -58,9 +58,11 @@ test("pasted decklists resolve owned faces, assign a commander, review and impor
     await page.goto(`/decks/${fixture.deckId}/import`);
     const text = page.getByLabel("Decklist text", { exact: true });
     await text.fill("https://moxfield.com/decks/example");
-    await expect(page.getByRole("alert")).toHaveText(
-      /contents, not a website URL/,
-    );
+    await expect(
+      page
+        .getByRole("alert")
+        .filter({ hasText: "contents, not a website URL" }),
+    ).toHaveText(/contents, not a website URL/);
     await expect(
       page.getByRole("button", { name: "Parse and review" }),
     ).toBeDisabled();
@@ -108,7 +110,9 @@ test("pasted decklists resolve owned faces, assign a commander, review and impor
     ).toBeVisible();
 
     await text.fill(`${source}\n`);
-    await expect(page.getByRole("alert")).toHaveText(/text changed/);
+    await expect(
+      page.getByRole("alert").filter({ hasText: "text changed" }),
+    ).toHaveText(/text changed/);
     await expect(commit).toBeDisabled();
     await page.getByRole("button", { name: "Parse and review" }).click();
     await expect(commit).toBeEnabled({ timeout: 30_000 });

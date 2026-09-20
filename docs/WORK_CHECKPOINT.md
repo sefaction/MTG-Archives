@@ -8,6 +8,15 @@ Work through the open queue, test locally, open one PR per coherent batch, and c
 
 ## Current stack
 
+### Current checkpoint (supersedes historical entries below)
+
+- #221 -> #226 -> #227 -> #228 -> #229 are ready, stacked in that order. None has merge approval. #228 app `22055ad`, remote docs tip `c493661` (local branch ref may lag); #229 `cbc1b94`.
+- Current `feat/pasted-decklist-review`, app `a039bbd`, is ready to push/open against #229. Resolves revised paste-only #190, exact cached/owned face-name bug #230, and literal card name Foil bug #231. No direct Moxfield integration.
+- Completed full verification: 526 units, typecheck, production build/manifest guard, 27 browser passes / two existing detail/meld fixture skips. Log `test-results/paste-verify.log`.
+- Exact supplied 100-card list separately passed owned-only browser resolution, 99 mainboard + Esika commander import, unchanged inventory and private access denial. Unique temporary fixture removed. Log `test-results/paste-supplied-browser.log`; supplied list remains local/ignored.
+- Desktop and 390px phone screenshots inspected. Current healthy Docker image `sha256:5e8215eb6a347f38fe33ebfb9955ac564f3e7ebb24f0d14590d7e30f113017cd`, build `dVm-ivE2bp90oH-GhngEh`, cumulative app `a039bbd`.
+- NEXT: finish paste PR, then #222/#167 advanced playtest and #151 SMTP. Never send actual mail to snapshot users; local capture only. Never overlap browser tests with builds. Historical pending checks below have completed.
+
 - Released main `9a3fd8b`: prior approved #210/#217/#219 merged. Those approvals do not cover this stack.
 - #221 `fix/inventory-filter-navigation`: addresses #220 with document GET advanced filters, scroll/panel restoration and history coverage. 510 units, 25 browser passes / 2 existing skips, mixed stress 20/20. See INVENTORY_FILTER_NAVIGATION.md.
 - Draft #226 `perf/location-browser-scale`: app commit `97a0095`, tip `d664f49`, based on #221. Addresses #215: 25-card/tree pages, search, one editor. 515 units; scale/owner/phone/vault checks pass. Last full rerun: 24 passes / 2 Scryfall latency failures (#224) / 2 existing skips. Keep draft pending full regression recovery.
