@@ -882,8 +882,8 @@ export function PlaytestSandbox({
           />
         ) : null}
 
-        <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_18rem]">
-          <div className="space-y-3">
+        <div className="grid min-w-0 grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_18rem]">
+          <div className="min-w-0 space-y-3">
             <ZonePanel
               zone="battlefield"
               cards={state.zones.battlefield}
