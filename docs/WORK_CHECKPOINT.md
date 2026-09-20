@@ -17,8 +17,8 @@ Released main: `9a3fd8b`. Each branch is based on its predecessor:
 5. Ready #229 `fix/production-client-manifests` — #223. `cbc1b94`; build gate for six route reference/chunk contracts, not a proven framework root-cause fix.
 6. Ready #232 `feat/pasted-decklist-review` — paste-only #190, DFC matching #230, literal Foil #231. App `a039bbd`, tip `88b4fe5`. 526 units, 27 browser passes / two historical skips. Supplied 100-card list separately passed: 99 mainboard + Esika commander, unchanged inventory. No direct Moxfield integration.
 7. Ready #233 `feat/playtest-advanced` — #167/#222, final phase under #162. `523b4de`. Full verify: 531 units, builds/manifest gates, 28 browser passes / two historical detail skips. See PLAYTEST_ADVANCED.md for validated local save/file limits.
-8. Draft #234 `feat/smtp-email` — #151. App `30fbf97`, tests `149ca6a`, tip `77e4a08`. 537 units, typecheck, host/Linux builds pass. Real queue failure/retry/capture/opt-out fixture and settings browser pass. Full cumulative run had one search timing failure, 28 browser passes, two historical detail skips. Isolated private/public search rerun passed. Final full run pending audit.
-9. Draft #236 `test/inventory-detail-fixtures` — #235. Current app `dad1bd3`. Native detail modal, focus/Escape/backdrop behavior, deterministic owned Hanweir tests, coverage ledger. Docker build passed; all four targeted detail tests passed. Native browser chrome may receive Tab focus, but inert background app controls cannot. Desktop/phone screenshots inspected.
+8. Ready #234 `feat/smtp-email` — #151. App `30fbf97`, tests `149ca6a`, tip `77e4a08`. Real queue failure/retry/capture/opt-out fixture and private settings browser pass. Final cumulative verify below passes; earlier search timing failure remains recorded on #220.
+9. Ready #236 `test/inventory-detail-fixtures` — #235. Current app `dad1bd3`, tested test/docs tip `0ba04ee`. Native detail modal, focus/Escape/backdrop behavior, deterministic owned Hanweir tests, coverage ledger. All four targeted detail tests passed. Native browser chrome may receive Tab focus, but inert background app controls cannot. Desktop/phone screenshots inspected.
 
 ## Local environment
 
@@ -28,12 +28,14 @@ Released main: `9a3fd8b`. Each branch is based on its predecessor:
 - SMTP queue test atomically future-dates its own fixture jobs and advances only a scoped test clock. Do NOT stop the notification worker. Integration log `test-results/email-integration.log`; browser `email-browser.log`; full `email-verify.log`; search recheck `search-recheck.log`.
 - No temporary worktrees remain. User-supplied deck stays ignored at `test-results/moxfield-user-export.txt`; never publish it or authenticated test traces.
 
-## Audit findings and next steps
+## Final verification and next steps
 
-1. Full verify is RUNNING in session 88316, log `test-results/audit-verify.log`. Generation/typecheck, 537 units and host build/manifest guards passed; 33 serial browser cases are underway. Do not run builds or competing browser checks. Docker and targeted detail testing are already complete.
+1. Full verify PASSED, log `test-results/audit-verify.log`: generation/typecheck, 537 units, host build/manifest guards, all 33 serial browser cases with zero skips (2.9 minutes). Docker build and four targeted detail cases also pass. Full and production dependency audits report zero known vulnerabilities; Compose config valid; 58 migrations current.
 2. Old detail tests did NOT prove missing inventory: they searched for role button on a summary and silently skipped. Corrected locator plus isolated owned fixture passes information/meld checks on old app, and reproduces Escape failure. #235 records this. Baseline `test-results/detail-baseline.log`.
 3. Search test in full SMTP run timed out after URL changed; snapshot had main/alert only, no corresponding server render exception. Isolated private/public search recheck passed. Observation recorded on #220; do not hide it or raise timeouts to manufacture a pass. Repeat full serial verification and investigate if recurrent.
-4. Finish full verify (units, typecheck, host build and serial browser tests), npm audit/Compose validation; no builds during browser tests. Update coverage ledger, checkpoint and PR evidence. Mark #234/#236 ready only with accurate final results. Never merge without individual approval.
+4. All nine PRs are ready and unmerged pending individual approval. Implementation queue is represented by this review stack. Do not close issues until their fixes merge or describe residual timing uncertainty as proven fixed. #221 uses Addresses rather than automatic closure so the residual #220 investigation is not inadvertently closed.
+5. Timing-only follow-up completed (ignored script `test-results/profile-inventory.cjs`, final log `test-results/inventory-render-profile-final.log`): four fresh authenticated sessions, apply-to-render 4536/3861/3906/3716 ms; first byte 15.7–24 ms; document completion 3.31–3.99 s; about 248 KB transferred / 722 KB decoded. Samples suggest most observed latency precedes document completion, but do not prove the intermittent cause. Initial same-page profiler encountered panel-state interference and was corrected to independent sessions; not a regression-gate result. Original test assertions unchanged. Findings posted to #220/#224.
+6. Unique audit fixture check returned zero temporary detail/email/playtest users and zero detail players. No test/build sessions remain running. Worktree changes after `0ba04ee` are documentation only. Resume from live GitHub review decisions or a focused deeper audit in FEATURE_COVERAGE.md; no background scheduler is active.
 
 ## Operating reminders
 

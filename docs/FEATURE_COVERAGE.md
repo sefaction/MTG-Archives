@@ -22,6 +22,8 @@ The cumulative review stack builds on released main `9a3fd8b`: #221 → #226 →
 
 ## Next audit priorities
 
+Latest cumulative verification: 537 unit tests and 33 serial browser cases passed, zero skips; host/Docker builds and manifest guards passed. See LOCAL_REVIEW_BUILD.md for exact runtime identity. The earlier intermittent advanced-search render timeout remains recorded on #220 even though the final run passed.
+
 1. Keep deterministic inventory-detail fixtures and keyboard/public regressions in the serial gate. They now pass; review #236 and retain the residual advanced-search timing observation on #220 until adequately characterized.
 2. Add full multi-user trade and League lifecycle browser scenarios without erasing intentional permissions/locked-state differences.
 3. Run an isolated backup/restore drill and document recovery time/data-integrity checks before relying on production recovery.
