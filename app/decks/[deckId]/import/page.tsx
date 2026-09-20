@@ -29,7 +29,7 @@ export default async function DeckImportPage({
   }
 
   return (
-    <main className="space-y-6 p-8">
+    <main className="min-w-0 space-y-6 p-4 sm:p-8">
       <Nav />
       <section className="app-panel overflow-hidden">
         <div className="border-b border-[#2a332d] bg-[#121915] px-4 py-3">
@@ -45,6 +45,7 @@ export default async function DeckImportPage({
         <div className="p-4">
           <DeckImportPanel
             deckId={deck.id}
+            commanderDeck={deck.format === "COMMANDER"}
             inventoryCommitmentEnabled={!policy.isLeagueDeck}
             cardSearchEndpoint={
               deck.commanderLeagueDeck

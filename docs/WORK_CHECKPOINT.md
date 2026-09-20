@@ -17,6 +17,14 @@ Work through the open queue, test locally, open one PR per coherent batch, and c
 
 ## Immediate next steps
 
+### Latest progress (supersedes pending checks below)
+
+- #228 application revision `22055ad` (docs tip `c493661`) passed all 59 DB parity expressions. Type projection 1.8 MB / 764 ms vs full metadata 81.5 MB / 6,115 ms. Cumulative full verify: 523 units, host build, 26 browser passes / 2 existing skips; both unchanged Scryfall tests pass. #226 and #228 are now ready for review.
+- Ready #229 `fix/production-client-manifests`, `cbc1b94`, adds six-route build reference/chunk validation. Host and Linux builds/guards pass; runtime route smoke 7/7. Last healthy guard image `sha256:b676dbc71b881758df088cfb10b48d4332e61473579bff5bdd18cb62b38304f8`, build `kIyMvuBmYsCG2UZfizTo-`. No merges.
+- Current branch `feat/pasted-decklist-review` based on #229. Uncommitted #190 work: paste/section/printing guidance, commander quick assignment, URL rejection, stale-review and busy-state protection, phone layout, successful import redirects to deck; #230 exact DFC face matching in cache/owned resolution; #231 preserve card name Foil and explicit trailing finish annotations. Added parser/name tests and opt-in `tests/ui/pasted-decklist.spec.ts`.
+- All 100 names in the user's local ignored export have cached printing matches. Browser test defaults to a compact 99 Forest + 1 Esika fixture, or uses `MTG_PASTED_DECK_FIXTURE=test-results/moxfield-user-export.txt` for the exact supplied list. Creates a unique private fixture owner/deck/inventory and removes it in finally; no real deck commit. Test checks resolution, assignment, stale/busy guards, phone width, 99+1 committed list, unchanged inventory and unauthenticated denial.
+- Paste Docker build in progress: `test-results/paste-docker.log` (command session 28873). Typecheck passed; prior 523 units passed before adding three new unit cases, which passed targeted. Next: confirm build/host health, run full supplied-list browser case, inspect screenshots, then full verify and PR. Do not build while browsers run.
+
 1. Finish query Docker build; inspect Imports manifest, health and host HTTP 200. Never overlap Docker builds and browser tests.
 2. Run read-only local parity: `docker exec -e MTG_LOCAL_PILOT_TEST=1 mtg-archives-web-1 npx tsx scripts/verify-inventory-query-metadata.ts`. Compares full/projected metadata and representative expressions in one repeatable-read transaction; reports size/time. No writes.
 3. Full host verify and serial browser suite including unchanged Scryfall tests. Inspect failures; do not inflate timeouts. Open query PR/update review evidence.

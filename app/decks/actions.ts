@@ -1454,6 +1454,7 @@ export async function commitDeckImport(fd: FormData) {
     revalidatePath("/inventory");
     revalidatePath("/locations");
   }
+  redirect(`/decks/${deckId}`);
 }
 
 function deckMoveAuditMetadata(input: {
