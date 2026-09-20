@@ -1,6 +1,14 @@
 # Local review build — cumulative issue queue
 
-## Current reliability review (2026-09-20)
+## Current session-security review (2026-09-20)
+
+Released main remains `e98266f`. Cumulative local stack: #243 → #244 → #247 → #248 → #250 → #254, application `cd5c469`. Image `sha256:5785e72f1b7a74107878ae5215f7070a0b7b4f67abd49f31c444666b89b44d90` is healthy and host HTTP returns 200, with all 59 migrations current. Preserve the three Compose overlays and capture-only SMTP. One local trade-announcement endpoint remains disabled for safe fixture testing.
+
+The authentication change requires existing browsers to sign in again. No passwords or collection data were changed by migration. All 558 unit tests/typecheck, Linux CI and Docker build/manifest guards passed; all three dedicated security browser cases passed in 20.9 seconds. Synthetic session/trade account counts returned to zero and the snapshot still contains 12,477 physical copies. Full cumulative verification also PASSED: generation/typecheck, 558 units, host production build/six guards and all 37 serial browser cases with zero skips (3.1m). No new PR has merge approval and no production deployment occurred.
+
+See AUTH_SESSIONS.md for expiry/revocation, account-edit behavior, HTTPS requirements and restored-session safety. See TRADE_LIFECYCLE.md for the complete two-user trade acceptance and provenance/history fixes in #250.
+
+## Previous reliability review (2026-09-20)
 
 Released main is `e98266f`. Pending stack #243 → #244 → #247 → #248 is loaded cumulatively from `01e7ee3` (same tree as gate-backfill merge `1d06bb3`). Image `sha256:0945717dd1ca31cbd81b629b284a476286e7af7e5930c4e8cc9f1c85fecfb4e5`, Next build `QE7rEpiwJg1USCIdO3Oul`, healthy with host HTTP 200. All three Compose overlays remain in effect and SMTP stays capture-only.
 

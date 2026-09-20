@@ -1,52 +1,54 @@
 # Resumable work checkpoint
 
-Updated 2026-09-20. Reconcile git, GitHub, Docker and running processes before resuming. GitHub is authoritative.
+Updated 2026-09-20. Reconcile git, GitHub, Docker and processes before resuming; GitHub is authoritative.
 
 ## Authority
 
-Implement the approved audit/feature queue, open one PR per coherent batch, and load cumulative local Docker review builds. Each new PR requires individual merge approval; none has it. Close resolving issues after merge. Local MTG code, containers and snapshot data are in scope; production and unrelated projects are not. No recurring scheduler is configured.
+Continue the approved audit/feature queue, one PR per coherent batch, cumulative local Docker. **Each PR needs individual user merge approval; no pending PR has it.** Local MTG code, containers and snapshot data are authorized, not production or unrelated projects. Questions block only the affected decision. No recurring scheduler is configured; checkpoints do not automatically restart work.
 
-## Released baseline and active batch
+## Released baseline and review stack
 
-- Main `e98266fa39cc33023e0b877417c0ced82c5430df` contains the nine approved and merged PRs #221, #226, #227, #228, #229, #232, #233, #234 and #236. The published main image revision was verified. Post-merge verification passed 537 units and all 33 serial browser cases, zero skips, Windows/Linux production builds and six manifest guards. No production/Unraid update was performed.
-- Ready PR #243, `perf/inventory-render-pipeline`, application commit `59f7a23`, documentation tip `4774b5d`, addresses residual #220/#224. Shared comparators reuse Intl.Collator with original locale/options rather than constructing localeCompare options per comparison. No data/query/scope changes.
-- Synthetic 10k-group two-sort benchmark: before 2214/1790/2092 ms; after 140/117/131 ms. See `docs/INVENTORY_SORT_PERFORMANCE.md` for evidence and limits.
-- Docker rebuild passed; current container healthy, host HTTP 200, image `sha256:71d953cac99879eceef13fbdb88d28a875ab1adefb3ae346feaffd9248cc140f`. Build log `test-results/sort-docker.log`.
-- Eight repeated private/public expression and color regression cases passed. Four fresh-context after timings: 2790/3205/2254/2244 ms versus 4644/3379/3782/3783 before (median about 33% lower). Full verify passed: 540 units, generation/typecheck/build/six manifest guards, all 33 browser cases with zero skips (2.9m). Logs: `sort-search-regression.log`, `inventory-pipeline-after.log`, `sort-verify.log`. PR #243 and issues updated. #220 remains open for observation.
-- Initial diagnostic attempt stopped before measurement at the password-change screen. Investigation found every Docker start resets existing admin credentials/profile; new bug #242. Fix in a separate batch before recovery drill.
-- Ready PR #244, `fix/preserve-bootstrap-admin`, based on #243, application `2f3869c`, docs tip `fb9dc4b`. All 543 units and typecheck passed; two targeted admin/settings browser checks passed. Docker build/manifest gates passed, image `sha256:222d24a132929175f3fae9297cde6e020143f0877574149f124be6de4698ae9c`, healthy and host HTTP 200. Existing admin/owner fingerprint matched exactly after restart; no account state published. Real PostgreSQL fixture passed concurrent fresh bootstrap and preservation of changed credentials/role/active/profile; synthetic records removed. Logs `bootstrap-docker.log`, `bootstrap-integration.log`, `bootstrap-units.log`, `bootstrap-browser.log`.
-- Active branch `test/isolated-backup-restore`, based on #244, initial tooling `0680b31`. #237 real capture revealed #246 (PG18 client versus PG16 server) and #245 (destructive restore before payload/target validation). Initial old-image restore FAILED, no recovery success claimed. All temporary drill containers/networks cleaned; original snapshot untouched. Private old-client archive/evidence retained at `.local-data/backups/drill-e171be3b-98c3-403e-87ce-2f3aa99ca6af` (never publish).
-- Draft PR #247 contains recovery fixes, tip `0acccf6`, stacked on #244. All 548 units passed. PG16 fresh capture and development-library drill PASSED: 49 table comparisons (48 full-content, legacy price cache count-only), 12,477 physical copies, four appdata roots / 21 file+directory entries; source capture 65.5s, restore 93.0s. Dry-run sentinels, missing/corrupt dump preservation and real failing CHECK-constraint SQL rollback passed. All disposable resources cleaned. Fresh compatible private archive/evidence at `.local-data/backups/drill-e7b779ba-5758-4b40-aa32-b762d9d46bd3`; log `recovery-safe-drill.log`. This was a development-only library copy in the target, not final image evidence.
-- Final recovery image built from `525d223` (app `0acccf6`): `sha256:cac9e88d502bcbc46776769a6a7ebfd47ad83a8d66be989e2f500be0c717a1e6`, healthy and host HTTP 200. Restore library hash exactly matches checkout. Final no-library-override drill is running to `recovery-image-drill.log` using compatible capture `e7b779ba-5758-4b40-aa32-b762d9d46bd3`. Mark #247 ready only after that and browser checks pass.
-- Active branch `ci/verification-release-gates`, app/tooling `d8b3d8f`, PR #248 stacked on #247. Portable verification runner, read-only PR CI and serialized/head-checked publication. Ten focused tests passed. Live GitHub Verify run `35520445332` PASSED (Linux clean install/core gate). No image published from feature branch; publisher execution awaits an approved main/platform release. Local full verification and cumulative Docker rebuild with CI tooling still pending; live web currently contains #243/#244/#247. No new merge approval.
+Released main: `e98266fa39cc33023e0b877417c0ced82c5430df`. The prior nine approved PRs through #236 merged and the published image revision was verified; no Unraid deployment.
 
-## Approved queue
+Pending, in dependency order:
 
-Trade batch complete for review: #250 at `7233d7c` fixes #249 provenance loss and #252 duplicate completed history, covering #238. Final image `sha256:0b80132ccac026232389bd6b9e9a75705a2309cc3885b14177e0b3e54e5fd805` healthy/HTTP 200; Docker production build and manifest guards passed. All 553 units/typecheck and Linux core run 35524467069 passed. All three targeted trade/public-wishlist browser cases passed (51.1s), including the full two-user lifecycle (32s). Fixture users/cards and enabled announcement endpoints verified zero. Logs `trade-final-docker.log`, `trade-final-browser.log`. Next: #251 session security; #239/#240 remain unimplemented. No merge approval.
+1. #243 `perf/inventory-render-pipeline`, tip `0981089`: reusable collators reduce inventory sorting CPU; measured browser median about 33% lower. Fixes #224; #220 remains observation.
+2. #244 `fix/preserve-bootstrap-admin`, tip `fe48d15`: create-only startup provisioning, fixes #242. Real concurrent-bootstrap and existing-account preservation passed.
+3. #247 `test/isolated-backup-restore`, tip `cfba334`: fixes #245/#246, covers #237. Final rebuilt-image isolated restore passed: 48 full table digests plus legacy-price count, 12,477 copies, four data roots / 21 entries, malformed-dump guards and real SQL rollback. Disposable resources cleaned.
+4. #248 `ci/verification-release-gates`, tip `f4631cd`: portable verification and ordered image publishing, covers #241. Active user-approved main ruleset 23732060 requires Core verification, strict up-to-date, no bypass. All preceding branches gained and passed this check without rewriting history.
+5. #250 `test/trade-lifecycle`, tip `782b87f` (application `7233d7c`): fixes #249 provenance loss and #252 duplicate completed history, covers #238. All 553 units/typecheck, Linux core, Docker and three targeted browser cases passed. Complete two-user lifecycle conserved all 16 fixture copies; fixtures cleaned.
+6. **#254 `fix/validated-auth-sessions`, application/test `cd5c469`, based on #250**: fixes #251. Ready for individual review after successful full acceptance below.
 
-Active next batch: `test/trade-lifecycle`, application/test commit `d9bedcf`, draft PR #250 stacked on #248. Baseline browser reproduced #249 after fixing test navigation of collapsed waiting groups: seven resident copies became nine and their source was overwritten. Received lots now preserve original opener/pull/round/notes and stay separate. 553 units and typecheck pass; corrected Docker rebuild is running (`test-results/trade-docker.log`), followed by targeted browser retest. One enabled LOCAL snapshot trade-announcement endpoint was disabled before fixture execution and remains disabled; no real outbound announcements were allowed. Synthetic fixture data from the timed-out initial harness run was explicitly removed; cleanup now tolerates already-closed contexts.
+The prior full cumulative #243–#248 run passed 550 units, generation/typecheck, Windows/Linux builds, six client-manifest guards and 33 serial browser cases without skips. Later trade batch has focused acceptance; full cumulative security acceptance remains pending.
 
-New priority #251: source audit found identity-only session cookies without independent server-side session credentials/expiry/revocation. No production security testing. Address this authentication defect after finishing trade validation, before League/vault work. No additional approval is required for scoped local fixes, but new PRs still require individual merge approval.
+## Current security batch
 
-Latest verification (supersedes in-progress entries above): cumulative #243/#244/#247/#248 Docker build from `01e7ee3` passed, image `sha256:0945717dd1ca31cbd81b629b284a476286e7af7e5930c4e8cc9f1c85fecfb4e5`, Next build `QE7rEpiwJg1USCIdO3Oul`, healthy and host HTTP 200 after startup. Full portable verify passed generation/typecheck, all 550 units, host build/six manifest guards and all 33 browser tests with zero skips (3.2m). Logs `ci-cumulative-docker.log`, `ci-full-verify.log`. Final recovery-image drill also passed (see below); #247 can be marked ready.
+- Implements additive AuthSession migration `20260920170000_auth_sessions`, 256-bit opaque tokens stored SHA-256 hashed, password binding, server expiry/revocation, login/password-change rotation, admin-edit/reset deletion, rejection of legacy identity cookies. Existing users must sign in again; passwords/collection data unchanged.
+- Pre-fix synthetic identity-cookie API request received HTTP 200 instead of 401. Regression intentionally failed on the old image; no production testing. Log `test-results/session-baseline.log`.
+- All **558 units** and typecheck passed. Added three synthetic browser scenarios (including administrator reset, forced password change and disable/re-enable); browser credentials are excluded from traces/video/screenshots.
+- Docker build/deploy completed; production build and six manifest guards passed. Current image `sha256:5785e72f1b7a74107878ae5215f7070a0b7b4f67abd49f31c444666b89b44d90` (application `cd5c469`), healthy/host HTTP 200, all **59 migrations current**. Build log `test-results/session-docker.log`; Compose's build policy caused a second successful build during startup. Use `up --no-build` following an explicit build in future.
+- GitHub Linux Core run `35525754981` PASSED. All **three security browser cases passed** (20.9s), including old-cookie rejection and admin reset/disable/re-enable. Log `test-results/session-browser.log`.
+- Full cumulative `npm run verify` **PASSED**: generation/typecheck, 558 unit tests, host production build/six manifest guards, all **37 serial browser tests with zero skips** (3.1m). Log `test-results/session-full-verify.log`. All command processes completed. No security PR merge approval.
+- Next: focused #253 on a new branch based on #254, followed by League/vault. No security application changes pending.
+- New source finding #253: unsanitized login return destination and middleware next/login returnTo mismatch. Focused follow-up after #254; no production/external redirect probing. Reconcile live issue before implementing.
+- User chose to retain the current model and continue. No intentional pause.
 
-Required-check backfill added to #243 (`0981089`) and propagated without rewriting history to #244 (`fe48d15`), #247 (`cfba334`) and #248 (`1d06bb3`, tree identical to `01e7ee3`). All four Linux core runs passed: 35523453767, 35523454037, 35523453517 and 35523453804 respectively. Recheck required checks after base updates; no merges approved/performed. #249 catalogues trade provenance loss discovered while preparing #238. A draft lifecycle test is temporarily ignored at `test-results/trade-lifecycle.draft.ts`; next step is move it onto a focused trade branch and reproduce/fix #249 using isolated synthetic accounts.
+## Remaining approved queue
 
-1. #220/#224: finish performance validation and open this batch PR.
-   - Then #242: make startup admin bootstrap preserve existing accounts; verify fresh setup and restart behavior.
-2. #237: isolated backup/restore drill, integrity checks and recovery runbook. Never target the running snapshot database or start outbound workers on restored data.
-3. #238: complete two-user trade lifecycle and copy conservation.
-4. #239: Commander League season/match lifecycle and immutable deck locking.
-5. #240: visual vault workspace. User confirmed six sections in a single row; present Sect 0 through Sect 5 left to right. Advisory capacity 85, extras/unsectioned preserved. Desktop first and practical phone interaction.
-6. #241: CI verification and ordered image publication. No automatic merging or production changes.
+- #253 safe login redirect follow-up.
+- #239 Commander League season/match lifecycle and immutable deck locking.
+- #240 visual vault: six sections in one row, Sect 0–5 left to right, advisory capacity 85, extras/unsectioned retained; desktop first, usable phone controls.
+- #220 residual inventory navigation observation.
+- Pending PR issues remain open until their fixes merge; do not close them merely because local tests pass.
+- After assigned tasks, continue proportionate parity/UX audits; larger product decisions need clarification.
 
-## Local environment and operating reminders
+## Local operating reminders
 
 - App http://127.0.0.1:13001; capture-only Mailpit http://127.0.0.1:18025.
-- Preserve all three Compose files: `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.smtp-test.yml`. No real snapshot-user email delivery.
-- Run browser tests serially with `MTG_LOCAL_PILOT_TEST=1`. Automated tests use their own headless Chromium sessions, not the user's browser profile. Use dedicated Edge tabs for visible MTG checks; never manipulate another project's tabs. Shared CPU/memory load is still possible. No browser collision was established from the other project's reported failure.
-- Never run browser tests during heavy builds. Confirm host HTTP after deployment, not just Docker health.
-- Private fixtures, logs and user-supplied deck remain ignored under `test-results/`; do not publish credentials, deck contents or authenticated traces.
-- Read Foundry hub/workflow/relevant feature notes before each batch. Durable decisions go in Foundry; code/test details in repository and GitHub.
-- User approved required CI on 2026-09-20. Verified active main-only ruleset 23732060 requires GitHub Actions `Core verification`, strict up-to-date checks, no bypass actors (current user cannot bypass). No PR merge approval or auto-merge. Older stacked PRs need verification tooling/checks before merging; never disable the rule to bypass rollout. User confirmed single-row vault geometry and asked to continue.
-- Final rebuilt-image recovery drill PASSED without a library override: restore 144.9s, 49 table comparisons (48 full content, price cache count-only), 12,477 physical copies, four appdata roots / 21 entries; dry-run preservation, missing/corrupt dump guards, real SQL-failure rollback and current migrations all passed. Runner reported scoped disposable cleanup complete. Full browser verification and cumulative CI-tooling Docker build remain pending; #247 stays draft for now.
+- Preserve all three Compose files: `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.smtp-test.yml`. No real snapshot email delivery.
+- One LOCAL global trade-announcement webhook was disabled before fixtures and remains disabled; trade tests refuse enabled endpoints. No production setting changed.
+- Browser tests run serially with `MTG_LOCAL_PILOT_TEST=1`; use isolated headless Chromium, never another project's browser profile. Do not overlap browser tests with heavy builds. Confirm host HTTP after deployment.
+- Private logs/traces/fixtures stay ignored under `test-results`; backups under `.local-data/backups`. Never publish credentials, user deck contents, authenticated traces or archives.
+- Compatible private recovery capture: `.local-data/backups/drill-e7b779ba-5758-4b40-aa32-b762d9d46bd3`. Older PG18 capture `drill-e171be3b-98c3-403e-87ce-2f3aa99ca6af` is failure-only evidence, not a verified backup.
+- Recovery archive excludes separate pricing database/configuration/master key. Filesystem copy is not atomic with database replacement. Revoke restored AuthSession records before exposing a restored web server; see AUTH_SESSIONS.md.
+- Read Foundry hub/workflow/relevant notes before each batch. Durable knowledge belongs there; exact implementation/evidence in repo/GitHub.

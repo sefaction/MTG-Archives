@@ -35,4 +35,4 @@ $env:MTG_LOCAL_PILOT_TEST = '1'
 npm.cmd run ui:test -- tests/ui/auth-sessions.spec.ts
 ```
 
-See the PR and `WORK_CHECKPOINT.md` for completed results; test presence alone is not a passing result. Design reference: [OWASP Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html).
+At application `cd5c469`, all 558 unit tests, typecheck, Windows/Linux production builds and six manifest guards passed. The three dedicated security browser cases passed in 20.9s; full cumulative acceptance then passed all 37 serial cases with zero skips (3.1m). Docker is healthy, host HTTP is 200 and all 59 migrations are current. Synthetic users were removed and the snapshot retained 12,477 physical copies. No production testing or merge occurred. See PR #254 and `WORK_CHECKPOINT.md` for live status. Design reference: [OWASP Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html).
