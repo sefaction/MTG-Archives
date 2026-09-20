@@ -82,7 +82,8 @@ export async function createCommanderLeague(formData: FormData) {
   const drawPoints = integer(formData, "drawPoints", 1);
   const lossPoints = integer(formData, "lossPoints", 0);
   if (!name || name.length > 120) fail("/league", "Enter a league name.");
-  if (year < 2020 || year > 2200) fail("/league", "Enter a valid league year.");
+  if (!Number.isInteger(year) || year < 2020 || year > 2200)
+    fail("/league", "Enter a valid league year.");
   if (
     [winPoints, drawPoints, lossPoints].some(
       (value) => !Number.isInteger(value),
@@ -320,7 +321,11 @@ export async function createLeagueGame(formData: FormData) {
   const roundId = text(formData, "roundId");
   const user = await requireLeagueAdmin(leagueId);
   const participantCount = integer(formData, "participantCount");
-  if (participantCount < 2 || participantCount > 8) {
+  if (
+    !Number.isInteger(participantCount) ||
+    participantCount < 2 ||
+    participantCount > 8
+  ) {
     fail(
       `/league/${leagueId}`,
       "A Commander game needs between 2 and 8 players.",
@@ -399,7 +404,11 @@ export async function createLeagueGame(formData: FormData) {
       winners[0].finishPosition !== 1 ||
       entries.some((entry) => entry.result === CommanderLeagueResult.DRAW) ||
       positions.some(
-        (position) => !position || position < 1 || position > participantCount,
+        (position) =>
+          !Number.isInteger(position) ||
+          !position ||
+          position < 1 ||
+          position > participantCount,
       ) ||
       new Set(positions).size !== participantCount
     ) {
@@ -469,4 +478,5 @@ export async function createLeagueGame(formData: FormData) {
     }
   });
   revalidatePath(`/league/${leagueId}`);
+  redirect(`/league/${leagueId}`);
 }

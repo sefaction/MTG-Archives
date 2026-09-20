@@ -21,6 +21,12 @@ Pending, in dependency order:
 
 The prior full cumulative #243–#248 run passed 550 units, generation/typecheck, Windows/Linux builds, six client-manifest guards and 33 serial browser cases without skips. Later trade batch has focused acceptance; full cumulative security acceptance remains pending.
 
+## Active League audit (#239)
+
+Branch `test/commander-league-lifecycle`, based on #255 documentation tip `9c2f10b`. New uncommitted `tests/ui/league-lifecycle.spec.ts` uses three UUID-scoped synthetic users, real cached printings and 202 isolated physical copies. Browser creates a 12-round season, adds a member and public location, excludes private/unlinked printings, creates/imports two 100-card decks, rejects duplicate participants, records a win and draw, checks standings/snapshots/locking/denied mutations/public boundaries and unchanged inventory. Fixture cleanup is exact-owner scoped and closes contexts tolerantly.
+
+First harness run failed on an exact dropdown label selector, corrected to its scoped member field; cleanup verified zero users/leagues. The complete normal lifecycle then **PASSED** in 15.9s against application `45bf2de` (`test-results/league-lifecycle-browser.log`). Two expanded baselines reproduced defects: stale error after successful save (#258, `league-feedback-baseline.log`) and one empty persisted game from a nonnumeric participant count (#257, `league-count-baseline.log`). Synthetic users/leagues cleaned and physical copies verified 12,477. Added integer guards for count/year/finish and a clean redirect after successful game recording. **563 units and typecheck pass**; new regression covers malformed/fractional counts, duplicate players and cleared error feedback. Next: commit/open a focused PR, Docker build with all three overlays and `up --no-build`, corrected League/browser/full acceptance. No merge approval.
+
 ## Completed login-return follow-up (#253 / #256)
 
 PR #255, branch `fix/local-login-redirects`, application `45bf2de`, test correction `e53fa28`, based on #254 tip `08d287f`. Shared normalized local-return-path guard for login and admin-mode toggles; submitted-field validation, middleware next compatibility and safe wrong-password retry.
