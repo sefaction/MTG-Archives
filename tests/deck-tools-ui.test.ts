@@ -65,7 +65,7 @@ test("builder, analysis, sample hands, and playtest share coherent navigation", 
 test("playtest route is visibility-safe, client-only, and reducer driven", () => {
   assert.match(playtestPage, /loadVisibleDeckSnapshot/);
   assert.match(playtestPage, /notFound\(\)/);
-  assert.match(playtestPage, /<PlaytestSandbox cards=\{deck\.cards\}/);
+  assert.match(playtestPage, /<PlaytestSandbox\s+cards=\{deck\.cards\}/);
   assert.doesNotMatch(playtestPage, /prisma\./);
   assert.doesNotMatch(playtest, /fetch\(|action=|\/api\//);
   assert.match(playtest, /useReducer/);

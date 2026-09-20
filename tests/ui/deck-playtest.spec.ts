@@ -152,8 +152,15 @@ test("manual playtest actions are reversible and never persist to the deck", asy
   ).toHaveCount(1);
 
   await page.reload();
+  await expect(hand.locator("article")).toHaveCount(6);
+  await expect(battlefield.locator("article")).toHaveCount(1);
+  await expect(library).toContainText(`${initialLibraryCount - 8} cards`);
+  await expect(
+    page.getByText("Restored this device's saved playtest."),
+  ).toBeVisible();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Clear saved session" }).click();
   await expect(hand.locator("article")).toHaveCount(0);
-  await expect(battlefield.locator("article")).toHaveCount(0);
   await expect(library).toContainText(`${initialLibraryCount} cards`);
   expect(writes).toEqual([]);
 

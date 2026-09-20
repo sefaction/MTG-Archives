@@ -10,6 +10,8 @@ Work through the open queue, test locally, open one PR per coherent batch, and c
 
 ### Current checkpoint (supersedes historical entries below)
 
+- Paste PR is #232, tip `88b4fe5`, ready, based on #229. Current branch `feat/playtest-advanced`, app `1771b13`, based on #232. #167/#222 implemented; 531 units pass. First Docker build found React effect lint errors; corrected, targeted ESLint passes. Rebuild `test-results/playtest-docker-final.log` (command 84664) has completed compilation, lint/typecheck and all six manifest guards and is exporting image. Wait for completion/health before browser tests. New `tests/ui/playtest-advanced.spec.ts` covers unique 80-card fixture, full-library search, advanced controls, files, stale deck, phone/private/no-write cases. `docs/PLAYTEST_ADVANCED.md` records contract. Next: targeted browser tests, screenshot inspection, full verify, PR. No browser test or PR yet for playtest.
+
 - #221 -> #226 -> #227 -> #228 -> #229 are ready, stacked in that order. None has merge approval. #228 app `22055ad`, remote docs tip `c493661` (local branch ref may lag); #229 `cbc1b94`.
 - Current `feat/pasted-decklist-review`, app `a039bbd`, is ready to push/open against #229. Resolves revised paste-only #190, exact cached/owned face-name bug #230, and literal card name Foil bug #231. No direct Moxfield integration.
 - Completed full verification: 526 units, typecheck, production build/manifest guard, 27 browser passes / two existing detail/meld fixture skips. Log `test-results/paste-verify.log`.

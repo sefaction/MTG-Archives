@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DeckToolsNav } from "@/components/DeckToolsNav";
@@ -10,6 +10,8 @@ import { getAccessScope, getCurrentUser } from "@/lib/auth";
 import { deckFormatLabel } from "@/lib/decks";
 import { loadVisibleDeckSnapshot } from "@/lib/deck-snapshot";
 import { effectiveVisibilityLabel } from "@/lib/visibility";
+import { playtestStorageKey } from "@/lib/playtest-storage";
+import { MAX_PLAYTEST_CARDS } from "@/lib/playtest";
 
 export default async function DeckPlaytestPage({
   params,
@@ -51,14 +53,35 @@ export default async function DeckPlaytestPage({
           </div>
           <p className="max-w-xl text-xs text-[var(--app-muted)]">
             Goldfish with a manual tabletop. Cards, life, counters, and turns
-            exist only in this browser session and never change the saved deck
-            or inventory.
+            stay on this device and never change the saved deck or inventory.
           </p>
         </div>
       </section>
 
       <DeckToolsNav deckId={deck.id} active="playtest" />
-      <PlaytestSandbox cards={deck.cards} initialSeed={randomUUID()} />
+      {deck.cards
+        .filter((card) => card.section !== "MAYBEBOARD" || card.isCommander)
+        .reduce((sum, card) => sum + card.quantity, 0) > MAX_PLAYTEST_CARDS ? (
+        <p role="alert">
+          This deck exceeds the {MAX_PLAYTEST_CARDS}-card playtest limit. Reduce
+          its size before starting.
+        </p>
+      ) : (
+        <PlaytestSandbox
+          cards={deck.cards}
+          key={createHash("sha256")
+            .update(
+              JSON.stringify({
+                viewer: user?.id ?? "anonymous",
+                deck: deck.id,
+                cards: deck.cards,
+              }),
+            )
+            .digest("hex")}
+          initialSeed={randomUUID()}
+          storageKey={playtestStorageKey(user?.id ?? "anonymous", deck.id)}
+        />
+      )}
     </main>
   );
 }
