@@ -4,6 +4,12 @@ import { redirect } from "next/navigation";
 import { prisma } from "./prisma";
 import type { User, Player } from "@prisma/client";
 import { UserRole } from "@prisma/client";
+import {
+  createStoredSession,
+  resolveStoredSession,
+  revokeStoredSession,
+  SESSION_MAX_AGE_SECONDS,
+} from "./auth-sessions";
 
 const COOKIE_NAME = "mtg_inventory_session";
 const LEGACY_COOKIE_NAME = "boxleague_session";
@@ -104,16 +110,7 @@ export async function hashPassword(password: string) {
 
 export async function getCurrentUser(): Promise<CurrentUser | null> {
   const cookieStore = await cookies();
-  const session =
-    cookieStore.get(COOKIE_NAME)?.value ??
-    cookieStore.get(LEGACY_COOKIE_NAME)?.value;
-  if (!session) return null;
-  const user = await prisma.user.findUnique({
-    where: { id: session },
-    include: { player: true },
-  });
-  if (!user || !user.isActive) return null;
-  return user;
+  return resolveStoredSession(prisma, cookieStore.get(COOKIE_NAME)?.value);
 }
 
 export async function login(identifier: string, password: string) {
@@ -137,25 +134,60 @@ export async function login(identifier: string, password: string) {
       ok: false as const,
       reason: "Invalid username/email or password.",
     };
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { lastLoginAt: new Date() },
-  });
-  const cookieSecure = process.env.COOKIE_SECURE === "true";
   const cookieStore = await cookies();
-  cookieStore.set(COOKIE_NAME, user.id, {
+  const token = await prisma.$transaction(async (tx) => {
+    // A concurrent reset/disable must not turn a previously checked password into a new session.
+    const current = await tx.user.updateMany({
+      where: { id: user.id, passwordHash: user.passwordHash, isActive: true },
+      data: { lastLoginAt: new Date() },
+    });
+    if (current.count !== 1) return null;
+    await revokeStoredSession(tx, cookieStore.get(COOKIE_NAME)?.value);
+    return createStoredSession(tx, user);
+  });
+  if (!token)
+    return {
+      ok: false as const,
+      reason: "Invalid username/email or password.",
+    };
+  await setSessionCookie(token);
+  return { ok: true as const, forcePasswordChange: user.forcePasswordChange };
+}
+
+async function setSessionCookie(token: string) {
+  const cookieStore = await cookies();
+  cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: cookieSecure,
+    secure: process.env.COOKIE_SECURE === "true",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30,
+    maxAge: SESSION_MAX_AGE_SECONDS,
   });
   cookieStore.delete({ name: LEGACY_COOKIE_NAME, path: "/" });
-  return { ok: true as const, forcePasswordChange: user.forcePasswordChange };
+  cookieStore.delete({ name: ADMIN_MODE_COOKIE_NAME, path: "/" });
+}
+
+/** Called only after the password-change action verifies the current password. */
+export async function updatePasswordAndSession(
+  user: CurrentUser,
+  passwordHash: string,
+) {
+  const token = await prisma.$transaction(async (tx) => {
+    const changed = await tx.user.updateMany({
+      where: { id: user.id, passwordHash: user.passwordHash, isActive: true },
+      data: { passwordHash, forcePasswordChange: false },
+    });
+    if (changed.count !== 1)
+      throw new Error("Account changed. Please log in again.");
+    await tx.authSession.deleteMany({ where: { userId: user.id } });
+    return createStoredSession(tx, { id: user.id, passwordHash });
+  });
+  await setSessionCookie(token);
 }
 
 export async function logout() {
   const cookieStore = await cookies();
+  await revokeStoredSession(prisma, cookieStore.get(COOKIE_NAME)?.value);
   cookieStore.delete({ name: COOKIE_NAME, path: "/" });
   cookieStore.delete({ name: LEGACY_COOKIE_NAME, path: "/" });
   cookieStore.delete({ name: ADMIN_MODE_COOKIE_NAME, path: "/" });

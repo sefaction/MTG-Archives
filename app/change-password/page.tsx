@@ -1,8 +1,11 @@
 export const dynamic = "force-dynamic";
 import bcrypt from "bcryptjs";
 import { Nav } from "@/components/Nav";
-import { getCurrentUser, hashPassword } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import {
+  getCurrentUser,
+  hashPassword,
+  updatePasswordAndSession,
+} from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 
@@ -25,10 +28,7 @@ export default async function ChangePasswordPage({
     const ok = await bcrypt.compare(current, currentUser.passwordHash);
     if (!ok) redirect("/change-password?error=current");
     const passwordHash = await hashPassword(next);
-    await prisma.user.update({
-      where: { id: currentUser.id },
-      data: { passwordHash, forcePasswordChange: false },
-    });
+    await updatePasswordAndSession(currentUser, passwordHash);
     redirect("/dashboard");
   }
   return (
