@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, request as requestFactory } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 
@@ -108,8 +108,7 @@ test("email preferences, queued test, recipient isolation and phone layout", asy
     await page.getByLabel(/username or email/i).fill(`${tag}-other`);
     await page.getByLabel(/^password$/i).fill(password);
     await page.getByRole("button", { name: /^log in$/i }).click();
-    await page.waitForURL(/dashboard/);
-    await page.goto("/settings/email");
+    await page.waitForURL("**/settings/email");
     await expect(page.getByText("No email deliveries yet.")).toBeVisible();
     await expect(page.getByLabel("Email trade activity")).not.toBeChecked();
     await expect(
@@ -120,10 +119,17 @@ test("email preferences, queued test, recipient isolation and phone layout", asy
       database(
         `await p.notificationDeliveryJob.deleteMany({where:{destinationKey:${JSON.stringify(`email:${userId}`)},transport:'email'}});await p.user.delete({where:{id:${JSON.stringify(userId)}}});return true;`,
       );
-    await request.delete(captureUrl);
     if (otherUserId)
       database(
         `await p.user.delete({where:{id:${JSON.stringify(otherUserId)}}});return true;`,
       );
+    // Test-owned request contexts can already be closed after a timeout.
+    // Remove both exact fixture accounts first, then clean capture independently.
+    const cleanupRequest = await requestFactory.newContext();
+    try {
+      await cleanupRequest.delete(captureUrl, { timeout: 10_000 });
+    } finally {
+      await cleanupRequest.dispose();
+    }
   }
 });
