@@ -6,7 +6,9 @@ Local development branch workflow:
 
 - Work on a feature branch, not directly on main.
 - Build and test local changes against this local checkout.
-- Push the feature branch to GitHub and open a PR back into main.
+- Push feature branches and open one PR per coherent batch without waiting for user approval. Document dependencies between PRs.
+- Load completed batches cumulatively into local Docker and record the commits and unmerged PRs included in the review build.
+- Continue authorized work while PRs await review. Merge each PR into main only after the user explicitly approves that individual PR.
 
 Docker commands:
 
@@ -59,7 +61,8 @@ Standard Codex UI workflow:
 5. Check the Docker app directly when needed:
    curl.exe http://127.0.0.1:13001
    docker compose logs --tail=150 web
-6. Push the feature branch and open a PR into main for approval.
+6. Push the feature branch and open its PR without waiting for approval; continue authorized work while keeping the combined Docker build available for review.
+7. Wait for explicit user approval of each individual PR before merging it into main.
 
 Playwright:
 
@@ -72,6 +75,8 @@ Playwright:
   has been explicitly approved.
 
 Important safety rules:
+
+- The user has explicitly authorized all changes to the LOCAL MTG Archives stack and its snapshot data, including local reset/restore testing and container changes. This standing authorization satisfies the local approval conditions below; verify exact targets and keep operations scoped to this project. Production and unrelated laptop data are outside this authorization.
 
 - Do not run docker compose down -v unless explicitly asked.
 - Do not delete Docker volumes.
