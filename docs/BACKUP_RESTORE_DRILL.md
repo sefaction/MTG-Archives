@@ -26,15 +26,13 @@ If capture completed but a later drill step was interrupted, use `--run --reuse=
 - The legacy `CardPriceSnapshot` cache remains in some primary snapshots despite the separate pricing database architecture. It is included in the archive and compared by row count only; sorting millions of full-row hashes is not proportionate for a refreshable cache. All authoritative tables retain full-content digest checks. The initial diagnostic full-cache hash was cancelled before backup creation to avoid monopolizing laptop disk I/O.
 - Removes only UUID-labeled drill containers, their disposable database/appdata and the internal network. The private source archive/evidence remain for local recovery/inspection; they are ignored by git. Never upload them to GitHub or Foundry.
 
-## Recovery boundaries
-
 ## Defects found and fixes under validation
 
 - #246: the floating Alpine image installed PostgreSQL 18 clients while the Compose databases use PostgreSQL 16. The first real archive was dumped from 16.15 by 18.4 and its restore failed. Pin the supported client major and reject mismatched backup creation; retain old archives privately for compatibility assessment rather than rewriting them.
 - #245: validation previously stopped at the manifest before replacing the schema. The fix preflights archive entries, complete dump payload, server compatibility and all explicitly configured appdata targets; it never falls back to archive-provided source paths. Schema replacement plus SQL loading now share one fail-fast transaction. The drill adds missing/corrupt-dump canaries and a deliberately failing SQL check constraint to verify rollback after schema replacement begins. Filesystem copies follow database commit and are not cross-resource atomic.
 - The first complete capture took about 63 seconds and produced an 88 MB compressed archive. Initial diagnostic runs are not passing recovery evidence. Results with corrected clients and safety guards will be recorded below and in the PR.
 
-Implementation references: [PostgreSQL dump compatibility](https://www.postgresql.org/docs/16/app-pgdump.html). PostgreSQL explicitly does not guarantee loading newer-client dump output into older servers, even when the source server was older.
+Implementation references: [PostgreSQL dump compatibility](https://www.postgresql.org/docs/16/app-pgdump.html) and [psql transaction behavior](https://www.postgresql.org/docs/16/app-psql.html). PostgreSQL explicitly does not guarantee loading newer-client dump output into older servers, even when the source server was older.
 
 ## Recovery boundaries and remaining limits
 

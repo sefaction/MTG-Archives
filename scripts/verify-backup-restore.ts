@@ -181,6 +181,14 @@ async function main() {
       resolve("scripts/verify-backup-restore-container.ts"),
       `${runner}:/app/scripts/verify-backup-restore-container.ts`,
     ]);
+    if (process.argv.includes("--test-working-library")) {
+      // Development-only negative-control iteration; final evidence must be
+      // rerun without this option against a rebuilt image.
+      docker(["cp", resolve("lib/backup.ts"), `${runner}:/app/lib/backup.ts`]);
+      console.log(
+        "Development check: restore library copied only into disposable runner; final rebuilt-image verification still required.",
+      );
+    }
     for (const name of created) {
       const isolated = JSON.parse(docker(["inspect", name]))[0];
       assert.deepEqual(Object.keys(isolated.NetworkSettings.Networks), [

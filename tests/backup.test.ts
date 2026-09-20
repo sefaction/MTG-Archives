@@ -91,7 +91,7 @@ test("restore stages all payloads before using one fail-fast database transactio
   assert.match(restore, /--single-transaction/);
   assert.match(restore, /ON_ERROR_STOP=1/);
   assert.match(restore, /finally/);
-  assert.doesNotMatch(restore, /CREATE SCHEMA/);
+  assert.match(restore, /CREATE SCHEMA/);
 });
 
 test("package exposes backup CLI scripts", async () => {

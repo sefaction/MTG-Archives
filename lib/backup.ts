@@ -199,58 +199,60 @@ export async function createBackup() {
 
   const timestamp = timestampForFilename();
   const workspace = await mkdtemp(join(tmpdir(), "mtg-archives-backup-"));
-  const bundleRoot = join(workspace, "bundle");
-  await mkdir(bundleRoot, { recursive: true });
+  try {
+    const bundleRoot = join(workspace, "bundle");
+    await mkdir(bundleRoot, { recursive: true });
 
-  const dumpPath = join(bundleRoot, DB_DUMP_FILENAME);
-  await runCommand(
-    "pg_dump",
-    [
-      "--format=custom",
-      "--file",
-      dumpPath,
-      "--no-owner",
-      "--no-acl",
-      "--schema",
-      connection.schema || "public",
-    ],
-    {
-      env: buildPgEnv(connection),
-    },
-  );
+    const dumpPath = join(bundleRoot, DB_DUMP_FILENAME);
+    await runCommand(
+      "pg_dump",
+      [
+        "--format=custom",
+        "--file",
+        dumpPath,
+        "--no-owner",
+        "--no-acl",
+        "--schema",
+        connection.schema || "public",
+      ],
+      {
+        env: buildPgEnv(connection),
+      },
+    );
 
-  const appdataEntries = await prepareAppdataArchive(bundleRoot);
-  const manifest = await buildManifest(connection, appdataEntries);
-  await writeFile(
-    join(bundleRoot, MANIFEST_FILENAME),
-    `${JSON.stringify(manifest, null, 2)}\n`,
-  );
-  await writeFile(join(bundleRoot, RESTORE_README_FILENAME), restoreReadme());
+    const appdataEntries = await prepareAppdataArchive(bundleRoot);
+    const manifest = await buildManifest(connection, appdataEntries);
+    await writeFile(
+      join(bundleRoot, MANIFEST_FILENAME),
+      `${JSON.stringify(manifest, null, 2)}\n`,
+    );
+    await writeFile(join(bundleRoot, RESTORE_README_FILENAME), restoreReadme());
 
-  const finalPath = join(
-    backupDir,
-    `${BACKUP_PREFIX}${timestamp}${BACKUP_SUFFIX}`,
-  );
-  await runCommand("tar", [
-    "-czf",
-    finalPath,
-    "-C",
-    bundleRoot,
-    MANIFEST_FILENAME,
-    DB_DUMP_FILENAME,
-    ...(manifest.included.appdata ? [APPDATA_ARCHIVE_FILENAME] : []),
-    RESTORE_README_FILENAME,
-  ]);
+    const finalPath = join(
+      backupDir,
+      `${BACKUP_PREFIX}${timestamp}${BACKUP_SUFFIX}`,
+    );
+    await runCommand("tar", [
+      "-czf",
+      finalPath,
+      "-C",
+      bundleRoot,
+      MANIFEST_FILENAME,
+      DB_DUMP_FILENAME,
+      ...(manifest.included.appdata ? [APPDATA_ARCHIVE_FILENAME] : []),
+      RESTORE_README_FILENAME,
+    ]);
 
-  const sizeBytes = (await stat(finalPath)).size;
-  await applyRetention(backupDir);
-  await rm(workspace, { recursive: true, force: true });
-
-  return {
-    path: finalPath,
-    sizeBytes,
-    manifest,
-  };
+    const sizeBytes = (await stat(finalPath)).size;
+    await applyRetention(backupDir);
+    return {
+      path: finalPath,
+      sizeBytes,
+      manifest,
+    };
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
 }
 
 export async function listBackups(
@@ -448,7 +450,8 @@ export async function restoreBackup(
     const prelude = join(workspace, "replace-schema.sql");
     await writeFile(
       prelude,
-      `DROP SCHEMA IF EXISTS ${quotePgIdentifier(schema)} CASCADE;\n`,
+      // pg_restore --schema selects contents but omits CREATE SCHEMA itself.
+      `DROP SCHEMA IF EXISTS ${quotePgIdentifier(schema)} CASCADE; CREATE SCHEMA ${quotePgIdentifier(schema)};\n`,
     );
     await runCommand(
       "psql",
