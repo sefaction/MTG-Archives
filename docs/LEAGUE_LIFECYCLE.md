@@ -28,3 +28,5 @@ npm.cmd run ui:test -- tests/ui/league-lifecycle.spec.ts
 Before adding those edge cases, the complete normal lifecycle passed against the existing app. Separate local baselines then reproduced both defects, and synthetic records were cleaned. An initial test-only exact-label locator was corrected before those findings. Consult the PR/checkpoint for corrected-build results; adding a test is not proof it passes.
 
 This is not an exhaustive concurrency or malicious-server-action audit, nor a claim of full Commander rules legality enforcement. Larger seasons, eight-player games, tournament rule variants and exhaustive mobile layout coverage remain separate tests.
+
+Final acceptance at `76f0d8b` PASSED: 563 units, generation/typecheck, Windows/Linux production builds and six manifest guards, the corrected League browser case (19.8s), and all 40 serial browser cases with zero skips (4.3m). Local image `sha256:14cd31c69a66501c5a5378257047c29e297cb606c82a7572e8375f79ce4f34de` is healthy/host HTTP 200. Fixture users/leagues returned to zero and original inventory remains 12,477 copies. PR #259 awaits individual merge approval; no production change.

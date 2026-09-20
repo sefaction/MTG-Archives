@@ -1,6 +1,12 @@
 # Local review build — cumulative issue queue
 
-## Current login-return review (2026-09-20)
+## Current League lifecycle review (2026-09-20)
+
+Cumulative stack #243 → #244 → #247 → #248 → #250 → #254 → #255 → #259, application `76f0d8b`. Local image `sha256:14cd31c69a66501c5a5378257047c29e297cb606c82a7572e8375f79ce4f34de` is healthy/host HTTP 200. #259 adds full League lifecycle acceptance and fixes empty games from malformed counts (#257) and stale validation feedback (#258).
+
+Full verification PASSED: 563 units, generation/typecheck, Windows/Linux builds and six manifest guards, all 40 serial browser cases with zero skips (4.3m). Fixture users/leagues were removed and inventory remains 12,477 physical copies. See LEAGUE_LIFECYCLE.md for the normal/failed/corrected evidence and boundaries. Same capture-only SMTP overlays; no pending PR has merge approval and no production change occurred. Draft visual-vault files are not in this build.
+
+## Previous login-return review (2026-09-20)
 
 Cumulative stack #243 → #244 → #247 → #248 → #250 → #254 → #255, application `45bf2de`, test correction `e53fa28`. Local image `sha256:4db6c0bce174b5a6e7530479befda95a3ed4a5ca13f4607b27dca05bbe0a5fd2` is healthy/HTTP 200. #255 validates local login/admin-mode return paths and preserves requested destinations across login retries; see LOCAL_RETURN_PATHS.md.
 
