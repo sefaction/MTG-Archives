@@ -1,3 +1,12 @@
+// Reuse locale machinery across comparisons. localeCompare with options creates
+// equivalent collation work on every call in large server-side inventory sorts.
+// Keep the default locale and both original option sets (suffixes are case-aware).
+const inventoryTextCollator = new Intl.Collator(undefined, {
+  sensitivity: "base",
+  numeric: true,
+});
+const collectorSuffixCollator = new Intl.Collator(undefined, { numeric: true });
+
 export const INVENTORY_SORT_FIELDS = [
   "cardName",
   "quantity",
@@ -69,12 +78,7 @@ export async function enrichInventoryGroupsForLocationSort(
   return groups.map((group) => {
     const names = [
       ...(namesByGroup.get(inventoryGroupIdentity(group, groupFields)) ?? []),
-    ].sort((left, right) =>
-      left.localeCompare(right, undefined, {
-        sensitivity: "base",
-        numeric: true,
-      }),
-    );
+    ].sort(inventoryTextCollator.compare);
     return {
       ...group,
       locationName: names[0] ?? "Unassigned",
@@ -234,9 +238,8 @@ export function compareInventorySortValues(
     const numberCompare = (l.number - r.number) * multiplier;
     if (numberCompare) return numberCompare;
     return (
-      String(l.suffix).localeCompare(String(r.suffix), undefined, {
-        numeric: true,
-      }) * multiplier
+      collectorSuffixCollator.compare(String(l.suffix), String(r.suffix)) *
+      multiplier
     );
   }
   const leftNull =
@@ -256,26 +259,18 @@ export function compareInventorySortValues(
     if (diff) return diff * multiplier;
     if (left.fallback || right.fallback) {
       return (
-        String(left.fallback ?? "").localeCompare(
+        inventoryTextCollator.compare(
+          String(left.fallback ?? ""),
           String(right.fallback ?? ""),
-          undefined,
-          {
-            sensitivity: "base",
-            numeric: true,
-          },
         ) * multiplier
       );
     }
     return 0;
   }
   return (
-    String(left?.value ?? "").localeCompare(
+    inventoryTextCollator.compare(
+      String(left?.value ?? ""),
       String(right?.value ?? ""),
-      undefined,
-      {
-        sensitivity: "base",
-        numeric: true,
-      },
     ) * multiplier
   );
 }
@@ -304,12 +299,8 @@ export function compareInventoryGroups(
     sortDirection,
   );
   if (primary) return primary;
-  return String(left.cardId ?? "").localeCompare(
+  return inventoryTextCollator.compare(
+    String(left.cardId ?? ""),
     String(right.cardId ?? ""),
-    undefined,
-    {
-      sensitivity: "base",
-      numeric: true,
-    },
   );
 }
