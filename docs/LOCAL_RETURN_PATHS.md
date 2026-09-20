@@ -21,4 +21,6 @@ npm.cmd run ui:test -- tests/ui/login-return.spec.ts
 
 Validation results are recorded in the pull request and WORK_CHECKPOINT.md. This is a focused navigation/security correction, not a complete authentication audit.
 
+Final acceptance at application `45bf2de` / tests `e53fa28` passed 561 units, typecheck, Windows/Linux builds and six manifest guards, plus all 39 serial browser cases with zero skips (2.8m). Local Docker is healthy/HTTP 200. PR #255 is ready for individual review, not merged.
+
 The first cumulative run caught an older email-settings test waiting for Dashboard after a protected-page login. It now verifies the intended return to Email Settings. That timeout also exposed #256: capture cleanup through a closed request context prevented deletion of a second fixture user. Both account deletions now precede capture cleanup, which uses its own request context. The exact orphan fixture and its captured mail were removed; real accounts were untouched.
