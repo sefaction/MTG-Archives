@@ -6,13 +6,21 @@ import { resolve } from "node:path";
 import { realpathSync } from "node:fs";
 
 function docker(args: string[]) {
-  return execFileSync("docker", args, {
-    encoding: "utf8",
-    windowsHide: true,
-    timeout: 300_000,
-    maxBuffer: 8 * 1024 * 1024,
-    stdio: ["ignore", "pipe", "pipe"],
-  }).trim();
+  try {
+    return execFileSync("docker", args, {
+      encoding: "utf8",
+      windowsHide: true,
+      timeout: 900_000,
+      maxBuffer: 8 * 1024 * 1024,
+      stdio: ["ignore", "pipe", "pipe"],
+    }).trim();
+  } catch (error: any) {
+    const summary = String(error.stderr || "")
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith("Recovery drill "));
+    if (summary.length) console.error(summary.join("\n"));
+    throw new Error(`Docker drill step failed: ${args[0]}`);
+  }
 }
 
 async function main() {
@@ -51,12 +59,21 @@ async function main() {
     "Source backups must belong to this repository's local snapshot",
   );
   const id = randomUUID();
+  const reuse = process.argv
+    .find((arg) => arg.startsWith("--reuse="))
+    ?.slice("--reuse=".length);
+  if (reuse)
+    assert.match(
+      reuse,
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    );
+  const archiveId = reuse || id;
   const prefix = `mtg-restore-drill-${id}`;
   const network = `${prefix}-net`;
   const postgres = `${prefix}-db`;
   const runner = `${prefix}-app`;
   const label = `mtg.restore-drill=${id}`;
-  const archiveDirectory = resolve(expectedRoot, `drill-${id}`);
+  const archiveDirectory = resolve(expectedRoot, `drill-${archiveId}`);
   assert.ok(
     archiveDirectory.startsWith(`${expectedRoot}\\`) ||
       archiveDirectory.startsWith(`${expectedRoot}/`),
@@ -64,22 +81,28 @@ async function main() {
   const created: string[] = [];
   let networkCreated = false;
   try {
-    console.log(
-      "Creating private source backup; source data must stay quiescent during capture.",
-    );
-    console.log(
-      docker([
-        "exec",
-        "-e",
-        "MTG_LOCAL_PILOT_TEST=1",
-        "-e",
-        `BACKUP_DIR=/app/data/backups/drill-${id}`,
-        source,
-        "/app/node_modules/.bin/tsx",
-        "scripts/verify-backup-restore-container.ts",
-        "capture",
-      ]),
-    );
+    if (!reuse) {
+      console.log(
+        "Creating private source backup; source data must stay quiescent during capture.",
+      );
+      console.log(
+        docker([
+          "exec",
+          "-e",
+          "MTG_LOCAL_PILOT_TEST=1",
+          "-e",
+          `BACKUP_DIR=/app/data/backups/drill-${id}`,
+          source,
+          "/app/node_modules/.bin/tsx",
+          "scripts/verify-backup-restore-container.ts",
+          "capture",
+        ]),
+      );
+    } else {
+      console.log(
+        "Reusing the explicitly selected private drill archive; restore target is still newly isolated.",
+      );
+    }
     docker(["network", "create", "--internal", "--label", label, network]);
     networkCreated = true;
     assert.equal(
@@ -112,6 +135,8 @@ async function main() {
           "exec",
           postgres,
           "pg_isready",
+          "-h",
+          "127.0.0.1",
           "-U",
           "drill",
           "-d",
@@ -149,6 +174,13 @@ async function main() {
       "restore",
     ]);
     created.push(runner);
+    // The drill helper can evolve without rebuilding/restarting the live app.
+    // Only this disposable container receives the checked-out test helper.
+    docker([
+      "cp",
+      resolve("scripts/verify-backup-restore-container.ts"),
+      `${runner}:/app/scripts/verify-backup-restore-container.ts`,
+    ]);
     for (const name of created) {
       const isolated = JSON.parse(docker(["inspect", name]))[0];
       assert.deepEqual(Object.keys(isolated.NetworkSettings.Networks), [
@@ -186,8 +218,8 @@ async function main() {
       docker(["network", "rm", network]);
     }
     console.log(
-      "Removed only this drill's disposable containers/database/appdata/network. Private source backup and evidence retained under .local-data/backups/drill-" +
-        id,
+      "Drill cleanup complete: only UUID-owned disposable resources were eligible for removal. Any created private source backup/evidence remain under .local-data/backups/drill-" +
+        archiveId,
     );
   }
 }

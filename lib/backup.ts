@@ -12,11 +12,13 @@ import {
   rm,
   stat,
   writeFile,
+  lstat,
+  realpath,
 } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { constants } from "node:fs";
 import { basename, dirname, join, parse, resolve, sep } from "node:path";
-import { tmpdir } from "node:os";
+import { tmpdir, homedir } from "node:os";
 
 const BACKUP_PREFIX = "mtg-archives-backup-";
 const BACKUP_SUFFIX = ".tar.gz";
@@ -191,6 +193,7 @@ export async function createBackup() {
   if (!databaseUrl) throw new Error("DATABASE_URL is required.");
 
   const connection = parseDatabaseUrl(databaseUrl);
+  await assertMatchingDumpClient(connection);
   const backupDir = resolve(getBackupDir());
   await mkdir(backupDir, { recursive: true });
 
@@ -202,7 +205,15 @@ export async function createBackup() {
   const dumpPath = join(bundleRoot, DB_DUMP_FILENAME);
   await runCommand(
     "pg_dump",
-    ["--format=custom", "--file", dumpPath, "--no-owner", "--no-acl"],
+    [
+      "--format=custom",
+      "--file",
+      dumpPath,
+      "--no-owner",
+      "--no-acl",
+      "--schema",
+      connection.schema || "public",
+    ],
     {
       env: buildPgEnv(connection),
     },
@@ -375,54 +386,90 @@ export async function restoreBackup(
   if (!databaseUrl) throw new Error("DATABASE_URL is required.");
   const connection = parseDatabaseUrl(databaseUrl);
   const workspace = await mkdtemp(join(tmpdir(), "mtg-archives-restore-"));
-  const extractDir = join(workspace, "extract");
-  await mkdir(extractDir, { recursive: true });
-  await runCommand("tar", ["-xzf", fullBackupPath, "-C", extractDir]);
+  try {
+    const extractDir = join(workspace, "extract");
+    await mkdir(extractDir, { recursive: true });
+    await validateArchiveMembers(fullBackupPath, (name) =>
+      [
+        MANIFEST_FILENAME,
+        DB_DUMP_FILENAME,
+        APPDATA_ARCHIVE_FILENAME,
+        RESTORE_README_FILENAME,
+      ].includes(name),
+    );
+    await runCommand("tar", ["-xzf", fullBackupPath, "-C", extractDir]);
 
-  const manifest = JSON.parse(
-    await readFile(join(extractDir, MANIFEST_FILENAME), "utf8"),
-  ) as BackupManifest;
-  validateManifest(manifest);
-
-  if (!options.force) {
-    await rm(workspace, { recursive: true, force: true });
-    return {
-      dryRun: true as const,
-      manifest,
-      message:
-        "Restore was not run. Re-run with --force and type RESTORE to replace the current database.",
-    };
-  }
-
-  await requireRestoreConfirmation(options.confirmation);
-  const schema = connection.schema || "public";
-  await runCommand(
-    "psql",
-    [
-      "--set",
-      "ON_ERROR_STOP=1",
-      "--command",
-      `DROP SCHEMA IF EXISTS ${quotePgIdentifier(schema)} CASCADE; CREATE SCHEMA ${quotePgIdentifier(schema)};`,
-    ],
-    { env: buildPgEnv(connection) },
-  );
-  await runCommand(
-    "pg_restore",
-    [
-      "--dbname",
-      connection.database,
+    const manifest = JSON.parse(
+      await readFile(join(extractDir, MANIFEST_FILENAME), "utf8"),
+    ) as BackupManifest;
+    validateManifest(manifest);
+    const schema = connection.schema || "public";
+    if ((manifest.database.schema || "public") !== schema) {
+      throw new Error("Backup schema must match the configured target schema.");
+    }
+    const dumpPath = join(extractDir, DB_DUMP_FILENAME);
+    if (!(await lstat(dumpPath)).isFile())
+      throw new Error("Database dump must be a regular file.");
+    const listing = await runCommand("pg_restore", ["--list", dumpPath]);
+    const dumpMajor = Number(
+      listing.stdout.match(/Dumped by pg_dump version: (\d+)/)?.[1],
+    );
+    const serverMajor = await getServerMajor(connection);
+    if (!dumpMajor || dumpMajor > serverMajor)
+      throw new Error(
+        "Backup was created by a newer or unknown PostgreSQL client; assess compatibility before restoring.",
+      );
+    // Fully read/decompress the dump before any destructive step. This SQL file
+    // is then executed with the schema replacement in ONE database transaction.
+    const sqlPath = join(workspace, "restore.sql");
+    await runCommand("pg_restore", [
       "--no-owner",
       "--no-acl",
-      join(extractDir, DB_DUMP_FILENAME),
-    ],
-    { env: buildPgEnv(connection) },
-  );
+      "--schema",
+      schema,
+      "--file",
+      sqlPath,
+      dumpPath,
+    ]);
+    const appdataPlan = manifest.included.appdata
+      ? await prepareRestoreAppdata(extractDir, manifest)
+      : [];
 
-  if (manifest.included.appdata) {
-    await restoreAppdata(extractDir, manifest);
+    if (!options.force) {
+      return {
+        dryRun: true as const,
+        manifest,
+        message:
+          "Restore was not run. Re-run with --force and type RESTORE to replace the current database.",
+      };
+    }
+
+    await requireRestoreConfirmation(options.confirmation);
+    const prelude = join(workspace, "replace-schema.sql");
+    await writeFile(
+      prelude,
+      `DROP SCHEMA IF EXISTS ${quotePgIdentifier(schema)} CASCADE;\n`,
+    );
+    await runCommand(
+      "psql",
+      [
+        "--no-psqlrc",
+        "--single-transaction",
+        "--set",
+        "ON_ERROR_STOP=1",
+        "--file",
+        prelude,
+        "--file",
+        sqlPath,
+      ],
+      { env: buildPgEnv(connection) },
+    );
+
+    await applyRestoreAppdata(appdataPlan);
+    return { dryRun: false as const, manifest };
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
   }
-  await rm(workspace, { recursive: true, force: true });
-  return { dryRun: false as const, manifest };
 }
 
 export async function readManifestFromBackup(backupPath: string) {
@@ -516,37 +563,168 @@ async function prepareAppdataArchive(bundleRoot: string) {
   return existing;
 }
 
-async function restoreAppdata(extractDir: string, manifest: BackupManifest) {
+type RestoreAppdataEntry = { sourcePath: string; targetPath: string };
+
+async function validateArchiveMembers(
+  archive: string,
+  allowed: (name: string) => boolean,
+) {
+  const names = (await runCommand("tar", ["-tzf", archive])).stdout
+    .trim()
+    .split("\n");
+  const seen = new Set<string>();
+  for (const raw of names) {
+    const name = raw.replace(/\/$/, "");
+    if (
+      !name ||
+      /[\\\x00-\x1f]/.test(name) ||
+      name.startsWith("/") ||
+      name.split("/").some((part) => !part || part === "." || part === "..") ||
+      !allowed(name) ||
+      seen.has(name)
+    ) {
+      throw new Error(
+        "Backup archive contains an unexpected or unsafe member.",
+      );
+    }
+    seen.add(name);
+  }
+  const verbose = (await runCommand("tar", ["-tvzf", archive])).stdout
+    .trim()
+    .split("\n");
+  if (verbose.some((line) => !["-", "d"].includes(line[0]))) {
+    throw new Error(
+      "Backup archives may contain only regular files and directories, not links or special files.",
+    );
+  }
+}
+
+export function resolveRestoreAppdataTarget(
+  entry: { envName: string; archivePath: string },
+  env: Record<string, string | undefined> = process.env,
+) {
+  const known = new Set([
+    "UPLOADS_DATA_PATH",
+    "IMPORTS_DATA_PATH",
+    "EXPORTS_DATA_PATH",
+    "SCRYFALL_CONTAINER_DATA_PATH",
+  ]);
+  if (
+    (!known.has(entry.envName) &&
+      !/^BACKUP_APPDATA_PATHS_[1-9]\d*$/.test(entry.envName)) ||
+    !/^appdata\/(uploads|imports|exports|scryfall|custom-[1-9]\d*)$/.test(
+      entry.archivePath,
+    )
+  ) {
+    throw new Error("Unsupported appdata mapping in backup manifest.");
+  }
+  const configured =
+    env[entry.envName] ||
+    getDefaultAppdataPaths(env).find((item) => item.envName === entry.envName)
+      ?.sourcePath;
+  if (!configured)
+    throw new Error(
+      `Configure ${entry.envName} before restoring appdata; archive source paths are never restore targets.`,
+    );
+  return resolve(configured);
+}
+
+async function canonicalTarget(path: string): Promise<string> {
+  const info = await lstat(path).catch((error) => {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  });
+  if (info) {
+    if (!info.isDirectory() || info.isSymbolicLink())
+      throw new Error(
+        "Appdata target must be a directory, not a file or symbolic link.",
+      );
+    return realpath(path);
+  }
+  return join(await canonicalTarget(dirname(path)), basename(path));
+}
+
+async function prepareRestoreAppdata(
+  extractDir: string,
+  manifest: BackupManifest,
+) {
+  const roots = manifest.appdata.map((entry) => entry.archivePath);
+  // Validate all mappings before extracting any inner payload or touching targets.
+  const targets = manifest.appdata.map((entry) =>
+    resolveRestoreAppdataTarget(entry),
+  );
+  await validateArchiveMembers(
+    join(extractDir, APPDATA_ARCHIVE_FILENAME),
+    (name) =>
+      name === "appdata" ||
+      roots.some((root) => name === root || name.startsWith(`${root}/`)),
+  );
   await runCommand("tar", [
     "-xzf",
     join(extractDir, APPDATA_ARCHIVE_FILENAME),
     "-C",
     extractDir,
   ]);
-  for (const entry of manifest.appdata) {
-    const targetPath = resolve(process.env[entry.envName] || entry.sourcePath);
+  const plan: RestoreAppdataEntry[] = [];
+  const canonicalBackupDir = await canonicalTarget(resolve(getBackupDir()));
+  for (const [index, entry] of manifest.appdata.entries()) {
+    const targetPath = await canonicalTarget(targets[index]);
     assertSafeRestoreTarget(targetPath);
+    if (
+      isInsidePath(targetPath, canonicalBackupDir) ||
+      isInsidePath(canonicalBackupDir, targetPath)
+    )
+      throw new Error("Restore target overlaps the backup directory.");
+    if (
+      isInsidePath(extractDir, targetPath) ||
+      isInsidePath(targetPath, extractDir)
+    )
+      throw new Error("Restore target overlaps the restore workspace.");
+    if (
+      plan.some(
+        (other) =>
+          isInsidePath(targetPath, other.targetPath) ||
+          isInsidePath(other.targetPath, targetPath),
+      )
+    )
+      throw new Error("Appdata restore targets must not overlap.");
+    const sourcePath = join(extractDir, entry.archivePath);
+    if (!(await lstat(sourcePath)).isDirectory())
+      throw new Error("An appdata payload is missing or is not a directory.");
+    plan.push({ sourcePath, targetPath });
+  }
+  return plan;
+}
+
+async function applyRestoreAppdata(plan: RestoreAppdataEntry[]) {
+  for (const { sourcePath, targetPath } of plan) {
     await mkdir(targetPath, { recursive: true });
     for (const child of await readdir(targetPath)) {
       await rm(join(targetPath, child), { recursive: true, force: true });
     }
-    await cp(join(extractDir, entry.archivePath), targetPath, {
+    await cp(sourcePath, targetPath, {
       recursive: true,
     });
   }
 }
 
-function assertSafeRestoreTarget(targetPath: string) {
+export function assertSafeRestoreTarget(targetPath: string) {
+  targetPath = resolve(targetPath);
   const parsed = parse(targetPath);
   if (
     targetPath === parsed.root ||
-    targetPath.length < parsed.root.length + 4
+    targetPath.length < parsed.root.length + 4 ||
+    isInsidePath(process.cwd(), targetPath) ||
+    isInsidePath(homedir(), targetPath)
   ) {
     throw new Error(
       `Refusing to restore appdata into unsafe path: ${targetPath}`,
     );
   }
-  if (isInsidePath(resolve(getBackupDir()), targetPath)) {
+  if (
+    isInsidePath(resolve(getBackupDir()), targetPath) ||
+    isInsidePath(targetPath, resolve(getBackupDir()))
+  ) {
     throw new Error("Refusing to restore appdata into the backup directory.");
   }
 }
@@ -556,12 +734,45 @@ function validateManifest(manifest: BackupManifest) {
     manifest.app !== "MTG Archives" ||
     manifest.backupVersion !== 1 ||
     manifest.database?.format !== "pg_dump_custom" ||
-    manifest.database?.filename !== DB_DUMP_FILENAME
+    manifest.database?.filename !== DB_DUMP_FILENAME ||
+    manifest.included?.database !== true ||
+    typeof manifest.included?.appdata !== "boolean" ||
+    !Array.isArray(manifest.appdata) ||
+    manifest.included.appdata !== manifest.appdata.length > 0
   ) {
     throw new Error(
       "Backup manifest is not compatible with this restore tool.",
     );
   }
+}
+
+async function getServerMajor(connection: PgConnection) {
+  const result = await runCommand(
+    "psql",
+    [
+      "--no-psqlrc",
+      "--tuples-only",
+      "--no-align",
+      "--set",
+      "ON_ERROR_STOP=1",
+      "--command",
+      "SHOW server_version_num",
+    ],
+    { env: buildPgEnv(connection) },
+  );
+  const major = Math.floor(Number(result.stdout.trim()) / 10000);
+  if (!Number.isInteger(major) || major < 10)
+    throw new Error("Cannot determine supported PostgreSQL server version.");
+  return major;
+}
+
+async function assertMatchingDumpClient(connection: PgConnection) {
+  const client = (await runCommand("pg_dump", ["--version"])).stdout;
+  const major = Number(client.match(/PostgreSQL\) (\d+)/)?.[1]);
+  if (major !== (await getServerMajor(connection)))
+    throw new Error(
+      "Backup requires pg_dump matching the PostgreSQL server major version. Update the backup image before creating an archive.",
+    );
 }
 
 async function requireRestoreConfirmation(confirmation?: string) {

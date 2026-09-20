@@ -12,6 +12,7 @@ import {
   getDefaultAppdataPaths,
   parseDatabaseUrl,
   restoreBackup,
+  buildPgEnv,
 } from "../lib/backup";
 
 type Digest = { rows: number; digest: string };
@@ -33,6 +34,7 @@ const volatileTables = new Set([
   "NotificationDeliveryAttempt",
   "TradeWishlistNotificationActivity",
 ]);
+let stage = "initial guards";
 
 async function databaseDigest(db: PrismaClient) {
   const tables = await db.$queryRaw<Array<{ table_name: string }>>`
@@ -41,7 +43,18 @@ async function databaseDigest(db: PrismaClient) {
   const result: Record<string, Digest> = {};
   for (const { table_name: name } of tables) {
     if (volatileTables.has(name)) continue;
+    stage = `database comparison: ${name}`;
     const quoted = `"${name.replace(/"/g, '""')}"`;
+    // Legacy price cache still exists in older primary snapshots. Restoring it
+    // matters, but sorting millions of row hashes needlessly monopolizes disk.
+    // Compare its row count explicitly; all authoritative tables keep full hashes.
+    if (name === "CardPriceSnapshot") {
+      const [row] = await db.$queryRawUnsafe<Array<{ rows: number }>>(
+        `SELECT count(*)::int AS rows FROM public.${quoted}`,
+      );
+      result[name] = { ...row, digest: "count-only-refreshable-price-cache" };
+      continue;
+    }
     // Table identifiers originate only from PostgreSQL's catalog. Digests never
     // expose row contents, password hashes, private deck names or webhook URLs.
     const [row] = await db.$queryRawUnsafe<
@@ -102,6 +115,7 @@ async function capture(db: PrismaClient) {
   for (const entry of paths)
     files[entry.envName] = await fileDigest(entry.sourcePath);
   const started = Date.now();
+  stage = "create application backup";
   const backup = await createBackup();
   const backupMs = Date.now() - started;
   assert.deepEqual(
@@ -197,7 +211,93 @@ async function restore(db: PrismaClient) {
       "replace only this disposable target",
     );
   }
+  stage = "negative restore guards and rollback";
+  // Synthetic canary only, in the already-validated empty disposable database.
+  // A check function is true while seeding but false during a new restore
+  // session, producing a real SQL load failure after DROP SCHEMA has executed.
+  await db.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe("SET LOCAL mtg.restore_drill_allow = 'yes'");
+    await tx.$executeRawUnsafe(
+      "CREATE FUNCTION public.restore_drill_check() RETURNS boolean LANGUAGE sql AS $$ SELECT coalesce(current_setting('mtg.restore_drill_allow', true) = 'yes', false) $$",
+    );
+    await tx.$executeRawUnsafe(
+      "CREATE TABLE public.restore_drill_canary (value integer CHECK (public.restore_drill_check()))",
+    );
+    await tx.$executeRawUnsafe(
+      "INSERT INTO public.restore_drill_canary VALUES (1)",
+    );
+  });
+  const canary = async () =>
+    assert.deepEqual(
+      await db.$queryRawUnsafe("SELECT value FROM public.restore_drill_canary"),
+      [{ value: 1 }],
+    );
+  const negativeRoot = "/drill/negative";
+  await mkdir(negativeRoot, { recursive: true });
+  await writeFile(
+    join(negativeRoot, "manifest.json"),
+    JSON.stringify({
+      ...dry.manifest,
+      included: { database: true, appdata: false },
+      appdata: [],
+    }),
+  );
+  const negativeArchive = "/drill/negative.tar.gz";
+  const pack = (members: string[]) =>
+    execFileSync("tar", [
+      "-czf",
+      negativeArchive,
+      "-C",
+      negativeRoot,
+      "manifest.json",
+      ...members,
+    ]);
+  pack([]);
+  await assert.rejects(() =>
+    restoreBackup(negativeArchive, { force: true, confirmation: "RESTORE" }),
+  );
+  await canary();
+  await writeFile(join(negativeRoot, "database.dump"), "not a database dump");
+  pack(["database.dump"]);
+  await assert.rejects(() =>
+    restoreBackup(negativeArchive, { force: true, confirmation: "RESTORE" }),
+  );
+  await canary();
+  execFileSync(
+    "pg_dump",
+    [
+      "--format=custom",
+      "--no-owner",
+      "--no-acl",
+      "--schema",
+      "public",
+      "--file",
+      join(negativeRoot, "database.dump"),
+    ],
+    {
+      env: buildPgEnv(parseDatabaseUrl(process.env.DATABASE_URL!)),
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+  pack(["database.dump"]);
+  await assert.rejects(
+    () =>
+      restoreBackup(negativeArchive, { force: true, confirmation: "RESTORE" }),
+    /violates check constraint/,
+  );
+  await canary();
+  for (const entry of evidence.appdata)
+    assert.equal(
+      await readFile(
+        join(process.env[entry.envName]!, "pre-restore-sentinel"),
+        "utf8",
+      ),
+      "replace only this disposable target",
+    );
+  await db.$executeRawUnsafe("DROP TABLE public.restore_drill_canary");
+  await db.$executeRawUnsafe("DROP FUNCTION public.restore_drill_check()");
   const started = Date.now();
+  stage = "forced restore to isolated target";
   const restored = await restoreBackup(archive, {
     force: true,
     confirmation: "RESTORE",
@@ -238,7 +338,10 @@ async function restore(db: PrismaClient) {
       ),
       dryRunUnchanged: true,
       migrationsCurrent: true,
+      missingAndCorruptDumpPreservedCanary: true,
+      sqlFailureRolledBackSchemaAndPreservedCanary: true,
       volatileTablesNotCompared: [...volatileTables],
+      countOnlyTables: ["CardPriceSnapshot"],
     }),
   );
 }
@@ -255,10 +358,25 @@ async function main() {
   }
 }
 main().catch((error) => {
+  const message = String(error?.message || "");
+  console.error(
+    JSON.stringify({
+      restoreCompatibilityDiagnostics: {
+        transactionTimeoutUnsupported: message.includes(
+          'unrecognized configuration parameter "transaction_timeout"',
+        ),
+        publicSchemaAlreadyExists: message.includes(
+          'schema "public" already exists',
+        ),
+        restoreErrors:
+          message.match(/errors ignored on restore: (\d+)/)?.[1] || null,
+      },
+    }),
+  );
   // Assertion messages can contain private source fingerprints/paths. Keep
   // failed diagnostic details only inside the disposable/local container.
   console.error(
-    `Recovery drill ${process.argv[2] || "mode"} failed (${error?.code || error?.name || "error"}); no success claimed.`,
+    `Recovery drill ${process.argv[2] || "mode"} failed at ${stage} (${error?.code || error?.name || "error"}); no success claimed.`,
   );
   process.exitCode = 1;
 });
