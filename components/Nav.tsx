@@ -12,6 +12,7 @@ import { AdminModeToggle } from "@/components/AdminModeToggle";
 import { NotificationBell } from "@/components/NotificationBell";
 import { getUnreadNotificationCount } from "@/lib/notifications";
 import { normalizePlayerColor } from "@/lib/player-colors";
+import { safeLocalReturnPath } from "@/lib/local-return-path";
 
 const mainLinks = [
   { href: "/dashboard", label: "Dashboard" },
@@ -27,15 +28,7 @@ const mainLinks = [
 ];
 
 function getSafeReturnTo(formData: FormData) {
-  const returnTo = formData.get("returnTo");
-  if (
-    typeof returnTo !== "string" ||
-    !returnTo.startsWith("/") ||
-    returnTo.startsWith("//")
-  ) {
-    return "/dashboard";
-  }
-  return returnTo;
+  return safeLocalReturnPath(formData.get("returnTo"));
 }
 
 export async function Nav() {

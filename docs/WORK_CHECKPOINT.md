@@ -21,7 +21,11 @@ Pending, in dependency order:
 
 The prior full cumulative #243–#248 run passed 550 units, generation/typecheck, Windows/Linux builds, six client-manifest guards and 33 serial browser cases without skips. Later trade batch has focused acceptance; full cumulative security acceptance remains pending.
 
-## Current security batch
+## Active follow-up: local return paths (#253)
+
+Branch `fix/local-login-redirects`, based on #254 documentation tip `08d287f`. Shared local-return-path guard for login and admin-mode toggles; server-side validation, middleware next handling, safe wrong-password retry, and removal of unrelated login query parameters. Added three units and two browser scenarios. Source/test work is uncommitted at this checkpoint; typecheck/full units running (exec 65961). Baseline local tests reproduced both defects; one initial URL-order assertion was corrected before proving lost destination. Logs `login-return-baseline.log` and `login-return-route-baseline.log`. No external navigation or production probing; fixtures cleaned. Next: finish units, commit/PR, cumulative Docker build with `up --no-build`, browser retest and full acceptance. Current Docker is still the passed #254 image below.
+
+## Completed session-security batch
 
 - Implements additive AuthSession migration `20260920170000_auth_sessions`, 256-bit opaque tokens stored SHA-256 hashed, password binding, server expiry/revocation, login/password-change rotation, admin-edit/reset deletion, rejection of legacy identity cookies. Existing users must sign in again; passwords/collection data unchanged.
 - Pre-fix synthetic identity-cookie API request received HTTP 200 instead of 401. Regression intentionally failed on the old image; no production testing. Log `test-results/session-baseline.log`.
