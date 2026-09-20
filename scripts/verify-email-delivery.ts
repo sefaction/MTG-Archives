@@ -1,5 +1,5 @@
 // Run only in the disposable local web container with the SMTP capture overlay.
-// Pause notification-worker while this deterministic queue/retry check runs.
+// Future-date fixture jobs atomically so the regular worker cannot claim them.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
@@ -61,6 +61,21 @@ async function main() {
     sourceType: "email_integration",
     sourceId: tag,
   };
+  const fixtureTime = new Date(Date.now() + 24 * 60 * 60_000);
+  async function deferredNotification(data: typeof input) {
+    return prisma.$transaction(async (tx) => {
+      const notification = await createNotification(data, tx);
+      await tx.notificationDeliveryJob.updateMany({
+        where: {
+          notificationId: notification.id,
+          destinationKey,
+          status: "PENDING",
+        },
+        data: { nextAttemptAt: fixtureTime },
+      });
+      return notification;
+    });
+  }
   try {
     await prisma.notificationPreference.create({
       data: { userId: user.id, category: "trades", emailEnabled: true },
@@ -78,12 +93,8 @@ async function main() {
       where: { id: user.id },
       data: { email: address },
     });
-    const notification = await prisma.$transaction((tx) =>
-      createNotification(input, tx),
-    );
-    const again = await prisma.$transaction((tx) =>
-      createNotification(input, tx),
-    );
+    const notification = await deferredNotification(input);
+    const again = await deferredNotification(input);
     assert.equal(again.id, notification.id);
     assert.equal(
       await prisma.notificationDeliveryJob.count({ where: { destinationKey } }),
@@ -98,7 +109,7 @@ async function main() {
             SMTP_PORT: "1",
           }),
       },
-      new Date(),
+      fixtureTime,
       store as never,
     );
     assert.equal(failure.failed, 1);
@@ -119,11 +130,11 @@ async function main() {
     );
     await prisma.notificationDeliveryJob.update({
       where: { id: job.id },
-      data: { nextAttemptAt: new Date(0) },
+      data: { nextAttemptAt: fixtureTime },
     });
     const success = await processNotificationDeliveryQueue(
       { email: deliverNotificationEmail },
-      new Date(),
+      fixtureTime,
       store as never,
     );
     assert.equal(success.sent, 1);
@@ -151,14 +162,14 @@ async function main() {
       mail.Text + mail.HTML,
       /Secret inventory|Private fixture card/,
     );
-    await createNotification({ ...input, sourceId: `${tag}:opt-out` });
+    await deferredNotification({ ...input, sourceId: `${tag}:opt-out` });
     await prisma.notificationPreference.update({
       where: { userId_category: { userId: user.id, category: "trades" } },
       data: { emailEnabled: false },
     });
     const suppressed = await processNotificationDeliveryQueue(
       { email: deliverNotificationEmail },
-      new Date(),
+      fixtureTime,
       store as never,
     );
     assert.equal(suppressed.failed, 1);

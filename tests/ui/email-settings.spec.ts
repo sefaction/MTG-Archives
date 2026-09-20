@@ -35,6 +35,7 @@ test("email preferences, queued test, recipient isolation and phone layout", asy
     "Requires docker-compose.smtp-test.yml local capture overlay",
   );
   let userId = "";
+  let otherUserId = "";
   const captureUrl = `http://127.0.0.1:18025/api/v1/search?query=${encodeURIComponent(`to:${address}`)}`;
   try {
     userId = database<string>(
@@ -98,14 +99,31 @@ test("email preferences, queued test, recipient isolation and phone layout", asy
       page.getByRole("button", { name: "Send test email" }),
     ).toBeDisabled();
     await expect(page.getByText("Account email: Not set")).toBeVisible();
+    otherUserId = database<string>(
+      `const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);const user=await p.user.create({data:{username:${JSON.stringify(`${tag}-other`)},displayName:'Other email fixture',passwordHash:hash}});return user.id;`,
+    );
     await page.context().clearCookies();
     await page.goto("/settings/email");
     await expect(page).toHaveURL(/login/);
+    await page.getByLabel(/username or email/i).fill(`${tag}-other`);
+    await page.getByLabel(/^password$/i).fill(password);
+    await page.getByRole("button", { name: /^log in$/i }).click();
+    await page.waitForURL(/dashboard/);
+    await page.goto("/settings/email");
+    await expect(page.getByText("No email deliveries yet.")).toBeVisible();
+    await expect(page.getByLabel("Email trade activity")).not.toBeChecked();
+    await expect(
+      page.getByRole("button", { name: "Send test email" }),
+    ).toBeDisabled();
   } finally {
     if (userId)
       database(
         `await p.notificationDeliveryJob.deleteMany({where:{destinationKey:${JSON.stringify(`email:${userId}`)},transport:'email'}});await p.user.delete({where:{id:${JSON.stringify(userId)}}});return true;`,
       );
     await request.delete(captureUrl);
+    if (otherUserId)
+      database(
+        `await p.user.delete({where:{id:${JSON.stringify(otherUserId)}}});return true;`,
+      );
   }
 });
