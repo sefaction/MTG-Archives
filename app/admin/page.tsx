@@ -425,6 +425,7 @@ export default async function Page() {
                           forcePasswordChange:
                             fd.get("forcePasswordChange") === "on",
                           isActive: fd.get("isActive") === "on",
+                          authSessions: { deleteMany: {} },
                         },
                       });
                       await prisma.player.update({
@@ -512,6 +513,7 @@ export default async function Page() {
                           passwordHash,
                           forcePasswordChange:
                             fd.get("forcePasswordChange") === "on",
+                          authSessions: { deleteMany: {} },
                         },
                       });
                       await refresh();

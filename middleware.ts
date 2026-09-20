@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const SESSION_COOKIE_NAMES = ["mtg_inventory_session", "boxleague_session"];
+// Presence is only a routing hint; server auth validates the opaque credential.
+const SESSION_COOKIE_NAMES = ["mtg_inventory_session"];
 const PUBLIC_PREFIXES = ["/", "/login", "/public", "/u", "/api/public"];
 const PROTECTED_PREFIXES = [
   "/admin",

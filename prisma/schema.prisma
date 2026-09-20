@@ -139,6 +139,7 @@ model User {
   email                        String?                             @unique
   displayName                  String
   passwordHash                 String
+  authSessions                 AuthSession[]
   role                         UserRole                            @default(PLAYER)
   playerId                     String?
   player                       Player?                             @relation(fields: [playerId], references: [id])
@@ -174,6 +175,18 @@ model User {
 
   @@index([isActive, inventoryDefaultVisibility])
   @@index([isActive, deckDefaultVisibility])
+}
+
+model AuthSession {
+  tokenHash      String   @id
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialHash String
+  createdAt      DateTime @default(now())
+  expiresAt      DateTime
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model League {
