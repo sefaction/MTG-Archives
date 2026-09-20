@@ -1,5 +1,13 @@
 # Local review build — cumulative issue queue
 
+## Current reliability review (2026-09-20)
+
+Released main is `e98266f`. Pending stack #243 → #244 → #247 → #248 is loaded cumulatively from `01e7ee3` (same tree as gate-backfill merge `1d06bb3`). Image `sha256:0945717dd1ca31cbd81b629b284a476286e7af7e5930c4e8cc9f1c85fecfb4e5`, Next build `QE7rEpiwJg1USCIdO3Oul`, healthy with host HTTP 200. All three Compose overlays remain in effect and SMTP stays capture-only.
+
+Full verification passed: 550 units, generation/typecheck, Windows/Linux builds and six client-manifest guards, all 33 serial browser cases with zero skips (3.2m). Every pending branch also passed its own Linux GitHub core gate. Final isolated rebuilt-image recovery passed; see BACKUP_RESTORE_DRILL.md for data and coverage limits. No new PR has merge approval; no production changes or auto-merge.
+
+## Historical pre-release stack through #236
+
 Current deployment: 2026-09-20, application revision `dad1bd3`. Stack: #221 → #226 → #227 → #228 → #229 → #232 → #233 → #234 → #236, based on released main `9a3fd8b`. Every PR awaits individual merge approval; no production update.
 
 - App http://127.0.0.1:13001; local-only SMTP capture http://127.0.0.1:18025 (no relay).

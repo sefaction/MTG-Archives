@@ -22,6 +22,10 @@ Implement the approved audit/feature queue, open one PR per coherent batch, and 
 
 ## Approved queue
 
+Latest verification (supersedes in-progress entries above): cumulative #243/#244/#247/#248 Docker build from `01e7ee3` passed, image `sha256:0945717dd1ca31cbd81b629b284a476286e7af7e5930c4e8cc9f1c85fecfb4e5`, Next build `QE7rEpiwJg1USCIdO3Oul`, healthy and host HTTP 200 after startup. Full portable verify passed generation/typecheck, all 550 units, host build/six manifest guards and all 33 browser tests with zero skips (3.2m). Logs `ci-cumulative-docker.log`, `ci-full-verify.log`. Final recovery-image drill also passed (see below); #247 can be marked ready.
+
+Required-check backfill added to #243 (`0981089`) and propagated without rewriting history to #244 (`fe48d15`), #247 (`cfba334`) and #248 (`1d06bb3`, tree identical to `01e7ee3`). All four Linux core runs passed: 35523453767, 35523454037, 35523453517 and 35523453804 respectively. Recheck required checks after base updates; no merges approved/performed. #249 catalogues trade provenance loss discovered while preparing #238. A draft lifecycle test is temporarily ignored at `test-results/trade-lifecycle.draft.ts`; next step is move it onto a focused trade branch and reproduce/fix #249 using isolated synthetic accounts.
+
 1. #220/#224: finish performance validation and open this batch PR.
    - Then #242: make startup admin bootstrap preserve existing accounts; verify fresh setup and restart behavior.
 2. #237: isolated backup/restore drill, integrity checks and recovery runbook. Never target the running snapshot database or start outbound workers on restored data.
