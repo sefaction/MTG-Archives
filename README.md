@@ -170,7 +170,11 @@ Restore is intentionally CLI-only. Stop or put the app in maintenance mode first
 docker compose run --rm web npm run backup:restore -- /app/backups/mtg-archives-backup-YYYYMMDD-HHMMSS.tar.gz --force
 ```
 
-Without `--force`, restore prints a dry-run summary and exits. With `--force`, the command requires typing `RESTORE`, drops and recreates the configured PostgreSQL schema, restores `database.dump` with `pg_restore`, and replaces included appdata directories from `appdata.tar.gz`.
+Without `--force`, restore validates the archive, database compatibility, complete dump payload and configured appdata target plan, then prints a dry-run summary without replacing data. This requires a reachable target database and temporary disk space for the expanded SQL. With `--force`, the command requires typing `RESTORE`, replaces the configured schema and loads the dump in one fail-fast PostgreSQL transaction, then replaces included appdata directories. A SQL failure rolls back the schema replacement. Database and filesystem changes are not one transaction: disk/permission failures during the later appdata copy still require operator recovery.
+
+The image pins PostgreSQL 16 client tools to match the supported database services. Backup creation rejects a different client/server major version. Older archives produced by a newer client need a separate compatibility assessment; do not assume a successful dump proves it can restore to an older server. Restore requires the target schema to match the manifest and uses current configured appdata paths, never paths supplied by the archive. Configure all included appdata roots before restoring. Use only trusted private archives; a database dump contains executable SQL.
+
+See `docs/BACKUP_RESTORE_DRILL.md` for an opt-in isolated laptop recovery exercise and coverage boundaries.
 
 Backups are written to `BACKUP_DIR`, defaulting to `/app/backups`. In Docker Compose that path is mounted from the persistent host `BACKUPS_DATA_PATH`, so backups survive container recreation. Do not point `BACKUP_DIR` at a disposable container-only path in production.
 

@@ -11,8 +11,88 @@ import {
   restoreBackup,
   sanitizeManifest,
   timestampForFilename,
+  resolveRestoreAppdataTarget,
+  assertSafeRestoreTarget,
   type BackupManifest,
 } from "../lib/backup";
+import { homedir } from "node:os";
+import { resolve, parse } from "node:path";
+
+test("restore appdata requires current configuration, never archive-provided source paths", () => {
+  const entry = {
+    envName: "UPLOADS_DATA_PATH",
+    archivePath: "appdata/uploads",
+    sourcePath: "/unrelated/original-machine",
+  };
+  assert.throws(() => resolveRestoreAppdataTarget(entry, {}), /Configure/);
+  assert.equal(
+    resolveRestoreAppdataTarget(entry, {
+      UPLOADS_DATA_PATH: "test-restore/uploads",
+    }),
+    resolve("test-restore/uploads"),
+  );
+  assert.equal(
+    resolveRestoreAppdataTarget(
+      { envName: "BACKUP_APPDATA_PATHS_1", archivePath: "appdata/custom-1" },
+      { BACKUP_APPDATA_PATHS: "test-restore/custom" },
+    ),
+    resolve("test-restore/custom"),
+  );
+  assert.throws(
+    () =>
+      resolveRestoreAppdataTarget(
+        { envName: "HOME", archivePath: "appdata/uploads" },
+        { HOME: "/danger" },
+      ),
+    /Unsupported/,
+  );
+  assert.throws(
+    () =>
+      resolveRestoreAppdataTarget(
+        { envName: "UPLOADS_DATA_PATH", archivePath: "appdata/../../outside" },
+        { UPLOADS_DATA_PATH: "test-restore/uploads" },
+      ),
+    /Unsupported/,
+  );
+});
+
+test("restore appdata rejects filesystem/home/workspace roots and both directions of backup overlap", () => {
+  const original = process.env.BACKUP_DIR;
+  process.env.BACKUP_DIR = resolve("test-restore/backups");
+  try {
+    for (const path of [
+      parse(process.cwd()).root,
+      homedir(),
+      process.cwd(),
+      resolve("test-restore"),
+      resolve("test-restore/backups"),
+      resolve("test-restore/backups/child"),
+    ])
+      assert.throws(() => assertSafeRestoreTarget(path), /Refusing/);
+    assert.doesNotThrow(() =>
+      assertSafeRestoreTarget(resolve("test-restore/uploads")),
+    );
+  } finally {
+    if (original === undefined) delete process.env.BACKUP_DIR;
+    else process.env.BACKUP_DIR = original;
+  }
+});
+
+test("restore stages all payloads before using one fail-fast database transaction", async () => {
+  const source = await readFile("lib/backup.ts", "utf8");
+  const restore = source.slice(
+    source.indexOf("export async function restoreBackup("),
+    source.indexOf("export async function readManifestFromBackup("),
+  );
+  assert.ok(
+    restore.indexOf("prepareRestoreAppdata") <
+      restore.indexOf("requireRestoreConfirmation"),
+  );
+  assert.match(restore, /--single-transaction/);
+  assert.match(restore, /ON_ERROR_STOP=1/);
+  assert.match(restore, /finally/);
+  assert.match(restore, /CREATE SCHEMA/);
+});
 
 test("package exposes backup CLI scripts", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
@@ -153,7 +233,7 @@ test("backup filename resolution rejects traversal and non-backup names", () => 
 test("Docker image installs PostgreSQL client tools and copies backup scripts", async () => {
   const dockerfile = await readFile("Dockerfile", "utf8");
 
-  assert.match(dockerfile, /apk add --no-cache postgresql-client/);
+  assert.match(dockerfile, /apk add --no-cache postgresql16-client/);
   assert.match(dockerfile, /\/app\/scripts \.\/scripts/);
 });
 
