@@ -1,6 +1,6 @@
 # Inventory selection and move experience
 
-Follow-up to the vault pilot; tracked in #218.
+Follow-up to the vault pilot; tracked in #218 and delivered for local review in PR #219.
 
 ## Interaction
 
@@ -8,7 +8,7 @@ In Exact printings Table View, click a non-control area of a row to replace the 
 
 Ranges cover the current page or the currently loaded infinite-scroll rows, not unseen inventory. Filtering, sorting, navigation, refresh, and Clear selection reset the anchor. Explicit “Select all matching filters” is still available; subsequently selecting individual rows exits that cross-page scope.
 
-Card-name buttons, links, and row actions retain their own behavior. Binder cards retain ordinary click-to-open details and gain Ctrl/Command/Shift selection; their checkboxes remain available on touch devices.
+Card-name buttons and Binder cards retain ordinary click-to-open details; Ctrl/Command/Shift-click selects instead. Other links and row actions retain their own behavior. Checkboxes remain available on touch devices.
 
 The selection toolbar stays available while browsing. **Move cards…** opens a native modal dialog with keyboard focus containment, Escape/Cancel dismissal, and preserved selection on cancellation. Deletion is kept under More actions, away from the move confirmation.
 
@@ -26,5 +26,5 @@ The destination control is shared with manual add and import review. It does not
 ## Verification
 
 - Pure selection tests: forward/backward ranges, shrinking ranges, additive selection, multi-stack printings, missing anchors/targets.
-- Opt-in local Docker browser regression: search/no-results, cancellation and focus restoration, section switching/fill, custom labels, advisory overflow, stale selections, real moves and copy conservation, cross-page totals, row/checkbox/keyboard range selection, desktop and phone layout.
+- Opt-in local Docker browser regression: search/no-results, cancellation and focus restoration, section switching/fill, custom labels, advisory overflow, stale selections, real moves and copy conservation, cross-page totals, row/checkbox/card-name/Binder/keyboard range selection, page reset, manual-add picker fields/preview, desktop and phone layout.
 - Full suite, exact deployment evidence, and any remaining gaps are recorded in LOCAL_REVIEW_BUILD.md after validation.

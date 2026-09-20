@@ -1,37 +1,38 @@
-# Local review build — vault pilot
+# Local review build — inventory move experience
 
-Verified 2026-09-19 on this laptop. This is a local review deployment, not a production release.
+Verified 2026-09-19 on this laptop. Local review deployment only; no merge or production release.
 
 - URL: http://127.0.0.1:13001
-- Application code: `92265999654a2e789e629f47fdcb5223daca560a`
-- Included setup commit: `266a888bd805b9e85663e5e1964c29e69295804d`
-- Included unmerged PRs: [#210](https://github.com/sefaction/MTG-Archives/pull/210), [#217](https://github.com/sefaction/MTG-Archives/pull/217)
-- Web image: `sha256:8be875f43806106a51f916103d2be7ecc78ecfb41ed79cc447086d040b418636`
-- Next build ID: `ATbj2FnvmeVV-E27ougst`
-- Web container healthy; Windows host login URL returned HTTP 200.
-- No schema migration or reassignment of existing card placements. Normal Compose builds recreated local service containers while preserving persistent data.
+- Application/test revision: `4801f783c465c14fe3fb9940b675f27d888fa191`
+- Included unmerged PRs: [#210](https://github.com/sefaction/MTG-Archives/pull/210), [#217](https://github.com/sefaction/MTG-Archives/pull/217), [#219](https://github.com/sefaction/MTG-Archives/pull/219)
+- Included setup commit: `266a888bd805b9e85663e5e1964c29e69295804d`; vault pilot application commit: `92265999654a2e789e629f47fdcb5223daca560a`.
+- Web image: `sha256:452a1aa917ce6597d12f1ae92eb5a495f4736c8def8d84d72dfe71c681d26fac`
+- Next build ID: `jgS7PW_2ij-FxHHeIVmzW`
+- Container healthy; host login URL returned HTTP 200.
+- No schema migration or bulk reassignment. Docker service containers were rebuilt with persistent snapshot data preserved.
 
-## Final validation
+## Validation
 
-`MTG_LOCAL_PILOT_TEST=1 npm.cmd run verify` completed successfully after the Docker build finished, with no concurrent build:
+- Prisma generation, typecheck, 510 automated tests, and host production build: passed.
+- Final Docker production build: passed.
+- Final serial browser suite: 25 passed, 0 failed, 2 skipped in 2.0 minutes. No build ran concurrently with browser tests.
+- Typecheck rerun after final browser-test additions: passed.
+- Existing inventory-detail/meld tests still skip because their admin fixtures are absent. These are coverage gaps, not passes.
+- Expanded local regression covers real copy-limited moves/conservation, stale errors in the dialog, owner isolation, full/empty/overflow sections, dynamic fill, custom quantity and section labels, keyboard destination choice, no-result behavior, cancel/Escape/focus restoration, table rows/checkboxes/card names/Binder modifier selection, page reset, and cross-page totals.
+- The shared manual-add picker was exercised without submitting inventory: destination/section form fields and quantity-dependent preview were verified.
+- Desktop, phone section/overflow, and phone quantity screenshots were visually inspected.
+- Fixture audit after tests: zero UI vault pilot locations, inventory rows, or players remain.
 
-- Prisma generation: passed
-- Typecheck: passed
-- Automated tests: 504 passed, 0 failed
-- Host production build: passed
-- Docker production build: passed separately
-- Browser suite: 25 passed, 0 failed, 2 skipped in 1.8 minutes
-- The two existing skipped tests require inventory-detail/meld fixtures absent from this account; they are coverage gaps, not passes.
-- The opt-in vault browser regression passed creation, copy-limited single/multiple selection, overflow, refreshed counts, desktop/phone layout, non-admin owner isolation, and copy totals across multiple pages.
-- Real PostgreSQL checks passed 13 cases including reservations, audit links, quantity conservation, stale selections, concurrent requests, and a 150,000-copy / 3,000-row / 1,200-location storage-summary fixture. Observed summary query time was 121–157 ms; this is not a full-page scale benchmark.
-- Desktop and phone screenshots were visually inspected. Temporary database/browser fixtures were removed; subsequent fixture counts were zero. They are synthetic and reproducible by the test commands.
+An earlier full verify run passed generation, typecheck, all 510 tests and production build, but its browser phase had 24 passes, 1 exact-color-filter timeout and 2 skips. The unchanged color-filter test passed in 2.0 seconds on the final full browser rerun. [Issue #220](https://github.com/sefaction/MTG-Archives/issues/220) tracks that intermittent navigation behavior; it is not claimed fixed by #219. Timeouts were not loosened.
 
-An earlier run overlapping a Docker rebuild had search navigation timeouts. The clean final run passed both search tests. Keep rebuilds and browser runs sequential on this laptop.
+The pilot's earlier real-PostgreSQL reservation/concurrency and 150,000-copy summary evidence remains documented in [VAULT_PILOT.md](VAULT_PILOT.md). This UI batch is not a new full-page scale benchmark or a complete import-commit audit.
 
 ## Review
 
-Open Locations, expand the Vault group, and inspect the six section counts. On Inventory in Exact printings mode, select rows to reveal the destination picker and copy-limit controls. Existing nonstandard labels are preserved and not silently remapped.
+Open Inventory in Exact printings mode. Click a row, Ctrl-click to toggle, or Shift-click to select a displayed range. Choose **Move cards…**, search for a vault, select a section, and try **Fill remaining space**. The footer shows the actual selected-copy estimate and any capacity warning. Cancel keeps the selection.
 
-PR #217 is stacked on #210 for a clean diff. Individually approve/merge #210 first, then retarget #217 to main and recheck before separately approving its merge. Do not merge #217 into the setup branch. No merge or auto-merge has been performed.
+Normal card-name/Binder clicks still open details; modifier clicks select. Ranges cover the current page or loaded infinite-scroll rows, not unseen pages. **Select all matching filters** remains explicit. See [INVENTORY_MOVE_UX.md](INVENTORY_MOVE_UX.md).
 
-See [VAULT_PILOT.md](VAULT_PILOT.md) for acceptance scope and remaining audit gaps. Large-tree UI work is tracked in #215. Scheduled unattended execution is still not configured.
+PR #219 is stacked on #217, which is stacked on #210. Individually approve and merge prerequisites first, then retarget dependent PRs to main and recheck before their separate approvals. Do not merge #219 into the feature branch or #217 into the setup branch. No merge or auto-merge has been performed.
+
+Next audit candidates are intermittent filter navigation (#220) and large-tree navigation/editors (#215). Scheduling remains unconfigured; resumable state lives in [WORK_CHECKPOINT.md](WORK_CHECKPOINT.md).
