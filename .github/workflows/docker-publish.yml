@@ -9,24 +9,57 @@ on:
 
 permissions:
   contents: read
-  packages: write
+
+# Do not interrupt an in-flight push. Keep one publisher and only the newest
+# pending run per ref; head checks also reject late reruns of older commits.
+concurrency:
+  group: docker-publish-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
   WEB_IMAGE_NAME: sefaction/mtg-archives-web
 
 jobs:
+  verify:
+    uses: ./.github/workflows/verify.yml
+    permissions:
+      contents: read
+
   web:
     name: Build and publish web image
+    needs: verify
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/platform/')
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Check branch head before building
+        id: head
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$GITHUB_REF_NAME" --jq .object.sha)"
+          if [ "$current_sha" = "$GITHUB_SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping superseded revision."
+          fi
 
       - name: Set up Docker Buildx
+        if: steps.head.outputs.current == 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
+        if: steps.head.outputs.current == 'true'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -34,6 +67,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate Docker metadata
+        if: steps.head.outputs.current == 'true'
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -43,13 +77,38 @@ jobs:
             type=sha,prefix=sha-
             type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
 
-      - name: Build and push web image
+      - name: Build web image without publishing
+        if: steps.head.outputs.current == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
-          push: true
+          push: false
+          load: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Recheck branch head immediately before publication
+        if: steps.head.outputs.current == 'true'
+        id: fresh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$GITHUB_REF_NAME" --jq .object.sha)"
+          if [ "$current_sha" = "$GITHUB_SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            echo "Branch advanced during build; image will not be published."
+          fi
+
+      - name: Publish validated current image
+        if: steps.fresh.outputs.current == 'true'
+        env:
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          while IFS= read -r tag; do
+            [ -z "$tag" ] || docker push "$tag"
+          done <<< "$IMAGE_TAGS"

@@ -26,7 +26,7 @@ If capture completed but a later drill step was interrupted, use `--run --reuse=
 - The legacy `CardPriceSnapshot` cache remains in some primary snapshots despite the separate pricing database architecture. It is included in the archive and compared by row count only; sorting millions of full-row hashes is not proportionate for a refreshable cache. All authoritative tables retain full-content digest checks. The initial diagnostic full-cache hash was cancelled before backup creation to avoid monopolizing laptop disk I/O.
 - Removes only UUID-labeled drill containers, their disposable database/appdata and the internal network. The private source archive/evidence remain for local recovery/inspection; they are ignored by git. Never upload them to GitHub or Foundry.
 
-## Defects found and fixes under validation
+## Defects found and verified recovery guards
 
 - #246: the floating Alpine image installed PostgreSQL 18 clients while the Compose databases use PostgreSQL 16. The first real archive was dumped from 16.15 by 18.4 and its restore failed. Pin the supported client major and reject mismatched backup creation; retain old archives privately for compatibility assessment rather than rewriting them.
 - #245: validation previously stopped at the manifest before replacing the schema. The fix preflights archive entries, complete dump payload, server compatibility and all explicitly configured appdata targets; it never falls back to archive-provided source paths. Schema replacement plus SQL loading now share one fail-fast transaction. The drill adds missing/corrupt-dump canaries and a deliberately failing SQL check constraint to verify rollback after schema replacement begins. Filesystem copies follow database commit and are not cross-resource atomic.
@@ -37,6 +37,8 @@ Implementation references: [PostgreSQL dump compatibility](https://www.postgresq
 ## Recovery boundaries and remaining limits
 
 Development check on 2026-09-20 passed against the corrected working library: 48 authoritative table content digests plus the legacy price-cache count, 12,477 physical copies, four appdata roots and 21 file/directory entries matched. Capture took 65.5 seconds (87,664,740 bytes); restore including preflight took 93.0 seconds. Dry-run sentinels, missing/corrupt dump preservation and a real check-constraint failure rollback all passed. The disposable resources were removed and the compatible archive retained privately. This was explicitly a development-library run; final rebuilt-image evidence is required before PR readiness.
+
+Final rebuilt-image verification subsequently passed without a library override (image `sha256:cac9e88d502bcbc46776769a6a7ebfd47ad83a8d66be989e2f500be0c717a1e6`, application `0acccf6`). The same 49 table comparisons, copy total and appdata map matched; all dry-run, malformed-payload and real SQL rollback controls passed, and migrations were current. Restore took 144.9 seconds under laptop load. Scoped disposable resources were cleaned, and private evidence stayed local. Log: `test-results/recovery-image-drill.log`.
 
 The downloadable application archive is **not** a whole-installation backup. It excludes the separate pricing PostgreSQL database, deployment configuration/credentials and the webhook master encryption key in `BACKUP_DIR/.system-secrets`. Preserve those separately in protected operator backups. Without the original key, restored saved webhook destinations cannot be decrypted and must be recreated. The drill deliberately does not start notification delivery or test external providers.
 
