@@ -55,7 +55,9 @@ test("vault creation, multi-selection fill, advisory overflow, refreshed occupan
     const sections = page.getByLabel(`${name} sections`, { exact: true });
     await expect(sections).toBeVisible();
     await expect(
-      sections.getByText("0 / 85 cards · 85 spaces left", { exact: true }),
+      sections.getByRole("link", {
+        name: /^Sect [0-5], 0 \/ 85 cards · 85 spaces left\. Browse cards\.$/,
+      }),
     ).toHaveCount(6);
     const fixture = database<{ sourceId: string; vaultId: string }>(`
       const vault=await p.inventoryLocation.findFirstOrThrow({where:{name:${JSON.stringify(name)}}});
@@ -151,7 +153,10 @@ test("vault creation, multi-selection fill, advisory overflow, refreshed occupan
     await expect(page.getByText(/Moved 17 cards across/)).toBeVisible();
     await page.goto("/locations");
     await expect(
-      sections.getByText("85 / 85 cards · full", { exact: true }),
+      sections.getByRole("link", {
+        name: "Sect 0, 85 / 85 cards · full. Browse cards.",
+        exact: true,
+      }),
     ).toBeVisible();
 
     // Remaining source is one partial stack; advisory overflow never disables move.
@@ -207,7 +212,10 @@ test("vault creation, multi-selection fill, advisory overflow, refreshed occupan
     expect(total).toBe(178);
     await page.goto("/locations");
     await expect(
-      sections.getByText("170 / 85 cards · 85 over capacity", { exact: true }),
+      sections.getByRole("link", {
+        name: "Sect 0, 170 / 85 cards · 85 over capacity. Browse cards.",
+        exact: true,
+      }),
     ).toBeVisible();
     await sections.screenshot({
       path: "test-results/vault-occupancy-phone.png",

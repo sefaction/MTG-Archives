@@ -13,6 +13,8 @@ import { StorageDestinationPicker } from "./StorageDestinationPicker";
 import { InventoryMoveDialog } from "./InventoryMoveDialog";
 import { selectInventoryRows } from "@/lib/inventory-selection";
 import type { StorageLocation } from "@/lib/storage-sections";
+import { isVault } from "@/lib/storage-sections";
+import { VaultSectionMap } from "./VaultSectionMap";
 import { DeckSection } from "@prisma/client";
 import { deckFormatLabel, deckSectionLabel } from "@/lib/decks";
 import {
@@ -1661,6 +1663,18 @@ export function InventoryBrowser({
           (row.sourceItemIds ?? [row.id]).some((id) => selectedItemIds.has(id)),
         )
         .reduce((sum, row) => sum + row.quantity, 0);
+  const currentVault = storageLocations.find(
+    (location) => location.id === currentLocationId && isVault(location.type),
+  );
+  const vaultParams = new URLSearchParams(pageHrefBase || "");
+  const activeVaultSection =
+    vaultParams.get("locationSectionMatch") === "empty"
+      ? ""
+      : vaultParams.get("locationSectionMatch") === "exact"
+        ? (vaultParams.get("locationSection") ?? undefined)
+        : vaultParams.get("locationSection")
+          ? undefined
+          : null;
   const selectedStacks = renderedRows
     .filter((row) => getRowSourceIds(row).some((id) => selectedItemIds.has(id)))
     .flatMap((row) => row.locationBreakdown ?? []);
@@ -2284,6 +2298,26 @@ export function InventoryBrowser({
           Admin edit mode is active. Use the Actions column in Table View, or
           open a card detail from either view and choose Edit Inventory Item.
         </div>
+      ) : null}
+      {currentVault && uiMode !== "public-readonly" ? (
+        <VaultSectionMap
+          location={currentVault}
+          query={pageHrefBase}
+          activeSection={activeVaultSection}
+          selectedQuantity={selectedCardsCount}
+          onMoveSelection={
+            selectionAvailable && capabilities.canBulkMove
+              ? (section) => {
+                  setBulkDestinationLocationId(currentVault.id);
+                  setBulkSection(section);
+                  setQuantityMode("all");
+                  setMoveLimit("");
+                  setMoveError("");
+                  setMoveOpen(true);
+                }
+              : undefined
+          }
+        />
       ) : null}
       <div className="flex flex-wrap gap-2 items-center">
         <span className={filterLabelClass}>View:</span>

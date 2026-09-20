@@ -9,7 +9,11 @@ export const CLIENT_MANIFEST_CONTRACTS: Record<string, string[]> = {
   ],
   "/inventory/page": ["InventoryAdvancedSearch", "InventoryBrowser"],
   "/public/inventory/page": ["InventoryAdvancedSearch", "InventoryBrowser"],
-  "/locations/page": ["LocationMoveForm", "LocationContentsDeleteForm"],
+  "/locations/page": [
+    "LocationMoveForm",
+    "LocationContentsDeleteForm",
+    "VaultSectionMap",
+  ],
   "/decks/[deckId]/import/page": ["DeckImportPanel"],
   "/decks/[deckId]/playtest/page": ["PlaytestSandbox"],
 };

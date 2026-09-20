@@ -969,8 +969,21 @@ function buildActiveChips({
       ),
     );
     const locationSection = first(params, "locationSection");
-    if (locationSection) {
-      pushOne("locationSection", "Section", locationSection, locationSection);
+    const sectionMatch = first(params, "locationSectionMatch");
+    if (sectionMatch === "empty") {
+      pushOne("locationSectionMatch", "Section", "empty", "Unsectioned", [
+        "locationSection",
+      ]);
+    } else if (locationSection) {
+      pushOne(
+        "locationSection",
+        "Section",
+        locationSection,
+        sectionMatch === "exact"
+          ? `${locationSection} (exact)`
+          : locationSection,
+        ["locationSectionMatch"],
+      );
     }
   }
   if (capabilities.showVisibilityFilter)
@@ -1104,6 +1117,9 @@ export function InventoryAdvancedSearch({
       ? "between"
       : "");
   const [mvOp, setMvOp] = useState(initialMvOp);
+  const [sectionMatch, setSectionMatch] = useState(
+    first(params, "locationSectionMatch"),
+  );
   const locationOptions = [
     ...(includeUnassignedLocationOption
       ? [{ value: "unassigned", label: "Unassigned" }]
@@ -1460,15 +1476,33 @@ export function InventoryAdvancedSearch({
                     />
                   ) : null}
                   {!isPublic ? (
-                    <label className={filterLabelClass}>
-                      Section
-                      <input
-                        name="locationSection"
-                        defaultValue={first(params, "locationSection")}
-                        className={cn(filterInputClass, "mt-1 w-36")}
-                        placeholder="Any section"
-                      />
-                    </label>
+                    <>
+                      <label className={filterLabelClass}>
+                        Section
+                        <input
+                          name="locationSection"
+                          defaultValue={first(params, "locationSection")}
+                          className={cn(filterInputClass, "mt-1 w-36")}
+                          placeholder="Any section"
+                          disabled={sectionMatch === "empty"}
+                        />
+                      </label>
+                      <label className={filterLabelClass}>
+                        Section match
+                        <select
+                          name="locationSectionMatch"
+                          value={sectionMatch}
+                          onChange={(event) =>
+                            setSectionMatch(event.target.value)
+                          }
+                          className={cn(filterSelectClass, "mt-1")}
+                        >
+                          <option value="">Contains text</option>
+                          <option value="exact">Exact label</option>
+                          <option value="empty">No section assigned</option>
+                        </select>
+                      </label>
+                    </>
                   ) : null}
                 </>
               ) : null}
