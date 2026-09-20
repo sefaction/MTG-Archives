@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import { StorageDestinationPicker } from "./StorageDestinationPicker";
 import { InventoryMoveDialog } from "./InventoryMoveDialog";
@@ -1033,6 +1040,21 @@ function CardDetail({
   onAudit?: () => void;
   onDelete?: () => Promise<void>;
 }) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const opener = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    dialog.showModal();
+    document.body.style.overflow = "hidden";
+    return () => {
+      dialog.close();
+      document.body.style.overflow = previousOverflow;
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+    };
+  }, []);
   const legalities = row.legalities || {};
   const cardFaces = normalizeCardFaces(row);
   const topLevelOracleParagraphs = oracleParagraphs(row.oracleText);
@@ -1066,321 +1088,331 @@ function CardDetail({
     row.drawerLocationBreakdown ?? row.locationBreakdown ?? [];
   const tradeWishlistTargets = row.tradeWishlistTargets ?? [];
   return (
-    <div className="fixed inset-0 z-50 bg-black/50" onClick={onClose}>
-      <div
-        className="absolute right-0 top-0 h-full w-full max-w-2xl overflow-y-auto bg-zinc-950 border-l border-zinc-800 p-4"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between mb-4">
-          <h2 className="text-xl font-bold">{row.cardName}</h2>
-          <div className="flex flex-wrap justify-end gap-2">
-            {onAddToDeck && deckTargets.length ? (
-              <InventoryAddToDeckControl
-                row={row}
-                deckTargets={deckTargets}
-                onAddToDeck={onAddToDeck}
+    <dialog
+      ref={dialogRef}
+      aria-labelledby={titleId}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      onClick={(event) => {
+        if (event.target !== event.currentTarget) return;
+        const rect = event.currentTarget.getBoundingClientRect();
+        if (
+          event.clientX < rect.left ||
+          event.clientX > rect.right ||
+          event.clientY < rect.top ||
+          event.clientY > rect.bottom
+        )
+          onClose();
+      }}
+      className="fixed inset-y-0 left-auto right-0 m-0 h-dvh max-h-none w-full max-w-2xl overflow-y-auto border-0 border-l border-zinc-800 bg-zinc-950 p-4 text-zinc-100 backdrop:bg-black/50"
+    >
+      <div className="flex items-start justify-between mb-4">
+        <h2 id={titleId} className="text-xl font-bold">
+          {row.cardName}
+        </h2>
+        <div className="flex flex-wrap justify-end gap-2">
+          {onAddToDeck && deckTargets.length ? (
+            <InventoryAddToDeckControl
+              row={row}
+              deckTargets={deckTargets}
+              onAddToDeck={onAddToDeck}
+            />
+          ) : null}
+          {onAddTradeWishlist && tradeWishlistTargets.length === 1 ? (
+            <form
+              action={onAddTradeWishlist}
+              className="flex items-center gap-2 rounded border border-zinc-700 bg-zinc-900/80 p-1"
+            >
+              <input
+                type="hidden"
+                name="inventoryItemId"
+                value={tradeWishlistTargets[0].inventoryItemId}
               />
-            ) : null}
-            {onAddTradeWishlist && tradeWishlistTargets.length === 1 ? (
-              <form
-                action={onAddTradeWishlist}
-                className="flex items-center gap-2 rounded border border-zinc-700 bg-zinc-900/80 p-1"
-              >
+              <label className="flex items-center gap-1 text-xs text-zinc-400">
+                {tradeWishlistTargets[0].wishlistedQuantity ? (
+                  <span className="whitespace-nowrap text-emerald-300">
+                    Wishlisted ×{tradeWishlistTargets[0].wishlistedQuantity}
+                  </span>
+                ) : (
+                  <span>Qty</span>
+                )}
                 <input
-                  type="hidden"
-                  name="inventoryItemId"
-                  value={tradeWishlistTargets[0].inventoryItemId}
+                  type="number"
+                  name="quantity"
+                  min={1}
+                  max={999}
+                  defaultValue={tradeWishlistTargets[0].wishlistedQuantity ?? 1}
+                  aria-label={`Wishlist quantity from ${tradeWishlistTargets[0].ownerName}`}
+                  className={cn(filterInputClass, "w-14 px-1 py-0.5 text-xs")}
                 />
-                <label className="flex items-center gap-1 text-xs text-zinc-400">
-                  {tradeWishlistTargets[0].wishlistedQuantity ? (
-                    <span className="whitespace-nowrap text-emerald-300">
-                      Wishlisted ×{tradeWishlistTargets[0].wishlistedQuantity}
-                    </span>
-                  ) : (
-                    <span>Qty</span>
-                  )}
-                  <input
-                    type="number"
-                    name="quantity"
-                    min={1}
-                    max={999}
-                    defaultValue={
-                      tradeWishlistTargets[0].wishlistedQuantity ?? 1
-                    }
-                    aria-label={`Wishlist quantity from ${tradeWishlistTargets[0].ownerName}`}
-                    className={cn(filterInputClass, "w-14 px-1 py-0.5 text-xs")}
-                  />
-                </label>
-                <SubmitButton
-                  pendingLabel="Saving..."
-                  className={cn(filterPrimaryButtonClass, "px-2 py-1")}
-                >
-                  {tradeWishlistTargets[0].wishlistedQuantity
-                    ? "Update"
-                    : `Wishlist from ${tradeWishlistTargets[0].ownerName}`}
-                </SubmitButton>
-              </form>
-            ) : null}
-            {onAddTradeWishlist && tradeWishlistTargets.length > 1 ? (
-              <details className="w-72">
-                <summary
-                  className={cn(
-                    filterPrimaryButtonClass,
-                    "cursor-pointer list-none px-2 py-1 text-center",
-                  )}
-                >
-                  Choose trade target
-                </summary>
-                <div className="mt-2 space-y-2 rounded-lg border border-zinc-700 bg-zinc-900 p-2 shadow-xl">
-                  <p className="px-1 text-xs text-zinc-400">
-                    Choose an owner and exact printing.
-                  </p>
-                  {tradeWishlistTargets.map((target) => (
-                    <form
-                      key={`${target.inventoryItemId}-${target.ownerName}`}
-                      action={onAddTradeWishlist}
-                      className="flex items-center justify-between gap-3 rounded border border-zinc-700 bg-zinc-950/70 p-2"
-                    >
-                      <input
-                        type="hidden"
-                        name="inventoryItemId"
-                        value={target.inventoryItemId}
-                      />
-                      <div className="min-w-0 text-left">
-                        <div className="flex items-center gap-2 font-medium">
-                          <span
-                            className="h-2.5 w-2.5 shrink-0 rounded-full"
-                            style={{
-                              backgroundColor: target.ownerColor || "#64748b",
-                            }}
-                          />
-                          <span className="truncate">{target.ownerName}</span>
-                          <span className="text-xs text-zinc-500">
-                            ×{target.availableQuantity}
-                          </span>
-                        </div>
-                        <div className="mt-0.5 text-xs text-zinc-400">
-                          {[
-                            `${target.setCode.toUpperCase()} #${target.collectorNumber}`,
-                            target.foilStatus,
-                            target.condition,
-                            target.language,
-                          ]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </div>
-                        {target.wishlistedQuantity ? (
-                          <div className="mt-1 text-xs font-medium text-emerald-300">
-                            Already wishlisted ×{target.wishlistedQuantity}
-                          </div>
-                        ) : null}
+              </label>
+              <SubmitButton
+                pendingLabel="Saving..."
+                className={cn(filterPrimaryButtonClass, "px-2 py-1")}
+              >
+                {tradeWishlistTargets[0].wishlistedQuantity
+                  ? "Update"
+                  : `Wishlist from ${tradeWishlistTargets[0].ownerName}`}
+              </SubmitButton>
+            </form>
+          ) : null}
+          {onAddTradeWishlist && tradeWishlistTargets.length > 1 ? (
+            <details className="w-72">
+              <summary
+                className={cn(
+                  filterPrimaryButtonClass,
+                  "cursor-pointer list-none px-2 py-1 text-center",
+                )}
+              >
+                Choose trade target
+              </summary>
+              <div className="mt-2 space-y-2 rounded-lg border border-zinc-700 bg-zinc-900 p-2 shadow-xl">
+                <p className="px-1 text-xs text-zinc-400">
+                  Choose an owner and exact printing.
+                </p>
+                {tradeWishlistTargets.map((target) => (
+                  <form
+                    key={`${target.inventoryItemId}-${target.ownerName}`}
+                    action={onAddTradeWishlist}
+                    className="flex items-center justify-between gap-3 rounded border border-zinc-700 bg-zinc-950/70 p-2"
+                  >
+                    <input
+                      type="hidden"
+                      name="inventoryItemId"
+                      value={target.inventoryItemId}
+                    />
+                    <div className="min-w-0 text-left">
+                      <div className="flex items-center gap-2 font-medium">
+                        <span
+                          className="h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{
+                            backgroundColor: target.ownerColor || "#64748b",
+                          }}
+                        />
+                        <span className="truncate">{target.ownerName}</span>
+                        <span className="text-xs text-zinc-500">
+                          ×{target.availableQuantity}
+                        </span>
                       </div>
-                      <input
-                        type="number"
-                        name="quantity"
-                        min={1}
-                        max={999}
-                        defaultValue={target.wishlistedQuantity ?? 1}
-                        aria-label={`Wishlist quantity from ${target.ownerName}`}
-                        className={cn(
-                          filterInputClass,
-                          "w-14 shrink-0 px-1 py-0.5 text-xs",
-                        )}
-                      />
-                      <SubmitButton
-                        pendingLabel="Saving..."
-                        className={cn(
-                          filterButtonClass,
-                          "shrink-0 px-2 py-1 text-xs",
-                        )}
-                      >
-                        {target.wishlistedQuantity ? "Update" : "Select"}
-                      </SubmitButton>
-                    </form>
-                  ))}
-                </div>
-              </details>
-            ) : null}
-            {capabilities.canEdit && onEdit ? (
-              <button
-                onClick={onEdit}
-                className={cn(filterButtonClass, "px-2 py-1")}
-              >
-                Edit Inventory Item
-              </button>
-            ) : null}
-            {capabilities.canViewAuditTrail && onAudit ? (
-              <button
-                onClick={onAudit}
-                className={cn(filterButtonClass, "px-2 py-1")}
-              >
-                Audit Trail
-              </button>
-            ) : null}
-            {capabilities.canDelete && onDelete ? (
-              <button
-                type="button"
-                disabled={deleting}
-                aria-disabled={deleting}
-                onClick={() => void onDelete()}
-                className={cn(filterDangerButtonClass, "px-2 py-1")}
-              >
-                {deleting ? "Deleting…" : "Delete inventory entry"}
-              </button>
-            ) : null}
+                      <div className="mt-0.5 text-xs text-zinc-400">
+                        {[
+                          `${target.setCode.toUpperCase()} #${target.collectorNumber}`,
+                          target.foilStatus,
+                          target.condition,
+                          target.language,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </div>
+                      {target.wishlistedQuantity ? (
+                        <div className="mt-1 text-xs font-medium text-emerald-300">
+                          Already wishlisted ×{target.wishlistedQuantity}
+                        </div>
+                      ) : null}
+                    </div>
+                    <input
+                      type="number"
+                      name="quantity"
+                      min={1}
+                      max={999}
+                      defaultValue={target.wishlistedQuantity ?? 1}
+                      aria-label={`Wishlist quantity from ${target.ownerName}`}
+                      className={cn(
+                        filterInputClass,
+                        "w-14 shrink-0 px-1 py-0.5 text-xs",
+                      )}
+                    />
+                    <SubmitButton
+                      pendingLabel="Saving..."
+                      className={cn(
+                        filterButtonClass,
+                        "shrink-0 px-2 py-1 text-xs",
+                      )}
+                    >
+                      {target.wishlistedQuantity ? "Update" : "Select"}
+                    </SubmitButton>
+                  </form>
+                ))}
+              </div>
+            </details>
+          ) : null}
+          {capabilities.canEdit && onEdit ? (
             <button
-              onClick={onClose}
+              onClick={onEdit}
               className={cn(filterButtonClass, "px-2 py-1")}
             >
-              Close
+              Edit Inventory Item
             </button>
-          </div>
-        </div>
-        <div className="grid gap-4 md:grid-cols-[240px_1fr]">
-          <aside className="space-y-3 text-sm">
-            <CardImageFlipper row={row} />
-            <MeldPartnerLink row={row} />
-            <InventoryDetailPanel
-              row={row}
-              capabilities={capabilities}
-              visibleLocationBreakdown={visibleLocationBreakdown}
-              priceLabel={priceLabel}
-            />
-            {capabilities.canViewPrivateSourceInfo ? (
-              <CardPriceHistoryPanel row={row} />
-            ) : null}
-          </aside>
-          <div className="space-y-3 text-sm">
-            <section className={detailBlockClass}>
-              <div className="flex items-center justify-between gap-3 border-b border-zinc-800 bg-zinc-900 px-3 py-2">
-                <h3 className="font-semibold">{row.cardName}</h3>
-                <div className="shrink-0">
-                  <CardManaCost card={row} showFaceNames={!cardFaces.length} />
-                </div>
-              </div>
-              <div className={detailBodyClass}>
-                {cardFaces.length ? (
-                  cardFaces.map((face, index) => (
-                    <CardFaceMechanics
-                      key={`${face.name || "face"}-${index}`}
-                      face={face}
-                      index={index}
-                    />
-                  ))
-                ) : (
-                  <>
-                    <div className="border-b border-zinc-800 pb-2 font-medium">
-                      {row.typeLine || "-"}
-                    </div>
-                    {topLevelOracleParagraphs.length ? (
-                      <div className="space-y-2 leading-relaxed text-zinc-100">
-                        {topLevelOracleParagraphs.map((paragraph, index) => (
-                          <p key={`${index}-${paragraph.slice(0, 16)}`}>
-                            <OracleText text={paragraph} />
-                          </p>
-                        ))}
-                      </div>
-                    ) : null}
-                    {hasPowerToughness || hasLoyalty || hasDefense ? (
-                      <FaceStats
-                        powerToughness={row.powerToughness}
-                        power={row.power}
-                        toughness={row.toughness}
-                        loyalty={row.loyalty}
-                        defense={row.defense}
-                      />
-                    ) : null}
-                  </>
-                )}
-              </div>
-            </section>
-
-            <section className={detailBlockClass}>
-              <div className={detailHeaderClass}>Printing</div>
-              <div className="grid grid-cols-2 gap-3 p-3">
-                <div>
-                  <div className="text-xs uppercase text-zinc-500">Set</div>
-                  <SetLabel
-                    setCode={row.setCode}
-                    setName={row.setName}
-                    rarity={row.rarity}
-                    symbolClassName="h-5 w-5"
-                  />
-                </div>
-                <div>
-                  <div className="text-xs uppercase text-zinc-500">
-                    Collector #
-                  </div>
-                  {row.collectorNumber || "-"}
-                </div>
-                <div>
-                  <div className="text-xs uppercase text-zinc-500">
-                    Released
-                  </div>
-                  {formatReleaseDate(row.releasedAt)}
-                </div>
-                <div>
-                  <div className="text-xs uppercase text-zinc-500">Rarity</div>
-                  {row.rarity || "-"}
-                </div>
-                <div>
-                  <div className="text-xs uppercase text-zinc-500">
-                    Treatment
-                  </div>
-                  {treatment}
-                </div>
-                <div className="col-span-2">
-                  <div className="text-xs uppercase text-zinc-500">Artist</div>
-                  {row.artist || "-"}
-                </div>
-              </div>
-            </section>
-
-            <section className={detailBlockClass}>
-              <div className={detailHeaderClass}>Legalities</div>
-              <div className="grid grid-cols-1 gap-1.5 p-3 sm:grid-cols-2">
-                {legalityFormats.map(([format, status]) => {
-                  const legal = String(status).toLowerCase() === "legal";
-                  return (
-                    <div
-                      key={format}
-                      className="grid min-h-8 grid-cols-[minmax(0,1fr)_4.75rem] items-center gap-2 rounded border border-zinc-800 bg-zinc-900/60 px-2"
-                    >
-                      <span className="truncate text-xs font-medium text-zinc-200">
-                        {format}
-                      </span>
-                      <span
-                        className={cn(
-                          "inline-flex h-5 w-full items-center justify-center rounded px-1.5 text-[10px] font-semibold uppercase",
-                          legal
-                            ? "bg-emerald-900/70 text-emerald-100"
-                            : "bg-zinc-700 text-zinc-200",
-                        )}
-                      >
-                        {String(status).replace("_", " ")}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-
-            {row.scryfallUri ? (
-              <p>
-                <a
-                  className="underline"
-                  href={row.scryfallUri}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  View on Scryfall
-                </a>
-              </p>
-            ) : null}
-          </div>
+          ) : null}
+          {capabilities.canViewAuditTrail && onAudit ? (
+            <button
+              onClick={onAudit}
+              className={cn(filterButtonClass, "px-2 py-1")}
+            >
+              Audit Trail
+            </button>
+          ) : null}
+          {capabilities.canDelete && onDelete ? (
+            <button
+              type="button"
+              disabled={deleting}
+              aria-disabled={deleting}
+              onClick={() => void onDelete()}
+              className={cn(filterDangerButtonClass, "px-2 py-1")}
+            >
+              {deleting ? "Deleting…" : "Delete inventory entry"}
+            </button>
+          ) : null}
+          <button
+            onClick={onClose}
+            className={cn(filterButtonClass, "px-2 py-1")}
+          >
+            Close
+          </button>
         </div>
       </div>
-    </div>
+      <div className="grid gap-4 md:grid-cols-[240px_1fr]">
+        <aside className="space-y-3 text-sm">
+          <CardImageFlipper row={row} />
+          <MeldPartnerLink row={row} />
+          <InventoryDetailPanel
+            row={row}
+            capabilities={capabilities}
+            visibleLocationBreakdown={visibleLocationBreakdown}
+            priceLabel={priceLabel}
+          />
+          {capabilities.canViewPrivateSourceInfo ? (
+            <CardPriceHistoryPanel row={row} />
+          ) : null}
+        </aside>
+        <div className="space-y-3 text-sm">
+          <section className={detailBlockClass}>
+            <div className="flex items-center justify-between gap-3 border-b border-zinc-800 bg-zinc-900 px-3 py-2">
+              <h3 className="font-semibold">{row.cardName}</h3>
+              <div className="shrink-0">
+                <CardManaCost card={row} showFaceNames={!cardFaces.length} />
+              </div>
+            </div>
+            <div className={detailBodyClass}>
+              {cardFaces.length ? (
+                cardFaces.map((face, index) => (
+                  <CardFaceMechanics
+                    key={`${face.name || "face"}-${index}`}
+                    face={face}
+                    index={index}
+                  />
+                ))
+              ) : (
+                <>
+                  <div className="border-b border-zinc-800 pb-2 font-medium">
+                    {row.typeLine || "-"}
+                  </div>
+                  {topLevelOracleParagraphs.length ? (
+                    <div className="space-y-2 leading-relaxed text-zinc-100">
+                      {topLevelOracleParagraphs.map((paragraph, index) => (
+                        <p key={`${index}-${paragraph.slice(0, 16)}`}>
+                          <OracleText text={paragraph} />
+                        </p>
+                      ))}
+                    </div>
+                  ) : null}
+                  {hasPowerToughness || hasLoyalty || hasDefense ? (
+                    <FaceStats
+                      powerToughness={row.powerToughness}
+                      power={row.power}
+                      toughness={row.toughness}
+                      loyalty={row.loyalty}
+                      defense={row.defense}
+                    />
+                  ) : null}
+                </>
+              )}
+            </div>
+          </section>
+
+          <section className={detailBlockClass}>
+            <div className={detailHeaderClass}>Printing</div>
+            <div className="grid grid-cols-2 gap-3 p-3">
+              <div>
+                <div className="text-xs uppercase text-zinc-500">Set</div>
+                <SetLabel
+                  setCode={row.setCode}
+                  setName={row.setName}
+                  rarity={row.rarity}
+                  symbolClassName="h-5 w-5"
+                />
+              </div>
+              <div>
+                <div className="text-xs uppercase text-zinc-500">
+                  Collector #
+                </div>
+                {row.collectorNumber || "-"}
+              </div>
+              <div>
+                <div className="text-xs uppercase text-zinc-500">Released</div>
+                {formatReleaseDate(row.releasedAt)}
+              </div>
+              <div>
+                <div className="text-xs uppercase text-zinc-500">Rarity</div>
+                {row.rarity || "-"}
+              </div>
+              <div>
+                <div className="text-xs uppercase text-zinc-500">Treatment</div>
+                {treatment}
+              </div>
+              <div className="col-span-2">
+                <div className="text-xs uppercase text-zinc-500">Artist</div>
+                {row.artist || "-"}
+              </div>
+            </div>
+          </section>
+
+          <section className={detailBlockClass}>
+            <div className={detailHeaderClass}>Legalities</div>
+            <div className="grid grid-cols-1 gap-1.5 p-3 sm:grid-cols-2">
+              {legalityFormats.map(([format, status]) => {
+                const legal = String(status).toLowerCase() === "legal";
+                return (
+                  <div
+                    key={format}
+                    className="grid min-h-8 grid-cols-[minmax(0,1fr)_4.75rem] items-center gap-2 rounded border border-zinc-800 bg-zinc-900/60 px-2"
+                  >
+                    <span className="truncate text-xs font-medium text-zinc-200">
+                      {format}
+                    </span>
+                    <span
+                      className={cn(
+                        "inline-flex h-5 w-full items-center justify-center rounded px-1.5 text-[10px] font-semibold uppercase",
+                        legal
+                          ? "bg-emerald-900/70 text-emerald-100"
+                          : "bg-zinc-700 text-zinc-200",
+                      )}
+                    >
+                      {String(status).replace("_", " ")}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {row.scryfallUri ? (
+            <p>
+              <a
+                className="underline"
+                href={row.scryfallUri}
+                target="_blank"
+                rel="noreferrer"
+              >
+                View on Scryfall
+              </a>
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </dialog>
   );
 }
 
