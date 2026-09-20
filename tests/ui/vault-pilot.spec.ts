@@ -289,6 +289,24 @@ test("vault creation, multi-selection fill, advisory overflow, refreshed occupan
       .nth(2)
       .click({ modifiers: ["Shift"] });
     await expect(checked).toHaveCount(1);
+    await tableRows
+      .nth(1)
+      .locator("td")
+      .nth(1)
+      .getByRole("button")
+      .click({ modifiers: ["Control"] });
+    await expect(checked).toHaveCount(2);
+    await tableRows
+      .nth(4)
+      .locator("td")
+      .nth(1)
+      .getByRole("button")
+      .click({ modifiers: ["Shift"] });
+    await expect(checked).toHaveCount(4);
+    await expect(
+      page.getByRole("button", { name: "Close", exact: true }),
+    ).toHaveCount(0);
+    await tableRows.nth(3).locator("td").nth(2).click();
     await page
       .getByRole("button", { name: "Binder View", exact: true })
       .click();
@@ -315,6 +333,28 @@ test("vault creation, multi-selection fill, advisory overflow, refreshed occupan
     await page.getByRole("button", { name: "Next page", exact: true }).click();
     await expect(selected).toHaveCount(2);
     await expect(checked).toHaveCount(0);
+    await page.goto("/imports");
+    await page.getByRole("button", { name: /Add single card/ }).click();
+    const manualPicker = page.getByTestId("storage-destination").first();
+    await manualPicker
+      .getByRole("button", { name: "Change", exact: true })
+      .click();
+    await manualPicker
+      .getByRole("combobox", { name: "Search destinations" })
+      .fill(name);
+    await manualPicker
+      .getByRole("option")
+      .filter({ hasText: "Vault ·" })
+      .click();
+    await manualPicker.getByRole("button", { name: /Sect 2.*0 \/ 85/ }).click();
+    await expect(manualPicker.locator('input[name="locationId"]')).toHaveValue(
+      fixture.vaultId,
+    );
+    await expect(
+      manualPicker.locator('input[name="locationSection"]'),
+    ).toHaveValue("Sect 2");
+    await page.getByLabel("Quantity", { exact: true }).fill("5");
+    await expect(manualPicker.getByText(/5 after move/)).toBeVisible();
   } finally {
     // Fixture cleanup also runs after a failed assertion or interrupted browser step.
     database(`
