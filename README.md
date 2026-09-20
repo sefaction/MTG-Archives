@@ -25,6 +25,12 @@ docker compose up -d --build
 
 On startup the web container runs Prisma migrations and then runs `prisma:bootstrap-admin` to ensure the configured admin account exists. `RUN_SEED_ON_START=false` by default; the application does not require demo data to start.
 
+Bootstrap only creates a missing account (username matching is case-insensitive).
+An existing account's password, role, active status, profile and owner link are
+preserved on restart. Changing `SEED_ADMIN_PASSWORD` does not reset an existing
+password; use the authenticated account/admin password controls. An existing
+disabled or non-admin account is not silently reactivated or promoted by startup.
+
 ## Deployment modes
 
 Local development uses `docker-compose.yml` plus `docker-compose.local.yml`.
