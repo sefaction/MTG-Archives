@@ -2024,7 +2024,14 @@ export function InventoryBrowser({
         cell: ({ row }) => (
           <button
             className="underline text-left"
-            onClick={() => setSelected(row.original)}
+            onClick={(event) => {
+              if (
+                selectionAvailable &&
+                (event.shiftKey || event.ctrlKey || event.metaKey)
+              )
+                selectRow(row.original, event);
+              else setSelected(row.original);
+            }}
           >
             {row.original.cardName}
           </button>
