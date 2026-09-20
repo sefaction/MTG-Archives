@@ -164,9 +164,11 @@ test("two people negotiate, confirm and conserve exact inventory; cancel and dec
     await alice
       .getByRole("button", { name: "Submit Proposal", exact: true })
       .click();
-    await expect(alice.getByRole("alert")).toHaveText(
-      /already reserved or unavailable/,
-    );
+    await expect(
+      alice
+        .locator('form:has(input[name="offeredLinesJson"])')
+        .getByRole("alert"),
+    ).toHaveText(/already reserved or unavailable/);
     expect(
       database<number>(
         `return p.trade.count({where:{createdByUserId:${quote(f.people[0].id)}}});`,
@@ -338,7 +340,11 @@ test("two people negotiate, confirm and conserve exact inventory; cancel and dec
       ),
     ).toBe(1);
     await alice.goto("/trades?view=history");
-    await expect(alice.getByText("completed", { exact: true })).toBeVisible();
+    const completedSummary = alice
+      .locator("summary")
+      .getByText("completed", { exact: true });
+    await expect(completedSummary).toHaveCount(1);
+    await expect(completedSummary).toBeVisible();
   } finally {
     await Promise.allSettled(contexts.map((c) => c.close()));
     // Resolve exact fixture identities by a unique UUID tag, even if setup failed.
