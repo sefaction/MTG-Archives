@@ -1,4 +1,17 @@
-# Local review build — bounded location browser
+# Local review build — cumulative issue queue
+
+Current deployment: 2026-09-20, application revision `dad1bd3`. Stack: #221 → #226 → #227 → #228 → #229 → #232 → #233 → #234 → #236, based on released main `9a3fd8b`. Every PR awaits individual merge approval; no production update.
+
+- App http://127.0.0.1:13001; local-only SMTP capture http://127.0.0.1:18025 (no relay).
+- Compose overlays: common + local + `docker-compose.smtp-test.yml`. Normal deployments still default SMTP off.
+- Docker image `sha256:7247503387af017aa862c9c9c1750637bee9d57c41b1b0ed7945a7fcf583698e`; Next build `29QGmn8T55qnVQuSACupv`. Healthy, host HTTP 200, 58 migrations current.
+- Docker build/client-manifest guards and production dependency audit pass (zero known vulnerabilities). SMTP real queue failure/retry/capture/opt-out and private settings browser checks passed. Four detail tests pass, including meld, Escape/focus/background inertness, public capabilities and phone layout; screenshots inspected.
+- Full cumulative verification is running; see WORK_CHECKPOINT.md and `test-results/audit-verify.log`. Earlier SMTP full run had one advanced-search timing failure, recorded on #220; isolated private/public search recheck passed without changing timeouts.
+- Historical detail/meld skips below were attributed to missing admin fixtures at the time. Audit #235 found the locator itself was also wrong (summary queried as button). #236 replaces those silent local skips with deterministic owned fixtures; do not count historical skipped cases as passes.
+
+Review the stacked improvements: searchable paged Locations, advanced inventory search, pasted decklist commander/printing review, advanced manual playtest controls and safe device-local sessions, Settings → Email notifications, and keyboard-accessible inventory details. Feature/deeper audit boundaries are mapped in FEATURE_COVERAGE.md.
+
+## Historical bounded location browser build
 
 Current deployment: 2026-09-19, application/test revision `97a0095` on #221 (`60892f0`).
 

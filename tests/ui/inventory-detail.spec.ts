@@ -138,9 +138,24 @@ test("inventory detail drawer contains focus, closes and restores focus on deskt
   for (let index = 0; index < 18; index += 1) {
     await page.keyboard.press("Tab");
     expect(
-      await dialog.evaluate((node) => node.contains(document.activeElement)),
+      // Chromium may move Tab focus to browser chrome (activeElement is body).
+      // No interactive background element may receive focus while modal.
+      await dialog.evaluate(
+        (node) =>
+          node.contains(document.activeElement) ||
+          document.activeElement === document.body,
+      ),
     ).toBe(true);
   }
+  const backgroundCard = page.getByRole("button", {
+    name: "Hanweir Battlements",
+    exact: true,
+    includeHidden: true,
+  });
+  await backgroundCard.focus();
+  await expect(backgroundCard).not.toBeFocused();
+  expect(await dialog.evaluate((node) => node.matches(":modal"))).toBe(true);
+  await close.focus();
   await page.screenshot({ path: "test-results/inventory-detail-desktop.png" });
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
