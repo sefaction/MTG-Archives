@@ -1,3 +1,5 @@
+import { matchingInventoryQueryCardIds } from "./inventory-query-metadata";
+
 const MAX_QUERY_LENGTH = 1_000;
 
 type QueryNode =
@@ -781,11 +783,13 @@ export async function constrainInventoryWhereToScryfallQuery(
   const candidates = (await prisma.inventoryItem.findMany({
     where,
     distinct: ["cardId"],
-    select: { cardId: true, card: true },
-  })) as Array<{ cardId: string; card: any }>;
-  const matchingCardIds = candidates
-    .filter((candidate) => compiled.matches(candidate.card))
-    .map((candidate) => candidate.cardId);
+    select: { cardId: true },
+  })) as Array<{ cardId: string }>;
+  const matchingCardIds = await matchingInventoryQueryCardIds(
+    prisma,
+    candidates.map((candidate) => candidate.cardId),
+    compiled.matches,
+  );
   return {
     where: { ...where, cardId: { in: matchingCardIds } },
     error: undefined as string | undefined,

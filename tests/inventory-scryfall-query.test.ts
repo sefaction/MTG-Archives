@@ -94,11 +94,16 @@ test("inventory constraint filters only locally stored candidate cards", async (
     inventoryItem: {
       findMany: async (args: any) => {
         receivedWhere = args.where;
+        assert.deepEqual(args.select, { cardId: true });
         return [
-          { cardId: krasis.id, card: krasis },
-          { cardId: endlessOne.id, card: endlessOne },
+          { cardId: krasis.id },
+          { cardId: endlessOne.id },
         ];
       },
+    },
+    $queryRaw: async (query: any) => {
+      assert.deepEqual(query.values, [krasis.id, endlessOne.id]);
+      return [krasis, endlessOne];
     },
   };
   const baseWhere = { quantity: { gt: 0 }, currentOwnerId: "owner-1" };
