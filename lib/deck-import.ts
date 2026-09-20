@@ -3,6 +3,8 @@ import { prisma } from "./prisma";
 import {
   findOrImportCard,
   normalizeCardName,
+  matchesCardOrFaceName,
+  cardOrFaceNameWhere,
   normalizeCollectorNumber,
   normalizeSetCode,
   upsertScryfallCard,
@@ -158,7 +160,7 @@ function emptyReviewLine(input: {
     errors: input.errors ?? [],
     included: input.included ?? true,
     physicalQuantity: 0,
-    physicalFoilStatus: FoilStatus.NONFOIL,
+    physicalFoilStatus: input.foil ? FoilStatus.FOIL : FoilStatus.NONFOIL,
     physicalCondition: "NM",
     physicalLanguage: "EN",
   };
@@ -212,7 +214,7 @@ export function parseDecklistText(
           quantity: 1,
           parsedName,
           section,
-          foil: /foil/i.test(line),
+          foil: false,
           status: parsedName ? "PARSE_WARNING" : "PARSE_ERROR",
           message: parsedName
             ? "Could not find an explicit quantity; assumed 1 and needs verification."
@@ -226,8 +228,9 @@ export function parseDecklistText(
 
     const quantity = Math.max(1, Number(qtyMatch[1]));
     let rest = qtyMatch[2].trim();
-    const foil = /\*F\*|\bfoil\b/i.test(rest);
-    rest = rest.replace(/\*F\*|\bfoil\b/gi, "").trim();
+    const finishAnnotation = /\s+(?:\*F\*|\(foil\)|\[foil\])\s*$/i;
+    const foil = finishAnnotation.test(rest);
+    rest = rest.replace(finishAnnotation, "").trim();
     let setCode: string | undefined;
     let collectorNumber: string | undefined;
 
@@ -288,7 +291,7 @@ async function inventoryPrintingsForName(input: {
       ...(leagueId
         ? leagueInventoryItemWhere(leagueId)
         : { currentOwnerId: ownerPlayerId!, quantity: { gt: 0 } }),
-      card: { name: { equals: name.trim(), mode: "insensitive" } },
+      card: cardOrFaceNameWhere(name),
     },
     include: { card: true, location: true },
   });
@@ -296,8 +299,8 @@ async function inventoryPrintingsForName(input: {
     string,
     { card: Card; quantity: number; locations: string[] }
   >();
-  for (const item of items.filter(
-    (item) => normalizeCardName(item.card.name) === normalized,
+  for (const item of items.filter((item) =>
+    matchesCardOrFaceName(item.card.name, normalized),
   )) {
     const current = grouped.get(item.cardId) ?? {
       card: item.card,
@@ -325,7 +328,7 @@ async function cheapestPrintingForName(
   const local = (
     await prisma.card.findMany({
       where: {
-        name: { equals: name.trim(), mode: "insensitive" },
+        ...cardOrFaceNameWhere(name),
         ...(leagueId
           ? {
               inventoryItems: {
@@ -335,7 +338,7 @@ async function cheapestPrintingForName(
           : {}),
       },
     })
-  ).filter((card) => normalizeCardName(card.name) === key);
+  ).filter((card) => matchesCardOrFaceName(card.name, key));
   let candidates = local;
   if (candidates.length === 0 && !leagueId) {
     const result = await searchCardsResult(

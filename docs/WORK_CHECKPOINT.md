@@ -8,6 +8,15 @@ Work through the open queue, test locally, open one PR per coherent batch, and c
 
 ## Current stack
 
+### Current checkpoint (supersedes historical entries below)
+
+- #221 -> #226 -> #227 -> #228 -> #229 are ready, stacked in that order. None has merge approval. #228 app `22055ad`, remote docs tip `c493661` (local branch ref may lag); #229 `cbc1b94`.
+- Current `feat/pasted-decklist-review`, app `a039bbd`, is ready to push/open against #229. Resolves revised paste-only #190, exact cached/owned face-name bug #230, and literal card name Foil bug #231. No direct Moxfield integration.
+- Completed full verification: 526 units, typecheck, production build/manifest guard, 27 browser passes / two existing detail/meld fixture skips. Log `test-results/paste-verify.log`.
+- Exact supplied 100-card list separately passed owned-only browser resolution, 99 mainboard + Esika commander import, unchanged inventory and private access denial. Unique temporary fixture removed. Log `test-results/paste-supplied-browser.log`; supplied list remains local/ignored.
+- Desktop and 390px phone screenshots inspected. Current healthy Docker image `sha256:5e8215eb6a347f38fe33ebfb9955ac564f3e7ebb24f0d14590d7e30f113017cd`, build `dVm-ivE2bp90oH-GhngEh`, cumulative app `a039bbd`.
+- NEXT: finish paste PR, then #222/#167 advanced playtest and #151 SMTP. Never send actual mail to snapshot users; local capture only. Never overlap browser tests with builds. Historical pending checks below have completed.
+
 - Released main `9a3fd8b`: prior approved #210/#217/#219 merged. Those approvals do not cover this stack.
 - #221 `fix/inventory-filter-navigation`: addresses #220 with document GET advanced filters, scroll/panel restoration and history coverage. 510 units, 25 browser passes / 2 existing skips, mixed stress 20/20. See INVENTORY_FILTER_NAVIGATION.md.
 - Draft #226 `perf/location-browser-scale`: app commit `97a0095`, tip `d664f49`, based on #221. Addresses #215: 25-card/tree pages, search, one editor. 515 units; scale/owner/phone/vault checks pass. Last full rerun: 24 passes / 2 Scryfall latency failures (#224) / 2 existing skips. Keep draft pending full regression recovery.
@@ -16,6 +25,14 @@ Work through the open queue, test locally, open one PR per coherent batch, and c
 - Last healthy security image `sha256:e070ed97da07140a27b969f792983fdfe950b3d0b97fe82be6fd206fc39bd3ee`, build `Ua715ZjFkUjM5kd6DklM3`. URL http://127.0.0.1:13001. Query build will replace it; verify identity and host health before tests.
 
 ## Immediate next steps
+
+### Latest progress (supersedes pending checks below)
+
+- #228 application revision `22055ad` (docs tip `c493661`) passed all 59 DB parity expressions. Type projection 1.8 MB / 764 ms vs full metadata 81.5 MB / 6,115 ms. Cumulative full verify: 523 units, host build, 26 browser passes / 2 existing skips; both unchanged Scryfall tests pass. #226 and #228 are now ready for review.
+- Ready #229 `fix/production-client-manifests`, `cbc1b94`, adds six-route build reference/chunk validation. Host and Linux builds/guards pass; runtime route smoke 7/7. Last healthy guard image `sha256:b676dbc71b881758df088cfb10b48d4332e61473579bff5bdd18cb62b38304f8`, build `kIyMvuBmYsCG2UZfizTo-`. No merges.
+- Current branch `feat/pasted-decklist-review` based on #229. Uncommitted #190 work: paste/section/printing guidance, commander quick assignment, URL rejection, stale-review and busy-state protection, phone layout, successful import redirects to deck; #230 exact DFC face matching in cache/owned resolution; #231 preserve card name Foil and explicit trailing finish annotations. Added parser/name tests and opt-in `tests/ui/pasted-decklist.spec.ts`.
+- All 100 names in the user's local ignored export have cached printing matches. Browser test defaults to a compact 99 Forest + 1 Esika fixture, or uses `MTG_PASTED_DECK_FIXTURE=test-results/moxfield-user-export.txt` for the exact supplied list. Creates a unique private fixture owner/deck/inventory and removes it in finally; no real deck commit. Test checks resolution, assignment, stale/busy guards, phone width, 99+1 committed list, unchanged inventory and unauthenticated denial.
+- Paste Docker build in progress: `test-results/paste-docker.log` (command session 28873). Typecheck passed; prior 523 units passed before adding three new unit cases, which passed targeted. Next: confirm build/host health, run full supplied-list browser case, inspect screenshots, then full verify and PR. Do not build while browsers run.
 
 1. Finish query Docker build; inspect Imports manifest, health and host HTTP 200. Never overlap Docker builds and browser tests.
 2. Run read-only local parity: `docker exec -e MTG_LOCAL_PILOT_TEST=1 mtg-archives-web-1 npx tsx scripts/verify-inventory-query-metadata.ts`. Compares full/projected metadata and representative expressions in one repeatable-read transaction; reports size/time. No writes.

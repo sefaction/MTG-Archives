@@ -157,12 +157,15 @@ export function DeckImportPanel({
   deckId,
   inventoryCommitmentEnabled = true,
   cardSearchEndpoint = "/api/decks/card-search",
+  commanderDeck = false,
 }: {
   deckId: string;
   inventoryCommitmentEnabled?: boolean;
   cardSearchEndpoint?: string;
+  commanderDeck?: boolean;
 }) {
   const [text, setText] = useState("");
+  const [reviewSource, setReviewSource] = useState("");
   const [lines, setLines] = useState<DeckImportReviewLine[]>([]);
   const [skippedLines, setSkippedLines] = useState<DeckImportReviewLine[]>([]);
   const [loading, setLoading] = useState(false);
@@ -272,6 +275,7 @@ export function DeckImportPanel({
     try {
       const parsed = await fetchDecklistResolution("parse");
       setLines(parsed.lines);
+      setReviewSource(text);
       setSkippedLines(parsed.skippedLines ?? []);
       parsedReviewAvailable =
         parsed.lines.length > 0 || (parsed.skippedLines ?? []).length > 0;
@@ -311,6 +315,11 @@ export function DeckImportPanel({
     () => summarize(lines, skippedLines),
     [lines, skippedLines],
   );
+  const reviewStale = lines.length > 0 && text !== reviewSource;
+  const pastedUrl = /^https?:\/\/\S+$/i.test(text.trim());
+  const commanders = lines.filter(
+    (line) => line.included && line.section === DeckSection.COMMANDER,
+  );
   const progressPercent =
     resolveProgress.total > 0
       ? Math.round((resolveProgress.completed / resolveProgress.total) * 100)
@@ -346,6 +355,11 @@ export function DeckImportPanel({
   }
 
   function preSubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (reviewStale || loading || resolving) {
+      event.preventDefault();
+      setCommitError("Parse and review the current text before importing.");
+      return;
+    }
     if (summary.unresolvedIncluded > 0) {
       event.preventDefault();
       setCommitError(
@@ -358,20 +372,64 @@ export function DeckImportPanel({
     <section className="space-y-3 rounded border border-zinc-800 p-4">
       <h2 className="text-xl font-semibold">Paste decklist</h2>
       <p className="text-sm text-zinc-400">
-        Every card entry is kept visible in review. Resolve or exclude problem
-        entries before importing.
+        Paste a quantity/name decklist exported from Moxfield or another deck
+        builder. Review every card before importing; no connection to the deck
+        website is needed.
       </p>
+      <p id="decklist-help" className="text-sm text-zinc-400">
+        Use Commander, Mainboard, Sideboard, or Maybeboard headings to assign
+        sections. Blank lines do not identify a commander. Plain names do not
+        specify an edition or foil finish: check the selected printings.
+        Inventory is unchanged unless you explicitly choose to create and commit
+        physical copies.
+      </p>
+      <details className="text-sm text-zinc-300">
+        <summary className="cursor-pointer text-cyan-300">
+          Example format and printing details
+        </summary>
+        <pre className="mt-2 overflow-x-auto rounded bg-zinc-950 p-3 text-xs">
+          {
+            "Commander\n1 Esika, God of the Tree\n\nMainboard\n1 Sol Ring (CMM) 400 *F*\n\nSideboard\n1 Negate"
+          }
+        </pre>
+        <p className="mt-2">
+          Optional printing: (SET) collector number. Use *F*, (foil), or [foil]
+          at the end for a foil annotation. You can correct sections and
+          printings in review.
+        </p>
+      </details>
+      <label htmlFor="decklist-text" className="block text-sm font-medium">
+        Decklist text
+      </label>
       <textarea
+        id="decklist-text"
+        aria-describedby="decklist-help"
+        disabled={loading || resolving}
         value={text}
         onChange={(event) => setText(event.target.value)}
         rows={8}
         className={cn(filterTextareaClass, "w-full font-mono text-sm")}
         placeholder={
-          "Commander\n1 Atraxa, Praetors' Voice\n\nCreatures\n1 Sol Ring (CMM) 400\n4 Lightning Bolt\nSol Rign"
+          "Mainboard\n1 Arcane Signet\n1 Sol Ring\n\nCommander\n1 Esika, God of the Tree"
         }
       />
+      {pastedUrl ? (
+        <p role="alert" className="text-sm text-amber-200">
+          Paste the decklist contents, not a website URL.
+        </p>
+      ) : null}
+      {reviewStale ? (
+        <p role="alert" className="text-sm text-amber-200">
+          The pasted text changed. Parse and review again before importing.
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-3">
-        <label className={cn(filterFieldClass, "min-w-64")}>
+        <label
+          className={cn(
+            filterFieldClass,
+            "min-w-0 w-full sm:min-w-64 sm:w-auto",
+          )}
+        >
           Bulk resolve
           <select
             value={resolutionPolicy}
@@ -393,7 +451,7 @@ export function DeckImportPanel({
         <button
           type="button"
           onClick={resolveDecklist}
-          disabled={loading || resolving || !text.trim()}
+          disabled={loading || resolving || !text.trim() || pastedUrl}
           className="rounded border border-sky-700 px-3 py-2 text-sky-100 disabled:opacity-60"
         >
           {loading
@@ -412,7 +470,51 @@ export function DeckImportPanel({
       </div>
 
       {lines.length || skippedLines.length ? (
-        <div className="space-y-3">
+        <fieldset
+          disabled={loading || resolving || reviewStale}
+          className="min-w-0 space-y-3"
+        >
+          {commanderDeck ? (
+            <div className="space-y-2 rounded border border-zinc-700 p-3 text-sm">
+              <p>
+                {commanders.length
+                  ? `Commander: ${commanders.map((line) => line.parsedName).join("; ")}`
+                  : "No commander assigned. Choose a card below or change its Section in review."}
+              </p>
+              <label className="block">
+                Assign a commander
+                <select
+                  aria-label="Assign a commander"
+                  value=""
+                  className={cn(filterSelectClass, "mt-1 w-full")}
+                  onChange={(event) =>
+                    updateLine(event.target.value, (line) => ({
+                      ...line,
+                      section: DeckSection.COMMANDER,
+                    }))
+                  }
+                >
+                  <option value="">Choose a card from this list…</option>
+                  {lines
+                    .filter(
+                      (line) =>
+                        line.included &&
+                        line.parsedName &&
+                        line.section !== DeckSection.COMMANDER,
+                    )
+                    .map((line) => (
+                      <option key={line.id} value={line.id}>
+                        {line.parsedName}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <p className="text-xs text-zinc-400">
+                Partner commanders can be assigned separately. To undo an
+                assignment, change that card’s Section back to Mainboard.
+              </p>
+            </div>
+          ) : null}
           <div className="rounded border border-zinc-800 bg-zinc-950 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
               <div>
@@ -572,11 +674,15 @@ export function DeckImportPanel({
             <SubmitButton
               pendingLabel="Committing…"
               disabled={
-                summary.readyToCommit === 0 || summary.unresolvedIncluded > 0
+                summary.readyToCommit === 0 ||
+                summary.unresolvedIncluded > 0 ||
+                reviewStale ||
+                loading ||
+                resolving
               }
               confirmMessage={
                 mode === "replace"
-                  ? "Replace current deck contents with the resolved decklist? Inventory will not be modified."
+                  ? "Replace current deck-list contents? Review any selected physical copies before continuing."
                   : undefined
               }
               className="rounded border border-sky-700 px-3 py-2 text-sky-100"
@@ -590,7 +696,7 @@ export function DeckImportPanel({
               <span className="text-sm text-red-300">{commitError}</span>
             ) : null}
           </form>
-        </div>
+        </fieldset>
       ) : null}
     </section>
   );
@@ -620,6 +726,7 @@ function ReviewLine({
       <td className="p-2">
         <input
           type="checkbox"
+          aria-label={`Include ${line.parsedName ?? `line ${line.lineNumber}`}`}
           checked={line.included}
           onChange={(event) =>
             updateLine((current) => ({
@@ -678,6 +785,7 @@ function ReviewLine({
       </td>
       <td className="p-2">
         <select
+          aria-label={`Section for ${line.parsedName ?? `line ${line.lineNumber}`}`}
           value={line.section ?? DeckSection.MAINBOARD}
           onChange={(event) =>
             updateLine((current) => ({

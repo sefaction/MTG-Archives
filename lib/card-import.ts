@@ -24,6 +24,37 @@ export function normalizeCardName(name: string) {
     .toLowerCase();
 }
 
+export function matchesCardOrFaceName(
+  canonicalName: string,
+  requestedName: string,
+) {
+  const canonical = normalizeCardName(canonicalName);
+  const requested = normalizeCardName(requestedName);
+  return (
+    Boolean(requested) &&
+    (canonical === requested || canonical.split(" // ").includes(requested))
+  );
+}
+
+export function cardOrFaceNameWhere(name: string) {
+  const normalized = normalizeCardName(name);
+  return {
+    OR: [
+      { name: { equals: normalized, mode: "insensitive" as const } },
+      {
+        name: { startsWith: `${normalized} // `, mode: "insensitive" as const },
+      },
+      { name: { endsWith: ` // ${normalized}`, mode: "insensitive" as const } },
+      {
+        name: {
+          contains: ` // ${normalized} // `,
+          mode: "insensitive" as const,
+        },
+      },
+    ],
+  };
+}
+
 export function normalizeSetCode(setCode?: string) {
   return setCode?.trim().toLowerCase() || undefined;
 }
@@ -286,7 +317,7 @@ export async function findOrImportCard(input: {
     });
     const nameFiltered = localCandidates.filter(
       (card) =>
-        !normalizedName || normalizeCardName(card.name) === normalizedName,
+        !normalizedName || matchesCardOrFaceName(card.name, normalizedName),
     );
     if (nameFiltered.length === 1)
       return withMatchDetails(
@@ -322,7 +353,7 @@ export async function findOrImportCard(input: {
       await prisma.card.findMany({
         where: { setCode: { equals: setCode, mode: "insensitive" } },
       })
-    ).filter((card) => normalizeCardName(card.name) === normalizedName);
+    ).filter((card) => matchesCardOrFaceName(card.name, normalizedName));
     if (localExact.length === 1)
       return withMatchDetails(
         {
@@ -389,9 +420,9 @@ export async function findOrImportCard(input: {
   if (normalizedName) {
     const localExact = (
       await prisma.card.findMany({
-        where: { name: { equals: input.name.trim(), mode: "insensitive" } },
+        where: cardOrFaceNameWhere(input.name),
       })
-    ).filter((card) => normalizeCardName(card.name) === normalizedName);
+    ).filter((card) => matchesCardOrFaceName(card.name, normalizedName));
     if (localExact.length === 1)
       return withMatchDetails(
         {
