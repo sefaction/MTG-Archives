@@ -2,7 +2,7 @@
 
 Updated 2026-09-20. This is a verification map, not a claim that every feature is complete or that no bugs exist. GitHub controls live issue/PR status. Preserve intended owner/admin/public and League differences.
 
-Released main `e98266f` includes the previously reviewed stack through #236. The current cumulative review stack is #243 → #244 → #247 → #248 → #250 → #254 → #255 → #259; each still needs individual merge approval. See WORK_CHECKPOINT.md and PRs for exact build/results. No recurring audit scheduler is configured.
+Released main `e98266f` includes the previously reviewed stack through #236. The current cumulative review stack is #243 → #244 → #247 → #248 → #250 → #254 → #255 → #259 → #261; each still needs individual merge approval. #261 remains draft while the intermittent move refresh observation #260 is investigated. See WORK_CHECKPOINT.md and PRs for exact build/results. No recurring audit scheduler is configured.
 
 | Area                            | Behavior covered                                                                                                                                                    | Evidence                                                                                                        | Remaining depth / deliberate boundary                                                                                                                                                       |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -23,10 +23,12 @@ Released main `e98266f` includes the previously reviewed stack through #236. The
 
 ## Next audit priorities
 
-Latest cumulative verification at application `76f0d8b`: 563 unit tests and 40 serial browser cases passed, zero skips; generation/typecheck, host/Docker builds and six manifest guards passed. #255 adds server-validated local login/admin-mode return paths and protected-destination retry coverage. It also corrects the email test's outdated redirect expectation and timeout cleanup (#256). See LOCAL_REVIEW_BUILD.md for runtime identity and failed/retest history. The earlier intermittent advanced-search render timeout remains recorded on #220 even though the final run passed.
+Visual vault #261 adds exact/unsectioned map navigation, single-row occupancy, move-review shortcuts, cancellation focus, copy conservation, private-owner denial and phone containment in `vault-map.spec.ts`. The first run observed stale occupancy after a successful move (#260); subsequent passes are not a claimed fix. Keep that observation separate from #220 until evidence establishes a common cause. Existing vault-pilot regression remains in the gate.
+
+Latest cumulative verification at application `1d3330e`: 568 unit tests and 41 serial browser cases passed, zero skips; generation/typecheck, host/Docker builds and six manifest guards passed. #255 adds server-validated local login/admin-mode return paths and protected-destination retry coverage. It also corrects the email test's outdated redirect expectation and timeout cleanup (#256). See LOCAL_REVIEW_BUILD.md for runtime identity and failed/retest history. The intermittent advanced-search timeout #220 and move refresh #260 remain open even though the final run passed.
 
 1. Keep deterministic inventory-detail fixtures and keyboard/public regressions in the serial gate. They now pass; review #236 and retain the residual advanced-search timing observation on #220 until adequately characterized.
-2. Keep the full League (#259) and two-user trade (#250) lifecycles in the serial gate. Next approved feature: six-section single-row visual vault (#240). Extend concurrency and larger-season cases separately.
+2. Keep the full League (#259), two-user trade (#250) and visual vault (#261) lifecycles in the serial gate. Investigate stale move occupancy #260 before making #261 ready. Extend concurrency and larger-season cases separately.
 3. Keep the isolated recovery drill repeatable (#247 passed); extend restored-app/master-key acceptance separately. Preserve the documented session-revocation requirement before exposing restored databases.
 4. Configure explicit audit cadence, run limits and overlap prevention only after agreeing the schedule. Checkpoints alone do not run work while the app/session is stopped.
 

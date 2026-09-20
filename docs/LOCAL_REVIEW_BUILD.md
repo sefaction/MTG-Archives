@@ -1,6 +1,16 @@
 # Local review build — cumulative issue queue
 
-## Current League lifecycle review (2026-09-20)
+## Current visual vault review (2026-09-20)
+
+Cumulative stack #243 → #244 → #247 → #248 → #250 → #254 → #255 → #259 → #261, application/test `1d3330e`. Current local image `sha256:563b5245782bc484d84c97ec2a06ff52126adddec6b83e7dfc35ed024af4c46e` is healthy/host HTTP 200. No pending PR has merge approval. #261 remains draft while intermittent stale move occupancy #260 is investigated; no production change.
+
+Full verification PASSED: generation/typecheck, **568 units**, Windows/Linux production builds/six manifest guards, **all 41 serial browser cases, zero skips** (3.5m). Linux CI run `35529120610` passed. The final map lifecycle passed in 5.9s; desktop and two phone screenshots were inspected. The original vault pilot and 1,200-location/150,000-copy scale fixture also passed. Fixture users/vault locations returned to zero and original inventory remains **12,477 physical copies**. Capture-only SMTP overlay and the disabled local trade announcement endpoint are preserved.
+
+One initial map lifecycle failed a 10-second occupancy refresh assertion after a successful all-matching move. A focused rerun, five repetitions and final full run passed; this is **not a claimed fix** for #260. The final test preserves the UI assertion before DB verification; no timeout was increased. Logs are ignored locally: `vault-browser.log`, `vault-map-recheck.log`, `vault-map-repeat.log`, `vault-final-docker.log`, `vault-full-verify.log`.
+
+To review, browse a location with type Vault from Locations or filter Inventory to one vault. Click a section to browse its exact cards, select inventory and choose **Move here** to review a destination. Counts show direct physical copies, not distinct printings or filtered totals. Custom labels and unsectioned cards remain accessible. See VISUAL_VAULT.md and WORK_CHECKPOINT.md.
+
+## Previous League lifecycle review (2026-09-20)
 
 Cumulative stack #243 → #244 → #247 → #248 → #250 → #254 → #255 → #259, application `76f0d8b`. Local image `sha256:14cd31c69a66501c5a5378257047c29e297cb606c82a7572e8375f79ce4f34de` is healthy/host HTTP 200. #259 adds full League lifecycle acceptance and fixes empty games from malformed counts (#257) and stale validation feedback (#258).
 
