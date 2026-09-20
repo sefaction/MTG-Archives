@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DeckToolsNav } from "@/components/DeckToolsNav";
@@ -69,6 +69,15 @@ export default async function DeckPlaytestPage({
       ) : (
         <PlaytestSandbox
           cards={deck.cards}
+          key={createHash("sha256")
+            .update(
+              JSON.stringify({
+                viewer: user?.id ?? "anonymous",
+                deck: deck.id,
+                cards: deck.cards,
+              }),
+            )
+            .digest("hex")}
           initialSeed={randomUUID()}
           storageKey={playtestStorageKey(user?.id ?? "anonymous", deck.id)}
         />
