@@ -528,24 +528,28 @@ export function PlaytestSandbox({
   const state = history.present;
 
   useEffect(() => {
-    try {
-      const text = localStorage.getItem(storageKey);
-      if (text) {
-        const restored = restorePlaytest(text, cards);
-        baseDispatch({ type: "RESTORE", state: restored });
-        setSeedInput(restored.seed);
-        setStorageMessage("Restored this device's saved playtest.");
+    // Read browser-only storage after hydration; cancel on navigation/unmount.
+    const frame = requestAnimationFrame(() => {
+      try {
+        const text = localStorage.getItem(storageKey);
+        if (text) {
+          const restored = restorePlaytest(text, cards);
+          baseDispatch({ type: "RESTORE", state: restored });
+          setSeedInput(restored.seed);
+          setStorageMessage("Restored this device's saved playtest.");
+        }
+        setSaving(true);
+      } catch (error) {
+        setStorageMessage(
+          error instanceof Error
+            ? error.message
+            : "Device storage is unavailable.",
+        );
+        setSaving(false);
       }
-      setSaving(true);
-    } catch (error) {
-      setStorageMessage(
-        error instanceof Error
-          ? error.message
-          : "Device storage is unavailable.",
-      );
-      setSaving(false);
-    }
-    setStorageReady(true);
+      setStorageReady(true);
+    });
+    return () => cancelAnimationFrame(frame);
   }, [cards, storageKey]);
 
   useEffect(() => {
@@ -553,12 +557,14 @@ export function PlaytestSandbox({
     try {
       localStorage.setItem(storageKey, serializePlaytest(state, cards));
     } catch (error) {
-      setSaving(false);
-      setStorageMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to save on this device.",
-      );
+      queueMicrotask(() => {
+        setSaving(false);
+        setStorageMessage(
+          error instanceof Error
+            ? error.message
+            : "Unable to save on this device.",
+        );
+      });
     }
   }, [state, cards, storageKey, storageReady, saving]);
 
@@ -601,7 +607,7 @@ export function PlaytestSandbox({
         scale,
       }}
     >
-      <div className="space-y-3">
+      <fieldset disabled={!storageReady} className="min-w-0 space-y-3">
         <section className="app-panel p-3" aria-label="Playtest controls">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
@@ -1080,7 +1086,7 @@ export function PlaytestSandbox({
             compact
           />
         </div>
-      </div>
+      </fieldset>
     </TableContext.Provider>
   );
 }
