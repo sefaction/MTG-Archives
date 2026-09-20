@@ -35,6 +35,7 @@ export const INVENTORY_FILTER_PARAM_KEYS = [
   "location",
   "locationType",
   "locationSection",
+  "locationSectionMatch",
   "hasLocation",
   "visibility",
   "source",
@@ -70,6 +71,7 @@ export type InventoryFilters = {
   locationIds: string[];
   locationTypes: string[];
   locationSection?: string;
+  locationSectionMatch?: "exact" | "empty";
   includeUnassignedLocation: boolean;
   visibility?:
     "public" | "private" | "inherit" | "explicitPublic" | "explicitPrivate";
@@ -247,6 +249,12 @@ export function parseInventoryFilters(params: ParamSource): InventoryFilters {
     ),
     locationTypes: Array.from(new Set(list(params, "locationType"))),
     locationSection: text(params, "locationSection"),
+    locationSectionMatch:
+      text(params, "locationSectionMatch") === "exact"
+        ? "exact"
+        : text(params, "locationSectionMatch") === "empty"
+          ? "empty"
+          : undefined,
     includeUnassignedLocation:
       list(params, "locationId").includes("unassigned") ||
       list(params, "location").includes("unassigned") ||
@@ -376,11 +384,15 @@ export function buildInventoryWhereFromFilters(
             },
       ),
     });
-  if (filters.locationSection) {
-    where.locationSection = {
-      contains: filters.locationSection,
-      mode: "insensitive",
-    };
+  if (filters.locationSectionMatch === "empty") {
+    appendAnd(where, {
+      OR: [{ locationSection: null }, { locationSection: "" }],
+    });
+  } else if (filters.locationSection) {
+    where.locationSection =
+      filters.locationSectionMatch === "exact"
+        ? { equals: filters.locationSection }
+        : { contains: filters.locationSection, mode: "insensitive" };
   }
   if (filters.commitment === "available")
     appendAnd(where, {

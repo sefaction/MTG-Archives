@@ -11,7 +11,8 @@ import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { getAccessScope, getCurrentUser, requireLogin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { moveInventoryStorageBatch } from "@/lib/inventory-storage-move";
-import { storageSections, spaceLabel, isVault } from "@/lib/storage-sections";
+import { storageSections, isVault } from "@/lib/storage-sections";
+import { VaultSectionMap } from "@/components/VaultSectionMap";
 import {
   browseLocations,
   locationBrowseHref,
@@ -1571,42 +1572,19 @@ export default async function LocationsPage({
                                   className="space-y-2 border-t border-zinc-800 p-3"
                                   aria-label={`${location.name} sections`}
                                 >
-                                  <p className="text-xs text-zinc-400">
-                                    Vault sections · 85 physical cards per
-                                    section (advisory).
-                                  </p>
-                                  <div className="grid grid-cols-2 gap-2 xl:grid-cols-3">
-                                    {storageSections(
-                                      location.type,
-                                      sectionsByLocation.get(location.id) ?? [],
-                                    ).map((section) => (
-                                      <div
-                                        key={section.name}
-                                        className="rounded border border-zinc-700 p-2 text-xs"
-                                      >
-                                        <strong className="block">
-                                          {section.name}
-                                        </strong>
-                                        <span
-                                          className={
-                                            section.capacity !== null &&
-                                            section.quantity > section.capacity
-                                              ? "text-amber-200"
-                                              : "text-zinc-300"
-                                          }
-                                        >
-                                          {spaceLabel(section)}
-                                        </span>
-                                        {section.capacity !== null &&
-                                          section.quantity >
-                                            section.capacity && (
-                                            <p>All cards may not fit.</p>
-                                          )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                  <p className="text-xs text-zinc-400">
-                                    {counts.quantity -
+                                  <VaultSectionMap
+                                    location={{
+                                      id: location.id,
+                                      name: location.path,
+                                      type: location.type,
+                                      sections: storageSections(
+                                        location.type,
+                                        sectionsByLocation.get(location.id) ??
+                                          [],
+                                      ),
+                                    }}
+                                    unsectionedQuantity={
+                                      counts.quantity -
                                       (
                                         sectionsByLocation.get(location.id) ??
                                         []
@@ -1614,13 +1592,12 @@ export default async function LocationsPage({
                                         (sum, section) =>
                                           sum + section.quantity,
                                         0,
-                                      )}{" "}
-                                    cards without a section. Existing
-                                    assignments are unchanged.
-                                  </p>
+                                      )
+                                    }
+                                  />
                                   <a
                                     className="inline-block text-sm text-sky-300 underline"
-                                    href={`/inventory?locationId=${location.id}`}
+                                    href={`/inventory?locationId=${location.id}&displayMode=exact`}
                                   >
                                     Select and move cards in this vault
                                   </a>

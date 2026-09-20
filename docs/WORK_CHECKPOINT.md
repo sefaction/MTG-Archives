@@ -20,36 +20,33 @@ Pending stack, in dependency order:
 6. #254 `fix/validated-auth-sessions`, tip `08d287f` (app `cd5c469`): fixes #251. Opaque hashed credentials, expiry/revocation, password binding, rotation, admin reset/edit invalidation and rejection of identity-only legacy cookies. Additive 59th migration; fresh login required. Full 558 units/37 browser cases passed.
 7. #255 `fix/local-login-redirects`, tip `9c2f10b` (app `45bf2de`, tests `e53fa28`): fixes #253/#256. Local return-path validation and requested-page preservation across retries; email test/cleanup corrected. Full 561 units/39 browser cases passed.
 8. #259 `test/commander-league-lifecycle`, app/test `76f0d8b`: covers #239, fixes #257 malformed-count empty games and #258 stale error after success. Full verification passed below; ready for individual review.
+9. #261 `feat/visual-vault-workspace`, app/test `1d3330e`: covers #240. Full verification passed; remains draft because intermittent stale move occupancy #260 is not understood or claimed fixed.
 
 All issues remain open until their resolving PR merges. Passing CI never replaces individual merge approval.
 
-## Current milestone: League audit complete
+## Previous milestone: League audit complete
 
 Branch `test/commander-league-lifecycle`. The normal lifecycle initially passed against #255. Expanded baselines reproduced a stale validation banner and one empty game created from a nonnumeric count. Both were confined to a disposable league and cleaned. Integer guards and clean success redirect now pass malformed/fractional counts, duplicate rejection and corrected feedback.
 
 Final verification at `76f0d8b`: **563 units**, generation/typecheck, Windows/Linux production builds/six manifest guards, corrected League case (19.8s), and **all 40 serial browser cases with zero skips** (4.3m). Linux core run `35527697072` passed. All command processes completed. Fixture users/leagues verified zero; original inventory remains **12,477 physical copies**.
 
-Current Docker: `sha256:14cd31c69a66501c5a5378257047c29e297cb606c82a7572e8375f79ce4f34de`, healthy/host HTTP 200, application `76f0d8b`. Includes all eight pending PRs above. Logs: `league-docker.log`, `league-corrected-browser.log`, `league-full-verify.log`. Historical local baselines: `league-lifecycle-baseline.log` (test label correction), `league-lifecycle-browser.log` (normal pass), `league-feedback-baseline.log`, `league-count-baseline.log`. See LEAGUE_LIFECYCLE.md for coverage limits.
+Previous Docker: `sha256:14cd31c69a66501c5a5378257047c29e297cb606c82a7572e8375f79ce4f34de`, application `76f0d8b`. Logs: `league-docker.log`, `league-corrected-browser.log`, `league-full-verify.log`. Historical local baselines: `league-lifecycle-baseline.log` (test label correction), `league-lifecycle-browser.log` (normal pass), `league-feedback-baseline.log`, `league-count-baseline.log`. See LEAGUE_LIFECYCLE.md for coverage limits.
 
-## Next active task: visual vault #240
+## Active task: visual vault #240
 
-Two **untracked, unintegrated drafts** exist for the next batch: `components/VaultSectionMap.tsx`, `lib/vault-navigation.ts`. Do NOT include them in #259. After committing only League evidence/docs, switch to a new feature branch based on #259 and carry these files forward. They are not in Docker and not yet typechecked/tested.
+Branch `feat/visual-vault-workspace`, based on #259 docs tip `83617d4`, app/test commit `1d3330e`, draft PR #261. The map/navigation are integrated in Locations and single-vault Inventory, with exact/empty section filters, advanced-search controls, shared move dialog, five unit cases and an owned-fixture browser lifecycle. Typecheck and all 568 units passed. Initial Docker and original vault pilot passed. New lifecycle initially failed stale occupancy after a successful all-matching move (#260); a focused rerun and five repeats passed. This is not a fix. Keep UI assertion before database diagnostics and timeouts unchanged.
 
-Foundry Inventory Organization was read. Requirements: six sections in one physical row, Sect 0–5 left to right, advisory capacity 85, preserve arbitrary labels and unsectioned cards, desktop first/practical phones. Draft component renders counts/room/overflow, horizontally scrollable six-section tray, extras/unsectioned links and optional Move here callbacks.
+Final current Docker at `1d3330e`: `sha256:563b5245782bc484d84c97ec2a06ff52126adddec6b83e7dfc35ed024af4c46e`, healthy/host HTTP 200. Full cumulative verification PASSED: generation/typecheck, **568 units**, Windows/Linux production builds and six manifest guards, **41 serial browser cases, zero skips** (3.5m). New map lifecycle passed in 5.9s with the UI count assertion before database checks. Linux CI run `35529120610` passed. Final desktop/phone/Locations screenshots inspected. Fixture users and vault locations returned to zero; snapshot still has **12,477 copies**. All command processes completed. Logs: `vault-final-docker.log`, `vault-full-verify.log`; historical failed/retest logs `vault-browser.log`, `vault-map-recheck.log`, `vault-map-repeat.log`. No pending PR has merge approval.
 
-Planned integration:
-- Locations vault cards plus the single-vault Inventory view.
-- Preset the existing move dialog (destination ID/section, quantity mode all, clear error, open) without changing safe mutation logic.
-- Implement shared `locationSectionMatch=exact|empty` in inventory filters/API and advanced-search UI/chips. Current section search is case-insensitive contains and MUST retain compatibility. Exact map browsing must not mix Sect 1 with Sect 10; empty means null/empty section.
-- `getStorageLocations` in lib/storage-summary.ts already includes a section named empty string for unsectioned copies. No new aggregate query/type field is needed. Locations currently excludes unnamed groups and computes unsectioned as direct total minus named sums; pass that count override to the component.
-- `InventoryBrowser` has currentLocationId/storageLocations, selectedCardsCount, setBulkDestinationLocationId/setBulkSection/setQuantityMode/setMoveLimit/setMoveError/setMoveOpen and pageHrefBase. Render map only for an authorized single selected Vault. No public mutation controls.
-- Preserve six-column physical layout, keyboard links/focus, viewport-contained horizontal scrolling, owner boundaries, extras and cancellation/error behavior. Add owned-fixture browser moves/refresh/exact section/empty section/scope/desktop+phone tests and inspect screenshots.
-- Draft navigation helper uses filter mode that is NOT implemented yet; do not claim feature complete.
+Foundry Inventory Organization was consulted and updated with durable decisions. Six sections remain one physical row, Sect 0–5 left to right, advisory capacity 85, preserving arbitrary labels/unsectioned cards. See VISUAL_VAULT.md for implementation and coverage. Phone header refinement is included in the current image.
+
+Next safe step: investigate #260 with repeated browser lifecycle runs and credential-free request-completion diagnostics. The first failure was a stale Sect 4 count after a successful 3-copy all-matching move from Sect 10; partial moves refreshed correctly. Inspect server-action revalidation plus the explicit client `router.refresh` without assuming causation. Preserve the original 10-second UI assertion and fixture cleanup. Do not hide it with a reload, longer timeout or database diagnostic before the UI assertion. Keep #261 draft until this observation is adequately resolved or explicitly accepted.
 
 ## Remaining queue
 
-- Finish #240 and then proportionate parity/UX audits.
+- Resolve #260 before completing #240 review readiness, then proportionate parity/UX audits.
 - #220 residual inventory navigation observation remains open even when regression tests pass.
+- #260 intermittent move occupancy refresh: initial failure, subsequent passes, root cause unproven. Preserve coverage and investigate action/revalidation/refresh behavior; do not mark resolved from passing reruns alone.
 - Larger product additions need clarification; connections between installations and broader storage visualization remain roadmap directions.
 - No outstanding user question blocks the approved queue. The user chose to keep the current model and continue.
 
