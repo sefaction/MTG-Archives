@@ -64,5 +64,5 @@ test("local notification center is available without intrusive browser prompts",
     page.getByRole("heading", { name: "Notifications" }),
   ).toBeVisible();
   await expect(page.getByLabel(/Trade activity/)).toBeChecked();
-  await expect(page.getByLabel(/Hourly trade-wishlist digest/)).toBeChecked();
+  await expect(page.getByLabel(/Wishlist digest/)).toBeChecked();
 });

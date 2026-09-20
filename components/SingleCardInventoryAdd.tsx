@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { StorageDestinationFields } from "./StorageDestinationPicker";
+import type { StorageLocation } from "@/lib/storage-sections";
 import { FoilStatus } from "@prisma/client";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { SetSymbol } from "@/components/mtg/CardSymbols";
@@ -23,18 +25,21 @@ export type ManualAddLocation = { id: string; name: string };
 
 export function SingleCardInventoryAdd({
   locations,
+  storageLocations = [],
   defaultLocationId,
   added,
   embedded = false,
   sectionSuggestions = [],
 }: {
   locations: ManualAddLocation[];
+  storageLocations?: StorageLocation[];
   defaultLocationId?: string;
   added?: boolean;
   embedded?: boolean;
   sectionSuggestions?: string[];
 }) {
   const [query, setQuery] = useState("");
+  const [quantity, setQuantity] = useState(1);
   const [includeScryfall, setIncludeScryfall] = useState(false);
   const [response, setResponse] = useState<DeckCardSearchResponse | null>(null);
   const [selected, setSelected] = useState<DeckCardSearchResult | null>(null);
@@ -183,7 +188,8 @@ export function SingleCardInventoryAdd({
             name="quantity"
             type="number"
             min={1}
-            defaultValue={1}
+            value={quantity}
+            onChange={(event) => setQuantity(Number(event.target.value))}
             className={cn(filterInputClass, "mt-1 w-full")}
           />
         </label>
@@ -215,32 +221,19 @@ export function SingleCardInventoryAdd({
             className={cn(filterInputClass, "mt-1 w-full")}
           />
         </label>
-        <label className={cn(filterFieldClass, "md:col-span-2")}>
-          Destination location
-          <select
-            name="locationId"
-            required
-            defaultValue={defaultLocationId ?? ""}
-            className={cn(filterSelectClass, "mt-1 w-full")}
-          >
-            <option value="">Choose a normal location…</option>
-            {locations.map((location) => (
-              <option key={location.id} value={location.id}>
-                {location.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className={cn(filterFieldClass, "md:col-span-3")}>
-          Section within location (optional)
-          <input
-            name="locationSection"
-            list="manual-location-sections"
-            maxLength={100}
-            className={cn(filterInputClass, "mt-1 w-full")}
-            placeholder="Type any section, e.g. Section 1"
+        <div className="md:col-span-3">
+          <StorageDestinationFields
+            locations={
+              storageLocations.length
+                ? storageLocations
+                : locations.map((l) => ({ ...l, sections: [] }))
+            }
+            defaultLocationId={defaultLocationId}
+            incomingQuantity={quantity}
+            locationField="locationId"
+            sectionField="locationSection"
           />
-        </label>
+        </div>
         <label className={cn(filterFieldClass, "md:col-span-3")}>
           Notes
           <textarea

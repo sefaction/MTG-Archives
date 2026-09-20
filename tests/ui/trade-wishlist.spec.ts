@@ -146,5 +146,9 @@ test("trade wishlist stays separate from the normal wishlist", async ({
   await expect(
     page.getByText(/Wishlist from|Choose trade target/),
   ).toBeVisible();
+  const chooseTarget = page
+    .locator("summary")
+    .filter({ hasText: "Choose trade target" });
+  if (await chooseTarget.isVisible()) await chooseTarget.click();
   await expect(page.getByLabel(/Wishlist quantity from/).first()).toBeVisible();
 });

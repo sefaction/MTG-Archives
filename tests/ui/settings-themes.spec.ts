@@ -35,7 +35,7 @@ test("user can save a theme preference from settings", async ({ page }) => {
   await logIn(page);
   await page.goto("/settings");
 
-  await expect(page.getByRole("heading", { name: "Theme" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Appearance" })).toBeVisible();
   await expect(page.getByRole("radio")).toHaveCount(6);
 
   await page.getByLabel(/Azorius Ledger/).check();

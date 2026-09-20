@@ -7,6 +7,9 @@ export default defineConfig({
     timeout: 10_000,
   },
   fullyParallel: false,
+  // Local tests share a snapshot and user settings; avoid cross-test mutations
+  // and overloading the laptop's single web container.
+  workers: 1,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:13001",
