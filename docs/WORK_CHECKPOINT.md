@@ -5,7 +5,7 @@ Updated 2026-09-19. GitHub remains authoritative for live issue/PR status.
 ## Active queue (2026-09-19, supersedes the historical batch below)
 
 - User requested working through every open issue; #190 (Moxfield) and #151 (SMTP) were explicitly reactivated. Their on-hold labels were removed and the Foundry roadmap updated.
-- Current branch: `fix/inventory-filter-navigation`, based on main `9a3fd8bbe8798fa0cc8e15592821180108b54e33`.
+- Current branch: `perf/location-browser-scale`, stacked on #221 (`60892f0`), which is based on main `9a3fd8bbe8798fa0cc8e15592821180108b54e33`.
 - First investigate intermittent inventory navigation #220; next large location trees #215, playtest phase 5 #167 / umbrella #162, Moxfield #190, SMTP #151.
 - #162 checklist reconciled with merged phases 2–4; remains open for phase 5.
 - Report Moxfield access/relay hurdles before selecting infrastructure. Historical HTTP 403 and EDHLAB relay observations need current verification. Do not bypass access restrictions.
@@ -13,7 +13,9 @@ Updated 2026-09-19. GitHub remains authoritative for live issue/PR status.
 - Local Docker is the reviewed main build. Post-merge baseline: 510 unit tests; 25 browser passes and 2 existing fixture skips. Main image publication succeeded, revision verified.
 - #220 workaround is in PR #221 at `bf6813f`, awaiting individual merge approval. Reproduced in serial mixed runs (1/10, then 2/20); a failed transition had a completed 39.5 ms RSC response and prefetch suppression still failed 1/20. Exact framework-internal mechanism is unproven. Advanced filters now use document GET navigation with scroll/panel restoration and Back/Forward coverage. Full verify passed: generation, typecheck, 510 unit tests, host build, 25 browser passes / 2 existing skips. Production Docker rebuilt and healthy. Final mixed stress repetition remains in progress. See `INVENTORY_FILTER_NAVIGATION.md` and `LOCAL_REVIEW_BUILD.md`.
 - Final #221 mixed color-filter stress run: 20/20 passed, unchanged timeout. Next: #215 owner-scoped full-page benchmark, lazy location editors, and bounded searchable storage navigation.
-- Asked the user for the exact EDHLABS link and a representative public Moxfield deck; continue other work while awaiting these.
+- #215 implementation: 25-card pages, path/type/branch search, paged tree levels and breadcrumbs, one explicit editor, full-tree counts. First targeted run: 5/5 browser tests; new 1,200-location/150,000-copy fixture loaded in 1,098 ms with 1.16 MB DOM HTML versus 8,021 ms / 32.2 MB at only 300 locations before the fix. 515 unit tests passed. Final Docker build with phone refinements is healthy; full verify in progress. See `LOCATION_BROWSER_SCALE.md`.
+- User identified EDHLAB as https://edhlab.gg/. Its public client delegates Moxfield to Supabase functions; no evidence of upstream permission/mechanism. Current single direct Docker request to a public precon reconfirmed HTTP 403. Details in #190. Asked whether to draft a developer-access request or whether the user already has approved access. Do not reuse EDHLAB's service/credentials or bypass blocks. Continue independent work.
+- During phase-5 planning, found the library search applies its 50-card cap before matching; catalogued as #222 for the next playtest batch. #167 remains the phase-5 parent; do not close it until all scope is actually delivered.
 
 ## Historical batch (completed and merged)
 

@@ -20,7 +20,7 @@ test("locations page uses compact manage drawers for normal locations", () => {
   assert.match(pageSource, /Location tree/);
   assert.match(pageSource, /normalLocationGroups/);
   assert.match(pageSource, /border-l border-zinc-800/);
-  assert.match(pageSource, /<details className="group/);
+  assert.match(pageSource, /browseParams\.edit === location\.id \? \(/);
   assert.match(pageSource, /Manage/);
   assert.match(pageSource, /Danger zone/);
   assert.match(pageSource, /Save location/);
@@ -49,8 +49,8 @@ test("locations support safe hierarchical parent selection and breadcrumb paths"
   assert.match(pageSource, /buildLocationTree/);
   assert.match(pageSource, /location\.path/);
   assert.match(pageSource, /including sub-locations/);
-  assert.doesNotMatch(
-    pageSource,
-    /key=\{`\$\{ownerGroup\.id\}-\$\{typeGroup\.label\}`\}\s+open/,
-  );
+  assert.match(pageSource, /browseLocations\(normalLocations, browseParams\)/);
+  assert.match(pageSource, /browser\.items/);
+  assert.match(pageSource, /Search locations/);
+  assert.match(pageSource, /aria-label="Location pages"/);
 });

@@ -53,8 +53,6 @@ test("vault creation, multi-selection fill, advisory overflow, refreshed occupan
       .getByRole("button", { name: "Create Location", exact: true })
       .click();
     const sections = page.getByLabel(`${name} sections`, { exact: true });
-    const vaultGroup = page.locator("details").filter({ has: sections }).last();
-    await vaultGroup.locator("summary").first().click();
     await expect(sections).toBeVisible();
     await expect(
       sections.getByText("0 / 85 cards · 85 spaces left", { exact: true }),
@@ -152,7 +150,6 @@ test("vault creation, multi-selection fill, advisory overflow, refreshed occupan
       .click();
     await expect(page.getByText(/Moved 17 cards across/)).toBeVisible();
     await page.goto("/locations");
-    await vaultGroup.locator("summary").first().click();
     await expect(
       sections.getByText("85 / 85 cards · full", { exact: true }),
     ).toBeVisible();
@@ -209,7 +206,6 @@ test("vault creation, multi-selection fill, advisory overflow, refreshed occupan
     );
     expect(total).toBe(178);
     await page.goto("/locations");
-    await vaultGroup.locator("summary").first().click();
     await expect(
       sections.getByText("170 / 85 cards · 85 over capacity", { exact: true }),
     ).toBeVisible();
