@@ -56,7 +56,13 @@ test("advanced inventory search filters by exact card color combination", async 
   const cardColors = page.locator('[aria-label="Card color"]');
   await cardColors.locator('label[title="White"]').click();
   await cardColors.locator('label[title="Blue"]').click();
+  const navigation = page.waitForRequest(
+    (request) =>
+      request.isNavigationRequest() &&
+      request.url().includes("colorMode=exact"),
+  );
   await page.getByRole("button", { name: "Apply filters" }).click();
+  expect((await navigation).method()).toBe("GET");
 
   await expect(page).toHaveURL(/colorMode=exact/);
   await expect(page).toHaveURL(/colors=W/);
@@ -64,6 +70,16 @@ test("advanced inventory search filters by exact card color combination", async 
   await expect(
     page.getByRole("link", { name: "Remove Card color: Exact White" }).first(),
   ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Remove Card color: Exact Blue" }).first(),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/pageSize=10/);
+  await expect(
+    page.getByRole("button", { name: /advanced inventory search/i }),
+  ).toHaveAttribute("aria-expanded", "true");
+  await page.goBack();
+  await expect(page).toHaveURL(/\/inventory\?displayMode=exact&pageSize=10$/);
+  await page.goForward();
   await expect(
     page.getByRole("link", { name: "Remove Card color: Exact Blue" }).first(),
   ).toBeVisible();

@@ -2,7 +2,6 @@
 
 import type { FormEvent } from "react";
 import { useEffect, useId, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { CollapsiblePanel } from "./CollapsiblePanel";
 import { ManaSymbol } from "./mtg/ManaSymbol";
 import {
@@ -1068,7 +1067,6 @@ export function InventoryAdvancedSearch({
   clearHref,
   scryfallQueryError,
 }: InventoryAdvancedSearchProps) {
-  const router = useRouter();
   const capabilities: InventoryAdvancedSearchCapabilities = {
     showOwnerScopeControls: isAdmin && !isPublic,
     showOwnerFilter: isPublic,
@@ -1174,9 +1172,11 @@ export function InventoryAdvancedSearch({
     );
     window.sessionStorage.setItem(ADVANCED_SEARCH_PANEL_STORAGE_KEY, "open");
     const query = next.toString();
-    router.replace(query ? `${actionPath}?${query}` : actionPath, {
-      scroll: false,
-    });
+    // This is a read-only GET search, not a server mutation. Use a document
+    // navigation: the app-router transition can stall even after its complete
+    // filtered RSC response arrives (#220). Keep the existing query encoding
+    // and scroll/panel restoration, and let Back return to the previous search.
+    window.location.assign(query ? `${actionPath}?${query}` : actionPath);
   }
 
   return (

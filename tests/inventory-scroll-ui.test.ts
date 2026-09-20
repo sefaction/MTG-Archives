@@ -46,14 +46,14 @@ test("quick inventory search uses client navigation without scroll reset", () =>
 });
 
 test("advanced inventory search preserves scroll and expanded state on submit", () => {
-  assert.match(advancedSearch, /useRouter/);
+  assert.doesNotMatch(advancedSearch, /useRouter/);
   assert.match(advancedSearch, /ADVANCED_SEARCH_PANEL_STORAGE_KEY/);
   assert.match(advancedSearch, /INVENTORY_SCROLL_STORAGE_KEY/);
   assert.match(advancedSearch, /onSubmit=\{handleSubmit\}/);
   assert.match(advancedSearch, /event\.preventDefault\(\)/);
   assert.match(
     advancedSearch,
-    /router\.replace\(query \? `\$\{actionPath\}\?\$\{query\}` : actionPath, \{\s*scroll: false,\s*\}\)/,
+    /window\.location\.assign\(query \? `\$\{actionPath\}\?\$\{query\}` : actionPath\)/,
   );
   assert.match(collapsiblePanel, /storageKey\?: string/);
   assert.match(
