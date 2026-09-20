@@ -1,56 +1,52 @@
 # Resumable work checkpoint
 
-Updated 2026-09-19. Reconcile with git, GitHub, Docker, and command logs on resumption. GitHub is authoritative.
+Updated 2026-09-20. Reconcile git, GitHub, Docker and logs before resuming. GitHub is authoritative.
 
 ## Authority
 
-Work through the open queue, test locally, open one PR per coherent batch, and continue independent work while questions/reviews await the user. Local code, Docker and snapshot data may change. No production or unrelated-machine operations. Every PR needs individual merge approval; close resolved issues only after merge. No recurring scheduler is configured.
+Work through all eligible open issues, test locally, open one PR per coherent batch, continue independent work during review. Each PR requires individual merge approval. No PR in the current stack has approval. Close resolving issues only after merge. All local MTG code, containers and snapshot data are in scope; production and unrelated machine resources are not. No recurring scheduler is configured.
 
-## Current stack
+## Cumulative review stack
 
-### Current checkpoint (supersedes historical entries below)
+Released main: `9a3fd8b`. Each branch is based on its predecessor:
 
-- Paste PR is #232, tip `88b4fe5`, ready, based on #229. Current branch `feat/playtest-advanced`, app `1771b13`, based on #232. #167/#222 implemented; 531 units pass. First Docker build found React effect lint errors; corrected, targeted ESLint passes. Rebuild `test-results/playtest-docker-final.log` (command 84664) has completed compilation, lint/typecheck and all six manifest guards and is exporting image. Wait for completion/health before browser tests. New `tests/ui/playtest-advanced.spec.ts` covers unique 80-card fixture, full-library search, advanced controls, files, stale deck, phone/private/no-write cases. `docs/PLAYTEST_ADVANCED.md` records contract. Next: targeted browser tests, screenshot inspection, full verify, PR. No browser test or PR yet for playtest.
+1. Ready #221 `fix/inventory-filter-navigation` — #220. App `bf6813f`, tip `60892f0`; document-GET filters/history restoration.
+2. Ready #226 `perf/location-browser-scale` — #215. App `97a0095`, tip `d664f49`; bounded cards/tree pages, search and lazy editor. Full cumulative regressions recovered with #228.
+3. Ready #227 `fix/dependency-security` — #225. `87dab99`; patched compatible dependencies, full/production audit zero known vulnerabilities.
+4. Ready #228 `perf/inventory-query-metadata` — #224. App `22055ad`, remote docs tip `c493661` (local branch ref may lag). 59 DB parity cases; narrow common projections avoid large unrelated raw payloads.
+5. Ready #229 `fix/production-client-manifests` — #223. `cbc1b94`; build gate for six critical route reference/chunk contracts. Not a proven framework root-cause fix.
+6. Ready #232 `feat/pasted-decklist-review` — revised paste-only #190, exact cached/owned DFC face matching #230, literal card name Foil #231. App `a039bbd`, tip `88b4fe5`. 526 units, 27 browser passes / two existing skips. Supplied 100-card list separately passed owned-only import: 99 mainboard + Esika commander, unchanged inventory. No direct Moxfield integration.
+7. Ready #233 `feat/playtest-advanced` — #167/#222, final phase under #162. App/tip `523b4de`. Full verify: 531 units, typecheck, host/Linux builds/manifest guards, 28 browser passes / two existing detail/meld fixture skips. New advanced test covers 80-card fixture, far-library match, positions, annotations, temporary cards, bulk undo, library/random tools, players/damage, validated files, stale saves, phone and privacy. See PLAYTEST_ADVANCED.md.
+8. Current `feat/smtp-email` — #151, based on #233. App `30fbf97`, integration/browser test commit `149ca6a`. No PR yet. Typecheck/targeted ESLint and 537 units (including real loopback multipart SMTP) pass. Production npm audit zero known vulnerabilities. Updated test-only cross-user isolation and SMTP docs are uncommitted.
 
-- #221 -> #226 -> #227 -> #228 -> #229 are ready, stacked in that order. None has merge approval. #228 app `22055ad`, remote docs tip `c493661` (local branch ref may lag); #229 `cbc1b94`.
-- Current `feat/pasted-decklist-review`, app `a039bbd`, is ready to push/open against #229. Resolves revised paste-only #190, exact cached/owned face-name bug #230, and literal card name Foil bug #231. No direct Moxfield integration.
-- Completed full verification: 526 units, typecheck, production build/manifest guard, 27 browser passes / two existing detail/meld fixture skips. Log `test-results/paste-verify.log`.
-- Exact supplied 100-card list separately passed owned-only browser resolution, 99 mainboard + Esika commander import, unchanged inventory and private access denial. Unique temporary fixture removed. Log `test-results/paste-supplied-browser.log`; supplied list remains local/ignored.
-- Desktop and 390px phone screenshots inspected. Current healthy Docker image `sha256:5e8215eb6a347f38fe33ebfb9955ac564f3e7ebb24f0d14590d7e30f113017cd`, build `dVm-ivE2bp90oH-GhngEh`, cumulative app `a039bbd`.
-- NEXT: finish paste PR, then #222/#167 advanced playtest and #151 SMTP. Never send actual mail to snapshot users; local capture only. Never overlap browser tests with builds. Historical pending checks below have completed.
+## Current local environment and active command
 
-- Released main `9a3fd8b`: prior approved #210/#217/#219 merged. Those approvals do not cover this stack.
-- #221 `fix/inventory-filter-navigation`: addresses #220 with document GET advanced filters, scroll/panel restoration and history coverage. 510 units, 25 browser passes / 2 existing skips, mixed stress 20/20. See INVENTORY_FILTER_NAVIGATION.md.
-- Draft #226 `perf/location-browser-scale`: app commit `97a0095`, tip `d664f49`, based on #221. Addresses #215: 25-card/tree pages, search, one editor. 515 units; scale/owner/phone/vault checks pass. Last full rerun: 24 passes / 2 Scryfall latency failures (#224) / 2 existing skips. Keep draft pending full regression recovery.
-- Ready #227 `fix/dependency-security`: `87dab99`, based on #226. Addresses #225. Full/production audits zero known vulnerabilities. Generation/typecheck/515 units/host and Linux builds pass. Sharp PNG/WebP/AVIF round trips pass; 57 migrations current. Browser run EXCLUDING two known #224 cases: 24 passes / 2 existing skips. Not a full-suite-green claim. See DEPENDENCY_SECURITY.md.
-- Current `perf/inventory-query-metadata`, app commit `dc9df7e`, based on #227. Addresses #224: access-scoped scalar candidate IDs then 500-card batches of evaluator metadata and required raw fallbacks. No result cache/evaluator rewrite. Typecheck and 518 unit tests pass. Docker build in progress: test-results/query-docker.log. DB parity/browser validation pending.
-- Last healthy security image `sha256:e070ed97da07140a27b969f792983fdfe950b3d0b97fe82be6fd206fc39bd3ee`, build `Ua715ZjFkUjM5kd6DklM3`. URL http://127.0.0.1:13001. Query build will replace it; verify identity and host health before tests.
+### Latest SMTP milestone (supersedes pending build/testing below)
+
+- SMTP app `149ca6a` now healthy in Docker: image `sha256:2cbcda763a23ddb15a7ce8516be1e7c15294a27a36bc8dd1f2abfedfae146f0e`, build `ZeZqoQMsFjMejeHmTti-5`, host HTTP 200, all 58 migrations current.
+- Real queue integration passed: absent-address local notification, deduplication, actual refused SMTP connection with safe failure history, successful retry into capture, current opt-out preventing send, minimal text/HTML. Log `test-results/email-integration.log`. A requested worker pause command was rejected by tool policy before execution; revised test atomically future-dates fixture jobs and advances only its scoped test clock. Worker stays running. Revised test script was copied into the local container, application code unchanged.
+- Email settings browser test passed (including absent-address, cross-account preferences/history isolation, anonymous denial and phone width). Desktop/phone screenshots inspected. Log `test-results/email-browser.log`.
+- Next: full verify with capture overlay still active; finish SMTP PR against #233, then bounded coverage audit. Do NOT stop the worker for the revised script. Temporary worktree already removed.
+
+- Last fully verified app: #233 `523b4de`, image `sha256:1089548e97923f15b3daa038400fed42ce205e3dbd4d4e14ebab6b09cb979381`, build `gJls8QXvxkIpDKWfIb42p`. Full log `test-results/playtest-verify.log`.
+- SMTP cumulative Docker build is RUNNING: command session 37737, log `test-results/email-docker.log`. Uses common + local + new SMTP capture overlay. Compilation succeeded; wait for completion/health and host HTTP 200 before tests. This build will replace the above image.
+- Mailpit image v1.31.2 pulled, digest `sha256:74d609a42ec279aa63c6b4622a6fa9b5408d1ad5b1d76a1c4be40a265ce0863d`. Optional overlay directs mail only to `smtp-capture:1025`, exposes viewer only at http://127.0.0.1:18025, configures no relay, and clears SMTP credentials. App remains http://127.0.0.1:13001.
+- Temporary SMTP worktree was committed, transferred to the primary checkout and removed. Only primary worktree remains. Its unit log was preserved at `test-results/email-unit.log`; newer 537-unit run at `test-results/email-final-unit.log`.
 
 ## Immediate next steps
 
-### Latest progress (supersedes pending checks below)
+1. Finish SMTP Docker build; inspect host HTTP, migrations (new default-false email preference column/index), image/build identity.
+2. Pause ONLY local notification-worker for deterministic queue test. In a PowerShell try/finally: docker stop mtg-archives-notification-worker-1; docker exec -e MTG_LOCAL_PILOT_TEST=1 mtg-archives-web-1 npx tsx scripts/verify-email-delivery.ts; finally docker start mtg-archives-notification-worker-1. Script scopes claims to its unique fixture, verifies failed SMTP connection/history/retry, local capture, opt-out and cleanup. Never run against external SMTP or production.
+3. Run targeted `tests/ui/email-settings.spec.ts` with MTG_LOCAL_PILOT_TEST=1, then inspect screenshots and fix findings. Test refuses non-capture SMTP, uses only synthetic accounts/example.test, verifies category persistence, queued test/history, no-address, cross-user isolation and phone width.
+4. Full verify including existing queue/webhook/trade tests, npm audit and Compose validation. No builds while browser tests run. Commit final test/docs/checkpoint, push/open SMTP PR against #233. No merge.
+5. Audit remaining workflow/feature coverage, including the two old detail/meld browser skips. Do not label skipped cases passed or claim every app feature complete. Catalogue confirmed bugs with deduplication and resolving PRs.
 
-- #228 application revision `22055ad` (docs tip `c493661`) passed all 59 DB parity expressions. Type projection 1.8 MB / 764 ms vs full metadata 81.5 MB / 6,115 ms. Cumulative full verify: 523 units, host build, 26 browser passes / 2 existing skips; both unchanged Scryfall tests pass. #226 and #228 are now ready for review.
-- Ready #229 `fix/production-client-manifests`, `cbc1b94`, adds six-route build reference/chunk validation. Host and Linux builds/guards pass; runtime route smoke 7/7. Last healthy guard image `sha256:b676dbc71b881758df088cfb10b48d4332e61473579bff5bdd18cb62b38304f8`, build `kIyMvuBmYsCG2UZfizTo-`. No merges.
-- Current branch `feat/pasted-decklist-review` based on #229. Uncommitted #190 work: paste/section/printing guidance, commander quick assignment, URL rejection, stale-review and busy-state protection, phone layout, successful import redirects to deck; #230 exact DFC face matching in cache/owned resolution; #231 preserve card name Foil and explicit trailing finish annotations. Added parser/name tests and opt-in `tests/ui/pasted-decklist.spec.ts`.
-- All 100 names in the user's local ignored export have cached printing matches. Browser test defaults to a compact 99 Forest + 1 Esika fixture, or uses `MTG_PASTED_DECK_FIXTURE=test-results/moxfield-user-export.txt` for the exact supplied list. Creates a unique private fixture owner/deck/inventory and removes it in finally; no real deck commit. Test checks resolution, assignment, stale/busy guards, phone width, 99+1 committed list, unchanged inventory and unauthenticated denial.
-- Paste Docker build in progress: `test-results/paste-docker.log` (command session 28873). Typecheck passed; prior 523 units passed before adding three new unit cases, which passed targeted. Next: confirm build/host health, run full supplied-list browser case, inspect screenshots, then full verify and PR. Do not build while browsers run.
+## SMTP behavior and limits
 
-1. Finish query Docker build; inspect Imports manifest, health and host HTTP 200. Never overlap Docker builds and browser tests.
-2. Run read-only local parity: `docker exec -e MTG_LOCAL_PILOT_TEST=1 mtg-archives-web-1 npx tsx scripts/verify-inventory-query-metadata.ts`. Compares full/projected metadata and representative expressions in one repeatable-read transaction; reports size/time. No writes.
-3. Full host verify and serial browser suite including unchanged Scryfall tests. Inspect failures; do not inflate timeouts. Open query PR/update review evidence.
-4. #223: post-build client-manifest validation. Prior Linux build omitted Imports SingleCardInventoryAdd, digest 1764835380. Clean unchanged-code rebuild recovered; Next 15.5.25 also includes it. Recovery does not prove a permanent compiler fix.
+SMTP defaults disabled in normal configuration. Settings → Email notifications uses existing administrator-managed optional user email, per-category opt-in, own-address test action (one durable job per minute bucket), and scoped history. Queue contains IDs only. Delivery rechecks current active recipient, notification ownership and preference, sends minimal text/HTML, sanitizes transport errors, and uses stable Message-ID with at-least-once semantics. Local in-app category must be enabled to generate the stored notification; UI/docs explain this existing dependency. Production SMTP setup is a separate operational step; do not request or record credentials here.
 
-## Product queue
+## Operating reminders
 
-- #190 user revised scope to pasted lists, NOT direct Moxfield connectivity; GitHub/Foundry updated. Do not pursue scraping/relays/API access. Local ignored fixture test-results/moxfield-user-export.txt; confirmed Esika commander. Explicit Commander heading yields 99 mainboard + 1 commander with no warnings. Printing resolution/commit not tested yet. Improve paste/section/printing guidance and test complete import without unintended inventory changes.
-- #222 library search incorrectly applies first-50 cap before matching; fix with playtest.
-- #167 / #162 playtest phase 5: positioning/grouping, tokens/copies, named counters and P/T, library/random tools, opponents/damage, multiselection, bounded device-local saves and versioned files, keyboard/touch. Phases 1–4 merged. Do not close before all accepted scope delivered.
-- #151 SMTP: env config, templates, category preferences, user email, test action, async queue/retries/history. Local test delivery only; never send mail to snapshot users' real addresses or expose SMTP credentials.
+Read AGENTS and Foundry hub/workflow/relevant notes before each batch. Durable decisions in Foundry, temporary details in repository/PRs. No secrets, user decks or authenticated traces in public artifacts. Exact supplied list stays ignored at test-results/moxfield-user-export.txt.
 
-## Diagnostics / resumption
-
-- #224 baseline: 7,308 distinct printings, ~81 MB JSON; inventory distinct+card ~7.1s, Card semijoin still ~6.3s. Payload remains costly.
-- Two detail/meld browser fixture skips are not passes. Scale fixture is 150,000 copies / 3,000 stacks of one printing, not 150,000 unique printings.
-- Keep authenticated traces/user data/supplied deck fixture local and ignored.
-- Preserve unrelated changes. Read AGENTS.md and Foundry hub/workflow/relevant notes before batches; durable decisions in Foundry, temporary details here/PRs. Check command completion rather than assuming success after interruption.
+Run serial browser tests with MTG_LOCAL_PILOT_TEST=1. Never overlap host/Docker builds or other heavy checks with browser tests. Confirm completion and host HTTP rather than trusting health alone. Scale fixture is 150,000 physical copies / 3,000 stacks of one printing, not 150,000 unique printings. Save checkpoints across interruptions and reconcile running command state.

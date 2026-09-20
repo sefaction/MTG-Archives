@@ -7,10 +7,13 @@ import {
   deliverNotificationWebhook,
   WEBHOOK_TRANSPORT,
 } from "../lib/webhook-delivery";
+import { deliverNotificationEmail } from "../lib/email-delivery";
+import { EMAIL_TRANSPORT } from "../lib/email-config";
 
 const deliveryHandlers = {
   ...builtInNotificationDeliveryHandlers,
   [WEBHOOK_TRANSPORT]: deliverNotificationWebhook,
+  [EMAIL_TRANSPORT]: deliverNotificationEmail,
 };
 
 function positiveInteger(value: string | undefined, fallback: number) {

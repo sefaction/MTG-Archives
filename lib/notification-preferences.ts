@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { EMAIL_CATEGORIES } from "./email-config";
 
 export const TRADE_NOTIFICATION_CATEGORY = "trades";
 export const WISHLIST_DIGEST_NOTIFICATION_CATEGORY = "wishlist_digest";
@@ -15,6 +16,41 @@ export const WEBHOOK_NOTIFICATION_CATEGORIES = [
 ] as const;
 
 type PreferenceStore = Pick<Prisma.TransactionClient, "notificationPreference">;
+
+export async function getEmailNotificationPreferences(
+  userId: string,
+  store: PreferenceStore = prisma,
+) {
+  const preferences = await store.notificationPreference.findMany({
+    where: { userId, category: { in: [...EMAIL_CATEGORIES] } },
+    select: { category: true, emailEnabled: true },
+  });
+  return {
+    trades:
+      preferences.find((row) => row.category === "trades")?.emailEnabled ??
+      false,
+    wishlistDigest:
+      preferences.find((row) => row.category === "wishlist_digest")
+        ?.emailEnabled ?? false,
+  };
+}
+
+export async function setEmailNotificationPreferences(
+  userId: string,
+  input: { trades: boolean; wishlistDigest: boolean },
+  store: PreferenceStore = prisma,
+) {
+  for (const [category, enabled] of [
+    ["trades", input.trades],
+    ["wishlist_digest", input.wishlistDigest],
+  ] as const) {
+    await store.notificationPreference.upsert({
+      where: { userId_category: { userId, category } },
+      update: { emailEnabled: enabled },
+      create: { userId, category, emailEnabled: enabled },
+    });
+  }
+}
 
 export async function notificationCategoryEnabled(
   userId: string,
