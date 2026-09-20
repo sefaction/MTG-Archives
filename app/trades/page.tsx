@@ -848,7 +848,11 @@ export default async function TradesPage({
     ],
     [
       "Cancelled / Declined",
-      visibleTrades.filter((t) => terminalStatuses.includes(t.status)),
+      visibleTrades.filter(
+        (t) =>
+          t.status !== TradeStatus.COMPLETED &&
+          terminalStatuses.includes(t.status),
+      ),
     ],
   ] as const;
   const sections =

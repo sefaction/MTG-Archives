@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { getAccessScope, requireLogin } from "@/lib/auth";
 import {
   InventoryLocationKind,
-  InventorySourceType,
   TradeLineSide,
   TradeStatus,
   TradeWishlistStatus,
@@ -33,6 +32,7 @@ import {
   type TradeProposalActionState,
 } from "@/lib/trade-proposal";
 import { normalizeTradeActionNote } from "@/lib/trade-notes";
+import { receivedTradeInventoryData } from "@/lib/trade-inventory";
 import { enqueueTradeAnnouncementDeliveries } from "@/lib/webhook-delivery";
 
 const activeStatuses: TradeStatus[] = [
@@ -80,6 +80,9 @@ function inventorySnapshot(
     condition: item.condition,
     language: item.language,
     sourceType: item.sourceType,
+    originalOpenerId: item.originalOpenerId,
+    acquiredFromPullId: item.acquiredFromPullId,
+    roundId: item.roundId,
     notes: item.notes,
     currentOwnerId: item.currentOwnerId,
     currentOwnerName: item.currentOwner.displayName,
@@ -658,88 +661,36 @@ async function addToReceiver(
   if (!destinationLocation) {
     throw new Error("Selected trade destination location is not available.");
   }
-  const existing = await tx.inventoryItem.findFirst({
-    where: {
-      currentOwnerId: toPlayerId,
-      cardId: item.cardId,
-      foil: item.foil,
-      foilStatus: item.foilStatus,
-      condition: item.condition,
-      language: item.language,
-      locationId: destinationLocation.id,
-      locationSection: null,
-      quantity: { gt: 0 },
+  // Keep this received lot separate: matching printings do not imply matching
+  // provenance, notes, acquisition history or existing trade references.
+  const created = await tx.inventoryItem.create({
+    data: receivedTradeInventoryData(
+      item,
+      quantity,
+      toPlayerId,
+      destinationLocation.id,
+    ),
+  });
+  await tx.inventoryAuditLog.create({
+    data: {
+      inventoryItemId: created.id,
+      changedByUserId: actorUserId,
+      tradeId,
+      changeType: "trade_completed",
+      beforeJson: {
+        previousOwnerId: item.currentOwnerId,
+        newOwnerId: toPlayerId,
+        quantityTransferred: quantity,
+      },
+      afterJson: {
+        ...created,
+        previousOwnerId: item.currentOwnerId,
+        newOwnerId: toPlayerId,
+        quantityTransferred: quantity,
+      } as any,
+      reason,
     },
   });
-  if (existing) {
-    const beforeJson = {
-      ...existing,
-      previousOwnerId: item.currentOwnerId,
-      newOwnerId: toPlayerId,
-      quantityTransferred: quantity,
-    } as any;
-    const updated = await tx.inventoryItem.update({
-      where: { id: existing.id },
-      data: {
-        quantity: { increment: quantity },
-        sourceType: InventorySourceType.TRADE,
-      },
-    });
-    await tx.inventoryAuditLog.create({
-      data: {
-        inventoryItemId: updated.id,
-        changedByUserId: actorUserId,
-        tradeId,
-        changeType: "trade_completed",
-        beforeJson,
-        afterJson: {
-          ...updated,
-          previousOwnerId: item.currentOwnerId,
-          newOwnerId: toPlayerId,
-          quantityTransferred: quantity,
-        } as any,
-        reason,
-      },
-    });
-  } else {
-    const created = await tx.inventoryItem.create({
-      data: {
-        currentOwnerId: toPlayerId,
-        originalOpenerId: toPlayerId,
-        cardId: item.cardId,
-        quantity,
-        foil: item.foil,
-        foilStatus: item.foilStatus,
-        sourceType: InventorySourceType.TRADE,
-        condition: item.condition,
-        language: item.language,
-        roundId: null,
-        locationId: destinationLocation.id,
-        locationSection: null,
-        notes: item.notes,
-      },
-    });
-    await tx.inventoryAuditLog.create({
-      data: {
-        inventoryItemId: created.id,
-        changedByUserId: actorUserId,
-        tradeId,
-        changeType: "trade_completed",
-        beforeJson: {
-          previousOwnerId: item.currentOwnerId,
-          newOwnerId: toPlayerId,
-          quantityTransferred: quantity,
-        },
-        afterJson: {
-          ...created,
-          previousOwnerId: item.currentOwnerId,
-          newOwnerId: toPlayerId,
-          quantityTransferred: quantity,
-        } as any,
-        reason,
-      },
-    });
-  }
 }
 
 async function completeTradeIfReady(
