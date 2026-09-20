@@ -13,6 +13,11 @@ import { prisma } from "@/lib/prisma";
 import { moveInventoryStorageBatch } from "@/lib/inventory-storage-move";
 import { storageSections, spaceLabel, isVault } from "@/lib/storage-sections";
 import {
+  browseLocations,
+  locationBrowseHref,
+  type LocationBrowseParams,
+} from "@/lib/location-browser";
+import {
   effectiveVisibilityLabel,
   resolveInventoryVisibility,
   visibilityLabel,
@@ -71,7 +76,17 @@ async function getActionContext() {
   return { user, playerId: userWithPlayer?.playerId ?? null, admin };
 }
 
-export default async function LocationsPage() {
+export default async function LocationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const rawParams = await searchParams;
+  const browseParams: LocationBrowseParams = {};
+  for (const key of ["q", "parent", "page", "treePage", "edit"] as const) {
+    const value = rawParams[key];
+    browseParams[key] = typeof value === "string" ? value : value?.[0];
+  }
   const user = await getCurrentUser();
   if (!user) {
     return (
@@ -194,6 +209,7 @@ export default async function LocationsPage() {
   const deckLocations = locationsWithPaths.filter(
     (location) => location.kind === InventoryLocationKind.DECK,
   );
+  const browser = browseLocations(normalLocations, browseParams);
   type NormalLocation = (typeof normalLocations)[number];
   type NormalLocationTreeNode = NormalLocation & {
     children: NormalLocationTreeNode[];
@@ -220,7 +236,7 @@ export default async function LocationsPage() {
     locationTypeUsage.set(key, usage);
   }
   const normalLocationGroups = Array.from(
-    normalLocations
+    browser.items
       .reduce(
         (ownerMap, location) => {
           const counts = countsForLocation(location.id);
@@ -333,17 +349,24 @@ export default async function LocationsPage() {
     roots.forEach(calculateRolledUpCounts),
   );
 
-  function renderLocationTreeNodes(nodes: NormalLocationTreeNode[]) {
+  function renderLocationTreeNodes(nodes: NormalLocation[]) {
     return nodes.map((location) => {
       const direct = countsForLocation(location.id);
       const total = rolledUpCounts.get(location.id) ?? direct;
-      const sections = storageSections(
-        location.type,
-        sectionsByLocation.get(location.id) ?? [],
-      );
-      const content = (
-        <div className="flex min-w-0 items-center justify-between gap-2 rounded px-1 py-0.5 text-zinc-300 hover:bg-zinc-900">
-          <span className="min-w-0 truncate">{location.name}</span>
+      return (
+        <a
+          key={location.id}
+          href={locationBrowseHref({}, { parent: location.id })}
+          className="flex min-w-0 items-center justify-between gap-2 rounded px-2 py-2 text-zinc-300 hover:bg-zinc-900"
+        >
+          <span className="min-w-0 break-words">
+            {location.name}
+            {adminModeActive ? (
+              <span className="block text-xs text-zinc-500">
+                {location.ownerPlayer.displayName}
+              </span>
+            ) : null}
+          </span>
           <span
             className={cn(
               "rounded border px-1.5 py-0.5 text-[11px]",
@@ -355,36 +378,7 @@ export default async function LocationsPage() {
               ? direct.quantity
               : `${direct.quantity} / ${total.quantity}`}
           </span>
-        </div>
-      );
-      const sectionContent = sections.length ? (
-        <div className="ml-3 space-y-0.5 border-l border-zinc-800 pl-2 text-xs text-zinc-500">
-          {sections.map((section) => (
-            <div
-              key={section.name}
-              className="flex items-center justify-between gap-2 px-1"
-            >
-              <span className="truncate">{section.name}</span>
-              <span>{spaceLabel(section)}</span>
-            </div>
-          ))}
-        </div>
-      ) : null;
-      if (!location.children.length)
-        return (
-          <div key={location.id}>
-            {content}
-            {sectionContent}
-          </div>
-        );
-      return (
-        <details key={location.id} open>
-          <summary className="list-none">{content}</summary>
-          <div className="ml-3 space-y-0.5 border-l border-zinc-800 pl-2">
-            {sectionContent}
-            {renderLocationTreeNodes(location.children)}
-          </div>
-        </details>
+        </a>
       );
     });
   }
@@ -786,6 +780,12 @@ export default async function LocationsPage() {
           Manage storage locations such as boxes, shelves, binders, and
           deckboxes.
         </p>
+        <a
+          href="#normal-locations"
+          className="mt-2 inline-block py-2 text-sm text-sky-300 underline"
+        >
+          Browse storage and occupancy ↓
+        </a>
         <p className="mt-2 rounded border border-zinc-800 p-3 text-sm text-zinc-300">
           {adminModeActive
             ? "Admin mode: showing locations across users."
@@ -1120,21 +1120,50 @@ export default async function LocationsPage() {
         </section>
       ) : null}
 
-      <section className="space-y-3">
+      <section id="normal-locations" className="space-y-3 scroll-mt-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold">Normal locations</h2>
             <p className="text-sm text-zinc-400">
-              Boxes, binders, shelves, and other editable inventory locations,
-              grouped like the deck folder view.
+              Boxes, binders, shelves, and other editable inventory locations.
+              Search by path or type, or browse a branch of your storage tree.
             </p>
           </div>
           <span className="text-sm text-zinc-500">
             {normalLocations.length} locations
           </span>
         </div>
+        <form
+          action="/locations#normal-locations"
+          method="get"
+          className="flex flex-wrap items-end gap-2"
+        >
+          {browseParams.parent ? (
+            <input type="hidden" name="parent" value={browseParams.parent} />
+          ) : null}
+          <label className="w-full min-w-0 text-sm sm:w-auto sm:flex-1">
+            Search locations{browser.parent ? " in this branch" : ""}
+            <input
+              name="q"
+              defaultValue={browseParams.q ?? ""}
+              placeholder="Vault name, box, path, or type"
+              className={cn(filterInputClass, "mt-1 w-full")}
+            />
+          </label>
+          <button className={filterPrimaryButtonClass}>Find locations</button>
+          <a
+            href="/locations#normal-locations"
+            className="px-2 py-2 text-sm text-sky-300 underline"
+          >
+            Clear search and branch
+          </a>
+        </form>
+        <p role="status" className="text-sm text-zinc-400">
+          {browser.total} matching locations · Page {browser.page} of{" "}
+          {browser.pages} · Up to 25 locations per page
+        </p>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[18rem_minmax(0,1fr)]">
-          <aside className="space-y-3 rounded border border-zinc-800 p-3">
+          <aside className="max-h-80 space-y-3 overflow-y-auto rounded border border-zinc-800 p-3 lg:max-h-[40rem]">
             <div className="flex items-center justify-between gap-2">
               <h3 className="font-semibold">Location tree</h3>
               <span className="text-xs text-zinc-500">
@@ -1142,37 +1171,72 @@ export default async function LocationsPage() {
               </span>
             </div>
             <nav className="space-y-1 text-sm" aria-label="Locations tree">
-              <div className="flex items-center justify-between rounded bg-sky-950 px-2 py-1 text-sky-100">
+              <a
+                href="/locations#normal-locations"
+                className="flex items-center justify-between rounded bg-sky-950 px-2 py-2 text-sky-100"
+              >
                 <span>All normal locations</span>
                 <span className="text-xs text-zinc-400">
                   {normalLocations.length}
                 </span>
-              </div>
+              </a>
+              {browser.breadcrumbs.map((location) => (
+                <a
+                  key={location.id}
+                  href={locationBrowseHref({}, { parent: location.id })}
+                  className="block break-words px-2 py-2 text-sky-300"
+                  aria-current={
+                    location.id === browser.parent?.id ? "location" : undefined
+                  }
+                >
+                  {location.name}
+                </a>
+              ))}
+              <p className="px-2 pt-2 text-xs text-zinc-500">
+                {browser.parent ? "Sub-locations" : "Top-level locations"} ·{" "}
+                {browser.treeTotal}
+              </p>
               <div className="space-y-1 pt-1">
-                {normalLocationGroups.map((ownerGroup) => (
-                  <details key={ownerGroup.id} open>
-                    <summary className="list-none">
-                      <div className="flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-zinc-300 hover:bg-zinc-900">
-                        <span className="w-4 text-center text-zinc-500">-</span>
-                        <span className="min-w-0 flex-1 truncate">
-                          {ownerGroup.name}
-                        </span>
-                        <span className="text-xs text-zinc-500">
-                          {ownerGroup.quantity}
-                        </span>
-                      </div>
-                    </summary>
-                    <div className="ml-3 space-y-0.5 border-l border-zinc-800 pl-2">
-                      {renderLocationTreeNodes(
-                        normalLocationTrees.get(ownerGroup.id) ?? [],
-                      )}
-                    </div>
-                  </details>
-                ))}
+                {renderLocationTreeNodes(browser.treeItems)}
+                {!browser.treeItems.length ? (
+                  <p className="p-2 text-zinc-500">No sub-locations.</p>
+                ) : null}
               </div>
+              {browser.treePages > 1 ? (
+                <div className="flex flex-wrap gap-3 border-t border-zinc-800 pt-2">
+                  {browser.treePage > 1 ? (
+                    <a
+                      href={locationBrowseHref(browseParams, {
+                        treePage: String(browser.treePage - 1),
+                        edit: undefined,
+                      })}
+                    >
+                      Previous branches
+                    </a>
+                  ) : null}
+                  <span>
+                    {browser.treePage} / {browser.treePages}
+                  </span>
+                  {browser.treePage < browser.treePages ? (
+                    <a
+                      href={locationBrowseHref(browseParams, {
+                        treePage: String(browser.treePage + 1),
+                        edit: undefined,
+                      })}
+                    >
+                      Next branches
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
             </nav>
           </aside>
           <div className="space-y-3">
+            {!browser.items.length ? (
+              <p className="rounded border border-zinc-800 p-4">
+                No locations match. Clear the search or choose another branch.
+              </p>
+            ) : null}
             {normalLocationGroups.map((ownerGroup) => (
               <details
                 key={ownerGroup.id}
@@ -1186,11 +1250,12 @@ export default async function LocationsPage() {
                         {ownerGroup.name}
                       </h3>
                       <p className="text-xs text-zinc-500">
-                        {ownerGroup.types.length} location groups
+                        {ownerGroup.types.length} location groups on this page
                       </p>
                     </div>
                     <span className="text-sm text-zinc-300">
                       {ownerGroup.quantity} cards / {ownerGroup.entries} entries
+                      on this page
                     </span>
                   </div>
                 </summary>
@@ -1198,6 +1263,7 @@ export default async function LocationsPage() {
                   {ownerGroup.types.map((typeGroup) => (
                     <details
                       key={`${ownerGroup.id}-${typeGroup.label}`}
+                      open
                       className="border-l border-zinc-800 pl-3"
                     >
                       <summary className="list-none rounded px-2 py-1 text-sm text-zinc-300 hover:bg-zinc-900">
@@ -1222,6 +1288,7 @@ export default async function LocationsPage() {
                           return (
                             <article
                               key={location.id}
+                              id={`location-${location.id}`}
                               className="min-w-0 rounded border border-zinc-800 bg-zinc-950/50"
                             >
                               <div className="grid gap-3 p-3 md:grid-cols-[1.4fr_auto_auto_auto] md:items-center">
@@ -1263,222 +1330,241 @@ export default async function LocationsPage() {
                                   </span>{" "}
                                   entries
                                 </div>
-                                <details className="group justify-self-start md:justify-self-end">
-                                  <summary className="cursor-pointer list-none rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 transition-colors hover:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-sky-500/30">
-                                    Manage
-                                  </summary>
-                                  <div className="mt-3 space-y-4 border-t border-zinc-800 pt-3 md:w-[min(720px,80vw)]">
-                                    <form
-                                      action={updateLocationAction}
-                                      className="grid gap-3 md:grid-cols-6"
-                                    >
-                                      <input
-                                        type="hidden"
-                                        name="locationId"
-                                        value={location.id}
-                                      />
-                                      <label className={filterFieldClass}>
-                                        Name
+                                <div
+                                  className={
+                                    browseParams.edit === location.id
+                                      ? "group w-full md:col-span-full"
+                                      : "group justify-self-start md:justify-self-end"
+                                  }
+                                >
+                                  <a
+                                    href={`${locationBrowseHref(browseParams, { edit: browseParams.edit === location.id ? undefined : location.id }).split("#")[0]}#location-${location.id}`}
+                                    className="inline-block cursor-pointer rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 transition-colors hover:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                                    aria-expanded={
+                                      browseParams.edit === location.id
+                                    }
+                                  >
+                                    {browseParams.edit === location.id
+                                      ? "Close editor"
+                                      : "Manage"}
+                                  </a>
+                                  {browseParams.edit === location.id ? (
+                                    <div className="mt-3 w-full space-y-4 border-t border-zinc-800 pt-3">
+                                      <form
+                                        action={updateLocationAction}
+                                        className="grid gap-3 md:grid-cols-6"
+                                      >
                                         <input
-                                          name="name"
-                                          defaultValue={location.name}
-                                          className={cn(
-                                            filterInputClass,
-                                            "mt-1 w-full",
-                                          )}
+                                          type="hidden"
+                                          name="locationId"
+                                          value={location.id}
                                         />
-                                      </label>
-                                      <label className={filterFieldClass}>
-                                        Parent
-                                        <select
-                                          name="parentLocationId"
-                                          defaultValue={
-                                            location.parentLocationId ?? ""
-                                          }
-                                          disabled={
-                                            location.normalizedName ===
-                                            "unassigned"
-                                          }
-                                          className={cn(
-                                            filterSelectClass,
-                                            "mt-1 w-full",
-                                          )}
-                                        >
-                                          <option value="">
-                                            No parent (top level)
-                                          </option>
-                                          {normalLocations
-                                            .filter(
-                                              (candidate) =>
-                                                candidate.ownerPlayerId ===
-                                                  location.ownerPlayerId &&
-                                                candidate.id !== location.id &&
-                                                candidate.active &&
-                                                !candidate.systemManaged &&
-                                                candidate.normalizedName !==
-                                                  "unassigned" &&
-                                                !isDescendantOf(
-                                                  candidate.id,
-                                                  location.id,
-                                                ),
-                                            )
-                                            .map((candidate) => (
+                                        <label className={filterFieldClass}>
+                                          Name
+                                          <input
+                                            name="name"
+                                            defaultValue={location.name}
+                                            className={cn(
+                                              filterInputClass,
+                                              "mt-1 w-full",
+                                            )}
+                                          />
+                                        </label>
+                                        <label className={filterFieldClass}>
+                                          Parent
+                                          <select
+                                            name="parentLocationId"
+                                            defaultValue={
+                                              location.parentLocationId ?? ""
+                                            }
+                                            disabled={
+                                              location.normalizedName ===
+                                              "unassigned"
+                                            }
+                                            className={cn(
+                                              filterSelectClass,
+                                              "mt-1 w-full",
+                                            )}
+                                          >
+                                            <option value="">
+                                              No parent (top level)
+                                            </option>
+                                            {normalLocations
+                                              .filter(
+                                                (candidate) =>
+                                                  candidate.ownerPlayerId ===
+                                                    location.ownerPlayerId &&
+                                                  candidate.id !==
+                                                    location.id &&
+                                                  candidate.active &&
+                                                  !candidate.systemManaged &&
+                                                  candidate.normalizedName !==
+                                                    "unassigned" &&
+                                                  !isDescendantOf(
+                                                    candidate.id,
+                                                    location.id,
+                                                  ),
+                                              )
+                                              .map((candidate) => (
+                                                <option
+                                                  key={candidate.id}
+                                                  value={candidate.id}
+                                                >
+                                                  {candidate.path}
+                                                </option>
+                                              ))}
+                                          </select>
+                                        </label>
+                                        <label className={filterFieldClass}>
+                                          Type
+                                          <select
+                                            name="type"
+                                            defaultValue={location.type ?? ""}
+                                            className={cn(
+                                              filterSelectClass,
+                                              "mt-1 w-full",
+                                            )}
+                                          >
+                                            <option value="">Unsorted</option>
+                                            {location.type &&
+                                            !locationTypes.some(
+                                              (type) =>
+                                                type.name.toLowerCase() ===
+                                                location.type?.toLowerCase(),
+                                            ) ? (
+                                              <option value={location.type}>
+                                                {location.type}
+                                              </option>
+                                            ) : null}
+                                            {locationTypes.map((type) => (
                                               <option
-                                                key={candidate.id}
-                                                value={candidate.id}
+                                                key={type.id}
+                                                value={type.name}
                                               >
-                                                {candidate.path}
+                                                {type.name}
                                               </option>
                                             ))}
-                                        </select>
-                                      </label>
-                                      <label className={filterFieldClass}>
-                                        Type
-                                        <select
-                                          name="type"
-                                          defaultValue={location.type ?? ""}
-                                          className={cn(
-                                            filterSelectClass,
-                                            "mt-1 w-full",
-                                          )}
-                                        >
-                                          <option value="">Unsorted</option>
-                                          {location.type &&
-                                          !locationTypes.some(
-                                            (type) =>
-                                              type.name.toLowerCase() ===
-                                              location.type?.toLowerCase(),
-                                          ) ? (
-                                            <option value={location.type}>
-                                              {location.type}
-                                            </option>
-                                          ) : null}
-                                          {locationTypes.map((type) => (
-                                            <option
-                                              key={type.id}
-                                              value={type.name}
-                                            >
-                                              {type.name}
-                                            </option>
-                                          ))}
-                                        </select>
-                                        <input
-                                          name="newType"
-                                          placeholder="Or create type"
-                                          className={cn(
-                                            filterInputClass,
-                                            "mt-2 w-full",
-                                          )}
-                                        />
-                                      </label>
-                                      <label
-                                        className={cn(
-                                          filterFieldClass,
-                                          "md:col-span-2",
-                                        )}
-                                      >
-                                        Description
-                                        <input
-                                          name="description"
-                                          defaultValue={
-                                            location.description ?? ""
-                                          }
-                                          className={cn(
-                                            filterInputClass,
-                                            "mt-1 w-full",
-                                          )}
-                                        />
-                                      </label>
-                                      <label className={filterFieldClass}>
-                                        Visibility
-                                        <select
-                                          name="visibility"
-                                          defaultValue={location.visibility}
-                                          className={cn(
-                                            filterSelectClass,
-                                            "mt-1 w-full",
-                                          )}
-                                        >
-                                          <option value={Visibility.INHERIT}>
-                                            Use account default
-                                          </option>
-                                          <option value={Visibility.PRIVATE}>
-                                            Private
-                                          </option>
-                                          <option value={Visibility.PUBLIC}>
-                                            Public
-                                          </option>
-                                        </select>
-                                      </label>
-                                      <label className="flex items-center gap-2 self-end text-sm text-zinc-300">
-                                        <input
-                                          type="checkbox"
-                                          name="active"
-                                          defaultChecked={location.active}
-                                        />{" "}
-                                        Active
-                                      </label>
-                                      <SubmitButton
-                                        pendingLabel="Saving..."
-                                        className={cn(
-                                          filterPrimaryButtonClass,
-                                          "md:col-span-2",
-                                        )}
-                                      >
-                                        Save location
-                                      </SubmitButton>
-                                    </form>
-                                    <div className="rounded border border-red-950/70 bg-red-950/10 p-3">
-                                      <h5 className="text-sm font-semibold text-red-100">
-                                        Danger zone
-                                      </h5>
-                                      <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                                        <LocationContentsDeleteForm
-                                          locationId={location.id}
-                                          locationName={location.name}
-                                          entryCount={counts.entries}
-                                          cardCount={counts.quantity}
-                                          deleteAction={
-                                            deleteLocationContentsAction
-                                          }
-                                        />
-                                        <form
-                                          action={deleteLocationAction}
-                                          className="space-y-2 rounded border border-zinc-800 p-2"
-                                        >
+                                          </select>
                                           <input
-                                            type="hidden"
-                                            name="locationId"
-                                            value={location.id}
+                                            name="newType"
+                                            placeholder="Or create type"
+                                            className={cn(
+                                              filterInputClass,
+                                              "mt-2 w-full",
+                                            )}
                                           />
-                                          <label className="flex items-center gap-2 text-xs text-zinc-300">
-                                            <input
-                                              type="checkbox"
-                                              name="confirmDelete"
-                                              disabled={!canDeleteLocation}
-                                            />
-                                            Confirm deleting this unused
-                                            location.
-                                          </label>
-                                          <SubmitButton
-                                            pendingLabel="Deleting..."
-                                            className={filterDangerButtonClass}
-                                            disabled={!canDeleteLocation}
+                                        </label>
+                                        <label
+                                          className={cn(
+                                            filterFieldClass,
+                                            "md:col-span-2",
+                                          )}
+                                        >
+                                          Description
+                                          <input
+                                            name="description"
+                                            defaultValue={
+                                              location.description ?? ""
+                                            }
+                                            className={cn(
+                                              filterInputClass,
+                                              "mt-1 w-full",
+                                            )}
+                                          />
+                                        </label>
+                                        <label className={filterFieldClass}>
+                                          Visibility
+                                          <select
+                                            name="visibility"
+                                            defaultValue={location.visibility}
+                                            className={cn(
+                                              filterSelectClass,
+                                              "mt-1 w-full",
+                                            )}
                                           >
-                                            Delete unused location
-                                          </SubmitButton>
-                                          {!canDeleteLocation ? (
-                                            <p className="text-xs text-amber-300">
-                                              {counts.quantity > 0
-                                                ? "Move or remove inventory before deleting this location."
-                                                : "The default Unassigned location cannot be deleted."}
-                                            </p>
-                                          ) : null}
-                                        </form>
+                                            <option value={Visibility.INHERIT}>
+                                              Use account default
+                                            </option>
+                                            <option value={Visibility.PRIVATE}>
+                                              Private
+                                            </option>
+                                            <option value={Visibility.PUBLIC}>
+                                              Public
+                                            </option>
+                                          </select>
+                                        </label>
+                                        <label className="flex items-center gap-2 self-end text-sm text-zinc-300">
+                                          <input
+                                            type="checkbox"
+                                            name="active"
+                                            defaultChecked={location.active}
+                                          />{" "}
+                                          Active
+                                        </label>
+                                        <SubmitButton
+                                          pendingLabel="Saving..."
+                                          className={cn(
+                                            filterPrimaryButtonClass,
+                                            "md:col-span-2",
+                                          )}
+                                        >
+                                          Save location
+                                        </SubmitButton>
+                                      </form>
+                                      <div className="rounded border border-red-950/70 bg-red-950/10 p-3">
+                                        <h5 className="text-sm font-semibold text-red-100">
+                                          Danger zone
+                                        </h5>
+                                        <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                                          <LocationContentsDeleteForm
+                                            locationId={location.id}
+                                            locationName={location.name}
+                                            entryCount={counts.entries}
+                                            cardCount={counts.quantity}
+                                            deleteAction={
+                                              deleteLocationContentsAction
+                                            }
+                                          />
+                                          <form
+                                            action={deleteLocationAction}
+                                            className="space-y-2 rounded border border-zinc-800 p-2"
+                                          >
+                                            <input
+                                              type="hidden"
+                                              name="locationId"
+                                              value={location.id}
+                                            />
+                                            <label className="flex items-center gap-2 text-xs text-zinc-300">
+                                              <input
+                                                type="checkbox"
+                                                name="confirmDelete"
+                                                disabled={!canDeleteLocation}
+                                              />
+                                              Confirm deleting this unused
+                                              location.
+                                            </label>
+                                            <SubmitButton
+                                              pendingLabel="Deleting..."
+                                              className={
+                                                filterDangerButtonClass
+                                              }
+                                              disabled={!canDeleteLocation}
+                                            >
+                                              Delete unused location
+                                            </SubmitButton>
+                                            {!canDeleteLocation ? (
+                                              <p className="text-xs text-amber-300">
+                                                {counts.quantity > 0
+                                                  ? "Move or remove inventory before deleting this location."
+                                                  : "The default Unassigned location cannot be deleted."}
+                                              </p>
+                                            ) : null}
+                                          </form>
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
-                                </details>
+                                  ) : null}
+                                </div>
                               </div>
                               {isVault(location.type) && (
                                 <div
@@ -1556,6 +1642,34 @@ export default async function LocationsPage() {
             ))}
           </div>
         </div>
+        <nav
+          aria-label="Location pages"
+          className="flex flex-wrap items-center gap-4 text-sm text-sky-300"
+        >
+          {browser.page > 1 ? (
+            <a
+              href={locationBrowseHref(browseParams, {
+                page: String(browser.page - 1),
+                edit: undefined,
+              })}
+            >
+              Previous locations
+            </a>
+          ) : null}
+          <span className="text-zinc-400">
+            Page {browser.page} of {browser.pages}
+          </span>
+          {browser.page < browser.pages ? (
+            <a
+              href={locationBrowseHref(browseParams, {
+                page: String(browser.page + 1),
+                edit: undefined,
+              })}
+            >
+              Next locations
+            </a>
+          ) : null}
+        </nav>
       </section>
     </main>
   );
