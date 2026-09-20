@@ -13,6 +13,16 @@ export const PLAYTEST_ZONES = [
 ] as const;
 
 export type PlaytestZone = (typeof PLAYTEST_ZONES)[number];
+export const MAX_PLAYTEST_CARDS = 1000;
+export const MAX_PLAYTEST_HISTORY = 100;
+
+export type PlaytestOpponent = {
+  id: string;
+  name: string;
+  life: number;
+  // Manual named sources allow tracking other players' commanders as well.
+  damage: Record<string, number>;
+};
 
 export type PlaytestCard = {
   instanceId: string;
@@ -21,6 +31,12 @@ export type PlaytestCard = {
   tapped: boolean;
   faceIndex: 0 | 1;
   counters: number;
+  origin: "deck" | "token" | "copy";
+  namedCounters: Record<string, number>;
+  powerModifier: number;
+  toughnessModifier: number;
+  group: string;
+  position: { x: number; y: number } | null;
 };
 
 export type PlaytestGameState = {
@@ -30,6 +46,10 @@ export type PlaytestGameState = {
   life: number;
   zones: Record<PlaytestZone, PlaytestCard[]>;
   commanderTax: Record<string, number>;
+  opponents: PlaytestOpponent[];
+  nextId: number;
+  randomCount: number;
+  randomResult: string;
 };
 
 export type PlaytestAction =
@@ -54,6 +74,26 @@ export type PlaytestAction =
   | { type: "ADJUST_COUNTER"; cardId: string; delta: number }
   | { type: "ADJUST_LIFE"; delta: number }
   | { type: "ADJUST_COMMANDER_TAX"; cardId: string; delta: number }
+  | {
+      type: "MOVE_CARDS";
+      cardIds: string[];
+      to: PlaytestZone;
+      position?: "top" | "bottom";
+    }
+  | { type: "POSITION_CARD"; cardId: string; x: number; y: number }
+  | { type: "GROUP_CARD"; cardId: string; group: string }
+  | { type: "NAMED_COUNTER"; cardId: string; name: string; delta: number }
+  | { type: "MODIFY_PT"; cardId: string; power: number; toughness: number }
+  | { type: "CREATE_TOKEN"; name: string }
+  | { type: "COPY_CARD"; cardId: string }
+  | { type: "REMOVE_TEMPORARY"; cardId: string }
+  | { type: "SHUFFLE_SELECTED"; cardIds: string[] }
+  | { type: "RANDOM"; sides: number }
+  | { type: "ADD_OPPONENT"; name: string }
+  | { type: "UPDATE_OPPONENT"; id: string; name?: string; life?: number }
+  | { type: "REMOVE_OPPONENT"; id: string }
+  | { type: "COMMANDER_DAMAGE"; id: string; source: string; delta: number }
+  | { type: "RESTORE"; state: PlaytestGameState }
   | { type: "RESTART"; entries: DeckSnapshotEntry[]; seed: string };
 
 export type PlaytestHistoryAction =
@@ -78,7 +118,9 @@ function emptyZones(): Record<PlaytestZone, PlaytestCard[]> {
 }
 
 function normalizedQuantity(entry: DeckSnapshotEntry) {
-  return Math.max(0, Math.floor(entry.quantity));
+  return Number.isFinite(entry.quantity)
+    ? Math.max(0, Math.floor(entry.quantity))
+    : 0;
 }
 
 function runtimeCard(
@@ -92,11 +134,18 @@ function runtimeCard(
     tapped: false,
     faceIndex: 0,
     counters: 0,
+    origin: "deck",
+    namedCounters: {},
+    powerModifier: 0,
+    toughnessModifier: 0,
+    group: "",
+    position: null,
   };
 }
 
 export function expandPlaytestDeck(entries: DeckSnapshotEntry[]) {
   const zones = emptyZones();
+  let count = 0;
 
   for (const entry of entries) {
     const isCommander =
@@ -112,6 +161,10 @@ export function expandPlaytestDeck(entries: DeckSnapshotEntry[]) {
       copyNumber <= normalizedQuantity(entry);
       copyNumber += 1
     ) {
+      if (++count > MAX_PLAYTEST_CARDS)
+        throw new Error(
+          `Playtest supports up to ${MAX_PLAYTEST_CARDS} runtime cards.`,
+        );
       zones[zone].push(runtimeCard(entry, copyNumber));
     }
   }
@@ -132,6 +185,16 @@ export function shufflePlaytestCards(cards: PlaytestCard[], seed: string) {
   return shuffled;
 }
 
+export function searchPlaytestLibrary(cards: PlaytestCard[], search: string) {
+  const query = search.trim().toLowerCase();
+  return cards
+    .filter(
+      (card) => !query || card.entry.cardName.toLowerCase().includes(query),
+    )
+    .sort((a, b) => a.entry.cardName.localeCompare(b.entry.cardName))
+    .slice(0, 50);
+}
+
 export function createPlaytestState(
   entries: DeckSnapshotEntry[],
   seed: string,
@@ -143,6 +206,10 @@ export function createPlaytestState(
     shuffleCount: 0,
     turn: 1,
     life: 40,
+    opponents: [],
+    nextId: 1,
+    randomCount: 0,
+    randomResult: "",
     zones,
     commanderTax: Object.fromEntries(
       zones.commandZone.map((card) => [card.instanceId, 0]),
@@ -175,11 +242,22 @@ function moveCard(
   to: PlaytestZone,
   position: "top" | "bottom" = "top",
 ) {
-  if (from === to) return state;
+  if (!PLAYTEST_ZONES.includes(from) || !PLAYTEST_ZONES.includes(to))
+    return state;
+  if (from === to && to !== "library") return state;
   const card = state.zones[from].find(
     (candidate) => candidate.instanceId === cardId,
   );
   if (!card) return state;
+  if (from === to) {
+    const remaining = state.zones.library.filter(
+      (item) => item.instanceId !== cardId,
+    );
+    return withZones(state, {
+      library:
+        position === "bottom" ? [...remaining, card] : [card, ...remaining],
+    });
+  }
   const moved = to === "battlefield" ? card : { ...card, tapped: false };
   const destination =
     to === "library" && position === "bottom"
@@ -232,6 +310,237 @@ export function playtestReducer(
   action: PlaytestAction,
 ): PlaytestGameState {
   switch (action.type) {
+    case "RESTORE":
+      return action.state;
+    case "MOVE_CARDS": {
+      let next = state;
+      // Reverse top insertion so the selected cards keep their supplied order.
+      const ids = [...new Set(action.cardIds)];
+      if (action.position !== "bottom") ids.reverse();
+      for (const id of ids) {
+        const from = PLAYTEST_ZONES.find((zone) =>
+          next.zones[zone].some((card) => card.instanceId === id),
+        );
+        if (from) next = moveCard(next, id, from, action.to, action.position);
+      }
+      return next;
+    }
+    case "POSITION_CARD":
+      if (!Number.isFinite(action.x) || !Number.isFinite(action.y))
+        return state;
+      return updateCard(state, action.cardId, (card) => ({
+        ...card,
+        position: {
+          x: Math.max(0, Math.min(100, action.x)),
+          y: Math.max(0, Math.min(100, action.y)),
+        },
+      }));
+    case "GROUP_CARD":
+      return updateCard(state, action.cardId, (card) => ({
+        ...card,
+        group: action.group.slice(0, 60),
+      }));
+    case "NAMED_COUNTER": {
+      const name = action.name.trim().slice(0, 40);
+      if (
+        !name ||
+        Object.hasOwn(Object.prototype, name) ||
+        name === "prototype" ||
+        !Number.isFinite(action.delta)
+      )
+        return state;
+      return updateCard(state, action.cardId, (card) => {
+        if (
+          !(name in card.namedCounters) &&
+          Object.keys(card.namedCounters).length >= 12
+        )
+          return card;
+        const namedCounters = {
+          ...card.namedCounters,
+          [name]: Math.max(
+            0,
+            Math.min(
+              9999,
+              (card.namedCounters[name] ?? 0) + Math.trunc(action.delta),
+            ),
+          ),
+        };
+        if (!namedCounters[name]) delete namedCounters[name];
+        return { ...card, namedCounters };
+      });
+    }
+    case "MODIFY_PT":
+      if (!Number.isFinite(action.power) || !Number.isFinite(action.toughness))
+        return state;
+      return updateCard(state, action.cardId, (card) => ({
+        ...card,
+        powerModifier: Math.max(
+          -9999,
+          Math.min(9999, card.powerModifier + Math.trunc(action.power)),
+        ),
+        toughnessModifier: Math.max(
+          -9999,
+          Math.min(9999, card.toughnessModifier + Math.trunc(action.toughness)),
+        ),
+      }));
+    case "CREATE_TOKEN":
+    case "COPY_CARD": {
+      const all = Object.values(state.zones).flat();
+      if (all.length >= MAX_PLAYTEST_CARDS || state.nextId >= 1_000_000)
+        return state;
+      const source =
+        action.type === "COPY_CARD"
+          ? all.find((card) => card.instanceId === action.cardId)
+          : null;
+      if (action.type === "COPY_CARD" && !source) return state;
+      const name =
+        action.type === "CREATE_TOKEN" ? action.name.trim().slice(0, 120) : "";
+      if (action.type === "CREATE_TOKEN" && !name) return state;
+      const id = `temporary:${state.nextId}`;
+      const entry: DeckSnapshotEntry = source?.entry ?? {
+        id,
+        cardId: null,
+        cardName: name,
+        section: DeckSection.MAINBOARD,
+        quantity: 1,
+        isCommander: false,
+        card: null,
+      };
+      const card = {
+        ...runtimeCard(entry, 1),
+        instanceId: id,
+        origin: source ? ("copy" as const) : ("token" as const),
+        faceIndex: source?.faceIndex ?? 0,
+      };
+      return {
+        ...withZones(state, {
+          battlefield: [...state.zones.battlefield, card],
+        }),
+        nextId: state.nextId + 1,
+      };
+    }
+    case "REMOVE_TEMPORARY":
+      return withZones(
+        state,
+        Object.fromEntries(
+          PLAYTEST_ZONES.map((zone) => [
+            zone,
+            state.zones[zone].filter(
+              (card) =>
+                card.instanceId !== action.cardId || card.origin === "deck",
+            ),
+          ]),
+        ),
+      );
+    case "SHUFFLE_SELECTED": {
+      const moved = playtestReducer(state, {
+        type: "MOVE_CARDS",
+        cardIds: action.cardIds,
+        to: "library",
+      });
+      return playtestReducer(moved, { type: "SHUFFLE_LIBRARY" });
+    }
+    case "RANDOM": {
+      if (
+        !Number.isInteger(action.sides) ||
+        action.sides < 2 ||
+        action.sides > 1000
+      )
+        return state;
+      const randomCount = state.randomCount + 1;
+      const result =
+        1 +
+        Math.floor(
+          createSeededRandom(`${state.seed}:random:${randomCount}`)() *
+            action.sides,
+        );
+      return {
+        ...state,
+        randomCount,
+        randomResult:
+          action.sides === 2
+            ? result === 1
+              ? "Heads"
+              : "Tails"
+            : `d${action.sides}: ${result}`,
+      };
+    }
+    case "ADD_OPPONENT":
+      if (
+        state.opponents.length >= 7 ||
+        !action.name.trim() ||
+        state.nextId >= 1_000_000
+      )
+        return state;
+      return {
+        ...state,
+        nextId: state.nextId + 1,
+        opponents: [
+          ...state.opponents,
+          {
+            id: `player:${state.nextId}`,
+            name: action.name.trim().slice(0, 60),
+            life: 40,
+            damage: {},
+          },
+        ],
+      };
+    case "UPDATE_OPPONENT":
+      return {
+        ...state,
+        opponents: state.opponents.map((opponent) =>
+          opponent.id === action.id
+            ? {
+                ...opponent,
+                name: action.name?.slice(0, 60) || opponent.name,
+                life:
+                  action.life !== undefined && Number.isFinite(action.life)
+                    ? Math.max(-99999, Math.min(99999, Math.trunc(action.life)))
+                    : opponent.life,
+              }
+            : opponent,
+        ),
+      };
+    case "REMOVE_OPPONENT":
+      return {
+        ...state,
+        opponents: state.opponents.filter(
+          (opponent) => opponent.id !== action.id,
+        ),
+      };
+    case "COMMANDER_DAMAGE": {
+      const source = action.source.trim().slice(0, 60);
+      if (
+        !source ||
+        Object.hasOwn(Object.prototype, source) ||
+        source === "prototype" ||
+        !Number.isFinite(action.delta)
+      )
+        return state;
+      return {
+        ...state,
+        opponents: state.opponents.map((opponent) => {
+          if (
+            opponent.id !== action.id ||
+            (!(source in opponent.damage) &&
+              Object.keys(opponent.damage).length >= 16)
+          )
+            return opponent;
+          const damage = {
+            ...opponent.damage,
+            [source]: Math.max(
+              0,
+              Math.min(
+                9999,
+                (opponent.damage[source] ?? 0) + Math.trunc(action.delta),
+              ),
+            ),
+          };
+          if (!damage[source]) delete damage[source];
+          return { ...opponent, damage };
+        }),
+      };
+    }
     case "MOVE_CARD":
       return moveCard(
         state,
@@ -286,12 +595,24 @@ export function playtestReducer(
         ),
       });
     case "ADJUST_COUNTER":
+      if (!Number.isFinite(action.delta)) return state;
       return updateCard(state, action.cardId, (card) => ({
         ...card,
-        counters: Math.max(0, card.counters + action.delta),
+        counters: Math.max(
+          0,
+          Math.min(9999, card.counters + Math.trunc(action.delta)),
+        ),
       }));
     case "ADJUST_LIFE":
-      return { ...state, life: state.life + action.delta };
+      return Number.isFinite(action.delta)
+        ? {
+            ...state,
+            life: Math.max(
+              -99999,
+              Math.min(99999, state.life + Math.trunc(action.delta)),
+            ),
+          }
+        : state;
     case "ADJUST_COMMANDER_TAX":
       if (!(action.cardId in state.commanderTax)) return state;
       return {
@@ -335,7 +656,7 @@ export function playtestHistoryReducer(
   const present = playtestReducer(history.present, action);
   if (present === history.present) return history;
   return {
-    past: [...history.past, history.present],
+    past: [...history.past, history.present].slice(-MAX_PLAYTEST_HISTORY),
     present,
     future: [],
   };
