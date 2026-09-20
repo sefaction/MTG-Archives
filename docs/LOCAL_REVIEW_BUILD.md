@@ -1,4 +1,17 @@
-# Local review build — inventory move experience
+# Local review build — advanced-filter navigation
+
+Current deployment: 2026-09-19, application/test revision `bf6813f`, [PR #221](https://github.com/sefaction/MTG-Archives/pull/221) on released main `9a3fd8b`.
+
+- URL: http://127.0.0.1:13001
+- Unmerged batch: #221 only. Earlier PRs #210, #217, and #219 are merged.
+- Web image: `sha256:04edc35fb2feee192d3796c47780f2fe942111c3d75d3f038f5fe1f811b4caea`
+- Next build ID: `SjrBpnq2d-z2BwmyPbavB`
+- Docker production build passed; container healthy and host login returned HTTP 200.
+- Full verify passed: Prisma generation, typecheck, 510 unit tests, host production build, 25 browser tests, and 2 existing fixture-dependent skips. No build overlapped browser testing.
+- Final mixed color-filter repetition: 20/20 passed with the unchanged 10-second URL assertion (1.2 minutes overall). See [INVENTORY_FILTER_NAVIGATION.md](INVENTORY_FILTER_NAVIGATION.md) for diagnosis and the deliberate full-navigation tradeoff.
+- Review: apply White + Blue exact-color filters, check chips, then Back and Forward. Panel state remains expanded. This PR awaits individual merge approval.
+
+## Historical inventory move experience review (now merged)
 
 Verified 2026-09-19 on this laptop. Local review deployment only; no merge or production release.
 
