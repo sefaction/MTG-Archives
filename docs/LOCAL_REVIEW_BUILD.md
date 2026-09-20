@@ -1,4 +1,16 @@
-# Local review build — advanced-filter navigation
+# Local review build — bounded location browser
+
+Current deployment: 2026-09-19, application/test revision `97a0095` on #221 (`60892f0`).
+
+- URL: http://127.0.0.1:13001
+- Includes unmerged filter navigation #221 and location browser #215. No new merge approval.
+- Clean Linux image: `sha256:b8a64f08b4e2e034129ea2edda4013ebc9642993160dab4c88df63c8f18f5b61`; Next build `JTlVHHQw8QcZdReqSHUn0`.
+- Generation, typecheck, 515 unit tests and host production build passed. Full browser verification is not yet green: Scryfall query latency is tracked as #224. Do not represent this as a passed release gate.
+- A prior Docker image omitted the Imports manual-add client reference (#223). Rebuilding unchanged application code restored it; Imports/export and hierarchy tests passed afterward. This recovery does not prove a permanent compiler fix.
+- Location scale regression passed: 1,200 synthetic locations / 150,000 physical copies; latest run 1,409 ms to heading, 1,165,155 bytes serialized DOM, 3,615 options. See `LOCATION_BROWSER_SCALE.md` for limitations and baseline. Desktop and phone screenshots inspected.
+- Review Locations: search paths/types, browse a branch and breadcrumbs, page through cards, and select Manage to open one editor. No schema change.
+
+## Previous advanced-filter review
 
 Current deployment: 2026-09-19, application/test revision `bf6813f`, [PR #221](https://github.com/sefaction/MTG-Archives/pull/221) on released main `9a3fd8b`.
 
