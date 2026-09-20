@@ -20,3 +20,5 @@ Received trade lots now remain separate from existing inventory and retain origi
 The test is not an exhaustive concurrent-mutation or malicious-request audit. Existing policy tests cover actor/status denial; the browser scenario additionally checks visible owner/nonparticipant boundaries. Authentication session integrity is separately tracked as #251 and has priority over the remaining feature queue.
 
 Exact corrected-image results and review build identity are recorded in the PR and work checkpoint. Private authenticated traces and fixture logs stay ignored under `test-results/`.
+
+Final verification on 2026-09-20 passed at application `7233d7c`: 553 unit tests, typecheck, Linux CI/build guards and all three targeted browser cases (51.1s). The new full lifecycle passed in 32 seconds, and fixture account/card counts returned to zero. The final history assertion also found and fixed #252: completed trades now appear once, exclusively under Completed rather than also under Cancelled / Declined. PR #250 is ready for individual review, not merged.
