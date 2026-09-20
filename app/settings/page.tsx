@@ -337,6 +337,9 @@ export default async function SettingsPage({
                 <a href="/settings/webhooks" className={filterButtonClass}>
                   Manage webhooks
                 </a>
+                <a href="/settings/email" className={filterButtonClass}>
+                  Email notifications
+                </a>
               </div>
               <p className="app-muted text-sm">
                 Choose which quiet in-app updates appear in the header and

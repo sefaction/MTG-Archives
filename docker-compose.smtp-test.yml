@@ -1,0 +1,33 @@
+# LOCAL TEST CAPTURE ONLY. Layer after docker-compose.yml and docker-compose.local.yml.
+# No forwarding/relay is configured. Never add this overlay to production.
+x-smtp-test-environment: &smtp-test-environment
+  SMTP_ENABLED: "true"
+  SMTP_HOST: smtp-capture
+  SMTP_PORT: "1025"
+  SMTP_SECURITY: plain
+  SMTP_ALLOW_INSECURE: "true"
+  SMTP_FROM: archive@example.test
+  SMTP_USER: ""
+  SMTP_PASSWORD: ""
+  APP_BASE_URL: http://127.0.0.1:13001
+
+services:
+  smtp-capture:
+    image: axllent/mailpit:v1.31.2
+    restart: unless-stopped
+    environment:
+      MP_MAX_MESSAGES: "1000"
+    ports:
+      - "127.0.0.1:18025:8025"
+  web:
+    environment:
+      <<: *smtp-test-environment
+    depends_on:
+      - smtp-capture
+  notification-worker:
+    environment:
+      <<: *smtp-test-environment
+      NOTIFICATION_WORKER_INTERVAL_MS: "1000"
+    depends_on:
+      smtp-capture:
+        condition: service_started
