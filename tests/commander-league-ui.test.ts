@@ -78,6 +78,22 @@ test("game entry freezes decks without inventory commitment", () => {
   assert.match(dashboard, /immutable snapshot/i);
 });
 
+test("league numeric bounds explicitly reject NaN and fractional values", () => {
+  assert.match(actions, /!Number\.isInteger\(year\)/);
+  assert.match(actions, /!Number\.isInteger\(participantCount\)/);
+  assert.match(actions, /!Number\.isInteger\(position\)/);
+});
+
+test("successful game entry clears stale validation query feedback", () => {
+  const gameAction = actions.slice(
+    actions.indexOf("export async function createLeagueGame"),
+  );
+  assert.match(
+    gameAction,
+    /revalidatePath\(`\/league\/\$\{leagueId\}`\);\s*redirect\(`\/league\/\$\{leagueId\}`\);/,
+  );
+});
+
 test("league metadata is isolated while deck contents use the Archive deck domain", () => {
   assert.match(schema, /model CommanderLeagueDeck\b/);
   assert.doesNotMatch(schema, /model CommanderLeagueDeckCard\b/);

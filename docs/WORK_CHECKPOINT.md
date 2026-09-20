@@ -8,59 +8,58 @@ Continue the approved audit/feature queue, one PR per coherent batch, cumulative
 
 ## Released baseline and review stack
 
-Released main: `e98266fa39cc33023e0b877417c0ced82c5430df`. The prior nine approved PRs through #236 merged and the published image revision was verified; no Unraid deployment.
+Released main: `e98266fa39cc33023e0b877417c0ced82c5430df`. Prior approved PRs through #236 merged and the published image revision was verified. No Unraid deployment.
 
-Pending, in dependency order:
+Pending stack, in dependency order:
 
-1. #243 `perf/inventory-render-pipeline`, tip `0981089`: reusable collators reduce inventory sorting CPU; measured browser median about 33% lower. Fixes #224; #220 remains observation.
-2. #244 `fix/preserve-bootstrap-admin`, tip `fe48d15`: create-only startup provisioning, fixes #242. Real concurrent-bootstrap and existing-account preservation passed.
-3. #247 `test/isolated-backup-restore`, tip `cfba334`: fixes #245/#246, covers #237. Final rebuilt-image isolated restore passed: 48 full table digests plus legacy-price count, 12,477 copies, four data roots / 21 entries, malformed-dump guards and real SQL rollback. Disposable resources cleaned.
-4. #248 `ci/verification-release-gates`, tip `f4631cd`: portable verification and ordered image publishing, covers #241. Active user-approved main ruleset 23732060 requires Core verification, strict up-to-date, no bypass. All preceding branches gained and passed this check without rewriting history.
-5. #250 `test/trade-lifecycle`, tip `782b87f` (application `7233d7c`): fixes #249 provenance loss and #252 duplicate completed history, covers #238. All 553 units/typecheck, Linux core, Docker and three targeted browser cases passed. Complete two-user lifecycle conserved all 16 fixture copies; fixtures cleaned.
-6. **#254 `fix/validated-auth-sessions`, application/test `cd5c469`, based on #250**: fixes #251. Ready for individual review after successful full acceptance below.
+1. #243 `perf/inventory-render-pipeline`, tip `0981089`: reusable collators reduce sort CPU; browser median about 33% lower. Fixes #224; #220 remains observation.
+2. #244 `fix/preserve-bootstrap-admin`, tip `fe48d15`: create-only provisioning fixes #242. Concurrent setup and existing-account preservation verified.
+3. #247 `test/isolated-backup-restore`, tip `cfba334`: fixes #245/#246, covers #237. Rebuilt-image isolated recovery passed: 48 full table digests plus legacy-price count, 12,477 copies, four roots / 21 entries, malformed-dump guards and real SQL rollback. Disposable targets cleaned.
+4. #248 `ci/verification-release-gates`, tip `f4631cd`: portable verification and ordered publishing, covers #241. User-approved main ruleset 23732060 requires Core verification, strict up-to-date, no bypass. Preceding branches gained/passed the check without rewritten history.
+5. #250 `test/trade-lifecycle`, tip `782b87f` (app `7233d7c`): fixes #249 provenance loss/#252 duplicate completed history, covers #238. Two-user lifecycle and copy conservation passed.
+6. #254 `fix/validated-auth-sessions`, tip `08d287f` (app `cd5c469`): fixes #251. Opaque hashed credentials, expiry/revocation, password binding, rotation, admin reset/edit invalidation and rejection of identity-only legacy cookies. Additive 59th migration; fresh login required. Full 558 units/37 browser cases passed.
+7. #255 `fix/local-login-redirects`, tip `9c2f10b` (app `45bf2de`, tests `e53fa28`): fixes #253/#256. Local return-path validation and requested-page preservation across retries; email test/cleanup corrected. Full 561 units/39 browser cases passed.
+8. #259 `test/commander-league-lifecycle`, app/test `76f0d8b`: covers #239, fixes #257 malformed-count empty games and #258 stale error after success. Full verification passed below; ready for individual review.
 
-The prior full cumulative #243–#248 run passed 550 units, generation/typecheck, Windows/Linux builds, six client-manifest guards and 33 serial browser cases without skips. Later trade batch has focused acceptance; full cumulative security acceptance remains pending.
+All issues remain open until their resolving PR merges. Passing CI never replaces individual merge approval.
 
-## Completed login-return follow-up (#253 / #256)
+## Current milestone: League audit complete
 
-PR #255, branch `fix/local-login-redirects`, application `45bf2de`, test correction `e53fa28`, based on #254 tip `08d287f`. Shared normalized local-return-path guard for login and admin-mode toggles; submitted-field validation, middleware next compatibility and safe wrong-password retry.
+Branch `test/commander-league-lifecycle`. The normal lifecycle initially passed against #255. Expanded baselines reproduced a stale validation banner and one empty game created from a nonnumeric count. Both were confined to a disposable league and cleaned. Integer guards and clean success redirect now pass malformed/fractional counts, duplicate rejection and corrected feedback.
 
-Both baseline defects were reproduced locally; the first URL-order harness assertion was corrected before proving lost destination. First full run was **38 passed / 1 failed** because the email test expected the old Dashboard redirect. Its timeout exposed cleanup defect #256. The exact orphan account and captured email were removed; no real account changed. Test teardown now deletes both users before capture cleanup through an independent request context.
+Final verification at `76f0d8b`: **563 units**, generation/typecheck, Windows/Linux production builds/six manifest guards, corrected League case (19.8s), and **all 40 serial browser cases with zero skips** (4.3m). Linux core run `35527697072` passed. All command processes completed. Fixture users/leagues verified zero; original inventory remains **12,477 physical copies**.
 
-Final acceptance **PASSED**: 561 units, generation/typecheck, Windows/Linux production builds and six manifest guards, all **39 serial browser cases with zero skips** (2.8m). Targeted email/redirect retest 3/3 passed (11.0s). Linux core run `35526957981` passed. Auth/login/email/trade fixture users verified zero and physical inventory unchanged at 12,477.
+Current Docker: `sha256:14cd31c69a66501c5a5378257047c29e297cb606c82a7572e8375f79ce4f34de`, healthy/host HTTP 200, application `76f0d8b`. Includes all eight pending PRs above. Logs: `league-docker.log`, `league-corrected-browser.log`, `league-full-verify.log`. Historical local baselines: `league-lifecycle-baseline.log` (test label correction), `league-lifecycle-browser.log` (normal pass), `league-feedback-baseline.log`, `league-count-baseline.log`. See LEAGUE_LIFECYCLE.md for coverage limits.
 
-Current local image `sha256:4db6c0bce174b5a6e7530479befda95a3ed4a5ca13f4607b27dca05bbe0a5fd2`, healthy/host HTTP 200. Logs: `login-return-docker.log`, `login-return-browser.log`, `login-return-full-verify.log` (failed historical), `login-return-email-recheck.log`, `login-return-final-verify.log`. All processes completed. Ready for individual review; no merge approval.
+## Next active task: visual vault #240
 
-**Next safe task: #239 League lifecycle on a new branch based on #255**, followed by #240 visual vault. Foundry roadmap/architecture and current League pages/actions/schema were inspected while verification ran; no League code/test modifications yet. Preserve explicit public-deck versus member-only League boundaries.
+Two **untracked, unintegrated drafts** exist for the next batch: `components/VaultSectionMap.tsx`, `lib/vault-navigation.ts`. Do NOT include them in #259. After committing only League evidence/docs, switch to a new feature branch based on #259 and carry these files forward. They are not in Docker and not yet typechecked/tested.
 
-## Completed session-security batch
+Foundry Inventory Organization was read. Requirements: six sections in one physical row, Sect 0–5 left to right, advisory capacity 85, preserve arbitrary labels and unsectioned cards, desktop first/practical phones. Draft component renders counts/room/overflow, horizontally scrollable six-section tray, extras/unsectioned links and optional Move here callbacks.
 
-- Implements additive AuthSession migration `20260920170000_auth_sessions`, 256-bit opaque tokens stored SHA-256 hashed, password binding, server expiry/revocation, login/password-change rotation, admin-edit/reset deletion, rejection of legacy identity cookies. Existing users must sign in again; passwords/collection data unchanged.
-- Pre-fix synthetic identity-cookie API request received HTTP 200 instead of 401. Regression intentionally failed on the old image; no production testing. Log `test-results/session-baseline.log`.
-- All **558 units** and typecheck passed. Added three synthetic browser scenarios (including administrator reset, forced password change and disable/re-enable); browser credentials are excluded from traces/video/screenshots.
-- Docker build/deploy completed; production build and six manifest guards passed. Current image `sha256:5785e72f1b7a74107878ae5215f7070a0b7b4f67abd49f31c444666b89b44d90` (application `cd5c469`), healthy/host HTTP 200, all **59 migrations current**. Build log `test-results/session-docker.log`; Compose's build policy caused a second successful build during startup. Use `up --no-build` following an explicit build in future.
-- GitHub Linux Core run `35525754981` PASSED. All **three security browser cases passed** (20.9s), including old-cookie rejection and admin reset/disable/re-enable. Log `test-results/session-browser.log`.
-- Full cumulative `npm run verify` **PASSED**: generation/typecheck, 558 unit tests, host production build/six manifest guards, all **37 serial browser tests with zero skips** (3.1m). Log `test-results/session-full-verify.log`. All command processes completed. No security PR merge approval.
-- Next: focused #253 on a new branch based on #254, followed by League/vault. No security application changes pending.
-- New source finding #253: unsanitized login return destination and middleware next/login returnTo mismatch. Focused follow-up after #254; no production/external redirect probing. Reconcile live issue before implementing.
-- User chose to retain the current model and continue. No intentional pause.
+Planned integration:
+- Locations vault cards plus the single-vault Inventory view.
+- Preset the existing move dialog (destination ID/section, quantity mode all, clear error, open) without changing safe mutation logic.
+- Implement shared `locationSectionMatch=exact|empty` in inventory filters/API and advanced-search UI/chips. Current section search is case-insensitive contains and MUST retain compatibility. Exact map browsing must not mix Sect 1 with Sect 10; empty means null/empty section.
+- `getStorageLocations` in lib/storage-summary.ts already includes a section named empty string for unsectioned copies. No new aggregate query/type field is needed. Locations currently excludes unnamed groups and computes unsectioned as direct total minus named sums; pass that count override to the component.
+- `InventoryBrowser` has currentLocationId/storageLocations, selectedCardsCount, setBulkDestinationLocationId/setBulkSection/setQuantityMode/setMoveLimit/setMoveError/setMoveOpen and pageHrefBase. Render map only for an authorized single selected Vault. No public mutation controls.
+- Preserve six-column physical layout, keyboard links/focus, viewport-contained horizontal scrolling, owner boundaries, extras and cancellation/error behavior. Add owned-fixture browser moves/refresh/exact section/empty section/scope/desktop+phone tests and inspect screenshots.
+- Draft navigation helper uses filter mode that is NOT implemented yet; do not claim feature complete.
 
-## Remaining approved queue
+## Remaining queue
 
-- #253 safe login redirect follow-up.
-- #239 Commander League season/match lifecycle and immutable deck locking.
-- #240 visual vault: six sections in one row, Sect 0–5 left to right, advisory capacity 85, extras/unsectioned retained; desktop first, usable phone controls.
-- #220 residual inventory navigation observation.
-- Pending PR issues remain open until their fixes merge; do not close them merely because local tests pass.
-- After assigned tasks, continue proportionate parity/UX audits; larger product decisions need clarification.
+- Finish #240 and then proportionate parity/UX audits.
+- #220 residual inventory navigation observation remains open even when regression tests pass.
+- Larger product additions need clarification; connections between installations and broader storage visualization remain roadmap directions.
+- No outstanding user question blocks the approved queue. The user chose to keep the current model and continue.
 
 ## Local operating reminders
 
 - App http://127.0.0.1:13001; capture-only Mailpit http://127.0.0.1:18025.
-- Preserve all three Compose files: `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.smtp-test.yml`. No real snapshot email delivery.
-- One LOCAL global trade-announcement webhook was disabled before fixtures and remains disabled; trade tests refuse enabled endpoints. No production setting changed.
-- Browser tests run serially with `MTG_LOCAL_PILOT_TEST=1`; use isolated headless Chromium, never another project's browser profile. Do not overlap browser tests with heavy builds. Confirm host HTTP after deployment.
+- Preserve `docker-compose.yml`, `docker-compose.local.yml`, `docker-compose.smtp-test.yml`. No real snapshot email. One LOCAL global trade announcement webhook remains disabled; tests refuse enabled endpoints.
+- After explicit build, use `up -d --no-deps --no-build --pull never web` to avoid the local build policy causing a second build.
+- Browser tests serial with `MTG_LOCAL_PILOT_TEST=1`, isolated headless Chromium, not another project's profile. Never overlap browser tests with heavy builds. Confirm host HTTP as well as container health.
 - Private logs/traces/fixtures stay ignored under `test-results`; backups under `.local-data/backups`. Never publish credentials, user deck contents, authenticated traces or archives.
-- Compatible private recovery capture: `.local-data/backups/drill-e7b779ba-5758-4b40-aa32-b762d9d46bd3`. Older PG18 capture `drill-e171be3b-98c3-403e-87ce-2f3aa99ca6af` is failure-only evidence, not a verified backup.
-- Recovery archive excludes separate pricing database/configuration/master key. Filesystem copy is not atomic with database replacement. Revoke restored AuthSession records before exposing a restored web server; see AUTH_SESSIONS.md.
-- Read Foundry hub/workflow/relevant notes before each batch. Durable knowledge belongs there; exact implementation/evidence in repo/GitHub.
+- Compatible private recovery capture: `.local-data/backups/drill-e7b779ba-5758-4b40-aa32-b762d9d46bd3`. Older PG18 capture `drill-e171be3b-98c3-403e-87ce-2f3aa99ca6af` is failed evidence, not a verified backup.
+- Recovery archive excludes separate pricing DB/configuration/master key. Filesystem copy is not atomic with DB replacement. Revoke restored AuthSession records before exposing a restored web server; see AUTH_SESSIONS.md.
+- Read Foundry hub/workflow/relevant notes before batches. Durable knowledge goes there; code/test evidence in repo/GitHub.
