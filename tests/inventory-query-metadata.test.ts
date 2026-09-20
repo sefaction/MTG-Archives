@@ -4,17 +4,19 @@ import {
   inventoryQueryMetadataSql,
   matchingInventoryQueryCardIds,
   QUERY_METADATA_BATCH_SIZE,
+  queryMetadataForFields,
 } from "../lib/inventory-query-metadata";
 import { constrainInventoryWhereToScryfallQuery } from "../lib/inventory-scryfall-query";
 
 test("metadata SQL binds IDs and projects only evaluator fields/fallbacks", () => {
   const id = "x'); DROP TABLE Card; --";
   const sql = inventoryQueryMetadataSql([id]);
-  assert.deepEqual(sql.values, [id]);
+  assert.equal(sql.values.at(-1), id);
   assert.ok(!sql.text.includes(id));
   assert.match(sql.text, /"printedTypeLine"/);
-  assert.match(sql.text, /"rawScryfallJson"->'card_faces'/);
-  assert.match(sql.text, /"rawScryfallJson"->'legalities'/);
+  assert.ok(sql.values.includes("card_faces"));
+  assert.ok(sql.values.includes("legalities"));
+  assert.match(sql.text, /jsonb_each/);
   assert.doesNotMatch(sql.text, /purchaseUris|imageUris|SELECT \*/);
   assert.throws(() => inventoryQueryMetadataSql([]));
   assert.throws(() => inventoryQueryMetadataSql(Array(501).fill("x")));
@@ -35,6 +37,7 @@ test("metadata loads in bounded batches, retaining only matches", async () => {
     },
     ids,
     (card) => card.typeLine === "Creature",
+    queryMetadataForFields([]),
   );
   assert.deepEqual(sizes, [
     QUERY_METADATA_BATCH_SIZE,
@@ -43,6 +46,20 @@ test("metadata loads in bounded batches, retaining only matches", async () => {
   ]);
   assert.equal(matches.length, 601);
   assert.equal(matches.at(-1), "1200");
+});
+
+test("common query metadata is narrow but retains legacy face fallbacks", () => {
+  const projection = queryMetadataForFields(["type", "mv", "type"]);
+  assert.deepEqual(projection.columns, [
+    "id",
+    "typeLine",
+    "printedTypeLine",
+    "cardFaces",
+    "manaValue",
+  ]);
+  assert.deepEqual(projection.raw, ["card_faces"]);
+  assert.ok(queryMetadataForFields(["has"]).raw.includes("content_warning"));
+  assert.ok(queryMetadataForFields(["power"]).columns.includes("toughness"));
 });
 
 test("empty, invalid, and invisible inventory queries do not load card metadata", async () => {

@@ -1,4 +1,8 @@
-import { matchingInventoryQueryCardIds } from "./inventory-query-metadata";
+import {
+  matchingInventoryQueryCardIds,
+  queryMetadataForFields,
+  type QueryMetadataProjection,
+} from "./inventory-query-metadata";
 
 const MAX_QUERY_LENGTH = 1_000;
 
@@ -8,7 +12,12 @@ type QueryNode =
   | { kind: "not"; child: QueryNode };
 
 type CompiledQuery =
-  { ok: true; matches: (card: any) => boolean } | { ok: false; error: string };
+  | {
+      ok: true;
+      matches: (card: any) => boolean;
+      metadata: QueryMetadataProjection;
+    }
+  | { ok: false; error: string };
 
 const compiledCache = new Map<string, CompiledQuery>();
 
@@ -735,7 +744,12 @@ export function compileLocalScryfallQuery(
   rawQuery?: string | null,
 ): CompiledQuery {
   const query = rawQuery?.trim() ?? "";
-  if (!query) return { ok: true, matches: () => true };
+  if (!query)
+    return {
+      ok: true,
+      matches: () => true,
+      metadata: queryMetadataForFields([]),
+    };
   if (query.length > MAX_QUERY_LENGTH)
     return {
       ok: false,
@@ -746,7 +760,17 @@ export function compileLocalScryfallQuery(
   let result: CompiledQuery;
   try {
     const node = parseQuery(query);
-    result = { ok: true, matches: (card) => evaluate(card, node) };
+    const fields = (entry: QueryNode): string[] =>
+      entry.kind === "term"
+        ? [entry.field]
+        : entry.kind === "not"
+          ? fields(entry.child)
+          : entry.children.flatMap(fields);
+    result = {
+      ok: true,
+      matches: (card) => evaluate(card, node),
+      metadata: queryMetadataForFields(fields(node)),
+    };
   } catch (error: any) {
     result = {
       ok: false,
@@ -789,6 +813,7 @@ export async function constrainInventoryWhereToScryfallQuery(
     prisma,
     candidates.map((candidate) => candidate.cardId),
     compiled.matches,
+    compiled.metadata,
   );
   return {
     where: { ...where, cardId: { in: matchingCardIds } },

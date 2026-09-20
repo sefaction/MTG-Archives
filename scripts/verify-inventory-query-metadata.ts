@@ -4,6 +4,7 @@ import { PrismaClient, Prisma } from "@prisma/client";
 import {
   inventoryQueryMetadataSql,
   QUERY_METADATA_BATCH_SIZE,
+  queryMetadataForFields,
 } from "../lib/inventory-query-metadata";
 import { compileLocalScryfallQuery } from "../lib/inventory-scryfall-query";
 
@@ -101,6 +102,10 @@ async function main() {
       }
       const projectedMs = Math.round(performance.now() - leanStarted);
       assert.equal(projected.length, full.length);
+      const projections = new Map<string, any[]>([
+        [JSON.stringify(queryMetadataForFields(["has"])), projected],
+      ]);
+      const measurements: { query: string; ms: number; bytes: number }[] = [];
       for (const query of queries) {
         const compiled = compileLocalScryfallQuery(query);
         assert.ok(compiled.ok, query);
@@ -109,7 +114,29 @@ async function main() {
           .filter(compiled.matches)
           .map((card) => card.id)
           .sort();
-        const actual = projected
+        const key = JSON.stringify(compiled.metadata);
+        let rows = projections.get(key);
+        if (!rows) {
+          rows = [];
+          const started = performance.now();
+          for (let i = 0; i < ids.length; i += QUERY_METADATA_BATCH_SIZE) {
+            rows.push(
+              ...(await tx.$queryRaw<any[]>(
+                inventoryQueryMetadataSql(
+                  ids.slice(i, i + QUERY_METADATA_BATCH_SIZE),
+                  compiled.metadata,
+                ),
+              )),
+            );
+          }
+          projections.set(key, rows);
+          measurements.push({
+            query,
+            ms: Math.round(performance.now() - started),
+            bytes: Buffer.byteLength(JSON.stringify(rows)),
+          });
+        }
+        const actual = rows
           .filter(compiled.matches)
           .map((card) => card.id)
           .sort();
@@ -124,6 +151,7 @@ async function main() {
           fullBytes: Buffer.byteLength(JSON.stringify(full)),
           projectedBytes: Buffer.byteLength(JSON.stringify(projected)),
           parity: "passed",
+          measurements,
         }),
       );
     },

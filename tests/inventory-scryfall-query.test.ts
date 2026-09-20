@@ -102,7 +102,7 @@ test("inventory constraint filters only locally stored candidate cards", async (
       },
     },
     $queryRaw: async (query: any) => {
-      assert.deepEqual(query.values, [krasis.id, endlessOne.id]);
+      assert.deepEqual(query.values.slice(-2), [krasis.id, endlessOne.id]);
       return [krasis, endlessOne];
     },
   };
