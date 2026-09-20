@@ -36,6 +36,8 @@ Implementation references: [PostgreSQL dump compatibility](https://www.postgresq
 
 ## Recovery boundaries and remaining limits
 
+Development check on 2026-09-20 passed against the corrected working library: 48 authoritative table content digests plus the legacy price-cache count, 12,477 physical copies, four appdata roots and 21 file/directory entries matched. Capture took 65.5 seconds (87,664,740 bytes); restore including preflight took 93.0 seconds. Dry-run sentinels, missing/corrupt dump preservation and a real check-constraint failure rollback all passed. The disposable resources were removed and the compatible archive retained privately. This was explicitly a development-library run; final rebuilt-image evidence is required before PR readiness.
+
 The downloadable application archive is **not** a whole-installation backup. It excludes the separate pricing PostgreSQL database, deployment configuration/credentials and the webhook master encryption key in `BACKUP_DIR/.system-secrets`. Preserve those separately in protected operator backups. Without the original key, restored saved webhook destinations cannot be decrypted and must be recreated. The drill deliberately does not start notification delivery or test external providers.
 
 Appdata file copying and the database dump are not one cross-resource transaction. The drill detects changes around its capture; production recovery planning needs a quiescent maintenance window or coordinated snapshots. Restore replaces the configured database schema and included appdata roots, so operators must validate exact targets, keep a fresh backup and use the explicit confirmation gate. Never test production recovery by restoring over live data.
