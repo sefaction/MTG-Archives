@@ -8,6 +8,8 @@ All LOCAL MTG Archives components and data are available for modification and te
 
 Work runs only while this laptop is powered on, awake, and online. Keep persistent checkpoints and reconcile interrupted commands before resuming. Scheduling is not yet configured or verified.
 
+Ask focused clarifying questions when needed; the user checks this laptop periodically. Record unanswered decisions and move to independent, authorized queue work while awaiting an answer. Save the active branch, related issues/PRs, verification state, outstanding questions, and next safe step in [WORK_CHECKPOINT.md](WORK_CHECKPOINT.md). Reconcile with live git, GitHub, Docker, and process state after context/session/usage interruptions. A stopped session may need a user resume; a checkpoint is not an automatic runner.
+
 Catalogue discovered bugs as GitHub issues, avoid duplicates, record reproduction and impact, and link the PRs that resolve them. Close issues after merge. When the assigned queue is empty, audit workflows, regressions, and feature parity; improve UI/UX at scale and suggest larger additions. A green test suite establishes the tested behavior, not the absence of every possible bug.
 
 GitHub issues and PRs remain authoritative for live development status. Foundry stores durable decisions and operational knowledge. Local builds should identify the included commits and unmerged PRs so cumulative review is reproducible.
@@ -70,4 +72,4 @@ Acceptance criteria:
 
 ## Continuing work
 
-Open this repository as a local project, use the Windows-native environment and PowerShell, and select the requested Full access permissions. Resume the existing conversation if it is available; otherwise read AGENTS.md, CODEX.md, this file, and the Foundry project hub before continuing. Verify command execution, editing, browser interaction, and Docker access. Finish setup, diagnose host access to the app, then implement the vault batch and open a PR. No PR may merge without explicit approval for that individual PR.
+Open this repository as a local project, use the Windows-native environment and PowerShell, and select the requested Full access permissions. Resume the existing conversation if it is available; otherwise read AGENTS.md, CODEX.md, WORK_CHECKPOINT.md, this file, and the Foundry project hub before continuing. Check GitHub before treating historical setup checkpoints as current tasks. Verify command execution, editing, browser interaction, and Docker access, then resume the next safe step. No PR may merge without explicit approval for that individual PR.

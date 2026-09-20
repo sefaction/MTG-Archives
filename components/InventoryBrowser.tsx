@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { StorageDestinationPicker } from "./StorageDestinationPicker";
+import { InventoryMoveDialog } from "./InventoryMoveDialog";
+import { selectInventoryRows } from "@/lib/inventory-selection";
 import type { StorageLocation } from "@/lib/storage-sections";
 import { DeckSection } from "@prisma/client";
 import { deckFormatLabel, deckSectionLabel } from "@/lib/decks";
@@ -1524,11 +1526,17 @@ export function InventoryBrowser({
   );
   const [allMatchingSelected, setAllMatchingSelected] = useState(false);
   const [movingBulk, setMovingBulk] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [moveError, setMoveError] = useState("");
+  const selectionAnchor = useRef<string | null>(null);
   const [deletingBulk, setDeletingBulk] = useState(false);
   const [bulkDestinationLocationId, setBulkDestinationLocationId] =
     useState("");
   const [bulkSection, setBulkSection] = useState("");
   const [moveLimit, setMoveLimit] = useState("");
+  const [quantityMode, setQuantityMode] = useState<
+    "all" | "85" | "fill" | "custom"
+  >("all");
   const [pageSize, setPageSize] = useState(initialPageSize);
   const [browsingMode, setBrowsingMode] = useState<"paginated" | "infinite">(
     initialBrowsingMode,
@@ -1639,6 +1647,35 @@ export function InventoryBrowser({
       .find((l) => l.id === bulkDestinationLocationId)
       ?.sections.find((s) => s.name === bulkSection)?.quantity ?? 0;
 
+  const effectiveMoveLimit =
+    quantityMode === "all"
+      ? ""
+      : quantityMode === "85"
+        ? "85"
+        : quantityMode === "fill"
+          ? String(Math.max(0, (destinationRoom ?? 0) - currentOccupancy))
+          : moveLimit;
+  const movableCopies = Math.max(
+    0,
+    selectedCardsCount - (allMatchingSelected ? 0 : alreadyInDestination),
+  );
+  const plannedCopies = Math.min(
+    quantityMode === "all" ? Infinity : Math.max(0, Number(effectiveMoveLimit)),
+    movableCopies,
+  );
+  const invalidMoveQuantity =
+    quantityMode !== "all" &&
+    (!Number.isSafeInteger(Number(effectiveMoveLimit)) ||
+      Number(effectiveMoveLimit) < 1);
+  const destinationName = storageLocations.find(
+    (location) => location.id === bulkDestinationLocationId,
+  )?.name;
+  const moveDisabled =
+    movingBulk ||
+    !destinationName ||
+    invalidMoveQuantity ||
+    plannedCopies === 0;
+
   async function openAuditTrail(row: InventoryRow) {
     setSelected(null);
     setAuditRow({ ...row, auditHistory: row.auditHistory || [] });
@@ -1677,7 +1714,36 @@ export function InventoryBrowser({
   const clearSelection = useCallback(() => {
     setSelectedItemIds(new Set());
     setAllMatchingSelected(false);
+    selectionAnchor.current = null;
+    setMoveOpen(false);
   }, []);
+
+  const selectRow = useCallback(
+    (
+      row: InventoryRow,
+      modifiers: { shiftKey?: boolean; ctrlKey?: boolean; metaKey?: boolean },
+      checkbox = false,
+    ) => {
+      if (!selectionAvailable) return;
+      const current = allMatchingSelected
+        ? new Set(renderedRows.flatMap(getRowSourceIds))
+        : selectedItemIds;
+      const selection = selectInventoryRows(
+        renderedRows,
+        current,
+        row.id,
+        selectionAnchor.current,
+        {
+          range: modifiers.shiftKey,
+          additive: checkbox || modifiers.ctrlKey || modifiers.metaKey,
+        },
+      );
+      selectionAnchor.current = selection.anchorId;
+      setAllMatchingSelected(false);
+      setSelectedItemIds(selection.ids);
+    },
+    [selectionAvailable, allMatchingSelected, renderedRows, selectedItemIds],
+  );
 
   const submitStackMove = useCallback(
     async (fd: FormData) => {
@@ -1942,17 +2008,11 @@ export function InventoryBrowser({
                   type="checkbox"
                   aria-label={`Select ${row.original.cardName}`}
                   checked={isRowSelected(row.original)}
-                  onChange={(event) => {
-                    const ids = getRowSourceIds(row.original);
-                    setAllMatchingSelected(false);
-                    setSelectedItemIds((current) => {
-                      const next = new Set(current);
-                      if (event.target.checked)
-                        ids.forEach((id) => next.add(id));
-                      else ids.forEach((id) => next.delete(id));
-                      return next;
-                    });
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    selectRow(row.original, event, true);
                   }}
+                  onChange={() => {}}
                 />
               ),
             } satisfies ColumnDef<InventoryRow>,
@@ -1964,7 +2024,14 @@ export function InventoryBrowser({
         cell: ({ row }) => (
           <button
             className="underline text-left"
-            onClick={() => setSelected(row.original)}
+            onClick={(event) => {
+              if (
+                selectionAvailable &&
+                (event.shiftKey || event.ctrlKey || event.metaKey)
+              )
+                selectRow(row.original, event);
+              else setSelected(row.original);
+            }}
           >
             {row.original.cardName}
           </button>
@@ -2132,6 +2199,7 @@ export function InventoryBrowser({
       displayMode,
       selectionAvailable,
       isRowSelected,
+      selectRow,
       deletingBulk,
       submitBulkDelete,
     ],
@@ -2312,7 +2380,14 @@ export function InventoryBrowser({
           printings to select specific inventory entries.
         </div>
       ) : capabilities.canBulkSelect ? (
-        <div className={cn(filterPanelClass, "space-y-3")}>
+        <div
+          className={cn(
+            filterPanelClass,
+            "space-y-3",
+            selectedEntriesCount > 0 &&
+              "sticky top-2 z-30 !bg-[var(--app-surface)] shadow-lg",
+          )}
+        >
           <div className="flex flex-wrap gap-2 items-center text-sm">
             <span className="text-xs font-semibold uppercase text-zinc-500">
               Actions
@@ -2329,6 +2404,7 @@ export function InventoryBrowser({
               type="button"
               className={cn(filterButtonClass, "px-2 py-1")}
               onClick={() => {
+                selectionAnchor.current = null;
                 setSelectedItemIds(new Set());
                 setAllMatchingSelected(true);
               }}
@@ -2342,6 +2418,18 @@ export function InventoryBrowser({
             >
               Clear selection
             </button>
+            {selectedEntriesCount > 0 && capabilities.canBulkMove && (
+              <button
+                type="button"
+                className={filterPrimaryButtonClass}
+                onClick={() => {
+                  setMoveError("");
+                  setMoveOpen(true);
+                }}
+              >
+                Move cards…
+              </button>
+            )}
             {selectedEntriesCount > 0 ? (
               <details className="group relative">
                 <summary
@@ -2389,221 +2477,321 @@ export function InventoryBrowser({
                       </button>
                     </form>
                   ))}
+                  {capabilities.canBulkDelete && (
+                    <button
+                      type="button"
+                      className="mt-1 w-full border-t border-zinc-700 px-3 py-2 text-left text-sm text-red-300"
+                      disabled={deletingBulk}
+                      onClick={() => submitBulkDelete()}
+                    >
+                      {deletingBulk ? "Deleting…" : "Delete selected"}
+                    </button>
+                  )}
                 </div>
               </details>
             ) : null}
             <span className="text-zinc-300">
               {allMatchingSelected
                 ? `All ${totalMatchingCount} matching inventory entries are selected.`
-                : `${selectedEntriesCount} selected`}
+                : `${selectedEntriesCount} entries · ${selectedCardsCount} cards selected`}
             </span>
           </div>
+          {selectionAvailable && (
+            <p className="hidden text-xs text-[var(--app-muted)] sm:block">
+              Click a row to select · Ctrl/⌘-click to toggle · Shift-click for a
+              range · Checkboxes add to your selection. Ranges cover loaded rows
+              only.
+            </p>
+          )}
           {selectedEntriesCount > 0 && capabilities.canBulkMove ? (
-            <form
-              onSubmit={async (event) => {
-                event.preventDefault();
-                const form = event.currentTarget;
-                const fd = new FormData(form);
-                fd.set("destinationLocationId", bulkDestinationLocationId);
-                fd.set(
-                  "expectedStacks",
-                  JSON.stringify(
-                    allMatchingSelected
-                      ? []
-                      : selectedStacks.map((stack) => ({
-                          id: stack.inventoryItemId,
-                          quantity: stack.quantity,
-                          locationId: stack.locationId,
-                          locationSection: stack.section ?? null,
-                        })),
-                  ),
-                );
-                fd.set(
-                  "clientDestinationLocationId",
-                  bulkDestinationLocationId,
-                );
-                if (!bulkDestinationLocationId) {
-                  setMessage(
-                    "Choose a destination location before moving cards.",
-                  );
-                  return;
-                }
-                setMovingBulk(true);
-                setMessage(
-                  `Moving ${selectedEntriesCount} entries (${selectedCardsCount} cards)…`,
-                );
-                try {
-                  if (!onBulkMoveLocation) {
-                    setMessage("This inventory is read-only.");
-                    return;
-                  }
-                  const result = await onBulkMoveLocation(fd);
-                  if (!result.success) {
-                    setMessage(result.message);
-                    return;
-                  }
-                  setMessage(
-                    `Moved ${result.movedCards} cards across ${result.movedEntries} entries to ${result.destinationLocationName}.`,
-                  );
-                  clearSelection();
-                  rememberScrollPosition();
-                  router.refresh();
-                } catch (error: any) {
-                  setMessage(error?.message || "Bulk move failed.");
-                } finally {
-                  setMovingBulk(false);
-                }
-              }}
-              className="grid gap-3 lg:grid-cols-[2fr_1fr] items-end"
+            <InventoryMoveDialog
+              open={moveOpen}
+              busy={movingBulk}
+              onClose={() => setMoveOpen(false)}
             >
-              <input
-                type="hidden"
-                name="selectionMode"
-                value={allMatchingSelected ? "all" : "selected"}
-              />
-              <input
-                type="hidden"
-                name="itemIds"
-                value={JSON.stringify(selectedItemIdList)}
-              />
-              <input
-                type="hidden"
-                name="sourceLocationId"
-                value={currentLocationId || ""}
-              />
-              <StorageDestinationPicker
-                locations={storageLocations}
-                locationId={bulkDestinationLocationId}
-                onLocationChange={setBulkDestinationLocationId}
-                section={bulkSection}
-                onSectionChange={setBulkSection}
-                incomingQuantity={
-                  allMatchingSelected
-                    ? undefined
-                    : Math.min(
-                        Number(moveLimit) || Infinity,
-                        Math.max(0, selectedCardsCount - alreadyInDestination),
-                      )
-                }
-                disabled={movingBulk}
-              />
-              <div className="space-y-2">
-                <label className={filterLabelClass}>
-                  Maximum copies to move
-                  <input
-                    name="quantityLimit"
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={moveLimit}
-                    onChange={(e) => setMoveLimit(e.target.value)}
-                    placeholder="All selected copies"
-                    className={cn(filterInputClass, "w-full")}
-                    disabled={movingBulk}
-                  />
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className={filterButtonClass}
-                    onClick={() => setMoveLimit("85")}
-                  >
-                    85 copies
-                  </button>
-                  <button
-                    type="button"
-                    className={filterButtonClass}
-                    disabled={
-                      destinationRoom == null ||
-                      currentOccupancy >= destinationRoom
+              <form
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  const form = event.currentTarget;
+                  const fd = new FormData(form);
+                  if (moveDisabled) return;
+                  setMoveError("");
+                  fd.set("destinationLocationId", bulkDestinationLocationId);
+                  fd.set(
+                    "expectedStacks",
+                    JSON.stringify(
+                      allMatchingSelected
+                        ? []
+                        : selectedStacks.map((stack) => ({
+                            id: stack.inventoryItemId,
+                            quantity: stack.quantity,
+                            locationId: stack.locationId,
+                            locationSection: stack.section ?? null,
+                          })),
+                    ),
+                  );
+                  fd.set(
+                    "clientDestinationLocationId",
+                    bulkDestinationLocationId,
+                  );
+                  if (!bulkDestinationLocationId) {
+                    setMessage(
+                      "Choose a destination location before moving cards.",
+                    );
+                    return;
+                  }
+                  setMovingBulk(true);
+                  setMessage("");
+                  try {
+                    if (!onBulkMoveLocation) {
+                      setMessage("This inventory is read-only.");
+                      return;
                     }
-                    onClick={() =>
-                      setMoveLimit(
-                        String(
-                          Math.max(
-                            1,
-                            (destinationRoom ?? 85) - currentOccupancy,
-                          ),
-                        ),
-                      )
+                    const result = await onBulkMoveLocation(fd);
+                    if (!result.success) {
+                      setMoveError(result.message);
+                      return;
                     }
-                  >
-                    Fill remaining space
-                  </button>
-                  <button
-                    type="button"
-                    className={filterButtonClass}
-                    onClick={() => setMoveLimit("")}
-                  >
-                    All copies
-                  </button>
-                </div>
-                <p className="text-xs text-zinc-400">
-                  Moves up to this many physical copies, oldest stacks first;
-                  splits the last stack if needed. Copies already in the
-                  destination stay put.
-                </p>
-                {allMatchingSelected && (
-                  <p className="text-xs text-amber-200">
-                    All matching inventory is evaluated when submitted.
-                    Occupancy above is current; the final count may exceed
-                    capacity.
-                  </p>
-                )}
-              </div>
-              <label className={filterLabelClass}>
-                Preview
-                <div className="min-h-10 rounded-md border border-zinc-700 bg-zinc-900 p-2 text-zinc-300">
-                  {selectedEntriesCount} entries · {selectedCardsCount} cards
-                  {currentLocationId ? " · current location filter only" : ""}
-                </div>
-              </label>
-              <label className={filterLabelClass}>
-                Reason
+                    setMessage(
+                      `Moved ${result.movedCards} cards across ${result.movedEntries} entries to ${result.destinationLocationName}${bulkSection ? ` / ${bulkSection}` : " (no section)"}.`,
+                    );
+                    clearSelection();
+                    rememberScrollPosition();
+                    router.refresh();
+                  } catch (error: any) {
+                    setMoveError(error?.message || "Bulk move failed.");
+                  } finally {
+                    setMovingBulk(false);
+                  }
+                }}
+                className="flex min-h-0 flex-col"
+              >
                 <input
-                  name="reason"
-                  className={cn(filterInputClass, "w-full")}
-                  defaultValue="Bulk location move"
+                  type="hidden"
+                  name="selectionMode"
+                  value={allMatchingSelected ? "all" : "selected"}
                 />
-              </label>
-              <button
-                type="submit"
-                className={filterPrimaryButtonClass}
-                disabled={movingBulk || !bulkDestinationLocationId}
-                aria-disabled={movingBulk || !bulkDestinationLocationId}
-              >
-                <span className="inline-flex items-center justify-center gap-2">
-                  {movingBulk ? <LoadingSpinner /> : null}
-                  {movingBulk
-                    ? `Moving ${selectedEntriesCount} entries…`
-                    : "Move selected"}
-                </span>
-              </button>
-            </form>
-          ) : null}
-          {selectedEntriesCount > 0 && capabilities.canBulkDelete ? (
-            <div className="flex flex-wrap items-center gap-2 border-t border-zinc-800 pt-3 text-sm">
-              <span className="text-red-200">
-                Delete scope:{" "}
-                {allMatchingSelected ? "all matching filters" : "selected rows"}{" "}
-                · {selectedEntriesCount} entries · {selectedCardsCount} cards
-              </span>
-              <button
-                type="button"
-                className={filterDangerButtonClass}
-                disabled={deletingBulk}
-                onClick={() => submitBulkDelete()}
-              >
-                <span className="inline-flex items-center justify-center gap-2">
-                  {deletingBulk ? <LoadingSpinner /> : null}
-                  {deletingBulk
-                    ? `Deleting ${selectedEntriesCount} entries…`
-                    : allMatchingSelected
-                      ? "Delete all matching"
-                      : "Delete selected"}
-                </span>
-              </button>
-            </div>
+                <input
+                  type="hidden"
+                  name="itemIds"
+                  value={JSON.stringify(selectedItemIdList)}
+                />
+                <input
+                  type="hidden"
+                  name="sourceLocationId"
+                  value={currentLocationId || ""}
+                />
+                <input
+                  type="hidden"
+                  name="quantityLimit"
+                  value={effectiveMoveLimit}
+                />
+                <div className="overflow-y-auto p-5">
+                  <div className="mb-5 rounded-lg bg-[var(--app-surface-3)] px-3 py-2 text-sm">
+                    <strong>
+                      {selectedEntriesCount} entries ·{" "}
+                      {selectedCardsCount.toLocaleString()} cards
+                    </strong>
+                    <span className="ml-2 text-[var(--app-muted)]">
+                      {allMatchingSelected
+                        ? "All matching filters, including other pages"
+                        : currentLocationId
+                          ? "From the current location filter"
+                          : "From your selected inventory"}
+                    </span>
+                  </div>
+                  <div className="grid items-start gap-6 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+                    <StorageDestinationPicker
+                      locations={storageLocations}
+                      locationId={bulkDestinationLocationId}
+                      onLocationChange={(id) => {
+                        setBulkDestinationLocationId(id);
+                        setMoveError("");
+                      }}
+                      section={bulkSection}
+                      onSectionChange={setBulkSection}
+                      incomingQuantity={
+                        allMatchingSelected ? undefined : plannedCopies
+                      }
+                      disabled={movingBulk}
+                    />
+                    <section
+                      className="min-w-0 space-y-3 rounded-xl border border-[var(--app-border)] p-4"
+                      aria-label="Move quantity"
+                    >
+                      <h3 className="text-sm font-semibold">
+                        3. How many copies?
+                      </h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        {(
+                          [
+                            ["all", "All copies"],
+                            ["85", "85 copies"],
+                            ["fill", "Fill remaining space"],
+                            ["custom", "Custom amount"],
+                          ] as const
+                        ).map(([mode, label]) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            aria-pressed={quantityMode === mode}
+                            className={cn(
+                              filterButtonClass,
+                              "text-left",
+                              quantityMode === mode &&
+                                "!border-[var(--app-accent)] !bg-[var(--app-accent-soft)]",
+                            )}
+                            disabled={
+                              movingBulk ||
+                              (mode === "fill" &&
+                                (destinationRoom == null ||
+                                  currentOccupancy >= destinationRoom))
+                            }
+                            onClick={() => {
+                              setQuantityMode(mode);
+                              if (mode === "custom" && !moveLimit)
+                                setMoveLimit(
+                                  String(Math.max(1, plannedCopies)),
+                                );
+                            }}
+                          >
+                            {label}
+                            {mode === "fill" && destinationRoom != null && (
+                              <span className="block text-xs text-[var(--app-muted)]">
+                                {Math.max(
+                                  0,
+                                  destinationRoom - currentOccupancy,
+                                )}{" "}
+                                spaces left
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                      {quantityMode !== "all" && (
+                        <label className="block text-sm">
+                          Maximum copies to move
+                          <input
+                            type="number"
+                            min={1}
+                            step={1}
+                            value={effectiveMoveLimit}
+                            onChange={(event) => {
+                              setQuantityMode("custom");
+                              setMoveLimit(event.target.value);
+                            }}
+                            required
+                            disabled={movingBulk}
+                            className={cn(filterInputClass, "mt-1 w-full")}
+                          />
+                        </label>
+                      )}
+                      <p className="text-xs leading-relaxed text-[var(--app-muted)]">
+                        Moves physical copies, oldest stacks first. If needed,
+                        the last stack is split. Copies already at the
+                        destination stay put.
+                      </p>
+                      {!allMatchingSelected && alreadyInDestination > 0 && (
+                        <p className="text-sm">
+                          {alreadyInDestination} selected copies are already
+                          here and will stay.
+                        </p>
+                      )}
+                      {allMatchingSelected && (
+                        <p className="text-xs text-[var(--app-muted)]">
+                          This is an upper limit. Matching cards and copies
+                          already here are checked at submission; final
+                          occupancy may differ.
+                        </p>
+                      )}
+                      <details className="text-sm">
+                        <summary className="cursor-pointer text-[var(--app-muted)]">
+                          Add a note to the move
+                        </summary>
+                        <label className="mt-2 block">
+                          Reason
+                          <input
+                            name="reason"
+                            className={cn(filterInputClass, "mt-1 w-full")}
+                            defaultValue="Bulk location move"
+                            disabled={movingBulk}
+                          />
+                        </label>
+                      </details>
+                    </section>
+                  </div>
+                </div>
+                <footer className="shrink-0 space-y-3 border-t border-[var(--app-border)] bg-[var(--app-surface-3)] px-5 py-4">
+                  {moveError && (
+                    <p
+                      role="alert"
+                      className="rounded border border-red-600 bg-red-500/10 p-2 text-sm"
+                    >
+                      {moveError}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0 basis-full text-sm sm:flex-1 sm:basis-auto">
+                      <p className="font-semibold">
+                        {destinationName
+                          ? `${allMatchingSelected ? "Up to " : ""}${Number.isFinite(plannedCopies) ? plannedCopies.toLocaleString() : 0} cards → ${bulkSection || "No section"}`
+                          : "Choose a destination to continue"}
+                      </p>
+                      {destinationName && (
+                        <p className="break-words text-xs text-[var(--app-muted)]">
+                          {destinationName}
+                        </p>
+                      )}
+                      {destinationRoom != null && !allMatchingSelected && (
+                        <p
+                          className={cn(
+                            "text-xs",
+                            currentOccupancy + plannedCopies > destinationRoom
+                              ? "text-amber-500"
+                              : "text-[var(--app-muted)]",
+                          )}
+                        >
+                          {currentOccupancy + plannedCopies} / {destinationRoom}{" "}
+                          after move
+                          {currentOccupancy + plannedCopies > destinationRoom
+                            ? ` · ${currentOccupancy + plannedCopies - destinationRoom} over capacity — may not fit`
+                            : ""}
+                        </p>
+                      )}
+                      {plannedCopies === 0 && destinationName && (
+                        <p className="text-xs text-amber-500">
+                          No copies to move. Choose another section or amount.
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex w-full justify-end gap-2 sm:w-auto">
+                      <button
+                        type="button"
+                        className={filterButtonClass}
+                        disabled={movingBulk}
+                        onClick={() => setMoveOpen(false)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className={filterPrimaryButtonClass}
+                        disabled={moveDisabled}
+                      >
+                        {movingBulk ? (
+                          <span className="inline-flex items-center gap-2">
+                            <LoadingSpinner />
+                            Moving…
+                          </span>
+                        ) : (
+                          `Move ${allMatchingSelected ? "up to " : ""}${Number.isFinite(plannedCopies) ? plannedCopies.toLocaleString() : 0} cards`
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </footer>
+              </form>
+            </InventoryMoveDialog>
           ) : null}
         </div>
       ) : null}
@@ -2660,7 +2848,40 @@ export function InventoryBrowser({
                   return (
                     <tr
                       key={r.id}
-                      className="border-b border-zinc-800"
+                      className={cn(
+                        "border-b border-zinc-800",
+                        selectionAvailable &&
+                          "cursor-default select-none hover:bg-[var(--app-surface-3)]",
+                        selectionAvailable &&
+                          isRowSelected(r.original) &&
+                          "outline outline-2 -outline-offset-2 outline-sky-500 !bg-sky-500/15",
+                      )}
+                      aria-selected={
+                        selectionAvailable
+                          ? isRowSelected(r.original)
+                          : undefined
+                      }
+                      tabIndex={selectionAvailable ? 0 : undefined}
+                      onClick={(event) => {
+                        if (
+                          (event.target as HTMLElement).closest(
+                            "button,a,input,select,textarea,summary,[role=button]",
+                          )
+                        )
+                          return;
+                        selectRow(r.original, event);
+                      }}
+                      onKeyDown={(event) => {
+                        if (
+                          event.target !== event.currentTarget ||
+                          !selectionAvailable
+                        )
+                          return;
+                        if (event.key === " " || event.key === "Enter") {
+                          event.preventDefault();
+                          selectRow(r.original, event);
+                        }
+                      }}
                       style={
                         shouldShowOwnerColor
                           ? {
@@ -2701,22 +2922,28 @@ export function InventoryBrowser({
                     aria-label={`Select ${row.cardName}`}
                     className="absolute left-2 top-2 z-10 h-5 w-5"
                     checked={isRowSelected(row)}
-                    onChange={(event) => {
-                      const ids = getRowSourceIds(row);
-                      setAllMatchingSelected(false);
-                      setSelectedItemIds((current) => {
-                        const next = new Set(current);
-                        if (event.target.checked)
-                          ids.forEach((id) => next.add(id));
-                        else ids.forEach((id) => next.delete(id));
-                        return next;
-                      });
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      selectRow(row, event, true);
                     }}
+                    onChange={() => {}}
                   />
                 ) : null}
                 <button
-                  onClick={() => setSelected(row)}
-                  className="w-full overflow-hidden rounded border-2 bg-zinc-900 p-2 text-left hover:bg-zinc-800"
+                  onClick={(event) => {
+                    if (
+                      selectionAvailable &&
+                      (event.shiftKey || event.ctrlKey || event.metaKey)
+                    )
+                      selectRow(row, event);
+                    else setSelected(row);
+                  }}
+                  className={cn(
+                    selectionAvailable &&
+                      isRowSelected(row) &&
+                      "!border-sky-500 ring-2 ring-sky-500",
+                    "w-full overflow-hidden rounded border-2 bg-zinc-900 p-2 text-left hover:bg-zinc-800",
+                  )}
                   style={
                     shouldShowOwnerColor
                       ? {
