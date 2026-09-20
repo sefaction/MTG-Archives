@@ -13,8 +13,7 @@ test("admin mode toggle preserves current page and scroll state", () => {
   assert.match(toggle, /window\.scrollTo\(0, scrollY\)/);
 
   assert.match(nav, /getSafeReturnTo/);
-  assert.match(nav, /returnTo\.startsWith\("\/"\)/);
-  assert.match(nav, /returnTo\.startsWith\("\/\/"\)/);
+  assert.match(nav, /safeLocalReturnPath\(formData\.get\("returnTo"\)\)/);
   assert.match(nav, /redirect\(getSafeReturnTo\(formData\)\)/);
   assert.doesNotMatch(
     nav,

@@ -2,7 +2,7 @@
 
 Updated 2026-09-20. This is a verification map, not a claim that every feature is complete or that no bugs exist. GitHub controls live issue/PR status. Preserve intended owner/admin/public and League differences.
 
-Released main `e98266f` includes the previously reviewed stack through #236. The current cumulative review stack is #243 → #244 → #247 → #248 → #250 → #254; each still needs individual merge approval. See WORK_CHECKPOINT.md and PRs for exact build/results. No recurring audit scheduler is configured.
+Released main `e98266f` includes the previously reviewed stack through #236. The current cumulative review stack is #243 → #244 → #247 → #248 → #250 → #254 → #255; each still needs individual merge approval. See WORK_CHECKPOINT.md and PRs for exact build/results. No recurring audit scheduler is configured.
 
 | Area                            | Behavior covered                                                                                                                                                    | Evidence                                                                                                        | Remaining depth / deliberate boundary                                                                                                                                                       |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -23,7 +23,7 @@ Released main `e98266f` includes the previously reviewed stack through #236. The
 
 ## Next audit priorities
 
-Latest cumulative verification at application `cd5c469`: 558 unit tests and 37 serial browser cases passed, zero skips; generation/typecheck, host/Docker builds and six manifest guards passed. See LOCAL_REVIEW_BUILD.md for exact runtime identity. The earlier intermittent advanced-search render timeout remains recorded on #220 even though the final run passed.
+Latest cumulative verification at application `45bf2de` / tests `e53fa28`: 561 unit tests and 39 serial browser cases passed, zero skips; generation/typecheck, host/Docker builds and six manifest guards passed. #255 adds server-validated local login/admin-mode return paths and protected-destination retry coverage. It also corrects the email test's outdated redirect expectation and timeout cleanup (#256). See LOCAL_REVIEW_BUILD.md for runtime identity and failed/retest history. The earlier intermittent advanced-search render timeout remains recorded on #220 even though the final run passed.
 
 1. Keep deterministic inventory-detail fixtures and keyboard/public regressions in the serial gate. They now pass; review #236 and retain the residual advanced-search timing observation on #220 until adequately characterized.
 2. Add full League lifecycle browser acceptance (#239) without erasing intentional permissions/locked-state differences. The complete two-user trade scenario now passes in #250.

@@ -3,6 +3,7 @@ import { login } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Nav } from "@/components/Nav";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
+import { safeLocalReturnPath } from "@/lib/local-return-path";
 
 export default async function LoginPage({
   searchParams,
@@ -12,17 +13,14 @@ export default async function LoginPage({
   const params = await searchParams;
   async function doLogin(formData: FormData) {
     "use server";
+    const returnTo = safeLocalReturnPath(formData.get("returnTo"));
     const result = await login(
       String(formData.get("identifier") || ""),
       String(formData.get("password") || ""),
     );
     if (result.ok)
-      redirect(
-        result.forcePasswordChange
-          ? "/change-password"
-          : String(formData.get("returnTo") || "/dashboard"),
-      );
-    redirect("/login?error=1");
+      redirect(result.forcePasswordChange ? "/change-password" : returnTo);
+    redirect(`/login?error=1&next=${encodeURIComponent(returnTo)}`);
   }
 
   return (
@@ -52,7 +50,7 @@ export default async function LoginPage({
         <input
           type="hidden"
           name="returnTo"
-          value={params.returnTo || "/dashboard"}
+          value={safeLocalReturnPath(params.next || params.returnTo)}
         />
         <label className="block text-sm">
           Username or email

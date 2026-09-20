@@ -21,7 +21,19 @@ Pending, in dependency order:
 
 The prior full cumulative #243–#248 run passed 550 units, generation/typecheck, Windows/Linux builds, six client-manifest guards and 33 serial browser cases without skips. Later trade batch has focused acceptance; full cumulative security acceptance remains pending.
 
-## Current security batch
+## Completed login-return follow-up (#253 / #256)
+
+PR #255, branch `fix/local-login-redirects`, application `45bf2de`, test correction `e53fa28`, based on #254 tip `08d287f`. Shared normalized local-return-path guard for login and admin-mode toggles; submitted-field validation, middleware next compatibility and safe wrong-password retry.
+
+Both baseline defects were reproduced locally; the first URL-order harness assertion was corrected before proving lost destination. First full run was **38 passed / 1 failed** because the email test expected the old Dashboard redirect. Its timeout exposed cleanup defect #256. The exact orphan account and captured email were removed; no real account changed. Test teardown now deletes both users before capture cleanup through an independent request context.
+
+Final acceptance **PASSED**: 561 units, generation/typecheck, Windows/Linux production builds and six manifest guards, all **39 serial browser cases with zero skips** (2.8m). Targeted email/redirect retest 3/3 passed (11.0s). Linux core run `35526957981` passed. Auth/login/email/trade fixture users verified zero and physical inventory unchanged at 12,477.
+
+Current local image `sha256:4db6c0bce174b5a6e7530479befda95a3ed4a5ca13f4607b27dca05bbe0a5fd2`, healthy/host HTTP 200. Logs: `login-return-docker.log`, `login-return-browser.log`, `login-return-full-verify.log` (failed historical), `login-return-email-recheck.log`, `login-return-final-verify.log`. All processes completed. Ready for individual review; no merge approval.
+
+**Next safe task: #239 League lifecycle on a new branch based on #255**, followed by #240 visual vault. Foundry roadmap/architecture and current League pages/actions/schema were inspected while verification ran; no League code/test modifications yet. Preserve explicit public-deck versus member-only League boundaries.
+
+## Completed session-security batch
 
 - Implements additive AuthSession migration `20260920170000_auth_sessions`, 256-bit opaque tokens stored SHA-256 hashed, password binding, server expiry/revocation, login/password-change rotation, admin-edit/reset deletion, rejection of legacy identity cookies. Existing users must sign in again; passwords/collection data unchanged.
 - Pre-fix synthetic identity-cookie API request received HTTP 200 instead of 401. Regression intentionally failed on the old image; no production testing. Log `test-results/session-baseline.log`.

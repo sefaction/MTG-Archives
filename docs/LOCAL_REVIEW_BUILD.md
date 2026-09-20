@@ -1,6 +1,12 @@
 # Local review build — cumulative issue queue
 
-## Current session-security review (2026-09-20)
+## Current login-return review (2026-09-20)
+
+Cumulative stack #243 → #244 → #247 → #248 → #250 → #254 → #255, application `45bf2de`, test correction `e53fa28`. Local image `sha256:4db6c0bce174b5a6e7530479befda95a3ed4a5ca13f4607b27dca05bbe0a5fd2` is healthy/HTTP 200. #255 validates local login/admin-mode return paths and preserves requested destinations across login retries; see LOCAL_RETURN_PATHS.md.
+
+Final full verification PASSED: 561 units, generation/typecheck, Windows/Linux production builds and six manifest guards, all **39 serial browser cases with zero skips** (2.8m). Initial run had 38 passes and one outdated email-test redirect expectation; the correction also fixes fixture teardown #256, with a clean focused and full retest. Auth/login/email/trade fixture users returned to zero; physical inventory remains 12,477. Same capture-only SMTP overlays and disabled local trade announcement endpoint; no production change and no pending PR has merge approval.
+
+## Previous session-security review (2026-09-20)
 
 Released main remains `e98266f`. Cumulative local stack: #243 → #244 → #247 → #248 → #250 → #254, application `cd5c469`. Image `sha256:5785e72f1b7a74107878ae5215f7070a0b7b4f67abd49f31c444666b89b44d90` is healthy and host HTTP returns 200, with all 59 migrations current. Preserve the three Compose overlays and capture-only SMTP. One local trade-announcement endpoint remains disabled for safe fixture testing.
 
