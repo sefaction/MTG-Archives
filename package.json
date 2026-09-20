@@ -22,7 +22,8 @@
     "ui:test": "playwright test",
     "ui:test:headed": "playwright test --headed",
     "ui:report": "playwright show-report",
-    "verify": "npm.cmd run prisma:generate && npm.cmd run typecheck && npm.cmd test && npm.cmd run build && npm.cmd run ui:test",
+    "verify": "tsx scripts/verify.ts",
+    "verify:core": "tsx scripts/verify.ts --core",
     "typecheck": "tsc --noEmit",
     "format": "npx prettier --check .",
     "test": "tsx --test tests/*.test.ts"
