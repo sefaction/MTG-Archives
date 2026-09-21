@@ -1123,7 +1123,7 @@ export function InventoryAdvancedSearch({
           hidden: filterTab !== tab,
           className: "inventory-filter-tab-panel",
         }
-      : { className: "contents" };
+      : { className: "space-y-3" };
   }
   const capabilities: InventoryAdvancedSearchCapabilities = {
     showOwnerScopeControls: isAdmin && !isPublic,

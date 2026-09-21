@@ -185,11 +185,11 @@ test("inventory page keeps utility actions compact near results controls", () =>
 test("inventory advanced search separates mechanical and collection filters", () => {
   assert.match(
     inventoryAdvancedSearch,
-    /Card text and printing[\s\S]*Color and mana[\s\S]*Collection fields/,
+    /Card text and printing[\s\S]*Color and mana[\s\S]*Collection and storage/,
   );
   assert.match(
     inventoryAdvancedSearch,
-    /Collection fields[\s\S]*<span className=\{filterLabelClass\}>USD<\/span>/,
+    /Collection and storage[\s\S]*<span className=\{filterLabelClass\}>USD<\/span>/,
   );
   assert.doesNotMatch(inventoryAdvancedSearch, /Color, mana, and price/);
   assert.match(inventoryAdvancedSearch, /grid items-end gap-3/);
