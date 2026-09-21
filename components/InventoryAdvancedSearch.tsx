@@ -2,7 +2,10 @@
 
 import type { FormEvent } from "react";
 import { useEffect, useId, useRef, useState } from "react";
-import { CollapsiblePanel } from "./CollapsiblePanel";
+import {
+  InventoryFilterContainer,
+  useInventoryWorkspace,
+} from "./InventoryWorkspace";
 import { ManaSymbol } from "./mtg/ManaSymbol";
 import {
   cn,
@@ -1080,6 +1083,7 @@ export function InventoryAdvancedSearch({
   clearHref,
   scryfallQueryError,
 }: InventoryAdvancedSearchProps) {
+  const workspace = useInventoryWorkspace();
   const capabilities: InventoryAdvancedSearchCapabilities = {
     showOwnerScopeControls: isAdmin && !isPublic,
     showOwnerFilter: isPublic,
@@ -1169,7 +1173,7 @@ export function InventoryAdvancedSearch({
 
   const activeFilterSummary = activeChips.length
     ? `${activeChips.length} ${activeChips.length === 1 ? "filter" : "filters"} active`
-    : "Optional filters hidden";
+    : "No optional filters active";
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1198,20 +1202,26 @@ export function InventoryAdvancedSearch({
   return (
     <>
       {activeChips.length ? (
-        <div className="flex flex-wrap items-center gap-2 rounded border border-zinc-800 bg-zinc-950/80 p-2">
+        <div className="inventory-filter-summary flex flex-wrap items-center gap-2 rounded border border-zinc-800 bg-zinc-950/80 p-2">
           <FilterChipBar chips={activeChips} />
           <a href={clearHref} className={filterButtonClass}>
             Clear Filters
           </a>
         </div>
       ) : null}
-      <CollapsiblePanel
+      <InventoryFilterContainer
         title="Advanced Inventory Search"
-        defaultOpen={false}
+        defaultOpen={Boolean(scryfallQueryError)}
+        error={scryfallQueryError}
         summary={activeFilterSummary}
         storageKey={ADVANCED_SEARCH_PANEL_STORAGE_KEY}
       >
-        <form className="space-y-3" action={actionPath} onSubmit={handleSubmit}>
+        <form
+          id={workspace ? "inventory-workspace-filters" : undefined}
+          className="space-y-3"
+          action={actionPath}
+          onSubmit={handleSubmit}
+        >
           <input type="hidden" name="page" value="1" />
           <input type="hidden" name="displayMode" value={displayMode} />
           {first(params, "pageSize") ? (
@@ -1238,72 +1248,28 @@ export function InventoryAdvancedSearch({
               value={first(params, "sortDir")}
             />
           ) : null}
-          {capabilities.showScryfallQuery ? (
-            <section className="rounded border border-violet-900/70 bg-violet-950/20 p-3">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <div className="text-xs font-semibold uppercase text-violet-300">
-                    Scryfall arguments
-                  </div>
-                  <p className="mt-1 text-xs text-zinc-400">
-                    Use Scryfall syntax against cards in this inventory. These
-                    arguments combine with the structured filters below.
-                  </p>
-                </div>
-                <a
-                  href="https://scryfall.com/docs/syntax"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs text-violet-300 underline hover:text-violet-200"
-                >
-                  Scryfall syntax reference
-                </a>
-              </div>
-              <label className={cn(filterLabelClass, "mt-3 block")}>
-                Query arguments
-                <input
-                  name="scryfallQuery"
-                  defaultValue={first(params, "scryfallQuery")}
-                  maxLength={1000}
-                  spellCheck={false}
-                  className={cn(filterInputClass, "mt-1 w-full font-mono")}
-                  placeholder='m:x, m=x, or (t:creature o:"draw a card")'
-                  aria-describedby="scryfall-query-help"
-                />
-              </label>
-              <p
-                id="scryfall-query-help"
-                className="mt-2 text-xs text-zinc-500"
-              >
-                Example: <code className="text-zinc-300">m:x</code> includes X
-                in the mana cost; <code className="text-zinc-300">m=x</code>
-                matches a mana cost composed only of X. Expressions are parsed
-                locally and matched only against cards in this inventory.
-              </p>
-              {scryfallQueryError ? (
-                <p
-                  role="alert"
-                  className="mt-2 rounded border border-red-900 bg-red-950/40 px-3 py-2 text-sm text-red-200"
-                >
-                  {scryfallQueryError}
-                </p>
-              ) : null}
-            </section>
-          ) : null}
           <section className="rounded border border-zinc-800 bg-zinc-950/50 p-3">
             <div className="mb-3 text-xs font-semibold uppercase text-zinc-500">
               Card text and printing
             </div>
             <div className="grid items-end gap-3 lg:grid-cols-[minmax(13rem,1.2fr)_minmax(16rem,1.4fr)_minmax(13rem,1fr)_minmax(13rem,1fr)]">
-              <AutocompleteInput
-                label="Card name"
-                name="cardName"
-                initialValue={first(params, "cardName")}
-                placeholder="Sol Ring"
-                options={cardOptions}
-                suggestionsEndpoint={suggestionsEndpoint}
-                suggestionKind="cardName"
-              />
+              {workspace ? (
+                <input
+                  type="hidden"
+                  name="cardName"
+                  value={workspace.cardName}
+                />
+              ) : (
+                <AutocompleteInput
+                  label="Card name"
+                  name="cardName"
+                  initialValue={first(params, "cardName")}
+                  placeholder="Sol Ring"
+                  options={cardOptions}
+                  suggestionsEndpoint={suggestionsEndpoint}
+                  suggestionKind="cardName"
+                />
+              )}
               <TokenAutocompleteInput
                 label="Type line"
                 name="typeTokens"
@@ -1585,6 +1551,7 @@ export function InventoryAdvancedSearch({
                 <span className={filterLabelClass}>USD</span>
                 <input
                   name="priceMin"
+                  aria-label="Minimum price in USD"
                   type="number"
                   step="0.01"
                   defaultValue={first(params, "priceMin")}
@@ -1593,6 +1560,7 @@ export function InventoryAdvancedSearch({
                 />
                 <input
                   name="priceMax"
+                  aria-label="Maximum price in USD"
                   type="number"
                   step="0.01"
                   defaultValue={first(params, "priceMax")}
@@ -1602,16 +1570,68 @@ export function InventoryAdvancedSearch({
               </div>
             </div>
           </section>
-          <FilterChipBar chips={activeChips} />
+          {capabilities.showScryfallQuery ? (
+            <section className="inventory-scryfall-filter rounded border border-violet-900/70 bg-violet-950/20 p-3">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <div className="text-xs font-semibold uppercase text-violet-300">
+                    Scryfall arguments
+                  </div>
+                  <p className="mt-1 text-xs text-zinc-400">
+                    Use Scryfall syntax against cards in this inventory. These
+                    arguments combine with the structured filters.
+                  </p>
+                </div>
+                <a
+                  href="https://scryfall.com/docs/syntax"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-violet-300 underline hover:text-violet-200"
+                >
+                  Scryfall syntax reference
+                </a>
+              </div>
+              <label className={cn(filterLabelClass, "mt-3 block")}>
+                Query arguments
+                <input
+                  name="scryfallQuery"
+                  defaultValue={first(params, "scryfallQuery")}
+                  maxLength={1000}
+                  spellCheck={false}
+                  className={cn(filterInputClass, "mt-1 w-full font-mono")}
+                  placeholder='m:x, m=x, or (t:creature o:"draw a card")'
+                  aria-describedby="scryfall-query-help"
+                />
+              </label>
+              <p
+                id="scryfall-query-help"
+                className="mt-2 text-xs text-zinc-500"
+              >
+                Example: <code className="text-zinc-300">m:x</code> includes X
+                in the mana cost; <code className="text-zinc-300">m=x</code>
+                matches a mana cost composed only of X. Expressions are parsed
+                locally and matched only against cards in this inventory.
+              </p>
+              {scryfallQueryError ? (
+                <p
+                  role="alert"
+                  className="mt-2 rounded border border-red-900 bg-red-950/40 px-3 py-2 text-sm text-red-200"
+                >
+                  {scryfallQueryError}
+                </p>
+              ) : null}
+            </section>
+          ) : null}
+          {!workspace && <FilterChipBar chips={activeChips} />}
 
-          <div className="flex flex-wrap gap-2">
+          <div className="inventory-filter-apply flex flex-wrap gap-2">
             <button className={filterPrimaryButtonClass}>Apply filters</button>
             <a href={clearHref} className={filterButtonClass}>
               Clear Filters
             </a>
           </div>
         </form>
-      </CollapsiblePanel>
+      </InventoryFilterContainer>
     </>
   );
 }

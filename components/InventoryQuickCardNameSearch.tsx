@@ -3,6 +3,7 @@
 import type { FormEvent, KeyboardEvent } from "react";
 import { useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useInventoryWorkspace } from "./InventoryWorkspace";
 import {
   cn,
   filterButtonClass,
@@ -55,7 +56,10 @@ export function InventoryQuickCardNameSearch({
   const listId = `${inputId}-listbox`;
   const entries = paramEntries(params);
   const cardName = first(params, "cardName");
-  const [value, setValue] = useState(cardName);
+  const workspace = useInventoryWorkspace();
+  const [localValue, setLocalValue] = useState(cardName);
+  const value = workspace?.cardName ?? localValue;
+  const setValue = workspace?.setCardName ?? setLocalValue;
   const [suggestions, setSuggestions] = useState<AutocompleteOption[]>([]);
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(0);
@@ -66,7 +70,7 @@ export function InventoryQuickCardNameSearch({
   const clearHref = `${actionPath}?${clearParams.toString()}`;
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => setValue(cardName), 0);
+    const timeout = window.setTimeout(() => setLocalValue(cardName), 0);
     return () => window.clearTimeout(timeout);
   }, [cardName]);
 
@@ -113,7 +117,15 @@ export function InventoryQuickCardNameSearch({
 
   function buildUrl(nextCardName: string) {
     const next = new URLSearchParams();
-    entries.forEach(([key, entryValue]) => next.append(key, entryValue));
+    const filters = workspace
+      ? document.getElementById("inventory-workspace-filters")
+      : null;
+    if (filters instanceof HTMLFormElement) {
+      new FormData(filters).forEach((value, key) => {
+        const clean = String(value).trim();
+        if (clean && key !== "cardName") next.append(key, clean);
+      });
+    } else entries.forEach(([key, entryValue]) => next.append(key, entryValue));
     const clean = nextCardName.trim();
     if (clean) next.set("cardName", clean);
     next.set("page", "1");
@@ -126,7 +138,8 @@ export function InventoryQuickCardNameSearch({
       INVENTORY_SCROLL_STORAGE_KEY,
       String(window.scrollY),
     );
-    router.replace(buildUrl(nextCardName), { scroll: false });
+    if (workspace) router.push(buildUrl(nextCardName), { scroll: false });
+    else router.replace(buildUrl(nextCardName), { scroll: false });
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -158,7 +171,11 @@ export function InventoryQuickCardNameSearch({
   }
 
   return (
-    <section className={cn(filterPanelClass, "space-y-2")}>
+    <section
+      className={
+        workspace ? "inventory-quick-search" : cn(filterPanelClass, "space-y-2")
+      }
+    >
       <form
         action={actionPath}
         method="get"
