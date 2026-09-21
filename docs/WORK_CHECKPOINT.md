@@ -2,7 +2,15 @@
 
 Updated 2026-09-21. Reconcile git, GitHub, Docker and processes before resuming; GitHub is authoritative.
 
-## Active batch: sidebar and real Inventory, 2026-09-21
+## Active batch: per-user navigation layout, 2026-09-21
+
+User requested a sidebar/topbar choice. Branch `feat/navigation-layout-preference` stacks on #277 at `2ef3832`; #276/#277 remain open, unmerged and not merge-approved. Live main remains `7a32dd3`.
+
+Scope: account-backed Settings > Appearance choice, sidebar default, shared signed-in Archive shell with responsive topbar; phone Menu and separate anonymous/League navigation preserved. Additive User column; existing settings authentication/audit path retained. No production action.
+
+Implementation and owned-fixture regression added. Pending: core checks, cumulative Docker rebuild/migration, browser verification/visual review, PR and durable decision notes. Current runtime is still the previous #277 image below. Next: verify core, build with all three Compose overlays, then run serial browser checks. #220/#260 remain unresolved. No scheduler or desktop project assignment verification.
+
+## Previous batch: sidebar and real Inventory, 2026-09-21
 
 The user accepted the recommended sequence: sidebar + real Inventory, then real Locations, cumulative Docker review. This is implementation authority, not merge approval.
 

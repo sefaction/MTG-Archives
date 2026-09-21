@@ -147,6 +147,7 @@ model User {
   isActive                     Boolean                             @default(true)
   lastLoginAt                  DateTime?
   theme                        String                              @default("golgari")
+  navigationLayout             String                              @default("sidebar")
   preferredPriceProvider       String                              @default("scryfall")
   inventoryDefaultVisibility   DefaultCollectionVisibility         @default(PRIVATE)
   deckDefaultVisibility        DefaultCollectionVisibility         @default(PRIVATE)

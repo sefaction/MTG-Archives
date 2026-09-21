@@ -15,6 +15,7 @@ import { getUnreadNotificationCount } from "@/lib/notifications";
 import { normalizePlayerColor } from "@/lib/player-colors";
 import { safeLocalReturnPath } from "@/lib/local-return-path";
 import { ArchiveNavigation } from "@/components/ArchiveNavigation";
+import { normalizeNavigationLayout } from "@/lib/navigation-layout";
 
 const mainLinks = [
   { href: "/dashboard", label: "Dashboard" },
@@ -82,7 +83,11 @@ export async function Nav() {
           Admin mode is active. You can view and manage inventory across users.
         </div>
       ) : null}
-      <Navigation appName={appName} adminModeActive={adminModeActive}>
+      <Navigation
+        appName={appName}
+        adminModeActive={adminModeActive}
+        navigationLayout={normalizeNavigationLayout(user?.navigationLayout)}
+      >
         {!user && (
           <div className="flex flex-wrap items-center gap-4">
             <Link href="/" className="app-nav-brand">
