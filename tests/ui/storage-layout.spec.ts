@@ -49,11 +49,9 @@ test("guided storage copies type defaults, preserves overrides and placements, a
         .getByRole("link", { name: "Location types", exact: true }),
     ).toHaveAttribute("aria-current", "page");
     await page.getByText("Create location type", { exact: true }).click();
-    const typeForm = page
-      .locator("form")
-      .filter({
-        has: page.getByRole("button", { name: "Create type", exact: true }),
-      });
+    const typeForm = page.locator("form").filter({
+      has: page.getByRole("button", { name: "Create type", exact: true }),
+    });
     await typeForm.getByLabel("Type name").fill(tag);
     await typeForm
       .getByRole("button", { name: "Divided into sections" })
@@ -97,6 +95,11 @@ test("guided storage copies type defaults, preserves overrides and placements, a
         .getByRole("button", { name: "Continue", exact: true })
         .click();
       await expect(wizard).toContainText("2 default sections");
+      expect(
+        db<number>(
+          `return p.inventoryLocation.count({where:{ownerPlayerId:${quote(fixture.ownerId)},name:${quote(name)}}});`,
+        ),
+      ).toBe(0);
       await wizard.getByRole("button", { name: "Back", exact: true }).click();
       if (firstCapacity)
         await expect(
@@ -228,7 +231,41 @@ test("guided storage copies type defaults, preserves overrides and placements, a
       ),
     ).toBe(20);
 
+    await page.goto(`/inventory?locationId=${customId}&displayMode=exact`);
+    await page.locator('tbody input[type="checkbox"]').first().check();
+    await page
+      .getByRole("button", { name: "Move cards…", exact: true })
+      .click();
+    await picker
+      .getByRole("combobox", { name: "Search destinations" })
+      .fill("Legacy box");
+    await picker.getByRole("option").click();
+    await dialog.getByRole("button", { name: /^Fill remaining space/ }).click();
+    await expect(dialog.getByLabel("Maximum copies to move")).toHaveValue("15");
+    await expect(
+      dialog.getByRole("button", { name: "Move 15 cards", exact: true }),
+    ).toBeEnabled();
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+
     // Wizard reflow with actual defaults, including large text and the light theme.
+    await page.goto("/imports");
+    await page.getByRole("button", { name: /^Add single card/ }).click();
+    const importPicker = page
+      .locator('[data-testid="storage-destination"]:visible')
+      .first();
+    await importPicker
+      .getByRole("button", { name: "Change", exact: true })
+      .click();
+    await importPicker
+      .getByRole("combobox", { name: "Search destinations" })
+      .fill("Custom box");
+    await importPicker.getByRole("option").click();
+    await expect(
+      importPicker.getByRole("button", { name: /Front.*20 \/ 10/ }),
+    ).toBeVisible();
+    await importPicker.getByRole("button", { name: /Front.*20 \/ 10/ }).click();
+    await expect(importPicker.getByText(/All cards may not fit/)).toBeVisible();
+    // Preview only: no import or manual-add submission.
     await page.goto("/locations?panel=create");
     const wizard = page.getByRole("form", {
       name: "Create location",

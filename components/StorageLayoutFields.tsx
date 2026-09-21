@@ -18,7 +18,7 @@ export function StorageLayoutFields({
         ? "single"
         : "none",
   );
-  const [count, setCount] = useState("6");
+  const [count, setCount] = useState(String(value.sections.length || 6));
   const [prefix, setPrefix] = useState("Section");
   const [commonCapacity, setCommonCapacity] = useState("85");
   const [error, setError] = useState("");
@@ -87,84 +87,91 @@ export function StorageLayoutFields({
       )}
       {mode === "sections" && (
         <>
-          <div className="flex flex-wrap items-end gap-3 rounded-lg border border-[var(--app-border)] p-3">
-            <label className="min-w-0 text-sm">
-              Number of sections
-              <input
-                aria-label="Number of sections"
-                type="number"
-                min="1"
-                max={MAX_STORAGE_SECTIONS}
-                step="1"
-                value={count}
-                onChange={(event) => setCount(event.target.value)}
-                className={cn(filterInputClass, "mt-1 block w-28 max-w-full")}
-              />
-            </label>
-            <label className="min-w-0 text-sm">
-              Name prefix
-              <input
-                value={prefix}
-                maxLength={80}
-                onChange={(event) => setPrefix(event.target.value)}
-                className={cn(filterInputClass, "mt-1 block w-40 max-w-full")}
-              />
-            </label>
-            <label className="min-w-0 text-sm">
-              Cards per section (optional)
-              <input
-                type="number"
-                min="1"
-                max="2147483647"
-                step="1"
-                value={commonCapacity}
-                onChange={(event) => setCommonCapacity(event.target.value)}
-                className={cn(filterInputClass, "mt-1 block w-40 max-w-full")}
-              />
-            </label>
-            <button
-              type="button"
-              className={filterButtonClass}
-              onClick={() => {
-                const length = Number(count),
-                  capacity = numberValue(commonCapacity);
-                if (
-                  !Number.isInteger(length) ||
-                  length < 1 ||
-                  length > MAX_STORAGE_SECTIONS ||
-                  !prefix.trim() ||
-                  (capacity !== null &&
-                    (!Number.isInteger(capacity) ||
-                      capacity < 1 ||
-                      capacity > 2147483647))
-                ) {
-                  setError(
-                    "Enter a section count from 1 to 100, a name prefix and a positive whole-number capacity (or leave capacity blank).",
-                  );
-                  return;
-                }
-                if (
-                  value.sections.length &&
-                  !window.confirm(
-                    "Replace these draft section settings? Existing card placements will not be changed.",
-                  )
-                )
-                  return;
-                onChange({
-                  ...value,
-                  sections: Array.from({ length }, (_, i) => ({
-                    name: `${prefix.trim()} ${i + 1}`,
-                    capacity,
-                  })),
-                });
-                setError("");
-              }}
-            >
+          <details open={!value.sections.length}>
+            <summary className="cursor-pointer py-2 text-sm font-medium">
               {value.sections.length
-                ? "Regenerate sections"
-                : "Generate sections"}
-            </button>
-          </div>
+                ? "Generate a different section layout"
+                : "Set up your sections"}
+            </summary>
+            <div className="flex flex-wrap items-end gap-3 rounded-lg border border-[var(--app-border)] p-3">
+              <label className="min-w-0 text-sm">
+                Number of sections
+                <input
+                  aria-label="Number of sections"
+                  type="number"
+                  min="1"
+                  max={MAX_STORAGE_SECTIONS}
+                  step="1"
+                  value={count}
+                  onChange={(event) => setCount(event.target.value)}
+                  className={cn(filterInputClass, "mt-1 block w-28 max-w-full")}
+                />
+              </label>
+              <label className="min-w-0 text-sm">
+                Name prefix
+                <input
+                  value={prefix}
+                  maxLength={80}
+                  onChange={(event) => setPrefix(event.target.value)}
+                  className={cn(filterInputClass, "mt-1 block w-40 max-w-full")}
+                />
+              </label>
+              <label className="min-w-0 text-sm">
+                Cards per section (optional)
+                <input
+                  type="number"
+                  min="1"
+                  max="2147483647"
+                  step="1"
+                  value={commonCapacity}
+                  onChange={(event) => setCommonCapacity(event.target.value)}
+                  className={cn(filterInputClass, "mt-1 block w-40 max-w-full")}
+                />
+              </label>
+              <button
+                type="button"
+                className={filterButtonClass}
+                onClick={() => {
+                  const length = Number(count),
+                    capacity = numberValue(commonCapacity);
+                  if (
+                    !Number.isInteger(length) ||
+                    length < 1 ||
+                    length > MAX_STORAGE_SECTIONS ||
+                    !prefix.trim() ||
+                    (capacity !== null &&
+                      (!Number.isInteger(capacity) ||
+                        capacity < 1 ||
+                        capacity > 2147483647))
+                  ) {
+                    setError(
+                      "Enter a section count from 1 to 100, a name prefix and a positive whole-number capacity (or leave capacity blank).",
+                    );
+                    return;
+                  }
+                  if (
+                    value.sections.length &&
+                    !window.confirm(
+                      "Replace these draft section settings? Existing card placements will not be changed.",
+                    )
+                  )
+                    return;
+                  onChange({
+                    ...value,
+                    sections: Array.from({ length }, (_, i) => ({
+                      name: `${prefix.trim()} ${i + 1}`,
+                      capacity,
+                    })),
+                  });
+                  setError("");
+                }}
+              >
+                {value.sections.length
+                  ? "Regenerate sections"
+                  : "Generate sections"}
+              </button>
+            </div>
+          </details>
           {error && (
             <p role="alert" className="text-sm">
               {error}
