@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en" data-theme="izzet" data-layout="rail">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MTG Archives · Workspace design review</title>
+    <link rel="stylesheet" href="prototype.css" />
+    <script src="prototype.js" defer></script>
+  </head>
+  <body>
+    <a class="skip" href="#workspace">Skip to workspace</a>
+    <div class="review-bar" aria-label="Prototype review controls">
+      <strong>Design review <span class="muted">· synthetic data</span></strong>
+      <label
+        >Navigation
+        <select id="layout">
+          <option value="rail">A · Sidebar</option>
+          <option value="top">B · Top navigation</option>
+        </select></label
+      >
+      <label
+        >Theme
+        <select id="theme">
+          <option value="izzet">Izzet</option>
+          <option value="golgari">Golgari</option>
+          <option value="azorius">Azorius</option>
+          <option value="selesnya">Selesnya</option>
+          <option value="rakdos">Rakdos</option>
+          <option value="lotus">Lotus</option>
+        </select></label
+      >
+      <button id="reset">Reset sample</button>
+    </div>
+    <div class="app-shell">
+      <header class="brand">
+        <span class="brand-mark" aria-hidden="true">M</span
+        ><strong>MTG Archives</strong
+        ><button
+          id="mobile-menu"
+          aria-expanded="false"
+          aria-controls="primary-nav"
+        >
+          Menu
+        </button>
+      </header>
+      <nav id="primary-nav" class="primary-nav" aria-label="Main navigation">
+        <button data-home="Overview" class="nav-item">Overview</button>
+        <span class="nav-group">Collection</span>
+        <button data-screen="inventory" class="nav-item" aria-current="page">
+          Inventory
+        </button>
+        <button data-screen="locations" class="nav-item">Locations</button>
+        <button data-home="Add / Import / Export" class="nav-item">
+          Add / Import / Export
+        </button>
+        <span class="nav-group">Build & exchange</span>
+        <button data-home="Decks" class="nav-item">Decks</button>
+        <button data-home="Wishlist" class="nav-item">Wishlist</button>
+        <button data-home="Trades" class="nav-item">Trades</button>
+        <span class="nav-group">Explore</span>
+        <button data-home="Pricing" class="nav-item">Pricing</button>
+        <button data-home="Public browsing" class="nav-item">
+          Public browsing
+        </button>
+        <button data-home="Commander League" class="nav-item">
+          Commander League ↗
+        </button>
+      </nav>
+      <div class="utility-bar">
+        <span class="scope">My collection</span
+        ><button data-home="Notifications">
+          Notifications <span class="unread">2</span></button
+        ><button data-home="Account & settings">Account & settings</button>
+      </div>
+      <main id="workspace">
+        <section id="inventory-screen" aria-labelledby="inventory-title">
+          <header class="page-header">
+            <div>
+              <p class="eyebrow">Collection</p>
+              <h1 id="inventory-title">Inventory</h1>
+            </div>
+            <button class="primary" data-home="Add / Import / Export">
+              Add cards
+            </button>
+          </header>
+          <div class="search-toolbar">
+            <form id="search-form" role="search">
+              <label class="sr-only" for="card-search">Search card names</label
+              ><input
+                id="card-search"
+                type="search"
+                placeholder="Search card names…"
+              /><button type="submit">Search</button>
+            </form>
+            <button
+              id="filter-toggle"
+              aria-expanded="false"
+              aria-controls="filter-panel"
+            >
+              Filters
+            </button>
+            <button id="view-options">View options</button>
+          </div>
+          <div
+            id="active-filters"
+            class="active-filters"
+            aria-label="Active filters"
+          ></div>
+          <div class="inventory-workspace">
+            <aside id="filter-panel" hidden aria-label="Inventory filters">
+              <div class="section-heading">
+                <h2>Filters</h2>
+                <button id="close-filters" aria-label="Close filters">
+                  Close
+                </button>
+              </div>
+              <form id="filters-form">
+                <label
+                  >Finish<select id="finish-filter">
+                    <option value="">Any finish</option>
+                    <option value="Nonfoil">Nonfoil</option>
+                    <option value="Foil">Foil</option>
+                  </select></label
+                >
+                <label
+                  >Location<select id="location-filter">
+                    <option value="">All locations</option>
+                    <option value="Intake">Intake</option>
+                    <option value="Vault A">Vault A</option>
+                  </select></label
+                >
+                <label
+                  >Card color<select id="color-filter">
+                    <option value="">Any color</option>
+                    <option value="U">Blue</option>
+                    <option value="G">Green</option>
+                    <option value="C">Colorless</option>
+                  </select></label
+                >
+                <details>
+                  <summary>More criteria</summary>
+                  <p class="muted">
+                    Set, rarity, type, mana value, color identity, section,
+                    source, visibility, commitment and authorized owner filters
+                    stay here.
+                  </p>
+                  <p class="muted">
+                    Layout placeholder; these criteria are mapped in the
+                    capability ledger.
+                  </p>
+                </details>
+                <details>
+                  <summary>Scryfall expression</summary>
+                  <p class="muted">
+                    Retain the existing local expression parser and syntax help
+                    here. Not simulated.
+                  </p>
+                </details>
+                <div class="form-actions">
+                  <button class="primary" type="submit">Apply filters</button
+                  ><button type="button" id="clear-filters">
+                    Clear filters
+                  </button>
+                </div>
+              </form>
+            </aside>
+            <div class="results-column">
+              <section id="inventory-vault" hidden aria-label="Selected vault">
+                <div class="section-heading">
+                  <h2>Vault A</h2>
+                  <span class="muted">Whole-section counts · not filtered</span>
+                </div>
+                <div class="vault-tray" id="inventory-sections"></div>
+              </section>
+              <div class="result-heading">
+                <p id="result-count" aria-live="polite"></p>
+                <button id="select-all">Select all matching</button>
+              </div>
+              <div id="selection-bar" class="selection-bar" hidden>
+                <div>
+                  <strong id="selection-count"></strong>
+                  <div id="selection-scope" class="small"></div>
+                </div>
+                <div class="inline-actions">
+                  <button id="move-open" class="primary">Move copies</button
+                  ><button id="selection-more">More actions</button
+                  ><button id="clear-selection">Clear</button>
+                </div>
+              </div>
+              <div class="table-scroll">
+                <table id="inventory-table">
+                  <thead>
+                    <tr>
+                      <th><span class="sr-only">Selection</span></th>
+                      <th>Card / printing</th>
+                      <th class="number">Copies</th>
+                      <th>Location</th>
+                      <th>Finish</th>
+                      <th><span class="sr-only">Card actions</span></th>
+                    </tr>
+                  </thead>
+                  <tbody id="card-rows"></tbody>
+                </table>
+              </div>
+              <p id="empty-results" hidden>
+                No cards match these filters. Clear a criterion to see more of
+                your collection.
+              </p>
+              <footer class="results-footer">
+                <span class="muted small"
+                  >Ctrl/⌘ toggles · Shift selects loaded rows · Checkboxes work
+                  on touch</span
+                ><span class="small">Sample · one page</span>
+              </footer>
+            </div>
+          </div>
+        </section>
+        <section id="locations-screen" hidden aria-labelledby="locations-title">
+          <header class="page-header">
+            <div>
+              <p class="eyebrow">Collection</p>
+              <h1 id="locations-title">Locations</h1>
+            </div>
+            <button class="primary" data-home="Create location">
+              Create location
+            </button>
+          </header>
+          <div class="storage-workspace">
+            <aside class="storage-browser">
+              <label for="storage-search">Find a location</label
+              ><input
+                id="storage-search"
+                type="search"
+                placeholder="Name or full path…"
+              />
+              <nav id="storage-tree" aria-label="Location tree"></nav>
+              <button data-home="Storage management">
+                Manage types & deck locations
+              </button>
+            </aside>
+            <section class="storage-detail" aria-labelledby="storage-title">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow" id="storage-path">Collection / Shelf A</p>
+                  <h2 id="storage-title">Vault A</h2>
+                </div>
+                <button data-home="Location actions">Location actions</button>
+              </div>
+              <p id="storage-description" class="muted">
+                Six sections · advisory capacity 85 copies each
+              </p>
+              <div id="location-sections" class="vault-tray"></div>
+              <div id="other-sections" class="inline-actions">
+                <button data-section="Unsectioned">Unsectioned · 3</button
+                ><button data-section="Sect 10">
+                  Other labels · Sect 10 · 2
+                </button>
+              </div>
+              <div class="storage-next">
+                <div>
+                  <h3>Find space, then place cards</h3>
+                  <p class="muted">
+                    Sect 1 has 17 spaces available. Occupancy counts physical
+                    copies in this location.
+                  </p>
+                </div>
+                <button id="browse-storage" class="primary">
+                  Browse contents
+                </button>
+              </div>
+              <p class="small muted">
+                Children retain their own counts. Deck-managed locations remain
+                separate from ordinary storage.
+              </p>
+            </section>
+          </div>
+        </section>
+        <p id="status" role="status" aria-live="polite"></p>
+      </main>
+    </div>
+    <dialog id="detail-dialog" aria-labelledby="detail-title">
+      <form method="dialog">
+        <button class="dialog-close" aria-label="Close card details">
+          Close
+        </button>
+      </form>
+      <p class="eyebrow">Card details</p>
+      <h2 id="detail-title"></h2>
+      <div id="detail-content"></div>
+      <div class="form-actions">
+        <button data-home="Inventory item actions">
+          Edit / split / history</button
+        ><button data-home="Add to deck">Add to deck</button>
+      </div>
+    </dialog>
+    <dialog id="move-dialog" aria-labelledby="move-title">
+      <form method="dialog">
+        <button class="dialog-close" aria-label="Close move review">
+          Close
+        </button>
+      </form>
+      <p class="eyebrow">Move selected copies</p>
+      <h2 id="move-title">Choose a destination</h2>
+      <p id="move-selected"></p>
+      <form id="move-form">
+        <label
+          >Destination<input
+            value="Shelf A / Vault A"
+            readonly
+            aria-describedby="destination-note"
+        /></label>
+        <p id="destination-note" class="muted small">
+          Sample destination. Production uses the searchable hierarchy picker.
+        </p>
+        <label
+          >Section<select id="move-section">
+            <option value="0">Sect 0</option>
+            <option value="1" selected>Sect 1</option>
+            <option value="2">Sect 2</option>
+            <option value="3">Sect 3</option>
+            <option value="4">Sect 4</option>
+            <option value="5">Sect 5</option>
+          </select></label
+        >
+        <div class="quantity-row">
+          <label
+            >Copies to move<input
+              id="move-quantity"
+              type="number"
+              min="1"
+              required /></label
+          ><button type="button" id="fill-space">Fill remaining space</button>
+        </div>
+        <p id="move-projection" aria-live="polite"></p>
+        <p id="move-error" role="alert"></p>
+        <p class="muted small">
+          Reservations and stale selections must be rechecked by the server in
+          the implementation. This preview uses unreserved synthetic copies
+          only.
+        </p>
+        <div class="form-actions">
+          <button type="button" id="move-cancel">Cancel</button
+          ><button class="primary" type="submit">Simulate move</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="info-dialog" aria-labelledby="info-title">
+      <form method="dialog">
+        <button class="dialog-close" aria-label="Close design note">
+          Close
+        </button>
+      </form>
+      <p class="eyebrow">Proposed home · design note</p>
+      <h2 id="info-title"></h2>
+      <p id="info-content"></p>
+    </dialog>
+    <dialog id="view-dialog" aria-labelledby="view-title">
+      <form method="dialog">
+        <button class="dialog-close" aria-label="Close view options">
+          Close
+        </button>
+      </form>
+      <h2 id="view-title">View options</h2>
+      <p>
+        Table / Binder, card size, Exact printings / Grouped by card, columns,
+        page size and Paginated / Infinite scroll remain available together
+        here.
+      </p>
+      <p class="muted">
+        This prototype exercises the exact-printing table. Grouped mode must
+        retain its existing restrictions on bulk editing.
+      </p>
+    </dialog>
+  </body>
+</html>

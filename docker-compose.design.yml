@@ -1,0 +1,14 @@
+# Standalone, synthetic UI review. Does not join the application network.
+services:
+  preview:
+    image: node:22-alpine
+    working_dir: /preview
+    command: ["node", "server.mjs"]
+    user: node
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    ports:
+      - "127.0.0.1:13002:8080"
+    volumes:
+      - ./docs/design/ui-consolidation:/preview:ro
