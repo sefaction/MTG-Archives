@@ -29,17 +29,22 @@ test("locations page exposes hierarchy controls without changing data", async ({
   await expect(
     page.getByRole("heading", { name: "Locations", exact: true }),
   ).toBeVisible();
+  await page.getByText("Browse branches", { exact: true }).click();
   await expect(
     page.getByRole("navigation", { name: "Locations tree" }),
   ).toBeVisible();
   const parentSelectors = page.locator('select[name="parentLocationId"]');
+  await expect(parentSelectors).toHaveCount(0);
+  await expect(
+    page.locator('[title*="including sub-locations"]').first(),
+  ).toBeAttached();
+  await page
+    .getByRole("link", { name: "Create location", exact: true })
+    .click();
   await expect(parentSelectors.first()).toBeVisible();
   await expect(parentSelectors.first().locator('option[value=""]')).toHaveText(
     "No parent (top level)",
   );
-  await expect(
-    page.locator('[title*="including sub-locations"]').first(),
-  ).toBeAttached();
 });
 
 test("inventory and imports expose on-demand section controls without changing data", async ({

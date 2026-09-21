@@ -83,8 +83,8 @@ export function VaultSectionMap({
       aria-label={`${location.name} vault layout`}
       className="min-w-0 space-y-3 rounded-xl border border-zinc-700 bg-zinc-950/40 p-3 sm:p-4"
     >
-      <div className="flex flex-col items-start justify-between gap-2 sm:flex-row">
-        <div className="min-w-0 flex-1">
+      <div className="flex flex-col flex-wrap items-start justify-between gap-2 sm:flex-row">
+        <div className="min-w-0 flex-1 sm:basis-48">
           <h3 className="font-semibold text-zinc-100">Vault layout</h3>
           <p className="break-words text-sm text-zinc-300">{location.name}</p>
           <p className="text-xs text-zinc-400">
@@ -112,7 +112,7 @@ export function VaultSectionMap({
         aria-label="Six sections in a single row; scroll horizontally on small screens"
       >
         <div
-          className="grid min-w-[540px] grid-cols-6 gap-2"
+          className="grid min-w-[33.75rem] grid-cols-6 gap-2"
           data-vault-section-row
         >
           {sections.map((section) => {

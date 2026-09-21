@@ -44,11 +44,16 @@ test("vault creation, multi-selection fill, advisory overflow, refreshed occupan
       await page.waitForURL(/\/dashboard/);
     }
     await page.goto("/locations");
+    await page
+      .getByRole("link", { name: "Create location", exact: true })
+      .click();
     const create = page.locator("form").filter({
       has: page.getByRole("button", { name: "Create Location", exact: true }),
     });
     await create.locator('input[name="name"]').fill(name);
-    await create.getByLabel("Location type").selectOption({ label: "Vault" });
+    await create
+      .getByLabel("Location type", { exact: true })
+      .selectOption({ label: "Vault" });
     await create
       .getByRole("button", { name: "Create Location", exact: true })
       .click();
@@ -151,7 +156,7 @@ test("vault creation, multi-selection fill, advisory overflow, refreshed occupan
       .getByRole("button", { name: "Move 17 cards", exact: true })
       .click();
     await expect(page.getByText(/Moved 17 cards across/)).toBeVisible();
-    await page.goto("/locations");
+    await page.goto(`/locations?selected=${fixture.vaultId}`);
     await expect(
       sections.getByRole("link", {
         name: "Sect 0, 85 / 85 cards · full. Browse cards.",
@@ -210,7 +215,7 @@ test("vault creation, multi-selection fill, advisory overflow, refreshed occupan
       `return (await p.inventoryItem.aggregate({where:{notes:${JSON.stringify(name)}},_sum:{quantity:true}}))._sum.quantity;`,
     );
     expect(total).toBe(178);
-    await page.goto("/locations");
+    await page.goto(`/locations?selected=${fixture.vaultId}`);
     await expect(
       sections.getByRole("link", {
         name: "Sect 0, 170 / 85 cards · 85 over capacity. Browse cards.",

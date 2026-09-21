@@ -2,12 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
-import {
-  cn,
-  filterFieldClass,
-  filterPrimaryButtonClass,
-  filterSelectClass,
-} from "@/components/filterStyles";
+import { LocationSearchSelect } from "@/components/LocationSearchSelect";
+import { filterPrimaryButtonClass } from "@/components/filterStyles";
 
 export type LocationMoveOption = {
   id: string;
@@ -19,6 +15,7 @@ export type LocationMoveOption = {
 
 type Props = {
   locations: LocationMoveOption[];
+  source: LocationMoveOption;
   moveAction: (formData: FormData) => Promise<void>;
 };
 
@@ -26,13 +23,9 @@ function visibilityText(value?: "PRIVATE" | "PUBLIC") {
   return value === "PUBLIC" ? "Public" : "Private";
 }
 
-export function LocationMoveForm({ locations, moveAction }: Props) {
-  const [sourceId, setSourceId] = useState("");
+export function LocationMoveForm({ locations, source, moveAction }: Props) {
   const [destinationId, setDestinationId] = useState("");
-  const source = useMemo(
-    () => locations.find((location) => location.id === sourceId),
-    [locations, sourceId],
-  );
+  const [confirmed, setConfirmed] = useState(false);
   const destination = useMemo(
     () => locations.find((location) => location.id === destinationId),
     [locations, destinationId],
@@ -47,44 +40,33 @@ export function LocationMoveForm({ locations, moveAction }: Props) {
       : "";
 
   return (
-    <form action={moveAction} className="grid gap-3 md:grid-cols-4">
-      <label className={filterFieldClass}>
-        Source location
-        <select
-          name="sourceLocationId"
-          required
-          value={sourceId}
-          onChange={(event) => setSourceId(event.target.value)}
-          className={cn(filterSelectClass, "mt-1 w-full")}
-        >
-          <option value="">Choose source</option>
-          {locations.map((location) => (
-            <option key={location.id} value={location.id}>
-              {location.name} — {location.quantity} cards / {location.entries}{" "}
-              entries — {visibilityText(location.effectiveVisibility)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className={filterFieldClass}>
-        Destination location
-        <select
-          name="destinationLocationId"
-          required
-          value={destinationId}
-          onChange={(event) => setDestinationId(event.target.value)}
-          className={cn(filterSelectClass, "mt-1 w-full")}
-        >
-          <option value="">Choose destination</option>
-          {locations.map((location) => (
-            <option key={location.id} value={location.id}>
-              {location.name} — {visibilityText(location.effectiveVisibility)}
-            </option>
-          ))}
-        </select>
-      </label>
+    <form action={moveAction} className="space-y-3">
+      <input type="hidden" name="sourceLocationId" value={source.id} />
+      <p className="break-words text-sm">
+        <strong>{source.name}</strong> — {source.quantity.toLocaleString()}{" "}
+        copies / {source.entries.toLocaleString()} entries —{" "}
+        {visibilityText(source.effectiveVisibility)}
+      </p>
+      <LocationSearchSelect
+        name="destinationLocationId"
+        label="Destination location"
+        emptyLabel="Choose destination"
+        required
+        locations={locations}
+        value={destinationId}
+        onChange={(id) => {
+          setDestinationId(id);
+          setConfirmed(false);
+        }}
+      />
       <label className="flex items-center gap-2 self-end text-sm text-zinc-300">
-        <input type="checkbox" name="confirmMove" />
+        <input
+          type="checkbox"
+          name="confirmMove"
+          required
+          checked={confirmed}
+          onChange={(event) => setConfirmed(event.target.checked)}
+        />
         Confirm moving all cards from the source location.
       </label>
       <div className="space-y-2">
@@ -101,6 +83,7 @@ export function LocationMoveForm({ locations, moveAction }: Props) {
         <SubmitButton
           pendingLabel="Moving location…"
           className={filterPrimaryButtonClass}
+          disabled={!destination || !confirmed || source.quantity <= 0}
         >
           Move entire location
         </SubmitButton>

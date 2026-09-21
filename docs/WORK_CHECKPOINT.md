@@ -2,7 +2,18 @@
 
 Updated 2026-09-21. Reconcile git, GitHub, Docker and processes before resuming; GitHub is authoritative.
 
-## Release handoff: approved Inventory interface, 2026-09-21
+## Active batch: browse-first Locations #266, 2026-09-21
+
+User asked to keep momentum after the approved Inventory release. Branch `feat/locations-workspace` from merged main `eab4272`; no new PR/merge approval yet. Release publication 35634202217 succeeded (reconciled on resumption). This section supersedes pending merge/publication status below.
+
+- Implemented first workspace slice: bounded full-path search/list beside selected detail, one full vault map, contextual lazy editor and scoped whole-location move, toolbar Create/shared types, separate bounded read-only deck view. Parent/destination pickers use bounded native search/listboxes. Existing server authorization and mutation services remain; create/move/delete return to scoped browsing.
+- Windows full core verification passed generation/typecheck, **572 units**, production build and six manifest guards (`locations-workspace-core.log`). Initial Linux build/six guards passed. Formatter-sensitive unit assertion and initial JSX extraction error were corrected. No existing timeout increases or reliability-fix claim.
+- First local image is healthy; targeted hierarchy/scale/vault flows passed. New lifecycle initially exposed test-label ambiguity and a malformed test type normalization; both fixtures corrected. One unused, precisely identified test-owned type was verified unused and removed; cleanup now includes its exact name. New lifecycle passes create/edit/move/delete, exact section/Back, deck separation and deliberate owner/admin boundaries (7.4s). A later assertion now explicitly waits for admin exit before screenshots; stable screenshot capture disables transitions. Final image rebuild includes enlarged-text grid/vault readability improvements and is in progress; full final browser regression still pending.
+- Strengthened scale fixture passed: 1,200 locations, 3,000 stacks across **1,000 printings**, 150,000 copies in the largest owner plus three owners with 5,000/500/7 copies. Browse response ~80,845 bytes, zero option elements, 25 rows/one detail; selected parent editor at most 32 options. This is synthetic scale coverage, not a production load benchmark. Logs `locations-workspace-lifecycle.log`, earlier `locations-workspace-targeted.log`/`locations-workspace-corrected.log` are ignored. Screenshot review found no phone page overflow; final light-theme/enlarged captures still to inspect.
+- Source review identified inherited inactive-parent editing risk **#283** (not yet browser-submitted reproduction). Parent choices omit inactive saved parents while the backend rejects unchanged inactive parents, potentially detaching an inactive child on metadata-only save. Track separately; no fix claimed. Existing #220/#260/#280 also remain unresolved.
+- Next: finish/reconcile the final Docker build, deploy without rebuilding again, verify host response, run full serial browser regression and inspect final screenshots, verify fixture cleanup, push one coherent PR for review. No production deployment, schema/data migration, scheduling or desktop-project verification. No outstanding product choice blocks work.
+
+## Historical release handoff: approved Inventory interface, 2026-09-21
 
 This section supersedes the unapproved/unmerged statuses in the historical batch records below. The user explicitly approved the enumerated four-PR stack (#276, #277, #279, #282) for main. Approval does not extend to future PRs.
 

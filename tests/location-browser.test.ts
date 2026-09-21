@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { browseLocations, locationBrowseHref } from "../lib/location-browser";
+import {
+  browseLocations,
+  locationBrowseHref,
+  selectedBrowseLocation,
+} from "../lib/location-browser";
 
 const locations = [
   { id: "vault", name: "Vault", path: "Vault", type: "Vault" },
@@ -42,6 +46,42 @@ test("location search finds descendants by full path and preserves branch bounda
     browseLocations(locations, { parent: "box", q: "other" }).total,
     0,
   );
+});
+
+test("selected details respect scoped input, legacy editor links and invalid selections", () => {
+  const browser = browseLocations(locations, { q: "other" });
+  assert.equal(selectedBrowseLocation(locations, browser, {})?.id, "other");
+  assert.equal(
+    selectedBrowseLocation(locations, browser, { selected: "box" })?.id,
+    "box",
+  );
+  assert.equal(
+    selectedBrowseLocation(locations, browser, { edit: "vault" })?.id,
+    "vault",
+  );
+  assert.equal(
+    selectedBrowseLocation(locations, browser, { selected: "foreign" }),
+    undefined,
+  );
+  assert.equal(
+    selectedBrowseLocation(
+      locations,
+      browseLocations(locations, { q: "missing" }),
+      {},
+    ),
+    undefined,
+  );
+  const url = new URL(
+    locationBrowseHref(
+      { q: "Vault & Box", selected: "box", panel: "move", edit: "box" },
+      { panel: undefined, edit: undefined },
+    ),
+    "http://localhost",
+  );
+  assert.equal(url.searchParams.get("selected"), "box");
+  assert.equal(url.searchParams.get("q"), "Vault & Box");
+  assert.equal(url.searchParams.has("panel"), false);
+  assert.equal(url.searchParams.has("edit"), false);
 });
 
 test("unknown or inaccessible location ids cannot broaden the visible branch", () => {
