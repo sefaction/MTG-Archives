@@ -120,17 +120,17 @@ main:has(.archive-shell) > .account-form {
 }
 .inventory-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 320px minmax(0, 1fr);
   gap: 12px;
   align-items: start;
 }
 .inventory-quick-search {
-  grid-column: 1;
+  grid-column: 2;
   grid-row: 1;
   min-width: 0;
 }
 .inventory-filter-trigger {
-  grid-column: 2;
+  grid-column: 1;
   grid-row: 1;
   align-self: end;
   display: flex;
@@ -173,17 +173,6 @@ main:has(.archive-shell) > .account-form {
   overflow: auto;
   grid-column: 1;
   grid-row: 3;
-}
-.inventory-workspace:has(.inventory-filter-panel[open]) {
-  grid-template-columns: 320px minmax(0, 1fr);
-}
-.inventory-workspace:has(.inventory-filter-panel[open])
-  .inventory-quick-search {
-  grid-column: 2;
-}
-.inventory-workspace:has(.inventory-filter-panel[open])
-  .inventory-filter-trigger {
-  grid-column: 1;
 }
 .inventory-workspace:has(.inventory-filter-panel[open]) .inventory-results {
   grid-column: 2;

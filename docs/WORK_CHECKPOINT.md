@@ -6,7 +6,7 @@ Updated 2026-09-21. Reconcile git, GitHub, Docker and processes before resuming;
 
 User requested a sidebar/topbar choice. Branch `feat/navigation-layout-preference` stacks on #277 at `2ef3832`; #276/#277 remain open, unmerged and not merge-approved. Live main remains `7a32dd3`.
 
-Scope: account-backed Settings > Appearance choice, sidebar default, shared signed-in Archive shell with responsive topbar; phone Menu and separate anonymous/League navigation preserved. Additive User column; existing settings authentication/audit path retained. No production action.
+Scope: account-backed Settings > Appearance choice, sidebar default, shared signed-in Archive shell with responsive topbar; phone Menu and separate anonymous/League navigation preserved. Additive User column; existing settings authentication/audit path retained. User also requested the Inventory Filters trigger stay at the far left when closed/open; fixed with a stable desktop grid and box-position checks in both layouts. No production action.
 
 Implementation and owned-fixture regression added. Pending: core checks, cumulative Docker rebuild/migration, browser verification/visual review, PR and durable decision notes. Current runtime is still the previous #277 image below. Next: verify core, build with all three Compose overlays, then run serial browser checks. #220/#260 remain unresolved. No scheduler or desktop project assignment verification.
 

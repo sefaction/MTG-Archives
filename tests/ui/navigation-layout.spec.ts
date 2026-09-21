@@ -68,6 +68,23 @@ test("account navigation preference persists across sessions, isolates users and
         .locator(".archive-rail")
         .getByRole("link", { name: "Inventory", exact: true }),
     ).toHaveAttribute("aria-current", "page");
+    const filters = page.getByRole("button", {
+      name: /advanced inventory search/i,
+    });
+    const closedFilters = (await filters.boundingBox())!;
+    expect(closedFilters.x).toBe(
+      (await page.locator(".inventory-workspace").boundingBox())!.x,
+    );
+    await filters.click();
+    await expect(
+      page.getByRole("dialog", { name: "Filter inventory" }),
+    ).toBeVisible();
+    expect((await filters.boundingBox())!.x).toBe(closedFilters.x);
+    expect((await filters.boundingBox())!.y).toBe(closedFilters.y);
+    await filters.click();
+    await expect(
+      page.getByRole("dialog", { name: "Filter inventory" }),
+    ).not.toBeVisible();
     for (const width of [1440, 1366, 900]) {
       await page.setViewportSize({ width, height: 900 });
       expect(

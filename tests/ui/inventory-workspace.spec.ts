@@ -84,9 +84,15 @@ test("real Inventory workspace composes search, preserves context and reflows wi
     const filters = page.getByRole("button", {
       name: /advanced inventory search/i,
     });
+    const closedFilterBox = (await filters.boundingBox())!;
+    expect(closedFilterBox.x).toBe(
+      (await page.locator(".inventory-workspace").boundingBox())!.x,
+    );
     await filters.click();
     const panel = page.getByRole("dialog", { name: "Filter inventory" });
     await expect(panel).toBeVisible();
+    expect((await filters.boundingBox())!.x).toBe(closedFilterBox.x);
+    expect((await filters.boundingBox())!.y).toBe(closedFilterBox.y);
     const applyBox = (await panel
       .getByRole("button", { name: "Apply filters" })
       .boundingBox())!;
@@ -103,6 +109,7 @@ test("real Inventory workspace composes search, preserves context and reflows wi
     await panel.locator('input[name="language"]').fill("EN");
     await panel.getByRole("button", { name: "Close filters" }).click();
     await expect(filters).toBeFocused();
+    expect((await filters.boundingBox())!.x).toBe(closedFilterBox.x);
     await expect(
       page
         .locator(".inventory-selection-context")
