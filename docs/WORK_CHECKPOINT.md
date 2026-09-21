@@ -2,7 +2,21 @@
 
 Updated 2026-09-21. Reconcile git, GitHub, Docker and processes before resuming; GitHub is authoritative.
 
-## Release handoff: approved Inventory interface, 2026-09-21
+## Active batch: browse-first Locations #266, 2026-09-21
+
+User asked to keep momentum after the approved Inventory release. Branch `feat/locations-workspace` from merged main `eab4272`; [PR #284](https://github.com/sefaction/MTG-Archives/pull/284) is ready for review, **not merge-approved**. Workspace commit `1bf2a7f`, final application/test refinement `eb7bf2d307769aba223d59c9c1a0df789aedd2ed`. Release publication 35634202217 succeeded. This section supersedes historical pending statuses below.
+
+- Implemented bounded full-path search/list beside selected detail, one full vault map, contextual lazy editor and scoped whole-location move, toolbar Create/shared types, separate bounded read-only deck view. Parent/destination pickers use bounded native search/listboxes. Existing server authorization and mutation services remain; create/move/delete return to scoped browsing. See LOCATIONS_WORKSPACE.md for capability homes and limits.
+- Final Windows core passed generation/typecheck, **572 unit tests**, production build and six manifest guards. Final Linux Docker build/guards passed. Logs: `locations-workspace-final-core.log`, `locations-workspace-theme-docker.log`. Source CI 35643901136 passed at `eb7bf2d`; reconcile any later documentation-only head/check on GitHub.
+- Complete serial browser run at `1bf2a7f`: **44 passed, zero skips (3.9m)**. After the final theme-only refinement, **7 affected cases passed, zero skips (1.1m)**: hierarchy, scale, Locations lifecycle and both vault workflows. Logs: `locations-workspace-full-ui.log`, `locations-workspace-theme-ui.log`. The full 44 were not repeated after the theme refinement.
+- Lifecycle covers create/edit/move/delete, exact section/Back links, deck separation, owner/admin boundaries and owner reset after exiting admin mode. Six-theme reflow/computed label-color assertions, 390/320px phone widths and 200% root font passed. Final stable light/dark screenshots and phone/enlarged layouts were visually inspected. Low-contrast light-theme Locations/shared vault surfaces **#285** are fixed in this PR, pending merge.
+- Synthetic scale passed: 1,200 locations, 3,000 stacks across **1,000 printings**, 150,000 copies in the largest owner plus three owners with 5,000/500/7 copies. Browse DOM 80,845 bytes, zero option elements, 25 rows/one detail; selected parent editor at most 32 options. This is bounded rendering coverage, not database pagination or a production load benchmark.
+- Final running Docker image: **`sha256:2429bca5aebd6a011e45625c5d277692f123c9a756d414f75e911cf7d892dd12`**, application `eb7bf2d`, healthy with host login HTTP 200. Includes merged Inventory plus unmerged #284. Base/local/SMTP-capture overlays preserved. Review: http://127.0.0.1:13001/locations.
+- Fixture users/players and Locations test types are zero; original snapshot remains **12,477 physical copies**. Initial test-label/type-normalization errors were corrected; one precisely identified unused test-owned type was verified unused and removed. All build/test sessions completed. No existing timeout increases, reload workaround or reliability-fix claim.
+- Inherited inactive-parent editing risk **#283** remains open (source-confirmed risk, not browser-submitted reproduction): omitted inactive saved parent and backend rejection could detach an inactive child during metadata-only edits. Existing #220/#260/#280 also remain unresolved. No stale-owner state defect reproduced.
+- Next safe step: user review of #284; independently reproduce/fix #283 as a separate coherent batch, then Imports #267. No outstanding product choice blocks work. Do not merge #284 without individual user approval; #266/#285 stay open until merge. No production deployment, schema/data migration, scheduling or desktop-project verification.
+
+## Historical release handoff: approved Inventory interface, 2026-09-21
 
 This section supersedes the unapproved/unmerged statuses in the historical batch records below. The user explicitly approved the enumerated four-PR stack (#276, #277, #279, #282) for main. Approval does not extend to future PRs.
 

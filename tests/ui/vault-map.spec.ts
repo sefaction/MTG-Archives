@@ -210,7 +210,7 @@ test("visual vault retains exact placements, previews moves, refreshes counts an
       ),
     ).toBe(true);
     await map.screenshot({ path: "test-results/vault-map-phone.png" });
-    await page.goto("/locations");
+    await page.goto(`/locations?selected=${fixture.vaultId}`);
     await expect(map).toBeVisible();
     expect(
       await page.evaluate(

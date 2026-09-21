@@ -12,6 +12,9 @@ export type LocationBrowseParams = {
   page?: string;
   treePage?: string;
   edit?: string;
+  selected?: string;
+  panel?: string;
+  view?: string;
 };
 
 export const LOCATION_PAGE_SIZE = 25;
@@ -99,8 +102,30 @@ export function locationBrowseHref(
 ) {
   const next = { ...params, ...changes };
   const query = new URLSearchParams();
-  for (const key of ["q", "parent", "page", "treePage", "edit"] as const) {
+  for (const key of [
+    "q",
+    "parent",
+    "page",
+    "treePage",
+    "edit",
+    "selected",
+    "panel",
+    "view",
+  ] as const) {
     if (next[key]) query.set(key, next[key]);
   }
   return `/locations${query.size ? `?${query}` : ""}#normal-locations`;
+}
+
+// The caller supplies only authorized locations. Explicit unknown selections
+// stay empty rather than silently showing a different owner's/requested item.
+export function selectedBrowseLocation<T extends BrowsableLocation>(
+  locations: T[],
+  browser: ReturnType<typeof browseLocations<T>>,
+  params: LocationBrowseParams,
+) {
+  const id = params.selected || params.edit;
+  return id
+    ? locations.find((location) => location.id === id)
+    : browser.items[0];
 }
