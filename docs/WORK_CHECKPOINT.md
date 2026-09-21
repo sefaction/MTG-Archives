@@ -2,7 +2,19 @@
 
 Updated 2026-09-21. Reconcile git, GitHub, Docker and processes before resuming; GitHub is authoritative.
 
-## Active batch: Inventory filter refinement, 2026-09-21
+## Release handoff: approved Inventory interface, 2026-09-21
+
+This section supersedes the unapproved/unmerged statuses in the historical batch records below. The user explicitly approved the enumerated four-PR stack (#276, #277, #279, #282) for main. Approval does not extend to future PRs.
+
+- Release scope: design/capability foundation, real-data Inventory, account-backed sidebar/topbar choice, stable left Filters trigger, and Card / Collection / Query tabs with compact color controls.
+- Release preparation branch: `feat/inventory-filter-refinement`. #276, #277 and #279 merged in dependency order with required checks intact. #282 is retargeted to main and includes those merges; finish its required verification and merge using its exact current head. Read live GitHub before acting: this checkpoint is written before that final merge. The final merge commit/publication outcome belongs in the PR and Foundry Operations release entry.
+- The refreshed release tree matches reviewed tip `37913a17c9a47a797d73c1a2f0819dfc1c932665` except this release checkpoint. No application, test, dependency or migration changes were added during merge preparation. #277 refresh CI 35633304717 and #279 refresh CI 35633676125 passed. Final #282 and main publication checks must be reconciled live.
+- Local Docker remains the reviewed cumulative image `sha256:069ad56a61efdac95014df1fbfe9c262f4d45d4e31d65b17f90909326720500f`, application `88ee0fd`; healthy with login HTTP 200 on port 13001. Existing 570-unit/build and 17 focused-browser evidence is detailed below; the full suite was not rerun during documentation-only release preparation. SMTP remains capture-only; no Unraid deployment or production-data operation.
+- Close only resolved defects #275 (PR #277), #278 (PR #279), and #281 (PR #282), with resolving links. Broader consolidation packages and reliability #220/#260/#280 remain open.
+- Next safe product batch after release: branch from current main for browse-first real Locations #266. Reuse the existing bounded location browser/lazy editors; show search, bounded results and selected counts first, a full map only for the selected vault, contextual creation/edit/moves/types, and a separate deck-managed view. Preserve full paths, exact section links, ownership, visibility and destructive confirmations. No Locations source change has begun; no consequential user choice blocks this authorized batch.
+- No unattended schedule or verified desktop-project assignment is implied. Reconcile running publication jobs and Docker before resuming.
+
+## Historical batch: Inventory filter refinement, 2026-09-21
 
 User requested smaller color symbols so Colorless stays on one row and chose tabs to reduce collection-filter scrolling. Branch `feat/inventory-filter-refinement`, [PR #282](https://github.com/sefaction/MTG-Archives/pull/282), stacks on #279 at `372d8cc`; prior final CI 35623082632 passed. Application commit `88ee0fd`. No merge approval for #276/#277/#279/#282.
 
