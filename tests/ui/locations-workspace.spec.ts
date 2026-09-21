@@ -285,6 +285,12 @@ test("Locations browses first and preserves storage, management, deck and owner 
     await expect(
       page.getByRole("button", { name: "Enter Admin Mode", exact: true }),
     ).toBeVisible();
+    await expect(create.locator('input[name="ownerPlayerId"]')).not.toHaveValue(
+      fixture.otherId,
+    );
+    expect(await parentOptions.allTextContents()).not.toContain(
+      "Foreign private sentinel",
+    );
 
     // Phones, theme tokens and enlarged text contain only the six-section tray's scroll.
     await page.goto(`/locations?selected=${fixture.vaultId}`);
@@ -313,6 +319,15 @@ test("Locations browses first and preserves storage, management, deck and owner 
         document.documentElement.dataset.theme = value;
       }, theme);
       await noOverflow(page);
+      const textColor = await page.evaluate(
+        () => getComputedStyle(document.body).color,
+      );
+      await expect(
+        page.getByRole("button", { name: "Find locations", exact: true }),
+      ).toHaveCSS("color", textColor);
+      await expect(
+        detail.getByRole("heading", { name: "Vault layout", exact: true }),
+      ).toHaveCSS("color", textColor);
       if (theme === "azorius" || theme === "izzet")
         await page.screenshot({
           path: `test-results/locations-workspace-${theme}.png`,

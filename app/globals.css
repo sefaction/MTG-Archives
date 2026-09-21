@@ -838,7 +838,7 @@ a:hover {
 }
 .locations-view-nav a[aria-current="page"] {
   border-color: var(--app-accent);
-  color: var(--app-accent-contrast);
+  color: var(--app-text);
   background: var(--app-accent-soft);
 }
 .locations-view-nav span {
@@ -929,6 +929,34 @@ a:hover {
 }
 .locations-page [data-location-picker] option {
   padding: 0.3rem;
+}
+.locations-page [class*="text-[var(--app-accent-contrast)]"],
+.locations-page
+  :is(
+    .text-zinc-100,
+    .text-zinc-200,
+    .text-zinc-300,
+    .text-red-100,
+    .text-red-200,
+    .text-amber-100,
+    .text-amber-200,
+    .text-amber-300,
+    .text-emerald-100,
+    .text-cyan-100
+  ) {
+  color: var(--app-text);
+}
+.locations-page :is(.text-zinc-400, .text-zinc-500) {
+  color: var(--app-muted);
+}
+.locations-page :is(.text-sky-300, .text-cyan-200, .text-cyan-300) {
+  color: var(--app-link);
+}
+.locations-page :is([class*="bg-zinc-950"], [class*="bg-zinc-900"]) {
+  background: var(--app-surface-2);
+}
+.locations-page [class*="border-zinc-"] {
+  border-color: var(--app-border);
 }
 @media (max-width: 1100px) {
   .locations-workspace {

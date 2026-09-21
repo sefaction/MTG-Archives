@@ -71,7 +71,7 @@ export function VaultSectionMap({
         type="button"
         onClick={() => onMoveSelection?.(name)}
         aria-label={`Move selected to ${name || "Unsectioned"}`}
-        className="min-h-9 w-full rounded border border-cyan-700 bg-cyan-950/30 px-2 py-1 text-xs font-medium text-cyan-100 hover:bg-cyan-900/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300"
+        className="min-h-9 w-full rounded border border-[var(--app-accent)] bg-[var(--app-accent-soft)] px-2 py-1 text-xs font-medium text-[var(--app-text)] hover:bg-[var(--app-surface-3)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--app-accent)]"
       >
         Move here
       </button>
@@ -81,32 +81,34 @@ export function VaultSectionMap({
   return (
     <section
       aria-label={`${location.name} vault layout`}
-      className="min-w-0 space-y-3 rounded-xl border border-zinc-700 bg-zinc-950/40 p-3 sm:p-4"
+      className="min-w-0 space-y-3 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-2)] p-3 sm:p-4"
     >
       <div className="flex flex-col flex-wrap items-start justify-between gap-2 sm:flex-row">
         <div className="min-w-0 flex-1 sm:basis-48">
-          <h3 className="font-semibold text-zinc-100">Vault layout</h3>
-          <p className="break-words text-sm text-zinc-300">{location.name}</p>
-          <p className="text-xs text-zinc-400">
+          <h3 className="font-semibold text-[var(--app-text)]">Vault layout</h3>
+          <p className="break-words text-sm text-[var(--app-text)]">
+            {location.name}
+          </p>
+          <p className="text-xs text-[var(--app-muted)]">
             {total.toLocaleString()} cards · {room.toLocaleString()} spaces
             across six sections
           </p>
         </div>
         <a
           href={vaultSectionHref(location.id, null, query)}
-          className="min-h-9 shrink-0 rounded px-2 py-1 text-sm text-cyan-300 underline underline-offset-4"
+          className="min-h-9 shrink-0 rounded px-2 py-1 text-sm text-[var(--app-link)] underline underline-offset-4"
           aria-current={activeSection === null ? "page" : undefined}
         >
           Browse all sections
         </a>
       </div>
-      <p className="text-xs text-zinc-400">
+      <p className="text-xs text-[var(--app-muted)]">
         Sections 0–5, left to right. Capacity is advisory: 85 physical cards per
         section.
       </p>
       <div
         ref={scroller}
-        className="overflow-x-auto rounded-lg border border-zinc-700 bg-zinc-900/70 p-2"
+        className="overflow-x-auto rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-3)] p-2"
         tabIndex={0}
         role="group"
         aria-label="Six sections in a single row; scroll horizontally on small screens"
@@ -125,20 +127,20 @@ export function VaultSectionMap({
             return (
               <div
                 key={section.name}
-                className={`flex min-w-0 flex-col gap-2 rounded-lg border p-2 ${active ? "border-cyan-400 bg-cyan-950/40 ring-1 ring-cyan-400" : over ? "border-amber-600 bg-amber-950/20" : "border-zinc-600 bg-zinc-950/70"}`}
+                className={`flex min-w-0 flex-col gap-2 rounded-lg border p-2 ${active ? "border-[var(--app-accent)] bg-[var(--app-accent-soft)] ring-1 ring-[var(--app-accent)]" : over ? "border-amber-600 bg-[color-mix(in_srgb,var(--app-surface)_88%,#f59e0b)]" : "border-[var(--app-border)] bg-[var(--app-surface)]"}`}
               >
                 <a
                   href={vaultSectionHref(location.id, section.name, query)}
                   aria-label={`${section.name}, ${spaceLabel(section)}. Browse cards.`}
                   aria-current={active ? "page" : undefined}
-                  className="flex flex-1 flex-col gap-2 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300"
+                  className="flex flex-1 flex-col gap-2 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--app-accent)]"
                 >
-                  <span className="text-sm font-semibold text-zinc-100">
+                  <span className="text-sm font-semibold text-[var(--app-text)]">
                     {section.name}
                   </span>
                   <div
                     aria-hidden="true"
-                    className="flex h-16 items-end overflow-hidden rounded border border-zinc-700 bg-zinc-900"
+                    className="flex h-16 items-end overflow-hidden rounded border border-[var(--app-border)] bg-[var(--app-surface-3)]"
                   >
                     <div
                       className={`w-full ${over ? "bg-amber-500/70" : "bg-cyan-600/60"}`}
@@ -147,11 +149,11 @@ export function VaultSectionMap({
                       }}
                     />
                   </div>
-                  <span className="text-sm font-semibold tabular-nums text-zinc-100">
+                  <span className="text-sm font-semibold tabular-nums text-[var(--app-text)]">
                     {section.quantity.toLocaleString()} / 85
                   </span>
                   <span
-                    className={`text-xs ${over ? "text-amber-200" : "text-zinc-300"}`}
+                    className={`text-xs ${over ? "text-[var(--app-text)]" : "text-[var(--app-text)]"}`}
                   >
                     {over
                       ? `${section.quantity - VAULT_SECTION_CAPACITY} over capacity`
@@ -160,7 +162,7 @@ export function VaultSectionMap({
                         : `${available} spaces left`}
                   </span>
                   {over ? (
-                    <span className="text-xs text-amber-200">
+                    <span className="text-xs text-[var(--app-text)]">
                       All cards may not fit.
                     </span>
                   ) : null}
@@ -178,12 +180,12 @@ export function VaultSectionMap({
         {[{ name: "", quantity: unsectioned }, ...extra].map((section) => (
           <div
             key={section.name}
-            className={`min-w-32 max-w-full space-y-1 break-words rounded border px-2 py-1 ${activeSection === section.name ? "border-cyan-400 bg-cyan-950/40" : "border-zinc-700"}`}
+            className={`min-w-32 max-w-full space-y-1 break-words rounded border px-2 py-1 ${activeSection === section.name ? "border-[var(--app-accent)] bg-[var(--app-accent-soft)]" : "border-[var(--app-border)]"}`}
           >
             <a
               href={vaultSectionHref(location.id, section.name, query)}
               aria-current={activeSection === section.name ? "page" : undefined}
-              className="block min-h-9 py-1 text-sm text-cyan-200 underline underline-offset-4"
+              className="block min-h-9 py-1 text-sm text-[var(--app-link)] underline underline-offset-4"
             >
               {section.name || "Unsectioned"} ·{" "}
               {section.quantity.toLocaleString()} cards
@@ -192,12 +194,12 @@ export function VaultSectionMap({
           </div>
         ))}
       </div>
-      <p className="text-xs text-zinc-400">
+      <p className="text-xs text-[var(--app-muted)]">
         Counts include all cards directly in this vault, regardless of search
         filters. Extra section names and unsectioned cards are kept.
       </p>
       {canMove ? (
-        <p className="text-xs text-cyan-200">
+        <p className="text-xs text-[var(--app-link)]">
           {selectedQuantity.toLocaleString()} cards selected. Choose Move here
           to review a move; browsing another section clears this selection.
         </p>
