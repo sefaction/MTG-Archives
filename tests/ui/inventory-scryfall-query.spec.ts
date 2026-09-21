@@ -39,6 +39,7 @@ test("advanced inventory search applies Scryfall syntax to local cards", async (
   await page.goto("/inventory");
 
   await page.getByRole("button", { name: /Advanced Inventory Search/ }).click();
+  await page.getByRole("tab", { name: "Query", exact: true }).click();
   const query = page.getByLabel("Query arguments");
   await expect(query).toBeVisible();
   await query.fill("t:creature");

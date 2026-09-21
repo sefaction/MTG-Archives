@@ -26,6 +26,49 @@ test("real Inventory workspace composes search, preserves context and reflows wi
   test.setTimeout(120_000);
   const tag = `ui-workspace-${randomUUID()}`,
     password = randomUUID();
+  const expectSingleColorRows = async () => {
+    await page.getByRole("tab", { name: "Card", exact: true }).click();
+    for (const group of await page
+      .locator(".inventory-filter-panel .inventory-color-options")
+      .all()) {
+      const boxes = await group.locator("label").evaluateAll((nodes) =>
+        nodes.map((node) => {
+          const rect = node.getBoundingClientRect();
+          return {
+            x: rect.x,
+            y: rect.y,
+            right: rect.right,
+            width: rect.width,
+            height: rect.height,
+          };
+        }),
+      );
+      expect(boxes).toHaveLength(6);
+      for (const box of boxes) {
+        expect(box.y).toBe(boxes[0].y);
+        expect(box.width).toBeGreaterThanOrEqual(24);
+        expect(box.height).toBeGreaterThanOrEqual(24);
+      }
+      const groupBox = (await group.boundingBox())!;
+      expect(boxes[5].right).toBeLessThanOrEqual(
+        groupBox.x + groupBox.width + 1,
+      );
+    }
+    const colorless = page.getByRole("checkbox", {
+      name: "Card color Colorless",
+      exact: true,
+    });
+    await colorless.locator("..").scrollIntoViewIfNeeded();
+    await colorless.focus();
+    await page.keyboard.press("Space");
+    await expect(colorless).toBeChecked();
+    await page.screenshot({
+      path: `test-results/filter-color-row-${page.viewportSize()!.width}.png`,
+      animations: "disabled",
+    });
+    await page.keyboard.press("Space");
+    await expect(colorless).not.toBeChecked();
+  };
   try {
     database(`return p.$transaction(async tx=>{
       const tag=${quote(tag)},passwordHash=await require('bcryptjs').hash(${quote(password)},10);
@@ -91,6 +134,7 @@ test("real Inventory workspace composes search, preserves context and reflows wi
     await filters.click();
     const panel = page.getByRole("dialog", { name: "Filter inventory" });
     await expect(panel).toBeVisible();
+    await expectSingleColorRows();
     expect((await filters.boundingBox())!.x).toBe(closedFilterBox.x);
     expect((await filters.boundingBox())!.y).toBe(closedFilterBox.y);
     const applyBox = (await panel
@@ -106,7 +150,35 @@ test("real Inventory workspace composes search, preserves context and reflows wi
     await page
       .getByRole("combobox", { name: "Quick card name search" })
       .fill("Forest");
+    const cardTab = panel.getByRole("tab", { name: "Card", exact: true });
+    const collectionTab = panel.getByRole("tab", {
+      name: "Collection",
+      exact: true,
+    });
+    const queryTab = panel.getByRole("tab", { name: "Query", exact: true });
+    await cardTab.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(collectionTab).toBeFocused();
+    await expect(collectionTab).toHaveAttribute("aria-selected", "true");
+    await expect(
+      panel.getByRole("tabpanel", { name: "Card", exact: true }),
+    ).not.toBeVisible();
     await panel.locator('input[name="language"]').fill("EN");
+    const minimumPrice = panel.getByLabel("Minimum price in USD");
+    await minimumPrice.fill("0.001");
+    await cardTab.click();
+    await panel.getByRole("button", { name: "Apply filters" }).click();
+    await expect(collectionTab).toHaveAttribute("aria-selected", "true");
+    await expect(minimumPrice).toBeFocused();
+    await minimumPrice.fill("");
+    await queryTab.click();
+    await panel.getByLabel("Query arguments", { exact: true }).fill("t:land");
+    await collectionTab.click();
+    await expect(panel.locator('input[name="language"]')).toHaveValue("EN");
+    await page.screenshot({
+      path: "test-results/filter-collection-tab.png",
+      animations: "disabled",
+    });
     await panel.getByRole("button", { name: "Close filters" }).click();
     await expect(filters).toBeFocused();
     expect((await filters.boundingBox())!.x).toBe(closedFilterBox.x);
@@ -119,6 +191,7 @@ test("real Inventory workspace composes search, preserves context and reflows wi
     await page.getByRole("button", { name: "Search", exact: true }).click();
     await expect(page).toHaveURL(/cardName=Forest/);
     await expect(page).toHaveURL(/language=EN/);
+    await expect(page).toHaveURL(/scryfallQuery=t%3Aland/);
     await expect(page).toHaveURL(/pageSize=10/);
     await expect(
       table.getByText("Forest", { exact: true }).first(),
@@ -192,6 +265,8 @@ test("real Inventory workspace composes search, preserves context and reflows wi
         ),
       ).toBe(true);
       await filters.click();
+      await expectSingleColorRows();
+      await queryTab.click();
       await panel
         .getByLabel("Query arguments", { exact: true })
         .fill("type:creature");
@@ -206,10 +281,13 @@ test("real Inventory workspace composes search, preserves context and reflows wi
       await page.keyboard.press("Escape");
     }
     await filters.click();
+    await queryTab.click();
     await panel.getByLabel("Query arguments", { exact: true }).fill("(");
+    await cardTab.click();
     await panel.getByRole("button", { name: "Apply filters" }).click();
     await expect(page).toHaveURL(/scryfallQuery=%28/);
     await expect(panel).toBeVisible();
+    await expect(queryTab).toHaveAttribute("aria-selected", "true");
     await expect(panel.getByRole("alert").first()).toBeVisible();
     expect(await panel.evaluate((node) => node.matches(":modal"))).toBe(true);
     await page.keyboard.press("Escape");

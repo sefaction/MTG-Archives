@@ -19,6 +19,8 @@ import {
 } from "./filterStyles";
 
 export type FilterOption = { value: string; label: string };
+type FilterTab = "card" | "collection" | "query";
+const FILTER_TAB_STORAGE_KEY = "mtg-inventory-filter-tab";
 export type FilterLocationOption = FilterOption & { kind?: string };
 
 export type InventoryAdvancedSearchCapabilities = {
@@ -817,7 +819,10 @@ function ColorControls({
           </option>
         ))}
       </select>
-      <div className="flex flex-wrap gap-1" aria-label={ariaLabel}>
+      <div
+        className="inventory-color-options flex flex-wrap gap-1"
+        aria-label={ariaLabel}
+      >
         {COLOR_OPTIONS.map((color) => (
           <label
             key={color.value}
@@ -1084,6 +1089,45 @@ export function InventoryAdvancedSearch({
   scryfallQueryError,
 }: InventoryAdvancedSearchProps) {
   const workspace = useInventoryWorkspace();
+  const inWorkspace = Boolean(workspace);
+  const showQueryTab = capabilityOverrides?.showScryfallQuery !== false;
+  const tabId = useId();
+  const [filterTab, setFilterTab] = useState<FilterTab>(
+    scryfallQueryError ? "query" : "card",
+  );
+  useEffect(() => {
+    if (!inWorkspace) return;
+    const saved = sessionStorage.getItem(FILTER_TAB_STORAGE_KEY);
+    const frame = requestAnimationFrame(() => {
+      setFilterTab(
+        scryfallQueryError
+          ? "query"
+          : saved === "collection" || (saved === "query" && showQueryTab)
+            ? saved
+            : "card",
+      );
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [inWorkspace, scryfallQueryError, showQueryTab]);
+  function selectFilterTab(tab: FilterTab, element?: HTMLElement) {
+    setFilterTab(tab);
+    sessionStorage.setItem(FILTER_TAB_STORAGE_KEY, tab);
+    window.dispatchEvent(new Event(CLOSE_FILTER_DROPDOWNS_EVENT));
+    const panel = element?.closest("dialog");
+    if (panel) panel.scrollTop = 0;
+  }
+  function tabPanelProps(tab: FilterTab) {
+    return workspace
+      ? {
+          id: `${tabId}-${tab}-panel`,
+          role: "tabpanel",
+          "aria-labelledby": `${tabId}-${tab}-tab`,
+          "data-filter-tab": tab,
+          hidden: filterTab !== tab,
+          className: "inventory-filter-tab-panel",
+        }
+      : { className: "space-y-3" };
+  }
   const capabilities: InventoryAdvancedSearchCapabilities = {
     showOwnerScopeControls: isAdmin && !isPublic,
     showOwnerFilter: isPublic,
@@ -1215,12 +1259,78 @@ export function InventoryAdvancedSearch({
         error={scryfallQueryError}
         summary={activeFilterSummary}
         storageKey={ADVANCED_SEARCH_PANEL_STORAGE_KEY}
+        navigation={
+          workspace ? (
+            <div
+              className="inventory-filter-tabs"
+              role="tablist"
+              aria-label="Filter categories"
+            >
+              {(
+                [
+                  "card",
+                  "collection",
+                  ...(capabilities.showScryfallQuery ? ["query"] : []),
+                ] as FilterTab[]
+              ).map((tab, index, tabs) => (
+                <button
+                  key={tab}
+                  id={`${tabId}-${tab}-tab`}
+                  type="button"
+                  role="tab"
+                  aria-selected={filterTab === tab}
+                  aria-controls={`${tabId}-${tab}-panel`}
+                  tabIndex={filterTab === tab ? 0 : -1}
+                  onClick={(event) => selectFilterTab(tab, event.currentTarget)}
+                  onKeyDown={(event) => {
+                    const next =
+                      event.key === "ArrowRight"
+                        ? (index + 1) % tabs.length
+                        : event.key === "ArrowLeft"
+                          ? (index - 1 + tabs.length) % tabs.length
+                          : event.key === "Home"
+                            ? 0
+                            : event.key === "End"
+                              ? tabs.length - 1
+                              : -1;
+                    if (next < 0) return;
+                    event.preventDefault();
+                    selectFilterTab(tabs[next], event.currentTarget);
+                    document
+                      .getElementById(`${tabId}-${tabs[next]}-tab`)
+                      ?.focus();
+                  }}
+                >
+                  {tab === "card"
+                    ? "Card"
+                    : tab === "collection"
+                      ? "Collection"
+                      : "Query"}
+                </button>
+              ))}
+            </div>
+          ) : undefined
+        }
       >
         <form
           id={workspace ? "inventory-workspace-filters" : undefined}
           className="space-y-3"
           action={actionPath}
           onSubmit={handleSubmit}
+          onInvalidCapture={(event) => {
+            if (!workspace || !(event.target instanceof HTMLInputElement))
+              return;
+            const target = event.target;
+            const tab = target.closest<HTMLElement>("[data-filter-tab]")
+              ?.dataset.filterTab as FilterTab | undefined;
+            if (!tab || tab === filterTab) return;
+            event.preventDefault();
+            selectFilterTab(tab, target);
+            requestAnimationFrame(() => {
+              target.focus();
+              target.reportValidity();
+            });
+          }}
         >
           <input type="hidden" name="page" value="1" />
           <input type="hidden" name="displayMode" value={displayMode} />
@@ -1248,379 +1358,386 @@ export function InventoryAdvancedSearch({
               value={first(params, "sortDir")}
             />
           ) : null}
-          <section className="rounded border border-zinc-800 bg-zinc-950/50 p-3">
-            <div className="mb-3 text-xs font-semibold uppercase text-zinc-500">
-              Card text and printing
-            </div>
-            <div className="grid items-end gap-3 lg:grid-cols-[minmax(13rem,1.2fr)_minmax(16rem,1.4fr)_minmax(13rem,1fr)_minmax(13rem,1fr)]">
-              {workspace ? (
-                <input
-                  type="hidden"
-                  name="cardName"
-                  value={workspace.cardName}
-                />
-              ) : (
-                <AutocompleteInput
-                  label="Card name"
-                  name="cardName"
-                  initialValue={first(params, "cardName")}
-                  placeholder="Sol Ring"
-                  options={cardOptions}
-                  suggestionsEndpoint={suggestionsEndpoint}
-                  suggestionKind="cardName"
-                />
-              )}
-              <TokenAutocompleteInput
-                label="Type line"
-                name="typeTokens"
-                initialTokens={typeTokens}
-                placeholder="Legendary, Angel..."
-                options={typeOptions}
-                suggestionsEndpoint={suggestionsEndpoint}
-                suggestionKind="typeLine"
-              />
-              <label className={filterLabelClass}>
-                Oracle text
-                <input
-                  name="oracleText"
-                  defaultValue={first(params, "oracleText")}
-                  placeholder="draw a card"
-                  className={cn(filterInputClass, "mt-1 w-full")}
-                />
-              </label>
-              <TokenAutocompleteInput
-                label="Set"
-                name="set"
-                initialTokens={values(params, "set")}
-                placeholder="TLA or Avatar"
-                options={setAutocompleteOptions}
-                normalizeToken={(value) => value.trim().toLowerCase()}
-                tokenLabel={(value) => value.toUpperCase()}
-                suggestionsEndpoint={suggestionsEndpoint}
-                suggestionKind="set"
-              />
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <MultiSelectDropdown
-                label="Rarity"
-                name="rarity"
-                options={RARITY_OPTIONS}
-                selected={rarity}
-                compact
-              />
-              <MultiSelectDropdown
-                label="Finish"
-                name="finish"
-                options={FINISH_OPTIONS}
-                selected={finish}
-              />
-            </div>
-          </section>
-
-          <section className="rounded border border-zinc-800 bg-zinc-950/50 p-3">
-            <div className="mb-3 text-xs font-semibold uppercase text-zinc-500">
-              Color and mana
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <ColorControls
-                key={`colors-${colors.join(",")}`}
-                selected={colors}
-                mode={first(params, "colorMode")}
-                fieldName="colors"
-                modeFieldName="colorMode"
-                label="Card color"
-                ariaLabel="Card color"
-              />
-              <ColorControls
-                key={colorIdentity.join(",")}
-                selected={colorIdentity}
-                mode={first(params, "colorIdentityMode")}
-                fieldName="colorIdentity"
-                modeFieldName="colorIdentityMode"
-                label="Color ID"
-                ariaLabel="Color identity"
-              />
-              <div className="flex min-h-10 flex-wrap items-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 p-2 text-sm text-zinc-100 transition-colors focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/30">
-                <span className={filterLabelClass}>Mana value</span>
-                <select
-                  name="mvOp"
-                  value={mvOp}
-                  onChange={(event) => setMvOp(event.target.value)}
-                  className={filterSelectClass}
-                >
-                  <option className={filterOptionClass} value="">
-                    Any
-                  </option>
-                  <option className={filterOptionClass} value="eq">
-                    =
-                  </option>
-                  <option className={filterOptionClass} value="lt">
-                    &lt;
-                  </option>
-                  <option className={filterOptionClass} value="lte">
-                    &lt;=
-                  </option>
-                  <option className={filterOptionClass} value="gt">
-                    &gt;
-                  </option>
-                  <option className={filterOptionClass} value="gte">
-                    &gt;=
-                  </option>
-                  <option className={filterOptionClass} value="between">
-                    Between
-                  </option>
-                </select>
-                {mvOp && mvOp !== "between" ? (
-                  <input
-                    name="mv"
-                    type="number"
-                    step="0.5"
-                    defaultValue={first(params, "mv")}
-                    placeholder="Value"
-                    className={cn(filterInputClass, "w-20")}
-                  />
-                ) : null}
-                {mvOp === "between" ? (
-                  <>
-                    <input
-                      name="mvMin"
-                      type="number"
-                      step="0.5"
-                      defaultValue={
-                        first(params, "mvMin") || first(params, "manaValueMin")
-                      }
-                      placeholder="Min"
-                      className={cn(filterInputClass, "w-20")}
-                    />
-                    <input
-                      name="mvMax"
-                      type="number"
-                      step="0.5"
-                      defaultValue={
-                        first(params, "mvMax") || first(params, "manaValueMax")
-                      }
-                      placeholder="Max"
-                      className={cn(filterInputClass, "w-20")}
-                    />
-                  </>
-                ) : null}
+          <div {...tabPanelProps("card")}>
+            <section className="rounded border border-zinc-800 bg-zinc-950/50 p-3">
+              <div className="mb-3 text-xs font-semibold uppercase text-zinc-500">
+                Card text and printing
               </div>
-            </div>
-          </section>
-
-          <section className="rounded border border-zinc-800 bg-zinc-950/50 p-3">
-            <div className="mb-3 text-xs font-semibold uppercase text-zinc-500">
-              Collection fields
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <label className={cn(filterInlineFieldClass, "min-w-32")}>
-                <span className="text-zinc-400">Language</span>
-                <input
-                  name="language"
-                  defaultValue={values(params, "language").join(",")}
-                  placeholder="Any"
-                  className="ml-2 w-20 bg-transparent text-zinc-100 outline-none placeholder:text-zinc-500"
-                />
-              </label>
-              {capabilities.showLocationFilter ? (
-                <>
-                  <MultiSelectDropdown
-                    label="Location"
-                    name={locationParamName}
-                    options={locationOptions}
-                    selected={selectedLocationValues}
-                    compact
-                    searchable
+              <div className="grid items-end gap-3 lg:grid-cols-[minmax(13rem,1.2fr)_minmax(16rem,1.4fr)_minmax(13rem,1fr)_minmax(13rem,1fr)]">
+                {workspace ? (
+                  <input
+                    type="hidden"
+                    name="cardName"
+                    value={workspace.cardName}
                   />
-                  {locationTypeOptions.length ? (
-                    <MultiSelectDropdown
-                      label="Location type"
-                      name="locationType"
-                      options={locationTypeOptions}
-                      selected={selectedLocationTypes}
-                      compact
-                    />
-                  ) : null}
-                  {!isPublic ? (
-                    <>
-                      <label className={filterLabelClass}>
-                        Section
-                        <input
-                          name="locationSection"
-                          defaultValue={first(params, "locationSection")}
-                          className={cn(filterInputClass, "mt-1 w-36")}
-                          placeholder="Any section"
-                          disabled={sectionMatch === "empty"}
-                        />
-                      </label>
-                      <label className={filterLabelClass}>
-                        Section match
-                        <select
-                          name="locationSectionMatch"
-                          value={sectionMatch}
-                          onChange={(event) =>
-                            setSectionMatch(event.target.value)
-                          }
-                          className={cn(filterSelectClass, "mt-1")}
-                        >
-                          <option value="">Contains text</option>
-                          <option value="exact">Exact label</option>
-                          <option value="empty">No section assigned</option>
-                        </select>
-                      </label>
-                    </>
-                  ) : null}
-                </>
-              ) : null}
-              {capabilities.showVisibilityFilter ? (
-                <label className={cn(filterInlineFieldClass, "min-w-44")}>
-                  <span className="text-zinc-400">Visibility: </span>
+                ) : (
+                  <AutocompleteInput
+                    label="Card name"
+                    name="cardName"
+                    initialValue={first(params, "cardName")}
+                    placeholder="Sol Ring"
+                    options={cardOptions}
+                    suggestionsEndpoint={suggestionsEndpoint}
+                    suggestionKind="cardName"
+                  />
+                )}
+                <TokenAutocompleteInput
+                  label="Type line"
+                  name="typeTokens"
+                  initialTokens={typeTokens}
+                  placeholder="Legendary, Angel..."
+                  options={typeOptions}
+                  suggestionsEndpoint={suggestionsEndpoint}
+                  suggestionKind="typeLine"
+                />
+                <label className={filterLabelClass}>
+                  Oracle text
+                  <input
+                    name="oracleText"
+                    defaultValue={first(params, "oracleText")}
+                    placeholder="draw a card"
+                    className={cn(filterInputClass, "mt-1 w-full")}
+                  />
+                </label>
+                <TokenAutocompleteInput
+                  label="Set"
+                  name="set"
+                  initialTokens={values(params, "set")}
+                  placeholder="TLA or Avatar"
+                  options={setAutocompleteOptions}
+                  normalizeToken={(value) => value.trim().toLowerCase()}
+                  tokenLabel={(value) => value.toUpperCase()}
+                  suggestionsEndpoint={suggestionsEndpoint}
+                  suggestionKind="set"
+                />
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <MultiSelectDropdown
+                  label="Rarity"
+                  name="rarity"
+                  options={RARITY_OPTIONS}
+                  selected={rarity}
+                  compact
+                />
+                <MultiSelectDropdown
+                  label="Finish"
+                  name="finish"
+                  options={FINISH_OPTIONS}
+                  selected={finish}
+                />
+              </div>
+            </section>
+
+            <section className="rounded border border-zinc-800 bg-zinc-950/50 p-3">
+              <div className="mb-3 text-xs font-semibold uppercase text-zinc-500">
+                Color and mana
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <ColorControls
+                  key={`colors-${colors.join(",")}`}
+                  selected={colors}
+                  mode={first(params, "colorMode")}
+                  fieldName="colors"
+                  modeFieldName="colorMode"
+                  label="Card color"
+                  ariaLabel="Card color"
+                />
+                <ColorControls
+                  key={colorIdentity.join(",")}
+                  selected={colorIdentity}
+                  mode={first(params, "colorIdentityMode")}
+                  fieldName="colorIdentity"
+                  modeFieldName="colorIdentityMode"
+                  label="Color ID"
+                  ariaLabel="Color identity"
+                />
+                <div className="flex min-h-10 flex-wrap items-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 p-2 text-sm text-zinc-100 transition-colors focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/30">
+                  <span className={filterLabelClass}>Mana value</span>
                   <select
-                    name="visibility"
-                    defaultValue={first(params, "visibility")}
-                    className={cn(filterSelectClass, "min-w-32")}
+                    name="mvOp"
+                    value={mvOp}
+                    onChange={(event) => setMvOp(event.target.value)}
+                    className={filterSelectClass}
                   >
                     <option className={filterOptionClass} value="">
                       Any
                     </option>
-                    <option className={filterOptionClass} value="public">
-                      Public
+                    <option className={filterOptionClass} value="eq">
+                      =
                     </option>
-                    <option className={filterOptionClass} value="private">
-                      Private
+                    <option className={filterOptionClass} value="lt">
+                      &lt;
                     </option>
-                    <option className={filterOptionClass} value="inherit">
-                      Default
+                    <option className={filterOptionClass} value="lte">
+                      &lt;=
                     </option>
-                    <option
-                      className={filterOptionClass}
-                      value="explicitPublic"
-                    >
-                      Explicit public
+                    <option className={filterOptionClass} value="gt">
+                      &gt;
                     </option>
-                    <option
-                      className={filterOptionClass}
-                      value="explicitPrivate"
-                    >
-                      Explicit private
+                    <option className={filterOptionClass} value="gte">
+                      &gt;=
+                    </option>
+                    <option className={filterOptionClass} value="between">
+                      Between
                     </option>
                   </select>
-                </label>
-              ) : null}
-              {capabilities.showSourceFilter ? (
-                <MultiSelectDropdown
-                  label="Source"
-                  name="source"
-                  options={SOURCE_OPTIONS}
-                  selected={source}
-                  compact
-                />
-              ) : null}
-              {capabilities.showOwnerFilter ||
-              capabilities.showOwnerScopeControls ? (
-                <MultiSelectDropdown
-                  label={ownerFilterLabel}
-                  name={ownerParamName}
-                  options={ownerOptions}
-                  selected={selectedOwnerValues}
-                  emptyLabel={ownerAllLabel}
-                  compact
-                />
-              ) : null}
-              {capabilities.showInventoryScopeFilter ? (
-                <label className={cn(filterInlineFieldClass, "min-w-44")}>
-                  <span className="text-zinc-400">Inventory: </span>
-                  <select
-                    name="commitment"
-                    defaultValue={first(params, "commitment")}
-                    className={cn(filterSelectClass, "min-w-32")}
-                  >
-                    <option className={filterOptionClass} value="">
-                      All
-                    </option>
-                    <option className={filterOptionClass} value="available">
-                      Available
-                    </option>
-                    <option className={filterOptionClass} value="committed">
-                      Committed
-                    </option>
-                  </select>
-                </label>
-              ) : null}
-              <div className="flex min-h-10 flex-wrap items-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 p-2 text-sm text-zinc-100 transition-colors focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/30">
-                <span className={filterLabelClass}>USD</span>
-                <input
-                  name="priceMin"
-                  aria-label="Minimum price in USD"
-                  type="number"
-                  step="0.01"
-                  defaultValue={first(params, "priceMin")}
-                  placeholder="Min"
-                  className={cn(filterInputClass, "w-24")}
-                />
-                <input
-                  name="priceMax"
-                  aria-label="Maximum price in USD"
-                  type="number"
-                  step="0.01"
-                  defaultValue={first(params, "priceMax")}
-                  placeholder="Max"
-                  className={cn(filterInputClass, "w-24")}
-                />
-              </div>
-            </div>
-          </section>
-          {capabilities.showScryfallQuery ? (
-            <section className="inventory-scryfall-filter rounded border border-violet-900/70 bg-violet-950/20 p-3">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <div className="text-xs font-semibold uppercase text-violet-300">
-                    Scryfall arguments
-                  </div>
-                  <p className="mt-1 text-xs text-zinc-400">
-                    Use Scryfall syntax against cards in this inventory. These
-                    arguments combine with the structured filters.
-                  </p>
+                  {mvOp && mvOp !== "between" ? (
+                    <input
+                      name="mv"
+                      type="number"
+                      step="0.5"
+                      defaultValue={first(params, "mv")}
+                      placeholder="Value"
+                      className={cn(filterInputClass, "w-20")}
+                    />
+                  ) : null}
+                  {mvOp === "between" ? (
+                    <>
+                      <input
+                        name="mvMin"
+                        type="number"
+                        step="0.5"
+                        defaultValue={
+                          first(params, "mvMin") ||
+                          first(params, "manaValueMin")
+                        }
+                        placeholder="Min"
+                        className={cn(filterInputClass, "w-20")}
+                      />
+                      <input
+                        name="mvMax"
+                        type="number"
+                        step="0.5"
+                        defaultValue={
+                          first(params, "mvMax") ||
+                          first(params, "manaValueMax")
+                        }
+                        placeholder="Max"
+                        className={cn(filterInputClass, "w-20")}
+                      />
+                    </>
+                  ) : null}
                 </div>
-                <a
-                  href="https://scryfall.com/docs/syntax"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs text-violet-300 underline hover:text-violet-200"
-                >
-                  Scryfall syntax reference
-                </a>
               </div>
-              <label className={cn(filterLabelClass, "mt-3 block")}>
-                Query arguments
-                <input
-                  name="scryfallQuery"
-                  defaultValue={first(params, "scryfallQuery")}
-                  maxLength={1000}
-                  spellCheck={false}
-                  className={cn(filterInputClass, "mt-1 w-full font-mono")}
-                  placeholder='m:x, m=x, or (t:creature o:"draw a card")'
-                  aria-describedby="scryfall-query-help"
-                />
-              </label>
-              <p
-                id="scryfall-query-help"
-                className="mt-2 text-xs text-zinc-500"
-              >
-                Example: <code className="text-zinc-300">m:x</code> includes X
-                in the mana cost; <code className="text-zinc-300">m=x</code>
-                matches a mana cost composed only of X. Expressions are parsed
-                locally and matched only against cards in this inventory.
-              </p>
-              {scryfallQueryError ? (
-                <p
-                  role="alert"
-                  className="mt-2 rounded border border-red-900 bg-red-950/40 px-3 py-2 text-sm text-red-200"
-                >
-                  {scryfallQueryError}
-                </p>
-              ) : null}
             </section>
+          </div>
+          <div {...tabPanelProps("collection")}>
+            <section className="rounded border border-zinc-800 bg-zinc-950/50 p-3">
+              <div className="mb-3 text-xs font-semibold uppercase text-zinc-500">
+                Collection and storage
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <label className={cn(filterInlineFieldClass, "min-w-32")}>
+                  <span className="text-zinc-400">Language</span>
+                  <input
+                    name="language"
+                    defaultValue={values(params, "language").join(",")}
+                    placeholder="Any"
+                    className="ml-2 w-20 bg-transparent text-zinc-100 outline-none placeholder:text-zinc-500"
+                  />
+                </label>
+                {capabilities.showLocationFilter ? (
+                  <>
+                    <MultiSelectDropdown
+                      label="Location"
+                      name={locationParamName}
+                      options={locationOptions}
+                      selected={selectedLocationValues}
+                      compact
+                      searchable
+                    />
+                    {locationTypeOptions.length ? (
+                      <MultiSelectDropdown
+                        label="Location type"
+                        name="locationType"
+                        options={locationTypeOptions}
+                        selected={selectedLocationTypes}
+                        compact
+                      />
+                    ) : null}
+                    {!isPublic ? (
+                      <>
+                        <label className={filterLabelClass}>
+                          Section
+                          <input
+                            name="locationSection"
+                            defaultValue={first(params, "locationSection")}
+                            className={cn(filterInputClass, "mt-1 w-36")}
+                            placeholder="Any section"
+                            disabled={sectionMatch === "empty"}
+                          />
+                        </label>
+                        <label className={filterLabelClass}>
+                          Section match
+                          <select
+                            name="locationSectionMatch"
+                            value={sectionMatch}
+                            onChange={(event) =>
+                              setSectionMatch(event.target.value)
+                            }
+                            className={cn(filterSelectClass, "mt-1")}
+                          >
+                            <option value="">Contains text</option>
+                            <option value="exact">Exact label</option>
+                            <option value="empty">No section assigned</option>
+                          </select>
+                        </label>
+                      </>
+                    ) : null}
+                  </>
+                ) : null}
+                {capabilities.showVisibilityFilter ? (
+                  <label className={cn(filterInlineFieldClass, "min-w-44")}>
+                    <span className="text-zinc-400">Visibility: </span>
+                    <select
+                      name="visibility"
+                      defaultValue={first(params, "visibility")}
+                      className={cn(filterSelectClass, "min-w-32")}
+                    >
+                      <option className={filterOptionClass} value="">
+                        Any
+                      </option>
+                      <option className={filterOptionClass} value="public">
+                        Public
+                      </option>
+                      <option className={filterOptionClass} value="private">
+                        Private
+                      </option>
+                      <option className={filterOptionClass} value="inherit">
+                        Default
+                      </option>
+                      <option
+                        className={filterOptionClass}
+                        value="explicitPublic"
+                      >
+                        Explicit public
+                      </option>
+                      <option
+                        className={filterOptionClass}
+                        value="explicitPrivate"
+                      >
+                        Explicit private
+                      </option>
+                    </select>
+                  </label>
+                ) : null}
+                {capabilities.showSourceFilter ? (
+                  <MultiSelectDropdown
+                    label="Source"
+                    name="source"
+                    options={SOURCE_OPTIONS}
+                    selected={source}
+                    compact
+                  />
+                ) : null}
+                {capabilities.showOwnerFilter ||
+                capabilities.showOwnerScopeControls ? (
+                  <MultiSelectDropdown
+                    label={ownerFilterLabel}
+                    name={ownerParamName}
+                    options={ownerOptions}
+                    selected={selectedOwnerValues}
+                    emptyLabel={ownerAllLabel}
+                    compact
+                  />
+                ) : null}
+                {capabilities.showInventoryScopeFilter ? (
+                  <label className={cn(filterInlineFieldClass, "min-w-44")}>
+                    <span className="text-zinc-400">Inventory: </span>
+                    <select
+                      name="commitment"
+                      defaultValue={first(params, "commitment")}
+                      className={cn(filterSelectClass, "min-w-32")}
+                    >
+                      <option className={filterOptionClass} value="">
+                        All
+                      </option>
+                      <option className={filterOptionClass} value="available">
+                        Available
+                      </option>
+                      <option className={filterOptionClass} value="committed">
+                        Committed
+                      </option>
+                    </select>
+                  </label>
+                ) : null}
+                <div className="flex min-h-10 flex-wrap items-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 p-2 text-sm text-zinc-100 transition-colors focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/30">
+                  <span className={filterLabelClass}>USD</span>
+                  <input
+                    name="priceMin"
+                    aria-label="Minimum price in USD"
+                    type="number"
+                    step="0.01"
+                    defaultValue={first(params, "priceMin")}
+                    placeholder="Min"
+                    className={cn(filterInputClass, "w-24")}
+                  />
+                  <input
+                    name="priceMax"
+                    aria-label="Maximum price in USD"
+                    type="number"
+                    step="0.01"
+                    defaultValue={first(params, "priceMax")}
+                    placeholder="Max"
+                    className={cn(filterInputClass, "w-24")}
+                  />
+                </div>
+              </div>
+            </section>
+          </div>
+          {capabilities.showScryfallQuery ? (
+            <div {...tabPanelProps("query")}>
+              <section className="inventory-scryfall-filter rounded border border-violet-900/70 bg-violet-950/20 p-3">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <div className="text-xs font-semibold uppercase text-violet-300">
+                      Scryfall arguments
+                    </div>
+                    <p className="mt-1 text-xs text-zinc-400">
+                      Use Scryfall syntax against cards in this inventory. These
+                      arguments combine with the structured filters.
+                    </p>
+                  </div>
+                  <a
+                    href="https://scryfall.com/docs/syntax"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-violet-300 underline hover:text-violet-200"
+                  >
+                    Scryfall syntax reference
+                  </a>
+                </div>
+                <label className={cn(filterLabelClass, "mt-3 block")}>
+                  Query arguments
+                  <input
+                    name="scryfallQuery"
+                    defaultValue={first(params, "scryfallQuery")}
+                    maxLength={1000}
+                    spellCheck={false}
+                    className={cn(filterInputClass, "mt-1 w-full font-mono")}
+                    placeholder='m:x, m=x, or (t:creature o:"draw a card")'
+                    aria-describedby="scryfall-query-help"
+                  />
+                </label>
+                <p
+                  id="scryfall-query-help"
+                  className="mt-2 text-xs text-zinc-500"
+                >
+                  Example: <code className="text-zinc-300">m:x</code> includes X
+                  in the mana cost; <code className="text-zinc-300">m=x</code>
+                  matches a mana cost composed only of X. Expressions are parsed
+                  locally and matched only against cards in this inventory.
+                </p>
+                {scryfallQueryError ? (
+                  <p
+                    role="alert"
+                    className="mt-2 rounded border border-red-900 bg-red-950/40 px-3 py-2 text-sm text-red-200"
+                  >
+                    {scryfallQueryError}
+                  </p>
+                ) : null}
+              </section>
+            </div>
           ) : null}
           {!workspace && <FilterChipBar chips={activeChips} />}
 
