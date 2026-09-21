@@ -36,7 +36,9 @@ test("user can save a theme preference from settings", async ({ page }) => {
   await page.goto("/settings");
 
   await expect(page.getByRole("heading", { name: "Appearance" })).toBeVisible();
-  await expect(page.getByRole("radio")).toHaveCount(6);
+  await expect(page.locator('input[type="radio"][name="theme"]')).toHaveCount(
+    6,
+  );
 
   await page.getByLabel(/Azorius Ledger/).check();
   await page.getByRole("button", { name: /^save settings$/i }).click();

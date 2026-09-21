@@ -36,7 +36,7 @@ test("account navigation preference persists across sessions, isolates users and
   };
   try {
     database(
-      `return p.$transaction(async tx=>{for(const username of [${quote(tag)},${quote(tag + "-other")}]) {const owner=await tx.player.create({data:{name:username,displayName:'Navigation reviewer'}});await tx.user.create({data:{username,displayName:'Navigation reviewer',passwordHash:await require('bcryptjs').hash(${quote(password)},10),playerId:owner.id}});}return true;});`,
+      `return p.$transaction(async tx=>{for(const username of [${quote(tag)},${quote(tag + "-other")}]) {const owner=await tx.player.create({data:{name:username,displayName:username}});await tx.user.create({data:{username,displayName:'Navigation reviewer',passwordHash:await require('bcryptjs').hash(${quote(password)},10),playerId:owner.id}});}return true;});`,
     );
     await page.setViewportSize({ width: 1366, height: 768 });
     await login(page, tag);

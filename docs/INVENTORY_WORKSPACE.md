@@ -2,6 +2,10 @@
 
 Approved sequence, 2026-09-21: shared sidebar and real Inventory, then real Locations, cumulative local Docker review. This is the first application batch after the synthetic design in PR #276. Individual PR merge approval is still required.
 
+Review feedback in stacked PR #279 adds **Settings > Appearance > Main menu layout**: Sidebar (default) or Topbar, saved to the signed-in account through the existing Save settings action. It applies across Archive pages and fresh device sessions without changing other users. Both use the same navigation links, route highlighting, permissions and utility actions; phones retain the same Menu, and the separate League shell remains independent. The additive User column defaults existing accounts to Sidebar; missing/invalid values normalize to Sidebar. No browser-storage preference is required.
+
+The Inventory Filters trigger now stays at the workspace's left edge whether closed or open (#278). Quick search also retains its column, while closed results continue to span the full workspace. Sidebar and Topbar browser assertions check the trigger position before/after opening; the original search, selection and phone tests remain intact. `tests/ui/navigation-layout.spec.ts` also covers explicit save, persistence across independent browser sessions, user isolation, switching back, desktop widths and phone keyboard navigation. Latest batch verification is recorded in WORK_CHECKPOINT.md; the counts below refer to the original #277 pilot.
+
 ## Retained homes
 
 - Signed-in Archive routes share grouped desktop navigation and a shallow labelled phone menu. Dashboard, Inventory, Locations, Import, Decks, Wishlist, Trades, Pricing, Public, Settings and authorized Admin remain directly available; Commander League has an explicit separate-workspace link. Account/password, notifications, admin-mode controls and logout retain their original server actions and authorization.
