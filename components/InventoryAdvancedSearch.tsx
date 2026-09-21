@@ -1098,13 +1098,16 @@ export function InventoryAdvancedSearch({
   useEffect(() => {
     if (!inWorkspace) return;
     const saved = sessionStorage.getItem(FILTER_TAB_STORAGE_KEY);
-    setFilterTab(
-      scryfallQueryError
-        ? "query"
-        : saved === "collection" || (saved === "query" && showQueryTab)
-          ? saved
-          : "card",
-    );
+    const frame = requestAnimationFrame(() => {
+      setFilterTab(
+        scryfallQueryError
+          ? "query"
+          : saved === "collection" || (saved === "query" && showQueryTab)
+            ? saved
+            : "card",
+      );
+    });
+    return () => cancelAnimationFrame(frame);
   }, [inWorkspace, scryfallQueryError, showQueryTab]);
   function selectFilterTab(tab: FilterTab, element?: HTMLElement) {
     setFilterTab(tab);
