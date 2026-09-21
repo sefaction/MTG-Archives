@@ -6,6 +6,7 @@ import {
   requireLogin,
 } from "@/lib/auth";
 import { Nav } from "@/components/Nav";
+import { InventoryWorkspace } from "@/components/InventoryWorkspace";
 import { prisma } from "@/lib/prisma";
 import { getStorageLocations } from "@/lib/storage-summary";
 import { moveInventoryStorageBatch } from "@/lib/inventory-storage-move";
@@ -1105,18 +1106,25 @@ export default async function InventoryPage({
   return (
     <main className="p-8 space-y-4">
       <Nav />
-      <h1 className="text-3xl font-bold">Inventory</h1>
-      <a className="text-sm text-sky-300 underline" href="/pricing">
-        View value trends
-      </a>
-      <p className="rounded border border-zinc-800 p-3 text-sm text-zinc-300">
-        {adminModeActive
-          ? "Showing inventory across all users. Filter to one owner before broad bulk deletes."
-          : "Showing your inventory."}
-      </p>
+      <div className="inventory-page-heading">
+        <div>
+          <h1 className="text-3xl font-bold">Inventory</h1>
+          <p className="text-sm text-[var(--app-muted)]">
+            {adminModeActive ? "All owners · Admin mode" : "Your collection"}
+          </p>
+        </div>
+        <a className="text-sm text-sky-300 underline" href="/pricing">
+          View value trends
+        </a>
+      </div>
       {adminModeActive ? (
-        <section className="border border-zinc-800 rounded p-3 space-y-2">
-          <h2 className="font-semibold">Inventory Maintenance</h2>
+        <details className="border border-zinc-800 rounded p-3 space-y-2">
+          <summary className="font-semibold cursor-pointer">
+            Inventory Maintenance
+          </summary>
+          <p className="text-sm">
+            Filter to one owner before broad bulk deletes.
+          </p>
           <p className="text-sm text-zinc-400">
             Zero-quantity rows are hidden from inventory. Current zero-quantity
             rows: {zeroQuantityCount}.
@@ -1141,90 +1149,113 @@ export default async function InventoryPage({
               Clean up zero-quantity inventory items
             </SubmitButton>
           </form>
-        </section>
+        </details>
       ) : null}
-      <InventoryQuickCardNameSearch actionPath="/inventory" params={p} />
-      <InventoryAdvancedSearch
-        actionPath="/inventory"
-        params={p}
-        displayMode={displayMode}
-        isAdmin={adminModeActive}
-        players={visiblePlayers.map((player) => ({
-          value: player.id,
-          label: player.displayName,
-        }))}
-        locations={normalDestinationLocations.map((location) => ({
-          value: location.id,
-          label: location.path,
-          kind: location.kind,
-        }))}
-        locationTypes={[
-          { value: "Deck", label: "Deck" },
-          ...locationTypes.map((type) => ({
-            value: type.name,
-            label: type.name,
-          })),
-        ]}
-        setOptions={setOptions.map((set) => ({
-          value: set.setCode,
-          label: `${set.setCode.toUpperCase()} — ${set.setName || set.setCode.toUpperCase()}`,
-        }))}
-        cardNameOptions={cardNameOptions}
-        clearHref={clearFiltersHref}
-        scryfallQueryError={scryfallConstraint.error}
-      />
-      <InventoryBrowser
-        storageLocations={storageLocations}
-        rows={rows}
-        players={visiblePlayers.map((p) => ({
-          id: p.id,
-          name: p.displayName,
-          color: p.color,
-        }))}
-        locations={normalDestinationLocations.map((l) => ({
-          id: l.id,
-          name: l.path,
-          ownerPlayerId: l.ownerPlayerId,
-          active: l.active,
-          kind: l.kind,
-        }))}
-        cardLabels={cardLabels}
-        isAdmin={adminModeActive}
-        displayMode={displayMode}
-        totalMatchingCount={totalMatchingCount}
-        totalMatchingCards={filteredPrintingGroups.reduce(
-          (sum: number, entry: any) => sum + (entry._sum?.quantity ?? 0),
-          0,
-        )}
-        currentPage={Math.min(currentPage, totalPages)}
-        totalPages={totalPages}
-        hasPreviousPage={currentPage > 1}
-        hasNextPage={currentPage < totalPages}
-        pageHrefBase={pageHrefBase}
-        infiniteApiPath="/api/inventory/list"
-        initialPageSize={initialPageSize}
-        initialBrowsingMode={initialBrowsingMode}
-        initialSortField={String(sortField)}
-        initialSortDirection={sortDirection}
-        currentLocationId={
-          selected("locationId").length === 1 ? selected("locationId")[0] : ""
+      <InventoryWorkspace
+        cardName={
+          Array.isArray(p.cardName) ? p.cardName[0] || "" : p.cardName || ""
         }
-        onBulkMoveLocation={onBulkMoveLocation}
-        onBulkDeleteInventory={onBulkDeleteInventory}
-        onMoveInventoryCopies={onMoveInventoryCopies}
-        onSplitInventoryStack={onSplitInventoryStack}
-        onSaveEdit={onSaveEdit}
-        onSearchPrintings={onSearchPrintings}
-        onDeleteInventoryItem={deleteInventoryItem}
-        deckTargets={editableDecks.map((deck) => ({
-          id: deck.id,
-          name: deck.name,
-          format: deck.format,
-          ownerName: adminModeActive ? deck.ownerUser.displayName : undefined,
-        }))}
-        onAddToDeck={addDeckCard}
-        importExportHref={user ? importExportHref : undefined}
-      />
+      >
+        <InventoryQuickCardNameSearch actionPath="/inventory" params={p} />
+        <InventoryAdvancedSearch
+          key={JSON.stringify(p)}
+          actionPath="/inventory"
+          params={p}
+          displayMode={displayMode}
+          isAdmin={adminModeActive}
+          players={visiblePlayers.map((player) => ({
+            value: player.id,
+            label: player.displayName,
+          }))}
+          locations={normalDestinationLocations.map((location) => ({
+            value: location.id,
+            label: location.path,
+            kind: location.kind,
+          }))}
+          locationTypes={[
+            { value: "Deck", label: "Deck" },
+            ...locationTypes.map((type) => ({
+              value: type.name,
+              label: type.name,
+            })),
+          ]}
+          setOptions={setOptions.map((set) => ({
+            value: set.setCode,
+            label: `${set.setCode.toUpperCase()} — ${set.setName || set.setCode.toUpperCase()}`,
+          }))}
+          cardNameOptions={cardNameOptions}
+          clearHref={clearFiltersHref}
+          scryfallQueryError={scryfallConstraint.error}
+        />
+        <div className="inventory-results">
+          <p className="inventory-result-summary">
+            {totalMatchingCount.toLocaleString()} results ·{" "}
+            {filteredPrintingGroups
+              .reduce(
+                (sum: number, entry: any) => sum + (entry._sum?.quantity ?? 0),
+                0,
+              )
+              .toLocaleString()}{" "}
+            physical copies
+          </p>
+          <InventoryBrowser
+            storageLocations={storageLocations}
+            rows={rows}
+            players={visiblePlayers.map((p) => ({
+              id: p.id,
+              name: p.displayName,
+              color: p.color,
+            }))}
+            locations={normalDestinationLocations.map((l) => ({
+              id: l.id,
+              name: l.path,
+              ownerPlayerId: l.ownerPlayerId,
+              active: l.active,
+              kind: l.kind,
+            }))}
+            cardLabels={cardLabels}
+            isAdmin={adminModeActive}
+            displayMode={displayMode}
+            totalMatchingCount={totalMatchingCount}
+            totalMatchingCards={filteredPrintingGroups.reduce(
+              (sum: number, entry: any) => sum + (entry._sum?.quantity ?? 0),
+              0,
+            )}
+            currentPage={Math.min(currentPage, totalPages)}
+            totalPages={totalPages}
+            hasPreviousPage={currentPage > 1}
+            hasNextPage={currentPage < totalPages}
+            pageHrefBase={pageHrefBase}
+            infiniteApiPath="/api/inventory/list"
+            initialPageSize={initialPageSize}
+            initialBrowsingMode={initialBrowsingMode}
+            initialSortField={String(sortField)}
+            initialSortDirection={sortDirection}
+            currentLocationId={
+              selected("locationId").length === 1
+                ? selected("locationId")[0]
+                : ""
+            }
+            onBulkMoveLocation={onBulkMoveLocation}
+            onBulkDeleteInventory={onBulkDeleteInventory}
+            onMoveInventoryCopies={onMoveInventoryCopies}
+            onSplitInventoryStack={onSplitInventoryStack}
+            onSaveEdit={onSaveEdit}
+            onSearchPrintings={onSearchPrintings}
+            onDeleteInventoryItem={deleteInventoryItem}
+            deckTargets={editableDecks.map((deck) => ({
+              id: deck.id,
+              name: deck.name,
+              format: deck.format,
+              ownerName: adminModeActive
+                ? deck.ownerUser.displayName
+                : undefined,
+            }))}
+            onAddToDeck={addDeckCard}
+            importExportHref={user ? importExportHref : undefined}
+          />
+        </div>
+      </InventoryWorkspace>
     </main>
   );
 }

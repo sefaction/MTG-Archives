@@ -69,7 +69,9 @@ test("collapsible panels use accessible shared dark styling", () => {
 test("quick card name search shares the canonical cardName filter", () => {
   assert.match(quickCardNameSearch, /name="cardName"/);
   assert.match(quickCardNameSearch, /value=\{value\}/);
-  assert.match(quickCardNameSearch, /setValue\(cardName\)/);
+  assert.match(quickCardNameSearch, /setLocalValue\(cardName\)/);
+  assert.match(quickCardNameSearch, /workspace\?\.cardName \?\? localValue/);
+  assert.match(inventorySearch, /value=\{workspace.cardName\}/);
   assert.match(
     quickCardNameSearch,
     /OMITTED_PARAMS = new Set\(\["cardName", "page"\]\)/,
@@ -181,7 +183,7 @@ test("color identity controls visibly track checkbox changes", () => {
 test("active filter chips and Clear Filters render outside collapsed advanced search", () => {
   assert.match(
     inventorySearch,
-    /activeChips\.length \? \([\s\S]*?<FilterChipBar chips=\{activeChips\} \/>[\s\S]*?Clear Filters[\s\S]*?<CollapsiblePanel/,
+    /activeChips\.length \? \([\s\S]*?<FilterChipBar chips=\{activeChips\} \/>[\s\S]*?Clear Filters[\s\S]*?<InventoryFilterContainer/,
   );
   assert.match(inventorySearch, /aria-label="Active filters"/);
   assert.match(inventorySearch, /href=\{chip\.href\}/);
@@ -193,6 +195,11 @@ test("active filter chips and Clear Filters render outside collapsed advanced se
     publicInventoryPage,
     /if \(p\.sort\) clearFilterParams\.set\("sort", String\(p\.sort\)\)/,
   );
+});
+
+test("shared inventory filter summary describes activity, not visibility", () => {
+  assert.match(inventorySearch, /No optional filters active/);
+  assert.doesNotMatch(inventorySearch, /Optional filters hidden/);
 });
 
 test("deck and wishlist filter controls use shared filter styles", () => {

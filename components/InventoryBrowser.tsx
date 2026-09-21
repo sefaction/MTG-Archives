@@ -11,6 +11,10 @@ import {
 import { useRouter } from "next/navigation";
 import { StorageDestinationPicker } from "./StorageDestinationPicker";
 import { InventoryMoveDialog } from "./InventoryMoveDialog";
+import {
+  InventoryViewOptions,
+  useInventoryWorkspace,
+} from "./InventoryWorkspace";
 import { selectInventoryRows } from "@/lib/inventory-selection";
 import type { StorageLocation } from "@/lib/storage-sections";
 import { isVault } from "@/lib/storage-sections";
@@ -2276,6 +2280,34 @@ export function InventoryBrowser({
     getCoreRowModel: getCoreRowModel(),
   });
   const sizeClass = collectionCardGridClass(cardSize);
+  const workspace = useInventoryWorkspace();
+  const columnControls = (
+    <details>
+      <summary
+        className={cn(
+          filterButtonClass,
+          "inline-flex cursor-pointer list-none px-2 py-1",
+        )}
+      >
+        Columns
+      </summary>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+        {table
+          .getAllLeafColumns()
+          .filter((c) => c.getCanHide())
+          .map((c) => (
+            <label key={c.id} className={filterLabelClass}>
+              <input
+                type="checkbox"
+                checked={c.getIsVisible()}
+                onChange={c.getToggleVisibilityHandler()}
+              />{" "}
+              {c.columnDef.header as string}
+            </label>
+          ))}
+      </div>
+    </details>
+  );
 
   return (
     <div className="space-y-3">
@@ -2319,18 +2351,19 @@ export function InventoryBrowser({
           }
         />
       ) : null}
-      <div className="flex flex-wrap gap-2 items-center">
+      <div className="inventory-view-toolbar flex flex-wrap gap-2 items-center">
         <span className={filterLabelClass}>View:</span>
         <button
           className={cn(
             filterButtonClass,
             "px-2 py-1",
-            viewMode === "table" && "bg-zinc-800",
+            viewMode === "table" && "!bg-[var(--app-accent-soft)]",
           )}
           onClick={() => {
             setViewMode("table");
             localStorage.setItem("inventoryViewMode", "table");
           }}
+          aria-pressed={viewMode === "table"}
         >
           Table View
         </button>
@@ -2338,106 +2371,113 @@ export function InventoryBrowser({
           className={cn(
             filterButtonClass,
             "px-2 py-1",
-            viewMode === "binder" && "bg-zinc-800",
+            viewMode === "binder" && "!bg-[var(--app-accent-soft)]",
           )}
           onClick={() => {
             setViewMode("binder");
             localStorage.setItem("inventoryViewMode", "binder");
           }}
+          aria-pressed={viewMode === "binder"}
         >
           Binder View
         </button>
-        <span className={cn(filterLabelClass, "ml-4")}>Display:</span>
-        <select
-          value={displayMode}
-          onChange={(event) => {
-            const next = event.target.value as "exact" | "grouped";
-            setLoadedRows(rows);
-            setPagination((current) => ({ ...current, pageIndex: 0 }));
-            updateBrowseQuery({ displayMode: next });
-          }}
-          className={filterSelectClass}
-        >
-          <option value="exact">Exact printings</option>
-          <option value="grouped">Grouped by card</option>
-        </select>
-        {viewMode === "binder" ? (
-          <>
-            <span className={cn(filterLabelClass, "ml-4")}>Card Size:</span>
-            <button
-              className={cn(
-                filterButtonClass,
-                "px-2 py-1",
-                cardSize === "small" && "bg-zinc-800",
-              )}
-              onClick={() => {
-                setCardSize("small");
-                localStorage.setItem("inventoryCardSize", "small");
-              }}
-            >
-              Small
-            </button>
-            <button
-              className={cn(
-                filterButtonClass,
-                "px-2 py-1",
-                cardSize === "medium" && "bg-zinc-800",
-              )}
-              onClick={() => {
-                setCardSize("medium");
-                localStorage.setItem("inventoryCardSize", "medium");
-              }}
-            >
-              Medium
-            </button>
-            <button
-              className={cn(
-                filterButtonClass,
-                "px-2 py-1",
-                cardSize === "large" && "bg-zinc-800",
-              )}
-              onClick={() => {
-                setCardSize("large");
-                localStorage.setItem("inventoryCardSize", "large");
-              }}
-            >
-              Large
-            </button>
-          </>
-        ) : null}
-        <span className={cn(filterLabelClass, "ml-4")}>Page size:</span>
-        <select
-          value={pageSize}
-          onChange={(event) => {
-            const next = Number(event.target.value);
-            setPageSize(next);
-            setPagination({ pageIndex: 0, pageSize: next });
-            setLoadedRows(rows);
-            updateBrowseQuery({ pageSize: next });
-          }}
-          className={filterSelectClass}
-        >
-          {[10, 25, 50, 100, 250].map((size) => (
-            <option key={size} value={size}>
-              {size}
-            </option>
-          ))}
-        </select>
-        <span className={cn(filterLabelClass, "ml-4")}>Browsing mode:</span>
-        <select
-          value={browsingMode}
-          onChange={(event) => {
-            const next = event.target.value as "paginated" | "infinite";
-            setBrowsingMode(next);
-            setLoadedRows(rows);
-            setPagination((current) => ({ ...current, pageIndex: 0 }));
-            updateBrowseQuery({ browse: next });
-          }}
-          className={filterSelectClass}
-        >
-          <option value="paginated">Paginated</option>
-          <option value="infinite">Infinite scroll</option>
-        </select>
+        <InventoryViewOptions>
+          <span className={cn(filterLabelClass, "ml-4")}>Display:</span>
+          <select
+            aria-label="Inventory display"
+            value={displayMode}
+            onChange={(event) => {
+              const next = event.target.value as "exact" | "grouped";
+              setLoadedRows(rows);
+              setPagination((current) => ({ ...current, pageIndex: 0 }));
+              updateBrowseQuery({ displayMode: next });
+            }}
+            className={filterSelectClass}
+          >
+            <option value="exact">Exact printings</option>
+            <option value="grouped">Grouped by card</option>
+          </select>
+          {viewMode === "binder" ? (
+            <>
+              <span className={cn(filterLabelClass, "ml-4")}>Card Size:</span>
+              <button
+                className={cn(
+                  filterButtonClass,
+                  "px-2 py-1",
+                  cardSize === "small" && "!bg-[var(--app-accent-soft)]",
+                )}
+                onClick={() => {
+                  setCardSize("small");
+                  localStorage.setItem("inventoryCardSize", "small");
+                }}
+              >
+                Small
+              </button>
+              <button
+                className={cn(
+                  filterButtonClass,
+                  "px-2 py-1",
+                  cardSize === "medium" && "!bg-[var(--app-accent-soft)]",
+                )}
+                onClick={() => {
+                  setCardSize("medium");
+                  localStorage.setItem("inventoryCardSize", "medium");
+                }}
+              >
+                Medium
+              </button>
+              <button
+                className={cn(
+                  filterButtonClass,
+                  "px-2 py-1",
+                  cardSize === "large" && "!bg-[var(--app-accent-soft)]",
+                )}
+                onClick={() => {
+                  setCardSize("large");
+                  localStorage.setItem("inventoryCardSize", "large");
+                }}
+              >
+                Large
+              </button>
+            </>
+          ) : null}
+          <span className={cn(filterLabelClass, "ml-4")}>Page size:</span>
+          <select
+            aria-label="Inventory page size"
+            value={pageSize}
+            onChange={(event) => {
+              const next = Number(event.target.value);
+              setPageSize(next);
+              setPagination({ pageIndex: 0, pageSize: next });
+              setLoadedRows(rows);
+              updateBrowseQuery({ pageSize: next });
+            }}
+            className={filterSelectClass}
+          >
+            {[10, 25, 50, 100, 250].map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+          <span className={cn(filterLabelClass, "ml-4")}>Browsing mode:</span>
+          <select
+            aria-label="Inventory browsing mode"
+            value={browsingMode}
+            onChange={(event) => {
+              const next = event.target.value as "paginated" | "infinite";
+              setBrowsingMode(next);
+              setLoadedRows(rows);
+              setPagination((current) => ({ ...current, pageIndex: 0 }));
+              updateBrowseQuery({ browse: next });
+            }}
+            className={filterSelectClass}
+          >
+            <option value="paginated">Paginated</option>
+            <option value="infinite">Infinite scroll</option>
+          </select>
+          {workspace && viewMode === "table" ? columnControls : null}
+        </InventoryViewOptions>
       </div>
 
       {capabilities.canBulkSelect && !selectionAvailable ? (
@@ -2450,12 +2490,13 @@ export function InventoryBrowser({
           className={cn(
             filterPanelClass,
             "space-y-3",
+            selectedEntriesCount === 0 && "inventory-selection-empty",
             selectedEntriesCount > 0 &&
               "sticky top-2 z-30 !bg-[var(--app-surface)] shadow-lg",
           )}
         >
           <div className="flex flex-wrap gap-2 items-center text-sm">
-            <span className="text-xs font-semibold uppercase text-zinc-500">
+            <span className="inventory-selection-context text-xs font-semibold uppercase text-zinc-500">
               Actions
             </span>
             {importExportHref ? (
@@ -2481,6 +2522,7 @@ export function InventoryBrowser({
               type="button"
               className={cn(filterButtonClass, "px-2 py-1")}
               onClick={clearSelection}
+              hidden={selectedEntriesCount === 0}
             >
               Clear selection
             </button>
@@ -2556,14 +2598,14 @@ export function InventoryBrowser({
                 </div>
               </details>
             ) : null}
-            <span className="text-zinc-300">
+            <span className="inventory-selection-context text-zinc-300">
               {allMatchingSelected
-                ? `All ${totalMatchingCount} matching inventory entries are selected.`
+                ? `All ${totalMatchingCount} matching inventory entries are selected. ${selectedCardsCount} physical copies.`
                 : `${selectedEntriesCount} entries · ${selectedCardsCount} cards selected`}
             </span>
           </div>
           {selectionAvailable && (
-            <p className="hidden text-xs text-[var(--app-muted)] sm:block">
+            <p className="inventory-selection-context hidden text-xs text-[var(--app-muted)] sm:block">
               Click a row to select · Ctrl/⌘-click to toggle · Shift-click for a
               range · Checkboxes add to your selection. Ranges cover loaded rows
               only.
@@ -2864,31 +2906,7 @@ export function InventoryBrowser({
 
       {viewMode === "table" ? (
         <>
-          <details>
-            <summary
-              className={cn(
-                filterButtonClass,
-                "inline-flex cursor-pointer list-none px-2 py-1",
-              )}
-            >
-              Columns
-            </summary>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
-              {table
-                .getAllLeafColumns()
-                .filter((c) => c.getCanHide())
-                .map((c) => (
-                  <label key={c.id} className={filterLabelClass}>
-                    <input
-                      type="checkbox"
-                      checked={c.getIsVisible()}
-                      onChange={c.getToggleVisibilityHandler()}
-                    />{" "}
-                    {c.columnDef.header as string}
-                  </label>
-                ))}
-            </div>
-          </details>
+          {!workspace ? columnControls : null}
           <div className="overflow-x-auto border border-zinc-800">
             <table className="w-full text-sm">
               <thead>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import {
   logout,
   getCurrentUser,
@@ -13,6 +14,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { getUnreadNotificationCount } from "@/lib/notifications";
 import { normalizePlayerColor } from "@/lib/player-colors";
 import { safeLocalReturnPath } from "@/lib/local-return-path";
+import { ArchiveNavigation } from "@/components/ArchiveNavigation";
 
 const mainLinks = [
   { href: "/dashboard", label: "Dashboard" },
@@ -29,6 +31,20 @@ const mainLinks = [
 
 function getSafeReturnTo(formData: FormData) {
   return safeLocalReturnPath(formData.get("returnTo"));
+}
+
+function AnonymousNavigation({
+  children,
+}: {
+  children: ReactNode;
+  appName: string;
+  adminModeActive: boolean;
+}) {
+  return (
+    <nav className="app-nav mb-6 flex flex-wrap items-center justify-between gap-4">
+      {children}
+    </nav>
+  );
 }
 
 export async function Nav() {
@@ -58,6 +74,7 @@ export async function Nav() {
     redirect(getSafeReturnTo(formData));
   }
 
+  const Navigation = user ? ArchiveNavigation : AnonymousNavigation;
   return (
     <>
       {adminModeActive ? (
@@ -65,25 +82,27 @@ export async function Nav() {
           Admin mode is active. You can view and manage inventory across users.
         </div>
       ) : null}
-      <nav className="app-nav mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-4">
-          <Link href="/" className="app-nav-brand">
-            {appName}
-          </Link>
-          {mainLinks.map((link) => (
-            <Link key={link.href} href={link.href} className="app-nav-link">
-              {link.label}
+      <Navigation appName={appName} adminModeActive={adminModeActive}>
+        {!user && (
+          <div className="flex flex-wrap items-center gap-4">
+            <Link href="/" className="app-nav-brand">
+              {appName}
             </Link>
-          ))}
-          {adminModeActive ? (
-            <Link
-              href="/admin"
-              className="rounded-md border border-amber-700/60 bg-amber-950/30 px-2 py-1 text-sm font-medium text-amber-100 hover:border-amber-500 hover:text-amber-50"
-            >
-              Admin
-            </Link>
-          ) : null}
-        </div>
+            {mainLinks.map((link) => (
+              <Link key={link.href} href={link.href} className="app-nav-link">
+                {link.label}
+              </Link>
+            ))}
+            {adminModeActive ? (
+              <Link
+                href="/admin"
+                className="rounded-md border border-amber-700/60 bg-amber-950/30 px-2 py-1 text-sm font-medium text-amber-100 hover:border-amber-500 hover:text-amber-50"
+              >
+                Admin
+              </Link>
+            ) : null}
+          </div>
+        )}
         <div className="flex w-full min-w-0 flex-wrap items-center gap-3 text-sm text-stone-300 lg:w-auto">
           {user ? (
             <>
@@ -133,7 +152,7 @@ export async function Nav() {
             </Link>
           )}
         </div>
-      </nav>
+      </Navigation>
     </>
   );
 }
