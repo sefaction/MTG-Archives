@@ -57,7 +57,7 @@ test("locations support safe hierarchical parent selection and breadcrumb paths"
   assert.match(pageSource, /including sub-locations/);
   assert.match(pageSource, /browseLocations\(normalLocations, browseParams\)/);
   assert.match(pageSource, /browser\.items/);
-  assert.match(pageSource, /Search locations/);
+  assert.match(pageSource, /LocationBrowseFilters/);
   assert.match(pageSource, /aria-label="Location pages"/);
 });
 

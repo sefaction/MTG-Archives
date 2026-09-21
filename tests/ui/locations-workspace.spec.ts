@@ -182,8 +182,9 @@ test("Locations browses first and preserves storage, management, deck and owner 
     await page
       .getByRole("link", { name: "Create location", exact: true })
       .click();
-    const create = page.locator("form").filter({
-      has: page.getByRole("button", { name: "Create Location", exact: true }),
+    const create = page.getByRole("form", {
+      name: "Create location",
+      exact: true,
     });
     await create.getByLabel("Name", { exact: true }).fill("New storage child");
     await create
@@ -193,8 +194,10 @@ test("Locations browses first and preserves storage, management, deck and owner 
       .getByLabel("Parent location", { exact: true })
       .selectOption(fixture.vaultId);
     await create
-      .getByLabel("Location type", { exact: true })
+      .getByRole("combobox", { name: "Location type", exact: true })
       .selectOption("Vault");
+    await create.getByRole("button", { name: "Continue", exact: true }).click();
+    await create.getByRole("button", { name: "Continue", exact: true }).click();
     await create
       .getByRole("button", { name: "Create Location", exact: true })
       .click();

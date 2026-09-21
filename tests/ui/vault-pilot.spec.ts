@@ -47,13 +47,16 @@ test("vault creation, multi-selection fill, advisory overflow, refreshed occupan
     await page
       .getByRole("link", { name: "Create location", exact: true })
       .click();
-    const create = page.locator("form").filter({
-      has: page.getByRole("button", { name: "Create Location", exact: true }),
+    const create = page.getByRole("form", {
+      name: "Create location",
+      exact: true,
     });
     await create.locator('input[name="name"]').fill(name);
     await create
-      .getByLabel("Location type", { exact: true })
+      .getByRole("combobox", { name: "Location type", exact: true })
       .selectOption({ label: "Vault" });
+    await create.getByRole("button", { name: "Continue", exact: true }).click();
+    await create.getByRole("button", { name: "Continue", exact: true }).click();
     await create
       .getByRole("button", { name: "Create Location", exact: true })
       .click();

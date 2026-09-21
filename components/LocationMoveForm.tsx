@@ -10,6 +10,7 @@ export type LocationMoveOption = {
   name: string;
   entries: number;
   quantity: number;
+  capacity?: number | null;
   effectiveVisibility: "PRIVATE" | "PUBLIC";
 };
 
@@ -70,6 +71,15 @@ export function LocationMoveForm({ locations, source, moveAction }: Props) {
         Confirm moving all cards from the source location.
       </label>
       <div className="space-y-2">
+        {destination?.capacity != null && (
+          <p role="status" className="text-sm">
+            {destination.quantity + source.quantity} / {destination.capacity}{" "}
+            cards overall after move
+            {destination.quantity + source.quantity > destination.capacity
+              ? " — All cards may not fit. You can still continue."
+              : ""}
+          </p>
+        )}
         {warning ? (
           <p className="rounded border border-amber-800 bg-amber-950/30 p-2 text-xs text-amber-100">
             {warning}
