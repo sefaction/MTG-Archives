@@ -1,6 +1,33 @@
 # Resumable work checkpoint
 
-Updated 2026-09-20. Reconcile git, GitHub, Docker and processes before resuming; GitHub is authoritative.
+Updated 2026-09-21. Reconcile git, GitHub, Docker and processes before resuming; GitHub is authoritative.
+
+## Active design batch: UI consolidation foundation, 2026-09-21
+
+The user approved starting the recommended design batch after the roadmap review. Branch `design/ui-consolidation-foundation`, based on released main `7a32dd3`. Related issues #262/#263/#274; no issue is claimed complete. Scope: capability crosswalk, workspace contract, standalone synthetic Inventory/Locations prototype with sidebar/top navigation, local Docker review and targeted prototype checks. No app source/schema/current app image changes.
+
+- Review: `http://127.0.0.1:13002`, separate Compose project `mtg-archives-design` using `docker-compose.design.yml`. Read-only static mount of `docs/design/ui-consolidation`, installed `node:22-alpine`, loopback port; no application network, database or API access. This preview reflects the current branch files. App remains at `http://127.0.0.1:13001` on the released image below; SMTP capture remains unchanged.
+- Completed: source crosswalk for all 34 page routes and grouped action/role invariants; proposed design/token contract; interactive search/filter/chips, selection/details/cancel, simulated capacity-aware move, storage tree/section navigation and six theme previews. Prototype details/limits are in `docs/design/ui-consolidation/README.md`.
+- Verification passed: syntax, formatting, 164 targeted checks, real desktop/phone widths, six-theme overflow checks, synthetic 17-copy transfer and quantity conservation, Escape/focus return, exact-section navigation and server allowlist/CSP. Screenshots visually inspected; no captured JS exceptions. Results under ignored `test-results/design-review`. Not a fresh application regression/contrast/scale/permission certification.
+- Open PR: [#276](https://github.com/sefaction/MTG-Archives/pull/276), prototype commit `5b56661`. The static Docker preview includes this design commit; the application still runs released main only. Required CI and user layout feedback remain pending. Recommend sidebar plus filters alongside results and browse-first storage. Review layout before the application implementation pilot (#264-#266). No PR merge approval exists for this batch.
+- Reliability #220/#260 remains open; no fixes claimed. #275 is mapped into later Inventory implementation. No production changes or recurring scheduler. Desktop chat project assignment was not independently reverified.
+- Next safe step: hand off the running prototype and PR; incorporate design feedback, then implement the reviewed direction in coherent application batches with cumulative Docker and individual merge approvals.
+
+## Resumption baseline: local availability and roadmap review, 2026-09-21
+
+This section supersedes the historical implementation checkpoint below. The user requested getting the project running and reviewing the current roadmap; no UI implementation batch has begun.
+
+- Branch at resumption: `main`, HEAD `7a32dd3f1f1c11565310cc18366866cc26dc4906`, matching live remote main. The worktree was clean at entry; the resumption initially edited only this checkpoint.
+- GitHub authentication is valid. All nine PRs listed in the historical stack below are merged. No open PRs were present at resumption. Final main image publication run `35534041423` succeeded.
+- Local services were already running. Web is healthy, host HTTP returned 200, both PostgreSQL services accept connections, and the signed-in home page rendered in Chrome. Pricing/notification workers, Redis and capture-only Mailpit are running. No restart or rebuild was needed.
+- Running web image is `sha256:973c4b15dc9d4a1c5b20e43e06d8348791e7046093ca087a1f1bc39cf66a26f2`, matching the exact released image recorded in Foundry Operations. Compose uses the base, local and SMTP-test overlays. App: `http://127.0.0.1:13001`; capture inbox: `http://127.0.0.1:18025`.
+- Current roadmap: UI consolidation umbrella #262; foundation/capability map #263 and acceptance ledger #274 first, Inventory/Locations pilot #264-#266 plus copy defect #275 next, then remaining workspaces #267-#273. All #262-#275 are open. Foundry UI Consolidation Plan is the design input; old feature-queue instructions below are historical.
+- Independent reliability issues #220 (intermittent filter navigation) and #260 (stale post-move vault occupancy) remain open. No new reproduction or fix is claimed.
+- Completed this session: reconcile Foundry hub, roadmap, UI plan, operations and workflow with git/GitHub; verify local availability. Full automated tests, mobile layouts and deep workflows were not rerun. Prior 568-unit/41-browser release evidence remains historical.
+- Outstanding choice: review the proposed design-first starting point with the user. Recommended next batch is capability mapping and alternative navigation/Inventory/Locations wireframes under #263/#274, followed by layout review before application implementation.
+- No production changes, new feature implementation, merges or recurring schedule. Desktop project assignment was not independently reverified in this session.
+
+## Historical checkpoint from 2026-09-20 (superseded status)
 
 ## Authority
 
