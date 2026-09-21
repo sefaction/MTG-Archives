@@ -161,6 +161,7 @@ test("real Inventory workspace composes search, preserves context and reflows wi
       ).toBe(true);
       await page.screenshot({
         path: `test-results/workspace-theme-${theme}.png`,
+        animations: "disabled",
       });
     }
     await page.screenshot({ path: "test-results/workspace-desktop.png" });
