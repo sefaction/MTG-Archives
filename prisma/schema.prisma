@@ -742,6 +742,7 @@ model InventoryLocation {
   normalizedName            String
   description               String?
   type                      String?
+  storageLayout             Json?
   kind                      InventoryLocationKind     @default(NORMAL)
   deckId                    String?                   @unique
   deck                      Deck?                     @relation(fields: [deckId], references: [id], onDelete: Cascade)
@@ -792,6 +793,7 @@ model LocationType {
   name            String
   normalizedName  String   @unique
   description     String?
+  defaultStorageLayout Json?
   active          Boolean  @default(true)
   createdByUserId String?
   createdByUser   User?    @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)

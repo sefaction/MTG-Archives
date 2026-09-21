@@ -12,6 +12,7 @@ import {
   equivalentInventoryConditions,
   normalizeInventoryCondition,
 } from "./inventory-condition";
+import { validateStorageLayout, type StorageLayout } from "./storage-layout";
 
 export function normalizeLocationName(name: string) {
   return name.trim().replace(/\s+/g, " ").toLowerCase();
@@ -131,7 +132,7 @@ export async function getLocationsForOwner(
 }
 
 async function assertValidLocationParent(
-  prisma: PrismaClient,
+  prisma: PrismaClient | Prisma.TransactionClient,
   input: {
     ownerPlayerId: string;
     parentLocationId?: string | null;
@@ -187,7 +188,7 @@ async function assertValidLocationParent(
 }
 
 export async function createLocation(
-  prisma: PrismaClient,
+  prisma: PrismaClient | Prisma.TransactionClient,
   input: {
     ownerPlayerId: string;
     name: string;
@@ -195,6 +196,7 @@ export async function createLocation(
     description?: string | null;
     type?: string | null;
     visibility?: Visibility;
+    storageLayout?: StorageLayout;
   },
 ) {
   const name = assertValidLocationName(input.name);
@@ -222,6 +224,9 @@ export async function createLocation(
       normalizedName,
       description: input.description?.trim() || null,
       type: input.type?.trim() || null,
+      storageLayout: input.storageLayout
+        ? validateStorageLayout(input.storageLayout)
+        : undefined,
       active: true,
       visibility: input.visibility ?? Visibility.INHERIT,
     },
@@ -239,6 +244,7 @@ export async function updateLocation(
     type?: string | null;
     active?: boolean;
     visibility?: Visibility;
+    storageLayout?: StorageLayout;
   },
 ) {
   const name = assertValidLocationName(input.name);
@@ -286,6 +292,9 @@ export async function updateLocation(
       parentLocationId,
       description: input.description?.trim() || null,
       type: input.type?.trim() || null,
+      storageLayout: input.storageLayout
+        ? validateStorageLayout(input.storageLayout)
+        : undefined,
       active: input.active ?? true,
       visibility: input.visibility ?? Visibility.INHERIT,
     },

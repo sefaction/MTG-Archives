@@ -1668,7 +1668,10 @@ export function InventoryBrowser({
         )
         .reduce((sum, row) => sum + row.quantity, 0);
   const currentVault = storageLocations.find(
-    (location) => location.id === currentLocationId && isVault(location.type),
+    (location) =>
+      location.id === currentLocationId &&
+      (location.defaultSectionNames?.length ??
+        (isVault(location.type) ? 6 : 0)) > 0,
   );
   const vaultParams = new URLSearchParams(pageHrefBase || "");
   const activeVaultSection =
@@ -1696,6 +1699,22 @@ export function InventoryBrowser({
     storageLocations
       .find((l) => l.id === bulkDestinationLocationId)
       ?.sections.find((s) => s.name === bulkSection)?.quantity ?? 0;
+  const moveDestination = storageLocations.find(
+    (location) => location.id === bulkDestinationLocationId,
+  );
+  const locationRoom =
+    moveDestination?.capacity == null
+      ? null
+      : Math.max(0, moveDestination.capacity - (moveDestination.quantity ?? 0));
+  const fillAvailable =
+    destinationRoom == null
+      ? locationRoom
+      : locationRoom === null
+        ? Math.max(0, destinationRoom - currentOccupancy)
+        : Math.min(
+            locationRoom,
+            Math.max(0, destinationRoom - currentOccupancy),
+          );
 
   const effectiveMoveLimit =
     quantityMode === "all"
@@ -1703,7 +1722,7 @@ export function InventoryBrowser({
       : quantityMode === "85"
         ? "85"
         : quantityMode === "fill"
-          ? String(Math.max(0, (destinationRoom ?? 0) - currentOccupancy))
+          ? String(fillAvailable ?? 0)
           : moveLimit;
   const movableCopies = Math.max(
     0,
@@ -2752,8 +2771,7 @@ export function InventoryBrowser({
                             disabled={
                               movingBulk ||
                               (mode === "fill" &&
-                                (destinationRoom == null ||
-                                  currentOccupancy >= destinationRoom))
+                                (fillAvailable == null || fillAvailable <= 0))
                             }
                             onClick={() => {
                               setQuantityMode(mode);
@@ -2764,13 +2782,9 @@ export function InventoryBrowser({
                             }}
                           >
                             {label}
-                            {mode === "fill" && destinationRoom != null && (
+                            {mode === "fill" && fillAvailable != null && (
                               <span className="block text-xs text-[var(--app-muted)]">
-                                {Math.max(
-                                  0,
-                                  destinationRoom - currentOccupancy,
-                                )}{" "}
-                                spaces left
+                                {fillAvailable} spaces left
                               </span>
                             )}
                           </button>

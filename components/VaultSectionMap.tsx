@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import {
   VAULT_SECTIONS,
   VAULT_SECTION_CAPACITY,
+  isVault,
   spaceLabel,
   type StorageLocation,
 } from "@/lib/storage-sections";
@@ -25,7 +26,14 @@ export function VaultSectionMap({
   selectedQuantity?: number;
   onMoveSelection?: (section: string) => void;
 }) {
-  const sections = VAULT_SECTIONS.map(
+  const names = location.defaultSectionNames ?? VAULT_SECTIONS;
+  const standardVault =
+    isVault(location.type) &&
+    names.join("|") === VAULT_SECTIONS.join("|") &&
+    location.sections
+      .filter((section) => names.includes(section.name))
+      .every((section) => section.capacity === 85);
+  const sections = names.map(
     (name) =>
       location.sections.find((section) => section.name === name) ?? {
         name,
@@ -34,7 +42,7 @@ export function VaultSectionMap({
       },
   );
   const extra = location.sections.filter(
-    (section) => section.name && !VAULT_SECTIONS.includes(section.name),
+    (section) => section.name && !names.includes(section.name),
   );
   const unsectioned =
     unsectionedQuantity ??
@@ -42,7 +50,10 @@ export function VaultSectionMap({
     0;
   const room = sections.reduce(
     (sum, section) =>
-      sum + Math.max(0, VAULT_SECTION_CAPACITY - section.quantity),
+      sum +
+      (section.capacity === null
+        ? 0
+        : Math.max(0, section.capacity - section.quantity)),
     0,
   );
   const total = [...sections, ...extra].reduce(
@@ -80,18 +91,22 @@ export function VaultSectionMap({
 
   return (
     <section
-      aria-label={`${location.name} vault layout`}
+      aria-label={`${location.name} ${standardVault ? "vault" : "storage"} layout`}
       className="min-w-0 space-y-3 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-2)] p-3 sm:p-4"
     >
       <div className="flex flex-col flex-wrap items-start justify-between gap-2 sm:flex-row">
         <div className="min-w-0 flex-1 sm:basis-48">
-          <h3 className="font-semibold text-[var(--app-text)]">Vault layout</h3>
+          <h3 className="font-semibold text-[var(--app-text)]">
+            {standardVault ? "Vault layout" : "Storage layout"}
+          </h3>
           <p className="break-words text-sm text-[var(--app-text)]">
             {location.name}
           </p>
           <p className="text-xs text-[var(--app-muted)]">
-            {total.toLocaleString()} cards · {room.toLocaleString()} spaces
-            across six sections
+            {total.toLocaleString()} cards ·{" "}
+            {sections.some((section) => section.capacity !== null)
+              ? `${room.toLocaleString()} spaces across ${sections.filter((section) => section.capacity !== null).length} sections with known capacity`
+              : "Section capacities not set"}
           </p>
         </div>
         <a
@@ -103,25 +118,35 @@ export function VaultSectionMap({
         </a>
       </div>
       <p className="text-xs text-[var(--app-muted)]">
-        Sections 0–5, left to right. Capacity is advisory: 85 physical cards per
-        section.
+        {standardVault
+          ? "Sections 0–5, left to right. Capacity is advisory: 85 physical cards per section."
+          : "Configured sections, left to right. Capacity is advisory; existing card placements are unchanged."}
       </p>
       <div
         ref={scroller}
         className="overflow-x-auto rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-3)] p-2"
         tabIndex={0}
         role="group"
-        aria-label="Six sections in a single row; scroll horizontally on small screens"
+        aria-label={
+          standardVault
+            ? "Six sections in a single row; scroll horizontally on small screens"
+            : "Storage sections; scroll horizontally on small screens"
+        }
       >
         <div
-          className="grid min-w-[33.75rem] grid-cols-6 gap-2"
+          className="grid gap-2"
+          style={{
+            gridTemplateColumns: `repeat(${Math.max(1, sections.length)}, minmax(5rem, 1fr))`,
+            minWidth: `${Math.max(1, sections.length) * 5.625}rem`,
+          }}
           data-vault-section-row
         >
           {sections.map((section) => {
-            const over = section.quantity > VAULT_SECTION_CAPACITY;
+            const over =
+              section.capacity !== null && section.quantity > section.capacity;
             const available = Math.max(
               0,
-              VAULT_SECTION_CAPACITY - section.quantity,
+              (section.capacity ?? 0) - section.quantity,
             );
             const active = activeSection === section.name;
             return (
@@ -145,21 +170,29 @@ export function VaultSectionMap({
                     <div
                       className={`w-full ${over ? "bg-amber-500/70" : "bg-cyan-600/60"}`}
                       style={{
-                        height: `${Math.min(100, (section.quantity / VAULT_SECTION_CAPACITY) * 100)}%`,
+                        height:
+                          section.capacity === null
+                            ? "0%"
+                            : `${Math.min(100, (section.quantity / section.capacity) * 100)}%`,
                       }}
                     />
                   </div>
                   <span className="text-sm font-semibold tabular-nums text-[var(--app-text)]">
-                    {section.quantity.toLocaleString()} / 85
+                    {section.quantity.toLocaleString()}
+                    {section.capacity === null
+                      ? " cards"
+                      : ` / ${section.capacity.toLocaleString()}`}
                   </span>
                   <span
                     className={`text-xs ${over ? "text-[var(--app-text)]" : "text-[var(--app-text)]"}`}
                   >
-                    {over
-                      ? `${section.quantity - VAULT_SECTION_CAPACITY} over capacity`
-                      : available === 0
-                        ? "Full"
-                        : `${available} spaces left`}
+                    {section.capacity === null
+                      ? "Capacity not set"
+                      : over
+                        ? `${section.quantity - section.capacity} over capacity`
+                        : available === 0
+                          ? "Full"
+                          : `${available} spaces left`}
                   </span>
                   {over ? (
                     <span className="text-xs text-[var(--app-text)]">
@@ -175,7 +208,11 @@ export function VaultSectionMap({
       </div>
       <div
         className="flex max-h-40 flex-wrap gap-2 overflow-y-auto"
-        aria-label="Other placements in this vault"
+        aria-label={
+          standardVault
+            ? "Other placements in this vault"
+            : "Other placements in this location"
+        }
       >
         {[{ name: "", quantity: unsectioned }, ...extra].map((section) => (
           <div
@@ -195,7 +232,7 @@ export function VaultSectionMap({
         ))}
       </div>
       <p className="text-xs text-[var(--app-muted)]">
-        Counts include all cards directly in this vault, regardless of search
+        Counts include all cards directly in this location, regardless of search
         filters. Extra section names and unsectioned cards are kept.
       </p>
       {canMove ? (

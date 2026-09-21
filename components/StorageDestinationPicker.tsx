@@ -17,6 +17,7 @@ export function StorageDestinationPicker({
   onSectionChange,
   incomingQuantity,
   alreadyThere = 0,
+  alreadyInLocation = 0,
   locationField = "destinationLocationId",
   sectionField = "destinationLocationSection",
   disabled = false,
@@ -28,6 +29,7 @@ export function StorageDestinationPicker({
   onSectionChange: (section: string) => void;
   incomingQuantity?: number;
   alreadyThere?: number;
+  alreadyInLocation?: number;
   locationField?: string;
   sectionField?: string;
   disabled?: boolean;
@@ -63,7 +65,7 @@ export function StorageDestinationPicker({
     destination?.sections.filter(
       (s) =>
         s.name &&
-        (!onlyWithRoom || s.capacity === null || s.quantity < s.capacity),
+        (!onlyWithRoom || (s.capacity !== null && s.quantity < s.capacity)),
     ) ?? [];
   function choose(location: StorageLocation) {
     onLocationChange(location.id);
@@ -171,7 +173,10 @@ export function StorageDestinationPicker({
                     {location.sections
                       .reduce((sum, s) => sum + s.quantity, 0)
                       .toLocaleString()}{" "}
-                    cards{isVault(location.type) ? " · 6 vault sections" : ""}
+                    cards
+                    {location.defaultSectionNames?.length
+                      ? ` · ${location.defaultSectionNames.length} sections`
+                      : ""}
                   </span>
                 </button>
               ))}
@@ -194,6 +199,12 @@ export function StorageDestinationPicker({
                 {destination.type || "Location"}
               </span>
               <p className="break-words font-semibold">{destination.name}</p>
+              {destination.capacity != null && (
+                <p className="text-sm">
+                  {destination.quantity ?? 0} / {destination.capacity} cards
+                  overall
+                </p>
+              )}
             </div>
             <button
               type="button"
@@ -329,14 +340,24 @@ export function StorageDestinationPicker({
             {section
               ? "Selected: " + section + ". "
               : "No section — cards will go directly into this location."}
-            {isVault(destination.type)
-              ? " Standard vault sections hold about 85 cards; capacity is a guide, not a limit."
-              : ""}
+            {" Capacity is a guide, not a limit."}
           </p>
           {selectedSection && (
             <p role="status" className="text-sm">
               {spaceLabel(selectedSection)}
               {projected !== undefined ? " → " + projected + " after move" : ""}
+            </p>
+          )}
+          {destination.capacity != null && (
+            <p role="status" className="text-sm">
+              {incomingQuantity === undefined
+                ? `${destination.quantity ?? 0} / ${destination.capacity} cards overall`
+                : `Up to ${(destination.quantity ?? 0) + Math.max(0, incomingQuantity - alreadyInLocation)} / ${destination.capacity} cards overall after move`}
+              {(destination.quantity ?? 0) +
+                Math.max(0, (incomingQuantity ?? 0) - alreadyInLocation) >
+              destination.capacity
+                ? " — All cards may not fit. You can still continue."
+                : ""}
             </p>
           )}
           {selectedSection?.capacity != null &&

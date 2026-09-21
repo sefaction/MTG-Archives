@@ -6,6 +6,16 @@ import {
   LocationSearchSelect,
   NewLocationParentFields,
 } from "@/components/LocationSearchSelect";
+import { LocationBrowseFilters } from "@/components/LocationBrowseFilters";
+import { LocationCreateWizard } from "@/components/LocationCreateWizard";
+import { LocationLayoutEditor } from "@/components/StorageLayoutFields";
+import { LocationTypeLayoutForm } from "@/components/LocationTypeLayoutForm";
+import {
+  defaultStorageLayout,
+  readStorageLayout,
+  remainingStorageSpace,
+  storageLayoutFromForm,
+} from "@/lib/storage-layout";
 import { vaultSectionHref } from "@/lib/vault-navigation";
 import {
   LocationContentsDeleteForm,
@@ -101,6 +111,9 @@ export default async function LocationsPage({
     "selected",
     "panel",
     "view",
+    "type",
+    "space",
+    "status",
   ] as const) {
     const value = rawParams[key];
     browseParams[key] = typeof value === "string" ? value : value?.[0];
@@ -220,7 +233,23 @@ export default async function LocationsPage({
       sectionsByLocation.set(locationId, sections);
     }
   }
-  const locationsWithPaths = withLocationPaths(locations);
+  const locationsWithPaths = withLocationPaths(locations).map((location) => {
+    const layout = readStorageLayout(location.storageLayout, location.type);
+    const quantity = quantityByLocation[location.id]?.quantity ?? 0;
+    return {
+      ...location,
+      quantity,
+      remainingSpace: remainingStorageSpace(
+        layout,
+        quantity,
+        storageSections(
+          location.type,
+          sectionsByLocation.get(location.id) ?? [],
+          location.storageLayout,
+        ),
+      ),
+    };
+  });
   const normalLocations = locationsWithPaths.filter(
     (location) => location.kind === InventoryLocationKind.NORMAL,
   );
@@ -276,10 +305,17 @@ export default async function LocationsPage({
     q: browseParams.q,
     page: browseParams.page,
   });
-  const panel = browseParams.panel;
+  const panel =
+    browseParams.panel === "create"
+      ? "create"
+      : browseParams.view === "types"
+        ? "types"
+        : browseParams.panel;
+  const typesView = panel === "types";
   const browseHref = locationBrowseHref(browseParams, {
     panel: undefined,
     edit: undefined,
+    view: typesView ? undefined : browseParams.view,
   });
   const selectionHref = (id: string) =>
     locationBrowseHref(browseParams, {
@@ -356,32 +392,87 @@ export default async function LocationsPage({
     });
   }
 
-  async function createLocationAction(fd: FormData) {
+  async function createLocationAction(
+    _state: { error: string },
+    fd: FormData,
+  ): Promise<{ error: string }> {
     "use server";
     const ctx = await getActionContext();
     const ownerPlayerId = String(fd.get("ownerPlayerId") || ctx.playerId || "");
     if (!ownerPlayerId) throw new Error("Owner is required.");
     if (!ctx.admin && ownerPlayerId !== ctx.playerId)
       throw new Error("Not authorized for this owner.");
-    const location = await createLocation(prisma, {
-      ownerPlayerId,
-      name: String(fd.get("name") || ""),
-      parentLocationId: String(fd.get("parentLocationId") || "") || null,
-      description: String(fd.get("description") || "") || null,
-      type: await locationTypeNameFromForm(prisma, fd, {
-        createdByUserId: ctx.user.id,
-      }),
-      visibility: parseVisibility(fd.get("visibility")),
-    });
-    await prisma.inventoryAuditLog.create({
-      data: {
-        changedByUserId: ctx.user.id,
-        changeType: "location_created",
-        beforeJson: {},
-        afterJson: location as any,
-        reason: "Location created.",
-      },
-    });
+    let location;
+    try {
+      const layout = storageLayoutFromForm(fd);
+      location = await prisma.$transaction(async (tx) => {
+        const newType = String(fd.get("newType") || "").trim();
+        if (
+          newType &&
+          (newType.length > 100 || !normalizeLocationTypeName(newType))
+        )
+          throw new Error(
+            "Choose a type name with letters or numbers, up to 100 characters.",
+          );
+        if (
+          newType &&
+          (await tx.locationType.findUnique({
+            where: { normalizedName: normalizeLocationTypeName(newType) },
+          }))
+        )
+          throw new Error(
+            "That type already exists. Choose it from the Location type list.",
+          );
+        const typeName = await locationTypeNameFromForm(tx, fd, {
+          createdByUserId: ctx.user.id,
+        });
+        const typeRecord = typeName
+          ? await tx.locationType.findUnique({
+              where: { normalizedName: normalizeLocationTypeName(typeName) },
+            })
+          : null;
+        const created = await createLocation(tx, {
+          ownerPlayerId,
+          name: String(fd.get("name") || ""),
+          parentLocationId: String(fd.get("parentLocationId") || "") || null,
+          description: String(fd.get("description") || "") || null,
+          type: typeName,
+          storageLayout:
+            layout ??
+            readStorageLayout(typeRecord?.defaultStorageLayout, typeName),
+          visibility: parseVisibility(fd.get("visibility")),
+        });
+        await tx.inventoryAuditLog.create({
+          data: {
+            changedByUserId: ctx.user.id,
+            changeType: "location_created",
+            beforeJson: {},
+            afterJson: created as any,
+            reason: "Location created.",
+          },
+        });
+        if (
+          String(fd.get("newType") || "").trim() &&
+          typeRecord?.createdByUserId === ctx.user.id &&
+          typeRecord.defaultStorageLayout === null
+        ) {
+          await tx.locationType.update({
+            where: { id: typeRecord.id },
+            data: {
+              defaultStorageLayout: layout ?? defaultStorageLayout(typeName),
+            },
+          });
+        }
+        return created;
+      });
+    } catch (error) {
+      return {
+        error:
+          error instanceof Error && !error.message.includes("prisma.")
+            ? error.message
+            : "Could not create location. Check the settings and try again.",
+      };
+    }
     revalidatePath("/locations");
     revalidatePath("/inventory");
     redirect(
@@ -411,6 +502,7 @@ export default async function LocationsPage({
       type: await locationTypeNameFromForm(prisma, fd, {
         createdByUserId: ctx.user.id,
       }),
+      storageLayout: storageLayoutFromForm(fd),
       active: fd.get("active") === "on",
       visibility: parseVisibility(fd.get("visibility")),
     });
@@ -662,6 +754,64 @@ export default async function LocationsPage({
     );
   }
 
+  async function saveLocationTypeLayoutAction(
+    _state: { error: string; saved?: boolean },
+    fd: FormData,
+  ) {
+    "use server";
+    const ctx = await getActionContext();
+    try {
+      const layout = storageLayoutFromForm(fd);
+      if (!layout) throw new Error("Choose a storage layout.");
+      const id = String(fd.get("locationTypeId") || "");
+      const existing = id
+        ? await prisma.locationType.findUnique({ where: { id } })
+        : null;
+      if (
+        id &&
+        (!existing || (!ctx.admin && existing.createdByUserId !== ctx.user.id))
+      )
+        throw new Error("You can only edit defaults for types you created.");
+      const name = existing?.name ?? String(fd.get("name") || "").trim();
+      if (
+        !name ||
+        name.length > 100 ||
+        !normalizeLocationTypeName(name) ||
+        isReservedLocationTypeName(name)
+      )
+        throw new Error("Choose a non-reserved type name of 1–100 characters.");
+      const data = { defaultStorageLayout: layout };
+      const saved = existing
+        ? await prisma.locationType.update({ where: { id }, data })
+        : await prisma.locationType.create({
+            data: {
+              ...data,
+              name,
+              normalizedName: normalizeLocationTypeName(name),
+              createdByUserId: ctx.user.id,
+            },
+          });
+      await prisma.inventoryAuditLog.create({
+        data: {
+          changedByUserId: ctx.user.id,
+          changeType: "location_type_defaults_updated",
+          beforeJson: (existing as any) ?? {},
+          afterJson: saved as any,
+          reason: "Saved defaults for future locations only.",
+        },
+      });
+      revalidatePath("/locations");
+      return { error: "", saved: true };
+    } catch (error) {
+      return {
+        error:
+          error instanceof Error && !error.message.includes("prisma.")
+            ? error.message
+            : "Could not save type. Check for an existing name and try again.",
+      };
+    }
+  }
+
   async function deleteLocationTypeAction(fd: FormData) {
     "use server";
     const ctx = await getActionContext();
@@ -779,15 +929,6 @@ export default async function LocationsPage({
         <div className="flex flex-wrap gap-2">
           <a
             href={locationBrowseHref(browseParams, {
-              panel: "types",
-              edit: undefined,
-            })}
-            className={filterButtonClass}
-          >
-            Location types
-          </a>
-          <a
-            href={locationBrowseHref(browseParams, {
               panel: "create",
               edit: undefined,
             })}
@@ -798,7 +939,10 @@ export default async function LocationsPage({
         </div>
       </header>
       <nav className="locations-view-nav" aria-label="Location views">
-        <a href="/locations" aria-current={!deckView ? "page" : undefined}>
+        <a
+          href="/locations"
+          aria-current={!deckView && !typesView ? "page" : undefined}
+        >
           Storage <span>{normalLocations.length}</span>
         </a>
         <a
@@ -806,6 +950,13 @@ export default async function LocationsPage({
           aria-current={deckView ? "page" : undefined}
         >
           Deck locations <span>{deckLocations.length}</span>
+        </a>
+        <a
+          href="/locations?view=types"
+          aria-label="Location types"
+          aria-current={typesView ? "page" : undefined}
+        >
+          Location types <span>{locationTypes.length}</span>
         </a>
       </nav>
       {panel === "create" || panel === "types" ? (
@@ -816,102 +967,51 @@ export default async function LocationsPage({
           {panel === "create" ? (
             <section className={cn(filterPanelClass, "space-y-3")}>
               <h2 className="text-xl font-semibold">Create location</h2>
-              <form
+              <LocationCreateWizard
                 action={createLocationAction}
-                className="grid gap-3 md:grid-cols-2"
-              >
-                <NewLocationParentFields
-                  owners={
-                    adminModeActive
-                      ? owners.map((owner) => ({
-                          id: owner.id,
-                          name: owner.displayName,
-                        }))
-                      : undefined
-                  }
-                  defaultOwnerId={
-                    selectedLocation?.ownerPlayerId ?? selectedOwnerId
-                  }
-                  defaultParentId={
-                    selectedLocation?.active &&
-                    selectedLocation.normalizedName !== "unassigned"
-                      ? selectedLocation.id
-                      : ""
-                  }
-                  locations={normalLocations
-                    .filter(
-                      (location) =>
-                        location.active &&
-                        !location.systemManaged &&
-                        location.normalizedName !== "unassigned",
-                    )
-                    .map((location) => ({
-                      id: location.id,
-                      name: location.path,
-                      ownerPlayerId: location.ownerPlayerId,
-                    }))}
-                />
-                <label className="text-sm">
-                  Name
-                  <input
-                    name="name"
-                    required
-                    placeholder="Box-0001"
-                    className={cn(filterInputClass, "mt-1 w-full")}
-                  />
-                </label>
-                <select
-                  name="type"
-                  defaultValue=""
-                  className={filterSelectClass}
-                  aria-label="Location type"
-                >
-                  <option value="">Choose type</option>
-                  {!locationTypes.some((type) => isVault(type.name)) && (
-                    <option value="Vault">Vault</option>
-                  )}
-                  {locationTypes.map((type) => (
-                    <option key={type.id} value={type.name}>
-                      {type.name}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  name="newType"
-                  aria-label="New location type"
-                  placeholder="Or create type"
-                  className={filterInputClass}
-                />
-                <input
-                  name="description"
-                  aria-label="Description"
-                  placeholder="description optional"
-                  className={filterInputClass}
-                />
-                <select
-                  name="visibility"
-                  aria-label="Visibility"
-                  defaultValue={Visibility.INHERIT}
-                  className={filterSelectClass}
-                >
-                  <option value={Visibility.INHERIT}>
-                    Use account default
-                  </option>
-                  <option value={Visibility.PRIVATE}>Private</option>
-                  <option value={Visibility.PUBLIC}>Public</option>
-                </select>
-                <SubmitButton
-                  pendingLabel="Creating location…"
-                  className={filterPrimaryButtonClass}
-                >
-                  Create Location
-                </SubmitButton>
-                <p className="text-xs text-zinc-400 md:col-span-2">
-                  Choose Vault to automatically provide Sect 0–5 with an
-                  advisory capacity of 85 cards each. Other location types
-                  retain arbitrary sections.
-                </p>
-              </form>
+                types={[
+                  ...locationTypes.map((type) => ({
+                    name: type.name,
+                    layout: readStorageLayout(
+                      type.defaultStorageLayout,
+                      type.name,
+                    ),
+                  })),
+                  ...(!locationTypes.some((type) => isVault(type.name))
+                    ? [{ name: "Vault", layout: defaultStorageLayout("Vault") }]
+                    : []),
+                ]}
+                owners={
+                  adminModeActive
+                    ? owners.map((owner) => ({
+                        id: owner.id,
+                        name: owner.displayName,
+                      }))
+                    : undefined
+                }
+                defaultOwnerId={
+                  selectedLocation?.ownerPlayerId ?? selectedOwnerId
+                }
+                defaultParentId={
+                  browseParams.selected &&
+                  selectedLocation?.active &&
+                  selectedLocation.normalizedName !== "unassigned"
+                    ? selectedLocation.id
+                    : ""
+                }
+                locations={normalLocations
+                  .filter(
+                    (location) =>
+                      location.active &&
+                      !location.systemManaged &&
+                      location.normalizedName !== "unassigned",
+                  )
+                  .map((location) => ({
+                    id: location.id,
+                    name: location.path,
+                    ownerPlayerId: location.ownerPlayerId,
+                  }))}
+              />
             </section>
           ) : (
             <section className={cn(filterPanelClass, "space-y-3")}>
@@ -927,6 +1027,17 @@ export default async function LocationsPage({
                   {locationTypes.length} active types
                 </span>
               </div>
+              <details className="rounded-lg border border-[var(--app-border)] p-3">
+                <summary className="cursor-pointer font-medium">
+                  Create location type
+                </summary>
+                <div className="mt-3">
+                  <LocationTypeLayoutForm
+                    initialLayout={defaultStorageLayout()}
+                    action={saveLocationTypeLayoutAction}
+                  />
+                </div>
+              </details>
               <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                 {locationTypes.map((type) => {
                   const usage = locationTypeUsage.get(
@@ -972,6 +1083,21 @@ export default async function LocationsPage({
                             type.createdByUser?.username ||
                             "system / imported"}
                         </div>
+                        {adminModeActive || createdByCurrentUser ? (
+                          <LocationTypeLayoutForm
+                            id={type.id}
+                            initialLayout={readStorageLayout(
+                              type.defaultStorageLayout,
+                              type.name,
+                            )}
+                            action={saveLocationTypeLayoutAction}
+                          />
+                        ) : (
+                          <p className="text-sm text-[var(--app-muted)]">
+                            Only the creator or an administrator can edit these
+                            defaults.
+                          </p>
+                        )}
                         {adminModeActive ? (
                           <form
                             action={deleteLocationTypeAction}
@@ -1082,22 +1208,11 @@ export default async function LocationsPage({
               Read-only here · Managed from each deck
             </span>
           </div>
-          <form
-            action="/locations"
-            method="get"
-            className="flex flex-wrap items-end gap-2"
-          >
-            <input type="hidden" name="view" value="decks" />
-            <label className="min-w-0 flex-1 text-sm">
-              Search deck locations
-              <input
-                name="q"
-                defaultValue={browseParams.q ?? ""}
-                className={cn(filterInputClass, "mt-1 w-full")}
-              />
-            </label>
-            <button className={filterPrimaryButtonClass}>Find decks</button>
-          </form>
+          <LocationBrowseFilters
+            key="decks"
+            params={{ q: browseParams.q, view: "decks" }}
+            deck
+          />
           <p role="status" className="text-sm text-[var(--app-muted)]">
             {deckBrowser.total} deck locations · Page {deckBrowser.page} of{" "}
             {deckBrowser.pages}
@@ -1179,33 +1294,17 @@ export default async function LocationsPage({
           aria-label="Normal locations"
         >
           <h2 className="sr-only">Normal locations</h2>
-          <form
-            action="/locations#normal-locations"
-            method="get"
-            className="locations-search"
-          >
-            {browseParams.parent && (
-              <input type="hidden" name="parent" value={browseParams.parent} />
-            )}
-            <label className="min-w-0 text-sm">
-              Search locations{browser.parent ? " in this branch" : ""}
-              <input
-                name="q"
-                defaultValue={browseParams.q ?? ""}
-                placeholder="Name, full storage path, or type"
-                className={cn(filterInputClass, "mt-1 w-full")}
-              />
-            </label>
-            <button className={filterPrimaryButtonClass}>Find locations</button>
-            {(browseParams.q || browseParams.parent) && (
-              <a
-                href="/locations#normal-locations"
-                className="py-2 text-sm underline"
-              >
-                Clear search and branch
-              </a>
-            )}
-          </form>
+          <LocationBrowseFilters
+            key="storage"
+            params={browseParams}
+            types={[
+              ...new Set(
+                normalLocations.flatMap((location) =>
+                  location.type ? [location.type] : [],
+                ),
+              ),
+            ].sort()}
+          />
           <div className="locations-workspace">
             <aside className="locations-browser" aria-label="Storage browser">
               <p role="status" className="text-sm text-[var(--app-muted)]">
@@ -1283,6 +1382,7 @@ export default async function LocationsPage({
                   const sections = storageSections(
                     location.type,
                     sectionsByLocation.get(location.id) ?? [],
+                    location.storageLayout,
                   );
                   const room = sections.reduce(
                     (sum, section) =>
@@ -1323,9 +1423,10 @@ export default async function LocationsPage({
                           ? ` · ${total.quantity.toLocaleString()} with children`
                           : ""}
                       </span>
-                      {isVault(location.type) && (
+                      {location.remainingSpace !== null && (
                         <span className="text-xs text-[var(--app-muted)]">
-                          {room.toLocaleString()} spaces in vault sections
+                          {location.remainingSpace?.toLocaleString()} spaces
+                          remaining
                         </span>
                       )}
                     </a>
@@ -1420,6 +1521,26 @@ export default async function LocationsPage({
                           )}
                         </div>
                         <div className="locations-counts">
+                          {readStorageLayout(
+                            location.storageLayout,
+                            location.type,
+                          ).capacity !== null && (
+                            <p>
+                              {counts.quantity.toLocaleString()} /{" "}
+                              {readStorageLayout(
+                                location.storageLayout,
+                                location.type,
+                              ).capacity?.toLocaleString()}{" "}
+                              cards capacity{" "}
+                              {counts.quantity >
+                              readStorageLayout(
+                                location.storageLayout,
+                                location.type,
+                              ).capacity!
+                                ? "— over capacity; cards may not fit"
+                                : ""}
+                            </p>
+                          )}
                           <p>
                             <strong>{counts.quantity.toLocaleString()}</strong>{" "}
                             copies here
@@ -1521,6 +1642,10 @@ export default async function LocationsPage({
                                 id: candidate.id,
                                 name: candidate.path,
                                 ...countsForLocation(candidate.id),
+                                capacity: readStorageLayout(
+                                  candidate.storageLayout,
+                                  candidate.type,
+                                ).capacity,
                                 effectiveVisibility:
                                   effectiveLocationVisibility(candidate),
                               }))}
@@ -1636,6 +1761,12 @@ export default async function LocationsPage({
                               />{" "}
                               Active
                             </label>
+                            <LocationLayoutEditor
+                              initialValue={readStorageLayout(
+                                location.storageLayout,
+                                location.type,
+                              )}
+                            />
                             <SubmitButton
                               pendingLabel="Saving..."
                               className={cn(
@@ -1696,7 +1827,8 @@ export default async function LocationsPage({
                           </details>
                         </div>
                       ) : null}
-                      {isVault(location.type) ? (
+                      {readStorageLayout(location.storageLayout, location.type)
+                        .sections.length > 0 ? (
                         <div
                           className="mt-4 space-y-2"
                           aria-label={`${location.name} sections`}
@@ -1706,9 +1838,18 @@ export default async function LocationsPage({
                               id: location.id,
                               name: location.path,
                               type: location.type,
+                              defaultSectionNames: readStorageLayout(
+                                location.storageLayout,
+                                location.type,
+                              ).sections.map((section) => section.name),
+                              capacity: readStorageLayout(
+                                location.storageLayout,
+                                location.type,
+                              ).capacity,
                               sections: storageSections(
                                 location.type,
                                 sectionsByLocation.get(location.id) ?? [],
+                                location.storageLayout,
                               ),
                             }}
                             unsectionedQuantity={unsectionedQuantity}
@@ -1721,7 +1862,7 @@ export default async function LocationsPage({
                               "displayMode=exact",
                             )}
                           >
-                            Select and move cards in this vault
+                            Select and move cards in this location
                           </a>
                         </div>
                       ) : (

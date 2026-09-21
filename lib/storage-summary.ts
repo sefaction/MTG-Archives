@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { storageSections, type StorageLocation } from "./storage-sections";
+import { readStorageLayout } from "./storage-layout";
 
 // Call only with locations already constrained to the viewer's access scope.
 export async function getStorageLocations(
@@ -10,6 +11,7 @@ export async function getStorageLocations(
     path?: string;
     type?: string | null;
     ownerPlayerId?: string;
+    storageLayout?: unknown;
   }[],
 ): Promise<StorageLocation[]> {
   if (!locations.length) return [];
@@ -34,6 +36,19 @@ export async function getStorageLocations(
   return locations.map((location) => ({
     ...location,
     name: location.path ?? location.name,
-    sections: storageSections(location.type, groups.get(location.id) ?? []),
+    capacity: readStorageLayout(location.storageLayout, location.type).capacity,
+    defaultSectionNames: readStorageLayout(
+      location.storageLayout,
+      location.type,
+    ).sections.map((section) => section.name),
+    quantity: (groups.get(location.id) ?? []).reduce(
+      (sum, row) => sum + row.quantity,
+      0,
+    ),
+    sections: storageSections(
+      location.type,
+      groups.get(location.id) ?? [],
+      location.storageLayout,
+    ),
   }));
 }

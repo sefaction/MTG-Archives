@@ -4,6 +4,9 @@ export type BrowsableLocation = {
   path: string;
   parentLocationId?: string | null;
   type?: string | null;
+  active?: boolean;
+  quantity?: number;
+  remainingSpace?: number | null;
 };
 
 export type LocationBrowseParams = {
@@ -15,6 +18,9 @@ export type LocationBrowseParams = {
   selected?: string;
   panel?: string;
   view?: string;
+  type?: string;
+  space?: string;
+  status?: string;
 };
 
 export const LOCATION_PAGE_SIZE = 25;
@@ -57,6 +63,13 @@ export function browseLocations<T extends BrowsableLocation>(
   const matches = locations.filter(
     (location) =>
       (!params.parent || branchIds.has(location.id)) &&
+      (!params.type || location.type === params.type) &&
+      (params.status !== "active" || location.active !== false) &&
+      (params.status !== "inactive" || location.active === false) &&
+      (params.space !== "available" || (location.remainingSpace ?? 0) > 0) &&
+      (params.space !== "full" || location.remainingSpace === 0) &&
+      (params.space !== "unknown" || location.remainingSpace == null) &&
+      (params.space !== "empty" || location.quantity === 0) &&
       (!query ||
         `${location.path} ${location.type ?? ""}`
           .toLocaleLowerCase()
@@ -111,6 +124,9 @@ export function locationBrowseHref(
     "selected",
     "panel",
     "view",
+    "type",
+    "space",
+    "status",
   ] as const) {
     if (next[key]) query.set(key, next[key]);
   }

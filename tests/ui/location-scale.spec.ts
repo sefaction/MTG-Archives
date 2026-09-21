@@ -83,14 +83,16 @@ test("large owner-scoped location trees have bounded cards, lazy editors and usa
     );
     expect(options).toBeLessThan(50);
     expect(domHtmlBytes).toBeLessThan(500_000);
-    await expect(browser.getByRole("status")).toHaveText(
-      /1201 matching locations/,
-    );
+    await expect(
+      browser.locator(".locations-browser").getByRole("status"),
+    ).toHaveText(/1201 matching locations/);
     expect(await page.content()).not.toContain("Private scale sentinel");
     await browser
       .getByRole("link", { name: "Next locations", exact: true })
       .click();
-    await expect(browser.getByRole("status")).toHaveText(/Page 2 of 49/);
+    await expect(
+      browser.locator(".locations-browser").getByRole("status"),
+    ).toHaveText(/Page 2 of 49/);
     await expect(browser.locator("[data-location-result]")).toHaveCount(25);
 
     await browser
@@ -101,7 +103,9 @@ test("large owner-scoped location trees have bounded cards, lazy editors and usa
     await expect(browser.locator("article")).toContainText(
       "Vault 099 / Box 1099",
     );
-    await expect(browser.getByRole("status")).toHaveText(/Page 1 of 1/);
+    await expect(
+      browser.locator(".locations-browser").getByRole("status"),
+    ).toHaveText(/Page 1 of 1/);
     await page.setViewportSize({ width: 390, height: 844 });
     expect(
       await browser
@@ -145,9 +149,9 @@ test("large owner-scoped location trees have bounded cards, lazy editors and usa
 
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto(`/locations?parent=${fixture.rootId}#normal-locations`);
-    await expect(browser.getByRole("status")).toHaveText(
-      /12 matching locations/,
-    );
+    await expect(
+      browser.locator(".locations-browser").getByRole("status"),
+    ).toHaveText(/12 matching locations/);
     await expect(
       browser
         .getByRole("navigation", { name: "Locations tree" })
@@ -157,9 +161,9 @@ test("large owner-scoped location trees have bounded cards, lazy editors and usa
       .getByRole("navigation", { name: "Locations tree" })
       .getByRole("link", { name: "Box 0000" })
       .click();
-    await expect(browser.getByRole("status")).toHaveText(
-      /1 matching locations/,
-    );
+    await expect(
+      browser.locator(".locations-browser").getByRole("status"),
+    ).toHaveText(/1 matching locations/);
     await page.screenshot({
       path: "test-results/location-scale-desktop.png",
       fullPage: true,
@@ -167,9 +171,9 @@ test("large owner-scoped location trees have bounded cards, lazy editors and usa
     await page.goto(
       `/locations?parent=${fixture.otherLocationId}&edit=${fixture.otherLocationId}#normal-locations`,
     );
-    await expect(browser.getByRole("status")).toHaveText(
-      /0 matching locations/,
-    );
+    await expect(
+      browser.locator(".locations-browser").getByRole("status"),
+    ).toHaveText(/0 matching locations/);
     expect(await page.content()).not.toContain("Private scale sentinel");
     expect(
       database<number>(

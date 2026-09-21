@@ -11,6 +11,9 @@ export type StorageLocation = {
   name: string;
   type?: string | null;
   ownerPlayerId?: string;
+  capacity?: number | null;
+  quantity?: number;
+  defaultSectionNames?: string[];
   sections: StorageSection[];
 };
 
@@ -23,9 +26,11 @@ export function isVault(type?: string | null) {
 export function storageSections(
   type: string | null | undefined,
   rows: { name: string; quantity: number }[],
+  layoutValue?: unknown,
 ): StorageSection[] {
+  const layout = readStorageLayout(layoutValue, type);
   const counts = new Map<string, number>(
-    isVault(type) ? VAULT_SECTIONS.map((name) => [name, 0]) : [],
+    layout.sections.map((section) => [section.name, 0]),
   );
   for (const row of rows)
     counts.set(row.name, (counts.get(row.name) ?? 0) + row.quantity);
@@ -35,9 +40,8 @@ export function storageSections(
       name,
       quantity,
       capacity:
-        isVault(type) && VAULT_SECTIONS.includes(name)
-          ? VAULT_SECTION_CAPACITY
-          : null,
+        layout.sections.find((section) => section.name === name)?.capacity ??
+        null,
     }));
 }
 
@@ -54,3 +58,4 @@ export function projectedSectionQuantity(
 ) {
   return current + Math.max(0, incoming - alreadyThere);
 }
+import { readStorageLayout } from "./storage-layout";
