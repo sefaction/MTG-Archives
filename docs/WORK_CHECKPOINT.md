@@ -2,7 +2,17 @@
 
 Updated 2026-09-21. Reconcile git, GitHub, Docker and processes before resuming; GitHub is authoritative.
 
-## Active feedback batch: configurable storage #286, 2026-09-21
+## Approved Locations release preparation, 2026-09-21
+
+The user explicitly approved all current open PRs (#284 and #287) for main and closure of their resolved issues. This supersedes the unapproved statuses in the historical batch records below; future PRs need new approval.
+
+- #284 merged as `a3ac12d051cc6678c15ddbb9dddfa5a1cde58be6` after passing required Core verification. #287 is retargeted to main; branch `feat/location-storage-configuration` incorporates that merge without changing the reviewed tree. This checkpoint is written before #287's final merge: reconcile GitHub, wait for the refreshed required check, then merge the exact current head. Do not bypass checks or enable auto-merge.
+- Release preparation changes only this checkpoint versus reviewed tip `6d3c4b5646a5022cdd8d4f51c8210c723e54091d`; no application/test/dependency/migration changes. Prior 576-unit/build and browser evidence with the disclosed #220 failure remains below; do not claim a fresh full browser run.
+- Local Docker remains the reviewed cumulative image `sha256:c677324548f7a1bba82a250df777a97caff850e3ccb3565cc99449bf07cab999`, application `aa45797`, with #284/#287. Preserve base/local/SMTP-capture overlays; no production deployment or data changes are needed for merging.
+- Close only resolved issues #266/#285 via #284 and #286 via #287, with resolving links. #283 and reliability #220/#260/#280 are unresolved; broader UI consolidation remains open.
+- Final merge/publication evidence belongs in the PR and Foundry Operations entry. After release, reconcile local main and verify Docker health. Next suggested batch is independently reproducing/fixing inactive-parent metadata editing #283, then the Imports workspace #267; no new implementation is part of this merge request.
+
+## Historical feedback batch: configurable storage #286, 2026-09-21
 
 User requested Location types as a peer tab, live search, useful filters (especially space remaining) and guided location creation with optional capacity/default sections. Confirmed reusable type defaults with individually editable location snapshots; capacities remain advisory and unknown capacity is excluded from space remaining. Later type-default changes affect new locations only.
 
