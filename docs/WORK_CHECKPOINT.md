@@ -2,7 +2,16 @@
 
 Updated 2026-09-21. Reconcile git, GitHub, Docker and processes before resuming; GitHub is authoritative.
 
-## Active batch: per-user navigation layout, 2026-09-21
+## Active batch: Inventory filter refinement, 2026-09-21
+
+User requested smaller color symbols so Colorless stays on one row and raised collection-filter scrolling for design discussion. Branch `feat/inventory-filter-refinement` stacks on #279 at `372d8cc`; prior final CI 35623082632 passed. No merge approval for any open PR.
+
+- Implemented compact private-panel color targets (32px) and symbols, stable scrollbar gutter, explicit per-color keyboard focus. Shared public sizing unchanged. Added six-symbol same-row/target-size/no-overflow browser assertions for desktop and 390/320px phones.
+- Existing-image baseline passed in headless Chromium; the user's reported wrap is not universally reproduced in that environment. New sizing targets the reported tight panel layout and scrollbar width.
+- Outstanding design choice: recommended Card / Collection / Query tabs in the same panel, with preserved cross-tab drafts, one Apply action and all active filters outside. Asked user to choose tabs vs collapsible sections. Grouping remains unchanged pending that choice; do not infer approval.
+- Pending core checks, Docker build, focused browser/visual review and coherent PR. Current runtime remains the #279 image below; no unrelated data or production changes. Next: verify and load color refinement, collect grouping choice if supplied. #220/#260/#280 remain unresolved.
+
+## Previous batch: per-user navigation layout, 2026-09-21
 
 User requested a sidebar/topbar choice and stable Filters positioning. Branch `feat/navigation-layout-preference`, [PR #279](https://github.com/sefaction/MTG-Archives/pull/279), stacks on #277 at `2ef3832`; #276/#277/#279 remain open, unmerged and not merge-approved. Live main remains `7a32dd3`. Application commit `eaace346c840835b6ca78fad452b72fe62e03c3f`; later test/docs correction `ecefba1`.
 

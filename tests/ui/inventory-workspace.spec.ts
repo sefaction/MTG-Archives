@@ -26,6 +26,34 @@ test("real Inventory workspace composes search, preserves context and reflows wi
   test.setTimeout(120_000);
   const tag = `ui-workspace-${randomUUID()}`,
     password = randomUUID();
+  const expectSingleColorRows = async () => {
+    for (const group of await page
+      .locator(".inventory-filter-panel .inventory-color-options")
+      .all()) {
+      const boxes = await group.locator("label").evaluateAll((nodes) =>
+        nodes.map((node) => {
+          const rect = node.getBoundingClientRect();
+          return {
+            x: rect.x,
+            y: rect.y,
+            right: rect.right,
+            width: rect.width,
+            height: rect.height,
+          };
+        }),
+      );
+      expect(boxes).toHaveLength(6);
+      for (const box of boxes) {
+        expect(box.y).toBe(boxes[0].y);
+        expect(box.width).toBeGreaterThanOrEqual(24);
+        expect(box.height).toBeGreaterThanOrEqual(24);
+      }
+      const groupBox = (await group.boundingBox())!;
+      expect(boxes[5].right).toBeLessThanOrEqual(
+        groupBox.x + groupBox.width + 1,
+      );
+    }
+  };
   try {
     database(`return p.$transaction(async tx=>{
       const tag=${quote(tag)},passwordHash=await require('bcryptjs').hash(${quote(password)},10);
@@ -91,6 +119,7 @@ test("real Inventory workspace composes search, preserves context and reflows wi
     await filters.click();
     const panel = page.getByRole("dialog", { name: "Filter inventory" });
     await expect(panel).toBeVisible();
+    await expectSingleColorRows();
     expect((await filters.boundingBox())!.x).toBe(closedFilterBox.x);
     expect((await filters.boundingBox())!.y).toBe(closedFilterBox.y);
     const applyBox = (await panel
@@ -192,6 +221,7 @@ test("real Inventory workspace composes search, preserves context and reflows wi
         ),
       ).toBe(true);
       await filters.click();
+      await expectSingleColorRows();
       await panel
         .getByLabel("Query arguments", { exact: true })
         .fill("type:creature");

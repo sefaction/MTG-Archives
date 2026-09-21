@@ -817,7 +817,10 @@ function ColorControls({
           </option>
         ))}
       </select>
-      <div className="flex flex-wrap gap-1" aria-label={ariaLabel}>
+      <div
+        className="inventory-color-options flex flex-wrap gap-1"
+        aria-label={ariaLabel}
+      >
         {COLOR_OPTIONS.map((color) => (
           <label
             key={color.value}
