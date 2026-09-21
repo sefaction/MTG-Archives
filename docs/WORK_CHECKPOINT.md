@@ -8,7 +8,7 @@ User requested smaller color symbols so Colorless stays on one row and raised co
 
 - Implemented compact private-panel color targets (32px) and symbols, stable scrollbar gutter, explicit per-color keyboard focus. Shared public sizing unchanged. Added six-symbol same-row/target-size/no-overflow browser assertions for desktop and 390/320px phones.
 - Existing-image baseline passed in headless Chromium; the user's reported wrap is not universally reproduced in that environment. New sizing targets the reported tight panel layout and scrollbar width.
-- Outstanding design choice: recommended Card / Collection / Query tabs in the same panel, with preserved cross-tab drafts, one Apply action and all active filters outside. Asked user to choose tabs vs collapsible sections. Grouping remains unchanged pending that choice; do not infer approval.
+- User selected **Tabs (recommended)**. Implemented Card / Collection / Query tabs in the same panel, mounted hidden panels preserving drafts, one combined Apply action and all active filters outside. Sticky tab navigation supports arrows/Home/End, restores the current tab per browser session, and opens Query for query errors. Invalid numeric inputs in hidden tabs reveal their owning tab. Public/legacy filters retain their existing layout.
 - Pending core checks, Docker build, focused browser/visual review and coherent PR. Current runtime remains the #279 image below; no unrelated data or production changes. Next: verify and load color refinement, collect grouping choice if supplied. #220/#260/#280 remain unresolved.
 
 ## Previous batch: per-user navigation layout, 2026-09-21

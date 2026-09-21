@@ -184,12 +184,45 @@ main:has(.archive-shell) > .account-form {
   z-index: 35;
   background: var(--app-surface);
   padding-block: 8px;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+.inventory-filter-heading-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 12px;
-  font-weight: 600;
+}
+.inventory-filter-tabs {
+  display: flex;
+  gap: 4px;
+  margin-top: 12px;
+  border-bottom: 1px solid var(--app-border);
+}
+.inventory-filter-tabs > button {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 4px;
+  font-size: 14px;
+  color: var(--app-text);
+  border-radius: 4px 4px 0 0;
+}
+.inventory-filter-tabs > button[aria-selected="true"] {
+  color: var(--app-link);
+  background: var(--app-accent-soft);
+  box-shadow: inset 0 -3px var(--app-accent);
+}
+.inventory-filter-tabs > button:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: -2px;
+}
+.inventory-filter-tab-panel:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.inventory-filter-tab-panel[hidden] {
+  display: none;
 }
 .inventory-filter-panel form {
   display: flex;

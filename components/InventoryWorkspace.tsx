@@ -62,6 +62,7 @@ export function InventoryFilterContainer(props: {
   summary?: ReactNode;
   storageKey?: string;
   error?: string;
+  navigation?: ReactNode;
   children: ReactNode;
 }) {
   const workspace = useInventoryWorkspace();
@@ -160,10 +161,13 @@ export function InventoryFilterContainer(props: {
         }}
       >
         <div className="inventory-filter-heading">
-          <h2 id={`${id}-title`}>Filter inventory</h2>
-          <button type="button" className={filterButtonClass} onClick={close}>
-            Close filters
-          </button>
+          <div className="inventory-filter-heading-row">
+            <h2 id={`${id}-title`}>Filter inventory</h2>
+            <button type="button" className={filterButtonClass} onClick={close}>
+              Close filters
+            </button>
+          </div>
+          {props.navigation}
         </div>
         {props.error && (
           <p

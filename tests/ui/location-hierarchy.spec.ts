@@ -60,9 +60,8 @@ test("inventory location filter remains multi-select while narrowing its visible
   await logIn(page);
   await page.goto("/inventory");
 
-  await page
-    .getByRole("button", { name: /Advanced Inventory Search/ })
-    .click();
+  await page.getByRole("button", { name: /Advanced Inventory Search/ }).click();
+  await page.getByRole("tab", { name: "Collection", exact: true }).click();
   await page.getByRole("button", { name: /^Location:/ }).click();
   const locationSearch = page.getByLabel("Search location options");
   await expect(locationSearch).toBeVisible();
