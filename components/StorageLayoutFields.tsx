@@ -1,7 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { MAX_STORAGE_SECTIONS, type StorageLayout } from "@/lib/storage-layout";
+import { useEffect, useRef, useState } from "react";
+import {
+  MAX_STORAGE_SECTIONS,
+  storageLayoutFromForm,
+  type StorageLayout,
+} from "@/lib/storage-layout";
 import { cn, filterButtonClass, filterInputClass } from "./filterStyles";
 
 export function StorageLayoutFields({
@@ -295,8 +299,32 @@ export function LocationLayoutEditor({
   initialValue: StorageLayout;
 }) {
   const [value, setValue] = useState(initialValue);
+  const [error, setError] = useState("");
+  const details = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const form = details.current?.closest("form");
+    if (!form) return;
+    const validate = (event: SubmitEvent) => {
+      try {
+        storageLayoutFromForm(new FormData(form));
+        setError("");
+      } catch (error) {
+        event.preventDefault();
+        event.stopPropagation();
+        setError((error as Error).message);
+        if (details.current) details.current.open = true;
+        requestAnimationFrame(() =>
+          details.current
+            ?.querySelector<HTMLElement>('[role="alert"]')
+            ?.focus(),
+        );
+      }
+    };
+    form.addEventListener("submit", validate, true);
+    return () => form.removeEventListener("submit", validate, true);
+  }, []);
   return (
-    <details className="md:col-span-2">
+    <details ref={details} className="md:col-span-2">
       <summary className="cursor-pointer py-2 font-medium">
         Storage layout and capacity
       </summary>
@@ -305,6 +333,11 @@ export function LocationLayoutEditor({
         section does not rename or move cards already stored there.
       </p>
       <StorageLayoutFields value={value} onChange={setValue} />
+      {error && (
+        <p role="alert" tabIndex={-1} className="mt-3 text-sm">
+          {error}
+        </p>
+      )}
     </details>
   );
 }

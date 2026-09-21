@@ -103,9 +103,10 @@ export function VaultSectionMap({
             {location.name}
           </p>
           <p className="text-xs text-[var(--app-muted)]">
-            {total.toLocaleString()} cards · {room.toLocaleString()} spaces
-            across {standardVault ? "six" : sections.length} sections with known
-            capacity
+            {total.toLocaleString()} cards ·{" "}
+            {sections.some((section) => section.capacity !== null)
+              ? `${room.toLocaleString()} spaces across ${sections.filter((section) => section.capacity !== null).length} sections with known capacity`
+              : "Section capacities not set"}
           </p>
         </div>
         <a

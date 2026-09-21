@@ -124,6 +124,25 @@ test("guided storage copies type defaults, preserves overrides and placements, a
       detail.getByRole("link", { name: /Front, 0 \/ 10 cards/ }),
     ).toBeVisible();
     await page.screenshot({ path: "test-results/storage-layout-custom.png" });
+    await detail.getByRole("link", { name: "Manage", exact: true }).click();
+    await detail
+      .getByText("Storage layout and capacity", { exact: true })
+      .click();
+    await detail.getByLabel("Section 2 name", { exact: true }).fill("Front");
+    await detail
+      .getByRole("button", { name: "Save location", exact: true })
+      .click();
+    await expect(detail.getByRole("alert")).toContainText(
+      "Section names must be unique",
+    );
+    await expect(
+      detail.getByLabel("Section 2 name", { exact: true }),
+    ).toHaveValue("Front");
+    await detail.getByLabel("Section 2 name", { exact: true }).fill("Back");
+    await detail
+      .getByRole("button", { name: "Save location", exact: true })
+      .click();
+    await expect(detail.getByRole("alert")).toHaveCount(0);
 
     // Editing the shared type affects new locations, never a saved location snapshot.
     await page
