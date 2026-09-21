@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, type ReactNode } from "react";
+import type { NavigationLayout } from "@/lib/navigation-layout";
 
 const groups = [
   { label: "Overview", links: [["/dashboard", "Dashboard"]] },
@@ -36,10 +37,12 @@ const groups = [
 export function ArchiveNavigation({
   appName,
   adminModeActive,
+  navigationLayout,
   children,
 }: {
   appName: string;
   adminModeActive: boolean;
+  navigationLayout: NavigationLayout;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -54,7 +57,7 @@ export function ArchiveNavigation({
     return () => query.removeEventListener("change", resize);
   }, []);
   return (
-    <header className="archive-shell">
+    <header className="archive-shell" data-navigation-layout={navigationLayout}>
       <a className="archive-skip" href="#archive-content">
         Skip navigation
       </a>

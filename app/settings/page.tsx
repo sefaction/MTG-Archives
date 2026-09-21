@@ -23,6 +23,7 @@ import {
   setLocalNotificationPreferences,
 } from "@/lib/notification-preferences";
 import { APP_THEMES, normalizeAppTheme } from "@/lib/themes";
+import { normalizeNavigationLayout } from "@/lib/navigation-layout";
 import { defaultVisibilityLabel } from "@/lib/visibility";
 import { DefaultCollectionVisibility } from "@prisma/client";
 
@@ -85,6 +86,9 @@ export default async function SettingsPage({
     const wishlistDigestNotifications =
       fd.get("wishlistDigestNotifications") === "on";
     const theme = normalizeAppTheme(fd.get("theme"));
+    const navigationLayout = normalizeNavigationLayout(
+      fd.get("navigationLayout"),
+    );
     const publicDisplayName =
       String(fd.get("publicDisplayName") || "").trim() || null;
     const playerColor = normalizePlayerColor(fd.get("playerColor"));
@@ -102,6 +106,7 @@ export default async function SettingsPage({
             fd.get("deckDefaultVisibility"),
           ),
           theme,
+          navigationLayout,
           preferredPriceProvider,
           publicDisplayName,
         },
@@ -132,6 +137,7 @@ export default async function SettingsPage({
           deckDefaultVisibility: before.deckDefaultVisibility,
           publicDisplayName: before.publicDisplayName,
           theme: before.theme,
+          navigationLayout: before.navigationLayout,
           preferredPriceProvider: before.preferredPriceProvider,
           playerColor: before.player?.color ?? DEFAULT_PLAYER_COLOR,
           tradeNotifications: beforeNotificationPreferences.trades,
@@ -143,6 +149,7 @@ export default async function SettingsPage({
           deckDefaultVisibility: updated.deckDefaultVisibility,
           publicDisplayName: updated.publicDisplayName,
           theme: updated.theme,
+          navigationLayout: updated.navigationLayout,
           preferredPriceProvider: updated.preferredPriceProvider,
           playerColor,
           tradeNotifications,
@@ -153,6 +160,7 @@ export default async function SettingsPage({
     });
 
     revalidatePath("/settings");
+    revalidatePath("/", "layout");
     revalidatePath("/locations");
     revalidatePath("/inventory");
     revalidatePath("/public/inventory");
@@ -213,9 +221,36 @@ export default async function SettingsPage({
               </p>
               <h2 className="text-lg font-semibold">Appearance</h2>
               <p className="app-muted text-sm">
-                Themes are saved per user and apply across the full app shell.
+                Appearance is saved to your account and follows you across
+                devices.
               </p>
             </div>
+            <fieldset className="space-y-2">
+              <legend className="font-medium">Main menu layout</legend>
+              <p className="app-muted text-sm">
+                Choose where the Archive menu appears on desktop. Phones use a
+                compact Menu in either layout.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                {(["sidebar", "topbar"] as const).map((layout) => (
+                  <label
+                    key={layout}
+                    className="app-card flex cursor-pointer items-center gap-2 p-3 has-[:checked]:border-[var(--app-accent)] has-[:checked]:bg-[var(--app-accent-soft)]"
+                  >
+                    <input
+                      type="radio"
+                      name="navigationLayout"
+                      value={layout}
+                      defaultChecked={
+                        normalizeNavigationLayout(user.navigationLayout) ===
+                        layout
+                      }
+                    />
+                    {layout === "sidebar" ? "Sidebar" : "Topbar"}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {APP_THEMES.map((theme) => (
                 <label
