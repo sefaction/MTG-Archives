@@ -1,5 +1,11 @@
 # Resumable work checkpoint
 
+## Vault occupancy refresh ready for review, 2026-09-22
+
+- Branch `fix/vault-occupancy-refresh` is at `fa6ef7f` for #260. The committed move action now returns fresh source/destination occupancy summaries, and the inventory client applies them immediately before the normal route refresh. No reload, timeout, schema, or migration workaround was added.
+- Verification passed: 580 source tests, typecheck, production Docker build and client-manifest guards, healthy compose web service with `/login` HTTP 200, and `tests/ui/vault-map.spec.ts --repeat-each=5` (**5/5**). Local image is `sha256:7f7f03e02e00cff8e0e6cdc2691cc0ed18586f4a91e96fd138be3a8361c3bf27`.
+- Next safe step: push this branch and open the review PR for #260. Do not merge until the user separately approves that PR; #260 remains open until then. #220 and #280 remain separate audits.
+
 ## Playtest organization released, 2026-09-22
 
 - PR #295 was user-approved and merged into main as `fb9e2cd`; the existing playtest PR #296 was then approved and merged as `e25fd23`. No further playtest changes are planned in this batch.
