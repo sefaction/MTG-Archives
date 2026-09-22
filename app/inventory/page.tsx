@@ -683,7 +683,19 @@ export default async function InventoryPage({
       });
       revalidatePath("/inventory");
       revalidatePath("/locations");
-      return { success: true as const, ...result };
+      const refreshedLocations = await getStorageLocations(
+        prisma,
+        normalDestinationLocations.filter(
+          (location) =>
+            location.id === destinationLocationId ||
+            location.id === sourceLocationIdRaw,
+        ),
+      );
+      return {
+        success: true as const,
+        ...result,
+        refreshedLocations,
+      };
     } catch (error: any) {
       console.error("[bulk-location-move] failed", {
         message: error?.message,
