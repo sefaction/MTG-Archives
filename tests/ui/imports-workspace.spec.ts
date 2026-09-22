@@ -271,9 +271,20 @@ test("Imports separates tasks and preserves upload, review, commit, history and 
         theme,
       );
       await noOverflow(page);
+      const themeTextColor = await page.evaluate(
+        () => getComputedStyle(document.body).color,
+      );
+      await expect(
+        page.getByRole("link", { name: "Review & commit", exact: true }),
+      ).toHaveCSS("color", themeTextColor);
+      await expect(commit.getByRole("button", { name: /^Sect 0/ })).toHaveCSS(
+        "color",
+        themeTextColor,
+      );
       if (theme === "azorius")
         await page.screenshot({
           path: "test-results/imports-review-light.png",
+          animations: "disabled",
         });
     }
     await page.evaluate(
