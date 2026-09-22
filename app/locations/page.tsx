@@ -1672,6 +1672,7 @@ export default async function LocationsPage({
                               />
                             </label>
                             <LocationSearchSelect
+                              key={`${location.id}:${location.parentLocationId ?? ""}`}
                               name="parentLocationId"
                               label="Parent"
                               defaultValue={location.parentLocationId ?? ""}
