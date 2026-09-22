@@ -224,6 +224,9 @@ test("Imports separates tasks and preserves upload, review, commit, history and 
     await expect(summary).toContainText("120 ready rows · 361 copies");
     expect(new URL(page.url()).searchParams.get("q")).toBe("Forest");
     await page.evaluate(() => window.scrollTo(0, 0));
+    expect(
+      (await page.locator("#import-review tbody tr").first().boundingBox())!.y,
+    ).toBeLessThan(768);
     await page.screenshot({ path: "test-results/imports-review-top.png" });
     await page
       .getByRole("link", { name: "Review & commit", exact: true })
@@ -256,8 +259,8 @@ test("Imports separates tasks and preserves upload, review, commit, history and 
       });
     }
     for (const theme of [
-      "dark",
-      "light",
+      "golgari",
+      "azorius",
       "rakdos",
       "lotus",
       "selesnya",
@@ -268,7 +271,7 @@ test("Imports separates tasks and preserves upload, review, commit, history and 
         theme,
       );
       await noOverflow(page);
-      if (theme === "light")
+      if (theme === "azorius")
         await page.screenshot({
           path: "test-results/imports-review-light.png",
         });
@@ -277,6 +280,7 @@ test("Imports separates tasks and preserves upload, review, commit, history and 
       () => (document.documentElement.style.fontSize = "200%"),
     );
     await noOverflow(page);
+    expect((await summary.boundingBox())!.height).toBeLessThan(270);
     await page.screenshot({ path: "test-results/imports-review-enlarged.png" });
     await page.evaluate(() => (document.documentElement.style.fontSize = ""));
     expect(total()).toBe(7); // Long-batch review and edits never committed copies.
@@ -295,14 +299,14 @@ test("Imports separates tasks and preserves upload, review, commit, history and 
     ).toBeVisible();
     await page.getByRole("link", { name: "Import CSV", exact: true }).click();
     await expect(
-      page.getByLabel("Current owner", { exact: true }),
+      page.getByRole("combobox", { name: "Current owner", exact: true }),
     ).toBeVisible();
     await page
       .getByRole("button", { name: "Exit Admin Mode", exact: true })
       .click();
-    await expect(page.getByLabel("Current owner", { exact: true })).toHaveCount(
-      0,
-    );
+    await expect(
+      page.getByRole("combobox", { name: "Current owner", exact: true }),
+    ).toHaveCount(0);
   } finally {
     database(`const owners=await p.player.findMany({where:{name:{in:[${quote(tag)},${quote(tag + "-other")}]}}});const ids=owners.map(x=>x.id);
       const batches=await p.importBatch.findMany({where:{selectedPlayerId:{in:ids}}});const batchIds=batches.map(x=>x.id);

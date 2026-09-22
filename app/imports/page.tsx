@@ -2074,7 +2074,10 @@ export default async function ImportsPage({
           >
             <p className="text-sm">
               <strong>
-                {summary.readyToCommit} ready rows · {readyCopyCount} copies
+                <span className="hidden sm:inline">
+                  {summary.readyToCommit} ready rows ·{" "}
+                </span>
+                {readyCopyCount} copies<span className="sm:hidden"> ready</span>
               </strong>
               <span className="hidden sm:inline">
                 {" "}
@@ -2092,31 +2095,15 @@ export default async function ImportsPage({
                   View Inventory
                 </a>
               )}
-              <a className={filterButtonClass} href="/imports?view=history">
+              <a
+                className={cn(filterButtonClass, "hidden sm:block")}
+                href="/imports?view=history"
+              >
                 Back to history
               </a>
             </div>
           </div>
 
-          <details
-            open={Boolean(
-              selectedResolutionJob &&
-              isActiveImportResolutionStatus(selectedResolutionJob.status),
-            )}
-            className="rounded border border-[var(--app-border)] p-3"
-          >
-            <summary className="cursor-pointer">
-              Identification progress and diagnostics
-            </summary>
-            {selectedProgress ? (
-              <ImportProgressPanel
-                batchId={selectedBatch.id}
-                initialProgress={selectedProgress}
-                initialResolutionJob={selectedResolutionJobSnapshot}
-                pollIntervalMs={importResolutionConfig.pollIntervalMs}
-              />
-            ) : null}
-          </details>
           <div className="flex flex-wrap gap-2 text-sm">
             <form action={startImportResolutionJob}>
               <input type="hidden" name="batchId" value={selectedBatch.id} />
@@ -2225,59 +2212,7 @@ export default async function ImportsPage({
               </details>
             ) : null}
           </div>
-          <details className="rounded border border-[var(--app-border)] p-3">
-            <summary className="cursor-pointer">
-              All row counts and warnings
-            </summary>
-            <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-9 gap-2 text-sm">
-              {[
-                [
-                  "Parsed lines",
-                  summary.parsedLines,
-                  "border-[var(--app-border)]",
-                ],
-                [
-                  "Ready to commit",
-                  summary.readyToCommit,
-                  "border-emerald-700",
-                ],
-                ["Resolved", summary.resolved, "border-emerald-700"],
-                ["Needs review", summary.needsReview, "border-amber-700"],
-                ["Unresolved", summary.unresolved, "border-red-800"],
-                ["Failed", summary.failed, "border-red-900"],
-                ["Skipped", summary.skipped, "border-zinc-600"],
-                ["Committed", summary.committed, "border-emerald-800"],
-                ["Warnings", summary.warnings, "border-yellow-700"],
-              ].map(([label, value, border]) => (
-                <div
-                  key={String(label)}
-                  className={`rounded border ${border} bg-[var(--app-surface)] p-2`}
-                >
-                  <div className="text-[var(--app-muted)]">{label}</div>
-                  <div className="text-2xl font-bold">{value}</div>
-                </div>
-              ))}
-            </div>
-            <div className="h-3 overflow-hidden rounded bg-[var(--app-surface-2)] flex">
-              {summary.parsedLines
-                ? [
-                    ["bg-emerald-600", summary.resolved],
-                    ["bg-amber-600", summary.needsReview],
-                    ["bg-red-700", summary.unresolved + summary.failed],
-                    ["bg-zinc-600", summary.skipped],
-                    ["bg-emerald-800", summary.committed],
-                  ].map(([cls, count], index) => (
-                    <div
-                      key={index}
-                      className={String(cls)}
-                      style={{
-                        width: `${(Number(count) / summary.parsedLines) * 100}%`,
-                      }}
-                    />
-                  ))
-                : null}
-            </div>
-          </details>
+
           <div className="rounded border border-[var(--app-border)] bg-[var(--app-surface)] p-3 space-y-3">
             <form method="get" className="flex flex-wrap gap-2 items-end">
               <input type="hidden" name="batchId" value={selectedBatch.id} />
@@ -2526,6 +2461,78 @@ export default async function ImportsPage({
               </tbody>
             </table>
           </div>
+          <details
+            open={Boolean(
+              selectedResolutionJob &&
+              isActiveImportResolutionStatus(selectedResolutionJob.status),
+            )}
+            className="rounded border border-[var(--app-border)] p-3"
+          >
+            <summary className="cursor-pointer">
+              Identification progress and diagnostics
+            </summary>
+            {selectedProgress ? (
+              <ImportProgressPanel
+                batchId={selectedBatch.id}
+                initialProgress={selectedProgress}
+                initialResolutionJob={selectedResolutionJobSnapshot}
+                pollIntervalMs={importResolutionConfig.pollIntervalMs}
+              />
+            ) : null}
+          </details>
+          <details className="rounded border border-[var(--app-border)] p-3">
+            <summary className="cursor-pointer">
+              All row counts and warnings
+            </summary>
+            <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-9 gap-2 text-sm">
+              {[
+                [
+                  "Parsed lines",
+                  summary.parsedLines,
+                  "border-[var(--app-border)]",
+                ],
+                [
+                  "Ready to commit",
+                  summary.readyToCommit,
+                  "border-emerald-700",
+                ],
+                ["Resolved", summary.resolved, "border-emerald-700"],
+                ["Needs review", summary.needsReview, "border-amber-700"],
+                ["Unresolved", summary.unresolved, "border-red-800"],
+                ["Failed", summary.failed, "border-red-900"],
+                ["Skipped", summary.skipped, "border-zinc-600"],
+                ["Committed", summary.committed, "border-emerald-800"],
+                ["Warnings", summary.warnings, "border-yellow-700"],
+              ].map(([label, value, border]) => (
+                <div
+                  key={String(label)}
+                  className={`rounded border ${border} bg-[var(--app-surface)] p-2`}
+                >
+                  <div className="text-[var(--app-muted)]">{label}</div>
+                  <div className="text-2xl font-bold">{value}</div>
+                </div>
+              ))}
+            </div>
+            <div className="h-3 overflow-hidden rounded bg-[var(--app-surface-2)] flex">
+              {summary.parsedLines
+                ? [
+                    ["bg-emerald-600", summary.resolved],
+                    ["bg-amber-600", summary.needsReview],
+                    ["bg-red-700", summary.unresolved + summary.failed],
+                    ["bg-zinc-600", summary.skipped],
+                    ["bg-emerald-800", summary.committed],
+                  ].map(([cls, count], index) => (
+                    <div
+                      key={index}
+                      className={String(cls)}
+                      style={{
+                        width: `${(Number(count) / summary.parsedLines) * 100}%`,
+                      }}
+                    />
+                  ))
+                : null}
+            </div>
+          </details>
           {unresolvedCount > 0 ? (
             <p className="rounded border border-red-800 bg-red-950/40 p-3 text-sm text-red-100">
               {commitBlockedReason}
