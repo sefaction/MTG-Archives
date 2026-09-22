@@ -55,7 +55,7 @@ test("inventory and imports expose on-demand section controls without changing d
   await page.goto("/inventory");
   await expect(page.locator('input[name="locationSection"]')).toBeAttached();
 
-  await page.goto("/imports");
+  await page.goto("/imports?view=add");
   await expect(page.locator('input[name="locationSection"]')).toBeAttached();
 });
 

@@ -142,8 +142,8 @@ test("public inventory keeps owner/location filters while using shared styling",
     inventoryPage,
     /importExportHref=\{user \? importExportHref : undefined\}/,
   );
-  assert.match(importsPage, /title="Export Inventory"/);
-  assert.match(importsPage, /summary="Download CSV exports"/);
+  assert.match(importsPage, /Export Inventory<\/h2>/);
+  assert.match(importsPage, /<InventoryExportForm/);
   assert.doesNotMatch(publicInventoryPage, /Export Inventory/);
   assert.doesNotMatch(publicInventoryPage, /onBulkDeleteInventory=/);
 });

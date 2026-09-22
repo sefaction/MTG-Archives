@@ -1,5 +1,13 @@
 # Resumable work checkpoint
 
+## Active Imports workspace, 2026-09-22
+
+- User authorized #283 followed by Imports #267. Branch `feat/imports-workspace` stacks on `fix/inactive-location-parent` / PR #288 at `bfb84e8`; neither future PR is merge-approved.
+- #288 is ready: #283 reproduced and fixed; new #289 tracks the native post-save select reset, also fixed. 577 units/core builds passed; full browser run 45/46 exposed #289, followed by final two affected lifecycle passes. CI passed. Local fix image `sha256:f777447368f71b14cc4436ba681f1bb973d647ded0523d600ee78d6961112e49`, healthy/HTTP 200, 12,477 copies and zero fixture users. Full suite not repeated after the final picker correction. Logs `inactive-parent-*`, `parent-reset-*` stay ignored.
+- Imports implementation separates CSV, manual add, export and history; batch deep links enter focused review, compact sticky totals link to one destination/commit form, resolver uses a native dialog and retains review query/status. Domain/import mutations and scope checks are preserved.
+- Imports typecheck passed. Initial units found one obsolete export-panel source assertion, updated for the new heading. Pending: core, Docker, lifecycle/visual regression, cleanup, branch/PR publication. New fixture covers real CSV capture/commit and a 120-row review, not a production-scale import benchmark.
+- Next safe step: finish Imports validation, fix actual failures without raising timeouts, open its separate dependent PR and leave cumulative Docker for user review. #220/#260/#280 remain unresolved. No production work, scheduler or verified desktop-project assignment.
+
 ## Active inactive-parent fix, 2026-09-22
 
 - User authorized the recommended sequence: fix #283, then Imports #267 as separate reviewable batches. Future PRs require individual merge approval.

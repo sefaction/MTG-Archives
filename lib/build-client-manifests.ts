@@ -6,6 +6,7 @@ export const CLIENT_MANIFEST_CONTRACTS: Record<string, string[]> = {
     "InventoryExportForm",
     "StorageDestinationPicker",
     "ImportProgressPanel",
+    "ImportResolverDialog",
   ],
   "/inventory/page": ["InventoryAdvancedSearch", "InventoryBrowser"],
   "/public/inventory/page": ["InventoryAdvancedSearch", "InventoryBrowser"],

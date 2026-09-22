@@ -25,7 +25,7 @@ import { formatScryfallError, getCardByScryfallIdResult } from "@/lib/scryfall";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { ImportProgressPanel } from "@/components/ImportProgressPanel";
 import { SingleCardInventoryAdd } from "@/components/SingleCardInventoryAdd";
-import { CollapsiblePanel } from "@/components/CollapsiblePanel";
+import { ImportResolverDialog } from "@/components/ImportResolverDialog";
 import { InventoryExportForm } from "@/components/InventoryExportForm";
 import { calculateImportProgress } from "@/lib/import-progress";
 import {
@@ -113,6 +113,7 @@ type ParsedRow = {
 };
 
 type SearchParams = {
+  view?: string;
   batchId?: string;
   resolveItemId?: string;
   resolverQ?: string;
@@ -246,7 +247,8 @@ function statusBadgeClass(status: string) {
     return "bg-purple-900/60 text-purple-200 border-purple-700";
   if (status === "ambiguous")
     return "bg-amber-900/60 text-amber-200 border-amber-700";
-  if (status === "skipped") return "bg-zinc-800 text-zinc-200 border-zinc-600";
+  if (status === "skipped")
+    return "bg-zinc-800 text-[var(--app-text)] border-zinc-600";
   return "bg-red-950/70 text-red-200 border-red-800";
 }
 function buildResolverQuery(parsed: ParsedRow, override?: string) {
@@ -1537,15 +1539,37 @@ export default async function ImportsPage({
     ? `/inventory?locationId=${defaultDestinationLocation.id}`
     : "/inventory";
 
+  const workspaceView = selectedBatch
+    ? "review"
+    : params.exportTools === "1"
+      ? "export"
+      : params.singleCardAdded === "1"
+        ? "add"
+        : ["add", "export", "history"].includes(params.view ?? "")
+          ? params.view!
+          : "csv";
+  const readyCopyCount = selectedItems
+    .filter(isImportItemReadyToCommit)
+    .reduce(
+      (sum, item) => sum + Number((item.parsedRowJson as ParsedRow).quantity),
+      0,
+    );
+  const duplicatePolicy = selectedBatch?.importType.split(":")[1] || "add";
+  const duplicateLabel =
+    duplicatePolicy === "preview"
+      ? "Preview only"
+      : duplicatePolicy === "separate"
+        ? "Keep separate rows where possible"
+        : "Add to matching inventory";
+
   return (
-    <main className="p-8 space-y-6">
+    <main className="imports-workspace min-w-0 p-3 sm:p-6 space-y-4">
       <Nav />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold">Imports</h1>
           <p className="text-sm text-[var(--app-muted)]">
-            Upload inventory CSVs, review unresolved rows, and commit ready
-            cards from one workspace.
+            Add cards, import a collection, or export your inventory.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -1559,181 +1583,334 @@ export default async function ImportsPage({
           </a>
         </div>
       </div>
-      <CollapsiblePanel
-        title="Add single card"
-        summary="Manual one-off inventory entry"
-        defaultOpen={params.singleCardAdded === "1"}
-        storageKey="imports-single-card-add"
-      >
-        <SingleCardInventoryAdd
-          storageLocations={manualStorageLocations}
-          locations={manualLocations.map((location) => ({
-            id: location.id,
-            name: location.path,
-          }))}
-          defaultLocationId={manualDefaultLocation?.id}
-          sectionSuggestions={manualSectionSuggestions}
-          added={params.singleCardAdded === "1"}
-          embedded
-        />
-      </CollapsiblePanel>
-
-      <CollapsiblePanel
-        title="Export Inventory"
-        summary="Download CSV exports"
-        defaultOpen={params.exportTools === "1"}
-      >
-        <InventoryExportForm
-          owners={exportOwners}
-          initialOwnerId={initialExportOwnerId}
-          initialLocationId={requestedExportLocationId}
-          adminMode={isAdmin}
-        />
-      </CollapsiblePanel>
-
-      <section className={cn(filterPanelClass, "space-y-4")}>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold">New CSV import</h2>
-            <p className="text-sm text-[var(--app-muted)]">
-              MTG Inventory sample files and Moxfield collection exports are
-              supported.
-            </p>
-          </div>
-          <span className="rounded-md border border-[var(--app-border)] bg-[var(--app-surface-2)] px-3 py-2 text-xs text-[var(--app-muted)]">
-            {isAdmin
-              ? "Admin mode: choose target owner"
-              : defaultPlayer
-                ? `Importing for ${defaultPlayer.displayName}`
-                : "Importing into your inventory"}
-          </span>
-        </div>
-        <form
-          action={previewImport}
-          className="grid gap-3 lg:grid-cols-[minmax(180px,0.8fr)_minmax(220px,1fr)_minmax(220px,1.1fr)_auto] lg:items-end"
-          encType="multipart/form-data"
-        >
-          {isAdmin ? (
-            <>
-              <label className={filterFieldClass}>
-                Current owner
-                <select
-                  name="selectedPlayerId"
-                  defaultValue={defaultPlayer?.id}
-                  className={cn(filterSelectClass, "mt-1 w-full")}
-                >
-                  {players.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.displayName}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </>
-          ) : (
-            <>
-              <input
-                type="hidden"
-                name="selectedPlayerId"
-                value={defaultPlayer?.id ?? ""}
-              />
-            </>
-          )}
-          <label className={filterFieldClass}>
-            Duplicate behavior
-            <select
-              name="duplicateBehavior"
-              className={cn(filterSelectClass, "mt-1 w-full")}
-            >
-              <option value="add">
-                Add quantities to existing matching inventory item
-              </option>
-              <option value="separate">
-                Create separate inventory rows where possible
-              </option>
-              <option value="preview">Preview only</option>
-            </select>
-          </label>
-          <label className={filterFieldClass}>
-            CSV file
-            <input
-              name="csvFile"
-              type="file"
-              accept=".csv,text/csv"
-              required
-              className={cn(filterInputClass, "mt-1 w-full")}
-            />
-          </label>
-          <SubmitButton
-            pendingLabel="Identifying cards…"
-            className={cn(filterPrimaryButtonClass, "lg:min-w-36")}
+      <nav aria-label="Import tasks" className="flex flex-wrap gap-2">
+        {[
+          ["csv", "Import CSV"],
+          ["add", "Add card"],
+          ["export", "Export"],
+          ["history", "History"],
+        ].map(([view, label]) => (
+          <a
+            key={view}
+            href={`/imports?view=${view}`}
+            aria-current={workspaceView === view ? "page" : undefined}
+            className={cn(
+              filterButtonClass,
+              workspaceView === view &&
+                "border-[var(--app-accent)] bg-[var(--app-accent-soft)]",
+            )}
           >
-            Preview Import
-          </SubmitButton>
-        </form>
-        <div className="border-t border-[var(--app-border)] pt-3">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold">Recent imports</h3>
-            <a className="text-xs underline" href="#import-history">
-              Full history
-            </a>
-          </div>
-          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-            {history.slice(0, 6).map((batch) => (
-              <a
-                key={batch.id}
-                className={cn(
-                  "rounded-md border p-3 text-sm transition-colors",
-                  selectedBatch?.id === batch.id
-                    ? "border-[var(--app-accent)] bg-[var(--app-accent-soft)]"
-                    : "border-[var(--app-border)] bg-[var(--app-surface)] hover:border-[var(--app-border-strong)]",
-                )}
-                href={`${buildImportReviewUrl(batch.id)}#import-review`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <span className="block truncate font-medium">
-                    {batch.filename}
-                  </span>
-                  <span className="rounded border border-[var(--app-border)] px-2 py-0.5 text-[10px] uppercase text-[var(--app-muted)]">
-                    {batch.status}
-                  </span>
-                </div>
-                <div className="mt-1 text-xs text-[var(--app-muted)]">
-                  {batch.createdAt.toLocaleString()} -{" "}
-                  {batch.selectedPlayer.displayName}
-                </div>
-                <div className="mt-1 text-xs text-[var(--app-muted)]">
-                  {batch.totalRows} rows - {batch.errorRows} need review
-                </div>
-              </a>
-            ))}
-            {history.length === 0 ? (
-              <p className="rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-3 text-sm text-[var(--app-muted)]">
-                No imports yet. Upload a CSV to start a review batch.
+            {label}
+          </a>
+        ))}
+        {selectedBatch && (
+          <a
+            href={buildImportReviewUrl(selectedBatch.id)}
+            aria-current="page"
+            className={filterPrimaryButtonClass}
+          >
+            Batch review
+          </a>
+        )}
+      </nav>
+      {workspaceView === "add" && (
+        <section
+          className={cn(filterPanelClass, "space-y-3")}
+          aria-labelledby="manual-add-title"
+        >
+          <h2 id="manual-add-title" className="text-lg font-semibold">
+            Add single card
+          </h2>
+          <p className="text-sm text-[var(--app-muted)]">
+            Adding to {userWithPlayer?.player?.displayName ?? "your inventory"}.
+            Unsaved form entries are discarded when you leave this task.
+          </p>
+          <SingleCardInventoryAdd
+            storageLocations={manualStorageLocations}
+            locations={manualLocations.map((location) => ({
+              id: location.id,
+              name: location.path,
+            }))}
+            defaultLocationId={manualDefaultLocation?.id}
+            sectionSuggestions={manualSectionSuggestions}
+            added={params.singleCardAdded === "1"}
+            embedded
+          />
+        </section>
+      )}
+      {workspaceView === "export" && (
+        <section className={cn(filterPanelClass, "space-y-3")}>
+          <h2 className="text-lg font-semibold">Export Inventory</h2>
+          <InventoryExportForm
+            owners={exportOwners}
+            initialOwnerId={initialExportOwnerId}
+            initialLocationId={requestedExportLocationId}
+            adminMode={isAdmin}
+          />
+        </section>
+      )}
+      {workspaceView === "csv" && (
+        <section className={cn(filterPanelClass, "space-y-4")}>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">New CSV import</h2>
+              <p className="text-sm text-[var(--app-muted)]">
+                MTG Inventory sample files and Moxfield collection exports are
+                supported.
               </p>
-            ) : null}
+            </div>
+            <span className="rounded-md border border-[var(--app-border)] bg-[var(--app-surface-2)] px-3 py-2 text-xs text-[var(--app-muted)]">
+              {isAdmin
+                ? "Admin mode: choose target owner"
+                : defaultPlayer
+                  ? `Importing for ${defaultPlayer.displayName}`
+                  : "Importing into your inventory"}
+            </span>
           </div>
-        </div>
-      </section>
+          <form
+            action={previewImport}
+            className="grid gap-3 lg:grid-cols-[minmax(180px,0.8fr)_minmax(220px,1fr)_minmax(220px,1.1fr)_auto] lg:items-end"
+            encType="multipart/form-data"
+          >
+            {isAdmin ? (
+              <>
+                <label className={filterFieldClass}>
+                  Current owner
+                  <select
+                    name="selectedPlayerId"
+                    defaultValue={defaultPlayer?.id}
+                    className={cn(filterSelectClass, "mt-1 w-full")}
+                  >
+                    {players.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.displayName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </>
+            ) : (
+              <>
+                <input
+                  type="hidden"
+                  name="selectedPlayerId"
+                  value={defaultPlayer?.id ?? ""}
+                />
+              </>
+            )}
+            <label className={filterFieldClass}>
+              Duplicate behavior
+              <select
+                name="duplicateBehavior"
+                className={cn(filterSelectClass, "mt-1 w-full")}
+              >
+                <option value="add">
+                  Add quantities to existing matching inventory item
+                </option>
+                <option value="separate">
+                  Create separate inventory rows where possible
+                </option>
+                <option value="preview">Preview only</option>
+              </select>
+            </label>
+            <label className={filterFieldClass}>
+              CSV file
+              <input
+                name="csvFile"
+                type="file"
+                accept=".csv,text/csv"
+                required
+                className={cn(filterInputClass, "mt-1 w-full")}
+              />
+            </label>
+            <SubmitButton
+              pendingLabel="Identifying cards…"
+              className={cn(filterPrimaryButtonClass, "lg:min-w-36")}
+            >
+              Preview Import
+            </SubmitButton>
+          </form>
+          <div className="border-t border-[var(--app-border)] pt-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold">Recent imports</h3>
+              <a
+                className="text-xs underline"
+                href="/imports?view=history#import-history"
+              >
+                Full history
+              </a>
+            </div>
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {history.slice(0, 6).map((batch) => (
+                <a
+                  key={batch.id}
+                  className={cn(
+                    "rounded-md border p-3 text-sm transition-colors",
+                    selectedBatch?.id === batch.id
+                      ? "border-[var(--app-accent)] bg-[var(--app-accent-soft)]"
+                      : "border-[var(--app-border)] bg-[var(--app-surface)] hover:border-[var(--app-border-strong)]",
+                  )}
+                  href={`${buildImportReviewUrl(batch.id)}#import-review`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="block truncate font-medium">
+                      {batch.filename}
+                    </span>
+                    <span className="rounded border border-[var(--app-border)] px-2 py-0.5 text-[10px] uppercase text-[var(--app-muted)]">
+                      {batch.status}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-xs text-[var(--app-muted)]">
+                    {batch.createdAt.toLocaleString()} -{" "}
+                    {batch.selectedPlayer.displayName}
+                  </div>
+                  <div className="mt-1 text-xs text-[var(--app-muted)]">
+                    {batch.totalRows} rows - {batch.errorRows} need review
+                  </div>
+                </a>
+              ))}
+              {history.length === 0 ? (
+                <p className="rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] p-3 text-sm text-[var(--app-muted)]">
+                  No imports yet. Upload a CSV to start a review batch.
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      )}
 
-      {isAdmin && maintenanceSummary ? (
-        <section className="border border-zinc-800 rounded p-4 space-y-3">
+      {workspaceView === "history" && (
+        <section id="import-history" className="space-y-2 scroll-mt-4">
+          <h2 className="text-xl font-semibold">Import History</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--app-border)]">
+                  <th>Filename</th>
+                  <th>Date</th>
+                  <th>Owner</th>
+                  <th>Total</th>
+                  <th>Imported</th>
+                  <th>Skipped</th>
+                  <th>Manual</th>
+                  <th>Warnings</th>
+                  <th>Unmatched</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((batch) => {
+                  const manual = batch.items.filter((i) =>
+                    ["resolved", "manually_resolved", "changed"].includes(
+                      i.status,
+                    ),
+                  ).length;
+                  return (
+                    <tr
+                      key={batch.id}
+                      className="border-b border-[var(--app-border)]"
+                    >
+                      <td>
+                        <a
+                          className="underline"
+                          href={`/imports?batchId=${batch.id}`}
+                        >
+                          {batch.filename}
+                        </a>
+                      </td>
+                      <td>{batch.createdAt.toLocaleString()}</td>
+                      <td>{batch.selectedPlayer.displayName}</td>
+                      <td>{batch.totalRows}</td>
+                      <td>{batch.matchedRows}</td>
+                      <td>{batch.skippedRows}</td>
+                      <td>{manual}</td>
+                      <td>{batch.warningRows}</td>
+                      <td>{batch.errorRows}</td>
+                      <td>{batch.status}</td>
+                      <td>
+                        <details className="min-w-48 rounded border border-[var(--app-border)] px-2 py-1">
+                          <summary className="cursor-pointer">Actions</summary>
+                          <div className="mt-2 space-y-2">
+                            <a
+                              className="block underline"
+                              href={`${buildImportReviewUrl(batch.id)}#import-review`}
+                            >
+                              Open review
+                            </a>
+                            <form action={deleteImportHistory}>
+                              <input
+                                type="hidden"
+                                name="batchId"
+                                value={batch.id}
+                              />
+                              <SubmitButton
+                                pendingLabel="Clearingâ€¦"
+                                className="underline"
+                                minWidthClassName="min-w-24"
+                              >
+                                Clear this history
+                              </SubmitButton>
+                            </form>
+                            {isAdmin &&
+                            ["IMPORTED", "imported"].includes(batch.status) ? (
+                              <form
+                                action={undoImportBatch}
+                                className="space-y-1"
+                              >
+                                <input
+                                  type="hidden"
+                                  name="batchId"
+                                  value={batch.id}
+                                />
+                                <input
+                                  name="confirmation"
+                                  placeholder="DELETE IMPORT"
+                                  className="w-full border p-1 bg-[var(--app-surface-2)]"
+                                />
+                                <SubmitButton
+                                  pendingLabel="Undoingâ€¦"
+                                  className="underline text-red-200"
+                                  minWidthClassName="min-w-20"
+                                >
+                                  Undo import
+                                </SubmitButton>
+                              </form>
+                            ) : null}
+                          </div>
+                        </details>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {workspaceView === "history" && isAdmin && maintenanceSummary ? (
+        <section className="border border-[var(--app-border)] rounded p-4 space-y-3">
           <h2 className="text-xl font-semibold">Import Maintenance</h2>
           <div className="grid md:grid-cols-3 gap-2 text-sm">
-            <div className="border border-zinc-700 rounded p-2">
-              <div className="text-zinc-400">Preview / failed imports</div>
+            <div className="border border-[var(--app-border)] rounded p-2">
+              <div className="text-[var(--app-muted)]">
+                Preview / failed imports
+              </div>
               <div className="text-2xl font-bold">
                 {maintenanceSummary.previewFailed}
               </div>
             </div>
-            <div className="border border-zinc-700 rounded p-2">
-              <div className="text-zinc-400">Total import batches</div>
+            <div className="border border-[var(--app-border)] rounded p-2">
+              <div className="text-[var(--app-muted)]">
+                Total import batches
+              </div>
               <div className="text-2xl font-bold">
                 {maintenanceSummary.totalBatches}
               </div>
             </div>
-            <div className="border border-zinc-700 rounded p-2">
-              <div className="text-zinc-400">Unresolved rows</div>
+            <div className="border border-[var(--app-border)] rounded p-2">
+              <div className="text-[var(--app-muted)]">Unresolved rows</div>
               <div className="text-2xl font-bold">
                 {maintenanceSummary.unresolvedItems}
               </div>
@@ -1745,7 +1922,7 @@ export default async function ImportsPage({
                 <summary className="cursor-pointer font-semibold">
                   Undo most recent import
                 </summary>
-                <p className="my-2 text-zinc-400">
+                <p className="my-2 text-[var(--app-muted)]">
                   Reverses tracked inventory changes from{" "}
                   <strong>{latestImportedBatch.filename}</strong>. This is for
                   the newest committed import only.
@@ -1760,7 +1937,7 @@ export default async function ImportsPage({
                     Type DELETE IMPORT
                     <input
                       name="confirmation"
-                      className="mt-1 w-full border p-2 bg-zinc-900"
+                      className="mt-1 w-full border p-2 bg-[var(--app-surface-2)]"
                     />
                   </label>
                   <SubmitButton
@@ -1776,7 +1953,7 @@ export default async function ImportsPage({
               <summary className="cursor-pointer font-semibold">
                 Clear preview / failed imports
               </summary>
-              <p className="my-2 text-zinc-400">
+              <p className="my-2 text-[var(--app-muted)]">
                 Deletes PREVIEW, FAILED, and CANCELLED import batches and their
                 row history only. Inventory is not touched.
               </p>
@@ -1793,7 +1970,7 @@ export default async function ImportsPage({
               <summary className="cursor-pointer font-semibold">
                 Clear all import history
               </summary>
-              <p className="my-2 text-zinc-400">
+              <p className="my-2 text-[var(--app-muted)]">
                 Deletes all ImportBatch and ImportBatchItem history. Inventory
                 is not touched.
               </p>
@@ -1808,11 +1985,11 @@ export default async function ImportsPage({
             </details>
             <form
               action={retryUnresolvedRows}
-              className="border border-zinc-700 rounded p-3 space-y-2"
+              className="border border-[var(--app-border)] rounded p-3 space-y-2"
             >
               <input type="hidden" name="scope" value="all" />
               <div className="font-semibold">Retry all unresolved rows</div>
-              <p className="text-zinc-400">
+              <p className="text-[var(--app-muted)]">
                 Admin-only retry across every batch.
               </p>
               <SubmitButton
@@ -1836,7 +2013,7 @@ export default async function ImportsPage({
         </section>
       ) : null}
 
-      {!isAdmin && history.length ? (
+      {workspaceView === "history" && !isAdmin && history.length ? (
         <section className={cn(filterPanelClass, "space-y-3")}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -1865,178 +2042,73 @@ export default async function ImportsPage({
         >
           <div>
             <h2 className="text-xl font-semibold">
-              Preview: {selectedBatch.filename}
+              {selectedBatch.status === "IMPORTED"
+                ? "Completed"
+                : selectedBatch.status === "UNDONE"
+                  ? "Undone"
+                  : "Review"}
+              : {selectedBatch.filename}
             </h2>
-            <p className="text-sm text-zinc-400">
-              Owner: {selectedBatch.selectedPlayer.displayName} • Import batch:{" "}
-              {selectedBatch.id} • Status: {selectedBatch.status}
+            <p className="text-sm text-[var(--app-muted)]">
+              Owner: {selectedBatch.selectedPlayer.displayName} · Status:{" "}
+              {selectedBatch.status}
             </p>
           </div>
-          {selectedProgress ? (
-            <ImportProgressPanel
-              batchId={selectedBatch.id}
-              initialProgress={selectedProgress}
-              initialResolutionJob={selectedResolutionJobSnapshot}
-              pollIntervalMs={importResolutionConfig.pollIntervalMs}
-            />
-          ) : null}
-          <div className="sticky top-2 z-30 rounded-lg border border-[var(--app-border-strong)] bg-[color-mix(in_srgb,var(--app-surface)_94%,transparent)] p-3 shadow-xl shadow-[var(--app-shadow)] backdrop-blur">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="font-semibold">{selectedBatch.filename}</div>
-                <p className="text-sm text-zinc-400">
-                  Destination owner: {selectedBatch.selectedPlayer.displayName}
-                  {defaultDestinationLocation
-                    ? ` • Destination: ${defaultDestinationLocation.name}`
-                    : ""}
-                </p>
-                <p className="text-sm text-zinc-300">
-                  {summary.parsedLines} parsed lines · {summary.totalCards}{" "}
-                  total cards · {summary.resolved} resolved ·{" "}
-                  {summary.needsReview + summary.unresolved + summary.failed}{" "}
-                  need review · {summary.readyToCommit} ready to commit ·{" "}
-                  {summary.committed} already committed
-                </p>
-                {!canCommitSelectedBatch ? (
-                  <p className="text-xs text-amber-300">
-                    {commitBlockedReason}
-                  </p>
-                ) : unresolvedCount > 0 ? (
-                  <p className="text-xs text-amber-300">
-                    {commitBlockedReason}
-                  </p>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap gap-2 text-sm">
-                <form action={startImportResolutionJob}>
-                  <input
-                    type="hidden"
-                    name="batchId"
-                    value={selectedBatch.id}
-                  />
-                  <input
-                    type="hidden"
-                    name="returnStatus"
-                    value={activeReviewFilter}
-                  />
-                  <input type="hidden" name="returnQ" value={reviewSearch} />
-                  <SubmitButton
-                    pendingLabel="Starting resolution…"
-                    disabled={Boolean(
-                      selectedResolutionJob &&
-                      isActiveImportResolutionStatus(
-                        selectedResolutionJob.status,
-                      ),
-                    )}
-                    className={filterButtonClass}
-                  >
-                    {selectedResolutionJob &&
-                    ["FAILED", "STALE"].includes(selectedResolutionJob.status)
-                      ? "Resume Resolution"
-                      : selectedResolutionJob?.status ===
-                          "COMPLETED_WITH_REVIEW"
-                        ? "Resolve Remaining"
-                        : "Resolve Cards"}
-                  </SubmitButton>
-                </form>
-                {selectedResolutionJob &&
-                isActiveImportResolutionStatus(selectedResolutionJob.status) ? (
-                  <form action={cancelResolutionJobAction}>
-                    <input
-                      type="hidden"
-                      name="jobId"
-                      value={selectedResolutionJob.id}
-                    />
-                    <SubmitButton
-                      pendingLabel="Cancellingâ€¦"
-                      className="rounded-md border border-red-700 bg-red-950/30 px-3 py-2 text-sm text-red-100 transition-colors hover:border-red-500 disabled:opacity-50"
-                    >
-                      Cancel Resolution
-                    </SubmitButton>
-                  </form>
-                ) : null}
-                {firstProblemItem ? (
-                  <a
-                    className={filterButtonClass}
-                    href={buildImportReviewUrl(selectedBatch.id, {
-                      status: "unresolved",
-                      q: reviewSearch,
-                      resolveItemId: firstProblemItem.id,
-                    })}
-                  >
-                    Review Unresolved
-                  </a>
-                ) : null}
-                {!["IMPORTED", "UNDONE"].includes(selectedBatch.status) &&
-                !selectedBatch.importType.endsWith(":preview") ? (
-                  <form
-                    action={confirmImport}
-                    className="flex flex-wrap gap-2 items-center"
-                  >
-                    <input
-                      type="hidden"
-                      name="batchId"
-                      value={selectedBatch.id}
-                    />
-                    <input
-                      type="hidden"
-                      name="returnStatus"
-                      value={activeReviewFilter}
-                    />
-                    <input type="hidden" name="returnQ" value={reviewSearch} />
-                    <StorageDestinationFields
-                      locations={importStorageLocations}
-                      defaultLocationId={locationsForSelectedOwner[0]?.id}
-                      incomingQuantity={selectedItems
-                        .filter(isImportItemReadyToCommit)
-                        .reduce(
-                          (sum, item) =>
-                            sum +
-                            Number((item.parsedRowJson as ParsedRow).quantity),
-                          0,
-                        )}
-                    />
-                    <p className="w-full text-xs text-zinc-400">
-                      Capacity preview assumes all ready copies use this
-                      destination. Row-specific locations or sections in the
-                      file take precedence; check those placements in the review
-                      before committing.
-                    </p>
-                    <datalist id="import-location-sections">
-                      {selectedOwnerSectionSuggestions.map((section) => (
-                        <option key={section} value={section} />
-                      ))}
-                    </datalist>
-                    <SubmitButton
-                      pendingLabel="Committing import…"
-                      disabled={!canCommitSelectedBatch}
-                      confirmMessage={
-                        summary.readyToCommit >= 100
-                          ? `Commit ${summary.readyToCommit} ready rows to {selection}?`
-                          : undefined
-                      }
-                      confirmSelectionName="destinationLocationId"
-                      className="rounded-md border border-emerald-700 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-100 transition-colors hover:border-emerald-500 disabled:opacity-50"
-                    >
-                      {unresolvedCount > 0
-                        ? "Commit Ready Cards"
-                        : "Commit Import"}
-                    </SubmitButton>
-                  </form>
-                ) : selectedBatch.status.includes("IMPORTED") ? (
-                  <a
-                    className="rounded-md border border-emerald-700 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-100"
-                    href={inventoryLink}
-                  >
-                    View Inventory
-                  </a>
-                ) : null}
-                <a className={filterButtonClass} href="/imports">
-                  Cancel
+          <p className="text-sm text-[var(--app-muted)]">
+            {summary.parsedLines} rows · {summary.totalCards} physical copies ·
+            Duplicate policy: {duplicateLabel}. Uploaded rows and saved edits
+            remain available in History; leaving does not commit cards. Unsaved
+            destination and row edits are discarded.
+          </p>
+          <div
+            data-import-summary
+            className="sticky top-2 z-20 rounded-lg border border-[var(--app-border-strong)] bg-[var(--app-surface)] p-3 flex flex-wrap items-center justify-between gap-2"
+          >
+            <p className="text-sm">
+              <strong>
+                {summary.readyToCommit} ready rows · {readyCopyCount} copies
+              </strong>
+              <span className="hidden sm:inline">
+                {" "}
+                · {unresolvedCount} need review · {summary.committed} committed
+              </span>
+            </p>
+            <div className="flex gap-2">
+              {!["IMPORTED", "UNDONE"].includes(selectedBatch.status) &&
+              duplicatePolicy !== "preview" ? (
+                <a href="#import-commit" className={filterPrimaryButtonClass}>
+                  Review &amp; commit
                 </a>
-              </div>
+              ) : (
+                <a className={filterButtonClass} href={inventoryLink}>
+                  View Inventory
+                </a>
+              )}
+              <a className={filterButtonClass} href="/imports?view=history">
+                Save for later
+              </a>
             </div>
           </div>
+
+          <details
+            open={Boolean(
+              selectedResolutionJob &&
+              isActiveImportResolutionStatus(selectedResolutionJob.status),
+            )}
+            className="rounded border border-[var(--app-border)] p-3"
+          >
+            <summary className="cursor-pointer">
+              Identification progress and diagnostics
+            </summary>
+            {selectedProgress ? (
+              <ImportProgressPanel
+                batchId={selectedBatch.id}
+                initialProgress={selectedProgress}
+                initialResolutionJob={selectedResolutionJobSnapshot}
+                pollIntervalMs={importResolutionConfig.pollIntervalMs}
+              />
+            ) : null}
+          </details>
           <div className="flex flex-wrap gap-2 text-sm">
             <form action={startImportResolutionJob}>
               <input type="hidden" name="batchId" value={selectedBatch.id} />
@@ -2072,22 +2144,20 @@ export default async function ImportsPage({
                 </SubmitButton>
               </form>
             ) : null}
-            {unresolvedCount > 0 ? (
+            {firstProblemItem ? (
               <a
                 className="border px-3 py-2"
-                href={`/imports?batchId=${selectedBatch.id}&resolveItemId=${
-                  selectedItems.find(
-                    (item) =>
-                      !item.cardPrintingId &&
-                      ["ambiguous", "unmatched", "error"].includes(item.status),
-                  )?.id ?? ""
-                }`}
+                href={buildImportReviewUrl(selectedBatch.id, {
+                  status: activeReviewFilter,
+                  q: reviewSearch,
+                  resolveItemId: firstProblemItem.id,
+                })}
               >
-                Review Unmatched Cards
+                Review unresolved rows
               </a>
             ) : null}
             {isAdmin ? (
-              <details className="border border-zinc-700 rounded px-3 py-2">
+              <details className="border border-[var(--app-border)] rounded px-3 py-2">
                 <summary className="cursor-pointer">Batch maintenance</summary>
                 <div className="mt-3 space-y-3">
                   <form action={deleteImportHistory}>
@@ -2131,7 +2201,7 @@ export default async function ImportsPage({
                           Type DELETE IMPORT
                           <input
                             name="confirmation"
-                            className="ml-2 border p-1 bg-zinc-900"
+                            className="ml-2 border p-1 bg-[var(--app-surface-2)]"
                           />
                         </label>
                         <SubmitButton
@@ -2147,57 +2217,70 @@ export default async function ImportsPage({
               </details>
             ) : null}
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-9 gap-2 text-sm">
-            {[
-              ["Parsed lines", summary.parsedLines, "border-zinc-700"],
-              ["Ready to commit", summary.readyToCommit, "border-emerald-700"],
-              ["Resolved", summary.resolved, "border-emerald-700"],
-              ["Needs review", summary.needsReview, "border-amber-700"],
-              ["Unresolved", summary.unresolved, "border-red-800"],
-              ["Failed", summary.failed, "border-red-900"],
-              ["Skipped", summary.skipped, "border-zinc-600"],
-              ["Committed", summary.committed, "border-emerald-800"],
-              ["Warnings", summary.warnings, "border-yellow-700"],
-            ].map(([label, value, border]) => (
-              <div
-                key={String(label)}
-                className={`rounded border ${border} bg-zinc-950 p-2`}
-              >
-                <div className="text-zinc-400">{label}</div>
-                <div className="text-2xl font-bold">{value}</div>
-              </div>
-            ))}
-          </div>
-          <div className="h-3 overflow-hidden rounded bg-zinc-900 flex">
-            {summary.parsedLines
-              ? [
-                  ["bg-emerald-600", summary.resolved],
-                  ["bg-amber-600", summary.needsReview],
-                  ["bg-red-700", summary.unresolved + summary.failed],
-                  ["bg-zinc-600", summary.skipped],
-                  ["bg-emerald-800", summary.committed],
-                ].map(([cls, count], index) => (
-                  <div
-                    key={index}
-                    className={String(cls)}
-                    style={{
-                      width: `${(Number(count) / summary.parsedLines) * 100}%`,
-                    }}
-                  />
-                ))
-              : null}
-          </div>
-          <div className="rounded border border-zinc-800 bg-zinc-950 p-3 space-y-3">
+          <details className="rounded border border-[var(--app-border)] p-3">
+            <summary className="cursor-pointer">
+              All row counts and warnings
+            </summary>
+            <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-9 gap-2 text-sm">
+              {[
+                [
+                  "Parsed lines",
+                  summary.parsedLines,
+                  "border-[var(--app-border)]",
+                ],
+                [
+                  "Ready to commit",
+                  summary.readyToCommit,
+                  "border-emerald-700",
+                ],
+                ["Resolved", summary.resolved, "border-emerald-700"],
+                ["Needs review", summary.needsReview, "border-amber-700"],
+                ["Unresolved", summary.unresolved, "border-red-800"],
+                ["Failed", summary.failed, "border-red-900"],
+                ["Skipped", summary.skipped, "border-zinc-600"],
+                ["Committed", summary.committed, "border-emerald-800"],
+                ["Warnings", summary.warnings, "border-yellow-700"],
+              ].map(([label, value, border]) => (
+                <div
+                  key={String(label)}
+                  className={`rounded border ${border} bg-[var(--app-surface)] p-2`}
+                >
+                  <div className="text-[var(--app-muted)]">{label}</div>
+                  <div className="text-2xl font-bold">{value}</div>
+                </div>
+              ))}
+            </div>
+            <div className="h-3 overflow-hidden rounded bg-[var(--app-surface-2)] flex">
+              {summary.parsedLines
+                ? [
+                    ["bg-emerald-600", summary.resolved],
+                    ["bg-amber-600", summary.needsReview],
+                    ["bg-red-700", summary.unresolved + summary.failed],
+                    ["bg-zinc-600", summary.skipped],
+                    ["bg-emerald-800", summary.committed],
+                  ].map(([cls, count], index) => (
+                    <div
+                      key={index}
+                      className={String(cls)}
+                      style={{
+                        width: `${(Number(count) / summary.parsedLines) * 100}%`,
+                      }}
+                    />
+                  ))
+                : null}
+            </div>
+          </details>
+          <div className="rounded border border-[var(--app-border)] bg-[var(--app-surface)] p-3 space-y-3">
             <form method="get" className="flex flex-wrap gap-2 items-end">
               <input type="hidden" name="batchId" value={selectedBatch.id} />
               <input type="hidden" name="status" value={activeReviewFilter} />
-              <label className="flex-1 min-w-64 text-sm">
+              <label className="flex-1 min-w-0 basis-64 text-sm">
                 Search import rows
                 <input
                   name="q"
                   defaultValue={reviewSearch}
                   placeholder="Card, raw row, set, collector #, error, location…"
-                  className="mt-1 w-full border p-2 bg-zinc-900"
+                  className="mt-1 w-full border p-2 bg-[var(--app-surface-2)]"
                 />
               </label>
               <button className="border px-3 py-2">Search</button>
@@ -2225,7 +2308,7 @@ export default async function ImportsPage({
                     className={`rounded border px-3 py-2 ${
                       active
                         ? "border-sky-500 bg-sky-950 text-sky-100"
-                        : "border-zinc-700 text-zinc-200"
+                        : "border-[var(--app-border)] text-[var(--app-text)]"
                     }`}
                     href={buildImportReviewUrl(selectedBatch.id, {
                       status: filter.key,
@@ -2246,7 +2329,7 @@ export default async function ImportsPage({
                 Needs review / unresolved only
               </a>
             </div>
-            <p className="text-sm text-zinc-400">
+            <p className="text-sm text-[var(--app-muted)]">
               Showing {filteredItems.length} of {selectedItems.length} parsed
               rows.
             </p>
@@ -2254,7 +2337,7 @@ export default async function ImportsPage({
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-zinc-800">
+                <tr className="border-b border-[var(--app-border)]">
                   <th>Row</th>
                   <th>Qty</th>
                   <th>Imported Name</th>
@@ -2285,7 +2368,8 @@ export default async function ImportsPage({
                   return (
                     <tr
                       key={item.id}
-                      className="border-b border-zinc-900 align-top"
+                      id={`import-row-${item.id}`}
+                      className="border-b border-[var(--app-border)] align-top"
                     >
                       <td>{item.rowNumber}</td>
                       <td>{parsed.quantity}</td>
@@ -2294,7 +2378,7 @@ export default async function ImportsPage({
                         {img ? (
                           <img src={img} alt="" className="h-16 rounded" />
                         ) : (
-                          <div className="h-16 w-12 rounded border border-zinc-700 text-[10px] flex items-center justify-center text-zinc-500">
+                          <div className="h-16 w-12 rounded border border-[var(--app-border)] text-[10px] flex items-center justify-center text-zinc-500">
                             No image
                           </div>
                         )}
@@ -2436,7 +2520,22 @@ export default async function ImportsPage({
           ) : null}
           {!["IMPORTED", "UNDONE"].includes(selectedBatch.status) &&
           !selectedBatch.importType.endsWith(":preview") ? (
-            <form action={confirmImport} className="hidden" aria-hidden="true">
+            <form
+              action={confirmImport}
+              id="import-commit"
+              aria-label="Commit reviewed import"
+              className={cn(filterPanelClass, "scroll-mt-32 space-y-3")}
+            >
+              <h3 className="text-lg font-semibold">
+                Review destination and commit
+              </h3>
+              <p>
+                {readyCopyCount} physical copies from {summary.readyToCommit}{" "}
+                ready rows for {selectedBatch.selectedPlayer.displayName}.
+              </p>
+              <p className="text-sm text-[var(--app-muted)]">
+                Duplicate policy: {duplicateLabel}. {commitBlockedReason}
+              </p>
               <input type="hidden" name="batchId" value={selectedBatch.id} />
               <input
                 type="hidden"
@@ -2444,36 +2543,26 @@ export default async function ImportsPage({
                 value={activeReviewFilter}
               />
               <input type="hidden" name="returnQ" value={reviewSearch} />
-              <label className="text-sm">
-                Destination location
-                <select
-                  name="destinationLocationId"
-                  className="block border p-2 bg-zinc-900"
-                >
-                  {locationsForSelectedOwner.map((location) => (
-                    <option key={location.id} value={location.id}>
-                      {location.path}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  name="destinationLocationSection"
-                  list="import-location-sections"
-                  maxLength={100}
-                  className="block border p-2 bg-zinc-900"
-                  aria-label="Section within location"
-                  placeholder="Section (optional)"
-                />
-              </label>
+              <StorageDestinationFields
+                locations={importStorageLocations}
+                defaultLocationId={locationsForSelectedOwner[0]?.id}
+                incomingQuantity={readyCopyCount}
+              />
+              <p className="w-full text-xs text-[var(--app-muted)]">
+                Capacity preview assumes all ready copies use this destination.
+                Row-specific locations or sections in the file take precedence;
+                check those placements in the review before committing.
+              </p>
+              <datalist id="import-location-sections">
+                {selectedOwnerSectionSuggestions.map((section) => (
+                  <option key={section} value={section} />
+                ))}
+              </datalist>
               <SubmitButton
                 pendingLabel="Committing import…"
                 disabled={!canCommitSelectedBatch}
-                confirmMessage={
-                  summary.readyToCommit >= 100
-                    ? `Commit ${summary.readyToCommit} ready rows to inventory?`
-                    : undefined
-                }
-                className="border border-emerald-700 px-3 py-2 disabled:opacity-50"
+                confirmMessage={`Commit ${readyCopyCount} physical copies from ${summary.readyToCommit} ready rows to inventory? Row-specific locations and sections take precedence over the fallback destination.`}
+                className="rounded-md border border-emerald-700 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-100 transition-colors hover:border-emerald-500 disabled:opacity-50"
               >
                 {unresolvedCount > 0 ? "Commit Ready Cards" : "Commit Import"}
               </SubmitButton>
@@ -2489,363 +2578,258 @@ export default async function ImportsPage({
       ) : null}
 
       {resolverItem && resolverParsed && selectedBatch ? (
-        <section className="fixed inset-0 z-50 bg-black/60">
-          <div className="absolute right-0 top-0 h-full w-full max-w-3xl overflow-y-auto bg-zinc-950 border-l border-zinc-800 p-4 space-y-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <h2 className="text-xl font-bold">
-                  Resolve Row {resolverItem.rowNumber}
-                </h2>
-                <p className="text-sm text-zinc-400">
-                  {resolverParsed.name} •{" "}
-                  {resolverParsed.setCode?.toUpperCase() || "no set"} #
-                  {resolverParsed.collectorNumber || "—"}
-                </p>
-              </div>
-              <a
-                className="border px-2"
-                href={buildImportReviewUrl(selectedBatch.id, {
-                  status: activeReviewFilter,
-                  q: reviewSearch,
-                })}
-              >
-                Close
-              </a>
+        <ImportResolverDialog
+          closeHref={`${buildImportReviewUrl(selectedBatch.id, { status: activeReviewFilter, q: reviewSearch })}#import-row-${resolverItem.id}`}
+        >
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 id="import-resolver-title" className="text-xl font-bold">
+                Resolve Row {resolverItem.rowNumber}
+              </h2>
+              <p className="text-sm text-[var(--app-muted)]">
+                {resolverParsed.name} •{" "}
+                {resolverParsed.setCode?.toUpperCase() || "no set"} #
+                {resolverParsed.collectorNumber || "—"}
+              </p>
             </div>
-            <div className="grid md:grid-cols-2 gap-3 text-sm">
-              <div className="border border-zinc-800 rounded p-3 space-y-1">
-                <h3 className="font-semibold">Imported Row</h3>
-                <p>Quantity: {resolverParsed.quantity}</p>
-                <p>Foil: {resolverParsed.foilStatus}</p>
-                <p>Condition: {resolverItem.parsedCondition}</p>
-                <p>Language: {resolverParsed.language}</p>
-                <p>
-                  Imported location: {resolverParsed.locationName || "—"}
-                  {resolverParsed.locationSection
-                    ? ` / ${resolverParsed.locationSection}`
-                    : ""}
-                </p>
-                <p>Notes: {resolverParsed.notes || "—"}</p>
-              </div>
-              <div className="border border-zinc-800 rounded p-3 space-y-1">
-                <h3 className="font-semibold">Current Match</h3>
-                {resolverItem.cardPrinting ? (
-                  <>
-                    <p>{resolverItem.cardPrinting.name}</p>
-                    <p>
-                      {resolverItem.cardPrinting.setName} (
-                      {resolverItem.cardPrinting.setCode.toUpperCase()}) #
-                      {resolverItem.cardPrinting.collectorNumber}
-                    </p>
-                    {cardImage(resolverItem.cardPrinting) ? (
-                      <img
-                        src={cardImage(resolverItem.cardPrinting)}
-                        alt=""
-                        className="h-28 rounded"
-                      />
-                    ) : null}
-                  </>
-                ) : (
-                  <p className="text-zinc-400">No card selected yet.</p>
-                )}
-              </div>
+            <a
+              className="border px-2"
+              href={`${buildImportReviewUrl(selectedBatch.id, {
+                status: activeReviewFilter,
+                q: reviewSearch,
+              })}#import-row-${resolverItem.id}`}
+            >
+              Close
+            </a>
+          </div>
+          <div className="grid md:grid-cols-2 gap-3 text-sm">
+            <div className="border border-[var(--app-border)] rounded p-3 space-y-1">
+              <h3 className="font-semibold">Imported Row</h3>
+              <p>Quantity: {resolverParsed.quantity}</p>
+              <p>Foil: {resolverParsed.foilStatus}</p>
+              <p>Condition: {resolverItem.parsedCondition}</p>
+              <p>Language: {resolverParsed.language}</p>
+              <p>
+                Imported location: {resolverParsed.locationName || "—"}
+                {resolverParsed.locationSection
+                  ? ` / ${resolverParsed.locationSection}`
+                  : ""}
+              </p>
+              <p>Notes: {resolverParsed.notes || "—"}</p>
             </div>
-            <details className="border border-zinc-800 rounded p-3">
-              <summary className="cursor-pointer font-semibold">
-                View Attempts
-              </summary>
-              <div className="mt-2 space-y-2 text-sm">
-                {resolverItem.resolutionAttempts.length ? (
-                  resolverItem.resolutionAttempts.map((attempt) => (
-                    <div
-                      key={attempt.id}
-                      className="border border-zinc-800 rounded p-2"
-                    >
-                      <div>
-                        {attempt.mode} • {attempt.resolutionMethod} •{" "}
-                        {attempt.confidence}
-                      </div>
-                      <div className="text-zinc-400">
-                        {attempt.previousStatus} → {attempt.newStatus} • Query:{" "}
-                        {attempt.queryUsed || "—"}
-                      </div>
-                      <div>{attempt.message || "—"}</div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-zinc-400">
-                    No retry attempts have been recorded for this row yet.
+            <div className="border border-[var(--app-border)] rounded p-3 space-y-1">
+              <h3 className="font-semibold">Current Match</h3>
+              {resolverItem.cardPrinting ? (
+                <>
+                  <p>{resolverItem.cardPrinting.name}</p>
+                  <p>
+                    {resolverItem.cardPrinting.setName} (
+                    {resolverItem.cardPrinting.setCode.toUpperCase()}) #
+                    {resolverItem.cardPrinting.collectorNumber}
                   </p>
-                )}
-              </div>
-            </details>
-            <form
-              action={updateImportRow}
-              className="border border-zinc-800 rounded p-3 grid md:grid-cols-5 gap-2"
-            >
-              <input type="hidden" name="itemId" value={resolverItem.id} />
-              <input
-                type="hidden"
-                name="returnStatus"
-                value={activeReviewFilter}
-              />
-              <input type="hidden" name="returnQ" value={reviewSearch} />
-              <label className="text-sm">
-                Quantity
-                <input
-                  name="quantity"
-                  type="number"
-                  min={1}
-                  defaultValue={resolverParsed.quantity}
-                  className="w-full border p-2 bg-zinc-900"
-                />
-              </label>
-              <label className="text-sm">
-                Foil
-                <select
-                  name="foilStatus"
-                  defaultValue={resolverParsed.foilStatus}
-                  className="w-full border p-2 bg-zinc-900"
-                >
-                  <option value="NONFOIL">nonfoil</option>
-                  <option value="FOIL">foil</option>
-                  <option value="ETCHED">etched</option>
-                </select>
-              </label>
-              <label className="text-sm">
-                Condition
-                <input
-                  name="condition"
-                  defaultValue={
-                    resolverItem.parsedCondition || resolverParsed.condition
-                  }
-                  className="w-full border p-2 bg-zinc-900"
-                />
-              </label>
-              <label className="text-sm">
-                Language
-                <input
-                  name="language"
-                  defaultValue={resolverParsed.language}
-                  className="w-full border p-2 bg-zinc-900"
-                />
-              </label>
-              <label className="text-sm md:col-span-5">
-                Notes / row warning
-                <input
-                  name="rowNote"
-                  defaultValue={resolverParsed.warning || ""}
-                  className="w-full border p-2 bg-zinc-900"
-                />
-              </label>
-              <label className="text-sm md:col-span-5">
-                Card notes
-                <input
-                  name="notes"
-                  defaultValue={resolverParsed.notes || ""}
-                  className="w-full border p-2 bg-zinc-900"
-                />
-              </label>
-              <SubmitButton
-                pendingLabel="Saving row…"
-                className="border px-3 py-2 md:col-span-5"
-              >
-                Save Row Edits
-              </SubmitButton>
-            </form>
-            <form
-              method="get"
-              className="border border-zinc-800 rounded p-3 flex gap-2"
-            >
-              <input type="hidden" name="batchId" value={selectedBatch.id} />
-              <input
-                type="hidden"
-                name="resolveItemId"
-                value={resolverItem.id}
-              />
-              <input
-                name="resolverQ"
-                defaultValue={resolverQuery}
-                className="flex-1 border p-2 bg-zinc-900"
-                placeholder="Card name or Scryfall query, e.g. command tower set:c20"
-              />
-              <button className="border px-3">Search</button>
-            </form>
-            <div className="space-y-2">
-              <h3 className="font-semibold">Card Printing Results</h3>
-              {resolverSearch.message ? (
-                <p className="text-sm text-zinc-400" role="status">
-                  {resolverSearch.message}
-                </p>
-              ) : null}
-              {resolverResults.slice(0, 20).map((card) => (
-                <form
-                  key={card.id}
-                  action={resolveImportRow}
-                  className="border border-zinc-800 rounded p-2 flex gap-3 items-center"
-                >
-                  <input type="hidden" name="itemId" value={resolverItem.id} />
-                  <input
-                    type="hidden"
-                    name="returnStatus"
-                    value={activeReviewFilter}
-                  />
-                  <input type="hidden" name="returnQ" value={reviewSearch} />
-                  <input type="hidden" name="scryfallId" value={card.id} />
-                  {cardImage({
-                    imageUris:
-                      card.image_uris ?? card.card_faces?.[0]?.image_uris ?? {},
-                    imageUri:
-                      card.image_uris?.normal ??
-                      card.card_faces?.[0]?.image_uris?.normal,
-                  }) ? (
+                  {cardImage(resolverItem.cardPrinting) ? (
                     <img
-                      src={cardImage({
-                        imageUris:
-                          card.image_uris ??
-                          card.card_faces?.[0]?.image_uris ??
-                          {},
-                        imageUri:
-                          card.image_uris?.normal ??
-                          card.card_faces?.[0]?.image_uris?.normal,
-                      })}
+                      src={cardImage(resolverItem.cardPrinting)}
                       alt=""
-                      className="h-20 rounded"
+                      className="h-28 rounded"
                     />
-                  ) : (
-                    <div className="h-20 w-14 border border-zinc-700 rounded" />
-                  )}
-                  <div className="flex-1 text-sm">
-                    <div className="font-semibold">{card.name}</div>
-                    <div>
-                      {card.set_name} ({card.set.toUpperCase()}) #
-                      {card.collector_number} • {card.rarity}
-                    </div>
-                    <div className="text-zinc-400">{card.type_line}</div>
-                  </div>
-                  <SubmitButton
-                    pendingLabel="Resolving…"
-                    className="border px-3 py-2"
-                  >
-                    Select
-                  </SubmitButton>
-                </form>
-              ))}
-              {resolverResults.length === 0 ? (
-                <p className="text-sm text-zinc-400">
-                  No results yet. Try card name, <code>set:cmr cn:57</code>, or
-                  exact name plus set.
-                </p>
-              ) : null}
+                  ) : null}
+                </>
+              ) : (
+                <p className="text-[var(--app-muted)]">No card selected yet.</p>
+              )}
             </div>
           </div>
-        </section>
+          <details className="border border-[var(--app-border)] rounded p-3">
+            <summary className="cursor-pointer font-semibold">
+              View Attempts
+            </summary>
+            <div className="mt-2 space-y-2 text-sm">
+              {resolverItem.resolutionAttempts.length ? (
+                resolverItem.resolutionAttempts.map((attempt) => (
+                  <div
+                    key={attempt.id}
+                    className="border border-[var(--app-border)] rounded p-2"
+                  >
+                    <div>
+                      {attempt.mode} • {attempt.resolutionMethod} •{" "}
+                      {attempt.confidence}
+                    </div>
+                    <div className="text-[var(--app-muted)]">
+                      {attempt.previousStatus} → {attempt.newStatus} • Query:{" "}
+                      {attempt.queryUsed || "—"}
+                    </div>
+                    <div>{attempt.message || "—"}</div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-[var(--app-muted)]">
+                  No retry attempts have been recorded for this row yet.
+                </p>
+              )}
+            </div>
+          </details>
+          <form
+            action={updateImportRow}
+            className="border border-[var(--app-border)] rounded p-3 grid md:grid-cols-5 gap-2"
+          >
+            <input type="hidden" name="itemId" value={resolverItem.id} />
+            <input
+              type="hidden"
+              name="returnStatus"
+              value={activeReviewFilter}
+            />
+            <input type="hidden" name="returnQ" value={reviewSearch} />
+            <label className="text-sm">
+              Quantity
+              <input
+                name="quantity"
+                type="number"
+                min={1}
+                defaultValue={resolverParsed.quantity}
+                className="w-full border p-2 bg-[var(--app-surface-2)]"
+              />
+            </label>
+            <label className="text-sm">
+              Foil
+              <select
+                name="foilStatus"
+                defaultValue={resolverParsed.foilStatus}
+                className="w-full border p-2 bg-[var(--app-surface-2)]"
+              >
+                <option value="NONFOIL">nonfoil</option>
+                <option value="FOIL">foil</option>
+                <option value="ETCHED">etched</option>
+              </select>
+            </label>
+            <label className="text-sm">
+              Condition
+              <input
+                name="condition"
+                defaultValue={
+                  resolverItem.parsedCondition || resolverParsed.condition
+                }
+                className="w-full border p-2 bg-[var(--app-surface-2)]"
+              />
+            </label>
+            <label className="text-sm">
+              Language
+              <input
+                name="language"
+                defaultValue={resolverParsed.language}
+                className="w-full border p-2 bg-[var(--app-surface-2)]"
+              />
+            </label>
+            <label className="text-sm md:col-span-5">
+              Notes / row warning
+              <input
+                name="rowNote"
+                defaultValue={resolverParsed.warning || ""}
+                className="w-full border p-2 bg-[var(--app-surface-2)]"
+              />
+            </label>
+            <label className="text-sm md:col-span-5">
+              Card notes
+              <input
+                name="notes"
+                defaultValue={resolverParsed.notes || ""}
+                className="w-full border p-2 bg-[var(--app-surface-2)]"
+              />
+            </label>
+            <SubmitButton
+              pendingLabel="Saving row…"
+              className="border px-3 py-2 md:col-span-5"
+            >
+              Save Row Edits
+            </SubmitButton>
+          </form>
+          <form
+            method="get"
+            className="border border-[var(--app-border)] rounded p-3 flex gap-2"
+          >
+            <input type="hidden" name="batchId" value={selectedBatch.id} />
+            <input type="hidden" name="resolveItemId" value={resolverItem.id} />
+            <input type="hidden" name="status" value={activeReviewFilter} />
+            <input type="hidden" name="q" value={reviewSearch} />
+            <input
+              name="resolverQ"
+              defaultValue={resolverQuery}
+              className="min-w-0 flex-1 border p-2 bg-[var(--app-surface-2)]"
+              placeholder="Card name or Scryfall query, e.g. command tower set:c20"
+            />
+            <button className="border px-3">Search</button>
+          </form>
+          <div className="space-y-2">
+            <h3 className="font-semibold">Card Printing Results</h3>
+            {resolverSearch.message ? (
+              <p className="text-sm text-[var(--app-muted)]" role="status">
+                {resolverSearch.message}
+              </p>
+            ) : null}
+            {resolverResults.slice(0, 20).map((card) => (
+              <form
+                key={card.id}
+                action={resolveImportRow}
+                className="border border-[var(--app-border)] rounded p-2 flex gap-3 items-center"
+              >
+                <input type="hidden" name="itemId" value={resolverItem.id} />
+                <input
+                  type="hidden"
+                  name="returnStatus"
+                  value={activeReviewFilter}
+                />
+                <input type="hidden" name="returnQ" value={reviewSearch} />
+                <input type="hidden" name="scryfallId" value={card.id} />
+                {cardImage({
+                  imageUris:
+                    card.image_uris ?? card.card_faces?.[0]?.image_uris ?? {},
+                  imageUri:
+                    card.image_uris?.normal ??
+                    card.card_faces?.[0]?.image_uris?.normal,
+                }) ? (
+                  <img
+                    src={cardImage({
+                      imageUris:
+                        card.image_uris ??
+                        card.card_faces?.[0]?.image_uris ??
+                        {},
+                      imageUri:
+                        card.image_uris?.normal ??
+                        card.card_faces?.[0]?.image_uris?.normal,
+                    })}
+                    alt=""
+                    className="h-20 rounded"
+                  />
+                ) : (
+                  <div className="h-20 w-14 border border-[var(--app-border)] rounded" />
+                )}
+                <div className="flex-1 text-sm">
+                  <div className="font-semibold">{card.name}</div>
+                  <div>
+                    {card.set_name} ({card.set.toUpperCase()}) #
+                    {card.collector_number} • {card.rarity}
+                  </div>
+                  <div className="text-[var(--app-muted)]">
+                    {card.type_line}
+                  </div>
+                </div>
+                <SubmitButton
+                  pendingLabel="Resolving…"
+                  className="border px-3 py-2"
+                >
+                  Select
+                </SubmitButton>
+              </form>
+            ))}
+            {resolverResults.length === 0 ? (
+              <p className="text-sm text-[var(--app-muted)]">
+                No results yet. Try card name, <code>set:cmr cn:57</code>, or
+                exact name plus set.
+              </p>
+            ) : null}
+          </div>
+        </ImportResolverDialog>
       ) : null}
-
-      <section id="import-history" className="space-y-2 scroll-mt-4">
-        <h2 className="text-xl font-semibold">Import History</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-zinc-800">
-                <th>Filename</th>
-                <th>Date</th>
-                <th>Owner</th>
-                <th>Total</th>
-                <th>Imported</th>
-                <th>Skipped</th>
-                <th>Manual</th>
-                <th>Warnings</th>
-                <th>Unmatched</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.map((batch) => {
-                const manual = batch.items.filter((i) =>
-                  ["resolved", "manually_resolved", "changed"].includes(
-                    i.status,
-                  ),
-                ).length;
-                return (
-                  <tr key={batch.id} className="border-b border-zinc-900">
-                    <td>
-                      <a
-                        className="underline"
-                        href={`/imports?batchId=${batch.id}`}
-                      >
-                        {batch.filename}
-                      </a>
-                    </td>
-                    <td>{batch.createdAt.toLocaleString()}</td>
-                    <td>{batch.selectedPlayer.displayName}</td>
-                    <td>{batch.totalRows}</td>
-                    <td>{batch.matchedRows}</td>
-                    <td>{batch.skippedRows}</td>
-                    <td>{manual}</td>
-                    <td>{batch.warningRows}</td>
-                    <td>{batch.errorRows}</td>
-                    <td>{batch.status}</td>
-                    <td>
-                      <details className="min-w-48 rounded border border-zinc-800 px-2 py-1">
-                        <summary className="cursor-pointer">Actions</summary>
-                        <div className="mt-2 space-y-2">
-                          <a
-                            className="block underline"
-                            href={`${buildImportReviewUrl(batch.id)}#import-review`}
-                          >
-                            Open review
-                          </a>
-                          <form action={deleteImportHistory}>
-                            <input
-                              type="hidden"
-                              name="batchId"
-                              value={batch.id}
-                            />
-                            <SubmitButton
-                              pendingLabel="Clearingâ€¦"
-                              className="underline"
-                              minWidthClassName="min-w-24"
-                            >
-                              Clear this history
-                            </SubmitButton>
-                          </form>
-                          {isAdmin &&
-                          ["IMPORTED", "imported"].includes(batch.status) ? (
-                            <form
-                              action={undoImportBatch}
-                              className="space-y-1"
-                            >
-                              <input
-                                type="hidden"
-                                name="batchId"
-                                value={batch.id}
-                              />
-                              <input
-                                name="confirmation"
-                                placeholder="DELETE IMPORT"
-                                className="w-full border p-1 bg-zinc-900"
-                              />
-                              <SubmitButton
-                                pendingLabel="Undoingâ€¦"
-                                className="underline text-red-200"
-                                minWidthClassName="min-w-20"
-                              >
-                                Undo import
-                              </SubmitButton>
-                            </form>
-                          ) : null}
-                        </div>
-                      </details>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
     </main>
   );
 }
