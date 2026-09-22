@@ -152,6 +152,93 @@ test("location updates reject hierarchy cycles", async () => {
   );
 });
 
+test("inactive location metadata retains its saved parent without permitting new inactive placements", async () => {
+  const existing = {
+    id: "child",
+    ownerPlayerId: "owner",
+    normalizedName: "child",
+    parentLocationId: "parent",
+    active: false,
+    kind: "NORMAL",
+    systemManaged: false,
+  };
+  const parent = {
+    id: "parent",
+    normalizedName: "parent",
+    parentLocationId: null,
+    active: false,
+    kind: "NORMAL",
+    systemManaged: false,
+  };
+  const locations = [
+    existing,
+    parent,
+    { ...parent, id: "other" },
+    { ...parent, id: "active", active: true },
+  ];
+  const prisma = {
+    inventoryLocation: {
+      findFirst: async ({ where }: any) =>
+        typeof where.id === "string" ? existing : null,
+      findMany: async () => locations,
+      count: async () => 0,
+      update: async ({ data }: any) => data,
+      create: async () => {
+        throw new Error("must not create");
+      },
+    },
+  };
+  const input = {
+    id: "child",
+    ownerPlayerId: "owner",
+    name: "Child",
+    description: "Updated",
+  };
+  for (const patch of [{}, { parentLocationId: "parent", active: false }]) {
+    const result = await updateLocation(prisma as any, { ...input, ...patch });
+    assert.equal(result.parentLocationId, "parent");
+    assert.equal(result.active, false);
+    assert.equal(result.description, "Updated");
+  }
+  for (const patch of [
+    { parentLocationId: "other", active: false },
+    { parentLocationId: "parent", active: true },
+  ]) {
+    await assert.rejects(
+      updateLocation(prisma as any, { ...input, ...patch }),
+      /inactive location/,
+    );
+  }
+  await assert.rejects(
+    createLocation(prisma as any, {
+      ownerPlayerId: "owner",
+      name: "New child",
+      parentLocationId: "parent",
+    }),
+    /inactive location/,
+  );
+  for (const parentLocationId of [null, "active"]) {
+    const result = await updateLocation(prisma as any, {
+      ...input,
+      parentLocationId,
+    });
+    assert.equal(result.parentLocationId, parentLocationId);
+  }
+  // Even an unchanged inactive parent must still satisfy owner/system/cycle guards.
+  await assert.rejects(
+    updateLocation(prisma as any, { ...input, parentLocationId: "foreign" }),
+    /not found for this owner/,
+  );
+  parent.systemManaged = true;
+  await assert.rejects(
+    updateLocation(prisma as any, input),
+    /ordinary inventory location/,
+  );
+  parent.systemManaged = false;
+  parent.parentLocationId = "child" as any;
+  await assert.rejects(updateLocation(prisma as any, input), /descendants/);
+});
+
 test("location deletion is blocked while sub-locations exist", async () => {
   const prisma = {
     inventoryLocation: {

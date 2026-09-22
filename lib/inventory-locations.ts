@@ -137,6 +137,7 @@ async function assertValidLocationParent(
     ownerPlayerId: string;
     parentLocationId?: string | null;
     locationId?: string;
+    preservedInactiveParentId?: string | null;
   },
 ) {
   const parentLocationId = input.parentLocationId || null;
@@ -167,7 +168,7 @@ async function assertValidLocationParent(
   ) {
     throw new Error("Choose an ordinary inventory location as the parent.");
   }
-  if (!parent.active)
+  if (!parent.active && parent.id !== input.preservedInactiveParentId)
     throw new Error("An inactive location cannot be a parent.");
 
   const visited = new Set<string>();
@@ -272,6 +273,16 @@ export async function updateLocation(
       ? null
       : await assertValidLocationParent(prisma, {
           ...input,
+          parentLocationId:
+            input.parentLocationId === undefined
+              ? existing.parentLocationId
+              : input.parentLocationId,
+          // Only an already-inactive child may retain its saved inactive parent.
+          // New placements and reactivation still require an active parent.
+          preservedInactiveParentId:
+            !existing.active && !(input.active ?? existing.active)
+              ? existing.parentLocationId
+              : null,
           locationId: input.id,
         });
   const duplicate = await prisma.inventoryLocation.findFirst({
@@ -295,7 +306,7 @@ export async function updateLocation(
       storageLayout: input.storageLayout
         ? validateStorageLayout(input.storageLayout)
         : undefined,
-      active: input.active ?? true,
+      active: input.active ?? existing.active,
       visibility: input.visibility ?? Visibility.INHERIT,
     },
   });
