@@ -1005,6 +1005,17 @@ a:hover {
 .deck-task-dialog [class*="border-zinc-"] {
   border-color: var(--app-border);
 }
+.deck-builder-page #deck-workspace > .app-panel label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  max-width: 100%;
+}
+.deck-builder-page #deck-workspace > .app-panel label select {
+  margin-left: 0;
+}
 .locations-page [class*="text-[var(--app-accent-contrast)]"],
 .locations-page
   :is(

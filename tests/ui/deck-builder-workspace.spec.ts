@@ -29,6 +29,7 @@ test("builder keeps cards visible, tasks keyboard accessible and views permissio
   baseURL,
 }) => {
   test.setTimeout(180_000);
+  page.setDefaultTimeout(15_000);
   expect(baseURL).toBe("http://127.0.0.1:13001");
   const tag = `ui-deck-workspace-${randomUUID()}`;
   const password = randomUUID();
@@ -86,8 +87,20 @@ test("builder keeps cards visible, tasks keyboard accessible and views permissio
         await dialog.evaluate((node) => node.contains(document.activeElement)),
       ).toBe(true);
     }
-    await dialog.getByLabel("Search for a card or printing").fill("Forest");
-    await dialog.locator(".max-h-80 button").first().click();
+    for (let index = 0; index < 18; index++) {
+      await page.keyboard.press("Shift+Tab");
+      expect(
+        await dialog.evaluate((node) => node.contains(document.activeElement)),
+      ).toBe(true);
+    }
+    await dialog
+      .getByLabel("Search for a card or printing")
+      .fill("Llanowar Elves");
+    await dialog
+      .locator(".max-h-80 button")
+      .filter({ has: page.getByText("Llanowar Elves", { exact: true }) })
+      .first()
+      .click();
     await dialog.getByLabel("Quantity", { exact: true }).fill("2");
     await dialog.getByRole("button", { name: "Add selected printing" }).click();
     await expect
@@ -173,9 +186,13 @@ test("builder keeps cards visible, tasks keyboard accessible and views permissio
       await expect(add).toBeVisible();
     }
     for (const value of ["text", "grid", "spoiler", "compact"]) {
-      await page.getByLabel("View", { exact: true }).selectOption(value);
+      await page
+        .getByRole("combobox", { name: "View", exact: true })
+        .selectOption(value);
       await expect(
-        workspace.getByText("Forest", { exact: true }).first(),
+        workspace
+          .getByRole("checkbox", { name: "Select Forest", exact: true })
+          .first(),
       ).toBeVisible();
     }
     for (const width of [1440, 390, 320]) {
@@ -209,7 +226,11 @@ test("builder keeps cards visible, tasks keyboard accessible and views permissio
       await expect(add).toHaveCSS("color", color);
       await add.click();
       await expect(page.getByRole("dialog")).toHaveCSS("color", color);
-      await expect(page.getByRole("dialog").getByText("No printing selected", { exact: true })).toHaveCSS("color", color);
+      await expect(
+        page
+          .getByRole("dialog")
+          .getByText("No printing selected", { exact: true }),
+      ).toHaveCSS("color", color);
       await noOverflow(page);
       if (theme === "azorius")
         await page.screenshot({
@@ -226,6 +247,9 @@ test("builder keeps cards visible, tasks keyboard accessible and views permissio
     await noOverflow(page);
     await page.screenshot({ path: "test-results/deck-workspace-enlarged.png" });
     await page.keyboard.press("Escape");
+    await details.click();
+    await noOverflow(page);
+    await details.click();
     await page.evaluate(() => (document.documentElement.style.fontSize = ""));
     await page.goto(`/decks/${fixture.empty}`);
     await expect(
@@ -256,5 +280,107 @@ test("builder keeps cards visible, tasks keyboard accessible and views permissio
     database(
       `const owner=await p.player.findFirst({where:{name:${quote(tag)}}});if(owner){await p.inventoryLocation.deleteMany({where:{ownerPlayerId:owner.id}});await p.user.deleteMany({where:{playerId:owner.id}});await p.player.delete({where:{id:owner.id}});}return true;`,
     );
+  }
+});
+
+test("builder options and selected returns conserve committed physical copies", async ({
+  page,
+  baseURL,
+}) => {
+  test.setTimeout(90_000);
+  expect(baseURL).toBe("http://127.0.0.1:13001");
+  const tag = `ui-deck-return-${randomUUID()}`;
+  const password = randomUUID();
+  try {
+    const fixture = database<{
+      deck: string;
+      owner: string;
+      destination: string;
+    }>(`
+      const owner=await p.player.create({data:{name:${quote(tag)},displayName:${quote(tag)}}});
+      const user=await p.user.create({data:{username:${quote(tag)},displayName:${quote(tag)},playerId:owner.id,passwordHash:await require('bcryptjs').hash(${quote(password)},10)}});
+      const card=await p.card.findFirstOrThrow({where:{name:'Llanowar Elves'},orderBy:{id:'asc'}});
+      const deck=await p.deck.create({data:{ownerUserId:user.id,name:'Committed workspace',visibility:'PRIVATE',cards:{create:{cardId:card.id,cardName:card.name,quantity:4,section:'MAINBOARD'}}}});
+      const location=await p.inventoryLocation.create({data:{ownerPlayerId:owner.id,name:'Deck fixture',normalizedName:'deck fixture',deckId:deck.id,kind:'DECK',systemManaged:true}});
+      const destination=await p.inventoryLocation.create({data:{ownerPlayerId:owner.id,name:'Return destination',normalizedName:'return destination'}});
+      await p.inventoryItem.create({data:{cardId:card.id,currentOwnerId:owner.id,originalOpenerId:owner.id,locationId:location.id,quantity:4,sourceType:'MANUAL',condition:'NM'}});
+      return {deck:deck.id,owner:owner.id,destination:destination.id};
+    `);
+    const quantities = () =>
+      database<{ total: number; inDeck: number; listed: number }>(`
+      const where={currentOwnerId:${quote(fixture.owner)}};
+      return {total:(await p.inventoryItem.aggregate({where,_sum:{quantity:true}}))._sum.quantity||0,
+        inDeck:(await p.inventoryItem.aggregate({where:{...where,location:{deckId:${quote(fixture.deck)}}},_sum:{quantity:true}}))._sum.quantity||0,
+        listed:(await p.deckCard.aggregate({where:{deckId:${quote(fixture.deck)}},_sum:{quantity:true}}))._sum.quantity||0};
+    `);
+    await page.goto("/login");
+    await page.getByLabel(/username or email/i).fill(tag);
+    await page.getByLabel(/^password$/i).fill(password);
+    await page.getByRole("button", { name: /^log in$/i }).click();
+    await page.waitForURL(/dashboard/);
+    await page.goto(`/decks/${fixture.deck}`, {
+      waitUntil: "domcontentloaded",
+    });
+    await page
+      .getByRole("button", { name: "Deck options", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Return committed (4)", exact: true })
+      .click();
+    let dialog = page.getByRole("dialog", {
+      name: "Return committed (4)",
+      exact: true,
+    });
+    await dialog
+      .getByLabel("Destination normal inventory location")
+      .selectOption(fixture.destination);
+    page.once("dialog", async (confirmation) => {
+      await confirmation.dismiss();
+    });
+    await dialog
+      .getByRole("button", { name: "Return all committed cards", exact: true })
+      .click();
+    expect(quantities()).toEqual({ total: 4, inDeck: 4, listed: 4 });
+    await dialog
+      .getByRole("button", { name: "Delete deck", exact: true })
+      .click();
+    await expect(
+      page
+        .getByRole("dialog", { name: "Delete deck", exact: true })
+        .getByLabel("Type DELETE to confirm"),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    await page
+      .getByRole("button", { name: "Selection & printing tools", exact: true })
+      .click();
+    dialog = page.getByRole("dialog", {
+      name: "Selection & printing tools",
+      exact: true,
+    });
+    await dialog
+      .getByRole("button", { name: "Select all in current view" })
+      .click();
+    await expect(
+      dialog.getByText(/4 deck-list cards \/ 4 physically committed/),
+    ).toBeVisible();
+    await dialog
+      .getByLabel("Return destination")
+      .selectOption(fixture.destination);
+    await dialog
+      .getByRole("button", {
+        name: "Return selected committed cards",
+        exact: true,
+      })
+      .click();
+    await expect.poll(quantities).toEqual({ total: 4, inDeck: 0, listed: 4 });
+    await expect(
+      page.getByText("0 physically committed", { exact: false }).first(),
+    ).toBeVisible();
+  } finally {
+    database(`const owner=await p.player.findFirst({where:{name:${quote(tag)}}});if(owner){
+      await p.inventoryAuditLog.deleteMany({where:{changedByUser:{username:${quote(tag)}}}});
+      await p.inventoryItem.deleteMany({where:{currentOwnerId:owner.id}});
+      await p.inventoryLocation.deleteMany({where:{ownerPlayerId:owner.id}});
+      await p.user.deleteMany({where:{playerId:owner.id}});await p.player.delete({where:{id:owner.id}});}return true;`);
   }
 });

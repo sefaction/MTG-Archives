@@ -153,15 +153,15 @@ function DeckHealthCard({
         ? "bg-amber-300"
         : "bg-cyan-300";
   return (
-    <div className="rounded-md border border-[#2a332d] bg-[#101614] px-3 py-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-stone-500">
+    <div className="min-w-0 rounded-md border border-[var(--app-border)] bg-[var(--app-surface-2)] px-3 py-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 break-words">
+          <p className="text-xs uppercase tracking-wide text-[var(--app-muted)]">
             {label}
           </p>
-          <p className="mt-1 text-sm text-stone-400">{detail}</p>
+          <p className="mt-1 text-sm text-[var(--app-muted)]">{detail}</p>
         </div>
-        <p className="text-xl font-semibold text-stone-50">{value}</p>
+        <p className="text-xl font-semibold">{value}</p>
       </div>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#070b09]">
         <div
@@ -585,7 +585,7 @@ export default async function DeckDetailPage({
               ) : null}
             </div>
           </div>
-          <div className="grid gap-3 p-3 lg:grid-cols-[1.2fr_1fr_1fr]">
+          <div className="grid grid-cols-1 gap-3 p-3 lg:grid-cols-[1.2fr_1fr_1fr]">
             <DeckHealthCard
               label="Owned coverage"
               value={`${ownedCoveragePercent}%`}
@@ -628,7 +628,7 @@ export default async function DeckDetailPage({
               tone="cyan"
             />
           </div>
-          <div className="grid gap-2 border-t border-[#2a332d] p-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-2 border-t border-[#2a332d] p-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
               ["Mainboard", sectionTotals.MAINBOARD],
               ["Commander", sectionTotals.COMMANDER],
