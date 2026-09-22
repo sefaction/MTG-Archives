@@ -19,8 +19,8 @@ Native dialogs contain keyboard focus, restore the opener on close/Escape and sc
 
 ## Verification and remaining scope
 
-The pre-change 1366×768 baseline placed the builder at y=629, leaving only the start of card content at the screen edge. Current verification results and review image/commit belong in WORK_CHECKPOINT.md and LOCAL_REVIEW_BUILD.md.
+The pre-change 1366×768 baseline placed the builder at y=629, leaving only the start of card content at the screen edge. The same deck now starts its builder at y=350. Current verification results and review image/commit belong in WORK_CHECKPOINT.md and LOCAL_REVIEW_BUILD.md.
 
-The new disposable browser fixture checks actual Add card persistence without physical inventory changes, empty and populated decks, all card views, selection-only actions, keyboard focus/Escape, options/delete reachability without deletion, import/tool return links, anonymous public/private boundaries, four viewport widths, six themes and enlarged text. Existing pasted import, commitment, League lifecycle, analysis/hands/playtest and full regression checks remain required evidence.
+The new disposable browser fixture checks actual Add card persistence without physical inventory changes, empty and populated decks, all card views, selection-only actions, keyboard focus/Escape, options/delete reachability without deletion, import/tool return links, anonymous public/private boundaries, four viewport widths, six themes and enlarged text. A second fixture cancels whole-deck return and verifies that returning selected committed copies conserves four physical copies while preserving the four-card deck list. Full regression passed 49/49, including pasted import, League lifecycle, analysis/hands/playtest, inventory and storage; both Decks fixtures passed again after final CSS polish.
 
 This batch does not complete #268. Library layout/organization polish and regrouping frequent versus advanced playtest tools remain follow-up work. It does not add persistence for builder view/sort selection across route navigation, alter sandbox saves or claim to resolve #220/#260/#280.

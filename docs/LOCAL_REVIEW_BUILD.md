@@ -1,5 +1,15 @@
 # Local review build — cumulative issue queue
 
+## Deck builder workspace, 2026-09-22
+
+- Review: http://127.0.0.1:13001/decks (open an existing deck).
+- PR #294, branch `feat/deck-builder-workspace`, application `82f8fac`; includes main `5a8b77c` with merged #288/#291. #294 remains unmerged and needs its own approval.
+- Current web image: `sha256:cf5ea7aa2a6c7d91b1c0f4a570f189f9c48fae938dffced054ff79642fe0d2d4`. Healthy, host login HTTP 200; base/local/capture-only SMTP overlays unchanged.
+- Compact identity and optional art/coverage move the same deck's builder from y=629 to y=350 at 1366x768. Add/Paste are direct; options/selection use native dialogs and tools return to the same deck.
+- Full verification at `808e07c`: 577 units, Windows build/seven manifest guards and 49/49 browser cases. Final CSS-only polish `82f8fac`: Linux build/seven guards, required CI 35753238095 and both affected Decks cases passed. Full suite not repeated after the final CSS refinement. See WORK_CHECKPOINT.md for coverage and limits.
+- Snapshot cleanup verified: 12,477 physical copies, no fixture users/players/uploaded batches. No migrations or production deployment. #268's library/playtest portions and known #220/#260/#280 remain open.
+
+
 ## Current Imports and Locations review (2026-09-22)
 
 Cumulative unmerged PRs **#288 → #291**, application `3c98f44`, image `sha256:96ed4194f8d6f344a43c84a28d8791dc59fd8e5610184de03857e925cdfd3676`. Healthy and host HTTP 200. Review [Imports](http://127.0.0.1:13001/imports) and [Locations](http://127.0.0.1:13001/locations). Each PR requires individual merge approval.
