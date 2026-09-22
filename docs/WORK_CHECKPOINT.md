@@ -1,5 +1,13 @@
 # Resumable work checkpoint
 
+## Approved Imports / Locations release and Decks start, 2026-09-22
+
+- User explicitly approved both open PRs #288 and #291, then authorized the recommended Decks builder/navigation batch under #268. Future PRs still require separate approval.
+- #288 merged into main as `16387d98389d9a73815dee479793f225122cdb1f`. #291 retargeted to main; merged main into its branch as `0fd2dd9` without application changes. GitHub initially lagged the pushed head; required up-to-date verification is pending. Do not bypass it or enable auto-merge.
+- Current branch `feat/imports-workspace`; reviewed local Docker unchanged. Next safe step: finish #291 merge when required checks pass, close resolved issues, branch from updated main for Decks.
+- Decks first batch: compact builder identity, optional art/coverage detail, direct Add/Paste, accessible bounded actions/selection, consistent tool navigation. Preserve existing library, all card views, role/League guards and sandbox state; broader library/playtest regrouping remains separate #268 work.
+
+
 ## Imports and Locations ready for review, 2026-09-22
 
 - User authorized #283 followed by Imports #267. Branch `feat/imports-workspace`, PR #291, stacks on `fix/inactive-location-parent` / PR #288 at `bfb84e8`. Both are ready for review, unmerged and not merge-approved. Main remains `5a79fff`.
@@ -169,7 +177,7 @@ Branch `feat/visual-vault-workspace`, based on #259 docs tip `83617d4`, app/test
 
 Final current Docker at `1d3330e`: `sha256:563b5245782bc484d84c97ec2a06ff52126adddec6b83e7dfc35ed024af4c46e`, healthy/host HTTP 200. Full cumulative verification PASSED: generation/typecheck, **568 units**, Windows/Linux production builds and six manifest guards, **41 serial browser cases, zero skips** (3.5m). New map lifecycle passed in 5.9s with the UI count assertion before database checks. Linux CI run `35529120610` passed. Final desktop/phone/Locations screenshots inspected. Fixture users and vault locations returned to zero; snapshot still has **12,477 copies**. All command processes completed. Logs: `vault-final-docker.log`, `vault-full-verify.log`; historical failed/retest logs `vault-browser.log`, `vault-map-recheck.log`, `vault-map-repeat.log`. No pending PR has merge approval.
 
-Foundry Inventory Organization was consulted and updated with durable decisions. Six sections remain one physical row, Sect 0–5 left to right, advisory capacity 85, preserving arbitrary labels/unsectioned cards. See VISUAL_VAULT.md for implementation and coverage. Phone header refinement is included in the current image.
+Foundry Inventory Organization was consulted and updated with durable decisions. Six sections remain one physical row, Sect 0â€“5 left to right, advisory capacity 85, preserving arbitrary labels/unsectioned cards. See VISUAL_VAULT.md for implementation and coverage. Phone header refinement is included in the current image.
 
 Next safe step: investigate #260 with repeated browser lifecycle runs and credential-free request-completion diagnostics. The first failure was a stale Sect 4 count after a successful 3-copy all-matching move from Sect 10; partial moves refreshed correctly. Inspect server-action revalidation plus the explicit client `router.refresh` without assuming causation. Preserve the original 10-second UI assertion and fixture cleanup. Do not hide it with a reload, longer timeout or database diagnostic before the UI assertion. Keep #261 draft until this observation is adequately resolved or explicitly accepted.
 
