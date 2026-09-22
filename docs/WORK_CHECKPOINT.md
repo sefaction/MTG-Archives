@@ -1,5 +1,14 @@
 # Resumable work checkpoint
 
+## Active inactive-parent fix, 2026-09-22
+
+- User authorized the recommended sequence: fix #283, then Imports #267 as separate reviewable batches. Future PRs require individual merge approval.
+- Live main is `5a79fff`; #284/#287 merged and no PR was open at start. Branch `fix/inactive-location-parent`.
+- Browser baseline reproduced #283 with a disposable account: description-only save changed the inactive child's saved parent to null. Fixture cleanup completed. Evidence: ignored `test-results/inactive-parent-baseline.log`.
+- Fix preserves the saved inactive parent in the editor and allows retained-parent edits only while the existing child stays inactive. Reparenting, owner/system/cycle guards remain. Omitted parent/active service inputs preserve existing values.
+- Focused 30 location units pass. Pending: core/build, Docker rebuild, browser regression, cleanup verification, PR. No production work or merge approval.
+- Next safe step: validate and publish #283, then consult Imports capability/acceptance notes and implement #267 on a dependent branch. No unanswered product choice.
+
 Updated 2026-09-21. Reconcile git, GitHub, Docker and processes before resuming; GitHub is authoritative.
 
 ## Approved Locations release preparation, 2026-09-21

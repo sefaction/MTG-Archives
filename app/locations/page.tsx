@@ -1684,14 +1684,16 @@ export default async function LocationsPage({
                                     candidate.ownerPlayerId ===
                                       location.ownerPlayerId &&
                                     candidate.id !== location.id &&
-                                    candidate.active &&
+                                    (candidate.active ||
+                                      candidate.id ===
+                                        location.parentLocationId) &&
                                     !candidate.systemManaged &&
                                     candidate.normalizedName !== "unassigned" &&
                                     !isDescendantOf(candidate.id, location.id),
                                 )
                                 .map((candidate) => ({
                                   id: candidate.id,
-                                  name: candidate.path,
+                                  name: `${candidate.path}${candidate.active ? "" : " · Inactive (current parent)"}`,
                                 }))}
                             />
                             <label className={filterFieldClass}>
