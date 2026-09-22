@@ -5,7 +5,7 @@
 - PR #295 was user-approved and merged into main as `fb9e2cd`. Branch `feat/deck-playtest-organization` now starts from that merged main.
 - Next #268 batch currently contains commit `9666108` (`Organize playtest controls by task`): frequent actions are explicitly labeled, and advanced playtest controls now separate Battlefield workspace and Selected cards from token/library/random and player/commander tools. Sandbox state, device-local storage, limits and authoritative deck boundaries are unchanged.
 - Focused source verification passes: 579 tests including the new playtest organization contract, plus typecheck and `git diff --check`. Docker image `sha256:6433b3a2c727639a79f237c3c12691ccd4bfaea704ba89096852417fd714985c` is loaded locally, compose web is healthy and `/login` returned HTTP 200. Focused browser coverage passed **3/3** (`deck-playtest` core/narrow and `playtest-advanced`).
-- Next safe step: update durable notes, push the branch and open one PR for this batch. Do not merge the next PR without separate user approval.
+- PR [#296](https://github.com/sefaction/MTG-Archives/pull/296) is open from `feat/deck-playtest-organization` and awaits review; it is not merge-approved. Next safe step is user review of #296, with merge only after separate approval.
 
 ## Deck library workspace paused, 2026-09-22
 
