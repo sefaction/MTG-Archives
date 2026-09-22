@@ -60,7 +60,6 @@ async function ensureMainboard(
   if (libraryCount > 0) return;
 
   await page.goto(deckPath);
-  await page.getByText("Actions", { exact: true }).click();
   await page.getByRole("button", { name: "Add card", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Search for a card or printing").fill("Forest");

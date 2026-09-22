@@ -41,13 +41,9 @@ test("deck detail page uses compact action panels instead of always-expanded pag
     panelSource,
     /useState<DeckActionPanelId \| null>\([\s\S]*?null,[\s\S]*?\)/,
   );
-  assert.match(panelSource, /role="dialog" aria-modal="true"/);
+  assert.match(panelSource, /<DeckWorkspaceDialog/);
   assert.match(panelSource, /aria-label="Deck action panels"/);
-  assert.match(panelSource, /Escape/);
-  assert.match(
-    panelSource,
-    /<summary[\s\S]*?>[\s\S]*Actions[\s\S]*?<\/summary>/,
-  );
+
   assert.match(pageSource, /actionControls=\{/);
 });
 

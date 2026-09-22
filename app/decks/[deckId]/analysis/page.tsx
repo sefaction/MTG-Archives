@@ -30,18 +30,20 @@ export default async function DeckAnalysisPage({
   );
 
   return (
-    <main className="space-y-5 p-4 md:p-8">
+    <main className="deck-builder-page min-w-0 space-y-3 p-3 md:p-6">
       <Nav />
-      <section className="app-panel p-5">
-        <Link href="/decks" className="text-sm text-cyan-300">
-          ← Decks
+      <section className="app-panel p-3">
+        <Link href={`/decks/${deck.id}`} className="text-sm text-cyan-300">
+          &larr; Back to deck
         </Link>
-        <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-amber-200">
+        <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">
           Deck analysis
         </p>
         <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-stone-50">{deck.name}</h1>
+            <h1 className="break-words text-2xl font-bold text-[var(--app-text)]">
+              {deck.name}
+            </h1>
             <p className="mt-1 text-sm text-stone-400">
               {deckFormatLabel(deck.format)} · {deck.ownerDisplayName} ·{" "}
               {effectiveVisibilityLabel(deck.effectiveVisibility)}

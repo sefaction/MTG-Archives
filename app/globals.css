@@ -933,6 +933,102 @@ a:hover {
 .imports-workspace [class*="text-[var(--app-accent-contrast)]"] {
   color: var(--app-text);
 }
+.deck-workspace-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+  max-width: 100%;
+  border: 1px solid var(--app-border);
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  background: var(--app-surface-2);
+  color: var(--app-text);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+.deck-workspace-button:hover,
+.deck-workspace-primary {
+  border-color: var(--app-accent);
+  background: var(--app-accent-soft);
+  color: var(--app-text);
+}
+.deck-workspace-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.deck-workspace-button:focus-visible,
+.deck-builder-page summary:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 3px;
+}
+.deck-task-dialog :is(input, select, textarea),
+.deck-builder-page #deck-workspace :is(input, select, textarea) {
+  max-width: 100%;
+  min-width: 0;
+}
+.deck-task-dialog :is(label, form, section, nav) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.deck-task-dialog [class*="text-[var(--app-accent-contrast)]"] {
+  color: var(--app-text);
+}
+.deck-task-dialog
+  :is(
+    [class*="text-zinc-"],
+    [class*="text-stone-"],
+    [class*="text-sky-"],
+    [class*="text-cyan-"],
+    [class*="text-amber-"],
+    [class*="text-emerald-"],
+    [class*="text-red-"]
+  ) {
+  color: var(--app-text);
+}
+.deck-task-dialog
+  :is(.text-zinc-400, .text-zinc-500, .text-stone-400, .text-stone-500) {
+  color: var(--app-muted);
+}
+.deck-task-dialog
+  :is(
+    [class*="bg-zinc-9"],
+    [class*="bg-stone-9"],
+    [class*="bg-sky-9"],
+    [class*="bg-cyan-9"],
+    [class*="bg-amber-9"],
+    [class*="bg-emerald-9"],
+    [class*="bg-red-9"]
+  ) {
+  background: var(--app-surface-2);
+}
+.deck-task-dialog [class*="border-zinc-"] {
+  border-color: var(--app-border);
+}
+.deck-builder-page #deck-workspace > .app-panel > div > label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  max-width: 100%;
+}
+.deck-builder-page #deck-workspace > .app-panel > div > label select {
+  margin-left: 0;
+}
+@media (max-width: 400px) {
+  .deck-task-dialog > header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .deck-task-dialog > header > button {
+    grid-row: 1;
+    justify-self: end;
+  }
+  .deck-task-dialog > header > h2 {
+    grid-row: 2;
+  }
+}
 .locations-page [class*="text-[var(--app-accent-contrast)]"],
 .locations-page
   :is(

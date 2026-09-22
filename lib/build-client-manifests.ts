@@ -19,6 +19,10 @@ export const CLIENT_MANIFEST_CONTRACTS: Record<string, string[]> = {
     "LocationTypeLayoutForm",
     "StorageLayoutFields",
   ],
+  "/decks/[deckId]/page": [
+    "DeckListEditor",
+    "DeckActionPanels",
+  ],
   "/decks/[deckId]/import/page": ["DeckImportPanel"],
   "/decks/[deckId]/playtest/page": ["PlaytestSandbox"],
 };

@@ -153,15 +153,15 @@ function DeckHealthCard({
         ? "bg-amber-300"
         : "bg-cyan-300";
   return (
-    <div className="rounded-md border border-[#2a332d] bg-[#101614] px-3 py-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-stone-500">
+    <div className="min-w-0 rounded-md border border-[var(--app-border)] bg-[var(--app-surface-2)] px-3 py-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 break-words">
+          <p className="text-xs uppercase tracking-wide text-[var(--app-muted)]">
             {label}
           </p>
-          <p className="mt-1 text-sm text-stone-400">{detail}</p>
+          <p className="mt-1 text-sm text-[var(--app-muted)]">{detail}</p>
         </div>
-        <p className="text-xl font-semibold text-stone-50">{value}</p>
+        <p className="text-xl font-semibold">{value}</p>
       </div>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#070b09]">
         <div
@@ -484,147 +484,171 @@ export default async function DeckDetailPage({
   const heroSize = `auto ${deck.bannerZoom}%`;
 
   return (
-    <main className="space-y-6 p-8">
+    <main className="deck-builder-page min-w-0 space-y-3 p-3 md:p-6">
       <Nav />
       <section className="app-panel overflow-hidden">
-        <div className="relative min-h-64 overflow-hidden border-b border-[#2a332d] bg-[#121915]">
-          {heroImage ? (
-            <>
-              <div
-                aria-hidden="true"
-                className="absolute inset-0 scale-110 opacity-75 blur-2xl saturate-150"
-                style={{
-                  backgroundImage: `url(${heroImage})`,
-                  backgroundPosition: heroPosition,
-                  backgroundSize: "cover",
-                }}
-              />
-              <div
-                aria-hidden="true"
-                className="absolute inset-0"
-                style={{
-                  background:
-                    "linear-gradient(90deg, rgba(8,12,10,.96) 0%, rgba(13,18,16,.86) 34%, rgba(13,18,16,.28) 72%, rgba(8,12,10,.82) 100%)",
-                }}
-              />
-              <div
-                aria-hidden="true"
-                className="absolute inset-0"
-                style={{
-                  backgroundImage: `url(${heroImage})`,
-                  backgroundPosition: heroPosition,
-                  backgroundRepeat: "no-repeat",
-                  backgroundSize: heroSize,
-                }}
-              />
-            </>
-          ) : null}
-          <div className="relative flex min-h-64 flex-col justify-end gap-3 px-5 py-5 md:px-7">
-            <Link
-              href={
-                leagueDeck ? `/league/${leagueDeck.leagueId}/decks` : "/decks"
-              }
-              className="text-sm text-cyan-300"
-            >
-              ← {leagueDeck ? "League decks" : "Decks"}
-            </Link>
-            <p className="text-xs font-semibold uppercase tracking-wide text-amber-200">
-              {leagueDeck
-                ? `${leagueDeck.round.name} ${leagueDeck.league.year} submission · ${leagueDeck.member.user.displayName}`
-                : "Deck builder"}
-            </p>
-            <h1 className="max-w-4xl text-4xl font-bold tracking-normal text-stone-50 md:text-5xl">
+        <header className="space-y-2 p-3">
+          <Link
+            href={
+              leagueDeck ? `/league/${leagueDeck.leagueId}/decks` : "/decks"
+            }
+            className="text-sm"
+          >
+            &larr; {leagueDeck ? "League decks" : "Decks"}
+          </Link>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h1 className="min-w-0 break-words text-2xl font-bold">
               {deck.name}
             </h1>
-            <p className="mt-2 flex flex-wrap items-center gap-2 text-stone-300">
-              {deckFormatLabel(deck.format)} · {formatDeckBracket(deck.bracket)}{" "}
-              · <ColorIdentitySymbols value={deckColorIdentity} /> ·{" "}
-              {visibilityLabel(deck.visibility)} · Effective{" "}
-              {effectiveVisibility.toLowerCase()}
-            </p>
-            {deck.tags.length ? (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {deck.tags.map(({ tag }) => (
-                  <Link
-                    key={tag.id}
-                    href={`/decks?tag=${encodeURIComponent(tag.id)}`}
-                    className="rounded-full border border-cyan-900 bg-cyan-950/50 px-2.5 py-1 text-xs text-cyan-100 hover:border-cyan-700"
-                  >
-                    {tag.name}
-                  </Link>
-                ))}
-              </div>
-            ) : null}
-            {deck.description ? (
-              <p className="mt-4 max-w-3xl whitespace-pre-wrap text-stone-200">
-                {deck.description}
-              </p>
-            ) : null}
+            <span className="text-xs text-[var(--app-muted)]">
+              Deck builder{!canEdit ? " · Read only" : ""}
+            </span>
           </div>
-        </div>
-        <div className="grid gap-3 p-3 lg:grid-cols-[1.2fr_1fr_1fr]">
-          <DeckHealthCard
-            label="Owned coverage"
-            value={`${ownedCoveragePercent}%`}
-            detail={`${coverageTotals.exactOwned} exact, ${coverageTotals.otherOwned} other, ${coverageTotals.assumedBasicLandOwned} basic lands assumed, ${coverageTotals.missing} missing`}
-            percent={ownedCoveragePercent}
-            tone="emerald"
-          />
-          {inventoryCommitmentEnabled ? (
-            <DeckHealthCard
-              label="Effective commitment"
-              value={`${committedCoveragePercent}%`}
-              detail={`${coverageTotals.physicallyCommitted} physical + ${coverageTotals.assumedBasicLandCommitted} basic lands assumed of ${coverageTotals.totalQuantity}`}
-              percent={committedCoveragePercent}
-              tone="amber"
-            />
-          ) : (
-            <DeckHealthCard
-              label="League decklist"
-              value={`${coverageTotals.totalQuantity} cards`}
-              detail={
-                leagueLocked
-                  ? "Locked to its first recorded match"
-                  : "Editable until used in a recorded match"
-              }
-              percent={leagueLocked ? 100 : 0}
-              tone="amber"
-            />
-          )}
-          <DeckHealthCard
-            label="Estimated value"
-            value={
-              estimatedPrice == null ? "--" : `$${estimatedPrice.toFixed(2)}`
-            }
-            detail={
-              inventoryCommitmentEnabled
-                ? `${deckWishlistAvailable} missing cards available to commit`
-                : "Public League deck value"
-            }
-            percent={Math.min(100, ownedCoveragePercent)}
-            tone="cyan"
-          />
-        </div>
-        <div className="grid gap-2 border-t border-[#2a332d] p-3 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            ["Mainboard", sectionTotals.MAINBOARD],
-            ["Commander", sectionTotals.COMMANDER],
-            ["Sideboard", sectionTotals.SIDEBOARD],
-            ["Maybeboard", sectionTotals.MAYBEBOARD],
-          ].map(([label, value]) => (
+          <p className="flex flex-wrap items-center gap-2 text-sm text-[var(--app-muted)]">
+            {deckFormatLabel(deck.format)} · {formatDeckBracket(deck.bracket)} ·{" "}
+            <ColorIdentitySymbols value={deckColorIdentity} /> ·{" "}
+            {visibilityLabel(deck.visibility)} · Effective{" "}
+            {effectiveVisibility.toLowerCase()}
+          </p>
+          <p className="text-sm">
+            {coverageTotals.totalQuantity} cards · {coverageTotals.missing}{" "}
+            missing
+            {inventoryCommitmentEnabled
+              ? ` · ${coverageTotals.physicallyCommitted} physically committed`
+              : " · League decklist"}
+          </p>
+        </header>
+        <details className="border-t border-[var(--app-border)]">
+          <summary className="cursor-pointer px-3 py-2 text-sm">
+            Deck details, art &amp; coverage
+          </summary>
+          <div
+            className={`relative overflow-hidden border-b border-[var(--app-border)] bg-[var(--app-surface-2)] ${heroImage ? "min-h-48" : ""}`}
+          >
+            {heroImage ? (
+              <>
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0 scale-110 opacity-75 blur-2xl saturate-150"
+                  style={{
+                    backgroundImage: `url(${heroImage})`,
+                    backgroundPosition: heroPosition,
+                    backgroundSize: "cover",
+                  }}
+                />
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0"
+                  style={{
+                    background:
+                      "linear-gradient(90deg, rgba(8,12,10,.96) 0%, rgba(13,18,16,.86) 34%, rgba(13,18,16,.28) 72%, rgba(8,12,10,.82) 100%)",
+                  }}
+                />
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0"
+                  style={{
+                    backgroundImage: `url(${heroImage})`,
+                    backgroundPosition: heroPosition,
+                    backgroundRepeat: "no-repeat",
+                    backgroundSize: heroSize,
+                  }}
+                />
+              </>
+            ) : null}
             <div
-              key={String(label)}
-              className="flex items-center justify-between gap-2 rounded-md border border-[#2a332d] bg-[#0d1210] px-3 py-2"
+              className={`relative flex flex-col justify-end gap-3 p-3 ${heroImage ? "min-h-48" : ""}`}
             >
-              <span className="text-xs uppercase tracking-wide text-stone-500">
-                {label}
-              </span>
-              <span className="text-sm font-semibold text-stone-100">
-                {String(value)}
-              </span>
+              {leagueDeck ? (
+                <p className="text-sm">
+                  {leagueDeck.round.name} {leagueDeck.league.year} submission ?{" "}
+                  {leagueDeck.member.user.displayName}
+                </p>
+              ) : null}
+              {deck.tags.length ? (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {deck.tags.map(({ tag }) => (
+                    <Link
+                      key={tag.id}
+                      href={`/decks?tag=${encodeURIComponent(tag.id)}`}
+                      className="rounded-full border border-cyan-900 bg-cyan-950/50 px-2.5 py-1 text-xs text-cyan-100 hover:border-cyan-700"
+                    >
+                      {tag.name}
+                    </Link>
+                  ))}
+                </div>
+              ) : null}
+              {deck.description ? (
+                <p className="mt-4 max-w-3xl whitespace-pre-wrap text-stone-200">
+                  {deck.description}
+                </p>
+              ) : null}
             </div>
-          ))}
-        </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 p-3 lg:grid-cols-[1.2fr_1fr_1fr]">
+            <DeckHealthCard
+              label="Owned coverage"
+              value={`${ownedCoveragePercent}%`}
+              detail={`${coverageTotals.exactOwned} exact, ${coverageTotals.otherOwned} other, ${coverageTotals.assumedBasicLandOwned} basic lands assumed, ${coverageTotals.missing} missing`}
+              percent={ownedCoveragePercent}
+              tone="emerald"
+            />
+            {inventoryCommitmentEnabled ? (
+              <DeckHealthCard
+                label="Effective commitment"
+                value={`${committedCoveragePercent}%`}
+                detail={`${coverageTotals.physicallyCommitted} physical + ${coverageTotals.assumedBasicLandCommitted} basic lands assumed of ${coverageTotals.totalQuantity}`}
+                percent={committedCoveragePercent}
+                tone="amber"
+              />
+            ) : (
+              <DeckHealthCard
+                label="League decklist"
+                value={`${coverageTotals.totalQuantity} cards`}
+                detail={
+                  leagueLocked
+                    ? "Locked to its first recorded match"
+                    : "Editable until used in a recorded match"
+                }
+                percent={leagueLocked ? 100 : 0}
+                tone="amber"
+              />
+            )}
+            <DeckHealthCard
+              label="Estimated value"
+              value={
+                estimatedPrice == null ? "--" : `$${estimatedPrice.toFixed(2)}`
+              }
+              detail={
+                inventoryCommitmentEnabled
+                  ? `${deckWishlistAvailable} missing cards available to commit`
+                  : "Public League deck value"
+              }
+              percent={Math.min(100, ownedCoveragePercent)}
+              tone="cyan"
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-2 border-t border-[#2a332d] p-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              ["Mainboard", sectionTotals.MAINBOARD],
+              ["Commander", sectionTotals.COMMANDER],
+              ["Sideboard", sectionTotals.SIDEBOARD],
+              ["Maybeboard", sectionTotals.MAYBEBOARD],
+            ].map(([label, value]) => (
+              <div
+                key={String(label)}
+                className="flex items-center justify-between gap-2 rounded-md border border-[#2a332d] bg-[#0d1210] px-3 py-2"
+              >
+                <span className="text-xs uppercase tracking-wide text-stone-500">
+                  {label}
+                </span>
+                <span className="text-sm font-semibold text-stone-100">
+                  {String(value)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </details>
       </section>
 
       {leagueDeck ? (

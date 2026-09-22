@@ -107,7 +107,7 @@ test("deck bulk tools include selected committed inventory return workflow", () 
   assert.match(source, /function returnSelectedCommitted/);
   assert.match(source, /\/api\/decks\/\$\{deckId\}\/return-committed/);
   assert.match(source, /actionControls\?: ReactNode/);
-  assert.match(source, /<summary[\s\S]*?>[\s\S]*Selection/);
+  assert.match(source, /<DeckWorkspaceDialog\s+title="Selection & printing tools"/);
   assert.match(source, /Return selected committed cards/);
   assert.match(source, /destinationLocationId: returnDestinationId/);
   assert.match(

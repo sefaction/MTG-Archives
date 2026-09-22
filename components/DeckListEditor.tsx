@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useMemo, useState } from "react";
+import { DeckWorkspaceDialog } from "./DeckWorkspaceDialog";
 import { DeckSection, FoilStatus } from "@prisma/client";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { SetSymbol } from "@/components/mtg/CardSymbols";
@@ -447,6 +448,7 @@ export function DeckListEditor({
   returnLocations?: DeckReturnLocation[];
   cardSearchEndpoint?: string;
 }) {
+  const [selectionOpen, setSelectionOpen] = useState(false);
   const [viewMode, setViewMode] = useState<DeckViewMode>("compact");
   const [groupMode, setGroupMode] = useState<DeckGroupMode>(defaultGroupMode);
   const [sortMode, setSortMode] = useState<DeckSortMode>("name");
@@ -758,179 +760,190 @@ export function DeckListEditor({
           </div>
           {actionControls}
           {canEdit ? (
-            <details className="relative" id="bulk-edit">
-              <summary
-                className={cn(
-                  filterButtonClass,
-                  "list-none cursor-pointer px-3 py-1.5 text-sm marker:hidden",
-                )}
+            <>
+              <button
+                type="button"
+                id="bulk-edit"
+                className="deck-workspace-button"
+                onClick={() => setSelectionOpen(true)}
               >
                 Selection
-                {selectedRows.length ? ` (${selectedRows.length})` : ""}
-              </summary>
-              <div className="absolute left-0 top-full z-30 mt-2 w-[min(38rem,calc(100vw-2rem))] rounded-lg border border-[#364139] bg-[#101614] p-3 shadow-xl shadow-black/40">
-                <div className="grid gap-2 text-sm">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      className={cn(filterButtonClass, "px-2 py-1")}
-                      onClick={() =>
-                        selectIds(currentGroupRows.map((row) => row.id))
-                      }
-                    >
-                      Select all in current view
-                    </button>
-                    <button
-                      type="button"
-                      className={cn(filterButtonClass, "px-2 py-1")}
-                      onClick={() => selectIds(missingIds)}
-                    >
-                      Select all missing
-                    </button>
-                    <button
-                      type="button"
-                      className={cn(filterButtonClass, "px-2 py-1")}
-                      onClick={() => selectIds(unownedExactIds)}
-                    >
-                      Select all unowned exact printings
-                    </button>
-                    <button
-                      type="button"
-                      className={cn(filterButtonClass, "px-2 py-1")}
-                      onClick={() => selectIds([])}
-                    >
-                      Clear selection
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <label
-                      className={`${showPrivateInventory ? "flex" : "hidden"} items-center gap-1 text-xs text-stone-300`}
-                    >
-                      Return destination
-                      <select
-                        value={returnDestinationId}
-                        onChange={(event) =>
-                          setReturnDestinationId(event.target.value)
+                {selectedRows.length
+                  ? ` (${selectedRows.length})`
+                  : " & printing tools"}
+              </button>
+              {selectionOpen ? (
+                <DeckWorkspaceDialog
+                  title="Selection & printing tools"
+                  onClose={() => setSelectionOpen(false)}
+                >
+                  <div className="grid gap-2 text-sm">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        className={cn(filterButtonClass, "px-2 py-1")}
+                        onClick={() =>
+                          selectIds(currentGroupRows.map((row) => row.id))
                         }
-                        className={filterSelectClass}
                       >
-                        <option value="">Choose...</option>
-                        {returnLocations.map((location) => (
-                          <option key={location.id} value={location.id}>
-                            {location.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <button
-                      type="button"
-                      className={cn(
-                        filterPrimaryButtonClass,
-                        "border-emerald-700 px-2 py-1 text-emerald-100 hover:bg-emerald-950/40",
-                      )}
-                      disabled={Boolean(pending)}
-                      onClick={() => loadPreview("owned", otherOwnedIds)}
-                    >
-                      Preview missing to owned
-                    </button>
-                    <button
-                      type="button"
-                      className={cn(
-                        filterButtonClass,
-                        "px-2 py-1 text-cyan-100",
-                      )}
-                      disabled={Boolean(pending)}
-                      onClick={() => loadPreview("cheapest", missingIds)}
-                    >
-                      Preview missing to cheapest
-                    </button>
-                  </div>
-                  {selectedRows.length ? (
-                    <div className="grid gap-2 rounded-md border border-cyan-900 bg-cyan-950/20 p-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <strong>{selectedRows.length} rows selected</strong>
-                        <span className="text-stone-300">
-                          {selectedQuantity} deck-list cards /{" "}
-                          {selectedCommittedQuantity} physically committed
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          className={cn(
-                            filterPrimaryButtonClass,
-                            "border-emerald-700 px-2 py-1 text-emerald-100 hover:bg-emerald-950/40",
-                          )}
-                          disabled={Boolean(pending)}
-                          onClick={() => loadPreview("owned", [...selected])}
-                        >
-                          Switch selected to owned printings
-                        </button>
-                        <button
-                          type="button"
-                          className={cn(
-                            filterButtonClass,
-                            "px-2 py-1 text-cyan-100",
-                          )}
-                          disabled={Boolean(pending)}
-                          onClick={() => loadPreview("cheapest", [...selected])}
-                        >
-                          Switch selected to cheapest printings
-                        </button>
+                        Select all in current view
+                      </button>
+                      <button
+                        type="button"
+                        className={cn(filterButtonClass, "px-2 py-1")}
+                        onClick={() => selectIds(missingIds)}
+                      >
+                        Select all missing
+                      </button>
+                      <button
+                        type="button"
+                        className={cn(filterButtonClass, "px-2 py-1")}
+                        onClick={() => selectIds(unownedExactIds)}
+                      >
+                        Select all unowned exact printings
+                      </button>
+                      <button
+                        type="button"
+                        className={cn(filterButtonClass, "px-2 py-1")}
+                        onClick={() => selectIds([])}
+                      >
+                        Clear selection
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label
+                        className={`${showPrivateInventory ? "flex" : "hidden"} items-center gap-1 text-xs text-stone-300`}
+                      >
+                        Return destination
                         <select
-                          value={moveSection}
+                          value={returnDestinationId}
                           onChange={(event) =>
-                            setMoveSection(event.target.value as DeckSection)
+                            setReturnDestinationId(event.target.value)
                           }
                           className={filterSelectClass}
                         >
-                          {sections.map((section) => (
-                            <option key={section} value={section}>
-                              {deckSectionLabel(section)}
+                          <option value="">Choose...</option>
+                          {returnLocations.map((location) => (
+                            <option key={location.id} value={location.id}>
+                              {location.name}
                             </option>
                           ))}
                         </select>
-                        <button
-                          type="button"
-                          className={cn(
-                            filterButtonClass,
-                            "px-2 py-1 text-amber-100",
-                          )}
-                          hidden={!showPrivateInventory}
-                          disabled={
-                            Boolean(pending) || selectedCommittedQuantity === 0
-                          }
-                          onClick={returnSelectedCommitted}
-                        >
-                          Return selected committed cards
-                        </button>
-                        <button
-                          type="button"
-                          className={cn(filterButtonClass, "px-2 py-1")}
-                          disabled={Boolean(pending)}
-                          onClick={bulkMove}
-                        >
-                          Move selected
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded-md border border-red-800 bg-red-950/30 px-2 py-1 text-red-100 hover:border-red-600"
-                          disabled={Boolean(pending)}
-                          onClick={bulkRemove}
-                        >
-                          Remove selected
-                        </button>
-                      </div>
+                      </label>
+                      <button
+                        type="button"
+                        className={cn(
+                          filterPrimaryButtonClass,
+                          "border-emerald-700 px-2 py-1 text-emerald-100 hover:bg-emerald-950/40",
+                        )}
+                        disabled={Boolean(pending)}
+                        onClick={() => loadPreview("owned", otherOwnedIds)}
+                      >
+                        Preview missing to owned
+                      </button>
+                      <button
+                        type="button"
+                        className={cn(
+                          filterButtonClass,
+                          "px-2 py-1 text-cyan-100",
+                        )}
+                        disabled={Boolean(pending)}
+                        onClick={() => loadPreview("cheapest", missingIds)}
+                      >
+                        Preview missing to cheapest
+                      </button>
                     </div>
-                  ) : null}
-                  <p className="text-sm text-stone-400" aria-live="polite">
-                    {pending ||
-                      message ||
-                      "Select cards to move, remove, or preview printing optimization without changing inventory."}
-                  </p>
-                </div>
-              </div>
-            </details>
+                    {selectedRows.length ? (
+                      <div className="grid gap-2 rounded-md border border-cyan-900 bg-cyan-950/20 p-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <strong>{selectedRows.length} rows selected</strong>
+                          <span className="text-stone-300">
+                            {selectedQuantity} deck-list cards /{" "}
+                            {selectedCommittedQuantity} physically committed
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            className={cn(
+                              filterPrimaryButtonClass,
+                              "border-emerald-700 px-2 py-1 text-emerald-100 hover:bg-emerald-950/40",
+                            )}
+                            disabled={Boolean(pending)}
+                            onClick={() => loadPreview("owned", [...selected])}
+                          >
+                            Switch selected to owned printings
+                          </button>
+                          <button
+                            type="button"
+                            className={cn(
+                              filterButtonClass,
+                              "px-2 py-1 text-cyan-100",
+                            )}
+                            disabled={Boolean(pending)}
+                            onClick={() =>
+                              loadPreview("cheapest", [...selected])
+                            }
+                          >
+                            Switch selected to cheapest printings
+                          </button>
+                          <select
+                            aria-label="Move selected to section"
+                            value={moveSection}
+                            onChange={(event) =>
+                              setMoveSection(event.target.value as DeckSection)
+                            }
+                            className={filterSelectClass}
+                          >
+                            {sections.map((section) => (
+                              <option key={section} value={section}>
+                                {deckSectionLabel(section)}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            className={cn(
+                              filterButtonClass,
+                              "px-2 py-1 text-amber-100",
+                            )}
+                            hidden={!showPrivateInventory}
+                            disabled={
+                              Boolean(pending) ||
+                              selectedCommittedQuantity === 0
+                            }
+                            onClick={returnSelectedCommitted}
+                          >
+                            Return selected committed cards
+                          </button>
+                          <button
+                            type="button"
+                            className={cn(filterButtonClass, "px-2 py-1")}
+                            disabled={Boolean(pending)}
+                            onClick={bulkMove}
+                          >
+                            Move selected
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-md border border-red-800 bg-red-950/30 px-2 py-1 text-red-100 hover:border-red-600"
+                            disabled={Boolean(pending)}
+                            onClick={bulkRemove}
+                          >
+                            Remove selected
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                    <p className="text-sm text-stone-400" aria-live="polite">
+                      {pending ||
+                        message ||
+                        "Select cards to move, remove, or preview printing optimization without changing inventory."}
+                    </p>
+                  </div>
+                </DeckWorkspaceDialog>
+              ) : null}
+            </>
           ) : null}
           <label className={filterFieldClass}>
             View
@@ -982,7 +995,7 @@ export function DeckListEditor({
           </label>
           <div className="pb-2 text-sm text-stone-400">
             {rows.reduce((total, row) => total + row.quantity, 0)} cards ·{" "}
-            {rows.length} rows · data preserved while switching views
+            {rows.length} rows
           </div>
         </div>
       </div>

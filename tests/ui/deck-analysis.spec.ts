@@ -55,7 +55,6 @@ async function ensureCurveCard(
   ) {
     return;
   }
-  await page.getByText("Actions", { exact: true }).click();
   await page.getByRole("button", { name: "Add card", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog
@@ -66,7 +65,7 @@ async function ensureCurveCard(
   await result.click();
   await dialog.getByRole("button", { name: "Add selected printing" }).click();
   await page.waitForLoadState("networkidle");
-  const closeActions = page.getByRole("button", { name: "Close deck actions" });
+  const closeActions = page.getByRole("button", { name: "Close", exact: true });
   if (await closeActions.isVisible()) {
     await closeActions.click();
   }
