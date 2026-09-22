@@ -2060,6 +2060,9 @@ export default async function ImportsPage({
             <p className="text-sm text-[var(--app-muted)]">
               Owner: {selectedBatch.selectedPlayer.displayName} · Status:{" "}
               {selectedBatch.status}
+              {selectedResolutionJob &&
+                isActiveImportResolutionStatus(selectedResolutionJob.status) &&
+                ` · Identifying cards: ${selectedResolutionJob.processedRows} / ${selectedResolutionJob.eligibleRowsAtStart} rows`}
             </p>
           </div>
           <p className="text-sm text-[var(--app-muted)]">
@@ -2107,6 +2110,12 @@ export default async function ImportsPage({
           <div className="flex flex-wrap gap-2 text-sm">
             <form action={startImportResolutionJob}>
               <input type="hidden" name="batchId" value={selectedBatch.id} />
+              <input
+                type="hidden"
+                name="returnStatus"
+                value={activeReviewFilter}
+              />
+              <input type="hidden" name="returnQ" value={reviewSearch} />
               <SubmitButton
                 pendingLabel="Starting resolution…"
                 disabled={Boolean(
@@ -2126,6 +2135,12 @@ export default async function ImportsPage({
             {selectedResolutionJob &&
             isActiveImportResolutionStatus(selectedResolutionJob.status) ? (
               <form action={cancelResolutionJobAction}>
+                <input
+                  type="hidden"
+                  name="returnStatus"
+                  value={activeReviewFilter}
+                />
+                <input type="hidden" name="returnQ" value={reviewSearch} />
                 <input
                   type="hidden"
                   name="jobId"
