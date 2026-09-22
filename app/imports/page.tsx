@@ -248,7 +248,7 @@ function statusBadgeClass(status: string) {
   if (status === "ambiguous")
     return "bg-amber-900/60 text-amber-200 border-amber-700";
   if (status === "skipped")
-    return "bg-zinc-800 text-[var(--app-text)] border-zinc-600";
+    return "bg-[var(--app-surface-2)] text-[var(--app-text)] border-zinc-600";
   return "bg-red-950/70 text-red-200 border-red-800";
 }
 function buildResolverQuery(parsed: ParsedRow, override?: string) {
@@ -1561,6 +1561,14 @@ export default async function ImportsPage({
       : duplicatePolicy === "separate"
         ? "Keep separate rows where possible"
         : "Add to matching inventory";
+  const recentBatches = [
+    ...history.filter((batch) =>
+      ["PREVIEW", "PARTIALLY_IMPORTED"].includes(batch.status),
+    ),
+    ...history.filter(
+      (batch) => !["PREVIEW", "PARTIALLY_IMPORTED"].includes(batch.status),
+    ),
+  ].slice(0, 6);
 
   return (
     <main className="imports-workspace min-w-0 p-3 sm:p-6 space-y-4">
@@ -1741,7 +1749,7 @@ export default async function ImportsPage({
               </a>
             </div>
             <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-              {history.slice(0, 6).map((batch) => (
+              {recentBatches.map((batch) => (
                 <a
                   key={batch.id}
                   className={cn(
@@ -2073,7 +2081,7 @@ export default async function ImportsPage({
                 · {unresolvedCount} need review · {summary.committed} committed
               </span>
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {!["IMPORTED", "UNDONE"].includes(selectedBatch.status) &&
               duplicatePolicy !== "preview" ? (
                 <a href="#import-commit" className={filterPrimaryButtonClass}>
@@ -2085,7 +2093,7 @@ export default async function ImportsPage({
                 </a>
               )}
               <a className={filterButtonClass} href="/imports?view=history">
-                Save for later
+                Back to history
               </a>
             </div>
           </div>
@@ -2376,7 +2384,12 @@ export default async function ImportsPage({
                       <td>{parsed.name}</td>
                       <td>
                         {img ? (
-                          <img src={img} alt="" className="h-16 rounded" />
+                          <img
+                            src={img}
+                            alt=""
+                            loading="lazy"
+                            className="h-16 rounded"
+                          />
                         ) : (
                           <div className="h-16 w-12 rounded border border-[var(--app-border)] text-[10px] flex items-center justify-center text-zinc-500">
                             No image

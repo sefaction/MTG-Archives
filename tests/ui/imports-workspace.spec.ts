@@ -14,6 +14,32 @@ function database<T>(body: string): T {
   );
 }
 async function noOverflow(page: Page) {
+  if (
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth + 1,
+    )
+  ) {
+    console.log(
+      await page.evaluate(() =>
+        [...document.querySelectorAll("main *, nav *")]
+          .filter((element) => {
+            const box = element.getBoundingClientRect();
+            return (
+              box.width > 0 &&
+              box.right > innerWidth + 1 &&
+              !element.closest(".overflow-x-auto")
+            );
+          })
+          .slice(0, 15)
+          .map((element) => ({
+            tag: element.tagName,
+            classes: element.className,
+            right: element.getBoundingClientRect().right,
+          })),
+      ),
+    );
+    await page.screenshot({ path: "test-results/imports-overflow.png" });
+  }
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth + 1,
@@ -51,7 +77,7 @@ test("Imports separates tasks and preserves upload, review, commit, history and 
         const tag=${quote(tag)}, passwordHash=await require('bcryptjs').hash(${quote(password)},10);
         const owner=await tx.player.create({data:{name:tag,displayName:'Import reviewer'}});
         const other=await tx.player.create({data:{name:tag+'-other',displayName:tag+'-other'}});
-        const user=await tx.user.create({data:{username:tag,displayName:'Import reviewer',passwordHash,playerId:owner.id}});
+        const user=await tx.user.create({data:{username:tag,displayName:'Import reviewer',passwordHash,playerId:owner.id,role:'ADMIN'}});
         const destination=await tx.inventoryLocation.create({data:{name:'Import shelf',normalizedName:'import shelf',ownerPlayerId:owner.id,type:'Vault'}});
         const card=await tx.card.findFirstOrThrow({where:{name:'Forest'},select:{id:true,scryfallId:true,setCode:true,collectorNumber:true}});
         await tx.inventoryItem.create({data:{cardId:card.id,currentOwnerId:owner.id,originalOpenerId:owner.id,locationId:destination.id,locationSection:'Sect 0',quantity:2,sourceType:'MANUAL',condition:'NM',language:'EN',foilStatus:'NONFOIL'}});
@@ -94,13 +120,11 @@ test("Imports separates tasks and preserves upload, review, commit, history and 
 
     // Actual capture and background local-printing resolution; no inventory mutation before commit.
     const csv = `Quantity,Name,Set,Collector Number,Scryfall ID,Section\n2,Forest,${fixture.card.setCode},${fixture.card.collectorNumber},${fixture.card.scryfallId},Pocket 1\n3,Forest,${fixture.card.setCode},${fixture.card.collectorNumber},${fixture.card.scryfallId},\n`;
-    await page
-      .getByLabel("CSV file")
-      .setInputFiles({
-        name: tag + ".csv",
-        mimeType: "text/csv",
-        buffer: Buffer.from(csv),
-      });
+    await page.getByLabel("CSV file").setInputFiles({
+      name: tag + ".csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(csv),
+    });
     await page
       .getByRole("button", { name: "Preview Import", exact: true })
       .click();
@@ -231,11 +255,16 @@ test("Imports separates tasks and preserves upload, review, commit, history and 
         theme,
       );
       await noOverflow(page);
+      if (theme === "light")
+        await page.screenshot({
+          path: "test-results/imports-review-light.png",
+        });
     }
     await page.evaluate(
       () => (document.documentElement.style.fontSize = "200%"),
     );
     await noOverflow(page);
+    await page.screenshot({ path: "test-results/imports-review-enlarged.png" });
     await page.evaluate(() => (document.documentElement.style.fontSize = ""));
     expect(total()).toBe(7); // Long-batch review and edits never committed copies.
     expect(
@@ -243,6 +272,24 @@ test("Imports separates tasks and preserves upload, review, commit, history and 
         `return (await p.importBatch.findUniqueOrThrow({where:{id:${quote(batchId)}}})).status;`,
       ),
     ).toBe("IMPORTED");
+    await page.setViewportSize({ width: 1366, height: 768 });
+    await page.goto("/imports?view=history");
+    await page
+      .getByRole("button", { name: "Enter Admin Mode", exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "Import Maintenance", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("link", { name: "Import CSV", exact: true }).click();
+    await expect(
+      page.getByLabel("Current owner", { exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Exit Admin Mode", exact: true })
+      .click();
+    await expect(page.getByLabel("Current owner", { exact: true })).toHaveCount(
+      0,
+    );
   } finally {
     database(`const owners=await p.player.findMany({where:{name:{in:[${quote(tag)},${quote(tag + "-other")}]}}});const ids=owners.map(x=>x.id);
       const batches=await p.importBatch.findMany({where:{selectedPlayerId:{in:ids}}});const batchIds=batches.map(x=>x.id);
