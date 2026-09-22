@@ -1005,7 +1005,7 @@ a:hover {
 .deck-task-dialog [class*="border-zinc-"] {
   border-color: var(--app-border);
 }
-.deck-builder-page #deck-workspace > .app-panel label {
+.deck-builder-page #deck-workspace > .app-panel > div > label {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1013,8 +1013,21 @@ a:hover {
   min-width: 0;
   max-width: 100%;
 }
-.deck-builder-page #deck-workspace > .app-panel label select {
+.deck-builder-page #deck-workspace > .app-panel > div > label select {
   margin-left: 0;
+}
+@media (max-width: 400px) {
+  .deck-task-dialog > header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .deck-task-dialog > header > button {
+    grid-row: 1;
+    justify-self: end;
+  }
+  .deck-task-dialog > header > h2 {
+    grid-row: 2;
+  }
 }
 .locations-page [class*="text-[var(--app-accent-contrast)]"],
 .locations-page
