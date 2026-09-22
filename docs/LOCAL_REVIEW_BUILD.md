@@ -1,5 +1,15 @@
 # Local review build — cumulative issue queue
 
+## Current Imports and Locations review (2026-09-22)
+
+Cumulative unmerged PRs **#288 → #291**, application `3c98f44`, image `sha256:96ed4194f8d6f344a43c84a28d8791dc59fd8e5610184de03857e925cdfd3676`. Healthy and host HTTP 200. Review [Imports](http://127.0.0.1:13001/imports) and [Locations](http://127.0.0.1:13001/locations). Each PR requires individual merge approval.
+
+#288 preserves inactive parents during metadata edits and parent selections after saves. #291 separates CSV capture, manual add, export and history; batch deep links open review with copy/row totals, reachable destination/commit, contextual printing resolution and themed controls. See IMPORTS_WORKSPACE.md for capability homes and draft behavior.
+
+577 units, typecheck, Windows/Linux builds and manifest guards passed. Full browser run: 44/47, including two obsolete test locators and another known #260 stale-occupancy observation. Corrected/refined code then passed all 14 affected cases, followed by all five final affected cases after the scoped contrast adjustment. Desktop, phone, actual six themes and enlarged-text screenshots/checks passed. Full 47 not rerun after final refinements; #260 remains unresolved despite the later passing vault case. Exact evidence is in WORK_CHECKPOINT.md and the PRs.
+
+Fixture users/players/uploaded test batches are zero; snapshot retains 12,477 copies. Local SMTP capture is retained. No production deployment, schema migration or merge.
+
 ## Current visual vault review (2026-09-20)
 
 Cumulative stack #243 → #244 → #247 → #248 → #250 → #254 → #255 → #259 → #261, application/test `1d3330e`. Current local image `sha256:563b5245782bc484d84c97ec2a06ff52126adddec6b83e7dfc35ed024af4c46e` is healthy/host HTTP 200. No pending PR has merge approval. #261 remains draft while intermittent stale move occupancy #260 is investigated; no production change.
