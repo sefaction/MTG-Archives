@@ -1,11 +1,11 @@
 # Resumable work checkpoint
 
-## Playtest organization started, 2026-09-22
+## Playtest organization released, 2026-09-22
 
-- PR #295 was user-approved and merged into main as `fb9e2cd`. Branch `feat/deck-playtest-organization` now starts from that merged main.
-- Next #268 batch currently contains commit `9666108` (`Organize playtest controls by task`): frequent actions are explicitly labeled, and advanced playtest controls now separate Battlefield workspace and Selected cards from token/library/random and player/commander tools. Sandbox state, device-local storage, limits and authoritative deck boundaries are unchanged.
-- Focused source verification passes: 579 tests including the new playtest organization contract, plus typecheck and `git diff --check`. Docker image `sha256:6433b3a2c727639a79f237c3c12691ccd4bfaea704ba89096852417fd714985c` is loaded locally, compose web is healthy and `/login` returned HTTP 200. Focused browser coverage passed **3/3** (`deck-playtest` core/narrow and `playtest-advanced`).
-- PR [#296](https://github.com/sefaction/MTG-Archives/pull/296) is open from `feat/deck-playtest-organization` and awaits review; it is not merge-approved. Next safe step is user review of #296, with merge only after separate approval.
+- PR #295 was user-approved and merged into main as `fb9e2cd`; the existing playtest PR #296 was then approved and merged as `e25fd23`. No further playtest changes are planned in this batch.
+- The released #296 work labels frequent actions and separates Battlefield workspace and Selected cards from token/library/random and player/commander tools. Sandbox state, device-local storage, limits and authoritative deck boundaries are unchanged.
+- Verification passed 579 tests, typecheck/build/manifest guards, Docker health and 3/3 focused playtest browser cases. Local image evidence remains `sha256:6433b3a2c727639a79f237c3c12691ccd4bfaea704ba89096852417fd714985c`.
+- Next safe step: begin the reliability queue with #260 (stale vault occupancy after successful move), preserving unchanged UI assertions and not claiming a fix until the root cause is demonstrated. #220 and #280 remain separate follow-up audits.
 
 ## Deck library workspace paused, 2026-09-22
 
