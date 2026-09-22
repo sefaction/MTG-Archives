@@ -29,18 +29,21 @@ export default async function DeckPlaytestPage({
   if (!deck) notFound();
 
   return (
-    <main className="space-y-3 p-4 md:p-6">
+    <main className="deck-builder-page min-w-0 space-y-3 p-3 md:p-6">
       <Nav />
-      <section className="app-panel p-4">
-        <Link href="/decks" className="text-sm text-[var(--app-link)]">
-          &larr; Decks
+      <section className="app-panel p-3">
+        <Link
+          href={`/decks/${deck.id}`}
+          className="text-sm text-[var(--app-link)]"
+        >
+          &larr; Back to deck
         </Link>
-        <p className="mt-3 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
+        <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)]">
           Manual playtest
         </p>
         <div className="mt-1 flex flex-wrap items-end justify-between gap-2">
           <div>
-            <h1 className="text-2xl font-bold text-[var(--app-text)]">
+            <h1 className="break-words text-2xl font-bold text-[var(--app-text)]">
               {deck.name}
             </h1>
             <p className="mt-1 text-sm text-[var(--app-muted)]">

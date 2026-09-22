@@ -50,7 +50,6 @@ async function addMainboardCopies(
   deckPath: string,
 ) {
   await page.goto(deckPath);
-  await page.getByText("Actions", { exact: true }).click();
   await page.getByRole("button", { name: "Add card", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Search for a card or printing").fill("Forest");

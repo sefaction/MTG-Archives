@@ -34,10 +34,8 @@ export function DeckToolsNav({
             href={`/decks/${deckId}${tool.path}`}
             aria-current={active === tool.id ? "page" : undefined}
             className={cn(
-              "rounded-md border px-3 py-2 text-sm transition",
-              active === tool.id
-                ? "border-cyan-700 bg-cyan-950/60 text-cyan-100"
-                : "border-[#2a332d] bg-[#0d1210] text-stone-300 hover:border-cyan-900 hover:text-cyan-100",
+              "deck-workspace-button",
+              active === tool.id ? "deck-workspace-primary" : "",
             )}
           >
             {tool.label}

@@ -1,5 +1,14 @@
 # Resumable work checkpoint
 
+## Deck builder workspace in progress, 2026-09-22
+
+- User-approved #288 and #291 both merged, ending at main `5a8b77ce59af9ba34028dfd46f8e9046edbc3379`. Resolved #283/#289/#267/#290/#292/#293 are closed with notes. Refreshed #291 CI run 35750031622 passed; final main publication 35750201468 completed successfully. No production deployment. The earlier pending merge record is historical.
+- Active branch `feat/deck-builder-workspace`, first coherent portion of #268. Compact builder identity, collapsed art/coverage, direct Add/Paste, native options/selection dialogs and same-deck tool returns. Capability map: docs/DECK_BUILDER_WORKSPACE.md. No new merge approval.
+- Baseline at 1366x768: builder y=629, barely any card content in the first screen (ignored decks-before.png). 577 units passed after adapting old source assertions to the new controls. Initial build guard incorrectly expected a nested dialog as an RSC entry; corrected to the actual DeckListEditor/DeckActionPanels entries. Updated Windows/Linux builds pending.
+- New disposable browser fixture added for actual card addition, safe delete cancellation, selection, keyboard focus, task return links, views, permissions, themes and reflow. Pending: deploy Docker, new/affected and full browser checks, screenshot inspection, cleanup, final commit/PR and review-build record.
+- No outstanding product question. #268 remains open for library and deeper playtest organization after this first batch. Known #220/#260/#280 stay unresolved. Next safe step: finish builds, deploy with local/capture-only SMTP overlays, validate and open the review PR.
+
+
 ## Approved Imports / Locations release and Decks start, 2026-09-22
 
 - User explicitly approved both open PRs #288 and #291, then authorized the recommended Decks builder/navigation batch under #268. Future PRs still require separate approval.
