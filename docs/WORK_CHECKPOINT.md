@@ -1,5 +1,12 @@
 # Resumable work checkpoint
 
+## Deck library workspace paused, 2026-09-22
+
+- Branch `feat/deck-library-workspace` is clean at commit `535b87a` (`Record deck library browser verification`), pushed to origin, with PR [#295](https://github.com/sefaction/MTG-Archives/pull/295) open and awaiting review. It is not merge-approved.
+- This batch adds a visible Deck library control region, result summary, primary `+ New deck` entry point, accessible Table/Cards pressed state, controlled create disclosure, and actionable empty results with Clear filters / New deck recovery. Existing search, folder, tag, bracket, ownership, read-only, and server-action behavior is preserved.
+- Verification completed: focused deck source test plus full `npm run verify:core` passed with **578 tests**, typecheck, production build, and client manifest guards. Docker image `sha256:e38e7bb62f1baeea746074f78a44c412363aa5483b4a5c180687761084ca2868` is loaded locally; compose web service is healthy and `/login` returned HTTP 200. Focused Decks browser run passed **7/7** (`decks-brackets`, analysis, sample hands, playtest) after renaming the new top action to `Create deck` to preserve the existing `+ New deck` locator.
+- Next safe step: user review of PR #295; merge only after the user's separate approval. After merge, continue #268 with deeper playtest/grouping work.
+
 ## Deck builder workspace ready for review, 2026-09-22
 
 - User-approved #288 and #291 merged in dependency order, ending at main `5a8b77ce59af9ba34028dfd46f8e9046edbc3379`. Resolved #283/#289/#267/#290/#292/#293 are closed with notes. Refreshed #291 CI 35750031622 and main publication 35750201468 passed. No production deployment.

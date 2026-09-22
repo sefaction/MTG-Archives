@@ -358,6 +358,7 @@ export function DeckWorkspace({
   const [editingDeck, setEditingDeck] = useState<DeckWorkspaceDeck | null>(
     null,
   );
+  const [createDeckOpen, setCreateDeckOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const folderById = useMemo(
@@ -588,48 +589,68 @@ export function DeckWorkspace({
 
   return (
     <div className="space-y-4">
-      <section className="space-y-4 rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+      <section
+        className="space-y-4 rounded-xl border border-zinc-800 bg-zinc-950/60 p-4"
+        aria-label="Deck library controls"
+      >
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex flex-1 flex-wrap items-center gap-2">
-            <label className="min-w-60 flex-1">
-              <span className="sr-only">Search decks</span>
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search decks, folders, formats, or tags"
-                className={cn(filterInputClass, "w-full")}
-              />
-            </label>
-            {(search ||
-              includedTagIds.length ||
-              excludedTagIds.length ||
-              includedBrackets.length ||
-              excludedBrackets.length ||
-              folderFilter !== ALL_FOLDERS) && (
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <h2 className="text-lg font-semibold text-zinc-100">
+                Deck library
+              </h2>
+              <span className="text-sm text-zinc-500">
+                {filteredDecks.length} visible of {decks.length}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="min-w-60 flex-1">
+                <span className="sr-only">Search decks</span>
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search decks, folders, formats, or tags"
+                  className={cn(filterInputClass, "w-full")}
+                />
+              </label>
+              {(search ||
+                includedTagIds.length ||
+                excludedTagIds.length ||
+                includedBrackets.length ||
+                excludedBrackets.length ||
+                folderFilter !== ALL_FOLDERS) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearch("");
+                    setIncludedTagIds([]);
+                    setExcludedTagIds([]);
+                    setIncludedBrackets([]);
+                    setExcludedBrackets([]);
+                    setFolderFilter(ALL_FOLDERS);
+                  }}
+                  className="rounded border border-zinc-700 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900"
+                >
+                  Clear all
+                </button>
+              )}
+              {!readOnly ? (
               <button
                 type="button"
-                onClick={() => {
-                  setSearch("");
-                  setIncludedTagIds([]);
-                  setExcludedTagIds([]);
-                  setIncludedBrackets([]);
-                  setExcludedBrackets([]);
-                  setFolderFilter(ALL_FOLDERS);
-                }}
-                className="rounded border border-zinc-700 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900"
+                onClick={() => setCreateDeckOpen(true)}
+                className={filterPrimaryButtonClass}
               >
-                Clear all
+                Create deck
               </button>
-            )}
+              ) : null}
+            </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-zinc-500">
-              {filteredDecks.length} of {decks.length}
-            </span>
             <div className="inline-flex rounded border border-zinc-700 p-0.5">
               <button
                 type="button"
                 onClick={() => chooseView("table")}
+                aria-pressed={viewMode === "table"}
                 className={cn(
                   "rounded px-3 py-1.5 text-sm",
                   viewMode === "table"
@@ -642,6 +663,7 @@ export function DeckWorkspace({
               <button
                 type="button"
                 onClick={() => chooseView("cards")}
+                aria-pressed={viewMode === "cards"}
                 className={cn(
                   "rounded px-3 py-1.5 text-sm",
                   viewMode === "cards"
@@ -693,7 +715,11 @@ export function DeckWorkspace({
       </section>
 
       {!readOnly ? (
-        <details className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+        <details
+          open={createDeckOpen}
+          onToggle={(event) => setCreateDeckOpen(event.currentTarget.open)}
+          className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4"
+        >
           <summary className="cursor-pointer font-semibold text-sky-100">
             + New deck
           </summary>
@@ -1127,7 +1153,40 @@ export function DeckWorkspace({
                         colSpan={showOwner ? 9 : 8}
                         className="p-8 text-center text-zinc-500"
                       >
-                        No decks match these filters.
+                        <div className="mx-auto max-w-md space-y-3">
+                          <p className="font-medium text-zinc-300">
+                            No decks match these filters.
+                          </p>
+                          <p>
+                            Clear the filters or create a new deck to start
+                            building your library.
+                          </p>
+                          <div className="flex flex-wrap justify-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSearch("");
+                                setIncludedTagIds([]);
+                                setExcludedTagIds([]);
+                                setIncludedBrackets([]);
+                                setExcludedBrackets([]);
+                                setFolderFilter(ALL_FOLDERS);
+                              }}
+                              className="rounded border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-900"
+                            >
+                              Clear filters
+                            </button>
+                            {!readOnly ? (
+                              <button
+                                type="button"
+                                onClick={() => setCreateDeckOpen(true)}
+                                className={filterPrimaryButtonClass}
+                              >
+                                + New deck
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
                       </td>
                     </tr>
                   ) : null}

@@ -100,3 +100,12 @@ test("folder paths and the compact new deck form are supplied to the workspace",
   assert.match(deckWorkspace, /action=\{createDeck\}/);
   assert.match(deckWorkspace, /name="bracket"/);
 });
+
+test("deck library controls keep creation and empty results actionable", () => {
+  assert.match(deckWorkspace, /aria-label="Deck library controls"/);
+  assert.match(deckWorkspace, /<h2 className="text-lg font-semibold text-zinc-100">/);
+  assert.match(deckWorkspace, /const \[createDeckOpen, setCreateDeckOpen\]/);
+  assert.match(deckWorkspace, /onClick=\{\(\) => setCreateDeckOpen\(true\)\}/);
+  assert.match(deckWorkspace, /aria-pressed=\{viewMode === "table"\}/);
+  assert.match(deckWorkspace, /Clear the filters or create a new deck/);
+});
