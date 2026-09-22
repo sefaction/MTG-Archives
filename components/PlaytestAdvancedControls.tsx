@@ -202,7 +202,11 @@ export function PlaytestAdvancedControls({
       className="app-panel space-y-3 p-3"
       aria-label="Advanced playtest tools"
     >
-      <div className="flex flex-wrap items-end gap-3">
+      <div>
+        <h2 className="text-sm font-semibold text-[var(--app-text)]">
+          Battlefield workspace
+        </h2>
+        <div className="mt-2 flex flex-wrap items-end gap-3">
         <label className="text-xs">
           Battlefield layout
           <select
@@ -233,27 +237,32 @@ export function PlaytestAdvancedControls({
           card&apos;s arrow keys, or Edit details → position. The tabletop
           scrolls on small screens.
         </p>
+        </div>
       </div>
       <div
-        className="flex flex-wrap items-center gap-2"
+        className="space-y-2 border-t border-[var(--app-border)] pt-3"
         aria-label="Selected card actions"
       >
-        <span className="text-xs">{validSelected.length} selected</span>
-        <select
-          aria-label="Move selected cards to"
-          className={filterSelectClass}
-          value={destination}
-          onChange={(event) =>
-            setDestination(event.target.value as PlaytestZone)
-          }
-        >
-          {PLAYTEST_ZONES.map((zone) => (
-            <option key={zone} value={zone}>
-              {labels[zone]}
-            </option>
-          ))}
-        </select>
-        <button
+        <h2 className="text-sm font-semibold text-[var(--app-text)]">
+          Selected cards
+        </h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs">{validSelected.length} selected</span>
+          <select
+            aria-label="Move selected cards to"
+            className={filterSelectClass}
+            value={destination}
+            onChange={(event) =>
+              setDestination(event.target.value as PlaytestZone)
+            }
+          >
+            {PLAYTEST_ZONES.map((zone) => (
+              <option key={zone} value={zone}>
+                {labels[zone]}
+              </option>
+            ))}
+          </select>
+          <button
           type="button"
           disabled={!validSelected.length}
           className={button}
@@ -267,8 +276,8 @@ export function PlaytestAdvancedControls({
           }}
         >
           Move selected
-        </button>
-        <button
+          </button>
+          <button
           type="button"
           disabled={!validSelected.length}
           className={button}
@@ -278,15 +287,16 @@ export function PlaytestAdvancedControls({
           }}
         >
           Shuffle selected into library
-        </button>
-        <button
+          </button>
+          <button
           type="button"
           disabled={!validSelected.length}
           className={button}
           onClick={clearSelection}
         >
           Clear selection
-        </button>
+          </button>
+        </div>
       </div>
       <details>
         <summary className="cursor-pointer py-2 text-sm text-[var(--app-link)]">

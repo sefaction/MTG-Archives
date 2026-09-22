@@ -638,7 +638,10 @@ export function PlaytestSandbox({
                 </p>
               </div>
             </div>
-            <div className="flex flex-wrap gap-1.5">
+            <div
+              className="flex flex-wrap gap-1.5"
+              aria-label="Frequent playtest actions"
+            >
               <button
                 type="button"
                 onClick={() => dispatch({ type: "DRAW", count: 1 })}
