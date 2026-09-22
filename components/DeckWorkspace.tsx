@@ -635,13 +635,13 @@ export function DeckWorkspace({
                 </button>
               )}
               {!readOnly ? (
-                <button
-                  type="button"
-                  onClick={() => setCreateDeckOpen(true)}
-                  className={filterPrimaryButtonClass}
-                >
-                  + New deck
-                </button>
+              <button
+                type="button"
+                onClick={() => setCreateDeckOpen(true)}
+                className={filterPrimaryButtonClass}
+              >
+                Create deck
+              </button>
               ) : null}
             </div>
           </div>

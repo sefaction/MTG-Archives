@@ -1,5 +1,12 @@
 # Resumable work checkpoint
 
+## Deck library workspace paused, 2026-09-22
+
+- User asked to pause before opening the next PR. Branch `feat/deck-library-workspace` is clean at commit `fa1738f` (`Improve deck library entry points`); no PR has been opened or pushed for this batch yet.
+- This batch adds a visible Deck library control region, result summary, primary `+ New deck` entry point, accessible Table/Cards pressed state, controlled create disclosure, and actionable empty results with Clear filters / New deck recovery. Existing search, folder, tag, bracket, ownership, read-only, and server-action behavior is preserved.
+- Verification completed: focused deck source test plus full `npm run verify:core` passed with **578 tests**, typecheck, production build, and client manifest guards. Docker image built and loaded locally as `sha256:11bd370e6c8adbaff6b1bfef1e9f8bb3297ac4ac9ae0d571c7caf7cfbdc4c597`; compose web service was recreated healthy and `/login` returned HTTP 200.
+- Next safe step after resume: run the focused Decks browser cases against `http://127.0.0.1:13001` (especially `tests/ui/decks-brackets.spec.ts` and the builder/navigation fixtures), inspect the library at desktop/phone widths, then update durable project notes, push the branch, and open one PR for this coherent #268 portion. Do not merge it without separate user approval.
+
 ## Deck builder workspace ready for review, 2026-09-22
 
 - User-approved #288 and #291 merged in dependency order, ending at main `5a8b77ce59af9ba34028dfd46f8e9046edbc3379`. Resolved #283/#289/#267/#290/#292/#293 are closed with notes. Refreshed #291 CI 35750031622 and main publication 35750201468 passed. No production deployment.
