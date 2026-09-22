@@ -223,11 +223,24 @@ test("Imports separates tasks and preserves upload, review, commit, history and 
     await expect(dialog).toHaveCount(0);
     await expect(summary).toContainText("120 ready rows · 361 copies");
     expect(new URL(page.url()).searchParams.get("q")).toBe("Forest");
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: "test-results/imports-review-top.png" });
     await page
       .getByRole("link", { name: "Review & commit", exact: true })
       .click();
     await expect(commit).toBeVisible();
     expect((await summary.boundingBox())!.height).toBeLessThan(160);
+    page.once("dialog", async (dialog) => {
+      expect(dialog.message()).toContain(
+        "361 physical copies from 120 ready rows",
+      );
+      expect(dialog.message()).not.toContain("{selection}");
+      await dialog.dismiss();
+    });
+    await commit
+      .getByRole("button", { name: "Commit Import", exact: true })
+      .click();
+    expect(total()).toBe(7);
 
     for (const width of [1366, 1440, 390, 320]) {
       await page.setViewportSize({ width, height: 900 });
