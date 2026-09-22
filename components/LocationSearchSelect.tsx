@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 import { cn, filterInputClass, filterSelectClass } from "./filterStyles";
 
 type Option = { id: string; name: string };
@@ -31,6 +31,14 @@ export function LocationSearchSelect({
   const [query, setQuery] = useState("");
   const [localValue, setLocalValue] = useState(defaultValue);
   const selectedId = value ?? localValue;
+  const selectRef = useRef<HTMLSelectElement>(null);
+  useLayoutEffect(() => {
+    // Server actions reset native forms after saving. Keep the browser's reset
+    // target aligned with this controlled selection instead of the empty option.
+    for (const option of selectRef.current?.options ?? []) {
+      option.defaultSelected = option.value === selectedId;
+    }
+  }, [selectedId, locations, query]);
   const selected = locations.find((location) => location.id === selectedId);
   const matches = locations.filter((location) =>
     location.name
@@ -56,6 +64,7 @@ export function LocationSearchSelect({
         className={cn(filterInputClass, "w-full")}
       />
       <select
+        ref={selectRef}
         id={id}
         name={name}
         value={selectedId}

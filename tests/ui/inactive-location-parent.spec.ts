@@ -91,6 +91,19 @@ test("inactive child metadata preserves its parent and supports explicit reparen
         `return (await p.inventoryLocation.findUniqueOrThrow({where:{id:${quote(fixture.child)}}})).parentLocationId;`,
       ),
     ).toBe(fixture.destination);
+    await editor
+      .getByLabel("Description", { exact: true })
+      .fill("Second metadata save");
+    await editor
+      .getByRole("button", { name: "Save location", exact: true })
+      .click();
+    await expect(detail).toContainText("Second metadata save");
+    await expect(parent).toHaveValue(fixture.destination);
+    expect(
+      database<string>(
+        `return (await p.inventoryLocation.findUniqueOrThrow({where:{id:${quote(fixture.child)}}})).parentLocationId;`,
+      ),
+    ).toBe(fixture.destination);
     await parent.selectOption("");
     await editor
       .getByLabel("Description", { exact: true })
