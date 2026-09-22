@@ -15,21 +15,21 @@ test("import upload redirects directly to the active review workspace", () => {
 test("import page surfaces recent batches near upload controls", () => {
   assert.match(source, /New CSV import/);
   assert.match(source, /Recent imports/);
-  assert.match(source, /href="#import-history"/);
+  assert.match(source, /href="\/imports\?view=history#import-history"/);
   assert.match(source, /id="import-history"/);
 });
 
-test("import commit action is kept in the sticky command bar", () => {
+test("compact sticky summary links to one explicit commit workspace", () => {
   assert.match(source, /sticky top-2/);
   assert.match(source, /Commit Ready Cards/);
-  assert.equal((source.match(/action=\{confirmImport\}/g) ?? []).length, 2);
-  assert.match(source, /action=\{confirmImport\}\s+className="hidden"/);
+  assert.equal((source.match(/action=\{confirmImport\}/g) ?? []).length, 1);
+  assert.match(source, /id="import-commit"/);
 });
 
-test("import confirmation uses the selected destination location", () => {
+test("import confirmation distinguishes physical copies and ready rows", () => {
   assert.match(
     source,
-    /confirmMessage=\{[\s\S]*?ready rows to \{selection\}\?[\s\S]*?confirmSelectionName="destinationLocationId"/,
+    /confirmMessage=\{`Commit \$\{readyCopyCount\} physical copies from \$\{summary.readyToCommit\} ready rows/,
   );
 });
 
@@ -42,9 +42,9 @@ test("inventory imports accept an on-demand section for a whole batch or CSV row
   );
 });
 
-test("import maintenance keeps single add collapsed and exposes history cleanup", () => {
-  assert.match(source, /title="Add single card"/);
-  assert.match(source, /storageKey="imports-single-card-add"/);
+test("import maintenance and manual add have separate task homes", () => {
+  assert.match(source, /workspaceView === "add"/);
+  assert.match(source, /workspaceView === "history"/);
   assert.match(source, /Undo most recent import/);
   assert.match(source, /Clear all import history/);
   assert.match(source, /Clear this history/);

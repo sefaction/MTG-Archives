@@ -930,6 +930,9 @@ a:hover {
 .locations-page [data-location-picker] option {
   padding: 0.3rem;
 }
+.imports-workspace [class*="text-[var(--app-accent-contrast)]"] {
+  color: var(--app-text);
+}
 .locations-page [class*="text-[var(--app-accent-contrast)]"],
 .locations-page
   :is(

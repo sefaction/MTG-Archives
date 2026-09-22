@@ -346,7 +346,7 @@ test("vault creation, multi-selection fill, advisory overflow, refreshed occupan
     await expect(selected).toHaveCount(2);
     await expect(checked).toHaveCount(0);
     await page.goto("/imports");
-    await page.getByRole("button", { name: /Add single card/ }).click();
+    await page.getByRole("link", { name: "Add card", exact: true }).click();
     const manualPicker = page.getByTestId("storage-destination").first();
     await manualPicker
       .getByRole("button", { name: "Change", exact: true })

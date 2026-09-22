@@ -268,7 +268,7 @@ test("guided storage copies type defaults, preserves overrides and placements, a
 
     // Wizard reflow with actual defaults, including large text and the light theme.
     await page.goto("/imports");
-    await page.getByRole("button", { name: /^Add single card/ }).click();
+    await page.getByRole("link", { name: "Add card", exact: true }).click();
     const importPicker = page
       .locator('[data-testid="storage-destination"]:visible')
       .first();
