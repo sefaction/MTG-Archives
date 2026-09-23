@@ -1,5 +1,11 @@
 # Resumable work checkpoint
 
+## Reliability audits closed; occupancy PR remains open, 2026-09-22
+
+- Issue [#280](https://github.com/sefaction/MTG-Archives/issues/280) is closed after focused deck-analysis repetition passed **40/40** and the full gate passed **579 unit tests, build/manifest guards, and 49/49 serial browser cases**. The existing remote-image path, private 404 assertion and narrow layout checks remain intact; no timeout or reload workaround was added.
+- Issue [#220](https://github.com/sefaction/MTG-Archives/issues/220) is also closed after its 40/40 repeated filter audit and the existing document-navigation mitigation in PR #221. PR [#297](https://github.com/sefaction/MTG-Archives/pull/297) for #260 remains open and unmerged by user direction.
+- Next safe step: reconcile PR #297 checks and await the user's approval before merging the occupancy fix. No additional reliability code change is pending from the #220/#280 audits.
+
 ## Playtest organization started, 2026-09-22
 
 - PR #295 was user-approved and merged into main as `fb9e2cd`. Branch `feat/deck-playtest-organization` now starts from that merged main.
