@@ -24,6 +24,6 @@ test("anonymous public navigation keeps public destinations and login", () => {
 test("all public index surfaces share authentication-aware navigation", () => {
   for (const source of [publicHome, publicInventory, publicDecks]) {
     assert.match(source, /import \{ PublicNav \}/);
-    assert.match(source, /<PublicNav \/>/);
+    assert.match(source, /<PublicNav active=/);
   }
 });

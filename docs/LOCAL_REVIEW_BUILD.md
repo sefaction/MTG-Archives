@@ -1,5 +1,14 @@
 # Local review build — cumulative issue queue
 
+## Autonomous batch 2: Dashboard, Pricing and Public, 2026-09-23
+
+- Application `5559c2c`, branch `feat/browse-pricing-workspaces`, stacked on import-integrity PR #316 (`751cdc4`). Review #316 first, then this batch; acquisition docs PR #315 remains separate.
+- Healthy cumulative web image `sha256:66b5768b270143443821abd80e478618b3cc2d78a209f33f7b55f6b0808198a0`, same local/capture-only SMTP Compose overlays. Workers unchanged.
+- Review `/dashboard`, `/pricing` (Collection value, Market movers, Data status), `/public/inventory` and `/public/decks`. Public context/active tabs and authenticated return are explicit. Pricing keeps historical context when applying filters; current USD estimates exclude other currencies and label missing coverage. Shared deck results and price tables scroll within bounded keyboard regions.
+- 582 units, typecheck, production build/seven manifest guards passed. New comprehensive browser case passed before and after final summary-label refinement; four affected Deck/Inventory cases passed. Six themes, enlarged text, 1366/390/320px, anonymous/authenticated scope and synthetic EUR/missing/zero prices covered. No production-scale pricing/deck-query benchmark claimed.
+- No merge, issue closure, schema change, acquisition implementation or playtest work. #271/#317/#318 stay open until approved merge.
+
+
 ## Autonomous batch 1: import integrity, 2026-09-23
 
 - Local review: http://127.0.0.1:13001/imports. Application `8a3279c`, branch `fix/import-commit-integrity`, main base `bfb7be8`; PR publication/CI tracked in WORK_CHECKPOINT.md. Acquisition docs PR #315 is separate and not in this image.

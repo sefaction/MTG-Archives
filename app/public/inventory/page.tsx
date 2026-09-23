@@ -458,16 +458,15 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
   const clearFiltersHref = `/public/inventory?${clearFilterParams.toString()}`;
 
   return (
-    <main className="p-8 space-y-6">
-      <PublicNav />
+    <main className="min-w-0 space-y-4 p-4 sm:p-8">
+      <PublicNav active="inventory" />
 
       <header className="space-y-2">
         <h1 className="text-3xl font-bold">Public inventory</h1>
         <p className="text-zinc-400">
-          Browse public cards from all collections that opted in. Showing{" "}
-          {result.visibleCards} public cards on this page. Private users,
-          locations, quantities, imports, and audit logs are excluded
-          server-side.
+          Browse shared cards across public collections. Showing{" "}
+          {result.visibleCards} public copies on this page. Private cards and
+          storage stay hidden.
         </p>
       </header>
 

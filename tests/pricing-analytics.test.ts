@@ -16,7 +16,7 @@ test("pricing analytics page and navigation are wired", () => {
   assert.match(pricingPage, /getPricingDashboard/);
   assert.match(pricingPage, /enrichMovers/);
   assert.match(pricingPage, /prisma\.card\.findMany/);
-  assert.match(pricingPage, /separate pricing database/);
+  assert.match(pricingPage, /Historical scope/);
   assert.match(pricingPage, /Market movers/);
   assert.match(pricingPage, /Data status/);
   assert.match(pricingPage, /getCollectionValueSummary/);

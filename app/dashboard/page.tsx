@@ -94,7 +94,7 @@ export default async function DashboardPage({
   ]);
 
   return (
-    <main className="p-8 space-y-6">
+    <main className="min-w-0 space-y-4 p-4 sm:p-8">
       <Nav />
       <div>
         <h1 className="text-3xl font-bold">
@@ -102,7 +102,7 @@ export default async function DashboardPage({
         </h1>
         <p className="text-zinc-400">
           {adminModeActive
-            ? "A global view of users, inventory, and open trade activity."
+            ? "Your collection summary, with a separate system overview below."
             : "A quick view of your MTG inventory and open trade activity."}
         </p>
       </div>
@@ -117,34 +117,30 @@ export default async function DashboardPage({
           browsing remains available.
         </p>
       ) : null}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-        {[
-          ["Unique entries", uniqueEntries],
-          ["Physical cards", physicalCards._sum.quantity ?? 0],
-          ["Foil cards", foilCards._sum.quantity ?? 0],
-          ["Incoming proposals", incomingTrades],
-          ["Outgoing open trades", outgoingTrades],
-        ].map(([label, value]) => (
-          <div
-            key={String(label)}
-            className="rounded border border-zinc-800 p-4"
-          >
-            <p className="text-sm text-zinc-400">{label}</p>
-            <p className="text-2xl font-bold">{String(value)}</p>
-          </div>
-        ))}
-      </div>
-      <section className="grid gap-3 md:grid-cols-4">
-        <Link
-          className="rounded border border-cyan-800 bg-cyan-950/20 p-4"
-          href="/league"
-        >
-          <h2 className="font-semibold text-cyan-100">Commander League</h2>
-          <p className="text-sm text-zinc-400">
-            Enter the separate league workspace for games, standings, frozen
-            decks, and card statistics.
-          </p>
-        </Link>
+      <section aria-label="Your collection and trades" className="space-y-2">
+        <h2 className="font-semibold">Your collection and trades</h2>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+          {[
+            ["Unique entries", uniqueEntries],
+            ["Physical cards", physicalCards._sum.quantity ?? 0],
+            ["Foil cards", foilCards._sum.quantity ?? 0],
+            ["Incoming proposals", incomingTrades],
+            ["Outgoing open trades", outgoingTrades],
+          ].map(([label, value]) => (
+            <div
+              key={String(label)}
+              className="rounded border border-zinc-800 p-4"
+            >
+              <p className="text-sm text-zinc-400">{label}</p>
+              <p className="text-2xl font-bold">{String(value)}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+      <section
+        aria-label="Collection tasks"
+        className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
+      >
         <Link className="rounded border border-zinc-800 p-4" href="/inventory">
           <h2 className="font-semibold">Inventory</h2>
           <p className="text-sm text-zinc-400">
@@ -154,13 +150,22 @@ export default async function DashboardPage({
         <Link className="rounded border border-zinc-800 p-4" href="/imports">
           <h2 className="font-semibold">Import</h2>
           <p className="text-sm text-zinc-400">
-            Upload CSV collection files backed by Scryfall matching.
+            Upload a CSV, review matches, and add cards.
           </p>
         </Link>
         <Link className="rounded border border-zinc-800 p-4" href="/trades">
           <h2 className="font-semibold">Trades</h2>
           <p className="text-sm text-zinc-400">
             Create and respond to user-to-user trade proposals.
+          </p>
+        </Link>
+        <Link
+          className="rounded border border-cyan-800 bg-cyan-950/20 p-4"
+          href="/league"
+        >
+          <h2 className="font-semibold text-cyan-100">Commander League</h2>
+          <p className="text-sm text-zinc-400">
+            Open standings, record games, and browse League decks.
           </p>
         </Link>
         <Link
@@ -194,8 +199,7 @@ export default async function DashboardPage({
           </ul>
         ) : (
           <p className="text-sm text-zinc-400">
-            No inventory entries yet. Use Import or admin inventory tools to add
-            cards.
+            No inventory entries yet. Use Import to upload a CSV or add cards.
           </p>
         )}
       </section>

@@ -5,8 +5,8 @@ export const dynamic = "force-dynamic";
 
 export default function PublicHomePage() {
   return (
-    <main className="p-8 space-y-6">
-      <PublicNav />
+    <main className="min-w-0 space-y-4 p-4 sm:p-8">
+      <PublicNav active="home" />
       <section className="rounded border border-zinc-800 p-6 space-y-4">
         <h1 className="text-3xl font-bold">Public collections</h1>
         <p className="text-zinc-300">
