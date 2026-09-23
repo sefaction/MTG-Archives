@@ -1,5 +1,8 @@
 # Real Inventory workspace pilot
 
+For current acceptance, review dependencies and reliability status, see [UI acceptance status](UI_ACCEPTANCE_STATUS.md). Historical follow-up statements below are superseded by that dated reconciliation and live GitHub.
+
+
 Approved sequence, 2026-09-21: shared sidebar and real Inventory, then real Locations, cumulative local Docker review. This is the first application batch after the synthetic design in PR #276. Individual PR merge approval is still required.
 
 Review feedback in stacked PR #279 adds **Settings > Appearance > Main menu layout**: Sidebar (default) or Topbar, saved to the signed-in account through the existing Save settings action. It applies across Archive pages and fresh device sessions without changing other users. Both use the same navigation links, route highlighting, permissions and utility actions; phones retain the same Menu, and the separate League shell remains independent. The additive User column defaults existing accounts to Sidebar; missing/invalid values normalize to Sidebar. No browser-storage preference is required.

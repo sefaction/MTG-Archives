@@ -1,5 +1,8 @@
 # Browse-first Locations
 
+For current acceptance, review dependencies and reliability status, see [UI acceptance status](UI_ACCEPTANCE_STATUS.md). Historical follow-up statements below are superseded by that dated reconciliation and live GitHub.
+
+
 Issue: #266. Built on the released Inventory shell (`eab4272`). No schema migration or storage placement rewrite.
 
 ## Capability homes

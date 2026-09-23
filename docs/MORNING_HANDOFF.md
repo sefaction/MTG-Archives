@@ -1,5 +1,14 @@
 # Morning handoff - 2026-09-23
 
+## Latest update: user-requested pause, 11:42 UTC
+
+Administration is now complete in [PR #324](https://github.com/sefaction/MTG-Archives/pull/324), with both CI jobs green and focused browser/PostgreSQL validation passed. Review order is **#316 -> #320 -> #322 -> #324**. All four batches are in the healthy local build at http://127.0.0.1:13001, image `sha256:09053d1ce741b62d1372c7cc0bad41f52c6302d84fbc9e4c44cb9cd04b86ff70`. Nothing merged.
+
+User requested a pause for laptop shutdown. Full combined regression was stopped after 29 passing cases; no complete-suite result is claimed. Fixtures cleaned, 12,477 physical copies retained. Acceptance reconciliation is saved on `docs/ui-acceptance-reconciliation`, with no PR yet. Resume by reconciling services and rerunning the full suite; then publish the acceptance documentation. See WORK_CHECKPOINT.md for exact recovery state and UI_ACCEPTANCE_STATUS.md for remaining manual review gates.
+
+The original morning report below is historical; its Administration-in-progress status has been superseded.
+
+
 Three new PRs are ready for review. Review in this dependency order:
 
 1. [#316 - CSV import integrity](https://github.com/sefaction/MTG-Archives/pull/316): atomic, retry-safe commits, complete audit history and guarded undo. Addresses #301.
