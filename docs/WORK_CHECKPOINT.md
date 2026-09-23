@@ -1,5 +1,11 @@
 # Resumable work checkpoint
 
+## Account and settings navigation ready for review, 2026-09-23
+
+- Branch `feat/account-settings-navigation` is at `569324e` for #270. The shared navigation now groups Settings, Password, Email delivery and Webhooks under “Account & settings”; existing routes, save scopes, delivery semantics and session behavior are unchanged.
+- Verification passed: typecheck, 579 unit tests, production Docker build and client-manifest guards, focused navigation/notification/email browser coverage **3/3**, healthy compose web and `/login` HTTP 200. Local image is `sha256:f3470c343c3e47479670998a2b61bbad993b197726a92ede58750f7e89730fb0`.
+- Next safe step: push this branch and open a review PR for #270. Do not merge without separate user approval. PRs #297 and #298 remain open and unmerged.
+
 ## Playtest organization started, 2026-09-22
 
 - PR #295 was user-approved and merged into main as `fb9e2cd`. Branch `feat/deck-playtest-organization` now starts from that merged main.
