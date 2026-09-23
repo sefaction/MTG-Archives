@@ -1487,6 +1487,7 @@ export function InventoryBrowser({
         skippedEntries: number;
         destinationLocationName: string;
         sourceLocationName?: string;
+        refreshedLocations?: StorageLocation[];
       }
     | { success: false; message: string }
   >;
@@ -1580,10 +1581,15 @@ export function InventoryBrowser({
     initialBrowsingMode,
   );
   const [loadedRows, setLoadedRows] = useState<InventoryRow[]>(rows);
+  const [liveStorageLocations, setLiveStorageLocations] =
+    useState<StorageLocation[]>(storageLocations);
   const [infiniteHasNextPage, setInfiniteHasNextPage] = useState(hasNextPage);
   const [nextInfinitePage, setNextInfinitePage] = useState(currentPage + 1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadMoreError, setLoadMoreError] = useState("");
+  useEffect(() => {
+    setLiveStorageLocations(storageLocations);
+  }, [storageLocations]);
   const queryKey = useMemo(
     () =>
       JSON.stringify({
@@ -1667,7 +1673,7 @@ export function InventoryBrowser({
           (row.sourceItemIds ?? [row.id]).some((id) => selectedItemIds.has(id)),
         )
         .reduce((sum, row) => sum + row.quantity, 0);
-  const currentVault = storageLocations.find(
+  const currentVault = liveStorageLocations.find(
     (location) =>
       location.id === currentLocationId &&
       (location.defaultSectionNames?.length ??
@@ -1692,14 +1698,14 @@ export function InventoryBrowser({
         (stack.section ?? "") === bulkSection.trim(),
     )
     .reduce((sum, stack) => sum + stack.quantity, 0);
-  const destinationRoom = storageLocations
+  const destinationRoom = liveStorageLocations
     .find((l) => l.id === bulkDestinationLocationId)
     ?.sections.find((s) => s.name === bulkSection)?.capacity;
   const currentOccupancy =
-    storageLocations
+    liveStorageLocations
       .find((l) => l.id === bulkDestinationLocationId)
       ?.sections.find((s) => s.name === bulkSection)?.quantity ?? 0;
-  const moveDestination = storageLocations.find(
+  const moveDestination = liveStorageLocations.find(
     (location) => location.id === bulkDestinationLocationId,
   );
   const locationRoom =
@@ -1736,7 +1742,7 @@ export function InventoryBrowser({
     quantityMode !== "all" &&
     (!Number.isSafeInteger(Number(effectiveMoveLimit)) ||
       Number(effectiveMoveLimit) < 1);
-  const destinationName = storageLocations.find(
+  const destinationName = liveStorageLocations.find(
     (location) => location.id === bulkDestinationLocationId,
   )?.name;
   const moveDisabled =
@@ -2682,6 +2688,19 @@ export function InventoryBrowser({
                     setMessage(
                       `Moved ${result.movedCards} cards across ${result.movedEntries} entries to ${result.destinationLocationName}${bulkSection ? ` / ${bulkSection}` : " (no section)"}.`,
                     );
+                    if (result.refreshedLocations?.length) {
+                      setLiveStorageLocations((current) => {
+                        const refreshed = new Map(
+                          result.refreshedLocations!.map((location) => [
+                            location.id,
+                            location,
+                          ]),
+                        );
+                        return current.map(
+                          (location) => refreshed.get(location.id) ?? location,
+                        );
+                      });
+                    }
                     clearSelection();
                     rememberScrollPosition();
                     router.refresh();
@@ -2729,7 +2748,7 @@ export function InventoryBrowser({
                   </div>
                   <div className="grid items-start gap-6 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
                     <StorageDestinationPicker
-                      locations={storageLocations}
+                      locations={liveStorageLocations}
                       locationId={bulkDestinationLocationId}
                       onLocationChange={(id) => {
                         setBulkDestinationLocationId(id);
