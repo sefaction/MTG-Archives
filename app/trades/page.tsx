@@ -422,7 +422,13 @@ function TradeDeskLane({
           ))
         ) : (
           <div className="rounded-lg border border-dashed border-zinc-800 px-3 py-8 text-center text-sm text-zinc-500">
-            {emptyMessage}
+            <p>{emptyMessage}</p>
+            <a
+              href="#trade-builder"
+              className={cn(filterPrimaryButtonClass, "mt-3 inline-flex")}
+            >
+              Open proposal builder
+            </a>
           </div>
         )}
       </div>

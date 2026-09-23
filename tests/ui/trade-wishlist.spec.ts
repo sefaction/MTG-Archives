@@ -39,6 +39,14 @@ test("trade wishlist stays separate from the normal wishlist", async ({
   await expect(
     page.getByRole("heading", { level: 1, name: "Wishlist" }),
   ).toBeVisible();
+  const manualAdd = page.getByText("Add a manual wishlist card", {
+    exact: true,
+  });
+  await expect(manualAdd).toBeVisible();
+  const manualDisclosure = manualAdd.locator("xpath=ancestor::details[1]");
+  await expect(manualDisclosure).not.toHaveAttribute("open", "");
+  await manualAdd.click();
+  await expect(page.getByLabel("Card search")).toBeVisible();
   await expect(page.getByText("Trade wants")).toHaveCount(0);
   await expect(page.getByRole("option", { name: "Trade Wants" })).toHaveCount(
     0,
