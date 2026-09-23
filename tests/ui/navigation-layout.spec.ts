@@ -42,7 +42,33 @@ test("account navigation preference persists across sessions, isolates users and
     await login(page, tag);
     const shell = page.locator(".archive-shell");
     await expect(shell).toHaveAttribute("data-navigation-layout", "sidebar");
+    const rail = page.locator(".archive-rail");
+    await expect(rail.getByText("Preferences", { exact: true })).toBeVisible();
+    await expect(
+      rail.getByRole("link", { name: "Settings", exact: true }),
+    ).toHaveAttribute("href", "/settings");
+    await expect(
+      rail.getByRole("link", { name: "Password", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      rail.getByRole("link", { name: "Email delivery", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      rail.getByRole("link", { name: "Webhooks", exact: true }),
+    ).toHaveCount(0);
     await page.goto("/settings");
+    const accountOptions = page.getByRole("navigation", {
+      name: "Account and settings",
+    });
+    await expect(
+      accountOptions.getByRole("link", { name: "Password", exact: true }),
+    ).toHaveAttribute("href", "/change-password");
+    await expect(
+      accountOptions.getByRole("link", { name: "Email delivery", exact: true }),
+    ).toHaveAttribute("href", "/settings/email");
+    await expect(
+      accountOptions.getByRole("link", { name: "Webhooks", exact: true }),
+    ).toHaveAttribute("href", "/settings/webhooks");
     await expect(
       page.getByRole("radio", { name: "Sidebar", exact: true }),
     ).toBeChecked();

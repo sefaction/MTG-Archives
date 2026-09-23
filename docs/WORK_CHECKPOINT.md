@@ -1,5 +1,17 @@
 # Resumable work checkpoint
 
+## Account options moved under Settings, 2026-09-23
+
+- PR #299 for #270 is revised on branch `feat/account-settings-navigation` at `dd7c0f9`. The global navigation now exposes only Settings; the Settings workspace contains Password, Email delivery and Webhooks under `Account and settings`. Existing routes, save scopes, delivery semantics and session behavior are unchanged.
+- Verification passed: typecheck, 579 unit tests, production Docker build and client-manifest guards, focused navigation/notification/email browser coverage **3/3**, healthy compose web and `/login` HTTP 200. Local image is `sha256:d61f798630ff8256651b55c43e93a923c4159547d2a4a6d7ee1b44efff3c8ba9`.
+- Next safe step: keep PR #299 open for review; do not merge without separate user approval. PRs #297 and #298 remain open and unmerged.
+
+## Account and settings navigation ready for review, 2026-09-23
+
+- Branch `feat/account-settings-navigation` is at `569324e` for #270. The shared navigation now groups Settings, Password, Email delivery and Webhooks under “Account & settings”; existing routes, save scopes, delivery semantics and session behavior are unchanged.
+- Verification passed: typecheck, 579 unit tests, production Docker build and client-manifest guards, focused navigation/notification/email browser coverage **3/3**, healthy compose web and `/login` HTTP 200. Local image is `sha256:f3470c343c3e47479670998a2b61bbad993b197726a92ede58750f7e89730fb0`.
+- Next safe step: push this branch and open a review PR for #270. Do not merge without separate user approval. PRs #297 and #298 remain open and unmerged.
+
 ## Wishlist and Trade workspace ready for review, 2026-09-23
 
 - Branch `feat/wishlist-trade-workspace` is at `a6c6917` for #269. Wishlist results and filters now precede manual capture; quantity guidance and manual add are explicit collapsed tasks. Empty Trade Desk lanes link directly to the existing proposal builder and inventory searches. Wishlist/trade semantics, reservations, visibility and lifecycle actions are unchanged.
