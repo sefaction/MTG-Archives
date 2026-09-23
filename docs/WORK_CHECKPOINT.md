@@ -1,5 +1,10 @@
 # Resumable work checkpoint
 
+## Acceptance PR in review, 2026-09-23
+
+PR [#325](https://github.com/sefaction/MTG-Archives/pull/325) is open against #324. Initial Core and PostgreSQL CI passed (run 35932802802). Final serial browser 51/51 passed in 7.8 minutes on the healthy cumulative image; the test correction to Admin Users changed no app source. Route/action crosswalk: 34 page routes, 45 IDs. Fixture cleanup: zero `ui-*` users, 12,477 physical copies. Review order #316 -> #320 -> #322 -> #324 -> #325; independent acquisition planning #315 remains separate. No merge, issue closure or production deployment. Remaining manual user gates: final task usability, actual browser zoom/touch, comprehensive contrast/keyboard and role combinations. After this documentation checkpoint commit, recheck CI on the new PR head before calling it green.
+
+
 ## Acceptance validation complete locally, 2026-09-23
 
 Branch `docs/ui-acceptance-reconciliation` on cumulative Administration PR #324; no application source changes. The updated auth-session regression now opens Admin Users after #324 navigation; focused security lifecycle passed (34s). Final full serial browser suite passed **51/51 in 7.8 minutes** on image `sha256:09053d1ce741b62d1372c7cc0bad41f52c6302d84fbc9e4c44cb9cd04b86ff70`. Zero `ui-*` fixture users, 12,477 physical copies, healthy web. Crosswalk has 34 live page routes and 45 action IDs. Acceptance document records exact behavioral evidence and unresolved manual/user review gates. Next safe step: typecheck/document checks, commit/push, open a review-ready acceptance PR against #324, resolve CI and update Foundry durable milestone. No merges, issue closures or production deployment.

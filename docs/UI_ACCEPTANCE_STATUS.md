@@ -4,7 +4,7 @@ Related: #262, #263, #264, #265, #268 and #274. This is the current implementati
 
 ## Review stack and current build
 
-Review #316 (import integrity), then #320 (Dashboard/Pricing/Public), #322 (League), and #324 (Administration). Each depends on its predecessor. Acquisition planning #315 is independent and implementation remains deferred. Main is `bfb7be8`; the cumulative application source is checkpoint `8776e77`, with validation corrections/docs through `9493d6c`.
+Review #316 (import integrity), then #320 (Dashboard/Pricing/Public), #322 (League), #324 (Administration), and [#325 acceptance reconciliation](https://github.com/sefaction/MTG-Archives/pull/325). Each depends on its predecessor. Acquisition planning #315 is independent and implementation remains deferred. Main is `bfb7be8`; the cumulative application source is checkpoint `8776e77`, with validation corrections/docs through `9493d6c`.
 
 Local review: http://127.0.0.1:13001. Healthy image `sha256:09053d1ce741b62d1372c7cc0bad41f52c6302d84fbc9e4c44cb9cd04b86ff70`. Production is unchanged. See LOCAL_REVIEW_BUILD.md for task instructions.
 

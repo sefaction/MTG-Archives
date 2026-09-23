@@ -2,6 +2,8 @@
 
 ## Acceptance review, cumulative build, 2026-09-23
 
+- Acceptance documentation and the updated Admin security regression are in [PR #325](https://github.com/sefaction/MTG-Archives/pull/325), stacked on #324. Initial CI passed; check the current PR head after this documentation update.
+
 - Healthy local review app: http://127.0.0.1:13001; image `sha256:09053d1ce741b62d1372c7cc0bad41f52c6302d84fbc9e4c44cb9cd04b86ff70`, application source through #324 `8776e77`, with preceding #322/#320/#316. The acceptance branch changes only documentation and the Admin security browser route; no Docker rebuild or production change.
 - Start with Inventory and Locations on desktop and phone: verify search/results, selected physical-copy counts, vault section occupancy, move review and cancellation. Then review Deck builder/library, Pricing and Public, League season tasks and Administration. [UI_ACCEPTANCE_STATUS.md](UI_ACCEPTANCE_STATUS.md) links evidence and remaining manual gates.
 - Final serial browser suite passed **51/51 in 7.8 minutes**; 582 units and existing Core/PostgreSQL CI passed on #324. The initially stale Admin reset test was corrected to open `/admin?view=users`, then the focused lifecycle and full suite passed. Zero fixture users and 12,477 physical copies remain.
