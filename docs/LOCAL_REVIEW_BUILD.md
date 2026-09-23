@@ -1,5 +1,14 @@
 # Local review build — cumulative issue queue
 
+## Autonomous batch 3: League task workspaces, 2026-09-23
+
+- Application `5ab335b`, branch `feat/league-task-workspaces`, stacked on #320 (`93fa844`) and #316. Review in that order; PR #315 is independent. No merge approval exists.
+- Healthy cumulative web image `sha256:d870a16d3c1a515b77d0fce47245b6abd343d3d59eefd837cd10fea7f65a8c92`, unchanged local/capture-only SMTP overlays and worker images.
+- Review `/league`: open a member season, use Season standings / Record game / Game history / Manage season, browse the filtered deck library and frozen status, then Stats structure / usage / win-rate views. Normal members can view players/locations but cannot organize games or change membership. Creation disclosures preserve onboarding and validation errors.
+- 582 units, typecheck, production build and nine manifest guards passed. Expanded populated League lifecycle passed in 24 seconds: prior malformed/corrected game, printings, frozen snapshot and 202-copy conservation invariants plus search-selection retention, scoped filters, organizer/member boundaries, all views at 1366/390/320px, six themes and enlarged text. Initial history-label timeout was fixed with an explicit accessible label; waits were not increased.
+- No schema, game-scoring/freeze-rule, physical commitment, acquisition, playtest or production changes. #272/#319 remain open until an individually approved merge.
+
+
 ## Autonomous batch 2: Dashboard, Pricing and Public, 2026-09-23
 
 - Application `5559c2c`, branch `feat/browse-pricing-workspaces`, stacked on import-integrity PR #316 (`751cdc4`). Review #316 first, then this batch; acquisition docs PR #315 remains separate.
