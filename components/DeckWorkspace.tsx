@@ -635,13 +635,13 @@ export function DeckWorkspace({
                 </button>
               )}
               {!readOnly ? (
-              <button
-                type="button"
-                onClick={() => setCreateDeckOpen(true)}
-                className={filterPrimaryButtonClass}
-              >
-                Create deck
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setCreateDeckOpen(true)}
+                  className={filterPrimaryButtonClass}
+                >
+                  Create deck
+                </button>
               ) : null}
             </div>
           </div>
@@ -995,11 +995,16 @@ export function DeckWorkspace({
           ) : null}
         </aside>
 
-        <div className="min-w-0">
+        <div
+          className="min-w-0 max-h-[70vh] overflow-auto"
+          role="region"
+          aria-label="Deck library results"
+          tabIndex={0}
+        >
           {viewMode === "table" ? (
             <div className="overflow-x-auto rounded-xl border border-zinc-800">
               <table className="min-w-full text-sm">
-                <thead className="bg-zinc-900/90 text-left text-zinc-300">
+                <thead className="sticky top-0 z-10 bg-zinc-900 text-left text-zinc-300">
                   <tr>
                     <th className="p-3">
                       <SortButton

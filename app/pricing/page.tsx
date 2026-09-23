@@ -14,7 +14,12 @@ import {
 } from "@/lib/pricing-worker-store";
 import { prisma } from "@/lib/prisma";
 
-type PricingView = "market" | "data";
+import {
+  cleanPricingView as cleanView,
+  pricingWorkspaceHref as pricingHref,
+  usdCopyValue,
+  collectionValueLabel,
+} from "@/lib/pricing-workspace";
 
 type CollectionValueRow = {
   id: string;
@@ -158,8 +163,7 @@ async function getCollectionValueSummary({
       finish: finishForFoilStatus(item.foilStatus),
       preferredProvider: preferredProvider || undefined,
     });
-    const value = (selected?.amount ?? 0) * item.quantity;
-    const missing = selected ? 0 : item.quantity;
+    const { value, missing } = usdCopyValue(selected, item.quantity);
     totalQuantity += item.quantity;
     totalValue += value;
     missingPriceQuantity += missing;
@@ -239,11 +243,16 @@ function ValueTable({
   emptyLabel: string;
 }) {
   return (
-    <section className="rounded border border-zinc-800 bg-zinc-950/60">
+    <section className="min-w-0 rounded border border-zinc-800 bg-zinc-950/60">
       <div className="border-b border-zinc-800 px-4 py-3">
         <h2 className="text-lg font-semibold text-zinc-100">{title}</h2>
       </div>
-      <div className="overflow-x-auto">
+      <div
+        className="max-h-[32rem] overflow-auto"
+        role="region"
+        aria-label={`${title} table`}
+        tabIndex={0}
+      >
         <table className="min-w-full text-sm">
           <thead className="text-left text-zinc-400">
             <tr>
@@ -257,13 +266,24 @@ function ValueTable({
               rows.map((row) => (
                 <tr key={row.id} className="border-t border-zinc-900">
                   <td className="max-w-[26rem] px-4 py-2 text-zinc-100">
-                    <span className="line-clamp-1">{row.label}</span>
+                    <span className="line-clamp-1" title={row.label}>
+                      {row.label}
+                    </span>
                   </td>
                   <td className="px-4 py-2 text-right text-zinc-300">
                     {numberLabel(row.quantity)}
                   </td>
                   <td className="px-4 py-2 text-right font-medium text-zinc-100">
-                    {money(row.value)}
+                    {collectionValueLabel(
+                      row.value,
+                      row.quantity,
+                      row.missingPriceQuantity,
+                    )}
+                    {row.missingPriceQuantity > 0 ? (
+                      <span className="block text-xs font-normal text-[var(--app-muted)]">
+                        {numberLabel(row.missingPriceQuantity)} unpriced copies
+                      </span>
+                    ) : null}
                   </td>
                 </tr>
               ))
@@ -316,7 +336,7 @@ function TrendChart({
   const change = first && latest ? latest.value - first.value : null;
 
   return (
-    <section className="rounded border border-zinc-800 bg-zinc-950/60">
+    <section className="min-w-0 rounded border border-zinc-800 bg-zinc-950/60">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-800 px-4 py-3">
         <div>
           <h2 className="text-lg font-semibold text-zinc-100">{title}</h2>
@@ -418,9 +438,15 @@ function PricingFilters({
   return (
     <form
       method="get"
-      className="grid gap-3 rounded border border-zinc-800 bg-zinc-950/60 p-4 md:grid-cols-5"
+      className="grid min-w-0 gap-3 rounded border border-zinc-800 bg-zinc-950/60 p-4 md:grid-cols-5"
     >
-      <label className="text-sm text-zinc-300">
+      <input type="hidden" name="view" value={cleanView(params.view)} />
+      {["provider", "finish", "priceType", "currency"].map((key) =>
+        params[key] ? (
+          <input key={key} type="hidden" name={key} value={params[key]} />
+        ) : null,
+      )}
+      <label className="min-w-0 text-sm text-zinc-300">
         Set
         <select
           name="set"
@@ -478,7 +504,7 @@ function PricingFilters({
           Apply
         </button>
         <a
-          href="/pricing"
+          href={pricingHref({}, cleanView(params.view))}
           className="rounded border border-zinc-700 px-3 py-2 text-sm text-zinc-300"
         >
           Clear
@@ -498,11 +524,16 @@ function MoversTable({
   currency: string;
 }) {
   return (
-    <section className="rounded border border-zinc-800 bg-zinc-950/60">
+    <section className="min-w-0 rounded border border-zinc-800 bg-zinc-950/60">
       <div className="border-b border-zinc-800 px-4 py-3">
         <h2 className="text-lg font-semibold text-zinc-100">{title}</h2>
       </div>
-      <div className="overflow-x-auto">
+      <div
+        className="max-h-[32rem] overflow-auto"
+        role="region"
+        aria-label={`${title} table`}
+        tabIndex={0}
+      >
         <table className="min-w-full text-sm">
           <thead className="text-left text-zinc-400">
             <tr>
@@ -559,23 +590,6 @@ function MoversTable({
   );
 }
 
-function cleanView(value: string | undefined): PricingView {
-  return value === "data" ? "data" : "market";
-}
-
-function pricingHref(
-  params: Record<string, string | undefined>,
-  view: PricingView,
-) {
-  const next = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value && key !== "view") next.set(key, value);
-  }
-  if (view !== "market") next.set("view", view);
-  const query = next.toString();
-  return query ? `/pricing?${query}` : "/pricing";
-}
-
 function TabLink({
   href,
   active,
@@ -588,6 +602,7 @@ function TabLink({
   return (
     <a
       href={href}
+      aria-current={active ? "page" : undefined}
       className={`rounded-t border border-b-0 border-zinc-800 px-3 py-2 text-sm ${
         active
           ? "bg-zinc-900 text-sky-100"
@@ -662,21 +677,21 @@ export default async function PricingPage({
   ]);
 
   return (
-    <main className="space-y-6 p-8">
+    <main className="min-w-0 space-y-4 p-4 sm:p-8">
       <Nav />
       <section className="space-y-3 rounded border border-zinc-800 bg-zinc-950/60 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-3xl font-bold">Pricing analytics</h1>
             <p className="mt-1 text-sm text-zinc-400">
-              Read-only MTGJSON history from the separate pricing database.
-              Inventory and deck pages stay on their lightweight app-database
-              price fields.
+              Your collection estimates, historical trends and market changes.
+              Pricing is read-only; your inventory quantities stay unchanged.
             </p>
           </div>
           <div className="rounded border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-300">
-            {dashboard.provider} / {dashboard.finish} / {dashboard.priceType} /{" "}
-            {dashboard.currency} / {dashboard.range} days
+            History: {dashboard.provider} / {dashboard.finish} /{" "}
+            {dashboard.priceType} / {dashboard.currency} / {dashboard.range}{" "}
+            days
           </div>
         </div>
         {!dashboard.available ? (
@@ -686,8 +701,17 @@ export default async function PricingPage({
         ) : null}
       </section>
 
-      <section className="rounded border border-zinc-800 bg-zinc-950/60">
-        <div className="flex gap-2 border-b border-zinc-800 px-4 pt-3">
+      <section className="min-w-0 rounded border border-zinc-800 bg-zinc-950/60">
+        <nav
+          aria-label="Pricing tasks"
+          className="flex flex-wrap gap-2 border-b border-zinc-800 px-4 pt-3"
+        >
+          <TabLink
+            href={pricingHref(params, "collection")}
+            active={activeView === "collection"}
+          >
+            Collection value
+          </TabLink>
           <TabLink
             href={pricingHref(params, "market")}
             active={activeView === "market"}
@@ -700,49 +724,48 @@ export default async function PricingPage({
           >
             Data status
           </TabLink>
-        </div>
+        </nav>
       </section>
 
-      {activeView === "market" ? (
+      {activeView === "collection" ? (
         <>
-          <PricingFilters
-            params={params}
-            setOptions={collectionValue.setOptions}
-          />
           <section className="grid gap-3 md:grid-cols-3">
             <StatCard
               label="Collection value"
-              value={money(collectionValue.totalValue)}
+              value={collectionValueLabel(
+                collectionValue.totalValue,
+                collectionValue.totalQuantity,
+                collectionValue.missingPriceQuantity,
+              )}
               detail={`${numberLabel(
                 collectionValue.totalQuantity,
-              )} cards tracked`}
+              )} copies; ${numberLabel(collectionValue.missingPriceQuantity)} unpriced (USD)`}
             />
             <StatCard
               label="Deck value"
-              value={money(
+              value={collectionValueLabel(
                 collectionValue.deckRows.reduce(
                   (total, row) => total + row.value,
                   0,
                 ),
+                collectionValue.deckRows.reduce(
+                  (total, row) => total + row.quantity,
+                  0,
+                ),
+                collectionValue.deckRows.reduce(
+                  (total, row) => total + row.missingPriceQuantity,
+                  0,
+                ),
               )}
-              detail={`${numberLabel(collectionValue.deckRows.length)} decks`}
+              detail={`${numberLabel(collectionValue.deckRows.length)} decks; ${numberLabel(collectionValue.deckRows.reduce((total, row) => total + row.missingPriceQuantity, 0))} unpriced copies (USD)`}
             />
             <StatCard
-              label="Filtered price cards"
-              value={numberLabel(dashboard.stats.pricedCardCount)}
-              detail={
-                setFilter
-                  ? `${setFilter} owned cards with history`
-                  : "Owned cards with history"
-              }
+              label="Unpriced copies"
+              value={numberLabel(collectionValue.missingPriceQuantity)}
+              detail="Excluded from current USD estimates"
             />
           </section>
-          <TrendChart
-            title="Collection price trend"
-            points={dashboard.valueTrend}
-            currency={dashboard.currency}
-          />
-          <div className="grid gap-4 xl:grid-cols-2">
+          <div className="grid min-w-0 gap-4 xl:grid-cols-2">
             <ValueTable
               title="Value by location"
               rows={collectionValue.locationRows}
@@ -754,6 +777,43 @@ export default async function PricingPage({
               emptyLabel="No deck locations have priced cards yet."
             />
           </div>
+          <p className="text-sm text-[var(--app-muted)]">
+            Current estimates: USD, preferred provider{" "}
+            {user.preferredPriceProvider}, with available provider/finish
+            fallbacks. Cached prices may be stale.{" "}
+            {numberLabel(collectionValue.missingPriceQuantity)} copies without a
+            usable USD price are excluded, not valued at zero. Current totals
+            cover your whole collection; filters below affect historical results
+            only.
+          </p>
+          <section
+            aria-label="Historical collection prices"
+            className="min-w-0 space-y-3"
+          >
+            <p className="text-sm text-[var(--app-muted)]">
+              Historical scope: {dashboard.provider} / {dashboard.finish} /{" "}
+              {dashboard.priceType} / {dashboard.currency}. Latest observed{" "}
+              {dateLabel(dashboard.stats.latestObservedDate)}.{" "}
+              {numberLabel(dashboard.stats.pricedCardCount)} owned printings
+              with history.
+            </p>
+            <PricingFilters
+              params={params}
+              setOptions={collectionValue.setOptions}
+            />
+            <TrendChart
+              title="Collection price trend"
+              points={dashboard.valueTrend}
+              currency={dashboard.currency}
+            />
+          </section>
+        </>
+      ) : activeView === "market" ? (
+        <>
+          <PricingFilters
+            params={params}
+            setOptions={collectionValue.setOptions}
+          />
           <section className="rounded border border-zinc-800 bg-zinc-950/60 p-4">
             <h2 className="text-lg font-semibold text-zinc-100">
               Market movement
@@ -764,7 +824,7 @@ export default async function PricingPage({
               over the selected {dashboard.range}-day range.
             </p>
           </section>
-          <div className="grid gap-4 xl:grid-cols-2">
+          <div className="grid min-w-0 gap-4 xl:grid-cols-2">
             <MoversTable
               title="Top gainers"
               rows={topGainers}
@@ -810,7 +870,7 @@ export default async function PricingPage({
               detail="Current collection rows excluded from value totals"
             />
           </section>
-          <section className="rounded border border-zinc-800 bg-zinc-950/60">
+          <section className="min-w-0 rounded border border-zinc-800 bg-zinc-950/60">
             <div className="border-b border-zinc-800 px-4 py-3">
               <h2 className="text-lg font-semibold text-zinc-100">
                 Provider coverage

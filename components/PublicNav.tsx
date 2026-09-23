@@ -2,7 +2,9 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { Nav } from "@/components/Nav";
 
-export async function PublicNav() {
+export async function PublicNav({
+  active,
+}: { active?: "home" | "inventory" | "decks" } = {}) {
   const user = await getCurrentUser();
   const appName = process.env.NEXT_PUBLIC_APP_NAME || "MTG Inventory";
   return (
@@ -23,18 +25,38 @@ export async function PublicNav() {
         </nav>
       )}
       <nav
-        className="mb-6 flex flex-wrap items-center gap-4 border-b border-zinc-800 pb-3 text-sm"
+        className="mb-4 flex flex-wrap items-center gap-3 border-b border-[var(--app-border)] pb-3 text-sm"
         aria-label="Public browsing"
       >
-        <Link href="/public" className="app-nav-link">
+        <span className="w-full font-semibold text-[var(--app-muted)]">
+          Public browsing · read-only collections
+        </span>
+        <Link
+          href="/public"
+          className="app-nav-link"
+          aria-current={active === "home" ? "page" : undefined}
+        >
           Public home
         </Link>
-        <Link href="/public/inventory" className="app-nav-link">
+        <Link
+          href="/public/inventory"
+          className="app-nav-link"
+          aria-current={active === "inventory" ? "page" : undefined}
+        >
           Public inventory
         </Link>
-        <Link href="/public/decks" className="app-nav-link">
+        <Link
+          href="/public/decks"
+          className="app-nav-link"
+          aria-current={active === "decks" ? "page" : undefined}
+        >
           Public decks
         </Link>
+        {user ? (
+          <Link href="/dashboard" className="app-nav-link sm:ml-auto">
+            Back to my dashboard
+          </Link>
+        ) : null}
       </nav>
     </>
   );
