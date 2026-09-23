@@ -37,7 +37,7 @@ test("inventory imports accept an on-demand section for a whole batch or CSV row
   assert.match(source, /destinationLocationSection/);
   assert.match(source, /locationSection: getCell\(row, "section"\)/);
   assert.match(
-    source,
+    readFileSync("lib/import-commit.ts", "utf8"),
     /parsedRow\.locationSection \?\? defaultLocationSection/,
   );
 });

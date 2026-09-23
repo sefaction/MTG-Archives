@@ -173,6 +173,11 @@ test("Imports separates tasks and preserves upload, review, commit, history and 
     expect(total()).toBe(7);
     expect(
       database<number>(
+        `return p.inventoryAuditLog.count({where:{changeType:'import_committed',inventoryItem:{currentOwnerId:${quote(fixture.owner)}}}});`,
+      ),
+    ).toBe(2);
+    expect(
+      database<number>(
         `return (await p.inventoryItem.aggregate({where:{currentOwnerId:${quote(fixture.owner)},locationId:${quote(fixture.destination)},locationSection:'Pocket 1'},_sum:{quantity:true}}))._sum.quantity;`,
       ),
     ).toBe(2);
