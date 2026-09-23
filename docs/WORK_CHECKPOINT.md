@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Resumed by user, 2026-09-23
+
+User explicitly requested continuation after the original window. Active branch `feat/admin-task-workspaces`, checkpoint commit `8776e77`. Typecheck including new browser test passed. Administration image `sha256:09053d1ce741b62d1372c7cc0bad41f52c6302d84fbc9e4c44cb9cd04b86ff70` is now loaded and healthy, cumulative with #316/#320/#322. Real PostgreSQL pricing query checks passed (Unicode/zero/empty, nonblocking query, bounded timeout, sanitized failure, read-only). Focused existing Administration browser checks passed 3/3 and the new comprehensive workflow passed (55.4 seconds) after correcting test button/30-job expectations and making cleanup unconditional. Pricing health loaded in 632ms; a concurrent dashboard completed in 115ms during exact totals calculation (1,922,270 snapshots). All task routes passed desktop/390/320px, six themes/enlarged text and admin/member/anonymous boundaries. Visually inspected phone pricing and desktop user screenshots. Cleanup: zero Admin fixture users, 12,477 physical copies. Next: publish the Administration PR against #322 and verify CI; then run combined regression/acceptance reconciliation. No merges or production deployment authorized. Earlier stop entry below is historical.
+
 ## Morning stop, 2026-09-23 11:25 UTC
 
 The authorized eight-hour window has elapsed. Implementation is stopped; resume only with a new instruction. Three new review-ready PRs are open, in dependency order: #316, #320, #322. All have green Core verification and PostgreSQL import integrity CI. No PRs merged, issues closed or production deployed. Existing acquisition documentation PR #315 remains separate.

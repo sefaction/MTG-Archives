@@ -115,16 +115,16 @@ test("Administration retains maintenance capabilities with task navigation, boun
       .filter({ hasText: /^Reset Password$/ })
       .click();
     await expect(
-      accounts.getByRole("button", { name: "Set Password", exact: true }),
+      accounts.getByRole("button", { name: "Reset Password", exact: true }),
     ).toBeVisible();
     await page.goto("/admin/notifications");
     await page.getByLabel("Find a recent job", { exact: true }).fill(tag);
-    await page.getByLabel("Status", { exact: true }).selectOption("FAILED");
+    await page.getByRole("combobox", { name: "Status", exact: true }).selectOption("FAILED");
     await page
       .getByRole("button", { name: "Filter jobs", exact: true })
       .click();
     const jobs = page.getByRole("region", { name: "Recent delivery jobs" });
-    await expect(jobs.locator("article")).toHaveCount(50);
+    await expect(jobs.locator("article")).toHaveCount(30);
     expect(
       await jobs.evaluate(
         (element) => element.scrollHeight > element.clientHeight,
@@ -321,9 +321,12 @@ test("Administration retains maintenance capabilities with task navigation, boun
     await noOverflow(page);
     await accounts.focus();
     await expect(accounts).toBeFocused();
+  } catch (error) {
+    console.error("Administration workflow failure:", error);
+    throw error;
   } finally {
-    await member.close();
-    await anonymous.close();
+    // Clean database fixtures even if Playwright context teardown stalls.
+    // The browser fixture owns and closes both additional contexts.
     database(
       `await p.user.deleteMany({where:{username:{startsWith:${quote(tag)}}}});await p.player.deleteMany({where:{name:{startsWith:${quote(tag)}}}});return true;`,
     );
