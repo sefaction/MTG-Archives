@@ -1,14 +1,12 @@
+import { undoInventoryImport } from "@/lib/import-undo";
+import { commitImportBatch } from "@/lib/import-commit";
 export const dynamic = "force-dynamic";
 import Papa from "papaparse";
 import path from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import {
-  FoilStatus,
-  InventoryLocationKind,
-  InventorySourceType,
-} from "@prisma/client";
+import { FoilStatus, InventoryLocationKind } from "@prisma/client";
 import { Nav } from "@/components/Nav";
 import { getAccessScope, requireLogin as requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -49,7 +47,6 @@ import {
 import {
   ensureDefaultLocation,
   getLocationsForOwner,
-  normalizeLocationName,
   normalizeLocationSection,
   withLocationPaths,
 } from "@/lib/inventory-locations";
@@ -971,111 +968,10 @@ export default async function ImportsPage({
     const confirmation = String(fd.get("confirmation") || "");
     if (confirmation !== "DELETE IMPORT")
       throw new Error("Type DELETE IMPORT to confirm undo.");
-    const batch = await prisma.importBatch.findUnique({
-      where: { id: batchId },
-      include: {
-        items: { include: { inventoryItem: { include: { auditLogs: true } } } },
-      },
-    });
-    if (!batch) throw new Error("Import batch not found.");
-    for (const item of batch.items) {
-      if (item.status !== "imported") continue;
-      if (
-        !item.quantityImported ||
-        item.beforeQuantity === null ||
-        item.beforeQuantity === undefined ||
-        item.afterQuantity === null ||
-        item.afterQuantity === undefined
-      ) {
-        await prisma.importBatchItem.update({
-          where: { id: item.id },
-          data: {
-            status: "cannot_undo",
-            message:
-              "This import batch cannot be automatically undone because it was created before undo tracking existed.",
-          },
-        });
-        continue;
-      }
-      if (item.pullId)
-        await prisma.pull.deleteMany({ where: { id: item.pullId } });
-      if (item.inventoryItemId) {
-        const inventory = await prisma.inventoryItem.findUnique({
-          where: { id: item.inventoryItemId },
-          include: { auditLogs: true },
-        });
-        if (!inventory) {
-          await prisma.importBatchItem.update({
-            where: { id: item.id },
-            data: {
-              status: "undone",
-              message:
-                "Legacy source record deleted; inventory item was already gone.",
-            },
-          });
-          continue;
-        }
-        const beforeJson = inventory as any;
-        if (item.createdNewInventoryItem && item.beforeQuantity === 0) {
-          if (inventory.auditLogs.length > 0) {
-            await prisma.importBatchItem.update({
-              where: { id: item.id },
-              data: {
-                status: "cannot_undo",
-                message: "Cannot delete safely: inventory item has audit logs.",
-              },
-            });
-            continue;
-          }
-          await prisma.inventoryItem.delete({ where: { id: inventory.id } });
-        } else {
-          const nextQuantity = Math.max(
-            item.beforeQuantity,
-            inventory.quantity - item.quantityImported,
-          );
-          if (nextQuantity <= 0 && inventory.auditLogs.length > 0) {
-            await prisma.importBatchItem.update({
-              where: { id: item.id },
-              data: {
-                status: "cannot_undo",
-                message:
-                  "Cannot reduce/delete safely: inventory item has audit logs.",
-              },
-            });
-            continue;
-          }
-          if (nextQuantity <= 0)
-            await prisma.inventoryItem.delete({ where: { id: inventory.id } });
-          else {
-            const updated = await prisma.inventoryItem.update({
-              where: { id: inventory.id },
-              data: { quantity: nextQuantity },
-            });
-            await prisma.inventoryAuditLog.create({
-              data: {
-                inventoryItemId: updated.id,
-                changedByUserId: actionUser.id,
-                changeType: "import_undo",
-                beforeJson,
-                afterJson: updated as any,
-                reason: `Undo import ${batch.filename}`,
-              },
-            });
-          }
-        }
-      }
-      await prisma.importBatchItem.update({
-        where: { id: item.id },
-        data: { status: "undone", message: "Import effects undone." },
-      });
-    }
-    await prisma.importBatch.update({
-      where: { id: batch.id },
-      data: { status: "UNDONE" },
-    });
+    await undoInventoryImport(prisma, batchId, actionUser.id);
     revalidatePath("/imports");
     revalidatePath("/inventory");
-    redirect(buildImportReviewUrl(batch.id, getReturnReviewOptions(fd)));
+    redirect(buildImportReviewUrl(batchId, getReturnReviewOptions(fd)));
   }
 
   async function confirmImport(fd: FormData) {
@@ -1090,184 +986,19 @@ export default async function ImportsPage({
     );
     const actionIsAdmin = actionScope?.mode === "admin";
     const batchId = String(fd.get("batchId"));
-    const batch = await prisma.importBatch.findUnique({
-      where: { id: batchId },
-      include: { items: true },
-    });
-    if (!batch) throw new Error("Import batch not found.");
-    if (
-      !actionIsAdmin &&
-      batch.selectedPlayerId !== actionUserWithPlayer?.playerId
-    )
-      throw new Error("Not authorized for this import batch.");
-    const duplicateBehavior = batch.importType.split(":")[1] || "add";
-    if (duplicateBehavior === "preview")
-      throw new Error(
-        "This batch was created as preview only. Upload again with an import duplicate behavior to commit it.",
-      );
-    const defaultLocationIdRaw = String(fd.get("destinationLocationId") || "");
-    const defaultLocationSection = normalizeLocationSection(
-      fd.get("destinationLocationSection"),
-    );
-    const defaultLocation = defaultLocationIdRaw
-      ? await prisma.inventoryLocation.findFirst({
-          where: {
-            id: defaultLocationIdRaw,
-            ownerPlayerId: batch.selectedPlayerId,
-            active: true,
-            kind: InventoryLocationKind.NORMAL,
-            systemManaged: false,
-          },
-        })
-      : await ensureDefaultLocation(prisma, batch.selectedPlayerId);
-    if (!defaultLocation)
-      throw new Error("Choose a destination location before committing.");
-
-    const readyItems = batch.items.filter(isImportItemReadyToCommit);
-    if (!readyItems.length)
-      throw new Error("No resolved cards are ready to commit.");
-
-    let committedRows = 0,
-      errorRows = 0;
-    for (const item of readyItems) {
-      const lockedItem = await prisma.importBatchItem.findUnique({
-        where: { id: item.id },
-      });
-      if (!lockedItem || !isImportItemReadyToCommit(lockedItem)) continue;
-      const card = await prisma.card.findUnique({
-        where: { id: lockedItem.cardPrintingId! },
-      });
-      if (!card) {
-        await prisma.importBatchItem.update({
-          where: { id: lockedItem.id },
-          data: {
-            status: "error",
-            message: "Selected card printing no longer exists.",
-          },
-        });
-        errorRows++;
-        continue;
-      }
-      const parsedRow = lockedItem.parsedRowJson as ParsedRow;
-      const quantity = Number(parsedRow.quantity);
-      if (!Number.isInteger(quantity) || quantity <= 0) {
-        await prisma.importBatchItem.update({
-          where: { id: lockedItem.id },
-          data: {
-            status: "error",
-            message: "Quantity must be a positive integer.",
-          },
-        });
-        errorRows++;
-        continue;
-      }
-      const foilStatus = (lockedItem.parsedFoilStatus ||
-        parsedRow.foilStatus ||
-        "NONFOIL") as FoilStatus;
-      const condition = normalizeInventoryCondition(
-        lockedItem.parsedCondition || parsedRow.condition,
-      );
-      const rowLocation = parsedRow.locationName
-        ? await prisma.inventoryLocation.findFirst({
-            where: {
-              ownerPlayerId: batch.selectedPlayerId,
-              normalizedName: normalizeLocationName(parsedRow.locationName),
-              active: true,
-              kind: InventoryLocationKind.NORMAL,
-              systemManaged: false,
-            },
-          })
-        : null;
-      const locationId = rowLocation?.id ?? defaultLocation.id;
-      const locationSection = normalizeLocationSection(
-        parsedRow.locationSection ?? defaultLocationSection,
-      );
-      const matchingWhere = {
-        currentOwnerId: batch.selectedPlayerId,
-        originalOpenerId: batch.selectedPlayerId,
-        cardId: lockedItem.cardPrintingId!,
-        foil: foilStatus !== FoilStatus.NONFOIL,
-        foilStatus,
-        condition,
-        language: parsedRow.language || "EN",
-        locationId,
-        locationSection,
-        quantity: { gt: 0 },
-      };
-      const createData = {
-        currentOwnerId: batch.selectedPlayerId,
-        originalOpenerId: batch.selectedPlayerId,
-        cardId: lockedItem.cardPrintingId!,
-        quantity,
-        foil: foilStatus !== FoilStatus.NONFOIL,
-        foilStatus,
-        condition,
-        acquiredFromPullId: null,
-        notes: parsedRow.notes || null,
-        sourceType: InventorySourceType.CSV_PULL_IMPORT,
-        language: parsedRow.language || "EN",
-        locationId,
-        locationSection,
-      };
-      const existingInventory =
-        duplicateBehavior === "separate"
-          ? null
-          : await prisma.inventoryItem.findFirst({ where: matchingWhere });
-      const beforeQuantity = existingInventory?.quantity ?? 0;
-      const inventory = existingInventory
-        ? await prisma.inventoryItem.update({
-            where: { id: existingInventory.id },
-            data: {
-              quantity: { increment: quantity },
-              notes: parsedRow.notes || undefined,
-              sourceType: InventorySourceType.CSV_PULL_IMPORT,
-            },
-          })
-        : await prisma.inventoryItem.create({ data: createData });
-      await prisma.importBatchItem.update({
-        where: { id: lockedItem.id },
-        data: {
-          status: "imported",
-          inventoryItemId: inventory.id,
-          pullId: null,
-          quantityImported: quantity,
-          duplicateBehaviorUsed: duplicateBehavior,
-          createdNewInventoryItem: !existingInventory,
-          updatedExistingInventoryItem: Boolean(existingInventory),
-          beforeQuantity,
-          afterQuantity: inventory.quantity,
-          message: `Committed ${quantity} card${quantity === 1 ? "" : "s"} to inventory.`,
-        },
-      });
-      committedRows++;
-    }
-    const remainingItems = await prisma.importBatchItem.findMany({
-      where: { importBatchId: batch.id },
-    });
-    const remainingSummary = getImportReviewSummary(remainingItems);
-    await prisma.importBatch.update({
-      where: { id: batch.id },
-      data: {
-        status:
-          errorRows > 0
-            ? "IMPORTED_WITH_ERRORS"
-            : remainingSummary.readyToCommit > 0
-              ? "PARTIALLY_IMPORTED"
-              : remainingSummary.needsReview + remainingSummary.unresolved > 0
-                ? "IMPORTED_WITH_REVIEW"
-                : "IMPORTED",
-        skippedRows: remainingSummary.skipped,
-        matchedRows: remainingSummary.committed,
-        warningRows: remainingSummary.warnings,
-        errorRows:
-          remainingSummary.failed +
-          remainingSummary.needsReview +
-          remainingSummary.unresolved,
-      },
+    await commitImportBatch(prisma, {
+      batchId,
+      actingUserId: actionUser.id,
+      playerId: actionUserWithPlayer?.playerId,
+      isAdmin: actionIsAdmin,
+      destinationLocationId: String(fd.get("destinationLocationId") || ""),
+      destinationLocationSection: String(
+        fd.get("destinationLocationSection") || "",
+      ),
     });
     revalidatePath("/imports");
     revalidatePath("/inventory");
-    redirect(buildImportReviewUrl(batch.id, getReturnReviewOptions(fd)));
+    redirect(buildImportReviewUrl(batchId, getReturnReviewOptions(fd)));
   }
 
   const selectedBatch = params.batchId
@@ -1500,7 +1231,8 @@ export default async function ImportsPage({
         cannotUndo: selectedItems.filter(
           (item) =>
             item.status === "imported" &&
-            (!item.quantityImported ||
+            (Boolean(item.pullId) ||
+              !item.quantityImported ||
               item.beforeQuantity === null ||
               item.beforeQuantity === undefined ||
               item.afterQuantity === null ||
@@ -2190,15 +1922,22 @@ export default async function ImportsPage({
                       </p>
                       <p>
                         Total items: {undoPreview.totalItems} • Legacy source
-                        records to delete: {undoPreview.legacySourceRecords} •
-                        Inventory deletes: {undoPreview.inventoryDeletes} •
-                        Quantity reductions: {undoPreview.quantityReductions} •
-                        Cannot undo: {undoPreview.cannotUndo}
+                        records requiring manual review:{" "}
+                        {undoPreview.legacySourceRecords} • Inventory entries
+                        emptied: {undoPreview.inventoryDeletes} • Quantity
+                        reductions: {undoPreview.quantityReductions} • Cannot
+                        undo: {undoPreview.cannotUndo}
+                      </p>
+                      <p className="text-sm text-[var(--app-muted)]">
+                        Inventory and audit history are retained. Rows changed
+                        since import require manual review and will not be
+                        reversed.
                       </p>
                       {undoPreview.cannotUndo ? (
                         <p className="text-amber-300">
                           Some rows cannot be automatically undone because they
-                          lack undo tracking.
+                          lack safe undo tracking or reference legacy source
+                          records.
                         </p>
                       ) : null}
                       <form action={undoImportBatch} className="space-y-2">
@@ -2218,7 +1957,7 @@ export default async function ImportsPage({
                           pendingLabel="Undoing import…"
                           className="border border-red-700 px-3 py-2"
                         >
-                          Undo import and delete created records
+                          Undo import quantities
                         </SubmitButton>
                       </form>
                     </div>

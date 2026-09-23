@@ -1,5 +1,14 @@
 # Resumable work checkpoint
 
+## Autonomous review batches in progress, 2026-09-23
+
+- Authorized window: 2026-09-23 03:21:29 UTC through **11:21:29 UTC at the latest** (eight hours). No merges, production deployment, acquisition implementation or further playtest changes. All on-hold issues stay deferred. Close resolved issues only after future approved merges.
+- Active branch `fix/import-commit-integrity`, based on main `bfb7be8`; first priority #301 (atomic/retry-safe/audited CSV commit). Open documentation PR #315 remains independent and green; do not merge it.
+- Reconciled GitHub, Foundry workflow/UI notes and running local Compose. Web is healthy on port 13001; notification/pricing workers still run older images. No scheduler or restart guarantee claimed.
+- Queue after #301: inspect/complete #271, #272, #273; then reconcile foundation/inventory/deck non-playtest acceptance #263/#264/#265/#268 and cross-app #274/#262. Record consequential unanswered questions and continue independent work. Use coherent branches/PRs with cumulative Docker and clear dependencies.
+- #301 progress: reproduced missing audit in real CSV browser lifecycle (expected 2, observed 0). Implemented serializable all-ready-set commit with bounded retries, receipts/audits and guarded transactional undo that retains lineage. Real PostgreSQL concurrency, injected commit/undo failure, retry, attributes, policies, staged-resolution and changed-inventory checks pass. All 580 units and typecheck pass. Final Docker rebuild/browser lifecycle and CI remain pending; temporary source copies in the old container must be replaced by the rebuilt image.
+- Next safe step: finish image build from the current working tree, recreate web, rerun DB/browser checks, record exact image/application IDs and open the #301 PR. Then live-audit #271 before UI edits.
+
 ## Account, wishlist/trade, and vault fixes merged, 2026-09-23
 
 - User-approved PRs #297, #298, and #299 are merged into `main` through `43767fa`. Issues #260, #269, and #270 are closed with resolving PR links.
