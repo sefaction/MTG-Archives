@@ -1,5 +1,13 @@
 # Resumable work checkpoint
 
+## Card Acquisition Framework planned, implementation deferred, 2026-09-22 local
+
+- Branch `docs/card-acquisition-plan` starts at merged `bfb7be8`. Planning only: no production code, dependencies, Prisma/schema/data, Docker, OCR or driver changes. Do not start implementation automatically; user confirmed current bug fixes/UI consolidation retain priority.
+- Plan: `docs/CARD_ACQUISITION_PLAN.md`, architecture, executable milestones and validation companion documents; original prompt/report preserved under `docs/reference/card-acquisition/`. Live umbrella #302 and milestone 3; P1–P12 issues #303–#314 are on hold. Separate source-confirmed importer integrity/audit gap is bug #301, not fixed here.
+- Confirmed decisions: complete image-upload release first; mostly English loose unsleeved cards; typical session up to about 100 (300/263 stress); USB scanner on Windows with separately hosted Archive; allow a freshly confirmed/audited over-capacity override.
+- Completed: repository and Foundry inspection, reference review and primary-source checks, dependency/acceptance backlog, durable Foundry direction. Documentation validation/PR Core results belong to the planning PR. No new acquisition functional tests claimed; Docker remains the previously running build.
+- Outstanding decisions are phase-local: retention/quotas before uploads, local engine/corpus calibration before recognition, all-writer capacity coordination before commit, native runtime/bitness and TLS/package choices before agent work. Next safe step: review the documentation PR; no new merge approval or feature-start authorization has been given.
+
 ## Account, wishlist/trade, and vault fixes merged, 2026-09-23
 
 - User-approved PRs #297, #298, and #299 are merged into `main` through `43767fa`. Issues #260, #269, and #270 are closed with resolving PR links.
