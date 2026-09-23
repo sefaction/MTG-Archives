@@ -1,3 +1,4 @@
+import { AdminNav } from "@/components/admin/AdminNav";
 export const dynamic = "force-dynamic";
 
 import { Nav } from "@/components/Nav";
@@ -11,8 +12,9 @@ export default async function AdminMetadataPage() {
   const activeRuleSet = await getActiveCommanderBracketRuleSetSummary();
 
   return (
-    <main className="space-y-6 p-8">
+    <main className="min-w-0 space-y-4 p-4 sm:p-8">
       <Nav />
+      <AdminNav active="metadata" />
       <section className="space-y-2">
         <h1 className="text-3xl font-bold">Card metadata</h1>
         <p className="max-w-3xl text-sm text-zinc-400">

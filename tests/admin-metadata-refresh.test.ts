@@ -25,7 +25,11 @@ test("admin metadata page is protected and linked from admin", () => {
   assert.match(adminMetadataPage, /await requireAdminMode\(\)/);
   assert.match(adminMetadataPage, /<AdminMetadataRefreshPanel \/>/);
   assert.match(adminMetadataPage, /<AdminCommanderBracketPanel/);
-  assert.match(adminPage, /\["Metadata", "\/admin\/metadata"\]/);
+  assert.match(adminPage, /AdminNav/);
+  assert.match(
+    readFileSync("components/admin/AdminNav.tsx", "utf8"),
+    /"\/admin\/metadata"/,
+  );
 });
 
 test("metadata refresh route requires admin mode", () => {

@@ -1,3 +1,4 @@
+import { AdminNav } from "@/components/admin/AdminNav";
 export const dynamic = "force-dynamic";
 
 import { randomUUID } from "node:crypto";
@@ -107,10 +108,30 @@ export default async function AdminNotificationsPage({
   await requireAdminMode();
   const params = await searchParams;
   const health = await getNotificationDeliveryHealth();
+  const query = (params.q ?? "").trim().toLowerCase();
+  const status =
+    Object.values(NotificationDeliveryStatus).find(
+      (value) => value === params.status,
+    ) ?? "";
+  const jobs = health.recentJobs.filter(
+    (job) =>
+      (!status || job.status === status) &&
+      (!query ||
+        [
+          job.id,
+          job.sourceType,
+          job.destinationKey,
+          job.transport,
+          job.notification?.title,
+          job.notification?.recipientUser.displayName,
+          job.notification?.recipientUser.username,
+        ].some((value) => value?.toLowerCase().includes(query))),
+  );
 
   return (
-    <main className="space-y-6 p-8">
+    <main className="min-w-0 space-y-4 p-4 sm:p-8">
       <Nav />
+      <AdminNav active="notifications" />
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-amber-200">
@@ -125,7 +146,7 @@ export default async function AdminNotificationsPage({
             notifications continue working if this worker is stopped.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <a
             href="/admin/notifications/trade-announcements"
             className="rounded border border-purple-800 px-3 py-2 text-sm text-purple-100 hover:bg-purple-950/40"
@@ -180,41 +201,6 @@ export default async function AdminNotificationsPage({
         ))}
       </section>
 
-      <section className="rounded-lg border border-[#2a332d] bg-[#101614]">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#2a332d] p-4">
-          <div>
-            <h2 className="text-lg font-semibold text-stone-100">
-              Queue diagnostics
-            </h2>
-            <p className="text-sm text-stone-400">
-              These local-only jobs exercise success and bounded retry paths
-              without contacting an external service.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <form action={queueDiagnostic}>
-              <input type="hidden" name="mode" value="success" />
-              <SubmitButton
-                pendingLabel="Queueing…"
-                className="rounded border border-emerald-700 px-3 py-2 text-sm text-emerald-100 hover:bg-emerald-950/40"
-              >
-                Queue success test
-              </SubmitButton>
-            </form>
-            <form action={queueDiagnostic}>
-              <input type="hidden" name="mode" value="fail" />
-              <SubmitButton
-                pendingLabel="Queueing…"
-                className="rounded border border-red-800 px-3 py-2 text-sm text-red-100 hover:bg-red-950/40"
-                confirmMessage="Queue an intentional failure to review retry visibility?"
-              >
-                Queue failure test
-              </SubmitButton>
-            </form>
-          </div>
-        </div>
-      </section>
-
       <section className="overflow-hidden rounded-lg border border-[#2a332d] bg-[#101614]">
         <div className="border-b border-[#2a332d] p-4">
           <h2 className="text-lg font-semibold text-stone-100">Recent jobs</h2>
@@ -223,10 +209,57 @@ export default async function AdminNotificationsPage({
             not belong in this queue.
           </p>
         </div>
-        {health.recentJobs.length ? (
-          <div className="divide-y divide-[#2a332d]">
-            {health.recentJobs.map((job) => (
-              <article key={job.id} className="space-y-3 p-4">
+        <form
+          method="get"
+          className="flex flex-wrap items-end gap-3 border-b border-[#2a332d] p-4 text-sm"
+        >
+          <label className="flex min-w-0 flex-1 flex-col gap-1">
+            Find a recent job
+            <input
+              name="q"
+              type="search"
+              defaultValue={params.q ?? ""}
+              className="min-w-0 rounded border border-stone-700 bg-stone-950 p-2"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            Status
+            <select
+              name="status"
+              defaultValue={status}
+              className="rounded border border-stone-700 bg-stone-950 p-2"
+            >
+              <option value="">All statuses</option>
+              {Object.values(NotificationDeliveryStatus).map((value) => (
+                <option key={value}>{value}</option>
+              ))}
+            </select>
+          </label>
+          <button className="rounded border border-stone-700 px-3 py-2">
+            Filter jobs
+          </button>
+          {query || status ? (
+            <a href="/admin/notifications" className="px-3 py-2 underline">
+              Clear filters
+            </a>
+          ) : null}
+          <p className="w-full text-stone-400">
+            Showing {jobs.length} of the latest {health.recentJobs.length} jobs.
+            Status totals above cover the entire queue.
+          </p>
+        </form>
+        {jobs.length ? (
+          <div
+            role="region"
+            aria-label="Recent delivery jobs"
+            tabIndex={0}
+            className="max-h-[36rem] overflow-auto divide-y divide-[#2a332d]"
+          >
+            {jobs.map((job) => (
+              <article
+                key={job.id}
+                className="min-w-0 break-words space-y-3 p-4"
+              >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -308,10 +341,49 @@ export default async function AdminNotificationsPage({
           </div>
         ) : (
           <p className="p-6 text-sm text-stone-500">
-            No outbound delivery jobs have been queued.
+            {health.recentJobs.length
+              ? "No recent jobs match these filters."
+              : "No outbound delivery jobs have been queued."}
           </p>
         )}
       </section>
+      <details className="rounded-lg border border-[#2a332d] bg-[#101614]">
+        <summary className="cursor-pointer p-4 font-medium">
+          Queue diagnostics
+        </summary>
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#2a332d] p-4">
+          <div>
+            <h2 className="text-lg font-semibold text-stone-100">
+              Queue diagnostics
+            </h2>
+            <p className="text-sm text-stone-400">
+              These local-only jobs exercise success and bounded retry paths
+              without contacting an external service.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <form action={queueDiagnostic}>
+              <input type="hidden" name="mode" value="success" />
+              <SubmitButton
+                pendingLabel="Queueing…"
+                className="rounded border border-emerald-700 px-3 py-2 text-sm text-emerald-100 hover:bg-emerald-950/40"
+              >
+                Queue success test
+              </SubmitButton>
+            </form>
+            <form action={queueDiagnostic}>
+              <input type="hidden" name="mode" value="fail" />
+              <SubmitButton
+                pendingLabel="Queueing…"
+                className="rounded border border-red-800 px-3 py-2 text-sm text-red-100 hover:bg-red-950/40"
+                confirmMessage="Queue an intentional failure to review retry visibility?"
+              >
+                Queue failure test
+              </SubmitButton>
+            </form>
+          </div>
+        </div>
+      </details>
     </main>
   );
 }

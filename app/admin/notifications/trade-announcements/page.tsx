@@ -1,3 +1,4 @@
+import { AdminNav } from "@/components/admin/AdminNav";
 export const dynamic = "force-dynamic";
 
 import { randomUUID } from "node:crypto";
@@ -257,8 +258,9 @@ export default async function TradeAnnouncementsPage({
     orderBy: [{ createdAt: "asc" }, { name: "asc" }],
   });
   return (
-    <main className="space-y-6 p-8">
+    <main className="min-w-0 space-y-4 p-4 sm:p-8">
       <Nav />
+      <AdminNav active="announcements" />
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-amber-200">

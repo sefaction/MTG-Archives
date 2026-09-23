@@ -1,6 +1,10 @@
 import { runInNewContext } from "node:vm";
 
 export const CLIENT_MANIFEST_CONTRACTS: Record<string, string[]> = {
+  "/admin/prices/page": [
+    "admin/PricingHistoryTotals",
+    "admin/PricingDashboardAutoRefresh",
+  ],
   "/imports/page": [
     "SingleCardInventoryAdd",
     "InventoryExportForm",

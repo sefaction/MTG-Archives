@@ -64,9 +64,17 @@ test("admin can reach backups page without restore actions", async ({
   await expect(
     page.getByRole("button", { name: "Create Backup" }),
   ).toBeVisible();
+  await page
+    .locator("summary")
+    .filter({ hasText: /^Upload backup$/ })
+    .click();
   await expect(
     page.getByRole("button", { name: "Upload Backup" }),
   ).toBeVisible();
+  await page
+    .locator("summary")
+    .filter({ hasText: "Storage and restore guidance" })
+    .click();
   await expect(page.getByText("Restore command")).toBeVisible();
   await expect(page.getByText("Recent backups")).toBeVisible();
   if ((await page.getByRole("link", { name: "Download" }).count()) > 0) {
@@ -77,11 +85,21 @@ test("admin can reach backups page without restore actions", async ({
   if (
     (await page.getByRole("button", { name: "Restore Backup" }).count()) > 0
   ) {
+    await page
+      .locator("summary")
+      .filter({ hasText: "Restore options" })
+      .first()
+      .click();
     await expect(
       page.getByText("Destructive. Type RESTORE").first(),
     ).toBeVisible();
   }
   if ((await page.getByRole("button", { name: "Delete Backup" }).count()) > 0) {
+    await page
+      .locator("summary")
+      .filter({ hasText: "Delete options" })
+      .first()
+      .click();
     await expect(page.getByText("Type DELETE").first()).toBeVisible();
   }
   await expect(page.getByRole("button", { name: /^restore$/i })).toHaveCount(0);

@@ -42,15 +42,25 @@ test("admin can inspect the outbound notification delivery foundation", async ({
   await expect(
     page.getByRole("heading", { level: 1, name: "Notification delivery" }),
   ).toBeVisible();
+  await page
+    .locator("summary")
+    .filter({ hasText: /^Queue diagnostics$/ })
+    .click();
   await expect(
     page.getByRole("button", { name: "Queue success test" }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Queue failure test" }),
   ).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Recent jobs" })).toBeVisible();
-  await expect(page.getByText("PENDING", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("SENDING", { exact: true }).first()).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Recent jobs" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("PENDING", { exact: true }).first(),
+  ).toBeVisible();
+  await expect(
+    page.getByText("SENDING", { exact: true }).first(),
+  ).toBeVisible();
   await expect(page.getByText("SENT", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("FAILED", { exact: true }).first()).toBeVisible();
 });
