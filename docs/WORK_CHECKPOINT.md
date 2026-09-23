@@ -1,5 +1,11 @@
 # Resumable work checkpoint
 
+## Wishlist and Trade workspace ready for review, 2026-09-23
+
+- Branch `feat/wishlist-trade-workspace` is at `a6c6917` for #269. Wishlist results and filters now precede manual capture; quantity guidance and manual add are explicit collapsed tasks. Empty Trade Desk lanes link directly to the existing proposal builder and inventory searches. Wishlist/trade semantics, reservations, visibility and lifecycle actions are unchanged.
+- Verification passed: typecheck, 579 unit tests, production build and client-manifest guards, full 49/49 serial browser cases, and focused `tests/ui/trade-wishlist.spec.ts --repeat-each=3` (**6/6**). Docker image is `sha256:37dd7a12b711a60b1e3ffa2b7670f35560cc2468b4ef41f45e153b8d3680c01b`; compose web is healthy and `/login` returned HTTP 200.
+- Next safe step: push the branch and open one review PR for #269. Do not merge without separate user approval. PR #297 for #260 remains open and unmerged by user direction.
+
 ## Playtest organization started, 2026-09-22
 
 - PR #295 was user-approved and merged into main as `fb9e2cd`. Branch `feat/deck-playtest-organization` now starts from that merged main.
