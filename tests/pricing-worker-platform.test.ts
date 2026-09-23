@@ -74,12 +74,15 @@ test("admin pricing page exposes worker health, logs, and manual queueing", () =
   assert.match(adminPrices, /PricingDashboardAutoRefresh/);
   assert.match(
     pricingAutoRefresh,
-    /window\.location\.replace\("\/admin\/prices"\)/,
+    /router\.refresh\(\)/,
   );
   assert.match(adminPrices, /Current price coverage/);
   assert.match(adminPrices, /MTGJSON identity coverage/);
-  assert.match(adminPrices, /Historical snapshots/);
-  assert.match(adminPrices, /Latest observed price/);
+  assert.match(adminPrices, /PricingHistoryTotals/);
+  assert.match(
+    readFileSync("components/admin/PricingHistoryTotals.tsx", "utf8"),
+    /Latest observed price/,
+  );
   assert.match(adminPrices, /Job queue/);
   assert.match(adminPrices, /Worker heartbeat/);
   assert.match(adminPrices, /Recent jobs/);

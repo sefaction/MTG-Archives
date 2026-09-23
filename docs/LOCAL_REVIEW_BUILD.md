@@ -1,5 +1,13 @@
 # Local review build — cumulative issue queue
 
+## Resumed batch 4: Administration, 2026-09-23
+
+- App checkpoint `8776e77`, branch `feat/admin-task-workspaces`, stacked on #322/#320/#316. Running healthy image `sha256:09053d1ce741b62d1372c7cc0bad41f52c6302d84fbc9e4c44cb9cd04b86ff70` contains all four batches. Local review http://127.0.0.1:13001. Worker images unchanged; local capture-only mail remains.
+- Review `/admin` and Users search/edit; Backups upload/storage and per-file restore/delete disclosures; Notifications recent-job filters/retry; Pricing worker health, explicit Load history totals and expandable logs. Card data and Announcements remain reachable in shared task navigation. Do not perform a restore merely to review presentation.
+- 582 units, typecheck, Linux production build and ten manifest guards passed. Real PostgreSQL pricing query checks passed. Three existing Admin browser cases plus the new workflow passed; the new case covers role/API gates, actual fixture edit/retry, responsive layouts/themes and totals loading/error/retry. Measured health 632ms and concurrent dashboard 115ms during history calculation. Fixture cleanup verified zero test users / 12,477 physical copies.
+- #273/#321/#323 remain open until future approved merge. No production, schema, Acquisition or Playtest changes. Full combined browser regression follows separately; no accessibility certification claimed.
+
+
 ## Autonomous batch 3: League task workspaces, 2026-09-23
 
 - Application `5ab335b`, branch `feat/league-task-workspaces`, stacked on #320 (`93fa844`) and #316. Review in that order; PR #315 is independent. No merge approval exists.

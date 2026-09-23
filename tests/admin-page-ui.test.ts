@@ -6,7 +6,7 @@ const adminPage = readFileSync("app/admin/page.tsx", "utf8");
 
 test("admin page uses dashboard panels and compact management disclosures", () => {
   assert.match(adminPage, /System console/);
-  assert.match(adminPage, /Admin tools/);
+  assert.match(adminPage, /AdminNav/);
   assert.match(adminPage, /Physical cards/);
   assert.match(adminPage, /Scryfall service/);
   assert.match(adminPage, /<details>[\s\S]*Create user/);

@@ -1,3 +1,4 @@
+import { queryPricingJson } from "./pricing-db-query";
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 
@@ -5,10 +6,6 @@ export type PricingWorkerStatus = {
   available: boolean;
   error?: string;
   stats: {
-    snapshotCount: number;
-    pricedCardCount: number;
-    latestObservedDate: string | null;
-    latestIngestedAt: string | null;
     activeJobCount: number;
     failedJobCount: number;
   };
@@ -555,55 +552,39 @@ export async function getPricingDashboard(
 
 export async function listPricingWorkerStatus(): Promise<PricingWorkerStatus> {
   try {
-    const [stats] = jsonQuery<PricingWorkerStatus["stats"]>(
-      `SELECT
-         COUNT(*)::int AS "snapshotCount",
-         COUNT(DISTINCT mtgjson_uuid)::int AS "pricedCardCount",
-         MAX(observed_date)::text AS "latestObservedDate",
-         MAX(created_at)::text AS "latestIngestedAt",
-         (
-           SELECT COUNT(*)::int
-           FROM price_import_jobs
-           WHERE status IN ('QUEUED', 'RUNNING')
-         ) AS "activeJobCount",
-         (
-           SELECT COUNT(*)::int
-           FROM price_import_jobs
-           WHERE status = 'FAILED'
-         ) AS "failedJobCount"
-       FROM price_snapshots`,
+    const [stats] = await queryPricingJson<PricingWorkerStatus["stats"]>(
+      `SELECT COUNT(*) FILTER (WHERE status IN ('QUEUED','RUNNING'))::int AS "activeJobCount",
+        COUNT(*) FILTER (WHERE status = 'FAILED')::int AS "failedJobCount"
+       FROM price_import_jobs`,
+      { timeoutMs: 10_000 },
     );
 
     return {
       available: true,
       stats: stats ?? {
-        snapshotCount: 0,
-        pricedCardCount: 0,
-        latestObservedDate: null,
-        latestIngestedAt: null,
         activeJobCount: 0,
         failedJobCount: 0,
       },
-      heartbeats: jsonQuery(
+      heartbeats: await queryPricingJson(
         `SELECT worker_id, status, last_seen_at, message
          FROM price_worker_heartbeats
          ORDER BY last_seen_at DESC
          LIMIT 5`,
       ),
-      runs: jsonQuery(
+      runs: await queryPricingJson(
         `SELECT id, worker_id, status, started_at, finished_at, message, error
          FROM price_worker_runs
          ORDER BY started_at DESC
          LIMIT 10`,
       ),
-      jobs: jsonQuery(
+      jobs: await queryPricingJson(
         `SELECT id, type, status, requested_by, created_at, started_at, finished_at, error,
                 processed_count, inserted_count, skipped_count
          FROM price_import_jobs
          ORDER BY created_at DESC
          LIMIT 10`,
       ),
-      logs: jsonQuery(
+      logs: await queryPricingJson(
         `SELECT id::text, run_id, worker_id, level, message, created_at
          FROM price_worker_logs
          ORDER BY created_at DESC
@@ -615,10 +596,6 @@ export async function listPricingWorkerStatus(): Promise<PricingWorkerStatus> {
       available: false,
       error: error instanceof Error ? error.message : String(error),
       stats: {
-        snapshotCount: 0,
-        pricedCardCount: 0,
-        latestObservedDate: null,
-        latestIngestedAt: null,
         activeJobCount: 0,
         failedJobCount: 0,
       },
