@@ -1,3 +1,4 @@
+import { LeaguePicker } from "@/components/league/LeaguePicker";
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
@@ -88,6 +89,16 @@ export default async function CommanderLeagueDashboard({
   const isAdmin = league.members.some(
     (member) => member.userId === user.id && member.role === "ADMIN",
   );
+  const view =
+    query.view === "history" ||
+    query.view === "manage" ||
+    (query.view === "record" && isAdmin)
+      ? query.view
+      : "standings";
+  const selectedRound = league.rounds.find((round) => round.id === query.round);
+  const historyGames = selectedRound
+    ? league.games.filter((game) => game.roundId === selectedRound.id)
+    : league.games;
   const existingUserIds = league.members.map((member) => member.userId);
   const availableUsers = isAdmin
     ? await prisma.user.findMany({
@@ -171,14 +182,14 @@ export default async function CommanderLeagueDashboard({
   }));
 
   return (
-    <main className="mx-auto max-w-7xl space-y-6 p-8">
-      <LeagueNav leagueId={league.id} />
+    <main className="mx-auto max-w-7xl min-w-0 space-y-4 p-4 sm:p-8">
+      <LeagueNav leagueId={league.id} active="season" />
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
             {league.year} Commander League
           </p>
-          <h1 className="text-4xl font-bold">{league.name}</h1>
+          <h1 className="break-words text-3xl font-bold">{league.name}</h1>
           {league.description ? (
             <p className="app-muted mt-2 max-w-3xl">{league.description}</p>
           ) : null}
@@ -198,104 +209,155 @@ export default async function CommanderLeagueDashboard({
         </p>
       ) : null}
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {[
-          ["Players", league.members.length],
-          ["Games", league.games.length],
-          [
-            "Frozen decks",
-            league.games.reduce(
-              (sum, game) =>
-                sum +
-                game.participants.filter((item) => item.deckSubmission).length,
-              0,
-            ),
-          ],
-          ["League inventory", locationCardCount],
-        ].map(([label, value]) => (
-          <div key={String(label)} className="app-card p-4">
-            <p className="app-muted text-sm">{label}</p>
-            <p className="text-2xl font-bold">{value}</p>
-          </div>
-        ))}
-      </section>
+      <nav
+        aria-label="Season tasks"
+        className="flex flex-wrap gap-2 border-b border-[var(--app-border)] pb-3"
+      >
+        <Link
+          className="app-nav-link"
+          aria-current={view === "standings" ? "page" : undefined}
+          href={`/league/${league.id}`}
+        >
+          Season standings
+        </Link>
+        {isAdmin ? (
+          <Link
+            className="app-nav-link"
+            aria-current={view === "record" ? "page" : undefined}
+            href={`/league/${league.id}?view=record`}
+          >
+            Record game
+          </Link>
+        ) : null}
+        <Link
+          className="app-nav-link"
+          aria-current={view === "history" ? "page" : undefined}
+          href={`/league/${league.id}?view=history`}
+        >
+          Game history
+        </Link>
+        <Link
+          className="app-nav-link"
+          aria-current={view === "manage" ? "page" : undefined}
+          href={`/league/${league.id}?view=manage`}
+        >
+          {isAdmin ? "Manage season" : "Players & locations"}
+        </Link>
+      </nav>
+      <p className="app-muted text-sm">
+        {isAdmin ? "League organizer" : "League member"} · {league.year} season.
+        League decks do not reserve physical inventory.
+      </p>
+      {view === "standings" ? (
+        <>
+          <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {[
+              ["Players", league.members.length],
+              ["Games", league.games.length],
+              [
+                "Frozen decks",
+                league.games.reduce(
+                  (sum, game) =>
+                    sum +
+                    game.participants.filter((item) => item.deckSubmission)
+                      .length,
+                  0,
+                ),
+              ],
+              ["League inventory", locationCardCount],
+            ].map(([label, value]) => (
+              <div key={String(label)} className="app-card p-4">
+                <p className="app-muted text-sm">{label}</p>
+                <p className="text-2xl font-bold">{value}</p>
+              </div>
+            ))}
+          </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <div className="app-panel overflow-hidden">
-          <div className="border-b border-zinc-800 p-4">
-            <h2 className="text-2xl font-semibold">Standings</h2>
-            <p className="app-muted text-sm">
-              Points first; elimination finish score breaks ties.
-            </p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr>
-                  <th className="p-3 text-left">Rank</th>
-                  <th className="p-3 text-left">Player</th>
-                  <th className="p-3 text-right">GP</th>
-                  <th className="p-3 text-right">W</th>
-                  <th className="p-3 text-right">L</th>
-                  <th className="p-3 text-right">D</th>
-                  <th className="p-3 text-right">Finish</th>
-                  <th className="p-3 text-right">Pts</th>
-                </tr>
-              </thead>
-              <tbody>
-                {standings.map((row, index) => (
-                  <tr key={row.memberId}>
-                    <td className="p-3">{index + 1}</td>
-                    <td className="p-3 font-medium">{row.displayName}</td>
-                    <td className="p-3 text-right">{row.games}</td>
-                    <td className="p-3 text-right">{row.wins}</td>
-                    <td className="p-3 text-right">{row.losses}</td>
-                    <td className="p-3 text-right">{row.draws}</td>
-                    <td className="p-3 text-right">{row.finishScore}</td>
-                    <td className="p-3 text-right font-bold">{row.points}</td>
-                  </tr>
-                ))}
-                {!standings.length ? (
-                  <tr>
-                    <td colSpan={8} className="p-5 text-center app-muted">
-                      Record the first game to create standings.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <div className="app-panel p-4">
-          <h2 className="text-2xl font-semibold">Monthly rounds</h2>
-          <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
-            {league.rounds.map((round) => {
-              const count = league.games.filter(
-                (game) => game.roundId === round.id,
-              ).length;
-              return (
-                <div
-                  key={round.id}
-                  className="rounded border border-zinc-800 p-3"
-                >
-                  <p className="font-medium">{round.name.slice(0, 3)}</p>
-                  <p className="app-muted text-xs">
-                    {count} {count === 1 ? "game" : "games"}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {isAdmin ? (
-        <section className="app-panel p-5">
+          <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+            <div className="app-panel min-w-0 overflow-hidden">
+              <div className="border-b border-zinc-800 p-4">
+                <h2 className="text-2xl font-semibold">Standings</h2>
+                <p className="app-muted text-sm">
+                  Points first; elimination finish score breaks ties.
+                </p>
+              </div>
+              <div
+                className="max-h-[32rem] overflow-auto"
+                role="region"
+                aria-label="Season standings table"
+                tabIndex={0}
+              >
+                <table className="w-full">
+                  <thead>
+                    <tr>
+                      <th className="p-3 text-left">Rank</th>
+                      <th className="p-3 text-left">Player</th>
+                      <th className="p-3 text-right">GP</th>
+                      <th className="p-3 text-right">W</th>
+                      <th className="p-3 text-right">L</th>
+                      <th className="p-3 text-right">D</th>
+                      <th className="p-3 text-right">Finish</th>
+                      <th className="p-3 text-right">Pts</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {standings.map((row, index) => (
+                      <tr key={row.memberId}>
+                        <td className="p-3">{index + 1}</td>
+                        <td className="p-3 font-medium">{row.displayName}</td>
+                        <td className="p-3 text-right">{row.games}</td>
+                        <td className="p-3 text-right">{row.wins}</td>
+                        <td className="p-3 text-right">{row.losses}</td>
+                        <td className="p-3 text-right">{row.draws}</td>
+                        <td className="p-3 text-right">{row.finishScore}</td>
+                        <td className="p-3 text-right font-bold">
+                          {row.points}
+                        </td>
+                      </tr>
+                    ))}
+                    {!standings.length ? (
+                      <tr>
+                        <td colSpan={8} className="p-5 text-center app-muted">
+                          Record the first game to create standings.
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className="app-panel min-w-0 p-4">
+              <h2 className="text-2xl font-semibold">Monthly rounds</h2>
+              <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                {league.rounds.map((round) => {
+                  const count = league.games.filter(
+                    (game) => game.roundId === round.id,
+                  ).length;
+                  return (
+                    <Link
+                      href={`/league/${league.id}?view=history&round=${round.id}`}
+                      key={round.id}
+                      className="rounded border border-zinc-800 p-3"
+                    >
+                      <p className="font-medium">{round.name.slice(0, 3)}</p>
+                      <p className="app-muted text-xs">
+                        {count} {count === 1 ? "game" : "games"}
+                      </p>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        </>
+      ) : null}
+      {view === "record" && isAdmin ? (
+        <section className="app-panel min-w-0 p-4">
           <h2 className="text-2xl font-semibold">Record a completed game</h2>
           <p className="app-muted mb-4 text-sm">
-            Select decks built in the League Decks tab. Each list is copied into
-            an immutable snapshot for this game; no inventory is committed or
-            moved.
+            Recording permanently locks each submitted deck and saves an
+            immutable game snapshot. This cannot be undone here. No physical
+            inventory is committed or moved.
           </p>
           <GameEntryForm
             leagueId={league.id}
@@ -310,176 +372,216 @@ export default async function CommanderLeagueDashboard({
         </section>
       ) : null}
 
-      <section className="app-panel p-5">
-        <h2 className="text-2xl font-semibold">Game history</h2>
-        <div className="mt-4 space-y-4">
-          {league.games.map((game) => (
-            <article
-              key={game.id}
-              className="rounded border border-zinc-800 p-4"
-            >
-              <div className="flex flex-wrap justify-between gap-2">
-                <h3 className="font-semibold">
-                  {game.round.name} game · {dateLabel(game.playedAt)}
-                </h3>
-                {game.notes ? (
-                  <p className="app-muted text-sm">{game.notes}</p>
-                ) : null}
-              </div>
-              <ol className="mt-3 grid gap-2 md:grid-cols-2">
-                {[...game.participants]
-                  .sort(
-                    (a, b) =>
-                      (a.finishPosition || 99) - (b.finishPosition || 99),
-                  )
-                  .map((participant) => (
-                    <li
-                      key={participant.id}
-                      className="rounded bg-zinc-950/50 p-3"
-                    >
-                      <div className="flex justify-between gap-2">
-                        <span>
-                          <strong>
-                            {participant.finishPosition
-                              ? `#${participant.finishPosition} `
-                              : ""}
-                            {participant.member.user.displayName}
-                          </strong>
-                          <span className="app-muted">
-                            {" "}
-                            · {participant.result.toLowerCase()}
-                          </span>
-                        </span>
-                        <span className="font-semibold">
-                          {participant.pointsAwarded} pts
-                        </span>
-                      </div>
-                      <p className="app-muted mt-1 text-sm">
-                        Frozen deck:{" "}
-                        {participant.deckSubmission?.deckName || "None"} ·{" "}
-                        {participant.deckSubmission?.cards.reduce(
-                          (sum, card) => sum + card.quantity,
-                          0,
-                        ) || 0}{" "}
-                        cards
-                      </p>
-                    </li>
-                  ))}
-              </ol>
-            </article>
-          ))}
-          {!league.games.length ? (
-            <p className="app-muted text-sm">No games have been recorded.</p>
-          ) : null}
-        </div>
-      </section>
-
-      <section className="grid gap-6 lg:grid-cols-2">
-        <div className="app-panel p-5">
-          <h2 className="text-2xl font-semibold">League players</h2>
-          <ul className="mt-3 space-y-2">
-            {league.members.map((member) => (
-              <li
-                key={member.id}
-                className="flex justify-between border-b border-zinc-800 pb-2"
-              >
-                <span>{member.user.displayName}</span>
-                <span className="app-muted text-sm">
-                  {member.role.toLowerCase()} · {member.decks.length} league
-                  decks
-                </span>
-              </li>
-            ))}
-          </ul>
-          {isAdmin && availableUsers.length ? (
-            <form action={addLeagueMember} className="mt-4 flex gap-2">
-              <input type="hidden" name="leagueId" value={league.id} />
+      {view === "history" ? (
+        <section className="app-panel min-w-0 p-4">
+          <h2 className="text-2xl font-semibold">Game history</h2>
+          <form className="mt-3 flex flex-wrap items-end gap-2">
+            <input type="hidden" name="view" value="history" />
+            <label className="min-w-0 text-sm">
+              Round
               <select
-                name="userId"
-                required
-                className="min-w-0 flex-1 rounded border border-zinc-700 bg-zinc-950 px-3 py-2"
+                name="round"
+                aria-label="Round"
+                defaultValue={selectedRound?.id || ""}
+                className="ml-2 rounded border border-zinc-700 bg-zinc-950 px-3 py-2"
               >
-                <option value="">Add archive user</option>
-                {availableUsers.map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>
-                    {candidate.displayName}
+                <option value="">All rounds</option>
+                {league.rounds.map((round) => (
+                  <option key={round.id} value={round.id}>
+                    {round.name}
                   </option>
                 ))}
               </select>
-              <button className="rounded border border-cyan-700 px-3 py-2">
-                Add
-              </button>
-            </form>
-          ) : null}
-        </div>
-        <div className="app-panel p-5">
-          <h2 className="text-2xl font-semibold">League inventory locations</h2>
-          <p className="app-muted text-sm">
-            Only explicitly linked public locations are part of this league.
+            </label>
+            <button className="rounded border border-cyan-700 px-3 py-2">
+              View history
+            </button>
+          </form>
+          <p className="app-muted mt-2 text-sm">
+            {historyGames.length} recorded games ·{" "}
+            {selectedRound?.name || "all rounds"}. Completed games are
+            read-only.
           </p>
-          <ul className="mt-3 space-y-2">
-            {league.locations.map((entry) => {
-              const owner =
-                entry.location.ownerPlayer.users[0]?.displayName ||
-                entry.location.ownerPlayer.displayName;
-              const quantity = entry.location.inventoryItems.reduce(
-                (sum, item) => sum + item.quantity,
-                0,
-              );
-              return (
-                <li
-                  key={entry.locationId}
-                  className="flex items-center justify-between gap-2 border-b border-zinc-800 pb-2"
-                >
-                  <span>
-                    {owner} · {entry.location.name}
-                    <span className="app-muted text-sm">
-                      {" "}
-                      · {quantity} cards
-                    </span>
-                  </span>
-                  {isAdmin ? (
-                    <form action={removeLeagueLocation}>
-                      <input type="hidden" name="leagueId" value={league.id} />
-                      <input
-                        type="hidden"
-                        name="locationId"
-                        value={entry.locationId}
-                      />
-                      <button className="text-sm text-red-300">Remove</button>
-                    </form>
-                  ) : null}
-                </li>
-              );
-            })}
-            {!league.locations.length ? (
-              <li className="app-muted text-sm">
-                No public inventory locations are linked.
-              </li>
-            ) : null}
-          </ul>
-          {isAdmin && availableLocations.length ? (
-            <form action={addLeagueLocation} className="mt-4 flex gap-2">
-              <input type="hidden" name="leagueId" value={league.id} />
-              <select
-                name="locationId"
-                required
-                className="min-w-0 flex-1 rounded border border-zinc-700 bg-zinc-950 px-3 py-2"
+          <div
+            className="mt-4 max-h-[36rem] space-y-4 overflow-auto"
+            role="region"
+            aria-label="Recorded games"
+            tabIndex={0}
+          >
+            {historyGames.map((game) => (
+              <article
+                key={game.id}
+                className="rounded border border-zinc-800 p-4"
               >
-                <option value="">Add public member location</option>
-                {availableLocations.map((location) => (
-                  <option key={location.id} value={location.id}>
-                    {location.ownerName} · {location.name}
-                  </option>
-                ))}
-              </select>
-              <button className="rounded border border-cyan-700 px-3 py-2">
-                Add
-              </button>
-            </form>
-          ) : null}
-        </div>
-      </section>
+                <div className="flex flex-wrap justify-between gap-2">
+                  <h3 className="font-semibold">
+                    {game.round.name} game · {dateLabel(game.playedAt)}
+                  </h3>
+                  {game.notes ? (
+                    <p className="app-muted text-sm">{game.notes}</p>
+                  ) : null}
+                </div>
+                <ol className="mt-3 grid gap-2 md:grid-cols-2">
+                  {[...game.participants]
+                    .sort(
+                      (a, b) =>
+                        (a.finishPosition || 99) - (b.finishPosition || 99),
+                    )
+                    .map((participant) => (
+                      <li
+                        key={participant.id}
+                        className="rounded bg-zinc-950/50 p-3"
+                      >
+                        <div className="flex justify-between gap-2">
+                          <span>
+                            <strong>
+                              {participant.finishPosition
+                                ? `#${participant.finishPosition} `
+                                : ""}
+                              {participant.member.user.displayName}
+                            </strong>
+                            <span className="app-muted">
+                              {" "}
+                              · {participant.result.toLowerCase()}
+                            </span>
+                          </span>
+                          <span className="font-semibold">
+                            {participant.pointsAwarded} pts
+                          </span>
+                        </div>
+                        <p className="app-muted mt-1 text-sm">
+                          Frozen deck:{" "}
+                          {participant.deckSubmission?.deckName || "None"} ·{" "}
+                          {participant.deckSubmission?.cards.reduce(
+                            (sum, card) => sum + card.quantity,
+                            0,
+                          ) || 0}{" "}
+                          cards
+                        </p>
+                      </li>
+                    ))}
+                </ol>
+              </article>
+            ))}
+            {!historyGames.length ? (
+              <p className="app-muted text-sm">No games have been recorded.</p>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
+      {view === "manage" ? (
+        <section className="grid min-w-0 gap-4 lg:grid-cols-2">
+          <div className="app-panel min-w-0 p-4">
+            <h2 className="text-2xl font-semibold">League players</h2>
+            <ul className="mt-3 max-h-72 space-y-2 overflow-auto">
+              {league.members.map((member) => (
+                <li
+                  key={member.id}
+                  className="flex flex-wrap justify-between gap-2 border-b border-zinc-800 pb-2"
+                >
+                  <span>{member.user.displayName}</span>
+                  <span className="app-muted text-sm">
+                    {member.role.toLowerCase()} · {member.decks.length} league
+                    decks
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {isAdmin && availableUsers.length ? (
+              <form
+                action={addLeagueMember}
+                className="mt-4 flex flex-wrap items-end gap-2"
+              >
+                <input type="hidden" name="leagueId" value={league.id} />
+                <LeaguePicker
+                  name="userId"
+                  label="Archive user"
+                  options={availableUsers.map((candidate) => ({
+                    value: candidate.id,
+                    label: candidate.displayName,
+                  }))}
+                />
+                <button className="rounded border border-cyan-700 px-3 py-2">
+                  Add
+                </button>
+              </form>
+            ) : null}
+          </div>
+          <div className="app-panel min-w-0 p-4">
+            <h2 className="text-2xl font-semibold">
+              League inventory locations
+            </h2>
+            <p className="app-muted text-sm">
+              Only explicitly linked public locations are part of this league.
+            </p>
+            <ul className="mt-3 max-h-72 space-y-2 overflow-auto">
+              {league.locations.map((entry) => {
+                const owner =
+                  entry.location.ownerPlayer.users[0]?.displayName ||
+                  entry.location.ownerPlayer.displayName;
+                const quantity = entry.location.inventoryItems.reduce(
+                  (sum, item) => sum + item.quantity,
+                  0,
+                );
+                return (
+                  <li
+                    key={entry.locationId}
+                    className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-2"
+                  >
+                    <span>
+                      {owner} · {entry.location.name}
+                      <span className="app-muted text-sm">
+                        {" "}
+                        · {quantity} cards
+                      </span>
+                    </span>
+                    {isAdmin ? (
+                      <form action={removeLeagueLocation}>
+                        <input
+                          type="hidden"
+                          name="leagueId"
+                          value={league.id}
+                        />
+                        <input
+                          type="hidden"
+                          name="locationId"
+                          value={entry.locationId}
+                        />
+                        <button className="text-sm text-red-300">Remove</button>
+                      </form>
+                    ) : null}
+                  </li>
+                );
+              })}
+              {!league.locations.length ? (
+                <li className="app-muted text-sm">
+                  No public inventory locations are linked.
+                </li>
+              ) : null}
+            </ul>
+            {isAdmin && availableLocations.length ? (
+              <form
+                action={addLeagueLocation}
+                className="mt-4 flex flex-wrap items-end gap-2"
+              >
+                <input type="hidden" name="leagueId" value={league.id} />
+                <LeaguePicker
+                  name="locationId"
+                  label="Public member location"
+                  options={availableLocations.map((location) => ({
+                    value: location.id,
+                    label: `${location.ownerName} · ${location.name}`,
+                  }))}
+                />
+                <button className="rounded border border-cyan-700 px-3 py-2">
+                  Add
+                </button>
+              </form>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
     </main>
   );
 }

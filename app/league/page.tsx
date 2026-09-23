@@ -1,3 +1,4 @@
+import { LeaguePicker } from "@/components/league/LeaguePicker";
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
@@ -54,13 +55,13 @@ export default async function CommanderLeaguesPage({
   );
 
   return (
-    <main className="mx-auto max-w-7xl space-y-6 p-8">
+    <main className="mx-auto max-w-7xl min-w-0 space-y-4 p-4 sm:p-8">
       <LeagueNav />
       <header>
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
           Independent competition workspace
         </p>
-        <h1 className="text-4xl font-bold">Commander League</h1>
+        <h1 className="break-words text-3xl font-bold">Commander League</h1>
         <p className="app-muted mt-2 max-w-3xl">
           Run yearly leagues, freeze the decks submitted for each monthly game,
           calculate standings, and measure the cards that shape the field.
@@ -96,8 +97,13 @@ export default async function CommanderLeaguesPage({
         ) : null}
       </section>
 
-      <section className="app-panel p-5">
-        <h2 className="text-2xl font-semibold">Create a yearly league</h2>
+      <details
+        className="app-panel p-4"
+        open={Boolean(params.error) || !leagues.length}
+      >
+        <summary className="cursor-pointer text-xl font-semibold">
+          Create a yearly league
+        </summary>
         <p className="app-muted mt-1 text-sm">
           Twelve monthly rounds are created automatically. Players must be
           linked archive users; selected locations must already be public.
@@ -167,57 +173,40 @@ export default async function CommanderLeaguesPage({
             />
           </label>
           <div className="grid gap-5 lg:grid-cols-2">
-            <fieldset className="rounded border border-zinc-800 p-4">
+            <fieldset className="min-w-0 rounded border border-zinc-800 p-4">
               <legend className="px-2 font-semibold">Archive players</legend>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {users.map((candidate) => (
-                  <label
-                    key={candidate.id}
-                    className="flex items-center gap-2 text-sm"
-                  >
-                    <input
-                      type="checkbox"
-                      name="memberUserId"
-                      value={candidate.id}
-                      defaultChecked={candidate.id === user.id}
-                      disabled={candidate.id === user.id}
-                    />
-                    {candidate.displayName}
-                  </label>
-                ))}
-              </div>
+              <LeaguePicker
+                name="memberUserId"
+                label="Archive players"
+                multiple
+                initialSelected={[user.id]}
+                options={users.map((candidate) => ({
+                  value: candidate.id,
+                  label: candidate.displayName,
+                  disabled: candidate.id === user.id,
+                }))}
+              />
             </fieldset>
-            <fieldset className="rounded border border-zinc-800 p-4">
+            <fieldset className="min-w-0 rounded border border-zinc-800 p-4">
               <legend className="px-2 font-semibold">
                 Public inventory locations
               </legend>
-              <div className="max-h-52 space-y-2 overflow-y-auto">
-                {publicLocations.map((location) => (
-                  <label
-                    key={location.id}
-                    className="flex items-center gap-2 text-sm"
-                  >
-                    <input
-                      type="checkbox"
-                      name="locationId"
-                      value={location.id}
-                    />
-                    {location.ownerName} · {location.name}
-                  </label>
-                ))}
-                {!publicLocations.length ? (
-                  <p className="app-muted text-sm">
-                    No public normal locations are available.
-                  </p>
-                ) : null}
-              </div>
+              <LeaguePicker
+                name="locationId"
+                label="Public inventory locations"
+                multiple
+                options={publicLocations.map((location) => ({
+                  value: location.id,
+                  label: `${location.ownerName} · ${location.name}`,
+                }))}
+              />
             </fieldset>
           </div>
           <button className="rounded bg-cyan-700 px-4 py-2 font-semibold text-white hover:bg-cyan-600">
             Create Commander league
           </button>
         </form>
-      </section>
+      </details>
     </main>
   );
 }

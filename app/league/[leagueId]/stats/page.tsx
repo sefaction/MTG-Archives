@@ -43,10 +43,10 @@ function UsageList({
 }) {
   const max = Math.max(0, ...rows.map((row) => row.appearances));
   return (
-    <div className="mt-4 space-y-3">
+    <div className="mt-4 max-h-96 space-y-3 overflow-auto">
       {rows.map((row) => (
         <div key={row.key}>
-          <div className="mb-1 flex items-end justify-between gap-3 text-sm">
+          <div className="mb-1 flex flex-wrap items-end justify-between gap-3 text-sm">
             <span className="font-medium">{row.name}</span>
             <span className="app-muted whitespace-nowrap">
               {row.appearances} {row.appearances === 1 ? "deck" : "decks"} ·{" "}
@@ -77,12 +77,12 @@ function WinRateTable({
   }>;
 }) {
   return (
-    <section className="app-panel overflow-hidden">
+    <section className="app-panel min-w-0 overflow-hidden">
       <div className="border-b border-zinc-800 p-5">
         <h2 className="text-xl font-semibold">{title}</h2>
         <p className="app-muted text-sm">{description}</p>
       </div>
-      <div className="overflow-x-auto">
+      <div className="max-h-[32rem] overflow-auto" tabIndex={0}>
         <table className="w-full text-sm">
           <thead>
             <tr>
@@ -125,11 +125,25 @@ export default async function CommanderLeagueStatsPage({
   searchParams,
 }: {
   params: Promise<{ leagueId: string }>;
-  searchParams: Promise<{ player?: string }>;
+  searchParams: Promise<{ player?: string; view?: string; month?: string }>;
 }) {
   const user = await requireLogin();
   const { leagueId } = await params;
   const query = await searchParams;
+  const view =
+    query.view === "usage" || query.view === "results"
+      ? query.view
+      : "structure";
+  const month = Number(query.month);
+  const selectedMonth =
+    Number.isInteger(month) && month >= 1 && month <= 12 ? month : undefined;
+  const viewHref = (nextView: string) => {
+    const params = new URLSearchParams();
+    params.set("view", nextView);
+    if (query.player) params.set("player", query.player);
+    if (selectedMonth) params.set("month", String(selectedMonth));
+    return `/league/${leagueId}/stats?${params}`;
+  };
   const league = await prisma.commanderLeague.findFirst({
     where: {
       id: leagueId,
@@ -145,6 +159,9 @@ export default async function CommanderLeagueStatsPage({
         select: { id: true, user: { select: { displayName: true } } },
       },
       games: {
+        where: selectedMonth
+          ? { round: { monthNumber: selectedMonth } }
+          : undefined,
         orderBy: { playedAt: "asc" },
         select: {
           round: { select: { monthNumber: true, name: true } },
@@ -230,21 +247,22 @@ export default async function CommanderLeagueStatsPage({
   ] as const;
 
   return (
-    <main className="mx-auto max-w-7xl space-y-6 p-8">
-      <LeagueNav leagueId={league.id} />
+    <main className="mx-auto max-w-7xl min-w-0 space-y-4 p-4 sm:p-8">
+      <LeagueNav leagueId={league.id} active="stats" />
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">
             {league.name} · {league.year}
           </p>
-          <h1 className="text-4xl font-bold">League statistics</h1>
+          <h1 className="break-words text-3xl font-bold">League statistics</h1>
           <p className="app-muted mt-2 max-w-3xl">
             Analytics use immutable deck snapshots from completed matches.
             Sideboards and maybeboards are excluded. Basic lands count toward
             deck structure, but not card rankings or set usage.
           </p>
         </div>
-        <form className="app-card flex items-end gap-2 p-3">
+        <form className="app-card flex min-w-0 flex-wrap items-end gap-2 p-3">
+          <input type="hidden" name="view" value={view} />
           <label className="text-sm">
             <span className="app-muted mb-1 block">Breakdown</span>
             <select
@@ -260,12 +278,57 @@ export default async function CommanderLeagueStatsPage({
               ))}
             </select>
           </label>
+          <label className="text-sm">
+            <span className="app-muted mb-1 block">Month</span>
+            <select
+              name="month"
+              defaultValue={selectedMonth || ""}
+              className="rounded border border-zinc-700 bg-zinc-950 px-3 py-2"
+            >
+              <option value="">Whole season</option>
+              {Array.from({ length: 12 }, (_, i) => (
+                <option key={i + 1} value={i + 1}>
+                  {new Intl.DateTimeFormat("en-US", { month: "long" }).format(
+                    new Date(league.year, i, 1),
+                  )}
+                </option>
+              ))}
+            </select>
+          </label>
           <button className="rounded border border-cyan-700 px-3 py-2 text-sm">
             View
           </button>
         </form>
       </header>
 
+      <nav
+        aria-label="Statistics views"
+        className="flex flex-wrap gap-2 border-b border-[var(--app-border)] pb-3"
+      >
+        {[
+          ["structure", "Deck structure"],
+          ["usage", "Card usage"],
+          ["results", "Win rates"],
+        ].map(([value, label]) => (
+          <a
+            key={value}
+            className="app-nav-link"
+            aria-current={view === value ? "page" : undefined}
+            href={viewHref(value)}
+          >
+            {label}
+          </a>
+        ))}
+      </nav>
+      <p className="app-muted text-sm">
+        {selectedMember?.user.displayName || "All league players"} ·{" "}
+        {selectedMonth
+          ? new Intl.DateTimeFormat("en-US", { month: "long" }).format(
+              new Date(league.year, selectedMonth - 1, 1),
+            )
+          : "Whole season"}{" "}
+        {league.year} · frozen match snapshots only
+      </p>
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {[
           ["Scope", selectedMember?.user.displayName ?? "Overall"],
@@ -280,274 +343,284 @@ export default async function CommanderLeagueStatsPage({
         ))}
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-2">
-        <div className="app-panel p-5">
-          <h2 className="text-xl font-semibold">Most-played cards</h2>
-          <p className="app-muted text-sm">
-            Nonbasic, noncommander cards ranked by match deck appearances.
-          </p>
-          <UsageList
-            rows={stats.topCards}
-            empty="Cards appear after the first recorded match."
-          />
-        </div>
-        <div className="app-panel p-5">
-          <h2 className="text-xl font-semibold">Most-played commanders</h2>
-          <p className="app-muted text-sm">
-            Partners count as individual commanders.
-          </p>
-          <UsageList
-            rows={stats.commanders}
-            empty="Commanders appear after the first recorded match."
-          />
-        </div>
-      </section>
-
-      <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <div className="app-panel overflow-hidden">
-          <div className="border-b border-zinc-800 p-5">
-            <h2 className="text-xl font-semibold">Monthly deck trends</h2>
+      {view === "usage" ? (
+        <section className="grid gap-6 lg:grid-cols-2">
+          <div className="app-panel min-w-0 p-4">
+            <h2 className="text-xl font-semibold">Most-played cards</h2>
             <p className="app-muted text-sm">
-              Average mana value and land count per match deck each month.
+              Nonbasic, noncommander cards ranked by match deck appearances.
             </p>
+            <UsageList
+              rows={stats.topCards}
+              empty="Cards appear after the first recorded match."
+            />
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr>
-                  <th className="p-3 text-left">Month</th>
-                  <th className="p-3 text-right">Decks</th>
-                  <th className="p-3 text-right">Avg. mana</th>
-                  <th className="p-3 text-right">Avg. lands</th>
-                  <th className="p-3 text-left">Top colors</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.months.map((month) => (
-                  <tr
-                    key={month.monthNumber}
-                    className="border-t border-zinc-800"
-                  >
-                    <td className="p-3 font-medium">{month.monthName}</td>
-                    <td className="p-3 text-right">{month.decks}</td>
-                    <td className="p-3 text-right">
-                      {decimal(month.averageManaValue)}
-                    </td>
-                    <td className="p-3 text-right">
-                      {decimal(month.averageLandCount)}
-                    </td>
-                    <td className="p-3">
-                      {month.topColorIdentity === "Colorless" ||
-                      month.topColorIdentity === "Unknown" ? (
-                        month.topColorIdentity
-                      ) : (
-                        <ColorIdentitySymbols value={month.topColorIdentity} />
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {!stats.months.length ? (
-                  <tr>
-                    <td colSpan={5} className="app-muted p-5 text-center">
-                      No monthly snapshots yet.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
+          <div className="app-panel min-w-0 p-4">
+            <h2 className="text-xl font-semibold">Most-played commanders</h2>
+            <p className="app-muted text-sm">
+              Partners count as individual commanders.
+            </p>
+            <UsageList
+              rows={stats.commanders}
+              empty="Commanders appear after the first recorded match."
+            />
           </div>
-        </div>
-        <div className="app-panel p-5">
-          <h2 className="text-xl font-semibold">Color identity</h2>
-          <p className="app-muted text-sm">
-            Usage and match win rate by commander identity.
-          </p>
-          <div className="mt-4 space-y-3">
-            {stats.colorIdentities.map((color) => (
-              <div
-                key={color.name}
-                className="flex items-center justify-between gap-3 border-b border-zinc-800 pb-2"
-              >
-                <span className="font-medium">
-                  {color.name === "Colorless" || color.name === "Unknown" ? (
-                    color.name
-                  ) : (
-                    <ColorIdentitySymbols value={color.name} />
-                  )}
-                </span>
-                <span className="app-muted text-sm">
-                  {color.appearances} decks · {percent(color.winRate)} wins
-                </span>
-              </div>
-            ))}
-            {!stats.colorIdentities.length ? (
-              <p className="app-muted text-sm">No color data yet.</p>
-            ) : null}
-          </div>
-        </div>
-      </section>
-
-      <section className="grid gap-6 lg:grid-cols-2">
-        <div className="app-panel p-5">
-          <h2 className="text-xl font-semibold">Mana curve</h2>
-          <p className="app-muted text-sm">
-            Average shape across nonland cards in match decks.
-          </p>
-          <div
-            className="mt-5 grid grid-cols-8 items-end gap-2"
-            aria-label="Mana curve"
-          >
-            {stats.manaCurve.map((bucket) => (
-              <div key={bucket.label} className="text-center">
-                <div className="flex h-36 items-end rounded bg-zinc-950/60 p-1">
-                  <div
-                    className="w-full rounded-sm bg-cyan-500"
-                    style={{
-                      height: `${maxCurve ? Math.max(3, (bucket.cards / maxCurve) * 100) : 0}%`,
-                    }}
-                    title={`${bucket.cards} cards`}
-                  />
-                </div>
-                <p className="mt-1 font-semibold">{bucket.label}</p>
-                <p className="app-muted text-xs">{bucket.cards}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="app-panel p-5">
-          <h2 className="text-xl font-semibold">Deck composition</h2>
-          <p className="app-muted text-sm">
-            Quantity-weighted across every match deck.
-          </p>
-          <div className="mt-5 space-y-4">
-            {compositionRows.map(([label, value]) => (
-              <div key={label}>
-                <div className="mb-1 flex justify-between text-sm">
-                  <span>{label}</span>
-                  <span className="app-muted">
-                    {value} ·{" "}
-                    {percent(
-                      stats.composition.total
-                        ? value / stats.composition.total
-                        : 0,
-                    )}
-                  </span>
-                </div>
-                <Meter value={value} max={stats.composition.total} />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="grid gap-6 lg:grid-cols-3">
-        <WinRateTable
-          title="Commander win rate"
-          description="Every commander appearance; small samples remain visible."
-          rows={stats.commanderWinRates}
-        />
-        <WinRateTable
-          title="Color win rate"
-          description="Results grouped by the submitted commanders' combined identity."
-          rows={stats.colorIdentities}
-        />
-        <WinRateTable
-          title="Card win rate"
-          description="Nonbasic cards with at least two match appearances."
-          rows={stats.cardWinRates}
-        />
-      </section>
-
-      <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-        <div className="app-panel p-5">
-          <h2 className="text-xl font-semibold">Signature cards</h2>
-          <p className="app-muted text-sm">
-            Cards disproportionately associated with a player, with at least two
-            appearances.
-          </p>
-          <div className="mt-4 space-y-3">
-            {stats.signatureCards.map((card) => (
-              <div key={card.key} className="border-b border-zinc-800 pb-2">
-                <div className="flex justify-between gap-3">
-                  <span className="font-medium">{card.cardName}</span>
-                  <span className="text-sm text-cyan-300">
-                    {percent(card.signatureShare)} theirs
-                  </span>
-                </div>
-                <p className="app-muted text-xs">
-                  {card.displayName} · {card.appearances} of{" "}
-                  {card.leagueAppearances} league appearances
+        </section>
+      ) : null}
+      {view === "structure" ? (
+        <>
+          <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+            <div className="app-panel min-w-0 overflow-hidden">
+              <div className="border-b border-zinc-800 p-5">
+                <h2 className="text-xl font-semibold">Monthly deck trends</h2>
+                <p className="app-muted text-sm">
+                  Average mana value and land count per match deck each month.
                 </p>
               </div>
-            ))}
-            {!stats.signatureCards.length ? (
+              <div className="max-h-[32rem] overflow-auto" tabIndex={0}>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th className="p-3 text-left">Month</th>
+                      <th className="p-3 text-right">Decks</th>
+                      <th className="p-3 text-right">Avg. mana</th>
+                      <th className="p-3 text-right">Avg. lands</th>
+                      <th className="p-3 text-left">Top colors</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.months.map((month) => (
+                      <tr
+                        key={month.monthNumber}
+                        className="border-t border-zinc-800"
+                      >
+                        <td className="p-3 font-medium">{month.monthName}</td>
+                        <td className="p-3 text-right">{month.decks}</td>
+                        <td className="p-3 text-right">
+                          {decimal(month.averageManaValue)}
+                        </td>
+                        <td className="p-3 text-right">
+                          {decimal(month.averageLandCount)}
+                        </td>
+                        <td className="p-3">
+                          {month.topColorIdentity === "Colorless" ||
+                          month.topColorIdentity === "Unknown" ? (
+                            month.topColorIdentity
+                          ) : (
+                            <ColorIdentitySymbols
+                              value={month.topColorIdentity}
+                            />
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {!stats.months.length ? (
+                      <tr>
+                        <td colSpan={5} className="app-muted p-5 text-center">
+                          No monthly snapshots yet.
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className="app-panel min-w-0 p-4">
+              <h2 className="text-xl font-semibold">Color identity</h2>
               <p className="app-muted text-sm">
-                More repeated deck appearances are needed.
+                Usage and match win rate by commander identity.
               </p>
-            ) : null}
-          </div>
-        </div>
-        <div className="app-panel overflow-hidden">
-          <div className="border-b border-zinc-800 p-5">
-            <h2 className="text-xl font-semibold">Set usage trends</h2>
-            <p className="app-muted text-sm">
-              Submitted copies and unique cards, plus average copies per match
-              deck by month.
-            </p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr>
-                  <th className="p-3 text-left">Set</th>
-                  <th className="p-3 text-right">Copies</th>
-                  <th className="p-3 text-right">Unique</th>
-                  <th className="p-3 text-right">Avg/deck</th>
-                  <th className="p-3 text-left">Monthly average</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.setUsage.map((set) => (
-                  <tr key={set.setCode} className="border-t border-zinc-800">
-                    <td className="p-3">
-                      <strong>{set.setCode}</strong>
-                      <span className="app-muted ml-2 text-xs">
-                        {set.setName}
-                      </span>
-                    </td>
-                    <td className="p-3 text-right">{set.copies}</td>
-                    <td className="p-3 text-right">{set.uniqueCards}</td>
-                    <td className="p-3 text-right">
-                      {set.averageCopiesPerDeck.toFixed(2)}
-                    </td>
-                    <td className="p-3">
-                      <div className="flex flex-wrap gap-1">
-                        {set.monthlyAverage.map((month) => (
-                          <span
-                            key={month.monthNumber}
-                            className="rounded bg-zinc-900 px-1.5 py-1 text-xs"
-                            title={`${month.monthName}: ${month.average.toFixed(2)} copies per deck`}
-                          >
-                            {month.monthName.slice(0, 3)}{" "}
-                            {month.average.toFixed(1)}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
+              <div className="mt-4 max-h-96 space-y-3 overflow-auto">
+                {stats.colorIdentities.map((color) => (
+                  <div
+                    key={color.name}
+                    className="flex items-center justify-between gap-3 border-b border-zinc-800 pb-2"
+                  >
+                    <span className="font-medium">
+                      {color.name === "Colorless" ||
+                      color.name === "Unknown" ? (
+                        color.name
+                      ) : (
+                        <ColorIdentitySymbols value={color.name} />
+                      )}
+                    </span>
+                    <span className="app-muted text-sm">
+                      {color.appearances} decks · {percent(color.winRate)} wins
+                    </span>
+                  </div>
                 ))}
-                {!stats.setUsage.length ? (
-                  <tr>
-                    <td colSpan={5} className="app-muted p-5 text-center">
-                      No set data is available yet.
-                    </td>
-                  </tr>
+                {!stats.colorIdentities.length ? (
+                  <p className="app-muted text-sm">No color data yet.</p>
                 ) : null}
-              </tbody>
-            </table>
+              </div>
+            </div>
+          </section>
+
+          <section className="grid gap-6 lg:grid-cols-2">
+            <div className="app-panel min-w-0 p-4">
+              <h2 className="text-xl font-semibold">Mana curve</h2>
+              <p className="app-muted text-sm">
+                Average shape across nonland cards in match decks.
+              </p>
+              <div
+                className="mt-5 grid grid-cols-8 items-end gap-2"
+                aria-label="Mana curve"
+              >
+                {stats.manaCurve.map((bucket) => (
+                  <div key={bucket.label} className="text-center">
+                    <div className="flex h-36 items-end rounded bg-zinc-950/60 p-1">
+                      <div
+                        className="w-full rounded-sm bg-cyan-500"
+                        style={{
+                          height: `${maxCurve ? Math.max(3, (bucket.cards / maxCurve) * 100) : 0}%`,
+                        }}
+                        title={`${bucket.cards} cards`}
+                      />
+                    </div>
+                    <p className="mt-1 font-semibold">{bucket.label}</p>
+                    <p className="app-muted text-xs">{bucket.cards}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="app-panel min-w-0 p-4">
+              <h2 className="text-xl font-semibold">Deck composition</h2>
+              <p className="app-muted text-sm">
+                Quantity-weighted across every match deck.
+              </p>
+              <div className="mt-5 space-y-4">
+                {compositionRows.map(([label, value]) => (
+                  <div key={label}>
+                    <div className="mb-1 flex justify-between text-sm">
+                      <span>{label}</span>
+                      <span className="app-muted">
+                        {value} ·{" "}
+                        {percent(
+                          stats.composition.total
+                            ? value / stats.composition.total
+                            : 0,
+                        )}
+                      </span>
+                    </div>
+                    <Meter value={value} max={stats.composition.total} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        </>
+      ) : null}
+      {view === "results" ? (
+        <section className="grid gap-6 lg:grid-cols-3">
+          <WinRateTable
+            title="Commander win rate"
+            description="Every commander appearance; small samples remain visible."
+            rows={stats.commanderWinRates}
+          />
+          <WinRateTable
+            title="Color win rate"
+            description="Results grouped by the submitted commanders' combined identity."
+            rows={stats.colorIdentities}
+          />
+          <WinRateTable
+            title="Card win rate"
+            description="Nonbasic cards with at least two match appearances."
+            rows={stats.cardWinRates}
+          />
+        </section>
+      ) : null}
+      {view === "usage" ? (
+        <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="app-panel min-w-0 p-4">
+            <h2 className="text-xl font-semibold">Signature cards</h2>
+            <p className="app-muted text-sm">
+              Cards disproportionately associated with a player, with at least
+              two appearances.
+            </p>
+            <div className="mt-4 max-h-96 space-y-3 overflow-auto">
+              {stats.signatureCards.map((card) => (
+                <div key={card.key} className="border-b border-zinc-800 pb-2">
+                  <div className="flex justify-between gap-3">
+                    <span className="font-medium">{card.cardName}</span>
+                    <span className="text-sm text-cyan-300">
+                      {percent(card.signatureShare)} theirs
+                    </span>
+                  </div>
+                  <p className="app-muted text-xs">
+                    {card.displayName} · {card.appearances} of{" "}
+                    {card.leagueAppearances} league appearances
+                  </p>
+                </div>
+              ))}
+              {!stats.signatureCards.length ? (
+                <p className="app-muted text-sm">
+                  More repeated deck appearances are needed.
+                </p>
+              ) : null}
+            </div>
           </div>
-        </div>
-      </section>
+          <div className="app-panel min-w-0 overflow-hidden">
+            <div className="border-b border-zinc-800 p-5">
+              <h2 className="text-xl font-semibold">Set usage trends</h2>
+              <p className="app-muted text-sm">
+                Submitted copies and unique cards, plus average copies per match
+                deck by month.
+              </p>
+            </div>
+            <div className="max-h-[32rem] overflow-auto" tabIndex={0}>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr>
+                    <th className="p-3 text-left">Set</th>
+                    <th className="p-3 text-right">Copies</th>
+                    <th className="p-3 text-right">Unique</th>
+                    <th className="p-3 text-right">Avg/deck</th>
+                    <th className="p-3 text-left">Monthly average</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.setUsage.map((set) => (
+                    <tr key={set.setCode} className="border-t border-zinc-800">
+                      <td className="p-3">
+                        <strong>{set.setCode}</strong>
+                        <span className="app-muted ml-2 text-xs">
+                          {set.setName}
+                        </span>
+                      </td>
+                      <td className="p-3 text-right">{set.copies}</td>
+                      <td className="p-3 text-right">{set.uniqueCards}</td>
+                      <td className="p-3 text-right">
+                        {set.averageCopiesPerDeck.toFixed(2)}
+                      </td>
+                      <td className="p-3">
+                        <div className="flex flex-wrap gap-1">
+                          {set.monthlyAverage.map((month) => (
+                            <span
+                              key={month.monthNumber}
+                              className="rounded bg-zinc-900 px-1.5 py-1 text-xs"
+                              title={`${month.monthName}: ${month.average.toFixed(2)} copies per deck`}
+                            >
+                              {month.monthName.slice(0, 3)}{" "}
+                              {month.average.toFixed(1)}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {!stats.setUsage.length ? (
+                    <tr>
+                      <td colSpan={5} className="app-muted p-5 text-center">
+                        No set data is available yet.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      ) : null}
     </main>
   );
 }
