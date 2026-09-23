@@ -1,5 +1,8 @@
 # Deck builder workspace
 
+For current acceptance, review dependencies and reliability status, see [UI acceptance status](UI_ACCEPTANCE_STATUS.md). Historical follow-up statements below are superseded by that dated reconciliation and live GitHub.
+
+
 First implementation batch for #268. The existing deck routes, data model and mutations are retained.
 
 | Capability | Home | Scope |

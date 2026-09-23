@@ -1,5 +1,43 @@
 # Resumable work checkpoint
 
+## Acceptance PR in review, 2026-09-23
+
+PR [#325](https://github.com/sefaction/MTG-Archives/pull/325) is open against #324. Initial Core and PostgreSQL CI passed (run 35932802802). Final serial browser 51/51 passed in 7.8 minutes on the healthy cumulative image; the test correction to Admin Users changed no app source. Route/action crosswalk: 34 page routes, 45 IDs. Fixture cleanup: zero `ui-*` users, 12,477 physical copies. Review order #316 -> #320 -> #322 -> #324 -> #325; independent acquisition planning #315 remains separate. No merge, issue closure or production deployment. Remaining manual user gates: final task usability, actual browser zoom/touch, comprehensive contrast/keyboard and role combinations. After this documentation checkpoint commit, recheck CI on the new PR head before calling it green.
+
+
+## Acceptance validation complete locally, 2026-09-23
+
+Branch `docs/ui-acceptance-reconciliation` on cumulative Administration PR #324; no application source changes. The updated auth-session regression now opens Admin Users after #324 navigation; focused security lifecycle passed (34s). Final full serial browser suite passed **51/51 in 7.8 minutes** on image `sha256:09053d1ce741b62d1372c7cc0bad41f52c6302d84fbc9e4c44cb9cd04b86ff70`. Zero `ui-*` fixture users, 12,477 physical copies, healthy web. Crosswalk has 34 live page routes and 45 action IDs. Acceptance document records exact behavioral evidence and unresolved manual/user review gates. Next safe step: typecheck/document checks, commit/push, open a review-ready acceptance PR against #324, resolve CI and update Foundry durable milestone. No merges, issue closures or production deployment.
+
+
+## New acceptance goal, 2026-09-23
+
+Live GitHub: 28 open issues, 13 on-hold Acquisition issues, 9 active issues addressed by open PRs #316/#320/#322/#324, and 6 remaining UI foundation/acceptance issues #262/#263/#264/#265/#268/#274. Five PRs open including independent acquisition planning #315; all CI green. This goal focuses on cumulative acceptance, final regression and a review-ready documentation PR; no merges, production, acquisition implementation or further Playtest changes. Current clean branch `docs/ui-acceptance-reconciliation` at `78efea0`, based on #324. Running Docker web image `sha256:09053d1ce741b62d1372c7cc0bad41f52c6302d84fbc9e4c44cb9cd04b86ff70` healthy, `/login` HTTP 200. Next: full serial browser regression, then inspect results and fixtures.
+
+
+
+## Acceptance regression follow-up, 2026-09-23
+
+First complete serial 51-case run on the cumulative Docker image finished **50 passed / 1 failed** after 8.4 minutes. The failure was `tests/ui/auth-sessions.spec.ts` navigating `/admin` for password reset, while #324 moved that unchanged action to `/admin?view=users`. It timed out before performing the reset; no security behavior failed. The test now navigates to Users and asserts the active task; the focused reset/session invalidation case passed in 34 seconds. No app source or Docker rebuild changed. A clean full 51-case rerun is currently active (shell session 24890, log `.git/acceptance-full-browser-final.log`); inspect its terminal result before claiming the gate passed. Prior failed-run fixtures were zero and the database held 12,477 physical copies before rerun.
+
+## Goal closed at user request
+
+User requested a final review rundown and closure of this autonomous goal. Live reconciliation confirmed five open PRs: implementation review order #316 -> #320 -> #322 -> #324, plus independent acquisition planning #315. All reported CI checks pass. The cumulative Administration image remains running and healthy. No merges or production deployment were authorized or performed.
+
+The stopped full-suite run (29 passing cases before interruption), remaining manual acceptance, and unpublished acceptance-documentation PR are explicitly deferred to a future task, not declared finished. Acceptance draft branch `docs/ui-acceptance-reconciliation` is pushed; see UI_ACCEPTANCE_STATUS.md. The pause/recovery details below remain the technical starting point if that separate work is requested.
+
+
+## User-requested pause, 2026-09-23 11:42 UTC
+
+User is shutting down laptop and explicitly requested pause. Active branch `docs/ui-acceptance-reconciliation`, based on Administration `9493d6c`. Four new review PRs are open in order #316 -> #320 -> #322 -> #324; all Core and PostgreSQL CI green. #324 run 35855847657 includes new pricing PostgreSQL checks. #315 remains independent/deferred planning. No merges/closures/production deployments.
+
+Current healthy local image `sha256:09053d1ce741b62d1372c7cc0bad41f52c6302d84fbc9e4c44cb9cd04b86ff70` includes all four application batches through `8776e77`; later changes are tests/docs. Full serial regression was explicitly interrupted at user request after 29 passing cases, during the existing Playtest regression (no Playtest implementation changes). It is NOT a completed full-suite pass. `.git/combined-browser.log` preserves partial output; execution session 73522 is terminal and no Playwright Node processes remain. The interrupted UUID-owned Playtest fixture was cleaned using its existing user-cascade cleanup; verified zero ui-* fixture users and 12,477 physical copies.
+
+Acceptance documentation draft lives in docs/UI_ACCEPTANCE_STATUS.md with historical crosswalk/feature-note links updated. All 34 page routes are represented. Fresh scale case passed with 1,200 nodes, 1,000 printings, 150,000 copies and four uneven owners (479ms local page load, 81,727 HTML bytes, 12 options). No blanket accessibility/acceptance certification.
+
+Next safe step: reconcile git/GitHub/Docker after restart; bring up existing local Compose without unintentionally rebuilding or deploying; rerun the interrupted full serial browser suite on the recorded image. Update acceptance evidence and morning handoff, publish the docs review PR against #324, then report review order and remaining manual gates. No pending consequential product questions. Acquisition/on-hold and further Playtest changes remain deferred.
+
+
 ## Resumed by user, 2026-09-23
 
 User explicitly requested continuation after the original window. Active branch `feat/admin-task-workspaces`, checkpoint commit `8776e77`. Typecheck including new browser test passed. Administration image `sha256:09053d1ce741b62d1372c7cc0bad41f52c6302d84fbc9e4c44cb9cd04b86ff70` is now loaded and healthy, cumulative with #316/#320/#322. Real PostgreSQL pricing query checks passed (Unicode/zero/empty, nonblocking query, bounded timeout, sanitized failure, read-only). Focused existing Administration browser checks passed 3/3 and the new comprehensive workflow passed (55.4 seconds) after correcting test button/30-job expectations and making cleanup unconditional. Pricing health loaded in 632ms; a concurrent dashboard completed in 115ms during exact totals calculation (1,922,270 snapshots). All task routes passed desktop/390/320px, six themes/enlarged text and admin/member/anonymous boundaries. Visually inspected phone pricing and desktop user screenshots. Cleanup: zero Admin fixture users, 12,477 physical copies. Next: publish the Administration PR against #322 and verify CI; then run combined regression/acceptance reconciliation. No merges or production deployment authorized. Earlier stop entry below is historical.

@@ -1,5 +1,8 @@
 # Design acceptance ledger
 
+Current implementation and verification status: [UI acceptance status](../../UI_ACCEPTANCE_STATUS.md). The design baseline below is historical; its pending/open labels describe that original review, not current GitHub status.
+
+
 Baseline app: `7a32dd3`; design branch `design/ui-consolidation-foundation`, 2026-09-21. This document separates past observations, synthetic prototype checks and required future application acceptance.
 
 ## Before / proposed / evidence
