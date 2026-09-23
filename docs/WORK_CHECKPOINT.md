@@ -6,12 +6,24 @@
 - Verification passed: typecheck, 579 unit tests, production build and client-manifest guards, full 49/49 serial browser cases, and focused `tests/ui/trade-wishlist.spec.ts --repeat-each=3` (**6/6**). Docker image is `sha256:37dd7a12b711a60b1e3ffa2b7670f35560cc2468b4ef41f45e153b8d3680c01b`; compose web is healthy and `/login` returned HTTP 200.
 - Next safe step: push the branch and open one review PR for #269. Do not merge without separate user approval. PR #297 for #260 remains open and unmerged by user direction.
 
-## Playtest organization started, 2026-09-22
+## Vault occupancy PR open; filter audit closed, 2026-09-22
 
-- PR #295 was user-approved and merged into main as `fb9e2cd`. Branch `feat/deck-playtest-organization` now starts from that merged main.
-- Next #268 batch currently contains commit `9666108` (`Organize playtest controls by task`): frequent actions are explicitly labeled, and advanced playtest controls now separate Battlefield workspace and Selected cards from token/library/random and player/commander tools. Sandbox state, device-local storage, limits and authoritative deck boundaries are unchanged.
-- Focused source verification passes: 579 tests including the new playtest organization contract, plus typecheck and `git diff --check`. Docker image `sha256:6433b3a2c727639a79f237c3c12691ccd4bfaea704ba89096852417fd714985c` is loaded locally, compose web is healthy and `/login` returned HTTP 200. Focused browser coverage passed **3/3** (`deck-playtest` core/narrow and `playtest-advanced`).
-- PR [#296](https://github.com/sefaction/MTG-Archives/pull/296) is open from `feat/deck-playtest-organization` and awaits review; it is not merge-approved. Next safe step is user review of #296, with merge only after separate approval.
+- PR [#297](https://github.com/sefaction/MTG-Archives/pull/297) remains open and unmerged by user direction while additional reliability work proceeds. Its branch is `fix/vault-occupancy-refresh`; local image and 5/5 vault-map evidence are recorded immediately below.
+- Issue [#220](https://github.com/sefaction/MTG-Archives/issues/220) is now closed after the existing document-navigation fix from [PR #221](https://github.com/sefaction/MTG-Archives/pull/221) passed the unchanged `tests/ui/inventory-color-filter.spec.ts --repeat-each=20` audit: **40/40** cases passed on the current Docker stack.
+- Next safe step: independently audit #280 (deck-analysis remote-image timeout) without changing timeouts or weakening rendered/private-access assertions. Keep #260 and #280 separate.
+
+## Vault occupancy refresh ready for review, 2026-09-22
+
+- Branch `fix/vault-occupancy-refresh` is at `fa6ef7f` for #260. The committed move action now returns fresh source/destination occupancy summaries, and the inventory client applies them immediately before the normal route refresh. No reload, timeout, schema, or migration workaround was added.
+- Verification passed: 580 source tests, typecheck, production Docker build and client-manifest guards, healthy compose web service with `/login` HTTP 200, and `tests/ui/vault-map.spec.ts --repeat-each=5` (**5/5**). Local image is `sha256:7f7f03e02e00cff8e0e6cdc2691cc0ed18586f4a91e96fd138be3a8361c3bf27`.
+- Next safe step: push this branch and open the review PR for #260. Do not merge until the user separately approves that PR; #260 remains open until then. #220 and #280 remain separate audits.
+
+## Playtest organization released, 2026-09-22
+
+- PR #295 was user-approved and merged into main as `fb9e2cd`; the existing playtest PR #296 was then approved and merged as `e25fd23`. No further playtest changes are planned in this batch.
+- The released #296 work labels frequent actions and separates Battlefield workspace and Selected cards from token/library/random and player/commander tools. Sandbox state, device-local storage, limits and authoritative deck boundaries are unchanged.
+- Verification passed 579 tests, typecheck/build/manifest guards, Docker health and 3/3 focused playtest browser cases. Local image evidence remains `sha256:6433b3a2c727639a79f237c3c12691ccd4bfaea704ba89096852417fd714985c`.
+- Next safe step: begin the reliability queue with #260 (stale vault occupancy after successful move), preserving unchanged UI assertions and not claiming a fix until the root cause is demonstrated. #220 and #280 remain separate follow-up audits.
 
 ## Deck library workspace paused, 2026-09-22
 
