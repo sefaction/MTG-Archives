@@ -10,7 +10,7 @@ Local review: http://127.0.0.1:13001. Healthy image `sha256:09053d1ce741b62d1372
 
 ## Capability evidence index
 
-The existing [capability crosswalk](design/ui-consolidation/CAPABILITIES.md) still covers all **34 current page routes**, verified against app/**/page.tsx on this revision. Its action IDs and scope differences remain the review checklist; route enumeration alone cannot prove action parity.
+The existing [capability crosswalk](design/ui-consolidation/CAPABILITIES.md) still covers all **34 current page routes** and **45 action IDs**, verified against `app/**/page.tsx` and the crosswalk rows on this revision. Its action IDs and scope differences remain the review checklist; route enumeration alone cannot prove action parity.
 
 | Capability family | Retained home and current implementation record | Behavioral evidence on the cumulative build |
 | --- | --- | --- |
@@ -26,6 +26,27 @@ The existing [capability crosswalk](design/ui-consolidation/CAPABILITIES.md) sti
 | League member/organizer/frozen decks and statistics | Season standings/record/history/manage, library, scoped stats; LEAGUE_WORKSPACES.md; #322 | league-lifecycle preserves printings, immutable game snapshots and physical-copy conservation |
 
 The filenames above are coverage pointers, not assertions that every possible control/role combination is exercised. Final combined-run results are recorded below. Required CI and individual user review are separate gates.
+
+## Action-level verification boundary
+
+The 45 action IDs in [CAPABILITIES.md](design/ui-consolidation/CAPABILITIES.md) name each retained control home and role boundary. The current cumulative application revision for this review is `8776e77`. The following checks run against that revision's Docker image; a browser case exercises a representative path within each ID, not necessarily every action named in that ID. Source-mapped controls remain in the crosswalk even where no direct browser mutation was repeated in this pass.
+
+| Action IDs | Current direct evidence | Remaining limit |
+| --- | --- | --- |
+| I01-I03 | `inventory-workspace`, `inventory-color-filter`, `inventory-scryfall-query`, `location-hierarchy` | Not every filter combination is exhaustive |
+| I04-I07 | `inventory-workspace`, `inventory-export`, `vault-pilot`, `vault-map` | All-matching and every view preference are not crossed with every role |
+| I08-I11 | `inventory-detail`, `trade-wishlist`, inventory mutation/policy units | Destructive cleanup and every edit/split field are source mapped rather than browser repeated here |
+| L01-L05 | `locations-workspace`, `location-hierarchy`, `location-scale`, `storage-layout`, `vault-map` | Every destructive storage action is not rerun on the snapshot |
+| M01-M05 | `imports-workspace`, `inventory-export`, real PostgreSQL import integrity script | Every legacy unsafe undo branch is checked in database tests, not through a browser path |
+| D01-D05 | `decks-brackets`, `deck-builder-workspace`, `pasted-decklist`, `league-lifecycle` | Every optimization and folder variant is not repeated in browser |
+| D06-D09 | `deck-analysis`, `deck-sample-hands`, existing `deck-playtest`/`playtest-advanced` regressions | No new Playtest behavior or changes in this goal |
+| W01, T01-T03 | `trade-wishlist`, `trade-lifecycle` | Representative partner and owner flows; no exhaustive four-user trade permutations |
+| U01-U04 | `settings-themes`, `email-settings`, `webhook-settings`, `notifications`, `auth-sessions`, `login-return` | Delivery uses local capture and policy guards; no external messages |
+| P01 | `browse-pricing-workspaces` plus pricing units | No production-scale market query benchmark |
+| A01-A03 | `admin-workspaces`, `admin-backups`, `admin-metadata`, `admin-notification-delivery`, prior isolated recovery drill | No destructive restore in this acceptance pass |
+| G01-G03 | `league-lifecycle` plus League statistics units | Synthetic populated season; no broader user study |
+
+All page routes remain in the crosswalk and every action ID has a named home. This table distinguishes direct checks from capability completeness; the open issues still require user review and the broader manual gates below.
 
 ## Issue-by-issue reconciliation
 
@@ -50,4 +71,8 @@ Resolved reliability references in older feature notes are historical: #220, #26
 
 ## Combined validation
 
-Full serial browser run was interrupted at the user-requested laptop shutdown after 29 passing cases. It is not a completed full-suite pass; rerun after resuming. Cleanup verified zero fixture users and 12,477 physical copies. Per-batch 582 units, typecheck, Linux production builds/manifest guards and focused workflow evidence already passed. Both CI jobs for #324 passed (run 35855847657), including the new PostgreSQL pricing checks.
+A clean serial **51/51 browser cases passed in 7.8 minutes** against cumulative application image `sha256:09053d1ce741b62d1372c7cc0bad41f52c6302d84fbc9e4c44cb9cd04b86ff70`. The first full attempt had 50 pass / 1 timeout: its Admin password-reset test still navigated to `/admin` after the action moved to `/admin?view=users`. The test now follows Users; the focused security lifecycle passed before the clean 51/51 rerun. No security implementation or test timeout was changed. Final fixture cleanup verified zero `ui-*` users and 12,477 physical copies.
+
+The varied-printing storage case measured 1,200 nodes, 1,000 printings, 150,000 copies across four uneven owners; this local run loaded Locations in 2,924ms and rendered 81,727 HTML bytes / 12 options. Administration health loaded in 1,036ms and a concurrent dashboard request in 146ms during exact history totals. These are local fixture observations, not production performance guarantees.
+
+Per-batch 582 units, typecheck, Linux production builds/manifest guards and focused workflow evidence already passed. Both CI jobs for #324 passed (run 35855847657), including the new PostgreSQL pricing checks. The acceptance branch changes only one browser navigation test and documentation; the app image and local database schema are unchanged.

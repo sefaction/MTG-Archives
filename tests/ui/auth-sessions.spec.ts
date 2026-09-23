@@ -94,7 +94,12 @@ test("admin reset and account edits revoke sessions; temporary passwords require
         await expect(
           adminPage.getByRole("button", { name: /exit admin mode/i }),
         ).toBeVisible();
-        await adminPage.goto("/admin");
+        await adminPage.goto("/admin?view=users");
+        await expect(
+          adminPage
+            .getByRole("navigation", { name: "Administration" })
+            .getByRole("link", { name: "Users", exact: true }),
+        ).toHaveAttribute("aria-current", "page");
         const reset = adminPage
           .locator("form")
           .filter({ hasText: `Reset password for ${user.username}` });

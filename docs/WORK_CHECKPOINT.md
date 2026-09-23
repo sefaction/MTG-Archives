@@ -1,5 +1,20 @@
 # Resumable work checkpoint
 
+## Acceptance validation complete locally, 2026-09-23
+
+Branch `docs/ui-acceptance-reconciliation` on cumulative Administration PR #324; no application source changes. The updated auth-session regression now opens Admin Users after #324 navigation; focused security lifecycle passed (34s). Final full serial browser suite passed **51/51 in 7.8 minutes** on image `sha256:09053d1ce741b62d1372c7cc0bad41f52c6302d84fbc9e4c44cb9cd04b86ff70`. Zero `ui-*` fixture users, 12,477 physical copies, healthy web. Crosswalk has 34 live page routes and 45 action IDs. Acceptance document records exact behavioral evidence and unresolved manual/user review gates. Next safe step: typecheck/document checks, commit/push, open a review-ready acceptance PR against #324, resolve CI and update Foundry durable milestone. No merges, issue closures or production deployment.
+
+
+## New acceptance goal, 2026-09-23
+
+Live GitHub: 28 open issues, 13 on-hold Acquisition issues, 9 active issues addressed by open PRs #316/#320/#322/#324, and 6 remaining UI foundation/acceptance issues #262/#263/#264/#265/#268/#274. Five PRs open including independent acquisition planning #315; all CI green. This goal focuses on cumulative acceptance, final regression and a review-ready documentation PR; no merges, production, acquisition implementation or further Playtest changes. Current clean branch `docs/ui-acceptance-reconciliation` at `78efea0`, based on #324. Running Docker web image `sha256:09053d1ce741b62d1372c7cc0bad41f52c6302d84fbc9e4c44cb9cd04b86ff70` healthy, `/login` HTTP 200. Next: full serial browser regression, then inspect results and fixtures.
+
+
+
+## Acceptance regression follow-up, 2026-09-23
+
+First complete serial 51-case run on the cumulative Docker image finished **50 passed / 1 failed** after 8.4 minutes. The failure was `tests/ui/auth-sessions.spec.ts` navigating `/admin` for password reset, while #324 moved that unchanged action to `/admin?view=users`. It timed out before performing the reset; no security behavior failed. The test now navigates to Users and asserts the active task; the focused reset/session invalidation case passed in 34 seconds. No app source or Docker rebuild changed. A clean full 51-case rerun is currently active (shell session 24890, log `.git/acceptance-full-browser-final.log`); inspect its terminal result before claiming the gate passed. Prior failed-run fixtures were zero and the database held 12,477 physical copies before rerun.
+
 ## Goal closed at user request
 
 User requested a final review rundown and closure of this autonomous goal. Live reconciliation confirmed five open PRs: implementation review order #316 -> #320 -> #322 -> #324, plus independent acquisition planning #315. All reported CI checks pass. The cumulative Administration image remains running and healthy. No merges or production deployment were authorized or performed.
