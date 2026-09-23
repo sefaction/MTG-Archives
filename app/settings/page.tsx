@@ -186,6 +186,26 @@ export default async function SettingsPage({
           </p>
         </div>
         <nav
+          aria-label="Account and settings"
+          className="flex w-full flex-wrap gap-2 border-t border-[var(--app-border)] pt-3 text-sm"
+        >
+          <span className="app-muted mr-1 self-center text-xs font-medium uppercase tracking-wider">
+            Account options
+          </span>
+          <a href="/settings" className={filterPrimaryButtonClass}>
+            Settings home
+          </a>
+          <a href="/change-password" className={filterButtonClass}>
+            Password
+          </a>
+          <a href="/settings/email" className={filterButtonClass}>
+            Email delivery
+          </a>
+          <a href="/settings/webhooks" className={filterButtonClass}>
+            Webhooks
+          </a>
+        </nav>
+        <nav
           aria-label="Settings sections"
           className="flex flex-wrap gap-2 text-sm"
         >
