@@ -31,7 +31,15 @@ const groups = [
       ["/league", "Commander League"],
     ],
   },
-  { label: "Preferences", links: [["/settings", "Settings"]] },
+  {
+    label: "Account & settings",
+    links: [
+      ["/settings", "Settings"],
+      ["/change-password", "Password"],
+      ["/settings/email", "Email delivery"],
+      ["/settings/webhooks", "Webhooks"],
+    ],
+  },
 ];
 
 export function ArchiveNavigation({
