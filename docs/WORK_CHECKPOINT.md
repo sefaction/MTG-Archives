@@ -1,5 +1,11 @@
 # Resumable work checkpoint
 
+## Account, wishlist/trade, and vault fixes merged, 2026-09-23
+
+- User-approved PRs #297, #298, and #299 are merged into `main` through `43767fa`. Issues #260, #269, and #270 are closed with resolving PR links.
+- The merged batches cover fresh vault occupancy after moves, clearer Wishlist/Trade actions, and Settings-only global navigation with account options inside Settings. No production deployment occurred.
+- Next safe step: define and record the next roadmap project before implementation. Main is clean and synchronized with origin.
+
 ## Account options moved under Settings, 2026-09-23
 
 - PR #299 for #270 is revised on branch `feat/account-settings-navigation` at `dd7c0f9`. The global navigation now exposes only Settings; the Settings workspace contains Password, Email delivery and Webhooks under `Account and settings`. Existing routes, save scopes, delivery semantics and session behavior are unchanged.
