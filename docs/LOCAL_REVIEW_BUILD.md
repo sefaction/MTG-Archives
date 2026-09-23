@@ -1,5 +1,14 @@
 # Local review build — cumulative issue queue
 
+## Autonomous batch 1: import integrity, 2026-09-23
+
+- Local review: http://127.0.0.1:13001/imports. Application `8a3279c`, branch `fix/import-commit-integrity`, main base `bfb7be8`; PR publication/CI tracked in WORK_CHECKPOINT.md. Acquisition docs PR #315 is separate and not in this image.
+- Healthy rebuilt web image `sha256:a8354882a61ca00a8ba2a9410f5436b410cdd57a207bcba947677c3b51355883`; base/local/capture-only SMTP overlays. Pricing and notification workers retain their prior images, since this batch changes the web importer only.
+- All 580 units, typecheck, Linux production build and seven manifest guards passed. Eight real PostgreSQL scenarios cover concurrency/fault rollback/retries/audits/attributes/undo; final browser Imports lifecycle passed (including phone, six themes, enlarged text and access boundaries).
+- Review a CSV with resolved rows, confirm/cancel its commit, check exact stock plus `import_committed` audit records, retry the same batch, and review admin undo. Undo retains zero inventory rows and audits; changed/missing/legacy Pull-linked rows require manual review. See IMPORTS_WORKSPACE.md for transaction semantics and repeatable test command.
+- No merges, issue closures, schema migrations, acquisition/playtest changes or production deployment.
+
+
 ## Deck builder workspace, 2026-09-22
 
 - Review: http://127.0.0.1:13001/decks (open an existing deck).
