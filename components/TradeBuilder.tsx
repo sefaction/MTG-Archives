@@ -471,8 +471,9 @@ export function TradeBuilder({
 
   return (
     <form
+      id="trade-builder"
       action={submitProposal}
-      className="space-y-3 rounded-xl border border-sky-900/70 bg-zinc-950/70 p-3 shadow-xl shadow-black/20"
+      className="scroll-mt-3 space-y-3 rounded-xl border border-sky-900/70 bg-zinc-950/70 p-3 shadow-xl shadow-black/20"
     >
       <input type="hidden" name="receiverPlayerId" value={receiverPlayerId} />
       {counterTradeId ? (
