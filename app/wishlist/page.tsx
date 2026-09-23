@@ -193,19 +193,20 @@ export default async function WishlistPage({
       <section className="space-y-2">
         <h1 className="text-3xl font-bold">Wishlist</h1>
         <p className="text-zinc-400">
-          Manual requests and unfilled deck slots in an inventory-style
-          browser.
+          Manual requests and unfilled deck slots in an inventory-style browser.
         </p>
       </section>
 
-      <section className="rounded border border-sky-900/70 bg-sky-950/20 p-4">
-        <h2 className="font-semibold text-sky-100">How quantities work</h2>
-        <p className="mt-1 text-sm text-zinc-300">
+      <details className="rounded border border-sky-900/70 bg-sky-950/20">
+        <summary className="cursor-pointer list-none p-4 font-semibold text-sky-100">
+          How quantities work
+        </summary>
+        <p className="border-t border-sky-900/70 px-4 py-3 text-sm text-zinc-300">
           <b>Need</b> is every open request. <b>Ready</b> is the uncommitted
           inventory that can fill deck needs now. <b>Get</b> is what remains;
           manual requests always stay in Get until completed.
         </p>
-      </section>
+      </details>
 
       <section className="grid gap-3 md:grid-cols-5">
         {[
@@ -232,8 +233,6 @@ export default async function WishlistPage({
           </div>
         </div>
       </section>
-
-      <WishlistSearchAdd />
 
       <form className="space-y-3 rounded border border-zinc-800 p-4">
         <div className="flex flex-wrap items-end gap-3">
@@ -445,6 +444,7 @@ export default async function WishlistPage({
         cardSize={cardSize}
         query={params}
       />
+      <WishlistSearchAdd />
     </main>
   );
 }
