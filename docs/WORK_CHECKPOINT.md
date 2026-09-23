@@ -1,5 +1,11 @@
 # Resumable work checkpoint
 
+## Vault occupancy PR open; filter audit closed, 2026-09-22
+
+- PR [#297](https://github.com/sefaction/MTG-Archives/pull/297) remains open and unmerged by user direction while additional reliability work proceeds. Its branch is `fix/vault-occupancy-refresh`; local image and 5/5 vault-map evidence are recorded immediately below.
+- Issue [#220](https://github.com/sefaction/MTG-Archives/issues/220) is now closed after the existing document-navigation fix from [PR #221](https://github.com/sefaction/MTG-Archives/pull/221) passed the unchanged `tests/ui/inventory-color-filter.spec.ts --repeat-each=20` audit: **40/40** cases passed on the current Docker stack.
+- Next safe step: independently audit #280 (deck-analysis remote-image timeout) without changing timeouts or weakening rendered/private-access assertions. Keep #260 and #280 separate.
+
 ## Vault occupancy refresh ready for review, 2026-09-22
 
 - Branch `fix/vault-occupancy-refresh` is at `fa6ef7f` for #260. The committed move action now returns fresh source/destination occupancy summaries, and the inventory client applies them immediately before the normal route refresh. No reload, timeout, schema, or migration workaround was added.
