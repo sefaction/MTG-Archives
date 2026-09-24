@@ -66,6 +66,29 @@ test("Public inventory shares browse tasks without exposing private inventory", 
         name: /move selected|bulk delete|save changes/i,
       }),
     ).toHaveCount(0);
+    for (const theme of [
+      "golgari",
+      "azorius",
+      "izzet",
+      "rakdos",
+      "lotus",
+      "selesnya",
+    ]) {
+      await anon.evaluate(
+        (value) => (document.documentElement.dataset.theme = value),
+        theme,
+      );
+      await expect(anon.locator(".inventory-results")).toBeVisible();
+      expect(
+        await anon.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1,
+        ),
+      ).toBe(true);
+      await anon.screenshot({
+        path: `test-results/public-parity-theme-${theme}.png`,
+        animations: "disabled",
+      });
+    }
 
     const filterButton = anon.getByRole("button", {
       name: /advanced inventory search/i,
@@ -86,7 +109,10 @@ test("Public inventory shares browse tasks without exposing private inventory", 
     await expect(
       anon.getByText("No public cards match these filters."),
     ).toBeVisible();
-    await anon.getByRole("link", { name: "Clear filters" }).click();
+    await anon
+      .locator(".inventory-results")
+      .getByRole("link", { name: "Clear filters" })
+      .click();
     await expect(anon).not.toHaveURL(/cardName=/);
 
     for (const width of [390, 320]) {
