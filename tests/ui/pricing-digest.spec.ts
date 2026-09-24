@@ -64,7 +64,7 @@ test("daily Pricing digest is opt-in, bounded, owner-scoped and replay-safe", as
       ];
     });
     values.push(
-      `('${uuids[0]}','tcgplayer','normal','retail','USD',CURRENT_DATE - 3,8,CURRENT_DATE - 3 + INTERVAL '12 hours')`,
+      `('${uuids[0]}','tcgplayer','normal','retail','USD',CURRENT_DATE - 3,9,CURRENT_DATE - 3 + INTERVAL '12 hours')`,
     );
     pricingSql(
       `INSERT INTO price_snapshots (mtgjson_uuid,provider,finish,price_type,currency,observed_date,price,created_at) VALUES ${values.join(",")};`,
@@ -120,6 +120,7 @@ test("daily Pricing digest is opt-in, bounded, owner-scoped and replay-safe", as
     await page.getByRole("button", { name: /^log in$/i }).click();
     await page.waitForURL(/dashboard/);
     await page.goto("/settings/pricing-alerts");
+    await expect(page.getByRole("status")).toContainText("Selected price source last updated");
     await expect(
       page.getByRole("checkbox", {
         name: /Enable daily in-app Pricing digests/,
@@ -290,6 +291,33 @@ test("daily Pricing digest is opt-in, bounded, owner-scoped and replay-safe", as
         `SELECT revision_count FROM price_snapshots WHERE mtgjson_uuid='${uuids[0]}' AND observed_date=CURRENT_DATE-2;`,
       ),
     ).toBe("1");
+    const firstMissedDate = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    const secondMissedDate = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
+    pricingSql(
+      `INSERT INTO price_snapshots (mtgjson_uuid,provider,finish,price_type,currency,observed_date,price,created_at)
+       VALUES ('${uuids[0]}','tcgplayer','normal','retail','USD','${firstMissedDate}',15,'${firstMissedDate}T12:00:00Z'),
+              ('${uuids[0]}','tcgplayer','normal','retail','USD','${secondMissedDate}',18,'${secondMissedDate}T12:00:00Z');
+       ${refreshPricingSummariesSql(JSON.stringify([keys[0]]))}
+       UPDATE price_summary_state SET source_max_id=(SELECT MAX(id) FROM price_snapshots), refreshed_at=now() WHERE singleton=TRUE;`,
+    );
+    const resumed = new Date(Date.now() + 4 * 86_400_000);
+    resumed.setUTCHours(3, 0, 0, 0);
+    const runRecovered = () => execFileSync(
+      "docker",
+      ["exec", "mtg-archives-web-1", "./node_modules/.bin/tsx", "-e",
+        `import {processDailyPricingDigests} from './lib/pricing-notification-digests'; processDailyPricingDigests(new Date('${resumed.toISOString()}')).then(console.log)`],
+      { encoding: "utf8", timeout: 90_000 },
+    );
+    runRecovered();
+    runRecovered();
+    const recovered = appDb<{ counts: number[]; catchup: boolean[]; cursor: string }>(
+      `const ids=${quote(fixture.userIds)};const counts=[];for(const recipientUserId of ids)counts.push(await p.notification.count({where:{recipientUserId,sourceType:'pricing_digest'}}));const caught=await p.notification.findMany({where:{recipientUserId:ids[0],sourceType:'pricing_digest',sourceId:{in:${quote([firstMissedDate,secondMissedDate])}}},orderBy:{sourceId:'asc'}});const pref=await p.pricingAlertPreference.findUnique({where:{userId:ids[0]}});return {counts,catchup:caught.map(n=>n.metadataJson.isCatchup),cursor:pref.lastProcessedImportDate.toISOString().slice(0,10)};`,
+    );
+    expect(recovered.counts).toEqual([4, 2, 1, 0]);
+    expect(recovered.catchup).toEqual([true, true]);
+    expect(recovered.cursor).toBe(new Date(resumed.getTime() - 86_400_000).toISOString().slice(0, 10));
+    await page.goto(`/pricing/digest/${firstMissedDate}`);
+    await expect(page.getByText(/recovered after a missed worker day/)).toBeVisible();
   } finally {
     try {
       if (ownerIds.length) {
