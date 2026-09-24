@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Daily Pricing digest PR opened, 2026-09-23
+
+[PR #343](https://github.com/sefaction/MTG-Archives/pull/343) is open from `feat/pricing-alerts` against #341. Both CI jobs were pending when this checkpoint was written; verify them before calling the PR green. The cumulative local Docker image, migration, 595 units, typecheck and focused browser 3/3 passed as recorded below. Public #336 → #337 → #338 and Pricing #339 → #340 → #341 are the dependency chains; #342 and #343 both follow #341 independently. No PR has individual merge approval. Issue #335 stays open for delayed-correction catch-up; #330 stays open for the safe pruning gate. Next safe step: inspect #343 CI and report the review order. No merge or production deployment.
+
 ## Pricing digest ready for PR, 2026-09-23
 
 Active branch `feat/pricing-alerts` at `05945d0`, based on #341 (`feat/pricing-owned-movers`). User selected one opt-in daily in-app digest with a default $2 per-card change. The branch adds owner preferences/settings, daily notification-worker generation, owner-scoped digest detail, an additive migration, unit/browser coverage and [PRICING_DIGESTS.md](PRICING_DIGESTS.md). Digests are bounded to 100 detail rows, deduplicated by owner/day and never enqueued for email or webhook. A 30-minute retry avoids repeated quiet-day collection scans while admitting delayed imports. Immutable digest snapshots link to live corrected history; a correction imported after the next-day window is not separately alerted and remains a follow-up limitation for #335.
