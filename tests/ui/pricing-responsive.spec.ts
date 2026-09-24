@@ -1,5 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { execFileSync, spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import {
+  execFileSync,
+  spawn,
+  type ChildProcessWithoutNullStreams,
+} from "node:child_process";
 import { randomUUID } from "node:crypto";
 
 test.use({ trace: "off", screenshot: "off", video: "off" });
@@ -36,7 +40,10 @@ function holdPricingTable(): Promise<ChildProcessWithoutNullStreams> {
     "BEGIN; LOCK TABLE price_snapshots IN ACCESS EXCLUSIVE MODE; SELECT 'LOCKED'; SELECT pg_sleep(7); COMMIT;",
   );
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("Pricing lock did not start")), 8_000);
+    const timer = setTimeout(
+      () => reject(new Error("Pricing lock did not start")),
+      8_000,
+    );
     child.stdout.on("data", (chunk: Buffer) => {
       if (String(chunk).includes("LOCKED")) {
         clearTimeout(timer);
@@ -50,7 +57,10 @@ function holdPricingTable(): Promise<ChildProcessWithoutNullStreams> {
   });
 }
 
-test("a slow Pricing history read does not block Dashboard", async ({ page, baseURL }) => {
+test("a slow Pricing history read does not block Dashboard", async ({
+  page,
+  baseURL,
+}) => {
   test.skip(
     process.env.MTG_LOCAL_PILOT_TEST !== "1",
     "Requires disposable local snapshot",
