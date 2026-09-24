@@ -34,7 +34,8 @@ test("Pricing digest query scopes exact owned printings, source and per-card thr
   assert.match(sql, /d\.finish = 'foil'/);
   assert.match(sql, /d\.price_type = 'retail'/);
   assert.match(sql, /d\.currency = 'USD'/);
-  assert.match(sql, /d\.created_at >= '2026-09-23'::date/);
+  assert.match(sql, /d\.created_at >= '2026-09-23T00:00:00.000Z'::timestamptz/);
+  assert.match(sql, /d\.created_at < '2026-09-24T00:00:00.000Z'::timestamptz/);
   assert.match(sql, /ABS\("absoluteChange"\) >= 2 OR/);
   assert.match(sql, /"startPrice" >= 1 AND ABS\("percentChange"\) >= 25/);
   assert.match(sql, /p\.observed_date < d\.observed_date/);

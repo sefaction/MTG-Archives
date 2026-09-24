@@ -51,6 +51,10 @@ export function dailyPricingMovementSql(input: {
 }) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.observedDate))
     throw new Error("Invalid digest observation date.");
+  const dayStart = `${input.observedDate}T00:00:00.000Z`;
+  const nextDayStart = new Date(
+    Date.parse(dayStart) + 86_400_000,
+  ).toISOString();
   const values = input.owned
     .filter((card) => card.mtgjsonUuid && card.quantity > 0)
     .map(
@@ -94,8 +98,8 @@ export function dailyPricingMovementSql(input: {
       AND d.finish = ${sqlString(input.finish)}
       AND d.price_type = ${sqlString(input.priceType)}
       AND d.currency = ${sqlString(input.currency)}
-      AND d.created_at >= ${sqlString(input.observedDate)}::date
-      AND d.created_at < (${sqlString(input.observedDate)}::date + INTERVAL '1 day')
+      AND d.created_at >= ${sqlString(dayStart)}::timestamptz
+      AND d.created_at < ${sqlString(nextDayStart)}::timestamptz
       AND d.created_at >= ${sqlString(input.enabledAt.toISOString())}::timestamptz
       AND d.observed_date BETWEEN (${sqlString(input.observedDate)}::date - INTERVAL '90 days') AND ${sqlString(input.observedDate)}::date
       AND d.price <> prior.price
