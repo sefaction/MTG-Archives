@@ -122,12 +122,14 @@ CREATE TABLE IF NOT EXISTS price_summary_state (
   source_max_id BIGINT,
   source_revision BIGINT NOT NULL DEFAULT 0,
   summary_revision BIGINT NOT NULL DEFAULT 0,
+  daily_compacted_through DATE,
   refreshed_at TIMESTAMPTZ,
   rebuild_started_at TIMESTAMPTZ
 );
 ALTER TABLE price_summary_state ADD COLUMN IF NOT EXISTS source_revision BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE price_summary_state ADD COLUMN IF NOT EXISTS summary_revision BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE price_summary_state ADD COLUMN IF NOT EXISTS tiers_ready BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE price_summary_state ADD COLUMN IF NOT EXISTS daily_compacted_through DATE;
 INSERT INTO price_summary_state (singleton, ready)
 VALUES (TRUE, FALSE) ON CONFLICT (singleton) DO NOTHING;
 
@@ -232,6 +234,12 @@ GROUP BY d.mtgjson_uuid, d.provider, d.finish, d.price_type, d.currency,
          date_trunc('month', d.observed_date)::date;
 ${refreshRollupSql("price_weekly_summary", "week_start", "week")}
 ${refreshRollupSql("price_yearly_summary", "year_start", "year")}
+-- Build every long-range tier from the complete raw-backed daily projection
+-- before removing previously compacted daily dates for the touched keys.
+DELETE FROM price_daily_summary d USING touched_price_keys k
+WHERE (d.mtgjson_uuid, d.provider, d.finish, d.price_type, d.currency) =
+      (k.mtgjson_uuid, k.provider, k.finish, k.price_type, k.currency)
+  AND d.observed_date <= (SELECT daily_compacted_through FROM price_summary_state WHERE singleton = TRUE);
 COMMIT;
 `;
 }
@@ -239,6 +247,11 @@ COMMIT;
 /** Fill newly introduced long-range tiers from the verified daily projection. */
 export const pricingTierBackfillSql = `
 BEGIN;
+DO $$ BEGIN
+  IF (SELECT daily_compacted_through IS NOT NULL FROM price_summary_state WHERE singleton = TRUE) THEN
+    RAISE EXCEPTION 'Tier backfill requires full raw-backed summary rebuild after daily compaction';
+  END IF;
+END $$;
 UPDATE price_summary_state SET tiers_ready = FALSE WHERE singleton = TRUE;
 TRUNCATE price_weekly_summary, price_yearly_summary;
 CREATE TEMP TABLE touched_price_keys ON COMMIT DROP AS
