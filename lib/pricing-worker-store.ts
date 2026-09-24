@@ -71,6 +71,7 @@ export type CardPriceHistoryOptions = {
 };
 
 export type PricingDashboardOptions = {
+  view?: "collection" | "market" | "data";
   provider?: string;
   finish?: string;
   priceType?: string;
@@ -244,11 +245,10 @@ function runPsql(sql: string) {
   return result.stdout.trim();
 }
 
-function jsonQuery<T>(sql: string): T[] {
-  const output = runPsql(
-    `SELECT COALESCE(json_agg(row_to_json(rows)), '[]'::json) FROM (${sql}) rows;`,
-  );
-  return JSON.parse(output || "[]") as T[];
+type PricingReadQuery = <T>(sql: string) => Promise<T[]>;
+
+function jsonQuery<T>(sql: string): Promise<T[]> {
+  return queryPricingJson<T>(sql, { timeoutMs: 10_000 });
 }
 
 export function calculatePriceHistoryChange(
@@ -273,7 +273,7 @@ export async function getCardPriceHistory(options: CardPriceHistoryOptions) {
   const priceType = cleanToken(options.priceType, "retail");
   const currency = cleanCurrency(options.currency);
   const range = normalizePriceHistoryRange(options.range);
-  const points = jsonQuery<CardPriceHistoryPoint>(
+  const points = await jsonQuery<CardPriceHistoryPoint>(
     `SELECT
        observed_date::text AS "observedDate",
        price::float8 AS price
@@ -330,7 +330,9 @@ function emptyPricingDashboard(
 
 export async function getPricingDashboard(
   options: PricingDashboardOptions = {},
+  query: PricingReadQuery = jsonQuery,
 ): Promise<PricingDashboard> {
+  const view = options.view ?? "collection";
   const provider = cleanToken(options.provider, "tcgplayer");
   const finish = cleanToken(options.finish, "normal");
   const priceType = cleanToken(options.priceType, "retail");
@@ -340,6 +342,10 @@ export async function getPricingDashboard(
   const minPercentChange = cleanPercentThreshold(options.minPercentChange);
   const changeDirection = cleanDirection(options.changeDirection);
   const dashboardOptions = { provider, finish, priceType, currency, range };
+  if (
+    !options.ownedCards?.some((card) => card.mtgjsonUuid && card.quantity > 0)
+  )
+    return emptyPricingDashboard(dashboardOptions);
   const holdingsSql = holdingsCte(options.ownedCards);
   const scopedSetSql = setCode
     ? `AND upper(set_code) = ${sqlString(setCode)}`
@@ -356,8 +362,10 @@ export async function getPricingDashboard(
         : "";
 
   try {
-    const [stats] = jsonQuery<PricingDashboard["stats"]>(
-      `WITH ${holdingsSql},
+    const [stats] =
+      view !== "market"
+        ? await query<PricingDashboard["stats"]>(
+            `WITH ${holdingsSql},
        scoped AS (
          SELECT ps.*
          FROM price_snapshots ps
@@ -373,10 +381,13 @@ export async function getPricingDashboard(
          COUNT(DISTINCT provider)::int AS "providerCount",
          COUNT(DISTINCT currency)::int AS "currencyCount"
        FROM scoped`,
-    );
+          )
+        : [];
 
-    const providerCoverage = jsonQuery<PricingDashboard["providerCoverage"][0]>(
-      `WITH ${holdingsSql},
+    const providerCoverage =
+      view === "data"
+        ? await query<PricingDashboard["providerCoverage"][0]>(
+            `WITH ${holdingsSql},
        scoped AS (
          SELECT ps.*
          FROM price_snapshots ps
@@ -394,7 +405,8 @@ export async function getPricingDashboard(
        GROUP BY provider, currency
        ORDER BY "snapshotCount" DESC, provider ASC, currency ASC
        LIMIT 12`,
-    );
+          )
+        : [];
 
     const movementBaseSql = `
       WITH ${holdingsSql},
@@ -463,8 +475,10 @@ export async function getPricingDashboard(
           AND c.price <> s.price
       )`;
 
-    const topGainers = jsonQuery<PricingDashboardMover>(
-      `${movementBaseSql}
+    const topGainers =
+      view === "market"
+        ? await query<PricingDashboardMover>(
+            `${movementBaseSql}
        SELECT *
        FROM movement_rows
        WHERE "absoluteChange" > 0
@@ -472,9 +486,12 @@ export async function getPricingDashboard(
          ${directionSql}
        ORDER BY "absoluteChange" DESC, "currentPrice" DESC
        LIMIT 20`,
-    );
-    const topLosers = jsonQuery<PricingDashboardMover>(
-      `${movementBaseSql}
+          )
+        : [];
+    const topLosers =
+      view === "market"
+        ? await query<PricingDashboardMover>(
+            `${movementBaseSql}
        SELECT *
        FROM movement_rows
        WHERE "absoluteChange" < 0
@@ -482,9 +499,12 @@ export async function getPricingDashboard(
          ${directionSql}
        ORDER BY "absoluteChange" ASC, "currentPrice" ASC
        LIMIT 20`,
-    );
-    const topPercentMoves = jsonQuery<PricingDashboardMover>(
-      `${movementBaseSql}
+          )
+        : [];
+    const topPercentMoves =
+      view === "market"
+        ? await query<PricingDashboardMover>(
+            `${movementBaseSql}
        SELECT *
        FROM movement_rows
        WHERE "percentChange" IS NOT NULL
@@ -492,10 +512,13 @@ export async function getPricingDashboard(
          ${directionSql}
        ORDER BY ABS("percentChange") DESC, ABS("absoluteChange") DESC
        LIMIT 20`,
-    );
+          )
+        : [];
 
-    const valueTrend = jsonQuery<PricingDashboardTrendPoint>(
-      `WITH ${holdingsSql},
+    const valueTrend =
+      view === "collection"
+        ? await query<PricingDashboardTrendPoint>(
+            `WITH ${holdingsSql},
        filtered AS (
          SELECT ps.*, h.owned_quantity
          FROM price_snapshots ps
@@ -530,7 +553,8 @@ export async function getPricingDashboard(
        GROUP BY observed_date
        ORDER BY observed_date ASC
        LIMIT 400`,
-    );
+          )
+        : [];
 
     return {
       available: true,
