@@ -25,7 +25,7 @@ test("pricing analytics page and navigation are wired", () => {
   assert.match(pricingPage, /Value by deck/);
   assert.match(pricingPage, /PricingFilters/);
   assert.match(pricingPage, /TrendChart/);
-  assert.match(pricingPage, /ownedCards: collectionValue\.ownedCards/);
+  assert.match(pricingPage, /ownedCards: ownedScope\.ownedCards/);
   assert.match(pricingPage, /cleanSetFilter/);
   assert.match(pricingPage, /cleanPercentFilter/);
   assert.match(pricingPage, /if \(!isDeckLocation\)/);

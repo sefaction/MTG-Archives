@@ -39,6 +39,54 @@ type CollectionValueSummary = {
   setOptions: Array<{ value: string; label: string }>;
 };
 
+function emptyCollectionValueSummary(): CollectionValueSummary {
+  return {
+    totalQuantity: 0,
+    totalValue: 0,
+    missingPriceQuantity: 0,
+    locationRows: [],
+    deckRows: [],
+    ownedCards: [],
+    setOptions: [],
+  };
+}
+
+async function getOwnedPriceScope(ownerPlayerId: string | null) {
+  if (!ownerPlayerId)
+    return { ownedCards: [], setOptions: [] } satisfies Pick<
+      CollectionValueSummary,
+      "ownedCards" | "setOptions"
+    >;
+  const items = await prisma.inventoryItem.findMany({
+    where: { currentOwnerId: ownerPlayerId, quantity: { gt: 0 } },
+    select: {
+      quantity: true,
+      card: { select: { mtgjsonUuid: true, setCode: true } },
+    },
+  });
+  const ownedCards = new Map<string, number>();
+  const setOptions = new Map<string, string>();
+  for (const item of items) {
+    if (item.card.mtgjsonUuid)
+      ownedCards.set(
+        item.card.mtgjsonUuid,
+        (ownedCards.get(item.card.mtgjsonUuid) ?? 0) + item.quantity,
+      );
+    if (item.card.setCode)
+      setOptions.set(item.card.setCode.toUpperCase(), item.card.setCode);
+  }
+  return {
+    ownedCards: [...ownedCards.entries()].map(([mtgjsonUuid, quantity]) => ({
+      mtgjsonUuid,
+      quantity,
+    })),
+    setOptions: [...setOptions.entries()].map(([value, label]) => ({
+      value,
+      label,
+    })),
+  };
+}
+
 function dateLabel(value: string | null) {
   if (!value) return "--";
   const date = new Date(value);
@@ -121,15 +169,7 @@ async function getCollectionValueSummary({
   preferredProvider: string | null | undefined;
 }): Promise<CollectionValueSummary> {
   if (!ownerPlayerId) {
-    return {
-      totalQuantity: 0,
-      totalValue: 0,
-      missingPriceQuantity: 0,
-      locationRows: [],
-      deckRows: [],
-      ownedCards: [],
-      setOptions: [],
-    };
+    return emptyCollectionValueSummary();
   }
 
   const items = await prisma.inventoryItem.findMany({
@@ -652,29 +692,40 @@ export default async function PricingPage({
   const user = await requireLogin();
   const params = await searchParams;
   const activeView = cleanView(params.view);
-  const collectionValue = await getCollectionValueSummary({
-    ownerPlayerId: user.playerId,
-    preferredProvider: user.preferredPriceProvider,
-  });
+  const collectionValue =
+    activeView === "market"
+      ? emptyCollectionValueSummary()
+      : await getCollectionValueSummary({
+          ownerPlayerId: user.playerId,
+          preferredProvider: user.preferredPriceProvider,
+        });
+  const ownedScope =
+    activeView === "market"
+      ? await getOwnedPriceScope(user.playerId)
+      : collectionValue;
   const setFilter = cleanSetFilter(params.set);
   const minPercentFilter = cleanPercentFilter(params.minPercent);
   const directionFilter = cleanDirectionFilter(params.direction);
   const dashboard = await getPricingDashboard({
+    view: activeView,
     provider: params.provider,
     finish: params.finish,
     priceType: params.priceType,
     currency: params.currency,
     range: params.range as never,
-    ownedCards: collectionValue.ownedCards,
+    ownedCards: ownedScope.ownedCards,
     setCode: setFilter,
     minPercentChange: minPercentFilter,
     changeDirection: directionFilter,
   });
-  const [topGainers, topLosers, topPercentMoves] = await Promise.all([
-    enrichMovers(dashboard.topGainers),
-    enrichMovers(dashboard.topLosers),
-    enrichMovers(dashboard.topPercentMoves),
-  ]);
+  const [topGainers, topLosers, topPercentMoves] =
+    activeView === "market"
+      ? await Promise.all([
+          enrichMovers(dashboard.topGainers),
+          enrichMovers(dashboard.topLosers),
+          enrichMovers(dashboard.topPercentMoves),
+        ])
+      : [[], [], []];
 
   return (
     <main className="min-w-0 space-y-4 p-4 sm:p-8">
@@ -696,7 +747,13 @@ export default async function PricingPage({
         </div>
         {!dashboard.available ? (
           <div className="rounded border border-red-800 bg-red-950/30 p-3 text-sm text-red-100">
-            Pricing analytics are unavailable: {dashboard.error}
+            Pricing analytics are unavailable: {dashboard.error}{" "}
+            <a
+              className="font-semibold underline"
+              href={pricingHref(params, activeView)}
+            >
+              Retry pricing data
+            </a>
           </div>
         ) : null}
       </section>
@@ -799,7 +856,7 @@ export default async function PricingPage({
             </p>
             <PricingFilters
               params={params}
-              setOptions={collectionValue.setOptions}
+              setOptions={ownedScope.setOptions}
             />
             <TrendChart
               title="Collection price trend"
@@ -810,10 +867,7 @@ export default async function PricingPage({
         </>
       ) : activeView === "market" ? (
         <>
-          <PricingFilters
-            params={params}
-            setOptions={collectionValue.setOptions}
-          />
+          <PricingFilters params={params} setOptions={ownedScope.setOptions} />
           <section className="rounded border border-zinc-800 bg-zinc-950/60 p-4">
             <h2 className="text-lg font-semibold text-zinc-100">
               Market movement

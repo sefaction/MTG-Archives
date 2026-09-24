@@ -235,6 +235,14 @@ CREATE INDEX IF NOT EXISTS price_worker_logs_created_idx
   ON price_worker_logs (created_at DESC);
 `,
   );
+  // Keep the large history index build outside the multi-statement schema
+  // transaction so a populated installation can continue ingesting prices.
+  psql(
+    databaseUrl,
+    `CREATE INDEX CONCURRENTLY IF NOT EXISTS price_snapshots_uuid_scope_observed_idx
+     ON price_snapshots (mtgjson_uuid, provider, finish, price_type, currency, observed_date DESC)
+     WHERE mtgjson_uuid IS NOT NULL`,
+  );
 }
 
 function heartbeat(
