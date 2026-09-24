@@ -5,6 +5,10 @@ import {
   extractMtgjsonIdentifierMappings,
   extractMtgjsonPriceSnapshots,
 } from "../lib/pricing-mtgjson";
+import {
+  pricingSummarySchemaSql,
+  refreshPricingSummariesSql,
+} from "./pricing-summary-sql";
 
 type WorkerOptions = {
   once: boolean;
@@ -260,6 +264,7 @@ CREATE INDEX IF NOT EXISTS price_worker_logs_created_idx
      ON price_snapshots (mtgjson_uuid, provider, finish, price_type, currency, observed_date DESC)
      WHERE mtgjson_uuid IS NOT NULL`,
   );
+  psql(databaseUrl, pricingSummarySchemaSql);
 }
 
 function heartbeat(
@@ -589,6 +594,56 @@ SELECT count(*) FROM inserted;
   return inserted;
 }
 
+function refreshSummaries(
+  databaseUrl: string,
+  snapshots: ReturnType<typeof extractMtgjsonPriceSnapshots>,
+) {
+  const unique = new Map<
+    string,
+    {
+      mtgjson_uuid: string;
+      provider: string;
+      finish: string;
+      price_type: string;
+      currency: string;
+    }
+  >();
+  for (const row of snapshots) {
+    const key = [
+      row.mtgjsonUuid,
+      row.provider,
+      row.finish,
+      row.priceType,
+      row.currency,
+    ].join("\u0000");
+    unique.set(key, {
+      mtgjson_uuid: row.mtgjsonUuid,
+      provider: row.provider,
+      finish: row.finish,
+      price_type: row.priceType,
+      currency: row.currency,
+    });
+  }
+  // Keep the SQL payload bounded even for a full MTGJSON refresh. Repeated
+  // keys are safe: each transaction rebuilds a projection from raw history.
+  const keys = [...unique.values()];
+  for (let start = 0; start < keys.length; start += 500) {
+    psql(
+      databaseUrl,
+      refreshPricingSummariesSql(
+        JSON.stringify(keys.slice(start, start + 500)),
+      ),
+    );
+  }
+  psql(
+    databaseUrl,
+    `UPDATE price_summary_state
+     SET source_max_id = (SELECT MAX(id) FROM price_snapshots),
+         refreshed_at = now()
+     WHERE singleton = TRUE AND ready = TRUE`,
+  );
+}
+
 function buildCurrentPriceProjection(
   snapshots: ReturnType<typeof extractMtgjsonPriceSnapshots>,
 ) {
@@ -696,6 +751,7 @@ async function processRefreshAllJob(
     snapshots,
     opts.importBatchSize,
   );
+  refreshSummaries(opts.databaseUrl, snapshots);
   const projected = publishCurrentPrices(opts.appDatabaseUrl, snapshots);
   completeJob(opts.databaseUrl, jobId, "SUCCEEDED", {
     processed: snapshots.length,
