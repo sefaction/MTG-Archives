@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## UI phone touch acceptance follow-up, 2026-09-23
+
+Active branch `test/ui-touch-acceptance` from `main`. This independent #274 batch adds a touch-enabled Chromium phone path at 390 and 320 CSS px covering sign-in, navigation to Inventory, modal filter drafting/closing/reopening, and navigation to Settings. It asserts coarse pointer and no page overflow, and documents its limited evidence in `docs/UI_ACCEPTANCE_STATUS.md`. The application source did not change; the existing cumulative Docker image `sha256:ad11e9ecb7bdcea6035b6ed47fc7c7ccfb74f8eb9421c581fa2ca9775bc118c4` remains loaded and healthy. Typecheck, 582 main-branch unit tests and three focused Inventory/navigation/touch browser cases passed. Fixture cleanup left zero touch users/players and 12,477 physical copies. Next safe step: commit, push, open a PR against `main`, verify CI, and keep #274 open for real hardware/browser zoom, all-theme/role, and human task review. No merge or production deployment.
+
 ## Acceptance PR in review, 2026-09-23
 
 PR [#325](https://github.com/sefaction/MTG-Archives/pull/325) is open against #324. Initial Core and PostgreSQL CI passed (run 35932802802). Final serial browser 51/51 passed in 7.8 minutes on the healthy cumulative image; the test correction to Admin Users changed no app source. Route/action crosswalk: 34 page routes, 45 IDs. Fixture cleanup: zero `ui-*` users, 12,477 physical copies. Review order #316 -> #320 -> #322 -> #324 -> #325; independent acquisition planning #315 remains separate. No merge, issue closure or production deployment. Remaining manual user gates: final task usability, actual browser zoom/touch, comprehensive contrast/keyboard and role combinations. After this documentation checkpoint commit, recheck CI on the new PR head before calling it green.

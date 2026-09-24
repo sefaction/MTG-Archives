@@ -2,6 +2,10 @@
 
 Related: #262, #263, #264, #265, #268 and #274. This is the current implementation/evidence index; the original design prototype and historical feature notes are retained as dated records. No issue is closed by this document and no PR is merge-approved.
 
+## Follow-up touch check, 2026-09-23
+
+A real touch-enabled Chromium context at 390 and 320 CSS px now signs in, taps the phone navigation to Inventory, opens and closes the modal filters, retains an unsaved query draft, and taps through navigation to Settings. The check asserts coarse-pointer emulation and no page-level overflow in Inventory and Settings. It uses an isolated owner fixture and cleans that fixture afterward. This covers a narrow touch path on the cumulative local Docker build, not real hardware, browser zoom, all themes, all roles, or the matched human task observations still required by #274. The test-only follow-up does not change the application image or close #274.
+
 ## Review stack and current build
 
 Review #316 (import integrity), then #320 (Dashboard/Pricing/Public), #322 (League), #324 (Administration), and [#325 acceptance reconciliation](https://github.com/sefaction/MTG-Archives/pull/325). Each depends on its predecessor. Acquisition planning #315 is independent and implementation remains deferred. Main is `bfb7be8`; the cumulative application source is checkpoint `8776e77`, with validation corrections/docs through `9493d6c`.
