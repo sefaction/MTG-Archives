@@ -5,6 +5,11 @@ import {
   extractMtgjsonIdentifierMappings,
   extractMtgjsonPriceSnapshots,
 } from "../lib/pricing-mtgjson";
+import {
+  pricingSummarySchemaSql,
+  refreshPricingSummariesSql,
+} from "./pricing-summary-sql";
+import { pricingSnapshotUpsertSql } from "./pricing-snapshot-upsert-sql";
 
 type WorkerOptions = {
   once: boolean;
@@ -189,6 +194,7 @@ CREATE TABLE IF NOT EXISTS price_scheduler_runs (
 ALTER TABLE price_import_jobs
   ADD COLUMN IF NOT EXISTS processed_count INTEGER NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS inserted_count INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS corrected_count INTEGER NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS skipped_count INTEGER NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS price_snapshots (
@@ -205,8 +211,10 @@ CREATE TABLE IF NOT EXISTS price_snapshots (
   observed_date DATE NOT NULL,
   price NUMERIC(12, 4) NOT NULL,
   raw_json JSONB,
+  revision_count INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE price_snapshots ADD COLUMN IF NOT EXISTS revision_count INTEGER NOT NULL DEFAULT 0;
 
 CREATE UNIQUE INDEX IF NOT EXISTS price_snapshots_identity_key
   ON price_snapshots (
@@ -235,6 +243,32 @@ CREATE INDEX IF NOT EXISTS price_worker_logs_created_idx
   ON price_worker_logs (created_at DESC);
 `,
   );
+  // Keep the large history index build outside the multi-statement schema
+  // transaction so a populated installation can continue ingesting prices.
+  const invalidIndex = psqlOutput(
+    databaseUrl,
+    `SELECT EXISTS (
+       SELECT 1 FROM pg_class c
+       JOIN pg_index i ON i.indexrelid = c.oid
+       WHERE c.relname = 'price_snapshots_uuid_scope_observed_idx'
+         AND NOT i.indisvalid
+     )`,
+  );
+  if (invalidIndex === "t") {
+    // A cancelled concurrent build can leave an invalid name behind; IF NOT
+    // EXISTS would otherwise silently keep a nonfunctional index forever.
+    psql(
+      databaseUrl,
+      "DROP INDEX CONCURRENTLY price_snapshots_uuid_scope_observed_idx",
+    );
+  }
+  psql(
+    databaseUrl,
+    `CREATE INDEX CONCURRENTLY IF NOT EXISTS price_snapshots_uuid_scope_observed_idx
+     ON price_snapshots (mtgjson_uuid, provider, finish, price_type, currency, observed_date DESC)
+     WHERE mtgjson_uuid IS NOT NULL`,
+  );
+  psql(databaseUrl, pricingSummarySchemaSql);
 }
 
 function heartbeat(
@@ -405,7 +439,12 @@ function completeJob(
   databaseUrl: string,
   jobId: string,
   status: string,
-  counts: { processed: number; inserted: number; skipped: number },
+  counts: {
+    processed: number;
+    inserted: number;
+    corrected?: number;
+    skipped: number;
+  },
   error?: string,
 ) {
   psql(
@@ -416,6 +455,7 @@ SET status = ${sqlString(status)},
     finished_at = now(),
     processed_count = ${counts.processed},
     inserted_count = ${counts.inserted},
+    corrected_count = ${counts.corrected ?? 0},
     skipped_count = ${counts.skipped},
     error = ${sqlString(error)}
 WHERE id = ${sqlString(jobId)};
@@ -514,54 +554,89 @@ function insertSnapshots(
   batchSize: number,
 ) {
   let inserted = 0;
-  for (let start = 0; start < snapshots.length; start += batchSize) {
-    const batch = snapshots.slice(start, start + batchSize);
-    const output = psqlOutput(
-      databaseUrl,
-      `
-WITH input AS (
-  SELECT *
-  FROM jsonb_to_recordset(${sqlJson(batch)}::jsonb) AS row(
-    "mtgjsonUuid" text,
-    provider text,
-    finish text,
-    "priceType" text,
-    currency text,
-    "observedDate" text,
-    price numeric,
-    "rawJson" jsonb
-  )
-),
-inserted AS (
-  INSERT INTO price_snapshots (
-    mtgjson_uuid,
-    provider,
-    finish,
-    price_type,
-    currency,
-    observed_date,
-    price,
-    raw_json
-  )
-  SELECT
-    "mtgjsonUuid",
-    provider,
-    finish,
-    "priceType",
-    currency,
-    "observedDate"::date,
-    price,
-    "rawJson"
-  FROM input
-  ON CONFLICT DO NOTHING
-  RETURNING 1
-)
-SELECT count(*) FROM inserted;
-`,
+  let corrected = 0;
+  const byIdentity = new Map<string, (typeof snapshots)[number]>();
+  for (const snapshot of snapshots) {
+    byIdentity.set(
+      [
+        snapshot.mtgjsonUuid,
+        snapshot.provider,
+        snapshot.finish,
+        snapshot.priceType,
+        snapshot.currency,
+        snapshot.observedDate,
+      ].join("\u0000"),
+      snapshot,
     );
-    inserted += Number.parseInt(output || "0", 10) || 0;
   }
-  return inserted;
+  const uniqueSnapshots = [...byIdentity.values()];
+  for (let start = 0; start < uniqueSnapshots.length; start += batchSize) {
+    const batch = uniqueSnapshots.slice(start, start + batchSize);
+    const output = psqlOutput(databaseUrl, pricingSnapshotUpsertSql(batch));
+    const [newRows, correctedRows] = output.split("|").map(Number);
+    inserted += newRows || 0;
+    corrected += correctedRows || 0;
+  }
+  return { inserted, corrected };
+}
+
+function refreshSummaries(
+  databaseUrl: string,
+  snapshots: ReturnType<typeof extractMtgjsonPriceSnapshots>,
+) {
+  const [sourceMaxId, sourceRevision] = psqlOutput(
+    databaseUrl,
+    `SELECT (SELECT MAX(id) FROM price_snapshots), source_revision
+     FROM price_summary_state WHERE singleton = TRUE`,
+  ).split("|");
+  if (!/^\d+$/.test(sourceRevision ?? ""))
+    throw new Error("Pricing summary revision state is unavailable.");
+  const maxIdSql = /^\d+$/.test(sourceMaxId ?? "") ? sourceMaxId : "NULL";
+  const unique = new Map<
+    string,
+    {
+      mtgjson_uuid: string;
+      provider: string;
+      finish: string;
+      price_type: string;
+      currency: string;
+    }
+  >();
+  for (const row of snapshots) {
+    const key = [
+      row.mtgjsonUuid,
+      row.provider,
+      row.finish,
+      row.priceType,
+      row.currency,
+    ].join("\u0000");
+    unique.set(key, {
+      mtgjson_uuid: row.mtgjsonUuid,
+      provider: row.provider,
+      finish: row.finish,
+      price_type: row.priceType,
+      currency: row.currency,
+    });
+  }
+  // Keep the SQL payload bounded even for a full MTGJSON refresh. Repeated
+  // keys are safe: each transaction rebuilds a projection from raw history.
+  const keys = [...unique.values()];
+  for (let start = 0; start < keys.length; start += 500) {
+    psql(
+      databaseUrl,
+      refreshPricingSummariesSql(
+        JSON.stringify(keys.slice(start, start + 500)),
+      ),
+    );
+  }
+  psql(
+    databaseUrl,
+    `UPDATE price_summary_state
+     SET source_max_id = ${maxIdSql},
+         summary_revision = ${sourceRevision},
+         refreshed_at = now()
+     WHERE singleton = TRUE AND ready = TRUE`,
+  );
 }
 
 function buildCurrentPriceProjection(
@@ -666,16 +741,18 @@ async function processRefreshAllJob(
     maxCards: opts.maxCards,
     targetMtgjsonUuids,
   });
-  const inserted = insertSnapshots(
+  const { inserted, corrected } = insertSnapshots(
     opts.databaseUrl,
     snapshots,
     opts.importBatchSize,
   );
+  refreshSummaries(opts.databaseUrl, snapshots);
   const projected = publishCurrentPrices(opts.appDatabaseUrl, snapshots);
   completeJob(opts.databaseUrl, jobId, "SUCCEEDED", {
     processed: snapshots.length,
     inserted,
-    skipped: snapshots.length - inserted,
+    corrected,
+    skipped: snapshots.length - inserted - corrected,
   });
   log(
     opts.databaseUrl,
@@ -687,12 +764,13 @@ async function processRefreshAllJob(
       jobId,
       processed: snapshots.length,
       inserted,
-      skipped: snapshots.length - inserted,
+      corrected,
+      skipped: snapshots.length - inserted - corrected,
       projected,
       targetCards: targetMtgjsonUuids.length,
     },
   );
-  return { processed: snapshots.length, inserted, projected };
+  return { processed: snapshots.length, inserted, corrected, projected };
 }
 
 async function processMapIdentifiersJob(

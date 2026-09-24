@@ -17,7 +17,7 @@ test("pricing analytics page and navigation are wired", () => {
   assert.match(pricingPage, /enrichMovers/);
   assert.match(pricingPage, /prisma\.card\.findMany/);
   assert.match(pricingPage, /Historical scope/);
-  assert.match(pricingPage, /Market movers/);
+  assert.match(pricingPage, /Owned movers/);
   assert.match(pricingPage, /Data status/);
   assert.match(pricingPage, /getCollectionValueSummary/);
   assert.match(pricingPage, /Collection value/);
@@ -25,7 +25,7 @@ test("pricing analytics page and navigation are wired", () => {
   assert.match(pricingPage, /Value by deck/);
   assert.match(pricingPage, /PricingFilters/);
   assert.match(pricingPage, /TrendChart/);
-  assert.match(pricingPage, /ownedCards: collectionValue\.ownedCards/);
+  assert.match(pricingPage, /ownedScope\.ownedCards\.filter/);
   assert.match(pricingPage, /cleanSetFilter/);
   assert.match(pricingPage, /cleanPercentFilter/);
   assert.match(pricingPage, /if \(!isDeckLocation\)/);
