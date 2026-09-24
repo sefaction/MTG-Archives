@@ -436,14 +436,19 @@ export async function getPricingDashboard(
       ready: boolean;
       sourceMaxId: number | null;
       rawMaxId: number | null;
+      sourceRevision: number;
+      summaryRevision: number;
       refreshedAt: string | null;
     }>(`SELECT ready, source_max_id AS "sourceMaxId",
          (SELECT MAX(id) FROM price_snapshots) AS "rawMaxId",
+         source_revision AS "sourceRevision",
+         summary_revision AS "summaryRevision",
          refreshed_at::text AS "refreshedAt"
        FROM price_summary_state WHERE singleton = TRUE`);
     if (
       !summaryState?.ready ||
-      summaryState.sourceMaxId !== summaryState.rawMaxId
+      summaryState.sourceMaxId !== summaryState.rawMaxId ||
+      summaryState.sourceRevision !== summaryState.summaryRevision
     ) {
       return emptyPricingDashboard(
         dashboardOptions,

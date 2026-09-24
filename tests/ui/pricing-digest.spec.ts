@@ -191,6 +191,12 @@ test("daily Pricing digest is opt-in, bounded, owner-scoped and replay-safe", as
         `SELECT source_revision > summary_revision FROM price_summary_state WHERE singleton=TRUE;`,
       ),
     ).toBe("t");
+    await page.goto("/pricing?view=market");
+    await expect(
+      page.getByText(
+        /Pricing analytics are unavailable: Pricing summaries are rebuilding/,
+      ),
+    ).toBeVisible();
     pricingSql(
       `${refreshPricingSummariesSql(JSON.stringify(keys.slice(0, 2)))} UPDATE price_summary_state SET source_max_id=(SELECT MAX(id) FROM price_snapshots), summary_revision=source_revision, refreshed_at=now() WHERE singleton=TRUE;`,
     );
