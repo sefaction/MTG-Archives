@@ -53,9 +53,12 @@ for (let start = 0; start < uuids.length; start += 50) {
 }
 query(`ANALYZE price_daily_summary;
        ANALYZE price_scope_summary;
-       ANALYZE price_monthly_summary;`);
+       ANALYZE price_monthly_summary;
+       ANALYZE price_weekly_summary;
+       ANALYZE price_yearly_summary;`);
 query(`UPDATE price_summary_state
        SET ready = TRUE,
+           tiers_ready = TRUE,
            source_max_id = (SELECT MAX(id) FROM price_snapshots),
            summary_revision = source_revision,
            refreshed_at = now(), rebuild_started_at = NULL
