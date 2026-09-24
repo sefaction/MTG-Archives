@@ -52,6 +52,7 @@ test("owned movers use a $2 daily change and link to honest card history", async
     "No prior",
     "Foil gain",
     "Sold card",
+    "Zero baseline",
   ];
   const uuids = names.map(() => randomUUID());
   const quote = JSON.stringify;
@@ -68,16 +69,21 @@ test("owned movers use a $2 daily change and link to honest card history", async
       [1, "normal", "CURRENT_DATE", 2],
       [2, "normal", "CURRENT_DATE - 1", 8],
       [2, "normal", "CURRENT_DATE", 5],
-      [3, "normal", "CURRENT_DATE - 11", 3],
-      [3, "normal", "CURRENT_DATE - 10", 7],
+      [3, "normal", "CURRENT_DATE - 4", 3],
+      [3, "normal", "CURRENT_DATE - 3", 7],
       [4, "normal", "CURRENT_DATE", 11],
       [5, "foil", "CURRENT_DATE - 1", 1],
       [5, "foil", "CURRENT_DATE", 4],
       [6, "normal", "CURRENT_DATE - 1", 1],
       [6, "normal", "CURRENT_DATE", 10],
+      [7, "normal", "CURRENT_DATE - 1", 0],
+      [7, "normal", "CURRENT_DATE", 3],
     ] as const;
     pricingSql(
       `INSERT INTO price_snapshots (mtgjson_uuid,provider,finish,price_type,currency,observed_date,price) VALUES ${values.map(([index, finish, date, price]) => `('${uuids[index]}','tcgplayer','${finish}','retail','USD',${date},${price})`).join(",")};`,
+    );
+    pricingSql(
+      `INSERT INTO price_snapshots (mtgjson_uuid,provider,finish,price_type,currency,observed_date,price) VALUES ('${uuids[0]}','tcgplayer','normal','retail','EUR',CURRENT_DATE - 1,4),('${uuids[0]}','tcgplayer','normal','retail','EUR',CURRENT_DATE,7);`,
     );
     const keys = uuids.map((uuid, index) => ({
       mtgjson_uuid: uuid,
@@ -86,6 +92,13 @@ test("owned movers use a $2 daily change and link to honest card history", async
       price_type: "retail",
       currency: "USD",
     }));
+    keys.push({
+      mtgjson_uuid: uuids[0],
+      provider: "tcgplayer",
+      finish: "normal",
+      price_type: "retail",
+      currency: "EUR",
+    });
     pricingSql(
       `${refreshPricingSummariesSql(JSON.stringify(keys))} UPDATE price_summary_state SET ready=TRUE, source_max_id=(SELECT MAX(id) FROM price_snapshots), refreshed_at=now() WHERE singleton=TRUE;`,
     );
@@ -113,6 +126,9 @@ test("owned movers use a $2 daily change and link to honest card history", async
     await expect(page.getByText("Stale observation").first()).toBeVisible();
     await expect(page.getByText(/have no prior observation/)).toBeVisible();
     await expect(
+      page.getByRole("row", { name: /Zero baseline/ }).first(),
+    ).toContainText("--");
+    await expect(
       page.getByRole("region", { name: "Top gainers table" }),
     ).toContainText("$15.00");
     await page
@@ -128,6 +144,21 @@ test("owned movers use a $2 daily change and link to honest card history", async
     await expect(
       page.getByRole("region", { name: "Card price observations" }),
     ).toContainText("$15.00");
+    pricingSql(
+      `UPDATE price_snapshots SET price=16, created_at=now() WHERE mtgjson_uuid='${uuids[0]}' AND provider='tcgplayer' AND finish='normal' AND price_type='retail' AND currency='USD' AND observed_date=CURRENT_DATE; ${refreshPricingSummariesSql(JSON.stringify([keys[0]]))} UPDATE price_summary_state SET source_max_id=(SELECT MAX(id) FROM price_snapshots), refreshed_at=now() WHERE singleton=TRUE;`,
+    );
+    await page.reload();
+    await expect(
+      page.getByRole("region", { name: "Card price observations" }),
+    ).toContainText("$16.00");
+    await page.goto("/pricing?view=market");
+    await expect(
+      page.getByRole("row", { name: new RegExp(`${tag} Rare gain`) }).first(),
+    ).toContainText("$18.00");
+    await page
+      .getByRole("link", { name: new RegExp(`${tag} Rare gain`) })
+      .first()
+      .click();
     await page.getByRole("link", { name: "Long term" }).click();
     await expect(
       page.getByRole("heading", { name: /Monthly observations/ }),
@@ -139,6 +170,13 @@ test("owned movers use a $2 daily change and link to honest card history", async
     await expect(
       page.getByRole("region", { name: "Top gainers table" }),
     ).not.toContainText("Rare gain");
+    await page.goto("/pricing?view=market&currency=EUR");
+    await expect(
+      page.getByRole("region", { name: "Top gainers table" }),
+    ).toContainText("Rare gain");
+    await expect(
+      page.getByRole("region", { name: "Top gainers table" }),
+    ).not.toContainText("Meaningful loss");
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(
       page.getByRole("link", { name: "Owned movers" }),
