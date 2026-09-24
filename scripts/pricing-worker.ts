@@ -237,6 +237,23 @@ CREATE INDEX IF NOT EXISTS price_worker_logs_created_idx
   );
   // Keep the large history index build outside the multi-statement schema
   // transaction so a populated installation can continue ingesting prices.
+  const invalidIndex = psqlOutput(
+    databaseUrl,
+    `SELECT EXISTS (
+       SELECT 1 FROM pg_class c
+       JOIN pg_index i ON i.indexrelid = c.oid
+       WHERE c.relname = 'price_snapshots_uuid_scope_observed_idx'
+         AND NOT i.indisvalid
+     )`,
+  );
+  if (invalidIndex === "t") {
+    // A cancelled concurrent build can leave an invalid name behind; IF NOT
+    // EXISTS would otherwise silently keep a nonfunctional index forever.
+    psql(
+      databaseUrl,
+      "DROP INDEX CONCURRENTLY price_snapshots_uuid_scope_observed_idx",
+    );
+  }
   psql(
     databaseUrl,
     `CREATE INDEX CONCURRENTLY IF NOT EXISTS price_snapshots_uuid_scope_observed_idx
