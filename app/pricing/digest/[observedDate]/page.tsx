@@ -33,6 +33,7 @@ const digest = z.object({
   totalMovers: z.number(),
   generatedAt: z.string(),
   shownMovers: z.array(movement).max(100),
+  retractedMovers: z.array(movement.extend({ previouslyAlertedPrice: z.number() })).max(100).optional(),
 });
 
 export default async function PricingDigestPage({
@@ -57,7 +58,7 @@ export default async function PricingDigestPage({
   const parsed = digest.safeParse(notification.metadataJson);
   if (!parsed.success || parsed.data.observedDate !== observedDate) notFound();
   const data = parsed.data;
-  const cardIds = data.shownMovers
+  const cardIds = [...data.shownMovers, ...(data.retractedMovers ?? [])]
     .map((item) => item.cardId)
     .filter((id): id is string => Boolean(id));
   const owned =
@@ -173,6 +174,24 @@ export default async function PricingDigestPage({
           </tbody>
         </table>
       </div>
+      {data.retractedMovers?.length ? (
+        <section className="space-y-2 rounded border border-amber-800 p-4" aria-label="Corrected Pricing alerts">
+          <h2 className="text-lg font-semibold">Previously alerted movements corrected below threshold</h2>
+          <p className="text-sm text-zinc-400">These source corrections no longer meet your movement rule. The earlier digest remains a record of what was sent.</p>
+          <ul className="space-y-2 text-sm">
+            {data.retractedMovers.map((item) => (
+              <li key={`${item.mtgjsonUuid}:${item.currentDate}`} className="border-t border-zinc-800 pt-2">
+                {item.cardId && ownedIds.has(item.cardId) ? (
+                  <a className="text-sky-200 underline" href={`/pricing/card/${encodeURIComponent(item.cardId)}?${new URLSearchParams({ provider: data.provider, finish: data.finish, priceType: data.priceType, currency: data.currency, range: "all" })}`}>
+                    {item.cardName ?? item.mtgjsonUuid}
+                  </a>
+                ) : item.cardName ?? item.mtgjsonUuid}
+                {` (${item.currentDate}): previously alerted at ${money(item.previouslyAlertedPrice, data.currency)}, corrected to ${money(item.currentPrice, data.currency)}; movement from ${money(item.startPrice, data.currency)} is now ${money(item.absoluteChange, data.currency)}.`}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </main>
   );
 }
