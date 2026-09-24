@@ -75,9 +75,21 @@ try {
          FROM price_monthly_summary WHERE mtgjson_uuid = '${uuid}' AND month_start = '2026-07-01'`),
     "15.0000:15.0000:2",
   );
+  assert.equal(
+    sql(`SELECT open_price || ':' || close_price || ':' || high_price || ':' || observation_count
+         FROM price_weekly_summary WHERE mtgjson_uuid = '${uuid}' AND week_start = '2026-06-29'`),
+    "10.0000:15.0000:15.0000:2",
+  );
+  assert.equal(
+    sql(`SELECT open_price || ':' || close_price || ':' || high_price || ':' || observation_count
+         FROM price_yearly_summary WHERE mtgjson_uuid = '${uuid}' AND year_start = '2026-01-01'`),
+    "10.0000:8.0000:15.0000:3",
+  );
   console.log("Pricing summaries: correction and repeated rebuild passed.");
 } finally {
   sql(`DELETE FROM price_monthly_summary WHERE mtgjson_uuid = '${uuid}';
+       DELETE FROM price_weekly_summary WHERE mtgjson_uuid = '${uuid}';
+       DELETE FROM price_yearly_summary WHERE mtgjson_uuid = '${uuid}';
        DELETE FROM price_scope_summary WHERE mtgjson_uuid = '${uuid}';
        DELETE FROM price_daily_summary WHERE mtgjson_uuid = '${uuid}';
        DELETE FROM price_snapshots WHERE mtgjson_uuid = '${uuid}';`);
