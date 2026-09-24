@@ -36,8 +36,16 @@ export function pricingSnapshotUpsertSql(batch: PriceSnapshotInput[]) {
     revision_count = price_snapshots.revision_count + 1
   WHERE price_snapshots.price IS DISTINCT FROM EXCLUDED.price
   RETURNING revision_count
+), revision_state AS (
+  UPDATE price_summary_state
+  SET source_revision = source_revision +
+    (SELECT COUNT(*) FROM changed WHERE revision_count > 0)
+  WHERE singleton = TRUE
+    AND EXISTS (SELECT 1 FROM changed WHERE revision_count > 0)
+  RETURNING 1
 )
 SELECT count(*) FILTER (WHERE revision_count = 0) AS inserted,
-       count(*) FILTER (WHERE revision_count > 0) AS corrected
+       count(*) FILTER (WHERE revision_count > 0) AS corrected,
+       (SELECT COUNT(*) FROM revision_state) AS versioned
 FROM changed;`;
 }

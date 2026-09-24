@@ -132,7 +132,8 @@ export async function processDailyPricingDigests(now = new Date()) {
     fresh: boolean;
   }>(
     `SELECT ready,
-       source_max_id IS NOT DISTINCT FROM (SELECT MAX(id) FROM price_snapshots) AS fresh
+       (source_max_id IS NOT DISTINCT FROM (SELECT MAX(id) FROM price_snapshots)
+        AND source_revision = summary_revision) AS fresh
        FROM price_summary_state WHERE singleton = TRUE`,
     { timeoutMs: 10_000 },
   );

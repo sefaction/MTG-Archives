@@ -64,9 +64,13 @@ CREATE TABLE IF NOT EXISTS price_summary_state (
   singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),
   ready BOOLEAN NOT NULL DEFAULT FALSE,
   source_max_id BIGINT,
+  source_revision BIGINT NOT NULL DEFAULT 0,
+  summary_revision BIGINT NOT NULL DEFAULT 0,
   refreshed_at TIMESTAMPTZ,
   rebuild_started_at TIMESTAMPTZ
 );
+ALTER TABLE price_summary_state ADD COLUMN IF NOT EXISTS source_revision BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE price_summary_state ADD COLUMN IF NOT EXISTS summary_revision BIGINT NOT NULL DEFAULT 0;
 INSERT INTO price_summary_state (singleton, ready)
 VALUES (TRUE, FALSE) ON CONFLICT (singleton) DO NOTHING;
 

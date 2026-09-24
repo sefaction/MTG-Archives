@@ -184,7 +184,15 @@ test("daily Pricing digest is opt-in, bounded, owner-scoped and replay-safe", as
           observedDate: yesterday,
           price: 13,
         },
-      ])} ${refreshPricingSummariesSql(JSON.stringify(keys.slice(0, 2)))} UPDATE price_summary_state SET source_max_id=(SELECT MAX(id) FROM price_snapshots), refreshed_at=now() WHERE singleton=TRUE;`,
+      ])}`,
+    );
+    expect(
+      pricingSql(
+        `SELECT source_revision > summary_revision FROM price_summary_state WHERE singleton=TRUE;`,
+      ),
+    ).toBe("t");
+    pricingSql(
+      `${refreshPricingSummariesSql(JSON.stringify(keys.slice(0, 2)))} UPDATE price_summary_state SET source_max_id=(SELECT MAX(id) FROM price_snapshots), summary_revision=source_revision, refreshed_at=now() WHERE singleton=TRUE;`,
     );
     expect(
       pricingSql(
@@ -225,6 +233,14 @@ test("daily Pricing digest is opt-in, bounded, owner-scoped and replay-safe", as
     expect(corrected.movement.isCorrection).toBe(true);
     expect(corrected.movement.currentPrice).toBe(12);
     expect(corrected.deliveries).toBe(0);
+    await page.goto("/settings/pricing-alerts");
+    await page
+      .getByRole("link", { name: /1 owned price mover imported/ })
+      .click();
+    await expect(page.getByText("Corrected observation")).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "Pricing digest movements" }),
+    ).toContainText(`${tag} Card 0`);
     pricingSql(
       pricingSnapshotUpsertSql([
         {

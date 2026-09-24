@@ -584,6 +584,14 @@ function refreshSummaries(
   databaseUrl: string,
   snapshots: ReturnType<typeof extractMtgjsonPriceSnapshots>,
 ) {
+  const [sourceMaxId, sourceRevision] = psqlOutput(
+    databaseUrl,
+    `SELECT (SELECT MAX(id) FROM price_snapshots), source_revision
+     FROM price_summary_state WHERE singleton = TRUE`,
+  ).split("|");
+  if (!/^\d+$/.test(sourceRevision ?? ""))
+    throw new Error("Pricing summary revision state is unavailable.");
+  const maxIdSql = /^\d+$/.test(sourceMaxId ?? "") ? sourceMaxId : "NULL";
   const unique = new Map<
     string,
     {
@@ -624,7 +632,8 @@ function refreshSummaries(
   psql(
     databaseUrl,
     `UPDATE price_summary_state
-     SET source_max_id = (SELECT MAX(id) FROM price_snapshots),
+     SET source_max_id = ${maxIdSql},
+         summary_revision = ${sourceRevision},
          refreshed_at = now()
      WHERE singleton = TRUE AND ready = TRUE`,
   );
