@@ -1,4 +1,12 @@
-﻿# Resumable work checkpoint
+# Resumable work checkpoint
+
+## Owned Pricing movers review, 2026-09-23
+
+Active branch `feat/pricing-owned-movers` at `9a9a8d0`, stacked on Pricing summaries PR #340. User selected a $2 change per card as the default meaningful movement; percent and prior-price filters are optional. The branch implements exact owned-printing daily movers with finish-aware quantities, weighted collection impact, source/currency filters, stale and missing coverage, and a bounded 7/30/90-day or monthly card-history drilldown for an owned card. No notification delivery is included; #335 remains the later opt-in notification issue. Issue #329 stays open until its PR merges.
+
+The cumulative local Docker image `sha256:24aae6e478202556d6a46ba03822f703b5740fbaef9a79987e992f5bce86ee39` combines Pricing through the #329 application commit `c193a59` and the Public review stack through #338. It is loaded in web and pricing-worker using `docker-compose.yml`, `docker-compose.local.yml`, and `docker-compose.smtp-test.yml`; local databases retain their mounted data. The final #329 commit `9a9a8d0` changes only the browser test. Production Next build and manifest guards passed. 591 unit tests, typecheck, and focused browser tests 2/2 (owned movers and Public parity) passed. The browser fixture covered a rare gain, sub-$2 noise, loss, stale source, absent prior, zero prior, duplicate stacks, sold card, foil, EUR, corrected daily observation, weighted impact, card drilldown, and 390px layout. Fixture cleanup left zero `ui-pricing-movers-*` users; Pricing summary state is ready and aligned with raw max ID. The previous local image/branch details in the section below are historical.
+
+Next safe step: push this branch and open a review-ready PR for #329 against #340; verify both CI jobs. Then begin #330 verified retention/backfill, retaining #315 planning and all other open PRs for review. Do not merge or close #329 before approval/merge.
 
 ## Active queue, Public review stack and Pricing diagnosis, 2026-09-23
 
