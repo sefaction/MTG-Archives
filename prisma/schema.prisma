@@ -167,6 +167,7 @@ model User {
   notifications                Notification[]                      @relation("NotificationRecipient")
   notificationActions          Notification[]                      @relation("NotificationActor")
   notificationPreferences      NotificationPreference[]
+  pricingAlertPreference       PricingAlertPreference?
   notificationWebhookEndpoints NotificationWebhookEndpoint[]
   wishlistNotificationEvents   TradeWishlistNotificationActivity[]
   createdLocationTypes         LocationType[]
@@ -1126,6 +1127,28 @@ model NotificationPreference {
   @@index([category, inAppEnabled])
   @@index([category, webhookEnabled])
   @@index([category, emailEnabled])
+}
+
+model PricingAlertPreference {
+  userId           String   @id
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enabled          Boolean  @default(false)
+  enabledAt        DateTime?
+  provider         String   @default("tcgplayer")
+  finish           String   @default("normal")
+  priceType        String   @default("retail")
+  currency         String   @default("USD")
+  thresholdMode    String   @default("absolute")
+  minAbsolute      Decimal  @default(2) @db.Decimal(12, 4)
+  minPercent       Decimal  @default(25) @db.Decimal(8, 2)
+  minPriorPrice    Decimal  @default(1) @db.Decimal(12, 4)
+  lastSentAt       DateTime?
+  lastCheckedAt    DateTime?
+  lastError        String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([enabled, provider, finish, currency])
 }
 
 model NotificationWebhookEndpoint {

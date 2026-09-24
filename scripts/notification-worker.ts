@@ -8,6 +8,7 @@ import {
   WEBHOOK_TRANSPORT,
 } from "../lib/webhook-delivery";
 import { deliverNotificationEmail } from "../lib/email-delivery";
+import { processDailyPricingDigests } from "../lib/pricing-notification-digests";
 import { EMAIL_TRANSPORT } from "../lib/email-config";
 
 const deliveryHandlers = {
@@ -29,6 +30,17 @@ const runOnce = process.argv.includes("--once");
 let stopping = false;
 
 async function tick() {
+  try {
+    const result = await processDailyPricingDigests();
+    if (result.created) {
+      console.info("[notification-worker] pricing digests created", result);
+    }
+  } catch (error) {
+    console.error(
+      "[notification-worker] pricing digest failed",
+      error instanceof Error ? error.message : error,
+    );
+  }
   try {
     const result = await processHourlyWishlistDigests();
     if (result.activitiesProcessed || result.notificationsCreated) {
