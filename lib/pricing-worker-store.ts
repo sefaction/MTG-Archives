@@ -1,4 +1,5 @@
 import { queryPricingJson } from "./pricing-db-query";
+import { getPricingRetentionPolicy } from "./pricing-retention-policy";
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 
@@ -52,6 +53,7 @@ export type PriceHistoryRange = "7" | "30" | "90" | "all";
 export type CardPriceHistoryPoint = {
   observedDate: string;
   price: number;
+  resolution?: "daily" | "weekly" | "monthly" | "yearly";
   lowDate?: string;
   lowPrice?: number;
   highDate?: string;
@@ -294,9 +296,58 @@ export async function getCardPriceHistory(options: CardPriceHistoryOptions) {
   const priceType = cleanToken(options.priceType, "retail");
   const currency = cleanCurrency(options.currency);
   const range = normalizePriceHistoryRange(options.range);
+  const policy = getPricingRetentionPolicy();
+  const [summaryState] = await jsonQuery<{
+    ready: boolean;
+    tiersReady: boolean;
+    fresh: boolean;
+  }>(`SELECT ready, tiers_ready AS "tiersReady",
+       source_max_id IS NOT DISTINCT FROM (SELECT MAX(id) FROM price_snapshots) AS fresh
+       FROM price_summary_state WHERE singleton = TRUE`);
+  if (!summaryState?.ready || !summaryState.fresh)
+    throw new Error("Pricing history is updating. Try again shortly.");
+  const tiered = range === "all" && summaryState.tiersReady;
+  const scope = (alias: string) =>
+    `${alias}.mtgjson_uuid = ${sqlString(options.mtgjsonUuid)}
+       AND ${alias}.provider = ${sqlString(provider)}
+       AND ${alias}.finish = ${sqlString(finish)}
+       AND ${alias}.price_type = ${sqlString(priceType)}
+       AND ${alias}.currency = ${sqlString(currency)}`;
   const points = await jsonQuery<CardPriceHistoryPoint>(
-    range === "all"
-      ? `SELECT
+    tiered
+      ? `SELECT * FROM (
+       SELECT d.observed_date::text AS "observedDate", d.price::float8 AS price,
+         'daily'::text AS resolution, NULL::text AS "lowDate", NULL::float8 AS "lowPrice",
+         NULL::text AS "highDate", NULL::float8 AS "highPrice"
+       FROM price_daily_summary d
+       WHERE ${scope("d")}
+         AND d.observed_date >= CURRENT_DATE - INTERVAL '${policy.dailyDays} days'
+       UNION ALL
+       SELECT w.close_date::text, w.close_price::float8,
+         'weekly'::text, w.low_date::text, w.low_price::float8,
+         w.high_date::text, w.high_price::float8
+       FROM price_weekly_summary w
+       WHERE ${scope("w")}
+         AND w.close_date < CURRENT_DATE - INTERVAL '${policy.dailyDays} days'
+         AND w.close_date >= CURRENT_DATE - INTERVAL '${policy.weeklyYears} years'
+       UNION ALL
+       SELECT m.close_date::text, m.close_price::float8,
+         'monthly'::text, m.low_date::text, m.low_price::float8,
+         m.high_date::text, m.high_price::float8
+       FROM price_monthly_summary m
+       WHERE ${scope("m")}
+         AND m.close_date < CURRENT_DATE - INTERVAL '${policy.weeklyYears} years'
+         AND m.close_date >= CURRENT_DATE - INTERVAL '${policy.monthlyYears} years'
+       UNION ALL
+       SELECT y.close_date::text, y.close_price::float8,
+         'yearly'::text, y.low_date::text, y.low_price::float8,
+         y.high_date::text, y.high_price::float8
+       FROM price_yearly_summary y
+       WHERE ${scope("y")}
+         AND y.close_date < CURRENT_DATE - INTERVAL '${policy.monthlyYears} years'
+     ) tier_points ORDER BY "observedDate" ASC LIMIT 500`
+      : range === "all"
+        ? `SELECT
        close_date::text AS "observedDate",
        close_price::float8 AS price,
        low_date::text AS "lowDate", low_price::float8 AS "lowPrice",
@@ -309,7 +360,7 @@ export async function getCardPriceHistory(options: CardPriceHistoryOptions) {
        AND currency = ${sqlString(currency)}
      ORDER BY month_start ASC
      LIMIT 400`
-      : `SELECT
+        : `SELECT
        observed_date::text AS "observedDate",
        price::float8 AS price
      FROM price_daily_summary
@@ -337,7 +388,7 @@ export async function getCardPriceHistory(options: CardPriceHistoryOptions) {
     priceType,
     currency,
     range,
-    resolution: range === "all" ? "monthly" : "daily",
+    resolution: tiered ? "tiered" : range === "all" ? "monthly" : "daily",
     points,
     change: calculatePriceHistoryChange(points),
   };
