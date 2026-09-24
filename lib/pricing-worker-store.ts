@@ -36,6 +36,7 @@ export type PricingWorkerStatus = {
     error: string | null;
     processed_count: number;
     inserted_count: number;
+    corrected_count: number;
     skipped_count: number;
   }>;
   logs: Array<{
@@ -486,14 +487,19 @@ export async function getPricingDashboard(
       ready: boolean;
       sourceMaxId: number | null;
       rawMaxId: number | null;
+      sourceRevision: number;
+      summaryRevision: number;
       refreshedAt: string | null;
     }>(`SELECT ready, source_max_id AS "sourceMaxId",
          (SELECT MAX(id) FROM price_snapshots) AS "rawMaxId",
+         source_revision AS "sourceRevision",
+         summary_revision AS "summaryRevision",
          refreshed_at::text AS "refreshedAt"
        FROM price_summary_state WHERE singleton = TRUE`);
     if (
       !summaryState?.ready ||
-      summaryState.sourceMaxId !== summaryState.rawMaxId
+      summaryState.sourceMaxId !== summaryState.rawMaxId ||
+      summaryState.sourceRevision !== summaryState.summaryRevision
     ) {
       return emptyPricingDashboard(
         dashboardOptions,
@@ -709,7 +715,7 @@ export async function listPricingWorkerStatus(): Promise<PricingWorkerStatus> {
       ),
       jobs: await queryPricingJson(
         `SELECT id, type, status, requested_by, created_at, started_at, finished_at, error,
-                processed_count, inserted_count, skipped_count
+                processed_count, inserted_count, corrected_count, skipped_count
          FROM price_import_jobs
          ORDER BY created_at DESC
          LIMIT 10`,

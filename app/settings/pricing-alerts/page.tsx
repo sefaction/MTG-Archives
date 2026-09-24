@@ -131,7 +131,7 @@ export default async function PricingAlertsPage({
       <section className="space-y-2 rounded border border-zinc-800 bg-zinc-950/60 p-4">
         <h1 className="text-2xl font-semibold">Pricing movement digest</h1>
         <p className="text-sm text-zinc-400">
-          One quiet in-app digest per observed day for meaningful changes in
+          One quiet in-app digest per UTC import day for meaningful changes in
           your currently owned exact printings. Off until you enable it. Email
           and webhook delivery are not part of this first release.
         </p>

@@ -21,9 +21,11 @@ const movement = z.object({
   currentDate: z.string(),
   ownedQuantity: z.number(),
   collectionImpact: z.number(),
+  isCorrection: z.boolean().optional(),
 });
 const digest = z.object({
   observedDate: z.string(),
+  importedDate: z.string().optional(),
   provider: z.string(),
   finish: z.string(),
   priceType: z.string(),
@@ -83,6 +85,7 @@ export default async function PricingDigestPage({
         <h1 className="text-2xl font-semibold">{notification.title}</h1>
         <p className="text-sm text-zinc-400">
           {data.provider} / {data.finish} / {data.priceType} / {data.currency}.
+          Price updates imported {data.importedDate ?? data.observedDate}.
           Prices and owned quantities captured{" "}
           {new Date(data.generatedAt).toLocaleString()}. Later corrections or
           inventory changes appear in live Pricing history.
@@ -140,6 +143,11 @@ export default async function PricingDigestPage({
                   </td>
                   <td className="whitespace-nowrap p-2">
                     {item.priorDate} to {item.currentDate}
+                    {item.isCorrection ? (
+                      <span className="block text-xs text-amber-200">
+                        Corrected observation
+                      </span>
+                    ) : null}
                   </td>
                   <td className="p-2 text-right">
                     {money(item.startPrice, data.currency)}

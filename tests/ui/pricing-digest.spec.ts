@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { refreshPricingSummariesSql } from "../../scripts/pricing-summary-sql";
+import { pricingSnapshotUpsertSql } from "../../scripts/pricing-snapshot-upsert-sql";
 
 test.use({ trace: "off", screenshot: "off", video: "off" });
 
@@ -58,12 +59,15 @@ test("daily Pricing digest is opt-in, bounded, owner-scoped and replay-safe", as
       const current =
         i < 105 ? 13 : i < 110 ? 11 : i === 110 ? 14 : i === 111 ? 7 : 14;
       return [
-        `('${uuid}','tcgplayer','normal','retail','USD',CURRENT_DATE - 2,10)`,
-        `('${uuid}','tcgplayer','normal','retail','USD',CURRENT_DATE - 1,${current})`,
+        `('${uuid}','tcgplayer','normal','retail','USD',CURRENT_DATE - 2,10,CURRENT_DATE - 2 + INTERVAL '12 hours')`,
+        `('${uuid}','tcgplayer','normal','retail','USD',CURRENT_DATE - 1,${current},CURRENT_DATE - 1 + INTERVAL '12 hours')`,
       ];
     });
+    values.push(
+      `('${uuids[0]}','tcgplayer','normal','retail','USD',CURRENT_DATE - 3,8,CURRENT_DATE - 3 + INTERVAL '12 hours')`,
+    );
     pricingSql(
-      `INSERT INTO price_snapshots (mtgjson_uuid,provider,finish,price_type,currency,observed_date,price) VALUES ${values.join(",")};`,
+      `INSERT INTO price_snapshots (mtgjson_uuid,provider,finish,price_type,currency,observed_date,price,created_at) VALUES ${values.join(",")};`,
     );
     const keys = uuids.map((uuid) => ({
       mtgjson_uuid: uuid,
@@ -154,6 +158,113 @@ test("daily Pricing digest is opt-in, bounded, owner-scoped and replay-safe", as
     } finally {
       await secondContext.close();
     }
+    const priorDate = new Date(Date.now() - 2 * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    const yesterday = new Date(Date.now() - 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    pricingSql(
+      `${pricingSnapshotUpsertSql([
+        {
+          mtgjsonUuid: uuids[0],
+          provider: "tcgplayer",
+          finish: "normal",
+          priceType: "retail",
+          currency: "USD",
+          observedDate: priorDate,
+          price: 12,
+        },
+        {
+          mtgjsonUuid: uuids[1],
+          provider: "tcgplayer",
+          finish: "normal",
+          priceType: "retail",
+          currency: "USD",
+          observedDate: yesterday,
+          price: 13,
+        },
+      ])}`,
+    );
+    expect(
+      pricingSql(
+        `SELECT source_revision > summary_revision FROM price_summary_state WHERE singleton=TRUE;`,
+      ),
+    ).toBe("t");
+    await page.goto("/pricing?view=market");
+    await expect(
+      page.getByText(
+        /Pricing analytics are unavailable: Pricing summaries are rebuilding/,
+      ),
+    ).toBeVisible();
+    pricingSql(
+      `${refreshPricingSummariesSql(JSON.stringify(keys.slice(0, 2)))} UPDATE price_summary_state SET source_max_id=(SELECT MAX(id) FROM price_snapshots), summary_revision=source_revision, refreshed_at=now() WHERE singleton=TRUE;`,
+    );
+    expect(
+      pricingSql(
+        `SELECT revision_count,price FROM price_snapshots WHERE mtgjson_uuid='${uuids[0]}' AND observed_date=CURRENT_DATE-2;`,
+      ),
+    ).toBe("1|12.0000");
+    expect(
+      pricingSql(
+        `SELECT revision_count,price FROM price_snapshots WHERE mtgjson_uuid='${uuids[1]}' AND observed_date=CURRENT_DATE-1;`,
+      ),
+    ).toBe("0|13.0000");
+    const tomorrowDate = new Date(Date.now() + 86_400_000);
+    tomorrowDate.setUTCHours(3, 0, 0, 0);
+    const tomorrow = tomorrowDate.toISOString();
+    execFileSync(
+      "docker",
+      [
+        "exec",
+        "mtg-archives-web-1",
+        "./node_modules/.bin/tsx",
+        "-e",
+        `import {processDailyPricingDigests} from './lib/pricing-notification-digests'; processDailyPricingDigests(new Date('${tomorrow}')).then(console.log)`,
+      ],
+      { encoding: "utf8", timeout: 90_000 },
+    );
+    const corrected = appDb<{
+      counts: number[];
+      movement: {
+        currentDate: string;
+        isCorrection: boolean;
+        currentPrice: number;
+      };
+      deliveries: number;
+    }>(
+      `const ids=${quote(fixture.userIds)};const day=new Date().toISOString().slice(0,10);const counts=[];for(const recipientUserId of ids)counts.push(await p.notification.count({where:{recipientUserId,sourceType:'pricing_digest'}}));const n=await p.notification.findUnique({where:{recipientUserId_sourceType_sourceId:{recipientUserId:ids[0],sourceType:'pricing_digest',sourceId:day}}});const deliveries=await p.notificationDeliveryJob.count({where:{notification:{recipientUserId:{in:ids},sourceType:'pricing_digest'}}});return {counts,movement:n.metadataJson.shownMovers[0],deliveries};`,
+    );
+    expect(corrected.counts).toEqual([2, 1, 1, 0]);
+    expect(corrected.movement.isCorrection).toBe(true);
+    expect(corrected.movement.currentPrice).toBe(12);
+    expect(corrected.deliveries).toBe(0);
+    await page.goto("/settings/pricing-alerts");
+    await page
+      .getByRole("link", { name: /1 owned price mover imported/ })
+      .click();
+    await expect(page.getByText("Corrected observation")).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "Pricing digest movements" }),
+    ).toContainText(`${tag} Card 0`);
+    pricingSql(
+      pricingSnapshotUpsertSql([
+        {
+          mtgjsonUuid: uuids[0],
+          provider: "tcgplayer",
+          finish: "normal",
+          priceType: "retail",
+          currency: "USD",
+          observedDate: priorDate,
+          price: 12,
+        },
+      ]),
+    );
+    expect(
+      pricingSql(
+        `SELECT revision_count FROM price_snapshots WHERE mtgjson_uuid='${uuids[0]}' AND observed_date=CURRENT_DATE-2;`,
+      ),
+    ).toBe("1");
   } finally {
     try {
       if (ownerIds.length) {

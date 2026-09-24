@@ -60,6 +60,7 @@ query(`UPDATE price_summary_state
        SET ready = TRUE,
            tiers_ready = TRUE,
            source_max_id = (SELECT MAX(id) FROM price_snapshots),
+           summary_revision = source_revision,
            refreshed_at = now(), rebuild_started_at = NULL
        WHERE singleton = TRUE;`);
 console.log(`Pricing summaries rebuilt in ${Date.now() - started} ms.`);
