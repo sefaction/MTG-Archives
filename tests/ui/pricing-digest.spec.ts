@@ -1,0 +1,147 @@
+import { expect, test } from "@playwright/test";
+import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { refreshPricingSummariesSql } from "../../scripts/pricing-summary-sql";
+
+test.use({ trace: "off", screenshot: "off", video: "off" });
+
+function appDb<T>(body: string): T {
+  return JSON.parse(
+    execFileSync("docker", ["exec", "-i", "mtg-archives-web-1", "node"], {
+      input: `const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${body}})().then(x=>console.log(JSON.stringify(x))).catch(e=>{console.error(e);process.exitCode=1}).finally(()=>p.$disconnect());`,
+      encoding: "utf8",
+      timeout: 60_000,
+    }),
+  );
+}
+
+function pricingSql(sql: string) {
+  return execFileSync(
+    "docker",
+    [
+      "exec",
+      "-i",
+      "mtg-archives-pricing-postgres-1",
+      "psql",
+      "-U",
+      "mtgpricing",
+      "-d",
+      "mtgpricing",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-At",
+    ],
+    { input: sql, encoding: "utf8", timeout: 60_000 },
+  ).trim();
+}
+
+test("daily Pricing digest is opt-in, bounded, owner-scoped and replay-safe", async ({
+  page,
+  baseURL,
+}) => {
+  test.skip(process.env.MTG_LOCAL_PILOT_TEST !== "1", "Local snapshot only");
+  expect(baseURL).toBe("http://127.0.0.1:13001");
+  test.setTimeout(120_000);
+  const tag = `ui-pricing-digest-${randomUUID()}`;
+  const password = randomUUID();
+  const uuids = Array.from({ length: 113 }, () => randomUUID());
+  const quote = JSON.stringify;
+  let ownerIds: string[] = [];
+  try {
+    const fixture = appDb<{ ownerIds: string[]; userIds: string[] }>(
+      `const tag=${quote(tag)};const uuids=${quote(uuids)};const ownerIds=[];const userIds=[];for(let ownerIndex=0;ownerIndex<4;ownerIndex++){const owner=await p.player.create({data:{name:tag+'-'+ownerIndex,displayName:'Digest owner '+ownerIndex}});const user=await p.user.create({data:{username:tag+'-'+ownerIndex,displayName:'Digest owner '+ownerIndex,playerId:owner.id,passwordHash:await require('bcryptjs').hash(${quote(password)},10)}});ownerIds.push(owner.id);userIds.push(user.id);await p.pricingAlertPreference.create({data:{userId:user.id,enabled:ownerIndex!==3,enabledAt:new Date(Date.now()-60000),provider:'tcgplayer',finish:'normal',priceType:'retail',currency:'USD'}});}for(let i=0;i<uuids.length;i++){const card=await p.card.create({data:{name:tag+' Card '+i,scryfallId:require('node:crypto').randomUUID(),mtgjsonUuid:uuids[i],typeLine:'Artifact',setCode:'tst',collectorNumber:String(i+1),rarity:'rare',prices:{}}});const ownerIndex=i<110?0:i-109;await p.inventoryItem.create({data:{currentOwnerId:ownerIds[ownerIndex],originalOpenerId:ownerIds[ownerIndex],cardId:card.id,quantity:i===0?3:1,condition:'NM',sourceType:'MANUAL'}});}return {ownerIds,userIds};`,
+    );
+    ownerIds = fixture.ownerIds;
+    const values = uuids.flatMap((uuid, i) => {
+      const current =
+        i < 105 ? 13 : i < 110 ? 11 : i === 110 ? 14 : i === 111 ? 7 : 14;
+      return [
+        `('${uuid}','tcgplayer','normal','retail','USD',CURRENT_DATE - 2,10)`,
+        `('${uuid}','tcgplayer','normal','retail','USD',CURRENT_DATE - 1,${current})`,
+      ];
+    });
+    pricingSql(
+      `INSERT INTO price_snapshots (mtgjson_uuid,provider,finish,price_type,currency,observed_date,price) VALUES ${values.join(",")};`,
+    );
+    const keys = uuids.map((uuid) => ({
+      mtgjson_uuid: uuid,
+      provider: "tcgplayer",
+      finish: "normal",
+      price_type: "retail",
+      currency: "USD",
+    }));
+    pricingSql(
+      `${refreshPricingSummariesSql(JSON.stringify(keys))} UPDATE price_summary_state SET ready=TRUE, source_max_id=(SELECT MAX(id) FROM price_snapshots), refreshed_at=now() WHERE singleton=TRUE;`,
+    );
+    const runDigest = () =>
+      execFileSync(
+        "docker",
+        [
+          "exec",
+          "mtg-archives-notification-worker-1",
+          "./node_modules/.bin/tsx",
+          "-e",
+          "import {processDailyPricingDigests} from './lib/pricing-notification-digests'; processDailyPricingDigests().then(console.log)",
+        ],
+        { encoding: "utf8", timeout: 90_000 },
+      );
+    runDigest();
+    runDigest();
+    const state = appDb<{
+      counts: number[];
+      details: {
+        totalMovers: number;
+        shown: number;
+        impact: number;
+        source: string;
+      };
+      deliveries: number;
+    }>(
+      `const userIds=${quote(fixture.userIds)};const counts=[];for(const userId of userIds)counts.push(await p.notification.count({where:{recipientUserId:userId,sourceType:'pricing_digest'}}));const digest=await p.notification.findFirst({where:{recipientUserId:userIds[0],sourceType:'pricing_digest'}});const deliveries=await p.notificationDeliveryJob.count({where:{notification:{recipientUserId:{in:userIds},sourceType:'pricing_digest'}}});return {counts,details:{totalMovers:digest.metadataJson.totalMovers,shown:digest.metadataJson.shownMovers.length,impact:digest.metadataJson.shownMovers[0].collectionImpact,source:digest.metadataJson.provider},deliveries};`,
+    );
+    expect(state.counts).toEqual([1, 1, 1, 0]);
+    expect(state.details).toEqual({
+      totalMovers: 105,
+      shown: 100,
+      impact: 9,
+      source: "tcgplayer",
+    });
+    expect(state.deliveries).toBe(0);
+
+    await page.goto("/login");
+    await page.getByLabel(/username or email/i).fill(`${tag}-0`);
+    await page.getByLabel(/^password$/i).fill(password);
+    await page.getByRole("button", { name: /^log in$/i }).click();
+    await page.waitForURL(/dashboard/);
+    await page.goto("/settings/pricing-alerts");
+    await expect(
+      page.getByRole("checkbox", {
+        name: /Enable daily in-app Pricing digests/,
+      }),
+    ).toBeChecked();
+    await expect(
+      page.getByRole("link", { name: /105 owned price movers/ }),
+    ).toBeVisible();
+    await page.getByRole("link", { name: /105 owned price movers/ }).click();
+    await expect(
+      page.getByRole("region", { name: "Pricing digest movements" }),
+    ).toContainText(`${tag} Card 0`);
+    await expect(
+      page.getByText(/Showing the 100 largest impacts of 105/),
+    ).toBeVisible();
+    const otherDigest = appDb<{ href: string }>(
+      `const n=await p.notification.findFirst({where:{recipientUserId:${quote(fixture.userIds[1])},sourceType:'pricing_digest'}});return {href:n.href};`,
+    );
+    await page.goto(otherDigest.href);
+    await expect(page.getByText(/not found/i)).toBeVisible();
+  } finally {
+    if (ownerIds.length) {
+      appDb(
+        `const ids=${quote(ownerIds)};const users=await p.user.findMany({where:{playerId:{in:ids}},select:{id:true}});await p.notificationDeliveryJob.deleteMany({where:{notification:{recipientUserId:{in:users.map(x=>x.id)},sourceType:'pricing_digest'}}});await p.notification.deleteMany({where:{recipientUserId:{in:users.map(x=>x.id)},sourceType:'pricing_digest'}});await p.inventoryItem.deleteMany({where:{currentOwnerId:{in:ids}}});await p.user.deleteMany({where:{playerId:{in:ids}}});await p.player.deleteMany({where:{id:{in:ids}}});await p.card.deleteMany({where:{name:{startsWith:${quote(tag)}}}});return true;`,
+      );
+    }
+    pricingSql(
+      `DELETE FROM price_monthly_summary WHERE mtgjson_uuid IN (${uuids.map((u) => `'${u}'`).join(",")}); DELETE FROM price_scope_summary WHERE mtgjson_uuid IN (${uuids.map((u) => `'${u}'`).join(",")}); DELETE FROM price_daily_summary WHERE mtgjson_uuid IN (${uuids.map((u) => `'${u}'`).join(",")}); DELETE FROM price_snapshots WHERE mtgjson_uuid IN (${uuids.map((u) => `'${u}'`).join(",")}); UPDATE price_summary_state SET source_max_id=(SELECT MAX(id) FROM price_snapshots), refreshed_at=now() WHERE singleton=TRUE;`,
+    );
+  }
+});

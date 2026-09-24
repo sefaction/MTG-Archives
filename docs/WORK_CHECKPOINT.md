@@ -1,5 +1,11 @@
 # Resumable work checkpoint
 
+## Pricing digest in progress, 2026-09-23
+
+Active branch `feat/pricing-alerts`, based on #341 (`feat/pricing-owned-movers`). User selected one opt-in daily in-app digest, default $2 per-card change. Uncommitted implementation currently includes owner preferences/settings, notification-worker generation, owner-scoped digest detail, migration, unit/browser coverage and `docs/PRICING_DIGESTS.md`. Typecheck and 594 unit tests pass. Local Docker still runs the previous cumulative #342/Public image; this digest branch has **not** been loaded or tested in Docker yet. No issue or PR #335 should be claimed complete before that verification.
+
+Review stack is Public #336 → #337 → #338, Pricing #339 → #340 → #341 → #342; #342 CI now passes. Acquisition planning #315 remains open. None have individual merge approval. #330 still needs a separate safe raw/daily pruning gate. Next safe step: build a cumulative local image containing this branch plus #342 and Public, run the new digest browser lifecycle (four users, high-volume cap, replay, owner isolation), inspect fixture cleanup and worker logs, then commit/push/open #335 PR against #341 with precise limitations. Do not merge or deploy.
+
 ## Owned Pricing movers review, 2026-09-23
 
 Active branch `feat/pricing-owned-movers` at `9a9a8d0`, stacked on Pricing summaries PR #340. User selected a $2 change per card as the default meaningful movement; percent and prior-price filters are optional. The branch implements exact owned-printing daily movers with finish-aware quantities, weighted collection impact, source/currency filters, stale and missing coverage, and a bounded 7/30/90-day or monthly card-history drilldown for an owned card. No notification delivery is included; #335 remains the later opt-in notification issue. Issue #329 stays open until its PR merges.
