@@ -298,8 +298,10 @@ export async function processDailyPricingDigests(now = new Date()) {
         if (Array.isArray(metadata.retractedMovers)) {
           for (const item of metadata.retractedMovers) {
             if (item && typeof item === "object" && !Array.isArray(item) &&
-                typeof item.mtgjsonUuid === "string" && typeof item.currentDate === "string")
-              retracted.add(`${item.mtgjsonUuid}:${item.currentDate}`);
+                typeof item.mtgjsonUuid === "string" && typeof item.currentDate === "string") {
+              const key = `${item.mtgjsonUuid}:${item.currentDate}`;
+              if (!alerted.has(key)) retracted.add(key);
+            }
           }
         }
         if (!Array.isArray(metadata.shownMovers)) continue;
@@ -308,7 +310,7 @@ export async function processDailyPricingDigests(now = new Date()) {
               typeof item.mtgjsonUuid !== "string" || typeof item.currentDate !== "string" ||
               typeof item.currentPrice !== "number" || !/^\d{4}-\d{2}-\d{2}$/.test(item.currentDate)) continue;
           const key = `${item.mtgjsonUuid}:${item.currentDate}`;
-          if (!alerted.has(key)) alerted.set(key, {
+          if (!alerted.has(key) && !retracted.has(key)) alerted.set(key, {
             mtgjsonUuid: item.mtgjsonUuid,
             currentObservedDate: item.currentDate,
             currentPrice: item.currentPrice,

@@ -52,7 +52,7 @@ test("daily Pricing digest is opt-in, bounded, owner-scoped and replay-safe", as
   execFileSync("docker", ["pause", "mtg-archives-notification-worker-1"]);
   try {
     const fixture = appDb<{ ownerIds: string[]; userIds: string[] }>(
-      `const tag=${quote(tag)};const uuids=${quote(uuids)};const ownerIds=[];const userIds=[];for(let ownerIndex=0;ownerIndex<4;ownerIndex++){const owner=await p.player.create({data:{name:tag+'-'+ownerIndex,displayName:'Digest owner '+ownerIndex}});const user=await p.user.create({data:{username:tag+'-'+ownerIndex,displayName:'Digest owner '+ownerIndex,playerId:owner.id,passwordHash:await require('bcryptjs').hash(${quote(password)},10)}});ownerIds.push(owner.id);userIds.push(user.id);await p.pricingAlertPreference.create({data:{userId:user.id,enabled:ownerIndex!==3,enabledAt:new Date(Date.now()-86400000),provider:'tcgplayer',finish:'normal',priceType:'retail',currency:'USD'}});}for(let i=0;i<uuids.length;i++){const card=await p.card.create({data:{name:tag+' Card '+i,scryfallId:require('node:crypto').randomUUID(),mtgjsonUuid:uuids[i],typeLine:'Artifact',setCode:'tst',collectorNumber:String(i+1),rarity:'rare',prices:{}}});const ownerIndex=i<110?0:i-109;await p.inventoryItem.create({data:{currentOwnerId:ownerIds[ownerIndex],originalOpenerId:ownerIds[ownerIndex],cardId:card.id,quantity:i===0?3:1,condition:'NM',sourceType:'MANUAL'}});}return {ownerIds,userIds};`,
+      `const tag=${quote(tag)};const uuids=${quote(uuids)};const ownerIds=[];const userIds=[];for(let ownerIndex=0;ownerIndex<4;ownerIndex++){const owner=await p.player.create({data:{name:tag+'-'+ownerIndex,displayName:'Digest owner '+ownerIndex}});const user=await p.user.create({data:{username:tag+'-'+ownerIndex,displayName:'Digest owner '+ownerIndex,playerId:owner.id,passwordHash:await require('bcryptjs').hash(${quote(password)},10)}});ownerIds.push(owner.id);userIds.push(user.id);await p.pricingAlertPreference.create({data:{userId:user.id,enabled:ownerIndex!==3,enabledAt:new Date(Date.now()-3*86400000),provider:'tcgplayer',finish:'normal',priceType:'retail',currency:'USD'}});}for(let i=0;i<uuids.length;i++){const card=await p.card.create({data:{name:tag+' Card '+i,scryfallId:require('node:crypto').randomUUID(),mtgjsonUuid:uuids[i],typeLine:'Artifact',setCode:'tst',collectorNumber:String(i+1),rarity:'rare',prices:{}}});const ownerIndex=i<110?0:i-109;await p.inventoryItem.create({data:{currentOwnerId:ownerIds[ownerIndex],originalOpenerId:ownerIds[ownerIndex],cardId:card.id,quantity:i===0?3:1,condition:'NM',sourceType:'MANUAL'}});}return {ownerIds,userIds};`,
     );
     ownerIds = fixture.ownerIds;
     const values = uuids.flatMap((uuid, i) => {
@@ -184,6 +184,15 @@ test("daily Pricing digest is opt-in, bounded, owner-scoped and replay-safe", as
           observedDate: yesterday,
           price: 11,
         },
+        {
+          mtgjsonUuid: uuids[110],
+          provider: "tcgplayer",
+          finish: "normal",
+          priceType: "retail",
+          currency: "USD",
+          observedDate: yesterday,
+          price: 11,
+        },
       ])}`,
     );
     expect(
@@ -198,7 +207,7 @@ test("daily Pricing digest is opt-in, bounded, owner-scoped and replay-safe", as
       ),
     ).toBeVisible();
     pricingSql(
-      `${refreshPricingSummariesSql(JSON.stringify(keys.slice(0, 2)))} UPDATE price_summary_state SET source_max_id=(SELECT MAX(id) FROM price_snapshots), summary_revision=source_revision, refreshed_at=now() WHERE singleton=TRUE;`,
+      `${refreshPricingSummariesSql(JSON.stringify([keys[0], keys[1], keys[110]]))} UPDATE price_summary_state SET source_max_id=(SELECT MAX(id) FROM price_snapshots), summary_revision=source_revision, refreshed_at=now() WHERE singleton=TRUE;`,
     );
     expect(
       pricingSql(
@@ -238,16 +247,21 @@ test("daily Pricing digest is opt-in, bounded, owner-scoped and replay-safe", as
         currentPrice: number;
       };
       retracted: { currentPrice: number; previouslyAlertedPrice: number; currentDate: string }[];
+      retractedOnly: { totalMovers: number; retracted: { currentPrice: number; previouslyAlertedPrice: number }[] };
       deliveries: number;
     }>(
-      `const ids=${quote(fixture.userIds)};const day=new Date().toISOString().slice(0,10);const counts=[];for(const recipientUserId of ids)counts.push(await p.notification.count({where:{recipientUserId,sourceType:'pricing_digest'}}));const n=await p.notification.findUnique({where:{recipientUserId_sourceType_sourceId:{recipientUserId:ids[0],sourceType:'pricing_digest',sourceId:day}}});const deliveries=await p.notificationDeliveryJob.count({where:{notification:{recipientUserId:{in:ids},sourceType:'pricing_digest'}}});return {counts,movement:n.metadataJson.shownMovers[0],retracted:n.metadataJson.retractedMovers,deliveries};`,
+      `const ids=${quote(fixture.userIds)};const day=new Date().toISOString().slice(0,10);const counts=[];for(const recipientUserId of ids)counts.push(await p.notification.count({where:{recipientUserId,sourceType:'pricing_digest'}}));const n=await p.notification.findUnique({where:{recipientUserId_sourceType_sourceId:{recipientUserId:ids[0],sourceType:'pricing_digest',sourceId:day}}});const other=await p.notification.findUnique({where:{recipientUserId_sourceType_sourceId:{recipientUserId:ids[1],sourceType:'pricing_digest',sourceId:day}}});const deliveries=await p.notificationDeliveryJob.count({where:{notification:{recipientUserId:{in:ids},sourceType:'pricing_digest'}}});return {counts,movement:n.metadataJson.shownMovers[0],retracted:n.metadataJson.retractedMovers,retractedOnly:{totalMovers:other.metadataJson.totalMovers,retracted:other.metadataJson.retractedMovers},deliveries};`,
     );
-    expect(corrected.counts).toEqual([2, 1, 1, 0]);
+    expect(corrected.counts).toEqual([2, 2, 1, 0]);
     expect(corrected.movement.isCorrection).toBe(true);
     expect(corrected.movement.currentPrice).toBe(12);
     expect(corrected.retracted).toEqual(expect.arrayContaining([
       expect.objectContaining({ currentPrice: 11, previouslyAlertedPrice: 13, currentDate: yesterday }),
     ]));
+    expect(corrected.retractedOnly).toEqual({
+      totalMovers: 0,
+      retracted: [expect.objectContaining({ currentPrice: 11, previouslyAlertedPrice: 14 })],
+    });
     expect(corrected.deliveries).toBe(0);
     await page.goto("/settings/pricing-alerts");
     await page
