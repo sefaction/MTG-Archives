@@ -30,14 +30,16 @@ test("Pricing digest query scopes exact owned printings, source and per-card thr
   assert.ok(sql);
   assert.match(sql, /\('owned-1', 3::int\)/);
   assert.doesNotMatch(sql, /empty/);
-  assert.match(sql, /c\.provider = 'tcgplayer'/);
-  assert.match(sql, /c\.finish = 'foil'/);
-  assert.match(sql, /c\.price_type = 'retail'/);
-  assert.match(sql, /c\.currency = 'USD'/);
-  assert.match(sql, /c\.latest_observed_date = '2026-09-23'::date/);
+  assert.match(sql, /d\.provider = 'tcgplayer'/);
+  assert.match(sql, /d\.finish = 'foil'/);
+  assert.match(sql, /d\.price_type = 'retail'/);
+  assert.match(sql, /d\.currency = 'USD'/);
+  assert.match(sql, /d\.created_at >= '2026-09-23'::date/);
   assert.match(sql, /ABS\("absoluteChange"\) >= 2 OR/);
   assert.match(sql, /"startPrice" >= 1 AND ABS\("percentChange"\) >= 25/);
-  assert.match(sql, /c\.prior_observed_date IS NOT NULL/);
+  assert.match(sql, /p\.observed_date < d\.observed_date/);
+  assert.match(sql, /d\.source_revision_count > 0/);
+  assert.match(sql, /'2026-09-23'::date - INTERVAL '90 days'/);
   assert.match(sql, /COUNT\(\*\) OVER\(\)::int/);
 });
 

@@ -17,6 +17,7 @@ type Movement = {
   ownedQuantity: number;
   collectionImpact: number;
   totalMovers: number;
+  isCorrection: boolean;
 };
 
 function sqlString(value: string) {
@@ -69,26 +70,35 @@ export function dailyPricingMovementSql(input: {
   return `WITH holdings(mtgjson_uuid, owned_quantity) AS (
     VALUES ${values}
   ), movements AS (
-    SELECT c.mtgjson_uuid AS "mtgjsonUuid",
-      c.prior_price::float8 AS "startPrice",
-      c.current_price::float8 AS "currentPrice",
-      (c.current_price - c.prior_price)::float8 AS "absoluteChange",
-      CASE WHEN c.prior_price = 0 THEN NULL ELSE
-        ROUND((c.current_price - c.prior_price) / c.prior_price * 100, 2)::float8
+    SELECT d.mtgjson_uuid AS "mtgjsonUuid",
+      prior.price::float8 AS "startPrice",
+      d.price::float8 AS "currentPrice",
+      (d.price - prior.price)::float8 AS "absoluteChange",
+      CASE WHEN prior.price = 0 THEN NULL ELSE
+        ROUND((d.price - prior.price) / prior.price * 100, 2)::float8
       END AS "percentChange",
-      c.prior_observed_date::text AS "startObservedDate",
-      c.latest_observed_date::text AS "currentObservedDate",
+      prior.observed_date::text AS "startObservedDate",
+      d.observed_date::text AS "currentObservedDate",
       h.owned_quantity AS "ownedQuantity",
-      ROUND((c.current_price - c.prior_price) * h.owned_quantity, 2)::float8 AS "collectionImpact"
-    FROM price_scope_summary c JOIN holdings h ON h.mtgjson_uuid = c.mtgjson_uuid
-    WHERE c.provider = ${sqlString(input.provider)}
-      AND c.finish = ${sqlString(input.finish)}
-      AND c.price_type = ${sqlString(input.priceType)}
-      AND c.currency = ${sqlString(input.currency)}
-      AND c.latest_observed_date = ${sqlString(input.observedDate)}::date
-      AND c.latest_ingested_at >= ${sqlString(input.enabledAt.toISOString())}::timestamptz
-      AND c.prior_observed_date IS NOT NULL
-      AND c.current_price <> c.prior_price
+      ROUND((d.price - prior.price) * h.owned_quantity, 2)::float8 AS "collectionImpact",
+      (d.source_revision_count > 0) AS "isCorrection"
+    FROM price_daily_summary d JOIN holdings h ON h.mtgjson_uuid = d.mtgjson_uuid
+    JOIN LATERAL (
+      SELECT p.observed_date, p.price FROM price_daily_summary p
+      WHERE (p.mtgjson_uuid,p.provider,p.finish,p.price_type,p.currency) =
+            (d.mtgjson_uuid,d.provider,d.finish,d.price_type,d.currency)
+        AND p.observed_date < d.observed_date
+      ORDER BY p.observed_date DESC LIMIT 1
+    ) prior ON TRUE
+    WHERE d.provider = ${sqlString(input.provider)}
+      AND d.finish = ${sqlString(input.finish)}
+      AND d.price_type = ${sqlString(input.priceType)}
+      AND d.currency = ${sqlString(input.currency)}
+      AND d.created_at >= ${sqlString(input.observedDate)}::date
+      AND d.created_at < (${sqlString(input.observedDate)}::date + INTERVAL '1 day')
+      AND d.created_at >= ${sqlString(input.enabledAt.toISOString())}::timestamptz
+      AND d.observed_date BETWEEN (${sqlString(input.observedDate)}::date - INTERVAL '90 days') AND ${sqlString(input.observedDate)}::date
+      AND d.price <> prior.price
   ), eligible AS (SELECT * FROM movements WHERE ${criterion})
   SELECT *, COUNT(*) OVER()::int AS "totalMovers"
   FROM eligible ORDER BY ABS("collectionImpact") DESC, ABS("absoluteChange") DESC
@@ -239,13 +249,14 @@ export async function processDailyPricingDigests(now = new Date()) {
           recipientUserId: preference.userId,
           type: "pricing.digest",
           category: PRICING_DIGEST_CATEGORY,
-          title: `${count} owned price ${count === 1 ? "mover" : "movers"} on ${observedDate}`,
-          message: `${top.join("; ")}${count > top.length ? `; and ${count - top.length} more` : ""}. Prices observed through ${now.toISOString().slice(0, 16)} UTC; open live history for corrections.`,
+          title: `${count} owned price ${count === 1 ? "mover" : "movers"} imported ${observedDate}`,
+          message: `${top.join("; ")}${count > top.length ? `; and ${count - top.length} more` : ""}. Includes late corrections; observed dates appear in the digest. Captured ${now.toISOString().slice(0, 16)} UTC.`,
           href,
           sourceType: "pricing_digest",
           sourceId: observedDate,
           metadata: {
             observedDate,
+            importedDate: observedDate,
             provider: preference.provider,
             finish: preference.finish,
             priceType: preference.priceType,
@@ -267,6 +278,7 @@ export async function processDailyPricingDigests(now = new Date()) {
               currentDate: row.currentObservedDate,
               ownedQuantity: row.ownedQuantity,
               collectionImpact: row.collectionImpact,
+              isCorrection: row.isCorrection,
             })),
           },
         },

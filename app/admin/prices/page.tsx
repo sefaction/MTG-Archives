@@ -307,6 +307,7 @@ export default async function AdminPricesPage({
                       <div>{numberLabel(job.processed_count)} processed</div>
                       <div className="text-xs text-zinc-500">
                         {numberLabel(job.inserted_count)} inserted /{" "}
+                        {numberLabel(job.corrected_count)} corrected /{" "}
                         {numberLabel(job.skipped_count)} skipped
                       </div>
                     </td>

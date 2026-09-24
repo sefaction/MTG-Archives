@@ -35,6 +35,7 @@ export type PricingWorkerStatus = {
     error: string | null;
     processed_count: number;
     inserted_count: number;
+    corrected_count: number;
     skipped_count: number;
   }>;
   logs: Array<{
@@ -658,7 +659,7 @@ export async function listPricingWorkerStatus(): Promise<PricingWorkerStatus> {
       ),
       jobs: await queryPricingJson(
         `SELECT id, type, status, requested_by, created_at, started_at, finished_at, error,
-                processed_count, inserted_count, skipped_count
+                processed_count, inserted_count, corrected_count, skipped_count
          FROM price_import_jobs
          ORDER BY created_at DESC
          LIMIT 10`,

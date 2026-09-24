@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS price_daily_summary (
   set_code TEXT,
   collector_number TEXT,
   source_snapshot_id BIGINT NOT NULL,
+  source_revision_count INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL,
   PRIMARY KEY (mtgjson_uuid, provider, finish, price_type, currency, observed_date)
 );
@@ -37,6 +38,7 @@ CREATE TABLE IF NOT EXISTS price_scope_summary (
 ALTER TABLE price_daily_summary ADD COLUMN IF NOT EXISTS card_name TEXT;
 ALTER TABLE price_daily_summary ADD COLUMN IF NOT EXISTS set_code TEXT;
 ALTER TABLE price_daily_summary ADD COLUMN IF NOT EXISTS collector_number TEXT;
+ALTER TABLE price_daily_summary ADD COLUMN IF NOT EXISTS source_revision_count INTEGER NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS price_monthly_summary (
   mtgjson_uuid TEXT NOT NULL,
@@ -70,6 +72,8 @@ VALUES (TRUE, FALSE) ON CONFLICT (singleton) DO NOTHING;
 
 CREATE INDEX IF NOT EXISTS price_daily_summary_scope_date_idx
   ON price_daily_summary (provider, finish, price_type, currency, observed_date DESC, mtgjson_uuid);
+CREATE INDEX IF NOT EXISTS price_daily_summary_ingested_scope_idx
+  ON price_daily_summary (created_at, provider, finish, price_type, currency, mtgjson_uuid);
 CREATE INDEX IF NOT EXISTS price_scope_summary_scope_idx
   ON price_scope_summary (provider, finish, price_type, currency, mtgjson_uuid);
 CREATE INDEX IF NOT EXISTS price_monthly_summary_scope_month_idx
@@ -95,12 +99,12 @@ WHERE (d.mtgjson_uuid, d.provider, d.finish, d.price_type, d.currency) =
 INSERT INTO price_daily_summary (
   mtgjson_uuid, provider, finish, price_type, currency,
   observed_date, price, card_name, set_code, collector_number,
-  source_snapshot_id, created_at
+  source_snapshot_id, source_revision_count, created_at
 )
 SELECT DISTINCT ON (s.mtgjson_uuid, s.provider, s.finish, s.price_type, s.currency, s.observed_date)
   s.mtgjson_uuid, s.provider, s.finish, s.price_type, s.currency,
   s.observed_date, s.price, s.card_name, s.set_code, s.collector_number,
-  s.id, s.created_at
+  s.id, s.revision_count, s.created_at
 FROM touched_price_keys k JOIN price_snapshots s
   ON (s.mtgjson_uuid, s.provider, s.finish, s.price_type, s.currency) =
      (k.mtgjson_uuid, k.provider, k.finish, k.price_type, k.currency)
