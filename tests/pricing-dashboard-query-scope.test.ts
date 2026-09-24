@@ -6,7 +6,7 @@ const ownedCards = [{ mtgjsonUuid: "known-printing", quantity: 2 }];
 
 for (const [view, expectedQueries] of [
   ["collection", 3],
-  ["market", 2],
+  ["market", 3],
   ["data", 3],
 ] as const) {
   test(`${view} loads only its pricing queries`, async () => {
@@ -85,10 +85,12 @@ test("Market returns three bounded rankings from one summary query", async () =>
     async <T>(sql: string): Promise<T[]> =>
       sql.includes("FROM price_summary_state")
         ? ([{ ready: true, sourceMaxId: 1, rawMaxId: 1 }] as T[])
-        : ([
-            { ...sample, category: "gainer" },
-            { ...sample, category: "percent" },
-          ] as T[]),
+        : sql.includes("movement_rows")
+          ? ([
+              { ...sample, category: "gainer" },
+              { ...sample, category: "percent" },
+            ] as T[])
+          : ([] as T[]),
   );
   assert.equal(dashboard.topGainers.length, 1);
   assert.equal(dashboard.topLosers.length, 0);
@@ -115,6 +117,28 @@ test("set filter scopes owned printings before the summary query", async () => {
   );
   assert(queries.slice(1).every((sql) => sql.includes("included")));
   assert(queries.slice(1).every((sql) => !sql.includes("excluded")));
+});
+
+test("finish filter excludes differently finished copies of one printing", async () => {
+  const queries: string[] = [];
+  await getPricingDashboard(
+    {
+      view: "data",
+      finish: "foil",
+      ownedCards: [
+        { mtgjsonUuid: "normal-only", finish: "normal", quantity: 9 },
+        { mtgjsonUuid: "foil-owned", finish: "foil", quantity: 2 },
+      ],
+    },
+    async <T>(sql: string): Promise<T[]> => {
+      queries.push(sql);
+      if (sql.includes("FROM price_summary_state"))
+        return [{ ready: true, sourceMaxId: 1, rawMaxId: 1 }] as T[];
+      return [];
+    },
+  );
+  assert(queries.slice(1).every((sql) => sql.includes("foil-owned")));
+  assert(queries.slice(1).every((sql) => !sql.includes("normal-only")));
 });
 
 test("an unpriced collection does not scan history", async () => {

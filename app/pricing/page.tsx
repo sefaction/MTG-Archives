@@ -39,9 +39,34 @@ type CollectionValueSummary = {
     mtgjsonUuid: string;
     quantity: number;
     setCode?: string | null;
+    finish?: string;
+    cardName?: string;
   }>;
   setOptions: Array<{ value: string; label: string }>;
 };
+
+type OwnedPriceCard = CollectionValueSummary["ownedCards"][number];
+
+function addOwnedPriceCard(
+  cards: Map<string, OwnedPriceCard>,
+  item: {
+    quantity: number;
+    foilStatus: string;
+    card: { mtgjsonUuid: string | null; setCode: string | null; name?: string };
+  },
+) {
+  if (!item.card.mtgjsonUuid) return;
+  const finish = finishForFoilStatus(item.foilStatus);
+  const key = `${item.card.mtgjsonUuid}\u0000${finish}`;
+  const previous = cards.get(key);
+  cards.set(key, {
+    mtgjsonUuid: item.card.mtgjsonUuid,
+    finish,
+    setCode: item.card.setCode,
+    cardName: item.card.name,
+    quantity: (previous?.quantity ?? 0) + item.quantity,
+  });
+}
 
 function emptyCollectionValueSummary(): CollectionValueSummary {
   return {
@@ -65,29 +90,19 @@ async function getOwnedPriceScope(ownerPlayerId: string | null) {
     where: { currentOwnerId: ownerPlayerId, quantity: { gt: 0 } },
     select: {
       quantity: true,
-      card: { select: { mtgjsonUuid: true, setCode: true } },
+      foilStatus: true,
+      card: { select: { mtgjsonUuid: true, setCode: true, name: true } },
     },
   });
-  const ownedCards = new Map<string, number>();
-  const printingSets = new Map<string, string | null>();
+  const ownedCards = new Map<string, OwnedPriceCard>();
   const setOptions = new Map<string, string>();
   for (const item of items) {
-    if (item.card.mtgjsonUuid) {
-      ownedCards.set(
-        item.card.mtgjsonUuid,
-        (ownedCards.get(item.card.mtgjsonUuid) ?? 0) + item.quantity,
-      );
-      printingSets.set(item.card.mtgjsonUuid, item.card.setCode);
-    }
+    addOwnedPriceCard(ownedCards, item);
     if (item.card.setCode)
       setOptions.set(item.card.setCode.toUpperCase(), item.card.setCode);
   }
   return {
-    ownedCards: [...ownedCards.entries()].map(([mtgjsonUuid, quantity]) => ({
-      mtgjsonUuid,
-      quantity,
-      setCode: printingSets.get(mtgjsonUuid),
-    })),
+    ownedCards: [...ownedCards.values()],
     setOptions: [...setOptions.entries()].map(([value, label]) => ({
       value,
       label,
@@ -118,6 +133,18 @@ function cleanPercentFilter(value: string | undefined) {
   if (!value) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Math.max(0, Math.min(1000, parsed)) : null;
+}
+
+function cleanDollarFilter(value: string | undefined) {
+  if (!value) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed)
+    ? Math.max(0, Math.min(1_000_000, parsed))
+    : null;
+}
+
+function cleanThresholdMode(value: string | undefined) {
+  return value === "percent" || value === "either" ? value : "absolute";
 }
 
 function cleanDirectionFilter(value: string | undefined) {
@@ -185,7 +212,9 @@ async function getCollectionValueSummary({
     select: {
       quantity: true,
       foilStatus: true,
-      card: { select: { prices: true, mtgjsonUuid: true, setCode: true } },
+      card: {
+        select: { prices: true, mtgjsonUuid: true, setCode: true, name: true },
+      },
       location: {
         select: {
           id: true,
@@ -200,8 +229,7 @@ async function getCollectionValueSummary({
 
   const locationRows = new Map<string, CollectionValueRow>();
   const deckRows = new Map<string, CollectionValueRow>();
-  const ownedCards = new Map<string, number>();
-  const printingSets = new Map<string, string | null>();
+  const ownedCards = new Map<string, OwnedPriceCard>();
   const setOptions = new Map<string, string>();
   let totalQuantity = 0;
   let totalValue = 0;
@@ -217,13 +245,7 @@ async function getCollectionValueSummary({
     totalValue += value;
     missingPriceQuantity += missing;
 
-    if (item.card.mtgjsonUuid) {
-      ownedCards.set(
-        item.card.mtgjsonUuid,
-        (ownedCards.get(item.card.mtgjsonUuid) ?? 0) + item.quantity,
-      );
-      printingSets.set(item.card.mtgjsonUuid, item.card.setCode);
-    }
+    addOwnedPriceCard(ownedCards, item);
     if (item.card.setCode) {
       setOptions.set(item.card.setCode.toUpperCase(), item.card.setCode);
     }
@@ -265,11 +287,7 @@ async function getCollectionValueSummary({
     missingPriceQuantity,
     locationRows: sortRows(locationRows.values()),
     deckRows: sortRows(deckRows.values()),
-    ownedCards: [...ownedCards.entries()].map(([mtgjsonUuid, quantity]) => ({
-      mtgjsonUuid,
-      quantity,
-      setCode: printingSets.get(mtgjsonUuid),
-    })),
+    ownedCards: [...ownedCards.values()],
     setOptions: [...setOptions.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([value, label]) => ({ value, label: label.toUpperCase() })),
@@ -490,17 +508,20 @@ function PricingFilters({
   params: Record<string, string | undefined>;
   setOptions: Array<{ value: string; label: string }>;
 }) {
+  const view = cleanView(params.view);
+  const market = view === "market";
   return (
     <form
       method="get"
-      className="grid min-w-0 gap-3 rounded border border-zinc-800 bg-zinc-950/60 p-4 md:grid-cols-5"
+      className="grid min-w-0 gap-3 rounded border border-zinc-800 bg-zinc-950/60 p-4 md:grid-cols-4"
     >
-      <input type="hidden" name="view" value={cleanView(params.view)} />
-      {["provider", "finish", "priceType", "currency"].map((key) =>
-        params[key] ? (
-          <input key={key} type="hidden" name={key} value={params[key]} />
-        ) : null,
-      )}
+      <input type="hidden" name="view" value={view} />
+      {!market &&
+        ["provider", "finish", "priceType", "currency"].map((key) =>
+          params[key] ? (
+            <input key={key} type="hidden" name={key} value={params[key]} />
+          ) : null,
+        )}
       <label className="min-w-0 text-sm text-zinc-300">
         Set
         <select
@@ -516,42 +537,43 @@ function PricingFilters({
           ))}
         </select>
       </label>
+      {market ? (
+        <label className="min-w-0 text-sm text-zinc-300">
+          Card name
+          <input
+            name="cardName"
+            type="search"
+            defaultValue={params.cardName ?? ""}
+            placeholder="Find an owned card"
+            className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+          />
+        </label>
+      ) : null}
+      {market ? (
+        <label className="text-sm text-zinc-300">
+          Change
+          <select
+            name="direction"
+            defaultValue={cleanDirectionFilter(params.direction)}
+            className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+          >
+            <option value="all">Any direction</option>
+            <option value="gainers">Gainers only</option>
+            <option value="losers">Losers only</option>
+          </select>
+        </label>
+      ) : null}
       <label className="text-sm text-zinc-300">
-        Change
-        <select
-          name="direction"
-          defaultValue={cleanDirectionFilter(params.direction)}
-          className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
-        >
-          <option value="all">Any direction</option>
-          <option value="gainers">Gainers only</option>
-          <option value="losers">Losers only</option>
-        </select>
-      </label>
-      <label className="text-sm text-zinc-300">
-        Minimum %
-        <input
-          name="minPercent"
-          type="number"
-          min="0"
-          max="1000"
-          step="1"
-          defaultValue={params.minPercent ?? ""}
-          placeholder="50"
-          className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
-        />
-      </label>
-      <label className="text-sm text-zinc-300">
-        Range
+        {market ? "Observed within" : "Range"}
         <select
           name="range"
-          defaultValue={params.range ?? "90"}
+          defaultValue={params.range ?? (market ? "7" : "90")}
           className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
         >
           <option value="7">7 days</option>
           <option value="30">30 days</option>
           <option value="90">90 days</option>
-          <option value="all">All history</option>
+          <option value="all">All available history</option>
         </select>
       </label>
       <div className="flex items-end gap-2">
@@ -565,6 +587,115 @@ function PricingFilters({
           Clear
         </a>
       </div>
+      {market ? (
+        <details className="min-w-0 rounded border border-zinc-800 p-3 md:col-span-4">
+          <summary className="cursor-pointer text-sm font-semibold text-zinc-200">
+            Price source and movement threshold · ${params.minAbsolute ?? "2"}
+            {" per card by default"}
+          </summary>
+          <div className="mt-3 grid min-w-0 gap-3 md:grid-cols-4">
+            <label className="text-sm text-zinc-300">
+              Provider
+              <select
+                name="provider"
+                defaultValue={params.provider ?? "tcgplayer"}
+                className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+              >
+                {[
+                  "tcgplayer",
+                  "cardmarket",
+                  "cardkingdom",
+                  "manapool",
+                  "mtgo",
+                  "cardhoarder",
+                ].map((provider) => (
+                  <option key={provider} value={provider}>
+                    {provider}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm text-zinc-300">
+              Finish
+              <select
+                name="finish"
+                defaultValue={params.finish ?? "normal"}
+                className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+              >
+                <option value="normal">Normal</option>
+                <option value="foil">Foil</option>
+                <option value="etched">Etched</option>
+              </select>
+            </label>
+            <label className="text-sm text-zinc-300">
+              Price type
+              <select
+                name="priceType"
+                defaultValue={params.priceType ?? "retail"}
+                className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+              >
+                <option value="retail">Retail</option>
+                <option value="buylist">Buylist</option>
+              </select>
+            </label>
+            <label className="text-sm text-zinc-300">
+              Currency
+              <input
+                name="currency"
+                maxLength={3}
+                pattern="[A-Za-z]{3}"
+                defaultValue={params.currency ?? "USD"}
+                className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+              />
+            </label>
+            <label className="text-sm text-zinc-300">
+              Threshold rule
+              <select
+                name="thresholdMode"
+                defaultValue={cleanThresholdMode(params.thresholdMode)}
+                className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+              >
+                <option value="absolute">Dollar change</option>
+                <option value="percent">Percent change</option>
+                <option value="either">Either threshold</option>
+              </select>
+            </label>
+            <label className="text-sm text-zinc-300">
+              Minimum per-card change
+              <input
+                name="minAbsolute"
+                type="number"
+                min="0"
+                step="0.01"
+                defaultValue={params.minAbsolute ?? "2"}
+                className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+              />
+            </label>
+            <label className="text-sm text-zinc-300">
+              Minimum percent
+              <input
+                name="minPercent"
+                type="number"
+                min="0"
+                step="0.1"
+                defaultValue={params.minPercent ?? "25"}
+                className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+              />
+            </label>
+            <label className="text-sm text-zinc-300">
+              Minimum prior price for percent
+              <input
+                name="minPrior"
+                type="number"
+                min="0"
+                step="0.01"
+                defaultValue={params.minPrior ?? "1"}
+                className="mt-1 w-full rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+              />
+            </label>
+          </div>
+        </details>
+      ) : null}
     </form>
   );
 }
@@ -573,10 +704,16 @@ function MoversTable({
   title,
   rows,
   currency,
+  provider,
+  finish,
+  priceType,
 }: {
   title: string;
   rows: PricingDashboardMover[];
   currency: string;
+  provider: string;
+  finish: string;
+  priceType: string;
 }) {
   return (
     <section className="min-w-0 rounded border border-zinc-800 bg-zinc-950/60">
@@ -597,6 +734,8 @@ function MoversTable({
               <th className="px-4 py-2 text-right">Current</th>
               <th className="px-4 py-2 text-right">Change</th>
               <th className="px-4 py-2 text-right">Percent</th>
+              <th className="px-4 py-2 text-right">Owned</th>
+              <th className="px-4 py-2 text-right">Collection impact</th>
               <th className="px-4 py-2">Range</th>
             </tr>
           </thead>
@@ -605,7 +744,21 @@ function MoversTable({
               rows.map((row) => (
                 <tr key={row.mtgjsonUuid} className="border-t border-zinc-900">
                   <td className="max-w-[24rem] px-4 py-2 text-zinc-100">
-                    <span className="line-clamp-1">{cardLabel(row)}</span>
+                    {row.cardId ? (
+                      <a
+                        className="text-sky-200 underline underline-offset-2"
+                        href={`/pricing/card/${encodeURIComponent(row.cardId)}?${new URLSearchParams({ provider, finish, priceType, currency, range: "90" })}`}
+                      >
+                        {cardLabel(row)}
+                      </a>
+                    ) : (
+                      cardLabel(row)
+                    )}
+                    {row.isStale ? (
+                      <span className="ml-2 rounded border border-amber-700 px-1 py-0.5 text-xs text-amber-200">
+                        Stale observation
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-4 py-2 text-right text-zinc-300">
                     {money(row.startPrice, currency)}
@@ -626,6 +779,12 @@ function MoversTable({
                   <td className="px-4 py-2 text-right text-zinc-300">
                     {percentLabel(row.percentChange)}
                   </td>
+                  <td className="px-4 py-2 text-right text-zinc-300">
+                    {numberLabel(row.ownedQuantity)}
+                  </td>
+                  <td className="px-4 py-2 text-right text-zinc-300">
+                    {money(row.collectionImpact ?? 0, currency)}
+                  </td>
                   <td className="whitespace-nowrap px-4 py-2 text-xs text-zinc-500">
                     {row.startObservedDate} to {row.currentObservedDate}
                   </td>
@@ -633,7 +792,7 @@ function MoversTable({
               ))
             ) : (
               <tr>
-                <td className="px-4 py-6 text-center text-zinc-500" colSpan={6}>
+                <td className="px-4 py-6 text-center text-zinc-500" colSpan={8}>
                   No price movement found for this filter.
                 </td>
               </tr>
@@ -675,6 +834,7 @@ async function enrichMovers(rows: PricingDashboardMover[]) {
   const cards = await prisma.card.findMany({
     where: { mtgjsonUuid: { in: uuids } },
     select: {
+      id: true,
       mtgjsonUuid: true,
       name: true,
       setCode: true,
@@ -694,6 +854,7 @@ async function enrichMovers(rows: PricingDashboardMover[]) {
           cardName: card.name,
           setCode: card.setCode,
           collectorNumber: card.collectorNumber,
+          cardId: card.id,
         }
       : row;
   });
@@ -719,7 +880,10 @@ export default async function PricingPage({
       ? await getOwnedPriceScope(user.playerId)
       : collectionValue;
   const setFilter = cleanSetFilter(params.set);
+  const cardNameFilter = params.cardName?.trim().toLocaleLowerCase() ?? "";
   const minPercentFilter = cleanPercentFilter(params.minPercent);
+  const minAbsoluteFilter = cleanDollarFilter(params.minAbsolute);
+  const minPriorFilter = cleanDollarFilter(params.minPrior);
   const directionFilter = cleanDirectionFilter(params.direction);
   const dashboard = await getPricingDashboard({
     view: activeView,
@@ -727,10 +891,18 @@ export default async function PricingPage({
     finish: params.finish,
     priceType: params.priceType,
     currency: params.currency,
-    range: params.range as never,
-    ownedCards: ownedScope.ownedCards,
+    range: (params.range ?? (activeView === "market" ? "7" : "90")) as never,
+    ownedCards:
+      activeView === "market" && cardNameFilter
+        ? ownedScope.ownedCards.filter((card) =>
+            card.cardName?.toLocaleLowerCase().includes(cardNameFilter),
+          )
+        : ownedScope.ownedCards,
     setCode: setFilter,
     minPercentChange: minPercentFilter,
+    minAbsoluteChange: minAbsoluteFilter,
+    minPriorPrice: minPriorFilter,
+    thresholdMode: cleanThresholdMode(params.thresholdMode),
     changeDirection: directionFilter,
   });
   const [topGainers, topLosers, topPercentMoves] =
@@ -795,7 +967,7 @@ export default async function PricingPage({
             href={pricingHref(params, "market")}
             active={activeView === "market"}
           >
-            Market movers
+            Owned movers
           </TabLink>
           <TabLink
             href={pricingHref(params, "data")}
@@ -893,12 +1065,33 @@ export default async function PricingPage({
           <PricingFilters params={params} setOptions={ownedScope.setOptions} />
           <section className="rounded border border-zinc-800 bg-zinc-950/60 p-4">
             <h2 className="text-lg font-semibold text-zinc-100">
-              Market movement
+              Meaningful daily changes in your cards
             </h2>
             <p className="mt-1 text-sm text-zinc-400">
-              Showing card-level MTGJSON movement for {dashboard.provider},{" "}
-              {dashboard.finish}, {dashboard.priceType}, {dashboard.currency}
-              over the selected {dashboard.range}-day range.
+              Exact owned printings with at least a $2 per-card change by
+              default, from the preceding valid daily observation. Showing{" "}
+              {dashboard.provider} / {dashboard.finish} / {dashboard.priceType}{" "}
+              / {dashboard.currency}; observations within{" "}
+              {dashboard.range === "all"
+                ? "all available history"
+                : `${dashboard.range} days`}
+              . Change the threshold and source above. Stale prices are marked;
+              cards without a preceding observation cannot be ranked yet.
+            </p>
+            <p className="mt-2 text-sm text-zinc-300">
+              {numberLabel(dashboard.movementCoverage.pricedPrintings)} of{" "}
+              {numberLabel(dashboard.movementCoverage.ownedPrintings)} owned
+              printings have a price for this source;{" "}
+              {numberLabel(
+                dashboard.movementCoverage.ownedPrintings -
+                  dashboard.movementCoverage.pricedPrintings,
+              )}{" "}
+              are unpriced,{" "}
+              {numberLabel(dashboard.movementCoverage.withoutPrior)} have no
+              prior observation, and{" "}
+              {numberLabel(dashboard.movementCoverage.stalePrintings)} have
+              stale prices. Latest observation:{" "}
+              {dateLabel(dashboard.movementCoverage.latestObservedDate)}.
             </p>
           </section>
           <div className="grid min-w-0 gap-4 xl:grid-cols-2">
@@ -906,17 +1099,26 @@ export default async function PricingPage({
               title="Top gainers"
               rows={topGainers}
               currency={dashboard.currency}
+              provider={dashboard.provider}
+              finish={dashboard.finish}
+              priceType={dashboard.priceType}
             />
             <MoversTable
               title="Top losers"
               rows={topLosers}
               currency={dashboard.currency}
+              provider={dashboard.provider}
+              finish={dashboard.finish}
+              priceType={dashboard.priceType}
             />
           </div>
           <MoversTable
             title="Largest percentage moves"
             rows={topPercentMoves}
             currency={dashboard.currency}
+            provider={dashboard.provider}
+            finish={dashboard.finish}
+            priceType={dashboard.priceType}
           />
         </>
       ) : (
