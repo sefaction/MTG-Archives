@@ -141,7 +141,7 @@ test("daily Pricing digest is opt-in, bounded, owner-scoped and replay-safe", as
       );
     }
     pricingSql(
-      `DELETE FROM price_monthly_summary WHERE mtgjson_uuid IN (${uuids.map((u) => `'${u}'`).join(",")}); DELETE FROM price_scope_summary WHERE mtgjson_uuid IN (${uuids.map((u) => `'${u}'`).join(",")}); DELETE FROM price_daily_summary WHERE mtgjson_uuid IN (${uuids.map((u) => `'${u}'`).join(",")}); DELETE FROM price_snapshots WHERE mtgjson_uuid IN (${uuids.map((u) => `'${u}'`).join(",")}); UPDATE price_summary_state SET source_max_id=(SELECT MAX(id) FROM price_snapshots), refreshed_at=now() WHERE singleton=TRUE;`,
+      `DO $pricing_cleanup$ BEGIN IF to_regclass('price_weekly_summary') IS NOT NULL THEN DELETE FROM price_weekly_summary WHERE mtgjson_uuid IN (${uuids.map((u) => `'${u}'`).join(",")}); END IF; IF to_regclass('price_yearly_summary') IS NOT NULL THEN DELETE FROM price_yearly_summary WHERE mtgjson_uuid IN (${uuids.map((u) => `'${u}'`).join(",")}); END IF; END $pricing_cleanup$; DELETE FROM price_monthly_summary WHERE mtgjson_uuid IN (${uuids.map((u) => `'${u}'`).join(",")}); DELETE FROM price_scope_summary WHERE mtgjson_uuid IN (${uuids.map((u) => `'${u}'`).join(",")}); DELETE FROM price_daily_summary WHERE mtgjson_uuid IN (${uuids.map((u) => `'${u}'`).join(",")}); DELETE FROM price_snapshots WHERE mtgjson_uuid IN (${uuids.map((u) => `'${u}'`).join(",")}); UPDATE price_summary_state SET source_max_id=(SELECT MAX(id) FROM price_snapshots), refreshed_at=now() WHERE singleton=TRUE;`,
     );
   }
 });
