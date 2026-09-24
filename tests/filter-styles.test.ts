@@ -91,7 +91,7 @@ test("inventory pages render quick search outside advanced search", () => {
   );
   assert.match(
     publicInventoryPage,
-    /<InventoryQuickCardNameSearch actionPath="\/public\/inventory" params=\{p\} \/>[\s\S]*?<InventoryAdvancedSearch/,
+    /<InventoryWorkspace[\s\S]*?<InventoryQuickCardNameSearch[\s\S]*?actionPath="\/public\/inventory"[\s\S]*?<InventoryAdvancedSearch/,
   );
 });
 
