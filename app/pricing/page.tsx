@@ -35,7 +35,11 @@ type CollectionValueSummary = {
   missingPriceQuantity: number;
   locationRows: CollectionValueRow[];
   deckRows: CollectionValueRow[];
-  ownedCards: Array<{ mtgjsonUuid: string; quantity: number }>;
+  ownedCards: Array<{
+    mtgjsonUuid: string;
+    quantity: number;
+    setCode?: string | null;
+  }>;
   setOptions: Array<{ value: string; label: string }>;
 };
 
@@ -65,13 +69,16 @@ async function getOwnedPriceScope(ownerPlayerId: string | null) {
     },
   });
   const ownedCards = new Map<string, number>();
+  const printingSets = new Map<string, string | null>();
   const setOptions = new Map<string, string>();
   for (const item of items) {
-    if (item.card.mtgjsonUuid)
+    if (item.card.mtgjsonUuid) {
       ownedCards.set(
         item.card.mtgjsonUuid,
         (ownedCards.get(item.card.mtgjsonUuid) ?? 0) + item.quantity,
       );
+      printingSets.set(item.card.mtgjsonUuid, item.card.setCode);
+    }
     if (item.card.setCode)
       setOptions.set(item.card.setCode.toUpperCase(), item.card.setCode);
   }
@@ -79,6 +86,7 @@ async function getOwnedPriceScope(ownerPlayerId: string | null) {
     ownedCards: [...ownedCards.entries()].map(([mtgjsonUuid, quantity]) => ({
       mtgjsonUuid,
       quantity,
+      setCode: printingSets.get(mtgjsonUuid),
     })),
     setOptions: [...setOptions.entries()].map(([value, label]) => ({
       value,
@@ -193,6 +201,7 @@ async function getCollectionValueSummary({
   const locationRows = new Map<string, CollectionValueRow>();
   const deckRows = new Map<string, CollectionValueRow>();
   const ownedCards = new Map<string, number>();
+  const printingSets = new Map<string, string | null>();
   const setOptions = new Map<string, string>();
   let totalQuantity = 0;
   let totalValue = 0;
@@ -213,6 +222,7 @@ async function getCollectionValueSummary({
         item.card.mtgjsonUuid,
         (ownedCards.get(item.card.mtgjsonUuid) ?? 0) + item.quantity,
       );
+      printingSets.set(item.card.mtgjsonUuid, item.card.setCode);
     }
     if (item.card.setCode) {
       setOptions.set(item.card.setCode.toUpperCase(), item.card.setCode);
@@ -258,6 +268,7 @@ async function getCollectionValueSummary({
     ownedCards: [...ownedCards.entries()].map(([mtgjsonUuid, quantity]) => ({
       mtgjsonUuid,
       quantity,
+      setCode: printingSets.get(mtgjsonUuid),
     })),
     setOptions: [...setOptions.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
@@ -345,10 +356,12 @@ function TrendChart({
   title,
   points,
   currency,
+  resolution,
 }: {
   title: string;
   points: Array<{ observedDate: string; value: number }>;
   currency: string;
+  resolution: "daily" | "monthly";
 }) {
   const width = 900;
   const height = 260;
@@ -381,7 +394,9 @@ function TrendChart({
         <div>
           <h2 className="text-lg font-semibold text-zinc-100">{title}</h2>
           <p className="mt-1 text-sm text-zinc-400">
-            Daily total of filtered owned cards with available MTGJSON prices.
+            {resolution === "monthly" ? "Monthly closing" : "Daily"} prices
+            applied to today&apos;s filtered holdings; missing observations are
+            excluded.
           </p>
         </div>
         {latest ? (
@@ -741,10 +756,17 @@ export default async function PricingPage({
           </div>
           <div className="rounded border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-300">
             History: {dashboard.provider} / {dashboard.finish} /{" "}
-            {dashboard.priceType} / {dashboard.currency} / {dashboard.range}{" "}
-            days
+            {dashboard.priceType} / {dashboard.currency} /{" "}
+            {dashboard.range === "all"
+              ? "all history"
+              : `${dashboard.range} days`}
           </div>
         </div>
+        {dashboard.summaryRefreshedAt ? (
+          <p className="text-xs text-zinc-400">
+            History summary refreshed {dateLabel(dashboard.summaryRefreshedAt)}.
+          </p>
+        ) : null}
         {!dashboard.available ? (
           <div className="rounded border border-red-800 bg-red-950/30 p-3 text-sm text-red-100">
             Pricing analytics are unavailable: {dashboard.error}{" "}
@@ -862,6 +884,7 @@ export default async function PricingPage({
               title="Collection price trend"
               points={dashboard.valueTrend}
               currency={dashboard.currency}
+              resolution={dashboard.trendResolution}
             />
           </section>
         </>

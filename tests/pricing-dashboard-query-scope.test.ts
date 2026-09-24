@@ -5,9 +5,9 @@ import { getPricingDashboard } from "../lib/pricing-worker-store";
 const ownedCards = [{ mtgjsonUuid: "known-printing", quantity: 2 }];
 
 for (const [view, expectedQueries] of [
-  ["collection", 2],
-  ["market", 3],
-  ["data", 2],
+  ["collection", 3],
+  ["market", 2],
+  ["data", 3],
 ] as const) {
   test(`${view} loads only its pricing queries`, async () => {
     const queries: string[] = [];
@@ -15,18 +15,23 @@ for (const [view, expectedQueries] of [
       { view, ownedCards },
       async <T>(sql: string): Promise<T[]> => {
         queries.push(sql);
+        if (sql.includes("FROM price_summary_state"))
+          return [{ ready: true, sourceMaxId: 1, rawMaxId: 1 }] as T[];
         return [];
       },
     );
 
     assert.equal(dashboard.available, true);
     assert.equal(queries.length, expectedQueries);
+    assert(
+      queries.slice(1).every((sql) => !sql.includes("FROM price_snapshots")),
+    );
     if (view === "collection") {
       assert(queries.some((sql) => sql.includes('AS "snapshotCount"')));
       assert(queries.some((sql) => sql.includes("AS value")));
       assert(queries.every((sql) => !sql.includes("movement_rows")));
     } else if (view === "market") {
-      assert(queries.every((sql) => sql.includes("movement_rows")));
+      assert(queries.some((sql) => sql.includes("movement_rows")));
       assert(queries.every((sql) => !sql.includes('AS "snapshotCount"')));
     } else {
       assert(queries.some((sql) => sql.includes('AS "snapshotCount"')));
@@ -46,6 +51,70 @@ test("timed-out pricing history reports a recoverable unavailable state", async 
   assert.equal(dashboard.available, false);
   assert.match(dashboard.error ?? "", /timed out/);
   assert.deepEqual(dashboard.valueTrend, []);
+});
+
+test("new raw observations invalidate a stale summary", async () => {
+  let queries = 0;
+  const dashboard = await getPricingDashboard(
+    { view: "market", ownedCards },
+    async <T>(): Promise<T[]> => {
+      queries++;
+      return [{ ready: true, sourceMaxId: 1, rawMaxId: 2 }] as T[];
+    },
+  );
+  assert.equal(queries, 1);
+  assert.equal(dashboard.available, false);
+  assert.match(dashboard.error ?? "", /behind new observations/);
+});
+
+test("Market returns three bounded rankings from one summary query", async () => {
+  const sample = {
+    mtgjsonUuid: "known-printing",
+    cardName: null,
+    setCode: null,
+    collectorNumber: null,
+    startPrice: 1,
+    currentPrice: 2,
+    absoluteChange: 1,
+    percentChange: 100,
+    startObservedDate: "2026-09-22",
+    currentObservedDate: "2026-09-23",
+  };
+  const dashboard = await getPricingDashboard(
+    { view: "market", ownedCards },
+    async <T>(sql: string): Promise<T[]> =>
+      sql.includes("FROM price_summary_state")
+        ? ([{ ready: true, sourceMaxId: 1, rawMaxId: 1 }] as T[])
+        : ([
+            { ...sample, category: "gainer" },
+            { ...sample, category: "percent" },
+          ] as T[]),
+  );
+  assert.equal(dashboard.topGainers.length, 1);
+  assert.equal(dashboard.topLosers.length, 0);
+  assert.equal(dashboard.topPercentMoves.length, 1);
+});
+
+test("set filter scopes owned printings before the summary query", async () => {
+  const queries: string[] = [];
+  await getPricingDashboard(
+    {
+      view: "data",
+      setCode: "MH3",
+      ownedCards: [
+        { mtgjsonUuid: "included", quantity: 2, setCode: "mh3" },
+        { mtgjsonUuid: "excluded", quantity: 1, setCode: "woe" },
+      ],
+    },
+    async <T>(sql: string): Promise<T[]> => {
+      queries.push(sql);
+      if (sql.includes("FROM price_summary_state"))
+        return [{ ready: true, sourceMaxId: 1, rawMaxId: 1 }] as T[];
+      return [];
+    },
+  );
+  assert(queries.slice(1).every((sql) => sql.includes("included")));
+  assert(queries.slice(1).every((sql) => !sql.includes("excluded")));
 });
 
 test("an unpriced collection does not scan history", async () => {
