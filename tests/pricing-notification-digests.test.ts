@@ -2,12 +2,32 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   dailyPricingMovementSql,
+  pricingRetractionSql,
   priorUtcDay,
 } from "../lib/pricing-notification-digests";
 
 test("Pricing digest uses the previous UTC observation day at date boundaries", () => {
   assert.equal(priorUtcDay(new Date("2026-01-01T02:00:00Z")), "2025-12-31");
   assert.equal(priorUtcDay(new Date("2026-03-01T23:59:59Z")), "2026-02-28");
+});
+
+test("Pricing retraction query only revisits previously alerted exact observations corrected on the import day", () => {
+  const sql = pricingRetractionSql({
+    alerted: [{ mtgjsonUuid: "printing-1", currentObservedDate: "2026-09-22", currentPrice: 13 }],
+    importedDate: "2026-09-23",
+    provider: "tcgplayer",
+    finish: "normal",
+    priceType: "retail",
+    currency: "USD",
+  });
+  assert.ok(sql);
+  assert.match(sql, /\('printing-1', '2026-09-22'::date, 13::numeric\)/);
+  assert.match(sql, /d\.source_revision_count > 0 AND d\.price <> a\.alerted_price/);
+  assert.match(sql, /d\.created_at >= '2026-09-23T00:00:00.000Z'/);
+  assert.match(sql, /d\.created_at < '2026-09-24T00:00:00.000Z'/);
+  assert.equal(pricingRetractionSql({
+    alerted: [], importedDate: "2026-09-23", provider: "tcgplayer", finish: "normal", priceType: "retail", currency: "USD",
+  }), null);
 });
 
 test("Pricing digest query scopes exact owned printings, source and per-card thresholds", () => {

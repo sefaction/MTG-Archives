@@ -182,7 +182,7 @@ test("daily Pricing digest is opt-in, bounded, owner-scoped and replay-safe", as
           priceType: "retail",
           currency: "USD",
           observedDate: yesterday,
-          price: 13,
+          price: 11,
         },
       ])}`,
     );
@@ -209,7 +209,7 @@ test("daily Pricing digest is opt-in, bounded, owner-scoped and replay-safe", as
       pricingSql(
         `SELECT revision_count,price FROM price_snapshots WHERE mtgjson_uuid='${uuids[1]}' AND observed_date=CURRENT_DATE-1;`,
       ),
-    ).toBe("0|13.0000");
+    ).toBe("1|11.0000");
     const tomorrowDate = new Date(Date.now() + 86_400_000);
     tomorrowDate.setUTCHours(3, 0, 0, 0);
     const tomorrow = tomorrowDate.toISOString();
@@ -224,6 +224,12 @@ test("daily Pricing digest is opt-in, bounded, owner-scoped and replay-safe", as
       ],
       { encoding: "utf8", timeout: 90_000 },
     );
+    execFileSync(
+      "docker",
+      ["exec", "mtg-archives-web-1", "./node_modules/.bin/tsx", "-e",
+        `import {processDailyPricingDigests} from './lib/pricing-notification-digests'; processDailyPricingDigests(new Date('${tomorrow}')).then(console.log)`],
+      { encoding: "utf8", timeout: 90_000 },
+    );
     const corrected = appDb<{
       counts: number[];
       movement: {
@@ -231,19 +237,24 @@ test("daily Pricing digest is opt-in, bounded, owner-scoped and replay-safe", as
         isCorrection: boolean;
         currentPrice: number;
       };
+      retracted: { currentPrice: number; previouslyAlertedPrice: number; currentDate: string }[];
       deliveries: number;
     }>(
-      `const ids=${quote(fixture.userIds)};const day=new Date().toISOString().slice(0,10);const counts=[];for(const recipientUserId of ids)counts.push(await p.notification.count({where:{recipientUserId,sourceType:'pricing_digest'}}));const n=await p.notification.findUnique({where:{recipientUserId_sourceType_sourceId:{recipientUserId:ids[0],sourceType:'pricing_digest',sourceId:day}}});const deliveries=await p.notificationDeliveryJob.count({where:{notification:{recipientUserId:{in:ids},sourceType:'pricing_digest'}}});return {counts,movement:n.metadataJson.shownMovers[0],deliveries};`,
+      `const ids=${quote(fixture.userIds)};const day=new Date().toISOString().slice(0,10);const counts=[];for(const recipientUserId of ids)counts.push(await p.notification.count({where:{recipientUserId,sourceType:'pricing_digest'}}));const n=await p.notification.findUnique({where:{recipientUserId_sourceType_sourceId:{recipientUserId:ids[0],sourceType:'pricing_digest',sourceId:day}}});const deliveries=await p.notificationDeliveryJob.count({where:{notification:{recipientUserId:{in:ids},sourceType:'pricing_digest'}}});return {counts,movement:n.metadataJson.shownMovers[0],retracted:n.metadataJson.retractedMovers,deliveries};`,
     );
     expect(corrected.counts).toEqual([2, 1, 1, 0]);
     expect(corrected.movement.isCorrection).toBe(true);
     expect(corrected.movement.currentPrice).toBe(12);
+    expect(corrected.retracted).toEqual(expect.arrayContaining([
+      expect.objectContaining({ currentPrice: 11, previouslyAlertedPrice: 13, currentDate: yesterday }),
+    ]));
     expect(corrected.deliveries).toBe(0);
     await page.goto("/settings/pricing-alerts");
     await page
-      .getByRole("link", { name: /1 owned price mover imported/ })
+      .getByRole("link", { name: /1 owned price mover, 1 corrected below threshold imported/ })
       .click();
     await expect(page.getByText("Corrected observation")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Corrected Pricing alerts" })).toContainText(`${tag} Card 1`);
     await expect(
       page.getByRole("region", { name: "Pricing digest movements" }),
     ).toContainText(`${tag} Card 0`);
