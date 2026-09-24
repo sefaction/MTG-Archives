@@ -45,7 +45,7 @@ function emptyHistoryResponse({
     priceType,
     currency,
     range,
-    resolution: range === "all" ? "monthly" : "daily",
+    resolution: range === "all" ? "tiered" : "daily",
     points: [],
     change: calculatePriceHistoryChange([]),
   });

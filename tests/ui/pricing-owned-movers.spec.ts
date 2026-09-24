@@ -63,6 +63,9 @@ test("owned movers use a $2 daily change and link to honest card history", async
     );
     ownerId = fixture.ownerId;
     const values = [
+      [0, "normal", "CURRENT_DATE - 4015", 4],
+      [0, "normal", "CURRENT_DATE - 1095", 5],
+      [0, "normal", "CURRENT_DATE - 130", 7],
       [0, "normal", "CURRENT_DATE - 1", 10],
       [0, "normal", "CURRENT_DATE", 15],
       [1, "normal", "CURRENT_DATE - 1", 1],
@@ -161,8 +164,17 @@ test("owned movers use a $2 daily change and link to honest card history", async
       .click();
     await page.getByRole("link", { name: "Long term" }).click();
     await expect(
-      page.getByRole("heading", { name: /Monthly observations/ }),
+      page.getByRole("heading", { name: /Tiered observations/ }),
     ).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "Card price observations" }),
+    ).toContainText("yearly");
+    await expect(
+      page.getByRole("region", { name: "Card price observations" }),
+    ).toContainText("monthly");
+    await expect(
+      page.getByRole("region", { name: "Card price observations" }),
+    ).toContainText("weekly");
     await page.goto("/pricing?view=market&finish=foil");
     await expect(
       page.getByRole("region", { name: "Top gainers table" }),

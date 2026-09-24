@@ -1,5 +1,13 @@
 # Resumable work checkpoint
 
+## Pricing time tiers and restore gate, 2026-09-23
+
+Active branch `feat/pricing-retention-verification` at `b2ab661`, stacked on owned-movers PR #341. User prefers logical time tiers; current defaults are 90 days daily, two years weekly, ten years monthly, then yearly points, with validated environment overrides. Each rollup records open/close/min/max prices and dates. A new one-time tier backfill and readiness state let long-term card history fall back to monthly until weekly/yearly rows are complete. This is a first review batch toward #330; **no raw or daily rows were pruned**, and issue #330 stays open for the later archival/compaction gate. See [PRICING_RETENTION.md](PRICING_RETENTION.md).
+
+Separate-pricing-database backup was validated locally: 60,724,806-byte custom-format dump copied under `.local-data/backups/pricing/`; the copied archive restored into an isolated database with matching 1,971,376 raw and daily rows and 153,875 monthly rows, date ranges, and price sums. The disposable restore database was dropped. Tier backfill took 177,842 ms and produced 650,052 weekly rows (269 MB) and 52,326 yearly rows (21 MB); 100 weekly and 100 yearly sampled keys matched daily observations with zero mismatches. One `/login` request during backfill completed in about 183 ms. Current local raw history spans roughly 85 days, so a 90-day cutoff would remove nothing today.
+
+Cumulative local Docker image `sha256:78653c6e412eb2a2f49a1ddde7964a57fcc94773d904a4cc93fa6849b2d57329` combines Pricing through `b2ab661` with Public PRs #336-#338. Web and pricing-worker are loaded with the local and SMTP overlays. Production build/client-manifest guards, 592 unit tests, typecheck, and focused Pricing/Public browser checks 2/2 passed. The Pricing browser fixture covered all four historical resolutions and cleaned its user; summary state is ready, tier-ready and aligned with raw max ID. Next safe step: push this branch, open a PR based on #341, and verify CI. No PR merges or issue closures have occurred.
+
 ## Owned Pricing movers review, 2026-09-23
 
 Active branch `feat/pricing-owned-movers` at `9a9a8d0`, stacked on Pricing summaries PR #340. User selected a $2 change per card as the default meaningful movement; percent and prior-price filters are optional. The branch implements exact owned-printing daily movers with finish-aware quantities, weighted collection impact, source/currency filters, stale and missing coverage, and a bounded 7/30/90-day or monthly card-history drilldown for an owned card. No notification delivery is included; #335 remains the later opt-in notification issue. Issue #329 stays open until its PR merges.

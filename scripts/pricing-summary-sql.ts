@@ -1,4 +1,56 @@
 /** Compact, rebuildable projections. Raw observations remain authoritative. */
+function rollupSchema(table: string, periodColumn: string) {
+  return `CREATE TABLE IF NOT EXISTS ${table} (
+  mtgjson_uuid TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  finish TEXT NOT NULL,
+  price_type TEXT NOT NULL,
+  currency TEXT NOT NULL,
+  ${periodColumn} DATE NOT NULL,
+  open_date DATE NOT NULL,
+  open_price NUMERIC(12, 4) NOT NULL,
+  low_date DATE NOT NULL,
+  low_price NUMERIC(12, 4) NOT NULL,
+  high_date DATE NOT NULL,
+  high_price NUMERIC(12, 4) NOT NULL,
+  close_date DATE NOT NULL,
+  close_price NUMERIC(12, 4) NOT NULL,
+  observation_count INTEGER NOT NULL,
+  refreshed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (mtgjson_uuid, provider, finish, price_type, currency, ${periodColumn})
+);
+CREATE INDEX IF NOT EXISTS ${table}_scope_period_idx
+  ON ${table} (provider, finish, price_type, currency, ${periodColumn} DESC, mtgjson_uuid);`;
+}
+
+function refreshRollupSql(table: string, periodColumn: string, period: string) {
+  const bucket = `date_trunc('${period}', d.observed_date)::date`;
+  return `DELETE FROM ${table} r USING touched_price_keys k
+WHERE (r.mtgjson_uuid, r.provider, r.finish, r.price_type, r.currency) =
+      (k.mtgjson_uuid, k.provider, k.finish, k.price_type, k.currency);
+INSERT INTO ${table} (
+  mtgjson_uuid, provider, finish, price_type, currency, ${periodColumn},
+  open_date, open_price, low_date, low_price, high_date, high_price,
+  close_date, close_price, observation_count
+)
+SELECT d.mtgjson_uuid, d.provider, d.finish, d.price_type, d.currency,
+       ${bucket},
+       (array_agg(d.observed_date ORDER BY d.observed_date ASC))[1],
+       (array_agg(d.price ORDER BY d.observed_date ASC))[1],
+       (array_agg(d.observed_date ORDER BY d.price ASC, d.observed_date ASC))[1],
+       MIN(d.price),
+       (array_agg(d.observed_date ORDER BY d.price DESC, d.observed_date ASC))[1],
+       MAX(d.price),
+       (array_agg(d.observed_date ORDER BY d.observed_date DESC))[1],
+       (array_agg(d.price ORDER BY d.observed_date DESC))[1],
+       COUNT(*)::int
+FROM price_daily_summary d JOIN touched_price_keys k
+  ON (d.mtgjson_uuid, d.provider, d.finish, d.price_type, d.currency) =
+     (k.mtgjson_uuid, k.provider, k.finish, k.price_type, k.currency)
+GROUP BY d.mtgjson_uuid, d.provider, d.finish, d.price_type, d.currency,
+         ${bucket};`;
+}
+
 export const pricingSummarySchemaSql = `
 CREATE TABLE IF NOT EXISTS price_daily_summary (
   mtgjson_uuid TEXT NOT NULL,
@@ -58,13 +110,18 @@ CREATE TABLE IF NOT EXISTS price_monthly_summary (
   PRIMARY KEY (mtgjson_uuid, provider, finish, price_type, currency, month_start)
 );
 
+${rollupSchema("price_weekly_summary", "week_start")}
+${rollupSchema("price_yearly_summary", "year_start")}
+
 CREATE TABLE IF NOT EXISTS price_summary_state (
   singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),
   ready BOOLEAN NOT NULL DEFAULT FALSE,
+  tiers_ready BOOLEAN NOT NULL DEFAULT FALSE,
   source_max_id BIGINT,
   refreshed_at TIMESTAMPTZ,
   rebuild_started_at TIMESTAMPTZ
 );
+ALTER TABLE price_summary_state ADD COLUMN IF NOT EXISTS tiers_ready BOOLEAN NOT NULL DEFAULT FALSE;
 INSERT INTO price_summary_state (singleton, ready)
 VALUES (TRUE, FALSE) ON CONFLICT (singleton) DO NOTHING;
 
@@ -165,6 +222,23 @@ FROM price_daily_summary d JOIN touched_price_keys k
      (k.mtgjson_uuid, k.provider, k.finish, k.price_type, k.currency)
 GROUP BY d.mtgjson_uuid, d.provider, d.finish, d.price_type, d.currency,
          date_trunc('month', d.observed_date)::date;
+${refreshRollupSql("price_weekly_summary", "week_start", "week")}
+${refreshRollupSql("price_yearly_summary", "year_start", "year")}
 COMMIT;
 `;
 }
+
+/** Fill newly introduced long-range tiers from the verified daily projection. */
+export const pricingTierBackfillSql = `
+BEGIN;
+UPDATE price_summary_state SET tiers_ready = FALSE WHERE singleton = TRUE;
+TRUNCATE price_weekly_summary, price_yearly_summary;
+CREATE TEMP TABLE touched_price_keys ON COMMIT DROP AS
+SELECT DISTINCT mtgjson_uuid, provider, finish, price_type, currency
+FROM price_daily_summary;
+${refreshRollupSql("price_weekly_summary", "week_start", "week")}
+${refreshRollupSql("price_yearly_summary", "year_start", "year")}
+UPDATE price_summary_state SET tiers_ready = TRUE, refreshed_at = now()
+WHERE singleton = TRUE;
+COMMIT;
+`;

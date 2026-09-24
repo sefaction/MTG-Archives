@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Nav } from "@/components/Nav";
 import { getAccessScope, requireLogin } from "@/lib/auth";
 import { money } from "@/lib/pricing-analytics";
+import { getPricingRetentionPolicy } from "@/lib/pricing-retention-policy";
 import {
   getCardPriceHistory,
   normalizePriceHistoryRange,
@@ -95,6 +96,7 @@ export default async function CardPricingPage({
   const priceType = token(query.priceType, "retail");
   const currency = currencyCode(query.currency);
   const range = normalizePriceHistoryRange(query.range);
+  const policy = getPricingRetentionPolicy();
   const link = (nextRange: typeof range) =>
     `/pricing/card/${encodeURIComponent(cardId)}?${new URLSearchParams({ provider, finish, priceType, currency, range: nextRange })}`;
   let history: Awaited<ReturnType<typeof getCardPriceHistory>> | null = null;
@@ -145,11 +147,18 @@ export default async function CardPricingPage({
             </a>
           ))}
         </nav>
-        {range === "all" ? (
+        {range === "all" && history?.resolution === "monthly" ? (
           <p className="text-sm text-zinc-400">
-            Long-term points are monthly closes. Monthly low and high
-            observations appear in the table, so a brief spike is not hidden by
-            the close.
+            Weekly and yearly history is being prepared; monthly close, low and
+            high observations remain available.
+          </p>
+        ) : range === "all" ? (
+          <p className="text-sm text-zinc-400">
+            Long-term history uses daily closes for {policy.dailyDays} days,
+            weekly closes through {policy.weeklyYears} years, monthly closes
+            through {policy.monthlyYears} years, then yearly closes. Older
+            summaries keep their low and high observations so a brief spike is
+            not hidden by the close.
           </p>
         ) : (
           <p className="text-sm text-zinc-400">
@@ -176,7 +185,11 @@ export default async function CardPricingPage({
       ) : (
         <section className="space-y-4 rounded border border-zinc-800 bg-zinc-950/60 p-4">
           <h2 className="text-lg font-semibold text-zinc-100">
-            {history.resolution === "monthly" ? "Monthly" : "Daily"}{" "}
+            {history.resolution === "tiered"
+              ? "Tiered"
+              : history.resolution === "monthly"
+                ? "Monthly"
+                : "Daily"}{" "}
             observations
           </h2>
           <ObservationPlot points={history.points} />
@@ -190,10 +203,13 @@ export default async function CardPricingPage({
               <thead className="text-left text-zinc-400">
                 <tr>
                   <th className="p-2">Date</th>
+                  {history.resolution === "tiered" ? (
+                    <th className="p-2">Interval</th>
+                  ) : null}
                   <th className="p-2 text-right">
-                    {history.resolution === "monthly" ? "Close" : "Price"}
+                    {history.resolution === "daily" ? "Price" : "Close"}
                   </th>
-                  {history.resolution === "monthly" ? (
+                  {history.resolution !== "daily" ? (
                     <>
                       <th className="p-2 text-right">Low</th>
                       <th className="p-2 text-right">High</th>
@@ -208,18 +224,23 @@ export default async function CardPricingPage({
                     className="border-t border-zinc-800 text-zinc-200"
                   >
                     <td className="p-2">{point.observedDate}</td>
+                    {history.resolution === "tiered" ? (
+                      <td className="p-2 capitalize">{point.resolution}</td>
+                    ) : null}
                     <td className="p-2 text-right">
                       {money(point.price, currency)}
                     </td>
-                    {history.resolution === "monthly" ? (
+                    {history.resolution !== "daily" ? (
                       <>
                         <td className="p-2 text-right">
-                          {point.lowDate}:{" "}
-                          {money(point.lowPrice ?? 0, currency)}
+                          {point.lowDate && point.lowPrice != null
+                            ? `${point.lowDate}: ${money(point.lowPrice, currency)}`
+                            : "—"}
                         </td>
                         <td className="p-2 text-right">
-                          {point.highDate}:{" "}
-                          {money(point.highPrice ?? 0, currency)}
+                          {point.highDate && point.highPrice != null
+                            ? `${point.highDate}: ${money(point.highPrice, currency)}`
+                            : "—"}
                         </td>
                       </>
                     ) : null}
