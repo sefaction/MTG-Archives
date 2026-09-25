@@ -75,7 +75,7 @@ test("game entry freezes decks without inventory commitment", () => {
   assert.match(actions, /deckSubmission:\s*\{/);
   assert.match(actions, /cards:\s*\{/);
   assert.doesNotMatch(actions, /moveInventory|commitDeck|InventoryAudit/);
-  assert.match(dashboard, /immutable snapshot/i);
+  assert.match(dashboard, /immutable (?:game )?snapshot/i);
 });
 
 test("league numeric bounds explicitly reject NaN and fractional values", () => {
@@ -90,7 +90,7 @@ test("successful game entry clears stale validation query feedback", () => {
   );
   assert.match(
     gameAction,
-    /revalidatePath\(`\/league\/\$\{leagueId\}`\);\s*redirect\(`\/league\/\$\{leagueId\}`\);/,
+    /revalidatePath\(`\/league\/\$\{leagueId\}`\);\s*redirect\(`\/league\/\$\{leagueId\}\?view=history`\);/,
   );
 });
 
@@ -109,7 +109,10 @@ test("league metadata is isolated while deck contents use the Archive deck domai
   assert.match(sharedDeckMigration, /'PUBLIC'::"Visibility"/);
   assert.match(sharedDeckMigration, /INSERT INTO "DeckCard"/);
   assert.match(sharedDeckMigration, /DROP TABLE "CommanderLeagueDeckCard"/);
-  assert.match(deckLibrary, /Build decks exclusively for this league/);
+  assert.match(
+    deckLibrary,
+    /Build with printings from linked public locations/,
+  );
   assert.match(leagueNav, /\/decks/);
 });
 

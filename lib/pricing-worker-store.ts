@@ -1,3 +1,5 @@
+import { queryPricingJson } from "./pricing-db-query";
+import { getPricingRetentionPolicy } from "./pricing-retention-policy";
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 
@@ -5,10 +7,6 @@ export type PricingWorkerStatus = {
   available: boolean;
   error?: string;
   stats: {
-    snapshotCount: number;
-    pricedCardCount: number;
-    latestObservedDate: string | null;
-    latestIngestedAt: string | null;
     activeJobCount: number;
     failedJobCount: number;
   };
@@ -38,6 +36,7 @@ export type PricingWorkerStatus = {
     error: string | null;
     processed_count: number;
     inserted_count: number;
+    corrected_count: number;
     skipped_count: number;
   }>;
   logs: Array<{
@@ -55,6 +54,11 @@ export type PriceHistoryRange = "7" | "30" | "90" | "all";
 export type CardPriceHistoryPoint = {
   observedDate: string;
   price: number;
+  resolution?: "daily" | "weekly" | "monthly" | "yearly";
+  lowDate?: string;
+  lowPrice?: number;
+  highDate?: string;
+  highPrice?: number;
 };
 
 export type CardPriceHistoryChange = {
@@ -74,14 +78,23 @@ export type CardPriceHistoryOptions = {
 };
 
 export type PricingDashboardOptions = {
+  view?: "collection" | "market" | "data";
   provider?: string;
   finish?: string;
   priceType?: string;
   currency?: string;
   range?: PriceHistoryRange;
-  ownedCards?: Array<{ mtgjsonUuid: string; quantity: number }>;
+  ownedCards?: Array<{
+    mtgjsonUuid: string;
+    quantity: number;
+    setCode?: string | null;
+    finish?: string;
+  }>;
   setCode?: string;
   minPercentChange?: number | null;
+  minAbsoluteChange?: number | null;
+  minPriorPrice?: number | null;
+  thresholdMode?: "absolute" | "percent" | "either";
   changeDirection?: "all" | "gainers" | "losers";
 };
 
@@ -96,6 +109,10 @@ export type PricingDashboardMover = {
   percentChange: number | null;
   startObservedDate: string;
   currentObservedDate: string;
+  ownedQuantity?: number;
+  collectionImpact?: number;
+  isStale?: boolean;
+  cardId?: string;
 };
 
 export type PricingDashboardTrendPoint = {
@@ -106,6 +123,8 @@ export type PricingDashboardTrendPoint = {
 export type PricingDashboard = {
   available: boolean;
   error?: string;
+  trendResolution: "daily" | "monthly";
+  summaryRefreshedAt: string | null;
   provider: string;
   finish: string;
   priceType: string;
@@ -126,6 +145,13 @@ export type PricingDashboard = {
     pricedCardCount: number;
     latestObservedDate: string | null;
   }>;
+  movementCoverage: {
+    ownedPrintings: number;
+    pricedPrintings: number;
+    withoutPrior: number;
+    stalePrintings: number;
+    latestObservedDate: string | null;
+  };
   topGainers: PricingDashboardMover[];
   topLosers: PricingDashboardMover[];
   topPercentMoves: PricingDashboardMover[];
@@ -171,6 +197,14 @@ function cleanPercentThreshold(value: number | null | undefined) {
   return Math.max(0, Math.min(1000, value));
 }
 
+function cleanDollarThreshold(
+  value: number | null | undefined,
+  fallback: number,
+) {
+  if (value == null || !Number.isFinite(value)) return fallback;
+  return Math.max(0, Math.min(1_000_000, value));
+}
+
 function cleanDirection(value: string | null | undefined) {
   return value === "gainers" || value === "losers" ? value : "all";
 }
@@ -200,18 +234,6 @@ export function normalizePriceHistoryRange(
   return value === "7" || value === "30" || value === "90" || value === "all"
     ? value
     : "90";
-}
-
-function rangePredicate(range: PriceHistoryRange) {
-  if (range === "all") return "TRUE";
-  return `observed_date >= (CURRENT_DATE - INTERVAL '${Number(range)} days')`;
-}
-
-function anchoredRangePredicate(range: PriceHistoryRange) {
-  if (range === "all") return "TRUE";
-  return `f.observed_date >= b.latest_observed_date - INTERVAL '${Number(
-    range,
-  )} days'`;
 }
 
 function runPsql(sql: string) {
@@ -247,11 +269,10 @@ function runPsql(sql: string) {
   return result.stdout.trim();
 }
 
-function jsonQuery<T>(sql: string): T[] {
-  const output = runPsql(
-    `SELECT COALESCE(json_agg(row_to_json(rows)), '[]'::json) FROM (${sql}) rows;`,
-  );
-  return JSON.parse(output || "[]") as T[];
+type PricingReadQuery = <T>(sql: string) => Promise<T[]>;
+
+function jsonQuery<T>(sql: string): Promise<T[]> {
+  return queryPricingJson<T>(sql, { timeoutMs: 10_000 });
 }
 
 export function calculatePriceHistoryChange(
@@ -276,17 +297,88 @@ export async function getCardPriceHistory(options: CardPriceHistoryOptions) {
   const priceType = cleanToken(options.priceType, "retail");
   const currency = cleanCurrency(options.currency);
   const range = normalizePriceHistoryRange(options.range);
-  const points = jsonQuery<CardPriceHistoryPoint>(
-    `SELECT
-       observed_date::text AS "observedDate",
-       price::float8 AS price
-     FROM price_snapshots
+  const policy = getPricingRetentionPolicy();
+  const [summaryState] = await jsonQuery<{
+    ready: boolean;
+    tiersReady: boolean;
+    fresh: boolean;
+  }>(`SELECT ready, tiers_ready AS "tiersReady",
+       source_max_id IS NOT DISTINCT FROM (SELECT MAX(id) FROM price_snapshots) AS fresh
+       FROM price_summary_state WHERE singleton = TRUE`);
+  if (!summaryState?.ready || !summaryState.fresh)
+    throw new Error("Pricing history is updating. Try again shortly.");
+  const tiered = range === "all" && summaryState.tiersReady;
+  const scope = (alias: string) =>
+    `${alias}.mtgjson_uuid = ${sqlString(options.mtgjsonUuid)}
+       AND ${alias}.provider = ${sqlString(provider)}
+       AND ${alias}.finish = ${sqlString(finish)}
+       AND ${alias}.price_type = ${sqlString(priceType)}
+       AND ${alias}.currency = ${sqlString(currency)}`;
+  const points = await jsonQuery<CardPriceHistoryPoint>(
+    tiered
+      ? `SELECT * FROM (
+       SELECT d.observed_date::text AS "observedDate", d.price::float8 AS price,
+         'daily'::text AS resolution, NULL::text AS "lowDate", NULL::float8 AS "lowPrice",
+         NULL::text AS "highDate", NULL::float8 AS "highPrice"
+       FROM price_daily_summary d
+       WHERE ${scope("d")}
+         AND d.observed_date >= CURRENT_DATE - INTERVAL '${policy.dailyDays} days'
+       UNION ALL
+       SELECT w.close_date::text, w.close_price::float8,
+         'weekly'::text, w.low_date::text, w.low_price::float8,
+         w.high_date::text, w.high_price::float8
+       FROM price_weekly_summary w
+       WHERE ${scope("w")}
+         AND w.close_date < CURRENT_DATE - INTERVAL '${policy.dailyDays} days'
+         AND w.close_date >= CURRENT_DATE - INTERVAL '${policy.weeklyYears} years'
+       UNION ALL
+       SELECT m.close_date::text, m.close_price::float8,
+         'monthly'::text, m.low_date::text, m.low_price::float8,
+         m.high_date::text, m.high_price::float8
+       FROM price_monthly_summary m
+       WHERE ${scope("m")}
+         AND m.close_date < CURRENT_DATE - INTERVAL '${policy.weeklyYears} years'
+         AND m.close_date >= CURRENT_DATE - INTERVAL '${policy.monthlyYears} years'
+       UNION ALL
+       SELECT y.close_date::text, y.close_price::float8,
+         'yearly'::text, y.low_date::text, y.low_price::float8,
+         y.high_date::text, y.high_price::float8
+       FROM price_yearly_summary y
+       WHERE ${scope("y")}
+         AND y.close_date < CURRENT_DATE - INTERVAL '${policy.monthlyYears} years'
+     ) tier_points ORDER BY "observedDate" ASC LIMIT 500`
+      : range === "all"
+        ? `SELECT
+       close_date::text AS "observedDate",
+       close_price::float8 AS price,
+       low_date::text AS "lowDate", low_price::float8 AS "lowPrice",
+       high_date::text AS "highDate", high_price::float8 AS "highPrice"
+     FROM price_monthly_summary
      WHERE mtgjson_uuid = ${sqlString(options.mtgjsonUuid)}
        AND provider = ${sqlString(provider)}
        AND finish = ${sqlString(finish)}
        AND price_type = ${sqlString(priceType)}
        AND currency = ${sqlString(currency)}
-       AND ${rangePredicate(range)}
+     ORDER BY month_start ASC
+     LIMIT 400`
+        : `SELECT
+       observed_date::text AS "observedDate",
+       price::float8 AS price
+     FROM price_daily_summary
+     WHERE mtgjson_uuid = ${sqlString(options.mtgjsonUuid)}
+       AND provider = ${sqlString(provider)}
+       AND finish = ${sqlString(finish)}
+       AND price_type = ${sqlString(priceType)}
+       AND currency = ${sqlString(currency)}
+       AND observed_date >= (
+         SELECT MAX(latest_observed_date) - INTERVAL '${Number(range)} days'
+         FROM price_scope_summary
+         WHERE mtgjson_uuid = ${sqlString(options.mtgjsonUuid)}
+           AND provider = ${sqlString(provider)}
+           AND finish = ${sqlString(finish)}
+           AND price_type = ${sqlString(priceType)}
+           AND currency = ${sqlString(currency)}
+       )
      ORDER BY observed_date ASC
      LIMIT 400`,
   );
@@ -297,6 +389,7 @@ export async function getCardPriceHistory(options: CardPriceHistoryOptions) {
     priceType,
     currency,
     range,
+    resolution: tiered ? "tiered" : range === "all" ? "monthly" : "daily",
     points,
     change: calculatePriceHistoryChange(points),
   };
@@ -315,6 +408,8 @@ function emptyPricingDashboard(
     available: !error,
     error,
     ...options,
+    trendResolution: options.range === "all" ? "monthly" : "daily",
+    summaryRefreshedAt: null,
     stats: {
       snapshotCount: 0,
       pricedCardCount: 0,
@@ -324,6 +419,13 @@ function emptyPricingDashboard(
       currencyCount: 0,
     },
     providerCoverage: [],
+    movementCoverage: {
+      ownedPrintings: 0,
+      pricedPrintings: 0,
+      withoutPrior: 0,
+      stalePrintings: 0,
+      latestObservedDate: null,
+    },
     topGainers: [],
     topLosers: [],
     topPercentMoves: [],
@@ -333,7 +435,9 @@ function emptyPricingDashboard(
 
 export async function getPricingDashboard(
   options: PricingDashboardOptions = {},
+  query: PricingReadQuery = jsonQuery,
 ): Promise<PricingDashboard> {
+  const view = options.view ?? "collection";
   const provider = cleanToken(options.provider, "tcgplayer");
   const finish = cleanToken(options.finish, "normal");
   const priceType = cleanToken(options.priceType, "retail");
@@ -341,16 +445,36 @@ export async function getPricingDashboard(
   const range = normalizePriceHistoryRange(options.range);
   const setCode = cleanSetCode(options.setCode);
   const minPercentChange = cleanPercentThreshold(options.minPercentChange);
+  const minAbsoluteChange = cleanDollarThreshold(options.minAbsoluteChange, 2);
+  const minPriorPrice = cleanDollarThreshold(options.minPriorPrice, 1);
+  const thresholdMode =
+    options.thresholdMode === "percent" || options.thresholdMode === "either"
+      ? options.thresholdMode
+      : "absolute";
   const changeDirection = cleanDirection(options.changeDirection);
   const dashboardOptions = { provider, finish, priceType, currency, range };
-  const holdingsSql = holdingsCte(options.ownedCards);
-  const scopedSetSql = setCode
-    ? `AND upper(set_code) = ${sqlString(setCode)}`
-    : "";
-  const percentThresholdSql =
-    minPercentChange == null
-      ? ""
-      : `AND ABS("percentChange") >= ${sqlNumber(minPercentChange)}`;
+  const scopedOwnedCards = options.ownedCards?.filter(
+    (card) =>
+      (!setCode || card.setCode?.toUpperCase() === setCode) &&
+      (!card.finish || card.finish === finish),
+  );
+  if (!scopedOwnedCards?.some((card) => card.mtgjsonUuid && card.quantity > 0))
+    return emptyPricingDashboard(dashboardOptions);
+  const holdingsSql = holdingsCte(scopedOwnedCards);
+  const currentWindowSql =
+    range === "all"
+      ? "TRUE"
+      : `c.latest_observed_date >= b.latest_observed_date - INTERVAL '${Number(range)} days'`;
+  const absoluteCriterion = `ABS("absoluteChange") >= ${sqlNumber(minAbsoluteChange)}`;
+  const percentCriterion =
+    `("startPrice" >= ${sqlNumber(minPriorPrice)}` +
+    ` AND ABS("percentChange") >= ${sqlNumber(minPercentChange ?? 25)})`;
+  const materialMovementSql =
+    thresholdMode === "percent"
+      ? `AND ${percentCriterion}`
+      : thresholdMode === "either"
+        ? `AND (${absoluteCriterion} OR ${percentCriterion})`
+        : `AND ${absoluteCriterion}`;
   const directionSql =
     changeDirection === "gainers"
       ? `AND "absoluteChange" > 0`
@@ -359,187 +483,196 @@ export async function getPricingDashboard(
         : "";
 
   try {
-    const [stats] = jsonQuery<PricingDashboard["stats"]>(
-      `WITH ${holdingsSql},
+    const [summaryState] = await query<{
+      ready: boolean;
+      sourceMaxId: number | null;
+      rawMaxId: number | null;
+      sourceRevision: number;
+      summaryRevision: number;
+      refreshedAt: string | null;
+    }>(`SELECT ready, source_max_id AS "sourceMaxId",
+         (SELECT MAX(id) FROM price_snapshots) AS "rawMaxId",
+         source_revision AS "sourceRevision",
+         summary_revision AS "summaryRevision",
+         refreshed_at::text AS "refreshedAt"
+       FROM price_summary_state WHERE singleton = TRUE`);
+    if (
+      !summaryState?.ready ||
+      summaryState.sourceMaxId !== summaryState.rawMaxId ||
+      summaryState.sourceRevision !== summaryState.summaryRevision
+    ) {
+      return emptyPricingDashboard(
+        dashboardOptions,
+        "Pricing summaries are rebuilding or behind new observations. Try again shortly.",
+      );
+    }
+    const [stats] =
+      view !== "market"
+        ? await query<PricingDashboard["stats"]>(
+            `WITH ${holdingsSql},
        scoped AS (
          SELECT ps.*
-         FROM price_snapshots ps
+         FROM price_scope_summary ps
          JOIN holdings h ON h.mtgjson_uuid = ps.mtgjson_uuid
          WHERE ps.mtgjson_uuid IS NOT NULL
-           ${scopedSetSql}
        )
        SELECT
-         COUNT(*)::int AS "snapshotCount",
+         COALESCE(SUM(snapshot_count), 0)::int AS "snapshotCount",
          COUNT(DISTINCT mtgjson_uuid)::int AS "pricedCardCount",
-         MAX(observed_date)::text AS "latestObservedDate",
-         MAX(created_at)::text AS "latestIngestedAt",
+         MAX(latest_observed_date)::text AS "latestObservedDate",
+         MAX(latest_ingested_at)::text AS "latestIngestedAt",
          COUNT(DISTINCT provider)::int AS "providerCount",
          COUNT(DISTINCT currency)::int AS "currencyCount"
        FROM scoped`,
-    );
+          )
+        : [];
 
-    const providerCoverage = jsonQuery<PricingDashboard["providerCoverage"][0]>(
-      `WITH ${holdingsSql},
+    const providerCoverage =
+      view === "data"
+        ? await query<PricingDashboard["providerCoverage"][0]>(
+            `WITH ${holdingsSql},
        scoped AS (
          SELECT ps.*
-         FROM price_snapshots ps
+         FROM price_scope_summary ps
          JOIN holdings h ON h.mtgjson_uuid = ps.mtgjson_uuid
          WHERE ps.mtgjson_uuid IS NOT NULL
-           ${scopedSetSql}
        )
        SELECT
          provider,
          currency,
-         COUNT(*)::int AS "snapshotCount",
+         SUM(snapshot_count)::int AS "snapshotCount",
          COUNT(DISTINCT mtgjson_uuid)::int AS "pricedCardCount",
-         MAX(observed_date)::text AS "latestObservedDate"
+         MAX(latest_observed_date)::text AS "latestObservedDate"
        FROM scoped
        GROUP BY provider, currency
        ORDER BY "snapshotCount" DESC, provider ASC, currency ASC
        LIMIT 12`,
-    );
+          )
+        : [];
 
-    const movementBaseSql = `
-      WITH ${holdingsSql},
-      filtered AS (
-        SELECT ps.*
-        FROM price_snapshots ps
-        JOIN holdings h ON h.mtgjson_uuid = ps.mtgjson_uuid
-        WHERE ps.mtgjson_uuid IS NOT NULL
-          AND provider = ${sqlString(provider)}
-          AND finish = ${sqlString(finish)}
-          AND price_type = ${sqlString(priceType)}
-          AND currency = ${sqlString(currency)}
-          ${scopedSetSql}
-      ),
-      bounds AS (
-        SELECT MAX(observed_date) AS latest_observed_date
-        FROM filtered
-      ),
-      range_points AS (
-        SELECT f.*
-        FROM filtered f
-        CROSS JOIN bounds b
-        WHERE b.latest_observed_date IS NOT NULL
-          AND ${anchoredRangePredicate(range)}
-      ),
-      start_rows AS (
-        SELECT DISTINCT ON (mtgjson_uuid)
-          mtgjson_uuid,
-          card_name,
-          set_code,
-          collector_number,
-          observed_date,
-          price
-        FROM range_points
-        ORDER BY mtgjson_uuid, observed_date ASC, created_at ASC
-      ),
-      current_rows AS (
-        SELECT DISTINCT ON (mtgjson_uuid)
-          mtgjson_uuid,
-          card_name,
-          set_code,
-          collector_number,
-          observed_date,
-          price
-        FROM range_points
-        ORDER BY mtgjson_uuid, observed_date DESC, created_at DESC
-      ),
-      movement_rows AS (
-        SELECT
-          c.mtgjson_uuid AS "mtgjsonUuid",
-          COALESCE(c.card_name, s.card_name) AS "cardName",
-          COALESCE(c.set_code, s.set_code) AS "setCode",
-          COALESCE(c.collector_number, s.collector_number) AS "collectorNumber",
-          s.price::float8 AS "startPrice",
-          c.price::float8 AS "currentPrice",
-          ROUND((c.price - s.price)::numeric, 4)::float8 AS "absoluteChange",
-          CASE
-            WHEN s.price = 0 THEN NULL
-            ELSE ROUND((((c.price - s.price) / s.price) * 100)::numeric, 2)::float8
-          END AS "percentChange",
-          s.observed_date::text AS "startObservedDate",
-          c.observed_date::text AS "currentObservedDate"
-        FROM current_rows c
-        JOIN start_rows s ON s.mtgjson_uuid = c.mtgjson_uuid
-        WHERE c.observed_date <> s.observed_date
-          AND c.price <> s.price
-      )`;
+    const [movementCoverage] =
+      view === "market"
+        ? await query<PricingDashboard["movementCoverage"]>(`WITH ${holdingsSql}
+       SELECT COUNT(*)::int AS "ownedPrintings",
+         COUNT(c.mtgjson_uuid)::int AS "pricedPrintings",
+         COUNT(*) FILTER (WHERE c.mtgjson_uuid IS NOT NULL AND c.prior_observed_date IS NULL)::int AS "withoutPrior",
+         COUNT(*) FILTER (WHERE c.latest_observed_date < CURRENT_DATE - INTERVAL '2 days')::int AS "stalePrintings",
+         MAX(c.latest_observed_date)::text AS "latestObservedDate"
+       FROM holdings h LEFT JOIN price_scope_summary c
+         ON c.mtgjson_uuid = h.mtgjson_uuid
+         AND c.provider = ${sqlString(provider)}
+         AND c.finish = ${sqlString(finish)}
+         AND c.price_type = ${sqlString(priceType)}
+         AND c.currency = ${sqlString(currency)}`)
+        : [];
 
-    const topGainers = jsonQuery<PricingDashboardMover>(
-      `${movementBaseSql}
-       SELECT *
-       FROM movement_rows
-       WHERE "absoluteChange" > 0
-         ${percentThresholdSql}
-         ${directionSql}
-       ORDER BY "absoluteChange" DESC, "currentPrice" DESC
-       LIMIT 20`,
-    );
-    const topLosers = jsonQuery<PricingDashboardMover>(
-      `${movementBaseSql}
-       SELECT *
-       FROM movement_rows
-       WHERE "absoluteChange" < 0
-         ${percentThresholdSql}
-         ${directionSql}
-       ORDER BY "absoluteChange" ASC, "currentPrice" ASC
-       LIMIT 20`,
-    );
-    const topPercentMoves = jsonQuery<PricingDashboardMover>(
-      `${movementBaseSql}
-       SELECT *
-       FROM movement_rows
-       WHERE "percentChange" IS NOT NULL
-         ${percentThresholdSql}
-         ${directionSql}
-       ORDER BY ABS("percentChange") DESC, ABS("absoluteChange") DESC
-       LIMIT 20`,
-    );
-
-    const valueTrend = jsonQuery<PricingDashboardTrendPoint>(
-      `WITH ${holdingsSql},
+    const movementRows =
+      view === "market"
+        ? await query<
+            PricingDashboardMover & { category: string }
+          >(`WITH ${holdingsSql},
        filtered AS (
-         SELECT ps.*, h.owned_quantity
-         FROM price_snapshots ps
-         JOIN holdings h ON h.mtgjson_uuid = ps.mtgjson_uuid
-         WHERE ps.mtgjson_uuid IS NOT NULL
-           AND provider = ${sqlString(provider)}
-           AND finish = ${sqlString(finish)}
-           AND price_type = ${sqlString(priceType)}
-           AND currency = ${sqlString(currency)}
-           ${scopedSetSql}
+         SELECT c.*, h.owned_quantity FROM price_scope_summary c
+         JOIN holdings h ON h.mtgjson_uuid = c.mtgjson_uuid
+         WHERE c.provider = ${sqlString(provider)}
+           AND c.finish = ${sqlString(finish)}
+           AND c.price_type = ${sqlString(priceType)}
+           AND c.currency = ${sqlString(currency)}
        ),
+       bounds AS (SELECT MAX(latest_observed_date) AS latest_observed_date FROM filtered),
+       movement_rows AS (
+         SELECT c.mtgjson_uuid AS "mtgjsonUuid",
+           NULL::text AS "cardName", NULL::text AS "setCode",
+           NULL::text AS "collectorNumber",
+           c.prior_price::float8 AS "startPrice",
+           c.current_price::float8 AS "currentPrice",
+           ROUND((c.current_price - c.prior_price)::numeric, 4)::float8 AS "absoluteChange",
+           CASE WHEN c.prior_price = 0 THEN NULL
+             ELSE ROUND((((c.current_price - c.prior_price) / c.prior_price) * 100)::numeric, 2)::float8
+           END AS "percentChange",
+           c.prior_observed_date::text AS "startObservedDate",
+           c.latest_observed_date::text AS "currentObservedDate",
+           c.owned_quantity AS "ownedQuantity",
+           ROUND(((c.current_price - c.prior_price) * c.owned_quantity)::numeric, 2)::float8 AS "collectionImpact",
+           (c.latest_observed_date < CURRENT_DATE - INTERVAL '2 days') AS "isStale"
+         FROM filtered c CROSS JOIN bounds b
+         WHERE ${currentWindowSql}
+           AND c.prior_observed_date IS NOT NULL
+           AND c.prior_price <> c.current_price
+       )
+       SELECT * FROM (
+         (SELECT 'gainer'::text AS category, m.* FROM movement_rows m
+          WHERE "absoluteChange" > 0 ${materialMovementSql} ${directionSql}
+          ORDER BY "collectionImpact" DESC, "absoluteChange" DESC LIMIT 20)
+         UNION ALL
+         (SELECT 'loser'::text AS category, m.* FROM movement_rows m
+          WHERE "absoluteChange" < 0 ${materialMovementSql} ${directionSql}
+          ORDER BY "collectionImpact" ASC, "absoluteChange" ASC LIMIT 20)
+         UNION ALL
+         (SELECT 'percent'::text AS category, m.* FROM movement_rows m
+          WHERE "percentChange" IS NOT NULL ${materialMovementSql} ${directionSql}
+          ORDER BY ABS("percentChange") DESC, ABS("absoluteChange") DESC LIMIT 20)
+       ) ranked`)
+        : [];
+    const topGainers = movementRows.filter((row) => row.category === "gainer");
+    const topLosers = movementRows.filter((row) => row.category === "loser");
+    const topPercentMoves = movementRows.filter(
+      (row) => row.category === "percent",
+    );
+
+    const valueTrend =
+      view === "collection"
+        ? await query<PricingDashboardTrendPoint>(
+            range === "all"
+              ? `WITH ${holdingsSql}
+       SELECT m.month_start::text AS "observedDate",
+         ROUND(SUM(m.close_price * h.owned_quantity)::numeric, 2)::float8 AS value
+       FROM price_monthly_summary m
+       JOIN holdings h ON h.mtgjson_uuid = m.mtgjson_uuid
+       WHERE m.provider = ${sqlString(provider)}
+         AND m.finish = ${sqlString(finish)}
+         AND m.price_type = ${sqlString(priceType)}
+         AND m.currency = ${sqlString(currency)}
+       GROUP BY m.month_start
+       ORDER BY m.month_start ASC
+       LIMIT 400`
+              : `WITH ${holdingsSql},
        bounds AS (
-         SELECT MAX(observed_date) AS latest_observed_date
-         FROM filtered
-       ),
-       daily_cards AS (
-         SELECT DISTINCT ON (f.observed_date, f.mtgjson_uuid)
-           f.observed_date,
-           f.mtgjson_uuid,
-           f.price,
-           f.owned_quantity
-         FROM filtered f
-         CROSS JOIN bounds b
-         WHERE b.latest_observed_date IS NOT NULL
-           AND ${anchoredRangePredicate(range)}
-         ORDER BY f.observed_date, f.mtgjson_uuid, f.created_at DESC
+         SELECT MAX(c.latest_observed_date) AS latest_observed_date
+         FROM price_scope_summary c
+         JOIN holdings h ON h.mtgjson_uuid = c.mtgjson_uuid
+         WHERE c.provider = ${sqlString(provider)}
+           AND c.finish = ${sqlString(finish)}
+           AND c.price_type = ${sqlString(priceType)}
+           AND c.currency = ${sqlString(currency)}
        )
        SELECT
-         observed_date::text AS "observedDate",
-         ROUND(SUM(price * owned_quantity)::numeric, 2)::float8 AS value
-       FROM daily_cards
-       GROUP BY observed_date
-       ORDER BY observed_date ASC
+         d.observed_date::text AS "observedDate",
+         ROUND(SUM(d.price * h.owned_quantity)::numeric, 2)::float8 AS value
+       FROM price_daily_summary d
+       JOIN holdings h ON h.mtgjson_uuid = d.mtgjson_uuid
+       CROSS JOIN bounds b
+       WHERE d.provider = ${sqlString(provider)}
+         AND d.finish = ${sqlString(finish)}
+         AND d.price_type = ${sqlString(priceType)}
+         AND d.currency = ${sqlString(currency)}
+         AND d.observed_date >= b.latest_observed_date - INTERVAL '${Number(range)} days'
+       GROUP BY d.observed_date
+       ORDER BY d.observed_date ASC
        LIMIT 400`,
-    );
+          )
+        : [];
 
     return {
       available: true,
       ...dashboardOptions,
+      trendResolution: range === "all" ? "monthly" : "daily",
+      summaryRefreshedAt: summaryState.refreshedAt,
       stats: stats ?? emptyPricingDashboard(dashboardOptions).stats,
       providerCoverage,
+      movementCoverage:
+        movementCoverage ??
+        emptyPricingDashboard(dashboardOptions).movementCoverage,
       topGainers,
       topLosers,
       topPercentMoves,
@@ -555,55 +688,39 @@ export async function getPricingDashboard(
 
 export async function listPricingWorkerStatus(): Promise<PricingWorkerStatus> {
   try {
-    const [stats] = jsonQuery<PricingWorkerStatus["stats"]>(
-      `SELECT
-         COUNT(*)::int AS "snapshotCount",
-         COUNT(DISTINCT mtgjson_uuid)::int AS "pricedCardCount",
-         MAX(observed_date)::text AS "latestObservedDate",
-         MAX(created_at)::text AS "latestIngestedAt",
-         (
-           SELECT COUNT(*)::int
-           FROM price_import_jobs
-           WHERE status IN ('QUEUED', 'RUNNING')
-         ) AS "activeJobCount",
-         (
-           SELECT COUNT(*)::int
-           FROM price_import_jobs
-           WHERE status = 'FAILED'
-         ) AS "failedJobCount"
-       FROM price_snapshots`,
+    const [stats] = await queryPricingJson<PricingWorkerStatus["stats"]>(
+      `SELECT COUNT(*) FILTER (WHERE status IN ('QUEUED','RUNNING'))::int AS "activeJobCount",
+        COUNT(*) FILTER (WHERE status = 'FAILED')::int AS "failedJobCount"
+       FROM price_import_jobs`,
+      { timeoutMs: 10_000 },
     );
 
     return {
       available: true,
       stats: stats ?? {
-        snapshotCount: 0,
-        pricedCardCount: 0,
-        latestObservedDate: null,
-        latestIngestedAt: null,
         activeJobCount: 0,
         failedJobCount: 0,
       },
-      heartbeats: jsonQuery(
+      heartbeats: await queryPricingJson(
         `SELECT worker_id, status, last_seen_at, message
          FROM price_worker_heartbeats
          ORDER BY last_seen_at DESC
          LIMIT 5`,
       ),
-      runs: jsonQuery(
+      runs: await queryPricingJson(
         `SELECT id, worker_id, status, started_at, finished_at, message, error
          FROM price_worker_runs
          ORDER BY started_at DESC
          LIMIT 10`,
       ),
-      jobs: jsonQuery(
+      jobs: await queryPricingJson(
         `SELECT id, type, status, requested_by, created_at, started_at, finished_at, error,
-                processed_count, inserted_count, skipped_count
+                processed_count, inserted_count, corrected_count, skipped_count
          FROM price_import_jobs
          ORDER BY created_at DESC
          LIMIT 10`,
       ),
-      logs: jsonQuery(
+      logs: await queryPricingJson(
         `SELECT id::text, run_id, worker_id, level, message, created_at
          FROM price_worker_logs
          ORDER BY created_at DESC
@@ -615,10 +732,6 @@ export async function listPricingWorkerStatus(): Promise<PricingWorkerStatus> {
       available: false,
       error: error instanceof Error ? error.message : String(error),
       stats: {
-        snapshotCount: 0,
-        pricedCardCount: 0,
-        latestObservedDate: null,
-        latestIngestedAt: null,
         activeJobCount: 0,
         failedJobCount: 0,
       },

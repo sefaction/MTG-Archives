@@ -33,7 +33,9 @@ function slugify(value: string) {
 }
 
 function fail(path: string, message: string): never {
-  redirect(`${path}?error=${encodeURIComponent(message)}`);
+  redirect(
+    `${path}${path.includes("?") ? "&" : "?"}error=${encodeURIComponent(message)}`,
+  );
 }
 
 function leagueMonths(year: number) {
@@ -193,7 +195,7 @@ export async function addLeagueMember(formData: FormData) {
   });
   if (!candidate)
     fail(
-      `/league/${leagueId}`,
+      `/league/${leagueId}?view=manage`,
       "Select an active archive user linked to a player.",
     );
   await prisma.commanderLeagueMember.upsert({
@@ -230,7 +232,7 @@ export async function addLeagueLocation(formData: FormData) {
         DefaultCollectionVisibility.PUBLIC);
   if (!location || !location.active || !ownerUser || !isPublic) {
     fail(
-      `/league/${leagueId}`,
+      `/league/${leagueId}?view=manage`,
       "Select a public location owned by an active league player.",
     );
   }
@@ -327,13 +329,13 @@ export async function createLeagueGame(formData: FormData) {
     participantCount > 8
   ) {
     fail(
-      `/league/${leagueId}`,
+      `/league/${leagueId}?view=record`,
       "A Commander game needs between 2 and 8 players.",
     );
   }
   const playedAt = new Date(text(formData, "playedAt"));
   if (Number.isNaN(playedAt.getTime()))
-    fail(`/league/${leagueId}`, "Enter a valid game date.");
+    fail(`/league/${leagueId}?view=record`, "Enter a valid game date.");
 
   const league = await prisma.commanderLeague.findUnique({
     where: { id: leagueId },
@@ -349,10 +351,11 @@ export async function createLeagueGame(formData: FormData) {
     },
   });
   const round = league?.rounds.find((item) => item.id === roundId);
-  if (!league || !round) fail(`/league/${leagueId}`, "Select a league round.");
+  if (!league || !round)
+    fail(`/league/${leagueId}?view=record`, "Select a league round.");
   if (playedAt < round.startDate || playedAt > round.endDate) {
     fail(
-      `/league/${leagueId}`,
+      `/league/${leagueId}?view=record`,
       "The game date must fall within the selected monthly round.",
     );
   }
@@ -373,14 +376,20 @@ export async function createLeagueGame(formData: FormData) {
       (entry) => !Object.values(CommanderLeagueResult).includes(entry.result),
     )
   ) {
-    fail(`/league/${leagueId}`, "Select a valid result for every player.");
+    fail(
+      `/league/${leagueId}?view=record`,
+      "Select a valid result for every player.",
+    );
   }
   if (new Set(entries.map((entry) => entry.memberId)).size !== entries.length) {
-    fail(`/league/${leagueId}`, "Each game participant must be unique.");
+    fail(
+      `/league/${leagueId}?view=record`,
+      "Each game participant must be unique.",
+    );
   }
   if (entries.some((entry) => !memberById.has(entry.memberId))) {
     fail(
-      `/league/${leagueId}`,
+      `/league/${leagueId}?view=record`,
       "Every participant must be an active league player.",
     );
   }
@@ -390,7 +399,7 @@ export async function createLeagueGame(formData: FormData) {
   if (allDraw) {
     if (entries.some((entry) => entry.finishPosition !== null)) {
       fail(
-        `/league/${leagueId}`,
+        `/league/${leagueId}?view=record`,
         "Drawn games should not include an elimination order.",
       );
     }
@@ -413,7 +422,7 @@ export async function createLeagueGame(formData: FormData) {
       new Set(positions).size !== participantCount
     ) {
       fail(
-        `/league/${leagueId}`,
+        `/league/${leagueId}?view=record`,
         "Completed games need one winner in first place and a unique elimination finish for every player.",
       );
     }
@@ -426,12 +435,12 @@ export async function createLeagueGame(formData: FormData) {
     );
     if (!deck)
       fail(
-        `/league/${leagueId}`,
+        `/league/${leagueId}?view=record`,
         `Select a deck owned by ${member.user.displayName}.`,
       );
     if (deck.roundId !== roundId) {
       fail(
-        `/league/${leagueId}`,
+        `/league/${leagueId}?view=record`,
         `Select ${round.name}'s submitted deck for ${member.user.displayName}.`,
       );
     }
@@ -478,5 +487,5 @@ export async function createLeagueGame(formData: FormData) {
     }
   });
   revalidatePath(`/league/${leagueId}`);
-  redirect(`/league/${leagueId}`);
+  redirect(`/league/${leagueId}?view=history`);
 }

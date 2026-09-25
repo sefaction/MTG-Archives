@@ -72,14 +72,14 @@ test("admin pricing page exposes worker health, logs, and manual queueing", () =
   assert.match(adminPrices, /Pricing refresh queued/);
   assert.match(adminPrices, /Pricing refresh could not be queued/);
   assert.match(adminPrices, /PricingDashboardAutoRefresh/);
-  assert.match(
-    pricingAutoRefresh,
-    /window\.location\.replace\("\/admin\/prices"\)/,
-  );
+  assert.match(pricingAutoRefresh, /router\.refresh\(\)/);
   assert.match(adminPrices, /Current price coverage/);
   assert.match(adminPrices, /MTGJSON identity coverage/);
-  assert.match(adminPrices, /Historical snapshots/);
-  assert.match(adminPrices, /Latest observed price/);
+  assert.match(adminPrices, /PricingHistoryTotals/);
+  assert.match(
+    readFileSync("components/admin/PricingHistoryTotals.tsx", "utf8"),
+    /Latest observed price/,
+  );
   assert.match(adminPrices, /Job queue/);
   assert.match(adminPrices, /Worker heartbeat/);
   assert.match(adminPrices, /Recent jobs/);
@@ -111,8 +111,11 @@ test("pricing worker store uses the separate pricing database and does not expos
   assert.match(workerStore, /getCardPriceHistory/);
   assert.match(workerStore, /calculatePriceHistoryChange/);
   assert.match(workerStore, /price_snapshots/);
-  assert.match(workerStore, /MAX\(created_at\)::text AS "latestIngestedAt"/);
-  assert.doesNotMatch(workerStore, /ingested_at/);
+  assert.match(
+    workerStore,
+    /MAX\(latest_ingested_at\)::text AS "latestIngestedAt"/,
+  );
+  assert.match(workerStore, /price_scope_summary/);
   assert.match(workerStore, /activeJobCount/);
   assert.match(workerStore, /MTGJSON_REFRESH_ALL/);
   assert.match(workerStore, /MTGJSON_MAP_IDENTIFIERS/);

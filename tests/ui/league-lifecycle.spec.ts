@@ -106,11 +106,20 @@ test("League season, linked printings, member decks and recorded matches retain 
       create.locator(`input[value="${f.privateLocationId}"]`),
     ).toHaveCount(0);
     await create
+      .getByRole("searchbox", {
+        name: "Search public inventory locations",
+        exact: true,
+      })
+      .fill("no matching fixture location");
+    await create
       .getByRole("button", { name: "Create Commander league", exact: true })
       .click();
     await alice.waitForURL(/\/league\/[^/?]+$/);
     const leagueId = new URL(alice.url()).pathname.split("/").at(-1)!;
     const leaguePath = `/league/${leagueId}`;
+    await alice
+      .getByRole("link", { name: "Manage season", exact: true })
+      .click();
     const memberForm = alice
       .locator("form")
       .filter({ has: alice.locator('select[name="userId"]') });
@@ -131,6 +140,9 @@ test("League season, linked printings, member decks and recorded matches retain 
       .selectOption(f.users[1].locationId);
     await locationForm
       .getByRole("button", { name: "Add", exact: true })
+      .click();
+    await alice
+      .getByRole("link", { name: "Season standings", exact: true })
       .click();
     await expect(
       alice.getByText("League inventory", { exact: true }).locator(".."),
@@ -175,6 +187,11 @@ test("League season, linked printings, member decks and recorded matches retain 
           exact: true,
         }),
       });
+      if (!(await form.getByLabel("Deck name", { exact: true }).isVisible()))
+        await page
+          .locator("summary")
+          .filter({ hasText: "Create submitted deck" })
+          .click();
       if (index === 1)
         await expect(
           form.locator('select[name="memberId"] option'),
@@ -221,7 +238,7 @@ test("League season, linked printings, member decks and recorded matches retain 
       ).status(),
     ).toBe(403);
 
-    await alice.goto(leaguePath);
+    await alice.goto(`${leaguePath}?view=record`);
     const game = alice.locator("form").filter({
       has: alice.getByRole("button", {
         name: "Record game and freeze decks",
@@ -259,7 +276,7 @@ test("League season, linked printings, member decks and recorded matches retain 
           exact: true,
         }),
       ).toBeVisible();
-      await alice.goto(leaguePath);
+      await alice.goto(`${leaguePath}?view=record`);
     }
     await game.getByLabel("Monthly round").selectOption(round.id);
     await game.getByLabel("Played on").fill("2026-01-15");
@@ -306,7 +323,7 @@ test("League season, linked printings, member decks and recorded matches retain 
     await expect(
       alice.getByText("Each game participant must be unique.", { exact: true }),
     ).toHaveCount(0);
-    await alice.reload();
+    await alice.getByRole("link", { name: "Record game", exact: true }).click();
     await game.getByLabel("Monthly round").selectOption(round.id);
     await game.getByLabel("Played on").fill("2026-01-16");
     await game.getByRole("button", { name: "Mark game drawn" }).click();
@@ -323,7 +340,12 @@ test("League season, linked printings, member decks and recorded matches retain 
         ),
       )
       .toBe(2);
-    await alice.reload();
+    await expect(
+      alice.getByRole("heading", { name: "Game history", exact: true }),
+    ).toBeVisible();
+    await alice
+      .getByRole("link", { name: "Season standings", exact: true })
+      .click();
     const standings = alice.locator("table").first();
     await expect(
       standings
@@ -391,6 +413,110 @@ test("League season, linked printings, member decks and recorded matches retain 
     await expect(bob.getByRole("heading", { level: 1 })).toContainText(
       /stats|statistics|analytics/i,
     );
+    await bob.goto(`${leaguePath}?view=record`);
+    await expect(
+      bob.getByRole("heading", { name: "Record a completed game" }),
+    ).toHaveCount(0);
+    await bob.goto(`${leaguePath}?view=manage`);
+    await expect(bob.locator('select[name="userId"]')).toHaveCount(0);
+    await expect(
+      bob.getByRole("button", { name: "Remove", exact: true }),
+    ).toHaveCount(0);
+    await alice.goto(`${leaguePath}/decks`);
+    await expect(
+      alice.getByRole("region", { name: "League deck results" }),
+    ).toContainText("Frozen · recorded in a game");
+    await alice.getByLabel("Search league decks").fill(f.users[0].displayName);
+    await alice
+      .getByRole("button", { name: "Filter decks", exact: true })
+      .click();
+    await expect(
+      alice.getByRole("region", { name: "League deck results" }),
+    ).not.toContainText(f.users[1].displayName);
+    await alice.goto(`${leaguePath}?view=history`);
+    await alice.getByLabel("Round", { exact: true }).selectOption(round.id);
+    await alice
+      .getByRole("button", { name: "View history", exact: true })
+      .click();
+    await expect(
+      alice.getByRole("region", { name: "Recorded games" }),
+    ).toContainText("January game");
+    await alice.goto(
+      `${leaguePath}/stats?view=usage&player=${aliceMember.id}&month=1`,
+    );
+    await expect(
+      alice.getByRole("heading", { name: "Most-played cards", exact: true }),
+    ).toBeVisible();
+    await alice.getByRole("link", { name: "Win rates", exact: true }).click();
+    expect(new URL(alice.url()).searchParams.get("player")).toBe(
+      aliceMember.id,
+    );
+    expect(new URL(alice.url()).searchParams.get("month")).toBe("1");
+    await expect(
+      alice.getByRole("heading", { name: "Commander win rate", exact: true }),
+    ).toBeVisible();
+    for (const width of [1366, 390, 320]) {
+      await alice.setViewportSize({
+        width,
+        height: width === 1366 ? 768 : 844,
+      });
+      for (const [name, path] of [
+        ["standings", leaguePath],
+        ["record", `${leaguePath}?view=record`],
+        ["history", `${leaguePath}?view=history`],
+        ["manage", `${leaguePath}?view=manage`],
+        ["decks", `${leaguePath}/decks`],
+        ["stats", `${leaguePath}/stats`],
+        ["usage", `${leaguePath}/stats?view=usage`],
+        ["results", `${leaguePath}/stats?view=results`],
+      ]) {
+        await alice.goto(path);
+        expect(
+          await alice.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth + 1,
+          ),
+          `${name} at ${width}px`,
+        ).toBe(true);
+        if (width !== 320)
+          await alice.screenshot({
+            path: `test-results/league-after-${name}-${width}.png`,
+            fullPage: true,
+          });
+      }
+    }
+    await alice.setViewportSize({ width: 1366, height: 768 });
+    await alice.goto(leaguePath);
+    for (const theme of [
+      "golgari",
+      "azorius",
+      "rakdos",
+      "lotus",
+      "selesnya",
+      "izzet",
+    ]) {
+      await alice.evaluate((value) => {
+        document.documentElement.dataset.theme = value;
+      }, theme);
+      await expect(
+        alice.getByRole("link", { name: "Season standings", exact: true }),
+      ).toHaveCSS(
+        "color",
+        await alice.evaluate(() => getComputedStyle(document.body).color),
+      );
+    }
+    await alice.evaluate(() => {
+      document.documentElement.style.fontSize = "200%";
+    });
+    expect(
+      await alice.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1,
+      ),
+    ).toBe(true);
+    await alice.screenshot({
+      path: "test-results/league-after-enlarged.png",
+      fullPage: true,
+    });
+    expect(snapshot()).toEqual(before);
   } finally {
     await Promise.allSettled(contexts.map((c) => c.close()));
     database(`

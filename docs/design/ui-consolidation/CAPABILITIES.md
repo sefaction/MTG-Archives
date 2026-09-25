@@ -1,5 +1,8 @@
 # Capability crosswalk
 
+Current implementation and verification status: [UI acceptance status](../../UI_ACCEPTANCE_STATUS.md). The design baseline below is historical; its pending/open labels describe that original review, not current GitHub status.
+
+
 Source-inspected at main `7a32dd3` on 2026-09-21. Proposed homes are a design contract, not implemented routing or verified parity. All existing URLs are retained, including query strings/anchors and shared deck tools. No blank home is allowed. The table covers every `app/**/page.tsx`; the companion QA script checks this route inventory. Grouped action rows below preserve rare capabilities that a route list alone would miss.
 
 Evidence abbreviations: **I** = InventoryBrowser, InventoryAdvancedSearch and inventory page/actions; **L** = locations page, StorageDestinationPicker, VaultSectionMap; **D** = deck pages/actions, DeckWorkspace, DeckActionPanels, DeckListEditor and DeckToolsNav; **M** = imports page/actions and import/export components. Test filenames below are historical coverage pointers, not claims of fresh production verification. Shared baseline for every row is `7a32dd3`; new implementation evidence is **pending** for every row.

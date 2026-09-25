@@ -1,3 +1,4 @@
+import { AdminNav } from "@/components/admin/AdminNav";
 export const dynamic = "force-dynamic";
 
 import { revalidatePath } from "next/cache";
@@ -75,8 +76,9 @@ export default async function AdminBackupsPage({
   const backupDir = getBackupDir();
 
   return (
-    <main className="space-y-6 p-8">
+    <main className="min-w-0 space-y-4 p-4 sm:p-8">
       <Nav />
+      <AdminNav active="backups" />
 
       <section className="space-y-3">
         <div>
@@ -107,60 +109,17 @@ export default async function AdminBackupsPage({
         </p>
       ) : null}
 
-      <section className="space-y-3 rounded border border-zinc-800 p-4">
-        <h2 className="text-xl font-semibold">Upload backup</h2>
-        <p className="text-sm text-zinc-400">
-          Upload a previously created MTG Archives backup archive. The archive
-          is validated before it is added to the backup directory.
-        </p>
-        <form
-          action="/api/admin/backups/upload"
-          method="post"
-          encType="multipart/form-data"
-          className="flex flex-wrap gap-3"
-        >
-          <input
-            name="backupFile"
-            type="file"
-            accept=".tar.gz,application/gzip,application/x-gzip"
-            required
-            className="max-w-full rounded border border-zinc-700 bg-zinc-900 p-2"
-          />
-          <SubmitButton
-            pendingLabel="Uploading backup..."
-            className="border px-3 py-2"
-          >
-            Upload Backup
-          </SubmitButton>
-        </form>
-      </section>
-
-      <section className="space-y-3 rounded border border-zinc-800 p-4">
-        <h2 className="text-xl font-semibold">Storage</h2>
-        <dl className="grid gap-3 text-sm md:grid-cols-2">
-          <div>
-            <dt className="text-zinc-400">Backup directory</dt>
-            <dd className="break-all">{backupDir}</dd>
-          </div>
-          <div>
-            <dt className="text-zinc-400">Restore command</dt>
-            <dd className="break-all">
-              npm run backup:restore -- /path/to/backup.tar.gz --force
-            </dd>
-          </div>
-        </dl>
-        <p className="text-sm text-zinc-500">
-          Restore replaces the configured database schema and included appdata.
-          Prefer maintenance mode or a quiet local instance before restoring.
-        </p>
-      </section>
-
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">Recent backups</h2>
         {backups.length ? (
-          <div className="overflow-x-auto rounded border border-zinc-800">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-zinc-900 text-zinc-300">
+          <div
+            role="region"
+            aria-label="Backup history"
+            tabIndex={0}
+            className="max-h-[36rem] min-w-0 overflow-auto rounded border border-zinc-800"
+          >
+            <table className="w-full min-w-[64rem] text-left text-sm">
+              <thead className="sticky top-0 bg-zinc-900 text-zinc-300">
                 <tr>
                   <th className="p-3">File</th>
                   <th className="p-3">Created</th>
@@ -206,76 +165,89 @@ export default async function AdminBackupsPage({
                         </span>
                       )}
                     </td>
-                    <td className="min-w-80 p-3">
+                    <td className="p-3 align-top">
                       {backup.manifest ? (
-                        <form
-                          action={restoreBackupAction}
-                          className="space-y-2"
-                        >
-                          <input
-                            type="hidden"
-                            name="filename"
-                            value={backup.filename}
-                          />
-                          <p className="text-xs text-red-200">
-                            Destructive. Type RESTORE and this exact filename.
-                          </p>
-                          <input
-                            name="confirmation"
-                            placeholder="RESTORE"
-                            required
-                            className="w-full rounded border border-red-800 bg-zinc-950 p-2 text-sm"
-                          />
-                          <input
-                            name="confirmFilename"
-                            placeholder={backup.filename}
-                            required
-                            className="w-full rounded border border-zinc-700 bg-zinc-950 p-2 font-mono text-xs"
-                          />
-                          <SubmitButton
-                            pendingLabel="Restoring..."
-                            className="border border-red-700 px-3 py-2 text-red-100"
+                        <details>
+                          <summary className="cursor-pointer text-red-200">
+                            Restore options
+                          </summary>
+                          <form
+                            action={restoreBackupAction}
+                            className="mt-3 min-w-64 space-y-2"
                           >
-                            Restore Backup
-                          </SubmitButton>
-                        </form>
+                            <input
+                              type="hidden"
+                              name="filename"
+                              value={backup.filename}
+                            />
+                            <p className="text-xs text-red-200">
+                              Destructive. Type RESTORE and this exact filename.
+                            </p>
+                            <input
+                              name="confirmation"
+                              placeholder="RESTORE"
+                              required
+                              className="w-full rounded border border-red-800 bg-zinc-950 p-2 text-sm"
+                            />
+                            <input
+                              name="confirmFilename"
+                              placeholder={backup.filename}
+                              required
+                              className="w-full rounded border border-zinc-700 bg-zinc-950 p-2 font-mono text-xs"
+                            />
+                            <SubmitButton
+                              pendingLabel="Restoring..."
+                              className="border border-red-700 px-3 py-2 text-red-100"
+                            >
+                              Restore Backup
+                            </SubmitButton>
+                          </form>
+                        </details>
                       ) : (
                         <span className="text-xs text-zinc-500">
                           Restore unavailable until manifest can be read.
                         </span>
                       )}
                     </td>
-                    <td className="min-w-80 p-3">
+                    <td className="p-3 align-top">
                       {backup.manifest ? (
-                        <form action={deleteBackupAction} className="space-y-2">
-                          <input
-                            type="hidden"
-                            name="filename"
-                            value={backup.filename}
-                          />
-                          <p className="text-xs text-red-200">
-                            Deletes only this backup archive. Type DELETE and
-                            this exact filename.
-                          </p>
-                          <input
-                            name="confirmation"
-                            placeholder="DELETE"
-                            required
-                            className="w-full rounded border border-red-800 bg-zinc-950 p-2 text-sm"
-                          />
-                          <input
-                            name="confirmFilename"
-                            placeholder={backup.filename}
-                            required
-                            className="w-full rounded border border-zinc-700 bg-zinc-950 p-2 font-mono text-xs"
-                          />
-                          <SubmitButton
-                            pendingLabel="Deleting..."
-                            className="border border-red-700 px-3 py-2 text-red-100"
+                        <details>
+                          <summary className="cursor-pointer text-red-200">
+                            Delete options
+                          </summary>
+                          <form
+                            action={deleteBackupAction}
+                            className="mt-3 min-w-64 space-y-2"
                           >
-                            Delete Backup
-                          </SubmitButton>
-                        </form>
+                            <input
+                              type="hidden"
+                              name="filename"
+                              value={backup.filename}
+                            />
+                            <p className="text-xs text-red-200">
+                              Deletes only this backup archive. Type DELETE and
+                              this exact filename.
+                            </p>
+                            <input
+                              name="confirmation"
+                              placeholder="DELETE"
+                              required
+                              className="w-full rounded border border-red-800 bg-zinc-950 p-2 text-sm"
+                            />
+                            <input
+                              name="confirmFilename"
+                              placeholder={backup.filename}
+                              required
+                              className="w-full rounded border border-zinc-700 bg-zinc-950 p-2 font-mono text-xs"
+                            />
+                            <SubmitButton
+                              pendingLabel="Deleting..."
+                              className="border border-red-700 px-3 py-2 text-red-100"
+                            >
+                              Delete Backup
+                            </SubmitButton>
+                          </form>
+                        </details>
                       ) : (
                         <span className="text-xs text-zinc-500">
                           Delete unavailable until manifest can be read.
@@ -291,6 +263,57 @@ export default async function AdminBackupsPage({
           <p className="text-sm text-zinc-400">No backups found.</p>
         )}
       </section>
+      <details className="space-y-3 rounded border border-zinc-800 p-4">
+        <summary className="cursor-pointer text-lg font-semibold">
+          Upload backup
+        </summary>
+        <p className="text-sm text-zinc-400">
+          Upload a previously created MTG Archives backup archive. The archive
+          is validated before it is added to the backup directory.
+        </p>
+        <form
+          action="/api/admin/backups/upload"
+          method="post"
+          encType="multipart/form-data"
+          className="flex flex-wrap gap-3"
+        >
+          <input
+            name="backupFile"
+            type="file"
+            accept=".tar.gz,application/gzip,application/x-gzip"
+            required
+            className="max-w-full rounded border border-zinc-700 bg-zinc-900 p-2"
+          />
+          <SubmitButton
+            pendingLabel="Uploading backup..."
+            className="border px-3 py-2"
+          >
+            Upload Backup
+          </SubmitButton>
+        </form>
+      </details>
+
+      <details className="space-y-3 rounded border border-zinc-800 p-4">
+        <summary className="cursor-pointer text-lg font-semibold">
+          Storage and restore guidance
+        </summary>
+        <dl className="grid gap-3 text-sm md:grid-cols-2">
+          <div>
+            <dt className="text-zinc-400">Backup directory</dt>
+            <dd className="break-all">{backupDir}</dd>
+          </div>
+          <div>
+            <dt className="text-zinc-400">Restore command</dt>
+            <dd className="break-all">
+              npm run backup:restore -- /path/to/backup.tar.gz --force
+            </dd>
+          </div>
+        </dl>
+        <p className="text-sm text-zinc-500">
+          Restore replaces the configured database schema and included appdata.
+          Prefer maintenance mode or a quiet local instance before restoring.
+        </p>
+      </details>
     </main>
   );
 }

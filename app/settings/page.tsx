@@ -375,6 +375,9 @@ export default async function SettingsPage({
                 current price.
               </span>
             </label>
+            <a href="/settings/pricing-alerts" className={filterButtonClass}>
+              Configure Pricing movement digest
+            </a>
           </section>
 
           <section

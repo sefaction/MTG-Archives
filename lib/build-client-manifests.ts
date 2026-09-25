@@ -1,6 +1,10 @@
 import { runInNewContext } from "node:vm";
 
 export const CLIENT_MANIFEST_CONTRACTS: Record<string, string[]> = {
+  "/admin/prices/page": [
+    "admin/PricingHistoryTotals",
+    "admin/PricingDashboardAutoRefresh",
+  ],
   "/imports/page": [
     "SingleCardInventoryAdd",
     "InventoryExportForm",
@@ -10,6 +14,8 @@ export const CLIENT_MANIFEST_CONTRACTS: Record<string, string[]> = {
   ],
   "/inventory/page": ["InventoryAdvancedSearch", "InventoryBrowser"],
   "/public/inventory/page": ["InventoryAdvancedSearch", "InventoryBrowser"],
+  "/league/page": ["league/LeaguePicker"],
+  "/league/[leagueId]/page": ["league/LeaguePicker", "league/GameEntryForm"],
   "/locations/page": [
     "LocationMoveForm",
     "LocationContentsDeleteForm",
@@ -19,10 +25,7 @@ export const CLIENT_MANIFEST_CONTRACTS: Record<string, string[]> = {
     "LocationTypeLayoutForm",
     "StorageLayoutFields",
   ],
-  "/decks/[deckId]/page": [
-    "DeckListEditor",
-    "DeckActionPanels",
-  ],
+  "/decks/[deckId]/page": ["DeckListEditor", "DeckActionPanels"],
   "/decks/[deckId]/import/page": ["DeckImportPanel"],
   "/decks/[deckId]/playtest/page": ["PlaytestSandbox"],
 };

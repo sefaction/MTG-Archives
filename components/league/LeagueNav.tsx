@@ -1,6 +1,12 @@
 import Link from "next/link";
 
-export function LeagueNav({ leagueId }: { leagueId?: string }) {
+export function LeagueNav({
+  leagueId,
+  active,
+}: {
+  leagueId?: string;
+  active?: "season" | "decks" | "stats";
+}) {
   return (
     <nav
       className="app-nav mb-6 flex flex-wrap items-center gap-3"
@@ -11,13 +17,25 @@ export function LeagueNav({ leagueId }: { leagueId?: string }) {
       </Link>
       {leagueId ? (
         <>
-          <Link className="app-nav-link" href={`/league/${leagueId}`}>
-            League dashboard
+          <Link
+            className="app-nav-link"
+            aria-current={active === "season" ? "page" : undefined}
+            href={`/league/${leagueId}`}
+          >
+            Standings
           </Link>
-          <Link className="app-nav-link" href={`/league/${leagueId}/decks`}>
+          <Link
+            className="app-nav-link"
+            aria-current={active === "decks" ? "page" : undefined}
+            href={`/league/${leagueId}/decks`}
+          >
             Decks
           </Link>
-          <Link className="app-nav-link" href={`/league/${leagueId}/stats`}>
+          <Link
+            className="app-nav-link"
+            aria-current={active === "stats" ? "page" : undefined}
+            href={`/league/${leagueId}/stats`}
+          >
             Stats
           </Link>
         </>

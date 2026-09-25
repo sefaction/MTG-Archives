@@ -2,6 +2,7 @@ import Link from "next/link";
 import { InventoryBrowser } from "@/components/InventoryBrowser";
 import { InventoryAdvancedSearch } from "@/components/InventoryAdvancedSearch";
 import { InventoryQuickCardNameSearch } from "@/components/InventoryQuickCardNameSearch";
+import { InventoryWorkspace } from "@/components/InventoryWorkspace";
 import {
   getGlobalPublicInventory,
   PublicInventoryFilters,
@@ -458,95 +459,124 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
   const clearFiltersHref = `/public/inventory?${clearFilterParams.toString()}`;
 
   return (
-    <main className="p-8 space-y-6">
-      <PublicNav />
+    <main className="min-w-0 space-y-4 p-4 sm:p-8">
+      <PublicNav active="inventory" />
 
       <header className="space-y-2">
         <h1 className="text-3xl font-bold">Public inventory</h1>
         <p className="text-zinc-400">
-          Browse public cards from all collections that opted in. Showing{" "}
-          {result.visibleCards} public cards on this page. Private users,
-          locations, quantities, imports, and audit logs are excluded
-          server-side.
+          Browse shared cards across public collections. Showing{" "}
+          {result.visibleCards} public copies on this page. Private cards and
+          storage stay hidden.
         </p>
       </header>
 
-      <InventoryQuickCardNameSearch actionPath="/public/inventory" params={p} />
-      <InventoryAdvancedSearch
-        actionPath="/public/inventory"
-        params={p}
-        displayMode={displayMode}
-        isPublic
-        players={result.publicProfiles.map((owner) => ({
-          value: owner.ownerPlayerId,
-          label: owner.displayName,
-        }))}
-        ownerParamName="owner"
-        ownerFilterLabel="Current owner"
-        ownerAllLabel="All public owners"
-        locations={result.publicLocations.map((location) => ({
-          value: location.name,
-          label: location.name,
-        }))}
-        locationTypes={locationTypes.map((type) => ({
-          value: type.name,
-          label: type.name,
-        }))}
-        locationParamName="locationName"
-        includeUnassignedLocationOption={false}
-        setOptions={setOptions.map((set) => ({
-          value: set.setCode,
-          label: `${set.setCode.toUpperCase()} — ${set.setName || set.setCode.toUpperCase()}`,
-        }))}
-        cardNameOptions={cardNameRows.map((card) => card.name)}
-        clearHref={clearFiltersHref}
-        scryfallQueryError={result.filterError}
-      />
-
-      {rows.length ? (
-        <InventoryBrowser
-          rows={rows}
-          players={[]}
-          locations={result.publicLocations.map((location) => ({
-            id: location.name,
-            name: location.name,
-          }))}
-          cardLabels={{}}
-          isAdmin={false}
-          uiMode="public-readonly"
-          displayMode={displayMode}
-          totalMatchingCount={result.totalMatchingCount}
-          totalMatchingCards={displayItems.reduce(
-            (sum: number, entry: any) => sum + (entry.quantity ?? 0),
-            0,
-          )}
-          currentPage={Math.min(result.page, result.totalPages)}
-          totalPages={result.totalPages}
-          hasPreviousPage={result.page > 1}
-          hasNextPage={result.hasNextPage}
-          pageHrefBase={pageHrefBase}
-          infiniteApiPath="/api/public/inventory/list"
-          initialPageSize={initialPageSize}
-          initialBrowsingMode={initialBrowsingMode}
-          initialSortField={String(sortField)}
-          initialSortDirection={sortDirection}
-          currentLocationId={selected("locationName")[0] || ""}
-          onAddTradeWishlist={addPublicInventoryToTradeWishlist}
-          deckTargets={editableDecks.map((deck) => ({
-            id: deck.id,
-            name: deck.name,
-            format: deck.format,
-          }))}
-          onAddToDeck={addDeckCard}
+      <InventoryWorkspace
+        cardName={
+          Array.isArray(p.cardName) ? p.cardName[0] || "" : p.cardName || ""
+        }
+      >
+        <InventoryQuickCardNameSearch
+          actionPath="/public/inventory"
+          params={p}
         />
-      ) : (
-        <div className="rounded border border-zinc-800 p-4 text-zinc-400">
-          <p>No public inventory is available yet.</p>
-          <Link className="mt-2 inline-block underline" href="/login">
-            Log in to manage your own collection visibility.
-          </Link>
+        <InventoryAdvancedSearch
+          key={JSON.stringify(p)}
+          actionPath="/public/inventory"
+          params={p}
+          displayMode={displayMode}
+          isPublic
+          players={result.publicProfiles.map((owner) => ({
+            value: owner.ownerPlayerId,
+            label: owner.displayName,
+          }))}
+          ownerParamName="owner"
+          ownerFilterLabel="Current owner"
+          ownerAllLabel="All public owners"
+          locations={result.publicLocations.map((location) => ({
+            value: location.name,
+            label: location.name,
+          }))}
+          locationTypes={locationTypes.map((type) => ({
+            value: type.name,
+            label: type.name,
+          }))}
+          locationParamName="locationName"
+          includeUnassignedLocationOption={false}
+          setOptions={setOptions.map((set) => ({
+            value: set.setCode,
+            label: `${set.setCode.toUpperCase()} — ${set.setName || set.setCode.toUpperCase()}`,
+          }))}
+          cardNameOptions={cardNameRows.map((card) => card.name)}
+          clearHref={clearFiltersHref}
+          scryfallQueryError={result.filterError}
+        />
+
+        <div className="inventory-results">
+          <p className="inventory-result-summary">
+            {result.totalMatchingCount.toLocaleString()} results ·{" "}
+            {result.visibleCards.toLocaleString()} public copies on this page
+          </p>
+          {rows.length ? (
+            <InventoryBrowser
+              rows={rows}
+              players={[]}
+              locations={result.publicLocations.map((location) => ({
+                id: location.name,
+                name: location.name,
+              }))}
+              cardLabels={{}}
+              isAdmin={false}
+              uiMode="public-readonly"
+              displayMode={displayMode}
+              totalMatchingCount={result.totalMatchingCount}
+              totalMatchingCards={displayItems.reduce(
+                (sum: number, entry: any) => sum + (entry.quantity ?? 0),
+                0,
+              )}
+              currentPage={Math.min(result.page, result.totalPages)}
+              totalPages={result.totalPages}
+              hasPreviousPage={result.page > 1}
+              hasNextPage={result.hasNextPage}
+              pageHrefBase={pageHrefBase}
+              infiniteApiPath="/api/public/inventory/list"
+              initialPageSize={initialPageSize}
+              initialBrowsingMode={initialBrowsingMode}
+              initialSortField={String(sortField)}
+              initialSortDirection={sortDirection}
+              currentLocationId={selected("locationName")[0] || ""}
+              onAddTradeWishlist={addPublicInventoryToTradeWishlist}
+              deckTargets={editableDecks.map((deck) => ({
+                id: deck.id,
+                name: deck.name,
+                format: deck.format,
+              }))}
+              onAddToDeck={addDeckCard}
+            />
+          ) : (
+            <div className="rounded border border-zinc-800 p-4 text-zinc-400">
+              {result.publicProfiles.length ? (
+                <>
+                  <p>No public cards match these filters.</p>
+                  <Link
+                    className="mt-2 inline-block underline"
+                    href={clearFiltersHref}
+                  >
+                    Clear filters
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <p>No public inventory is available yet.</p>
+                  <Link className="mt-2 inline-block underline" href="/login">
+                    Log in to manage your own collection visibility.
+                  </Link>
+                </>
+              )}
+            </div>
+          )}
         </div>
-      )}
+      </InventoryWorkspace>
     </main>
   );
 }

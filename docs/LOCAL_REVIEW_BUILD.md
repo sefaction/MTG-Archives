@@ -1,5 +1,50 @@
 # Local review build — cumulative issue queue
 
+## Acceptance review, cumulative build, 2026-09-23
+
+- Acceptance documentation and the updated Admin security regression are in [PR #325](https://github.com/sefaction/MTG-Archives/pull/325), stacked on #324. Initial CI passed; check the current PR head after this documentation update.
+
+- Healthy local review app: http://127.0.0.1:13001; image `sha256:09053d1ce741b62d1372c7cc0bad41f52c6302d84fbc9e4c44cb9cd04b86ff70`, application source through #324 `8776e77`, with preceding #322/#320/#316. The acceptance branch changes only documentation and the Admin security browser route; no Docker rebuild or production change.
+- Start with Inventory and Locations on desktop and phone: verify search/results, selected physical-copy counts, vault section occupancy, move review and cancellation. Then review Deck builder/library, Pricing and Public, League season tasks and Administration. [UI_ACCEPTANCE_STATUS.md](UI_ACCEPTANCE_STATUS.md) links evidence and remaining manual gates.
+- Final serial browser suite passed **51/51 in 7.8 minutes**; 582 units and existing Core/PostgreSQL CI passed on #324. The initially stale Admin reset test was corrected to open `/admin?view=users`, then the focused lifecycle and full suite passed. Zero fixture users and 12,477 physical copies remain.
+- User review, actual browser zoom/touch/contrast breadth and any future individually approved PR merges are still separate gates. Acquisition/on-hold and additional Playtest work remain deferred.
+
+
+## Resumed batch 4: Administration, 2026-09-23
+
+- App checkpoint `8776e77`, branch `feat/admin-task-workspaces`, stacked on #322/#320/#316. Running healthy image `sha256:09053d1ce741b62d1372c7cc0bad41f52c6302d84fbc9e4c44cb9cd04b86ff70` contains all four batches. Local review http://127.0.0.1:13001. Worker images unchanged; local capture-only mail remains.
+- Review `/admin` and Users search/edit; Backups upload/storage and per-file restore/delete disclosures; Notifications recent-job filters/retry; Pricing worker health, explicit Load history totals and expandable logs. Card data and Announcements remain reachable in shared task navigation. Do not perform a restore merely to review presentation.
+- 582 units, typecheck, Linux production build and ten manifest guards passed. Real PostgreSQL pricing query checks passed. Three existing Admin browser cases plus the new workflow passed; the new case covers role/API gates, actual fixture edit/retry, responsive layouts/themes and totals loading/error/retry. Measured health 632ms and concurrent dashboard 115ms during history calculation. Fixture cleanup verified zero test users / 12,477 physical copies.
+- #273/#321/#323 remain open until future approved merge. No production, schema, Acquisition or Playtest changes. Full combined browser regression follows separately; no accessibility certification claimed.
+
+
+## Autonomous batch 3: League task workspaces, 2026-09-23
+
+- Application `5ab335b`, branch `feat/league-task-workspaces`, stacked on #320 (`93fa844`) and #316. Review in that order; PR #315 is independent. No merge approval exists.
+- Healthy cumulative web image `sha256:d870a16d3c1a515b77d0fce47245b6abd343d3d59eefd837cd10fea7f65a8c92`, unchanged local/capture-only SMTP overlays and worker images.
+- Review `/league`: open a member season, use Season standings / Record game / Game history / Manage season, browse the filtered deck library and frozen status, then Stats structure / usage / win-rate views. Normal members can view players/locations but cannot organize games or change membership. Creation disclosures preserve onboarding and validation errors.
+- 582 units, typecheck, production build and nine manifest guards passed. Expanded populated League lifecycle passed in 24 seconds: prior malformed/corrected game, printings, frozen snapshot and 202-copy conservation invariants plus search-selection retention, scoped filters, organizer/member boundaries, all views at 1366/390/320px, six themes and enlarged text. Initial history-label timeout was fixed with an explicit accessible label; waits were not increased.
+- No schema, game-scoring/freeze-rule, physical commitment, acquisition, playtest or production changes. #272/#319 remain open until an individually approved merge.
+
+
+## Autonomous batch 2: Dashboard, Pricing and Public, 2026-09-23
+
+- Application `5559c2c`, branch `feat/browse-pricing-workspaces`, stacked on import-integrity PR #316 (`751cdc4`). Review #316 first, then this batch; acquisition docs PR #315 remains separate.
+- Healthy cumulative web image `sha256:66b5768b270143443821abd80e478618b3cc2d78a209f33f7b55f6b0808198a0`, same local/capture-only SMTP Compose overlays. Workers unchanged.
+- Review `/dashboard`, `/pricing` (Collection value, Market movers, Data status), `/public/inventory` and `/public/decks`. Public context/active tabs and authenticated return are explicit. Pricing keeps historical context when applying filters; current USD estimates exclude other currencies and label missing coverage. Shared deck results and price tables scroll within bounded keyboard regions.
+- 582 units, typecheck, production build/seven manifest guards passed. New comprehensive browser case passed before and after final summary-label refinement; four affected Deck/Inventory cases passed. Six themes, enlarged text, 1366/390/320px, anonymous/authenticated scope and synthetic EUR/missing/zero prices covered. No production-scale pricing/deck-query benchmark claimed.
+- No merge, issue closure, schema change, acquisition implementation or playtest work. #271/#317/#318 stay open until approved merge.
+
+
+## Autonomous batch 1: import integrity, 2026-09-23
+
+- Local review: http://127.0.0.1:13001/imports. Application `8a3279c`, branch `fix/import-commit-integrity`, main base `bfb7be8`; PR publication/CI tracked in WORK_CHECKPOINT.md. Acquisition docs PR #315 is separate and not in this image.
+- Healthy rebuilt web image `sha256:a8354882a61ca00a8ba2a9410f5436b410cdd57a207bcba947677c3b51355883`; base/local/capture-only SMTP overlays. Pricing and notification workers retain their prior images, since this batch changes the web importer only.
+- All 580 units, typecheck, Linux production build and seven manifest guards passed. Eight real PostgreSQL scenarios cover concurrency/fault rollback/retries/audits/attributes/undo; final browser Imports lifecycle passed (including phone, six themes, enlarged text and access boundaries).
+- Review a CSV with resolved rows, confirm/cancel its commit, check exact stock plus `import_committed` audit records, retry the same batch, and review admin undo. Undo retains zero inventory rows and audits; changed/missing/legacy Pull-linked rows require manual review. See IMPORTS_WORKSPACE.md for transaction semantics and repeatable test command.
+- No merges, issue closures, schema migrations, acquisition/playtest changes or production deployment.
+
+
 ## Deck builder workspace, 2026-09-22
 
 - Review: http://127.0.0.1:13001/decks (open an existing deck).

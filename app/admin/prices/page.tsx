@@ -1,3 +1,5 @@
+import { PricingHistoryTotals } from "@/components/admin/PricingHistoryTotals";
+import { AdminNav } from "@/components/admin/AdminNav";
 export const dynamic = "force-dynamic";
 
 import { revalidatePath } from "next/cache";
@@ -141,16 +143,16 @@ export default async function AdminPricesPage({
     );
 
   return (
-    <main className="space-y-6 p-8">
+    <main className="min-w-0 space-y-4 p-4 sm:p-8">
       <Nav />
+      <AdminNav active="prices" />
       <section className="space-y-4 rounded border border-zinc-800 bg-zinc-950/60 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-3xl font-bold">Pricing worker</h1>
             <p className="mt-1 text-sm text-zinc-400">
-              Separate pricing database control plane. Inventory pages read the
-              latest projected card price from the main app database and keep
-              historical pricing out of page-load queries.
+              Monitor worker health and recent refresh jobs. Calculate
+              historical coverage separately when needed.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -212,33 +214,23 @@ export default async function AdminPricesPage({
           )}`}
         />
         <StatCard
-          label="Historical snapshots"
-          value={numberLabel(status.stats.snapshotCount)}
-          detail={`${numberLabel(status.stats.pricedCardCount)} priced cards`}
-        />
-        <StatCard
-          label="Latest observed price"
-          value={dateLabel(status.stats.latestObservedDate)}
-          detail={`Ingested ${dateLabel(status.stats.latestIngestedAt)}`}
-        />
-        <StatCard
           label="Job queue"
           value={`${numberLabel(status.stats.activeJobCount)} active`}
           detail={`${numberLabel(status.stats.failedJobCount)} failed jobs`}
         />
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded border border-zinc-800 bg-zinc-950/60 p-4">
+      <section className="grid min-w-0 gap-4 lg:grid-cols-2">
+        <div className="min-w-0 rounded border border-zinc-800 bg-zinc-950/60 p-4">
           <h2 className="text-lg font-semibold">Worker heartbeat</h2>
-          <div className="mt-3 space-y-2 text-sm">
+          <div className="mt-3 max-h-96 space-y-2 overflow-auto text-sm">
             {status.heartbeats.length ? (
               status.heartbeats.map((heartbeat) => (
                 <div
                   key={heartbeat.worker_id}
                   className="rounded border border-zinc-800 bg-zinc-900/70 p-3"
                 >
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <span className="font-mono text-xs text-zinc-400">
                       {heartbeat.worker_id}
                     </span>
@@ -260,9 +252,14 @@ export default async function AdminPricesPage({
           </div>
         </div>
 
-        <div className="rounded border border-zinc-800 bg-zinc-950/60 p-4">
+        <div className="min-w-0 rounded border border-zinc-800 bg-zinc-950/60 p-4">
           <h2 className="text-lg font-semibold">Recent jobs</h2>
-          <div className="mt-3 overflow-x-auto">
+          <div
+            className="mt-3 max-h-[32rem] overflow-auto"
+            role="region"
+            aria-label="Pricing job history"
+            tabIndex={0}
+          >
             <table className="w-full text-left text-sm">
               <thead className="text-xs uppercase text-zinc-500">
                 <tr>
@@ -310,6 +307,7 @@ export default async function AdminPricesPage({
                       <div>{numberLabel(job.processed_count)} processed</div>
                       <div className="text-xs text-zinc-500">
                         {numberLabel(job.inserted_count)} inserted /{" "}
+                        {numberLabel(job.corrected_count)} corrected /{" "}
                         {numberLabel(job.skipped_count)} skipped
                       </div>
                     </td>
@@ -337,77 +335,97 @@ export default async function AdminPricesPage({
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded border border-zinc-800 bg-zinc-950/60 p-4">
-          <h2 className="text-lg font-semibold">Recent runs</h2>
-          <div className="mt-3 space-y-2 text-sm">
-            {status.runs.map((run) => (
-              <div key={run.id} className="rounded border border-zinc-800 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-mono text-xs text-zinc-500">
-                    {run.id.slice(0, 8)}
-                  </span>
-                  <StatusPill status={run.status} />
-                </div>
-                <p className="mt-2 text-zinc-300">
-                  {run.message || run.error || "--"}
-                </p>
-                <p className="mt-1 text-xs text-zinc-500">
-                  Started {dateLabel(run.started_at)}
-                </p>
+      <PricingHistoryTotals />
+      <details className="rounded border border-[var(--app-border)] p-4">
+        <summary className="cursor-pointer font-semibold">
+          Run history and detailed logs
+        </summary>
+        <div className="mt-3 space-y-4">
+          <section className="grid min-w-0 gap-4 lg:grid-cols-2">
+            <div className="min-w-0 rounded border border-zinc-800 bg-zinc-950/60 p-4">
+              <h2 className="text-lg font-semibold">Recent runs</h2>
+              <div className="mt-3 max-h-96 space-y-2 overflow-auto text-sm">
+                {status.runs.map((run) => (
+                  <div
+                    key={run.id}
+                    className="rounded border border-zinc-800 p-3"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <span className="font-mono text-xs text-zinc-500">
+                        {run.id.slice(0, 8)}
+                      </span>
+                      <StatusPill status={run.status} />
+                    </div>
+                    <p className="mt-2 text-zinc-300">
+                      {run.message || run.error || "--"}
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Started {dateLabel(run.started_at)}
+                    </p>
+                  </div>
+                ))}
+                {!status.runs.length ? (
+                  <p className="text-sm text-zinc-500">
+                    No worker runs recorded.
+                  </p>
+                ) : null}
               </div>
-            ))}
-            {!status.runs.length ? (
-              <p className="text-sm text-zinc-500">No worker runs recorded.</p>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="rounded border border-zinc-800 bg-zinc-950/60 p-4">
-          <h2 className="text-lg font-semibold">Worker error log</h2>
-          <div className="mt-3 max-h-72 space-y-2 overflow-auto text-sm">
-            {errorLogs.map((log) => (
-              <div
-                key={log.id}
-                className="rounded border border-red-900/70 bg-red-950/20 p-3"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="uppercase text-red-300">{log.level}</span>
-                  <span className="text-xs text-zinc-500">
-                    {dateLabel(log.created_at)}
-                  </span>
-                </div>
-                <p className="mt-2 text-red-100">{log.message}</p>
-              </div>
-            ))}
-            {!errorLogs.length ? (
-              <p className="text-sm text-zinc-500">
-                No worker errors have been recorded.
-              </p>
-            ) : null}
-          </div>
-        </div>
-      </section>
-
-      <section className="rounded border border-zinc-800 bg-zinc-950/60 p-4">
-        <h2 className="text-lg font-semibold">Worker logs</h2>
-        <div className="mt-3 max-h-96 space-y-2 overflow-auto text-sm">
-          {status.logs.map((log) => (
-            <div key={log.id} className="rounded border border-zinc-800 p-3">
-              <div className="flex items-center justify-between gap-3">
-                <span className="uppercase text-zinc-500">{log.level}</span>
-                <span className="text-xs text-zinc-500">
-                  {dateLabel(log.created_at)}
-                </span>
-              </div>
-              <p className="mt-2 text-zinc-300">{log.message}</p>
             </div>
-          ))}
-          {!status.logs.length ? (
-            <p className="text-sm text-zinc-500">No worker logs recorded.</p>
-          ) : null}
+
+            <div className="min-w-0 rounded border border-zinc-800 bg-zinc-950/60 p-4">
+              <h2 className="text-lg font-semibold">Worker error log</h2>
+              <div className="mt-3 max-h-72 space-y-2 overflow-auto text-sm">
+                {errorLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="rounded border border-red-900/70 bg-red-950/20 p-3"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <span className="uppercase text-red-300">
+                        {log.level}
+                      </span>
+                      <span className="text-xs text-zinc-500">
+                        {dateLabel(log.created_at)}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-red-100">{log.message}</p>
+                  </div>
+                ))}
+                {!errorLogs.length ? (
+                  <p className="text-sm text-zinc-500">
+                    No worker errors have been recorded.
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </section>
+
+          <section className="min-w-0 rounded border border-zinc-800 bg-zinc-950/60 p-4">
+            <h2 className="text-lg font-semibold">Worker logs</h2>
+            <div className="mt-3 max-h-96 space-y-2 overflow-auto text-sm">
+              {status.logs.map((log) => (
+                <div
+                  key={log.id}
+                  className="rounded border border-zinc-800 p-3"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <span className="uppercase text-zinc-500">{log.level}</span>
+                    <span className="text-xs text-zinc-500">
+                      {dateLabel(log.created_at)}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-zinc-300">{log.message}</p>
+                </div>
+              ))}
+              {!status.logs.length ? (
+                <p className="text-sm text-zinc-500">
+                  No worker logs recorded.
+                </p>
+              ) : null}
+            </div>
+          </section>
         </div>
-      </section>
+      </details>
     </main>
   );
 }
