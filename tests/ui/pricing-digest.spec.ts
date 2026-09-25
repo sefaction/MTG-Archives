@@ -79,6 +79,8 @@ test("daily Pricing digest is opt-in, bounded, owner-scoped and replay-safe", as
     pricingSql(
       `${refreshPricingSummariesSql(JSON.stringify(keys))} UPDATE price_summary_state SET ready=TRUE, source_max_id=(SELECT MAX(id) FROM price_snapshots), refreshed_at=now() WHERE singleton=TRUE;`,
     );
+    const firstRunDate = new Date();
+    firstRunDate.setUTCHours(3, 0, 0, 0);
     const runDigest = () =>
       execFileSync(
         "docker",
@@ -87,7 +89,7 @@ test("daily Pricing digest is opt-in, bounded, owner-scoped and replay-safe", as
           "mtg-archives-web-1",
           "./node_modules/.bin/tsx",
           "-e",
-          "import {processDailyPricingDigests} from './lib/pricing-notification-digests'; processDailyPricingDigests().then(console.log)",
+          `import {processDailyPricingDigests} from './lib/pricing-notification-digests'; processDailyPricingDigests(new Date('${firstRunDate.toISOString()}')).then(console.log)`,
         ],
         { encoding: "utf8", timeout: 90_000 },
       );
