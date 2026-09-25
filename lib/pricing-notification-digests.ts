@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 
 export const PRICING_DIGEST_CATEGORY = "pricing_movers";
 const MAX_DIGEST_CARDS = 100;
+const MAX_CATCHUP_DAYS_PER_RUN = 3;
+const MAX_CATCHUP_AGE_DAYS = 90;
 
 type Movement = {
   mtgjsonUuid: string;
@@ -84,6 +86,39 @@ export function priorUtcDay(now: Date) {
   );
   day.setUTCDate(day.getUTCDate() - 1);
   return day.toISOString().slice(0, 10);
+}
+
+export function pendingPricingImportDaysSql(input: {
+  enabledAt: Date;
+  lastProcessedImportDate: Date | null;
+  latestImportDate: string;
+  provider: string;
+  finish: string;
+  priceType: string;
+  currency: string;
+}) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.latestImportDate))
+    throw new Error("Invalid latest import date.");
+  const latestStart = Date.parse(`${input.latestImportDate}T00:00:00.000Z`);
+  const oldestStart = new Date(latestStart - (MAX_CATCHUP_AGE_DAYS - 1) * 86_400_000).toISOString();
+  const from = new Date(Math.max(input.enabledAt.getTime(), Date.parse(oldestStart))).toISOString();
+  const nextDay = new Date(latestStart + 86_400_000).toISOString();
+  const cursorDate = input.lastProcessedImportDate?.toISOString().slice(0, 10);
+  const after = input.lastProcessedImportDate
+    ? `AND (created_at AT TIME ZONE 'UTC')::date ${cursorDate === input.latestImportDate ? ">=" : ">"} ${sqlString(cursorDate!)}::date`
+    : "";
+  return `SELECT DISTINCT (created_at AT TIME ZONE 'UTC')::date::text AS "importedDate"
+    FROM price_daily_summary
+    WHERE created_at >= ${sqlString(from)}::timestamptz
+      AND created_at < ${sqlString(nextDay)}::timestamptz
+      ${after}
+      AND provider = ${sqlString(input.provider)}
+      AND finish = ${sqlString(input.finish)}
+      AND price_type = ${sqlString(input.priceType)}
+      AND currency = ${sqlString(input.currency)}
+      AND observed_date BETWEEN (created_at AT TIME ZONE 'UTC')::date - INTERVAL '90 days' AND (created_at AT TIME ZONE 'UTC')::date
+    ORDER BY "importedDate" ASC
+    LIMIT ${MAX_CATCHUP_DAYS_PER_RUN + 1}`;
 }
 
 export function dailyPricingMovementSql(input: {
@@ -167,15 +202,27 @@ function money(value: number, currency: string) {
   }).format(value);
 }
 
+async function recordDigestProgress(userId: string, importedDate: string, now: Date, sent = false) {
+  await prisma.pricingAlertPreference.update({
+    where: { userId },
+    data: {
+      lastProcessedImportDate: new Date(`${importedDate}T00:00:00.000Z`),
+      lastCheckedAt: now,
+      lastError: null,
+      ...(sent ? { lastSentAt: now } : {}),
+    },
+  });
+}
+
 export async function processDailyPricingDigests(now = new Date()) {
   // Wait until 02:00 UTC so a daily import has time to finish. Replay is safe.
   if (now.getUTCHours() < 2) return { checked: 0, created: 0 };
-  const observedDate = priorUtcDay(now);
-  const dayEnd = new Date(`${observedDate}T23:59:59.999Z`);
+  const latestImportDate = priorUtcDay(now);
+  const latestDayEnd = new Date(`${latestImportDate}T23:59:59.999Z`);
   const preferences = await prisma.pricingAlertPreference.findMany({
     where: {
       enabled: true,
-      enabledAt: { lte: dayEnd },
+      enabledAt: { lte: latestDayEnd },
       user: { isActive: true, playerId: { not: null } },
     },
     include: { user: { select: { playerId: true } } },
@@ -196,24 +243,14 @@ export async function processDailyPricingDigests(now = new Date()) {
   let created = 0;
   for (const preference of preferences) {
     try {
-      const existing = await prisma.notification.findUnique({
-        where: {
-          recipientUserId_sourceType_sourceId: {
-            recipientUserId: preference.userId,
-            sourceType: "pricing_digest",
-            sourceId: observedDate,
-          },
-        },
-        select: { id: true },
-      });
-      if (existing || !preference.user.playerId || !preference.enabledAt)
+      if (!preference.user.playerId || !preference.enabledAt)
         continue;
       if (
+        preference.lastProcessedImportDate?.toISOString().slice(0, 10) === latestImportDate &&
         preference.lastCheckedAt &&
         now.getTime() - preference.lastCheckedAt.getTime() < 30 * 60_000
       )
         continue;
-      checked += 1;
       const stacks = await prisma.inventoryItem.groupBy({
         by: ["cardId", "foilStatus"],
         where: {
@@ -226,10 +263,7 @@ export async function processDailyPricingDigests(now = new Date()) {
         (stack) => finishForFoilStatus(stack.foilStatus) === preference.finish,
       );
       if (!matching.length) {
-        await prisma.pricingAlertPreference.update({
-          where: { userId: preference.userId },
-          data: { lastCheckedAt: now, lastError: null },
-        });
+        await recordDigestProgress(preference.userId, latestImportDate, now);
         continue;
       }
       const cards = await prisma.card.findMany({
@@ -255,178 +289,211 @@ export async function processDailyPricingDigests(now = new Date()) {
             (quantities.get(uuid) ?? 0) + (stack._sum.quantity ?? 0),
           );
       }
-      const query = dailyPricingMovementSql({
-        owned: [...quantities].map(([mtgjsonUuid, quantity]) => ({
-          mtgjsonUuid,
-          quantity,
-        })),
-        observedDate,
-        enabledAt: preference.enabledAt,
-        provider: preference.provider,
-        finish: preference.finish,
-        priceType: preference.priceType,
-        currency: preference.currency,
-        thresholdMode: preference.thresholdMode,
-        minAbsolute: Number(preference.minAbsolute),
-        minPercent: Number(preference.minPercent),
-        minPriorPrice: Number(preference.minPriorPrice),
-      });
-      if (!query) continue;
-      const movers = await queryPricingJson<Movement>(query, {
-        timeoutMs: 10_000,
-      });
-      // Only retract movements that this owner actually saw. A prior digest's
-      // total may exceed its stored detail cap, so unshown movements do not qualify.
-      const previous = await prisma.notification.findMany({
-        where: {
-          recipientUserId: preference.userId,
-          sourceType: "pricing_digest",
-          sourceId: { lt: observedDate },
-          createdAt: { gte: new Date(dayEnd.getTime() - 100 * 86_400_000) },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 100,
-        select: { metadataJson: true },
-      });
-      const alerted = new Map<string, AlertedMovement>();
-      const retracted = new Set<string>();
-      for (const notification of previous) {
-        const metadata = notification.metadataJson;
-        if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) continue;
-        if (metadata.provider !== preference.provider || metadata.finish !== preference.finish ||
-            metadata.priceType !== preference.priceType || metadata.currency !== preference.currency) continue;
-        if (Array.isArray(metadata.retractedMovers)) {
-          for (const item of metadata.retractedMovers) {
-            if (item && typeof item === "object" && !Array.isArray(item) &&
-                typeof item.mtgjsonUuid === "string" && typeof item.currentDate === "string") {
-              const key = `${item.mtgjsonUuid}:${item.currentDate}`;
-              if (!alerted.has(key)) retracted.add(key);
-            }
-          }
-        }
-        if (!Array.isArray(metadata.shownMovers)) continue;
-        for (const item of metadata.shownMovers) {
-          if (!item || typeof item !== "object" || Array.isArray(item) ||
-              typeof item.mtgjsonUuid !== "string" || typeof item.currentDate !== "string" ||
-              typeof item.currentPrice !== "number" || !/^\d{4}-\d{2}-\d{2}$/.test(item.currentDate)) continue;
-          const key = `${item.mtgjsonUuid}:${item.currentDate}`;
-          if (!alerted.has(key) && !retracted.has(key)) alerted.set(key, {
-            mtgjsonUuid: item.mtgjsonUuid,
-            currentObservedDate: item.currentDate,
-            currentPrice: item.currentPrice,
-          });
-        }
-      }
-      const ownedAlerted = [...alerted].filter(([key, item]) =>
-        !retracted.has(key) && quantities.has(item.mtgjsonUuid));
-      const retractionQuery = pricingRetractionSql({
-        alerted: ownedAlerted.map(([, item]) => item),
-        importedDate: observedDate,
-        provider: preference.provider,
-        finish: preference.finish,
-        priceType: preference.priceType,
-        currency: preference.currency,
-      });
-      const corrected = retractionQuery
-        ? await queryPricingJson<Movement & { previouslyAlertedPrice: number }>(retractionQuery, { timeoutMs: 10_000 })
-        : [];
-      const retractions: Retraction[] = corrected
-        .filter((row) => !isMeaningfulMovement(row, preference))
-        .map((row) => ({
-          ...row,
-          ownedQuantity: quantities.get(row.mtgjsonUuid) ?? 0,
-          collectionImpact: row.absoluteChange * (quantities.get(row.mtgjsonUuid) ?? 0),
-          totalMovers: 0,
-          isCorrection: true,
-        }));
-      if (!movers.length && !retractions.length) {
-        if (preference.lastError)
-          await prisma.pricingAlertPreference.update({
-            where: { userId: preference.userId },
-            data: { lastCheckedAt: now, lastError: null },
-          });
-        else
-          await prisma.pricingAlertPreference.update({
-            where: { userId: preference.userId },
-            data: { lastCheckedAt: now },
-          });
+      if (!quantities.size) {
+        await recordDigestProgress(preference.userId, latestImportDate, now);
         continue;
       }
-      const byUuid = new Map(
-        cards
-          .filter((card) => card.mtgjsonUuid)
-          .map((card) => [card.mtgjsonUuid, card]),
+      const pending = await queryPricingJson<{ importedDate: string }>(
+        pendingPricingImportDaysSql({
+          enabledAt: preference.enabledAt,
+          lastProcessedImportDate: preference.lastProcessedImportDate,
+          latestImportDate,
+          provider: preference.provider,
+          finish: preference.finish,
+          priceType: preference.priceType,
+          currency: preference.currency,
+        }),
+        { timeoutMs: 10_000 },
       );
-      const top = movers.slice(0, 3).map((row) => {
-        const card = byUuid.get(row.mtgjsonUuid);
-        return `${card?.name ?? "Unknown printing"} ${row.absoluteChange > 0 ? "+" : ""}${money(row.absoluteChange, preference.currency)}`;
-      });
-      const count = movers[0]?.totalMovers ?? 0;
-      const href = `/pricing/digest/${observedDate}`;
-      await createNotification(
-        {
-          recipientUserId: preference.userId,
-          type: "pricing.digest",
-          category: PRICING_DIGEST_CATEGORY,
-          title: `${count} owned price ${count === 1 ? "mover" : "movers"}${retractions.length ? `, ${retractions.length} corrected below threshold` : ""} imported ${observedDate}`,
-          message: `${top.join("; ")}${count > top.length ? `; and ${count - top.length} more` : ""}${retractions.length ? `${top.length ? "; " : ""}${retractions.length} previously alerted ${retractions.length === 1 ? "movement was" : "movements were"} corrected below threshold` : ""}. Observed dates appear in the digest. Captured ${now.toISOString().slice(0, 16)} UTC.`,
-          href,
-          sourceType: "pricing_digest",
-          sourceId: observedDate,
-          metadata: {
-            observedDate,
-            importedDate: observedDate,
-            provider: preference.provider,
-            finish: preference.finish,
-            priceType: preference.priceType,
-            currency: preference.currency,
-            totalMovers: count,
-            generatedAt: now.toISOString(),
-            shownMovers: movers.map((row) => ({
-              mtgjsonUuid: row.mtgjsonUuid,
-              cardId: byUuid.get(row.mtgjsonUuid)?.id ?? null,
-              cardName: byUuid.get(row.mtgjsonUuid)?.name ?? null,
-              setCode: byUuid.get(row.mtgjsonUuid)?.setCode ?? null,
-              collectorNumber:
-                byUuid.get(row.mtgjsonUuid)?.collectorNumber ?? null,
-              startPrice: row.startPrice,
-              currentPrice: row.currentPrice,
-              absoluteChange: row.absoluteChange,
-              percentChange: row.percentChange,
-              priorDate: row.startObservedDate,
-              currentDate: row.currentObservedDate,
-              ownedQuantity: row.ownedQuantity,
-              collectionImpact: row.collectionImpact,
-              isCorrection: row.isCorrection,
-            })),
-            retractedMovers: retractions.slice(0, MAX_DIGEST_CARDS).map((row) => ({
-              mtgjsonUuid: row.mtgjsonUuid,
-              cardId: byUuid.get(row.mtgjsonUuid)?.id ?? null,
-              cardName: byUuid.get(row.mtgjsonUuid)?.name ?? null,
-              setCode: byUuid.get(row.mtgjsonUuid)?.setCode ?? null,
-              collectorNumber: byUuid.get(row.mtgjsonUuid)?.collectorNumber ?? null,
-              startPrice: row.startPrice,
-              currentPrice: row.currentPrice,
-              previouslyAlertedPrice: row.previouslyAlertedPrice,
-              absoluteChange: row.absoluteChange,
-              percentChange: row.percentChange,
-              priorDate: row.startObservedDate,
-              currentDate: row.currentObservedDate,
-              ownedQuantity: row.ownedQuantity,
-              collectionImpact: row.collectionImpact,
-            })),
+      if (!pending.length) {
+        await recordDigestProgress(preference.userId, latestImportDate, now);
+        continue;
+      }
+      for (const { importedDate: observedDate } of pending.slice(0, MAX_CATCHUP_DAYS_PER_RUN)) {
+        const existing = await prisma.notification.findUnique({
+          where: {
+            recipientUserId_sourceType_sourceId: {
+              recipientUserId: preference.userId,
+              sourceType: "pricing_digest",
+              sourceId: observedDate,
+            },
           },
-        },
-        {
-          notification: prisma.notification,
-          notificationDeliveryJob: prisma.notificationDeliveryJob,
-        },
-      );
-      await prisma.pricingAlertPreference.update({
-        where: { userId: preference.userId },
-        data: { lastSentAt: now, lastCheckedAt: now, lastError: null },
-      });
-      created += 1;
+          select: { id: true },
+        });
+        if (existing) {
+          await recordDigestProgress(preference.userId, observedDate, now);
+          continue;
+        }
+        checked += 1;
+        const dayEnd = new Date(`${observedDate}T23:59:59.999Z`);
+        const query = dailyPricingMovementSql({
+          owned: [...quantities].map(([mtgjsonUuid, quantity]) => ({
+            mtgjsonUuid,
+            quantity,
+          })),
+          observedDate,
+          enabledAt: preference.enabledAt,
+          provider: preference.provider,
+          finish: preference.finish,
+          priceType: preference.priceType,
+          currency: preference.currency,
+          thresholdMode: preference.thresholdMode,
+          minAbsolute: Number(preference.minAbsolute),
+          minPercent: Number(preference.minPercent),
+          minPriorPrice: Number(preference.minPriorPrice),
+        });
+        if (!query) {
+          await recordDigestProgress(preference.userId, observedDate, now);
+          continue;
+        }
+        const movers = await queryPricingJson<Movement>(query, {
+          timeoutMs: 10_000,
+        });
+        // Only retract movements that this owner actually saw. A prior digest's
+        // total may exceed its stored detail cap, so unshown movements do not qualify.
+        const previous = await prisma.notification.findMany({
+          where: {
+            recipientUserId: preference.userId,
+            sourceType: "pricing_digest",
+            sourceId: { lt: observedDate },
+            createdAt: { gte: new Date(dayEnd.getTime() - 100 * 86_400_000) },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 100,
+          select: { metadataJson: true },
+        });
+        const alerted = new Map<string, AlertedMovement>();
+        const retracted = new Set<string>();
+        for (const notification of previous) {
+          const metadata = notification.metadataJson;
+          if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) continue;
+          if (metadata.provider !== preference.provider || metadata.finish !== preference.finish ||
+              metadata.priceType !== preference.priceType || metadata.currency !== preference.currency) continue;
+          if (Array.isArray(metadata.retractedMovers)) {
+            for (const item of metadata.retractedMovers) {
+              if (item && typeof item === "object" && !Array.isArray(item) &&
+                  typeof item.mtgjsonUuid === "string" && typeof item.currentDate === "string") {
+                const key = `${item.mtgjsonUuid}:${item.currentDate}`;
+                if (!alerted.has(key)) retracted.add(key);
+              }
+            }
+          }
+          if (!Array.isArray(metadata.shownMovers)) continue;
+          for (const item of metadata.shownMovers) {
+            if (!item || typeof item !== "object" || Array.isArray(item) ||
+                typeof item.mtgjsonUuid !== "string" || typeof item.currentDate !== "string" ||
+                typeof item.currentPrice !== "number" || !/^\d{4}-\d{2}-\d{2}$/.test(item.currentDate)) continue;
+            const key = `${item.mtgjsonUuid}:${item.currentDate}`;
+            if (!alerted.has(key) && !retracted.has(key)) alerted.set(key, {
+              mtgjsonUuid: item.mtgjsonUuid,
+              currentObservedDate: item.currentDate,
+              currentPrice: item.currentPrice,
+            });
+          }
+        }
+        const ownedAlerted = [...alerted].filter(([key, item]) =>
+          !retracted.has(key) && quantities.has(item.mtgjsonUuid));
+        const retractionQuery = pricingRetractionSql({
+          alerted: ownedAlerted.map(([, item]) => item),
+          importedDate: observedDate,
+          provider: preference.provider,
+          finish: preference.finish,
+          priceType: preference.priceType,
+          currency: preference.currency,
+        });
+        const corrected = retractionQuery
+          ? await queryPricingJson<Movement & { previouslyAlertedPrice: number }>(retractionQuery, { timeoutMs: 10_000 })
+          : [];
+        const retractions: Retraction[] = corrected
+          .filter((row) => !isMeaningfulMovement(row, preference))
+          .map((row) => ({
+            ...row,
+            ownedQuantity: quantities.get(row.mtgjsonUuid) ?? 0,
+            collectionImpact: row.absoluteChange * (quantities.get(row.mtgjsonUuid) ?? 0),
+            totalMovers: 0,
+            isCorrection: true,
+          }));
+        if (!movers.length && !retractions.length) {
+          await recordDigestProgress(preference.userId, observedDate, now);
+          continue;
+        }
+        const byUuid = new Map(
+          cards
+            .filter((card) => card.mtgjsonUuid)
+            .map((card) => [card.mtgjsonUuid, card]),
+        );
+        const top = movers.slice(0, 3).map((row) => {
+          const card = byUuid.get(row.mtgjsonUuid);
+          return `${card?.name ?? "Unknown printing"} ${row.absoluteChange > 0 ? "+" : ""}${money(row.absoluteChange, preference.currency)}`;
+        });
+        const count = movers[0]?.totalMovers ?? 0;
+        const href = `/pricing/digest/${observedDate}`;
+        await createNotification(
+          {
+            recipientUserId: preference.userId,
+            type: "pricing.digest",
+            category: PRICING_DIGEST_CATEGORY,
+            title: `${count} owned price ${count === 1 ? "mover" : "movers"}${retractions.length ? `, ${retractions.length} corrected below threshold` : ""} imported ${observedDate}`,
+            message: `${top.join("; ")}${count > top.length ? `; and ${count - top.length} more` : ""}${retractions.length ? `${top.length ? "; " : ""}${retractions.length} previously alerted ${retractions.length === 1 ? "movement was" : "movements were"} corrected below threshold` : ""}. Observed dates appear in the digest. ${observedDate !== latestImportDate ? "Missed-day catch-up; owned quantity is current at generation. " : ""}Captured ${now.toISOString().slice(0, 16)} UTC.`,
+            href,
+            sourceType: "pricing_digest",
+            sourceId: observedDate,
+            metadata: {
+              observedDate,
+              importedDate: observedDate,
+              isCatchup: observedDate !== latestImportDate,
+              provider: preference.provider,
+              finish: preference.finish,
+              priceType: preference.priceType,
+              currency: preference.currency,
+              totalMovers: count,
+              generatedAt: now.toISOString(),
+              shownMovers: movers.map((row) => ({
+                mtgjsonUuid: row.mtgjsonUuid,
+                cardId: byUuid.get(row.mtgjsonUuid)?.id ?? null,
+                cardName: byUuid.get(row.mtgjsonUuid)?.name ?? null,
+                setCode: byUuid.get(row.mtgjsonUuid)?.setCode ?? null,
+                collectorNumber:
+                  byUuid.get(row.mtgjsonUuid)?.collectorNumber ?? null,
+                startPrice: row.startPrice,
+                currentPrice: row.currentPrice,
+                absoluteChange: row.absoluteChange,
+                percentChange: row.percentChange,
+                priorDate: row.startObservedDate,
+                currentDate: row.currentObservedDate,
+                ownedQuantity: row.ownedQuantity,
+                collectionImpact: row.collectionImpact,
+                isCorrection: row.isCorrection,
+              })),
+              retractedMovers: retractions.slice(0, MAX_DIGEST_CARDS).map((row) => ({
+                mtgjsonUuid: row.mtgjsonUuid,
+                cardId: byUuid.get(row.mtgjsonUuid)?.id ?? null,
+                cardName: byUuid.get(row.mtgjsonUuid)?.name ?? null,
+                setCode: byUuid.get(row.mtgjsonUuid)?.setCode ?? null,
+                collectorNumber: byUuid.get(row.mtgjsonUuid)?.collectorNumber ?? null,
+                startPrice: row.startPrice,
+                currentPrice: row.currentPrice,
+                previouslyAlertedPrice: row.previouslyAlertedPrice,
+                absoluteChange: row.absoluteChange,
+                percentChange: row.percentChange,
+                priorDate: row.startObservedDate,
+                currentDate: row.currentObservedDate,
+                ownedQuantity: row.ownedQuantity,
+                collectionImpact: row.collectionImpact,
+              })),
+            },
+          },
+          {
+            notification: prisma.notification,
+            notificationDeliveryJob: prisma.notificationDeliveryJob,
+          },
+        );
+        await recordDigestProgress(preference.userId, observedDate, now, true);
+        created += 1;
+      }
+      if (pending.length <= MAX_CATCHUP_DAYS_PER_RUN &&
+          pending[pending.length - 1]?.importedDate !== latestImportDate)
+        await recordDigestProgress(preference.userId, latestImportDate, now);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await prisma.pricingAlertPreference.update({
