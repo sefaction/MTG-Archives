@@ -1144,6 +1144,7 @@ model PricingAlertPreference {
   minPriorPrice    Decimal  @default(1) @db.Decimal(12, 4)
   lastSentAt       DateTime?
   lastCheckedAt    DateTime?
+  lastProcessedImportDate DateTime? @db.Date
   lastError        String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
