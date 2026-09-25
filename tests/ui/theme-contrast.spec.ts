@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 function color(value: string) {
   if (value.startsWith("#")) {
@@ -30,6 +30,14 @@ function contrast(foreground: number[], background: number[]) {
     (left, right) => right - left,
   );
   return (values[0] + 0.05) / (values[1] + 0.05);
+}
+
+async function logIn(page: Page) {
+  await page.goto("/login");
+  await page.getByLabel(/username or email/i).fill(process.env.UI_ADMIN_USERNAME || "admin");
+  await page.getByLabel(/^password$/i).fill(process.env.UI_ADMIN_PASSWORD || "admin123");
+  await page.getByRole("button", { name: /^log in$/i }).click();
+  await page.waitForURL(/dashboard/);
 }
 
 test("navigation brand hover text remains legible in all six themes", async ({
@@ -80,11 +88,7 @@ test("navigation brand hover text remains legible in all six themes", async ({
 test("primary actions remain legible across themes and hover states", async ({
   page,
 }) => {
-  await page.goto("/login");
-  await page.getByLabel(/username or email/i).fill(process.env.UI_ADMIN_USERNAME || "admin");
-  await page.getByLabel(/^password$/i).fill(process.env.UI_ADMIN_PASSWORD || "admin123");
-  await page.getByRole("button", { name: /^log in$/i }).click();
-  await page.waitForURL(/dashboard/);
+  await logIn(page);
   await page.goto("/settings");
   await page.addStyleTag({ content: "* { transition: none !important; }" });
   const action = page.getByRole("button", { name: "Save settings" });
@@ -126,6 +130,63 @@ test("primary actions remain legible across themes and hover states", async ({
           `${theme} primary action ${state} over ${surface}`,
         ).toBeGreaterThanOrEqual(4.5);
       }
+    }
+  }
+});
+
+test("admin mode toggle keeps its label legible in both states", async ({
+  page,
+}) => {
+  await logIn(page);
+  await page.goto("/settings");
+  for (const active of [false, true]) {
+    await page.addStyleTag({ content: "* { transition: none !important; }" });
+    const name = active ? "Exit Admin Mode" : "Enter Admin Mode";
+    const action = page.getByRole("button", { name, exact: true });
+    for (const theme of [
+      "golgari",
+      "azorius",
+      "izzet",
+      "selesnya",
+      "rakdos",
+      "lotus",
+    ]) {
+      await page.locator("html").evaluate((element, value) => {
+        element.setAttribute("data-theme", value);
+      }, theme);
+      for (const state of ["normal", "hover"] as const) {
+        if (state === "hover") await action.hover();
+        else await page.mouse.move(0, 0);
+        const rendered = await action.evaluate((element) => {
+          const style = getComputedStyle(element);
+          const tokens = getComputedStyle(document.documentElement);
+          return {
+            text: style.color,
+            highlight: style.backgroundColor,
+            surfaces: ["--app-surface", "--app-bg"].map((token) =>
+              tokens.getPropertyValue(token).trim(),
+            ),
+          };
+        });
+        const alpha = opacity(rendered.highlight);
+        const highlight = color(rendered.highlight);
+        for (const surface of rendered.surfaces) {
+          const backdrop = color(surface);
+          const background = highlight.map(
+            (channel, index) => channel * alpha + backdrop[index] * (1 - alpha),
+          );
+          expect(
+            contrast(color(rendered.text), background),
+            `${theme} ${name} ${state} over ${surface}`,
+          ).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    }
+    if (!active) {
+      await action.click();
+      await expect(
+        page.getByRole("button", { name: "Exit Admin Mode", exact: true }),
+      ).toBeVisible();
     }
   }
 });
