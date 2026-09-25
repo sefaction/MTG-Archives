@@ -1,10 +1,20 @@
 # Resumable work checkpoint
 
+## Approved raw archive planning merge, 2026-09-25
+
+The user individually approved [PR #354](https://github.com/sefaction/MTG-Archives/pull/354) and [PR #355](https://github.com/sefaction/MTG-Archives/pull/355) for merge. #354 merged first. #355 is being updated against current `main` after documentation conflicts; fresh CI and its final merge are pending. The conflict resolution retains both archive design and planner runbook text. The local Docker image `sha256:aa6b4ade769d9f6c5f3abd421c4168f3c85b7e0ae59a6fad48a789d2241ecd3f` includes the planner, runs web and both workers, and passed host `/login` HTTP 200. Next safe step: push the updated #355 branch, wait for fresh Core/PostgreSQL checks, merge #355, sync `main`, and reload Docker from merged `main`. Keep #330 open; no raw deletion or scheduler is active.
+
 ## Read-only raw retention planning, 2026-09-25
 
 Active branch `feat/pricing-raw-retention-plan` from merged `main` (`fb8a1fe`) is [PR #355](https://github.com/sefaction/MTG-Archives/pull/355) for issue #330. It reports the 90-day default live-raw cutoff, candidate counts/dates, first 30 older observed days, raw table/index bytes and summary freshness in a repeatable read-only transaction; it cannot archive or delete. Typecheck, production Docker build/manifest guards and both PR CI checks passed. The local plan found 2,020,425 raw rows spanning June 30–September 24, zero rows older than the proposed June 26 cutoff, `summaryReady: true`, and `rawDeletionEnabled: false`; `--apply` was rejected. Docker image `sha256:aa6b4ade769d9f6c5f3abd421c4168f3c85b7e0ae59a6fad48a789d2241ecd3f` is loaded into web and both workers; web is healthy and host `/login` returned HTTP 200. The PR awaits individual approval.
 
 The user explicitly approved #348, #349, #350, #351 and #353, and all merged into `main` after fresh Core and PostgreSQL checks. #335 and #352 are closed. Independent documentation [PR #354](https://github.com/sefaction/MTG-Archives/pull/354) describes the full off-hours archive/correction contract, is green, and awaits individual approval. #315 remains unapproved and unmerged. #330 and wider UI acceptance #274 remain open. No raw deletion, scheduler or production deployment is active. Next safe step: review #354 and #355 individually, then implement #330 archive-aware refresh and verified retention in separate batches. Keep the local review image loaded.
+
+## Archive design premerge checkpoint, 2026-09-25
+
+Base `main` at `fb8a1fe`, matching `origin/main`. Active branch `docs/pricing-raw-archive-design` at `9924a75` adds the #330 operating design in [PR #354](https://github.com/sefaction/MTG-Archives/pull/354), which is open for individual review. The user explicitly approved #348, #349, #350, #351 and #353; each merged in dependency order after fresh Core and PostgreSQL checks on updated heads. #315 remains open and has no merge approval. #335 and #352 are closed with resolution notes; #330 is open for the automated roughly 90-day live raw archive and off-hours correction workflow, and #274 remains open for broader UI acceptance. The user chose one digest per missed UTC import day, stale source status in Settings without an outage notice, about 90 days of live raw snapshots, and automated older-correction maintenance during 2–5 a.m. America/Chicago. No raw deletion or scheduled archive maintenance is active.
+
+Merged `main` Docker image `sha256:d202774cb8610473c382a431ca07b329511d0de5fbec49b37c4b19402a97a6fe` is loaded into local web, pricing-worker and notification-worker. Web is healthy; host `/login` returned HTTP 200. The focused serial browser cases for the Pricing digest and three six-theme contrast paths passed 4/4. CI on every final merged head passed Core and PostgreSQL verification. #354 is documentation only, so this image also represents its application source. #354 CI is running. No production deployment. Next safe step: verify #354 CI, then implement #330's archive-aware refresh and retention gates in separate batches. Keep #315 unmerged.
 
 ## Pricing daily archive gate in progress, 2026-09-24
 
