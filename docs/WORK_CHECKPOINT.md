@@ -1,5 +1,13 @@
 # Resumable work checkpoint
 
+## Card Acquisition Framework planned, implementation deferred, 2026-09-22 local
+
+- Branch `docs/card-acquisition-plan` began at merged `bfb7be8`. Planning only: no production code, dependencies, Prisma/schema/data, Docker, OCR or driver changes. Implementation remains deferred while current bugs and UI work take priority.
+- Plan: `docs/CARD_ACQUISITION_PLAN.md`, architecture, executable milestones and validation companion documents; original prompt/report preserved under `docs/reference/card-acquisition/`. Live umbrella #302 and milestone 3; P1–P12 issues #303–#314 are active queue items. Separate importer integrity/audit gap #301 was resolved later, outside this planning PR.
+- Confirmed decisions: complete image-upload release first; mostly English loose unsleeved cards; typical session up to about 100; USB scanner on Windows with separately hosted Archive; allow a freshly confirmed and audited over-capacity override.
+- Review [PR #315](https://github.com/sefaction/MTG-Archives/pull/315). Its authored planning documents and preserved source references are Markdown only; no acquisition implementation or Docker rebuild is claimed. The branch has been brought up to date with `main` while preserving this handoff and subsequent checkpoint sections. No individual merge approval has been given.
+- Open phase decisions include retention/quotas before uploads, recognition engine/corpus evaluation, all-writer capacity coordination, and Windows agent native runtime/TLS/package choices. Next safe step: review the documentation PR; do not infer authorization to start acquisition implementation from this plan.
+
 ## UI phone touch acceptance follow-up, 2026-09-23
 
 Active branch `test/ui-touch-acceptance` from `main`. [PR #346](https://github.com/sefaction/MTG-Archives/pull/346) adds a touch-enabled Chromium phone path at 390 and 320 CSS px covering sign-in, navigation to Inventory, modal filter drafting/closing/reopening, and navigation to Settings. It asserts coarse pointer and no page overflow, and documents its limited evidence in `docs/UI_ACCEPTANCE_STATUS.md`. Both Core and PostgreSQL CI passed. The application source did not change; the existing cumulative Docker image `sha256:ad11e9ecb7bdcea6035b6ed47fc7c7ccfb74f8eb9421c581fa2ca9775bc118c4` remains loaded and healthy. Typecheck, 582 main-branch unit tests and three focused Inventory/navigation/touch browser cases passed. Fixture cleanup left zero touch users/players and 12,477 physical copies. Keep #274 open for real hardware/browser zoom, all-theme/role, and human task review. No merge or production deployment.
@@ -407,4 +415,3 @@ Next safe step: investigate #260 with repeated browser lifecycle runs and creden
 - Compatible private recovery capture: `.local-data/backups/drill-e7b779ba-5758-4b40-aa32-b762d9d46bd3`. Older PG18 capture `drill-e171be3b-98c3-403e-87ce-2f3aa99ca6af` is failed evidence, not a verified backup.
 - Recovery archive excludes separate pricing DB/configuration/master key. Filesystem copy is not atomic with DB replacement. Revoke restored AuthSession records before exposing a restored web server; see AUTH_SESSIONS.md.
 - Read Foundry hub/workflow/relevant notes before batches. Durable knowledge goes there; code/test evidence in repo/GitHub.
-
