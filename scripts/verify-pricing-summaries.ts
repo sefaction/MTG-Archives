@@ -42,8 +42,10 @@ const key = [
   },
 ];
 const refresh = refreshPricingSummariesSql(JSON.stringify(key));
+let previousCutoff: string | null = null;
 try {
   sql(pricingSummarySchemaSql);
+  previousCutoff = sql("SELECT COALESCE(daily_compacted_through::text, '') FROM price_summary_state WHERE singleton = TRUE;");
   sql(`INSERT INTO price_snapshots
     (mtgjson_uuid, provider, finish, price_type, currency, observed_date, price)
     VALUES
@@ -85,8 +87,31 @@ try {
          FROM price_yearly_summary WHERE mtgjson_uuid = '${uuid}' AND year_start = '2026-01-01'`),
     "10.0000:8.0000:15.0000:3",
   );
+  // A past point is compacted from daily only after all longer tiers refresh.
+  // A subsequent correction of that raw-backed point must rebuild the tiers.
+  assert.equal(previousCutoff, "", "Preservation fixture requires an uncompacted local database");
+  sql(`INSERT INTO price_snapshots
+    (mtgjson_uuid, provider, finish, price_type, currency, observed_date, price)
+    VALUES ('${uuid}', 'tcgplayer', 'normal', 'retail', 'USD', '2026-01-10', 5);
+    UPDATE price_summary_state SET daily_compacted_through = '2026-06-29' WHERE singleton = TRUE;`);
+  sql(refresh);
+  assert.equal(sql(`SELECT COUNT(*) FROM price_daily_summary WHERE mtgjson_uuid = '${uuid}'`), "3");
+  assert.equal(sql(`SELECT close_price || ':' || observation_count FROM price_monthly_summary
+    WHERE mtgjson_uuid = '${uuid}' AND month_start = '2026-01-01'`), "5.0000:1");
+  assert.equal(sql(`SELECT open_price || ':' || observation_count FROM price_yearly_summary
+    WHERE mtgjson_uuid = '${uuid}' AND year_start = '2026-01-01'`), "5.0000:4");
+  sql(`UPDATE price_snapshots SET price = 7, created_at = now()
+    WHERE mtgjson_uuid = '${uuid}' AND observed_date = '2026-01-10'`);
+  sql(refresh);
+  assert.equal(sql(`SELECT COUNT(*) FROM price_daily_summary WHERE mtgjson_uuid = '${uuid}'`), "3");
+  assert.equal(sql(`SELECT close_price || ':' || observation_count FROM price_monthly_summary
+    WHERE mtgjson_uuid = '${uuid}' AND month_start = '2026-01-01'`), "7.0000:1");
+  assert.equal(sql(`SELECT open_price || ':' || observation_count FROM price_yearly_summary
+    WHERE mtgjson_uuid = '${uuid}' AND year_start = '2026-01-01'`), "7.0000:4");
   console.log("Pricing summaries: correction and repeated rebuild passed.");
 } finally {
+  if (previousCutoff !== null)
+    sql(`UPDATE price_summary_state SET daily_compacted_through = ${previousCutoff ? `'${previousCutoff}'::date` : "NULL"} WHERE singleton = TRUE;`);
   sql(`DELETE FROM price_monthly_summary WHERE mtgjson_uuid = '${uuid}';
        DELETE FROM price_weekly_summary WHERE mtgjson_uuid = '${uuid}';
        DELETE FROM price_yearly_summary WHERE mtgjson_uuid = '${uuid}';
