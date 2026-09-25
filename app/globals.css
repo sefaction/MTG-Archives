@@ -691,7 +691,7 @@ a:hover {
   }
 
   .app-nav-brand:hover {
-    color: var(--app-link-hover);
+    color: var(--app-text);
     background: var(--app-accent-soft);
   }
 
