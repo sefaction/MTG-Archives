@@ -1,0 +1,32 @@
+# Raw Pricing archive: 90-day operating design
+
+Status: design for [#330](https://github.com/sefaction/MTG-Archives/issues/330). No raw deletion, scheduler, or production archive is enabled by this document.
+
+## Product and operating choices
+
+- Keep about 90 UTC observed days of raw price snapshots in the live Pricing database. The cutoff is configurable, and the day at the boundary remains live. Missing source days are not synthesized.
+- Preserve older raw observations in separately recoverable, immutable archive generations. Continue to show the existing 90-day daily, two-year weekly, ten-year monthly, then yearly card history with open/close/low/high dates and prices.
+- Run older-correction work automatically during 2–5 a.m. `America/Chicago`, honoring daylight-saving changes. Carry unfinished work into the next window. Ordinary imports and app requests must not scan archived identities per row.
+- A selected source that stops receiving data remains a Settings stale-status signal, not a separate notification. The notification worker still emits one in-app digest per missed UTC import day when eligible imports resume.
+
+## Current dependency to remove before deletion
+
+`refreshPricingSummariesSql` deletes and rebuilds a touched scope's daily, scope, weekly, monthly and yearly rows from `price_snapshots`. It then removes daily rows through `daily_compacted_through`. `price_scope_summary.snapshot_count`, latest ingest time and source snapshot IDs also derive from raw rows. This is safe while raw history is complete, but deleting a historical raw row first would make a later ordinary import truncate that scope's older rollups. The existing daily compaction archive is a full database recovery point, not an incremental raw archive.
+
+## Proposed data contract
+
+1. Use `observed_date` in UTC as the retention unit. A live raw row is eligible only when its date is earlier than the retained boundary and every required projection is fresh. A sparse scope with its latest or prior observation older than the boundary needs preserved scope metadata; its visible current/prior state must not disappear merely because the raw row moves to archive.
+2. Archive in bounded, immutable date segments with a manifest containing schema version, date range, source revision, row count, canonical identity/value checksum, file hash, generation, verified restore result, and activation receipt. Keep previous generations until a newer generation and its restore proof are durable. Paths and hashes belong in durable Pricing metadata; files must be included in the host backup plan, distinct from the primary app database backup.
+3. A segment becomes deletable only after its archive restores into an isolated database and its identities, prices, counts and representative raw-to-tier parity match the live source. Recheck the live source and summary revision under the final transaction lock before advancing a `raw_archived_through` boundary and deleting precisely the verified rows. A failed or interrupted run leaves the boundary unchanged and retries safely. An archive file without an activation receipt is orphaned, not evidence of deletion.
+4. Change touched-scope refresh to reconstruct from the union of active raw rows and the activated archived history (or an equivalent durable projection with full provenance). Preserve all tier extrema, observation counts, current/prior prices, latest ingest time and revision semantics. The normal import path may use a compact live projection or a bounded scope cache; it must never restore an archive for every ordinary key. A full rebuild and a single-scope repair must share the same source contract.
+5. Split source processing at the active raw boundary. Normal imports may ingest current dates and record the source feed generation for maintenance; they do not insert an old row back into the live 90-day window or perform per-row archive lookups. If the feed supplies a changed old observation, maintenance compares its canonical key and price with the archived generation, including previously absent keys. Missing source days or an incomplete feed are treated as source anomalies, not mass deletions.
+6. Persist maintenance cursors by feed generation and archived date segment. During the 2–5 a.m. Central window, process a bounded number of segments/keys and stop at a measured resource budget. For a changed segment, restore the needed archived history to isolated staging, rebuild affected scopes, verify parity, write and verify a replacement immutable archive generation, then atomically activate its metadata and summary revision. Replay after interruption must be idempotent. Corrections to already shown movement may cause the existing in-app correction/retraction behavior once the refreshed source becomes eligible.
+
+## Delivery gates
+
+1. Implement the archive metadata, staged restore, and archive-aware refresh behind a disabled gate. Prove an old and a sparse scope retain identical daily/scope/weekly/monthly/yearly behavior after a later live import. Prove full rebuild and tier backfill semantics after raw compaction.
+2. Add a dry-run retention report and bounded local pilot. Inject one old correction, one newly added old identity, one unchanged replay and one interrupted restore. Verify hashes, identity/value parity, summary revision, receipt recovery and no duplicate digest; measure app latency while maintenance runs. Keep all live raw rows until this passes.
+3. Add reviewed deletion activation with a database and archive restore drill, rollback steps, file backup verification, storage measurements and host resource budget. Recheck both the daily and raw boundaries at the transactional delete. Do not treat an archive file on the same unbacked disk as recoverable.
+4. Configure and verify a single scheduler owner with a lease, `America/Chicago` time window, observability and alerting for backlog/failure. A missed window resumes at the cursor; no correction or deletion depends on manual attendance. Keep scheduling disabled until the preceding gates pass.
+
+The current snapshot spans about 85 calendar days and contains no normal 90-day raw candidate. A synthetic older-date fixture is required for the first deletion proof. [PR #349](https://github.com/sefaction/MTG-Archives/pull/349) protects daily-tier refresh while raw is complete; [PR #350](https://github.com/sefaction/MTG-Archives/pull/350) guards local daily compaction. Neither authorizes or implements raw pruning.
