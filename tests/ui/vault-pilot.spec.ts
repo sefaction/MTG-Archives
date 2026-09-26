@@ -90,12 +90,21 @@ test("vault creation, multi-selection fill, advisory overflow, refreshed occupan
     await expect(selected).toHaveCount(2);
     await selected.nth(0).check();
     await selected.nth(1).check();
+    await expect(page.locator(".inventory-selection-context")
+      .filter({ hasText: "2 entries selected · 110 copies chosen for Move" }))
+      .toBeVisible();
+    await page.locator('tbody input[type="number"][max="100"]').fill("7");
+    await expect(page.locator(".inventory-selection-context")
+      .filter({ hasText: "2 entries selected · 17 copies chosen for Move" }))
+      .toBeVisible();
     const openMove = page.getByRole("button", {
       name: "Move cards…",
       exact: true,
     });
     await openMove.click();
     const dialog = page.getByRole("dialog", { name: "Move inventory" });
+    await expect(dialog.getByText("Move uses the amounts selected in Inventory.",
+      { exact: false })).toBeVisible();
     const picker = dialog.getByTestId("storage-destination");
     const search = picker.getByRole("combobox", {
       name: "Search destinations",
@@ -124,13 +133,10 @@ test("vault creation, multi-selection fill, advisory overflow, refreshed occupan
     await expect(dialog).not.toBeVisible();
     await openMove.click();
     await picker.getByRole("button", { name: /Sect 0.*68 \/ 85/ }).click();
-    await page.getByRole("button", { name: /^Fill remaining space/ }).click();
-    await expect(page.getByLabel("Maximum copies to move")).toHaveValue("17");
+    await expect(dialog.getByRole("button", { name: "Move 17 cards", exact: true })).toBeEnabled();
     await expect(picker.getByText(/85 after move/)).toBeVisible();
     await picker.getByRole("button", { name: /Sect 1.*0 \/ 85/ }).click();
-    await expect(page.getByLabel("Maximum copies to move")).toHaveValue("85");
     await picker.getByRole("button", { name: /Sect 0.*68 \/ 85/ }).click();
-    await expect(page.getByLabel("Maximum copies to move")).toHaveValue("17");
     await picker
       .getByRole("button", { name: "+ Custom section", exact: true })
       .click();
@@ -173,6 +179,7 @@ test("vault creation, multi-selection fill, advisory overflow, refreshed occupan
     );
     await expect(selected).toHaveCount(1);
     await selected.first().check();
+    await page.locator('tbody input[type="number"]').fill("85");
     await openMove.click();
     await search.fill(name);
     await picker.getByRole("option").filter({ hasText: "Vault ·" }).click();
@@ -180,27 +187,12 @@ test("vault creation, multi-selection fill, advisory overflow, refreshed occupan
     await picker.getByLabel("Only sections with room").check();
     await expect(picker.getByRole("button", { name: /Sect 0/ })).toHaveCount(0);
     await picker.getByLabel("Only sections with room").uncheck();
-    await page.getByRole("button", { name: "85 copies", exact: true }).click();
     await expect(picker.getByText(/All cards may not fit/)).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Move 85 cards", exact: true }),
     ).toBeEnabled();
     await page.setViewportSize({ width: 390, height: 844 });
-    await dialog
-      .getByRole("button", { name: "Custom amount", exact: true })
-      .click();
-    await dialog.getByLabel("Maximum copies to move").fill("");
-    await expect(
-      dialog.getByRole("button", { name: "Move 0 cards", exact: true }),
-    ).toBeDisabled();
-    await dialog.getByLabel("Maximum copies to move").fill("10");
-    await expect(
-      dialog.getByRole("button", { name: "Move 10 cards", exact: true }),
-    ).toBeEnabled();
     await page.screenshot({ path: "test-results/vault-phone-quantity.png" });
-    await dialog
-      .getByRole("button", { name: "85 copies", exact: true })
-      .click();
     await picker.scrollIntoViewIfNeeded();
     expect(
       await picker.evaluate((el) => el.getBoundingClientRect().width),
@@ -247,7 +239,7 @@ test("vault creation, multi-selection fill, advisory overflow, refreshed occupan
       .click();
     await openMove.click();
     await expect(
-      dialog.getByText(/12 entries.*20 cards/).first(),
+      dialog.getByText(/12 selected entries.*20 physical copies/).first(),
     ).toBeVisible();
     await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
     const tableRows = page.locator("tbody tr");

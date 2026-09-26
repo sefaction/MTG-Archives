@@ -670,6 +670,9 @@ export default async function InventoryPage({
         quantityLimit: fd.get("quantityLimit")
           ? Number(fd.get("quantityLimit"))
           : undefined,
+        selectedQuantities: fd.get("selectedQuantities")
+          ? JSON.parse(String(fd.get("selectedQuantities"))) as Record<string, number>
+          : undefined,
         expectedStacks: JSON.parse(String(fd.get("expectedStacks") || "[]")),
         itemIds: selectionMode === "all" ? undefined : itemIds,
         where: selectionMode === "all" ? matchingWhere : undefined,

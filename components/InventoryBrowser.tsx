@@ -1563,6 +1563,7 @@ export function InventoryBrowser({
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const [selectedRowQuantities, setSelectedRowQuantities] = useState<Record<string, number>>({});
   const [allMatchingSelected, setAllMatchingSelected] = useState(false);
   const [movingBulk, setMovingBulk] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
@@ -1672,7 +1673,10 @@ export function InventoryBrowser({
         .filter((row) =>
           (row.sourceItemIds ?? [row.id]).some((id) => selectedItemIds.has(id)),
         )
-        .reduce((sum, row) => sum + row.quantity, 0);
+        .reduce((sum, row) => sum + (selectedRowQuantities[row.id] ?? row.quantity), 0);
+  const selectedFullCardsCount = allMatchingSelected ? totalMatchingCards : renderedRows
+    .filter((row) => getRowSourceIds(row).some((id) => selectedItemIds.has(id)))
+    .reduce((sum, row) => sum + row.quantity, 0);
   const currentVault = liveStorageLocations.find(
     (location) =>
       location.id === currentLocationId &&
@@ -1691,13 +1695,25 @@ export function InventoryBrowser({
   const selectedStacks = renderedRows
     .filter((row) => getRowSourceIds(row).some((id) => selectedItemIds.has(id)))
     .flatMap((row) => row.locationBreakdown ?? []);
-  const alreadyInDestination = selectedStacks
-    .filter(
-      (stack) =>
-        stack.locationId === bulkDestinationLocationId &&
-        (stack.section ?? "") === bulkSection.trim(),
-    )
-    .reduce((sum, stack) => sum + stack.quantity, 0);
+  const alreadyInDestination = renderedRows
+    .filter((row) => getRowSourceIds(row).some((id) => selectedItemIds.has(id)))
+    .reduce((sum, row) => sum + Math.min(
+      selectedRowQuantities[row.id] ?? row.quantity,
+      (row.locationBreakdown ?? [])
+        .filter((stack) => stack.locationId === bulkDestinationLocationId &&
+          (stack.section ?? "") === bulkSection.trim())
+        .reduce((count, stack) => count + stack.quantity, 0),
+    ), 0);
+  const selectedMoveQuantities = Object.fromEntries(
+    renderedRows
+      .filter((row) => getRowSourceIds(row).some((id) => selectedItemIds.has(id)))
+      .map((row) => [getRowSourceIds(row)[0], selectedRowQuantities[row.id] ?? row.quantity]),
+  );
+  const invalidSelectedQuantity = !allMatchingSelected &&
+    renderedRows.some((row) => selectedItemIds.has(getRowSourceIds(row)[0]) &&
+      (!Number.isSafeInteger(selectedMoveQuantities[getRowSourceIds(row)[0]]) ||
+        selectedMoveQuantities[getRowSourceIds(row)[0]] < 1 ||
+        selectedMoveQuantities[getRowSourceIds(row)[0]] > row.quantity));
   const destinationRoom = liveStorageLocations
     .find((l) => l.id === bulkDestinationLocationId)
     ?.sections.find((s) => s.name === bulkSection)?.capacity;
@@ -1735,13 +1751,13 @@ export function InventoryBrowser({
     selectedCardsCount - (allMatchingSelected ? 0 : alreadyInDestination),
   );
   const plannedCopies = Math.min(
-    quantityMode === "all" ? Infinity : Math.max(0, Number(effectiveMoveLimit)),
+    !allMatchingSelected || quantityMode === "all" ? Infinity : Math.max(0, Number(effectiveMoveLimit)),
     movableCopies,
   );
   const invalidMoveQuantity =
-    quantityMode !== "all" &&
+    (invalidSelectedQuantity || (allMatchingSelected && quantityMode !== "all" &&
     (!Number.isSafeInteger(Number(effectiveMoveLimit)) ||
-      Number(effectiveMoveLimit) < 1);
+      Number(effectiveMoveLimit) < 1)));
   const destinationName = liveStorageLocations.find(
     (location) => location.id === bulkDestinationLocationId,
   )?.name;
@@ -1788,6 +1804,7 @@ export function InventoryBrowser({
 
   const clearSelection = useCallback(() => {
     setSelectedItemIds(new Set());
+    setSelectedRowQuantities({});
     setAllMatchingSelected(false);
     selectionAnchor.current = null;
     setMoveOpen(false);
@@ -1816,6 +1833,12 @@ export function InventoryBrowser({
       selectionAnchor.current = selection.anchorId;
       setAllMatchingSelected(false);
       setSelectedItemIds(selection.ids);
+      setSelectedRowQuantities((current) => Object.fromEntries(
+        renderedRows.filter((candidate) =>
+          getRowSourceIds(candidate).every((id) => selection.ids.has(id)))
+          .filter((candidate) => current[candidate.id] !== undefined)
+          .map((candidate) => [candidate.id, current[candidate.id]]),
+      ));
     },
     [selectionAvailable, allMatchingSelected, renderedRows, selectedItemIds],
   );
@@ -1852,7 +1875,7 @@ export function InventoryBrowser({
       }
       const itemIds = input?.itemIds ?? selectedItemIdList;
       const entriesCount = input?.entriesCount ?? selectedEntriesCount;
-      const cardsCount = input?.cardsCount ?? selectedCardsCount;
+      const cardsCount = input?.cardsCount ?? selectedFullCardsCount;
       const selectionMode = input?.itemIds
         ? "selected"
         : allMatchingSelected
@@ -1926,7 +1949,7 @@ export function InventoryBrowser({
       capabilities.canDelete,
       onBulkDeleteInventory,
       router,
-      selectedCardsCount,
+      selectedFullCardsCount,
       selectedEntriesCount,
       selectedItemIdList,
     ],
@@ -2077,18 +2100,34 @@ export function InventoryBrowser({
             {
               id: "select",
               enableHiding: false,
-              header: () => <span className="sr-only">Select</span>,
+              header: () => <span className="sr-only">Select and choose copies</span>,
               cell: ({ row }: any) => (
-                <input
-                  type="checkbox"
-                  aria-label={`Select ${row.original.cardName}`}
-                  checked={isRowSelected(row.original)}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    selectRow(row.original, event, true);
-                  }}
-                  onChange={() => {}}
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    aria-label={`Select ${row.original.cardName}`}
+                    checked={isRowSelected(row.original)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      selectRow(row.original, event, true);
+                    }}
+                    onChange={() => {}}
+                  />
+                  {isRowSelected(row.original) && !allMatchingSelected && row.original.quantity > 1 && (
+                    <label className="flex items-center gap-1 text-xs">
+                      Copies
+                      <input
+                        type="number" min={1} max={row.original.quantity} step={1}
+                        aria-label={`Copies selected from ${row.original.cardName}`}
+                        value={selectedRowQuantities[row.original.id] ?? row.original.quantity}
+                        onChange={(event) => setSelectedRowQuantities((current) => ({
+                          ...current, [row.original.id]: Number(event.target.value),
+                        }))}
+                        className={cn(filterInputClass, "w-16 px-1 py-0.5")}
+                      />
+                    </label>
+                  )}
+                </div>
               ),
             } satisfies ColumnDef<InventoryRow>,
           ]
@@ -2274,6 +2313,8 @@ export function InventoryBrowser({
       displayMode,
       selectionAvailable,
       isRowSelected,
+      selectedRowQuantities,
+      allMatchingSelected,
       selectRow,
       deletingBulk,
       submitBulkDelete,
@@ -2538,6 +2579,7 @@ export function InventoryBrowser({
               onClick={() => {
                 selectionAnchor.current = null;
                 setSelectedItemIds(new Set());
+                setSelectedRowQuantities({});
                 setAllMatchingSelected(true);
               }}
             >
@@ -2625,8 +2667,8 @@ export function InventoryBrowser({
             ) : null}
             <span className="inventory-selection-context text-zinc-300">
               {allMatchingSelected
-                ? `All ${totalMatchingCount} matching inventory entries are selected. ${selectedCardsCount} physical copies.`
-                : `${selectedEntriesCount} entries · ${selectedCardsCount} cards selected`}
+                ? `All ${totalMatchingCount} matching entries selected (${selectedCardsCount} physical copies in those entries).`
+                : `${selectedEntriesCount} entries selected · ${selectedCardsCount} copies chosen for Move`}
             </span>
           </div>
           {selectionAvailable && (
@@ -2650,6 +2692,7 @@ export function InventoryBrowser({
                   if (moveDisabled) return;
                   setMoveError("");
                   fd.set("destinationLocationId", bulkDestinationLocationId);
+                  if (!allMatchingSelected) fd.set("selectedQuantities", JSON.stringify(selectedMoveQuantities));
                   fd.set(
                     "expectedStacks",
                     JSON.stringify(
@@ -2730,13 +2773,13 @@ export function InventoryBrowser({
                 <input
                   type="hidden"
                   name="quantityLimit"
-                  value={effectiveMoveLimit}
+                  value={allMatchingSelected ? effectiveMoveLimit : ""}
                 />
                 <div className="overflow-y-auto p-5">
                   <div className="mb-5 rounded-lg bg-[var(--app-surface-3)] px-3 py-2 text-sm">
                     <strong>
-                      {selectedEntriesCount} entries ·{" "}
-                      {selectedCardsCount.toLocaleString()} cards
+                      {selectedEntriesCount} selected entries ·{" "}
+                      {selectedCardsCount.toLocaleString()} physical copies
                     </strong>
                     <span className="ml-2 text-[var(--app-muted)]">
                       {allMatchingSelected
@@ -2761,17 +2804,21 @@ export function InventoryBrowser({
                       }
                       disabled={movingBulk}
                     />
-                    <section
+                    {allMatchingSelected && <section
                       className="min-w-0 space-y-3 rounded-xl border border-[var(--app-border)] p-4"
                       aria-label="Move quantity"
                     >
                       <h3 className="text-sm font-semibold">
-                        3. How many copies?
+                        3. Amount to move
                       </h3>
+                      <p className="text-sm text-[var(--app-muted)]">
+                        All copies in the selected entries move by default.
+                        Choose a smaller amount here only for a partial move.
+                      </p>
                       <div className="grid grid-cols-2 gap-2">
                         {(
                           [
-                            ["all", "All copies"],
+                            ["all", "All selected copies"],
                             ["85", "85 copies"],
                             ["fill", "Fill remaining space"],
                             ["custom", "Custom amount"],
@@ -2859,7 +2906,19 @@ export function InventoryBrowser({
                           />
                         </label>
                       </details>
-                    </section>
+                    </section>}
+                    {!allMatchingSelected && (
+                      <section className="min-w-0 space-y-3 rounded-xl border border-[var(--app-border)] p-4" aria-label="Copies chosen">
+                        <h3 className="text-sm font-semibold">3. Copies chosen</h3>
+                        <p className="text-sm text-[var(--app-muted)]">Move uses the amounts selected in Inventory. Close Move to change an amount beside a row.</p>
+                        <details className="text-sm">
+                          <summary className="cursor-pointer text-[var(--app-muted)]">Add a note to the move</summary>
+                          <label className="mt-2 block">Reason
+                            <input name="reason" className={cn(filterInputClass, "mt-1 w-full")} defaultValue="Bulk location move" disabled={movingBulk} />
+                          </label>
+                        </details>
+                      </section>
+                    )}
                   </div>
                 </div>
                 <footer className="shrink-0 space-y-3 border-t border-[var(--app-border)] bg-[var(--app-surface-3)] px-5 py-4">
@@ -3046,6 +3105,16 @@ export function InventoryBrowser({
                     onChange={() => {}}
                   />
                 ) : null}
+                {selectionAvailable && isRowSelected(row) && !allMatchingSelected && row.quantity > 1 && (
+                  <label className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded bg-[var(--app-surface)] p-1 text-xs">
+                    Copies
+                    <input type="number" min={1} max={row.quantity} step={1}
+                      aria-label={`Copies selected from ${row.cardName}`}
+                      value={selectedRowQuantities[row.id] ?? row.quantity}
+                      onChange={(event) => setSelectedRowQuantities((current) => ({ ...current, [row.id]: Number(event.target.value) }))}
+                      className={cn(filterInputClass, "w-16 px-1 py-0.5")} />
+                  </label>
+                )}
                 <button
                   onClick={(event) => {
                     if (
