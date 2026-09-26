@@ -1,5 +1,8 @@
 # UI acceptance status - 2026-09-26
 
+## Static routes at actual 200% browser zoom, 2026-09-26
+
+The disposable Chromium zoom profile visited all 24 static member, public and admin task routes after setting actual tab zoom to 200%. Each visit retained a measured 683×384 CSS viewport and device pixel ratio 2 from a 1366×768 browser window, returned without a server error, and had no page-wide horizontal overflow. The focused local Docker browser case passed 1/1; no database fixture or app image change was needed. Dynamic Deck, League and Pricing details retain their separate owned task fixtures. This broadens route reflow evidence for #274, but does not certify that every control is visually clear or reachable with a screen reader at zoom.
 ## Current route inventory reconciliation, 2026-09-26
 
 Issue #419 found that the historical capability crosswalk omitted three pages added after its original 34-route baseline: owned card Pricing history, recipient-specific dated Pricing digests, and Pricing alert settings. Their homes, access boundaries and test pointers are now recorded. The live crosswalk covers all 37 `app/**/page.tsx` routes, with a unit guard in the core verification suite comparing route files to table entries exactly. This verifies route accounting, not every action within each page.

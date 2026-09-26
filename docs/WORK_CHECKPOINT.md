@@ -1,5 +1,8 @@
 # Resumable work checkpoint
 
+## Static-route actual browser zoom audit, 2026-09-26
+
+Active branch `test/static-browser-zoom` from merged main `10f415c` adds a test-only local Chromium sweep across all 24 static member/public/admin routes at actual 200% tab zoom. The focused case passed 1/1; every route kept a 683×384 CSS viewport at DPR 2, returned without a server error and avoided page-wide overflow. The already healthy local Docker app was used; no reload or database fixture was needed. Typecheck, PR and CI are pending. Open PRs #417, #418 and #420 remain green but individually unapproved, and Acquisition #315 stays deferred. #274 and #330 remain open; next safe step is final checks/PR for this bounded zoom audit, then resume Pricing host-load preparation when the host location is confirmed.
 ## UI capability route reconciliation, 2026-09-26
 
 Active branch `fix/ui-route-capability-map` from merged main `10f415c` addresses [issue #419](https://github.com/sefaction/MTG-Archives/issues/419). The crosswalk now includes `/pricing/card/[cardId]`, `/pricing/digest/[observedDate]` and `/settings/pricing-alerts`, with their current scope and direct test pointers; the route count is 37. A new core unit test compares every `app/**/page.tsx` route to the table exactly once and passed 1/1. Typecheck and `git diff --check` passed. This is documentation/test only, so no Docker reload is needed. PR/CI and individual approval are pending. Green PR #417 for Inventory empty/loading feedback and PR #418 for the 48-visit phone-width route sweep are independently open; neither is merge-approved. #274 and #330 remain open. Next safe step: open the #419 resolving PR, verify CI, then reconcile dependency order when any individual approvals arrive.
