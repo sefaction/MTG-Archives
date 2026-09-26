@@ -33,8 +33,10 @@ query(`UPDATE price_summary_state
        WHERE singleton = TRUE;`);
 const uuids = JSON.parse(
   query(`SELECT COALESCE(json_agg(mtgjson_uuid), '[]'::json)
-         FROM (SELECT DISTINCT mtgjson_uuid FROM price_snapshots
-               WHERE mtgjson_uuid IS NOT NULL ORDER BY mtgjson_uuid) keys`),
+         FROM (SELECT mtgjson_uuid FROM price_snapshots
+               WHERE mtgjson_uuid IS NOT NULL
+               UNION SELECT mtgjson_uuid FROM price_archived_scope_summary
+               ORDER BY mtgjson_uuid) keys`),
 ) as string[];
 const started = Date.now();
 for (let start = 0; start < uuids.length; start += 50) {
@@ -42,9 +44,11 @@ for (let start = 0; start < uuids.length; start += 50) {
   const values = slice.map((uuid) => `'${uuid.replace(/'/g, "''")}'`).join(",");
   const keys = JSON.parse(
     query(`SELECT COALESCE(json_agg(row_to_json(keys)), '[]'::json)
-           FROM (SELECT DISTINCT mtgjson_uuid, provider, finish,
-                                price_type, currency
-                 FROM price_snapshots WHERE mtgjson_uuid IN (${values})) keys`),
+           FROM (SELECT mtgjson_uuid, provider, finish, price_type, currency
+                 FROM price_snapshots WHERE mtgjson_uuid IN (${values})
+                 UNION SELECT mtgjson_uuid, provider, finish, price_type, currency
+                 FROM price_archived_scope_summary
+                 WHERE mtgjson_uuid IN (${values})) keys`),
   );
   if (keys.length) query(refreshPricingSummariesSql(JSON.stringify(keys)));
   console.log(
