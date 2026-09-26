@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Archived no-change feed main integration, 2026-09-26
+
+The user explicitly approved PR #368. Approved #365 and #366 have merged to main with fresh green checks, and #368 now targets current main. Its code and fixture merged automatically; this historical checkpoint is the only conflict. The isolated PostgreSQL fixture passed terminal sparse-source settlement, preserved summaries/archive, and a later complete correction. Fresh Core and PostgreSQL checks are required before merge. Raw deletion and optional Pricing maintenance remain disabled. Existing Unraid Appdata Backup coverage is known, but off-host copy and restore from that share remain unproved.
+
 ## Pricing no-change feed settlement, 2026-09-26
 
 Active branch fix/pricing-archived-noop-queue builds on unapproved #366. Approved #356 merged into main; approved #357-#359 and #362-#364 merged into their parent feature branches, so green rollup PR #367 now targets main and requires its own approval. Approved #361 merged into main after a checkpoint conflict resolution and fresh green checks; #360 closed. This batch settles zero-change archived feeds, records missing-identity source anomalies as terminal, and preserves archive/summary state. A later full feed still applies. Typecheck and the isolated PostgreSQL fixture passed. The optional Pricing maintenance profile and raw deletion remain disabled; no independent Unraid copy proof exists. The user chose the existing Unraid backup setup, but its job, destination and read-back method are undocumented and a focused question is pending. Inventory filtering/moves is first for UI review; local navigation branch fix/navigation-narrow-desktop-fold is committed but not yet loaded/tested. Next safe step: commit and open the no-op correction PR, then build a cumulative local Docker image with the Inventory branch and run its focused UI checks. PR #367 and all other new PRs require individual approval before merge.
