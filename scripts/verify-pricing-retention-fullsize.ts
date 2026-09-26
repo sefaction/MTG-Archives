@@ -136,7 +136,7 @@ try {
   const copied = run(process.execPath,
     ["--import", "tsx", "scripts/pricing-recovery-package-audit.ts"],
     300_000, { ...process.env, PRICING_RECOVERY_COPY_DIR: recovery });
-  assert.equal(JSON.parse(copied).verified, 1);
+  assert.equal(JSON.parse(copied).verified, 2);
   console.log(JSON.stringify({ mode: "fullsize-retention-drill-passed",
     clonedRaw, oldDate, dumpBytes: statSync(dump).size,
     cloneBytes: Number(sql(clone, "SELECT pg_database_size(current_database());")),
