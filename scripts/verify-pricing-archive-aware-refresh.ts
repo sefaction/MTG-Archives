@@ -413,6 +413,21 @@ try {
     FROM price_archive_feed_queue WHERE observed_date = '${bulkDate}'`), "APPLIED:501");
   assert.equal(sql(testDatabase, `SELECT generation || ':' || raw_rows
     FROM price_raw_archive_segment WHERE observed_date = '${bulkDate}'`), "2:501");
+  sql(testDatabase, `INSERT INTO price_archive_maintenance_lease
+    (singleton, owner, expires_at) VALUES (TRUE, 'fixture-owner-a', now() + interval '90 seconds');`);
+  assert.equal(sql(testDatabase, `INSERT INTO price_archive_maintenance_lease
+    (singleton, owner, expires_at) VALUES (TRUE, 'fixture-owner-b', now() + interval '90 seconds')
+    ON CONFLICT (singleton) DO UPDATE SET owner = EXCLUDED.owner,
+      expires_at = EXCLUDED.expires_at
+    WHERE price_archive_maintenance_lease.expires_at < now()
+    RETURNING owner;`), "", "A second maintenance owner must not steal a live lease");
+  sql(testDatabase, `UPDATE price_archive_maintenance_lease SET expires_at = now() - interval '1 second';`);
+  assert.equal(sql(testDatabase, `INSERT INTO price_archive_maintenance_lease
+    (singleton, owner, expires_at) VALUES (TRUE, 'fixture-owner-b', now() + interval '90 seconds')
+    ON CONFLICT (singleton) DO UPDATE SET owner = EXCLUDED.owner,
+      expires_at = EXCLUDED.expires_at
+    WHERE price_archive_maintenance_lease.expires_at < now()
+    RETURNING owner;`), "fixture-owner-b");
   console.log("Archive-aware refresh, old correction, sparse scope and full rebuild passed.");
 } finally {
   if (created) sql(admin, `DROP DATABASE "${name}" WITH (FORCE);`);
