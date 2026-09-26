@@ -28,6 +28,10 @@ The opt-in Inventory workspace browser case now checks the row-level numeric con
 
 The serial 61-case Chromium run against the grouped local Docker image finished with 57 passes, one skip and three outdated test expectations. The Imports theme check read a clicked link in its hover state; the storage-layout and vault-map cases still changed selected-copy quantities inside Move. Those fixtures now clear hover before the resting-color assertion and choose 15 or 10 copies on the selected Inventory row before Move. All three affected cases passed on focused rerun. The selected row defaults to its full stack and exposes a numeric up/down control in table and card views; Move uses each row's chosen amount. This is regression-test alignment with the reviewed workflow, not a new application change or a completed human acceptance review.
 
+## Deck editing with phone touch, 2026-09-26
+
+An owned Deck fixture now checks actual coarse-pointer touch at 390px and 320px. At each width it taps Add card, searches and selects a cached Llanowar Elves printing, sets one copy, adds it to the Deck list, closes the dialog by touch, and checks that the page has no horizontal overflow. The list total advanced from 99 to 101 while physical Inventory stayed unchanged. The focused browser case passed 1/1 on the grouped local Docker image; cleanup left zero fixture users/owners and 12,477 physical copies. This is one touch editing path, not a complete Deck or assistive-technology review; #268/#274 remain open.
+
 Related: #262, #263, #264, #265, #268 and #274. This is the implementation/evidence index; the original design prototype and historical feature notes are retained as dated records. This document does not close an issue or approve a PR merge.
 
 ## Actual Chrome tab zoom for section navigation, 2026-09-26
