@@ -1,6 +1,7 @@
-import { expect, test, type Page } from "@playwright/test";
+import { chromium, expect, test, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import path from "node:path";
 
 test.skip(
   process.env.MTG_LOCAL_PILOT_TEST !== "1",
@@ -251,6 +252,80 @@ test("builder keeps cards visible, tasks keyboard accessible and views permissio
     await noOverflow(page);
     await details.click();
     await page.evaluate(() => (document.documentElement.style.fontSize = ""));
+    const extensionPath = path.resolve("tests/ui/fixtures/local-zoom-extension");
+    const zoomContext = await chromium.launchPersistentContext("", {
+      channel: "chromium",
+      headless: true,
+      viewport: { width: 1366, height: 768 },
+      args: [
+        `--disable-extensions-except=${extensionPath}`,
+        `--load-extension=${extensionPath}`,
+      ],
+    });
+    try {
+      const worker = zoomContext.serviceWorkers()[0] || await zoomContext.waitForEvent("serviceworker");
+      const zoomPage = await zoomContext.newPage();
+      await zoomPage.goto(`${baseURL}/login`);
+      await zoomPage.getByLabel(/username or email/i).fill(tag);
+      await zoomPage.getByLabel(/^password$/i).fill(password);
+      await zoomPage.getByRole("button", { name: /^log in$/i }).click();
+      await zoomPage.waitForURL(/\/dashboard/);
+      await zoomPage.goto(`${baseURL}/decks/${fixture.deck}`);
+      const zoom = await worker.evaluate(async () => {
+        const chrome = (globalThis as any).chrome;
+        const tabs = await chrome.tabs.query({ url: "http://127.0.0.1:13001/*" });
+        if (tabs.length !== 1 || tabs[0].id === undefined)
+          throw new Error(`Expected one local deck tab, found ${tabs.length}`);
+        await chrome.tabs.setZoom(tabs[0].id, 2);
+        return chrome.tabs.getZoom(tabs[0].id);
+      });
+      expect(zoom).toBe(2);
+      await expect.poll(() => zoomPage.evaluate(() => [innerWidth, innerHeight, devicePixelRatio]))
+        .toEqual([683, 384, 2]);
+      await noOverflow(zoomPage);
+      const zoomAdd = zoomPage.getByRole("button", { name: "Add card", exact: true });
+      await expect(zoomAdd).toBeVisible();
+      await zoomAdd.click();
+      const zoomAddDialog = zoomPage.getByRole("dialog", { name: "Add card", exact: true });
+      await expect(zoomAddDialog).toBeVisible();
+      const addBox = (await zoomAddDialog.boundingBox())!;
+      expect(addBox.y).toBeGreaterThanOrEqual(0);
+      expect(addBox.y + addBox.height).toBeLessThanOrEqual(384);
+      await expect(zoomAddDialog.getByLabel("Search for a card or printing")).toBeVisible();
+      await noOverflow(zoomPage);
+      await zoomPage.evaluate(() => window.scrollTo(0, 0));
+      await zoomPage.screenshot({ path: "test-results/deck-builder-add-browser-zoom.png", animations: "disabled" });
+      await zoomAddDialog.getByLabel("Search for a card or printing").fill("Llanowar Elves");
+      await zoomAddDialog.locator(".max-h-80 button")
+        .filter({ has: zoomPage.getByText("Llanowar Elves", { exact: true }) })
+        .first().click();
+      await zoomAddDialog.getByLabel("Quantity", { exact: true }).fill("1");
+      await zoomAddDialog.getByRole("button", { name: "Add selected printing" }).click();
+      await expect.poll(() => database<number>(
+        `return (await p.deckCard.aggregate({where:{deckId:${quote(fixture.deck)}},_sum:{quantity:true}}))._sum.quantity;`,
+      )).toBe(102);
+      await zoomPage.keyboard.press("Escape");
+      await expect(zoomAdd).toBeFocused();
+      for (const name of ["Selection & printing tools", "Deck options"]) {
+        const opener = zoomPage.getByRole("button", { name, exact: true });
+        await opener.click();
+        const panel = zoomPage.getByRole("dialog");
+        await expect(panel).toBeVisible();
+        const box = (await panel.boundingBox())!;
+        expect(box.y).toBeGreaterThanOrEqual(0);
+        expect(box.y + box.height).toBeLessThanOrEqual(384);
+        await noOverflow(zoomPage);
+        await zoomPage.keyboard.press("Escape");
+        await expect(opener).toBeFocused();
+      }
+      await zoomPage.getByRole("navigation", { name: "Deck tools" })
+        .getByRole("link", { name: "Analysis", exact: true }).click();
+      await expect(zoomPage.getByRole("link", { name: "Back to deck", exact: false })).toBeVisible();
+      await zoomPage.getByRole("link", { name: "Back to deck", exact: false }).click();
+      await expect(zoomAdd).toBeVisible();
+    } finally {
+      await zoomContext.close();
+    }
     await page.goto(`/decks/${fixture.empty}`);
     await expect(
       page.getByText("No cards in this deck yet.", { exact: true }),

@@ -2,6 +2,10 @@
 
 Related: #262, #263, #264, #265, #268 and #274. This is the implementation/evidence index; the original design prototype and historical feature notes are retained as dated records. This document does not close an issue or approve a PR merge.
 
+## Actual Chrome tab zoom for Deck editing, 2026-09-26
+
+The opt-in Deck builder case now uses a disposable Chromium profile and actual 200% Chrome tab zoom on a populated, owner-scoped deck. A 1366×768 browser viewport became 683×384 CSS pixels at device pixel ratio 2. Add card, Selection & printing tools, and Deck options remained within the viewport without page-level horizontal overflow; Escape restored each opener's focus. The case added one cached printing through Add card, verified the deck-list total rose from 101 to 102 without changing physical Inventory, and returned from Analysis to the same builder. Both focused Deck builder cases passed on the grouped local Docker image, and the zoomed Add screenshot was inspected. This is automated coverage of one editing path; human Deck task review and the broader accessibility matrix remain open under #268/#274.
+
 ## Actual Chrome tab zoom for Inventory filters, 2026-09-26
 
 The focused Inventory workspace browser case now launches a disposable Chromium profile with a test-only local extension and calls Chrome's `tabs.setZoom` at 200% on the local app tab. At a 1366×768 browser viewport it verified an actual 683×384 layout viewport and device pixel ratio 2, with no page-level horizontal overflow, visible results, an accessible modal filter panel, both Close and Apply within the viewport, Escape focus return, and invalid-query feedback. It also selected two rows, reduced their copy amounts from 8 and 17 to 5 and 12 before Move, chose a Box destination, confirmed the 17-copy move in a dialog that fit the zoomed viewport, and observed success. The browser case passed 1/1; filter and Move screenshots were inspected. The test profile and local fixture were removed after the run. This covers one Inventory filtering and move path in automated Chromium; human task observation and zoom checks across the other key workflows remain open under #274.
