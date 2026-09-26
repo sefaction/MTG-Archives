@@ -1,5 +1,7 @@
 # Pricing history tiers and retention gate
 
+The default-off production authorization and later rollout gates are in [PRICING_ARCHIVE_ACTIVATION.md](PRICING_ARCHIVE_ACTIVATION.md). The user directs all testing to the local install; this repository change does not activate production maintenance or raw retention.
+
 The default long-range card view uses observed daily closes for 90 days, weekly closes through two years, monthly closes through ten years, and yearly closes after that. Every weekly, monthly, and yearly row keeps its open, close, low, high, and the dates of those observations. A missing day remains missing. The view labels each point's resolution and plots it at its actual close date. `PRICING_DAILY_HISTORY_DAYS`, `PRICING_WEEKLY_HISTORY_YEARS`, and `PRICING_MONTHLY_HISTORY_YEARS` can change the cutoffs within validated bounds; invalid or overlapping settings fall back to 90/2/10. The short 7/30/90-day drilldown continues to use daily detail.
 
 `price_weekly_summary` and `price_yearly_summary` are rebuildable projections from `price_daily_summary`. Worker refreshes rebuild touched exact printing/provider/finish/type/currency keys, including late corrections, while all raw and daily records remain. Existing installations need a one-time tier backfill after the #328 daily backfill has completed:

@@ -5,6 +5,7 @@ import { closeSync, createReadStream, mkdirSync, openSync, readFileSync,
 import { dirname, resolve } from "node:path";
 import { gunzipSync, gzipSync } from "node:zlib";
 import Papa from "papaparse";
+import { pricingArchiveApplyMode } from "./pricing-archive-authorization";
 import { archivedBasisRebuildBodySql } from "./pricing-archived-basis-sql";
 import { planArchivedCorrection, type ArchiveSegmentRecord,
   type ArchivedFeedQueueRecord } from "./pricing-archived-correction-plan";
@@ -28,8 +29,7 @@ if (selection.length !== 2 || selection[0] !== "--date" ||
     !/^\d{4}-\d{2}-\d{2}$/.test(selection[1]) ||
     args.length !== selection.length + Number(apply))
   throw new Error("Use --date YYYY-MM-DD [--apply]; default is read-only");
-if (apply && process.env.MTG_LOCAL_PILOT_TEST !== "1")
-  throw new Error("MTG_LOCAL_PILOT_TEST=1 is required for local correction apply");
+if (apply) pricingArchiveApplyMode();
 const date = selection[1];
 const sqlDate = `'${date}'::date`;
 const literal = (value: string) => `'${value.replace(/'/g, "''")}'`;
