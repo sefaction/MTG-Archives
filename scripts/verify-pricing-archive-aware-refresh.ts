@@ -9,6 +9,9 @@ import {
   pricingTierBackfillSql,
   refreshPricingSummariesSql,
 } from "./pricing-summary-sql";
+import { archivedFeedFingerprint, splitArchivedFeed,
+  writeArchivedFeedFile } from "./pricing-archived-feed";
+import { pricingSnapshotUpsertSql } from "./pricing-snapshot-upsert-sql";
 
 assert.equal(process.env.MTG_LOCAL_PILOT_TEST, "1", "Local/CI database opt-in required");
 const configured = process.env.PRICING_DATABASE_URL;
@@ -62,7 +65,10 @@ try {
     price NUMERIC(12, 4) NOT NULL, raw_json JSONB, card_name TEXT, set_code TEXT,
     collector_number TEXT, revision_count INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-  );`);
+  );
+  CREATE UNIQUE INDEX price_snapshots_identity_key ON price_snapshots (
+    (COALESCE(mtgjson_uuid, '')), (COALESCE(scryfall_id, '')),
+    provider, finish, price_type, currency, observed_date);`);
   sql(testDatabase, pricingSummarySchemaSql);
   sql(testDatabase, `INSERT INTO price_snapshots
     (mtgjson_uuid, provider, finish, price_type, currency, observed_date, price)
@@ -93,6 +99,24 @@ try {
   assert.equal(manifest.restoreVerified, true);
   assert.equal(manifest.rows, 1);
   assert.match(manifest.sourceFingerprint, /^[a-f0-9]{32}$/);
+  const oldInput = { mtgjsonUuid: card, provider: "tcgplayer", finish: "normal",
+    priceType: "retail", currency: "USD", observedDate: "2026-01-10",
+    price: 7, rawJson: { path: ["paper"] } };
+  assert.equal(archivedFeedFingerprint([oldInput]), manifest.identityFingerprint);
+  assert.equal(archivedFeedFingerprint([{ ...oldInput, price: 6 }, oldInput]),
+    manifest.identityFingerprint);
+  const split = splitArchivedFeed([oldInput, { ...oldInput,
+    observedDate: "2026-08-01", price: 8 }], "2026-01-10",
+    new Map([["2026-01-10", manifest.identityFingerprint]]));
+  assert.equal(split.live.length, 1);
+  assert.equal(split.changed.length, 0);
+  assert.equal(splitArchivedFeed([{ ...oldInput, price: 8 }], "2026-01-10",
+    new Map([["2026-01-10", manifest.identityFingerprint]])).changed.length, 1);
+  const feedFile = writeArchivedFeedFile(archiveTestDirectory, "2026-01-10",
+    archivedFeedFingerprint([{ ...oldInput, price: 8 }]), [{ ...oldInput, price: 8 }]);
+  assert.equal(writeArchivedFeedFile(archiveTestDirectory, "2026-01-10",
+    archivedFeedFingerprint([{ ...oldInput, price: 8 }]),
+    [{ ...oldInput, price: 8 }]).fileSha256, feedFile.fileSha256);
   assert.equal(readdirSync(join(archiveTestDirectory, "pricing", "raw", "2026-01-10")).length, 2);
   const empty = spawnSync(
     process.execPath,
@@ -167,6 +191,11 @@ try {
   assert.equal(sql(testDatabase,
     `SELECT raw_archived_through FROM price_summary_state WHERE singleton`), "2026-01-10");
   assert.equal(sql(testDatabase, `SELECT COUNT(*) FROM price_raw_archive_segment`), "2");
+  sql(testDatabase, pricingSnapshotUpsertSql([oldInput]), true);
+  assert.equal(sql(testDatabase, pricingSnapshotUpsertSql([oldInput], "2026-01-10")),
+    "0|0|0");
+  assert.equal(sql(testDatabase,
+    `SELECT COUNT(*) FROM price_snapshots WHERE observed_date <= '2026-01-10'`), "0");
   sql(testDatabase, refresh);
   assert.equal(
     sql(testDatabase, `SELECT snapshot_count || ':' || current_price || ':' || prior_price

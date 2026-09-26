@@ -4,7 +4,7 @@ import { createReadStream, readFileSync, writeFileSync, mkdirSync } from "node:f
 import { dirname, resolve, sep } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { getPricingRetentionPolicy } from "../lib/pricing-retention-policy";
-import { rawSegmentFingerprintSql } from "./pricing-raw-segment-common";
+import { rawSegmentFingerprintSql, rawSegmentIdentityFingerprintSql } from "./pricing-raw-segment-common";
 import { refreshPricingSummariesSql } from "./pricing-summary-sql";
 
 const configured = process.env.PRICING_DATABASE_URL;
@@ -30,7 +30,8 @@ const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
   status: string; schemaVersion: number; observedDate: string; liveDays: number;
   sourceRevision: number; sourceMaxId: number | null; rows: number;
   priceSum: string; archive: string; archiveSha256: string;
-  csvSha256: string; sourceFingerprint: string; restoreVerified: boolean;
+  csvSha256: string; sourceFingerprint: string; identityFingerprint: string;
+  restoreVerified: boolean;
   activated: boolean;
 };
 if (manifest.status !== "verified_staged" || manifest.schemaVersion !== 1 ||
@@ -40,6 +41,7 @@ if (manifest.status !== "verified_staged" || manifest.schemaVersion !== 1 ||
     !Number.isSafeInteger(manifest.sourceRevision) ||
     !/^-?\d+(\.\d+)?$/.test(manifest.priceSum) ||
     !/^[a-f0-9]{32}$/.test(manifest.sourceFingerprint) ||
+    !/^[a-f0-9]{32}$/.test(manifest.identityFingerprint) ||
     !/^[a-f0-9]{64}$/.test(manifest.archiveSha256) ||
     !/^[a-f0-9]{64}$/.test(manifest.csvSha256))
   throw new Error("Incomplete or invalid verified stage manifest");
@@ -74,6 +76,7 @@ async function fileHash(path: string) {
 const date = manifest.observedDate;
 const dateSql = `'${date}'::date`;
 const fingerprint = rawSegmentFingerprintSql(date);
+const identityFingerprint = rawSegmentIdentityFingerprintSql(date);
 const stateSql = `SELECT json_build_object(
   'ready', ready AND tiers_ready AND source_revision = summary_revision,
   'sourceRevision', source_revision, 'sourceMaxId', source_max_id,
@@ -84,16 +87,19 @@ const stateSql = `SELECT json_build_object(
   'rows', (SELECT COUNT(*) FROM price_snapshots WHERE observed_date = ${dateSql}),
   'priceSum', (SELECT COALESCE(SUM(price), 0)::text FROM price_snapshots WHERE observed_date = ${dateSql}),
   'fingerprint', (${fingerprint}),
+  'identityFingerprint', (${identityFingerprint}),
   'cutoff', (CURRENT_DATE - ${getPricingRetentionPolicy().dailyDays + 1})::text
 )::text FROM price_summary_state WHERE singleton = TRUE;`;
 type State = { ready: boolean; sourceRevision: number; sourceMaxId: number | null;
   rawMaxId: number | null; rawBoundary: string | null; dailyBoundary: string | null;
-  firstRawDate: string; rows: number; priceSum: string; fingerprint: string; cutoff: string };
+  firstRawDate: string; rows: number; priceSum: string; fingerprint: string;
+  identityFingerprint: string; cutoff: string };
 function assertState(value: State) {
   if (!value.ready || value.sourceRevision !== manifest.sourceRevision ||
       value.sourceMaxId !== manifest.sourceMaxId || value.rawMaxId !== value.sourceMaxId ||
       value.rows !== manifest.rows || value.priceSum !== manifest.priceSum ||
       value.fingerprint !== manifest.sourceFingerprint || value.firstRawDate !== date ||
+      value.identityFingerprint !== manifest.identityFingerprint ||
       !value.dailyBoundary || value.dailyBoundary < date || date > value.cutoff ||
       (value.rawBoundary && value.rawBoundary >= date))
     throw new Error("Staged date is not the oldest eligible fresh raw segment; restage after daily compaction");
@@ -158,6 +164,7 @@ function activationSql(state: State, backup: string, backupSha: string,
       OR (SELECT COUNT(*) FROM price_snapshots WHERE observed_date = ${dateSql}) <> ${manifest.rows}
       OR (SELECT COALESCE(SUM(price), 0) FROM price_snapshots WHERE observed_date = ${dateSql}) <> ${manifest.priceSum}
       OR (${fingerprint}) <> '${manifest.sourceFingerprint}'
+      OR (${identityFingerprint}) <> '${manifest.identityFingerprint}'
       OR ${dateSql} > (CURRENT_DATE - ${getPricingRetentionPolicy().dailyDays + 1})::date
     THEN RAISE EXCEPTION 'Pricing source or retention boundary changed since verified raw archive'; END IF;
   END $$;
@@ -196,15 +203,19 @@ function activationSql(state: State, backup: string, backupSha: string,
   CREATE TABLE IF NOT EXISTS price_raw_archive_segment (
     observed_date DATE PRIMARY KEY, archive_path TEXT NOT NULL,
     archive_sha256 TEXT NOT NULL, csv_sha256 TEXT NOT NULL,
-    source_fingerprint TEXT NOT NULL, raw_rows INTEGER NOT NULL,
+    source_fingerprint TEXT NOT NULL, identity_fingerprint TEXT,
+    raw_rows INTEGER NOT NULL,
     generation INTEGER NOT NULL DEFAULT 1,
     backup_path TEXT NOT NULL, backup_sha256 TEXT NOT NULL,
     activated_at TIMESTAMPTZ NOT NULL DEFAULT now()
   );
+  ALTER TABLE price_raw_archive_segment ADD COLUMN IF NOT EXISTS identity_fingerprint TEXT;
   INSERT INTO price_raw_archive_segment (observed_date, archive_path,
-    archive_sha256, csv_sha256, source_fingerprint, raw_rows, backup_path, backup_sha256)
+    archive_sha256, csv_sha256, source_fingerprint, identity_fingerprint,
+    raw_rows, backup_path, backup_sha256)
   VALUES (${dateSql}, ${literal(archive)}, '${manifest.archiveSha256}',
-    '${manifest.csvSha256}', '${manifest.sourceFingerprint}', ${manifest.rows},
+    '${manifest.csvSha256}', '${manifest.sourceFingerprint}',
+    '${manifest.identityFingerprint}', ${manifest.rows},
     ${literal(backup)}, '${backupSha}');
   WITH removed AS (DELETE FROM price_snapshots WHERE observed_date = ${dateSql} RETURNING 1)
     SELECT COUNT(*) AS deleted_raw_rows FROM removed;

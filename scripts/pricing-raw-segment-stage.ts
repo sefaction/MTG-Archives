@@ -12,7 +12,8 @@ import {
 import { gunzipSync, gzipSync } from "node:zlib";
 import { resolve } from "node:path";
 import { getPricingRetentionPolicy } from "../lib/pricing-retention-policy";
-import { rawSegmentColumns, rawSegmentFingerprintSql } from "./pricing-raw-segment-common";
+import { rawSegmentColumns, rawSegmentFingerprintSql,
+  rawSegmentIdentityFingerprintSql } from "./pricing-raw-segment-common";
 
 const configured = process.env.PRICING_DATABASE_URL;
 if (!configured) throw new Error("PRICING_DATABASE_URL is required.");
@@ -103,6 +104,8 @@ try {
       rows: number; priceSum: string; minId: number | null; maxId: number | null;
     };
   const sourceFingerprint = command(database, `${rawSegmentFingerprintSql(observedDate)};`);
+  const identityFingerprint = command(database,
+    `${rawSegmentIdentityFingerprintSql(observedDate)};`);
   if (stats.rows === 0) {
     console.log(JSON.stringify({ mode: "no-candidates", observedDate, rows: 0 }));
     verified = true;
@@ -141,6 +144,8 @@ try {
       throw new Error("The live raw segment changed while staging; retry with a new archive.");
     if (command(database, `${rawSegmentFingerprintSql(observedDate)};`) !== sourceFingerprint)
       throw new Error("The live raw segment fingerprint changed while staging.");
+    if (command(database, `${rawSegmentIdentityFingerprintSql(observedDate)};`) !== identityFingerprint)
+      throw new Error("The live raw segment identities changed while staging.");
     const manifest = {
       status: "verified_staged", schemaVersion: 1,
       createdAt: new Date().toISOString(), observedDate, liveDays,
@@ -150,6 +155,7 @@ try {
       columns, archive, archiveBytes: storedArchive.length,
       archiveSha256: sha256(storedArchive), csvSha256: sha256(csv),
       sourceFingerprint,
+      identityFingerprint,
       restoreVerified: true, activated: false,
     };
     writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, { flag: "wx" });
