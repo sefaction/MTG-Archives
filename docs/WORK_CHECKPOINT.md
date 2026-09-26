@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Opt-in Pricing recovery destination mount, 2026-09-26
+
+Active branch `feat/pricing-recovery-mount` stacks on green, unapproved PR #377. The local Compose overlay binds a separate `.local-data/pricing-recovery` directory into web and optional maintenance, still on the same laptop disk. A new operator override requires an explicit existing host mount path and refuses to create a missing one; neither starts the disabled maintenance profile. Compose configuration verified the mount/env and disabled profile, and one-off web/maintenance containers each ran the read-only package audit with zero packages. The actual Unraid destination is not mounted or drilled. Next safe step: commit this batch, prepare a second coherent #330 batch, then one cumulative Docker reload and separate dependent PRs. No raw deletion or production infra change. #330 remains open; individual PR approval is required for merge.
+
 ## Copied Pricing package audit, 2026-09-26
 
 Active branch `feat/pricing-recovery-package-audit` stacks on `feat/pricing-recovery-package`, which stacks on green, unapproved PR #375. This adds a read-only source-independent checksum audit of all published recovery package indexes and their four files. The shared verifier is used by the package restore drill. Isolated PostgreSQL fixture passed healthy activation/correction packages, a tampered manifest audit failure and the source-loss restore case. Typecheck and `git diff --check` passed. Next safe step: commit, merge both new batches into cumulative local review, build/reload Docker once, push and open separate dependent PRs, then collect CI. The selected Unraid destination is still not mounted or drilled; raw deletion and optional maintenance remain disabled. #330 stays open and each PR needs individual merge approval.
