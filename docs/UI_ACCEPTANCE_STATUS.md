@@ -1,5 +1,8 @@
 # UI acceptance status - 2026-09-26
 
+## Administration route boundary sample, 2026-09-26
+
+A focused local browser case enumerated all six current static `/admin` pages. An anonymous visit went to Login; a signed-in member was redirected from every page; an admin-role account was redirected until it explicitly entered Admin Mode, then could render all six pages; exiting Admin Mode removed access again. The case passed 1/1 and cleaned its disposable users/owners (zero remain). This covers route-level access for this role sample under #274; it does not certify every administrative action or other role/ownership paths.
 ## Current user review and route coverage, 2026-09-26
 
 The user reports Inventory and Locations work well on phone or at 200% browser zoom, with no control hard to reach. On the usual desktop, Inventory Filter/Move, Locations search/edit and Deck Add card required no scrolling to find. This is direct task feedback, not full role, theme, keyboard or accessibility certification. Individually approved PRs #417, #418, #420 and #421 merged: Inventory empty/loading recovery, 48 static phone-route visits, a complete 37-page capability crosswalk, and 24 static routes at actual 200% Chromium zoom. Issues #416 and #419 closed; broader #274 remains open.

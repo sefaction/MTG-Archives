@@ -1,12 +1,9 @@
 # Resumable work checkpoint
 
-## Current gate after approved UI merges, 2026-09-26
+## Approved role gate refreshed after #422, 2026-09-26
 
-Active branch `docs/local-pricing-ui-gates` starts from `main` at `4333e28`. The user individually approved PRs #417, #418, #420 and #421; all merged after refreshed green Core and PostgreSQL checks. Inventory's empty/loading state fix is loaded in local Docker image `sha256:304dbb49f33730c82e80d277e67223f97767d708b306790d9942262b7d949e3c`; the other three PRs change tests/docs only. Issues #416 and #419 closed. The user reports Inventory and Locations work well on phone or at 200% zoom, and no control-search scrolling for Inventory Filter/Move, Locations search/edit or Deck Add card on the usual desktop. Record this as task feedback under #274, not a full accessibility certification.
+The user individually approved PR #422 and it merged as `14dfaf1`; green PR #423 is also individually approved. Active branch `test/ui-route-role-boundaries` now includes merged main and its local browser case passed 1/1 across six Admin routes, with disposable fixture cleanup. Refresh #423 CI, then merge under its existing approval and close no broader acceptance issue. #274 and #330 remain open; a separate default-off Pricing activation branch is in local review. Acquisition #315 remains deferred.
 
-Production runs on Unraid, but the user directs testing to the local install. Do not launch a test stack, restore or load generation on production. Local #392 measured four-owner Pricing Collection p95 of 1,690 ms during an isolated full-size pass versus 1,630 ms idle; #414 verified copied full-size recovery packages from the selected backup share on a separate local verifier. An additional local scratch restore using a Windows bind mount stopped with `FileFallocate(): Interrupted system call`; its four temporary containers were stopped and its uncommitted prototype was discarded. Ignored scratch data under `.local-data/pricing-host-load` remains for safe cleanup. No live Pricing raw row was deleted; retention and maintenance remain disabled.
-
-Open non-Acquisition issues: #274, #262, #330 and #326. Before this documentation batch, the only open PR was deferred Acquisition #315. Next safe step: complete the remaining local UI role/keyboard/state acceptance evidence and review #330's activation/operations plan using local load results. Do not merge any new PR without its individual user approval.
 
 ## Static-route actual browser zoom audit, 2026-09-26
 
