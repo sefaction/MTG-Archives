@@ -1,6 +1,7 @@
 import { expect, test as base, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { openLocalPageAt200Percent } from "./local-browser-zoom";
 
 function database<T>(body: string): T {
   return JSON.parse(
@@ -185,6 +186,91 @@ test("inventory detail drawer contains focus, closes and restores focus on deskt
   expect(await page.evaluate(() => document.body.style.overflow)).not.toBe(
     "hidden",
   );
+});
+
+test("owned Inventory edit and audit panels contain focus and close from the keyboard", async ({
+  page,
+  account,
+  baseURL,
+}) => {
+  test.skip(!account.disposable, "Requires an owned local Inventory fixture");
+  await openDetails(page, account);
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Edit inventory" }).click();
+  const edit = page.getByRole("dialog", { name: "Edit Inventory Item" });
+  await expect(edit).toBeVisible();
+  expect(await edit.evaluate((node) => node.matches(":modal"))).toBe(true);
+  await edit.getByRole("button", { name: "Close" }).focus();
+  for (let index = 0; index < 12; index += 1) {
+    await page.keyboard.press("Tab");
+    expect(await edit.evaluate((node) => node.contains(document.activeElement) || document.activeElement === document.body)).toBe(true);
+  }
+  await page.getByRole("combobox", { name: "Quick card name search" }).focus();
+  await expect(page.getByRole("combobox", { name: "Quick card name search" })).not.toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(edit).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Edit inventory" })).toBeFocused();
+
+  await page.getByRole("button", { name: "View details" }).click();
+  await page.getByRole("button", { name: "Audit Trail" }).click();
+  const audit = page.getByRole("dialog", { name: "Inventory audit trail" });
+  await expect(audit).toBeVisible();
+  expect(await audit.evaluate((node) => node.matches(":modal"))).toBe(true);
+  await audit.getByRole("button", { name: "Close" }).focus();
+  await page.keyboard.press("Tab");
+  expect(await audit.evaluate((node) => node.contains(document.activeElement) || document.activeElement === document.body)).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(audit).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "View details" })).toBeFocused();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "Edit inventory" }).click();
+  await expect(edit).toBeVisible();
+  const editBounds = (await edit.boundingBox())!;
+  expect(editBounds.x).toBeGreaterThanOrEqual(0);
+  expect(editBounds.x + editBounds.width).toBeLessThanOrEqual(390);
+  expect(editBounds.y + editBounds.height).toBeLessThanOrEqual(844);
+  await edit.getByRole("button", { name: "Close" }).click();
+  await expect(edit).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Edit inventory" })).toBeFocused();
+  await page.getByRole("button", { name: "Edit inventory" }).click();
+  await page.mouse.click(1, 1);
+  await expect(edit).toHaveCount(0);
+
+  const { context: zoomContext, page: zoomPage } = await openLocalPageAt200Percent(
+    baseURL,
+    account.username,
+    account.password,
+    "/inventory?cardName=Hanweir&displayMode=exact",
+  );
+  try {
+    expect(await zoomPage.evaluate(() => [innerWidth, innerHeight, devicePixelRatio])).toEqual([683, 384, 2]);
+    await zoomPage.getByLabel(/actions for Hanweir Battlements/i).first().click();
+    await zoomPage.getByRole("button", { name: "Edit inventory" }).click();
+    const zoomEdit = zoomPage.getByRole("dialog", { name: "Edit Inventory Item" });
+    await expect(zoomEdit).toBeVisible();
+    const bounds = (await zoomEdit.boundingBox())!;
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.y).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(683);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(384);
+    await expect(zoomEdit.getByRole("button", { name: "Close" })).toBeVisible();
+    await zoomPage.keyboard.press("Escape");
+    await expect(zoomEdit).toHaveCount(0);
+    await zoomPage.getByRole("button", { name: "View details" }).click();
+    await zoomPage.getByRole("button", { name: "Audit Trail" }).click();
+    const zoomAudit = zoomPage.getByRole("dialog", { name: "Inventory audit trail" });
+    await expect(zoomAudit).toBeVisible();
+    const auditBounds = (await zoomAudit.boundingBox())!;
+    expect(auditBounds.x).toBeGreaterThanOrEqual(0);
+    expect(auditBounds.x + auditBounds.width).toBeLessThanOrEqual(683);
+    expect(auditBounds.y + auditBounds.height).toBeLessThanOrEqual(384);
+    await expect(zoomAudit.getByRole("button", { name: "Close" })).toBeVisible();
+    await zoomPage.keyboard.press("Escape");
+    await expect(zoomAudit).toHaveCount(0);
+  } finally {
+    await zoomContext.close();
+  }
 });
 
 test("public inventory details retain read-only capabilities and modal keyboard behavior", async ({
