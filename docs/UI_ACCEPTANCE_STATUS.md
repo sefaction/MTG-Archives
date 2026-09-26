@@ -1,5 +1,9 @@
 # UI acceptance status - 2026-09-26
 
+## Scripted Deck task action sample, 2026-09-26
+
+An owned local Chromium fixture opened a populated Deck at 1366×768 and 1440×900, with Add card, Analysis and the first deck-list card in the first viewport at both sizes. Adding two Llanowar Elves, closing the dialog and visiting Analysis before returning to the same Builder took **8 scripted control actions**. The deck-list total rose from 99 to 101 and remained 101 after returning. This count excludes login and direct deck entry. It is one sample, not a before/after speed comparison or complete Deck accessibility certification. The focused case passed 1/1 and its fixture cleaned up.
+
 ## All-matching Inventory export across pages, 2026-09-26
 
 An owned local browser fixture placed twelve different Forest printings across a ten-row Inventory page and one Island sentinel outside the card-name filter. Select all matching filters reported twelve entries and copies; the MTG Archives CSV included every tagged Forest entry from both pages and excluded the Island. The focused case passed 1/1 against the healthy local Docker image after #433 merged. Fixture users and temporary export backups returned to zero; the test restores any same-name pre-existing local export file. This provides direct I05/I07 evidence for filtered all-matching export, not every CSV format or selection/role permutation. No application code or Docker image changed.
