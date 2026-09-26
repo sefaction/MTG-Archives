@@ -28,12 +28,17 @@ test("production apply requires maintenance and recovery configuration", () => {
       new RegExp(name === "PRICING_ARCHIVE_MAINTENANCE_ENABLED" ?
         "maintenance opt-in" : name));
   }
+  assert.throws(() => pricingArchiveApplyMode({ ...production,
+    PRICING_RECOVERY_COPY_DIR: "/app/unrelated-recovery" }),
+  /BACKUP_DIR\/pricing-recovery/);
 });
 
 test("import pause requires a complete, unambiguous retention configuration", () => {
   assert.equal(pricingArchiveCanPauseImports(production), true);
   assert.equal(pricingArchiveCanPauseImports({ ...production,
     PRICING_RECOVERY_COPY_DIR: "" }), false);
+  assert.equal(pricingArchiveCanPauseImports({ ...production,
+    PRICING_RECOVERY_COPY_DIR: "/app/unrelated-recovery" }), false);
   assert.equal(pricingArchiveCanPauseImports({ ...production,
     MTG_LOCAL_PILOT_TEST: "1" }), false);
   assert.equal(pricingArchiveCanPauseImports({ ...production,

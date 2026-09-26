@@ -5,7 +5,9 @@ change introduces `PRICING_ARCHIVE_PRODUCTION_ENABLED=1` as a separate apply
 authorization from `MTG_LOCAL_PILOT_TEST=1`. Exactly one mode must be set for
 any archive write. Production mode also requires the maintenance opt-in, a
 configured backup root, a recovery-copy directory and a separate verification
-database URL. Raw retention additionally requires its own opt-in. The Pricing
+database URL. The production recovery directory must be the
+`BACKUP_DIR/pricing-recovery` sibling chosen for MTG Archives backups. Raw
+retention additionally requires its own opt-in. The Pricing
 worker pauses imports in the 2–5 a.m. America/Chicago window only when the
 retention, maintenance and one-mode settings are complete.
 
