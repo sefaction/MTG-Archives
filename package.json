@@ -27,6 +27,7 @@
     "worker:prices:archive:audit": "tsx scripts/pricing-archive-recovery-audit.ts",
     "worker:prices:archive:restore-drill": "tsx scripts/pricing-full-restore-drill.ts",
     "worker:prices:archive:copy-restore-drill": "tsx scripts/pricing-recovery-copy-restore-drill.ts",
+    "worker:prices:archive:copy-audit": "tsx scripts/pricing-recovery-package-audit.ts",
     "worker:prices:summaries:verify": "tsx scripts/verify-pricing-summaries.ts",
     "worker:notifications": "tsx scripts/notification-worker.ts",
     "worker:notifications:once": "tsx scripts/notification-worker.ts --once",

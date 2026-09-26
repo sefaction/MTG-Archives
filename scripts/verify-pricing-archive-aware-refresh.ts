@@ -196,6 +196,11 @@ try {
         BACKUP_DIR: "", MTG_LOCAL_PILOT_TEST: "1",
         PRICING_RECOVERY_COPY_DIR: recoveryCopyDirectory },
       encoding: "utf8", timeout: 180_000, maxBuffer: 1024 * 1024 });
+  const auditCopiedPackages = () => spawnSync(process.execPath,
+    ["--import", "tsx", "scripts/pricing-recovery-package-audit.ts"],
+    { env: { ...process.env, BACKUP_DIR: "",
+        PRICING_RECOVERY_COPY_DIR: recoveryCopyDirectory },
+      encoding: "utf8", timeout: 180_000, maxBuffer: 1024 * 1024 });
   assert.notEqual(activate(stagedResult.manifestPath, false).status, 0,
     "Activation must refuse a date that is not the oldest raw segment");
   sql(testDatabase, `DELETE FROM price_daily_summary WHERE observed_date <= '2026-01-10';
@@ -238,6 +243,9 @@ try {
     const packagePath = receipt.recoveryCopies.find((copy: { path: string }) =>
       copy.path.endsWith(".package.json"))?.destination;
     assert.ok(packagePath);
+    const healthyAudit = auditCopiedPackages();
+    assert.equal(healthyAudit.status, 0);
+    assert.equal(JSON.parse(healthyAudit.stdout).failed, 0);
     const hiddenSource = `${archiveTestDirectory}-unavailable`;
     renameSync(archiveTestDirectory, hiddenSource);
     try {
@@ -254,6 +262,8 @@ try {
       "A changed recovery copy must fail before isolated restore");
     assert.notEqual(drillCopiedPackage(packagePath).status, 0,
       "Source-independent recovery must reject a changed copied manifest");
+    assert.notEqual(auditCopiedPackages().status, 0,
+      "Read-only package audit must report a changed copied manifest");
     writeFileSync(copiedManifest.destination, readFileSync(copiedManifest.path));
   }
   const restaged = spawnSync(process.execPath,
@@ -440,6 +450,7 @@ try {
   const copiedCorrectionPackageDrill = drillCopiedPackage(correctionPackage);
   if (copiedCorrectionPackageDrill.status !== 0)
     throw new Error(`Correction package drill failed: ${copiedCorrectionPackageDrill.stderr.trim()}`);
+  assert.equal(auditCopiedPackages().status, 0);
   const rollbackName = `pricing_rollback_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
   const rollbackDatabase = new URL(testDatabase);
   rollbackDatabase.pathname = `/${rollbackName}`;

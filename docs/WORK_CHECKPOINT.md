@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Copied Pricing package audit, 2026-09-26
+
+Active branch `feat/pricing-recovery-package-audit` stacks on `feat/pricing-recovery-package`, which stacks on green, unapproved PR #375. This adds a read-only source-independent checksum audit of all published recovery package indexes and their four files. The shared verifier is used by the package restore drill. Isolated PostgreSQL fixture passed healthy activation/correction packages, a tampered manifest audit failure and the source-loss restore case. Typecheck and `git diff --check` passed. Next safe step: commit, merge both new batches into cumulative local review, build/reload Docker once, push and open separate dependent PRs, then collect CI. The selected Unraid destination is still not mounted or drilled; raw deletion and optional maintenance remain disabled. #330 stays open and each PR needs individual merge approval.
+
 ## Source-independent Pricing recovery package, 2026-09-26
 
 Active branch `feat/pricing-recovery-package` stacks on green, unapproved PR #375 (itself after #374 and #372). Archive activation and older-correction pilots now prepare an immutable relative-path index and copy/read back five files before changing live Pricing. The local restore drill accepts the copied package path without the source `BACKUP_DIR` or receipt. The isolated PostgreSQL fixture restored both operation packages and passed archive activation with the entire source directory temporarily unavailable; typecheck passed. The full isolated PostgreSQL fixture passed again after package-mode tamper rejection, and git diff --check passed. Next safe step: commit, load cumulatively into local Docker, push dependent PR and collect CI. No Unraid target is mounted or drilled, no off-host recovery is proven, and raw deletion/maintenance remain disabled. #330 stays open. No PR merge without its individual approval.
