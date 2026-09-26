@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## UI capability route reconciliation, 2026-09-26
+
+Active branch `fix/ui-route-capability-map` from merged main `10f415c` addresses [issue #419](https://github.com/sefaction/MTG-Archives/issues/419). The crosswalk now includes `/pricing/card/[cardId]`, `/pricing/digest/[observedDate]` and `/settings/pricing-alerts`, with their current scope and direct test pointers; the route count is 37. A new core unit test compares every `app/**/page.tsx` route to the table exactly once and passed 1/1. Typecheck and `git diff --check` passed. This is documentation/test only, so no Docker reload is needed. PR/CI and individual approval are pending. Green PR #417 for Inventory empty/loading feedback and PR #418 for the 48-visit phone-width route sweep are independently open; neither is merge-approved. #274 and #330 remain open. Next safe step: open the #419 resolving PR, verify CI, then reconcile dependency order when any individual approvals arrive.
+
 ## Approved recovery and Inventory retry review, 2026-09-26
 
 Active branch `test/inventory-infinite-retry` refreshes user-approved [PR #415](https://github.com/sefaction/MTG-Archives/pull/415) against main after individually approved #413 and #414 merged. The owned browser case for infinite Inventory next-page HTTP 503 and Retry passed: 10 initial rows and a selected copy persisted, then Retry loaded 12 rows without losing selection. The combined opted-in serial Chromium run passed 62 cases with one separate Pricing retention load case intentionally skipped in 7.1 minutes. Fixture users returned to zero and Inventory to 12,477 copies. #415 needs fresh CI after this main merge, then may merge under its existing individual approval. No Docker reload is needed for its test/documentation-only changes. #315 Acquisition remains deferred. Next safe step: finish #415 merge, then address the remaining #274 acceptance matrix and #330 intended-host load/activation gate.

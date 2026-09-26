@@ -1,5 +1,9 @@
 # UI acceptance status - 2026-09-26
 
+## Current route inventory reconciliation, 2026-09-26
+
+Issue #419 found that the historical capability crosswalk omitted three pages added after its original 34-route baseline: owned card Pricing history, recipient-specific dated Pricing digests, and Pricing alert settings. Their homes, access boundaries and test pointers are now recorded. The live crosswalk covers all 37 `app/**/page.tsx` routes, with a unit guard in the core verification suite comparing route files to table entries exactly. This verifies route accounting, not every action within each page.
+
 ## Current Inventory review and failure recovery, 2026-09-26
 
 The user reports Inventory card/storage filters work well: they can apply criteria, identify active filters, and revise or clear them without losing their place. They also accepted the selected-copy amount and Move confirmation, Deck editing, cross-section navigation, and Locations inspection/editing in the local app. The bounded Inventory filter #264, move #265, Deck #268 and navigation foundation #263 issues are closed; the wider role, device and state matrix in #274 remains open.
@@ -86,7 +90,7 @@ Local review: http://127.0.0.1:13001. Healthy image `sha256:09053d1ce741b62d1372
 
 ## Capability evidence index
 
-The existing [capability crosswalk](design/ui-consolidation/CAPABILITIES.md) still covers all **34 current page routes** and **45 action IDs**, verified against `app/**/page.tsx` and the crosswalk rows on this revision. Its action IDs and scope differences remain the review checklist; route enumeration alone cannot prove action parity.
+The [capability crosswalk](design/ui-consolidation/CAPABILITIES.md) covers all **37 current page routes** and **45 action IDs**, verified against `app/**/page.tsx` and the crosswalk rows on this revision. Its action IDs and scope differences remain the review checklist; route enumeration alone cannot prove action parity.
 
 | Capability family | Retained home and current implementation record | Behavioral evidence on the cumulative build |
 | --- | --- | --- |
