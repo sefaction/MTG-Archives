@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Pricing maintenance recovery-copy preflight, 2026-09-26
+
+Active branch `feat/pricing-maintenance-copy-gate` stacks on green, open [PR #372](https://github.com/sefaction/MTG-Archives/pull/372). This batch requires an existing separate `PRICING_RECOVERY_COPY_DIR` before enabled archived-correction maintenance starts or claims its lease; the Compose service passes that env value, but no production destination is mounted or enabled. The read-only backlog command remains available without it. Recovery-copy unit and missing-target runner tests passed, as did typecheck and Compose configuration with the local env file. Next safe step: open dependent PR and collect CI. Raw deletion and the optional maintenance profile remain disabled; #330 stays open. Do not merge either PR without individual approval.
+
 ## Enlarged Inventory filter review, 2026-09-26
 
 Active branch `test/inventory-enlarged-view` stacks on green, unapproved PR #373. The current cumulative local Docker image includes #373; this batch changes only the Inventory browser fixture and acceptance ledger, so no app rebuild is needed. Chromium rendered and captured 683×384 CSS px at device pixel ratio 2, equivalent to the layout area of a 1366×768 window at 200% zoom. The Inventory workspace case passed with visible results, no page-level overflow, modal Filters, reachable Close/Apply, Escape focus return and invalid-query feedback. The captured 683×384 image was inspected. This is emulation; actual browser-chrome zoom and human task observations remain open under #274. Next safe step: commit, push, open dependent test PR and collect CI. No PR merge without individual approval.

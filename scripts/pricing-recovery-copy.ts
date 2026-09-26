@@ -12,6 +12,21 @@ function inside(root: string, path: string) {
   return path.startsWith(`${root}${sep}`);
 }
 
+export async function verifyPricingRecoveryCopyDestination(sourceRoot: string,
+  destinationRoot: string) {
+  if (!destinationRoot.trim())
+    throw new Error("PRICING_RECOVERY_COPY_DIR is required for archive maintenance");
+  const sourceBase = await realpath(resolve(sourceRoot));
+  const source = await realpath(resolve(sourceRoot, "pricing"));
+  const destination = await realpath(resolve(destinationRoot));
+  if (sourceBase === destination || inside(sourceBase, destination) ||
+      inside(destination, sourceBase))
+    throw new Error("Pricing recovery copy destination must be separate from the source");
+  if (!(await lstat(destination)).isDirectory())
+    throw new Error("Pricing recovery copy destination must be an existing directory");
+  return { source, destination };
+}
+
 async function fileSha(path: string) {
   const hash = createHash("sha256");
   for await (const chunk of createReadStream(path)) hash.update(chunk);
@@ -23,14 +38,8 @@ async function fileSha(path: string) {
 export async function copyVerifiedPricingRecoveryFiles(sourceRoot: string,
   destinationRoot: string, files: PricingRecoveryFile[]): Promise<PricingRecoveryCopy[]> {
   if (!files.length) throw new Error("At least one Pricing recovery file is required");
-  const sourceBase = await realpath(resolve(sourceRoot));
-  const source = await realpath(resolve(sourceRoot, "pricing"));
-  const destination = await realpath(resolve(destinationRoot));
-  if (sourceBase === destination || inside(sourceBase, destination) ||
-      inside(destination, sourceBase))
-    throw new Error("Pricing recovery copy destination must be separate from the source");
-  if (!(await lstat(destination)).isDirectory())
-    throw new Error("Pricing recovery copy destination must be an existing directory");
+  const { source, destination } = await verifyPricingRecoveryCopyDestination(
+    sourceRoot, destinationRoot);
   const copies: PricingRecoveryCopy[] = [];
   for (const file of files) {
     if (!/^[a-f0-9]{64}$/i.test(file.sha256))
