@@ -23,6 +23,23 @@ services:
     volumes:
       - ${PRICING_POSTGRES_DATA_PATH:-./.local-data/pricing-postgres}:/var/lib/postgresql/data
 
+  pricing-verify-postgres:
+    profiles: ["pricing-archive-maintenance"]
+    image: postgres:16-alpine
+    restart: unless-stopped
+    pull_policy: always
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: ${PRICING_POSTGRES_USER:-mtgpricing}
+      POSTGRES_PASSWORD: ${PRICING_POSTGRES_PASSWORD:-mtgpricing}
+    volumes:
+      - pricing_verify_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -140,6 +157,7 @@ services:
     command: npm run worker:prices:archive:maintenance -- --apply
     environment:
       PRICING_DATABASE_URL: ${PRICING_DATABASE_URL:-postgresql://mtgpricing:mtgpricing@pricing-postgres:5432/mtgpricing?schema=public}
+      PRICING_VERIFY_DATABASE_URL: ${PRICING_VERIFY_DATABASE_URL:-}
       BACKUP_DIR: ${BACKUP_DIR:-/app/backups}
       PRICING_ARCHIVE_MAINTENANCE_ENABLED: ${PRICING_ARCHIVE_MAINTENANCE_ENABLED:-false}
       PRICING_RAW_ARCHIVE_RETENTION_ENABLED: ${PRICING_RAW_ARCHIVE_RETENTION_ENABLED:-0}
@@ -149,7 +167,10 @@ services:
     volumes:
       - ${BACKUPS_DATA_PATH:?BACKUPS_DATA_PATH must be set in .env}:${BACKUP_DIR:-/app/backups}
     depends_on:
-      - pricing-postgres
+      pricing-postgres:
+        condition: service_started
+      pricing-verify-postgres:
+        condition: service_healthy
 
   notification-worker:
     image: ${WEB_IMAGE:-ghcr.io/sefaction/mtg-archives-web:${IMAGE_TAG:-main}}
@@ -217,3 +238,6 @@ services:
       - ${SCRYFALL_DATA_PATH:?SCRYFALL_DATA_PATH must be set in .env}:${SCRYFALL_CONTAINER_DATA_PATH:-/app/data/scryfall}
     depends_on:
       - postgres
+
+volumes:
+  pricing_verify_data:

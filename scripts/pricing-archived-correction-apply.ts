@@ -12,6 +12,7 @@ import { rawSegmentColumns, rawSegmentFingerprintSql,
   rawSegmentIdentityFingerprintSql } from "./pricing-raw-segment-common";
 import { pricingSummaryRefreshBodySql } from "./pricing-summary-sql";
 import { copyVerifiedPricingRecoveryFiles, createPricingRecoveryPackage } from "./pricing-recovery-copy";
+import { pricingVerificationServer } from "./pricing-verification-server";
 
 const configured = process.env.PRICING_DATABASE_URL;
 const root = process.env.BACKUP_DIR;
@@ -33,7 +34,6 @@ const date = selection[1];
 const sqlDate = `'${date}'::date`;
 const literal = (value: string) => `'${value.replace(/'/g, "''")}'`;
 const sha = (value: Buffer) => createHash("sha256").update(value).digest("hex");
-const makeDb = (name: string) => { const url = new URL(database); url.pathname = `/${name}`; return url; };
 
 function command(db: URL, statement: string, input?: Buffer, outputPath?: string) {
   const fd = outputPath ? openSync(outputPath, "wx") : undefined;
@@ -312,8 +312,9 @@ async function main() {
   const manifestPath = resolve(directory, `${id}.json`);
   const receiptPath = resolve(directory, `${id}.applied.json`);
   const cloneName = `mtg_pricing_correction_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
-  const admin = makeDb("postgres");
-  const clone = makeDb(cloneName);
+  const admin = pricingVerificationServer(database);
+  const clone = new URL(admin);
+  clone.pathname = `/${cloneName}`;
   let created = false;
   try {
     program("pg_dump", [database.toString(), "--format=custom", "--no-owner",

@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { pricingMaintenanceMinutesRemaining } from "./pricing-archive-maintenance-window";
 import { pruneStalePricingRecoveryPartials,
   verifyPricingRecoveryCopyDestination } from "./pricing-recovery-copy";
+import { pricingVerificationServer } from "./pricing-verification-server";
 
 const url = process.env.PRICING_DATABASE_URL;
 if (!url) throw new Error("PRICING_DATABASE_URL is required");
@@ -189,6 +190,9 @@ async function main() {
       throw new Error("PRICING_RECOVERY_COPY_DIR is required for archive maintenance");
     await verifyPricingRecoveryCopyDestination(process.env.BACKUP_DIR || "/app/backups",
       recoveryTarget);
+    if (!process.env.PRICING_VERIFY_DATABASE_URL)
+      throw new Error("PRICING_VERIFY_DATABASE_URL is required for archive maintenance");
+    pricingVerificationServer(database);
   }
   do {
     try { await tick(); }

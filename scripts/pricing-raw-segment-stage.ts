@@ -14,6 +14,7 @@ import { resolve } from "node:path";
 import { getPricingRetentionPolicy } from "../lib/pricing-retention-policy";
 import { rawSegmentColumns, rawSegmentFingerprintSql,
   rawSegmentIdentityFingerprintSql } from "./pricing-raw-segment-common";
+import { pricingVerificationServer } from "./pricing-verification-server";
 
 const configured = process.env.PRICING_DATABASE_URL;
 if (!configured) throw new Error("PRICING_DATABASE_URL is required.");
@@ -66,10 +67,10 @@ const restoredCsv = resolve(directory, `${id}.restored.csv`);
 const currentCsv = resolve(directory, `${id}.current.csv`);
 const archive = resolve(directory, `${id}.csv.gz`);
 const manifestPath = resolve(directory, `${id}.json`);
-const admin = new URL(database);
+const admin = pricingVerificationServer(database);
 admin.pathname = "/postgres";
 const restoreName = `mtg_pricing_segment_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
-const restore = new URL(database);
+const restore = new URL(admin);
 restore.pathname = `/${restoreName}`;
 let restoreCreated = false;
 let verified = false;
