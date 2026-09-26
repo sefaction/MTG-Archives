@@ -1,8 +1,8 @@
 # Resumable work checkpoint
 
-## Approved role gate refreshed after #422, 2026-09-26
+## Default-off Pricing production authorization batch, 2026-09-26
 
-The user individually approved PR #422 and it merged as `14dfaf1`; green PR #423 is also individually approved. Active branch `test/ui-route-role-boundaries` now includes merged main and its local browser case passed 1/1 across six Admin routes, with disposable fixture cleanup. Refresh #423 CI, then merge under its existing approval and close no broader acceptance issue. #274 and #330 remain open; a separate default-off Pricing activation branch is in local review. Acquisition #315 remains deferred.
+Active branch `feat/pricing-reviewed-activation` includes merged main `5843487` (individually approved PRs #422 and #423). It adds a separate production apply opt-in for existing archive maintenance, daily compaction, older correction and raw activation. Local and production modes are mutually exclusive; production mode requires maintenance, backup, recovery-copy and verifier settings, and raw deletion retains its own opt-in. The Pricing worker pauses imports in the Central window only for a complete retention configuration. Defaults remain off, production is untouched and testing is local only. Typecheck, 617 core unit tests, focused authorization/write-guard tests and layered Compose config passed. The direct worktree Docker build produced image `sha256:b88e8e692337af7587eca7d91ccb9b48a22a4d7780e10f983cfd31180bf82db6`; web and both workers run it locally and `/login` returned 200. Their production, raw-retention and maintenance switches are `0`, `0` and `false`; a read-only plan found no eligible old raw date and live raw count remained 2,069,447. An apply fixture is deferred to the Central maintenance window, so no deletion or scheduling proof is claimed. This branch still needs PR and CI. Next safe step: open the coherent default-off activation PR, collect its checks, then continue #274 and #330 local operational work.
 
 
 ## Static-route actual browser zoom audit, 2026-09-26
