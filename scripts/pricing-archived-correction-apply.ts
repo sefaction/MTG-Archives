@@ -78,7 +78,7 @@ function state(db: URL): State {
 }
 type Segment = ArchiveSegmentRecord;
 type Queue = ArchivedFeedQueueRecord & { status: string; sourceJobId: string;
-  queuedAt: string };
+  queuedAt: string; appliedCount: number };
 function records(db: URL) {
   const output = command(db, `SELECT json_build_object(
     'segment', (SELECT json_build_object(
@@ -92,7 +92,7 @@ function records(db: URL) {
       'identityFingerprint', identity_fingerprint,
       'spoolPath', spool_path, 'spoolSha256', spool_sha256,
       'rowCount', row_count, 'status', status, 'sourceJobId', source_job_id,
-      'queuedAt', queued_at::text)
+      'queuedAt', queued_at::text, 'appliedCount', applied_count)
       FROM price_archive_feed_queue WHERE observed_date = ${sqlDate}
         AND status = 'PENDING' ORDER BY queued_at DESC, identity_fingerprint DESC LIMIT 1)
   )::text;`);
@@ -129,7 +129,7 @@ function archiveInput(segment: Segment) {
 function correctionSql(expected: State, segment: Segment, queue: Queue,
   replacement: { archive: string; archiveSha: string; csvSha: string;
     identityFingerprint: string; sourceFingerprint: string; rows: number },
-  backup: string, backupSha: string, effects: Array<{
+  backup: string, backupSha: string, remaining: number, effects: Array<{
     mtgjson_uuid: string; provider: string; finish: string; price_type: string;
     currency: string; observed_date: string; price: string; id: number;
     revision_count: number; created_at: string }>) {
@@ -160,9 +160,11 @@ DO $$ BEGIN
        IS DISTINCT FROM ${oldHash}
     OR NOT EXISTS (SELECT 1 FROM price_archive_feed_queue WHERE observed_date = ${sqlDate}
       AND identity_fingerprint = ${literal(queue.identityFingerprint)}
-      AND spool_sha256 = ${literal(queue.spoolSha256)} AND status = 'PENDING')
+      AND spool_sha256 = ${literal(queue.spoolSha256)} AND status = 'PENDING'
+      AND applied_count = ${queue.appliedCount})
     OR EXISTS (SELECT 1 FROM price_archive_feed_queue WHERE observed_date = ${sqlDate}
-      AND status = 'PENDING' AND queued_at > ${literal(queue.queuedAt)}::timestamptz)
+      AND status = 'PENDING' AND (queued_at, identity_fingerprint) >
+        (${literal(queue.queuedAt)}::timestamptz, ${literal(queue.identityFingerprint)}))
   THEN RAISE EXCEPTION 'Pricing correction source or queue changed before activation'; END IF;
 END $$;
 CREATE TEMP TABLE touched_price_keys ON COMMIT DROP AS
@@ -213,11 +215,16 @@ ON CONFLICT (observed_date) DO UPDATE SET
   raw_rows = EXCLUDED.raw_rows, generation = EXCLUDED.generation,
   backup_path = EXCLUDED.backup_path, backup_sha256 = EXCLUDED.backup_sha256,
   activated_at = now();
-UPDATE price_archive_feed_queue SET status = 'APPLIED', processed_at = now(), error = NULL
+UPDATE price_archive_feed_queue SET status = ${remaining ? "'PENDING'" : "'APPLIED'"},
+  applied_count = applied_count + ${effects.length},
+  processed_at = ${remaining ? "NULL" : "now()"}, error = NULL
   WHERE observed_date = ${sqlDate} AND identity_fingerprint = ${literal(queue.identityFingerprint)};
 UPDATE price_archive_feed_queue SET status = 'SUPERSEDED', processed_at = now()
   WHERE observed_date = ${sqlDate} AND status = 'PENDING'
-    AND queued_at <= ${literal(queue.queuedAt)}::timestamptz;
+    AND identity_fingerprint <> ${literal(queue.identityFingerprint)}
+    AND (queued_at, identity_fingerprint) <
+      (${literal(queue.queuedAt)}::timestamptz, ${literal(queue.identityFingerprint)})
+    AND ${remaining} = 0;
 UPDATE price_summary_state SET source_revision = source_revision + ${effects.length},
   summary_revision = summary_revision + ${effects.length}, refreshed_at = now()
   WHERE singleton;
@@ -237,10 +244,10 @@ async function main() {
     generation: plan.priorGeneration, archivedRows: plan.archivedRows,
     feedRows: plan.feedRows, corrected: plan.corrected, added: plan.added,
     unchanged: plan.unchanged, missingPreserved: plan.missing }));
-  if (!apply || plan.corrected + plan.added === 0) return;
-  if (plan.corrected + plan.added > 500)
-    throw new Error("Correction exceeds the 500-identity local pilot budget");
-  const plannedKeys = plan.rows.map((row) => ({ mtgjson_uuid: row.mtgjsonUuid,
+  if (!apply || plan.changedRows.length === 0) return;
+  const batch = plan.changedRows.slice(0, 500);
+  const remaining = plan.changedRows.length - batch.length;
+  const plannedKeys = batch.map((row) => ({ mtgjson_uuid: row.mtgjsonUuid,
     provider: row.provider, finish: row.finish, price_type: row.priceType,
     currency: row.currency }));
   const visibleBefore = signature(database, plannedKeys);
@@ -280,13 +287,13 @@ async function main() {
     if (segment && command(clone, identitySql("archive_rows")) !== segment.identityFingerprint)
       throw new Error("Restored raw archive identities differ from active segment metadata");
     const reserved = command(database, `SELECT nextval(pg_get_serial_sequence(
-      'price_snapshots', 'id')) FROM generate_series(1, ${plan.rows.length});`)
+      'price_snapshots', 'id')) FROM generate_series(1, ${batch.length});`)
       .split(/\r?\n/).map(Number);
-    if (reserved.length !== plan.rows.length || reserved.some((value) => !Number.isSafeInteger(value)))
+    if (reserved.length !== batch.length || reserved.some((value) => !Number.isSafeInteger(value)))
       throw new Error("Could not reserve archived identity provenance IDs");
     const feedCsv = Papa.unparse({ fields: ["mtgjson_uuid", "provider", "finish",
       "price_type", "currency", "observed_date", "price", "raw_json",
-      "candidate_id"], data: plan.rows.map((row, index) => [row.mtgjsonUuid,
+      "candidate_id"], data: batch.map((row, index) => [row.mtgjsonUuid,
         row.provider, row.finish, row.priceType, row.currency, row.observedDate,
         row.price.toFixed(4), JSON.stringify(row.rawJson), String(reserved[index])]) },
       { newline: "\n" });
@@ -319,7 +326,7 @@ async function main() {
         mtgjson_uuid: string; provider: string; finish: string; price_type: string;
         currency: string; observed_date: string; price: string; id: number;
         revision_count: number; created_at: string }>;
-    if (effects.length !== plan.corrected + plan.added)
+    if (effects.length !== batch.length)
       throw new Error("Archived correction effects differ from verified feed reconciliation");
     command(clone, `COPY (SELECT ${rawSegmentColumns} FROM archive_rows ORDER BY id)
       TO STDOUT WITH (FORMAT csv, HEADER true)`, undefined, csvPath);
@@ -347,7 +354,7 @@ async function main() {
     writeFileSync(manifestPath, `${JSON.stringify({ status: "verified_staged",
       schemaVersion: 1, observedDate: date, priorGeneration: segment?.generation ?? 0,
       generation: (segment?.generation ?? 0) + 1, replacement,
-      effects: effects.length, missingPreserved: plan.missing,
+      effects: effects.length, remaining, missingPreserved: plan.missing,
       feedSha256: queue.spoolSha256, backup, backupSha256: backupSha,
       restoreVerified: true, activated: false }, null, 2)}\n`, { flag: "wx" });
     writeFileSync(backupManifest, `${JSON.stringify({ status: "verified_before_correction",
@@ -359,7 +366,7 @@ async function main() {
     if (process.env.MTG_ARCHIVED_CORRECTION_TEST_FAIL_AFTER_RESTORE === "1")
       throw new Error("Injected correction interruption before activation");
     const statement = correctionSql(before, segment, queue, replacement,
-      backup, backupSha, effects);
+      backup, backupSha, remaining, effects);
     command(clone, statement);
     const keys = effects.map((row) => ({ mtgjson_uuid: row.mtgjson_uuid,
       provider: row.provider, finish: row.finish, price_type: row.price_type,
@@ -380,11 +387,13 @@ async function main() {
     writeFileSync(receiptPath, `${JSON.stringify({ status: "applied",
       appliedAt: new Date().toISOString(), observedDate: date,
       generation: (segment?.generation ?? 0) + 1, effects: effects.length,
+      remaining,
       missingPreserved: plan.missing, archive, archiveSha256: replacement.archiveSha,
       backup, backupSha256: backupSha, manifestPath }, null, 2)}\n`,
       { flag: "wx" });
     console.log(JSON.stringify({ mode: "applied", observedDate: date,
       generation: (segment?.generation ?? 0) + 1, effects: effects.length,
+      remaining,
       missingPreserved: plan.missing, receiptPath }));
   } finally {
     if (created) command(admin, `DROP DATABASE "${cloneName}" WITH (FORCE);`);

@@ -88,16 +88,17 @@ export function planArchivedCorrection(root: string, date: string,
     throw new Error("Activated raw archive contains duplicate or wrong-date identities");
 
   let corrected = 0, unchanged = 0, added = 0;
+  const changedRows: MtgjsonPriceSnapshotInput[] = [];
   for (const row of feed.rows) {
     const old = oldKeys.get(identity(row));
-    if (!old) { added++; continue; }
+    if (!old) { added++; changedRows.push(row); continue; }
     if (Number(old.price) === Number(row.price.toFixed(4))) unchanged++;
-    else corrected++;
+    else { corrected++; changedRows.push(row); }
   }
   const missing = [...oldKeys.keys()].filter((key) => !feedKeys.has(key)).length;
   return { observedDate: date, priorGeneration: segment?.generation ?? 0,
     archivedRows: oldRows.length, feedRows: feed.rows.length,
     corrected, added, unchanged, missing,
     queueFingerprint: queued.identityFingerprint,
-    rows: feed.rows };
+    changedRows: changedRows.sort((a, b) => identity(a).localeCompare(identity(b))) };
 }

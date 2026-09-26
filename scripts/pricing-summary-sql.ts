@@ -199,11 +199,13 @@ CREATE TABLE IF NOT EXISTS price_archive_feed_queue (
   spool_sha256 TEXT NOT NULL,
   row_count INTEGER NOT NULL,
   status TEXT NOT NULL DEFAULT 'PENDING',
+  applied_count INTEGER NOT NULL DEFAULT 0,
   queued_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   processed_at TIMESTAMPTZ,
   error TEXT,
   PRIMARY KEY (observed_date, identity_fingerprint)
 );
+ALTER TABLE price_archive_feed_queue ADD COLUMN IF NOT EXISTS applied_count INTEGER NOT NULL DEFAULT 0;
 CREATE INDEX IF NOT EXISTS price_archive_feed_queue_pending_idx
   ON price_archive_feed_queue (status, observed_date, queued_at);
 

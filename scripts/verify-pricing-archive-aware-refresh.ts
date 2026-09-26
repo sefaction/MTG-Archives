@@ -387,6 +387,32 @@ try {
     WHERE observed_date = '2026-01-07'`), "1");
   assert.equal(sql(testDatabase, `SELECT snapshot_count || ':' || current_price
     FROM price_scope_summary WHERE mtgjson_uuid = '${gapOld.mtgjsonUuid}'`), "1:3.0000");
+  const bulkDate = "2026-01-08";
+  const bulkRows = Array.from({ length: 501 }, (_, index) => ({ ...oldInput,
+    mtgjsonUuid: `archive-bulk-${index.toString().padStart(3, "0")}-${card}`,
+    observedDate: bulkDate, price: 2 }));
+  const bulkFingerprint = archivedFeedFingerprint(bulkRows);
+  const bulkFile = writeArchivedFeedFile(archiveTestDirectory, bulkDate,
+    bulkFingerprint, bulkRows);
+  sql(testDatabase, `INSERT INTO price_archive_feed_queue
+    (observed_date, identity_fingerprint, source_job_id, spool_path,
+     spool_sha256, row_count) VALUES ('${bulkDate}', '${bulkFingerprint}',
+    'fixture-bulk', '${bulkFile.path.replace(/'/g, "''")}',
+    '${bulkFile.fileSha256}', 501);`);
+  const firstBulk = runCorrection(bulkDate, false, true);
+  if (firstBulk.status !== 0)
+    throw new Error(`First bounded correction failed: ${firstBulk.stderr.trim()}`);
+  assert.equal(JSON.parse(firstBulk.stdout.trim().split(/\r?\n/).at(-1)!).remaining, 1);
+  assert.equal(sql(testDatabase, `SELECT status || ':' || applied_count
+    FROM price_archive_feed_queue WHERE observed_date = '${bulkDate}'`), "PENDING:500");
+  const finalBulk = runCorrection(bulkDate, false, true);
+  if (finalBulk.status !== 0)
+    throw new Error(`Resumed bounded correction failed: ${finalBulk.stderr.trim()}`);
+  assert.equal(JSON.parse(finalBulk.stdout.trim().split(/\r?\n/).at(-1)!).remaining, 0);
+  assert.equal(sql(testDatabase, `SELECT status || ':' || applied_count
+    FROM price_archive_feed_queue WHERE observed_date = '${bulkDate}'`), "APPLIED:501");
+  assert.equal(sql(testDatabase, `SELECT generation || ':' || raw_rows
+    FROM price_raw_archive_segment WHERE observed_date = '${bulkDate}'`), "2:501");
   console.log("Archive-aware refresh, old correction, sparse scope and full rebuild passed.");
 } finally {
   if (created) sql(admin, `DROP DATABASE "${name}" WITH (FORCE);`);
