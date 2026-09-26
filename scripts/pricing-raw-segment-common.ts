@@ -12,3 +12,11 @@ export function rawSegmentFingerprintSql(date: string) {
     SELECT ${rawSegmentColumns} FROM price_snapshots WHERE observed_date = '${date}'
   ) x`;
 }
+
+export function rawSegmentIdentityFingerprintSql(date: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Invalid segment date");
+  return `SELECT COALESCE(md5(string_agg(md5(concat_ws(E'\\x1f',
+    mtgjson_uuid, provider, finish, price_type, currency, observed_date::text,
+    price::text)), '' ORDER BY mtgjson_uuid, provider, finish, price_type,
+    currency)), md5('')) FROM price_snapshots WHERE observed_date = '${date}'`;
+}

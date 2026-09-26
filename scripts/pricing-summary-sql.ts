@@ -165,12 +165,29 @@ CREATE TABLE IF NOT EXISTS price_raw_archive_segment (
   archive_sha256 TEXT NOT NULL,
   csv_sha256 TEXT NOT NULL,
   source_fingerprint TEXT NOT NULL,
+  identity_fingerprint TEXT,
   raw_rows INTEGER NOT NULL,
   generation INTEGER NOT NULL DEFAULT 1,
   backup_path TEXT NOT NULL,
   backup_sha256 TEXT NOT NULL,
   activated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE price_raw_archive_segment ADD COLUMN IF NOT EXISTS identity_fingerprint TEXT;
+CREATE TABLE IF NOT EXISTS price_archive_feed_queue (
+  observed_date DATE NOT NULL,
+  identity_fingerprint TEXT NOT NULL,
+  source_job_id TEXT NOT NULL,
+  spool_path TEXT NOT NULL,
+  spool_sha256 TEXT NOT NULL,
+  row_count INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'PENDING',
+  queued_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  processed_at TIMESTAMPTZ,
+  error TEXT,
+  PRIMARY KEY (observed_date, identity_fingerprint)
+);
+CREATE INDEX IF NOT EXISTS price_archive_feed_queue_pending_idx
+  ON price_archive_feed_queue (status, observed_date, queued_at);
 
 CREATE TABLE IF NOT EXISTS price_summary_state (
   singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),
