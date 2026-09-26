@@ -11,6 +11,21 @@ services:
     ports:
       - "${PRICING_POSTGRES_HOST_PORT:-15436}:5432"
 
+  pricing-retention-clone-postgres:
+    profiles: ["pricing-retention-drill"]
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: ${PRICING_POSTGRES_USER:-mtgpricing}
+      POSTGRES_PASSWORD: ${PRICING_POSTGRES_PASSWORD:-mtgpricing}
+    volumes:
+      - pricing_retention_clone_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
   redis:
     volumes: !override
       - ./.local-data/redis:/data
@@ -18,7 +33,7 @@ services:
   web:
     image: mtg-archives-web:local
     build:
-      context: .
+      context: ${MTG_REVIEW_BUILD_CONTEXT:-.}
       dockerfile: ./Dockerfile
     pull_policy: build
     environment:
@@ -27,6 +42,7 @@ services:
       EXPORTS_DATA_PATH: /app/data/exports
       BACKUPS_DATA_PATH: /app/data/backups
       BACKUP_DIR: /app/data/backups
+      PRICING_RECOVERY_COPY_DIR: /app/data/pricing-recovery
       SCRYFALL_CONTAINER_DATA_PATH: /app/data/scryfall
       SCRYFALL_DATA_PATH: /app/data/scryfall
     volumes: !override
@@ -34,6 +50,7 @@ services:
       - ./.local-data/imports:/app/data/imports
       - ./.local-data/exports:/app/data/exports
       - ./.local-data/backups:/app/data/backups
+      - ./.local-data/pricing-recovery:/app/data/pricing-recovery
       - ./.local-data/scryfall:/app/data/scryfall
     ports:
       - "${WEB_HOST_PORT:-13001}:3000"
@@ -41,7 +58,7 @@ services:
   pricing-worker:
     image: mtg-archives-web:local
     build:
-      context: .
+      context: ${MTG_REVIEW_BUILD_CONTEXT:-.}
       dockerfile: ./Dockerfile
     pull_policy: build
     environment:
@@ -53,18 +70,20 @@ services:
   pricing-archive-maintenance:
     image: mtg-archives-web:local
     build:
-      context: .
+      context: ${MTG_REVIEW_BUILD_CONTEXT:-.}
       dockerfile: ./Dockerfile
     pull_policy: build
     environment:
       BACKUP_DIR: /app/data/backups
+      PRICING_RECOVERY_COPY_DIR: /app/data/pricing-recovery
     volumes: !override
       - ./.local-data/backups:/app/data/backups
+      - ./.local-data/pricing-recovery:/app/data/pricing-recovery
 
   notification-worker:
     image: mtg-archives-web:local
     build:
-      context: .
+      context: ${MTG_REVIEW_BUILD_CONTEXT:-.}
       dockerfile: ./Dockerfile
     pull_policy: build
     environment:
@@ -75,7 +94,7 @@ services:
   backup:
     image: mtg-archives-web:local
     build:
-      context: .
+      context: ${MTG_REVIEW_BUILD_CONTEXT:-.}
       dockerfile: ./Dockerfile
     pull_policy: build
     environment:
@@ -92,3 +111,6 @@ services:
       - ./.local-data/exports:/app/data/exports
       - ./.local-data/backups:/app/data/backups
       - ./.local-data/scryfall:/app/data/scryfall
+
+volumes:
+  pricing_retention_clone_data:

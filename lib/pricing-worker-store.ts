@@ -1,7 +1,7 @@
 import { queryPricingJson } from "./pricing-db-query";
 import { getPricingRetentionPolicy } from "./pricing-retention-policy";
 import { spawnSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 export type PricingWorkerStatus = {
   available: boolean;
@@ -273,6 +273,36 @@ type PricingReadQuery = <T>(sql: string) => Promise<T[]>;
 
 function jsonQuery<T>(sql: string): Promise<T[]> {
   return queryPricingJson<T>(sql, { timeoutMs: 10_000 });
+}
+
+const collectionTrendCache = new Map<string, {
+  expiresAt: number;
+  pending: Promise<PricingDashboardTrendPoint[]>;
+}>();
+
+export function getCachedPricingCollectionTrend(sql: string, generation: string,
+  load: () => Promise<PricingDashboardTrendPoint[]>) {
+  const key = createHash("sha256")
+    .update(process.env.PRICING_DATABASE_URL ?? "")
+    .update("\u0000").update(generation)
+    .update("\u0000").update(sql).digest("hex");
+  const now = Date.now();
+  const cached = collectionTrendCache.get(key);
+  if (cached && cached.expiresAt > now) {
+    collectionTrendCache.delete(key);
+    collectionTrendCache.set(key, cached);
+    return cached.pending;
+  }
+  collectionTrendCache.delete(key);
+  const pending = load().catch((error) => {
+    if (collectionTrendCache.get(key)?.pending === pending)
+      collectionTrendCache.delete(key);
+    throw error;
+  });
+  collectionTrendCache.set(key, { expiresAt: now + 5 * 60_000, pending });
+  while (collectionTrendCache.size > 32)
+    collectionTrendCache.delete(collectionTrendCache.keys().next().value!);
+  return pending;
 }
 
 export function calculatePriceHistoryChange(
@@ -620,10 +650,9 @@ export async function getPricingDashboard(
       (row) => row.category === "percent",
     );
 
-    const valueTrend =
+    const trendSql =
       view === "collection"
-        ? await query<PricingDashboardTrendPoint>(
-            range === "all"
+        ? range === "all"
               ? `WITH ${holdingsSql}
        SELECT m.month_start::text AS "observedDate",
          ROUND(SUM(m.close_price * h.owned_quantity)::numeric, 2)::float8 AS value
@@ -659,9 +688,15 @@ export async function getPricingDashboard(
          AND d.observed_date >= b.latest_observed_date - INTERVAL '${Number(range)} days'
        GROUP BY d.observed_date
        ORDER BY d.observed_date ASC
-       LIMIT 400`,
-          )
-        : [];
+       LIMIT 400`
+        : null;
+    const valueTrend = trendSql
+      ? await (query === jsonQuery
+          ? getCachedPricingCollectionTrend(trendSql,
+              `${summaryState.summaryRevision}:${summaryState.sourceMaxId}:${summaryState.refreshedAt}`,
+              () => jsonQuery<PricingDashboardTrendPoint>(trendSql))
+          : query<PricingDashboardTrendPoint>(trendSql))
+      : [];
 
     return {
       available: true,

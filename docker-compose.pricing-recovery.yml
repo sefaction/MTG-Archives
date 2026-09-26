@@ -1,0 +1,22 @@
+# Optional operator-supplied recovery destination. Use with docker-compose.yml
+# only after the host path is an existing, separately protected mount.
+services:
+  web:
+    environment:
+      PRICING_RECOVERY_COPY_DIR: /app/data/pricing-recovery
+    volumes:
+      - type: bind
+        source: ${PRICING_RECOVERY_COPY_HOST_PATH:?Set an existing recovery destination host path}
+        target: /app/data/pricing-recovery
+        bind:
+          create_host_path: false
+
+  pricing-archive-maintenance:
+    environment:
+      PRICING_RECOVERY_COPY_DIR: /app/data/pricing-recovery
+    volumes:
+      - type: bind
+        source: ${PRICING_RECOVERY_COPY_HOST_PATH:?Set an existing recovery destination host path}
+        target: /app/data/pricing-recovery
+        bind:
+          create_host_path: false
