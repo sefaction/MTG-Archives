@@ -7,12 +7,12 @@ test.skip(
   "Requires disposable local Docker snapshot",
 );
 
-function database<T>(body: string): T {
+function database<T>(body: string, timeout = 60_000): T {
   return JSON.parse(
     execFileSync("docker", ["exec", "-i", "mtg-archives-web-1", "node"], {
       input: `const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${body}})().then(x=>console.log(JSON.stringify(x))).catch(e=>{console.error(e);process.exitCode=1}).finally(()=>p.$disconnect());`,
       encoding: "utf8",
-      timeout: 60_000,
+      timeout,
     }),
   );
 }
@@ -21,7 +21,7 @@ test("large owner-scoped location trees have bounded cards, lazy editors and usa
   page,
   baseURL,
 }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(180_000);
   expect(baseURL).toBe("http://127.0.0.1:13001");
   const tag = `ui-location-scale-${randomUUID()}`;
   const password = randomUUID();
@@ -31,18 +31,20 @@ test("large owner-scoped location trees have bounded cards, lazy editors and usa
       childId: string;
       otherLocationId: string;
       printingCount: number;
+      targetCardName: string;
     }>(`
       const name=${JSON.stringify(tag)};
       const owner=await p.player.create({data:{name,displayName:name}});
       const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);
       await p.user.create({data:{username:name,displayName:name,playerId:owner.id,passwordHash:hash}});
-      const roots=Array.from({length:100},(_,i)=>({id:name+'-r'+i,ownerPlayerId:owner.id,name:'Vault '+String(i).padStart(3,'0'),normalizedName:'vault '+i,type:'Vault'}));
+      const roots=Array.from({length:200},(_,i)=>({id:name+'-r'+i,ownerPlayerId:owner.id,name:'Vault '+String(i).padStart(3,'0'),normalizedName:'vault '+i,type:'Vault'}));
       await p.inventoryLocation.createMany({data:roots});
-      const children=Array.from({length:1100},(_,i)=>({id:name+'-c'+i,ownerPlayerId:owner.id,parentLocationId:roots[i%100].id,name:'Box '+String(i).padStart(4,'0'),normalizedName:'box '+i,type:'Box'}));
+      const children=Array.from({length:2000},(_,i)=>({id:name+'-c'+i,ownerPlayerId:owner.id,parentLocationId:roots[i%200].id,name:'Box '+String(i).padStart(4,'0'),normalizedName:'box '+i,type:'Box'}));
       await p.inventoryLocation.createMany({data:children});
-      const cards=await p.card.findMany({take:1000,select:{id:true},orderBy:{id:'asc'}});const locs=[...roots,...children];
-      if(cards.length!==1000) throw new Error('Needs 1,000 cached printings for the location scale fixture');
-      await p.inventoryItem.createMany({data:Array.from({length:3000},(_,i)=>({cardId:cards[i%cards.length].id,currentOwnerId:owner.id,originalOpenerId:owner.id,locationId:locs[i%locs.length].id,quantity:50,condition:'NM',sourceType:'MANUAL',locationSection:'Sect '+i%6}))});
+      const cards=await p.card.findMany({take:5000,select:{id:true,name:true},orderBy:{id:'asc'}});const locs=[...roots,...children];
+      if(cards.length!==5000) throw new Error('Needs 5,000 cached printings for the location scale fixture');
+      const items=Array.from({length:15000},(_,i)=>({cardId:cards[i%cards.length].id,currentOwnerId:owner.id,originalOpenerId:owner.id,locationId:locs[i%locs.length].id,quantity:1+i%19+(i>=14955?1:0),condition:['NM','LP','MP'][i%3],sourceType:'MANUAL',locationSection:'Sect '+i%6}));
+      for(let offset=0;offset<items.length;offset+=500) await p.inventoryItem.createMany({data:items.slice(offset,offset+500)});
       const other=await p.player.create({data:{name:name+'-other',displayName:name+'-other'}});
       const otherLocation=await p.inventoryLocation.create({data:{name:'Private scale sentinel',normalizedName:'private scale sentinel',ownerPlayerId:other.id,visibility:'PRIVATE'}});
       for(const [suffix,quantity] of [['-other',5000],['-small',500],['-tiny',7]]) {
@@ -51,7 +53,7 @@ test("large owner-scoped location trees have bounded cards, lazy editors and usa
         const location=suffix==='-other'?otherLocation:await p.inventoryLocation.create({data:{ownerPlayerId:secondary.id,name:'Other private storage',normalizedName:'other private storage'}});
         await p.inventoryItem.create({data:{cardId:cards[0].id,currentOwnerId:secondary.id,originalOpenerId:secondary.id,locationId:location.id,quantity,condition:'NM',sourceType:'MANUAL'}});
       }
-      return {rootId:roots[0].id,childId:children[0].id,otherLocationId:otherLocation.id,printingCount:cards.length};
+      return {rootId:roots[0].id,childId:children[0].id,otherLocationId:otherLocation.id,printingCount:cards.length,targetCardName:cards[0].name};
     `);
     await page.goto("/login");
     await page.getByLabel(/username or email/i).fill(tag);
@@ -71,9 +73,10 @@ test("large owner-scoped location trees have bounded cards, lazy editors and usa
     const options = await page.locator("option").count();
     console.log(
       JSON.stringify({
-        locations: 1200,
+        locations: 2200,
         copies: 150000,
         printings: fixture.printingCount,
+        inventoryRows: 15000,
         owners: 4,
         secondaryOwnerCopies: [5000, 500, 7],
         elapsedMs,
@@ -85,14 +88,14 @@ test("large owner-scoped location trees have bounded cards, lazy editors and usa
     expect(domHtmlBytes).toBeLessThan(500_000);
     await expect(
       browser.locator(".locations-browser").getByRole("status"),
-    ).toHaveText(/1201 matching locations/);
+    ).toHaveText(/2201 matching locations/);
     expect(await page.content()).not.toContain("Private scale sentinel");
     await browser
       .getByRole("link", { name: "Next locations", exact: true })
       .click();
     await expect(
       browser.locator(".locations-browser").getByRole("status"),
-    ).toHaveText(/Page 2 of 49/);
+    ).toHaveText(/Page 2 of 89/);
     await expect(browser.locator("[data-location-result]")).toHaveCount(25);
 
     await browser
@@ -151,7 +154,7 @@ test("large owner-scoped location trees have bounded cards, lazy editors and usa
     await page.goto(`/locations?parent=${fixture.rootId}#normal-locations`);
     await expect(
       browser.locator(".locations-browser").getByRole("status"),
-    ).toHaveText(/12 matching locations/);
+    ).toHaveText(/11 matching locations/);
     await expect(
       browser
         .getByRole("navigation", { name: "Locations tree" })
@@ -175,17 +178,30 @@ test("large owner-scoped location trees have bounded cards, lazy editors and usa
       browser.locator(".locations-browser").getByRole("status"),
     ).toHaveText(/0 matching locations/);
     expect(await page.content()).not.toContain("Private scale sentinel");
+    const inventoryStart = Date.now();
+    await page.goto("/inventory?displayMode=exact&pageSize=25");
+    await expect(page.locator(".inventory-results table tbody tr")).toHaveCount(25);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    console.log(JSON.stringify({ inventoryRows: 15000, inventoryLoadMs: Date.now() - inventoryStart }));
+    await page.getByRole("combobox", { name: "Quick card name search" }).fill(fixture.targetCardName);
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await expect(page.locator(".inventory-results table").getByText(fixture.targetCardName, { exact: true }).first()).toBeVisible();
+    expect(
+      database<number>(`return p.inventoryItem.count({where:{currentOwner:{name:${JSON.stringify(tag)}}}});`),
+    ).toBe(15000);
     expect(
       database<number>(
         `return (await p.inventoryItem.aggregate({where:{currentOwner:{name:${JSON.stringify(tag)}}},_sum:{quantity:true}}))._sum.quantity;`,
       ),
     ).toBe(150000);
   } finally {
+    const cleanupStart = Date.now();
     database(`const owners=await p.player.findMany({where:{name:{in:${JSON.stringify([tag, tag + "-other", tag + "-small", tag + "-tiny"])}}}});const ids=owners.map(x=>x.id);
       await p.inventoryAuditLog.deleteMany({where:{changedByUser:{username:${JSON.stringify(tag)}}}});
       await p.inventoryItem.deleteMany({where:{currentOwnerId:{in:ids}}});
       await p.inventoryLocation.deleteMany({where:{ownerPlayerId:{in:ids},parentLocationId:{not:null}}});
       await p.inventoryLocation.deleteMany({where:{ownerPlayerId:{in:ids}}});
-      await p.user.deleteMany({where:{playerId:{in:ids}}});await p.player.deleteMany({where:{id:{in:ids}}});return {removedFixtures:ids.length};`);
+      await p.user.deleteMany({where:{playerId:{in:ids}}});await p.player.deleteMany({where:{id:{in:ids}}});return {removedFixtures:ids.length};`, 120_000);
+    console.log(JSON.stringify({ fixtureCleanupMs: Date.now() - cleanupStart }));
   }
 });
