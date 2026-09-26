@@ -2,9 +2,15 @@
 
 ## Current Inventory review and failure recovery, 2026-09-26
 
-The user reports Inventory card/storage filters work well: they can apply criteria, identify active filters, and revise or clear them without losing their place. They also accepted the selected-copy amount and Move confirmation, Deck editing, and cross-section navigation in the local app. The bounded Inventory filter #264, move #265 and Deck #268 issues are closed; the wider role, device and state matrix in #274 remains open. Navigation foundation #263 awaits individual approval of PR #413.
+The user reports Inventory card/storage filters work well: they can apply criteria, identify active filters, and revise or clear them without losing their place. They also accepted the selected-copy amount and Move confirmation, Deck editing, cross-section navigation, and Locations inspection/editing in the local app. The bounded Inventory filter #264, move #265, Deck #268 and navigation foundation #263 issues are closed; the wider role, device and state matrix in #274 remains open.
 
 The owned infinite-browsing retry fixture intercepts one next-page request with HTTP 503. In the local Docker app, the initial 10 rows and a selected copy remained visible, the failure and Retry control appeared, then Retry loaded the final two rows while preserving selection. The focused browser case passed 1/1 and its temporary user/data were removed. This covers a specific long-list error/retry state under #274; it does not claim all network failures or the entire state matrix.
+
+## Navigation contrast across desktop and phone, 2026-09-26
+
+The focused browser check reads rendered foreground and effective surface colors for the Collection group label, an ordinary link, its hover state and the current Inventory route at 1366px desktop and 390px phone widths across all six themes. The minimum observed ratios were 5.82:1 for group labels, 14.74:1 for ordinary links, and 5.94:1 for hovered and current-route links; all exceed the 4.5:1 normal-text threshold. The local grouped Docker app passed 1/1 focused case, and typecheck passed. The user reported cross-section navigation works well. This covers navigation text contrast in those states, not all controls or a full accessibility certification; the broader #274 matrix remains open.
+
+The opted-in serial local Chromium suite finished 62 passed and one intentional skip in 7.1 minutes on the grouped Docker app. The skipped case is the separately gated four-owner Pricing retention site-load drill. Synthetic 150,000-copy/15,000-row storage data was removed; zero fixture users and 12,477 physical copies remained afterward. This combined run covers the enabled cases, not every role/theme/error permutation required by #274.
 
 ## Varied 150,000-copy Inventory and Locations scale, 2026-09-26
 
@@ -122,10 +128,10 @@ All page routes remain in the crosswalk and every action ID has a named home. Th
 
 | Issue | Implemented/evidenced | Remaining acceptance |
 | --- | --- | --- |
-| #263 Foundation | Original two-option prototype/crosswalk, later user-selectable navigation, grouped Settings, current-route and phone menu; Inventory/Locations first-fold and keyboard fixtures | User review of the final cumulative navigation; systematic all-theme contrast audit remains part of #274 |
-| #264 Inventory filters | Shared drafts, task tabs, bounded phone dialog, chips/Back/Forward/deep links and invalid-expression feedback have browser coverage | Final combined evidence and user acceptance; no claim that all failure/network states have been manually observed |
-| #265 Selection/moves/vault | Contextual copy/row counts, exact sections, fill/advisory overflow, reservations/provenance and source/destination refresh have fixtures | Final user review of the populated move workflow; broad touch/focus/zoom matrix remains under #274 |
-| #268 Decks | Builder dialogs/cards-first layout, library organization and shared tool navigation shipped in prior approved batches; current regression covers editable/public/frozen contexts | User review of combined Decks behavior; no further Playtest changes authorized |
+| #263 Foundation | Original two-option prototype/crosswalk, later user-selectable navigation, grouped Settings, current-route and phone menu; first-fold, keyboard and six-theme navigation contrast fixtures; the user reported cross-section navigation works well | Broader cross-workflow theme/accessibility coverage remains part of #274; #413 still needs individual merge approval |
+| #264 Inventory filters — closed | Shared drafts, task tabs, bounded phone dialog, chips/Back/Forward/deep links and invalid-expression feedback have browser coverage; the user reported card/storage filters and active criteria work well | Wider failure/network and role matrix remains under #274 |
+| #265 Selection/moves/vault — closed | Contextual copy/row counts, exact sections, fill/advisory overflow, reservations/provenance and source/destination refresh have fixtures; the user confirmed the selected amount and Move confirmation are clear | Broad cross-role touch/focus/zoom coverage remains under #274 |
+| #268 Decks — closed | Builder dialogs/cards-first layout, library organization and shared tool navigation shipped in approved batches; regression covers editable/public/frozen contexts and the user reported the populated Add/Selection/Builder/Analysis workflow works well | Wider cross-role/device coverage remains under #274; no further Playtest changes authorized |
 | #274 Acceptance | Route/action index, owned fixtures, responsive/keyboard checks, realistic varied-printing storage scale and cumulative browser gate | Matched human task observations; comprehensive contrast, real browser 200% zoom, touch and full keyboard journeys across all roles/themes; individual PR review |
 | #262 Umbrella | Implementation across workspace batches is available for review | Depends on outstanding acceptance and individually approved merges; remains open |
 
