@@ -3,6 +3,14 @@
 ## Current route inventory reconciliation, 2026-09-26
 
 Issue #419 found that the historical capability crosswalk omitted three pages added after its original 34-route baseline: owned card Pricing history, recipient-specific dated Pricing digests, and Pricing alert settings. Their homes, access boundaries and test pointers are now recorded. The live crosswalk covers all 37 `app/**/page.tsx` routes, with a unit guard in the core verification suite comparing route files to table entries exactly. This verifies route accounting, not every action within each page.
+## Static phone-route overflow sweep, 2026-09-26
+
+An authenticated local Chromium check visited 15 static member routes, three public routes and six admin routes at both 390 and 320 CSS pixels: 48 route/viewport visits. It verified each rendered viewport width and found no page-wide horizontal overflow; locally scrolling tables and maps remain allowed. The focused case passed 1/1 against the healthy grouped local Docker image. This extends phone evidence beyond the task-specific fixtures, but dynamic Deck, League and Pricing detail routes remain covered by their separate owned workflows rather than this static sweep. It does not establish full visual or accessibility acceptance under #274.
+## Inventory empty and loading states in local review, 2026-09-26
+
+Issue #416 records that a zero-match Inventory filter previously left an empty table with no nearby recovery action. The review build now distinguishes filtered zero matches from a collection with no cards. The first state offers Clear filters using the existing URL builder that retains display mode, page size, browsing mode and sort; the second links to Imports. Inventory's loading skeleton now has a spoken status and pulses only when reduced motion is not requested. These are state-feedback changes under #274, not a claim that every error/loading state is covered.
+
+Local image `sha256:304dbb49f33730c82e80d277e67223f97767d708b306790d9942262b7d949e3c` contains the change and is running in web and both workers with the existing local and capture-only SMTP overlays. The owned desktop/phone empty-state browser case passed 1/1, including filter clearing without losing view options, no page overflow and fixture cleanup. Four nearby Inventory filter, infinite-retry and workspace cases passed 4/4; typecheck and the production Docker build passed. Temporary users returned to zero and Inventory to 12,477 copies. Human review and the wider #274 matrix remain open.
 
 ## Current Inventory review and failure recovery, 2026-09-26
 
