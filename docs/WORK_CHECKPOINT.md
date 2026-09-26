@@ -1,8 +1,20 @@
 # Resumable work checkpoint
 
-## Stratified Pricing summary parity, 2026-09-26
+## Stratified Pricing summary parity review, 2026-09-26
 
-Active branch `test/pricing-stratified-parity` starts from merged main `cfdd0c2`; green UI PRs #435-#437 await individual approvals. Added a read-only local verifier for representative, sparse and largest monthly-movement scope samples in every observed provider/currency/finish/type combination. Copied only this new script into the running local web container for execution, then removed it; no Docker reload or Pricing data change. It passed on 31 scopes and 16 monthly movement samples across 16 combinations with zero mismatches, one-snapshot sparse coverage and USD as the only observed currency. Typecheck passed. Next safe step: finish diff check, commit/push and open its #330 PR, collect CI and individual approval. Automatic retention remains off; #274/#330 and their parents remain open.
+The user individually approved #435, #436 and #437; each merged with fresh green checks. Branch `test/pricing-stratified-parity` is refreshing open PR #438 against that main revision. Its read-only verifier picks representative and sparse scopes plus the largest monthly price movement in every observed provider/currency/finish/type combination. It passed locally on 31 scopes and 16 monthly movement samples across all 16 combinations, with zero mismatches, one-snapshot sparse coverage and only USD observed. The script alone was temporarily copied into the running local web container for verification, then removed; no Docker reload, Pricing data change or production test. Typecheck and diff check passed. Next safe step: finish this merge, push #438, collect fresh CI and request its own approval. #274 needs a final bounded acceptance review; #330 still needs a separate reviewed production activation. Automatic retention is off.
+
+## Approved Deck task action sample refresh, 2026-09-26
+
+The user individually approved #435, #436 and #437. #435 and #436 merged with green checks. Branch `test/deck-task-actions` is merging their main revision before its own approved merge. Its owned local Chromium case measured eight scripted actions to add two cards and visit/return from Analysis. At 1366×768 and 1440×900, Add card, Analysis and first deck-list card fit the first viewport; the list held 101 cards after return. Focused case passed 1/1, typecheck passed, fixture owners returned to zero, and no app or Docker image changed. Next safe step: finish this merge, push refreshed #437, require fresh green CI, then merge under its individual approval. Pricing retention remains off.
+
+## Approved core-task action sample refresh, 2026-09-26
+
+The user individually approved #435 and #436. #435 merged with green checks; branch `test/ui-core-task-actions` is merging that main revision before its own approved merge. Its owned local Chromium fixture measured nine scripted control actions for a five-copy filtered Inventory move and five for a Locations search/edit, excluding login and direct task entry. It verified first-fold controls, destination database quantity and retained location search/selection context. Focused case passed 1/1, typecheck passed, fixture users returned to zero, and no app code or Docker image changed. Next safe step: finish this merge, push the refreshed #436 head, require fresh green CI, then merge #436 under its individual approval. #437 is also individually approved but must refresh and pass CI after #436; Pricing retention stays off.
+
+## Current UI action verification ledger, 2026-09-26
+
+Active branch `docs/ui-action-verification-ledger` starts from merged main `cfdd0c2` after individually approved #433 and #434 merged. New `docs/UI_ACTION_VERIFICATION.md` assigns all 45 action IDs a retained home, existing representative test, last checked app revision and explicit scope limit. A core test compares its IDs exactly with the historical crosswalk, detects duplicates and missing test files, and passed 1/1; typecheck and diff check passed. Git diff from the 70-pass local browser baseline through `cfdd0c2` showed no application or Docker source change, so no Docker reload is needed; grouped local image remains healthy. #274 still needs task action counts and final coverage-boundary review; #330's production retention remains off. Next safe step: push this ledger batch, collect CI and individual PR approval, then measure bounded core-task action counts without inventing before/after timing.
 
 ## All-matching Inventory export acceptance, 2026-09-26
 
