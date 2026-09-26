@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import {
@@ -243,6 +243,21 @@ try {
     const packagePath = receipt.recoveryCopies.find((copy: { path: string }) =>
       copy.path.endsWith(".package.json"))?.destination;
     assert.ok(packagePath);
+    const exportDir = process.env.MTG_ARCHIVE_FIXTURE_EXPORT_DIR;
+    if (exportDir) {
+      const target = resolve(exportDir);
+      const drillRoot = resolve(process.env.BACKUP_DIR!, "pricing-recovery-drills");
+      if (!target.startsWith(drillRoot + sep) || existsSync(target))
+        throw new Error("Archive fixture export must be a new directory under BACKUP_DIR/pricing-recovery-drills");
+      cpSync(recoveryCopyDirectory, target,
+        { recursive: true, force: false, errorOnExist: true });
+      const exportedAudit = spawnSync(process.execPath,
+        ["--import", "tsx", "scripts/pricing-recovery-package-audit.ts"],
+        { env: { ...process.env, PRICING_RECOVERY_COPY_DIR: target },
+          encoding: "utf8", timeout: 180_000 });
+      assert.equal(exportedAudit.status, 0, exportedAudit.stderr);
+      assert.equal(JSON.parse(exportedAudit.stdout).verified, 1);
+    }
     const healthyAudit = auditCopiedPackages();
     assert.equal(healthyAudit.status, 0);
     assert.equal(JSON.parse(healthyAudit.stdout).failed, 0);
