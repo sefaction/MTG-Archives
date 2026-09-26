@@ -1,5 +1,11 @@
 # UI acceptance status - 2026-09-26
 
+## Inventory empty and loading states in local review, 2026-09-26
+
+Issue #416 records that a zero-match Inventory filter previously left an empty table with no nearby recovery action. The review build now distinguishes filtered zero matches from a collection with no cards. The first state offers Clear filters using the existing URL builder that retains display mode, page size, browsing mode and sort; the second links to Imports. Inventory's loading skeleton now has a spoken status and pulses only when reduced motion is not requested. These are state-feedback changes under #274, not a claim that every error/loading state is covered.
+
+Local image `sha256:304dbb49f33730c82e80d277e67223f97767d708b306790d9942262b7d949e3c` contains the change and is running in web and both workers with the existing local and capture-only SMTP overlays. The owned desktop/phone empty-state browser case passed 1/1, including filter clearing without losing view options, no page overflow and fixture cleanup. Four nearby Inventory filter, infinite-retry and workspace cases passed 4/4; typecheck and the production Docker build passed. Temporary users returned to zero and Inventory to 12,477 copies. Human review and the wider #274 matrix remain open.
+
 ## Current Inventory review and failure recovery, 2026-09-26
 
 The user reports Inventory card/storage filters work well: they can apply criteria, identify active filters, and revise or clear them without losing their place. They also accepted the selected-copy amount and Move confirmation, Deck editing, cross-section navigation, and Locations inspection/editing in the local app. The bounded Inventory filter #264, move #265, Deck #268 and navigation foundation #263 issues are closed; the wider role, device and state matrix in #274 remains open.

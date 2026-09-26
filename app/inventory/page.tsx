@@ -1109,6 +1109,12 @@ export default async function InventoryPage({
   if (p.sort) clearFilterParams.set("sort", String(p.sort));
   if (p.sortDir) clearFilterParams.set("sortDir", String(p.sortDir));
   const clearFiltersHref = `/inventory?${clearFilterParams.toString()}`;
+  const hasActiveFilters = INVENTORY_FILTER_PARAM_KEYS.some((key) => {
+    const value = (p as Record<string, any>)[key];
+    return (Array.isArray(value) ? value : [value]).some(
+      (entry) => entry != null && String(entry).trim() !== "",
+    );
+  });
   const importExportParams = new URLSearchParams();
   INVENTORY_FILTER_PARAM_KEYS.forEach((key) => {
     const value = (p as Record<string, any>)[key];
@@ -1213,6 +1219,24 @@ export default async function InventoryPage({
               .toLocaleString()}{" "}
             physical copies
           </p>
+          {totalMatchingCount === 0 ? (
+            <div role="status" className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5 text-sm">
+              <h2 className="font-semibold">
+                {hasActiveFilters ? "No cards match these filters" : "No cards in this collection yet"}
+              </h2>
+              <p className="mt-2 text-[var(--app-muted)]">
+                {hasActiveFilters
+                  ? "Revise a filter above or clear them to see your collection again."
+                  : "Add cards in Imports to start building your collection."}
+              </p>
+              <a
+                className="mt-3 inline-flex text-sky-300 underline"
+                href={hasActiveFilters ? clearFiltersHref : "/imports"}
+              >
+                {hasActiveFilters ? "Clear filters" : "Go to Imports"}
+              </a>
+            </div>
+          ) : null}
           <InventoryBrowser
             storageLocations={storageLocations}
             rows={rows}
