@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Deck phone touch editing, 2026-09-26
+
+Branch `test/deck-builder-touch-edit` starts from merged `main` independently of the unapproved Inventory/Pricing stacks. The owned Deck fixture passed 1/1 at 390px and 320px with actual coarse-pointer touch: Add card, cached printing selection, one-copy additions, dialog closure and no page horizontal overflow. Deck list totals advanced 99→100→101 without physical Inventory mutation. Typecheck passed; fixture owners/users returned to zero and local snapshot stayed at 12,477 copies. An initial cleanup omitted the automatically created Deck location; that test fixture was safely removed and the cleanup corrected before the passing run. Application code and running grouped Docker image `sha256:a8f4118dd9988b8c3c66f1562e75e01f7a92f071c2139f84477de2cc3d0aac81` are unchanged. Next safe step: commit, open an independent PR, collect CI and include its test with the next grouped Docker review of Inventory #406. No PR merge without individual approval.
+
 ## Inventory acceptance guide integration, 2026-09-26
 
 The user individually approved PR #371. Approved backup documentation PR #370 merged to main with fresh green checks. #371 updates the Inventory-first local review guide and acceptance status, while preserving #370 knowledge in main; only this historical checkpoint conflicted. Fresh Core and PostgreSQL checks are required before #371 merges. Cumulative Docker rebuild from exact merged application source is in progress. UI human review and browser 200% zoom remain open; Pricing raw deletion and optional maintenance remain disabled.

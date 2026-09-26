@@ -1,5 +1,9 @@
 # UI acceptance status - 2026-09-26
 
+## Deck editing with phone touch, 2026-09-26
+
+An owned Deck fixture now checks actual coarse-pointer touch at 390px and 320px. At each width it taps Add card, searches and selects a cached Llanowar Elves printing, sets one copy, adds it to the Deck list, closes the dialog by touch, and checks that the page has no horizontal overflow. The list total advanced from 99 to 101 while physical Inventory stayed unchanged. The focused browser case passed 1/1 on the grouped local Docker image; cleanup left zero fixture users/owners and 12,477 physical copies. This is one touch editing path, not a complete Deck or assistive-technology review; #268/#274 remain open.
+
 Related: #262, #263, #264, #265, #268 and #274. This is the implementation/evidence index; the original design prototype and historical feature notes are retained as dated records. This document does not close an issue or approve a PR merge.
 
 ## Inventory-first local review, 2026-09-26
