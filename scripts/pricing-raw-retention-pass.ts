@@ -40,6 +40,7 @@ function finalJson(output: string) {
 }
 
 async function main() {
+  const passStarted = Date.now();
   const plan = JSON.parse(query(`SELECT json_build_object(
     'oldest', (SELECT MIN(observed_date)::text FROM price_snapshots),
     'cutoff', (CURRENT_DATE - ${liveDays + 1})::text,
@@ -68,28 +69,36 @@ async function main() {
     throw new Error("PRICING_RECOVERY_COPY_DIR is required for raw retention");
   await verifyPricingRecoveryCopyDestination(process.env.BACKUP_DIR || "/app/backups",
     recoveryTarget);
+  let compactMs = 0;
   if (!plan.dailyBoundary || plan.dailyBoundary < candidate) {
+    const compactStarted = Date.now();
     const compact = finalJson(run(process.execPath,
       ["--import", "tsx", "scripts/pricing-daily-compact.ts", "--apply"],
       25 * 60_000));
+    compactMs = Date.now() - compactStarted;
     if (compact.mode !== "complete")
       throw new Error("Daily compaction did not advance before raw retention");
   }
   if (pricingMaintenanceMinutesRemaining(new Date()) < 60)
     throw new Error("Insufficient Central maintenance window to start raw activation");
+  const stageStarted = Date.now();
   const staged = finalJson(run(process.execPath,
     ["--import", "tsx", "scripts/pricing-raw-segment-stage.ts", "--date", candidate],
     6 * 60_000));
+  const stageMs = Date.now() - stageStarted;
   if (staged.mode !== "verified-staged" || typeof staged.manifestPath !== "string")
     throw new Error("Raw segment staging did not produce a verified manifest");
   if (pricingMaintenanceMinutesRemaining(new Date()) < 55)
     throw new Error("Verified stage retained for review; insufficient window to activate");
+  const activateStarted = Date.now();
   const activated = finalJson(run(process.execPath,
     ["--import", "tsx", "scripts/pricing-raw-segment-activate.ts",
       "--manifest", staged.manifestPath, "--apply"], 65 * 60_000));
+  const activateMs = Date.now() - activateStarted;
   if (activated.mode !== "activated" || activated.observedDate !== candidate)
     throw new Error("Raw activation did not confirm the selected date");
   console.log(JSON.stringify({ mode: "retention-activated", observedDate: candidate,
-    deleted: activated.deleted, receipt: activated.receipt }));
+    deleted: activated.deleted, receipt: activated.receipt,
+    timings: { compactMs, stageMs, activateMs, totalMs: Date.now() - passStarted } }));
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });
