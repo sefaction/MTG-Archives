@@ -1,5 +1,9 @@
 # UI acceptance status - 2026-09-26
 
+## Selected-copy stepper at actual browser zoom, 2026-09-26
+
+The opt-in Inventory workspace browser case now checks the row-level numeric control at actual 200% Chrome tab zoom. Both selected rows begin at their full 8- and 17-copy stacks. Keyboard ArrowDown reduces only the first to 7; ArrowUp restores 8 while the second stays at 17. After scrolling into view, the first control's bounds remain inside the 683×384 CSS viewport. The case then chooses 5 and 12 copies independently and completes the existing 17-copy Move. The focused case passed 1/1 with typecheck and fixture cleanup. This checks keyboard operation and reachability of one selected-copy control; it is not a visual certification of native spinner arrows across browsers or a human task review.
+
 ## Full local browser regression follow-up, 2026-09-26
 
 The serial 61-case Chromium run against the grouped local Docker image finished with 57 passes, one skip and three outdated test expectations. The Imports theme check read a clicked link in its hover state; the storage-layout and vault-map cases still changed selected-copy quantities inside Move. Those fixtures now clear hover before the resting-color assertion and choose 15 or 10 copies on the selected Inventory row before Move. All three affected cases passed on focused rerun. The selected row defaults to its full stack and exposes a numeric up/down control in table and card views; Move uses each row's chosen amount. This is regression-test alignment with the reviewed workflow, not a new application change or a completed human acceptance review.
