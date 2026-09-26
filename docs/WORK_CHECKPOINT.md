@@ -1,8 +1,12 @@
 # Resumable work checkpoint
 
-## Unraid Pricing backup evidence, 2026-09-26
+## Inventory acceptance guide integration, 2026-09-26
 
-Active branch docs/pricing-unraid-backup-evidence follows merged approved Pricing PRs through #368. Read-only inspection of Unraid Appdata Backup configuration and the September 21 run established weekly Monday 00:00 backup from appdata cache pool to File Share array, including Pricing PostgreSQL and the MTG Archives backups directory. MTG tarballs exist and plugin verification succeeded. No restore from the share or off-host copy was proved. This branch records the evidence and keeps raw deletion/maintenance gated. Inventory PR #369 is approved and running final checks on updated main. Next safe step: open this docs PR, then design a timely verified copy/read-back and recovery test before enabling automation.
+The user individually approved PR #371. Approved backup documentation PR #370 merged to main with fresh green checks. #371 updates the Inventory-first local review guide and acceptance status, while preserving #370 knowledge in main; only this historical checkpoint conflicted. Fresh Core and PostgreSQL checks are required before #371 merges. Cumulative Docker rebuild from exact merged application source is in progress. UI human review and browser 200% zoom remain open; Pricing raw deletion and optional maintenance remain disabled.
+
+## Inventory-first review instructions, 2026-09-26
+
+Active branch docs/inventory-review-status from merged main after approved #369. The user chose Inventory filtering and moves first. The cumulative healthy Docker image includes Pricing through #368 and Inventory #369; focused workspace/navigation and color-filter/vault-move browser cases passed 5/5. LOCAL_REVIEW_BUILD.md and UI_ACCEPTANCE_STATUS.md now give the current task sequence and limits. Actual browser 200% zoom and human task observations remain open. This documentation branch needs PR/CI and individual approval. Separate #370 documents observed Unraid backup coverage and remains unapproved. Next safe step: open this PR, collect human findings, and continue #330 copy/recovery gates without enabling raw deletion or maintenance.
 
 ## Archived no-change feed main integration, 2026-09-26
 
