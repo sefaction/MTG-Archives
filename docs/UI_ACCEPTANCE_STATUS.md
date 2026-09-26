@@ -1,5 +1,9 @@
 # UI acceptance status - 2026-09-26
 
+## Navigation contrast across desktop and phone, 2026-09-26
+
+The focused browser check reads rendered foreground and effective surface colors for the Collection group label, an ordinary link, its hover state and the current Inventory route at 1366px desktop and 390px phone widths across all six themes. The minimum observed ratios were 5.82:1 for group labels, 14.74:1 for ordinary links, and 5.94:1 for hovered and current-route links; all exceed the 4.5:1 normal-text threshold. The local grouped Docker app passed 1/1 focused case, and typecheck passed. This covers navigation text contrast in those states, not all controls or a full accessibility certification. Human navigation feedback and the broader #274 matrix remain open.
+
 ## Varied 150,000-copy Inventory and Locations scale, 2026-09-26
 
 The owned local scale fixture now places 150,000 copies in 15,000 stacks across 5,000 cached printings, three condition values, 200 parent locations and 2,000 children. Three smaller private owners hold 5,000, 500 and 7 copies. The case checks bounded Locations results/editor options, a deep path search, phone editing without page overflow, private-owner isolation, a 25-row Inventory page, and Inventory name search. The focused case passed 1/1 against grouped image `sha256:56de6036d2b72f91f86fb95b867fdc77189d318d3eb5287fd77fb9299b8dbcf4`; measured local Locations load was 623 ms and Inventory first-page load was 2,535 ms. Fixture cleanup took 72.4 seconds and left zero scale users/owners and the original 12,477 physical copies. Typecheck passed. This is one synthetic local workload, not a production performance guarantee or a four-user concurrency test. The prior full serial browser suite on the same image passed 61 tests with one intentional skip, before this test-only fixture expansion.

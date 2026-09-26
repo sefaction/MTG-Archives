@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Navigation contrast acceptance batch, 2026-09-26
+
+Active branch `test/navigation-theme-contrast` starts from merged main while open Pricing PR #412 awaits its own user approval. The grouped local Docker app passed a focused browser check of rendered navigation group, ordinary, hover and current-route text contrast at 1366px desktop and 390px phone widths in all six themes. Minimum ratios were 5.82:1, 14.74:1, and 5.94:1 respectively, above 4.5:1; typecheck passed. This is a test/documentation-only batch with no app code change or Docker reload. Next safe step: open its PR and collect CI, continue #274 acceptance, and wait for human navigation feedback. Do not merge this or #412 without separate PR approval.
+
 ## Backup subdirectory correction in progress, 2026-09-26
 
 [PR #411](https://github.com/sefaction/MTG-Archives/pull/411) is open. The grouped local review branch `local/cumulative-review-v11` merged its code with the pending Inventory/Pricing stack and built image `sha256:0e425a60a9dbbd82c11b720258909d7987730a88e4506b2057c65ab3c20b19b2`. Web and both workers run that image; web is healthy and host `/login` returned 200. Local `application`, `pricing`, and `pricing-recovery` directories exist beneath `.local-data/backups`; the read-only package audit found zero packages and failures. With retention disabled for the one command, the actual application backup wrote an 83.9 MB archive to `/app/data/backups/application/mtg-archives-backup-20260926-150543.tar.gz`; `backup:list` showed it and the older August 14 root-level archive. No production application backup was created. #411 needs separate merge approval after final checks and review.
