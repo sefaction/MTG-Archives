@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
 import {
+  getApplicationBackupDir,
   getBackupDir,
   getBackupPathForFilename,
+  listBackups,
   getDefaultAppdataPaths,
   parseDatabaseUrl,
   restoreBackup,
@@ -111,6 +114,33 @@ test("backup directory is configurable with safe default", () => {
     }),
     "/mnt/user/appdata/mtg-archive/backups",
   );
+});
+
+test("new application archives use a child of the MTG Archives backup root", () => {
+  assert.equal(getApplicationBackupDir({ BACKUP_DIR: "/app/backups" }),
+    join("/app/backups", "application"));
+});
+
+test("application backup listing keeps existing root archives available", async () => {
+  const root = await mkdtemp(join(tmpdir(), "mtg-application-backups-"));
+  const previous = process.env.BACKUP_DIR;
+  process.env.BACKUP_DIR = root;
+  try {
+    const currentDir = join(root, "application");
+    await mkdir(currentDir);
+    const legacyName = "mtg-archives-backup-20260814-192158.tar.gz";
+    const currentName = "mtg-archives-backup-20260926-120000.tar.gz";
+    await writeFile(join(root, legacyName), "legacy fixture");
+    await writeFile(join(currentDir, currentName), "current fixture");
+    assert.equal(getBackupPathForFilename(legacyName), join(root, legacyName));
+    assert.equal(getBackupPathForFilename(currentName), join(currentDir, currentName));
+    assert.deepEqual((await listBackups()).map((entry) => entry.filename),
+      [currentName, legacyName]);
+  } finally {
+    if (previous === undefined) delete process.env.BACKUP_DIR;
+    else process.env.BACKUP_DIR = previous;
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("database URL parsing keeps credentials out of manifest-safe fields", () => {
