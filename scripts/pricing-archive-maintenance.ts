@@ -1,6 +1,11 @@
-import { spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { pricingMaintenanceMinutesRemaining } from "./pricing-archive-maintenance-window";
+import { pruneStalePricingRecoveryPartials,
+  verifyPricingRecoveryCopyDestination } from "./pricing-recovery-copy";
+import { pricingVerificationServer } from "./pricing-verification-server";
+import { runPricingMaintenanceChild } from "./pricing-maintenance-child";
+import { withPricingMaintenanceLease } from "./pricing-maintenance-lease";
 
 const url = process.env.PRICING_DATABASE_URL;
 if (!url) throw new Error("PRICING_DATABASE_URL is required");
@@ -16,6 +21,7 @@ if (apply && (process.env.PRICING_ARCHIVE_MAINTENANCE_ENABLED !== "1" ||
     process.env.MTG_LOCAL_PILOT_TEST !== "1"))
   throw new Error("Local archived maintenance requires both explicit opt-ins");
 const owner = randomUUID();
+let partialCleanupCompleted = false;
 const literal = (value: string) => `'${value.replace(/'/g, "''")}'`;
 
 function sql(statement: string) {
@@ -67,46 +73,68 @@ function retry(date: string, message: string) {
     retry_after = now() + interval '15 minutes'
     WHERE observed_date = ${literal(date)}::date AND status = 'PENDING';`);
 }
+function runChild(script: string, args: string[], limitMs: number) {
+  return runPricingMaintenanceChild(process.execPath,
+    ["--import", "tsx", script, ...args], limitMs, heartbeat);
+}
 function runCorrection(date: string) {
-  return new Promise<{ code: number | null; output: string; error: string }>((resolve) => {
-    const child = spawn(process.execPath,
-      ["--import", "tsx", "scripts/pricing-archived-correction-apply.ts",
-        "--date", date, "--apply"], { stdio: ["ignore", "pipe", "pipe"] });
-    let output = "", error = "", lost = false, renewing = false;
-    const timer = setInterval(() => {
-      if (renewing) return;
-      renewing = true;
-      try {
-        if (!heartbeat()) { lost = true; child.kill("SIGTERM"); }
-      } catch (reason) {
-        lost = true;
-        error += ` Lease heartbeat failed: ${String(reason)}`;
-        child.kill("SIGTERM");
-      } finally { renewing = false; }
-    }, 20_000);
-    const timeout = setTimeout(() => child.kill("SIGTERM"), 20 * 60_000);
-    child.stdout.on("data", (piece: Buffer) => { output += piece.toString(); });
-    child.stderr.on("data", (piece: Buffer) => { error += piece.toString(); });
-    child.on("error", (reason) => { error += String(reason); });
-    child.on("close", (code) => {
-      clearInterval(timer); clearTimeout(timeout);
-      resolve({ code: lost ? -1 : code, output, error });
-    });
-  });
+  return runChild("scripts/pricing-archived-correction-apply.ts",
+    ["--date", date, "--apply"], 20 * 60_000);
+}
+let nextRawAttemptAt = 0;
+async function runRawRetention() {
+  if (process.env.PRICING_RAW_ARCHIVE_RETENTION_ENABLED !== "1" ||
+      Date.now() < nextRawAttemptAt ||
+      pricingMaintenanceMinutesRemaining(new Date()) < 90) return;
+  // A single pass handles at most one oldest raw date. Retry failures later;
+  // the stage and activation scripts recheck fresh source state before changes.
+  nextRawAttemptAt = Date.now() + 15 * 60_000;
+  const result = await runChild("scripts/pricing-raw-retention-pass.ts",
+    ["--apply"], 85 * 60_000);
+  if (!heartbeat()) {
+    console.error("[pricing-archive-maintenance] lease lost after raw retention");
+    return;
+  }
+  const last = result.output.trim().split(/\r?\n/).at(-1);
+  let finished: { mode?: string; observedDate?: string; deleted?: number } = {};
+  try { finished = JSON.parse(last ?? "{}"); } catch { /* Report child error below. */ }
+  if (result.code !== 0 || !["retention-activated", "retention-plan"].includes(finished.mode ?? "")) {
+    console.error("[pricing-archive-maintenance] raw retention deferred",
+      { error: result.error.trim().slice(0, 1000), code: result.code });
+    return;
+  }
+  nextRawAttemptAt = Date.now() + 60 * 60_000;
+  console.info("[pricing-archive-maintenance] raw retention pass", finished);
 }
 
 async function tick() {
   const current = backlog();
   console.info("[pricing-archive-maintenance] backlog", current);
-  // A child can run for 20 minutes. Do not begin one that can cross 05:00.
-  if (!apply || pricingMaintenanceMinutesRemaining(new Date()) <= 20) return;
+  // Allow the 20-minute child deadline, forced-stop grace and setup overhead.
+  if (!apply || pricingMaintenanceMinutesRemaining(new Date()) <= 21) return;
   if (!acquire()) {
     console.info("[pricing-archive-maintenance] another owner holds the lease");
     return;
   }
   try {
+    if (!partialCleanupCompleted) {
+      const cleanup = await withPricingMaintenanceLease(
+        () => pruneStalePricingRecoveryPartials(
+          process.env.PRICING_RECOVERY_COPY_DIR!, Date.now(), true), heartbeat);
+      console.info("[pricing-archive-maintenance] recovery partial cleanup", cleanup.value);
+      partialCleanupCompleted = true;
+      if (cleanup.leaseLost || !heartbeat()) {
+        console.error("[pricing-archive-maintenance] lease lost during recovery cleanup");
+        return;
+      }
+    }
     const date = nextDate();
-    if (!date) return;
+    if (!date) {
+      await runRawRetention();
+      return;
+    }
+    // Copy cleanup and SQL may have consumed the remaining window.
+    if (pricingMaintenanceMinutesRemaining(new Date()) <= 21) return;
     sql(`UPDATE price_archive_feed_queue SET attempt_count = attempt_count + 1,
       last_attempt_at = now(), retry_after = NULL
       WHERE observed_date = ${literal(date)}::date AND status = 'PENDING';`);
@@ -133,6 +161,16 @@ async function tick() {
 }
 
 async function main() {
+  if (apply) {
+    const recoveryTarget = process.env.PRICING_RECOVERY_COPY_DIR;
+    if (!recoveryTarget)
+      throw new Error("PRICING_RECOVERY_COPY_DIR is required for archive maintenance");
+    await verifyPricingRecoveryCopyDestination(process.env.BACKUP_DIR || "/app/backups",
+      recoveryTarget);
+    if (!process.env.PRICING_VERIFY_DATABASE_URL)
+      throw new Error("PRICING_VERIFY_DATABASE_URL is required for archive maintenance");
+    pricingVerificationServer(database);
+  }
   do {
     try { await tick(); }
     catch (error) { console.error("[pricing-archive-maintenance]", error); }
