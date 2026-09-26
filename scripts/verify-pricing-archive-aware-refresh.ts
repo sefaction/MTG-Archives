@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve, sep } from "node:path";
 import {
   pricingSummarySchemaSql,
   pricingTierBackfillSql,
@@ -48,14 +51,15 @@ const keys = [card, sparse].map((mtgjson_uuid) => ({
 }));
 const refresh = refreshPricingSummariesSql(JSON.stringify(keys));
 let created = false;
+const archiveTestDirectory = mkdtempSync(join(tmpdir(), "pricing-archive-verify-"));
 try {
   sql(admin, `CREATE DATABASE "${name}";`);
   created = true;
   sql(testDatabase, `CREATE TABLE price_snapshots (
-    id BIGSERIAL PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY, scryfall_id TEXT,
     mtgjson_uuid TEXT NOT NULL, provider TEXT NOT NULL, finish TEXT NOT NULL,
     price_type TEXT NOT NULL, currency TEXT NOT NULL, observed_date DATE NOT NULL,
-    price NUMERIC(12, 4) NOT NULL, card_name TEXT, set_code TEXT,
+    price NUMERIC(12, 4) NOT NULL, raw_json JSONB, card_name TEXT, set_code TEXT,
     collector_number TEXT, revision_count INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   );`);
@@ -68,6 +72,46 @@ try {
     ('${card}', 'tcgplayer', 'normal', 'retail', 'USD', '2026-08-01', 8),
     ('${sparse}', 'tcgplayer', 'normal', 'retail', 'USD', '2026-01-05', 4);`);
   sql(testDatabase, refresh);
+  sql(testDatabase, `UPDATE price_summary_state SET ready = TRUE, tiers_ready = TRUE,
+    source_max_id = (SELECT MAX(id) FROM price_snapshots),
+    summary_revision = source_revision WHERE singleton = TRUE;`);
+
+  const staged = spawnSync(
+    process.execPath,
+    ["--import", "tsx", "scripts/pricing-raw-segment-stage.ts", "--date", "2026-01-10"],
+    { env: { ...process.env, PRICING_DATABASE_URL: testDatabase.toString(),
+        BACKUP_DIR: archiveTestDirectory },
+      encoding: "utf8", timeout: 120_000, maxBuffer: 1024 * 1024 },
+  );
+  if (staged.status !== 0)
+    throw new Error(`Raw segment staging failed: ${staged.stderr.trim()}`);
+  const stagedResult = JSON.parse(staged.stdout.trim());
+  assert.equal(stagedResult.mode, "verified-staged");
+  assert.equal(stagedResult.rows, 1);
+  assert.equal(stagedResult.activated, false);
+  const manifest = JSON.parse(readFileSync(stagedResult.manifestPath, "utf8"));
+  assert.equal(manifest.restoreVerified, true);
+  assert.equal(manifest.rows, 1);
+  assert.equal(readdirSync(join(archiveTestDirectory, "pricing", "raw", "2026-01-10")).length, 2);
+  const empty = spawnSync(
+    process.execPath,
+    ["--import", "tsx", "scripts/pricing-raw-segment-stage.ts", "--date", "2020-01-01"],
+    { env: { ...process.env, PRICING_DATABASE_URL: testDatabase.toString(),
+        BACKUP_DIR: archiveTestDirectory },
+      encoding: "utf8", timeout: 120_000, maxBuffer: 1024 * 1024 },
+  );
+  assert.equal(empty.status, 0);
+  assert.deepEqual(JSON.parse(empty.stdout.trim()),
+    { mode: "no-candidates", observedDate: "2020-01-01", rows: 0 });
+  const currentDate = sql(testDatabase, "SELECT CURRENT_DATE::text;");
+  const premature = spawnSync(
+    process.execPath,
+    ["--import", "tsx", "scripts/pricing-raw-segment-stage.ts", "--date", currentDate],
+    { env: { ...process.env, PRICING_DATABASE_URL: testDatabase.toString(),
+        BACKUP_DIR: archiveTestDirectory },
+      encoding: "utf8", timeout: 120_000, maxBuffer: 1024 * 1024 },
+  );
+  assert.notEqual(premature.status, 0, "The live raw window must refuse staging");
 
   // Stage complete archive-only scope metadata and per-period partial tiers.
   sql(testDatabase, `INSERT INTO price_archived_scope_summary
@@ -165,4 +209,7 @@ try {
   console.log("Archive-aware refresh, sparse scope and full rebuild passed.");
 } finally {
   if (created) sql(admin, `DROP DATABASE "${name}" WITH (FORCE);`);
+  const resolvedTestDirectory = resolve(archiveTestDirectory);
+  assert.ok(resolvedTestDirectory.startsWith(`${resolve(tmpdir())}${sep}`));
+  rmSync(resolvedTestDirectory, { recursive: true, force: true });
 }
