@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Copied Pricing recovery restore drill, 2026-09-26
+
+Active branch `feat/pricing-recovery-copy-restore` stacks on open, unapproved PR #374, which depends on open, unapproved #372. This batch copies the stage/replacement and pre-operation backup manifests along with the raw archive and full Pricing dump. A local opt-in drill checks all four destination hashes, the archived CSV hash, and restores the copied dump into a disposable Pricing database to compare pre-operation raw counts, price sum and source revision. The isolated PostgreSQL fixture passed for both activation and older correction, rejected a tampered copied manifest, and cleaned up its test database. Typecheck and `git diff --check` passed. Next safe step: commit, load into cumulative local Docker, push and open a dependent PR, then collect CI. The Unraid target is not mounted, no actual source-directory-loss restore has run, no off-host copy is proven, and automatic raw deletion and maintenance remain disabled. #330 stays open. Do not merge without individual PR-number approval.
+
 ## Pricing maintenance recovery-copy preflight, 2026-09-26
 
 Active branch `feat/pricing-maintenance-copy-gate` stacks on green, open [PR #372](https://github.com/sefaction/MTG-Archives/pull/372). This batch requires an existing separate `PRICING_RECOVERY_COPY_DIR` before enabled archived-correction maintenance starts or claims its lease; the Compose service passes that env value, but no production destination is mounted or enabled. The read-only backlog command remains available without it. Recovery-copy unit and missing-target runner tests passed, as did typecheck and Compose configuration with the local env file. Next safe step: open dependent PR and collect CI. Raw deletion and the optional maintenance profile remain disabled; #330 stays open. Do not merge either PR without individual approval.

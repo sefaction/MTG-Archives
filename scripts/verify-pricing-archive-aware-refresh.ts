@@ -182,6 +182,13 @@ try {
         BACKUP_DIR: archiveTestDirectory, MTG_LOCAL_PILOT_TEST: "1",
         PRICING_RECOVERY_COPY_DIR: copyDirectory },
       encoding: "utf8", timeout: 180_000, maxBuffer: 1024 * 1024 });
+  const drillRecoveryCopy = (receiptPath: string) => spawnSync(process.execPath,
+    ["--import", "tsx", "scripts/pricing-recovery-copy-restore-drill.ts",
+      "--receipt", receiptPath, "--run"],
+    { env: { ...process.env, PRICING_DATABASE_URL: testDatabase.toString(),
+        BACKUP_DIR: archiveTestDirectory, MTG_LOCAL_PILOT_TEST: "1",
+        PRICING_RECOVERY_COPY_DIR: recoveryCopyDirectory },
+      encoding: "utf8", timeout: 180_000, maxBuffer: 1024 * 1024 });
   assert.notEqual(activate(stagedResult.manifestPath, false).status, 0,
     "Activation must refuse a date that is not the oldest raw segment");
   sql(testDatabase, `DELETE FROM price_daily_summary WHERE observed_date <= '2026-01-10';
@@ -215,9 +222,19 @@ try {
     const activated = JSON.parse(applied.stdout.trim().split(/\r?\n/).at(-1)!);
     assert.equal(activated.mode, "activated");
     const receipt = JSON.parse(readFileSync(activated.receipt, "utf8"));
-    assert.equal(receipt.recoveryCopies.length, 2);
+    assert.equal(receipt.recoveryCopies.length, 4);
     for (const copy of receipt.recoveryCopies)
       assert.deepEqual(readFileSync(copy.destination), readFileSync(copy.path));
+    const drill = drillRecoveryCopy(activated.receipt);
+    if (drill.status !== 0) throw new Error(`Copied recovery drill failed: ${drill.stderr.trim()}`);
+    assert.equal(JSON.parse(drill.stdout.trim().split(/\r?\n/).at(-1)!).verified, true);
+    const copiedManifest = receipt.recoveryCopies.find((copy: { path: string }) =>
+      copy.path.endsWith(".json"));
+    assert.ok(copiedManifest);
+    writeFileSync(copiedManifest.destination, "corrupt copied manifest");
+    assert.notEqual(drillRecoveryCopy(activated.receipt).status, 0,
+      "A changed recovery copy must fail before isolated restore");
+    writeFileSync(copiedManifest.destination, readFileSync(copiedManifest.path));
   }
   const restaged = spawnSync(process.execPath,
     ["--import", "tsx", "scripts/pricing-raw-segment-stage.ts", "--date", "2026-01-10"],
@@ -390,9 +407,13 @@ try {
   const appliedReceipt = JSON.parse(readFileSync(JSON.parse(appliedCorrection.stdout.trim()
     .split(/\r?\n/).at(-1)!).receiptPath, "utf8")) as { backup: string;
       recoveryCopies: Array<{ path: string; destination: string }> };
-  assert.equal(appliedReceipt.recoveryCopies.length, 2);
+  assert.equal(appliedReceipt.recoveryCopies.length, 4);
   for (const copy of appliedReceipt.recoveryCopies)
     assert.deepEqual(readFileSync(copy.destination), readFileSync(copy.path));
+  const copiedCorrectionDrill = drillRecoveryCopy(JSON.parse(appliedCorrection.stdout.trim()
+    .split(/\r?\n/).at(-1)!).receiptPath);
+  if (copiedCorrectionDrill.status !== 0)
+    throw new Error(`Copied correction recovery drill failed: ${copiedCorrectionDrill.stderr.trim()}`);
   const rollbackName = `pricing_rollback_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
   const rollbackDatabase = new URL(testDatabase);
   rollbackDatabase.pathname = `/${rollbackName}`;
