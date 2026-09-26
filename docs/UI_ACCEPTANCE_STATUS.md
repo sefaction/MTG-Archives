@@ -1,5 +1,9 @@
 # UI acceptance status - 2026-09-26
 
+## Populated trade flow on phone widths, 2026-09-26
+
+The owned three-person trade lifecycle now checks a populated proposal at 390 and 320 CSS pixels in a coarse-pointer Chromium context, including page-wide overflow and horizontal reachability of Submit Proposal. After acceptance, the 320px physical confirmation action also remains within the viewport. The full cancel, decline, counter, two-party confirmation, wishlist reconciliation and copy-conservation case passed 1/1 on the healthy cumulative local Docker image; fixture users returned to zero. This is a responsive/touch-emulated sample for W01/T01-T03 under #274, not a real-device review or every trade state at both widths. No application code changed.
+
 ## Imports History undo label and tracked rollback, 2026-09-26
 
 Issue #431 identified an unlabeled per-batch Undo import confirmation field in Imports History. The field now has a visible `Type DELETE IMPORT` label. The owned local browser fixture checked its accessible name, committed five copies from two CSV rows, then used that History action to undo the import. The owner's total returned from seven to the original two copies, the batch became `UNDONE`, and two `import_undo` audit records were retained. The focused case passed 1/1 on cumulative local image `sha256:a016a0e1ab3947d47d6b1f29bf20447ac842363c1a41eeb140f6a555c660dc7f` with pending PRs #428 and #430; the fixture user count returned to zero. This covers one tracked admin undo path, not every legacy or partially blocked undo case.

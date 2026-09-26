@@ -91,7 +91,9 @@ test("two people negotiate, confirm and conserve exact inventory; cancel and dec
   const tag = `ui-trade-${randomUUID()}`;
   const password = randomUUID();
   const contexts = await Promise.all(
-    [0, 1, 2].map(() => browser.newContext({ baseURL })),
+    [0, 1, 2].map((index) =>
+      browser.newContext({ baseURL, hasTouch: index === 0 }),
+    ),
   );
   let fixture: Fixture | undefined;
   try {
@@ -131,6 +133,33 @@ test("two people negotiate, confirm and conserve exact inventory; cancel and dec
         `return (await p.inventoryItem.aggregate({where:{cardId:{in:${quote(f.cards.map((c) => c.id))}}},_sum:{quantity:true}}))._sum.quantity;`,
       );
     expect(total()).toBe(16);
+
+    for (const width of [390, 320]) {
+      await alice.setViewportSize({ width, height: 844 });
+      expect(await alice.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
+      await alice.goto(
+        `/trades?receiverId=${f.people[1].playerId}&offeredInventoryItemId=${f.items[0].id}&requestedInventoryItemId=${f.items[1].id}`,
+      );
+      await expect(
+        alice.getByRole("button", { name: "Submit Proposal", exact: true }),
+      ).toBeVisible();
+      expect(
+        await alice.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1,
+        ),
+        `Trades builder overflow at ${width}px`,
+      ).toBe(true);
+      const submit = alice.getByRole("button", {
+        name: "Submit Proposal",
+        exact: true,
+      });
+      await submit.scrollIntoViewIfNeeded();
+      const bounds = await submit.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(0);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width + 1);
+    }
+    await alice.setViewportSize({ width: 1366, height: 768 });
 
     async function propose(message: string) {
       await alice.goto(
@@ -256,7 +285,23 @@ test("two people negotiate, confirm and conserve exact inventory; cancel and dec
       .poll(() => state(counter).status)
       .toBe("ACCEPTED_PENDING_EXCHANGE");
     expect(total()).toBe(16);
+    await alice.setViewportSize({ width: 320, height: 844 });
     const aliceConfirm = await openTrade(alice, counter);
+    expect(
+      await alice.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1,
+      ),
+      "Trade confirmation overflow at 320px",
+    ).toBe(true);
+    await aliceConfirm
+      .getByRole("button", { name: "Confirm Physical Trade" })
+      .scrollIntoViewIfNeeded();
+    const confirmBounds = await aliceConfirm
+      .getByRole("button", { name: "Confirm Physical Trade" })
+      .boundingBox();
+    expect(confirmBounds).not.toBeNull();
+    expect(confirmBounds!.x).toBeGreaterThanOrEqual(0);
+    expect(confirmBounds!.x + confirmBounds!.width).toBeLessThanOrEqual(321);
     await aliceConfirm
       .getByRole("combobox")
       .selectOption(f.people[0].destinationId);

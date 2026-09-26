@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Populated Trades phone acceptance, 2026-09-26
+
+Active branch `test/trade-phone-acceptance` starts from merged main `39d05df` after the individually approved #425, #426, #428, #430 and #432 queue merged; #427, #429 and #431 closed. The existing owned trade lifecycle now uses a coarse-pointer context for its proposer and checks the populated 390/320px proposal and 320px physical confirmation for page-wide overflow and horizontally reachable actions. The complete local Chromium case passed 1/1 twice, including the final touch-emulated version; fixture user count returned to zero. Typecheck and diff check passed. This is test-only and did not require a Docker reload; the current local image `sha256:a016a0e1ab3947d47d6b1f29bf20447ac842363c1a41eeb140f6a555c660dc7f` remains healthy and contains the same main application changes. No production change or Pricing retention activation. Next safe step: push this #274 evidence PR, collect CI and individual review, then continue the broader UI and #330 local operational gates.
+
 ## Approved Imports undo final refresh, 2026-09-26
 
 The user individually approved #425, #426, #428, #430 and #432. #425, #426, #428 and #430 merged with green checks; #427 and #429 closed via their resolving PRs. #432 is being refreshed against main before its approved merge. Cumulative local Docker includes all UI changes, is healthy, and passed the focused Imports undo case. Automatic Pricing retention remains off. Next safe step: collect fresh #432 CI, merge it under the existing approval, close #431, then update durable project notes and continue #274/#330.
