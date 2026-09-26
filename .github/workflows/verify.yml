@@ -69,3 +69,5 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y postgresql-client
       - name: Read-only pricing queries, event-loop responsiveness and time limits
         run: npx tsx scripts/verify-pricing-db-query.ts
+      - name: Archive-aware Pricing refresh and full rebuild
+        run: npx tsx scripts/verify-pricing-archive-aware-refresh.ts

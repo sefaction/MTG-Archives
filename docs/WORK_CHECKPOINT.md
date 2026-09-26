@@ -1,8 +1,16 @@
 # Resumable work checkpoint
 
-## Approved raw archive planning merge, 2026-09-25
+## Archive-aware Pricing refresh in review, 2026-09-25
 
-The user individually approved [PR #354](https://github.com/sefaction/MTG-Archives/pull/354) and [PR #355](https://github.com/sefaction/MTG-Archives/pull/355) for merge. #354 merged first. #355 is being updated against current `main` after documentation conflicts; fresh CI and its final merge are pending. The conflict resolution retains both archive design and planner runbook text. The local Docker image `sha256:aa6b4ade769d9f6c5f3abd421c4168f3c85b7e0ae59a6fad48a789d2241ecd3f` includes the planner, runs web and both workers, and passed host `/login` HTTP 200. Next safe step: push the updated #355 branch, wait for fresh Core/PostgreSQL checks, merge #355, sync `main`, and reload Docker from merged `main`. Keep #330 open; no raw deletion or scheduler is active.
+Active branch `feat/pricing-archive-aware-refresh` from merged `main` (`448e4cd`) addresses the first implementation gate of [#330](https://github.com/sefaction/MTG-Archives/issues/330). It adds empty archived scope and weekly/monthly/yearly bases plus `raw_archived_through`; touched-key refresh merges archived and live projections, preserves sparse archived scopes, and rejects live raw overlap at an active boundary. Full rebuild enumerates archive-only keys. No archive activation, raw deletion or scheduler is enabled. The synthetic PostgreSQL test creates and drops an isolated database and passed split-period, sparse, overlap, later-import and full-rebuild cases. Existing correction/replay fixture passed against the local Pricing snapshot with the worker paused and resumed. Typecheck and production Docker build/manifest guards passed. The new image has been built but not loaded into the local review services; PR and CI are pending.
+
+The uncommitted postmerge checkpoint from the previous turn is included in this branch. The currently loaded review containers still run merged `main` image `sha256:7363ba6b00e654654687dc48571d1c04feddecffe75db60dd8d24973043d60f0`. Next safe step: inspect the SQL diff and local DB state, open this coherent PR, then continue remaining non-acquisition queue work before a cumulative Docker reload. Keep #330 and #274 open; #315 remains deferred and unapproved.
+
+## Approved raw archive planning merged, 2026-09-25
+
+The user individually approved [PR #354](https://github.com/sefaction/MTG-Archives/pull/354) and [PR #355](https://github.com/sefaction/MTG-Archives/pull/355); both merged to `main` in that order at `448e4cd`. Documentation conflicts in #355 were resolved while preserving the design and planner instructions. Fresh Core and PostgreSQL checks passed on its final head. Local `main` matches `origin/main`. The merged Docker image `sha256:7363ba6b00e654654687dc48571d1c04feddecffe75db60dd8d24973043d60f0` is loaded into web, pricing-worker and notification-worker; web is healthy and host `/login` returned HTTP 200. The read-only planner reports 2,020,425 raw rows, zero older than its June 26 cutoff, fresh summaries and deletion disabled. #330 remains open for archive-aware refresh, verified raw retention and automated correction maintenance. #315 is the only open PR, is unapproved and remains unmerged. No scheduler, raw deletion or production deployment is active. This checkpoint update is local and uncommitted; next safe step is the next coherent #330 implementation batch.
+
+## Raw archive planning premerge checkpoint, 2026-09-25
 
 ## Read-only raw retention planning, 2026-09-25
 
