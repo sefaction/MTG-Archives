@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Approved core-task action sample refresh, 2026-09-26
+
+The user individually approved #435 and #436. #435 merged with green checks; branch `test/ui-core-task-actions` is merging that main revision before its own approved merge. Its owned local Chromium fixture measured nine scripted control actions for a five-copy filtered Inventory move and five for a Locations search/edit, excluding login and direct task entry. It verified first-fold controls, destination database quantity and retained location search/selection context. Focused case passed 1/1, typecheck passed, fixture users returned to zero, and no app code or Docker image changed. Next safe step: finish this merge, push the refreshed #436 head, require fresh green CI, then merge #436 under its individual approval. #437 is also individually approved but must refresh and pass CI after #436; Pricing retention stays off.
+
 ## Current UI action verification ledger, 2026-09-26
 
 Active branch `docs/ui-action-verification-ledger` starts from merged main `cfdd0c2` after individually approved #433 and #434 merged. New `docs/UI_ACTION_VERIFICATION.md` assigns all 45 action IDs a retained home, existing representative test, last checked app revision and explicit scope limit. A core test compares its IDs exactly with the historical crosswalk, detects duplicates and missing test files, and passed 1/1; typecheck and diff check passed. Git diff from the 70-pass local browser baseline through `cfdd0c2` showed no application or Docker source change, so no Docker reload is needed; grouped local image remains healthy. #274 still needs task action counts and final coverage-boundary review; #330's production retention remains off. Next safe step: push this ledger batch, collect CI and individual PR approval, then measure bounded core-task action counts without inventing before/after timing.
