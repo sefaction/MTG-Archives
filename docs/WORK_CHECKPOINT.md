@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Import serialization retry merge, 2026-09-26
+
+The user explicitly approved PR #361. It increases bounded serializable retries for concurrent Inventory import stack creation and passed local PostgreSQL contention checks and both PR checks. Pricing PRs #356-#359 and #362-#364 merged first, creating a checkpoint-only conflict. This merge retains the current main checkpoint and import code; fresh checks are required before #361 merges. Issue #360 stays open until merge. PRs #365-#366 remain unapproved.
+
 ## Archive-aware Pricing refresh in review, 2026-09-25
 
 Active branch `feat/pricing-archive-aware-refresh` from merged `main` (`448e4cd`) addresses the first implementation gate of [#330](https://github.com/sefaction/MTG-Archives/issues/330). It adds empty archived scope and weekly/monthly/yearly bases plus `raw_archived_through`; touched-key refresh merges archived and live projections, preserves sparse archived scopes, and rejects live raw overlap at an active boundary. Full rebuild enumerates archive-only keys. No archive activation, raw deletion or scheduler is enabled. The synthetic PostgreSQL test creates and drops an isolated database and passed split-period, sparse, overlap, later-import and full-rebuild cases. Existing correction/replay fixture passed against the local Pricing snapshot with the worker paused and resumed. Typecheck and production Docker build/manifest guards passed. The new image has been built but not loaded into the local review services; PR and CI are pending.
