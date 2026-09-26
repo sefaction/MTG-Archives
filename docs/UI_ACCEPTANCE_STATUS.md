@@ -1,5 +1,8 @@
 # UI acceptance status - 2026-09-26
 
+## Imports History undo label and tracked rollback, 2026-09-26
+
+Issue #431 identified an unlabeled per-batch Undo import confirmation field in Imports History. The field now has a visible `Type DELETE IMPORT` label. The owned local browser fixture checked its accessible name, committed five copies from two CSV rows, then used that History action to undo the import. The owner's total returned from seven to the original two copies, the batch became `UNDONE`, and two `import_undo` audit records were retained. The focused case passed 1/1 on cumulative local image `sha256:a016a0e1ab3947d47d6b1f29bf20447ac842363c1a41eeb140f6a555c660dc7f` with pending PRs #428 and #430; the fixture user count returned to zero. This covers one tracked admin undo path, not every legacy or partially blocked undo case.
 ## Locations direct-contents deletion feedback, 2026-09-26
 
 Issue #429 found that a successful Delete contents result vanished as soon as the refreshed selected location became empty. The empty state now retains the success status while disabling another delete. An owned local browser fixture rejected an incorrect confirmation without changing two direct entries, then accepted DELETE and removed five direct copies across those entries. Four child-location copies, the parent location and two deletion audit rows remained. The focused and existing Locations workspace cases passed 2/2 on a cumulative local Docker image with PR #428; the fixture user, owner and locations were removed. This is one representative L05 destructive path under #274, not all storage deletion variants.

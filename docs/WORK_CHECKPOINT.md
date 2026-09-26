@@ -1,5 +1,12 @@
 # Resumable work checkpoint
 
+## Approved Imports undo final refresh, 2026-09-26
+
+The user individually approved #425, #426, #428, #430 and #432. #425, #426, #428 and #430 merged with green checks; #427 and #429 closed via their resolving PRs. #432 is being refreshed against main before its approved merge. Cumulative local Docker includes all UI changes, is healthy, and passed the focused Imports undo case. Automatic Pricing retention remains off. Next safe step: collect fresh #432 CI, merge it under the existing approval, close #431, then update durable project notes and continue #274/#330.
+
+## Imports History undo label and rollback, 2026-09-26
+
+Active branch `fix/import-history-undo-label` from merged main `1bd9e93` addresses #431 under UI acceptance #274. Its app change gives the per-batch History Undo confirmation a visible programmatic label; the existing Imports fixture now performs a tracked undo after its two-row, five-copy commit, checks original stock, `UNDONE` batch status and two undo audits. Typecheck and focused local Chromium case passed 1/1. Cumulative review branch `local/review-428-429` at `0dc18ae` includes pending #428 and #430 plus this change; direct Docker image `sha256:a016a0e1ab3947d47d6b1f29bf20447ac842363c1a41eeb140f6a555c660dc7f` is loaded in web and both workers, and web is healthy. Fixture users returned to zero. #425, #426, #428 and #430 remain open and require individual approval; no production change. Next safe step: commit/push this branch, open a #431-resolving PR, collect CI and request individual approval. Close #431 only after merge.
 ## Approved Locations and Imports queue, 2026-09-26
 
 The user individually approved #425, #426, #428, #430 and #432. #425, #426 and #428 merged with green checks; #427 closed with its resolving PR. #430 is being refreshed against current main; #432 remains green at its earlier head and will be refreshed after #430. Cumulative local Docker includes #428, #430 and #432; automatic Pricing retention remains off. Next safe step: finish #430 checks and approved merge, close #429, then refresh and merge #432.
