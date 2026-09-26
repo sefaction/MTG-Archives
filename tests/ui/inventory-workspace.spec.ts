@@ -95,6 +95,18 @@ test("real Inventory workspace composes search, preserves context and reflows wi
     ).toHaveAttribute("aria-current", "page");
     const table = page.locator(".inventory-results table");
     await expect(table).toBeVisible();
+    database(`await p.user.update({where:{username:${quote(tag)}},data:{navigationLayout:'topbar'}});return true;`);
+    await page.setViewportSize({ width: 960, height: 455 });
+    await page.reload();
+    await expect(page.locator(".archive-navigation > summary")).toBeVisible();
+    await expect(table).toBeVisible();
+    expect((await table.boundingBox())!.y).toBeLessThan(455);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
+      .toBe(true);
+    database(`await p.user.update({where:{username:${quote(tag)}},data:{navigationLayout:'sidebar'}});return true;`);
+    await page.setViewportSize({ width: 1366, height: 768 });
+    await page.reload();
+    await expect(table).toBeVisible();
     await page.locator(".inventory-view-options > summary").click();
     await expect(
       page.getByLabel("Inventory page size", { exact: true }),

@@ -48,7 +48,7 @@ export function ArchiveNavigation({
   const pathname = usePathname();
   const menu = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
-    const query = window.matchMedia("(max-width: 899px)");
+    const query = window.matchMedia("(max-width: 1099px)");
     const resize = () => {
       if (menu.current) menu.current.open = !query.matches;
     };
@@ -69,7 +69,7 @@ export function ArchiveNavigation({
           if (
             event.key === "Escape" &&
             menu.current?.open &&
-            window.matchMedia("(max-width: 899px)").matches
+            window.matchMedia("(max-width: 1099px)").matches
           ) {
             menu.current.open = false;
             menu.current.querySelector("summary")?.focus();
@@ -99,7 +99,7 @@ export function ArchiveNavigation({
                   onClick={() => {
                     if (
                       menu.current &&
-                      window.matchMedia("(max-width: 899px)").matches
+                      window.matchMedia("(max-width: 1099px)").matches
                     )
                       menu.current.open = false;
                   }}

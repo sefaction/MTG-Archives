@@ -111,7 +111,7 @@ test("account navigation preference persists across sessions, isolates users and
     await expect(
       page.getByRole("dialog", { name: "Filter inventory" }),
     ).not.toBeVisible();
-    for (const width of [1440, 1366, 900]) {
+    for (const width of [1440, 1366, 1100]) {
       await page.setViewportSize({ width, height: 900 });
       expect(
         await page
@@ -154,11 +154,15 @@ test("account navigation preference persists across sessions, isolates users and
         animations: "disabled",
       });
     }
-    for (const width of [390, 320]) {
-      await page.setViewportSize({ width, height: 844 });
+    for (const width of [960, 900, 390, 320]) {
+      await page.setViewportSize({ width, height: width >= 900 ? 455 : 844 });
       const menu = page.locator(".archive-navigation > summary");
       await expect(menu).toBeVisible();
       await expect(page.locator(".archive-rail")).not.toBeVisible();
+      if (width >= 900) {
+        expect((await page.getByRole("heading", { name: "Inventory" }).boundingBox())!.y)
+          .toBeLessThan(150);
+      }
       await menu.focus();
       await page.keyboard.press("Enter");
       await expect(
