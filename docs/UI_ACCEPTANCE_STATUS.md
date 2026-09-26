@@ -4,6 +4,14 @@
 
 An owned local Chromium fixture opened a populated Deck at 1366×768 and 1440×900, with Add card, Analysis and the first deck-list card in the first viewport at both sizes. Adding two Llanowar Elves, closing the dialog and visiting Analysis before returning to the same Builder took **8 scripted control actions**. The deck-list total rose from 99 to 101 and remained 101 after returning. This count excludes login and direct deck entry. It is one sample, not a before/after speed comparison or complete Deck accessibility certification. The focused case passed 1/1 and its fixture cleaned up.
 
+## Scripted desktop task action sample, 2026-09-26
+
+An owned local Chromium fixture at 1366×768 searched Inventory for Forest, selected an eight-copy row, chose five copies before Move, selected a Box destination, and completed the move in **9 scripted control actions**. The database contained five copies at that destination. It then found a vault, opened Manage, changed its description and saved in **5 scripted control actions**; the location search query and selected result remained in context. Inventory search, advanced filters and Move, plus Locations search, Find and selected occupancy, were within the first viewport. These counts exclude login and direct entry to each task page, represent this fixture only, and are not a before/after speed comparison. The focused local browser case passed 1/1 with fixture cleanup. Broader #274 role and accessibility acceptance remains open.
+
+## Current action verification ledger, 2026-09-26
+
+The [45-row action ledger](UI_ACTION_VERIFICATION.md) now names a retained home, an existing representative test and the last checked application revision for every capability ID in the historical crosswalk. It records each check's limit instead of treating a route or one happy path as full parity. A core test requires every crosswalk action ID to appear exactly once with a real test path and revision. The last checked application code is `cfdd0c2`; intervening PRs #433 and #434 changed tests/documentation only after the 70-pass grouped local browser run. Task action counts and the broader keyboard/assistive-technology boundary remain open under #274.
+
 ## All-matching Inventory export across pages, 2026-09-26
 
 An owned local browser fixture placed twelve different Forest printings across a ten-row Inventory page and one Island sentinel outside the card-name filter. Select all matching filters reported twelve entries and copies; the MTG Archives CSV included every tagged Forest entry from both pages and excluded the Island. The focused case passed 1/1 against the healthy local Docker image after #433 merged. Fixture users and temporary export backups returned to zero; the test restores any same-name pre-existing local export file. This provides direct I05/I07 evidence for filtered all-matching export, not every CSV format or selection/role permutation. No application code or Docker image changed.
