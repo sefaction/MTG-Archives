@@ -8,7 +8,7 @@ export type PricingRecoveryFile = { path: string; sha256: string };
 export type PricingRecoveryCopy = PricingRecoveryFile & { destination: string;
   reused: boolean };
 export type PricingRecoveryPackage = { schemaVersion: 1; observedDate: string;
-  operation: "activation" | "correction";
+  operation: "activation" | "correction" | "daily_compaction";
   files: Array<{ relativePath: string; sha256: string }> };
 
 function inside(root: string, path: string) {
@@ -41,8 +41,9 @@ async function fileSha(path: string) {
 export async function createPricingRecoveryPackage(sourceRoot: string,
   packagePath: string, observedDate: string,
   operation: PricingRecoveryPackage["operation"], files: PricingRecoveryFile[]) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(observedDate) || files.length !== 4)
-    throw new Error("Recovery package requires one date and four verified files");
+  const expectedFiles = operation === "daily_compaction" ? 2 : 4;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(observedDate) || files.length !== expectedFiles)
+    throw new Error(`Recovery package requires one date and ${expectedFiles} verified files`);
   const source = await realpath(resolve(sourceRoot, "pricing"));
   const canonicalPackage = resolve(packagePath);
   if (!inside(source, canonicalPackage) || !canonicalPackage.endsWith(".package.json"))
@@ -55,7 +56,7 @@ export async function createPricingRecoveryPackage(sourceRoot: string,
       throw new Error("Recovery package source is missing or changed");
     entries.push({ relativePath: relative(source, canonical), sha256: file.sha256 });
   }
-  if (new Set(entries.map((entry) => entry.relativePath)).size !== 4)
+  if (new Set(entries.map((entry) => entry.relativePath)).size !== expectedFiles)
     throw new Error("Recovery package files must be distinct");
   const document: PricingRecoveryPackage = { schemaVersion: 1, observedDate,
     operation, files: entries };
@@ -77,9 +78,11 @@ export async function verifyCopiedPricingRecoveryPackage(destinationRoot: string
       !packageInfo.isFile() || packageInfo.isSymbolicLink())
     throw new Error("Pricing recovery package must be a regular destination file");
   const document = JSON.parse(readFileSync(canonicalPackage, "utf8")) as PricingRecoveryPackage;
-  if (document.schemaVersion !== 1 || !["activation", "correction"].includes(document.operation) ||
+  if (document.schemaVersion !== 1 ||
+      !["activation", "correction", "daily_compaction"].includes(document.operation) ||
       !/^\d{4}-\d{2}-\d{2}$/.test(document.observedDate) ||
-      !Array.isArray(document.files) || document.files.length !== 4)
+      !Array.isArray(document.files) || document.files.length !==
+        (document.operation === "daily_compaction" ? 2 : 4))
     throw new Error("Invalid Pricing recovery package index");
   const files: Array<{ relativePath: string; destination: string; sha256: string }> = [];
   const seen = new Set<string>();
@@ -97,10 +100,12 @@ export async function verifyCopiedPricingRecoveryPackage(destinationRoot: string
     seen.add(target);
     files.push({ relativePath: file.relativePath, destination: target, sha256: file.sha256 });
   }
-  if (files.filter((file) => file.relativePath.endsWith(".dump")).length !== 1 ||
-      files.filter((file) => file.relativePath.endsWith(".csv.gz")).length !== 1 ||
-      files.filter((file) => file.relativePath.endsWith(".json")).length !== 2)
-    throw new Error("Pricing recovery package lacks its expected four file roles");
+  const dumps = files.filter((file) => file.relativePath.endsWith(".dump")).length;
+  const archives = files.filter((file) => file.relativePath.endsWith(".csv.gz")).length;
+  const manifests = files.filter((file) => file.relativePath.endsWith(".json")).length;
+  if (dumps !== 1 || archives !== (document.operation === "daily_compaction" ? 0 : 1) ||
+      manifests !== (document.operation === "daily_compaction" ? 1 : 2))
+    throw new Error("Pricing recovery package lacks expected file roles");
   return { document, files, packagePath: canonicalPackage };
 }
 

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { pricingSummarySchemaSql, refreshPricingSummariesSql } from "./pricing-summary-sql";
@@ -103,7 +103,22 @@ try {
     "SELECT raw_archived_through::text FROM price_summary_state WHERE singleton;"), oldDate);
   const audit = script("scripts/pricing-recovery-package-audit.ts");
   assert.equal(audit.status, 0, audit.stderr);
-  assert.equal(lastJson(audit.stdout).verified, 1);
+  assert.equal(lastJson(audit.stdout).verified, 2);
+  const dailyPackage = readdirSync(recovery)
+    .filter((file) => file.endsWith(".package.json"))
+    .map((file) => join(recovery, file))
+    .find((path) => JSON.parse(readFileSync(path, "utf8")).operation === "daily_compaction");
+  assert.ok(dailyPackage);
+  const hiddenBackup = backup + "-hidden";
+  renameSync(backup, hiddenBackup);
+  try {
+    const dailyDrill = script("scripts/pricing-daily-copy-restore-drill.ts",
+      ["--package", dailyPackage, "--run"]);
+    assert.equal(dailyDrill.status, 0, dailyDrill.stderr + dailyDrill.stdout);
+    assert.equal(lastJson(dailyDrill.stdout).verified, true);
+  } finally {
+    renameSync(hiddenBackup, backup);
+  }
   const repeat = script("scripts/pricing-raw-retention-pass.ts");
   assert.equal(lastJson(repeat.stdout).candidate, null);
   const rollback = process.env.PRICING_ROLLBACK_DRILL === "1";
@@ -143,7 +158,7 @@ try {
       "SELECT COUNT(*) FROM price_raw_archive_segment;"), "0");
   }
   console.log(JSON.stringify({ mode: "retention-fixture-passed", oldDate,
-    copiedPackages: 1, liveRaw: rollback ? 2 : 1, direct, rollback,
+    copiedPackages: 2, liveRaw: rollback ? 2 : 1, direct, rollback,
     isolatedVerifier: process.env.PRICING_VERIFY_POSTGRES_DRILL === "1" }));
 } finally {
   if (created) sql(admin, 'DROP DATABASE IF EXISTS "' + name + '" WITH (FORCE);');
