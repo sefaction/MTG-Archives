@@ -1,5 +1,9 @@
 # UI acceptance status - 2026-09-26
 
+## Scripted Deck task action sample, 2026-09-26
+
+An owned local Chromium fixture opened a populated Deck at 1366×768 and 1440×900, with Add card, Analysis and the first deck-list card in the first viewport at both sizes. Adding two Llanowar Elves, closing the dialog and visiting Analysis before returning to the same Builder took **8 scripted control actions**. The deck-list total rose from 99 to 101 and remained 101 after returning. This count excludes login and direct deck entry. It is one sample, not a before/after speed comparison or complete Deck accessibility certification. The focused case passed 1/1 and its fixture cleaned up.
+
 ## Scripted desktop task action sample, 2026-09-26
 
 An owned local Chromium fixture at 1366×768 searched Inventory for Forest, selected an eight-copy row, chose five copies before Move, selected a Box destination, and completed the move in **9 scripted control actions**. The database contained five copies at that destination. It then found a vault, opened Manage, changed its description and saved in **5 scripted control actions**; the location search query and selected result remained in context. Inventory search, advanced filters and Move, plus Locations search, Find and selected occupancy, were within the first viewport. These counts exclude login and direct entry to each task page, represent this fixture only, and are not a before/after speed comparison. The focused local browser case passed 1/1 with fixture cleanup. Broader #274 role and accessibility acceptance remains open.

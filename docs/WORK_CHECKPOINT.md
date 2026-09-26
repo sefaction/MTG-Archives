@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Approved Deck task action sample refresh, 2026-09-26
+
+The user individually approved #435, #436 and #437. #435 and #436 merged with green checks. Branch `test/deck-task-actions` is merging their main revision before its own approved merge. Its owned local Chromium case measured eight scripted actions to add two cards and visit/return from Analysis. At 1366×768 and 1440×900, Add card, Analysis and first deck-list card fit the first viewport; the list held 101 cards after return. Focused case passed 1/1, typecheck passed, fixture owners returned to zero, and no app or Docker image changed. Next safe step: finish this merge, push refreshed #437, require fresh green CI, then merge under its individual approval. Pricing retention remains off.
+
 ## Approved core-task action sample refresh, 2026-09-26
 
 The user individually approved #435 and #436. #435 merged with green checks; branch `test/ui-core-task-actions` is merging that main revision before its own approved merge. Its owned local Chromium fixture measured nine scripted control actions for a five-copy filtered Inventory move and five for a Locations search/edit, excluding login and direct task entry. It verified first-fold controls, destination database quantity and retained location search/selection context. Focused case passed 1/1, typecheck passed, fixture users returned to zero, and no app code or Docker image changed. Next safe step: finish this merge, push the refreshed #436 head, require fresh green CI, then merge #436 under its individual approval. #437 is also individually approved but must refresh and pass CI after #436; Pricing retention stays off.
