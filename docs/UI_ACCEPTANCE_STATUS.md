@@ -1,5 +1,11 @@
 # UI acceptance status - 2026-09-26
 
+## Current Inventory review and failure recovery, 2026-09-26
+
+The user reports Inventory card/storage filters work well: they can apply criteria, identify active filters, and revise or clear them without losing their place. They also accepted the selected-copy amount and Move confirmation, Deck editing, and cross-section navigation in the local app. The bounded Inventory filter #264, move #265 and Deck #268 issues are closed; the wider role, device and state matrix in #274 remains open. Navigation foundation #263 awaits individual approval of PR #413.
+
+The owned infinite-browsing retry fixture intercepts one next-page request with HTTP 503. In the local Docker app, the initial 10 rows and a selected copy remained visible, the failure and Retry control appeared, then Retry loaded the final two rows while preserving selection. The focused browser case passed 1/1 and its temporary user/data were removed. This covers a specific long-list error/retry state under #274; it does not claim all network failures or the entire state matrix.
+
 ## Varied 150,000-copy Inventory and Locations scale, 2026-09-26
 
 The owned local scale fixture now places 150,000 copies in 15,000 stacks across 5,000 cached printings, three condition values, 200 parent locations and 2,000 children. Three smaller private owners hold 5,000, 500 and 7 copies. The case checks bounded Locations results/editor options, a deep path search, phone editing without page overflow, private-owner isolation, a 25-row Inventory page, and Inventory name search. The focused case passed 1/1 against grouped image `sha256:56de6036d2b72f91f86fb95b867fdc77189d318d3eb5287fd77fb9299b8dbcf4`; measured local Locations load was 623 ms and Inventory first-page load was 2,535 ms. Fixture cleanup took 72.4 seconds and left zero scale users/owners and the original 12,477 physical copies. Typecheck passed. This is one synthetic local workload, not a production performance guarantee or a four-user concurrency test. The prior full serial browser suite on the same image passed 61 tests with one intentional skip, before this test-only fixture expansion.
