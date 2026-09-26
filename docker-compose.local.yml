@@ -11,6 +11,21 @@ services:
     ports:
       - "${PRICING_POSTGRES_HOST_PORT:-15436}:5432"
 
+  pricing-retention-clone-postgres:
+    profiles: ["pricing-retention-drill"]
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: ${PRICING_POSTGRES_USER:-mtgpricing}
+      POSTGRES_PASSWORD: ${PRICING_POSTGRES_PASSWORD:-mtgpricing}
+    volumes:
+      - pricing_retention_clone_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
   redis:
     volumes: !override
       - ./.local-data/redis:/data
@@ -18,7 +33,7 @@ services:
   web:
     image: mtg-archives-web:local
     build:
-      context: .
+      context: ${MTG_REVIEW_BUILD_CONTEXT:-.}
       dockerfile: ./Dockerfile
     pull_policy: build
     environment:
@@ -43,7 +58,7 @@ services:
   pricing-worker:
     image: mtg-archives-web:local
     build:
-      context: .
+      context: ${MTG_REVIEW_BUILD_CONTEXT:-.}
       dockerfile: ./Dockerfile
     pull_policy: build
     environment:
@@ -55,7 +70,7 @@ services:
   pricing-archive-maintenance:
     image: mtg-archives-web:local
     build:
-      context: .
+      context: ${MTG_REVIEW_BUILD_CONTEXT:-.}
       dockerfile: ./Dockerfile
     pull_policy: build
     environment:
@@ -68,7 +83,7 @@ services:
   notification-worker:
     image: mtg-archives-web:local
     build:
-      context: .
+      context: ${MTG_REVIEW_BUILD_CONTEXT:-.}
       dockerfile: ./Dockerfile
     pull_policy: build
     environment:
@@ -79,7 +94,7 @@ services:
   backup:
     image: mtg-archives-web:local
     build:
-      context: .
+      context: ${MTG_REVIEW_BUILD_CONTEXT:-.}
       dockerfile: ./Dockerfile
     pull_policy: build
     environment:
@@ -96,3 +111,6 @@ services:
       - ./.local-data/exports:/app/data/exports
       - ./.local-data/backups:/app/data/backups
       - ./.local-data/scryfall:/app/data/scryfall
+
+volumes:
+  pricing_retention_clone_data:

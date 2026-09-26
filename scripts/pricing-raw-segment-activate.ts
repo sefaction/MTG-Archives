@@ -12,7 +12,9 @@ import { pricingVerificationServer } from "./pricing-verification-server";
 const configured = process.env.PRICING_DATABASE_URL;
 if (!configured) throw new Error("PRICING_DATABASE_URL is required");
 const database = new URL(configured);
-if (!["pricing-postgres", "localhost", "127.0.0.1"].includes(database.hostname))
+if (!["pricing-postgres", "localhost", "127.0.0.1"].includes(database.hostname) &&
+    !(process.env.MTG_LOCAL_PILOT_TEST === "1" &&
+      database.hostname === "pricing-retention-clone-postgres"))
   throw new Error("Raw archive activation supports only local Pricing databases");
 database.searchParams.delete("schema");
 const root = process.env.BACKUP_DIR;
