@@ -52,9 +52,14 @@ export async function importTransaction<T>(
       if (
         !(error instanceof Prisma.PrismaClientKnownRequestError) ||
         error.code !== "P2034" ||
-        attempt >= 3
+        attempt >= 7
       )
         throw error;
+      // Let the competing serializable transaction finish before re-reading
+      // eligibility. Immediate retries can repeatedly hit the same pivot.
+      const delayMs = Math.min(250, 15 * 2 ** attempt) +
+        Math.floor(Math.random() * 25);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
 }
