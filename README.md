@@ -167,7 +167,7 @@ docker compose run --rm web npm run backup:list
 Restore is intentionally CLI-only. Stop or put the app in maintenance mode first, then run:
 
 ```bash
-docker compose run --rm web npm run backup:restore -- /app/backups/mtg-archives-backup-YYYYMMDD-HHMMSS.tar.gz --force
+docker compose run --rm web npm run backup:restore -- /app/backups/application/mtg-archives-backup-YYYYMMDD-HHMMSS.tar.gz --force
 ```
 
 Without `--force`, restore validates the archive, database compatibility, complete dump payload and configured appdata target plan, then prints a dry-run summary without replacing data. This requires a reachable target database and temporary disk space for the expanded SQL. With `--force`, the command requires typing `RESTORE`, replaces the configured schema and loads the dump in one fail-fast PostgreSQL transaction, then replaces included appdata directories. A SQL failure rolls back the schema replacement. Database and filesystem changes are not one transaction: disk/permission failures during the later appdata copy still require operator recovery.
@@ -176,9 +176,9 @@ The image pins PostgreSQL 16 client tools to match the supported database servic
 
 See `docs/BACKUP_RESTORE_DRILL.md` for an opt-in isolated laptop recovery exercise and coverage boundaries.
 
-Backups are written to `BACKUP_DIR`, defaulting to `/app/backups`. In Docker Compose that path is mounted from the persistent host `BACKUPS_DATA_PATH`, so backups survive container recreation. Do not point `BACKUP_DIR` at a disposable container-only path in production.
+New application archives are written to `BACKUP_DIR/application`, under the persistent host `BACKUPS_DATA_PATH` (on Unraid, `/mnt/user/appdata/mtg-archive/backups/application`). Existing archives at the root remain listed and restorable; they are not moved or deleted. Pricing source archives use the sibling `pricing` directory and per-operation recovery copies use `pricing-recovery`. The Unraid-wide `File Share/appdata backup` folder is a separate weekly copy of all appdata, not MTG Archives' working backup destination. Do not point `BACKUP_DIR` at a disposable container-only path in production.
 
-The admin-only page at `/admin/backups` can create backups, upload a previously created `.tar.gz` backup archive, list recent backup manifests, download a listed backup, delete a listed backup, and restore from a listed backup. Browser restore is destructive and requires typing `RESTORE` plus the exact backup filename. Browser delete requires typing `DELETE` plus the exact backup filename and only removes that backup archive from `BACKUP_DIR`. Downloads are served only through admin-mode-protected routes; no public download links are exposed.
+The admin-only page at `/admin/backups` can create backups, upload a previously created `.tar.gz` backup archive, list recent backup manifests, download a listed backup, delete a listed backup, and restore from a listed backup. Browser restore is destructive and requires typing `RESTORE` plus the exact backup filename. Browser delete requires typing `DELETE` plus the exact backup filename and only removes that application archive from `BACKUP_DIR/application` or the legacy root. Downloads are served only through admin-mode-protected routes; no public download links are exposed.
 
 For scheduled backups in cron, Portainer, or Unraid, keep the backup utility
 container running and execute the backup command on your desired schedule:

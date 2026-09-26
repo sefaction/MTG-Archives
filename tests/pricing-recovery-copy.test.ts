@@ -26,7 +26,13 @@ test("Pricing recovery copy reads back immutable archive and dump before reuse",
     assert.deepEqual(await verifyPricingRecoveryCopyDestination(source, destination),
       { source: resolve(source, "pricing"), destination: resolve(destination) });
     await assert.rejects(verifyPricingRecoveryCopyDestination(source, ""), /required/);
-    await assert.rejects(verifyPricingRecoveryCopyDestination(source, source), /separate/);
+    await assert.rejects(verifyPricingRecoveryCopyDestination(source, source), /outside BACKUP_DIR\/pricing/);
+    const sibling = join(source, "pricing-recovery");
+    mkdirSync(sibling);
+    assert.deepEqual(await verifyPricingRecoveryCopyDestination(source, sibling),
+      { source: resolve(source, "pricing"), destination: resolve(sibling) });
+    await assert.rejects(verifyPricingRecoveryCopyDestination(source,
+      join(source, "pricing")), /outside BACKUP_DIR\/pricing/);
     const copied = await copyVerifiedPricingRecoveryFiles(source, destination, files);
     assert.deepEqual(copied.map((item) => item.reused), [false, false]);
     for (const item of copied)
@@ -37,7 +43,7 @@ test("Pricing recovery copy reads back immutable archive and dump before reuse",
     await assert.rejects(copyVerifiedPricingRecoveryFiles(source, destination, files),
       /Existing Pricing recovery copy differs/);
     await assert.rejects(copyVerifiedPricingRecoveryFiles(source, source, files),
-      /separate from the source/);
+      /outside BACKUP_DIR\/pricing/);
     const outside = join(base, "outside.dump");
     writeFileSync(outside, "outside source root");
     await assert.rejects(copyVerifiedPricingRecoveryFiles(source, destination,

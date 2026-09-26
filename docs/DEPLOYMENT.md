@@ -98,6 +98,15 @@ BACKUPS_DATA_PATH=/mnt/user/appdata/mtg-archive/backups
 SCRYFALL_DATA_PATH=/mnt/user/appdata/mtg-archive/scryfall
 ```
 
+Create `application`, `pricing`, and `pricing-recovery` beneath `BACKUPS_DATA_PATH`
+with container write access before enabling the related jobs. New application
+archives go to `application`; Pricing source dumps, raw archives and feed
+spools go to `pricing`; verified per-operation copies go to
+`pricing-recovery`. The hidden `.system-secrets` directory stays at the root.
+Older application archives already at the root remain usable. The Unraid-wide
+`File Share/appdata backup` job copies all appdata on its weekly schedule and
+is not the destination for these per-operation files.
+
 ## Adding future services
 
 Future workers should follow the same contract:
