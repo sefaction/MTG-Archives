@@ -1,5 +1,13 @@
 # Local review build — cumulative issue queue
 
+## Inventory filtering and moves first, 2026-09-26
+
+The current local Docker review is at http://127.0.0.1:13001/inventory. Web, Pricing worker and notification worker use image `sha256:a15ae4d2b35e1ba267be8c45b44a9ac4df18b053f99c7d2d5abb8fa80aecf263`, with the local and capture-only SMTP overlays; web is healthy and `/login` returned HTTP 200. The image includes the approved Pricing and import batches through #368 plus Inventory navigation #369, all now merged to `main`. Raw Pricing deletion and the optional archive-maintenance profile are disabled.
+
+Review a card search, open Filters, apply a storage and color criterion, check that active criteria and results stay together, then remove one criterion and use Back/Forward. Select multiple rows and verify the selected physical-copy count, open Move, choose a destination and vault section, change the copy quantity, and check the final review and occupancy counts. Cancel once to check preserved selection and filters; use a local test move if you want to check refreshed source/destination counts. Try the keyboard Escape/return-focus path and a 200% browser zoom or a narrow desktop window. The local database is a testing snapshot; use only test copies for a committed move.
+
+Automated evidence: focused Inventory workspace and navigation cases passed 2/2, including a 960×455 CSS viewport with visible results and no page horizontal overflow. Color filtering and the vault selection/move workflow passed 3/3. These tests do not establish a human task completion time, actual browser zoom behavior, every filter combination, or every role and owner scope. Record human findings under #264/#265/#274 before closing their acceptance gates.
+
 ## Acceptance review, cumulative build, 2026-09-23
 
 - Acceptance documentation and the updated Admin security regression are in [PR #325](https://github.com/sefaction/MTG-Archives/pull/325), stacked on #324. Initial CI passed; check the current PR head after this documentation update.

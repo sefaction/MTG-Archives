@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Inventory-first review instructions, 2026-09-26
+
+Active branch docs/inventory-review-status from merged main after approved #369. The user chose Inventory filtering and moves first. The cumulative healthy Docker image includes Pricing through #368 and Inventory #369; focused workspace/navigation and color-filter/vault-move browser cases passed 5/5. LOCAL_REVIEW_BUILD.md and UI_ACCEPTANCE_STATUS.md now give the current task sequence and limits. Actual browser 200% zoom and human task observations remain open. This documentation branch needs PR/CI and individual approval. Separate #370 documents observed Unraid backup coverage and remains unapproved. Next safe step: open this PR, collect human findings, and continue #330 copy/recovery gates without enabling raw deletion or maintenance.
+
 ## Archived no-change feed main integration, 2026-09-26
 
 The user explicitly approved PR #368. Approved #365 and #366 have merged to main with fresh green checks, and #368 now targets current main. Its code and fixture merged automatically; this historical checkpoint is the only conflict. The isolated PostgreSQL fixture passed terminal sparse-source settlement, preserved summaries/archive, and a later complete correction. Fresh Core and PostgreSQL checks are required before merge. Raw deletion and optional Pricing maintenance remain disabled. Existing Unraid Appdata Backup coverage is known, but off-host copy and restore from that share remain unproved.

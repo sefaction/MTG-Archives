@@ -1,6 +1,10 @@
-# UI acceptance status - 2026-09-23
+# UI acceptance status - 2026-09-26
 
-Related: #262, #263, #264, #265, #268 and #274. This is the current implementation/evidence index; the original design prototype and historical feature notes are retained as dated records. No issue is closed by this document and no PR is merge-approved.
+Related: #262, #263, #264, #265, #268 and #274. This is the implementation/evidence index; the original design prototype and historical feature notes are retained as dated records. This document does not close an issue or approve a PR merge.
+
+## Inventory-first local review, 2026-09-26
+
+The user chose Inventory filtering and moves as the first combined local Docker review. The cumulative image `sha256:a15ae4d2b35e1ba267be8c45b44a9ac4df18b053f99c7d2d5abb8fa80aecf263` is healthy and contains approved #369, which compacts navigation at narrow desktop widths while retaining the Inventory workspace breakpoint. Its focused Inventory/navigation Playwright cases passed 2/2 at 960×455 CSS px; color filtering and the vault selection/move flow passed another 3/3. The move fixture covers partial quantities, section occupancy, selection and phone layout. Actual browser 200% zoom and the user's hands-on task observations remain open. See [LOCAL_REVIEW_BUILD.md](LOCAL_REVIEW_BUILD.md) for the task sequence. Historical build IDs below describe the September 23 acceptance pass and are retained for traceability.
 
 ## Follow-up touch check, 2026-09-23
 
