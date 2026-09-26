@@ -109,8 +109,8 @@ async function runRawRetention() {
 async function tick() {
   const current = backlog();
   console.info("[pricing-archive-maintenance] backlog", current);
-  // A child can run for 20 minutes. Do not begin one that can cross 05:00.
-  if (!apply || pricingMaintenanceMinutesRemaining(new Date()) <= 20) return;
+  // Allow the 20-minute child deadline, forced-stop grace and setup overhead.
+  if (!apply || pricingMaintenanceMinutesRemaining(new Date()) <= 21) return;
   if (!acquire()) {
     console.info("[pricing-archive-maintenance] another owner holds the lease");
     return;
@@ -131,6 +131,8 @@ async function tick() {
       await runRawRetention();
       return;
     }
+    // Copy cleanup and SQL may have consumed the remaining window.
+    if (pricingMaintenanceMinutesRemaining(new Date()) <= 21) return;
     sql(`UPDATE price_archive_feed_queue SET attempt_count = attempt_count + 1,
       last_attempt_at = now(), retry_after = NULL
       WHERE observed_date = ${literal(date)}::date AND status = 'PENDING';`);
