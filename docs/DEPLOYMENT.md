@@ -81,6 +81,22 @@ IMAGE_TAG=main docker compose -f docker-compose.unraid.flat.yml pull
 IMAGE_TAG=main docker compose -f docker-compose.unraid.flat.yml up -d
 ```
 
+The matching [flat environment template](../docker-compose.unraid.flat.env.example)
+is checked in without production credentials. The live `mtg-archives` Compose
+Manager project keeps its actual `compose.yaml` and `.env` under
+`/boot/config/plugins/compose.manager/projects/mtg-archives` (the `flash` SMB
+share). Keep the current private environment values when loading a new flat
+Compose file. The Pricing archive additions are
+`PRICING_ARCHIVE_PRODUCTION_ENABLED=0`,
+`PRICING_ARCHIVE_MAINTENANCE_ENABLED=false`,
+`PRICING_RAW_ARCHIVE_RETENTION_ENABLED=0`, `MTG_LOCAL_PILOT_TEST=0`,
+`PRICING_RECOVERY_COPY_DIR=/app/backups/pricing-recovery`, and a verifier URL
+pointing to `pricing-verify-postgres` with the existing protected Pricing
+database identity. The default configuration leaves archive maintenance and
+raw retention off. Check the rendered configuration and ordinary service health
+after loading; [Pricing archive activation](PRICING_ARCHIVE_ACTIVATION.md)
+records the later approval and recovery gates.
+
 Do not use `docker-compose.unraid.yml` by itself. It is only an override layer
 and does not contain image definitions for every service.
 
