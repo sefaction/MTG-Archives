@@ -3,11 +3,16 @@ import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { getPricingRetentionPolicy } from "../lib/pricing-retention-policy";
+import { copyVerifiedPricingRecoveryFiles, createPricingRecoveryPackage } from
+  "./pricing-recovery-copy";
+import { pricingVerificationServer } from "./pricing-verification-server";
 
 const configured = process.env.PRICING_DATABASE_URL;
 if (!configured) throw new Error("PRICING_DATABASE_URL is required.");
 const url = new URL(configured);
-if (!["pricing-postgres", "localhost", "127.0.0.1"].includes(url.hostname))
+if (!["pricing-postgres", "localhost", "127.0.0.1"].includes(url.hostname) &&
+    !(process.env.MTG_LOCAL_PILOT_TEST === "1" &&
+      url.hostname === "pricing-retention-clone-postgres"))
   throw new Error("Daily compaction currently supports only the local pricing database.");
 url.searchParams.delete("schema");
 const apply = process.argv.includes("--apply");
@@ -142,10 +147,10 @@ async function main() {
   const archive = resolve(directory, `${id}.dump`);
   const manifestPath = resolve(directory, `${id}.json`);
   const receiptPath = resolve(directory, `${id}.applied.json`);
-  const admin = new URL(url);
+  const admin = pricingVerificationServer(url);
   admin.pathname = "/postgres";
   const verifyName = `mtg_pricing_verify_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
-  const verify = new URL(url);
+  const verify = new URL(admin);
   verify.pathname = `/${verifyName}`;
   let created = false;
   try {
@@ -167,6 +172,19 @@ async function main() {
       archive, sha256: archiveHash, before, restored,
     };
     writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, { flag: "wx" });
+    const recoveryTarget = process.env.PRICING_RECOVERY_COPY_DIR;
+    const recoveryFiles = recoveryTarget ? [
+      { path: archive, sha256: archiveHash },
+      { path: manifestPath, sha256: await sha256(manifestPath) },
+    ] : [];
+    const recoveryPackage = recoveryTarget ? await createPricingRecoveryPackage(
+      backupRoot, resolve(directory, `${id}.package.json`), state.cutoff,
+      "daily_compaction", recoveryFiles) : null;
+    const recoverySet = recoveryPackage ? [...recoveryFiles, recoveryPackage] : [];
+    const recoveryCopies = recoveryTarget ?
+      await copyVerifiedPricingRecoveryFiles(backupRoot, recoveryTarget, recoverySet) : null;
+    if (recoveryTarget)
+      await copyVerifiedPricingRecoveryFiles(backupRoot, recoveryTarget, recoverySet);
     const deleted = Number(query(url, `BEGIN;
     LOCK TABLE price_snapshots IN SHARE MODE;
     LOCK TABLE price_daily_summary IN SHARE ROW EXCLUSIVE MODE;
@@ -194,6 +212,7 @@ async function main() {
     writeFileSync(receiptPath, `${JSON.stringify({
       status: "applied", appliedAt: new Date().toISOString(),
       cutoff: state.cutoff, deleted, archive, manifestPath, sha256: archiveHash,
+      recoveryCopies, recoveryPackage: recoveryPackage?.path ?? null,
     }, null, 2)}\n`, { flag: "wx" });
     console.log(JSON.stringify({ mode: "complete", cutoff: state.cutoff,
       deleted, archive, manifestPath, receiptPath, sha256: archiveHash }));
