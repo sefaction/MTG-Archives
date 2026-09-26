@@ -1,8 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
-import { createReadStream, writeFileSync } from "node:fs";
+import { createReadStream, readFileSync, writeFileSync } from "node:fs";
 import { constants } from "node:fs";
 import { copyFile, link, lstat, mkdir, open, realpath, rm } from "node:fs/promises";
-import { dirname, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 
 export type PricingRecoveryFile = { path: string; sha256: string };
 export type PricingRecoveryCopy = PricingRecoveryFile & { destination: string;
@@ -61,6 +61,47 @@ export async function createPricingRecoveryPackage(sourceRoot: string,
     operation, files: entries };
   writeFileSync(canonicalPackage, `${JSON.stringify(document, null, 2)}\n`, { flag: "wx" });
   return { path: canonicalPackage, sha256: await fileSha(canonicalPackage) };
+}
+
+/** Verify a copied package using only its destination. No source backup path or
+ * database connection is required, so this also works during source loss. */
+export async function verifyCopiedPricingRecoveryPackage(destinationRoot: string,
+  packagePath: string) {
+  const destination = await realpath(resolve(destinationRoot));
+  if (!(await lstat(destination)).isDirectory())
+    throw new Error("Pricing recovery destination must be a directory");
+  const specified = resolve(packagePath);
+  const packageInfo = await lstat(specified);
+  const canonicalPackage = await realpath(specified);
+  if (!inside(destination, canonicalPackage) || !canonicalPackage.endsWith(".package.json") ||
+      !packageInfo.isFile() || packageInfo.isSymbolicLink())
+    throw new Error("Pricing recovery package must be a regular destination file");
+  const document = JSON.parse(readFileSync(canonicalPackage, "utf8")) as PricingRecoveryPackage;
+  if (document.schemaVersion !== 1 || !["activation", "correction"].includes(document.operation) ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(document.observedDate) ||
+      !Array.isArray(document.files) || document.files.length !== 4)
+    throw new Error("Invalid Pricing recovery package index");
+  const files: Array<{ relativePath: string; destination: string; sha256: string }> = [];
+  const seen = new Set<string>();
+  for (const file of document.files) {
+    if (typeof file.relativePath !== "string" || isAbsolute(file.relativePath) ||
+        file.relativePath.split(/[\\/]/).includes("..") ||
+        !/^[a-f0-9]{64}$/i.test(file.sha256))
+      throw new Error("Invalid Pricing recovery package entry");
+    const expected = resolve(destination, file.relativePath);
+    const info = await lstat(expected);
+    const target = await realpath(expected);
+    if (!inside(destination, target) || target !== expected || seen.has(target) ||
+        !info.isFile() || info.isSymbolicLink() || await fileSha(target) !== file.sha256)
+      throw new Error(`Pricing recovery package file missing or changed: ${file.relativePath}`);
+    seen.add(target);
+    files.push({ relativePath: file.relativePath, destination: target, sha256: file.sha256 });
+  }
+  if (files.filter((file) => file.relativePath.endsWith(".dump")).length !== 1 ||
+      files.filter((file) => file.relativePath.endsWith(".csv.gz")).length !== 1 ||
+      files.filter((file) => file.relativePath.endsWith(".json")).length !== 2)
+    throw new Error("Pricing recovery package lacks its expected four file roles");
+  return { document, files, packagePath: canonicalPackage };
 }
 
 /** Copy immutable Pricing recovery files to another mounted storage root and

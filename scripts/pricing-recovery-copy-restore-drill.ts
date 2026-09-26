@@ -2,9 +2,10 @@ import { spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, readFileSync } from "node:fs";
 import { lstat, realpath } from "node:fs/promises";
-import { basename, isAbsolute, relative, resolve, sep } from "node:path";
+import { basename, relative, resolve, sep } from "node:path";
 import { gunzipSync } from "node:zlib";
-import { verifyPricingRecoveryCopyDestination, type PricingRecoveryPackage } from "./pricing-recovery-copy";
+import { verifyCopiedPricingRecoveryPackage,
+  verifyPricingRecoveryCopyDestination } from "./pricing-recovery-copy";
 
 const args = process.argv.slice(2);
 if (args.length !== 3 || !["--receipt", "--package"].includes(args[0]) ||
@@ -59,28 +60,10 @@ async function main() {
   const copies = new Map<string, RecoveryCopy>();
   let receipt: Receipt;
   if (packageMode) {
-    const packagePath = await realpath(resolve(args[1]));
-    if (!inside(destination, packagePath) || !packagePath.endsWith(".package.json") ||
-        !(await lstat(packagePath)).isFile())
-      throw new Error("Package must be a regular file inside the recovery destination");
-    const document = JSON.parse(readFileSync(packagePath, "utf8")) as PricingRecoveryPackage;
-    if (document.schemaVersion !== 1 || !["activation", "correction"].includes(document.operation) ||
-        !/^\d{4}-\d{2}-\d{2}$/.test(document.observedDate) ||
-        !Array.isArray(document.files) || document.files.length !== 4)
-      throw new Error("Invalid copied recovery package");
-    for (const file of document.files) {
-      if (typeof file.relativePath !== "string" || isAbsolute(file.relativePath) ||
-          file.relativePath.split(/[\\/]/).includes("..") ||
-          !/^[a-f0-9]{64}$/i.test(file.sha256))
-        throw new Error("Invalid recovery package file entry");
-      const expected = resolve(destination, file.relativePath);
-      const target = await realpath(expected);
-      if (!inside(destination, target) || target !== expected ||
-          !(await lstat(expected)).isFile() || copies.has(expected) ||
-          await fileSha(target) !== file.sha256)
-        throw new Error("Copied recovery package file is missing or changed");
-      copies.set(expected, { path: expected, destination: target, sha256: file.sha256 });
-    }
+    const { document, files } = await verifyCopiedPricingRecoveryPackage(copyRoot!, args[1]);
+    for (const file of files)
+      copies.set(file.destination, { path: file.destination,
+        destination: file.destination, sha256: file.sha256 });
     const archiveEntry = [...copies.values()].find((copy) => copy.path.endsWith(".csv.gz"));
     const backupEntry = [...copies.values()].find((copy) => copy.path.endsWith(".dump"));
     if (!archiveEntry || !backupEntry)
