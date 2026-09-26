@@ -1,5 +1,9 @@
 # UI acceptance status - 2026-09-26
 
+## Locations direct-contents deletion feedback, 2026-09-26
+
+Issue #429 found that a successful Delete contents result vanished as soon as the refreshed selected location became empty. The empty state now retains the success status while disabling another delete. An owned local browser fixture rejected an incorrect confirmation without changing two direct entries, then accepted DELETE and removed five direct copies across those entries. Four child-location copies, the parent location and two deletion audit rows remained. The focused and existing Locations workspace cases passed 2/2 on a cumulative local Docker image with PR #428; the fixture user, owner and locations were removed. This is one representative L05 destructive path under #274, not all storage deletion variants.
+
 ## Administration route boundary sample, 2026-09-26
 
 A focused local browser case enumerated all six current static `/admin` pages. An anonymous visit went to Login; a signed-in member was redirected from every page; an admin-role account was redirected until it explicitly entered Admin Mode, then could render all six pages; exiting Admin Mode removed access again. The case passed 1/1 and cleaned its disposable users/owners (zero remain). This covers route-level access for this role sample under #274; it does not certify every administrative action or other role/ownership paths.
@@ -134,7 +138,7 @@ The 45 action IDs in [CAPABILITIES.md](design/ui-consolidation/CAPABILITIES.md) 
 | I01-I03 | `inventory-workspace`, `inventory-color-filter`, `inventory-scryfall-query`, `location-hierarchy` | Not every filter combination is exhaustive |
 | I04-I07 | `inventory-workspace`, `inventory-export`, `vault-pilot`, `vault-map` | All-matching and every view preference are not crossed with every role |
 | I08-I11 | `inventory-detail`, `trade-wishlist`, inventory mutation/policy units | Destructive cleanup and every edit/split field are source mapped rather than browser repeated here |
-| L01-L05 | `locations-workspace`, `location-hierarchy`, `location-scale`, `storage-layout`, `vault-map` | Every destructive storage action is not rerun on the snapshot |
+| L01-L05 | `locations-workspace`, `location-contents-delete`, `location-hierarchy`, `location-scale`, `storage-layout`, `vault-map` | Direct-contents deletion now has an owned browser path; every type and storage deletion variant is not crossed |
 | M01-M05 | `imports-workspace`, `inventory-export`, real PostgreSQL import integrity script | Every legacy unsafe undo branch is checked in database tests, not through a browser path |
 | D01-D05 | `decks-brackets`, `deck-builder-workspace`, `pasted-decklist`, `league-lifecycle` | Every optimization and folder variant is not repeated in browser |
 | D06-D09 | `deck-analysis`, `deck-sample-hands`, existing `deck-playtest`/`playtest-advanced` regressions | No new Playtest behavior or changes in this goal |
