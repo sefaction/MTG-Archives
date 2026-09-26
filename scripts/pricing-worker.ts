@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { inPricingMaintenanceWindow } from "./pricing-archive-maintenance-window";
 import os from "node:os";
 import {
   extractMtgjsonIdentifierMappings,
@@ -998,7 +999,14 @@ async function main() {
   );
 
   do {
-    await runOnce(opts);
+    if (process.env.PRICING_RAW_ARCHIVE_RETENTION_ENABLED === "1" &&
+        process.env.PRICING_ARCHIVE_MAINTENANCE_ENABLED === "1" &&
+        process.env.MTG_LOCAL_PILOT_TEST === "1" &&
+        inPricingMaintenanceWindow(new Date()))
+      heartbeat(opts.databaseUrl, opts.workerId, "IDLE",
+        "Pricing import paused for the raw retention maintenance window.");
+    else
+      await runOnce(opts);
     if (opts.once) break;
     await sleep(opts.intervalMs);
   } while (true);
