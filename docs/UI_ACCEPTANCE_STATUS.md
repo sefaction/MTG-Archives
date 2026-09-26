@@ -1,5 +1,9 @@
 # UI acceptance status - 2026-09-26
 
+## Same-name Inventory row controls, 2026-09-26
+
+Issue #400 exposed identical accessible names when separate exact-printing rows shared a card name. The Inventory table and card views now identify selection checkboxes and copy-quantity controls with the card name, set/collector number, finish, condition, language and owner. The selected-entry summary and Move review use singular text for one entry. A two-Forest-printing browser fixture found distinct control names in both views, kept quantities independent, and passed alongside the existing storage, vault-map and vault-pilot move cases (4/4 total) on the grouped local Docker image `sha256:84e3d0acf494a2e7a5e044c9c9fb373c6efa7e376fefa5b4e94d16db6a96ed63`. The image was built directly from cumulative review revision `a57639e`; all three running application services use it. Focused fixture cleanup left zero test users and 12,477 physical copies. Human screen-reader and task review remain open under #265/#274.
+
 ## Selected-copy stepper at actual browser zoom, 2026-09-26
 
 The opt-in Inventory workspace browser case now checks the row-level numeric control at actual 200% Chrome tab zoom. Both selected rows begin at their full 8- and 17-copy stacks. Keyboard ArrowDown reduces only the first to 7; ArrowUp restores 8 while the second stays at 17. After scrolling into view, the first control's bounds remain inside the 683×384 CSS viewport. The case then chooses 5 and 12 copies independently and completes the existing 17-copy Move. The focused case passed 1/1 with typecheck and fixture cleanup. This checks keyboard operation and reachability of one selected-copy control; it is not a visual certification of native spinner arrows across browsers or a human task review.

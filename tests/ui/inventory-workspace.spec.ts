@@ -420,6 +420,39 @@ test("real Inventory workspace composes search, preserves context and reflows wi
       await confirmMove.click();
       await expect(zoomMove).not.toBeVisible();
       await expect(zoomPage.getByText(/Moved 17 cards across 2 entries/)).toBeVisible();
+      database(`
+        const owner=await p.user.findUniqueOrThrow({where:{username:${quote(tag)}}});
+        const original=await p.card.findFirstOrThrow({where:{name:'Forest'},orderBy:{id:'asc'}});
+        const other=await p.card.findFirstOrThrow({where:{name:'Forest',id:{not:original.id}},orderBy:{id:'asc'}});
+        await p.inventoryItem.create({data:{cardId:other.id,currentOwnerId:owner.playerId,originalOpenerId:owner.playerId,quantity:2,sourceType:'MANUAL',condition:'NM',language:'EN',notes:${quote(tag)}}});
+        return true;
+      `);
+      await zoomPage.goto("/inventory?displayMode=exact&pageSize=10&cardName=Forest");
+      const forestBoxes = zoomPage.getByRole("checkbox", { name: /^Select Forest, / });
+      await expect(forestBoxes).toHaveCount(2);
+      const tableNames = await forestBoxes.evaluateAll((nodes) =>
+        nodes.map((node) => node.getAttribute("aria-label")),
+      );
+      expect(new Set(tableNames).size).toBe(2);
+      await forestBoxes.first().check();
+      await expect(zoomPage.locator(".inventory-selection-context")
+        .filter({ hasText: "1 entry selected" })).toBeVisible();
+      await forestBoxes.nth(1).check();
+      const copyNames = await zoomPage.getByRole("spinbutton", {
+        name: /^Copies selected from Forest, /,
+      }).evaluateAll((nodes) => nodes.map((node) => node.getAttribute("aria-label")));
+      expect(copyNames).toHaveLength(2);
+      expect(new Set(copyNames).size).toBe(2);
+      await zoomPage.getByRole("button", { name: "Binder View", exact: true }).click();
+      const cardBoxes = zoomPage.getByRole("checkbox", { name: /^Select Forest, / });
+      await expect(cardBoxes).toHaveCount(2);
+      const cardNames = await cardBoxes.evaluateAll((nodes) =>
+        nodes.map((node) => node.getAttribute("aria-label")),
+      );
+      expect(new Set(cardNames).size).toBe(2);
+      await expect(zoomPage.getByRole("spinbutton", {
+        name: /^Copies selected from Forest, /,
+      })).toHaveCount(2);
     } finally {
       await zoomContext.close();
     }

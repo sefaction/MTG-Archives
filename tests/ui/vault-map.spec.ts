@@ -109,7 +109,7 @@ test("visual vault retains exact placements, previews moves, refreshes counts an
     await expect(selection).toHaveCount(1);
     await selection.check();
     const selectedCopies = page.getByRole("spinbutton", {
-      name: "Copies selected from Forest",
+      name: /^Copies selected from Forest, /,
     });
     await expect(selectedCopies).toHaveValue("68");
     await selectedCopies.fill("10");

@@ -253,7 +253,7 @@ test("guided storage copies type defaults, preserves overrides and placements, a
     await page.goto(`/inventory?locationId=${customId}&displayMode=exact`);
     await page.locator('tbody input[type="checkbox"]').first().check();
     const selectedCopies = page.getByRole("spinbutton", {
-      name: "Copies selected from Forest",
+      name: /^Copies selected from Forest, /,
     });
     await expect(selectedCopies).toHaveValue("20");
     await selectedCopies.fill("15");
