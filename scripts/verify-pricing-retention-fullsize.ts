@@ -94,6 +94,8 @@ try {
   assert.equal(result.mode, "retention-activated");
   assert.equal(result.observedDate, oldDate);
   assert.equal(result.deleted, 1);
+  assert.ok(result.timings.totalMs >=
+    result.timings.compactMs + result.timings.stageMs + result.timings.activateMs);
   assert.equal(Number(sql(clone, "SELECT COUNT(*) FROM price_snapshots;")), clonedRaw);
   const copied = run(process.execPath,
     ["--import", "tsx", "scripts/pricing-recovery-package-audit.ts"],
@@ -103,6 +105,7 @@ try {
     clonedRaw, oldDate, dumpBytes: statSync(dump).size,
     cloneBytes: Number(sql(clone, "SELECT pg_database_size(current_database());")),
     recoveryBytes: bytes(recovery), dumpMs, restoreMs, passMs,
+    phases: result.timings,
     liveDatabaseReplaced: false, retentionEnabled: false }));
 } finally {
   if (created) sql(admin, 'DROP DATABASE "' + name + '" WITH (FORCE);');
