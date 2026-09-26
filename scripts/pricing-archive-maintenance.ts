@@ -46,12 +46,16 @@ function release() {
     WHERE singleton AND owner = ${literal(owner)};`);
 }
 
-type Backlog = { total: number; oldest: string | null; failed: number };
+type Backlog = { total: number; oldest: string | null; failed: number;
+  sourceAnomalies: number };
 function backlog(): Backlog {
   return JSON.parse(sql(`SELECT json_build_object(
-    'total', COUNT(*), 'oldest', MIN(queued_at),
-    'failed', COUNT(*) FILTER (WHERE error IS NOT NULL))::text
-    FROM price_archive_feed_queue WHERE status = 'PENDING';`)) as Backlog;
+    'total', COUNT(*) FILTER (WHERE status = 'PENDING'),
+    'oldest', MIN(queued_at) FILTER (WHERE status = 'PENDING'),
+    'failed', COUNT(*) FILTER (WHERE status = 'PENDING' AND error IS NOT NULL),
+    'sourceAnomalies', COUNT(*) FILTER (WHERE status IN
+      ('SOURCE_ANOMALY', 'APPLIED_WITH_MISSING')))::text
+    FROM price_archive_feed_queue;`)) as Backlog;
 }
 function nextDate() {
   return sql(`SELECT observed_date::text FROM price_archive_feed_queue
@@ -112,9 +116,9 @@ async function tick() {
       return;
     }
     const last = result.output.trim().split(/\r?\n/).at(-1);
-    let finished: { mode?: string; effects?: number; remaining?: number } = {};
+    let finished: { mode?: string; status?: string; effects?: number; remaining?: number } = {};
     try { finished = JSON.parse(last ?? "{}"); } catch { /* Report the child output below. */ }
-    if (result.code !== 0 || finished.mode !== "applied") {
+    if (result.code !== 0 || !["applied", "settled"].includes(finished.mode ?? "")) {
       const message = result.error.trim() ||
         (result.code === 0 ? "No changed identities; review source completeness" :
           `Correction exited ${result.code}`);
@@ -122,8 +126,9 @@ async function tick() {
       console.error("[pricing-archive-maintenance] retry queued", { date, message });
       return;
     }
-    console.info("[pricing-archive-maintenance] batch applied", { date,
-      effects: finished.effects, remaining: finished.remaining });
+    console.info("[pricing-archive-maintenance] feed processed", { date,
+      status: finished.status, effects: finished.effects,
+      remaining: finished.remaining });
   } finally { release(); }
 }
 
