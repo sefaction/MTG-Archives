@@ -10,6 +10,7 @@ import {
   refreshPricingSummariesSql,
 } from "./pricing-summary-sql";
 import { pricingSnapshotUpsertSql } from "./pricing-snapshot-upsert-sql";
+import { splitArchivedFeed, writeArchivedFeedFile } from "./pricing-archived-feed";
 
 type WorkerOptions = {
   once: boolean;
@@ -25,6 +26,7 @@ type WorkerOptions = {
   autoScheduleEnabled: boolean;
   dailyRefreshEnabled: boolean;
   dailyIdentifierMappingEnabled: boolean;
+  backupDir: string | null;
 };
 
 const args = new Set(process.argv.slice(2));
@@ -88,6 +90,7 @@ function options(): WorkerOptions {
       "PRICING_DAILY_IDENTIFIER_MAPPING_ENABLED",
       true,
     ),
+    backupDir: process.env.BACKUP_DIR || null,
   };
 }
 
@@ -552,6 +555,7 @@ function insertSnapshots(
   databaseUrl: string,
   snapshots: ReturnType<typeof extractMtgjsonPriceSnapshots>,
   batchSize: number,
+  rawBoundary: string | null,
 ) {
   let inserted = 0;
   let corrected = 0;
@@ -572,12 +576,46 @@ function insertSnapshots(
   const uniqueSnapshots = [...byIdentity.values()];
   for (let start = 0; start < uniqueSnapshots.length; start += batchSize) {
     const batch = uniqueSnapshots.slice(start, start + batchSize);
-    const output = psqlOutput(databaseUrl, pricingSnapshotUpsertSql(batch));
+    const output = psqlOutput(databaseUrl, pricingSnapshotUpsertSql(batch, rawBoundary));
     const [newRows, correctedRows] = output.split("|").map(Number);
     inserted += newRows || 0;
     corrected += correctedRows || 0;
   }
   return { inserted, corrected };
+}
+
+function archiveFeedState(databaseUrl: string) {
+  const output = psqlOutput(databaseUrl, `SELECT json_build_object(
+    'boundary', (SELECT raw_archived_through::text FROM price_summary_state WHERE singleton),
+    'segments', (SELECT COALESCE(json_agg(json_build_object(
+      'date', observed_date::text, 'fingerprint', identity_fingerprint)), '[]'::json)
+      FROM price_raw_archive_segment))::text;`);
+  const parsed = JSON.parse(output) as { boundary: string | null;
+    segments: Array<{ date: string; fingerprint: string | null }> };
+  return { boundary: parsed.boundary,
+    fingerprints: new Map(parsed.segments.filter((row) => row.fingerprint)
+      .map((row) => [row.date, row.fingerprint!] as const)) };
+}
+
+function queueArchivedFeed(opts: WorkerOptions, jobId: string,
+  snapshots: ReturnType<typeof extractMtgjsonPriceSnapshots>) {
+  const state = archiveFeedState(opts.databaseUrl);
+  const split = splitArchivedFeed(snapshots, state.boundary, state.fingerprints);
+  if (split.changed.length && !opts.backupDir)
+    throw new Error("BACKUP_DIR is required to queue archived Pricing feed changes");
+  for (const day of split.changed) {
+    const file = writeArchivedFeedFile(opts.backupDir!, day.date,
+      day.fingerprint, day.rows);
+    psql(opts.databaseUrl, `INSERT INTO price_archive_feed_queue
+      (observed_date, identity_fingerprint, source_job_id, spool_path,
+       spool_sha256, row_count)
+      VALUES (${sqlString(day.date)}::date, ${sqlString(day.fingerprint)},
+        ${sqlString(jobId)}, ${sqlString(file.path)},
+        ${sqlString(file.fileSha256)}, ${file.rows})
+      ON CONFLICT (observed_date, identity_fingerprint) DO NOTHING;`);
+  }
+  return { boundary: state.boundary, live: split.live,
+    changedDates: split.changed.length, missingDates: split.missingDates };
 }
 
 function refreshSummaries(
@@ -741,13 +779,15 @@ async function processRefreshAllJob(
     maxCards: opts.maxCards,
     targetMtgjsonUuids,
   });
+  const archived = queueArchivedFeed(opts, jobId, snapshots);
   const { inserted, corrected } = insertSnapshots(
     opts.databaseUrl,
-    snapshots,
+    archived.live,
     opts.importBatchSize,
+    archived.boundary,
   );
-  refreshSummaries(opts.databaseUrl, snapshots);
-  const projected = publishCurrentPrices(opts.appDatabaseUrl, snapshots);
+  refreshSummaries(opts.databaseUrl, archived.live);
+  const projected = publishCurrentPrices(opts.appDatabaseUrl, archived.live);
   completeJob(opts.databaseUrl, jobId, "SUCCEEDED", {
     processed: snapshots.length,
     inserted,
@@ -767,6 +807,8 @@ async function processRefreshAllJob(
       corrected,
       skipped: snapshots.length - inserted - corrected,
       projected,
+      archivedDatesQueued: archived.changedDates,
+      archivedSourceDatesMissing: archived.missingDates.length,
       targetCards: targetMtgjsonUuids.length,
     },
   );
