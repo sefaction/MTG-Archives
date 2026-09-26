@@ -111,12 +111,22 @@ test("phone touch can reach Inventory filters and Settings without page overflow
         const chosen = width === 390 ? 2 : 1;
         await expect(copies).toHaveValue(width === 390 ? "4" : "2");
         await copies.tap();
+        await copies.fill(width === 390 ? "0" : "3");
+        await expect(copies).toHaveAttribute("aria-invalid", "true");
+        await expect(copies.locator("..").getByRole("alert"))
+          .toContainText(`Choose 1–${width === 390 ? 4 : 2} copies.`);
+        const openMove = page.getByRole("button", { name: "Move cards…", exact: true });
+        await openMove.tap();
+        const move = page.getByRole("dialog", { name: "Move inventory" });
+        await expect(move.getByRole("alert"))
+          .toContainText("Close Move and correct the selected copy amount.");
+        await move.getByRole("button", { name: "Cancel", exact: true }).tap();
         await copies.fill(String(chosen));
+        await expect(copies).toHaveAttribute("aria-invalid", "false");
         await expect(page.locator(".inventory-selection-context")
           .filter({ hasText: "chosen for Move" }))
           .toContainText(`${chosen} ${chosen === 1 ? "copy" : "copies"} chosen for Move`);
-        await page.getByRole("button", { name: "Move cards…", exact: true }).tap();
-        const move = page.getByRole("dialog", { name: "Move inventory" });
+        await openMove.tap();
         await expect(move).toContainText("Move uses the amounts selected in Inventory.");
         await expect(move).toContainText(`${chosen} physical ${chosen === 1 ? "copy" : "copies"}`);
         const picker = move.getByTestId("storage-destination");

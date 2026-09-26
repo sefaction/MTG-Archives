@@ -1,5 +1,9 @@
 # UI acceptance status - 2026-09-26
 
+## Invalid selected-copy feedback, 2026-09-26
+
+The owned phone touch fixture reproduced [#408](https://github.com/sefaction/MTG-Archives/issues/408): entering 0 for a selected four-copy row left the numeric control without `aria-invalid` or a visible range explanation, while Move confirmation could be disabled silently. The Inventory table and card views now share a selected-copy control that marks invalid amounts, names the valid 1–stack-size range beside the row and describes that error to assistive technology. Move explains that the user should close it and correct the selected amount. The fixture checks 0 and above-stack amounts at 390px and 320px, then corrects each and completes the move. Typecheck passes; the final browser assertions await the next grouped Docker review image.
+
 ## Inventory touch move and one-copy wording, 2026-09-26
 
 The phone touch fixture now creates an owned four-copy Forest stack and two Box locations. At 390px it taps the row selection, chooses two copies before Move, taps the destination and confirms; at 320px it repeats with one of the remaining copies. The full flow passed 1/1 against the previous grouped image when its existing plural wording was accepted; fixture cleanup left zero touch users and 12,477 physical copies. That run exposed [#405](https://github.com/sefaction/MTG-Archives/issues/405): one selected copy was displayed as “1 copies,” with matching plural Move labels. The application wording and final test now require singular copy/card/entry labels. Typecheck passes; the final test awaits the next grouped Docker image before it can claim a pass. Human touch and assistive-technology review under #265/#274 remain open.
