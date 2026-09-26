@@ -1,5 +1,9 @@
 # UI acceptance status - 2026-09-26
 
+## Locations editing at actual browser zoom, 2026-09-26
+
+The owned Locations workspace fixture now opens a selected vault at actual 200% Chrome tab zoom in a disposable profile. The 1366×768 browser viewport becomes 683×384 CSS pixels at device pixel ratio 2. The selected vault remains visible, keyboard Enter opens Manage, the Description field and Save action remain reachable inside the viewport, and keyboard Enter saves an edit without page-level horizontal overflow. The full Locations fixture passed 1/1 on the grouped local Docker image; cleanup left zero fixture users and 12,477 physical copies. The zoomed screenshot capture was blank under headless Chromium, so this is behavioral and bounds evidence, not a visual certification. Human task review and wider #274 accessibility coverage remain open.
+
 ## Same-name Inventory row controls, 2026-09-26
 
 Issue #400 exposed identical accessible names when separate exact-printing rows shared a card name. The Inventory table and card views now identify selection checkboxes and copy-quantity controls with the card name, set/collector number, finish, condition, language and owner. The selected-entry summary and Move review use singular text for one entry. A two-Forest-printing browser fixture found distinct control names in both views, kept quantities independent, and passed alongside the existing storage, vault-map and vault-pilot move cases (4/4 total) on the grouped local Docker image `sha256:84e3d0acf494a2e7a5e044c9c9fb373c6efa7e376fefa5b4e94d16db6a96ed63`. The image was built directly from cumulative review revision `a57639e`; all three running application services use it. Focused fixture cleanup left zero test users and 12,477 physical copies. Human screen-reader and task review remain open under #265/#274.
