@@ -396,6 +396,52 @@ try {
   } finally { sql(admin, `DROP DATABASE "${rollbackName}" WITH (FORCE);`); }
   assert.notEqual(runCorrection("2026-01-05", false, true).status, 0,
     "A completed feed generation must not apply twice");
+  const sparseOnlyRows = [correctedSparse];
+  const sparseOnlyFingerprint = archivedFeedFingerprint(sparseOnlyRows);
+  const sparseOnlyFile = writeArchivedFeedFile(archiveTestDirectory, "2026-01-05",
+    sparseOnlyFingerprint, sparseOnlyRows);
+  sql(testDatabase, `INSERT INTO price_archive_feed_queue
+    (observed_date, identity_fingerprint, source_job_id, spool_path,
+     spool_sha256, row_count) VALUES ('2026-01-05', '${sparseOnlyFingerprint}',
+    'fixture-sparse-only', '${sparseOnlyFile.path.replace(/'/g, "''")}',
+    '${sparseOnlyFile.fileSha256}', 1);`);
+  const beforeSparseOnlyRevision = sql(testDatabase,
+    `SELECT source_revision || ':' || summary_revision FROM price_summary_state WHERE singleton`);
+  const sparseOnlyResult = runCorrection("2026-01-05", false, true);
+  if (sparseOnlyResult.status !== 0)
+    throw new Error(`Sparse-only feed settlement failed: ${sparseOnlyResult.stderr.trim()}`);
+  const sparseOnlyFinal = JSON.parse(sparseOnlyResult.stdout.trim().split(/\r?\n/).at(-1)!);
+  assert.equal(sparseOnlyFinal.mode, "settled");
+  assert.equal(sparseOnlyFinal.status, "SOURCE_ANOMALY");
+  assert.equal(sql(testDatabase, `SELECT status FROM price_archive_feed_queue
+    WHERE observed_date = '2026-01-05' AND identity_fingerprint = '${sparseOnlyFingerprint}'`),
+  "SOURCE_ANOMALY");
+  assert.equal(sql(testDatabase, `SELECT generation FROM price_raw_archive_segment
+    WHERE observed_date = '2026-01-05'`), "2");
+  assert.equal(sql(testDatabase, `SELECT source_revision || ':' || summary_revision
+    FROM price_summary_state WHERE singleton`), beforeSparseOnlyRevision);
+  assert.equal(sql(testDatabase, `SELECT snapshot_count || ':' || current_price
+    FROM price_scope_summary WHERE mtgjson_uuid = '${addedSparseDate.mtgjsonUuid}'`),
+  "1:5.0000");
+  assert.notEqual(runCorrection("2026-01-05", false, true).status, 0,
+    "A settled source anomaly must not retry repeatedly");
+  const laterCorrectionRows = [{ ...correctedSparse, price: 7 }, addedSparseDate];
+  const laterFingerprint = archivedFeedFingerprint(laterCorrectionRows);
+  const laterFile = writeArchivedFeedFile(archiveTestDirectory, "2026-01-05",
+    laterFingerprint, laterCorrectionRows);
+  sql(testDatabase, `INSERT INTO price_archive_feed_queue
+    (observed_date, identity_fingerprint, source_job_id, spool_path,
+     spool_sha256, row_count) VALUES ('2026-01-05', '${laterFingerprint}',
+    'fixture-later-correction', '${laterFile.path.replace(/'/g, "''")}',
+    '${laterFile.fileSha256}', 2);`);
+  const laterResult = runCorrection("2026-01-05", false, true);
+  if (laterResult.status !== 0)
+    throw new Error(`Later full correction failed: ${laterResult.stderr.trim()}`);
+  assert.equal(sql(testDatabase, `SELECT status FROM price_archive_feed_queue
+    WHERE observed_date = '2026-01-05' AND identity_fingerprint = '${laterFingerprint}'`),
+  "APPLIED");
+  assert.equal(sql(testDatabase, `SELECT snapshot_count || ':' || current_price
+    FROM price_scope_summary WHERE mtgjson_uuid = '${sparse}'`), "1:7.0000");
   const gapOld = { ...oldInput, mtgjsonUuid: `archive-gap-${randomUUID()}`,
     observedDate: "2026-01-07", price: 3 };
   const gapFingerprint = archivedFeedFingerprint([gapOld]);

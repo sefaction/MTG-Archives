@@ -129,7 +129,8 @@ function archiveInput(segment: Segment) {
 function correctionSql(expected: State, segment: Segment, queue: Queue,
   replacement: { archive: string; archiveSha: string; csvSha: string;
     identityFingerprint: string; sourceFingerprint: string; rows: number },
-  backup: string, backupSha: string, remaining: number, effects: Array<{
+  backup: string, backupSha: string, remaining: number, missing: number,
+  effects: Array<{
     mtgjson_uuid: string; provider: string; finish: string; price_type: string;
     currency: string; observed_date: string; price: string; id: number;
     revision_count: number; created_at: string }>) {
@@ -215,9 +216,11 @@ ON CONFLICT (observed_date) DO UPDATE SET
   raw_rows = EXCLUDED.raw_rows, generation = EXCLUDED.generation,
   backup_path = EXCLUDED.backup_path, backup_sha256 = EXCLUDED.backup_sha256,
   activated_at = now();
-UPDATE price_archive_feed_queue SET status = ${remaining ? "'PENDING'" : "'APPLIED'"},
+UPDATE price_archive_feed_queue SET status = ${remaining ? "'PENDING'" : missing ? "'APPLIED_WITH_MISSING'" : "'APPLIED'"},
   applied_count = applied_count + ${effects.length},
-  processed_at = ${remaining ? "NULL" : "now()"}, error = NULL
+  processed_at = ${remaining ? "NULL" : "now()"},
+  retry_after = NULL,
+  error = ${!remaining && missing ? literal(`Source feed omitted ${missing} archived identities; preserved`) : "NULL"}
   WHERE observed_date = ${sqlDate} AND identity_fingerprint = ${literal(queue.identityFingerprint)};
 UPDATE price_archive_feed_queue SET status = 'SUPERSEDED', processed_at = now()
   WHERE observed_date = ${sqlDate} AND status = 'PENDING'
@@ -228,6 +231,43 @@ UPDATE price_archive_feed_queue SET status = 'SUPERSEDED', processed_at = now()
 UPDATE price_summary_state SET source_revision = source_revision + ${effects.length},
   summary_revision = summary_revision + ${effects.length}, refreshed_at = now()
   WHERE singleton;
+COMMIT;`;
+}
+
+function settleNoopSql(expected: State, segment: Segment, queue: Queue,
+  status: "APPLIED" | "APPLIED_WITH_MISSING" | "NO_CHANGE" | "SOURCE_ANOMALY",
+  missing: number) {
+  const oldHash = segment ? literal(segment.archiveSha256) : "NULL";
+  const message = missing ? literal(`Source feed omitted ${missing} archived identities; preserved`) : "NULL";
+  return `BEGIN;
+SET LOCAL lock_timeout = '30s';
+LOCK TABLE price_summary_state, price_raw_archive_segment,
+  price_archive_feed_queue IN SHARE ROW EXCLUSIVE MODE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM price_summary_state WHERE singleton AND ready AND tiers_ready
+    AND source_revision = summary_revision
+    AND source_revision = ${expected.sourceRevision}
+    AND source_max_id IS NOT DISTINCT FROM ${expected.sourceMaxId ?? "NULL"}
+    AND raw_archived_through = ${literal(expected.rawBoundary!)}::date)
+    OR (SELECT archive_sha256 FROM price_raw_archive_segment WHERE observed_date = ${sqlDate})
+       IS DISTINCT FROM ${oldHash}
+    OR NOT EXISTS (SELECT 1 FROM price_archive_feed_queue WHERE observed_date = ${sqlDate}
+      AND identity_fingerprint = ${literal(queue.identityFingerprint)}
+      AND spool_sha256 = ${literal(queue.spoolSha256)} AND status = 'PENDING'
+      AND applied_count = ${queue.appliedCount})
+    OR EXISTS (SELECT 1 FROM price_archive_feed_queue WHERE observed_date = ${sqlDate}
+      AND status = 'PENDING' AND (queued_at, identity_fingerprint) >
+        (${literal(queue.queuedAt)}::timestamptz, ${literal(queue.identityFingerprint)}))
+  THEN RAISE EXCEPTION 'Pricing correction source or queue changed before settling'; END IF;
+END $$;
+UPDATE price_archive_feed_queue SET status = '${status}', processed_at = now(),
+  retry_after = NULL, error = ${message}
+  WHERE observed_date = ${sqlDate} AND identity_fingerprint = ${literal(queue.identityFingerprint)};
+UPDATE price_archive_feed_queue SET status = 'SUPERSEDED', processed_at = now()
+  WHERE observed_date = ${sqlDate} AND status = 'PENDING'
+    AND identity_fingerprint <> ${literal(queue.identityFingerprint)}
+    AND (queued_at, identity_fingerprint) <
+      (${literal(queue.queuedAt)}::timestamptz, ${literal(queue.identityFingerprint)});
 COMMIT;`;
 }
 
@@ -244,7 +284,16 @@ async function main() {
     generation: plan.priorGeneration, archivedRows: plan.archivedRows,
     feedRows: plan.feedRows, corrected: plan.corrected, added: plan.added,
     unchanged: plan.unchanged, missingPreserved: plan.missing }));
-  if (!apply || plan.changedRows.length === 0) return;
+  if (!apply) return;
+  if (plan.changedRows.length === 0) {
+    const status = plan.missing ?
+      (queue.appliedCount ? "APPLIED_WITH_MISSING" : "SOURCE_ANOMALY") :
+      (queue.appliedCount ? "APPLIED" : "NO_CHANGE");
+    command(database, settleNoopSql(before, segment, queue, status, plan.missing));
+    console.log(JSON.stringify({ mode: "settled", observedDate: date,
+      status, missingPreserved: plan.missing, effects: 0, remaining: 0 }));
+    return;
+  }
   const batch = plan.changedRows.slice(0, 500);
   const remaining = plan.changedRows.length - batch.length;
   const plannedKeys = batch.map((row) => ({ mtgjson_uuid: row.mtgjsonUuid,
@@ -366,7 +415,7 @@ async function main() {
     if (process.env.MTG_ARCHIVED_CORRECTION_TEST_FAIL_AFTER_RESTORE === "1")
       throw new Error("Injected correction interruption before activation");
     const statement = correctionSql(before, segment, queue, replacement,
-      backup, backupSha, remaining, effects);
+      backup, backupSha, remaining, plan.missing, effects);
     command(clone, statement);
     const keys = effects.map((row) => ({ mtgjson_uuid: row.mtgjson_uuid,
       provider: row.provider, finish: row.finish, price_type: row.price_type,
