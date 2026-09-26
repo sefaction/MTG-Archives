@@ -50,6 +50,17 @@ services:
     volumes: !override
       - ./.local-data/backups:/app/data/backups
 
+  pricing-archive-maintenance:
+    image: mtg-archives-web:local
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    pull_policy: build
+    environment:
+      BACKUP_DIR: /app/data/backups
+    volumes: !override
+      - ./.local-data/backups:/app/data/backups
+
   notification-worker:
     image: mtg-archives-web:local
     build:

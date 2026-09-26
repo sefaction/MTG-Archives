@@ -200,14 +200,25 @@ CREATE TABLE IF NOT EXISTS price_archive_feed_queue (
   row_count INTEGER NOT NULL,
   status TEXT NOT NULL DEFAULT 'PENDING',
   applied_count INTEGER NOT NULL DEFAULT 0,
+  attempt_count INTEGER NOT NULL DEFAULT 0,
+  last_attempt_at TIMESTAMPTZ,
+  retry_after TIMESTAMPTZ,
   queued_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   processed_at TIMESTAMPTZ,
   error TEXT,
   PRIMARY KEY (observed_date, identity_fingerprint)
 );
 ALTER TABLE price_archive_feed_queue ADD COLUMN IF NOT EXISTS applied_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE price_archive_feed_queue ADD COLUMN IF NOT EXISTS attempt_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE price_archive_feed_queue ADD COLUMN IF NOT EXISTS last_attempt_at TIMESTAMPTZ;
+ALTER TABLE price_archive_feed_queue ADD COLUMN IF NOT EXISTS retry_after TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS price_archive_feed_queue_pending_idx
   ON price_archive_feed_queue (status, observed_date, queued_at);
+CREATE TABLE IF NOT EXISTS price_archive_maintenance_lease (
+  singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),
+  owner TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL
+);
 
 CREATE TABLE IF NOT EXISTS price_summary_state (
   singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),

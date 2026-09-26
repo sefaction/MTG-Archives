@@ -126,6 +126,26 @@ services:
       - pricing-postgres
       - redis
 
+  pricing-archive-maintenance:
+    profiles: ["pricing-archive-maintenance"]
+    image: ${WEB_IMAGE:-ghcr.io/sefaction/mtg-archives-web:${IMAGE_TAG:-main}}
+    build:
+      context: ${GIT_CONTEXT:-https://github.com/sefaction/MTG-Archives.git#main}
+      dockerfile: ${DOCKERFILE_PATH:-./Dockerfile}
+    pull_policy: build
+    restart: unless-stopped
+    command: npm run worker:prices:archive:maintenance -- --apply
+    environment:
+      PRICING_DATABASE_URL: ${PRICING_DATABASE_URL:-postgresql://mtgpricing:mtgpricing@pricing-postgres:5432/mtgpricing?schema=public}
+      BACKUP_DIR: ${BACKUP_DIR:-/app/backups}
+      PRICING_ARCHIVE_MAINTENANCE_ENABLED: ${PRICING_ARCHIVE_MAINTENANCE_ENABLED:-false}
+      MTG_LOCAL_PILOT_TEST: ${MTG_LOCAL_PILOT_TEST:-0}
+      NODE_ENV: production
+    volumes:
+      - ${BACKUPS_DATA_PATH:?BACKUPS_DATA_PATH must be set in .env}:${BACKUP_DIR:-/app/backups}
+    depends_on:
+      - pricing-postgres
+
   notification-worker:
     image: ${WEB_IMAGE:-ghcr.io/sefaction/mtg-archives-web:${IMAGE_TAG:-main}}
     build:
