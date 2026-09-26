@@ -93,7 +93,8 @@ test("vault creation, multi-selection fill, advisory overflow, refreshed occupan
     await expect(page.locator(".inventory-selection-context")
       .filter({ hasText: "2 entries selected · 110 copies chosen for Move" }))
       .toBeVisible();
-    await page.locator('tbody input[type="number"][max="100"]').fill("7");
+    await page.locator('tbody input[type="number"][max="10"]').fill("5");
+    await page.locator('tbody input[type="number"][max="100"]').fill("12");
     await expect(page.locator(".inventory-selection-context")
       .filter({ hasText: "2 entries selected · 17 copies chosen for Move" }))
       .toBeVisible();
@@ -173,13 +174,14 @@ test("vault creation, multi-selection fill, advisory overflow, refreshed occupan
       }),
     ).toBeVisible();
 
-    // Remaining source is one partial stack; advisory overflow never disables move.
+    // Both source stacks were split; advisory overflow never disables move.
     await page.goto(
       `/inventory?locationId=${fixture.sourceId}&displayMode=exact`,
     );
-    await expect(selected).toHaveCount(1);
-    await selected.first().check();
-    await page.locator('tbody input[type="number"]').fill("85");
+    await expect(selected).toHaveCount(2);
+    await page.getByRole("row").filter({ has: page.getByRole("cell", { name: "88", exact: true }) })
+      .getByRole("checkbox").check();
+    await page.locator('tbody input[type="number"][max="88"]').fill("85");
     await openMove.click();
     await search.fill(name);
     await picker.getByRole("option").filter({ hasText: "Vault ·" }).click();

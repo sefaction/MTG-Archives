@@ -1666,7 +1666,7 @@ export function InventoryBrowser({
   const renderedRows = browsingMode === "infinite" ? loadedRows : rows;
   const selectedEntriesCount = allMatchingSelected
     ? totalMatchingCount
-    : selectedItemIds.size;
+    : renderedRows.filter((row) => getRowSourceIds(row).some((id) => selectedItemIds.has(id))).length;
   const selectedCardsCount = allMatchingSelected
     ? totalMatchingCards
     : renderedRows
@@ -1695,25 +1695,25 @@ export function InventoryBrowser({
   const selectedStacks = renderedRows
     .filter((row) => getRowSourceIds(row).some((id) => selectedItemIds.has(id)))
     .flatMap((row) => row.locationBreakdown ?? []);
-  const alreadyInDestination = renderedRows
+  const selectedMoveRows = renderedRows
     .filter((row) => getRowSourceIds(row).some((id) => selectedItemIds.has(id)))
-    .reduce((sum, row) => sum + Math.min(
-      selectedRowQuantities[row.id] ?? row.quantity,
-      (row.locationBreakdown ?? [])
-        .filter((stack) => stack.locationId === bulkDestinationLocationId &&
-          (stack.section ?? "") === bulkSection.trim())
-        .reduce((count, stack) => count + stack.quantity, 0),
-    ), 0);
-  const selectedMoveQuantities = Object.fromEntries(
-    renderedRows
-      .filter((row) => getRowSourceIds(row).some((id) => selectedItemIds.has(id)))
-      .map((row) => [getRowSourceIds(row)[0], selectedRowQuantities[row.id] ?? row.quantity]),
-  );
+  const selectedMoveGroups = selectedMoveRows.map((row) => ({
+    itemIds: getRowSourceIds(row),
+    quantity: selectedRowQuantities[row.id] ?? row.quantity,
+  }));
   const invalidSelectedQuantity = !allMatchingSelected &&
-    renderedRows.some((row) => selectedItemIds.has(getRowSourceIds(row)[0]) &&
-      (!Number.isSafeInteger(selectedMoveQuantities[getRowSourceIds(row)[0]]) ||
-        selectedMoveQuantities[getRowSourceIds(row)[0]] < 1 ||
-        selectedMoveQuantities[getRowSourceIds(row)[0]] > row.quantity));
+    selectedMoveRows.some((row) => {
+      const quantity = selectedRowQuantities[row.id] ?? row.quantity;
+      return !Number.isSafeInteger(quantity) || quantity < 1 || quantity > row.quantity;
+    });
+  const movableSelectedCopies = selectedMoveRows.reduce((sum, row) => {
+    const available = (row.locationBreakdown ?? [])
+      .filter((stack) => stack.locationId !== bulkDestinationLocationId ||
+        (stack.section ?? "") !== bulkSection.trim())
+      .reduce((count, stack) => count + stack.quantity, 0);
+    return sum + Math.min(selectedRowQuantities[row.id] ?? row.quantity, available);
+  }, 0);
+  const alreadyInDestination = selectedCardsCount - movableSelectedCopies;
   const destinationRoom = liveStorageLocations
     .find((l) => l.id === bulkDestinationLocationId)
     ?.sections.find((s) => s.name === bulkSection)?.capacity;
@@ -1748,7 +1748,7 @@ export function InventoryBrowser({
           : moveLimit;
   const movableCopies = Math.max(
     0,
-    selectedCardsCount - (allMatchingSelected ? 0 : alreadyInDestination),
+    allMatchingSelected ? selectedCardsCount : movableSelectedCopies,
   );
   const plannedCopies = Math.min(
     !allMatchingSelected || quantityMode === "all" ? Infinity : Math.max(0, Number(effectiveMoveLimit)),
@@ -2692,7 +2692,7 @@ export function InventoryBrowser({
                   if (moveDisabled) return;
                   setMoveError("");
                   fd.set("destinationLocationId", bulkDestinationLocationId);
-                  if (!allMatchingSelected) fd.set("selectedQuantities", JSON.stringify(selectedMoveQuantities));
+                  if (!allMatchingSelected) fd.set("selectedGroups", JSON.stringify(selectedMoveGroups));
                   fd.set(
                     "expectedStacks",
                     JSON.stringify(

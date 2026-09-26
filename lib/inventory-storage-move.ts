@@ -26,13 +26,14 @@ export function planStorageMove<T extends ExpectedStorageStack>(
   let remaining = limit ?? Infinity;
   return rows.flatMap((row) => {
     const requested = selectedQuantities ? selectedQuantities[row.id] : row.quantity;
-    if (!Number.isSafeInteger(requested) || requested < 1 || requested > row.quantity)
+    if (!Number.isSafeInteger(requested) || requested < 0 || requested > row.quantity)
       throw new Error("Selected copy amounts changed or are invalid. Refresh and select again.");
     if (
       row.locationId === destinationId &&
       normalizeLocationSection(row.locationSection) === section
     )
       return [];
+    if (requested === 0) return [];
     const quantity = Math.min(remaining, requested);
     remaining -= quantity;
     return quantity > 0 ? [{ row, quantity }] : [];
@@ -53,6 +54,7 @@ export async function moveInventoryStorageBatch(
     sourceLocationId?: string;
     quantityLimit?: number;
     selectedQuantities?: Record<string, number>;
+    selectedGroups?: Array<{ itemIds: string[]; quantity: number }>;
     expectedStacks?: ExpectedStorageStack[];
     reason?: string;
   },
@@ -107,6 +109,8 @@ export async function moveInventoryStorageBatch(
               rows.some((row) => !Object.hasOwn(input.selectedQuantities!, row.id)))
             throw new Error("Selected copy amounts do not match the selected inventory.");
         }
+        if (input.selectedGroups && (input.selectedQuantities || input.quantityLimit !== undefined || !ids))
+          throw new Error("Selected copy amounts do not match the selected inventory.");
         const expected = new Map(
           (input.expectedStacks ?? []).map((row) => [row.id, row]),
         );
@@ -129,12 +133,42 @@ export async function moveInventoryStorageBatch(
             );
           }
         }
+        let selectedQuantities = input.selectedQuantities;
+        if (input.selectedGroups) {
+          const rowsById = new Map(rows.map((row) => [row.id, row]));
+          const assigned = new Set<string>();
+          selectedQuantities = {};
+          for (const group of input.selectedGroups) {
+            if (!Array.isArray(group.itemIds) || !group.itemIds.length ||
+                !Number.isSafeInteger(group.quantity) || group.quantity < 1)
+              throw new Error("Selected copy amounts are invalid. Refresh and select again.");
+            const groupIds = new Set(group.itemIds);
+            if (groupIds.size !== group.itemIds.length ||
+                group.itemIds.some((id) => !rowsById.has(id) || assigned.has(id)))
+              throw new Error("Selected copy amounts do not match the selected inventory.");
+            group.itemIds.forEach((id) => assigned.add(id));
+            const groupRows = rows.filter((row) => groupIds.has(row.id));
+            const groupTotal = groupRows.reduce((sum, row) => sum + row.quantity, 0);
+            if (group.quantity > groupTotal)
+              throw new Error("Selected copy amount exceeds the available stack.");
+            let remaining = group.quantity;
+            for (const row of groupRows) {
+              const atDestination = row.locationId === destination.id &&
+                normalizeLocationSection(row.locationSection) === section;
+              selectedQuantities[row.id] = atDestination ? 0 :
+                Math.min(remaining, row.quantity);
+              if (!atDestination) remaining -= selectedQuantities[row.id];
+            }
+          }
+          if (assigned.size !== rows.length)
+            throw new Error("Selected copy amounts do not match the selected inventory.");
+        }
         const plan = planStorageMove(
           rows,
           destination.id,
           section,
           input.quantityLimit,
-          input.selectedQuantities,
+          selectedQuantities,
         );
         const partials = plan.filter((entry) => entry.quantity < entry.row.quantity);
         if (partials.length) {
