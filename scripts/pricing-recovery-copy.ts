@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { createReadStream } from "node:fs";
+import { createReadStream, writeFileSync } from "node:fs";
 import { constants } from "node:fs";
 import { copyFile, link, lstat, mkdir, open, realpath, rm } from "node:fs/promises";
 import { dirname, relative, resolve, sep } from "node:path";
@@ -7,6 +7,9 @@ import { dirname, relative, resolve, sep } from "node:path";
 export type PricingRecoveryFile = { path: string; sha256: string };
 export type PricingRecoveryCopy = PricingRecoveryFile & { destination: string;
   reused: boolean };
+export type PricingRecoveryPackage = { schemaVersion: 1; observedDate: string;
+  operation: "activation" | "correction";
+  files: Array<{ relativePath: string; sha256: string }> };
 
 function inside(root: string, path: string) {
   return path.startsWith(`${root}${sep}`);
@@ -31,6 +34,33 @@ async function fileSha(path: string) {
   const hash = createHash("sha256");
   for await (const chunk of createReadStream(path)) hash.update(chunk);
   return hash.digest("hex");
+}
+
+/** Publish an immutable index before copying. Its relative paths let a restore
+ * operator use the copied package when the original backup directory is gone. */
+export async function createPricingRecoveryPackage(sourceRoot: string,
+  packagePath: string, observedDate: string,
+  operation: PricingRecoveryPackage["operation"], files: PricingRecoveryFile[]) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(observedDate) || files.length !== 4)
+    throw new Error("Recovery package requires one date and four verified files");
+  const source = await realpath(resolve(sourceRoot, "pricing"));
+  const canonicalPackage = resolve(packagePath);
+  if (!inside(source, canonicalPackage) || !canonicalPackage.endsWith(".package.json"))
+    throw new Error("Recovery package must be under BACKUP_DIR/pricing");
+  const entries = [];
+  for (const file of files) {
+    const canonical = await realpath(resolve(file.path));
+    if (!inside(source, canonical) || !/^[a-f0-9]{64}$/i.test(file.sha256) ||
+        await fileSha(canonical) !== file.sha256)
+      throw new Error("Recovery package source is missing or changed");
+    entries.push({ relativePath: relative(source, canonical), sha256: file.sha256 });
+  }
+  if (new Set(entries.map((entry) => entry.relativePath)).size !== 4)
+    throw new Error("Recovery package files must be distinct");
+  const document: PricingRecoveryPackage = { schemaVersion: 1, observedDate,
+    operation, files: entries };
+  writeFileSync(canonicalPackage, `${JSON.stringify(document, null, 2)}\n`, { flag: "wx" });
+  return { path: canonicalPackage, sha256: await fileSha(canonicalPackage) };
 }
 
 /** Copy immutable Pricing recovery files to another mounted storage root and

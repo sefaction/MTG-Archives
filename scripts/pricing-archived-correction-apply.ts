@@ -11,7 +11,7 @@ import { planArchivedCorrection, type ArchiveSegmentRecord,
 import { rawSegmentColumns, rawSegmentFingerprintSql,
   rawSegmentIdentityFingerprintSql } from "./pricing-raw-segment-common";
 import { pricingSummaryRefreshBodySql } from "./pricing-summary-sql";
-import { copyVerifiedPricingRecoveryFiles } from "./pricing-recovery-copy";
+import { copyVerifiedPricingRecoveryFiles, createPricingRecoveryPackage } from "./pricing-recovery-copy";
 
 const configured = process.env.PRICING_DATABASE_URL;
 const root = process.env.BACKUP_DIR;
@@ -418,8 +418,11 @@ async function main() {
       { path: backup, sha256: backupSha },
       { path: manifestPath, sha256: await fileSha(manifestPath) },
       { path: backupManifest, sha256: await fileSha(backupManifest) }];
+    const recoveryPackage = recoveryTarget ? await createPricingRecoveryPackage(root!,
+      resolve(root!, "pricing", `${id}.package.json`), date, "correction", recoveryFiles) : null;
+    const recoverySet = recoveryPackage ? [...recoveryFiles, recoveryPackage] : recoveryFiles;
     const recoveryCopies = recoveryTarget ?
-      await copyVerifiedPricingRecoveryFiles(root!, recoveryTarget, recoveryFiles) : null;
+      await copyVerifiedPricingRecoveryFiles(root!, recoveryTarget, recoverySet) : null;
     if (process.env.MTG_ARCHIVED_CORRECTION_TEST_FAIL_AFTER_RESTORE === "1")
       throw new Error("Injected correction interruption before activation");
     const statement = correctionSql(before, segment, queue, replacement,
@@ -438,7 +441,7 @@ async function main() {
         await fileSha(backup) !== backupSha || sha(readFileSync(archive)) !== replacement.archiveSha)
       throw new Error("Live Pricing source or verified files changed before correction activation");
     if (recoveryTarget)
-      await copyVerifiedPricingRecoveryFiles(root!, recoveryTarget, recoveryFiles);
+      await copyVerifiedPricingRecoveryFiles(root!, recoveryTarget, recoverySet);
     command(database, statement);
     if (signature(database, keys) !== simulatedSignature ||
         records(database).segment?.archiveSha256 !== replacement.archiveSha)
@@ -449,7 +452,7 @@ async function main() {
       remaining,
       missingPreserved: plan.missing, archive, archiveSha256: replacement.archiveSha,
       backup, backupSha256: backupSha, manifestPath,
-      recoveryCopies }, null, 2)}\n`,
+      recoveryCopies, recoveryPackage: recoveryPackage?.path ?? null }, null, 2)}\n`,
       { flag: "wx" });
     console.log(JSON.stringify({ mode: "applied", observedDate: date,
       generation: (segment?.generation ?? 0) + 1, effects: effects.length,
