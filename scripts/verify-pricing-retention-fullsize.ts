@@ -109,6 +109,8 @@ try {
     PRICING_RAW_ARCHIVE_RETENTION_ENABLED: "1",
     PRICING_ARCHIVE_MAINTENANCE_ENABLED: "1", MTG_LOCAL_PILOT_TEST: "1" };
   const direct = process.env.PRICING_DIRECT_VERIFICATION_DRILL === "1";
+  console.log(JSON.stringify({ mode: "pass-start", oldDate, direct,
+    separateClone, clonedRaw }));
   let result: Record<string, any>;
   if (direct) {
     const compactStarted = Date.now();
