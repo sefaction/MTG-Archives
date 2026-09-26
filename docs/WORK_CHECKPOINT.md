@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Stratified Pricing summary parity, 2026-09-26
+
+Active branch `test/pricing-stratified-parity` starts from merged main `cfdd0c2`; green UI PRs #435-#437 await individual approvals. Added a read-only local verifier for representative, sparse and largest monthly-movement scope samples in every observed provider/currency/finish/type combination. Copied only this new script into the running local web container for execution, then removed it; no Docker reload or Pricing data change. It passed on 31 scopes and 16 monthly movement samples across 16 combinations with zero mismatches, one-snapshot sparse coverage and USD as the only observed currency. Typecheck passed. Next safe step: finish diff check, commit/push and open its #330 PR, collect CI and individual approval. Automatic retention remains off; #274/#330 and their parents remain open.
+
 ## All-matching Inventory export acceptance, 2026-09-26
 
 Active branch `test/inventory-all-matching-export` starts from main `8411980` after user-approved #433 merged. It adds a local-only owned browser fixture for I05/I07: twelve distinct Forest printings span a ten-row page, all-matching selection exports all twelve, and an Island outside the filter is absent. The fixture preserves/restores any same-name pre-existing local export file. Focused Chromium passed 1/1, typecheck and diff check passed, fixture users and temporary export backups returned to zero. No application code changed or Docker reload was needed; the healthy grouped image `sha256:a016a0e1ab3947d47d6b1f29bf20447ac842363c1a41eeb140f6a555c660dc7f` remains loaded. The prior complete local browser suite on the same image passed 70 with one intentional Pricing load skip in 7.6 minutes. #274 and #330 remain open, and Pricing retention is disabled. Next safe step: open this bounded acceptance PR, collect CI and individual approval, then continue the remaining UI and local Pricing gates.
