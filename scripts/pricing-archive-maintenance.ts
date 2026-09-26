@@ -1,9 +1,10 @@
-import { spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { pricingMaintenanceMinutesRemaining } from "./pricing-archive-maintenance-window";
 import { pruneStalePricingRecoveryPartials,
   verifyPricingRecoveryCopyDestination } from "./pricing-recovery-copy";
 import { pricingVerificationServer } from "./pricing-verification-server";
+import { runPricingMaintenanceChild } from "./pricing-maintenance-child";
 
 const url = process.env.PRICING_DATABASE_URL;
 if (!url) throw new Error("PRICING_DATABASE_URL is required");
@@ -72,36 +73,8 @@ function retry(date: string, message: string) {
     WHERE observed_date = ${literal(date)}::date AND status = 'PENDING';`);
 }
 function runChild(script: string, args: string[], limitMs: number) {
-  return new Promise<{ code: number | null; output: string; error: string }>((resolve) => {
-    const child = spawn(process.execPath,
-      ["--import", "tsx", script, ...args],
-      { stdio: ["ignore", "pipe", "pipe"], detached: process.platform !== "win32" });
-    let output = "", error = "", lost = false, renewing = false;
-    const stop = () => {
-      if (process.platform !== "win32" && child.pid) {
-        try { process.kill(-child.pid, "SIGTERM"); } catch { /* Already exited. */ }
-      } else child.kill("SIGTERM");
-    };
-    const timer = setInterval(() => {
-      if (renewing) return;
-      renewing = true;
-      try {
-        if (!heartbeat()) { lost = true; stop(); }
-      } catch (reason) {
-        lost = true;
-        error += ` Lease heartbeat failed: ${String(reason)}`;
-        stop();
-      } finally { renewing = false; }
-    }, 20_000);
-    const timeout = setTimeout(() => { error += " Operation timed out."; stop(); }, limitMs);
-    child.stdout.on("data", (piece: Buffer) => { output += piece.toString(); });
-    child.stderr.on("data", (piece: Buffer) => { error += piece.toString(); });
-    child.on("error", (reason) => { error += String(reason); });
-    child.on("close", (code) => {
-      clearInterval(timer); clearTimeout(timeout);
-      resolve({ code: lost ? -1 : code, output, error });
-    });
-  });
+  return runPricingMaintenanceChild(process.execPath,
+    ["--import", "tsx", script, ...args], limitMs, heartbeat);
 }
 function runCorrection(date: string) {
   return runChild("scripts/pricing-archived-correction-apply.ts",
