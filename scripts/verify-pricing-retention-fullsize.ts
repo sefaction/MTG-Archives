@@ -13,6 +13,14 @@ const source = new URL(process.env.PRICING_DATABASE_URL!);
 if (!["pricing-postgres", "localhost", "127.0.0.1"].includes(source.hostname))
   throw new Error("Full-size retention drill supports only a local Pricing database");
 source.searchParams.delete("schema");
+if (process.env.PRICING_VERIFY_POSTGRES_DRILL === "1") {
+  if (source.hostname !== "pricing-postgres")
+    throw new Error("Isolated verifier drill requires the local Compose Pricing service");
+  const verifier = new URL(source);
+  verifier.hostname = "pricing-verify-postgres";
+  verifier.pathname = "/postgres";
+  process.env.PRICING_VERIFY_DATABASE_URL = verifier.toString();
+}
 const admin = new URL(source);
 admin.pathname = "/postgres";
 const name = "pricing_retention_load_" + randomUUID().replace(/-/g, "").slice(0, 16);
@@ -48,6 +56,9 @@ function bytes(directory: string): number {
     return total + (entry.isDirectory() ? bytes(path) : statSync(path).size);
   }, 0);
 }
+function lastJson(output: string): Record<string, any> {
+  return JSON.parse(output.split(/\r?\n/).at(-1) ?? "{}");
+}
 
 try {
   const started = Date.now();
@@ -58,7 +69,7 @@ try {
   created = true;
   const restoring = Date.now();
   run("pg_restore", ["--exit-on-error", "--no-owner", "--no-acl",
-    "--jobs=2", "--dbname=" + clone.toString(), dump], 1_800_000);
+    "--jobs=1", "--dbname=" + clone.toString(), dump], 1_800_000);
   const restoreMs = Date.now() - restoring;
   const clonedRaw = Number(sql(clone, "SELECT COUNT(*) FROM price_snapshots;"));
   const sourceRaw = Number(sql(source, "SELECT COUNT(*) FROM price_snapshots;"));
@@ -83,14 +94,39 @@ try {
     "source_revision = source_revision + 1, " +
     "summary_revision = source_revision + 1 WHERE singleton = TRUE;");
   const passing = Date.now();
-  const output = run(process.execPath,
-    ["--import", "tsx", "scripts/pricing-raw-retention-pass.ts", "--apply"],
-    5_400_000, { ...process.env, PRICING_DATABASE_URL: clone.toString(),
-      BACKUP_DIR: backup, PRICING_RECOVERY_COPY_DIR: recovery,
-      PRICING_RAW_ARCHIVE_RETENTION_ENABLED: "1",
-      PRICING_ARCHIVE_MAINTENANCE_ENABLED: "1", MTG_LOCAL_PILOT_TEST: "1" });
+  const operationEnv = { ...process.env, PRICING_DATABASE_URL: clone.toString(),
+    BACKUP_DIR: backup, PRICING_RECOVERY_COPY_DIR: recovery,
+    PRICING_RAW_ARCHIVE_RETENTION_ENABLED: "1",
+    PRICING_ARCHIVE_MAINTENANCE_ENABLED: "1", MTG_LOCAL_PILOT_TEST: "1" };
+  const direct = process.env.PRICING_DIRECT_VERIFICATION_DRILL === "1";
+  let result: Record<string, any>;
+  if (direct) {
+    const compactStarted = Date.now();
+    assert.equal(lastJson(run(process.execPath,
+      ["--import", "tsx", "scripts/pricing-daily-compact.ts", "--apply"],
+      1_800_000, operationEnv)).mode, "complete");
+    const compactMs = Date.now() - compactStarted;
+    const stageStarted = Date.now();
+    const staged = lastJson(run(process.execPath,
+      ["--import", "tsx", "scripts/pricing-raw-segment-stage.ts", "--date", oldDate],
+      600_000, operationEnv));
+    assert.equal(staged.mode, "verified-staged");
+    const stageMs = Date.now() - stageStarted;
+    const activateStarted = Date.now();
+    const activated = lastJson(run(process.execPath,
+      ["--import", "tsx", "scripts/pricing-raw-segment-activate.ts",
+        "--manifest", staged.manifestPath, "--apply"],
+      3_900_000, operationEnv));
+    const activateMs = Date.now() - activateStarted;
+    result = { mode: "retention-activated", observedDate: activated.observedDate,
+      deleted: activated.deleted, timings: { compactMs, stageMs, activateMs,
+        totalMs: Date.now() - passing } };
+  } else {
+    result = lastJson(run(process.execPath,
+      ["--import", "tsx", "scripts/pricing-raw-retention-pass.ts", "--apply"],
+      5_400_000, operationEnv));
+  }
   const passMs = Date.now() - passing;
-  const result = JSON.parse(output.split(/\r?\n/).at(-1) ?? "{}");
   assert.equal(result.mode, "retention-activated");
   assert.equal(result.observedDate, oldDate);
   assert.equal(result.deleted, 1);
@@ -105,7 +141,7 @@ try {
     clonedRaw, oldDate, dumpBytes: statSync(dump).size,
     cloneBytes: Number(sql(clone, "SELECT pg_database_size(current_database());")),
     recoveryBytes: bytes(recovery), dumpMs, restoreMs, passMs,
-    phases: result.timings,
+    phases: result.timings, direct,
     liveDatabaseReplaced: false, retentionEnabled: false }));
 } finally {
   if (created) sql(admin, 'DROP DATABASE "' + name + '" WITH (FORCE);');

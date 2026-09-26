@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { getPricingRetentionPolicy } from "../lib/pricing-retention-policy";
+import { pricingVerificationServer } from "./pricing-verification-server";
 
 const configured = process.env.PRICING_DATABASE_URL;
 if (!configured) throw new Error("PRICING_DATABASE_URL is required.");
@@ -142,10 +143,10 @@ async function main() {
   const archive = resolve(directory, `${id}.dump`);
   const manifestPath = resolve(directory, `${id}.json`);
   const receiptPath = resolve(directory, `${id}.applied.json`);
-  const admin = new URL(url);
+  const admin = pricingVerificationServer(url);
   admin.pathname = "/postgres";
   const verifyName = `mtg_pricing_verify_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
-  const verify = new URL(url);
+  const verify = new URL(admin);
   verify.pathname = `/${verifyName}`;
   let created = false;
   try {

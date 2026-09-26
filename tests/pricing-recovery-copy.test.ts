@@ -91,3 +91,26 @@ test("enabled maintenance refuses to start without recovery copy destination", (
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /PRICING_RECOVERY_COPY_DIR is required/);
 });
+
+test("enabled maintenance requires an isolated verification database", () => {
+  const base = mkdtempSync(join(tmpdir(), "pricing-maintenance-verifier-"));
+  try {
+    const source = join(base, "source"), destination = join(base, "destination");
+    mkdirSync(join(source, "pricing"), { recursive: true });
+    mkdirSync(destination);
+    const result = spawnSync(process.execPath,
+      ["--import", "tsx", "scripts/pricing-archive-maintenance.ts", "--once", "--apply"],
+      { env: { ...process.env,
+        PRICING_DATABASE_URL: "postgresql://local:local@localhost:5432/local",
+        PRICING_ARCHIVE_MAINTENANCE_ENABLED: "1", MTG_LOCAL_PILOT_TEST: "1",
+        BACKUP_DIR: source, PRICING_RECOVERY_COPY_DIR: destination,
+        PRICING_VERIFY_DATABASE_URL: "" },
+        encoding: "utf8", timeout: 20_000 });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /PRICING_VERIFY_DATABASE_URL is required/);
+  } finally {
+    const target = resolve(base);
+    assert.ok(target.startsWith(`${resolve(tmpdir())}${sep}`));
+    rmSync(target, { recursive: true, force: true });
+  }
+});

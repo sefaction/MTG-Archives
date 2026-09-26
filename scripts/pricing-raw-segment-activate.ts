@@ -7,6 +7,7 @@ import { getPricingRetentionPolicy } from "../lib/pricing-retention-policy";
 import { rawSegmentFingerprintSql, rawSegmentIdentityFingerprintSql } from "./pricing-raw-segment-common";
 import { refreshPricingSummariesSql } from "./pricing-summary-sql";
 import { copyVerifiedPricingRecoveryFiles, createPricingRecoveryPackage } from "./pricing-recovery-copy";
+import { pricingVerificationServer } from "./pricing-verification-server";
 
 const configured = process.env.PRICING_DATABASE_URL;
 if (!configured) throw new Error("PRICING_DATABASE_URL is required");
@@ -281,10 +282,10 @@ async function main() {
   const backup = resolve(backupDirectory, `${id}.dump`);
   const backupManifest = resolve(backupDirectory, `${id}.json`);
   const receipt = resolve(dirname(manifestPath), `${id}.activated.json`);
-  const admin = new URL(database);
+  const admin = pricingVerificationServer(database);
   admin.pathname = "/postgres";
   const verifyName = `mtg_pricing_raw_verify_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
-  const verify = new URL(database);
+  const verify = new URL(admin);
   verify.pathname = `/${verifyName}`;
   let created = false;
   try {

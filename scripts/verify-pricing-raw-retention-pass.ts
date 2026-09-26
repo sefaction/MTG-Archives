@@ -10,6 +10,13 @@ assert.equal(process.env.MTG_LOCAL_PILOT_TEST, "1");
 const source = new URL(process.env.PRICING_DATABASE_URL!);
 assert.ok(["pricing-postgres", "localhost", "127.0.0.1"].includes(source.hostname));
 source.searchParams.delete("schema");
+if (process.env.PRICING_VERIFY_POSTGRES_DRILL === "1") {
+  assert.equal(source.hostname, "pricing-postgres");
+  const verifier = new URL(source);
+  verifier.hostname = "pricing-verify-postgres";
+  verifier.pathname = "/postgres";
+  process.env.PRICING_VERIFY_DATABASE_URL = verifier.toString();
+}
 const admin = new URL(source);
 admin.pathname = "/postgres";
 const name = "pricing_retention_verify_" + randomUUID().replace(/-/g, "").slice(0, 16);
@@ -69,10 +76,26 @@ try {
   assert.equal(preview.status, 0, preview.stderr);
   assert.equal(lastJson(preview.stdout).candidate, oldDate);
   assert.equal(sql(database, "SELECT COUNT(*) FROM price_snapshots;"), "2");
-  const applied = script("scripts/pricing-raw-retention-pass.ts", ["--apply"]);
-  assert.equal(applied.status, 0, applied.stderr + applied.stdout);
-  const result = lastJson(applied.stdout);
-  assert.equal(result.mode, "retention-activated");
+  const direct = process.env.PRICING_DIRECT_VERIFICATION_DRILL === "1";
+  let result;
+  if (direct) {
+    const compact = script("scripts/pricing-daily-compact.ts", ["--apply"]);
+    assert.equal(compact.status, 0, compact.stderr + compact.stdout);
+    assert.equal(lastJson(compact.stdout).mode, "complete");
+    const staged = script("scripts/pricing-raw-segment-stage.ts", ["--date", oldDate]);
+    assert.equal(staged.status, 0, staged.stderr + staged.stdout);
+    const manifest = lastJson(staged.stdout).manifestPath;
+    const activated = script("scripts/pricing-raw-segment-activate.ts",
+      ["--manifest", manifest, "--apply"]);
+    assert.equal(activated.status, 0, activated.stderr + activated.stdout);
+    result = lastJson(activated.stdout);
+    assert.equal(result.mode, "activated");
+  } else {
+    const applied = script("scripts/pricing-raw-retention-pass.ts", ["--apply"]);
+    assert.equal(applied.status, 0, applied.stderr + applied.stdout);
+    result = lastJson(applied.stdout);
+    assert.equal(result.mode, "retention-activated");
+  }
   assert.equal(result.observedDate, oldDate);
   assert.equal(result.deleted, 1);
   assert.equal(sql(database, "SELECT COUNT(*) FROM price_snapshots;"), "1");
@@ -84,7 +107,8 @@ try {
   const repeat = script("scripts/pricing-raw-retention-pass.ts");
   assert.equal(lastJson(repeat.stdout).candidate, null);
   console.log(JSON.stringify({ mode: "retention-fixture-passed", oldDate,
-    copiedPackages: 1, liveRaw: 1 }));
+    copiedPackages: 1, liveRaw: 1, direct,
+    isolatedVerifier: process.env.PRICING_VERIFY_POSTGRES_DRILL === "1" }));
 } finally {
   if (created) sql(admin, 'DROP DATABASE "' + name + '" WITH (FORCE);');
   for (const path of [backup, recovery]) {
