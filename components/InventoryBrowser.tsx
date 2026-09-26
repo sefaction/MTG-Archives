@@ -373,6 +373,24 @@ function getRowSourceIds(row: InventoryRow) {
   return row.sourceItemIds?.length ? row.sourceItemIds : [row.id];
 }
 
+function inventoryRowControlName(row: InventoryRow) {
+  const printing = `${row.setCode.toUpperCase()} #${row.collectorNumber || "?"}`;
+  const finish = row.foilStatus ||
+    (row.displayMode === "exact" ? (row.foil ? "FOIL" : "NONFOIL") : null);
+  return [
+    row.cardName,
+    printing,
+    finish,
+    row.condition,
+    row.language,
+    row.currentOwner,
+  ].filter(Boolean).join(", ");
+}
+
+function selectionEntryLabel(count: number) {
+  return count === 1 ? "entry" : "entries";
+}
+
 function friendlyVisibility(value?: InventoryRow["effectiveVisibility"]) {
   return value === "PUBLIC" ? "Public" : "Private";
 }
@@ -2105,7 +2123,7 @@ export function InventoryBrowser({
                 <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
-                    aria-label={`Select ${row.original.cardName}`}
+                    aria-label={`Select ${inventoryRowControlName(row.original)}`}
                     checked={isRowSelected(row.original)}
                     onClick={(event) => {
                       event.stopPropagation();
@@ -2118,7 +2136,7 @@ export function InventoryBrowser({
                       Copies
                       <input
                         type="number" min={1} max={row.original.quantity} step={1}
-                        aria-label={`Copies selected from ${row.original.cardName}`}
+                        aria-label={`Copies selected from ${inventoryRowControlName(row.original)}`}
                         value={selectedRowQuantities[row.original.id] ?? row.original.quantity}
                         onChange={(event) => setSelectedRowQuantities((current) => ({
                           ...current, [row.original.id]: Number(event.target.value),
@@ -2668,7 +2686,7 @@ export function InventoryBrowser({
             <span className="inventory-selection-context text-zinc-300">
               {allMatchingSelected
                 ? `All ${totalMatchingCount} matching entries selected (${selectedCardsCount} physical copies in those entries).`
-                : `${selectedEntriesCount} entries selected · ${selectedCardsCount} copies chosen for Move`}
+                : `${selectedEntriesCount} ${selectionEntryLabel(selectedEntriesCount)} selected · ${selectedCardsCount} copies chosen for Move`}
             </span>
           </div>
           {selectionAvailable && (
@@ -2778,7 +2796,7 @@ export function InventoryBrowser({
                 <div className="overflow-y-auto p-5">
                   <div className="mb-5 rounded-lg bg-[var(--app-surface-3)] px-3 py-2 text-sm">
                     <strong>
-                      {selectedEntriesCount} selected entries ·{" "}
+                      {selectedEntriesCount} selected {selectionEntryLabel(selectedEntriesCount)} ·{" "}
                       {selectedCardsCount.toLocaleString()} physical copies
                     </strong>
                     <span className="ml-2 text-[var(--app-muted)]">
@@ -3095,7 +3113,7 @@ export function InventoryBrowser({
                 {selectionAvailable ? (
                   <input
                     type="checkbox"
-                    aria-label={`Select ${row.cardName}`}
+                    aria-label={`Select ${inventoryRowControlName(row)}`}
                     className="absolute left-2 top-2 z-10 h-5 w-5"
                     checked={isRowSelected(row)}
                     onClick={(event) => {
@@ -3109,7 +3127,7 @@ export function InventoryBrowser({
                   <label className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded bg-[var(--app-surface)] p-1 text-xs">
                     Copies
                     <input type="number" min={1} max={row.quantity} step={1}
-                      aria-label={`Copies selected from ${row.cardName}`}
+                      aria-label={`Copies selected from ${inventoryRowControlName(row)}`}
                       value={selectedRowQuantities[row.id] ?? row.quantity}
                       onChange={(event) => setSelectedRowQuantities((current) => ({ ...current, [row.id]: Number(event.target.value) }))}
                       className={cn(filterInputClass, "w-16 px-1 py-0.5")} />
