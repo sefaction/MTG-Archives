@@ -2,13 +2,17 @@
 
 Related: #262, #263, #264, #265, #268 and #274. This is the implementation/evidence index; the original design prototype and historical feature notes are retained as dated records. This document does not close an issue or approve a PR merge.
 
+## Actual Chrome tab zoom for Inventory filters, 2026-09-26
+
+The focused Inventory workspace browser case now launches a disposable Chromium profile with a test-only local extension and calls Chrome's `tabs.setZoom` at 200% on the local app tab. At a 1366×768 browser viewport it verified an actual 683×384 layout viewport and device pixel ratio 2, with no page-level horizontal overflow, visible results, an accessible modal filter panel, both Close and Apply within the viewport, Escape focus return, and invalid-query feedback. It also selected two rows, reduced their copy amounts from 8 and 17 to 5 and 12 before Move, chose a Box destination, confirmed the 17-copy move in a dialog that fit the zoomed viewport, and observed success. The browser case passed 1/1; filter and Move screenshots were inspected. The test profile and local fixture were removed after the run. This covers one Inventory filtering and move path in automated Chromium; human task observation and zoom checks across the other key workflows remain open under #274.
+
 ## Selected-copy toolbar contrast, 2026-09-26
 
 The opt-in vault move browser case now checks computed text-to-surface contrast for both the Actions label and the chosen-copy count across all six themes while two rows are selected. The lowest observed ratios on the grouped local Docker image were 5.82:1 for Actions and 14.74:1 for the chosen-copy count, above the 4.5:1 normal-text threshold. The same case completed the partial-copy move and cleanup. This is a targeted Inventory state check, not a comprehensive contrast audit or a real-browser zoom check; #274 remains open.
 
 ## Enlarged Inventory layout check, 2026-09-26
 
-The focused Inventory workspace browser fixture now renders a 683×384 CSS viewport at device pixel ratio 2, matching the layout area and pixel density of a 1366×768 window at 200% zoom. It checks no page-level horizontal overflow, visible results before opening Filters, a modal filter panel, reachable Close/Apply controls within the viewport, Escape returning focus to Filters, and the existing invalid-query path. The final 683×384 screenshot was inspected: the filter heading, tabs, query field and sticky actions remain visible; longer help text scrolls inside the panel. This is Chromium device-metrics emulation, not a manual browser-chrome zoom check. Real browser zoom and the broader human task review remain open under #274.
+The focused Inventory workspace browser fixture also renders a 683×384 CSS viewport at device pixel ratio 2 through Chromium device-metrics emulation. It checks no page-level horizontal overflow, visible results before opening Filters, a modal filter panel, reachable Close/Apply controls within the viewport, Escape returning focus to Filters, and the existing invalid-query path. The final emulated screenshot was inspected: the filter heading, tabs, query field and sticky actions remain visible; longer help text scrolls inside the panel. The actual Chrome tab zoom case above now checks the same task separately; broader human review remains open under #274.
 
 ## Inventory-first local review, 2026-09-26
 
