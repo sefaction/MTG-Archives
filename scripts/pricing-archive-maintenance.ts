@@ -1,9 +1,11 @@
-import { spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { pricingMaintenanceMinutesRemaining } from "./pricing-archive-maintenance-window";
 import { pruneStalePricingRecoveryPartials,
   verifyPricingRecoveryCopyDestination } from "./pricing-recovery-copy";
 import { pricingVerificationServer } from "./pricing-verification-server";
+import { runPricingMaintenanceChild } from "./pricing-maintenance-child";
+import { withPricingMaintenanceLease } from "./pricing-maintenance-lease";
 
 const url = process.env.PRICING_DATABASE_URL;
 if (!url) throw new Error("PRICING_DATABASE_URL is required");
@@ -72,36 +74,8 @@ function retry(date: string, message: string) {
     WHERE observed_date = ${literal(date)}::date AND status = 'PENDING';`);
 }
 function runChild(script: string, args: string[], limitMs: number) {
-  return new Promise<{ code: number | null; output: string; error: string }>((resolve) => {
-    const child = spawn(process.execPath,
-      ["--import", "tsx", script, ...args],
-      { stdio: ["ignore", "pipe", "pipe"], detached: process.platform !== "win32" });
-    let output = "", error = "", lost = false, renewing = false;
-    const stop = () => {
-      if (process.platform !== "win32" && child.pid) {
-        try { process.kill(-child.pid, "SIGTERM"); } catch { /* Already exited. */ }
-      } else child.kill("SIGTERM");
-    };
-    const timer = setInterval(() => {
-      if (renewing) return;
-      renewing = true;
-      try {
-        if (!heartbeat()) { lost = true; stop(); }
-      } catch (reason) {
-        lost = true;
-        error += ` Lease heartbeat failed: ${String(reason)}`;
-        stop();
-      } finally { renewing = false; }
-    }, 20_000);
-    const timeout = setTimeout(() => { error += " Operation timed out."; stop(); }, limitMs);
-    child.stdout.on("data", (piece: Buffer) => { output += piece.toString(); });
-    child.stderr.on("data", (piece: Buffer) => { error += piece.toString(); });
-    child.on("error", (reason) => { error += String(reason); });
-    child.on("close", (code) => {
-      clearInterval(timer); clearTimeout(timeout);
-      resolve({ code: lost ? -1 : code, output, error });
-    });
-  });
+  return runPricingMaintenanceChild(process.execPath,
+    ["--import", "tsx", script, ...args], limitMs, heartbeat);
 }
 function runCorrection(date: string) {
   return runChild("scripts/pricing-archived-correction-apply.ts",
@@ -136,19 +110,20 @@ async function runRawRetention() {
 async function tick() {
   const current = backlog();
   console.info("[pricing-archive-maintenance] backlog", current);
-  // A child can run for 20 minutes. Do not begin one that can cross 05:00.
-  if (!apply || pricingMaintenanceMinutesRemaining(new Date()) <= 20) return;
+  // Allow the 20-minute child deadline, forced-stop grace and setup overhead.
+  if (!apply || pricingMaintenanceMinutesRemaining(new Date()) <= 21) return;
   if (!acquire()) {
     console.info("[pricing-archive-maintenance] another owner holds the lease");
     return;
   }
   try {
     if (!partialCleanupCompleted) {
-      const cleanup = await pruneStalePricingRecoveryPartials(
-        process.env.PRICING_RECOVERY_COPY_DIR!, Date.now(), true);
-      console.info("[pricing-archive-maintenance] recovery partial cleanup", cleanup);
+      const cleanup = await withPricingMaintenanceLease(
+        () => pruneStalePricingRecoveryPartials(
+          process.env.PRICING_RECOVERY_COPY_DIR!, Date.now(), true), heartbeat);
+      console.info("[pricing-archive-maintenance] recovery partial cleanup", cleanup.value);
       partialCleanupCompleted = true;
-      if (!heartbeat()) {
+      if (cleanup.leaseLost || !heartbeat()) {
         console.error("[pricing-archive-maintenance] lease lost during recovery cleanup");
         return;
       }
@@ -158,6 +133,8 @@ async function tick() {
       await runRawRetention();
       return;
     }
+    // Copy cleanup and SQL may have consumed the remaining window.
+    if (pricingMaintenanceMinutesRemaining(new Date()) <= 21) return;
     sql(`UPDATE price_archive_feed_queue SET attempt_count = attempt_count + 1,
       last_attempt_at = now(), retry_after = NULL
       WHERE observed_date = ${literal(date)}::date AND status = 'PENDING';`);

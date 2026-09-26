@@ -1,6 +1,8 @@
 import { spawnSync } from "node:child_process";
 import { getPricingRetentionPolicy } from "../lib/pricing-retention-policy";
-import { pricingMaintenanceMinutesRemaining } from "./pricing-archive-maintenance-window";
+import { PRICING_RAW_ACTIVATION_BUDGET_MS, PRICING_RAW_STAGE_BUDGET_MS,
+  pricingMaintenanceMillisecondsRemaining } from "./pricing-archive-maintenance-window";
+import { runPricingMaintenanceChild } from "./pricing-maintenance-child";
 import { verifyPricingRecoveryCopyDestination } from "./pricing-recovery-copy";
 
 const args = process.argv.slice(2);
@@ -19,12 +21,11 @@ if (!["pricing-postgres", "localhost", "127.0.0.1"].includes(database.hostname))
 database.searchParams.delete("schema");
 const liveDays = getPricingRetentionPolicy().dailyDays;
 
-function run(name: string, args: string[], timeout: number) {
-  const result = spawnSync(name, args, { encoding: "utf8", timeout,
-    maxBuffer: 2 * 1024 * 1024 });
-  if (result.status !== 0)
-    throw new Error(`${name} failed or timed out: ${result.stderr?.trim().slice(0, 500) ?? ""}`);
-  return result.stdout.trim();
+async function run(name: string, args: string[], timeout: number) {
+  const result = await runPricingMaintenanceChild(name, args, timeout, () => true);
+  if (result.code !== 0)
+    throw new Error(`${name} failed or timed out: ${result.error.trim().slice(0, 500)}`);
+  return result.output.trim();
 }
 function query(statement: string) {
   const result = spawnSync("psql", [database.toString(), "-v", "ON_ERROR_STOP=1",
@@ -62,7 +63,7 @@ async function main() {
     throw new Error("Pricing summaries must be fresh before automatic retention");
   if (plan.activeImports !== 0)
     throw new Error("Pricing imports are still running; retry retention after they finish");
-  if (pricingMaintenanceMinutesRemaining(new Date()) < 85)
+  if (pricingMaintenanceMillisecondsRemaining(new Date()) < 85 * 60_000)
     throw new Error("Insufficient Central maintenance window for raw retention");
   const recoveryTarget = process.env.PRICING_RECOVERY_COPY_DIR;
   if (!recoveryTarget)
@@ -72,26 +73,27 @@ async function main() {
   let compactMs = 0;
   if (!plan.dailyBoundary || plan.dailyBoundary < candidate) {
     const compactStarted = Date.now();
-    const compact = finalJson(run(process.execPath,
+    const compact = finalJson(await run(process.execPath,
       ["--import", "tsx", "scripts/pricing-daily-compact.ts", "--apply"],
       25 * 60_000));
     compactMs = Date.now() - compactStarted;
     if (compact.mode !== "complete")
       throw new Error("Daily compaction did not advance before raw retention");
   }
-  if (pricingMaintenanceMinutesRemaining(new Date()) < 60)
+  // Staging can take six minutes and activation 65; retain a minute for shutdown.
+  if (pricingMaintenanceMillisecondsRemaining(new Date()) <= PRICING_RAW_STAGE_BUDGET_MS)
     throw new Error("Insufficient Central maintenance window to start raw activation");
   const stageStarted = Date.now();
-  const staged = finalJson(run(process.execPath,
+  const staged = finalJson(await run(process.execPath,
     ["--import", "tsx", "scripts/pricing-raw-segment-stage.ts", "--date", candidate],
     6 * 60_000));
   const stageMs = Date.now() - stageStarted;
   if (staged.mode !== "verified-staged" || typeof staged.manifestPath !== "string")
     throw new Error("Raw segment staging did not produce a verified manifest");
-  if (pricingMaintenanceMinutesRemaining(new Date()) < 55)
+  if (pricingMaintenanceMillisecondsRemaining(new Date()) <= PRICING_RAW_ACTIVATION_BUDGET_MS)
     throw new Error("Verified stage retained for review; insufficient window to activate");
   const activateStarted = Date.now();
-  const activated = finalJson(run(process.execPath,
+  const activated = finalJson(await run(process.execPath,
     ["--import", "tsx", "scripts/pricing-raw-segment-activate.ts",
       "--manifest", staged.manifestPath, "--apply"], 65 * 60_000));
   const activateMs = Date.now() - activateStarted;
