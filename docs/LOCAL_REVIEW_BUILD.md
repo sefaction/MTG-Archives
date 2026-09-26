@@ -1,14 +1,18 @@
 # Local review build — cumulative issue queue
 
-## Current cumulative review, 2026-09-26
+## Current Inventory copy selection review, 2026-09-26
 
-The local app at `http://127.0.0.1:13001` now uses cumulative image `sha256:b0a8b7760087cbe2db88db4220f9fb1f0513684e18e3e6e527fd6721b04e05ee`. It includes the open Pricing review chain through #382, full-size measurements #383/#384, and the isolated-verifier batch, alongside Inventory #373/#378. Web, Pricing worker and notification worker were reloaded together and are healthy; `/login` returned HTTP 200. Raw retention is off, archive maintenance is not running, and the optional verifier service was stopped after its local fixture. These unmerged PRs still need individual user approval.
+Open http://127.0.0.1:13001/inventory. The cumulative local Docker image `sha256:dfac076c44282613485cbb1495570c1fdb67a52914fcbf12b5fbbf6b4c2e80aa` includes unmerged #372/#373 and the dependent Pricing maintenance target gate. Web is healthy and `/login` returned HTTP 200. Pricing raw deletion and archive maintenance remain disabled.
 
-## Inventory filtering and moves first, 2026-09-26
+Search and filter cards, select two Inventory rows, and look for **Copies** beside each selected row. Each starts at the full row quantity. Use its up/down control to choose fewer before opening Move. Check that the selection total and Move review agree with those amounts. Cancel and reopen to confirm the choices remain, then choose a destination and section for a local test move if useful. Try a narrow window and 200% browser zoom. The local database is a testing snapshot; use test copies for a committed move.
+
+The focused vault browser case passed with two simultaneous partial stack splits, stale-selection rollback, copy conservation, occupancy and phone layout. The earlier Inventory filtering/navigation cases passed separately. Human task feedback and actual 200% browser zoom remain open under #264/#265/#274.
+
+## Earlier Inventory filtering and moves review, 2026-09-26
 
 The current local Docker review is at http://127.0.0.1:13001/inventory. Web, Pricing worker and notification worker use image `sha256:ee40dae9a3ebd9b8db77b79686e65e0287b0b12987462a5dc400e333ed001a6f`, with the local and capture-only SMTP overlays; web is healthy and `/login` returned HTTP 200. The image includes the approved Pricing and import batches through #368 plus Inventory navigation #369, all now merged to `main`. Raw Pricing deletion and the optional archive-maintenance profile are disabled.
 
-Review a card search, open Filters, apply a storage and color criterion, check that active criteria and results stay together, then remove one criterion and use Back/Forward. Select multiple rows; each starts at its full stack, and the Copies up/down control beside that row chooses fewer before opening Move. Check the chosen copy total, choose a destination and vault section in Move, and check the final review and occupancy counts. Cancel once to check preserved selection and filters; use a local test move if you want to check refreshed source/destination counts. Try the keyboard Escape/return-focus path and a 200% browser zoom or a narrow desktop window. The local database is a testing snapshot; use only test copies for a committed move.
+Review a card search, open Filters, apply a storage and color criterion, check that active criteria and results stay together, then remove one criterion and use Back/Forward. Select multiple rows and verify the selected physical-copy count, open Move, choose a destination and vault section, change the copy quantity, and check the final review and occupancy counts. Cancel once to check preserved selection and filters; use a local test move if you want to check refreshed source/destination counts. Try the keyboard Escape/return-focus path and a 200% browser zoom or a narrow desktop window. The local database is a testing snapshot; use only test copies for a committed move.
 
 Automated evidence: focused Inventory workspace and navigation cases passed 2/2, including a 960×455 CSS viewport with visible results and no page horizontal overflow. Color filtering and the vault selection/move workflow passed 3/3. These tests do not establish a human task completion time, actual browser zoom behavior, every filter combination, or every role and owner scope. Record human findings under #264/#265/#274 before closing their acceptance gates.
 
