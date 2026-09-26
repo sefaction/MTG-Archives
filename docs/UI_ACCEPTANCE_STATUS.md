@@ -1,5 +1,9 @@
 # UI acceptance status - 2026-09-26
 
+## Static routes at actual 200% browser zoom, 2026-09-26
+
+The disposable Chromium zoom profile visited all 24 static member, public and admin task routes after setting actual tab zoom to 200%. Each visit retained a measured 683×384 CSS viewport and device pixel ratio 2 from a 1366×768 browser window, returned without a server error, and had no page-wide horizontal overflow. The focused local Docker browser case passed 1/1; no database fixture or app image change was needed. Dynamic Deck, League and Pricing details retain their separate owned task fixtures. This broadens route reflow evidence for #274, but does not certify that every control is visually clear or reachable with a screen reader at zoom.
+
 ## Current Inventory review and failure recovery, 2026-09-26
 
 The user reports Inventory card/storage filters work well: they can apply criteria, identify active filters, and revise or clear them without losing their place. They also accepted the selected-copy amount and Move confirmation, Deck editing, cross-section navigation, and Locations inspection/editing in the local app. The bounded Inventory filter #264, move #265, Deck #268 and navigation foundation #263 issues are closed; the wider role, device and state matrix in #274 remains open.

@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Static-route actual browser zoom audit, 2026-09-26
+
+Active branch `test/static-browser-zoom` from merged main `10f415c` adds a test-only local Chromium sweep across all 24 static member/public/admin routes at actual 200% tab zoom. The focused case passed 1/1; every route kept a 683×384 CSS viewport at DPR 2, returned without a server error and avoided page-wide overflow. The already healthy local Docker app was used; no reload or database fixture was needed. Typecheck, PR and CI are pending. Open PRs #417, #418 and #420 remain green but individually unapproved, and Acquisition #315 stays deferred. #274 and #330 remain open; next safe step is final checks/PR for this bounded zoom audit, then resume Pricing host-load preparation when the host location is confirmed.
+
 ## Approved recovery and Inventory retry review, 2026-09-26
 
 Active branch `test/inventory-infinite-retry` refreshes user-approved [PR #415](https://github.com/sefaction/MTG-Archives/pull/415) against main after individually approved #413 and #414 merged. The owned browser case for infinite Inventory next-page HTTP 503 and Retry passed: 10 initial rows and a selected copy persisted, then Retry loaded 12 rows without losing selection. The combined opted-in serial Chromium run passed 62 cases with one separate Pricing retention load case intentionally skipped in 7.1 minutes. Fixture users returned to zero and Inventory to 12,477 copies. #415 needs fresh CI after this main merge, then may merge under its existing individual approval. No Docker reload is needed for its test/documentation-only changes. #315 Acquisition remains deferred. Next safe step: finish #415 merge, then address the remaining #274 acceptance matrix and #330 intended-host load/activation gate.
