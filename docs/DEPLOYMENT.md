@@ -103,7 +103,8 @@ with container write access before enabling the related jobs. New application
 archives go to `application`; Pricing source dumps, raw archives and feed
 spools go to `pricing`; verified per-operation copies go to
 `pricing-recovery`. The hidden `.system-secrets` directory stays at the root.
-Older application archives already at the root remain usable. The Unraid-wide
+Older application archives already at the root remain discoverable; restore
+still depends on dump-format compatibility. The Unraid-wide
 `File Share/appdata backup` job copies all appdata on its weekly schedule and
 is not the destination for these per-operation files.
 
