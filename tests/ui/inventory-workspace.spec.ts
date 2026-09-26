@@ -376,8 +376,24 @@ test("real Inventory workspace composes search, preserves context and reflows wi
       await expect(zoomRows).toHaveCount(2);
       await zoomRows.nth(0).check();
       await zoomRows.nth(1).check();
-      await zoomPage.locator('tbody input[type="number"][max="8"]').fill("5");
-      await zoomPage.locator('tbody input[type="number"][max="17"]').fill("12");
+      const firstCopyAmount = zoomPage.locator('tbody input[type="number"][max="8"]');
+      const secondCopyAmount = zoomPage.locator('tbody input[type="number"][max="17"]');
+      await expect(firstCopyAmount).toHaveValue("8");
+      await expect(secondCopyAmount).toHaveValue("17");
+      await firstCopyAmount.focus();
+      await firstCopyAmount.press("ArrowDown");
+      await expect(firstCopyAmount).toHaveValue("7");
+      await expect(secondCopyAmount).toHaveValue("17");
+      await firstCopyAmount.press("ArrowUp");
+      await expect(firstCopyAmount).toHaveValue("8");
+      await firstCopyAmount.scrollIntoViewIfNeeded();
+      const copyBox = (await firstCopyAmount.boundingBox())!;
+      expect(copyBox.x).toBeGreaterThanOrEqual(0);
+      expect(copyBox.y).toBeGreaterThanOrEqual(0);
+      expect(copyBox.x + copyBox.width).toBeLessThanOrEqual(683);
+      expect(copyBox.y + copyBox.height).toBeLessThanOrEqual(384);
+      await firstCopyAmount.fill("5");
+      await secondCopyAmount.fill("12");
       await expect(zoomPage.locator(".inventory-selection-context")
         .filter({ hasText: "2 entries selected · 17 copies chosen for Move" }))
         .toBeVisible();
