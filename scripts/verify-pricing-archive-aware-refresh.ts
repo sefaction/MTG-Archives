@@ -57,6 +57,7 @@ const keys = [card, sparse].map((mtgjson_uuid) => ({
 const refresh = refreshPricingSummariesSql(JSON.stringify(keys));
 let created = false;
 const archiveTestDirectory = mkdtempSync(join(tmpdir(), "pricing-archive-verify-"));
+const recoveryCopyDirectory = mkdtempSync(join(tmpdir(), "pricing-recovery-verify-"));
 try {
   sql(admin, `CREATE DATABASE "${name}";`);
   created = true;
@@ -173,16 +174,26 @@ try {
   if (earlyStage.status !== 0)
     throw new Error(`Sparse segment staging failed: ${earlyStage.stderr.trim()}`);
   const earlyManifest = JSON.parse(earlyStage.stdout.trim()).manifestPath as string;
-  const activate = (path: string, apply: boolean) => spawnSync(process.execPath,
+  const activate = (path: string, apply: boolean,
+    copyDirectory = recoveryCopyDirectory) => spawnSync(process.execPath,
     ["--import", "tsx", "scripts/pricing-raw-segment-activate.ts", "--manifest", path,
       ...(apply ? ["--apply"] : [])],
     { env: { ...process.env, PRICING_DATABASE_URL: testDatabase.toString(),
-        BACKUP_DIR: archiveTestDirectory, MTG_LOCAL_PILOT_TEST: "1" },
+        BACKUP_DIR: archiveTestDirectory, MTG_LOCAL_PILOT_TEST: "1",
+        PRICING_RECOVERY_COPY_DIR: copyDirectory },
       encoding: "utf8", timeout: 180_000, maxBuffer: 1024 * 1024 });
   assert.notEqual(activate(stagedResult.manifestPath, false).status, 0,
     "Activation must refuse a date that is not the oldest raw segment");
   sql(testDatabase, `DELETE FROM price_daily_summary WHERE observed_date <= '2026-01-10';
     UPDATE price_summary_state SET daily_compacted_through = '2026-01-10' WHERE singleton;`);
+  const failedCopy = activate(earlyManifest, true,
+    join(recoveryCopyDirectory, "missing-destination"));
+  assert.notEqual(failedCopy.status, 0,
+    "Unavailable independent copy must stop activation before live deletion");
+  assert.equal(sql(testDatabase,
+    `SELECT COUNT(*) FROM price_snapshots WHERE observed_date = '2026-01-05'`), "1");
+  assert.equal(sql(testDatabase,
+    `SELECT raw_archived_through IS NULL FROM price_summary_state WHERE singleton`), "t");
   const interrupted = spawnSync(process.execPath,
     ["--import", "tsx", "scripts/pricing-raw-segment-activate.ts", "--manifest",
       earlyManifest, "--apply"],
@@ -201,7 +212,12 @@ try {
     if (preview.status !== 0) throw new Error(`Archive dry run failed: ${preview.stderr.trim()}`);
     const applied = activate(path, true);
     if (applied.status !== 0) throw new Error(`Archive activation failed: ${applied.stderr.trim()}`);
-    assert.equal(JSON.parse(applied.stdout.trim().split(/\r?\n/).at(-1)!).mode, "activated");
+    const activated = JSON.parse(applied.stdout.trim().split(/\r?\n/).at(-1)!);
+    assert.equal(activated.mode, "activated");
+    const receipt = JSON.parse(readFileSync(activated.receipt, "utf8"));
+    assert.equal(receipt.recoveryCopies.length, 2);
+    for (const copy of receipt.recoveryCopies)
+      assert.deepEqual(readFileSync(copy.destination), readFileSync(copy.path));
   }
   const restaged = spawnSync(process.execPath,
     ["--import", "tsx", "scripts/pricing-raw-segment-stage.ts", "--date", "2026-01-10"],
@@ -343,6 +359,7 @@ try {
       ...(apply ? ["--apply"] : [])],
     { env: { ...process.env, PRICING_DATABASE_URL: testDatabase.toString(),
         BACKUP_DIR: archiveTestDirectory, MTG_LOCAL_PILOT_TEST: "1",
+        PRICING_RECOVERY_COPY_DIR: recoveryCopyDirectory,
         MTG_ARCHIVED_CORRECTION_TEST_FAIL_AFTER_RESTORE: interrupted ? "1" : "0" },
       encoding: "utf8", timeout: 180_000, maxBuffer: 1024 * 1024 });
   const correctionPreview = runCorrection("2026-01-05", false, false);
@@ -371,7 +388,11 @@ try {
   assert.equal(sql(testDatabase, `SELECT snapshot_count || ':' || current_price
     FROM price_scope_summary WHERE mtgjson_uuid = '${addedSparseDate.mtgjsonUuid}'`), "1:5.0000");
   const appliedReceipt = JSON.parse(readFileSync(JSON.parse(appliedCorrection.stdout.trim()
-    .split(/\r?\n/).at(-1)!).receiptPath, "utf8")) as { backup: string };
+    .split(/\r?\n/).at(-1)!).receiptPath, "utf8")) as { backup: string;
+      recoveryCopies: Array<{ path: string; destination: string }> };
+  assert.equal(appliedReceipt.recoveryCopies.length, 2);
+  for (const copy of appliedReceipt.recoveryCopies)
+    assert.deepEqual(readFileSync(copy.destination), readFileSync(copy.path));
   const rollbackName = `pricing_rollback_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
   const rollbackDatabase = new URL(testDatabase);
   rollbackDatabase.pathname = `/${rollbackName}`;
@@ -522,4 +543,7 @@ try {
   const resolvedTestDirectory = resolve(archiveTestDirectory);
   assert.ok(resolvedTestDirectory.startsWith(`${resolve(tmpdir())}${sep}`));
   rmSync(resolvedTestDirectory, { recursive: true, force: true });
+  const resolvedCopyDirectory = resolve(recoveryCopyDirectory);
+  assert.ok(resolvedCopyDirectory.startsWith(`${resolve(tmpdir())}${sep}`));
+  rmSync(resolvedCopyDirectory, { recursive: true, force: true });
 }

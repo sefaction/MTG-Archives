@@ -6,6 +6,7 @@ import { gunzipSync } from "node:zlib";
 import { getPricingRetentionPolicy } from "../lib/pricing-retention-policy";
 import { rawSegmentFingerprintSql, rawSegmentIdentityFingerprintSql } from "./pricing-raw-segment-common";
 import { refreshPricingSummariesSql } from "./pricing-summary-sql";
+import { copyVerifiedPricingRecoveryFiles } from "./pricing-recovery-copy";
 
 const configured = process.env.PRICING_DATABASE_URL;
 if (!configured) throw new Error("PRICING_DATABASE_URL is required");
@@ -306,6 +307,11 @@ async function main() {
       stageManifest: manifestPath, stageArchiveSha256: manifest.archiveSha256,
       sourceState: before, rawStats: JSON.parse(rawBefore), visibleSignature: signature,
       verifiedAt: new Date().toISOString() }, null, 2)}\n`, { flag: "wx" });
+    const recoveryTarget = process.env.PRICING_RECOVERY_COPY_DIR;
+    const recoveryFiles = [{ path: archive, sha256: manifest.archiveSha256 },
+      { path: backup, sha256: backupSha }];
+    const recoveryCopies = recoveryTarget ?
+      await copyVerifiedPricingRecoveryFiles(root!, recoveryTarget, recoveryFiles) : null;
 
     if (process.env.MTG_LOCAL_PILOT_TEST === "1" &&
         process.env.MTG_RAW_ARCHIVE_TEST_FAIL_AFTER_RESTORE === "1")
@@ -325,6 +331,8 @@ async function main() {
         visibleSignature(database, keys) !== signature ||
         await fileHash(backup) !== backupSha)
       throw new Error("Source or backup changed before final archive activation");
+    if (recoveryTarget)
+      await copyVerifiedPricingRecoveryFiles(root!, recoveryTarget, recoveryFiles);
     const committed = query(database, activationSql(liveNow, backup, backupSha,
       JSON.parse(rawBefore)));
     if (!committed.split(/\r?\n/).includes(String(manifest.rows)))
@@ -335,7 +343,8 @@ async function main() {
       throw new Error("Live archive postcondition failed; restore from verified database backup");
     writeFileSync(receipt, `${JSON.stringify({ status: "activated", activatedAt: new Date().toISOString(),
       observedDate: date, deleted: manifest.rows, archive, archiveSha256: manifest.archiveSha256,
-      backup, backupSha256: backupSha, backupManifest, stageManifest: manifestPath }, null, 2)}\n`,
+      backup, backupSha256: backupSha, backupManifest, stageManifest: manifestPath,
+      recoveryCopies }, null, 2)}\n`,
       { flag: "wx" });
     console.log(JSON.stringify({ mode: "activated", observedDate: date, deleted: manifest.rows,
       archive, backup, receipt, rawBoundary: date }));
