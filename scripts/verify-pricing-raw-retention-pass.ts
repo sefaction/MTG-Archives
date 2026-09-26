@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
-import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { pricingSummarySchemaSql, refreshPricingSummariesSql } from "./pricing-summary-sql";
@@ -106,11 +106,47 @@ try {
   assert.equal(lastJson(audit.stdout).verified, 1);
   const repeat = script("scripts/pricing-raw-retention-pass.ts");
   assert.equal(lastJson(repeat.stdout).candidate, null);
+  const rollback = process.env.PRICING_ROLLBACK_DRILL === "1";
+  if (rollback) {
+    const receipt = JSON.parse(readFileSync(result.receipt, "utf8"));
+    const copies = receipt.recoveryCopies as Array<{
+      path: string; destination: string; sha256: string }>;
+    const dump = copies.find((copy) => copy.path === receipt.backup);
+    const packageIndex = copies.find((copy) => copy.path === receipt.recoveryPackage);
+    const backupManifest = copies.find((copy) => copy.path === receipt.backupManifest);
+    assert.ok(dump && packageIndex && backupManifest);
+    assert.ok(resolve(dump.destination).startsWith(resolve(recovery) + sep));
+    assert.equal(createHash("sha256").update(readFileSync(dump.destination)).digest("hex"),
+      receipt.backupSha256);
+    const before = JSON.parse(readFileSync(backupManifest.destination, "utf8")).sourceState;
+    const packageDrill = script("scripts/pricing-recovery-copy-restore-drill.ts",
+      ["--package", packageIndex.destination, "--run"]);
+    assert.equal(packageDrill.status, 0, packageDrill.stderr + packageDrill.stdout);
+    sql(admin, 'DROP DATABASE "' + name + '" WITH (FORCE);');
+    sql(admin, 'CREATE DATABASE "' + name + '";');
+    const restored = spawnSync("pg_restore", ["--exit-on-error", "--no-owner",
+      "--no-acl", "--dbname=" + database.toString(), dump.destination],
+    { encoding: "utf8", timeout: 180_000, maxBuffer: 1024 * 1024 });
+    assert.equal(restored.status, 0, restored.stderr);
+    assert.equal(sql(database, "SELECT COUNT(*) FROM price_snapshots;"), "2");
+    assert.equal(sql(database, "SELECT COUNT(*) FROM price_snapshots WHERE observed_date = '" +
+      oldDate + "'::date AND price = 4;"), "1");
+    assert.equal(sql(database,
+      "SELECT raw_archived_through IS NULL FROM price_summary_state WHERE singleton;"), "t");
+    assert.equal(sql(database,
+      "SELECT daily_compacted_through::text FROM price_summary_state WHERE singleton;"),
+      before.dailyBoundary);
+    assert.equal(Number(sql(database,
+      "SELECT source_revision FROM price_summary_state WHERE singleton;")),
+      before.sourceRevision);
+    assert.equal(sql(database,
+      "SELECT COUNT(*) FROM price_raw_archive_segment;"), "0");
+  }
   console.log(JSON.stringify({ mode: "retention-fixture-passed", oldDate,
-    copiedPackages: 1, liveRaw: 1, direct,
+    copiedPackages: 1, liveRaw: rollback ? 2 : 1, direct, rollback,
     isolatedVerifier: process.env.PRICING_VERIFY_POSTGRES_DRILL === "1" }));
 } finally {
-  if (created) sql(admin, 'DROP DATABASE "' + name + '" WITH (FORCE);');
+  if (created) sql(admin, 'DROP DATABASE IF EXISTS "' + name + '" WITH (FORCE);');
   for (const path of [backup, recovery]) {
     const target = resolve(path);
     assert.ok(target.startsWith(resolve(tmpdir()) + sep));
