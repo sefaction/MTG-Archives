@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Enlarged Inventory filter review, 2026-09-26
+
+Active branch `test/inventory-enlarged-view` stacks on green, unapproved PR #373. The current cumulative local Docker image includes #373; this batch changes only the Inventory browser fixture and acceptance ledger, so no app rebuild is needed. Chromium rendered and captured 683×384 CSS px at device pixel ratio 2, equivalent to the layout area of a 1366×768 window at 200% zoom. The Inventory workspace case passed with visible results, no page-level overflow, modal Filters, reachable Close/Apply, Escape focus return and invalid-query feedback. The captured 683×384 image was inspected. This is emulation; actual browser-chrome zoom and human task observations remain open under #274. Next safe step: commit, push, open dependent test PR and collect CI. No PR merge without individual approval.
+
 ## Inventory copy amounts before Move, 2026-09-26
 
 Active branch `fix/inventory-selected-copy-clarity` from merged main. The user chose full-stack selection by default with an up/down control beside each selected Inventory row to choose fewer physical copies before Move. This branch carries the chosen per-row amounts through the move request, validates them against current stack quantities in one transaction, and supports multiple partial splits with audit and reservation checks. The all-matching shortcut retains its aggregate limit. Local Docker uses image `sha256:fa73bb6ceac9c957fd2c4c50f826c3a78a7e649c972e64fd0d594409200845da`; web is healthy and `/login` returned HTTP 200. Focused vault browser coverage passed 1/1, including chosen partial amount, cancellation, stale-selection failure, occupancy and phone layout. Storage planner tests 4/4 and typecheck passed. Next safe step: review final diff, open PR, collect CI and human Inventory task feedback; #265 remains open. Do not merge without individual approval. Independent Pricing recovery copy PR #372 is green and unapproved.

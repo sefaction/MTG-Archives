@@ -2,6 +2,10 @@
 
 Related: #262, #263, #264, #265, #268 and #274. This is the implementation/evidence index; the original design prototype and historical feature notes are retained as dated records. This document does not close an issue or approve a PR merge.
 
+## Enlarged Inventory layout check, 2026-09-26
+
+The focused Inventory workspace browser fixture now renders a 683×384 CSS viewport at device pixel ratio 2, matching the layout area and pixel density of a 1366×768 window at 200% zoom. It checks no page-level horizontal overflow, visible results before opening Filters, a modal filter panel, reachable Close/Apply controls within the viewport, Escape returning focus to Filters, and the existing invalid-query path. The final 683×384 screenshot was inspected: the filter heading, tabs, query field and sticky actions remain visible; longer help text scrolls inside the panel. This is Chromium device-metrics emulation, not a manual browser-chrome zoom check. Real browser zoom and the broader human task review remain open under #274.
+
 ## Inventory-first local review, 2026-09-26
 
 The user's task review identified that copy amounts should be chosen before Move. A follow-up review branch now selects a full stack by default and offers a copy spinner beside each selected row in the table and card views. Move carries those per-row amounts; all-matching bulk selection retains its separate aggregate limit. The local Docker image `sha256:fa73bb6ceac9c957fd2c4c50f826c3a78a7e649c972e64fd0d594409200845da` passed the vault creation, chosen-partial move, stale-selection rollback, occupancy and phone-layout browser case, plus typecheck and the focused storage planner tests. This branch still needs its own PR/CI and user review. The previously recorded wider acceptance gaps remain open.
