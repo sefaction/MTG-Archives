@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Unraid Pricing backup evidence, 2026-09-26
+
+Active branch docs/pricing-unraid-backup-evidence follows merged approved Pricing PRs through #368. Read-only inspection of Unraid Appdata Backup configuration and the September 21 run established weekly Monday 00:00 backup from appdata cache pool to File Share array, including Pricing PostgreSQL and the MTG Archives backups directory. MTG tarballs exist and plugin verification succeeded. No restore from the share or off-host copy was proved. This branch records the evidence and keeps raw deletion/maintenance gated. Inventory PR #369 is approved and running final checks on updated main. Next safe step: open this docs PR, then design a timely verified copy/read-back and recovery test before enabling automation.
+
 ## Archived no-change feed main integration, 2026-09-26
 
 The user explicitly approved PR #368. Approved #365 and #366 have merged to main with fresh green checks, and #368 now targets current main. Its code and fixture merged automatically; this historical checkpoint is the only conflict. The isolated PostgreSQL fixture passed terminal sparse-source settlement, preserved summaries/archive, and a later complete correction. Fresh Core and PostgreSQL checks are required before merge. Raw deletion and optional Pricing maintenance remain disabled. Existing Unraid Appdata Backup coverage is known, but off-host copy and restore from that share remain unproved.
