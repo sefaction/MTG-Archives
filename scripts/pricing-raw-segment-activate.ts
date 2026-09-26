@@ -6,11 +6,15 @@ import { gunzipSync } from "node:zlib";
 import { getPricingRetentionPolicy } from "../lib/pricing-retention-policy";
 import { rawSegmentFingerprintSql, rawSegmentIdentityFingerprintSql } from "./pricing-raw-segment-common";
 import { refreshPricingSummariesSql } from "./pricing-summary-sql";
+import { copyVerifiedPricingRecoveryFiles, createPricingRecoveryPackage } from "./pricing-recovery-copy";
+import { pricingVerificationServer } from "./pricing-verification-server";
 
 const configured = process.env.PRICING_DATABASE_URL;
 if (!configured) throw new Error("PRICING_DATABASE_URL is required");
 const database = new URL(configured);
-if (!["pricing-postgres", "localhost", "127.0.0.1"].includes(database.hostname))
+if (!["pricing-postgres", "localhost", "127.0.0.1"].includes(database.hostname) &&
+    !(process.env.MTG_LOCAL_PILOT_TEST === "1" &&
+      database.hostname === "pricing-retention-clone-postgres"))
   throw new Error("Raw archive activation supports only local Pricing databases");
 database.searchParams.delete("schema");
 const root = process.env.BACKUP_DIR;
@@ -280,10 +284,10 @@ async function main() {
   const backup = resolve(backupDirectory, `${id}.dump`);
   const backupManifest = resolve(backupDirectory, `${id}.json`);
   const receipt = resolve(dirname(manifestPath), `${id}.activated.json`);
-  const admin = new URL(database);
+  const admin = pricingVerificationServer(database);
   admin.pathname = "/postgres";
   const verifyName = `mtg_pricing_raw_verify_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
-  const verify = new URL(database);
+  const verify = new URL(admin);
   verify.pathname = `/${verifyName}`;
   let created = false;
   try {
@@ -306,6 +310,16 @@ async function main() {
       stageManifest: manifestPath, stageArchiveSha256: manifest.archiveSha256,
       sourceState: before, rawStats: JSON.parse(rawBefore), visibleSignature: signature,
       verifiedAt: new Date().toISOString() }, null, 2)}\n`, { flag: "wx" });
+    const recoveryTarget = process.env.PRICING_RECOVERY_COPY_DIR;
+    const recoveryFiles = [{ path: archive, sha256: manifest.archiveSha256 },
+      { path: backup, sha256: backupSha },
+      { path: manifestPath, sha256: await fileHash(manifestPath) },
+      { path: backupManifest, sha256: await fileHash(backupManifest) }];
+    const recoveryPackage = recoveryTarget ? await createPricingRecoveryPackage(root!,
+      resolve(backupDirectory, `${id}.package.json`), date, "activation", recoveryFiles) : null;
+    const recoverySet = recoveryPackage ? [...recoveryFiles, recoveryPackage] : recoveryFiles;
+    const recoveryCopies = recoveryTarget ?
+      await copyVerifiedPricingRecoveryFiles(root!, recoveryTarget, recoverySet) : null;
 
     if (process.env.MTG_LOCAL_PILOT_TEST === "1" &&
         process.env.MTG_RAW_ARCHIVE_TEST_FAIL_AFTER_RESTORE === "1")
@@ -325,6 +339,8 @@ async function main() {
         visibleSignature(database, keys) !== signature ||
         await fileHash(backup) !== backupSha)
       throw new Error("Source or backup changed before final archive activation");
+    if (recoveryTarget)
+      await copyVerifiedPricingRecoveryFiles(root!, recoveryTarget, recoverySet);
     const committed = query(database, activationSql(liveNow, backup, backupSha,
       JSON.parse(rawBefore)));
     if (!committed.split(/\r?\n/).includes(String(manifest.rows)))
@@ -335,7 +351,8 @@ async function main() {
       throw new Error("Live archive postcondition failed; restore from verified database backup");
     writeFileSync(receipt, `${JSON.stringify({ status: "activated", activatedAt: new Date().toISOString(),
       observedDate: date, deleted: manifest.rows, archive, archiveSha256: manifest.archiveSha256,
-      backup, backupSha256: backupSha, backupManifest, stageManifest: manifestPath }, null, 2)}\n`,
+      backup, backupSha256: backupSha, backupManifest, stageManifest: manifestPath,
+      recoveryCopies, recoveryPackage: recoveryPackage?.path ?? null }, null, 2)}\n`,
       { flag: "wx" });
     console.log(JSON.stringify({ mode: "activated", observedDate: date, deleted: manifest.rows,
       archive, backup, receipt, rawBoundary: date }));
