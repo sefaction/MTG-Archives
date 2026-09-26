@@ -7,6 +7,9 @@ The owned local browser case measured a 683 by 384 CSS pixel viewport at actual 
 ## Inventory edit and audit modal recovery, 2026-09-26
 
 Issue #427 found that the Edit Inventory Item and Audit Trail overlays were ordinary fixed elements without modal keyboard behavior. Both now use named native dialogs. Escape or backdrop click closes each, focus stays out of the background, and closing returns focus to the row action or still-visible View details control. Edit has a visible Close button at the top and an internally scrollable height bound. The owned local Chromium case passed its desktop focus cycle, 390px phone bounds/Close/backdrop check, and actual 200% tab zoom at 683Ã—384 CSS pixels with Edit and Close still reachable. The five Inventory detail cases and the separate owned edit/split/audit/delete mutation case passed on the grouped local image. This is focused keyboard and layout evidence, not a screen-reader certification or the complete #274 matrix.
+## Owned Inventory mutation path, 2026-09-26
+
+A disposable member-owned four-copy stack passed a local Chromium flow through Edit inventory, notes save, one-copy split to a second Box, Audit Trail and confirmed row deletion. Database assertions found one and three copies after splitting, both audit reasons, and zero owned inventory entries after deletion. The fixture removed its user, owner, locations and audit records. This gives direct behavior evidence for a representative I08, I10 and I11 path; bulk deletion, owner changes, restricted stacks and public read-only boundaries have separate evidence or remain for the broader #274 matrix. The application image did not change, so no Docker reload was needed.
 
 ## Administration route boundary sample, 2026-09-26
 
@@ -135,13 +138,13 @@ The filenames above are coverage pointers, not assertions that every possible co
 
 ## Action-level verification boundary
 
-The 45 action IDs in [CAPABILITIES.md](design/ui-consolidation/CAPABILITIES.md) name each retained control home and role boundary. The current cumulative application revision for this review is `8776e77`. The following checks run against that revision's Docker image; a browser case exercises a representative path within each ID, not necessarily every action named in that ID. Source-mapped controls remain in the crosswalk even where no direct browser mutation was repeated in this pass.
+The 45 action IDs in [CAPABILITIES.md](design/ui-consolidation/CAPABILITIES.md) name each retained control home and role boundary. The checks below accumulated across the UI batches; the owned Inventory mutation case ran on the healthy local image built from the #424 application source. A browser case exercises a representative path within each ID, not necessarily every action named in that ID. Source-mapped controls remain in the crosswalk even where no direct browser mutation was repeated in this pass.
 
 | Action IDs | Current direct evidence | Remaining limit |
 | --- | --- | --- |
 | I01-I03 | `inventory-workspace`, `inventory-color-filter`, `inventory-scryfall-query`, `location-hierarchy` | Not every filter combination is exhaustive |
 | I04-I07 | `inventory-workspace`, `inventory-export`, `vault-pilot`, `vault-map` | All-matching and every view preference are not crossed with every role |
-| I08-I11 | `inventory-detail`, `trade-wishlist`, inventory mutation/policy units | Destructive cleanup and every edit/split field are source mapped rather than browser repeated here |
+| I08-I11 | `inventory-mutation-acceptance` edit, split, audit and confirmed row delete; `inventory-detail`, `trade-wishlist`, inventory mutation/policy units | Bulk deletion, restricted stacks and every edit/split field are not crossed in this browser sample |
 | L01-L05 | `locations-workspace`, `location-hierarchy`, `location-scale`, `storage-layout`, `vault-map` | Every destructive storage action is not rerun on the snapshot |
 | M01-M05 | `imports-workspace`, `inventory-export`, real PostgreSQL import integrity script | Every legacy unsafe undo branch is checked in database tests, not through a browser path |
 | D01-D05 | `decks-brackets`, `deck-builder-workspace`, `pasted-decklist`, `league-lifecycle` | Every optimization and folder variant is not repeated in browser |
