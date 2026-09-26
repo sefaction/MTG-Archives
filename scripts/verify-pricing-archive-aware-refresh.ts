@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import {
@@ -356,6 +356,8 @@ try {
     WHERE observed_date = '2026-01-05'`), "PENDING");
   assert.equal(sql(testDatabase, `SELECT generation FROM price_raw_archive_segment
     WHERE observed_date = '2026-01-05'`), "1");
+  const beforeCorrectionRevision = sql(testDatabase,
+    `SELECT source_revision || ':' || summary_revision FROM price_summary_state WHERE singleton`);
   const appliedCorrection = runCorrection("2026-01-05", false, true);
   if (appliedCorrection.status !== 0)
     throw new Error(`Archived correction apply failed: ${appliedCorrection.stderr.trim()}`);
@@ -368,6 +370,30 @@ try {
     FROM price_scope_summary WHERE mtgjson_uuid = '${sparse}'`), "1:6.0000");
   assert.equal(sql(testDatabase, `SELECT snapshot_count || ':' || current_price
     FROM price_scope_summary WHERE mtgjson_uuid = '${addedSparseDate.mtgjsonUuid}'`), "1:5.0000");
+  const appliedReceipt = JSON.parse(readFileSync(JSON.parse(appliedCorrection.stdout.trim()
+    .split(/\r?\n/).at(-1)!).receiptPath, "utf8")) as { backup: string };
+  const rollbackName = `pricing_rollback_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
+  const rollbackDatabase = new URL(testDatabase);
+  rollbackDatabase.pathname = `/${rollbackName}`;
+  sql(admin, `CREATE DATABASE "${rollbackName}";`);
+  try {
+    const restored = spawnSync("pg_restore", ["--exit-on-error", "--no-owner",
+      "--no-acl", "--jobs=2", `--dbname=${rollbackDatabase.toString()}`,
+      appliedReceipt.backup], { encoding: "utf8", timeout: 120_000 });
+    if (restored.status !== 0)
+      throw new Error(`Correction rollback restore failed: ${restored.stderr.trim()}`);
+    assert.equal(sql(rollbackDatabase, `SELECT generation FROM price_raw_archive_segment
+      WHERE observed_date = '2026-01-05'`), "1");
+    assert.equal(sql(rollbackDatabase, `SELECT status FROM price_archive_feed_queue
+      WHERE observed_date = '2026-01-05'`), "PENDING");
+    assert.equal(sql(rollbackDatabase, `SELECT snapshot_count || ':' || current_price
+      FROM price_scope_summary WHERE mtgjson_uuid = '${sparse}'`), "1:4.0000");
+    assert.equal(sql(rollbackDatabase, `SELECT COUNT(*) FROM price_scope_summary
+      WHERE mtgjson_uuid = '${addedSparseDate.mtgjsonUuid}'`), "0");
+    assert.equal(sql(rollbackDatabase,
+      `SELECT source_revision || ':' || summary_revision FROM price_summary_state WHERE singleton`),
+      beforeCorrectionRevision);
+  } finally { sql(admin, `DROP DATABASE "${rollbackName}" WITH (FORCE);`); }
   assert.notEqual(runCorrection("2026-01-05", false, true).status, 0,
     "A completed feed generation must not apply twice");
   const gapOld = { ...oldInput, mtgjsonUuid: `archive-gap-${randomUUID()}`,
@@ -413,6 +439,22 @@ try {
     FROM price_archive_feed_queue WHERE observed_date = '${bulkDate}'`), "APPLIED:501");
   assert.equal(sql(testDatabase, `SELECT generation || ':' || raw_rows
     FROM price_raw_archive_segment WHERE observed_date = '${bulkDate}'`), "2:501");
+  const audit = spawnSync(process.execPath,
+    ["--import", "tsx", "scripts/pricing-archive-recovery-audit.ts"],
+    { env: { ...process.env, PRICING_DATABASE_URL: testDatabase.toString(),
+        BACKUP_DIR: archiveTestDirectory }, encoding: "utf8", timeout: 120_000 });
+  if (audit.status !== 0)
+    throw new Error(`Archived recovery audit failed: ${audit.stderr.trim()} ${audit.stdout.trim()}`);
+  assert.equal(JSON.parse(audit.stdout).healthy, true);
+  const activeBulkArchive = sql(testDatabase, `SELECT archive_path
+    FROM price_raw_archive_segment WHERE observed_date = '${bulkDate}'`);
+  writeFileSync(activeBulkArchive, "tampered fixture archive");
+  const tamperedAudit = spawnSync(process.execPath,
+    ["--import", "tsx", "scripts/pricing-archive-recovery-audit.ts"],
+    { env: { ...process.env, PRICING_DATABASE_URL: testDatabase.toString(),
+        BACKUP_DIR: archiveTestDirectory }, encoding: "utf8", timeout: 120_000 });
+  assert.notEqual(tamperedAudit.status, 0);
+  assert.equal(JSON.parse(tamperedAudit.stdout).healthy, false);
   sql(testDatabase, `INSERT INTO price_archive_maintenance_lease
     (singleton, owner, expires_at) VALUES (TRUE, 'fixture-owner-a', now() + interval '90 seconds');`);
   assert.equal(sql(testDatabase, `INSERT INTO price_archive_maintenance_lease
