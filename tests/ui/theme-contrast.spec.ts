@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 function color(value: string) {
   if (value.startsWith("#")) {
@@ -39,6 +39,61 @@ async function logIn(page: Page) {
   await page.getByRole("button", { name: /^log in$/i }).click();
   await page.waitForURL(/dashboard/);
 }
+
+async function navigationContrast(element: Locator) {
+  const rendered = await element.evaluate((node) => ({
+    text: getComputedStyle(node).color,
+    background: getComputedStyle(node).backgroundColor,
+    rail: getComputedStyle(node.closest(".archive-rail")!).backgroundColor,
+  }));
+  const rail = color(rendered.rail);
+  const transparent = rendered.background === "transparent";
+  const background = transparent ? rail : color(rendered.background).map(
+    (channel, index) => channel * opacity(rendered.background) +
+      rail[index] * (1 - opacity(rendered.background)),
+  );
+  return contrast(color(rendered.text), background);
+}
+
+test("navigation labels and route states remain legible on desktop and phone in six themes", async ({
+  page,
+}) => {
+  await logIn(page);
+  await page.goto("/inventory");
+  await page.addStyleTag({ content: "* { transition: none !important; }" });
+  const minimum = new Map<string, number>();
+  for (const width of [1366, 390]) {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 768 });
+    if (width === 390)
+      await page.locator(".archive-navigation > summary").click();
+    const rail = page.locator(".archive-rail");
+    await expect(rail).toBeVisible();
+    const label = rail.locator(".archive-nav-group > p", { hasText: "Collection" });
+    const current = rail.getByRole("link", { name: "Inventory", exact: true });
+    const ordinary = rail.getByRole("link", { name: "Locations", exact: true });
+    await expect(current).toHaveAttribute("aria-current", "page");
+    for (const theme of ["golgari", "azorius", "izzet", "selesnya",
+      "rakdos", "lotus"]) {
+      await page.locator("html").evaluate((node, value) => {
+        node.setAttribute("data-theme", value);
+      }, theme);
+      await page.mouse.move(0, 0);
+      for (const [name, element] of [["group", label], ["current", current],
+        ["ordinary", ordinary]] as const) {
+        const ratio = await navigationContrast(element);
+        minimum.set(name, Math.min(minimum.get(name) ?? Infinity, ratio));
+        expect(ratio,
+          `${theme} ${width}px ${name} navigation contrast`).toBeGreaterThanOrEqual(4.5);
+      }
+      await ordinary.hover();
+      const hovered = await navigationContrast(ordinary);
+      minimum.set("hovered", Math.min(minimum.get("hovered") ?? Infinity, hovered));
+      expect(hovered,
+        `${theme} ${width}px hovered navigation contrast`).toBeGreaterThanOrEqual(4.5);
+    }
+  }
+  console.log("Navigation minimum contrast:", Object.fromEntries(minimum));
+});
 
 test("navigation brand hover text remains legible in all six themes", async ({
   page,
