@@ -610,6 +610,26 @@ try {
       expires_at = EXCLUDED.expires_at
     WHERE price_archive_maintenance_lease.expires_at < now()
     RETURNING owner;`), "fixture-owner-b");
+  // A second currency for the same printing must remain a separate scope.
+  const usdBefore = sql(testDatabase, `SELECT snapshot_count || ':' || current_price
+    FROM price_scope_summary WHERE mtgjson_uuid = '${card}' AND currency = 'USD'`);
+  const euroKey = { ...keys[0], currency: "EUR" };
+  sql(testDatabase, `INSERT INTO price_snapshots
+    (mtgjson_uuid, provider, finish, price_type, currency, observed_date, price)
+    VALUES ('${card}', 'tcgplayer', 'normal', 'retail', 'EUR', '2026-08-02', 4),
+           ('${card}', 'tcgplayer', 'normal', 'retail', 'EUR', '2026-08-03', 6);`);
+  sql(testDatabase, refreshPricingSummariesSql(JSON.stringify([euroKey])));
+  assert.equal(sql(testDatabase, `SELECT snapshot_count || ':' || current_price
+    FROM price_scope_summary WHERE mtgjson_uuid = '${card}' AND currency = 'EUR'`),
+  "2:6.0000");
+  assert.equal(sql(testDatabase, `SELECT open_price || ':' || low_price || ':' ||
+    high_price || ':' || close_price || ':' || observation_count
+    FROM price_monthly_summary WHERE mtgjson_uuid = '${card}'
+    AND currency = 'EUR' AND month_start = '2026-08-01'`),
+  "4.0000:4.0000:6.0000:6.0000:2");
+  assert.equal(sql(testDatabase, `SELECT snapshot_count || ':' || current_price
+    FROM price_scope_summary WHERE mtgjson_uuid = '${card}' AND currency = 'USD'`),
+  usdBefore);
   console.log("Archive-aware refresh, old correction, sparse scope and full rebuild passed.");
 } finally {
   if (created) sql(admin, `DROP DATABASE "${name}" WITH (FORCE);`);
