@@ -1,6 +1,20 @@
 # Local review build — cumulative issue queue
 
-## Inventory filtering and moves first, 2026-09-26
+## Corrected Pricing review source, 2026-09-26
+
+The local app at `http://127.0.0.1:13001` runs image `sha256:dc9fe2b8afc8810b9d161f17ac1778ff8cc9226d3010f673977866565a5f3071`, built directly from cumulative worktree `local/cumulative-review-v7` at `457b5b4`. The built image's SHA-256 hashes matched that worktree for the Collection Pricing reader, full-size drill and isolated verifier helper. Web, Pricing worker and notification worker were reloaded together; web is healthy and `/login` returned HTTP 200. The image includes the dependent Pricing stack through #391, the Collection trend cache batch pending its own PR, and Inventory #373/#378. A four-owner local browser run during the isolated full-size retention pass passed, with Collection p95 1,690 ms across 20 pass-overlap requests; temporary accounts and databases were removed. Both optional Pricing test services were stopped. Automatic retention is off and archive maintenance is disabled. Every unmerged PR still needs individual approval.
+
+Earlier images `sha256:b0a8b7760087cbe2db88db4220f9fb1f0513684e18e3e6e527fd6721b04e05ee` and `sha256:ed4bce6e359b7922b147fd8a71f15144d4131d5aa9ccfafe5bdc428e23e859aa` were built with `--project-directory` pointing to the primary repository while their Compose overlay had `build.context: .`. Compose built the primary worktree, so their claimed cumulative source provenance was wrong. Treat only checks run from explicitly copied scripts and the corrected image as evidence for their respective code; see [#389](https://github.com/sefaction/MTG-Archives/issues/389). For cumulative review builds, run `docker build -t mtg-archives-web:local -f Dockerfile .` from the exact review worktree, or set `MTG_REVIEW_BUILD_CONTEXT` to its absolute path before Compose build. Confirm hashes of relevant image files against that worktree, then use Compose `up -d --no-build` with the primary project directory to retain local data mounts.
+
+## Current Inventory copy selection review, 2026-09-26
+
+Open http://127.0.0.1:13001/inventory. The cumulative local Docker image `sha256:dfac076c44282613485cbb1495570c1fdb67a52914fcbf12b5fbbf6b4c2e80aa` includes unmerged #372/#373 and the dependent Pricing maintenance target gate. Web is healthy and `/login` returned HTTP 200. Pricing raw deletion and archive maintenance remain disabled.
+
+Search and filter cards, select two Inventory rows, and look for **Copies** beside each selected row. Each starts at the full row quantity. Use its up/down control to choose fewer before opening Move. Check that the selection total and Move review agree with those amounts. Cancel and reopen to confirm the choices remain, then choose a destination and section for a local test move if useful. Try a narrow window and 200% browser zoom. The local database is a testing snapshot; use test copies for a committed move.
+
+The focused vault browser case passed with two simultaneous partial stack splits, stale-selection rollback, copy conservation, occupancy and phone layout. The earlier Inventory filtering/navigation cases passed separately. Human task feedback and actual 200% browser zoom remain open under #264/#265/#274.
+
+## Earlier Inventory filtering and moves review, 2026-09-26
 
 The current local Docker review is at http://127.0.0.1:13001/inventory. Web, Pricing worker and notification worker use image `sha256:ee40dae9a3ebd9b8db77b79686e65e0287b0b12987462a5dc400e333ed001a6f`, with the local and capture-only SMTP overlays; web is healthy and `/login` returned HTTP 200. The image includes the approved Pricing and import batches through #368 plus Inventory navigation #369, all now merged to `main`. Raw Pricing deletion and the optional archive-maintenance profile are disabled.
 
