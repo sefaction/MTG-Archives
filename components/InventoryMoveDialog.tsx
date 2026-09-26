@@ -45,7 +45,7 @@ export function InventoryMoveDialog({
                 Move inventory
               </h2>
               <p className="text-sm text-[var(--app-muted)]">
-                Choose a home for your selected cards.
+                Choose a home for the copies in your selected inventory entries.
               </p>
             </div>
             <button
