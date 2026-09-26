@@ -2,7 +2,7 @@
 
 ## Invalid selected-copy feedback, 2026-09-26
 
-The owned phone touch fixture reproduced [#408](https://github.com/sefaction/MTG-Archives/issues/408): entering 0 for a selected four-copy row left the numeric control without `aria-invalid` or a visible range explanation, while Move confirmation could be disabled silently. The Inventory table and card views now share a selected-copy control that marks invalid amounts, names the valid 1–stack-size range beside the row and describes that error to assistive technology. Move explains that the user should close it and correct the selected amount. The fixture checks 0 and above-stack amounts at 390px and 320px, then corrects each and completes the move. Typecheck passes; the final browser assertions await the next grouped Docker review image.
+The owned phone touch fixture reproduced [#408](https://github.com/sefaction/MTG-Archives/issues/408): entering 0 for a selected four-copy row left the numeric control without `aria-invalid` or a visible range explanation, while Move confirmation could be disabled silently. The Inventory table and Binder views now share a selected-copy control that marks invalid amounts, names the valid 1–stack-size range beside the row and describes that error to assistive technology. Move explains that the user should close it and correct the selected amount. The fixture checks 0 at 390px and an above-stack amount at 320px, switches to Binder view while invalid, checks no page overflow, then corrects each amount and completes the move. Typecheck passes; the final browser assertions await the next grouped Docker review image.
 
 ## Inventory touch move and one-copy wording, 2026-09-26
 

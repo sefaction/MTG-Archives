@@ -115,6 +115,15 @@ test("phone touch can reach Inventory filters and Settings without page overflow
         await expect(copies).toHaveAttribute("aria-invalid", "true");
         await expect(copies.locator("..").getByRole("alert"))
           .toContainText(`Choose 1–${width === 390 ? 4 : 2} copies.`);
+        await expect(copies).toHaveAttribute("aria-describedby", /selected-copy-error-/);
+        if (width === 320) {
+          await page.getByRole("button", { name: "Binder View", exact: true }).tap();
+          await expect(copies).toHaveAttribute("aria-invalid", "true");
+          await expect(copies.locator("..").getByRole("alert"))
+            .toContainText("Choose 1–2 copies.");
+        }
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
+          .toBe(true);
         const openMove = page.getByRole("button", { name: "Move cards…", exact: true });
         await openMove.tap();
         const move = page.getByRole("dialog", { name: "Move inventory" });
