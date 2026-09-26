@@ -391,6 +391,14 @@ function selectionEntryLabel(count: number) {
   return count === 1 ? "entry" : "entries";
 }
 
+function selectedCopyLabel(count: number) {
+  return count === 1 ? "copy" : "copies";
+}
+
+function movedCardLabel(count: number) {
+  return count === 1 ? "card" : "cards";
+}
+
 function friendlyVisibility(value?: InventoryRow["effectiveVisibility"]) {
   return value === "PUBLIC" ? "Public" : "Private";
 }
@@ -2685,8 +2693,8 @@ export function InventoryBrowser({
             ) : null}
             <span className="inventory-selection-context text-zinc-300">
               {allMatchingSelected
-                ? `All ${totalMatchingCount} matching entries selected (${selectedCardsCount} physical copies in those entries).`
-                : `${selectedEntriesCount} ${selectionEntryLabel(selectedEntriesCount)} selected · ${selectedCardsCount} copies chosen for Move`}
+                ? `All ${totalMatchingCount} matching ${selectionEntryLabel(totalMatchingCount)} selected (${selectedCardsCount} physical ${selectedCopyLabel(selectedCardsCount)} in ${totalMatchingCount === 1 ? "that entry" : "those entries"}).`
+                : `${selectedEntriesCount} ${selectionEntryLabel(selectedEntriesCount)} selected · ${selectedCardsCount} ${selectedCopyLabel(selectedCardsCount)} chosen for Move`}
             </span>
           </div>
           {selectionAvailable && (
@@ -2747,7 +2755,7 @@ export function InventoryBrowser({
                       return;
                     }
                     setMessage(
-                      `Moved ${result.movedCards} cards across ${result.movedEntries} entries to ${result.destinationLocationName}${bulkSection ? ` / ${bulkSection}` : " (no section)"}.`,
+                      `Moved ${result.movedCards} ${movedCardLabel(result.movedCards)} across ${result.movedEntries} ${selectionEntryLabel(result.movedEntries)} to ${result.destinationLocationName}${bulkSection ? ` / ${bulkSection}` : " (no section)"}.`,
                     );
                     if (result.refreshedLocations?.length) {
                       setLiveStorageLocations((current) => {
@@ -2797,7 +2805,7 @@ export function InventoryBrowser({
                   <div className="mb-5 rounded-lg bg-[var(--app-surface-3)] px-3 py-2 text-sm">
                     <strong>
                       {selectedEntriesCount} selected {selectionEntryLabel(selectedEntriesCount)} ·{" "}
-                      {selectedCardsCount.toLocaleString()} physical copies
+                      {selectedCardsCount.toLocaleString()} physical {selectedCopyLabel(selectedCardsCount)}
                     </strong>
                     <span className="ml-2 text-[var(--app-muted)]">
                       {allMatchingSelected
@@ -2952,7 +2960,7 @@ export function InventoryBrowser({
                     <div className="min-w-0 basis-full text-sm sm:flex-1 sm:basis-auto">
                       <p className="font-semibold">
                         {destinationName
-                          ? `${allMatchingSelected ? "Up to " : ""}${Number.isFinite(plannedCopies) ? plannedCopies.toLocaleString() : 0} cards → ${bulkSection || "No section"}`
+                          ? `${allMatchingSelected ? "Up to " : ""}${Number.isFinite(plannedCopies) ? plannedCopies.toLocaleString() : 0} ${movedCardLabel(plannedCopies)} → ${bulkSection || "No section"}`
                           : "Choose a destination to continue"}
                       </p>
                       {destinationName && (
@@ -3002,7 +3010,7 @@ export function InventoryBrowser({
                             Moving…
                           </span>
                         ) : (
-                          `Move ${allMatchingSelected ? "up to " : ""}${Number.isFinite(plannedCopies) ? plannedCopies.toLocaleString() : 0} cards`
+                          `Move ${allMatchingSelected ? "up to " : ""}${Number.isFinite(plannedCopies) ? plannedCopies.toLocaleString() : 0} ${movedCardLabel(plannedCopies)}`
                         )}
                       </button>
                     </div>

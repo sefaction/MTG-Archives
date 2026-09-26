@@ -24,10 +24,20 @@ test("phone touch can reach Inventory filters and Settings without page overflow
   const username = `ui-touch-${randomUUID()}`;
   const password = randomUUID();
   let ownerId: string | undefined;
+  let fixture: { sourceId: string; destinationId: string } | undefined;
   try {
     ownerId = database<string>(
       `const owner=await p.player.create({data:{name:${JSON.stringify(username)},displayName:'Touch reviewer'}});await p.user.create({data:{username:${JSON.stringify(username)},displayName:'Touch reviewer',playerId:owner.id,passwordHash:await require('bcryptjs').hash(${JSON.stringify(password)},10)}});return owner.id;`,
     );
+    fixture = database<{ sourceId: string; destinationId: string }>(`
+      return p.$transaction(async tx=>{
+        const source=await tx.inventoryLocation.create({data:{name:'Touch source',normalizedName:'touch source',ownerPlayerId:${JSON.stringify(ownerId)},type:'Box',visibility:'PRIVATE'}});
+        const destination=await tx.inventoryLocation.create({data:{name:'Touch destination',normalizedName:'touch destination',ownerPlayerId:${JSON.stringify(ownerId)},type:'Box',visibility:'PRIVATE'}});
+        const card=await tx.card.findFirstOrThrow({where:{name:'Forest'}});
+        await tx.inventoryItem.create({data:{cardId:card.id,currentOwnerId:${JSON.stringify(ownerId)},originalOpenerId:${JSON.stringify(ownerId)},locationId:source.id,quantity:4,sourceType:'MANUAL',condition:'NM',notes:${JSON.stringify(username)}}});
+        return {sourceId:source.id,destinationId:destination.id};
+      });
+    `);
     for (const width of [390, 320]) {
       const context = await browser.newContext({
         viewport: { width, height: 844 },
@@ -91,6 +101,38 @@ test("phone touch can reach Inventory filters and Settings without page overflow
             () => document.documentElement.scrollWidth <= innerWidth + 1,
           ),
         ).toBe(true);
+
+        // A touch user chooses fewer copies on the row before opening Move.
+        await page.goto(`${baseURL}/inventory?locationId=${fixture.sourceId}&displayMode=exact`);
+        const rowSelection = page.getByRole("checkbox", { name: /Select Forest/ });
+        await expect(rowSelection).toHaveCount(1);
+        await rowSelection.tap();
+        const copies = page.getByRole("spinbutton", { name: /Copies selected from Forest/ });
+        const chosen = width === 390 ? 2 : 1;
+        await expect(copies).toHaveValue(width === 390 ? "4" : "2");
+        await copies.tap();
+        await copies.fill(String(chosen));
+        await expect(page.locator(".inventory-selection-context")
+          .filter({ hasText: "chosen for Move" }))
+          .toContainText(`${chosen} ${chosen === 1 ? "copy" : "copies"} chosen for Move`);
+        await page.getByRole("button", { name: "Move cards…", exact: true }).tap();
+        const move = page.getByRole("dialog", { name: "Move inventory" });
+        await expect(move).toContainText("Move uses the amounts selected in Inventory.");
+        await expect(move).toContainText(`${chosen} physical ${chosen === 1 ? "copy" : "copies"}`);
+        const picker = move.getByTestId("storage-destination");
+        await picker.getByRole("combobox", { name: "Search destinations" })
+          .fill("Touch destination");
+        await picker.getByRole("option").filter({ hasText: "Touch destination" }).tap();
+        const confirm = move.getByRole("button", { name: `Move ${chosen} ${chosen === 1 ? "card" : "cards"}`, exact: true });
+        await expect(confirm).toBeEnabled();
+        await confirm.scrollIntoViewIfNeeded();
+        const bounds = await confirm.boundingBox();
+        expect(bounds).not.toBeNull();
+        expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(844);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+        await confirm.tap();
+        await expect(page.getByText(new RegExp(`Moved ${chosen} ${chosen === 1 ? "card" : "cards"} across`)))
+          .toBeVisible();
       } finally {
         await context.close();
       }
@@ -98,7 +140,7 @@ test("phone touch can reach Inventory filters and Settings without page overflow
   } finally {
     if (ownerId) {
       database(
-        `await p.inventoryLocation.deleteMany({where:{ownerPlayerId:${JSON.stringify(ownerId)}}});await p.user.deleteMany({where:{playerId:${JSON.stringify(ownerId)}}});await p.player.delete({where:{id:${JSON.stringify(ownerId)}}});return true;`,
+        `await p.inventoryAuditLog.deleteMany({where:{changedByUser:{username:${JSON.stringify(username)}}}});await p.inventoryItem.deleteMany({where:{currentOwnerId:${JSON.stringify(ownerId)}}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:${JSON.stringify(ownerId)}}});await p.user.deleteMany({where:{playerId:${JSON.stringify(ownerId)}}});await p.player.delete({where:{id:${JSON.stringify(ownerId)}}});return true;`,
       );
     }
   }
