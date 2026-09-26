@@ -1,5 +1,9 @@
 # UI acceptance status - 2026-09-26
 
+## Owned Inventory mutation path, 2026-09-26
+
+A disposable member-owned four-copy stack passed a local Chromium flow through Edit inventory, notes save, one-copy split to a second Box, Audit Trail and confirmed row deletion. Database assertions found one and three copies after splitting, both audit reasons, and zero owned inventory entries after deletion. The fixture removed its user, owner, locations and audit records. This gives direct behavior evidence for a representative I08, I10 and I11 path; bulk deletion, owner changes, restricted stacks and public read-only boundaries have separate evidence or remain for the broader #274 matrix. The application image did not change, so no Docker reload was needed.
+
 ## Administration route boundary sample, 2026-09-26
 
 A focused local browser case enumerated all six current static `/admin` pages. An anonymous visit went to Login; a signed-in member was redirected from every page; an admin-role account was redirected until it explicitly entered Admin Mode, then could render all six pages; exiting Admin Mode removed access again. The case passed 1/1 and cleaned its disposable users/owners (zero remain). This covers route-level access for this role sample under #274; it does not certify every administrative action or other role/ownership paths.
@@ -127,13 +131,13 @@ The filenames above are coverage pointers, not assertions that every possible co
 
 ## Action-level verification boundary
 
-The 45 action IDs in [CAPABILITIES.md](design/ui-consolidation/CAPABILITIES.md) name each retained control home and role boundary. The current cumulative application revision for this review is `8776e77`. The following checks run against that revision's Docker image; a browser case exercises a representative path within each ID, not necessarily every action named in that ID. Source-mapped controls remain in the crosswalk even where no direct browser mutation was repeated in this pass.
+The 45 action IDs in [CAPABILITIES.md](design/ui-consolidation/CAPABILITIES.md) name each retained control home and role boundary. The checks below accumulated across the UI batches; the owned Inventory mutation case ran on the healthy local image built from the #424 application source. A browser case exercises a representative path within each ID, not necessarily every action named in that ID. Source-mapped controls remain in the crosswalk even where no direct browser mutation was repeated in this pass.
 
 | Action IDs | Current direct evidence | Remaining limit |
 | --- | --- | --- |
 | I01-I03 | `inventory-workspace`, `inventory-color-filter`, `inventory-scryfall-query`, `location-hierarchy` | Not every filter combination is exhaustive |
 | I04-I07 | `inventory-workspace`, `inventory-export`, `vault-pilot`, `vault-map` | All-matching and every view preference are not crossed with every role |
-| I08-I11 | `inventory-detail`, `trade-wishlist`, inventory mutation/policy units | Destructive cleanup and every edit/split field are source mapped rather than browser repeated here |
+| I08-I11 | `inventory-mutation-acceptance` edit, split, audit and confirmed row delete; `inventory-detail`, `trade-wishlist`, inventory mutation/policy units | Bulk deletion, restricted stacks and every edit/split field are not crossed in this browser sample |
 | L01-L05 | `locations-workspace`, `location-hierarchy`, `location-scale`, `storage-layout`, `vault-map` | Every destructive storage action is not rerun on the snapshot |
 | M01-M05 | `imports-workspace`, `inventory-export`, real PostgreSQL import integrity script | Every legacy unsafe undo branch is checked in database tests, not through a browser path |
 | D01-D05 | `decks-brackets`, `deck-builder-workspace`, `pasted-decklist`, `league-lifecycle` | Every optimization and folder variant is not repeated in browser |
