@@ -1,5 +1,9 @@
 # UI acceptance status - 2026-09-26
 
+## Inventory touch move and one-copy wording, 2026-09-26
+
+The phone touch fixture now creates an owned four-copy Forest stack and two Box locations. At 390px it taps the row selection, chooses two copies before Move, taps the destination and confirms; at 320px it repeats with one of the remaining copies. The full flow passed 1/1 against the previous grouped image when its existing plural wording was accepted; fixture cleanup left zero touch users and 12,477 physical copies. That run exposed [#405](https://github.com/sefaction/MTG-Archives/issues/405): one selected copy was displayed as “1 copies,” with matching plural Move labels. The application wording and final test now require singular copy/card/entry labels. Typecheck passes; the final test awaits the next grouped Docker image before it can claim a pass. Human touch and assistive-technology review under #265/#274 remain open.
+
 ## Locations editing at actual browser zoom, 2026-09-26
 
 The owned Locations workspace fixture now opens a selected vault at actual 200% Chrome tab zoom in a disposable profile. The 1366×768 browser viewport becomes 683×384 CSS pixels at device pixel ratio 2. The selected vault remains visible, keyboard Enter opens Manage, the Description field and Save action remain reachable inside the viewport, and keyboard Enter saves an edit without page-level horizontal overflow. The full Locations fixture passed 1/1 on the grouped local Docker image; cleanup left zero fixture users and 12,477 physical copies. The zoomed screenshot capture was blank under headless Chromium, so this is behavioral and bounds evidence, not a visual certification. Human task review and wider #274 accessibility coverage remain open.
