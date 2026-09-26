@@ -1,6 +1,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { pricingMaintenanceMinutesRemaining } from "./pricing-archive-maintenance-window";
+import { verifyPricingRecoveryCopyDestination } from "./pricing-recovery-copy";
 
 const url = process.env.PRICING_DATABASE_URL;
 if (!url) throw new Error("PRICING_DATABASE_URL is required");
@@ -133,6 +134,13 @@ async function tick() {
 }
 
 async function main() {
+  if (apply) {
+    const recoveryTarget = process.env.PRICING_RECOVERY_COPY_DIR;
+    if (!recoveryTarget)
+      throw new Error("PRICING_RECOVERY_COPY_DIR is required for archive maintenance");
+    await verifyPricingRecoveryCopyDestination(process.env.BACKUP_DIR || "/app/backups",
+      recoveryTarget);
+  }
   do {
     try { await tick(); }
     catch (error) { console.error("[pricing-archive-maintenance]", error); }

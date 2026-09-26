@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Pricing maintenance recovery-copy preflight, 2026-09-26
+
+Active branch `feat/pricing-maintenance-copy-gate` stacks on green, open [PR #372](https://github.com/sefaction/MTG-Archives/pull/372). This batch requires an existing separate `PRICING_RECOVERY_COPY_DIR` before enabled archived-correction maintenance starts or claims its lease; the Compose service passes that env value, but no production destination is mounted or enabled. The read-only backlog command remains available without it. Recovery-copy unit and missing-target runner tests passed, as did typecheck and Compose configuration with the local env file. Next safe step: open dependent PR and collect CI. Raw deletion and the optional maintenance profile remain disabled; #330 stays open. Do not merge either PR without individual approval.
+
 ## Verified Pricing recovery copy pilot, 2026-09-26
 
 Active branch `feat/pricing-verified-recovery-copy` from merged main. Optional `PRICING_RECOVERY_COPY_DIR` copies and reads back the immutable raw archive and full Pricing database dump before guarded local archive activation or archived correction apply. An unavailable copy destination stops activation before live raw deletion. The isolated PostgreSQL archive/correction fixture, recovery-copy unit case, and typecheck passed. No Unraid mount is configured for this variable, no recurring maintenance or raw deletion is enabled, and same-host copy is not off-host recovery proof. Open a review PR and keep #330 open; the Inventory quantity-selection branch is separate. Do not merge without individual approval.
