@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, readFileSync, writeFileSync } from "node:fs";
 import { constants } from "node:fs";
-import { copyFile, link, lstat, mkdir, open, realpath, rm } from "node:fs/promises";
+import { copyFile, link, lstat, mkdir, open, readdir, realpath, rm } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 
 export type PricingRecoveryFile = { path: string; sha256: string };
@@ -163,4 +163,50 @@ export async function copyVerifiedPricingRecoveryFiles(sourceRoot: string,
     } finally { await rm(temporary, { force: true }); }
   }
   return copies;
+}
+
+/** A killed copy can leave an unpublished .partial-UUID beside its target.
+ * Only the exact temporary naming scheme is eligible, and only after a week.
+ * Published files, package indexes, symlinks and recent copies are untouched. */
+export async function pruneStalePricingRecoveryPartials(destinationRoot: string,
+  now = Date.now(), apply = false) {
+  const destination = await realpath(resolve(destinationRoot));
+  if (!(await lstat(destination)).isDirectory())
+    throw new Error("Pricing recovery destination must be a directory");
+  const cutoff = now - 7 * 24 * 60 * 60 * 1000;
+  const pending = [destination];
+  let eligible = 0, removed = 0, bytes = 0;
+  while (pending.length) {
+    const directory = pending.pop()!;
+    if (await realpath(directory) !== directory ||
+        (directory !== destination && !inside(destination, directory)))
+      throw new Error("Pricing recovery cleanup directory changed or escaped its root");
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const path = resolve(directory, entry.name);
+      if (!inside(destination, path))
+        throw new Error("Pricing recovery cleanup path escaped its root");
+      if (entry.isDirectory()) {
+        pending.push(path);
+        continue;
+      }
+      if (!/\.(?:dump|json|csv\.gz)\.partial-[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(entry.name))
+        continue;
+      const info = await lstat(path);
+      if (!info.isFile() || info.isSymbolicLink() || info.mtimeMs > cutoff)
+        continue;
+      eligible += 1;
+      bytes += info.size;
+      if (apply) {
+        // Recheck after the scan; a resumed or replaced copy must not be removed.
+        const current = await lstat(path);
+        if (!current.isFile() || current.isSymbolicLink() ||
+            current.mtimeMs > cutoff || current.ino !== info.ino ||
+            current.size !== info.size)
+          continue;
+        await rm(path);
+        removed += 1;
+      }
+    }
+  }
+  return { eligible, removed, bytes };
 }

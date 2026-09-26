@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync,
-  writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync,
+  utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import test from "node:test";
-import { copyVerifiedPricingRecoveryFiles, verifyPricingRecoveryCopyDestination } from
+import { copyVerifiedPricingRecoveryFiles, pruneStalePricingRecoveryPartials,
+  verifyPricingRecoveryCopyDestination } from
   "../scripts/pricing-recovery-copy";
 
 test("Pricing recovery copy reads back immutable archive and dump before reuse", async () => {
@@ -41,6 +42,37 @@ test("Pricing recovery copy reads back immutable archive and dump before reuse",
     writeFileSync(outside, "outside source root");
     await assert.rejects(copyVerifiedPricingRecoveryFiles(source, destination,
       [{ ...files[1], path: outside }]), /outside BACKUP_DIR/);
+  } finally {
+    const target = resolve(base);
+    assert.ok(target.startsWith(`${resolve(tmpdir())}${sep}`));
+    rmSync(target, { recursive: true, force: true });
+  }
+});
+
+test("off-hours cleanup removes only week-old unpublished recovery copies", async () => {
+  const base = mkdtempSync(join(tmpdir(), "pricing-recovery-partials-"));
+  try {
+    const nested = join(base, "raw", "2026-01-05");
+    mkdirSync(nested, { recursive: true });
+    const suffix = "12345678-1234-4123-8123-123456789abc";
+    const stale = join(nested, `segment.csv.gz.partial-${suffix}`);
+    const recent = join(base, `before.dump.partial-${suffix}`);
+    const published = join(nested, "segment.csv.gz");
+    const unrelated = join(nested, "notes.partial-unknown");
+    for (const path of [stale, recent, published, unrelated])
+      writeFileSync(path, "verified fixture");
+    const now = Date.now();
+    const old = new Date(now - 8 * 24 * 60 * 60 * 1000);
+    utimesSync(stale, old, old);
+    utimesSync(published, old, old);
+    utimesSync(unrelated, old, old);
+    assert.deepEqual(await pruneStalePricingRecoveryPartials(base, now),
+      { eligible: 1, removed: 0, bytes: 16 });
+    assert.ok(existsSync(stale));
+    assert.deepEqual(await pruneStalePricingRecoveryPartials(base, now, true),
+      { eligible: 1, removed: 1, bytes: 16 });
+    assert.ok(!existsSync(stale));
+    for (const path of [recent, published, unrelated]) assert.ok(existsSync(path));
   } finally {
     const target = resolve(base);
     assert.ok(target.startsWith(`${resolve(tmpdir())}${sep}`));
