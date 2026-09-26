@@ -1,5 +1,8 @@
 # UI acceptance status - 2026-09-26
 
+## Static phone-route overflow sweep, 2026-09-26
+
+An authenticated local Chromium check visited 15 static member routes, three public routes and six admin routes at both 390 and 320 CSS pixels: 48 route/viewport visits. It verified each rendered viewport width and found no page-wide horizontal overflow; locally scrolling tables and maps remain allowed. The focused case passed 1/1 against the healthy grouped local Docker image. This extends phone evidence beyond the task-specific fixtures, but dynamic Deck, League and Pricing detail routes remain covered by their separate owned workflows rather than this static sweep. It does not establish full visual or accessibility acceptance under #274.
 ## Inventory empty and loading states in local review, 2026-09-26
 
 Issue #416 records that a zero-match Inventory filter previously left an empty table with no nearby recovery action. The review build now distinguishes filtered zero matches from a collection with no cards. The first state offers Clear filters using the existing URL builder that retains display mode, page size, browsing mode and sort; the second links to Imports. Inventory's loading skeleton now has a spoken status and pulses only when reduced motion is not requested. These are state-feedback changes under #274, not a claim that every error/loading state is covered.
