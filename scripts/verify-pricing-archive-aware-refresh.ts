@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import {
@@ -356,6 +356,8 @@ try {
     WHERE observed_date = '2026-01-05'`), "PENDING");
   assert.equal(sql(testDatabase, `SELECT generation FROM price_raw_archive_segment
     WHERE observed_date = '2026-01-05'`), "1");
+  const beforeCorrectionRevision = sql(testDatabase,
+    `SELECT source_revision || ':' || summary_revision FROM price_summary_state WHERE singleton`);
   const appliedCorrection = runCorrection("2026-01-05", false, true);
   if (appliedCorrection.status !== 0)
     throw new Error(`Archived correction apply failed: ${appliedCorrection.stderr.trim()}`);
@@ -368,8 +370,78 @@ try {
     FROM price_scope_summary WHERE mtgjson_uuid = '${sparse}'`), "1:6.0000");
   assert.equal(sql(testDatabase, `SELECT snapshot_count || ':' || current_price
     FROM price_scope_summary WHERE mtgjson_uuid = '${addedSparseDate.mtgjsonUuid}'`), "1:5.0000");
+  const appliedReceipt = JSON.parse(readFileSync(JSON.parse(appliedCorrection.stdout.trim()
+    .split(/\r?\n/).at(-1)!).receiptPath, "utf8")) as { backup: string };
+  const rollbackName = `pricing_rollback_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
+  const rollbackDatabase = new URL(testDatabase);
+  rollbackDatabase.pathname = `/${rollbackName}`;
+  sql(admin, `CREATE DATABASE "${rollbackName}";`);
+  try {
+    const restored = spawnSync("pg_restore", ["--exit-on-error", "--no-owner",
+      "--no-acl", "--jobs=2", `--dbname=${rollbackDatabase.toString()}`,
+      appliedReceipt.backup], { encoding: "utf8", timeout: 120_000 });
+    if (restored.status !== 0)
+      throw new Error(`Correction rollback restore failed: ${restored.stderr.trim()}`);
+    assert.equal(sql(rollbackDatabase, `SELECT generation FROM price_raw_archive_segment
+      WHERE observed_date = '2026-01-05'`), "1");
+    assert.equal(sql(rollbackDatabase, `SELECT status FROM price_archive_feed_queue
+      WHERE observed_date = '2026-01-05'`), "PENDING");
+    assert.equal(sql(rollbackDatabase, `SELECT snapshot_count || ':' || current_price
+      FROM price_scope_summary WHERE mtgjson_uuid = '${sparse}'`), "1:4.0000");
+    assert.equal(sql(rollbackDatabase, `SELECT COUNT(*) FROM price_scope_summary
+      WHERE mtgjson_uuid = '${addedSparseDate.mtgjsonUuid}'`), "0");
+    assert.equal(sql(rollbackDatabase,
+      `SELECT source_revision || ':' || summary_revision FROM price_summary_state WHERE singleton`),
+      beforeCorrectionRevision);
+  } finally { sql(admin, `DROP DATABASE "${rollbackName}" WITH (FORCE);`); }
   assert.notEqual(runCorrection("2026-01-05", false, true).status, 0,
     "A completed feed generation must not apply twice");
+  const sparseOnlyRows = [correctedSparse];
+  const sparseOnlyFingerprint = archivedFeedFingerprint(sparseOnlyRows);
+  const sparseOnlyFile = writeArchivedFeedFile(archiveTestDirectory, "2026-01-05",
+    sparseOnlyFingerprint, sparseOnlyRows);
+  sql(testDatabase, `INSERT INTO price_archive_feed_queue
+    (observed_date, identity_fingerprint, source_job_id, spool_path,
+     spool_sha256, row_count) VALUES ('2026-01-05', '${sparseOnlyFingerprint}',
+    'fixture-sparse-only', '${sparseOnlyFile.path.replace(/'/g, "''")}',
+    '${sparseOnlyFile.fileSha256}', 1);`);
+  const beforeSparseOnlyRevision = sql(testDatabase,
+    `SELECT source_revision || ':' || summary_revision FROM price_summary_state WHERE singleton`);
+  const sparseOnlyResult = runCorrection("2026-01-05", false, true);
+  if (sparseOnlyResult.status !== 0)
+    throw new Error(`Sparse-only feed settlement failed: ${sparseOnlyResult.stderr.trim()}`);
+  const sparseOnlyFinal = JSON.parse(sparseOnlyResult.stdout.trim().split(/\r?\n/).at(-1)!);
+  assert.equal(sparseOnlyFinal.mode, "settled");
+  assert.equal(sparseOnlyFinal.status, "SOURCE_ANOMALY");
+  assert.equal(sql(testDatabase, `SELECT status FROM price_archive_feed_queue
+    WHERE observed_date = '2026-01-05' AND identity_fingerprint = '${sparseOnlyFingerprint}'`),
+  "SOURCE_ANOMALY");
+  assert.equal(sql(testDatabase, `SELECT generation FROM price_raw_archive_segment
+    WHERE observed_date = '2026-01-05'`), "2");
+  assert.equal(sql(testDatabase, `SELECT source_revision || ':' || summary_revision
+    FROM price_summary_state WHERE singleton`), beforeSparseOnlyRevision);
+  assert.equal(sql(testDatabase, `SELECT snapshot_count || ':' || current_price
+    FROM price_scope_summary WHERE mtgjson_uuid = '${addedSparseDate.mtgjsonUuid}'`),
+  "1:5.0000");
+  assert.notEqual(runCorrection("2026-01-05", false, true).status, 0,
+    "A settled source anomaly must not retry repeatedly");
+  const laterCorrectionRows = [{ ...correctedSparse, price: 7 }, addedSparseDate];
+  const laterFingerprint = archivedFeedFingerprint(laterCorrectionRows);
+  const laterFile = writeArchivedFeedFile(archiveTestDirectory, "2026-01-05",
+    laterFingerprint, laterCorrectionRows);
+  sql(testDatabase, `INSERT INTO price_archive_feed_queue
+    (observed_date, identity_fingerprint, source_job_id, spool_path,
+     spool_sha256, row_count) VALUES ('2026-01-05', '${laterFingerprint}',
+    'fixture-later-correction', '${laterFile.path.replace(/'/g, "''")}',
+    '${laterFile.fileSha256}', 2);`);
+  const laterResult = runCorrection("2026-01-05", false, true);
+  if (laterResult.status !== 0)
+    throw new Error(`Later full correction failed: ${laterResult.stderr.trim()}`);
+  assert.equal(sql(testDatabase, `SELECT status FROM price_archive_feed_queue
+    WHERE observed_date = '2026-01-05' AND identity_fingerprint = '${laterFingerprint}'`),
+  "APPLIED");
+  assert.equal(sql(testDatabase, `SELECT snapshot_count || ':' || current_price
+    FROM price_scope_summary WHERE mtgjson_uuid = '${sparse}'`), "1:7.0000");
   const gapOld = { ...oldInput, mtgjsonUuid: `archive-gap-${randomUUID()}`,
     observedDate: "2026-01-07", price: 3 };
   const gapFingerprint = archivedFeedFingerprint([gapOld]);
@@ -413,6 +485,22 @@ try {
     FROM price_archive_feed_queue WHERE observed_date = '${bulkDate}'`), "APPLIED:501");
   assert.equal(sql(testDatabase, `SELECT generation || ':' || raw_rows
     FROM price_raw_archive_segment WHERE observed_date = '${bulkDate}'`), "2:501");
+  const audit = spawnSync(process.execPath,
+    ["--import", "tsx", "scripts/pricing-archive-recovery-audit.ts"],
+    { env: { ...process.env, PRICING_DATABASE_URL: testDatabase.toString(),
+        BACKUP_DIR: archiveTestDirectory }, encoding: "utf8", timeout: 120_000 });
+  if (audit.status !== 0)
+    throw new Error(`Archived recovery audit failed: ${audit.stderr.trim()} ${audit.stdout.trim()}`);
+  assert.equal(JSON.parse(audit.stdout).healthy, true);
+  const activeBulkArchive = sql(testDatabase, `SELECT archive_path
+    FROM price_raw_archive_segment WHERE observed_date = '${bulkDate}'`);
+  writeFileSync(activeBulkArchive, "tampered fixture archive");
+  const tamperedAudit = spawnSync(process.execPath,
+    ["--import", "tsx", "scripts/pricing-archive-recovery-audit.ts"],
+    { env: { ...process.env, PRICING_DATABASE_URL: testDatabase.toString(),
+        BACKUP_DIR: archiveTestDirectory }, encoding: "utf8", timeout: 120_000 });
+  assert.notEqual(tamperedAudit.status, 0);
+  assert.equal(JSON.parse(tamperedAudit.stdout).healthy, false);
   sql(testDatabase, `INSERT INTO price_archive_maintenance_lease
     (singleton, owner, expires_at) VALUES (TRUE, 'fixture-owner-a', now() + interval '90 seconds');`);
   assert.equal(sql(testDatabase, `INSERT INTO price_archive_maintenance_lease
