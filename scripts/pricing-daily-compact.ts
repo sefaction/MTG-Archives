@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { getPricingRetentionPolicy } from "../lib/pricing-retention-policy";
+import { pricingArchiveApplyMode } from "./pricing-archive-authorization";
 import { copyVerifiedPricingRecoveryFiles, createPricingRecoveryPackage } from
   "./pricing-recovery-copy";
 import { pricingVerificationServer } from "./pricing-verification-server";
@@ -16,8 +17,7 @@ if (!["pricing-postgres", "localhost", "127.0.0.1"].includes(url.hostname) &&
   throw new Error("Daily compaction currently supports only the local pricing database.");
 url.searchParams.delete("schema");
 const apply = process.argv.includes("--apply");
-if (apply && process.env.MTG_LOCAL_PILOT_TEST !== "1")
-  throw new Error("Set MTG_LOCAL_PILOT_TEST=1 for a local compaction apply.");
+if (apply) pricingArchiveApplyMode();
 if (process.argv.some((arg) => arg.startsWith("--") && arg !== "--apply"))
   throw new Error("Only --apply is supported; without it this command is a dry run.");
 

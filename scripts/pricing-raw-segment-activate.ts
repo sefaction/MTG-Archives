@@ -4,6 +4,7 @@ import { createReadStream, readFileSync, writeFileSync, mkdirSync } from "node:f
 import { dirname, resolve, sep } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { getPricingRetentionPolicy } from "../lib/pricing-retention-policy";
+import { pricingArchiveApplyMode } from "./pricing-archive-authorization";
 import { rawSegmentFingerprintSql, rawSegmentIdentityFingerprintSql } from "./pricing-raw-segment-common";
 import { refreshPricingSummariesSql } from "./pricing-summary-sql";
 import { copyVerifiedPricingRecoveryFiles, createPricingRecoveryPackage } from "./pricing-recovery-copy";
@@ -24,8 +25,12 @@ const apply = args.includes("--apply");
 const selection = args.filter((arg) => arg !== "--apply");
 if (selection.length !== 2 || selection[0] !== "--manifest" || args.length !== selection.length + Number(apply))
   throw new Error("Use --manifest PATH [--apply]; default is a dry run");
-if (apply && process.env.MTG_LOCAL_PILOT_TEST !== "1")
-  throw new Error("MTG_LOCAL_PILOT_TEST=1 is required for local raw archive activation");
+if (apply) {
+  pricingArchiveApplyMode();
+  if (process.env.PRICING_ARCHIVE_PRODUCTION_ENABLED === "1" &&
+      process.env.PRICING_RAW_ARCHIVE_RETENTION_ENABLED !== "1")
+    throw new Error("Production raw activation requires retention opt-in");
+}
 const manifestPath = resolve(selection[1]);
 const rawRoot = resolve(root, "pricing", "raw");
 if (!manifestPath.startsWith(`${rawRoot}${sep}`))

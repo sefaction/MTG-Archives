@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { pricingMaintenanceMinutesRemaining } from "./pricing-archive-maintenance-window";
+import { pricingArchiveApplyMode } from "./pricing-archive-authorization";
 import { pruneStalePricingRecoveryPartials,
   verifyPricingRecoveryCopyDestination } from "./pricing-recovery-copy";
 import { pricingVerificationServer } from "./pricing-verification-server";
@@ -17,9 +18,11 @@ const once = process.argv.includes("--once");
 const apply = process.argv.includes("--apply");
 if (process.argv.slice(2).some((arg) => arg !== "--once" && arg !== "--apply"))
   throw new Error("Use [--once] [--apply]");
-if (apply && (process.env.PRICING_ARCHIVE_MAINTENANCE_ENABLED !== "1" ||
-    process.env.MTG_LOCAL_PILOT_TEST !== "1"))
-  throw new Error("Local archived maintenance requires both explicit opt-ins");
+if (apply) {
+  if (process.env.PRICING_ARCHIVE_MAINTENANCE_ENABLED !== "1")
+    throw new Error("Archived maintenance requires maintenance opt-in");
+  pricingArchiveApplyMode();
+}
 const owner = randomUUID();
 let partialCleanupCompleted = false;
 const literal = (value: string) => `'${value.replace(/'/g, "''")}'`;

@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { getPricingRetentionPolicy } from "../lib/pricing-retention-policy";
+import { pricingArchiveApplyMode } from "./pricing-archive-authorization";
 import { PRICING_RAW_ACTIVATION_BUDGET_MS, PRICING_RAW_STAGE_BUDGET_MS,
   pricingMaintenanceMillisecondsRemaining } from "./pricing-archive-maintenance-window";
 import { runPricingMaintenanceChild } from "./pricing-maintenance-child";
@@ -9,10 +10,12 @@ const args = process.argv.slice(2);
 if (args.some((arg) => arg !== "--apply") || args.length > 1)
   throw new Error("Use [--apply]; the default is a read-only plan");
 const apply = args.includes("--apply");
-if (apply && (process.env.PRICING_RAW_ARCHIVE_RETENTION_ENABLED !== "1" ||
-    process.env.PRICING_ARCHIVE_MAINTENANCE_ENABLED !== "1" ||
-    process.env.MTG_LOCAL_PILOT_TEST !== "1"))
-  throw new Error("Raw retention requires all three explicit local pilot opt-ins");
+if (apply) {
+  if (process.env.PRICING_RAW_ARCHIVE_RETENTION_ENABLED !== "1" ||
+      process.env.PRICING_ARCHIVE_MAINTENANCE_ENABLED !== "1")
+    throw new Error("Raw retention requires retention and maintenance opt-ins");
+  pricingArchiveApplyMode();
+}
 const configured = process.env.PRICING_DATABASE_URL;
 if (!configured) throw new Error("PRICING_DATABASE_URL is required");
 const database = new URL(configured);
