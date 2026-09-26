@@ -1,5 +1,9 @@
 # UI acceptance status - 2026-09-26
 
+## Edit and Audit Trail at actual 200% zoom, 2026-09-26
+
+The owned local browser case measured a 683 by 384 CSS pixel viewport at actual 200% tab zoom. It opened both named Inventory dialogs, checked their bounds and visible Close controls, and closed both with Escape. Audit Trail initially extended 12 CSS pixels below the viewport; an explicit zero top margin corrected it. All five Inventory detail cases and the separate owned edit/split/audit/delete case passed on the final grouped local image. This extends the focused #427 evidence below; #274 still requires its wider acceptance matrix.
+
 ## Inventory edit and audit modal recovery, 2026-09-26
 
 Issue #427 found that the Edit Inventory Item and Audit Trail overlays were ordinary fixed elements without modal keyboard behavior. Both now use named native dialogs. Escape or backdrop click closes each, focus stays out of the background, and closing returns focus to the row action or still-visible View details control. Edit has a visible Close button at the top and an internally scrollable height bound. The owned local Chromium case passed its desktop focus cycle, 390px phone bounds/Close/backdrop check, and actual 200% tab zoom at 683Ã—384 CSS pixels with Edit and Close still reachable. The five Inventory detail cases and the separate owned edit/split/audit/delete mutation case passed on the grouped local image. This is focused keyboard and layout evidence, not a screen-reader certification or the complete #274 matrix.

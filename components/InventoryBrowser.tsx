@@ -3428,7 +3428,8 @@ export function InventoryBrowser({
                 event.clientY < rect.top || event.clientY > rect.bottom)
               setAuditRow(null);
           }}
-          className="fixed inset-y-0 left-auto right-0 m-0 h-dvh max-h-none w-full max-w-3xl overflow-y-auto border-0 border-l border-zinc-800 bg-zinc-950 p-4 text-zinc-100 backdrop:bg-black/60"
+          style={{ marginTop: 0 }}
+          className="fixed inset-y-0 left-auto right-0 m-0 h-full max-h-full w-full max-w-3xl overflow-y-auto border-0 border-l border-zinc-800 bg-zinc-950 p-4 text-zinc-100 backdrop:bg-black/60"
         >
             <div className="flex items-start justify-between mb-4">
               <div>

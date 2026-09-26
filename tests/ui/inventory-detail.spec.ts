@@ -257,6 +257,17 @@ test("owned Inventory edit and audit panels contain focus and close from the key
     await expect(zoomEdit.getByRole("button", { name: "Close" })).toBeVisible();
     await zoomPage.keyboard.press("Escape");
     await expect(zoomEdit).toHaveCount(0);
+    await zoomPage.getByRole("button", { name: "View details" }).click();
+    await zoomPage.getByRole("button", { name: "Audit Trail" }).click();
+    const zoomAudit = zoomPage.getByRole("dialog", { name: "Inventory audit trail" });
+    await expect(zoomAudit).toBeVisible();
+    const auditBounds = (await zoomAudit.boundingBox())!;
+    expect(auditBounds.x).toBeGreaterThanOrEqual(0);
+    expect(auditBounds.x + auditBounds.width).toBeLessThanOrEqual(683);
+    expect(auditBounds.y + auditBounds.height).toBeLessThanOrEqual(384);
+    await expect(zoomAudit.getByRole("button", { name: "Close" })).toBeVisible();
+    await zoomPage.keyboard.press("Escape");
+    await expect(zoomAudit).toHaveCount(0);
   } finally {
     await zoomContext.close();
   }
