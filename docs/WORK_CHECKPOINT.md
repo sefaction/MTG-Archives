@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Verified Pricing recovery copy pilot, 2026-09-26
+
+Active branch `feat/pricing-verified-recovery-copy` from merged main. Optional `PRICING_RECOVERY_COPY_DIR` copies and reads back the immutable raw archive and full Pricing database dump before guarded local archive activation or archived correction apply. An unavailable copy destination stops activation before live raw deletion. The isolated PostgreSQL archive/correction fixture, recovery-copy unit case, and typecheck passed. No Unraid mount is configured for this variable, no recurring maintenance or raw deletion is enabled, and same-host copy is not off-host recovery proof. Open a review PR and keep #330 open; the Inventory quantity-selection branch is separate. Do not merge without individual approval.
+
 ## Inventory acceptance guide integration, 2026-09-26
 
 The user individually approved PR #371. Approved backup documentation PR #370 merged to main with fresh green checks. #371 updates the Inventory-first local review guide and acceptance status, while preserving #370 knowledge in main; only this historical checkpoint conflicted. Fresh Core and PostgreSQL checks are required before #371 merges. Cumulative Docker rebuild from exact merged application source is in progress. UI human review and browser 200% zoom remain open; Pricing raw deletion and optional maintenance remain disabled.

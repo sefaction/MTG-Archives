@@ -11,6 +11,7 @@ import { planArchivedCorrection, type ArchiveSegmentRecord,
 import { rawSegmentColumns, rawSegmentFingerprintSql,
   rawSegmentIdentityFingerprintSql } from "./pricing-raw-segment-common";
 import { pricingSummaryRefreshBodySql } from "./pricing-summary-sql";
+import { copyVerifiedPricingRecoveryFiles } from "./pricing-recovery-copy";
 
 const configured = process.env.PRICING_DATABASE_URL;
 const root = process.env.BACKUP_DIR;
@@ -412,6 +413,11 @@ async function main() {
       priorArchiveSha256: segment?.archiveSha256 ?? null,
       replacementManifest: manifestPath, state: before }, null, 2)}\n`,
       { flag: "wx" });
+    const recoveryTarget = process.env.PRICING_RECOVERY_COPY_DIR;
+    const recoveryFiles = [{ path: archive, sha256: replacement.archiveSha },
+      { path: backup, sha256: backupSha }];
+    const recoveryCopies = recoveryTarget ?
+      await copyVerifiedPricingRecoveryFiles(root!, recoveryTarget, recoveryFiles) : null;
     if (process.env.MTG_ARCHIVED_CORRECTION_TEST_FAIL_AFTER_RESTORE === "1")
       throw new Error("Injected correction interruption before activation");
     const statement = correctionSql(before, segment, queue, replacement,
@@ -429,6 +435,8 @@ async function main() {
         signature(database, plannedKeys) !== visibleBefore ||
         await fileSha(backup) !== backupSha || sha(readFileSync(archive)) !== replacement.archiveSha)
       throw new Error("Live Pricing source or verified files changed before correction activation");
+    if (recoveryTarget)
+      await copyVerifiedPricingRecoveryFiles(root!, recoveryTarget, recoveryFiles);
     command(database, statement);
     if (signature(database, keys) !== simulatedSignature ||
         records(database).segment?.archiveSha256 !== replacement.archiveSha)
@@ -438,7 +446,8 @@ async function main() {
       generation: (segment?.generation ?? 0) + 1, effects: effects.length,
       remaining,
       missingPreserved: plan.missing, archive, archiveSha256: replacement.archiveSha,
-      backup, backupSha256: backupSha, manifestPath }, null, 2)}\n`,
+      backup, backupSha256: backupSha, manifestPath,
+      recoveryCopies }, null, 2)}\n`,
       { flag: "wx" });
     console.log(JSON.stringify({ mode: "applied", observedDate: date,
       generation: (segment?.generation ?? 0) + 1, effects: effects.length,
