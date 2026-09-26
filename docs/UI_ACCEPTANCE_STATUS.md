@@ -1,5 +1,9 @@
 # UI acceptance status - 2026-09-26
 
+## All-matching Inventory export across pages, 2026-09-26
+
+An owned local browser fixture placed twelve different Forest printings across a ten-row Inventory page and one Island sentinel outside the card-name filter. Select all matching filters reported twelve entries and copies; the MTG Archives CSV included every tagged Forest entry from both pages and excluded the Island. The focused case passed 1/1 against the healthy local Docker image after #433 merged. Fixture users and temporary export backups returned to zero; the test restores any same-name pre-existing local export file. This provides direct I05/I07 evidence for filtered all-matching export, not every CSV format or selection/role permutation. No application code or Docker image changed.
+
 ## Populated trade flow on phone widths, 2026-09-26
 
 The owned three-person trade lifecycle now checks a populated proposal at 390 and 320 CSS pixels in a coarse-pointer Chromium context, including page-wide overflow and horizontal reachability of Submit Proposal. After acceptance, the 320px physical confirmation action also remains within the viewport. The full cancel, decline, counter, two-party confirmation, wishlist reconciliation and copy-conservation case passed 1/1 on the healthy cumulative local Docker image; fixture users returned to zero. This is a responsive/touch-emulated sample for W01/T01-T03 under #274, not a real-device review or every trade state at both widths. No application code changed.
@@ -153,7 +157,7 @@ The 45 action IDs in [CAPABILITIES.md](design/ui-consolidation/CAPABILITIES.md) 
 | Action IDs | Current direct evidence | Remaining limit |
 | --- | --- | --- |
 | I01-I03 | `inventory-workspace`, `inventory-color-filter`, `inventory-scryfall-query`, `location-hierarchy` | Not every filter combination is exhaustive |
-| I04-I07 | `inventory-workspace`, `inventory-export`, `vault-pilot`, `vault-map` | All-matching and every view preference are not crossed with every role |
+| I04-I07 | `inventory-workspace`, `inventory-export`, `inventory-allmatching-export`, `vault-pilot`, `vault-map` | Filtered all-matching CSV now crosses two pages; every view preference and role is not crossed |
 | I08-I11 | `inventory-mutation-acceptance` edit, split, audit and confirmed row delete; `inventory-detail`, `trade-wishlist`, inventory mutation/policy units | Bulk deletion, restricted stacks and every edit/split field are not crossed in this browser sample |
 | L01-L05 | `locations-workspace`, `location-contents-delete`, `location-hierarchy`, `location-scale`, `storage-layout`, `vault-map` | Direct-contents deletion now has an owned browser path; every type and storage deletion variant is not crossed |
 | M01-M05 | `imports-workspace`, `inventory-export`, real PostgreSQL import integrity script | Every legacy unsafe undo branch is checked in database tests, not through a browser path |
