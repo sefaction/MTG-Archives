@@ -1,7 +1,8 @@
 import { spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { pricingMaintenanceMinutesRemaining } from "./pricing-archive-maintenance-window";
-import { verifyPricingRecoveryCopyDestination } from "./pricing-recovery-copy";
+import { pruneStalePricingRecoveryPartials,
+  verifyPricingRecoveryCopyDestination } from "./pricing-recovery-copy";
 
 const url = process.env.PRICING_DATABASE_URL;
 if (!url) throw new Error("PRICING_DATABASE_URL is required");
@@ -17,6 +18,7 @@ if (apply && (process.env.PRICING_ARCHIVE_MAINTENANCE_ENABLED !== "1" ||
     process.env.MTG_LOCAL_PILOT_TEST !== "1"))
   throw new Error("Local archived maintenance requires both explicit opt-ins");
 const owner = randomUUID();
+let partialCleanupCompleted = false;
 const literal = (value: string) => `'${value.replace(/'/g, "''")}'`;
 
 function sql(statement: string) {
@@ -106,6 +108,16 @@ async function tick() {
     return;
   }
   try {
+    if (!partialCleanupCompleted) {
+      const cleanup = await pruneStalePricingRecoveryPartials(
+        process.env.PRICING_RECOVERY_COPY_DIR!, Date.now(), true);
+      console.info("[pricing-archive-maintenance] recovery partial cleanup", cleanup);
+      partialCleanupCompleted = true;
+      if (!heartbeat()) {
+        console.error("[pricing-archive-maintenance] lease lost during recovery cleanup");
+        return;
+      }
+    }
     const date = nextDate();
     if (!date) return;
     sql(`UPDATE price_archive_feed_queue SET attempt_count = attempt_count + 1,
