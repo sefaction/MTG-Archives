@@ -159,6 +159,18 @@ CREATE TABLE IF NOT EXISTS price_archived_scope_summary
 ${rollupSchema("price_archived_monthly_summary", "month_start")}
 ${rollupSchema("price_archived_weekly_summary", "week_start")}
 ${rollupSchema("price_archived_yearly_summary", "year_start")}
+CREATE TABLE IF NOT EXISTS price_raw_archive_segment (
+  observed_date DATE PRIMARY KEY,
+  archive_path TEXT NOT NULL,
+  archive_sha256 TEXT NOT NULL,
+  csv_sha256 TEXT NOT NULL,
+  source_fingerprint TEXT NOT NULL,
+  raw_rows INTEGER NOT NULL,
+  generation INTEGER NOT NULL DEFAULT 1,
+  backup_path TEXT NOT NULL,
+  backup_sha256 TEXT NOT NULL,
+  activated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 CREATE TABLE IF NOT EXISTS price_summary_state (
   singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),
