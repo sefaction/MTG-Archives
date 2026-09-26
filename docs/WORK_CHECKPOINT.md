@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Static phone-route overflow audit, 2026-09-26
+
+Active branch `test/static-phone-route-overflow` from merged main `10f415c` adds a read-only local browser sweep of 24 static member/public/admin routes at 390 and 320 CSS pixels. All 48 route/viewport visits returned without server errors or page-wide horizontal overflow; the focused case passed 1/1 against the healthy grouped Docker image. No app code or database fixture changed, so no Docker reload is needed. PR #417 for issue #416 is green, loaded locally and awaits individual approval. Typecheck, commit/PR and CI for this test batch are pending. #274 and #330 remain open; intended-host Pricing load and automatic retention are not enabled. Next safe step: finish checks, open the test-only PR, then continue the remaining #274 role/keyboard/state audit while waiting for host context on #330.
+
 ## Approved recovery and Inventory retry review, 2026-09-26
 
 Active branch `test/inventory-infinite-retry` refreshes user-approved [PR #415](https://github.com/sefaction/MTG-Archives/pull/415) against main after individually approved #413 and #414 merged. The owned browser case for infinite Inventory next-page HTTP 503 and Retry passed: 10 initial rows and a selected copy persisted, then Retry loaded 12 rows without losing selection. The combined opted-in serial Chromium run passed 62 cases with one separate Pricing retention load case intentionally skipped in 7.1 minutes. Fixture users returned to zero and Inventory to 12,477 copies. #415 needs fresh CI after this main merge, then may merge under its existing individual approval. No Docker reload is needed for its test/documentation-only changes. #315 Acquisition remains deferred. Next safe step: finish #415 merge, then address the remaining #274 acceptance matrix and #330 intended-host load/activation gate.

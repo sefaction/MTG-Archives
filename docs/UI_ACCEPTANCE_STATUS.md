@@ -1,5 +1,9 @@
 # UI acceptance status - 2026-09-26
 
+## Static phone-route overflow sweep, 2026-09-26
+
+An authenticated local Chromium check visited 15 static member routes, three public routes and six admin routes at both 390 and 320 CSS pixels: 48 route/viewport visits. It verified each rendered viewport width and found no page-wide horizontal overflow; locally scrolling tables and maps remain allowed. The focused case passed 1/1 against the healthy grouped local Docker image. This extends phone evidence beyond the task-specific fixtures, but dynamic Deck, League and Pricing detail routes remain covered by their separate owned workflows rather than this static sweep. It does not establish full visual or accessibility acceptance under #274.
+
 ## Current Inventory review and failure recovery, 2026-09-26
 
 The user reports Inventory card/storage filters work well: they can apply criteria, identify active filters, and revise or clear them without losing their place. They also accepted the selected-copy amount and Move confirmation, Deck editing, cross-section navigation, and Locations inspection/editing in the local app. The bounded Inventory filter #264, move #265, Deck #268 and navigation foundation #263 issues are closed; the wider role, device and state matrix in #274 remains open.
