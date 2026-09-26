@@ -1,8 +1,12 @@
 # Resumable work checkpoint
 
-## Approved Pricing archive stack integration, 2026-09-26
+## Pricing recovery audit main integration, 2026-09-26
 
-The user explicitly approved PR #367 to integrate the already-approved Pricing stack into main. PR #356 reached main; #357-#359 and #362-#364 were merged into parent feature branches, so #367 carries their code to main. Approved PR #361 merged independently with fresh green checks and closed issue #360. The only merge conflict is this historical checkpoint; the Pricing and import code merged automatically. Fresh Core and PostgreSQL checks are required on this integration head. #365, #366 and #368 remain unapproved. Raw deletion and the optional Pricing maintenance profile remain disabled.
+The user explicitly approved PR #365 after Pricing rollup #367 merged to main. This branch now targets main; audit code and tests merged automatically, with only the historical checkpoint resolved here. Its local fixture, typecheck and earlier PR checks passed. Fresh Core and PostgreSQL checks are required before merge. PRs #366 and #368 are also individually approved but must follow in order. Raw deletion and the optional maintenance profile remain disabled.
+
+## Archived Pricing recovery audit in progress, 2026-09-25
+
+Active branch `feat/pricing-archive-recovery-audit` is open, unapproved [PR #365](https://github.com/sefaction/MTG-Archives/pull/365), stacked on green, unapproved [PR #364](https://github.com/sefaction/MTG-Archives/pull/364). A new read-only command verifies active raw archive gzip and decompressed CSV hashes, full Pricing backup hashes and pending feed spool hashes against Pricing metadata, while rejecting missing, non-file or out-of-root paths. It explicitly reports that independent copy and restore proof are separate. The disposable PostgreSQL fixture now restores the pre-correction backup into a separate database after applying an old correction and checks original archive generation, queue, visible price and revisions. It also confirms a tampered active archive causes a nonzero audit result. Typecheck, fixture and `git diff --check` passed; #365 CI is pending. Local snapshot audit has no active segments or pending feeds and reported healthy, with independent copy and restore unverified. No normal raw row was deleted; the review Docker image remains `sha256:c262db5712b96beaa36ee9da9029ee4ae2dc95b05c4afc70f5041f47e8f2a982`. Next safe step: verify CI, then configure existing backup service target when the user identifies its path and verification method. Do not enable maintenance or merge any unapproved PR.
 
 ## Disabled archived Pricing maintenance runner in progress, 2026-09-25
 
