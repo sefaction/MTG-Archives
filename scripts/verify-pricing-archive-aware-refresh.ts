@@ -12,6 +12,7 @@ import {
 import { archivedFeedFingerprint, splitArchivedFeed,
   writeArchivedFeedFile } from "./pricing-archived-feed";
 import { pricingSnapshotUpsertSql } from "./pricing-snapshot-upsert-sql";
+import { rebuildArchivedSummariesSql } from "./pricing-archived-basis-sql";
 
 assert.equal(process.env.MTG_LOCAL_PILOT_TEST, "1", "Local/CI database opt-in required");
 const configured = process.env.PRICING_DATABASE_URL;
@@ -191,6 +192,16 @@ try {
   assert.equal(sql(testDatabase,
     `SELECT raw_archived_through FROM price_summary_state WHERE singleton`), "2026-01-10");
   assert.equal(sql(testDatabase, `SELECT COUNT(*) FROM price_raw_archive_segment`), "2");
+  assert.equal(sql(testDatabase, `SELECT COUNT(*) FROM price_archived_daily_basis`), "2");
+  const archivedStateSql = `WITH rows AS (
+    ${["scope", "monthly", "weekly", "yearly"].map((tier) =>
+      `SELECT '${tier}' AS tier, (to_jsonb(s)-'refreshed_at')::text AS value
+       FROM price_archived_${tier}_summary s`).join(" UNION ALL ")}
+  ) SELECT md5(string_agg(md5(tier || value), '' ORDER BY tier, value)) FROM rows;`;
+  const archivedBefore = sql(testDatabase, archivedStateSql);
+  sql(testDatabase, rebuildArchivedSummariesSql(JSON.stringify(keys)));
+  assert.equal(sql(testDatabase, archivedStateSql), archivedBefore,
+    "Daily basis must reproduce archived scope and tier extrema exactly");
   sql(testDatabase, pricingSnapshotUpsertSql([oldInput]), true);
   assert.equal(sql(testDatabase, pricingSnapshotUpsertSql([oldInput], "2026-01-10")),
     "0|0|0");
@@ -264,7 +275,29 @@ try {
       WHERE mtgjson_uuid = '${card}'`),
     "4:11.0000",
   );
-  console.log("Archive-aware refresh, sparse scope and full rebuild passed.");
+  const addedOld = `archive-added-${randomUUID()}`;
+  sql(testDatabase, `UPDATE price_archived_daily_basis SET price = 12,
+    source_revision_count = source_revision_count + 1,
+    current_ingested_at = now(), latest_ingested_at = now()
+    WHERE mtgjson_uuid = '${card}' AND observed_date = '2026-01-10';
+  INSERT INTO price_archived_daily_basis
+    (mtgjson_uuid, provider, finish, price_type, currency, observed_date,
+     price, source_snapshot_id, source_revision_count, current_ingested_at,
+     raw_count, latest_ingested_at)
+    VALUES ('${addedOld}', 'tcgplayer', 'normal', 'retail', 'USD',
+      '2026-01-10', 5, 1000000, 0, now(), 1, now());`);
+  const correctedKeys = [keys[0], { ...keys[0], mtgjson_uuid: addedOld }];
+  sql(testDatabase, rebuildArchivedSummariesSql(JSON.stringify(correctedKeys)));
+  sql(testDatabase, refreshPricingSummariesSql(JSON.stringify(correctedKeys)));
+  assert.equal(sql(testDatabase, `SELECT open_price || ':' || close_price || ':' ||
+    low_price || ':' || high_price || ':' || observation_count
+    FROM price_monthly_summary WHERE mtgjson_uuid = '${card}'
+      AND month_start = '2026-01-01'`), "12.0000:9.0000:9.0000:12.0000:2");
+  assert.equal(sql(testDatabase, `SELECT observation_count || ':' || high_price
+    FROM price_yearly_summary WHERE mtgjson_uuid = '${card}'`), "4:12.0000");
+  assert.equal(sql(testDatabase, `SELECT snapshot_count || ':' || current_price
+    FROM price_scope_summary WHERE mtgjson_uuid = '${addedOld}'`), "1:5.0000");
+  console.log("Archive-aware refresh, old correction, sparse scope and full rebuild passed.");
 } finally {
   if (created) sql(admin, `DROP DATABASE "${name}" WITH (FORCE);`);
   const resolvedTestDirectory = resolve(archiveTestDirectory);
