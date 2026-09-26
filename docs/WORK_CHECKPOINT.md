@@ -2,7 +2,7 @@
 
 ## Scripted core-task action sample, 2026-09-26
 
-Active branch `test/ui-core-task-actions` starts from merged main `cfdd0c2`; green PR #435 is still open and needs individual approval. New owned local Chromium fixture `tests/ui/core-task-actions.spec.ts` measured nine scripted control actions for a five-copy filtered Inventory move and five for a Locations search/edit, excluding login and direct task entry. It verified the primary controls in the first 1366×768 viewport, destination database quantity and retained location search/selection context. Focused browser case passed 1/1, typecheck passed, fixture cleanup ran, and no app code or Docker image changed. Next safe step: commit/push this test and status record, open its PR and collect CI; do not merge #435 or the new PR without their own user approvals. #274 and #330 remain open; automatic Pricing retention is off.
+Active branch `test/ui-core-task-actions` starts from merged main `cfdd0c2`; green PR #435 is still open and needs individual approval. New owned local Chromium fixture `tests/ui/core-task-actions.spec.ts` measured nine scripted control actions for a five-copy filtered Inventory move and five for a Locations search/edit, excluding login and direct task entry. It verified the primary controls in the first 1366×768 viewport, destination database quantity and retained location search/selection context. Focused browser case passed 1/1, typecheck passed, fixture users returned to zero, and no app code or Docker image changed. Commit `16b3408` opened PR #436. Next safe step: collect #436 CI; do not merge #435 or #436 without their own user approvals. #274 and #330 remain open; automatic Pricing retention is off.
 
 ## All-matching Inventory export acceptance, 2026-09-26
 
