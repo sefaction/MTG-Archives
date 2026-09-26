@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Local admin-route role boundary batch, 2026-09-26
+
+Active branch `test/ui-route-role-boundaries` from merged main `4333e28` adds a test-only local Playwright check for all six static `/admin` pages. The case passed 1/1: anonymous Login redirect, member redirect on every page, admin-role redirect before mode, all six pages available in Admin Mode, and denial again after exit. Temporary users and owners returned to zero; local Docker was already healthy and no image reload was needed. Typecheck passed. PR/CI are pending; #274 remains open for action-level and broader role/keyboard/state coverage. Green PR #422 documents the user's local-only Pricing test direction but awaits individual merge approval. Next safe step: open the bounded role-test PR, collect CI and user review, then continue #274 and #330 local operational work.
+
 ## Static-route actual browser zoom audit, 2026-09-26
 
 Active branch `test/static-browser-zoom` from merged main `10f415c` adds a test-only local Chromium sweep across all 24 static member/public/admin routes at actual 200% tab zoom. The focused case passed 1/1; every route kept a 683×384 CSS viewport at DPR 2, returned without a server error and avoided page-wide overflow. The already healthy local Docker app was used; no reload or database fixture was needed. Typecheck, PR and CI are pending. Open PRs #417, #418 and #420 remain green but individually unapproved, and Acquisition #315 stays deferred. #274 and #330 remain open; next safe step is final checks/PR for this bounded zoom audit, then resume Pricing host-load preparation when the host location is confirmed.
