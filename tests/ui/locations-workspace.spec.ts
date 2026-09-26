@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { openLocalPageAt200Percent } from "./local-browser-zoom";
 
 test.use({ trace: "off", screenshot: "off", video: "off" });
 const quote = JSON.stringify;
@@ -347,6 +348,41 @@ test("Locations browses first and preserves storage, management, deck and owner 
       path: "test-results/locations-workspace-enlarged.png",
       fullPage: true,
     });
+
+    // Actual tab zoom keeps a selected vault and its management task usable.
+    const zoomed = await openLocalPageAt200Percent(
+      baseURL, tag, password, `/locations?selected=${fixture.vaultId}`,
+    );
+    try {
+      const zoomPage = zoomed.page;
+      await expect.poll(() => zoomPage.evaluate(
+        () => [innerWidth, innerHeight, devicePixelRatio].join(","),
+      )).toBe("683,384,2");
+      await noOverflow(zoomPage);
+      const zoomDetail = zoomPage.getByRole("article", { name: "Selected location" });
+      await expect(zoomDetail.getByRole("heading", { name: "Aster Vault", exact: true }))
+        .toBeVisible();
+      await zoomDetail.getByRole("link", { name: "Manage", exact: true }).focus();
+      await zoomPage.keyboard.press("Enter");
+      const zoomEditor = zoomDetail.locator("form").filter({
+        has: zoomPage.getByRole("button", { name: "Save location", exact: true }),
+      });
+      await zoomEditor.getByLabel("Description", { exact: true })
+        .fill("Zoomed vault edit verified");
+      const save = zoomEditor.getByRole("button", { name: "Save location", exact: true });
+      await save.scrollIntoViewIfNeeded();
+      const bounds = await save.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.y).toBeGreaterThanOrEqual(0);
+      expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(384);
+      await noOverflow(zoomPage);
+      await save.focus();
+      await expect(save).toBeFocused();
+      await zoomPage.keyboard.press("Enter");
+      await expect(zoomDetail).toContainText("Zoomed vault edit verified");
+    } finally {
+      await zoomed.context.close();
+    }
   } finally {
     database(`const owners=await p.player.findMany({where:{name:{in:[${quote(tag)},${quote(tag + "-other")}]}}});const ids=owners.map(x=>x.id);
       await p.inventoryAuditLog.deleteMany({where:{changedByUser:{username:${quote(tag)}}}});
