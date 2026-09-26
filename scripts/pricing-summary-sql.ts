@@ -199,11 +199,13 @@ CREATE TABLE IF NOT EXISTS price_archive_feed_queue (
   spool_sha256 TEXT NOT NULL,
   row_count INTEGER NOT NULL,
   status TEXT NOT NULL DEFAULT 'PENDING',
+  applied_count INTEGER NOT NULL DEFAULT 0,
   queued_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   processed_at TIMESTAMPTZ,
   error TEXT,
   PRIMARY KEY (observed_date, identity_fingerprint)
 );
+ALTER TABLE price_archive_feed_queue ADD COLUMN IF NOT EXISTS applied_count INTEGER NOT NULL DEFAULT 0;
 CREATE INDEX IF NOT EXISTS price_archive_feed_queue_pending_idx
   ON price_archive_feed_queue (status, observed_date, queued_at);
 
@@ -242,15 +244,7 @@ CREATE INDEX IF NOT EXISTS price_monthly_summary_scope_month_idx
  * this statement after an interrupted import or a corrected raw observation
  * produces the same projections. The source snapshot ID keeps provenance.
  */
-export function refreshPricingSummariesSql(keysJson: string) {
-  return `
-BEGIN;
-CREATE TEMP TABLE touched_price_keys ON COMMIT DROP AS
-SELECT DISTINCT mtgjson_uuid, provider, finish, price_type, currency
-FROM jsonb_to_recordset('${keysJson.replace(/'/g, "''")}'::jsonb)
-  AS k(mtgjson_uuid text, provider text, finish text, price_type text, currency text);
-
-DO $$ BEGIN
+export const pricingSummaryRefreshBodySql = `DO $$ BEGIN
   IF EXISTS (
     SELECT 1 FROM touched_price_keys k JOIN price_snapshots s
       ON (s.mtgjson_uuid, s.provider, s.finish, s.price_type, s.currency) =
@@ -346,8 +340,16 @@ DELETE FROM price_daily_summary d USING touched_price_keys k
 WHERE (d.mtgjson_uuid, d.provider, d.finish, d.price_type, d.currency) =
       (k.mtgjson_uuid, k.provider, k.finish, k.price_type, k.currency)
   AND d.observed_date <= (SELECT daily_compacted_through FROM price_summary_state WHERE singleton = TRUE);
-COMMIT;
 `;
+
+export function refreshPricingSummariesSql(keysJson: string) {
+  return `BEGIN;
+CREATE TEMP TABLE touched_price_keys ON COMMIT DROP AS
+SELECT DISTINCT mtgjson_uuid, provider, finish, price_type, currency
+FROM jsonb_to_recordset('${keysJson.replace(/'/g, "''")}'::jsonb)
+  AS k(mtgjson_uuid text, provider text, finish text, price_type text, currency text);
+${pricingSummaryRefreshBodySql}
+COMMIT;`;
 }
 
 /** Fill newly introduced long-range tiers from the verified daily projection. */

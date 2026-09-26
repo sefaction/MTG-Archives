@@ -13,6 +13,7 @@ import { archivedFeedFingerprint, splitArchivedFeed,
   writeArchivedFeedFile } from "./pricing-archived-feed";
 import { pricingSnapshotUpsertSql } from "./pricing-snapshot-upsert-sql";
 import { rebuildArchivedSummariesSql } from "./pricing-archived-basis-sql";
+import { planArchivedCorrection } from "./pricing-archived-correction-plan";
 
 assert.equal(process.env.MTG_LOCAL_PILOT_TEST, "1", "Local/CI database opt-in required");
 const configured = process.env.PRICING_DATABASE_URL;
@@ -118,6 +119,32 @@ try {
   assert.equal(writeArchivedFeedFile(archiveTestDirectory, "2026-01-10",
     archivedFeedFingerprint([{ ...oldInput, price: 8 }]),
     [{ ...oldInput, price: 8 }]).fileSha256, feedFile.fileSha256);
+  const segmentRecord = { observedDate: "2026-01-10",
+    archivePath: manifest.archive, archiveSha256: manifest.archiveSha256,
+    csvSha256: manifest.csvSha256,
+    identityFingerprint: manifest.identityFingerprint,
+    rawRows: manifest.rows, generation: 1 };
+  const queuedRecord = { observedDate: "2026-01-10",
+    identityFingerprint: archivedFeedFingerprint([{ ...oldInput, price: 8 }]),
+    spoolPath: feedFile.path, spoolSha256: feedFile.fileSha256,
+    rowCount: feedFile.rows };
+  const correctionPlan = planArchivedCorrection(archiveTestDirectory,
+    "2026-01-10", segmentRecord, queuedRecord);
+  assert.deepEqual([correctionPlan.corrected, correctionPlan.added,
+    correctionPlan.unchanged, correctionPlan.missing], [1, 0, 0, 0]);
+  assert.throws(() => planArchivedCorrection(archiveTestDirectory,
+    "2026-01-10", segmentRecord, { ...queuedRecord,
+      spoolSha256: "0".repeat(64) }), /hash differs/);
+  const absentOld = { ...oldInput, mtgjsonUuid: `${card}-new`, price: 6 };
+  const missingFeed = writeArchivedFeedFile(archiveTestDirectory,
+    "2026-01-10", archivedFeedFingerprint([absentOld]), [absentOld]);
+  const missingPlan = planArchivedCorrection(archiveTestDirectory,
+    "2026-01-10", segmentRecord, { observedDate: "2026-01-10",
+      identityFingerprint: archivedFeedFingerprint([absentOld]),
+      spoolPath: missingFeed.path, spoolSha256: missingFeed.fileSha256,
+      rowCount: 1 });
+  assert.equal(missingPlan.added, 1);
+  assert.equal(missingPlan.missing, 1);
   assert.equal(readdirSync(join(archiveTestDirectory, "pricing", "raw", "2026-01-10")).length, 2);
   const empty = spawnSync(
     process.execPath,
@@ -297,6 +324,95 @@ try {
     FROM price_yearly_summary WHERE mtgjson_uuid = '${card}'`), "4:12.0000");
   assert.equal(sql(testDatabase, `SELECT snapshot_count || ':' || current_price
     FROM price_scope_summary WHERE mtgjson_uuid = '${addedOld}'`), "1:5.0000");
+  const correctedSparse = { ...oldInput, mtgjsonUuid: sparse,
+    observedDate: "2026-01-05", price: 6 };
+  const addedSparseDate = { ...correctedSparse,
+    mtgjsonUuid: `archive-new-date-${randomUUID()}`, price: 5 };
+  const queuedRows = [correctedSparse, addedSparseDate];
+  const queuedFingerprint = archivedFeedFingerprint(queuedRows);
+  const queuedFile = writeArchivedFeedFile(archiveTestDirectory, "2026-01-05",
+    queuedFingerprint, queuedRows);
+  sql(testDatabase, `INSERT INTO price_archive_feed_queue
+    (observed_date, identity_fingerprint, source_job_id, spool_path,
+     spool_sha256, row_count) VALUES ('2026-01-05', '${queuedFingerprint}',
+    'fixture-job', '${queuedFile.path.replace(/'/g, "''")}',
+    '${queuedFile.fileSha256}', 2);`);
+  const runCorrection = (day: string, interrupted: boolean, apply: boolean) => spawnSync(
+    process.execPath, ["--import", "tsx",
+      "scripts/pricing-archived-correction-apply.ts", "--date", day,
+      ...(apply ? ["--apply"] : [])],
+    { env: { ...process.env, PRICING_DATABASE_URL: testDatabase.toString(),
+        BACKUP_DIR: archiveTestDirectory, MTG_LOCAL_PILOT_TEST: "1",
+        MTG_ARCHIVED_CORRECTION_TEST_FAIL_AFTER_RESTORE: interrupted ? "1" : "0" },
+      encoding: "utf8", timeout: 180_000, maxBuffer: 1024 * 1024 });
+  const correctionPreview = runCorrection("2026-01-05", false, false);
+  if (correctionPreview.status !== 0)
+    throw new Error(`Archived correction plan failed: ${correctionPreview.stderr.trim()}`);
+  assert.equal(JSON.parse(correctionPreview.stdout.trim()).corrected, 1);
+  const interruptedCorrection = runCorrection("2026-01-05", true, true);
+  assert.notEqual(interruptedCorrection.status, 0);
+  assert.match(interruptedCorrection.stderr, /Injected correction interruption/);
+  assert.equal(sql(testDatabase, `SELECT status FROM price_archive_feed_queue
+    WHERE observed_date = '2026-01-05'`), "PENDING");
+  assert.equal(sql(testDatabase, `SELECT generation FROM price_raw_archive_segment
+    WHERE observed_date = '2026-01-05'`), "1");
+  const appliedCorrection = runCorrection("2026-01-05", false, true);
+  if (appliedCorrection.status !== 0)
+    throw new Error(`Archived correction apply failed: ${appliedCorrection.stderr.trim()}`);
+  assert.equal(JSON.parse(appliedCorrection.stdout.trim().split(/\r?\n/).at(-1)!).effects, 2);
+  assert.equal(sql(testDatabase, `SELECT status FROM price_archive_feed_queue
+    WHERE observed_date = '2026-01-05'`), "APPLIED");
+  assert.equal(sql(testDatabase, `SELECT generation FROM price_raw_archive_segment
+    WHERE observed_date = '2026-01-05'`), "2");
+  assert.equal(sql(testDatabase, `SELECT snapshot_count || ':' || current_price
+    FROM price_scope_summary WHERE mtgjson_uuid = '${sparse}'`), "1:6.0000");
+  assert.equal(sql(testDatabase, `SELECT snapshot_count || ':' || current_price
+    FROM price_scope_summary WHERE mtgjson_uuid = '${addedSparseDate.mtgjsonUuid}'`), "1:5.0000");
+  assert.notEqual(runCorrection("2026-01-05", false, true).status, 0,
+    "A completed feed generation must not apply twice");
+  const gapOld = { ...oldInput, mtgjsonUuid: `archive-gap-${randomUUID()}`,
+    observedDate: "2026-01-07", price: 3 };
+  const gapFingerprint = archivedFeedFingerprint([gapOld]);
+  const gapFile = writeArchivedFeedFile(archiveTestDirectory, "2026-01-07",
+    gapFingerprint, [gapOld]);
+  sql(testDatabase, `INSERT INTO price_archive_feed_queue
+    (observed_date, identity_fingerprint, source_job_id, spool_path,
+     spool_sha256, row_count) VALUES ('2026-01-07', '${gapFingerprint}',
+    'fixture-gap', '${gapFile.path.replace(/'/g, "''")}',
+    '${gapFile.fileSha256}', 1);`);
+  const gapApplied = runCorrection("2026-01-07", false, true);
+  if (gapApplied.status !== 0)
+    throw new Error(`Archived gap-date apply failed: ${gapApplied.stderr.trim()}`);
+  assert.equal(sql(testDatabase, `SELECT generation FROM price_raw_archive_segment
+    WHERE observed_date = '2026-01-07'`), "1");
+  assert.equal(sql(testDatabase, `SELECT snapshot_count || ':' || current_price
+    FROM price_scope_summary WHERE mtgjson_uuid = '${gapOld.mtgjsonUuid}'`), "1:3.0000");
+  const bulkDate = "2026-01-08";
+  const bulkRows = Array.from({ length: 501 }, (_, index) => ({ ...oldInput,
+    mtgjsonUuid: `archive-bulk-${index.toString().padStart(3, "0")}-${card}`,
+    observedDate: bulkDate, price: 2 }));
+  const bulkFingerprint = archivedFeedFingerprint(bulkRows);
+  const bulkFile = writeArchivedFeedFile(archiveTestDirectory, bulkDate,
+    bulkFingerprint, bulkRows);
+  sql(testDatabase, `INSERT INTO price_archive_feed_queue
+    (observed_date, identity_fingerprint, source_job_id, spool_path,
+     spool_sha256, row_count) VALUES ('${bulkDate}', '${bulkFingerprint}',
+    'fixture-bulk', '${bulkFile.path.replace(/'/g, "''")}',
+    '${bulkFile.fileSha256}', 501);`);
+  const firstBulk = runCorrection(bulkDate, false, true);
+  if (firstBulk.status !== 0)
+    throw new Error(`First bounded correction failed: ${firstBulk.stderr.trim()}`);
+  assert.equal(JSON.parse(firstBulk.stdout.trim().split(/\r?\n/).at(-1)!).remaining, 1);
+  assert.equal(sql(testDatabase, `SELECT status || ':' || applied_count
+    FROM price_archive_feed_queue WHERE observed_date = '${bulkDate}'`), "PENDING:500");
+  const finalBulk = runCorrection(bulkDate, false, true);
+  if (finalBulk.status !== 0)
+    throw new Error(`Resumed bounded correction failed: ${finalBulk.stderr.trim()}`);
+  assert.equal(JSON.parse(finalBulk.stdout.trim().split(/\r?\n/).at(-1)!).remaining, 0);
+  assert.equal(sql(testDatabase, `SELECT status || ':' || applied_count
+    FROM price_archive_feed_queue WHERE observed_date = '${bulkDate}'`), "APPLIED:501");
+  assert.equal(sql(testDatabase, `SELECT generation || ':' || raw_rows
+    FROM price_raw_archive_segment WHERE observed_date = '${bulkDate}'`), "2:501");
   console.log("Archive-aware refresh, old correction, sparse scope and full rebuild passed.");
 } finally {
   if (created) sql(admin, `DROP DATABASE "${name}" WITH (FORCE);`);
