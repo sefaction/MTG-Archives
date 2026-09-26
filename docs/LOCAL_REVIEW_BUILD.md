@@ -1,6 +1,10 @@
 # Local review build — cumulative issue queue
 
-## Current Inventory copy selection review, 2026-09-26
+## Current cumulative review, 2026-09-26
+
+The local app at `http://127.0.0.1:13001` runs image `sha256:84e3d0acf494a2e7a5e044c9c9fb373c6efa7e376fefa5b4e94d16db6a96ed63`, built directly from cumulative worktree `local/cumulative-review-v8` at `a57639e`. Web, Pricing worker and notification worker all use that image; `/login` returned HTTP 200. The image carries the unapproved Pricing application stack through #392, Inventory selection through #373, and the same-name row control fix for #400. Pricing worker and summary SQL file hashes matched the worktree/image, and the compiled Inventory chunk contains the new control label. The test/docs-only Inventory acceptance PRs #378/#393–#399 do not change application code. Four focused local browser cases passed for Inventory labels and moves, storage layout, vault map and vault pilot; disposable users cleaned to zero and the physical copy total returned to 12,477. Automatic Pricing retention and archive maintenance remain disabled. Every unmerged PR requires its own approval before merge.
+
+## Previous Inventory copy selection review, 2026-09-26
 
 Open http://127.0.0.1:13001/inventory. The cumulative local Docker image `sha256:dfac076c44282613485cbb1495570c1fdb67a52914fcbf12b5fbbf6b4c2e80aa` includes unmerged #372/#373 and the dependent Pricing maintenance target gate. Web is healthy and `/login` returned HTTP 200. Pricing raw deletion and archive maintenance remain disabled.
 
