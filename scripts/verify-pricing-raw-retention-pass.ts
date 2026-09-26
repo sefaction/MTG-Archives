@@ -1,0 +1,95 @@
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve, sep } from "node:path";
+import { pricingSummarySchemaSql, refreshPricingSummariesSql } from "./pricing-summary-sql";
+
+assert.equal(process.env.MTG_LOCAL_PILOT_TEST, "1");
+const source = new URL(process.env.PRICING_DATABASE_URL!);
+assert.ok(["pricing-postgres", "localhost", "127.0.0.1"].includes(source.hostname));
+source.searchParams.delete("schema");
+const admin = new URL(source);
+admin.pathname = "/postgres";
+const name = "pricing_retention_verify_" + randomUUID().replace(/-/g, "").slice(0, 16);
+const database = new URL(source);
+database.pathname = "/" + name;
+const backup = mkdtempSync(join(tmpdir(), "pricing-retention-backup-"));
+const recovery = mkdtempSync(join(tmpdir(), "pricing-retention-recovery-"));
+mkdirSync(join(backup, "pricing"));
+let created = false;
+
+function sql(url: URL, statement: string) {
+  const result = spawnSync("psql", [url.toString(), "-v", "ON_ERROR_STOP=1",
+    "-q", "-t", "-A", "-f", "-"], { input: statement,
+    encoding: "utf8", timeout: 120_000, maxBuffer: 1024 * 1024 });
+  if (result.status !== 0) throw new Error("Fixture SQL failed: " + result.stderr.trim());
+  return result.stdout.trim();
+}
+function script(path: string, args: string[] = []) {
+  return spawnSync(process.execPath, ["--import", "tsx", path, ...args],
+    { env: { ...process.env, PRICING_DATABASE_URL: database.toString(),
+      BACKUP_DIR: backup, PRICING_RECOVERY_COPY_DIR: recovery,
+      PRICING_RAW_ARCHIVE_RETENTION_ENABLED: "1",
+      PRICING_ARCHIVE_MAINTENANCE_ENABLED: "1", MTG_LOCAL_PILOT_TEST: "1" },
+      encoding: "utf8", timeout: 180_000, maxBuffer: 1024 * 1024 });
+}
+function lastJson(output: string) {
+  return JSON.parse(output.trim().split(/\r?\n/).at(-1) ?? "{}");
+}
+
+try {
+  sql(admin, 'CREATE DATABASE "' + name + '";');
+  created = true;
+  sql(database, "CREATE TABLE price_snapshots (id BIGSERIAL PRIMARY KEY, scryfall_id TEXT, " +
+    "mtgjson_uuid TEXT NOT NULL, provider TEXT NOT NULL, finish TEXT NOT NULL, " +
+    "price_type TEXT NOT NULL, currency TEXT NOT NULL, observed_date DATE NOT NULL, " +
+    "price NUMERIC(12,4) NOT NULL, raw_json JSONB, card_name TEXT, set_code TEXT, " +
+    "collector_number TEXT, revision_count INTEGER NOT NULL DEFAULT 0, " +
+    "created_at TIMESTAMPTZ NOT NULL DEFAULT now()); " +
+    "CREATE UNIQUE INDEX price_snapshots_identity_key ON price_snapshots " +
+    "((COALESCE(mtgjson_uuid, '')), (COALESCE(scryfall_id, '')), provider, finish, " +
+    "price_type, currency, observed_date); " +
+    "CREATE TABLE price_import_jobs (status TEXT NOT NULL);");
+  sql(database, pricingSummarySchemaSql);
+  const oldDate = sql(database, "SELECT (CURRENT_DATE - interval '120 days')::date::text;");
+  const recentDate = sql(database, "SELECT (CURRENT_DATE - interval '1 day')::date::text;");
+  const card = "retention-fixture-" + randomUUID();
+  sql(database, "INSERT INTO price_snapshots " +
+    "(mtgjson_uuid, provider, finish, price_type, currency, observed_date, price) VALUES " +
+    "('" + card + "', 'tcgplayer', 'normal', 'retail', 'USD', '" + oldDate + "', 4), " +
+    "('" + card + "', 'tcgplayer', 'normal', 'retail', 'USD', '" + recentDate + "', 6);");
+  sql(database, refreshPricingSummariesSql(JSON.stringify([{ mtgjson_uuid: card,
+    provider: "tcgplayer", finish: "normal", price_type: "retail", currency: "USD" }])));
+  sql(database, "UPDATE price_summary_state SET ready = TRUE, tiers_ready = TRUE, " +
+    "source_max_id = (SELECT MAX(id) FROM price_snapshots), " +
+    "summary_revision = source_revision WHERE singleton = TRUE;");
+  const preview = script("scripts/pricing-raw-retention-pass.ts");
+  assert.equal(preview.status, 0, preview.stderr);
+  assert.equal(lastJson(preview.stdout).candidate, oldDate);
+  assert.equal(sql(database, "SELECT COUNT(*) FROM price_snapshots;"), "2");
+  const applied = script("scripts/pricing-raw-retention-pass.ts", ["--apply"]);
+  assert.equal(applied.status, 0, applied.stderr + applied.stdout);
+  const result = lastJson(applied.stdout);
+  assert.equal(result.mode, "retention-activated");
+  assert.equal(result.observedDate, oldDate);
+  assert.equal(result.deleted, 1);
+  assert.equal(sql(database, "SELECT COUNT(*) FROM price_snapshots;"), "1");
+  assert.equal(sql(database,
+    "SELECT raw_archived_through::text FROM price_summary_state WHERE singleton;"), oldDate);
+  const audit = script("scripts/pricing-recovery-package-audit.ts");
+  assert.equal(audit.status, 0, audit.stderr);
+  assert.equal(lastJson(audit.stdout).verified, 1);
+  const repeat = script("scripts/pricing-raw-retention-pass.ts");
+  assert.equal(lastJson(repeat.stdout).candidate, null);
+  console.log(JSON.stringify({ mode: "retention-fixture-passed", oldDate,
+    copiedPackages: 1, liveRaw: 1 }));
+} finally {
+  if (created) sql(admin, 'DROP DATABASE "' + name + '" WITH (FORCE);');
+  for (const path of [backup, recovery]) {
+    const target = resolve(path);
+    assert.ok(target.startsWith(resolve(tmpdir()) + sep));
+    rmSync(target, { recursive: true, force: true });
+  }
+}

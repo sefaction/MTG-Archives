@@ -23,6 +23,7 @@
     "worker:prices:raw:stage": "tsx scripts/pricing-raw-segment-stage.ts",
     "worker:prices:raw:activate": "tsx scripts/pricing-raw-segment-activate.ts",
     "worker:prices:raw:retention-pass": "tsx scripts/pricing-raw-retention-pass.ts",
+    "worker:prices:raw:retention-verify": "tsx scripts/verify-pricing-raw-retention-pass.ts",
     "worker:prices:raw:correct": "tsx scripts/pricing-archived-correction-apply.ts",
     "worker:prices:archive:maintenance": "tsx scripts/pricing-archive-maintenance.ts",
     "worker:prices:archive:audit": "tsx scripts/pricing-archive-recovery-audit.ts",
