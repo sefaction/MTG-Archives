@@ -130,7 +130,12 @@ test("phone touch can reach Inventory filters and Settings without page overflow
         await expect(move.getByRole("alert"))
           .toContainText("Close Move and correct the selected copy amount.");
         await move.getByRole("button", { name: "Cancel", exact: true }).tap();
-        await copies.fill(String(chosen));
+        await copies.fill(String(chosen + 1));
+        await page.getByRole("button", { name: /Decrease copies selected from Forest/ }).tap();
+        await expect(copies).toHaveValue(String(chosen));
+        await page.getByRole("button", { name: /Increase copies selected from Forest/ }).tap();
+        await expect(copies).toHaveValue(String(chosen + 1));
+        await page.getByRole("button", { name: /Decrease copies selected from Forest/ }).tap();
         await expect(copies).toHaveAttribute("aria-invalid", "false");
         await expect(page.locator(".inventory-selection-context")
           .filter({ hasText: "chosen for Move" }))

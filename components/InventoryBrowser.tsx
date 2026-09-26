@@ -412,11 +412,17 @@ function SelectedCopyInput({ row, value, onChange, compact = false }: {
   const invalid = selectedCopyQuantityInvalid(value, row.quantity);
   const errorId = `selected-copy-error-${row.id}`;
   return (
-    <label className={cn(
-      "grid grid-cols-[auto_4rem] items-center gap-x-1 text-xs",
+    <div className={cn(
+      "grid grid-cols-[2rem_4rem_2rem] items-center gap-x-1 text-xs",
       compact && "absolute right-2 top-2 z-10 rounded bg-[var(--app-surface)] p-1",
     )}>
-      <span>Copies</span>
+      <span className="col-span-3">Copies</span>
+      <button type="button" aria-label={`Decrease copies selected from ${inventoryRowControlName(row)}`}
+        disabled={value <= 1}
+        onClick={() => onChange(Number.isSafeInteger(value) ? value - 1 : row.quantity)}
+        className={cn(filterButtonClass, "min-h-8 px-0 py-0 text-base")}>
+        −
+      </button>
       <input
         type="number" min={1} max={row.quantity} step={1}
         aria-label={`Copies selected from ${inventoryRowControlName(row)}`}
@@ -427,13 +433,19 @@ function SelectedCopyInput({ row, value, onChange, compact = false }: {
         className={cn(filterInputClass, "w-16 px-1 py-0.5",
           invalid && "!border-red-500")}
       />
+      <button type="button" aria-label={`Increase copies selected from ${inventoryRowControlName(row)}`}
+        disabled={value >= row.quantity}
+        onClick={() => onChange(Number.isSafeInteger(value) ? value + 1 : row.quantity)}
+        className={cn(filterButtonClass, "min-h-8 px-0 py-0 text-base")}>
+        +
+      </button>
       {invalid && (
         <span id={errorId} role="alert"
-          className="col-span-2 mt-1 font-semibold text-[var(--app-text)]">
+          className="col-span-3 mt-1 font-semibold text-[var(--app-text)]">
           Choose 1–{row.quantity} copies.
         </span>
       )}
-    </label>
+    </div>
   );
 }
 
