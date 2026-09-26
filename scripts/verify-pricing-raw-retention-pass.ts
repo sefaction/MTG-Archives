@@ -72,6 +72,8 @@ try {
   sql(database, "UPDATE price_summary_state SET ready = TRUE, tiers_ready = TRUE, " +
     "source_max_id = (SELECT MAX(id) FROM price_snapshots), " +
     "summary_revision = source_revision WHERE singleton = TRUE;");
+  const originalRevision = sql(database,
+    "SELECT source_revision FROM price_summary_state WHERE singleton;");
   const preview = script("scripts/pricing-raw-retention-pass.ts");
   assert.equal(preview.status, 0, preview.stderr);
   assert.equal(lastJson(preview.stdout).candidate, oldDate);
@@ -157,8 +159,41 @@ try {
     assert.equal(sql(database,
       "SELECT COUNT(*) FROM price_raw_archive_segment;"), "0");
   }
+  const fullRollback = process.env.PRICING_FULL_PASS_ROLLBACK_DRILL === "1";
+  if (fullRollback) {
+    const dailyIndex = JSON.parse(readFileSync(dailyPackage, "utf8")) as {
+      files: Array<{ relativePath: string; sha256: string }> };
+    const dumpEntry = dailyIndex.files.find((file) => file.relativePath.endsWith(".dump"));
+    assert.ok(dumpEntry);
+    const copiedDump = resolve(recovery, dumpEntry.relativePath);
+    assert.ok(copiedDump.startsWith(resolve(recovery) + sep));
+    assert.equal(createHash("sha256").update(readFileSync(copiedDump)).digest("hex"),
+      dumpEntry.sha256);
+    renameSync(backup, hiddenBackup);
+    try {
+      sql(admin, 'DROP DATABASE "' + name + '" WITH (FORCE);');
+      sql(admin, 'CREATE DATABASE "' + name + '";');
+      const restored = spawnSync("pg_restore", ["--exit-on-error", "--no-owner",
+        "--no-acl", "--dbname=" + database.toString(), copiedDump],
+      { encoding: "utf8", timeout: 180_000, maxBuffer: 1024 * 1024 });
+      assert.equal(restored.status, 0, restored.stderr);
+      assert.equal(sql(database, "SELECT COUNT(*) FROM price_snapshots;"), "2");
+      assert.equal(sql(database, "SELECT COUNT(*) FROM price_daily_summary;"), "2");
+      assert.equal(sql(database, "SELECT COUNT(*) FROM price_daily_summary WHERE observed_date = '" +
+        oldDate + "'::date AND price = 4;"), "1");
+      assert.equal(sql(database,
+        "SELECT daily_compacted_through IS NULL AND raw_archived_through IS NULL " +
+        "FROM price_summary_state WHERE singleton;"), "t");
+      assert.equal(sql(database,
+        "SELECT source_revision FROM price_summary_state WHERE singleton;"), originalRevision);
+      assert.equal(sql(database, "SELECT COUNT(*) FROM price_raw_archive_segment;"), "0");
+    } finally {
+      renameSync(hiddenBackup, backup);
+    }
+  }
   console.log(JSON.stringify({ mode: "retention-fixture-passed", oldDate,
-    copiedPackages: 2, liveRaw: rollback ? 2 : 1, direct, rollback,
+    copiedPackages: 2, liveRaw: rollback || fullRollback ? 2 : 1,
+    direct, rollback, fullRollback,
     isolatedVerifier: process.env.PRICING_VERIFY_POSTGRES_DRILL === "1" }));
 } finally {
   if (created) sql(admin, 'DROP DATABASE IF EXISTS "' + name + '" WITH (FORCE);');
