@@ -81,6 +81,33 @@ export type InventoryDeckTarget = {
   ownerName?: string;
 };
 
+function inventoryRowAction(cardName: string) {
+  return Array.from(document.querySelectorAll<HTMLElement>("[aria-label]"))
+    .find((element) => element.getAttribute("aria-label") === `Actions for ${cardName}`) ?? null;
+}
+
+function useInventoryModal(open: boolean, fallbackCardName?: string) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const opener = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    dialog.showModal();
+    document.body.style.overflow = "hidden";
+    return () => {
+      if (dialog.open) dialog.close();
+      document.body.style.overflow = previousOverflow;
+      if (opener instanceof HTMLElement && opener !== document.body &&
+          !dialog.contains(opener) && opener.isConnected)
+        opener.focus();
+      else if (fallbackCardName) inventoryRowAction(fallbackCardName)?.focus();
+    };
+  }, [open, fallbackCardName]);
+  return dialogRef;
+}
+
 type InventoryLocationStack = {
   inventoryItemId?: string;
   locationId: string | null;
@@ -1605,6 +1632,8 @@ export function InventoryBrowser({
   const [selected, setSelected] = useState<InventoryRow | null>(null);
   const [editing, setEditing] = useState<InventoryRow | null>(null);
   const [auditRow, setAuditRow] = useState<InventoryRow | null>(null);
+  const editDialogRef = useInventoryModal(Boolean(editing), editing?.cardName);
+  const auditDialogRef = useInventoryModal(Boolean(auditRow), auditRow?.cardName);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditError, setAuditError] = useState("");
   const [viewMode, setViewMode] = useState<"table" | "binder">(() =>
@@ -3385,14 +3414,15 @@ export function InventoryBrowser({
       ) : null}
 
       {auditRow && capabilities.canViewAuditTrail ? (
-        <div
-          className="fixed inset-0 z-50 bg-black/60"
-          onClick={() => setAuditRow(null)}
+        <dialog
+          ref={auditDialogRef}
+          aria-label="Inventory audit trail"
+          onCancel={(event) => {
+            event.preventDefault();
+            setAuditRow(null);
+          }}
+          className="fixed inset-y-0 left-auto right-0 m-0 h-dvh max-h-none w-full max-w-3xl overflow-y-auto border-0 border-l border-zinc-800 bg-zinc-950 p-4 text-zinc-100 backdrop:bg-black/60"
         >
-          <div
-            className="absolute right-0 top-0 h-full w-full max-w-3xl overflow-y-auto bg-zinc-950 border-l border-zinc-800 p-4"
-            onClick={(e) => e.stopPropagation()}
-          >
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h2 className="text-xl font-bold">Audit Trail</h2>
@@ -3421,20 +3451,23 @@ export function InventoryBrowser({
               )}
               cardLabels={cardLabels}
             />
-          </div>
-        </div>
+        </dialog>
       ) : null}
 
       {editing && capabilities.canEdit ? (
-        <div
-          className="fixed inset-0 z-50 bg-black/60"
-          onClick={() => setEditing(null)}
+        <dialog
+          ref={editDialogRef}
+          aria-label="Edit Inventory Item"
+          onCancel={(event) => {
+            event.preventDefault();
+            setEditing(null);
+          }}
+          className="fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto border border-zinc-700 bg-zinc-950 p-4 text-zinc-100 backdrop:bg-black/60"
         >
-          <div
-            className="max-w-3xl mx-auto mt-8 bg-zinc-950 border border-zinc-700 p-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold mb-2">Edit Inventory Item</h3>
+          <div className="mb-2 flex items-start justify-between gap-2">
+            <h3 className="text-lg font-semibold">Edit Inventory Item</h3>
+            <button type="button" className={filterButtonClass} onClick={() => setEditing(null)}>Close</button>
+          </div>
             <section className="mb-4 rounded border border-zinc-800 bg-zinc-950/60 p-3 text-sm">
               <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                 <div>
@@ -4256,8 +4289,7 @@ export function InventoryBrowser({
                 </div>
               </details>
             ) : null}
-          </div>
-        </div>
+        </dialog>
       ) : null}
     </div>
   );

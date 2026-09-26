@@ -1,5 +1,9 @@
 # UI acceptance status - 2026-09-26
 
+## Inventory edit and audit modal recovery, 2026-09-26
+
+Issue #427 found that the Edit Inventory Item and Audit Trail overlays were ordinary fixed elements without modal keyboard behavior. Both now use named native dialogs. Escape closes each, focus stays out of the background, and closing returns focus to the row action or still-visible View details control. Edit has a visible Close button at the top and an internally scrollable height bound. The owned local Chromium case passed its desktop focus cycle and 390px phone bounds/Close check; the five Inventory detail cases and the separate owned edit/split/audit/delete mutation case passed on the grouped local image. This is focused keyboard and layout evidence, not a screen-reader certification or the complete #274 matrix.
+
 ## Administration route boundary sample, 2026-09-26
 
 A focused local browser case enumerated all six current static `/admin` pages. An anonymous visit went to Login; a signed-in member was redirected from every page; an admin-role account was redirected until it explicitly entered Admin Mode, then could render all six pages; exiting Admin Mode removed access again. The case passed 1/1 and cleaned its disposable users/owners (zero remain). This covers route-level access for this role sample under #274; it does not certify every administrative action or other role/ownership paths.
