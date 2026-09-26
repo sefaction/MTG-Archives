@@ -59,8 +59,13 @@ export function LocationContentsDeleteForm({
 
   if (isEmpty) {
     return (
-      <div className="rounded border border-zinc-800 bg-zinc-950/50 p-2 text-xs text-zinc-400">
-        This location is empty. Delete contents is disabled.
+      <div className="space-y-2 rounded border border-zinc-800 bg-zinc-950/50 p-2 text-xs text-zinc-400">
+        {result?.success ? (
+          <p role="status" className="text-emerald-300">
+            {result.message}
+          </p>
+        ) : null}
+        <p>This location is empty. Delete contents is disabled.</p>
       </div>
     );
   }

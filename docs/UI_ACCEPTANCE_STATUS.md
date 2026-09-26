@@ -1,5 +1,8 @@
 # UI acceptance status - 2026-09-26
 
+## Locations direct-contents deletion feedback, 2026-09-26
+
+Issue #429 found that a successful Delete contents result vanished as soon as the refreshed selected location became empty. The empty state now retains the success status while disabling another delete. An owned local browser fixture rejected an incorrect confirmation without changing two direct entries, then accepted DELETE and removed five direct copies across those entries. Four child-location copies, the parent location and two deletion audit rows remained. The focused and existing Locations workspace cases passed 2/2 on a cumulative local Docker image with PR #428; the fixture user, owner and locations were removed. This is one representative L05 destructive path under #274, not all storage deletion variants.
 ## Edit and Audit Trail at actual 200% zoom, 2026-09-26
 
 The owned local browser case measured a 683 by 384 CSS pixel viewport at actual 200% tab zoom. It opened both named Inventory dialogs, checked their bounds and visible Close controls, and closed both with Escape. Audit Trail initially extended 12 CSS pixels below the viewport; an explicit zero top margin corrected it. All five Inventory detail cases and the separate owned edit/split/audit/delete case passed on the final grouped local image. This extends the focused #427 evidence below; #274 still requires its wider acceptance matrix.
@@ -145,7 +148,7 @@ The 45 action IDs in [CAPABILITIES.md](design/ui-consolidation/CAPABILITIES.md) 
 | I01-I03 | `inventory-workspace`, `inventory-color-filter`, `inventory-scryfall-query`, `location-hierarchy` | Not every filter combination is exhaustive |
 | I04-I07 | `inventory-workspace`, `inventory-export`, `vault-pilot`, `vault-map` | All-matching and every view preference are not crossed with every role |
 | I08-I11 | `inventory-mutation-acceptance` edit, split, audit and confirmed row delete; `inventory-detail`, `trade-wishlist`, inventory mutation/policy units | Bulk deletion, restricted stacks and every edit/split field are not crossed in this browser sample |
-| L01-L05 | `locations-workspace`, `location-hierarchy`, `location-scale`, `storage-layout`, `vault-map` | Every destructive storage action is not rerun on the snapshot |
+| L01-L05 | `locations-workspace`, `location-contents-delete`, `location-hierarchy`, `location-scale`, `storage-layout`, `vault-map` | Direct-contents deletion now has an owned browser path; every type and storage deletion variant is not crossed |
 | M01-M05 | `imports-workspace`, `inventory-export`, real PostgreSQL import integrity script | Every legacy unsafe undo branch is checked in database tests, not through a browser path |
 | D01-D05 | `decks-brackets`, `deck-builder-workspace`, `pasted-decklist`, `league-lifecycle` | Every optimization and folder variant is not repeated in browser |
 | D06-D09 | `deck-analysis`, `deck-sample-hands`, existing `deck-playtest`/`playtest-advanced` regressions | No new Playtest behavior or changes in this goal |

@@ -1,5 +1,12 @@
 # Resumable work checkpoint
 
+## Approved Locations and Imports queue, 2026-09-26
+
+The user individually approved #425, #426, #428, #430 and #432. #425, #426 and #428 merged with green checks; #427 closed with its resolving PR. #430 is being refreshed against current main; #432 remains green at its earlier head and will be refreshed after #430. Cumulative local Docker includes #428, #430 and #432; automatic Pricing retention remains off. Next safe step: finish #430 checks and approved merge, close #429, then refresh and merge #432.
+
+## Locations contents-delete feedback and acceptance, 2026-09-26
+
+Active branch `test/locations-delete-acceptance` from merged main `1bd9e93` resolves #429 under UI acceptance #274. A local browser fixture exposed that successful Delete contents feedback disappeared after the location refreshed to its empty state. The component now preserves the success status beside the disabled empty-state message. The fixture proved wrong confirmation changes nothing; a valid confirmation removed five direct copies in two entries while preserving four child copies, the parent location and two audit rows. Its focused case and the existing Locations workspace case passed 2/2. A temporary cumulative review worktree `local/review-428-429` at `e5ae08e` includes PR #428 plus this branch's `271bf63`; its direct Docker build `sha256:ba3e27ff32d2a916fc95703cc95a697c686b7221f78afb2c238e188277ae0a7e` is loaded in web and both workers. Web is healthy, host `/login` returned 200, and fixture users/owners/locations returned to zero. Typecheck and production Docker build passed. PR/CI and individual approval are pending; #425, #426 and #428 remain open and unmerged. No production change or Pricing archive activation. Next safe step: push this coherent batch, open its #429 resolving PR, collect CI, and continue #274/#330. Close #429 only after merge.
 ## Approved UI and Pricing queue, 2026-09-26
 
 The user individually approved #425, #426, #428, #430 and #432. #425 and #426 merged with green checks. #428 is being refreshed against their main revisions; #430 and #432 remain open with green prior-head checks and need their own refresh after preceding merges. Cumulative local Docker includes #428, #430 and #432; automatic Pricing retention remains off. Next safe step: finish #428 merge, close #427 with the resolving PR, then refresh and merge #430 and #432 individually.
