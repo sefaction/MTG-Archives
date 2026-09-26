@@ -2,6 +2,10 @@
 
 Related: #262, #263, #264, #265, #268 and #274. This is the implementation/evidence index; the original design prototype and historical feature notes are retained as dated records. This document does not close an issue or approve a PR merge.
 
+## Actual Chrome tab zoom for section navigation, 2026-09-26
+
+The opt-in navigation case now checks a saved topbar preference at actual 200% Chrome tab zoom in a disposable profile. The 1366×768 browser viewport becomes 683×384 CSS pixels at device pixel ratio 2; the responsive menu has its own vertical scroll, Decks is reachable by keyboard Tab, and Escape returns focus to Menu. Navigation through Decks, Settings, Locations and Inventory preserves the current-route marker and avoids page-level horizontal overflow. The focused navigation case passed and the zoomed menu screenshot was inspected. The local zoom setup is shared by the Inventory and Deck acceptance tests, which passed together with this case. Human navigation feedback and the broader role/theme/accessibility matrix remain open under #263/#274.
+
 ## Actual Chrome tab zoom for Deck editing, 2026-09-26
 
 The opt-in Deck builder case now uses a disposable Chromium profile and actual 200% Chrome tab zoom on a populated, owner-scoped deck. A 1366×768 browser viewport became 683×384 CSS pixels at device pixel ratio 2. Add card, Selection & printing tools, and Deck options remained within the viewport without page-level horizontal overflow; Escape restored each opener's focus. The case added one cached printing through Add card, verified the deck-list total rose from 101 to 102 without changing physical Inventory, and returned from Analysis to the same builder. Both focused Deck builder cases passed on the grouped local Docker image, and the zoomed Add screenshot was inspected. This is automated coverage of one editing path; human Deck task review and the broader accessibility matrix remain open under #268/#274.
