@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Imports History undo label and rollback, 2026-09-26
+
+Active branch `fix/import-history-undo-label` from merged main `1bd9e93` addresses #431 under UI acceptance #274. Its app change gives the per-batch History Undo confirmation a visible programmatic label; the existing Imports fixture now performs a tracked undo after its two-row, five-copy commit, checks original stock, `UNDONE` batch status and two undo audits. Typecheck and focused local Chromium case passed 1/1. Cumulative review branch `local/review-428-429` at `0dc18ae` includes pending #428 and #430 plus this change; direct Docker image `sha256:a016a0e1ab3947d47d6b1f29bf20447ac842363c1a41eeb140f6a555c660dc7f` is loaded in web and both workers, and web is healthy. Fixture users returned to zero. #425, #426, #428 and #430 remain open and require individual approval; no production change. Next safe step: commit/push this branch, open a #431-resolving PR, collect CI and request individual approval. Close #431 only after merge.
+
 ## Flat Unraid Compose activation path, 2026-09-26
 
 The user confirmed production uses the single `docker-compose.unraid.flat.yml` file and individually approved PR #424 while its original layered-only revision was green. This branch now also defines the disabled maintenance profile, separate named-volume verifier, worker pause flags and backup mount in that actual deployment file. Local `docker compose config --quiet` passed for both default and maintenance-profile forms; the default form excludes both maintenance services and the worker's production/raw switches resolve to `0`. No Unraid container or configuration was changed. The updated PR needs fresh CI and a final scope review before merging under the user's #424 approval. Next safe step: commit and push the flat-file change, verify CI and local grouped browser checks, then merge #424 if green.

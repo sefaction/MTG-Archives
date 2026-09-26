@@ -320,7 +320,9 @@ test("Imports separates tasks and preserves upload, review, commit, history and 
       .getByRole("row")
       .filter({ has: page.getByRole("link", { name: tag + ".csv", exact: true }) });
     await importedRow.getByText("Actions", { exact: true }).click();
-    const undo = importedRow.getByRole("form");
+    const undo = importedRow.locator("form").filter({
+      has: page.getByRole("button", { name: "Undo import", exact: true }),
+    });
     await expect(undo.getByRole("textbox", { name: "Type DELETE IMPORT" })).toBeVisible();
     await undo.getByRole("textbox", { name: "Type DELETE IMPORT" }).fill("DELETE IMPORT");
     await undo.getByRole("button", { name: "Undo import", exact: true }).click();

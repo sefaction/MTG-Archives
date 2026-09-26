@@ -1,5 +1,9 @@
 # UI acceptance status - 2026-09-26
 
+## Imports History undo label and tracked rollback, 2026-09-26
+
+Issue #431 identified an unlabeled per-batch Undo import confirmation field in Imports History. The field now has a visible `Type DELETE IMPORT` label. The owned local browser fixture checked its accessible name, committed five copies from two CSV rows, then used that History action to undo the import. The owner's total returned from seven to the original two copies, the batch became `UNDONE`, and two `import_undo` audit records were retained. The focused case passed 1/1 on cumulative local image `sha256:a016a0e1ab3947d47d6b1f29bf20447ac842363c1a41eeb140f6a555c660dc7f` with pending PRs #428 and #430; the fixture user count returned to zero. This covers one tracked admin undo path, not every legacy or partially blocked undo case.
+
 ## Administration route boundary sample, 2026-09-26
 
 A focused local browser case enumerated all six current static `/admin` pages. An anonymous visit went to Login; a signed-in member was redirected from every page; an admin-role account was redirected until it explicitly entered Admin Mode, then could render all six pages; exiting Admin Mode removed access again. The case passed 1/1 and cleaned its disposable users/owners (zero remain). This covers route-level access for this role sample under #274; it does not certify every administrative action or other role/ownership paths.
