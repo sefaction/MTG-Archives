@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Actual Inventory browser zoom review, 2026-09-26
+
+Branch `test/inventory-real-browser-zoom` stacks on open, unapproved Inventory PR #393 (which depends on #378 and #373). A test-only local extension in a disposable Chromium profile uses Chrome `tabs.setZoom(2)` on the local Inventory tab. The opt-in Inventory workspace browser case passed 1/1 on the provenance-checked grouped Docker image `sha256:dc9fe2b8afc8810b9d161f17ac1778ff8cc9226d3010f673977866565a5f3071`: a 1366×768 browser became a 683×384 CSS viewport at device pixel ratio 2, with visible table, no page overflow, reachable modal Close/Apply, Escape focus return and invalid-query feedback. The 200% screenshot was visually inspected. Typecheck passed. This test/documentation batch changes no app source and needs no Docker reload. Next safe step: review diff, open dependent PR, collect CI. Human Inventory task observation and broader cross-workflow zoom/accessibility remain open under #274; no merge without individual approval.
+
 ## Inventory selected-copy contrast follow-up, 2026-09-26
 
 Branch `fix/inventory-selection-contrast` stacks on green, unapproved Inventory PR #378 and #373. On the provenance-checked grouped Docker image `sha256:dc9fe2b8afc8810b9d161f17ac1778ff8cc9226d3010f673977866565a5f3071`, the opt-in vault browser case passed 1/1 after adding all-six-theme computed contrast checks for the selected-copy toolbar. The lowest measured Actions label ratio was 5.82:1 and chosen-copy count 14.74:1. Typecheck passed after generating the local Prisma client. Existing workspace CSS already remaps gray utility classes to theme tokens, so no app source or Docker reload is needed for this test/documentation batch. Next safe step: review diff, push dependent PR, collect CI. Human Inventory review and actual browser 200% zoom remain under #265/#274; no PR merge without its individual approval.

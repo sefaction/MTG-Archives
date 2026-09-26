@@ -1,0 +1,8 @@
+{
+  "manifest_version": 3,
+  "name": "MTG Archives local zoom acceptance",
+  "version": "0.0.1",
+  "permissions": ["tabs"],
+  "host_permissions": ["http://127.0.0.1:13001/*"],
+  "background": { "service_worker": "background.js" }
+}
