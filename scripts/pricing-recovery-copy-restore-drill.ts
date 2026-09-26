@@ -6,6 +6,7 @@ import { basename, relative, resolve, sep } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { verifyCopiedPricingRecoveryPackage,
   verifyPricingRecoveryCopyDestination } from "./pricing-recovery-copy";
+import { pricingVerificationServer } from "./pricing-verification-server";
 
 const args = process.argv.slice(2);
 if (args.length !== 3 || !["--receipt", "--package"].includes(args[0]) ||
@@ -21,10 +22,10 @@ const database = new URL(configured);
 if (!["pricing-postgres", "localhost", "127.0.0.1"].includes(database.hostname))
   throw new Error("Recovery copy restore drill supports only local Pricing databases");
 database.searchParams.delete("schema");
-const admin = new URL(database);
+const admin = pricingVerificationServer(database);
 admin.pathname = "/postgres";
 const name = `pricing_copy_drill_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
-const restored = new URL(database);
+const restored = new URL(admin);
 restored.pathname = `/${name}`;
 
 function inside(root: string, path: string) {
