@@ -415,7 +415,9 @@ async function main() {
       { flag: "wx" });
     const recoveryTarget = process.env.PRICING_RECOVERY_COPY_DIR;
     const recoveryFiles = [{ path: archive, sha256: replacement.archiveSha },
-      { path: backup, sha256: backupSha }];
+      { path: backup, sha256: backupSha },
+      { path: manifestPath, sha256: await fileSha(manifestPath) },
+      { path: backupManifest, sha256: await fileSha(backupManifest) }];
     const recoveryCopies = recoveryTarget ?
       await copyVerifiedPricingRecoveryFiles(root!, recoveryTarget, recoveryFiles) : null;
     if (process.env.MTG_ARCHIVED_CORRECTION_TEST_FAIL_AFTER_RESTORE === "1")

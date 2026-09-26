@@ -309,7 +309,9 @@ async function main() {
       verifiedAt: new Date().toISOString() }, null, 2)}\n`, { flag: "wx" });
     const recoveryTarget = process.env.PRICING_RECOVERY_COPY_DIR;
     const recoveryFiles = [{ path: archive, sha256: manifest.archiveSha256 },
-      { path: backup, sha256: backupSha }];
+      { path: backup, sha256: backupSha },
+      { path: manifestPath, sha256: await fileHash(manifestPath) },
+      { path: backupManifest, sha256: await fileHash(backupManifest) }];
     const recoveryCopies = recoveryTarget ?
       await copyVerifiedPricingRecoveryFiles(root!, recoveryTarget, recoveryFiles) : null;
 
