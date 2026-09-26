@@ -68,6 +68,12 @@ assert.equal(maintenance.environment?.PRICING_VERIFY_DATABASE_URL, "");
 assert.ok(maintenance.volumes?.some((volume) => volume.target === "/app/backups"));
 assert.equal(maintenance.depends_on?.["pricing-verify-postgres"]?.condition, "service_healthy");
 assert.deepEqual(verifier.ports ?? [], []);
-assert.ok(verifier.volumes?.some((volume) => volume.target === "/var/lib/postgresql/data"));
+const verifierData = verifier.volumes?.find((volume) => volume.target === "/var/lib/postgresql/data");
+const liveData = profiled.services["pricing-postgres"].volumes?.find(
+  (volume) => volume.target === "/var/lib/postgresql/data",
+);
+assert.ok(verifierData);
+assert.ok(liveData);
+assert.notEqual(verifierData.source, liveData.source);
 
 process.stdout.write("Flat Unraid Compose archive profile remains disabled by default.\n");
