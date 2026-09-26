@@ -42,7 +42,7 @@ services:
       EXPORTS_DATA_PATH: /app/data/exports
       BACKUPS_DATA_PATH: /app/data/backups
       BACKUP_DIR: /app/data/backups
-      PRICING_RECOVERY_COPY_DIR: /app/data/pricing-recovery
+      PRICING_RECOVERY_COPY_DIR: /app/data/backups/pricing-recovery
       SCRYFALL_CONTAINER_DATA_PATH: /app/data/scryfall
       SCRYFALL_DATA_PATH: /app/data/scryfall
     volumes: !override
@@ -50,7 +50,6 @@ services:
       - ./.local-data/imports:/app/data/imports
       - ./.local-data/exports:/app/data/exports
       - ./.local-data/backups:/app/data/backups
-      - ./.local-data/pricing-recovery:/app/data/pricing-recovery
       - ./.local-data/scryfall:/app/data/scryfall
     ports:
       - "${WEB_HOST_PORT:-13001}:3000"
@@ -75,10 +74,9 @@ services:
     pull_policy: build
     environment:
       BACKUP_DIR: /app/data/backups
-      PRICING_RECOVERY_COPY_DIR: /app/data/pricing-recovery
+      PRICING_RECOVERY_COPY_DIR: /app/data/backups/pricing-recovery
     volumes: !override
       - ./.local-data/backups:/app/data/backups
-      - ./.local-data/pricing-recovery:/app/data/pricing-recovery
 
   notification-worker:
     image: mtg-archives-web:local

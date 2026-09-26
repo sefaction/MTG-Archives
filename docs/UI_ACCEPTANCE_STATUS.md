@@ -1,10 +1,46 @@
 # UI acceptance status - 2026-09-26
 
+## Varied 150,000-copy Inventory and Locations scale, 2026-09-26
+
+The owned local scale fixture now places 150,000 copies in 15,000 stacks across 5,000 cached printings, three condition values, 200 parent locations and 2,000 children. Three smaller private owners hold 5,000, 500 and 7 copies. The case checks bounded Locations results/editor options, a deep path search, phone editing without page overflow, private-owner isolation, a 25-row Inventory page, and Inventory name search. The focused case passed 1/1 against grouped image `sha256:56de6036d2b72f91f86fb95b867fdc77189d318d3eb5287fd77fb9299b8dbcf4`; measured local Locations load was 623 ms and Inventory first-page load was 2,535 ms. Fixture cleanup took 72.4 seconds and left zero scale users/owners and the original 12,477 physical copies. Typecheck passed. This is one synthetic local workload, not a production performance guarantee or a four-user concurrency test. The prior full serial browser suite on the same image passed 61 tests with one intentional skip, before this test-only fixture expansion.
+
+## Invalid selected-copy feedback, 2026-09-26
+
+The owned phone touch fixture reproduced [#408](https://github.com/sefaction/MTG-Archives/issues/408): entering 0 for a selected four-copy row left the numeric control without `aria-invalid` or a visible range explanation, while Move confirmation could be disabled silently. The Inventory table and Binder views now share a selected-copy control that marks invalid amounts, names the valid 1–stack-size range beside the row and describes that error to assistive technology. Each selected row defaults to its full stack and has visible decrease/increase buttons for choosing fewer copies before Move; Move uses that amount. The dialog explains that the user should close it and correct an invalid selection. The fixture checked 0 at 390px and an above-stack amount at 320px, switched to Binder view while invalid, used both stepper buttons, checked no page overflow, then moved two and one chosen copies. It passed 1/1 on grouped local Docker image `sha256:56de6036d2b72f91f86fb95b867fdc77189d318d3eb5287fd77fb9299b8dbcf4`; fixture users returned to zero and physical copies remained 12,477. Human task and assistive-technology review remain open.
+
+## Inventory touch move and one-copy wording, 2026-09-26
+
+The phone touch fixture now creates an owned four-copy Forest stack and two Box locations. At 390px it taps the row selection, chooses two copies before Move, taps the destination and confirms; at 320px it repeats with one of the remaining copies. The full flow passed 1/1 against the previous grouped image when its existing plural wording was accepted; fixture cleanup left zero touch users and 12,477 physical copies. That run exposed [#405](https://github.com/sefaction/MTG-Archives/issues/405): one selected copy was displayed as “1 copies,” with matching plural Move labels. The application wording and final test now require singular copy/card/entry labels. Typecheck passes; the final test awaits the next grouped Docker image before it can claim a pass. Human touch and assistive-technology review under #265/#274 remain open.
+
+## Locations editing at actual browser zoom, 2026-09-26
+
+The owned Locations workspace fixture now opens a selected vault at actual 200% Chrome tab zoom in a disposable profile. The 1366×768 browser viewport becomes 683×384 CSS pixels at device pixel ratio 2. The selected vault remains visible, keyboard Enter opens Manage, the Description field and Save action remain reachable inside the viewport, and keyboard Enter saves an edit without page-level horizontal overflow. The full Locations fixture passed 1/1 on the grouped local Docker image; cleanup left zero fixture users and 12,477 physical copies. The zoomed screenshot capture was blank under headless Chromium, so this is behavioral and bounds evidence, not a visual certification. Human task review and wider #274 accessibility coverage remain open.
+
+## Same-name Inventory row controls, 2026-09-26
+
+Issue #400 exposed identical accessible names when separate exact-printing rows shared a card name. The Inventory table and card views now identify selection checkboxes and copy-quantity controls with the card name, set/collector number, finish, condition, language and owner. The selected-entry summary and Move review use singular text for one entry. A two-Forest-printing browser fixture found distinct control names in both views, kept quantities independent, and passed alongside the existing storage, vault-map and vault-pilot move cases (4/4 total) on the grouped local Docker image `sha256:84e3d0acf494a2e7a5e044c9c9fb373c6efa7e376fefa5b4e94d16db6a96ed63`. The image was built directly from cumulative review revision `a57639e`; all three running application services use it. Focused fixture cleanup left zero test users and 12,477 physical copies. Human screen-reader and task review remain open under #265/#274.
+
+## Selected-copy stepper at actual browser zoom, 2026-09-26
+
+The opt-in Inventory workspace browser case now checks the row-level numeric control at actual 200% Chrome tab zoom. Both selected rows begin at their full 8- and 17-copy stacks. Keyboard ArrowDown reduces only the first to 7; ArrowUp restores 8 while the second stays at 17. After scrolling into view, the first control's bounds remain inside the 683×384 CSS viewport. The case then chooses 5 and 12 copies independently and completes the existing 17-copy Move. The focused case passed 1/1 with typecheck and fixture cleanup. This checks keyboard operation and reachability of one selected-copy control; it is not a visual certification of native spinner arrows across browsers or a human task review.
+
+## Full local browser regression follow-up, 2026-09-26
+
+The serial 61-case Chromium run against the grouped local Docker image finished with 57 passes, one skip and three outdated test expectations. The Imports theme check read a clicked link in its hover state; the storage-layout and vault-map cases still changed selected-copy quantities inside Move. Those fixtures now clear hover before the resting-color assertion and choose 15 or 10 copies on the selected Inventory row before Move. All three affected cases passed on focused rerun. The selected row defaults to its full stack and exposes a numeric up/down control in table and card views; Move uses each row's chosen amount. This is regression-test alignment with the reviewed workflow, not a new application change or a completed human acceptance review.
+
 ## Deck editing with phone touch, 2026-09-26
 
 An owned Deck fixture now checks actual coarse-pointer touch at 390px and 320px. At each width it taps Add card, searches and selects a cached Llanowar Elves printing, sets one copy, adds it to the Deck list, closes the dialog by touch, and checks that the page has no horizontal overflow. The list total advanced from 99 to 101 while physical Inventory stayed unchanged. The focused browser case passed 1/1 on the grouped local Docker image; cleanup left zero fixture users/owners and 12,477 physical copies. This is one touch editing path, not a complete Deck or assistive-technology review; #268/#274 remain open.
 
 Related: #262, #263, #264, #265, #268 and #274. This is the implementation/evidence index; the original design prototype and historical feature notes are retained as dated records. This document does not close an issue or approve a PR merge.
+
+## Actual Chrome tab zoom for section navigation, 2026-09-26
+
+The opt-in navigation case now checks a saved topbar preference at actual 200% Chrome tab zoom in a disposable profile. The 1366×768 browser viewport becomes 683×384 CSS pixels at device pixel ratio 2; the responsive menu has its own vertical scroll, Decks is reachable by keyboard Tab, and Escape returns focus to Menu. Navigation through Decks, Settings, Locations and Inventory preserves the current-route marker and avoids page-level horizontal overflow. The focused navigation case passed and the zoomed menu screenshot was inspected. The local zoom setup is shared by the Inventory and Deck acceptance tests, which passed together with this case. Human navigation feedback and the broader role/theme/accessibility matrix remain open under #263/#274.
+
+## Actual Chrome tab zoom for Deck editing, 2026-09-26
+
+The opt-in Deck builder case now uses a disposable Chromium profile and actual 200% Chrome tab zoom on a populated, owner-scoped deck. A 1366×768 browser viewport became 683×384 CSS pixels at device pixel ratio 2. Add card, Selection & printing tools, and Deck options remained within the viewport without page-level horizontal overflow; Escape restored each opener's focus. The case added one cached printing through Add card, verified the deck-list total rose from 101 to 102 without changing physical Inventory, and returned from Analysis to the same builder. Both focused Deck builder cases passed on the grouped local Docker image, and the zoomed Add screenshot was inspected. This is automated coverage of one editing path; human Deck task review and the broader accessibility matrix remain open under #268/#274.
 
 ## Actual Chrome tab zoom for Inventory filters, 2026-09-26
 

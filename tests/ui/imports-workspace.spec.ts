@@ -263,6 +263,9 @@ test("Imports separates tasks and preserves upload, review, commit, history and 
         path: `test-results/imports-review-${width}.png`,
       });
     }
+    // The previous click leaves the pointer over this link; compare its
+    // resting theme color after clearing the hover state.
+    await page.mouse.move(0, 0);
     for (const theme of [
       "golgari",
       "azorius",

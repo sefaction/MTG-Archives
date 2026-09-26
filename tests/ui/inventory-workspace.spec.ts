@@ -1,7 +1,7 @@
-import { chromium, expect, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import path from "node:path";
+import { openLocalPageAt200Percent } from "./local-browser-zoom";
 
 test.use({ trace: "off", screenshot: "off", video: "off" });
 const quote = JSON.stringify;
@@ -338,37 +338,11 @@ test("real Inventory workspace composes search, preserves context and reflows wi
     await cdp.send("Emulation.clearDeviceMetricsOverride");
     await page.setViewportSize({ width: 1440, height: 900 });
     // Exercise Chrome's actual tab zoom in a separate, disposable browser profile.
-    const extensionPath = path.resolve("tests/ui/fixtures/local-zoom-extension");
-    const zoomContext = await chromium.launchPersistentContext("", {
-      channel: "chromium",
-      headless: true,
-      viewport: { width: 1366, height: 768 },
-      args: [
-        `--disable-extensions-except=${extensionPath}`,
-        `--load-extension=${extensionPath}`,
-      ],
-    });
+    const { context: zoomContext, page: zoomPage } = await openLocalPageAt200Percent(
+      baseURL, tag, password, "/inventory?displayMode=exact&pageSize=10",
+    );
     try {
-      const worker = zoomContext.serviceWorkers()[0] || await zoomContext.waitForEvent("serviceworker");
-      const zoomPage = await zoomContext.newPage();
-      await zoomPage.goto(`${baseURL}/login`);
-      await zoomPage.getByLabel(/username or email/i).fill(tag);
-      await zoomPage.getByLabel(/^password$/i).fill(password);
-      await zoomPage.getByRole("button", { name: /^log in$/i }).click();
-      await zoomPage.waitForURL(/\/dashboard/);
-      await zoomPage.goto(`${baseURL}/inventory?displayMode=exact&pageSize=10`);
       await expect(zoomPage.locator(".inventory-results table")).toBeVisible();
-      expect(await zoomPage.evaluate(() => [innerWidth, innerHeight, devicePixelRatio]))
-        .toEqual([1366, 768, 1]);
-      const zoom = await worker.evaluate(async () => {
-        const chrome = (globalThis as any).chrome;
-        const tabs = await chrome.tabs.query({ url: "http://127.0.0.1:13001/*" });
-        if (tabs.length !== 1 || tabs[0].id === undefined)
-          throw new Error(`Expected one local Inventory tab, found ${tabs.length}`);
-        await chrome.tabs.setZoom(tabs[0].id, 2);
-        return chrome.tabs.getZoom(tabs[0].id);
-      });
-      expect(zoom).toBe(2);
       await expect.poll(() => zoomPage.evaluate(() => [innerWidth, innerHeight, devicePixelRatio]))
         .toEqual([683, 384, 2]);
       expect(await zoomPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
@@ -402,8 +376,24 @@ test("real Inventory workspace composes search, preserves context and reflows wi
       await expect(zoomRows).toHaveCount(2);
       await zoomRows.nth(0).check();
       await zoomRows.nth(1).check();
-      await zoomPage.locator('tbody input[type="number"][max="8"]').fill("5");
-      await zoomPage.locator('tbody input[type="number"][max="17"]').fill("12");
+      const firstCopyAmount = zoomPage.locator('tbody input[type="number"][max="8"]');
+      const secondCopyAmount = zoomPage.locator('tbody input[type="number"][max="17"]');
+      await expect(firstCopyAmount).toHaveValue("8");
+      await expect(secondCopyAmount).toHaveValue("17");
+      await firstCopyAmount.focus();
+      await firstCopyAmount.press("ArrowDown");
+      await expect(firstCopyAmount).toHaveValue("7");
+      await expect(secondCopyAmount).toHaveValue("17");
+      await firstCopyAmount.press("ArrowUp");
+      await expect(firstCopyAmount).toHaveValue("8");
+      await firstCopyAmount.scrollIntoViewIfNeeded();
+      const copyBox = (await firstCopyAmount.boundingBox())!;
+      expect(copyBox.x).toBeGreaterThanOrEqual(0);
+      expect(copyBox.y).toBeGreaterThanOrEqual(0);
+      expect(copyBox.x + copyBox.width).toBeLessThanOrEqual(683);
+      expect(copyBox.y + copyBox.height).toBeLessThanOrEqual(384);
+      await firstCopyAmount.fill("5");
+      await secondCopyAmount.fill("12");
       await expect(zoomPage.locator(".inventory-selection-context")
         .filter({ hasText: "2 entries selected · 17 copies chosen for Move" }))
         .toBeVisible();
@@ -430,6 +420,39 @@ test("real Inventory workspace composes search, preserves context and reflows wi
       await confirmMove.click();
       await expect(zoomMove).not.toBeVisible();
       await expect(zoomPage.getByText(/Moved 17 cards across 2 entries/)).toBeVisible();
+      database(`
+        const owner=await p.user.findUniqueOrThrow({where:{username:${quote(tag)}}});
+        const original=await p.card.findFirstOrThrow({where:{name:'Forest'},orderBy:{id:'asc'}});
+        const other=await p.card.findFirstOrThrow({where:{name:'Forest',id:{not:original.id}},orderBy:{id:'asc'}});
+        await p.inventoryItem.create({data:{cardId:other.id,currentOwnerId:owner.playerId,originalOpenerId:owner.playerId,quantity:2,sourceType:'MANUAL',condition:'NM',language:'EN',notes:${quote(tag)}}});
+        return true;
+      `);
+      await zoomPage.goto("/inventory?displayMode=exact&pageSize=10&cardName=Forest");
+      const forestBoxes = zoomPage.getByRole("checkbox", { name: /^Select Forest, / });
+      await expect(forestBoxes).toHaveCount(2);
+      const tableNames = await forestBoxes.evaluateAll((nodes) =>
+        nodes.map((node) => node.getAttribute("aria-label")),
+      );
+      expect(new Set(tableNames).size).toBe(2);
+      await forestBoxes.first().check();
+      await expect(zoomPage.locator(".inventory-selection-context")
+        .filter({ hasText: "1 entry selected" })).toBeVisible();
+      await forestBoxes.nth(1).check();
+      const copyNames = await zoomPage.getByRole("spinbutton", {
+        name: /^Copies selected from Forest, /,
+      }).evaluateAll((nodes) => nodes.map((node) => node.getAttribute("aria-label")));
+      expect(copyNames).toHaveLength(2);
+      expect(new Set(copyNames).size).toBe(2);
+      await zoomPage.getByRole("button", { name: "Binder View", exact: true }).click();
+      const cardBoxes = zoomPage.getByRole("checkbox", { name: /^Select Forest, / });
+      await expect(cardBoxes).toHaveCount(2);
+      const cardNames = await cardBoxes.evaluateAll((nodes) =>
+        nodes.map((node) => node.getAttribute("aria-label")),
+      );
+      expect(new Set(cardNames).size).toBe(2);
+      await expect(zoomPage.getByRole("spinbutton", {
+        name: /^Copies selected from Forest, /,
+      })).toHaveCount(2);
     } finally {
       await zoomContext.close();
     }

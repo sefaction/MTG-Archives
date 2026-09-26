@@ -252,6 +252,11 @@ test("guided storage copies type defaults, preserves overrides and placements, a
 
     await page.goto(`/inventory?locationId=${customId}&displayMode=exact`);
     await page.locator('tbody input[type="checkbox"]').first().check();
+    const selectedCopies = page.getByRole("spinbutton", {
+      name: /^Copies selected from Forest, /,
+    });
+    await expect(selectedCopies).toHaveValue("20");
+    await selectedCopies.fill("15");
     await page
       .getByRole("button", { name: "Move cards…", exact: true })
       .click();
@@ -259,8 +264,7 @@ test("guided storage copies type defaults, preserves overrides and placements, a
       .getByRole("combobox", { name: "Search destinations" })
       .fill("Legacy box");
     await picker.getByRole("option").click();
-    await dialog.getByRole("button", { name: /^Fill remaining space/ }).click();
-    await expect(dialog.getByLabel("Maximum copies to move")).toHaveValue("15");
+    await expect(dialog.getByText("15 physical copies")).toBeVisible();
     await expect(
       dialog.getByRole("button", { name: "Move 15 cards", exact: true }),
     ).toBeEnabled();

@@ -19,12 +19,11 @@ export async function verifyPricingRecoveryCopyDestination(sourceRoot: string,
   destinationRoot: string) {
   if (!destinationRoot.trim())
     throw new Error("PRICING_RECOVERY_COPY_DIR is required for archive maintenance");
-  const sourceBase = await realpath(resolve(sourceRoot));
   const source = await realpath(resolve(sourceRoot, "pricing"));
   const destination = await realpath(resolve(destinationRoot));
-  if (sourceBase === destination || inside(sourceBase, destination) ||
-      inside(destination, sourceBase))
-    throw new Error("Pricing recovery copy destination must be separate from the source");
+  if (source === destination || inside(source, destination) ||
+      inside(destination, source))
+    throw new Error("Pricing recovery copy destination must be outside BACKUP_DIR/pricing");
   if (!(await lstat(destination)).isDirectory())
     throw new Error("Pricing recovery copy destination must be an existing directory");
   return { source, destination };

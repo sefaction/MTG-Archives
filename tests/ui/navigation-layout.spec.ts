@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { openLocalPageAt200Percent } from "./local-browser-zoom";
 
 test.use({ trace: "off", screenshot: "off", video: "off" });
 const quote = JSON.stringify;
@@ -181,6 +182,56 @@ test("account navigation preference persists across sessions, isolates users and
       });
       await page.keyboard.press("Escape");
       await expect(menu).toBeFocused();
+    }
+    const { context: zoomContext, page: zoomPage } = await openLocalPageAt200Percent(
+      baseURL, tag, password, "/inventory",
+    );
+    try {
+      await expect.poll(() => zoomPage.evaluate(() => [innerWidth, innerHeight, devicePixelRatio]))
+        .toEqual([683, 384, 2]);
+      const zoomMenu = zoomPage.locator(".archive-navigation > summary");
+      await expect(zoomMenu).toBeVisible();
+      await zoomMenu.focus();
+      await zoomPage.keyboard.press("Enter");
+      const zoomRail = zoomPage.locator(".archive-rail");
+      const decksLink = zoomRail.getByRole("link", { name: "Decks", exact: true });
+      await expect(decksLink).toBeVisible();
+      const railScroll = await zoomRail.evaluate((node) => ({
+        overflow: getComputedStyle(node).overflowY,
+        content: node.scrollHeight,
+        viewport: node.clientHeight,
+      }));
+      expect(railScroll.overflow).toBe("auto");
+      expect(railScroll.content).toBeGreaterThan(railScroll.viewport);
+      expect(await zoomPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
+        .toBe(true);
+      await zoomPage.screenshot({ path: "test-results/navigation-browser-zoom.png", animations: "disabled" });
+      for (let index = 0; index < 12 && !(await decksLink.evaluate((node) => node === document.activeElement)); index++)
+        await zoomPage.keyboard.press("Tab");
+      await expect(decksLink).toBeFocused();
+      await zoomPage.keyboard.press("Escape");
+      await expect(zoomMenu).toBeFocused();
+      for (const [name, route] of [
+        ["Decks", "/decks"],
+        ["Settings", "/settings"],
+        ["Locations", "/locations"],
+        ["Inventory", "/inventory"],
+      ]) {
+        await zoomMenu.focus();
+        await zoomPage.keyboard.press("Enter");
+        await zoomRail.getByRole("link", { name, exact: true }).click();
+        await expect(zoomPage).toHaveURL(new RegExp(`${route}$`));
+        await zoomMenu.focus();
+        await zoomPage.keyboard.press("Enter");
+        await expect(zoomRail.getByRole("link", { name, exact: true }))
+          .toHaveAttribute("aria-current", "page");
+        expect(await zoomPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
+          .toBe(true);
+        await zoomPage.keyboard.press("Escape");
+        await expect(zoomMenu).toBeFocused();
+      }
+    } finally {
+      await zoomContext.close();
     }
     // A fresh browser context has no shared cookies or local storage.
     const fresh = await browser.newContext();
