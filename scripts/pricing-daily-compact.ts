@@ -3,6 +3,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { getPricingRetentionPolicy } from "../lib/pricing-retention-policy";
+import { copyVerifiedPricingRecoveryFiles, createPricingRecoveryPackage } from
+  "./pricing-recovery-copy";
 import { pricingVerificationServer } from "./pricing-verification-server";
 
 const configured = process.env.PRICING_DATABASE_URL;
@@ -168,6 +170,19 @@ async function main() {
       archive, sha256: archiveHash, before, restored,
     };
     writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, { flag: "wx" });
+    const recoveryTarget = process.env.PRICING_RECOVERY_COPY_DIR;
+    const recoveryFiles = recoveryTarget ? [
+      { path: archive, sha256: archiveHash },
+      { path: manifestPath, sha256: await sha256(manifestPath) },
+    ] : [];
+    const recoveryPackage = recoveryTarget ? await createPricingRecoveryPackage(
+      backupRoot, resolve(directory, `${id}.package.json`), state.cutoff,
+      "daily_compaction", recoveryFiles) : null;
+    const recoverySet = recoveryPackage ? [...recoveryFiles, recoveryPackage] : [];
+    const recoveryCopies = recoveryTarget ?
+      await copyVerifiedPricingRecoveryFiles(backupRoot, recoveryTarget, recoverySet) : null;
+    if (recoveryTarget)
+      await copyVerifiedPricingRecoveryFiles(backupRoot, recoveryTarget, recoverySet);
     const deleted = Number(query(url, `BEGIN;
     LOCK TABLE price_snapshots IN SHARE MODE;
     LOCK TABLE price_daily_summary IN SHARE ROW EXCLUSIVE MODE;
@@ -195,6 +210,7 @@ async function main() {
     writeFileSync(receiptPath, `${JSON.stringify({
       status: "applied", appliedAt: new Date().toISOString(),
       cutoff: state.cutoff, deleted, archive, manifestPath, sha256: archiveHash,
+      recoveryCopies, recoveryPackage: recoveryPackage?.path ?? null,
     }, null, 2)}\n`, { flag: "wx" });
     console.log(JSON.stringify({ mode: "complete", cutoff: state.cutoff,
       deleted, archive, manifestPath, receiptPath, sha256: archiveHash }));

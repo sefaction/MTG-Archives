@@ -25,6 +25,7 @@
     "worker:prices:raw:retention-pass": "tsx scripts/pricing-raw-retention-pass.ts",
     "worker:prices:raw:retention-verify": "tsx scripts/verify-pricing-raw-retention-pass.ts",
     "worker:prices:raw:retention-fullsize": "tsx scripts/verify-pricing-retention-fullsize.ts",
+    "worker:prices:daily:copy-restore-drill": "tsx scripts/pricing-daily-copy-restore-drill.ts",
     "worker:prices:raw:correct": "tsx scripts/pricing-archived-correction-apply.ts",
     "worker:prices:archive:maintenance": "tsx scripts/pricing-archive-maintenance.ts",
     "worker:prices:archive:audit": "tsx scripts/pricing-archive-recovery-audit.ts",
