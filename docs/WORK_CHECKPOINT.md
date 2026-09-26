@@ -2,7 +2,7 @@
 
 ## Navigation contrast acceptance batch, 2026-09-26
 
-Active branch `test/navigation-theme-contrast` starts from merged main while open Pricing PR #412 awaits its own user approval. The grouped local Docker app passed a focused browser check of rendered navigation group, ordinary, hover and current-route text contrast at 1366px desktop and 390px phone widths in all six themes. Minimum ratios were 5.82:1, 14.74:1, and 5.94:1 respectively, above 4.5:1; typecheck passed. This is a test/documentation-only batch with no app code change or Docker reload. Next safe step: open its PR and collect CI, continue #274 acceptance, and wait for human navigation feedback. Do not merge this or #412 without separate PR approval.
+Active branch `test/navigation-theme-contrast` is open PR #413 from merged main while open Pricing PR #412 awaits its own user approval. The grouped local Docker app passed a focused browser check of rendered navigation group, ordinary, hover and current-route text contrast at 1366px desktop and 390px phone widths in all six themes. Minimum ratios were 5.82:1, 14.74:1, and 5.94:1 respectively, above 4.5:1; typecheck passed. This is a test/documentation-only batch with no app code change or Docker reload. The bounded Inventory move #265 and Deck editing #268 issues closed after the user's successful local task reviews and merged fixes; broader acceptance stays in #274. Next safe step: collect #413 CI, continue #274 acceptance, and wait for human navigation/filter feedback. Do not merge #413 or #412 without separate PR approval.
 
 ## Backup subdirectory correction in progress, 2026-09-26
 
