@@ -292,6 +292,36 @@ test("real Inventory workspace composes search, preserves context and reflows wi
       });
       await page.keyboard.press("Escape");
     }
+    // Emulate the viewport and pixel density of a 1366x768 window at 200%.
+    // Browser-chrome zoom itself still needs a manual acceptance check.
+    await page.setViewportSize({ width: 683, height: 384 });
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setDeviceMetricsOverride", {
+      width: 683, height: 384, deviceScaleFactor: 2, mobile: false,
+      screenWidth: 1366, screenHeight: 768,
+    });
+    expect(await page.evaluate(() => [innerWidth, innerHeight, devicePixelRatio]))
+      .toEqual([683, 384, 2]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
+      .toBe(true);
+    await expect(table).toBeVisible();
+    await filters.click();
+    await expect(panel).toBeVisible();
+    expect(await panel.evaluate((node) => node.matches(":modal"))).toBe(true);
+    for (const name of ["Close filters", "Apply filters"]) {
+      const control = panel.getByRole("button", { name });
+      await expect(control).toBeVisible();
+      const box = (await control.boundingBox())!;
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      expect(box.y + box.height).toBeLessThanOrEqual(384);
+    }
+    await page.screenshot({
+      path: "test-results/workspace-enlarged-emulated.png",
+      animations: "disabled",
+    });
+    await page.keyboard.press("Escape");
+    await expect(filters).toBeFocused();
+    await expect(table).toBeVisible();
     await filters.click();
     await queryTab.click();
     await panel.getByLabel("Query arguments", { exact: true }).fill("(");
@@ -303,6 +333,7 @@ test("real Inventory workspace composes search, preserves context and reflows wi
     await expect(panel.getByRole("alert").first()).toBeVisible();
     expect(await panel.evaluate((node) => node.matches(":modal"))).toBe(true);
     await page.keyboard.press("Escape");
+    await cdp.send("Emulation.clearDeviceMetricsOverride");
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/change-password");
     await expect(navigation).toBeVisible();
