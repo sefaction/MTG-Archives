@@ -1,8 +1,16 @@
 # UI acceptance status - 2026-09-26
 
+## Current Inventory review and failure recovery, 2026-09-26
+
+The user reports Inventory card/storage filters work well: they can apply criteria, identify active filters, and revise or clear them without losing their place. They also accepted the selected-copy amount and Move confirmation, Deck editing, cross-section navigation, and Locations inspection/editing in the local app. The bounded Inventory filter #264, move #265, Deck #268 and navigation foundation #263 issues are closed; the wider role, device and state matrix in #274 remains open.
+
+The owned infinite-browsing retry fixture intercepts one next-page request with HTTP 503. In the local Docker app, the initial 10 rows and a selected copy remained visible, the failure and Retry control appeared, then Retry loaded the final two rows while preserving selection. The focused browser case passed 1/1 and its temporary user/data were removed. This covers a specific long-list error/retry state under #274; it does not claim all network failures or the entire state matrix.
+
 ## Navigation contrast across desktop and phone, 2026-09-26
 
-The focused browser check reads rendered foreground and effective surface colors for the Collection group label, an ordinary link, its hover state and the current Inventory route at 1366px desktop and 390px phone widths across all six themes. The minimum observed ratios were 5.82:1 for group labels, 14.74:1 for ordinary links, and 5.94:1 for hovered and current-route links; all exceed the 4.5:1 normal-text threshold. The local grouped Docker app passed 1/1 focused case, and typecheck passed. This covers navigation text contrast in those states, not all controls or a full accessibility certification. Human navigation feedback and the broader #274 matrix remain open.
+The focused browser check reads rendered foreground and effective surface colors for the Collection group label, an ordinary link, its hover state and the current Inventory route at 1366px desktop and 390px phone widths across all six themes. The minimum observed ratios were 5.82:1 for group labels, 14.74:1 for ordinary links, and 5.94:1 for hovered and current-route links; all exceed the 4.5:1 normal-text threshold. The local grouped Docker app passed 1/1 focused case, and typecheck passed. The user reported cross-section navigation works well. This covers navigation text contrast in those states, not all controls or a full accessibility certification; the broader #274 matrix remains open.
+
+The opted-in serial local Chromium suite finished 62 passed and one intentional skip in 7.1 minutes on the grouped Docker app. The skipped case is the separately gated four-owner Pricing retention site-load drill. Synthetic 150,000-copy/15,000-row storage data was removed; zero fixture users and 12,477 physical copies remained afterward. This combined run covers the enabled cases, not every role/theme/error permutation required by #274.
 
 ## Varied 150,000-copy Inventory and Locations scale, 2026-09-26
 
