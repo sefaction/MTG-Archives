@@ -75,6 +75,7 @@ test("real Inventory workspace composes search, preserves context and reflows wi
       const tag=${quote(tag)},passwordHash=await require('bcryptjs').hash(${quote(password)},10);
       const owner=await tx.player.create({data:{name:tag,displayName:'Workspace reviewer'}});
       await tx.user.create({data:{username:tag,displayName:'Workspace reviewer',passwordHash,playerId:owner.id}});
+      await tx.inventoryLocation.create({data:{name:tag+' destination',normalizedName:(tag+' destination').toLowerCase(),ownerPlayerId:owner.id,type:'Box'}});
       for(const [name,quantity] of [['Forest',8],['Island',17]]) {
         const card=await tx.card.findFirstOrThrow({where:{name},orderBy:{id:'asc'}});
         await tx.inventoryItem.create({data:{cardId:card.id,currentOwnerId:owner.id,originalOpenerId:owner.id,quantity,sourceType:'MANUAL',condition:'NM',language:'EN',notes:tag}});
@@ -396,6 +397,39 @@ test("real Inventory workspace composes search, preserves context and reflows wi
       await zoomPanel.getByRole("button", { name: "Apply filters" }).click();
       await expect(zoomPage).toHaveURL(/scryfallQuery=%28/);
       await expect(zoomPanel.getByRole("alert").first()).toBeVisible();
+      await zoomPage.goto(`${baseURL}/inventory?displayMode=exact&pageSize=10`);
+      const zoomRows = zoomPage.locator('tbody input[type="checkbox"]');
+      await expect(zoomRows).toHaveCount(2);
+      await zoomRows.nth(0).check();
+      await zoomRows.nth(1).check();
+      await zoomPage.locator('tbody input[type="number"][max="8"]').fill("5");
+      await zoomPage.locator('tbody input[type="number"][max="17"]').fill("12");
+      await expect(zoomPage.locator(".inventory-selection-context")
+        .filter({ hasText: "2 entries selected · 17 copies chosen for Move" }))
+        .toBeVisible();
+      await zoomPage.evaluate(() => window.scrollTo(0, 0));
+      await zoomPage.getByRole("button", { name: "Move cards…", exact: true }).click();
+      const zoomMove = zoomPage.getByRole("dialog", { name: "Move inventory" });
+      await expect(zoomMove).toBeVisible();
+      expect(await zoomMove.evaluate((node) => node.matches(":modal"))).toBe(true);
+      const destinationSearch = zoomMove.getByRole("combobox", { name: "Search destinations" });
+      await destinationSearch.fill(`${tag} destination`);
+      await destinationSearch.press("ArrowDown");
+      await destinationSearch.press("Enter");
+      const confirmMove = zoomMove.getByRole("button", { name: "Move 17 cards", exact: true });
+      await expect(confirmMove).toBeEnabled();
+      const moveBox = (await zoomMove.boundingBox())!;
+      expect(moveBox.y).toBeGreaterThanOrEqual(0);
+      expect(moveBox.y + moveBox.height).toBeLessThanOrEqual(384);
+      expect(await zoomPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1))
+        .toBe(true);
+      await zoomPage.screenshot({
+        path: "test-results/workspace-move-browser-zoom.png",
+        animations: "disabled",
+      });
+      await confirmMove.click();
+      await expect(zoomMove).not.toBeVisible();
+      await expect(zoomPage.getByText(/Moved 17 cards across 2 entries/)).toBeVisible();
     } finally {
       await zoomContext.close();
     }
