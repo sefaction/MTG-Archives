@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Flat Compose archive default CI guard, 2026-09-26
+
+Active branch `test/pricing-flat-compose-guard` starts from merged main `1bd9e93` (approved #424). A new CI step renders the actual flat Unraid Compose file both with and without the archive profile using harmless placeholder paths. It checks that maintenance and verifier services are absent by default, archive switches remain off, the worker and maintenance have the backup mount, and the verifier has no published port and uses its own data volume. Local check and typecheck passed. This changes verification only; no Docker reload or production change. PR/CI and individual approval remain pending. #330 stays open for local operational evidence and reviewed activation; raw retention is off. Next safe step: open this focused PR and collect checks while continuing the UI #274 matrix.
+
 ## Flat Unraid Compose activation path, 2026-09-26
 
 The user confirmed production uses the single `docker-compose.unraid.flat.yml` file and individually approved PR #424 while its original layered-only revision was green. This branch now also defines the disabled maintenance profile, separate named-volume verifier, worker pause flags and backup mount in that actual deployment file. Local `docker compose config --quiet` passed for both default and maintenance-profile forms; the default form excludes both maintenance services and the worker's production/raw switches resolve to `0`. No Unraid container or configuration was changed. The updated PR needs fresh CI and a final scope review before merging under the user's #424 approval. Next safe step: commit and push the flat-file change, verify CI and local grouped browser checks, then merge #424 if green.
