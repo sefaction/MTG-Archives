@@ -1,5 +1,9 @@
 # UI acceptance status - 2026-09-26
 
+## Owned Inventory mutation path, 2026-09-26
+
+A disposable member-owned four-copy stack passed a local Chromium flow through Edit inventory, notes save, one-copy split to a second Box, Audit Trail and confirmed row deletion. Database assertions found one and three copies after splitting, both audit reasons, and zero owned inventory entries after deletion. The fixture removed its user, owner, locations and audit records. This gives direct behavior evidence for a representative I08, I10 and I11 path; bulk deletion, owner changes, restricted stacks and public read-only boundaries have separate evidence or remain for the broader #274 matrix. The application image did not change, so no Docker reload was needed.
+
 ## Administration route boundary sample, 2026-09-26
 
 A focused local browser case enumerated all six current static `/admin` pages. An anonymous visit went to Login; a signed-in member was redirected from every page; an admin-role account was redirected until it explicitly entered Admin Mode, then could render all six pages; exiting Admin Mode removed access again. The case passed 1/1 and cleaned its disposable users/owners (zero remain). This covers route-level access for this role sample under #274; it does not certify every administrative action or other role/ownership paths.

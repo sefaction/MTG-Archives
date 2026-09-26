@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Inventory mutation acceptance sample, 2026-09-26
+
+Active branch `test/inventory-mutation-acceptance` starts from merged main `1bd9e93`, including approved #424. It adds a local-only owned browser fixture for Inventory edit, split, audit and confirmed deletion under #274. The focused case passed 1/1 against the healthy local Docker image already loaded from #424 application code; database checks proved four copies became one plus three, both audit reasons were saved, and deleting the row left zero fixture items. Fixture cleanup completed. No app code changed and no Docker reload is needed. Typecheck, PR and CI are pending. #330 remains open, with production archive maintenance and retention off. Next safe step: typecheck, open this bounded evidence PR, then continue #274's uncovered role/action matrix and #330's local operational gate. No individual merge approval has been given for this new PR.
+
 ## Flat Unraid Compose activation path, 2026-09-26
 
 The user confirmed production uses the single `docker-compose.unraid.flat.yml` file and individually approved PR #424 while its original layered-only revision was green. This branch now also defines the disabled maintenance profile, separate named-volume verifier, worker pause flags and backup mount in that actual deployment file. Local `docker compose config --quiet` passed for both default and maintenance-profile forms; the default form excludes both maintenance services and the worker's production/raw switches resolve to `0`. No Unraid container or configuration was changed. The updated PR needs fresh CI and a final scope review before merging under the user's #424 approval. Next safe step: commit and push the flat-file change, verify CI and local grouped browser checks, then merge #424 if green.
