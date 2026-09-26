@@ -39,6 +39,10 @@ test("Pricing recovery copy reads back immutable archive and dump before reuse",
       assert.deepEqual(readFileSync(item.destination), readFileSync(item.path));
     const reused = await copyVerifiedPricingRecoveryFiles(source, destination, files);
     assert.deepEqual(reused.map((item) => item.reused), [true, true]);
+    const siblingCopies = await copyVerifiedPricingRecoveryFiles(source, sibling, files);
+    assert.deepEqual(siblingCopies.map((item) => item.reused), [false, false]);
+    for (const item of siblingCopies)
+      assert.deepEqual(readFileSync(item.destination), readFileSync(item.path));
     writeFileSync(copied[0].destination, "corrupt copy");
     await assert.rejects(copyVerifiedPricingRecoveryFiles(source, destination, files),
       /Existing Pricing recovery copy differs/);
