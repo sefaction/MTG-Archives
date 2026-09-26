@@ -27,11 +27,11 @@ retention, maintenance and one-mode settings are complete.
   root, a distinct `PRICING_VERIFY_DATABASE_URL`, free-space and recovery
   checks, import/maintenance window observation, and an operator-reviewed
   rollback plan. Do not infer those runtime settings from this repository.
-- The repository's `docker-compose.unraid.flat.yml` is a separate deployment
-  option and does not define the archive maintenance or verifier services.
-  Determine which Compose form production actually uses before preparing an
-  activation change. This PR updates the layered `docker-compose.yml` path
-  only; it does not make the flat file eligible for archive maintenance.
+- Production uses the single `docker-compose.unraid.flat.yml` file. It now
+  includes the same disabled maintenance profile, isolated verifier, worker
+  pause settings and backup mount as the layered Compose file. The verifier
+  has a named volume and no published port. Adding these definitions does not
+  start the profile or authorize archive writes.
 
 ## Rollout sequence after separate production authorization
 
