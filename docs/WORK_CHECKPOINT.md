@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Bounded off-hours raw retention pilot, 2026-09-26
+
+Active branch `feat/pricing-bounded-retention-pass` stacks on unpushed `feat/pricing-recovery-partial-cleanup`, after open #380. It adds a read-only oldest-date plan and a separately opted-in one-date raw retention pass inside the existing 2–5 a.m. Central lease. With all three local pilot flags, the importer pauses new jobs during that window and the pass refuses active jobs, performs required daily compaction, verified staging and guarded activation, and has an 85-minute parent limit. The new flag defaults to 0 in Compose and the maintenance profile remains disabled. Typecheck and Compose opt-out configuration passed; end-to-end isolated orchestration and cumulative Docker verification are pending. No raw row was deleted. Next safe step: add focused pilot gate checks, merge both new batches into cumulative review, build/reload Docker once, then open separate dependent PRs after verification. #330 remains open for independent current-schema restore and resource/rollback approval.
+
 ## Pricing interrupted-copy cleanup review, 2026-09-26
 
 Active branch `feat/pricing-recovery-partial-cleanup` stacks on open, green #380 (after #379 and #377). During an explicitly enabled 2–5 a.m. Central maintenance pass, the runner now scans the separate recovery destination once under its lease and removes only its own unpublished `.partial-UUID` copies older than seven days. No completed package or recent copy is eligible. The focused recovery-copy tests passed 3/3 and typecheck passed after Prisma generation. The maintenance profile remains disabled. Next safe step: review final diff, merge cumulatively for the next grouped Docker reload, open a dependent PR and collect CI. #330 remains open for current-schema independent restore, resource and rollback gates; no raw deletion has been enabled.
