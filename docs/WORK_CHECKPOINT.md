@@ -1,8 +1,15 @@
 # Resumable work checkpoint
 
+## Approved acceptance and Compose queue, 2026-09-26
+
+The user individually approved #425, #426, #428, #430 and #432. #425 merged into `main` at `66d8597`. #426 is being refreshed against that merge before its approved merge; #428, #430 and #432 remain open with green checks at their prior heads and must be refreshed as needed. The cumulative local image contains #428, #430 and #432. No production activation. Next safe step: resolve this checkpoint merge, rerun #426 CI and merge it, then refresh and merge each later approved PR in order; close resolving bug issues only after merge.
+
 ## Flat Compose archive default CI guard, 2026-09-26
 
 Active branch `test/pricing-flat-compose-guard` starts from merged main `1bd9e93` (approved #424). A new CI step renders the actual flat Unraid Compose file both with and without the archive profile using harmless placeholder paths. It checks that maintenance and verifier services are absent by default, archive switches remain off, the worker and maintenance have the backup mount, and the verifier has no published port and uses its own data volume. Local check and typecheck passed. This changes verification only; no Docker reload or production change. PR/CI and individual approval remain pending. #330 stays open for local operational evidence and reviewed activation; raw retention is off. Next safe step: open this focused PR and collect checks while continuing the UI #274 matrix.
+## Inventory mutation acceptance sample, 2026-09-26
+
+Active branch `test/inventory-mutation-acceptance` starts from merged main `1bd9e93`, including approved #424. It adds a local-only owned browser fixture for Inventory edit, split, audit and confirmed deletion under #274. The focused case passed 1/1 against the healthy local Docker image already loaded from #424 application code; database checks proved four copies became one plus three, both audit reasons were saved, and deleting the row left zero fixture items. Fixture cleanup completed. No app code changed and no Docker reload is needed. Typecheck, PR and CI are pending. #330 remains open, with production archive maintenance and retention off. Next safe step: typecheck, open this bounded evidence PR, then continue #274's uncovered role/action matrix and #330's local operational gate. No individual merge approval has been given for this new PR.
 
 ## Flat Unraid Compose activation path, 2026-09-26
 
