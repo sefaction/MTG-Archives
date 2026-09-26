@@ -1,5 +1,11 @@
 # Local review build — cumulative issue queue
 
+## Corrected Pricing review source, 2026-09-26
+
+The local app at `http://127.0.0.1:13001` runs image `sha256:8c531533b3558d842bb58103194fdc25e9cc6ed9840831e2bd05724de6f5fe43`, built directly from cumulative worktree `local/cumulative-review-v6` at `c49123a`. The built image and running web container had matching SHA-256 hashes with that worktree for `pricing-verification-server.ts`, `pricing-daily-compact.ts` and `verify-pricing-retention-fullsize.ts`; `/login` returned HTTP 200. It includes the dependent Pricing stack through #388 and Inventory #373/#378. The #389 issue fix and named-volume clone drill are currently copied into the web container for a local test, not yet in that image. Both optional Pricing test services were stopped after the pass. Automatic retention is off and archive maintenance is disabled. Every unmerged PR still needs individual approval.
+
+Earlier images `sha256:b0a8b7760087cbe2db88db4220f9fb1f0513684e18e3e6e527fd6721b04e05ee` and `sha256:ed4bce6e359b7922b147fd8a71f15144d4131d5aa9ccfafe5bdc428e23e859aa` were built with `--project-directory` pointing to the primary repository while their Compose overlay had `build.context: .`. Compose built the primary worktree, so their claimed cumulative source provenance was wrong. Treat only checks run from explicitly copied scripts and the corrected image as evidence for their respective code; see [#389](https://github.com/sefaction/MTG-Archives/issues/389). For cumulative review builds, run `docker build -t mtg-archives-web:local -f Dockerfile .` from the exact review worktree, or set `MTG_REVIEW_BUILD_CONTEXT` to its absolute path before Compose build. Confirm hashes of relevant image files against that worktree, then use Compose `up -d --no-build` with the primary project directory to retain local data mounts.
+
 ## Current Inventory copy selection review, 2026-09-26
 
 Open http://127.0.0.1:13001/inventory. The cumulative local Docker image `sha256:dfac076c44282613485cbb1495570c1fdb67a52914fcbf12b5fbbf6b4c2e80aa` includes unmerged #372/#373 and the dependent Pricing maintenance target gate. Web is healthy and `/login` returned HTTP 200. Pricing raw deletion and archive maintenance remain disabled.

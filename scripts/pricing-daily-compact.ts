@@ -10,7 +10,9 @@ import { pricingVerificationServer } from "./pricing-verification-server";
 const configured = process.env.PRICING_DATABASE_URL;
 if (!configured) throw new Error("PRICING_DATABASE_URL is required.");
 const url = new URL(configured);
-if (!["pricing-postgres", "localhost", "127.0.0.1"].includes(url.hostname))
+if (!["pricing-postgres", "localhost", "127.0.0.1"].includes(url.hostname) &&
+    !(process.env.MTG_LOCAL_PILOT_TEST === "1" &&
+      url.hostname === "pricing-retention-clone-postgres"))
   throw new Error("Daily compaction currently supports only the local pricing database.");
 url.searchParams.delete("schema");
 const apply = process.argv.includes("--apply");

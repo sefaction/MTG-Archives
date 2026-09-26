@@ -13,6 +13,11 @@ const source = new URL(process.env.PRICING_DATABASE_URL!);
 if (!["pricing-postgres", "localhost", "127.0.0.1"].includes(source.hostname))
   throw new Error("Full-size retention drill supports only a local Pricing database");
 source.searchParams.delete("schema");
+const separateClone = process.env.PRICING_CLONE_POSTGRES_DRILL === "1";
+if (separateClone && (source.hostname !== "pricing-postgres" ||
+    process.env.PRICING_VERIFY_POSTGRES_DRILL !== "1" ||
+    process.env.PRICING_DIRECT_VERIFICATION_DRILL !== "1"))
+  throw new Error("Named-volume clone requires the local source, isolated verifier and direct drill");
 if (process.env.PRICING_VERIFY_POSTGRES_DRILL === "1") {
   if (source.hostname !== "pricing-postgres")
     throw new Error("Isolated verifier drill requires the local Compose Pricing service");
@@ -22,9 +27,10 @@ if (process.env.PRICING_VERIFY_POSTGRES_DRILL === "1") {
   process.env.PRICING_VERIFY_DATABASE_URL = verifier.toString();
 }
 const admin = new URL(source);
+if (separateClone) admin.hostname = "pricing-retention-clone-postgres";
 admin.pathname = "/postgres";
 const name = "pricing_retention_load_" + randomUUID().replace(/-/g, "").slice(0, 16);
-const clone = new URL(source);
+const clone = new URL(admin);
 clone.pathname = "/" + name;
 const work = mkdtempSync(join(tmpdir(), "pricing-retention-load-"));
 const backup = join(work, "backup");
@@ -61,6 +67,10 @@ function lastJson(output: string): Record<string, any> {
 }
 
 try {
+  if (separateClone && sql(source,
+      "SELECT system_identifier FROM pg_control_system();") === sql(admin,
+      "SELECT system_identifier FROM pg_control_system();"))
+    throw new Error("Retention clone resolves to the live Pricing server");
   const started = Date.now();
   run("pg_dump", [source.toString(), "--format=custom", "--no-owner",
     "--no-acl", "--file=" + dump]);
@@ -141,7 +151,7 @@ try {
     clonedRaw, oldDate, dumpBytes: statSync(dump).size,
     cloneBytes: Number(sql(clone, "SELECT pg_database_size(current_database());")),
     recoveryBytes: bytes(recovery), dumpMs, restoreMs, passMs,
-    phases: result.timings, direct,
+    phases: result.timings, direct, separateClone,
     liveDatabaseReplaced: false, retentionEnabled: false }));
 } finally {
   if (created) sql(admin, 'DROP DATABASE "' + name + '" WITH (FORCE);');
