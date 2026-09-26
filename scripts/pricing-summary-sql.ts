@@ -159,6 +159,24 @@ CREATE TABLE IF NOT EXISTS price_archived_scope_summary
 ${rollupSchema("price_archived_monthly_summary", "month_start")}
 ${rollupSchema("price_archived_weekly_summary", "week_start")}
 ${rollupSchema("price_archived_yearly_summary", "year_start")}
+CREATE TABLE IF NOT EXISTS price_archived_daily_basis (
+  mtgjson_uuid TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  finish TEXT NOT NULL,
+  price_type TEXT NOT NULL,
+  currency TEXT NOT NULL,
+  observed_date DATE NOT NULL,
+  price NUMERIC(12, 4) NOT NULL,
+  source_snapshot_id BIGINT NOT NULL,
+  source_revision_count INTEGER NOT NULL,
+  current_ingested_at TIMESTAMPTZ NOT NULL,
+  raw_count INTEGER NOT NULL,
+  latest_ingested_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (mtgjson_uuid, provider, finish, price_type, currency, observed_date)
+);
+CREATE INDEX IF NOT EXISTS price_archived_daily_basis_scope_date_idx
+  ON price_archived_daily_basis (provider, finish, price_type, currency,
+    observed_date DESC, mtgjson_uuid);
 CREATE TABLE IF NOT EXISTS price_raw_archive_segment (
   observed_date DATE PRIMARY KEY,
   archive_path TEXT NOT NULL,

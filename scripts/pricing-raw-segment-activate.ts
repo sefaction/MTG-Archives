@@ -149,7 +149,8 @@ function activationSql(state: State, backup: string, backupSha: string,
   LOCK TABLE price_snapshots IN SHARE ROW EXCLUSIVE MODE;
   LOCK TABLE price_summary_state IN SHARE ROW EXCLUSIVE MODE;
   LOCK TABLE price_archived_scope_summary, price_archived_monthly_summary,
-    price_archived_weekly_summary, price_archived_yearly_summary IN SHARE ROW EXCLUSIVE MODE;
+    price_archived_weekly_summary, price_archived_yearly_summary,
+    price_archived_daily_basis IN SHARE ROW EXCLUSIVE MODE;
   DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM price_summary_state WHERE singleton AND ready AND tiers_ready
       AND source_revision = summary_revision AND source_revision = ${manifest.sourceRevision}
@@ -172,8 +173,22 @@ function activationSql(state: State, backup: string, backupSha: string,
     SELECT DISTINCT ON (mtgjson_uuid, provider, finish, price_type, currency)
       mtgjson_uuid, provider, finish, price_type, currency, observed_date,
       price, id, created_at
+      , revision_count
     FROM price_snapshots WHERE observed_date = ${dateSql}
     ORDER BY mtgjson_uuid, provider, finish, price_type, currency, created_at DESC, id DESC;
+  INSERT INTO price_archived_daily_basis (
+    mtgjson_uuid, provider, finish, price_type, currency, observed_date,
+    price, source_snapshot_id, source_revision_count, current_ingested_at,
+    raw_count, latest_ingested_at)
+  SELECT p.mtgjson_uuid, p.provider, p.finish, p.price_type, p.currency,
+    p.observed_date, p.price, p.id, p.revision_count, p.created_at,
+    r.snapshot_count, r.latest_ingested_at
+  FROM archive_day_points p JOIN (
+    SELECT mtgjson_uuid, provider, finish, price_type, currency,
+      COUNT(*)::int AS snapshot_count, MAX(created_at) AS latest_ingested_at
+    FROM price_snapshots WHERE observed_date = ${dateSql}
+    GROUP BY mtgjson_uuid, provider, finish, price_type, currency
+  ) r USING (mtgjson_uuid, provider, finish, price_type, currency);
   INSERT INTO price_archived_scope_summary (
     mtgjson_uuid, provider, finish, price_type, currency, snapshot_count,
     latest_observed_date, latest_ingested_at, current_price, current_snapshot_id,
