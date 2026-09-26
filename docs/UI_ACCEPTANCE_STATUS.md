@@ -2,7 +2,7 @@
 
 ## Inventory edit and audit modal recovery, 2026-09-26
 
-Issue #427 found that the Edit Inventory Item and Audit Trail overlays were ordinary fixed elements without modal keyboard behavior. Both now use named native dialogs. Escape or backdrop click closes each, focus stays out of the background, and closing returns focus to the row action or still-visible View details control. Edit has a visible Close button at the top and an internally scrollable height bound. The owned local Chromium case passed its desktop focus cycle and 390px phone bounds/Close/backdrop check; the five Inventory detail cases and the separate owned edit/split/audit/delete mutation case passed on the grouped local image. This is focused keyboard and layout evidence, not a screen-reader certification or the complete #274 matrix.
+Issue #427 found that the Edit Inventory Item and Audit Trail overlays were ordinary fixed elements without modal keyboard behavior. Both now use named native dialogs. Escape or backdrop click closes each, focus stays out of the background, and closing returns focus to the row action or still-visible View details control. Edit has a visible Close button at the top and an internally scrollable height bound. The owned local Chromium case passed its desktop focus cycle, 390px phone bounds/Close/backdrop check, and actual 200% tab zoom at 683Ã—384 CSS pixels with Edit and Close still reachable. The five Inventory detail cases and the separate owned edit/split/audit/delete mutation case passed on the grouped local image. This is focused keyboard and layout evidence, not a screen-reader certification or the complete #274 matrix.
 
 ## Administration route boundary sample, 2026-09-26
 

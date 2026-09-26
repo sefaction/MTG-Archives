@@ -1,6 +1,7 @@
 import { expect, test as base, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { openLocalPageAt200Percent } from "./local-browser-zoom";
 
 function database<T>(body: string): T {
   return JSON.parse(
@@ -190,6 +191,7 @@ test("inventory detail drawer contains focus, closes and restores focus on deskt
 test("owned Inventory edit and audit panels contain focus and close from the keyboard", async ({
   page,
   account,
+  baseURL,
 }) => {
   test.skip(!account.disposable, "Requires an owned local Inventory fixture");
   await openDetails(page, account);
@@ -234,6 +236,30 @@ test("owned Inventory edit and audit panels contain focus and close from the key
   await page.getByRole("button", { name: "Edit inventory" }).click();
   await page.mouse.click(1, 1);
   await expect(edit).toHaveCount(0);
+
+  const { context: zoomContext, page: zoomPage } = await openLocalPageAt200Percent(
+    baseURL,
+    account.username,
+    account.password,
+    "/inventory?cardName=Hanweir&displayMode=exact",
+  );
+  try {
+    expect(await zoomPage.evaluate(() => [innerWidth, innerHeight, devicePixelRatio])).toEqual([683, 384, 2]);
+    await zoomPage.getByLabel(/actions for Hanweir Battlements/i).first().click();
+    await zoomPage.getByRole("button", { name: "Edit inventory" }).click();
+    const zoomEdit = zoomPage.getByRole("dialog", { name: "Edit Inventory Item" });
+    await expect(zoomEdit).toBeVisible();
+    const bounds = (await zoomEdit.boundingBox())!;
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.y).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(683);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(384);
+    await expect(zoomEdit.getByRole("button", { name: "Close" })).toBeVisible();
+    await zoomPage.keyboard.press("Escape");
+    await expect(zoomEdit).toHaveCount(0);
+  } finally {
+    await zoomContext.close();
+  }
 });
 
 test("public inventory details retain read-only capabilities and modal keyboard behavior", async ({
