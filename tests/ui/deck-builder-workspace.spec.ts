@@ -1,7 +1,7 @@
-import { chromium, expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import path from "node:path";
+import { openLocalPageAt200Percent } from "./local-browser-zoom";
 
 test.skip(
   process.env.MTG_LOCAL_PILOT_TEST !== "1",
@@ -252,34 +252,10 @@ test("builder keeps cards visible, tasks keyboard accessible and views permissio
     await noOverflow(page);
     await details.click();
     await page.evaluate(() => (document.documentElement.style.fontSize = ""));
-    const extensionPath = path.resolve("tests/ui/fixtures/local-zoom-extension");
-    const zoomContext = await chromium.launchPersistentContext("", {
-      channel: "chromium",
-      headless: true,
-      viewport: { width: 1366, height: 768 },
-      args: [
-        `--disable-extensions-except=${extensionPath}`,
-        `--load-extension=${extensionPath}`,
-      ],
-    });
+    const { context: zoomContext, page: zoomPage } = await openLocalPageAt200Percent(
+      baseURL, tag, password, `/decks/${fixture.deck}`,
+    );
     try {
-      const worker = zoomContext.serviceWorkers()[0] || await zoomContext.waitForEvent("serviceworker");
-      const zoomPage = await zoomContext.newPage();
-      await zoomPage.goto(`${baseURL}/login`);
-      await zoomPage.getByLabel(/username or email/i).fill(tag);
-      await zoomPage.getByLabel(/^password$/i).fill(password);
-      await zoomPage.getByRole("button", { name: /^log in$/i }).click();
-      await zoomPage.waitForURL(/\/dashboard/);
-      await zoomPage.goto(`${baseURL}/decks/${fixture.deck}`);
-      const zoom = await worker.evaluate(async () => {
-        const chrome = (globalThis as any).chrome;
-        const tabs = await chrome.tabs.query({ url: "http://127.0.0.1:13001/*" });
-        if (tabs.length !== 1 || tabs[0].id === undefined)
-          throw new Error(`Expected one local deck tab, found ${tabs.length}`);
-        await chrome.tabs.setZoom(tabs[0].id, 2);
-        return chrome.tabs.getZoom(tabs[0].id);
-      });
-      expect(zoom).toBe(2);
       await expect.poll(() => zoomPage.evaluate(() => [innerWidth, innerHeight, devicePixelRatio]))
         .toEqual([683, 384, 2]);
       await noOverflow(zoomPage);
