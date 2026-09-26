@@ -3,6 +3,19 @@
 ## Imports History undo label and tracked rollback, 2026-09-26
 
 Issue #431 identified an unlabeled per-batch Undo import confirmation field in Imports History. The field now has a visible `Type DELETE IMPORT` label. The owned local browser fixture checked its accessible name, committed five copies from two CSV rows, then used that History action to undo the import. The owner's total returned from seven to the original two copies, the batch became `UNDONE`, and two `import_undo` audit records were retained. The focused case passed 1/1 on cumulative local image `sha256:a016a0e1ab3947d47d6b1f29bf20447ac842363c1a41eeb140f6a555c660dc7f` with pending PRs #428 and #430; the fixture user count returned to zero. This covers one tracked admin undo path, not every legacy or partially blocked undo case.
+## Locations direct-contents deletion feedback, 2026-09-26
+
+Issue #429 found that a successful Delete contents result vanished as soon as the refreshed selected location became empty. The empty state now retains the success status while disabling another delete. An owned local browser fixture rejected an incorrect confirmation without changing two direct entries, then accepted DELETE and removed five direct copies across those entries. Four child-location copies, the parent location and two deletion audit rows remained. The focused and existing Locations workspace cases passed 2/2 on a cumulative local Docker image with PR #428; the fixture user, owner and locations were removed. This is one representative L05 destructive path under #274, not all storage deletion variants.
+## Edit and Audit Trail at actual 200% zoom, 2026-09-26
+
+The owned local browser case measured a 683 by 384 CSS pixel viewport at actual 200% tab zoom. It opened both named Inventory dialogs, checked their bounds and visible Close controls, and closed both with Escape. Audit Trail initially extended 12 CSS pixels below the viewport; an explicit zero top margin corrected it. All five Inventory detail cases and the separate owned edit/split/audit/delete case passed on the final grouped local image. This extends the focused #427 evidence below; #274 still requires its wider acceptance matrix.
+
+## Inventory edit and audit modal recovery, 2026-09-26
+
+Issue #427 found that the Edit Inventory Item and Audit Trail overlays were ordinary fixed elements without modal keyboard behavior. Both now use named native dialogs. Escape or backdrop click closes each, focus stays out of the background, and closing returns focus to the row action or still-visible View details control. Edit has a visible Close button at the top and an internally scrollable height bound. The owned local Chromium case passed its desktop focus cycle, 390px phone bounds/Close/backdrop check, and actual 200% tab zoom at 683Ã—384 CSS pixels with Edit and Close still reachable. The five Inventory detail cases and the separate owned edit/split/audit/delete mutation case passed on the grouped local image. This is focused keyboard and layout evidence, not a screen-reader certification or the complete #274 matrix.
+## Owned Inventory mutation path, 2026-09-26
+
+A disposable member-owned four-copy stack passed a local Chromium flow through Edit inventory, notes save, one-copy split to a second Box, Audit Trail and confirmed row deletion. Database assertions found one and three copies after splitting, both audit reasons, and zero owned inventory entries after deletion. The fixture removed its user, owner, locations and audit records. This gives direct behavior evidence for a representative I08, I10 and I11 path; bulk deletion, owner changes, restricted stacks and public read-only boundaries have separate evidence or remain for the broader #274 matrix. The application image did not change, so no Docker reload was needed.
 
 ## Administration route boundary sample, 2026-09-26
 
@@ -131,14 +144,14 @@ The filenames above are coverage pointers, not assertions that every possible co
 
 ## Action-level verification boundary
 
-The 45 action IDs in [CAPABILITIES.md](design/ui-consolidation/CAPABILITIES.md) name each retained control home and role boundary. The current cumulative application revision for this review is `8776e77`. The following checks run against that revision's Docker image; a browser case exercises a representative path within each ID, not necessarily every action named in that ID. Source-mapped controls remain in the crosswalk even where no direct browser mutation was repeated in this pass.
+The 45 action IDs in [CAPABILITIES.md](design/ui-consolidation/CAPABILITIES.md) name each retained control home and role boundary. The checks below accumulated across the UI batches; the owned Inventory mutation case ran on the healthy local image built from the #424 application source. A browser case exercises a representative path within each ID, not necessarily every action named in that ID. Source-mapped controls remain in the crosswalk even where no direct browser mutation was repeated in this pass.
 
 | Action IDs | Current direct evidence | Remaining limit |
 | --- | --- | --- |
 | I01-I03 | `inventory-workspace`, `inventory-color-filter`, `inventory-scryfall-query`, `location-hierarchy` | Not every filter combination is exhaustive |
 | I04-I07 | `inventory-workspace`, `inventory-export`, `vault-pilot`, `vault-map` | All-matching and every view preference are not crossed with every role |
-| I08-I11 | `inventory-detail`, `trade-wishlist`, inventory mutation/policy units | Destructive cleanup and every edit/split field are source mapped rather than browser repeated here |
-| L01-L05 | `locations-workspace`, `location-hierarchy`, `location-scale`, `storage-layout`, `vault-map` | Every destructive storage action is not rerun on the snapshot |
+| I08-I11 | `inventory-mutation-acceptance` edit, split, audit and confirmed row delete; `inventory-detail`, `trade-wishlist`, inventory mutation/policy units | Bulk deletion, restricted stacks and every edit/split field are not crossed in this browser sample |
+| L01-L05 | `locations-workspace`, `location-contents-delete`, `location-hierarchy`, `location-scale`, `storage-layout`, `vault-map` | Direct-contents deletion now has an owned browser path; every type and storage deletion variant is not crossed |
 | M01-M05 | `imports-workspace`, `inventory-export`, real PostgreSQL import integrity script | Every legacy unsafe undo branch is checked in database tests, not through a browser path |
 | D01-D05 | `decks-brackets`, `deck-builder-workspace`, `pasted-decklist`, `league-lifecycle` | Every optimization and folder variant is not repeated in browser |
 | D06-D09 | `deck-analysis`, `deck-sample-hands`, existing `deck-playtest`/`playtest-advanced` regressions | No new Playtest behavior or changes in this goal |
