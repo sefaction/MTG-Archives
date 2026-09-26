@@ -2,19 +2,20 @@ import { spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, readFileSync } from "node:fs";
 import { lstat, realpath } from "node:fs/promises";
-import { relative, resolve, sep } from "node:path";
+import { basename, isAbsolute, relative, resolve, sep } from "node:path";
 import { gunzipSync } from "node:zlib";
-import { verifyPricingRecoveryCopyDestination } from "./pricing-recovery-copy";
+import { verifyPricingRecoveryCopyDestination, type PricingRecoveryPackage } from "./pricing-recovery-copy";
 
 const args = process.argv.slice(2);
-if (args.length !== 3 || args[0] !== "--receipt" || args[2] !== "--run" ||
+if (args.length !== 3 || !["--receipt", "--package"].includes(args[0]) ||
+    args[2] !== "--run" ||
     process.env.MTG_LOCAL_PILOT_TEST !== "1")
-  throw new Error("Use --receipt PATH --run with MTG_LOCAL_PILOT_TEST=1");
+  throw new Error("Use --receipt PATH --run or --package COPIED_PATH --run with MTG_LOCAL_PILOT_TEST=1");
 const configured = process.env.PRICING_DATABASE_URL;
 const sourceRoot = process.env.BACKUP_DIR;
 const copyRoot = process.env.PRICING_RECOVERY_COPY_DIR;
-if (!configured || !sourceRoot || !copyRoot)
-  throw new Error("PRICING_DATABASE_URL, BACKUP_DIR and PRICING_RECOVERY_COPY_DIR are required");
+if (!configured || !copyRoot || (args[0] === "--receipt" && !sourceRoot))
+  throw new Error("PRICING_DATABASE_URL and PRICING_RECOVERY_COPY_DIR are required; receipt mode also needs BACKUP_DIR");
 const database = new URL(configured);
 if (!["pricing-postgres", "localhost", "127.0.0.1"].includes(database.hostname))
   throw new Error("Recovery copy restore drill supports only local Pricing databases");
@@ -50,34 +51,73 @@ type Receipt = { status: string; observedDate: string; archive: string;
   recoveryCopies: RecoveryCopy[] };
 
 async function main() {
-  const { source, destination } = await verifyPricingRecoveryCopyDestination(
-    sourceRoot!, copyRoot!);
-  const receiptPath = await realpath(resolve(args[1]));
-  if (!inside(source, receiptPath) || !(await lstat(receiptPath)).isFile())
-    throw new Error("Recovery receipt must be a regular file under BACKUP_DIR/pricing");
-  const receipt = JSON.parse(readFileSync(receiptPath, "utf8")) as Receipt;
-  if (!["activated", "applied"].includes(receipt.status) ||
-      !/^\d{4}-\d{2}-\d{2}$/.test(receipt.observedDate) ||
-      !Array.isArray(receipt.recoveryCopies) || receipt.recoveryCopies.length !== 4)
-    throw new Error("Receipt does not contain a complete recovery copy package");
+  const packageMode = args[0] === "--package";
+  const destination = packageMode ? await realpath(resolve(copyRoot!)) :
+    (await verifyPricingRecoveryCopyDestination(sourceRoot!, copyRoot!)).destination;
+  if (!(await lstat(destination)).isDirectory())
+    throw new Error("Recovery copy destination must be a directory");
   const copies = new Map<string, RecoveryCopy>();
-  for (const copy of receipt.recoveryCopies) {
-    if (!/^[a-f0-9]{64}$/i.test(copy.sha256))
-      throw new Error("Recovery copy hash is invalid");
-    const original = resolve(copy.path);
-    if (!inside(source, original) || copies.has(original))
-      throw new Error("Recovery copy paths are incomplete or duplicated");
-    const expected = resolve(destination, relative(source, original));
-    const target = await realpath(resolve(copy.destination));
-    if (!inside(destination, target) || target !== expected ||
-        !(await lstat(copy.destination)).isFile() ||
-        await fileSha(target) !== copy.sha256)
-      throw new Error("Recovery copy is missing, outside its destination or changed");
-    copies.set(original, copy);
+  let receipt: Receipt;
+  if (packageMode) {
+    const packagePath = await realpath(resolve(args[1]));
+    if (!inside(destination, packagePath) || !packagePath.endsWith(".package.json") ||
+        !(await lstat(packagePath)).isFile())
+      throw new Error("Package must be a regular file inside the recovery destination");
+    const document = JSON.parse(readFileSync(packagePath, "utf8")) as PricingRecoveryPackage;
+    if (document.schemaVersion !== 1 || !["activation", "correction"].includes(document.operation) ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(document.observedDate) ||
+        !Array.isArray(document.files) || document.files.length !== 4)
+      throw new Error("Invalid copied recovery package");
+    for (const file of document.files) {
+      if (typeof file.relativePath !== "string" || isAbsolute(file.relativePath) ||
+          file.relativePath.split(/[\\/]/).includes("..") ||
+          !/^[a-f0-9]{64}$/i.test(file.sha256))
+        throw new Error("Invalid recovery package file entry");
+      const expected = resolve(destination, file.relativePath);
+      const target = await realpath(expected);
+      if (!inside(destination, target) || target !== expected ||
+          !(await lstat(expected)).isFile() || copies.has(expected) ||
+          await fileSha(target) !== file.sha256)
+        throw new Error("Copied recovery package file is missing or changed");
+      copies.set(expected, { path: expected, destination: target, sha256: file.sha256 });
+    }
+    const archiveEntry = [...copies.values()].find((copy) => copy.path.endsWith(".csv.gz"));
+    const backupEntry = [...copies.values()].find((copy) => copy.path.endsWith(".dump"));
+    if (!archiveEntry || !backupEntry)
+      throw new Error("Copied recovery package lacks an archive or database dump");
+    receipt = { status: document.operation === "activation" ? "activated" : "applied",
+      observedDate: document.observedDate, archive: archiveEntry.path,
+      archiveSha256: archiveEntry.sha256, backup: backupEntry.path,
+      backupSha256: backupEntry.sha256, recoveryCopies: [...copies.values()] };
+  } else {
+    const { source } = await verifyPricingRecoveryCopyDestination(sourceRoot!, copyRoot!);
+    const receiptPath = await realpath(resolve(args[1]));
+    if (!inside(source, receiptPath) || !(await lstat(receiptPath)).isFile())
+      throw new Error("Recovery receipt must be a regular file under BACKUP_DIR/pricing");
+    receipt = JSON.parse(readFileSync(receiptPath, "utf8")) as Receipt;
+    if (!["activated", "applied"].includes(receipt.status) ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(receipt.observedDate) ||
+        !Array.isArray(receipt.recoveryCopies) || receipt.recoveryCopies.length !== 5)
+      throw new Error("Receipt does not contain a complete recovery copy package");
+    for (const copy of receipt.recoveryCopies) {
+      if (!/^[a-f0-9]{64}$/i.test(copy.sha256))
+        throw new Error("Recovery copy hash is invalid");
+      const original = resolve(copy.path);
+      if (!inside(source, original) || copies.has(original))
+        throw new Error("Recovery copy paths are incomplete or duplicated");
+      const expected = resolve(destination, relative(source, original));
+      const target = await realpath(resolve(copy.destination));
+      if (!inside(destination, target) || target !== expected ||
+          !(await lstat(copy.destination)).isFile() ||
+          await fileSha(target) !== copy.sha256)
+        throw new Error("Recovery copy is missing, outside its destination or changed");
+      copies.set(original, copy);
+    }
   }
   const backup = copies.get(resolve(receipt.backup));
   const archive = copies.get(resolve(receipt.archive));
-  const manifests = [...copies.values()].filter((copy) => copy.path.endsWith(".json"));
+  const manifests = [...copies.values()].filter((copy) =>
+    copy.path.endsWith(".json") && !copy.path.endsWith(".package.json"));
   if (!backup || !archive || backup.sha256 !== receipt.backupSha256 ||
       archive.sha256 !== receipt.archiveSha256 || manifests.length !== 2)
     throw new Error("Recovery package does not match the activated receipt");
@@ -95,7 +135,8 @@ async function main() {
       String(backupManifest.observedDate) !== receipt.observedDate ||
       !/^[a-f0-9]{64}$/i.test(csvSha) || archiveSha !== archive.sha256 ||
       String(backupManifest.backupSha256) !== backup.sha256 ||
-      String(backupManifest.backup) !== receipt.backup)
+      (packageMode ? basename(String(backupManifest.backup)) !== basename(backup.path) :
+        String(backupManifest.backup) !== receipt.backup))
     throw new Error("Recovery manifests disagree with copied files");
   const csv = gunzipSync(readFileSync(archive.destination));
   const restoredCsvSha = createHash("sha256").update(csv).digest("hex");
