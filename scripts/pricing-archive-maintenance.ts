@@ -5,6 +5,7 @@ import { pruneStalePricingRecoveryPartials,
   verifyPricingRecoveryCopyDestination } from "./pricing-recovery-copy";
 import { pricingVerificationServer } from "./pricing-verification-server";
 import { runPricingMaintenanceChild } from "./pricing-maintenance-child";
+import { withPricingMaintenanceLease } from "./pricing-maintenance-lease";
 
 const url = process.env.PRICING_DATABASE_URL;
 if (!url) throw new Error("PRICING_DATABASE_URL is required");
@@ -117,11 +118,12 @@ async function tick() {
   }
   try {
     if (!partialCleanupCompleted) {
-      const cleanup = await pruneStalePricingRecoveryPartials(
-        process.env.PRICING_RECOVERY_COPY_DIR!, Date.now(), true);
-      console.info("[pricing-archive-maintenance] recovery partial cleanup", cleanup);
+      const cleanup = await withPricingMaintenanceLease(
+        () => pruneStalePricingRecoveryPartials(
+          process.env.PRICING_RECOVERY_COPY_DIR!, Date.now(), true), heartbeat);
+      console.info("[pricing-archive-maintenance] recovery partial cleanup", cleanup.value);
       partialCleanupCompleted = true;
-      if (!heartbeat()) {
+      if (cleanup.leaseLost || !heartbeat()) {
         console.error("[pricing-archive-maintenance] lease lost during recovery cleanup");
         return;
       }
