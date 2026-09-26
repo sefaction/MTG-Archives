@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Scripted core-task action sample, 2026-09-26
+
+Active branch `test/ui-core-task-actions` starts from merged main `cfdd0c2`; green PR #435 is still open and needs individual approval. New owned local Chromium fixture `tests/ui/core-task-actions.spec.ts` measured nine scripted control actions for a five-copy filtered Inventory move and five for a Locations search/edit, excluding login and direct task entry. It verified the primary controls in the first 1366×768 viewport, destination database quantity and retained location search/selection context. Focused browser case passed 1/1, typecheck passed, fixture cleanup ran, and no app code or Docker image changed. Next safe step: commit/push this test and status record, open its PR and collect CI; do not merge #435 or the new PR without their own user approvals. #274 and #330 remain open; automatic Pricing retention is off.
+
 ## All-matching Inventory export acceptance, 2026-09-26
 
 Active branch `test/inventory-all-matching-export` starts from main `8411980` after user-approved #433 merged. It adds a local-only owned browser fixture for I05/I07: twelve distinct Forest printings span a ten-row page, all-matching selection exports all twelve, and an Island outside the filter is absent. The fixture preserves/restores any same-name pre-existing local export file. Focused Chromium passed 1/1, typecheck and diff check passed, fixture users and temporary export backups returned to zero. No application code changed or Docker reload was needed; the healthy grouped image `sha256:a016a0e1ab3947d47d6b1f29bf20447ac842363c1a41eeb140f6a555c660dc7f` remains loaded. The prior complete local browser suite on the same image passed 70 with one intentional Pricing load skip in 7.6 minutes. #274 and #330 remain open, and Pricing retention is disabled. Next safe step: open this bounded acceptance PR, collect CI and individual approval, then continue the remaining UI and local Pricing gates.

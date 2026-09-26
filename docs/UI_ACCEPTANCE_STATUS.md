@@ -1,5 +1,9 @@
 # UI acceptance status - 2026-09-26
 
+## Scripted desktop task action sample, 2026-09-26
+
+An owned local Chromium fixture at 1366×768 searched Inventory for Forest, selected an eight-copy row, chose five copies before Move, selected a Box destination, and completed the move in **9 scripted control actions**. The database contained five copies at that destination. It then found a vault, opened Manage, changed its description and saved in **5 scripted control actions**; the location search query and selected result remained in context. Inventory search, advanced filters and Move, plus Locations search, Find and selected occupancy, were within the first viewport. These counts exclude login and direct entry to each task page, represent this fixture only, and are not a before/after speed comparison. The focused local browser case passed 1/1 with fixture cleanup. Broader #274 role and accessibility acceptance remains open.
+
 ## All-matching Inventory export across pages, 2026-09-26
 
 An owned local browser fixture placed twelve different Forest printings across a ten-row Inventory page and one Island sentinel outside the card-name filter. Select all matching filters reported twelve entries and copies; the MTG Archives CSV included every tagged Forest entry from both pages and excluded the Island. The focused case passed 1/1 against the healthy local Docker image after #433 merged. Fixture users and temporary export backups returned to zero; the test restores any same-name pre-existing local export file. This provides direct I05/I07 evidence for filtered all-matching export, not every CSV format or selection/role permutation. No application code or Docker image changed.
