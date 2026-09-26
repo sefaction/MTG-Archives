@@ -231,6 +231,9 @@ test("owned Inventory edit and audit panels contain focus and close from the key
   await edit.getByRole("button", { name: "Close" }).click();
   await expect(edit).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Edit inventory" })).toBeFocused();
+  await page.getByRole("button", { name: "Edit inventory" }).click();
+  await page.mouse.click(1, 1);
+  await expect(edit).toHaveCount(0);
 });
 
 test("public inventory details retain read-only capabilities and modal keyboard behavior", async ({

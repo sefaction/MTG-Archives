@@ -3421,6 +3421,13 @@ export function InventoryBrowser({
             event.preventDefault();
             setAuditRow(null);
           }}
+          onClick={(event) => {
+            if (event.target !== event.currentTarget) return;
+            const rect = event.currentTarget.getBoundingClientRect();
+            if (event.clientX < rect.left || event.clientX > rect.right ||
+                event.clientY < rect.top || event.clientY > rect.bottom)
+              setAuditRow(null);
+          }}
           className="fixed inset-y-0 left-auto right-0 m-0 h-dvh max-h-none w-full max-w-3xl overflow-y-auto border-0 border-l border-zinc-800 bg-zinc-950 p-4 text-zinc-100 backdrop:bg-black/60"
         >
             <div className="flex items-start justify-between mb-4">
@@ -3461,6 +3468,13 @@ export function InventoryBrowser({
           onCancel={(event) => {
             event.preventDefault();
             setEditing(null);
+          }}
+          onClick={(event) => {
+            if (event.target !== event.currentTarget) return;
+            const rect = event.currentTarget.getBoundingClientRect();
+            if (event.clientX < rect.left || event.clientX > rect.right ||
+                event.clientY < rect.top || event.clientY > rect.bottom)
+              setEditing(null);
           }}
           className="fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto border border-zinc-700 bg-zinc-950 p-4 text-zinc-100 backdrop:bg-black/60"
         >
