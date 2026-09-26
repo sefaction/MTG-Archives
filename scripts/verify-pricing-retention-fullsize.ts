@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdtempSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { refreshPricingSummariesSql } from "./pricing-summary-sql";
@@ -149,12 +149,25 @@ try {
     ["--import", "tsx", "scripts/pricing-recovery-package-audit.ts"],
     300_000, { ...process.env, PRICING_RECOVERY_COPY_DIR: recovery });
   assert.equal(JSON.parse(copied).verified, 2);
+  const exportDir = process.env.MTG_FULLSIZE_DRILL_EXPORT_DIR;
+  if (exportDir) {
+    const target = resolve(exportDir);
+    const drillRoot = resolve(process.env.BACKUP_DIR!, "pricing-recovery-drills");
+    if (!target.startsWith(drillRoot + sep) || existsSync(target))
+      throw new Error("Full-size drill export must be a new directory under BACKUP_DIR/pricing-recovery-drills");
+    cpSync(recovery, target, { recursive: true, force: false, errorOnExist: true });
+    const exported = run(process.execPath,
+      ["--import", "tsx", "scripts/pricing-recovery-package-audit.ts"],
+      300_000, { ...process.env, PRICING_RECOVERY_COPY_DIR: target });
+    assert.equal(JSON.parse(exported).verified, 2);
+  }
   console.log(JSON.stringify({ mode: "fullsize-retention-drill-passed",
     clonedRaw, oldDate, dumpBytes: statSync(dump).size,
     cloneBytes: Number(sql(clone, "SELECT pg_database_size(current_database());")),
     recoveryBytes: bytes(recovery), dumpMs, restoreMs, passMs,
     phases: result.timings, direct, separateClone,
-    liveDatabaseReplaced: false, retentionEnabled: false }));
+    liveDatabaseReplaced: false, retentionEnabled: false,
+    exportedRecoveryDir: exportDir ?? null }));
 } finally {
   if (created) sql(admin, 'DROP DATABASE "' + name + '" WITH (FORCE);');
   const target = resolve(work);
