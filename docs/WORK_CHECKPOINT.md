@@ -1,8 +1,9 @@
 # Resumable work checkpoint
 
-## Local admin-route role boundary batch, 2026-09-26
+## Approved role gate refreshed after #422, 2026-09-26
 
-Active branch `test/ui-route-role-boundaries` from merged main `4333e28` adds a test-only local Playwright check for all six static `/admin` pages. The case passed 1/1: anonymous Login redirect, member redirect on every page, admin-role redirect before mode, all six pages available in Admin Mode, and denial again after exit. Temporary users and owners returned to zero; local Docker was already healthy and no image reload was needed. Typecheck passed. PR/CI are pending; #274 remains open for action-level and broader role/keyboard/state coverage. Green PR #422 documents the user's local-only Pricing test direction but awaits individual merge approval. Next safe step: open the bounded role-test PR, collect CI and user review, then continue #274 and #330 local operational work.
+The user individually approved PR #422 and it merged as `14dfaf1`; green PR #423 is also individually approved. Active branch `test/ui-route-role-boundaries` now includes merged main and its local browser case passed 1/1 across six Admin routes, with disposable fixture cleanup. Refresh #423 CI, then merge under its existing approval and close no broader acceptance issue. #274 and #330 remain open; a separate default-off Pricing activation branch is in local review. Acquisition #315 remains deferred.
+
 
 ## Static-route actual browser zoom audit, 2026-09-26
 
