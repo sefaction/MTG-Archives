@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Inventory selected-copy contrast follow-up, 2026-09-26
+
+Branch `fix/inventory-selection-contrast` stacks on green, unapproved Inventory PR #378 and #373. On the provenance-checked grouped Docker image `sha256:dc9fe2b8afc8810b9d161f17ac1778ff8cc9226d3010f673977866565a5f3071`, the opt-in vault browser case passed 1/1 after adding all-six-theme computed contrast checks for the selected-copy toolbar. The lowest measured Actions label ratio was 5.82:1 and chosen-copy count 14.74:1. Typecheck passed after generating the local Prisma client. Existing workspace CSS already remaps gray utility classes to theme tokens, so no app source or Docker reload is needed for this test/documentation batch. Next safe step: review diff, push dependent PR, collect CI. Human Inventory review and actual browser 200% zoom remain under #265/#274; no PR merge without its individual approval.
+
 ## Enlarged Inventory filter review, 2026-09-26
 
 Active branch `test/inventory-enlarged-view` stacks on green, unapproved PR #373. The current cumulative local Docker image includes #373; this batch changes only the Inventory browser fixture and acceptance ledger, so no app rebuild is needed. Chromium rendered and captured 683×384 CSS px at device pixel ratio 2, equivalent to the layout area of a 1366×768 window at 200% zoom. The Inventory workspace case passed with visible results, no page-level overflow, modal Filters, reachable Close/Apply, Escape focus return and invalid-query feedback. The captured 683×384 image was inspected. This is emulation; actual browser-chrome zoom and human task observations remain open under #274. Next safe step: commit, push, open dependent test PR and collect CI. No PR merge without individual approval.

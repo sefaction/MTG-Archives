@@ -98,6 +98,43 @@ test("vault creation, multi-selection fill, advisory overflow, refreshed occupan
     await expect(page.locator(".inventory-selection-context")
       .filter({ hasText: "2 entries selected · 17 copies chosen for Move" }))
       .toBeVisible();
+    const selectionContrast: Array<{ theme: string; label: string; ratio: number }> = [];
+    for (const theme of ["golgari", "azorius", "izzet", "selesnya", "rakdos", "lotus"]) {
+      await page.locator("html").evaluate((element, value) => {
+        element.setAttribute("data-theme", value);
+      }, theme);
+      const measured = await page.locator(".inventory-selection-context").evaluateAll((elements) => {
+        const rgb = (value: string) => {
+          const values = value.match(/[\d.]+/g)?.slice(0, 3).map(Number);
+          if (!values || values.length !== 3) throw new Error(`Invalid color: ${value}`);
+          return values;
+        };
+        const luminance = (value: string) => {
+          const [red, green, blue] = rgb(value).map((channel) => {
+            const scaled = channel / 255;
+            return scaled <= 0.04045 ? scaled / 12.92 : ((scaled + 0.055) / 1.055) ** 2.4;
+          });
+          return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+        };
+        return elements
+          .filter((element) => element.tagName === "SPAN" && getComputedStyle(element).display !== "none")
+          .map((element) => {
+            const foreground = luminance(getComputedStyle(element).color);
+            const surface = element.closest(".sticky");
+            if (!surface) throw new Error("Selected Inventory toolbar must be sticky");
+            const background = luminance(getComputedStyle(surface).backgroundColor);
+            const [lighter, darker] = [foreground, background].sort((left, right) => right - left);
+            return {
+              label: element.textContent?.includes("Actions") ? "Actions" : "selected copies",
+              ratio: (lighter + 0.05) / (darker + 0.05),
+            };
+          });
+      });
+      expect(measured.map(({ label }) => label).sort()).toEqual(["Actions", "selected copies"]);
+      selectionContrast.push(...measured.map((result) => ({ theme, ...result })));
+    }
+    expect(selectionContrast.filter(({ ratio }) => ratio < 4.5),
+      JSON.stringify(selectionContrast)).toEqual([]);
     const openMove = page.getByRole("button", {
       name: "Move cards…",
       exact: true,

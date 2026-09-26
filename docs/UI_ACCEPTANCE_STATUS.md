@@ -2,6 +2,10 @@
 
 Related: #262, #263, #264, #265, #268 and #274. This is the implementation/evidence index; the original design prototype and historical feature notes are retained as dated records. This document does not close an issue or approve a PR merge.
 
+## Selected-copy toolbar contrast, 2026-09-26
+
+The opt-in vault move browser case now checks computed text-to-surface contrast for both the Actions label and the chosen-copy count across all six themes while two rows are selected. The lowest observed ratios on the grouped local Docker image were 5.82:1 for Actions and 14.74:1 for the chosen-copy count, above the 4.5:1 normal-text threshold. The same case completed the partial-copy move and cleanup. This is a targeted Inventory state check, not a comprehensive contrast audit or a real-browser zoom check; #274 remains open.
+
 ## Enlarged Inventory layout check, 2026-09-26
 
 The focused Inventory workspace browser fixture now renders a 683×384 CSS viewport at device pixel ratio 2, matching the layout area and pixel density of a 1366×768 window at 200% zoom. It checks no page-level horizontal overflow, visible results before opening Filters, a modal filter panel, reachable Close/Apply controls within the viewport, Escape returning focus to Filters, and the existing invalid-query path. The final 683×384 screenshot was inspected: the filter heading, tabs, query field and sticky actions remain visible; longer help text scrolls inside the panel. This is Chromium device-metrics emulation, not a manual browser-chrome zoom check. Real browser zoom and the broader human task review remain open under #274.
