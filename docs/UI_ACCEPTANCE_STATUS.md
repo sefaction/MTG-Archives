@@ -1,5 +1,8 @@
 # UI acceptance status - 2026-09-26
 
+## Current route inventory reconciliation, 2026-09-26
+
+Issue #419 found that the historical capability crosswalk omitted three pages added after its original 34-route baseline: owned card Pricing history, recipient-specific dated Pricing digests, and Pricing alert settings. Their homes, access boundaries and test pointers are now recorded. The live crosswalk covers all 37 `app/**/page.tsx` routes, with a unit guard in the core verification suite comparing route files to table entries exactly. This verifies route accounting, not every action within each page.
 ## Static phone-route overflow sweep, 2026-09-26
 
 An authenticated local Chromium check visited 15 static member routes, three public routes and six admin routes at both 390 and 320 CSS pixels: 48 route/viewport visits. It verified each rendered viewport width and found no page-wide horizontal overflow; locally scrolling tables and maps remain allowed. The focused case passed 1/1 against the healthy grouped local Docker image. This extends phone evidence beyond the task-specific fixtures, but dynamic Deck, League and Pricing detail routes remain covered by their separate owned workflows rather than this static sweep. It does not establish full visual or accessibility acceptance under #274.
@@ -95,7 +98,7 @@ Local review: http://127.0.0.1:13001. Healthy image `sha256:09053d1ce741b62d1372
 
 ## Capability evidence index
 
-The existing [capability crosswalk](design/ui-consolidation/CAPABILITIES.md) still covers all **34 current page routes** and **45 action IDs**, verified against `app/**/page.tsx` and the crosswalk rows on this revision. Its action IDs and scope differences remain the review checklist; route enumeration alone cannot prove action parity.
+The [capability crosswalk](design/ui-consolidation/CAPABILITIES.md) covers all **37 current page routes** and **45 action IDs**, verified against `app/**/page.tsx` and the crosswalk rows on this revision. Its action IDs and scope differences remain the review checklist; route enumeration alone cannot prove action parity.
 
 | Capability family | Retained home and current implementation record | Behavioral evidence on the cumulative build |
 | --- | --- | --- |

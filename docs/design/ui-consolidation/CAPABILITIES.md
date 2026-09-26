@@ -25,12 +25,15 @@ Evidence abbreviations: **I** = InventoryBrowser, InventoryAdvancedSearch and in
 | `/wishlist` | Wishlist | Manual versus derived deck needs; owned printing and quantity semantics | wishlist page/actions, WishlistTable; trade-wishlist |
 | `/trades` | Trades | Partner overview, active/history; own actions and receipt | trades page/actions, TradeBuilder; trade-lifecycle |
 | `/pricing` | Pricing | Current scope, provider/currency, market/data distinctions | pricing page; pricing units, manual chart/status check |
+| `/pricing/card/[cardId]` | Pricing / owned card history | Signed-in owner of this exact card printing, or active admin scope; provider/currency/range context retained | card history page; pricing-owned-movers, pricing-card-history |
+| `/pricing/digest/[observedDate]` | Pricing / dated digest | Signed-in recipient only; validated UTC date and owned notification payload | digest page; pricing-digest |
 | `/public` | Public browsing / home | Anonymous/public visibility; signed-in navigation differences | PublicNav; public browse smoke |
 | `/public/inventory` | Public browsing / inventory | No owner/admin edits; eligible signed-in other-owner trade-wishlist action remains | public inventory page/actions, I; trade-wishlist, inventory-detail |
 | `/public/decks` | Public browsing / decks | Read-only library, folders/tags/views; authorized shared deck tools | DeckWorkspace; public/private deck checks |
 | `/settings` | Account & settings / profile & preferences | Own identity/appearance/pricing/sharing/categories; explicit save | settings page; settings-themes |
 | `/settings/email` | Account & settings / Notifications / Email | Own address/preferences/test/history; global SMTP availability | email page; email-settings |
 | `/settings/webhooks` | Account & settings / Notifications / Webhooks | Own masked destinations; private-network choice restricted | webhook page; webhook-settings |
+| `/settings/pricing-alerts` | Account & settings / Pricing alerts | Signed-in user's opt-in and thresholds; owner link required before enabling | pricing alerts page; pricing-digest |
 | `/notifications` | Notifications / activity | Own unread/history/deep links | NotificationBell, notifications actions; notifications |
 | `/change-password` | Account & settings / Security | Current user, required-password-change behavior, session invalidation | change-password page; auth-sessions |
 | `/login` | Authentication / sign in | Safe return path, failed-login retry context | login page, auth helpers; login-return |
