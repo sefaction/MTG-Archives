@@ -92,6 +92,7 @@ try {
   const manifest = JSON.parse(readFileSync(stagedResult.manifestPath, "utf8"));
   assert.equal(manifest.restoreVerified, true);
   assert.equal(manifest.rows, 1);
+  assert.match(manifest.sourceFingerprint, /^[a-f0-9]{32}$/);
   assert.equal(readdirSync(join(archiveTestDirectory, "pricing", "raw", "2026-01-10")).length, 2);
   const empty = spawnSync(
     process.execPath,
@@ -113,31 +114,59 @@ try {
   );
   assert.notEqual(premature.status, 0, "The live raw window must refuse staging");
 
-  // Stage complete archive-only scope metadata and per-period partial tiers.
-  sql(testDatabase, `INSERT INTO price_archived_scope_summary
-    (mtgjson_uuid, provider, finish, price_type, currency, snapshot_count,
-     latest_observed_date, latest_ingested_at, current_price, current_snapshot_id)
-    SELECT mtgjson_uuid, provider, finish, price_type, currency, 1,
-           observed_date, created_at, price, id
-    FROM price_snapshots WHERE observed_date IN ('2026-01-05', '2026-01-10');
-  ${["month", "week", "year"]
-    .map(
-      (period) => `INSERT INTO price_archived_${period === "month" ? "monthly" : period === "week" ? "weekly" : "yearly"}_summary
-      (mtgjson_uuid, provider, finish, price_type, currency, ${period}_start,
-       open_date, open_price, low_date, low_price, high_date, high_price,
-       close_date, close_price, observation_count)
-      SELECT mtgjson_uuid, provider, finish, price_type, currency,
-             date_trunc('${period}', observed_date)::date,
-             observed_date, price, observed_date, price, observed_date, price,
-             observed_date, price, 1
-      FROM price_snapshots WHERE observed_date IN ('2026-01-05', '2026-01-10');`,
-    )
-    .join("\n")}
-  UPDATE price_summary_state SET raw_archived_through = '2026-01-10',
-    daily_compacted_through = '2026-01-10' WHERE singleton = TRUE;`);
-  sql(testDatabase, refresh, true); // Prevent counting live and archived Jan rows twice.
-  sql(testDatabase, `DELETE FROM price_snapshots
-    WHERE observed_date <= '2026-01-10';`);
+  const earlyStage = spawnSync(process.execPath,
+    ["--import", "tsx", "scripts/pricing-raw-segment-stage.ts", "--date", "2026-01-05"],
+    { env: { ...process.env, PRICING_DATABASE_URL: testDatabase.toString(),
+        BACKUP_DIR: archiveTestDirectory }, encoding: "utf8", timeout: 120_000 });
+  if (earlyStage.status !== 0)
+    throw new Error(`Sparse segment staging failed: ${earlyStage.stderr.trim()}`);
+  const earlyManifest = JSON.parse(earlyStage.stdout.trim()).manifestPath as string;
+  const activate = (path: string, apply: boolean) => spawnSync(process.execPath,
+    ["--import", "tsx", "scripts/pricing-raw-segment-activate.ts", "--manifest", path,
+      ...(apply ? ["--apply"] : [])],
+    { env: { ...process.env, PRICING_DATABASE_URL: testDatabase.toString(),
+        BACKUP_DIR: archiveTestDirectory, MTG_LOCAL_PILOT_TEST: "1" },
+      encoding: "utf8", timeout: 180_000, maxBuffer: 1024 * 1024 });
+  assert.notEqual(activate(stagedResult.manifestPath, false).status, 0,
+    "Activation must refuse a date that is not the oldest raw segment");
+  sql(testDatabase, `DELETE FROM price_daily_summary WHERE observed_date <= '2026-01-10';
+    UPDATE price_summary_state SET daily_compacted_through = '2026-01-10' WHERE singleton;`);
+  const interrupted = spawnSync(process.execPath,
+    ["--import", "tsx", "scripts/pricing-raw-segment-activate.ts", "--manifest",
+      earlyManifest, "--apply"],
+    { env: { ...process.env, PRICING_DATABASE_URL: testDatabase.toString(),
+        BACKUP_DIR: archiveTestDirectory, MTG_LOCAL_PILOT_TEST: "1",
+        MTG_RAW_ARCHIVE_TEST_FAIL_AFTER_RESTORE: "1" },
+      encoding: "utf8", timeout: 180_000, maxBuffer: 1024 * 1024 });
+  assert.notEqual(interrupted.status, 0);
+  assert.match(interrupted.stderr, /Injected interruption/);
+  assert.equal(sql(testDatabase,
+    `SELECT COUNT(*) FROM price_snapshots WHERE observed_date = '2026-01-05'`), "1");
+  assert.equal(sql(testDatabase,
+    `SELECT raw_archived_through IS NULL FROM price_summary_state WHERE singleton`), "t");
+  for (const path of [earlyManifest]) {
+    const preview = activate(path, false);
+    if (preview.status !== 0) throw new Error(`Archive dry run failed: ${preview.stderr.trim()}`);
+    const applied = activate(path, true);
+    if (applied.status !== 0) throw new Error(`Archive activation failed: ${applied.stderr.trim()}`);
+    assert.equal(JSON.parse(applied.stdout.trim().split(/\r?\n/).at(-1)!).mode, "activated");
+  }
+  const restaged = spawnSync(process.execPath,
+    ["--import", "tsx", "scripts/pricing-raw-segment-stage.ts", "--date", "2026-01-10"],
+    { env: { ...process.env, PRICING_DATABASE_URL: testDatabase.toString(),
+        BACKUP_DIR: archiveTestDirectory }, encoding: "utf8", timeout: 120_000 });
+  if (restaged.status !== 0)
+    throw new Error(`Post-boundary segment staging failed: ${restaged.stderr.trim()}`);
+  const nextManifest = JSON.parse(restaged.stdout.trim()).manifestPath as string;
+  const nextPreview = activate(nextManifest, false);
+  if (nextPreview.status !== 0)
+    throw new Error(`Next archive dry run failed: ${nextPreview.stderr.trim()}`);
+  const nextApplied = activate(nextManifest, true);
+  if (nextApplied.status !== 0)
+    throw new Error(`Next archive activation failed: ${nextApplied.stderr.trim()}`);
+  assert.equal(sql(testDatabase,
+    `SELECT raw_archived_through FROM price_summary_state WHERE singleton`), "2026-01-10");
+  assert.equal(sql(testDatabase, `SELECT COUNT(*) FROM price_raw_archive_segment`), "2");
   sql(testDatabase, refresh);
   assert.equal(
     sql(testDatabase, `SELECT snapshot_count || ':' || current_price || ':' || prior_price
