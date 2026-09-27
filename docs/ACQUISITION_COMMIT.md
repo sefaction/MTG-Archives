@@ -76,3 +76,13 @@ verification output includes the abandoned-retake regression and all receipt,
 capacity and file-expiry fixtures. Local core passed 647 units plus typecheck,
 production build and manifests; the final Docker build repeats runtime lint/type
 checks. Real-photo browser results are recorded in the work checkpoint and PR.
+
+
+Final real-photo browser run passed one complete lifecycle in about one minute:
+ten original Android photos each included the expected printing among suggestions;
+one explicitly reviewed real photo committed one copy with one audit and one
+membership. A deliberately lost response retried without duplicating stock. Ten
+other fixture cards stayed pending. Reload preserved committed state. Layout
+checks passed at 1366, 390 and 320 CSS pixels; the 320px confirmation screenshot
+was inspected. This remains a desktop Chromium fixture with a fake live camera,
+not actual Android camera acceptance. The fixture removes its own records/files.
