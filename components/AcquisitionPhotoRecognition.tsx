@@ -99,7 +99,7 @@ export function AcquisitionPhotoRecognition({
         </p>
       )}
       <p className="mt-2">
-        Suggestions only. Review and Inventory commit are the next step.
+        Open Review card to choose a printing and check its details.
       </p>
     </details>
   );

@@ -4,6 +4,15 @@ import { z } from "zod";
 import { isAdminUser } from "./auth-policy";
 import { getStorageLocations } from "./storage-summary";
 import {
+  acquisitionDefaultsSchema,
+  emptyAcquisitionDefaults,
+  acquisitionPrintingSelect,
+  acquisitionReviewRequestSchema,
+  type AcquisitionCardReview,
+} from "./acquisition-review";
+import { acquisitionRecognitionDto } from "./acquisition-recognition-dto";
+import { searchLocalCardCatalog } from "./local-card-search";
+import {
   acquisitionEventSchema,
   candidateKey,
   createCaptureSession,
@@ -75,6 +84,8 @@ const include = {
 } satisfies Prisma.AcquisitionSessionInclude;
 type Stored = Prisma.AcquisitionSessionGetPayload<{ include: typeof include }>;
 export type StoredCapture = {
+  defaults: ReturnType<typeof acquisitionDefaultsSchema.parse>;
+  defaultsRevision: number;
   batchNumber: number;
   revision: number;
   session: CaptureSession;
@@ -209,6 +220,10 @@ function hydrate(row: Stored): StoredCapture {
   };
   return {
     batchNumber: row.batchNumber,
+    defaults: acquisitionDefaultsSchema.parse(
+      row.reviewDefaults ?? emptyAcquisitionDefaults,
+    ),
+    defaultsRevision: row.defaultsRevision,
     revision: row.revision,
     session,
     destinationCurrent: destinationCurrent(row),
@@ -756,8 +771,16 @@ export async function getAcquisitionProgress(
       where: { runId: row.run!.id },
       _count: { _all: true },
     });
+    const currentPhotoIds = slots.flatMap((slot) => {
+      const photo = slot.photos.find((p) => p.ready);
+      return photo ? [photo.id] : [];
+    });
     const photoJobs = await tx.acquisitionProcessingJob.findMany({
-      where: { runId: row.run!.id, stage: "photo-canonical-v1" },
+      where: {
+        runId: row.run!.id,
+        stage: "photo-canonical-v1",
+        artifact: { sourceId: { in: currentPhotoIds } },
+      },
       select: {
         status: true,
         candidateRevision: true,
@@ -765,16 +788,45 @@ export async function getAcquisitionProgress(
         artifact: { select: { sourceId: true } },
       },
     });
+    const state = hydrate(row);
+    const reviewedIds = [
+      ...new Set(
+        state.session.candidates.flatMap((c) =>
+          c.review?.cardId ? [c.review.cardId] : [],
+        ),
+      ),
+    ];
+    const reviewedNames = new Map(
+      (
+        await tx.card.findMany({
+          where: { id: { in: reviewedIds } },
+          select: { id: true, name: true },
+        })
+      ).map((c) => [c.id, c.name]),
+    );
+    const reviews = new Map(
+      state.session.candidates.map((c) => [
+        c.input.id,
+        c.review
+          ? {
+              ...c.review,
+              cardName: reviewedNames.get(c.review.cardId ?? "") ?? null,
+            }
+          : null,
+      ]),
+    );
     return {
-      ...hydrate(row),
-      photoPreparation: photoJobs
-        .filter((j) => j.candidateRevision === j.candidate.revision)
-        .map((j) => ({ photoId: j.artifact.sourceId, status: j.status })),
+      ...state,
+      photoPreparation: photoJobs.map((j) => ({
+        photoId: j.artifact.sourceId,
+        status: j.status,
+      })),
       slots: slots.map((slot) => ({
         id: slot.id,
         position: slot.position,
         generation: slot.generation,
         photos: slot.photos,
+        review: reviews.get(slot.id) ?? null,
         received: row.run!.candidates.some((c) => c.physicalId === slot.id),
       })),
       reservedSlots: slots.length,
@@ -997,5 +1049,267 @@ export async function getAcquisitionPhoto(
     if (!photo || photo.runId !== row.run!.id || !photo.ready || photo.purgedAt)
       throw new Error("Photo unavailable");
     return photo;
+  });
+}
+
+async function reviewPhoto(tx: Tx, row: Stored, photoId: string) {
+  z.string().uuid().parse(photoId);
+  const photo = await tx.acquisitionPhoto.findUnique({
+    where: { id: photoId },
+    include: { slot: true },
+  });
+  if (
+    !photo ||
+    photo.runId !== row.run!.id ||
+    !photo.ready ||
+    photo.purgedAt ||
+    photo.generation !== photo.slot.generation
+  )
+    throw new Error("Photo changed or unavailable; reopen the latest card");
+  const candidate = row.run!.candidates.find(
+    (c) => c.physicalId === photo.slotId,
+  );
+  if (!candidate || candidate.excluded)
+    throw new Error("Capture card unavailable");
+  return { photo, candidate };
+}
+
+export async function getAcquisitionCardReview(
+  db: PrismaClient,
+  actor: AcquisitionActor,
+  sessionId: string,
+  photoId: string,
+): Promise<AcquisitionCardReview> {
+  return transaction(db, async (tx) => {
+    const row = await read(tx, actor, sessionId);
+    const { photo, candidate } = await reviewPhoto(tx, row, photoId);
+    const job = await tx.acquisitionProcessingJob.findFirst({
+      where: {
+        runId: row.run!.id,
+        artifact: { sourceId: photo.id },
+        stage: "photo-recognition-v1",
+        status: "COMPLETE",
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    });
+    // A saved suggestion remains evidence for these immutable bytes after human
+    // review increments the candidate revision. It never changes that review.
+    const evidence = acquisitionRecognitionDto(
+      job?.status ?? "WAITING",
+      job?.output,
+    );
+    const review = candidate.review as AcquisitionCardReview["review"];
+    const ids = [
+      ...new Set([
+        ...(evidence.result?.proposals.map((p) => p.card.id) ?? []),
+        ...(review?.cardId ? [review.cardId] : []),
+      ]),
+    ];
+    const cards = await tx.card.findMany({
+      where: { id: { in: ids } },
+      select: acquisitionPrintingSelect,
+    });
+    return {
+      photoId,
+      revision: candidate.revision,
+      position: photo.slot.position,
+      defaults: acquisitionDefaultsSchema.parse(
+        row.reviewDefaults ?? emptyAcquisitionDefaults,
+      ),
+      review,
+      printing: cards.find((c) => c.id === review?.cardId) ?? null,
+      recognitionStatus: evidence.result?.status ?? evidence.status,
+      suggestions: (evidence.result?.proposals ?? []).flatMap((p) => {
+        const printing = cards.find((c) => c.id === p.card.id);
+        return printing ? [{ printing, reasons: p.reasons }] : [];
+      }),
+    };
+  });
+}
+
+export async function saveAcquisitionReview(
+  db: PrismaClient,
+  actor: AcquisitionActor,
+  sessionId: string,
+  raw: unknown,
+) {
+  const input = acquisitionReviewRequestSchema.parse(raw);
+  return transaction(db, async (tx) => {
+    await read(tx, actor, sessionId);
+    await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${sessionId} FOR UPDATE`;
+    const row = await read(tx, actor, sessionId);
+    if (input.action === "defaults") {
+      if (row.defaultsRevision !== input.revision)
+        throw new Error(
+          "Capture batch defaults changed; reload them before saving",
+        );
+      await tx.acquisitionSession.update({
+        where: { id: sessionId },
+        data: {
+          reviewDefaults: input.defaults,
+          defaultsRevision: { increment: 1 },
+        },
+      });
+      await tx.acquisitionCommand.create({
+        data: {
+          runId: row.run!.id,
+          requestKey: `review-defaults:${row.defaultsRevision + 1}`,
+          payload: JSON.stringify({
+            version: 1,
+            action: "REVIEW_DEFAULTS",
+            actorId: actor.userId,
+            before: row.reviewDefaults,
+            after: input.defaults,
+          }),
+        },
+      });
+      return {
+        defaults: input.defaults,
+        defaultsRevision: row.defaultsRevision + 1,
+      };
+    }
+    const { candidate } = await reviewPhoto(tx, row, input.photoId);
+    const current = candidate.review as AcquisitionCardReview["review"];
+    if (candidate.revision !== input.revision) {
+      if (
+        input.action === "accept" &&
+        candidate.revision === input.revision + 1 &&
+        current?.actorId === actor.userId &&
+        Object.entries(input.decision).every(
+          ([key, value]) => current[key as keyof typeof current] === value,
+        )
+      )
+        return { replay: true };
+      throw new Error("Capture card changed; reload its review before saving");
+    }
+    if (input.action === "accept") {
+      const card = await tx.card.findUnique({
+        where: { id: input.decision.cardId },
+      });
+      if (!card || card.digital === true)
+        throw new Error("Choose an available paper printing");
+      if (
+        card.lang &&
+        card.lang.toLowerCase() !== input.decision.language.toLowerCase()
+      )
+        throw new Error("Choose the selected printing's language");
+      if (
+        Array.isArray(card.finishes) &&
+        card.finishes.length &&
+        !card.finishes.includes(input.decision.finish.toLowerCase())
+      )
+        throw new Error("Choose a finish available for this printing");
+    }
+    if (input.action === "pending" && candidate.review === null)
+      return { replay: true };
+    const before = hydrate(row).session;
+    const key = candidateKey(before.run.runId, candidate.physicalId);
+    const after =
+      input.action === "accept"
+        ? reviewCandidate(
+            before,
+            key,
+            input.revision,
+            actor.userId,
+            input.decision,
+          )
+        : structuredClone(before);
+    if (input.action === "pending") {
+      const pending = after.candidates.find((c) => c.key === key)!;
+      pending.review = null;
+      pending.revision++;
+    }
+    await save(tx, row, before, after);
+    await tx.acquisitionCommand.create({
+      data: {
+        runId: row.run!.id,
+        requestKey: `review:${candidate.id}:${input.revision + 1}`,
+        payload: JSON.stringify({
+          version: 1,
+          action: input.action,
+          actorId: actor.userId,
+          photoId: input.photoId,
+          before: candidate.review,
+          after: input.action === "accept" ? input.decision : null,
+        }),
+      },
+    });
+    return { replay: false };
+  });
+}
+
+export async function searchAcquisitionPrintings(
+  db: PrismaClient,
+  actor: AcquisitionActor,
+  sessionId: string,
+  raw: unknown,
+) {
+  const input = z
+    .object({
+      query: z.string().trim().max(120),
+      set: z.string().trim().max(30),
+      number: z.string().trim().max(100),
+    })
+    .strict()
+    .parse(raw);
+  return transaction(db, async (tx) => {
+    const session = await tx.acquisitionSession.findUnique({
+      where: { id: sessionId },
+      select: { ownerPlayerId: true },
+    });
+    if (!session) throw new Error("Capture session unavailable");
+    await authorize(tx, actor, session.ownerPlayerId);
+    if (input.query.length < 2 && !input.set && !input.number)
+      throw new Error("Choose a card name or set and collector number");
+    const matches =
+      !input.set && !input.number
+        ? await searchLocalCardCatalog(tx, {
+            query: input.query,
+            setCode: input.query.toLowerCase(),
+            limit: 50,
+          })
+        : await tx.card.findMany({
+            where: {
+              ...(input.query.length >= 2
+                ? {
+                    name: {
+                      contains: input.query,
+                      mode: "insensitive" as const,
+                    },
+                  }
+                : {}),
+              ...(input.set
+                ? {
+                    setCode: {
+                      equals: input.set,
+                      mode: "insensitive" as const,
+                    },
+                  }
+                : {}),
+              ...(input.number
+                ? {
+                    collectorNumber: {
+                      equals: input.number.replace(/^0+(?=\d)/, ""),
+                      mode: "insensitive" as const,
+                    },
+                  }
+                : {}),
+            },
+            take: 50,
+            orderBy: [{ name: "asc" }, { releasedAt: "desc" }, { id: "asc" }],
+          });
+    return matches
+      .filter((c) => c.digital !== true)
+      .map(
+        ({ id, name, setCode, collectorNumber, lang, imageUri, finishes }) => ({
+          id,
+          name,
+          setCode,
+          collectorNumber,
+          lang,
+          imageUri,
+          finishes,
+        }),
+      );
   });
 }

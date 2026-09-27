@@ -4,6 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
+import { checkAcquisitionReview } from "./acquisition-review-steps";
 
 function database(body: string) {
   return execFileSync("docker", ["exec", "-i", "mtg-archives-web-1", "node"], {
@@ -33,6 +34,7 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
     baseURL,
     viewport: { width: 390, height: 844 },
   });
+  context.setDefaultTimeout(10000);
   const page = await context.newPage();
   const fixture = await sharp({
     create: { width: 420, height: 600, channels: 3, background: "#335577" },
@@ -293,6 +295,7 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
             automaticAcceptance: false,
           }),
         );
+        await checkAcquisitionReview(page);
       }
     }
     expect(

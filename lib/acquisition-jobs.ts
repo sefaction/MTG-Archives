@@ -126,8 +126,35 @@ export async function completeAcquisitionJob(
       where: { id: job.runId },
     });
     await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${run.sessionId} FOR UPDATE`;
+    // Preview bytes belong to an immutable photo, independently of the review
+    // revision. Recognition evidence still uses the strict fence below.
+    let candidateFence: Prisma.AcquisitionCandidateWhereInput = current;
+    let canonicalCurrent = true;
+    if (job.stage === "photo-canonical-v1") {
+      const input = z
+        .object({ photoId: z.string().uuid(), digest: z.string() })
+        .parse(job.input);
+      const photo = await tx.acquisitionPhoto.findUnique({
+        where: { id: input.photoId },
+        include: { slot: true },
+      });
+      canonicalCurrent = Boolean(
+        photo &&
+        photo.ready &&
+        !photo.purgedAt &&
+        photo.digest === input.digest &&
+        photo.runId === job.runId &&
+        photo.generation === photo.slot.generation,
+      );
+      candidateFence = { excluded: false };
+    }
     const completed = await tx.acquisitionProcessingJob.updateMany({
-      where: { ...lease(job, now), run: active, candidate: current },
+      where: {
+        ...lease(job, now),
+        ...(canonicalCurrent ? {} : { id: { in: [] } }),
+        run: active,
+        candidate: candidateFence,
+      },
       data: {
         status: "COMPLETE",
         output,

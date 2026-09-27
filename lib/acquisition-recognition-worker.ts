@@ -91,36 +91,54 @@ export async function enqueueReadyRecognition(
   const versionKey = acquisitionRecognitionVersion(catalog, model);
   // A durable handoff can be retried after canonical-worker or OCR-worker exit.
   // Existing attempts for this exact version are not silently retried forever.
+  const eligible = await db.$queryRaw<{ id: string }[]>`
+    SELECT j.id FROM "AcquisitionProcessingJob" j
+    JOIN "AcquisitionCandidate" c ON c.id = j."candidateId"
+    JOIN "AcquisitionRun" r ON r.id = j."runId"
+    JOIN "AcquisitionSession" s ON s.id = r."sessionId"
+    JOIN "Player" p ON p.id = s."ownerPlayerId"
+    JOIN "User" u ON u.id = s."createdByUserId"
+    WHERE j.stage = 'photo-canonical-v1' AND j.status = 'COMPLETE'
+      AND c.excluded = false AND c.review IS NULL
+      AND s.phase NOT IN ('DRAFT', 'CANCELLED')
+      AND p.active = true AND u."isActive" = true AND u."forcePasswordChange" = false
+      AND NOT EXISTS (
+        SELECT 1 FROM "AcquisitionProcessingJob" other
+        WHERE other."artifactId" = j."artifactId" AND other."candidateId" = c.id
+          AND other."candidateRevision" = c.revision
+          AND other.stage = ${RECOGNITION_STAGE} AND other."versionKey" = ${versionKey}
+      )
+    ORDER BY j."createdAt", j.id LIMIT 32
+  `;
   const ready = await db.acquisitionProcessingJob.findMany({
-    where: {
-      stage: "photo-canonical-v1",
-      status: "COMPLETE",
-      candidate: { excluded: false, review: { equals: Prisma.DbNull } },
-      artifact: { jobs: { none: { stage: RECOGNITION_STAGE, versionKey } } },
-      run: {
-        session: {
-          phase: { notIn: ["DRAFT", "CANCELLED"] },
-          ownerPlayer: { active: true },
-          createdByUser: { isActive: true, forcePasswordChange: false },
-        },
-      },
-    },
+    where: { id: { in: eligible.map((j) => j.id) } },
     orderBy: { createdAt: "asc" },
     take: 32,
     include: { candidate: true, artifact: true },
   });
   let added = 0;
   for (const job of ready) {
-    if (job.candidate.revision !== job.candidateRevision) {
+    if (job.candidate.review !== null || job.candidate.excluded) continue;
+    const input = z
+      .object({ photoId: z.string().uuid(), digest })
+      .parse(job.input);
+    const photo = await db.acquisitionPhoto.findUnique({
+      where: { id: input.photoId },
+      include: { slot: true },
+    });
+    if (
+      !photo ||
+      !photo.ready ||
+      photo.purgedAt ||
+      photo.digest !== input.digest ||
+      photo.generation !== photo.slot.generation
+    ) {
       await db.acquisitionProcessingJob.updateMany({
         where: { id: job.id, status: "COMPLETE" },
         data: { status: "SUPERSEDED", errorCode: "INPUT_CHANGED" },
       });
       continue;
     }
-    const input = z
-      .object({ photoId: z.string().uuid(), digest })
-      .parse(job.input);
     const result = await db.acquisitionProcessingJob.createMany({
       skipDuplicates: true,
       data: [
@@ -128,7 +146,7 @@ export async function enqueueReadyRecognition(
           runId: job.runId,
           artifactId: job.artifactId,
           candidateId: job.candidateId,
-          candidateRevision: job.candidateRevision,
+          candidateRevision: job.candidate.revision,
           stage: RECOGNITION_STAGE,
           versionKey,
           input: {
