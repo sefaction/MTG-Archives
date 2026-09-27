@@ -4,6 +4,8 @@
 
 `feat/acquisition-foundation` depends on unmerged planning branch
 `docs/card-acquisition-plan` / PR #315, built from main `7ba9399`.
+Implementation is [PR #445](https://github.com/sefaction/MTG-Archives/pull/445),
+code revision `106d60e`; GitHub checks on the current PR head own CI status.
 This completes only the first bounded implementation batch in the
 [user kickoff](reference/card-acquisition/implementation-kickoff.md).
 Issue #303 remains open for persistence/ownership; #302 remains the initiative.
