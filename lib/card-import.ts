@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 
 import { prisma } from "./prisma";
 import { effectiveCardColors } from "./card-colors";
+import { searchLocalCardCatalog } from "./local-card-search";
 import {
   formatScryfallError,
   getCardByScryfallIdResult,
@@ -113,7 +114,7 @@ export function scryfallFingerprint(cardData: ScryfallCard) {
   return crypto.createHash("sha256").update(stableJson(cardData)).digest("hex");
 }
 
-function cardWriteData(cardData: ScryfallCard) {
+export function cardWriteData(cardData: ScryfallCard) {
   const now = new Date();
   const fingerprint = scryfallFingerprint(cardData);
   const priceTouched = Boolean(cardData.prices);
@@ -130,7 +131,7 @@ function cardWriteData(cardData: ScryfallCard) {
     highresImage: cardData.highres_image ?? null,
     imageStatus: cardData.image_status ?? null,
     manaCost: cardData.mana_cost ?? cardFaceText(cardData, "mana_cost"),
-    manaValue: cardData.cmc,
+    manaValue: cardData.cmc ?? null,
     colors: effectiveCardColors(cardData),
     colorIdentity: cardData.color_identity ?? [],
     colorIndicator: cardData.color_indicator ?? [],
@@ -491,21 +492,10 @@ export async function searchLocalThenScryfallCards(query: string) {
   const useScryfallSyntax = hasScryfallSearchSyntax(trimmed);
   const local = useScryfallSyntax
     ? []
-    : await prisma.card.findMany({
-        where: {
-          OR: [
-            { name: { contains: trimmed, mode: "insensitive" } },
-            {
-              setCode: {
-                equals: normalizeSetCode(trimmed) ?? trimmed,
-                mode: "insensitive",
-              },
-            },
-            { collectorNumber: trimmed },
-          ],
-        },
-        orderBy: [{ name: "asc" }, { releasedAt: "desc" }],
-        take: 20,
+    : await searchLocalCardCatalog(prisma, {
+        query: trimmed,
+        setCode: normalizeSetCode(trimmed) ?? trimmed,
+        limit: 20,
       });
   if (local.length > 0) {
     return {

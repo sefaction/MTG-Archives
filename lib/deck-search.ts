@@ -7,6 +7,7 @@ import {
   searchCardPrintsResult,
 } from "./scryfall";
 import { leagueInventoryItemWhere } from "./commander-league-inventory";
+import { searchLocalCardCatalog } from "./local-card-search";
 
 export type DeckCardSearchResult = {
   cardId: string;
@@ -256,11 +257,18 @@ export async function searchDeckCardPrintings(input: {
     : cardMatchWhere;
   const local = useScryfallSyntax
     ? []
-    : await prisma.card.findMany({
-        where: localWhere,
-        orderBy: [{ name: "asc" }, { releasedAt: "desc" }],
-        take: limit,
-      });
+    : !input.leagueId
+      ? await searchLocalCardCatalog(prisma, {
+          query,
+          setCode: normalizedSet,
+          limit,
+          includeTypeLine: true,
+        })
+      : await prisma.card.findMany({
+          where: localWhere,
+          orderBy: [{ name: "asc" }, { releasedAt: "desc" }],
+          take: limit,
+        });
 
   const leagueItems = input.leagueId
     ? await prisma.inventoryItem.findMany({
