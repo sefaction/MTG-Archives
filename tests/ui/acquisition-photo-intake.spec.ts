@@ -151,6 +151,11 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
       .getAttribute("src");
     const anonymous = await browser.newContext({ baseURL });
     expect((await anonymous.request.get(photoUrl!)).status()).toBe(403);
+    expect(
+      (
+        await anonymous.request.get(photoUrl!.split("?")[0] + "/recognition")
+      ).status(),
+    ).toBe(403);
     await anonymous.close();
     for (const width of [390, 320]) {
       await page.setViewportSize({ width, height: 844 });
@@ -242,6 +247,53 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
           inventoryWrites: 0,
         }),
       );
+      if (process.env.MTG_ACQUISITION_RECOGNITION_TEST === "1") {
+        await expect(page.getByTestId("recognition-suggestions")).toHaveCount(
+          10,
+          { timeout: 120000 },
+        );
+        const observed = JSON.parse(
+          database(
+            `console.log(JSON.stringify(await p.acquisitionProcessingJob.findMany({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-recognition-v1',status:'COMPLETE'},select:{output:true,artifact:{select:{digest:true}}}})));`,
+          ),
+        );
+        for (const entry of manifest.entries) {
+          const result = observed.find(
+            (j: any) => j.artifact.digest === entry.sha256,
+          );
+          expect(result, entry.file).toBeTruthy();
+          expect(result.output.native.photoDigest).toBe(entry.sha256);
+          expect(result.output.proposals.automaticAcceptance).toBe(false);
+          const ids = result.output.proposals.proposals.map(
+            (p: any) => p.card.id,
+          );
+          const expected = JSON.parse(
+            database(
+              `console.log(JSON.stringify(await p.card.findUnique({where:{scryfallId:${JSON.stringify(entry.scryfallId)}},select:{id:true}})));`,
+            ),
+          );
+          expect(ids, entry.file).toContain(expected.id);
+        }
+        await page
+          .getByTestId("recognition-suggestions")
+          .first()
+          .locator("summary")
+          .click();
+        await expect(
+          page.getByTestId("recognition-suggestions").first(),
+        ).toContainText("Krosan Vorine");
+        await page.screenshot({
+          path: "test-results/acquisition-recognition-phone.png",
+          fullPage: true,
+        });
+        console.log(
+          JSON.stringify({
+            realRecognitionPhotos: manifest.entries.length,
+            expectedPrintingInTop12: manifest.entries.length,
+            automaticAcceptance: false,
+          }),
+        );
+      }
     }
     expect(
       JSON.parse(

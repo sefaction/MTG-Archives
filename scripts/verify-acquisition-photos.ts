@@ -21,7 +21,16 @@ import {
   readAcquisitionPhotoBytes,
   canonicalizeAcquisitionPhoto,
 } from "../lib/acquisition-files";
-import { runAcquisitionJobsOnce } from "../lib/acquisition-jobs";
+import {
+  runAcquisitionJobsOnce,
+  claimAcquisitionJobs,
+  completeAcquisitionJob,
+} from "../lib/acquisition-jobs";
+import {
+  enqueueReadyRecognition,
+  loadAcquisitionRecognitionSnapshot,
+  RECOGNITION_STAGE,
+} from "../lib/acquisition-recognition-worker";
 export async function verifyAcquisitionPhotos(
   db: PrismaClient,
   actor: AcquisitionActor,
@@ -134,6 +143,30 @@ export async function verifyAcquisitionPhotos(
         (await runAcquisitionJobsOnce(db, handlers, "photo-fixture")).complete,
         1,
       );
+    const catalog = await loadAcquisitionRecognitionSnapshot(db);
+    assert.equal(
+      (await loadAcquisitionRecognitionSnapshot(db)).digest,
+      catalog.digest,
+    );
+    const model = "a".repeat(64);
+    const enqueued = await Promise.all([
+      enqueueReadyRecognition(db, catalog.digest, model),
+      enqueueReadyRecognition(db, catalog.digest, model),
+    ]);
+    assert.equal(
+      enqueued.reduce((a, b) => a + b, 0),
+      2,
+    );
+    assert.equal(await enqueueReadyRecognition(db, catalog.digest, model), 0);
+    const claims = await claimAcquisitionJobs(db, {
+      workerId: "recognition-fixture",
+      stages: [RECOGNITION_STAGE],
+      limit: 2,
+    });
+    assert.equal(claims.length, 2);
+    const staleRecognition = claims.find(
+      (j) => (j.input as any).photoId === photo.id,
+    )!;
     const retake = await beginAcquisitionPhoto(db, actor, id, {
       ...input,
       generation: 1,
@@ -162,6 +195,23 @@ export async function verifyAcquisitionPhotos(
       command: "STOP",
     });
     await finalizeAcquisitionPhoto(db, actor, id, replaced.id);
+    assert.equal(
+      await completeAcquisitionJob(db, staleRecognition, {
+        mockedNativeEvidence: true,
+      }),
+      "SUPERSEDED",
+    );
+    assert.equal(
+      (await runAcquisitionJobsOnce(db, handlers, "retake-preparation"))
+        .complete,
+      1,
+    );
+    assert.equal(
+      await enqueueReadyRecognition(db, catalog.digest, model),
+      1,
+      "retake creates recognition for its new artifact despite an older attempt",
+    );
+    assert.equal(await enqueueReadyRecognition(db, catalog.digest, model), 0);
     const final = await getAcquisitionProgress(db, actor, id);
     assert.equal(final.session.phase, "STOPPING");
     assert.equal(final.reservedSlots, 2);
