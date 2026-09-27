@@ -55,6 +55,7 @@ retention, maintenance and one-mode settings are complete.
    procedure available for each operation.
 
 Setting an opt-in in a Compose environment file alone is not evidence that
-the job is active. Verify the running container configuration and logs after
-deployment. Issue #330 remains open until the approved production operation
-and recovery evidence are complete.
+the job is active. The operator should verify the running configuration and
+logs after a later deployment. Issue #330 uses the reviewed local acceptance
+boundary; production enablement is a separate operator decision. The installed
+Unraid flat Compose environment keeps all archive switches off.

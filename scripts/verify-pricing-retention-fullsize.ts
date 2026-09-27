@@ -103,6 +103,8 @@ try {
     "source_max_id = (SELECT MAX(id) FROM price_snapshots), " +
     "source_revision = source_revision + 1, " +
     "summary_revision = source_revision + 1 WHERE singleton = TRUE;");
+  const cloneBytesBefore = Number(sql(clone,
+    "SELECT pg_database_size(current_database());"));
   const passing = Date.now();
   const operationEnv = { ...process.env, PRICING_DATABASE_URL: clone.toString(),
     BACKUP_DIR: backup, PRICING_RECOVERY_COPY_DIR: recovery,
@@ -163,7 +165,8 @@ try {
   }
   console.log(JSON.stringify({ mode: "fullsize-retention-drill-passed",
     clonedRaw, oldDate, dumpBytes: statSync(dump).size,
-    cloneBytes: Number(sql(clone, "SELECT pg_database_size(current_database());")),
+    cloneBytesBefore,
+    cloneBytesAfter: Number(sql(clone, "SELECT pg_database_size(current_database());")),
     recoveryBytes: bytes(recovery), dumpMs, restoreMs, passMs,
     phases: result.timings, direct, separateClone,
     liveDatabaseReplaced: false, retentionEnabled: false,
