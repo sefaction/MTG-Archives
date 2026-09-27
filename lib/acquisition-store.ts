@@ -75,6 +75,7 @@ const include = {
 } satisfies Prisma.AcquisitionSessionInclude;
 type Stored = Prisma.AcquisitionSessionGetPayload<{ include: typeof include }>;
 export type StoredCapture = {
+  batchNumber: number;
   revision: number;
   session: CaptureSession;
   destinationCurrent: boolean;
@@ -207,6 +208,7 @@ function hydrate(row: Stored): StoredCapture {
     })),
   };
   return {
+    batchNumber: row.batchNumber,
     revision: row.revision,
     session,
     destinationCurrent: destinationCurrent(row),
@@ -734,17 +736,45 @@ export async function getAcquisitionProgress(
     const slots = await tx.acquisitionCaptureSlot.findMany({
       where: { runId: row.run!.id },
       orderBy: { position: "asc" },
+      include: {
+        photos: {
+          orderBy: { generation: "desc" },
+          take: 2,
+          select: {
+            id: true,
+            uploadKey: true,
+            generation: true,
+            ready: true,
+            digest: true,
+            bytes: true,
+          },
+        },
+      },
     });
     const jobs = await tx.acquisitionProcessingJob.groupBy({
       by: ["status"],
       where: { runId: row.run!.id },
       _count: { _all: true },
     });
+    const photoJobs = await tx.acquisitionProcessingJob.findMany({
+      where: { runId: row.run!.id, stage: "photo-canonical-v1" },
+      select: {
+        status: true,
+        candidateRevision: true,
+        candidate: { select: { revision: true } },
+        artifact: { select: { sourceId: true } },
+      },
+    });
     return {
       ...hydrate(row),
+      photoPreparation: photoJobs
+        .filter((j) => j.candidateRevision === j.candidate.revision)
+        .map((j) => ({ photoId: j.artifact.sourceId, status: j.status })),
       slots: slots.map((slot) => ({
         id: slot.id,
         position: slot.position,
+        generation: slot.generation,
+        photos: slot.photos,
         received: row.run!.candidates.some((c) => c.physicalId === slot.id),
       })),
       reservedSlots: slots.length,
@@ -757,5 +787,215 @@ export async function getAcquisitionProgress(
         count: job._count._all,
       })),
     };
+  });
+}
+
+export const acquisitionPhotoMetadataSchema = z
+  .object({
+    digest: z.string().regex(/^[a-f0-9]{64}$/),
+    bytes: z
+      .number()
+      .int()
+      .min(1)
+      .max(10 * 1024 * 1024),
+    mediaType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+    width: z.number().int().min(1).max(12000),
+    height: z.number().int().min(1).max(12000),
+  })
+  .strict()
+  .refine((m) => m.width * m.height <= 36000000, "Photo exceeds 36 megapixels");
+export type AcquisitionPhotoMetadata = z.infer<
+  typeof acquisitionPhotoMetadataSchema
+>;
+
+export async function beginAcquisitionPhoto(
+  db: PrismaClient,
+  actor: AcquisitionActor,
+  sessionId: string,
+  input: {
+    slotId: string;
+    uploadKey: string;
+    generation: number;
+    replacePending?: boolean;
+    metadata: AcquisitionPhotoMetadata;
+  },
+) {
+  z.string().uuid().parse(input.slotId);
+  z.string().uuid().parse(input.uploadKey);
+  z.number().int().min(0).max(20).parse(input.generation);
+  const metadata = acquisitionPhotoMetadataSchema.parse(input.metadata);
+  return transaction(db, async (tx) => {
+    await read(tx, actor, sessionId);
+    await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${sessionId} FOR UPDATE`;
+    const row = await read(tx, actor, sessionId);
+    const run = row.run!;
+    const slot = await tx.acquisitionCaptureSlot.findUnique({
+      where: { id: input.slotId },
+    });
+    if (!slot || slot.runId !== run.id)
+      throw new Error("Capture slot unavailable");
+    const previous = await tx.acquisitionPhoto.findUnique({
+      where: { runId_uploadKey: { runId: run.id, uploadKey: input.uploadKey } },
+    });
+    if (previous) {
+      if (
+        previous.slotId !== slot.id ||
+        previous.generation !== input.generation + 1 ||
+        previous.digest !== metadata.digest ||
+        previous.bytes !== metadata.bytes
+      )
+        throw new Error("Photo upload identity conflict");
+      return previous;
+    }
+    if (
+      !["CAPTURING", "STOPPING"].includes(row.phase) ||
+      !destinationCurrent(row)
+    )
+      throw new Error("Capture is not accepting photos");
+    if (slot.generation !== input.generation)
+      throw new Error("Photo changed; refresh before retaking");
+    if (
+      !input.replacePending &&
+      (await tx.acquisitionPhoto.count({
+        where: { slotId: slot.id, generation: slot.generation, ready: false },
+      }))
+    )
+      throw new Error("Retry the unfinished upload before retaking");
+    // Every intake for this owner takes the same quota lock. Pending writes count.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${row.ownerPlayerId}, 314))`;
+    const [ownerUsage, sessionUsage] = await Promise.all([
+      tx.acquisitionPhoto.aggregate({
+        where: {
+          run: { session: { ownerPlayerId: row.ownerPlayerId } },
+          purgedAt: null,
+        },
+        _sum: { bytes: true },
+      }),
+      tx.acquisitionPhoto.aggregate({
+        where: { runId: run.id, purgedAt: null },
+        _sum: { bytes: true },
+      }),
+    ]);
+    if (
+      (ownerUsage._sum.bytes ?? 0) + metadata.bytes > 4 * 1024 ** 3 ||
+      (sessionUsage._sum.bytes ?? 0) + metadata.bytes > 1024 ** 3
+    )
+      throw new Error(
+        "Photo storage limit reached; finish or discard older batches",
+      );
+    const photo = await tx.acquisitionPhoto.create({
+      data: {
+        runId: run.id,
+        slotId: slot.id,
+        uploadKey: input.uploadKey,
+        generation: slot.generation + 1,
+        ...metadata,
+      },
+    });
+    await tx.acquisitionCaptureSlot.update({
+      where: { id: slot.id },
+      data: { generation: { increment: 1 } },
+    });
+    return photo;
+  });
+}
+
+export async function finalizeAcquisitionPhoto(
+  db: PrismaClient,
+  actor: AcquisitionActor,
+  sessionId: string,
+  photoId: string,
+) {
+  return transaction(db, async (tx) => {
+    await read(tx, actor, sessionId);
+    await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${sessionId} FOR UPDATE`;
+    const row = await read(tx, actor, sessionId);
+    const photo = await tx.acquisitionPhoto.findUnique({
+      where: { id: photoId },
+      include: { slot: true },
+    });
+    if (!photo || photo.runId !== row.run!.id)
+      throw new Error("Photo unavailable");
+    if (photo.ready) return photo;
+    if (photo.slot.generation !== photo.generation)
+      throw new Error("Photo generation changed");
+    const before = hydrate(row).session;
+    // Accepted in-flight evidence survives pause/cancel/complete. Reconcile it
+    // without reopening capture, only through an already reserved photo record.
+    const receiving = { ...before, phase: "CAPTURING" as const };
+    const after = receiveAcquisitionEvent(receiving, {
+      version: 1,
+      providerId: before.run.providerId,
+      runId: before.run.runId,
+      eventId: `photo:${photo.id}`,
+      artifacts: [{ id: photo.id, digest: photo.digest }],
+      sightings: [
+        {
+          candidate: {
+            id: photo.slotId,
+            identityKind: "EPISODE",
+            order: [photo.slot.position, 0],
+            expectedSides: ["FRONT"],
+            provisional: false,
+          },
+          observation: { id: photo.id, artifactId: photo.id, side: "FRONT" },
+          uncertainty: [],
+        },
+      ],
+    });
+    after.phase = before.phase;
+    await save(tx, row, before, after);
+    const artifact = await tx.acquisitionArtifact.findUniqueOrThrow({
+      where: { runId_sourceId: { runId: row.run!.id, sourceId: photo.id } },
+    });
+    const candidate = await tx.acquisitionCandidate.findUniqueOrThrow({
+      where: {
+        runId_physicalId: { runId: row.run!.id, physicalId: photo.slotId },
+      },
+    });
+    await tx.acquisitionProcessingJob.create({
+      data: {
+        runId: row.run!.id,
+        artifactId: artifact.id,
+        candidateId: candidate.id,
+        candidateRevision: candidate.revision,
+        stage: "photo-canonical-v1",
+        versionKey: "sharp-0.35.4-orient-1600-v1",
+        input: {
+          version: 1,
+          photoId: photo.id,
+          digest: photo.digest,
+          versions: {
+            pipeline: "orient-1600-v1",
+            runtime: "sharp-0.35.4",
+            model: "none",
+            catalog: "none",
+            index: "none",
+            execution: "CPU",
+          },
+        },
+      },
+    });
+    return tx.acquisitionPhoto.update({
+      where: { id: photo.id },
+      data: { ready: true, readyAt: new Date() },
+    });
+  });
+}
+
+export async function getAcquisitionPhoto(
+  db: PrismaClient,
+  actor: AcquisitionActor,
+  sessionId: string,
+  photoId: string,
+) {
+  return transaction(db, async (tx) => {
+    const row = await read(tx, actor, sessionId);
+    const photo = await tx.acquisitionPhoto.findUnique({
+      where: { id: photoId },
+    });
+    if (!photo || photo.runId !== row.run!.id || !photo.ready || photo.purgedAt)
+      throw new Error("Photo unavailable");
+    return photo;
   });
 }

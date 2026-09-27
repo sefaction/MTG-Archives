@@ -1,5 +1,16 @@
 # Resumable work checkpoint
 
+## Capacity correction and photo intake in progress, 2026-09-27
+
+- Active worktree: `C:\Users\brian\Projects\MTG-Archives-acquisition-persistence`, branch `feat/acquisition-photo-intake`; photo intake implementation committed as `7c2ba46`. Parent #447 is `feat/acquisition-orchestration` at `4b2e91a`, all three CI checks green. Individually approved #446 merged as `cc08f1d`; #447 is NOT approved (the user corrected capacity behavior instead).
+- User correction: 72 was an example. Phone batch defaults to known destination/section remaining capacity; unknown capacity is open-ended with a running count. Optional manual smaller limits remain available. In-flight slots count; no arbitrary 300-card session ceiling. Database fixture admits the 301st slot for unknown capacity.
+- Current local image `sha256:ed15723b8b39abafbf2ef329363a20ebdb0474e6887d7b3c91de17c19a019fa6` includes corrected capacity and photo intake `7c2ba46`. Explicit worktree build completed, ordinary local services plus acquisition-worker reloaded, web healthy. `verify:local-image` passed for 389 inputs, source digest `fe085eac918197e70e13992168e91a8113bd57af890235bfe2f2ee0898b19786`.
+- Photo intake adds private atomic files, retry/generation fences, IndexedDB upload recovery, immediate canonical preparation, persistent camera/library UI and batch counters. Actual card recognition, review and Inventory commit are NOT implemented yet; goal remains active.
+- Full mechanical verifier passed in `.local-data/verification/acquisition-2026-09-27T15-29-22-191Z`. Focused browser run passed 1/1 in 13.5 seconds (session 13737 completed); inspected phone screenshot. Both known-capacity and unlimited flows passed. Build session 54823 and Compose session 1624 completed successfully.
+- User supplied ten original Android JPGs at `C:\Users\brian\Downloads\immich-20260927_102430`. Originals remain untouched/private. Original-photo retention is 7 days AFTER commit; unfinished photos remain and no automatic deletion is currently enabled.
+- Delivery: photo intake PR #448 is open against #447 at `2e42573`; parent ancestry incorporated, source-manifest still matches. #447 description now records corrected capacity behavior; all three parent CI checks are green. #448 CI is pending. Neither PR has individual merge approval.
+- Next safe steps: collect #448 CI; exercise the supplied real photos and develop actual recognition/review/commit locally. Prepare secure Android testing when ready. Obtain individual approval before merging #447 or #448. Goal remains active; no production work.
+
 ## Capacity correction for PR #447, 2026-09-27
 
 The user clarified that 72 was an example, not a fixed limit. Known location/section remaining capacity supplies the default target; unknown capacity must stay open-ended and display a running count. Removed the separate 300-card phone ceiling and added a forward migration removing the slot-position ceiling. A PostgreSQL fixture now admits card 301 with no capacity set. Optional explicit smaller targets remain available. #446 merged after individual approval as `cc08f1d`; #447 targets main, includes that merge, and still awaits individual approval after this correction. The user's correction was not merge approval. Photo intake UI work continues on the dependent branch.

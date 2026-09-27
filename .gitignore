@@ -13,3 +13,5 @@ docker-compose.override.yml
 
 # TypeScript build cache
 *.tsbuildinfo
+
+/build-source-manifest.json

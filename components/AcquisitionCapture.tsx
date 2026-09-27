@@ -1,0 +1,670 @@
+"use client";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { StorageDestinationPicker } from "./StorageDestinationPicker";
+import {
+  filterButtonClass as button,
+  filterPrimaryButtonClass as primary,
+  filterInputClass as input,
+  filterPanelClass as panel,
+} from "./filterStyles";
+import type { StorageLocation } from "@/lib/storage-sections";
+import type { acquisitionProgressDto } from "@/lib/acquisition-api";
+import {
+  captureUuid,
+  loadPendingPhotos,
+  removePendingPhoto,
+  savePendingPhoto,
+  type PendingPhoto,
+} from "@/lib/acquisition-browser-queue";
+type Progress = ReturnType<typeof acquisitionProgressDto>;
+type Upload = PendingPhoto & {
+  status: "queued" | "uploading" | "failed";
+  error?: string;
+};
+async function request<T>(url: string, value?: unknown): Promise<T> {
+  const response = await fetch(
+    url,
+    value === undefined
+      ? { cache: "no-store" }
+      : {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(value),
+        },
+  );
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error ?? "Request failed; retry");
+  return result;
+}
+export function AcquisitionCapture({
+  userId,
+  locations,
+  initialBatch,
+  recent,
+}: {
+  userId: string;
+  locations: StorageLocation[];
+  initialBatch: string;
+  recent: { id: string; batchNumber: number; phase: string }[];
+}) {
+  const [locationId, setLocationId] = useState("");
+  const [section, setSection] = useState("");
+  const [quantity, setQuantity] = useState(1);
+  const [customLimit, setCustomLimit] = useState(false);
+  const [batchId, setBatchId] = useState(initialBatch);
+  const [progress, setProgress] = useState<Progress | null>(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [camera, setCamera] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [uploads, setUploads] = useState<Upload[]>([]);
+  const [page, setPage] = useState(0);
+  const video = useRef<HTMLVideoElement>(null),
+    stream = useRef<MediaStream | null>(null);
+  const tasks = useRef(new Set<string>()),
+    mounted = useRef(true),
+    capturing = useRef(false);
+  const fileInput = useRef<HTMLInputElement>(null),
+    replacement = useRef<Progress["slots"][number] | null>(null);
+  const createKey = useRef("");
+  const destination = locations.find((l) => l.id === locationId);
+  const selectedSection = destination?.sections.find((s) => s.name === section);
+  const limits = [
+    destination?.capacity == null
+      ? null
+      : Math.max(0, destination.capacity - (destination.quantity ?? 0)),
+    selectedSection?.capacity == null
+      ? null
+      : Math.max(0, selectedSection.capacity - selectedSection.quantity),
+  ].filter((n): n is number => n !== null);
+  const remaining = limits.length ? Math.min(...limits) : null;
+  useEffect(() => {
+    setQuantity(remaining ?? 1);
+  }, [locationId, section, remaining]);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      stream.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
+  const refresh = useCallback(async () => {
+    if (!batchId) return;
+    try {
+      const state = await request<Progress>(`/api/acquisition/${batchId}`);
+      if (mounted.current) setProgress(state);
+    } catch (e) {
+      if (mounted.current) setError((e as Error).message);
+    }
+  }, [batchId]);
+  useEffect(() => {
+    if (!batchId) return;
+    void refresh();
+    const timer = setInterval(() => {
+      void refresh();
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [batchId, refresh]);
+  useEffect(() => {
+    if (!batchId) return;
+    let active = true;
+    loadPendingPhotos(userId, batchId)
+      .then((rows) => {
+        if (active)
+          setUploads(rows.map((row) => ({ ...row, status: "queued" })));
+      })
+      .catch((e) => setError(e.message));
+    return () => {
+      active = false;
+    };
+  }, [userId, batchId]);
+  useEffect(() => {
+    if (camera && video.current && stream.current) {
+      video.current.srcObject = stream.current;
+      void video.current
+        .play()
+        .catch(() => setError("Tap the camera preview to start it"));
+    }
+  }, [camera]);
+  useEffect(() => {
+    for (const row of uploads) {
+      if (
+        row.status !== "queued" ||
+        tasks.current.has(row.key) ||
+        tasks.current.size >= 2
+      )
+        continue;
+      tasks.current.add(row.key);
+      setUploads((all) =>
+        all.map((p) => (p.key === row.key ? { ...p, status: "uploading" } : p)),
+      );
+      void (async () => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 60000);
+        try {
+          // A browser crash before ACK retains this blob and the same upload identity.
+          await savePendingPhoto(row);
+          const url = `/api/acquisition/${row.sessionId}/photos?slot=${row.slotId}&key=${row.key}&generation=${row.generation}&replace=${row.replacePending ? "1" : "0"}`;
+          const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": row.blob.type },
+            body: row.blob,
+            signal: controller.signal,
+          });
+          const result = await response.json();
+          if (!response.ok || !result.ready)
+            throw new Error(result.error ?? "Upload was not saved; retry");
+          await removePendingPhoto(row.key);
+          if (mounted.current) {
+            setUploads((all) => all.filter((p) => p.key !== row.key));
+            await refresh();
+          }
+        } catch (e) {
+          if (mounted.current)
+            setUploads((all) =>
+              all.map((p) =>
+                p.key === row.key
+                  ? { ...p, status: "failed", error: (e as Error).message }
+                  : p,
+              ),
+            );
+        } finally {
+          clearTimeout(timeout);
+          tasks.current.delete(row.key);
+        }
+      })();
+    }
+  }, [uploads, refresh]);
+  async function start() {
+    if (capturing.current) return;
+    capturing.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      if (!createKey.current) createKey.current = captureUuid();
+      const state = await request<Progress>("/api/acquisition", {
+        requestKey: createKey.current,
+        locationId,
+        section,
+        quantity: customLimit ? quantity : null,
+      });
+      setProgress(state);
+      setBatchId(state.id);
+      history.replaceState(null, "", `/imports/scan?batch=${state.id}`);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+      capturing.current = false;
+    }
+  }
+  async function openCamera() {
+    try {
+      if (!navigator.mediaDevices?.getUserMedia)
+        throw new Error(
+          "The in-app camera needs a secure HTTPS connection. Photo library upload is available here.",
+        );
+      stream.current = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1920 },
+          height: { ideal: 2560 },
+        },
+        audio: false,
+      });
+      setCamera(true);
+      setError("");
+    } catch (e) {
+      setError(
+        (e as Error).message === "Permission denied"
+          ? "Camera permission was denied. Allow it in your browser or use Photo library."
+          : (e as Error).message,
+      );
+    }
+  }
+  async function addPhoto(blob: Blob, slot?: Progress["slots"][number]) {
+    if (
+      blob.size > 10 * 1024 * 1024 ||
+      !["image/jpeg", "image/png", "image/webp"].includes(blob.type)
+    )
+      throw new Error(
+        "Choose JPEG, PNG or WebP photos under 10 MB. Convert HEIC to JPEG or use the in-app camera.",
+      );
+    const admitted =
+      slot ??
+      (
+        await request<{ slot: Progress["slots"][number] }>(
+          `/api/acquisition/${batchId}`,
+          { action: "reserve", requestKey: captureUuid() },
+        )
+      ).slot;
+    const row: Upload = {
+      key: captureUuid(),
+      userId,
+      sessionId: batchId,
+      slotId: admitted.id,
+      generation: admitted.generation,
+      replacePending: !!slot,
+      blob,
+      status: "queued",
+    };
+    await savePendingPhoto(row);
+    setUploads((all) => [...all, row]);
+    await refresh();
+  }
+  async function capture(slot?: Progress["slots"][number]) {
+    if (capturing.current) return;
+    capturing.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      if (!video.current?.videoWidth)
+        throw new Error("Wait for the camera preview");
+      const canvas = document.createElement("canvas"),
+        scale = Math.min(
+          1,
+          2560 / Math.max(video.current.videoWidth, video.current.videoHeight),
+        );
+      canvas.width = Math.round(video.current.videoWidth * scale);
+      canvas.height = Math.round(video.current.videoHeight * scale);
+      canvas
+        .getContext("2d")!
+        .drawImage(video.current, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise<Blob>((resolve, reject) =>
+        canvas.toBlob(
+          (b) => (b ? resolve(b) : reject(new Error("Could not take photo"))),
+          "image/jpeg",
+          0.92,
+        ),
+      );
+      await addPhoto(blob, slot);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+      capturing.current = false;
+    }
+  }
+  async function chooseFiles(files: FileList | null) {
+    if (!files || capturing.current) return;
+    capturing.current = true;
+    setBusy(true);
+    setError("");
+    const slot = replacement.current;
+    replacement.current = null;
+    try {
+      const available = slot
+        ? 1
+        : Math.min(progress?.availableSlots ?? Infinity, 10 - uploads.length);
+      if (files.length > available)
+        throw new Error(
+          `Choose at most ${available} photos now; uploads can continue while you take more.`,
+        );
+      for (const file of Array.from(files))
+        await addPhoto(file, slot ?? undefined);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+      capturing.current = false;
+      if (fileInput.current) fileInput.current.value = "";
+    }
+  }
+  async function control(command: "START" | "STOP" | "RESUME") {
+    if (!progress) return;
+    setBusy(true);
+    try {
+      setProgress(
+        await request<Progress>(`/api/acquisition/${batchId}`, {
+          action: "control",
+          requestKey: captureUuid(),
+          revision: progress.revision,
+          command,
+        }),
+      );
+    } catch (e) {
+      setError((e as Error).message);
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+  const readyPhotos =
+    progress?.slots.filter((s) => s.photos.some((p) => p.ready)).length ?? 0;
+  const prepared =
+    progress?.photoPreparation.filter((p) => p.status === "COMPLETE").length ??
+    0;
+  const canAdd =
+    progress?.phase === "CAPTURING" &&
+    progress.destinationCurrent &&
+    (progress.availableSlots === null || progress.availableSlots > 0) &&
+    uploads.length < 10;
+  return (
+    <div className="space-y-4 min-w-0">
+      {error && (
+        <div role="alert" className={panel}>
+          {error}
+        </div>
+      )}
+      {!batchId ? (
+        <section className={panel} aria-label="New scan batch">
+          <h2 className="text-xl font-semibold mb-3">
+            Choose a batch before taking photos
+          </h2>
+          <StorageDestinationPicker
+            locations={locations}
+            locationId={locationId}
+            onLocationChange={(id) => {
+              setLocationId(id);
+              createKey.current = "";
+            }}
+            section={section}
+            onSectionChange={(value) => {
+              setSection(value);
+              createKey.current = "";
+            }}
+          />
+          <label className="block my-3">
+            <input
+              type="checkbox"
+              checked={customLimit}
+              onChange={(e) => {
+                setCustomLimit(e.target.checked);
+                createKey.current = "";
+              }}
+            />{" "}
+            Set a batch limit (optional)
+          </label>
+          {customLimit && (
+            <label className="block my-3">
+              Cards in this batch{" "}
+              <input
+                className={input + " ml-2 w-24"}
+                type="number"
+                min={1}
+                max={remaining ?? undefined}
+                value={quantity}
+                onChange={(e) => {
+                  setQuantity(Number(e.target.value));
+                  createKey.current = "";
+                }}
+              />
+            </label>
+          )}
+          <p className="text-sm mb-3">
+            {remaining === null
+              ? "This location has no capacity set. Keep scanning and watch the running count, then stop when finished."
+              : `${remaining} spaces remaining in this destination.`}{" "}
+            One card per photo.
+          </p>
+          <button
+            className={primary}
+            disabled={
+              busy ||
+              !locationId ||
+              remaining === 0 ||
+              (customLimit &&
+                (quantity < 1 || (remaining !== null && quantity > remaining)))
+            }
+            onClick={() => void start()}
+          >
+            Start batch
+          </button>
+          {!!recent.length && (
+            <div className="mt-4">
+              <h3 className="font-semibold">Recent batches</h3>
+              <ul>
+                {recent.map((r) => (
+                  <li key={r.id}>
+                    <a
+                      className="underline"
+                      href={`/imports/scan?batch=${r.id}`}
+                    >
+                      Batch {r.batchNumber} · {r.phase.toLowerCase()}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      ) : !progress ? (
+        <p role="status">Loading batch...</p>
+      ) : (
+        <>
+          <section
+            className={panel + " sticky top-0 z-10"}
+            aria-label="Batch progress"
+          >
+            <h2 className="text-xl font-semibold">
+              Batch {progress.batchNumber} · {progress.reservedSlots}
+              {progress.target === null
+                ? " cards"
+                : ` of ${progress.target} cards`}
+            </h2>
+            <p role="status" aria-live="polite">
+              {uploads.filter((p) => p.status !== "failed").length} uploading ·{" "}
+              {readyPhotos} photos saved · {prepared} photos prepared
+            </p>
+            <p className="text-xs text-[var(--app-muted)]">
+              {progress.availableSlots === 0
+                ? "Batch full. You can still retry or retake a photo."
+                : progress.availableSlots === null
+                  ? "No capacity limit set. Stop capture when finished."
+                  : `${progress.availableSlots} cards remaining.`}
+            </p>
+          </section>
+          {!progress.destinationCurrent && (
+            <p role="alert">
+              The destination changed. Saved photos are retained; choose a new
+              batch destination before taking more.
+            </p>
+          )}
+          <section className={panel} aria-label="Card camera">
+            <p className="mb-2">
+              Photograph one card at a time, with the whole front visible and as
+              little glare as possible.
+            </p>
+            {camera && (
+              <video
+                ref={video}
+                autoPlay
+                muted
+                playsInline
+                onLoadedMetadata={() => setCameraReady(true)}
+                className="w-full max-h-[45dvh] bg-black rounded-md"
+                aria-label="Card camera preview"
+                onClick={() => void video.current?.play()}
+              />
+            )}
+            <div className="flex flex-wrap gap-2 mt-3">
+              {!camera ? (
+                <button className={button} onClick={() => void openCamera()}>
+                  Open camera
+                </button>
+              ) : (
+                <>
+                  <button
+                    className={primary}
+                    disabled={!canAdd || busy || !cameraReady}
+                    onClick={() => void capture()}
+                  >
+                    Take photo
+                  </button>
+                  <button
+                    className={button}
+                    onClick={() => {
+                      stream.current?.getTracks().forEach((t) => t.stop());
+                      stream.current = null;
+                      setCamera(false);
+                      setCameraReady(false);
+                    }}
+                  >
+                    Close camera
+                  </button>
+                </>
+              )}
+              <button
+                className={button}
+                disabled={!canAdd || busy}
+                onClick={() => {
+                  replacement.current = null;
+                  fileInput.current?.click();
+                }}
+              >
+                Photo library
+              </button>
+              {progress.phase === "DRAFT" && (
+                <button
+                  className={button}
+                  disabled={busy}
+                  onClick={() => void control("START")}
+                >
+                  Start capture
+                </button>
+              )}
+              {progress.phase === "CAPTURING" && (
+                <button
+                  className={button}
+                  disabled={busy}
+                  onClick={() => void control("STOP")}
+                >
+                  Stop capture
+                </button>
+              )}
+              <a className={button} href="/imports/scan">
+                New batch
+              </a>
+            </div>
+            <input
+              ref={fileInput}
+              className="sr-only"
+              aria-label="Choose card photos"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              onChange={(e) => void chooseFiles(e.target.files)}
+            />
+            {uploads.length >= 10 && (
+              <p role="status">
+                Waiting for uploads before taking more photos.
+              </p>
+            )}
+          </section>
+          {!!uploads.length && (
+            <section className={panel} aria-label="Pending uploads">
+              <h3 className="font-semibold">Uploads</h3>
+              <ul className="space-y-2">
+                {uploads.map((row) => (
+                  <li key={row.key}>
+                    Photo{" "}
+                    {(progress.slots.find((s) => s.id === row.slotId)
+                      ?.position ?? 0) + 1}
+                    : {row.status === "failed" ? row.error : row.status}
+                    {row.status === "failed" && (
+                      <button
+                        className={button + " ml-2"}
+                        onClick={() =>
+                          setUploads((all) =>
+                            all.map((p) =>
+                              p.key === row.key
+                                ? { ...p, status: "queued", error: undefined }
+                                : p,
+                            ),
+                          )
+                        }
+                      >
+                        Retry upload
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          <section className={panel}>
+            <h3 className="font-semibold">Saved cards</h3>
+            <p className="text-sm mb-3">
+              Photos are being prepared. Card identification and Inventory
+              commit are the next part of this workflow.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+              {progress.slots.slice(page * 12, page * 12 + 12).map((slot) => {
+                const photo = slot.photos.find((p) => p.ready),
+                  pending = uploads.some((p) => p.slotId === slot.id);
+                const preparation = progress.photoPreparation.find(
+                  (p) => p.photoId === photo?.id,
+                )?.status;
+                return (
+                  <div
+                    key={slot.id}
+                    data-testid={`capture-card-${slot.position + 1}`}
+                    className="min-w-0 space-y-2"
+                  >
+                    <p>Card {slot.position + 1}</p>
+                    {photo ? (
+                      <img
+                        loading="lazy"
+                        className="w-full h-40 object-contain rounded"
+                        src={`/api/acquisition/${batchId}/photos/${photo.id}${preparation === "COMPLETE" ? "?preview=1" : ""}`}
+                        alt={`Saved card ${slot.position + 1}`}
+                      />
+                    ) : (
+                      <p className="text-sm">Awaiting photo</p>
+                    )}
+                    <p className="text-xs">
+                      {photo
+                        ? preparation === "COMPLETE"
+                          ? "Photo prepared"
+                          : preparation === "FAILED"
+                            ? "Photo could not be prepared. Retake it to try again."
+                            : "Preparing photo"
+                        : ""}
+                    </p>
+                    <button
+                      className={button + " w-full"}
+                      disabled={
+                        busy ||
+                        pending ||
+                        !["CAPTURING", "STOPPING"].includes(progress.phase)
+                      }
+                      onClick={() => {
+                        if (camera && cameraReady) void capture(slot);
+                        else {
+                          replacement.current = slot;
+                          fileInput.current?.click();
+                        }
+                      }}
+                    >
+                      {photo ? "Retake" : "Add photo"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex gap-2 mt-3">
+              <button
+                className={button}
+                disabled={!page}
+                onClick={() => setPage((p) => p - 1)}
+              >
+                Previous cards
+              </button>
+              <button
+                className={button}
+                disabled={(page + 1) * 12 >= progress.slots.length}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                More cards
+              </button>
+            </div>
+          </section>
+        </>
+      )}
+      <p className="text-xs text-[var(--app-muted)]">
+        Original photos stay private. After cards are committed, photos are kept
+        for 7 days. Unfinished batches stay until you finish or discard them.
+      </p>
+    </div>
+  );
+}

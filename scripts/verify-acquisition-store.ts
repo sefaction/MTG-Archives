@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { verifyAcquisitionPhotos } from "./verify-acquisition-photos";
 import { verifyAcquisitionOrchestration } from "./verify-acquisition-orchestration";
 import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
@@ -359,6 +360,7 @@ async function run() {
   const another = await createAcquisitionSession(db, actor, input());
   assert.equal(another.session.placement.otherSessionPending, 3);
   await verifyAcquisitionOrchestration(db, actor, input());
+  await verifyAcquisitionPhotos(db, actor, stranger, input());
   console.log(
     "PASS: optimistic commands, persisted human review/correction precedence, cancellation conservation, other-session pending",
   );
@@ -495,6 +497,7 @@ run()
     const where = { runId: { in: runs.map((r) => r.id) } };
     await db.acquisitionProcessingJob.deleteMany({ where });
     await db.acquisitionCommand.deleteMany({ where });
+    await db.acquisitionPhoto.deleteMany({ where });
     await db.acquisitionCaptureSlot.deleteMany({ where });
     await db.acquisitionCountCorrection.deleteMany({ where });
     await db.acquisitionObservation.deleteMany({ where });
