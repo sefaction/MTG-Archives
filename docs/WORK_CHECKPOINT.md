@@ -1,5 +1,21 @@
 # Resumable work checkpoint
 
+## Acquisition approvals and merge sequence, 2026-09-27
+
+The user individually approved #315 and #445. Roadmap #315 merged to `main` as `08c5c0c` after green Core/PostgreSQL checks. Foundation #445 is now retargeted to `main`; `feat/acquisition-foundation` incorporates that main merge with no application-code changes. Refresh exact-head CI before merging the approved foundation. Do not merge it into the retired planning branch.
+
+The pure batch remains covered by 14 acquisition cases and the 634-test local core run; `b079c3a` passed both GitHub checks. No new Docker UI exists in this groundwork batch. After #445 lands, P1/#303 persistence and ownership is the next dependency-ready batch toward real image intake; #303 stays open. The user approved moving past the kickoff review boundary. Production remains out of scope. No outstanding product question blocks the next batch.
+
+## Acquisition foundation PR #445 in review, 2026-09-27
+
+- Active worktree: `C:\Users\brian\Projects\MTG-Archives-acquisition-foundation`, branch `feat/acquisition-foundation`, [PR #445](https://github.com/sefaction/MTG-Archives/pull/445); base `docs/card-acquisition-plan` at `2f2cb3e` (unmerged PR #315), main anchor `7ba9399`. Implementation commit `106d60e`; subsequent checkpoint-only commits do not change tested code.
+- P1/#303 first bounded batch implements pure versioned evidence/session/placement, identity, count uncertainty/correction, stable target allocation, capability-gated transitions, recognition/review separation and commit-preview readiness. No runtime entry point or inventory mutation.
+- `npx.cmd tsx --test tests/acquisition-domain.test.ts`: 14/14; `npm.cmd run verify:core`: exit 0, 634/634 units, Prisma generate/typecheck/build/manifests. After final false-detection guard, focused 14/14 and typecheck passed. Exact-head PR CI pending. Full details and twelve-case evidence map: `docs/CARD_ACQUISITION_FOUNDATION.md`.
+- Roadmap PR #315 incorporates the user kickoff; #302-#314 reconciled, #442 live camera, #443 folder inbox and #444 optional inference worker queued in the existing milestone. Foundry records authorization and fi-7160/phone/CPU-first directions. Historical source inputs preserved.
+- No new dependency, migration, UI, Docker or production change. Local runtime image was not rebuilt for unused pure code. No DB concurrency, image-engine, phone, TWAIN or physical hardware pass claimed.
+- Next safe step: verify exact-head required CI on #315/#445, then stop at the kickoff's review boundary. Recheck live checks on resumption; a pending entry here does not mean a workflow is still running. P1 persistence/ownership is the next implementation batch after review; do not begin it automatically or close #303 yet.
+- No blocking questions. User is sleeping and accepts queued questions; pause the goal if a consequential answer becomes necessary. Individual approvals are required for both PRs before merge; this kickoff does not authorize merge/deployment.
+
 ## Acquisition kickoff active, 2026-09-27
 
 Branch `docs/card-acquisition-plan`, PR #315, base main `7ba9399`. User kickoff supersedes planning-only restrictions. Roadmap amendments underway; only P1/#303 pure foundation batch active, later batches queued. No migration, UI, Docker or production changes. Next: commit amended plan, create dependent foundation branch, implement and test all kickoff pure cases, open PR, stop at review boundary. No outstanding user decision blocks this batch. No new tests claimed yet.
