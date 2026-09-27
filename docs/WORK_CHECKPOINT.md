@@ -1,5 +1,11 @@
 # Resumable work checkpoint
 
+## Acquisition approvals and merge sequence, 2026-09-27
+
+The user individually approved #315 and #445. Roadmap #315 merged to `main` as `08c5c0c` after green Core/PostgreSQL checks. Foundation #445 is now retargeted to `main`; `feat/acquisition-foundation` incorporates that main merge with no application-code changes. Refresh exact-head CI before merging the approved foundation. Do not merge it into the retired planning branch.
+
+The pure batch remains covered by 14 acquisition cases and the 634-test local core run; `b079c3a` passed both GitHub checks. No new Docker UI exists in this groundwork batch. After #445 lands, P1/#303 persistence and ownership is the next dependency-ready batch toward real image intake; #303 stays open. The user approved moving past the kickoff review boundary. Production remains out of scope. No outstanding product question blocks the next batch.
+
 ## Acquisition foundation PR #445 in review, 2026-09-27
 
 - Active worktree: `C:\Users\brian\Projects\MTG-Archives-acquisition-foundation`, branch `feat/acquisition-foundation`, [PR #445](https://github.com/sefaction/MTG-Archives/pull/445); base `docs/card-acquisition-plan` at `2f2cb3e` (unmerged PR #315), main anchor `7ba9399`. Implementation commit `106d60e`; subsequent checkpoint-only commits do not change tested code.
