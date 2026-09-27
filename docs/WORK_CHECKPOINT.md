@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Capacity correction for PR #447, 2026-09-27
+
+The user clarified that 72 was an example, not a fixed limit. Known location/section remaining capacity supplies the default target; unknown capacity must stay open-ended and display a running count. Removed the separate 300-card phone ceiling and added a forward migration removing the slot-position ceiling. A PostgreSQL fixture now admits card 301 with no capacity set. Optional explicit smaller targets remain available. #446 merged after individual approval as `cc08f1d`; #447 targets main, includes that merge, and still awaits individual approval after this correction. The user's correction was not merge approval. Photo intake UI work continues on the dependent branch.
+
 ## Android slot admission and worker orchestration, 2026-09-27
 
 - Previous goal turn made progress: persistence PR #446 opened; its latest CI is green on `72189e9`, individual approval pending. Current worktree remains `C:\Users\brian\Projects\MTG-Archives-acquisition-persistence`, now branch `feat/acquisition-orchestration`, stacked on #446.

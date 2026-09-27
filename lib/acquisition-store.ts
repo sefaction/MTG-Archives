@@ -303,22 +303,28 @@ export async function createAcquisitionSession(
         })),
         otherSessionPending,
       });
+      const policy =
+        input.run.providerId === "phone-photo-v1" &&
+        input.policy.kind !== "MANUAL"
+          ? placement.remaining === null
+            ? { kind: "UNTARGETED" as const }
+            : { kind: "FILL" as const }
+          : input.policy;
       const state = createCaptureSession({
         id: randomUUID(),
         intent: "ADD_NEW",
         run: input.run,
         placement,
-        policy: input.policy,
+        policy,
       });
       if (
         input.run.providerId === "phone-photo-v1" &&
-        (state.target === null ||
-          state.target < 1 ||
-          state.target > 300 ||
-          (placement.remaining !== null && state.target > placement.remaining))
+        state.target !== null &&
+        placement.remaining !== null &&
+        state.target > placement.remaining
       )
         throw new Error(
-          "Choose a phone batch of 1 to 300 within the selected remaining capacity",
+          "Choose a phone batch within the selected remaining capacity",
         );
       const row = await tx.acquisitionSession.create({
         data: {
@@ -330,7 +336,7 @@ export async function createAcquisitionSession(
           requestKey: input.requestKey,
           requestPayload,
           placement,
-          policy: input.policy,
+          policy: state.policy,
           target: state.target,
           run: {
             create: {
@@ -624,8 +630,6 @@ export async function reserveAcquisitionCaptureSlot(
     if (existing) return { slot: existing, replay: true };
     if (row.phase !== "CAPTURING" || !destinationCurrent(row))
       throw new Error("Capture is not accepting new photos");
-    if (row.target === null || row.target < 1 || row.target > 300)
-      throw new Error("Choose a phone batch size from 1 to 300 before capture");
     // No mixing unreserved candidates into the exact phone provider.
     const slots = await tx.acquisitionCaptureSlot.findMany({
       where: { runId: run.id },
@@ -636,7 +640,8 @@ export async function reserveAcquisitionCaptureSlot(
       )
     )
       throw new Error("Phone capture identities need reconciliation");
-    if (slots.length >= row.target) throw new Error("Capture batch is full");
+    if (row.target !== null && slots.length >= row.target)
+      throw new Error("Capture batch is full");
     const slot = await tx.acquisitionCaptureSlot.create({
       data: {
         runId: run.id,

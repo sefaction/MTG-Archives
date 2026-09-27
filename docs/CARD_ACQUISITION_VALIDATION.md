@@ -100,7 +100,7 @@ Correction: that earlier Docker build used the primary checkout because its olde
 
 ## P2 orchestration evidence (2026-09-27)
 
-The same reusable verifier now checks durable 72-slot phone admission, the final-slot race with six callers, reservation replay after stop, rejection of unreserved candidates, and a progress read distinguishing reserved from received photos. Preselected phone targets must fit known remaining capacity and the 300-card bounded test ceiling.
+The same reusable verifier now checks durable 72-slot phone admission, the final-slot race with six callers, reservation replay after stop, rejection of unreserved candidates, and a progress read distinguishing reserved from received photos. Known destination/section capacity determines the remaining target. Unknown capacity is open-ended with a running count unless the user chooses a limit; 72 and 300 are fixture sizes, not fixed product caps.
 
 Versioned stage jobs enqueue immediately after the server finalizes their artifact, with pipeline/runtime/model/catalog/index/execution identity. Database tests prove duplicate enqueue, two competing workers, lease handoff, stale completion/heartbeat rejection, preservation of human review, timeout abort, bounded errors/crashes and cancellation. Outputs remain staged evidence, with no Inventory authority. Queue adapters must stop native child processes when aborted; no real OCR adapter is claimed by these tests.
 
