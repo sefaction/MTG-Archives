@@ -15,6 +15,17 @@ import {
   suggestionScopeSearchParams,
 } from "../lib/inventory-filter-suggestions";
 
+test("scan source filter maps to acquisition receipts", () => {
+  assert.deepEqual(
+    parseInventoryFilters(new URLSearchParams("source=scan")).sources,
+    ["ACQUISITION"],
+  );
+  assert.deepEqual(
+    parseInventoryFilters(new URLSearchParams("source=ACQUISITION")).sources,
+    ["ACQUISITION"],
+  );
+});
+
 test("inventory filter parser normalizes multi-select values", () => {
   const params = new URLSearchParams();
   params.append("rarity", "rare");

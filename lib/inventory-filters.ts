@@ -104,6 +104,8 @@ const FINISH_MAP: Record<string, FoilStatus> = {
   ETCHED: FoilStatus.ETCHED,
 };
 const SOURCE_MAP: Record<string, InventorySourceType> = {
+  scan: InventorySourceType.ACQUISITION,
+  ACQUISITION: InventorySourceType.ACQUISITION,
   import: InventorySourceType.CSV_PULL_IMPORT,
   manual: InventorySourceType.MANUAL,
   trade: InventorySourceType.TRADE,

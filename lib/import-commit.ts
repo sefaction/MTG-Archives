@@ -15,7 +15,8 @@ import {
   normalizeLocationSection,
 } from "./inventory-locations";
 import { normalizeInventoryCondition } from "./inventory-condition";
-import { recordInventoryAudit, inventoryAuditAction } from "./inventory-audit";
+import { inventoryAuditAction } from "./inventory-audit";
+import { writeInventoryReceipt } from "./inventory-receipt";
 
 type ParsedRow = {
   quantity: number;
@@ -51,14 +52,18 @@ export async function importTransaction<T>(
     } catch (error) {
       if (
         !(error instanceof Prisma.PrismaClientKnownRequestError) ||
-        error.code !== "P2034" ||
+        !(
+          error.code === "P2034" ||
+          (error.code === "P2010" &&
+            ["40001", "40P01"].includes(String(error.meta?.code)))
+        ) ||
         attempt >= 7
       )
         throw error;
       // Let the competing serializable transaction finish before re-reading
       // eligibility. Immediate retries can repeatedly hit the same pivot.
-      const delayMs = Math.min(250, 15 * 2 ** attempt) +
-        Math.floor(Math.random() * 25);
+      const delayMs =
+        Math.min(250, 15 * 2 ** attempt) + Math.floor(Math.random() * 25);
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
@@ -185,47 +190,42 @@ export async function commitImportBatch(
         foilStatus,
         condition,
         acquiredFromPullId: null,
+        roundId: null,
         notes: parsedRow.notes || null,
         sourceType: InventorySourceType.CSV_PULL_IMPORT,
         language: parsedRow.language || "EN",
         locationId,
         locationSection,
       };
-      const existingInventory =
-        duplicateBehavior === "separate"
-          ? null
-          : await tx.inventoryItem.findFirst({
-              where: matchingWhere,
-              orderBy: { id: "asc" },
-            });
-      const beforeQuantity = existingInventory?.quantity ?? 0;
-      const inventory = existingInventory
-        ? await tx.inventoryItem.update({
-            where: { id: existingInventory.id },
-            data: {
-              quantity: { increment: quantity },
-              notes: parsedRow.notes || undefined,
-              sourceType: InventorySourceType.CSV_PULL_IMPORT,
-            },
-          })
-        : await tx.inventoryItem.create({ data: createData });
-      await recordInventoryAudit({
-        tx,
-        action: inventoryAuditAction.importCommitted,
-        actingUserId: input.actingUserId,
-        inventoryItemId: inventory.id,
-        before: existingInventory
-          ? JSON.parse(JSON.stringify(existingInventory))
-          : { quantity: 0 },
-        after: JSON.parse(JSON.stringify(inventory)),
-        metadata: {
-          importBatchId: batch.id,
-          importBatchItemId: currentItem.id,
-          quantityImported: quantity,
-          duplicateBehavior,
+      const receipt = await writeInventoryReceipt(tx, {
+        lot: createData,
+        merge:
+          duplicateBehavior === "separate"
+            ? null
+            : {
+                where: matchingWhere,
+                update: {
+                  notes: parsedRow.notes || undefined,
+                  sourceType: InventorySourceType.CSV_PULL_IMPORT,
+                },
+              },
+        audit: {
+          action: inventoryAuditAction.importCommitted,
+          actingUserId: input.actingUserId,
+          metadata: {
+            importBatchId: batch.id,
+            importBatchItemId: currentItem.id,
+            quantityImported: quantity,
+            duplicateBehavior,
+          },
+          reason: `CSV import ${batch.filename}, row ${currentItem.rowNumber}`,
         },
-        reason: `CSV import ${batch.filename}, row ${currentItem.rowNumber}`,
       });
+      const {
+        inventory,
+        previous: existingInventory,
+        beforeQuantity,
+      } = receipt;
       await tx.importBatchItem.update({
         where: { id: currentItem.id },
         data: {

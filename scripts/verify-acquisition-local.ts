@@ -171,6 +171,11 @@ async function main() {
     "node_modules/tsx/dist/cli.mjs",
     "scripts/verify-acquisition-store.ts",
   );
+  node(
+    "shared receipt and import integrity",
+    "node_modules/tsx/dist/cli.mjs",
+    "scripts/verify-import-commit.ts",
+  );
   if (args.includes("--core")) {
     if (!process.env.npm_execpath)
       throw new Error("Use npm run verify:acquisition -- --core");

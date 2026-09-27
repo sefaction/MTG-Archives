@@ -49,6 +49,7 @@ enum InventorySourceType {
   CORRECTION
   PRIZE
   OTHER
+  ACQUISITION
 }
 
 enum UserRole {
@@ -818,8 +819,8 @@ model InventoryItem {
   id                 String              @id @default(cuid())
   currentOwnerId     String
   currentOwner       Player              @relation("InventoryCurrentOwner", fields: [currentOwnerId], references: [id])
-  originalOpenerId   String
-  originalOpener     Player              @relation("InventoryOriginalOpener", fields: [originalOpenerId], references: [id])
+  originalOpenerId   String?
+  originalOpener     Player?             @relation("InventoryOriginalOpener", fields: [originalOpenerId], references: [id])
   cardId             String
   card               Card                @relation(fields: [cardId], references: [id])
   quantity           Int
