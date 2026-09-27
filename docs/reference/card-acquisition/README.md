@@ -5,7 +5,7 @@ These are user-supplied planning inputs, preserved verbatim for future reference
 - [Planning prompt](planning-prompt.md) — scope/invariants and planning-only instruction.
 - [Research report](research-report.md) — design suggestions, example code/schema and estimates; **not an implementation specification**.
 
-The report contains opaque citation markers from its originating conversation. Those markers cannot be resolved here and are not evidence of verification. Current accepted design is [the roadmap](../../CARD_ACQUISITION_PLAN.md) and its linked architecture/milestones/validation. User answers in this conversation supersede report suggestions: image release first, mostly English loose cards, typical batches up to 100, Windows USB host with separate server, explicit capacity override allowed, implementation deferred.
+The report contains opaque citation markers from its originating conversation. Those markers cannot be resolved here and are not evidence of verification. Current accepted design is [the roadmap](../../CARD_ACQUISITION_PLAN.md) and its linked architecture/milestones/validation. User answers in this conversation supersede report suggestions: image release first, mostly English loose cards, typical batches up to 100, Windows USB host with separate server, explicit capacity override allowed. The later implementation kickoff below supersedes the earlier deferred status.
 
 No report schema, proposed filename, library, confidence number, estimate, old repository assertion or device-compatibility claim was adopted solely because it appears here. Repository findings were checked at `bfb7be8`; notable differences are documented in the architecture. Preserve private photos/test assets outside this archive.
 
