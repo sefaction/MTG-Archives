@@ -1265,6 +1265,9 @@ model AcquisitionRun {
   candidates   AcquisitionCandidate[]
   observations AcquisitionObservation[]
   corrections  AcquisitionCountCorrection[]
+  slots        AcquisitionCaptureSlot[]
+  commands     AcquisitionCommand[]
+  jobs         AcquisitionProcessingJob[]
 }
 
 model AcquisitionEvent {
@@ -1287,6 +1290,7 @@ model AcquisitionArtifact {
   sourceId     String
   digest       String
   observations AcquisitionObservation[]
+  jobs         AcquisitionProcessingJob[]
 
   @@unique([runId, sourceId])
   @@unique([id, runId])
@@ -1310,6 +1314,7 @@ model AcquisitionCandidate {
   review           Json?
   observations     AcquisitionObservation[]
   corrections      AcquisitionCountCorrection[]
+  jobs             AcquisitionProcessingJob[]
 
   @@unique([runId, physicalId])
   @@unique([runId, acquisitionOrder, spatialOrder])
@@ -1346,5 +1351,66 @@ model AcquisitionCountCorrection {
   createdAt         DateTime @default(now())
 
   @@unique([candidateId, candidateRevision])
+  @@index([runId])
+}
+
+// Reserved before a single-card camera exposure/upload, retained across retries.
+model AcquisitionCaptureSlot {
+  id         String @id @default(uuid())
+  runId      String
+  run        AcquisitionRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+  requestKey String
+  position   Int
+  createdAt  DateTime @default(now())
+
+  @@unique([runId, requestKey])
+  @@unique([runId, position])
+}
+
+model AcquisitionCommand {
+  id         String @id @default(cuid())
+  runId      String
+  run        AcquisitionRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+  requestKey String
+  payload    String
+  createdAt  DateTime @default(now())
+
+  @@unique([runId, requestKey])
+}
+
+enum AcquisitionJobStatus {
+  PENDING
+  RUNNING
+  COMPLETE
+  FAILED
+  SUPERSEDED
+}
+
+// A versioned artifact/candidate stage. Native engines remain separate adapters.
+model AcquisitionProcessingJob {
+  id                String @id @default(uuid())
+  runId             String
+  run               AcquisitionRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+  artifactId        String
+  artifact          AcquisitionArtifact @relation(fields: [artifactId, runId], references: [id, runId], onDelete: Restrict)
+  candidateId       String
+  candidate         AcquisitionCandidate @relation(fields: [candidateId, runId], references: [id, runId], onDelete: Restrict)
+  candidateRevision Int
+  stage             String
+  versionKey        String
+  input             Json
+  status            AcquisitionJobStatus @default(PENDING)
+  attempts          Int @default(0)
+  maxAttempts       Int @default(3)
+  availableAt       DateTime @default(now())
+  leaseToken        String?
+  leaseExpiresAt    DateTime?
+  output            Json?
+  errorCode         String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([artifactId, candidateId, candidateRevision, stage, versionKey])
+  @@index([status, availableAt, leaseExpiresAt, createdAt])
   @@index([runId])
 }
