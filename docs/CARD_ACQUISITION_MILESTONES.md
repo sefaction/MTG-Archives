@@ -1,6 +1,6 @@
 # Card acquisition executable milestones
 
-**All implementation phases are PLANNED / NOT STARTED.** The user approved planning, not execution. The prior bug and UI queue is closed; starting P1 still requires an explicit decision. [Roadmap](CARD_ACQUISITION_PLAN.md) establishes order; [architecture](CARD_ACQUISITION_ARCHITECTURE.md) defines shared invariants; [validation](CARD_ACQUISITION_VALIDATION.md) defines gates. GitHub issues mirror these work packages and own live status.
+**Implementation authorized. P1 batch 1 is active; all later batches are queued.** The September 27 kickoff supersedes planning-only banners. [Roadmap](CARD_ACQUISITION_PLAN.md), [architecture](CARD_ACQUISITION_ARCHITECTURE.md) and [validation](CARD_ACQUISITION_VALIDATION.md) retain the existing phase system; GitHub owns live status.
 
 Each phase below includes PR-sized batches. Begin a future session by reading its issue, this phase, relevant architecture sections and live checkpoint; the original 2,000-line report is optional background. Preserve the current four-user ownership model, 150,000-copy inventory scale, existing URLs and ordinary advisory capacity behavior. Every implementation PR requires local evidence, required CI and individual merge approval.
 
@@ -17,7 +17,7 @@ Each phase below includes PR-sized batches. Begin a future session by reading it
 ## P1 — Session domain, counting and persistence
 
 - Purpose: give all providers a small shared business model with reliable identity.
-- Prerequisites: explicit start authorization; revisit current queue and P0 architecture.
+- Prerequisites: start authorized; current main/import/storage boundaries reconciled.
 - Batch 1: pure TypeScript DTOs/capabilities, state reducer, target allocation and count reconciliation; reuse existing storage-layout arithmetic. Unit fixtures only.
 - Batch 2: additive Prisma session/run/event/candidate/observation records and indexes; actor/User versus owner/Player scope; durable revisions and retry identities. Introduce the smallest transaction-aware storage summary adapter.
 - Non-goals: real files, OCR, live catalog, commit endpoint, scanner/device package, mobile/hopper stubs.
@@ -48,7 +48,7 @@ Each phase below includes PR-sized batches. Begin a future session by reading it
 - Acceptance: validated JPEG/PNG/WebP survive refresh/restart; unsupported HEIC gives an actionable message until explicitly supported. Same upload identity retries return one artifact; identical bytes under different physical IDs do not discard cards. Disk-full/interrupted writes never become READY. Raw/crop/thumbnail URLs enforce owner/admin access.
 - Tests: forged MIME, decompression/pixel limits, path/symlink traversal, duplicate/reordered uploads, interrupted rename/DB write, unauthorized reads, cleanup race, private backup/restore with existing uploads.
 - Risks/unknowns: actual phone file formats, proxy limits, storage budget, retention duration. Explicit image deletion policy must preserve unresolved/overflow lineage.
-- Hardware: none. Gate: real image inputs durable and bounded, no inventory writes. Manual file transfer from phone is sufficient.
+- Hardware: none. Gate: real image inputs durable and bounded, no inventory writes. Direct authenticated phone camera/photo-library upload is required; evaluate real HEIC/HEIF and orientation or a tested on-phone alternative.
 
 ## P4 — Detection and canonical images
 
@@ -69,7 +69,7 @@ Each phase below includes PR-sized batches. Begin a future session by reading it
 - Batch 1: streaming explicit admin bulk-maintenance job, existing Card normalization/upsert adaptation, nonunique indexes, refresh coverage/version metadata, resumable failure handling and query performance checks. Default English dataset first; non-English completeness remains explicit.
 - Batch 2: evaluate local OCR engines on title/collector regions; select pinned runtime/model; persist attempts, signals/contradictions/quality/version; implement pure candidate resolution and review gates.
 - Batch 3: offline reproducible benchmark with held-out printings, error analysis and proposed promotion thresholds. Keep auto-accept disabled until gate approved.
-- Non-goals: per-card live API loop, second card catalog/database, arbitrary similarity thresholds, fuzzy-name automatic selection, artwork embeddings/mandatory cloud AI.
+- Non-goals: per-card live API loop, second card catalog/database, arbitrary similarity thresholds, fuzzy-name automatic selection, mandatory cloud AI or uncalibrated visual autoaccept.
 - Acceptance: no external request for catalogued cards; name-only always review; collector suffixes/language/face aliases preserved; weak or conflicting evidence cannot auto-accept; incomplete catalog does not create false uniqueness. Manual decisions survive new worker attempts; unknown finish remains independent from printing recognition.
 - Tests: tiny bulk fixture to real Card records, interrupted refresh/retry and existing FK preservation, non-English/variants/DFC/name contradictions, actual OCR labeled corpus separate from mocked logic tests, no-network normal recognition run, broad-catalog lookup timing at intended scale.
 - Risks/unknowns: corpus coverage and calibrated precision; engine startup/RAM; index/JSON growth; current unique mtgjsonUuid interactions; all-language bulk scope. Verify current Scryfall guidance before implementing loader.
@@ -104,7 +104,7 @@ Each phase below includes PR-sized batches. Begin a future session by reading it
 
 ## P8 — Image release acceptance and recovery
 
-- Purpose: deliver a complete independently usable image-upload release before scanner work.
+- Purpose: deliver a complete independently usable image-upload release independently of scanner work.
 - Prerequisites: P3–P7 and gates A–E; production storage/retention choices settled.
 - Batch 1: cross-layer image lifecycle Playwright/DB/corpus evidence, performance measurements for 100-card normal and 300-card stress sessions, bounded paged reviews in 150,000-copy/four-owner fixture.
 - Batch 2: worker and server restart, disk-full/backpressure, cancellation/cleanup, backup/restore quiescence/watermark, missing file repair, owner quotas and diagnostics redaction.
@@ -118,7 +118,7 @@ Each phase below includes PR-sized batches. Begin a future session by reading it
 ## P9 — Windows agent transport, spool and diagnostics
 
 - Purpose: connect a Windows USB host to separately hosted Archive without a localhost browser API.
-- Prerequisites: P1/P2/P3 contracts, image release P8, TLS/trust and user-session packaging decisions.
+- Prerequisites: stable P1/P2/P3 contracts (not all P8 UI), TLS/trust and user-session packaging decisions.
 - Batch 1: scoped pairing/revocation, server-owned session assignment, versioned commands/events, replay-safe fake backend and app status.
 - Batch 2: durable private spool, file/event ACK replay, run fencing, local target budget/backpressure, offline/reconnect handling and device lease; diagnostic export redacted by default.
 - Batch 3: Windows credential storage/distribution/updates and mock-backend integration tests; agree native runtime based on later adapter needs.
@@ -140,24 +140,53 @@ Each phase below includes PR-sized batches. Begin a future session by reading it
 - Risks/unknowns: older sample installer/build compatibility with current Windows; wrapper maintenance and native ABI/threading; virtual source may lack reliable sheet/side metadata. Any gap is a qualification limitation, not permission to count images as cards.
 - Hardware: Windows host; no scanner. Gate F: real software TWAIN integration proven within advertised capabilities.
 
-## P11 — fi-6130Z physical characterization
+## P11 — fi-7160 physical characterization
 
 - Purpose: characterize the actual scanner using existing software and a fixed corpus.
-- Prerequisites: P8/P10, actual fi-6130Z and supported PaperStream/OS/source combination, low-value expendable cards.
+- Prerequisites: actual fi-7160, supported driver/OS/source and expendable cards for isolated diagnostics/corpus; P10 for integrated qualification. Early diagnostics may precede P8; not a production-ready integration claim.
 - Batch 1: driver/source inventory, negotiated settings/counters, safe single-card/simplex/duplex baseline and before/after surface inspection.
 - Batch 2: controlled 10/25/larger batches only after smaller tests are safe; target 1/2/5/arbitrary N with card N+1 position recorded; multifeed/jam/order/duplex/blank-suppression tests.
 - Batch 3: compare 300 DPI against supported alternatives, crop/rotate/color profiles, throughput/image bytes/OCR quality and rollers/consumable counters; publish measured profile and limitations.
 - Non-goals: guarantee a 100-card feeder load, surface safety from vendor ID-card specs, exact physical stop from transfer count, routine use of valuable cards in characterization.
 - Acceptance/tests: [hardware matrix](CARD_ACQUISITION_VALIDATION.md#hardware-matrix) completed with attempts/failures and images retained privately; reliable pairing and honest overscan handling; no silent lost physical cards; record visible marks and stop testing damaging configurations. Gate may conclude device unsuitable.
 - Risks/unknowns: feed material, wear, sleeves (outside baseline), driver/OS support, physical transport latency; native boundary ambiguity can prevent accurate automatic target enforcement.
-- Hardware: actual fi-6130Z. Gate G: supported operational profile and measured safety/stop limitations, or documented no-go.
+- Hardware: actual fi-7160. Gate G: supported operational profile and measured safety/stop limitations, or documented no-go.
 
 ## P12 — Optional scanner-family qualification
 
-- Purpose: compare fi-7160/fi-8170 with the same workload without changing the core model.
+- Purpose: compare fi-6130Z/fi-8170 with the same workload without changing the core model.
 - Prerequisites: P11 matrix; explicit later decision and access to each device.
 - Scope/batches: per-device driver/bitness capability profile, exact same corpus/test IDs, measured performance/order/stop/surface comparison; isolate adaptations behind backend/profile.
 - Non-goals: auto-certified compatibility based on family name, purchase recommendation without current evidence, redesigning recognition/inventory per scanner.
 - Acceptance/tests: report throughput, failures/1,000 with raw sample sizes, marks, multifeeds, overscan count/distribution, pairing errors, review rate and bytes/card; retain unsupported capability caveats.
 - Risks/unknowns: availability, firmware/source differences and real feeding behavior. No estimate or due date until hardware exists.
-- Hardware: actual fi-7160 and/or fi-8170. Gate: per-device qualification, optional and not blocking image or fi-6130Z delivery.
+- Hardware: actual fi-6130Z and/or fi-8170. Gate: per-device qualification, optional and not blocking image or fi-7160 delivery.
+
+## Kickoff amendments within the existing phases
+
+These requirements extend the phases above; their complete acceptance detail is preserved in [kickoff A?H](reference/card-acquisition/implementation-kickoff.md#required-roadmap-amendments-and-implementation-requirements).
+
+| Work | Added deliverable / gate |
+| --- | --- |
+| P1 / #303 | Explicit ADD_NEW intent, artifact/occurrence/observation/event identity, episode dedup distinct from retry dedup, uncertainty/correction, versioned placement and exact versus logical target behavior. First pure batch stops at PR review; persistence is next. |
+| P2 / #304 | Durable episode/run identity and versioned CPU/GPU job/evidence contract with input/catalog/model/index versions, fenced completion and reviewed-decision precedence. |
+| P3 / #305 | Owner/location/section-bound desktop and direct authenticated phone uploads; HTTPS/camera permissions, photo library, orientation/HEIC evaluation, durable ACK and interruption recovery. |
+| P4 / #306 | Clean-scan and photo paths; originals/high-res regions; OpenCV-style geometry versus small card-trained detector comparison, explicit multi-card envelope and manual repair. |
+| P5 / #307 | Tesseract metadata CPU, PaddleOCR CPU/GPU, perceptual/local-feature and embedding retrieval benchmarks; full supported catalog search after OCR failure, exact-print/language verification, versioned resumable indexes and independently checked image/model/dataset licenses. |
+| P6 / #308 | Explicit intent, uncertainty repair, stable placement ranges, pending/overflow, other-session warnings, destination revision changes and physical acknowledgement when crossing optional ordered sections. |
+| P7 / #309 | Reuse current serializable audited import service (#301 fixed); preserve source/notes/grouping, add acquisition receipts and all-writer capacity coordination. No global hard-capacity policy or implicit stock mutation. |
+| P8 / #310 | Real phone/desktop end-to-end CPU acceptance, source/device-specific recovery, throughput including operator review; optional GPU qualifies separately. |
+| P9/P10 / #311/#312 | Stable contract prerequisites, secure outbound Windows agent and actual virtual TWAIN; no dependency on finishing every P8 UI feature. |
+| P11/P12 / #313/#314 | Primary fi-7160 isolated diagnostics/corpus may start on arrival; integrated gate depends on P10. fi-6130Z/fi-8170 optional. |
+
+### Bounded queued child: live browser/PWA and webcam capture
+
+Parent #302; after P1/P2/P3 durable ingestion and usable photo path. Implement authenticated, feature-detected HTTPS camera access, quality/stability checks, bounded still/burst, removal/rearm episode identity, accepted/pending/recapture and truthful durable ACK. Test iPhone/Android and webcam where available, orientation, permission denial, interruptions, tab eviction/lock, repeated and identical separate copies. Missing devices are not-run. Native app/offline recognition and hopper motors excluded; hopper sensor cycle remains a future contract path.
+
+### Bounded queued child: approved location-bound inbox
+
+Parent #305/#302; after durable private ingestion. Bind an explicitly approved folder/profile to owner/location/section and defaults. Atomic finalization, retry IDs, ordered batch boundaries, periodic reconciliation, quarantine and success ACK; test partial/overwritten files, repeats, restart, bad images, disk full and deleted destinations. No arbitrary recursive share scan; preserve originals until durable receipt plus retention authorization. Non-TWAIN platform fallback, no every-OS native integration prerequisite.
+
+### Bounded queued child: optional accelerated inference worker
+
+Parent #307/#302; after versioned job/evidence and measured CPU/corpus baseline. Evaluate one optional bounded worker using NVIDIA/CUDA first with verified hardware/driver/runtime/VRAM, same CPU/GPU contract, warm models, memory/concurrency limits, interactive/bulk fairness, execution diagnostics, OOM and explicit fallback/pause. Benchmark same held-out data and acceptance policy; acceleration cannot lower exact-print/count quality. No GPU purchase/availability blocks the CPU release; AMD/Intel support requires separate qualification.

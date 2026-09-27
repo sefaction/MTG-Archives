@@ -26,3 +26,7 @@ Checked September 22, 2026 local / September 23 UTC. Revalidate compatibility an
 | [OpenCV geometric transforms](https://docs.opencv.org/4.x/da/d54/group__imgproc__transform.html) | Perspective/geometry primitives available; candidate only, not proof of reliable multi-card detection. |
 
 The report's community projects are optional inspiration, not core dependencies or verified operational guarantees. Primary documentation plus this repository and future measurements govern implementation.
+
+## Implementation authorization
+
+[September 27 implementation kickoff](implementation-kickoff.md) is the preserved user input authorizing phased implementation and defining this task?s first-batch stopping point. Earlier prompt/report remain historical, unchanged. Current roadmap documents incorporate its A?H requirements.

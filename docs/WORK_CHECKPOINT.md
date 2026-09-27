@@ -1,5 +1,9 @@
 # Resumable work checkpoint
 
+## Acquisition kickoff active, 2026-09-27
+
+Branch `docs/card-acquisition-plan`, PR #315, base main `7ba9399`. User kickoff supersedes planning-only restrictions. Roadmap amendments underway; only P1/#303 pure foundation batch active, later batches queued. No migration, UI, Docker or production changes. Next: commit amended plan, create dependent foundation branch, implement and test all kickoff pure cases, open PR, stop at review boundary. No outstanding user decision blocks this batch. No new tests claimed yet.
+
 ## Acquisition planning PR refreshed for review, 2026-09-27
 
 Branch `docs/card-acquisition-plan` updates the planning-only PR #315 against merged main `7ba9399`. The previous checkpoint conflict was resolved by retaining main's accumulated local and Pricing history and adding this current acquisition entry. All non-Acquisition issues are closed; #441 Deck export merged. Acquisition #302–#314 remain open and implementation has not started. The plan requires individual PR #315 merge approval and a separate explicit decision to begin P1; merging planning documents alone grants neither implementation authority nor scanner purchase. The proposed P1 starts with pure TypeScript counting/session contracts and deterministic fixtures, without image/OCR dependencies or Docker reload. Next safe step: validate the refreshed Markdown diff and CI, then ask for #315's individual approval and the P1 start decision. Production runtime stays outside local development scope.

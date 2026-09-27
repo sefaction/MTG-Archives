@@ -1,6 +1,6 @@
 # Card acquisition architecture and repository findings
 
-Status: proposed implementation architecture, **not implemented**. Baseline `bfb7be8`; see [roadmap](CARD_ACQUISITION_PLAN.md) for confirmed user decisions and priority. Names below are domain concepts, not instructions to generate every proposed model/file in one change.
+Status: implementation authorized; P1 pure foundation active, persisted/runtime architecture still queued. Reconciled against `7ba9399`; historical baseline `bfb7be8`; see [roadmap](CARD_ACQUISITION_PLAN.md) for confirmed user decisions and priority. Names below are domain concepts, not instructions to generate every proposed model/file in one change.
 
 ## Repository evidence and reuse map
 
@@ -22,7 +22,7 @@ Status: proposed implementation architecture, **not implemented**. Baseline `bfb
 
 ## Important gaps in the report's reuse assumptions
 
-1. `confirmImport` inside `app/imports/page.tsx` reads a row, writes/increments inventory, then marks the row imported in separate Prisma calls. The variable `lockedItem` is a read, not a row lock; this function does not use `$transaction` or create `InventoryAuditLog` rows. Retry/concurrency safety and full audit cannot be inherited by simply calling this action. Catalogue separately and use a real shared transactional service before acquisition commit.
+1. `lib/import-commit.ts` now provides serializable transactions with bounded retries and inventory audit writes; #301 is closed. Reuse this current boundary, preserving CSV grouping/source/notes and undo behavior. Acquisition still needs explicit provenance, unknown attributes, candidate receipts and coordination with every occupancy/layout writer.
 2. `addInventoryCardToLocation` accepts a transaction but clamps quantity to 999, falls back to NONFOIL/EN/default condition, sets opener to owner, and changes sourceType to MANUAL. Reuse validation/grouping concepts after refactoring explicit inputs; never feed UNKNOWN through this helper as-is.
 3. `findOrImportCard` accepts a single local exact-name result and uses live fallback for set/collector misses. Local catalog uniqueness is not proof of globally unique printing, and this routine does not take OCR language or contradiction evidence. Capture needs a stricter local resolver composed from shared primitives, not a call-through to this importer policy.
 4. Storage aggregation and the serializable move transaction are useful, but no shared capacity lock is held by all inventory writers. Reading occupancy inside one new capture transaction alone does not establish safe concurrent capacity decisions.
@@ -158,7 +158,7 @@ Isolate source enumeration, negotiated capabilities, native message loop/threadi
 | Report suggestion | Adaptation and reason |
 | --- | --- |
 | Broad proposed files/classes/schemas | Domain records and function boundaries above; exact code layout chosen per batch using existing conventions. |
-| Treat import commit as reusable atomic/audited infrastructure | It is not currently atomic/audited on the reviewed path. Track the gap; share a strengthened transaction-aware helper. |
+| Treat import commit as reusable atomic/audited infrastructure | #301 is resolved in import-commit.ts; adapt its current transaction/audit boundary while retaining acquisition-specific provenance and capacity gates. |
 | Reuse resolver outcomes directly | Reuse normalizers/Card persistence; require capture-specific contradiction/language/coverage gates. |
 | Add dedicated capture mount immediately | Begin within existing uploads/backup root, with private namespace and measured limits. |
 | One linear session enum | Separate acquisition, processing, review and commit phases; support retained overflow and partial explicit commits. |
@@ -166,8 +166,21 @@ Isolate source enumeration, negotiated capabilities, native message loop/threadi
 | Copy a proposed provider interface with mandatory scanner controls | Capability-gate optional controls; image acquisition need not pretend it can stop a feeder. |
 | x86 first | Decide from verified DSM/source/backend compatibility; x64 is not ruled out and neither is selected now. |
 | Confidence constants / 99.5% on 200–500 cards | Calibrate and report denominators/statistical limits; zero observed wrong selections is a release test requirement, not proof of perfect population accuracy. |
-| Hardware near the first release and hardening last | Complete and harden image-only release first; security/recovery start in the foundation. |
+| Hardware near the first release and hardening last | Image-first product release; agent/virtual-source work follows stable contracts independently. Early fi-7160 diagnostic/corpus work can precede P8. Security/recovery start in the foundation. |
 | 144–214 hours estimate | Do not adopt unvalidated estimates. Estimate individual batches after engine/corpus/native spikes. |
 | Exact stop inferred from scanner transfer count | Best effort plus negotiated boundary evidence; physical stop must be characterized on hardware. |
 
 See [milestones](CARD_ACQUISITION_MILESTONES.md) for unresolved decisions and [primary sources](reference/card-acquisition/README.md) for what was independently verified.
+
+## September 27 kickoff contracts
+
+The [kickoff A?H](reference/card-acquisition/implementation-kickoff.md#required-roadmap-amendments-and-implementation-requirements) supplies the full requirements; the following is the implementation mapping.
+
+- **Intent and identity (P1/P2):** ADD_NEW is explicit. AUDIT_EXISTING/RECONCILE and MOVE_EXISTING are future distinct workflows. An image/hash/printing never identifies an owned copy. Camera occurrence identity requires episode/removal/rearm or hardware cycle evidence; cooldown/name dedup is insufficient. Record provisional counts and reasoned corrections without deleting raw evidence.
+- **Placement (P1/P6/P7):** version owner/location/exact section, JSON-layout revision and direct committed occupancy snapshot. Apply the tighter known overall/selected-section bound. Distinguish own pending, other sessions and committed stock; snapshots do not reserve space. Optional ordered multi-section assignments require physical placement acknowledgement at boundaries. Destination edits invalidate previews. Concurrent sessions warn initially; reservations require a separately reviewed expiry/crash/offline/all-writer design.
+- **Phone/live (P3 + child):** authenticated phone upload is required, not desktop transfer. Evaluate real HEIC/HEIF/orientation or a tested phone-native alternative. Camera access requires HTTPS/permissions/feature detection, portrait/landscape, photo library, progress and interruption recovery. QR/deep links preserve authorization and carry no long-lived credentials. Live quality/stability and bounded still/burst processing yield one candidate per episode, explicit accepted/pending/recapture states and removal/rearm. Focus/torch are feature-detected. Durable ACK truth and tab-close/eviction/lock recovery are separate from local preview. Webcam shares this; hopper needs sensor-cycle evidence.
+- **Inbox (child):** approved folder/profile binds owner/destination/section/policies/defaults; a computer path is not an inventory location or authorization. Finalization protocol, retry IDs, deterministic ordering, batch boundaries, reconciliation and quarantine must survive partial writes, overwrites, duplicate notifications, restart, disk full and removed destinations. Preserve originals until durable ingestion and retention policy permit deletion. No arbitrary share crawler. This is a non-TWAIN platform fallback.
+- **Recognition (P4/P5):** separate detection, geometry, OCR, candidate retrieval, exact-print validation and acceptance. Compare geometric detection with a small card-trained detector using actual weights/data/licenses. Retain original/high-resolution collector evidence and task derivatives. Evaluate Tesseract metadata CPU baseline, PaddleOCR CPU/GPU, perceptual/local-feature comparison, and embedding top-k plus exact-print verification. Visual retrieval can search the full supported catalog after OCR failure. Art is not printing; missing catalog/language, generic backs/noncards and unknown finish/condition remain explicit. Contradictions veto autoaccept; scores are not probabilities. Version catalog/model/index together; resumable rebuild and image rights are distinct from bulk metadata. Reviewed decisions survive reprocessing.
+- **Processing backend (P2 + child):** a versioned job references candidate/input revision, artifact observations, requested stage and catalog/model/index/preprocessing versions. Its evidence result names actual execution provider, versions, timing, quality and errors; fenced application validates the input revision and retains reviewed decisions. CPU/GPU use this same contract; no ownership/commit authority in inference. Evaluate one bounded optional worker, NVIDIA/CUDA first only after real GPU/driver/runtime/VRAM verification; AMD/Intel require separate measurements. Warm models, bounded memory/concurrency, latency-aware batches, interactive/bulk fairness, OOM handling and explicit CPU fallback or resumable pause. Agent stop budgets remain local and independent of network/inference.
+
+The first pure batch intentionally does not implement these transport, file, inference, reservation, multi-section or persisted commit services. Its in-memory event receipts prove deterministic replay only. P1 persistence must supply API validation, owner scope, revisions and durable receipts before use by untrusted providers.

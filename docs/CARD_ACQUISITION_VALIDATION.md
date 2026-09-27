@@ -1,6 +1,6 @@
 # Card acquisition validation and release gates
 
-**Future test plan only.** No capture functionality, drivers or corpus tests were installed/run by this planning task. Read [milestones](CARD_ACQUISITION_MILESTONES.md) for dependencies and [architecture](CARD_ACQUISITION_ARCHITECTURE.md) for semantics.
+**P1 pure foundation is active; integration/corpus/hardware gates remain future work.** Test results belong in the foundation evidence report; no recognition, database, phone or hardware pass is implied. Read [milestones](CARD_ACQUISITION_MILESTONES.md) for dependencies and [architecture](CARD_ACQUISITION_ARCHITECTURE.md) for semantics.
 
 ## Gate ledger
 
@@ -60,7 +60,7 @@ Diagnostics include timestamp, session/run/event/candidate/artifact IDs, provide
 
 ## Hardware matrix
 
-Use the same test IDs and privately stored ground-truth corpus for fi-6130Z, then optional fi-7160/fi-8170. Begin with low-value bulk cards. The first device's archived vendor specification supports duplex, ultrasonic multifeed and ID-card handling, but its card note describes up to three continuous cards; A4 paper capacity/speed is not a guarantee for a 100-card MTG load. [Ricoh specification](https://www.pfu.ricoh.com/global/scanners/fi/discontinued/fi6130z/fi6130z.html).
+Use the same test IDs and privately stored ground-truth corpus for fi-7160, then optional fi-6130Z/fi-8170. Begin with low-value bulk cards. The first device's archived vendor specification supports duplex, ultrasonic multifeed and ID-card handling, but its card note describes up to three continuous cards; A4 paper capacity/speed is not a guarantee for a 100-card MTG load. [Ricoh specification](https://www.pfu.ricoh.com/global/scanners/fi/discontinued/fi6130z/fi6130z.html).
 
 | ID | Test | Evidence and gate |
 | --- | --- | --- |
@@ -76,3 +76,15 @@ Use the same test IDs and privately stored ground-truth corpus for fi-6130Z, the
 | H10 | Device disconnect, application restart and refill | Persisted session/run reconciliation, retained artifacts, safe physical recovery |
 
 Comparison report: raw n, failures/doubles/marks per observed sample, normalized rates with sample size, pairing errors, overscan frequency/count, actual cards/time, bytes/card and recognition review rate. Sleeves are outside the confirmed baseline and require separate validation. A virtual source pass qualifies software integration only.
+
+## Kickoff qualification additions
+
+P1 batch 1 must cover every [kickoff acceptance case](reference/card-acquisition/implementation-kickoff.md#required-acceptance-cases) with behavioral tests. Gate A remains incomplete until real PostgreSQL identity/ownership constraints pass; pure replay/stop fixtures are only the pure portion of Gate B.
+
+Recognition evaluation compares Tesseract+metadata, PaddleOCR CPU/qualified GPU, perceptual/local-feature and embedding top-k+exact-print verification, plus geometric versus card-trained detection. Record code/runtime/model/weights/preprocessing, dataset licenses and supported coverage. Compare identical held-out queries and acceptance policy; changed precision/search approximation requires requalification. No fixed borrowed threshold or README performance claim is evidence.
+
+Corpus expands to real iPhone/Android, multi-card scenes, webcam sequences, fi-7160 when present, older layouts, non-English, same-art different printings, foil glare, DFCs, unreadable/generic backs, noncards and missing-catalog/unsupported/new-set cases. Split by physical specimen/session/device to avoid leakage; reference catalog images are retrieval inputs, not held-out query captures. Missing hardware subsets are explicitly not run.
+
+Report exact-print+language precision AND coverage, recall@k, detection/count errors, repeated/missed copies, source/layout/language denominators, recapture/review rate, p50/p95 capture-to-result and end-to-end time, bytes/card, CPU/RAM/VRAM and operator minutes. The product metric is correctly inventoried, physically reconciled cards per operator minute. Unavailable denominators are not perfect scores.
+
+Phone gates cover permissions/HTTPS, photo library, real HEIC/HEIF/orientation or tested alternative, interruptions/progress, episode removal/rearm, repeated versus separate copies, tab-close/eviction/lock and durable ACK recovery. Inbox gates cover finalization, ordering, retries, quarantine, removed destinations and original retention. Optional GPU gates record actual execution provider, warm/cold timing, fairness, memory/OOM and explicit CPU fallback/pause. A missing GPU does not block CPU acceptance.
