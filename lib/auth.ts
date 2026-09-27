@@ -3,7 +3,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "./prisma";
 import type { User, Player } from "@prisma/client";
-import { UserRole } from "@prisma/client";
+import { isAdminUser } from "./auth-policy";
+export { isAdminUser } from "./auth-policy";
 import {
   createStoredSession,
   resolveStoredSession,
@@ -31,17 +32,6 @@ export type AccessScope =
       canViewAllUsers: true;
     };
 
-export function isAdminUser(
-  user?: Pick<User, "role" | "username"> | null,
-  player?: Pick<Player, "isAdmin"> | null,
-) {
-  return (
-    user?.role === UserRole.ADMIN ||
-    user?.username.toLowerCase() ===
-      (process.env.ADMIN_USERNAME || "admin").toLowerCase() ||
-    Boolean(player?.isAdmin)
-  );
-}
 
 export async function isAdminModeEnabled(user?: CurrentUser | null) {
   if (!isAdminUser(user, user?.player)) return false;

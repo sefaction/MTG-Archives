@@ -1,10 +1,10 @@
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { storageSections, type StorageLocation } from "./storage-sections";
 import { readStorageLayout } from "./storage-layout";
 
 // Call only with locations already constrained to the viewer's access scope.
 export async function getStorageLocations(
-  prisma: PrismaClient,
+  prisma: Pick<PrismaClient | Prisma.TransactionClient, "inventoryItem">,
   locations: {
     id: string;
     name: string;
