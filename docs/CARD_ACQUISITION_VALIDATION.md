@@ -60,7 +60,7 @@ Diagnostics include timestamp, session/run/event/candidate/artifact IDs, provide
 
 ## Hardware matrix
 
-Use the same test IDs and privately stored ground-truth corpus for fi-7160, then optional fi-6130Z/fi-8170. Begin with low-value bulk cards. The first device's archived vendor specification supports duplex, ultrasonic multifeed and ID-card handling, but its card note describes up to three continuous cards; A4 paper capacity/speed is not a guarantee for a 100-card MTG load. [Ricoh specification](https://www.pfu.ricoh.com/global/scanners/fi/discontinued/fi6130z/fi6130z.html).
+Use the same test IDs and privately stored ground-truth corpus for primary fi-7160, then optional fi-6130Z/fi-8170. Begin with expendable bulk cards. Verify current fi-7160 vendor/driver documentation when the device arrives; archived fi-6130Z specifications are historical references, not evidence for this device. Paper capacity and ID-card handling claims do not establish a safe MTG batch size.
 
 | ID | Test | Evidence and gate |
 | --- | --- | --- |

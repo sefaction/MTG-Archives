@@ -190,3 +190,9 @@ Parent #305/#302; after durable private ingestion. Bind an explicitly approved f
 ### Bounded queued child: optional accelerated inference worker
 
 Parent #307/#302; after versioned job/evidence and measured CPU/corpus baseline. Evaluate one optional bounded worker using NVIDIA/CUDA first with verified hardware/driver/runtime/VRAM, same CPU/GPU contract, warm models, memory/concurrency limits, interactive/bulk fairness, execution diagnostics, OOM and explicit fallback/pause. Benchmark same held-out data and acceptance policy; acceleration cannot lower exact-print/count quality. No GPU purchase/availability blocks the CPU release; AMD/Intel support requires separate qualification.
+
+## Queued child issue links
+
+- [Acquisition: live browser/PWA and webcam capture](https://github.com/sefaction/MTG-Archives/issues/442)
+- [Acquisition: approved location-bound image inbox](https://github.com/sefaction/MTG-Archives/issues/443)
+- [Acquisition: optional measured CPU/GPU inference worker](https://github.com/sefaction/MTG-Archives/issues/444)

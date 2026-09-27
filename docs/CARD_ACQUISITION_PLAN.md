@@ -91,3 +91,9 @@ The UI initiative #262/#274 and its non-Acquisition child issues are closed. No 
 ## Kickoff requirement ownership
 
 The preserved [kickoff sections A?H](reference/card-acquisition/implementation-kickoff.md#required-roadmap-amendments-and-implementation-requirements) are normative requirements, incorporated into this roadmap. A/B belong to P1/P2/P6/P7; C to P3 and live-capture child work; D to the inbox child; E to P4/P5; F to the acceleration child; G to P8 and each provider gate; H to P9?P12. See the milestone amendments for concrete boundaries. Stop this task after the verified first foundation PR; do not automatically begin persistence.
+
+## Queued child issue links
+
+- [Acquisition: live browser/PWA and webcam capture](https://github.com/sefaction/MTG-Archives/issues/442)
+- [Acquisition: approved location-bound image inbox](https://github.com/sefaction/MTG-Archives/issues/443)
+- [Acquisition: optional measured CPU/GPU inference worker](https://github.com/sefaction/MTG-Archives/issues/444)
