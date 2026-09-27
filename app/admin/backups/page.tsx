@@ -9,7 +9,7 @@ import {
   createBackup,
   deleteBackupByFilename,
   formatBytes,
-  getBackupDir,
+  getApplicationBackupDir,
   getBackupPathForFilename,
   listBackups,
   restoreBackup,
@@ -73,7 +73,7 @@ export default async function AdminBackupsPage({
   await requireAdminMode();
   const params = await searchParams;
   const backups = await listBackups();
-  const backupDir = getBackupDir();
+  const backupDir = getApplicationBackupDir();
 
   return (
     <main className="min-w-0 space-y-4 p-4 sm:p-8">

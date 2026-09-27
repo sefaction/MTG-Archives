@@ -72,7 +72,9 @@ test("Dashboard, Pricing and Public expose focused tasks without leaking private
       tasks.getByRole("link", { name: "Collection value", exact: true }),
     ).toHaveAttribute("aria-current", "page");
     await expect(
-      page.getByRole("heading", { name: "Market movement" }),
+      page.getByRole("heading", {
+        name: "Meaningful daily changes in your cards",
+      }),
     ).toHaveCount(0);
     const values = page.getByRole("region", {
       name: "Value by location table",
@@ -91,12 +93,17 @@ test("Dashboard, Pricing and Public expose focused tasks without leaking private
       "/pricing?view=market&provider=cardmarket&currency=EUR&finish=foil&range=30",
     );
     await expect(
-      page.getByRole("heading", { name: "Market movement" }),
+      page.getByRole("heading", {
+        name: "Meaningful daily changes in your cards",
+      }),
     ).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "Value by location" }),
     ).toHaveCount(0);
-    await page.getByLabel("Minimum %", { exact: true }).fill("20");
+    await page
+      .getByText("Price source and movement threshold", { exact: false })
+      .click();
+    await page.getByLabel("Minimum percent", { exact: true }).fill("20");
     await page.getByRole("button", { name: "Apply", exact: true }).click();
     await expect(page).toHaveURL(/currency=EUR/);
     const applied = new URL(page.url());

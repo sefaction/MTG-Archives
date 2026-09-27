@@ -70,8 +70,8 @@ test("webhook encryption key is generated in shared persistent storage", () => {
   assert.doesNotMatch(envExample, /NOTIFICATION_WEBHOOK_ENCRYPTION_KEY/);
 });
 
-test("local compose layer builds from checkout and avoids machine-specific paths", () => {
-  assert.match(localCompose, /context: \./);
+test("local compose layer builds from checkout or selected worktree without machine paths", () => {
+  assert.match(localCompose, /context: \$\{MTG_REVIEW_BUILD_CONTEXT:-\.\}/);
   assert.match(localCompose, /mtg-archives-web:local/);
   assert.match(localCompose, /\.\/\.local-data\/uploads/);
   assert.match(localCompose, /\$\{WEB_HOST_PORT:-13001\}:3000/);

@@ -1603,11 +1603,13 @@ export default async function ImportsPage({
                                   name="batchId"
                                   value={batch.id}
                                 />
-                                <input
-                                  name="confirmation"
-                                  placeholder="DELETE IMPORT"
-                                  className="w-full border p-1 bg-[var(--app-surface-2)]"
-                                />
+                                <label className="block">
+                                  Type DELETE IMPORT
+                                  <input
+                                    name="confirmation"
+                                    className="mt-1 w-full border p-1 bg-[var(--app-surface-2)]"
+                                  />
+                                </label>
                                 <SubmitButton
                                   pendingLabel="Undoingâ€¦"
                                   className="underline text-red-200"

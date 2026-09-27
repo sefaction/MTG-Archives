@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { Nav } from "@/components/Nav";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { requireLogin } from "@/lib/auth";
+import { queryPricingJson } from "@/lib/pricing-db-query";
 import { prisma } from "@/lib/prisma";
 
 const providers = [
@@ -89,6 +90,8 @@ async function savePricingAlerts(form: FormData) {
     lastSentAt: changed || !previous?.enabled ? null : previous.lastSentAt,
     lastCheckedAt:
       changed || !previous?.enabled ? null : previous.lastCheckedAt,
+    lastProcessedImportDate:
+      changed || !previous?.enabled ? null : previous.lastProcessedImportDate,
     lastError: null,
   };
   await prisma.pricingAlertPreference.upsert({
@@ -122,6 +125,29 @@ export default async function PricingAlertsPage({
       },
     }),
   ]);
+  let sourceStatus: string | null = null;
+  if (preference?.enabled) {
+    try {
+      const [source] = await queryPricingJson<{ latestEpoch: number | null; ageSeconds: number | null }>(
+        `SELECT EXTRACT(EPOCH FROM MAX(latest_ingested_at))::float8 AS "latestEpoch",
+                EXTRACT(EPOCH FROM now() - MAX(latest_ingested_at))::float8 AS "ageSeconds"
+         FROM price_scope_summary
+         WHERE provider = '${preference.provider.replace(/'/g, "''")}'
+           AND finish = '${preference.finish.replace(/'/g, "''")}'
+           AND price_type = '${preference.priceType.replace(/'/g, "''")}'
+           AND currency = '${preference.currency.replace(/'/g, "''")}'`,
+        { timeoutMs: 3_000 },
+      );
+      if (source?.latestEpoch == null) {
+        sourceStatus = "No prices have arrived for the selected source and currency.";
+      } else {
+        const latest = new Date(source.latestEpoch * 1000);
+        sourceStatus = `${(source.ageSeconds ?? 0) >= 72 * 60 * 60 ? "Selected price source is stale. Last update" : "Selected price source last updated"} ${latest.toLocaleString()}. A source outage does not create a movement alert.`;
+      }
+    } catch {
+      sourceStatus = "Selected price source status is unavailable. Check Pricing data status.";
+    }
+  }
   return (
     <main className="min-w-0 space-y-4 p-4 sm:p-8">
       <Nav />
@@ -150,6 +176,9 @@ export default async function PricingAlertsPage({
             The last digest check failed. It will retry automatically; check the
             notification worker log if this continues.
           </p>
+        ) : null}
+        {sourceStatus ? (
+          <p className="text-sm text-amber-200" role="status">{sourceStatus}</p>
         ) : null}
       </section>
       <form

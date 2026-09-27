@@ -263,6 +263,9 @@ test("Imports separates tasks and preserves upload, review, commit, history and 
         path: `test-results/imports-review-${width}.png`,
       });
     }
+    // The previous click leaves the pointer over this link; compare its
+    // resting theme color after clearing the hover state.
+    await page.mouse.move(0, 0);
     for (const theme of [
       "golgari",
       "azorius",
@@ -313,6 +316,28 @@ test("Imports separates tasks and preserves upload, review, commit, history and 
     await expect(
       page.getByRole("heading", { name: "Import Maintenance", exact: true }),
     ).toBeVisible();
+    const importedRow = page
+      .getByRole("row")
+      .filter({ has: page.getByRole("link", { name: tag + ".csv", exact: true }) });
+    await importedRow.getByText("Actions", { exact: true }).click();
+    const undo = importedRow.locator("form").filter({
+      has: page.getByRole("button", { name: "Undo import", exact: true }),
+    });
+    await expect(undo.getByRole("textbox", { name: "Type DELETE IMPORT" })).toBeVisible();
+    await undo.getByRole("textbox", { name: "Type DELETE IMPORT" }).fill("DELETE IMPORT");
+    await undo.getByRole("button", { name: "Undo import", exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`batchId=${batchId}`));
+    expect(total()).toBe(2);
+    expect(
+      database<string>(
+        `return (await p.importBatch.findUniqueOrThrow({where:{id:${quote(batchId)}}})).status;`,
+      ),
+    ).toBe("UNDONE");
+    expect(
+      database<number>(
+        `return p.inventoryAuditLog.count({where:{changeType:'import_undo',inventoryItem:{currentOwnerId:${quote(fixture.owner)}}}});`,
+      ),
+    ).toBe(2);
     await page.getByRole("link", { name: "Import CSV", exact: true }).click();
     await expect(
       page.getByRole("combobox", { name: "Current owner", exact: true }),

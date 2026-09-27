@@ -19,17 +19,22 @@ export function planStorageMove<T extends ExpectedStorageStack>(
   destinationId: string,
   section: string | null,
   limit?: number,
+  selectedQuantities?: Record<string, number>,
 ) {
   if (limit !== undefined && (!Number.isSafeInteger(limit) || limit < 1))
     throw new Error("Maximum copies must be a positive whole number.");
   let remaining = limit ?? Infinity;
   return rows.flatMap((row) => {
+    const requested = selectedQuantities ? selectedQuantities[row.id] : row.quantity;
+    if (!Number.isSafeInteger(requested) || requested < 0 || requested > row.quantity)
+      throw new Error("Selected copy amounts changed or are invalid. Refresh and select again.");
     if (
       row.locationId === destinationId &&
       normalizeLocationSection(row.locationSection) === section
     )
       return [];
-    const quantity = Math.min(remaining, row.quantity);
+    if (requested === 0) return [];
+    const quantity = Math.min(remaining, requested);
     remaining -= quantity;
     return quantity > 0 ? [{ row, quantity }] : [];
   });
@@ -48,6 +53,8 @@ export async function moveInventoryStorageBatch(
     allowedOwnerId?: string;
     sourceLocationId?: string;
     quantityLimit?: number;
+    selectedQuantities?: Record<string, number>;
+    selectedGroups?: Array<{ itemIds: string[]; quantity: number }>;
     expectedStacks?: ExpectedStorageStack[];
     reason?: string;
   },
@@ -96,6 +103,14 @@ export async function moveInventoryStorageBatch(
             "Some selected inventory is no longer available or is not authorized. Refresh and select again.",
           );
         if (!rows.length) throw new Error("No matching inventory was found.");
+        if (input.selectedQuantities) {
+          if (input.quantityLimit !== undefined || !ids ||
+              Object.keys(input.selectedQuantities).length !== rows.length ||
+              rows.some((row) => !Object.hasOwn(input.selectedQuantities!, row.id)))
+            throw new Error("Selected copy amounts do not match the selected inventory.");
+        }
+        if (input.selectedGroups && (input.selectedQuantities || input.quantityLimit !== undefined || !ids))
+          throw new Error("Selected copy amounts do not match the selected inventory.");
         const expected = new Map(
           (input.expectedStacks ?? []).map((row) => [row.id, row]),
         );
@@ -118,20 +133,50 @@ export async function moveInventoryStorageBatch(
             );
           }
         }
+        let selectedQuantities = input.selectedQuantities;
+        if (input.selectedGroups) {
+          const rowsById = new Map(rows.map((row) => [row.id, row]));
+          const assigned = new Set<string>();
+          selectedQuantities = {};
+          for (const group of input.selectedGroups) {
+            if (!Array.isArray(group.itemIds) || !group.itemIds.length ||
+                !Number.isSafeInteger(group.quantity) || group.quantity < 1)
+              throw new Error("Selected copy amounts are invalid. Refresh and select again.");
+            const groupIds = new Set(group.itemIds);
+            if (groupIds.size !== group.itemIds.length ||
+                group.itemIds.some((id) => !rowsById.has(id) || assigned.has(id)))
+              throw new Error("Selected copy amounts do not match the selected inventory.");
+            group.itemIds.forEach((id) => assigned.add(id));
+            const groupRows = rows.filter((row) => groupIds.has(row.id));
+            const groupTotal = groupRows.reduce((sum, row) => sum + row.quantity, 0);
+            if (group.quantity > groupTotal)
+              throw new Error("Selected copy amount exceeds the available stack.");
+            let remaining = group.quantity;
+            for (const row of groupRows) {
+              const atDestination = row.locationId === destination.id &&
+                normalizeLocationSection(row.locationSection) === section;
+              selectedQuantities[row.id] = atDestination ? 0 :
+                Math.min(remaining, row.quantity);
+              if (!atDestination) remaining -= selectedQuantities[row.id];
+            }
+          }
+          if (assigned.size !== rows.length)
+            throw new Error("Selected copy amounts do not match the selected inventory.");
+        }
         const plan = planStorageMove(
           rows,
           destination.id,
           section,
           input.quantityLimit,
+          selectedQuantities,
         );
-        const partial = plan.find(
-          (entry) => entry.quantity < entry.row.quantity,
-        );
-        if (partial) {
+        const partials = plan.filter((entry) => entry.quantity < entry.row.quantity);
+        if (partials.length) {
+          const partialIds = partials.map(({ row }) => row.id);
           const [lines, legacy] = await Promise.all([
             tx.tradeLine.findMany({
               where: {
-                inventoryItemId: partial.row.id,
+                inventoryItemId: { in: partialIds },
                 trade: { status: { in: activeStatuses } },
               },
               select: { inventoryItemId: true, quantity: true },
@@ -141,8 +186,8 @@ export async function moveInventoryStorageBatch(
                 status: { in: activeStatuses },
                 lines: { none: {} },
                 OR: [
-                  { offeredInventoryItemId: partial.row.id },
-                  { requestedInventoryItemId: partial.row.id },
+                  { offeredInventoryItemId: { in: partialIds } },
+                  { requestedInventoryItemId: { in: partialIds } },
                 ],
               },
               select: {
@@ -151,14 +196,14 @@ export async function moveInventoryStorageBatch(
               },
             }),
           ]);
-          const reserved =
-            buildReservedInventoryQuantities(lines, legacy).get(
-              partial.row.id,
-            ) ?? 0;
-          if (partial.row.quantity - partial.quantity < reserved)
-            throw new Error(
-              "This partial move would split reserved trade copies. Move the whole stack or choose fewer copies.",
-            );
+          const reservedById = buildReservedInventoryQuantities(lines, legacy);
+          for (const partial of partials) {
+            const reserved = reservedById.get(partial.row.id) ?? 0;
+            if (partial.row.quantity - partial.quantity < reserved)
+              throw new Error(
+                "This partial move would split reserved trade copies. Move the whole stack or choose fewer copies.",
+              );
+          }
         }
         const wholeIds = plan
           .filter((entry) => entry.quantity === entry.row.quantity)
@@ -169,8 +214,8 @@ export async function moveInventoryStorageBatch(
             data: { locationId: destination.id, locationSection: section },
           });
         }
-        let partialDestinationId: string | undefined;
-        if (partial) {
+        const partialDestinationIds = new Map<string, string>();
+        for (const partial of partials) {
           const { id, createdAt, updatedAt, location, ...data } = partial.row;
           await tx.inventoryItem.update({
             where: { id },
@@ -184,7 +229,7 @@ export async function moveInventoryStorageBatch(
               locationSection: section,
             },
           });
-          partialDestinationId = created.id;
+          partialDestinationIds.set(id, created.id);
         }
         const audits: Prisma.InventoryAuditLogCreateManyInput[] = plan.map(
           ({ row, quantity }) => ({
@@ -198,7 +243,7 @@ export async function moveInventoryStorageBatch(
             afterJson: {
               sourceInventoryItemId: row.id,
               destinationInventoryItemId:
-                quantity === row.quantity ? row.id : partialDestinationId!,
+                quantity === row.quantity ? row.id : partialDestinationIds.get(row.id)!,
               locationId: destination.id,
               locationSection: section,
               quantityMoved: quantity,
@@ -208,10 +253,10 @@ export async function moveInventoryStorageBatch(
             reason: input.reason || "Organize physical storage.",
           }),
         );
-        if (partial && partialDestinationId)
+        for (const [sourceId, destinationId] of partialDestinationIds)
           audits.push({
-            ...audits.find((a) => a.inventoryItemId === partial.row.id)!,
-            inventoryItemId: partialDestinationId,
+            ...audits.find((a) => a.inventoryItemId === sourceId)!,
+            inventoryItemId: destinationId,
             changeType: "storage_batch_move_received",
           });
         for (let offset = 0; offset < audits.length; offset += 500)

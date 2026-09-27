@@ -1,6 +1,137 @@
-# UI acceptance status - 2026-09-23
+# UI acceptance status - 2026-09-26
 
-Related: #262, #263, #264, #265, #268 and #274. This is the current implementation/evidence index; the original design prototype and historical feature notes are retained as dated records. No issue is closed by this document and no PR is merge-approved.
+## Scripted Deck task action sample, 2026-09-26
+
+An owned local Chromium fixture opened a populated Deck at 1366×768 and 1440×900, with Add card, Analysis and the first deck-list card in the first viewport at both sizes. Adding two Llanowar Elves, closing the dialog and visiting Analysis before returning to the same Builder took **8 scripted control actions**. The deck-list total rose from 99 to 101 and remained 101 after returning. This count excludes login and direct deck entry. It is one sample, not a before/after speed comparison or complete Deck accessibility certification. The focused case passed 1/1 and its fixture cleaned up.
+
+## Scripted desktop task action sample, 2026-09-26
+
+An owned local Chromium fixture at 1366×768 searched Inventory for Forest, selected an eight-copy row, chose five copies before Move, selected a Box destination, and completed the move in **9 scripted control actions**. The database contained five copies at that destination. It then found a vault, opened Manage, changed its description and saved in **5 scripted control actions**; the location search query and selected result remained in context. Inventory search, advanced filters and Move, plus Locations search, Find and selected occupancy, were within the first viewport. These counts exclude login and direct entry to each task page, represent this fixture only, and are not a before/after speed comparison. The focused local browser case passed 1/1 with fixture cleanup. Broader #274 role and accessibility acceptance remains open.
+
+## Current action verification ledger, 2026-09-26
+
+The [45-row action ledger](UI_ACTION_VERIFICATION.md) now names a retained home, an existing representative test and the last checked application revision for every capability ID in the historical crosswalk. It records each check's limit instead of treating a route or one happy path as full parity. A core test requires every crosswalk action ID to appear exactly once with a real test path and revision. The last checked application code is `cfdd0c2`; intervening PRs #433 and #434 changed tests/documentation only after the 70-pass grouped local browser run. Task action counts and the broader keyboard/assistive-technology boundary remain open under #274.
+
+## All-matching Inventory export across pages, 2026-09-26
+
+An owned local browser fixture placed twelve different Forest printings across a ten-row Inventory page and one Island sentinel outside the card-name filter. Select all matching filters reported twelve entries and copies; the MTG Archives CSV included every tagged Forest entry from both pages and excluded the Island. The focused case passed 1/1 against the healthy local Docker image after #433 merged. Fixture users and temporary export backups returned to zero; the test restores any same-name pre-existing local export file. This provides direct I05/I07 evidence for filtered all-matching export, not every CSV format or selection/role permutation. No application code or Docker image changed.
+
+## Populated trade flow on phone widths, 2026-09-26
+
+The owned three-person trade lifecycle now checks a populated proposal at 390 and 320 CSS pixels in a coarse-pointer Chromium context, including page-wide overflow and horizontal reachability of Submit Proposal. After acceptance, the 320px physical confirmation action also remains within the viewport. The full cancel, decline, counter, two-party confirmation, wishlist reconciliation and copy-conservation case passed 1/1 on the healthy cumulative local Docker image; fixture users returned to zero. This is a responsive/touch-emulated sample for W01/T01-T03 under #274, not a real-device review or every trade state at both widths. No application code changed.
+
+## Imports History undo label and tracked rollback, 2026-09-26
+
+Issue #431 identified an unlabeled per-batch Undo import confirmation field in Imports History. The field now has a visible `Type DELETE IMPORT` label. The owned local browser fixture checked its accessible name, committed five copies from two CSV rows, then used that History action to undo the import. The owner's total returned from seven to the original two copies, the batch became `UNDONE`, and two `import_undo` audit records were retained. The focused case passed 1/1 on cumulative local image `sha256:a016a0e1ab3947d47d6b1f29bf20447ac842363c1a41eeb140f6a555c660dc7f` with pending PRs #428 and #430; the fixture user count returned to zero. This covers one tracked admin undo path, not every legacy or partially blocked undo case.
+## Locations direct-contents deletion feedback, 2026-09-26
+
+Issue #429 found that a successful Delete contents result vanished as soon as the refreshed selected location became empty. The empty state now retains the success status while disabling another delete. An owned local browser fixture rejected an incorrect confirmation without changing two direct entries, then accepted DELETE and removed five direct copies across those entries. Four child-location copies, the parent location and two deletion audit rows remained. The focused and existing Locations workspace cases passed 2/2 on a cumulative local Docker image with PR #428; the fixture user, owner and locations were removed. This is one representative L05 destructive path under #274, not all storage deletion variants.
+## Edit and Audit Trail at actual 200% zoom, 2026-09-26
+
+The owned local browser case measured a 683 by 384 CSS pixel viewport at actual 200% tab zoom. It opened both named Inventory dialogs, checked their bounds and visible Close controls, and closed both with Escape. Audit Trail initially extended 12 CSS pixels below the viewport; an explicit zero top margin corrected it. All five Inventory detail cases and the separate owned edit/split/audit/delete case passed on the final grouped local image. This extends the focused #427 evidence below; #274 still requires its wider acceptance matrix.
+
+## Inventory edit and audit modal recovery, 2026-09-26
+
+Issue #427 found that the Edit Inventory Item and Audit Trail overlays were ordinary fixed elements without modal keyboard behavior. Both now use named native dialogs. Escape or backdrop click closes each, focus stays out of the background, and closing returns focus to the row action or still-visible View details control. Edit has a visible Close button at the top and an internally scrollable height bound. The owned local Chromium case passed its desktop focus cycle, 390px phone bounds/Close/backdrop check, and actual 200% tab zoom at 683Ã—384 CSS pixels with Edit and Close still reachable. The five Inventory detail cases and the separate owned edit/split/audit/delete mutation case passed on the grouped local image. This is focused keyboard and layout evidence, not a screen-reader certification or the complete #274 matrix.
+## Owned Inventory mutation path, 2026-09-26
+
+A disposable member-owned four-copy stack passed a local Chromium flow through Edit inventory, notes save, one-copy split to a second Box, Audit Trail and confirmed row deletion. Database assertions found one and three copies after splitting, both audit reasons, and zero owned inventory entries after deletion. The fixture removed its user, owner, locations and audit records. This gives direct behavior evidence for a representative I08, I10 and I11 path; bulk deletion, owner changes, restricted stacks and public read-only boundaries have separate evidence or remain for the broader #274 matrix. The application image did not change, so no Docker reload was needed.
+
+## Administration route boundary sample, 2026-09-26
+
+A focused local browser case enumerated all six current static `/admin` pages. An anonymous visit went to Login; a signed-in member was redirected from every page; an admin-role account was redirected until it explicitly entered Admin Mode, then could render all six pages; exiting Admin Mode removed access again. The case passed 1/1 and cleaned its disposable users/owners (zero remain). This covers route-level access for this role sample under #274; it does not certify every administrative action or other role/ownership paths.
+## Current user review and route coverage, 2026-09-26
+
+The user reports Inventory and Locations work well on phone or at 200% browser zoom, with no control hard to reach. On the usual desktop, Inventory Filter/Move, Locations search/edit and Deck Add card required no scrolling to find. This is direct task feedback, not full role, theme, keyboard or accessibility certification. Individually approved PRs #417, #418, #420 and #421 merged: Inventory empty/loading recovery, 48 static phone-route visits, a complete 37-page capability crosswalk, and 24 static routes at actual 200% Chromium zoom. Issues #416 and #419 closed; broader #274 remains open.
+
+## Static routes at actual 200% browser zoom, 2026-09-26
+
+The disposable Chromium zoom profile visited all 24 static member, public and admin task routes after setting actual tab zoom to 200%. Each visit retained a measured 683×384 CSS viewport and device pixel ratio 2 from a 1366×768 browser window, returned without a server error, and had no page-wide horizontal overflow. The focused local Docker browser case passed 1/1; no database fixture or app image change was needed. Dynamic Deck, League and Pricing details retain their separate owned task fixtures. This broadens route reflow evidence for #274, but does not certify that every control is visually clear or reachable with a screen reader at zoom.
+## Current route inventory reconciliation, 2026-09-26
+
+Issue #419 found that the historical capability crosswalk omitted three pages added after its original 34-route baseline: owned card Pricing history, recipient-specific dated Pricing digests, and Pricing alert settings. Their homes, access boundaries and test pointers are now recorded. The live crosswalk covers all 37 `app/**/page.tsx` routes, with a unit guard in the core verification suite comparing route files to table entries exactly. This verifies route accounting, not every action within each page.
+## Static phone-route overflow sweep, 2026-09-26
+
+An authenticated local Chromium check visited 15 static member routes, three public routes and six admin routes at both 390 and 320 CSS pixels: 48 route/viewport visits. It verified each rendered viewport width and found no page-wide horizontal overflow; locally scrolling tables and maps remain allowed. The focused case passed 1/1 against the healthy grouped local Docker image. This extends phone evidence beyond the task-specific fixtures, but dynamic Deck, League and Pricing detail routes remain covered by their separate owned workflows rather than this static sweep. It does not establish full visual or accessibility acceptance under #274.
+## Inventory empty and loading states in local review, 2026-09-26
+
+Issue #416 records that a zero-match Inventory filter previously left an empty table with no nearby recovery action. The review build now distinguishes filtered zero matches from a collection with no cards. The first state offers Clear filters using the existing URL builder that retains display mode, page size, browsing mode and sort; the second links to Imports. Inventory's loading skeleton now has a spoken status and pulses only when reduced motion is not requested. These are state-feedback changes under #274, not a claim that every error/loading state is covered.
+
+Local image `sha256:304dbb49f33730c82e80d277e67223f97767d708b306790d9942262b7d949e3c` contains the change and is running in web and both workers with the existing local and capture-only SMTP overlays. The owned desktop/phone empty-state browser case passed 1/1, including filter clearing without losing view options, no page overflow and fixture cleanup. Four nearby Inventory filter, infinite-retry and workspace cases passed 4/4; typecheck and the production Docker build passed. Temporary users returned to zero and Inventory to 12,477 copies. Human review and the wider #274 matrix remain open.
+
+## Current Inventory review and failure recovery, 2026-09-26
+
+The user reports Inventory card/storage filters work well: they can apply criteria, identify active filters, and revise or clear them without losing their place. They also accepted the selected-copy amount and Move confirmation, Deck editing, cross-section navigation, and Locations inspection/editing in the local app. The bounded Inventory filter #264, move #265, Deck #268 and navigation foundation #263 issues are closed; the wider role, device and state matrix in #274 remains open.
+
+The owned infinite-browsing retry fixture intercepts one next-page request with HTTP 503. In the local Docker app, the initial 10 rows and a selected copy remained visible, the failure and Retry control appeared, then Retry loaded the final two rows while preserving selection. The focused browser case passed 1/1 and its temporary user/data were removed. This covers a specific long-list error/retry state under #274; it does not claim all network failures or the entire state matrix.
+
+## Navigation contrast across desktop and phone, 2026-09-26
+
+The focused browser check reads rendered foreground and effective surface colors for the Collection group label, an ordinary link, its hover state and the current Inventory route at 1366px desktop and 390px phone widths across all six themes. The minimum observed ratios were 5.82:1 for group labels, 14.74:1 for ordinary links, and 5.94:1 for hovered and current-route links; all exceed the 4.5:1 normal-text threshold. The local grouped Docker app passed 1/1 focused case, and typecheck passed. The user reported cross-section navigation works well. This covers navigation text contrast in those states, not all controls or a full accessibility certification; the broader #274 matrix remains open.
+
+The opted-in serial local Chromium suite finished 62 passed and one intentional skip in 7.1 minutes on the grouped Docker app. The skipped case is the separately gated four-owner Pricing retention site-load drill. Synthetic 150,000-copy/15,000-row storage data was removed; zero fixture users and 12,477 physical copies remained afterward. This combined run covers the enabled cases, not every role/theme/error permutation required by #274.
+
+## Varied 150,000-copy Inventory and Locations scale, 2026-09-26
+
+The owned local scale fixture now places 150,000 copies in 15,000 stacks across 5,000 cached printings, three condition values, 200 parent locations and 2,000 children. Three smaller private owners hold 5,000, 500 and 7 copies. The case checks bounded Locations results/editor options, a deep path search, phone editing without page overflow, private-owner isolation, a 25-row Inventory page, and Inventory name search. The focused case passed 1/1 against grouped image `sha256:56de6036d2b72f91f86fb95b867fdc77189d318d3eb5287fd77fb9299b8dbcf4`; measured local Locations load was 623 ms and Inventory first-page load was 2,535 ms. Fixture cleanup took 72.4 seconds and left zero scale users/owners and the original 12,477 physical copies. Typecheck passed. This is one synthetic local workload, not a production performance guarantee or a four-user concurrency test. The prior full serial browser suite on the same image passed 61 tests with one intentional skip, before this test-only fixture expansion.
+
+## Invalid selected-copy feedback, 2026-09-26
+
+The owned phone touch fixture reproduced [#408](https://github.com/sefaction/MTG-Archives/issues/408): entering 0 for a selected four-copy row left the numeric control without `aria-invalid` or a visible range explanation, while Move confirmation could be disabled silently. The Inventory table and Binder views now share a selected-copy control that marks invalid amounts, names the valid 1–stack-size range beside the row and describes that error to assistive technology. Each selected row defaults to its full stack and has visible decrease/increase buttons for choosing fewer copies before Move; Move uses that amount. The dialog explains that the user should close it and correct an invalid selection. The fixture checked 0 at 390px and an above-stack amount at 320px, switched to Binder view while invalid, used both stepper buttons, checked no page overflow, then moved two and one chosen copies. It passed 1/1 on grouped local Docker image `sha256:56de6036d2b72f91f86fb95b867fdc77189d318d3eb5287fd77fb9299b8dbcf4`; fixture users returned to zero and physical copies remained 12,477. Human task and assistive-technology review remain open.
+
+## Inventory touch move and one-copy wording, 2026-09-26
+
+The phone touch fixture now creates an owned four-copy Forest stack and two Box locations. At 390px it taps the row selection, chooses two copies before Move, taps the destination and confirms; at 320px it repeats with one of the remaining copies. The full flow passed 1/1 against the previous grouped image when its existing plural wording was accepted; fixture cleanup left zero touch users and 12,477 physical copies. That run exposed [#405](https://github.com/sefaction/MTG-Archives/issues/405): one selected copy was displayed as “1 copies,” with matching plural Move labels. The application wording and final test now require singular copy/card/entry labels. Typecheck passes; the final test awaits the next grouped Docker image before it can claim a pass. Human touch and assistive-technology review under #265/#274 remain open.
+
+## Locations editing at actual browser zoom, 2026-09-26
+
+The owned Locations workspace fixture now opens a selected vault at actual 200% Chrome tab zoom in a disposable profile. The 1366×768 browser viewport becomes 683×384 CSS pixels at device pixel ratio 2. The selected vault remains visible, keyboard Enter opens Manage, the Description field and Save action remain reachable inside the viewport, and keyboard Enter saves an edit without page-level horizontal overflow. The full Locations fixture passed 1/1 on the grouped local Docker image; cleanup left zero fixture users and 12,477 physical copies. The zoomed screenshot capture was blank under headless Chromium, so this is behavioral and bounds evidence, not a visual certification. Human task review and wider #274 accessibility coverage remain open.
+
+## Same-name Inventory row controls, 2026-09-26
+
+Issue #400 exposed identical accessible names when separate exact-printing rows shared a card name. The Inventory table and card views now identify selection checkboxes and copy-quantity controls with the card name, set/collector number, finish, condition, language and owner. The selected-entry summary and Move review use singular text for one entry. A two-Forest-printing browser fixture found distinct control names in both views, kept quantities independent, and passed alongside the existing storage, vault-map and vault-pilot move cases (4/4 total) on the grouped local Docker image `sha256:84e3d0acf494a2e7a5e044c9c9fb373c6efa7e376fefa5b4e94d16db6a96ed63`. The image was built directly from cumulative review revision `a57639e`; all three running application services use it. Focused fixture cleanup left zero test users and 12,477 physical copies. Human screen-reader and task review remain open under #265/#274.
+
+## Selected-copy stepper at actual browser zoom, 2026-09-26
+
+The opt-in Inventory workspace browser case now checks the row-level numeric control at actual 200% Chrome tab zoom. Both selected rows begin at their full 8- and 17-copy stacks. Keyboard ArrowDown reduces only the first to 7; ArrowUp restores 8 while the second stays at 17. After scrolling into view, the first control's bounds remain inside the 683×384 CSS viewport. The case then chooses 5 and 12 copies independently and completes the existing 17-copy Move. The focused case passed 1/1 with typecheck and fixture cleanup. This checks keyboard operation and reachability of one selected-copy control; it is not a visual certification of native spinner arrows across browsers or a human task review.
+
+## Full local browser regression follow-up, 2026-09-26
+
+The serial 61-case Chromium run against the grouped local Docker image finished with 57 passes, one skip and three outdated test expectations. The Imports theme check read a clicked link in its hover state; the storage-layout and vault-map cases still changed selected-copy quantities inside Move. Those fixtures now clear hover before the resting-color assertion and choose 15 or 10 copies on the selected Inventory row before Move. All three affected cases passed on focused rerun. The selected row defaults to its full stack and exposes a numeric up/down control in table and card views; Move uses each row's chosen amount. This is regression-test alignment with the reviewed workflow, not a new application change or a completed human acceptance review.
+
+## Deck editing with phone touch, 2026-09-26
+
+An owned Deck fixture now checks actual coarse-pointer touch at 390px and 320px. At each width it taps Add card, searches and selects a cached Llanowar Elves printing, sets one copy, adds it to the Deck list, closes the dialog by touch, and checks that the page has no horizontal overflow. The list total advanced from 99 to 101 while physical Inventory stayed unchanged. The focused browser case passed 1/1 on the grouped local Docker image; cleanup left zero fixture users/owners and 12,477 physical copies. This is one touch editing path, not a complete Deck or assistive-technology review; #268/#274 remain open.
+
+Related: #262, #263, #264, #265, #268 and #274. This is the implementation/evidence index; the original design prototype and historical feature notes are retained as dated records. This document does not close an issue or approve a PR merge.
+
+## Actual Chrome tab zoom for section navigation, 2026-09-26
+
+The opt-in navigation case now checks a saved topbar preference at actual 200% Chrome tab zoom in a disposable profile. The 1366×768 browser viewport becomes 683×384 CSS pixels at device pixel ratio 2; the responsive menu has its own vertical scroll, Decks is reachable by keyboard Tab, and Escape returns focus to Menu. Navigation through Decks, Settings, Locations and Inventory preserves the current-route marker and avoids page-level horizontal overflow. The focused navigation case passed and the zoomed menu screenshot was inspected. The local zoom setup is shared by the Inventory and Deck acceptance tests, which passed together with this case. Human navigation feedback and the broader role/theme/accessibility matrix remain open under #263/#274.
+
+## Actual Chrome tab zoom for Deck editing, 2026-09-26
+
+The opt-in Deck builder case now uses a disposable Chromium profile and actual 200% Chrome tab zoom on a populated, owner-scoped deck. A 1366×768 browser viewport became 683×384 CSS pixels at device pixel ratio 2. Add card, Selection & printing tools, and Deck options remained within the viewport without page-level horizontal overflow; Escape restored each opener's focus. The case added one cached printing through Add card, verified the deck-list total rose from 101 to 102 without changing physical Inventory, and returned from Analysis to the same builder. Both focused Deck builder cases passed on the grouped local Docker image, and the zoomed Add screenshot was inspected. This is automated coverage of one editing path; human Deck task review and the broader accessibility matrix remain open under #268/#274.
+
+## Actual Chrome tab zoom for Inventory filters, 2026-09-26
+
+The focused Inventory workspace browser case now launches a disposable Chromium profile with a test-only local extension and calls Chrome's `tabs.setZoom` at 200% on the local app tab. At a 1366×768 browser viewport it verified an actual 683×384 layout viewport and device pixel ratio 2, with no page-level horizontal overflow, visible results, an accessible modal filter panel, both Close and Apply within the viewport, Escape focus return, and invalid-query feedback. It also selected two rows, reduced their copy amounts from 8 and 17 to 5 and 12 before Move, chose a Box destination, confirmed the 17-copy move in a dialog that fit the zoomed viewport, and observed success. The browser case passed 1/1; filter and Move screenshots were inspected. The test profile and local fixture were removed after the run. This covers one Inventory filtering and move path in automated Chromium; human task observation and zoom checks across the other key workflows remain open under #274.
+
+## Selected-copy toolbar contrast, 2026-09-26
+
+The opt-in vault move browser case now checks computed text-to-surface contrast for both the Actions label and the chosen-copy count across all six themes while two rows are selected. The lowest observed ratios on the grouped local Docker image were 5.82:1 for Actions and 14.74:1 for the chosen-copy count, above the 4.5:1 normal-text threshold. The same case completed the partial-copy move and cleanup. This is a targeted Inventory state check, not a comprehensive contrast audit or a real-browser zoom check; #274 remains open.
+
+## Enlarged Inventory layout check, 2026-09-26
+
+The focused Inventory workspace browser fixture also renders a 683×384 CSS viewport at device pixel ratio 2 through Chromium device-metrics emulation. It checks no page-level horizontal overflow, visible results before opening Filters, a modal filter panel, reachable Close/Apply controls within the viewport, Escape returning focus to Filters, and the existing invalid-query path. The final emulated screenshot was inspected: the filter heading, tabs, query field and sticky actions remain visible; longer help text scrolls inside the panel. The actual Chrome tab zoom case above now checks the same task separately; broader human review remains open under #274.
+
+## Inventory-first local review, 2026-09-26
+
+The user's task review identified that copy amounts should be chosen before Move. A follow-up review branch now selects a full stack by default and offers a copy spinner beside each selected row in the table and card views. Move carries those per-row amounts; all-matching bulk selection retains its separate aggregate limit. The local Docker image `sha256:fa73bb6ceac9c957fd2c4c50f826c3a78a7e649c972e64fd0d594409200845da` passed the vault creation, chosen-partial move, stale-selection rollback, occupancy and phone-layout browser case, plus typecheck and the focused storage planner tests. This branch still needs its own PR/CI and user review. The previously recorded wider acceptance gaps remain open.
+
+An expanded fixture revealed that one visible Exact-printing row can represent multiple storage records. The follow-up revision sends each visible row's chosen total and source IDs together, validates the complete group, then allocates from movable source records in creation order. The cumulative Docker image `sha256:dfac076c44282613485cbb1495570c1fdb67a52914fcbf12b5fbbf6b4c2e80aa` passed the revised browser case with two simultaneous partial splits, stale-selection rollback, conserved copies, refreshed occupancy, the displayed-entry count and phone layout. The broader human review and 200% browser zoom gates remain open.
+
+The user chose Inventory filtering and moves as the first combined local Docker review. The cumulative image `sha256:ee40dae9a3ebd9b8db77b79686e65e0287b0b12987462a5dc400e333ed001a6f` is healthy and contains approved #369, which compacts navigation at narrow desktop widths while retaining the Inventory workspace breakpoint. Its focused Inventory/navigation Playwright cases passed 2/2 at 960×455 CSS px; color filtering and the vault selection/move flow passed another 3/3. The move fixture covers partial quantities, section occupancy, selection and phone layout. Actual browser 200% zoom and the user's hands-on task observations remain open. See [LOCAL_REVIEW_BUILD.md](LOCAL_REVIEW_BUILD.md) for the task sequence. Historical build IDs below describe the September 23 acceptance pass and are retained for traceability.
 
 ## Follow-up touch check, 2026-09-23
 
@@ -14,7 +145,7 @@ Local review: http://127.0.0.1:13001. Healthy image `sha256:09053d1ce741b62d1372
 
 ## Capability evidence index
 
-The existing [capability crosswalk](design/ui-consolidation/CAPABILITIES.md) still covers all **34 current page routes** and **45 action IDs**, verified against `app/**/page.tsx` and the crosswalk rows on this revision. Its action IDs and scope differences remain the review checklist; route enumeration alone cannot prove action parity.
+The [capability crosswalk](design/ui-consolidation/CAPABILITIES.md) covers all **37 current page routes** and **45 action IDs**, verified against `app/**/page.tsx` and the crosswalk rows on this revision. Its action IDs and scope differences remain the review checklist; route enumeration alone cannot prove action parity.
 
 | Capability family | Retained home and current implementation record | Behavioral evidence on the cumulative build |
 | --- | --- | --- |
@@ -33,14 +164,14 @@ The filenames above are coverage pointers, not assertions that every possible co
 
 ## Action-level verification boundary
 
-The 45 action IDs in [CAPABILITIES.md](design/ui-consolidation/CAPABILITIES.md) name each retained control home and role boundary. The current cumulative application revision for this review is `8776e77`. The following checks run against that revision's Docker image; a browser case exercises a representative path within each ID, not necessarily every action named in that ID. Source-mapped controls remain in the crosswalk even where no direct browser mutation was repeated in this pass.
+The 45 action IDs in [CAPABILITIES.md](design/ui-consolidation/CAPABILITIES.md) name each retained control home and role boundary. The checks below accumulated across the UI batches; the owned Inventory mutation case ran on the healthy local image built from the #424 application source. A browser case exercises a representative path within each ID, not necessarily every action named in that ID. Source-mapped controls remain in the crosswalk even where no direct browser mutation was repeated in this pass.
 
 | Action IDs | Current direct evidence | Remaining limit |
 | --- | --- | --- |
 | I01-I03 | `inventory-workspace`, `inventory-color-filter`, `inventory-scryfall-query`, `location-hierarchy` | Not every filter combination is exhaustive |
-| I04-I07 | `inventory-workspace`, `inventory-export`, `vault-pilot`, `vault-map` | All-matching and every view preference are not crossed with every role |
-| I08-I11 | `inventory-detail`, `trade-wishlist`, inventory mutation/policy units | Destructive cleanup and every edit/split field are source mapped rather than browser repeated here |
-| L01-L05 | `locations-workspace`, `location-hierarchy`, `location-scale`, `storage-layout`, `vault-map` | Every destructive storage action is not rerun on the snapshot |
+| I04-I07 | `inventory-workspace`, `inventory-export`, `inventory-allmatching-export`, `vault-pilot`, `vault-map` | Filtered all-matching CSV now crosses two pages; every view preference and role is not crossed |
+| I08-I11 | `inventory-mutation-acceptance` edit, split, audit and confirmed row delete; `inventory-detail`, `trade-wishlist`, inventory mutation/policy units | Bulk deletion, restricted stacks and every edit/split field are not crossed in this browser sample |
+| L01-L05 | `locations-workspace`, `location-contents-delete`, `location-hierarchy`, `location-scale`, `storage-layout`, `vault-map` | Direct-contents deletion now has an owned browser path; every type and storage deletion variant is not crossed |
 | M01-M05 | `imports-workspace`, `inventory-export`, real PostgreSQL import integrity script | Every legacy unsafe undo branch is checked in database tests, not through a browser path |
 | D01-D05 | `decks-brackets`, `deck-builder-workspace`, `pasted-decklist`, `league-lifecycle` | Every optimization and folder variant is not repeated in browser |
 | D06-D09 | `deck-analysis`, `deck-sample-hands`, existing `deck-playtest`/`playtest-advanced` regressions | No new Playtest behavior or changes in this goal |
@@ -56,10 +187,10 @@ All page routes remain in the crosswalk and every action ID has a named home. Th
 
 | Issue | Implemented/evidenced | Remaining acceptance |
 | --- | --- | --- |
-| #263 Foundation | Original two-option prototype/crosswalk, later user-selectable navigation, grouped Settings, current-route and phone menu; Inventory/Locations first-fold and keyboard fixtures | User review of the final cumulative navigation; systematic all-theme contrast audit remains part of #274 |
-| #264 Inventory filters | Shared drafts, task tabs, bounded phone dialog, chips/Back/Forward/deep links and invalid-expression feedback have browser coverage | Final combined evidence and user acceptance; no claim that all failure/network states have been manually observed |
-| #265 Selection/moves/vault | Contextual copy/row counts, exact sections, fill/advisory overflow, reservations/provenance and source/destination refresh have fixtures | Final user review of the populated move workflow; broad touch/focus/zoom matrix remains under #274 |
-| #268 Decks | Builder dialogs/cards-first layout, library organization and shared tool navigation shipped in prior approved batches; current regression covers editable/public/frozen contexts | User review of combined Decks behavior; no further Playtest changes authorized |
+| #263 Foundation | Original two-option prototype/crosswalk, later user-selectable navigation, grouped Settings, current-route and phone menu; first-fold, keyboard and six-theme navigation contrast fixtures; the user reported cross-section navigation works well | Broader cross-workflow theme/accessibility coverage remains part of #274; #413 still needs individual merge approval |
+| #264 Inventory filters — closed | Shared drafts, task tabs, bounded phone dialog, chips/Back/Forward/deep links and invalid-expression feedback have browser coverage; the user reported card/storage filters and active criteria work well | Wider failure/network and role matrix remains under #274 |
+| #265 Selection/moves/vault — closed | Contextual copy/row counts, exact sections, fill/advisory overflow, reservations/provenance and source/destination refresh have fixtures; the user confirmed the selected amount and Move confirmation are clear | Broad cross-role touch/focus/zoom coverage remains under #274 |
+| #268 Decks — closed | Builder dialogs/cards-first layout, library organization and shared tool navigation shipped in approved batches; regression covers editable/public/frozen contexts and the user reported the populated Add/Selection/Builder/Analysis workflow works well | Wider cross-role/device coverage remains under #274; no further Playtest changes authorized |
 | #274 Acceptance | Route/action index, owned fixtures, responsive/keyboard checks, realistic varied-printing storage scale and cumulative browser gate | Matched human task observations; comprehensive contrast, real browser 200% zoom, touch and full keyboard journeys across all roles/themes; individual PR review |
 | #262 Umbrella | Implementation across workspace batches is available for review | Depends on outstanding acceptance and individually approved merges; remains open |
 

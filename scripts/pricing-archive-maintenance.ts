@@ -1,0 +1,184 @@
+import { spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { pricingMaintenanceMinutesRemaining } from "./pricing-archive-maintenance-window";
+import { pricingArchiveApplyMode } from "./pricing-archive-authorization";
+import { pruneStalePricingRecoveryPartials,
+  verifyPricingRecoveryCopyDestination } from "./pricing-recovery-copy";
+import { pricingVerificationServer } from "./pricing-verification-server";
+import { runPricingMaintenanceChild } from "./pricing-maintenance-child";
+import { withPricingMaintenanceLease } from "./pricing-maintenance-lease";
+
+const url = process.env.PRICING_DATABASE_URL;
+if (!url) throw new Error("PRICING_DATABASE_URL is required");
+const database = new URL(url);
+if (!["pricing-postgres", "localhost", "127.0.0.1"].includes(database.hostname))
+  throw new Error("Archived Pricing maintenance supports only local databases");
+database.searchParams.delete("schema");
+const once = process.argv.includes("--once");
+const apply = process.argv.includes("--apply");
+if (process.argv.slice(2).some((arg) => arg !== "--once" && arg !== "--apply"))
+  throw new Error("Use [--once] [--apply]");
+if (apply) {
+  if (process.env.PRICING_ARCHIVE_MAINTENANCE_ENABLED !== "1")
+    throw new Error("Archived maintenance requires maintenance opt-in");
+  pricingArchiveApplyMode();
+}
+const owner = randomUUID();
+let partialCleanupCompleted = false;
+const literal = (value: string) => `'${value.replace(/'/g, "''")}'`;
+
+function sql(statement: string) {
+  const result = spawnSync("psql", [database.toString(), "-v", "ON_ERROR_STOP=1",
+    "-q", "-t", "-A", "-f", "-"], { input: statement, encoding: "utf8",
+    timeout: 30_000, maxBuffer: 1024 * 1024 });
+  if (result.status !== 0)
+    throw new Error(`Pricing maintenance SQL failed: ${result.stderr.trim().slice(0, 500)}`);
+  return result.stdout.trim();
+}
+
+function acquire() {
+  return sql(`INSERT INTO price_archive_maintenance_lease
+    (singleton, owner, expires_at) VALUES (TRUE, ${literal(owner)}, now() + interval '90 seconds')
+    ON CONFLICT (singleton) DO UPDATE SET owner = EXCLUDED.owner,
+      expires_at = EXCLUDED.expires_at
+    WHERE price_archive_maintenance_lease.expires_at < now()
+    RETURNING owner;`) === owner;
+}
+function heartbeat() {
+  return sql(`UPDATE price_archive_maintenance_lease
+    SET expires_at = now() + interval '90 seconds'
+    WHERE singleton AND owner = ${literal(owner)} AND expires_at > now()
+    RETURNING owner;`) === owner;
+}
+function release() {
+  sql(`DELETE FROM price_archive_maintenance_lease
+    WHERE singleton AND owner = ${literal(owner)};`);
+}
+
+type Backlog = { total: number; oldest: string | null; failed: number;
+  sourceAnomalies: number };
+function backlog(): Backlog {
+  return JSON.parse(sql(`SELECT json_build_object(
+    'total', COUNT(*) FILTER (WHERE status = 'PENDING'),
+    'oldest', MIN(queued_at) FILTER (WHERE status = 'PENDING'),
+    'failed', COUNT(*) FILTER (WHERE status = 'PENDING' AND error IS NOT NULL),
+    'sourceAnomalies', COUNT(*) FILTER (WHERE status IN
+      ('SOURCE_ANOMALY', 'APPLIED_WITH_MISSING')))::text
+    FROM price_archive_feed_queue;`)) as Backlog;
+}
+function nextDate() {
+  return sql(`SELECT observed_date::text FROM price_archive_feed_queue
+    WHERE status = 'PENDING' AND (retry_after IS NULL OR retry_after <= now())
+    GROUP BY observed_date ORDER BY MIN(queued_at), observed_date LIMIT 1;`);
+}
+function retry(date: string, message: string) {
+  sql(`UPDATE price_archive_feed_queue SET error = ${literal(message.slice(0, 1000))},
+    retry_after = now() + interval '15 minutes'
+    WHERE observed_date = ${literal(date)}::date AND status = 'PENDING';`);
+}
+function runChild(script: string, args: string[], limitMs: number) {
+  return runPricingMaintenanceChild(process.execPath,
+    ["--import", "tsx", script, ...args], limitMs, heartbeat);
+}
+function runCorrection(date: string) {
+  return runChild("scripts/pricing-archived-correction-apply.ts",
+    ["--date", date, "--apply"], 20 * 60_000);
+}
+let nextRawAttemptAt = 0;
+async function runRawRetention() {
+  if (process.env.PRICING_RAW_ARCHIVE_RETENTION_ENABLED !== "1" ||
+      Date.now() < nextRawAttemptAt ||
+      pricingMaintenanceMinutesRemaining(new Date()) < 90) return;
+  // A single pass handles at most one oldest raw date. Retry failures later;
+  // the stage and activation scripts recheck fresh source state before changes.
+  nextRawAttemptAt = Date.now() + 15 * 60_000;
+  const result = await runChild("scripts/pricing-raw-retention-pass.ts",
+    ["--apply"], 85 * 60_000);
+  if (!heartbeat()) {
+    console.error("[pricing-archive-maintenance] lease lost after raw retention");
+    return;
+  }
+  const last = result.output.trim().split(/\r?\n/).at(-1);
+  let finished: { mode?: string; observedDate?: string; deleted?: number } = {};
+  try { finished = JSON.parse(last ?? "{}"); } catch { /* Report child error below. */ }
+  if (result.code !== 0 || !["retention-activated", "retention-plan"].includes(finished.mode ?? "")) {
+    console.error("[pricing-archive-maintenance] raw retention deferred",
+      { error: result.error.trim().slice(0, 1000), code: result.code });
+    return;
+  }
+  nextRawAttemptAt = Date.now() + 60 * 60_000;
+  console.info("[pricing-archive-maintenance] raw retention pass", finished);
+}
+
+async function tick() {
+  const current = backlog();
+  console.info("[pricing-archive-maintenance] backlog", current);
+  // Allow the 20-minute child deadline, forced-stop grace and setup overhead.
+  if (!apply || pricingMaintenanceMinutesRemaining(new Date()) <= 21) return;
+  if (!acquire()) {
+    console.info("[pricing-archive-maintenance] another owner holds the lease");
+    return;
+  }
+  try {
+    if (!partialCleanupCompleted) {
+      const cleanup = await withPricingMaintenanceLease(
+        () => pruneStalePricingRecoveryPartials(
+          process.env.PRICING_RECOVERY_COPY_DIR!, Date.now(), true), heartbeat);
+      console.info("[pricing-archive-maintenance] recovery partial cleanup", cleanup.value);
+      partialCleanupCompleted = true;
+      if (cleanup.leaseLost || !heartbeat()) {
+        console.error("[pricing-archive-maintenance] lease lost during recovery cleanup");
+        return;
+      }
+    }
+    const date = nextDate();
+    if (!date) {
+      await runRawRetention();
+      return;
+    }
+    // Copy cleanup and SQL may have consumed the remaining window.
+    if (pricingMaintenanceMinutesRemaining(new Date()) <= 21) return;
+    sql(`UPDATE price_archive_feed_queue SET attempt_count = attempt_count + 1,
+      last_attempt_at = now(), retry_after = NULL
+      WHERE observed_date = ${literal(date)}::date AND status = 'PENDING';`);
+    const result = await runCorrection(date);
+    if (!heartbeat()) {
+      console.error("[pricing-archive-maintenance] lease lost after correction", { date });
+      return;
+    }
+    const last = result.output.trim().split(/\r?\n/).at(-1);
+    let finished: { mode?: string; status?: string; effects?: number; remaining?: number } = {};
+    try { finished = JSON.parse(last ?? "{}"); } catch { /* Report the child output below. */ }
+    if (result.code !== 0 || !["applied", "settled"].includes(finished.mode ?? "")) {
+      const message = result.error.trim() ||
+        (result.code === 0 ? "No changed identities; review source completeness" :
+          `Correction exited ${result.code}`);
+      retry(date, message);
+      console.error("[pricing-archive-maintenance] retry queued", { date, message });
+      return;
+    }
+    console.info("[pricing-archive-maintenance] feed processed", { date,
+      status: finished.status, effects: finished.effects,
+      remaining: finished.remaining });
+  } finally { release(); }
+}
+
+async function main() {
+  if (apply) {
+    const recoveryTarget = process.env.PRICING_RECOVERY_COPY_DIR;
+    if (!recoveryTarget)
+      throw new Error("PRICING_RECOVERY_COPY_DIR is required for archive maintenance");
+    await verifyPricingRecoveryCopyDestination(process.env.BACKUP_DIR || "/app/backups",
+      recoveryTarget);
+    if (!process.env.PRICING_VERIFY_DATABASE_URL)
+      throw new Error("PRICING_VERIFY_DATABASE_URL is required for archive maintenance");
+    pricingVerificationServer(database);
+  }
+  do {
+    try { await tick(); }
+    catch (error) { console.error("[pricing-archive-maintenance]", error); }
+    if (once) break;
+    await new Promise((resolve) => setTimeout(resolve, 60_000));
+  } while (true);
+}
+main().catch((error) => { console.error(error); process.exitCode = 1; });

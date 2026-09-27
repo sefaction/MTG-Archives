@@ -108,6 +108,11 @@ test("visual vault retains exact placements, previews moves, refreshes counts an
     const selection = page.locator('tbody input[type="checkbox"]');
     await expect(selection).toHaveCount(1);
     await selection.check();
+    const selectedCopies = page.getByRole("spinbutton", {
+      name: /^Copies selected from Forest, /,
+    });
+    await expect(selectedCopies).toHaveValue("68");
+    await selectedCopies.fill("10");
     const moveHere = map.getByRole("button", {
       name: "Move selected to Sect 0",
       exact: true,
@@ -120,11 +125,9 @@ test("visual vault retains exact placements, previews moves, refreshes counts an
     await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(moveHere).toBeFocused();
     await expect(selection).toBeChecked();
+    await expect(selectedCopies).toHaveValue("10");
     await moveHere.click();
-    await dialog
-      .getByRole("button", { name: "Custom amount", exact: true })
-      .click();
-    await dialog.getByLabel("Maximum copies to move").fill("10");
+    await expect(dialog.getByText("10 physical copies")).toBeVisible();
     await dialog
       .getByRole("button", { name: "Move 10 cards", exact: true })
       .click();

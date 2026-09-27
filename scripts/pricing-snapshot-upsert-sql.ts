@@ -10,9 +10,18 @@ type PriceSnapshotInput = {
 };
 
 /** Returns new/corrected counts. Identical source replays keep their ingest time. */
-export function pricingSnapshotUpsertSql(batch: PriceSnapshotInput[]) {
+export function pricingSnapshotUpsertSql(batch: PriceSnapshotInput[],
+  expectedRawBoundary: string | null = null) {
   const json = `'${JSON.stringify(batch).replace(/'/g, "''")}'::jsonb`;
-  return `WITH input AS (
+  const boundary = expectedRawBoundary ? `'${expectedRawBoundary.replace(/'/g, "''")}'::date` : "NULL";
+  return `BEGIN;
+LOCK TABLE price_summary_state IN SHARE ROW EXCLUSIVE MODE;
+DO $$ BEGIN
+  IF (SELECT raw_archived_through FROM price_summary_state WHERE singleton = TRUE)
+     IS DISTINCT FROM ${boundary}
+  THEN RAISE EXCEPTION 'Pricing raw archive boundary advanced during import; retry the feed'; END IF;
+END $$;
+WITH input AS (
   SELECT * FROM jsonb_to_recordset(${json}) AS row(
     "mtgjsonUuid" text, provider text, finish text, "priceType" text,
     currency text, "observedDate" text, price numeric, "rawJson" jsonb
@@ -24,7 +33,10 @@ export function pricingSnapshotUpsertSql(batch: PriceSnapshotInput[]) {
   )
   SELECT "mtgjsonUuid", provider, finish, "priceType", currency,
          "observedDate"::date, price, "rawJson"
-  FROM input
+  FROM input CROSS JOIN price_summary_state state
+  WHERE state.singleton = TRUE
+    AND (state.raw_archived_through IS NULL OR
+         "observedDate"::date > state.raw_archived_through)
   ON CONFLICT (
     (COALESCE(mtgjson_uuid, '')),
     (COALESCE(scryfall_id, '')),
@@ -47,5 +59,6 @@ export function pricingSnapshotUpsertSql(batch: PriceSnapshotInput[]) {
 SELECT count(*) FILTER (WHERE revision_count = 0) AS inserted,
        count(*) FILTER (WHERE revision_count > 0) AS corrected,
        (SELECT COUNT(*) FROM revision_state) AS versioned
-FROM changed;`;
+FROM changed;
+COMMIT;`;
 }

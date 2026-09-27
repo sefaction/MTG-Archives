@@ -26,6 +26,7 @@ const movement = z.object({
 const digest = z.object({
   observedDate: z.string(),
   importedDate: z.string().optional(),
+  isCatchup: z.boolean().optional(),
   provider: z.string(),
   finish: z.string(),
   priceType: z.string(),
@@ -91,6 +92,13 @@ export default async function PricingDigestPage({
           {new Date(data.generatedAt).toLocaleString()}. Later corrections or
           inventory changes appear in live Pricing history.
         </p>
+        {data.isCatchup ? (
+          <p className="text-sm text-amber-200">
+            This digest was recovered after a missed worker day. Owned quantities
+            reflect the time it was generated, not historical holdings on the
+            import date.
+          </p>
+        ) : null}
         {data.totalMovers > data.shownMovers.length ? (
           <p className="text-sm text-amber-200">
             Showing the {data.shownMovers.length} largest impacts of{" "}

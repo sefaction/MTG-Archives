@@ -67,6 +67,7 @@ test("anonymous public inventory applies Scryfall syntax to public local cards",
   await page.context().clearCookies();
   await page.goto("/public/inventory");
   await page.getByRole("button", { name: /Advanced Inventory Search/ }).click();
+  await page.getByRole("tab", { name: "Query", exact: true }).click();
   const query = page.getByLabel("Query arguments");
   await expect(query).toBeVisible();
   await query.fill("t:creature");

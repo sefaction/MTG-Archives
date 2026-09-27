@@ -29,7 +29,7 @@ export const filterButtonClass =
   "rounded-md border border-[var(--app-border)] bg-[var(--app-surface)] px-3 py-2 text-sm text-[var(--app-text)] transition-colors hover:border-[var(--app-border-strong)] hover:bg-[var(--app-surface-3)] focus:outline-none focus:ring-2 focus:ring-[var(--app-focus)] disabled:cursor-not-allowed disabled:opacity-50";
 
 export const filterPrimaryButtonClass =
-  "rounded-md border border-[var(--app-accent)] bg-[var(--app-accent-soft)] px-3 py-2 text-sm font-medium text-[var(--app-accent-contrast)] transition-colors hover:border-[var(--app-border-strong)] hover:bg-[color-mix(in_srgb,var(--app-accent)_28%,transparent)] focus:outline-none focus:ring-2 focus:ring-[var(--app-focus)] disabled:cursor-not-allowed disabled:opacity-50";
+  "rounded-md border border-[var(--app-accent)] bg-[var(--app-accent-soft)] px-3 py-2 text-sm font-medium text-[var(--app-text)] transition-colors hover:border-[var(--app-border-strong)] hover:bg-[color-mix(in_srgb,var(--app-accent)_28%,transparent)] focus:outline-none focus:ring-2 focus:ring-[var(--app-focus)] disabled:cursor-not-allowed disabled:opacity-50";
 
 export const filterDangerButtonClass =
   "rounded-md border border-red-800 bg-red-950/30 px-3 py-2 text-sm font-medium text-red-100 transition-colors hover:border-red-600 hover:bg-red-950/50 focus:outline-none focus:ring-2 focus:ring-red-500/35 disabled:cursor-not-allowed disabled:opacity-50";

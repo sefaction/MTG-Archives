@@ -69,3 +69,16 @@ test("copy-limited plans split the final stack, skip same-section cards, and con
       /positive whole/,
     );
 });
+
+test("chosen amounts move independently from several stacks", () => {
+  const rows = [
+    { id: "a", quantity: 4, locationId: "box", locationSection: null },
+    { id: "b", quantity: 5, locationId: "box", locationSection: null },
+  ];
+  assert.deepEqual(
+    planStorageMove(rows, "vault", "Sect 0", undefined, { a: 2, b: 3 })
+      .map(({ row, quantity }) => [row.id, quantity]),
+    [["a", 2], ["b", 3]],
+  );
+  assert.throws(() => planStorageMove(rows, "vault", "Sect 0", undefined, { a: 5, b: 3 }), /invalid/);
+});

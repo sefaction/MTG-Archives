@@ -1,6 +1,6 @@
 # Card Acquisition Framework roadmap
 
-**PLANNED / NOT STARTED / DEFERRED behind current bug fixes and UI consolidation.**
+**PLANNED / NOT STARTED.** The non-Acquisition issue queue is closed. This planning PR still needs individual merge approval, and implementation requires a separate explicit start decision.
 
 Planning baseline: `bfb7be8`, reviewed September 22, 2026 (America/Chicago; September 23 UTC). This document and its backlog authorize planning only. Starting implementation requires a later explicit user decision. GitHub issues/PRs remain authoritative for live status; Foundry holds the durable roadmap summary.
 
@@ -55,7 +55,7 @@ Hardware remains necessary for PaperStream/OS/source compatibility, real feed sa
 
 ## Open decisions at the right time
 
-**Before starting P1:** explicitly start this deferred initiative, reconcile the active bug/UI queue, and review the proposed partial-commit/count-correction semantics in the architecture. The recommended first batch below does not need an OCR engine or scanner purchase.
+**Before starting P1:** explicitly start this initiative and review the proposed partial-commit/count-correction semantics in the architecture. The bug/UI queue is closed. The recommended first batch below does not need an OCR engine or scanner purchase.
 
 **Before the relevant phase:** settle retention/disk/backup limits before enabling real uploads (P3); validate corpus rights and supported image/language formats (P3–P5); choose image/OCR runtimes and recognition promotion criteria with measured data (P4/P5); approve the commit writer-coordination implementation (P7); choose Windows runtime/bitness, packaging, signed distribution and trusted server/TLS setup (P9/P10). Unknowns have owners and exit gates in the milestone document; they do not block writing this plan.
 
@@ -67,7 +67,7 @@ When explicitly started: implement only pure TypeScript capture contracts, phase
 
 This task changes documentation and GitHub planning records only. Validate references, coverage and diff scope, then use the normal PR/Core verification gate. Do not rebuild Docker, install dependencies, modify schema/data, or claim new acquisition tests passed. Future implementation uses `npm run verify` plus the dedicated DB/corpus/Windows gates described in the validation plan.
 
-Live backlog: [umbrella #302](https://github.com/sefaction/MTG-Archives/issues/302), [milestone 3](https://github.com/sefaction/MTG-Archives/milestone/3). All twelve implementation work packages carry `on hold`:
+Live backlog: [umbrella #302](https://github.com/sefaction/MTG-Archives/issues/302), [milestone 3](https://github.com/sefaction/MTG-Archives/milestone/3). All twelve implementation work packages remain open; implementation has not started:
 
 | Phase | GitHub work package |
 | --- | --- |
@@ -84,6 +84,6 @@ Live backlog: [umbrella #302](https://github.com/sefaction/MTG-Archives/issues/3
 | P11 | [#313 — fi-6130Z qualification](https://github.com/sefaction/MTG-Archives/issues/313) |
 | P12 | [#314 — Optional scanner families](https://github.com/sefaction/MTG-Archives/issues/314) |
 
-Source review also recorded [bug #301](https://github.com/sefaction/MTG-Archives/issues/301): existing CSV commit lacks an atomic receipt/status/audit boundary. This is a separate bug-fix queue item, not acquisition implementation; no runtime fault injection or fix occurred here. Reconcile it before P7.
+Source review also recorded [bug #301](https://github.com/sefaction/MTG-Archives/issues/301): the former CSV commit lacked an atomic receipt/status/audit boundary. It was resolved separately before acquisition implementation; recheck shared write behavior when designing P7.
 
-Existing #262–#274 remain the UI initiative; #260/#269/#270 were closed before this planning task. No old issue is reopened merely to create this roadmap.
+The UI initiative #262/#274 and its non-Acquisition child issues are closed. No old issue is reopened merely to create this roadmap.

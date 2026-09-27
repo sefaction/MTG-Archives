@@ -1,6 +1,6 @@
 # Card acquisition executable milestones
 
-**All implementation phases are PLANNED / NOT STARTED / ON HOLD.** The user approved planning, not execution. Current bug fixes and UI consolidation retain priority. [Roadmap](CARD_ACQUISITION_PLAN.md) establishes order; [architecture](CARD_ACQUISITION_ARCHITECTURE.md) defines shared invariants; [validation](CARD_ACQUISITION_VALIDATION.md) defines gates. GitHub issues mirror these work packages and own live status.
+**All implementation phases are PLANNED / NOT STARTED.** The user approved planning, not execution. The prior bug and UI queue is closed; starting P1 still requires an explicit decision. [Roadmap](CARD_ACQUISITION_PLAN.md) establishes order; [architecture](CARD_ACQUISITION_ARCHITECTURE.md) defines shared invariants; [validation](CARD_ACQUISITION_VALIDATION.md) defines gates. GitHub issues mirror these work packages and own live status.
 
 Each phase below includes PR-sized batches. Begin a future session by reading its issue, this phase, relevant architecture sections and live checkpoint; the original 2,000-line report is optional background. Preserve the current four-user ownership model, 150,000-copy inventory scale, existing URLs and ordinary advisory capacity behavior. Every implementation PR requires local evidence, required CI and individual merge approval.
 

@@ -500,9 +500,17 @@ export default async function DeckDetailPage({
             <h1 className="min-w-0 break-words text-2xl font-bold">
               {deck.name}
             </h1>
-            <span className="text-xs text-[var(--app-muted)]">
-              Deck builder{!canEdit ? " · Read only" : ""}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <a
+                href={`/api/decks/${deck.id}/export`}
+                className="deck-workspace-button"
+              >
+                Export deck list
+              </a>
+              <span className="text-xs text-[var(--app-muted)]">
+                Deck builder{!canEdit ? " · Read only" : ""}
+              </span>
+            </div>
           </div>
           <p className="flex flex-wrap items-center gap-2 text-sm text-[var(--app-muted)]">
             {deckFormatLabel(deck.format)} · {formatDeckBracket(deck.bracket)} ·{" "}

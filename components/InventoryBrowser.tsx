@@ -81,6 +81,33 @@ export type InventoryDeckTarget = {
   ownerName?: string;
 };
 
+function inventoryRowAction(cardName: string) {
+  return Array.from(document.querySelectorAll<HTMLElement>("[aria-label]"))
+    .find((element) => element.getAttribute("aria-label") === `Actions for ${cardName}`) ?? null;
+}
+
+function useInventoryModal(open: boolean, fallbackCardName?: string) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const opener = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    dialog.showModal();
+    document.body.style.overflow = "hidden";
+    return () => {
+      if (dialog.open) dialog.close();
+      document.body.style.overflow = previousOverflow;
+      if (opener instanceof HTMLElement && opener !== document.body &&
+          !dialog.contains(opener) && opener.isConnected)
+        opener.focus();
+      else if (fallbackCardName) inventoryRowAction(fallbackCardName)?.focus();
+    };
+  }, [open, fallbackCardName]);
+  return dialogRef;
+}
+
 type InventoryLocationStack = {
   inventoryItemId?: string;
   locationId: string | null;
@@ -371,6 +398,82 @@ function getCardImage(row: InventoryRow) {
 
 function getRowSourceIds(row: InventoryRow) {
   return row.sourceItemIds?.length ? row.sourceItemIds : [row.id];
+}
+
+function inventoryRowControlName(row: InventoryRow) {
+  const printing = `${row.setCode.toUpperCase()} #${row.collectorNumber || "?"}`;
+  const finish = row.foilStatus ||
+    (row.displayMode === "exact" ? (row.foil ? "FOIL" : "NONFOIL") : null);
+  return [
+    row.cardName,
+    printing,
+    finish,
+    row.condition,
+    row.language,
+    row.currentOwner,
+  ].filter(Boolean).join(", ");
+}
+
+function selectionEntryLabel(count: number) {
+  return count === 1 ? "entry" : "entries";
+}
+
+function selectedCopyLabel(count: number) {
+  return count === 1 ? "copy" : "copies";
+}
+
+function movedCardLabel(count: number) {
+  return count === 1 ? "card" : "cards";
+}
+
+function selectedCopyQuantityInvalid(value: number, maximum: number) {
+  return !Number.isSafeInteger(value) || value < 1 || value > maximum;
+}
+
+function SelectedCopyInput({ row, value, onChange, compact = false }: {
+  row: InventoryRow;
+  value: number;
+  onChange: (value: number) => void;
+  compact?: boolean;
+}) {
+  const invalid = selectedCopyQuantityInvalid(value, row.quantity);
+  const errorId = `selected-copy-error-${row.id}`;
+  return (
+    <div className={cn(
+      "grid grid-cols-[2rem_4rem_2rem] items-center gap-x-1 text-xs",
+      compact && "absolute right-2 top-2 z-10 rounded bg-[var(--app-surface)] p-1",
+    )}>
+      <span className="col-span-3">Copies</span>
+      <button type="button" aria-label={`Decrease copies selected from ${inventoryRowControlName(row)}`}
+        disabled={value <= 1}
+        onClick={() => onChange(Number.isSafeInteger(value) ? value - 1 : row.quantity)}
+        className={cn(filterButtonClass, "min-h-8 px-0 py-0 text-base")}>
+        −
+      </button>
+      <input
+        type="number" min={1} max={row.quantity} step={1}
+        aria-label={`Copies selected from ${inventoryRowControlName(row)}`}
+        aria-invalid={invalid}
+        aria-describedby={invalid ? errorId : undefined}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className={cn(filterInputClass, "w-16 px-1 py-0.5",
+          invalid && "!border-red-500")}
+      />
+      <button type="button" aria-label={`Increase copies selected from ${inventoryRowControlName(row)}`}
+        disabled={value >= row.quantity}
+        onClick={() => onChange(Number.isSafeInteger(value) ? value + 1 : row.quantity)}
+        className={cn(filterButtonClass, "min-h-8 px-0 py-0 text-base")}>
+        +
+      </button>
+      {invalid && (
+        <span id={errorId} role="alert"
+          className="col-span-3 mt-1 font-semibold text-[var(--app-text)]">
+          Choose 1–{row.quantity} copies.
+        </span>
+      )}
+    </div>
+  );
 }
 
 function friendlyVisibility(value?: InventoryRow["effectiveVisibility"]) {
@@ -1529,6 +1632,8 @@ export function InventoryBrowser({
   const [selected, setSelected] = useState<InventoryRow | null>(null);
   const [editing, setEditing] = useState<InventoryRow | null>(null);
   const [auditRow, setAuditRow] = useState<InventoryRow | null>(null);
+  const editDialogRef = useInventoryModal(Boolean(editing), editing?.cardName);
+  const auditDialogRef = useInventoryModal(Boolean(auditRow), auditRow?.cardName);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditError, setAuditError] = useState("");
   const [viewMode, setViewMode] = useState<"table" | "binder">(() =>
@@ -1563,6 +1668,7 @@ export function InventoryBrowser({
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const [selectedRowQuantities, setSelectedRowQuantities] = useState<Record<string, number>>({});
   const [allMatchingSelected, setAllMatchingSelected] = useState(false);
   const [movingBulk, setMovingBulk] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
@@ -1665,14 +1771,17 @@ export function InventoryBrowser({
   const renderedRows = browsingMode === "infinite" ? loadedRows : rows;
   const selectedEntriesCount = allMatchingSelected
     ? totalMatchingCount
-    : selectedItemIds.size;
+    : renderedRows.filter((row) => getRowSourceIds(row).some((id) => selectedItemIds.has(id))).length;
   const selectedCardsCount = allMatchingSelected
     ? totalMatchingCards
     : renderedRows
         .filter((row) =>
           (row.sourceItemIds ?? [row.id]).some((id) => selectedItemIds.has(id)),
         )
-        .reduce((sum, row) => sum + row.quantity, 0);
+        .reduce((sum, row) => sum + (selectedRowQuantities[row.id] ?? row.quantity), 0);
+  const selectedFullCardsCount = allMatchingSelected ? totalMatchingCards : renderedRows
+    .filter((row) => getRowSourceIds(row).some((id) => selectedItemIds.has(id)))
+    .reduce((sum, row) => sum + row.quantity, 0);
   const currentVault = liveStorageLocations.find(
     (location) =>
       location.id === currentLocationId &&
@@ -1691,13 +1800,25 @@ export function InventoryBrowser({
   const selectedStacks = renderedRows
     .filter((row) => getRowSourceIds(row).some((id) => selectedItemIds.has(id)))
     .flatMap((row) => row.locationBreakdown ?? []);
-  const alreadyInDestination = selectedStacks
-    .filter(
-      (stack) =>
-        stack.locationId === bulkDestinationLocationId &&
-        (stack.section ?? "") === bulkSection.trim(),
-    )
-    .reduce((sum, stack) => sum + stack.quantity, 0);
+  const selectedMoveRows = renderedRows
+    .filter((row) => getRowSourceIds(row).some((id) => selectedItemIds.has(id)))
+  const selectedMoveGroups = selectedMoveRows.map((row) => ({
+    itemIds: getRowSourceIds(row),
+    quantity: selectedRowQuantities[row.id] ?? row.quantity,
+  }));
+  const invalidSelectedQuantity = !allMatchingSelected &&
+    selectedMoveRows.some((row) => {
+      const quantity = selectedRowQuantities[row.id] ?? row.quantity;
+      return selectedCopyQuantityInvalid(quantity, row.quantity);
+    });
+  const movableSelectedCopies = selectedMoveRows.reduce((sum, row) => {
+    const available = (row.locationBreakdown ?? [])
+      .filter((stack) => stack.locationId !== bulkDestinationLocationId ||
+        (stack.section ?? "") !== bulkSection.trim())
+      .reduce((count, stack) => count + stack.quantity, 0);
+    return sum + Math.min(selectedRowQuantities[row.id] ?? row.quantity, available);
+  }, 0);
+  const alreadyInDestination = selectedCardsCount - movableSelectedCopies;
   const destinationRoom = liveStorageLocations
     .find((l) => l.id === bulkDestinationLocationId)
     ?.sections.find((s) => s.name === bulkSection)?.capacity;
@@ -1732,16 +1853,16 @@ export function InventoryBrowser({
           : moveLimit;
   const movableCopies = Math.max(
     0,
-    selectedCardsCount - (allMatchingSelected ? 0 : alreadyInDestination),
+    allMatchingSelected ? selectedCardsCount : movableSelectedCopies,
   );
   const plannedCopies = Math.min(
-    quantityMode === "all" ? Infinity : Math.max(0, Number(effectiveMoveLimit)),
+    !allMatchingSelected || quantityMode === "all" ? Infinity : Math.max(0, Number(effectiveMoveLimit)),
     movableCopies,
   );
   const invalidMoveQuantity =
-    quantityMode !== "all" &&
+    (invalidSelectedQuantity || (allMatchingSelected && quantityMode !== "all" &&
     (!Number.isSafeInteger(Number(effectiveMoveLimit)) ||
-      Number(effectiveMoveLimit) < 1);
+      Number(effectiveMoveLimit) < 1)));
   const destinationName = liveStorageLocations.find(
     (location) => location.id === bulkDestinationLocationId,
   )?.name;
@@ -1788,6 +1909,7 @@ export function InventoryBrowser({
 
   const clearSelection = useCallback(() => {
     setSelectedItemIds(new Set());
+    setSelectedRowQuantities({});
     setAllMatchingSelected(false);
     selectionAnchor.current = null;
     setMoveOpen(false);
@@ -1816,6 +1938,12 @@ export function InventoryBrowser({
       selectionAnchor.current = selection.anchorId;
       setAllMatchingSelected(false);
       setSelectedItemIds(selection.ids);
+      setSelectedRowQuantities((current) => Object.fromEntries(
+        renderedRows.filter((candidate) =>
+          getRowSourceIds(candidate).every((id) => selection.ids.has(id)))
+          .filter((candidate) => current[candidate.id] !== undefined)
+          .map((candidate) => [candidate.id, current[candidate.id]]),
+      ));
     },
     [selectionAvailable, allMatchingSelected, renderedRows, selectedItemIds],
   );
@@ -1852,7 +1980,7 @@ export function InventoryBrowser({
       }
       const itemIds = input?.itemIds ?? selectedItemIdList;
       const entriesCount = input?.entriesCount ?? selectedEntriesCount;
-      const cardsCount = input?.cardsCount ?? selectedCardsCount;
+      const cardsCount = input?.cardsCount ?? selectedFullCardsCount;
       const selectionMode = input?.itemIds
         ? "selected"
         : allMatchingSelected
@@ -1926,7 +2054,7 @@ export function InventoryBrowser({
       capabilities.canDelete,
       onBulkDeleteInventory,
       router,
-      selectedCardsCount,
+      selectedFullCardsCount,
       selectedEntriesCount,
       selectedItemIdList,
     ],
@@ -2077,18 +2205,27 @@ export function InventoryBrowser({
             {
               id: "select",
               enableHiding: false,
-              header: () => <span className="sr-only">Select</span>,
+              header: () => <span className="sr-only">Select and choose copies</span>,
               cell: ({ row }: any) => (
-                <input
-                  type="checkbox"
-                  aria-label={`Select ${row.original.cardName}`}
-                  checked={isRowSelected(row.original)}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    selectRow(row.original, event, true);
-                  }}
-                  onChange={() => {}}
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    aria-label={`Select ${inventoryRowControlName(row.original)}`}
+                    checked={isRowSelected(row.original)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      selectRow(row.original, event, true);
+                    }}
+                    onChange={() => {}}
+                  />
+                  {isRowSelected(row.original) && !allMatchingSelected && row.original.quantity > 1 && (
+                    <SelectedCopyInput row={row.original}
+                      value={selectedRowQuantities[row.original.id] ?? row.original.quantity}
+                      onChange={(value) => setSelectedRowQuantities((current) => ({
+                        ...current, [row.original.id]: value,
+                      }))} />
+                  )}
+                </div>
               ),
             } satisfies ColumnDef<InventoryRow>,
           ]
@@ -2274,6 +2411,8 @@ export function InventoryBrowser({
       displayMode,
       selectionAvailable,
       isRowSelected,
+      selectedRowQuantities,
+      allMatchingSelected,
       selectRow,
       deletingBulk,
       submitBulkDelete,
@@ -2538,6 +2677,7 @@ export function InventoryBrowser({
               onClick={() => {
                 selectionAnchor.current = null;
                 setSelectedItemIds(new Set());
+                setSelectedRowQuantities({});
                 setAllMatchingSelected(true);
               }}
             >
@@ -2625,8 +2765,8 @@ export function InventoryBrowser({
             ) : null}
             <span className="inventory-selection-context text-zinc-300">
               {allMatchingSelected
-                ? `All ${totalMatchingCount} matching inventory entries are selected. ${selectedCardsCount} physical copies.`
-                : `${selectedEntriesCount} entries · ${selectedCardsCount} cards selected`}
+                ? `All ${totalMatchingCount} matching ${selectionEntryLabel(totalMatchingCount)} selected (${selectedCardsCount} physical ${selectedCopyLabel(selectedCardsCount)} in ${totalMatchingCount === 1 ? "that entry" : "those entries"}).`
+                : `${selectedEntriesCount} ${selectionEntryLabel(selectedEntriesCount)} selected · ${selectedCardsCount} ${selectedCopyLabel(selectedCardsCount)} chosen for Move`}
             </span>
           </div>
           {selectionAvailable && (
@@ -2650,6 +2790,7 @@ export function InventoryBrowser({
                   if (moveDisabled) return;
                   setMoveError("");
                   fd.set("destinationLocationId", bulkDestinationLocationId);
+                  if (!allMatchingSelected) fd.set("selectedGroups", JSON.stringify(selectedMoveGroups));
                   fd.set(
                     "expectedStacks",
                     JSON.stringify(
@@ -2686,7 +2827,7 @@ export function InventoryBrowser({
                       return;
                     }
                     setMessage(
-                      `Moved ${result.movedCards} cards across ${result.movedEntries} entries to ${result.destinationLocationName}${bulkSection ? ` / ${bulkSection}` : " (no section)"}.`,
+                      `Moved ${result.movedCards} ${movedCardLabel(result.movedCards)} across ${result.movedEntries} ${selectionEntryLabel(result.movedEntries)} to ${result.destinationLocationName}${bulkSection ? ` / ${bulkSection}` : " (no section)"}.`,
                     );
                     if (result.refreshedLocations?.length) {
                       setLiveStorageLocations((current) => {
@@ -2730,13 +2871,13 @@ export function InventoryBrowser({
                 <input
                   type="hidden"
                   name="quantityLimit"
-                  value={effectiveMoveLimit}
+                  value={allMatchingSelected ? effectiveMoveLimit : ""}
                 />
                 <div className="overflow-y-auto p-5">
                   <div className="mb-5 rounded-lg bg-[var(--app-surface-3)] px-3 py-2 text-sm">
                     <strong>
-                      {selectedEntriesCount} entries ·{" "}
-                      {selectedCardsCount.toLocaleString()} cards
+                      {selectedEntriesCount} selected {selectionEntryLabel(selectedEntriesCount)} ·{" "}
+                      {selectedCardsCount.toLocaleString()} physical {selectedCopyLabel(selectedCardsCount)}
                     </strong>
                     <span className="ml-2 text-[var(--app-muted)]">
                       {allMatchingSelected
@@ -2746,6 +2887,11 @@ export function InventoryBrowser({
                           : "From your selected inventory"}
                     </span>
                   </div>
+                  {invalidSelectedQuantity && (
+                    <p role="alert" className="mb-4 rounded border border-red-500 px-3 py-2 text-sm text-[var(--app-text)]">
+                      Close Move and correct the selected copy amount.
+                    </p>
+                  )}
                   <div className="grid items-start gap-6 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
                     <StorageDestinationPicker
                       locations={liveStorageLocations}
@@ -2761,17 +2907,21 @@ export function InventoryBrowser({
                       }
                       disabled={movingBulk}
                     />
-                    <section
+                    {allMatchingSelected && <section
                       className="min-w-0 space-y-3 rounded-xl border border-[var(--app-border)] p-4"
                       aria-label="Move quantity"
                     >
                       <h3 className="text-sm font-semibold">
-                        3. How many copies?
+                        3. Amount to move
                       </h3>
+                      <p className="text-sm text-[var(--app-muted)]">
+                        All copies in the selected entries move by default.
+                        Choose a smaller amount here only for a partial move.
+                      </p>
                       <div className="grid grid-cols-2 gap-2">
                         {(
                           [
-                            ["all", "All copies"],
+                            ["all", "All selected copies"],
                             ["85", "85 copies"],
                             ["fill", "Fill remaining space"],
                             ["custom", "Custom amount"],
@@ -2859,7 +3009,19 @@ export function InventoryBrowser({
                           />
                         </label>
                       </details>
-                    </section>
+                    </section>}
+                    {!allMatchingSelected && (
+                      <section className="min-w-0 space-y-3 rounded-xl border border-[var(--app-border)] p-4" aria-label="Copies chosen">
+                        <h3 className="text-sm font-semibold">3. Copies chosen</h3>
+                        <p className="text-sm text-[var(--app-muted)]">Move uses the amounts selected in Inventory. Close Move to change an amount beside a row.</p>
+                        <details className="text-sm">
+                          <summary className="cursor-pointer text-[var(--app-muted)]">Add a note to the move</summary>
+                          <label className="mt-2 block">Reason
+                            <input name="reason" className={cn(filterInputClass, "mt-1 w-full")} defaultValue="Bulk location move" disabled={movingBulk} />
+                          </label>
+                        </details>
+                      </section>
+                    )}
                   </div>
                 </div>
                 <footer className="shrink-0 space-y-3 border-t border-[var(--app-border)] bg-[var(--app-surface-3)] px-5 py-4">
@@ -2875,7 +3037,7 @@ export function InventoryBrowser({
                     <div className="min-w-0 basis-full text-sm sm:flex-1 sm:basis-auto">
                       <p className="font-semibold">
                         {destinationName
-                          ? `${allMatchingSelected ? "Up to " : ""}${Number.isFinite(plannedCopies) ? plannedCopies.toLocaleString() : 0} cards → ${bulkSection || "No section"}`
+                          ? `${allMatchingSelected ? "Up to " : ""}${Number.isFinite(plannedCopies) ? plannedCopies.toLocaleString() : 0} ${movedCardLabel(plannedCopies)} → ${bulkSection || "No section"}`
                           : "Choose a destination to continue"}
                       </p>
                       {destinationName && (
@@ -2925,7 +3087,7 @@ export function InventoryBrowser({
                             Moving…
                           </span>
                         ) : (
-                          `Move ${allMatchingSelected ? "up to " : ""}${Number.isFinite(plannedCopies) ? plannedCopies.toLocaleString() : 0} cards`
+                          `Move ${allMatchingSelected ? "up to " : ""}${Number.isFinite(plannedCopies) ? plannedCopies.toLocaleString() : 0} ${movedCardLabel(plannedCopies)}`
                         )}
                       </button>
                     </div>
@@ -3036,7 +3198,7 @@ export function InventoryBrowser({
                 {selectionAvailable ? (
                   <input
                     type="checkbox"
-                    aria-label={`Select ${row.cardName}`}
+                    aria-label={`Select ${inventoryRowControlName(row)}`}
                     className="absolute left-2 top-2 z-10 h-5 w-5"
                     checked={isRowSelected(row)}
                     onClick={(event) => {
@@ -3046,6 +3208,13 @@ export function InventoryBrowser({
                     onChange={() => {}}
                   />
                 ) : null}
+                {selectionAvailable && isRowSelected(row) && !allMatchingSelected && row.quantity > 1 && (
+                  <SelectedCopyInput row={row} compact
+                    value={selectedRowQuantities[row.id] ?? row.quantity}
+                    onChange={(value) => setSelectedRowQuantities((current) => ({
+                      ...current, [row.id]: value,
+                    }))} />
+                )}
                 <button
                   onClick={(event) => {
                     if (
@@ -3245,14 +3414,23 @@ export function InventoryBrowser({
       ) : null}
 
       {auditRow && capabilities.canViewAuditTrail ? (
-        <div
-          className="fixed inset-0 z-50 bg-black/60"
-          onClick={() => setAuditRow(null)}
+        <dialog
+          ref={auditDialogRef}
+          aria-label="Inventory audit trail"
+          onCancel={(event) => {
+            event.preventDefault();
+            setAuditRow(null);
+          }}
+          onClick={(event) => {
+            if (event.target !== event.currentTarget) return;
+            const rect = event.currentTarget.getBoundingClientRect();
+            if (event.clientX < rect.left || event.clientX > rect.right ||
+                event.clientY < rect.top || event.clientY > rect.bottom)
+              setAuditRow(null);
+          }}
+          style={{ marginTop: 0 }}
+          className="fixed inset-y-0 left-auto right-0 m-0 h-full max-h-full w-full max-w-3xl overflow-y-auto border-0 border-l border-zinc-800 bg-zinc-950 p-4 text-zinc-100 backdrop:bg-black/60"
         >
-          <div
-            className="absolute right-0 top-0 h-full w-full max-w-3xl overflow-y-auto bg-zinc-950 border-l border-zinc-800 p-4"
-            onClick={(e) => e.stopPropagation()}
-          >
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h2 className="text-xl font-bold">Audit Trail</h2>
@@ -3281,20 +3459,30 @@ export function InventoryBrowser({
               )}
               cardLabels={cardLabels}
             />
-          </div>
-        </div>
+        </dialog>
       ) : null}
 
       {editing && capabilities.canEdit ? (
-        <div
-          className="fixed inset-0 z-50 bg-black/60"
-          onClick={() => setEditing(null)}
+        <dialog
+          ref={editDialogRef}
+          aria-label="Edit Inventory Item"
+          onCancel={(event) => {
+            event.preventDefault();
+            setEditing(null);
+          }}
+          onClick={(event) => {
+            if (event.target !== event.currentTarget) return;
+            const rect = event.currentTarget.getBoundingClientRect();
+            if (event.clientX < rect.left || event.clientX > rect.right ||
+                event.clientY < rect.top || event.clientY > rect.bottom)
+              setEditing(null);
+          }}
+          className="fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto border border-zinc-700 bg-zinc-950 p-4 text-zinc-100 backdrop:bg-black/60"
         >
-          <div
-            className="max-w-3xl mx-auto mt-8 bg-zinc-950 border border-zinc-700 p-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold mb-2">Edit Inventory Item</h3>
+          <div className="mb-2 flex items-start justify-between gap-2">
+            <h3 className="text-lg font-semibold">Edit Inventory Item</h3>
+            <button type="button" className={filterButtonClass} onClick={() => setEditing(null)}>Close</button>
+          </div>
             <section className="mb-4 rounded border border-zinc-800 bg-zinc-950/60 p-3 text-sm">
               <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                 <div>
@@ -4116,8 +4304,7 @@ export function InventoryBrowser({
                 </div>
               </details>
             ) : null}
-          </div>
-        </div>
+        </dialog>
       ) : null}
     </div>
   );

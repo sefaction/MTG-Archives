@@ -15,7 +15,7 @@ import {
   lstat,
   realpath,
 } from "node:fs/promises";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { constants } from "node:fs";
 import { basename, dirname, join, parse, resolve, sep } from "node:path";
 import { tmpdir, homedir } from "node:os";
@@ -111,6 +111,12 @@ export function getBackupDir(
   return env.BACKUP_DIR || env.BACKUPS_DATA_PATH || "/app/backups";
 }
 
+export function getApplicationBackupDir(
+  env: Record<string, string | undefined> = process.env,
+) {
+  return join(getBackupDir(env), "application");
+}
+
 export function getDefaultAppdataPaths(
   env: Record<string, string | undefined> = process.env,
 ) {
@@ -194,7 +200,7 @@ export async function createBackup() {
 
   const connection = parseDatabaseUrl(databaseUrl);
   await assertMatchingDumpClient(connection);
-  const backupDir = resolve(getBackupDir());
+  const backupDir = resolve(getApplicationBackupDir());
   await mkdir(backupDir, { recursive: true });
 
   const timestamp = timestampForFilename();
@@ -256,36 +262,33 @@ export async function createBackup() {
 }
 
 export async function listBackups(
-  backupDir = resolve(getBackupDir()),
+  backupDir?: string,
 ): Promise<BackupListEntry[]> {
-  await mkdir(backupDir, { recursive: true });
-  const files = await readdir(backupDir);
-  const backups = files
-    .filter(
-      (file) => file.startsWith(BACKUP_PREFIX) && file.endsWith(BACKUP_SUFFIX),
-    )
-    .sort()
-    .reverse();
-
+  const directories = backupDir ? [backupDir] :
+    [resolve(getApplicationBackupDir()), resolve(getBackupDir())];
   const entries: BackupListEntry[] = [];
-  for (const filename of backups) {
-    const path = join(backupDir, filename);
-    const info = await stat(path);
-    const manifest = await readManifestFromBackup(path).catch(() => null);
-    entries.push({
-      path,
-      filename,
-      sizeBytes: info.size,
-      createdAt: manifest?.createdAt ?? timestampFromBackupFilename(filename),
-      manifest,
-    });
+  const seen = new Set<string>();
+  for (const directory of directories) {
+    await mkdir(directory, { recursive: true });
+    const files = await readdir(directory);
+    for (const filename of files.filter((file) =>
+      file.startsWith(BACKUP_PREFIX) && file.endsWith(BACKUP_SUFFIX))) {
+      if (seen.has(filename)) continue;
+      seen.add(filename);
+      const path = join(directory, filename);
+      const info = await stat(path);
+      const manifest = await readManifestFromBackup(path).catch(() => null);
+      entries.push({ path, filename, sizeBytes: info.size,
+        createdAt: manifest?.createdAt ?? timestampFromBackupFilename(filename),
+        manifest });
+    }
   }
-  return entries;
+  return entries.sort((a, b) => b.filename.localeCompare(a.filename));
 }
 
 export function getBackupPathForFilename(
   filename: string,
-  backupDir = resolve(getBackupDir()),
+  backupDir?: string,
 ) {
   const cleanFilename = filename.trim();
   if (
@@ -296,7 +299,9 @@ export function getBackupPathForFilename(
   ) {
     throw new Error("Invalid backup filename.");
   }
-  return join(backupDir, cleanFilename);
+  if (backupDir) return join(backupDir, cleanFilename);
+  const current = join(resolve(getApplicationBackupDir()), cleanFilename);
+  return existsSync(current) ? current : join(resolve(getBackupDir()), cleanFilename);
 }
 
 export async function saveUploadedBackupArchive(
@@ -305,7 +310,7 @@ export async function saveUploadedBackupArchive(
 ) {
   loadEnvFile();
   if (content.byteLength === 0) throw new Error("Uploaded backup is empty.");
-  const backupDir = resolve(getBackupDir());
+  const backupDir = resolve(getApplicationBackupDir());
   await mkdir(backupDir, { recursive: true });
   const filename = uploadedBackupFilename(originalFilename);
   const finalPath = getBackupPathForFilename(filename, backupDir);
@@ -333,9 +338,9 @@ export async function saveUploadedBackupArchive(
 
 export async function deleteBackupByFilename(filename: string) {
   loadEnvFile();
-  const backupDir = resolve(getBackupDir());
-  const backupPath = getBackupPathForFilename(filename, backupDir);
-  if (resolve(dirname(backupPath)) !== backupDir) {
+  const backupPath = getBackupPathForFilename(filename);
+  if (![resolve(getBackupDir()), resolve(getApplicationBackupDir())]
+    .includes(resolve(dirname(backupPath)))) {
     throw new Error("Refusing to delete a backup outside BACKUP_DIR.");
   }
   await readManifestFromBackup(backupPath);
@@ -343,7 +348,7 @@ export async function deleteBackupByFilename(filename: string) {
   return backupPath;
 }
 
-export async function applyRetention(backupDir = resolve(getBackupDir())) {
+export async function applyRetention(backupDir = resolve(getApplicationBackupDir())) {
   const count = Number(process.env.BACKUP_RETENTION_COUNT || 0);
   const days = Number(process.env.BACKUP_RETENTION_DAYS || 0);
   if (!count && !days) return [];

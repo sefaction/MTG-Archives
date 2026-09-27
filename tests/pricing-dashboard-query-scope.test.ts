@@ -1,8 +1,30 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getPricingDashboard } from "../lib/pricing-worker-store";
+import { randomUUID } from "node:crypto";
+import { getCachedPricingCollectionTrend, getPricingDashboard } from
+  "../lib/pricing-worker-store";
 
 const ownedCards = [{ mtgjsonUuid: "known-printing", quantity: 2 }];
+
+test("collection trend cache shares identical reads but refreshes after holdings or summary changes", async () => {
+  const sql = `holdings-${randomUUID()}`;
+  let calls = 0;
+  const load = async () => { calls++; return [{ observedDate: "2026-09-25", value: calls }]; };
+  const [first, repeated] = await Promise.all([
+    getCachedPricingCollectionTrend(sql, "revision-1", load),
+    getCachedPricingCollectionTrend(sql, "revision-1", load),
+  ]);
+  assert.equal(calls, 1);
+  assert.deepEqual(first, repeated);
+  await getCachedPricingCollectionTrend(`${sql}-new-quantity`, "revision-1", load);
+  await getCachedPricingCollectionTrend(sql, "revision-2", load);
+  assert.equal(calls, 3);
+  const failedSql = `${sql}-failed`;
+  await assert.rejects(getCachedPricingCollectionTrend(failedSql, "revision-1",
+    async () => { throw new Error("temporary query error"); }));
+  const recovered = await getCachedPricingCollectionTrend(failedSql, "revision-1", load);
+  assert.equal(recovered[0].value, 4);
+});
 
 for (const [view, expectedQueries] of [
   ["collection", 3],

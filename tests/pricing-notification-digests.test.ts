@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   dailyPricingMovementSql,
+  pendingPricingImportDaysSql,
   pricingRetractionSql,
   priorUtcDay,
 } from "../lib/pricing-notification-digests";
@@ -9,6 +10,43 @@ import {
 test("Pricing digest uses the previous UTC observation day at date boundaries", () => {
   assert.equal(priorUtcDay(new Date("2026-01-01T02:00:00Z")), "2025-12-31");
   assert.equal(priorUtcDay(new Date("2026-03-01T23:59:59Z")), "2026-02-28");
+});
+
+test("Pricing digest recovery scans only enabled, unprocessed import days in a bounded window", () => {
+  const sql = pendingPricingImportDaysSql({
+    enabledAt: new Date("2026-09-20T15:00:00Z"),
+    lastProcessedImportDate: new Date("2026-09-21T00:00:00Z"),
+    latestImportDate: "2026-09-24",
+    provider: "tcgplayer",
+    finish: "normal",
+    priceType: "retail",
+    currency: "USD",
+  });
+  assert.match(sql, /created_at >= '2026-09-20T15:00:00.000Z'/);
+  assert.match(sql, /\(created_at AT TIME ZONE 'UTC'\)::date > '2026-09-21'::date/);
+  assert.match(sql, /created_at < '2026-09-25T00:00:00.000Z'/);
+  assert.match(sql, /observed_date BETWEEN \(created_at AT TIME ZONE 'UTC'\)::date - INTERVAL '90 days'/);
+  assert.match(sql, /LIMIT 4/);
+  const bounded = pendingPricingImportDaysSql({
+    enabledAt: new Date("2020-01-01T00:00:00Z"),
+    lastProcessedImportDate: null,
+    latestImportDate: "2026-09-24",
+    provider: "tcgplayer",
+    finish: "normal",
+    priceType: "retail",
+    currency: "USD",
+  });
+  assert.doesNotMatch(bounded, /2020-01-01/);
+  const sameDay = pendingPricingImportDaysSql({
+    enabledAt: new Date("2026-09-20T15:00:00Z"),
+    lastProcessedImportDate: new Date("2026-09-24T00:00:00Z"),
+    latestImportDate: "2026-09-24",
+    provider: "tcgplayer",
+    finish: "normal",
+    priceType: "retail",
+    currency: "USD",
+  });
+  assert.match(sameDay, /\(created_at AT TIME ZONE 'UTC'\)::date >= '2026-09-24'::date/);
 });
 
 test("Pricing retraction query only revisits previously alerted exact observations corrected on the import day", () => {
