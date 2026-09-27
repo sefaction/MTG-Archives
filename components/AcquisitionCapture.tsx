@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { StorageDestinationPicker } from "./StorageDestinationPicker";
+import { AcquisitionPhotoRecognition } from "./AcquisitionPhotoRecognition";
 import {
   filterButtonClass as button,
   filterPrimaryButtonClass as primary,
@@ -585,8 +586,9 @@ export function AcquisitionCapture({
           <section className={panel}>
             <h3 className="font-semibold">Saved cards</h3>
             <p className="text-sm mb-3">
-              Photos are being prepared. Card identification and Inventory
-              commit are the next part of this workflow.
+              Photos are prepared and identified in the background. Expand a
+              suggestion to check possible printings. Nothing is added to
+              Inventory yet.
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
               {progress.slots.slice(page * 12, page * 12 + 12).map((slot) => {
@@ -621,6 +623,13 @@ export function AcquisitionCapture({
                             : "Preparing photo"
                         : ""}
                     </p>
+                    {photo && (
+                      <AcquisitionPhotoRecognition
+                        key={photo.id}
+                        batchId={batchId}
+                        photoId={photo.id}
+                      />
+                    )}
                     <button
                       className={button + " w-full"}
                       disabled={
