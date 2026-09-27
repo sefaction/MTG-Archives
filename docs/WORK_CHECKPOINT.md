@@ -1,5 +1,16 @@
 # Resumable work checkpoint
 
+## Approved stack merging, 2026-09-27
+
+- User explicitly approved #449 and #451, completing individual authorization for #449/#451/#452/#453/#455/#456/#457/#458. Merge these into main in that order after fresh required checks. No further merge question needed for these PRs.
+- Merged with fresh green checks: #449 `0320437`, #451 `a8f997d`, #452 `38aafb5`, #453 `9719068`, #455 `0b9a501`. #450 closed with #451; #454 closed with #455. #456 merged as `c2b7eb7`. #457 is retargeted/updated against main and refreshing CI; #458 remains approved and pending. Verify live GitHub before each merge.
+- Local code remains cumulative #458. This checkpoint records merge authorization and progress without implementation changes. Production and Docker runtime unchanged during merge work. Larger acquisition phases remain open for their outstanding acceptance gates.
+
+## PR #458 approved, dependency approvals pending, 2026-09-27
+
+- User answered the individual #458 merge question with "yeah let's merge". #458 is approved; all three checks are green on 75f08018fb34b532424f636123ed328b0f3a355f and it is ready for review.
+- Approved stack: #452, #453, #455, #456, #457, #458. Live GitHub confirms #449 and #451 are still open; neither has individual approval in this conversation. No merges performed. Ask specifically for those two dependency approvals, then merge into main in dependency order with fresh checks. Local Docker remains the verified cumulative #458 build; no production changes.
+
 ## Strong automatic confirmation in local validation, 2026-09-27
 
 - User chose automatic confirmation of strong matches with an opportunity to correct them. Active branch `feat/acquisition-strong-matches`, based on #457 `bd81242`. Earlier approvals #452/#453/#455/#456/#457 remain recorded; #449/#451 have no individual approval, so nothing merged.
