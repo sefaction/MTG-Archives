@@ -88,6 +88,7 @@ const SOURCE_OPTIONS = [
   { value: "trade", label: "Trade" },
   { value: "correction", label: "Correction" },
   { value: "legacy", label: "Legacy" },
+  { value: "scan", label: "Scan" },
   { value: "other", label: "Other" },
 ];
 

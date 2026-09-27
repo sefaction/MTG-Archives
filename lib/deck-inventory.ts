@@ -13,7 +13,7 @@ type InventoryTx = Prisma.TransactionClient | PrismaClient;
 type DeckInventoryRow = {
   id: string;
   currentOwnerId: string;
-  originalOpenerId: string;
+  originalOpenerId: string | null;
   cardId: string;
   foil: boolean;
   foilStatus: string;

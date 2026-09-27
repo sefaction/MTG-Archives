@@ -55,11 +55,22 @@ function createManualTx(overrides: any = {}) {
     ],
   ]);
   const inventoryItems = new Map<string, any>(
-    (overrides.inventoryItems ?? []).map((item: any) => [item.id, { ...item }]),
+    (overrides.inventoryItems ?? []).map((item: any) => [
+      item.id,
+      {
+        sourceType: "MANUAL",
+        notes: null,
+        roundId: null,
+        acquiredFromPullId: null,
+        locationSection: null,
+        ...item,
+      },
+    ]),
   );
   const auditLogs: any[] = [];
   let nextId = 1;
   const tx = {
+    $queryRaw: async () => [],
     card: {
       findUnique: async ({ where }: any) => cards.get(where.id) ?? null,
     },
@@ -78,22 +89,22 @@ function createManualTx(overrides: any = {}) {
       },
     },
     inventoryItem: {
-      findFirst: async ({ where }: any) =>
-        [...inventoryItems.values()].find(
-          (item) =>
-            item.currentOwnerId === where.currentOwnerId &&
-            item.originalOpenerId === where.originalOpenerId &&
-            item.cardId === where.cardId &&
-            item.foil === where.foil &&
-            item.foilStatus === where.foilStatus &&
-            (where.condition?.in
-              ? where.condition.in.includes(item.condition)
-              : item.condition === where.condition) &&
-            item.language === where.language &&
-            item.locationId === where.locationId &&
-            (item.locationSection ?? null) === where.locationSection &&
-            item.quantity > 0,
-        ) ?? null,
+      findFirst: async ({ where }: any) => {
+        const matches = (item: any, w: any): boolean =>
+          Object.entries(w).every(([key, value]: [string, any]) => {
+            if (key === "AND")
+              return value.every((part: any) => matches(item, part));
+            if (value && typeof value === "object") {
+              if (value.in) return value.in.includes(item[key]);
+              if (value.gt !== undefined) return item[key] > value.gt;
+            }
+            return item[key] === value;
+          });
+        const found = [...inventoryItems.values()].find((item) =>
+          matches(item, where),
+        );
+        return found ? { ...found } : null;
+      },
       update: async ({ where, data }: any) => {
         const item = inventoryItems.get(where.id);
         if (!item) throw new Error("missing inventory");

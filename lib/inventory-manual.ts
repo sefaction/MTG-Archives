@@ -4,7 +4,8 @@ import {
   InventorySourceType,
   Prisma,
 } from "@prisma/client";
-import { inventoryAuditAction, recordInventoryAudit } from "./inventory-audit";
+import { inventoryAuditAction } from "./inventory-audit";
+import { writeInventoryReceipt } from "./inventory-receipt";
 import {
   equivalentInventoryConditions,
   normalizeInventoryCondition,
@@ -80,63 +81,55 @@ export async function addInventoryCardToLocation(
     locationSection,
     quantity: { gt: 0 },
   };
-  const existing = await tx.inventoryItem.findFirst({ where: matchingWhere });
-  const beforeQuantity = existing?.quantity ?? 0;
-  const inventory = existing
-    ? await tx.inventoryItem.update({
-        where: { id: existing.id },
-        data: {
-          quantity: { increment: quantity },
-          condition,
-          notes: notes ?? undefined,
-          sourceType: InventorySourceType.MANUAL,
-        },
-      })
-    : await tx.inventoryItem.create({
-        data: {
-          currentOwnerId: input.ownerPlayerId,
-          originalOpenerId: input.ownerPlayerId,
-          cardId: card.id,
-          quantity,
-          foil: foilStatus !== FoilStatus.NONFOIL,
-          foilStatus,
-          condition,
-          acquiredFromPullId: null,
-          notes,
-          sourceType: InventorySourceType.MANUAL,
-          language,
-          locationId: location.id,
-          locationSection,
-        },
-      });
-
-  const metadata = {
-    cardId: card.id,
-    cardName: card.name,
-    setCode: card.setCode,
-    collectorNumber: card.collectorNumber,
-    locationId: location.id,
-    locationName: location.name,
-    locationSection,
-    quantityAdded: quantity,
-    beforeQuantity,
-    afterQuantity: inventory.quantity,
-    foilStatus,
-    condition,
-    language,
-    createdNewInventoryItem: !existing,
-    updatedExistingInventoryItem: Boolean(existing),
-  };
-  await recordInventoryAudit({
-    tx,
-    inventoryItemId: inventory.id,
-    actingUserId: input.actingUserId,
-    action: inventoryAuditAction.inventoryAdded,
-    before: existing ?? {},
-    after: inventory,
-    metadata,
-    reason: input.reason ?? `Manually added ${quantity} ${card.name}.`,
+  const receipt = await writeInventoryReceipt(tx, {
+    lot: {
+      currentOwnerId: input.ownerPlayerId,
+      originalOpenerId: input.ownerPlayerId,
+      cardId: card.id,
+      quantity,
+      foilStatus,
+      condition,
+      acquiredFromPullId: null,
+      roundId: null,
+      notes,
+      sourceType: InventorySourceType.MANUAL,
+      language,
+      locationId: location.id,
+      locationSection,
+    },
+    merge: {
+      where: matchingWhere,
+      update: {
+        condition,
+        notes: notes ?? undefined,
+        sourceType: InventorySourceType.MANUAL,
+      },
+    },
+    emptyBefore: {},
+    audit: ({ inventory, previous, beforeQuantity, created }) => ({
+      actingUserId: input.actingUserId,
+      action: inventoryAuditAction.inventoryAdded,
+      metadata: {
+        cardId: card.id,
+        cardName: card.name,
+        setCode: card.setCode,
+        collectorNumber: card.collectorNumber,
+        locationId: location.id,
+        locationName: location.name,
+        locationSection,
+        quantityAdded: quantity,
+        beforeQuantity,
+        afterQuantity: inventory.quantity,
+        foilStatus,
+        condition,
+        language,
+        createdNewInventoryItem: created,
+        updatedExistingInventoryItem: Boolean(previous),
+      },
+      reason: input.reason ?? `Manually added ${quantity} ${card.name}.`,
+    }),
   });
+  const { inventory, previous: existing } = receipt;
 
   return { inventory, card, location, quantity, created: !existing };
 }

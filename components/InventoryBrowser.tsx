@@ -193,6 +193,7 @@ export type InventoryRow = {
   sourceType?:
     | "PULL"
     | "CSV_PULL_IMPORT"
+    | "ACQUISITION"
     | "TRADE"
     | "MANUAL"
     | "CORRECTION"
@@ -482,6 +483,8 @@ function friendlyVisibility(value?: InventoryRow["effectiveVisibility"]) {
 
 function friendlySource(value?: InventoryRow["sourceType"]) {
   switch (value) {
+    case "ACQUISITION":
+      return "Scan";
     case "CSV_PULL_IMPORT":
       return "Import";
     case "PULL":
@@ -3799,6 +3802,7 @@ export function InventoryBrowser({
                                   )}
                                 >
                                   <option value="PULL">legacy</option>
+                                  <option value="ACQUISITION">scan</option>
                                   <option value="CSV_PULL_IMPORT">
                                     import
                                   </option>
@@ -3946,6 +3950,7 @@ export function InventoryBrowser({
                                   )}
                                 >
                                   <option value="PULL">legacy</option>
+                                  <option value="ACQUISITION">scan</option>
                                   <option value="CSV_PULL_IMPORT">
                                     import
                                   </option>
@@ -4112,7 +4117,8 @@ export function InventoryBrowser({
                           className={cn(filterSelectClass, "w-full")}
                         >
                           <option value="PULL">legacy</option>
-                          <option value="CSV_PULL_IMPORT">import</option>
+                          <option value="ACQUISITION">scan</option>
+                                  <option value="CSV_PULL_IMPORT">import</option>
                           <option value="TRADE">trade</option>
                           <option value="MANUAL">manual</option>
                           <option value="CORRECTION">correction</option>

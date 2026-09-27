@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { PrismaClient, type Prisma } from "@prisma/client";
 import { commitImportBatch } from "../lib/import-commit";
 import { undoInventoryImport } from "../lib/import-undo";
+import { verifyInventoryReceipts } from "./verify-inventory-receipts";
 
 // Explicitly opt in on a disposable database. All fixtures are owned by this run.
 if (process.env.MTG_LOCAL_PILOT_TEST !== "1")
@@ -104,6 +105,7 @@ function concurrentClient() {
 }
 
 async function run() {
+  await verifyInventoryReceipts(db);
   await db.player.createMany({
     data: [
       { id: ownerId, name: ownerId, displayName: ownerId },
@@ -177,17 +179,24 @@ async function run() {
   assert.deepEqual(
     committed.map((row) => [row.beforeQuantity, row.afterQuantity]),
     [
-      [4, 6],
-      [6, 9],
+      [0, 2],
+      [2, 5],
     ],
   );
   assert.ok(
     committed.every(
-      (row) => row.inventoryItemId === original.id && row.status === "imported",
+      (row) =>
+        row.inventoryItemId === committed[0].inventoryItemId &&
+        row.status === "imported",
     ),
   );
+  assert.notEqual(committed[0].inventoryItemId, original.id);
+  assert.deepEqual(
+    await db.inventoryItem.findUniqueOrThrow({ where: { id: original.id } }),
+    original,
+  );
   const audit = await db.inventoryAuditLog.findFirstOrThrow({
-    where: { inventoryItemId: original.id },
+    where: { inventoryItemId: committed[0].inventoryItemId },
   });
   assert.equal((audit.afterJson as Prisma.JsonObject).importBatchId, first.id);
   console.log(
@@ -383,11 +392,11 @@ async function run() {
   // A later audited edit restoring the same quantity must still block undo.
   await db.inventoryAuditLog.create({
     data: {
-      inventoryItemId: original.id,
+      inventoryItemId: (await rows(failed.id))[0].inventoryItemId,
       changedByUserId: userId,
       changeType: "inventory_edited",
-      beforeJson: { quantity: 9 },
-      afterJson: { quantity: 9 },
+      beforeJson: { quantity: 5 },
+      afterJson: { quantity: 5 },
     },
   });
   assert.equal((await undoInventoryImport(db, failed.id, userId)).blocked, 2);
@@ -399,6 +408,44 @@ async function run() {
   );
   console.log(
     "PASS: undo refuses inventory changed after import, even at the same quantity",
+  );
+
+  const existingA = await batch("add", [{ quantity: 2, section: "Race" }]);
+  const existingB = await batch("add", [{ quantity: 3, section: "Race" }]);
+  let matchingReads = 0,
+    releaseMatching!: () => void;
+  const matchingGate = new Promise<void>((resolve) => {
+    releaseMatching = resolve;
+  });
+  const concurrentExisting = db.$extends({
+    query: {
+      inventoryItem: {
+        async findFirst({ args, query }) {
+          const result = await query(args);
+          if (++matchingReads <= 2) {
+            if (matchingReads === 2) releaseMatching();
+            await matchingGate;
+          }
+          return result;
+        },
+      },
+    },
+  }) as unknown as PrismaClient;
+  await Promise.all([
+    commitImportBatch(concurrentExisting, { ...input, batchId: existingA.id }),
+    commitImportBatch(concurrentExisting, { ...input, batchId: existingB.id }),
+  ]);
+  assert.equal(
+    (
+      await db.inventoryItem.findUniqueOrThrow({
+        where: { id: raceInventory[0].id },
+      })
+    ).quantity,
+    10,
+  );
+  assert.equal(await total(), 19);
+  console.log(
+    "PASS: simultaneous receipts into an existing stack retry row-lock serialization conflicts",
   );
 }
 
