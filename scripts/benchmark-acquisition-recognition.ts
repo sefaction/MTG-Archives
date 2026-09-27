@@ -144,7 +144,12 @@ async function main() {
       .length,
     exactPrintingRank1: results.filter((r) => r.exactPrintingRank === 1).length,
     expectedNameProposed: results.filter((r) => r.expectedNameProposed).length,
-    automaticAcceptances: 0,
+    strongMatchProposals: results.filter((r) => r.result.automaticAcceptance)
+      .length,
+    incorrectStrongMatchProposals: results.filter(
+      (r) => r.result.automaticAcceptance && r.exactPrintingRank !== 1,
+    ).length,
+    automaticAcceptances: 0, // Offline evaluation never writes saved decisions.
     automaticPrecision: null,
     results,
   };

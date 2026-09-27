@@ -267,7 +267,14 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
           );
           expect(result, entry.file).toBeTruthy();
           expect(result.output.native.photoDigest).toBe(entry.sha256);
-          expect(result.output.proposals.automaticAcceptance).toBe(false);
+          expect(result.output.proposals.automaticAcceptance).toBe(
+            result.output.proposals.status === "STRONG_MATCH",
+          );
+          if (result.output.proposals.automaticAcceptance) {
+            expect(result.output.proposals.proposals[0].reasons).toContain(
+              "TITLE_EXACT",
+            );
+          }
           const ids = result.output.proposals.proposals.map(
             (p: any) => p.card.id,
           );
@@ -294,10 +301,55 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
           JSON.stringify({
             realRecognitionPhotos: manifest.entries.length,
             expectedPrintingInTop12: manifest.entries.length,
-            automaticAcceptance: false,
+            strongMatches: observed.filter(
+              (j: any) => j.output.proposals.automaticAcceptance,
+            ).length,
           }),
         );
         await checkAcquisitionReview(page);
+        const strong = observed.filter(
+          (j: any) => j.output.proposals.automaticAcceptance,
+        );
+        expect(strong.length).toBeGreaterThan(0);
+        await expect(
+          page.getByRole("button", { name: "Correct match", exact: true }),
+        ).toHaveCount(strong.length);
+        const autoCard = page
+          .locator('[data-testid^="capture-card-"]')
+          .filter({
+            has: page.getByRole("button", {
+              name: "Correct match",
+              exact: true,
+            }),
+          })
+          .first();
+        await expect(autoCard).toContainText("Automatically confirmed");
+        await autoCard
+          .getByRole("button", { name: "Correct match", exact: true })
+          .click();
+        const autoDialog = page.getByRole("dialog");
+        await expect(
+          autoDialog.getByRole("radio", { checked: true }),
+        ).toHaveCount(1);
+        await autoDialog
+          .getByRole("combobox", { name: "Card condition", exact: true })
+          .selectOption("DMG");
+        await autoDialog
+          .getByRole("button", { name: "Save card review" })
+          .click();
+        await page.reload();
+        await expect(
+          page.getByRole("button", { name: "Correct match", exact: true }),
+        ).toHaveCount(strong.length - 1);
+        await expect(
+          page
+            .locator('[data-testid^="capture-card-"]')
+            .filter({ hasText: "DMG" }),
+        ).toHaveCount(1);
+        await page.screenshot({
+          path: "test-results/acquisition-auto-confirm-phone.png",
+          fullPage: true,
+        });
         const receipt = await checkAcquisitionCommit(page);
         committed = 1;
         const committedState = JSON.parse(

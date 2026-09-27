@@ -1,5 +1,23 @@
 # Resumable work checkpoint
 
+## Strong automatic confirmation in local validation, 2026-09-27
+
+- User chose automatic confirmation of strong matches with an opportunity to correct them. Active branch `feat/acquisition-strong-matches`, based on #457 `bd81242`. Earlier approvals #452/#453/#455/#456/#457 remain recorded; #449/#451 have no individual approval, so nothing merged.
+- Adds exact title/set/collector/language evidence rule, bounded automatic confirmation worker with saved defaults and system provenance, correction controls, set/number display, human-pending and retake fences. Only explicit Inventory confirmation creates stock. Unknown or unsupported defaults and ambiguous printings remain reviewable. No production or Android connection changes.
+- All acquisition/database/shared-receipt checks and full core passed in `.local-data/verification/acquisition-2026-09-27T20-01-56-954Z` (session61998 terminal). Pure resolver tests and typecheck passed. Initial web69854 and worker builds completed, but two final refinements (strong printing preselection for attribute review and accurate offline benchmark counts) require refreshed images.
+- Final web and recognition builds started; collect process results before loading. Then preserve both acquisition overlays, verify source manifest, run the real ten-photo browser fixture with automatic confirmation/correction assertions, and open one dependent PR. No current browser pass claimed for the new behavior.
+- Remaining questions: individual #449/#451 approvals; actual Android connection/setup and hands-on acceptance. The batch-confirmation product question is answered by the user's automatic-confirmation direction.
+
+## Review feedback and approvals, 2026-09-27
+
+- User individually approved #457 after its dependencies. Fresh GitHub check confirms all three CI checks successful and its base remains #456. Approved queue is #452, #453, #455, #456, #457; #449 and #451 remain open and lack individual approval. No merges performed.
+- Explained that phone scanning starts in the phone browser; USB is only an optional local development connection. Wi-Fi HTTPS is recommended for the intended wireless workflow, but no certificate/setup choice or actual Android acceptance has yet been confirmed.
+- User subsequently individually approved #455 and #456. Fresh GitHub checks are green for both; #455 depends on #453 and #456 on #455. Approved queue is now #452, #453, #455, #456, all waiting on unapproved #449 and #451. No merges performed.
+- User explicitly approved #452 and #453 as a good start, while noting that every card currently needs review. Both remain open with green checks; #452 depends on #451, which depends on #449. #449 and #451 still lack individual approval, so no dependent PR was merged. Do not interpret the user's recognition question as approval of those dependencies.
+- Confirmed current resolver always returns automaticAcceptance=false and REVIEW_REQUIRED for non-conflicting matches. Lack of automatic verification does not establish poor recognition confidence; OCR similarity is not calibrated confidence.
+- Pending product question: preselect strong exact-printing matches for one batch confirmation, with individual review for ambiguous cards, keeping batch finish/condition defaults and overrides. No acceptance policy has been changed or assumed.
+- Active branch remains feat/acquisition-commit at bd81242 with #457 delivered. This checkpoint-only update leaves the previously verified local Docker application unchanged. Goal remains paused for outstanding guidance/device acceptance; next safe step is handle answers and individually approved merges in dependency order.
+
 ## Explicit scan commit in local validation, 2026-09-27
 
 - Previous batch delivered #456 (`9782a16`, checkpoint `1e01e15`); all three CI checks are green. #449/#451, #452/#453 and #455/#456 individual approval questions remain pending. #447/#448 are already merged. No further merge authorization.

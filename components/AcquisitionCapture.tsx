@@ -454,8 +454,9 @@ export function AcquisitionCapture({
               {readyPhotos} photos saved · {prepared} photos prepared
             </p>
             <p className="text-sm">
-              {progress.reviewed} reviewed ·{" "}
-              {Math.max(0, readyPhotos - progress.reviewed)} awaiting review
+              {progress.reviewed} confirmed ·{" "}
+              {Math.max(0, readyPhotos - progress.reviewed)} awaiting
+              confirmation
             </p>
             <p className="text-xs text-[var(--app-muted)]">
               {progress.availableSlots === 0
@@ -612,8 +613,9 @@ export function AcquisitionCapture({
             <h3 className="font-semibold">Saved cards</h3>
             <p className="text-sm mb-3">
               Photos are prepared and identified in the background. Expand a
-              suggestion to check possible printings. Only an explicit Inventory
-              confirmation adds copies.
+              suggestion to check possible printings. Strong exact matches
+              confirm automatically using batch defaults; use Correct match to
+              change them. Only an explicit Inventory confirmation adds copies.
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
               {progress.slots.slice(page * 12, page * 12 + 12).map((slot) => {
@@ -662,6 +664,8 @@ export function AcquisitionCapture({
                     {slot.review && (
                       <p className="text-sm break-words">
                         {slot.review.cardName ?? "Selected printing"} ·{" "}
+                        {slot.review.setCode?.toUpperCase()} #
+                        {slot.review.collectorNumber} {" · "}
                         {slot.review.finish.toLowerCase()} ·{" "}
                         {slot.review.condition}
                       </p>
@@ -694,6 +698,7 @@ export function AcquisitionCapture({
                         batchId={batchId}
                         photoId={photo.id}
                         reviewed={Boolean(slot.review)}
+                        automatic={slot.review?.source === "AUTO_STRONG_MATCH"}
                         refresh={() => void refresh()}
                       />
                     )}

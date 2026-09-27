@@ -1,7 +1,7 @@
 import { z } from "zod";
 const proposalSchema = z.object({
-  status: z.enum(["CONFLICT", "REVIEW_REQUIRED", "NO_MATCH"]),
-  automaticAcceptance: z.literal(false),
+  status: z.enum(["CONFLICT", "REVIEW_REQUIRED", "NO_MATCH", "STRONG_MATCH"]),
+  automaticAcceptance: z.boolean(),
   totalProposals: z.number().int().nonnegative(),
   truncated: z.boolean(),
   proposals: z
