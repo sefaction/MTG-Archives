@@ -2,7 +2,7 @@
 
 Dockerized Next.js App Router application for tracking multi-user Magic: The Gathering inventories, CSV imports, Scryfall-backed card data, and direct user-to-user card trades.
 
-Future planning: [Card Acquisition Framework roadmap](docs/CARD_ACQUISITION_PLAN.md) — planned and deferred; image uploads first, then Windows scanner acquisition. No acquisition implementation is included yet.
+[Card Acquisition Framework roadmap](docs/CARD_ACQUISITION_PLAN.md): implementation authorized; P1 pure foundation active on a dependent branch. Desktop/phone image intake comes first; scanner and optional acceleration follow their own gates. This documentation PR adds no runtime feature.
 
 ## Stack
 
