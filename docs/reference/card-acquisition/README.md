@@ -29,4 +29,4 @@ The report's community projects are optional inspiration, not core dependencies 
 
 ## Implementation authorization
 
-[September 27 implementation kickoff](implementation-kickoff.md) is the preserved user input authorizing phased implementation and defining this task?s first-batch stopping point. Earlier prompt/report remain historical, unchanged. Current roadmap documents incorporate its A?H requirements.
+[September 27 implementation kickoff](implementation-kickoff.md) is the preserved user input authorizing phased implementation and defining this task’s first-batch stopping point. Earlier prompt/report remain historical, unchanged. Current roadmap documents incorporate its A-H requirements.

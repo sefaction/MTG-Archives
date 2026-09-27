@@ -164,7 +164,7 @@ Each phase below includes PR-sized batches. Begin a future session by reading it
 
 ## Kickoff amendments within the existing phases
 
-These requirements extend the phases above; their complete acceptance detail is preserved in [kickoff A?H](reference/card-acquisition/implementation-kickoff.md#required-roadmap-amendments-and-implementation-requirements).
+These requirements extend the phases above; their complete acceptance detail is preserved in [kickoff A-H](reference/card-acquisition/implementation-kickoff.md#required-roadmap-amendments-and-implementation-requirements).
 
 | Work | Added deliverable / gate |
 | --- | --- |

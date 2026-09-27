@@ -174,7 +174,7 @@ See [milestones](CARD_ACQUISITION_MILESTONES.md) for unresolved decisions and [p
 
 ## September 27 kickoff contracts
 
-The [kickoff A?H](reference/card-acquisition/implementation-kickoff.md#required-roadmap-amendments-and-implementation-requirements) supplies the full requirements; the following is the implementation mapping.
+The [kickoff A-H](reference/card-acquisition/implementation-kickoff.md#required-roadmap-amendments-and-implementation-requirements) supplies the full requirements; the following is the implementation mapping.
 
 - **Intent and identity (P1/P2):** ADD_NEW is explicit. AUDIT_EXISTING/RECONCILE and MOVE_EXISTING are future distinct workflows. An image/hash/printing never identifies an owned copy. Camera occurrence identity requires episode/removal/rearm or hardware cycle evidence; cooldown/name dedup is insufficient. Record provisional counts and reasoned corrections without deleting raw evidence.
 - **Placement (P1/P6/P7):** version owner/location/exact section, JSON-layout revision and direct committed occupancy snapshot. Apply the tighter known overall/selected-section bound. Distinguish own pending, other sessions and committed stock; snapshots do not reserve space. Optional ordered multi-section assignments require physical placement acknowledgement at boundaries. Destination edits invalidate previews. Concurrent sessions warn initially; reservations require a separately reviewed expiry/crash/offline/all-writer design.
