@@ -754,6 +754,7 @@ model InventoryLocation {
   description               String?
   type                      String?
   storageLayout             Json?
+  capacityRevision          Int                       @default(0)
   kind                      InventoryLocationKind     @default(NORMAL)
   deckId                    String?                   @unique
   deck                      Deck?                     @relation(fields: [deckId], references: [id], onDelete: Cascade)

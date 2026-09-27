@@ -4,6 +4,7 @@ import { PrismaClient, type Prisma } from "@prisma/client";
 import { commitImportBatch } from "../lib/import-commit";
 import { undoInventoryImport } from "../lib/import-undo";
 import { verifyInventoryReceipts } from "./verify-inventory-receipts";
+import { verifyInventoryCapacity } from "./verify-inventory-capacity";
 
 // Explicitly opt in on a disposable database. All fixtures are owned by this run.
 if (process.env.MTG_LOCAL_PILOT_TEST !== "1")
@@ -105,6 +106,7 @@ function concurrentClient() {
 }
 
 async function run() {
+  await verifyInventoryCapacity(db);
   await verifyInventoryReceipts(db);
   await db.player.createMany({
     data: [
