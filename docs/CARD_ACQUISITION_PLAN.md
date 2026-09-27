@@ -6,6 +6,8 @@ Planning baseline: `bfb7be8`, reviewed September 22, 2026 (America/Chicago; Sept
 
 ## Confirmed product decisions
 
+- September 27 first-test choice: Android camera/photo library. Define the batch size before capture, defaulting to remaining space in the selected section. Show progress against that target (for example 18/72), stop admitting new cards at the limit, and account for in-flight uploads. Analyze each durable image in the background immediately while the user captures later cards; no whole-batch processing barrier. Unknown printing/finish continues to consume a physical slot. The phone adapter needs atomic upload-slot admission; generic received overflow remains preserved rather than silently discarded.
+
 - First usable release: image uploads through processing, review, and explicit inventory commit; scanner integration is a later release.
 - Primary collection: mostly English, loose unsleeved cards. Typical sessions are up to about 100 physical cards. This is a workload baseline, not an artificial database limit or a promise about feeder capacity. Keep 300-to-263 as a deterministic stress case.
 - Future scanner plugs into a Windows laptop/desktop; Archive runs on Unraid or another server. Plan an outbound Windows agent.
@@ -97,3 +99,7 @@ The preserved [kickoff sections A-H](reference/card-acquisition/implementation-k
 - [Acquisition: live browser/PWA and webcam capture](https://github.com/sefaction/MTG-Archives/issues/442)
 - [Acquisition: approved location-bound image inbox](https://github.com/sefaction/MTG-Archives/issues/443)
 - [Acquisition: optional measured CPU/GPU inference worker](https://github.com/sefaction/MTG-Archives/issues/444)
+
+### Android capture presentation
+
+The user wants to see batch progress while photos upload. Use a persistent in-app camera as the recommended first workflow, with a visible batch number and captured/target counter (for example, Batch 1, 18 of 72 cards), plus separate upload and analysis progress. Keep photo-library intake available. A retake replaces its existing physical slot; it is not another copy. Prepare HTTPS for the real Android local test. These are implementation directions, not completed device acceptance.

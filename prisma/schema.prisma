@@ -134,6 +134,8 @@ enum NotificationDeliveryAttemptStatus {
 }
 
 model User {
+  acquisitionSessions          AcquisitionSession[]
+  acquisitionCorrections       AcquisitionCountCorrection[]
   id                           String                              @id @default(cuid())
   username                     String                              @unique
   email                        String?                             @unique
@@ -217,6 +219,7 @@ model Season {
 }
 
 model Player {
+  acquisitionSessions         AcquisitionSession[]
   id                          String                              @id @default(cuid())
   name                        String                              @unique
   displayName                 String                              @unique
@@ -733,6 +736,7 @@ model WishlistItem {
 }
 
 model InventoryLocation {
+  acquisitionSessions       AcquisitionSession[]
   id                        String                    @id @default(cuid())
   ownerPlayerId             String
   ownerPlayer               Player                    @relation(fields: [ownerPlayerId], references: [id])
@@ -1209,4 +1213,138 @@ model PointEvent {
   points      Int
   round       Round  @relation(fields: [roundId], references: [id])
   player      Player @relation(fields: [playerId], references: [id])
+}
+
+enum AcquisitionPhase {
+  DRAFT
+  CAPTURING
+  PAUSED
+  STOPPING
+  COMPLETE
+  CANCELLED
+}
+
+// Capture-only staging. No relation grants an inference worker inventory rights.
+model AcquisitionSession {
+  id              String   @id @default(cuid())
+  version         Int      @default(1)
+  intent          String   @default("ADD_NEW")
+  createdByUserId String
+  createdByUser   User     @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  ownerPlayerId   String
+  ownerPlayer     Player   @relation(fields: [ownerPlayerId], references: [id], onDelete: Restrict)
+  locationId      String?
+  location        InventoryLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  section         String
+  requestKey      String
+  requestPayload  String
+  placement       Json
+  policy          Json
+  target          Int?
+  phase           AcquisitionPhase @default(DRAFT)
+  revision        Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  run             AcquisitionRun?
+
+  @@unique([createdByUserId, requestKey])
+  @@index([ownerPlayerId, updatedAt, id])
+  @@index([locationId, phase])
+}
+
+model AcquisitionRun {
+  id           String @id @default(cuid())
+  sessionId    String @unique
+  session      AcquisitionSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  sourceRunId  String
+  providerId   String
+  enforcement  String
+  controls     String[]
+  events       AcquisitionEvent[]
+  artifacts    AcquisitionArtifact[]
+  candidates   AcquisitionCandidate[]
+  observations AcquisitionObservation[]
+  corrections  AcquisitionCountCorrection[]
+}
+
+model AcquisitionEvent {
+  id              String @id @default(cuid())
+  runId           String
+  run             AcquisitionRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+  sourceEventId   String
+  payload         String
+  sessionRevision Int
+  createdAt       DateTime @default(now())
+
+  @@unique([runId, sourceEventId])
+  @@unique([runId, sessionRevision])
+}
+
+model AcquisitionArtifact {
+  id           String @id @default(cuid())
+  runId        String
+  run          AcquisitionRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+  sourceId     String
+  digest       String
+  observations AcquisitionObservation[]
+
+  @@unique([runId, sourceId])
+  @@unique([id, runId])
+}
+
+model AcquisitionCandidate {
+  id               String @id @default(cuid())
+  runId            String
+  run              AcquisitionRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+  physicalId       String
+  identityKind     String
+  acquisitionOrder Int
+  spatialOrder     Int
+  expectedSides    String[]
+  provisional      Boolean
+  uncertainty      String[]
+  revision         Int
+  excluded         Boolean @default(false)
+  countConfirmed   Boolean @default(false)
+  proposal         Json?
+  review           Json?
+  observations     AcquisitionObservation[]
+  corrections      AcquisitionCountCorrection[]
+
+  @@unique([runId, physicalId])
+  @@unique([runId, acquisitionOrder, spatialOrder])
+  @@unique([id, runId])
+}
+
+model AcquisitionObservation {
+  id          String @id @default(cuid())
+  runId       String
+  run         AcquisitionRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+  sourceId    String
+  artifactId  String
+  artifact    AcquisitionArtifact @relation(fields: [artifactId, runId], references: [id, runId], onDelete: Restrict)
+  candidateId String
+  candidate   AcquisitionCandidate @relation(fields: [candidateId, runId], references: [id, runId], onDelete: Restrict)
+  side        String
+
+  @@unique([runId, sourceId])
+  @@index([artifactId, runId])
+  @@index([candidateId, runId])
+}
+
+model AcquisitionCountCorrection {
+  id                String @id @default(cuid())
+  runId             String
+  run               AcquisitionRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+  candidateId       String
+  candidate         AcquisitionCandidate @relation(fields: [candidateId, runId], references: [id, runId], onDelete: Restrict)
+  actorUserId       String
+  actorUser         User @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  action            String
+  reason            String
+  candidateRevision Int
+  createdAt         DateTime @default(now())
+
+  @@unique([candidateId, candidateRevision])
+  @@index([runId])
 }

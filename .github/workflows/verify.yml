@@ -13,6 +13,41 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  acquisition-integrity:
+    name: Acquisition PostgreSQL integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: acquisition_integrity
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d acquisition_integrity"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/acquisition_integrity
+      MTG_LOCAL_PILOT_TEST: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - name: Real acquisition database ownership, concurrency, rollback and replay
+        run: npx tsx scripts/verify-acquisition-store.ts
+
   core:
     name: Core verification
     runs-on: ubuntu-latest

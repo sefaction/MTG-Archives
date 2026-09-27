@@ -41,6 +41,7 @@
     "ui:report": "playwright show-report",
     "verify": "tsx scripts/verify.ts",
     "verify:core": "tsx scripts/verify.ts --core",
+    "verify:acquisition": "tsx scripts/verify-acquisition-local.ts",
     "typecheck": "tsc --noEmit",
     "format": "npx prettier --check .",
     "test": "tsx --test tests/*.test.ts"

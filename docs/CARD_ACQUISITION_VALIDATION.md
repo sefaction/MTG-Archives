@@ -1,6 +1,6 @@
 # Card acquisition validation and release gates
 
-**P1 pure foundation is active; integration/corpus/hardware gates remain future work.** Test results belong in the foundation evidence report; no recognition, database, phone or hardware pass is implied. Read [milestones](CARD_ACQUISITION_MILESTONES.md) for dependencies and [architecture](CARD_ACQUISITION_ARCHITECTURE.md) for semantics.
+**P1 pure foundation is merged; persistence has local database evidence below.** Corpus, phone and hardware gates remain future work. No recognition or hardware pass is implied. Read [milestones](CARD_ACQUISITION_MILESTONES.md) for dependencies and [architecture](CARD_ACQUISITION_ARCHITECTURE.md) for semantics.
 
 ## Gate ledger
 
@@ -16,6 +16,9 @@
 | G — hardware | Device/driver/profile-specific physical matrix and counters | Damaging feed, unexplained count/order/overscan, unqualified exact-stop claim |
 
 ## Test layers and commands
+
+- `npm run verify:acquisition`: reusable local pure-domain plus real PostgreSQL checks. It starts a uniquely labeled local Docker fixture with a random loopback port, applies migrations, tests ownership/replay/concurrency/rollback/corrections, removes its own container and anonymous volume, and saves `checks.log` / `result.json` under `.local-data/verification/`. No app snapshot is used. Add `-- --core` for the full existing typecheck/unit/build sequence. A failure is nonzero and records the failed stage; cleanup runs on ordinary failure too. A killed process can leave its clearly labeled test container for explicit cleanup.
+- CI `Acquisition PostgreSQL integrity` runs the same database fixture script against a separate disposable `acquisition_integrity` database. These tests establish persisted staging behavior only; upload durability, exact printing recognition, phone capture admission, worker recovery and inventory commit still need their own evidence.
 
 - Pure reducers/resolver/target/event tests belong in `tests/*.test.ts`, exercised by existing `npm test` (`tsx --test`). Include positive and negative behavior; do not validate transactional claims via source-string assertions.
 - Real DB/filesystem/worker tests require a dedicated opt-in command and disposable local fixtures, modeled on current Docker/Prisma browser helpers and `MTG_LOCAL_PILOT_TEST`. Add its command to the release gate when implemented; it does not already exist. Use random fixture identities, exact local target checks and `finally` cleanup; never require production data.
@@ -88,3 +91,9 @@ Corpus expands to real iPhone/Android, multi-card scenes, webcam sequences, fi-7
 Report exact-print+language precision AND coverage, recall@k, detection/count errors, repeated/missed copies, source/layout/language denominators, recapture/review rate, p50/p95 capture-to-result and end-to-end time, bytes/card, CPU/RAM/VRAM and operator minutes. The product metric is correctly inventoried, physically reconciled cards per operator minute. Unavailable denominators are not perfect scores.
 
 Phone gates cover permissions/HTTPS, photo library, real HEIC/HEIF/orientation or tested alternative, interruptions/progress, episode removal/rearm, repeated versus separate copies, tab-close/eviction/lock and durable ACK recovery. Inbox gates cover finalization, ordering, retries, quarantine, removed destinations and original retention. Optional GPU gates record actual execution provider, warm/cold timing, fairness, memory/OOM and explicit CPU fallback/pause. A missing GPU does not block CPU acceptance.
+
+## P1 persistence evidence (2026-09-27)
+
+The reusable full validation passed 635 unit tests, typecheck, production build, all additive migrations and the real PostgreSQL acquisition suite. The suite covers live ownership/Admin Mode, a 72-card remaining-capacity snapshot, concurrent create/event replay and conflicts, reconnect, injected transactional rollback, stale edits, reviewed-decision preservation, count correction, revoked access, destination edits/deletion and cross-run constraints. Inventory stays unchanged. The final helper rerun records source digest `8f3e6fffee6dcdbd465cd5b6259638eb31f8adc4486e5a71d221e3bd78881316`; local reports are ignored by Git.
+
+The cumulative local Docker image is `sha256:84c32f3fe0aca3ca2704f722f2f2b24373c14cffdaa84878a6999696f3bfb3ca`; the local Chromium admin-route boundary case passed after reload. These tests establish saved-session behavior only. Phone upload admission, private image bytes, worker leases, actual recognition and inventory commit remain subsequent work. Generic source ingestion retains overflow; it does not yet implement the stricter phone capture admission limit.
