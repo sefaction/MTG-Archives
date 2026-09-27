@@ -284,6 +284,10 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
             ),
           );
           expect(ids, entry.file).toContain(expected.id);
+          if (result.output.proposals.automaticAcceptance)
+            expect(ids[0], `automatic printing: ${entry.file}`).toBe(
+              expected.id,
+            );
         }
         await page
           .getByTestId("recognition-suggestions")
