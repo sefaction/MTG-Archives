@@ -3,6 +3,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { StorageDestinationPicker } from "./StorageDestinationPicker";
 import { AcquisitionPhotoRecognition } from "./AcquisitionPhotoRecognition";
 import {
+  AcquisitionBatchDefaults,
+  AcquisitionPhotoReview,
+} from "./AcquisitionReviewControls";
+import {
   filterButtonClass as button,
   filterPrimaryButtonClass as primary,
   filterInputClass as input,
@@ -447,6 +451,10 @@ export function AcquisitionCapture({
               {uploads.filter((p) => p.status !== "failed").length} uploading ·{" "}
               {readyPhotos} photos saved · {prepared} photos prepared
             </p>
+            <p className="text-sm">
+              {progress.reviewed} reviewed ·{" "}
+              {Math.max(0, readyPhotos - progress.reviewed)} awaiting review
+            </p>
             <p className="text-xs text-[var(--app-muted)]">
               {progress.availableSlots === 0
                 ? "Batch full. You can still retry or retake a photo."
@@ -583,6 +591,13 @@ export function AcquisitionCapture({
               </ul>
             </section>
           )}
+          <AcquisitionBatchDefaults
+            key={batchId}
+            batchId={batchId}
+            defaults={progress.defaults}
+            revision={progress.defaultsRevision}
+            refresh={() => void refresh()}
+          />
           <section className={panel}>
             <h3 className="font-semibold">Saved cards</h3>
             <p className="text-sm mb-3">
@@ -623,11 +638,27 @@ export function AcquisitionCapture({
                             : "Preparing photo"
                         : ""}
                     </p>
-                    {photo && (
+                    {photo && !slot.review && (
                       <AcquisitionPhotoRecognition
                         key={photo.id}
                         batchId={batchId}
                         photoId={photo.id}
+                      />
+                    )}
+                    {slot.review && (
+                      <p className="text-sm break-words">
+                        {slot.review.cardName ?? "Selected printing"} ·{" "}
+                        {slot.review.finish.toLowerCase()} ·{" "}
+                        {slot.review.condition}
+                      </p>
+                    )}
+                    {photo && (
+                      <AcquisitionPhotoReview
+                        key={photo.id}
+                        batchId={batchId}
+                        photoId={photo.id}
+                        reviewed={Boolean(slot.review)}
+                        refresh={() => void refresh()}
                       />
                     )}
                     <button

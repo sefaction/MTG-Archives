@@ -21,7 +21,7 @@ export function acquisitionError(error: unknown) {
     {
       error: safe
         ? message
-        : "The photo request could not be completed. Refresh and retry.",
+        : "The scan request could not be completed. Refresh and retry.",
     },
     {
       status: unavailable ? 403 : 409,
@@ -48,5 +48,15 @@ export function acquisitionProgressDto(
     reservedSlots: state.reservedSlots,
     availableSlots: state.availableSlots,
     photoPreparation: state.photoPreparation,
+    defaults: state.defaults,
+    defaultsRevision: state.defaultsRevision,
+    reviewed: state.session.candidates.filter(
+      (c) =>
+        !c.excluded &&
+        c.review?.cardId &&
+        c.review.finish !== "UNKNOWN" &&
+        c.review.condition &&
+        c.review.language,
+    ).length,
   };
 }

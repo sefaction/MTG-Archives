@@ -1231,6 +1231,8 @@ enum AcquisitionPhase {
 
 // Capture-only staging. No relation grants an inference worker inventory rights.
 model AcquisitionSession {
+  reviewDefaults Json?
+  defaultsRevision Int @default(0)
   batchNumber     Int      @unique @default(autoincrement())
   id              String   @id @default(cuid())
   version         Int      @default(1)

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { verifyAcquisitionReview } from "./verify-acquisition-review";
 import { randomUUID } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
@@ -213,6 +214,15 @@ export async function verifyAcquisitionPhotos(
     );
     assert.equal(await enqueueReadyRecognition(db, catalog.digest, model), 0);
     const final = await getAcquisitionProgress(db, actor, id);
+    await verifyAcquisitionReview(
+      db,
+      actor,
+      stranger,
+      id,
+      replaced.id,
+      catalog.digest,
+      model,
+    );
     assert.equal(final.session.phase, "STOPPING");
     assert.equal(final.reservedSlots, 2);
     assert.equal(final.session.candidates.length, 2);
