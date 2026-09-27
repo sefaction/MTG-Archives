@@ -1,5 +1,13 @@
 # Resumable work checkpoint
 
+## Acquisition kickoff active, 2026-09-27
+
+Branch `docs/card-acquisition-plan`, PR #315, base main `7ba9399`. User kickoff supersedes planning-only restrictions. Roadmap amendments underway; only P1/#303 pure foundation batch active, later batches queued. No migration, UI, Docker or production changes. Next: commit amended plan, create dependent foundation branch, implement and test all kickoff pure cases, open PR, stop at review boundary. No outstanding user decision blocks this batch. No new tests claimed yet.
+
+## Acquisition planning PR refreshed for review, 2026-09-27
+
+Branch `docs/card-acquisition-plan` updates the planning-only PR #315 against merged main `7ba9399`. The previous checkpoint conflict was resolved by retaining main's accumulated local and Pricing history and adding this current acquisition entry. All non-Acquisition issues are closed; #441 Deck export merged. Acquisition #302–#314 remain open and implementation has not started. The plan requires individual PR #315 merge approval and a separate explicit decision to begin P1; merging planning documents alone grants neither implementation authority nor scanner purchase. The proposed P1 starts with pure TypeScript counting/session contracts and deterministic fixtures, without image/OCR dependencies or Docker reload. Next safe step: validate the refreshed Markdown diff and CI, then ask for #315's individual approval and the P1 start decision. Production runtime stays outside local development scope.
+
 ## Deck list export local review, 2026-09-26
 
 Active branch `feat/deck-list-export` starts from merged main `776078c` after individually approved PR #440 merged and Pricing issues #330/#326 closed. The user noticed Deck Builder lacked export and requested a format compatible with sites such as Moxfield. This branch adds a header download with quantity/name and optional set/collector lines grouped by deck section, an access-checked read-only route, formatter round-trip tests and private/public browser coverage. Typecheck, two formatter tests, production Docker build and focused local Chromium workspace case passed. Local web image `sha256:cef1f03671b85a8268cb523f5b42edd6a7382c97d7646291c952bdbd01f34b18` is healthy at port 13001; only web was reloaded. Export syntax round-trips through MTG Archives Paste decklist, and the user confirmed the downloaded list imports into Moxfield with card lines and Commander, Sideboard and Maybeboard sections intact. PR #441 is open and was green before this documentation refresh. Next safe step: push this evidence, collect refreshed CI and obtain individual merge approval. Unraid archive switches remain off; no production runtime work.
