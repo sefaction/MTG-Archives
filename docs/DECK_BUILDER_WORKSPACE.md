@@ -11,6 +11,7 @@ First implementation batch for #268. The existing deck routes, data model and mu
 | Banner art, description, tags, detailed coverage/value and section totals | Expandable Deck details, art & coverage | Existing presentation retained |
 | Add exact printing, commander or section; optional physical-copy workflow | Direct Add card dialog | Editable decks only; League search restrictions retained |
 | Paste and review decklist | Direct Paste decklist link to existing import route | Existing management/locked-deck guards |
+| Export deck list | Builder header download | Text lines use quantity, card name and optional set/collector number, grouped by Commander, Mainboard, Sideboard and Maybeboard; available to anyone allowed to view the deck |
 | Return all commitments, settings, banner editing, safe delete | Deck options dialog | Existing forms and confirmation rules |
 | All card views, grouping, sorting, row details and printing/commitment editing | Builder toolbar and card list | Public viewers retain browsing only |
 | Select all/current/missing/unowned, optimize subsets | Selection & printing tools dialog | Selection shortcuts available before selecting; mutations only after selection |
@@ -19,6 +20,8 @@ First implementation batch for #268. The existing deck routes, data model and mu
 | Folders, tags, bracket filters, library views and creation | Existing Decks library | Unchanged in this batch |
 
 Native dialogs contain keyboard focus, restore the opener on close/Escape and scroll within the viewport. Common tasks need no dropdown. The old unbounded action/selection menus are removed. Detailed art and statistics remain available without preceding the working card list on initial load.
+
+The deck-list download uses a common paste-list syntax for sites such as Moxfield. It round-trips through MTG Archives' own Paste decklist importer. In local review, the user imported the downloaded list into Moxfield and confirmed that the card lines and Commander, Sideboard and Maybeboard sections worked.
 
 ## Verification and remaining scope
 

@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { openLocalPageAt200Percent } from "./local-browser-zoom";
 
 test.skip(
@@ -56,6 +57,14 @@ test("builder keeps cards visible, tasks keyboard accessible and views permissio
     await page.waitForURL(/dashboard/);
     await page.setViewportSize({ width: 1366, height: 768 });
     await page.goto(`/decks/${fixture.deck}`);
+    const [decklistDownload] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("link", { name: "Export deck list" }).click(),
+    ]);
+    expect(decklistDownload.suggestedFilename()).toBe("Workspace-fixture-decklist.txt");
+    expect(readFileSync(await decklistDownload.path(), "utf8")).toMatch(
+      /^Mainboard\n99 Forest(?: \([A-Z0-9]+\) [A-Za-z0-9-]+)?\n$/,
+    );
     const workspace = page.locator("#deck-workspace");
     const add = page.getByRole("button", { name: "Add card", exact: true });
     await expect(add).toBeVisible();
@@ -314,7 +323,12 @@ test("builder keeps cards visible, tasks keyboard accessible and views permissio
     ).toBe(0);
     await page.context().clearCookies();
     expect((await page.goto(`/decks/${fixture.deck}`))?.status()).toBe(404);
+    expect((await page.request.get(`/api/decks/${fixture.deck}/export`)).status()).toBe(404);
     await page.goto(`/decks/${fixture.publicDeck}`);
+    await expect(page.getByRole("link", { name: "Export deck list" })).toBeVisible();
+    const publicExport = await page.request.get(`/api/decks/${fixture.publicDeck}/export`);
+    expect(publicExport.status()).toBe(200);
+    expect(await publicExport.text()).toMatch(/^Mainboard\n1 Forest/);
     await expect(page.getByText(/Read-only deck view/)).toBeVisible();
     await expect(add).toHaveCount(0);
     await expect(
