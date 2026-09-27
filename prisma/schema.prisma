@@ -1226,6 +1226,7 @@ enum AcquisitionPhase {
 
 // Capture-only staging. No relation grants an inference worker inventory rights.
 model AcquisitionSession {
+  batchNumber     Int      @unique @default(autoincrement())
   id              String   @id @default(cuid())
   version         Int      @default(1)
   intent          String   @default("ADD_NEW")
@@ -1268,6 +1269,7 @@ model AcquisitionRun {
   slots        AcquisitionCaptureSlot[]
   commands     AcquisitionCommand[]
   jobs         AcquisitionProcessingJob[]
+  photos       AcquisitionPhoto[]
 }
 
 model AcquisitionEvent {
@@ -1361,10 +1363,13 @@ model AcquisitionCaptureSlot {
   run        AcquisitionRun @relation(fields: [runId], references: [id], onDelete: Restrict)
   requestKey String
   position   Int
+  generation Int @default(0)
+  photos     AcquisitionPhoto[]
   createdAt  DateTime @default(now())
 
   @@unique([runId, requestKey])
   @@unique([runId, position])
+  @@unique([id, runId])
 }
 
 model AcquisitionCommand {
@@ -1413,4 +1418,30 @@ model AcquisitionProcessingJob {
   @@unique([artifactId, candidateId, candidateRevision, stage, versionKey])
   @@index([status, availableAt, leaseExpiresAt, createdAt])
   @@index([runId])
+}
+
+// Original private bytes are immutable. READY means durable receipt, not recognition.
+model AcquisitionPhoto {
+  id         String @id @default(uuid())
+  runId      String
+  run        AcquisitionRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+  slotId     String
+  slot       AcquisitionCaptureSlot @relation(fields: [slotId, runId], references: [id, runId], onDelete: Restrict)
+  uploadKey  String
+  generation Int
+  digest     String
+  bytes      Int
+  mediaType  String
+  width      Int
+  height     Int
+  ready      Boolean @default(false)
+  createdAt  DateTime @default(now())
+  readyAt    DateTime?
+  purgeAfter DateTime?
+  purgedAt   DateTime?
+
+  @@unique([runId, uploadKey])
+  @@unique([slotId, generation])
+  @@index([runId, ready])
+  @@index([purgeAfter, purgedAt])
 }

@@ -7,7 +7,7 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npx prisma generate && npm run build
+RUN npx tsx scripts/write-review-build-manifest.ts && npx prisma generate && npm run build
 
 FROM node:22-alpine AS runner
 WORKDIR /app
@@ -16,6 +16,7 @@ ENV NODE_ENV=production
 # backwards-compatible even when it originally read a PostgreSQL 16 server.
 RUN apk add --no-cache postgresql16-client
 COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/build-source-manifest.json ./build-source-manifest.json
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public

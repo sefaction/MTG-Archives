@@ -97,6 +97,54 @@ export async function verifyAcquisitionOrchestration(
     };
   }
   await assert.rejects(create("phone-photo-v1", 73), /remaining capacity/);
+  const unboundedLocation = await db.inventoryLocation.create({
+    data: {
+      ownerPlayerId: base.ownerPlayerId,
+      name: randomUUID(),
+      normalizedName: randomUUID(),
+      type: "Box",
+    },
+  });
+  const unbounded = await createAcquisitionSession(db, actor, {
+    ...base,
+    requestKey: randomUUID(),
+    locationId: unboundedLocation.id,
+    section: "",
+    policy: { kind: "FILL" },
+    run: { ...base.run, providerId: "phone-photo-v1" },
+  });
+  assert.equal(unbounded.session.target, null);
+  await command(unbounded.session.id, "START");
+  // Seed previous reservations, then exercise admission across the old ceiling.
+  const unboundedRun = await db.acquisitionRun.findUniqueOrThrow({
+    where: { sessionId: unbounded.session.id },
+  });
+  await db.acquisitionCaptureSlot.createMany({
+    data: Array.from({ length: 300 }, (_, position) => ({
+      runId: unboundedRun.id,
+      requestKey: `seed-${position}`,
+      position,
+    })),
+  });
+  assert.equal(
+    (
+      await reserveAcquisitionCaptureSlot(
+        db,
+        actor,
+        unbounded.session.id,
+        "beyond-300",
+      )
+    ).slot.position,
+    300,
+  );
+  assert.equal(
+    (await getAcquisitionProgress(db, actor, unbounded.session.id))
+      .availableSlots,
+    null,
+  );
+  console.log(
+    "PASS: unknown capacity remains open-ended, including admission past 300",
+  );
   const phone = await create("phone-photo-v1");
   assert.equal(phone.session.target, 72);
   const start = {
@@ -345,7 +393,12 @@ export async function verifyAcquisitionOrchestration(
   );
 
   const failure = await enqueue("failure");
-  await assert.rejects(db.acquisitionProcessingJob.update({ where: { id: failure.id }, data: { leaseToken: "partial" } }));
+  await assert.rejects(
+    db.acquisitionProcessingJob.update({
+      where: { id: failure.id },
+      data: { leaseToken: "partial" },
+    }),
+  );
   const failureStart = Date.now() + 1000;
   for (let n = 0; n < 3; n++) {
     const when = new Date(failureStart + 20000 * n);

@@ -16,6 +16,7 @@ Evidence abbreviations: **I** = InventoryBrowser, InventoryAdvancedSearch and in
 | `/inventory` | Collection / Inventory | Owner scope; deliberate admin mode; capability-gated actions | I; inventory-detail, inventory-color-filter, inventory-scryfall-query |
 | `/locations` | Collection / Locations | Owner tree; authorized owner controls; system/deck location limits | L; location-hierarchy, location-scale, vault-map |
 | `/imports` | Collection / Add / Import / Export | Own capture/review/history; restricted maintenance and undo | M; inventory-export and import units |
+| `/imports/scan` | Collection / Imports / Scan cards | Owned photo batches and private camera/library intake; explicit Admin Mode | Acquisition photo intake tests |
 | `/decks` | Decks / library | Private-owner workspace, public differences, folders/tags/brackets | D; decks-brackets |
 | `/decks/[deckId]` | Decks / builder | Owner mutation versus visibility-safe read; League policy/frozen state | D; deck policy tests, league-lifecycle |
 | `/decks/[deckId]/import` | Deck builder / Add or import | Authorized deck mutation; explicit review and printing/commander choices | D; pasted-decklist |

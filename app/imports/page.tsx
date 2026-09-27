@@ -1324,6 +1324,7 @@ export default async function ImportsPage({
         </div>
       </div>
       <nav aria-label="Import tasks" className="flex flex-wrap gap-2">
+        <a className={filterButtonClass} href="/imports/scan">Scan cards</a>
         {[
           ["csv", "Import CSV"],
           ["add", "Add card"],

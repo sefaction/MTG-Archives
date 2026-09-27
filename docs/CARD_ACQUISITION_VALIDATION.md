@@ -100,10 +100,22 @@ Correction: that earlier Docker build used the primary checkout because its olde
 
 ## P2 orchestration evidence (2026-09-27)
 
-The same reusable verifier now checks durable 72-slot phone admission, the final-slot race with six callers, reservation replay after stop, rejection of unreserved candidates, and a progress read distinguishing reserved from received photos. Preselected phone targets must fit known remaining capacity and the 300-card bounded test ceiling.
+The same reusable verifier now checks durable 72-slot phone admission, the final-slot race with six callers, reservation replay after stop, rejection of unreserved candidates, and a progress read distinguishing reserved from received photos. Known destination/section capacity determines the remaining target. Unknown capacity is open-ended with a running count unless the user chooses a limit; 72 and 300 are fixture sizes, not fixed product caps.
 
 Versioned stage jobs enqueue immediately after the server finalizes their artifact, with pipeline/runtime/model/catalog/index/execution identity. Database tests prove duplicate enqueue, two competing workers, lease handoff, stale completion/heartbeat rejection, preservation of human review, timeout abort, bounded errors/crashes and cancellation. Outputs remain staged evidence, with no Inventory authority. Queue adapters must stop native child processes when aborted; no real OCR adapter is claimed by these tests.
 
 The fixture suite persists exact-mode 263 captures plus 37 untouched source items and logical-mode 263 allocated plus 37 retained overflow, then replays reversed delivery across a new database connection. These are software fixtures, not scanner hardware results. Full core passed 635 tests/typecheck/build, and the final progress-readout PostgreSQL rerun passed; disposable containers/volumes were cleaned.
 
 Corrected cumulative Docker validation: explicit worktree build `sha256:23459d0d07eb2df3c8b6d4ab91af1cbbe182f7bf99e26a6e9309411f3fb28ab3` loaded into web and the ordinary workers; source hashes of store/jobs/schema and both migrations match the worktree. Both migrations are applied, web is healthy, and the Chromium admin-route boundary case passed 1/1. This corrects the earlier wrong-checkout Docker evidence. No capture UI or real-photo acceptance is implied.
+
+## Capacity correction and private photo intake evidence (2026-09-27)
+
+Phone admission uses remaining location/section capacity when configured. Without capacity, the batch is open-ended and displays a running count; users may choose a manual limit. The PostgreSQL fixture now explicitly reserves slot 301 in an unlimited session. The 72-card fixture only demonstrates one configured capacity.
+
+The photo intake batch adds authenticated private JPEG/PNG/WebP uploads (10 MiB and 36 MP maximum), immutable hash-verified files, durable upload replay and retake generations, and immediate bounded canonical-image jobs. Initial storage safeguards are 1 GiB per session, 4 GiB per owner and a 2 GiB free-space reserve; these are byte safeguards, not fixed card-count limits. HEIC has an explicit JPEG/in-app-camera alternative. Originals are retained unfinished; the chosen seven-day post-commit cleanup is pending the commit implementation.
+
+The reusable full local verifier passed with report `acquisition-2026-09-27T15-29-22-191Z`. Real PostgreSQL cases cover concurrent replay, conflicting keys, rollback after file persistence, duplicate-looking physical cards, generation fencing, stop/drain, authorization and actual Sharp preparation. Inventory remains unchanged.
+
+Explicit worktree Docker build and reload passed. `verify:local-image` matched all 389 build inputs against loaded image `sha256:ed15723b8b39abafbf2ef329363a20ebdb0474e6887d7b3c91de17c19a019fa6`. The focused local browser test passed 1/1 in 13.5 seconds: capacity-two destination, lost-ACK reload recovery, fake camera capture, full-batch admission block, retake preserving physical count, private-photo access denial, 390/320px layouts, and an unknown-capacity batch with a running count and continued admission. The screenshot was inspected. This proves Chromium behavior with a generated image and fake camera, not real Android camera acceptance.
+
+Review entry point: `/imports/scan`. Local worker overlay: `docker-compose.acquisition.local.yml`, combined with the ordinary local Compose files. The source manifest helper prevents accidentally reviewing an image built from a different checkout. Ten supplied private Android originals remain untouched; real recognition/corpus checks remain pending. Card identification, review, Inventory commit, secure Android connection and backup/restore acceptance remain incomplete. No production change.
