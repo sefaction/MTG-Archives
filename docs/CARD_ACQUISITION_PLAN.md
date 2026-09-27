@@ -92,7 +92,7 @@ The UI initiative #262/#274 and its non-Acquisition child issues are closed. No 
 
 ## Kickoff requirement ownership
 
-The preserved [kickoff sections A-H](reference/card-acquisition/implementation-kickoff.md#required-roadmap-amendments-and-implementation-requirements) are normative requirements, incorporated into this roadmap. A/B belong to P1/P2/P6/P7; C to P3 and live-capture child work; D to the inbox child; E to P4/P5; F to the acceleration child; G to P8 and each provider gate; H to P9-P12. See the milestone amendments for concrete boundaries. Stop this task after the verified first foundation PR; do not automatically begin persistence.
+The preserved [kickoff sections A-H](reference/card-acquisition/implementation-kickoff.md#required-roadmap-amendments-and-implementation-requirements) are normative requirements, incorporated into this roadmap. A/B belong to P1/P2/P6/P7; C to P3 and live-capture child work; D to the inbox child; E to P4/P5; F to the acceleration child; G to P8 and each provider gate; H to P9-P12. See the milestone amendments for concrete boundaries. The original kickoff stopped after the first foundation PR. That boundary is satisfied by approved/merged #445; the user subsequently authorized continuing through the first locally testable scan method.
 
 ## Queued child issue links
 

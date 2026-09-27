@@ -303,13 +303,29 @@ export async function createAcquisitionSession(
         })),
         otherSessionPending,
       });
+      const policy =
+        input.run.providerId === "phone-photo-v1" &&
+        input.policy.kind !== "MANUAL"
+          ? placement.remaining === null
+            ? { kind: "UNTARGETED" as const }
+            : { kind: "FILL" as const }
+          : input.policy;
       const state = createCaptureSession({
         id: randomUUID(),
         intent: "ADD_NEW",
         run: input.run,
         placement,
-        policy: input.policy,
+        policy,
       });
+      if (
+        input.run.providerId === "phone-photo-v1" &&
+        state.target !== null &&
+        placement.remaining !== null &&
+        state.target > placement.remaining
+      )
+        throw new Error(
+          "Choose a phone batch within the selected remaining capacity",
+        );
       const row = await tx.acquisitionSession.create({
         data: {
           id: state.id,
@@ -320,7 +336,7 @@ export async function createAcquisitionSession(
           requestKey: input.requestKey,
           requestPayload,
           placement,
-          policy: input.policy,
+          policy: state.policy,
           target: state.target,
           run: {
             create: {
@@ -349,6 +365,20 @@ async function save(
   after: CaptureSession,
 ) {
   const runId = row.run!.id;
+  if (row.run!.providerId === "phone-photo-v1") {
+    const slots = await tx.acquisitionCaptureSlot.findMany({
+      where: { runId },
+    });
+    for (const candidate of after.candidates) {
+      const slot = slots.find((s) => s.id === candidate.input.id);
+      if (
+        !slot ||
+        candidate.input.order[0] !== slot.position ||
+        candidate.input.order[1] !== 0
+      )
+        throw new Error("Phone candidate requires its reserved capture slot");
+    }
+  }
   const artifacts = new Map(row.run!.artifacts.map((a) => [a.sourceId, a.id]));
   for (const artifact of after.artifacts) {
     if (artifacts.has(artifact.id)) continue;
@@ -527,4 +557,205 @@ export async function proposeAcquisitionCandidate(
   return mutate(db, actor, sessionId, revision, (s) =>
     recordRecognitionProposal(s, key, candidateRevision, attributes),
   );
+}
+
+// Commands are replayable even after their original revision has advanced.
+export async function executeAcquisitionCommand(
+  db: PrismaClient,
+  actor: AcquisitionActor,
+  sessionId: string,
+  input: {
+    requestKey: string;
+    revision: number;
+    command: Parameters<typeof transitionCapture>[1];
+  },
+) {
+  identity.parse(input.requestKey);
+  z.number().int().nonnegative().parse(input.revision);
+  const payload = JSON.stringify({
+    revision: input.revision,
+    command: input.command,
+  });
+  return transaction(db, async (tx) => {
+    await read(tx, actor, sessionId);
+    await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${sessionId} FOR UPDATE`;
+    const row = await read(tx, actor, sessionId);
+    const previous = await tx.acquisitionCommand.findUnique({
+      where: {
+        runId_requestKey: { runId: row.run!.id, requestKey: input.requestKey },
+      },
+    });
+    if (previous) {
+      if (previous.payload !== payload)
+        throw new Error("Capture command identity conflict");
+      return { ...hydrate(row), replay: true };
+    }
+    if (row.revision !== input.revision)
+      throw new Error("Stale capture session revision");
+    if (["START", "RESUME"].includes(input.command) && !destinationCurrent(row))
+      throw new Error("Destination changed; review placement before starting");
+    const before = hydrate(row).session;
+    const after = transitionCapture(before, input.command);
+    await save(tx, row, before, after);
+    await tx.acquisitionCommand.create({
+      data: {
+        runId: row.run!.id,
+        requestKey: input.requestKey,
+        payload,
+      },
+    });
+    return { ...hydrate(await read(tx, actor, sessionId)), replay: false };
+  });
+}
+
+// Single-card phone provider admission. A reservation remains occupied after an
+// interrupted upload; retry/retake uses the SAME slot, never another physical ID.
+export async function reserveAcquisitionCaptureSlot(
+  db: PrismaClient,
+  actor: AcquisitionActor,
+  sessionId: string,
+  requestKey: string,
+) {
+  identity.parse(requestKey);
+  return transaction(db, async (tx) => {
+    await read(tx, actor, sessionId);
+    await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${sessionId} FOR UPDATE`;
+    const row = await read(tx, actor, sessionId);
+    const run = row.run!;
+    if (run.providerId !== "phone-photo-v1")
+      throw new Error("Provider does not use phone slots");
+    const existing = await tx.acquisitionCaptureSlot.findUnique({
+      where: { runId_requestKey: { runId: run.id, requestKey } },
+    });
+    if (existing) return { slot: existing, replay: true };
+    if (row.phase !== "CAPTURING" || !destinationCurrent(row))
+      throw new Error("Capture is not accepting new photos");
+    // No mixing unreserved candidates into the exact phone provider.
+    const slots = await tx.acquisitionCaptureSlot.findMany({
+      where: { runId: run.id },
+    });
+    if (
+      run.candidates.some(
+        (c) => !slots.some((slot) => slot.id === c.physicalId),
+      )
+    )
+      throw new Error("Phone capture identities need reconciliation");
+    if (row.target !== null && slots.length >= row.target)
+      throw new Error("Capture batch is full");
+    const slot = await tx.acquisitionCaptureSlot.create({
+      data: {
+        runId: run.id,
+        requestKey,
+        position: slots.length,
+      },
+    });
+    await tx.acquisitionSession.update({
+      where: { id: sessionId },
+      data: { revision: { increment: 1 } },
+    });
+    return { slot, replay: false };
+  });
+}
+
+export const acquisitionStageVersionsSchema = z
+  .object({
+    pipeline: identity,
+    runtime: identity,
+    model: identity,
+    catalog: identity,
+    index: identity,
+    execution: z.enum(["CPU", "GPU"]),
+  })
+  .strict();
+
+// Internal server call after artifact finalization. Input versions form immutable
+// identity; replacing bytes/model/catalog requires a new job identity.
+export async function enqueueAcquisitionProcessing(
+  db: PrismaClient,
+  actor: AcquisitionActor,
+  sessionId: string,
+  input: {
+    artifactSourceId: string;
+    physicalId: string;
+    stage: string;
+    versions: z.infer<typeof acquisitionStageVersionsSchema>;
+  },
+) {
+  const stage = identity.parse(input.stage);
+  const versions = acquisitionStageVersionsSchema.parse(input.versions);
+  return transaction(
+    db,
+    async (tx) => {
+      const row = await read(tx, actor, sessionId);
+      const run = row.run!;
+      const candidate = run.candidates.find(
+        (c) => c.physicalId === input.physicalId,
+      );
+      const artifact = run.artifacts.find(
+        (a) => a.sourceId === input.artifactSourceId,
+      );
+      if (
+        !candidate ||
+        !artifact ||
+        !candidate.observations.some((o) => o.artifactId === artifact.id)
+      )
+        throw new Error("Processing requires a related candidate and artifact");
+      const jobInput = { version: 1, digest: artifact.digest, versions };
+      const versionKey = createHash("sha256")
+        .update(JSON.stringify(jobInput))
+        .digest("hex");
+      const key = {
+        artifactId: artifact.id,
+        candidateId: candidate.id,
+        candidateRevision: candidate.revision,
+        stage,
+        versionKey,
+      };
+      // A unique versioned key admits concurrent retries without duplicate jobs.
+      return tx.acquisitionProcessingJob.upsert({
+        where: {
+          artifactId_candidateId_candidateRevision_stage_versionKey: key,
+        },
+        create: { runId: run.id, ...key, input: jobInput },
+        update: {},
+      });
+    },
+    true,
+  );
+}
+
+export async function getAcquisitionProgress(
+  db: PrismaClient,
+  actor: AcquisitionActor,
+  sessionId: string,
+) {
+  return transaction(db, async (tx) => {
+    const row = await read(tx, actor, sessionId);
+    const slots = await tx.acquisitionCaptureSlot.findMany({
+      where: { runId: row.run!.id },
+      orderBy: { position: "asc" },
+    });
+    const jobs = await tx.acquisitionProcessingJob.groupBy({
+      by: ["status"],
+      where: { runId: row.run!.id },
+      _count: { _all: true },
+    });
+    return {
+      ...hydrate(row),
+      slots: slots.map((slot) => ({
+        id: slot.id,
+        position: slot.position,
+        received: row.run!.candidates.some((c) => c.physicalId === slot.id),
+      })),
+      reservedSlots: slots.length,
+      availableSlots:
+        row.target === null ? null : Math.max(0, row.target - slots.length),
+      // Stage totals are not resolved-card totals. The UI must not label a
+      // canonicalization job COMPLETE as a reviewed/commit-ready card.
+      processingStages: jobs.map((job) => ({
+        status: job.status,
+        count: job._count._all,
+      })),
+    };
+  });
 }
