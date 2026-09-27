@@ -461,8 +461,11 @@ export async function verifyAcquisitionOrchestration(
       },
     },
     "timeout-worker",
-    { timeoutMs: 100, leaseMs: 1000 },
+    // This case tests handler abort, not lease expiry. Leave enough lease time
+    // for slow local DB/CPU scheduling; expiry is tested with explicit clocks.
+    { timeoutMs: 100, leaseMs: 10000 },
   );
+  assert.equal(tick.claimed, 1);
   assert.equal(tick.failed, 1);
   assert.equal(aborted, true);
   await enqueue("cancelled");

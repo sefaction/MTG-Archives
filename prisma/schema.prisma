@@ -136,6 +136,7 @@ enum NotificationDeliveryAttemptStatus {
 model User {
   acquisitionSessions          AcquisitionSession[]
   acquisitionCorrections       AcquisitionCountCorrection[]
+  acquisitionCatalogRefreshes  AcquisitionCatalogRefresh[]
   id                           String                              @id @default(cuid())
   username                     String                              @unique
   email                        String?                             @unique
@@ -405,6 +406,10 @@ model Card {
   @@index([oracleId])
   @@index([setCode, collectorNumber])
   @@index([name])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Card_name_trgm_idx")
+  @@index([setCode(ops: raw("gin_trgm_ops"))], type: Gin, map: "Card_setCode_trgm_idx")
+  @@index([collectorNumber])
+  @@index([typeLine(ops: raw("gin_trgm_ops"))], type: Gin, map: "Card_typeLine_trgm_idx")
 }
 
 model Pull {
@@ -1444,4 +1449,28 @@ model AcquisitionPhoto {
   @@unique([slotId, generation])
   @@index([runId, ready])
   @@index([purgeAfter, purgedAt])
+}
+
+// A verified bulk file and transactionally advanced import cursor. Completion
+// describes this source only; it is not universal language/catalog coverage.
+model AcquisitionCatalogRefresh {
+  id                String @id @default(uuid())
+  sourceDigest      String @unique
+  sourceType        String
+  sourceUpdatedAt   DateTime
+  sourceBytes       BigInt
+  expectedRows      Int
+  processedRows     Int @default(0)
+  createdCards      Int @default(0)
+  updatedCards      Int @default(0)
+  preservedCards    Int @default(0)
+  status            String @default("RUNNING")
+  errorCode         String?
+  requestedByUserId String
+  requestedByUser   User @relation(fields: [requestedByUserId], references: [id], onDelete: Restrict)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  completedAt       DateTime?
+
+  @@index([status, completedAt])
 }

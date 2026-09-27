@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { verifyAcquisitionPhotos } from "./verify-acquisition-photos";
+import { verifyAcquisitionCatalog } from "./verify-acquisition-catalog";
 import { verifyAcquisitionOrchestration } from "./verify-acquisition-orchestration";
 import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
@@ -361,6 +362,7 @@ async function run() {
   assert.equal(another.session.placement.otherSessionPending, 3);
   await verifyAcquisitionOrchestration(db, actor, input());
   await verifyAcquisitionPhotos(db, actor, stranger, input());
+  await verifyAcquisitionCatalog(db, admin, actor, cardId);
   console.log(
     "PASS: optimistic commands, persisted human review/correction precedence, cancellation conservation, other-session pending",
   );
