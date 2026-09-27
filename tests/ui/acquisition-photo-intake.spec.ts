@@ -4,6 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
+import { checkAcquisitionCommit } from "./acquisition-commit-steps";
 import { checkAcquisitionReview } from "./acquisition-review-steps";
 
 function database(body: string) {
@@ -41,6 +42,7 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
   })
     .jpeg()
     .toBuffer();
+  let committed = 0;
   try {
     database(
       `const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash,role:'PLAYER'}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:2,sections:[{name:'A',capacity:2}]}}});`,
@@ -296,6 +298,29 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
           }),
         );
         await checkAcquisitionReview(page);
+        const receipt = await checkAcquisitionCommit(page);
+        committed = 1;
+        const committedState = JSON.parse(
+          database(`console.log(JSON.stringify({
+          rows:await p.inventoryItem.findMany({where:{currentOwnerId:${JSON.stringify(tag)}}}),
+          audits:await p.inventoryAuditLog.findMany({where:{changedByUserId:${JSON.stringify(tag)},changeType:'acquisition_committed'}}),
+          members:await p.acquisitionCommitMember.findMany({where:{commitId:${JSON.stringify(receipt.id)}}}),
+          photos:await p.acquisitionPhoto.findMany({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}}},select:{purgeAfter:true}})
+        }));`),
+        );
+        expect(committedState.rows).toHaveLength(1);
+        expect(committedState.rows[0]).toMatchObject({
+          quantity: 1,
+          sourceType: "ACQUISITION",
+          originalOpenerId: null,
+          condition: "LP",
+          foilStatus: "NONFOIL",
+        });
+        expect(committedState.audits).toHaveLength(1);
+        expect(committedState.members).toHaveLength(1);
+        expect(
+          committedState.photos.filter((p: any) => p.purgeAfter),
+        ).toHaveLength(1);
       }
     }
     expect(
@@ -304,11 +329,11 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
           `console.log(JSON.stringify(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}})));`,
         ),
       ),
-    ).toBe(0);
+    ).toBe(committed);
   } finally {
     await browser.close();
     database(
-      `const n=${JSON.stringify(tag)};const sessions=await p.acquisitionSession.findMany({where:{ownerPlayerId:n},select:{id:true}});const runs=await p.acquisitionRun.findMany({where:{sessionId:{in:sessions.map(s=>s.id)}},select:{id:true}});const where={runId:{in:runs.map(r=>r.id)}};const photos=await p.acquisitionPhoto.findMany({where});await p.acquisitionProcessingJob.deleteMany({where});await p.acquisitionPhoto.deleteMany({where});await p.acquisitionCommand.deleteMany({where});await p.acquisitionCaptureSlot.deleteMany({where});await p.acquisitionCountCorrection.deleteMany({where});await p.acquisitionObservation.deleteMany({where});await p.acquisitionEvent.deleteMany({where});await p.acquisitionCandidate.deleteMany({where});await p.acquisitionArtifact.deleteMany({where});await p.acquisitionRun.deleteMany({where:{id:{in:runs.map(r=>r.id)}}});await p.acquisitionSession.deleteMany({where:{id:{in:sessions.map(s=>s.id)}}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});const fs=require('fs/promises'),path=require('path');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw new Error('Invalid fixture path');for(const suffix of ['original','preview.jpg'])await fs.unlink(path.join(process.env.UPLOADS_DATA_PATH,'acquisition-v1',photo.id+'.'+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e})}`,
+      `const n=${JSON.stringify(tag)};const sessions=await p.acquisitionSession.findMany({where:{ownerPlayerId:n},select:{id:true}});const runs=await p.acquisitionRun.findMany({where:{sessionId:{in:sessions.map(s=>s.id)}},select:{id:true}});const where={runId:{in:runs.map(r=>r.id)}};const photos=await p.acquisitionPhoto.findMany({where});await p.acquisitionCommitMember.deleteMany({where});await p.acquisitionCommit.deleteMany({where});await p.inventoryAuditLog.deleteMany({where:{changedByUserId:n}});await p.inventoryItem.deleteMany({where:{currentOwnerId:n}});await p.acquisitionProcessingJob.deleteMany({where});await p.acquisitionPhoto.deleteMany({where});await p.acquisitionCommand.deleteMany({where});await p.acquisitionCaptureSlot.deleteMany({where});await p.acquisitionCountCorrection.deleteMany({where});await p.acquisitionObservation.deleteMany({where});await p.acquisitionEvent.deleteMany({where});await p.acquisitionCandidate.deleteMany({where});await p.acquisitionArtifact.deleteMany({where});await p.acquisitionRun.deleteMany({where:{id:{in:runs.map(r=>r.id)}}});await p.acquisitionSession.deleteMany({where:{id:{in:sessions.map(s=>s.id)}}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});const fs=require('fs/promises'),path=require('path');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw new Error('Invalid fixture path');for(const suffix of ['original','preview.jpg'])await fs.unlink(path.join(process.env.UPLOADS_DATA_PATH,'acquisition-v1',photo.id+'.'+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e})}`,
     );
   }
 });

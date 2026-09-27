@@ -1,3 +1,4 @@
+import { verifyAcquisitionCommit } from "./verify-acquisition-commit";
 import assert from "node:assert/strict";
 import { verifyAcquisitionPhotos } from "./verify-acquisition-photos";
 import { verifyAcquisitionCatalog } from "./verify-acquisition-catalog";
@@ -480,6 +481,7 @@ async function run() {
   console.log(
     "PASS: database foreign-run/duplicate/negative-order constraints and zero inventory/audit effects",
   );
+  await verifyAcquisitionCommit(db, actor, stranger, input());
 }
 
 run()
@@ -497,6 +499,8 @@ run()
       select: { id: true },
     });
     const where = { runId: { in: runs.map((r) => r.id) } };
+    await db.acquisitionCommitMember.deleteMany({ where });
+    await db.acquisitionCommit.deleteMany({ where });
     await db.acquisitionProcessingJob.deleteMany({ where });
     await db.acquisitionCommand.deleteMany({ where });
     await db.acquisitionPhoto.deleteMany({ where });

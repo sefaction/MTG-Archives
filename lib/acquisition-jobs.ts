@@ -47,6 +47,7 @@ export async function claimAcquisitionJobs(
   });
   const eligible: Prisma.AcquisitionProcessingJobWhereInput = {
     run: active,
+    candidate: { receipt: null },
     stage: { in: options.stages },
     attempts: { lt: db.acquisitionProcessingJob.fields.maxAttempts },
     OR: [
@@ -153,7 +154,7 @@ export async function completeAcquisitionJob(
         ...lease(job, now),
         ...(canonicalCurrent ? {} : { id: { in: [] } }),
         run: active,
-        candidate: candidateFence,
+        candidate: { ...candidateFence, receipt: null },
       },
       data: {
         status: "COMPLETE",

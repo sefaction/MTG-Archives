@@ -1,3 +1,4 @@
+import { purgeCommittedAcquisitionPhotos } from "../lib/acquisition-photo-retention";
 import { PrismaClient } from "@prisma/client";
 import { runAcquisitionJobsOnce } from "../lib/acquisition-jobs";
 import { canonicalizeAcquisitionPhoto } from "../lib/acquisition-files";
@@ -14,7 +15,16 @@ process.on("SIGINT", () => {
   stopped = true;
 });
 async function main() {
+  let nextCleanup = 0;
   do {
+    if (Date.now() >= nextCleanup) {
+      nextCleanup = Date.now() + 60000;
+      const cleanup = await purgeCommittedAcquisitionPhotos(db);
+      if (cleanup.purged || cleanup.failed)
+        console.log(
+          JSON.stringify({ event: "acquisition-photo-expiry", ...cleanup }),
+        );
+    }
     const result = await runAcquisitionJobsOnce(
       db,
       {

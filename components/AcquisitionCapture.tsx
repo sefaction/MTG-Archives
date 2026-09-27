@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AcquisitionCommitControls } from "./AcquisitionCommitControls";
 import { StorageDestinationPicker } from "./StorageDestinationPicker";
 import { AcquisitionPhotoRecognition } from "./AcquisitionPhotoRecognition";
 import {
@@ -64,6 +65,7 @@ export function AcquisitionCapture({
   const [cameraReady, setCameraReady] = useState(false);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [page, setPage] = useState(0);
+  const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
   const video = useRef<HTMLVideoElement>(null),
     stream = useRef<MediaStream | null>(null);
   const tasks = useRef(new Set<string>()),
@@ -592,18 +594,26 @@ export function AcquisitionCapture({
             </section>
           )}
           <AcquisitionBatchDefaults
-            key={batchId}
+            key={`defaults:${batchId}`}
             batchId={batchId}
             defaults={progress.defaults}
             revision={progress.defaultsRevision}
             refresh={() => void refresh()}
           />
+          <AcquisitionCommitControls
+            key={`commit:${batchId}`}
+            progress={progress}
+            locations={locations}
+            selected={selectedPhotos}
+            onSelect={setSelectedPhotos}
+            refresh={refresh}
+          />
           <section className={panel}>
             <h3 className="font-semibold">Saved cards</h3>
             <p className="text-sm mb-3">
               Photos are prepared and identified in the background. Expand a
-              suggestion to check possible printings. Nothing is added to
-              Inventory yet.
+              suggestion to check possible printings. Only an explicit Inventory
+              confirmation adds copies.
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
               {progress.slots.slice(page * 12, page * 12 + 12).map((slot) => {
@@ -619,7 +629,7 @@ export function AcquisitionCapture({
                     className="min-w-0 space-y-2"
                   >
                     <p>Card {slot.position + 1}</p>
-                    {photo ? (
+                    {photo && !photo.purgedAt ? (
                       <img
                         loading="lazy"
                         className="w-full h-40 object-contain rounded"
@@ -627,7 +637,11 @@ export function AcquisitionCapture({
                         alt={`Saved card ${slot.position + 1}`}
                       />
                     ) : (
-                      <p className="text-sm">Awaiting photo</p>
+                      <p className="text-sm">
+                        {photo?.purgedAt
+                          ? "Photo retention ended"
+                          : "Awaiting photo"}
+                      </p>
                     )}
                     <p className="text-xs">
                       {photo
@@ -652,7 +666,29 @@ export function AcquisitionCapture({
                         {slot.review.condition}
                       </p>
                     )}
-                    {photo && (
+                    {slot.committed && (
+                      <p className="text-sm font-semibold">
+                        Added to Inventory
+                      </p>
+                    )}
+                    {photo && slot.review && !slot.committed && (
+                      <label className="flex gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          aria-label={`Select card ${slot.position + 1} for Inventory`}
+                          checked={selectedPhotos.includes(photo.id)}
+                          onChange={(e) =>
+                            setSelectedPhotos((ids) =>
+                              e.target.checked
+                                ? [...new Set([...ids, photo.id])]
+                                : ids.filter((id) => id !== photo.id),
+                            )
+                          }
+                        />
+                        Add this copy
+                      </label>
+                    )}
+                    {photo && !slot.committed && (
                       <AcquisitionPhotoReview
                         key={photo.id}
                         batchId={batchId}
@@ -666,6 +702,7 @@ export function AcquisitionCapture({
                       disabled={
                         busy ||
                         pending ||
+                        slot.committed ||
                         !["CAPTURING", "STOPPING"].includes(progress.phase)
                       }
                       onClick={() => {
