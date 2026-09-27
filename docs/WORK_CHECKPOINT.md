@@ -1,5 +1,15 @@
 # Resumable work checkpoint
 
+## Acquisition foundation ready for PR, 2026-09-27
+
+- Active worktree: `C:\Users\brian\Projects\MTG-Archives-acquisition-foundation`, branch `feat/acquisition-foundation`; base `docs/card-acquisition-plan` at `2f2cb3e` (unmerged PR #315), main anchor `7ba9399`.
+- P1/#303 first bounded batch implements pure versioned evidence/session/placement, identity, count uncertainty/correction, stable target allocation, capability-gated transitions, recognition/review separation and commit-preview readiness. No runtime entry point or inventory mutation.
+- `npx.cmd tsx --test tests/acquisition-domain.test.ts`: 14/14; `npm.cmd run verify:core`: exit 0, 634/634 units, Prisma generate/typecheck/build/manifests. After final false-detection guard, focused 14/14 and typecheck passed. Exact-head PR CI pending. Full details and twelve-case evidence map: `docs/CARD_ACQUISITION_FOUNDATION.md`.
+- Roadmap PR #315 incorporates the user kickoff; #302-#314 reconciled, #442 live camera, #443 folder inbox and #444 optional inference worker queued in the existing milestone. Foundry records authorization and fi-7160/phone/CPU-first directions. Historical source inputs preserved.
+- No new dependency, migration, UI, Docker or production change. Local runtime image was not rebuilt for unused pure code. No DB concurrency, image-engine, phone, TWAIN or physical hardware pass claimed.
+- Next safe step: push/open the dependent foundation PR, verify exact-head required CI, then stop at the kickoff's review boundary. P1 persistence/ownership is the next implementation batch after review; do not begin it automatically or close #303 yet.
+- No blocking questions. User is sleeping and accepts queued questions; pause the goal if a consequential answer becomes necessary. Individual approvals are required for both PRs before merge; this kickoff does not authorize merge/deployment.
+
 ## Acquisition kickoff active, 2026-09-27
 
 Branch `docs/card-acquisition-plan`, PR #315, base main `7ba9399`. User kickoff supersedes planning-only restrictions. Roadmap amendments underway; only P1/#303 pure foundation batch active, later batches queued. No migration, UI, Docker or production changes. Next: commit amended plan, create dependent foundation branch, implement and test all kickoff pure cases, open PR, stop at review boundary. No outstanding user decision blocks this batch. No new tests claimed yet.
