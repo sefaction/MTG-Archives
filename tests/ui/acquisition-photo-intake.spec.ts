@@ -1,6 +1,8 @@
 import { expect, test, chromium } from "@playwright/test";
 import { execFileSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import sharp from "sharp";
 
 function database(body: string) {
@@ -174,13 +176,11 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
       .getByRole("button", { name: "Start batch", exact: true })
       .click();
     await expect(page.getByRole("heading", { name: /0 cards$/ })).toBeVisible();
-    await page
-      .getByLabel("Choose card photos")
-      .setInputFiles({
-        name: "card.jpg",
-        mimeType: "image/jpeg",
-        buffer: fixture,
-      });
+    await page.getByLabel("Choose card photos").setInputFiles({
+      name: "card.jpg",
+      mimeType: "image/jpeg",
+      buffer: fixture,
+    });
     await expect(page.getByRole("heading", { name: /1 cards$/ })).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Photo library", exact: true }),
@@ -192,6 +192,57 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
       path: "test-results/acquisition-phone.png",
       fullPage: true,
     });
+    if (process.env.MTG_ACQUISITION_CORPUS_PATH) {
+      const manifest = JSON.parse(
+        readFileSync(
+          path.join(
+            process.cwd(),
+            "tools/acquisition-eval/android-manifest.json",
+          ),
+          "utf8",
+        ),
+      );
+      const photos = manifest.entries.map(
+        (entry: { file: string; sha256: string }) => {
+          if (path.basename(entry.file) !== entry.file)
+            throw new Error("Invalid corpus name");
+          const photo = path.join(
+            process.env.MTG_ACQUISITION_CORPUS_PATH!,
+            entry.file,
+          );
+          expect(
+            createHash("sha256").update(readFileSync(photo)).digest("hex"),
+          ).toBe(entry.sha256);
+          return photo;
+        },
+      );
+      const started = Date.now();
+      await page.getByLabel("Choose card photos").setInputFiles(photos);
+      await expect(
+        page.getByRole("heading", { name: /11 cards$/ }),
+      ).toBeVisible();
+      await expect(page.getByText(/11 photos prepared/)).toBeVisible({
+        timeout: 60000,
+      });
+      const digests = JSON.parse(
+        database(
+          `console.log(JSON.stringify(await p.acquisitionPhoto.findMany({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}}},select:{digest:true,ready:true,purgeAfter:true}})));`,
+        ),
+      );
+      for (const entry of manifest.entries)
+        expect(digests).toContainEqual({
+          digest: entry.sha256,
+          ready: true,
+          purgeAfter: null,
+        });
+      console.log(
+        JSON.stringify({
+          privateAndroidPhotos: photos.length,
+          uploadToPreparedMilliseconds: Date.now() - started,
+          inventoryWrites: 0,
+        }),
+      );
+    }
     expect(
       JSON.parse(
         database(
