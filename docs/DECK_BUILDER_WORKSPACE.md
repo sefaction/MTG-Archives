@@ -21,7 +21,7 @@ First implementation batch for #268. The existing deck routes, data model and mu
 
 Native dialogs contain keyboard focus, restore the opener on close/Escape and scroll within the viewport. Common tasks need no dropdown. The old unbounded action/selection menus are removed. Detailed art and statistics remain available without preceding the working card list on initial load.
 
-The deck-list download uses a common paste-list syntax intended for sites such as Moxfield. It round-trips through MTG Archives' own Paste decklist importer. External site import and preservation of Commander/Sideboard/Maybeboard assignments have not been verified against Moxfield, so review those assignments after importing there.
+The deck-list download uses a common paste-list syntax for sites such as Moxfield. It round-trips through MTG Archives' own Paste decklist importer. In local review, the user imported the downloaded list into Moxfield and confirmed that the card lines and Commander, Sideboard and Maybeboard sections worked.
 
 ## Verification and remaining scope
 
