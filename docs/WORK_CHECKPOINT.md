@@ -8,7 +8,8 @@
 - Photo intake adds private atomic files, retry/generation fences, IndexedDB upload recovery, immediate canonical preparation, persistent camera/library UI and batch counters. Actual card recognition, review and Inventory commit are NOT implemented yet; goal remains active.
 - Full mechanical verifier passed in `.local-data/verification/acquisition-2026-09-27T15-29-22-191Z`. Focused browser run passed 1/1 in 13.5 seconds (session 13737 completed); inspected phone screenshot. Both known-capacity and unlimited flows passed. Build session 54823 and Compose session 1624 completed successfully.
 - User supplied ten original Android JPGs at `C:\Users\brian\Downloads\immich-20260927_102430`. Originals remain untouched/private. Original-photo retention is 7 days AFTER commit; unfinished photos remain and no automatic deletion is currently enabled.
-- Next safe steps: open dependent photo PR after incorporating corrected parent ancestry; continue real-photo processing work. Update #447 description for capacity correction and obtain individual approval before merge. Continue real photo recognition/review/commit locally; no production work.
+- Delivery: photo intake PR #448 is open against #447 at `2e42573`; parent ancestry incorporated, source-manifest still matches. #447 description now records corrected capacity behavior; all three parent CI checks are green. #448 CI is pending. Neither PR has individual merge approval.
+- Next safe steps: collect #448 CI; exercise the supplied real photos and develop actual recognition/review/commit locally. Prepare secure Android testing when ready. Obtain individual approval before merging #447 or #448. Goal remains active; no production work.
 
 ## Capacity correction for PR #447, 2026-09-27
 
