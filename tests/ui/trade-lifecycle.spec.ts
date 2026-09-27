@@ -393,16 +393,18 @@ test("two people negotiate, confirm and conserve exact inventory; cancel and dec
   } finally {
     await Promise.allSettled(contexts.map((c) => c.close()));
     // Resolve exact fixture identities by a unique UUID tag, even if setup failed.
-    database(`const users=await p.user.findMany({where:{username:{startsWith:${quote(tag)}}}});const ids=users.map(u=>u.id),owners=users.map(u=>u.playerId);await p.$transaction(async tx=>{
-      const trades=await tx.trade.findMany({where:{createdByUserId:{in:ids}},select:{id:true}});const tradeIds=trades.map(t=>t.id);
-      await tx.notificationDeliveryJob.deleteMany({where:{sourceType:'trade.completed',sourceId:{in:tradeIds}}});
-      await tx.inventoryAuditLog.deleteMany({where:{OR:[{changedByUserId:{in:ids}},{tradeId:{in:tradeIds}}]}});
-      await tx.tradeEvent.deleteMany({where:{tradeId:{in:tradeIds}}});await tx.trade.deleteMany({where:{id:{in:tradeIds}}});
-      await tx.tradeWishlistItem.deleteMany({where:{ownerUserId:{in:ids}}});
-      await tx.inventoryItem.deleteMany({where:{currentOwnerId:{in:owners}}});
-      await tx.inventoryLocation.deleteMany({where:{ownerPlayerId:{in:owners}}});
-      await tx.user.deleteMany({where:{id:{in:ids}}});await tx.player.deleteMany({where:{id:{in:owners}}});
-      await tx.card.deleteMany({where:{scryfallId:{startsWith:${quote(tag)}}}});
-    });return true;`);
+    // Independent deletes release locks promptly; cleanup needs no all-or-nothing
+    // transaction and must not share Prisma's five-second interactive deadline.
+    database(`const users=await p.user.findMany({where:{username:{startsWith:${quote(tag)}}}});const ids=users.map(u=>u.id),owners=users.map(u=>u.playerId);
+      const trades=await p.trade.findMany({where:{createdByUserId:{in:ids}},select:{id:true}});const tradeIds=trades.map(t=>t.id);
+      await p.notificationDeliveryJob.deleteMany({where:{sourceType:'trade.completed',sourceId:{in:tradeIds}}});
+      await p.inventoryAuditLog.deleteMany({where:{OR:[{changedByUserId:{in:ids}},{tradeId:{in:tradeIds}}]}});
+      await p.tradeEvent.deleteMany({where:{tradeId:{in:tradeIds}}});await p.trade.deleteMany({where:{id:{in:tradeIds}}});
+      await p.tradeWishlistItem.deleteMany({where:{ownerUserId:{in:ids}}});
+      await p.inventoryItem.deleteMany({where:{currentOwnerId:{in:owners}}});
+      await p.inventoryLocation.deleteMany({where:{ownerPlayerId:{in:owners}}});
+      await p.user.deleteMany({where:{id:{in:ids}}});await p.player.deleteMany({where:{id:{in:owners}}});
+      await p.card.deleteMany({where:{scryfallId:{startsWith:${quote(tag)}}}});
+    return true;`);
   }
 });
