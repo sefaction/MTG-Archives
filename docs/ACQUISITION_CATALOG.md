@@ -104,3 +104,10 @@ An earlier timeout fixture run failed with
 its one-second test lease during a concurrent Docker build; the handler-abort
 case now uses a ten-second lease, while explicit-clock lease-expiry tests stay
 separate. Final image/provenance and browser evidence are in the checkpoint/PR.
+
+On the final local Docker image, a warm sample of Forest/Mountain/Anzrag/Creature
+lookups took 25–98 ms for ordinary lookup and 21–69 ms with Deck type matching.
+These are bounded local measurements, not a latency guarantee. The photo-intake
+browser regression passed with all ten original Android images, 7.842 seconds
+from upload to prepared images and no Inventory writes. It still performs image
+preparation only; recognition/review/commit are subsequent integration work.
