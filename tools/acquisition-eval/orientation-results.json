@@ -1,0 +1,1060 @@
+{
+  "version": 1,
+  "scope": "23 development photos; 138 related variants, not held-out accuracy",
+  "validation": "Same 138 byte-identical cases: raw OCR line regrouping for unchanged contour path; 24 native reruns for all four photos affected by contour fallback. Browser test separately exercises final deployed worker.",
+  "manifestSha256": "65cb19e560d75f99d7a8838f3ad586381c72e28daa0d48b1330dda090a52b89f",
+  "readingCodeSha256": "90bcef89dabe0e65413c422a2ea87315e881b3d9b5a7681c9c9b42963721deab",
+  "summary": [
+    {
+      "fixture": "original",
+      "total": 23,
+      "exactFirst": 15,
+      "exactTop12": 21,
+      "automatic": 8,
+      "wrongAutomatic": 0
+    },
+    {
+      "fixture": "pixels-0",
+      "total": 23,
+      "exactFirst": 14,
+      "exactTop12": 20,
+      "automatic": 7,
+      "wrongAutomatic": 0
+    },
+    {
+      "fixture": "pixels-90",
+      "total": 23,
+      "exactFirst": 16,
+      "exactTop12": 21,
+      "automatic": 10,
+      "wrongAutomatic": 0
+    },
+    {
+      "fixture": "pixels-180",
+      "total": 23,
+      "exactFirst": 15,
+      "exactTop12": 21,
+      "automatic": 8,
+      "wrongAutomatic": 0
+    },
+    {
+      "fixture": "pixels-270",
+      "total": 23,
+      "exactFirst": 16,
+      "exactTop12": 21,
+      "automatic": 9,
+      "wrongAutomatic": 0
+    },
+    {
+      "fixture": "exif-6",
+      "total": 23,
+      "exactFirst": 15,
+      "exactTop12": 21,
+      "automatic": 8,
+      "wrongAutomatic": 0
+    }
+  ],
+  "baselineFourPhotoRotation": [
+    {
+      "fixture": "pixels-0",
+      "total": 4,
+      "exactFirst": 2,
+      "exactTop12": 4,
+      "automatic": 1,
+      "wrongAutomatic": 0
+    },
+    {
+      "fixture": "pixels-90",
+      "total": 4,
+      "exactFirst": 2,
+      "exactTop12": 4,
+      "automatic": 1,
+      "wrongAutomatic": 0
+    },
+    {
+      "fixture": "pixels-180",
+      "total": 4,
+      "exactFirst": 0,
+      "exactTop12": 0,
+      "automatic": 0,
+      "wrongAutomatic": 0
+    },
+    {
+      "fixture": "pixels-270",
+      "total": 4,
+      "exactFirst": 0,
+      "exactTop12": 0,
+      "automatic": 0,
+      "wrongAutomatic": 0
+    }
+  ],
+  "privateReportSha256": "80fd2f467c752b6459f90b23c83477b4f7c4202d8a29c6a64960aa9a875ee348",
+  "results": [
+    {
+      "file": "PXL_20260927_150825750.jpg",
+      "fixture": "original",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_150825750.jpg",
+      "fixture": "pixels-0",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_150825750.jpg",
+      "fixture": "pixels-90",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_150825750.jpg",
+      "fixture": "pixels-180",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_150825750.jpg",
+      "fixture": "pixels-270",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_150825750.jpg",
+      "fixture": "exif-6",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151021209.jpg",
+      "fixture": "original",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151021209.jpg",
+      "fixture": "pixels-0",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151021209.jpg",
+      "fixture": "pixels-90",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151021209.jpg",
+      "fixture": "pixels-180",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151021209.jpg",
+      "fixture": "pixels-270",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151021209.jpg",
+      "fixture": "exif-6",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151030766.jpg",
+      "fixture": "original",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151030766.jpg",
+      "fixture": "pixels-0",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151030766.jpg",
+      "fixture": "pixels-90",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151030766.jpg",
+      "fixture": "pixels-180",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151030766.jpg",
+      "fixture": "pixels-270",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151030766.jpg",
+      "fixture": "exif-6",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151037738.jpg",
+      "fixture": "original",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151037738.jpg",
+      "fixture": "pixels-0",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151037738.jpg",
+      "fixture": "pixels-90",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151037738.jpg",
+      "fixture": "pixels-180",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151037738.jpg",
+      "fixture": "pixels-270",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151037738.jpg",
+      "fixture": "exif-6",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151048233.jpg",
+      "fixture": "original",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151048233.jpg",
+      "fixture": "pixels-0",
+      "rank": 0,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151048233.jpg",
+      "fixture": "pixels-90",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151048233.jpg",
+      "fixture": "pixels-180",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151048233.jpg",
+      "fixture": "pixels-270",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151048233.jpg",
+      "fixture": "exif-6",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151053467.jpg",
+      "fixture": "original",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151053467.jpg",
+      "fixture": "pixels-0",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151053467.jpg",
+      "fixture": "pixels-90",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151053467.jpg",
+      "fixture": "pixels-180",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151053467.jpg",
+      "fixture": "pixels-270",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151053467.jpg",
+      "fixture": "exif-6",
+      "rank": 3,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151059416.jpg",
+      "fixture": "original",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151059416.jpg",
+      "fixture": "pixels-0",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151059416.jpg",
+      "fixture": "pixels-90",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151059416.jpg",
+      "fixture": "pixels-180",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151059416.jpg",
+      "fixture": "pixels-270",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151059416.jpg",
+      "fixture": "exif-6",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260927_151111560.jpg",
+      "fixture": "original",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151111560.jpg",
+      "fixture": "pixels-0",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151111560.jpg",
+      "fixture": "pixels-90",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151111560.jpg",
+      "fixture": "pixels-180",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151111560.jpg",
+      "fixture": "pixels-270",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151111560.jpg",
+      "fixture": "exif-6",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151119884.jpg",
+      "fixture": "original",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151119884.jpg",
+      "fixture": "pixels-0",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151119884.jpg",
+      "fixture": "pixels-90",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151119884.jpg",
+      "fixture": "pixels-180",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151119884.jpg",
+      "fixture": "pixels-270",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151119884.jpg",
+      "fixture": "exif-6",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151127248.jpg",
+      "fixture": "original",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151127248.jpg",
+      "fixture": "pixels-0",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151127248.jpg",
+      "fixture": "pixels-90",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151127248.jpg",
+      "fixture": "pixels-180",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151127248.jpg",
+      "fixture": "pixels-270",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260927_151127248.jpg",
+      "fixture": "exif-6",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003418071.jpg",
+      "fixture": "original",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003418071.jpg",
+      "fixture": "pixels-0",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003418071.jpg",
+      "fixture": "pixels-90",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003418071.jpg",
+      "fixture": "pixels-180",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003418071.jpg",
+      "fixture": "pixels-270",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003418071.jpg",
+      "fixture": "exif-6",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003422176.jpg",
+      "fixture": "original",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003422176.jpg",
+      "fixture": "pixels-0",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003422176.jpg",
+      "fixture": "pixels-90",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003422176.jpg",
+      "fixture": "pixels-180",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003422176.jpg",
+      "fixture": "pixels-270",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003422176.jpg",
+      "fixture": "exif-6",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003426755.jpg",
+      "fixture": "original",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003426755.jpg",
+      "fixture": "pixels-0",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003426755.jpg",
+      "fixture": "pixels-90",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003426755.jpg",
+      "fixture": "pixels-180",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003426755.jpg",
+      "fixture": "pixels-270",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003426755.jpg",
+      "fixture": "exif-6",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003429763.jpg",
+      "fixture": "original",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003429763.jpg",
+      "fixture": "pixels-0",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003429763.jpg",
+      "fixture": "pixels-90",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003429763.jpg",
+      "fixture": "pixels-180",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003429763.jpg",
+      "fixture": "pixels-270",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003429763.jpg",
+      "fixture": "exif-6",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003432155.jpg",
+      "fixture": "original",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003432155.jpg",
+      "fixture": "pixels-0",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003432155.jpg",
+      "fixture": "pixels-90",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003432155.jpg",
+      "fixture": "pixels-180",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003432155.jpg",
+      "fixture": "pixels-270",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003432155.jpg",
+      "fixture": "exif-6",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003434676.jpg",
+      "fixture": "original",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003434676.jpg",
+      "fixture": "pixels-0",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003434676.jpg",
+      "fixture": "pixels-90",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003434676.jpg",
+      "fixture": "pixels-180",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003434676.jpg",
+      "fixture": "pixels-270",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003434676.jpg",
+      "fixture": "exif-6",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003436955.jpg",
+      "fixture": "original",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003436955.jpg",
+      "fixture": "pixels-0",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003436955.jpg",
+      "fixture": "pixels-90",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003436955.jpg",
+      "fixture": "pixels-180",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003436955.jpg",
+      "fixture": "pixels-270",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003436955.jpg",
+      "fixture": "exif-6",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003438899.jpg",
+      "fixture": "original",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003438899.jpg",
+      "fixture": "pixels-0",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003438899.jpg",
+      "fixture": "pixels-90",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003438899.jpg",
+      "fixture": "pixels-180",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003438899.jpg",
+      "fixture": "pixels-270",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003438899.jpg",
+      "fixture": "exif-6",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003441259.jpg",
+      "fixture": "original",
+      "rank": 0,
+      "automatic": false,
+      "status": "NO_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003441259.jpg",
+      "fixture": "pixels-0",
+      "rank": 0,
+      "automatic": false,
+      "status": "NO_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003441259.jpg",
+      "fixture": "pixels-90",
+      "rank": 0,
+      "automatic": false,
+      "status": "NO_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003441259.jpg",
+      "fixture": "pixels-180",
+      "rank": 0,
+      "automatic": false,
+      "status": "NO_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003441259.jpg",
+      "fixture": "pixels-270",
+      "rank": 0,
+      "automatic": false,
+      "status": "NO_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003441259.jpg",
+      "fixture": "exif-6",
+      "rank": 0,
+      "automatic": false,
+      "status": "NO_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003443452.jpg",
+      "fixture": "original",
+      "rank": 0,
+      "automatic": false,
+      "status": "NO_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003443452.jpg",
+      "fixture": "pixels-0",
+      "rank": 0,
+      "automatic": false,
+      "status": "NO_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003443452.jpg",
+      "fixture": "pixels-90",
+      "rank": 0,
+      "automatic": false,
+      "status": "NO_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003443452.jpg",
+      "fixture": "pixels-180",
+      "rank": 0,
+      "automatic": false,
+      "status": "NO_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003443452.jpg",
+      "fixture": "pixels-270",
+      "rank": 0,
+      "automatic": false,
+      "status": "NO_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003443452.jpg",
+      "fixture": "exif-6",
+      "rank": 0,
+      "automatic": false,
+      "status": "NO_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003445909.jpg",
+      "fixture": "original",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003445909.jpg",
+      "fixture": "pixels-0",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003445909.jpg",
+      "fixture": "pixels-90",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003445909.jpg",
+      "fixture": "pixels-180",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003445909.jpg",
+      "fixture": "pixels-270",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003445909.jpg",
+      "fixture": "exif-6",
+      "rank": 2,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003449841.jpg",
+      "fixture": "original",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003449841.jpg",
+      "fixture": "pixels-0",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003449841.jpg",
+      "fixture": "pixels-90",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003449841.jpg",
+      "fixture": "pixels-180",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003449841.jpg",
+      "fixture": "pixels-270",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003449841.jpg",
+      "fixture": "exif-6",
+      "rank": 1,
+      "automatic": true,
+      "status": "STRONG_MATCH"
+    },
+    {
+      "file": "PXL_20260928_003452817.jpg",
+      "fixture": "original",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003452817.jpg",
+      "fixture": "pixels-0",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003452817.jpg",
+      "fixture": "pixels-90",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003452817.jpg",
+      "fixture": "pixels-180",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003452817.jpg",
+      "fixture": "pixels-270",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    },
+    {
+      "file": "PXL_20260928_003452817.jpg",
+      "fixture": "exif-6",
+      "rank": 1,
+      "automatic": false,
+      "status": "REVIEW_REQUIRED"
+    }
+  ]
+}

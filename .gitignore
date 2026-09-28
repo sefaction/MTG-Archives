@@ -15,3 +15,7 @@ docker-compose.override.yml
 *.tsbuildinfo
 
 /build-source-manifest.json
+
+# Native recognition test caches
+__pycache__/
+*.pyc

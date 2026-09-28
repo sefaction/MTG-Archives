@@ -94,14 +94,22 @@ export function proposeAcquisitionPrintings(
   input: RecognitionText,
   limit = 12,
 ) {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100)
+    throw new Error("Invalid result limit");
+  return resolveAcquisitionPrintings(index, input, limit);
+}
+function resolveAcquisitionPrintings(
+  index: ReturnType<typeof createAcquisitionRecognitionIndex>,
+  input: RecognitionText,
+  limit: number,
+  allowFuzzy = true,
+) {
   if (
     input.title.length > 100 ||
     input.footer.length > 100 ||
     [...input.title, ...input.footer].some((line) => line.length > 2000)
   )
     throw new Error("OCR evidence exceeds bounds");
-  if (!Number.isInteger(limit) || limit < 1 || limit > 100)
-    throw new Error("Invalid result limit");
   const footer = input.footer.join("\n").toUpperCase();
   const setCodes = new Set<string>();
   const languages = new Set<string>();
@@ -192,7 +200,7 @@ export function proposeAcquisitionPrintings(
         nameDistance: 0,
       });
   }
-  if (!proposals.size && titleKeys.length) {
+  if (allowFuzzy && !proposals.size && titleKeys.length) {
     const ranked = [...index.byName.keys()]
       .map((name) => ({
         name,
@@ -256,7 +264,7 @@ export function proposeAcquisitionPrintings(
     exactPrintings[0].reasons.push("STRONG_EXACT_PRINTING");
   }
   return {
-    version: 3,
+    version: 4,
     status: conflict
       ? "CONFLICT"
       : strong
@@ -273,6 +281,82 @@ export function proposeAcquisitionPrintings(
       collectors: [...collectors],
       languages: [...languages],
     },
+    totalProposals: all.length,
+    truncated: all.length > limit,
+    proposals: all.slice(0, limit),
+  };
+}
+
+export function proposeOrientedAcquisitionPrintings(
+  index: ReturnType<typeof createAcquisitionRecognitionIndex>,
+  orientations: { rotationDegrees: number; text: RecognitionText }[],
+  limit = 12,
+) {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100)
+    throw new Error("Invalid result limit");
+  if (
+    orientations.length !== 0 &&
+    (orientations.length !== 2 ||
+      orientations[0].rotationDegrees !== 0 ||
+      orientations[1].rotationDegrees !== 180)
+  )
+    throw new Error("Expected both portrait reading directions");
+  // Resolve complete observations independently. Never take a title from one
+  // orientation and a collector number from another to manufacture agreement.
+  let observed = orientations.map((orientation) => ({
+    rotationDegrees: orientation.rotationDegrees,
+    result: resolveAcquisitionPrintings(index, orientation.text, Math.max(1, index.cards), false),
+  }));
+  const substantive = observed.filter(({ result }) =>
+    result.proposals.some((p) => !p.reasons.includes("SIMILAR_TITLE_ONLY")),
+  );
+  // Avoid a full fuzzy catalog search for upside-down noise when either
+  // direction already has exact name or printed-identifier evidence.
+  if (!substantive.length)
+    observed = orientations.map((orientation) => ({
+      rotationDegrees: orientation.rotationDegrees,
+      result: resolveAcquisitionPrintings(index, orientation.text, Math.max(1, index.cards)),
+    }));
+  const candidates = substantive.length ? substantive : observed.filter(
+    ({ result }) => result.proposals.length > 0,
+  );
+  if (candidates.length === 1) {
+    const { result, rotationDegrees } = candidates[0];
+    return {
+      ...result,
+      orientation: { status: "SELECTED", rotationDegrees },
+      truncated: result.totalProposals > limit,
+      proposals: result.proposals.slice(0, limit),
+    };
+  }
+  if (!candidates.length) {
+    return {
+      ...proposeAcquisitionPrintings(index, { title: [], footer: [] }, limit),
+      orientation: { status: "UNRESOLVED", rotationDegrees: null },
+    };
+  }
+  // Both directions have plausible evidence. Preserve both sets of candidates
+  // for review, even if one direction alone could produce a strong match.
+  const union = new Map<string, RecognitionProposal>();
+  for (const { result } of candidates)
+    for (const proposal of result.proposals) {
+      const prior = union.get(proposal.card.id);
+      union.set(proposal.card.id, {
+        ...proposal,
+        reasons: [...new Set([
+          ...(prior?.reasons ?? []), ...proposal.reasons,
+          "ORIENTATION_UNCERTAIN", "REVIEW_REQUIRED",
+        ])].filter((reason) => reason !== "STRONG_EXACT_PRINTING"),
+      });
+    }
+  const all = [...union.values()];
+  return {
+    ...candidates[0].result,
+    status: candidates.some(({ result }) => result.status === "CONFLICT")
+      ? "CONFLICT" : "REVIEW_REQUIRED",
+    automaticAcceptance: false,
+    orientation: { status: "UNRESOLVED", rotationDegrees: null },
+    evidence: { setCodes: [], collectors: [], languages: [] },
     totalProposals: all.length,
     truncated: all.length > limit,
     proposals: all.slice(0, limit),

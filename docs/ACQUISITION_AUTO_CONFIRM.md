@@ -31,11 +31,16 @@ alone never proves a printing, even if the local catalog only returns one card.
 This is a metadata agreement rule, not a calibrated confidence percentage or a
 guarantee of correctness. Old cards without readable set/language text still need
 review. Condition and finish are user choices; the photo does not infer them.
-Resolver version 3 also retrieves List records by their printed-origin footer
+The resolver also retrieves List records by their printed-origin footer
 (for example `PLST MOM-210` alongside `MOM 210`). A possible stamped counterpart
 requires review: the OCR pipeline has no validated stamp detector. Even a lone
-List record cannot auto-confirm from the original footer. Version 2 jobs are
-excluded from future automatic confirmation; unreviewed photos get a new job.
+List record cannot auto-confirm from the original footer. Resolver version 4
+checks both portrait reading directions after EXIF and geometric normalization.
+It resolves each direction separately; title/footer text from different directions
+cannot be combined into a strong match. Plausible evidence in both directions
+requires review. A single supported direction still has to pass all printing
+checks. Previous resolver versions are excluded from new automatic confirmation;
+unreviewed photos get a new job.
 Existing saved reviews and committed Inventory are not rewritten. The user can
 use Correct match on an earlier automatically saved decision.
 

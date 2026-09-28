@@ -629,7 +629,7 @@ export async function verifyAcquisitionCommit(
       data: {
         output: {
           ...currentEvidence,
-          proposals: { ...currentEvidence.proposals, version: 2 },
+          proposals: { ...currentEvidence.proposals, version: 3 },
         },
       },
     });

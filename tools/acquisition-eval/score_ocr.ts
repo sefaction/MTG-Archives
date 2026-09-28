@@ -26,7 +26,9 @@ async function main() {
       title: Object.values(sample.regions?.title ?? {}).flatMap(value => String(value).split("\n")),
       footer: Object.values(sample.regions?.footer ?? {}).map(String),
     };
-    const proposed = resolver.proposeAcquisitionPrintings(index, text);
+    const proposed = sample.orientations
+      ? resolver.proposeOrientedAcquisitionPrintings(index, sample.orientations)
+      : resolver.proposeAcquisitionPrintings(index, text);
     const rank = proposed.proposals.findIndex((item: { card: RecognitionCard }) => item.card.id === entry.scryfallId) + 1;
     return {
       file: entry.file,

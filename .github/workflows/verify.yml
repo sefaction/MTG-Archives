@@ -56,9 +56,14 @@ jobs:
       NEXT_TELEMETRY_DISABLED: "1"
       DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/ci?schema=public
     steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: OCR line geometry guards
+        run: python -m unittest discover -s tools/acquisition-runtime -p test_reading_direction.py
       - uses: actions/setup-node@v4
         with:
           node-version: "22"

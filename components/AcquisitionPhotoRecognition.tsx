@@ -85,6 +85,8 @@ export function AcquisitionPhotoRecognition({
           ? "Conflicting card text—check the printing carefully."
           : result.status === "STRONG_MATCH"
             ? "Exact printing matched. Save batch finish and condition to confirm it automatically; you can correct it before adding to Inventory."
+            : result.proposals.some((p) => p.reasons.includes("ORIENTATION_UNCERTAIN"))
+              ? "Both card directions produced possible matches. Check the card name and printing."
             : result.proposals.some((p) =>
                   p.reasons.includes("STAMP_UNVERIFIED"),
                 )

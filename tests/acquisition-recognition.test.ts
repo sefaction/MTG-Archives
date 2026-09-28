@@ -4,6 +4,7 @@ import {
   acquisitionCollectorKey,
   createAcquisitionRecognitionIndex,
   proposeAcquisitionPrintings,
+  proposeOrientedAcquisitionPrintings,
 } from "../lib/acquisition-recognition";
 const cards = [
   {
@@ -52,6 +53,43 @@ const cards = [
   },
 ];
 const index = createAcquisitionRecognitionIndex(cards);
+test("the readable portrait direction can confirm without merging upside-down noise", () => {
+  for (const degrees of [0, 180]) {
+    const result = proposeOrientedAcquisitionPrintings(index, [0, 180].map(rotationDegrees => ({
+      rotationDegrees,
+      text: rotationDegrees === degrees
+        ? { title: ["River Guard"], footer: ["C 234", "ABC EN"] }
+        : { title: ["zxqv"], footer: [] },
+    })));
+    assert.equal(result.automaticAcceptance, true);
+    assert.equal(result.proposals[0].card.id, "d");
+    assert.equal(result.orientation.rotationDegrees, degrees);
+  }
+});
+test("title and footer from opposite directions cannot manufacture a strong printing", () => {
+  const result = proposeOrientedAcquisitionPrintings(index, [
+    { rotationDegrees: 0, text: { title: ["River Guard"], footer: [] } },
+    { rotationDegrees: 180, text: { title: [], footer: ["C 234", "ABC EN"] } },
+  ]);
+  assert.equal(result.automaticAcceptance, false);
+  assert.equal(result.totalProposals, 1);
+  assert.equal(result.orientation.status, "UNRESOLVED");
+  assert(result.proposals.every(p => p.reasons.includes("ORIENTATION_UNCERTAIN")));
+});
+test("a conflicting second direction vetoes confirmation before display truncation", () => {
+  const result = proposeOrientedAcquisitionPrintings(index, [
+    { rotationDegrees: 0, text: { title: ["River Guard"], footer: ["C 234", "ABC EN"] } },
+    { rotationDegrees: 180, text: { title: ["Forest Guard"], footer: ["C 123a", "ABC EN"] } },
+  ], 1);
+  assert.equal(result.automaticAcceptance, false);
+  assert.equal(result.truncated, true);
+  assert(result.totalProposals > 1);
+  assert(result.proposals.every(p => !p.reasons.includes("STRONG_EXACT_PRINTING")));
+  assert.throws(() => proposeOrientedAcquisitionPrintings(index, [], 0));
+  assert.throws(() => proposeOrientedAcquisitionPrintings(index, [
+    { rotationDegrees: 0, text: { title: [], footer: [] } },
+  ]));
+});
 test("old-frame collector text ranks a printing but power/toughness and artist text are not identifiers", () => {
   const result = proposeAcquisitionPrintings(index, {
     title: ["Forest Guard"],

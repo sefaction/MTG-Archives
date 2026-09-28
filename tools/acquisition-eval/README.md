@@ -18,6 +18,10 @@ manifests and the expanded comparison distinguish names from exact printings.
 See [the method comparison](../../docs/ACQUISITION_RECOGNITION_COMPARISON.md) and
 `expanded-results.json` for the current 23-photo evidence and its limitations.
 
+Quarter-turn and EXIF robustness checks are documented in
+[Card reading direction](../../docs/ACQUISITION_ORIENTATION.md). Use those for
+rotation behaviour; recognition-method selection still follows the comparison.
+
 ### Reproduce the visual diagnostic
 
 Prepare public references and official weights separately, with no private photo
