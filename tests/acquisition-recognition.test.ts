@@ -168,3 +168,68 @@ test("strong matches require strict titles and unambiguous set, number, language
     false,
   );
 });
+
+test("a stamped reprint shares printed footer identity and prevents original auto-confirmation", () => {
+  const original = {
+    id: "original",
+    name: "Timberland Ancient",
+    setCode: "mom",
+    collectorNumber: "210",
+    lang: "en",
+  };
+  const stamped = {
+    ...original,
+    id: "stamped",
+    setCode: "plst",
+    collectorNumber: "MOM-210",
+  };
+  const input = { title: ["Timberland Ancient"], footer: ["C 0210", "MOM EN"] };
+  for (const records of [[original, stamped], [stamped]]) {
+    const result = proposeAcquisitionPrintings(
+      createAcquisitionRecognitionIndex(records),
+      input,
+    );
+    assert.equal(result.automaticAcceptance, false);
+    assert.equal(result.status, "REVIEW_REQUIRED");
+    assert(result.proposals.some((p) => p.card.id === "stamped"));
+    assert(
+      result.proposals.every((p) => p.reasons.includes("STAMP_UNVERIFIED")),
+    );
+  }
+});
+
+test("printed-origin aliases preserve suffix and language distinctions", () => {
+  const result = proposeAcquisitionPrintings(
+    createAcquisitionRecognitionIndex([
+      {
+        id: "suffix",
+        name: "Forest Guard",
+        setCode: "plst",
+        collectorNumber: "ABC-00123a",
+        lang: "en",
+      },
+      {
+        id: "other",
+        name: "Forest Guard",
+        setCode: "plst",
+        collectorNumber: "ABC-123",
+        lang: "en",
+      },
+      {
+        id: "translated",
+        name: "Forest Guard",
+        setCode: "plst",
+        collectorNumber: "ABC-123a",
+        lang: "fr",
+      },
+    ]),
+    { title: ["Forest Guard"], footer: ["R 123a", "ABC EN"] },
+  );
+  assert.equal(result.automaticAcceptance, false);
+  assert.deepEqual(
+    result.proposals
+      .filter((p) => p.reasons.includes("SET_AND_COLLECTOR_TEXT"))
+      .map((p) => p.card.id),
+    ["suffix"],
+  );
+});

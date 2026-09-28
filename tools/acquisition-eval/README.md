@@ -5,6 +5,59 @@ worker or an automatic acceptance policy. Original photos, downloaded catalog
 data, model files, OCR output and crops belong under ignored `.local-data/`.
 The checked-in manifest contains hashes and independently read card labels only.
 
+## Corrected labels and expanded comparison
+
+The original label audit missed visible Planeswalker stamps on **Krosan Vorine,
+Saber Ants and Timberland Ancient**. Their expected identities are PLST LGN-131,
+PLST MMQ-267 and PLST MOM-210. The historical table and `development-results.json`
+below used incorrect original-print labels; preserve them as historical output,
+not current accuracy evidence. The initial four-correct-automatic-match claim is
+also withdrawn: Timberland Ancient was one wrong automatic choice. Corrected
+manifests and the expanded comparison distinguish names from exact printings.
+
+See [the method comparison](../../docs/ACQUISITION_RECOGNITION_COMPARISON.md) and
+`expanded-results.json` for the current 23-photo evidence and its limitations.
+
+### Reproduce the visual diagnostic
+
+Prepare public references and official weights separately, with no private photo
+mount. Images and weights are persisted under ignored `.local-data`, not baked
+into the Docker image. Replace the photo path with the directory of originals
+matching `android-expanded-manifest.json`.
+
+```powershell
+docker build -t mtg-acquisition-visual-eval:local -f tools/acquisition-eval/Dockerfile.visual tools/acquisition-eval
+$evaluationRoot = (Resolve-Path tools/acquisition-eval).Path
+$comparisonRoot = (Resolve-Path .local-data/acquisition-corpus/poor-20260927).Path
+$photoRoot = 'C:/path/to/private/originals'
+python tools/acquisition-eval/prepare_visual_references.py --catalog .local-data/acquisition-corpus/scryfall-default.jsonl.gz --manifest tools/acquisition-eval/android-expanded-manifest.json --output $comparisonRoot
+New-Item -ItemType Directory -Force "$comparisonRoot/visual-models" | Out-Null
+docker run --rm --memory 3g --mount "type=bind,source=$comparisonRoot/visual-models,target=/models" mtg-acquisition-visual-eval:local -c "from torchvision.models import vgg16,VGG16_Weights; vgg16(weights=VGG16_Weights.IMAGENET1K_V1)"
+docker run --rm --network none --memory 3g --cpus 4 --mount "type=bind,source=$evaluationRoot,target=/eval,readonly" --mount "type=bind,source=$photoRoot,target=/photos,readonly" --mount "type=bind,source=$comparisonRoot,target=/data" --mount "type=bind,source=$comparisonRoot/visual-models,target=/models,readonly" mtg-acquisition-visual-eval:local /eval/visual_compare.py --references /data/reference-index.json --manifest /eval/android-expanded-manifest.json --photos /photos --output /data/visual
+```
+
+The reference preparer verifies the frozen catalog digest and retries only
+missing downloads. Inference verifies all photo/reference digests, records model
+and source hashes, and resumes a versioned reference index. It benchmarks pHash,
+the MTG RealTime VGG16 feature method, and SIFT reranking; it does not run either
+upstream application end to end. The VGG weights used here have SHA-256
+`397923af8e79cdbb6a7127f12361acd7a2f83e06b05044ddf496e83de57a5bf0`.
+
+Use `score_ocr.ts` to score saved OCR observations on that identical reference
+pool. Pass the current resolver or export the frozen pre-guard revision for the
+historical table; it is a pure module with no application side effects:
+
+```powershell
+$baselineResolver = git show 0e681f3feee2a59008f174f19ee003a5b23388f6:lib/acquisition-recognition.ts
+[IO.File]::WriteAllText((Join-Path $comparisonRoot 'baseline-resolver.ts'), ($baselineResolver -join "`n"), [Text.UTF8Encoding]::new($false))
+npx tsx tools/acquisition-eval/score_ocr.ts --resolver "$comparisonRoot/baseline-resolver.ts" --references "$comparisonRoot/reference-index.json" --manifest tools/acquisition-eval/android-expanded-manifest.json --ocr "$comparisonRoot/baseline.json" --output "$comparisonRoot/ocr-controlled.json"
+```
+
+`baseline.json` contains the current native Paddle worker's saved observations;
+the Tesseract evaluator's `report.json` also works. The rejected larger-footer
+experiment is not part of the runtime and its saved observations remain private.
+No helper interprets nearest-neighbour rank as calibrated confidence.
+
 ## September 27 evidence and integration decision
 
 Ten original Android photos from one capture session were visually labelled,

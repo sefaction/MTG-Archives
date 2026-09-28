@@ -31,9 +31,20 @@ alone never proves a printing, even if the local catalog only returns one card.
 This is a metadata agreement rule, not a calibrated confidence percentage or a
 guarantee of correctness. Old cards without readable set/language text still need
 review. Condition and finish are user choices; the photo does not infer them.
-The native OCR pipeline and historical ten-photo benchmark remain unchanged;
-new resolver output uses version 2 and a new job version key. Existing unreviewed
-photos can be reprocessed; accepted human decisions are preserved.
+Resolver version 3 also retrieves List records by their printed-origin footer
+(for example `PLST MOM-210` alongside `MOM 210`). A possible stamped counterpart
+requires review: the OCR pipeline has no validated stamp detector. Even a lone
+List record cannot auto-confirm from the original footer. Version 2 jobs are
+excluded from future automatic confirmation; unreviewed photos get a new job.
+Existing saved reviews and committed Inventory are not rewritten. The user can
+use Correct match on an earlier automatically saved decision.
+
+**Benchmark correction, September 27:** Krosan Vorine, Saber Ants and Timberland
+Ancient in the original ten photos are stamped reprints. Earlier labels used
+the original footer and were wrong. The old four-correct-automatic-matches claim
+is withdrawn: Timberland Ancient was an incorrect automatic original-print
+choice. See the recognition comparison for corrected measurements. The guard
+addresses that known failure, not general OCR accuracy or complete stamp detection.
 
 ## Worker and history
 

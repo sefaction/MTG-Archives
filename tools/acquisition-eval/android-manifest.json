@@ -12,12 +12,15 @@
       "physicalGroup": "PXL_20260927_150825750",
       "expectedPhysicalCards": 1,
       "name": "Krosan Vorine",
-      "setCode": "lgn",
-      "collectorNumber": "131",
+      "setCode": "plst",
+      "collectorNumber": "LGN-131",
       "language": "en",
-      "scryfallId": "b7d1c6c6-16b3-4a52-aeda-683b1aeb0e7f",
+      "scryfallId": "8d887f3d-f07f-4672-a3a2-acdc42fa98e2",
       "finish": "UNKNOWN",
-      "split": "development"
+      "split": "development",
+      "printedSetCode": "lgn",
+      "printedCollectorNumber": "131",
+      "stamp": "PRESENT"
     },
     {
       "file": "PXL_20260927_151021209.jpg",
@@ -103,12 +106,15 @@
       "physicalGroup": "PXL_20260927_151111560",
       "expectedPhysicalCards": 1,
       "name": "Timberland Ancient",
-      "setCode": "mom",
-      "collectorNumber": "210",
+      "setCode": "plst",
+      "collectorNumber": "MOM-210",
       "language": "en",
-      "scryfallId": "5f73cd60-cd89-4c7a-85a6-e0ae34ca101b",
+      "scryfallId": "cfe4a22f-c945-42f4-8b3a-ac3a03ffa015",
       "finish": "UNKNOWN",
-      "split": "development"
+      "split": "development",
+      "printedSetCode": "mom",
+      "printedCollectorNumber": "210",
+      "stamp": "PRESENT"
     },
     {
       "file": "PXL_20260927_151119884.jpg",
@@ -129,12 +135,16 @@
       "physicalGroup": "PXL_20260927_151127248",
       "expectedPhysicalCards": 1,
       "name": "Saber Ants",
-      "setCode": "mmq",
-      "collectorNumber": "267",
+      "setCode": "plst",
+      "collectorNumber": "MMQ-267",
       "language": "en",
-      "scryfallId": "e9269f52-1002-475d-a0f3-d652630591ca",
+      "scryfallId": "58f0a2f9-5c5e-4477-ae7e-a52cf5778962",
       "finish": "UNKNOWN",
-      "split": "development"
+      "split": "development",
+      "printedSetCode": "mmq",
+      "printedCollectorNumber": "267",
+      "stamp": "PRESENT"
     }
-  ]
+  ],
+  "labelCorrection": "Krosan Vorine, Saber Ants and Timberland Ancient have visible lower-left Planeswalker stamps. Earlier labels incorrectly used the original printed footer. Corrected after user identified Saber Ants; prior accuracy and autoaccept claims must be re-evaluated."
 }

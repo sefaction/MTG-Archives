@@ -85,7 +85,11 @@ export function AcquisitionPhotoRecognition({
           ? "Conflicting card text—check the printing carefully."
           : result.status === "STRONG_MATCH"
             ? "Exact printing matched. Save batch finish and condition to confirm it automatically; you can correct it before adding to Inventory."
-            : "Check the set and collector number before accepting."}
+            : result.proposals.some((p) =>
+                  p.reasons.includes("STAMP_UNVERIFIED"),
+                )
+              ? "Check the lower-left Planeswalker stamp: the original and stamped reprint can have the same set and collector text."
+              : "Check the set and collector number before accepting."}
       </p>
       <ol className="mt-2 space-y-2 list-decimal pl-4">
         {result.proposals.map(({ card }) => (

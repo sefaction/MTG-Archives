@@ -615,6 +615,33 @@ export async function verifyAcquisitionCommit(
       revision: 1,
       defaults: { finish: "NONFOIL", condition: "NM" },
     });
+    // Old OCR evidence predates the stamped-reprint ambiguity guard. It must
+    // not be auto-confirmed later merely because defaults became available.
+    const legacy = await db.acquisitionProcessingJob.findFirstOrThrow({
+      where: {
+        artifact: { sourceId: auto.photos[0].id },
+        stage: "photo-recognition-v1",
+      },
+    });
+    const currentEvidence = legacy.output as { proposals: { version: number } };
+    await db.acquisitionProcessingJob.update({
+      where: { id: legacy.id },
+      data: {
+        output: {
+          ...currentEvidence,
+          proposals: { ...currentEvidence.proposals, version: 2 },
+        },
+      },
+    });
+    assert.equal(
+      await confirmStrongAcquisitionMatches(db),
+      0,
+      "legacy OCR evidence cannot auto-confirm",
+    );
+    await db.acquisitionProcessingJob.update({
+      where: { id: legacy.id },
+      data: { output: currentEvidence },
+    });
     const fault = db.$extends({
       query: {
         acquisitionCandidate: {

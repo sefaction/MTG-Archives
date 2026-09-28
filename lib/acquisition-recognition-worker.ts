@@ -78,7 +78,7 @@ export function acquisitionRecognitionVersion(catalog: string, model: string) {
         pipeline: RECOGNITION_STAGE,
         catalog,
         model,
-        resolver: "metadata-strong-match-v2",
+        resolver: "metadata-stamped-ambiguity-v3",
       }),
     )
     .digest("hex");
