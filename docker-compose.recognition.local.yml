@@ -1,7 +1,16 @@
-# Local-only CPU recognition; model cache is prepared without private photos.
+# Local CPU recognition with persistent model files, using the deployment image recipe.
 services:
   postgres:
     networks: [default, acquisition-internal]
+  acquisition-model-init:
+    image: mtg-acquisition-recognition:local
+    pull_policy: never
+    restart: on-failure
+    entrypoint: ["python", "/app/tools/acquisition-runtime/download_models.py"]
+    volumes:
+      - ${MTG_ACQUISITION_MODELS_PATH:-./.local-data/acquisition-models}:/models
+    mem_limit: 256m
+    cpus: 1.0
   acquisition-recognition-worker:
     image: mtg-acquisition-recognition:local
     pull_policy: never
@@ -11,9 +20,11 @@ services:
       UPLOADS_DATA_PATH: /app/data/uploads
     volumes:
       - ./.local-data/uploads:/app/data/uploads:ro
-      - ${MTG_ACQUISITION_MODELS_PATH:?Set the local prepared model-cache path}:/models:ro
+      - ${MTG_ACQUISITION_MODELS_PATH:-./.local-data/acquisition-models}:/models:ro
     networks: [acquisition-internal]
     depends_on:
+      acquisition-model-init:
+        condition: service_completed_successfully
       web:
         condition: service_healthy
     mem_limit: 2g

@@ -18,7 +18,6 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io
-  WEB_IMAGE_NAME: sefaction/mtg-archives-web
 
 jobs:
   verify:
@@ -27,11 +26,21 @@ jobs:
       contents: read
 
   web:
-    name: Build and publish web image
+    name: Build and publish ${{ matrix.component }} image
     needs: verify
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/platform/')
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: web
+            image: sefaction/mtg-archives-web
+            dockerfile: ./Dockerfile
+          - component: recognition
+            image: sefaction/mtg-archives-recognition
+            dockerfile: ./tools/acquisition-runtime/Dockerfile
     permissions:
       contents: read
       packages: write
@@ -71,24 +80,37 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.WEB_IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ matrix.image }}
           tags: |
             type=ref,event=branch
             type=sha,prefix=sha-
             type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
 
-      - name: Build web image without publishing
+      - name: Build image without publishing
         if: steps.head.outputs.current == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile
+          file: ${{ matrix.dockerfile }}
           push: false
           load: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}
+
+      - name: Verify persistent model initialization and offline recognition
+        if: steps.head.outputs.current == 'true' && matrix.component == 'recognition'
+        env:
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          tag="$(printf '%s\n' "$IMAGE_TAGS" | head -n 1)"
+          model_volume="acquisition-model-check-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          docker volume create "$model_volume"
+          trap 'docker volume rm "$model_volume"' EXIT
+          docker run --rm --memory 256m -v "$model_volume:/models" --entrypoint python "$tag" /app/tools/acquisition-runtime/download_models.py
+          docker run --rm --network none -v "$model_volume:/models:ro" --entrypoint python "$tag" /app/tools/acquisition-runtime/download_models.py --verify-only
+          docker run --rm --network none --user 65534:65534 --memory 2g --cpus 1 -v "$model_volume:/models:ro" --entrypoint python "$tag" /app/tools/acquisition-runtime/smoke.py
 
       - name: Recheck branch head immediately before publication
         if: steps.head.outputs.current == 'true'
