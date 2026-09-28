@@ -504,6 +504,7 @@ export function AcquisitionCapture({
         <>
           <section
             className={panel + " sticky top-0 z-10"}
+            style={{ background: "var(--app-surface)" }}
             aria-label="Batch progress"
           >
             <h2 className="text-xl font-semibold">
