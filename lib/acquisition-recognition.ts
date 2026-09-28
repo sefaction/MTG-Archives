@@ -1,5 +1,5 @@
-// Printing proposals only. OCR similarity is not calibrated confidence, and no
-// proposal is a reviewed decision, physical count, finish, condition or receipt.
+// OCR similarity is not calibrated confidence. Strong exact metadata can confirm
+// a printing; it never establishes physical count, finish, condition or receipt.
 export type RecognitionCard = {
   id: string;
   name: string;
@@ -144,6 +144,8 @@ export function proposeAcquisitionPrintings(
           reasons.push("TITLE_CONTRADICTION");
         } else if (exactCards.has(card.id)) reasons.push("TITLE_TEXT_AGREES");
         else reasons.push("TITLE_UNCONFIRMED");
+        if (names(card).some((name) => titleKeys.includes(name)))
+          reasons.push("TITLE_EXACT");
         if (
           languages.size &&
           (!card.lang || !languages.has(card.lang.toLowerCase()))
@@ -197,10 +199,35 @@ export function proposeAcquisitionPrintings(
       (a.nameDistance ?? 0) - (b.nameDistance ?? 0) ||
       a.card.id.localeCompare(b.card.id),
   );
+  const exactPrintings = all.filter((p) =>
+    p.reasons.includes("SET_AND_COLLECTOR_TEXT"),
+  );
+  const strong =
+    !conflict &&
+    setCodes.size === 1 &&
+    collectors.size === 1 &&
+    languages.size === 1 &&
+    exactPrintings.length === 1 &&
+    exactPrintings[0].reasons.includes("TITLE_EXACT") &&
+    [...exactNames].every((name) =>
+      names(exactPrintings[0].card).includes(name),
+    );
+  if (strong) {
+    exactPrintings[0].reasons = exactPrintings[0].reasons.filter(
+      (r) => r !== "REVIEW_REQUIRED",
+    );
+    exactPrintings[0].reasons.push("STRONG_EXACT_PRINTING");
+  }
   return {
-    version: 1,
-    status: conflict ? "CONFLICT" : all.length ? "REVIEW_REQUIRED" : "NO_MATCH",
-    automaticAcceptance: false,
+    version: 2,
+    status: conflict
+      ? "CONFLICT"
+      : strong
+        ? "STRONG_MATCH"
+        : all.length
+          ? "REVIEW_REQUIRED"
+          : "NO_MATCH",
+    automaticAcceptance: strong,
     finish: "UNKNOWN",
     condition: "UNKNOWN",
     catalogCoverage: "NOT_ESTABLISHED",

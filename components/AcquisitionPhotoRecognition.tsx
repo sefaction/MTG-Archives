@@ -77,12 +77,15 @@ export function AcquisitionPhotoRecognition({
   return (
     <details className="text-xs" data-testid="recognition-suggestions">
       <summary className="cursor-pointer break-words">
-        Possible: {result.proposals[0].card.name}
+        {result.status === "STRONG_MATCH" ? "Strong match" : "Possible"}:{" "}
+        {result.proposals[0].card.name}
       </summary>
       <p className="mt-2">
         {result.status === "CONFLICT"
           ? "Conflicting card text—check the printing carefully."
-          : "Check the set and collector number before accepting."}
+          : result.status === "STRONG_MATCH"
+            ? "Exact printing matched. Save batch finish and condition to confirm it automatically; you can correct it before adding to Inventory."
+            : "Check the set and collector number before accepting."}
       </p>
       <ol className="mt-2 space-y-2 list-decimal pl-4">
         {result.proposals.map(({ card }) => (

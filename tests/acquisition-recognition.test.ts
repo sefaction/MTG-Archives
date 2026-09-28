@@ -70,19 +70,19 @@ test("an unsupported printed language is a conflict rather than an English subst
   assert.equal(result.status, "CONFLICT");
   assert(result.proposals[0].reasons.includes("LANGUAGE_CONTRADICTION"));
 });
-test("recognition proposes suffix-preserving local printings and never accepts", () => {
+test("unique exact metadata confirms a suffix-preserving paper printing", () => {
   assert.equal(acquisitionCollectorKey("00123a"), "123a");
   const result = proposeAcquisitionPrintings(index, {
     title: ["Forest Guard"],
     footer: ["R 00123a", "ABC * EN"],
   });
   assert.equal(result.proposals[0].card.id, "a");
-  assert.equal(result.automaticAcceptance, false);
+  assert.equal(result.automaticAcceptance, true);
   assert.equal(result.finish, "UNKNOWN");
   assert.equal(result.condition, "UNKNOWN");
   assert(!result.proposals.some((p) => p.card.id === "f"));
   assert(!result.proposals.some((p) => p.card.id === "e"));
-  assert.equal(result.status, "REVIEW_REQUIRED");
+  assert.equal(result.status, "STRONG_MATCH");
   assert(
     !result.proposals
       .find((p) => p.card.id === "b")
@@ -142,4 +142,29 @@ test("face aliases work and similar titles remain review-only", () => {
   });
   assert.equal(fuzzy.automaticAcceptance, false);
   assert(fuzzy.proposals[0].reasons.includes("SIMILAR_TITLE_ONLY"));
+});
+
+test("strong matches require strict titles and unambiguous set, number, language and catalog identity", () => {
+  const evidence = { title: ["Forest Guard"], footer: ["R 123a", "ABC EN"] };
+  for (const input of [
+    { ...evidence, title: ["X Forest Guard"] },
+    { ...evidence, title: ["Forest Guard", "River Guard"] },
+    { ...evidence, title: ["Forest Gvard"] },
+    { ...evidence, title: [] },
+    { ...evidence, footer: ["R 123a", "ABC EN", "XYZ EN"] },
+    { ...evidence, footer: ["R 123a", "R 123", "ABC EN"] },
+    { ...evidence, footer: ["R 123a", "ABC EN", "ABC FR"] },
+  ])
+    assert.equal(
+      proposeAcquisitionPrintings(index, input).automaticAcceptance,
+      false,
+    );
+  const duplicates = createAcquisitionRecognitionIndex([
+    ...cards,
+    { ...cards[0], id: "duplicate" },
+  ]);
+  assert.equal(
+    proposeAcquisitionPrintings(duplicates, evidence, 1).automaticAcceptance,
+    false,
+  );
 });

@@ -811,9 +811,14 @@ export async function getAcquisitionProgress(
       (
         await tx.card.findMany({
           where: { id: { in: reviewedIds } },
-          select: { id: true, name: true },
+          select: {
+            id: true,
+            name: true,
+            setCode: true,
+            collectorNumber: true,
+          },
         })
-      ).map((c) => [c.id, c.name]),
+      ).map((c) => [c.id, c]),
     );
     const reviews = new Map(
       state.session.candidates.map((c) => [
@@ -821,7 +826,12 @@ export async function getAcquisitionProgress(
         c.review
           ? {
               ...c.review,
-              cardName: reviewedNames.get(c.review.cardId ?? "") ?? null,
+              cardName: reviewedNames.get(c.review.cardId ?? "")?.name ?? null,
+              setCode:
+                reviewedNames.get(c.review.cardId ?? "")?.setCode ?? null,
+              collectorNumber:
+                reviewedNames.get(c.review.cardId ?? "")?.collectorNumber ??
+                null,
             }
           : null,
       ]),
@@ -1143,7 +1153,15 @@ export async function getAcquisitionCardReview(
         row.reviewDefaults ?? emptyAcquisitionDefaults,
       ),
       review,
-      printing: cards.find((c) => c.id === review?.cardId) ?? null,
+      printing:
+        cards.find(
+          (c) =>
+            c.id ===
+            (review?.cardId ??
+              (evidence.result?.status === "STRONG_MATCH"
+                ? evidence.result.proposals[0]?.card.id
+                : null)),
+        ) ?? null,
       recognitionStatus: evidence.result?.status ?? evidence.status,
       suggestions: (evidence.result?.proposals ?? []).flatMap((p) => {
         const printing = cards.find((c) => c.id === p.card.id);
@@ -1230,8 +1248,6 @@ export async function saveAcquisitionReview(
       )
         throw new Error("Choose a finish available for this printing");
     }
-    if (input.action === "pending" && candidate.review === null)
-      return { replay: true };
     const before = hydrate(row).session;
     const key = candidateKey(before.run.runId, candidate.physicalId);
     const after =

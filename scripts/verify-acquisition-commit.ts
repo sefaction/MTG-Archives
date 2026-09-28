@@ -1,3 +1,8 @@
+import { confirmStrongAcquisitionMatches } from "../lib/acquisition-auto-confirm";
+import {
+  createAcquisitionRecognitionIndex,
+  proposeAcquisitionPrintings,
+} from "../lib/acquisition-recognition";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import { purgeCommittedAcquisitionPhotos } from "../lib/acquisition-photo-retention";
@@ -542,6 +547,172 @@ export async function verifyAcquisitionCommit(
         where: { commitId: receipt.id },
       }),
       2,
+    );
+    // Strong-match confirmation is staged, editable and never a receipt.
+    const auto = await capture(await location(10), 4);
+    async function evidence(photoId: string, strong = true) {
+      const canonical = await db.acquisitionProcessingJob.findFirstOrThrow({
+        where: { artifact: { sourceId: photoId }, stage: "photo-canonical-v1" },
+        include: { candidate: true },
+      });
+      return db.acquisitionProcessingJob.create({
+        data: {
+          runId: canonical.runId,
+          artifactId: canonical.artifactId,
+          candidateId: canonical.candidateId,
+          candidateRevision: canonical.candidate.revision,
+          stage: "photo-recognition-v1",
+          versionKey: randomUUID(),
+          status: "COMPLETE",
+          input: canonical.input!,
+          output: {
+            proposals: proposeAcquisitionPrintings(
+              createAcquisitionRecognitionIndex([card]),
+              { title: [card.name], footer: strong ? ["C 1", "CFX EN"] : [] },
+            ),
+          },
+        },
+      });
+    }
+    for (let i = 0; i < 4; i++) await evidence(auto.photos[i].id, i !== 3);
+    assert.equal(
+      await confirmStrongAcquisitionMatches(db),
+      0,
+      "unknown defaults never invented",
+    );
+    await saveAcquisitionReview(db, actor, auto.id, {
+      action: "defaults",
+      revision: 0,
+      defaults: { finish: "FOIL", condition: "NM" },
+    });
+    assert.equal(
+      await confirmStrongAcquisitionMatches(db),
+      0,
+      "unsupported batch finish requires review",
+    );
+    // Human pending before the worker must persist even through reprocessing.
+    let pending = await getAcquisitionCardReview(
+      db,
+      actor,
+      auto.id,
+      auto.photos[1].id,
+    );
+    await saveAcquisitionReview(db, actor, auto.id, {
+      action: "pending",
+      photoId: pending.photoId,
+      revision: pending.revision,
+    });
+    await evidence(pending.photoId);
+    // A started retake invalidates completed output for the former generation.
+    await beginAcquisitionPhoto(db, actor, auto.id, {
+      slotId: auto.photos[2].slotId,
+      uploadKey: randomUUID(),
+      generation: 1,
+      metadata,
+    });
+    await saveAcquisitionReview(db, actor, auto.id, {
+      action: "defaults",
+      revision: 1,
+      defaults: { finish: "NONFOIL", condition: "NM" },
+    });
+    const fault = db.$extends({
+      query: {
+        acquisitionCandidate: {
+          async update() {
+            throw new Error("injected automatic review failure");
+          },
+        },
+      },
+    }) as unknown as PrismaClient;
+    await assert.rejects(confirmStrongAcquisitionMatches(fault), /injected/);
+    assert.equal(
+      (await getAcquisitionCardReview(db, actor, auto.id, auto.photos[0].id))
+        .review,
+      null,
+    );
+    assert.equal(
+      (
+        await Promise.all([
+          confirmStrongAcquisitionMatches(db),
+          confirmStrongAcquisitionMatches(db),
+        ])
+      ).reduce((a, b) => a + b, 0),
+      1,
+    );
+    assert.equal(await confirmStrongAcquisitionMatches(db), 0);
+    const confirmed = await getAcquisitionCardReview(
+      db,
+      actor,
+      auto.id,
+      auto.photos[0].id,
+    );
+    assert.equal(confirmed.review?.source, "AUTO_STRONG_MATCH");
+    assert.equal(confirmed.review?.condition, "NM");
+    assert.equal(
+      (await getAcquisitionCardReview(db, actor, auto.id, auto.photos[3].id))
+        .review,
+      null,
+      "name-only stays pending",
+    );
+    assert.equal(
+      (await getAcquisitionCardReview(db, actor, auto.id, auto.photos[1].id))
+        .review,
+      null,
+      "human pending survives",
+    );
+    await stop(auto.id);
+    const chosen = {
+      photoIds: [auto.photos[0].id],
+      locationId: (await getAcquisitionProgress(db, actor, auto.id)).session
+        .placement.locationId,
+      section: base.section,
+    };
+    const oldPreview = await previewAcquisitionCommit(
+      db,
+      actor,
+      auto.id,
+      chosen,
+    );
+    await saveAcquisitionReview(db, actor, auto.id, {
+      action: "accept",
+      photoId: confirmed.photoId,
+      revision: confirmed.revision,
+      decision: { ...decision, condition: "LP" },
+    });
+    assert.equal(await confirmStrongAcquisitionMatches(db), 0);
+    assert.equal(
+      (await getAcquisitionCardReview(db, actor, auto.id, confirmed.photoId))
+        .review?.condition,
+      "LP",
+    );
+    await assert.rejects(
+      commitAcquisitionCards(db, actor, auto.id, {
+        ...chosen,
+        requestKey: randomUUID(),
+        previewToken: oldPreview.token,
+        overfillReason: null,
+      }),
+      /changed|preview/i,
+    );
+    const fresh = await previewAcquisitionCommit(db, actor, auto.id, chosen);
+    const added = await commitAcquisitionCards(db, actor, auto.id, {
+      ...chosen,
+      requestKey: randomUUID(),
+      previewToken: fresh.token,
+      overfillReason: null,
+    });
+    assert.equal(added.count, 1);
+    assert.equal(
+      (
+        await db.inventoryItem.findUniqueOrThrow({
+          where: { id: added.inventoryItemIds[0] },
+        })
+      ).condition,
+      "LP",
+    );
+    assert.equal(await confirmStrongAcquisitionMatches(db), 0);
+    console.log(
+      "PASS: strong-match defaults, finish compatibility, atomic rollback, concurrent retry, pending/retake fences, editable confirmation and corrected explicit receipt",
     );
     console.log(
       "PASS: explicit scan subset commit, atomic receipt/audit/membership rollback, retry replay, immutable membership, fresh capacity/overfill, competing sessions and seven-day expiry, exact private-file removal and crash-safe purge retry",

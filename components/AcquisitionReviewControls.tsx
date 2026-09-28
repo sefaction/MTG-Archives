@@ -64,7 +64,8 @@ export function AcquisitionBatchDefaults({
     <section className={panel} aria-label="Batch review defaults">
       <h3 className="font-semibold">Batch defaults</h3>
       <p className="text-sm">
-        Used for new reviews. Already reviewed cards keep their saved values.
+        Strong printing matches confirm automatically using these defaults. You
+        can correct any card. Already confirmed cards keep their saved values.
       </p>
       <form
         className="mt-3 flex flex-wrap items-end gap-3"
@@ -156,21 +157,26 @@ export function AcquisitionPhotoReview({
   batchId,
   photoId,
   reviewed,
+  automatic = false,
   refresh,
 }: {
   batchId: string;
   photoId: string;
   reviewed: boolean;
+  automatic?: boolean;
   refresh: () => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <button className={button + " w-full"} onClick={() => setOpen(true)}>
-        {reviewed ? "Edit review" : "Review card"}
+        {automatic ? "Correct match" : reviewed ? "Edit review" : "Review card"}
       </button>
       {reviewed && (
-        <p className="text-xs">Reviewed · awaiting Inventory commit</p>
+        <p className="text-xs">
+          {automatic ? "Automatically confirmed" : "Reviewed"} · awaiting
+          Inventory commit
+        </p>
       )}
       {open && (
         <ReviewDialog

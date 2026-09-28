@@ -1,10 +1,12 @@
 ﻿# Local photo recognition worker
 
-The scan page now displays **possible printings** for each prepared photo.
-This batch connects the measured PaddleOCR CPU pipeline to durable application
-jobs and the existing local Card catalog. Suggestions are never accepted
-automatically. Condition/finish remain explicit batch defaults with per-card
-overrides in the upcoming review flow. Inventory commit is not enabled here.
+The scan page displays possible printings and automatically confirms strong exact
+printing matches using saved batch finish/condition defaults. Every confirmed
+card remains correctable before the explicit Inventory action. Name-only,
+ambiguous, conflicting or unsupported-attribute results remain pending.
+See [automatic confirmation](ACQUISITION_AUTO_CONFIRM.md) for the evidence rule,
+worker safeguards and limits. The native OCR process itself has no confirmation
+or Inventory authority.
 
 ## Runtime boundaries
 

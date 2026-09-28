@@ -125,6 +125,7 @@ export type ReviewAttributes = {
   language: string | null;
   finish: "UNKNOWN" | "NONFOIL" | "FOIL" | "ETCHED";
   condition: string | null;
+  source?: "AUTO_STRONG_MATCH";
 };
 type Candidate = {
   key: string;

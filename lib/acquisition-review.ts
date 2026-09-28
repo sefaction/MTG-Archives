@@ -66,7 +66,10 @@ export type AcquisitionCardReview = {
   position: number;
   defaults: AcquisitionDefaults;
   review:
-    | (z.infer<typeof acquisitionReviewDecisionSchema> & { actorId: string })
+    | (z.infer<typeof acquisitionReviewDecisionSchema> & {
+        actorId: string;
+        source?: "AUTO_STRONG_MATCH";
+      })
     | null;
   printing: AcquisitionPrinting | null;
   suggestions: { printing: AcquisitionPrinting; reasons: string[] }[];

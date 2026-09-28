@@ -1,23 +1,27 @@
 # Saved photo review
 
-The local Imports → Scan cards workspace supports an explicit review for each
-saved photo. It never writes Inventory. This is an initial P6/#308 delivery,
-stacked on the catalog and CPU recognition PRs.
+The local Imports → Scan cards workspace confirms strong exact printing matches
+with saved batch defaults and supports correction of any saved card. Ambiguous
+cards need individual review. Confirmation alone never writes Inventory. See
+[automatic confirmation](ACQUISITION_AUTO_CONFIRM.md).
 
 ## User workflow
 
 1. Set and save the batch finish and condition. Unknown values are allowed while
    capturing but cannot be accepted as a completed card review.
-2. Open **Review card**, choose the exact printing from explained suggestions or
+2. Strong matches show **Automatically confirmed** and **Correct match**. For
+   unresolved cards, open **Review card**, choose the exact printing from explained suggestions or
    search the local catalog by name, set code and collector number.
 3. Check condition and finish; override the batch defaults for this card as
    needed. The catalog supplies the printing language when known.
 4. Save the review, or keep the physical card pending. Saving does not commit it.
    The batch counter includes both reviewed and pending cards.
 
-Changing defaults only prefills later reviews. Previously saved decisions keep
+Changing defaults applies to later automatic confirmations and prefills later
+manual reviews. Previously saved decisions keep
 their values. Editing a saved review starts with those saved values. Clearing it
-with **Keep pending** preserves the same photo and physical slot.
+with **Keep pending** preserves the same photo and physical slot, and prevents
+automatic reconfirmation of that photo even after reprocessing.
 
 ## Integrity
 
