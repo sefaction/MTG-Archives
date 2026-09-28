@@ -1,5 +1,13 @@
 # Resumable work checkpoint
 
+## Photo-library selection repair verified locally, 2026-09-27
+
+- Active branch `fix/acquisition-library-batches`, issue #461, based on merged #460 main plus local checkpoint. User reports single photo works but multi-select yields nothing and confirmed selecting more than ten. Baseline selecting 12 into 14 spaces admitted zero and displayed the fixed-ten rejection at the top of the page (`mtg-library-baseline.log`, session70308 terminal).
+- Removed the arbitrary selection cap. File selections feed ten pending/two HTTP slots as uploads finish; actual destination/custom capacity and server admission checks remain. Added selected progress, sticky visible errors, filename validation, stop-adding/reselect feedback and queue wake after HTTP-slot release. Saved/admitted photos stay recoverable; unadmitted file handles require the page to remain open. No production changes for this batch.
+- Passed 648 unit tests, typecheck, Linux production build/client guards, new phone/touch browser regression17.4s (12-file intake, held queue bounded at10, HTTP maximum2, 14-space rejection/completion, unlimited stop/reselect), and existing real-photo browser50.1s (ten correct expected printing proposals, four correct strong matches, lost-ACK/reload/retake/capacity/correction/explicit commit). One new-test run failed on an ambiguous global alert selector because Next has its own announcer; scoped to Batch progress and reran without changing assertions/timeouts. Phone progress screenshot inspected. No native Android picker claim.
+- Loaded local web image `cd391ec404947997a7bb04afc92cbdcb00925eef00cdaf5343948e5fce5b84e9`, 427 inputs match digest `faabdefdafee718285d458d23eb187c27b01da077c8486bc5f40735e073f1115`. Workers and both acquisition overlays preserved. Build39370, browser91795/35446 are terminal. Logs `%TEMP%/mtg-library-web-build.log`, `mtg-library-browser-final.log`, `mtg-library-real-photos.log`, `mtg-library-units.log`; synthetic screenshot `test-results/acquisition-library-progress-phone.png`.
+- Next safe step: push/open one PR fixing #461, collect CI and request individual approval. Broader first-device goal remains paused; this report independently authorizes the local bug fix. #460 merged/published and user supplied successful production update screenshot before this report; no further production changes are part of #461.
+
 ## PR #460 approved and merged, 2026-09-27
 
 - User explicitly approved #460. All three required checks passed on `50b62c0`; merged directly into main as `c590a1952d772bc0bb394726693b7716f6cc6496` at 00:40:07 UTC September 28. Issue #459 closed automatically.
