@@ -35,13 +35,18 @@ export async function POST(
       replacePending: query.get("replace") === "1",
       metadata,
     });
-    await writeAcquisitionPhotoBytes(photo.id, bytes, "raw", photo.digest);
-    const ready = await finalizeAcquisitionPhoto(
-      prisma,
-      actor,
-      sessionId,
-      photo.id,
-    );
+    // An acknowledged upload replay must not recreate expired committed bytes.
+    // READY already records durable receipt; only unfinished uploads write files.
+    let ready = photo;
+    if (!photo.ready) {
+      await writeAcquisitionPhotoBytes(photo.id, bytes, "raw", photo.digest);
+      ready = await finalizeAcquisitionPhoto(
+        prisma,
+        actor,
+        sessionId,
+        photo.id,
+      );
+    }
     return Response.json(
       { id: ready.id, digest: ready.digest, ready: ready.ready },
       { headers: { "Cache-Control": "no-store" } },

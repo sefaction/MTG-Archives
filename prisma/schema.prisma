@@ -1279,6 +1279,7 @@ model AcquisitionRun {
   commands     AcquisitionCommand[]
   jobs         AcquisitionProcessingJob[]
   photos       AcquisitionPhoto[]
+  commits      AcquisitionCommit[]
 }
 
 model AcquisitionEvent {
@@ -1326,6 +1327,7 @@ model AcquisitionCandidate {
   observations     AcquisitionObservation[]
   corrections      AcquisitionCountCorrection[]
   jobs             AcquisitionProcessingJob[]
+  receipt          AcquisitionCommitMember?
 
   @@unique([runId, physicalId])
   @@unique([runId, acquisitionOrder, spatialOrder])
@@ -1477,4 +1479,34 @@ model AcquisitionCatalogRefresh {
   completedAt       DateTime?
 
   @@index([status, completedAt])
+}
+
+// Append-only application receipts. Inventory ids are historical references:
+// deleting or splitting live stock must not erase its acquisition provenance.
+model AcquisitionCommit {
+  id            String @id @default(uuid())
+  runId         String
+  run           AcquisitionRun @relation(fields: [runId], references: [id], onDelete: Restrict)
+  actorUserId   String
+  requestKey    String
+  requestDigest String
+  snapshot      Json
+  createdAt     DateTime @default(now())
+  members       AcquisitionCommitMember[]
+
+  @@unique([runId, requestKey])
+  @@unique([id, runId])
+}
+
+model AcquisitionCommitMember {
+  candidateId     String @id
+  runId           String
+  candidate       AcquisitionCandidate @relation(fields: [candidateId, runId], references: [id, runId], onDelete: Restrict)
+  commitId        String
+  commit          AcquisitionCommit @relation(fields: [commitId, runId], references: [id, runId], onDelete: Restrict)
+  inventoryItemId String
+  snapshot        Json
+
+  @@unique([candidateId, runId])
+  @@index([commitId, runId])
 }

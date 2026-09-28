@@ -239,3 +239,28 @@ export async function readBoundedPhotoBody(request: Request) {
     reader.releaseLock();
   }
 }
+
+/** Exact UUID-named files only. Missing bytes mean a prior interrupted purge
+ * already removed them. Never traverse a directory or follow a file symlink. */
+export async function removeAcquisitionPhotoBytes(id: string) {
+  for (const variant of ["raw", "preview"] as const) {
+    const { file } = await filePath(id, variant);
+    try {
+      const info = await lstat(file);
+      if (!info.isFile() || info.isSymbolicLink())
+        throw new Error("Private photo file is unsafe");
+      await unlink(file);
+    } catch (error: any) {
+      if (error.code !== "ENOENT") throw error;
+    }
+  }
+  if (process.platform !== "win32") {
+    const { directory } = await filePath(id, "raw"),
+      handle = await open(directory, "r");
+    try {
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+  }
+}

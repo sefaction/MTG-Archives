@@ -74,7 +74,7 @@ const include = {
     include: {
       artifacts: true,
       events: { orderBy: { sessionRevision: "asc" as const } },
-      candidates: { include: { observations: true } },
+      candidates: { include: { observations: true, receipt: true } },
       corrections: {
         include: { candidate: { select: { physicalId: true } } },
         orderBy: { createdAt: "asc" as const },
@@ -295,7 +295,9 @@ export async function createAcquisitionSession(
           run: {
             select: {
               _count: {
-                select: { candidates: { where: { excluded: false } } },
+                select: {
+                  candidates: { where: { excluded: false, receipt: null } },
+                },
               },
             },
           },
@@ -410,6 +412,13 @@ async function save(
   for (const candidate of after.candidates) {
     const old = before.candidates.find((c) => c.key === candidate.key);
     if (old && JSON.stringify(old) === JSON.stringify(candidate)) continue;
+    if (
+      row.run!.candidates.find((c) => c.physicalId === candidate.input.id)
+        ?.receipt
+    )
+      throw new Error(
+        "Capture card is already committed; use Inventory to change it",
+      );
     const data = {
       identityKind: candidate.input.identityKind,
       acquisitionOrder: candidate.input.order[0],
@@ -713,6 +722,7 @@ export async function enqueueAcquisitionProcessing(
       );
       if (
         !candidate ||
+        candidate.receipt ||
         !artifact ||
         !candidate.observations.some((o) => o.artifactId === artifact.id)
       )
@@ -760,6 +770,7 @@ export async function getAcquisitionProgress(
             uploadKey: true,
             generation: true,
             ready: true,
+            purgedAt: true,
             digest: true,
             bytes: true,
           },
@@ -827,6 +838,9 @@ export async function getAcquisitionProgress(
         generation: slot.generation,
         photos: slot.photos,
         review: reviews.get(slot.id) ?? null,
+        committed: Boolean(
+          row.run!.candidates.find((c) => c.physicalId === slot.id)?.receipt,
+        ),
         received: row.run!.candidates.some((c) => c.physicalId === slot.id),
       })),
       reservedSlots: slots.length,
@@ -897,6 +911,14 @@ export async function beginAcquisitionPhoto(
         previous.bytes !== metadata.bytes
       )
         throw new Error("Photo upload identity conflict");
+      if (
+        !previous.ready &&
+        (previous.purgedAt ||
+          run.candidates.find((c) => c.physicalId === slot.id)?.receipt)
+      )
+        throw new Error(
+          "Capture card is already committed; its unfinished retake cannot resume",
+        );
       return previous;
     }
     if (
@@ -913,6 +935,10 @@ export async function beginAcquisitionPhoto(
       }))
     )
       throw new Error("Retry the unfinished upload before retaking");
+    if (run.candidates.find((c) => c.physicalId === slot.id)?.receipt)
+      throw new Error(
+        "Capture card is already committed; use Inventory to change it",
+      );
     // Every intake for this owner takes the same quota lock. Pending writes count.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${row.ownerPlayerId}, 314))`;
     const [ownerUsage, sessionUsage] = await Promise.all([
@@ -1169,6 +1195,10 @@ export async function saveAcquisitionReview(
       };
     }
     const { candidate } = await reviewPhoto(tx, row, input.photoId);
+    if (candidate.receipt)
+      throw new Error(
+        "Capture card is already committed; use Inventory to change it",
+      );
     const current = candidate.review as AcquisitionCardReview["review"];
     if (candidate.revision !== input.revision) {
       if (
@@ -1313,3 +1343,11 @@ export async function searchAcquisitionPrintings(
       );
   });
 }
+
+// Internal service primitives. Callers must keep authorization inside each
+// transaction; these are not browser endpoints or authentication shortcuts.
+export {
+  transaction as acquisitionTransaction,
+  read as readAcquisitionRow,
+  hydrate as hydrateAcquisitionRow,
+};
