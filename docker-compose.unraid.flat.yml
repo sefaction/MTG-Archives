@@ -128,6 +128,23 @@ services:
     mem_limit: 512m
     cpus: 1.0
 
+  # Public metadata only: no photo/model mount, separate from isolated inference.
+  acquisition-catalog-worker:
+    image: ${WEB_IMAGE:-ghcr.io/sefaction/mtg-archives-web:${IMAGE_TAG:-main}}
+    pull_policy: always
+    restart: unless-stopped
+    command: ["node", "node_modules/tsx/dist/cli.mjs", "scripts/acquisition-catalog-worker.ts"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://mtginventory:mtginventory@postgres:5432/mtginventory?schema=public}
+      SCRYFALL_MIN_REQUEST_INTERVAL_MS: 500
+      SCRYFALL_MAX_RETRIES: 1
+    depends_on:
+      web:
+        condition: service_healthy
+    mem_limit: 1g
+    cpus: 1.0
+    stop_grace_period: 190s
+
   # One-time/retryable setup writes verified models only to persistent appdata.
   acquisition-model-init:
     image: ${ACQUISITION_RECOGNITION_IMAGE:-ghcr.io/sefaction/mtg-archives-recognition:${IMAGE_TAG:-main}}

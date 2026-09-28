@@ -1,6 +1,10 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { acquisitionRecognitionDto } from "./acquisition-recognition-dto";
 import {
+  CATALOG_RECONCILIATION_STAGE,
+  catalogStatusSchema,
+} from "./acquisition-catalog-status";
+import {
   acquisitionDefaultsSchema,
   acquisitionReviewDecisionSchema,
 } from "./acquisition-review";
@@ -15,7 +19,13 @@ export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
     JOIN "AcquisitionSession" s ON s.id = r."sessionId"
     JOIN "Player" p ON p.id = s."ownerPlayerId"
     JOIN "User" u ON u.id = s."createdByUserId"
-    WHERE j.stage = 'photo-recognition-v1' AND j.status = 'COMPLETE'
+    WHERE j.stage = ${CATALOG_RECONCILIATION_STAGE} AND j.status = 'COMPLETE'
+      AND j.output->'catalog'->>'status' = 'RESOLVED'
+      AND j.output->'catalog'->>'printingCoverage' = 'CHECKED'
+      AND j."createdAt" > NOW() - INTERVAL '24 hours'
+      AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" newer WHERE newer."candidateId"=c.id
+        AND newer."candidateRevision"=c.revision AND newer.stage IN ('photo-recognition-v1', ${CATALOG_RECONCILIATION_STAGE})
+        AND newer."createdAt">j."createdAt")
       AND j.output->'proposals'->>'status' = 'STRONG_MATCH'
       AND j.output->'proposals'->>'version' = '4'
       AND j."candidateRevision" = c.revision AND c.review IS NULL AND NOT c.excluded
@@ -103,6 +113,12 @@ export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
         job.output as { proposals?: { version?: number } }
       )?.proposals?.version;
       const eligible =
+        job.stage === CATALOG_RECONCILIATION_STAGE &&
+        catalogStatusSchema.safeParse(
+          (job.output as { catalog?: unknown })?.catalog,
+        ).data?.status === "RESOLVED" &&
+        (job.output as { catalog?: { printingCoverage?: string } })?.catalog
+          ?.printingCoverage === "CHECKED" &&
         evidenceVersion === 4 &&
         photo &&
         photo.ready &&

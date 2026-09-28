@@ -89,6 +89,21 @@ export async function verifyAcquisitionReview(
       }),
       /unavailable/,
     );
+    let unauthorizedLookup = false;
+    await assert.rejects(
+      searchAcquisitionPrintings(
+        db,
+        stranger,
+        sessionId,
+        { query: "Missing fixture printing", set: "", number: "" },
+        async () => {
+          unauthorizedLookup = true;
+          throw new Error("Unauthorized lookup ran");
+        },
+      ),
+      /unavailable/,
+    );
+    assert.equal(unauthorizedLookup, false);
     const decision = {
       cardId: card.id,
       language: "en",

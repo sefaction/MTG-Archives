@@ -119,6 +119,37 @@ test("all printing pages are fetched, including a stamped counterpart missing fr
   assert.equal(result.cards[1].set, "plst");
 });
 
+test("exact-name coverage accepts matching faces without accepting unrelated multi-face cards", async () => {
+  const first = { ...card(1), name: "Island" };
+  let paired = {
+    ...card(2),
+    name: "Island // Island",
+    card_faces: [{ name: "Island" }, { name: "Island" }],
+  } as ScryfallCard;
+  const provider: Provider = {
+    card: async () => ok(first),
+    printings: async () =>
+      ok({
+        object: "list",
+        data: [first, paired],
+        has_more: false,
+        total_cards: 2,
+      }),
+  };
+  const result = await fetchAcquisitionCatalogQuery(query, signal(), provider);
+  assert.equal(result.status, "FOUND");
+  assert.equal(result.printingCoverage, "CHECKED");
+  assert.equal(result.cards.length, 2);
+  paired = {
+    ...paired,
+    card_faces: [{ name: "Mountain" }, { name: "Swamp" }],
+  } as ScryfallCard;
+  assert.equal(
+    (await fetchAcquisitionCatalogQuery(query, signal(), provider)).errorKind,
+    "INVALID_RESPONSE",
+  );
+});
+
 test("provider failure after a valid initial card keeps unresolved coverage and retry details", async () => {
   const provider: Provider = {
     card: async () => ok(card(1)),
@@ -208,4 +239,27 @@ test("cancellation prevents a new provider request", async () => {
   assert.equal(calls, 0);
   assert.equal(result.errorKind, "TIMEOUT");
   assert.equal(result.printingCoverage, "UNRESOLVED");
+});
+
+test("advertised totals and original printing membership must agree before coverage is checked", async () => {
+  const missing: Provider = {
+    card: async () => ok(card(1)),
+    printings: async () =>
+      ok({ object: "list", data: [card(1)], has_more: false, total_cards: 2 }),
+  };
+  assert.equal(
+    (await fetchAcquisitionCatalogQuery(query, signal(), missing))
+      .printingCoverage,
+    "UNRESOLVED",
+  );
+  const omittedOriginal: Provider = {
+    ...missing,
+    printings: async () =>
+      ok({ object: "list", data: [card(2)], has_more: false, total_cards: 1 }),
+  };
+  assert.equal(
+    (await fetchAcquisitionCatalogQuery(query, signal(), omittedOriginal))
+      .errorKind,
+    "INVALID_RESPONSE",
+  );
 });

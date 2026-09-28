@@ -79,6 +79,8 @@ export async function fetchAcquisitionCatalogQuery(
       };
     cards.set(first.id, first);
     const language = first.lang ?? "en";
+    const enumerated = new Set<string>();
+    let expectedCount: number | undefined;
     // At most 100 pages / 20,000 printings. A bound is incomplete coverage,
     // never evidence that no additional printing or stamped variant exists.
     for (let page = 1; page <= 100; page++) {
@@ -96,31 +98,51 @@ export async function fetchAcquisitionCatalogQuery(
         .object({
           object: z.literal("list"),
           has_more: z.boolean(),
+          total_cards: z.number().int().positive().max(20000).optional(),
           data: z.array(acquisitionCatalogCardSchema).min(1).max(200),
         })
         .parse(response.data);
-      const before = cards.size;
+      if (data.total_cards !== undefined) {
+        if (expectedCount !== undefined && expectedCount !== data.total_cards)
+          throw new Error("Printing count changed during pagination");
+        expectedCount = data.total_cards;
+      }
       for (const rawCard of data.data) {
         const card = checkedCard(rawCard);
-        // The exact-name query must not broaden silently, even if a provider or
-        // test endpoint returns structurally valid but unrelated cards.
+        // Exact-name search can match a face of a multi-face card (for example
+        // Island also returns Island // Island). Require an actual matching
+        // face name; substring matches and unrelated cards remain invalid.
+        const exactFace = z
+          .array(z.object({ name: z.string() }))
+          .safeParse(card.card_faces);
         if (
-          card.name !== first.name ||
+          (card.name !== first.name &&
+            !(
+              exactFace.success &&
+              exactFace.data.some((face) => face.name === first.name)
+            )) ||
           card.lang !== language ||
           card.digital === true
         )
           throw new Error("Unexpected printing search result");
+        if (enumerated.has(card.id))
+          throw new Error("Repeated printing identity");
+        enumerated.add(card.id);
         cards.set(card.id, card);
       }
-      if (page > 1 && cards.size === before)
-        throw new Error("Repeated printing page");
-      if (!data.has_more)
+      if (!data.has_more) {
+        if (
+          !enumerated.has(first.id) ||
+          (expectedCount !== undefined && enumerated.size !== expectedCount)
+        )
+          throw new Error("Incomplete printing enumeration");
         return {
           status: "FOUND",
           cards: [...cards.values()],
           requestsMade,
           printingCoverage: "CHECKED",
         };
+      }
     }
     return {
       status: "INCOMPLETE",

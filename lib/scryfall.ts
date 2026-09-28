@@ -184,8 +184,24 @@ export function getScryfallRuntimeStatus() {
   };
 }
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function sleep(ms: number, signal?: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException("Cancelled", "AbortError"));
+      return;
+    }
+    const finish = () => {
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    };
+    const timer = setTimeout(finish, ms);
+    const abort = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
+      reject(new DOMException("Cancelled", "AbortError"));
+    };
+    signal?.addEventListener("abort", abort, { once: true });
+  });
 }
 
 async function throttle(config: ClientConfig) {
@@ -390,7 +406,7 @@ async function requestJson<T>(
         retryDelayMs: delayMs,
         finalResult: "retrying",
       });
-      await sleep(delayMs);
+      await sleep(delayMs, init.signal ?? undefined);
     } catch (error) {
       clearTimeout(timeout);
       const isAbort = error instanceof Error && error.name === "AbortError";
@@ -422,7 +438,7 @@ async function requestJson<T>(
         retryDelayMs: delayMs,
         finalResult: "retrying",
       });
-      await sleep(delayMs);
+      await sleep(delayMs, init.signal ?? undefined);
     }
   }
 }

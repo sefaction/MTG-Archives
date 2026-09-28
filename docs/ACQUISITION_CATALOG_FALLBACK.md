@@ -1,8 +1,8 @@
 # Acquisition catalog reconciliation
 
-Work in progress under #463, following the full recognition accuracy goal. The
-provider and shared-cache foundations below are implemented and tested; they are
-**not yet connected to the running scan workflow**. No production changes.
+Work in progress under #463 and PR #472, following the full recognition accuracy
+goal. The provider/cache and runtime reconciliation are loaded in local Docker;
+the three-scanner-photo browser acceptance passed. No production changes.
 
 ## Implemented foundation
 
@@ -27,18 +27,28 @@ provider and shared-cache foundations below are implemented and tested; they are
 
 ## Evidence
 
--22 focused provider/client unit checks passed, including existing client cases.
--Typecheck and targeted ESLint passed.
--Real disposable PostgreSQL migration and acquisition/import verification passed,
+- 670 unit checks passed, including 14 focused provider/client cases. Exact-name
+  searches accept validated matching card faces (such as Island // Island) while
+  continuing to reject unrelated cards, repeated IDs and incomplete pagination.
+- Production build/typecheck and targeted ESLint passed.
+- Real disposable PostgreSQL migration and acquisition/import verification passed,
   including shared lookup, deleted-row repair, stable IDs, negative cache, shared
   cooldown and stale-lease fencing. Test fixture/container/volume cleanup passed.
--A live metadata-only query for LGN131/en returned Krosan Vorine's original
+- A live metadata-only query for LGN131/en returned Krosan Vorine's original
   printing and PLST/LGN-131 in two requests, with complete printing enumeration.
   This verifies the actual Scryfall path, not merely a mocked provider.
+- A live NEO285/en lookup returned 772 Island printings over five search pages
+  (six requests including the initial printing). This corrected a real local
+  browser failure caused by treating a matching double-faced result as invalid.
+- The local real-photo browser test passed in2.4m: three saved originals completed
+  OCR and catalog reconciliation, expected printing retained, full-frame/footer
+  diagnostics, desktop1366/phone320 layout, reload and zero Inventory changes.
+  Fixture cleanup passed. Its jobs were prioritized ahead of existing upgrade
+  work, so this is functional evidence, not backlog or throughput acceptance.
 
-## Remaining integration in this batch
+## Runtime integration
 
-1. Add a metadata service with database access but no photo/model mounts. Keep the
+1. A metadata service has database access but no photo/model mounts. Keep the
    native recognition container on its existing internal-only network.
 2. Consume completed immutable OCR jobs through a new reconciliation stage.
    Recover using the existing durable job leases; reuse saved OCR rather than
@@ -57,10 +67,14 @@ provider and shared-cache foundations below are implemented and tested; they are
    durable backoff; avoid continually reprocessing reviewed photos.
 6. Connect authorized manual review search to the same fallback/cache, with no
    network request inside a held user/session transaction.
-7. Add automatic bulk metadata maintenance and image/index refresh; default-card
-   coverage is not universal language coverage. Validate the complete integration
-   in local Docker, including deliberately omitted metadata and saved reviews.
+7. Real database checks cover deliberately missing metadata, refreshed proposals,
+   repeated-cache reuse without OCR, manual-search fallback, provider failure,
+   unauthorized search and a human review during reconciliation. Inventory stays
+   unchanged. Abortable provider backoff respects request cancellation.
 
-No worker, UI or automatic-confirmation behavior has been changed by the current
-foundation. The overall goal remains open until integration and the other image/
-printing verification requirements are proven.
+Automatic bulk metadata maintenance and image/index refresh remain subsequent
+work in the overall goal; this batch provides on-demand reconciliation and
+periodic retry of unreviewed results. Default-card coverage is not universal
+language coverage. The actual stamp detector and image/OCR union are not delivered
+by this batch. The overall goal remains open until those requirements and full
+catalog accuracy/resource/recovery checks are proven.

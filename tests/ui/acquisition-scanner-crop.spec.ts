@@ -97,6 +97,30 @@ test("tight scanner images retain the footer through recognition and visual revi
       expect(output.output.proposals.evidence.collectors).toContain(
         entry.collectorNumber,
       );
+      await expect
+        .poll(
+          () =>
+            Number(
+              database(
+                `await p.acquisitionProcessingJob.updateMany({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-catalog-reconciliation-v1',status:'PENDING'},data:{availableAt:new Date(0)}});console.log(await p.acquisitionProcessingJob.count({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-catalog-reconciliation-v1',status:'COMPLETE'}}));`,
+              ),
+            ),
+          { timeout: 120000 },
+        )
+        .toBe(i + 1);
+      const reconciled = JSON.parse(
+        database(
+          `const job=await p.acquisitionProcessingJob.findFirstOrThrow({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},artifact:{digest:${JSON.stringify(entry.sha256)}},stage:'photo-catalog-reconciliation-v1',status:'COMPLETE'},select:{output:true}});console.log(JSON.stringify(job.output));`,
+        ),
+      );
+      expect(reconciled.catalog.status).toBe("RESOLVED");
+      expect(reconciled.catalog.printingCoverage).toBe("CHECKED");
+      expect(reconciled.native.photoDigest).toBe(entry.sha256);
+      expect(
+        reconciled.proposals.proposals.some(
+          (proposal: any) => proposal.card.id === output.expectedId,
+        ),
+      ).toBe(true);
       const card = page.getByTestId(`capture-card-${i + 1}`);
       await card.scrollIntoViewIfNeeded();
       await expect(card.getByText(/Full image retained; no crop/)).toBeVisible({

@@ -11,6 +11,7 @@ import {
   type AcquisitionCardReview,
 } from "./acquisition-review";
 import { acquisitionRecognitionDto } from "./acquisition-recognition-dto";
+import { CATALOG_RECONCILIATION_STAGE } from "./acquisition-catalog-status";
 import { acquisitionReviewEvidence } from "./acquisition-review-evidence";
 import { searchLocalCardCatalog } from "./local-card-search";
 import {
@@ -1120,15 +1121,16 @@ export async function getAcquisitionCardReview(
   return transaction(db, async (tx) => {
     const row = await read(tx, actor, sessionId);
     const { photo, candidate } = await reviewPhoto(tx, row, photoId);
-    const job = await tx.acquisitionProcessingJob.findFirst({
+    const jobs = await tx.acquisitionProcessingJob.findMany({
       where: {
         runId: row.run!.id,
         artifact: { sourceId: photo.id },
-        stage: "photo-recognition-v1",
-        status: "COMPLETE",
+        stage: { in: ["photo-recognition-v1", CATALOG_RECONCILIATION_STAGE] },
       },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 8,
     });
+    const job = jobs.find((item) => item.status === "COMPLETE");
     // A saved suggestion remains evidence for these immutable bytes after human
     // review increments the candidate revision. It never changes that review.
     const evidence = acquisitionRecognitionDto(
@@ -1136,6 +1138,21 @@ export async function getAcquisitionCardReview(
       job?.output,
     );
     const review = candidate.review as AcquisitionCardReview["review"];
+    const latest = jobs[0];
+    if (!review && latest && latest.id !== job?.id) {
+      evidence.status = latest.status;
+      evidence.catalog =
+        latest.status === "FAILED"
+          ? latest.stage === CATALOG_RECONCILIATION_STAGE
+            ? { status: "PROVIDER_ERROR", printingCoverage: "UNRESOLVED" }
+            : null
+          : { status: "CHECKING", printingCoverage: "UNRESOLVED" };
+      if (evidence.result) {
+        evidence.result.automaticAcceptance = false;
+        if (evidence.result.status === "STRONG_MATCH")
+          evidence.result.status = "REVIEW_REQUIRED";
+      }
+    }
     const ids = [
       ...new Set([
         ...(evidence.result?.proposals.map((p) => p.card.id) ?? []),
@@ -1163,7 +1180,13 @@ export async function getAcquisitionCardReview(
                 ? evidence.result.proposals[0]?.card.id
                 : null)),
         ) ?? null,
-      recognitionStatus: evidence.result?.status ?? evidence.status,
+      recognitionStatus:
+        evidence.catalog?.status === "CHECKING"
+          ? "PENDING"
+          : evidence.status === "FAILED"
+            ? "FAILED"
+            : (evidence.result?.status ?? evidence.status),
+      catalog: evidence.catalog,
       evidence: acquisitionReviewEvidence(job?.output),
       suggestions: (evidence.result?.proposals ?? []).flatMap((p) => {
         const printing = cards.find((c) => c.id === p.card.id);
@@ -1291,6 +1314,10 @@ export async function searchAcquisitionPrintings(
   actor: AcquisitionActor,
   sessionId: string,
   raw: unknown,
+  fallback?: (
+    query: import("./acquisition-catalog-queries").CatalogQuery,
+    signal: AbortSignal,
+  ) => Promise<import("./acquisition-catalog-cache").CachedCatalogResult>,
 ) {
   const input = z
     .object({
@@ -1300,66 +1327,132 @@ export async function searchAcquisitionPrintings(
     })
     .strict()
     .parse(raw);
-  return transaction(db, async (tx) => {
-    const session = await tx.acquisitionSession.findUnique({
-      where: { id: sessionId },
-      select: { ownerPlayerId: true },
-    });
-    if (!session) throw new Error("Capture session unavailable");
-    await authorize(tx, actor, session.ownerPlayerId);
-    if (input.query.length < 2 && !input.set && !input.number)
-      throw new Error("Choose a card name or set and collector number");
-    const matches =
-      !input.set && !input.number
-        ? await searchLocalCardCatalog(tx, {
-            query: input.query,
-            setCode: input.query.toLowerCase(),
-            limit: 50,
-          })
-        : await tx.card.findMany({
+  const search = (externalIds?: string[]) =>
+    transaction(db, async (tx) => {
+      const session = await tx.acquisitionSession.findUnique({
+        where: { id: sessionId },
+        select: { ownerPlayerId: true },
+      });
+      if (!session) throw new Error("Capture session unavailable");
+      await authorize(tx, actor, session.ownerPlayerId);
+      if (input.query.length < 2 && !input.set && !input.number)
+        throw new Error("Choose a card name or set and collector number");
+      const matches = externalIds
+        ? await tx.card.findMany({
             where: {
-              ...(input.query.length >= 2
-                ? {
-                    name: {
-                      contains: input.query,
-                      mode: "insensitive" as const,
-                    },
-                  }
-                : {}),
-              ...(input.set
-                ? {
-                    setCode: {
-                      equals: input.set,
-                      mode: "insensitive" as const,
-                    },
-                  }
-                : {}),
-              ...(input.number
-                ? {
-                    collectorNumber: {
-                      equals: input.number.replace(/^0+(?=\d)/, ""),
-                      mode: "insensitive" as const,
-                    },
-                  }
-                : {}),
+              scryfallId: { in: externalIds },
+              OR: [{ digital: false }, { digital: null }],
             },
             take: 50,
             orderBy: [{ name: "asc" }, { releasedAt: "desc" }, { id: "asc" }],
-          });
-    return matches
-      .filter((c) => c.digital !== true)
-      .map(
-        ({ id, name, setCode, collectorNumber, lang, imageUri, finishes }) => ({
-          id,
-          name,
-          setCode,
-          collectorNumber,
-          lang,
-          imageUri,
-          finishes,
-        }),
-      );
-  });
+          })
+        : !input.set && !input.number
+          ? await searchLocalCardCatalog(tx, {
+              query: input.query,
+              setCode: input.query.toLowerCase(),
+              limit: 50,
+            })
+          : await tx.card.findMany({
+              where: {
+                ...(input.query.length >= 2
+                  ? {
+                      name: {
+                        contains: input.query,
+                        mode: "insensitive" as const,
+                      },
+                    }
+                  : {}),
+                ...(input.set
+                  ? {
+                      setCode: {
+                        equals: input.set,
+                        mode: "insensitive" as const,
+                      },
+                    }
+                  : {}),
+                ...(input.number
+                  ? {
+                      collectorNumber: {
+                        equals: input.number.replace(/^0+(?=\d)/, ""),
+                        mode: "insensitive" as const,
+                      },
+                    }
+                  : {}),
+              },
+              take: 50,
+              orderBy: [{ name: "asc" }, { releasedAt: "desc" }, { id: "asc" }],
+            });
+      return matches
+        .filter((c) => c.digital !== true)
+        .map(
+          ({
+            id,
+            name,
+            setCode,
+            collectorNumber,
+            lang,
+            imageUri,
+            finishes,
+          }) => ({
+            id,
+            name,
+            setCode,
+            collectorNumber,
+            lang,
+            imageUri,
+            finishes,
+          }),
+        );
+    });
+  // Authorization completes before network work, and is checked again before
+  // returning imported metadata. No session/database transaction spans HTTP.
+  const local = await search();
+  const exactName = input.query.trim().toLocaleLowerCase();
+  if (
+    local.length &&
+    (input.set ||
+      input.number ||
+      local.some((card) =>
+        [card.name, ...card.name.split(" // ")].some(
+          (name) => name.toLocaleLowerCase() === exactName,
+        ),
+      ))
+  )
+    return local;
+  const query: import("./acquisition-catalog-queries").CatalogQuery | null =
+    input.set && input.number
+      ? {
+          kind: "printing",
+          set: input.set.toLowerCase(),
+          number: input.number.replace(/^0+(?=\d)/, ""),
+          language: "en",
+        }
+      : input.query.length >= 3
+        ? { kind: "name", name: input.query }
+        : null;
+  if (!query) return local;
+  const lookup =
+    fallback ??
+    ((q, signal) =>
+      import("./acquisition-catalog-cache").then((m) =>
+        m.resolveCachedAcquisitionCatalog(db, q, signal),
+      ));
+  const signal = AbortSignal.timeout(45000);
+  let result = await lookup(query, signal);
+  while (result.status === "PENDING") {
+    signal.throwIfAborted();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    result = await lookup(query, signal);
+  }
+  if (result.status === "PROVIDER_ERROR" || result.status === "INCOMPLETE")
+    throw new Error(
+      "Scryfall could not complete the catalog search. Your photo is saved; try again shortly.",
+    );
+  if (result.status === "NOT_FOUND") return local;
+  const imported = await search(result.cards.map((card) => card.id));
+  return [
+    ...new Map([...imported, ...local].map((card) => [card.id, card])).values(),
+  ].slice(0, 50);
 }
 
 // Internal service primitives. Callers must keep authorization inside each

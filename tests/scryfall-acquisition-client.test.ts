@@ -91,3 +91,25 @@ test("in-flight cancellation stops instead of consuming the client's retry budge
   assert.equal(calls, 1);
   assert.equal(result.requestsMade, 1);
 });
+
+test("cancellation interrupts Retry-After backoff", async () => {
+  setup();
+  const controller = new AbortController();
+  let calls = 0;
+  global.fetch = (async () => {
+    calls++;
+    setTimeout(() => controller.abort(), 10);
+    return Response.json(
+      { object: "error" },
+      { status: 429, headers: { "Retry-After": "3600" } },
+    );
+  }) as typeof fetch;
+  const started = Date.now();
+  const result = await getAcquisitionCardResult(
+    { kind: "name", name: "Krosan Vorine" },
+    controller.signal,
+  );
+  assert.equal(result.ok, false);
+  assert.equal(calls, 1);
+  assert.ok(Date.now() - started < 1000);
+});

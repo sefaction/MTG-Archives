@@ -1,4 +1,5 @@
 "use client";
+import { acquisitionCatalogMessage } from "@/lib/acquisition-catalog-status";
 import { useEffect, useRef, useState } from "react";
 import {
   AcquisitionScanImage,
@@ -233,6 +234,8 @@ export function AcquisitionPhotoReview({
     return () => observer.disconnect();
   }, []);
   const recognitionStatus = record?.recognitionStatus;
+  const catalogStatus = record?.catalog?.status;
+  const reviewed = Boolean(record?.review);
   useEffect(() => {
     if (!active) return;
     let cancelled = false;
@@ -253,6 +256,7 @@ export function AcquisitionPhotoReview({
                     evidence: next.evidence,
                     suggestions: next.suggestions,
                     recognitionStatus: next.recognitionStatus,
+                    catalog: next.catalog,
                   }
                 : previous,
             );
@@ -262,19 +266,39 @@ export function AcquisitionPhotoReview({
       }
     }
     void load();
-    const timer = setInterval(() => {
-      if (
-        !recognitionStatus ||
-        ["WAITING", "RUNNING", "PENDING"].includes(recognitionStatus)
-      )
-        void load();
-    }, 4000);
+    const timer = setInterval(
+      () => {
+        if (
+          !reviewed &&
+          (!recognitionStatus ||
+            ["WAITING", "RUNNING", "PENDING"].includes(recognitionStatus) ||
+            ["CHECKING", "PROVIDER_ERROR", "NOT_FOUND", "INCOMPLETE"].includes(
+              catalogStatus ?? "",
+            ))
+        )
+          void load();
+      },
+      catalogStatus === "PROVIDER_ERROR" ||
+        catalogStatus === "NOT_FOUND" ||
+        catalogStatus === "INCOMPLETE"
+        ? 30000
+        : 4000,
+    );
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
     // A dirty form retains its revision so a concurrent edit is rejected on save.
-  }, [active, endpoint, photoId, refreshKey, busy, recognitionStatus]);
+  }, [
+    active,
+    endpoint,
+    photoId,
+    refreshKey,
+    busy,
+    recognitionStatus,
+    catalogStatus,
+    reviewed,
+  ]);
   async function reload() {
     ++requestVersion.current;
     try {
@@ -364,6 +388,15 @@ export function AcquisitionPhotoReview({
                       ? "Waiting for identification · manual selection available"
                       : "Needs review"}
           </p>
+          {!record.review && acquisitionCatalogMessage(record.catalog) && (
+            <p
+              className="text-sm mb-3"
+              role="status"
+              data-testid="scan-catalog-status"
+            >
+              {acquisitionCatalogMessage(record.catalog)}
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-3 sm:gap-6 min-w-0">
             <AcquisitionScanImage
               src={`/api/acquisition/${batchId}/photos/${photoId}`}

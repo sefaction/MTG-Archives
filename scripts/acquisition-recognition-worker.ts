@@ -1,4 +1,3 @@
-import { confirmStrongAcquisitionMatches } from "../lib/acquisition-auto-confirm";
 import { PrismaClient } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { setTimeout } from "node:timers/promises";
@@ -66,11 +65,6 @@ async function main() {
       workerId,
       { timeoutMs: 45000, leaseMs: 90000 },
     );
-    const confirmed = await confirmStrongAcquisitionMatches(db);
-    if (confirmed)
-      console.log(
-        JSON.stringify({ event: "recognition-confirmed", count: confirmed }),
-      );
     if (result.claimed)
       console.log(JSON.stringify({ event: "recognition-stage", ...result }));
     if (!stopped && !process.argv.includes("--once"))
