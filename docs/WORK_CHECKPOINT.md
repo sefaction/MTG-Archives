@@ -1,5 +1,20 @@
 # Resumable work checkpoint
 
+## Tight scanner crop correction in progress, 2026-09-28
+
+- Branch `fix/acquisition-tight-scan-crop`, bug #469 under #306/#463. User requested scanner success-rate evaluation and automatic avoidance of unnecessary cropping. No merge approval or PR yet.
+- Independently labelled 17 scanner images (NEO), private originals unchanged. Frozen full metadata baseline: 17 expected names, 8 exact first, 15 in twelve, zero strong. Inner contours visibly removed identifier footers. Final full-frame native evaluation: 15 exact first, all17 in twelve, 11 correct strong and zero wrong strong. Remaining second choices are Reckoner's Bargain and Patchwork Automaton original/List ambiguities; stamp detection remains unimplemented.
+- Full-image heuristic requires near-card aspect, dark rim on every edge, and large near-frame connected content. Full source quad is preserved, only oriented/resized. Ordinary phone detection and printing thresholds unchanged. UI labels full image/no crop. Final geometry check: 51 phone originals in four turns (204 byte-identical crops/evidence); 17 scans in four turns (68 full-frame quads). Synthetic guards4/4 and review evidence3/3 passed. Scanner model/resolution question queued; no result depends on answer.
+- Initial geometry variant missed two sideways scans; replaced dependence on chosen inner contour with connected-content support. Initial browser26389 failed before upload because its newly written fixture omitted required storage sections; fixed to valid sections:[], cleaned fixture. Final browser22532 running against final native image. Fixture jobs alone get earlier availableAt to bypass existing upgrade backlog; this is functional verification, not throughput evidence. No existing session jobs are modified by the test.
+- Web build image14dab4d source429 digest0b38f8c47c449ea7fcea4e4b8f1cd26ff61af7b6db5bbbef050693bf7ffc1fcd verified; final native536b592 loaded. Both builds/reloads succeeded per Docker logs despite PowerShell stderr wrapper exit1. Native final evaluation80084 finished. Pending: browser/screenshots, final unit/typecheck/CI, documentation and PR; production unchanged. Independent Android-device goal remains paused.
+
+## Additional document-scanner test material received, 2026-09-28
+
+- Active branch remains `local/acquisition-visual-review-20260928`; no application change or new PR. Live GitHub has no open PRs; recognition #463 remains OPEN.
+- User supplied `C:\Users\brian\Downloads\immich-20260927_224720`, containing 51 phone JPEGs and 17 scanner JPEGs (`scans.01.jpg` through `scans.17.jpg`). Copied only the 17 scanner files into this worktree's ignored `.local-data/acquisition-corpus/scanner-20260928/`, preserving originals and verifying each copy against source SHA-256. Private `intake-manifest.json` records hashes, byte sizes and decoded dimensions.
+- Intake decoding passed for all 17 images. Visually inspected scan 01: Sunblade Samurai, visible NEO / 039 footer. Complete printing labels, scanner model/settings and physical correspondence to phone photos remain unverified; do not claim held-out independence or recognition accuracy. No OCR/application benchmark or Inventory write was performed.
+- Local Docker services remain running; this fixture intake requires no rebuild. No Foundry milestone or production change. Next safe step for #463: visually label/cross-check the scanner set, establish physical overlap, then run a separately reported scanner baseline using existing evaluation tooling. No answer is required to retain the material.
+
 ## PR #467 approved and merged, 2026-09-28
 
 - User individually approved #467. Fresh checks passed on exact head `ff873778ab73266199554b98e969308b6ecc4bb2`; merged into main as `fc7b3621f4802e2bc17147d8be74afe58572729b` at 15:31:36 UTC. GitHub confirms MERGED. All three checks succeeded in run36440044280.
