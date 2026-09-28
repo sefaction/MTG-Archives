@@ -270,6 +270,15 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
           expect(result.output.proposals.automaticAcceptance).toBe(
             result.output.proposals.status === "STRONG_MATCH",
           );
+          if (entry.stamp === "PRESENT") {
+            expect(result.output.proposals.automaticAcceptance, entry.file).toBe(false);
+            expect(
+              result.output.proposals.proposals.some((proposal: any) =>
+                proposal.reasons.includes("STAMP_UNVERIFIED"),
+              ),
+              entry.file,
+            ).toBe(true);
+          }
           if (result.output.proposals.automaticAcceptance) {
             expect(result.output.proposals.proposals[0].reasons).toContain(
               "TITLE_EXACT",
@@ -297,6 +306,9 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
         await expect(
           page.getByTestId("recognition-suggestions").first(),
         ).toContainText("Krosan Vorine");
+        await expect(
+          page.getByTestId("recognition-suggestions").first(),
+        ).toContainText("Check the lower-left Planeswalker stamp");
         await page.screenshot({
           path: "test-results/acquisition-recognition-phone.png",
           fullPage: true,

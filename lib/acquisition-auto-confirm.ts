@@ -17,6 +17,7 @@ export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
     JOIN "User" u ON u.id = s."createdByUserId"
     WHERE j.stage = 'photo-recognition-v1' AND j.status = 'COMPLETE'
       AND j.output->'proposals'->>'status' = 'STRONG_MATCH'
+      AND j.output->'proposals'->>'version' = '3'
       AND j."candidateRevision" = c.revision AND c.review IS NULL AND NOT c.excluded
       AND r."providerId" = 'phone-photo-v1'
       AND s.phase NOT IN ('DRAFT', 'CANCELLED')
@@ -98,7 +99,11 @@ export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
         finish: defaults.success ? defaults.data.finish : "UNKNOWN",
         condition: defaults.success ? defaults.data.condition : null,
       });
+      const evidenceVersion = (
+        job.output as { proposals?: { version?: number } }
+      )?.proposals?.version;
       const eligible =
+        evidenceVersion === 3 &&
         photo &&
         photo.ready &&
         !photo.purgedAt &&
@@ -110,6 +115,7 @@ export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
         result.automaticAcceptance &&
         proposal?.reasons.includes("STRONG_EXACT_PRINTING") &&
         proposal.reasons.includes("TITLE_EXACT") &&
+        !proposal.reasons.includes("STAMP_UNVERIFIED") &&
         !humanChangedPhoto &&
         card &&
         !card.digital &&

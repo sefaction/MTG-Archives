@@ -93,7 +93,16 @@ async function main() {
       );
     const observed = matching[0];
     let text: RecognitionText;
-    if (observed.lines) {
+    if (observed.text) {
+      // Production native output may group geometrically adjacent OCR words.
+      // Evaluate exactly that contract instead of reconstructing different text.
+      text = z
+        .object({
+          title: z.array(z.string().max(2000)).max(100),
+          footer: z.array(z.string().max(2000)).max(100),
+        })
+        .parse(observed.text);
+    } else if (observed.lines) {
       text = {
         title: observed.lines
           .filter(

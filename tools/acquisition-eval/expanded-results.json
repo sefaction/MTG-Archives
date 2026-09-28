@@ -1,0 +1,299 @@
+{
+  "version": 1,
+  "date": "2026-09-27",
+  "scope": "All catalog printings of corpus names plus 256 seeded unrelated distractors; not full-catalog accuracy.",
+  "split": "development-only",
+  "photoCount": 23,
+  "referenceCount": 3635,
+  "versions": {
+    "code": "6ff59ff387ce473b220e0bb61715ba2f0f14443964ee2dc0bed59c5b4517cbe3",
+    "geometry": "76a440131f315002927bf3f073d09ebc3793300a0358d955d372bc16278d7c97",
+    "referenceIndex": "117ad588bcb8384f310c4070370e7949b6d48fe0197d0d14f85be4e41356bad5",
+    "manifest": "65cb19e560d75f99d7a8838f3ad586381c72e28daa0d48b1330dda090a52b89f",
+    "weights": "397923af8e79cdbb6a7127f12361acd7a2f83e06b05044ddf496e83de57a5bf0",
+    "torch": "2.8.0+cpu",
+    "opencv": "4.12.0"
+  },
+  "ocrResolverRevision": "0e681f3feee2a59008f174f19ee003a5b23388f6",
+  "methods": {
+    "current_ocr": {
+      "exactTop1": 11,
+      "exactTop12": 16,
+      "nameTop1": 17,
+      "automatic": 4,
+      "wrongAutomatic": 1
+    },
+    "experimental_ocr": {
+      "exactTop1": 13,
+      "exactTop12": 19,
+      "nameTop1": 20,
+      "automatic": 7,
+      "wrongAutomatic": 1
+    },
+    "tesseract": {
+      "exactTop1": 8,
+      "exactTop12": 11,
+      "nameTop1": 12,
+      "automatic": 1,
+      "wrongAutomatic": 0
+    },
+    "phash": {
+      "exactTop1": 15,
+      "exactTop12": 20,
+      "nameTop1": 20,
+      "automatic": 0
+    },
+    "vgg16": {
+      "exactTop1": 17,
+      "exactTop12": 22,
+      "nameTop1": 18,
+      "automatic": 0
+    },
+    "visual_then_sift": {
+      "exactTop1": 16,
+      "exactTop12": 22,
+      "nameTop1": 22,
+      "automatic": 0
+    }
+  },
+  "visualCombinedTiming": {
+    "medianQueryMs": 4845,
+    "maxQueryMs": 7558,
+    "remainingIndexMs": 537725,
+    "resumedFromReferences": 208,
+    "peakProcessRssKiB": 1387924
+  },
+  "privateReportSha256": "6f4a99f0b1e7e22250afa33ae2da7319c52244b9a1f1a0c2cb0ddadb96e404aa",
+  "results": [
+    {
+      "file": "PXL_20260927_150825750.jpg",
+      "expected": "8d887f3d-f07f-4672-a3a2-acdc42fa98e2",
+      "geometry": "PROPOSED",
+      "exactRanks": {
+        "phash": 1,
+        "vgg16": 1,
+        "visual_then_sift": 2
+      }
+    },
+    {
+      "file": "PXL_20260927_151021209.jpg",
+      "expected": "e7af88c9-70ca-484c-bddf-b705e0ea7bc7",
+      "geometry": "PROPOSED",
+      "exactRanks": {
+        "phash": 2,
+        "vgg16": 1,
+        "visual_then_sift": 2
+      }
+    },
+    {
+      "file": "PXL_20260927_151030766.jpg",
+      "expected": "ba703ed8-3c5e-479f-b7f1-b8070d4f83b7",
+      "geometry": "PROPOSED",
+      "exactRanks": {
+        "phash": 2,
+        "vgg16": 2,
+        "visual_then_sift": 2
+      }
+    },
+    {
+      "file": "PXL_20260927_151037738.jpg",
+      "expected": "ea3f5644-f7e3-40de-ada5-cea2e9113cfb",
+      "geometry": "PROPOSED",
+      "exactRanks": {
+        "phash": 1,
+        "vgg16": 1,
+        "visual_then_sift": 1
+      }
+    },
+    {
+      "file": "PXL_20260927_151048233.jpg",
+      "expected": "408eb23f-13fa-4f98-b316-18e3057f9136",
+      "geometry": "PROPOSED",
+      "exactRanks": {
+        "phash": 1,
+        "vgg16": 1,
+        "visual_then_sift": 1
+      }
+    },
+    {
+      "file": "PXL_20260927_151053467.jpg",
+      "expected": "d061b9a8-e95d-48ec-a1c9-337433b62dfc",
+      "geometry": "PROPOSED",
+      "exactRanks": {
+        "phash": 1,
+        "vgg16": 1,
+        "visual_then_sift": 1
+      }
+    },
+    {
+      "file": "PXL_20260927_151059416.jpg",
+      "expected": "6d9e44c1-7b51-47cb-b564-608deb46cc44",
+      "geometry": "PROPOSED",
+      "exactRanks": {
+        "phash": 1,
+        "vgg16": 1,
+        "visual_then_sift": 1
+      }
+    },
+    {
+      "file": "PXL_20260927_151111560.jpg",
+      "expected": "cfe4a22f-c945-42f4-8b3a-ac3a03ffa015",
+      "geometry": "PROPOSED",
+      "exactRanks": {
+        "phash": 2,
+        "vgg16": 1,
+        "visual_then_sift": 2
+      }
+    },
+    {
+      "file": "PXL_20260927_151119884.jpg",
+      "expected": "4c6ec3ae-78fa-4c77-aaa5-0223c68f1852",
+      "geometry": "PROPOSED",
+      "exactRanks": {
+        "phash": 5,
+        "vgg16": 1,
+        "visual_then_sift": 2
+      }
+    },
+    {
+      "file": "PXL_20260927_151127248.jpg",
+      "expected": "58f0a2f9-5c5e-4477-ae7e-a52cf5778962",
+      "geometry": "PROPOSED",
+      "exactRanks": {
+        "phash": 2,
+        "vgg16": 1,
+        "visual_then_sift": 2
+      }
+    },
+    {
+      "file": "PXL_20260928_003418071.jpg",
+      "expected": "f5324741-353a-4a70-adb2-b631b00806dd",
+      "geometry": "PROPOSED",
+      "exactRanks": {
+        "phash": 1,
+        "vgg16": 1,
+        "visual_then_sift": 1
+      }
+    },
+    {
+      "file": "PXL_20260928_003422176.jpg",
+      "expected": "8096bc9a-a610-448f-bef2-7230e17e9777",
+      "geometry": "PROPOSED",
+      "exactRanks": {
+        "phash": 1,
+        "vgg16": 1,
+        "visual_then_sift": 1
+      }
+    },
+    {
+      "file": "PXL_20260928_003426755.jpg",
+      "expected": "f49be090-c745-40e5-bc1c-605b8d98acdf",
+      "geometry": "PROPOSED",
+      "exactRanks": {
+        "phash": 1,
+        "vgg16": 1,
+        "visual_then_sift": 1
+      }
+    },
+    {
+      "file": "PXL_20260928_003429763.jpg",
+      "expected": "4ff6da82-d7dd-4b59-b7e6-30670cea7169",
+      "geometry": "PROPOSED",
+      "exactRanks": {
+        "phash": 1,
+        "vgg16": 1,
+        "visual_then_sift": 1
+      }
+    },
+    {
+      "file": "PXL_20260928_003432155.jpg",
+      "expected": "32a7a905-11bf-4b66-a28e-1066a0e372b8",
+      "geometry": "PROPOSED",
+      "exactRanks": {
+        "phash": 1,
+        "vgg16": 2,
+        "visual_then_sift": 1
+      }
+    },
+    {
+      "file": "PXL_20260928_003434676.jpg",
+      "expected": "1bf923c4-f0b7-4271-978c-fd2e79fe1cc8",
+      "geometry": "PROPOSED",
+      "exactRanks": {
+        "phash": 1,
+        "vgg16": 1,
+        "visual_then_sift": 1
+      }
+    },
+    {
+      "file": "PXL_20260928_003436955.jpg",
+      "expected": "4d4b3bf7-a149-4099-b97d-4e36a87dfa60",
+      "geometry": "PROPOSED",
+      "exactRanks": {
+        "phash": 1,
+        "vgg16": 1,
+        "visual_then_sift": 1
+      }
+    },
+    {
+      "file": "PXL_20260928_003438899.jpg",
+      "expected": "7d17f7e3-7b63-4674-9024-4fd1827f40ec",
+      "geometry": "PROPOSED",
+      "exactRanks": {
+        "phash": 1,
+        "vgg16": 1,
+        "visual_then_sift": 1
+      }
+    },
+    {
+      "file": "PXL_20260928_003441259.jpg",
+      "expected": "df8713cd-3f4b-43ef-adbd-e37c2617c617",
+      "geometry": "NEEDS_CROP",
+      "exactRanks": {
+        "phash": 3265,
+        "vgg16": 2,
+        "visual_then_sift": 1
+      }
+    },
+    {
+      "file": "PXL_20260928_003443452.jpg",
+      "expected": "9670f754-f41f-45ac-8e8b-025ad2c0f66b",
+      "geometry": "NEEDS_CROP",
+      "exactRanks": {
+        "phash": 477,
+        "vgg16": 34,
+        "visual_then_sift": null
+      }
+    },
+    {
+      "file": "PXL_20260928_003445909.jpg",
+      "expected": "90f33f99-7bc5-42e1-815e-bfb4c2b74107",
+      "geometry": "PROPOSED",
+      "exactRanks": {
+        "phash": 1,
+        "vgg16": 2,
+        "visual_then_sift": 1
+      }
+    },
+    {
+      "file": "PXL_20260928_003449841.jpg",
+      "expected": "140ba675-3922-48cf-b6ec-8639267dcab8",
+      "geometry": "PROPOSED",
+      "exactRanks": {
+        "phash": 1,
+        "vgg16": 1,
+        "visual_then_sift": 1
+      }
+    },
+    {
+      "file": "PXL_20260928_003452817.jpg",
+      "expected": "02ee7817-40af-4fcf-a2df-eb218b669281",
+      "geometry": "NEEDS_CROP",
+      "exactRanks": {
+        "phash": 205,
+        "vgg16": 10,
+        "visual_then_sift": 1
+      }
+    }
+  ]
+}

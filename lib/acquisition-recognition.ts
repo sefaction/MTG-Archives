@@ -63,15 +63,31 @@ function names(card: RecognitionCard) {
 export function createAcquisitionRecognitionIndex(cards: RecognitionCard[]) {
   const paper = cards.filter((card) => card.digital !== true);
   const bySetNumber = new Map<string, RecognitionCard[]>();
+  const byPrintedSetNumber = new Map<string, RecognitionCard[]>();
   const byName = new Map<string, RecognitionCard[]>();
   const sets = new Set(paper.map((card) => card.setCode.toUpperCase()));
   for (const card of paper) {
     const key = `${card.setCode.toLowerCase()}:${acquisitionCollectorKey(card.collectorNumber)}`;
     bySetNumber.set(key, [...(bySetNumber.get(key) ?? []), card]);
+    // Stamped List reprints keep their source printing's footer. The catalog
+    // expresses that source as a composite collector number (e.g. MOM-210).
+    // Retrieve both identities; OCR alone cannot establish stamp presence.
+    const origin =
+      card.setCode.toLowerCase() === "plst"
+        ? /^([a-z0-9]{2,6})-(.+)$/i.exec(card.collectorNumber)
+        : null;
+    const printedKey = origin
+      ? `${origin[1].toLowerCase()}:${acquisitionCollectorKey(origin[2])}`
+      : key;
+    if (origin) sets.add(origin[1].toUpperCase());
+    byPrintedSetNumber.set(printedKey, [
+      ...(byPrintedSetNumber.get(printedKey) ?? []),
+      card,
+    ]);
     for (const name of names(card))
       byName.set(name, [...(byName.get(name) ?? []), card]);
   }
-  return { bySetNumber, byName, sets, cards: paper.length };
+  return { bySetNumber, byPrintedSetNumber, byName, sets, cards: paper.length };
 }
 export function proposeAcquisitionPrintings(
   index: ReturnType<typeof createAcquisitionRecognitionIndex>,
@@ -128,7 +144,8 @@ export function proposeAcquisitionPrintings(
   let conflict = false;
   for (const set of setCodes)
     for (const number of collectors) {
-      const printingCards = index.bySetNumber.get(`${set}:${number}`) ?? [];
+      const printingCards =
+        index.byPrintedSetNumber.get(`${set}:${number}`) ?? [];
       const languageCards = printingCards.filter(
         (card) => card.lang && languages.has(card.lang.toLowerCase()),
       );
@@ -136,6 +153,12 @@ export function proposeAcquisitionPrintings(
       // catalog also contains other translations of the same set/number.
       for (const card of languageCards.length ? languageCards : printingCards) {
         const reasons = ["SET_AND_COLLECTOR_TEXT", "REVIEW_REQUIRED"];
+        if (
+          printingCards.some(
+            (candidate) => candidate.setCode.toLowerCase() === "plst",
+          )
+        )
+          reasons.push("STAMP_UNVERIFIED");
         if (
           exactNames.size &&
           !names(card).some((name) => exactNames.has(name))
@@ -199,6 +222,19 @@ export function proposeAcquisitionPrintings(
       (a.nameDistance ?? 0) - (b.nameDistance ?? 0) ||
       a.card.id.localeCompare(b.card.id),
   );
+  for (const proposal of all) {
+    const card = proposal.card;
+    const counterparts =
+      index.byPrintedSetNumber.get(
+        `${card.setCode.toLowerCase()}:${acquisitionCollectorKey(card.collectorNumber)}`,
+      ) ?? [];
+    if (
+      (card.setCode.toLowerCase() === "plst" ||
+        counterparts.some((c) => c.setCode.toLowerCase() === "plst")) &&
+      !proposal.reasons.includes("STAMP_UNVERIFIED")
+    )
+      proposal.reasons.push("STAMP_UNVERIFIED");
+  }
   const exactPrintings = all.filter((p) =>
     p.reasons.includes("SET_AND_COLLECTOR_TEXT"),
   );
@@ -209,6 +245,7 @@ export function proposeAcquisitionPrintings(
     languages.size === 1 &&
     exactPrintings.length === 1 &&
     exactPrintings[0].reasons.includes("TITLE_EXACT") &&
+    !exactPrintings[0].reasons.includes("STAMP_UNVERIFIED") &&
     [...exactNames].every((name) =>
       names(exactPrintings[0].card).includes(name),
     );
@@ -219,7 +256,7 @@ export function proposeAcquisitionPrintings(
     exactPrintings[0].reasons.push("STRONG_EXACT_PRINTING");
   }
   return {
-    version: 2,
+    version: 3,
     status: conflict
       ? "CONFLICT"
       : strong
