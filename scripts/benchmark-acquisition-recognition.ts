@@ -7,6 +7,7 @@ import { z } from "zod";
 import {
   createAcquisitionRecognitionIndex,
   proposeAcquisitionPrintings,
+  proposeOrientedAcquisitionPrintings,
   type RecognitionCard,
   type RecognitionText,
 } from "../lib/acquisition-recognition";
@@ -53,6 +54,7 @@ async function main() {
     JSON.parse(await readFile(argument("--manifest"), "utf8")),
   );
   const report = JSON.parse(await readFile(argument("--ocr"), "utf8"));
+  const fixture = args.includes("--fixture") ? argument("--fixture") : null;
   const hash = createHash("sha256");
   for await (const part of createReadStream(catalogPath)) hash.update(part);
   const catalogDigest = hash.digest("hex");
@@ -85,9 +87,12 @@ async function main() {
   const results = [];
   for (const expected of manifest.entries) {
     const matching = report.results.filter(
-      (r: any) => r.file === expected.file,
+      (r: any) => r.file === expected.file && (!fixture || r.fixture === fixture),
     );
-    if (matching.length !== 1 || matching[0].sha256 !== expected.sha256)
+    if (
+      matching.length !== 1 ||
+      (fixture ? matching[0].sourceSha256 : matching[0].sha256) !== expected.sha256
+    )
       throw new Error(
         `Missing, duplicate or changed private sample: ${expected.file}`,
       );
@@ -125,7 +130,9 @@ async function main() {
       };
     }
     const start = performance.now();
-    const result = proposeAcquisitionPrintings(index, text);
+    const result = observed.orientations
+      ? proposeOrientedAcquisitionPrintings(index, observed.orientations)
+      : proposeAcquisitionPrintings(index, text);
     const ms = performance.now() - start;
     const rank = result.proposals.findIndex(
       (p) => p.card.id === expected.scryfallId,
@@ -144,6 +151,7 @@ async function main() {
   }
   const summary = {
     version: 1,
+    fixture,
     split: "development-only",
     catalogDigest,
     catalogCards: cards.length,

@@ -3,7 +3,7 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import {
   createAcquisitionRecognitionIndex,
-  proposeAcquisitionPrintings,
+  proposeOrientedAcquisitionPrintings,
   type RecognitionCard,
 } from "./acquisition-recognition";
 import { readAcquisitionPhotoBytes } from "./acquisition-files";
@@ -13,25 +13,28 @@ import type { ClaimedAcquisitionJob } from "./acquisition-jobs";
 
 export const RECOGNITION_STAGE = "photo-recognition-v1";
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
+const textSchema = z.object({
+  title: z.array(z.string().max(2000)).max(100),
+  footer: z.array(z.string().max(2000)).max(100),
+});
+const linesSchema = z.array(z.object({
+  text: z.string().max(2000),
+  score: z.number().finite(),
+  polygon: z.array(z.array(z.number().finite()).length(2)).max(8),
+})).max(100);
 const nativeSchema = z.object({
   version: z.literal(1),
   descriptor: digest,
   descriptorDetails: z.record(z.unknown()),
   photoDigest: digest,
-  text: z.object({
-    title: z.array(z.string().max(2000)).max(100),
-    footer: z.array(z.string().max(2000)).max(100),
-  }),
+  text: textSchema,
+  orientations: z.array(z.object({
+    rotationDegrees: z.union([z.literal(0), z.literal(180)]),
+    text: textSchema,
+    lines: linesSchema,
+  })).max(2),
   geometry: z.object({ status: z.string() }).passthrough(),
-  lines: z
-    .array(
-      z.object({
-        text: z.string().max(2000),
-        score: z.number().finite(),
-        polygon: z.array(z.array(z.number().finite()).length(2)).max(8),
-      }),
-    )
-    .max(100),
+  lines: linesSchema,
   milliseconds: z.number().nonnegative().finite(),
   automaticAcceptance: z.literal(false),
 });
@@ -78,7 +81,7 @@ export function acquisitionRecognitionVersion(catalog: string, model: string) {
         pipeline: RECOGNITION_STAGE,
         catalog,
         model,
-        resolver: "metadata-stamped-ambiguity-v3",
+        resolver: "metadata-card-orientation-v4",
       }),
     )
     .digest("hex");
@@ -210,7 +213,7 @@ export async function recognizeAcquisitionPhoto(
     signal.aborted
   )
     throw new Error("Processing input changed");
-  const proposals = proposeAcquisitionPrintings(snapshot.index, native.text);
+  const proposals = proposeOrientedAcquisitionPrintings(snapshot.index, native.orientations);
   return {
     version: 1,
     photoId: input.photoId,

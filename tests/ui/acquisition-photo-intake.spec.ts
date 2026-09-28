@@ -211,20 +211,28 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
           "utf8",
         ),
       );
-      const photos = manifest.entries.map(
-        (entry: { file: string; sha256: string }) => {
+      const photos: { name: string; mimeType: string; buffer: Buffer }[] = [];
+      const rotatedCorpus = process.env.MTG_ACQUISITION_ROTATION_TEST === "1";
+      for (const [position, entry] of manifest.entries.entries()) {
           if (path.basename(entry.file) !== entry.file)
             throw new Error("Invalid corpus name");
           const photo = path.join(
             process.env.MTG_ACQUISITION_CORPUS_PATH!,
             entry.file,
           );
-          expect(
-            createHash("sha256").update(readFileSync(photo)).digest("hex"),
-          ).toBe(entry.sha256);
-          return photo;
-        },
-      );
+          let buffer = readFileSync(photo);
+          expect(createHash("sha256").update(buffer).digest("hex")).toBe(entry.sha256);
+          if (rotatedCorpus) {
+            const normalized = await sharp(buffer).rotate().toBuffer();
+            buffer = await sharp(normalized)
+              .rotate([180, 270, 90, 0][position % 4])
+              .jpeg({ quality: 95 }).toBuffer();
+            // Change this in-memory fixture's identity only; the on-disk
+            // labelled originals and manifest remain untouched.
+            entry.sha256 = createHash("sha256").update(buffer).digest("hex");
+          }
+          photos.push({ name: entry.file, mimeType: "image/jpeg", buffer });
+      }
       const started = Date.now();
       await page.getByLabel("Choose card photos").setInputFiles(photos);
       await expect(
@@ -247,6 +255,7 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
       console.log(
         JSON.stringify({
           privateAndroidPhotos: photos.length,
+          rotatedCorpus,
           uploadToPreparedMilliseconds: Date.now() - started,
           inventoryWrites: 0,
         }),
