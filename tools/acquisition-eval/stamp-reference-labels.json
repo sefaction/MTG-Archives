@@ -1,0 +1,326 @@
+{
+  "version": 1,
+  "source": "Manual inspection of enlarged lower-left regions of 64 public reference images, independent of private-photo predictions. Source image SHA-256 binds each annotation; unannotated images remain UNKNOWN.",
+  "entries": [
+    {
+      "referenceId": "8d887f3d-f07f-4672-a3a2-acdc42fa98e2:0",
+      "sha256": "23a5b1828fbdad3f413b280d3ab855ededa265a1f125f564c53cca7b53f61011",
+      "stamp": "PRESENT"
+    },
+    {
+      "referenceId": "e7af88c9-70ca-484c-bddf-b705e0ea7bc7:0",
+      "sha256": "11271ab31abcb23ca6c2bc5a191e2952668a7f4e9db976b0eb8c3f8ec8164df7",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "ba703ed8-3c5e-479f-b7f1-b8070d4f83b7:0",
+      "sha256": "1d89d66794f9202e5a682efc6d1209619165f08515acb01eeddcdd904e5632c4",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "ea3f5644-f7e3-40de-ada5-cea2e9113cfb:0",
+      "sha256": "ee30d292a971a0cfe8aadab977fd07c7e1b3c19d2a875bc88b2d4df22c9d02e9",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "408eb23f-13fa-4f98-b316-18e3057f9136:0",
+      "sha256": "9d06e990b777b6c6b5fa7eb55d5f8af92bf1281a498591ba902daad5dd572aa0",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "d061b9a8-e95d-48ec-a1c9-337433b62dfc:0",
+      "sha256": "e0e4e099930670695fa0f3e063d99831bc6d11d52d1c74811f204aba91c6fdb5",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "6d9e44c1-7b51-47cb-b564-608deb46cc44:0",
+      "sha256": "2086141437da7d123bf81b054418540d1e833f76c297e4a3e7ec0facd2626aa3",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "cfe4a22f-c945-42f4-8b3a-ac3a03ffa015:0",
+      "sha256": "50536b7f4a4a7a395b7e7595abc47c5902882cc4dc03a0c117589182502e4558",
+      "stamp": "PRESENT"
+    },
+    {
+      "referenceId": "4c6ec3ae-78fa-4c77-aaa5-0223c68f1852:0",
+      "sha256": "af4cb79e318f97bbef1565d8ddb03b70195ce0b12185b394a77df81b6da63518",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "58f0a2f9-5c5e-4477-ae7e-a52cf5778962:0",
+      "sha256": "17a08730f2c124931a06e854c8b6154782b0abbb69b7fd0a706058139c49d5b4",
+      "stamp": "PRESENT"
+    },
+    {
+      "referenceId": "f5324741-353a-4a70-adb2-b631b00806dd:0",
+      "sha256": "2db2a5e18fabaa724d81266a95f4feb3db67b27ddfa148963e029437935aad8f",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "8096bc9a-a610-448f-bef2-7230e17e9777:0",
+      "sha256": "20fc61f6ba9d84526f9f37ef1344536fabdea93ce9b52deb80615372dc9a0e7f",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "f49be090-c745-40e5-bc1c-605b8d98acdf:0",
+      "sha256": "7372f78ed08ff99aed339c733c7b577a1fa718bffec97f5993aabb87ddef05f6",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "4ff6da82-d7dd-4b59-b7e6-30670cea7169:0",
+      "sha256": "3fff16e92ef92224f4a9eaeb2323ff69b485c87cc74e49e8ffd4028af5261f4d",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "32a7a905-11bf-4b66-a28e-1066a0e372b8:0",
+      "sha256": "afb8560705a852741fa776842ef58648526d2c5b17dded74cbb8adef85c9ce6e",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "1bf923c4-f0b7-4271-978c-fd2e79fe1cc8:0",
+      "sha256": "c8552d6934bb47adc00f2051dbf61f0d059aae98b39b982fa9b6a50ea633a02e",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "4d4b3bf7-a149-4099-b97d-4e36a87dfa60:0",
+      "sha256": "d3df34b81c678f675e13c9975f13744e8ca17b3e89da379c0ee8ee92f0bcac3d",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "7d17f7e3-7b63-4674-9024-4fd1827f40ec:0",
+      "sha256": "56dd177d97cd23534b5c7877a1b7c33353c7a994a56de5117aca4f7b26313c21",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "df8713cd-3f4b-43ef-adbd-e37c2617c617:0",
+      "sha256": "466c731eb80b0a1978d1507cfc8545ffe6052d44503033953f3d44393ce69615",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "9670f754-f41f-45ac-8e8b-025ad2c0f66b:0",
+      "sha256": "8f01071e83f32d8f2baa3a7c479c1da938f7bfe80ef1c650673240e9f9cd5c61",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "90f33f99-7bc5-42e1-815e-bfb4c2b74107:0",
+      "sha256": "c0748169676f1be72c7011b3349a52a6d9f591418c5a53599fa3d81f8fa74967",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "140ba675-3922-48cf-b6ec-8639267dcab8:0",
+      "sha256": "7e0e2ab8e4044d49b233d992b6dd12bff00e7afcdb3ee6858a62de9aa5f4cc09",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "02ee7817-40af-4fcf-a2df-eb218b669281:0",
+      "sha256": "32cf58d2069dee0360046e1cd10bf93b75091144c5878cfd697f81ca082bf8ac",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "3b0a9cc0-bb6d-47f7-b0d5-3956c46a1b3a:0",
+      "sha256": "ae7b72e7e5872e408269bda410e562ff32fc0ccbde3e2d8df517bb25b63de97a",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "6338942d-d650-4571-8ec6-4d658792c53e:0",
+      "sha256": "16bb84ba20329925ca7730bbbc96f4605730ea4070c9a13eb8357e110ac8ec56",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "941f91bb-f5a3-4cca-85b5-b610502460bb:0",
+      "sha256": "dc88b50181c3e61265c4d638eace1a616d0f848fce930852722abdfb79b7ae95",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "7a4e1580-dd26-4f4b-ac98-3e6fa7b879d5:0",
+      "sha256": "d2b71979f96c3f214b4eb9ed460f5eabd85d44239d936ce1158b652f773225b1",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "0f66d573-5da4-4b3c-ab06-bb330cff2c9a:0",
+      "sha256": "55d322ecf34568fcceab7c82c394cd7d10a72ca5f56899240a03c630812917e2",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "8002de90-93fb-48ea-a849-40fdad0aef5a:0",
+      "sha256": "c2e34b74387300531176e5d36cfd005707fea33feebf6023998707315cabf800",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "58c8bdce-73a3-4266-b3d6-61dbf4534ea3:0",
+      "sha256": "f0fc8ee657817a5c51efd572ab87b9d9b4d23c76bf699bbb488fa13312266f7f",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "55174ab7-9f2e-42e5-a61b-57458cfd33f3:0",
+      "sha256": "039b01e9b5f66912dce6632e44e3bb2c516f9cbba5f9bc226e390bb5089261b6",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "13246172-7554-4edc-b6db-23dc91e4290a:0",
+      "sha256": "7aeb8e6d79bb3431edc93a184d8a5da1fa251cadf164798b1334f18bdaa0189c",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "7ec1192c-25b8-4975-ae6c-86be28ac1840:0",
+      "sha256": "f0e25679f2bf82704de32925ca74cac99ccf49204cbc093f5df4e502df8cd31f",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "89a698a5-f4ac-4b04-96dc-32e1eeef6ac7:0",
+      "sha256": "f28b9ce388604ac4a559f394fb11b2fd4b7863c0cf3ebfb51673476fd82e89d3",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "578a583e-0bf3-4c50-be6f-ba447d21b8d1:0",
+      "sha256": "fab709968b7956341aba7677eca595f33995faa97902a9e768ddd75550958117",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "730ddbcd-0814-4e22-85e9-78b0878324b6:0",
+      "sha256": "2c63b8499477166e7baa78e0d6f905284b2c853d03559728af1d27adf38f5e53",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "2217f0a9-5af5-45cc-8cf7-8878d4f66dd8:0",
+      "sha256": "e4b6b2e1784fa00a5f58c978153c88edc83ebc65b9a9c916740eb50eac27564b",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "1c3c7d24-7d5c-49de-b9f8-35c6d6c8c52a:0",
+      "sha256": "8ff14ef1e56b68edc9ec724768d35155b9c368a175b3b1db8b12c979f8d6ad61",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "26894980-8961-4479-85dd-5f01c899718b:0",
+      "sha256": "06d11765d348e1cd423918bae0eea490d52b6ba726e257853f746cfffb42913b",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "348f3bec-ad16-4bc7-8da9-3956c9900f95:0",
+      "sha256": "898feb78def9361710cd173a8c33d829c805717e0d7edcfcbdba185338924b45",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "1c2e7843-9a87-46cb-be06-6db58649db85:0",
+      "sha256": "1edb8c829574affaa88b4779143843f799b2e58395c15c9a9b35f383dd363767",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "dfb6810b-9bc9-43c5-8cd9-817b12ee3110:0",
+      "sha256": "66bf72670badca3467da8137230f7f5b0d225dd8bc4f85cb75d8b57cbbf8be26",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "293f7768-6279-4f26-979f-ea4e48095ae5:0",
+      "sha256": "c789d111fc98cc9ff3b60a0171dc18af617b787ae1f494f1bf374fa1ddd0a547",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "12c597b9-5024-42bd-b500-5ef6a3accda6:0",
+      "sha256": "074d0956bb0378c79cfcc094b40c0b420c5dd4c4fc3d6c7ddee49864464173c4",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "2798fdff-0b39-41b6-b0ec-c4f449ca3314:0",
+      "sha256": "715aa5fc40bda8d206fd12230197c1f5af60b20184089c5152c0b25015655df2",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "129fa334-f561-4fbd-9f51-2fa044b674e1:0",
+      "sha256": "2f77136acfe64338f666cc270e07a05b3a88378ae86bd2ab911838c24677e702",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "82105090-5f71-4690-9ade-187354311ae3:0",
+      "sha256": "94d6de566b30844604842fcb52d08e4e1c4a6c706a983ec8db1830a2005727ec",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "03354b67-7df2-4b4b-a996-a37550e58561:0",
+      "sha256": "93b02790db7989a645a82ecb3fc22769d124edb12f52bec77907bf5a0ed422ae",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "3f3a26c7-e028-4741-803d-6384925b8500:0",
+      "sha256": "17a62b3e88c84ada8457be73091b5a2516953d66df0230da05229dbd14318669",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "42df372a-af2b-464a-b54c-039132f70d00:0",
+      "sha256": "51cf8d4561bed7233abb16afe7badfa8b221078650781b39c0bceb47a4c9aaf9",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "b1d0beb4-c3dd-4bb1-b49b-a48b2d4ad38d:0",
+      "sha256": "9a00537868c539565b7f2a13c4da3d9840faafee877bcc9891f8021db6ed269d",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "ba06fcda-7ab8-48d4-8656-2a911e73dc44:0",
+      "sha256": "ceeaad2122db58e2667a5899c8f3e4350c308335335381757818c7a87c1eef1c",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "bef5d58e-b490-4682-9a44-12cd61a94c0f:0",
+      "sha256": "f0b49d72f060cf4af8a2832516c8ad6d84a4ba1b68589c10aad20026d5d665b8",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "c15852d4-2c79-4841-bb65-6661d88fdfab:0",
+      "sha256": "496055d10b47b03511b53ec828c92588fdf7c1f949de489459ada9f22866f3a0",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "d9a935b4-347c-46d9-a7c5-8c5079948959:0",
+      "sha256": "dbf63446c16bbf3be58104b65a234debcab8d95aa1e6794ec359f051a90f00e4",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "db50259b-8ca8-4fbe-8ae3-6b0312d70980:0",
+      "sha256": "f8206f7bf2e53eb898ac87e516f87374c29b08563c1b3e36f82aec0e15a59c0b",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "dd73fa5a-be0f-49a4-a921-afefbc8fa9c5:0",
+      "sha256": "7673ab741d371c27ba807e111401b29035fbfd0e16409302172cbbf8a1467ae2",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "e31c544f-a748-4180-8366-9bb1622bb99d:0",
+      "sha256": "64630f751fb3b46aa85c4fef956c6e2d60f6f6fc2c318be83f89d4cc822bb4c0",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "e4d52701-e0dc-474e-b08f-88147200d210:0",
+      "sha256": "4f8ecaa4f8301f280d4e27f0c8a2a5be11f1d5092d7106f80a827083094cd7f5",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "e6c577bb-5e21-4a3e-b0a7-713a4ff7dce6:0",
+      "sha256": "4cfa76347868cd835d2cec99be03e668a7cf2ec7bcfe690e3e678315dd8545fb",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "e72eaa0f-cbec-45a1-b390-cbbedf5a02f2:0",
+      "sha256": "900f9b7e527fa1a4b2a87e9863a2369b57e5df8fe6796640eac2e9534390abcc",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "e92c7477-d453-4fa4-acf4-3835ab9eb55a:0",
+      "sha256": "58a29bddd6d79495276f922f83d176182fb53ad4dc8341d6a67a0127011a947a",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "efe1c5b2-4356-41ae-ab7e-ad9fc835a911:0",
+      "sha256": "b6b0badcdc5f2ba50d205241540288a19fe302a4f0ce0fbc1b5bfd35869d4378",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "fac8809a-77cd-4090-8a89-12121a8da676:0",
+      "sha256": "a9eba1f3347ad405895198aad0cb79e50b2c27e844e66a7859a6b8b20c1b3c1f",
+      "stamp": "ABSENT"
+    }
+  ]
+}
