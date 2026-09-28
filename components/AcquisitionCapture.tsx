@@ -27,6 +27,16 @@ type Upload = PendingPhoto & {
   status: "queued" | "uploading" | "failed";
   error?: string;
 };
+const pendingPhotoLimit = 10;
+function validatePhoto(blob: Blob) {
+  if (
+    blob.size > 10 * 1024 * 1024 ||
+    !["image/jpeg", "image/png", "image/webp"].includes(blob.type)
+  )
+    throw new Error(
+      "Choose JPEG, PNG or WebP photos under 10 MB. Convert HEIC to JPEG or use the in-app camera.",
+    );
+}
 async function request<T>(url: string, value?: unknown): Promise<T> {
   const response = await fetch(
     url,
@@ -63,7 +73,22 @@ export function AcquisitionCapture({
   const [busy, setBusy] = useState(false);
   const [camera, setCamera] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
-  const [uploads, setUploads] = useState<Upload[]>([]);
+  const [uploads, setUploadState] = useState<Upload[]>([]);
+  const pendingUploads = useRef<Upload[]>([]);
+  const setUploads = useCallback(
+    (update: Upload[] | ((rows: Upload[]) => Upload[])) => {
+      const next =
+        typeof update === "function" ? update(pendingUploads.current) : update;
+      pendingUploads.current = next;
+      setUploadState(next);
+    },
+    [],
+  );
+  const [selection, setSelection] = useState<{
+    added: number;
+    total: number;
+  } | null>(null);
+  const stopSelection = useRef(false);
   const [page, setPage] = useState(0);
   const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
   const video = useRef<HTMLVideoElement>(null),
@@ -124,7 +149,7 @@ export function AcquisitionCapture({
     return () => {
       active = false;
     };
-  }, [userId, batchId]);
+  }, [userId, batchId, setUploads]);
   useEffect(() => {
     if (camera && video.current && stream.current) {
       video.current.srcObject = stream.current;
@@ -178,10 +203,13 @@ export function AcquisitionCapture({
         } finally {
           clearTimeout(timeout);
           tasks.current.delete(row.key);
+          // Release the HTTP slot before waking queued uploads. A completed
+          // request's earlier state update may have run while both slots were held.
+          if (mounted.current) setUploads((all) => [...all]);
         }
       })();
     }
-  }, [uploads, refresh]);
+  }, [uploads, refresh, setUploads]);
   async function start() {
     if (capturing.current) return;
     capturing.current = true;
@@ -230,13 +258,7 @@ export function AcquisitionCapture({
     }
   }
   async function addPhoto(blob: Blob, slot?: Progress["slots"][number]) {
-    if (
-      blob.size > 10 * 1024 * 1024 ||
-      !["image/jpeg", "image/png", "image/webp"].includes(blob.type)
-    )
-      throw new Error(
-        "Choose JPEG, PNG or WebP photos under 10 MB. Convert HEIC to JPEG or use the in-app camera.",
-      );
+    validatePhoto(blob);
     const admitted =
       slot ??
       (
@@ -293,25 +315,55 @@ export function AcquisitionCapture({
     }
   }
   async function chooseFiles(files: FileList | null) {
-    if (!files || capturing.current) return;
+    if (!files?.length || capturing.current) return;
+    const selected = Array.from(files);
     capturing.current = true;
+    stopSelection.current = false;
     setBusy(true);
     setError("");
     const slot = replacement.current;
     replacement.current = null;
     try {
-      const available = slot
-        ? 1
-        : Math.min(progress?.availableSlots ?? Infinity, 10 - uploads.length);
-      if (files.length > available)
+      const available = slot ? 1 : (progress?.availableSlots ?? Infinity);
+      if (selected.length > available)
         throw new Error(
-          `Choose at most ${available} photos now; uploads can continue while you take more.`,
+          slot
+            ? "Choose one replacement photo."
+            : `This batch has ${available} spaces remaining. Select up to ${available} photos.`,
         );
-      for (const file of Array.from(files))
+      for (const file of selected) {
+        try {
+          validatePhoto(file);
+        } catch (e) {
+          throw new Error(`${file.name}: ${(e as Error).message}`);
+        }
+      }
+      setSelection({ added: 0, total: selected.length });
+      let added = 0;
+      for (const file of selected) {
+        // Keep only a bounded number of admitted blobs in browser storage/state.
+        // File handles for the remaining selection need no decoding or read-ahead.
+        while (
+          pendingUploads.current.length >= pendingPhotoLimit &&
+          mounted.current &&
+          !stopSelection.current
+        )
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        if (!mounted.current) return;
+        if (stopSelection.current) {
+          setError(
+            `Stopped adding photos. ${added} of ${selected.length} were queued; select the remaining ${selected.length - added} when ready.`,
+          );
+          break;
+        }
         await addPhoto(file, slot ?? undefined);
+        added++;
+        setSelection({ added, total: selected.length });
+      }
     } catch (e) {
       setError((e as Error).message);
     } finally {
+      setSelection(null);
       setBusy(false);
       capturing.current = false;
       if (fileInput.current) fileInput.current.value = "";
@@ -345,10 +397,10 @@ export function AcquisitionCapture({
     progress?.phase === "CAPTURING" &&
     progress.destinationCurrent &&
     (progress.availableSlots === null || progress.availableSlots > 0) &&
-    uploads.length < 10;
+    uploads.length < pendingPhotoLimit;
   return (
     <div className="space-y-4 min-w-0">
-      {error && (
+      {error && !progress && (
         <div role="alert" className={panel}>
           {error}
         </div>
@@ -465,6 +517,16 @@ export function AcquisitionCapture({
                   ? "No capacity limit set. Stop capture when finished."
                   : `${progress.availableSlots} cards remaining.`}
             </p>
+            {selection && (
+              <p role="status" className="text-sm mt-2">
+                Adding {selection.added} of {selection.total} selected photos
+              </p>
+            )}
+            {error && (
+              <p role="alert" className="mt-2">
+                {error}
+              </p>
+            )}
           </section>
           {!progress.destinationCurrent && (
             <p role="alert">
@@ -557,7 +619,23 @@ export function AcquisitionCapture({
               multiple
               onChange={(e) => void chooseFiles(e.target.files)}
             />
-            {uploads.length >= 10 && (
+            {selection && (
+              <div className="mt-3">
+                <p className="text-sm">
+                  Keep this page open while the selected photos are added. Saved
+                  photos are processed in the background.
+                </p>
+                <button
+                  className={button + " mt-2"}
+                  onClick={() => {
+                    stopSelection.current = true;
+                  }}
+                >
+                  Stop adding photos
+                </button>
+              </div>
+            )}
+            {uploads.length >= pendingPhotoLimit && (
               <p role="status">
                 Waiting for uploads before taking more photos.
               </p>

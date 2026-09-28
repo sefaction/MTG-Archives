@@ -40,3 +40,21 @@ and add it to Inventory. Verify one copy was added and the other cards remain in
 the batch. Reload and check that the committed card cannot be added or retaken.
 Try photo-library upload too. Report camera permission/rear-camera selection,
 orientation, readability and any confusing step. These are local test copies.
+
+## Photo-library selections
+
+The selection limit follows remaining destination/custom batch capacity. An
+uncapped location has no fixed photo-selection count. Larger selections feed a
+bounded queue (ten admitted pending photos, two HTTP uploads at a time) while
+background preparation/recognition proceeds. The batch header shows selected
+progress and validation errors, including the offending filename for an
+unsupported file. Keep the page open while selected files are being added;
+only admitted photos are saved in the recoverable browser queue. Stop adding
+photos preserves admitted uploads and reports how many remain to select later.
+
+Local regression coverage includes selecting twelve photos at once, delaying
+HTTP uploads to verify the queue bounds, destination-capacity rejection,
+two-photo selection, and stopping/reselecting in an unlimited batch. This
+browser fixture does not exercise Android's native photo picker. Issue #461
+tracks the reproduced fixed-ten selection rejection. The user confirmed the
+production failure occurred when selecting more than ten photos.
