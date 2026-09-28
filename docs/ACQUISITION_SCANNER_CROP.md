@@ -39,7 +39,10 @@ reviews and Inventory are not rewritten.
 Labels were read from the original scans independently, then cross-checked
 against the frozen full metadata catalog (118,404 records, 109,269 paper cards).
 Condition/finish were not inferred. These are development samples from one set;
-scanner model/settings and physical overlap with phone photos are unknown.
+the user identified the scanner as a SmartOffice PS286 Pro. Resolution/settings
+and physical overlap with phone photos remain unverified. The scans are
+comparison material only; calibration or qualification of this scanner is
+outside this batch. Frozen evaluation metadata predates that model clarification.
 
 | Original-byte scanner evaluation | Previous crop | Full image |
 | --- | ---: | ---: |

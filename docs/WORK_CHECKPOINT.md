@@ -1,5 +1,11 @@
 # Resumable work checkpoint
 
+## Scanner correction PR #470 in review, 2026-09-28
+
+- PR #470 is open at47e1352 (follow-up documentation records scanner clarification). Browser final17917 passed1/1 in49.6s; desktop1366/phone320 viewport screenshots inspected, complete footers visible, no overflow. Previous22532 passed1/1 in44s. All disposable scanner users cleaned; no Inventory writes. Unit656, final typecheck/ESLint and native source hash verification passed. Source/runtime hashes remain as recorded below.
+- User identified the scanner as SmartOffice PS286 Pro and explicitly said the scans are comparison material, not a request for calibration. No scanner hardware configuration/testing is included; no open scanner question remains. Resolution and physical overlap are not assumed.
+- Recognition metrics remain15/17 exact-first,17/17 in12,11 correct strong,0 wrong strong in this sample. Initial CI run36455881206 passed acquisition integrity; final checks pending. No individual merge approval. Next safe step: finish CI, ready PR470, ask for review/individual approval; broader463 and retry468 stay open. Production untouched.
+
 ## Tight scanner crop correction in progress, 2026-09-28
 
 - Branch `fix/acquisition-tight-scan-crop`, bug #469 under #306/#463. User requested scanner success-rate evaluation and automatic avoidance of unnecessary cropping. No merge approval or PR yet.
