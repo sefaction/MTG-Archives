@@ -66,6 +66,8 @@ jobs:
       - run: npm ci
       - name: Generate, typecheck, unit tests and production build guards
         run: npm run verify:core
+      - name: Flat Unraid acquisition worker storage and isolation
+        run: npx tsx scripts/verify-acquisition-flat-compose.ts
       - name: Flat Unraid Compose archive defaults
         run: npx tsx scripts/verify-pricing-flat-compose.ts
 

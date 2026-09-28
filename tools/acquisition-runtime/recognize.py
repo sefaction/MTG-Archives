@@ -12,7 +12,9 @@ from pathlib import Path
 import sys
 import time
 
-ROOT = Path('/models/official_models')
+from model_store import model_root
+
+ROOT = model_root()
 MODEL_NAMES = ('PP-OCRv5_mobile_det', 'en_PP-OCRv5_mobile_rec')
 _ocr = None
 
@@ -34,6 +36,7 @@ def descriptor():
                'runtime': {name: importlib.metadata.version(name) for name in
                            ('paddlepaddle', 'paddleocr', 'paddlex', 'numpy', 'pillow', 'opencv-contrib-python')},
                'code': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+               'storeCode': hashlib.sha256(Path(__file__).with_name('model_store.py').read_bytes()).hexdigest(),
                'geometry': hashlib.sha256(Path('/eval/baseline.py').read_bytes()).hexdigest()}
     digest = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     return {'version': 1, 'digest': digest, 'execution': 'CPU', **payload}

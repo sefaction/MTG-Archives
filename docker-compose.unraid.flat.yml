@@ -1,5 +1,6 @@
 services:
   postgres:
+    networks: [default, acquisition-internal]
     image: postgres:16-alpine
     restart: unless-stopped
     pull_policy: always
@@ -35,7 +36,7 @@ services:
     volumes:
       - pricing_verify_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d postgres"]
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d postgres']
       interval: 10s
       timeout: 5s
       retries: 12
@@ -108,6 +109,57 @@ services:
       start_period: 10s
     ports:
       - "${WEB_HOST_PORT:-13003}:3000"
+
+  # Photo preparation/expiry uses the same upload path as web.
+  acquisition-worker:
+    image: ${WEB_IMAGE:-ghcr.io/sefaction/mtg-archives-web:${IMAGE_TAG:-main}}
+    pull_policy: always
+    restart: unless-stopped
+    command:
+      ["node", "node_modules/tsx/dist/cli.mjs", "scripts/acquisition-worker.ts"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://mtginventory:mtginventory@postgres:5432/mtginventory?schema=public}
+      UPLOADS_DATA_PATH: ${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}
+    volumes:
+      - ${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}:${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}
+    depends_on:
+      web:
+        condition: service_healthy
+    mem_limit: 512m
+    cpus: 1.0
+
+  # One-time/retryable setup writes verified models only to persistent appdata.
+  acquisition-model-init:
+    image: ${ACQUISITION_RECOGNITION_IMAGE:-ghcr.io/sefaction/mtg-archives-recognition:${IMAGE_TAG:-main}}
+    pull_policy: always
+    restart: on-failure
+    entrypoint: ["python", "/app/tools/acquisition-runtime/download_models.py"]
+    volumes:
+      - ${ACQUISITION_MODELS_PATH:-/mnt/user/appdata/mtg-archive/acquisition-models}:/models
+    mem_limit: 256m
+    cpus: 1.0
+
+  # Read-only photo/model mounts; inference has no external network.
+  acquisition-recognition-worker:
+    image: ${ACQUISITION_RECOGNITION_IMAGE:-ghcr.io/sefaction/mtg-archives-recognition:${IMAGE_TAG:-main}}
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://mtginventory:mtginventory@postgres:5432/mtginventory?schema=public}
+      UPLOADS_DATA_PATH: ${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}
+    volumes:
+      - ${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}:${UPLOADS_DATA_PATH:?UPLOADS_DATA_PATH must be set in .env}:ro
+      - ${ACQUISITION_MODELS_PATH:-/mnt/user/appdata/mtg-archive/acquisition-models}:/models:ro
+    networks: [acquisition-internal]
+    depends_on:
+      acquisition-model-init:
+        condition: service_completed_successfully
+      web:
+        condition: service_healthy
+    mem_limit: 2g
+    cpus: 1.0
+    pids_limit: 128
+    stop_grace_period: 60s
 
   pricing-worker:
     image: ${WEB_IMAGE:-ghcr.io/sefaction/mtg-archives-web:${IMAGE_TAG:-main}}
@@ -221,3 +273,7 @@ services:
 
 volumes:
   pricing_verify_data:
+
+networks:
+  acquisition-internal:
+    internal: true

@@ -37,6 +37,11 @@ GitHub Actions publishes the web image to:
 ghcr.io/sefaction/mtg-archives-web
 ```
 
+The CPU recognition runtime is published alongside it as
+`ghcr.io/sefaction/mtg-archives-recognition`, using the same tags. Wait for both
+publications before deploying acquisition changes. Models and their verified
+metadata are initialized into persistent appdata; weights are not in the image.
+
 The `main` branch publishes:
 
 ```text
@@ -96,6 +101,14 @@ database identity. The default configuration leaves archive maintenance and
 raw retention off. Check the rendered configuration and ordinary service health
 after loading; [Pricing archive activation](PRICING_ARCHIVE_ACTIVATION.md)
 records the later approval and recovery gates.
+
+Photo scanning also requires the updated flat file's preparation worker, model
+initializer and recognition worker. Keep photos at the existing
+`UPLOADS_DATA_PATH` and set `ACQUISITION_MODELS_PATH` to
+`/mnt/user/appdata/mtg-archive/acquisition-models`. See
+[acquisition deployment](ACQUISITION_RECOGNITION_RUNTIME.md#flat-unraid-deployment-and-persistent-data)
+for setup ordering, persistent storage and operator update steps. Pulling only
+the web image cannot add the missing background services.
 
 Do not use `docker-compose.unraid.yml` by itself. It is only an override layer
 and does not contain image definitions for every service.
