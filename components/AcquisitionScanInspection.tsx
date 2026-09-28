@@ -1,0 +1,358 @@
+"use client";
+import { useEffect, useRef, useState } from "react";
+import {
+  cropPoint,
+  type AcquisitionReviewEvidence,
+} from "@/lib/acquisition-review-evidence";
+import type { AcquisitionPrinting } from "@/lib/acquisition-review";
+import { filterButtonClass as button } from "./filterStyles";
+
+export function AcquisitionScanImage({
+  src,
+  evidence,
+  active,
+  position,
+}: {
+  src: string;
+  evidence: AcquisitionReviewEvidence;
+  active: boolean;
+  position: number;
+}) {
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const [view, setView] = useState<"original" | "crop" | "zones">("crop");
+  const [reverse, setReverse] = useState(false);
+  const [error, setError] = useState("");
+  const quad =
+    evidence?.geometry.status === "PROPOSED"
+      ? evidence.geometry.quad
+      : undefined;
+  const rotation = evidence?.rotation ?? (reverse ? 180 : 0);
+  const observation = evidence?.observations.find(
+    (o) => o.rotationDegrees === rotation,
+  );
+  useEffect(() => {
+    if (!active || !canvas.current) return;
+    const target = canvas.current;
+    let cancelled = false;
+    const image = new Image();
+    setError("");
+    image.onload = () => {
+      if (cancelled || !canvas.current) return;
+      const ctx = target.getContext("2d")!;
+      if (view === "original" || !quad) {
+        const scale = Math.min(
+          1,
+          600 / Math.max(image.naturalWidth, image.naturalHeight),
+        );
+        target.width = Math.round(image.naturalWidth * scale);
+        target.height = Math.round(image.naturalHeight * scale);
+        ctx.drawImage(image, 0, 0, target.width, target.height);
+        if (quad) {
+          ctx.beginPath();
+          quad.forEach(([x, y], i) =>
+            i
+              ? ctx.lineTo(x * scale, y * scale)
+              : ctx.moveTo(x * scale, y * scale),
+          );
+          ctx.closePath();
+          ctx.strokeStyle = "#00ffff";
+          ctx.lineWidth = 3;
+          ctx.stroke();
+        }
+        return;
+      }
+      // Browser EXIF decoding matches the worker's EXIF-normalized coordinate frame.
+      // Reconstruct at display resolution; do not store another private artifact.
+      const source = document.createElement("canvas");
+      const sampleScale = Math.min(
+        1,
+        2400 / Math.max(image.naturalWidth, image.naturalHeight),
+      );
+      source.width = Math.round(image.naturalWidth * sampleScale);
+      source.height = Math.round(image.naturalHeight * sampleScale);
+      const sourceCtx = source.getContext("2d", { willReadFrequently: true })!;
+      sourceCtx.drawImage(image, 0, 0, source.width, source.height);
+      const pixels = sourceCtx.getImageData(
+        0,
+        0,
+        source.width,
+        source.height,
+      ).data;
+      target.width = 400;
+      target.height = 559;
+      const out = ctx.createImageData(target.width, target.height);
+      for (let y = 0; y < target.height; y++)
+        for (let x = 0; x < target.width; x++) {
+          const u = x / (target.width - 1),
+            v = y / (target.height - 1);
+          const [originalX, originalY] = cropPoint(
+            quad,
+            rotation === 180 ? 1 - u : u,
+            rotation === 180 ? 1 - v : v,
+          );
+          const sx = (originalX * source.width) / image.naturalWidth,
+            sy = (originalY * source.height) / image.naturalHeight;
+          const x0 = Math.floor(sx),
+            y0 = Math.floor(sy),
+            fx = sx - x0,
+            fy = sy - y0;
+          const offset = (y * target.width + x) * 4;
+          for (let c = 0; c < 3; c++) {
+            let value = 0;
+            for (let j = 0; j < 2; j++)
+              for (let i = 0; i < 2; i++) {
+                const px = x0 + i,
+                  py = y0 + j;
+                if (
+                  px >= 0 &&
+                  py >= 0 &&
+                  px < source.width &&
+                  py < source.height
+                )
+                  value +=
+                    pixels[(py * source.width + px) * 4 + c] *
+                    (i ? fx : 1 - fx) *
+                    (j ? fy : 1 - fy);
+              }
+            out.data[offset + c] = value;
+          }
+          out.data[offset + 3] = 255;
+        }
+      ctx.putImageData(out, 0, 0);
+      source.width = source.height = 0;
+      if (view === "zones") {
+        ctx.fillStyle = "rgba(0,255,255,.18)";
+        ctx.fillRect(0, 0, 400, (250 / 1397) * 559);
+        ctx.fillRect(0, (1210 / 1397) * 559, 400, (187 / 1397) * 559);
+        ctx.strokeStyle = "#ffff00";
+        ctx.lineWidth = 1;
+        for (const line of observation?.lines ?? []) {
+          ctx.beginPath();
+          line.polygon.forEach(([x, y], i) =>
+            i
+              ? ctx.lineTo(x * 0.4, (y * 559) / 1397)
+              : ctx.moveTo(x * 0.4, (y * 559) / 1397),
+          );
+          ctx.closePath();
+          ctx.stroke();
+        }
+      }
+    };
+    image.onerror = () => {
+      if (!cancelled)
+        setError(
+          "Photo could not be loaded. Use Open original or retry this view.",
+        );
+    };
+    image.src = src;
+    return () => {
+      cancelled = true;
+      image.onload = null;
+      image.onerror = null;
+      image.src = "";
+      target.width = target.height = 0;
+    };
+  }, [src, active, quad, observation, view, rotation]);
+  return (
+    <figure className="min-w-0">
+      <figcaption className="font-semibold mb-2 min-h-12 sm:min-h-0">
+        Your scan
+      </figcaption>
+      <div className="aspect-[1000/1397] max-h-[52vh] flex items-center justify-center bg-black/10 rounded overflow-hidden">
+        {active ? (
+          <canvas
+            ref={canvas}
+            role="img"
+            aria-label={`${view === "original" || !quad ? "Original scan" : "Detected card"} ${position}`}
+            className="max-w-full max-h-full object-contain"
+          />
+        ) : (
+          <span className="text-sm">Scan {position}</span>
+        )}
+      </div>
+      {error && (
+        <p role="alert" className="text-sm">
+          {error}
+        </p>
+      )}
+      <div className="flex flex-wrap gap-1 mt-2" aria-label="Scan view">
+        {(
+          [
+            ["original", "Original"],
+            ["crop", "Detected card"],
+            ["zones", "Reading zones"],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            className={button + " text-xs"}
+            disabled={key !== "original" && !quad}
+            aria-pressed={view === key}
+            onClick={() => setView(key)}
+          >
+            {label}
+          </button>
+        ))}
+        {quad && evidence?.rotation === null && (
+          <button
+            className={button + " text-xs"}
+            onClick={() => setReverse((v) => !v)}
+          >
+            Inspect other direction
+          </button>
+        )}
+      </div>
+      <p className="text-xs mt-2">
+        {!quad
+          ? "No detected outline available; showing original."
+          : view === "original"
+            ? "Cyan outline: corners chosen by the worker."
+            : `Reconstructed from the worker's saved corners${evidence?.rotation === null ? "; reading direction unresolved" : " and reading direction"}.`}
+      </p>
+      {view === "zones" && (
+        <p className="text-xs">
+          Cyan: title/footer areas attempted. Yellow: detected text boxes. Boxes
+          do not establish a correct reading. Stamp and set-symbol detection are
+          not implemented.
+        </p>
+      )}
+      <a
+        className="text-xs underline"
+        href={src}
+        target="_blank"
+        rel="noreferrer"
+      >
+        Open original photo
+      </a>
+    </figure>
+  );
+}
+
+export function AcquisitionEvidenceFields({
+  evidence,
+  selected,
+  reasons,
+  status,
+}: {
+  evidence: AcquisitionReviewEvidence;
+  selected: AcquisitionPrinting | null;
+  reasons: string[];
+  status: string;
+}) {
+  const observation = evidence?.observations.find(
+    (o) => o.rotationDegrees === evidence.rotation,
+  );
+  const ids = evidence?.identifiers;
+  const compare = (
+    values: string[] | undefined,
+    expected: string | undefined | null,
+  ) =>
+    !values?.length
+      ? "Not read"
+      : values.length > 1
+        ? "Ambiguous"
+        : expected && values[0].toLowerCase() !== expected.toLowerCase()
+          ? "Differs from selection"
+          : "Read";
+  const rows = [
+    [
+      "Card name",
+      observation?.text.title.join(" · ") || "—",
+      reasons.includes("TITLE_EXACT") ||
+      reasons.includes("TITLE_TEXT") ||
+      reasons.includes("TITLE_AND_COLLECTOR_TEXT")
+        ? "Read"
+        : reasons.includes("TITLE_CONTRADICTION")
+          ? "Conflicting"
+          : observation?.text.title.length
+            ? "Text found; verify name"
+            : "Not read",
+    ],
+    [
+      "Set code",
+      ids?.setCodes.join(", ") || "—",
+      compare(ids?.setCodes, selected?.setCode),
+    ],
+    [
+      "Collector number",
+      ids?.collectors.join(", ") || "—",
+      compare(
+        ids?.collectors,
+        selected?.collectorNumber.replace(/^0+(?=\d)/, ""),
+      ),
+    ],
+    [
+      "Language",
+      ids?.languages.join(", ") || "—",
+      compare(ids?.languages, selected?.lang),
+    ],
+    ["Planeswalker stamp", "Inspect the lower-left corner", "Not checked"],
+    ["Set symbol", "Visual detection not implemented", "Not checked"],
+    ["Card artwork", "Image matching not implemented", "Not checked"],
+  ];
+  return (
+    <section aria-label="Recognition evidence" className="mt-4">
+      <h4 className="font-semibold">What the scanner read</h4>
+      {!evidence ? (
+        <p className="text-sm">
+          {status === "WAITING"
+            ? "Waiting for recognition evidence. Older results may not include diagnostics."
+            : "Detailed evidence unavailable for this result."}
+        </p>
+      ) : (
+        <>
+          <p className="text-sm mb-2">
+            {evidence.geometry.status !== "PROPOSED"
+              ? "Card outline not found. Text recognition could not start."
+              : evidence.rotation === null
+                ? "Reading direction unresolved. Inspect both directions below; identifiers have not been combined."
+                : "Observed photo text is shown below. A catalog suggestion is not proof that every field was read."}
+          </p>
+          <dl className="divide-y divide-[var(--app-border)] text-sm">
+            {rows.map(([field, value, state], index) => (
+              <div
+                key={field}
+                className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-2 py-2"
+              >
+                <dt className="font-medium">
+                  {field}
+                  <span className="block text-xs font-normal">
+                    {index < 4 && evidence.geometry.status !== "PROPOSED"
+                      ? "Not attempted"
+                      : index < 4 && evidence.rotation === null
+                        ? "Direction unresolved"
+                        : state}
+                  </span>
+                </dt>
+                <dd className="break-words">{value}</dd>
+              </div>
+            ))}
+          </dl>
+          {reasons.includes("STAMP_UNVERIFIED") && (
+            <p className="text-sm mt-2">
+              Check the lower-left Planeswalker stamp: the original and stamped
+              reprint can have the same set and collector text.
+            </p>
+          )}
+          <details className="mt-2">
+            <summary className="cursor-pointer text-sm underline">
+              All OCR text and reading directions
+            </summary>
+            {evidence.observations.map((o) => (
+              <div key={o.rotationDegrees} className="text-xs mt-2 break-words">
+                <p className="font-semibold">
+                  {o.rotationDegrees}° relative to detected crop
+                  {o.rotationDegrees === evidence.rotation
+                    ? " · selected direction"
+                    : ""}
+                </p>
+                <p>Title: {o.text.title.join(" | ") || "Nothing read"}</p>
+                <p>Footer: {o.text.footer.join(" | ") || "Nothing read"}</p>
+              </div>
+            ))}
+          </details>
+        </>
+      )}
+    </section>
+  );
+}
