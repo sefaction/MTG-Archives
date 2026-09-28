@@ -56,6 +56,7 @@ export async function loadAcquisitionRecognitionSnapshot(db: PrismaClient) {
     orderBy: { id: "asc" },
     select: {
       id: true,
+      scryfallId: true,
       name: true,
       printedName: true,
       cardFaces: true,
@@ -79,6 +80,7 @@ export async function loadAcquisitionRecognitionSnapshot(db: PrismaClient) {
   return {
     digest: createHash("sha256").update(JSON.stringify(cards)).digest("hex"),
     index: createAcquisitionRecognitionIndex(cards),
+    byScryfallId: new Map(rows.map((row, i) => [row.scryfallId, cards[i]])),
   };
 }
 export function acquisitionRecognitionVersion(_catalog: string, model: string) {

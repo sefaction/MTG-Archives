@@ -235,6 +235,7 @@ export function AcquisitionPhotoReview({
   }, []);
   const recognitionStatus = record?.recognitionStatus;
   const catalogStatus = record?.catalog?.status;
+  const visualStatus = record?.visualStatus;
   const reviewed = Boolean(record?.review);
   useEffect(() => {
     if (!active) return;
@@ -257,6 +258,7 @@ export function AcquisitionPhotoReview({
                     suggestions: next.suggestions,
                     recognitionStatus: next.recognitionStatus,
                     catalog: next.catalog,
+                    visualStatus: next.visualStatus,
                   }
                 : previous,
             );
@@ -271,6 +273,7 @@ export function AcquisitionPhotoReview({
         if (
           !reviewed &&
           (!recognitionStatus ||
+            ["WAITING", "RUNNING", "PENDING"].includes(visualStatus ?? "") ||
             ["WAITING", "RUNNING", "PENDING"].includes(recognitionStatus) ||
             ["CHECKING", "PROVIDER_ERROR", "NOT_FOUND", "INCOMPLETE"].includes(
               catalogStatus ?? "",
@@ -297,6 +300,7 @@ export function AcquisitionPhotoReview({
     busy,
     recognitionStatus,
     catalogStatus,
+    visualStatus,
     reviewed,
   ]);
   async function reload() {
@@ -388,6 +392,12 @@ export function AcquisitionPhotoReview({
                       ? "Waiting for identification · manual selection available"
                       : "Needs review"}
           </p>
+          {!record.review && record.visualStatus === "FAILED" && (
+            <p className="text-sm mt-2" role="status">
+              Image comparison failed. Your photo and text suggestions are
+              saved; choose a printing manually or try another photo.
+            </p>
+          )}
           {!record.review && acquisitionCatalogMessage(record.catalog) && (
             <p
               className="text-sm mb-3"
@@ -431,10 +441,23 @@ export function AcquisitionPhotoReview({
                   {selected.lang?.toUpperCase() ?? "Language unknown"}
                 </p>
               )}
-              <p className="text-xs mt-1">
+              <p className="text-xs mt-1" data-testid="scan-proposal-evidence">
                 {record.review
                   ? "Your saved choice may differ from the scanner's evidence."
-                  : "Suggested from text; artwork has not been compared."}
+                  : !selected
+                    ? "Waiting for suggestions; you can search below."
+                    : !reasons.length
+                      ? "Selected manually; compare this printing with your scan."
+                      : record.evidence?.imageMatches
+                        ? reasons.includes("VISUAL_MATCH") ||
+                          reasons.includes("SIFT_CANDIDATE")
+                          ? "Suggested from image comparison; verify the exact printing."
+                          : "Suggested from text; image comparison offered other candidates."
+                        : record.visualStatus === "FAILED"
+                          ? "Suggested from text; image comparison failed."
+                          : record.visualStatus
+                            ? "Suggested from text; image results are still being combined."
+                            : "Suggested from text; artwork has not been compared."}
               </p>
             </figure>
           </div>
@@ -558,8 +581,9 @@ export function AcquisitionPhotoReview({
                   </div>
                   <button className={button}>Find printing</button>
                   <p className="text-xs">
-                    Search currently uses this installation’s catalog. External
-                    lookup is not yet available.
+                    Search this installation’s catalog. Missing matches are
+                    checked against Scryfall using an exact card name or set
+                    and collector number.
                   </p>
                   {matches?.length === 50 && (
                     <p className="text-xs">

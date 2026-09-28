@@ -62,6 +62,22 @@ export function AcquisitionPhotoRecognition({
     );
   if (state?.status === "SUPERSEDED")
     return <p className="text-xs">Waiting for the latest photo.</p>;
+  if (state?.visualStatus === "FAILED")
+    return (
+      <p className="text-xs" role="status">
+        Image comparison failed. Text suggestions and your photo are saved for
+        manual review.
+      </p>
+    );
+  if (
+    state?.visualStatus &&
+    ["WAITING", "PENDING", "RUNNING"].includes(state.visualStatus)
+  )
+    return (
+      <p className="text-xs" role="status">
+        Comparing the card image with catalog printings…
+      </p>
+    );
   if (state?.catalog && state.catalog.status !== "RESOLVED")
     return (
       <p className="text-xs" role="status">

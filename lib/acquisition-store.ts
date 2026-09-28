@@ -11,6 +11,7 @@ import {
   type AcquisitionCardReview,
 } from "./acquisition-review";
 import { acquisitionRecognitionDto } from "./acquisition-recognition-dto";
+import { VISUAL_STAGE } from "./acquisition-visual";
 import { CATALOG_RECONCILIATION_STAGE } from "./acquisition-catalog-status";
 import { acquisitionReviewEvidence } from "./acquisition-review-evidence";
 import { searchLocalCardCatalog } from "./local-card-search";
@@ -1125,20 +1126,32 @@ export async function getAcquisitionCardReview(
       where: {
         runId: row.run!.id,
         artifact: { sourceId: photo.id },
-        stage: { in: ["photo-recognition-v1", CATALOG_RECONCILIATION_STAGE] },
+        stage: {
+          in: [
+            "photo-recognition-v1",
+            CATALOG_RECONCILIATION_STAGE,
+            VISUAL_STAGE,
+          ],
+        },
       },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: 8,
+      take: 16,
     });
-    const job = jobs.find((item) => item.status === "COMPLETE");
+    const visualJob = jobs.find((item) => item.stage === VISUAL_STAGE);
+    const visualStatus =
+      visualJob?.status ??
+      (process.env.ACQUISITION_VISUAL_ENABLED === "1" ? "WAITING" : undefined);
+    const evidenceJobs = jobs.filter((item) => item.stage !== VISUAL_STAGE);
+    const job = evidenceJobs.find((item) => item.status === "COMPLETE");
     // A saved suggestion remains evidence for these immutable bytes after human
     // review increments the candidate revision. It never changes that review.
     const evidence = acquisitionRecognitionDto(
       job?.status ?? "WAITING",
       job?.output,
+      visualStatus,
     );
     const review = candidate.review as AcquisitionCardReview["review"];
-    const latest = jobs[0];
+    const latest = evidenceJobs[0];
     if (!review && latest && latest.id !== job?.id) {
       evidence.status = latest.status;
       evidence.catalog =
@@ -1187,6 +1200,7 @@ export async function getAcquisitionCardReview(
             ? "FAILED"
             : (evidence.result?.status ?? evidence.status),
       catalog: evidence.catalog,
+      visualStatus,
       evidence: acquisitionReviewEvidence(job?.output),
       suggestions: (evidence.result?.proposals ?? []).flatMap((p) => {
         const printing = cards.find((c) => c.id === p.card.id);

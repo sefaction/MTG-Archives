@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -99,6 +100,20 @@ class IndexIntegrityTests(unittest.TestCase):
         self.assertTrue(report['downloadComplete'])
         self.assertFalse(report['allReferencesAvailable'])
         self.assertEqual(report['unavailableCount'], 1)
+
+    @unittest.skipIf(os.name == 'nt', 'POSIX restricted-reader permissions')
+    def test_publication_is_readable_under_restrictive_producer_umask(self):
+        save_batch(self.db, self.rows, np.array([[1., 0.], [0., 1.], [-1., 0.]]), 2)
+        previous = os.umask(0o077)
+        try:
+            report = publish(self.db, self.snapshot(), self.root, 2)
+        finally:
+            os.umask(previous)
+        for item in report['files'].values():
+            target = self.root / item['path']
+            self.assertEqual(target.stat().st_mode & 0o777, 0o644)
+            self.assertEqual(target.parent.stat().st_mode & 0o777, 0o755)
+        self.assertEqual((self.root / 'index.json').stat().st_mode & 0o777, 0o644)
 
 
 if __name__ == '__main__':

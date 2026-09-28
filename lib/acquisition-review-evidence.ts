@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  visualNativeSchema,
+  acquisitionVisualCandidates,
+} from "./acquisition-visual";
 
 const point = z.tuple([z.number().finite(), z.number().finite()]);
 const words = z.array(z.string().max(2000)).max(100);
@@ -16,6 +20,7 @@ const observation = z.object({
     .max(100),
 });
 const schema = z.object({
+  visual: visualNativeSchema.optional(),
   native: z.object({
     geometry: z.object({
       status: z.string().max(60),
@@ -41,12 +46,33 @@ const schema = z.object({
 export function acquisitionReviewEvidence(output: unknown) {
   const parsed = schema.safeParse(output);
   if (!parsed.success) return null;
-  const { native, proposals } = parsed.data;
+  const { native, proposals, visual } = parsed.data;
   return {
     geometry: native.geometry,
     observations: native.orientations,
     rotation: proposals.orientation?.rotationDegrees ?? null,
     identifiers: proposals.evidence,
+    imageMatches: visual
+      ? {
+          inputRegion: visual.inputRegion,
+          referenceCount: visual.referenceCount,
+          candidates: acquisitionVisualCandidates(visual).map(
+            ({
+              scryfallId,
+              name,
+              setCode,
+              collectorNumber,
+              rotationDegrees,
+            }) => ({
+              scryfallId,
+              name,
+              setCode,
+              collectorNumber,
+              rotationDegrees,
+            }),
+          ),
+        }
+      : null,
   };
 }
 export type AcquisitionReviewEvidence = ReturnType<

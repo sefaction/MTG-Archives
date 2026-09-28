@@ -25,6 +25,8 @@ import {
 } from "../lib/acquisition-store";
 import { confirmStrongAcquisitionMatches } from "../lib/acquisition-auto-confirm";
 import type { ScryfallCard } from "../lib/scryfall";
+import { enqueueReadyVisual } from "../lib/acquisition-visual-worker";
+import { VISUAL_STAGE } from "../lib/acquisition-visual";
 
 export async function verifyAcquisitionCatalogReconciliation(
   db: PrismaClient,
@@ -194,6 +196,151 @@ export async function verifyAcquisitionCatalogReconciliation(
       "saved metadata and refreshed snapshot survive repeated processing without HTTP or OCR",
     );
     assert.equal((retried.proposals as any).proposals.length, 2);
+    // Independent image evidence can find a printing that is absent locally,
+    // even when the saved text did not identify it. It uses the same shared
+    // Scryfall cache, stable local Card identity and immutable result fence.
+    assert.equal(
+      await enqueueCatalogReconciliation(db, new Date(), true),
+      0,
+      "hybrid reconciliation waits for visual evidence",
+    );
+    await enqueueReadyVisual(db, "c".repeat(64));
+    const queuedVisual = await db.acquisitionProcessingJob.findFirstOrThrow({
+      where: { stage: VISUAL_STAGE, candidateId: rawJob.candidateId },
+    });
+    const visualClaim = await db.acquisitionProcessingJob.update({
+      where: { id: queuedVisual.id },
+      data: {
+        status: "RUNNING",
+        attempts: 1,
+        leaseToken: "visual-fixture",
+        leaseExpiresAt: new Date(Date.now() + 60000),
+      },
+    });
+    const visualId = randomUUID();
+    ids.push(visualId);
+    const visualCard: ScryfallCard = {
+      ...cards[0],
+      id: visualId,
+      name: `Image only ${name}`,
+      set: "image",
+      collector_number: "4",
+    };
+    const visualOutput = {
+      version: 1,
+      photoId,
+      visual: {
+        version: 1,
+        descriptor: "c".repeat(64),
+        photoDigest: photo.digest,
+        referenceCount: 112472,
+        unavailableCount: 899,
+        inputRegion: "WHOLE_PHOTO",
+        geometry: { status: "NEEDS_CROP" },
+        milliseconds: 1,
+        automaticAcceptance: false,
+        candidates: [
+          {
+            scryfallId: visualId,
+            referenceId: `${visualId}:0`,
+            name: visualCard.name,
+            setCode: "image",
+            collectorNumber: "4",
+            distance: 0.1,
+            rotationDegrees: 270,
+          },
+        ],
+      },
+    };
+    assert.equal(
+      await completeAcquisitionJob(
+        db,
+        visualClaim as ClaimedAcquisitionJob,
+        visualOutput as unknown as Prisma.InputJsonObject,
+      ),
+      "COMPLETE",
+    );
+    assert.equal(await enqueueCatalogReconciliation(db, new Date(), true), 1);
+    const [hybridJob] = await claimAcquisitionJobs(db, {
+      workerId: "hybrid-fixture",
+      stages: [CATALOG_RECONCILIATION_STAGE],
+    });
+    let byIdCalls = 0;
+    const hybridHandler = createCatalogReconciliationHandler(
+      db,
+      async (query, signal) => {
+        keys.add(catalogQueryKey(query));
+        return resolveCachedAcquisitionCatalog(db, query, signal, async () => {
+          if (query.kind === "id") {
+            assert.equal(query.id, visualId);
+            byIdCalls++;
+          }
+          return {
+            status: "FOUND",
+            cards:
+              query.kind === "id" ||
+              (query.kind === "name" && query.name === visualCard.name)
+                ? [visualCard]
+                : cards,
+            requestsMade: 1,
+            printingCoverage: "CHECKED",
+          };
+        });
+      },
+    );
+    await assert.rejects(
+      hybridHandler(
+        {
+          ...hybridJob,
+          input: {
+            ...(hybridJob.input as Prisma.InputJsonObject),
+            visualJobId: rawJob.id,
+          },
+        },
+        AbortSignal.timeout(30000),
+      ),
+      /Visual recognition input changed/,
+    );
+    const hybrid = await hybridHandler(hybridJob, AbortSignal.timeout(30000));
+    assert.equal(byIdCalls, 1, "missing visual identity is actually fetched");
+    const stable = await db.card.findUniqueOrThrow({
+      where: { scryfallId: visualId },
+    });
+    assert.notEqual(stable.id, visualId);
+    assert(
+      (hybrid.proposals as any).proposals.some(
+        (p: any) =>
+          p.card.id === stable.id && p.reasons.includes("VISUAL_MATCH"),
+      ),
+    );
+    assert.equal((hybrid.proposals as any).automaticAcceptance, false);
+    assert.equal(hybrid.sourceVisualJobId, visualClaim.id);
+    assert.deepEqual(
+      hybrid.native,
+      native,
+      "visual/cached metadata do not rerun or alter OCR",
+    );
+    assert.equal(
+      await completeAcquisitionJob(db, hybridJob, hybrid),
+      "COMPLETE",
+    );
+    const hybridReview = await getAcquisitionCardReview(
+      db,
+      actor,
+      sessionId,
+      photoId,
+    );
+    assert.equal(
+      hybridReview.evidence?.imageMatches?.inputRegion,
+      "WHOLE_PHOTO",
+    );
+    assert(hybridReview.suggestions.some((p) => p.printing.id === stable.id));
+    assert.equal(await confirmStrongAcquisitionMatches(db), 0);
+    assert.equal(
+      await enqueueCatalogReconciliation(db, new Date(), true),
+      0,
+      "same immutable visual/OCR pair does not duplicate reconciliation",
+    );
     // A user can correct/confirm while another reconciliation is in flight.
     const running = await db.acquisitionProcessingJob.update({
       where: { id: job.id },

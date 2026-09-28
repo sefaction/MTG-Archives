@@ -1,6 +1,7 @@
 import gzip
 import io
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -33,6 +34,23 @@ def jpeg():
 
 
 class CatalogReferencesTest(unittest.TestCase):
+    @unittest.skipIf(os.name == 'nt', 'POSIX restricted-reader permissions')
+    def test_public_images_are_readable_and_permission_changes_stay_in_store(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'images').mkdir(mode=0o700)
+            previous = os.umask(0o077)
+            try:
+                row = references(card())[0]
+                atomic_image(root, row, jpeg())
+            finally:
+                os.umask(previous)
+            self.assertEqual((root / row['file']).stat().st_mode & 0o777, 0o644)
+            self.assertEqual((root / 'images').stat().st_mode & 0o777, 0o755)
+            with self.assertRaisesRegex(ValueError, 'escapes image directory'):
+                atomic_image(root, {**row, 'file': '../outside.jpg'}, jpeg())
+            self.assertFalse((root.parent / 'outside.jpg').exists())
+
     def test_snapshot_reads_committed_wal_and_keeps_missing_coverage(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

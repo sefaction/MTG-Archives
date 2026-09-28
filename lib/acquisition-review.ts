@@ -76,6 +76,7 @@ export type AcquisitionCardReview = {
   printing: AcquisitionPrinting | null;
   suggestions: { printing: AcquisitionPrinting; reasons: string[] }[];
   recognitionStatus: string;
+  visualStatus?: string;
   catalog?: AcquisitionCatalogStatus | null;
   evidence: AcquisitionReviewEvidence;
 };

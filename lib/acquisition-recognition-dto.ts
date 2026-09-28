@@ -22,6 +22,9 @@ const proposalSchema = z.object({
     .max(12),
 });
 export const recognitionResponseSchema = z.object({
+  visualStatus: z
+    .enum(["WAITING", "PENDING", "RUNNING", "FAILED", "COMPLETE", "SUPERSEDED"])
+    .optional(),
   status: z.enum([
     "WAITING",
     "PENDING",
@@ -37,19 +40,29 @@ export type RecognitionResponse = z.infer<typeof recognitionResponseSchema>;
 export function acquisitionRecognitionDto(
   status: RecognitionResponse["status"],
   output: unknown,
+  visualStatus?: RecognitionResponse["status"],
 ): RecognitionResponse {
   const result = z.object({ proposals: proposalSchema }).safeParse(output);
   const parsed = z.object({ catalog: catalogStatusSchema }).safeParse(output);
   const catalog = parsed.success
     ? parsed.data.catalog
     : { status: "CHECKING" as const, printingCoverage: "UNRESOLVED" as const };
-  if (result.success && catalog.status !== "RESOLVED") {
+  if (visualStatus === "FAILED") {
+    catalog.status = "INCOMPLETE";
+    catalog.printingCoverage = "UNRESOLVED";
+  }
+  if (
+    result.success &&
+    (catalog.status !== "RESOLVED" ||
+      (visualStatus && visualStatus !== "COMPLETE"))
+  ) {
     result.data.proposals.automaticAcceptance = false;
     if (result.data.proposals.status === "STRONG_MATCH")
       result.data.proposals.status = "REVIEW_REQUIRED";
   }
   return {
     status,
+    ...(visualStatus ? { visualStatus } : {}),
     catalog,
     result:
       status === "COMPLETE" && result.success ? result.data.proposals : null,

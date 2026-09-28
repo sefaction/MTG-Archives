@@ -12,6 +12,7 @@ import {
 // Worker-only, bounded reconciliation. Completed evidence stays immutable;
 // attempt/history commands make retries durable and avoid starving later jobs.
 export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
+  const requireVisual = process.env.ACQUISITION_VISUAL_ENABLED === "1";
   const jobs = await db.$queryRaw<{ id: string }[]>`
     SELECT j.id FROM "AcquisitionProcessingJob" j
     JOIN "AcquisitionCandidate" c ON c.id = j."candidateId"
@@ -22,6 +23,7 @@ export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
     WHERE j.stage = ${CATALOG_RECONCILIATION_STAGE} AND j.status = 'COMPLETE'
       AND j.output->'catalog'->>'status' = 'RESOLVED'
       AND j.output->'catalog'->>'printingCoverage' = 'CHECKED'
+      AND (${!requireVisual} OR j.input->>'visualJobId' IS NOT NULL)
       AND j."createdAt" > NOW() - INTERVAL '24 hours'
       AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" newer WHERE newer."candidateId"=c.id
         AND newer."candidateRevision"=c.revision AND newer.stage IN ('photo-recognition-v1', ${CATALOG_RECONCILIATION_STAGE})
@@ -114,6 +116,9 @@ export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
       )?.proposals?.version;
       const eligible =
         job.stage === CATALOG_RECONCILIATION_STAGE &&
+        (!requireVisual ||
+          typeof (job.input as { visualJobId?: unknown }).visualJobId ===
+            "string") &&
         catalogStatusSchema.safeParse(
           (job.output as { catalog?: unknown })?.catalog,
         ).data?.status === "RESOLVED" &&
