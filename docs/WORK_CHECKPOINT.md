@@ -1,5 +1,19 @@
 # Resumable work checkpoint
 
+## PR #460 approved and merged, 2026-09-27
+
+- User explicitly approved #460. All three required checks passed on `50b62c0`; merged directly into main as `c590a1952d772bc0bb394726693b7716f6cc6496` at 00:40:07 UTC September 28. Issue #459 closed automatically.
+- Docker publisher run `36363055368` succeeded for that merge commit, including all release checks, both builds, persistent-model/offline smoke and both uploads. Anonymous registry reads verified `main` equals `sha-c590a19` for both images: web `sha256:37a46c83f6a339e42ded4dd144363a7f74146ffa6ab088c70ee954fc83f8c33d`; recognition `sha256:c2458935226bde7f805f9d67a9ce5b17dde6a0fd4600d61bd34bdab2e171f4c1`. No further production action is authorized by merge approval. Previously authorized YAML is already staged; existing env and containers remain unchanged.
+- Active review branch `local/acquisition-deployment-review-20260927` is based on merged main; only local checkpoint bookkeeping differs. Local Docker still matches all 427 source inputs. Publication watcher84864 completed successfully. User can now pull/recreate their MTG Archives stack; first model setup persists files to appdata. No pending merge approval or implementation work remains for #459/#460. Broader Android/device acquisition acceptance is unchanged.
+
+## Authorized Unraid YAML staging, 2026-09-27
+
+- User explicitly asked to update the production YML. Only `/boot/config/plugins/compose.manager/projects/mtg-archives/compose.yaml` was replaced with the reviewed #460 flat file; existing `.env` and running containers were not changed. Repository diff and remote config matched the prior main flat definition before replacement.
+- Verified original backup at `\\192.168.1.2\appdata\mtg-archive\backups\application\compose-acquisition-2026-09-28T00-37-35-758Z\compose.yaml`. SMB allowed backup but denied Compose Manager writes. Used the previously authorized SSH account, verified known host, staged/read back the file, ran remote `docker compose ... config --quiet`, checked for concurrent changes and atomically renamed only that project's YML. Installed SHA-256 `d5c9e220a5f68f7a27e8c9f04209345d715169ef11401fab57507dc559f5e045`; installed read-back matched. No pull/up/restart or production tests performed.
+- PR #460 head `50b62c0` passed all three CI checks. Individual merge approval remains missing. New images are not yet published: do not start the new services until approved merge and both image publications succeed. No `.env` edit is needed for the default model path. Earlier "production unchanged" notes below describe the local validation stage before this subsequent explicit authorization.
+- This local checkpoint records the operator action after green CI; it is intentionally uncommitted to avoid rerunning CI for bookkeeping. Implementation/image inputs remain committed and match local Docker. Foundry and PR description record the staging action. Next safe step: request #460's individual merge approval, then verify fresh checks and publications; user handles deployment.
+
+
 ## Flat acquisition deployment repair ready locally, 2026-09-27
 
 - Active branch `fix/unraid-acquisition-workers`, PR #460 (implementation `0135088`), issue #459, based on merged main `5604ce0` plus checkpoint `2a5cb48`. No merge approval yet. User reports production stuck at Preparing photo; repository flat Compose omitted both workers. Production was not inspected or changed.
