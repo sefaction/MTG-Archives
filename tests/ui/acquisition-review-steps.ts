@@ -19,6 +19,12 @@ export async function checkAcquisitionReview(page: Page) {
   await expect(
     dialog.getByRole("button", { name: "Save card review" }),
   ).toBeEnabled();
+  await dialog
+    .getByRole("radio", { name: /Krosan Vorine.*PLST #LGN-131/ })
+    .check();
+  await expect(
+    dialog.getByRole("img", { name: /^Printing: Krosan Vorine PLST LGN-131/ }),
+  ).toBeVisible();
   await dialog.getByRole("radio", { name: /Krosan Vorine · LGN #131/ }).check();
   await dialog
     .getByRole("combobox", { name: "Card condition", exact: true })
@@ -48,6 +54,17 @@ export async function checkAcquisitionReview(page: Page) {
     expect(overflow.actual, JSON.stringify(overflow)).toBeLessThanOrEqual(
       overflow.width,
     );
+    if (width === 1366 || width === 320) {
+      await card.evaluate((el) =>
+        window.scrollTo(
+          0,
+          window.scrollY + el.getBoundingClientRect().top - 170,
+        ),
+      );
+      await page.screenshot({
+        path: `test-results/acquisition-visual-${width}.png`,
+      });
+    }
   }
   await dialog
     .getByRole("button", { name: "Save card review" })

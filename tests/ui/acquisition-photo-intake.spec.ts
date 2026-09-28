@@ -320,6 +320,15 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
               expected.id,
             );
         }
+        const noOutline = page.getByTestId("capture-card-1");
+        await noOutline.scrollIntoViewIfNeeded();
+        await expect(noOutline).toContainText("Card outline not found.");
+        await expect(
+          noOutline.getByText("Not attempted", { exact: true }),
+        ).toHaveCount(4);
+        await expect(
+          noOutline.getByRole("button", { name: "Detected card", exact: true }),
+        ).toBeDisabled();
         const scanned = page.getByTestId("capture-card-2");
         await scanned.scrollIntoViewIfNeeded();
         await expect(

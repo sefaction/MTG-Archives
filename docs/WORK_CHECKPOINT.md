@@ -1,6 +1,14 @@
 # Resumable work checkpoint
 
-## Visual scan review in progress, 2026-09-28
+## Visual scan review local acceptance, 2026-09-28
+
+- Draft PR #467 at599a47e is open under #308/#463; all three CI checks passed in run36438983590. No merge approval received.
+- Loaded web/acquisition-worker image `688649e89b878555a6bf440818527d5ee635f8e4b433b0e49c009091cfd35428`; all429 source inputs match digest `d4002a429a8bfaa1c796ded0af8f1708e56c920dca08dec5f875880564d798a9`. Native recognition unchanged at8c582b4. App and both acquisition workers healthy; production untouched.
+- Browser39236 passed1/1 in1.2m: ten rotated real photos prepared6.979s, all10 expected printings in candidates,6 correct strong matches, inline save/correction/reload, preserved LP edit across scroll, stale conflict/reload, phone/desktop no overflow, private-file denial and explicit duplicate-safe Inventory commit. Reference image decoding is explicitly asserted. Phone comparison screenshot inspected; reference images and thumbnail alternatives are visible.
+- Initial fieldset overflow was reproduced and fixed with min-w-0; main reference images now have explicit dimensions/eager viewport-gated loading and a visible error fallback. Fresh evidence refresh preserves dirty form fields/revision. React lint and JSX issues from earlier builds are fixed.
+- Added explicit tests for unknown outline/not-attempted diagnostics, selecting the List thumbnail changes the large image, and14-card progressive loading. Combined browser37466 writes `.local-data/scan-review-acceptance.log` and is still running. This follow-up test commit needs fresh CI. Next: inspect final two-case result and desktop/phone screenshots, fix any failures, then ready #467 and request individual approval. Broader #463 remains open; neither #308 nor #463 closes with this UI batch.
+
+## Visual scan review implementation history, 2026-09-28
 
 - Branch `feat/acquisition-evidence-review`, under #308/#463. User requests an infinite batch list, scan left/proposed printing right, image alternatives, inline correction and per-field readable/missing evidence, plus detected crop/orientation/OCR-zone inspection. No new PR or approval yet.
 - Implemented progressively appended rows with viewport-gated full photo decoding/polling, inline saved review, thumbnail alternatives, bounded owner-authorized evidence DTO, original outline and reconstructed crop/reading boxes. Recognition algorithm unchanged; List stamp/set symbol/artwork explicitly not checked. Catalog/external fallback and broader recognition remain #463 follow-ons.
