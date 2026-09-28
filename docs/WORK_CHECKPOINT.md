@@ -1,5 +1,13 @@
 # Resumable work checkpoint
 
+## Approved acquisition stack merged, 2026-09-27
+
+- All individually approved PRs merged directly into main in dependency order after fresh green Core, Acquisition PostgreSQL and import integrity checks: #449 `0320437`, #451 `a8f997d`, #452 `38aafb5`, #453 `9719068`, #455 `0b9a501`, #456 `c2b7eb7`, #457 `430b1e4`, #458 `5604ce0`.
+- Verified final main `5604ce089de732738f96fd62ad518a474798331c`; GitHub has no open PRs. Issues #450 and #454 are closed with their resolving PRs. Acquisition phases remain open for broader provider/recognition/reconciliation/device acceptance; do not close them merely because this phone-photo slice merged.
+- Active local branch `local/acquisition-merged-review-20260927` in the acquisition-persistence worktree, based on final main. Only local checkpoint bookkeeping differs from main; implementation matches reviewed 75f0801. Runtime primary checkout remains separate and unchanged.
+- Verified local Docker web healthy,426 source inputs matched digest `34fee53c83280fd483ac0b46881b9f27c6dd7a1ddb3b3427e6f663c5ea58bb26`, image `cc27f75b6fa90192edcdc041990d02bbd4595ca1c1f781d841c502316f0b8df4`. No rebuild was needed for ancestry/checkpoint-only merge changes. All known verification/build/reload sessions are terminal. Production untouched.
+- Merge request is complete. No PR approval questions remain. Actual Android secure connection choice/setup and hands-on camera acceptance remain pending; Wi-Fi was recommended and USB explained as optional local development. No certificate/proxy was installed. Existing first-device goal remains paused awaiting that guidance; next safe step is resolve device acceptance, not invent more feature work or re-ask approved PRs.
+
 ## Approved stack merging, 2026-09-27
 
 - User explicitly approved #449 and #451, completing individual authorization for #449/#451/#452/#453/#455/#456/#457/#458. Merge these into main in that order after fresh required checks. No further merge question needed for these PRs.
