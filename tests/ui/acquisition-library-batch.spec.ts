@@ -129,6 +129,21 @@ test("library selections stream past ten without exceeding capacity or upload bo
       path: "test-results/acquisition-library-phone.png",
       fullPage: true,
     });
+    await expect(page.locator('[data-testid^="capture-card-"]')).toHaveCount(
+      12,
+    );
+    await page
+      .getByRole("button", { name: "Load more cards", exact: true })
+      .scrollIntoViewIfNeeded();
+    await expect(page.locator('[data-testid^="capture-card-"]')).toHaveCount(
+      14,
+    );
+    await page.getByTestId("capture-card-14").scrollIntoViewIfNeeded();
+    await expect(
+      page
+        .getByTestId("capture-card-14")
+        .getByText("Your scan", { exact: true }),
+    ).toBeVisible();
     database(
       `const n=${JSON.stringify(tag)};await p.inventoryLocation.create({data:{id:n+'-open',name:n+'-open',normalizedName:n+'-open',ownerPlayerId:n,type:'Box'}});`,
     );

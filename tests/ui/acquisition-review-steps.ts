@@ -11,36 +11,50 @@ export async function checkAcquisitionReview(page: Page) {
   await page.getByRole("button", { name: "Save batch defaults" }).click();
   await expect(page.getByText("Batch defaults saved.")).toBeVisible();
   const card = page.getByTestId("capture-card-2");
-  const open = card.getByRole("button", { name: "Review card", exact: true });
-  await open.click();
-  const dialog = page.getByRole("dialog");
+  await card.scrollIntoViewIfNeeded();
+  const dialog = card;
   await expect(
     dialog.getByRole("combobox", { name: "Card condition", exact: true }),
   ).toHaveValue("NM");
   await expect(
     dialog.getByRole("button", { name: "Save card review" }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   await dialog.getByRole("radio", { name: /Krosan Vorine · LGN #131/ }).check();
   await dialog
     .getByRole("combobox", { name: "Card condition", exact: true })
     .selectOption("LP");
+  await page.getByTestId("capture-card-5").scrollIntoViewIfNeeded();
+  await card.scrollIntoViewIfNeeded();
+  await expect(
+    dialog.getByRole("combobox", { name: "Card condition", exact: true }),
+  ).toHaveValue("LP");
   for (const width of [1366, 390, 320]) {
     await page.setViewportSize({ width, height: 844 });
     expect(
       await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth),
     ).toBe(true);
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= innerWidth,
-      ),
-    ).toBe(true);
+    const overflow = await page.evaluate(() => ({
+      width: innerWidth,
+      actual: document.documentElement.scrollWidth,
+      offenders: [...document.querySelectorAll("main *")]
+        .filter((el) => el.getBoundingClientRect().right > innerWidth + 1)
+        .slice(0, 5)
+        .map((el) => ({
+          tag: el.tagName,
+          classes: el.className,
+          width: el.getBoundingClientRect().width,
+        })),
+    }));
+    expect(overflow.actual, JSON.stringify(overflow)).toBeLessThanOrEqual(
+      overflow.width,
+    );
   }
   await dialog
     .getByRole("button", { name: "Save card review" })
     .scrollIntoViewIfNeeded();
   await page.screenshot({ path: "test-results/acquisition-review-phone.png" });
   await dialog.getByRole("button", { name: "Save card review" }).click();
-  await expect(dialog).toHaveCount(0);
+  await expect(card).toContainText("Review saved.");
   await expect(card).toContainText("LP");
   await page.reload();
   await expect(card).toContainText("Krosan Vorine");
@@ -50,14 +64,10 @@ export async function checkAcquisitionReview(page: Page) {
     .selectOption("HP");
   await page.getByRole("button", { name: "Save batch defaults" }).click();
   await expect(page.getByText("Batch defaults saved.")).toBeVisible();
-  const edit = card.getByRole("button", { name: "Edit review" });
-  await edit.click();
+  await card.scrollIntoViewIfNeeded();
   await expect(
     dialog.getByRole("combobox", { name: "Card condition", exact: true }),
   ).toHaveValue("LP");
-  await page.keyboard.press("Escape");
-  await expect(edit).toBeFocused();
-  await edit.click();
   await dialog.getByText("Find another printing", { exact: true }).click();
   await dialog.getByLabel("Set code", { exact: true }).fill("lgn");
   await dialog.getByLabel("Collector number", { exact: true }).fill("0131");
@@ -65,12 +75,13 @@ export async function checkAcquisitionReview(page: Page) {
     .getByRole("button", { name: "Find printing", exact: true })
     .click();
   await expect(
-    dialog
-      .locator("details")
-      .getByRole("radio", { name: /Krosan Vorine · LGN #131/ }),
+    dialog.getByRole("radio", { name: /Krosan Vorine · LGN #131/ }),
   ).toBeVisible();
 
-  // A second tab changes the saved decision while this dialog is open.
+  // A second tab changes the saved decision while this inline editor is dirty.
+  await dialog
+    .getByRole("combobox", { name: "Card condition", exact: true })
+    .selectOption("NM");
   const sessionId = new URL(page.url()).searchParams.get("batch")!;
   const endpoint = `/api/acquisition/${sessionId}/review`;
   const progress = await (
@@ -105,14 +116,14 @@ export async function checkAcquisitionReview(page: Page) {
     dialog.getByRole("combobox", { name: "Card condition", exact: true }),
   ).toHaveValue("MP");
   await dialog.getByRole("button", { name: "Keep pending" }).click();
-  await expect(open).toBeVisible();
+  await expect(card).toContainText("Kept pending.");
   await expect(page.getByRole("heading", { name: /11 cards$/ })).toBeVisible();
   await expect(page.getByText(/11 photos prepared/)).toBeVisible();
-  await open.click();
+
   await expect(
     dialog.getByRole("combobox", { name: "Card condition", exact: true }),
   ).toHaveValue("HP");
-  await page.keyboard.press("Escape");
+
   const anonymous = await page
     .context()
     .browser()!

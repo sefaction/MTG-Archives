@@ -151,8 +151,8 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
       .toBe(true);
     const photoUrl = await page
       .getByTestId("capture-card-1")
-      .locator("img")
-      .getAttribute("src");
+      .getByRole("link", { name: "Open original photo", exact: true })
+      .getAttribute("href");
     const anonymous = await browser.newContext({ baseURL });
     expect((await anonymous.request.get(photoUrl!)).status()).toBe(403);
     expect(
@@ -214,24 +214,27 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
       const photos: { name: string; mimeType: string; buffer: Buffer }[] = [];
       const rotatedCorpus = process.env.MTG_ACQUISITION_ROTATION_TEST === "1";
       for (const [position, entry] of manifest.entries.entries()) {
-          if (path.basename(entry.file) !== entry.file)
-            throw new Error("Invalid corpus name");
-          const photo = path.join(
-            process.env.MTG_ACQUISITION_CORPUS_PATH!,
-            entry.file,
-          );
-          let buffer = readFileSync(photo);
-          expect(createHash("sha256").update(buffer).digest("hex")).toBe(entry.sha256);
-          if (rotatedCorpus) {
-            const normalized = await sharp(buffer).rotate().toBuffer();
-            buffer = await sharp(normalized)
-              .rotate([180, 270, 90, 0][position % 4])
-              .jpeg({ quality: 95 }).toBuffer();
-            // Change this in-memory fixture's identity only; the on-disk
-            // labelled originals and manifest remain untouched.
-            entry.sha256 = createHash("sha256").update(buffer).digest("hex");
-          }
-          photos.push({ name: entry.file, mimeType: "image/jpeg", buffer });
+        if (path.basename(entry.file) !== entry.file)
+          throw new Error("Invalid corpus name");
+        const photo = path.join(
+          process.env.MTG_ACQUISITION_CORPUS_PATH!,
+          entry.file,
+        );
+        let buffer = readFileSync(photo);
+        expect(createHash("sha256").update(buffer).digest("hex")).toBe(
+          entry.sha256,
+        );
+        if (rotatedCorpus) {
+          const normalized = await sharp(buffer).rotate().toBuffer();
+          buffer = await sharp(normalized)
+            .rotate([180, 270, 90, 0][position % 4])
+            .jpeg({ quality: 95 })
+            .toBuffer();
+          // Change this in-memory fixture's identity only; the on-disk
+          // labelled originals and manifest remain untouched.
+          entry.sha256 = createHash("sha256").update(buffer).digest("hex");
+        }
+        photos.push({ name: entry.file, mimeType: "image/jpeg", buffer });
       }
       const started = Date.now();
       await page.getByLabel("Choose card photos").setInputFiles(photos);
@@ -261,10 +264,17 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
         }),
       );
       if (process.env.MTG_ACQUISITION_RECOGNITION_TEST === "1") {
-        await expect(page.getByTestId("recognition-suggestions")).toHaveCount(
-          10,
-          { timeout: 120000 },
-        );
+        await expect
+          .poll(
+            () =>
+              Number(
+                database(
+                  `console.log(await p.acquisitionProcessingJob.count({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},artifact:{digest:{in:${JSON.stringify(manifest.entries.map((e: any) => e.sha256))}}},stage:'photo-recognition-v1',status:'COMPLETE'}}));`,
+                ),
+              ),
+            { timeout: 120000 },
+          )
+          .toBe(10);
         const observed = JSON.parse(
           database(
             `console.log(JSON.stringify(await p.acquisitionProcessingJob.findMany({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-recognition-v1',status:'COMPLETE'},select:{output:true,artifact:{select:{digest:true}}}})));`,
@@ -280,7 +290,10 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
             result.output.proposals.status === "STRONG_MATCH",
           );
           if (entry.stamp === "PRESENT") {
-            expect(result.output.proposals.automaticAcceptance, entry.file).toBe(false);
+            expect(
+              result.output.proposals.automaticAcceptance,
+              entry.file,
+            ).toBe(false);
             expect(
               result.output.proposals.proposals.some((proposal: any) =>
                 proposal.reasons.includes("STAMP_UNVERIFIED"),
@@ -307,20 +320,36 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
               expected.id,
             );
         }
-        await page
-          .getByTestId("recognition-suggestions")
-          .first()
-          .locator("summary")
+        const scanned = page.getByTestId("capture-card-2");
+        await scanned.scrollIntoViewIfNeeded();
+        await expect(
+          scanned.getByRole("region", { name: "Recognition evidence" }),
+        ).toContainText("Krosan Vorine");
+        await expect(scanned).toContainText(
+          "Check the lower-left Planeswalker stamp",
+        );
+        await expect(
+          scanned.getByText("Not checked", { exact: true }),
+        ).toHaveCount(3);
+        const referenceImage = scanned.getByRole("img", {
+          name: /^Printing: Krosan Vorine/,
+        });
+        await referenceImage.scrollIntoViewIfNeeded();
+        await expect
+          .poll(() =>
+            referenceImage.evaluate(
+              (img: HTMLImageElement) => img.naturalWidth,
+            ),
+          )
+          .toBeGreaterThan(0);
+        await scanned
+          .getByRole("button", { name: "Reading zones", exact: true })
           .click();
         await expect(
-          page.getByTestId("recognition-suggestions").first(),
-        ).toContainText("Krosan Vorine");
-        await expect(
-          page.getByTestId("recognition-suggestions").first(),
-        ).toContainText("Check the lower-left Planeswalker stamp");
-        await page.screenshot({
+          scanned.getByRole("img", { name: "Detected card 2", exact: true }),
+        ).toBeVisible();
+        await scanned.screenshot({
           path: "test-results/acquisition-recognition-phone.png",
-          fullPage: true,
         });
         console.log(
           JSON.stringify({
@@ -336,23 +365,15 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
           (j: any) => j.output.proposals.automaticAcceptance,
         );
         expect(strong.length).toBeGreaterThan(0);
-        await expect(
-          page.getByRole("button", { name: "Correct match", exact: true }),
-        ).toHaveCount(strong.length);
-        const autoCard = page
-          .locator('[data-testid^="capture-card-"]')
-          .filter({
-            has: page.getByRole("button", {
-              name: "Correct match",
-              exact: true,
-            }),
-          })
-          .first();
-        await expect(autoCard).toContainText("Automatically confirmed");
-        await autoCard
-          .getByRole("button", { name: "Correct match", exact: true })
-          .click();
-        const autoDialog = page.getByRole("dialog");
+        // Scroll the known strong fixture into view so its inline editor loads.
+        const strongJob = strong[0];
+        const strongPhoto = manifest.entries.findIndex(
+          (entry: any) => entry.sha256 === strongJob.output.native.photoDigest,
+        );
+        const firstStrong = page.getByTestId(`capture-card-${strongPhoto + 2}`);
+        await firstStrong.scrollIntoViewIfNeeded();
+        await expect(firstStrong).toContainText("Automatically confirmed");
+        const autoDialog = firstStrong;
         await expect(
           autoDialog.getByRole("radio", { checked: true }),
         ).toHaveCount(1);
@@ -363,14 +384,14 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
           .getByRole("button", { name: "Save card review" })
           .click();
         await page.reload();
+        await firstStrong.scrollIntoViewIfNeeded();
+        await expect(firstStrong).toContainText("Reviewed");
         await expect(
-          page.getByRole("button", { name: "Correct match", exact: true }),
-        ).toHaveCount(strong.length - 1);
-        await expect(
-          page
-            .locator('[data-testid^="capture-card-"]')
-            .filter({ hasText: "DMG" }),
-        ).toHaveCount(1);
+          firstStrong.getByRole("combobox", {
+            name: "Card condition",
+            exact: true,
+          }),
+        ).toHaveValue("DMG");
         await page.screenshot({
           path: "test-results/acquisition-auto-confirm-phone.png",
           fullPage: true,

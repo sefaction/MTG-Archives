@@ -2,7 +2,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AcquisitionCommitControls } from "./AcquisitionCommitControls";
 import { StorageDestinationPicker } from "./StorageDestinationPicker";
-import { AcquisitionPhotoRecognition } from "./AcquisitionPhotoRecognition";
 import {
   AcquisitionBatchDefaults,
   AcquisitionPhotoReview,
@@ -89,7 +88,19 @@ export function AcquisitionCapture({
     total: number;
   } | null>(null);
   const stopSelection = useRef(false);
-  const [page, setPage] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(12);
+  const moreCards = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting)
+          setVisibleCount((n) => Math.min(n + 12, progress?.slots.length ?? n));
+      },
+      { rootMargin: "600px" },
+    );
+    if (moreCards.current) observer.observe(moreCards.current);
+    return () => observer.disconnect();
+  }, [visibleCount, progress?.slots.length]);
   const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
   const video = useRef<HTMLVideoElement>(null),
     stream = useRef<MediaStream | null>(null);
@@ -690,13 +701,13 @@ export function AcquisitionCapture({
           <section className={panel}>
             <h3 className="font-semibold">Saved cards</h3>
             <p className="text-sm mb-3">
-              Photos are prepared and identified in the background. Expand a
-              suggestion to check possible printings. Strong exact matches
-              confirm automatically using batch defaults; use Correct match to
-              change them. Only an explicit Inventory confirmation adds copies.
+              Compare each scan with its proposed printing. Choose a printing
+              image and save inline. Strong matches confirm using batch
+              defaults; corrections remain available. Only an explicit Inventory
+              confirmation adds copies.
             </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-              {progress.slots.slice(page * 12, page * 12 + 12).map((slot) => {
+            <div className="space-y-6">
+              {progress.slots.slice(0, visibleCount).map((slot) => {
                 const photo = slot.photos.find((p) => p.ready),
                   pending = uploads.some((p) => p.slotId === slot.id);
                 const preparation = progress.photoPreparation.find(
@@ -706,15 +717,17 @@ export function AcquisitionCapture({
                   <div
                     key={slot.id}
                     data-testid={`capture-card-${slot.position + 1}`}
-                    className="min-w-0 space-y-2"
+                    className="min-w-0 space-y-2 border-b border-[var(--app-border)] pb-6"
                   >
                     <p>Card {slot.position + 1}</p>
                     {photo && !photo.purgedAt ? (
-                      <img
-                        loading="lazy"
-                        className="w-full h-40 object-contain rounded"
-                        src={`/api/acquisition/${batchId}/photos/${photo.id}${preparation === "COMPLETE" ? "?preview=1" : ""}`}
-                        alt={`Saved card ${slot.position + 1}`}
+                      <AcquisitionPhotoReview
+                        key={photo.id}
+                        batchId={batchId}
+                        photoId={photo.id}
+                        committed={slot.committed}
+                        refreshKey={`${progress.defaultsRevision}:${JSON.stringify(slot.review)}:${preparation}`}
+                        refresh={() => void refresh()}
                       />
                     ) : (
                       <p className="text-sm">
@@ -722,22 +735,6 @@ export function AcquisitionCapture({
                           ? "Photo retention ended"
                           : "Awaiting photo"}
                       </p>
-                    )}
-                    <p className="text-xs">
-                      {photo
-                        ? preparation === "COMPLETE"
-                          ? "Photo prepared"
-                          : preparation === "FAILED"
-                            ? "Photo could not be prepared. Retake it to try again."
-                            : "Preparing photo"
-                        : ""}
-                    </p>
-                    {photo && !slot.review && (
-                      <AcquisitionPhotoRecognition
-                        key={photo.id}
-                        batchId={batchId}
-                        photoId={photo.id}
-                      />
                     )}
                     {slot.review && (
                       <p className="text-sm break-words">
@@ -770,16 +767,6 @@ export function AcquisitionCapture({
                         Add this copy
                       </label>
                     )}
-                    {photo && !slot.committed && (
-                      <AcquisitionPhotoReview
-                        key={photo.id}
-                        batchId={batchId}
-                        photoId={photo.id}
-                        reviewed={Boolean(slot.review)}
-                        automatic={slot.review?.source === "AUTO_STRONG_MATCH"}
-                        refresh={() => void refresh()}
-                      />
-                    )}
                     <button
                       className={button + " w-full"}
                       disabled={
@@ -802,22 +789,20 @@ export function AcquisitionCapture({
                 );
               })}
             </div>
-            <div className="flex gap-2 mt-3">
-              <button
-                className={button}
-                disabled={!page}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                Previous cards
-              </button>
-              <button
-                className={button}
-                disabled={(page + 1) * 12 >= progress.slots.length}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                More cards
-              </button>
-            </div>
+            {visibleCount < progress.slots.length && (
+              <div ref={moreCards} className="mt-3">
+                <button
+                  className={button}
+                  onClick={() => setVisibleCount((n) => n + 12)}
+                >
+                  Load more cards
+                </button>
+              </div>
+            )}
+            <p className="text-xs mt-3">
+              Showing {Math.min(visibleCount, progress.slots.length)} of{" "}
+              {progress.slots.length} cards. More cards load as you scroll.
+            </p>
           </section>
         </>
       )}

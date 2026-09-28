@@ -3,8 +3,8 @@ import { expect, type Page } from "@playwright/test";
  * the other ten remain pending. Simulate loss of the successful response. */
 export async function checkAcquisitionCommit(page: Page) {
   const card = page.getByTestId("capture-card-2");
-  await card.getByRole("button", { name: "Review card", exact: true }).click();
-  const dialog = page.getByRole("dialog");
+  await card.scrollIntoViewIfNeeded();
+  const dialog = card;
   await dialog.getByRole("radio", { name: /Krosan Vorine.*LGN #131/ }).check();
   await dialog
     .getByRole("combobox", { name: "Card condition", exact: true })
@@ -65,7 +65,7 @@ export async function checkAcquisitionCommit(page: Page) {
     card.getByRole("button", { name: "Retake", exact: true }),
   ).toBeDisabled();
   await expect(
-    card.getByRole("button", { name: "Edit review", exact: true }),
+    card.getByRole("button", { name: "Save card review", exact: true }),
   ).toHaveCount(0);
   const sessionId = new URL(page.url()).searchParams.get("batch")!;
   const state = await (

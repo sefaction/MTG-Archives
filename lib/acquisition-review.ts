@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { AcquisitionReviewEvidence } from "./acquisition-review-evidence";
 export const acquisitionDefaultsSchema = z
   .object({
     finish: z.enum(["UNKNOWN", "NONFOIL", "FOIL", "ETCHED"]),
@@ -74,4 +75,5 @@ export type AcquisitionCardReview = {
   printing: AcquisitionPrinting | null;
   suggestions: { printing: AcquisitionPrinting; reasons: string[] }[];
   recognitionStatus: string;
+  evidence: AcquisitionReviewEvidence;
 };

@@ -11,6 +11,7 @@ import {
   type AcquisitionCardReview,
 } from "./acquisition-review";
 import { acquisitionRecognitionDto } from "./acquisition-recognition-dto";
+import { acquisitionReviewEvidence } from "./acquisition-review-evidence";
 import { searchLocalCardCatalog } from "./local-card-search";
 import {
   acquisitionEventSchema,
@@ -1163,6 +1164,7 @@ export async function getAcquisitionCardReview(
                 : null)),
         ) ?? null,
       recognitionStatus: evidence.result?.status ?? evidence.status,
+      evidence: acquisitionReviewEvidence(job?.output),
       suggestions: (evidence.result?.proposals ?? []).flatMap((p) => {
         const printing = cards.find((c) => c.id === p.card.id);
         return printing ? [{ printing, reasons: p.reasons }] : [];
