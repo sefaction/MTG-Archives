@@ -1,5 +1,20 @@
 # Resumable work checkpoint
 
+## PR #467 approved and merged, 2026-09-28
+
+- User individually approved #467. Fresh checks passed on exact head `ff873778ab73266199554b98e969308b6ecc4bb2`; merged into main as `fc7b3621f4802e2bc17147d8be74afe58572729b` at 15:31:36 UTC. GitHub confirms MERGED. All three checks succeeded in run36440044280.
+- Active branch `local/acquisition-visual-review-20260928` is based on merged main. Local Docker already contains the verified implementation recorded below; merge ancestry and checkpoint bookkeeping require no rebuild. Production untouched; image publication has not been verified.
+- #308, #463 and #468 remain OPEN. The visual review batch is merged; catalog completeness, recognition accuracy and intermittent burst-upload retry remain separate follow-ons. No pending merge question or known running verification process remains.
+- Next safe step: address burst-upload recovery #468 and broader recognition/catalog work #463 when continuing acquisition implementation. The independent Android-device acceptance goal remains paused.
+
+## PR #467 ready for individual review, 2026-09-28
+
+- PR #467 at `ff873778ab73266199554b98e969308b6ecc4bb2` has all three CI checks green in run36440044280 (Core1m54s, acquisition55s, import2m14s). It is ready for individual approval; no approval received. #308/#463 stay open, with intermittent upload retry tracked separately in #468.
+- Final local image `a2a7992fcb772fd0a73f7e32b415c1f1befa9a1c6af8543dc4114dc52120f236`; source429 files verify at `1fb742a480a18b0ee91dbf8a3d8e95ebda90d00a78ff8991d3a11c0f324a4f38`. Web/acquisition worker loaded, native recognition unchanged. Source/build/schema data all local; production untouched.
+- Functional flow passed twice before only final header-opacity/caption-height CSS changes. Final full-flow65676 failed during burst photo preparation with the recurring retained-upload issue #468, before visual assertions. Do not report a clean final full-flow pass. Read-only final-source check against an existing batch passed1366/320, aligned image tops, reference images decoded, no overflow, zero acquisition writes. Temporary isolated admin removed; local existing reviews and Inventory unchanged. Final screenshots acquisition-final-1366.png and acquisition-final-320.png inspected.
+- Library59295 passed1/1 in16.2s, including14-card automatic append,2-upload bound,capacity and stop/reselect; earlier burst failure is retained in #468. Evidence/privacy/crop tests3/3, unit656, typecheck, ESLint, production build and disposable DB helper passed. No pending build/test process remains; shell stderr wrappers report1 on successful native build/browser logs, so actual log outcomes are recorded.
+- Next safe step: user reviews the visual batch at http://127.0.0.1:13001/imports/scan and approves #467 individually before merge. Follow-on implementation: catalog completeness/external fallback and visual/printing/stamp recognition in #463; diagnose/recover burst conflicts in #468. This post-ready checkpoint is local bookkeeping. Standing Android-device goal remains paused independently.
+
 ## Visual scan review local acceptance, 2026-09-28
 
 - Draft PR #467 at599a47e is open under #308/#463; all three CI checks passed in run36438983590. No merge approval received.
