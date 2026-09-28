@@ -4,7 +4,7 @@ Status: **bounded local qualification complete; not production-qualified**. Sept
 
 ## 1. Live base, branch and PR context
 
-`feat/windows-scanner-backend` starts at merged main `fc7b3621f4802e2bc17147d8be74afe58572729b` (#467). Live source, issue #463, source/worker/review/capacity/commit code, verification tools and Foundry workflow were read before implementation. No recognition PR is a code dependency.
+`feat/windows-scanner-backend`, [PR #474](https://github.com/sefaction/MTG-Archives/pull/474), starts at merged main `fc7b3621f4802e2bc17147d8be74afe58572729b` (#467). Implementation/evidence commit `5240c2e`. Live source, issue #463, source/worker/review/capacity/commit code, verification tools and Foundry workflow were read before implementation. No recognition PR is a code dependency.
 
 Independent recognition work remains: #470 tight-scanner footer preservation -> draft #471 full-catalog evaluation -> #472 Scryfall reconciliation. Uncommitted printing-verification work remains untouched in its own worktree. The existing cumulative local Docker app includes #470-#472; its web image is `5b428594690d1aaa8d29c9dc3298e641961e048f42965a8f8dec6e7f28e44dd1`. Scanner pipeline tests used that running build, not an assertion that unmerged recognition is on main. No production change, deployment or merge.
 
