@@ -2,7 +2,7 @@ import unittest
 import cv2
 import numpy as np
 from printing_evidence import SIZE, stamp_evidence
-from evaluate_printing_candidates import selected_candidates, candidate_relation
+from evaluate_printing_candidates import selected_candidates, selected_ocr_candidates, candidate_relation, shared_stamp_evidence
 
 
 class PrintingEvidenceTests(unittest.TestCase):
@@ -69,6 +69,37 @@ class PrintingEvidenceTests(unittest.TestCase):
         self.assertEqual(candidate_relation('ABSENT', 'UNKNOWN'), 'UNRESOLVED')
         self.assertEqual(candidate_relation('ABSENT', 'PRESENT'), 'CONTRADICTS_STAMP_STATE')
         self.assertEqual(candidate_relation('PRESENT', 'PRESENT'), 'AGREES_WITH_STAMP_STATE')
+
+    def test_ocr_reference_selection_uses_all_candidate_faces_and_provenance(self):
+        report = {'manifestSha256':'digest','catalogDigest':'catalog','results':[
+            {'file':'a.jpg','sha256':'photo','result':{'proposals':[{'card':{'id':'retrieved'}}]}}]}
+        manifest = {'catalogCompressedSha256':'catalog','entries':[
+            {'file':'a.jpg','sha256':'photo','scryfallId':'label-must-not-select-this'}]}
+        snapshot = {'source':{'catalogSha256':'catalog'},'references':[
+            {'cardId':'retrieved','referenceId':'retrieved:0'}],'unavailable':[
+            {'cardId':'retrieved','referenceId':'retrieved:1'}]}
+        self.assertEqual([r['referenceId'] for r in selected_ocr_candidates(report,manifest,snapshot,'digest')['a.jpg']],
+                         ['retrieved:0','retrieved:1'])
+        report['catalogDigest'] = 'changed'
+        with self.assertRaises(ValueError):
+            selected_ocr_candidates(report,manifest,snapshot,'digest')
+
+    def test_stamp_observation_transfers_only_across_matching_visible_outlines(self):
+        alignment = {**self.alignment, 'sourceCardWidth':1000,
+                     'quad':[[0,0],[1000,0],[1000,1400],[0,1400]]}
+        def row(identity, observed, reference, fit=alignment):
+            return {'referenceId':identity,'alignment':dict(fit),'stamp':{'status':observed},
+                    'referenceStampState':reference,'relation':candidate_relation(observed,reference)}
+        original = row('original','ABSENT','ABSENT')
+        stamped = row('stamped','UNREADABLE','PRESENT')
+        clipped = row('clipped','UNREADABLE','PRESENT',{**alignment,'stampVisible':False})
+        shifted = row('shifted','UNREADABLE','PRESENT',{**alignment,'quad':[[100,0],[1100,0],[1100,1400],[100,1400]]})
+        self.assertEqual(shared_stamp_evidence([original,stamped,clipped,shifted]),('ABSENT',False))
+        self.assertEqual(stamped['relation'],'CONTRADICTS_STAMP_STATE')
+        self.assertEqual(clipped['relation'],'UNRESOLVED')
+        self.assertEqual(shifted['relation'],'UNRESOLVED')
+        self.assertEqual(shared_stamp_evidence([original,row('conflict','PRESENT','PRESENT')]),('UNREADABLE',True))
+        self.assertEqual(original['relation'],'UNRESOLVED')
 
 
 if __name__ == '__main__':

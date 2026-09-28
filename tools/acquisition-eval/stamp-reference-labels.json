@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "source": "Manual inspection of enlarged lower-left regions of 64 public reference images, independent of private-photo predictions. Source image SHA-256 binds each annotation; unannotated images remain UNKNOWN.",
+  "source": "Manual inspection of enlarged lower-left regions of 66 public reference images, independent of private-photo predictions. Source image SHA-256 binds each annotation; unannotated images remain UNKNOWN.",
   "entries": [
     {
       "referenceId": "8d887f3d-f07f-4672-a3a2-acdc42fa98e2:0",
@@ -321,6 +321,16 @@
       "referenceId": "fac8809a-77cd-4090-8a89-12121a8da676:0",
       "sha256": "a9eba1f3347ad405895198aad0cb79e50b2c27e844e66a7859a6b8b20c1b3c1f",
       "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "4e02b30f-1bd2-479d-8602-c3df9ba0d3d4:0",
+      "sha256": "80554153ff23ceaa1bb00e8061bd37597121baeb234ea5c56355d4e2835bd3c8",
+      "stamp": "PRESENT"
+    },
+    {
+      "referenceId": "5d753bef-7043-42d0-929a-b82f0079f3b8:0",
+      "sha256": "ec3a8af473bdf07b8f4658ac715bf090b0e6210c549e760872a668362fca9f8a",
+      "stamp": "PRESENT"
     }
   ]
 }

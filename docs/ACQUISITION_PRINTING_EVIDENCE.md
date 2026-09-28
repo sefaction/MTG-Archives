@@ -89,20 +89,47 @@ the existing presence threshold and therefore unreadable. The threshold was not
 lowered. The earlier partial-snapshot numbers above remain historical.
 
 `evaluate_printing_candidates.py` now accepts the actual top candidates from
-`catalog_compare.py`, binds the retrieval report/index/snapshot/photo manifests,
+`catalog_compare.py` or the OCR benchmark, binds the retrieval report/index/snapshot/photo manifests,
 and verifies their hashes. Labels are consulted only after candidate evidence
 is generated. It reports stamp agreement, contradiction or unresolved evidence
-for each candidate, and conflicting observations remain unreadable. Agreement
-never becomes exact-print confirmation. Six model-free guards pass, including
-label-independent candidate selection and unknown/contradictory stamp handling.
+for each candidate, and conflicting observations remain unreadable. A consistent
+observation can contradict a counterpart only when both registrations describe
+the same visible physical outline within1% of card width; clipped or shifted
+matches remain unresolved. Agreement never becomes exact-print confirmation.
+Eight model-free guards pass, including label-independent candidate selection,
+all-face OCR mapping, provenance, contradictory/unknown states and visible-outline
+requirements. Two additional public List counterpart footers were inspected and
+annotated PRESENT, bringing the current public annotation set to66. The earlier
+68-photo stage report is bound to its64-annotation input hash, before those additions.
 
-Actual full-catalog candidate runs are pending the complete DINOv2/VGG16 indexes;
-the helper's unit checks do not substitute for those measurements. Example with
+Full image-candidate runs are pending the complete DINOv2/VGG16 indexes;
+the helper's unit checks do not substitute for those measurements. The actual OCR
+candidate run uses all109,269 non-digital metadata records and the completed
+reference snapshot; it is separately reported from image retrieval. Example with
 read-only input mounts and a separate writable output directory:
 
 ```text
 python /eval/evaluate_printing_candidates.py --manifest /eval/scanner-manifest.json --photos /photos --references /references --snapshot /references/snapshot.json --retrieval /retrieval/report.json --index /index/index.json --method visual --output /output
 ```
+
+For OCR candidates, first run `scripts/benchmark-acquisition-recognition.ts`
+with the frozen catalog and saved native observations. It now records photo,
+manifest, raw-observation and resolver digests. Pass that output as `--retrieval`
+with `--method ocr`, omitting `--index`. It maps all candidate faces, preserves
+provider-unavailable references as unreadable and never consults expected labels
+to select a card. This is an offline diagnostic; the deployed worker does not yet
+use these printing checks.
+
+The real17-scanner OCR candidate check completed:7 stamp absences and10 unreadable
+cases, zero conflicting observations and zero contradictions of a labelled correct
+printing. The List versions of Reckoner's Bargain and Patchwork Automaton were
+contradicted using observed absence and matching visible outlines; their original
+printings agreed. Keeping OCR order while excluding only contradicted candidates
+changes exact-first from15/17 to17/17 on this development set. It creates no saved
+decision or automatic confirmation, and it does not establish full image/OCR or
+future-batch accuracy. Report: `tools/acquisition-eval/printing-candidate-results.json`.
+The first OCR replay omitted its required original-fixture selector and was rejected
+before scoring; the corrected run and final candidate check passed.
 
 ## Required before deployment
 

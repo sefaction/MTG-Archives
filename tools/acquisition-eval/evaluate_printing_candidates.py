@@ -10,6 +10,7 @@ import time
 import uuid
 
 import cv2
+import numpy as np
 
 from catalog_references import sha256
 from catalog_index import load_published_index
@@ -50,28 +51,102 @@ def candidate_relation(observed, reference_state):
     return 'AGREES_WITH_STAMP_STATE' if observed == reference_state else 'CONTRADICTS_STAMP_STATE'
 
 
+def shared_stamp_evidence(candidates):
+    sources = [c for c in candidates if c['stamp']['status'] in ('PRESENT', 'ABSENT')]
+    states = {c['stamp']['status'] for c in sources}
+    observed = next(iter(states)) if len(states) == 1 else 'UNREADABLE'
+    for candidate in candidates:
+        candidate['localRelation'] = candidate['relation']
+        if observed == 'UNREADABLE':
+            candidate['relation'] = 'UNRESOLVED'
+            continue
+        alignment = candidate['alignment']
+        if (candidate['relation'] != 'UNRESOLVED' or alignment.get('status') != 'ALIGNED' or
+                not alignment.get('stampVisible') or not alignment.get('footerVisible') or
+                alignment.get('sourceCardWidth', 0) < 500 or 'quad' not in alignment):
+            continue
+        # A positive observation can contradict another printing only when both
+        # registrations describe the same visible physical card outline. Mere
+        # matching artwork, or a failed/shifted alignment, cannot transfer it.
+        supporting = []
+        for source in sources:
+            support = source['alignment']
+            if 'quad' not in support:
+                continue
+            discrepancy = float(np.max(np.linalg.norm(np.asarray(alignment['quad']) -
+                np.asarray(support['quad']), axis=1)))
+            if discrepancy <= .01 * min(alignment['sourceCardWidth'], support['sourceCardWidth']):
+                supporting.append(source['referenceId'])
+        if supporting:
+            candidate['relation'] = candidate_relation(observed, candidate['referenceStampState'])
+            candidate['sharedObservationSources'] = supporting
+    return observed, len(states) > 1
+
+
+def selected_ocr_candidates(report, manifest, snapshot, manifest_digest):
+    if (report['manifestSha256'] != manifest_digest or
+            report['catalogDigest'] != snapshot['source']['catalogSha256'] or
+            report['catalogDigest'] != manifest['catalogCompressedSha256']):
+        raise ValueError('OCR retrieval and reference provenance differ')
+    faces = {}
+    for row in snapshot['references'] + snapshot['unavailable']:
+        faces.setdefault(row['cardId'], []).append(row['referenceId'])
+    rows = {}
+    source_by_file = {row['file']:row for row in report['results']}
+    if len(source_by_file) != len(report['results']):
+        raise ValueError('Duplicate OCR retrieval photo')
+    for entry in manifest['entries']:
+        sample = source_by_file.get(entry['file'])
+        if sample is None or sample['sha256'] != entry['sha256']:
+            raise ValueError('OCR photo coverage/digest differs')
+        top = []
+        seen = set()
+        # Uses resolver proposals, never the expected printing/name/stamp.
+        for proposal in sample['result']['proposals']:
+            card_id = proposal['card']['id']
+            for identity in sorted(faces.get(card_id, [])):
+                if identity not in seen:
+                    seen.add(identity)
+                    top.append({'cardId':card_id, 'referenceId':identity})
+        if len(top) > 24:
+            raise ValueError('OCR candidate faces exceed bound')
+        rows[entry['file']] = top
+    if set(source_by_file) != set(rows):
+        raise ValueError('OCR retrieval photo coverage differs')
+    return rows
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ('manifest', 'photos', 'references', 'snapshot', 'retrieval', 'index', 'output'):
+    for name in ('manifest', 'photos', 'references', 'snapshot', 'retrieval', 'output'):
         parser.add_argument('--'+name, type=Path, required=True)
-    parser.add_argument('--method', choices=('visual', 'visual_then_sift'), default='visual')
+    parser.add_argument('--index', type=Path)
+    parser.add_argument('--method', choices=('visual', 'visual_then_sift', 'ocr'), default='visual')
     args = parser.parse_args()
     manifest = json.loads(args.manifest.read_text(encoding='utf8'))
     retrieval = json.loads(args.retrieval.read_text(encoding='utf8'))
-    if not retrieval['downloadComplete']:
-        raise ValueError('Printing candidate evaluation requires complete retrieval coverage')
-    if sha256(args.index) != retrieval['version']['indexSha256']:
-        raise ValueError('Retrieval index changed')
-    index, indexed_rows, _ = load_published_index(args.index)
-    indexed = {row['referenceId']: row for row in indexed_rows}
-    selected = selected_candidates(retrieval, manifest, args.method, sha256(args.manifest))
     snapshot = json.loads(args.snapshot.read_text(encoding='utf8'))
     if not snapshot['downloadComplete']:
         raise ValueError('Reference snapshot incomplete')
-    if index['source'] != snapshot['source']:
-        raise ValueError('Retrieval and reference catalogs differ')
+    indexed = None
+    if args.method == 'ocr':
+        selected = selected_ocr_candidates(retrieval, manifest, snapshot, sha256(args.manifest))
+    else:
+        if not retrieval['downloadComplete'] or args.index is None:
+            raise ValueError('Complete visual retrieval index required')
+        if sha256(args.index) != retrieval['version']['indexSha256']:
+            raise ValueError('Retrieval index changed')
+        index, indexed_rows, _ = load_published_index(args.index)
+        indexed = {row['referenceId']: row for row in indexed_rows}
+        if index['source'] != snapshot['source']:
+            raise ValueError('Retrieval and reference catalogs differ')
+        selected = selected_candidates(retrieval, manifest, args.method, sha256(args.manifest))
     references = {row['referenceId']: row for row in snapshot['references']}
     annotations_path = Path(__file__).with_name('stamp-reference-labels.json')
+    provenance = {'manifestSha256':sha256(args.manifest), 'snapshotSha256':sha256(args.snapshot),
+        'retrievalSha256':sha256(args.retrieval), 'codeSha256':sha256(Path(__file__)),
+        'printingCodeSha256':sha256(Path(__file__).with_name('printing_evidence.py')),
+        'referenceLabelsSha256':sha256(annotations_path)}
     annotations = {row['referenceId']: row for row in json.loads(annotations_path.read_text())['entries']}
     cached = {}
 
@@ -80,7 +155,7 @@ def main():
             row = references.get(identity)
             if row is None:
                 raise ValueError('Retrieved reference missing from snapshot')
-            if indexed.get(identity) != row:
+            if indexed is not None and indexed.get(identity) != row:
                 raise ValueError('Retrieved reference changed since indexing')
             path = (args.references / row['file']).resolve()
             if not path.is_relative_to(args.references.resolve()) or sha256(path) != row['sha256']:
@@ -109,6 +184,11 @@ def main():
         candidates = []
         for rank, candidate in enumerate(selected[entry['file']], 1):
             identity = candidate['referenceId']
+            if identity not in references:
+                candidates.append({'rank': rank, 'cardId': candidate['cardId'], 'referenceId': identity,
+                    'referenceStampState': 'UNKNOWN', 'alignment': {'status':'UNREADABLE'},
+                    'stamp': {'status':'UNREADABLE','reason':'REFERENCE_UNAVAILABLE'}, 'relation':'UNRESOLVED'})
+                continue
             image, reference_state = reference(identity)
             warped, alignment = register(photo, image)
             evidence = stamp_evidence(warped, alignment, templates, image, reference_state)
@@ -117,10 +197,9 @@ def main():
                 'relation': candidate_relation(evidence['status'], reference_state)})
         # Ground truth is first consulted here, after references/evidence were
         # selected and evaluated. Agreement is never exact-printing confidence.
-        states = {c['stamp']['status'] for c in candidates if c['stamp']['status'] != 'UNREADABLE'}
-        observed = next(iter(states)) if len(states) == 1 else 'UNREADABLE'
+        observed, conflicting = shared_stamp_evidence(candidates)
         row = {'file': entry['file'], 'sha256': entry['sha256'], 'candidates': candidates,
-            'observedStamp': observed, 'conflictingObservations': len(states) > 1,
+            'observedStamp': observed, 'conflictingObservations': conflicting,
             'expectedStamp': entry.get('stamp', 'UNLABELLED'),
             'expectedPrintingRetrieved': any(c['cardId'] == entry['scryfallId'] for c in candidates),
             'expectedPrintingContradicted': any(c['cardId'] == entry['scryfallId'] and
@@ -128,10 +207,7 @@ def main():
             'automaticAcceptance': False, 'elapsedMs': round((time.monotonic()-started)*1000)}
         results.append(row)
         report = {'method': VERSION, 'candidateSource': args.method, 'referenceCount': len(references),
-            'downloadComplete': True, 'manifestSha256': sha256(args.manifest),
-            'snapshotSha256': sha256(args.snapshot), 'retrievalSha256': sha256(args.retrieval),
-            'codeSha256': sha256(Path(__file__)), 'printingCodeSha256': sha256(Path(__file__).with_name('printing_evidence.py')),
-            'referenceLabelsSha256': sha256(annotations_path), 'results': results,
+            'downloadComplete': True, **provenance, 'results': results,
             'scope': 'Actual retrieved candidates; development samples; no automatic exact-print decision.'}
         temporary = args.output / 'report.partial.json'
         temporary.write_text(json.dumps(report, indent=2), encoding='utf8')
