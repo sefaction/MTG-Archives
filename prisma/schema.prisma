@@ -1481,6 +1481,22 @@ model AcquisitionCatalogRefresh {
   @@index([status, completedAt])
 }
 
+// Shared public-metadata lookup cache. It stores no photos, ownership or review
+// decisions. Leases fence late provider responses and recover interrupted work.
+model AcquisitionCatalogLookup {
+  key            String @id
+  request        Json
+  status         String @default("PENDING")
+  result         Json?
+  leaseToken     String?
+  leaseExpiresAt DateTime?
+  expiresAt      DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status, leaseExpiresAt])
+}
+
 // Append-only application receipts. Inventory ids are historical references:
 // deleting or splitting live stock must not erase its acquisition provenance.
 model AcquisitionCommit {
