@@ -15,7 +15,7 @@ import numpy as np
 from catalog_references import sha256
 from catalog_index import load_published_index
 from diagnose_printing import decode
-from printing_evidence import SIZE, VERSION, register, stamp_evidence
+from printing_evidence import SIZE, VERSION, register, stamp_evidence, candidate_relation, shared_stamp_evidence
 
 
 def selected_candidates(report, manifest, method, manifest_digest):
@@ -43,44 +43,6 @@ def selected_candidates(report, manifest, method, manifest_digest):
     if set(rows) != {entry['file'] for entry in manifest['entries']}:
         raise ValueError('Retrieval photo coverage differs from manifest')
     return rows
-
-
-def candidate_relation(observed, reference_state):
-    if observed == 'UNREADABLE' or reference_state == 'UNKNOWN':
-        return 'UNRESOLVED'
-    return 'AGREES_WITH_STAMP_STATE' if observed == reference_state else 'CONTRADICTS_STAMP_STATE'
-
-
-def shared_stamp_evidence(candidates):
-    sources = [c for c in candidates if c['stamp']['status'] in ('PRESENT', 'ABSENT')]
-    states = {c['stamp']['status'] for c in sources}
-    observed = next(iter(states)) if len(states) == 1 else 'UNREADABLE'
-    for candidate in candidates:
-        candidate['localRelation'] = candidate['relation']
-        if observed == 'UNREADABLE':
-            candidate['relation'] = 'UNRESOLVED'
-            continue
-        alignment = candidate['alignment']
-        if (candidate['relation'] != 'UNRESOLVED' or alignment.get('status') != 'ALIGNED' or
-                not alignment.get('stampVisible') or not alignment.get('footerVisible') or
-                alignment.get('sourceCardWidth', 0) < 500 or 'quad' not in alignment):
-            continue
-        # A positive observation can contradict another printing only when both
-        # registrations describe the same visible physical card outline. Mere
-        # matching artwork, or a failed/shifted alignment, cannot transfer it.
-        supporting = []
-        for source in sources:
-            support = source['alignment']
-            if 'quad' not in support:
-                continue
-            discrepancy = float(np.max(np.linalg.norm(np.asarray(alignment['quad']) -
-                np.asarray(support['quad']), axis=1)))
-            if discrepancy <= .01 * min(alignment['sourceCardWidth'], support['sourceCardWidth']):
-                supporting.append(source['referenceId'])
-        if supporting:
-            candidate['relation'] = candidate_relation(observed, candidate['referenceStampState'])
-            candidate['sharedObservationSources'] = supporting
-    return observed, len(states) > 1
 
 
 def selected_ocr_candidates(report, manifest, snapshot, manifest_digest):

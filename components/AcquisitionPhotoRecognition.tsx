@@ -69,6 +69,10 @@ export function AcquisitionPhotoRecognition({
         manual review.
       </p>
     );
+  if (state?.printingStatus === "FAILED")
+    return <p className="text-xs" role="status">Printing verification failed. Your photo and suggestions are saved for manual review.</p>;
+  if (state?.printingStatus && ["WAITING", "PENDING", "RUNNING"].includes(state.printingStatus) && state.catalog?.status === "RESOLVED")
+    return <p className="text-xs" role="status">Checking the printing and lower-left stamp…</p>;
   if (
     state?.visualStatus &&
     ["WAITING", "PENDING", "RUNNING"].includes(state.visualStatus)

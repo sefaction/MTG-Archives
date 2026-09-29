@@ -215,8 +215,8 @@ export function AcquisitionScanImage({
       {view === "zones" && (
         <p className="text-xs">
           Cyan: title/footer areas attempted. Yellow: detected text boxes. Boxes
-          do not establish a correct reading. Stamp and set-symbol detection are
-          not implemented.
+          do not establish a correct reading. Stamp evidence uses a separately
+          aligned lower-left region. Set-symbol detection is not implemented.
         </p>
       )}
       <a
@@ -246,6 +246,15 @@ export function AcquisitionEvidenceFields({
     (o) => o.rotationDegrees === evidence.rotation,
   );
   const ids = evidence?.identifiers;
+  const printing = evidence?.printing;
+  const selectedStamp = printing?.candidates.find(c=>c.cardId === selected?.id);
+  const stampStatus = printing?.conflictingObservations
+    ? "Conflicting observations; review required"
+    : printing?.observedStamp === "PRESENT" ? "Present"
+    : printing?.observedStamp === "ABSENT" ? "Absent"
+    : printing ? "Unreadable" : "Not checked";
+  const printedPrefix = selected?.setCode === "plst"
+    ? /^([a-z0-9]+)-(.+)$/i.exec(selected.collectorNumber) : null;
   const compare = (
     values: string[] | undefined,
     expected: string | undefined | null,
@@ -274,14 +283,14 @@ export function AcquisitionEvidenceFields({
     [
       "Set code",
       ids?.setCodes.join(", ") || "—",
-      compare(ids?.setCodes, selected?.setCode),
+      compare(ids?.setCodes, printedPrefix?.[1] ?? selected?.setCode),
     ],
     [
       "Collector number",
       ids?.collectors.join(", ") || "—",
       compare(
         ids?.collectors,
-        selected?.collectorNumber.replace(/^0+(?=\d)/, ""),
+        (printedPrefix?.[2] ?? selected?.collectorNumber)?.replace(/^0+(?=\d)/, ""),
       ),
     ],
     [
@@ -289,7 +298,14 @@ export function AcquisitionEvidenceFields({
       ids?.languages.join(", ") || "—",
       compare(ids?.languages, selected?.lang),
     ],
-    ["Planeswalker stamp", "Inspect the lower-left corner", "Not checked"],
+    ["Planeswalker stamp",
+      selectedStamp?.relation === "CONTRADICTS_STAMP_STATE"
+        ? "Observed stamp differs from this printing; correct the selection or inspect the photo."
+        : selectedStamp?.relation === "AGREES_WITH_STAMP_STATE"
+          ? "Observed stamp agrees with this printing. Other printing details still need verification."
+          : printing?.observedStamp === "UNREADABLE"
+            ? "The lower-left region did not provide enough evidence. Inspect the original photo."
+            : "Inspect the lower-left corner; this selection has no verified stamp comparison.", stampStatus],
     ["Set symbol", "Visual detection not implemented", "Not checked"],
     [
       "Card image",
@@ -343,6 +359,13 @@ export function AcquisitionEvidenceFields({
               </div>
             ))}
           </dl>
+          {printedPrefix && (
+            <p className="text-sm mt-2">
+              Stamped reprints retain the original set and collector text;
+              {" "}{printedPrefix[1].toUpperCase()} #{printedPrefix[2]} identifies
+              that source printing within The List / Mystery Booster catalog.
+            </p>
+          )}
           {reasons.includes("STAMP_UNVERIFIED") && (
             <p className="text-sm mt-2">
               Check the lower-left Planeswalker stamp: the original and stamped

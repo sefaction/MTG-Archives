@@ -71,7 +71,7 @@ jobs:
       - name: Public reference and resumable index integrity (no models or private photos)
         run: python -m unittest discover -s tools/acquisition-eval -p 'test_catalog*.py'
       - name: Printing evidence uncertainty guards (no models or private photos)
-        run: python -m unittest discover -s tools/acquisition-eval -p test_printing_evidence.py
+        run: python -m unittest discover -s tools/acquisition-eval -p 'test_printing*.py'
       - uses: actions/setup-node@v4
         with:
           node-version: "22"

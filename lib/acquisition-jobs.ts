@@ -17,6 +17,7 @@ const optionsSchema = z.object({
 export type ClaimedAcquisitionJob = AcquisitionProcessingJob & {
   leaseToken: string;
 };
+export class AcquisitionJobSupersededError extends Error {}
 const active = {
   session: {
     phase: { notIn: ["DRAFT", "CANCELLED"] as ("DRAFT" | "CANCELLED")[] },
@@ -254,8 +255,13 @@ export async function runAcquisitionJobsOnce(
       const state = await completeAcquisitionJob(db, job, output);
       if (state === "COMPLETE") result.complete++;
       else result.superseded++;
-    } catch {
-      if (await failAcquisitionJob(db, job)) result.failed++;
+    } catch (error) {
+      if (error instanceof AcquisitionJobSupersededError) {
+        const changed = await db.acquisitionProcessingJob.updateMany({
+          where: lease(job, new Date()), data: {status: "SUPERSEDED", leaseToken: null, leaseExpiresAt: null, errorCode: null},
+        });
+        if (changed.count) result.superseded++;
+      } else if (await failAcquisitionJob(db, job)) result.failed++;
     } finally {
       if (timer) clearTimeout(timer);
       controller.abort();

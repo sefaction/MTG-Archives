@@ -236,6 +236,7 @@ export function AcquisitionPhotoReview({
   const recognitionStatus = record?.recognitionStatus;
   const catalogStatus = record?.catalog?.status;
   const visualStatus = record?.visualStatus;
+  const printingStatus = record?.printingStatus;
   const reviewed = Boolean(record?.review);
   useEffect(() => {
     if (!active) return;
@@ -259,6 +260,7 @@ export function AcquisitionPhotoReview({
                     recognitionStatus: next.recognitionStatus,
                     catalog: next.catalog,
                     visualStatus: next.visualStatus,
+                    printingStatus: next.printingStatus,
                   }
                 : previous,
             );
@@ -274,6 +276,7 @@ export function AcquisitionPhotoReview({
           !reviewed &&
           (!recognitionStatus ||
             ["WAITING", "RUNNING", "PENDING"].includes(visualStatus ?? "") ||
+            ["WAITING", "RUNNING", "PENDING"].includes(printingStatus ?? "") ||
             ["WAITING", "RUNNING", "PENDING"].includes(recognitionStatus) ||
             ["CHECKING", "PROVIDER_ERROR", "NOT_FOUND", "INCOMPLETE"].includes(
               catalogStatus ?? "",
@@ -301,6 +304,7 @@ export function AcquisitionPhotoReview({
     recognitionStatus,
     catalogStatus,
     visualStatus,
+    printingStatus,
     reviewed,
   ]);
   async function reload() {
@@ -396,6 +400,17 @@ export function AcquisitionPhotoReview({
             <p className="text-sm mt-2" role="status">
               Image comparison failed. Your photo and text suggestions are
               saved; choose a printing manually or try another photo.
+            </p>
+          )}
+          {!record.review && record.printingStatus && (
+            <p className="text-sm mt-2" role="status" data-testid="scan-printing-status">
+              {record.printingStatus === "FAILED"
+                ? "Printing verification failed. Your photo and suggestions are saved; choose a printing manually."
+                : ["WAITING", "PENDING", "RUNNING"].includes(record.printingStatus)
+                  ? "Printing and stamp verification queued or running; you can review suggestions now."
+                  : record.printingStatus === "COMPLETE"
+                    ? "Printing check complete. Unreadable details still need your review."
+                    : "Waiting for current printing evidence."}
             </p>
           )}
           {!record.review && acquisitionCatalogMessage(record.catalog) && (
