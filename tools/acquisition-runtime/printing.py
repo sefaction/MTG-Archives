@@ -85,8 +85,8 @@ class PrintingRuntime:
             if self.records[identity]['cardId'] != candidate['scryfallId']:
                 raise ValueError('Printing identity mismatch')
             image, state, ref_features = self.reference(identity)
-            warped, alignment = register(photo, image, query_features, ref_features)
-            stamp = stamp_evidence(warped, alignment, self.templates, image, state)
+            warped, alignment, visibility = register(photo, image, query_features, ref_features, return_visibility=True)
+            stamp = stamp_evidence(warped, alignment, self.templates, image, state, visibility=visibility)
             rows.append({'scryfallId': candidate['scryfallId'], 'referenceId': identity,
                          'referenceStampState': state, 'alignment': alignment, 'stamp': stamp,
                          'relation': candidate_relation(stamp['status'], state)})

@@ -1,7 +1,7 @@
 import unittest
 import cv2
 import numpy as np
-from printing_evidence import SIZE, stamp_evidence
+from printing_evidence import SIZE, stamp_evidence, template_score
 from evaluate_printing_candidates import selected_candidates, selected_ocr_candidates, candidate_relation, shared_stamp_evidence
 
 
@@ -44,6 +44,40 @@ class PrintingEvidenceTests(unittest.TestCase):
         marked = self.image.copy()
         cv2.rectangle(marked, (38, 1310), (66, 1346), (200,)*3, -1)
         self.assertEqual(self.evidence(marked)['status'], 'UNREADABLE')
+
+    def test_clipped_search_margin_does_not_hide_fully_observed_stamp(self):
+        stamped = self.image.copy()
+        stamped[1303:1353, 35:70] = cv2.cvtColor(self.template, cv2.COLOR_GRAY2BGR)
+        visibility = np.full(stamped.shape[:2], 255, np.uint8)
+        visibility[1365:1375, 15:25] = 0
+        observed = stamp_evidence(stamped, self.alignment, self.template, self.image,
+                                  'ABSENT', visibility=visibility)
+        self.assertEqual(observed['status'], 'PRESENT')
+        x, y, w, h = observed['template']['box']
+        self.assertGreaterEqual(int(visibility[y:y+h, x:x+w].min()), 254)
+
+    def test_template_match_cannot_use_unobserved_pixels(self):
+        stamped = self.image.copy()
+        stamped[1303:1353, 35:70] = cv2.cvtColor(self.template, cv2.COLOR_GRAY2BGR)
+        visibility = np.full(stamped.shape[:2], 255, np.uint8)
+        visibility[1303:1353, 35:70] = 0
+        observed = stamp_evidence(stamped, self.alignment, self.template, self.image,
+                                  'ABSENT', visibility=visibility)
+        self.assertEqual(observed['status'], 'UNREADABLE')
+        self.assertLess(template_score(stamped, self.template, visibility)['score'], .78)
+        self.assertIsNone(template_score(stamped, self.template, np.zeros_like(visibility))['box'])
+
+    def test_absence_requires_visible_core_and_preserves_blur_guard(self):
+        visibility = np.full(self.image.shape[:2], 255, np.uint8)
+        visibility[1365:1375, 15:25] = 0
+        self.assertEqual(stamp_evidence(self.image, self.alignment, self.template,
+            self.image, 'ABSENT', visibility=visibility)['status'], 'ABSENT')
+        blurred = cv2.GaussianBlur(self.image, (41, 41), 15)
+        self.assertEqual(stamp_evidence(blurred, self.alignment, self.template,
+            self.image, 'ABSENT', visibility=visibility)['status'], 'UNREADABLE')
+        visibility[1340, 40] = 0
+        self.assertEqual(stamp_evidence(self.image, self.alignment, self.template,
+            self.image, 'ABSENT', visibility=visibility)['status'], 'UNREADABLE')
 
     def test_adjacent_printing_handles_small_offset_and_exposure(self):
         shifted = cv2.warpAffine(self.image, np.float32([[1, 0, 3], [0, 1, -2]]), SIZE,
