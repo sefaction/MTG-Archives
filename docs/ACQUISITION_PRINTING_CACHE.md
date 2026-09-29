@@ -50,5 +50,40 @@ saved human decisions must remain intact through the ordinary pipeline.
 Independently based on current main after approved #497, not on an unapproved
 recognition branch. Unapproved recognition/review/admission PRs may be included
 only in cumulative local review. Live pipeline/resource and larger-batch checks
-are pending before readiness. Production, Compose/env and physical scanners are
-unchanged. #463 remains incomplete; automatic hybrid confirmation remains off.
+are required before readiness. The cache is loaded locally with verified source
+and a new immutable printing descriptor. All seven printing jobs finished in
+the first live check, but two whole-photo OCR hints timed out and the expected
+name assertion failed before UI/correction/reload checks. That remains a failed
+acceptance check, with private trace and evidence preserved; no cache output
+regression has been established. A separate completed-reading fix is being
+qualified in #493, without changing the cache's independent main base.
+
+The opt-in `tests/ui/acquisition-large-batch.spec.ts` exercises 100 logical
+inputs, or a separate 300-input stress case across four uneven owners, through
+ordinary local ingestion and native queues. It verifies input conservation,
+manual decisions, paged review, corrections/reload, worker state and zero
+Inventory writes, then cleans only owned fixtures. Its repeats of 67 development
+scans are resource/recovery data, not independent physical or printing samples.
+The 100-input run failed its unchanged 20-minute printing gate with 57 results;
+all 100 inputs were ready in 42.2 seconds and preserved in the observed
+photo/artifact/slot/candidate counts. Owned fixtures cleaned to zero users,
+sessions and Inventory records. No failed jobs appeared in the stage snapshots,
+but 100-card review/correction/reload assertions were not reached. This does not
+qualify throughput or justify widening the gate. The 300-input case has not run.
+The first harness exceeded Playwright's 50-MiB
+in-memory transfer limit before upload; private temporary file copies avoid that
+harness limit without changing app upload behavior. Authenticated fixture-page
+fetches and sampled container readings do not qualify a 150,000-copy Inventory
+or exhaustive memory peaks.
+
+Container-lifetime cgroup readings, including preceding runs, found zero OOM
+kills or restarts. Printing nevertheless reached its 1-GiB memory limit with
+1,660 limit encounters. Its lower sampled usage and the isolated Python RSS
+reduction are not a whole-container peak guarantee. Sanitized source identities,
+counts, timings, cleanup and counter scopes are in `large-batch-results.json`.
+The published checker adds conservation/digest assertions before the printing
+wait and lifetime counters on failure; type/lint/query shape checks passed, but
+those added assertions have not been rerun through another 100-input batch.
+
+Production, Compose/env and physical scanners are unchanged. #463 remains
+incomplete; automatic hybrid confirmation remains off.

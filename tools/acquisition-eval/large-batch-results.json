@@ -1,0 +1,168 @@
+{
+  "version": 1,
+  "scope": "100_INPUTS_ONE_OWNER_NATIVE_BATCH",
+  "result": "FAILED_PRINTING_THROUGHPUT_GATE",
+  "startedAt": "2026-09-29T12:44:57.7213004Z",
+  "finishedAt": "2026-09-29T13:05:40.2077318Z",
+  "exitCode": 1,
+  "inputCount": 100,
+  "owners": [
+    100
+  ],
+  "corpusSha256": "6cf83fcc9f79fd78b24bd4091c80fb98c4d89b4e63d6dc9c041388b46d88fe82",
+  "limits": [
+    "Reused 67 development scans with repetitions, not independent physical/printing accuracy",
+    "Logical capture candidates, no physical scanner or Inventory commit",
+    "Fixture owners have empty Inventory; this is not the 150,000-copy database-load gate",
+    "Sampled Docker readings and authenticated page fetches, not exhaustive peaks or operator throughput"
+  ],
+  "printingDeadlineMilliseconds": 1200000,
+  "printingCompleteAtDeadline": 57,
+  "uploadsReadyMilliseconds": 42210,
+  "stagesAtLastObservation": [
+    {
+      "stage": "photo-visual-retrieval-v1",
+      "status": "RUNNING",
+      "count": 1
+    },
+    {
+      "stage": "photo-recognition-v1",
+      "status": "PENDING",
+      "count": 14
+    },
+    {
+      "stage": "photo-visual-retrieval-v1",
+      "status": "PENDING",
+      "count": 31
+    },
+    {
+      "stage": "photo-catalog-reconciliation-v1",
+      "status": "COMPLETE",
+      "count": 58
+    },
+    {
+      "stage": "photo-canonical-v1",
+      "status": "COMPLETE",
+      "count": 100
+    },
+    {
+      "stage": "photo-recognition-v1",
+      "status": "RUNNING",
+      "count": 1
+    },
+    {
+      "stage": "photo-catalog-reconciliation-v1",
+      "status": "PENDING",
+      "count": 10
+    },
+    {
+      "stage": "photo-printing-evidence-v1",
+      "status": "COMPLETE",
+      "count": 57
+    },
+    {
+      "stage": "photo-recognition-v1",
+      "status": "COMPLETE",
+      "count": 85
+    },
+    {
+      "stage": "photo-visual-retrieval-v1",
+      "status": "COMPLETE",
+      "count": 68
+    }
+  ],
+  "conservedInputsAtSnapshot": {
+    "at": "2026-09-29T13:02:53.286Z",
+    "rows": [
+      {
+        "readyPhotos": 100,
+        "artifacts": 100,
+        "slots": 100,
+        "candidates": 100,
+        "inventory": 0
+      }
+    ]
+  },
+  "authenticatedInventory": [
+    {
+      "owner": 0,
+      "status": 200,
+      "milliseconds": 231
+    }
+  ],
+  "cleanup": {
+    "users": 0,
+    "sessions": 0,
+    "inventory": 0
+  },
+  "workerLifetime": {
+    "at": "2026-09-29T13:04:03.219Z",
+    "scope": "CONTAINER_LIFETIME_INCLUDING_PRIOR_RUNS_NOT_TEST_ONLY",
+    "rows": [
+      {
+        "name": "acquisition-recognition",
+        "events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "peakBytes": 2128494592,
+        "currentBytes": 1584353280,
+        "startedAt": "2026-09-29T12:06:31.143301331Z",
+        "running": true,
+        "oomKilled": false,
+        "restarts": 0
+      },
+      {
+        "name": "acquisition-visual",
+        "events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "peakBytes": 1623588864,
+        "currentBytes": 1162649600,
+        "startedAt": "2026-09-29T12:30:22.180695689Z",
+        "running": true,
+        "oomKilled": false,
+        "restarts": 0
+      },
+      {
+        "name": "acquisition-printing",
+        "events": {
+          "low": 0,
+          "high": 0,
+          "max": 1660,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "peakBytes": 1073741824,
+        "currentBytes": 611004416,
+        "startedAt": "2026-09-29T12:30:22.181901959Z",
+        "running": true,
+        "oomKilled": false,
+        "restarts": 0
+      }
+    ]
+  },
+  "loadedBuild": {
+    "webSource": "052e72606b3bec3c5e37d39706a3524b96352137c97ef37417130c80fc1ebf0b",
+    "ocrDescriptor": "1ef7bc86ba726db414cb6ba993c70bd5fe8d4915a38161a133591169d7fdefeb",
+    "visualDescriptor": "9acce1a60aa4999ae7e554dad46af18c0768984978aa7ea573a5466aeb402b88",
+    "printingDescriptor": "6bb1e8c9d896c0f6d8d0d629c8a78a01148dcd47a37fea7c631b9d13e57ae819"
+  },
+  "qualifiedCheckerSha256": "33f431acb817666d704b3f7c7714df713ecd1827dcb7151596d26124a1fe4ae6",
+  "checkerFollowup": "Published helper adds input/digest conservation before printing waits and lifetime counters on failure; type/lint/query shape checked but those added assertions have not been exercised in another 100-input run",
+  "pending": [
+    "Paged 100-card review/correction/reload assertions were not reached",
+    "300-input four-owner stress has not run",
+    "No independent physical or exact-printing accuracy result"
+  ]
+}
