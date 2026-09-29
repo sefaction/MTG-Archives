@@ -18,6 +18,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageOps
 from baseline import geometry
+from photo_input import decode_photo_input
 from catalog_index import load_published_index
 from catalog_references import sha256
 from image_encoder import Encoder
@@ -54,6 +55,7 @@ def descriptor():
         'catalogSha256': index['source']['catalogSha256'],
         'codeSha256': sha256(Path(__file__)),
         'geometrySha256': sha256(Path('/eval/baseline.py')),
+        'inputSha256': sha256(Path(__file__).with_name('photo_input.py')),
         'loaderSha256': sha256(Path('/eval/catalog_index.py')),
         'geometricSha256': sha256(Path('/eval/visual_compare.py')),
         'geometricFaces': 40,
@@ -86,6 +88,7 @@ def runtime(desc):
 
 
 def recognize(data, desc):
+    data, input_kind = decode_photo_input(data)
     if not 0 < len(data) <= MAX_BYTES:
         raise ValueError('Invalid photo size')
     started = time.monotonic()
@@ -95,7 +98,7 @@ def recognize(data, desc):
         if getattr(source, 'n_frames', 1) != 1:
             raise ValueError('Single image required')
         original = cv2.cvtColor(np.asarray(ImageOps.exif_transpose(source).convert('RGB')), cv2.COLOR_RGB2BGR)
-    crop, evidence = geometry(original)
+    crop, evidence = geometry(original, input_kind)
     base = crop if crop is not None else original
     encoder, records, matrix = runtime(desc)
     images = [Image.fromarray(cv2.cvtColor(np.ascontiguousarray(
@@ -165,7 +168,7 @@ def main():
         print(json.dumps(desc))
         return
     if '--stream' not in sys.argv:
-        print(json.dumps(recognize(sys.stdin.buffer.read(MAX_BYTES + 1), desc)))
+        print(json.dumps(recognize(sys.stdin.buffer.read(MAX_BYTES + 1025), desc)))
         return
     while True:
         header = sys.stdin.buffer.read(4)
@@ -174,7 +177,7 @@ def main():
         if len(header) != 4:
             raise ValueError('Incomplete photo frame')
         length = int.from_bytes(header, 'big')
-        if not 0 < length <= MAX_BYTES:
+        if not 0 < length <= MAX_BYTES + 1024:
             raise ValueError('Photo frame exceeds bounds')
         data = sys.stdin.buffer.read(length)
         if len(data) != length:

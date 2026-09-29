@@ -14,9 +14,9 @@ export class AcquisitionNativeStream {
   constructor(
     private executable: string,
     private args: string[],
-    private maxInputBytes = 10 * 1024 * 1024,
+    private maxInputBytes = 10 * 1024 * 1024 + 1024,
   ) {
-    // Only the printing envelope adds bounded metadata to the existing photo
+    // Image hints and printing envelopes add bounded metadata to the photo
     // limit. Callers cannot relax this into an arbitrary native input stream.
     if (!Number.isInteger(maxInputBytes) || maxInputBytes < 1 ||
         maxInputBytes > 10 * 1024 * 1024 + 65536)

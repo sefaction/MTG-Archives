@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { acquisitionImageInputKindSchema } from "@/lib/acquisition-image-input";
 import { acquisitionActor, acquisitionError } from "@/lib/acquisition-api";
 import {
   beginAcquisitionPhoto,
@@ -24,6 +25,7 @@ export async function POST(
     if (!state.slots.some((s) => s.id === slotId))
       throw new Error("Capture slot unavailable");
     const bytes = await readBoundedPhotoBody(request);
+    const inputKind = acquisitionImageInputKindSchema.parse(query.get("inputKind") ?? "PHOTO");
     const metadata = await inspectAcquisitionPhoto(
       bytes,
       request.headers.get("content-type") ?? "",
@@ -34,6 +36,7 @@ export async function POST(
       generation: Number(query.get("generation")),
       replacePending: query.get("replace") === "1",
       metadata,
+      inputKind,
     });
     // An acknowledged upload replay must not recreate expired committed bytes.
     // READY already records durable receipt; only unfinished uploads write files.

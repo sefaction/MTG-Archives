@@ -14,6 +14,7 @@ import time
 
 from model_store import model_root
 from reading_direction import reading_text
+from photo_input import decode_photo_input
 
 ROOT = model_root()
 MODEL_NAMES = ('PP-OCRv5_mobile_det', 'en_PP-OCRv5_mobile_rec')
@@ -39,6 +40,7 @@ def descriptor():
                'code': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                'storeCode': hashlib.sha256(Path(__file__).with_name('model_store.py').read_bytes()).hexdigest(),
                'readingCode': hashlib.sha256(Path(__file__).with_name('reading_direction.py').read_bytes()).hexdigest(),
+               'inputCode': hashlib.sha256(Path(__file__).with_name('photo_input.py').read_bytes()).hexdigest(),
                'geometry': hashlib.sha256(Path('/eval/baseline.py').read_bytes()).hexdigest()}
     digest = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     return {'version': 1, 'digest': digest, 'execution': 'CPU', **payload}
@@ -46,6 +48,7 @@ def descriptor():
 
 def recognize(data, desc):
     global _ocr
+    data, input_kind = decode_photo_input(data)
     if not data or len(data) > 10 * 1024 * 1024:
         raise ValueError('Photo exceeds bounds')
     started = time.monotonic()
@@ -64,7 +67,7 @@ def recognize(data, desc):
         if getattr(source, 'n_frames', 1) != 1:
             raise ValueError('Single image required')
         image = cv2.cvtColor(np.asarray(ImageOps.exif_transpose(source).convert('RGB')), cv2.COLOR_RGB2BGR)
-    crop, geometry_evidence = geometry(image)
+    crop, geometry_evidence = geometry(image, input_kind)
     if crop is None:
         # Contour proposals can change when a near-edge card is sampled after
         # resize. Try bounded quarter turns before asking for a new crop, while
@@ -133,7 +136,7 @@ def main():
         print(json.dumps(desc))
         return
     if '--stream' not in sys.argv:
-        recognize(sys.stdin.buffer.read(10 * 1024 * 1024 + 1), desc)
+        recognize(sys.stdin.buffer.read(10 * 1024 * 1024 + 1025), desc)
         return
     while True:
         header = sys.stdin.buffer.read(4)
@@ -142,7 +145,7 @@ def main():
         if len(header) != 4:
             raise ValueError('Incomplete photo frame')
         length = int.from_bytes(header, 'big')
-        if not 0 < length <= 10 * 1024 * 1024:
+        if not 0 < length <= 10 * 1024 * 1024 + 1024:
             raise ValueError('Photo frame exceeds bounds')
         data = sys.stdin.buffer.read(length)
         if len(data) != length:

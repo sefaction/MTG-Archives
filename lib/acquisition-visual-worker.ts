@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { z } from "zod";
+import { acquisitionNativePhotoInput } from "./acquisition-image-input";
 import { readAcquisitionPhotoBytes } from "./acquisition-files";
 import type { AcquisitionNativeStream } from "./acquisition-native-stream";
 import { AcquisitionJobSupersededError, type ClaimedAcquisitionJob } from "./acquisition-jobs";
@@ -104,7 +105,7 @@ export async function retrieveAcquisitionVisual(
     input.digest,
   );
   const visual = visualNativeSchema.parse(
-    await nativeWorker.request(bytes, signal),
+    await nativeWorker.request(acquisitionNativePhotoInput(bytes, photo.inputKind), signal),
   );
   if (
     visual.photoDigest !== input.digest ||

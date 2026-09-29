@@ -1432,6 +1432,11 @@ model AcquisitionProcessingJob {
 }
 
 // Original private bytes are immutable. READY means durable receipt, not recognition.
+enum AcquisitionImageInputKind {
+  PHOTO
+  CARD_SCAN
+}
+
 model AcquisitionPhoto {
   id         String @id @default(uuid())
   runId      String
@@ -1445,6 +1450,7 @@ model AcquisitionPhoto {
   mediaType  String
   width      Int
   height     Int
+  inputKind  AcquisitionImageInputKind @default(PHOTO)
   ready      Boolean @default(false)
   createdAt  DateTime @default(now())
   readyAt    DateTime?

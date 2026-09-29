@@ -56,6 +56,7 @@ def main():
     parser.add_argument('--photos', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--device', choices=('cpu', 'cuda'), default='cpu')
+    parser.add_argument('--input-kind', choices=('PHOTO', 'CARD_SCAN'), default='PHOTO')
     parser.add_argument('--allow-partial', action='store_true')
     parser.add_argument('--limit', type=int, default=0)
     args = parser.parse_args()
@@ -72,7 +73,7 @@ def main():
             raise ValueError('Photo path/digest mismatch')
         start = time.monotonic()
         original = cv2.cvtColor(np.asarray(decode(path)), cv2.COLOR_RGB2BGR)
-        crop, evidence = geometry(original)
+        crop, evidence = geometry(original, args.input_kind)
         base = crop if crop is not None else original
         # Four rotations also cover upside-down inputs and failed localization.
         images = [Image.fromarray(cv2.cvtColor(np.ascontiguousarray(np.rot90(base, k)), cv2.COLOR_BGR2RGB)) for k in range(4)]
@@ -102,7 +103,7 @@ def main():
                   'retrievalMilliseconds': retrieval_ms, 'totalMilliseconds': round((time.monotonic() - start) * 1000),
                   'automaticAcceptance': False}
         results.append(result)
-        report = {'version': {'indexSha256': sha256(args.index), 'manifestSha256': sha256(args.manifest),
+        report = {'version': {'inputKind': args.input_kind, 'indexSha256': sha256(args.index), 'manifestSha256': sha256(args.manifest),
                               'codeSha256': sha256(Path(__file__)), 'geometrySha256': sha256(Path(__file__).with_name('baseline.py')),
                               'siftSha256': sha256(Path(__file__).with_name('visual_compare.py')),
                               'opencv': cv2.__version__, 'encoder': index['encoder'], 'queryEncoder': encoder.identity},

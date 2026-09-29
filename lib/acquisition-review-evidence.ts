@@ -27,7 +27,7 @@ const schema = z.object({
     geometry: z.object({
       status: z.string().max(60),
       quad: z.array(point).length(4).optional(),
-      method: z.enum(["contours", "full-frame"]).optional(),
+      method: z.enum(["contours", "full-frame", "declared-card-scan"]).optional(),
     }),
     orientations: z.array(observation).max(2),
   }),

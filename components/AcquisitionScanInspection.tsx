@@ -27,7 +27,8 @@ export function AcquisitionScanImage({
       ? evidence.geometry.quad
       : undefined;
   const rotation = evidence?.rotation ?? (reverse ? 180 : 0);
-  const fullFrame = evidence?.geometry.method === "full-frame";
+  const declaredScan = evidence?.geometry.method === "declared-card-scan";
+  const fullFrame = declaredScan || evidence?.geometry.method === "full-frame";
   const observation = evidence?.observations.find(
     (o) => o.rotationDegrees === rotation,
   );
@@ -206,6 +207,8 @@ export function AcquisitionScanImage({
       <p className="text-xs mt-2">
         {!quad
           ? "No detected outline available; showing original."
+          : declaredScan
+            ? "Card scan: full image retained; border detection skipped."
           : fullFrame
             ? `Full image retained; no crop. This tightly framed image is resized for reading${evidence?.rotation === null ? "; direction unresolved" : " and oriented using the reading result"}.`
             : view === "original"
