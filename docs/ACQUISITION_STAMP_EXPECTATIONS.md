@@ -74,8 +74,27 @@ terminal obsolete-policy handling before native work. Original outputs stayed
 immutable and current native results with UNKNOWN reference images resolved via
 the separate qualified printing expectation.
 
-Final cumulative Docker and real-worker browser acceptance are pending. The browser
-fixture uses the two newly corrected originals through normal upload, preparation,
-image/OCR union, catalog and printing queues with no priority override or Inventory
-commit. Recognition #463 remains open and incomplete; independent accuracy,
+The cumulative local Docker build includes #486/#487/#488/#489 on a temporary
+integration branch, with 455 inputs and source digest
+`33ff5fb1997f46f61864283df3dda9fe8f8e00a07b06235cfed0b476ea20f341`.
+Loaded web image is `41ccdab2`; OCR descriptor remains `068e9306` and printing
+model remains `b72b34e8`. The native models and detector are unchanged. The web
+is healthy and only one printing replica is running.
+
+The two-original real-worker browser case passed 1/1 in four minutes through
+normal upload, preparation, image/OCR union, catalog and printing queues while
+older batches reprocessed. Both Hematite Golem and Mountain Valley selected the
+correct PLST identity first, with actual physical PRESENT evidence, qualified
+catalog expectation and UNKNOWN public-reference annotation. Neither was
+automatically confirmed. Advanced rendered the distinction; desktop/320px
+screenshots were inspected and no page-wide overflow was found. There were zero
+Inventory writes and the owned fixture was removed. This repeat integration
+check is not additional independent accuracy evidence. Simple/Advanced behavior
+had already passed its separate five-photo gate; the cumulative build preserves
+that UI batch without making it an implicit recognition PR dependency.
+
+Recognition #463 remains open and incomplete; fresh independent accuracy,
 conservative automatic acceptance and large-batch/resource/restart gates remain.
+A fresh playable-card folder is requested for morning review and must be reserved
+for final evaluation rather than further tuning. Individual PR approval is still
+required. Production and scanner hardware are unchanged.
