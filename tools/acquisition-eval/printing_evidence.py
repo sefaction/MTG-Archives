@@ -22,15 +22,20 @@ def gray(image):
     return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if image.ndim == 3 else image
 
 
-def register(photo, reference):
+def registration_features(photo, is_reference=False):
+    """Same SIFT input used by registration; reusable within a bounded job."""
+    cv2.setNumThreads(1)
+    scale = 1. if is_reference else min(1., 1800 / max(photo.shape[:2]))
+    image = cv2.resize(photo, SIZE) if is_reference else cv2.resize(photo, None, fx=scale, fy=scale)
+    keypoints, descriptors = cv2.SIFT_create(nfeatures=2500).detectAndCompute(gray(image), None)
+    return image, scale, keypoints, descriptors
+
+
+def register(photo, reference, query_features=None, reference_features=None):
     """Align the whole printed card using distributed SIFT/RANSAC evidence."""
     cv2.setNumThreads(1)
-    reference = cv2.resize(reference, SIZE)
-    scale = min(1., 1800 / max(photo.shape[:2]))
-    query = cv2.resize(photo, None, fx=scale, fy=scale)
-    sift = cv2.SIFT_create(nfeatures=2500)
-    rk, rd = sift.detectAndCompute(gray(reference), None)
-    qk, qd = sift.detectAndCompute(gray(query), None)
+    reference, _, rk, rd = reference_features if reference_features is not None else registration_features(reference, True)
+    query, scale, qk, qd = query_features if query_features is not None else registration_features(photo)
     failure = lambda reason, **extra: (None, {'status': 'UNREADABLE', 'reason': reason, **extra})
     if rd is None or qd is None or min(len(rd), len(qd)) < 16:
         return failure('INSUFFICIENT_FEATURES')
@@ -143,3 +148,43 @@ def stamp_evidence(warped, alignment, template, reference, reference_stamp_state
             and residual < 12 and result['referenceResidual95'] < 35):
         return {**result, 'status': 'ABSENT', 'reason': 'VISIBLE_REGION_AGREES_WITH_REFERENCE'}
     return {**result, 'reason': 'LOCAL_EVIDENCE_INCONCLUSIVE'}
+
+
+def candidate_relation(observed, reference_state):
+    if observed == 'UNREADABLE' or reference_state == 'UNKNOWN':
+        return 'UNRESOLVED'
+    return 'AGREES_WITH_STAMP_STATE' if observed == reference_state else 'CONTRADICTS_STAMP_STATE'
+
+
+def shared_stamp_evidence(candidates):
+    """Transfer an observation only between the same visible physical outlines.
+
+    Runtime and offline diagnostics share this policy; no label is consulted.
+    Conflicting positive/negative observations make every relation unresolved.
+    """
+    sources = [c for c in candidates if c['stamp']['status'] in ('PRESENT', 'ABSENT')]
+    states = {c['stamp']['status'] for c in sources}
+    observed = next(iter(states)) if len(states) == 1 else 'UNREADABLE'
+    for candidate in candidates:
+        candidate['localRelation'] = candidate['relation']
+        if observed == 'UNREADABLE':
+            candidate['relation'] = 'UNRESOLVED'
+            continue
+        alignment = candidate['alignment']
+        if (candidate['relation'] != 'UNRESOLVED' or alignment.get('status') != 'ALIGNED' or
+                not alignment.get('stampVisible') or not alignment.get('footerVisible') or
+                alignment.get('sourceCardWidth', 0) < 500 or 'quad' not in alignment):
+            continue
+        supporting = []
+        for source in sources:
+            support = source['alignment']
+            if 'quad' not in support:
+                continue
+            discrepancy = float(np.max(np.linalg.norm(np.asarray(alignment['quad']) -
+                np.asarray(support['quad']), axis=1)))
+            if discrepancy <= .01 * min(alignment['sourceCardWidth'], support['sourceCardWidth']):
+                supporting.append(source['referenceId'])
+        if supporting:
+            candidate['relation'] = candidate_relation(observed, candidate['referenceStampState'])
+            candidate['sharedObservationSources'] = supporting
+    return observed, len(states) > 1

@@ -12,6 +12,9 @@ import {
 // Worker-only, bounded reconciliation. Completed evidence stays immutable;
 // attempt/history commands make retries durable and avoid starving later jobs.
 export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
+  // The hybrid printing policy remains review-only until independently measured.
+  // Never race catalog completion while the enabled printing stage is pending.
+  if (process.env.ACQUISITION_PRINTING_ENABLED === "1") return 0;
   const requireVisual = process.env.ACQUISITION_VISUAL_ENABLED === "1";
   const jobs = await db.$queryRaw<{ id: string }[]>`
     SELECT j.id FROM "AcquisitionProcessingJob" j

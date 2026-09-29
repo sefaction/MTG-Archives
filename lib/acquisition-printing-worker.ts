@@ -1,0 +1,123 @@
+import { createHash } from "node:crypto";
+import { Prisma, type PrismaClient } from "@prisma/client";
+import { z } from "zod";
+import { CATALOG_RECONCILIATION_STAGE } from "./acquisition-catalog-status";
+import { readAcquisitionPhotoBytes } from "./acquisition-files";
+import { AcquisitionJobSupersededError, type ClaimedAcquisitionJob } from "./acquisition-jobs";
+import type { AcquisitionNativeStream } from "./acquisition-native-stream";
+import {
+  PRINTING_STAGE, printingNativeSchema, applyAcquisitionPrintingEvidence,
+  acquisitionPrintingSummary,
+} from "./acquisition-printing";
+import type { TextProposals } from "./acquisition-visual";
+
+const digest = z.string().regex(/^[a-f0-9]{64}$/);
+const inputSchema = z.object({
+  catalogJobId: z.string().uuid(), photoId: z.string().uuid(), digest,
+  model: digest,
+});
+const proposalsSchema = z.object({
+  version: z.literal(4), status: z.string(), automaticAcceptance: z.boolean(),
+  finish: z.literal("UNKNOWN"), condition: z.literal("UNKNOWN"),
+  catalogCoverage: z.string(), totalProposals: z.number().int().nonnegative(),
+  truncated: z.boolean(),
+  orientation: z.object({status: z.string(), rotationDegrees: z.number().nullable()}),
+  evidence: z.object({setCodes: z.array(z.string()), collectors: z.array(z.string()), languages: z.array(z.string())}),
+  proposals: z.array(z.object({
+    card: z.object({id: z.string(), name: z.string(), setCode: z.string(),
+      collectorNumber: z.string(), lang: z.string().nullable().optional(), digital: z.boolean().nullable().optional()}),
+    reasons: z.array(z.string()), nameDistance: z.number().nullable(),
+  })).max(12),
+});
+
+export async function enqueueReadyPrinting(db: PrismaClient, model: string) {
+  const rows = await db.$queryRaw<{id: string}[]>`
+    SELECT j.id FROM "AcquisitionProcessingJob" j
+    JOIN "AcquisitionCandidate" c ON c.id=j."candidateId"
+    JOIN "AcquisitionRun" r ON r.id=j."runId"
+    JOIN "AcquisitionSession" s ON s.id=r."sessionId"
+    JOIN "Player" p ON p.id=s."ownerPlayerId"
+    JOIN "User" u ON u.id=s."createdByUserId"
+    WHERE j.stage=${CATALOG_RECONCILIATION_STAGE} AND j.status='COMPLETE'
+      AND j."candidateRevision"=c.revision AND c.review IS NULL AND NOT c.excluded
+      AND s.phase NOT IN ('DRAFT','CANCELLED') AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
+      AND NOT EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=c.id)
+      AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" newer
+        WHERE newer.stage=j.stage AND newer."candidateId"=c.id AND newer."candidateRevision"=c.revision
+          AND (newer."createdAt",newer.id)>(j."createdAt",j.id))
+      AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" v
+        WHERE v.stage=${PRINTING_STAGE} AND v."artifactId"=j."artifactId"
+          AND v."candidateId"=c.id AND v."candidateRevision"=c.revision
+          AND v.input->>'catalogJobId'=j.id AND v.input->>'model'=${model})
+    ORDER BY j."createdAt",j.id LIMIT 32`;
+  let added = 0;
+  for (const {id} of rows) {
+    const source = await db.acquisitionProcessingJob.findUniqueOrThrow({where: {id}});
+    const input = z.object({photoId: z.string().uuid(), digest}).parse(source.input);
+    const versionKey = createHash("sha256").update(`${PRINTING_STAGE}:${model}:${source.id}`).digest("hex");
+    const created = await db.acquisitionProcessingJob.createMany({skipDuplicates: true, data: [{
+      runId: source.runId, artifactId: source.artifactId, candidateId: source.candidateId,
+      candidateRevision: source.candidateRevision, stage: PRINTING_STAGE, versionKey,
+      input: {...input, catalogJobId: source.id, model},
+    }]});
+    added += created.count;
+  }
+  return added;
+}
+
+export async function observeAcquisitionPrinting(
+  db: PrismaClient, job: ClaimedAcquisitionJob, signal: AbortSignal,
+  model: string, nativeWorker: Pick<AcquisitionNativeStream, "request">,
+): Promise<Prisma.InputJsonObject> {
+  const input = inputSchema.parse(job.input);
+  if (input.model !== model) throw new Error("Printing reference version unavailable");
+  const source = await db.acquisitionProcessingJob.findUniqueOrThrow({where: {id: input.catalogJobId}});
+  if (source.status !== "COMPLETE" || source.stage !== CATALOG_RECONCILIATION_STAGE ||
+      source.runId !== job.runId || source.artifactId !== job.artifactId ||
+      source.candidateId !== job.candidateId || source.candidateRevision !== job.candidateRevision)
+    throw new Error("Printing source changed");
+  async function requireCurrentSource() {
+    const latest = await db.acquisitionProcessingJob.findFirst({where: {
+      stage: CATALOG_RECONCILIATION_STAGE, candidateId: job.candidateId,
+      candidateRevision: job.candidateRevision,
+    }, orderBy: [{createdAt: "desc"}, {id: "desc"}], select: {id: true}});
+    if (latest?.id !== source.id) throw new AcquisitionJobSupersededError("Printing catalog input superseded");
+  }
+  // Reject obsolete work before loading or processing pixels, and again after
+  // the native call. A newer catalog pair must not race old printing results.
+  await requireCurrentSource();
+  const observed = z.object({photoId: z.string().uuid(), proposals: proposalsSchema,
+    versions: z.record(z.string()), native: z.object({photoDigest: digest}).passthrough(),
+  }).passthrough().parse(source.output);
+  const [photo, candidate] = await Promise.all([
+    db.acquisitionPhoto.findUniqueOrThrow({where: {id: input.photoId}, include: {slot: true}}),
+    db.acquisitionCandidate.findUniqueOrThrow({where: {id: job.candidateId}}),
+  ]);
+  if (!photo.ready || photo.purgedAt || photo.runId !== job.runId || photo.digest !== input.digest ||
+      photo.slotId !== candidate.physicalId || photo.generation !== photo.slot.generation ||
+      observed.photoId !== photo.id || observed.native.photoDigest !== photo.digest ||
+      candidate.revision !== job.candidateRevision || candidate.review !== null || candidate.excluded)
+    throw new Error("Printing photo input changed");
+  const cards = await db.card.findMany({where: {id: {in: observed.proposals.proposals.map(p=>p.card.id)}},
+    select: {id: true, scryfallId: true, name: true, setCode: true, collectorNumber: true, lang: true, digital: true}});
+  const byScryfall = new Map(cards.flatMap(c=>c.scryfallId ? [[c.scryfallId, c] as const] : []));
+  const ids = [...byScryfall.keys()];
+  const bytes = await readAcquisitionPhotoBytes(photo.id, "raw", input.digest);
+  if (bytes.length > 10 * 1024 * 1024) throw new Error("Printing photo exceeds bound");
+  const metadata = Buffer.from(JSON.stringify({scryfallIds: ids}));
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(metadata.length);
+  const raw = await nativeWorker.request(Buffer.concat([length, metadata, bytes]), signal);
+  const native = printingNativeSchema.parse(raw);
+  const identity = z.object({descriptor: digest, photoDigest: digest, milliseconds: z.number().finite().nonnegative()}).parse(raw);
+  if (identity.descriptor !== model || identity.photoDigest !== input.digest || signal.aborted ||
+      native.candidates.some(c=>!byScryfall.has(c.scryfallId)))
+    throw new Error("Printing processing identity changed");
+  await requireCurrentSource();
+  const proposals = applyAcquisitionPrintingEvidence(observed.proposals as TextProposals, native, byScryfall);
+  return {
+    ...observed, sourceCatalogJobId: source.id, proposals,
+    printingNative: {...native, ...identity}, printing: acquisitionPrintingSummary(native, byScryfall),
+    versions: {...observed.versions, printing: model},
+  } as unknown as Prisma.InputJsonObject;
+}

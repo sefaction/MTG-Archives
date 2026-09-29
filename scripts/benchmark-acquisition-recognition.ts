@@ -56,6 +56,14 @@ async function main() {
   const manifest = manifestSchema.parse(
     JSON.parse(manifestBytes.toString("utf8")),
   );
+  const labelsBytes = args.includes("--labels") ? await readFile(argument("--labels")) : null;
+  const labels = labelsBytes ? manifestSchema.extend({sourceManifestSha256: z.string()}).parse(
+    JSON.parse(labelsBytes.toString("utf8"))) : null;
+  if (labels && (labels.sourceManifestSha256 !== createHash("sha256").update(manifestBytes).digest("hex") ||
+      labels.catalogCompressedSha256 !== manifest.catalogCompressedSha256 ||
+      labels.entries.length !== manifest.entries.length || labels.entries.some((row,i)=>
+        row.file !== manifest.entries[i].file || row.sha256 !== manifest.entries[i].sha256)))
+    throw new Error("Revised labels must bind to the unchanged original samples and manifest");
   const report = JSON.parse(ocrBytes.toString("utf8"));
   const visualBytes = args.includes("--visual")
     ? await readFile(argument("--visual"))
@@ -116,7 +124,7 @@ async function main() {
   const index = createAcquisitionRecognitionIndex(cards);
   const byScryfallId = new Map(cards.map((card) => [card.id, card]));
   const results = [];
-  for (const expected of manifest.entries) {
+  for (const expected of labels?.entries ?? manifest.entries) {
     const matching = report.results.filter(
       (r: any) =>
         r.file === expected.file && (!fixture || r.fixture === fixture),
@@ -221,6 +229,8 @@ async function main() {
     split: "development-only",
     catalogDigest,
     manifestSha256: createHash("sha256").update(manifestBytes).digest("hex"),
+    ...(labelsBytes ? {labelsSha256: createHash("sha256").update(labelsBytes).digest("hex"),
+      labelRevision: "post-retrieval-visible-corner-audit"} : {}),
     ocrSha256: createHash("sha256").update(ocrBytes).digest("hex"),
     resolverSha256: createHash("sha256")
       .update(
@@ -245,6 +255,8 @@ async function main() {
     catalogCards: cards.length,
     paperCards: index.cards,
     samples: results.length,
+    identifiedSamples: results.filter(r=>z.string().uuid().safeParse(r.expectedScryfallId).success).length,
+    unresolvedSamples: results.filter(r=>!z.string().uuid().safeParse(r.expectedScryfallId).success).map(r=>r.file),
     exactPrintingRecallAt12: results.filter((r) => r.exactPrintingRank !== null)
       .length,
     exactPrintingRank1: results.filter((r) => r.exactPrintingRank === 1).length,

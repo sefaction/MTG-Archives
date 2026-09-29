@@ -27,6 +27,7 @@ import { confirmStrongAcquisitionMatches } from "../lib/acquisition-auto-confirm
 import type { ScryfallCard } from "../lib/scryfall";
 import { enqueueReadyVisual } from "../lib/acquisition-visual-worker";
 import { VISUAL_STAGE } from "../lib/acquisition-visual";
+import { verifyAcquisitionPrinting } from "./verify-acquisition-printing";
 
 export async function verifyAcquisitionCatalogReconciliation(
   db: PrismaClient,
@@ -341,6 +342,47 @@ export async function verifyAcquisitionCatalogReconciliation(
       0,
       "same immutable visual/OCR pair does not duplicate reconciliation",
     );
+    await verifyAcquisitionPrinting(db, actor, sessionId, photoId, hybridJob);
+    // Thirty-two older rows whose old visual result completed but whose latest
+    // version failed must not occupy the bounded queue ahead of one ready row.
+    // Database-only queue fixtures: no recognition or Inventory claim is made.
+    const queuePhotos: string[] = [], queueCandidates: string[] = [], queueArtifacts: string[] = [], queueSlots: string[] = [];
+    try {
+      const template = await db.acquisitionCandidate.findUniqueOrThrow({where: {id: rawJob.candidateId}});
+      for (let n=0; n<33; n++) {
+        const createdAt = new Date(Date.UTC(2000, 0, 1, 0, 0, n));
+        const slot = await db.acquisitionCaptureSlot.create({data: {runId: rawJob.runId, requestKey: `queue-${randomUUID()}`, position: 1000+n, generation: 1}});
+        queueSlots.push(slot.id);
+        const clone = await db.acquisitionPhoto.create({data: {runId: rawJob.runId, slotId: slot.id, uploadKey: randomUUID(),
+          generation: 1, digest: photo.digest, bytes: photo.bytes, mediaType: photo.mediaType, width: photo.width, height: photo.height, ready: true, readyAt: new Date()}});
+        queuePhotos.push(clone.id);
+        const artifact = await db.acquisitionArtifact.create({data: {runId: rawJob.runId, sourceId: clone.id, digest: clone.digest}});
+        queueArtifacts.push(artifact.id);
+        const candidate = await db.acquisitionCandidate.create({data: {runId: rawJob.runId, physicalId: slot.id,
+          identityKind: template.identityKind, acquisitionOrder: 1000+n, spatialOrder: 0, expectedSides: template.expectedSides,
+          provisional: template.provisional, uncertainty: template.uncertainty, revision: 0}});
+        queueCandidates.push(candidate.id);
+        const common = {runId: rawJob.runId, artifactId: artifact.id, candidateId: candidate.id, candidateRevision: 0,
+          versionKey: randomUUID(), input: {photoId: clone.id, digest: clone.digest}};
+        await db.acquisitionProcessingJob.create({data: {...common, createdAt, stage: 'photo-recognition-v1', status: 'COMPLETE',
+          output: {...source, photoId: clone.id} as unknown as Prisma.InputJsonObject}});
+        await db.acquisitionProcessingJob.create({data: {...common, createdAt: new Date(createdAt.getTime()+100), stage: VISUAL_STAGE,
+          status: 'COMPLETE', output: {...visualOutput, photoId: clone.id} as unknown as Prisma.InputJsonObject}});
+        if (n<32) await db.acquisitionProcessingJob.create({data: {...common, versionKey: randomUUID(),
+          createdAt: new Date(createdAt.getTime()+200), stage: VISUAL_STAGE, status: 'FAILED'}});
+      }
+      assert.equal(await enqueueCatalogReconciliation(db, new Date(), true), 1,
+        'the ready33rd row advances past32 rows whose latest visual generation failed');
+      assert.equal(await db.acquisitionProcessingJob.count({where: {stage: CATALOG_RECONCILIATION_STAGE,
+        candidateId: queueCandidates[32], status: 'PENDING'}}), 1);
+      console.log('PASS: bounded catalog queue ignores stale visual completions before LIMIT32');
+    } finally {
+      await db.acquisitionProcessingJob.deleteMany({where: {candidateId: {in: queueCandidates}}});
+      await db.acquisitionPhoto.deleteMany({where: {id: {in: queuePhotos}}});
+      await db.acquisitionCandidate.deleteMany({where: {id: {in: queueCandidates}}});
+      await db.acquisitionArtifact.deleteMany({where: {id: {in: queueArtifacts}}});
+      await db.acquisitionCaptureSlot.deleteMany({where: {id: {in: queueSlots}}});
+    }
     // A user can correct/confirm while another reconciliation is in flight.
     const running = await db.acquisitionProcessingJob.update({
       where: { id: job.id },

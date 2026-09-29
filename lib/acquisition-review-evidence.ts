@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { printingSummarySchema } from "./acquisition-printing";
 import {
   visualNativeSchema,
   acquisitionVisualCandidates,
@@ -20,6 +21,7 @@ const observation = z.object({
     .max(100),
 });
 const schema = z.object({
+  printing: printingSummarySchema.optional(),
   visual: visualNativeSchema.optional(),
   native: z.object({
     geometry: z.object({
@@ -46,12 +48,13 @@ const schema = z.object({
 export function acquisitionReviewEvidence(output: unknown) {
   const parsed = schema.safeParse(output);
   if (!parsed.success) return null;
-  const { native, proposals, visual } = parsed.data;
+  const { native, proposals, visual, printing } = parsed.data;
   return {
     geometry: native.geometry,
     observations: native.orientations,
     rotation: proposals.orientation?.rotationDegrees ?? null,
     identifiers: proposals.evidence,
+    printing: printing ?? null,
     imageMatches: visual
       ? {
           inputRegion: visual.inputRegion,

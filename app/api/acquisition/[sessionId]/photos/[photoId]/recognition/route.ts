@@ -1,9 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { acquisitionActor, acquisitionError } from "@/lib/acquisition-api";
 import { getAcquisitionPhoto } from "@/lib/acquisition-store";
-import { acquisitionRecognitionDto } from "@/lib/acquisition-recognition-dto";
+import { acquisitionRecognitionJobs } from "@/lib/acquisition-recognition-jobs";
 import { CATALOG_RECONCILIATION_STAGE } from "@/lib/acquisition-catalog-status";
 import { VISUAL_STAGE } from "@/lib/acquisition-visual";
+import { PRINTING_STAGE } from "@/lib/acquisition-printing";
 
 export async function GET(
   _request: Request,
@@ -26,12 +27,15 @@ export async function GET(
             "photo-recognition-v1",
             CATALOG_RECONCILIATION_STAGE,
             VISUAL_STAGE,
+            PRINTING_STAGE,
           ],
         },
       },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 16,
       select: {
+        id: true,
+        input: true,
         status: true,
         stage: true,
         output: true,
@@ -39,27 +43,15 @@ export async function GET(
         candidate: { select: { revision: true, excluded: true } },
       },
     });
-    const job = jobs.find(
+    const current = jobs.filter(
       (j) =>
-        j.stage !== VISUAL_STAGE &&
         j.candidateRevision === j.candidate.revision &&
         !j.candidate.excluded,
     );
-    const visual = jobs.find(
-      (j) =>
-        j.stage === VISUAL_STAGE &&
-        j.candidateRevision === j.candidate.revision &&
-        !j.candidate.excluded,
-    );
-    const visualStatus =
-      visual?.status ??
-      (process.env.ACQUISITION_VISUAL_ENABLED === "1" ? "WAITING" : undefined);
+    const {evidence} = acquisitionRecognitionJobs(current,
+      process.env.ACQUISITION_VISUAL_ENABLED === "1", process.env.ACQUISITION_PRINTING_ENABLED === "1");
     return Response.json(
-      acquisitionRecognitionDto(
-        job?.status ?? "WAITING",
-        job?.output,
-        visualStatus,
-      ),
+      evidence,
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {

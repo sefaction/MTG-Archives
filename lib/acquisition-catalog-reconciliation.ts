@@ -70,9 +70,9 @@ export async function enqueueCatalogReconciliation(
       AND j."candidateRevision"=c.revision AND c.review IS NULL AND NOT c.excluded
       AND s.phase NOT IN ('DRAFT','CANCELLED') AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
       AND NOT EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=c.id)
-      AND (${!requireVisual} OR EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" v
-        WHERE v.stage=${VISUAL_STAGE} AND v.status='COMPLETE'
-          AND v."candidateId"=c.id AND v."artifactId"=j."artifactId" AND v."candidateRevision"=c.revision))
+      AND (${!requireVisual} OR (SELECT v.status FROM "AcquisitionProcessingJob" v
+        WHERE v.stage=${VISUAL_STAGE} AND v."candidateId"=c.id AND v."artifactId"=j."artifactId"
+          AND v."candidateRevision"=c.revision ORDER BY v."createdAt" DESC,v.id DESC LIMIT 1)='COMPLETE')
       AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" newer WHERE newer.stage=j.stage
         AND newer."candidateId"=c.id AND newer."candidateRevision"=c.revision AND newer."createdAt">j."createdAt")
       AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" f
@@ -306,8 +306,7 @@ export function createCatalogReconciliationHandler(
             ? "NOT_FOUND"
             : "UNREADABLE";
     // A generic image/name match is not proof that the lower-left stamp is
-    // absent. Until stamp verification is integrated, any returned same-name
-    // stamped family keeps the exact-printing decision in review.
+    // absent. An unresolved same-name stamped family requires review.
     const stampedNames = new Set(
       completed.flatMap((r) =>
         r.cards

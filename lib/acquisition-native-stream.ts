@@ -14,14 +14,21 @@ export class AcquisitionNativeStream {
   constructor(
     private executable: string,
     private args: string[],
-  ) {}
+    private maxInputBytes = 10 * 1024 * 1024,
+  ) {
+    // Only the printing envelope adds bounded metadata to the existing photo
+    // limit. Callers cannot relax this into an arbitrary native input stream.
+    if (!Number.isInteger(maxInputBytes) || maxInputBytes < 1 ||
+        maxInputBytes > 10 * 1024 * 1024 + 65536)
+      throw new Error("Processing native input bound invalid");
+  }
   close() {
     this.child?.kill("SIGKILL");
   }
   request(input: Buffer, signal: AbortSignal): Promise<unknown> {
     if (this.pending)
       return Promise.reject(new Error("Processing native worker busy"));
-    if (signal.aborted || !input.length || input.length > 10 * 1024 * 1024)
+    if (signal.aborted || !input.length || input.length > this.maxInputBytes)
       return Promise.reject(new Error("Processing native input invalid"));
     if (!this.child) {
       const child = spawn(this.executable, this.args, {

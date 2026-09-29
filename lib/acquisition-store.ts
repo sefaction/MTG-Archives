@@ -10,8 +10,9 @@ import {
   acquisitionReviewRequestSchema,
   type AcquisitionCardReview,
 } from "./acquisition-review";
-import { acquisitionRecognitionDto } from "./acquisition-recognition-dto";
 import { VISUAL_STAGE } from "./acquisition-visual";
+import { PRINTING_STAGE } from "./acquisition-printing";
+import { acquisitionRecognitionJobs } from "./acquisition-recognition-jobs";
 import { CATALOG_RECONCILIATION_STAGE } from "./acquisition-catalog-status";
 import { acquisitionReviewEvidence } from "./acquisition-review-evidence";
 import { searchLocalCardCatalog } from "./local-card-search";
@@ -1131,41 +1132,19 @@ export async function getAcquisitionCardReview(
             "photo-recognition-v1",
             CATALOG_RECONCILIATION_STAGE,
             VISUAL_STAGE,
+            PRINTING_STAGE,
           ],
         },
       },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 16,
     });
-    const visualJob = jobs.find((item) => item.stage === VISUAL_STAGE);
-    const visualStatus =
-      visualJob?.status ??
-      (process.env.ACQUISITION_VISUAL_ENABLED === "1" ? "WAITING" : undefined);
-    const evidenceJobs = jobs.filter((item) => item.stage !== VISUAL_STAGE);
-    const job = evidenceJobs.find((item) => item.status === "COMPLETE");
     // A saved suggestion remains evidence for these immutable bytes after human
     // review increments the candidate revision. It never changes that review.
-    const evidence = acquisitionRecognitionDto(
-      job?.status ?? "WAITING",
-      job?.output,
-      visualStatus,
+    const {job, evidence, visualStatus, printingStatus} = acquisitionRecognitionJobs(
+      jobs, process.env.ACQUISITION_VISUAL_ENABLED === "1", process.env.ACQUISITION_PRINTING_ENABLED === "1",
     );
     const review = candidate.review as AcquisitionCardReview["review"];
-    const latest = evidenceJobs[0];
-    if (!review && latest && latest.id !== job?.id) {
-      evidence.status = latest.status;
-      evidence.catalog =
-        latest.status === "FAILED"
-          ? latest.stage === CATALOG_RECONCILIATION_STAGE
-            ? { status: "PROVIDER_ERROR", printingCoverage: "UNRESOLVED" }
-            : null
-          : { status: "CHECKING", printingCoverage: "UNRESOLVED" };
-      if (evidence.result) {
-        evidence.result.automaticAcceptance = false;
-        if (evidence.result.status === "STRONG_MATCH")
-          evidence.result.status = "REVIEW_REQUIRED";
-      }
-    }
     const ids = [
       ...new Set([
         ...(evidence.result?.proposals.map((p) => p.card.id) ?? []),
@@ -1201,6 +1180,7 @@ export async function getAcquisitionCardReview(
             : (evidence.result?.status ?? evidence.status),
       catalog: evidence.catalog,
       visualStatus,
+      printingStatus,
       evidence: acquisitionReviewEvidence(job?.output),
       suggestions: (evidence.result?.proposals ?? []).flatMap((p) => {
         const printing = cards.find((c) => c.id === p.card.id);
