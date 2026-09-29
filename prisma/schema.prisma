@@ -1278,6 +1278,7 @@ model AcquisitionRun {
   slots        AcquisitionCaptureSlot[]
   commands     AcquisitionCommand[]
   jobs         AcquisitionProcessingJob[]
+  processingTurns AcquisitionProcessingTurn[]
   photos       AcquisitionPhoto[]
   commits      AcquisitionCommit[]
 }
@@ -1429,9 +1430,26 @@ model AcquisitionProcessingJob {
   @@unique([artifactId, candidateId, candidateRevision, stage, versionKey])
   @@index([status, availableAt, leaseExpiresAt, createdAt])
   @@index([runId])
+  @@index([stage, status, availableAt, runId])
+}
+
+// Per-stage scheduling survives worker exit. This is queue bookkeeping, never
+// physical-card accounting or recognition evidence.
+model AcquisitionProcessingTurn {
+  runId         String
+  run           AcquisitionRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  stage         String
+  lastClaimedAt DateTime
+
+  @@id([runId, stage])
 }
 
 // Original private bytes are immutable. READY means durable receipt, not recognition.
+enum AcquisitionImageInputKind {
+  PHOTO
+  CARD_SCAN
+}
+
 model AcquisitionPhoto {
   id         String @id @default(uuid())
   runId      String
@@ -1445,6 +1463,7 @@ model AcquisitionPhoto {
   mediaType  String
   width      Int
   height     Int
+  inputKind  AcquisitionImageInputKind @default(PHOTO)
   ready      Boolean @default(false)
   createdAt  DateTime @default(now())
   readyAt    DateTime?
@@ -1479,6 +1498,22 @@ model AcquisitionCatalogRefresh {
   completedAt       DateTime?
 
   @@index([status, completedAt])
+}
+
+// Shared public-metadata lookup cache. It stores no photos, ownership or review
+// decisions. Leases fence late provider responses and recover interrupted work.
+model AcquisitionCatalogLookup {
+  key            String @id
+  request        Json
+  status         String @default("PENDING")
+  result         Json?
+  leaseToken     String?
+  leaseExpiresAt DateTime?
+  expiresAt      DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status, leaseExpiresAt])
 }
 
 // Append-only application receipts. Inventory ids are historical references:

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { z } from "zod";
+import { acquisitionImageInputKindSchema, acquisitionNativePhotoInput } from "./acquisition-image-input";
 import {
   createAcquisitionRecognitionIndex,
   proposeOrientedAcquisitionPrintings,
@@ -10,6 +11,10 @@ import { readAcquisitionPhotoBytes } from "./acquisition-files";
 import { runAcquisitionNativeProcess } from "./acquisition-native-process";
 import type { AcquisitionNativeStream } from "./acquisition-native-stream";
 import type { ClaimedAcquisitionJob } from "./acquisition-jobs";
+import { acquisitionReadingZonesSchema } from "./acquisition-reading-zones";
+import { ACQUISITION_FOOTER_PARSER_VERSION } from "./acquisition-footer";
+import { acquisitionPhotoTextSchema, needsAcquisitionPhotoText, readAcquisitionPhotoText,
+  combineAcquisitionPhotoText } from "./acquisition-photo-text";
 
 export const RECOGNITION_STAGE = "photo-recognition-v1";
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
@@ -17,26 +22,36 @@ const textSchema = z.object({
   title: z.array(z.string().max(2000)).max(100),
   footer: z.array(z.string().max(2000)).max(100),
 });
-const linesSchema = z.array(z.object({
-  text: z.string().max(2000),
-  score: z.number().finite(),
-  polygon: z.array(z.array(z.number().finite()).length(2)).max(8),
-})).max(100);
-const nativeSchema = z.object({
+const linesSchema = z
+  .array(
+    z.object({
+      text: z.string().max(2000),
+      score: z.number().finite(),
+      polygon: z.array(z.array(z.number().finite()).length(2)).max(8),
+    }),
+  )
+  .max(100);
+export const nativeSchema = z.object({
   version: z.literal(1),
   descriptor: digest,
   descriptorDetails: z.record(z.unknown()),
   photoDigest: digest,
   text: textSchema,
-  orientations: z.array(z.object({
-    rotationDegrees: z.union([z.literal(0), z.literal(180)]),
-    text: textSchema,
-    lines: linesSchema,
-  })).max(2),
+  readingZones: acquisitionReadingZonesSchema.optional(),
+  orientations: z
+    .array(
+      z.object({
+        rotationDegrees: z.union([z.literal(0), z.literal(180)]),
+        text: textSchema,
+        lines: linesSchema,
+      }),
+    )
+    .max(2),
   geometry: z.object({ status: z.string() }).passthrough(),
   lines: linesSchema,
   milliseconds: z.number().nonnegative().finite(),
   automaticAcceptance: z.literal(false),
+  photoText: acquisitionPhotoTextSchema.optional(),
 });
 export type RecognitionSnapshot = Awaited<
   ReturnType<typeof loadAcquisitionRecognitionSnapshot>
@@ -48,6 +63,7 @@ export async function loadAcquisitionRecognitionSnapshot(db: PrismaClient) {
     orderBy: { id: "asc" },
     select: {
       id: true,
+      scryfallId: true,
       name: true,
       printedName: true,
       cardFaces: true,
@@ -68,20 +84,19 @@ export async function loadAcquisitionRecognitionSnapshot(db: PrismaClient) {
         })
       : [],
   }));
-  if (!cards.length) throw new Error("Recognition catalog unavailable");
   return {
     digest: createHash("sha256").update(JSON.stringify(cards)).digest("hex"),
     index: createAcquisitionRecognitionIndex(cards),
+    byScryfallId: new Map(rows.map((row, i) => [row.scryfallId, cards[i]])),
   };
 }
-export function acquisitionRecognitionVersion(catalog: string, model: string) {
+export function acquisitionRecognitionVersion(_catalog: string, model: string) {
   return createHash("sha256")
     .update(
       JSON.stringify({
         pipeline: RECOGNITION_STAGE,
-        catalog,
         model,
-        resolver: "metadata-card-orientation-v4",
+        resolver: "metadata-card-orientation-catalog-v5",
       }),
     )
     .digest("hex");
@@ -155,6 +170,7 @@ export async function enqueueReadyRecognition(
           input: {
             version: 1,
             ...input,
+            inputKind: photo.inputKind,
             versions: {
               pipeline: RECOGNITION_STAGE,
               runtime: "paddle-cpu-subprocess-v1",
@@ -182,13 +198,13 @@ export async function recognizeAcquisitionPhoto(
     .object({
       photoId: z.string().uuid(),
       digest,
+      inputKind: acquisitionImageInputKindSchema.default("PHOTO"),
       versions: z.object({ catalog: digest, model: digest }),
     })
     .parse(job.input);
-  if (
-    input.versions.catalog !== snapshot.digest ||
-    input.versions.model !== model
-  )
+  // Catalog-only changes are handled by reconciliation of saved OCR. The raw
+  // job identity depends on its photo/revision/model, not metadata refreshes.
+  if (input.versions.model !== model)
     throw new Error(
       "Processing version unavailable; restart with its catalog/model",
     );
@@ -197,15 +213,12 @@ export async function recognizeAcquisitionPhoto(
     "raw",
     input.digest,
   );
+  const nativeStarted = Date.now();
+  const requestNative = (frame: Buffer, attemptSignal: AbortSignal, progress?: (value: unknown) => void) => nativeWorker
+    ? nativeWorker.request(frame, attemptSignal, progress)
+    : runAcquisitionNativeProcess("python", ["/app/tools/acquisition-runtime/recognize.py"], frame, attemptSignal);
   const native = nativeSchema.parse(
-    nativeWorker
-      ? await nativeWorker.request(bytes, signal)
-      : await runAcquisitionNativeProcess(
-          "python",
-          ["/app/tools/acquisition-runtime/recognize.py"],
-          bytes,
-          signal,
-        ),
+    await requestNative(acquisitionNativePhotoInput(bytes, input.inputKind), signal),
   );
   if (
     native.photoDigest !== input.digest ||
@@ -213,13 +226,29 @@ export async function recognizeAcquisitionPhoto(
     signal.aborted
   )
     throw new Error("Processing input changed");
-  const proposals = proposeOrientedAcquisitionPrintings(snapshot.index, native.orientations);
+  let proposals = proposeOrientedAcquisitionPrintings(
+    snapshot.index,
+    native.orientations,
+  );
+  if (needsAcquisitionPhotoText(proposals)) {
+    native.photoText = await readAcquisitionPhotoText(requestNative, bytes, input.inputKind,
+      { photoDigest: input.digest, descriptor: model }, signal,
+      Math.min(32000, 35000 - (Date.now() - nativeStarted)));
+    proposals = combineAcquisitionPhotoText(snapshot.index, proposals, native.photoText);
+  }
+  signal.throwIfAborted();
   return {
     version: 1,
     photoId: input.photoId,
-    versions: input.versions,
+    versions: {
+      ...input.versions,
+      catalog: snapshot.digest,
+      index: snapshot.digest,
+      footerParser: ACQUISITION_FOOTER_PARSER_VERSION,
+    },
     execution: "CPU",
     native,
     proposals,
+    catalog: { status: "CHECKING", printingCoverage: "UNRESOLVED" },
   } as unknown as Prisma.InputJsonObject;
 }

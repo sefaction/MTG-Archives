@@ -1,4 +1,14 @@
 import { z } from "zod";
+import { printingSummarySchema } from "./acquisition-printing";
+import { acquisitionPhotoTextSchema } from "./acquisition-photo-text";
+import {
+  acquisitionReadingZonesSchema,
+  legacyAcquisitionReadingZones,
+} from "./acquisition-reading-zones";
+import {
+  visualNativeSchema,
+  acquisitionVisualCandidates,
+} from "./acquisition-visual";
 
 const point = z.tuple([z.number().finite(), z.number().finite()]);
 const words = z.array(z.string().max(2000)).max(100);
@@ -16,10 +26,15 @@ const observation = z.object({
     .max(100),
 });
 const schema = z.object({
+  printing: printingSummarySchema.optional(),
+  visual: visualNativeSchema.optional(),
   native: z.object({
+    photoText: acquisitionPhotoTextSchema.optional(),
+    readingZones: acquisitionReadingZonesSchema.optional(),
     geometry: z.object({
       status: z.string().max(60),
       quad: z.array(point).length(4).optional(),
+      method: z.enum(["contours", "full-frame", "declared-card-scan"]).optional(),
     }),
     orientations: z.array(observation).max(2),
   }),
@@ -40,12 +55,36 @@ const schema = z.object({
 export function acquisitionReviewEvidence(output: unknown) {
   const parsed = schema.safeParse(output);
   if (!parsed.success) return null;
-  const { native, proposals } = parsed.data;
+  const { native, proposals, visual, printing } = parsed.data;
   return {
     geometry: native.geometry,
     observations: native.orientations,
+    photoText: native.photoText ?? null,
+    readingZones: native.readingZones ?? legacyAcquisitionReadingZones,
     rotation: proposals.orientation?.rotationDegrees ?? null,
     identifiers: proposals.evidence,
+    printing: printing ?? null,
+    imageMatches: visual
+      ? {
+          inputRegion: visual.inputRegion,
+          referenceCount: visual.referenceCount,
+          candidates: acquisitionVisualCandidates(visual).map(
+            ({
+              scryfallId,
+              name,
+              setCode,
+              collectorNumber,
+              rotationDegrees,
+            }) => ({
+              scryfallId,
+              name,
+              setCode,
+              collectorNumber,
+              rotationDegrees,
+            }),
+          ),
+        }
+      : null,
   };
 }
 export type AcquisitionReviewEvidence = ReturnType<

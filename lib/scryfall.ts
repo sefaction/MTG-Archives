@@ -184,8 +184,24 @@ export function getScryfallRuntimeStatus() {
   };
 }
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function sleep(ms: number, signal?: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException("Cancelled", "AbortError"));
+      return;
+    }
+    const finish = () => {
+      signal?.removeEventListener("abort", abort);
+      resolve();
+    };
+    const timer = setTimeout(finish, ms);
+    const abort = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
+      reject(new DOMException("Cancelled", "AbortError"));
+    };
+    signal?.addEventListener("abort", abort, { once: true });
+  });
 }
 
 async function throttle(config: ClientConfig) {
@@ -301,6 +317,18 @@ async function requestJson<T>(
   let requestsMade = 0;
 
   for (;;) {
+    if (init.signal?.aborted) {
+      return {
+        ok: false,
+        correlationId,
+        requestsMade,
+        error: {
+          kind: "TIMEOUT",
+          message: "Scryfall lookup was cancelled.",
+          retryable: false,
+        },
+      };
+    }
     attempts += 1;
     const started = Date.now();
     await throttle(config);
@@ -312,7 +340,9 @@ async function requestJson<T>(
       const res = await fetch(url, {
         ...init,
         cache: "no-store",
-        signal: controller.signal,
+        signal: init.signal
+          ? AbortSignal.any([controller.signal, init.signal])
+          : controller.signal,
         headers: {
           Accept: DEFAULT_ACCEPT,
           "User-Agent": config.userAgent,
@@ -350,7 +380,11 @@ async function requestJson<T>(
       }
 
       const normalized = await parseScryfallError(res);
-      if (!normalized.retryable || attempts > config.maxRetries) {
+      if (
+        init.signal?.aborted ||
+        !normalized.retryable ||
+        attempts > config.maxRetries
+      ) {
         lastFailedRequestAt = new Date();
         recentErrorKind = normalized.kind;
         logScryfallEvent({
@@ -372,7 +406,7 @@ async function requestJson<T>(
         retryDelayMs: delayMs,
         finalResult: "retrying",
       });
-      await sleep(delayMs);
+      await sleep(delayMs, init.signal ?? undefined);
     } catch (error) {
       clearTimeout(timeout);
       const isAbort = error instanceof Error && error.name === "AbortError";
@@ -384,7 +418,7 @@ async function requestJson<T>(
         retryable: true,
         details: error instanceof Error ? error.message : String(error),
       };
-      if (attempts > config.maxRetries) {
+      if (init.signal?.aborted || attempts > config.maxRetries) {
         lastFailedRequestAt = new Date();
         recentErrorKind = normalized.kind;
         logScryfallEvent({
@@ -404,7 +438,7 @@ async function requestJson<T>(
         retryDelayMs: delayMs,
         finalResult: "retrying",
       });
-      await sleep(delayMs);
+      await sleep(delayMs, init.signal ?? undefined);
     }
   }
 }
@@ -505,6 +539,71 @@ export async function searchCardsResult(q: string) {
     {},
     "card_search",
   );
+}
+
+// Metadata-only acquisition fallback. Pagination is constructed locally; never
+// follow a provider-supplied URL or mistake a first page for complete coverage.
+export async function searchAcquisitionPrintingsPageResult(
+  name: string,
+  page: number,
+  language: string,
+  signal?: AbortSignal,
+) {
+  if (
+    !name.trim() ||
+    name.length > 200 ||
+    !Number.isInteger(page) ||
+    page < 1 ||
+    page > 100 ||
+    !/^(en|fr|de|it|es|pt|ja|ko|ru|zhs|zht|he|la|grc|ar|sa|ph|qya)$/.test(
+      language,
+    )
+  )
+    throw new Error("Invalid bounded acquisition printing lookup");
+  const escaped = name.trim().replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  const params = new URLSearchParams({
+    q: `!"${escaped}" game:paper lang:${language}`,
+    unique: "prints",
+    order: "set",
+    include_extras: "true",
+    include_variations: "true",
+    include_multilingual: "true",
+    page: String(page),
+  });
+  return requestJson<{
+    object: "list";
+    data: ScryfallCard[];
+    has_more: boolean;
+    total_cards?: number;
+  }>(`cards/search?${params}`, { signal }, "acquisition_printings_page");
+}
+
+export async function getAcquisitionCardResult(
+  query:
+    | { kind: "printing"; set: string; number: string; language: string }
+    | { kind: "name"; name: string; fuzzy?: boolean }
+    | { kind: "id"; id: string },
+  signal?: AbortSignal,
+) {
+  let path: string;
+  if (query.kind === "printing") {
+    if (
+      !/^[a-z0-9]{2,8}$/.test(query.set) ||
+      !/^[a-z0-9★†-]{1,30}$/i.test(query.number) ||
+      !/^[a-z]{2,3}$/.test(query.language)
+    )
+      throw new Error("Invalid printing lookup");
+    path = `cards/${encodeURIComponent(query.set)}/${encodeURIComponent(query.number)}/${encodeURIComponent(query.language)}`;
+  } else if (query.kind === "id") {
+    if (!/^[a-f0-9-]{36}$/i.test(query.id))
+      throw new Error("Invalid card identity");
+    path = `cards/${encodeURIComponent(query.id)}`;
+  } else {
+    if (query.name.trim().length < 3 || query.name.length > 200)
+      throw new Error("Invalid name lookup");
+    path = `cards/named?${new URLSearchParams({ [query.fuzzy ? "fuzzy" : "exact"]: query.name.trim() })}`;
+  }
+  return requestJson<ScryfallCard>(path, { signal }, "acquisition_card_lookup");
 }
 
 export function buildCardNameSearchQuery(name: string) {

@@ -31,8 +31,54 @@ def order_quad(points):
     return points
 
 
-def geometry(image):
+def preserve_full_frame(image):
+    """Conservative tight dark-border scan proposal; never a card classifier.
+
+    A scanner export may already end at the physical card edge. Its strongest
+    quadrilateral is often the inner printed frame, above the identifier strip.
+    Require near-frame connected content AND a dark rim on every edge. Aspect
+    ratio alone would also accept ordinary 3:4 phone photographs. White-border
+    and borderless scans deliberately keep the existing detector for now.
+    """
     h, w = image.shape[:2]
+    if not .68 <= min(h, w) / max(h, w) <= .76:
+        return False
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    rim = max(1, round(min(h, w) * .01))
+    strips = (gray[:rim], gray[-rim:], gray[:, :rim], gray[:, -rim:])
+    if not all(float(np.mean(strip < 70)) >= .85 for strip in strips):
+        return False
+    scale = min(1, 1400 / max(h, w))
+    gray = cv2.resize(gray, None, fx=scale, fy=scale)
+    mask = (gray >= 70).astype(np.uint8) * 255
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((15, 15), np.uint8))
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # Work from connected visible content, independently of the inner-border
+    # quadrilateral ranking. This support remains useful after quarter turns.
+    for contour in sorted(contours, key=cv2.contourArea, reverse=True)[:3]:
+        hull = cv2.convexHull(contour).astype(np.float32) / scale
+        area = abs(cv2.contourArea(hull))
+        low, high = hull.reshape(-1, 2).min(axis=0), hull.reshape(-1, 2).max(axis=0)
+        bounds_area = np.prod(high - low)
+        if (area / (w * h) < .70 or bounds_area / (w * h) < .75
+                or area / bounds_area < .88):
+            continue
+        if all(value <= .14 for value in (low[0]/w, low[1]/h,
+                                          (w-1-high[0])/w, (h-1-high[1])/h)):
+            return True
+    return False
+
+
+def geometry(image, input_kind='PHOTO'):
+    h, w = image.shape[:2]
+    if input_kind not in ('PHOTO', 'CARD_SCAN'):
+        raise ValueError('Unknown image input kind')
+    if input_kind == 'CARD_SCAN' or preserve_full_frame(image):
+        q = order_quad([[0, 0], [w-1, 0], [w-1, h-1], [0, h-1]])
+        transform = cv2.getPerspectiveTransform(q.astype(np.float32), np.float32([[0,0],[999,0],[999,1396],[0,1396]]))
+        crop = cv2.warpPerspective(image, transform, (1000, 1397))
+        return crop, {"status": "PROPOSED", "quad": q.tolist(),
+                      "method": "declared-card-scan" if input_kind == 'CARD_SCAN' else "full-frame", "confidence": None}
     scale = min(1, 1400 / max(h, w))
     small = cv2.resize(image, None, fx=scale, fy=scale)
     gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
@@ -72,7 +118,7 @@ def geometry(image):
         return None, {"status": "NEEDS_CROP", "reason": "NO_CARD_QUADRILATERAL"}
     candidates.sort(key=lambda c: c[0], reverse=True)
     q = candidates[0][1]
-    # Small outward margin retains the footer and rounded corners.
+    # Small outward margin retains rounded corners on ordinary photos.
     q = q.mean(axis=0) + (q - q.mean(axis=0)) * 1.015
     q[:, 0] = np.clip(q[:, 0], 0, w-1)
     q[:, 1] = np.clip(q[:, 1], 0, h-1)

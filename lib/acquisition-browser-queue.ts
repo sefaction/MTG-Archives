@@ -1,3 +1,5 @@
+import type { AcquisitionImageInputKind } from "./acquisition-image-input";
+
 export type PendingPhoto = {
   key: string;
   userId: string;
@@ -5,6 +7,7 @@ export type PendingPhoto = {
   slotId: string;
   generation: number;
   replacePending?: boolean;
+  inputKind?: AcquisitionImageInputKind;
   blob: Blob;
 };
 function database() {

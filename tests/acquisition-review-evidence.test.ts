@@ -11,6 +11,7 @@ test("review evidence preserves both observations while withholding private runt
       descriptorDetails: { privatePath: "must-not-leak" },
       geometry: {
         status: "PROPOSED",
+        method: "full-frame",
         quad: [
           [10, 20],
           [210, 10],
@@ -46,6 +47,8 @@ test("review evidence preserves both observations while withholding private runt
   };
   const evidence = acquisitionReviewEvidence(input)!;
   assert.equal(evidence.rotation, null);
+  assert.equal(evidence.geometry.method, "full-frame");
+  assert.deepEqual(evidence.readingZones.footer, { top: 1210, bottom: 1397 });
   assert.equal(evidence.observations.length, 2);
   assert.equal(evidence.observations[1].text.title[0], "different direction");
   assert.ok(!JSON.stringify(evidence).includes("private"));
@@ -65,6 +68,33 @@ test("review evidence preserves both observations while withholding private runt
     null,
   );
   assert.equal(acquisitionReviewEvidence({ proposals: {} }), null);
+  const current = {
+    ...input,
+    native: {
+      ...input.native,
+      readingZones: {
+        title: { top: 0, bottom: 250 },
+        footer: { top: 1270, bottom: 1397 },
+      },
+    },
+  };
+  assert.deepEqual(acquisitionReviewEvidence(current)?.readingZones.footer, {
+    top: 1270,
+    bottom: 1397,
+  });
+  assert.equal(
+    acquisitionReviewEvidence({
+      ...current,
+      native: {
+        ...current.native,
+        readingZones: {
+          ...current.native.readingZones,
+          footer: { top: 1400, bottom: 1500 },
+        },
+      },
+    }),
+    null,
+  );
 });
 
 test("inspection transform preserves all worker corners and portrait rotations", () => {

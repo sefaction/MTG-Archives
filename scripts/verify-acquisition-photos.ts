@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { verifyAcquisitionReview } from "./verify-acquisition-review";
+import { verifyAcquisitionCatalogReconciliation } from "./verify-acquisition-catalog-reconciliation";
 import { randomUUID } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
@@ -31,6 +32,7 @@ import {
   enqueueReadyRecognition,
   loadAcquisitionRecognitionSnapshot,
   RECOGNITION_STAGE,
+  acquisitionRecognitionVersion,
 } from "../lib/acquisition-recognition-worker";
 export async function verifyAcquisitionPhotos(
   db: PrismaClient,
@@ -71,11 +73,14 @@ export async function verifyAcquisitionPhotos(
       uploadKey: randomUUID(),
       generation: 0,
       metadata,
+      inputKind: "CARD_SCAN" as const,
     };
     const attempts = await Promise.all(
       [1, 2].map(() => beginAcquisitionPhoto(db, actor, id, input)),
     );
     assert.equal(attempts[0].id, attempts[1].id);
+    assert.equal(attempts[0].inputKind, "CARD_SCAN");
+    await assert.rejects(beginAcquisitionPhoto(db, actor, id, {...input,inputKind:"PHOTO"}),/identity conflict/);
     await assert.rejects(
       beginAcquisitionPhoto(db, actor, id, {
         ...input,
@@ -108,6 +113,8 @@ export async function verifyAcquisitionPhotos(
     );
     await finalizeAcquisitionPhoto(db, actor, id, photo.id);
     await finalizeAcquisitionPhoto(db, actor, id, photo.id);
+    const scanJob=await db.acquisitionProcessingJob.findFirstOrThrow({where:{artifact:{sourceId:photo.id},stage:"photo-canonical-v1"}});
+    assert.equal((scanJob.input as {inputKind:string}).inputKind,"CARD_SCAN");
     assert.equal(
       (await getAcquisitionProgress(db, actor, id)).photoPreparation.length,
       1,
@@ -150,6 +157,11 @@ export async function verifyAcquisitionPhotos(
       catalog.digest,
     );
     const model = "a".repeat(64);
+    assert.equal(
+      acquisitionRecognitionVersion(catalog.digest, model),
+      acquisitionRecognitionVersion("c".repeat(64), model),
+      "catalog refresh must not enqueue duplicate raw OCR",
+    );
     const enqueued = await Promise.all([
       enqueueReadyRecognition(db, catalog.digest, model),
       enqueueReadyRecognition(db, catalog.digest, model),
@@ -224,6 +236,15 @@ export async function verifyAcquisitionPhotos(
       model,
     );
     assert.equal(final.session.phase, "STOPPING");
+    await verifyAcquisitionCatalogReconciliation(
+      db,
+      actor,
+      id,
+      another.id,
+      claims.find(
+        (j) => (j.input as { photoId: string }).photoId === another.id,
+      )!,
+    );
     assert.equal(final.reservedSlots, 2);
     assert.equal(final.session.candidates.length, 2);
     assert.equal(final.slots[0].generation, 3);

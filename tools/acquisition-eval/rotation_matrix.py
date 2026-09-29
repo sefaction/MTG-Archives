@@ -25,6 +25,8 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--image', default='mtg-acquisition-recognition:local')
     parser.add_argument('--runtime', type=Path, help='Optional local native source override')
+    parser.add_argument('--geometry', type=Path, help='Optional local geometry source override')
+    parser.add_argument('--originals-only', action='store_true', help='Evaluate original bytes without rotation derivatives')
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     manifest = json.loads(args.manifest.read_text(encoding='utf8'))
@@ -35,6 +37,8 @@ def main():
                '--mount', f'type=bind,source={args.models.resolve()},target=/models,readonly']
     if args.runtime:
         command += ['--mount', f'type=bind,source={args.runtime.resolve()},target=/app/tools/acquisition-runtime,readonly']
+    if args.geometry:
+        command += ['--mount', f'type=bind,source={args.geometry.resolve()},target=/eval/baseline.py,readonly']
     command += ['--entrypoint', 'python', args.image,
                 '/app/tools/acquisition-runtime/recognize.py', '--stream']
     results = []
@@ -61,7 +65,8 @@ def main():
                     if src.width * src.height > 36000000:
                         raise ValueError('Oversized source')
                     original = ImageOps.exif_transpose(src).convert('RGB')
-                for fixture in ['original', 'pixels-0', 'pixels-90', 'pixels-180', 'pixels-270', 'exif-6']:
+                fixtures = ['original'] if args.originals_only else ['original', 'pixels-0', 'pixels-90', 'pixels-180', 'pixels-270', 'exif-6']
+                for fixture in fixtures:
                     data = raw
                     if fixture != 'original':
                         # EXIF 6 should display the original orientation: store

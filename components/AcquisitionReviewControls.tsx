@@ -1,4 +1,5 @@
 "use client";
+import { acquisitionCatalogMessage } from "@/lib/acquisition-catalog-status";
 import { useEffect, useRef, useState } from "react";
 import {
   AcquisitionScanImage,
@@ -233,6 +234,10 @@ export function AcquisitionPhotoReview({
     return () => observer.disconnect();
   }, []);
   const recognitionStatus = record?.recognitionStatus;
+  const catalogStatus = record?.catalog?.status;
+  const visualStatus = record?.visualStatus;
+  const printingStatus = record?.printingStatus;
+  const reviewed = Boolean(record?.review);
   useEffect(() => {
     if (!active) return;
     let cancelled = false;
@@ -253,6 +258,9 @@ export function AcquisitionPhotoReview({
                     evidence: next.evidence,
                     suggestions: next.suggestions,
                     recognitionStatus: next.recognitionStatus,
+                    catalog: next.catalog,
+                    visualStatus: next.visualStatus,
+                    printingStatus: next.printingStatus,
                   }
                 : previous,
             );
@@ -262,19 +270,43 @@ export function AcquisitionPhotoReview({
       }
     }
     void load();
-    const timer = setInterval(() => {
-      if (
-        !recognitionStatus ||
-        ["WAITING", "RUNNING", "PENDING"].includes(recognitionStatus)
-      )
-        void load();
-    }, 4000);
+    const timer = setInterval(
+      () => {
+        if (
+          !reviewed &&
+          (!recognitionStatus ||
+            ["WAITING", "RUNNING", "PENDING"].includes(visualStatus ?? "") ||
+            ["WAITING", "RUNNING", "PENDING"].includes(printingStatus ?? "") ||
+            ["WAITING", "RUNNING", "PENDING"].includes(recognitionStatus) ||
+            ["CHECKING", "PROVIDER_ERROR", "NOT_FOUND", "INCOMPLETE"].includes(
+              catalogStatus ?? "",
+            ))
+        )
+          void load();
+      },
+      catalogStatus === "PROVIDER_ERROR" ||
+        catalogStatus === "NOT_FOUND" ||
+        catalogStatus === "INCOMPLETE"
+        ? 30000
+        : 4000,
+    );
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
     // A dirty form retains its revision so a concurrent edit is rejected on save.
-  }, [active, endpoint, photoId, refreshKey, busy, recognitionStatus]);
+  }, [
+    active,
+    endpoint,
+    photoId,
+    refreshKey,
+    busy,
+    recognitionStatus,
+    catalogStatus,
+    visualStatus,
+    printingStatus,
+    reviewed,
+  ]);
   async function reload() {
     ++requestVersion.current;
     try {
@@ -360,10 +392,50 @@ export function AcquisitionPhotoReview({
                   ? "Reviewed · editable until Inventory commit"
                   : record.recognitionStatus === "STRONG_MATCH"
                     ? "Strong match · check batch defaults"
-                    : record.recognitionStatus === "WAITING"
-                      ? "Waiting for identification · manual selection available"
+                    : !record.suggestions.length &&
+                        (record.recognitionStatus === "RUNNING" || record.visualStatus === "RUNNING")
+                      ? "Identifying this card · results appear here automatically"
+                      : !record.suggestions.length &&
+                          ["WAITING", "PENDING"].includes(record.recognitionStatus)
+                        ? "Queued for identification · results appear here automatically"
                       : "Needs review"}
           </p>
+          {!record.review && record.visualStatus === "FAILED" && (
+            <p className="text-sm mt-2" role="status">
+              Image comparison failed. Your photo and text suggestions are
+              saved; choose a printing manually or try another photo.
+            </p>
+          )}
+          {!record.review && record.visualStatus &&
+            ["WAITING", "PENDING", "RUNNING"].includes(record.visualStatus) && (
+              <p className="text-sm mt-2" role="status" data-testid="scan-image-status">
+                {record.visualStatus === "RUNNING"
+                  ? "Comparing this card image with catalog printings."
+                  : "Image comparison queued. Text suggestions can be reviewed as they arrive."}
+              </p>
+            )}
+          {!record.review && record.printingStatus && record.printingStatus !== "WAITING" && (
+            <p className="text-sm mt-2" role="status" data-testid="scan-printing-status">
+              {record.printingStatus === "FAILED"
+                ? "Printing verification failed. Your photo and suggestions are saved; choose a printing manually."
+                : record.printingStatus === "PENDING"
+                  ? "Printing and stamp verification queued; you can review suggestions now."
+                  : record.printingStatus === "RUNNING"
+                    ? "Checking this printing and its lower-left stamp; you can review suggestions now."
+                  : record.printingStatus === "COMPLETE"
+                    ? "Printing check complete. Unreadable details still need your review."
+                    : "Waiting for current printing evidence."}
+            </p>
+          )}
+          {!record.review && acquisitionCatalogMessage(record.catalog) && (
+            <p
+              className="text-sm mb-3"
+              role="status"
+              data-testid="scan-catalog-status"
+            >
+              {acquisitionCatalogMessage(record.catalog)}
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-3 sm:gap-6 min-w-0">
             <AcquisitionScanImage
               src={`/api/acquisition/${batchId}/photos/${photoId}`}
@@ -374,6 +446,11 @@ export function AcquisitionPhotoReview({
             <figure className="min-w-0">
               <figcaption className="font-semibold mb-2 min-h-12 sm:min-h-0">
                 {record.review ? "Selected printing" : "Proposed printing"}
+                {!record.review && reasons.includes("UNLOCALIZED_NAME_HINT") && (
+                  <span className="block text-xs font-normal mt-1" data-testid="scan-name-only">
+                    Name only · check printing
+                  </span>
+                )}
               </figcaption>
               <div className="aspect-[1000/1397] max-h-[52vh] flex items-center justify-center bg-black/10 rounded overflow-hidden">
                 {selected?.imageUri && active ? (
@@ -398,10 +475,25 @@ export function AcquisitionPhotoReview({
                   {selected.lang?.toUpperCase() ?? "Language unknown"}
                 </p>
               )}
-              <p className="text-xs mt-1">
+              <p className="text-xs mt-1" data-testid="scan-proposal-evidence">
                 {record.review
                   ? "Your saved choice may differ from the scanner's evidence."
-                  : "Suggested from text; artwork has not been compared."}
+                  : !selected
+                    ? "Waiting for suggestions; you can search below."
+                    : !reasons.length
+                      ? "Selected manually; compare this printing with your scan."
+                      : reasons.includes("UNLOCALIZED_NAME_HINT")
+                        ? "Name suggested from whole-photo text; exact printing unverified."
+                      : record.evidence?.imageMatches
+                        ? reasons.includes("VISUAL_MATCH") ||
+                          reasons.includes("SIFT_CANDIDATE")
+                          ? "Suggested from image comparison; verify the exact printing."
+                          : "Suggested from text; image comparison offered other candidates."
+                        : record.visualStatus === "FAILED"
+                          ? "Suggested from text; image comparison failed."
+                          : record.visualStatus
+                            ? "Suggested from text; image results are still being combined."
+                            : "Suggested from text; artwork has not been compared."}
               </p>
             </figure>
           </div>
@@ -525,8 +617,9 @@ export function AcquisitionPhotoReview({
                   </div>
                   <button className={button}>Find printing</button>
                   <p className="text-xs">
-                    Search currently uses this installation’s catalog. External
-                    lookup is not yet available.
+                    Search this installation’s catalog. Missing matches are
+                    checked against Scryfall using an exact card name or set
+                    and collector number.
                   </p>
                   {matches?.length === 50 && (
                     <p className="text-xs">

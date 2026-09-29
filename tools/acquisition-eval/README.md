@@ -7,6 +7,12 @@ The checked-in manifest contains hashes and independently read card labels only.
 
 ## Corrected labels and expanded comparison
 
+The separately reported [scanner crop evaluation](../../docs/ACQUISITION_SCANNER_CROP.md)
+uses 17 scanner originals and checks preservation of their identifier strips.
+`scanner-manifest.json` and `scanner-results.json` keep those labels/results
+separate from the Android corpus. `rotation_matrix.py --originals-only` runs
+only original bytes; `--geometry` supports a local geometry source override.
+
 The original label audit missed visible Planeswalker stamps on **Krosan Vorine,
 Saber Ants and Timberland Ancient**. Their expected identities are PLST LGN-131,
 PLST MMQ-267 and PLST MOM-210. The historical table and `development-results.json`

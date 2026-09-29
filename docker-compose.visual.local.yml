@@ -1,0 +1,29 @@
+# Optional local hybrid review runtime. Combine with existing acquisition layers.
+# Complete immutable index/model mounts are required; no private image network.
+services:
+  web:
+    environment:
+      ACQUISITION_VISUAL_ENABLED: "1"
+  acquisition-catalog-worker:
+    environment:
+      ACQUISITION_VISUAL_ENABLED: "1"
+  acquisition-visual-worker:
+    image: mtg-acquisition-visual:local
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mtginventory}:${POSTGRES_PASSWORD:-mtginventory}@postgres:5432/${POSTGRES_DB:-mtginventory}?schema=public
+      UPLOADS_DATA_PATH: /app/data/uploads
+    volumes:
+      - ./.local-data/uploads:/app/data/uploads:ro
+      - ${MTG_ACQUISITION_VISUAL_INDEX_PATH:?Set complete published visual index path}:/visual/index:ro
+      - ${MTG_ACQUISITION_VISUAL_MODELS_PATH:?Set verified visual model path}:/visual/models:ro
+      - ${MTG_ACQUISITION_VISUAL_REFERENCES_PATH:?Set verified public reference path}:/visual/references:ro
+    networks: [acquisition-internal]
+    depends_on:
+      web:
+        condition: service_healthy
+    mem_limit: 3g
+    cpus: 1.0
+    pids_limit: 128
+    stop_grace_period: 130s

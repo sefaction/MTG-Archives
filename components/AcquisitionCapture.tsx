@@ -13,6 +13,7 @@ import {
   filterPanelClass as panel,
 } from "./filterStyles";
 import type { StorageLocation } from "@/lib/storage-sections";
+import { acquisitionImageInputKindSchema, type AcquisitionImageInputKind } from "@/lib/acquisition-image-input";
 import type { acquisitionProgressDto } from "@/lib/acquisition-api";
 import {
   captureUuid,
@@ -73,6 +74,7 @@ export function AcquisitionCapture({
   const [camera, setCamera] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [uploads, setUploadState] = useState<Upload[]>([]);
+  const [imageInputKind, setImageInputKind] = useState<AcquisitionImageInputKind>("PHOTO");
   const pendingUploads = useRef<Upload[]>([]);
   const setUploads = useCallback(
     (update: Upload[] | ((rows: Upload[]) => Upload[])) => {
@@ -187,7 +189,7 @@ export function AcquisitionCapture({
         try {
           // A browser crash before ACK retains this blob and the same upload identity.
           await savePendingPhoto(row);
-          const url = `/api/acquisition/${row.sessionId}/photos?slot=${row.slotId}&key=${row.key}&generation=${row.generation}&replace=${row.replacePending ? "1" : "0"}`;
+          const url = `/api/acquisition/${row.sessionId}/photos?slot=${row.slotId}&key=${row.key}&generation=${row.generation}&replace=${row.replacePending ? "1" : "0"}&inputKind=${row.inputKind ?? "PHOTO"}`;
           const response = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": row.blob.type },
@@ -268,7 +270,7 @@ export function AcquisitionCapture({
       );
     }
   }
-  async function addPhoto(blob: Blob, slot?: Progress["slots"][number]) {
+  async function addPhoto(blob: Blob, slot?: Progress["slots"][number], inputKind = imageInputKind) {
     validatePhoto(blob);
     const admitted =
       slot ??
@@ -285,6 +287,7 @@ export function AcquisitionCapture({
       slotId: admitted.id,
       generation: admitted.generation,
       replacePending: !!slot,
+      inputKind,
       blob,
       status: "queued",
     };
@@ -317,7 +320,7 @@ export function AcquisitionCapture({
           0.92,
         ),
       );
-      await addPhoto(blob, slot);
+      await addPhoto(blob, slot, "PHOTO");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -563,6 +566,20 @@ export function AcquisitionCapture({
                 onClick={() => void video.current?.play()}
               />
             )}
+            <label className="block mt-3">
+              Library image type
+              <select className={input + " mt-1 w-full sm:w-auto sm:ml-2"}
+                value={imageInputKind} disabled={busy}
+                onChange={e=>setImageInputKind(acquisitionImageInputKindSchema.parse(e.target.value))}>
+                <option value="PHOTO">Photo · detect card border</option>
+                <option value="CARD_SCAN">Card scan · keep full image</option>
+              </select>
+            </label>
+            <p className="text-sm mt-1">
+              {imageInputKind === "CARD_SCAN"
+                ? "One already framed card per image. Border detection is skipped; the full card and footer are kept."
+                : "Use for camera photos with background around the card. In-app camera captures always use Photo."}
+            </p>
             <div className="flex flex-wrap gap-2 mt-3">
               {!camera ? (
                 <button className={button} onClick={() => void openCamera()}>
@@ -703,8 +720,8 @@ export function AcquisitionCapture({
             <h3 className="font-semibold">Saved cards</h3>
             <p className="text-sm mb-3">
               Compare each scan with its proposed printing. Choose a printing
-              image and save inline. Strong matches confirm using batch
-              defaults; corrections remain available. Only an explicit Inventory
+              image and save inline. Confirmed choices remain correctable until
+              Inventory commit. Only an explicit Inventory
               confirmation adds copies.
             </p>
             <div className="space-y-6">
@@ -720,7 +737,7 @@ export function AcquisitionCapture({
                     data-testid={`capture-card-${slot.position + 1}`}
                     className="min-w-0 space-y-2 border-b border-[var(--app-border)] pb-6"
                   >
-                    <p>Card {slot.position + 1}</p>
+                    <p>Card {slot.position + 1}{photo?.inputKind === "CARD_SCAN" ? " · Card scan" : ""}</p>
                     {photo && !photo.purgedAt ? (
                       <AcquisitionPhotoReview
                         key={photo.id}

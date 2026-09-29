@@ -1,0 +1,878 @@
+{
+  "method": "registered-printing-evidence-dev4",
+  "candidateSource": "ocr",
+  "referenceCount": 112472,
+  "downloadComplete": true,
+  "manifestSha256": "af4e59f0ece116a5d2eb82b907d09c5e48d100b16ecf37843c4ecc18ad9f9312",
+  "snapshotSha256": "2270183b7aedb66e4b0ec5d1dc1b3576d1ad643d1b12e310d0c863ba114ea748",
+  "retrievalSha256": "70c6faaedf83db4504bd056d4048d5aa51b66f2e92cb0e362554fafd8f023ced",
+  "codeSha256": "676725deac4544904da408dd6ef3910e25e1b18424e93be2600f68d50d905e5a",
+  "printingCodeSha256": "8b42d026f24864ec58979b96eb6eeab8d78d649e290ffed250e58ce7e6b769de",
+  "referenceLabelsSha256": "782f949f31d7b591d52cc1578cf60425d4298935307645fcd6b21d7f4e5b37b1",
+  "scope": "Actual full-metadata OCR candidates and completed reference snapshot; 17 scanner development samples. Offline filtering only, no automatic acceptance or held-out claim.",
+  "summary": {
+    "photos": 17,
+    "correctFirstBefore": 15,
+    "correctFirstAfterContradictionFilter": 17,
+    "wrongExpectedContradictions": 0,
+    "rejectedCandidates": 2,
+    "observedAbsent": 7,
+    "unreadable": 10,
+    "automaticAcceptances": 0
+  },
+  "results": [
+    {
+      "file": "scans.01.jpg",
+      "observedStamp": "UNREADABLE",
+      "conflictingObservations": false,
+      "expectedPrintingContradicted": false,
+      "correctFirstBefore": true,
+      "correctFirstAfterContradictionFilter": true,
+      "candidates": [
+        {
+          "rank": 1,
+          "cardId": "e6c577bb-5e21-4a3e-b0a7-713a4ff7dce6",
+          "referenceId": "e6c577bb-5e21-4a3e-b0a7-713a4ff7dce6:0",
+          "referenceStampState": "ABSENT",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 2,
+          "cardId": "9f1a7077-ea1f-4b8a-970a-027daf09e0bc",
+          "referenceId": "9f1a7077-ea1f-4b8a-970a-027daf09e0bc:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 3,
+          "cardId": "a32e2ad3-c5fb-4072-aabf-6cb9538db3ca",
+          "referenceId": "a32e2ad3-c5fb-4072-aabf-6cb9538db3ca:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        }
+      ]
+    },
+    {
+      "file": "scans.02.jpg",
+      "observedStamp": "ABSENT",
+      "conflictingObservations": false,
+      "expectedPrintingContradicted": false,
+      "correctFirstBefore": true,
+      "correctFirstAfterContradictionFilter": true,
+      "candidates": [
+        {
+          "rank": 1,
+          "cardId": "3b0a9cc0-bb6d-47f7-b0d5-3956c46a1b3a",
+          "referenceId": "3b0a9cc0-bb6d-47f7-b0d5-3956c46a1b3a:0",
+          "referenceStampState": "ABSENT",
+          "relation": "AGREES_WITH_STAMP_STATE",
+          "localRelation": "AGREES_WITH_STAMP_STATE",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 2,
+          "cardId": "6c85917c-60ea-44d3-8483-fa639564e881",
+          "referenceId": "6c85917c-60ea-44d3-8483-fa639564e881:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        }
+      ]
+    },
+    {
+      "file": "scans.03.jpg",
+      "observedStamp": "ABSENT",
+      "conflictingObservations": false,
+      "expectedPrintingContradicted": false,
+      "correctFirstBefore": true,
+      "correctFirstAfterContradictionFilter": true,
+      "candidates": [
+        {
+          "rank": 1,
+          "cardId": "db50259b-8ca8-4fbe-8ae3-6b0312d70980",
+          "referenceId": "db50259b-8ca8-4fbe-8ae3-6b0312d70980:0",
+          "referenceStampState": "ABSENT",
+          "relation": "AGREES_WITH_STAMP_STATE",
+          "localRelation": "AGREES_WITH_STAMP_STATE",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 2,
+          "cardId": "3b4de91a-b1e7-4b0f-b329-809cddd41029",
+          "referenceId": "3b4de91a-b1e7-4b0f-b329-809cddd41029:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 3,
+          "cardId": "3b4de91a-b1e7-4b0f-b329-809cddd41029",
+          "referenceId": "3b4de91a-b1e7-4b0f-b329-809cddd41029:1",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        }
+      ]
+    },
+    {
+      "file": "scans.04.jpg",
+      "observedStamp": "UNREADABLE",
+      "conflictingObservations": false,
+      "expectedPrintingContradicted": false,
+      "correctFirstBefore": true,
+      "correctFirstAfterContradictionFilter": true,
+      "candidates": [
+        {
+          "rank": 1,
+          "cardId": "e4d52701-e0dc-474e-b08f-88147200d210",
+          "referenceId": "e4d52701-e0dc-474e-b08f-88147200d210:0",
+          "referenceStampState": "ABSENT",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 2,
+          "cardId": "e4d52701-e0dc-474e-b08f-88147200d210",
+          "referenceId": "e4d52701-e0dc-474e-b08f-88147200d210:1",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        }
+      ]
+    },
+    {
+      "file": "scans.05.jpg",
+      "observedStamp": "UNREADABLE",
+      "conflictingObservations": false,
+      "expectedPrintingContradicted": false,
+      "correctFirstBefore": true,
+      "correctFirstAfterContradictionFilter": true,
+      "candidates": [
+        {
+          "rank": 1,
+          "cardId": "dd73fa5a-be0f-49a4-a921-afefbc8fa9c5",
+          "referenceId": "dd73fa5a-be0f-49a4-a921-afefbc8fa9c5:0",
+          "referenceStampState": "ABSENT",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        }
+      ]
+    },
+    {
+      "file": "scans.06.jpg",
+      "observedStamp": "ABSENT",
+      "conflictingObservations": false,
+      "expectedPrintingContradicted": false,
+      "correctFirstBefore": false,
+      "correctFirstAfterContradictionFilter": true,
+      "candidates": [
+        {
+          "rank": 1,
+          "cardId": "4e02b30f-1bd2-479d-8602-c3df9ba0d3d4",
+          "referenceId": "4e02b30f-1bd2-479d-8602-c3df9ba0d3d4:0",
+          "referenceStampState": "PRESENT",
+          "relation": "CONTRADICTS_STAMP_STATE",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": [
+            "6338942d-d650-4571-8ec6-4d658792c53e:0"
+          ]
+        },
+        {
+          "rank": 2,
+          "cardId": "6338942d-d650-4571-8ec6-4d658792c53e",
+          "referenceId": "6338942d-d650-4571-8ec6-4d658792c53e:0",
+          "referenceStampState": "ABSENT",
+          "relation": "AGREES_WITH_STAMP_STATE",
+          "localRelation": "AGREES_WITH_STAMP_STATE",
+          "sharedObservationSources": []
+        }
+      ]
+    },
+    {
+      "file": "scans.07.jpg",
+      "observedStamp": "UNREADABLE",
+      "conflictingObservations": false,
+      "expectedPrintingContradicted": false,
+      "correctFirstBefore": true,
+      "correctFirstAfterContradictionFilter": true,
+      "candidates": [
+        {
+          "rank": 1,
+          "cardId": "bef5d58e-b490-4682-9a44-12cd61a94c0f",
+          "referenceId": "bef5d58e-b490-4682-9a44-12cd61a94c0f:0",
+          "referenceStampState": "ABSENT",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 2,
+          "cardId": "1bd7755f-7ca5-4948-8baf-976823906891",
+          "referenceId": "1bd7755f-7ca5-4948-8baf-976823906891:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 3,
+          "cardId": "abc046c2-be9b-4f93-ac7d-e7dea6c4df9a",
+          "referenceId": "abc046c2-be9b-4f93-ac7d-e7dea6c4df9a:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 4,
+          "cardId": "d5350236-7bd2-462d-9768-50087626c764",
+          "referenceId": "d5350236-7bd2-462d-9768-50087626c764:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        }
+      ]
+    },
+    {
+      "file": "scans.08.jpg",
+      "observedStamp": "UNREADABLE",
+      "conflictingObservations": false,
+      "expectedPrintingContradicted": false,
+      "correctFirstBefore": true,
+      "correctFirstAfterContradictionFilter": true,
+      "candidates": [
+        {
+          "rank": 1,
+          "cardId": "941f91bb-f5a3-4cca-85b5-b610502460bb",
+          "referenceId": "941f91bb-f5a3-4cca-85b5-b610502460bb:0",
+          "referenceStampState": "ABSENT",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        }
+      ]
+    },
+    {
+      "file": "scans.09.jpg",
+      "observedStamp": "ABSENT",
+      "conflictingObservations": false,
+      "expectedPrintingContradicted": false,
+      "correctFirstBefore": false,
+      "correctFirstAfterContradictionFilter": true,
+      "candidates": [
+        {
+          "rank": 1,
+          "cardId": "5d753bef-7043-42d0-929a-b82f0079f3b8",
+          "referenceId": "5d753bef-7043-42d0-929a-b82f0079f3b8:0",
+          "referenceStampState": "PRESENT",
+          "relation": "CONTRADICTS_STAMP_STATE",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": [
+            "7a4e1580-dd26-4f4b-ac98-3e6fa7b879d5:0"
+          ]
+        },
+        {
+          "rank": 2,
+          "cardId": "7a4e1580-dd26-4f4b-ac98-3e6fa7b879d5",
+          "referenceId": "7a4e1580-dd26-4f4b-ac98-3e6fa7b879d5:0",
+          "referenceStampState": "ABSENT",
+          "relation": "AGREES_WITH_STAMP_STATE",
+          "localRelation": "AGREES_WITH_STAMP_STATE",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 3,
+          "cardId": "e22769f1-3bec-4e2c-8014-3220299ce978",
+          "referenceId": "e22769f1-3bec-4e2c-8014-3220299ce978:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        }
+      ]
+    },
+    {
+      "file": "scans.10.jpg",
+      "observedStamp": "UNREADABLE",
+      "conflictingObservations": false,
+      "expectedPrintingContradicted": false,
+      "correctFirstBefore": true,
+      "correctFirstAfterContradictionFilter": true,
+      "candidates": [
+        {
+          "rank": 1,
+          "cardId": "0f66d573-5da4-4b3c-ab06-bb330cff2c9a",
+          "referenceId": "0f66d573-5da4-4b3c-ab06-bb330cff2c9a:0",
+          "referenceStampState": "ABSENT",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 2,
+          "cardId": "560c7de9-0046-4a76-a41a-fa1c3ef92f04",
+          "referenceId": "560c7de9-0046-4a76-a41a-fa1c3ef92f04:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 3,
+          "cardId": "6f534ddc-f610-45cd-84dc-bb6df6c5a84f",
+          "referenceId": "6f534ddc-f610-45cd-84dc-bb6df6c5a84f:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 4,
+          "cardId": "000f1f50-08e5-4d83-8159-98f06a0e2279",
+          "referenceId": "000f1f50-08e5-4d83-8159-98f06a0e2279:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 5,
+          "cardId": "00c74207-577c-4eab-9759-4cab76c17f2c",
+          "referenceId": "00c74207-577c-4eab-9759-4cab76c17f2c:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 6,
+          "cardId": "017fb3fc-433e-4853-bbac-99fa04b40233",
+          "referenceId": "017fb3fc-433e-4853-bbac-99fa04b40233:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 7,
+          "cardId": "0291245a-d0c6-48d3-af72-f2ad8e47f9cf",
+          "referenceId": "0291245a-d0c6-48d3-af72-f2ad8e47f9cf:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 8,
+          "cardId": "029540f9-9a19-4b1e-a61a-30813fd8cdd0",
+          "referenceId": "029540f9-9a19-4b1e-a61a-30813fd8cdd0:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 9,
+          "cardId": "0298749b-089e-49b9-8c89-02431a3d6457",
+          "referenceId": "0298749b-089e-49b9-8c89-02431a3d6457:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 10,
+          "cardId": "02f76514-9e0d-4d74-a224-15a2d7b44ae1",
+          "referenceId": "02f76514-9e0d-4d74-a224-15a2d7b44ae1:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 11,
+          "cardId": "03438868-e177-46af-9ae8-edc4a991f18c",
+          "referenceId": "03438868-e177-46af-9ae8-edc4a991f18c:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 12,
+          "cardId": "03f845b1-3b8a-4387-aae3-fd497acf193c",
+          "referenceId": "03f845b1-3b8a-4387-aae3-fd497acf193c:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        }
+      ]
+    },
+    {
+      "file": "scans.11.jpg",
+      "observedStamp": "UNREADABLE",
+      "conflictingObservations": false,
+      "expectedPrintingContradicted": false,
+      "correctFirstBefore": true,
+      "correctFirstAfterContradictionFilter": true,
+      "candidates": [
+        {
+          "rank": 1,
+          "cardId": "8002de90-93fb-48ea-a849-40fdad0aef5a",
+          "referenceId": "8002de90-93fb-48ea-a849-40fdad0aef5a:0",
+          "referenceStampState": "ABSENT",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 2,
+          "cardId": "deca57c8-ac90-4fce-83b5-74adf45622e5",
+          "referenceId": "deca57c8-ac90-4fce-83b5-74adf45622e5:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 3,
+          "cardId": "e6624d46-4a49-4125-b536-9300527975b9",
+          "referenceId": "e6624d46-4a49-4125-b536-9300527975b9:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        }
+      ]
+    },
+    {
+      "file": "scans.12.jpg",
+      "observedStamp": "UNREADABLE",
+      "conflictingObservations": false,
+      "expectedPrintingContradicted": false,
+      "correctFirstBefore": true,
+      "correctFirstAfterContradictionFilter": true,
+      "candidates": [
+        {
+          "rank": 1,
+          "cardId": "ba06fcda-7ab8-48d4-8656-2a911e73dc44",
+          "referenceId": "ba06fcda-7ab8-48d4-8656-2a911e73dc44:0",
+          "referenceStampState": "ABSENT",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 2,
+          "cardId": "47746248-1a8f-4123-a0d9-6cb61f4b394f",
+          "referenceId": "47746248-1a8f-4123-a0d9-6cb61f4b394f:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 3,
+          "cardId": "0c8269e6-b30c-4fdc-82a7-d503c133afa6",
+          "referenceId": "0c8269e6-b30c-4fdc-82a7-d503c133afa6:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 4,
+          "cardId": "15a7b30a-c59f-4a87-9e8a-b29daea27422",
+          "referenceId": "15a7b30a-c59f-4a87-9e8a-b29daea27422:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 5,
+          "cardId": "1dde3c68-6f29-4c00-b668-c25ac9e3e13b",
+          "referenceId": "1dde3c68-6f29-4c00-b668-c25ac9e3e13b:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 6,
+          "cardId": "30e92f24-6593-4756-a21b-60befff589f9",
+          "referenceId": "30e92f24-6593-4756-a21b-60befff589f9:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 7,
+          "cardId": "30e92f24-6593-4756-a21b-60befff589f9",
+          "referenceId": "30e92f24-6593-4756-a21b-60befff589f9:1",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 8,
+          "cardId": "49195d90-de0c-4290-aa1c-9f4d948b5521",
+          "referenceId": "49195d90-de0c-4290-aa1c-9f4d948b5521:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 9,
+          "cardId": "5b0d38a0-7714-40c7-ae8e-2afd121ed59a",
+          "referenceId": "5b0d38a0-7714-40c7-ae8e-2afd121ed59a:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 10,
+          "cardId": "5d89a0e2-1163-4a11-b0df-deef2e6c8108",
+          "referenceId": "5d89a0e2-1163-4a11-b0df-deef2e6c8108:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 11,
+          "cardId": "83a54064-982f-4ff8-b5e6-c5b92ae61071",
+          "referenceId": "83a54064-982f-4ff8-b5e6-c5b92ae61071:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 12,
+          "cardId": "85930f68-6f53-4921-9556-2887ac3abfd2",
+          "referenceId": "85930f68-6f53-4921-9556-2887ac3abfd2:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 13,
+          "cardId": "8b90dc92-cb66-41d9-89f9-2b6e3cfc8082",
+          "referenceId": "8b90dc92-cb66-41d9-89f9-2b6e3cfc8082:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        }
+      ]
+    },
+    {
+      "file": "scans.13.jpg",
+      "observedStamp": "ABSENT",
+      "conflictingObservations": false,
+      "expectedPrintingContradicted": false,
+      "correctFirstBefore": true,
+      "correctFirstAfterContradictionFilter": true,
+      "candidates": [
+        {
+          "rank": 1,
+          "cardId": "58c8bdce-73a3-4266-b3d6-61dbf4534ea3",
+          "referenceId": "58c8bdce-73a3-4266-b3d6-61dbf4534ea3:0",
+          "referenceStampState": "ABSENT",
+          "relation": "AGREES_WITH_STAMP_STATE",
+          "localRelation": "AGREES_WITH_STAMP_STATE",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 2,
+          "cardId": "35494897-b72b-46c4-8b36-b3b8865559bd",
+          "referenceId": "35494897-b72b-46c4-8b36-b3b8865559bd:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 3,
+          "cardId": "715c58f4-ede4-4c43-9c91-6119f9edff53",
+          "referenceId": "715c58f4-ede4-4c43-9c91-6119f9edff53:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 4,
+          "cardId": "82220a35-a6e0-4482-b514-f964664ec5ec",
+          "referenceId": "82220a35-a6e0-4482-b514-f964664ec5ec:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 5,
+          "cardId": "930745eb-b038-4b55-97f3-bf8d99b54d32",
+          "referenceId": "930745eb-b038-4b55-97f3-bf8d99b54d32:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 6,
+          "cardId": "97004b84-ac1a-49a1-862b-ce86bcae2c6b",
+          "referenceId": "97004b84-ac1a-49a1-862b-ce86bcae2c6b:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 7,
+          "cardId": "993956c9-30d8-41ee-84c2-c06d0512aea4",
+          "referenceId": "993956c9-30d8-41ee-84c2-c06d0512aea4:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 8,
+          "cardId": "af158462-91e3-4ad7-b435-95d4eb32fe0a",
+          "referenceId": "af158462-91e3-4ad7-b435-95d4eb32fe0a:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 9,
+          "cardId": "cffb2c38-76b0-4d5f-a4d1-e2494f4be192",
+          "referenceId": "cffb2c38-76b0-4d5f-a4d1-e2494f4be192:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 10,
+          "cardId": "f687518f-73ff-4813-a56f-5b5cc4f36e7a",
+          "referenceId": "f687518f-73ff-4813-a56f-5b5cc4f36e7a:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": [
+            "58c8bdce-73a3-4266-b3d6-61dbf4534ea3:0"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "scans.14.jpg",
+      "observedStamp": "ABSENT",
+      "conflictingObservations": false,
+      "expectedPrintingContradicted": false,
+      "correctFirstBefore": true,
+      "correctFirstAfterContradictionFilter": true,
+      "candidates": [
+        {
+          "rank": 1,
+          "cardId": "55174ab7-9f2e-42e5-a61b-57458cfd33f3",
+          "referenceId": "55174ab7-9f2e-42e5-a61b-57458cfd33f3:0",
+          "referenceStampState": "ABSENT",
+          "relation": "AGREES_WITH_STAMP_STATE",
+          "localRelation": "AGREES_WITH_STAMP_STATE",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 2,
+          "cardId": "59d6bdf8-f06f-43b7-b0c6-012fa989ba79",
+          "referenceId": "59d6bdf8-f06f-43b7-b0c6-012fa989ba79:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 3,
+          "cardId": "d74b6f74-9021-467a-974f-8b04ed1bac9a",
+          "referenceId": "d74b6f74-9021-467a-974f-8b04ed1bac9a:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": [
+            "55174ab7-9f2e-42e5-a61b-57458cfd33f3:0"
+          ]
+        },
+        {
+          "rank": 4,
+          "cardId": "e43e46a6-f7de-482a-a386-73932d1d9002",
+          "referenceId": "e43e46a6-f7de-482a-a386-73932d1d9002:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        }
+      ]
+    },
+    {
+      "file": "scans.15.jpg",
+      "observedStamp": "UNREADABLE",
+      "conflictingObservations": false,
+      "expectedPrintingContradicted": false,
+      "correctFirstBefore": true,
+      "correctFirstAfterContradictionFilter": true,
+      "candidates": [
+        {
+          "rank": 1,
+          "cardId": "13246172-7554-4edc-b6db-23dc91e4290a",
+          "referenceId": "13246172-7554-4edc-b6db-23dc91e4290a:0",
+          "referenceStampState": "ABSENT",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 2,
+          "cardId": "41e7420e-55d0-4f4b-84bb-e5b86616cbb3",
+          "referenceId": "41e7420e-55d0-4f4b-84bb-e5b86616cbb3:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 3,
+          "cardId": "b0d5d052-f713-453a-9c73-109d843b3f90",
+          "referenceId": "b0d5d052-f713-453a-9c73-109d843b3f90:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 4,
+          "cardId": "b0d5d052-f713-453a-9c73-109d843b3f90",
+          "referenceId": "b0d5d052-f713-453a-9c73-109d843b3f90:1",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        }
+      ]
+    },
+    {
+      "file": "scans.16.jpg",
+      "observedStamp": "ABSENT",
+      "conflictingObservations": false,
+      "expectedPrintingContradicted": false,
+      "correctFirstBefore": true,
+      "correctFirstAfterContradictionFilter": true,
+      "candidates": [
+        {
+          "rank": 1,
+          "cardId": "7ec1192c-25b8-4975-ae6c-86be28ac1840",
+          "referenceId": "7ec1192c-25b8-4975-ae6c-86be28ac1840:0",
+          "referenceStampState": "ABSENT",
+          "relation": "AGREES_WITH_STAMP_STATE",
+          "localRelation": "AGREES_WITH_STAMP_STATE",
+          "sharedObservationSources": []
+        }
+      ]
+    },
+    {
+      "file": "scans.17.jpg",
+      "observedStamp": "UNREADABLE",
+      "conflictingObservations": false,
+      "expectedPrintingContradicted": false,
+      "correctFirstBefore": true,
+      "correctFirstAfterContradictionFilter": true,
+      "candidates": [
+        {
+          "rank": 1,
+          "cardId": "89a698a5-f4ac-4b04-96dc-32e1eeef6ac7",
+          "referenceId": "89a698a5-f4ac-4b04-96dc-32e1eeef6ac7:0",
+          "referenceStampState": "ABSENT",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 2,
+          "cardId": "00632c03-be00-4722-85b3-2ce31bba5cc6",
+          "referenceId": "00632c03-be00-4722-85b3-2ce31bba5cc6:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 3,
+          "cardId": "15c73af0-023e-4f56-b0d9-87f6a6caee91",
+          "referenceId": "15c73af0-023e-4f56-b0d9-87f6a6caee91:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 4,
+          "cardId": "6038d84a-0ceb-4acf-ab38-b5b4e3d044c0",
+          "referenceId": "6038d84a-0ceb-4acf-ab38-b5b4e3d044c0:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 5,
+          "cardId": "6038d84a-0ceb-4acf-ab38-b5b4e3d044c0",
+          "referenceId": "6038d84a-0ceb-4acf-ab38-b5b4e3d044c0:1",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 6,
+          "cardId": "983abbf8-4966-47ae-9e72-72f400a49f3b",
+          "referenceId": "983abbf8-4966-47ae-9e72-72f400a49f3b:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        },
+        {
+          "rank": 7,
+          "cardId": "a48c2751-fd12-42f2-b8c1-eaf78c5e29eb",
+          "referenceId": "a48c2751-fd12-42f2-b8c1-eaf78c5e29eb:0",
+          "referenceStampState": "UNKNOWN",
+          "relation": "UNRESOLVED",
+          "localRelation": "UNRESOLVED",
+          "sharedObservationSources": []
+        }
+      ]
+    }
+  ]
+}

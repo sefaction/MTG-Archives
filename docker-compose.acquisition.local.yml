@@ -1,5 +1,20 @@
 # Local-only capture worker. Combine with the ordinary local Compose files.
 services:
+  acquisition-catalog-worker:
+    image: mtg-archives-web:local
+    pull_policy: never
+    restart: unless-stopped
+    command: ["node", "node_modules/tsx/dist/cli.mjs", "scripts/acquisition-catalog-worker.ts"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mtginventory}:${POSTGRES_PASSWORD:-mtginventory}@postgres:5432/${POSTGRES_DB:-mtginventory}?schema=public
+      SCRYFALL_MIN_REQUEST_INTERVAL_MS: 500
+      SCRYFALL_MAX_RETRIES: 1
+    depends_on:
+      web:
+        condition: service_healthy
+    mem_limit: 1g
+    cpus: 1.0
+    stop_grace_period: 190s
   acquisition-worker:
     image: mtg-archives-web:local
     pull_policy: never

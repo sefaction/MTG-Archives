@@ -27,6 +27,24 @@ const config = JSON.parse(
   ),
 );
 const services = config.services;
+const catalog = services["acquisition-catalog-worker"];
+assert.ok(catalog, "Metadata reconciliation deploys with acquisition");
+assert.equal(catalog.image, services.web.image);
+assert.match(
+  catalog.command.join(" "),
+  /scripts\/acquisition-catalog-worker.ts/,
+);
+assert.equal(
+  catalog.environment.DATABASE_URL,
+  services.web.environment.DATABASE_URL,
+);
+assert.equal(catalog.environment.UPLOADS_DATA_PATH, undefined);
+assert.equal(
+  catalog.volumes?.length ?? 0,
+  0,
+  "Metadata worker cannot read original photographs or models",
+);
+assert.deepEqual(Object.keys(catalog.networks), ["default"]);
 const web = services.web,
   prepare = services["acquisition-worker"],
   initialize = services["acquisition-model-init"],

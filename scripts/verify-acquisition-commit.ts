@@ -561,11 +561,12 @@ export async function verifyAcquisitionCommit(
           artifactId: canonical.artifactId,
           candidateId: canonical.candidateId,
           candidateRevision: canonical.candidate.revision,
-          stage: "photo-recognition-v1",
+          stage: "photo-catalog-reconciliation-v1",
           versionKey: randomUUID(),
           status: "COMPLETE",
           input: canonical.input!,
           output: {
+            catalog: { status: "RESOLVED", printingCoverage: "CHECKED" },
             proposals: proposeAcquisitionPrintings(
               createAcquisitionRecognitionIndex([card]),
               { title: [card.name], footer: strong ? ["C 1", "CFX EN"] : [] },
@@ -620,7 +621,7 @@ export async function verifyAcquisitionCommit(
     const legacy = await db.acquisitionProcessingJob.findFirstOrThrow({
       where: {
         artifact: { sourceId: auto.photos[0].id },
-        stage: "photo-recognition-v1",
+        stage: "photo-catalog-reconciliation-v1",
       },
     });
     const currentEvidence = legacy.output as { proposals: { version: number } };

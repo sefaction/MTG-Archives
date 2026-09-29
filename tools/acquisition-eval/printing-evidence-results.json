@@ -1,0 +1,536 @@
+{
+  "version": 2,
+  "method": "registered-printing-evidence-dev4",
+  "scope": "Labelled candidate-reference stage isolation on completed default catalog. Not actual retrieval, end-to-end or held-out accuracy.",
+  "referenceSnapshotSha256": "2270183b7aedb66e4b0ec5d1dc1b3576d1ad643d1b12e310d0c863ba114ea748",
+  "referenceCount": 112472,
+  "unavailableCatalogFaces": 899,
+  "downloadComplete": true,
+  "summary": {
+    "photos": 68,
+    "labelledPhotos": 48,
+    "expectedPresent": 3,
+    "expectedAbsent": 45,
+    "correctPresent": 2,
+    "correctAbsent": 8,
+    "wrongExplicit": 0,
+    "unreadableLabelled": 38
+  },
+  "reports": [
+    {
+      "corpus": "android",
+      "manifestSha256": "65cb19e560d75f99d7a8838f3ad586381c72e28daa0d48b1330dda090a52b89f",
+      "codeSha256": "8b42d026f24864ec58979b96eb6eeab8d78d649e290ffed250e58ce7e6b769de",
+      "referenceLabelsSha256": "e5d2341ddc79232ea2cf8f72e727061c1bc6175f494ff5f870829c664614924c",
+      "counts": {
+        "PRESENT": 2,
+        "UNREADABLE": 21
+      },
+      "aligned": 23,
+      "rows": [
+        {
+          "file": "PXL_20260927_150825750.jpg",
+          "expectedStamp": "PRESENT",
+          "status": "PRESENT",
+          "reason": "LOCAL_SYMBOL_SHAPE",
+          "referenceStampState": "PRESENT"
+        },
+        {
+          "file": "PXL_20260927_151021209.jpg",
+          "expectedStamp": "UNLABELLED",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260927_151030766.jpg",
+          "expectedStamp": "UNLABELLED",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260927_151037738.jpg",
+          "expectedStamp": "UNLABELLED",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260927_151048233.jpg",
+          "expectedStamp": "UNLABELLED",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260927_151053467.jpg",
+          "expectedStamp": "UNLABELLED",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260927_151059416.jpg",
+          "expectedStamp": "UNLABELLED",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260927_151111560.jpg",
+          "expectedStamp": "PRESENT",
+          "status": "UNREADABLE",
+          "reason": "NO_VERIFIED_UNSTAMPED_REFERENCE",
+          "referenceStampState": "PRESENT"
+        },
+        {
+          "file": "PXL_20260927_151119884.jpg",
+          "expectedStamp": "UNLABELLED",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_PRINTING_DIFFERS",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260927_151127248.jpg",
+          "expectedStamp": "PRESENT",
+          "status": "PRESENT",
+          "reason": "LOCAL_SYMBOL_SHAPE",
+          "referenceStampState": "PRESENT"
+        },
+        {
+          "file": "PXL_20260928_003418071.jpg",
+          "expectedStamp": "UNLABELLED",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_003422176.jpg",
+          "expectedStamp": "UNLABELLED",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_PRINTING_DIFFERS",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_003426755.jpg",
+          "expectedStamp": "UNLABELLED",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_003429763.jpg",
+          "expectedStamp": "UNLABELLED",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_003432155.jpg",
+          "expectedStamp": "UNLABELLED",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_PRINTING_DIFFERS",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_003434676.jpg",
+          "expectedStamp": "UNLABELLED",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_003436955.jpg",
+          "expectedStamp": "UNLABELLED",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_003438899.jpg",
+          "expectedStamp": "UNLABELLED",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_PRINTING_DIFFERS",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_003441259.jpg",
+          "expectedStamp": "UNLABELLED",
+          "status": "UNREADABLE",
+          "reason": "STAMP_CLIPPED_OR_TOO_SMALL",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_003443452.jpg",
+          "expectedStamp": "UNLABELLED",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_003445909.jpg",
+          "expectedStamp": "UNLABELLED",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_003449841.jpg",
+          "expectedStamp": "UNLABELLED",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_003452817.jpg",
+          "expectedStamp": "UNLABELLED",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        }
+      ]
+    },
+    {
+      "corpus": "scanner",
+      "manifestSha256": "af4e59f0ece116a5d2eb82b907d09c5e48d100b16ecf37843c4ecc18ad9f9312",
+      "codeSha256": "8b42d026f24864ec58979b96eb6eeab8d78d649e290ffed250e58ce7e6b769de",
+      "referenceLabelsSha256": "e5d2341ddc79232ea2cf8f72e727061c1bc6175f494ff5f870829c664614924c",
+      "counts": {
+        "UNREADABLE": 10,
+        "ABSENT": 7
+      },
+      "aligned": 17,
+      "rows": [
+        {
+          "file": "scans.01.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "scans.02.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "ABSENT",
+          "reason": "VISIBLE_REGION_AGREES_WITH_REFERENCE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "scans.03.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "ABSENT",
+          "reason": "VISIBLE_REGION_AGREES_WITH_REFERENCE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "scans.04.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "scans.05.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "scans.06.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "ABSENT",
+          "reason": "VISIBLE_REGION_AGREES_WITH_REFERENCE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "scans.07.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "scans.08.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "scans.09.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "ABSENT",
+          "reason": "VISIBLE_REGION_AGREES_WITH_REFERENCE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "scans.10.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "scans.11.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "scans.12.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "scans.13.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "ABSENT",
+          "reason": "VISIBLE_REGION_AGREES_WITH_REFERENCE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "scans.14.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "ABSENT",
+          "reason": "VISIBLE_REGION_AGREES_WITH_REFERENCE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "scans.15.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "scans.16.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "ABSENT",
+          "reason": "VISIBLE_REGION_AGREES_WITH_REFERENCE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "scans.17.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        }
+      ]
+    },
+    {
+      "corpus": "additional",
+      "manifestSha256": "2e6aec35a88774025396e364637073e90e1db2d0aa3d798ff28fda5817daca5c",
+      "codeSha256": "8b42d026f24864ec58979b96eb6eeab8d78d649e290ffed250e58ce7e6b769de",
+      "referenceLabelsSha256": "e5d2341ddc79232ea2cf8f72e727061c1bc6175f494ff5f870829c664614924c",
+      "counts": {
+        "UNREADABLE": 27,
+        "ABSENT": 1
+      },
+      "aligned": 28,
+      "rows": [
+        {
+          "file": "PXL_20260928_030509298.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030519950.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030530663.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_PRINTING_DIFFERS",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030535762.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030544422.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030553607.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030600427.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030605236.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030649185.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030655797.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030701493.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030706125.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030709884.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030712471.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030714532.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030716575.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030720305.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "ABSENT",
+          "reason": "VISIBLE_REGION_AGREES_WITH_REFERENCE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030722320.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030726805.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030733305.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030743392.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_PRINTING_DIFFERS",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030749630.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030754776.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030800344.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030813159.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030827491.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030832196.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        },
+        {
+          "file": "PXL_20260928_030839397.jpg",
+          "expectedStamp": "ABSENT",
+          "status": "UNREADABLE",
+          "reason": "LOCAL_EVIDENCE_INCONCLUSIVE",
+          "referenceStampState": "ABSENT"
+        }
+      ]
+    }
+  ]
+}

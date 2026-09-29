@@ -19,7 +19,10 @@ export function AcquisitionScanImage({
   position: number;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const [view, setView] = useState<"original" | "crop" | "zones">("crop");
+  const [view, setView] = useState<"original" | "crop" | "zones" | null>(null);
+  // A whole-photo hint may come from outside a bad detected crop. Default to
+  // the actual source while keeping explicit crop/zone inspection available.
+  const displayView = view ?? (evidence?.photoText ? "original" : "crop");
   const [reverse, setReverse] = useState(false);
   const [error, setError] = useState("");
   const quad =
@@ -27,9 +30,12 @@ export function AcquisitionScanImage({
       ? evidence.geometry.quad
       : undefined;
   const rotation = evidence?.rotation ?? (reverse ? 180 : 0);
+  const declaredScan = evidence?.geometry.method === "declared-card-scan";
+  const fullFrame = declaredScan || evidence?.geometry.method === "full-frame";
   const observation = evidence?.observations.find(
     (o) => o.rotationDegrees === rotation,
   );
+  const readingZones = evidence?.readingZones;
   useEffect(() => {
     if (!active || !canvas.current) return;
     const target = canvas.current;
@@ -39,7 +45,7 @@ export function AcquisitionScanImage({
     image.onload = () => {
       if (cancelled || !canvas.current) return;
       const ctx = target.getContext("2d")!;
-      if (view === "original" || !quad) {
+      if (displayView === "original" || !quad) {
         const scale = Math.min(
           1,
           600 / Math.max(image.naturalWidth, image.naturalHeight),
@@ -120,10 +126,15 @@ export function AcquisitionScanImage({
         }
       ctx.putImageData(out, 0, 0);
       source.width = source.height = 0;
-      if (view === "zones") {
+      if (displayView === "zones" && readingZones) {
         ctx.fillStyle = "rgba(0,255,255,.18)";
-        ctx.fillRect(0, 0, 400, (250 / 1397) * 559);
-        ctx.fillRect(0, (1210 / 1397) * 559, 400, (187 / 1397) * 559);
+        for (const zone of Object.values(readingZones))
+          ctx.fillRect(
+            0,
+            (zone.top / 1397) * 559,
+            400,
+            ((zone.bottom - zone.top) / 1397) * 559,
+          );
         ctx.strokeStyle = "#ffff00";
         ctx.lineWidth = 1;
         for (const line of observation?.lines ?? []) {
@@ -152,7 +163,7 @@ export function AcquisitionScanImage({
       image.src = "";
       target.width = target.height = 0;
     };
-  }, [src, active, quad, observation, view, rotation]);
+  }, [src, active, quad, observation, readingZones, displayView, rotation]);
   return (
     <figure className="min-w-0">
       <figcaption className="font-semibold mb-2 min-h-12 sm:min-h-0">
@@ -163,7 +174,7 @@ export function AcquisitionScanImage({
           <canvas
             ref={canvas}
             role="img"
-            aria-label={`${view === "original" || !quad ? "Original scan" : "Detected card"} ${position}`}
+            aria-label={`${displayView === "original" || !quad ? "Original scan" : fullFrame ? "Full card image" : "Detected card"} ${position}`}
             className="max-w-full max-h-full object-contain"
           />
         ) : (
@@ -179,7 +190,7 @@ export function AcquisitionScanImage({
         {(
           [
             ["original", "Original"],
-            ["crop", "Detected card"],
+            ["crop", fullFrame ? "Full card image" : "Detected card"],
             ["zones", "Reading zones"],
           ] as const
         ).map(([key, label]) => (
@@ -187,7 +198,7 @@ export function AcquisitionScanImage({
             key={key}
             className={button + " text-xs"}
             disabled={key !== "original" && !quad}
-            aria-pressed={view === key}
+            aria-pressed={displayView === key}
             onClick={() => setView(key)}
           >
             {label}
@@ -205,15 +216,19 @@ export function AcquisitionScanImage({
       <p className="text-xs mt-2">
         {!quad
           ? "No detected outline available; showing original."
-          : view === "original"
-            ? "Cyan outline: corners chosen by the worker."
-            : `Reconstructed from the worker's saved corners${evidence?.rotation === null ? "; reading direction unresolved" : " and reading direction"}.`}
+          : declaredScan
+            ? "Card scan: full image retained; border detection skipped."
+          : fullFrame
+            ? `Full image retained; no crop. This tightly framed image is resized for reading${evidence?.rotation === null ? "; direction unresolved" : " and oriented using the reading result"}.`
+            : displayView === "original"
+              ? "Cyan outline: corners chosen by the worker."
+              : `Reconstructed from the worker's saved corners${evidence?.rotation === null ? "; reading direction unresolved" : " and reading direction"}.`}
       </p>
-      {view === "zones" && (
+      {displayView === "zones" && (
         <p className="text-xs">
           Cyan: title/footer areas attempted. Yellow: detected text boxes. Boxes
-          do not establish a correct reading. Stamp and set-symbol detection are
-          not implemented.
+          do not establish a correct reading. Stamp evidence uses a separately
+          aligned lower-left region. Set-symbol detection is not implemented.
         </p>
       )}
       <a
@@ -243,6 +258,21 @@ export function AcquisitionEvidenceFields({
     (o) => o.rotationDegrees === evidence.rotation,
   );
   const ids = evidence?.identifiers;
+  const printing = evidence?.printing;
+  const selectedStamp = printing?.candidates.find(c=>c.cardId === selected?.id);
+  const expectationLabel = selectedStamp?.expectationSource === "CATALOG_LIST_REPRINT"
+    ? "List reprint catalog identity"
+    : selectedStamp?.expectationSource === "CATALOG_SOURCE_PRINTING"
+      ? "Matching source-printing catalog identity"
+      : selectedStamp?.expectationSource === "VERIFIED_REFERENCE"
+        ? "Verified reference annotation" : "Unqualified";
+  const stampStatus = printing?.conflictingObservations
+    ? "Conflicting observations; review required"
+    : printing?.observedStamp === "PRESENT" ? "Present"
+    : printing?.observedStamp === "ABSENT" ? "Absent"
+    : printing ? "Unreadable" : "Not checked";
+  const printedPrefix = selected?.setCode === "plst"
+    ? /^([a-z0-9]+)-(.+)$/i.exec(selected.collectorNumber) : null;
   const compare = (
     values: string[] | undefined,
     expected: string | undefined | null,
@@ -271,14 +301,14 @@ export function AcquisitionEvidenceFields({
     [
       "Set code",
       ids?.setCodes.join(", ") || "—",
-      compare(ids?.setCodes, selected?.setCode),
+      compare(ids?.setCodes, printedPrefix?.[1] ?? selected?.setCode),
     ],
     [
       "Collector number",
       ids?.collectors.join(", ") || "—",
       compare(
         ids?.collectors,
-        selected?.collectorNumber.replace(/^0+(?=\d)/, ""),
+        (printedPrefix?.[2] ?? selected?.collectorNumber)?.replace(/^0+(?=\d)/, ""),
       ),
     ],
     [
@@ -286,9 +316,32 @@ export function AcquisitionEvidenceFields({
       ids?.languages.join(", ") || "—",
       compare(ids?.languages, selected?.lang),
     ],
-    ["Planeswalker stamp", "Inspect the lower-left corner", "Not checked"],
+    ["Planeswalker stamp",
+      selectedStamp?.relation === "CONTRADICTS_STAMP_STATE"
+        ? "Observed stamp differs from this printing; correct the selection or inspect the photo."
+        : selectedStamp?.relation === "AGREES_WITH_STAMP_STATE"
+          ? "Observed stamp agrees with this printing. Other printing details still need verification."
+          : printing?.observedStamp === "UNREADABLE"
+            ? "The lower-left region did not provide enough evidence. Inspect the original photo."
+            : "Inspect the lower-left corner; this selection has no verified stamp comparison.", stampStatus],
+    ["Printing stamp expectation", expectationLabel,
+      selectedStamp?.expectedStampState ?? "Unknown (older result)"],
+    ["Reference image stamp", "Annotation of the public comparison image; separate from the printing expectation",
+      selectedStamp?.referenceStampState ?? "Not checked"],
     ["Set symbol", "Visual detection not implemented", "Not checked"],
-    ["Card artwork", "Image matching not implemented", "Not checked"],
+    [
+      "Card image",
+      evidence?.imageMatches
+        ? evidence.imageMatches.inputRegion === "CARD"
+          ? "Whole card compared with catalog images"
+          : "Whole photo compared; card outline was not established"
+        : "Image comparison not available for this result",
+      evidence?.imageMatches
+        ? reasons.includes("VISUAL_MATCH") || reasons.includes("SIFT_CANDIDATE")
+          ? "Image candidate; verify printing"
+          : "Selection outside image candidates"
+        : "Not checked",
+    ],
   ];
   return (
     <section aria-label="Recognition evidence" className="mt-4">
@@ -303,7 +356,9 @@ export function AcquisitionEvidenceFields({
         <>
           <p className="text-sm mb-2">
             {evidence.geometry.status !== "PROPOSED"
-              ? "Card outline not found. Text recognition could not start."
+              ? evidence.photoText
+                ? "Card outline not found. Whole-photo OCR is separate search evidence; title and footer regions are unverified."
+                : "Card outline not found. Text recognition could not start."
               : evidence.rotation === null
                 ? "Reading direction unresolved. Inspect both directions below; identifiers have not been combined."
                 : "Observed photo text is shown below. A catalog suggestion is not proof that every field was read."}
@@ -328,6 +383,13 @@ export function AcquisitionEvidenceFields({
               </div>
             ))}
           </dl>
+          {printedPrefix && (
+            <p className="text-sm mt-2">
+              Stamped reprints retain the original set and collector text;
+              {" "}{printedPrefix[1].toUpperCase()} #{printedPrefix[2]} identifies
+              that source printing within The List / Mystery Booster catalog.
+            </p>
+          )}
           {reasons.includes("STAMP_UNVERIFIED") && (
             <p className="text-sm mt-2">
               Check the lower-left Planeswalker stamp: the original and stamped
@@ -351,6 +413,26 @@ export function AcquisitionEvidenceFields({
               </div>
             ))}
           </details>
+          {evidence.photoText && (
+            <details className="mt-2" data-testid="unlocalized-photo-text">
+              <summary className="cursor-pointer text-sm underline">Whole-photo OCR (unlocalized)</summary>
+              <p className="text-sm mt-2">
+                {evidence.photoText.status === "UNAVAILABLE"
+                  ? "Whole-photo reading was unavailable within its bounded attempt. Original crop evidence and suggestions are retained."
+                  : evidence.photoText.status === "PARTIAL"
+                    ? "Only part of the whole-photo reading completed."
+                    : "Whole-photo reading completed."}
+                {" "}These lines can suggest names; they do not verify title, footer, language or stamp regions.
+              </p>
+              {evidence.photoText.readings.map(reading => (
+                <div key={reading.rotationDegrees} className="text-xs mt-2 break-words">
+                  <p className="font-semibold">{reading.rotationDegrees}° relative to the original photo</p>
+                  <p>{reading.text.join(" | ") || "Nothing read"}</p>
+                  {reading.truncated && <p>Reading truncated; review the original photo.</p>}
+                </div>
+              ))}
+            </details>
+          )}
         </>
       )}
     </section>

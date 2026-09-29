@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { Prisma, PrismaClient, type InventoryLocation } from "@prisma/client";
 import { z } from "zod";
+import { acquisitionImageInputKindSchema, type AcquisitionImageInputKind } from "./acquisition-image-input";
 import { isAdminUser } from "./auth-policy";
 import { getStorageLocations } from "./storage-summary";
 import {
@@ -10,7 +11,10 @@ import {
   acquisitionReviewRequestSchema,
   type AcquisitionCardReview,
 } from "./acquisition-review";
-import { acquisitionRecognitionDto } from "./acquisition-recognition-dto";
+import { VISUAL_STAGE } from "./acquisition-visual";
+import { PRINTING_STAGE } from "./acquisition-printing";
+import { acquisitionRecognitionJobs } from "./acquisition-recognition-jobs";
+import { CATALOG_RECONCILIATION_STAGE } from "./acquisition-catalog-status";
 import { acquisitionReviewEvidence } from "./acquisition-review-evidence";
 import { searchLocalCardCatalog } from "./local-card-search";
 import {
@@ -774,6 +778,7 @@ export async function getAcquisitionProgress(
             purgedAt: true,
             digest: true,
             bytes: true,
+            inputKind: true,
           },
         },
       },
@@ -895,12 +900,14 @@ export async function beginAcquisitionPhoto(
     generation: number;
     replacePending?: boolean;
     metadata: AcquisitionPhotoMetadata;
+    inputKind?: AcquisitionImageInputKind;
   },
 ) {
   z.string().uuid().parse(input.slotId);
   z.string().uuid().parse(input.uploadKey);
   z.number().int().min(0).max(20).parse(input.generation);
   const metadata = acquisitionPhotoMetadataSchema.parse(input.metadata);
+  const inputKind = acquisitionImageInputKindSchema.parse(input.inputKind ?? "PHOTO");
   return transaction(db, async (tx) => {
     await read(tx, actor, sessionId);
     await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${sessionId} FOR UPDATE`;
@@ -919,7 +926,8 @@ export async function beginAcquisitionPhoto(
         previous.slotId !== slot.id ||
         previous.generation !== input.generation + 1 ||
         previous.digest !== metadata.digest ||
-        previous.bytes !== metadata.bytes
+        previous.bytes !== metadata.bytes ||
+        previous.inputKind !== inputKind
       )
         throw new Error("Photo upload identity conflict");
       if (
@@ -979,6 +987,7 @@ export async function beginAcquisitionPhoto(
         uploadKey: input.uploadKey,
         generation: slot.generation + 1,
         ...metadata,
+        inputKind,
       },
     });
     await tx.acquisitionCaptureSlot.update({
@@ -1054,6 +1063,7 @@ export async function finalizeAcquisitionPhoto(
           version: 1,
           photoId: photo.id,
           digest: photo.digest,
+          inputKind: photo.inputKind,
           versions: {
             pipeline: "orient-1600-v1",
             runtime: "sharp-0.35.4",
@@ -1120,20 +1130,26 @@ export async function getAcquisitionCardReview(
   return transaction(db, async (tx) => {
     const row = await read(tx, actor, sessionId);
     const { photo, candidate } = await reviewPhoto(tx, row, photoId);
-    const job = await tx.acquisitionProcessingJob.findFirst({
+    const jobs = await tx.acquisitionProcessingJob.findMany({
       where: {
         runId: row.run!.id,
         artifact: { sourceId: photo.id },
-        stage: "photo-recognition-v1",
-        status: "COMPLETE",
+        stage: {
+          in: [
+            "photo-recognition-v1",
+            CATALOG_RECONCILIATION_STAGE,
+            VISUAL_STAGE,
+            PRINTING_STAGE,
+          ],
+        },
       },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 16,
     });
     // A saved suggestion remains evidence for these immutable bytes after human
     // review increments the candidate revision. It never changes that review.
-    const evidence = acquisitionRecognitionDto(
-      job?.status ?? "WAITING",
-      job?.output,
+    const {job, evidence, visualStatus, printingStatus} = acquisitionRecognitionJobs(
+      jobs, process.env.ACQUISITION_VISUAL_ENABLED === "1", process.env.ACQUISITION_PRINTING_ENABLED === "1",
     );
     const review = candidate.review as AcquisitionCardReview["review"];
     const ids = [
@@ -1163,7 +1179,17 @@ export async function getAcquisitionCardReview(
                 ? evidence.result.proposals[0]?.card.id
                 : null)),
         ) ?? null,
-      recognitionStatus: evidence.result?.status ?? evidence.status,
+      recognitionStatus:
+        !evidence.result && evidence.status !== "COMPLETE"
+          ? evidence.status
+          : evidence.catalog?.status === "CHECKING"
+          ? "PENDING"
+          : evidence.status === "FAILED"
+            ? "FAILED"
+            : (evidence.result?.status ?? evidence.status),
+      catalog: evidence.catalog,
+      visualStatus,
+      printingStatus,
       evidence: acquisitionReviewEvidence(job?.output),
       suggestions: (evidence.result?.proposals ?? []).flatMap((p) => {
         const printing = cards.find((c) => c.id === p.card.id);
@@ -1291,6 +1317,10 @@ export async function searchAcquisitionPrintings(
   actor: AcquisitionActor,
   sessionId: string,
   raw: unknown,
+  fallback?: (
+    query: import("./acquisition-catalog-queries").CatalogQuery,
+    signal: AbortSignal,
+  ) => Promise<import("./acquisition-catalog-cache").CachedCatalogResult>,
 ) {
   const input = z
     .object({
@@ -1300,66 +1330,132 @@ export async function searchAcquisitionPrintings(
     })
     .strict()
     .parse(raw);
-  return transaction(db, async (tx) => {
-    const session = await tx.acquisitionSession.findUnique({
-      where: { id: sessionId },
-      select: { ownerPlayerId: true },
-    });
-    if (!session) throw new Error("Capture session unavailable");
-    await authorize(tx, actor, session.ownerPlayerId);
-    if (input.query.length < 2 && !input.set && !input.number)
-      throw new Error("Choose a card name or set and collector number");
-    const matches =
-      !input.set && !input.number
-        ? await searchLocalCardCatalog(tx, {
-            query: input.query,
-            setCode: input.query.toLowerCase(),
-            limit: 50,
-          })
-        : await tx.card.findMany({
+  const search = (externalIds?: string[]) =>
+    transaction(db, async (tx) => {
+      const session = await tx.acquisitionSession.findUnique({
+        where: { id: sessionId },
+        select: { ownerPlayerId: true },
+      });
+      if (!session) throw new Error("Capture session unavailable");
+      await authorize(tx, actor, session.ownerPlayerId);
+      if (input.query.length < 2 && !input.set && !input.number)
+        throw new Error("Choose a card name or set and collector number");
+      const matches = externalIds
+        ? await tx.card.findMany({
             where: {
-              ...(input.query.length >= 2
-                ? {
-                    name: {
-                      contains: input.query,
-                      mode: "insensitive" as const,
-                    },
-                  }
-                : {}),
-              ...(input.set
-                ? {
-                    setCode: {
-                      equals: input.set,
-                      mode: "insensitive" as const,
-                    },
-                  }
-                : {}),
-              ...(input.number
-                ? {
-                    collectorNumber: {
-                      equals: input.number.replace(/^0+(?=\d)/, ""),
-                      mode: "insensitive" as const,
-                    },
-                  }
-                : {}),
+              scryfallId: { in: externalIds },
+              OR: [{ digital: false }, { digital: null }],
             },
             take: 50,
             orderBy: [{ name: "asc" }, { releasedAt: "desc" }, { id: "asc" }],
-          });
-    return matches
-      .filter((c) => c.digital !== true)
-      .map(
-        ({ id, name, setCode, collectorNumber, lang, imageUri, finishes }) => ({
-          id,
-          name,
-          setCode,
-          collectorNumber,
-          lang,
-          imageUri,
-          finishes,
-        }),
-      );
-  });
+          })
+        : !input.set && !input.number
+          ? await searchLocalCardCatalog(tx, {
+              query: input.query,
+              setCode: input.query.toLowerCase(),
+              limit: 50,
+            })
+          : await tx.card.findMany({
+              where: {
+                ...(input.query.length >= 2
+                  ? {
+                      name: {
+                        contains: input.query,
+                        mode: "insensitive" as const,
+                      },
+                    }
+                  : {}),
+                ...(input.set
+                  ? {
+                      setCode: {
+                        equals: input.set,
+                        mode: "insensitive" as const,
+                      },
+                    }
+                  : {}),
+                ...(input.number
+                  ? {
+                      collectorNumber: {
+                        equals: input.number.replace(/^0+(?=\d)/, ""),
+                        mode: "insensitive" as const,
+                      },
+                    }
+                  : {}),
+              },
+              take: 50,
+              orderBy: [{ name: "asc" }, { releasedAt: "desc" }, { id: "asc" }],
+            });
+      return matches
+        .filter((c) => c.digital !== true)
+        .map(
+          ({
+            id,
+            name,
+            setCode,
+            collectorNumber,
+            lang,
+            imageUri,
+            finishes,
+          }) => ({
+            id,
+            name,
+            setCode,
+            collectorNumber,
+            lang,
+            imageUri,
+            finishes,
+          }),
+        );
+    });
+  // Authorization completes before network work, and is checked again before
+  // returning imported metadata. No session/database transaction spans HTTP.
+  const local = await search();
+  const exactName = input.query.trim().toLocaleLowerCase();
+  if (
+    local.length &&
+    (input.set ||
+      input.number ||
+      local.some((card) =>
+        [card.name, ...card.name.split(" // ")].some(
+          (name) => name.toLocaleLowerCase() === exactName,
+        ),
+      ))
+  )
+    return local;
+  const query: import("./acquisition-catalog-queries").CatalogQuery | null =
+    input.set && input.number
+      ? {
+          kind: "printing",
+          set: input.set.toLowerCase(),
+          number: input.number.replace(/^0+(?=\d)/, ""),
+          language: "en",
+        }
+      : input.query.length >= 3
+        ? { kind: "name", name: input.query }
+        : null;
+  if (!query) return local;
+  const lookup =
+    fallback ??
+    ((q, signal) =>
+      import("./acquisition-catalog-cache").then((m) =>
+        m.resolveCachedAcquisitionCatalog(db, q, signal),
+      ));
+  const signal = AbortSignal.timeout(45000);
+  let result = await lookup(query, signal);
+  while (result.status === "PENDING") {
+    signal.throwIfAborted();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    result = await lookup(query, signal);
+  }
+  if (result.status === "PROVIDER_ERROR" || result.status === "INCOMPLETE")
+    throw new Error(
+      "Scryfall could not complete the catalog search. Your photo is saved; try again shortly.",
+    );
+  if (result.status === "NOT_FOUND") return local;
+  const imported = await search(result.cards.map((card) => card.id));
+  return [
+    ...new Map([...imported, ...local].map((card) => [card.id, card])).values(),
+  ].slice(0, 50);
 }
 
 // Internal service primitives. Callers must keep authorization inside each
