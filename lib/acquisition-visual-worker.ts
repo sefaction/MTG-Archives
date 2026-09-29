@@ -3,7 +3,7 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { readAcquisitionPhotoBytes } from "./acquisition-files";
 import type { AcquisitionNativeStream } from "./acquisition-native-stream";
-import type { ClaimedAcquisitionJob } from "./acquisition-jobs";
+import { AcquisitionJobSupersededError, type ClaimedAcquisitionJob } from "./acquisition-jobs";
 import { VISUAL_STAGE, visualNativeSchema } from "./acquisition-visual";
 
 const inputSchema = z.object({
@@ -76,11 +76,11 @@ export async function retrieveAcquisitionVisual(
   job: ClaimedAcquisitionJob,
   signal: AbortSignal,
   model: string,
-  nativeWorker: AcquisitionNativeStream,
+  nativeWorker: Pick<AcquisitionNativeStream, "request">,
 ): Promise<Prisma.InputJsonObject> {
   const input = inputSchema.parse(job.input);
   if (input.model !== model)
-    throw new Error("Visual index version unavailable");
+    throw new AcquisitionJobSupersededError("Visual index version superseded");
   const photo = await db.acquisitionPhoto.findUniqueOrThrow({
     where: { id: input.photoId },
     include: { slot: true },

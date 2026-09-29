@@ -25,6 +25,14 @@ export class AcquisitionNativeStream {
   close() {
     this.child?.kill("SIGKILL");
   }
+  async shutdown() {
+    const child = this.child;
+    if (!child) return;
+    await new Promise<void>((resolve) => {
+      child.once("close", () => resolve());
+      this.close();
+    });
+  }
   request(input: Buffer, signal: AbortSignal): Promise<unknown> {
     if (this.pending)
       return Promise.reject(new Error("Processing native worker busy"));

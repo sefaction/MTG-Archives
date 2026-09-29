@@ -8,6 +8,7 @@ import hashlib
 import io
 import json
 from pathlib import Path
+import re
 import sys
 import time
 from collections import OrderedDict
@@ -23,6 +24,11 @@ from image_encoder import Encoder
 from visual_compare import features, match
 
 INDEX = Path('/visual/index/index.json')
+if '--manifest' in sys.argv:
+    name = sys.argv[sys.argv.index('--manifest') + 1]
+    if not re.fullmatch(r'(index|manifest-[a-f0-9]{64})\.json', name):
+        raise ValueError('Invalid immutable manifest name')
+    INDEX = INDEX.with_name(name)
 MODELS = Path('/visual/models')
 REFERENCES = Path('/visual/references')
 MAX_BYTES = 10 * 1024 * 1024
@@ -31,14 +37,18 @@ _reference_features = OrderedDict()
 
 
 def descriptor():
-    index = json.loads(INDEX.read_text(encoding='utf-8'))
+    before = sha256(INDEX)
+    index, _, matrix = load_published_index(INDEX)
+    del matrix
+    if sha256(INDEX) != before:
+        raise ValueError('Index changed during validation')
     # The full loader subsequently verifies the immutable generation's files.
     # A partial download is never a production-query index.
     if not index.get('downloadComplete') or index.get('referenceCount', 0) < 1:
         raise ValueError('Complete published visual index required')
     details = {
         'version': 'visual-cpu-candidates-v1', 'execution': 'CPU',
-        'indexSha256': sha256(INDEX), 'encoder': index['encoder'],
+        'indexSha256': before, 'encoder': index['encoder'],
         'referenceCount': index['referenceCount'],
         'unavailableCount': index['unavailableCount'],
         'catalogSha256': index['source']['catalogSha256'],
@@ -49,7 +59,9 @@ def descriptor():
         'geometricFaces': 40,
         'opencv': cv2.__version__, 'rotations': [0, 90, 180, 270],
     }
-    return {**details, 'digest': hashlib.sha256(json.dumps(
+    archive = INDEX.with_name(f'manifest-{before}.json')
+    immutable = archive.name if archive.is_file() and sha256(archive) == before else INDEX.name
+    return {**details, 'manifest': immutable, 'digest': hashlib.sha256(json.dumps(
         details, sort_keys=True, separators=(',', ':')).encode()).hexdigest()}
 
 

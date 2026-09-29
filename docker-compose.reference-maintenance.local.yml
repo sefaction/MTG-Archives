@@ -1,0 +1,24 @@
+# Optional LOCAL public-data maintenance. No uploads, database credentials,
+# acquisition sessions or Inventory access. Native photo workers stay offline.
+services:
+  acquisition-reference-maintenance:
+    image: mtg-acquisition-visual:local
+    pull_policy: never
+    restart: unless-stopped
+    entrypoint: ["python", "/eval/catalog_refresh.py"]
+    command: ["--references", "/visual/references", "--index", "/visual/index", "--models", "/visual/models", "--state", "/visual/maintenance", "--loop"]
+    environment:
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+    volumes:
+      - ${MTG_ACQUISITION_VISUAL_INDEX_PATH:?Set published visual index path}:/visual/index
+      - ${MTG_ACQUISITION_VISUAL_MODELS_PATH:?Set verified model path}:/visual/models:ro
+      - ${MTG_ACQUISITION_VISUAL_REFERENCES_PATH:?Set public reference path}:/visual/references
+      - ${MTG_ACQUISITION_VISUAL_MAINTENANCE_PATH:?Set persistent maintenance path}:/visual/maintenance
+    networks: [default]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 2g
+    cpus: 1.0
+    pids_limit: 128
+    stop_grace_period: 30s

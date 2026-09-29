@@ -33,6 +33,20 @@ def sha256(path):
     return result.hexdigest()
 
 
+def reference_receipt(path, digest):
+    stat = path.stat()
+    return {'sha256': digest, 'size': stat.st_size, 'mtimeNs': stat.st_mtime_ns, 'ctimeNs': stat.st_ctime_ns}
+
+
+def verified_reference(path, row):
+    # Producer-only reuse cache for immutable public paths. Readers still hash
+    # each reference they actually use; this does not relax photo/native checks.
+    if row.get('verifiedStat') == reference_receipt(path, row['sha256']):
+        return
+    if sha256(path) != row['sha256']:
+        raise ValueError('Reference path/digest mismatch')
+
+
 def image_url(value):
     if not isinstance(value, str):
         raise ValueError('Missing reference URL')
@@ -172,7 +186,7 @@ def atomic_image(root, row, data):
     return hashlib.sha256(data).hexdigest(), len(data)
 
 
-def reuse_images(db, root, index_path):
+def reuse_images(db, root, index_path, reference_root=None, share=False):
     if not index_path:
         return 0
     index = json.loads(index_path.read_text(encoding='utf-8'))
@@ -185,13 +199,29 @@ def reuse_images(db, root, index_path):
         previous = by_url.get(row['url'])
         if not previous:
             continue
-        path = (index_path.parent / previous['file']).resolve()
-        if not path.is_relative_to(index_path.parent.resolve()) or path.is_symlink():
+        cache_root = (reference_root or index_path.parent).resolve()
+        path = (cache_root / previous['file']).resolve()
+        if not path.is_relative_to(cache_root) or path.is_symlink():
             raise ValueError('Reference cache path escapes its directory')
-        data = path.read_bytes()
-        if hashlib.sha256(data).hexdigest() != previous['sha256']:
-            raise ValueError('Existing public reference digest mismatch')
-        digest, size = atomic_image(root, row, data)
+        receipt = reference_receipt(path, previous['sha256'])
+        data = None
+        if not share or receipt != previous.get('verifiedStat'):
+            data = path.read_bytes()
+            if hashlib.sha256(data).hexdigest() != previous['sha256']:
+                raise ValueError('Existing public reference digest mismatch')
+            validate_image(data)
+        digest, size = previous['sha256'], receipt['size']
+        if share:
+            if reference_root is None:
+                raise ValueError('Shared references need an explicit common root')
+            # A new generation points to immutable bytes under the same runtime
+            # root. Changed URLs receive a new generation path, never overwrite
+            # an old image. No duplicate many-gigabyte copy or hardlink support.
+            row['sharedFile'] = path.relative_to(cache_root).as_posix()
+            row['verifiedStat'] = receipt
+            db.execute('UPDATE refs SET data=? WHERE id=?', (json.dumps(row, sort_keys=True), identity))
+        else:
+            digest, size = atomic_image(root, row, data)
         db.execute("UPDATE refs SET state='READY',digest=?,bytes=?,error=NULL WHERE id=?", (digest, size, identity))
         reused += 1
         if reused % 100 == 0:
@@ -258,6 +288,47 @@ def report(db, root, source):
     return result
 
 
+def download_pending(db, root, source, workers=2, rate=4, limit=0):
+    rows = db.execute("SELECT id,data FROM refs WHERE state='PENDING' ORDER BY id").fetchall()
+    pending = iter(rows[:limit] if limit else rows)
+    downloader, completed = Downloader(rate), 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+        active = {}
+
+        def submit():
+            if downloader.stop.is_set():
+                return
+            for identity, raw in pending:
+                active[pool.submit(downloader.fetch, json.loads(raw))] = (identity, json.loads(raw))
+                return
+
+        for _ in range(workers):
+            submit()
+        while active:
+            done, _ = concurrent.futures.wait(active, return_when=concurrent.futures.FIRST_COMPLETED)
+            for future in done:
+                identity, row = active.pop(future)
+                try:
+                    digest, size = atomic_image(root, row, future.result())
+                    row['verifiedStat'] = reference_receipt((root / row['file']).resolve(), digest)
+                    db.execute('UPDATE refs SET data=? WHERE id=?', (json.dumps(row, sort_keys=True), identity))
+                    db.execute("UPDATE refs SET state='READY',digest=?,bytes=?,error=NULL WHERE id=?", (digest, size, identity))
+                except (OSError, ValueError, RuntimeError) as error:
+                    message = str(error)[:200]
+                    if message != 'DOWNLOAD_HALTED':
+                        db.execute("UPDATE refs SET state='FAILED',error=? WHERE id=?", (message, identity))
+                        print('Reference error', identity, message, flush=True)
+                db.commit()
+                completed += 1
+                if completed % 100 == 0:
+                    print(json.dumps(report(db, root, source)), flush=True)
+                submit()
+    result = report(db, root, source)
+    if downloader.stop.is_set() or result['counts'].get('FAILED'):
+        raise ValueError('Reference download incomplete; persisted failures remain explicit')
+    return completed
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--catalog', type=Path, required=True)
@@ -283,46 +354,9 @@ def main():
             if args.plan_only:
                 return
             print('Reused', reuse_images(db, root, args.reuse_index), flush=True)
-            rows = db.execute("SELECT id,data FROM refs WHERE state='PENDING' ORDER BY id").fetchall()
-            if args.limit:
-                rows = rows[:args.limit]
-            pending = iter(rows)
-            downloader = Downloader(args.starts_per_second)
-            completed = 0
-            with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as pool:
-                active = {}
-
-                def submit():
-                    if downloader.stop.is_set():
-                        return
-                    for identity, raw in pending:
-                        row = json.loads(raw)
-                        active[pool.submit(downloader.fetch, row)] = (identity, row)
-                        return
-
-                for _ in range(args.workers):
-                    submit()
-                while active:
-                    done, _ = concurrent.futures.wait(active, return_when=concurrent.futures.FIRST_COMPLETED)
-                    for future in done:
-                        identity, row = active.pop(future)
-                        try:
-                            digest, size = atomic_image(root, row, future.result())
-                            db.execute("UPDATE refs SET state='READY',digest=?,bytes=?,error=NULL WHERE id=?", (digest, size, identity))
-                        except (OSError, ValueError, RuntimeError) as error:
-                            message = str(error)[:200]
-                            if message != 'DOWNLOAD_HALTED':
-                                db.execute("UPDATE refs SET state='FAILED',error=? WHERE id=?", (message, identity))
-                                print('Reference error', identity, message, flush=True)
-                        db.commit()
-                        completed += 1
-                        if completed % 100 == 0:
-                            print(json.dumps(report(db, root, source)), flush=True)
-                        submit()
+            download_pending(db, root, source, args.workers, args.starts_per_second, args.limit)
             result = report(db, root, source)
             print(json.dumps(result), flush=True)
-            if downloader.stop.is_set() or result['counts'].get('FAILED'):
-                raise SystemExit('Reference download incomplete; inspect persisted errors before retry')
         finally:
             db.close()
 
