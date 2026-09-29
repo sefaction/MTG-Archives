@@ -12,6 +12,7 @@ import { runAcquisitionNativeProcess } from "./acquisition-native-process";
 import type { AcquisitionNativeStream } from "./acquisition-native-stream";
 import type { ClaimedAcquisitionJob } from "./acquisition-jobs";
 import { acquisitionReadingZonesSchema } from "./acquisition-reading-zones";
+import { ACQUISITION_FOOTER_PARSER_VERSION } from "./acquisition-footer";
 
 export const RECOGNITION_STAGE = "photo-recognition-v1";
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
@@ -236,6 +237,7 @@ export async function recognizeAcquisitionPhoto(
       ...input.versions,
       catalog: snapshot.digest,
       index: snapshot.digest,
+      footerParser: ACQUISITION_FOOTER_PARSER_VERSION,
     },
     execution: "CPU",
     native,
