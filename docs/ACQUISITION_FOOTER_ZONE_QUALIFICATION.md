@@ -56,6 +56,13 @@ result. Prototype reports are retained separately.
 
 Five Python reading/geometry guards and20 focused TypeScript recognition/review/
 job-generation guards passed. Footer-only typecheck/ESLint and disposable database/
-core verification passed (160.5seconds; owned fixture cleaned). Final cumulative
-Docker source verification and real-worker browser evidence are recorded in the
-PR and resumable checkpoint when complete. This change does not close #463.
+core verification passed (160.5seconds; owned fixture cleaned). The cumulative
+Docker build matches 455 source inputs (digest `161ff30285cfcc06d9140544fd3e452f43b423480edf4f35632aef18859039c5`);
+native descriptor matches the comparison above. The corrected five-photo browser
+case passed 1/1 in 10.5minutes through the normal shared queue, including actual
+saved zones, FIN304 evidence, full-frame scans, desktop/phone layouts and the
+separate Simple/Advanced UI batch #488. An initial browser assertion omitted
+scrolling to an intentionally lazy row; its correction and retained results are
+documented in the PR/checkpoint. Original images and painted previews were checked.
+Confirmation made zero Inventory writes and the owned fixture was cleaned.
+This change does not close #463.
