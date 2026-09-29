@@ -62,6 +62,14 @@ core verifier's timeout fixture is explicitly made eligible to isolate handler
 abort from Docker Desktop/database clock scheduling; production queue logic
 is unchanged by that fixture correction.
 
+Local acceptance passed: 27 focused guards, typecheck/ESLint, disposable
+database/core verification (151.318 seconds with owned cleanup), and all five
+real-worker browser cases (10.1 minutes through the normal shared queue).
+FIN 304 ranked first with set/language still unknown, full frame retained,
+desktop/320px screenshots inspected, failed-printing fallback preserved and
+zero Inventory writes. The one-worker review images match 453 build inputs,
+digest `46cd7e2c40fd901a7509a690c72d28254f3482f3b452e1b0018c73ed26656d8b`.
+
 ## Remaining recognition work
 
 The new runtime detects four of four physical List stamps, but all four candidate
