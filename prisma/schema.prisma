@@ -135,6 +135,8 @@ enum NotificationDeliveryAttemptStatus {
 }
 
 model User {
+  scannerAgents                ScannerAgent[]
+  scannerPairings              ScannerPairing[]
   acquisitionSessions          AcquisitionSession[]
   acquisitionCorrections       AcquisitionCountCorrection[]
   acquisitionCatalogRefreshes  AcquisitionCatalogRefresh[]
@@ -181,6 +183,36 @@ model User {
 
   @@index([isActive, inventoryDefaultVisibility])
   @@index([isActive, deckDefaultVisibility])
+}
+
+model ScannerPairing {
+  id             String   @id
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  codeHash       String   @unique
+  credentialHash String
+  expiresAt      DateTime
+  claimedAgentId String?
+  createdAt      DateTime @default(now())
+
+  @@index([userId, expiresAt])
+}
+
+model ScannerAgent {
+  id             String   @id
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  tokenHash      String   @unique
+  credentialHash String
+  name           String
+  agentVersion   String?
+  devices        Json     @default("[]")
+  lastSeenAt     DateTime?
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([userId, revokedAt, expiresAt])
 }
 
 model AuthSession {

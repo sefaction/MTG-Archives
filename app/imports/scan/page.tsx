@@ -1,4 +1,5 @@
 import { Nav } from "@/components/Nav";
+import { ScannerConnections } from "@/components/ScannerConnections";
 import { AcquisitionCapture } from "@/components/AcquisitionCapture";
 import { requireLogin, getAccessScope } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -36,6 +37,7 @@ export default async function ScanPage({
         </a>
         <h1 className="text-3xl font-bold">Scan cards</h1>
       </div>
+      <ScannerConnections />
       <AcquisitionCapture
         userId={user.id}
         locations={await getStorageLocations(prisma, locations)}
