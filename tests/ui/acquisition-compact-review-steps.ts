@@ -6,6 +6,27 @@ export async function checkAcquisitionCompactReview(page: Page) {
   await page.getByRole("button", { name: "Simple", exact: true }).click();
   await page.setViewportSize({ width: 1366, height: 900 });
   await card.scrollIntoViewIfNeeded();
+  const scan = card.getByRole("img", {
+    name: "Full card image 5",
+    exact: true,
+  });
+  const scanPainted = () =>
+    scan.evaluate((el) => {
+      const canvas = el as HTMLCanvasElement;
+      return (
+        canvas.width > 0 &&
+        canvas.height > 0 &&
+        canvas
+          .getContext("2d")!
+          .getImageData(
+            Math.floor(canvas.width / 2),
+            Math.floor(canvas.height / 2),
+            1,
+            1,
+          ).data[3] === 255
+      );
+    });
+  await expect.poll(scanPainted).toBe(true);
   await expect(
     card.getByRole("heading", { name: "What the scanner read" }),
   ).toBeHidden();
@@ -66,6 +87,8 @@ export async function checkAcquisitionCompactReview(page: Page) {
   await expect(
     page.getByRole("button", { name: "Simple", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
+  // Review records and images intentionally load only near the viewport.
+  await card.scrollIntoViewIfNeeded();
   await expect(card).toContainText("FIN #304");
   await expect(
     card.getByRole("button", { name: "Confirm match", exact: true }),
@@ -73,6 +96,7 @@ export async function checkAcquisitionCompactReview(page: Page) {
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });
     await card.scrollIntoViewIfNeeded();
+    await expect.poll(scanPainted).toBe(true);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
