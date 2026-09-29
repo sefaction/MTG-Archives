@@ -1,5 +1,11 @@
 # Resumable work checkpoint
 
+## Printing retained-reference cache qualification, 2026-09-29
+
+Active fix/acquisition-printing-cache oncurrentmain22d8ee3 (approved497merge); no dependency on unapproved recognition branches. Adds128MiB decoded/SIFT array payload budget alongside48entry LRU, oversizedusableuncached, unchanged pixels/features/hashverification/recognition/thresholds.15existing/newmodel-free printing guards PASS actualnative4.12/numpy2.2.6/networknone1CPU2GiB. Public48-reference samefrozen112474metadata probes terminal0; all48features/pixels/stampstates byte-identical,5re-readparity eachpass. Retained arrays309291136→129332960bytes/48→20entries; PythonpeakRSS924724→737884KiB.25.987/27.392s are not standalone throughput or regression; publiccache notphotoaccuracy/containerpeak. Reusable opt-in helper/docs/sanitized results added.
+
+Hidden leaf core11404 running from12:27:14UTC, .local-data/cache-core-status.json/log; inspect exact handle before rerun. Actual cumulative worktree MTG-Archives-acquisition-persistence temporarily includes ONLYchangedprinting.py for nativebuild19640, .local-data/cache-build-status.json/log. CachecodeNOTyetloaded; noPRyet. Loadedordinaryapp stillowner-qualified462/052e7260/nativeprintingb72b34e8/oneprintingreplica, plus unapproved recognition/UI siblings. Fullcontext actualcheckpoint. Completecore/build, publishcoherentdraft, verifynativefiles/descriptor, scopedlocalreload then realpipeline/memory and100/300-card gates. Allold individualapprovals/freshheld-outmaterial remainpending. #463 incomplete/autoOFF; no production/env/YML/scanner activity.
+
 ## Independent owner scheduling ready locally, 2026-09-29
 
 Branch fix/acquisition-owner-fairness, PR497 on main2ac3eb5; implementation7ef2d1b. Standalone DB/core196.6s passed/cleaned, all3 implementation CI green. Resumed cumulative DB/import98.8s passed/cleaned; prior initial catalog claim failure remains open498, not resolved by rerun. Temporary read-only diagnostic helper removed unchanged.
