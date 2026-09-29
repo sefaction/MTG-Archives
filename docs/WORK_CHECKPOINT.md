@@ -1,5 +1,12 @@
 # Resumable work checkpoint
 
+## Scanner helper original retention, 2026-09-29
+
+- Active branch `feat/scanner-spool-retention`, based on individually unapproved draft #503; #474/#502 also unapproved. #501 active. No production action, no new physical scan, no Inventory commit.
+- Added an authenticated, exact artifact/photo/digest retention check. It grants local cleanup only after the ordinary server seven-day committed-photo purge, with owned helper/run/epoch, operator reconciliation and aged commit receipt. Windows `serve` makes a bounded five-minute sweep of at most 25 run directories, hash-checks each granted original, removes only its PNG and retains replay/diagnostic journals. Incomplete, uncommitted, uncertain, mismatched and unavailable originals stay in LocalAppData; old runs are scheduled fairly across helper restarts. No scanner constructed during cleanup.
+- Disposable full acquisition core passed with new positive/negative server retention assertions, owned fixture cleanup and no production/snapshot modification: `.local-data/verification/acquisition-2026-09-29T17-14-53-457Z`. Windows Release build zero warnings/errors and native selftest passed denied/mismatched/eligible cleanup without hardware. Typecheck and focused lint passed before final scheduling-only .NET change; final .NET build/selftest passed afterward. A first native selftest found Windows sharing violation from an open digest stream; corrected and reverified.
+- Next: commit branch, apply focused commit to cumulative local Docker source, web-only build/reload/source verify, browser/endpoint negative check against the live local five-card uncommitted test batch, open dependent PR and reconcile exact-head CI. Distribution/license packaging, active status/recovery, fi-7160 qualification and production rollout remain pending; no individual merge approval.
+
 ## Native START/delivery prototype, 2026-09-29
 
 - Current leaf `feat/native-scanner-runs` HEAD `3b6e39f`, draft #503 on unapproved #502/#474; exact-head four CI checks green. Cumulative local source `local/acquisition-review-footer` HEAD `48d83df`, web image `sha256:71c5b3b44c8399cbdefadc5af878a30b32a666afdcba28955048a5f5bc9c5701`, 480-source digest `f7c7ea154b51c37c68fe4f949458a395afa3a86da895165b0ef40073c97a244c`, web healthy. Existing native workers untouched; production unchanged. Final fixture website/helper check passed 1/1 in 49.1 seconds. All build/test/helper processes for these checks are terminal.

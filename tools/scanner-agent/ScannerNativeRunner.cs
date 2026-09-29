@@ -144,7 +144,7 @@ public static class ScannerNativeRunner
         try { await scan; } catch { /* Safe ScannerError/AcquisitionCompleted evidence is already in spool. */ }
         if (!stop.IsCancellationRequested) await Finish(client, token, directory, saved);
     }
-    private static List<ScannerArtifact> Artifacts(string directory)
+    internal static List<ScannerArtifact> Artifacts(string directory)
     {
         var values = new List<ScannerArtifact>();
         foreach (var file in Directory.EnumerateFiles(directory, "*.json"))

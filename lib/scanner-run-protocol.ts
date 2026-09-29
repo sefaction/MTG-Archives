@@ -46,3 +46,11 @@ export const scannerReconcileSchema = z.object({
   feederEmpty: z.literal(true), transportEmpty: z.literal(true),
   eachImageIsOneCardFront: z.literal(true), noJamOrDouble: z.literal(true),
 }).strict();
+export const scannerRetentionSchema = z.object({
+  version: z.literal(1), runId: z.string().uuid(), epoch: z.string().uuid(),
+  artifacts: z.array(z.object({ artifactId: z.string().uuid(), photoId: z.string().uuid(),
+    digest: z.string().regex(/^[a-f0-9]{64}$/) }).strict()).min(1).max(500),
+}).strict().superRefine((value, ctx) => {
+  if (new Set(value.artifacts.map(a => a.artifactId)).size !== value.artifacts.length)
+    ctx.addIssue({ code: "custom", message: "Duplicate scanner artifact" });
+});

@@ -12,6 +12,8 @@ import { scannerSiteEpoch } from "../lib/scanner-control-files";
 import { getAcquisitionSession } from "../lib/acquisition-store";
 import { captureSummary } from "../lib/acquisition-domain";
 import { readAcquisitionPhotoBytes, photoDigest } from "../lib/acquisition-files";
+import { eligibleScannerOriginals } from "../lib/scanner-retention";
+import { purgeCommittedAcquisitionPhotos } from "../lib/acquisition-photo-retention";
 
 // Called only by the opt-in disposable acquisition_* database runner. Transfers
 // are generated fixtures: no scanner hardware or recognition accuracy claim.
@@ -93,6 +95,30 @@ export async function verifyScannerRuns(db: PrismaClient) {
     assert.equal(captureSummary(state.session).confirmedCandidates, 2);
     assert.equal(state.session.corrections.length, 2);
     assert.equal(await db.inventoryItem.count({ where: { currentOwnerId: tag } }), 0);
+    const retention = { version: 1, runId: run.runId, epoch, artifacts: [
+      { artifactId: t1.artifactId, photoId: ack1.photoId, digest: ack1.digest },
+      { artifactId: t2.artifactId, photoId: ack2.photoId, digest: ack2.digest },
+    ] };
+    assert.deepEqual((await eligibleScannerOriginals(db, first.token, retention, epoch)).eligible, []);
+    await assert.rejects(eligibleScannerOriginals(db, otherAgent.token, retention, epoch));
+    await assert.rejects(eligibleScannerOriginals(db, first.token, { ...retention, epoch: randomUUID() }, epoch));
+    const slot = await db.acquisitionCaptureSlot.findUniqueOrThrow({ where: {
+      runId_requestKey: { runId: (await db.scannerRun.findUniqueOrThrow({ where: { id: run.runId } })).acquisitionRunId,
+        requestKey: t1.artifactId } } });
+    const candidate = await db.acquisitionCandidate.findFirstOrThrow({ where: { runId: slot.runId,
+      physicalId: slot.id } });
+    const aged = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+    const commit = await db.acquisitionCommit.create({ data: { runId: slot.runId, actorUserId: tag,
+      requestKey: randomUUID(), requestDigest: ack1.digest, snapshot: {}, createdAt: aged } });
+    await db.acquisitionCommitMember.create({ data: { candidateId: candidate.id,
+      runId: slot.runId, commitId: commit.id, inventoryItemId: "retention-fixture", snapshot: {} } });
+    await db.acquisitionPhoto.update({ where: { id: ack1.photoId }, data: { purgeAfter: aged } });
+    assert.deepEqual((await eligibleScannerOriginals(db, first.token, retention, epoch)).eligible, []);
+    assert.deepEqual(await purgeCommittedAcquisitionPhotos(db), { purged: 1, failed: 0 });
+    assert.deepEqual((await eligibleScannerOriginals(db, first.token, retention, epoch)).eligible, [t1.artifactId]);
+    assert.deepEqual((await eligibleScannerOriginals(db, first.token, { ...retention,
+      artifacts: [{ ...retention.artifacts[0], digest: "0".repeat(64) }] }, epoch)).eligible, []);
+    assert.deepEqual((await eligibleScannerOriginals(db, first.token, retention, epoch)).eligible, [t1.artifactId]);
     // New batch is allowed only after physical reconciliation. Extra captures
     // remain durable provisional overflow; the software does not truncate them.
     const extraInput = { ...input, requestKey: randomUUID() };
@@ -138,11 +164,14 @@ export async function verifyScannerRuns(db: PrismaClient) {
     assert.equal(await db.inventoryItem.count({ where: { currentOwnerId: tag } }), 1);
     await revokeScannerAgent(db, tag, first.agentId);
     await assert.rejects(receiveScannerImage(db, first.token, t1, epoch, bytes, "image/png"));
-    console.log("PASS: native run claim/replay/restore-marker fencing, scoped originals/sequence/ACK replay, ordinary pipeline jobs, retained overflow and operator count reconciliation; no motor or Inventory");
+    console.log("PASS: native claim/replay/restore fencing, scoped originals/sequence/ACK replay, retained overflow, operator counts and server-gated original expiry; no motor or Inventory");
   } finally {
     // Include orphan DRAFT sessions from explicitly rejected/retry creation.
     const where = { run: { session: { createdByUserId: { in: ids } } } };
     await db.scannerRun.deleteMany({ where: { agent: { userId: { in: ids } } } });
+    await db.acquisitionCommitMember.deleteMany({ where: { candidate: { run: {
+      session: { createdByUserId: { in: ids } } } } } });
+    await db.acquisitionCommit.deleteMany({ where });
     await db.acquisitionProcessingJob.deleteMany({ where });
     await db.acquisitionPhoto.deleteMany({ where });
     await db.acquisitionObservation.deleteMany({ where });
