@@ -11,6 +11,7 @@ import { readAcquisitionPhotoBytes } from "./acquisition-files";
 import { runAcquisitionNativeProcess } from "./acquisition-native-process";
 import type { AcquisitionNativeStream } from "./acquisition-native-stream";
 import type { ClaimedAcquisitionJob } from "./acquisition-jobs";
+import { acquisitionHandoffQuery } from "./acquisition-handoff";
 
 export const RECOGNITION_STAGE = "photo-recognition-v1";
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
@@ -103,8 +104,8 @@ export async function enqueueReadyRecognition(
   const versionKey = acquisitionRecognitionVersion(catalog, model);
   // A durable handoff can be retried after canonical-worker or OCR-worker exit.
   // Existing attempts for this exact version are not silently retried forever.
-  const eligible = await db.$queryRaw<{ id: string }[]>`
-    SELECT j.id FROM "AcquisitionProcessingJob" j
+  const eligible = await db.$queryRaw<{ id: string }[]>(acquisitionHandoffQuery(RECOGNITION_STAGE, Prisma.sql`
+    SELECT j.id, j."runId", j."createdAt" FROM "AcquisitionProcessingJob" j
     JOIN "AcquisitionCandidate" c ON c.id = j."candidateId"
     JOIN "AcquisitionRun" r ON r.id = j."runId"
     JOIN "AcquisitionSession" s ON s.id = r."sessionId"
@@ -120,8 +121,7 @@ export async function enqueueReadyRecognition(
           AND other."candidateRevision" = c.revision
           AND other.stage = ${RECOGNITION_STAGE} AND other."versionKey" = ${versionKey}
       )
-    ORDER BY j."createdAt", j.id LIMIT 32
-  `;
+  `));
   const ready = await db.acquisitionProcessingJob.findMany({
     where: { id: { in: eligible.map((j) => j.id) } },
     orderBy: { createdAt: "asc" },

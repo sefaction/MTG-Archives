@@ -22,6 +22,7 @@ import {
   type RecognitionSnapshot,
 } from "./acquisition-recognition-worker";
 import { proposeOrientedAcquisitionPrintings } from "./acquisition-recognition";
+import { acquisitionHandoffQuery } from "./acquisition-handoff";
 import type { ClaimedAcquisitionJob } from "./acquisition-jobs";
 import {
   VISUAL_STAGE,
@@ -59,8 +60,8 @@ export async function enqueueCatalogReconciliation(
 ) {
   const hourly = new Date(now.getTime() - 3600000);
   const daily = new Date(now.getTime() - 86400000);
-  const rows = await db.$queryRaw<{ id: string }[]>`
-    SELECT j.id FROM "AcquisitionProcessingJob" j
+  const rows = await db.$queryRaw<{ id: string }[]>(acquisitionHandoffQuery(CATALOG_RECONCILIATION_STAGE, Prisma.sql`
+    SELECT j.id, j."runId", j."createdAt" FROM "AcquisitionProcessingJob" j
     JOIN "AcquisitionCandidate" c ON c.id=j."candidateId"
     JOIN "AcquisitionRun" r ON r.id=j."runId"
     JOIN "AcquisitionSession" s ON s.id=r."sessionId"
@@ -84,7 +85,7 @@ export async function enqueueCatalogReconciliation(
           AND (f.status IN ('PENDING','RUNNING') OR f."createdAt">${hourly}
             OR (f.status='COMPLETE' AND f.output->'catalog'->>'status'='UNREADABLE')
             OR (f.status='COMPLETE' AND f.output->'catalog'->>'status'='RESOLVED' AND f."createdAt">${daily})))
-    ORDER BY j."createdAt",j.id LIMIT 32`;
+  `));
   let added = 0;
   for (const { id } of rows) {
     const source = await db.acquisitionProcessingJob.findUniqueOrThrow({
