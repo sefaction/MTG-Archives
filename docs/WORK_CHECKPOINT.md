@@ -1,10 +1,32 @@
 # Resumable work checkpoint
 
+## PR #490 approved and reconciled, 2026-09-29
+
+User individually approved #486/#487/#489/#490/#493. #486/#487/#489/#499 are merged into main. This branch retargets main and merges it; only checkpoint history conflicted and both histories are retained. Application code merged cleanly. Fresh CI is required before normal #490 merge, then approved #493. #463 and new draft #500 continue stamp accuracy; production unchanged.
+
+## Historical branch evidence retained during approved merge
+## Footer identifier PR accepted locally and awaiting individual review, 2026-09-29
+
+- Footer interpretation PR #490 (`fix/acquisition-footer-identifiers`, implementationa7b8eaf) is based on stamp489, then487/486. Compact UI488 is a sibling on487 included only in cumulative local testing; scanner474 is separate/excluded. All five recognition/UI PRs remain individually UNAPPROVED; main2ac3eb5 unchanged. Actual source/build is MTG-Archives-acquisition-persistence on temporary `local/acquisition-review-footer`; this docs/test-only follow-up does not alter loaded app inputs.
+- Loaded local review http://127.0.0.1:13001/imports/scan includes Simple/Advanced plus split footer interpretation and stamp expectations:456-input source087a4eabe937984020283c3a21f878cc447cbadd6366c10b77b4c92c2c0f7bbf, webe01012c5/OCR8691dea6/visual-printing0b36a416. Direct source match, healthy web, five ordinary workers and ONE printing replica verified; persistent public maintenance unchanged. Models/native descriptors unchanged; no production/hardware action.
+- Frozen newer67 development replay improves63 first/65 offered to67 first/all67 offered; older123 stays120/all123 offered, earlier68 image/text ranks unchanged. No new stamp observations, independent trials, automatic confirmations or throughput claim. Originals/labels/prior reports retained. Recovered layouts remain review-only; metadata versions supersede obsolete pending interpretations before provider IO and preserve native/history/human decisions. Docs/result summary record limits.
+- Focused45 guards, typecheck/ESLint and disposable PostgreSQL/core156230ms PASSED with owned cleanup. Real four-original browser18571 PASSED7.1m with all correct first/zero human review/Inventory. Initial desktop capture preceded canvas painting; test-only paint/decode waits were added. Same app source rerun16304 PASSED4.9m;1366/320 screenshots inspected with both images loaded/no overflow, owned fixture player count0. Build67960/reload50970 and both browsers terminal. Wrapper reloadexit1 came from PowerShell stderr handling; direct source/health proof confirmed successful startup. No live build/browser/evaluation process remains.
+- Pending questions: individual approvals486/487/488/489 and new490; fresh playable scans reserved for final independent evaluation, not further tuning. #463/#308 remain open/incomplete, hybrid automatic confirmation OFF. Current490 implementation CI is green; follow-up CI must be checked live before merge. Next safe step: keep cumulative review available and continue conservative-auto, large-batch/resource/restart gates independently. Do not merge any PR without its individual approval.
+
+## Split footer interpretation in progress, 2026-09-29
+
+- Actual source/build worktree MTG-Archives-acquisition-persistence is on `fix/acquisition-footer-identifiers`, based on stamp PR #489 head85f2d7a. Uncommitted shared footer interpretation recovers separated collector lines and punctuated set/language markers joined to artists; protects copyright years and collector suffixes. It changes neither pixels nor recognition models, and recovered layouts remain review-only. Metadata resolver is independently versioned; obsolete pending interpretations supersede before provider calls. Completed native evidence and saved human reviews remain intact.
+- Paired frozen newer67 development replay improves63 first/65 offered to67 first/all67 offered, exactly four changes and no automatic confirmations. This is development replay, not independent accuracy or new stamp observations. Older123 stays120 first/all123 offered; earlier68 image/text ranks unchanged. Focused45 TypeScript tests, typecheck and ESLint passed. Disposable DB/core30705 PASSED156230ms and cleaned its owned fixture. Earlier7714 failed on an immediate hybrid fixture claim; owned cleanup succeeded. Fixture clocks now allow the single millisecond lost when PostgreSQL timestamp(3) rounds and JS truncates; production queue unchanged. Docs/sanitized result record scope and limitations. Live Docker/browser acceptance remains pending.
+- Local app still runs the previously accepted cumulative486/487/488/489 build (source33ff5fb1), including Simple/Advanced. All four PRs are individually UNAPPROVED and green, including final489 CI36531233009. Scanner474 remains separate/excluded; main2ac3eb5 unchanged. No production or motor activity. Pending questions remain individual approvals and fresh reserved final-evaluation scans. #463 remains open/incomplete, hybrid auto confirmation OFF.
+- Next safe step: finish the disposable regression and frozen older comparisons, publish one coherent footer interpretation PR on489, integrate sibling UI488 only for cumulative local testing, build actual source and verify the corrected original scans through the normal worker/browser path. Preserve all original reports; do not merge without individual approval.
+
+## Historical main evidence retained during approved merge
 ## PR #489 approved and reconciled, 2026-09-29
 
 User individually approved #486/#487/#489/#490/#493. #486/#487/#499 are merged into main. This branch retargets main and merges it; only checkpoint history conflicted and both histories are retained. Application code merged cleanly. Fresh CI is required before normal #489 merge. #463 and new draft #500 continue stamp accuracy; production unchanged.
 
 ## Historical branch evidence retained during approved merge
+
 ## Catalog stamp PR ready in cumulative local review, 2026-09-29
 
 - Active PR branch `feat/acquisition-stamp-expectations`, [#489](https://github.com/sefaction/MTG-Archives/pull/489), implementation1310ade on footer487. It is a sibling of compact UI488; no implicit UI merge approval/dependency. Actual source/build remains MTG-Archives-acquisition-persistence on temporary `local/acquisition-review-stamp` a400d85, combining489 and488 with487/486. All four PRs individually UNAPPROVED; separate scanner474 excluded. Main2ac3eb5 unchanged. This docs-only follow-up does not alter the loaded code.

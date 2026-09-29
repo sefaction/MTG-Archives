@@ -22,7 +22,8 @@ import {
   type RecognitionSnapshot,
 } from "./acquisition-recognition-worker";
 import { proposeOrientedAcquisitionPrintings } from "./acquisition-recognition";
-import type { ClaimedAcquisitionJob } from "./acquisition-jobs";
+import { ACQUISITION_FOOTER_PARSER_VERSION } from "./acquisition-footer";
+import { AcquisitionJobSupersededError, type ClaimedAcquisitionJob } from "./acquisition-jobs";
 import {
   VISUAL_STAGE,
   visualNativeSchema,
@@ -50,6 +51,7 @@ const inputSchema = z.object({
   visualJobId: z.string().uuid().optional(),
   photoId: z.string().uuid(),
   digest: z.string().regex(/^[a-f0-9]{64}$/),
+  resolverVersion: z.string().max(80).optional(),
 });
 
 export async function enqueueCatalogReconciliation(
@@ -156,6 +158,8 @@ export function createCatalogReconciliationHandler(
     signal: AbortSignal,
   ): Promise<Prisma.InputJsonObject> => {
     const input = inputSchema.parse(job.input);
+    if (input.resolverVersion !== CATALOG_RESOLVER_VERSION)
+      throw new AcquisitionJobSupersededError("Catalog interpretation version superseded");
     const source = await db.acquisitionProcessingJob.findUniqueOrThrow({
       where: { id: input.recognitionJobId },
     });
@@ -349,6 +353,7 @@ export function createCatalogReconciliationHandler(
         ...observed.versions,
         catalog: snapshot!.digest,
         resolver: CATALOG_RESOLVER_VERSION,
+        footerParser: ACQUISITION_FOOTER_PARSER_VERSION,
       },
       proposals,
       catalog: {

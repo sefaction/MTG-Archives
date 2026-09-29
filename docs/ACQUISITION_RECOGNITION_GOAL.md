@@ -13,6 +13,7 @@ across batches; reference downloads, benchmarks or one green PR do not complete 
 | Automatic catalog refresh | Bounded/resumable/versioned maintenance, image/index updates and running worker refresh; crash/retry and stale-version checks; no broken existing Card/Inventory references |
 | Reasonable confidence for large scanner batches | Independently labelled additional/unseen material, correct first choice and candidate recall, wrong automatic decisions reported separately, conservative handling of unresolved printings, and measured resource/batch/restart behavior |
 | Preserve reviewed user decisions and data | Ownership, revision, capacity, duplicate-safe explicit Inventory commit and original-photo retention tests; old decisions are not silently changed by a model/catalog update |
+| Compact review alongside diagnostics | Simple/Advanced modes with scan/printing comparison, quick confirmation/correction, batch filters/counts and preserved drafts; Advanced retains crop, OCR and stamp evidence; desktop/phone checks |
 | Disposable images and local testing | Models/references/indexes/config outside Docker images, CPU functionality verified, local Docker review; production unchanged |
 | Delivery | Coherent PR batches with individual user merge approval; linked issue closure only when the full relevant scope is verified |
 
@@ -23,7 +24,10 @@ need the metadata fallback and language/printing checks rather than silently
 assuming English. Default bulk metadata remains an index/cache input; the
 application's existing Card table remains the authority for card identity.
 
-## Current measured starting point
+## Historical measured starting point, before the hybrid integration
+
+The following records the initial baseline, not the current runtime. Read live
+#463 and its open/merged PRs, the work checkpoint and current source for status.
 
 - Runtime: PaddleOCR title/footer, both portrait reading directions; no deployed
   image matcher, stamp detector, set-symbol detector or acquisition external fallback.
