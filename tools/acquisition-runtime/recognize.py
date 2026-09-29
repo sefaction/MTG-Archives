@@ -13,8 +13,10 @@ import sys
 import time
 
 from model_store import model_root
-from reading_direction import reading_text
+from reading_direction import (reading_text, reading_zones, restore_reading_polygon,
+                               TITLE_BOTTOM, FOOTER_TOP, STRIP_GAP)
 from photo_input import decode_photo_input
+from photo_text import whole_photo_text
 
 ROOT = model_root()
 MODEL_NAMES = ('PP-OCRv5_mobile_det', 'en_PP-OCRv5_mobile_rec')
@@ -41,14 +43,28 @@ def descriptor():
                'storeCode': hashlib.sha256(Path(__file__).with_name('model_store.py').read_bytes()).hexdigest(),
                'readingCode': hashlib.sha256(Path(__file__).with_name('reading_direction.py').read_bytes()).hexdigest(),
                'inputCode': hashlib.sha256(Path(__file__).with_name('photo_input.py').read_bytes()).hexdigest(),
+               'photoTextCode': hashlib.sha256(Path(__file__).with_name('photo_text.py').read_bytes()).hexdigest(),
                'geometry': hashlib.sha256(Path('/eval/baseline.py').read_bytes()).hexdigest()}
     digest = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     return {'version': 1, 'digest': digest, 'execution': 'CPU', **payload}
 
 
-def recognize(data, desc):
+def ocr_engine():
     global _ocr
-    data, input_kind = decode_photo_input(data)
+    if _ocr is None:
+        from paddleocr import PaddleOCR
+        _ocr = PaddleOCR(text_detection_model_name=MODEL_NAMES[0],
+                   text_recognition_model_name=MODEL_NAMES[1],
+                   text_detection_model_dir=str(ROOT / MODEL_NAMES[0]),
+                   text_recognition_model_dir=str(ROOT / MODEL_NAMES[1]),
+                   use_doc_orientation_classify=False, use_doc_unwarping=False,
+                   use_textline_orientation=False, device='cpu', cpu_threads=1,
+                   enable_mkldnn=False)
+    return _ocr
+
+
+def recognize(data, desc):
+    data, input_kind, task = decode_photo_input(data, return_task=True)
     if not data or len(data) > 10 * 1024 * 1024:
         raise ValueError('Photo exceeds bounds')
     started = time.monotonic()
@@ -58,7 +74,6 @@ def recognize(data, desc):
     import cv2
     import numpy as np
     from PIL import Image, ImageOps
-    from paddleocr import PaddleOCR
     sys.path.insert(0, '/eval')
     from baseline import geometry
     with Image.open(io.BytesIO(data)) as source:
@@ -67,6 +82,21 @@ def recognize(data, desc):
         if getattr(source, 'n_frames', 1) != 1:
             raise ValueError('Single image required')
         image = cv2.cvtColor(np.asarray(ImageOps.exif_transpose(source).convert('RGB')), cv2.COLOR_RGB2BGR)
+    if task == 'WHOLE_PHOTO_TEXT':
+        def completed_reading(reading):
+            print(json.dumps({'progress': True, 'descriptor': desc['digest'],
+                  'photoDigest': hashlib.sha256(data).hexdigest(), 'recognitionTask': task,
+                  'photoText': {'version': 1, 'scope': 'WHOLE_PHOTO',
+                                'status': 'PARTIAL', 'readings': [reading]}}), file=protocol, flush=True)
+        photo_text = whole_photo_text(image, ocr_engine(),
+                                     on_reading=completed_reading if '--stream' in sys.argv else None)
+        print(json.dumps({'version': 1, 'descriptor': desc['digest'], 'descriptorDetails': desc,
+              'photoDigest': hashlib.sha256(data).hexdigest(), 'recognitionTask': task,
+              'geometry': {'status': 'NOT_ATTEMPTED'},
+              'text': {'title': [], 'footer': []}, 'lines': [], 'orientations': [],
+              'photoText': photo_text, 'milliseconds': round((time.monotonic()-started)*1000),
+              'automaticAcceptance': False}), file=protocol, flush=True)
+        return
     crop, geometry_evidence = geometry(image, input_kind)
     if crop is None:
         # Contour proposals can change when a near-edge card is sampled after
@@ -97,34 +127,30 @@ def recognize(data, desc):
               'milliseconds': round((time.monotonic()-started)*1000),
               'automaticAcceptance': False}), file=protocol, flush=True)
         return
-    if _ocr is None:
-        _ocr = PaddleOCR(text_detection_model_name=MODEL_NAMES[0],
-                   text_recognition_model_name=MODEL_NAMES[1],
-                   text_detection_model_dir=str(ROOT / MODEL_NAMES[0]),
-                   text_recognition_model_dir=str(ROOT / MODEL_NAMES[1]),
-                   use_doc_orientation_classify=False, use_doc_unwarping=False,
-                   use_textline_orientation=False, device='cpu', cpu_threads=1,
-                   enable_mkldnn=False)
+    ocr = ocr_engine()
     # Geometry puts the short edge across the top, leaving two possible reading
     # directions. Keep their evidence separate; the catalog resolver handles
     # agreement/ambiguity. A high OCR score alone does not establish direction.
     orientations = []
     for degrees, oriented in ((0, crop), (180, cv2.rotate(crop, cv2.ROTATE_180))):
-        regions = np.concatenate([oriented[:250], np.full((20, 1000, 3), 255, np.uint8), oriented[1210:]], axis=0)
+        regions = np.concatenate([oriented[:TITLE_BOTTOM],
+                                  np.full((STRIP_GAP, 1000, 3), 255, np.uint8),
+                                  oriented[FOOTER_TOP:]], axis=0)
         lines = []
-        for prediction in _ocr.predict(regions):
+        for prediction in ocr.predict(regions):
             for text, score, polygon in zip(prediction['rec_texts'], prediction['rec_scores'], prediction['rec_polys']):
-                polygon = np.asarray(polygon).copy()
-                if polygon[:, 1].min() >= 270:
-                    polygon[:, 1] += 940
+                polygon = restore_reading_polygon(np.asarray(polygon).tolist())
+                if polygon is None:
+                    continue
                 if len(str(text)) > 2000 or len(lines) >= 100:
                     raise ValueError('OCR evidence exceeds bounds')
-                lines.append({'text': str(text), 'score': float(score), 'polygon': polygon.tolist()})
+                lines.append({'text': str(text), 'score': float(score), 'polygon': polygon})
         text = reading_text(lines)
         orientations.append({'rotationDegrees': degrees, 'text': text, 'lines': lines})
     print(json.dumps({'version': 1, 'descriptor': desc['digest'], 'descriptorDetails': desc,
           'photoDigest': hashlib.sha256(data).hexdigest(), 'geometry': geometry_evidence,
           'text': orientations[0]['text'], 'lines': orientations[0]['lines'],
+          'readingZones': reading_zones(),
           'orientations': orientations,
           'milliseconds': round((time.monotonic()-started)*1000),
           'automaticAcceptance': False}), file=protocol, flush=True)

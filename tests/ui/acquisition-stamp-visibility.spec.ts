@@ -4,6 +4,8 @@ import {createHash, randomUUID} from "node:crypto";
 import {readFileSync, writeFileSync} from "node:fs";
 import path from "node:path";
 
+test.use({actionTimeout:30000});
+
 function database(body: string) {
   return execFileSync("docker", ["exec", "-i", "mtg-archives-web-1", "node"], {
     input: `const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${body}})().catch(e=>{console.error(e.message);process.exitCode=1}).finally(()=>p.$disconnect());`,
@@ -33,6 +35,10 @@ test("visible Boggart stamp survives clipped search margin through existing revi
     await page.getByRole('option').first().click();
     await page.getByRole('button',{name:/^A\s/}).click();
     await page.getByRole('button',{name:'Start batch',exact:true}).click();
+    await page.getByRole('combobox',{name:'Batch finish',exact:true}).selectOption('NONFOIL');
+    await page.getByRole('combobox',{name:'Batch condition',exact:true}).selectOption('NM');
+    await page.getByRole('button',{name:'Save batch defaults',exact:true}).click();
+    await expect(page.getByText('Batch defaults saved.',{exact:true})).toBeVisible();
     await page.getByRole('combobox',{name:'Library image type'}).selectOption('CARD_SCAN');
     const buffer=readFileSync(path.join(root!,"originals",entry.file));
     expect(createHash('sha256').update(buffer).digest('hex')).toBe(entry.sha256);
@@ -73,6 +79,7 @@ test("visible Boggart stamp survives clipped search margin through existing revi
     }
     if(await simple.count())await card.getByRole('button',{name:'Correct',exact:true}).click();
     await card.getByRole('combobox',{name:'Card condition',exact:true}).selectOption('LP');
+    await expect(card.getByRole('button',{name:'Save card review',exact:true})).toBeEnabled();
     await card.getByRole('button',{name:'Save card review',exact:true}).click();
     await expect(card).toContainText('Review saved. Not yet added to Inventory.');
     const saved=JSON.parse(database(`console.log(JSON.stringify(await p.acquisitionCandidate.findFirstOrThrow({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}}},select:{review:true,revision:true}})));`));

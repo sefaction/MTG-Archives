@@ -1,0 +1,98 @@
+{
+    "version":  1,
+    "scope":  "REUSED_DEVELOPMENT_RUNTIME_QUALIFICATION_NOT_INDEPENDENT_ACCURACY",
+    "catalogCards":  109271,
+    "catalogSnapshotSha256":  "2d9b7816673be3e1c7f17049de7a8775ea52d5816b29b853feb775f37de4b830",
+    "nativeDescriptor":  "39479afb1d397485a5b5609f08fdeffae7129c85b13475f6e9887b22dc7c9dd3",
+    "environment":  {
+                        "workerDeadlineMs":  45000,
+                        "cpus":  1,
+                        "models":  "EXISTING_VERIFIED_PADDLE",
+                        "network":  "NONE",
+                        "memoryGiB":  2
+                    },
+    "originalInputs":  5,
+    "dependentRotations":  2,
+    "nameOffered":  7,
+    "printingAccuracyQualified":  false,
+    "automaticPrecisionQualified":  false,
+    "results":  [
+                    {
+                        "file":  "PXL_20260928_003441259.jpg",
+                        "control":  "original",
+                        "sourceSha256":  "dcbfacb80596ab16664f9996734d43c63e51720e7385fe342d6bbe1ddc8b6f7b",
+                        "photoDigest":  "dcbfacb80596ab16664f9996734d43c63e51720e7385fe342d6bbe1ddc8b6f7b",
+                        "elapsedMs":  31728,
+                        "fallback":  true,
+                        "fallbackStatus":  "PARTIAL",
+                        "nameOffered":  true,
+                        "automaticAcceptance":  false
+                    },
+                    {
+                        "file":  "PXL_20260928_003443452.jpg",
+                        "control":  "original",
+                        "sourceSha256":  "05aacb3674fa133858f523abaf313ddff992e76e44d46d3b32b8395effc7175c",
+                        "photoDigest":  "05aacb3674fa133858f523abaf313ddff992e76e44d46d3b32b8395effc7175c",
+                        "elapsedMs":  28987,
+                        "fallback":  true,
+                        "fallbackStatus":  "PARTIAL",
+                        "nameOffered":  true,
+                        "automaticAcceptance":  false
+                    },
+                    {
+                        "file":  "PXL_20260928_030544422.jpg",
+                        "control":  "original",
+                        "sourceSha256":  "6daddc283af0c4e627e7f3f916092824f0ac9516f183dcb1c2aea88703c87743",
+                        "photoDigest":  "6daddc283af0c4e627e7f3f916092824f0ac9516f183dcb1c2aea88703c87743",
+                        "elapsedMs":  29428,
+                        "fallback":  true,
+                        "fallbackStatus":  "PARTIAL",
+                        "nameOffered":  true,
+                        "automaticAcceptance":  false
+                    },
+                    {
+                        "file":  "PXL_20260927_150825750.jpg",
+                        "control":  "normal",
+                        "sourceSha256":  "0a11fa5f489fdf78567321828c75ab073524b035f62e2a1ee9c9e6b0f7898e69",
+                        "photoDigest":  "0a11fa5f489fdf78567321828c75ab073524b035f62e2a1ee9c9e6b0f7898e69",
+                        "elapsedMs":  4612,
+                        "fallback":  false,
+                        "fallbackStatus":  null,
+                        "nameOffered":  true,
+                        "automaticAcceptance":  false
+                    },
+                    {
+                        "file":  "scan-test.01.jpg",
+                        "control":  "declared-scan",
+                        "sourceSha256":  "887d726137ba2ab05563af594c41cb256509ee198538ce93ebca2e469233c5ef",
+                        "photoDigest":  "887d726137ba2ab05563af594c41cb256509ee198538ce93ebca2e469233c5ef",
+                        "elapsedMs":  4290,
+                        "fallback":  false,
+                        "fallbackStatus":  null,
+                        "nameOffered":  true,
+                        "automaticAcceptance":  false
+                    },
+                    {
+                        "file":  "PXL_20260928_003443452.jpg",
+                        "control":  "derived-90",
+                        "sourceSha256":  "05aacb3674fa133858f523abaf313ddff992e76e44d46d3b32b8395effc7175c",
+                        "photoDigest":  "709925189cb7ae631828f14235adfb4e95c4e854be1fddf28f50ef9a4eeb2d96",
+                        "elapsedMs":  30555,
+                        "fallback":  true,
+                        "fallbackStatus":  "PARTIAL",
+                        "nameOffered":  true,
+                        "automaticAcceptance":  false
+                    },
+                    {
+                        "file":  "PXL_20260928_030544422.jpg",
+                        "control":  "derived-270",
+                        "sourceSha256":  "6daddc283af0c4e627e7f3f916092824f0ac9516f183dcb1c2aea88703c87743",
+                        "photoDigest":  "1ca34832f47ee8c403cdf4695de9847266fafa00b9c355a63b0bb612408e302d",
+                        "elapsedMs":  29133,
+                        "fallback":  true,
+                        "fallbackStatus":  "PARTIAL",
+                        "nameOffered":  true,
+                        "automaticAcceptance":  false
+                    }
+                ]
+}

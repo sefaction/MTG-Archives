@@ -1,5 +1,10 @@
 import { z } from "zod";
 import { printingSummarySchema } from "./acquisition-printing";
+import { acquisitionPhotoTextSchema } from "./acquisition-photo-text";
+import {
+  acquisitionReadingZonesSchema,
+  legacyAcquisitionReadingZones,
+} from "./acquisition-reading-zones";
 import {
   visualNativeSchema,
   acquisitionVisualCandidates,
@@ -24,6 +29,8 @@ const schema = z.object({
   printing: printingSummarySchema.optional(),
   visual: visualNativeSchema.optional(),
   native: z.object({
+    photoText: acquisitionPhotoTextSchema.optional(),
+    readingZones: acquisitionReadingZonesSchema.optional(),
     geometry: z.object({
       status: z.string().max(60),
       quad: z.array(point).length(4).optional(),
@@ -52,6 +59,8 @@ export function acquisitionReviewEvidence(output: unknown) {
   return {
     geometry: native.geometry,
     observations: native.orientations,
+    photoText: native.photoText ?? null,
+    readingZones: native.readingZones ?? legacyAcquisitionReadingZones,
     rotation: proposals.orientation?.rotationDegrees ?? null,
     identifiers: proposals.evidence,
     printing: printing ?? null,

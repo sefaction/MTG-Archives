@@ -4,6 +4,8 @@ import {
   acquisitionCollectorKey,
   type RecognitionText,
 } from "./acquisition-recognition";
+import { acquisitionFooterIdentifiers } from "./acquisition-footer";
+import { acquisitionPhotoTextSchema, type AcquisitionPhotoText } from "./acquisition-photo-text";
 
 export const catalogQuerySchema = z.discriminatedUnion("kind", [
   z
@@ -51,6 +53,7 @@ export function catalogQueryKey(raw: CatalogQuery) {
 // remain eligible for external lookup. Never combine different orientations.
 export function acquisitionCatalogQueries(
   orientations: { rotationDegrees: number; text: RecognitionText }[],
+  photoText?: AcquisitionPhotoText,
 ) {
   const printing = new Map<string, CatalogQuery>();
   const names = new Map<string, CatalogQuery>();
@@ -61,27 +64,12 @@ export function acquisitionCatalogQueries(
       [...text.title, ...text.footer].some((s) => s.length > 2000)
     )
       throw new Error("OCR lookup evidence exceeds bounds");
-    const identifiers = new Set<string>();
-    const collectors = new Set<string>();
-    for (const line of text.footer) {
-      for (const match of line
-        .toUpperCase()
-        .matchAll(
-          /\b([A-Z0-9]{2,8})[^A-Z0-9\n]{0,6}(EN|FR|DE|IT|ES|PT|JA|KO|RU|ZHS|ZHT)\b/g,
-        ))
-        identifiers.add(`${match[1].toLowerCase()}:${match[2].toLowerCase()}`);
-      for (const match of line.matchAll(/\b(\d{1,5}[a-z]?)\s*\/\s*\d{2,5}\b/gi))
-        collectors.add(acquisitionCollectorKey(match[1]));
-      for (const match of line.matchAll(
-        /(?:^|\n)\s*[CUMRLT]\s*(\d{1,5}[a-z]?)\b/gim,
-      ))
-        collectors.add(acquisitionCollectorKey(match[1]));
-    }
+    const {identifiers, collectors} = acquisitionFooterIdentifiers(text.footer);
     // Conflicting footer readings remain evidence, not an API request explosion.
-    if (identifiers.size <= 2 && collectors.size <= 2)
+    if (identifiers.length <= 2 && collectors.length <= 2)
       for (const identifier of identifiers)
         for (const number of collectors) {
-          const [set, language] = identifier.split(":");
+          const {set, language} = identifier;
           const query: CatalogQuery = {
             kind: "printing",
             set,
@@ -102,7 +90,19 @@ export function acquisitionCatalogQueries(
       names.set(catalogQueryKey(query), query);
     }
   }
+  const hintNames = new Map<string, CatalogQuery>();
+  if (photoText) for (const reading of acquisitionPhotoTextSchema.parse(photoText).readings) {
+    // Spatially ordered whole-photo lines remain name-search hints. No set,
+    // collector or language tokens are extracted from this unlocalized source.
+    for (const line of reading.text.slice(0, 2)) {
+      const name = line.trim().replace(/\s+/g, " ");
+      if (name.length < 3 || name.length > 120 || (name.match(/\p{L}/gu)?.length ?? 0) < 3) continue;
+      const query: CatalogQuery = { kind: "name", name };
+      hintNames.set(catalogQueryKey(query), query);
+    }
+  }
   return {
+    ...(photoText ? { photoTextNames: [...hintNames.values()].slice(0, 4) } : {}),
     printings: [...printing.values()].slice(0, 4),
     names: [...names.values()]
       .sort(
