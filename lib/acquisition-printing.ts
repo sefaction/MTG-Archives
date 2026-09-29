@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { RecognitionCard } from "./acquisition-recognition";
+import { acquisitionCollectorKey, type RecognitionCard } from "./acquisition-recognition";
 import type { TextProposals } from "./acquisition-visual";
 
 export const PRINTING_STAGE = "photo-printing-evidence-v1";
@@ -76,6 +76,14 @@ export const printingNativeSchema = z.object({
 });
 export type PrintingObservation = z.infer<typeof printingNativeSchema>;
 
+function printingFamily(card: RecognitionCard) {
+  const origin = card.setCode.toLowerCase() === "plst"
+    ? /^([a-z0-9]{2,6})-(.+)$/i.exec(card.collectorNumber) : null;
+  return JSON.stringify([card.name.toLowerCase(), card.lang?.toLowerCase() ?? "",
+    origin?.[1].toLowerCase() ?? card.setCode.toLowerCase(),
+    acquisitionCollectorKey(origin?.[2] ?? card.collectorNumber)]);
+}
+
 // A failed check does not establish absence. Keep contradicted suggestions
 // available for correction, ordered after uncontradicted candidates.
 export function applyAcquisitionPrintingEvidence(
@@ -102,6 +110,23 @@ export function applyAcquisitionPrintingEvidence(
     else reasons.push("STAMP_UNREADABLE");
     return {...proposal, reasons: [...new Set([...reasons, "REVIEW_REQUIRED"])]};
   });
+  // Stamp evidence is not card identity. Compare it only among originals/List
+  // counterparts that share name, language and printed set/collector. An
+  // unrelated agreed stamp must never jump ahead of better identity evidence.
+  if (!printing.conflictingObservations) {
+    const families = new Map<string, number[]>();
+    updated.forEach((p, i) => {
+      const key = printingFamily(p.card);
+      families.set(key, [...(families.get(key) ?? []), i]);
+    });
+    for (const indices of families.values()) {
+      if (indices.some(i => updated[i].reasons.includes("STAMP_EVIDENCE_CONFLICT"))) continue;
+      const rank = (p: typeof updated[number]) => p.reasons.includes("STAMP_CONTRADICTION") ? 2
+        : p.reasons.includes("STAMP_PRESENT") || p.reasons.includes("STAMP_ABSENT") ? 0 : 1;
+      const ordered = indices.map(i=>updated[i]).sort((a,b)=>rank(a)-rank(b));
+      indices.forEach((i,n)=>{updated[i]=ordered[n];});
+    }
+  }
   return {...proposals,
     status: printing.conflictingObservations ? "CONFLICT" : proposals.status,
     automaticAcceptance: false,
