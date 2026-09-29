@@ -1,0 +1,1274 @@
+{
+  "version": 1,
+  "split": "development-only",
+  "labelRevision": "post-retrieval-visible-corner-audit",
+  "physicalCopyGrouping": "UNKNOWN",
+  "descriptor": "1814abf25606aa2c91fa9701bd5c2e590d86c895943a272a6b601091e7d5f497",
+  "labelsSha256": "50e7f0d36a1f37a879f8a079f4badaea7f010278d516a1ac6926ebc514ec7bc6",
+  "inputSamples": 124,
+  "identifiedSamples": 123,
+  "unresolvedSamples": [
+    "test-scan.110.jpg"
+  ],
+  "beforeFirst": 110,
+  "afterFirst": 111,
+  "inFirst12": 123,
+  "stamps": {
+    "PRESENT": {
+      "labeled": 8,
+      "correct": 7,
+      "wrong": [],
+      "unreadable": 1
+    },
+    "ABSENT": {
+      "labeled": 116,
+      "correct": 18,
+      "wrong": [],
+      "unreadable": 98
+    }
+  },
+  "automaticAcceptance": false,
+  "meanPrintingMs": 8185,
+  "results": [
+    {
+      "file": "test-scan.001.jpg",
+      "sha256": "75942cfc314ca0ca4e651803495da3d5281e67dad6e8683dfecee659b863be98",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 13342,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.002.jpg",
+      "sha256": "5d8fc2db4f57fd82fa244ef23c6f5b66466029e671063723d8ebfa549706bb72",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 10058,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.003.jpg",
+      "sha256": "ffcd0cfd3c8bf5620efe8cfd714663305ef93cfcc145bf191a7b7f3a04e0fd9e",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 9976,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.004.jpg",
+      "sha256": "3c8c6a176d5d52f43ce31b1246cf8dc09354883fcae3e3739fcb89c07231bf92",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 11015,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.005.jpg",
+      "sha256": "a23b259b040041206401699ef258ff7e8a342c1435c9b36a8cdb3671178b8d3d",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 10691,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.006.jpg",
+      "sha256": "93e5ec2ca2d16d916eeb1db33db0abe71998676a783c5e0fc132caad3a5567f0",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8560,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.007.jpg",
+      "sha256": "d163447aff888e6c880775863cec3d7f6b48d7174a8090a9b38c7b91beea814d",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8974,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.008.jpg",
+      "sha256": "a962bfc9ae4cfd0279eb0db72bf00f190c2e103968e8516c6628f7e81724e7de",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 7739,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.009.jpg",
+      "sha256": "ae9f65934003fcc142b5f700048e6d16e22ec5a5274c57f6d427421006f181c5",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 9116,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.010.jpg",
+      "sha256": "9256e15052ded729362010f8be13e8fc0764a3a0d06d8f041f656050dd4520ee",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8385,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.011.jpg",
+      "sha256": "ec9e3eeb6e0bf0366dce98f5e9709fa21e1178a4a26efff1fece4c121e517bed",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 5783,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.012.jpg",
+      "sha256": "b8f68dec38d1301405fd863bb1fce93bbe60e216d576dfb5beb5028ccf6b69f3",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 6884,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.013.jpg",
+      "sha256": "517a47831a5686b25c6075786cf8cd275b9ce7881480d4912f654669ebe2d371",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "ABSENT",
+      "rank": 2,
+      "milliseconds": 7570,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.014.jpg",
+      "sha256": "b0246da7f5e4e1524ed2dbd9ea0599e89672df17ed08b32cd479f802c09dcb28",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 7552,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.015.jpg",
+      "sha256": "03c83d1023d05ec06748096ef230a770990947fbeae8f5b6d77d639c614dbf30",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "ABSENT",
+      "rank": 1,
+      "milliseconds": 7235,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.016.jpg",
+      "sha256": "70f457048ef283ff53ab2c675210b1893e4d1cf50fec51f1b71a7b7ddc9f4ca7",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "PRESENT",
+      "observedStamp": "PRESENT",
+      "rank": 2,
+      "milliseconds": 7890,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.017.jpg",
+      "sha256": "cff65a91dd051dae2005f92662aa9fbe1c2b67aae48d2f61b008cd86894e17bb",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "PRESENT",
+      "observedStamp": "PRESENT",
+      "rank": 1,
+      "milliseconds": 8959,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.018.jpg",
+      "sha256": "e9f927acc9aadc2e75e38d404df8a89cd833089ae16cc89950a943bdd69ee5f8",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "PRESENT",
+      "observedStamp": "PRESENT",
+      "rank": 2,
+      "milliseconds": 8578,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.019.jpg",
+      "sha256": "4e56a6bcabe733c9b5247f86a494de19b48a1ec1f5c26891693a5f81d8b92b24",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "PRESENT",
+      "observedStamp": "PRESENT",
+      "rank": 1,
+      "milliseconds": 9671,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.020.jpg",
+      "sha256": "507e93a9a81a03fe2985fe1b14d7aec8c14039488aa1c7a9c8645483bb9a83c9",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "PRESENT",
+      "observedStamp": "PRESENT",
+      "rank": 2,
+      "milliseconds": 9500,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.021.jpg",
+      "sha256": "85e44cc185f4527f4366d7741faafdcff62b276517d63782dca6f62127a296e5",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "PRESENT",
+      "observedStamp": "PRESENT",
+      "rank": 1,
+      "milliseconds": 8717,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.022.jpg",
+      "sha256": "3591e49423224e4a982678c8de6cfa6ab67653dd714918a13ea4bea8a1c0000d",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 7770,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.023.jpg",
+      "sha256": "25692715451341af9187828e443f9d63b57983a69e289c5443e7d999d6ede96e",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 7296,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.024.jpg",
+      "sha256": "8bb68498f6bbaba67eb73a80b03ca66c814d988b96ae259bffde7be5fa48efb4",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 9129,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.025.jpg",
+      "sha256": "3246bae6569760e660e90b0e67469087a6d3efdee823b4bf942a91c43dab0ca8",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8180,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.026.jpg",
+      "sha256": "e06d68408ebc6973598e0c4769cf1cf1566009d092bfd8e0ea8e16963157d6ef",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8797,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.027.jpg",
+      "sha256": "35c95927bc79ce8d9c541540d05a1c0e28aadef847327cba5182327555f3e9f4",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8182,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.028.jpg",
+      "sha256": "07716ce2af8a981f566ad469f2b878e7aeb48bc74f81829055b7baf25ccef055",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8279,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.029.jpg",
+      "sha256": "dbc5bdacc91af7329b03120c629d79e9ce41474240db8a157d7953544f8b37e2",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8330,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.030.jpg",
+      "sha256": "c0d8db1b40010ace90a32bca585cd8f1836acb5144e63bbdbc6a1459826ae1e2",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "ABSENT",
+      "rank": 2,
+      "milliseconds": 7927,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.031.jpg",
+      "sha256": "a1d82f5709b3efb3df8feadc73e638c52d8e4851224bd40db734f020751d91ed",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 9522,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.032.jpg",
+      "sha256": "9e9facb0aadb4e6c3783af442bfc1d008a84b97c46a1340ed793cc8123b1e963",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 9718,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.033.jpg",
+      "sha256": "38bbe882ae8d657f51583fb230a59485192cac3b3fab94f4236f8ab3d4bb18b6",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8284,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.034.jpg",
+      "sha256": "0577e63520ffbfd367374cf0f417df3b92b060206a72aeb56462db938353a817",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 2,
+      "milliseconds": 7538,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.035.jpg",
+      "sha256": "f866914ad0a8811462c0254f248159e9214c81e984092c325ad18fa6eabb3218",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8956,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.036.jpg",
+      "sha256": "cb2763a55a89e2152508d050ee9e28645160b1aea14be928fb86c6dd848f328a",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "PRESENT",
+      "observedStamp": "PRESENT",
+      "rank": 1,
+      "milliseconds": 8364,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.037.jpg",
+      "sha256": "e7aae810e801e63bf86f0d500d48acb82e5e20a730828cd5857efe656a6c1acf",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 10162,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.038.jpg",
+      "sha256": "fddb37d416acd3e2a2f8d2fb854233841198b0e904819cc7f22eb740584becaa",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 2,
+      "milliseconds": 8915,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.039.jpg",
+      "sha256": "ec3552cbb8cf4073aeb0c3a225316b3a99692ea7bfa312dc0fa36f5ad94948c5",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 9129,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.040.jpg",
+      "sha256": "6650ba342d806eee92d5ae1446754931c8fa57012c49fe96ddbc333c7a674024",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "ABSENT",
+      "rank": 1,
+      "milliseconds": 8853,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.041.jpg",
+      "sha256": "336f72778187913268e4ff1cd73b32d943201e599ef2ef63cd75031ccad20d06",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 7449,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.042.jpg",
+      "sha256": "5cbdf66766cc3cdcf84eefa64333be25bc162858ea106bcaebce04469e25542b",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8348,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.043.jpg",
+      "sha256": "930c131902559fae8f1a189e36f791084f2ce64cf1ac0c93a484affb96d993ba",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8155,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.044.jpg",
+      "sha256": "f4f936feb2722d62b8c2c9dadc07eda1c344726137c3ad30b27717b878a393ee",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "ABSENT",
+      "rank": 1,
+      "milliseconds": 8540,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.045.jpg",
+      "sha256": "9ece0b3f92f7e42907df9b5cab8159a2d5954feb5f4696b04cc3ff7a51781b12",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "ABSENT",
+      "rank": 1,
+      "milliseconds": 8545,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.046.jpg",
+      "sha256": "b8c95e92d272470407e1d74c0f8ecac77a2689cceb3233a08c95b3de3a76f1d8",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8306,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.047.jpg",
+      "sha256": "3d3c3a280d4b27c53256020a0088d796583b05718ab3564ab68ff88d7ec67e2b",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 2,
+      "milliseconds": 8987,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.048.jpg",
+      "sha256": "fe336cf5fdcca4ea81260bb5d87f7dcaea072387dd304a71ef8b52f58822967f",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "ABSENT",
+      "rank": 1,
+      "milliseconds": 8159,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.049.jpg",
+      "sha256": "0526fd1f73a6f8b64b52cf76edd7ffe8d3139f2820445dbae5287e986f17c088",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 7622,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.050.jpg",
+      "sha256": "70018b1b4f5b8bfb7881211dc61245793e75d40abc80b1f20e7e26755bdb8e9f",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 7553,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.051.jpg",
+      "sha256": "b67644f3a138a568e714aebbe5aa10219eb95509a0e1ab3f40e8a8e1039ace9e",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "ABSENT",
+      "rank": 1,
+      "milliseconds": 8691,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.052.jpg",
+      "sha256": "665a592dd3eb47659810629117957b741bf673dd1ffe6d1cc4f359f406f84379",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "ABSENT",
+      "rank": 1,
+      "milliseconds": 7594,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.053.jpg",
+      "sha256": "676ae398d65ae33ca45eb0e66dd471cf68cd99d779bca63bb2b6cfa7383aa273",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "ABSENT",
+      "rank": 1,
+      "milliseconds": 4745,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.054.jpg",
+      "sha256": "c0c16786cfbbc2f711a138df3f2547850748132783001619266e23de6f4144a1",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 7647,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.055.jpg",
+      "sha256": "8501a1611d2f330d58d857c4b12fce6b08f980f50c172fc926df4bdbf328849f",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "ABSENT",
+      "rank": 1,
+      "milliseconds": 8257,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.056.jpg",
+      "sha256": "52ced8ff51793b9a2a3fa68d8f6bc1b9d2794c86357f932c7e8b63f94e5da0bf",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 4482,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.057.jpg",
+      "sha256": "cbf17eb471ffea8b79c8f0878e72691f24ac1951b617b3a701e890833becce7b",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 9271,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.058.jpg",
+      "sha256": "8e200061db085e138bb2f4c337e6cbbe38ab64a75d7340652178f4d59491f32d",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 7425,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.059.jpg",
+      "sha256": "90c5d18473a526c2c909af9ba996db89706c5a94685a0fc6335a0aeb16984937",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8559,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.060.jpg",
+      "sha256": "4a6dbdf0f6435f0e8ee5dee33a76888086ef160dd0c77ffc1987c100e6614fc7",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 7822,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.061.jpg",
+      "sha256": "f4bb823516a8e17fd6e2e12e86081a5088540e0873df9cd3217d538768eabeab",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8191,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.062.jpg",
+      "sha256": "b784122ddab3c48637b25b5c7c3b0403dbf2131403de59bc3942b837bb8f7ca0",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 7747,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.063.jpg",
+      "sha256": "b245b1aa844b8490d6089fad4c411f6a504525fbcd698ce0bc8e15092c1ce138",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 3,
+      "milliseconds": 8490,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.064.jpg",
+      "sha256": "c0af9bfbbc9caa2753a8c7bc5d57b02469ab6ba74c079e6a16d7c51b4d327148",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 7891,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.065.jpg",
+      "sha256": "e98cba27c7a3cee218afde10a368586ba518b29e0969948e1bcb95ea39a0596e",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "PRESENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 2,
+      "milliseconds": 8268,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.066.jpg",
+      "sha256": "521864cf2846bd7ee8404855552b528ca30600581dd9a48850a014a498332dd9",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 9037,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.067.jpg",
+      "sha256": "70102486ccee49e4a932441445d3aad82eef36ca54dd9618bdd055e9905784eb",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "ABSENT",
+      "rank": 1,
+      "milliseconds": 8709,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.068.jpg",
+      "sha256": "728252cf7b77034987515faf71d597f55a1e5b219c4f289b0df92a631e2634b0",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8591,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.069.jpg",
+      "sha256": "938bd637cc2578b43364f2bd5e65d89997b9d52f96ff3fc0822d84feaea413a1",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 7901,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.070.jpg",
+      "sha256": "6edfaf569018b648332c55d30dbc90511978967c8bafecde917ca3d89c6cb815",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8361,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.071.jpg",
+      "sha256": "448d2ed59548d6cb5ad639d9527c455bc3ef793984d4fb0fc0565f27f4d92fd8",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8518,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.072.jpg",
+      "sha256": "958918997dc6973ba11911fad786e3be61f2308ec5acc5f9e8e8efbe3c39a18a",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8262,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.073.jpg",
+      "sha256": "fb097234f78a4db4b86847aad44d5f6f9d6917af24bc8536243a0a141ca71ca3",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8600,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.074.jpg",
+      "sha256": "86159542df6f1354baf80a1410ea9408909ffdbb8a0909be8a7ef4b5f3930ca2",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8185,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.075.jpg",
+      "sha256": "caaf0388aee5d43de8ae25ad2fb0faea1be44f55aaa7284df104d6c15de89661",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8299,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.076.jpg",
+      "sha256": "bde2548452f40cabf79891226cb0e2185d65f8038903a3e95d539a5cfb6ce2c0",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 6788,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.077.jpg",
+      "sha256": "ebe327a2145b5835ee04b7d0878df978e13eceb2c4c9506d6ce6761e406fc637",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 7450,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.078.jpg",
+      "sha256": "af3aa3595f0e31d2c9a8e64397932b5ef2659ee85db069310621eb39ff8b6c5c",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 6999,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.079.jpg",
+      "sha256": "2eac3f96523142093a3e06b3ef0c8cb99633b8326c375979d6ee600a54d44e60",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8473,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.080.jpg",
+      "sha256": "43774e76a31a9f9aa06ee02e6d112ebda1cc8dd8be114f5c0bb4ef8c27bb4083",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 6644,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.081.jpg",
+      "sha256": "cb4bc51000a04d76af55ac851ede010f5efa1f77ad3db39faa463c0fa0d8324f",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "ABSENT",
+      "rank": 1,
+      "milliseconds": 8852,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.082.jpg",
+      "sha256": "2dedcae6953bd37fb80d7ec60e6eb1fe0b7afcc85e813ff4d14066a4258a9916",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "ABSENT",
+      "rank": 1,
+      "milliseconds": 7511,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.083.jpg",
+      "sha256": "3263f604fb8a712a34ed6bd742ad4023145e6ff293c0cb18d156ed8ebcb7b055",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8312,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.084.jpg",
+      "sha256": "ec88913199b614bc0866e6ff8da631d6607ce5581d3ee684e0dcee2e0dadcb5a",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 5766,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.085.jpg",
+      "sha256": "8eef2e69b4e525d06932594796d7958665080e7089f39296be1fe67c1ba8a0d9",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 4491,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.086.jpg",
+      "sha256": "ce81479d8cc9f98826a556d4c894af23d04eeb1b58fee983f89d428c057d7b49",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 9547,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.087.jpg",
+      "sha256": "344fea046a4a961227a1b364644df8b5a2bd5e310117a0a30aeeb16b4cead091",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8786,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.088.jpg",
+      "sha256": "1023105bd5cc805dcc25253c5b2d6ff1ce1ee38835c08909aeb67b94b2be10b9",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 7476,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.089.jpg",
+      "sha256": "65fd4cc689cd0b5290ba62bd57d7fc36820effa694a2b6b1264f451d258b7328",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "ABSENT",
+      "rank": 1,
+      "milliseconds": 10031,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.090.jpg",
+      "sha256": "60f5de98e84c131611e460d0805e1847e4a344fe20af5ff4ccc10df6c8f121c5",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8882,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.091.jpg",
+      "sha256": "6d9b4e6c554f2de205f694b6ed3062a788f0f9deded05a95204282365a741c48",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 7814,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.092.jpg",
+      "sha256": "857f3c46498963baf386d0b7bac25771c69820a4899992ee15b8a5e318302734",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8147,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.093.jpg",
+      "sha256": "cc6df6b5c8b0f0acc0fde7d8e433f1448019c878263dc1a40eeaabbd4b5e9f8c",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8143,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.094.jpg",
+      "sha256": "ccf204359970cd3a5349924414c3be5270955ca71fa3c6358cdb24c561de3d32",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 7578,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.095.jpg",
+      "sha256": "34ba828188d0cc6eed5c0cfdc518effed1042e909f5a00d2c67a8e24623cc19c",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 7435,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.096.jpg",
+      "sha256": "f5c9bcb615133cab9f8de2778d0343d71ec5d6d0462a65563e52f21a35e78b22",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8020,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.097.jpg",
+      "sha256": "a8acf60a9f6bb3aff996c0536883c1e4a9c563b58e4ba548ab1325903cd4096f",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 7788,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.098.jpg",
+      "sha256": "b1c87a0e90a2cb02f3752e9aec43660ecddc8e0ebc1908b5639b5dd6e2fd72a9",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8329,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.099.jpg",
+      "sha256": "4b687c3ca27fc7aab780b863bf28fed3a6e7de1442a8f600de5df3d6d5ece5e3",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 2,
+      "milliseconds": 8228,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.100.jpg",
+      "sha256": "7ad80768c5de237f2b692b323bfad0894b69fb579e328d2ba517d0d53012ea11",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 7582,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.101.jpg",
+      "sha256": "ddf6c87140bbd8eaffa149245174494b2f4eb20a505f952d47fe462892b23018",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 7790,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.102.jpg",
+      "sha256": "25e09b992978a94b1acc4cd1a9f2d95c38cd2653f7c0025ca7538d798b464963",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 10260,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.103.jpg",
+      "sha256": "ab8a34ff9acf72b7dc507d944024c12d55066456417c3723824a2dd0cc2ce2a8",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8994,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.104.jpg",
+      "sha256": "ff3f1c19568b65dc76a6cf0fa27182f49addefe79982dfc4e696ee75bae44775",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8067,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.105.jpg",
+      "sha256": "10cc53eeac3f43acfd6b6dcf7a29cd6cfbed0add1b12d1ecf5aa0001b164d8dc",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 9569,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.106.jpg",
+      "sha256": "a7c80d93f1ddf3009f9bab5b60fd5696df8f496d4de24447a649de7de3e5680e",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 10167,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.107.jpg",
+      "sha256": "3af2a54225e7b11b5bee4961d5c6ef6a92983f5e40156dc042a7874633323c61",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "ABSENT",
+      "rank": 1,
+      "milliseconds": 8330,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.108.jpg",
+      "sha256": "4cbd4f3dec33d3b2280bb8302df8fa87ac681fcc2ab307c3a0f26c1e89c411d8",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8990,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.109.jpg",
+      "sha256": "13fdda76c4d49541dc7ba6ff8caaef7a9bc1eee1ba362a0727eb1b6beb1358ae",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 9594,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.110.jpg",
+      "sha256": "a37c4a27b376d78e9f44c2dc5339c54a0e92aed93b2e2534f938022c03015eaf",
+      "labelStatus": "RELEASE_UNRESOLVED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": null,
+      "milliseconds": 7910,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.111.jpg",
+      "sha256": "c68eece35501fb56ac8be8ff412e8433444f323dc629699b9abc2dabdb0b2564",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "ABSENT",
+      "rank": 1,
+      "milliseconds": 8252,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.112.jpg",
+      "sha256": "442f08361390428e1c7607af4668f19fd55e2a481174937d01ef6cb86d90281b",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8136,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.113.jpg",
+      "sha256": "33675c28c0b5ebb3ac48689d2e6f16a63a9ed39cc84679f5671e2e179934d770",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 6584,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.114.jpg",
+      "sha256": "fb60de7a620b9017fba0c6753fff39f5154e00413f09507eb995cf120039c5ef",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 2,
+      "milliseconds": 6526,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.115.jpg",
+      "sha256": "c067879e5ec6628b4aa12a6cfd3a1eb5ccb1ab7f004395fa2b59f62f5f876560",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 7074,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.116.jpg",
+      "sha256": "a0861937e0c183a35b3c044ddecd894e8e18d68e238da94240f60c8fc7756fa6",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "ABSENT",
+      "rank": 1,
+      "milliseconds": 8377,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.117.jpg",
+      "sha256": "5f08da61d42228b308cbdffd9ed0f357f76ef55dc60ab39f12cfd6a07504c115",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8188,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.118.jpg",
+      "sha256": "14685ef5a3137e90e6b6ae0a916ef3e2d269372b31273da2cfb255cf0786a62f",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8999,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.119.jpg",
+      "sha256": "3b37ead7a31c763fe5a94e490caa78f27a5ea2e4e6a9f28c0620d1e9a683e7f6",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 7938,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.120.jpg",
+      "sha256": "17af912c940c46fe194ba1cdc57f653c03d0e287b20f0ed7d9ef48fc728d6d0c",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 7936,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.121.jpg",
+      "sha256": "a748f687aad21054b7ba6a5fbf473328f06094bec87c3ab81e49f877d3ff62ae",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 8481,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.122.jpg",
+      "sha256": "1d834e6c0b3749819364032c3eb8f45d168d931acaa7ac8da97f71e4e1acd0d8",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 4362,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.123.jpg",
+      "sha256": "b1783d133adaffed2be3dc4d01b118157d6ad471aff619bee8ba09a79028463c",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 4077,
+      "conflicts": false
+    },
+    {
+      "file": "test-scan.124.jpg",
+      "sha256": "4aecbf0d058304fa75fc7a48cf710efa557f1f9c90ebb912ce3486bbb461f26e",
+      "labelStatus": "IDENTIFIED",
+      "stampLabel": "ABSENT",
+      "observedStamp": "UNREADABLE",
+      "rank": 1,
+      "milliseconds": 4496,
+      "conflicts": false
+    }
+  ]
+}

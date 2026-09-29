@@ -79,8 +79,13 @@ The final annotation set has181 independently inspected, hash-bound PUBLIC
 reference faces, including the three newly identified stamped counterparts.
 This is limited annotation coverage, not an assertion that the entire public
 catalog has verified stamp labels. Two existing public stamp templates and all
-decision thresholds remain unchanged. Further live acceptance and the final
-annotation-inclusive replay are recorded in the work checkpoint/PR.
+decision thresholds remain unchanged. The final annotation-inclusive replay
+completed with the same counts:111/123 first,all123 offered,7/8 positive and
+18/116 negative stamp observations correct,99 unreadable and zero wrong
+explicit observations. Sanitized per-file results are in
+`tools/acquisition-eval/scan-batch-printing-results.json`. The measured8.185second
+mean printing time overlapped local builds/workers; it is not isolated
+throughput evidence. Automatic confirmations remain zero.
 
 ## Verification and limits
 
@@ -95,7 +100,9 @@ annotation-inclusive replay are recorded in the work checkpoint/PR.
   SUPERSEDED before native processing.
 - The focused live browser check uses a text-led stamped scan, an image-led
   failed-outline scan and an ordinary scanner image, with phone/desktop review
-  and a separate failed-printing state. Its actual outcome belongs in the PR.
+  and a separate failed-printing state. It passed1/1 in2.7minutes, with original
+  canvas pixels and downloaded printing pixels checked, no page-wide overflow
+  at1366/320 CSS pixels, owned fixture cleanup and no Inventory writes.
 
 No release-quality automatic precision claim follows from this batch. Most
 absence checks remain unreadable. Set-symbol detection, broader printing-layout

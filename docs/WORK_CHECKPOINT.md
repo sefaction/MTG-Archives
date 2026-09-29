@@ -1,5 +1,12 @@
 # Resumable work checkpoint
 
+## Printing PR #477 local acceptance passed, 2026-09-28
+
+- Branch `feat/acquisition-runtime-printing`, pushed head `71de7bb`, draft PR #477 on #476. All three CI checks passed in run36502994123. No individual merge approval; all recognition dependencies remain unmerged and scanner #474 remains separate.
+- Final disposable PostgreSQL/core verification passed and cleaned its fixture (`acquisition-2026-09-29T00-18-49-765Z/result.json`). Ten Python guards and18 focused TypeScript guards passed. Final live browser1149 passed1/1 in2.7m: actual OCR-led stamped scan, image-led NEEDS_CROP scan, native digest, decoded printing image, painted original canvas, failed-printing fallback and zero Inventory writes. Both1366/320 screenshots inspected; no page-wide overflow.
+- Local Docker446 inputs match source digest951c66685750174bb94a15a7dc532449a79c9b035c84d81359889acba7316068. Web72b32166 and native7a114026 loaded; printing descriptor1814abf. Automatic confirmation remains off in this review profile. Production untouched.
+- Final181-annotation replay78692 completed124 successfully and its container exited naturally. Descriptor1814abf, label manifest50e7f0d. Final counts unchanged:111/123 first,all123 offered,7/8 positive/18/116 negative correct,99 unreadable,zero wrong explicit;mean8.185s overlaps builds/workers. Sanitized per-file results committed. No replay remains active. Next: ready #477 for individual review, then persistent reference/index refresh and remaining #463 gates. Original bytes/native outputs stay immutable.
+
 ## New scanner batch and runtime printing stage in progress, 2026-09-28
 
 - Latest correction: enlarged lower-left corners reveal EIGHT stamps, not the original five. Label revision2 adds Nature's Way/Invigorating Surge/Golgari Grave-Troll; all124 corners inspected. `label-manifest.json` and raw OCR/retrieval stay immutable; `label-manifest-v2.json` binds original manifest6d22013 and unchanged file hashes. Public scan-batch manifest is revision2. Combined retrieval now exact-first110/123, offers all123 labelled printings and all124 names. Do not repeat the earlier108/123 figure as final.
