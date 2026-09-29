@@ -35,9 +35,18 @@ test("paired Windows helper reports real sources in website; revocation blocks i
     expect(installer.ok()).toBe(true);
     expect((await installer.json()).available).toBe(true);
     await expect(panel.getByRole("link", { name: "Download Windows scanner helper" })).toBeVisible();
-    const pair = await page.request.post("/api/scanners", { data: { action: "pair" } });
-    expect(pair.ok()).toBe(true);
-    const { code } = await pair.json();
+    const downloadReady = page.waitForEvent("download");
+    await panel.getByRole("link", { name: "Download Windows scanner helper" }).click();
+    const download = await downloadReady;
+    expect(download.suggestedFilename()).toBe("MTGArchivesScannerSetup.exe");
+    expect(await download.failure()).toBeNull();
+    const pair = await page.evaluate(async () => {
+      const response = await fetch("/api/scanners", { method: "POST",
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "pair" }) });
+      return { status: response.status, value: await response.json() };
+    });
+    expect(pair.status).toBe(200);
+    const { code } = pair.value;
     expect(code).toMatch(/^[a-f0-9-]{36}\.[A-Za-z0-9_-]{43}$/);
     const connected = helper(["connect", baseURL!, "--local"], `${code}\n`);
     agentId = connected.match(/Connection identity: ([a-f0-9-]{36})/)?.[1] ?? "";

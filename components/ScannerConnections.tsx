@@ -6,6 +6,7 @@ type Agent = Awaited<ReturnType<typeof listScannerAgents>>[number];
 export function ScannerConnections() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [expanded, setExpanded] = useState(false);
+  const [addAnother, setAddAnother] = useState(false);
   const [installerAvailable, setInstallerAvailable] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState("");
@@ -19,6 +20,10 @@ export function ScannerConnections() {
     } catch (e) { setError((e as Error).message); }
   }, []);
   useEffect(() => {
+    const timer = setTimeout(() => void refresh(), 0);
+    return () => clearTimeout(timer);
+  }, [refresh]);
+  useEffect(() => {
     if (!expanded) return;
     const timer = setInterval(() => void refresh(), 5000);
     return () => clearInterval(timer);
@@ -31,6 +36,8 @@ export function ScannerConnections() {
       .catch(() => setInstallerAvailable(false));
   }, [expanded]);
   const showWaiting = waiting && !agents.some(agent => agent.online);
+  const hasOnline = agents.some(agent => agent.online);
+  const showSetup = !hasOnline || addAnother;
   async function action(value: object) {
     setBusy(true); setError("");
     try {
@@ -57,8 +64,12 @@ export function ScannerConnections() {
   }
   return <section className={`${filterPanelClass} min-w-0`} aria-label="Scanner connections">
     <button type="button" className={filterButtonClass} aria-expanded={expanded}
-      onClick={() => { setExpanded(!expanded); if (!expanded) void refresh(); }}>Connect a scanner</button>
+      onClick={() => { setExpanded(!expanded); if (expanded) setAddAnother(false); else void refresh(); }}>
+      {hasOnline ? "Scanner connected" : "Connect a scanner"}</button>
     {expanded && <div className="space-y-3 mt-3 min-w-0">
+      {hasOnline && <button type="button" className={filterButtonClass}
+        onClick={() => setAddAnother(!addAnother)}>{addAnother ? "Hide setup" : "Add another computer"}</button>}
+      {showSetup && <>
       <p>Use the Windows computer connected to your scanner. Install its manufacturer driver first.</p>
       <ol className="list-decimal list-inside space-y-2">
         <li>{installerAvailable ? <a className={filterButtonClass} href="/api/scanners/installer" download>
@@ -73,6 +84,7 @@ export function ScannerConnections() {
       {showWaiting && <details><summary>Nothing opened?</summary>
         <p>Install the helper above, then click Connect this computer again. Keep this page open.</p>
       </details>}
+      </>}
       {agents.length === 0 && <p>No scanner helpers connected yet.</p>}
       <ul className="space-y-3">{agents.map(agent => <li key={agent.id} className="min-w-0">
         <div className="flex flex-wrap gap-2 items-center"><strong>{agent.name}</strong>
