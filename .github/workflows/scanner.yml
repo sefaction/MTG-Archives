@@ -31,6 +31,7 @@ jobs:
           ./tools/scanner-agent/install-from-source.ps1 -InstallRoot "$env:RUNNER_TEMP\mtg-scanner-source-install"
           $edition = Get-ChildItem "$env:RUNNER_TEMP\mtg-scanner-source-install" -Directory | Select-Object -First 1
           if (-not $edition -or -not (Test-Path (Join-Path $edition.FullName 'NAPS2.Worker.exe')) -or
+              -not (Test-Path (Join-Path $edition.FullName 'ScannerSetup.ps1')) -or
               -not (Test-Path (Join-Path $edition.FullName 'build-manifest.json'))) {
             throw 'Validated helper copy is incomplete'
           }

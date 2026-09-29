@@ -1,8 +1,8 @@
 # Windows scanner helper: local source build
 
 This is a reproducible local setup for the Windows PC connected to the scanner.
-It does not publish a binary, install a manufacturer driver, configure autostart,
-pair an account or touch the production server. The separate NAPS2 distribution
+It does not publish a binary, install a manufacturer driver, pair an account
+or touch the production server by itself. The separate NAPS2 distribution
 review in [SCANNER_NAPS2_LICENSES.md](SCANNER_NAPS2_LICENSES.md) still applies
 before distributing a prebuilt installer or helper archive.
 
@@ -32,7 +32,9 @@ and file digests. Credentials, spool originals and connection settings live in
 sibling appdata paths, never in the copied executable directory. Repeating the
 script creates a distinct versioned folder; it does not remove older builds or
 scanner evidence. A private destination may be passed with `-InstallRoot` for
-a local pilot.
+a local pilot. A normal installation adds **MTG Archives Scanner** to the
+current user's Start menu. Its setup window can optionally start the helper
+at Windows sign-in; that choice is off until selected.
 
 ## Pair and test after the site update
 
@@ -43,12 +45,23 @@ image publication to pass, then use the user's normal Unraid Compose Manager
 Update for the MTG Archives stack. The Windows helper runs on the scanner PC,
 outside Unraid and outside the Docker image.
 
-On Scan cards, create a connection code. Run the printed `connect` command with
-the production HTTPS origin (`https://mtgarchive.graymaiden.com/`) and paste
-the code at its prompt. Keep the returned connection ID; it is not a secret.
-Then run the printed `serve CONNECTION-ID` command in a PowerShell window while
-scanning. The helper stores its secret in Windows Credential Manager and sends
-outbound requests only. It does not expose a browser localhost service.
+On Scan cards, create a connection code. Open **MTG Archives Scanner** from the
+Windows Start menu, enter the site's HTTPS address, paste the code, and click
+**Connect and start**. The code goes to the helper through standard input and
+is cleared from the window; it is not passed on the command line or saved in
+the active-connection file. The helper stores its secret in Windows Credential
+Manager and sends outbound requests only. It does not expose a browser
+localhost service. The window can restart a saved connection without a new
+code and open Scan cards in the browser. **Keep the scanner online when I sign
+in to Windows** is optional and creates a current-user Startup shortcut.
+The source installer refreshes that shortcut to the newest installed edition
+only if the user previously enabled it.
+
+When using `-InstallRoot` for a private pilot, the installer prints a command
+to open the same setup window; no Start menu or Startup shortcut is changed.
+The command-line `connect` and `serve` operations remain available for
+diagnostics. The setup window does not start a scan motor. Actual scanner
+operation still starts from the website after loading expendable cards.
 
 For the first production Plustek test, use one expendable card and the observed
 WIA source with RGB, 300 DPI and simplex. Verify the physical exit/count and

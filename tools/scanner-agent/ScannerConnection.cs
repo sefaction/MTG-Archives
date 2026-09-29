@@ -8,8 +8,8 @@ namespace Mtg.Scanner;
 public record HelperConnection(Guid AgentId, string Site, string Name, bool AllowLocal);
 public record EnrollmentCredential(string Secret, string? PairCode, string Site, bool AllowLocal);
 // Outbound HTTP only: no browser loopback API, listener or browser login cookie.
-// This delivery slice connects/discovers. It never starts a scanner or executes
-// arbitrary remote commands; START/artifact delivery follows separately.
+// Site START requests are accepted only through the authenticated, fenced
+// scanner-run protocol. This connection owns no browser session or listener.
 public static class ScannerConnection
 {
     public const string Version = "0.3.0-native";
@@ -24,6 +24,13 @@ public static class ScannerConnection
         return uri;
     }
     private static string FileFor(Guid id) => Path.Combine(Root, $"{id}.json");
+    private static string ServiceLockFor(Guid id) => Path.Combine(Root, $"{id}.serve.lock");
+    private static FileStream AcquireServiceLock(Guid id)
+    {
+        Directory.CreateDirectory(Root);
+        try { return new FileStream(ServiceLockFor(id), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
+        catch (IOException) { throw new InvalidOperationException("Scanner helper is already running for this connection"); }
+    }
     private static HttpClient Client(Uri site) => new(new HttpClientHandler { AllowAutoRedirect = false })
         { BaseAddress = site, Timeout = TimeSpan.FromSeconds(15) };
     private static async Task Send(HttpClient client, string route, object value, Guid agentId, string? token = null)
@@ -83,8 +90,14 @@ public static class ScannerConnection
                     catch (ArgumentException) { }
                 }
                 Site("https://example.com/", false); Site("http://127.0.0.1:13001/", true);
+                using (AcquireServiceLock(id))
+                {
+                    try { using var duplicate = AcquireServiceLock(id); throw new InvalidOperationException("Duplicate helper accepted"); }
+                    catch (InvalidOperationException error) when (error.Message == "Scanner helper is already running for this connection") { }
+                }
+                using (AcquireServiceLock(id)) { }
                 Console.WriteLine("PASS scanner private Windows credential and outbound-origin guards; no device used");
-            } finally { WindowsCredential.Remove(id); }
+            } finally { WindowsCredential.Remove(id); File.Delete(ServiceLockFor(id)); }
             return true;
         }
         if (args[0] == "connect" && args.Length is 2 or 3)
@@ -111,6 +124,7 @@ public static class ScannerConnection
         {
             var connection = LoadConnection(args[1]);
             var credential = Credential(connection);
+            using var serviceLock = args[0] == "serve" ? AcquireServiceLock(connection.AgentId) : null;
             var fixture = args[0] == "fixture-server";
             if (fixture && (!connection.AllowLocal || Site(connection.Site, true).Scheme != "http" ||
                 Environment.GetEnvironmentVariable("MTG_LOCAL_PILOT_TEST") != "1"))

@@ -7,8 +7,11 @@ $ErrorActionPreference = 'Stop'
 if (-not $IsWindows -and $PSVersionTable.PSEdition -eq 'Core') { throw 'Windows is required' }
 $project = Join-Path $PSScriptRoot 'ScannerAgent.csproj'
 $lock = Join-Path $PSScriptRoot 'packages.lock.json'
+$setup = Join-Path $PSScriptRoot 'ScannerSetup.ps1'
 if (-not (Test-Path -LiteralPath $project -PathType Leaf) -or
-    -not (Test-Path -LiteralPath $lock -PathType Leaf)) { throw 'Scanner source is incomplete' }
+    -not (Test-Path -LiteralPath $lock -PathType Leaf) -or
+    -not (Test-Path -LiteralPath $setup -PathType Leaf)) { throw 'Scanner source is incomplete' }
+$resolvedDotnet = (Get-Command $DotnetPath -ErrorAction Stop).Source
 $install = [IO.Path]::GetFullPath($InstallRoot)
 if (-not [IO.Path]::IsPathRooted($install)) { throw 'Choose an absolute install root' }
 $sdk = & $DotnetPath --list-sdks
@@ -21,7 +24,7 @@ if ($LASTEXITCODE -ne 0 -or -not ($runtimes | Select-String '^Microsoft\.Windows
 # The source and exact NuGet lock identify this local build. No binary is
 # published by this script or added to the repository.
 $sources = @(Get-ChildItem -LiteralPath $PSScriptRoot -File |
-  Where-Object { $_.Extension -eq '.cs' -or $_.Name -in @('ScannerAgent.csproj','packages.lock.json') } |
+  Where-Object { $_.Extension -eq '.cs' -or $_.Name -in @('ScannerAgent.csproj','packages.lock.json','ScannerSetup.ps1') } |
   Sort-Object Name)
 $text = ($sources | ForEach-Object { "$($_.Name) $((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash)" }) -join "`n"
 $bytes = [Text.Encoding]::UTF8.GetBytes($text)
@@ -41,6 +44,7 @@ try {
       throw "Published helper is missing $name"
     }
   }
+  Copy-Item -LiteralPath $setup -Destination (Join-Path $published 'ScannerSetup.ps1')
   & $DotnetPath (Join-Path $published 'Mtg.ScannerAgent.dll') connection-selftest
   if ($LASTEXITCODE -ne 0) { throw 'Scanner credential/origin self-check failed' }
   & $DotnetPath (Join-Path $published 'Mtg.ScannerAgent.dll') native-selftest *> (Join-Path $buildRoot 'native-selftest.log')
@@ -69,10 +73,41 @@ try {
       throw 'Installed helper copy differs from validated output'
     }
   }
+  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $edition 'ScannerSetup.ps1') -DotnetPath $resolvedDotnet -SelfTest
+  if ($LASTEXITCODE -ne 0) { throw 'Installed scanner setup self-check failed' }
+  if (-not $PSBoundParameters.ContainsKey('InstallRoot')) {
+    $programs = [Environment]::GetFolderPath('Programs')
+    $shortcutPath = Join-Path $programs 'MTG Archives Scanner.lnk'
+    $shell = New-Object -ComObject WScript.Shell
+    if (Test-Path -LiteralPath $shortcutPath) {
+      $existing = $shell.CreateShortcut($shortcutPath)
+      if ($existing.Description -ne 'Pair and run the MTG Archives Windows scanner helper') {
+        throw 'A different Start Menu shortcut uses the scanner name'
+      }
+    }
+    $shortcut = $shell.CreateShortcut($shortcutPath)
+    $shortcut.TargetPath = (Get-Command powershell.exe).Source
+    $shortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File `"$(Join-Path $edition 'ScannerSetup.ps1')`" -DotnetPath `"$resolvedDotnet`""
+    $shortcut.WorkingDirectory = $edition
+    $shortcut.Description = 'Pair and run the MTG Archives Windows scanner helper'
+    $shortcut.Save()
+    $startupPath = Join-Path ([Environment]::GetFolderPath('Startup')) 'MTG Archives Scanner.lnk'
+    if (Test-Path -LiteralPath $startupPath) {
+      $startupShortcut = $shell.CreateShortcut($startupPath)
+      if ($startupShortcut.Description -ne 'Start the MTG Archives scanner helper after sign-in') {
+        throw 'A different Startup shortcut uses the scanner name'
+      }
+      $startupShortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File `"$(Join-Path $edition 'ScannerSetup.ps1')`" -DotnetPath `"$resolvedDotnet`" -Background"
+      $startupShortcut.WorkingDirectory = $edition
+      $startupShortcut.Save()
+    }
+    Write-Output 'Open MTG Archives Scanner from the Windows Start menu to pair without a terminal.'
+  }
   Write-Output "Validated source build installed at: $edition"
   Write-Output 'No scanner motor was started. Pairing, production login and autostart were not changed.'
-  Write-Output "Run: & '$DotnetPath' '$(Join-Path $edition 'Mtg.ScannerAgent.dll')' connect https://YOUR-SITE/"
-  Write-Output "Then: & '$DotnetPath' '$(Join-Path $edition 'Mtg.ScannerAgent.dll')' serve CONNECTION-ID"
+  if ($PSBoundParameters.ContainsKey('InstallRoot')) {
+    Write-Output "Pilot setup window: powershell.exe -NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File '$(Join-Path $edition 'ScannerSetup.ps1')' -DotnetPath '$resolvedDotnet'"
+  }
 } finally {
   # Temporary build contains only newly generated output under this unique root.
   $tempRoot = [IO.Path]::GetFullPath($env:TEMP).TrimEnd('\','/') + [IO.Path]::DirectorySeparatorChar
