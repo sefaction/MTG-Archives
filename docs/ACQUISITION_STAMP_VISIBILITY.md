@@ -41,9 +41,21 @@ behavior. Real development replay and the local browser gate are pending.
 ordered candidate references and verifies original hashes. Labels score only
 the output. The selected 31 development scans include all 12 stamped scans
 from the two retained batches and 19 deterministic unstamped controls.
-Registration must remain exactly equal except for the stamp visibility flag.
+Fresh baseline/current registration must remain exactly equal except for the
+stamp visibility flag. Comparing only saved JSON initially stopped on final
+floating-point digits after JavaScript/JSONB serialization. That failure is
+retained. The final qualifier loads the preserved baseline source alongside the
+new source, requires exact registration parity, and also reproduces the saved
+stamp outcome. It does not loosen the parity check or runtime identity checks.
 The initial replay failed on a diagnostic code-hash path before saving a result;
 its failure is retained and the helper path is corrected.
+
+Only the local printing worker is reloaded. The web/OCR/visual images, source
+manifest and model/index settings remain unchanged. Built/source byte hashes
+match; the native descriptor changes only the printing and stamp-policy hashes.
+The ordinary Boggart browser check is running with no fixture priorities or
+worker result injection, a fixed ten-minute printing gate, preserved location,
+correction/reload and zero Inventory checks.
 
 This is reused development-stage evidence, not independent exact-printing
 accuracy. The known difficult Android stamp and broader throughput/automatic

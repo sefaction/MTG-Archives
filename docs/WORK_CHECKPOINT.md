@@ -1,5 +1,15 @@
 # Resumable work checkpoint
 
+## Stamp visibility PR #500 in local qualification, 2026-09-29
+
+- New branch fix/acquisition-stamp-visibility independently on main after #499; draft #500, implementation6b8f7a0, cumulative cb08cc7. User confirms Boggart Ram-Gang as a failing stamp; its stamp is fully visible while a corner of the larger search margin is clipped. Existing strong score0.942/584inliers is rejected by old margin visibility.
+- Native mask now checks the actual core and every template footprint, excludes padded pixels, and verifies the shifted absence core. No threshold/model/geometry/automatic/Inventory change. Eighteen focused printing/runtime/cache guards pass after correcting an initial import mount error.
+- Qualification initial helper hash-path failure and saved-JSON float parity stops retained privately. Revised paired baseline/current qualifier requires EXACT fresh registration parity (except visibility) and reproduces preserved baseline stamp outcomes; no numerical tolerance/runtime identity change. Hidden21488 RUNNING, qualification-paired-status.json/log/report,31development scans/12present/19absent. Do not claim a complete pass yet.
+- Native-only actual build20804 TERMINAL0, built/source hashes verified. Only printing worker reloaded, new image4451d0ad/descriptor71945609; descriptor changes only registrationSha256/policySha256. Web/OCR/visual images and cbe60851 source digest unchanged, one printing replica. Actual worktree MTG-Archives-acquisition-persistence remains Docker/Playwright source.
+- Browser33056 RUNNING there, stamp-edge-status.json/log/report. It sends the original Boggart through normal intake/queues, fixed600s printing gate, requires stamped printing first, Simple/Advanced/phone images, saved correction/reload, preserved native/location/section and zero Inventory. No other Playwright run or reload until terminal evidence is preserved.
+- User individually approved493/499 and486/487/489/490. 499/486/487/489/490 merged normally after fresh CI;493 approved and refreshed c3b8edc CI pending. Other unapproved UI/upload/admission/scanner PRs remain separate. #463 incomplete/automatic OFF; previous100input gate failed57/100 in20minutes,300stress unrun. No production/env/YML/scanner operation.
+- Next: finish both handles, preserve any failure and screenshots, summarize sanitized native/browser results, reconcile main into500 and fresh CI before readiness. Ask for individual500 approval only after concrete local acceptance.
+
 ## Combined seven-input cache/native review passed, 2026-09-29 13:32 UTC
 
 Actual cumulative unchanged7-input gate31556 TERMINAL0/361115ms at13:28:22UTC after separate493 completed-reading amendment. All7names first/offered/manual/native-preserved, allprinting complete, desktop/390/320 Simple/Advanced/correction/reload/location/section/zeroInventory/ownedcleanup pass; four screenshots inspected. Current printing.py1ee42886 and descriptor6bb1e8c9 unchanged from isolated qualification. Public photo-text-pipeline-results.json records full cumulative unapproved sibling/source/native context; this PR remains independently based on main22d8ee3.
