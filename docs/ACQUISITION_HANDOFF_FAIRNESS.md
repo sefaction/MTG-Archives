@@ -21,8 +21,14 @@ three newer sources, within-run FIFO, single-run throughput and the 32-row bound
 across 40 runs. Run `npm run verify:acquisition -- --core` to execute it alongside
 existing ownership/concurrency/recovery and production build checks.
 
-Local Docker backlog acceptance is pending. Admission fairness does not establish
-recognition accuracy or sustained scanner throughput; old work continues using
-the existing fair claim queue. This PR is based independently on main. The
+Local Docker testing admitted all seven new photos under the existing historical
+backlog; the first OCR job was created about 32 seconds after test start, versus
+no OCR jobs after 4.5 minutes in the initial run. The unchanged ten-minute
+full-batch printing gate still failed (four of seven results, initially one of
+seven) while 13 active OCR runs shared the workers. Both failures and zero-write
+fixture cleanup are retained. Streaming review acceptance remains pending.
+Admission fairness does not establish recognition accuracy or sustained scanner
+throughput; old work continues using the existing fair claim queue.
+This PR is based independently on main. The
 recognition/UI stack, including #493, is separate and is used cumulatively only
 for local integration testing.
