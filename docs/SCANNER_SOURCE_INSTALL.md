@@ -36,6 +36,13 @@ a local pilot.
 
 ## Pair and test after the site update
 
+The existing flat Unraid Compose file already mounts `UPLOADS_DATA_PATH` into
+the web service. Scanner runs store originals and control markers there; this
+slice adds no scanner-specific `.env` or YAML setting. Wait for the main web
+image publication to pass, then use the user's normal Unraid Compose Manager
+Update for the MTG Archives stack. The Windows helper runs on the scanner PC,
+outside Unraid and outside the Docker image.
+
 On Scan cards, create a connection code. Run the printed `connect` command with
 the production HTTPS origin (`https://mtgarchive.graymaiden.com/`) and paste
 the code at its prompt. Keep the returned connection ID; it is not a secret.
@@ -49,3 +56,9 @@ review before any Inventory commit. The PS286's stop and duplex behavior remain
 unqualified. The fi-7160 needs its own driver and physical acceptance after it
 arrives. Do not use this script as evidence that an arbitrary TWAIN scanner is
 safe to feed or that recognition is perfectly accurate.
+
+If the site cannot start or complete a scan, leave the helper's private run
+directory intact and inspect the website batch status before retrying. An old
+run must never start the feeder twice. Stopping the helper stops polling; it
+does not cancel an active PS286 feeder safely. Do not commit an unverified
+physical count to Inventory.
