@@ -120,7 +120,13 @@ export async function verifyScannerRuns(db: PrismaClient) {
     const guardedAgent = await enroll();
     await db.inventoryLocation.update({ where: { id: locationId }, data: { storageLayout: { capacity: 2, sections: [] } } });
     const guarded = await createScannerBatch(db, actor, { ...input, agentId: guardedAgent.agentId, requestKey: randomUUID() }, epoch);
-    await db.inventoryLocation.update({ where: { id: locationId }, data: { storageLayout: { capacity: 1, sections: [] } } });
+    // Seed one ordinary copy after START, keeping the destination revision
+    // unchanged, so this exercises fresh occupancy rather than layout fencing.
+    const capacityCardId = `${tag}-capacity-card`;
+    await db.card.create({ data: { id: capacityCardId, scryfallId: randomUUID(), name: tag,
+      typeLine: "Basic Land", setCode: "tst", collectorNumber: "1", rarity: "common" } });
+    await db.inventoryItem.create({ data: { cardId: capacityCardId, currentOwnerId: tag,
+      originalOpenerId: tag, locationId, quantity: 1, condition: "NM", sourceType: "MANUAL" } });
     const guardedClaim = { ...claim, runId: guarded.runId, executionId: randomUUID() };
     await assert.rejects(claimScannerRun(db, guardedAgent.token, guardedClaim, epoch), /current remaining capacity/);
     assert.equal((await db.scannerRun.findUniqueOrThrow({ where: { id: guarded.runId } })).executionId, null);
@@ -129,6 +135,7 @@ export async function verifyScannerRuns(db: PrismaClient) {
     assert.equal((await pollScannerRun(db, guardedAgent.token, epoch)).run, null);
     await assert.rejects(claimScannerRun(db, guardedAgent.token, guardedClaim, epoch));
     await reconcileScannerBatch(db, tag, { ...observation, runId: guarded.runId, cardsEmitted: 0 });
+    assert.equal(await db.inventoryItem.count({ where: { currentOwnerId: tag } }), 1);
     await revokeScannerAgent(db, tag, first.agentId);
     await assert.rejects(receiveScannerImage(db, first.token, t1, epoch, bytes, "image/png"));
     console.log("PASS: native run claim/replay/restore-marker fencing, scoped originals/sequence/ACK replay, ordinary pipeline jobs, retained overflow and operator count reconciliation; no motor or Inventory");
@@ -149,6 +156,8 @@ export async function verifyScannerRuns(db: PrismaClient) {
     await db.acquisitionSession.deleteMany({ where: { createdByUserId: { in: ids } } });
     await db.scannerPairing.deleteMany({ where: { userId: { in: ids } } });
     await db.scannerAgent.deleteMany({ where: { userId: { in: ids } } });
+    await db.inventoryItem.deleteMany({ where: { cardId: `${tag}-capacity-card` } });
+    await db.card.deleteMany({ where: { id: `${tag}-capacity-card` } });
     await db.inventoryLocation.deleteMany({ where: { id: locationId } });
     await db.user.deleteMany({ where: { id: { in: ids } } });
     await db.player.deleteMany({ where: { id: { in: ids } } });
