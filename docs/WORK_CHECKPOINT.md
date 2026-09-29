@@ -1,5 +1,10 @@
 # Resumable work checkpoint
 
+## PR #489 approved and reconciled, 2026-09-29
+
+User individually approved #486/#487/#489/#490/#493. #486/#487/#499 are merged into main. This branch retargets main and merges it; only checkpoint history conflicted and both histories are retained. Application code merged cleanly. Fresh CI is required before normal #489 merge. #463 and new draft #500 continue stamp accuracy; production unchanged.
+
+## Historical branch evidence retained during approved merge
 ## Catalog stamp PR ready in cumulative local review, 2026-09-29
 
 - Active PR branch `feat/acquisition-stamp-expectations`, [#489](https://github.com/sefaction/MTG-Archives/pull/489), implementation1310ade on footer487. It is a sibling of compact UI488; no implicit UI merge approval/dependency. Actual source/build remains MTG-Archives-acquisition-persistence on temporary `local/acquisition-review-stamp` a400d85, combining489 and488 with487/486. All four PRs individually UNAPPROVED; separate scanner474 excluded. Main2ac3eb5 unchanged. This docs-only follow-up does not alter the loaded code.
@@ -16,6 +21,13 @@
 - Paired replay of 191 hash-verified originals: newer67 first61->63, offered65 unchanged, all four detected stamps correct first; older123 first120 and all123 offered unchanged, one unresolved playtest excluded. No wrong expected contradiction or first-place regression. Private report `.local-data/stamp-policy-evaluation/report.json`; no held-out, auto precision or throughput claim. Docs ACQUISITION_STAMP_EXPECTATIONS.md records limits.
 - Thirteen focused printing/review guards, typecheck/ESLint passed. Disposable PostgreSQL/core149457ms PASSED/cleaned, result acquisition-2026-09-29T06-01-24-210Z; includes legacy policy and terminal supersession guards. New two-original native browser case added; final cumulative Docker/browser acceptance PENDING. No physical scanner or production actions.
 - Next: commit/push one coherent recognition PR on487, create a temporary local integration with UI488, build actual-source web/native images, prove loaded source and pass the owned two-original browser fixture. Mark ready only after acceptance. Do not merge without individual approval. Continue #463 accuracy/automatic/scale/recovery gates; no consequential user question blocks this batch.
+
+## Historical main evidence retained during approved merge
+## PR #487 approved and reconciled, 2026-09-29
+
+User individually approved #486/#487/#489/#490/#493. #486 and #499 are now merged into main. This branch retargets main and merges it; only checkpoint history conflicted and both histories are retained below. Application code merged cleanly. Fresh CI is required before normal #487 merge. Stamp accuracy #463 stays open and production is unchanged.
+
+## Historical branch evidence retained during approved merge
 
 ## Footer native comparison complete; compact review pending acceptance, 2026-09-29
 
@@ -35,6 +47,13 @@
 
 - Active `fix/acquisition-footer-evidence`, based on unapproved #486 head8dae664; #474 stays independent. User reports the footer zone includes flavor text. Saved scan16/21/41 OCR confirms body/flavor and P/T enter the old y1210 strip. A private 12-frame comparison shows modern identifiers around y1290–1337 and old collector/copyright at y1296–1307. Development change tests y1270 (bottom127px of1397), preserves original/full-frame images and both directions, rejects stitched-seam boxes, and carries actual attempted strips into review. Historical observations retain their original wider overlay. No parser, visual/stamp algorithm, threshold, Inventory or production change.
 - Five geometry/reading guards pass; complete native old/new comparison, TypeScript checks, local Docker and browser acceptance PENDING. No new PR or approval. Existing #486 remains green/unapproved and loaded; these edits are NOT loaded. Next safe step: run bounded hash-verified native OCR against the saved playable scans and old-frame/rotated phone regressions, score on frozen labels with unchanged image/printing observations, then deliver only if regressions are resolved. #463 remains ACTIVE/incomplete. No hardware action or competing qualification process started.
+
+## Historical main evidence retained during approved merge
+## PR #486 approved and reconciled, 2026-09-29
+
+User individually approved #486/#487/#489/#490/#493. #499 merged as a081302. This branch merges current main; the sole conflict was checkpoint history and both sets of evidence are retained below. Application code merged cleanly. Fresh CI is required before normal #486 merge, then individually approved children will retarget main in order. Stamp accuracy #463 stays open; no production operation.
+
+## Historical branch evidence retained during approved merge
 
 ## Approved merges and measured basic-land follow-up, 2026-09-28
 
@@ -56,6 +75,45 @@
 - Saved batch81 has90 ready CARD_SCAN inputs, all90 OCR and visual jobs COMPLETE as of03:26UTC. Catalog/printing progressing. The visible-label manifest remains frozen75bc490b and playable67 manifest6cf83fcc. Initial actual text stage:47/67 first,53 offered,63 names,25 raw strict proposals correct; not saved confirmations. Paired playable results were18/67 at03:28UTC; no final score. Do not tune labels or claim final accuracy. Source folder now has67 files; saved originals remain90 with23 arts excluded.
 - Temporarily scaled ONLY local `acquisition-printing-worker` to TWO replicas at03:23UTC for actual concurrent completion/recovery qualification, each1CPU/1GiB. Native image/descriptor unchanged. Record actual resource context; these timings are not a default single-worker throughput claim. Restore one replica after baseline qualification. No production/physical scanner actions. Collector47244 started02:50UTC, bounded40minutes, will expire incomplete around03:30. It only retains PLAYABLE results now; resume after confirming exit, never run duplicates. Private originals/results/labels stay preserved.
 - Next: finish four approved merges, reconcile main/source and close only resolved479/480/483; finish baseline67 paired collection (resume bounded collector), score complete initial results before tuning, replay tie change on old/new observations, then final DB/core/Docker/browser and one coherent PR for #485 plus mechanical evidence. No new follow-up PR exists yet; no merge approval for it.
+## Historical main evidence retained during approved merge
+## Combined seven-input cache/native review passed, 2026-09-29 13:32 UTC
+
+Actual cumulative unchanged7-input gate31556 TERMINAL0/361115ms at13:28:22UTC after separate493 completed-reading amendment. All7names first/offered/manual/native-preserved, allprinting complete, desktop/390/320 Simple/Advanced/correction/reload/location/section/zeroInventory/ownedcleanup pass; four screenshots inspected. Current printing.py1ee42886 and descriptor6bb1e8c9 unchanged from isolated qualification. Public photo-text-pipeline-results.json records full cumulative unapproved sibling/source/native context; this PR remains independently based on main22d8ee3.
+
+Current Docker source462/cbe60851, webc952d6fe/OCR13de736c/visual-printing7e233d4a/native OCR1104a13a/printing6bb1e8c9, ONE printing replica. Lifetime printing stillpeak1GiB/max2079/zeroOOM, sampled980.6MiB; lower arrays/RSS are not total-memory guarantees. 100failed57/100at20min;300notrun/full100reviewnotreached. No unchanged rerun/wideneddeadline or physical/independent accuracy claim. All test/build/observer handles terminal; explicit owned users/sessions/jobs/Inventory0.
+
+Publish evidence/doc follow-up and reconcile exact-head CI before readiness for bounded-cache review, with larger-throughput/resource limitations retained under463. Individual499approval not yet requested; old approvals/fresh held-out originals remain pending.497merged only, no production/env/YML/scanner changes, hybrid automatic off.
+
+## Retained 100-input throughput failure; changed OCR acceptance pending, 2026-09-29 13:16 UTC
+
+100 run27128 TERMINAL1 at13:05:40UTC:57printing within fixed20-minute gate,100ready42.2s, observed100photos/artifacts/slots/candidates and zeroInventory. Owned cleanup users/sessions/stock0. Exact failed checker/trace/log/report/conservation/memory retained under actual large-batch-100-deadline-failure. New public large-batch-results.json records failure/limits/full loaded descriptors; no private names/images/paths. Lifetime memory includes prior runs: printingpeak1GiB/max1660/zeroOOM/restarts; lower RSS is not total headroom guarantee.300 not run, 100review/correction assertions not reached; no unchanged rerun/deadline widening.
+
+Opt-in checker adds early conservation/digest assertions and failure-time counters; type/lint and read-only Prisma observation/artifact query shape pass. Follow-up assertions are not another exercised100 run. Intended new test/docs/results are dirty here pending coherent publication; current4995555807 remains DRAFT and green.
+
+Separate493ab944ca now draft/published:15TS/4Python guards, real native242bc3ed same models/runtime,4 ordinary inputs + controlled interruption/reopen, disposable core170.5s/cleaned pass. Actual cumulative74329ae integrates493-only diff, preserving cache/UI/495/497. Three-image build595fca52/PID16968 LIVE from13:13:54UTC, detailed actualcheckpoint/private build status; source NOTyetreloaded. Next exact source/native checks, scopedreload and unchanged7 gate for combined pipeline/correction/resource acceptance before499 readiness. No approval for499 or old siblings;497merged only. No production/env/YML/scanner activity,463 incomplete/auto off.
+
+## Cache loaded; live 100-input gate and retained seven-input failure, 2026-09-29 12:54 UTC
+
+Active independent-main fix/acquisition-printing-cache HEAD5555807 on approved497/main22d8ee3; DRAFT PR499 all3CI green. Core11404 TERMINAL0 at12:28:51UTC; native build19640 TERMINAL0, exact printing.py hash verified. Cache is now loaded locally in cumulative MTG-Archives-acquisition-persistence HEAD5dd514f, visual/printing205c5845/native printing6bb1e8c9. Unapproved recognition/UI siblings are local testing only; not this PR's dependencies.
+
+Live seven-input test12284 TERMINAL1: all7 printing completed, but two original OCR whole-photo hints were TIME_BUDGET/unavailable and expected-name assertion failed before UI/reload/correction acceptance. No cache output regression has been established; isolated48-reference parity remains separate. Failure trace/report/log preserved under actual .local-data/cache-pipeline-name-failure. Do not call this a passing live gate. Sampled printing memory was around590–650MiB, not an exhaustive peak.
+
+Untracked tests/ui/acquisition-large-batch.spec.ts copied into actual cumulative worktree: opt-in100/300 resource/conservation checker, ordinary queues, zeroInventory, owned fixture cleanup, repeated67 development originals (not independent accuracy/physical samples). Current100 hiddenPID27128 started12:44:57UTC; latest100ready42.2s and25printing complete, fixed20min printing gate. Initial harness failed before uploads on Playwright50MiB buffer; retained/cleaned. Corrected intake uses private temporary file copies. DO NOT start duplicate Playwright, change deadlines, reload workers or overwrite evidence midrun. 300/four-owner not yet tested. Follow actual checkpoint/private status/report for terminal result/cleanup before publishing new evidence or readiness. Separate493 partial-progress prototype not loaded. No production/env/YML/scanner activity, #463 incomplete/auto off; no499approval requested.
+
+## Printing retained-reference cache qualification, 2026-09-29
+
+Active fix/acquisition-printing-cache oncurrentmain22d8ee3 (approved497merge); no dependency on unapproved recognition branches. Adds128MiB decoded/SIFT array payload budget alongside48entry LRU, oversizedusableuncached, unchanged pixels/features/hashverification/recognition/thresholds.15existing/newmodel-free printing guards PASS actualnative4.12/numpy2.2.6/networknone1CPU2GiB. Public48-reference samefrozen112474metadata probes terminal0; all48features/pixels/stampstates byte-identical,5re-readparity eachpass. Retained arrays309291136→129332960bytes/48→20entries; PythonpeakRSS924724→737884KiB.25.987/27.392s are not standalone throughput or regression; publiccache notphotoaccuracy/containerpeak. Reusable opt-in helper/docs/sanitized results added.
+
+Hidden leaf core11404 running from12:27:14UTC, .local-data/cache-core-status.json/log; inspect exact handle before rerun. Actual cumulative worktree MTG-Archives-acquisition-persistence temporarily includes ONLYchangedprinting.py for nativebuild19640, .local-data/cache-build-status.json/log. CachecodeNOTyetloaded; noPRyet. Loadedordinaryapp stillowner-qualified462/052e7260/nativeprintingb72b34e8/oneprintingreplica, plus unapproved recognition/UI siblings. Fullcontext actualcheckpoint. Completecore/build, publishcoherentdraft, verifynativefiles/descriptor, scopedlocalreload then realpipeline/memory and100/300-card gates. Allold individualapprovals/freshheld-outmaterial remainpending. #463 incomplete/autoOFF; no production/env/YML/scanner activity.
+
+## Independent owner scheduling ready locally, 2026-09-29
+
+Branch fix/acquisition-owner-fairness, PR497 on main2ac3eb5; implementation7ef2d1b. Standalone DB/core196.6s passed/cleaned, all3 implementation CI green. Resumed cumulative DB/import98.8s passed/cleaned; prior initial catalog claim failure remains open498, not resolved by rerun. Temporary read-only diagnostic helper removed unchanged.
+
+Actual cumulative source in MTG-Archives-acquisition-persistence application0d81637/source462/052e7260 is loaded at13001/imports/scan; retains unapproved recognition/UI/admission PRs only locally, not as this PR's dependencies. Original7-input600s printing/browser gate PASSED266759ms with ordinary queues, all7names first/offered/manual/native-preserved, desktop/390/320/correction/reload/location/section/zeroInventory/ownedcleanup; screenshots inspected. Sanitized owner-batch-results.json includes full source/images/descriptors and retained1/7+4/7 failures. Other-owner work continued. Sampled printing max1020MiB/1GiB is a larger-batch risk, no reported OOM; anonymous login samples are not authenticated task latency. Not independent accuracy/four-user native/100-300-card throughput.
+
+Publish evidence-only follow-up, reconcile refreshed CI, mark497ready and request individual approval once. Never merge without exact approval. Recognition463 remains incomplete/autoOFF; all earlier approvals/fresh reserved originals still unanswered. No production/env/YML/scanner operations. Next progress larger-batch/resource gates without fabricating independent accuracy or changing deadlines/native priorities.
+
 
 ## Batch progress fix and new-material evaluation, 2026-09-28
 

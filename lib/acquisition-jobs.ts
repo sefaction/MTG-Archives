@@ -56,13 +56,13 @@ export async function claimAcquisitionJobs(
       { status: "RUNNING", leaseExpiresAt: { lte: now } },
     ],
   };
-  // Give each run a turn at this stage. Global FIFO lets a large historical
-  // reprocessing batch hide every result from a newly uploaded batch. Preserve
-  // availability/FIFO within a run; a second head permits concurrent workers
-  // to recover from losing the first head's lease CAS.
+  // Share this stage across owners before sharing each owner's runs. A single
+  // owner's many unfinished batches must not multiply its share of the worker.
+  // Derive owner turns from existing durable run turns; no new queue identity.
+  // Keep availability/FIFO within a run and the second head for lease CAS races.
   const candidates = await db.$queryRaw<{id: string; runId: string; stage: string}[]>`
     WITH ranked AS (
-      SELECT j.id, j."runId", j.stage, j."availableAt", j."createdAt",
+      SELECT j.id, j."runId", j.stage, j."availableAt", j."createdAt", s."ownerPlayerId",
         ROW_NUMBER() OVER (PARTITION BY j."runId", j.stage
           ORDER BY j."availableAt", j."createdAt", j.id) AS position
       FROM "AcquisitionProcessingJob" j
@@ -76,12 +76,26 @@ export async function claimAcquisitionJobs(
         AND s.phase NOT IN ('DRAFT','CANCELLED')
         AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
         AND NOT EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=j."candidateId")
+    ), owner_turns AS (
+      SELECT s."ownerPlayerId", t.stage, MAX(t."lastClaimedAt") AS "lastClaimedAt"
+      FROM "AcquisitionProcessingTurn" t
+      JOIN "AcquisitionRun" r ON r.id=t."runId"
+      JOIN "AcquisitionSession" s ON s.id=r."sessionId"
+      WHERE t.stage IN (${Prisma.join(options.stages)})
+      GROUP BY s."ownerPlayerId", t.stage
+    ), heads AS (
+      SELECT q.*, COALESCE(t."lastClaimedAt", TIMESTAMP '1970-01-01') AS "runTurn"
+      FROM ranked q LEFT JOIN "AcquisitionProcessingTurn" t
+        ON t."runId"=q."runId" AND t.stage=q.stage WHERE q.position<=2
+    ), shared AS (
+      SELECT h.*, ROW_NUMBER() OVER (PARTITION BY h."ownerPlayerId", h.stage
+        ORDER BY h."runTurn", h.position, h."availableAt", h."createdAt", h.id) AS "ownerPosition"
+      FROM heads h
     )
-    SELECT q.id, q."runId", q.stage FROM ranked q
-    LEFT JOIN "AcquisitionProcessingTurn" t ON t."runId"=q."runId" AND t.stage=q.stage
-    WHERE q.position<=2
-    ORDER BY COALESCE(t."lastClaimedAt", TIMESTAMP '1970-01-01'), q.position,
-      q."availableAt", q."createdAt", q.id LIMIT 32`;
+    SELECT q.id, q."runId", q.stage FROM shared q
+    LEFT JOIN owner_turns t ON t."ownerPlayerId"=q."ownerPlayerId" AND t.stage=q.stage
+    ORDER BY COALESCE(t."lastClaimedAt", TIMESTAMP '1970-01-01'), q."ownerPosition",
+      q."runTurn", q.position, q."availableAt", q."createdAt", q.id LIMIT 32`;
   const result: ClaimedAcquisitionJob[] = [];
   for (const candidate of candidates) {
     if (result.length >= options.limit) break;
