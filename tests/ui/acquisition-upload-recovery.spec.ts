@@ -20,6 +20,7 @@ test("12 library photos recover transient errors and preserve bounded failure/re
   const files=Array.from({length:12},(_,i)=>({name:`card-${i+1}.jpg`,mimeType:"image/jpeg",buffer}));
   const requests=new Map<string,{ordinal:number,count:number,url:string,position?:number}>();
   let active=0,maximum=0,lostAck=false,release!:()=>void;
+  let reservationKey="",reservationAttempts=0,reservationRecovered=false;
   const gate=new Promise<void>(resolve=>{release=resolve});
   try{
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash,role:'PLAYER'}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:12,sections:[]}}});console.log('null');`);
@@ -34,6 +35,23 @@ test("12 library photos recover transient errors and preserve bounded failure/re
     await page.getByRole("option").first().click();
     await page.getByRole("button",{name:"Start batch",exact:true}).click();
     await page.getByRole("combobox",{name:"Library image type"}).selectOption("CARD_SCAN");
+    await page.route("**/api/acquisition/*",async route=>{
+      const request=route.request();
+      if(request.method()!=="POST"){await route.continue();return;}
+      const body=request.postDataJSON();
+      if(body.action!=="reserve"){await route.continue();return;}
+      if(!reservationKey)reservationKey=body.requestKey;
+      if(body.requestKey!==reservationKey){await route.continue();return;}
+      reservationAttempts++;
+      if(reservationAttempts===1){
+        await route.fulfill({status:409,json:{error:"Temporary conflict",retryable:true}});
+        return;
+      }
+      const response=await route.fetch();
+      expect(response.ok()).toBe(true);
+      if(reservationAttempts===2)await route.abort("failed");
+      else{reservationRecovered=true;await route.fulfill({response});}
+    });
     await page.route("**/api/acquisition/*/photos?*",async route=>{
       active++;maximum=Math.max(maximum,active);
       try{
@@ -94,10 +112,11 @@ test("12 library photos recover transient errors and preserve bounded failure/re
     expect(state.artifacts).toBe(12);expect(state.slots).toBe(12);expect(state.candidates).toBe(12);expect(state.inventory).toBe(0);
     expect([...requests.values()].find(r=>r.ordinal===4)!.count).toBe(4);
     expect(requests.size).toBe(12);expect(maximum).toBeLessThanOrEqual(2);
+    expect(reservationAttempts).toBe(3);expect(reservationRecovered).toBe(true);
     await expect(page.getByRole("button",{name:"Photo library",exact:true})).toBeDisabled();
     await page.screenshot({path:"test-results/acquisition-upload-recovered-phone.png"});
     expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
-    console.log(JSON.stringify({scope:"UPLOAD_RECOVERY_NOT_ACCURACY",photos:12,maximumConcurrent:maximum,lostAcknowledgements:1,transientConflictRecovery:true,domainAutomaticRetries:0,exhaustedAttempts:3,reloadRecovery:true,inventory:0}));
+    console.log(JSON.stringify({scope:"UPLOAD_RECOVERY_NOT_ACCURACY",photos:12,maximumConcurrent:maximum,lostAcknowledgements:1,reservationAttempts,reservationRecovered,transientConflictRecovery:true,domainAutomaticRetries:0,exhaustedAttempts:3,reloadRecovery:true,inventory:0}));
   }finally{
     release();
     await page.unrouteAll({behavior:"wait"});

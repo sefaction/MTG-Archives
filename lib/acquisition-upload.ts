@@ -39,13 +39,14 @@ type UploadOptions = {
   random?: () => number;
 };
 
-// The caller persists the blob before this operation and clears it only after
-// success. Keep the exact URL, bytes and overall deadline across every attempt.
-export async function uploadAcquisitionPhoto(
+async function postWithRetry<T>(
   url: string,
-  blob: Blob,
+  body: Blob | string,
+  contentType: string,
+  acknowledged: (value: any) => boolean,
+  fallback: string,
   { signal, onRetry, request = fetch, wait: delay = wait, random = Math.random }: UploadOptions,
-) {
+): Promise<T> {
   for (let attempt = 0; attempt < ACQUISITION_UPLOAD_ATTEMPTS; attempt++) {
     if (signal.aborted) throw signal.reason;
     let response: Response | undefined;
@@ -54,8 +55,8 @@ export async function uploadAcquisitionPhoto(
     try {
       response = await request(url, {
         method: "POST",
-        headers: { "Content-Type": blob.type },
-        body: blob,
+        headers: { "Content-Type": contentType },
+        body,
         signal,
       });
     } catch (error) {
@@ -70,9 +71,9 @@ export async function uploadAcquisitionPhoto(
       } catch (error) {
         bodyDisconnected = error instanceof TypeError;
       }
-      if (response.ok && result?.ready === true) return;
+      if (response.ok && acknowledged(result)) return result as T;
       failure = new Error(
-        typeof result?.error === "string" ? result.error : "Upload was not saved; retry",
+        typeof result?.error === "string" ? result.error : fallback,
       );
       retryable =
         (response.ok && bodyDisconnected) ||
@@ -83,5 +84,31 @@ export async function uploadAcquisitionPhoto(
     if (!retryable || attempt === ACQUISITION_UPLOAD_ATTEMPTS - 1) throw failure;
     onRetry?.(attempt + 1);
     await delay(Math.round(500 * 2 ** attempt * (1 + random() / 2)), signal);
+  }
+  throw new Error(fallback);
+}
+
+// The caller persists the blob first and clears it only after acknowledgement.
+export async function uploadAcquisitionPhoto(url: string, blob: Blob, options: UploadOptions) {
+  await postWithRetry(url, blob, blob.type, value => value?.ready === true,
+    "Upload was not saved; retry", options);
+}
+
+// Slot reservation is already idempotent under this exact request key. Do not
+// extend these retries to arbitrary control/review/Inventory operations.
+export async function reserveAcquisitionPhotoSlot<T>(
+  url: string,
+  requestKey: string,
+  options: Omit<UploadOptions, "signal"> & { signal?: AbortSignal } = {},
+): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 60000);
+  try {
+    return await postWithRetry<T>(url, JSON.stringify({ action: "reserve", requestKey }),
+      "application/json", value => Boolean(typeof value?.slot?.id === "string" &&
+        value.slot.id.length > 0 && Number.isInteger(value.slot.generation) && value.slot.generation >= 0),
+      "Capture slot was not saved; retry", { ...options, signal: options.signal ?? controller.signal });
+  } finally {
+    clearTimeout(timer);
   }
 }

@@ -5,6 +5,7 @@ import { acquisitionError } from "../lib/acquisition-api";
 import {
   isRetryableAcquisitionConflict,
   uploadAcquisitionPhoto,
+  reserveAcquisitionPhotoSlot,
 } from "../lib/acquisition-upload";
 
 const url = "/api/acquisition/session/photos?slot=s&key=k&generation=0&inputKind=CARD_SCAN";
@@ -129,4 +130,24 @@ test("overall deadline cancels backoff and prevents another request", async () =
   });
   await assert.rejects(promise, /deadline/);
   assert.equal(calls, 1);
+});
+
+test("slot reservation reuses its one request key after a conflict or lost acknowledgement", async () => {
+  const calls: RequestInit[] = [];
+  const result = await reserveAcquisitionPhotoSlot<{slot:{id:string,generation:number}}>(
+    "/api/acquisition/session", "a7251f4d-5bfb-45b3-85e5-312023964733", {
+      signal: new AbortController().signal, wait,
+      request: async (_url, options) => {
+        calls.push(options!);
+        if(calls.length===1) return Response.json({retryable:true}, {status:409});
+        if(calls.length===2) throw new TypeError("lost ACK");
+        return Response.json({slot:{id:"reserved-slot",generation:0}});
+      },
+    });
+  assert.equal(result.slot.id, "reserved-slot");
+  assert.equal(calls.length, 3);
+  assert.ok(calls.every(c=>c.body===calls[0].body&&c.method==="POST"));
+  assert.deepEqual(JSON.parse(String(calls[0].body)), {
+    action:"reserve",requestKey:"a7251f4d-5bfb-45b3-85e5-312023964733",
+  });
 });

@@ -18,6 +18,7 @@ import type { acquisitionProgressDto } from "@/lib/acquisition-api";
 import {
   ACQUISITION_UPLOAD_ATTEMPTS,
   uploadAcquisitionPhoto,
+  reserveAcquisitionPhotoSlot,
 } from "@/lib/acquisition-upload";
 import {
   captureUuid,
@@ -280,9 +281,9 @@ export function AcquisitionCapture({
     const admitted =
       slot ??
       (
-        await request<{ slot: Progress["slots"][number] }>(
+        await reserveAcquisitionPhotoSlot<{ slot: Progress["slots"][number] }>(
           `/api/acquisition/${batchId}`,
-          { action: "reserve", requestKey: captureUuid() },
+          captureUuid(),
         )
       ).slot;
     const row: Upload = {

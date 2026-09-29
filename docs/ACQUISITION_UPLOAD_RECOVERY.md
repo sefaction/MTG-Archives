@@ -11,6 +11,12 @@ photos remain the intake bounds. Connection failures, temporary gateway/time-out
 responses, and explicitly marked database serialization/deadlock conflicts allow
 two automatic retries with short increasing jittered delays.
 
+The same bounded engine applies to the existing idempotent slot reservation,
+preserving one request key through a conflict or lost acknowledgement. Control,
+review and Inventory operations are not included. A real prior library burst
+saved/prepared10 photos but stopped while admitting the remaining2; its traced
+response carried retryable=true. This is separate from transfer retry.
+
 The server marks only Prisma P2034 or P2010 with SQLSTATE40001/40P01 as retryable.
 It exposes no native diagnostic text. Ownership, capacity, stale generation,
 identity rejection, unclassified errors and invalid acknowledgements are not
@@ -34,5 +40,7 @@ and zero Inventory writes. These fixtures measure intake reliability, not accura
 
 The existing intake/reload/retake/commit test retains its explicit manual fallback
 by dropping the first ACK and failing the next two requests. The existing12-file
-capacity/streaming case also remains applicable. Local Docker and CI acceptance
+capacity/streaming case also remains applicable. Seven focused checks/typecheck/
+lint and prior CI passed; two initial browser cases passed, while library
+admission exposed the additional transient path above. Updated Docker/CI acceptance
 are pending; no complete PASS is claimed yet. Production/scanner hardware unchanged.
