@@ -53,7 +53,12 @@ private corpus roots `MTG_ACQUISITION_CORPUS_PATH`,
 `npm run ui:test -- tests/ui/acquisition-photo-text.spec.ts --workers=1`.
 The browser case uses ordinary ingestion/queues, checks seven original/derived
 inputs, location/section, evidence, review/reload and zero Inventory, and cleans
-only its owned fixture. Its local Docker acceptance is pending.
+only its owned fixture. The initial loaded browser run failed its 600-second
+completion gate (one of seven printing results) behind historical reprocessing.
+All uploads/canonical jobs were ready; the fixture cleaned up with zero Inventory.
+This exposed the separate bounded-handoff admission bug #494. Local browser
+acceptance remains pending that fix; the failure is retained, with no widened
+deadline or unchanged rerun counted as a pass.
 
 This batch depends on #490. Simple/Advanced #488, recovery qualification #491
 and independent-main upload recovery #492 remain separate PRs included only in
