@@ -13,11 +13,42 @@ import sqlite3
 import tempfile
 import time
 import numpy as np
-from catalog_references import sha256, writer_lock
+from catalog_references import sha256, verified_reference, writer_lock
 
 
 def canonical(value):
     return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+
+
+def normalized_encoder(value):
+    result = dict(value)
+    for key in ('torch', 'torchvision'):
+        if key in result:
+            result[key] = result[key].split('+', 1)[0]
+    return result
+
+
+def archive_index(output, data=None):
+    """Keep the exact complete manifest addressable after the pointer changes."""
+    data = (output / 'index.json').read_bytes() if data is None else data
+    digest = hashlib.sha256(data).hexdigest()
+    target = output / f'manifest-{digest}.json'
+    if target.exists():
+        if sha256(target) != digest:
+            raise ValueError('Immutable index manifest changed')
+        return target
+    fd, temporary = tempfile.mkstemp(prefix='manifest-', suffix='.partial', dir=output)
+    try:
+        with os.fdopen(fd, 'wb') as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        Path(temporary).chmod(0o644)
+        os.replace(temporary, target)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+    return target
 
 
 def load_published_index(path, allow_partial=False):
@@ -72,8 +103,9 @@ def pending_rows(db, references, root, dimension):
             raise ValueError('Duplicate reference identity')
         seen.add(identity)
         path = (root / row['file']).resolve()
-        if not path.is_relative_to(root.resolve()) or sha256(path) != row['sha256']:
+        if not path.is_relative_to(root.resolve()):
             raise ValueError('Reference path/digest mismatch')
+        verified_reference(path, row)
         existing = db.execute('SELECT reference,vector,digest FROM features WHERE id=?', (identity,)).fetchone()
         if existing:
             if existing[0] != canonical(row):
@@ -92,6 +124,45 @@ def save_batch(db, rows, vectors, dimension):
             digest = hashlib.sha256(data).hexdigest()
             validate_vector(data, dimension, digest)
             db.execute('INSERT INTO features VALUES(?,?,?,?)', (row['referenceId'], canonical(row), data, digest))
+
+
+def reuse_features(db, references, root, previous_index, encoder, dimension):
+    """Reuse only verified identical bytes under the same encoder/transform.
+
+    Current metadata replaces prior metadata; it never changes the old index.
+    New identities or changed images are encoded normally. Committed batches
+    survive interruption and the normal pending validator checks them again.
+    """
+    if previous_index is None or not previous_index.exists():
+        return 0
+    manifest, records, matrix = load_published_index(previous_index)
+    if (manifest['dimension'] != dimension or
+            normalized_encoder(manifest['encoder']) != normalized_encoder(encoder)):
+        return 0
+    by_id = {row['referenceId']: (i, row) for i, row in enumerate(records)}
+    if len(by_id) != len(records):
+        raise ValueError('Duplicate cached reference identity')
+    reused, batch, vectors = 0, [], []
+    for row in references:
+        if db.execute('SELECT 1 FROM features WHERE id=?', (row['referenceId'],)).fetchone():
+            continue
+        previous = by_id.get(row['referenceId'])
+        if previous is None or previous[1]['sha256'] != row['sha256']:
+            continue
+        file = (root / row['file']).resolve()
+        if not file.is_relative_to(root.resolve()):
+            raise ValueError('Reused feature image path/digest mismatch')
+        verified_reference(file, row)
+        batch.append(row)
+        vectors.append(matrix[previous[0]])
+        if len(batch) == 128:
+            save_batch(db, batch, np.asarray(vectors), dimension)
+            reused += len(batch)
+            batch, vectors = [], []
+    if batch:
+        save_batch(db, batch, np.asarray(vectors), dimension)
+        reused += len(batch)
+    return reused
 
 
 def publish(db, snapshot, output, dimension):
@@ -130,6 +201,7 @@ def publish(db, snapshot, output, dimension):
     temporary = output / 'index.partial.json'
     temporary.write_text(canonical(manifest), encoding='utf-8')
     temporary.chmod(0o644)
+    archive_index(output, temporary.read_bytes())
     os.replace(temporary, output / 'index.json')
     return manifest
 

@@ -7,6 +7,7 @@ import hashlib
 import io
 import json
 from pathlib import Path
+import re
 import struct
 import sys
 import time
@@ -20,6 +21,11 @@ from catalog_references import sha256
 from printing import PrintingRuntime, VERSION, LABELS
 
 INDEX = Path('/visual/index/index.json')
+if '--manifest' in sys.argv:
+    name = sys.argv[sys.argv.index('--manifest') + 1]
+    if not re.fullmatch(r'(index|manifest-[a-f0-9]{64})\.json', name):
+        raise ValueError('Invalid immutable manifest name')
+    INDEX = INDEX.with_name(name)
 REFERENCES = Path('/visual/references')
 MAX_PHOTO = 10 * 1024 * 1024
 MAX_ENVELOPE = MAX_PHOTO + 65536
@@ -28,6 +34,7 @@ _records = None
 
 
 def descriptor():
+    before = sha256(INDEX)
     index = json.loads(INDEX.read_text())
     if index.get('format') != 1 or not index.get('downloadComplete'):
         raise ValueError('Complete public reference manifest required')
@@ -35,15 +42,19 @@ def descriptor():
     file = (INDEX.parent / entry['path']).resolve()
     if not file.is_relative_to(INDEX.parent.resolve()) or sha256(file) != entry['sha256']:
         raise ValueError('Public reference manifest integrity changed')
-    details = {'version': VERSION, 'indexSha256': sha256(INDEX),
+    if sha256(INDEX) != before:
+        raise ValueError('Index changed during validation')
+    details = {'version': VERSION, 'indexSha256': before,
                'referencesSha256': entry['sha256'], 'referenceCount': index['referenceCount'],
                'unavailableCount': index['unavailableCount'],
                'runtimeSha256': sha256(Path(__file__)),
                'registrationSha256': sha256(Path(__file__).with_name('printing.py')),
                'policySha256': sha256(Path('/eval/printing_evidence.py')),
                'annotationsSha256': sha256(LABELS), 'opencv': cv2.__version__}
+    archive = INDEX.with_name(f'manifest-{before}.json')
+    immutable = archive.name if archive.is_file() and sha256(archive) == before else INDEX.name
     return {'digest': hashlib.sha256(json.dumps(details, sort_keys=True).encode()).hexdigest(),
-            'details': details, 'file': file}
+            'details': details, 'file': file, 'manifest': immutable}
 
 
 def request(envelope, desc):
@@ -107,7 +118,7 @@ def read_exact(length):
 def main():
     desc = descriptor()
     if '--describe' in sys.argv:
-        print(json.dumps({'digest': desc['digest'], 'details': desc['details']}))
+        print(json.dumps({'digest': desc['digest'], 'details': desc['details'], 'manifest': desc['manifest']}))
         return
     while True:
         header = sys.stdin.buffer.read(4)

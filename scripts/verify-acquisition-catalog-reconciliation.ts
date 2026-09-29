@@ -3,9 +3,9 @@ import { randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import {
   completeAcquisitionJob,
-  claimAcquisitionJobs,
   type ClaimedAcquisitionJob,
 } from "../lib/acquisition-jobs";
+import { claimFixtureJobs as claimAcquisitionJobs } from "./acquisition-verification-queue";
 import {
   createCatalogReconciliationHandler,
   enqueueCatalogReconciliation,

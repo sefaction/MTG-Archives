@@ -7,21 +7,31 @@ import { AcquisitionNativeStream } from "../lib/acquisition-native-stream";
 import { runAcquisitionJobsOnce } from "../lib/acquisition-jobs";
 import { enqueueReadyPrinting, observeAcquisitionPrinting } from "../lib/acquisition-printing-worker";
 import { PRINTING_STAGE } from "../lib/acquisition-printing";
+import { AcquisitionNativeGeneration } from "../lib/acquisition-native-generation";
 
 const db = new PrismaClient();
 const program = "/app/tools/acquisition-runtime/printing_worker.py";
-const native = new AcquisitionNativeStream("python", [program, "--stream"], 10 * 1024 * 1024 + 65536);
+const generation = new AcquisitionNativeGeneration(
+  async () => z.object({digest: z.string().regex(/^[a-f0-9]{64}$/),
+    manifest: z.string().regex(/^(index|manifest-[a-f0-9]{64})\.json$/)}).parse(
+    await runAcquisitionNativeProcess("python", [program, "--describe"], Buffer.alloc(0), AbortSignal.timeout(30000))),
+  descriptor => new AcquisitionNativeStream("python", [program, "--stream", "--manifest", descriptor.manifest], 10 * 1024 * 1024 + 65536),
+  (event, descriptor) => console.log(JSON.stringify({event: `printing-generation-${event}`, model: descriptor?.digest})),
+);
 let stopped = false;
 process.on("SIGTERM", ()=>{stopped = true;});
 process.on("SIGINT", ()=>{stopped = true;});
 async function main() {
   if (process.platform !== "linux" || process.getuid?.() !== 0)
     throw new Error("Use the isolated Linux printing runtime with privilege separation");
-  const descriptor = z.object({digest: z.string().regex(/^[a-f0-9]{64}$/)}).parse(
-    await runAcquisitionNativeProcess("python", [program, "--describe"], Buffer.alloc(0), AbortSignal.timeout(30000)));
   const workerId = `printing-${randomUUID()}`;
-  console.log(JSON.stringify({event: "printing-ready", model: descriptor.digest}));
   do {
+    await generation.refresh();
+    if (!generation.current) {
+      if (process.argv.includes("--once")) throw new Error("Verified generation unavailable");
+      await setTimeout(1000); continue;
+    }
+    const {descriptor, native} = generation.current;
     await enqueueReadyPrinting(db, descriptor.digest);
     const result = await runAcquisitionJobsOnce(db, {
       [PRINTING_STAGE]: (job, signal)=>observeAcquisitionPrinting(db, job, signal, descriptor.digest, native),
@@ -33,4 +43,4 @@ async function main() {
 main().catch(()=>{
   console.error("Printing worker stopped; inspect local reference/database availability");
   process.exitCode = 1;
-}).finally(()=>{native.close(); return db.$disconnect();});
+}).finally(async ()=>{await generation.shutdown(); await db.$disconnect();});

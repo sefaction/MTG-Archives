@@ -39,6 +39,10 @@ test("warm native protocol reuses one process and restarts only after an aborted
     )) as any;
     assert.notEqual(restarted.pid, first.pid);
     assert.equal(restarted.count, 1);
+    await native.shutdown();
+    const next = (await native.request(Buffer.from("four"), AbortSignal.timeout(5000))) as any;
+    assert.notEqual(next.pid, restarted.pid, "generation retirement waits before reopening");
+    assert.equal(next.count, 1);
   } finally {
     native.close();
   }

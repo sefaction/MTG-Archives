@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
-import { claimAcquisitionJobs, completeAcquisitionJob, runAcquisitionJobsOnce, type ClaimedAcquisitionJob } from "../lib/acquisition-jobs";
+import { completeAcquisitionJob, runAcquisitionJobsOnce, type ClaimedAcquisitionJob } from "../lib/acquisition-jobs";
+import { claimFixtureJobs as claimAcquisitionJobs } from "./acquisition-verification-queue";
 import { enqueueReadyPrinting, observeAcquisitionPrinting } from "../lib/acquisition-printing-worker";
 import { PRINTING_STAGE } from "../lib/acquisition-printing";
 import { getAcquisitionCardReview, type AcquisitionActor } from "../lib/acquisition-store";
@@ -36,7 +37,7 @@ export async function verifyAcquisitionPrinting(
         stamp: {status: "PRESENT", reason: "LOCAL_SYMBOL_SHAPE"}}))};
   }};
   await assert.rejects(observeAcquisitionPrinting(db, {...job, input: {...job.input as Prisma.InputJsonObject, model: "d".repeat(64)}},
-    AbortSignal.timeout(30000), model, worker), /version unavailable/);
+    AbortSignal.timeout(30000), model, worker), /version superseded/);
   assert.equal(requests, 0);
   const result = await observeAcquisitionPrinting(db, job, AbortSignal.timeout(30000), model, worker);
   assert.deepEqual(result.native, (original.output as Prisma.InputJsonObject).native, "OCR bytes/evidence are preserved");
@@ -60,6 +61,7 @@ export async function verifyAcquisitionPrinting(
     runId: job.runId, artifactId: job.artifactId, candidateId: job.candidateId,
     candidateRevision: job.candidateRevision, stage: PRINTING_STAGE, versionKey: randomUUID(),
     input: job.input as Prisma.InputJsonObject,
+    availableAt: new Date(0), // Explicitly eligible; do not race database/default wall clocks.
   }});
   try {
     requests = 0;

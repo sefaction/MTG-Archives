@@ -70,7 +70,7 @@ export async function observeAcquisitionPrinting(
   model: string, nativeWorker: Pick<AcquisitionNativeStream, "request">,
 ): Promise<Prisma.InputJsonObject> {
   const input = inputSchema.parse(job.input);
-  if (input.model !== model) throw new Error("Printing reference version unavailable");
+  if (input.model !== model) throw new AcquisitionJobSupersededError("Printing reference version superseded");
   const source = await db.acquisitionProcessingJob.findUniqueOrThrow({where: {id: input.catalogJobId}});
   if (source.status !== "COMPLETE" || source.stage !== CATALOG_RECONCILIATION_STAGE ||
       source.runId !== job.runId || source.artifactId !== job.artifactId ||
