@@ -68,7 +68,7 @@ remaining scale/accuracy gates are still independent #463 work.
 
 ## Verification
 
-- Synthetic public-reference tests cover changed bytes, changed metadata,
+- Synthetic public-reference tests cover deferred model memory, changed bytes, changed metadata,
   shared immutable files, model changes, interrupted feature batches, resume,
   provider failures, corruption, bounded cache cleanup and retained baseline.
 - An unchanged-file test disallows all JPEG reads during a metadata-only refresh;

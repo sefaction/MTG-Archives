@@ -196,15 +196,17 @@ def refresh(catalog, references, index, models, state, encoder_name='dinov2', en
     with writer_lock(state), writer_lock(index):
         previous, old = None, None
         if active.exists():
-            old, _, matrix = load_published_index(active)
-            del matrix
+            old, records, matrix = load_published_index(active)
+            del records, matrix
             previous = archive_index(index)
         if encoder_factory is None:
-            from image_encoder import Encoder
-            encoder_factory = lambda: Encoder(encoder_name, models, 'cpu', threads=1)
-        encoder = encoder_factory()
-        if (old and old['source']['catalogSha256'] == source_hash and
-                normalized_encoder(old['encoder']) == normalized_encoder(encoder.identity)):
+            def encoder_factory():
+                from image_encoder import Encoder
+                return Encoder(encoder_name, models, 'cpu', threads=1)
+        # Keep model memory out of reference preparation. Full-size adoption
+        # already needs bounded public metadata and file buffers.
+        encoder = encoder_factory() if old and old['source']['catalogSha256'] == source_hash else None
+        if (encoder and normalized_encoder(old['encoder']) == normalized_encoder(encoder.identity)):
             return {'version': 1, 'event': 'reference-refresh-unchanged', 'catalogSha256': source_hash,
                     'referenceCount': old['referenceCount'], 'unavailableCount': old['unavailableCount'],
                     'published': False, 'seconds': round(time.monotonic() - started, 3)}
@@ -225,6 +227,7 @@ def refresh(catalog, references, index, models, state, encoder_name='dinov2', en
                     del matrix
                     old_snapshot = state / f'reuse-{sha256(previous)}.json'
                     atomic_json(old_snapshot, {'references': old_records})
+                    del old_records
                 reused_images = reuse_images(db, generation, old_snapshot, references, share=True)
                 downloaded = download_pending(db, generation, source)
                 snapshot_file = generation / 'snapshot.json'
@@ -246,6 +249,7 @@ def refresh(catalog, references, index, models, state, encoder_name='dinov2', en
                 row['verifiedStat'] = reference_receipt(file, row['sha256'])
         # Keep the local downloader snapshot separate from runtime-rooted paths.
         atomic_json(generation / 'runtime-snapshot.json', value)
+        encoder = encoder or encoder_factory()
         encoder_hash = hashlib.sha256(canonical(encoder.identity).encode()).hexdigest()
         feature_root = state / f'features-{source_hash}-{encoder_hash}'
         feature_root.mkdir(exist_ok=True)

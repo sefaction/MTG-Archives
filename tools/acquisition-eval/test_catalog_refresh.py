@@ -108,6 +108,15 @@ class RefreshTests(unittest.TestCase):
         self.assertEqual(changed_model['reusedVectors'], 0)
         self.assertEqual(changed_model['newVectors'], 17)
 
+    def test_model_loading_is_deferred_until_public_reference_preparation_finishes(self):
+        source = self.root / 'deferred.gz'
+        source.write_bytes(gzip.compress(''.join(json.dumps(card(n))+'\n' for n in range(1,5)).encode(), mtime=0))
+        def factory():
+            self.assertEqual(len(self.fetches), 2, 'new image transfers finish before allocating model memory')
+            return Encoder()
+        result = refresh(source, self.refs, self.index, self.root, self.state, encoder_factory=factory)
+        self.assertEqual(result['newVectors'], 2)
+
     def test_reuse_receipt_avoids_repeat_reads_and_changed_file_still_fails(self):
         # New catalog metadata with unchanged public assets only stats the verified
         # receipt; it must not read/decode all images again. Native per-use hash
