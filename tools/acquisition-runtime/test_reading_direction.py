@@ -1,5 +1,5 @@
 import unittest
-from reading_direction import reading_text
+from reading_direction import reading_text, restore_reading_polygon
 
 
 def word(text, x, y, width, height=30):
@@ -24,6 +24,22 @@ class ReadingDirectionTest(unittest.TestCase):
         lines = [word('Saber', 70, 70, 110), word('Ants', 180, 70, 90)]
         reading_text(lines)
         self.assertEqual([line['text'] for line in lines], ['Saber', 'Ants'])
+
+    def test_flavor_and_power_toughness_are_not_printing_identifiers(self):
+        result = reading_text([word('with our programmed mission!', 80, 1231, 500, 25),
+                               word('1/3', 880, 1249, 70, 25),
+                               word('Paolo Parente', 70, 1276, 260, 25),
+                               word('185/306', 700, 1307, 130, 25),
+                               word('DMC EN', 70, 1318, 200, 25)])
+        self.assertEqual(result['footer'], ['Paolo Parente', '185/306', 'DMC EN'])
+
+    def test_stitched_footer_maps_to_real_card_position_and_seam_is_rejected(self):
+        original = word('DMC EN', 70, 378, 200, 25)['polygon']
+        mapped = restore_reading_polygon(original)
+        self.assertEqual(mapped, word('DMC EN', 70, 1318, 200, 25)['polygon'])
+        self.assertEqual(original, word('DMC EN', 70, 378, 200, 25)['polygon'])
+        self.assertIsNone(restore_reading_polygon(word('seam', 70, 240, 200, 40)['polygon']))
+        self.assertIsNone(restore_reading_polygon(word('outside', 70, 460, 200, 25)['polygon']))
 
 
 if __name__ == '__main__':

@@ -11,6 +11,7 @@ import { readAcquisitionPhotoBytes } from "./acquisition-files";
 import { runAcquisitionNativeProcess } from "./acquisition-native-process";
 import type { AcquisitionNativeStream } from "./acquisition-native-stream";
 import type { ClaimedAcquisitionJob } from "./acquisition-jobs";
+import { acquisitionReadingZonesSchema } from "./acquisition-reading-zones";
 
 export const RECOGNITION_STAGE = "photo-recognition-v1";
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
@@ -33,6 +34,7 @@ export const nativeSchema = z.object({
   descriptorDetails: z.record(z.unknown()),
   photoDigest: digest,
   text: textSchema,
+  readingZones: acquisitionReadingZonesSchema.optional(),
   orientations: z
     .array(
       z.object({
