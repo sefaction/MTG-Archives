@@ -1,7 +1,7 @@
 import {expect, test} from "@playwright/test";
 import {execFileSync} from "node:child_process";
 import {createHash, randomUUID} from "node:crypto";
-import {readFileSync} from "node:fs";
+import {readFileSync, writeFileSync} from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 
@@ -59,8 +59,12 @@ test("difficult photo names reach existing review without inventing printing evi
     // override, expected-card hint, provider stub or Inventory commit.
     await expect.poll(()=>Number(database(`console.log(await p.acquisitionProcessingJob.count({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-printing-evidence-v1',status:'COMPLETE'}}));`)),{timeout:600000}).toBe(cases.length);
     const results=JSON.parse(database(`const jobs=await p.acquisitionProcessingJob.findMany({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-printing-evidence-v1',status:'COMPLETE'},orderBy:{candidate:{acquisitionOrder:'asc'}},select:{output:true,candidate:{select:{review:true}},run:{select:{session:{select:{locationId:true,section:true}}}}}});console.log(JSON.stringify(jobs));`));
+    const raw=JSON.parse(database(`console.log(JSON.stringify(await p.acquisitionProcessingJob.findMany({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-recognition-v1',status:'COMPLETE'},orderBy:{candidate:{acquisitionOrder:'asc'}},select:{output:true}})));`));
+    if(process.env.MTG_ACQUISITION_PHOTO_TEXT_REPORT_PATH)
+      writeFileSync(process.env.MTG_ACQUISITION_PHOTO_TEXT_REPORT_PATH,JSON.stringify({tag,digests,results,raw},null,2));
     for(const [i,entry] of cases.entries()) {
       const result=results[i], output=result.output;
+      expect(output.native).toEqual(raw[i].output.native);
       expect(output.native.photoDigest).toBe(digests[i]);
       expect(output.proposals.proposals.some((p:any)=>p.card.name===entry.name)).toBe(true);
       expect(output.proposals.automaticAcceptance).toBe(false);
