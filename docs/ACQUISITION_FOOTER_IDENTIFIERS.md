@@ -66,10 +66,25 @@ preserves native output and Inventory. An immediate fixture claim initially fail
 because PostgreSQL timestamp(3) rounds while JavaScript dates truncate; the fixture
 clock allows that one millisecond. The production queue and its timing are unchanged.
 
-Final cumulative Docker and four-original browser acceptance are pending. The
-new real-worker case uses normal upload and queue availability, preserves declared
-Card scan geometry, checks the recovered first printing and versioned evidence,
-keeps human review null, verifies zero Inventory writes and checks desktop/320px
-layouts. Simple/Advanced remains a separate sibling UI PR, included only in local
-cumulative testing. Scanner qualification remains separate; production and physical
-hardware are unchanged. Individual PR approval is required before merge.
+The cumulative Docker build includes #486/#487/#488/#489/#490 on a temporary local
+integration branch. Its456-input source digest is
+`087a4eabe937984020283c3a21f878cc447cbadd6366c10b77b4c92c2c0f7bbf`;
+web imagee01012c5, OCR8691dea6 and visual/printing0b36a416 were verified directly.
+OCR descriptor068e9306 and printing modelb72b34e8 remain unchanged. Web is healthy,
+five ordinary acquisition workers are running and there is one printing replica.
+
+The four-original real-worker browser case passed in7.1minutes through normal
+upload and queue availability while older batches reprocessed. Each scan retained
+declared Card scan geometry and selected the correct first printing with recovered
+footer/version evidence. Human review stayed null and there were zero automatic
+confirmations and Inventory writes. An initial desktop screenshot preceded canvas
+painting; a test-only pixel/decode wait was added and the same case passed again
+in4.9minutes. Both desktop/320px screenshots were inspected with the scan and
+reference fully loaded, and no page-wide overflow was found. Both owned fixtures
+were cleaned; no fixture players remain. These repeated integration checks are
+not new independent accuracy or throughput samples.
+
+Simple/Advanced remains a separate sibling UI PR, included only in cumulative
+local testing. Scanner qualification remains separate; production and physical
+hardware are unchanged. Each PR requires individual approval and current green
+checks before merge. #463 and broader review #308 remain open.

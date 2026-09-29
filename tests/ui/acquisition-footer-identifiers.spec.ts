@@ -68,7 +68,18 @@ test("real scanner footers reach shared catalog and printing review without auto
       const simple=page.getByRole('button',{name:'Simple',exact:true});
       if(await simple.count())await simple.click();
       await card.scrollIntoViewIfNeeded();
-      await expect(card.getByRole('img',{name:/^Printing: Blackblade Reforged /})).toBeVisible();
+      const reference=card.getByRole('img',{name:/^Printing: Blackblade Reforged /});
+      await expect(reference).toBeVisible();
+      await expect.poll(()=>reference.evaluate((img:HTMLImageElement)=>img.complete && img.naturalWidth>0)).toBe(true);
+      const scan=card.getByRole('img',{name:/^(Original scan|Full card image|Detected card) 1$/});
+      await expect(scan).toBeVisible();
+      // Mode changes repaint a canvas asynchronously. Visibility alone can
+      // capture an empty canvas before the original image has been decoded.
+      await expect.poll(()=>scan.evaluate((canvas:HTMLCanvasElement)=>{
+        if(!canvas.width || !canvas.height)return false;
+        const pixels=canvas.getContext('2d')!.getImageData(0,0,canvas.width,canvas.height).data;
+        return pixels.some((value,index)=>index%4<3 && value>20);
+      })).toBe(true);
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
       await page.screenshot({path:`test-results/footer-identifiers-${width}.png`});
     }
