@@ -118,9 +118,9 @@ export async function verifyScannerRuns(db: PrismaClient) {
     // A destination can change after browser START. Recheck before any motor
     // authorization, and keep pre-start stop distinct from native cancellation.
     const guardedAgent = await enroll();
-    await db.inventoryLocation.update({ where: { id: locationId }, data: { storageLayout: { capacity: 2 } } });
+    await db.inventoryLocation.update({ where: { id: locationId }, data: { storageLayout: { capacity: 2, sections: [] } } });
     const guarded = await createScannerBatch(db, actor, { ...input, agentId: guardedAgent.agentId, requestKey: randomUUID() }, epoch);
-    await db.inventoryLocation.update({ where: { id: locationId }, data: { storageLayout: { capacity: 1 } } });
+    await db.inventoryLocation.update({ where: { id: locationId }, data: { storageLayout: { capacity: 1, sections: [] } } });
     const guardedClaim = { ...claim, runId: guarded.runId, executionId: randomUUID() };
     await assert.rejects(claimScannerRun(db, guardedAgent.token, guardedClaim, epoch), /current remaining capacity/);
     assert.equal((await db.scannerRun.findUniqueOrThrow({ where: { id: guarded.runId } })).executionId, null);
