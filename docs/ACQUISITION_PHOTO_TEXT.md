@@ -51,14 +51,25 @@ private corpus roots `MTG_ACQUISITION_CORPUS_PATH`,
 `MTG_ACQUISITION_ADDITIONAL_PHOTOS_PATH`, and
 `MTG_ACQUISITION_PLAYABLE_SCANS_PATH`, then run
 `npm run ui:test -- tests/ui/acquisition-photo-text.spec.ts --workers=1`.
-The browser case uses ordinary ingestion/queues, checks seven original/derived
-inputs, location/section, evidence, review/reload and zero Inventory, and cleans
-only its owned fixture. The initial loaded browser run failed its 600-second
-completion gate (one of seven printing results) behind historical reprocessing.
-All uploads/canonical jobs were ready; the fixture cleaned up with zero Inventory.
-This exposed the separate bounded-handoff admission bug #494. Local browser
-acceptance remains pending that fix; the failure is retained, with no widened
-deadline or unchanged rerun counted as a pass.
+The seven-input browser case uses ordinary ingestion/queues and waits for every
+printing result before checking review. Two loaded runs failed the same
+600-second completion gate: one of seven results initially, four of seven with
+the separate #494/#495 handoff fix. The latter admitted all seven photos promptly
+(first OCR job about 32 seconds after test start), but 13 active OCR runs shared
+the workers. Both failures are retained privately. Both owned fixtures cleaned
+up with zero Inventory. This full-batch printing gate remains unqualified; fair
+admission alone does not establish throughput or recognition accuracy.
+
+`tests/ui/acquisition-photo-text-streaming.spec.ts` checks the intended streaming
+review separately. It submits the three difficult originals through the same
+ordinary queues, inspects each catalog suggestion as it arrives, and checks the
+first card before the remaining cards have catalog results. It covers original
+source/printing image display, explicitly unlocalized text, correction/reload,
+location/section and zero Inventory. Each card retains a 600-second wait for its
+catalog result; this is not a relaxed rerun of the seven-input printing gate.
+Run it with the same private phone roots and local opt-in. Its report is written
+incrementally when `MTG_ACQUISITION_PHOTO_TEXT_REPORT_PATH` is set. Acceptance is
+pending. No native deadline, policy or queue priority is changed by the test.
 
 This batch depends on #490. Simple/Advanced #488, recovery qualification #491
 and independent-main upload recovery #492 remain separate PRs included only in
