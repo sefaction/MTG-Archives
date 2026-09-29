@@ -58,6 +58,15 @@ acceptance check, with private trace and evidence preserved; no cache output
 regression has been established. A separate completed-reading fix is being
 qualified in #493, without changing the cache's independent main base.
 
+The combined local #493 amendment and this unchanged cache then passed the
+seven-input native/browser gate in 361 seconds. All names were offered first,
+printing completed, original raw evidence and manual decisions were preserved,
+and Simple/Advanced, correction/reload, location/section, desktop/phone images,
+zero Inventory and owned cleanup passed. Sanitized exact build/native identities
+and scope are in `photo-text-pipeline-results.json`; recognition/UI siblings are
+cumulative testing only. This supports review of the cache change without
+claiming the separate larger-batch or total-memory gates passed.
+
 The opt-in `tests/ui/acquisition-large-batch.spec.ts` exercises 100 logical
 inputs, or a separate 300-input stress case across four uneven owners, through
 ordinary local ingestion and native queues. It verifies input conservation,

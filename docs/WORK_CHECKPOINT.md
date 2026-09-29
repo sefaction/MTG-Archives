@@ -1,5 +1,13 @@
 # Resumable work checkpoint
 
+## Combined seven-input cache/native review passed, 2026-09-29 13:32 UTC
+
+Actual cumulative unchanged7-input gate31556 TERMINAL0/361115ms at13:28:22UTC after separate493 completed-reading amendment. All7names first/offered/manual/native-preserved, allprinting complete, desktop/390/320 Simple/Advanced/correction/reload/location/section/zeroInventory/ownedcleanup pass; four screenshots inspected. Current printing.py1ee42886 and descriptor6bb1e8c9 unchanged from isolated qualification. Public photo-text-pipeline-results.json records full cumulative unapproved sibling/source/native context; this PR remains independently based on main22d8ee3.
+
+Current Docker source462/cbe60851, webc952d6fe/OCR13de736c/visual-printing7e233d4a/native OCR1104a13a/printing6bb1e8c9, ONE printing replica. Lifetime printing stillpeak1GiB/max2079/zeroOOM, sampled980.6MiB; lower arrays/RSS are not total-memory guarantees. 100failed57/100at20min;300notrun/full100reviewnotreached. No unchanged rerun/wideneddeadline or physical/independent accuracy claim. All test/build/observer handles terminal; explicit owned users/sessions/jobs/Inventory0.
+
+Publish evidence/doc follow-up and reconcile exact-head CI before readiness for bounded-cache review, with larger-throughput/resource limitations retained under463. Individual499approval not yet requested; old approvals/fresh held-out originals remain pending.497merged only, no production/env/YML/scanner changes, hybrid automatic off.
+
 ## Retained 100-input throughput failure; changed OCR acceptance pending, 2026-09-29 13:16 UTC
 
 100 run27128 TERMINAL1 at13:05:40UTC:57printing within fixed20-minute gate,100ready42.2s, observed100photos/artifacts/slots/candidates and zeroInventory. Owned cleanup users/sessions/stock0. Exact failed checker/trace/log/report/conservation/memory retained under actual large-batch-100-deadline-failure. New public large-batch-results.json records failure/limits/full loaded descriptors; no private names/images/paths. Lifetime memory includes prior runs: printingpeak1GiB/max1660/zeroOOM/restarts; lower RSS is not total headroom guarantee.300 not run, 100review/correction assertions not reached; no unchanged rerun/deadline widening.
