@@ -47,16 +47,16 @@ export function acquisitionRecognitionDto(
 ): RecognitionResponse {
   const result = z.object({ proposals: proposalSchema }).safeParse(output);
   const parsed = z.object({ catalog: catalogStatusSchema }).safeParse(output);
-  const catalog = parsed.success
+  let catalog: RecognitionResponse["catalog"] = parsed.success
     ? parsed.data.catalog
-    : { status: "CHECKING" as const, printingCoverage: "UNRESOLVED" as const };
+    : null;
   if (visualStatus === "FAILED") {
-    catalog.status = "INCOMPLETE";
-    catalog.printingCoverage = "UNRESOLVED";
+    // A failed comparison is explicit, even if OCR has not returned yet.
+    catalog = {status: "INCOMPLETE", printingCoverage: "UNRESOLVED"};
   }
   if (
     result.success &&
-    (catalog.status !== "RESOLVED" ||
+    (catalog?.status !== "RESOLVED" ||
       (visualStatus && visualStatus !== "COMPLETE") ||
       (printingStatus && printingStatus !== "COMPLETE"))
   ) {

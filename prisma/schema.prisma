@@ -1278,6 +1278,7 @@ model AcquisitionRun {
   slots        AcquisitionCaptureSlot[]
   commands     AcquisitionCommand[]
   jobs         AcquisitionProcessingJob[]
+  processingTurns AcquisitionProcessingTurn[]
   photos       AcquisitionPhoto[]
   commits      AcquisitionCommit[]
 }
@@ -1429,6 +1430,18 @@ model AcquisitionProcessingJob {
   @@unique([artifactId, candidateId, candidateRevision, stage, versionKey])
   @@index([status, availableAt, leaseExpiresAt, createdAt])
   @@index([runId])
+  @@index([stage, status, availableAt, runId])
+}
+
+// Per-stage scheduling survives worker exit. This is queue bookkeeping, never
+// physical-card accounting or recognition evidence.
+model AcquisitionProcessingTurn {
+  runId         String
+  run           AcquisitionRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  stage         String
+  lastClaimedAt DateTime
+
+  @@id([runId, stage])
 }
 
 // Original private bytes are immutable. READY means durable receipt, not recognition.

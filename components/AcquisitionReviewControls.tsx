@@ -392,8 +392,12 @@ export function AcquisitionPhotoReview({
                   ? "Reviewed · editable until Inventory commit"
                   : record.recognitionStatus === "STRONG_MATCH"
                     ? "Strong match · check batch defaults"
-                    : record.recognitionStatus === "WAITING"
-                      ? "Waiting for identification · manual selection available"
+                    : !record.suggestions.length &&
+                        (record.recognitionStatus === "RUNNING" || record.visualStatus === "RUNNING")
+                      ? "Identifying this card · results appear here automatically"
+                      : !record.suggestions.length &&
+                          ["WAITING", "PENDING"].includes(record.recognitionStatus)
+                        ? "Queued for identification · results appear here automatically"
                       : "Needs review"}
           </p>
           {!record.review && record.visualStatus === "FAILED" && (
@@ -402,12 +406,22 @@ export function AcquisitionPhotoReview({
               saved; choose a printing manually or try another photo.
             </p>
           )}
-          {!record.review && record.printingStatus && (
+          {!record.review && record.visualStatus &&
+            ["WAITING", "PENDING", "RUNNING"].includes(record.visualStatus) && (
+              <p className="text-sm mt-2" role="status" data-testid="scan-image-status">
+                {record.visualStatus === "RUNNING"
+                  ? "Comparing this card image with catalog printings."
+                  : "Image comparison queued. Text suggestions can be reviewed as they arrive."}
+              </p>
+            )}
+          {!record.review && record.printingStatus && record.printingStatus !== "WAITING" && (
             <p className="text-sm mt-2" role="status" data-testid="scan-printing-status">
               {record.printingStatus === "FAILED"
                 ? "Printing verification failed. Your photo and suggestions are saved; choose a printing manually."
-                : ["WAITING", "PENDING", "RUNNING"].includes(record.printingStatus)
-                  ? "Printing and stamp verification queued or running; you can review suggestions now."
+                : record.printingStatus === "PENDING"
+                  ? "Printing and stamp verification queued; you can review suggestions now."
+                  : record.printingStatus === "RUNNING"
+                    ? "Checking this printing and its lower-left stamp; you can review suggestions now."
                   : record.printingStatus === "COMPLETE"
                     ? "Printing check complete. Unreadable details still need your review."
                     : "Waiting for current printing evidence."}
