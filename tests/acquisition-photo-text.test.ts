@@ -105,3 +105,36 @@ test("review keeps unlocalized readings separate and withholds private worker me
   assert.deepEqual(evidence.identifiers,{setCodes:[],collectors:[],languages:[]});
   assert.ok(!JSON.stringify(evidence).includes("omit"));
 });
+
+test("completed identity-bound reading survives a later internal deadline without inventing printing", async () => {
+  const expected={photoDigest:"a".repeat(64),descriptor:"b".repeat(64)};
+  const result=await readAcquisitionPhotoText(async(_input,attemptSignal,progress)=>{
+    progress!({...expected,progress:true,recognitionTask:"WHOLE_PHOTO_TEXT",photoText:{...hints([card.name]),status:"PARTIAL"}});
+    await setTimeout(100,undefined,{signal:attemptSignal});throw Error("not reached");
+  },Buffer.from("photo"),"PHOTO",expected,new AbortController().signal,10);
+  assert.equal(result.status,"PARTIAL");assert.equal(result.reason,"TIME_BUDGET");
+  assert.equal(result.readings[0].text[0],card.name);
+  const proposed=combineAcquisitionPhotoText(index,empty(),result);
+  assert.equal(proposed.automaticAcceptance,false);
+  assert.ok(proposed.proposals.every(p=>p.reasons.includes(UNLOCALIZED_NAME_HINT)));
+  assert.deepEqual(proposed.evidence,{setCodes:[],collectors:[],languages:[]});
+});
+
+test("contradictory progress or final identity drops completed readings; outer abort propagates", async () => {
+  const expected={photoDigest:"a".repeat(64),descriptor:"b".repeat(64)};
+  const step={...expected,progress:true,recognitionTask:"WHOLE_PHOTO_TEXT",photoText:{...hints([card.name]),status:"PARTIAL"}};
+  for(const kind of ["duplicate","stale-progress","stale-final","changed-final","omitted-final"]){
+    const result=await readAcquisitionPhotoText(async(_input,_signal,progress)=>{
+      progress!(step);
+      if(kind==="changed-final")return {...step,photoText:hints(["Different name"])};
+      if(kind==="omitted-final")return {...step,photoText:{...hints([]),readings:[]}};
+      if(kind!=="stale-final")progress!(kind==="duplicate"?step:{...step,photoDigest:"c".repeat(64)});
+      return {...step,descriptor:"d".repeat(64)};
+    },Buffer.from("photo"),"PHOTO",expected,new AbortController().signal);
+    assert.equal(result.status,"UNAVAILABLE");assert.deepEqual(result.readings,[]);
+  }
+  const cancelled=new AbortController();
+  await assert.rejects(readAcquisitionPhotoText(async(_input,signal,progress)=>{
+    progress!(step);cancelled.abort();signal.throwIfAborted();
+  },Buffer.from("photo"),"PHOTO",expected,cancelled.signal));
+});

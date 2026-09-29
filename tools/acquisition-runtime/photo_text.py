@@ -5,7 +5,7 @@ import numpy as np
 from reading_direction import grouped_text
 
 
-def whole_photo_text(image, ocr, *, clock=time.monotonic):
+def whole_photo_text(image, ocr, *, clock=time.monotonic, on_reading=None):
     started = clock()
     scale = min(1, 1600 / max(image.shape[:2]))
     small = cv2.resize(image, None, fx=scale, fy=scale)
@@ -30,6 +30,8 @@ def whole_photo_text(image, ocr, *, clock=time.monotonic):
         truncated = truncated or len(words) > 12 or any(len(word) > 200 for word in words)
         readings.append({'rotationDegrees': turn * 90,
                          'text': [word[:200] for word in words[:12]], 'truncated': truncated})
+        if on_reading is not None:
+            on_reading(readings[-1])
         partial = partial or truncated
     return {'version': 1, 'scope': 'WHOLE_PHOTO',
             'status': 'PARTIAL' if partial else 'COMPLETE', 'readings': readings}

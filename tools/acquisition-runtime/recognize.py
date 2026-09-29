@@ -83,7 +83,13 @@ def recognize(data, desc):
             raise ValueError('Single image required')
         image = cv2.cvtColor(np.asarray(ImageOps.exif_transpose(source).convert('RGB')), cv2.COLOR_RGB2BGR)
     if task == 'WHOLE_PHOTO_TEXT':
-        photo_text = whole_photo_text(image, ocr_engine())
+        def completed_reading(reading):
+            print(json.dumps({'progress': True, 'descriptor': desc['digest'],
+                  'photoDigest': hashlib.sha256(data).hexdigest(), 'recognitionTask': task,
+                  'photoText': {'version': 1, 'scope': 'WHOLE_PHOTO',
+                                'status': 'PARTIAL', 'readings': [reading]}}), file=protocol, flush=True)
+        photo_text = whole_photo_text(image, ocr_engine(),
+                                     on_reading=completed_reading if '--stream' in sys.argv else None)
         print(json.dumps({'version': 1, 'descriptor': desc['digest'], 'descriptorDetails': desc,
               'photoDigest': hashlib.sha256(data).hexdigest(), 'recognitionTask': task,
               'geometry': {'status': 'NOT_ATTEMPTED'},

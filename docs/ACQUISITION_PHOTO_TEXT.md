@@ -12,7 +12,9 @@ Inventory route, model, confidence threshold or production setting.
 - Read at most four directions with a 1600-pixel maximum edge. Native work checks
   a 25-second budget between directions; the parent enforces at most 32 seconds
   and the remaining existing 45-second job deadline. Completed partial readings
-  are explicit. Timeout or worker failure retains original evidence/suggestions.
+  are explicit. The warm native protocol sends each completed direction before
+  starting the next one. An internal timeout or worker failure can retain those
+  validated readings as PARTIAL, alongside the original evidence/suggestions.
 - Exact whole-line catalog names can offer `UNLOCALIZED_NAME_HINT` suggestions.
   Whole-photo text does not become a located title, footer identifier, language
   or stamp observation. Geometry and original canonical readings stay intact.
@@ -26,6 +28,60 @@ Inventory route, model, confidence threshold or production setting.
   cannot hide the card supplying the hint; explicit crop/zone inspection remains.
   Saved human choices and explicit Inventory commit remain
   authoritative.
+
+## Completed-reading transport
+
+Progress records bind one completed direction to the expected original photo,
+native descriptor and whole-photo task. At most four records plus the final
+result share the existing aggregate 64-KiB request output bound. Split/coalesced
+frames are supported; no progress is accepted by ordinary OCR, image or printing
+requests. A killed child must exit before another request reopens the process.
+
+Final readings must preserve the completed prefix. Duplicate directions,
+changed identities or contradictory final evidence discard progress. An outer
+job cancellation still propagates and publishes nothing; retaining a name hint
+does not extend a job deadline, restore a lease, infer printing identifiers or
+enable automatic acceptance.
+
+This amendment is being qualified after a live seven-input run completed all
+printing jobs but lost two whole-photo hints to TIME_BUDGET. Budget checks occur
+between native directions, while the parent enforces a wall-clock deadline, so a
+later direction can otherwise hide earlier work. The failed run did not record
+direction timestamps; this mechanism is not yet an observed cause attribution.
+The earlier successful seven-input check and the later failure remain separate
+evidence. The 100-input resource run ended with 57 printing results at its fixed
+20-minute gate; owned fixtures were cleaned with no Inventory changes. It did
+not qualify full-batch throughput or review and will not be rerun unchanged.
+
+`tools/acquisition-eval/qualify_photo_text_progress.ts` is an opt-in native-image
+helper, not an app or background service. Use network disabled, one CPU/2 GiB,
+the same read-only models at `/models`, frozen catalog at `/snapshot`, private
+phone/scanner originals at `/phone`, `/additional`, `/scans`, and an owned private
+output directory at `/output`. Mount the matching repository `lib` and runtime
+sources into `/app` and run the helper at its repository-relative path with
+`MTG_ACQUISITION_PHOTO_TEXT_PROGRESS_TEST=1`. Ordinary difficult-photo/control
+cases keep existing budgets and record completed-direction timestamps. A
+separate controlled child termination after the first real completed direction
+checks retention and clean reopening; it is neither a natural timeout
+reproduction nor a performance/accuracy result. Full reports contain private
+OCR/photo evidence and must remain local.
+
+The real-native qualifier passed with unchanged model hashes/runtime versions
+and the frozen full 109,271-card snapshot. Winter, Tormented Loner produced its
+first direction at 26.8 seconds; the parent then timed out later work, retaining
+that reading as PARTIAL/TIME_BUDGET and offering the correct name. Cunning
+Geysermage retained three directions and offered its name. Both attempts ended
+within about 35 seconds, including primary recognition, without increasing the
+existing limits. Normal photo and Card scan controls skipped fallback and
+completed in about five seconds. Controlled termination preserved exactly its
+completed direction, and reopening passed. Native primary evidence remained
+unchanged and all decisions stayed manual. These development observations do
+not establish independent printing accuracy or explain every historical
+timeout. Sanitized evidence is in `photo-text-progress-results.json`.
+
+Fifteen focused transport/photo-text/generation guards and four Python guards
+passed; disposable acquisition/import/core checks passed with owned cleanup in
+170 seconds. Changed-source cumulative Docker acceptance remains pending.
 
 ## Verification and limits
 

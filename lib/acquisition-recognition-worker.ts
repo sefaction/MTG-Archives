@@ -214,8 +214,8 @@ export async function recognizeAcquisitionPhoto(
     input.digest,
   );
   const nativeStarted = Date.now();
-  const requestNative = (frame: Buffer, attemptSignal: AbortSignal) => nativeWorker
-    ? nativeWorker.request(frame, attemptSignal)
+  const requestNative = (frame: Buffer, attemptSignal: AbortSignal, progress?: (value: unknown) => void) => nativeWorker
+    ? nativeWorker.request(frame, attemptSignal, progress)
     : runAcquisitionNativeProcess("python", ["/app/tools/acquisition-runtime/recognize.py"], frame, attemptSignal);
   const native = nativeSchema.parse(
     await requestNative(acquisitionNativePhotoInput(bytes, input.inputKind), signal),

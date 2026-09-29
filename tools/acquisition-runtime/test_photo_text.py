@@ -40,6 +40,16 @@ class PhotoTextTest(unittest.TestCase):
         self.assertEqual(result['status'],'PARTIAL')
         self.assertTrue(all(r['truncated'] and len(r['text'])<=12 for r in result['readings']))
 
+    def test_completed_direction_callback_precedes_the_next_direction_and_matches_final(self):
+        ticks=iter([0,0,26])
+        completed=[]
+        result=whole_photo_text(np.zeros((800,600,3),dtype=np.uint8),FakeOCR(),
+                                clock=lambda:next(ticks),on_reading=completed.append)
+        self.assertEqual(result['status'],'PARTIAL')
+        self.assertEqual(completed,result['readings'])
+        self.assertEqual(len(completed),1)
+        self.assertEqual(completed[0]['text'],['Card name'])
+
 
 if __name__=='__main__':
     unittest.main()
