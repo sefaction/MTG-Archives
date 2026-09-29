@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { z } from "zod";
+import { acquisitionImageInputKindSchema, acquisitionNativePhotoInput } from "./acquisition-image-input";
 import {
   createAcquisitionRecognitionIndex,
   proposeOrientedAcquisitionPrintings,
@@ -163,6 +164,7 @@ export async function enqueueReadyRecognition(
           input: {
             version: 1,
             ...input,
+            inputKind: photo.inputKind,
             versions: {
               pipeline: RECOGNITION_STAGE,
               runtime: "paddle-cpu-subprocess-v1",
@@ -190,6 +192,7 @@ export async function recognizeAcquisitionPhoto(
     .object({
       photoId: z.string().uuid(),
       digest,
+      inputKind: acquisitionImageInputKindSchema.default("PHOTO"),
       versions: z.object({ catalog: digest, model: digest }),
     })
     .parse(job.input);
@@ -206,11 +209,11 @@ export async function recognizeAcquisitionPhoto(
   );
   const native = nativeSchema.parse(
     nativeWorker
-      ? await nativeWorker.request(bytes, signal)
+      ? await nativeWorker.request(acquisitionNativePhotoInput(bytes, input.inputKind), signal)
       : await runAcquisitionNativeProcess(
           "python",
           ["/app/tools/acquisition-runtime/recognize.py"],
-          bytes,
+          acquisitionNativePhotoInput(bytes, input.inputKind),
           signal,
         ),
   );

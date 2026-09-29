@@ -13,6 +13,6 @@ COPY prisma ./prisma
 RUN node node_modules/prisma/build/index.js generate
 COPY lib ./lib
 COPY scripts ./scripts
-COPY tools/acquisition-runtime/visual.py tools/acquisition-runtime/printing.py tools/acquisition-runtime/printing_worker.py ./tools/acquisition-runtime/
+COPY tools/acquisition-runtime/visual.py tools/acquisition-runtime/printing.py tools/acquisition-runtime/printing_worker.py tools/acquisition-runtime/photo_input.py ./tools/acquisition-runtime/
 COPY tools/acquisition-eval/baseline.py tools/acquisition-eval/catalog_index.py tools/acquisition-eval/catalog_references.py tools/acquisition-eval/catalog_snapshot.py tools/acquisition-eval/catalog_refresh.py tools/acquisition-eval/image_encoder.py tools/acquisition-eval/visual_compare.py tools/acquisition-eval/printing_evidence.py tools/acquisition-eval/stamp-reference-labels.json /eval/
 ENTRYPOINT ["node", "node_modules/tsx/dist/cli.mjs", "scripts/acquisition-visual-worker.ts"]

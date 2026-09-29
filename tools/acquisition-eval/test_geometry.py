@@ -16,6 +16,22 @@ def tight_scan():
 
 
 class GeometryTest(unittest.TestCase):
+    def test_declared_scan_preserves_white_borders_and_footer_without_contour_detection(self):
+        from unittest.mock import patch
+        image = tight_scan()
+        image[:12] = image[-12:] = 255
+        image[:, :12] = image[:, -12:] = 255
+        self.assertFalse(preserve_full_frame(image))
+        for turns in range(4):
+            source = np.rot90(image, turns).copy()
+            with patch('baseline.preserve_full_frame', side_effect=AssertionError('heuristic called')):
+                crop, evidence = geometry(source, 'CARD_SCAN')
+            h, w = source.shape[:2]
+            self.assertEqual(evidence['method'], 'declared-card-scan')
+            self.assertEqual(set(map(tuple, evidence['quad'])), {(0,0),(w-1,0),(w-1,h-1),(0,h-1)})
+            self.assertEqual(crop.shape, (1397, 1000, 3))
+            self.assertGreater(max(np.count_nonzero(crop[-110:] > 230), np.count_nonzero(crop[:110] > 230)),100)
+
     def test_tight_scan_preserves_all_edges_and_footer_in_every_quarter_turn(self):
         image = tight_scan()
         for turns in range(4):

@@ -14,12 +14,14 @@ test("printing checks cover text-led stamped scans and image-led unreadable text
   test.skip(process.env.MTG_LOCAL_PILOT_TEST !== "1" || !process.env.MTG_ACQUISITION_NEW_SCANS_PATH,
     "Requires local snapshot and private new scanner corpus");
   expect(baseURL).toBe("http://127.0.0.1:13001");
-  test.setTimeout(360000);
+  test.setTimeout(480000);
   const tag=`ui-printing-${randomUUID()}`, password=randomUUID();
   const manifest=JSON.parse(readFileSync("tools/acquisition-eval/scan-batch-manifest.json", "utf8"));
-  const entries=[36,35,1].map(n=>manifest.entries[n-1]);
+  // Repeated35 is an explicit source-mode regression, not another independent
+  // recognition sample. Its PHOTO geometry fails; CARD_SCAN must keep all edges.
+  const entries=[36,35,1,35].map(n=>manifest.entries[n-1]);
   try {
-    database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash,role:'PLAYER'}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:3,sections:[]}}});`);
+    database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash,role:'PLAYER'}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:4,sections:[]}}});`);
     await page.goto('/login');
     await page.getByLabel(/username or email/i).fill(tag);
     await page.getByLabel(/^password$/i).fill(password);
@@ -34,6 +36,7 @@ test("printing checks cover text-led stamped scans and image-led unreadable text
     await page.getByRole('button',{name:'Save batch defaults'}).click();
     await expect(page.getByText('Batch defaults saved.')).toBeVisible();
     for(const [i,entry] of entries.entries()){
+      if(i===3)await page.getByRole('combobox',{name:'Library image type'}).selectOption('CARD_SCAN');
       expect(path.basename(entry.file)).toBe(entry.file);
       const buffer=readFileSync(path.join(process.env.MTG_ACQUISITION_NEW_SCANS_PATH!,entry.file));
       expect(createHash('sha256').update(buffer).digest('hex')).toBe(entry.sha256);
@@ -41,7 +44,7 @@ test("printing checks cover text-led stamped scans and image-led unreadable text
       // Only prioritize owned fixture jobs. This is functional acceptance;
       // normal backlog throughput is measured separately.
       await expect.poll(()=>Number(database(`await p.acquisitionProcessingJob.updateMany({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},status:'PENDING'},data:{availableAt:new Date(0)}});console.log(await p.acquisitionProcessingJob.count({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-printing-evidence-v1',status:'COMPLETE'}}));`)),{timeout:180000}).toBe(i+1);
-      const output=JSON.parse(database(`const job=await p.acquisitionProcessingJob.findFirstOrThrow({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},artifact:{digest:${JSON.stringify(entry.sha256)}},stage:'photo-printing-evidence-v1',status:'COMPLETE'},select:{output:true,candidate:{select:{review:true}}}});const expected=await p.card.findUniqueOrThrow({where:{scryfallId:${JSON.stringify(entry.scryfallId)}},select:{id:true}});console.log(JSON.stringify({output:job.output,review:job.candidate.review,expectedId:expected.id}));`));
+      const output=JSON.parse(database(`const job=await p.acquisitionProcessingJob.findFirstOrThrow({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},artifact:{digest:${JSON.stringify(entry.sha256)}},stage:'photo-printing-evidence-v1',status:'COMPLETE'},orderBy:{createdAt:'desc'},select:{output:true,candidate:{select:{review:true}}}});const expected=await p.card.findUniqueOrThrow({where:{scryfallId:${JSON.stringify(entry.scryfallId)}},select:{id:true}});console.log(JSON.stringify({output:job.output,review:job.candidate.review,expectedId:expected.id}));`));
       expect(output.output.proposals.proposals.some((p:any)=>p.card.id===output.expectedId)).toBe(true);
       expect(output.output.native.photoDigest).toBe(entry.sha256);
       expect(output.output.printingNative.photoDigest).toBe(entry.sha256);
@@ -56,6 +59,16 @@ test("printing checks cover text-led stamped scans and image-led unreadable text
       if(i===1){
         expect(output.output.native.geometry.status).toBe('NEEDS_CROP');
         expect(output.output.native.orientations).toHaveLength(0);
+      }
+      if(i===3){
+        expect(output.output.native.geometry.method).toBe('declared-card-scan');
+        expect(output.output.native.orientations).toHaveLength(2);
+        const corners=output.output.native.geometry.quad;
+        expect(Math.min(...corners.map((p:number[])=>p[0]))).toBe(0);
+        expect(Math.min(...corners.map((p:number[])=>p[1]))).toBe(0);
+        const saved=JSON.parse(database(`console.log(JSON.stringify(await p.acquisitionPhoto.findFirstOrThrow({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},inputKind:'CARD_SCAN'},select:{width:true,height:true,inputKind:true}})));`));
+        expect(Math.max(...corners.map((p:number[])=>p[0]))).toBe(saved.width-1);
+        expect(Math.max(...corners.map((p:number[])=>p[1]))).toBe(saved.height-1);
       }
       const card=page.getByTestId(`capture-card-${i+1}`);
       await card.scrollIntoViewIfNeeded();

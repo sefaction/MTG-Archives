@@ -73,11 +73,14 @@ export async function verifyAcquisitionPhotos(
       uploadKey: randomUUID(),
       generation: 0,
       metadata,
+      inputKind: "CARD_SCAN" as const,
     };
     const attempts = await Promise.all(
       [1, 2].map(() => beginAcquisitionPhoto(db, actor, id, input)),
     );
     assert.equal(attempts[0].id, attempts[1].id);
+    assert.equal(attempts[0].inputKind, "CARD_SCAN");
+    await assert.rejects(beginAcquisitionPhoto(db, actor, id, {...input,inputKind:"PHOTO"}),/identity conflict/);
     await assert.rejects(
       beginAcquisitionPhoto(db, actor, id, {
         ...input,
@@ -110,6 +113,8 @@ export async function verifyAcquisitionPhotos(
     );
     await finalizeAcquisitionPhoto(db, actor, id, photo.id);
     await finalizeAcquisitionPhoto(db, actor, id, photo.id);
+    const scanJob=await db.acquisitionProcessingJob.findFirstOrThrow({where:{artifact:{sourceId:photo.id},stage:"photo-canonical-v1"}});
+    assert.equal((scanJob.input as {inputKind:string}).inputKind,"CARD_SCAN");
     assert.equal(
       (await getAcquisitionProgress(db, actor, id)).photoPreparation.length,
       1,

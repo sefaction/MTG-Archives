@@ -69,13 +69,16 @@ def preserve_full_frame(image):
     return False
 
 
-def geometry(image):
+def geometry(image, input_kind='PHOTO'):
     h, w = image.shape[:2]
-    if preserve_full_frame(image):
+    if input_kind not in ('PHOTO', 'CARD_SCAN'):
+        raise ValueError('Unknown image input kind')
+    if input_kind == 'CARD_SCAN' or preserve_full_frame(image):
         q = order_quad([[0, 0], [w-1, 0], [w-1, h-1], [0, h-1]])
         transform = cv2.getPerspectiveTransform(q.astype(np.float32), np.float32([[0,0],[999,0],[999,1396],[0,1396]]))
         crop = cv2.warpPerspective(image, transform, (1000, 1397))
-        return crop, {"status": "PROPOSED", "quad": q.tolist(), "method": "full-frame", "confidence": None}
+        return crop, {"status": "PROPOSED", "quad": q.tolist(),
+                      "method": "declared-card-scan" if input_kind == 'CARD_SCAN' else "full-frame", "confidence": None}
     scale = min(1, 1400 / max(h, w))
     small = cv2.resize(image, None, fx=scale, fy=scale)
     gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)

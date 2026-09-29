@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { Prisma, PrismaClient, type InventoryLocation } from "@prisma/client";
 import { z } from "zod";
+import { acquisitionImageInputKindSchema, type AcquisitionImageInputKind } from "./acquisition-image-input";
 import { isAdminUser } from "./auth-policy";
 import { getStorageLocations } from "./storage-summary";
 import {
@@ -777,6 +778,7 @@ export async function getAcquisitionProgress(
             purgedAt: true,
             digest: true,
             bytes: true,
+            inputKind: true,
           },
         },
       },
@@ -898,12 +900,14 @@ export async function beginAcquisitionPhoto(
     generation: number;
     replacePending?: boolean;
     metadata: AcquisitionPhotoMetadata;
+    inputKind?: AcquisitionImageInputKind;
   },
 ) {
   z.string().uuid().parse(input.slotId);
   z.string().uuid().parse(input.uploadKey);
   z.number().int().min(0).max(20).parse(input.generation);
   const metadata = acquisitionPhotoMetadataSchema.parse(input.metadata);
+  const inputKind = acquisitionImageInputKindSchema.parse(input.inputKind ?? "PHOTO");
   return transaction(db, async (tx) => {
     await read(tx, actor, sessionId);
     await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${sessionId} FOR UPDATE`;
@@ -922,7 +926,8 @@ export async function beginAcquisitionPhoto(
         previous.slotId !== slot.id ||
         previous.generation !== input.generation + 1 ||
         previous.digest !== metadata.digest ||
-        previous.bytes !== metadata.bytes
+        previous.bytes !== metadata.bytes ||
+        previous.inputKind !== inputKind
       )
         throw new Error("Photo upload identity conflict");
       if (
@@ -982,6 +987,7 @@ export async function beginAcquisitionPhoto(
         uploadKey: input.uploadKey,
         generation: slot.generation + 1,
         ...metadata,
+        inputKind,
       },
     });
     await tx.acquisitionCaptureSlot.update({
@@ -1057,6 +1063,7 @@ export async function finalizeAcquisitionPhoto(
           version: 1,
           photoId: photo.id,
           digest: photo.digest,
+          inputKind: photo.inputKind,
           versions: {
             pipeline: "orient-1600-v1",
             runtime: "sharp-0.35.4",
