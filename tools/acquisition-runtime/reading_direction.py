@@ -1,4 +1,28 @@
-"""Reconstruct nearby OCR words on the same printed line, without pixel changes."""
+"""Bounded reading strips and nearby words, in canonical card coordinates."""
+
+TITLE_BOTTOM = 250
+FOOTER_TOP = 1270
+CARD_HEIGHT = 1397
+# Keep the detector canvas size and the title's sampling scale stable. The extra
+# 60 white rows mask the old footer's flavor/P-T area instead of shrinking it.
+STRIP_GAP = 80
+
+
+def reading_zones():
+    return {'title': {'top': 0, 'bottom': TITLE_BOTTOM},
+            'footer': {'top': FOOTER_TOP, 'bottom': CARD_HEIGHT}}
+
+
+def restore_reading_polygon(polygon):
+    """Undo the title/gap/footer stitch; discard boxes crossing its seam."""
+    top = min(p[1] for p in polygon)
+    bottom = max(p[1] for p in polygon)
+    if 0 <= top <= bottom <= TITLE_BOTTOM:
+        return [[p[0], p[1]] for p in polygon]
+    stitched_footer = TITLE_BOTTOM + STRIP_GAP
+    if stitched_footer <= top <= bottom <= stitched_footer + CARD_HEIGHT - FOOTER_TOP:
+        return [[p[0], p[1] + FOOTER_TOP - stitched_footer] for p in polygon]
+    return None
 
 
 def grouped_text(lines):
@@ -33,6 +57,6 @@ def grouped_text(lines):
 
 def reading_text(lines):
     return {
-        'title': grouped_text([line for line in lines if max(p[1] for p in line['polygon']) < 260]),
-        'footer': grouped_text([line for line in lines if min(p[1] for p in line['polygon']) > 1220]),
+        'title': grouped_text([line for line in lines if max(p[1] for p in line['polygon']) <= TITLE_BOTTOM]),
+        'footer': grouped_text([line for line in lines if min(p[1] for p in line['polygon']) >= FOOTER_TOP]),
     }

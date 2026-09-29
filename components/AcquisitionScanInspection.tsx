@@ -32,6 +32,7 @@ export function AcquisitionScanImage({
   const observation = evidence?.observations.find(
     (o) => o.rotationDegrees === rotation,
   );
+  const readingZones = evidence?.readingZones;
   useEffect(() => {
     if (!active || !canvas.current) return;
     const target = canvas.current;
@@ -122,10 +123,15 @@ export function AcquisitionScanImage({
         }
       ctx.putImageData(out, 0, 0);
       source.width = source.height = 0;
-      if (view === "zones") {
+      if (view === "zones" && readingZones) {
         ctx.fillStyle = "rgba(0,255,255,.18)";
-        ctx.fillRect(0, 0, 400, (250 / 1397) * 559);
-        ctx.fillRect(0, (1210 / 1397) * 559, 400, (187 / 1397) * 559);
+        for (const zone of Object.values(readingZones))
+          ctx.fillRect(
+            0,
+            (zone.top / 1397) * 559,
+            400,
+            ((zone.bottom - zone.top) / 1397) * 559,
+          );
         ctx.strokeStyle = "#ffff00";
         ctx.lineWidth = 1;
         for (const line of observation?.lines ?? []) {
@@ -154,7 +160,7 @@ export function AcquisitionScanImage({
       image.src = "";
       target.width = target.height = 0;
     };
-  }, [src, active, quad, observation, view, rotation]);
+  }, [src, active, quad, observation, readingZones, view, rotation]);
   return (
     <figure className="min-w-0">
       <figcaption className="font-semibold mb-2 min-h-12 sm:min-h-0">

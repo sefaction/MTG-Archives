@@ -54,6 +54,16 @@ test("printing checks cover text-led stamped scans and image-led unreadable text
       expect(output.output.printingNative.photoDigest).toBe(entry.sha256);
       expect(output.output.proposals.automaticAcceptance).toBe(false);
       expect(output.review).toBe(null);
+      if(output.output.native.geometry.status==='PROPOSED'){
+        expect(output.output.native.readingZones).toEqual({
+          title:{top:0,bottom:250},footer:{top:1270,bottom:1397},
+        });
+        for(const observation of output.output.native.orientations)
+          for(const line of observation.lines){
+            const ys=line.polygon.map((p:number[])=>p[1]);
+            expect(Math.max(...ys)<=250 || Math.min(...ys)>=1270).toBe(true);
+          }
+      }
       if(i===0){
         expect(output.output.printing.observedStamp).toBe('PRESENT');
         expect(output.output.proposals.proposals[0].card.id).toBe(output.expectedId);
@@ -78,8 +88,8 @@ test("printing checks cover text-led stamped scans and image-led unreadable text
         expect(output.output.native.geometry.method).toBe('declared-card-scan');
         expect(output.output.proposals.proposals[0].card.id).toBe(output.expectedId);
         expect(output.output.proposals.evidence.collectors).toContain('304');
-        expect(output.output.proposals.evidence.setCodes).toEqual([]);
-        expect(output.output.proposals.evidence.languages).toEqual([]);
+        expect(output.output.proposals.evidence.setCodes).toEqual(['fin']);
+        expect(output.output.proposals.evidence.languages).toEqual(['en']);
         expect(output.output.visual.candidates[0].scryfallId).toBe(entry.scryfallId);
         expect(output.output.visual.geometricCandidates[0].scryfallId).toBe(entry.scryfallId);
       }
@@ -94,8 +104,11 @@ test("printing checks cover text-led stamped scans and image-led unreadable text
         await page.setViewportSize({width,height:900});
         await card.scrollIntoViewIfNeeded();
         await expect(card.getByRole('img',{name:/^Printing: Mountain /})).toBeVisible();
+        await card.getByRole('button',{name:'Reading zones',exact:true}).click();
+        await expect.poll(()=>card.getByRole('img',{name:'Full card image 5',exact:true}).evaluate(el=>
+          (el as HTMLCanvasElement).width)).toBe(400);
         expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-        await page.screenshot({path:`test-results/basic-land-review-${width}.png`});
+        await page.screenshot({path:`test-results/footer-zone-review-${width}.png`});
       }
     }
     const card=page.getByTestId('capture-card-1');
