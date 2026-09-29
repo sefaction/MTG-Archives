@@ -1,6 +1,8 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AcquisitionCommitControls } from "./AcquisitionCommitControls";
+import { ScannerSourceFields, ScannerRunControls, type ScannerChoice } from "./ScannerBatchControls";
+import { SCANNER_CAPTURE_PROVIDER } from "@/lib/scanner-run-protocol";
 import { StorageDestinationPicker } from "./StorageDestinationPicker";
 import {
   AcquisitionBatchDefaults,
@@ -67,6 +69,9 @@ export function AcquisitionCapture({
   const [section, setSection] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [customLimit, setCustomLimit] = useState(false);
+  const [scannerChoice, setScannerChoice] = useState<ScannerChoice | null>(null);
+  const [scannerEnabled, setScannerEnabled] = useState(false);
+  const scannerChanged = useCallback((value: ScannerChoice | null, enabled: boolean) => { setScannerChoice(value); setScannerEnabled(enabled); createKey.current = ""; }, []);
   const [batchId, setBatchId] = useState(initialBatch);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [error, setError] = useState("");
@@ -230,7 +235,8 @@ export function AcquisitionCapture({
     setError("");
     try {
       if (!createKey.current) createKey.current = captureUuid();
-      const state = await request<Progress>("/api/acquisition", {
+      const state = await request<Progress>(scannerChoice ? "/api/scanners/runs" : "/api/acquisition", {
+        ...(scannerChoice ? { ...scannerChoice, action: "create" } : {}),
         requestKey: createKey.current,
         locationId,
         section,
@@ -470,18 +476,20 @@ export function AcquisitionCapture({
               : `${remaining} spaces remaining in this destination.`}{" "}
             One card per photo.
           </p>
+          <ScannerSourceFields onChange={scannerChanged} disabled={busy} remaining={customLimit ? Math.min(quantity,remaining??quantity) : remaining} />
           <button
             className={primary}
             disabled={
               busy ||
               !locationId ||
+              (scannerEnabled && !scannerChoice) ||
               remaining === 0 ||
               (customLimit &&
                 (quantity < 1 || (remaining !== null && quantity > remaining)))
             }
             onClick={() => void start()}
           >
-            Start batch
+            {scannerEnabled ? "Start scanner batch" : "Start batch"}
           </button>
           {!!recent.length && (
             <div className="mt-4">
@@ -512,7 +520,7 @@ export function AcquisitionCapture({
           >
             <h2 className="text-xl font-semibold">
               Batch {progress.batchNumber} · {progress.reservedSlots}
-              {progress.target === null
+              {progress.providerId === SCANNER_CAPTURE_PROVIDER ? ` images${progress.target===null ? "" : ` · target ${progress.target} cards`}` : progress.target === null
                 ? " cards"
                 : ` of ${progress.target} cards`}
             </h2>
@@ -526,7 +534,7 @@ export function AcquisitionCapture({
               confirmation
             </p>
             <p className="text-xs text-[var(--app-muted)]">
-              {progress.availableSlots === 0
+              {progress.providerId === SCANNER_CAPTURE_PROVIDER ? "Scanner images stay provisional until the physical batch is verified." : progress.availableSlots === 0
                 ? "Batch full. You can still retry or retake a photo."
                 : progress.availableSlots === null
                   ? "No capacity limit set. Stop capture when finished."
@@ -549,7 +557,7 @@ export function AcquisitionCapture({
               batch destination before taking more.
             </p>
           )}
-          <section className={panel} aria-label="Card camera">
+          {progress.providerId === SCANNER_CAPTURE_PROVIDER ? <ScannerRunControls runId={progress.runId} savedImages={readyPhotos} refresh={refresh} /> : <section className={panel} aria-label="Card camera">
             <p className="mb-2">
               Photograph one card at a time, with the whole front visible and as
               little glare as possible.
@@ -669,7 +677,7 @@ export function AcquisitionCapture({
                 Waiting for uploads before taking more photos.
               </p>
             )}
-          </section>
+          </section>}
           {!!uploads.length && (
             <section className={panel} aria-label="Pending uploads">
               <h3 className="font-semibold">Uploads</h3>
@@ -785,7 +793,7 @@ export function AcquisitionCapture({
                         Add this copy
                       </label>
                     )}
-                    <button
+                    {progress.providerId !== SCANNER_CAPTURE_PROVIDER && <button
                       className={button + " w-full"}
                       disabled={
                         busy ||
@@ -802,7 +810,7 @@ export function AcquisitionCapture({
                       }}
                     >
                       {photo ? "Retake" : "Add photo"}
-                    </button>
+                    </button>}
                   </div>
                 );
               })}

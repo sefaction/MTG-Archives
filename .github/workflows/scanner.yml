@@ -24,5 +24,6 @@ jobs:
       - run: dotnet restore tools/scanner-agent/ScannerAgent.csproj --locked-mode
       - run: dotnet build tools/scanner-agent/ScannerAgent.csproj --no-restore --configuration Release
       - run: dotnet tools/scanner-agent/bin/Release/net8.0-windows/Mtg.ScannerAgent.dll connection-selftest
+      - run: dotnet tools/scanner-agent/bin/Release/net8.0-windows/Mtg.ScannerAgent.dll native-selftest
       - run: node --test tools/scanner-agent/transport.test.mjs
       # CI cannot qualify physical hardware. Never run discovery/scan on hosted CI.
