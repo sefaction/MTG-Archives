@@ -44,7 +44,7 @@ test("24 real scans retain artifacts and a saved correction across an actual OCR
   });
   const owner=`{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}}}`;
   const report:any={version:1,scope:"REUSED_DEVELOPMENT_SCANS_LOCAL_RESTART_RELIABILITY",startedAt:new Date().toISOString(),
-    count:entries.length,imageBefore,samples:[],interrupt:null,passed:false,
+    count:entries.length,imageBefore,samples:[],uploadRetries:[],interrupt:null,passed:false,
     limits:["One OCR container crash, not a host/database/browser-storage loss","24 uploads, not full large-batch qualification",
       "Reused scans are not independent accuracy samples","Sampled Docker memory/CPU, not exhaustive peak instrumentation"]};
   mkdirSync(".local-data/recovery-qualification",{recursive:true});
@@ -90,6 +90,18 @@ test("24 real scans retain artifacts and a saved correction across an actual OCR
     const saved=json(`console.log(JSON.stringify(await p.acquisitionCandidate.findFirstOrThrow({where:${owner},orderBy:{acquisitionOrder:'asc'},select:{id:true,revision:true,review:true}})));`);
     expect(saved.review.condition).toBe("LP");
     const frozen=json(`console.log(JSON.stringify(await p.acquisitionProcessingJob.findMany({where:{candidateId:${JSON.stringify(saved.id)},status:'COMPLETE'},orderBy:{id:'asc'},select:{id:true,output:true}})));`);
+    // Drop one real successful upload acknowledgement after the server has
+    // saved its bytes. Retry must reuse the retained identity, not add a card.
+    let droppedAck=false;
+    await page.route("**/api/acquisition/*/photos?*",async route=>{
+      const response=await route.fetch();
+      if(!droppedAck && response.ok()){
+        droppedAck=true;
+        report.lostAcknowledgement={at:new Date().toISOString(),method:"ABORT_AFTER_REAL_SUCCESS"};
+        saveReport();
+        await route.abort("failed");
+      }else await route.fulfill({response});
+    });
     await page.getByLabel("Choose card photos").setInputFiles(photos.slice(1));
     let claimed:any;
     await expect.poll(()=>{
@@ -111,17 +123,38 @@ test("24 real scans retain artifacts and a saved correction across an actual OCR
     expect(docker("inspect",worker,"--format","{{.State.StartedAt}}")).not.toBe(startedBefore);
     // Keep the real lease expiry and availability; do not accelerate fixture jobs.
     await expect(page.getByRole("heading",{name:/24 of 24 cards/})).toBeVisible({timeout:120000});
-    await expect.poll(()=>Number(database(`console.log(await p.acquisitionProcessingJob.count({where:{...${owner},stage:'photo-printing-evidence-v1',status:'COMPLETE'}}));`)),{timeout:1800000}).toBe(24);
-    const recovered=json(`console.log(JSON.stringify(await p.acquisitionProcessingJob.findUniqueOrThrow({where:{id:${JSON.stringify(claimed.id)}},select:{status:true,attempts:true,leaseToken:true,output:true}})));`);
+    // Retained upload failures (#468) need the same visible Retry operation a
+    // user would perform. Record bounded intervention; never call it automatic
+    // upload recovery or silently wait for a photo that has no processing job.
+    const retries=new Map<number,number>();
+    await expect.poll(async()=>{
+      const retry=page.getByRole("button",{name:"Retry upload",exact:true}).first();
+      if(await retry.count()){
+        const text=await retry.locator("..").innerText();
+        const position=Number(text.match(/^Photo\s+(\d+):/)?.[1]);
+        expect(position).toBeGreaterThan(0);
+        const attempt=(retries.get(position)??0)+1;
+        expect(attempt,"Retained upload did not recover after three visible retries").toBeLessThanOrEqual(3);
+        retries.set(position,attempt);
+        report.uploadRetries.push({at:new Date().toISOString(),position,attempt,message:text});
+        saveReport();
+        await retry.click();
+      }
+      return Number(database(`console.log(await p.acquisitionProcessingJob.count({where:{...${owner},stage:'photo-printing-evidence-v1',status:'COMPLETE'}}));`));
+    },{timeout:1800000,intervals:[1000,3000]}).toBe(24);
+    expect(droppedAck).toBe(true);
+    expect(report.uploadRetries.length).toBeGreaterThan(0);
+    const recovered=json(`console.log(JSON.stringify(await p.acquisitionProcessingJob.findUniqueOrThrow({where:{id:${JSON.stringify(claimed.id)}},select:{status:true,attempts:true,leaseToken:true,output:true,updatedAt:true}})));`);
     expect(recovered.status).toBe("COMPLETE");
     expect(recovered.attempts).toBe(claimed.attempts+1);
     expect(recovered.leaseToken).toBe(null);
     expect(recovered.output).not.toBe(null);
     report.interrupt.attemptAfter=recovered.attempts;
-    report.interrupt.recoveredAt=new Date().toISOString();
+    report.interrupt.recoveredAt=recovered.updatedAt;
+    report.interrupt.verifiedAt=new Date().toISOString();
     expect(json(`console.log(JSON.stringify(await p.acquisitionCandidate.findUniqueOrThrow({where:{id:${JSON.stringify(saved.id)}},select:{id:true,revision:true,review:true}})));`)).toEqual(saved);
     expect(json(`console.log(JSON.stringify(await p.acquisitionProcessingJob.findMany({where:{candidateId:${JSON.stringify(saved.id)},status:'COMPLETE'},orderBy:{id:'asc'},select:{id:true,output:true}})));`)).toEqual(frozen);
-    const state=json(`const w=${owner};const photos=await p.acquisitionPhoto.findMany({where:w,select:{digest:true,ready:true,generation:true}});const jobs=await p.acquisitionProcessingJob.findMany({where:{...w,stage:'photo-printing-evidence-v1',status:'COMPLETE'},select:{output:true,artifact:{select:{digest:true}}}});console.log(JSON.stringify({photos,artifacts:await p.acquisitionArtifact.count({where:w}),slots:await p.acquisitionCaptureSlot.count({where:w}),candidates:await p.acquisitionCandidate.count({where:w}),inventory:await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}),rows:jobs.map(j=>({digest:j.artifact.digest,proposals:j.output.proposals.proposals.map(v=>v.card.scryfallId),automatic:j.output.proposals.automaticAcceptance,nativeDigest:j.output.printingNative.photoDigest}))}));`);
+    const state=json(`const w=${owner};const expected=await p.card.findMany({where:{scryfallId:{in:${JSON.stringify(entries.map(e=>e.scryfallId))}}},select:{id:true,scryfallId:true}});const photos=await p.acquisitionPhoto.findMany({where:w,select:{digest:true,ready:true,generation:true}});const jobs=await p.acquisitionProcessingJob.findMany({where:{...w,stage:'photo-printing-evidence-v1',status:'COMPLETE'},select:{output:true,artifact:{select:{digest:true}}}});console.log(JSON.stringify({expected:Object.fromEntries(expected.map(c=>[c.scryfallId,c.id])),photos,artifacts:await p.acquisitionArtifact.count({where:w}),slots:await p.acquisitionCaptureSlot.count({where:w}),candidates:await p.acquisitionCandidate.count({where:w}),inventory:await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}),rows:jobs.map(j=>({digest:j.artifact.digest,proposals:j.output.proposals.proposals.map(v=>v.card.id),automatic:j.output.proposals.automaticAcceptance,nativeDigest:j.output.printingNative.photoDigest}))}));`);
     expect(state.photos).toHaveLength(24);
     expect(state.artifacts).toBe(24);
     expect(state.slots).toBe(24);
@@ -133,9 +166,10 @@ test("24 real scans retain artifacts and a saved correction across an actual OCR
       const row=state.rows.find((r:any)=>r.digest===entry.sha256);
       expect(row.nativeDigest).toBe(entry.sha256);
       expect(row.automatic).toBe(false);
-      expect(row.proposals).toContain(entry.scryfallId);
+      expect(state.expected[entry.scryfallId]).toBeTruthy();
+      expect(row.proposals).toContain(state.expected[entry.scryfallId]);
     }
-    report.firstCorrect=entries.filter(e=>state.rows.find((r:any)=>r.digest===e.sha256).proposals[0]===e.scryfallId).length;
+    report.firstCorrect=entries.filter(e=>state.rows.find((r:any)=>r.digest===e.sha256).proposals[0]===state.expected[e.scryfallId]).length;
     report.offered=entries.length;
     await page.reload();
     await page.getByTestId("capture-card-1").scrollIntoViewIfNeeded();
@@ -153,5 +187,6 @@ test("24 real scans retain artifacts and a saved correction across an actual OCR
     database(`const n=${JSON.stringify(tag)};const sessions=await p.acquisitionSession.findMany({where:{ownerPlayerId:n},select:{id:true}});const runs=await p.acquisitionRun.findMany({where:{sessionId:{in:sessions.map(s=>s.id)}},select:{id:true}});const where={runId:{in:runs.map(r=>r.id)}};const photos=await p.acquisitionPhoto.findMany({where});await p.acquisitionProcessingJob.deleteMany({where});await p.acquisitionPhoto.deleteMany({where});await p.acquisitionCommand.deleteMany({where});await p.acquisitionCaptureSlot.deleteMany({where});await p.acquisitionCountCorrection.deleteMany({where});await p.acquisitionObservation.deleteMany({where});await p.acquisitionEvent.deleteMany({where});await p.acquisitionCandidate.deleteMany({where});await p.acquisitionArtifact.deleteMany({where});await p.acquisitionRun.deleteMany({where:{id:{in:runs.map(r=>r.id)}}});await p.acquisitionSession.deleteMany({where:{id:{in:sessions.map(s=>s.id)}}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});const fs=require('fs/promises'),path=require('path');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw new Error('Invalid fixture path');for(const suffix of ['original','preview.jpg'])await fs.unlink(path.join(process.env.UPLOADS_DATA_PATH,'acquisition-v1',photo.id+'.'+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e})}`);
   }
   console.log(JSON.stringify({scope:report.scope,count:report.count,firstCorrect:report.firstCorrect,
-    offered:report.offered,interrupt:report.interrupt,resourceSamples:report.samples.length,passed:report.passed}));
+    offered:report.offered,interrupt:report.interrupt,uploadRetries:report.uploadRetries.length,
+    resourceSamples:report.samples.length,passed:report.passed}));
 });
