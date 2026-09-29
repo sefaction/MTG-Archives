@@ -102,7 +102,7 @@ test("tight scanner images retain the footer through recognition and visual revi
           () =>
             Number(
               database(
-                `await p.acquisitionProcessingJob.updateMany({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-catalog-reconciliation-v1',status:'PENDING'},data:{availableAt:new Date(0)}});console.log(await p.acquisitionProcessingJob.count({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-catalog-reconciliation-v1',status:'COMPLETE'}}));`,
+                `await p.acquisitionProcessingJob.updateMany({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:{in:['photo-catalog-reconciliation-v1','photo-visual-retrieval-v1']},status:'PENDING'},data:{availableAt:new Date(0)}});console.log(await p.acquisitionProcessingJob.count({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-catalog-reconciliation-v1',status:'COMPLETE'}}));`,
               ),
             ),
           { timeout: 120000 },
@@ -116,6 +116,14 @@ test("tight scanner images retain the footer through recognition and visual revi
       expect(reconciled.catalog.status).toBe("RESOLVED");
       expect(reconciled.catalog.printingCoverage).toBe("CHECKED");
       expect(reconciled.native.photoDigest).toBe(entry.sha256);
+      if (process.env.MTG_ACQUISITION_VISUAL_TEST === "1") {
+        expect(reconciled.visual.photoDigest).toBe(entry.sha256);
+        expect(reconciled.visual.referenceCount).toBe(112472);
+        expect(reconciled.visual.candidates).toHaveLength(12);
+        expect(reconciled.visual.geometricCandidates.length).toBeGreaterThan(0);
+        expect(reconciled.proposals.automaticAcceptance).toBe(false);
+        expect(reconciled.sourceVisualJobId).toMatch(/^[a-f0-9-]{36}$/);
+      }
       expect(
         reconciled.proposals.proposals.some(
           (proposal: any) => proposal.card.id === output.expectedId,
@@ -123,6 +131,14 @@ test("tight scanner images retain the footer through recognition and visual revi
       ).toBe(true);
       const card = page.getByTestId(`capture-card-${i + 1}`);
       await card.scrollIntoViewIfNeeded();
+      if (process.env.MTG_ACQUISITION_VISUAL_TEST === "1") {
+        await expect(
+          card.getByText("Whole card compared with catalog images"),
+        ).toBeVisible({ timeout: 20000 });
+        await expect(card.getByTestId("scan-proposal-evidence")).toHaveText(
+          "Suggested from image comparison; verify the exact printing.",
+        );
+      }
       await expect(card.getByText(/Full image retained; no crop/)).toBeVisible({
         timeout: 20000,
       });
@@ -161,9 +177,43 @@ test("tight scanner images retain the footer through recognition and visual revi
           window.scrollY + el.getBoundingClientRect().top - 170,
         ),
       );
+      // The canvas is visible before its authenticated image has decoded and
+      // painted. Verify actual pixels so paired screenshots cannot capture an
+      // empty scan while the source request is still in flight.
+      await expect
+        .poll(() =>
+          card.getByRole("img", { name: "Full card image 1", exact: true })
+            .evaluate((element) => {
+              const canvas = element as HTMLCanvasElement;
+              return canvas.width > 0 && canvas.height > 0 &&
+                canvas.getContext("2d")!.getImageData(
+                  Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1,
+                ).data[3] === 255;
+            }),
+        )
+        .toBe(true);
       await page.screenshot({
         path: `test-results/scanner-full-frame-${width}.png`,
       });
+    }
+    if (process.env.MTG_ACQUISITION_VISUAL_TEST === "1") {
+      // Exhausted visual work is a separate failure, not fabricated unreadable
+      // text. Preserve the real completed evidence and add an owned failed
+      // generation, as a permanent processing failure would do.
+      database(
+        `const prior=await p.acquisitionProcessingJob.findFirstOrThrow({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},artifact:{digest:${JSON.stringify(entries[0].sha256)}},stage:'photo-visual-retrieval-v1',status:'COMPLETE'}});await p.acquisitionProcessingJob.create({data:{runId:prior.runId,artifactId:prior.artifactId,candidateId:prior.candidateId,candidateRevision:prior.candidateRevision,stage:prior.stage,versionKey:require('crypto').randomUUID(),input:prior.input,status:'FAILED',attempts:3,maxAttempts:3,errorCode:'PROCESSING_FAILED'}});`,
+      );
+      await page.reload();
+      const failedCard = page.getByTestId("capture-card-1");
+      await failedCard.scrollIntoViewIfNeeded();
+      await expect(
+        failedCard.getByText(
+          /Image comparison failed\. Your photo and text suggestions are saved/,
+        ),
+      ).toBeVisible({ timeout: 20000 });
+      await expect(
+        failedCard.getByRole("img", { name: "Full card image 1", exact: true }),
+      ).toBeVisible();
     }
     expect(
       Number(

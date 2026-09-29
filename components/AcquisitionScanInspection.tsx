@@ -291,7 +291,19 @@ export function AcquisitionEvidenceFields({
     ],
     ["Planeswalker stamp", "Inspect the lower-left corner", "Not checked"],
     ["Set symbol", "Visual detection not implemented", "Not checked"],
-    ["Card artwork", "Image matching not implemented", "Not checked"],
+    [
+      "Card image",
+      evidence?.imageMatches
+        ? evidence.imageMatches.inputRegion === "CARD"
+          ? "Whole card compared with catalog images"
+          : "Whole photo compared; card outline was not established"
+        : "Image comparison not available for this result",
+      evidence?.imageMatches
+        ? reasons.includes("VISUAL_MATCH") || reasons.includes("SIFT_CANDIDATE")
+          ? "Image candidate; verify printing"
+          : "Selection outside image candidates"
+        : "Not checked",
+    ],
   ];
   return (
     <section aria-label="Recognition evidence" className="mt-4">

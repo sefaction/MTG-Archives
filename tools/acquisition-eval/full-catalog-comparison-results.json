@@ -1,0 +1,251 @@
+{
+  "version": 1,
+  "date": "2026-09-28",
+  "split": "development-only",
+  "physicalIndependence": "Unknown physical overlap across groups; repeated printing photos are not independent held-out samples.",
+  "referenceCount": 112472,
+  "unavailableCount": 899,
+  "coverage": "Frozen non-digital default_cards records and image-bearing faces; not all languages or future printings.",
+  "catalogSha256": "7525e0b6b99d9a07f26f15cdf8eba46fc484373151a64c82c61222ac9df7e6a8",
+  "unionSha256": "6346f26683a609c6e5b724f9bdeb0ec9a1103ee7ebbf91eb75b41b85489bd465",
+  "observations": [
+    {
+      "encoder": "dinov2",
+      "corpus": "android",
+      "samples": 23,
+      "manifestSha256": "65cb19e560d75f99d7a8838f3ad586381c72e28daa0d48b1330dda090a52b89f",
+      "imageReportSha256": "ee70655ece3b20046af032c29a0e6eb7692266be397e448949d8001bafbc5277",
+      "indexSha256": "2d0f754bf916a8a795f5be008f81e24838f298d5dc4fc751b17365f0fd4aab0e",
+      "peakRssKiB": 1746380,
+      "methods": {
+        "visual": {
+          "exactTop1": 10,
+          "exactTop12": 13
+        },
+        "visual_then_sift": {
+          "exactTop1": 9,
+          "exactTop12": 15
+        }
+      },
+      "hybrids": {
+        "visual": {
+          "exactTop1": 14,
+          "exactTop12": 21,
+          "automaticAcceptances": 0,
+          "reportSha256": "78d4da4374fb3320929e8f7827a7bb61908d5ec8e07b264ad81a6113e08f8df2"
+        },
+        "visual_then_sift": {
+          "exactTop1": 13,
+          "exactTop12": 21,
+          "automaticAcceptances": 0,
+          "reportSha256": "9e91614682e81b4b352072c10669969501312befc97aa7755358127fc78f8f0d"
+        },
+        "visual_and_sift": {
+          "exactTop1": 13,
+          "exactTop12": 21,
+          "automaticAcceptances": 0,
+          "reportSha256": "40d82cd0f8a8140039ccec4cc680a961e9aa5e12e3ce01b9921ce4aa18e37507"
+        }
+      }
+    },
+    {
+      "encoder": "dinov2",
+      "corpus": "scanner",
+      "samples": 17,
+      "manifestSha256": "af4e59f0ece116a5d2eb82b907d09c5e48d100b16ecf37843c4ecc18ad9f9312",
+      "imageReportSha256": "0d36c5a3bf4e22e9526949ef81196e66ef001a5a800636751ae89db6cd317a9c",
+      "indexSha256": "2d0f754bf916a8a795f5be008f81e24838f298d5dc4fc751b17365f0fd4aab0e",
+      "peakRssKiB": 1409560,
+      "methods": {
+        "visual": {
+          "exactTop1": 12,
+          "exactTop12": 15
+        },
+        "visual_then_sift": {
+          "exactTop1": 15,
+          "exactTop12": 16
+        }
+      },
+      "hybrids": {
+        "visual": {
+          "exactTop1": 15,
+          "exactTop12": 17,
+          "automaticAcceptances": 0,
+          "reportSha256": "61abcb883a7123385d59f7c5ef1cae9ce8cf32b8ebe1819cf2387c8913fe663a"
+        },
+        "visual_then_sift": {
+          "exactTop1": 15,
+          "exactTop12": 17,
+          "automaticAcceptances": 0,
+          "reportSha256": "03aedfa0c72e81650e72897c46a8fe6e7a0a38904caaae812e71d5964ff9754d"
+        },
+        "visual_and_sift": {
+          "exactTop1": 15,
+          "exactTop12": 17,
+          "automaticAcceptances": 0,
+          "reportSha256": "e2e5f033550b776ef5fdb6b89b761b1370e7dcd3575c9171b601d30c506ca93d"
+        }
+      }
+    },
+    {
+      "encoder": "dinov2",
+      "corpus": "additional",
+      "samples": 28,
+      "manifestSha256": "2e6aec35a88774025396e364637073e90e1db2d0aa3d798ff28fda5817daca5c",
+      "imageReportSha256": "25d3ea91219dd6da589981ec9ebf232ac80a42050b3dedfa45f65b4ba076d11c",
+      "indexSha256": "2d0f754bf916a8a795f5be008f81e24838f298d5dc4fc751b17365f0fd4aab0e",
+      "peakRssKiB": 1762172,
+      "methods": {
+        "visual": {
+          "exactTop1": 15,
+          "exactTop12": 25
+        },
+        "visual_then_sift": {
+          "exactTop1": 27,
+          "exactTop12": 27
+        }
+      },
+      "hybrids": {
+        "visual": {
+          "exactTop1": 16,
+          "exactTop12": 25,
+          "automaticAcceptances": 0,
+          "reportSha256": "4cac1cb7adcd06dab3bfd104590d0cec113ecc6763542170de4d80fdf0265229"
+        },
+        "visual_then_sift": {
+          "exactTop1": 27,
+          "exactTop12": 27,
+          "automaticAcceptances": 0,
+          "reportSha256": "4365dd5f8d7c39256d9dd66cbd866493569332809e9237907f1f29ef521508f2"
+        },
+        "visual_and_sift": {
+          "exactTop1": 27,
+          "exactTop12": 27,
+          "automaticAcceptances": 0,
+          "reportSha256": "e086059a2e06816ebbb216c7504ffc2f6457d28f12c671e93e97c7bd6fdeb7a6"
+        }
+      }
+    },
+    {
+      "encoder": "vgg16",
+      "corpus": "android",
+      "samples": 23,
+      "manifestSha256": "65cb19e560d75f99d7a8838f3ad586381c72e28daa0d48b1330dda090a52b89f",
+      "imageReportSha256": "dd6cadf3719e96f4f0366cdd39121b270e847db6abf8b28e54e194ab92d92f6b",
+      "indexSha256": "466137bed25fbd4d5e981af94c271d650e28865667899cb708a5d0c68b79eb2b",
+      "peakRssKiB": 1800232,
+      "methods": {
+        "visual": {
+          "exactTop1": 15,
+          "exactTop12": 18
+        },
+        "visual_then_sift": {
+          "exactTop1": 12,
+          "exactTop12": 18
+        }
+      },
+      "hybrids": {
+        "visual": {
+          "exactTop1": 16,
+          "exactTop12": 21,
+          "automaticAcceptances": 0,
+          "reportSha256": "aa544c148529ba0d305e6669ce4c3305688a22edcb2233b70c763c8255d663ec"
+        },
+        "visual_then_sift": {
+          "exactTop1": 15,
+          "exactTop12": 21,
+          "automaticAcceptances": 0,
+          "reportSha256": "8f0f528e5e0ed5a42f05bf14c7f6ff1982707bec88a267e4d5d6aa6ed1e80e78"
+        },
+        "visual_and_sift": {
+          "exactTop1": 15,
+          "exactTop12": 21,
+          "automaticAcceptances": 0,
+          "reportSha256": "84542ce239ac5b9ac98655bbd20a7352181510ef7503a642f19da6f1c7d386ff"
+        }
+      }
+    },
+    {
+      "encoder": "vgg16",
+      "corpus": "scanner",
+      "samples": 17,
+      "manifestSha256": "af4e59f0ece116a5d2eb82b907d09c5e48d100b16ecf37843c4ecc18ad9f9312",
+      "imageReportSha256": "ee0bdd09c94cbf25fec51d0fe193b4bdcf8ecd10d17f4e7a547cc001727a26f4",
+      "indexSha256": "466137bed25fbd4d5e981af94c271d650e28865667899cb708a5d0c68b79eb2b",
+      "peakRssKiB": 1767800,
+      "methods": {
+        "visual": {
+          "exactTop1": 15,
+          "exactTop12": 17
+        },
+        "visual_then_sift": {
+          "exactTop1": 15,
+          "exactTop12": 17
+        }
+      },
+      "hybrids": {
+        "visual": {
+          "exactTop1": 15,
+          "exactTop12": 17,
+          "automaticAcceptances": 0,
+          "reportSha256": "6ed601815141c92ce29cfb5200d9781b384da07f427d23001ff317fdb3f1398a"
+        },
+        "visual_then_sift": {
+          "exactTop1": 15,
+          "exactTop12": 17,
+          "automaticAcceptances": 0,
+          "reportSha256": "15e7161a244489ae0d22ed819537fc9bd4378aa3f15fb9fe79043202e3cfe681"
+        },
+        "visual_and_sift": {
+          "exactTop1": 15,
+          "exactTop12": 17,
+          "automaticAcceptances": 0,
+          "reportSha256": "a613746b3d0c918d5dabfdc1e639eb09f9b18ca873eb48ef5dfa1baddc006071"
+        }
+      }
+    },
+    {
+      "encoder": "vgg16",
+      "corpus": "additional",
+      "samples": 28,
+      "manifestSha256": "2e6aec35a88774025396e364637073e90e1db2d0aa3d798ff28fda5817daca5c",
+      "imageReportSha256": "0d52be54e9f233221cea2935b9d7a5aa54a59a9a245ef915aeda4b655fe05c8f",
+      "indexSha256": "466137bed25fbd4d5e981af94c271d650e28865667899cb708a5d0c68b79eb2b",
+      "peakRssKiB": 1812200,
+      "methods": {
+        "visual": {
+          "exactTop1": 12,
+          "exactTop12": 22
+        },
+        "visual_then_sift": {
+          "exactTop1": 22,
+          "exactTop12": 22
+        }
+      },
+      "hybrids": {
+        "visual": {
+          "exactTop1": 13,
+          "exactTop12": 22,
+          "automaticAcceptances": 0,
+          "reportSha256": "e423331373f928eadc11b740fb9b032fb813d194b4078487047780ccc4428b96"
+        },
+        "visual_then_sift": {
+          "exactTop1": 22,
+          "exactTop12": 22,
+          "automaticAcceptances": 0,
+          "reportSha256": "08a7e3c86e05137167d1d9211b810eb8bc6bcc66eff6aed44ef7a380c3caf2b6"
+        },
+        "visual_and_sift": {
+          "exactTop1": 22,
+          "exactTop12": 22,
+          "automaticAcceptances": 0,
+          "reportSha256": "509adda6272c3393ece3605577dd2715208e7e2a499ec4ef6f6b8941080fbd7c"
+        }
+      }
+    }
+  ],
+  "localRuntimeEncoder": "dinov2",
+  "localRuntimeMethod": "visual_and_sift",
+  "selectionLimit": "Higher combined candidate recall in these development groups; not a calibrated model/automatic-acceptance claim.",
+  "timingLimit": "CPU image comparisons overlapped other local jobs; not isolated app latency or throughput."
+}

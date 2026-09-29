@@ -151,13 +151,20 @@ def validate_image(data):
 
 def atomic_image(root, row, data):
     validate_image(data)
-    target = root / row['file']
-    fd, temporary = tempfile.mkstemp(dir=root / 'images', suffix='.partial')
+    images = (root / 'images').resolve()
+    target = (root / row['file']).resolve()
+    if target.parent != images or target.suffix != '.jpg':
+        raise ValueError('Public reference path escapes image directory')
+    fd, temporary = tempfile.mkstemp(dir=images, suffix='.partial')
     try:
         with os.fdopen(fd, 'wb') as stream:
             stream.write(data)
             stream.flush()
             os.fsync(stream.fileno())
+        # These are public catalog images, not private acquisition photos.
+        # mkstemp otherwise leaves root-produced files unreadable to the parser.
+        images.chmod(0o755)
+        Path(temporary).chmod(0o644)
         os.replace(temporary, target)
     finally:
         if os.path.exists(temporary):

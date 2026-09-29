@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const CATALOG_RECONCILIATION_STAGE = "photo-catalog-reconciliation-v1";
-export const CATALOG_RESOLVER_VERSION = "catalog-reconciliation-v1";
+export const CATALOG_RESOLVER_VERSION = "catalog-reconciliation-hybrid-v2";
 export const catalogStatusSchema = z.object({
   status: z.enum([
     "CHECKING",
@@ -26,7 +26,7 @@ export function acquisitionCatalogMessage(
         ? "Missing printing information was added from Scryfall. Check the match below."
         : "Printing information checked against Scryfall’s catalog.";
     case "NOT_FOUND":
-      return "Scryfall did not find a match for the text read. Correct the name or printing details below.";
+      return "Scryfall did not find a matching printing. Correct the name or printing details below.";
     case "UNREADABLE":
       return "There was not enough readable card text for a catalog lookup. Search manually or try another photo.";
     case "PROVIDER_ERROR":

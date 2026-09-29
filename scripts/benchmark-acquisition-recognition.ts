@@ -11,6 +11,7 @@ import {
   type RecognitionCard,
   type RecognitionText,
 } from "../lib/acquisition-recognition";
+import { combineAcquisitionCandidates } from "../lib/acquisition-visual";
 
 const args = process.argv.slice(2);
 function argument(name: string) {
@@ -56,12 +57,39 @@ async function main() {
     JSON.parse(manifestBytes.toString("utf8")),
   );
   const report = JSON.parse(ocrBytes.toString("utf8"));
+  const visualBytes = args.includes("--visual")
+    ? await readFile(argument("--visual"))
+    : null;
+  const visual = visualBytes ? JSON.parse(visualBytes.toString("utf8")) : null;
+  const visualIndexBytes = visual
+    ? await readFile(argument("--visual-index"))
+    : null;
+  const visualIndex = visualIndexBytes
+    ? JSON.parse(visualIndexBytes.toString("utf8"))
+    : null;
+  const visualMethod = args.includes("--visual-method")
+    ? argument("--visual-method")
+    : "visual";
+  if (
+    visual &&
+    (visual.version.manifestSha256 !==
+      createHash("sha256").update(manifestBytes).digest("hex") ||
+      visual.version.indexSha256 !==
+        createHash("sha256").update(visualIndexBytes!).digest("hex") ||
+      !visual.downloadComplete ||
+      !visualIndex.downloadComplete ||
+      visual.referenceCount !== visualIndex.referenceCount ||
+      !["visual", "visual_then_sift", "visual_and_sift"].includes(visualMethod))
+  )
+    throw new Error("Visual retrieval provenance or coverage differs");
   const fixture = args.includes("--fixture") ? argument("--fixture") : null;
   const hash = createHash("sha256");
   for await (const part of createReadStream(catalogPath)) hash.update(part);
   const catalogDigest = hash.digest("hex");
   if (catalogDigest !== manifest.catalogCompressedSha256)
     throw new Error("Catalog version differs from manifest");
+  if (visual && visualIndex.source.catalogSha256 !== catalogDigest)
+    throw new Error("Visual and text catalogs differ");
   const cards: RecognitionCard[] = [];
   const lines = createInterface({
     input: createReadStream(catalogPath).pipe(createGunzip()),
@@ -86,14 +114,17 @@ async function main() {
     });
   }
   const index = createAcquisitionRecognitionIndex(cards);
+  const byScryfallId = new Map(cards.map((card) => [card.id, card]));
   const results = [];
   for (const expected of manifest.entries) {
     const matching = report.results.filter(
-      (r: any) => r.file === expected.file && (!fixture || r.fixture === fixture),
+      (r: any) =>
+        r.file === expected.file && (!fixture || r.fixture === fixture),
     );
     if (
       matching.length !== 1 ||
-      (fixture ? matching[0].sourceSha256 : matching[0].sha256) !== expected.sha256
+      (fixture ? matching[0].sourceSha256 : matching[0].sha256) !==
+        expected.sha256
     )
       throw new Error(
         `Missing, duplicate or changed private sample: ${expected.file}`,
@@ -132,9 +163,41 @@ async function main() {
       };
     }
     const start = performance.now();
-    const result = observed.orientations
+    let result = observed.orientations
       ? proposeOrientedAcquisitionPrintings(index, observed.orientations)
       : proposeAcquisitionPrintings(index, text);
+    if (visual) {
+      if (!Array.isArray(observed.orientations))
+        throw new Error(
+          "Hybrid replay requires saved native orientation observations",
+        );
+      const rows = visual.results.filter(
+        (row: any) => row.file === expected.file,
+      );
+      if (rows.length !== 1)
+        throw new Error("Missing or duplicate visual observation");
+      // Consume only independently retrieved identities. Ground truth does
+      // not choose visual references or alter either method's candidate order.
+      const candidatesFor = (method: string) =>
+        z
+          .array(z.object({ cardId: z.string().uuid() }))
+          .max(12)
+          .parse(rows[0].methods[method].top)
+          .map((row) => ({ scryfallId: row.cardId }));
+      const candidates = candidatesFor(
+        visualMethod === "visual_and_sift" ? "visual" : visualMethod,
+      );
+      result = combineAcquisitionCandidates(
+        result as ReturnType<typeof proposeOrientedAcquisitionPrintings>,
+        {
+          candidates,
+          ...(visualMethod === "visual_and_sift"
+            ? { geometricCandidates: candidatesFor("visual_then_sift") }
+            : {}),
+        },
+        byScryfallId,
+      );
+    }
     const ms = performance.now() - start;
     const rank = result.proposals.findIndex(
       (p) => p.card.id === expected.scryfallId,
@@ -159,7 +222,26 @@ async function main() {
     catalogDigest,
     manifestSha256: createHash("sha256").update(manifestBytes).digest("hex"),
     ocrSha256: createHash("sha256").update(ocrBytes).digest("hex"),
-    resolverSha256: createHash("sha256").update(await readFile(new URL("../lib/acquisition-recognition.ts", import.meta.url))).digest("hex"),
+    resolverSha256: createHash("sha256")
+      .update(
+        await readFile(
+          new URL("../lib/acquisition-recognition.ts", import.meta.url),
+        ),
+      )
+      .digest("hex"),
+    ...(visualBytes
+      ? {
+          visualSha256: createHash("sha256").update(visualBytes).digest("hex"),
+          visualMethod,
+          unionSha256: createHash("sha256")
+            .update(
+              await readFile(
+                new URL("../lib/acquisition-visual.ts", import.meta.url),
+              ),
+            )
+            .digest("hex"),
+        }
+      : {}),
     catalogCards: cards.length,
     paperCards: index.cards,
     samples: results.length,

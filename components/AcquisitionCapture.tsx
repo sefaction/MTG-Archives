@@ -703,8 +703,8 @@ export function AcquisitionCapture({
             <h3 className="font-semibold">Saved cards</h3>
             <p className="text-sm mb-3">
               Compare each scan with its proposed printing. Choose a printing
-              image and save inline. Strong matches confirm using batch
-              defaults; corrections remain available. Only an explicit Inventory
+              image and save inline. Confirmed choices remain correctable until
+              Inventory commit. Only an explicit Inventory
               confirmation adds copies.
             </p>
             <div className="space-y-6">

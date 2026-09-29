@@ -115,6 +115,11 @@ def publish(db, snapshot, output, dimension):
     finally:
         del matrix
     (stage / 'references.json').write_text(canonical(records), encoding='utf-8')
+    # Public index assets must be readable by the restricted query process.
+    # Keep the unpublished directory private until all generation bytes exist.
+    for name in ('vectors.npy', 'references.json'):
+        (stage / name).chmod(0o644)
+    stage.chmod(0o755)
     identity = json.loads(db.execute("SELECT value FROM metadata WHERE key='identity'").fetchone()[0])
     manifest = {**identity, 'referenceCount': count, 'counts': snapshot['counts'],
                 'downloadComplete': snapshot['downloadComplete'],
@@ -124,6 +129,7 @@ def publish(db, snapshot, output, dimension):
                           for name in ('vectors.npy', 'references.json')}}
     temporary = output / 'index.partial.json'
     temporary.write_text(canonical(manifest), encoding='utf-8')
+    temporary.chmod(0o644)
     os.replace(temporary, output / 'index.json')
     return manifest
 

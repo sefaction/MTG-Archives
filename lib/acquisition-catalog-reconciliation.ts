@@ -23,6 +23,12 @@ import {
 } from "./acquisition-recognition-worker";
 import { proposeOrientedAcquisitionPrintings } from "./acquisition-recognition";
 import type { ClaimedAcquisitionJob } from "./acquisition-jobs";
+import {
+  VISUAL_STAGE,
+  visualNativeSchema,
+  combineAcquisitionCandidates,
+  acquisitionVisualCandidates,
+} from "./acquisition-visual";
 
 const sourceSchema = z.object({
   photoId: z.string().uuid(),
@@ -41,6 +47,7 @@ const sourceSchema = z.object({
 });
 const inputSchema = z.object({
   recognitionJobId: z.string().uuid(),
+  visualJobId: z.string().uuid().optional(),
   photoId: z.string().uuid(),
   digest: z.string().regex(/^[a-f0-9]{64}$/),
 });
@@ -48,6 +55,7 @@ const inputSchema = z.object({
 export async function enqueueCatalogReconciliation(
   db: PrismaClient,
   now = new Date(),
+  requireVisual = process.env.ACQUISITION_VISUAL_ENABLED === "1",
 ) {
   const hourly = new Date(now.getTime() - 3600000);
   const daily = new Date(now.getTime() - 86400000);
@@ -62,11 +70,17 @@ export async function enqueueCatalogReconciliation(
       AND j."candidateRevision"=c.revision AND c.review IS NULL AND NOT c.excluded
       AND s.phase NOT IN ('DRAFT','CANCELLED') AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
       AND NOT EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=c.id)
+      AND (${!requireVisual} OR EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" v
+        WHERE v.stage=${VISUAL_STAGE} AND v.status='COMPLETE'
+          AND v."candidateId"=c.id AND v."artifactId"=j."artifactId" AND v."candidateRevision"=c.revision))
       AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" newer WHERE newer.stage=j.stage
         AND newer."candidateId"=c.id AND newer."candidateRevision"=c.revision AND newer."createdAt">j."createdAt")
       AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" f
         WHERE f.stage=${CATALOG_RECONCILIATION_STAGE}
           AND f.input->>'recognitionJobId'=j.id AND f.input->>'resolverVersion'=${CATALOG_RESOLVER_VERSION}
+          AND (${!requireVisual} OR f.input->>'visualJobId'=(SELECT v.id FROM "AcquisitionProcessingJob" v
+            WHERE v.stage=${VISUAL_STAGE} AND v."candidateId"=c.id AND v."artifactId"=j."artifactId"
+              AND v."candidateRevision"=c.revision ORDER BY v."createdAt" DESC,v.id DESC LIMIT 1))
           AND (f.status IN ('PENDING','RUNNING') OR f."createdAt">${hourly}
             OR (f.status='COMPLETE' AND f.output->'catalog'->>'status'='UNREADABLE')
             OR (f.status='COMPLETE' AND f.output->'catalog'->>'status'='RESOLVED' AND f."createdAt">${daily})))
@@ -79,10 +93,23 @@ export async function enqueueCatalogReconciliation(
     const input = z
       .object({ photoId: z.string().uuid(), digest: z.string() })
       .parse(source.input);
+    const visual = requireVisual
+      ? await db.acquisitionProcessingJob.findFirst({
+          where: {
+            stage: VISUAL_STAGE,
+            candidateId: source.candidateId,
+            artifactId: source.artifactId,
+            candidateRevision: source.candidateRevision,
+          },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        })
+      : null;
+    if (requireVisual && visual?.status !== "COMPLETE") continue;
     const versionKey = createHash("sha256")
       .update(
         JSON.stringify({
           source: id,
+          visual: visual?.id ?? null,
           resolver: CATALOG_RESOLVER_VERSION,
           epoch: Math.floor(now.getTime() / 3600000),
         }),
@@ -101,6 +128,7 @@ export async function enqueueCatalogReconciliation(
           input: {
             ...input,
             recognitionJobId: id,
+            ...(visual ? { visualJobId: visual.id } : {}),
             resolverVersion: CATALOG_RESOLVER_VERSION,
           },
         },
@@ -141,6 +169,26 @@ export function createCatalogReconciliationHandler(
     )
       throw new Error("Recognition input changed");
     const observed = sourceSchema.parse(source.output);
+    const visualJob = input.visualJobId
+      ? await db.acquisitionProcessingJob.findUniqueOrThrow({
+          where: { id: input.visualJobId },
+        })
+      : null;
+    if (
+      visualJob &&
+      (visualJob.stage !== VISUAL_STAGE ||
+        visualJob.status !== "COMPLETE" ||
+        visualJob.runId !== job.runId ||
+        visualJob.artifactId !== job.artifactId ||
+        visualJob.candidateId !== job.candidateId ||
+        visualJob.candidateRevision !== job.candidateRevision)
+    )
+      throw new Error("Visual recognition input changed");
+    const visual = visualJob
+      ? z
+          .object({ photoId: z.string().uuid(), visual: visualNativeSchema })
+          .parse(visualJob.output)
+      : null;
     const photo = await db.acquisitionPhoto.findUniqueOrThrow({
       where: { id: input.photoId },
       include: { slot: true },
@@ -152,7 +200,10 @@ export function createCatalogReconciliationHandler(
       photo.runId !== job.runId ||
       photo.digest !== input.digest ||
       observed.photoId !== photo.id ||
-      observed.native.photoDigest !== photo.digest
+      observed.native.photoDigest !== photo.digest ||
+      (visual &&
+        (visual.photoId !== photo.id ||
+          visual.visual.photoDigest !== photo.digest))
     )
       throw new Error("Photo input changed");
     const queries = acquisitionCatalogQueries(observed.native.orientations);
@@ -182,6 +233,24 @@ export function createCatalogReconciliationHandler(
       ),
     ].slice(0, 2);
     for (const name of exactNames) await run({ kind: "name", name });
+    if (visual) {
+      // The visual catalog can know a printing absent from this installation.
+      // Fetch by public identity, retain stable local IDs, then resolve again.
+      const imageCandidates = acquisitionVisualCandidates(visual.visual);
+      const ids = imageCandidates.map((c) => c.scryfallId);
+      const local = await db.card.findMany({
+        where: { scryfallId: { in: ids } },
+        select: { scryfallId: true },
+      });
+      const present = new Set(local.map((c) => c.scryfallId));
+      for (const id of ids) if (!present.has(id)) await run({ kind: "id", id });
+      // Name-level coverage catches original/List counterparts even when OCR
+      // cannot read a title. Retrieval names are not accepted identities.
+      const imageNames = [
+        ...new Set(imageCandidates.slice(0, 2).map((c) => c.name)),
+      ];
+      for (const name of imageNames) await run({ kind: "name", name });
+    }
     // Check readable identifiers even if a name produced a different printing.
     for (const query of queries.printings) await run(query);
     if (!completed.some((r) => r.status === "FOUND")) {
@@ -212,10 +281,16 @@ export function createCatalogReconciliationHandler(
       snapshot = await loadAcquisitionRecognitionSnapshot(db);
       snapshotAt = Date.now();
     }
-    const proposals = proposeOrientedAcquisitionPrintings(
+    let proposals = proposeOrientedAcquisitionPrintings(
       snapshot!.index,
       observed.native.orientations,
     );
+    if (visual)
+      proposals = combineAcquisitionCandidates(
+        proposals,
+        visual.visual,
+        snapshot!.byScryfallId,
+      );
     const found = completed.some(
       (r) => r.status === "FOUND" && r.printingCoverage === "CHECKED",
     );
@@ -267,6 +342,9 @@ export function createCatalogReconciliationHandler(
       version: 1,
       photoId: photo.id,
       sourceRecognitionJobId: source.id,
+      ...(visualJob && visual
+        ? { sourceVisualJobId: visualJob.id, visual: visual.visual }
+        : {}),
       native: observed.native,
       versions: {
         ...observed.versions,
