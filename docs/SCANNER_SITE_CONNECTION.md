@@ -50,6 +50,28 @@ revoke server access. No autostart, installer, updater or inbound listener is
 configured by this slice. The existing source-only packaging/license gates remain
 in [SCANNER_NAPS2_LICENSES.md](SCANNER_NAPS2_LICENSES.md).
 
+## Verified local connection, September 29
+
+PR #502 at `d365994` passed all four exact-head CI jobs. The local cumulative
+web image contains the parent backend and this connection slice alongside the
+separately unapproved recognition/review work; it does not merge any of them.
+The running image's 471-file source manifest matched the cumulative source.
+
+The real compiled Windows helper claimed a browser-issued code and reported
+three actual SDK sources: Plustek PS286 Pro-TWAIN, A4 ADF2 Scanner(K7B) (WIA),
+and EPSON ET-5800 Series (WIA). The browser showed Online and those sources.
+Desktop and 320-pixel screenshots were inspected without page-wide overflow.
+Website disconnection made a subsequent real helper report fail. The test took
+18.6 seconds, created no acquisition session or Inventory, and removed its
+owned account, pairing, helper, authentication and Windows credential fixtures.
+No scan command or motor operation occurred. Enumerating a source is not proof
+of physical connection or feeding safety.
+
+The disposable database suite separately exercised concurrent claim replay,
+lost acknowledgment, ownership and credential lifecycle rejection; core and
+Windows build/credential guards passed. Original recognition workers, models,
+reference storage and production remained unchanged.
+
 ## Remaining end-to-end goal
 
 This slice does **not** implement START/STOP commands, native image transfer,

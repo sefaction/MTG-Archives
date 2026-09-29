@@ -1,5 +1,14 @@
 # Resumable work checkpoint
 
+## Native helper pairing/discovery verified locally, 2026-09-29
+
+- Active scanner goal #501; recognition #463 remains deferred/open. Parent #474 at48e6c08 and connection #502 atd365994 are individually unapproved; all four exact-head CI jobs passed on each. #502 is based on #474, with reconciled main e560f15. No merge or production action.
+- Implemented scoped one-use pairing, replay-safe claim, credential/ownership revocation fences, strict bounded source pulses and Scan cards connection panel. Direct NAPS2 helper uses Windows Credential Manager and outbound site-bound HTTPS, with explicit loopback-only local mode. No START, native upload, run/device lease, restore fencing or redistributable installer yet.
+- Guarded disposable PostgreSQL/core passed with cleanup; locked Windows restore/Release build zero warnings/errors, credential/site guard and three protocol/five existing transport cases passed. Public CI validates exact committed source. See docs/SCANNER_SITE_CONNECTION.md for limits/evidence.
+- Cumulative review source ONLY MTG-Archives-acquisition-persistence, local/acquisition-review-footer HEAD1bf73d5. Backend files integrated9b1cd9a after aborting a conflicting broad merge; connection cherry-picked1bf73d5. Other unapproved UI/recovery source retained. Web-only build30316 terminal0, image15e0dfe47f/sourceDigest8dc4516d/471files; manifest matched and only web reloaded. Web healthy/HTTP200. Native OCR13de736c, visual7e233d4a and printing4451d0ad unchanged.
+- Actual Windows helper-to-local-site browser case23590 terminal0: 1/1 pass18.6s, real three-source discovery, Online, desktop/320 images inspected, disconnect blocks real report, zero acquisition/Inventory, fixture DB counts all0. No motor operation. No build/test helper remains alive.
+- Pending host confirmation question and fresh scanner/expendable-feeder confirmation before any physical START. Preserve PS286 partial-feed cancellation evidence; initial operator-loaded simplex/natural-drain workflow, no exact-stop or duplex-pairing claim. Next implement durable website START/run/device fencing and incremental existing-pipeline transport on a separate dependent branch; packaging/license and both-device/production acceptance remain required.
+
 ## Native scanner production pivot, 2026-09-29
 
 User requested native scanning on production; active project objective and acceptance are [#501](https://github.com/sefaction/MTG-Archives/issues/501), built on #311 and this bounded spike #473/#474. This worktree's existing dirty checkpoint is preserved. Source4478cf4 remains unapproved; no merge/deployment or refreshed hardware claim. Current main includes #500; current cumulative recognition review remains in the acquisition-persistence sibling, not this stale source.
