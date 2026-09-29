@@ -6,14 +6,15 @@ import { scannerCredential, scannerHash, scannerHashMatches, scannerPairClaimSch
 
 const unavailable = () => new Error("Scanner connection unavailable");
 type Tx = Prisma.TransactionClient;
-async function transaction<T>(db: PrismaClient, work: (tx: Tx) => Promise<T>) {
+export async function scannerTransaction<T>(db: PrismaClient, work: (tx: Tx) => Promise<T>) {
   for (let retry = 0; ; retry++) {
-    try { return await db.$transaction(work, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }); }
+    try { return await db.$transaction(work, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 10000, timeout: 30000 }); }
     catch (error) {
       if (retry >= 2 || !(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2034") throw error;
     }
   }
 }
+const transaction = scannerTransaction;
 async function activeUser(tx: Tx, userId: string) {
   const user = await tx.user.findUnique({ where: { id: userId }, include: { player: true } });
   if (!user?.isActive || !user.player?.active) throw unavailable();
@@ -55,7 +56,7 @@ export async function claimScannerPairing(db: PrismaClient, value: unknown, now 
     return { version: 1, agentId: agent.id, expiresAt: agent.expiresAt };
   });
 }
-async function authenticate(tx: Tx, authorization: string | null, now: Date) {
+export async function authenticateScanner(tx: Tx, authorization: string | null, now: Date) {
   const credential = scannerCredential(authorization);
   if (!credential) throw unavailable();
   const agent = await tx.scannerAgent.findUnique({ where: { id: credential.id } });
@@ -67,7 +68,7 @@ async function authenticate(tx: Tx, authorization: string | null, now: Date) {
 export async function recordScannerPulse(db: PrismaClient, authorization: string | null, value: unknown, now = new Date()) {
   const pulse = scannerPulseSchema.parse(value);
   return transaction(db, async tx => {
-    const { agent } = await authenticate(tx, authorization, now);
+    const { agent } = await authenticateScanner(tx, authorization, now);
     await tx.scannerAgent.update({ where: { id: agent.id }, data: { lastSeenAt: now,
       agentVersion: pulse.agentVersion, devices: pulse.devices } });
     return { version: 1, agentId: agent.id, nextPollMs: 5000 };

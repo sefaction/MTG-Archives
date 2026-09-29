@@ -1,5 +1,6 @@
 import { verifyAcquisitionCommit } from "./verify-acquisition-commit";
 import { verifyScannerConnections } from "./verify-scanner-connections";
+import { verifyScannerRuns } from "./verify-scanner-runs";
 import assert from "node:assert/strict";
 import { verifyAcquisitionPhotos } from "./verify-acquisition-photos";
 import { verifyAcquisitionCatalog } from "./verify-acquisition-catalog";
@@ -488,6 +489,7 @@ async function run() {
   );
   await verifyAcquisitionCommit(db, actor, stranger, input());
   await verifyScannerConnections(db);
+  await verifyScannerRuns(db);
 }
 
 run()

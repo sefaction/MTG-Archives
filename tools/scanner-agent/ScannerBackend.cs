@@ -15,7 +15,7 @@ public record ScanRequest(Guid RunId, string DeviceId, int Dpi = 300,
 public record ScannerEvent(string Kind, object Evidence);
 public record ScannerArtifact(Guid Id, int Sequence, string FileName, string Sha256,
     long Bytes, int Width, int Height, string Side = "UNKNOWN",
-    string PhysicalBoundary = "UNKNOWN");
+    string PhysicalBoundary = "UNKNOWN", DateTimeOffset? Timestamp = null);
 
 public interface IScannerBackend : IDisposable
 {

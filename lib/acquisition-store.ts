@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { Prisma, PrismaClient, type InventoryLocation } from "@prisma/client";
 import { z } from "zod";
+import { SCANNER_CAPTURE_PROVIDER, scannerCanonical } from "./scanner-run-protocol";
 import { acquisitionImageInputKindSchema, type AcquisitionImageInputKind } from "./acquisition-image-input";
 import { isAdminUser } from "./auth-policy";
 import { getStorageLocations } from "./storage-summary";
@@ -35,6 +36,7 @@ import {
 // Server-only context: derive from the authenticated session and Admin Mode,
 // never from a request body's user/admin fields. Live role/owner checks repeat here.
 export type AcquisitionActor = { userId: string; adminMode: boolean };
+const usesPhotoSlots = (provider: string) => ["phone-photo-v1", SCANNER_CAPTURE_PROVIDER].includes(provider);
 type Tx = Prisma.TransactionClient;
 const identity = z
   .string()
@@ -328,7 +330,7 @@ export async function createAcquisitionSession(
         otherSessionPending,
       });
       const policy =
-        input.run.providerId === "phone-photo-v1" &&
+        usesPhotoSlots(input.run.providerId) &&
         input.policy.kind !== "MANUAL"
           ? placement.remaining === null
             ? { kind: "UNTARGETED" as const }
@@ -342,13 +344,13 @@ export async function createAcquisitionSession(
         policy,
       });
       if (
-        input.run.providerId === "phone-photo-v1" &&
+        usesPhotoSlots(input.run.providerId) &&
         state.target !== null &&
         placement.remaining !== null &&
         state.target > placement.remaining
       )
         throw new Error(
-          "Choose a phone batch within the selected remaining capacity",
+          "Choose a batch within the selected remaining capacity",
         );
       const row = await tx.acquisitionSession.create({
         data: {
@@ -389,7 +391,7 @@ async function save(
   after: CaptureSession,
 ) {
   const runId = row.run!.id;
-  if (row.run!.providerId === "phone-photo-v1") {
+  if (usesPhotoSlots(row.run!.providerId)) {
     const slots = await tx.acquisitionCaptureSlot.findMany({
       where: { runId },
     });
@@ -901,6 +903,7 @@ export async function beginAcquisitionPhoto(
     replacePending?: boolean;
     metadata: AcquisitionPhotoMetadata;
     inputKind?: AcquisitionImageInputKind;
+    sourceMetadata?: Prisma.InputJsonObject;
   },
 ) {
   z.string().uuid().parse(input.slotId);
@@ -913,6 +916,9 @@ export async function beginAcquisitionPhoto(
     await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${sessionId} FOR UPDATE`;
     const row = await read(tx, actor, sessionId);
     const run = row.run!;
+    if (run.providerId === SCANNER_CAPTURE_PROVIDER &&
+      (!input.sourceMetadata || inputKind !== "CARD_SCAN"))
+      throw new Error("Capture scanner source evidence required");
     const slot = await tx.acquisitionCaptureSlot.findUnique({
       where: { id: input.slotId },
     });
@@ -927,7 +933,8 @@ export async function beginAcquisitionPhoto(
         previous.generation !== input.generation + 1 ||
         previous.digest !== metadata.digest ||
         previous.bytes !== metadata.bytes ||
-        previous.inputKind !== inputKind
+        previous.inputKind !== inputKind ||
+        scannerCanonical(previous.sourceMetadata) !== scannerCanonical(input.sourceMetadata ?? null)
       )
         throw new Error("Photo upload identity conflict");
       if (
@@ -988,6 +995,7 @@ export async function beginAcquisitionPhoto(
         generation: slot.generation + 1,
         ...metadata,
         inputKind,
+        ...(input.sourceMetadata ? { sourceMetadata: input.sourceMetadata } : {}),
       },
     });
     await tx.acquisitionCaptureSlot.update({
@@ -1021,6 +1029,7 @@ export async function finalizeAcquisitionPhoto(
     // Accepted in-flight evidence survives pause/cancel/complete. Reconcile it
     // without reopening capture, only through an already reserved photo record.
     const receiving = { ...before, phase: "CAPTURING" as const };
+    const scanner = before.run.providerId === SCANNER_CAPTURE_PROVIDER;
     const after = receiveAcquisitionEvent(receiving, {
       version: 1,
       providerId: before.run.providerId,
@@ -1031,12 +1040,12 @@ export async function finalizeAcquisitionPhoto(
         {
           candidate: {
             id: photo.slotId,
-            identityKind: "EPISODE",
+            identityKind: scanner ? "DETECTION" : "EPISODE",
             order: [photo.slot.position, 0],
-            expectedSides: ["FRONT"],
-            provisional: false,
+            expectedSides: [scanner ? "UNKNOWN" : "FRONT"],
+            provisional: scanner,
           },
-          observation: { id: photo.id, artifactId: photo.id, side: "FRONT" },
+          observation: { id: photo.id, artifactId: photo.id, side: scanner ? "UNKNOWN" : "FRONT" },
           uncertainty: [],
         },
       ],
@@ -1464,4 +1473,5 @@ export {
   transaction as acquisitionTransaction,
   read as readAcquisitionRow,
   hydrate as hydrateAcquisitionRow,
+  save as saveAcquisitionRow,
 };

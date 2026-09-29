@@ -59,7 +59,7 @@ public sealed class RunSpool : IDisposable
         using var input = File.OpenRead(target);
         var artifact = new ScannerArtifact(id, imageSequence, fileName,
             Convert.ToHexString(SHA256.HashData(input)).ToLowerInvariant(),
-            input.Length, width, height);
+            input.Length, width, height, Timestamp: DateTimeOffset.UtcNow);
         WriteNew(Path.Combine(DirectoryPath, $"{id}.json"), artifact);
         Event("ImageReceived", artifact);
         return artifact;

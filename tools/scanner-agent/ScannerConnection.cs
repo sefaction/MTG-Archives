@@ -12,7 +12,7 @@ public record EnrollmentCredential(string Secret, string? PairCode, string Site,
 // arbitrary remote commands; START/artifact delivery follows separately.
 public static class ScannerConnection
 {
-    public const string Version = "0.2.0-connection";
+    public const string Version = "0.3.0-native";
     private static string Root => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MTGArchives", "ScannerAgent");
     public static Uri Site(string value, bool allowLocal)
     {
@@ -68,7 +68,8 @@ public static class ScannerConnection
     }
     public static async Task<bool> Run(string[] args)
     {
-        if (args.Length == 0 || args[0] is not ("connect" or "serve" or "report" or "forget" or "connection-selftest")) return false;
+        if (args.Length == 0 || args[0] is not ("connect" or "serve" or "report" or "forget" or "connection-selftest" or "native-selftest" or "fixture-server")) return false;
+        if (args[0] == "native-selftest") { await ScannerNativeSelfTest.Run(Path.Combine(Root, "selftests")); return true; }
         if (args[0] == "connection-selftest")
         {
             var id = Guid.NewGuid();
@@ -106,10 +107,14 @@ public static class ScannerConnection
             await Pair(client, connection, credential);
             Console.WriteLine("Connected. Run serve with this connection identity to report scanners.");
         }
-        else if (args[0] is "serve" or "report" && args.Length == 2)
+        else if (args[0] is "serve" or "report" or "fixture-server" && args.Length == (args[0] == "fixture-server" ? 3 : 2))
         {
             var connection = LoadConnection(args[1]);
             var credential = Credential(connection);
+            var fixture = args[0] == "fixture-server";
+            if (fixture && (!connection.AllowLocal || Site(connection.Site, true).Scheme != "http" ||
+                Environment.GetEnvironmentVariable("MTG_LOCAL_PILOT_TEST") != "1"))
+                throw new ArgumentException("Fixture acquisition requires opt-in and an explicit local-loopback connection");
             using var client = Client(Site(connection.Site, connection.AllowLocal));
             using var stop = new CancellationTokenSource();
             ConsoleCancelEventHandler handler = (_, e) => { e.Cancel = true; stop.Cancel(); };
@@ -121,7 +126,7 @@ public static class ScannerConnection
                 {
                     try {
                         if (DateTime.UtcNow >= nextDiscovery) {
-                            using IScannerBackend backend = new Naps2Backend();
+                            using IScannerBackend backend = fixture ? new ScannerFixtureBackend(args[2]) : new Naps2Backend();
                             devices = await backend.ListDevices();
                             nextDiscovery = DateTime.UtcNow.AddSeconds(30);
                         }
@@ -136,6 +141,10 @@ public static class ScannerConnection
                         }
                         Console.WriteLine($"Scanner connection online; {devices.Count} source(s). No scan requested.");
                         if (args[0] == "report") break;
+                        await ScannerNativeRunner.PollAndRun(client, connection.AgentId,
+                            $"{connection.AgentId}.{credential.Secret}", Root, devices, stop.Token,
+                            fixture ? () => new ScannerFixtureBackend(args[2]) : null,
+                            fixture ? () => new { backend = "fixture", purpose = "LOCAL_PROTOCOL_TEST_ONLY" } : null);
                     }
                     catch (Exception error) when (args[0] != "report" && error is HttpRequestException or InvalidOperationException or TaskCanceledException) {
                         Console.WriteLine("Scanner connection unavailable; credentials and pending enrollment retained. Retrying.");

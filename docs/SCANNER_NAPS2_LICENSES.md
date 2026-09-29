@@ -20,7 +20,7 @@ Reviewed September28,2026 from restored package `.nuspec`/license files and exac
 | Grpc.Core.Api |2.67.0|Apache-2.0 expression|
 | GrpcDotNetNamedPipes |3.1.0|Package LICENSE: Apache-2.0|
 | Makaretu.Dns |2.0.1|No package license declaration; exact repository commit701463d2091e6d98d4cc4490abb0e0ead8ae2985 LICENSE is MIT|
-| SimpleBase |1.3.1|Old package links generic Apache license URL; exact-version source/license provenance remains unresolved. Do not substitute current repository license.|
+| SimpleBase |1.3.1|The package's 1.3.1 nuspec matches the upstream [July 27, 2017 source nuspec](https://github.com/ssg/SimpleBase/blob/72ecb1de90918faade31351ece771e67f52d4d4a/SimpleBase.nuspec), which points to Apache; that same exact source tree contains [Apache-2.0 LICENSE.txt](https://github.com/ssg/SimpleBase/blob/72ecb1de90918faade31351ece771e67f52d4d4a/LICENSE.txt). The [1.3.1 NuGet listing](https://www.nuget.org/packages/SimpleBase/1.3.1) dates the release to the same day. This establishes version-era source/license provenance, without asserting binary identity to that commit.|
 | SharpZipLib |1.4.2|MIT expression|
 | SixLabors.Fonts |1.0.1|Apache-2.0 expression at this version; do not assume licensing of newer versions|
 | StandardSocketsHttpHandler |2.2.0.10|MIT expression|
@@ -51,6 +51,6 @@ NAPS2 package repository commit is [8ae3e82203115754e804fe9c14f00f6bd86ee192](ht
 
 ## Distribution gate
 
-Before publishing an installer/binary: resolve SimpleBase1.3.1 provenance, inventory the actual embedded worker/native dependencies, verify DSM prerequisites in a clean environment, assemble component copyright/license/NOTICE texts, and provide applicable corresponding source and library replacement/relink/rebuild mechanisms. Keep any LGPL component modifications documented and available under its applicable license. A dependency license name or project URL alone is not a complete compliance bundle.
+Before publishing an installer/binary: inventory the actual embedded worker/native dependencies, verify DSM prerequisites in a clean environment, assemble component copyright/license/NOTICE texts, and provide applicable corresponding source and library replacement/relink/rebuild mechanisms. Keep any LGPL component modifications documented and available under its applicable license. A dependency license name or project URL alone is not a complete compliance bundle. SimpleBase1.3.1's source-era license gap was resolved September29; the remaining distribution gates still apply.
 
 These obligations follow the component licenses, including [LGPL2.1 distribution provisions](https://github.com/twain/twain-dsm/blob/master/TWAIN_DSM/license.txt). The bounded local experiment may continue while this distribution gate remains open; it does not justify labeling a production package ready.
