@@ -1,5 +1,12 @@
 # Resumable work checkpoint
 
+## Candidate ordering and shared stamped identity, 2026-09-28
+
+- Active branch `fix/acquisition-candidate-ordering` starts at maintenance #478 `061eb73`. Uncommitted ordering changes in visual/printing/catalog-status and two focused tests address #479. Fifteen focused tests and typecheck passed; replay, Docker and final verification pending. No ordering PR yet, no approval or merge.
+- User confirms Mystery Booster origin. Live Scryfall `/sets/mb1` resolves to `plst` / The List; stamped reprints use this shared catalog identity. Do not invent a photo-based product distinction. Playtest/special treatments remain distinct. No additional origin question pending.
+- Full reference refresh3566/container `mtg-reference-refresh-qualification` remains RUNNING onf82506ab. Reference preparation reached112474 READY/899 unavailable; feature reuse/publication is not yet confirmed. Keep this single writer. #478 latest CI36507348163 is all green, remains draft until full-size/handoff/cadence gates pass. Current local Docker448 inputs includes maintenance review, excludes these uncommitted ordering edits.
+- Next: replay frozen original visual/OCR observations with ordering changes and revised labels, retain explicit uncertainty for new candidate IDs without native printing evidence; complete maintenance publication/handoff and verify configured local cadence. Recognition approvals remain queued, scanner474 independent, no production or scanner motor operations.
+
 ## Reference maintenance implementation and qualification in progress, 2026-09-28
 
 - Final browser29451 PASSED1/1 in2.9m during reference preparation, with own fixture cleanup, no Inventory effects, phone/desktop fallback/evidence and real image pixels. Both screenshots inspected. Current Docker448 source inputs match4edafbb6, webeb34efe/native29a8b5c. Fresh maintenance memory commit aebd160 pushed; CI pending. Full-size3566 remains active onf82506ab; no cadence service yet.

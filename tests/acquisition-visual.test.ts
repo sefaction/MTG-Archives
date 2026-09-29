@@ -88,6 +88,44 @@ test("printing identifiers stay ahead of disagreeing visual retrieval", () => {
   assert.equal(result.proposals[1].card.id, other.id);
   assert.equal(result.automaticAcceptance, false);
 });
+
+test("matching title and identifiers precede an explicitly contradicted footer candidate", () => {
+  const wrong = {...card,id:"aaa-wrong-card",name:"River Guard",collectorNumber:"2"};
+  const observed = proposeOrientedAcquisitionPrintings(createAcquisitionRecognitionIndex([card,wrong]),[
+    {rotationDegrees:0,text:{title:[card.name],footer:["ABC EN","C 001","C 002"]}},
+    {rotationDegrees:180,text:{title:[],footer:[]}},
+  ]);
+  const before=JSON.stringify(observed);
+  const result=combineAcquisitionCandidates(observed,visual,new Map([[external,wrong]]));
+  assert.equal(result.proposals[0].card.id,card.id);
+  assert(result.proposals.some(p=>p.card.id===wrong.id && p.reasons.includes("TITLE_CONTRADICTION")));
+  assert.equal(result.status,"CONFLICT");
+  assert.equal(result.automaticAcceptance,false);
+  assert.equal(JSON.stringify(observed),before);
+});
+
+test("title and collector evidence precede an unrelated image when set text is unreadable", () => {
+  const wrong={...card,id:"other-image-id",name:"River Guard",collectorNumber:"99"};
+  const result=combineAcquisitionCandidates(text([card.name],["C 001"]),visual,new Map([[external,wrong]]));
+  assert.equal(result.proposals[0].card.id,card.id);
+  assert(result.proposals[0].reasons.includes("SET_UNCONFIRMED"));
+  assert.equal(result.proposals[1].card.id,wrong.id);
+  assert.equal(result.automaticAcceptance,false);
+});
+
+test("a partial title cannot remove a contradicted identifier match at the review limit", () => {
+  const observed=text();
+  observed.proposals=[{card, nameDistance:null, reasons:["SET_AND_COLLECTOR_TEXT","TITLE_CONTRADICTION"]}];
+  const wrong={...card,id:"other-image-id",name:"River Guard",collectorNumber:"99"};
+  const second={...wrong,id:"second-image-id"};
+  const result=combineAcquisitionCandidates(observed,{candidates:[{scryfallId:external},{scryfallId:"second"}]},
+    new Map([[external,wrong],["second",second]]),2);
+  assert.equal(result.proposals.length,2);
+  assert.equal(result.proposals[0].card.id,wrong.id);
+  assert.equal(result.proposals[1].card.id,card.id);
+  assert(result.proposals[1].reasons.includes("TITLE_CONTRADICTION"));
+  assert.equal(result.automaticAcceptance,false);
+});
 test("missing catalog identity is explicit and is never fabricated as a local printing", () => {
   const result = combineAcquisitionCandidates(text(), visual, new Map());
   assert.equal(result.proposals.length, 0);

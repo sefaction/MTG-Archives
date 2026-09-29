@@ -127,8 +127,18 @@ export function combineAcquisitionCandidates(
       ],
     });
   };
+  const contradicted = (p: RecognitionProposal) => p.reasons.some(r => r.endsWith("_CONTRADICTION"));
   for (const p of text.proposals)
-    if (p.reasons.includes("SET_AND_COLLECTOR_TEXT")) append(p.card.id);
+    if (p.reasons.includes("SET_AND_COLLECTOR_TEXT") && p.reasons.includes("TITLE_EXACT") && !contradicted(p)) append(p.card.id);
+  for (const p of text.proposals)
+    if (p.reasons.includes("SET_AND_COLLECTOR_TEXT") && !contradicted(p)) append(p.card.id);
+  for (const p of text.proposals)
+    if (p.reasons.includes("TITLE_AND_COLLECTOR_TEXT") && !contradicted(p)) append(p.card.id);
+  // A partial/misread title can contradict a real set/collector match. Keep
+  // those identifier candidates in the bounded review list, then demote them
+  // within that list; weak image alternatives must not erase the evidence.
+  for (const p of text.proposals)
+    if (p.reasons.includes("SET_AND_COLLECTOR_TEXT") && contradicted(p)) append(p.card.id);
   for (const id of imageOrder)
     if (union.get(id)?.reasons.includes("TITLE_EXACT")) append(id);
   for (let i = 0; i < Math.max(imageOrder.length, text.proposals.length); i++) {
@@ -146,6 +156,6 @@ export function combineAcquisitionCandidates(
     automaticAcceptance: false,
     totalProposals: Math.max(all.length + missing, text.totalProposals),
     truncated: all.length > limit || missing > 0 || text.truncated,
-    proposals: all.slice(0, limit),
+    proposals: [...all.slice(0, limit).filter(p=>!contradicted(p)), ...all.slice(0, limit).filter(contradicted)],
   };
 }

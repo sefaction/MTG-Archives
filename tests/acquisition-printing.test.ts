@@ -34,6 +34,28 @@ test("observed stamp demotes an original while retaining it for human correction
   assert.equal(result.automaticAcceptance,false);
   assert.equal(JSON.stringify([union,evidence]),before);
 });
+
+test("stamp agreement orders only matching printed families and retains unresolved counterparts",()=>{
+  const otherId="33333333-3333-4333-8333-333333333333";
+  const other={...original,id:"local-other",name:"Blue Guard",collectorNumber:"88"};
+  const source={...union,proposals:[union.proposals.find(p=>p.card.id===stamped.id)!,
+    {card:other,reasons:["VISUAL_MATCH","REVIEW_REQUIRED"],nameDistance:null},
+    union.proposals.find(p=>p.card.id===original.id)!]};
+  const evidence=printing(); evidence.observedStamp="ABSENT";
+  evidence.candidates[0].relation="AGREES_WITH_STAMP_STATE";
+  evidence.candidates[0].stamp={status:"ABSENT",reason:"VISIBLE_REFERENCE_AGREEMENT"};
+  evidence.candidates[1].referenceStampState="UNKNOWN";
+  evidence.candidates[1].relation="UNRESOLVED";
+  evidence.candidates[1].stamp={status:"UNREADABLE",reason:"NO_VERIFIED_REFERENCE"};
+  evidence.candidates.push({...evidence.candidates[0],scryfallId:otherId,referenceId:otherId+":0"});
+  const before=JSON.stringify([source,evidence]);
+  const result=applyAcquisitionPrintingEvidence(source,printingNativeSchema.parse(evidence),new Map([...cards,[otherId,other]]));
+  assert.deepEqual(result.proposals.map(p=>p.card.id),[original.id,other.id,stamped.id]);
+  assert(result.proposals[2].reasons.includes("STAMP_UNREADABLE"));
+  assert(!result.proposals[2].reasons.includes("STAMP_CONTRADICTION"));
+  assert.equal(result.automaticAcceptance,false);
+  assert.equal(JSON.stringify([source,evidence]),before);
+});
 test("unreadable and unannotated references do not establish absence or contradiction",()=>{
   const evidence=printing(); evidence.observedStamp="UNREADABLE";
   for(const candidate of evidence.candidates){
