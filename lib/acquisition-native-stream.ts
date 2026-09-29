@@ -9,6 +9,11 @@ export class AcquisitionNativeStream {
     resolve: (value: unknown) => void;
     reject: (error: Error) => void;
     detach: () => void;
+    progress?: (value: unknown) => void;
+    progressFrames: number;
+    bytes: number;
+    signal: AbortSignal;
+    invalidated: boolean;
   } | null = null;
   private output = Buffer.alloc(0);
   constructor(
@@ -23,6 +28,7 @@ export class AcquisitionNativeStream {
       throw new Error("Processing native input bound invalid");
   }
   close() {
+    if (this.pending) this.pending.invalidated = true;
     this.child?.kill("SIGKILL");
   }
   async shutdown() {
@@ -33,7 +39,7 @@ export class AcquisitionNativeStream {
       this.close();
     });
   }
-  request(input: Buffer, signal: AbortSignal): Promise<unknown> {
+  request(input: Buffer, signal: AbortSignal, progress?: (value: unknown) => void): Promise<unknown> {
     if (this.pending)
       return Promise.reject(new Error("Processing native worker busy"));
     if (signal.aborted || !input.length || input.length > this.maxInputBytes)
@@ -47,23 +53,32 @@ export class AcquisitionNativeStream {
       this.child = child;
       this.output = Buffer.alloc(0);
       child.stdout.on("data", (chunk: Buffer) => {
-        if (!this.pending || this.output.length + chunk.length > 65536)
+        if (!this.pending || this.pending.invalidated || this.pending.signal.aborted || this.pending.bytes + chunk.length > 65536)
           return this.close();
+        this.pending.bytes += chunk.length;
         this.output = Buffer.concat([this.output, chunk]);
-        const end = this.output.indexOf(10);
-        if (end < 0) return;
-        if (end !== this.output.length - 1) return this.close();
-        try {
-          const value = JSON.parse(
-            this.output.subarray(0, end).toString("utf8"),
-          );
+        while (this.pending) {
+          if (this.pending.invalidated || this.pending.signal.aborted) return this.close();
+          const end = this.output.indexOf(10);
+          if (end < 0) return;
+          const line = this.output.subarray(0, end);
+          this.output = this.output.subarray(end + 1);
           const request = this.pending;
-          this.pending = null;
-          this.output = Buffer.alloc(0);
-          request.detach();
-          request.resolve(value);
-        } catch {
-          this.close();
+          try {
+            const value = JSON.parse(line.toString("utf8"));
+            if (value?.progress === true) {
+              if (!request.progress || ++request.progressFrames > 4) return this.close();
+              request.progress(value);
+              continue;
+            }
+            if (this.output.length) return this.close();
+            this.pending = null;
+            this.output = Buffer.alloc(0);
+            request.detach();
+            request.resolve(value);
+          } catch {
+            return this.close();
+          }
         }
       });
       child.stderr.on("data", () => {});
@@ -84,6 +99,11 @@ export class AcquisitionNativeStream {
         resolve,
         reject,
         detach: () => signal.removeEventListener("abort", abort),
+        progress,
+        progressFrames: 0,
+        bytes: 0,
+        signal,
+        invalidated: false,
       };
       signal.addEventListener("abort", abort, { once: true });
       const header = Buffer.alloc(4);

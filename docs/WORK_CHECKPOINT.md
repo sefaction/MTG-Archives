@@ -1,10 +1,45 @@
 # Resumable work checkpoint
 
+## PR #493 approved and reconciled, 2026-09-29
+
+User individually approved #486/#487/#489/#490/#493 and #499; all earlier dependencies are now merged into main. This branch retargets main and merges it; only checkpoint history conflicted and both histories are retained. Application code merged cleanly. Fresh CI is required before normal #493 merge. Recognition #463/new draft #500 continue stamp accuracy; prior seven-image pass and 100-image deadline failure remain retained. No production operation.
+
+## Historical branch evidence retained during approved merge
+## Seven-input cumulative acceptance passed; individual review pending, 2026-09-29 13:32 UTC
+
+Actual gate31556 TERMINAL0 at13:28:22UTC/361115ms, unchanged600s printing wait. All7names first/offered/manual, allprinting complete, raw native equal through printing, controls nofallback, five whole-photo cases COMPLETE/PARTIAL; no UI/correction failure. Advanced/Simple images at1366/390/320, mode edits, correction/reload, location/section and zeroInventory pass. Four current screenshots inspected. Observer11776 terminal16samples/noerrors; no test/build/observer processes remain. Explicit owned users/sessions/jobs/Inventory0. Public photo-text-pipeline-results.json includes exact loaded source/native/image hashes and earlier failures.
+
+Loaded source stays462/cbe60851, actual app74329ae, webc952d6fe/OCR13de736c/visual-printing7e233d4a/native OCR1104a13a/printing6bb1e8c9, ONE printing replica. Native isolated242bc3ed and loaded1104a13a differ only in verified CRLF/LF formatting, recorded separately; no runtime identity relaxation. Lifetime printingpeak1GiB/max2079, zeroOOM; sampledmax980.6MiB. OCRsamplemax1648.6MiB; counters include other owners/observer. 100failed57/100 and300notrun remain broader463 acceptance gaps, not reclassified passes. Fresh independent originals and conservative automatic precision remain missing; automatic off.
+
+Evidence/doc-only follow-up being published before fresh CI/readiness. #493 individual approval (plus486/487/489/490 parent approvals) still unanswered. #499 independently-main cache review pending; other prior approvals unchanged. User-approved497merged22d8ee3 only. Main/production/env/YML/scanner untouched by this amendment. Next safe step: reconcile final PR heads/CI, ready493/499 with explicit limitations, request current individual review without merging. Then progress463 throughput/independent accuracy work as review/data permit. Actual cumulative checkpoint is authority for Docker; do not build stale primary.
+
+## Published amendment loaded cumulatively; final seven-input gate running, 2026-09-29 13:23 UTC
+
+493ab944ca published DRAFT/all3CI36573475923 green; normal individual approval still outstanding. Native/core/guards passed as below. Actual cumulative74329ae/source462/cbe60851 rebuilt595fca52 TERMINAL0 and scoped loaded at13:21UTC: webc952d6fe/OCR13de736c/visual-printing7e233d4a, ONE printing replica. Built OCR1104a13a differs from isolated242bc3ed only in five CRLF/LF byte hashes; normalized source/model/runtime/geometry parity verified and explicitly retained, not a relaxation of incoming identity checks. Current source hashes match built images and loaded manifest. No sibling admission/owner/UI/cache policy overwritten by the493-only patch.
+
+Final unchanged seven-input600s real-printing/browser gate actualPID31556 LIVE from13:22:21UTC, observer11776, private progress-pipeline.* files. Do not restart/reload/overwrite Playwright or call acceptance passed yet. Earlier cache7 name and10057/100throughput failures retained.499e3c3ae9 draft/green; no300 run. After exact terminal/owned cleanup, inspect screenshots and publish sanitized live evidence, reconcile fresh CI before readiness.497merged only, all approvals/fresh final data still pending. No production/env/YML/scanner work,463 incomplete/auto off.
+
+## Progress amendment qualified natively and in disposable core, 2026-09-29 13:10 UTC
+
+Native31244 TERMINAL0 at13:08:15UTC, four ordinary real-image cases plus controlled interruption/reopen. Models/runtime values identical to prior loaded OCR (initial report comparison used object key order incorrectly; semantic deep equality passes). New native descriptor242bc3ed, full109271 snapshot2d9b7816. Winter's first direction arrived26.8s, later parent timeout retained one reading/PARTIAL/TIME_BUDGET and correct name; Cunning retained three directions/name, controls skip fallback. Existing limits unchanged and native primary preserved. Controlled termination is separate from natural timing/accuracy. Public sanitized photo-text-progress-results.json and reusable opt-in helper added; private full reports stay local.15 focused TS +4 Python guards/type/lint pass. Core34544 TERMINAL0 at13:09:28UTC/170.5s, all persisted acquisition/shared import/core/owned cleanup pass.
+
+Actual cumulative100 gate27128 TERMINAL1 at13:05:40UTC:57/100printing at fixed20min gate, all100prepared/retained, no failed jobs in snapshots, no Inventory; owned users/sessions/stock0. Private conservation snapshot100photos/artifacts/slots/candidates preserved; complete failure archive large-batch-100-deadline-failure includes checker/log/report/screens/memory. Worker lifetime cgroup peak printing1GiB/max1660, oom/oom_kill0; OCRpeak2.128GB/noOOM. These lifetime counters include prior runs, not test-only peaks. Do not claim larger throughput/memory gate passed or launch300 yet. #499 remains draft; prior cache7 name failure retained. No test/observer for100 remains.
+
+Next: publish this coherent493 amendment as draft pending cumulative acceptance, apply only its diff into actual preserving sibling owner/admission/UI/cache changes, build exact actual web/OCR/visual images, verify native byte hashes/source provenance, scoped local reload, then unchanged7-input600s gate once with changed source. Older approvals/fresh final corpus unanswered;497merged only. No production/env/YML/scanner work; #463 incomplete/auto off.
+
+## Partial whole-photo reading progress prototype, 2026-09-29 12:54 UTC
+
+Active fix/acquisition-photo-text-hints HEAD7c990dc, existing unapproved READY PR493 on490. Intentional uncommitted changes in native-stream/photo-text/recognition-worker, Python photo_text/recognize, and three guard files. Warm native stream emits at most4 identity-bound completed-direction progress records plus unchanged final output, all within aggregate64KiB/request. Internal timeout retains validated completed directions as PARTIAL/name-only/manual; outer cancellation and contradictory evidence discard them. No OCR model, resolution, confidence/printing policy or deadline increase. Explicit invalidation fence fixes an observed queued-final rejection race. Corrected14 focused TS guards, typecheck/lint and4 model-free Python guards pass; initial13/14 failure retained in tool evidence. Real-native qualification, core, revised publishing and cumulative Docker acceptance are pending. Do not claim the prototype is loaded.
+
+Actual cumulative MTG-Archives-acquisition-persistence HEAD5dd514f is running hidden100-input gate PID27128 from12:44:57UTC with prior OCR1ef7bc86 and new #499 printing6bb1e8c9; inspect actual checkpoint/status before any build/reload or Playwright run. Its preceding cache7 test completed all printing but lost two name hints on TIME_BUDGET and failed before UI assertions; preserved privately. This motivated progress retention, but individual native-direction timing has not established the real failure cause yet. Do not change loaded source during100. User-approved497 merged22d8ee3; no other approvals/merges. Production/env/YML/scanner unchanged, #463 incomplete/automatic off. Next: real native progress qualification after100 is terminal, then core and revised PR493 delivery; all older approval questions/fresh independent corpus remain unanswered.
+
+## Historical main evidence retained during approved merge
 ## PR #490 approved and reconciled, 2026-09-29
 
 User individually approved #486/#487/#489/#490/#493. #486/#487/#489/#499 are merged into main. This branch retargets main and merges it; only checkpoint history conflicted and both histories are retained. Application code merged cleanly. Fresh CI is required before normal #490 merge, then approved #493. #463 and new draft #500 continue stamp accuracy; production unchanged.
 
 ## Historical branch evidence retained during approved merge
+
 ## Footer identifier PR accepted locally and awaiting individual review, 2026-09-29
 
 - Footer interpretation PR #490 (`fix/acquisition-footer-identifiers`, implementationa7b8eaf) is based on stamp489, then487/486. Compact UI488 is a sibling on487 included only in cumulative local testing; scanner474 is separate/excluded. All five recognition/UI PRs remain individually UNAPPROVED; main2ac3eb5 unchanged. Actual source/build is MTG-Archives-acquisition-persistence on temporary `local/acquisition-review-footer`; this docs/test-only follow-up does not alter loaded app inputs.
