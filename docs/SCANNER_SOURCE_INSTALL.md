@@ -57,6 +57,16 @@ in to Windows** is optional and creates a current-user Startup shortcut.
 The source installer refreshes that shortcut to the newest installed edition
 only if the user previously enabled it.
 
+For the **local Docker app** at `http://127.0.0.1:13001`, create a connection
+code on its Scan cards page, enter that exact loopback address in the setup
+window, paste the code, and click **Connect and start**. The window adds the
+helper's explicit `--local` guard only for `localhost` or loopback IP addresses;
+ordinary HTTP hosts are rejected. The local test connection has a separate
+nonsecret saved identity from the production connection. The sign-in startup
+choice applies only to the production connection, so a local test does not
+replace the production startup target. Scan from only one website at a time
+when both connections are online on the same scanner PC.
+
 When using `-InstallRoot` for a private pilot, the installer prints a command
 to open the same setup window; no Start menu or Startup shortcut is changed.
 The command-line `connect` and `serve` operations remain available for

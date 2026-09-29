@@ -1,5 +1,12 @@
 # Resumable work checkpoint
 
+## Local scanner setup extension, 2026-09-29
+
+- User asked how to install and test the helper against local Docker. PR #507 remains open/unapproved; active branch `feat/scanner-helper-setup-ui` is being revised. The local web at `http://127.0.0.1:13001/login` returned 200 and its Docker web service was healthy. Production helper PID 6188 remains running; no motor or production mutation.
+- `ScannerSetup.ps1` now accepts HTTP only for localhost/loopback, adds the helper's explicit `--local` flag, and saves the local test connection identity in `local-test-connection.json` rather than replacing the HTTPS production active identity. Sign-in startup still targets only the production connection. Ordinary HTTP hosts and paths remain rejected.
+- Windows PowerShell parse and normal source install passed locked restore, Release publish, credential/origin and native selftests, setup selftest (including separate production/local save-read files) and installed-file hashes. Current local-capable edition `6845b6c592b8026f-5d909c7973b84b1299c066ffbaf0991a` is the Start menu target; startup remains off. The real local browser/helper pairing and Plustek discovery/revocation test passed 1/1 in 12.7s using the prior local-capable edition (identical helper DLL) and disposable local account. The local test connection file was not created by that isolated CLI test; only the production helper PID 6188 remains serving. No image captured or Inventory write.
+- Next: push the #507 revision, verify exact-head Windows and repository checks, and have the user test the setup window with a local one-use code. A physical scan still requires fresh expendable-card feeder/transport confirmation. Never merge #507 without its own approval. The separate #506 Scan cards usability audit remains deferred.
+
 ## Scanner setup window review, 2026-09-29
 
 - Active branch `feat/scanner-helper-setup-ui` based on merged main `080230d`. #501 remains open; the user deferred the bulky Scan cards review/Inventory handoff to new #506 and asked to focus on scanner delivery. No Scan cards UI patch was retained. Open acquisition PRs #488/#491/#492/#495 remain separate and unapproved.

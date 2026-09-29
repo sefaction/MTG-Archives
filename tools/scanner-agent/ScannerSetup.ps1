@@ -8,6 +8,7 @@ $ErrorActionPreference = 'Stop'
 $agentPath = Join-Path $PSScriptRoot 'Mtg.ScannerAgent.dll'
 $root = Join-Path $env:LOCALAPPDATA 'MTGArchives\ScannerAgent'
 $activePath = Join-Path $root 'active-connection.json'
+$localPath = Join-Path $root 'local-test-connection.json'
 $logDir = Join-Path $root 'logs'
 $startupPath = Join-Path ([Environment]::GetFolderPath('Startup')) 'MTG Archives Scanner.lnk'
 
@@ -18,28 +19,39 @@ $resolvedDotnet = $dotnetCommand.Source
 function Assert-Site([string]$value) {
   $site = $null
   if (-not [uri]::TryCreate($value, [UriKind]::Absolute, [ref]$site) -or
-      $site.Scheme -ne 'https' -or $site.UserInfo -or $site.AbsolutePath -ne '/' -or
-      $site.Query -or $site.Fragment) {
-    throw 'Enter the HTTPS address of your MTG Archives site, without a path or code.'
+      $site.UserInfo -or $site.AbsolutePath -ne '/' -or $site.Query -or $site.Fragment -or
+      ($site.Scheme -ne 'https' -and -not ($site.Scheme -eq 'http' -and
+        $site.Host -in @('localhost', '127.0.0.1', '[::1]')))) {
+    throw 'Enter an HTTPS site address, or http://127.0.0.1:13001 for a local test, without a path or code.'
   }
   return $site.AbsoluteUri
 }
 
-function Read-Active {
-  if (-not (Test-Path -LiteralPath $activePath -PathType Leaf)) { return $null }
-  $saved = Get-Content -LiteralPath $activePath -Raw | ConvertFrom-Json
+function Connection-Path([string]$site) {
+  if (([uri](Assert-Site $site)).Scheme -eq 'http') { return $localPath }
+  return $activePath
+}
+
+function Read-Active([string]$site = '') {
+  $path = if ($site) { Connection-Path $site } else { $activePath }
+  if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $null }
+  $saved = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
   $identity = [guid]$saved.agentId
   if ($identity -eq [guid]::Empty) { throw 'Saved scanner connection identity is invalid' }
-  return [pscustomobject]@{ agentId = $identity.ToString(); site = (Assert-Site ([string]$saved.site)) }
+  $savedSite = Assert-Site ([string]$saved.site)
+  if ($site -and $savedSite -ne (Assert-Site $site)) { return $null }
+  if (-not $site -and ([uri]$savedSite).Scheme -ne 'https') { return $null }
+  return [pscustomobject]@{ agentId = $identity.ToString(); site = $savedSite }
 }
 
 function Save-Active([string]$identity, [string]$site) {
   New-Item -ItemType Directory -Path $root -Force | Out-Null
+  $path = Connection-Path $site
   $temporary = Join-Path $root ("active-connection.$([guid]::NewGuid().ToString('N')).tmp")
   try {
     @{ version = 1; agentId = ([guid]$identity).ToString(); site = (Assert-Site $site) } |
       ConvertTo-Json | Set-Content -LiteralPath $temporary -Encoding utf8
-    Move-Item -LiteralPath $temporary -Destination $activePath -Force
+    Move-Item -LiteralPath $temporary -Destination $path -Force
   } finally {
     if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force }
   }
@@ -67,11 +79,12 @@ function Start-ScannerService([string]$identity) {
 
 function Connect-Scanner([string]$site, [string]$code) {
   $site = Assert-Site $site
+  $local = ([uri]$site).Scheme -eq 'http'
   $code = $code.Trim()
   if ($code.Length -lt 70 -or $code.Length -gt 100) { throw 'Paste the complete one-use connection code from Scan cards.' }
   $start = New-Object Diagnostics.ProcessStartInfo
   $start.FileName = $resolvedDotnet
-  $start.Arguments = "`"$agentPath`" connect `"$site`""
+  $start.Arguments = "`"$agentPath`" connect `"$site`"$(if ($local) { ' --local' })"
   $start.UseShellExecute = $false
   $start.CreateNoWindow = $true
   $start.RedirectStandardInput = $true
@@ -121,13 +134,39 @@ function Set-StartAtLogin([bool]$enabled) {
 
 if ($SelfTest) {
   Assert-Site 'https://example.com/' | Out-Null
-  foreach ($bad in @('http://example.com/', 'https://example.com/path', 'https://user@example.com/')) {
+  Assert-Site 'http://127.0.0.1:13001/' | Out-Null
+  Assert-Site 'http://localhost:13001/' | Out-Null
+  if ((Connection-Path 'http://127.0.0.1:13001/') -ne $localPath -or
+      (Connection-Path 'https://example.com/') -ne $activePath) {
+    throw 'Local test and production connection files were not separated'
+  }
+  $originalRoot = $root; $originalActive = $activePath; $originalLocal = $localPath
+  $testRoot = Join-Path ([IO.Path]::GetTempPath()) ("mtg-scanner-setup-selftest-$([guid]::NewGuid().ToString('N'))")
+  New-Item -ItemType Directory -Path $testRoot | Out-Null
+  try {
+    $root = $testRoot
+    $activePath = Join-Path $testRoot 'active-connection.json'
+    $localPath = Join-Path $testRoot 'local-test-connection.json'
+    $productionId = [guid]::NewGuid().ToString(); $localId = [guid]::NewGuid().ToString()
+    Save-Active $productionId 'https://example.com/'
+    Save-Active $localId 'http://127.0.0.1:13001/'
+    if ((Read-Active).agentId -ne $productionId -or
+        (Read-Active 'http://127.0.0.1:13001/').agentId -ne $localId) {
+      throw 'Local test connection replaced the production connection'
+    }
+  } finally {
+    $root = $originalRoot; $activePath = $originalActive; $localPath = $originalLocal
+    Get-ChildItem -LiteralPath $testRoot -File | Remove-Item -Force
+    Remove-Item -LiteralPath $testRoot -Force
+  }
+  foreach ($bad in @('http://example.com/', 'http://192.168.1.2:13001/',
+      'https://example.com/path', 'https://user@example.com/')) {
     try { Assert-Site $bad | Out-Null; throw 'Unsafe website accepted' }
     catch [System.Management.Automation.RuntimeException] {
       if ($_.Exception.Message -eq 'Unsafe website accepted') { throw }
     }
   }
-  Write-Output 'PASS scanner setup origin and installed-file checks; no connection or device used'
+  Write-Output 'PASS scanner setup HTTPS/local-loopback origin and installed-file checks; no connection or device used'
   return
 }
 
@@ -184,7 +223,7 @@ $openButton.Size = New-Object Drawing.Size(180, 33)
 $form.Controls.Add($openButton)
 
 $startupBox = New-Object Windows.Forms.CheckBox
-$startupBox.Text = 'Keep the scanner online when I sign in to Windows'
+$startupBox.Text = 'Keep the production connection online when I sign in to Windows'
 $startupBox.Location = New-Object Drawing.Point(20, 190)
 $startupBox.Size = New-Object Drawing.Size(500, 25)
 $script:updatingStartup = $false
@@ -212,10 +251,14 @@ $connectButton.Add_Click({
 })
 $startButton.Add_Click({
   try {
-    $saved = Read-Active
+    $saved = Read-Active $siteBox.Text
     if (-not $saved) { throw 'No saved connection is available.' }
     $status.Text = Start-ScannerService $saved.agentId
   } catch { $status.Text = $_.Exception.Message }
+})
+$siteBox.Add_TextChanged({
+  try { $startButton.Enabled = $null -ne (Read-Active $siteBox.Text) }
+  catch { $startButton.Enabled = $false }
 })
 $openButton.Add_Click({
   try { [Diagnostics.Process]::Start((Assert-Site $siteBox.Text) + 'imports/scan') | Out-Null }
