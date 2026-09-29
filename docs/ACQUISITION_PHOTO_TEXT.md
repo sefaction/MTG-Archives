@@ -22,7 +22,9 @@ Inventory route, model, confidence threshold or production setting.
 - Missing-local names use the existing shared Scryfall cache before unrelated
   visual matches. No scanner-only catalog, photo or artifact store is introduced.
 - Review shows **Name only · check printing**. Advanced retains separately labeled
-  whole-photo readings. Saved human choices and explicit Inventory commit remain
+  whole-photo readings and defaults to the source image, so a bad detected crop
+  cannot hide the card supplying the hint; explicit crop/zone inspection remains.
+  Saved human choices and explicit Inventory commit remain
   authoritative.
 
 ## Verification and limits

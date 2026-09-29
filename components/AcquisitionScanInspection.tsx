@@ -19,7 +19,10 @@ export function AcquisitionScanImage({
   position: number;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const [view, setView] = useState<"original" | "crop" | "zones">("crop");
+  const [view, setView] = useState<"original" | "crop" | "zones" | null>(null);
+  // A whole-photo hint may come from outside a bad detected crop. Default to
+  // the actual source while keeping explicit crop/zone inspection available.
+  const displayView = view ?? (evidence?.photoText ? "original" : "crop");
   const [reverse, setReverse] = useState(false);
   const [error, setError] = useState("");
   const quad =
@@ -42,7 +45,7 @@ export function AcquisitionScanImage({
     image.onload = () => {
       if (cancelled || !canvas.current) return;
       const ctx = target.getContext("2d")!;
-      if (view === "original" || !quad) {
+      if (displayView === "original" || !quad) {
         const scale = Math.min(
           1,
           600 / Math.max(image.naturalWidth, image.naturalHeight),
@@ -123,7 +126,7 @@ export function AcquisitionScanImage({
         }
       ctx.putImageData(out, 0, 0);
       source.width = source.height = 0;
-      if (view === "zones" && readingZones) {
+      if (displayView === "zones" && readingZones) {
         ctx.fillStyle = "rgba(0,255,255,.18)";
         for (const zone of Object.values(readingZones))
           ctx.fillRect(
@@ -160,7 +163,7 @@ export function AcquisitionScanImage({
       image.src = "";
       target.width = target.height = 0;
     };
-  }, [src, active, quad, observation, readingZones, view, rotation]);
+  }, [src, active, quad, observation, readingZones, displayView, rotation]);
   return (
     <figure className="min-w-0">
       <figcaption className="font-semibold mb-2 min-h-12 sm:min-h-0">
@@ -171,7 +174,7 @@ export function AcquisitionScanImage({
           <canvas
             ref={canvas}
             role="img"
-            aria-label={`${view === "original" || !quad ? "Original scan" : fullFrame ? "Full card image" : "Detected card"} ${position}`}
+            aria-label={`${displayView === "original" || !quad ? "Original scan" : fullFrame ? "Full card image" : "Detected card"} ${position}`}
             className="max-w-full max-h-full object-contain"
           />
         ) : (
@@ -195,7 +198,7 @@ export function AcquisitionScanImage({
             key={key}
             className={button + " text-xs"}
             disabled={key !== "original" && !quad}
-            aria-pressed={view === key}
+            aria-pressed={displayView === key}
             onClick={() => setView(key)}
           >
             {label}
@@ -217,11 +220,11 @@ export function AcquisitionScanImage({
             ? "Card scan: full image retained; border detection skipped."
           : fullFrame
             ? `Full image retained; no crop. This tightly framed image is resized for reading${evidence?.rotation === null ? "; direction unresolved" : " and oriented using the reading result"}.`
-            : view === "original"
+            : displayView === "original"
               ? "Cyan outline: corners chosen by the worker."
               : `Reconstructed from the worker's saved corners${evidence?.rotation === null ? "; reading direction unresolved" : " and reading direction"}.`}
       </p>
-      {view === "zones" && (
+      {displayView === "zones" && (
         <p className="text-xs">
           Cyan: title/footer areas attempted. Yellow: detected text boxes. Boxes
           do not establish a correct reading. Stamp evidence uses a separately
