@@ -4,6 +4,21 @@ This is an incremental batch for recognition issue #463. It extends the existing
 acquisition jobs and review screen. It does not complete the accuracy goal or
 enable production scanner acquisition.
 
+## Current local review, September 28
+
+Foundation470/471/472/475/476/477 is merged. Live printing observations are
+documented in [runtime printing](ACQUISITION_PRINTING_RUNTIME.md); public
+reference maintenance, evidence ordering, full-frame Card scan mode and batch
+worker turns are loaded cumulatively under unapproved478/481/482/484. Those
+later documents supersede the implementation gaps in this original batch's
+historical results below. Automatic hybrid confirmation remains off.
+
+The new playable-only evaluation uses67 frozen visible labels/four stamps,
+excluding art cards at the user's direction. The
+[runtime scorer](ACQUISITION_RUNTIME_EVALUATION.md) measures saved actual results
+without repeating recognition. Final new-material accuracy and conservative
+automatic/scale/recovery acceptance remain open under #463.
+
 ## Development loop
 
 1. Preserve original photos privately and label the expected printing before
