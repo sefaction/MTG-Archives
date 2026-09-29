@@ -1,0 +1,208 @@
+using NAPS2.Images;
+using NAPS2.Images.Gdi;
+using NAPS2.Scan;
+using NAPS2.Scan.Exceptions;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+
+namespace Mtg.Scanner;
+
+// All NAPS2/TWAIN-specific calls and interpretations are contained here.
+public sealed class Naps2Backend : IScannerBackend
+{
+    private readonly ScanningContext context = new(new GdiImageContext());
+    private readonly ScanController controller;
+    private readonly CancellationTokenSource cancellation = new();
+    private readonly SemaphoreSlim lifecycle = new(1, 1);
+    private List<ScanDevice> devices = [];
+    private ScanRequest? prepared;
+    private ScanOptions? options;
+    private RunSpool? spool;
+    private string? stopReason;
+    private string? cancelReason;
+    private bool started;
+    private bool closed;
+    public static object Describe() => new
+    {
+        agentVersion = "0.1.0-spike", backend = "naps2-windows",
+        agentAssemblySha256 = Convert.ToHexString(SHA256.HashData(
+            File.ReadAllBytes(typeof(Naps2Backend).Assembly.Location))).ToLowerInvariant(),
+        sdkPackageVersion = "1.3.0",
+        sdkAssemblyVersion = typeof(ScanController).Assembly.GetName().Version?.ToString(),
+        os = RuntimeInformation.OSDescription,
+        processArchitecture = RuntimeInformation.ProcessArchitecture.ToString(),
+        nativeWorkerArchitecture = "x86 for TWAIN; WIA uses host process",
+        dsmPreference = "modern-32-bit; loaded DSM version not exposed",
+        runtime = RuntimeInformation.FrameworkDescription
+    };
+    public Naps2Backend()
+    {
+        context.SetUpWin32Worker();
+        controller = new ScanController(context) { PropagateErrors = true };
+    }
+    public async Task<IReadOnlyList<Device>> ListDevices()
+    {
+        await lifecycle.WaitAsync();
+        try
+        {
+            ObjectDisposedException.ThrowIf(closed, this);
+            if (started) throw new InvalidOperationException("Acquisition is active or already used");
+            devices = await controller.GetDeviceList(Driver.Twain);
+            devices.AddRange(await controller.GetDeviceList(Driver.Wia));
+            return devices.Select(d => new Device(Key(d), d.Name, "naps2-windows", d.Driver.ToString())).ToArray();
+        }
+        finally { lifecycle.Release(); }
+    }
+    private static string Key(ScanDevice device) => $"{device.Driver}:{device.ID}";
+    private ScanDevice Find(string id) => devices.SingleOrDefault(d => Key(d) == id)
+        ?? throw new ArgumentException("Select an enumerated device identity");
+    public async Task<Capabilities> GetCapabilities(string deviceId)
+    {
+        await lifecycle.WaitAsync();
+        try
+        {
+            ObjectDisposedException.ThrowIf(closed, this);
+            if (started) throw new InvalidOperationException("Acquisition is active or already used");
+            var caps = await controller.GetCaps(Find(deviceId));
+            static Capability Flag(bool? b) => new(b is null ? Support.Unknown :
+                b.Value ? Support.ReportedSupported : Support.ReportedUnsupported, "SDK GetCaps");
+            var features = new Dictionary<string, Capability>
+            {
+                ["feeder"] = Flag(caps.PaperSourceCaps?.SupportsFeeder),
+                ["duplex"] = Flag(caps.PaperSourceCaps?.SupportsDuplex),
+                ["color"] = Flag(caps.FeederCaps?.BitDepthCaps?.SupportsColor),
+                ["dpiSelection"] = new(caps.FeederCaps?.DpiCaps is null ? Support.Unknown : Support.ReportedSupported, "SDK GetCaps"),
+                // SDK's TWAIN PageSizeCaps defaults custom-size support to true;
+                // it does not negotiate/verify arbitrary custom frames here.
+                ["customFrame"] = new(Support.Unknown, "SDK accepts a requested frame; device behavior requires measurement"),
+                ["uiSuppression"] = new(Support.Unknown, "SDK request available; physical qualification pending"),
+                ["gracefulStop"] = new(Support.NotExposed, "Public SDK exposes cancellation only"),
+                ["cancel"] = new(Support.ReportedSupported, "SDK CancellationToken; physical effect unqualified"),
+                ["physicalBoundaries"] = new(Support.NotExposed, "Page events identify image transfers, not sheets"),
+                ["sideMetadata"] = new(Support.NotExposed, "No side identity on public page/image events"),
+                ["multifeedEvents"] = new(Support.NotExposed, "Generic driver exception may still report failure"),
+                ["deviceCounters"] = new(Support.NotExposed, "No physical counter in public scan result"),
+                ["vendorAutoCropControl"] = new(Support.NotExposed, "SDK crop/deskew off does not negotiate every vendor automatic option"),
+                ["sourceExhaustion"] = new(Support.Unknown, "Normal SDK return alone does not prove an empty feeder")
+            };
+            return new(features, caps.FeederCaps?.DpiCaps?.Values?.ToArray(),
+                caps.MetadataCaps?.Manufacturer, caps.MetadataCaps?.Model, null);
+        }
+        finally { lifecycle.Release(); }
+    }
+    public Task Prepare(ScanRequest request)
+    {
+        ObjectDisposedException.ThrowIf(closed, this);
+        if (started || prepared != null) throw new InvalidOperationException("Use a fresh backend for each run");
+        if (request.RunId == Guid.Empty || request.Dpi is < 75 or > 1200 ||
+            request.WidthInches is <= 0 or > 20 || request.HeightInches is <= 0 or > 40 ||
+            request.ImageStopBudget is <= 0 || request.SessionPhysicalTarget is <= 0 ||
+            request.HorizontalPlacement is not ("Start" or "Center" or "End"))
+            throw new ArgumentException("Invalid scan request");
+        options = new ScanOptions
+        {
+            Device = Find(request.DeviceId), Driver = Find(request.DeviceId).Driver,
+            PaperSource = request.Duplex ? PaperSource.Duplex : PaperSource.Feeder,
+            Dpi = request.Dpi, BitDepth = BitDepth.Color,
+            PageSize = new PageSize(request.WidthInches, request.HeightInches, PageSizeUnit.Inch),
+            PageAlign = request.HorizontalPlacement == "Center" ? HorizontalAlign.Center :
+                request.HorizontalPlacement == "Start" ? HorizontalAlign.Right : HorizontalAlign.Left,
+            UseNativeUI = false,
+            TwainOptions = new TwainOptions { Dsm = TwainDsm.New, ShowProgress = false },
+            AutoDeskew = false, CropToPageSize = false, StretchToPageSize = false,
+            ExcludeBlankPages = false, RotateDegrees = 0, MaxQuality = true
+        };
+        prepared = request;
+        return Task.CompletedTask;
+    }
+    public async Task Start(RunSpool output)
+    {
+        await lifecycle.WaitAsync();
+        try
+        {
+            ObjectDisposedException.ThrowIf(closed, this);
+            if (started || options is null || prepared is null) throw new InvalidOperationException("Prepare once before starting");
+            started = true; spool = output;
+            var elapsed = Stopwatch.StartNew();
+            var imageCount = 0;
+            var outcome = "COMPLETED";
+            var exhausted = false;
+            output.Event("AcquisitionStarted", new { prepared.RunId, requested = prepared,
+                actualConfiguration = "UNKNOWN until returned image measurements", sourceExhausted = "UNKNOWN" });
+            try
+            {
+                // Do not WithCancellation/break on target: drain every complete image
+                // yielded by SDK even after cancellation. In-flight native partial
+                // images may be unavailable and must be physically reconciled.
+                await foreach (var image in controller.Scan(options, cancellation.Token))
+                {
+                    using (image)
+                    {
+                        var id = Guid.NewGuid();
+                        var temporary = Path.Combine(output.DirectoryPath, $"{id}.pending.png");
+                        image.Save(temporary);
+                        int width, height;
+                        using (var bitmap = System.Drawing.Image.FromFile(temporary))
+                        { width = bitmap.Width; height = bitmap.Height; }
+                        output.PublishImage(temporary, id, ++imageCount, width, height);
+                    }
+                    if (prepared.ImageStopBudget is int budget && imageCount >= budget && stopReason == null)
+                        RequestStop("diagnostic-image-budget; physical count remains unknown");
+                }
+            }
+            catch (DeviceFeederEmptyException)
+            {
+                exhausted = true; outcome = "SOURCE_EXHAUSTED";
+                output.Event("SourceExhausted", new { evidence = "SDK DeviceFeederEmptyException", imageCount });
+            }
+            catch (OperationCanceledException) { outcome = "CANCELLED"; }
+            catch (Exception error)
+            {
+                outcome = "ERROR";
+                output.Event("ScannerError", SafeError(error));
+            }
+            if (cancelReason != null) outcome = "CANCELLED";
+            else if (stopReason != null && outcome != "ERROR") outcome = prepared.AllowInterruptingStop
+                ? "STOP_REQUESTED" : "DRAINED_AFTER_UNSUPPORTED_STOP";
+            output.Event("AcquisitionCompleted", new { outcome, imageCount,
+                elapsedMs = elapsed.ElapsedMilliseconds, knownPhysicalItems = (int?)null,
+                sourceExhausted = exhausted ? "REPORTED_EMPTY" : "UNKNOWN", stopReason, cancelReason,
+                nativeState = "SDK enumeration ended; physical feeder/transport state requires observation" });
+            if (outcome == "ERROR") throw new InvalidOperationException("Acquisition failed; complete images and error evidence remain in spool");
+        }
+        finally { spool = null; lifecycle.Release(); }
+    }
+    public static object SafeError(Exception error) => new
+    {
+        type = error.GetType().FullName, nativeStatus = error.HResult,
+        innerType = error.InnerException?.GetType().FullName,
+        innerStatus = error.InnerException?.HResult,
+        details = "Messages/paths omitted from default export; retain private diagnostic context if needed"
+    };
+    public void RequestStop(string reason)
+    {
+        if (Interlocked.CompareExchange(ref stopReason, reason, null) != null) return;
+        // PS286 qualification observed two emitted cards and a third in transport
+        // after one image. Never silently alias graceful stop to native cancel.
+        var interrupt = prepared?.AllowInterruptingStop == true;
+        spool?.Event("StopRequested", new { reason,
+            method = interrupt ? "SDK CancellationToken (explicit diagnostic opt-in)" : "UNSUPPORTED; draining current feeder run",
+            guarantee = "NONE", inFlightMayBeLost = interrupt });
+        if (interrupt) cancellation.Cancel();
+    }
+    public void Cancel(string reason)
+    {
+        if (Interlocked.CompareExchange(ref cancelReason, reason, null) != null) return;
+        spool?.Event("CancelRequested", new { reason, method = "SDK CancellationToken", distinctGracefulStop = false });
+        cancellation.Cancel();
+    }
+    public void Close()
+    {
+        if (closed) return;
+        if (!lifecycle.Wait(0)) throw new InvalidOperationException("Cancel and await Start before closing");
+        try { closed = true; context.Dispose(); cancellation.Dispose(); }
+        finally { lifecycle.Release(); }
+    }
+    public void Dispose() => Close();
+}

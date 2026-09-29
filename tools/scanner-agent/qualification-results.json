@@ -1,0 +1,1546 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-28",
+  "issue": 473,
+  "productionQualified": false,
+  "baseCommit": "fc7b3621f4802e2bc17147d8be74afe58572729b",
+  "privacy": "Images, full local paths, credentials and fixture owner/session identifiers omitted. Originals retained privately.",
+  "uniquePhysicalCardsInDpiComparison": 1,
+  "heldOutRecognitionSampleCount": 0,
+  "recognitionSamplingNote": "DPI and lifecycle scans repeat the same physical Sunblade Samurai NEO039/302; feeder batches are acquisition evidence, not an independent recognition benchmark.",
+  "hardware": "Plustek SmartOffice PS286 Pro",
+  "backendSnapshots": [
+    {
+      "agentVersion": "0.1.0-spike",
+      "backend": "naps2-twain",
+      "sdkPackageVersion": "1.3.0",
+      "sdkAssemblyVersion": "8.3.0.0",
+      "os": "Microsoft Windows 10.0.22631",
+      "processArchitecture": "X64",
+      "nativeWorkerArchitecture": "x86",
+      "dsm": "modern-32-bit",
+      "runtime": ".NET 8.0.31"
+    },
+    {
+      "agentVersion": "0.1.0-spike",
+      "backend": "naps2-windows",
+      "sdkPackageVersion": "1.3.0",
+      "sdkAssemblyVersion": "8.3.0.0",
+      "os": "Microsoft Windows 10.0.22631",
+      "processArchitecture": "X64",
+      "nativeWorkerArchitecture": "x86",
+      "dsm": "modern-32-bit",
+      "runtime": ".NET 8.0.31"
+    },
+    {
+      "agentVersion": "0.1.0-spike",
+      "backend": "naps2-windows",
+      "sdkPackageVersion": "1.3.0",
+      "sdkAssemblyVersion": "8.3.0.0",
+      "os": "Microsoft Windows 10.0.22631",
+      "processArchitecture": "X64",
+      "nativeWorkerArchitecture": "x86 for TWAIN; WIA uses host process",
+      "dsmPreference": "modern-32-bit; loaded DSM version not exposed",
+      "runtime": ".NET 8.0.31"
+    },
+    {
+      "agentVersion": "0.1.0-spike",
+      "backend": "naps2-windows",
+      "agentAssemblySha256": "37c66927cf0b5041b59d0fff00fe2e89ad7ef4e9a689548d77321e5feca4f1b5",
+      "sdkPackageVersion": "1.3.0",
+      "sdkAssemblyVersion": "8.3.0.0",
+      "os": "Microsoft Windows 10.0.22631",
+      "processArchitecture": "X64",
+      "nativeWorkerArchitecture": "x86 for TWAIN; WIA uses host process",
+      "dsmPreference": "modern-32-bit; loaded DSM version not exposed",
+      "runtime": ".NET 8.0.31"
+    }
+  ],
+  "capabilitySnapshots": [
+    {
+      "features": {
+        "feeder": {
+          "support": "ReportedSupported",
+          "evidence": "SDK GetCaps"
+        },
+        "duplex": {
+          "support": "ReportedSupported",
+          "evidence": "SDK GetCaps"
+        },
+        "color": {
+          "support": "ReportedSupported",
+          "evidence": "SDK GetCaps"
+        },
+        "dpiSelection": {
+          "support": "ReportedSupported",
+          "evidence": "SDK GetCaps"
+        },
+        "customFrame": {
+          "support": "Unknown",
+          "evidence": "SDK accepts a requested frame; device behavior requires measurement"
+        },
+        "uiSuppression": {
+          "support": "Unknown",
+          "evidence": "SDK request available; physical qualification pending"
+        },
+        "gracefulStop": {
+          "support": "NotExposed",
+          "evidence": "Public SDK exposes cancellation only"
+        },
+        "cancel": {
+          "support": "ReportedSupported",
+          "evidence": "SDK CancellationToken; physical effect unqualified"
+        },
+        "physicalBoundaries": {
+          "support": "NotExposed",
+          "evidence": "Page events identify image transfers, not sheets"
+        },
+        "sideMetadata": {
+          "support": "NotExposed",
+          "evidence": "No side identity on public page/image events"
+        },
+        "multifeedEvents": {
+          "support": "NotExposed",
+          "evidence": "Generic driver exception may still report failure"
+        },
+        "deviceCounters": {
+          "support": "NotExposed",
+          "evidence": "No physical counter in public scan result"
+        },
+        "vendorAutoCropControl": {
+          "support": "NotExposed",
+          "evidence": "SDK crop/deskew off does not negotiate every vendor automatic option"
+        },
+        "sourceExhaustion": {
+          "support": "Unknown",
+          "evidence": "Normal SDK return alone does not prove an empty feeder"
+        }
+      },
+      "manufacturer": "Plustek Inc.",
+      "model": "Plustek PS286 Pro-TWAIN",
+      "protocolVersion": null,
+      "reportedDpiMinMax": [
+        100,
+        1200
+      ]
+    },
+    {
+      "features": {
+        "feeder": {
+          "support": "ReportedSupported",
+          "evidence": "SDK GetCaps"
+        },
+        "duplex": {
+          "support": "ReportedSupported",
+          "evidence": "SDK GetCaps"
+        },
+        "color": {
+          "support": "ReportedSupported",
+          "evidence": "SDK GetCaps"
+        },
+        "dpiSelection": {
+          "support": "ReportedSupported",
+          "evidence": "SDK GetCaps"
+        },
+        "customFrame": {
+          "support": "Unknown",
+          "evidence": "SDK accepts a requested frame; device behavior requires measurement"
+        },
+        "uiSuppression": {
+          "support": "Unknown",
+          "evidence": "SDK request available; physical qualification pending"
+        },
+        "gracefulStop": {
+          "support": "NotExposed",
+          "evidence": "Public SDK exposes cancellation only"
+        },
+        "cancel": {
+          "support": "ReportedSupported",
+          "evidence": "SDK CancellationToken; physical effect unqualified"
+        },
+        "physicalBoundaries": {
+          "support": "NotExposed",
+          "evidence": "Page events identify image transfers, not sheets"
+        },
+        "sideMetadata": {
+          "support": "NotExposed",
+          "evidence": "No side identity on public page/image events"
+        },
+        "multifeedEvents": {
+          "support": "NotExposed",
+          "evidence": "Generic driver exception may still report failure"
+        },
+        "deviceCounters": {
+          "support": "NotExposed",
+          "evidence": "No physical counter in public scan result"
+        },
+        "vendorAutoCropControl": {
+          "support": "NotExposed",
+          "evidence": "SDK crop/deskew off does not negotiate every vendor automatic option"
+        },
+        "sourceExhaustion": {
+          "support": "Unknown",
+          "evidence": "Normal SDK return alone does not prove an empty feeder"
+        }
+      },
+      "manufacturer": "Product",
+      "model": "A4 ADF2 Scanner(K7B)",
+      "protocolVersion": null,
+      "reportedDpiMinMax": [
+        100,
+        600
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "test": "Q2-TWAIN",
+      "runId": "5d25f31b-decf-4226-b9e6-a369165fcf46",
+      "createdAt": "2026-09-28T19:33:51.0043202+00:00",
+      "requested": {
+        "runId": "5d25f31b-decf-4226-b9e6-a369165fcf46",
+        "deviceId": "Plustek PS286 Pro-TWAIN",
+        "dpi": 300,
+        "widthInches": 2.6,
+        "heightInches": 3.6,
+        "duplex": false,
+        "imageStopBudget": null,
+        "sessionPhysicalTarget": 1
+      },
+      "backendSnapshot": 0,
+      "capabilitySnapshot": 0,
+      "eventKinds": [
+        "AcquisitionStarted",
+        "ImageReceived",
+        "AcquisitionCompleted"
+      ],
+      "terminal": {
+        "outcome": "COMPLETED",
+        "imageCount": 1,
+        "elapsedMs": 6755,
+        "knownPhysicalItems": null,
+        "sourceExhausted": "UNKNOWN",
+        "stopReason": null,
+        "cancelReason": null,
+        "nativeState": "SDK enumeration ended; physical feeder/transport state requires observation"
+      },
+      "artifacts": [
+        {
+          "id": "ebaebe8d-1394-4d1d-ba82-913c51f4c6ca",
+          "sequence": 1,
+          "sha256": "63cf7aab39749ec5baa5d74ff95b257bda0bef88621faccf82afeb486bec1a4f",
+          "bytes": 1621603,
+          "width": 683,
+          "height": 1001,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        }
+      ],
+      "operatorObservation": {
+        "source": "User replies in scanner qualification conversation",
+        "loaded": 1,
+        "fullyEmitted": 1,
+        "partlyInTransport": null,
+        "note": "One out, no damage/jam/dialog; original footer clipped/filled.",
+        "physicalCountsDerivedFromImages": false
+      }
+    },
+    {
+      "test": "Q2-Q6-WIA-300",
+      "runId": "68bcd8f9-d85c-4274-a28c-52e4dd745d91",
+      "createdAt": "2026-09-28T19:35:25.3640081+00:00",
+      "requested": {
+        "runId": "68bcd8f9-d85c-4274-a28c-52e4dd745d91",
+        "deviceId": "Wia:{6BDD1FC6-810F-11D0-BEC7-08002BE2092F}\\0000",
+        "dpi": 300,
+        "widthInches": 2.6,
+        "heightInches": 3.6,
+        "duplex": false,
+        "imageStopBudget": null,
+        "sessionPhysicalTarget": 1
+      },
+      "backendSnapshot": 1,
+      "capabilitySnapshot": 1,
+      "eventKinds": [
+        "AcquisitionStarted",
+        "ImageReceived",
+        "AcquisitionCompleted"
+      ],
+      "terminal": {
+        "outcome": "COMPLETED",
+        "imageCount": 1,
+        "elapsedMs": 3278,
+        "knownPhysicalItems": null,
+        "sourceExhausted": "UNKNOWN",
+        "stopReason": null,
+        "cancelReason": null,
+        "nativeState": "SDK enumeration ended; physical feeder/transport state requires observation"
+      },
+      "artifacts": [
+        {
+          "id": "67abf943-c7d4-4474-9f57-6d71fe6b8c6f",
+          "sequence": 1,
+          "sha256": "2175eadc60ee84c699b7c3de62b830963de0ecfb76b627d3cae1081aeddea1a0",
+          "bytes": 1870038,
+          "width": 1665,
+          "height": 1010,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        }
+      ],
+      "operatorObservation": {
+        "source": "User replies in scanner qualification conversation",
+        "loaded": 1,
+        "fullyEmitted": 1,
+        "partlyInTransport": null,
+        "note": "One undamaged card out, no dialog/jam.",
+        "physicalCountsDerivedFromImages": false
+      }
+    },
+    {
+      "test": "Q6-WIA-600",
+      "runId": "3757fc2b-636b-43d3-92b6-24bc921f39d8",
+      "createdAt": "2026-09-28T19:36:24.1685068+00:00",
+      "requested": {
+        "runId": "3757fc2b-636b-43d3-92b6-24bc921f39d8",
+        "deviceId": "Wia:{6BDD1FC6-810F-11D0-BEC7-08002BE2092F}\\0000",
+        "dpi": 600,
+        "widthInches": 2.6,
+        "heightInches": 3.6,
+        "duplex": false,
+        "imageStopBudget": null,
+        "sessionPhysicalTarget": 1
+      },
+      "backendSnapshot": 1,
+      "capabilitySnapshot": 1,
+      "eventKinds": [
+        "AcquisitionStarted",
+        "ImageReceived",
+        "AcquisitionCompleted"
+      ],
+      "terminal": {
+        "outcome": "COMPLETED",
+        "imageCount": 1,
+        "elapsedMs": 7609,
+        "knownPhysicalItems": null,
+        "sourceExhausted": "UNKNOWN",
+        "stopReason": null,
+        "cancelReason": null,
+        "nativeState": "SDK enumeration ended; physical feeder/transport state requires observation"
+      },
+      "artifacts": [
+        {
+          "id": "8bcfa778-c828-4ab8-a646-f97781e3f075",
+          "sequence": 1,
+          "sha256": "5ce1a015e8d623996ea48b8d564b397314700201f39027e8fa2058bc5776a25d",
+          "bytes": 7580129,
+          "width": 3330,
+          "height": 2046,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        }
+      ],
+      "operatorObservation": {
+        "source": "User replies in scanner qualification conversation",
+        "loaded": 1,
+        "fullyEmitted": 1,
+        "partlyInTransport": null,
+        "note": "One undamaged card out, no dialog/jam.",
+        "physicalCountsDerivedFromImages": false
+      }
+    },
+    {
+      "test": "Q7-duplex",
+      "runId": "a8ed8402-f6e5-4b4f-ad7b-c72a7009e819",
+      "createdAt": "2026-09-28T19:37:21.7992563+00:00",
+      "requested": {
+        "runId": "a8ed8402-f6e5-4b4f-ad7b-c72a7009e819",
+        "deviceId": "Wia:{6BDD1FC6-810F-11D0-BEC7-08002BE2092F}\\0000",
+        "dpi": 300,
+        "widthInches": 2.6,
+        "heightInches": 3.6,
+        "duplex": true,
+        "imageStopBudget": null,
+        "sessionPhysicalTarget": 1
+      },
+      "backendSnapshot": 1,
+      "capabilitySnapshot": 1,
+      "eventKinds": [
+        "AcquisitionStarted",
+        "ImageReceived",
+        "ImageReceived",
+        "AcquisitionCompleted"
+      ],
+      "terminal": {
+        "outcome": "COMPLETED",
+        "imageCount": 2,
+        "elapsedMs": 3260,
+        "knownPhysicalItems": null,
+        "sourceExhausted": "UNKNOWN",
+        "stopReason": null,
+        "cancelReason": null,
+        "nativeState": "SDK enumeration ended; physical feeder/transport state requires observation"
+      },
+      "artifacts": [
+        {
+          "id": "2ec6b353-1f2c-4a1a-8bd7-596774b2d0d6",
+          "sequence": 1,
+          "sha256": "1ae2a689c5f0bdc17b910330df0db117deedc9870dce2f9fcfe86713570b6803",
+          "bytes": 1860415,
+          "width": 1665,
+          "height": 1011,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        },
+        {
+          "id": "f59e45a9-5a44-4aa6-a41d-e9eeafe03213",
+          "sequence": 2,
+          "sha256": "53a6108c104b13254c6290f4b53ff4ec7e1e07d02ce346ed802efb7501fc9973",
+          "bytes": 1856778,
+          "width": 1665,
+          "height": 1011,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        }
+      ],
+      "operatorObservation": {
+        "source": "User replies in scanner qualification conversation",
+        "loaded": 1,
+        "fullyEmitted": 1,
+        "partlyInTransport": null,
+        "note": "One undamaged card out; visual image inspection front then back, no SDK pairing evidence.",
+        "physicalCountsDerivedFromImages": false
+      }
+    },
+    {
+      "test": "Q4-five",
+      "runId": "4ba2332f-d7df-4176-a6b1-f2f43370ff0a",
+      "createdAt": "2026-09-28T19:39:13.620763+00:00",
+      "requested": {
+        "runId": "4ba2332f-d7df-4176-a6b1-f2f43370ff0a",
+        "deviceId": "Wia:{6BDD1FC6-810F-11D0-BEC7-08002BE2092F}\\0000",
+        "dpi": 300,
+        "widthInches": 2.6,
+        "heightInches": 3.6,
+        "duplex": false,
+        "imageStopBudget": null,
+        "sessionPhysicalTarget": 5
+      },
+      "backendSnapshot": 1,
+      "capabilitySnapshot": 1,
+      "eventKinds": [
+        "AcquisitionStarted",
+        "ImageReceived",
+        "ImageReceived",
+        "ImageReceived",
+        "ImageReceived",
+        "ImageReceived",
+        "AcquisitionCompleted"
+      ],
+      "terminal": {
+        "outcome": "COMPLETED",
+        "imageCount": 5,
+        "elapsedMs": 6411,
+        "knownPhysicalItems": null,
+        "sourceExhausted": "UNKNOWN",
+        "stopReason": null,
+        "cancelReason": null,
+        "nativeState": "SDK enumeration ended; physical feeder/transport state requires observation"
+      },
+      "artifacts": [
+        {
+          "id": "3438cdcd-9562-402e-b00f-5c47ed5d708d",
+          "sequence": 1,
+          "sha256": "bd7127c20591f9c2031e1e9f2883b9b788bb64be07fc422f1b450ee87f69ac90",
+          "bytes": 1867165,
+          "width": 1665,
+          "height": 1008,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        },
+        {
+          "id": "97dd5108-35a1-4e8f-b46b-97f258630e12",
+          "sequence": 2,
+          "sha256": "bc6544b7eb3302bca4bf685cf1d815a5c6a26928351b3bcf55f0a8ebffeeb8f6",
+          "bytes": 1845446,
+          "width": 1665,
+          "height": 1010,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        },
+        {
+          "id": "0ff746fc-3d9f-4411-9bda-3c2e5e51cb03",
+          "sequence": 3,
+          "sha256": "9a18131a64d92fd3b0d39aedb73af99e5068ec6cda4ad46e1d24bb1da80a00a8",
+          "bytes": 1833522,
+          "width": 1665,
+          "height": 1012,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        },
+        {
+          "id": "05f89cfd-ec17-4dad-bb38-e9abb19446b1",
+          "sequence": 4,
+          "sha256": "4ac426d777405a0fbdaa2eef6d8e4bb8ba8177b865e965701738de3c5048f81d",
+          "bytes": 1828719,
+          "width": 1665,
+          "height": 1008,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        },
+        {
+          "id": "8da0524c-6ece-4e5f-a4f0-492c41e4f91b",
+          "sequence": 5,
+          "sha256": "75b503ddfefca1c8e708406448050e6030c946cb2b90a35cb822af47836ed5de",
+          "bytes": 1809295,
+          "width": 1665,
+          "height": 1008,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        }
+      ],
+      "operatorObservation": {
+        "source": "User replies in scanner qualification conversation",
+        "loaded": 5,
+        "fullyEmitted": 5,
+        "partlyInTransport": null,
+        "note": "Five out in recorded image order, none left, no doubles/jams/marks.",
+        "physicalCountsDerivedFromImages": false
+      }
+    },
+    {
+      "test": "Q4-ten",
+      "runId": "35d169ed-5e05-4a78-819e-a59ebc0f492e",
+      "createdAt": "2026-09-28T19:41:03.8528642+00:00",
+      "requested": {
+        "runId": "35d169ed-5e05-4a78-819e-a59ebc0f492e",
+        "deviceId": "Wia:{6BDD1FC6-810F-11D0-BEC7-08002BE2092F}\\0000",
+        "dpi": 300,
+        "widthInches": 2.6,
+        "heightInches": 3.6,
+        "duplex": false,
+        "imageStopBudget": null,
+        "sessionPhysicalTarget": 10
+      },
+      "backendSnapshot": 1,
+      "capabilitySnapshot": 1,
+      "eventKinds": [
+        "AcquisitionStarted",
+        "ImageReceived",
+        "ImageReceived",
+        "ImageReceived",
+        "ImageReceived",
+        "ImageReceived",
+        "ImageReceived",
+        "ImageReceived",
+        "ImageReceived",
+        "ImageReceived",
+        "ImageReceived",
+        "AcquisitionCompleted"
+      ],
+      "terminal": {
+        "outcome": "COMPLETED",
+        "imageCount": 10,
+        "elapsedMs": 10335,
+        "knownPhysicalItems": null,
+        "sourceExhausted": "UNKNOWN",
+        "stopReason": null,
+        "cancelReason": null,
+        "nativeState": "SDK enumeration ended; physical feeder/transport state requires observation"
+      },
+      "artifacts": [
+        {
+          "id": "787c0838-6113-41eb-8141-9506ee7828a9",
+          "sequence": 1,
+          "sha256": "1144db11afffd50fa0623585fd4a3082acb487c525aac52f606452e7e8a8ef19",
+          "bytes": 1883457,
+          "width": 1665,
+          "height": 1011,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        },
+        {
+          "id": "8778ac48-b5cd-4b0e-82c2-160194323827",
+          "sequence": 2,
+          "sha256": "28c10349211a05624083ff7cb9820e23c2e6e91a83b227b4dbe08b3eeba7e127",
+          "bytes": 1849212,
+          "width": 1665,
+          "height": 1011,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        },
+        {
+          "id": "a3a68003-b4c9-4094-98d7-87cc6f98b49e",
+          "sequence": 3,
+          "sha256": "18925ccb694f4b68ef1ed2270b53d848d27649de473960c2e112f78b05774c56",
+          "bytes": 1837507,
+          "width": 1665,
+          "height": 1013,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        },
+        {
+          "id": "3a8cc59d-b845-4268-9cdc-de27eda00fab",
+          "sequence": 4,
+          "sha256": "26db6f5bd72b3d61f1a14a0926efe31b53a4ccea512a49fa8d7780417f35975e",
+          "bytes": 1834874,
+          "width": 1665,
+          "height": 1008,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        },
+        {
+          "id": "09a3cf98-f8b1-42ad-b60a-df175dc75ed4",
+          "sequence": 5,
+          "sha256": "ade01ce2702f218c7056d9dc01de5055d93fbe7ef13504d60715a76607099d67",
+          "bytes": 1808345,
+          "width": 1665,
+          "height": 1007,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        },
+        {
+          "id": "a39590e9-7820-497f-a278-72c33dac4d0a",
+          "sequence": 6,
+          "sha256": "1906b6dd6c410acab6c23d0438bfc47e7576385891efae1ab14369da3e586bc1",
+          "bytes": 1888558,
+          "width": 1665,
+          "height": 1007,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        },
+        {
+          "id": "a75e195e-840e-4342-86e1-1b4b0df4f1f7",
+          "sequence": 7,
+          "sha256": "fc6eb9cd20f8c07d95790d3f40346a9fdc636dba2c8dafaca1a2b9d9c903b6ff",
+          "bytes": 1829277,
+          "width": 1665,
+          "height": 1009,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        },
+        {
+          "id": "d4db7fcb-2812-48af-aa34-49be64c24cee",
+          "sequence": 8,
+          "sha256": "f2ff05e636596533fb49124a97fe2822ca06cdc0b9150565040e568e6d7c6579",
+          "bytes": 1911274,
+          "width": 1665,
+          "height": 1007,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        },
+        {
+          "id": "e3cf4a8f-0ea7-42c7-a5c3-05ccca50ccff",
+          "sequence": 9,
+          "sha256": "e5ec13552f25bb3f8053143315d0a773ddb31f37fc6e4c31b6306aa0446960da",
+          "bytes": 1814927,
+          "width": 1665,
+          "height": 1010,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        },
+        {
+          "id": "e9ad7018-470c-4f96-a75f-b940b20b13f5",
+          "sequence": 10,
+          "sha256": "3cf131f5daf591e458642438938db3e698ab7a8dfbe3d2de09ca83eca9e6a6ee",
+          "bytes": 1821031,
+          "width": 1665,
+          "height": 1010,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        }
+      ],
+      "operatorObservation": {
+        "source": "User replies in scanner qualification conversation",
+        "loaded": 10,
+        "fullyEmitted": 10,
+        "partlyInTransport": null,
+        "note": "Ten out in recorded image order, no doubles/jams/marks.",
+        "physicalCountsDerivedFromImages": false
+      }
+    },
+    {
+      "test": "Q8-interrupt-target-one",
+      "runId": "5434407f-8e47-481b-9cc2-f407999ae1d4",
+      "createdAt": "2026-09-28T19:44:15.4074185+00:00",
+      "requested": {
+        "runId": "5434407f-8e47-481b-9cc2-f407999ae1d4",
+        "deviceId": "Wia:{6BDD1FC6-810F-11D0-BEC7-08002BE2092F}\\0000",
+        "dpi": 300,
+        "widthInches": 2.6,
+        "heightInches": 3.6,
+        "duplex": false,
+        "imageStopBudget": 1,
+        "sessionPhysicalTarget": 1
+      },
+      "backendSnapshot": 1,
+      "capabilitySnapshot": 1,
+      "eventKinds": [
+        "AcquisitionStarted",
+        "ImageReceived",
+        "StopRequested",
+        "AcquisitionCompleted"
+      ],
+      "terminal": {
+        "outcome": "STOP_REQUESTED",
+        "imageCount": 1,
+        "elapsedMs": 3451,
+        "knownPhysicalItems": null,
+        "sourceExhausted": "UNKNOWN",
+        "stopReason": "diagnostic-image-budget; physical count remains unknown",
+        "cancelReason": null,
+        "nativeState": "SDK enumeration ended; physical feeder/transport state requires observation"
+      },
+      "artifacts": [
+        {
+          "id": "29c236da-c0b0-4139-ba27-2081ffc16731",
+          "sequence": 1,
+          "sha256": "83ec5cc155d10a6f35bd93e03c8923574a8927049244e172112819d4261bf9e7",
+          "bytes": 1876950,
+          "width": 1665,
+          "height": 1010,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        }
+      ],
+      "operatorObservation": {
+        "source": "User replies in scanner qualification conversation",
+        "loaded": 5,
+        "fullyEmitted": 2,
+        "partlyInTransport": 1,
+        "note": "Two fed completely and a third sticking out. Later cleared/reloaded; no cards damaged.",
+        "physicalCountsDerivedFromImages": false
+      }
+    },
+    {
+      "test": "Q9-Q10-short-recovery",
+      "runId": "4bb47189-0277-4667-8142-b3b6e6d9c752",
+      "createdAt": "2026-09-28T19:48:17.4386403+00:00",
+      "requested": {
+        "runId": "4bb47189-0277-4667-8142-b3b6e6d9c752",
+        "deviceId": "Wia:{6BDD1FC6-810F-11D0-BEC7-08002BE2092F}\\0000",
+        "dpi": 300,
+        "widthInches": 2.6,
+        "heightInches": 3.6,
+        "duplex": false,
+        "imageStopBudget": null,
+        "sessionPhysicalTarget": 10,
+        "allowInterruptingStop": false,
+        "horizontalPlacement": "Center"
+      },
+      "backendSnapshot": 2,
+      "capabilitySnapshot": 1,
+      "eventKinds": [
+        "AcquisitionStarted",
+        "ImageReceived",
+        "ImageReceived",
+        "ImageReceived",
+        "ImageReceived",
+        "ImageReceived",
+        "AcquisitionCompleted"
+      ],
+      "terminal": {
+        "outcome": "COMPLETED",
+        "imageCount": 5,
+        "elapsedMs": 6379,
+        "knownPhysicalItems": null,
+        "sourceExhausted": "UNKNOWN",
+        "stopReason": null,
+        "cancelReason": null,
+        "nativeState": "SDK enumeration ended; physical feeder/transport state requires observation"
+      },
+      "artifacts": [
+        {
+          "id": "91182407-768f-4682-a969-a97b49d5c9c3",
+          "sequence": 1,
+          "sha256": "174baf10e302c93a46728d24d749aaf6de4737db7790b116e6b7c75d1434af5a",
+          "bytes": 1858634,
+          "width": 1665,
+          "height": 1009,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        },
+        {
+          "id": "e5a17523-03c1-4b01-beb2-b7d44b0390e7",
+          "sequence": 2,
+          "sha256": "cf6c7703f9ad459dd27a2352d61de965eb9444bc8f66aa1dd1144451186f10be",
+          "bytes": 1828306,
+          "width": 1665,
+          "height": 1009,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        },
+        {
+          "id": "7056830e-9c0c-47df-a67d-281fd168d5df",
+          "sequence": 3,
+          "sha256": "ecf4c7d044c9ec78e0c1313b9c4cd5067a0071b446051dd7a3f7363f00aebdae",
+          "bytes": 1821553,
+          "width": 1665,
+          "height": 1009,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        },
+        {
+          "id": "26363e00-76b7-4472-9953-9af3585542a4",
+          "sequence": 4,
+          "sha256": "cb2a3f89122a9c109729d79304501181f4aa294d7a41c9242857a3189e05d4d9",
+          "bytes": 1822596,
+          "width": 1665,
+          "height": 1006,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        },
+        {
+          "id": "88c40af3-0d41-41c7-91ac-2e19efa1c2a7",
+          "sequence": 5,
+          "sha256": "5bce553a230d48c1c329ba0a426c85f6f012f92648eee42409cd50cbe5fec3ca",
+          "bytes": 1787365,
+          "width": 1665,
+          "height": 1007,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        }
+      ],
+      "operatorObservation": {
+        "source": "User replies in scanner qualification conversation",
+        "loaded": 5,
+        "fullyEmitted": 5,
+        "partlyInTransport": null,
+        "note": "Five out, empty feeder, no problems after manual recovery.",
+        "physicalCountsDerivedFromImages": false
+      }
+    },
+    {
+      "test": "Q3-single-01",
+      "runId": "5f5f158f-559d-4516-9333-df880b53f43c",
+      "createdAt": "2026-09-28T19:49:47.4394547+00:00",
+      "requested": {
+        "runId": "5f5f158f-559d-4516-9333-df880b53f43c",
+        "deviceId": "Wia:{6BDD1FC6-810F-11D0-BEC7-08002BE2092F}\\0000",
+        "dpi": 300,
+        "widthInches": 2.6,
+        "heightInches": 3.6,
+        "duplex": false,
+        "imageStopBudget": null,
+        "sessionPhysicalTarget": 1,
+        "allowInterruptingStop": false,
+        "horizontalPlacement": "Start"
+      },
+      "backendSnapshot": 2,
+      "capabilitySnapshot": 1,
+      "eventKinds": [
+        "AcquisitionStarted",
+        "ImageReceived",
+        "AcquisitionCompleted"
+      ],
+      "terminal": {
+        "outcome": "COMPLETED",
+        "imageCount": 1,
+        "elapsedMs": 3249,
+        "knownPhysicalItems": null,
+        "sourceExhausted": "UNKNOWN",
+        "stopReason": null,
+        "cancelReason": null,
+        "nativeState": "SDK enumeration ended; physical feeder/transport state requires observation"
+      },
+      "artifacts": [
+        {
+          "id": "57ce2fb2-99e2-448d-8311-1ce0c2e4213e",
+          "sequence": 1,
+          "sha256": "1e41f4a20be91a5a89d77e21a1d08b2322746394d520e67ca3d3176ab3f3912d",
+          "bytes": 1844261,
+          "width": 780,
+          "height": 1011,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        }
+      ],
+      "operatorObservation": {
+        "source": "User replies in scanner qualification conversation",
+        "loaded": 1,
+        "fullyEmitted": 1,
+        "partlyInTransport": null,
+        "note": "One card out, no problems; operator confirmed after this run.",
+        "physicalCountsDerivedFromImages": false
+      }
+    },
+    {
+      "test": "Q3-single-02",
+      "runId": "3575d723-276e-4367-a811-23ac9ccb9e6e",
+      "createdAt": "2026-09-28T19:51:42.867734+00:00",
+      "requested": {
+        "runId": "3575d723-276e-4367-a811-23ac9ccb9e6e",
+        "deviceId": "Wia:{6BDD1FC6-810F-11D0-BEC7-08002BE2092F}\\0000",
+        "dpi": 300,
+        "widthInches": 2.6,
+        "heightInches": 3.6,
+        "duplex": false,
+        "imageStopBudget": null,
+        "sessionPhysicalTarget": 1,
+        "allowInterruptingStop": false,
+        "horizontalPlacement": "Start"
+      },
+      "backendSnapshot": 2,
+      "capabilitySnapshot": 1,
+      "eventKinds": [
+        "AcquisitionStarted",
+        "ImageReceived",
+        "AcquisitionCompleted"
+      ],
+      "terminal": {
+        "outcome": "COMPLETED",
+        "imageCount": 1,
+        "elapsedMs": 3241,
+        "knownPhysicalItems": null,
+        "sourceExhausted": "UNKNOWN",
+        "stopReason": null,
+        "cancelReason": null,
+        "nativeState": "SDK enumeration ended; physical feeder/transport state requires observation"
+      },
+      "artifacts": [
+        {
+          "id": "6bde735d-37a5-4578-9776-cfba46c7d688",
+          "sequence": 1,
+          "sha256": "dd3165a5d86afcbaf4de864a07b2caef83f4ca01c9ee08a772f81395235f0242",
+          "bytes": 1847182,
+          "width": 780,
+          "height": 1013,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        }
+      ],
+      "operatorObservation": {
+        "source": "User replies in scanner qualification conversation",
+        "loaded": 1,
+        "fullyEmitted": 1,
+        "partlyInTransport": null,
+        "note": "One card out, no problems; operator confirmed after this run.",
+        "physicalCountsDerivedFromImages": false
+      }
+    },
+    {
+      "test": "Q3-single-03",
+      "runId": "535645ad-9021-4bdb-8050-091466cc5cfb",
+      "createdAt": "2026-09-28T19:54:22.4395366+00:00",
+      "requested": {
+        "runId": "535645ad-9021-4bdb-8050-091466cc5cfb",
+        "deviceId": "Wia:{6BDD1FC6-810F-11D0-BEC7-08002BE2092F}\\0000",
+        "dpi": 300,
+        "widthInches": 2.6,
+        "heightInches": 3.6,
+        "duplex": false,
+        "imageStopBudget": null,
+        "sessionPhysicalTarget": 1,
+        "allowInterruptingStop": false,
+        "horizontalPlacement": "Start"
+      },
+      "backendSnapshot": 2,
+      "capabilitySnapshot": 1,
+      "eventKinds": [
+        "AcquisitionStarted",
+        "ImageReceived",
+        "AcquisitionCompleted"
+      ],
+      "terminal": {
+        "outcome": "COMPLETED",
+        "imageCount": 1,
+        "elapsedMs": 3264,
+        "knownPhysicalItems": null,
+        "sourceExhausted": "UNKNOWN",
+        "stopReason": null,
+        "cancelReason": null,
+        "nativeState": "SDK enumeration ended; physical feeder/transport state requires observation"
+      },
+      "artifacts": [
+        {
+          "id": "0c2ed6f6-3d69-4c74-a1e8-4ccf8f3932cf",
+          "sequence": 1,
+          "sha256": "13777205790958bfefeada6d6fc432f934215da6584079545130b6630c044d29",
+          "bytes": 1848875,
+          "width": 780,
+          "height": 1008,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        }
+      ],
+      "operatorObservation": {
+        "source": "User replies in scanner qualification conversation",
+        "loaded": 1,
+        "fullyEmitted": 1,
+        "partlyInTransport": null,
+        "note": "One card out, no problems; operator confirmed after this run.",
+        "physicalCountsDerivedFromImages": false
+      }
+    },
+    {
+      "test": "Q3-single-04",
+      "runId": "6b5f4b74-1f48-4ee4-96b4-284e7452704c",
+      "createdAt": "2026-09-28T19:55:59.6494209+00:00",
+      "requested": {
+        "runId": "6b5f4b74-1f48-4ee4-96b4-284e7452704c",
+        "deviceId": "Wia:{6BDD1FC6-810F-11D0-BEC7-08002BE2092F}\\0000",
+        "dpi": 300,
+        "widthInches": 2.6,
+        "heightInches": 3.6,
+        "duplex": false,
+        "imageStopBudget": null,
+        "sessionPhysicalTarget": 1,
+        "allowInterruptingStop": false,
+        "horizontalPlacement": "Start"
+      },
+      "backendSnapshot": 2,
+      "capabilitySnapshot": 1,
+      "eventKinds": [
+        "AcquisitionStarted",
+        "ImageReceived",
+        "AcquisitionCompleted"
+      ],
+      "terminal": {
+        "outcome": "COMPLETED",
+        "imageCount": 1,
+        "elapsedMs": 3200,
+        "knownPhysicalItems": null,
+        "sourceExhausted": "UNKNOWN",
+        "stopReason": null,
+        "cancelReason": null,
+        "nativeState": "SDK enumeration ended; physical feeder/transport state requires observation"
+      },
+      "artifacts": [
+        {
+          "id": "9bf13347-856b-4201-ba8a-7a5d9b2161ab",
+          "sequence": 1,
+          "sha256": "ce7bf761af281095365d01bb4aeea25b47f68b8f246027aa58ec72fae3dd952a",
+          "bytes": 1842106,
+          "width": 780,
+          "height": 1010,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        }
+      ],
+      "operatorObservation": {
+        "source": "User replies in scanner qualification conversation",
+        "loaded": 1,
+        "fullyEmitted": 1,
+        "partlyInTransport": null,
+        "note": "One card out, no problems; operator confirmed after this run.",
+        "physicalCountsDerivedFromImages": false
+      }
+    },
+    {
+      "test": "Q3-single-05",
+      "runId": "f7b6b988-6c5a-401e-a209-ab82df80c581",
+      "createdAt": "2026-09-28T19:57:13.0028357+00:00",
+      "requested": {
+        "runId": "f7b6b988-6c5a-401e-a209-ab82df80c581",
+        "deviceId": "Wia:{6BDD1FC6-810F-11D0-BEC7-08002BE2092F}\\0000",
+        "dpi": 300,
+        "widthInches": 2.6,
+        "heightInches": 3.6,
+        "duplex": false,
+        "imageStopBudget": null,
+        "sessionPhysicalTarget": 1,
+        "allowInterruptingStop": false,
+        "horizontalPlacement": "Start"
+      },
+      "backendSnapshot": 2,
+      "capabilitySnapshot": 1,
+      "eventKinds": [
+        "AcquisitionStarted",
+        "ImageReceived",
+        "AcquisitionCompleted"
+      ],
+      "terminal": {
+        "outcome": "COMPLETED",
+        "imageCount": 1,
+        "elapsedMs": 3223,
+        "knownPhysicalItems": null,
+        "sourceExhausted": "UNKNOWN",
+        "stopReason": null,
+        "cancelReason": null,
+        "nativeState": "SDK enumeration ended; physical feeder/transport state requires observation"
+      },
+      "artifacts": [
+        {
+          "id": "f3f7093f-d584-49b6-9b42-77b412f97a67",
+          "sequence": 1,
+          "sha256": "5ae3403251e2700223084ac74b56d15aef06a8a085a5c24155f85a1dc9313d3f",
+          "bytes": 1839737,
+          "width": 780,
+          "height": 1011,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        }
+      ],
+      "operatorObservation": {
+        "source": "User replies in scanner qualification conversation",
+        "loaded": 1,
+        "fullyEmitted": 1,
+        "partlyInTransport": null,
+        "note": "One card out, no problems; operator confirmed after this run.",
+        "physicalCountsDerivedFromImages": false
+      }
+    },
+    {
+      "test": "Q3-single-06",
+      "runId": "6f92d3f6-5f41-41fc-ba10-7fc2f944c654",
+      "createdAt": "2026-09-28T19:57:56.3619327+00:00",
+      "requested": {
+        "runId": "6f92d3f6-5f41-41fc-ba10-7fc2f944c654",
+        "deviceId": "Wia:{6BDD1FC6-810F-11D0-BEC7-08002BE2092F}\\0000",
+        "dpi": 300,
+        "widthInches": 2.6,
+        "heightInches": 3.6,
+        "duplex": false,
+        "imageStopBudget": null,
+        "sessionPhysicalTarget": 1,
+        "allowInterruptingStop": false,
+        "horizontalPlacement": "Start"
+      },
+      "backendSnapshot": 2,
+      "capabilitySnapshot": 1,
+      "eventKinds": [
+        "AcquisitionStarted",
+        "ImageReceived",
+        "AcquisitionCompleted"
+      ],
+      "terminal": {
+        "outcome": "COMPLETED",
+        "imageCount": 1,
+        "elapsedMs": 3218,
+        "knownPhysicalItems": null,
+        "sourceExhausted": "UNKNOWN",
+        "stopReason": null,
+        "cancelReason": null,
+        "nativeState": "SDK enumeration ended; physical feeder/transport state requires observation"
+      },
+      "artifacts": [
+        {
+          "id": "eb140620-39e8-4572-b060-0a561b61055c",
+          "sequence": 1,
+          "sha256": "d79f9f549ae7a30f5cffb04f4a7db7b384ec4c95c22077c367c144f1fc726948",
+          "bytes": 1841859,
+          "width": 780,
+          "height": 1012,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        }
+      ],
+      "operatorObservation": {
+        "source": "User replies in scanner qualification conversation",
+        "loaded": 1,
+        "fullyEmitted": 1,
+        "partlyInTransport": null,
+        "note": "One card out, no problems; operator confirmed after this run.",
+        "physicalCountsDerivedFromImages": false
+      }
+    },
+    {
+      "test": "Q3-single-07",
+      "runId": "aaff2724-331b-46dd-88cc-3521d11def1a",
+      "createdAt": "2026-09-28T19:58:42.3794021+00:00",
+      "requested": {
+        "runId": "aaff2724-331b-46dd-88cc-3521d11def1a",
+        "deviceId": "Wia:{6BDD1FC6-810F-11D0-BEC7-08002BE2092F}\\0000",
+        "dpi": 300,
+        "widthInches": 2.6,
+        "heightInches": 3.6,
+        "duplex": false,
+        "imageStopBudget": null,
+        "sessionPhysicalTarget": 1,
+        "allowInterruptingStop": false,
+        "horizontalPlacement": "Start"
+      },
+      "backendSnapshot": 2,
+      "capabilitySnapshot": 1,
+      "eventKinds": [
+        "AcquisitionStarted",
+        "ImageReceived",
+        "AcquisitionCompleted"
+      ],
+      "terminal": {
+        "outcome": "COMPLETED",
+        "imageCount": 1,
+        "elapsedMs": 3224,
+        "knownPhysicalItems": null,
+        "sourceExhausted": "UNKNOWN",
+        "stopReason": null,
+        "cancelReason": null,
+        "nativeState": "SDK enumeration ended; physical feeder/transport state requires observation"
+      },
+      "artifacts": [
+        {
+          "id": "937b46f4-20e5-4c39-992b-99620fd9d412",
+          "sequence": 1,
+          "sha256": "e0374a2d0af9bfd5b4e440bc631eb99639025083c75ebb10ada4a0ccfb75e2a5",
+          "bytes": 1845274,
+          "width": 780,
+          "height": 1011,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        }
+      ],
+      "operatorObservation": {
+        "source": "User replies in scanner qualification conversation",
+        "loaded": 1,
+        "fullyEmitted": 1,
+        "partlyInTransport": null,
+        "note": "One card out, no problems; operator confirmed after this run.",
+        "physicalCountsDerivedFromImages": false
+      }
+    },
+    {
+      "test": "Q3-single-08",
+      "runId": "a3e850f8-752d-4564-9045-e807de29c2f3",
+      "createdAt": "2026-09-28T19:59:40.5018153+00:00",
+      "requested": {
+        "runId": "a3e850f8-752d-4564-9045-e807de29c2f3",
+        "deviceId": "Wia:{6BDD1FC6-810F-11D0-BEC7-08002BE2092F}\\0000",
+        "dpi": 300,
+        "widthInches": 2.6,
+        "heightInches": 3.6,
+        "duplex": false,
+        "imageStopBudget": null,
+        "sessionPhysicalTarget": 1,
+        "allowInterruptingStop": false,
+        "horizontalPlacement": "Start"
+      },
+      "backendSnapshot": 2,
+      "capabilitySnapshot": 1,
+      "eventKinds": [
+        "AcquisitionStarted",
+        "ImageReceived",
+        "AcquisitionCompleted"
+      ],
+      "terminal": {
+        "outcome": "COMPLETED",
+        "imageCount": 1,
+        "elapsedMs": 3195,
+        "knownPhysicalItems": null,
+        "sourceExhausted": "UNKNOWN",
+        "stopReason": null,
+        "cancelReason": null,
+        "nativeState": "SDK enumeration ended; physical feeder/transport state requires observation"
+      },
+      "artifacts": [
+        {
+          "id": "a9aafb2c-154b-4fda-a81d-72a903741c02",
+          "sequence": 1,
+          "sha256": "546e978d11e61b55bbebf8c895ca8bedecfec40f82664f23a76d41488938ff4b",
+          "bytes": 1841071,
+          "width": 780,
+          "height": 1011,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        }
+      ],
+      "operatorObservation": {
+        "source": "User replies in scanner qualification conversation",
+        "loaded": 1,
+        "fullyEmitted": 1,
+        "partlyInTransport": null,
+        "note": "One card out, no problems; operator confirmed after this run.",
+        "physicalCountsDerivedFromImages": false
+      }
+    },
+    {
+      "test": "Q3-single-09",
+      "runId": "20c012fd-8aa8-4cd0-96d2-808241634767",
+      "createdAt": "2026-09-28T20:00:45.6008959+00:00",
+      "requested": {
+        "runId": "20c012fd-8aa8-4cd0-96d2-808241634767",
+        "deviceId": "Wia:{6BDD1FC6-810F-11D0-BEC7-08002BE2092F}\\0000",
+        "dpi": 300,
+        "widthInches": 2.6,
+        "heightInches": 3.6,
+        "duplex": false,
+        "imageStopBudget": null,
+        "sessionPhysicalTarget": 1,
+        "allowInterruptingStop": false,
+        "horizontalPlacement": "Start"
+      },
+      "backendSnapshot": 3,
+      "capabilitySnapshot": 1,
+      "eventKinds": [
+        "AcquisitionStarted",
+        "ImageReceived",
+        "AcquisitionCompleted"
+      ],
+      "terminal": {
+        "outcome": "COMPLETED",
+        "imageCount": 1,
+        "elapsedMs": 3212,
+        "knownPhysicalItems": null,
+        "sourceExhausted": "UNKNOWN",
+        "stopReason": null,
+        "cancelReason": null,
+        "nativeState": "SDK enumeration ended; physical feeder/transport state requires observation"
+      },
+      "artifacts": [
+        {
+          "id": "0d6b147b-9086-4b2c-9f30-b03c2a829ff6",
+          "sequence": 1,
+          "sha256": "2943e5a11764450f8a498250a8f5dd646efbee3cb176e3d9bb3e5c4f359a45f4",
+          "bytes": 1837960,
+          "width": 780,
+          "height": 1009,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        }
+      ],
+      "operatorObservation": {
+        "source": "User replies in scanner qualification conversation",
+        "loaded": 1,
+        "fullyEmitted": 1,
+        "partlyInTransport": null,
+        "note": "One card out, no problems; operator confirmed after this run.",
+        "physicalCountsDerivedFromImages": false
+      }
+    },
+    {
+      "test": "Q3-single-10",
+      "runId": "75673266-218f-4408-b8da-e6a1aff99336",
+      "createdAt": "2026-09-28T20:01:43.1076859+00:00",
+      "requested": {
+        "runId": "75673266-218f-4408-b8da-e6a1aff99336",
+        "deviceId": "Wia:{6BDD1FC6-810F-11D0-BEC7-08002BE2092F}\\0000",
+        "dpi": 300,
+        "widthInches": 2.6,
+        "heightInches": 3.6,
+        "duplex": false,
+        "imageStopBudget": null,
+        "sessionPhysicalTarget": 1,
+        "allowInterruptingStop": false,
+        "horizontalPlacement": "Start"
+      },
+      "backendSnapshot": 3,
+      "capabilitySnapshot": 1,
+      "eventKinds": [
+        "AcquisitionStarted",
+        "ImageReceived",
+        "AcquisitionCompleted"
+      ],
+      "terminal": {
+        "outcome": "COMPLETED",
+        "imageCount": 1,
+        "elapsedMs": 3208,
+        "knownPhysicalItems": null,
+        "sourceExhausted": "UNKNOWN",
+        "stopReason": null,
+        "cancelReason": null,
+        "nativeState": "SDK enumeration ended; physical feeder/transport state requires observation"
+      },
+      "artifacts": [
+        {
+          "id": "d3cc39b2-9df9-41ec-9a87-c42a43cbb46e",
+          "sequence": 1,
+          "sha256": "9eb83c76b17840bc25b66b767c0b58aaa53a5cccb75521be549feea959223347",
+          "bytes": 1836770,
+          "width": 780,
+          "height": 1011,
+          "side": "UNKNOWN",
+          "physicalBoundary": "UNKNOWN"
+        }
+      ],
+      "operatorObservation": {
+        "source": "User replies in scanner qualification conversation",
+        "loaded": 1,
+        "fullyEmitted": 1,
+        "partlyInTransport": null,
+        "note": "One card out, no problems; operator confirmed after this run.",
+        "physicalCountsDerivedFromImages": false
+      }
+    },
+    {
+      "test": "Q9-empty",
+      "runId": "7aecaaef-44a1-49e3-ae8e-db0d0727b987",
+      "createdAt": "2026-09-28T20:02:44.2180522+00:00",
+      "requested": {
+        "runId": "7aecaaef-44a1-49e3-ae8e-db0d0727b987",
+        "deviceId": "Wia:{6BDD1FC6-810F-11D0-BEC7-08002BE2092F}\\0000",
+        "dpi": 300,
+        "widthInches": 2.6,
+        "heightInches": 3.6,
+        "duplex": false,
+        "imageStopBudget": null,
+        "sessionPhysicalTarget": 10,
+        "allowInterruptingStop": false,
+        "horizontalPlacement": "Start"
+      },
+      "backendSnapshot": 3,
+      "capabilitySnapshot": 1,
+      "eventKinds": [
+        "AcquisitionStarted",
+        "SourceExhausted",
+        "AcquisitionCompleted"
+      ],
+      "terminal": {
+        "outcome": "SOURCE_EXHAUSTED",
+        "imageCount": 0,
+        "elapsedMs": 386,
+        "knownPhysicalItems": null,
+        "sourceExhausted": "REPORTED_EMPTY",
+        "stopReason": null,
+        "cancelReason": null,
+        "nativeState": "SDK enumeration ended; physical feeder/transport state requires observation"
+      },
+      "artifacts": [],
+      "operatorObservation": {
+        "source": "User replies in scanner qualification conversation",
+        "loaded": 0,
+        "fullyEmitted": 0,
+        "partlyInTransport": null,
+        "note": "Operator explicitly confirmed feeder and transport empty before run.",
+        "physicalCountsDerivedFromImages": false
+      }
+    }
+  ],
+  "pipeline": [
+    {
+      "label": "WIA-300",
+      "runId": "68bcd8f9-d85c-4274-a28c-52e4dd745d91",
+      "target": 1,
+      "locationSection": "A",
+      "idempotentReplay": true,
+      "fullBatchRejected": true,
+      "stages": [
+        {
+          "stage": "photo-canonical-v1",
+          "status": "COMPLETE"
+        },
+        {
+          "stage": "photo-recognition-v1",
+          "status": "COMPLETE"
+        }
+      ],
+      "artifactId": "67abf943-c7d4-4474-9f57-6d71fe6b8c6f",
+      "sha256": "2175eadc60ee84c699b7c3de62b830963de0ecfb76b627d3cae1081aeddea1a0",
+      "recognitionStatus": "REVIEW_REQUIRED",
+      "automaticAcceptance": false,
+      "catalogAtObservation": {
+        "status": "CHECKING",
+        "printingCoverage": "UNRESOLVED"
+      },
+      "proposals": [
+        {
+          "name": "Sunblade Samurai",
+          "setCode": "neo",
+          "collectorNumber": "39",
+          "lang": "en"
+        },
+        {
+          "name": "Sunblade Samurai",
+          "setCode": "neo",
+          "collectorNumber": "315",
+          "lang": "en"
+        },
+        {
+          "name": "Sunblade Samurai",
+          "setCode": "j25",
+          "collectorNumber": "264",
+          "lang": "en"
+        }
+      ]
+    },
+    {
+      "label": "WIA-600",
+      "runId": "3757fc2b-636b-43d3-92b6-24bc921f39d8",
+      "target": 1,
+      "locationSection": "A",
+      "idempotentReplay": true,
+      "fullBatchRejected": true,
+      "stages": [
+        {
+          "stage": "photo-canonical-v1",
+          "status": "COMPLETE"
+        },
+        {
+          "stage": "photo-recognition-v1",
+          "status": "COMPLETE"
+        }
+      ],
+      "artifactId": "8bcfa778-c828-4ab8-a646-f97781e3f075",
+      "sha256": "5ce1a015e8d623996ea48b8d564b397314700201f39027e8fa2058bc5776a25d",
+      "recognitionStatus": "REVIEW_REQUIRED",
+      "automaticAcceptance": false,
+      "catalogAtObservation": {
+        "status": "CHECKING",
+        "printingCoverage": "UNRESOLVED"
+      },
+      "proposals": [
+        {
+          "name": "Sunblade Samurai",
+          "setCode": "neo",
+          "collectorNumber": "39",
+          "lang": "en"
+        },
+        {
+          "name": "Sunblade Samurai",
+          "setCode": "neo",
+          "collectorNumber": "315",
+          "lang": "en"
+        },
+        {
+          "name": "Sunblade Samurai",
+          "setCode": "j25",
+          "collectorNumber": "264",
+          "lang": "en"
+        }
+      ]
+    },
+    {
+      "label": "WIA-300-start-frame",
+      "runId": "5f5f158f-559d-4516-9333-df880b53f43c",
+      "target": 1,
+      "locationSection": "A",
+      "idempotentReplay": true,
+      "fullBatchRejected": true,
+      "stages": [
+        {
+          "stage": "photo-canonical-v1",
+          "status": "COMPLETE"
+        },
+        {
+          "stage": "photo-recognition-v1",
+          "status": "COMPLETE"
+        }
+      ],
+      "artifactId": "57ce2fb2-99e2-448d-8311-1ce0c2e4213e",
+      "sha256": "1e41f4a20be91a5a89d77e21a1d08b2322746394d520e67ca3d3176ab3f3912d",
+      "recognitionStatus": "REVIEW_REQUIRED",
+      "automaticAcceptance": false,
+      "catalogAtObservation": {
+        "status": "CHECKING",
+        "printingCoverage": "UNRESOLVED"
+      },
+      "proposals": [
+        {
+          "name": "Sunblade Samurai",
+          "setCode": "neo",
+          "collectorNumber": "39",
+          "lang": "en"
+        },
+        {
+          "name": "Sunblade Samurai",
+          "setCode": "neo",
+          "collectorNumber": "315",
+          "lang": "en"
+        },
+        {
+          "name": "Sunblade Samurai",
+          "setCode": "j25",
+          "collectorNumber": "264",
+          "lang": "en"
+        }
+      ]
+    }
+  ],
+  "notTested": [
+    "Interrupting load5/target2 and load10/target5 suspended after transport failure",
+    "Revised default drain-on-stop branch physical requalification",
+    "Multi-card duplex pairing",
+    "Long-term card wear, multifeed rates, fi-7160 hardware",
+    "Production paired agent transport",
+    "Clean-host redistribution"
+  ],
+  "decision": "continue the spike because specific evidence is still missing"
+}
