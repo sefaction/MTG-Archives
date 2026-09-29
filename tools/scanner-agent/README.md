@@ -16,6 +16,17 @@ dotnet $agent caps 'Twain:Plustek PS286 Pro-TWAIN'
 
 Select an exact enumerated identity. Enumeration does not imply qualification. A WIA source and TWAIN source for the same hardware are distinct device identities in this boundary. No model-name conditional exists in the backend.
 
+For the separately reviewed site-connected helper, `serve CONNECTION-ID`
+checks retained originals without starting a scanner. Every five minutes while
+online it asks the authenticated site which exact photo receipts have passed
+the ordinary committed-photo seven-day purge. It checks its local manifest,
+receipt, bytes and digest again before removing only the matching PNG. Pending,
+uncommitted, unreconciled, changed or unavailable originals remain in private
+LocalAppData. Run bindings and journals remain to prevent an old command from
+feeding again. No local age-only deletion is used. The site-connected prototype
+and its production gates are described in
+[Native scanner batch delivery](../../docs/SCANNER_NATIVE_START.md).
+
 Create a private request outside tracked source, then scan only when the operator has confirmed feeder contents and transport safety:
 
 ```json

@@ -94,12 +94,27 @@ deleted on errors, stop, revocation, capacity rejection or missing ACK.
 - Helper spool, secrets and control journals live in LocalAppData/MTGArchives,
   outside executable/images. Server originals/control markers live in persistent
   UPLOADS_DATA_PATH. Native binaries are excluded from Linux image context.
-- Binary distribution/license inventory, helper original expiry after verified
-  server commit, active fault/backpressure status, individual mismatch recovery,
+- Binary distribution/license inventory, active fault/backpressure status,
+  individual mismatch recovery,
   stale-command handling and production restore epoch rotation remain gates.
   Restoring both database and control files requires an explicit new site epoch;
   the current marker test proves database-only rollback, not a full disaster
   recovery procedure. Do not claim the production goal complete.
+
+## Local helper original retention (dependent batch)
+
+The scanner PC's original PNGs remain in private LocalAppData while a batch is
+unfinished, uncommitted, mismatched, awaiting server purge, or unavailable.
+After the ordinary seven-day committed-photo retention worker removes server
+bytes and marks the matching photo purged, an authenticated helper check can
+retire only that exact local PNG. The site verifies helper ownership, run/epoch,
+operator reconciliation, artifact/slot/photo/digest and an aged commit receipt.
+The helper verifies its receipt and file digest again before deleting the PNG.
+Run binding, event journal and manifest remain as replay fences and diagnostic
+metadata. A bounded sweep runs every five minutes while `serve` is active;
+inaccessible or ambiguous runs stay untouched. No scanner is constructed by
+retention checks. This does not provide recovery of originals after both
+copies have passed retention; external backups cover that historical case.
 
 ## Local-only mechanical commands
 

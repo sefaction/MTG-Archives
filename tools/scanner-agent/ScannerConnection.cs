@@ -121,6 +121,7 @@ public static class ScannerConnection
             Console.CancelKeyPress += handler;
             IReadOnlyList<Device> devices = [];
             var nextDiscovery = DateTime.MinValue;
+            var nextRetention = DateTime.MinValue;
             try {
                 while (!stop.IsCancellationRequested)
                 {
@@ -145,6 +146,17 @@ public static class ScannerConnection
                             $"{connection.AgentId}.{credential.Secret}", Root, devices, stop.Token,
                             fixture ? () => new ScannerFixtureBackend(args[2]) : null,
                             fixture ? () => new { backend = "fixture", purpose = "LOCAL_PROTOCOL_TEST_ONLY" } : null);
+                        if (args[0] == "serve" && DateTime.UtcNow >= nextRetention) {
+                            nextRetention = DateTime.UtcNow.AddMinutes(5);
+                            try {
+                                var removed = await ScannerOriginalRetention.Check(client,
+                                    $"{connection.AgentId}.{credential.Secret}", Root, connection.AgentId);
+                                if (removed > 0) Console.WriteLine($"Expired scanner originals removed: {removed}");
+                            } catch (Exception error) when (error is HttpRequestException or TaskCanceledException or
+                                InvalidOperationException or IOException or JsonException) {
+                                Console.WriteLine("Scanner original retention check unavailable; local originals retained.");
+                            }
+                        }
                     }
                     catch (Exception error) when (args[0] != "report" && error is HttpRequestException or InvalidOperationException or TaskCanceledException) {
                         Console.WriteLine("Scanner connection unavailable; credentials and pending enrollment retained. Retrying.");

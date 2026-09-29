@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { scannerCredential, scannerHash, scannerHashMatches, scannerPairClaimSchema, scannerPairCode,
   scannerPulseSchema, scannerSecret } from "../lib/scanner-protocol";
+import { scannerRetentionSchema } from "../lib/scanner-run-protocol";
 import { readScannerJson } from "../lib/scanner-http";
 const device = { id: "source", name: "Scanner", backend: "generic", source: "Wia", qualification: "GenericUnqualified" };
 test("scanner credentials require exact identity/entropy and hashes contain no secret", () => {
@@ -36,4 +37,14 @@ test("scanner JSON bounds chunked requests before accumulating oversized bodies"
   await assert.rejects(readScannerJson(request, 15), /too large/);
   assert.equal(cancelled, true);
   assert.deepEqual(await readScannerJson(new Request("http://localhost", { method: "POST", body: '{"version":1}' }), 100), { version: 1 });
+});
+test("scanner original cleanup request binds a bounded set of exact photo digests", () => {
+  const artifact = { artifactId: randomUUID(), photoId: randomUUID(), digest: "a".repeat(64) };
+  const request = { version: 1, runId: randomUUID(), epoch: randomUUID(), artifacts: [artifact] };
+  assert.ok(scannerRetentionSchema.safeParse(request).success);
+  for (const bad of [{ ...request, artifacts: [artifact, artifact] },
+    { ...request, artifacts: [{ ...artifact, digest: "bad" }] },
+    { ...request, artifacts: [{ ...artifact, path: "private" }] },
+    { ...request, artifacts: Array.from({ length: 501 }, () => ({ ...artifact, artifactId: randomUUID() })) }])
+    assert.equal(scannerRetentionSchema.safeParse(bad).success, false);
 });
