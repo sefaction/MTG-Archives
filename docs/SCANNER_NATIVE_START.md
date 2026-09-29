@@ -1,8 +1,8 @@
 # Native scanner batch delivery
 
-Current implementation branch: `feat/native-scanner-runs`, based on #502 at
-839cc9b and separately unapproved backend #474. Tracking #501/#311. Recognition
-#463 remains open/deferred. No production operation or new physical scan.
+Current implementation branch: `feat/native-scanner-runs`, based on separately
+unapproved #502 and #474. Tracking #501/#311. Recognition #463 remains
+open/deferred. No production operation.
 The user-provided production origin is `https://mtgarchive.graymaiden.com/`.
 It belongs in the helper's site-bound setup after separately approved rollout;
 current implementation and validation use local Docker only.
@@ -55,6 +55,23 @@ deleted on errors, stop, revocation, capacity rejection or missing ACK.
   copy was added. This is one-card local evidence, not a feeder-stop, duplex,
   multi-device, large-batch or production acceptance claim. Private original,
   browser images and run data are retained under owned local test state.
+- A second real website-controlled PS286 WIA 300-DPI simplex run used five
+  expendable cards with operator-confirmed loading order. The SDK returned five
+  originals in 6.291 seconds; the helper and server retained all five with
+  matching SHA-256 digests. The operator observed five undamaged cards exiting
+  in order, empty feeder and transport, and no doubles, jams, marks or dialogs.
+  Physical count was then confirmed separately in the website; all five
+  candidate counts are confirmed, with zero Inventory changes. Existing
+  recognition/review proposed the visually observed name, set and collector
+  number for all five (Evershrike's Gift ECL #15, Sundering Archaic SOS #3,
+  Transcendent Archaic SOS #5, Armored Armadillo OTJ #3, Crystal Fragments
+  FIN #13). Finish and condition remain unchosen and all five await human
+  review. This is a single local feeder batch, not an independent recognition
+  accuracy estimate or evidence of exact stop/duplex/device boundaries. The
+  SDK still reports physical boundaries, sides and source exhaustion as
+  unknown. All 45 ordinary processing jobs completed without error. Desktop
+  and 320px review had no page-wide overflow; private
+  originals and screenshots remain local.
 - Website START through the actual Windows fixture helper and saved-source PNG
   also passed local Docker end to end in 67.4 seconds: original digest preserved,
   ordinary recognition/review found Sunblade Samurai, responsive 1366/320
@@ -69,11 +86,11 @@ deleted on errors, stop, revocation, capacity rejection or missing ACK.
   the actual HTTP/spool recovery code with a controlled handler: lost ACK,
   duplicate run, epoch/binding/receipt mismatch, retained original and zero
   backend constructions. A compiler/selftest pass does not qualify the motor.
-- Website/helper/ordinary-native-recognition browser check is pending. Its
-  guarded local fixture adapter copies a preserved PNG unchanged through the
-  same backend boundary and transport; it cannot connect to production and
-  makes no physical-feeding claim. Real PS286 acceptance still needs fresh
-  operator setup; fi-7160 hardware/driver qualification follows arrival.
+- The website/helper/ordinary-native-recognition browser check passed again
+  against the final cumulative local Docker build. Its guarded local fixture
+  adapter copies a preserved PNG unchanged through the same backend boundary
+  and transport; it cannot connect to production and makes no physical-feeding
+  claim. Fi-7160 hardware/driver qualification follows arrival.
 - Helper spool, secrets and control journals live in LocalAppData/MTGArchives,
   outside executable/images. Server originals/control markers live in persistent
   UPLOADS_DATA_PATH. Native binaries are excluded from Linux image context.
