@@ -66,7 +66,11 @@ test("12 library photos recover transient errors and preserve bounded failure/re
     });
     await page.getByLabel("Choose card photos").setInputFiles(files);
     await expect(page.getByText("Retrying upload (1 of 2)",{exact:false}).first()).toBeVisible();
+    await page.setViewportSize({width:320,height:844});
+    await page.getByText("Retrying upload (1 of 2)",{exact:false}).first().scrollIntoViewIfNeeded();
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
     await page.screenshot({path:"test-results/acquisition-upload-retrying-phone.png"});
+    await page.setViewportSize({width:390,height:844});
     release();
     const pending=page.getByRole("region",{name:"Pending uploads"});
     const identity=pending.getByRole("listitem").filter({hasText:"Photo upload identity conflict"});

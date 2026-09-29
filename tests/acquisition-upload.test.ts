@@ -104,6 +104,21 @@ test("temporary gateway failure can recover; persistent failure is bounded", asy
   assert.equal(calls, 3);
 });
 
+test("connection lost while reading an acknowledgement retries without trusting partial bytes", async () => {
+  let calls = 0;
+  await uploadAcquisitionPhoto(url, blob, {
+    signal: new AbortController().signal, wait,
+    request: async () => {
+      calls++;
+      if(calls>1) return ready();
+      return new Response(new ReadableStream({
+        start(controller) { controller.error(new TypeError("body connection lost")); },
+      }));
+    },
+  });
+  assert.equal(calls, 2);
+});
+
 test("overall deadline cancels backoff and prevents another request", async () => {
   const controller = new AbortController();
   let calls = 0;

@@ -63,12 +63,19 @@ export async function uploadAcquisitionPhoto(
       retryable = error instanceof TypeError;
     }
     if (response) {
-      const result = await response.json().catch(() => null);
+      let result;
+      let bodyDisconnected = false;
+      try {
+        result = await response.json();
+      } catch (error) {
+        bodyDisconnected = error instanceof TypeError;
+      }
       if (response.ok && result?.ready === true) return;
       failure = new Error(
         typeof result?.error === "string" ? result.error : "Upload was not saved; retry",
       );
       retryable =
+        (response.ok && bodyDisconnected) ||
         (response.status === 409 && result?.retryable === true) ||
         [408, 502, 503, 504].includes(response.status);
     }
