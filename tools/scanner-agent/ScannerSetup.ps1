@@ -55,8 +55,8 @@ function Find-RunningService([string]$identity) {
 function Start-ScannerService([string]$identity) {
   if ((Find-RunningService $identity).Count -gt 0) { return 'Scanner helper is already running.' }
   New-Item -ItemType Directory -Path $logDir -Force | Out-Null
-  $output = Join-Path $logDir 'setup-serve.stdout.log'
-  $errors = Join-Path $logDir 'setup-serve.stderr.log'
+  $output = Join-Path $logDir "${identity}.stdout.log"
+  $errors = Join-Path $logDir "${identity}.stderr.log"
   $process = Start-Process -FilePath $resolvedDotnet -ArgumentList @("`"$agentPath`"", 'serve', $identity) -WindowStyle Hidden `
     -RedirectStandardOutput $output -RedirectStandardError $errors -PassThru
   Start-Sleep -Milliseconds 800
