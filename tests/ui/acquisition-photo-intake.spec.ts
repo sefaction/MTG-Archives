@@ -68,11 +68,11 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
     await expect(
       page.getByRole("heading", { name: /0 of 2 cards/ }),
     ).toBeVisible();
-    let lost = false;
+    let lost = 0;
     await page.route("**/api/acquisition/*/photos?*", async (route) => {
-      if (!lost) {
-        lost = true;
-        await route.fetch();
+      if (lost < 3) {
+        if (lost === 0) await route.fetch();
+        lost++;
         await route.abort("failed");
       } else await route.continue();
     });

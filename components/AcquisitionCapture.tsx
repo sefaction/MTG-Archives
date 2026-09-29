@@ -16,6 +16,10 @@ import type { StorageLocation } from "@/lib/storage-sections";
 import { acquisitionImageInputKindSchema, type AcquisitionImageInputKind } from "@/lib/acquisition-image-input";
 import type { acquisitionProgressDto } from "@/lib/acquisition-api";
 import {
+  ACQUISITION_UPLOAD_ATTEMPTS,
+  uploadAcquisitionPhoto,
+} from "@/lib/acquisition-upload";
+import {
   captureUuid,
   loadPendingPhotos,
   removePendingPhoto,
@@ -26,6 +30,7 @@ type Progress = ReturnType<typeof acquisitionProgressDto>;
 type Upload = PendingPhoto & {
   status: "queued" | "uploading" | "failed";
   error?: string;
+  retry?: number;
 };
 const pendingPhotoLimit = 10;
 function validatePhoto(blob: Blob) {
@@ -190,15 +195,15 @@ export function AcquisitionCapture({
           // A browser crash before ACK retains this blob and the same upload identity.
           await savePendingPhoto(row);
           const url = `/api/acquisition/${row.sessionId}/photos?slot=${row.slotId}&key=${row.key}&generation=${row.generation}&replace=${row.replacePending ? "1" : "0"}&inputKind=${row.inputKind ?? "PHOTO"}`;
-          const response = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": row.blob.type },
-            body: row.blob,
+          await uploadAcquisitionPhoto(url, row.blob, {
             signal: controller.signal,
+            onRetry: (retry) => {
+              if (mounted.current)
+                setUploads((all) =>
+                  all.map((p) => p.key === row.key ? { ...p, retry } : p),
+                );
+            },
           });
-          const result = await response.json();
-          if (!response.ok || !result.ready)
-            throw new Error(result.error ?? "Upload was not saved; retry");
           await removePendingPhoto(row.key);
           if (mounted.current) {
             setUploads((all) => all.filter((p) => p.key !== row.key));
@@ -679,7 +684,9 @@ export function AcquisitionCapture({
                     Photo{" "}
                     {(progress.slots.find((s) => s.id === row.slotId)
                       ?.position ?? 0) + 1}
-                    : {row.status === "failed" ? row.error : row.status}
+                    : {row.status === "failed" ? row.error : row.retry
+                      ? `Retrying upload (${row.retry} of ${ACQUISITION_UPLOAD_ATTEMPTS - 1})`
+                      : row.status}
                     {row.status === "failed" && (
                       <button
                         className={button + " ml-2"}
@@ -687,7 +694,7 @@ export function AcquisitionCapture({
                           setUploads((all) =>
                             all.map((p) =>
                               p.key === row.key
-                                ? { ...p, status: "queued", error: undefined }
+                                ? { ...p, status: "queued", error: undefined, retry: undefined }
                                 : p,
                             ),
                           )
