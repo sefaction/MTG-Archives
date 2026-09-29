@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { verifyAcquisitionReview } from "./verify-acquisition-review";
+import { verifyAcquisitionCatalogReconciliation } from "./verify-acquisition-catalog-reconciliation";
 import { randomUUID } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
@@ -31,6 +32,7 @@ import {
   enqueueReadyRecognition,
   loadAcquisitionRecognitionSnapshot,
   RECOGNITION_STAGE,
+  acquisitionRecognitionVersion,
 } from "../lib/acquisition-recognition-worker";
 export async function verifyAcquisitionPhotos(
   db: PrismaClient,
@@ -150,6 +152,11 @@ export async function verifyAcquisitionPhotos(
       catalog.digest,
     );
     const model = "a".repeat(64);
+    assert.equal(
+      acquisitionRecognitionVersion(catalog.digest, model),
+      acquisitionRecognitionVersion("c".repeat(64), model),
+      "catalog refresh must not enqueue duplicate raw OCR",
+    );
     const enqueued = await Promise.all([
       enqueueReadyRecognition(db, catalog.digest, model),
       enqueueReadyRecognition(db, catalog.digest, model),
@@ -224,6 +231,15 @@ export async function verifyAcquisitionPhotos(
       model,
     );
     assert.equal(final.session.phase, "STOPPING");
+    await verifyAcquisitionCatalogReconciliation(
+      db,
+      actor,
+      id,
+      another.id,
+      claims.find(
+        (j) => (j.input as { photoId: string }).photoId === another.id,
+      )!,
+    );
     assert.equal(final.reservedSlots, 2);
     assert.equal(final.session.candidates.length, 2);
     assert.equal(final.slots[0].generation, 3);

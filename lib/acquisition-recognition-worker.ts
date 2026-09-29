@@ -17,22 +17,30 @@ const textSchema = z.object({
   title: z.array(z.string().max(2000)).max(100),
   footer: z.array(z.string().max(2000)).max(100),
 });
-const linesSchema = z.array(z.object({
-  text: z.string().max(2000),
-  score: z.number().finite(),
-  polygon: z.array(z.array(z.number().finite()).length(2)).max(8),
-})).max(100);
-const nativeSchema = z.object({
+const linesSchema = z
+  .array(
+    z.object({
+      text: z.string().max(2000),
+      score: z.number().finite(),
+      polygon: z.array(z.array(z.number().finite()).length(2)).max(8),
+    }),
+  )
+  .max(100);
+export const nativeSchema = z.object({
   version: z.literal(1),
   descriptor: digest,
   descriptorDetails: z.record(z.unknown()),
   photoDigest: digest,
   text: textSchema,
-  orientations: z.array(z.object({
-    rotationDegrees: z.union([z.literal(0), z.literal(180)]),
-    text: textSchema,
-    lines: linesSchema,
-  })).max(2),
+  orientations: z
+    .array(
+      z.object({
+        rotationDegrees: z.union([z.literal(0), z.literal(180)]),
+        text: textSchema,
+        lines: linesSchema,
+      }),
+    )
+    .max(2),
   geometry: z.object({ status: z.string() }).passthrough(),
   lines: linesSchema,
   milliseconds: z.number().nonnegative().finite(),
@@ -68,20 +76,18 @@ export async function loadAcquisitionRecognitionSnapshot(db: PrismaClient) {
         })
       : [],
   }));
-  if (!cards.length) throw new Error("Recognition catalog unavailable");
   return {
     digest: createHash("sha256").update(JSON.stringify(cards)).digest("hex"),
     index: createAcquisitionRecognitionIndex(cards),
   };
 }
-export function acquisitionRecognitionVersion(catalog: string, model: string) {
+export function acquisitionRecognitionVersion(_catalog: string, model: string) {
   return createHash("sha256")
     .update(
       JSON.stringify({
         pipeline: RECOGNITION_STAGE,
-        catalog,
         model,
-        resolver: "metadata-card-orientation-v4",
+        resolver: "metadata-card-orientation-catalog-v5",
       }),
     )
     .digest("hex");
@@ -185,10 +191,9 @@ export async function recognizeAcquisitionPhoto(
       versions: z.object({ catalog: digest, model: digest }),
     })
     .parse(job.input);
-  if (
-    input.versions.catalog !== snapshot.digest ||
-    input.versions.model !== model
-  )
+  // Catalog-only changes are handled by reconciliation of saved OCR. The raw
+  // job identity depends on its photo/revision/model, not metadata refreshes.
+  if (input.versions.model !== model)
     throw new Error(
       "Processing version unavailable; restart with its catalog/model",
     );
@@ -213,13 +218,21 @@ export async function recognizeAcquisitionPhoto(
     signal.aborted
   )
     throw new Error("Processing input changed");
-  const proposals = proposeOrientedAcquisitionPrintings(snapshot.index, native.orientations);
+  const proposals = proposeOrientedAcquisitionPrintings(
+    snapshot.index,
+    native.orientations,
+  );
   return {
     version: 1,
     photoId: input.photoId,
-    versions: input.versions,
+    versions: {
+      ...input.versions,
+      catalog: snapshot.digest,
+      index: snapshot.digest,
+    },
     execution: "CPU",
     native,
     proposals,
+    catalog: { status: "CHECKING", printingCoverage: "UNRESOLVED" },
   } as unknown as Prisma.InputJsonObject;
 }

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { acquisitionActor, acquisitionError } from "@/lib/acquisition-api";
 import { getAcquisitionPhoto } from "@/lib/acquisition-store";
 import { acquisitionRecognitionDto } from "@/lib/acquisition-recognition-dto";
+import { CATALOG_RECONCILIATION_STAGE } from "@/lib/acquisition-catalog-status";
 
 export async function GET(
   _request: Request,
@@ -19,7 +20,7 @@ export async function GET(
       where: {
         runId: photo.runId,
         artifact: { sourceId: photo.id },
-        stage: "photo-recognition-v1",
+        stage: { in: ["photo-recognition-v1", CATALOG_RECONCILIATION_STAGE] },
       },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 8,

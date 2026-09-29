@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { acquisitionCatalogMessage } from "@/lib/acquisition-catalog-status";
 import {
   recognitionResponseSchema,
   type RecognitionResponse,
@@ -31,7 +32,9 @@ export function AcquisitionPhotoRecognition({
           setState(next);
           setError(false);
         }
-        finished = ["COMPLETE", "FAILED", "SUPERSEDED"].includes(next.status);
+        finished =
+          ["COMPLETE", "FAILED", "SUPERSEDED"].includes(next.status) &&
+          next.catalog?.status !== "CHECKING";
       } catch {
         if (active) setError(true);
       }
@@ -59,6 +62,12 @@ export function AcquisitionPhotoRecognition({
     );
   if (state?.status === "SUPERSEDED")
     return <p className="text-xs">Waiting for the latest photo.</p>;
+  if (state?.catalog && state.catalog.status !== "RESOLVED")
+    return (
+      <p className="text-xs" role="status">
+        {acquisitionCatalogMessage(state.catalog)}
+      </p>
+    );
   if (!state?.result)
     return (
       <p className="text-xs" role="status">
@@ -85,13 +94,15 @@ export function AcquisitionPhotoRecognition({
           ? "Conflicting card text—check the printing carefully."
           : result.status === "STRONG_MATCH"
             ? "Exact printing matched. Save batch finish and condition to confirm it automatically; you can correct it before adding to Inventory."
-            : result.proposals.some((p) => p.reasons.includes("ORIENTATION_UNCERTAIN"))
-              ? "Both card directions produced possible matches. Check the card name and printing."
             : result.proposals.some((p) =>
-                  p.reasons.includes("STAMP_UNVERIFIED"),
+                  p.reasons.includes("ORIENTATION_UNCERTAIN"),
                 )
-              ? "Check the lower-left Planeswalker stamp: the original and stamped reprint can have the same set and collector text."
-              : "Check the set and collector number before accepting."}
+              ? "Both card directions produced possible matches. Check the card name and printing."
+              : result.proposals.some((p) =>
+                    p.reasons.includes("STAMP_UNVERIFIED"),
+                  )
+                ? "Check the lower-left Planeswalker stamp: the original and stamped reprint can have the same set and collector text."
+                : "Check the set and collector number before accepting."}
       </p>
       <ol className="mt-2 space-y-2 list-decimal pl-4">
         {result.proposals.map(({ card }) => (

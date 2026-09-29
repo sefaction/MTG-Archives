@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { catalogStatusSchema } from "./acquisition-catalog-status";
 const proposalSchema = z.object({
   status: z.enum(["CONFLICT", "REVIEW_REQUIRED", "NO_MATCH", "STRONG_MATCH"]),
   automaticAcceptance: z.boolean(),
@@ -30,6 +31,7 @@ export const recognitionResponseSchema = z.object({
     "SUPERSEDED",
   ]),
   result: proposalSchema.nullable(),
+  catalog: catalogStatusSchema.nullable().optional(),
 });
 export type RecognitionResponse = z.infer<typeof recognitionResponseSchema>;
 export function acquisitionRecognitionDto(
@@ -37,8 +39,18 @@ export function acquisitionRecognitionDto(
   output: unknown,
 ): RecognitionResponse {
   const result = z.object({ proposals: proposalSchema }).safeParse(output);
+  const parsed = z.object({ catalog: catalogStatusSchema }).safeParse(output);
+  const catalog = parsed.success
+    ? parsed.data.catalog
+    : { status: "CHECKING" as const, printingCoverage: "UNRESOLVED" as const };
+  if (result.success && catalog.status !== "RESOLVED") {
+    result.data.proposals.automaticAcceptance = false;
+    if (result.data.proposals.status === "STRONG_MATCH")
+      result.data.proposals.status = "REVIEW_REQUIRED";
+  }
   return {
     status,
+    catalog,
     result:
       status === "COMPLETE" && result.success ? result.data.proposals : null,
   };
