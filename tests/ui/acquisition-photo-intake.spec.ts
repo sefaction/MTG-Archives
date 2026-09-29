@@ -236,6 +236,7 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
         }
         photos.push({ name: entry.file, mimeType: "image/jpeg", buffer });
       }
+      await page.getByRole("button", { name: "Advanced", exact: true }).click();
       const started = Date.now();
       await page.getByLabel("Choose card photos").setInputFiles(photos);
       await expect(

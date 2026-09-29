@@ -51,6 +51,7 @@ test("tight scanner images retain the footer through recognition and visual revi
     await page
       .getByRole("button", { name: "Start batch", exact: true })
       .click();
+    await page.getByRole("button", { name: "Advanced", exact: true }).click();
     await page
       .getByRole("combobox", { name: "Batch finish", exact: true })
       .selectOption("NONFOIL");
@@ -182,13 +183,22 @@ test("tight scanner images retain the footer through recognition and visual revi
       // empty scan while the source request is still in flight.
       await expect
         .poll(() =>
-          card.getByRole("img", { name: "Full card image 1", exact: true })
+          card
+            .getByRole("img", { name: "Full card image 1", exact: true })
             .evaluate((element) => {
               const canvas = element as HTMLCanvasElement;
-              return canvas.width > 0 && canvas.height > 0 &&
-                canvas.getContext("2d")!.getImageData(
-                  Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1,
-                ).data[3] === 255;
+              return (
+                canvas.width > 0 &&
+                canvas.height > 0 &&
+                canvas
+                  .getContext("2d")!
+                  .getImageData(
+                    Math.floor(canvas.width / 2),
+                    Math.floor(canvas.height / 2),
+                    1,
+                    1,
+                  ).data[3] === 255
+              );
             }),
         )
         .toBe(true);

@@ -12,14 +12,17 @@ export function AcquisitionScanImage({
   evidence,
   active,
   position,
+  compact = false,
 }: {
   src: string;
   evidence: AcquisitionReviewEvidence;
   active: boolean;
   position: number;
+  compact?: boolean;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [view, setView] = useState<"original" | "crop" | "zones">("crop");
+  const displayView = compact ? "crop" : view;
   const [reverse, setReverse] = useState(false);
   const [error, setError] = useState("");
   const quad =
@@ -42,10 +45,11 @@ export function AcquisitionScanImage({
     image.onload = () => {
       if (cancelled || !canvas.current) return;
       const ctx = target.getContext("2d")!;
-      if (view === "original" || !quad) {
+      if (displayView === "original" || !quad) {
         const scale = Math.min(
           1,
-          600 / Math.max(image.naturalWidth, image.naturalHeight),
+          (compact ? 320 : 600) /
+            Math.max(image.naturalWidth, image.naturalHeight),
         );
         target.width = Math.round(image.naturalWidth * scale);
         target.height = Math.round(image.naturalHeight * scale);
@@ -69,7 +73,8 @@ export function AcquisitionScanImage({
       const source = document.createElement("canvas");
       const sampleScale = Math.min(
         1,
-        2400 / Math.max(image.naturalWidth, image.naturalHeight),
+        (compact ? 1000 : 2400) /
+          Math.max(image.naturalWidth, image.naturalHeight),
       );
       source.width = Math.round(image.naturalWidth * sampleScale);
       source.height = Math.round(image.naturalHeight * sampleScale);
@@ -81,8 +86,8 @@ export function AcquisitionScanImage({
         source.width,
         source.height,
       ).data;
-      target.width = 400;
-      target.height = 559;
+      target.width = compact ? 160 : 400;
+      target.height = compact ? 224 : 559;
       const out = ctx.createImageData(target.width, target.height);
       for (let y = 0; y < target.height; y++)
         for (let x = 0; x < target.width; x++) {
@@ -123,7 +128,7 @@ export function AcquisitionScanImage({
         }
       ctx.putImageData(out, 0, 0);
       source.width = source.height = 0;
-      if (view === "zones" && readingZones) {
+      if (displayView === "zones" && readingZones) {
         ctx.fillStyle = "rgba(0,255,255,.18)";
         for (const zone of Object.values(readingZones))
           ctx.fillRect(
@@ -160,18 +165,35 @@ export function AcquisitionScanImage({
       image.src = "";
       target.width = target.height = 0;
     };
-  }, [src, active, quad, observation, readingZones, view, rotation]);
+  }, [
+    src,
+    active,
+    quad,
+    observation,
+    readingZones,
+    displayView,
+    rotation,
+    compact,
+  ]);
   return (
     <figure className="min-w-0">
-      <figcaption className="font-semibold mb-2 min-h-12 sm:min-h-0">
+      <figcaption
+        className={
+          compact
+            ? "text-xs font-medium mb-1"
+            : "font-semibold mb-2 min-h-12 sm:min-h-0"
+        }
+      >
         Your scan
       </figcaption>
-      <div className="aspect-[1000/1397] max-h-[52vh] flex items-center justify-center bg-black/10 rounded overflow-hidden">
+      <div
+        className={`aspect-[1000/1397] flex items-center justify-center bg-black/10 rounded overflow-hidden ${compact ? "max-h-44" : "max-h-[52vh]"}`}
+      >
         {active ? (
           <canvas
             ref={canvas}
             role="img"
-            aria-label={`${view === "original" || !quad ? "Original scan" : fullFrame ? "Full card image" : "Detected card"} ${position}`}
+            aria-label={`${displayView === "original" || !quad ? "Original scan" : fullFrame ? "Full card image" : "Detected card"} ${position}`}
             className="max-w-full max-h-full object-contain"
           />
         ) : (
@@ -183,45 +205,49 @@ export function AcquisitionScanImage({
           {error}
         </p>
       )}
-      <div className="flex flex-wrap gap-1 mt-2" aria-label="Scan view">
-        {(
-          [
-            ["original", "Original"],
-            ["crop", fullFrame ? "Full card image" : "Detected card"],
-            ["zones", "Reading zones"],
-          ] as const
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            className={button + " text-xs"}
-            disabled={key !== "original" && !quad}
-            aria-pressed={view === key}
-            onClick={() => setView(key)}
-          >
-            {label}
-          </button>
-        ))}
-        {quad && evidence?.rotation === null && (
-          <button
-            className={button + " text-xs"}
-            onClick={() => setReverse((v) => !v)}
-          >
-            Inspect other direction
-          </button>
-        )}
-      </div>
-      <p className="text-xs mt-2">
-        {!quad
-          ? "No detected outline available; showing original."
-          : declaredScan
-            ? "Card scan: full image retained; border detection skipped."
-          : fullFrame
-            ? `Full image retained; no crop. This tightly framed image is resized for reading${evidence?.rotation === null ? "; direction unresolved" : " and oriented using the reading result"}.`
-            : view === "original"
-              ? "Cyan outline: corners chosen by the worker."
-              : `Reconstructed from the worker's saved corners${evidence?.rotation === null ? "; reading direction unresolved" : " and reading direction"}.`}
-      </p>
-      {view === "zones" && (
+      {!compact && (
+        <div className="flex flex-wrap gap-1 mt-2" aria-label="Scan view">
+          {(
+            [
+              ["original", "Original"],
+              ["crop", fullFrame ? "Full card image" : "Detected card"],
+              ["zones", "Reading zones"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              className={button + " text-xs"}
+              disabled={key !== "original" && !quad}
+              aria-pressed={view === key}
+              onClick={() => setView(key)}
+            >
+              {label}
+            </button>
+          ))}
+          {quad && evidence?.rotation === null && (
+            <button
+              className={button + " text-xs"}
+              onClick={() => setReverse((v) => !v)}
+            >
+              Inspect other direction
+            </button>
+          )}
+        </div>
+      )}
+      {!compact && (
+        <p className="text-xs mt-2">
+          {!quad
+            ? "No detected outline available; showing original."
+            : declaredScan
+              ? "Card scan: full image retained; border detection skipped."
+              : fullFrame
+                ? `Full image retained; no crop. This tightly framed image is resized for reading${evidence?.rotation === null ? "; direction unresolved" : " and oriented using the reading result"}.`
+                : view === "original"
+                  ? "Cyan outline: corners chosen by the worker."
+                  : `Reconstructed from the worker's saved corners${evidence?.rotation === null ? "; reading direction unresolved" : " and reading direction"}.`}
+        </p>
+      )}
+      {!compact && view === "zones" && (
         <p className="text-xs">
           Cyan: title/footer areas attempted. Yellow: detected text boxes. Boxes
           do not establish a correct reading. Stamp evidence uses a separately
@@ -256,14 +282,22 @@ export function AcquisitionEvidenceFields({
   );
   const ids = evidence?.identifiers;
   const printing = evidence?.printing;
-  const selectedStamp = printing?.candidates.find(c=>c.cardId === selected?.id);
+  const selectedStamp = printing?.candidates.find(
+    (c) => c.cardId === selected?.id,
+  );
   const stampStatus = printing?.conflictingObservations
     ? "Conflicting observations; review required"
-    : printing?.observedStamp === "PRESENT" ? "Present"
-    : printing?.observedStamp === "ABSENT" ? "Absent"
-    : printing ? "Unreadable" : "Not checked";
-  const printedPrefix = selected?.setCode === "plst"
-    ? /^([a-z0-9]+)-(.+)$/i.exec(selected.collectorNumber) : null;
+    : printing?.observedStamp === "PRESENT"
+      ? "Present"
+      : printing?.observedStamp === "ABSENT"
+        ? "Absent"
+        : printing
+          ? "Unreadable"
+          : "Not checked";
+  const printedPrefix =
+    selected?.setCode === "plst"
+      ? /^([a-z0-9]+)-(.+)$/i.exec(selected.collectorNumber)
+      : null;
   const compare = (
     values: string[] | undefined,
     expected: string | undefined | null,
@@ -299,7 +333,10 @@ export function AcquisitionEvidenceFields({
       ids?.collectors.join(", ") || "—",
       compare(
         ids?.collectors,
-        (printedPrefix?.[2] ?? selected?.collectorNumber)?.replace(/^0+(?=\d)/, ""),
+        (printedPrefix?.[2] ?? selected?.collectorNumber)?.replace(
+          /^0+(?=\d)/,
+          "",
+        ),
       ),
     ],
     [
@@ -307,14 +344,17 @@ export function AcquisitionEvidenceFields({
       ids?.languages.join(", ") || "—",
       compare(ids?.languages, selected?.lang),
     ],
-    ["Planeswalker stamp",
+    [
+      "Planeswalker stamp",
       selectedStamp?.relation === "CONTRADICTS_STAMP_STATE"
         ? "Observed stamp differs from this printing; correct the selection or inspect the photo."
         : selectedStamp?.relation === "AGREES_WITH_STAMP_STATE"
           ? "Observed stamp agrees with this printing. Other printing details still need verification."
           : printing?.observedStamp === "UNREADABLE"
             ? "The lower-left region did not provide enough evidence. Inspect the original photo."
-            : "Inspect the lower-left corner; this selection has no verified stamp comparison.", stampStatus],
+            : "Inspect the lower-left corner; this selection has no verified stamp comparison.",
+      stampStatus,
+    ],
     ["Set symbol", "Visual detection not implemented", "Not checked"],
     [
       "Card image",
@@ -370,8 +410,8 @@ export function AcquisitionEvidenceFields({
           </dl>
           {printedPrefix && (
             <p className="text-sm mt-2">
-              Stamped reprints retain the original set and collector text;
-              {" "}{printedPrefix[1].toUpperCase()} #{printedPrefix[2]} identifies
+              Stamped reprints retain the original set and collector text;{" "}
+              {printedPrefix[1].toUpperCase()} #{printedPrefix[2]} identifies
               that source printing within The List / Mystery Booster catalog.
             </p>
           )}

@@ -3,6 +3,7 @@ import {execFileSync} from "node:child_process";
 import {createHash, randomUUID} from "node:crypto";
 import {readFileSync} from "node:fs";
 import path from "node:path";
+import { checkAcquisitionCompactReview } from "./acquisition-compact-review-steps";
 
 function database(body: string) {
   return execFileSync("docker", ["exec", "-i", "mtg-archives-web-1", "node"], {
@@ -35,6 +36,7 @@ test("printing checks cover text-led stamped scans and image-led unreadable text
     await page.getByTestId('storage-destination').getByRole('combobox').fill(tag);
     await page.getByRole('option').first().click();
     await page.getByRole('button',{name:'Start batch',exact:true}).click();
+    await page.getByRole('button',{name:'Advanced',exact:true}).click();
     await page.getByRole('combobox',{name:'Batch finish',exact:true}).selectOption('NONFOIL');
     await page.getByRole('combobox',{name:'Batch condition',exact:true}).selectOption('NM');
     await page.getByRole('button',{name:'Save batch defaults'}).click();
@@ -111,6 +113,7 @@ test("printing checks cover text-led stamped scans and image-led unreadable text
         await page.screenshot({path:`test-results/footer-zone-review-${width}.png`});
       }
     }
+    if(basicLandPath)await checkAcquisitionCompactReview(page);
     const card=page.getByTestId('capture-card-1');
     for(const width of [1366,320]){
       await page.setViewportSize({width,height:900});
