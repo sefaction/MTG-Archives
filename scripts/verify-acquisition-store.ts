@@ -4,6 +4,7 @@ import { verifyAcquisitionPhotos } from "./verify-acquisition-photos";
 import { verifyAcquisitionCatalog } from "./verify-acquisition-catalog";
 import { verifyAcquisitionCatalogCache } from "./verify-acquisition-catalog-cache";
 import { verifyAcquisitionOrchestration } from "./verify-acquisition-orchestration";
+import { verifyAcquisitionOwnerFairness } from "./verify-acquisition-owner-fairness";
 import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import {
@@ -363,6 +364,7 @@ async function run() {
   const another = await createAcquisitionSession(db, actor, input());
   assert.equal(another.session.placement.otherSessionPending, 3);
   await verifyAcquisitionOrchestration(db, actor, input());
+  await verifyAcquisitionOwnerFairness(db);
   await verifyAcquisitionPhotos(db, actor, stranger, input());
   await verifyAcquisitionCatalog(db, admin, actor, cardId);
   await verifyAcquisitionCatalogCache(db);

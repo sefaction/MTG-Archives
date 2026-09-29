@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "scope": "ISOLATED_PUBLIC_REFERENCE_CACHE_MEMORY_AND_FEATURE_PARITY",
+  "recordedAt": "2026-09-29T12:27:44.729Z",
+  "mainBase": "22d8ee3f54eb8edd0039f59ff3bfa69cae767919",
+  "referenceManifestSha256": "0d642cd6d926214eeeefcf473581bd6684f1ce765c6316ae8a3814bef2d039cb",
+  "referenceCount": 112474,
+  "selectedReferences": 48,
+  "network": "NONE",
+  "cpus": 1,
+  "memoryLimitMiB": 2048,
+  "baseline": {
+    "runtimeDescriptor": "b72b34e87edee1245a6f1d6c896142a9d61a7ffb8ede173eca2118acfa053bb5",
+    "elapsedMilliseconds": 25987,
+    "peakRssBeforeKiB": 606896,
+    "peakRssAfterKiB": 924724,
+    "retainedArrayBytes": 309291136,
+    "retainedReferences": 48
+  },
+  "bounded": {
+    "runtimeDescriptor": "6bb1e8c9d896c0f6d8d0d629c8a78a01148dcd47a37fea7c631b9d13e57ae819",
+    "registrationSourceSha256": "1ee42886fa4aefe0ddf1770d8bfd59ec15af48702bbed0cba3faf5b020ab77c6",
+    "elapsedMilliseconds": 27392,
+    "peakRssBeforeKiB": 607348,
+    "peakRssAfterKiB": 737884,
+    "retainedArrayBytes": 129332960,
+    "retainedReferences": 20,
+    "arrayPayloadCapBytes": 134217728,
+    "entryCap": 48
+  },
+  "parity": {
+    "decodedPixelsRegistrationImagesSiftFeaturesAndStampState": 48,
+    "mismatches": 0,
+    "repeatAfterEvictionCases": 5,
+    "repeatFeaturesPreserved": true,
+    "casesSha256": "3e35e9b7eb68c0b03eb06c4a40c9f53fbb01b8c424a8abc0b58b363617be14b1"
+  },
+  "guards": {
+    "modelFreePrintingCases": 15,
+    "passed": true
+  },
+  "limits": [
+    "Array payload budget is not total process/container RSS or an input decode bound",
+    "Public reference cache exercise; not private-photo recognition accuracy or 100/300-card throughput",
+    "Peak RSS is from the isolated Python process; Node parent and app container are excluded",
+    "Elapsed observations under ongoing local activity do not establish throughput or timing regression",
+    "Live local pipeline/correction/version/resource and larger-batch acceptance pending; hybrid automatic confirmation remains off"
+  ]
+}
