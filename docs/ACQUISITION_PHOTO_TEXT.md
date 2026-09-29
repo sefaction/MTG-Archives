@@ -68,8 +68,19 @@ source/printing image display, explicitly unlocalized text, correction/reload,
 location/section and zero Inventory. Each card retains a 600-second wait for its
 catalog result; this is not a relaxed rerun of the seven-input printing gate.
 Run it with the same private phone roots and local opt-in. Its report is written
-incrementally when `MTG_ACQUISITION_PHOTO_TEXT_REPORT_PATH` is set. Acceptance is
-pending. No native deadline, policy or queue priority is changed by the test.
+incrementally when `MTG_ACQUISITION_PHOTO_TEXT_REPORT_PATH` is set.
+
+The loaded streaming check passed in 5.6 minutes. All three names were offered
+first, required review and retained their original native evidence. First-card
+review was available after about 83 seconds while the other two remained queued.
+Simple/Advanced inspection, source and reference images at 1366/390/320 pixels,
+unsaved condition across modes, saved correction after reload and subsequent
+background results, location/section, zero Inventory writes and owned cleanup
+passed. Screenshots were inspected. Sanitized evidence is in
+`tools/acquisition-eval/photo-text-streaming-results.json`; private images and
+raw reports remain local. No native deadline, policy or queue priority changed.
+This does not resolve the retained full-batch throughput failure or establish
+independent printing accuracy.
 
 This batch depends on #490. Simple/Advanced #488, recovery qualification #491
 and independent-main upload recovery #492 remain separate PRs included only in
