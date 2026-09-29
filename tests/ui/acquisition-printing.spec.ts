@@ -14,7 +14,7 @@ test("printing checks cover text-led stamped scans and image-led unreadable text
   test.skip(process.env.MTG_LOCAL_PILOT_TEST !== "1" || !process.env.MTG_ACQUISITION_NEW_SCANS_PATH,
     "Requires local snapshot and private new scanner corpus");
   expect(baseURL).toBe("http://127.0.0.1:13001");
-  test.setTimeout(480000);
+  test.setTimeout(900000);
   const tag=`ui-printing-${randomUUID()}`, password=randomUUID();
   const manifest=JSON.parse(readFileSync("tools/acquisition-eval/scan-batch-manifest.json", "utf8"));
   // Repeated35 is an explicit source-mode regression, not another independent
@@ -41,9 +41,9 @@ test("printing checks cover text-led stamped scans and image-led unreadable text
       const buffer=readFileSync(path.join(process.env.MTG_ACQUISITION_NEW_SCANS_PATH!,entry.file));
       expect(createHash('sha256').update(buffer).digest('hex')).toBe(entry.sha256);
       await page.getByLabel('Choose card photos').setInputFiles({name:entry.file,mimeType:'image/jpeg',buffer});
-      // Only prioritize owned fixture jobs. This is functional acceptance;
-      // normal backlog throughput is measured separately.
-      await expect.poll(()=>Number(database(`await p.acquisitionProcessingJob.updateMany({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},status:'PENDING'},data:{availableAt:new Date(0)}});console.log(await p.acquisitionProcessingJob.count({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-printing-evidence-v1',status:'COMPLETE'}}));`)),{timeout:180000}).toBe(i+1);
+      // Use the real shared queue. A new fixture batch must receive worker
+      // turns while older unreviewed batches are being reprocessed.
+      await expect.poll(()=>Number(database(`console.log(await p.acquisitionProcessingJob.count({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-printing-evidence-v1',status:'COMPLETE'}}));`)),{timeout:240000}).toBe(i+1);
       const output=JSON.parse(database(`const job=await p.acquisitionProcessingJob.findFirstOrThrow({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},artifact:{digest:${JSON.stringify(entry.sha256)}},stage:'photo-printing-evidence-v1',status:'COMPLETE'},orderBy:{createdAt:'desc'},select:{output:true,candidate:{select:{review:true}}}});const expected=await p.card.findUniqueOrThrow({where:{scryfallId:${JSON.stringify(entry.scryfallId)}},select:{id:true}});console.log(JSON.stringify({output:job.output,review:job.candidate.review,expectedId:expected.id}));`));
       expect(output.output.proposals.proposals.some((p:any)=>p.card.id===output.expectedId)).toBe(true);
       expect(output.output.native.photoDigest).toBe(entry.sha256);

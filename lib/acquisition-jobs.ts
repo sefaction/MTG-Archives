@@ -56,24 +56,51 @@ export async function claimAcquisitionJobs(
       { status: "RUNNING", leaseExpiresAt: { lte: now } },
     ],
   };
-  const candidates = await db.acquisitionProcessingJob.findMany({
-    where: eligible,
-    orderBy: [{ availableAt: "asc" }, { createdAt: "asc" }, { id: "asc" }],
-    take: 32,
-  });
+  // Give each run a turn at this stage. Global FIFO lets a large historical
+  // reprocessing batch hide every result from a newly uploaded batch. Preserve
+  // availability/FIFO within a run; a second head permits concurrent workers
+  // to recover from losing the first head's lease CAS.
+  const candidates = await db.$queryRaw<{id: string; runId: string; stage: string}[]>`
+    WITH ranked AS (
+      SELECT j.id, j."runId", j.stage, j."availableAt", j."createdAt",
+        ROW_NUMBER() OVER (PARTITION BY j."runId", j.stage
+          ORDER BY j."availableAt", j."createdAt", j.id) AS position
+      FROM "AcquisitionProcessingJob" j
+      JOIN "AcquisitionRun" r ON r.id=j."runId"
+      JOIN "AcquisitionSession" s ON s.id=r."sessionId"
+      JOIN "Player" p ON p.id=s."ownerPlayerId"
+      JOIN "User" u ON u.id=s."createdByUserId"
+      WHERE j.stage IN (${Prisma.join(options.stages)}) AND j.attempts<j."maxAttempts"
+        AND ((j.status='PENDING' AND j."availableAt"<=${now})
+          OR (j.status='RUNNING' AND j."leaseExpiresAt"<=${now}))
+        AND s.phase NOT IN ('DRAFT','CANCELLED')
+        AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
+        AND NOT EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=j."candidateId")
+    )
+    SELECT q.id, q."runId", q.stage FROM ranked q
+    LEFT JOIN "AcquisitionProcessingTurn" t ON t."runId"=q."runId" AND t.stage=q.stage
+    WHERE q.position<=2
+    ORDER BY COALESCE(t."lastClaimedAt", TIMESTAMP '1970-01-01'), q.position,
+      q."availableAt", q."createdAt", q.id LIMIT 32`;
   const result: ClaimedAcquisitionJob[] = [];
   for (const candidate of candidates) {
     if (result.length >= options.limit) break;
     const leaseToken = `${options.workerId}:${randomUUID()}`;
-    const changed = await db.acquisitionProcessingJob.updateMany({
-      where: { ...eligible, id: candidate.id },
-      data: {
-        status: "RUNNING",
-        leaseToken,
-        leaseExpiresAt: new Date(now.getTime() + options.leaseMs),
-        attempts: { increment: 1 },
-        errorCode: null,
-      },
+    const changed = await db.$transaction(async tx => {
+      const claimed = await tx.acquisitionProcessingJob.updateMany({
+        where: { ...eligible, id: candidate.id },
+        data: {
+          status: "RUNNING", leaseToken,
+          leaseExpiresAt: new Date(now.getTime() + options.leaseMs),
+          attempts: { increment: 1 }, errorCode: null,
+        },
+      });
+      if (claimed.count) await tx.$executeRaw`
+        INSERT INTO "AcquisitionProcessingTurn" ("runId", stage, "lastClaimedAt")
+        VALUES (${candidate.runId}, ${candidate.stage}, ${now})
+        ON CONFLICT ("runId", stage) DO UPDATE SET "lastClaimedAt"=
+          GREATEST("AcquisitionProcessingTurn"."lastClaimedAt", EXCLUDED."lastClaimedAt")`;
+      return claimed;
     });
     if (!changed.count) continue;
     const job = await db.acquisitionProcessingJob.findUniqueOrThrow({

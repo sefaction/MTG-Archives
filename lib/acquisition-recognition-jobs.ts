@@ -27,13 +27,21 @@ export function acquisitionRecognitionJobs<T extends EvidenceJob>(
   const currentPrinting = pending ?? printing;
   const printingStatus = currentPrinting?.status ?? (printingEnabled ? "WAITING" : undefined);
   const job = currentPrinting?.status === "COMPLETE" ? currentPrinting : completed;
-  const evidence = acquisitionRecognitionDto(job?.status ?? "WAITING", job?.output, visualStatus, printingStatus);
+  // Older OCR observations contain a CHECKING placeholder, even before a
+  // catalog job exists. Only catalog/printing jobs supply catalog evidence.
+  // Preserve the stored observation and its suggestions without claiming work.
+  const raw = job?.output;
+  const displayOutput = job && job.stage !== CATALOG_RECONCILIATION_STAGE && job.stage !== PRINTING_STAGE &&
+    raw && typeof raw === "object" && !Array.isArray(raw)
+    ? {...raw, catalog: null} : raw;
+  const evidence = acquisitionRecognitionDto(job?.status ?? "WAITING", displayOutput, visualStatus, printingStatus);
   if (latest && latest.id !== completed?.id) {
     evidence.status = latest.status;
     evidence.catalog = latest.status === "FAILED"
       ? latest.stage === CATALOG_RECONCILIATION_STAGE
         ? {status: "PROVIDER_ERROR", printingCoverage: "UNRESOLVED"} : null
-      : {status: "CHECKING", printingCoverage: "UNRESOLVED"};
+      : latest.stage === CATALOG_RECONCILIATION_STAGE
+        ? {status: "CHECKING", printingCoverage: "UNRESOLVED"} : null;
     if (evidence.result) {
       evidence.result.automaticAcceptance = false;
       if (evidence.result.status === "STRONG_MATCH") evidence.result.status = "REVIEW_REQUIRED";

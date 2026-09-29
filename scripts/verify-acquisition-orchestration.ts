@@ -392,6 +392,57 @@ export async function verifyAcquisitionOrchestration(
     "PASS: immediate versioned enqueue, two-worker claims, lease handoff and preserved human review",
   );
 
+  // An older 100-job reprocessing backlog must not postpone a new batch's
+  // first result until every old job finishes. Turns persist on reconnect and
+  // remain independent per stage; old work continues rather than being lost.
+  const fairStage = "fixture-fair-recognition";
+  const fairRuns: {id: string; artifacts: {id: string}[];
+    candidates: {id: string; revision: number}[]}[] = [];
+  for (let n = 0; n < 2; n++) {
+    const session = await create();
+    await command(session.session.id, "START");
+    await ingestAcquisitionEvent(db, actor, session.session.id, event(160+n));
+    const run = await db.acquisitionRun.findUniqueOrThrow({where: {sessionId: session.session.id},
+      include: {artifacts: true, candidates: true}});
+    fairRuns.push(run);
+  }
+  const when = new Date(Date.now()+1000);
+  async function fairEnqueue(which: number, count: number, stage = fairStage) {
+    const run = fairRuns[which];
+    await db.acquisitionProcessingJob.createMany({data: Array.from({length: count}, (_, n)=>({
+      runId: run.id, artifactId: run.artifacts[0].id, candidateId: run.candidates[0].id,
+      candidateRevision: run.candidates[0].revision, stage, versionKey: randomUUID(), input: {},
+      availableAt: new Date(which ? when.getTime()-500 : 0),
+      createdAt: new Date((which ? when.getTime()-500 : 0)+n),
+    }))});
+  }
+  await fairEnqueue(0, 100);
+  const [firstOld] = await claimAcquisitionJobs(db, {workerId: "fair-old", stages: [fairStage]}, when);
+  assert.equal(firstOld.runId, fairRuns[0].id);
+  await completeAcquisitionJob(db, firstOld, {fixture: true}, when);
+  await fairEnqueue(1, 3);
+  const replacement = new (db.constructor as typeof PrismaClient)();
+  try {
+    const [firstNew] = await claimAcquisitionJobs(replacement,
+      {workerId: "fair-restarted", stages: [fairStage]}, new Date(when.getTime()+1));
+    assert.equal(firstNew.runId, fairRuns[1].id);
+    await completeAcquisitionJob(replacement, firstNew, {fixture: true}, new Date(when.getTime()+2));
+    const [nextOld] = await claimAcquisitionJobs(replacement,
+      {workerId: "fair-alternate", stages: [fairStage]}, new Date(when.getTime()+3));
+    assert.equal(nextOld.runId, fairRuns[0].id);
+    assert.notEqual(nextOld.id, firstOld.id);
+    assert.equal(await db.acquisitionProcessingJob.count({where: {runId: fairRuns[0].id,
+      stage: fairStage, status: "PENDING"}}), 98);
+    await completeAcquisitionJob(replacement, nextOld, {fixture: true}, new Date(when.getTime()+4));
+    await fairEnqueue(0, 1, "fixture-fair-visual");
+    await fairEnqueue(1, 1, "fixture-fair-visual");
+    const [otherStage] = await claimAcquisitionJobs(replacement,
+      {workerId: "fair-independent-stage", stages: ["fixture-fair-visual"]}, new Date(when.getTime()+5));
+    assert.equal(otherStage.runId, fairRuns[0].id);
+    await completeAcquisitionJob(replacement, otherStage, {fixture: true}, new Date(when.getTime()+6));
+  } finally { await replacement.$disconnect(); }
+  console.log("PASS: new batch receives a turn ahead of 99 old jobs; reconnect, continued old work and independent stages");
+
   const failure = await enqueue("failure");
   await assert.rejects(
     db.acquisitionProcessingJob.update({

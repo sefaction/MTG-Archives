@@ -79,7 +79,9 @@ export function AcquisitionPhotoRecognition({
   )
     return (
       <p className="text-xs" role="status">
-        Comparing the card image with catalog printings…
+        {state.visualStatus === "RUNNING"
+          ? "Comparing the card image with catalog printings…"
+          : "Image comparison queued; suggestions will appear automatically."}
       </p>
     );
   if (state?.catalog && state.catalog.status !== "RESOLVED")

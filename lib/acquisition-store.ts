@@ -1180,7 +1180,9 @@ export async function getAcquisitionCardReview(
                 : null)),
         ) ?? null,
       recognitionStatus:
-        evidence.catalog?.status === "CHECKING"
+        !evidence.result && evidence.status !== "COMPLETE"
+          ? evidence.status
+          : evidence.catalog?.status === "CHECKING"
           ? "PENDING"
           : evidence.status === "FAILED"
             ? "FAILED"
