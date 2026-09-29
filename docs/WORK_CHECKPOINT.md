@@ -1,5 +1,13 @@
 # Resumable work checkpoint
 
+## Independent owner scheduling ready locally, 2026-09-29
+
+Branch fix/acquisition-owner-fairness, PR497 on main2ac3eb5; implementation7ef2d1b. Standalone DB/core196.6s passed/cleaned, all3 implementation CI green. Resumed cumulative DB/import98.8s passed/cleaned; prior initial catalog claim failure remains open498, not resolved by rerun. Temporary read-only diagnostic helper removed unchanged.
+
+Actual cumulative source in MTG-Archives-acquisition-persistence application0d81637/source462/052e7260 is loaded at13001/imports/scan; retains unapproved recognition/UI/admission PRs only locally, not as this PR's dependencies. Original7-input600s printing/browser gate PASSED266759ms with ordinary queues, all7names first/offered/manual/native-preserved, desktop/390/320/correction/reload/location/section/zeroInventory/ownedcleanup; screenshots inspected. Sanitized owner-batch-results.json includes full source/images/descriptors and retained1/7+4/7 failures. Other-owner work continued. Sampled printing max1020MiB/1GiB is a larger-batch risk, no reported OOM; anonymous login samples are not authenticated task latency. Not independent accuracy/four-user native/100-300-card throughput.
+
+Publish evidence-only follow-up, reconcile refreshed CI, mark497ready and request individual approval once. Never merge without exact approval. Recognition463 remains incomplete/autoOFF; all earlier approvals/fresh reserved originals still unanswered. No production/env/YML/scanner operations. Next progress larger-batch/resource gates without fabricating independent accuracy or changing deadlines/native priorities.
+
 ## Batch progress fix and new-material evaluation, 2026-09-28
 
 - Active `fix/acquisition-batch-worker-fairness`, based on #482 `236540f`, head `a2eabe6`, open PR #484 addresses issue #483. Persistent per-run/per-stage turns prevent older reprocessing batches from monopolizing serial workers; existing lease, owner, review and commit fences remain. No recognition algorithm, model or native descriptor change. Local acceptance complete; CI36515230779 pending. This PR also needs individual approval, after478/481/482.
