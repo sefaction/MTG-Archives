@@ -81,7 +81,21 @@ timeout. Sanitized evidence is in `photo-text-progress-results.json`.
 
 Fifteen focused transport/photo-text/generation guards and four Python guards
 passed; disposable acquisition/import/core checks passed with owned cleanup in
-170 seconds. Changed-source cumulative Docker acceptance remains pending.
+170 seconds.
+
+The changed-source cumulative browser check then passed all seven inputs in
+361 seconds, using the unchanged 600-second printing gate and ordinary queues.
+All names were offered first, all printing stages completed, original native
+evidence stayed intact, and every decision remained manual. Simple/Advanced,
+source/reference images at 1366/390/320 pixels, conditions across modes,
+correction/reload, location/section and zero Inventory/owned cleanup passed.
+All four screenshots were inspected. The built/loaded native descriptor differs
+from the isolated qualifier only through verified CRLF/LF source formatting;
+both identities and exact loaded source hashes are recorded separately in
+`photo-text-pipeline-results.json`. Incoming runtime validation stays exact.
+This pass does not remove the retained 100-input failure or qualify independent
+printing accuracy or automatic acceptance. Printing lifetime still reached its
+1-GiB limit without OOM kills; the array cache is not a total-memory guarantee.
 
 ## Verification and limits
 
@@ -113,8 +127,11 @@ printing result before checking review. Two loaded runs failed the same
 the separate #494/#495 handoff fix. The latter admitted all seven photos promptly
 (first OCR job about 32 seconds after test start), but 13 active OCR runs shared
 the workers. Both failures are retained privately. Both owned fixtures cleaned
-up with zero Inventory. This full-batch printing gate remains unqualified; fair
-admission alone does not establish throughput or recognition accuracy.
+up with zero Inventory. Owner scheduling #497 later passed the seven-input
+gate, and the current progress/cache combination passed it again as recorded
+above. The intervening cache-loaded name-hint failure remains retained. Fair
+admission alone does not establish throughput or recognition accuracy, and the
+100-input/300-input gates remain unqualified.
 
 `tests/ui/acquisition-photo-text-streaming.spec.ts` checks the intended streaming
 review separately. It submits the three difficult originals through the same
@@ -135,8 +152,9 @@ background results, location/section, zero Inventory writes and owned cleanup
 passed. Screenshots were inspected. Sanitized evidence is in
 `tools/acquisition-eval/photo-text-streaming-results.json`; private images and
 raw reports remain local. No native deadline, policy or queue priority changed.
-This does not resolve the retained full-batch throughput failure or establish
-independent printing accuracy.
+That streaming check alone did not qualify the full-batch printing gate; the
+current seven-input pass is separate. Neither establishes independent printing
+accuracy or removes the 100-input throughput failure.
 
 This batch depends on #490. Simple/Advanced #488, recovery qualification #491
 and independent-main upload recovery #492 remain separate PRs included only in
