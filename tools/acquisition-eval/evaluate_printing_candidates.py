@@ -152,8 +152,8 @@ def main():
                     'stamp': {'status':'UNREADABLE','reason':'REFERENCE_UNAVAILABLE'}, 'relation':'UNRESOLVED'})
                 continue
             image, reference_state = reference(identity)
-            warped, alignment = register(photo, image)
-            evidence = stamp_evidence(warped, alignment, templates, image, reference_state)
+            warped, alignment, visibility = register(photo, image, return_visibility=True)
+            evidence = stamp_evidence(warped, alignment, templates, image, reference_state, visibility=visibility)
             candidates.append({'rank': rank, 'cardId': candidate['cardId'], 'referenceId': identity,
                 'referenceStampState': reference_state, 'alignment': alignment, 'stamp': evidence,
                 'relation': candidate_relation(evidence['status'], reference_state)})
