@@ -55,7 +55,7 @@ All four visible stamps in the newer set now select the correct PLST identity fi
 Hematite Golem changes from second to first; Mountain Valley changes from third to
 first. No expected printing is newly contradicted and no previously correct first
 choice regresses. Four new-set candidate orders and one old-set order change.
-The older Nature's Way stamp remains unreadable and its expected identity remains
+The older Boggart Ram-Gang stamp remains unreadable and its expected identity remains
 second. One unresolved older playtest remains excluded. Original files, frozen
 labels, catalog and native observations remain private and unchanged.
 
