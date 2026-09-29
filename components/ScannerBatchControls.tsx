@@ -71,7 +71,7 @@ export function ScannerRunControls({ runId, savedImages, refresh }: { runId: str
     <h3 className="font-semibold">Scanner batch</h3>
     <p role="status">{run?.status === "QUEUED" ? "Waiting for the Windows helper to start." : run?.status === "STARTED" ? "Scanning and uploading…" :
       run?.status === "DRAINED" ? "Scanner run ended." : run ? "Scanner run needs reconciliation; originals remain saved." : "Loading scanner status…"}
-      {" "}{savedImages} images saved{run ? ` · ${run.loadedCount} cards loaded` : ""}.</p>
+      {" "}{savedImages} {savedImages === 1 ? "image" : "images"} saved{run ? ` · ${run.loadedCount} ${run.loadedCount === 1 ? "card" : "cards"} loaded` : ""}.</p>
     <p className="text-sm">Images do not establish physical card count. Confirm the emitted cards before adding them to Inventory.</p>
     {run && ["QUEUED","STARTED"].includes(run.status) && <button className={button} disabled={busy || run.stopRequested}
       onClick={()=>void act({action:"stop",runId})}>{run.stopRequested ? "Stop requested · feeder will drain" : "Request stop (drain feeder)"}</button>}

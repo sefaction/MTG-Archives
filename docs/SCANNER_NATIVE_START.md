@@ -43,6 +43,24 @@ deleted on errors, stop, revocation, capacity rejection or missing ACK.
 
 ## Current checks and limits
 
+- One real PS286 Pro WIA scan used the website START button against local Docker
+  on September 29, after fresh operator confirmation of one expendable card.
+  The helper retained and delivered one unchanged original in 3.364 seconds;
+  its full card/footer are visible. Ordinary preparation, visual retrieval,
+  OCR, catalog and printing verification completed. Review proposed the correct
+  Sundering Archaic, SOS #3 printing and left human match/finish/condition
+  decisions open. The operator confirmed one undamaged card exited, empty
+  feeder/transport, and no jam/double/dialog. Physical count was separately
+  confirmed as OPERATOR with SDK boundary/source-exhaustion UNKNOWN. No Inventory
+  copy was added. This is one-card local evidence, not a feeder-stop, duplex,
+  multi-device, large-batch or production acceptance claim. Private original,
+  browser images and run data are retained under owned local test state.
+- Website START through the actual Windows fixture helper and saved-source PNG
+  also passed local Docker end to end in 67.4 seconds: original digest preserved,
+  ordinary recognition/review found Sunblade Samurai, responsive 1366/320
+  screenshots passed, declared fixture count confirmed, zero Inventory changes
+  and owned fixture cleanup. This is protocol evidence, not a second scan.
+
 - Disposable PostgreSQL/core guards passed: scoped claim/replay, current
   authorization, source/sequence/digest replay, retained overflow, operator
   counts, independent start-marker rollback fence and zero Inventory. These use

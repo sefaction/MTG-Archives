@@ -520,13 +520,13 @@ export function AcquisitionCapture({
           >
             <h2 className="text-xl font-semibold">
               Batch {progress.batchNumber} · {progress.reservedSlots}
-              {progress.providerId === SCANNER_CAPTURE_PROVIDER ? ` images${progress.target===null ? "" : ` · target ${progress.target} cards`}` : progress.target === null
+              {progress.providerId === SCANNER_CAPTURE_PROVIDER ? ` ${progress.reservedSlots === 1 ? "image" : "images"}${progress.target===null ? "" : ` · target ${progress.target} ${progress.target === 1 ? "card" : "cards"}`}` : progress.target === null
                 ? " cards"
                 : ` of ${progress.target} cards`}
             </h2>
             <p role="status" aria-live="polite">
               {uploads.filter((p) => p.status !== "failed").length} uploading ·{" "}
-              {readyPhotos} photos saved · {prepared} photos prepared
+              {readyPhotos} {readyPhotos === 1 ? "photo" : "photos"} saved · {prepared} {prepared === 1 ? "photo" : "photos"} prepared
             </p>
             <p className="text-sm">
               {progress.reviewed} confirmed ·{" "}

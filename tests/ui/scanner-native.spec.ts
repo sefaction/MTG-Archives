@@ -35,13 +35,14 @@ test("website START through actual Windows fixture helper reaches ordinary recog
     await page.getByRole('button',{name:/^A\s/}).click();
     await page.getByLabel('Scan from a connected scanner',{exact:true}).check();
     await expect(page.getByRole('button',{name:'Start scanner batch',exact:true})).toBeDisabled();
-    await expect(page.getByLabel('Scanner source',{exact:true}).locator('option')).toHaveCount(2);
-    await page.getByLabel('Scanner source',{exact:true}).selectOption({label:'Local protocol fixture (no scanner) · Fixture'});
+    const source=page.getByRole('combobox',{name:'Scanner source',exact:true});
+    await expect(source.locator('option')).toHaveCount(2);
+    await source.selectOption({label:'Local protocol fixture (no scanner) · Fixture'});
     await page.getByLabel('The scanner is clear and exactly this many expendable cards are loaded for simplex scanning.',{exact:true}).check();
     await page.getByRole('button',{name:'Start scanner batch',exact:true}).click();
     const scanner=page.getByRole('region',{name:'Scanner batch'});
     await expect(scanner).toContainText('Scanner run ended.',{timeout:90000});
-    await expect(scanner).toContainText('1 images saved');
+    await expect(scanner).toContainText('1 image saved');
     const state=JSON.parse(database(`const run=await p.scannerRun.findFirstOrThrow({where:{agentId:${JSON.stringify(agentId)}},include:{acquisitionRun:{include:{session:true,photos:true,candidates:true}}}});console.log(JSON.stringify(run));`));
     expect(state.status).toBe('DRAINED');expect(state.acquisitionRun.session.locationId).toBe(tag);expect(state.acquisitionRun.session.section).toBe('A');
     const photo=state.acquisitionRun.photos[0];expect(photo.digest).toBe(originalHash);expect(photo.inputKind).toBe('CARD_SCAN');
