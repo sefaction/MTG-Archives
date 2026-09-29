@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  printingNativeSchema, applyAcquisitionPrintingEvidence, acquisitionPrintingSummary,
+  printingNativeSchema, printingSummarySchema, applyAcquisitionPrintingEvidence, acquisitionPrintingSummary,
 } from "../lib/acquisition-printing";
 import {createAcquisitionRecognitionIndex, proposeOrientedAcquisitionPrintings} from "../lib/acquisition-recognition";
 import {combineAcquisitionCandidates} from "../lib/acquisition-visual";
@@ -97,4 +97,81 @@ test("review summary uses stable local identities and omits native metrics and p
   assert.equal(JSON.stringify(summary).includes(originalId),false);
   assert.equal(JSON.stringify(summary).includes("sourceCardWidth"),false);
   assert.equal(JSON.stringify(summary).includes("footerSharpness"),false);
+});
+
+function unannotatedPrinting() {
+  const value=printing();
+  for(const candidate of value.candidates){
+    candidate.referenceStampState="UNKNOWN";
+    candidate.relation="UNRESOLVED";
+  }
+  return printingNativeSchema.parse(value);
+}
+
+test("catalog stamp expectation resolves actual original/List counterparts with unannotated images",()=>{
+  const value=unannotatedPrinting(), before=JSON.stringify([union,value,cards]);
+  const result=applyAcquisitionPrintingEvidence(union,value,cards);
+  assert.equal(result.proposals[0].card.id,stamped.id);
+  assert(result.proposals[0].reasons.includes("STAMP_PRESENT"));
+  assert(result.proposals[1].reasons.includes("STAMP_CONTRADICTION"));
+  const summary=printingSummarySchema.parse(acquisitionPrintingSummary(value,cards));
+  assert.deepEqual(summary.candidates.map(c=>[c.expectedStampState,c.expectationSource,c.referenceRelation]),[
+    ["ABSENT","CATALOG_SOURCE_PRINTING","UNRESOLVED"],
+    ["PRESENT","CATALOG_LIST_REPRINT","UNRESOLVED"],
+  ]);
+  assert.equal(result.automaticAcceptance,false);
+  assert.equal(JSON.stringify([union,value,cards]),before);
+});
+
+test("catalog expectation is distinct from a reference annotation; unreadable pixels still stay unresolved",()=>{
+  const value=printing();
+  value.candidates[1].referenceStampState="ABSENT";
+  value.candidates[1].relation="CONTRADICTS_STAMP_STATE";
+  const summary=acquisitionPrintingSummary(printingNativeSchema.parse(value),cards);
+  assert.equal(summary.candidates[1].expectedStampState,"PRESENT");
+  assert.equal(summary.candidates[1].referenceStampState,"ABSENT");
+  assert.equal(summary.candidates[1].referenceRelation,"CONTRADICTS_STAMP_STATE");
+  assert.equal(summary.candidates[1].relation,"AGREES_WITH_STAMP_STATE");
+  value.observedStamp="UNREADABLE";
+  for(const c of value.candidates){c.stamp.status="UNREADABLE";c.relation="UNRESOLVED";}
+  assert(acquisitionPrintingSummary(printingNativeSchema.parse(value),cards).candidates.every(c=>c.relation==="UNRESOLVED"));
+  const legacy={observedStamp:"UNREADABLE",conflictingObservations:false,candidates:[{
+    cardId:original.id,stamp:"UNREADABLE",referenceStampState:"UNKNOWN",relation:"UNRESOLVED",reason:"UNREADABLE",
+  }]};
+  assert.equal(printingSummarySchema.safeParse(legacy).success,true,"saved older evidence still renders");
+});
+
+test("unknown treatments and unproposed catalog counterparts are not assumed unstamped",()=>{
+  const value=unannotatedPrinting();
+  const other={...original,id:"other",setCode:"mb2",collectorNumber:"9"};
+  const malformed={...stamped,collectorNumber:"17"};
+  for(const unsupported of [other,malformed,{...stamped,digital:true}]){
+    const map=new Map([[originalId,original],[stampedId,unsupported]]);
+    assert(acquisitionPrintingSummary(value,map).candidates.every(c=>c.expectedStampState==="UNKNOWN"));
+  }
+  const onlyOriginal={...value,candidates:[value.candidates[0]]};
+  assert.equal(acquisitionPrintingSummary(onlyOriginal,cards).candidates[0].expectedStampState,"UNKNOWN");
+});
+
+test("catalog relations require visible physical evidence or validated same-outline transfer",()=>{
+  const value=unannotatedPrinting();
+  const quad: [number,number][]=[[0,0],[1000,0],[1000,1397],[0,1397]];
+  const target=value.candidates[1];
+  target.stamp.status="UNREADABLE";
+  target.alignment.quad=quad;
+  value.candidates[0].alignment.quad=quad;
+  assert.equal(acquisitionPrintingSummary(value,cards).candidates[1].relation,"UNRESOLVED");
+  target.sharedObservationSources=[value.candidates[0].referenceId];
+  assert.equal(acquisitionPrintingSummary(value,cards).candidates[1].relation,"AGREES_WITH_STAMP_STATE");
+  target.alignment.quad=quad.map(([x,y])=>[x+20,y]);
+  assert.equal(acquisitionPrintingSummary(value,cards).candidates[1].relation,"UNRESOLVED");
+  for(const change of [
+    {status:"UNREADABLE" as const}, {stampVisible:false}, {footerVisible:false}, {sourceCardWidth:499},
+  ]){
+    const bad={...value,candidates:[value.candidates[0],{...target,stamp:{...target.stamp,status:"PRESENT" as const},
+      alignment:{...target.alignment,...change}}]};
+    assert.equal(acquisitionPrintingSummary(printingNativeSchema.parse(bad),cards).candidates[1].relation,"UNRESOLVED");
+  }
+  const conflict={...value,observedStamp:"UNREADABLE" as const,conflictingObservations:true};
+  assert(acquisitionPrintingSummary(printingNativeSchema.parse(conflict),cards).candidates.every(c=>c.relation==="UNRESOLVED"));
 });
