@@ -37,7 +37,7 @@ export function ScannerSourceFields({ initialEnabled, onChange, remaining, disab
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agents, selected, enabled, ready, loaded, dpi, remaining, onChange]);
   return <fieldset id="scanner-source" className="space-y-3 min-w-0 my-3" disabled={disabled}>
-    <legend className="font-semibold">2. Card input</legend>
+    <legend className="font-semibold">3. Card input</legend>
     <label className="flex gap-2 items-start"><input type="checkbox" checked={enabled}
       onChange={e=>{ setEnabled(e.target.checked); if(e.target.checked) void refresh(); else onChange(null,false); }} />Scan from a connected scanner</label>
     {enabled && <>

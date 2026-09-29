@@ -62,6 +62,7 @@ test("paired Windows helper reports real sources in website; revocation blocks i
     await expect(panel.locator("code")).toHaveCount(0); // Secrets omitted from screenshots.
     await panel.getByRole("link", { name: "Set up a new scanner batch" }).click();
     await expect(page).toHaveURL(/\/imports\/scan\?input=scanner#new-scan-batch$/);
+    await panel.getByRole("button", { name: "Scanner connected" }).click();
     const batch = page.getByRole("region", { name: "New scan batch" });
     await expect(batch.getByRole("heading", { name: "Set up a new scan batch" })).toBeVisible();
     await expect(batch.getByLabel("Scan from a connected scanner")).toBeChecked();
@@ -80,6 +81,8 @@ test("paired Windows helper reports real sources in website; revocation blocks i
       await page.setViewportSize({ width, height: 900 });
       await expect(panel.getByRole("button", { name: "Disconnect Windows scanner", exact: true })).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await panel.getByRole("link", { name: "Set up a new scanner batch" }).scrollIntoViewIfNeeded();
+      await page.screenshot({ path: `test-results/scanner-start-link-${width}.png` });
       await start.scrollIntoViewIfNeeded();
       await page.screenshot({ path: `test-results/scanner-start-${width}.png` });
     }
