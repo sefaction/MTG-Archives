@@ -257,6 +257,12 @@ export function AcquisitionEvidenceFields({
   const ids = evidence?.identifiers;
   const printing = evidence?.printing;
   const selectedStamp = printing?.candidates.find(c=>c.cardId === selected?.id);
+  const expectationLabel = selectedStamp?.expectationSource === "CATALOG_LIST_REPRINT"
+    ? "List reprint catalog identity"
+    : selectedStamp?.expectationSource === "CATALOG_SOURCE_PRINTING"
+      ? "Matching source-printing catalog identity"
+      : selectedStamp?.expectationSource === "VERIFIED_REFERENCE"
+        ? "Verified reference annotation" : "Unqualified";
   const stampStatus = printing?.conflictingObservations
     ? "Conflicting observations; review required"
     : printing?.observedStamp === "PRESENT" ? "Present"
@@ -315,6 +321,10 @@ export function AcquisitionEvidenceFields({
           : printing?.observedStamp === "UNREADABLE"
             ? "The lower-left region did not provide enough evidence. Inspect the original photo."
             : "Inspect the lower-left corner; this selection has no verified stamp comparison.", stampStatus],
+    ["Printing stamp expectation", expectationLabel,
+      selectedStamp?.expectedStampState ?? "Unknown (older result)"],
+    ["Reference image stamp", "Annotation of the public comparison image; separate from the printing expectation",
+      selectedStamp?.referenceStampState ?? "Not checked"],
     ["Set symbol", "Visual detection not implemented", "Not checked"],
     [
       "Card image",
