@@ -446,6 +446,11 @@ export function AcquisitionPhotoReview({
             <figure className="min-w-0">
               <figcaption className="font-semibold mb-2 min-h-12 sm:min-h-0">
                 {record.review ? "Selected printing" : "Proposed printing"}
+                {!record.review && reasons.includes("UNLOCALIZED_NAME_HINT") && (
+                  <span className="block text-xs font-normal mt-1" data-testid="scan-name-only">
+                    Name only · check printing
+                  </span>
+                )}
               </figcaption>
               <div className="aspect-[1000/1397] max-h-[52vh] flex items-center justify-center bg-black/10 rounded overflow-hidden">
                 {selected?.imageUri && active ? (
@@ -477,6 +482,8 @@ export function AcquisitionPhotoReview({
                     ? "Waiting for suggestions; you can search below."
                     : !reasons.length
                       ? "Selected manually; compare this printing with your scan."
+                      : reasons.includes("UNLOCALIZED_NAME_HINT")
+                        ? "Name suggested from whole-photo text; exact printing unverified."
                       : record.evidence?.imageMatches
                         ? reasons.includes("VISUAL_MATCH") ||
                           reasons.includes("SIFT_CANDIDATE")

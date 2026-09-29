@@ -353,7 +353,9 @@ export function AcquisitionEvidenceFields({
         <>
           <p className="text-sm mb-2">
             {evidence.geometry.status !== "PROPOSED"
-              ? "Card outline not found. Text recognition could not start."
+              ? evidence.photoText
+                ? "Card outline not found. Whole-photo OCR is separate search evidence; title and footer regions are unverified."
+                : "Card outline not found. Text recognition could not start."
               : evidence.rotation === null
                 ? "Reading direction unresolved. Inspect both directions below; identifiers have not been combined."
                 : "Observed photo text is shown below. A catalog suggestion is not proof that every field was read."}
@@ -408,6 +410,26 @@ export function AcquisitionEvidenceFields({
               </div>
             ))}
           </details>
+          {evidence.photoText && (
+            <details className="mt-2" data-testid="unlocalized-photo-text">
+              <summary className="cursor-pointer text-sm underline">Whole-photo OCR (unlocalized)</summary>
+              <p className="text-sm mt-2">
+                {evidence.photoText.status === "UNAVAILABLE"
+                  ? "Whole-photo reading was unavailable within its bounded attempt. Original crop evidence and suggestions are retained."
+                  : evidence.photoText.status === "PARTIAL"
+                    ? "Only part of the whole-photo reading completed."
+                    : "Whole-photo reading completed."}
+                {" "}These lines can suggest names; they do not verify title, footer, language or stamp regions.
+              </p>
+              {evidence.photoText.readings.map(reading => (
+                <div key={reading.rotationDegrees} className="text-xs mt-2 break-words">
+                  <p className="font-semibold">{reading.rotationDegrees}° relative to the original photo</p>
+                  <p>{reading.text.join(" | ") || "Nothing read"}</p>
+                  {reading.truncated && <p>Reading truncated; review the original photo.</p>}
+                </div>
+              ))}
+            </details>
+          )}
         </>
       )}
     </section>

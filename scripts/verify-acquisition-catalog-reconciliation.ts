@@ -28,6 +28,7 @@ import type { ScryfallCard } from "../lib/scryfall";
 import { enqueueReadyVisual } from "../lib/acquisition-visual-worker";
 import { VISUAL_STAGE } from "../lib/acquisition-visual";
 import { verifyAcquisitionPrinting } from "./verify-acquisition-printing";
+import { verifyAcquisitionPhotoText } from "./verify-acquisition-photo-text";
 
 export async function verifyAcquisitionCatalogReconciliation(
   db: PrismaClient,
@@ -352,6 +353,7 @@ export async function verifyAcquisitionCatalogReconciliation(
       "same immutable visual/OCR pair does not duplicate reconciliation",
     );
     await verifyAcquisitionPrinting(db, actor, sessionId, photoId, hybridJob);
+    await verifyAcquisitionPhotoText(db, actor, sessionId, photoId, rawJob);
     // Thirty-two older rows whose old visual result completed but whose latest
     // version failed must not occupy the bounded queue ahead of one ready row.
     // Database-only queue fixtures: no recognition or Inventory claim is made.
