@@ -26,7 +26,11 @@ backlog; the first OCR job was created about 32 seconds after test start, versus
 no OCR jobs after 4.5 minutes in the initial run. The unchanged ten-minute
 full-batch printing gate still failed (four of seven results, initially one of
 seven) while 13 active OCR runs shared the workers. Both failures and zero-write
-fixture cleanup are retained. Streaming review acceptance remains pending.
+fixture cleanup are retained. A separate three-original streaming review check
+then passed through ordinary workers in 5.6 minutes: first-card suggestions in
+about 83 seconds while the other cards were queued, preserved source/evidence,
+desktop/phone review, correction/reload, zero Inventory writes and owned cleanup.
+That test exercises incremental review, not completion of all printing checks.
 Admission fairness does not establish recognition accuracy or sustained scanner
 throughput; old work continues using the existing fair claim queue.
 This PR is based independently on main. The
