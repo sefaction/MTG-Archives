@@ -27,6 +27,7 @@ export function AcquisitionScanImage({
       ? evidence.geometry.quad
       : undefined;
   const rotation = evidence?.rotation ?? (reverse ? 180 : 0);
+  const fullFrame = evidence?.geometry.method === "full-frame";
   const observation = evidence?.observations.find(
     (o) => o.rotationDegrees === rotation,
   );
@@ -163,7 +164,7 @@ export function AcquisitionScanImage({
           <canvas
             ref={canvas}
             role="img"
-            aria-label={`${view === "original" || !quad ? "Original scan" : "Detected card"} ${position}`}
+            aria-label={`${view === "original" || !quad ? "Original scan" : fullFrame ? "Full card image" : "Detected card"} ${position}`}
             className="max-w-full max-h-full object-contain"
           />
         ) : (
@@ -179,7 +180,7 @@ export function AcquisitionScanImage({
         {(
           [
             ["original", "Original"],
-            ["crop", "Detected card"],
+            ["crop", fullFrame ? "Full card image" : "Detected card"],
             ["zones", "Reading zones"],
           ] as const
         ).map(([key, label]) => (
@@ -205,9 +206,11 @@ export function AcquisitionScanImage({
       <p className="text-xs mt-2">
         {!quad
           ? "No detected outline available; showing original."
-          : view === "original"
-            ? "Cyan outline: corners chosen by the worker."
-            : `Reconstructed from the worker's saved corners${evidence?.rotation === null ? "; reading direction unresolved" : " and reading direction"}.`}
+          : fullFrame
+            ? `Full image retained; no crop. This tightly framed image is resized for reading${evidence?.rotation === null ? "; direction unresolved" : " and oriented using the reading result"}.`
+            : view === "original"
+              ? "Cyan outline: corners chosen by the worker."
+              : `Reconstructed from the worker's saved corners${evidence?.rotation === null ? "; reading direction unresolved" : " and reading direction"}.`}
       </p>
       {view === "zones" && (
         <p className="text-xs">

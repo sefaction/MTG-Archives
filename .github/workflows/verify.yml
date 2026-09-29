@@ -64,6 +64,10 @@ jobs:
           persist-credentials: false
       - name: OCR line geometry guards
         run: python -m unittest discover -s tools/acquisition-runtime -p test_reading_direction.py
+      - name: Tight scan geometry guards (no models or private photos)
+        run: |
+          pip install numpy==2.2.6 opencv-contrib-python==4.10.0.84 pillow==11.3.0
+          python -m unittest discover -s tools/acquisition-eval -p test_geometry.py
       - uses: actions/setup-node@v4
         with:
           node-version: "22"

@@ -11,6 +11,7 @@ test("review evidence preserves both observations while withholding private runt
       descriptorDetails: { privatePath: "must-not-leak" },
       geometry: {
         status: "PROPOSED",
+        method: "full-frame",
         quad: [
           [10, 20],
           [210, 10],
@@ -46,6 +47,7 @@ test("review evidence preserves both observations while withholding private runt
   };
   const evidence = acquisitionReviewEvidence(input)!;
   assert.equal(evidence.rotation, null);
+  assert.equal(evidence.geometry.method, "full-frame");
   assert.equal(evidence.observations.length, 2);
   assert.equal(evidence.observations[1].text.title[0], "different direction");
   assert.ok(!JSON.stringify(evidence).includes("private"));

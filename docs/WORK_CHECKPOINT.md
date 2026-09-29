@@ -1,5 +1,41 @@
 # Resumable work checkpoint
 
+## Scanner correction PR #470 in review, 2026-09-28
+
+- PR #470 is open at47e1352 (follow-up documentation records scanner clarification). Browser final17917 passed1/1 in49.6s; desktop1366/phone320 viewport screenshots inspected, complete footers visible, no overflow. Previous22532 passed1/1 in44s. All disposable scanner users cleaned; no Inventory writes. Unit656, final typecheck/ESLint and native source hash verification passed. Source/runtime hashes remain as recorded below.
+- User identified the scanner as SmartOffice PS286 Pro and explicitly said the scans are comparison material, not a request for calibration. No scanner hardware configuration/testing is included; no open scanner question remains. Resolution and physical overlap are not assumed.
+- Recognition metrics remain15/17 exact-first,17/17 in12,11 correct strong,0 wrong strong in this sample. Initial CI run36455881206 passed acquisition integrity; final checks pending. No individual merge approval. Next safe step: finish CI, ready PR470, ask for review/individual approval; broader463 and retry468 stay open. Production untouched.
+
+## Tight scanner crop correction in progress, 2026-09-28
+
+- Branch `fix/acquisition-tight-scan-crop`, bug #469 under #306/#463. User requested scanner success-rate evaluation and automatic avoidance of unnecessary cropping. No merge approval or PR yet.
+- Independently labelled 17 scanner images (NEO), private originals unchanged. Frozen full metadata baseline: 17 expected names, 8 exact first, 15 in twelve, zero strong. Inner contours visibly removed identifier footers. Final full-frame native evaluation: 15 exact first, all17 in twelve, 11 correct strong and zero wrong strong. Remaining second choices are Reckoner's Bargain and Patchwork Automaton original/List ambiguities; stamp detection remains unimplemented.
+- Full-image heuristic requires near-card aspect, dark rim on every edge, and large near-frame connected content. Full source quad is preserved, only oriented/resized. Ordinary phone detection and printing thresholds unchanged. UI labels full image/no crop. Final geometry check: 51 phone originals in four turns (204 byte-identical crops/evidence); 17 scans in four turns (68 full-frame quads). Synthetic guards4/4 and review evidence3/3 passed. Scanner model/resolution question queued; no result depends on answer.
+- Initial geometry variant missed two sideways scans; replaced dependence on chosen inner contour with connected-content support. Initial browser26389 failed before upload because its newly written fixture omitted required storage sections; fixed to valid sections:[], cleaned fixture. Final browser22532 running against final native image. Fixture jobs alone get earlier availableAt to bypass existing upgrade backlog; this is functional verification, not throughput evidence. No existing session jobs are modified by the test.
+- Web build image14dab4d source429 digest0b38f8c47c449ea7fcea4e4b8f1cd26ff61af7b6db5bbbef050693bf7ffc1fcd verified; final native536b592 loaded. Both builds/reloads succeeded per Docker logs despite PowerShell stderr wrapper exit1. Native final evaluation80084 finished. Pending: browser/screenshots, final unit/typecheck/CI, documentation and PR; production unchanged. Independent Android-device goal remains paused.
+
+## Additional document-scanner test material received, 2026-09-28
+
+- Active branch remains `local/acquisition-visual-review-20260928`; no application change or new PR. Live GitHub has no open PRs; recognition #463 remains OPEN.
+- User supplied `C:\Users\brian\Downloads\immich-20260927_224720`, containing 51 phone JPEGs and 17 scanner JPEGs (`scans.01.jpg` through `scans.17.jpg`). Copied only the 17 scanner files into this worktree's ignored `.local-data/acquisition-corpus/scanner-20260928/`, preserving originals and verifying each copy against source SHA-256. Private `intake-manifest.json` records hashes, byte sizes and decoded dimensions.
+- Intake decoding passed for all 17 images. Visually inspected scan 01: Sunblade Samurai, visible NEO / 039 footer. Complete printing labels, scanner model/settings and physical correspondence to phone photos remain unverified; do not claim held-out independence or recognition accuracy. No OCR/application benchmark or Inventory write was performed.
+- Local Docker services remain running; this fixture intake requires no rebuild. No Foundry milestone or production change. Next safe step for #463: visually label/cross-check the scanner set, establish physical overlap, then run a separately reported scanner baseline using existing evaluation tooling. No answer is required to retain the material.
+
+## PR #467 approved and merged, 2026-09-28
+
+- User individually approved #467. Fresh checks passed on exact head `ff873778ab73266199554b98e969308b6ecc4bb2`; merged into main as `fc7b3621f4802e2bc17147d8be74afe58572729b` at 15:31:36 UTC. GitHub confirms MERGED. All three checks succeeded in run36440044280.
+- Active branch `local/acquisition-visual-review-20260928` is based on merged main. Local Docker already contains the verified implementation recorded below; merge ancestry and checkpoint bookkeeping require no rebuild. Production untouched; image publication has not been verified.
+- #308, #463 and #468 remain OPEN. The visual review batch is merged; catalog completeness, recognition accuracy and intermittent burst-upload retry remain separate follow-ons. No pending merge question or known running verification process remains.
+- Next safe step: address burst-upload recovery #468 and broader recognition/catalog work #463 when continuing acquisition implementation. The independent Android-device acceptance goal remains paused.
+
+## PR #467 ready for individual review, 2026-09-28
+
+- PR #467 at `ff873778ab73266199554b98e969308b6ecc4bb2` has all three CI checks green in run36440044280 (Core1m54s, acquisition55s, import2m14s). It is ready for individual approval; no approval received. #308/#463 stay open, with intermittent upload retry tracked separately in #468.
+- Final local image `a2a7992fcb772fd0a73f7e32b415c1f1befa9a1c6af8543dc4114dc52120f236`; source429 files verify at `1fb742a480a18b0ee91dbf8a3d8e95ebda90d00a78ff8991d3a11c0f324a4f38`. Web/acquisition worker loaded, native recognition unchanged. Source/build/schema data all local; production untouched.
+- Functional flow passed twice before only final header-opacity/caption-height CSS changes. Final full-flow65676 failed during burst photo preparation with the recurring retained-upload issue #468, before visual assertions. Do not report a clean final full-flow pass. Read-only final-source check against an existing batch passed1366/320, aligned image tops, reference images decoded, no overflow, zero acquisition writes. Temporary isolated admin removed; local existing reviews and Inventory unchanged. Final screenshots acquisition-final-1366.png and acquisition-final-320.png inspected.
+- Library59295 passed1/1 in16.2s, including14-card automatic append,2-upload bound,capacity and stop/reselect; earlier burst failure is retained in #468. Evidence/privacy/crop tests3/3, unit656, typecheck, ESLint, production build and disposable DB helper passed. No pending build/test process remains; shell stderr wrappers report1 on successful native build/browser logs, so actual log outcomes are recorded.
+- Next safe step: user reviews the visual batch at http://127.0.0.1:13001/imports/scan and approves #467 individually before merge. Follow-on implementation: catalog completeness/external fallback and visual/printing/stamp recognition in #463; diagnose/recover burst conflicts in #468. This post-ready checkpoint is local bookkeeping. Standing Android-device goal remains paused independently.
+
 ## Visual scan review local acceptance, 2026-09-28
 
 - Draft PR #467 at599a47e is open under #308/#463; all three CI checks passed in run36438983590. No merge approval received.

@@ -1,0 +1,221 @@
+{
+  "version": 1,
+  "scope": "17 scanner development samples; unknown device/settings and physical overlap with phone photos. Offline original-byte evaluation. No saved reviews or Inventory writes. CPU timings include cold first inference; host also ran other local work, so no speed comparison or throughput guarantee.",
+  "manifestSha256": "af4e59f0ece116a5d2eb82b907d09c5e48d100b16ecf37843c4ecc18ad9f9312",
+  "results": [
+    {
+      "pipeline": "current",
+      "catalogDigest": "7525e0b6b99d9a07f26f15cdf8eba46fc484373151a64c82c61222ac9df7e6a8",
+      "catalogCards": 118404,
+      "paperCards": 109269,
+      "samples": 17,
+      "exactPrintingRank1": 8,
+      "exactPrintingRecallAt12": 15,
+      "expectedNameProposed": 17,
+      "strongMatchProposals": 0,
+      "incorrectStrongMatchProposals": 0,
+      "nativeDescriptor": "5f2d1b3489a7fd489b567777e5b3727a67e0fe3d086f97607d6d42118e2099c7",
+      "nativeSource": "eece844e8c4605b03e530de20747cbdaf8cb4db9a8293c54f41c315ae4ba521c",
+      "geometrySource": "76a440131f315002927bf3f073d09ebc3793300a0358d955d372bc16278d7c97",
+      "medianMilliseconds": 3773,
+      "maxMilliseconds": 7561,
+      "results": [
+        {
+          "file": "scans.01.jpg",
+          "exactPrintingRank": 3,
+          "strong": false
+        },
+        {
+          "file": "scans.02.jpg",
+          "exactPrintingRank": 1,
+          "strong": false
+        },
+        {
+          "file": "scans.03.jpg",
+          "exactPrintingRank": 2,
+          "strong": false
+        },
+        {
+          "file": "scans.04.jpg",
+          "exactPrintingRank": 1,
+          "strong": false
+        },
+        {
+          "file": "scans.05.jpg",
+          "exactPrintingRank": 1,
+          "strong": false
+        },
+        {
+          "file": "scans.06.jpg",
+          "exactPrintingRank": 2,
+          "strong": false
+        },
+        {
+          "file": "scans.07.jpg",
+          "exactPrintingRank": 3,
+          "strong": false
+        },
+        {
+          "file": "scans.08.jpg",
+          "exactPrintingRank": 1,
+          "strong": false
+        },
+        {
+          "file": "scans.09.jpg",
+          "exactPrintingRank": 2,
+          "strong": false
+        },
+        {
+          "file": "scans.10.jpg",
+          "exactPrintingRank": null,
+          "strong": false
+        },
+        {
+          "file": "scans.11.jpg",
+          "exactPrintingRank": 1,
+          "strong": false
+        },
+        {
+          "file": "scans.12.jpg",
+          "exactPrintingRank": null,
+          "strong": false
+        },
+        {
+          "file": "scans.13.jpg",
+          "exactPrintingRank": 2,
+          "strong": false
+        },
+        {
+          "file": "scans.14.jpg",
+          "exactPrintingRank": 1,
+          "strong": false
+        },
+        {
+          "file": "scans.15.jpg",
+          "exactPrintingRank": 1,
+          "strong": false
+        },
+        {
+          "file": "scans.16.jpg",
+          "exactPrintingRank": 1,
+          "strong": false
+        },
+        {
+          "file": "scans.17.jpg",
+          "exactPrintingRank": 4,
+          "strong": false
+        }
+      ]
+    },
+    {
+      "pipeline": "full-frame-final",
+      "catalogDigest": "7525e0b6b99d9a07f26f15cdf8eba46fc484373151a64c82c61222ac9df7e6a8",
+      "catalogCards": 118404,
+      "paperCards": 109269,
+      "samples": 17,
+      "exactPrintingRank1": 15,
+      "exactPrintingRecallAt12": 17,
+      "expectedNameProposed": 17,
+      "strongMatchProposals": 11,
+      "incorrectStrongMatchProposals": 0,
+      "nativeDescriptor": "52e6a993d90ec8427ffc31079b8ac8fc13b593e8f2c82ef0a76c0d0ec153c78f",
+      "nativeSource": "eece844e8c4605b03e530de20747cbdaf8cb4db9a8293c54f41c315ae4ba521c",
+      "geometrySource": "8d27f841fdba2e02e5e3e071930ac88d7763376f1269c0a5627b0826b5256f9c",
+      "medianMilliseconds": 5309,
+      "maxMilliseconds": 7552,
+      "results": [
+        {
+          "file": "scans.01.jpg",
+          "exactPrintingRank": 1,
+          "strong": true
+        },
+        {
+          "file": "scans.02.jpg",
+          "exactPrintingRank": 1,
+          "strong": true
+        },
+        {
+          "file": "scans.03.jpg",
+          "exactPrintingRank": 1,
+          "strong": true
+        },
+        {
+          "file": "scans.04.jpg",
+          "exactPrintingRank": 1,
+          "strong": false
+        },
+        {
+          "file": "scans.05.jpg",
+          "exactPrintingRank": 1,
+          "strong": true
+        },
+        {
+          "file": "scans.06.jpg",
+          "exactPrintingRank": 2,
+          "strong": false
+        },
+        {
+          "file": "scans.07.jpg",
+          "exactPrintingRank": 1,
+          "strong": false
+        },
+        {
+          "file": "scans.08.jpg",
+          "exactPrintingRank": 1,
+          "strong": true
+        },
+        {
+          "file": "scans.09.jpg",
+          "exactPrintingRank": 2,
+          "strong": false
+        },
+        {
+          "file": "scans.10.jpg",
+          "exactPrintingRank": 1,
+          "strong": true
+        },
+        {
+          "file": "scans.11.jpg",
+          "exactPrintingRank": 1,
+          "strong": true
+        },
+        {
+          "file": "scans.12.jpg",
+          "exactPrintingRank": 1,
+          "strong": true
+        },
+        {
+          "file": "scans.13.jpg",
+          "exactPrintingRank": 1,
+          "strong": false
+        },
+        {
+          "file": "scans.14.jpg",
+          "exactPrintingRank": 1,
+          "strong": true
+        },
+        {
+          "file": "scans.15.jpg",
+          "exactPrintingRank": 1,
+          "strong": true
+        },
+        {
+          "file": "scans.16.jpg",
+          "exactPrintingRank": 1,
+          "strong": false
+        },
+        {
+          "file": "scans.17.jpg",
+          "exactPrintingRank": 1,
+          "strong": true
+        }
+      ]
+    }
+  ],
+  "geometryRegression": {
+    "phoneFiles": 51,
+    "phoneOrientationsUnchanged": 204,
+    "scannerFiles": 17,
+    "scannerOrientationsPreserved": 68
+  }
+}
