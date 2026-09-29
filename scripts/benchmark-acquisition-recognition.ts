@@ -50,10 +50,12 @@ const cardSchema = z.object({
 });
 async function main() {
   const catalogPath = argument("--catalog");
+  const manifestBytes = await readFile(argument("--manifest"));
+  const ocrBytes = await readFile(argument("--ocr"));
   const manifest = manifestSchema.parse(
-    JSON.parse(await readFile(argument("--manifest"), "utf8")),
+    JSON.parse(manifestBytes.toString("utf8")),
   );
-  const report = JSON.parse(await readFile(argument("--ocr"), "utf8"));
+  const report = JSON.parse(ocrBytes.toString("utf8"));
   const fixture = args.includes("--fixture") ? argument("--fixture") : null;
   const hash = createHash("sha256");
   for await (const part of createReadStream(catalogPath)) hash.update(part);
@@ -139,6 +141,7 @@ async function main() {
     );
     results.push({
       file: expected.file,
+      sha256: expected.sha256,
       expectedScryfallId: expected.scryfallId,
       text,
       milliseconds: Math.round(ms),
@@ -154,6 +157,9 @@ async function main() {
     fixture,
     split: "development-only",
     catalogDigest,
+    manifestSha256: createHash("sha256").update(manifestBytes).digest("hex"),
+    ocrSha256: createHash("sha256").update(ocrBytes).digest("hex"),
+    resolverSha256: createHash("sha256").update(await readFile(new URL("../lib/acquisition-recognition.ts", import.meta.url))).digest("hex"),
     catalogCards: cards.length,
     paperCards: index.cards,
     samples: results.length,
