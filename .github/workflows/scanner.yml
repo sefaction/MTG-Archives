@@ -34,5 +34,18 @@ jobs:
               -not (Test-Path (Join-Path $edition.FullName 'build-manifest.json'))) {
             throw 'Validated helper copy is incomplete'
           }
+      - run: dotnet restore tools/scanner-agent/ScannerAgent.csproj --locked-mode -r win-x64
+      - run: dotnet publish tools/scanner-agent/ScannerAgent.csproj --no-restore --configuration Release -r win-x64 --self-contained true -p:OutputType=WinExe -p:PublishSingleFile=false -p:PublishTrimmed=false -o "${{ runner.temp }}/scanner-publish"
+      - name: Verify self-contained helper without hardware
+        shell: pwsh
+        run: |
+          $helper = Join-Path $env:RUNNER_TEMP 'scanner-publish/Mtg.ScannerAgent.exe'
+          if (-not (Test-Path $helper) -or -not (Test-Path (Join-Path $env:RUNNER_TEMP 'scanner-publish/NAPS2.Worker.exe'))) {
+            throw 'Self-contained helper is incomplete'
+          }
+          foreach ($check in @('connection-selftest', 'native-selftest')) {
+            $process = Start-Process -FilePath $helper -ArgumentList $check -Wait -PassThru -WindowStyle Hidden
+            if ($process.ExitCode -ne 0) { throw "$check failed: $($process.ExitCode)" }
+          }
       - run: node --test tools/scanner-agent/transport.test.mjs
       # CI cannot qualify physical hardware. Never run discovery/scan on hosted CI.
