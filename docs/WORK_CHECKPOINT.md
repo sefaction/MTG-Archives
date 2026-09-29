@@ -1,5 +1,11 @@
 # Resumable work checkpoint
 
+## Scanner start discoverability, 2026-09-29
+
+- Active isolated branch `fix/scanner-start-discovery` from merged main `6bbd268`; user reported scanner Online but could not find Start. Issue #509 records the separate start-path defect; #501 remains the native-scanner umbrella and #506 the broader review/Inventory audit. No physical scan, Inventory write, production change or PR merge in this batch.
+- The connected panel now links to a new scanner-preselected batch. The batch form names destination/input steps, states that Start scanner batch sends the command, and explains missing destination/capacity/source/feeder confirmation. A completed scanner run's New scanner batch link preserves scanner input. Current local typecheck, focused lint and diff checks passed.
+- Next: commit isolated source; cherry-pick only this UI slice into the cumulative acquisition review branch; explicitly build Docker web from that cumulative worktree and reload without `--build` from the primary checkout. Run the no-motor local helper/browser case through enabled Start, inspect desktop/phone screenshots, then push a PR with its own approval boundary. Preserve current recognition workers and all scanner physical safety rules.
+
 ## Website-first Windows scanner installer ready for PR, 2026-09-29
 
 - Active isolated branch `feat/scanner-website-installer` from merged main `080230d`; #501 remains active. Draft #508 is open for website-first installation; all four initial CI checks passed. Superseded draft #507 was closed without merge. No PR merge, production change or scanner motor run in this batch. The local cumulative review includes isolated commit `762d22c` and compact UI/test commit `6cd7284`; unrelated recognition work remains outside #508.

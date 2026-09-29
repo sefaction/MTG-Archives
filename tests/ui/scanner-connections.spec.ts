@@ -20,7 +20,7 @@ test("paired Windows helper reports real sources in website; revocation blocks i
     input, encoding: "utf8", timeout: 45000, windowsHide: true,
   });
   try {
-    database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});`);
+    database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:2,sections:[{name:'A',capacity:2}]}}});`);
     await page.goto("/login");
     await page.getByLabel(/username or email/i).fill(tag);
     await page.getByLabel(/^password$/i).fill(password);
@@ -60,11 +60,28 @@ test("paired Windows helper reports real sources in website; revocation blocks i
     await expect(panel.getByText("Online", { exact: true })).toBeVisible();
     for (const device of state.devices) await expect(panel.getByText(`${device.name} · ${device.source}`, { exact: false })).toBeVisible();
     await expect(panel.locator("code")).toHaveCount(0); // Secrets omitted from screenshots.
+    await panel.getByRole("link", { name: "Set up a new scanner batch" }).click();
+    await expect(page).toHaveURL(/\/imports\/scan\?input=scanner#new-scan-batch$/);
+    const batch = page.getByRole("region", { name: "New scan batch" });
+    await expect(batch.getByRole("heading", { name: "Set up a new scan batch" })).toBeVisible();
+    await expect(batch.getByLabel("Scan from a connected scanner")).toBeChecked();
+    const start = batch.getByRole("button", { name: "Start scanner batch" });
+    await expect(start).toBeDisabled();
+    await expect(batch.getByText("Choose a destination to start.")).toBeVisible();
+    await page.getByTestId("storage-destination").getByRole("combobox").fill(tag);
+    await page.getByRole("option", { name: new RegExp(tag) }).first().click();
+    const source = batch.getByRole("combobox", { name: "Scanner source" });
+    await expect(source.locator("option").nth(1)).toBeAttached();
+    await source.selectOption({ index: 1 });
+    await expect(start).toBeDisabled();
+    await batch.getByLabel("The scanner is clear and exactly this many expendable cards are loaded for simplex scanning.").check();
+    await expect(start).toBeEnabled(); // Do not click: this would start the scanner motor.
     for (const width of [1366, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await expect(panel.getByRole("button", { name: "Disconnect Windows scanner", exact: true })).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      await page.screenshot({ path: `test-results/scanner-connections-${width}.png` });
+      await start.scrollIntoViewIfNeeded();
+      await page.screenshot({ path: `test-results/scanner-start-${width}.png` });
     }
     await panel.getByRole("button", { name: "Disconnect Windows scanner", exact: true }).click();
     await expect(panel.getByText("No scanner helpers connected yet.")).toBeVisible();
@@ -73,6 +90,6 @@ test("paired Windows helper reports real sources in website; revocation blocks i
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
   } finally {
     if (agentId) helper(["forget", agentId]);
-    database(`const n=${JSON.stringify(tag)};await p.scannerPairing.deleteMany({where:{userId:n}});await p.scannerAgent.deleteMany({where:{userId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});`);
+    database(`const n=${JSON.stringify(tag)};await p.scannerPairing.deleteMany({where:{userId:n}});await p.scannerAgent.deleteMany({where:{userId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.inventoryLocation.deleteMany({where:{id:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});`);
   }
 });

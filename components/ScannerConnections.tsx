@@ -1,9 +1,9 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { filterButtonClass, filterPanelClass } from "./filterStyles";
+import { filterButtonClass, filterPanelClass, filterPrimaryButtonClass } from "./filterStyles";
 import type { listScannerAgents } from "@/lib/scanner-store";
 type Agent = Awaited<ReturnType<typeof listScannerAgents>>[number];
-export function ScannerConnections() {
+export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [expanded, setExpanded] = useState(false);
   const [addAnother, setAddAnother] = useState(false);
@@ -63,9 +63,13 @@ export function ScannerConnections() {
     finally { setBusy(false); }
   }
   return <section className={`${filterPanelClass} min-w-0`} aria-label="Scanner connections">
-    <button type="button" className={filterButtonClass} aria-expanded={expanded}
-      onClick={() => { setExpanded(!expanded); if (expanded) setAddAnother(false); else void refresh(); }}>
-      {hasOnline ? "Scanner connected" : "Connect a scanner"}</button>
+    <div className="flex flex-wrap items-center gap-2">
+      <button type="button" className={filterButtonClass} aria-expanded={expanded}
+        onClick={() => { setExpanded(!expanded); if (expanded) setAddAnother(false); else void refresh(); }}>
+        {hasOnline ? "Scanner connected" : "Connect a scanner"}</button>
+      {hasOnline && <a className={filterPrimaryButtonClass} href={newBatchHref}>Set up a new scanner batch</a>}
+    </div>
+    {hasOnline && <p className="mt-2 text-sm">Choose a destination and scanner source below, enter the number of cards loaded, then start the batch.</p>}
     {expanded && <div className="space-y-3 mt-3 min-w-0">
       {hasOnline && <button type="button" className={filterButtonClass}
         onClick={() => setAddAnother(!addAnother)}>{addAnother ? "Hide setup" : "Add another computer"}</button>}
