@@ -37,17 +37,36 @@ other local work; they are not isolated throughput measurements.
 
 ## Current new material
 
-At the user's direction the new90-file preserved sample is evaluated only on
-67 playable cards, including four visible stamps;23 art cards are excluded.
+At the user's direction the new 90-file preserved sample is evaluated only on
+67 playable cards, including four visible stamps; 23 art cards are excluded.
 Visible labels were frozen before scoring. Same-printing repeats remain and
-physical-copy grouping is unknown. The initial OCR-only stage offered63 card
-names and53 expected printings, with47 correct first printings among67;25 raw
+physical-copy grouping is unknown. The initial OCR-only stage offered 63 card
+names and 53 expected printings, with 47 correct first printings among 67; 25 raw
 strict-text proposals were correct. These raw proposals have not been promoted
-to automatic confirmation in the local hybrid test profile. The complete paired
-image/catalog/printing evaluation is still running. No final accuracy claim.
+to automatic confirmation in the local hybrid test profile.
+
+The complete initial paired runtime evaluation scored all 67: 58 correct first
+printings, 65 expected printings offered, four of four positive stamps observed,
+and all 63 negative stamps unreadable. All four positive cases had UNKNOWN
+reference stamp states: detecting the physical mark did not prove a printing's
+relationship to it. Two PLST identities ranked first and two remained alternatives.
+No proposal was eligible for automatic confirmation.
+
+Native mean times were 4.593 seconds OCR, 9.813 seconds visual and 7.584 seconds
+printing. These overlap older queued batches, builds, and temporarily two local
+printing replicas (each 1 CPU/1 GiB); they exclude queue/provider waits and must
+not be summed into isolated throughput. OCR used 1 CPU/2 GiB and visual 1 CPU/3 GiB.
+
+The subsequent partial-identifier tie fix is a development replay: 61 first,
+65 offered on the same frozen native observations. It reproduces all initial
+live proposal orders under the earlier policy, and every replay candidate has
+actual native printing evidence. It changes three Mountain results covering two
+printings, not three proven independent physical trials. See
+[the bounded correction](ACQUISITION_BASIC_LAND_EVIDENCE.md) and the sanitized
+[complete results](../tools/acquisition-eval/playable-runtime-results.json).
 
 Four model-free guards verify uncertainty, partial-result refusal, changed
 generation/photo/labels/full-frame mode, identity reorder and duplicate bytes.
-The actual first completed playable runtime results also pass the scorer; their
-partial metrics are not acceptance. Original photos, frozen labels and results
+The complete paired playable runtime results pass the scorer without partial
+mode. Original photos, frozen labels and results
 are retained privately. Production and scanner hardware are unchanged.

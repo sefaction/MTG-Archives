@@ -113,6 +113,26 @@ test("title and collector evidence precede an unrelated image when set text is u
   assert.equal(result.automaticAcceptance,false);
 });
 
+test("image agreement resolves same-name same-number ties without inventing set or language text", ()=>{
+  const older = {...card, id: "aaa-earlier-local-id", name: "Mountain", setCode: "cm2", collectorNumber: "304"};
+  const expected = {...older, id: "zzz-image-supported", setCode: "fin"};
+  const observed = proposeOrientedAcquisitionPrintings(createAcquisitionRecognitionIndex([older, expected]),[
+    {rotationDegrees: 0, text: {title: ["Mountain"], footer: ["L0304 FFIV", "FIN• ENRANDY GALLEGOS"]}},
+    {rotationDegrees: 180, text: {title: [], footer: []}},
+  ]);
+  assert.equal(observed.proposals[0].card.id, older.id, "reproduces prior local-ID order");
+  const before = JSON.stringify(observed);
+  const result = combineAcquisitionCandidates(observed,
+    {candidates: [{scryfallId: external}], geometricCandidates: [{scryfallId: external}]},
+    new Map([[external, expected]]));
+  assert.equal(result.proposals[0].card.id, expected.id);
+  assert.equal(result.proposals[1].card.id, older.id);
+  assert.deepEqual(result.evidence.setCodes, []);
+  assert.deepEqual(result.evidence.languages, []);
+  assert.equal(result.automaticAcceptance, false);
+  assert.equal(JSON.stringify(observed), before);
+});
+
 test("a partial title cannot remove a contradicted identifier match at the review limit", () => {
   const observed=text();
   observed.proposals=[{card, nameDistance:null, reasons:["SET_AND_COLLECTOR_TEXT","TITLE_CONTRADICTION"]}];

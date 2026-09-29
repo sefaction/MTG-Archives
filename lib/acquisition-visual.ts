@@ -132,8 +132,17 @@ export function combineAcquisitionCandidates(
     if (p.reasons.includes("SET_AND_COLLECTOR_TEXT") && p.reasons.includes("TITLE_EXACT") && !contradicted(p)) append(p.card.id);
   for (const p of text.proposals)
     if (p.reasons.includes("SET_AND_COLLECTOR_TEXT") && !contradicted(p)) append(p.card.id);
-  for (const p of text.proposals)
-    if (p.reasons.includes("TITLE_AND_COLLECTOR_TEXT") && !contradicted(p)) append(p.card.id);
+  // Basic lands can share both name and collector number across many sets.
+  // Within that equally supported partial-identifier group, prefer independent
+  // image agreement over arbitrary local Card ID order. Unrelated images still
+  // cannot outrank observed identifiers, and this does not establish certainty.
+  const imageRank = new Map<string, number>();
+  imageOrder.forEach((id, rank)=>{if (!imageRank.has(id)) imageRank.set(id, rank);});
+  const partialIdentifiers = text.proposals.filter(p=>
+    p.reasons.includes("TITLE_AND_COLLECTOR_TEXT") && !contradicted(p));
+  partialIdentifiers.sort((a,b)=>(imageRank.get(a.card.id) ?? Number.MAX_SAFE_INTEGER) -
+    (imageRank.get(b.card.id) ?? Number.MAX_SAFE_INTEGER));
+  for (const p of partialIdentifiers) append(p.card.id);
   // A partial/misread title can contradict a real set/collector match. Keep
   // those identifier candidates in the bounded review list, then demote them
   // within that list; weak image alternatives must not erase the evidence.

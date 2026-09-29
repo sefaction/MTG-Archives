@@ -6,18 +6,22 @@ enable production scanner acquisition.
 
 ## Current local review, September 28
 
-Foundation470/471/472/475/476/477 is merged. Live printing observations are
+Foundation #470/#471/#472/#475/#476/#477 is merged. Live printing observations are
 documented in [runtime printing](ACQUISITION_PRINTING_RUNTIME.md); public
 reference maintenance, evidence ordering, full-frame Card scan mode and batch
-worker turns are loaded cumulatively under unapproved478/481/482/484. Those
+worker turns from individually approved #478/#481/#482/#484 are also merged. Those
 later documents supersede the implementation gaps in this original batch's
 historical results below. Automatic hybrid confirmation remains off.
 
-The new playable-only evaluation uses67 frozen visible labels/four stamps,
+The new playable-only evaluation uses 67 frozen visible labels/four stamps,
 excluding art cards at the user's direction. The
 [runtime scorer](ACQUISITION_RUNTIME_EVALUATION.md) measures saved actual results
-without repeating recognition. Final new-material accuracy and conservative
-automatic/scale/recovery acceptance remain open under #463.
+without repeating recognition. The complete initial runtime scored 58 first and
+65 offered; the subsequent bounded basic-land tie replay scored 61 first and
+65 offered. These are separately labelled initial/development results; repeated
+printings and unknown physical-copy grouping limit their interpretation.
+Remaining accuracy and conservative automatic/scale/recovery acceptance stay
+open under #463.
 
 ## Development loop
 
