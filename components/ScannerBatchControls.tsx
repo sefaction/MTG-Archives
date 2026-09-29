@@ -19,6 +19,11 @@ export function ScannerSourceFields({ onChange, remaining, disabled }: { onChang
   const [enabled, setEnabled] = useState(false), [loaded, setLoaded] = useState(1), [ready, setReady] = useState(false);
   const [dpi, setDpi] = useState<300 | 600>(300), [error, setError] = useState("");
   const refresh = async () => { try { setAgents((await call<{ agents: Agent[] }>("/api/scanners")).agents); } catch (e) { setError((e as Error).message); } };
+  useEffect(() => {
+    if (!enabled) return;
+    const timer = setInterval(() => void refresh(), 5000);
+    return () => clearInterval(timer);
+  }, [enabled]);
   const sources = agents.filter(a=>a.online && a.agentVersion === "0.3.0-native").flatMap(a=>a.devices
     .filter(d=>d.qualification!=="Unsupported").map(d=>({ key: `${a.id}/${d.id}`, agentId: a.id, device: d })));
   useEffect(() => {
@@ -30,7 +35,7 @@ export function ScannerSourceFields({ onChange, remaining, disabled }: { onChang
   // sources are refreshed by explicit user action; dependencies are the underlying inputs.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agents, selected, enabled, ready, loaded, dpi, remaining, onChange]);
-  return <fieldset className="space-y-3 min-w-0 my-3" disabled={disabled}>
+  return <fieldset id="scanner-source" className="space-y-3 min-w-0 my-3" disabled={disabled}>
     <legend className="font-semibold">Card input</legend>
     <label className="flex gap-2 items-start"><input type="checkbox" checked={enabled}
       onChange={e=>{ setEnabled(e.target.checked); if(e.target.checked) void refresh(); else onChange(null,false); }} />Scan from a connected scanner</label>
@@ -39,7 +44,7 @@ export function ScannerSourceFields({ onChange, remaining, disabled }: { onChang
         <select className={input+" block w-full max-w-full mt-1"} value={selected} onChange={e=>{setSelected(e.target.value);setReady(false);}}>
           <option value="">Choose a source</option>{sources.map(s=><option key={s.key} value={s.key}>{s.device.name} · {s.device.source}</option>)}
         </select></label><button className={button} type="button" onClick={()=>void refresh()}>Refresh scanners</button></div>
-      {sources.length===0 && <p className="text-sm">Connect a scanner above and run the current Windows helper to see its sources.</p>}
+      {sources.length===0 && <p className="text-sm">Connect a scanner above; available sources will appear here automatically.</p>}
       <div className="flex flex-wrap gap-3"><label>Cards loaded<input className={input+" block w-28 mt-1"} type="number" min={1}
         max={Math.min(500,remaining??500)} value={loaded} onChange={e=>{setLoaded(Number(e.target.value));setReady(false);}} /></label>
         <label>Resolution<select className={input+" block mt-1"} value={dpi} onChange={e=>{setDpi(Number(e.target.value) as 300|600);setReady(false);}}>

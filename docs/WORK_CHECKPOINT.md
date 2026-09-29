@@ -1,5 +1,11 @@
 # Resumable work checkpoint
 
+## Website-first Windows scanner installer in progress, 2026-09-29
+
+- Active isolated branch `feat/scanner-website-installer` from merged main `080230d`; #501 remains active. Draft #507 source-built setup UI is superseded for the user's desired website-first installation. No PR merge, production change or scanner motor run in this batch. The source/recognition cumulative review remains separately loaded until this batch is rebuilt into it.
+- Implemented one-use `mtg-archive-scanner:` pairing link, per-user self-contained Windows installer source, sign-in resume, authenticated installer download from the existing imports appdata mount, and Scan cards install/connect steps. Build output is ignored private `.local-data`; no binary published. Local installer compile and installed app/protocol/Run registry checks passed; installed connection and transport selftests both returned exit 0 without hardware. Current installer is local-only because NAPS2 worker/DSM/notices/rebuild distribution gates remain open.
+- Pending: final typecheck, UI test adaptation, cumulative local Docker rebuild and browser review, actual site-triggered protocol pairing/discovery with a disposable local account, focused CI, checkpoint/PR. Preserve prior review work and #501 hardware boundaries. Do not feed a card without fresh user confirmation. Production installer copying or deployment needs separate reviewed approval.
+
 ## Windows scanner source-built handoff, 2026-09-29
 
 - Active branch `feat/scanner-helper-source-install`; its scanner parents #474/#502/#503/#504 were individually approved and have now merged into main in that order, ending at `6aac07d294d43fc7926d89107e9b496f9e613279`. #501 remains active; production untouched and no new motor operation.

@@ -30,8 +30,14 @@ test("paired Windows helper reports real sources in website; revocation blocks i
     const panel = page.getByRole("region", { name: "Scanner connections" });
     await panel.getByRole("button", { name: "Connect a scanner", exact: true }).click();
     await expect(panel.getByText("No scanner helpers connected yet.")).toBeVisible();
-    await panel.getByRole("button", { name: "Create connection code" }).click();
-    const code = await panel.locator("code").innerText();
+    await expect(panel.getByRole("button", { name: "Connect this computer" })).toBeVisible();
+    const installer = await page.request.get("/api/scanners/installer?info");
+    expect(installer.ok()).toBe(true);
+    expect((await installer.json()).available).toBe(true);
+    await expect(panel.getByRole("link", { name: "Download Windows scanner helper" })).toBeVisible();
+    const pair = await page.request.post("/api/scanners", { data: { action: "pair" } });
+    expect(pair.ok()).toBe(true);
+    const { code } = await pair.json();
     expect(code).toMatch(/^[a-f0-9-]{36}\.[A-Za-z0-9_-]{43}$/);
     const connected = helper(["connect", baseURL!, "--local"], `${code}\n`);
     agentId = connected.match(/Connection identity: ([a-f0-9-]{36})/)?.[1] ?? "";
@@ -44,8 +50,6 @@ test("paired Windows helper reports real sources in website; revocation blocks i
     // qualification or a START/transfer test. Do not mock device identities.
     await expect(panel.getByText("Online", { exact: true })).toBeVisible();
     for (const device of state.devices) await expect(panel.getByText(`${device.name} · ${device.source}`, { exact: false })).toBeVisible();
-    await panel.getByRole("button", { name: "Connect a scanner", exact: true }).click();
-    await panel.getByRole("button", { name: "Connect a scanner", exact: true }).click();
     await expect(panel.locator("code")).toHaveCount(0); // Secrets omitted from screenshots.
     for (const width of [1366, 320]) {
       await page.setViewportSize({ width, height: 900 });
