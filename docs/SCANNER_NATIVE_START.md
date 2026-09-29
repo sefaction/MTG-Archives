@@ -3,6 +3,9 @@
 Current implementation branch: `feat/native-scanner-runs`, based on #502 at
 839cc9b and separately unapproved backend #474. Tracking #501/#311. Recognition
 #463 remains open/deferred. No production operation or new physical scan.
+The user-provided production origin is `https://mtgarchive.graymaiden.com/`.
+It belongs in the helper's site-bound setup after separately approved rollout;
+current implementation and validation use local Docker only.
 
 ## Implemented prototype
 

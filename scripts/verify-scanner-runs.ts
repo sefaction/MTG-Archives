@@ -115,6 +115,20 @@ export async function verifyScannerRuns(db: PrismaClient) {
     await db.scannerRun.update({ where: { id: rolled.runId }, data: { status: "QUEUED", executionId: null } });
     const fenced = await claimScannerRun(db, otherAgent.token, rolledClaim, epoch);
     assert.equal(fenced.feedAuthorized, false); assert.equal(fenced.reconciliationRequired, true);
+    // A destination can change after browser START. Recheck before any motor
+    // authorization, and keep pre-start stop distinct from native cancellation.
+    const guardedAgent = await enroll();
+    await db.inventoryLocation.update({ where: { id: locationId }, data: { storageLayout: { capacity: 2 } } });
+    const guarded = await createScannerBatch(db, actor, { ...input, agentId: guardedAgent.agentId, requestKey: randomUUID() }, epoch);
+    await db.inventoryLocation.update({ where: { id: locationId }, data: { storageLayout: { capacity: 1 } } });
+    const guardedClaim = { ...claim, runId: guarded.runId, executionId: randomUUID() };
+    await assert.rejects(claimScannerRun(db, guardedAgent.token, guardedClaim, epoch), /current remaining capacity/);
+    assert.equal((await db.scannerRun.findUniqueOrThrow({ where: { id: guarded.runId } })).executionId, null);
+    await stopScannerBatch(db, tag, guarded.runId);
+    assert.equal((await getScannerBatch(db, tag, guarded.runId)).status, "CANCELLED_BEFORE_START");
+    assert.equal((await pollScannerRun(db, guardedAgent.token, epoch)).run, null);
+    await assert.rejects(claimScannerRun(db, guardedAgent.token, guardedClaim, epoch));
+    await reconcileScannerBatch(db, tag, { ...observation, runId: guarded.runId, cardsEmitted: 0 });
     await revokeScannerAgent(db, tag, first.agentId);
     await assert.rejects(receiveScannerImage(db, first.token, t1, epoch, bytes, "image/png"));
     console.log("PASS: native run claim/replay/restore-marker fencing, scoped originals/sequence/ACK replay, ordinary pipeline jobs, retained overflow and operator count reconciliation; no motor or Inventory");
