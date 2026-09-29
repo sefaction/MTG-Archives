@@ -3,6 +3,7 @@ using Mtg.Scanner;
 
 try
 {
+    if (await ScannerConnection.Run(args)) return;
     if (args.Length == 0 || args[0] is not ("list" or "caps" or "scan"))
         throw new ArgumentException("Commands: list | caps <device-id> | scan <request.json> <private-spool-root>");
     using IScannerBackend backend = new Naps2Backend();

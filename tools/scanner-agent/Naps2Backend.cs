@@ -25,7 +25,7 @@ public sealed class Naps2Backend : IScannerBackend
     private bool closed;
     public static object Describe() => new
     {
-        agentVersion = "0.1.0-spike", backend = "naps2-windows",
+        agentVersion = ScannerConnection.Version, backendVersion = "0.1.0-spike", backend = "naps2-windows",
         agentAssemblySha256 = Convert.ToHexString(SHA256.HashData(
             File.ReadAllBytes(typeof(Naps2Backend).Assembly.Location))).ToLowerInvariant(),
         sdkPackageVersion = "1.3.0",
