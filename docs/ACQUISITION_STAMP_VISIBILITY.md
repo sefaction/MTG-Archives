@@ -35,7 +35,7 @@ Eighteen focused Python printing/runtime/cache guards pass, including clipped
 search margins, partially hidden templates, blur, absence visibility, failed
 registration and cached/uncached registration parity. The initial test command
 had a module mount/import-path error, corrected without changing application
-behavior. Real development replay and the local browser gate are pending.
+behavior. Final paired development replay and the local browser gate pass.
 
 `qualify_stamp_visibility.py` reuses each preserved runtime result's actual
 ordered candidate references and verifies original hashes. Labels score only
@@ -53,9 +53,33 @@ its failure is retained and the helper path is corrected.
 Only the local printing worker is reloaded. The web/OCR/visual images, source
 manifest and model/index settings remain unchanged. Built/source byte hashes
 match; the native descriptor changes only the printing and stamp-policy hashes.
-The ordinary Boggart browser check is running with no fixture priorities or
+The ordinary Boggart browser check passed with no fixture priorities or
 worker result injection, a fixed ten-minute printing gate, preserved location,
-correction/reload and zero Inventory checks.
+correction/reload and zero Inventory checks. The test case passed in 45.7 seconds;
+its pre-cleanup report measured 43.673 seconds. Desktop Simple/Advanced and 320px
+screenshots were inspected. The original fixture was interrupted because it had
+not selected a required finish before Save; its native result/screenshots were
+retained and the owned data cleaned. The corrected fixture saves batch defaults
+and uses bounded UI-action waits. It completed and cleaned all owned data.
+
+The exact fresh baseline/current replay completed all 31 inputs. Every baseline
+stamp outcome was reproduced and registration fields were exactly equal except
+for stamp visibility. Stamped scan detection improves 11/12 to 12/12. The four
+verified absences remain unchanged; the other 15 negative controls remain
+unreadable. There are zero wrong explicit decisions and no automatic accepts.
+See `tools/acquisition-eval/stamp-visibility-results.json` for source hashes,
+sample conservation, sanitized results and retained failures.
+
+The browser ran in the cumulative local build, including separately unapproved
+Simple/Advanced #488, upload recovery #492 and admission #495. Those are not
+dependencies or implicit merge approvals for this independently based native
+fix. Only the native stamp source changes in #500; its browser test supports
+both the main review screen and the optional cumulative modes.
+
+The printing container again reached its 1GiB lifetime cap, with zero OOM kills.
+That includes background work and a Node observer; the retained-array budget
+does not establish total-memory headroom. The previous 100-input throughput
+failure and unrun 300-input stress remain open under #463.
 
 This is reused development-stage evidence, not independent exact-printing
 accuracy. The known difficult Android stamp and broader throughput/automatic
