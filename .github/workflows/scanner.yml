@@ -25,5 +25,14 @@ jobs:
       - run: dotnet build tools/scanner-agent/ScannerAgent.csproj --no-restore --configuration Release
       - run: dotnet tools/scanner-agent/bin/Release/net8.0-windows/Mtg.ScannerAgent.dll connection-selftest
       - run: dotnet tools/scanner-agent/bin/Release/net8.0-windows/Mtg.ScannerAgent.dll native-selftest
+      - name: Build and verify local source install without hardware
+        shell: pwsh
+        run: |
+          ./tools/scanner-agent/install-from-source.ps1 -InstallRoot "$env:RUNNER_TEMP\mtg-scanner-source-install"
+          $edition = Get-ChildItem "$env:RUNNER_TEMP\mtg-scanner-source-install" -Directory | Select-Object -First 1
+          if (-not $edition -or -not (Test-Path (Join-Path $edition.FullName 'NAPS2.Worker.exe')) -or
+              -not (Test-Path (Join-Path $edition.FullName 'build-manifest.json'))) {
+            throw 'Validated helper copy is incomplete'
+          }
       - run: node --test tools/scanner-agent/transport.test.mjs
       # CI cannot qualify physical hardware. Never run discovery/scan on hosted CI.

@@ -6,6 +6,10 @@ Local hardware spike for [#473](https://github.com/sefaction/MTG-Archives/issues
 
 Requires Windows, .NET 8 SDK/Desktop runtime, an installed manufacturer driver and Node 22 for the optional transport checks. Restore pinned NuGet packages; do not use the installed NAPS2 GUI/console executable as the backend.
 
+The optional [local source-build setup](../../docs/SCANNER_SOURCE_INSTALL.md)
+validates and copies the site-connected helper under appdata without starting
+the scanner. Prebuilt distribution remains subject to the separate license gate.
+
 ```powershell
 dotnet restore tools/scanner-agent/ScannerAgent.csproj --locked-mode
 dotnet build tools/scanner-agent/ScannerAgent.csproj --no-restore -c Release

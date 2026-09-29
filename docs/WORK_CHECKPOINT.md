@@ -1,5 +1,12 @@
 # Resumable work checkpoint
 
+## Windows scanner source-built handoff, 2026-09-29
+
+- Active branch `feat/scanner-helper-source-install` based on approved #504; #474 and #502 have merged to main, #503 is retargeted to main with refreshed checks pending, then approved #504 will follow. #501 remains active; production untouched and no new motor operation.
+- Added source-only setup script that restores pinned NAPS2 packages, checks .NET 8 SDK/Desktop runtime, publishes a framework-dependent Windows helper, runs credential and native transport selftests without hardware, and copies all output and a digest manifest to a distinct appdata version directory. The script does not pair, autostart, deploy or remove existing spool/config. Source-build documentation and Windows CI smoke added.
+- Actual Windows local pilot used isolated .NET8 SDK path and private `.local-data/source-install-preview`; publish/selftests passed. The installed copy contained 85 files including NAPS2.Worker.exe, then direct SDK `list` discovered PS286 TWAIN and WIA plus Epson WIA without motor operation. No app database or Docker change. No prebuilt binary has been distributed; NAPS2 notices/relink/native DSM clean-host gate remains for future distribution.
+- Next: commit/push dependent PR, reconcile Windows CI, keep cumulative local Docker source record current. After approved scanner stack is on main and published, user-operated Unraid update plus local helper pairing can support a one-card production Plustek test. fi-7160 still awaits driver/device qualification.
+
 ## Scanner helper original retention, 2026-09-29
 
 - Active branch `feat/scanner-spool-retention`, based on individually unapproved draft #503; #474/#502 also unapproved. #501 active. No production action, no new physical scan, no Inventory commit.
