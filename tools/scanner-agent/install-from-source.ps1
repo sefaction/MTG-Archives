@@ -45,8 +45,11 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'Scanner credential/origin self-check failed' }
   & $DotnetPath (Join-Path $published 'Mtg.ScannerAgent.dll') native-selftest *> (Join-Path $buildRoot 'native-selftest.log')
   if ($LASTEXITCODE -ne 0) { throw 'Scanner native transport self-check failed; no scanner used' }
+  $canonicalPublish = (Get-Item -LiteralPath $published).FullName.TrimEnd('\','/')
   $files = @(Get-ChildItem -LiteralPath $published -File -Recurse | Sort-Object FullName | ForEach-Object {
-    $relative = $_.FullName.Substring($published.Length).TrimStart('\','/')
+    if (-not $_.FullName.StartsWith($canonicalPublish + [IO.Path]::DirectorySeparatorChar,
+        [StringComparison]::OrdinalIgnoreCase)) { throw 'Published file escaped its output root' }
+    $relative = $_.FullName.Substring($canonicalPublish.Length).TrimStart('\','/')
     [pscustomobject]@{ name = $relative; sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
   })
   New-Item -ItemType Directory -Path $install -Force | Out-Null
