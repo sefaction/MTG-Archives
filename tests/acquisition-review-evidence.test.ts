@@ -153,3 +153,16 @@ test("failed localization remains available as evidence without fabricated crop 
   assert.equal(evidence?.geometry.quad, undefined);
   assert.deepEqual(evidence?.observations, []);
 });
+
+test("saved scanner background trim preserves original-space corners and fixed reading zones", () => {
+  const quad = [[0, 0], [1559, 0], [1559, 2041], [0, 2041]];
+  const evidence = acquisitionReviewEvidence({native: {
+    geometry: {status: "PROPOSED", method: "scanner-background-trim", quad},
+    readingZones: {title: {top: 0, bottom: 250}, footer: {top: 1270, bottom: 1397}},
+    orientations: [],
+  }, proposals: {evidence: {setCodes: [], collectors: [], languages: []}}})!;
+  assert.equal(evidence.geometry.method, "scanner-background-trim");
+  assert.deepEqual(evidence.geometry.quad, quad);
+  assert.deepEqual(evidence.readingZones.footer, {top: 1270, bottom: 1397});
+  assert.deepEqual(cropPoint(evidence.geometry.quad!, 1, 1), [1559, 2041]);
+});
