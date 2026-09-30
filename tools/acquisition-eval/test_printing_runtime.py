@@ -19,6 +19,14 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(first['status'], 'ALIGNED')
         self.assertEqual(first, second)
         np.testing.assert_array_equal(uncached, cached)
+        masked, third, visibility = register(photo, image, return_visibility=True)
+        self.assertEqual(first, third)
+        np.testing.assert_array_equal(uncached, masked)
+        self.assertEqual(visibility.shape, masked.shape[:2])
+        failed = register(np.zeros_like(photo), image, return_visibility=True)
+        self.assertIsNone(failed[0])
+        self.assertEqual(failed[1]['status'], 'UNREADABLE')
+        self.assertIsNone(failed[2])
 
     def test_missing_public_reference_is_explicit_and_cannot_prove_absence(self):
         runtime = PrintingRuntime.__new__(PrintingRuntime)

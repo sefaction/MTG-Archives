@@ -135,6 +135,8 @@ enum NotificationDeliveryAttemptStatus {
 }
 
 model User {
+  scannerAgents                ScannerAgent[]
+  scannerPairings              ScannerPairing[]
   acquisitionSessions          AcquisitionSession[]
   acquisitionCorrections       AcquisitionCountCorrection[]
   acquisitionCatalogRefreshes  AcquisitionCatalogRefresh[]
@@ -181,6 +183,61 @@ model User {
 
   @@index([isActive, inventoryDefaultVisibility])
   @@index([isActive, deckDefaultVisibility])
+}
+
+model ScannerPairing {
+  id             String   @id
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  codeHash       String   @unique
+  credentialHash String
+  expiresAt      DateTime
+  claimedAgentId String?
+  createdAt      DateTime @default(now())
+
+  @@index([userId, expiresAt])
+}
+
+model ScannerAgent {
+  id             String   @id
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  tokenHash      String   @unique
+  credentialHash String
+  name           String
+  agentVersion   String?
+  devices        Json     @default("[]")
+  lastSeenAt     DateTime?
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  createdAt      DateTime @default(now())
+  runs           ScannerRun[]
+
+  @@index([userId, revokedAt, expiresAt])
+}
+
+// Device control/journal only. Images use the existing acquisition photo path.
+model ScannerRun {
+  id              String @id
+  agentId         String
+  agent           ScannerAgent @relation(fields: [agentId], references: [id], onDelete: Restrict)
+  acquisitionRunId String @unique
+  acquisitionRun  AcquisitionRun @relation(fields: [acquisitionRunId], references: [id], onDelete: Restrict)
+  epoch           String
+  requestPayload  String
+  deviceId        String
+  device          Json
+  settings        Json
+  loadedCount     Int?
+  status          String @default("QUEUED")
+  executionId     String?
+  stopRequestedAt DateTime?
+  outcome         Json?
+  reconciliation  Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([agentId, status, createdAt])
 }
 
 model AuthSession {
@@ -1281,6 +1338,7 @@ model AcquisitionRun {
   processingTurns AcquisitionProcessingTurn[]
   photos       AcquisitionPhoto[]
   commits      AcquisitionCommit[]
+  scannerRun   ScannerRun?
 }
 
 model AcquisitionEvent {
@@ -1464,6 +1522,7 @@ model AcquisitionPhoto {
   width      Int
   height     Int
   inputKind  AcquisitionImageInputKind @default(PHOTO)
+  sourceMetadata Json?
   ready      Boolean @default(false)
   createdAt  DateTime @default(now())
   readyAt    DateTime?

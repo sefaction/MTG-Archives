@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "scope": "LOCAL_SYNTHETIC_INTAKE_RECOVERY_NOT_CARD_ACCURACY",
+  "applicationCommit": "7619ec3",
+  "sourceDigest": "af9b925ddf29c86212f47b3ac9df5bf9ba46f082e7ae9827946744e81337f320",
+  "cumulativeLocalApplicationPRs": [486, 487, 488, 489, 490, 492],
+  "qualificationPRs": [491],
+  "focusedChecks": {"passed": 7, "typecheck": "PASS", "eslint": "PASS"},
+  "browser": {
+    "passed": 3,
+    "failed": 0,
+    "elapsedSeconds": 50.5,
+    "cases": [
+      {"name": "library selections stream past ten with capacity and upload bounds", "seconds": 18.8},
+      {"name": "lost ACK, reload, retake, explicit review and commit", "seconds": 17.1},
+      {"name": "reservation and transfer faults, bounded exhaustion and reload", "seconds": 13.3}
+    ]
+  },
+  "faultCase": {
+    "input": "12 synthetic JPEGs; not physical-card or independent recognition trials",
+    "savedPhotos": 12,
+    "artifacts": 12,
+    "slots": 12,
+    "candidates": 12,
+    "maximumConcurrentPhotoTransfers": 2,
+    "reservationAttempts": 3,
+    "reservationRequestKeys": 1,
+    "successfulReservationAckDropped": true,
+    "successfulUploadAckDropped": true,
+    "markedConflictRecovery": true,
+    "domainAutomaticRetries": 0,
+    "persistentFailureAttemptsBeforeManualFallback": 3,
+    "retainedPhotoRecoveredAfterReload": true,
+    "inventoryWrites": 0,
+    "exactUploadIdentityAndBytesChecked": true
+  },
+  "phoneWidthsChecked": [320, 390],
+  "screenshotsInspected": true,
+  "newOwnedFixturesCleaned": true,
+  "printingReplicas": 1,
+  "limits": [
+    "Earlier real admission failure preserved privately; changed code rerun used existing timeouts",
+    "Persistent infrastructure failures still require Retry or operator recovery",
+    "No full large-batch, independent accuracy, host/database loss or scanner qualification claim",
+    "No recognition algorithm, model, threshold or automatic-acceptance change",
+    "No production or physical-scanner action; individual PR approval is required"
+  ]
+}

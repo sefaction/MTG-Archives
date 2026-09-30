@@ -4,6 +4,7 @@ import type {
   RecognitionProposal,
 } from "./acquisition-recognition";
 import { proposeOrientedAcquisitionPrintings } from "./acquisition-recognition";
+import { UNLOCALIZED_NAME_HINT } from "./acquisition-photo-text";
 
 export const VISUAL_STAGE = "photo-visual-retrieval-v1";
 const visualCandidateSchema = z.object({
@@ -143,6 +144,13 @@ export function combineAcquisitionCandidates(
   partialIdentifiers.sort((a,b)=>(imageRank.get(a.card.id) ?? Number.MAX_SAFE_INTEGER) -
     (imageRank.get(b.card.id) ?? Number.MAX_SAFE_INTEGER));
   for (const p of partialIdentifiers) append(p.card.id);
+  // Whole-line photo text is useful for name retrieval, while supplying no
+  // located title/printing agreement. Prefer image-supported printings within
+  // that name group, ahead of unrelated weak image or fuzzy-name suggestions.
+  const photoNames = text.proposals.filter(p => p.reasons.includes(UNLOCALIZED_NAME_HINT));
+  photoNames.sort((a,b)=>(imageRank.get(a.card.id) ?? Number.MAX_SAFE_INTEGER) -
+    (imageRank.get(b.card.id) ?? Number.MAX_SAFE_INTEGER));
+  for (const p of photoNames) append(p.card.id);
   // A partial/misread title can contradict a real set/collector match. Keep
   // those identifier candidates in the bounded review list, then demote them
   // within that list; weak image alternatives must not erase the evidence.

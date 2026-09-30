@@ -90,3 +90,38 @@ test("native protocol is bounded and waits for abort to terminate the child", as
     /invalid/,
   );
 });
+
+test("native stream delivers bounded coalesced progress and waits for an aborted child before reuse", async () => {
+  const program=`const send=v=>process.stdout.write(JSON.stringify(v)+String.fromCharCode(10));let b=Buffer.alloc(0);process.stdin.on('data',chunk=>{b=Buffer.concat([b,chunk]);while(b.length>=4){const n=b.readUInt32BE();if(b.length<4+n)return;const mode=b.subarray(4,4+n).toString();b=b.subarray(4+n);for(let i=0;i<(mode==='five'?5:1);i++)send({progress:true,index:i});if(mode!=='hang')send({done:true});}});`;
+  const native=new AcquisitionNativeStream(process.execPath,["-e",program]);
+  try{
+    const seen:unknown[]=[];
+    assert.deepEqual(await native.request(Buffer.from("one"),AbortSignal.timeout(5000),value=>seen.push(value)),{done:true});
+    assert.deepEqual(seen,[{progress:true,index:0}]);
+    await assert.rejects(native.request(Buffer.from("five"),AbortSignal.timeout(5000),()=>{}),/stopped/);
+    const controller=new AbortController();
+    await assert.rejects(native.request(Buffer.from("hang"),AbortSignal.any([controller.signal,AbortSignal.timeout(5000)]),()=>controller.abort()),/stopped/);
+    assert.deepEqual(await native.request(Buffer.from("one"),AbortSignal.timeout(5000),()=>{}),{done:true});
+    await assert.rejects(native.request(Buffer.from("one"),AbortSignal.timeout(5000)),/stopped/);
+  }finally{await native.shutdown();}
+});
+
+test("native progress respects the aggregate output limit across separately delivered frames", async () => {
+  const program = `process.stdin.once('data',()=>{
+    const value=JSON.stringify({progress:true,text:'x'.repeat(23000)})+String.fromCharCode(10);
+    process.stdout.write(value.slice(0,10));
+    setTimeout(()=>process.stdout.write(value.slice(10)),10);
+    setTimeout(()=>process.stdout.write(value),40);
+    setTimeout(()=>process.stdout.write(value),70);
+    setTimeout(()=>process.stdout.write(JSON.stringify({done:true})+String.fromCharCode(10)),100);
+  });`;
+  const native = new AcquisitionNativeStream(process.execPath, ["-e", program]);
+  const seen: unknown[] = [];
+  try {
+    await assert.rejects(native.request(Buffer.from("photo"), AbortSignal.timeout(5000),
+      value => seen.push(value)), /stopped/);
+    assert.equal(seen.length, 2, "split frames parse, but the third exceeds the aggregate bound");
+  } finally {
+    await native.shutdown();
+  }
+});

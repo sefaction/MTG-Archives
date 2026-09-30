@@ -16,3 +16,5 @@ yarn-debug.log*
 yarn-error.log*
 **/__pycache__
 **/*.pyc
+tools/scanner-agent/bin
+tools/scanner-agent/obj
