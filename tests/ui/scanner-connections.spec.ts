@@ -37,7 +37,9 @@ test("paired Windows helper reports real sources in website; revocation blocks i
     await expect(panel.getByRole("button", { name: "Connect this computer" })).toBeVisible();
     const installer = await page.request.get("/api/scanners/installer?info");
     expect(installer.ok()).toBe(true);
-    expect((await installer.json()).available).toBe(true);
+    const installerInfo = await installer.json();
+    expect(installerInfo.available).toBe(true);
+    expect(installerInfo.version).toBe(JSON.parse(helper(["version"])).helperVersion);
     await expect(panel.getByRole("link", { name: "Download Windows scanner helper" })).toBeVisible();
     const downloadReady = page.waitForEvent("download");
     await panel.getByRole("link", { name: "Download Windows scanner helper" }).click();
@@ -56,6 +58,10 @@ test("paired Windows helper reports real sources in website; revocation blocks i
     agentId = connected.match(/Connection identity: ([a-f0-9-]{36})/)?.[1] ?? "";
     expect(agentId).not.toBe("");
     expect(helper(["report", agentId])).toContain("No scan requested.");
+    database(`await p.scannerAgent.update({where:{id:${JSON.stringify(agentId)}},data:{lastSeenAt:new Date(Date.now()-60000)}});`);
+    await expect(panel.getByText("Offline", { exact: true })).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Open scanner helper" })).toBeVisible();
+    await expect(panel.getByText(/helper is not responding/)).toBeVisible();
     service = spawn(dotnet!, [dll!, "serve", agentId], { windowsHide: true, stdio: "ignore" });
     const discoveryBegan = Date.now();
     const state = JSON.parse(database(`console.log(JSON.stringify(await p.scannerAgent.findUniqueOrThrow({where:{id:${JSON.stringify(agentId)}},select:{userId:true,devices:true,lastSeenAt:true}})));`));
@@ -70,7 +76,7 @@ test("paired Windows helper reports real sources in website; revocation blocks i
     await expect(page).toHaveURL(/\/imports\/scan\?input=scanner#new-scan-batch$/);
     await panel.getByRole("button", { name: "Scanner connected" }).click();
     await expect(panel.getByRole("link", { name: "Update Windows scanner helper" })).toBeVisible();
-    await expect(panel.getByText("Version 0.3.2", { exact: true })).toBeVisible();
+    await expect(panel.getByText(`Version ${installerInfo.version}`, { exact: true })).toBeVisible();
     const batch = page.getByRole("region", { name: "New scan batch" });
     await expect(batch.getByRole("heading", { name: "Set up a new scan batch" })).toBeVisible();
     await expect(batch.getByLabel("Scan from a connected scanner")).toBeChecked();
@@ -101,6 +107,8 @@ test("paired Windows helper reports real sources in website; revocation blocks i
     }, { timeout: 115000, intervals: [5000] }).toBeGreaterThanOrEqual(95000);
     await panel.getByRole("button", { name: "Disconnect Windows scanner", exact: true }).click();
     await expect.poll(() => service!.exitCode, { timeout: 20000 }).toBe(0);
+    const config = JSON.parse(require("node:fs").readFileSync(require("node:path").join(process.env.LOCALAPPDATA!, "MTGArchives", "ScannerAgent", agentId+".json"), "utf8"));
+    expect(config.disabled).toBe(true); // No secrets are printed/exported.
     await expect.poll(workers, { timeout: 10000 }).toBe(0);
     await expect(panel.getByText("No scanner helpers connected yet.")).toBeVisible();
     expect(() => helper(["report", agentId])).toThrow();
