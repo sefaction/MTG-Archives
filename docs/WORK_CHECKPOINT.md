@@ -1,3 +1,28 @@
+## Empty-scanner probe complete; driver settings window inspection pending
+
+September30,2026. Operator reports previous private run's card stayed in feeder;
+motor movement/dialog remain UNKNOWN. Operator then removed card and confirmed
+feeder+transport empty, powered/connected. No new card feed authorized.
+Motor-free configuration run dbad6c14 endedexit0/noEnable/noimages/source+session
+closeSuccess/state2. Setting DPI600 before custom frame and SupportedSizes=None
+still left DAT_IMAGELAYOUT readbackLegal0/0/8.5/14. After None, both alternate
+DAT_IMAGELAYOUT and ICAP_FRAMES Set returnedFailure; ICAP_FRAMES current reported
+centered2.6x3.6 while DAT_IMAGELAYOUT reportedLegal. Original failure condition is
+UNKNOWN: private probe queried GetStatus AFTER successful readbacks, so its
+ConditionCodeSuccess is not authoritative for the preceding failing Set. Preserve
+trace unchanged; fix future status sampling before subsequent calls. No cause or
+compatibility change claimed. Probe is separate app identity, not shippingworker.
+
+Original tested .NET8/helper/SDK driver-ui empty inspection is LIVE in tool
+execSession82300. Request is cards-mode-inspection-request.json; status records
+freshUUID and intent. Operator asked to selectCards, read exact mode/page/DPI,
+no changes/saving or Scan, then Exit. No overlapping native/device operation.
+Next safe step: await operator window-close response and resume SAME session82300
+until actualreturn. Do not timeout/kill/dispose/restart or assume0images completion.
+Then preserve actualoutcome and reconcile settings, especially actualduplexmode.
+#540 head7b6fcda all4CIgreen remainsdraft/unapproved;541merged529closed.
+No installedhelper, Docker, production, recognition or Inventory change.
+
 ## Private trace comparison completed with driver error; physical outcome pending
 
 September30,2026: freshly loaded-confirmed run48ae964f-1197-421a-a235-fdae771b3bbf

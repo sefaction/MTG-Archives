@@ -227,3 +227,30 @@ or an empty feeder/transport. Do not start another run from the prior loading
 confirmation. This narrows the private worker's configuration evidence but does
 not isolate the footer cause or qualify a change to the bundled runtime. The
 shipping helper, website, Inventory and recognition behavior remain unchanged.
+
+## Empty-scanner ordering/custom-frame probe
+
+The operator reports that the previous error-run card stayed in the feeder;
+movement and dialogs remain unspecified. They then removed it and confirmed empty
+feeder/transport, powered/connected. A separate configuration-only probe ended
+normally, exit0, no Enable/images, with successful source/session closes.
+
+DPI600 before the frame request did not change Legal layout readback. Selecting
+SupportedSizes=None also returnedSuccess without changing Legal. Subsequent
+custom-frame requests through DAT_IMAGELAYOUT and ICAP_FRAMES returnedFailure.
+ICAP_FRAMES current nevertheless reported the centered2.6x3.6 frame while
+DAT_IMAGELAYOUT reportedLegal. These disagreeing driver readbacks do not prove
+which area an enabled scan would acquire. No acquisition or automatic refeed.
+
+The failure ConditionCode logged by this private probe was sampled after further
+successful reads, so its Success value is not authoritative for the earlier Set.
+Preserve that trace and treat the failure condition as UNKNOWN. Future sampling
+must capture status immediately before issuing any other source operation.
+The [TWAIN specification](https://www.twain.org/wp-content/uploads/2017/03/TWAIN-2.4-Specification.pdf)
+describes matching frame reporting between these two interfaces after frame
+negotiation; this comparison is a negotiation lead, not an isolated footer cause.
+The probe has a separate application identity and is not the shipping worker.
+
+An empty-feeder original tested driver-window inspection is pending to obtain the
+exact selected Cards scan mode/page/DPI. Operator instruction is no Scan, no
+changes/save, then Exit. Keep the same native context until actual completion.
