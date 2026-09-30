@@ -146,6 +146,7 @@ export function AcquisitionCapture({
     replacement = useRef<Progress["slots"][number] | null>(null);
   const createKey = useRef("");
   const adoptScanner = useCallback((state: Progress, intent: PendingScannerStart) => {
+    if (!mounted.current) return;
     if (state.runId !== intent.requestKey || state.providerId !== SCANNER_CAPTURE_PROVIDER)
       throw new Error("Scanner batch recovery did not match. Keep this page open and retry.");
     setProgress(state); setBatchId(state.id); setError("");
