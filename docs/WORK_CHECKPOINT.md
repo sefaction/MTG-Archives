@@ -1,3 +1,14 @@
+## Approved scanner stack integration, September 30, 2026
+
+The user approved all 18 ready PRs (#488, #491, #495, #513, #514,
+#516, #517, #519, #521, #523, #525, #526, #528, #531, #533,
+#535, #536, #538). Draft #540 and #541 remain unapproved and excluded.
+This head retains the approved scanner ancestors and main; only the
+historical checkpoint conflict required manual resolution, preserving both
+entries. Historical approval statements below are superseded by this entry.
+Local review stays on tested image6460e4a. No helper change, scanner motor,
+local reload, production deployment, or development resume is part of release.
+
 # Resumable work checkpoint
 
 ## Pending discovery heartbeat accepted locally, September30,2026
