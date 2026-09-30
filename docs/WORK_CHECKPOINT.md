@@ -1,4 +1,41 @@
+## Draft work resumed, September 30, 2026
+
+User explicitly resumed #540/#541 after the 18-ready-PR release merged at
+main0d1d18a. Drafts remain individually unapproved. #541 browser acceptance
+is next; regenerate Prisma from cumulative schema, build cumulative web only,
+then reload after successful build and verify source plus desktop/phone cases.
+User restarted laptop; old native driver-ui process87961 no longer exists.
+Do not infer successful driver completion. User has not changed fixed-frame
+settings. Fresh operator confirmation: Plustek connected, powered on, feeder
+and transport EMPTY. Reopen only the diagnostic settings window; no Scan or
+motor until separate fresh loading authorization. Preserve prior run evidence.
+
+## USER REQUESTED PAUSE, September30,2026
+
+- Explicitpause; stopgoalworkuntilresume. DraftPR5409e55848/on536 all4CIgreen;
+  checkpointupdatesremainuncommittedlocally. Nofooterfixclaimed/mergeapproval.
+- NativeUIexec87961/runa122fece stillLIVEonlastpoll, vendorwindowopen/noimage.
+  Lastoperatorconfirmedfeeder/transportEMPTY. UseraskedfixedCustom2.6x3.6,
+  simplex600/crop+deskewoff,screenshotthenExitwithoutScan. Responsepending.
+  Poll SAMEhandleonresume; do notkill/restart/claimtimeoutcompletion. No physical
+  scanuntilfreshloadingconfirmation. ExistingdriverwindowmaycloseviaExit.
+- Normalwebsite/helperbehaviorunchanged. New541draftbf08978 sourcecherriedto
+  cumulative0b54ef5 butNOTloaded. Types57904 terminal2 stalegeneratedPrisma
+  discoveryIssues; Dockerbuildneverstarted. Regenfromcumulativeschemaonresume.
+- Runningwebstilltested6460e4a/appbc7bf74/495/c0090fc4. All18prior+540+541PRs
+  individuallyunapproved. No merge/deploy/helperinstall/Inventorywrite.
+
 ## TWAIN footer steering and live diagnostic window, September30,2026
+
+- Investigation batch9e55848 pushed as draftPR540 on536; all4CI pending. No
+  footer fix claimed. Controlled diagnostics build445f7d passed all3helper
+  selftests plus5transport; invalid CLI/replay preserves log/no run. Help-string
+  update after that build is minor; CI covers final committed source.
+- User screenshot plustek.png shows AutomaticSize/AutoCrop/AutoDeskew enabled,
+  ADFduplex200DPI in nativeUI. NativeUI bypasses headless frame/DPI setup; this
+  is evidence of vendor defaults, not proof of exact headless negotiated state.
+  User asked to selectCustom2.6x3.6/simplex600/crop+deskewoff then screenshot and
+  Exit withoutscan. Answer pending;87961 stillLIVE/windownoimage. No newfeed.
 
 - User reports5 fresh local scans clip footer. Authoritative cumulative remains
  62ae751/appbc7bf74/image6460e4a/495/c0090fc4; do not rebuild stale primary.
