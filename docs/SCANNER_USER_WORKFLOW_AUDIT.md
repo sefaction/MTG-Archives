@@ -27,6 +27,15 @@ authorized by this audit. Live GitHub and the cumulative checkpoint are authorit
 
 ## Completion criteria still open
 
+Website Start recovery (#527 / PR #528) now retains one immutable per-account/tab
+request through source polling, lost responses and reload. Recovery is owned and
+read-only, including an offline helper; explicit retry keeps the same identity.
+Disposable integrity and focused storage tests pass; grouped browser3/3 and final
+recovery2/2 pass, with settled setup changes and photo-only storage independence,
+zero photos/Inventory and no motor. 320px has no overflow. #529 tracks safe setup
+changes after a rejected/partial creation; missing lookup is not no-feed proof.
+This PR and each dependency require individual approval.
+
 - Installed reopening is verified; normal physical device reconnect remains open.
 - Audit source-driver failures without allowing a broken source to hide useful sources.
 - Fast correction/keyboard/asynchronous metadata checks are verified on controlled

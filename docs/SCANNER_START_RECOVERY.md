@@ -36,12 +36,18 @@ cover missing/foreign identities, offline accepted-run recovery and unchanged
 execution authorization. Local browser cases inject an accepted POST with lost
 acknowledgement and a POST that never reached the server, plus a recovery outage,
 source polling, locked fields, reload and explicit retry. Test agents never run a
-helper or motor; photos and Inventory remain empty. Browser results are recorded
-in the checkpoint after local loading.
+helper or motor; photos and Inventory remain empty. The first grouped local
+browser check passed 3/3 in 47.1 seconds. On the final image the two recovery
+cases passed 2/2 in 32.8 seconds, including safe setup edits after settlement and
+photo-only creation without scanner-start storage. A prematurely started test
+failed at login while the recreated web container was starting; its log is kept.
+The successful rerun required healthy web and HTTP 200 first. Exact source/image
+and CI heads are recorded in the checkpoint.
 
 Pending intent is per tab, not a cross-computer or cross-tab coordinator. Closing
 the tab can lose that browser intent; existing server unfinished-run checks still
 prevent a second feed through the same agent. A definitely rejected request may
 remain locked to its original setup until it can be retried; replacing a pending
-setup is tracked in #529 and requires a separately qualified safe reset rather than assuming a missing
+setup is tracked in #529 and requires a separately qualified safe reset rather
+than assuming a missing
 lookup proves that no older request can finish. No timeout disposes native state.

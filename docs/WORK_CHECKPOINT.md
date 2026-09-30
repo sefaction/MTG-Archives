@@ -1,5 +1,40 @@
 # Resumable work checkpoint
 
+## Website Start recovery accepted locally, September 30, 2026
+
+- Isolated `MTG-Archives-scanner-start-replay`, `fix/scanner-start-replay`,
+  PR #528 on individually unapproved #526/#525/#523/#519/#517/#513 plus #516.
+  Head `1e510c8`; implementation `d41054f`, late-unmount guard `5261872`.
+  No merge, production change, helper/motor operation or Inventory addition.
+- Corrected baseline waits for failed ACK before source refresh; it failed as
+  expected. Earlier passing baseline runs had a timing flaw and are not evidence.
+  Retained logs/traces live privately in cumulative `.local-data`/test-results.
+- Immutable per-tab/account Start intent before POST; read-only owned recovery,
+  same request on explicit retry and reload, frozen settings/destination. No
+  automatic POST on reload; accepted runs can recover with helper offline.
+- Two focused storage tests, typecheck/lint and disposable acquisition/import
+  checks pass; owned database/container/volume cleaned. First local browser run
+  passes all 3 cases in 47.1s, with one run/session/START authorization and zero
+  photos/Inventory per recovery case; configuration changes after settlement.
+  320px no overflow; screenshot inspected. Final image UI65911 passes2/2/32.8s,
+  including photo-only creation without scanner-start storage. Initial post-reload
+  test failed at login before web was ready; retained privately. Ready rerun
+  required healthy web/HTTP200. Build52693 terminal0; no helper processes remain.
+- Authoritative cumulative branch `local/acquisition-review-footer` in
+  `MTG-Archives-acquisition-persistence`, head `092aff8`. Final build session
+  52693 terminal0; original build54255 and UI13268 terminal0. Running healthy
+  final image `1d3c6e0fb7a7a8fd8a6ca645a25d4afd37008983bbf573bbe72f797e84e44716`,
+  491files/digest `837f25cd4e50a6fdf720be8ba16e472594f9aad58de44f3e1d68919cd4587247`.
+  Web-only reload used all7overlays; recognition workers unchanged. `1e510c8`
+  has all3CI green; final documentation refresh needs its own checks reconciled.
+- #529 tracks safe setup changes after a rejected/partially created Start;
+  never discard an unknown request based only on a missing lookup. #527 remains
+  open until individually approved #528 merges. Broad attached goal ACTIVE.
+- Approval queue: #488,#491,#495,#513,#514,#516,#517,#519,#521,#523,#525,#526,#528.
+  Fresh card-loading unanswered; last hardware confirmation EMPTY. fi-7160 and
+  recognition #463 separate. Next: final exact-source reload/UI/CI, then draft
+  navigation/large lists, discovery isolation #511 and package/clean-host gates.
+
 ## Scanner continuation ready locally, September30,2026
 
 - Isolated feat/scanner-batch-continuity (scanner-continuity worktree), PR526 on
