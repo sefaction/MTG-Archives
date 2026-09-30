@@ -28,7 +28,10 @@ export function saveAcquisitionDraft(storage: Storage, scope: DraftScope, draft:
   return writeId;
 }
 export function clearAcquisitionDraft(storage: Storage, scope: DraftScope, writeId?: string) {
-  if (writeId && readAcquisitionDraft(storage, scope)?.writeId !== writeId) return false;
+  if (writeId) {
+    const current = readAcquisitionDraft(storage, scope);
+    if (current && current.writeId !== writeId) return false;
+  }
   storage.removeItem(acquisitionDraftKey(scope));
   return true;
 }

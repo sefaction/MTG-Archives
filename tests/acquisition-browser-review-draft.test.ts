@@ -33,4 +33,5 @@ test("late save or discard cannot erase a newer browser draft", () => {
   assert.equal(clearAcquisitionDraft(cache, scope, old), false);
   assert.equal(readAcquisitionDraft(cache, scope)?.condition, "HP");
   assert.equal(clearAcquisitionDraft(cache, scope, latest), true);
+  assert.equal(clearAcquisitionDraft(cache, scope, latest), true);
 });
