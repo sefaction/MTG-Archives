@@ -447,9 +447,10 @@ export function AcquisitionCapture({
           <h2 className="text-xl font-semibold mb-3">
             Set up a new scan batch
           </h2>
-          <p className="text-sm mb-3">Choose a destination and card input below. Starting a scanner batch sends the scan command to the connected computer.</p>
+          {!setupMessage && <p className="text-sm mb-3">Choose a destination and card input below. Starting a scanner batch sends the scan command to the connected computer.</p>}
           {setupMessage && <p className="text-sm mb-3" role="status">{setupMessage}</p>}
           {initialSetup && scannerEnabled && <p className="text-sm mb-3">Batch defaults: {initialSetup.defaults.finish.toLowerCase()} · {initialSetup.defaults.condition ?? "condition not set"}. You can change these during review.</p>}
+          <div className="grid gap-4 lg:grid-cols-2 items-start"><div className="min-w-0">
           <StorageDestinationPicker
             locations={locations}
             locationId={locationId}
@@ -458,6 +459,7 @@ export function AcquisitionCapture({
               createKey.current = "";
             }}
             section={section}
+            capacityHint="Capacity is checked when the batch starts."
             onSectionChange={(value) => {
               setSection(value);
               createKey.current = "";
@@ -499,8 +501,12 @@ export function AcquisitionCapture({
           <button className={button+" mb-3"} disabled={busy || refreshingCapacity} onClick={()=>refreshCapacity(()=>router.refresh())}>
             {refreshingCapacity ? "Refreshing capacity…" : "Refresh capacity"}
           </button>
-          <p className="text-sm mb-3">Capacity shown here includes stored cards. Pending batches and capacity are checked again before the scanner starts and before Inventory addition.</p>
+          <details className="text-sm mb-3"><summary className="cursor-pointer">About capacity</summary>
+            <p className="mt-2">Capacity shown here includes stored cards. Pending batches and capacity are checked again before the scanner starts and before Inventory addition.</p>
+          </details>
+          </div><div className="min-w-0">
           <ScannerSourceFields initialEnabled={initialScanner} initialChoice={initialSetup?.scanner} onChange={scannerChanged} disabled={busy || refreshingCapacity} remaining={customLimit ? Math.min(quantity,remaining??quantity) : remaining} />
+          </div></div>
           <button
             className={primary}
             disabled={

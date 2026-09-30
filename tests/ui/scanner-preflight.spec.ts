@@ -91,8 +91,13 @@ test("queued scanner errors explain recovery and clear after authorized start; c
     await expect(setup).toContainText("5 spaces remain.");
     await expect(setup).toContainText("Batch defaults: foil · LP");
     for (const width of [1366, 320]) {
-      await page.setViewportSize({ width, height: 900 }); await setup.scrollIntoViewIfNeeded();
+      await page.setViewportSize({ width, height: width === 1366 ? 768 : 900 });
+      await setup.evaluate(element => element.scrollIntoView({ block: "start" }));
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      if (width === 1366) {
+        const bounds = await start.boundingBox(); expect(bounds).not.toBeNull();
+        expect(bounds!.y).toBeGreaterThanOrEqual(0); expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(768);
+      }
       await page.screenshot({ path: `test-results/scanner-continuation-${width}.png` });
     }
     // Refresh changes capacity, never the user's source/destination or START.
