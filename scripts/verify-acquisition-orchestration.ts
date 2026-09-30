@@ -443,7 +443,16 @@ export async function verifyAcquisitionOrchestration(
   } finally { await replacement.$disconnect(); }
   console.log("PASS: new batch receives a turn ahead of 99 old jobs; reconnect, continued old work and independent stages");
 
-  const failure = await enqueue("failure");
+  // Review is terminal for inference on that candidate. Retry/crash/timeout
+  // tests need a fresh unreviewed input, rather than the reviewed card above.
+  const retryWork = await create();
+  await command(retryWork.session.id, "START");
+  await ingestAcquisitionEvent(db, actor, retryWork.session.id, event(148));
+  const enqueueRetry = (stage: string) => enqueueAcquisitionProcessing(db, actor, retryWork.session.id, {
+    artifactSourceId: "a148", physicalId: "c148", stage,
+    versions: { ...versions, pipeline: "fixture-v1" },
+  });
+  const failure = await enqueueRetry("failure");
   await assert.rejects(
     db.acquisitionProcessingJob.update({
       where: { id: failure.id },
@@ -469,7 +478,7 @@ export async function verifyAcquisitionOrchestration(
     ).status,
     "FAILED",
   );
-  const crash = await enqueue("crash");
+  const crash = await enqueueRetry("crash");
   for (let n = 0; n < 3; n++)
     assert.equal(
       (
@@ -499,7 +508,7 @@ export async function verifyAcquisitionOrchestration(
     ).status,
     "FAILED",
   );
-  const timeoutJob = await enqueue("timeout");
+  const timeoutJob = await enqueueRetry("timeout");
   // This case isolates handler abort. Database/default timestamps and the
   // worker's local clock need not advance together on Docker Desktop; make
   // this owned fixture eligible explicitly instead of relying on a delay.
@@ -526,8 +535,8 @@ export async function verifyAcquisitionOrchestration(
   assert.equal(tick.claimed, 1);
   assert.equal(tick.failed, 1);
   assert.equal(aborted, true);
-  await enqueue("cancelled");
-  await command(work.session.id, "CANCEL");
+  await enqueueRetry("cancelled");
+  await command(retryWork.session.id, "CANCEL");
   assert.equal(
     (
       await claimAcquisitionJobs(db, {
