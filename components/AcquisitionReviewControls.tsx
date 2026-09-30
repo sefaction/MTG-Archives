@@ -195,6 +195,7 @@ export function AcquisitionPhotoReview({
   committed = false,
   mode = "advanced",
   onDirtyChange,
+  onNextAwaiting,
 }: {
   batchId: string;
   photoId: string;
@@ -203,6 +204,7 @@ export function AcquisitionPhotoReview({
   committed?: boolean;
   mode?: AcquisitionReviewMode;
   onDirtyChange?: (photoId: string, dirty: boolean) => void;
+  onNextAwaiting?: () => void;
 }) {
   const endpoint = `/api/acquisition/${batchId}/review`;
   const root = useRef<HTMLDivElement>(null);
@@ -223,6 +225,19 @@ export function AcquisitionPhotoReview({
   const [draftDirty, setDraftDirty] = useState(false);
   const dirty = useRef(false),
     requestVersion = useRef(0);
+  const searchInput = useRef<HTMLInputElement>(null);
+  const focusSearch = useRef(false);
+  function openCorrection() {
+    focusSearch.current = true;
+    setEditing(true);
+    if (!query) setQuery(selected?.name ?? "");
+  }
+  useEffect(() => {
+    if (editing && focusSearch.current) {
+      focusSearch.current = false;
+      searchInput.current?.focus(); searchInput.current?.select();
+    }
+  }, [editing]);
   function markDirty() {
     dirty.current = true;
     setDraftDirty(true);
@@ -340,7 +355,7 @@ export function AcquisitionPhotoReview({
       setError((e as Error).message);
     }
   }
-  async function submit(action: "accept" | "pending") {
+  async function submit(action: "accept" | "pending", next = false) {
     if (!record) return;
     ++requestVersion.current;
     setBusy(true);
@@ -370,6 +385,7 @@ export function AcquisitionPhotoReview({
           : "Kept pending.",
       );
       refresh();
+      if (next) onNextAwaiting?.();
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -413,6 +429,12 @@ export function AcquisitionPhotoReview({
       ref={root}
       className="min-w-0"
       style={{ minHeight: record ? undefined : simple ? 200 : 560 }}
+      onKeyDown={event => {
+        if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && showEditor && !committed) {
+          event.preventDefault();
+          if (!busy && canConfirm) void submit("accept", event.shiftKey);
+        }
+      }}
     >
       {error && (
         <div role="alert" className="mb-2">
@@ -540,7 +562,7 @@ export function AcquisitionPhotoReview({
                     className="w-full h-full"
                     disabled={busy}
                     aria-label={`Correct proposed printing for ${selected?.name ?? "this card"}`}
-                    onClick={() => setEditing(true)}
+                    onClick={openCorrection}
                   >
                     {proposedImage}
                   </button>
@@ -673,11 +695,13 @@ export function AcquisitionPhotoReview({
                       <button
                         className={button}
                         disabled={busy}
-                        onClick={() => setEditing(true)}
+                        onClick={openCorrection}
                       >
                         Correct
                       </button>
                     )}
+                    {!showEditor && onNextAwaiting && <button className={button} disabled={busy}
+                      onClick={onNextAwaiting}>Next awaiting review</button>}
                     {!canConfirm && !showEditor && (
                       <p className="text-xs">
                         Set batch defaults or choose Correct to finish this
@@ -715,6 +739,7 @@ export function AcquisitionPhotoReview({
                       onChange={() => {
                         markDirty();
                         setSelected(card);
+                        setFinish(finishForPrinting(finish as AcquisitionDefaults["finish"], card) ?? "UNKNOWN");
                         setLanguage(card.lang ?? "");
                         setMessage("");
                       }}
@@ -756,10 +781,10 @@ export function AcquisitionPhotoReview({
                   Back to suggestions
                 </button>
               )}
-              <details className="mt-3" open={!options.length}>
-                <summary className="cursor-pointer font-semibold">
+              <div className="mt-3">
+                <h4 className="font-semibold">
                   Find another printing
-                </summary>
+                </h4>
                 <form
                   className="mt-2 space-y-2"
                   onSubmit={async (e) => {
@@ -784,6 +809,7 @@ export function AcquisitionPhotoReview({
                   <label className="block">
                     Card name
                     <input
+                      ref={searchInput}
                       className={input + " block w-full"}
                       value={query}
                       onChange={(e) => {
@@ -829,7 +855,7 @@ export function AcquisitionPhotoReview({
                     </p>
                   )}
                 </form>
-              </details>
+              </div>
               <div className="grid grid-cols-2 gap-3 mt-3">
                 <label>
                   Card finish
@@ -903,6 +929,9 @@ export function AcquisitionPhotoReview({
                 >
                   Save card review
                 </button>
+                {onNextAwaiting && <button className={button} disabled={!canConfirm}
+                  onClick={() => void submit("accept", true)}>Save and next</button>}
+                {onNextAwaiting && <button className={button} onClick={onNextAwaiting}>Next awaiting review</button>}
                 <button
                   className={button}
                   onClick={() => void submit("pending")}
@@ -921,6 +950,7 @@ export function AcquisitionPhotoReview({
                   </button>
                 )}
               </div>
+              <p className="text-xs mt-2">Ctrl+Enter saves; Ctrl+Shift+Enter saves and moves to the next card awaiting review. Inventory is unchanged.</p>
             </fieldset>
           )}
           {message && (

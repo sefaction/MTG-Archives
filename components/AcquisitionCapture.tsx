@@ -24,6 +24,7 @@ import type { acquisitionProgressDto } from "@/lib/acquisition-api";
 import {
   acquisitionReviewCounts,
   acquisitionSlotReviewState,
+  nextAwaitingAcquisitionSlot,
   type AcquisitionReviewMode,
   type AcquisitionReviewFilter,
 } from "@/lib/acquisition-review-display";
@@ -141,6 +142,18 @@ export function AcquisitionCapture({
     (slot) =>
       visibleIds.has(slot.id) || slot.photos.some((p) => dirtyPhotos.has(p.id)),
   );
+  const [reviewNavigation, setReviewNavigation] = useState("");
+  function nextAwaitingReview(after: number) {
+    const next = nextAwaitingAcquisitionSlot(progress?.slots ?? [], after);
+    if (!next) { setReviewNavigation("No other cards awaiting review."); return; }
+    setReviewNavigation(`Card ${next.position + 1} awaiting review.`);
+    setReviewFilter("all");
+    setVisibleCount(count => Math.max(count, next.position + 1));
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const row = document.getElementById(`capture-card-${next.position + 1}`);
+      row?.scrollIntoView({ block: "start" }); row?.focus({ preventScroll: true });
+    }));
+  }
   useEffect(() => {
     try {
       const saved = localStorage.getItem(
@@ -156,6 +169,7 @@ export function AcquisitionCapture({
   }, [batchId, reviewFilter]);
   useEffect(() => {
     setDirtyPhotos(new Set());
+    setReviewNavigation("");
   }, [batchId]);
   const moreCards = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -897,6 +911,7 @@ export function AcquisitionCapture({
                   Unsaved edits stay visible when you change the filter.
                 </p>
               )}
+              {reviewNavigation && <p role="status" className="text-sm mb-3">{reviewNavigation}</p>}
               <div
                 className={reviewMode === "simple" ? "space-y-3" : "space-y-6"}
               >
@@ -911,6 +926,7 @@ export function AcquisitionCapture({
                       key={slot.id}
                       id={`capture-card-${slot.position + 1}`}
                       data-testid={`capture-card-${slot.position + 1}`}
+                      tabIndex={-1}
                       className={`min-w-0 space-y-2 border-b border-[var(--app-border)] ${reviewMode === "simple" ? "pb-3" : "pb-6"}`}
                     >
                       <p>
@@ -927,6 +943,7 @@ export function AcquisitionCapture({
                           refresh={() => void refresh()}
                           mode={reviewMode}
                           onDirtyChange={markPhotoDirty}
+                          onNextAwaiting={() => nextAwaitingReview(slot.position)}
                         />
                       ) : (
                         <p className="text-sm">

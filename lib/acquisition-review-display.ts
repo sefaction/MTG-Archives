@@ -26,3 +26,15 @@ export function acquisitionReviewCounts(slots: Slot[]) {
   for (const slot of slots) counts[acquisitionSlotReviewState(slot)]++;
   return counts;
 }
+
+// Acquisition position is stable even when suggestions finish out of order.
+// Awaiting means an explicit saved review is missing, not inferred confidence.
+export function nextAwaitingAcquisitionSlot<T extends Slot & {
+  position: number; photos: { ready: boolean; purgedAt: unknown }[];
+}>(slots: T[], after: number): T | null {
+  const awaiting = slots.filter(slot => slot.position !== after &&
+    acquisitionSlotReviewState(slot) === "awaiting" &&
+    slot.photos.some(photo => photo.ready && !photo.purgedAt))
+    .sort((a, b) => a.position - b.position);
+  return awaiting.find(slot => slot.position > after) ?? awaiting[0] ?? null;
+}
