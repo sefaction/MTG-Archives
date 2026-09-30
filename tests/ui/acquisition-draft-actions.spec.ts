@@ -70,6 +70,15 @@ test("unsaved corrections protect bulk reviews and Inventory while clean cards s
     await other.evaluate(({ key, draft }) => localStorage.setItem(key,JSON.stringify(draft)), { key: keyFor(photos[2]), draft: { ...draft, revision: thirdRecord.revision } });
     await expect(bulk.getByRole("button", { name: "Confirm 0 selected matches", exact: true })).toBeDisabled();
     await other.evaluate(key => localStorage.removeItem(key), keyFor(photos[2]));
+    await expect(bulk.getByRole("button", { name: "Confirm 1 selected match", exact: true })).toBeEnabled();
+    // No event is dispatched here: the final action must read the selected key
+    // again instead of trusting the last render of its checkbox.
+    await page.evaluate(({ key, draft }) => localStorage.setItem(key,JSON.stringify(draft)), { key: keyFor(photos[2]), draft: { ...draft, revision: thirdRecord.revision } });
+    await bulk.getByRole("button", { name: "Confirm 1 selected match", exact: true }).click();
+    await expect(bulk.getByRole("alert")).toContainText("Unsaved correction");
+    expect((await (await page.request.get(`${endpoint}?photoId=${photos[2]}`)).json()).review).toBeNull();
+    await page.evaluate(key => localStorage.removeItem(key),keyFor(photos[2]));
+    await bulk.getByRole("button", { name: "Reload proposals", exact: true }).click();
     await bulk.getByRole("button", { name: "Confirm 1 selected match", exact: true }).click();
     await expect(bulk.getByRole("button", { name: "Back to card list", exact: true })).toHaveCount(0);
     const inventory = page.getByRole("region", { name: "Add reviewed cards to Inventory", exact: true });
@@ -80,6 +89,12 @@ test("unsaved corrections protect bulk reviews and Inventory while clean cards s
     await expect(inventory).toContainText("1 selected");
     await inventory.getByRole("button", { name: "Preview selected cards", exact: true }).click();
     await expect(inventory.getByLabel("Confirm Inventory addition", { exact: true })).toContainText("Add 1 copy");
+    await page.evaluate(({ key, draft }) => localStorage.setItem(key,JSON.stringify(draft)), { key: keyFor(photos[2]), draft: { ...draft, revision: thirdRecord.revision } });
+    await inventory.getByRole("button", { name: "Add 1 copy to Inventory", exact: true }).click();
+    await expect(inventory.getByRole("alert")).toContainText("Save or cancel selected corrections");
+    expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
+    await page.evaluate(key => localStorage.removeItem(key),keyFor(photos[2]));
+    await inventory.getByRole("button", { name: "Preview selected cards", exact: true }).click();
     await inventory.getByRole("button", { name: "Add 1 copy to Inventory", exact: true }).click();
     await expect(inventory).toContainText("Added 1 copy to Inventory.");
     // Neither dirty saved review was committed, nor was its local correction cleared.
