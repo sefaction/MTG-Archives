@@ -2,8 +2,8 @@
 
 Tracking [#539](https://github.com/sefaction/MTG-Archives/issues/539). This is an
 acquisition integrity investigation, separate from recognition #463 and pending
-rejected-Start recovery #529. The isolated branch starts at individually
-unapproved #536 (`700ca54`); its parent scanner stack also needs approval.
+rejected-Start recovery #529. The scanner parent #536 and its stack are merged. This isolated draft is now
+based on approved main0d1d18a; its own merge remains unapproved.
 
 ## Original evidence
 
@@ -63,3 +63,19 @@ without pressing Scan until a separate controlled test is arranged.
 The existing saved originals are preserved. The tested website remains on its
 stable cumulative image; diagnostics are not a delivered footer fix or an
 installed helper update. No production configuration or Inventory changed.
+
+## Restart and profile inspection
+
+The operator restarted the laptop before changing settings. The old settings
+inspection has no accessible process handle; its evidence is retained without
+claiming successful native completion. A fresh inspection uses the existing
+project .NET8 runtime and a new private run identity, after renewed confirmation
+that feeder and transport are empty. The global runtime failed before SDK start;
+no diagnostic evidence was overwritten or runtime installed.
+
+The operator saved a profile named Cards and a custom page size named Cards.
+Selection of that profile, fixed2.6x3.6-inch/simplex600 settings, disabled driver
+Auto Crop/Auto Deskew and closing with Exit without Scan remain to be confirmed.
+Saving a profile is not proof of the settings negotiated by a later headless run.
+The new inspection remains pending; its native context is not timed out/disposed
+or replaced. Next physical comparison needs a fresh one-card loading confirmation.
