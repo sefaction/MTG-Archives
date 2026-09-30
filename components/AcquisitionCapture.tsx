@@ -842,7 +842,7 @@ export function AcquisitionCapture({
             refresh={() => void refresh()}
           />
           </details>
-          <AcquisitionBulkReview batchId={batchId} slots={progress.slots} defaults={progress.defaults} refresh={refresh}
+          <AcquisitionBulkReview key={`bulk:${batchId}`} batchId={batchId} slots={progress.slots} defaults={progress.defaults} refresh={refresh}
             blockedPhotos={blockedPhotos} draftsReady={cachedDrafts.ready} canUsePhotos={canUsePhotos}
             onOpenChange={setBulkOpen} onConfirmed={ids => { setSelectedPhotos(previous => [...new Set([...previous, ...ids])]); showInventory(); }}
             onInspect={position => { setReviewFilter("all"); setVisibleCount(count => Math.max(count, position));

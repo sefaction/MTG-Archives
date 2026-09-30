@@ -19,12 +19,16 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpe
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(0);
+  const [previewTotal, setPreviewTotal] = useState(0);
   const [saved, setSaved] = useState(0);
   const [target, setTarget] = useState(0);
   const [rows, setRows] = useState<Proposal[]>([]);
   const [error, setError] = useState("");
   const [visible, setVisible] = useState(12);
   const more = useRef<HTMLDivElement>(null);
+  const previewRequest = useRef<AbortController | null>(null);
+  const selections = useRef(new Map<string, { printingId: string; checked: boolean }>());
+  useEffect(() => () => previewRequest.current?.abort(), []);
   useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) setVisible(count => Math.min(count + 12, rows.length));
@@ -32,7 +36,10 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpe
     if (more.current) observer.observe(more.current);
     return () => observer.disconnect();
   }, [open, visible, rows.length]);
-  function close() { setOpen(false); onOpenChange?.(false); }
+  function close() {
+    previewRequest.current?.abort(); previewRequest.current = null;
+    setLoading(false); setOpen(false); onOpenChange?.(false);
+  }
   const awaiting = slots.flatMap(slot => {
     const photo = slot.photos.find(p => p.ready && !p.purgedAt);
     return photo && !slot.review && !slot.committed ? [{ photoId: photo.id, position: slot.position + 1 }] : [];
@@ -41,23 +48,34 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpe
   const skipped = awaiting.length - available.length;
   async function preview() {
     if (!draftsReady) return;
-    setOpen(true); onOpenChange?.(true); setVisible(12); setLoading(true); setError(""); setLoaded(0); setSaved(0); setRows([]);
-    const next: Proposal[] = [];
+    previewRequest.current?.abort();
+    const controller = new AbortController();
+    previewRequest.current = controller;
+    const current = () => previewRequest.current === controller && !controller.signal.aborted;
+    setOpen(true); onOpenChange?.(true); setVisible(12); setLoading(true); setError(""); setLoaded(0); setPreviewTotal(available.length); setSaved(0); setRows([]);
+    let count = 0;
     try {
       // Bounded requests keep large feeder batches from flooding the worker.
       for (let index = 0; index < available.length; index += 4) {
         const group = await Promise.all(available.slice(index, index + 4).map(async item => {
-          const response = await fetch(`/api/acquisition/${batchId}/review?photoId=${item.photoId}`, { cache: "no-store" });
+          const response = await fetch(`/api/acquisition/${batchId}/review?photoId=${item.photoId}`, { cache: "no-store", signal: controller.signal });
           if (!response.ok) throw new Error("Could not load current match proposals. Retry the preview.");
           const record = await response.json() as AcquisitionCardReview;
-          return { ...item, record, checked: Boolean(record.suggestions[0]) && !record.review && canUsePhotos([item.photoId]), saved: false, error: "" };
+          const printingId = record.suggestions[0]?.printing.id;
+          const selection = selections.current.get(item.photoId);
+          // Never carry explicit approval to a different proposed printing.
+          const checked = printingId && !record.review && canUsePhotos([item.photoId]) &&
+            (!selection || (selection.checked && selection.printingId === printingId));
+          return { ...item, record, checked: Boolean(checked), saved: false, error: "" };
         }));
-        next.push(...group); setLoaded(next.length); setRows([...next]);
+        if (!current()) return;
+        count += group.length; setLoaded(count);
+        // Append to current state so subsequent groups keep operator edits.
+        setRows(previous => current() ? [...previous, ...group] : previous);
       }
-      setRows(next);
     } catch (cause) {
-      setError((cause as Error).message);
-    } finally { setLoading(false); }
+      if (current()) setError((cause as Error).message);
+    } finally { if (current()) setLoading(false); }
   }
   const choice = (row: Proposal) => row.record.suggestions[0]?.printing;
   const eligible = (row: Proposal) => {
@@ -113,7 +131,7 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpe
       <p className="text-sm">Compare each scan with its proposed printing. Every proposal starts selected; clear any that needs individual correction. This saves reviews only. Inventory is a separate step.</p>
       <p className="text-sm">Batch defaults: {defaults.finish.toLowerCase()} · {defaults.condition ?? "condition unset"}. Change batch defaults or correct a card before confirming if these do not apply.</p>
       <button className={button} disabled={saving} onClick={close}>Back to card list</button>
-      {loading && <p role="status">Loading proposals: {loaded} of {available.length}</p>}
+      {loading && <p role="status">Loading proposals: {loaded} of {previewTotal}</p>}
       {error && <p role="alert">{error}</p>}
       {rows.length > 0 && <>
         <div className="flex flex-wrap gap-2 items-center">
@@ -124,14 +142,18 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpe
           {saving && <span role="status">Saved {saved} of {target} selected reviews…</span>}
         </div>
         <div className="space-y-3">
-          {rows.slice(0, visible).map((row, index) => {
+          {rows.slice(0, visible).map(row => {
             const printing = choice(row);
             const canSelect = eligible(row);
             const proposedFinish = printing ? finishForPrinting(defaults.finish, printing) : null;
             return <div key={row.photoId} className="border border-[var(--app-border)] rounded p-3 min-w-0">
               <div className="flex flex-wrap gap-2 items-center justify-between">
                 <label className="font-medium"><input type="checkbox" checked={row.checked && canSelect} disabled={saving || !canSelect}
-                  onChange={event => setRows(current => current.map((item, i) => i === index ? { ...item, checked: event.target.checked } : item))} />{" "}
+                  onChange={event => {
+                    const checked = event.target.checked;
+                    selections.current.set(row.photoId, { printingId: printing!.id, checked });
+                    setRows(current => current.map(item => item.photoId === row.photoId ? { ...item, checked } : item));
+                  }} />{" "}
                   Card {row.position}: {printing?.name ?? "No proposal"}</label>
                 <a className="underline text-sm" href={`#capture-card-${row.position}`} onClick={event => {
                   if (onInspect) { event.preventDefault(); close(); onInspect(row.position); }

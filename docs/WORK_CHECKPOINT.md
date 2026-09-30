@@ -1,4 +1,46 @@
+## Bulk preview implementation and local gate, September30,2026
+
+- Issue537 corrected owned32-photo baseline reproduced unchecked -> checked
+  after a later group. Earlier baseline only failed offscreen fixture setup;
+  both retained privately in cumulative .local-data, no product claim from first.
+- Leaf MTG-Archives-bulk-preview-state/fix/bulk-preview-state on53362cf36d.
+  Abort/current-preview identity fencing, functional incremental append,
+  explicit per-photo choices and batch-key reset implemented. Existing draft,
+  revision, finish, explicit review/Inventory paths retained. No recognition code.
+- Typecheck/focused lint pass; core88002 running (732 units passed, Windows build
+  in progress). Controlled32-photo UI covers later groups/full list, superseded
+  reload and close/reopen, desktop/320px; not yet run against changed image.
+- Next finish88002, commit/push draft PR on533, cherry-pick only leaf batch to
+  authoritative cumulative, build/reload/source proof, run new+existing draft
+  and fast-correction browser gates, inspect layouts, update evidence/CI.
+- Cumulative remains9426b8c/appa61bd64/imagef225500f/495inputs/6bd68902.
+  Primary is mounts/config only. Do not build stale primary or install helper.
+  All17 prior unapproved PRs preserved; no merge/production/motor. Scanner last
+  empty, fresh one-card loading unanswered. Full workflow goal ACTIVE/incomplete.
+
 # Resumable work checkpoint
+
+## Next bulk preview baseline, September30,2026
+
+- New isolated MTG-Archives-bulk-preview-state/fix/bulk-preview-state on
+  individually unapproved533 head62cf36d. No scanner/recognition branches in leaf.
+  node_modules junction to cumulative; .local-data ready. No implementation/test.
+- Issue537 is code-audit finding: preview next-array overwrites checkbox state
+  during incremental groups; overlapping reload/close can publish stale results.
+  Must reproduce with controlled owned local >12-photo batch and gated review
+  responses before fixing. Preserve user selections, revision/draft guards,
+  bounded concurrency and explicit Inventory; no recognition algorithm change.
+- Authoritative cumulative local/acquisition-review-footer HEAD9426b8c, appa61bd64;
+  healthy495/6bd68902/imagef225500f includes independently unapproved scanner536.
+  Do not build stale primary or treat cumulative source as leaf dependencies.
+- READY536700ca54 all4green. All prior scanner/typing/integrity/browser/installer
+  handles terminal, fixtureusers0/helperworkers0; source proof exact. No motor,
+  production or merge. Physical600 question fresh one-card loading pending;
+  last transport EMPTY. Full attached scanner workflow goal ACTIVE/incomplete.
+- Read goal attachment, Foundry hub/workflow, AGENTS/CODEX and live537/533 before
+  new batch. See cumulative checkpoint and SCANNER_DISCOVERY_PROGRESS.md for
+  latest scanner evidence/failure/rerun, approval queue and limits. Next537
+  baseline, implement/coherent PR/cumulative local review, then529. No approvals.
 
 ## Unsaved batch-action guards accepted locally, September30,2026
 
@@ -2796,3 +2838,4 @@ Next safe step: investigate #260 with repeated browser lifecycle runs and creden
 - Compatible private recovery capture: `.local-data/backups/drill-e7b779ba-5758-4b40-aa32-b762d9d46bd3`. Older PG18 capture `drill-e171be3b-98c3-403e-87ce-2f3aa99ca6af` is failed evidence, not a verified backup.
 - Recovery archive excludes separate pricing DB/configuration/master key. Filesystem copy is not atomic with DB replacement. Revoke restored AuthSession records before exposing a restored web server; see AUTH_SESSIONS.md.
 - Read Foundry hub/workflow/relevant notes before batches. Durable knowledge goes there; code/test evidence in repo/GitHub.
+
