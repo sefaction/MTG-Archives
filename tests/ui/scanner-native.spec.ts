@@ -118,7 +118,7 @@ test("website START through actual Windows fixture helper reaches ordinary recog
         await fs.unlink(paths.join(root,'scanner-control-v1',run.id+'.start.json')).catch(e=>{if(e.code!=='ENOENT')throw e;});
       }
       await p.scannerRun.deleteMany({where:{agent:{userId:n}}});
-      await p.acquisitionCommitMember.deleteMany({where:w});await p.acquisitionCommit.deleteMany({where:w});
+      await p.acquisitionCommitMember.deleteMany({where:{commit:w}});await p.acquisitionCommit.deleteMany({where:w});
       await p.inventoryAuditLog.deleteMany({where:{changedByUserId:n}});await p.inventoryItem.deleteMany({where:{currentOwnerId:n}});
       for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});
       await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});
