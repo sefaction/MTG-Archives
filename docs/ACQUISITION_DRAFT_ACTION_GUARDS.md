@@ -11,6 +11,8 @@ still required; cumulative local testing is not a merge or production deployment
 - Offscreen and filtered-out browser drafts count too. Presence protects a card
   even if the cached metadata is unreadable. Save or explicitly cancel the
   correction to make the card eligible again.
+- Summary counts, filters, the Inventory shortcut and next-awaiting navigation
+  treat uncommitted drafted cards as awaiting review. Committed cards stay added.
 - The batch inventories browser keys once per account/batch mount, then tracks
   individual same-tab notifications and other-tab storage events. An explicit
   storage-clear event inventories again. Progress polling does not scan storage
@@ -48,9 +50,20 @@ relation error; that fixture was explicitly cleaned and the corrected baseline
 failed at the intended enabled-versus-disabled assertion. Both logs remain private;
 the corrected baseline trace is preserved separately.
 
-Four focused draft tests, typecheck and focused lint pass. Disposable acquisition
-and shared import/receipt integrity checks pass with owned cleanup. Cumulative
-Docker build and the 14-photo controlled browser workflow are being qualified;
-record the final source identity, UI result and limits before calling this ready.
+Six focused draft/display/navigation tests, typecheck and focused lint pass.
+Disposable acquisition and shared import/receipt integrity checks pass with owned
+cleanup. First controlled browser workflow passed1/1/27.9s; layout inspection
+then found and fixed a misleading ready count for a dirty saved card.
+
+Final source-verified Docker image1af4c3f6a9245a612c2936bf271e2fd61302ab88a10179612e7585ae3df8d9d6
+has493 inputs/digest742a36306c968645b05edadd4c0018e44aae3459b32b3ea29156d1bf54bb920a.
+Final browser run passed2/2/35.8s:14-photo draft actions24.4s and three-photo
+fast corrections10.2s. It verifies offscreen/another-tab/reloaded drafts,
+exclusions, edits after preview, eventless action-time cache races, Save/Cancel,
+stale server preview rejection, actual owned Inventory commits, original-payload
+lost-response retry with no duplicate, receipts/audit/provenance/digest/destination
+and owned cleanup. Desktop1366 and phone320 layouts have no page-wide overflow;
+screenshots were inspected. Final app1503c78 (cumulative1756d4d); PR #533.
+
 Controlled suggestions and synthetic images are workflow evidence, not recognition
 accuracy, independent physical cards or scanner qualification. No motor is needed.

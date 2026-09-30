@@ -1,30 +1,35 @@
 # Resumable work checkpoint
 
-## Unsaved batch-action guards in local qualification, September30,2026
+## Unsaved batch-action guards accepted locally, September30,2026
 
 - Isolated `MTG-Archives-review-draft-actions`, `fix/review-draft-actions`,
-  draft PR #533 on individually unapproved #531/#521/#514/#488. App cf22f86;
-  tests b6fcfa4/0097e1f. No merge/deploy/motor. #532 stays open.
-- Baseline old #531 image reproduced dirty saved-review Inventory checkbox
-  enabled. First baseline cleanup relation failed; exact fixture was cleaned,
-  corrected baseline22817 failed at intended assertion and trace copied privately.
-- Four draft unit tests/typecheck/focused lint pass. Disposable acquisition21767
-  terminal0: persisted integrity52.97s/shared import76.47s, owned cleanup complete.
-- Cumulative `MTG-Archives-acquisition-persistence` app9e742c0, current4c17776,
-  builder48282 terminal0, web reloaded healthy/login200. Source493/digest
-  d325eb6e28a7bd072b4bc2cbc4e528f941be1774cfdbb8a04e283d8fdc719f84,
-  image3bb6cdf115700c4eee8749de9266fd1fb1aa384a76c5b5224744d313fdd58814.
-  Browser73664 RUNNING, .local-data/draft-actions-first-ui.log,14photos/controlled
-  suggestions/owned stock writes+cleanup. Must record terminal result and inspect
-  layouts before readiness. CI on0097e1f pending. No source mutation during build.
-- Cached+live drafts excluded, per-key event tracking, selected-key final checks,
-  unchanged server revisions and fixed unknown-ACK Inventory retry. Browser guard
-  is not atomic cross-tab/device locking. Larger lists/511 discovery/529 rejected
-  Start/distribution/clean-host/physical600 remain. Last hardware EMPTY, fresh
-  loading unanswered. Full workflow goal ACTIVE/incomplete.
+  PR #533 on individually unapproved #531/#521/#514/#488. Final app1503c78,
+  originalcf22f86; tests b6fcfa4/0097e1f. No merge/deploy/motor. #532 stays open.
+- Corrected baseline22817 proves saved-review Inventory selection remained
+  enabled while dirty. Earlier cleanup relation failed; exact fixture cleaned.
+  Logs and corrected trace retained privately under draft-actions-baseline-artifacts.
+- Six draft/display/navigation tests,typecheck/focused lint pass. Disposable
+  acquisition21767 terminal0 with52.97s persisted/76.47s shared import+cleanup.
+- First browser73664 terminal0,1/1/27.9s. Layout inspection found misleading
+  ready counts for dirty reviews;1503c78 aligns summary/filter/next navigation.
+- Cumulative `MTG-Archives-acquisition-persistence` app1756d4d. Builder20587 and
+  reload58463 terminal0. Healthy source-verified image
+  1af4c3f6a9245a612c2936bf271e2fd61302ab88a10179612e7585ae3df8d9d6,
+  493inputs/digest742a36306c968645b05edadd4c0018e44aae3459b32b3ea29156d1bf54bb920a.
+  Final browser86240 terminal0,2/2/35.8s:14-photo draft actions24.4s and
+  three-photo fast corrections10.2s. Desktop1366/phone320 inspected/no overflow.
+  Actual owned fixture Inventory2copies/2members/2audits, original request retry
+  no duplicate, digest/destination/owner/retention and cleanup pass. These are
+  controlled synthetic UI images/suggestions, not recognition/hardware samples.
+- Cached+live drafts excluded, per-key events/action checks and unchanged server
+  revisions. Fixed unknown-ACK Inventory retry remains possible. Not atomic
+  cross-tab/device locking. Final app1503c78 all3green; final docs need fresh CI.
+- Broad goal ACTIVE/incomplete. Last hardware EMPTY; fresh loading unanswered.
+  Next:511 per-source discovery failure isolation (audit comment saved), larger/
+  out-of-order lists and529 rejected Start; distribution/clean-host/physical600
+  and independent463 recognition/fi-7160 gates stay explicit.
 - Approval queue488,491,495,513,514,516,517,519,521,523,525,526,528,531,533.
-  Next safe step: finish73664, preserve failure artifacts if needed, qualify and
-  record533, then continue larger/out-of-order list and discovery-isolation work.
+  Every PR needs individual approval. No live builder/browser/helper remains.
 
 ## Browser review drafts accepted locally, September 30, 2026
 
@@ -1292,31 +1297,6 @@ Next safe step: investigate #260 with repeated browser lifecycle runs and creden
 
 # Resumable work checkpoint
 
-## Unsaved batch-action guards in local qualification, September30,2026
-
-- Isolated `MTG-Archives-review-draft-actions`, `fix/review-draft-actions`,
-  draft PR #533 on individually unapproved #531/#521/#514/#488. App cf22f86;
-  tests b6fcfa4/0097e1f. No merge/deploy/motor. #532 stays open.
-- Baseline old #531 image reproduced dirty saved-review Inventory checkbox
-  enabled. First baseline cleanup relation failed; exact fixture was cleaned,
-  corrected baseline22817 failed at intended assertion and trace copied privately.
-- Four draft unit tests/typecheck/focused lint pass. Disposable acquisition21767
-  terminal0: persisted integrity52.97s/shared import76.47s, owned cleanup complete.
-- Cumulative `MTG-Archives-acquisition-persistence` app9e742c0, current4c17776,
-  builder48282 terminal0, web reloaded healthy/login200. Source493/digest
-  d325eb6e28a7bd072b4bc2cbc4e528f941be1774cfdbb8a04e283d8fdc719f84,
-  image3bb6cdf115700c4eee8749de9266fd1fb1aa384a76c5b5224744d313fdd58814.
-  Browser73664 RUNNING, .local-data/draft-actions-first-ui.log,14photos/controlled
-  suggestions/owned stock writes+cleanup. Must record terminal result and inspect
-  layouts before readiness. CI on0097e1f pending. No source mutation during build.
-- Cached+live drafts excluded, per-key event tracking, selected-key final checks,
-  unchanged server revisions and fixed unknown-ACK Inventory retry. Browser guard
-  is not atomic cross-tab/device locking. Larger lists/511 discovery/529 rejected
-  Start/distribution/clean-host/physical600 remain. Last hardware EMPTY, fresh
-  loading unanswered. Full workflow goal ACTIVE/incomplete.
-- Approval queue488,491,495,513,514,516,517,519,521,523,525,526,528,531,533.
-  Next safe step: finish73664, preserve failure artifacts if needed, qualify and
-  record533, then continue larger/out-of-order list and discovery-isolation work.
 
 ## Stamp visibility accepted locally; final CI pending, 2026-09-29
 
