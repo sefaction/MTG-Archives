@@ -1,5 +1,30 @@
 # Resumable work checkpoint
 
+## Preflight guidance ready locally, September 29, 2026
+
+- Active `fix/scanner-preflight-guidance`, PR #519, on individually unapproved
+  #517/#513. Independent #516 should ship with the stack. No merges, production
+  changes, Inventory additions or motor operations. Plustek last confirmed empty;
+  fresh one-card loading answer remains pending. See `docs/SCANNER_PREFLIGHT.md`.
+- Application head `b93718c` has four green checks. Disposable acquisition/import
+  checks cleaned/passed; native generic-backend eight failure/recovery scenarios,
+  original replay/retention and installed0.3.4 selftests passed. Browser final
+  queued error/reload/claim-clear/cancel test passed18.3s on cumulative local image
+  `c9f128f3`. Low-disk was simulated/schema-tested, not a filled laptop drive.
+- Local installer0.3.4 is installed/staged, SHA256
+  `2a664f933d1ec93f46c8052e8c090236df85fd730d05be1d594a16163667c3e4`,
+  built source `1c4d1e5`. No saved production connection resumed. Public installer
+  notices/source/clean-host gates remain open. No helper/NAPS2 services running.
+- Authoritative cumulative review: `MTG-Archives-acquisition-persistence`,
+  `local/acquisition-review-footer`; never build stale primary. It also contains
+  unrelated unapproved #488/#491/#495 and #514/#521 UI work for local testing.
+  Current image `9ad81a8c` is healthy and matches489source files; final #521
+  inline-layout browser check is running separately. Refer to its checkpoint.
+- Broad workflow goal remains ACTIVE/incomplete. #522 tracks active transport
+  authorization-loss retries; continue reliable drain/retention, discovery errors,
+  continuous batches and dynamic-capacity audit. #518 stays open pending #519
+  merge, which requires this PR's individual user approval.
+
 ## Approved merge refresh, 2026-09-29
 
 The user individually approved #510, #512 and #492. #510 merged as
