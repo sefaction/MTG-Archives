@@ -66,6 +66,10 @@ for (const accepted of [true, false]) test(`lost website START ${accepted ? "ack
     const previousPolls=polls; await expect.poll(()=>polls, { timeout: 15000 }).toBeGreaterThan(previousPolls);
     await expect(page.getByRole("combobox", { name: "Scanner source", exact: true })).toBeDisabled();
     await expect(page.getByTestId("storage-destination").getByRole("button", { name: /change/i })).toBeDisabled();
+    await page.setViewportSize({ width: 320, height: 700 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: `test-results/scanner-start-recovery-${accepted ? "accepted" : "unsent"}-320.png` });
+    await page.setViewportSize({ width: 1366, height: 768 });
     await page.reload();
     const retry = page.getByRole("button", { name: "Retry same scanner start", exact: true });
     await expect(retry).toBeEnabled(); expect(requests).toHaveLength(1); // Reload only reads.
@@ -81,6 +85,18 @@ for (const accepted of [true, false]) test(`lost website START ${accepted ? "ack
     await expect(page.getByRole("region", { name: "Batch progress" })).toContainText(`Batch ${first!.batchNumber}`);
     const state = JSON.parse(database(`const n=${JSON.stringify(tag)};const rows=await p.scannerRun.findMany({where:{agent:{userId:n}}});console.log(JSON.stringify({runs:rows.length,executionId:rows[0]?.executionId,sessions:await p.acquisitionSession.count({where:{createdByUserId:n}}),inventory:await p.inventoryItem.count({where:{currentOwnerId:n}}),photos:await p.acquisitionPhoto.count({where:{run:{session:{createdByUserId:n}}}})}));`));
     expect(state).toEqual({ runs: 1, executionId, sessions: 1, inventory: 0, photos: 0 });
+    await pulse();
+    const current = await page.request.post("/api/scanner-agent/runs", { headers, data: { action: "poll", version: 1 } });
+    const { epoch } = await current.json();
+    expect((await page.request.post("/api/scanner-agent/runs", { headers, data: { action: "finish", version: 1,
+      runId: first!.runId, epoch, executionId, outcome: { outcome: "SOURCE_EXHAUSTED", imageCount: 0,
+        elapsedMs: 1, knownPhysicalItems: null, sourceExhausted: "REPORTED_EMPTY", nativeError: null } } })).ok()).toBe(true);
+    await scanner.getByRole("link", { name: "New scanner batch" }).click();
+    await expect(page.getByRole("button", { name: "Start scanner batch", exact: true })).toBeEnabled();
+    await expect(page.getByTestId("storage-destination").getByRole("button", { name: /change/i })).toBeEnabled();
+    await page.locator("#scanner-source details summary").click();
+    await page.getByRole("combobox", { name: "Resolution", exact: true }).selectOption("300");
+    expect(requests).toHaveLength(accepted ? 1 : 2); // Settled setup changes do not START.
   } finally {
     database(`const n=${JSON.stringify(tag)},w={run:{session:{createdByUserId:n}}};const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;
       if(!root||!paths.isAbsolute(root))throw new Error('Private fixture storage unavailable');
