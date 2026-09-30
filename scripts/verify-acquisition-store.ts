@@ -6,6 +6,7 @@ import { verifyAcquisitionPhotos } from "./verify-acquisition-photos";
 import { verifyAcquisitionCatalog } from "./verify-acquisition-catalog";
 import { verifyAcquisitionCatalogCache } from "./verify-acquisition-catalog-cache";
 import { verifyAcquisitionOrchestration } from "./verify-acquisition-orchestration";
+import { verifyAcquisitionHandoff } from "./verify-acquisition-handoff";
 import { verifyAcquisitionOwnerFairness } from "./verify-acquisition-owner-fairness";
 import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
@@ -370,6 +371,7 @@ async function run() {
   await verifyAcquisitionPhotos(db, actor, stranger, input());
   await verifyAcquisitionCatalog(db, admin, actor, cardId);
   await verifyAcquisitionCatalogCache(db);
+  await verifyAcquisitionHandoff(db);
   console.log(
     "PASS: optimistic commands, persisted human review/correction precedence, cancellation conservation, other-session pending",
   );

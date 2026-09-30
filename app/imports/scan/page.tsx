@@ -4,11 +4,12 @@ import { AcquisitionCapture } from "@/components/AcquisitionCapture";
 import { requireLogin, getAccessScope } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStorageLocations } from "@/lib/storage-summary";
+import { scannerContinuation, currentScannerContinuation, type ScannerContinuation } from "@/lib/scanner-continuation";
 export const dynamic = "force-dynamic";
 export default async function ScanPage({
   searchParams,
 }: {
-  searchParams: Promise<{ batch?: string; input?: string }>;
+  searchParams: Promise<{ batch?: string; input?: string; continue?: string }>;
 }) {
   const user = await requireLogin(),
     scope = await getAccessScope(user);
@@ -30,6 +31,14 @@ export default async function ScanPage({
   ]);
   const params = await searchParams;
   const initialBatch = params.batch ?? "";
+  const storage = await getStorageLocations(prisma, locations);
+  let initialSetup: ScannerContinuation | null = null, setupMessage = "";
+  if (!initialBatch && params.continue) {
+    try {
+      const current = currentScannerContinuation(await scannerContinuation(prisma, user.id, params.continue), storage);
+      initialSetup = current.setup; setupMessage = current.message;
+    } catch { setupMessage = "Previous batch settings could not be reused. Choose a destination and scanner below."; }
+  }
   return (
     <main className="min-w-0 p-3 sm:p-6 space-y-4">
       <Nav />
@@ -42,9 +51,11 @@ export default async function ScanPage({
       <ScannerConnections newBatchHref="/imports/scan?input=scanner#new-scan-batch" />
       <AcquisitionCapture
         userId={user.id}
-        locations={await getStorageLocations(prisma, locations)}
+        locations={storage}
+        initialSetup={initialSetup}
+        setupMessage={setupMessage}
         initialBatch={initialBatch}
-        initialScanner={params.input === "scanner"}
+        initialScanner={params.input === "scanner" || !!initialSetup}
         recent={recent}
       />
     </main>

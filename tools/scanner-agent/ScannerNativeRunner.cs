@@ -18,11 +18,76 @@ public record NativeBinding(int Version, NativeInstruction Instruction, Guid Exe
 // calls. A durable run directory is never reopened for a second physical feed.
 public static class ScannerNativeRunner
 {
+    private sealed class PreparedSource(IScannerBackend backend, FileStream deviceLock, ScanRequest request, Capabilities capabilities) : IDisposable
+    {
+        public IScannerBackend Backend => backend;
+        public ScanRequest Request => request;
+        public Capabilities Capabilities => capabilities;
+        public void Dispose() { try { backend.Dispose(); } finally { deviceLock.Dispose(); } }
+    }
+    private static async Task ReportPreflight(HttpClient client, string token, NativeInstruction run, string code)
+    {
+        var ack = await Post(client, "api/scanner-agent/runs", token,
+            new { action = "preflight", version = 1, runId = run.RunId, epoch = run.Epoch, code });
+        Identity(ack, run.RunId);
+        Console.WriteLine($"Scanner preparation needs attention ({code}). No feed started; retrying.");
+    }
+    private static async Task<PreparedSource?> PrepareSource(HttpClient client, string token, NativeInstruction run,
+        string root, IReadOnlyList<Device> devices, Func<IScannerBackend>? backendFactory)
+    {
+        if (!devices.Any(d => d.Id == run.DeviceId)) {
+            await ReportPreflight(client, token, run, "SCANNER_UNAVAILABLE"); return null;
+        }
+        FileStream deviceLock;
+        try {
+            Directory.CreateDirectory(Path.Combine(root, "devices"));
+            var drive = new DriveInfo(Path.GetPathRoot(Path.GetFullPath(root))!);
+            if (drive.AvailableFreeSpace < 2L * 1024 * 1024 * 1024 + (run.LoadedCount ?? 500) * 10L * 1024 * 1024) {
+                await ReportPreflight(client, token, run, "LOW_DISK_SPACE"); return null;
+            }
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(run.DeviceId)));
+            deviceLock = new FileStream(Path.Combine(root, "devices", $"{key}.lock"), FileMode.OpenOrCreate,
+                FileAccess.ReadWrite, FileShare.None);
+        } catch (IOException error) when ((error.HResult & 0xffff) is 32 or 33) {
+            await ReportPreflight(client, token, run, "SCANNER_BUSY"); return null;
+        } catch (Exception error) when (error is IOException or UnauthorizedAccessException) {
+            await ReportPreflight(client, token, run, "STORAGE_UNAVAILABLE"); return null;
+        }
+        IScannerBackend? backend = null;
+        var transferred = false;
+        try {
+            Capabilities? caps = null;
+            string? problem = null;
+            var request = new ScanRequest(run.RunId, run.DeviceId, run.Settings.Dpi,
+                run.Settings.WidthInches, run.Settings.HeightInches, false, null,
+                run.PhysicalTarget, false, run.Settings.HorizontalPlacement);
+            try {
+                backend = (backendFactory ?? (() => new Naps2Backend(run.DeviceId)))();
+                var currentDevices = await backend.ListDevices();
+                if (!currentDevices.Any(d => d.Id == run.DeviceId)) {
+                    problem = "SCANNER_UNAVAILABLE";
+                } else {
+                    caps = await backend.GetCapabilities(run.DeviceId);
+                    if (caps.Features["feeder"].Support == Support.ReportedUnsupported) problem = "FEEDER_UNAVAILABLE";
+                    else await backend.Prepare(request);
+                }
+            } catch (OperationCanceledException) { throw; }
+            catch (Exception) { problem = "DRIVER_ERROR"; }
+            if (problem != null) {
+                await ReportPreflight(client, token, run, problem); return null;
+            }
+            transferred = true;
+            return new PreparedSource(backend!, deviceLock, request, caps!);
+        } finally {
+            if (!transferred) { try { backend?.Dispose(); } finally { deviceLock.Dispose(); } }
+        }
+    }
     private static async Task<JsonElement> Post(HttpClient client, string route, string token, object body)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, route) { Content = JsonContent.Create(body, options: RunSpool.Json) };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using var response = await client.SendAsync(request);
+        if (ScannerConnectionRejected.IsPermanent(response.StatusCode)) throw new ScannerConnectionRejected(response.StatusCode);
         if (!response.IsSuccessStatusCode) throw new InvalidOperationException("Scanner transport unavailable; originals retained");
         var result = await response.Content.ReadFromJsonAsync<JsonElement>();
         if (result.GetProperty("version").GetInt32() != 1) throw new InvalidOperationException("Scanner protocol changed");
@@ -71,26 +136,10 @@ public static class ScannerNativeRunner
         }
         if (run.Status != "QUEUED" || run.StopRequested || run.ExecutionId != null)
             throw new InvalidOperationException("Started scanner run has no local journal; manual reconciliation required");
-        if (!devices.Any(d=>d.Id == run.DeviceId)) throw new InvalidOperationException("Selected scanner source unavailable");
-        Directory.CreateDirectory(runsRoot);
-        var drive = new DriveInfo(Path.GetPathRoot(Path.GetFullPath(runsRoot))!);
-        // Uncounted feeder runs may retain up to 500 full-resolution originals.
-        if (drive.AvailableFreeSpace < 2L * 1024 * 1024 * 1024 + (run.LoadedCount ?? 500) * 10L * 1024 * 1024)
-            throw new InvalidOperationException("Private scanner spool needs more free space; no feed started");
-        // Shared across this Windows user's pairings/processes, not per run.
-        var locks = Path.Combine(root, "devices"); Directory.CreateDirectory(locks);
-        var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(run.DeviceId)));
-        using var deviceLock = new FileStream(Path.Combine(locks, $"{key}.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-        using IScannerBackend backend = (backendFactory ?? (() => new Naps2Backend(run.DeviceId)))();
-        await backend.ListDevices();
-        var caps = await backend.GetCapabilities(run.DeviceId);
-        if (caps.Features["feeder"].Support == Support.ReportedUnsupported)
-            throw new InvalidOperationException("Source reports no feeder; no feed started");
-        var request = new ScanRequest(run.RunId, run.DeviceId, run.Settings.Dpi,
-            run.Settings.WidthInches, run.Settings.HeightInches, false, null,
-            run.PhysicalTarget, false, run.Settings.HorizontalPlacement);
-        await backend.Prepare(request);
-        using var spool = new RunSpool(runsRoot, request, new { description = (backendDescription ?? Naps2Backend.Describe)(), capabilities = caps });
+        using var prepared = await PrepareSource(client, token, run, root, devices, backendFactory);
+        if (prepared == null) return;
+        var backend = prepared.Backend;
+        using var spool = new RunSpool(runsRoot, prepared.Request, new { description = (backendDescription ?? Naps2Backend.Describe)(), capabilities = prepared.Capabilities });
         var saved = new NativeBinding(1, run, Guid.NewGuid());
         RunSpool.WriteNew(Path.Combine(directory, "binding.json"), saved);
         // Existing run.lock/binding before network or motor: restart cannot feed.
@@ -106,7 +155,8 @@ public static class ScannerNativeRunner
                     throw new InvalidDataException("Start claim requires physical reconciliation; no feed started");
                 break;
             }
-            catch (Exception error) when (error is HttpRequestException or TaskCanceledException or InvalidOperationException) {
+            catch (Exception error) when (error is not ScannerConnectionRejected &&
+                error is HttpRequestException or TaskCanceledException or InvalidOperationException) {
                 Console.WriteLine("Start acknowledgement unavailable. Same journal/claim retained; waiting before feed.");
                 await Task.Delay(1000);
             }
@@ -134,6 +184,16 @@ public static class ScannerNativeRunner
                 var next = artifacts.FirstOrDefault(a=>!delivered.Contains(a.Id));
                 if (next != null) { await Deliver(client, token, directory, saved, next); delivered.Add(next.Id); continue; }
                 if (scan.IsCompleted) break;
+            }
+            catch (ScannerConnectionRejected) {
+                // Stop further network attempts after permanent denial. Drain
+                // through the existing backend policy before releasing native
+                // resources; never cancel cards that are still in transport.
+                try { backend.RequestStop("connection no longer authorized; retain originals and drain"); }
+                catch { Console.WriteLine("Scanner stop request unavailable; waiting for native completion with originals retained."); }
+                try { await scan; } catch { /* Retained native journal is authoritative. */ }
+                Console.WriteLine("Scanner connection ended. Retained scans need reconciliation; scanner will not restart.");
+                throw;
             }
             catch (Exception error) when (error is HttpRequestException or TaskCanceledException or InvalidOperationException or IOException or JsonException) {
                 Console.WriteLine("Upload unavailable. Complete originals stay in the private spool; current feeder run drains.");
@@ -181,6 +241,7 @@ public static class ScannerNativeRunner
             sequence = artifact.Sequence, timestamp = timestamp.ToString("O"),
             side = artifact.Side, physicalBoundary = artifact.PhysicalBoundary }, RunSpool.Json));
         using var response = await client.SendAsync(request);
+        if (ScannerConnectionRejected.IsPermanent(response.StatusCode)) throw new ScannerConnectionRejected(response.StatusCode);
         if (!response.IsSuccessStatusCode) throw new InvalidOperationException("Scanner upload rejected; original retained");
         var ack = await response.Content.ReadFromJsonAsync<JsonElement>();
         Identity(ack, run.RunId);

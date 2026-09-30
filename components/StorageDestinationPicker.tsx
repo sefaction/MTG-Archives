@@ -21,6 +21,7 @@ export function StorageDestinationPicker({
   locationField = "destinationLocationId",
   sectionField = "destinationLocationSection",
   disabled = false,
+  capacityHint = "Capacity is a guide, not a limit.",
 }: {
   locations: StorageLocation[];
   locationId: string;
@@ -33,6 +34,7 @@ export function StorageDestinationPicker({
   locationField?: string;
   sectionField?: string;
   disabled?: boolean;
+  capacityHint?: string;
 }) {
   const [search, setSearch] = useState("");
   const [choosing, setChoosing] = useState(!locationId);
@@ -340,7 +342,7 @@ export function StorageDestinationPicker({
             {section
               ? "Selected: " + section + ". "
               : "No section — cards will go directly into this location."}
-            {" Capacity is a guide, not a limit."}
+            {" " + capacityHint}
           </p>
           {selectedSection && (
             <p role="status" className="text-sm">

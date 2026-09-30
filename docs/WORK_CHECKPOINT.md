@@ -156,6 +156,222 @@
   remain explicit. #463 recognition accuracy and fi-7160 are separate.
 - Open review queue: #488,#491,#495,#513,#514,#516,#517,#519,#521. Every PR
   requires individual approval. #520 stays open until #521 merges.
+## Approved scanner stack integration, September 30, 2026
+
+The user approved all 18 ready PRs (#488, #491, #495, #513, #514,
+#516, #517, #519, #521, #523, #525, #526, #528, #531, #533,
+#535, #536, #538). Draft #540 and #541 remain unapproved and excluded.
+This head retains the approved scanner ancestors and main; only the
+historical checkpoint conflict required manual resolution, preserving both
+entries. Historical approval statements below are superseded by this entry.
+Local review stays on tested image6460e4a. No helper change, scanner motor,
+local reload, production deployment, or development resume is part of release.
+
+# Resumable work checkpoint
+
+## Pending discovery heartbeat accepted locally, September30,2026
+
+- Isolated scanner-discovery-progress/fix/scanner-discovery-progress, draft536
+  on individually unapproved535/528 and scanner stack. Headf074af7, app0a24326/pulsec0c794f.
+  One Task.Run discovery; heartbeat remains live, snapshot choices preserved,
+  pending status gates new scans; no START poll before actual completion.
+  Revocation disables future work then awaits native completion before disposal.
+  Fast calls get250ms observation grace; expiry is NOT native completion.
+- Expected old awaited-task baseline fails; logs retained privately. Six new
+  mechanical groups plus six prior groups/native/credential/Node and11TS pass.
+  Type/lint pass; disposable integrity16579 terminal0 (37s persisted/46s import).
+  First installer70674 pass lacks final fast-call fix; do NOT stage it. Final
+  installer25009 PASSc0c794f/hash2aa5e56c; staged local only, not installed.
+  Cumulative Docker55843 terminal0 app06b0e90, cherryhelperfix711db93.
+  Reload76507 terminal0/healthy/login200, exact495/f9fe40a1/
+  imaged121c817d1aa03442135e33f448900fe1d7a277ec816c9b4b66860defe83f37f. New helper DLL local
+  build includes fast-call fix; installer must match. Installed0.3.5 stopped.
+- First localhost-only fake-driver UI2443 PASS1/1/2.7min; pending/late/
+  selected refresh/35s-online/revocation-drain pass; no runs/Inventory.
+  Both pending/settled1366/320 inspected/no overflow. Misleading Start hint
+  found and fixedf074af7; final builder8376 terminal0, cumulativea61bd64.
+  Final reload/UI30648 terminal1 (3/4 passed; socket disconnect in route.fetch), healthy/login200/source495/
+  6bd68902108e83fcfbbf7e920fa604cf3cd58023f7b0651c11a4585303240c76/
+  imagef225500fb7b4257094f2224eaece63f8dd0432847c87136988fcbbdf6346c4c0.
+  Real motor-free1.9min/pending2.6min/lostACK12.1s pass. Failed lost-request
+  trace retained privately .local-data/discovery-progress-final-failure-artifacts.
+  Unchanged scoped rerun3407 PASS1/1/14.9s; healthy/no OOM/restart, no root-cause
+  claim. Both final layouts inspected; owned fixtureusers0/helperworker0.
+  All handles terminal; installerstaged0.3.7 remains not installed.
+  Verify35s pending beyond30s stale cutoff, retained source/destination during
+  later refresh, revocation keeps process until actual managed completion.
+  No real driver/motor in fixtures. Real motor-free discovery/95s worker soak/revocation PASS; no motor.
+- No merge/production/Inventory/motor. User last confirmed connected/powered/
+  EMPTY; fresh loading remains needed. Full active goal incomplete. Next publish evidence/reconcile exact finalCI/ready536, then537 bulk
+  preview/larger-list baseline and529 rejectedStart.
+  #537 records bulk incremental/overlapping preview risk; controlled browser
+  baseline needed, next UI branch should start on533, not scanner stack.
+  Approval queue488,491,495,513,514,516,517,519,521,523,525,526,528,531,533,535,536.
+
+## Scanner discovery recovery accepted locally, September30,2026
+
+- Isolated scanner-discovery-recovery, fix/scanner-discovery-recovery, draft535
+  on individually unapproved528. App23e4b11 all4CI green. Cumulative appae91088
+  loaded healthy exact image244225159b37fafc925e1caf825c4c699d52b7ba97bbfa3c4858078c012d09c8,
+  source495/digest3e4d205c067fbfab6391850f0c0c30cc94c22edd7898124def012398b0b43a06.
+- Independent WIA/TWAIN discovery failures, bounded retry, one-time worker setup,
+  negotiated sanitized diagnostics and usable-source website recovery guidance.
+  Failed driver calls that never complete remain separately scoped in534.
+- Baseline11357 failed as expected (old TWAIN-first discarded WIA). Six native
+  selftest groups,11focused TS tests,type/lint, disposable acquisition15108 pass.
+  Self-contained local0.3.6 installer built70604/selftests/hash verified, staged
+  for local website only, NOT installed/publicly distributed. Installed0.3.5 stays
+  stopped. Do not resume saved production credentials.
+- Browser95075 ended FAILED: own fixture lacked required sections:[] and scan
+  page threw strict layout validation. Failure retained .local-data/discovery-first-ui-artifacts;
+  fixture corrected only, second browser75785 PASS1/1/59.3s. Real motor-free
+  source browser19620 PASS1/1/1.9min; at most one owned worker across95s,
+  revoke helper/worker0. Both desktop/320 layouts inspected/no overflow.
+  All handles terminal; zero native/helper processes. Fixture data cleaned.
+- Hardware freshly confirmed connected/powered/EMPTY. Fresh card loading remains
+  required before motor. No production/merge/Inventory action. Active full goal
+  incomplete. Next push evidence/reconcile finalCI/ready535; then pending discovery534
+  and larger/out-of-order review checks. Public package/clean-host,
+  physical600, larger-list/rejectedStart gates remain; recognition/fi-7160 separate.
+- Approval queue488,491,495,513,514,516,517,519,521,523,525,526,528,531,533,535.
+
+
+## Website Start recovery accepted locally, September 30, 2026
+
+- Isolated `MTG-Archives-scanner-start-replay`, `fix/scanner-start-replay`,
+  PR #528 on individually unapproved #526/#525/#523/#519/#517/#513 plus #516.
+  Head `1e510c8`; implementation `d41054f`, late-unmount guard `5261872`.
+  No merge, production change, helper/motor operation or Inventory addition.
+- Corrected baseline waits for failed ACK before source refresh; it failed as
+  expected. Earlier passing baseline runs had a timing flaw and are not evidence.
+  Retained logs/traces live privately in cumulative `.local-data`/test-results.
+- Immutable per-tab/account Start intent before POST; read-only owned recovery,
+  same request on explicit retry and reload, frozen settings/destination. No
+  automatic POST on reload; accepted runs can recover with helper offline.
+- Two focused storage tests, typecheck/lint and disposable acquisition/import
+  checks pass; owned database/container/volume cleaned. First local browser run
+  passes all 3 cases in 47.1s, with one run/session/START authorization and zero
+  photos/Inventory per recovery case; configuration changes after settlement.
+  320px no overflow; screenshot inspected. Final image UI65911 passes2/2/32.8s,
+  including photo-only creation without scanner-start storage. Initial post-reload
+  test failed at login before web was ready; retained privately. Ready rerun
+  required healthy web/HTTP200. Build52693 terminal0; no helper processes remain.
+- Authoritative cumulative branch `local/acquisition-review-footer` in
+  `MTG-Archives-acquisition-persistence`, head `092aff8`. Final build session
+  52693 terminal0; original build54255 and UI13268 terminal0. Running healthy
+  final image `1d3c6e0fb7a7a8fd8a6ca645a25d4afd37008983bbf573bbe72f797e84e44716`,
+  491files/digest `837f25cd4e50a6fdf720be8ba16e472594f9aad58de44f3e1d68919cd4587247`.
+  Web-only reload used all7overlays; recognition workers unchanged. `1e510c8`
+  has all3CI green; final documentation refresh needs its own checks reconciled.
+- #529 tracks safe setup changes after a rejected/partially created Start;
+  never discard an unknown request based only on a missing lookup. #527 remains
+  open until individually approved #528 merges. Broad attached goal ACTIVE.
+- Approval queue: #488,#491,#495,#513,#514,#516,#517,#519,#521,#523,#525,#526,#528.
+  Fresh card-loading unanswered; last hardware confirmation EMPTY. fi-7160 and
+  recognition #463 separate. Next: final exact-source reload/UI/CI, then draft
+  navigation/large lists, discovery isolation #511 and package/clean-host gates.
+
+## Scanner continuation ready locally, September30,2026
+
+- Isolated feat/scanner-batch-continuity (scanner-continuity worktree), PR526 on
+  525/523/519/517/513 plus independent516; all individually unapproved. Application
+  4cc6b53/compact221c100;221c100 all3green. No main merge, production connection,
+  motor or scan Inventory commit. Broad attached goal ACTIVE/incomplete.
+- Settled account-scoped destination/section/source/settings/default preferences;
+  fresh run/target/empty acquisition state, explicit START. Refresh capacity
+  preserves choices; full/missing destination disables START. Compact desktop
+  setup and acquisition-specific capacity hint; shared picker defaults unchanged.
+- Disposable acquisition/import passes/cleans, two focused tests/typecheck/lint
+  pass. First manual-quantity fixture expectation failure preserved privately.
+  Controlled browser24.3s then22.5s exposed tall setup; finalcompact1/1/23.1s
+  passes defaults/source/destination, refresh0/1 room, newrun/target, cancel/reload,
+ 1366x768 Start-first-viewport,320px/no overflow. Both screenshots inspected.
+  One owned Inventory capacity seed inserted/removed; zero new scan commits.
+- Cumulative compact appa268509, healthy image2f5a4f32c0bcef3152ec0e757b7d95be81804230332e21eff095da9b5757e757;
+  source490files/digest3a42bc9deed7d39db17e3b8092cba22e39a270c56e50954c999b289857b77afb.
+  Build33670/UI39348 terminal0. Web-only/all7overlays; other workers unchanged.
+- Installed local helper0.3.5 already fully selftested, no helper/NAPS2 service
+  remains and no saved production connection resumed. Distribution gate open.
+  Last hardware confirmation EMPTY; fresh one-card loading question unanswered.
+- Exact open approval queue488,491,495,513,514,516,517,519,521,523,525,526.
+  523final9b29381 all4green;525final069ef9b all3green. Next final526CI/checkpoint
+  reconciliation, then large-list/out-of-order/draft-navigation audit and scoped
+  source-driver isolation511. Public package/clean-host/physical600 gates remain;
+  recognition463 and fi-7160 separate. Do not stop the full goal at this milestone.
+
+## Waiting cancellation ready locally, September30,2026
+
+- Branch fix/scanner-unstarted-cancel, application90ea443; PR525 on523 and its
+  individually unapproved519/517/513 plus516 dependencies. No main merge,
+  production change, Inventory addition or motor operation. Broad goal ACTIVE.
+- Serialized no-START cancellation settles automatically only with current
+  epoch/null execution/no independent START marker/no acquisition artifacts,
+  candidates/slots/photos. Restore/uncertainty fails closed; real started runs
+  retain drain/manual reconciliation. Repeated cancel does not change revision.
+- Disposable acquisition/import passes with ownership, uncertainty and three
+  claim/cancel races, full cleanup. First two fixture failures preserved privately
+  (full capacity; eight-helper limit); fix fixtures, never product gates.
+  Typecheck/focused lint pass. Real local browser passed1/1/19.9s with no count
+  form, reload, next batch and zero Inventory/owned cleanup.
+- Cumulative application659def8, healthy web90a16ce51583ceeabe2eff3b29b08742a428a97a6f643995cfdc232bced54f5b;
+  source489files/digest16ac3f30f3b389fbd9055d743f7137c05e768054172556ad9ace3eb9c2db7950.
+  All7overlays used web-only; recognition workers unchanged. Build/UI terminal0.
+- 523 final9b29381 has all4checks green;525 initial90ea443 all3green. Installed
+  helper0.3.5 already passed full selftests; no helper/NAPS2 services remain.
+- Still unapproved488,491,495,513,514,516,517,519,521,523,525. No approvals
+  requested again while user away. Physical600 needs fresh one-card loading;
+  last user confirmation EMPTY. fi-7160/recognition accuracy remain separate.
+- Next continuous workflow: carry last settled batch's destination/section and
+  scanner/settings into a fresh, explicitly started batch, resolving current
+  owner/source/location/capacity again. Audit dynamic capacity and longer lists.
+  Code-inspection discovery-isolation risk/acceptance is scoped in511 comment;
+  public distribution/clean-host gates remain explicit. No native timeout disposal.
+
+## Native authorization loss ready locally, September30,2026
+
+- Isolated branch fix/scanner-native-authorization, application321dbfa; PR523
+  on519/517/513 with independently required516 merged into this feature branch.
+  All need their own approvals; no main merge/deployment/motor/Inventory.
+- Typed native403/409/400/413/503 and helper drain-before-disposal with retained
+  late transfers. Seven generic denial/outage/ACK-loss cases, full native selftest,
+  Release zero warnings/errors,13focused tests/typecheck/lint and disposable
+  acquisition/import integrity all pass; owned database/container cleaned.
+- Cumulative application64c606b; healthy web imagef4ce407bfd1060096cecfe7c6da23e03051ad277ff14dc2c6dc682363dd16a28;
+  source489files/digestaeed41fa911b429b361668b0b7aac8de8288c17e638e78c49e399bec7ede64af.
+  Real native route browser/API fixture passed1/1/7.0s; zero photos/Inventory;
+  owned START marker/account/location/agent/session cleanup completed.
+- Installed local0.3.5 full native selftest passes; package source321dbfa,
+  SHA2561a88f0c52f9f314e03ccecc384b1576fb95becc484deb5f67f702f75060ed1bb.
+  No saved connection resumed. All build/install/browser sessions terminal0.
+- Broad goal ACTIVE/incomplete. Driver hangs/409reconciliation/public distribution
+  and clean-host limitations documented. Physical600 needs fresh card-loading
+  answer; last confirmation EMPTY. Next524: settle proven unstarted cancellation;
+  isolated scanner-unstarted branch on523. Recognition/fi-7160 remain separate.
+
+## Preflight guidance ready locally, September 29, 2026
+
+- Active `fix/scanner-preflight-guidance`, PR #519, on individually unapproved
+  #517/#513. Independent #516 should ship with the stack. No merges, production
+  changes, Inventory additions or motor operations. Plustek last confirmed empty;
+  fresh one-card loading answer remains pending. See `docs/SCANNER_PREFLIGHT.md`.
+- Application head `b93718c` has four green checks. Disposable acquisition/import
+  checks cleaned/passed; native generic-backend eight failure/recovery scenarios,
+  original replay/retention and installed0.3.4 selftests passed. Browser final
+  queued error/reload/claim-clear/cancel test passed18.3s on cumulative local image
+  `c9f128f3`. Low-disk was simulated/schema-tested, not a filled laptop drive.
+- Local installer0.3.4 is installed/staged, SHA256
+  `2a664f933d1ec93f46c8052e8c090236df85fd730d05be1d594a16163667c3e4`,
+  built source `1c4d1e5`. No saved production connection resumed. Public installer
+  notices/source/clean-host gates remain open. No helper/NAPS2 services running.
+- Authoritative cumulative review: `MTG-Archives-acquisition-persistence`,
+  `local/acquisition-review-footer`; never build stale primary. It also contains
+  unrelated unapproved #488/#491/#495 and #514/#521 UI work for local testing.
+  Current image `9ad81a8c` is healthy and matches489source files; final #521
+  inline-layout browser check is running separately. Refer to its checkpoint.
+- Broad workflow goal remains ACTIVE/incomplete. #522 tracks active transport
+  authorization-loss retries; continue reliable drain/retention, discovery errors,
+  continuous batches and dynamic-capacity audit. #518 stays open pending #519
+  merge, which requires this PR's individual user approval.
 
 ## Simple/Advanced review ready locally, 2026-09-29
 

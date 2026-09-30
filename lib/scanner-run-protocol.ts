@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { acquisitionDefaultsSchema } from "./acquisition-review";
 
 export const SCANNER_CAPTURE_PROVIDER = "windows-scanner-simplex-v1";
 export function scannerCanonical(value: unknown): string {
@@ -23,10 +24,22 @@ export const scannerBatchSchema = z.object({
   loadedCount: z.number().int().min(1).max(500).nullable(),
   settings: scannerSettingsSchema,
   operatorLoadedSimplexFronts: z.literal(true),
+  defaults: acquisitionDefaultsSchema.optional(),
 }).strict();
 export const scannerRunClaimSchema = z.object({
   version: z.literal(1), runId: z.string().uuid(), epoch: z.string().uuid(),
   executionId: z.string().uuid(),
+}).strict();
+export const scannerPreflightCodeSchema = z.enum([
+  "SCANNER_UNAVAILABLE", "SCANNER_BUSY", "LOW_DISK_SPACE", "STORAGE_UNAVAILABLE",
+  "FEEDER_UNAVAILABLE", "DRIVER_ERROR",
+]);
+export const scannerPreflightReportSchema = z.object({
+  version: z.literal(1), runId: z.string().uuid(), epoch: z.string().uuid(),
+  code: scannerPreflightCodeSchema,
+}).strict();
+export const scannerPreflightProblemSchema = z.object({
+  code: scannerPreflightCodeSchema, observedAt: z.string().datetime(),
 }).strict();
 export const scannerTransferSchema = scannerRunClaimSchema.extend({
   artifactId: z.string().uuid(), sequence: z.number().int().min(1).max(5000),

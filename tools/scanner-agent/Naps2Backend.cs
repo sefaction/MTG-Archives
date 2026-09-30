@@ -13,6 +13,8 @@ public sealed class Naps2Backend : IScannerBackend
 {
     private readonly ScanningContext context = new(new GdiImageContext());
     private readonly ScanController controller;
+    private readonly ScannerSourceDiscovery<ScanDevice> wiaDiscovery;
+    private readonly ScannerSourceDiscovery<ScanDevice> twainDiscovery;
     private readonly CancellationTokenSource cancellation = new();
     private readonly SemaphoreSlim lifecycle = new(1, 1);
     private List<ScanDevice> devices = [];
@@ -24,7 +26,8 @@ public sealed class Naps2Backend : IScannerBackend
     private bool started;
     private bool closed;
     private readonly string? selectedDeviceId;
-    private List<ScanDevice>? twainDevices;
+    public IReadOnlyList<ScannerDiscoveryIssue> DiscoveryIssues =>
+        new[] { wiaDiscovery.Issue, twainDiscovery.Issue }.OfType<ScannerDiscoveryIssue>().ToArray();
     public static object Describe() => new
     {
         agentVersion = ScannerConnection.Version, backendVersion = "0.1.0-spike", backend = "naps2-windows",
@@ -38,13 +41,21 @@ public sealed class Naps2Backend : IScannerBackend
         dsmPreference = "modern-32-bit; loaded DSM version not exposed",
         runtime = RuntimeInformation.FrameworkDescription
     };
-    public Naps2Backend(string? selectedDeviceId = null)
+    public Naps2Backend(string? selectedDeviceId = null) : this(selectedDeviceId, null, null) { }
+    // Qualification seam stays below the scanner boundary and never reaches the
+    // website. Fake delegates exercise this real adapter without touching USB.
+    internal Naps2Backend(string? selectedDeviceId, Func<Driver, Task<List<ScanDevice>>>? enumerate, Action? initializeWorker,
+        Func<DateTimeOffset>? clock = null)
     {
         // WIA never needs the x86 TWAIN worker. Avoid starting the vendor proxy
         // merely to prepare a WIA run. Discovery caches TWAIN for this backend
         // lifetime rather than repeatedly invoking the driver every pulse.
         this.selectedDeviceId = selectedDeviceId;
         controller = new ScanController(context) { PropagateErrors = true };
+        enumerate ??= driver => controller.GetDeviceList(driver);
+        wiaDiscovery = new("Wia", async () => await enumerate(Driver.Wia), false, clock: clock);
+        twainDiscovery = new("Twain", async () => await enumerate(Driver.Twain), true,
+            initializeWorker ?? (() => context.SetUpWin32Worker()), clock);
     }
     public async Task<IReadOnlyList<Device>> ListDevices()
     {
@@ -57,15 +68,14 @@ public sealed class Naps2Backend : IScannerBackend
                 !selectedDeviceId.StartsWith("Twain:", StringComparison.Ordinal))
                 throw new ArgumentException("Unknown scanner source identity");
             devices = [];
-            if (selectedDeviceId is null || selectedDeviceId.StartsWith("Twain:", StringComparison.Ordinal)) {
-                if (twainDevices is null) {
-                    context.SetUpWin32Worker();
-                    twainDevices = await controller.GetDeviceList(Driver.Twain);
-                }
-                devices.AddRange(twainDevices);
-            }
+            // Independent source failures cannot hide an available WIA scanner.
             if (selectedDeviceId is null || selectedDeviceId.StartsWith("Wia:", StringComparison.Ordinal))
-                devices.AddRange(await controller.GetDeviceList(Driver.Wia));
+                devices.AddRange(await wiaDiscovery.Refresh());
+            if (selectedDeviceId is null || selectedDeviceId.StartsWith("Twain:", StringComparison.Ordinal)) {
+                devices.AddRange(await twainDiscovery.Refresh());
+            }
+            if (selectedDeviceId is not null && devices.Count == 0 && DiscoveryIssues.Count > 0)
+                throw new InvalidOperationException("Scanner device discovery unavailable");
             return devices.Select(d => new Device(Key(d), d.Name, "naps2-windows", d.Driver.ToString())).ToArray();
         }
         finally { lifecycle.Release(); }
