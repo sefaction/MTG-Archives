@@ -18,6 +18,7 @@ import {
 } from "@/lib/acquisition-review";
 import { finishForPrinting } from "@/lib/acquisition-finish";
 import type { AcquisitionReviewMode } from "@/lib/acquisition-review-display";
+import { readAcquisitionDraft, saveAcquisitionDraft, clearAcquisitionDraft } from "@/lib/acquisition-browser-review-draft";
 
 const conditions = [
   ["NM", "Near mint"],
@@ -188,6 +189,7 @@ export function AcquisitionBatchDefaults({
 }
 
 export function AcquisitionPhotoReview({
+  userId,
   batchId,
   photoId,
   refresh,
@@ -197,6 +199,7 @@ export function AcquisitionPhotoReview({
   onDirtyChange,
   onNextAwaiting,
 }: {
+  userId: string;
   batchId: string;
   photoId: string;
   refresh: () => void;
@@ -223,6 +226,9 @@ export function AcquisitionPhotoReview({
   const [matches, setMatches] = useState<AcquisitionPrinting[] | null>(null);
   const [editing, setEditing] = useState(false);
   const [draftDirty, setDraftDirty] = useState(false);
+  const [draftWarning, setDraftWarning] = useState("");
+  const draftChecked = useRef(false);
+  const draftWrite = useRef<string | undefined>(undefined);
   const dirty = useRef(false),
     requestVersion = useRef(0);
   const searchInput = useRef<HTMLInputElement>(null);
@@ -243,6 +249,39 @@ export function AcquisitionPhotoReview({
     setDraftDirty(true);
     onDirtyChange?.(photoId, true);
   }
+  const clearDraft = useCallback(() => {
+    try {
+      const cleared = clearAcquisitionDraft(localStorage, { userId, batchId, photoId }, draftWrite.current);
+      setDraftWarning(cleared ? "" : "A newer draft from another tab was kept in this browser.");
+    }
+    catch { setDraftWarning("The browser could not remove its draft. Cancel changes again when storage is available."); }
+  }, [userId, batchId, photoId]);
+  const draftRevision = record?.revision;
+  useEffect(() => {
+    if (!draftDirty || draftRevision === undefined || committed) return;
+    let warning = "";
+    try {
+      draftWrite.current = saveAcquisitionDraft(localStorage, { userId, batchId, photoId }, { version: 1, revision: draftRevision,
+        selected, finish, condition, language, query, set, number });
+    } catch {
+      warning = "These edits could not be kept in this browser. Save the review before leaving this page.";
+    }
+    let active = true;
+    void Promise.resolve().then(() => { if (active) setDraftWarning(warning); });
+    return () => { active = false; };
+  }, [userId, batchId, photoId, draftDirty, draftRevision, selected, finish, condition, language, query, set, number, committed]);
+  useEffect(() => {
+    if (!committed) return;
+    let warning = "";
+    try { clearAcquisitionDraft(localStorage, { userId, batchId, photoId }); }
+    catch { warning = "The browser could not remove its old draft. Inventory is already saved."; }
+    dirty.current = false;
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (active) { setDraftWarning(warning); setDraftDirty(false); onDirtyChange?.(photoId, false); }
+    });
+    return () => { active = false; };
+  }, [committed, userId, batchId, photoId, onDirtyChange]);
   const apply = useCallback(
     (next: AcquisitionCardReview) => {
       setRecord(next);
@@ -286,7 +325,24 @@ export function AcquisitionPhotoReview({
           `${endpoint}?photoId=${photoId}`,
         );
         if (!cancelled && version === requestVersion.current) {
-          if (!dirty.current) apply(next);
+          if (!dirty.current) {
+            apply(next);
+            if (!draftChecked.current && !committed) {
+              draftChecked.current = true;
+              try {
+                const saved = readAcquisitionDraft(localStorage, { userId, batchId, photoId });
+                if (saved) {
+                  draftWrite.current = saved.writeId;
+                  setRecord({ ...next, revision: saved.revision });
+                  setSelected(saved.selected); setFinish(saved.finish); setCondition(saved.condition); setLanguage(saved.language);
+                  setQuery(saved.query); setSet(saved.set); setNumber(saved.number); setEditing(true);
+                  dirty.current = true; setDraftDirty(true); onDirtyChange?.(photoId, true);
+                  setMessage(saved.revision === next.revision ? "Unsaved correction restored from this browser. Save the review when ready." :
+                    "Unsaved correction restored. The saved review changed; Cancel changes loads the current review. Saving will check for a conflict.");
+                }
+              } catch { setDraftWarning("The browser could not restore its draft. Check the saved review before correcting this card."); }
+            }
+          }
           else
             setRecord((previous) =>
               previous
@@ -344,13 +400,13 @@ export function AcquisitionPhotoReview({
     printingStatus,
     reviewed,
     apply,
+    userId, batchId, committed, onDirtyChange,
   ]);
   async function reload() {
     ++requestVersion.current;
     try {
-      apply(
-        await call<AcquisitionCardReview>(`${endpoint}?photoId=${photoId}`),
-      );
+      const next = await call<AcquisitionCardReview>(`${endpoint}?photoId=${photoId}`);
+      clearDraft(); apply(next); setMessage("");
     } catch (e) {
       setError((e as Error).message);
     }
@@ -377,6 +433,7 @@ export function AcquisitionPhotoReview({
             }
           : {}),
       });
+      clearDraft(); dirty.current = false; setDraftDirty(false); onDirtyChange?.(photoId, false);
       await reload();
       setEditing(false);
       setMessage(
@@ -684,6 +741,7 @@ export function AcquisitionPhotoReview({
           </button>
         </div>
       )}
+      {draftWarning && <p role="status" className="text-sm mb-2">{draftWarning}</p>}
       {!record ? (
         <p role="status">
           {active ? "Loading card review…" : "Card review loads as you scroll."}

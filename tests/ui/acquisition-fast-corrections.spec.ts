@@ -68,6 +68,12 @@ test("fast printing correction keeps drafts, metadata and destination while resu
     await page.getByRole("combobox", { name: "Show cards", exact: true }).selectOption("ready");
     await expect(card).toBeVisible(); await expect(name).toHaveValue(alternate.name);
     await page.getByRole("combobox", { name: "Show cards", exact: true }).selectOption("all");
+    await page.reload(); await card.scrollIntoViewIfNeeded();
+    await expect(card.getByRole("combobox", { name: "Card condition", exact: true })).toHaveValue("LP");
+    await expect(name).toHaveValue(alternate.name);
+    await expect(card).toContainText("Unsaved correction restored from this browser");
+    await page.goto("/dashboard"); await page.goto(`/imports/scan?batch=${batch}`); await card.scrollIntoViewIfNeeded();
+    await expect(card.getByRole("combobox", { name: "Card condition", exact: true })).toHaveValue("LP");
     for (const width of [1366, 320]) {
       await page.setViewportSize({ width, height: 900 }); await card.scrollIntoViewIfNeeded();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -82,6 +88,8 @@ test("fast printing correction keeps drafts, metadata and destination while resu
     await expect(page.getByTestId("capture-card-3")).toBeFocused();
     const saved = await (await page.request.get(`${reviewEndpoint}?photoId=${photos[0]}`)).json();
     expect(saved.review).toMatchObject({ cardId: alternate.id, finish: "FOIL", condition: "LP", language: "en" });
+    const draftKey = `mtg-review-draft-v1:${[tag,batch,photos[0]].map(encodeURIComponent).join(":")}`;
+    expect(await page.evaluate(key=>localStorage.getItem(key),draftKey)).toBeNull();
     const firstState = await (await page.request.get(`/api/acquisition/${batch}`)).json();
     expect(firstState).toMatchObject({ locationId: tag, section: "A" });
     expect(database(`console.log((await p.acquisitionSession.findUniqueOrThrow({where:{id:${JSON.stringify(batch)}}})).ownerPlayerId);`).trim()).toBe(tag);
@@ -91,6 +99,28 @@ test("fast printing correction keeps drafts, metadata and destination while resu
     await card.getByRole("button", { name: "Correct", exact: true }).click(); await expect(card.getByRole("combobox", { name: "Card condition", exact: true })).toHaveValue("LP");
     await card.getByRole("button", { name: "Next awaiting review", exact: true }).click();
     await expect(page.getByTestId("capture-card-3")).toBeFocused();
+    await card.scrollIntoViewIfNeeded();
+    await card.getByRole("combobox", { name: "Card condition", exact: true }).selectOption("MP");
+    const revision = (await (await page.request.get(`${reviewEndpoint}?photoId=${photos[0]}`)).json()).revision;
+    expect((await page.request.post(reviewEndpoint, { headers: { origin: baseURL! }, data: { action: "accept", photoId: photos[0], revision,
+      decision: { cardId: alternate.id, finish: "FOIL", condition: "HP", language: "en" } } })).ok()).toBe(true);
+    await page.reload(); await card.scrollIntoViewIfNeeded();
+    await expect(card.getByRole("combobox", { name: "Card condition", exact: true })).toHaveValue("MP");
+    await expect(card).toContainText("The saved review changed");
+    await card.getByRole("button", { name: "Save card review", exact: true }).click();
+    await expect(card.getByRole("alert")).toContainText("Stale");
+    expect((await (await page.request.get(`${reviewEndpoint}?photoId=${photos[0]}`)).json()).review.condition).toBe("HP");
+    await card.getByRole("button", { name: "Cancel changes", exact: true }).click();
+    expect(await page.evaluate(key=>localStorage.getItem(key),draftKey)).toBeNull();
+    await page.reload(); await card.scrollIntoViewIfNeeded();
+    await expect(card.getByRole("combobox", { name: "Card condition", exact: true })).toHaveCount(0);
+    await card.getByRole("button", { name: "Correct", exact: true }).click();
+    await expect(card.getByRole("combobox", { name: "Card condition", exact: true })).toHaveValue("HP");
+    await page.evaluate(()=>{localStorage.setItem=()=>{throw new Error("Fixture quota");};});
+    await card.getByRole("combobox", { name: "Card condition", exact: true }).selectOption("DMG");
+    await expect(card).toContainText("Save the review before leaving this page");
+    await card.getByRole("button", { name: "Save card review", exact: true }).click();
+    await expect(card).toContainText("Review saved. Not yet added to Inventory.");
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
   } finally {
     database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const w={run:{session:{createdByUserId:n}}};const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});

@@ -935,6 +935,7 @@ export function AcquisitionCapture({
                       </p>
                       {photo && !photo.purgedAt ? (
                         <AcquisitionPhotoReview
+                          userId={userId}
                           key={photo.id}
                           batchId={batchId}
                           photoId={photo.id}
