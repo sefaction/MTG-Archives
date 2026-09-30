@@ -1,6 +1,7 @@
 # Website scanner Start recovery
 
-Issue #527, on the individually unapproved #526 scanner stack. This does not
+Start recovery #527/#528 is merged. Rejected-Start setup recovery #529/#541 is
+based on approved main0d1d18a and is independently unapproved. This does not
 change native acquisition, recognition, review or Inventory commit.
 
 The browser saves one validated, immutable scanner Start request in per-tab,
@@ -77,4 +78,17 @@ File identity/replay/restore/malformed/path checks and disposable database
 phase races, partial cancellation, existing native authorization, foreign and
 inactive owners, saved-slot denial and receipt integrity passed locally. Core
 verification passed744 units and the Windows production build. The updated two
-browser cases are pending the cumulative build; this batch is not yet loaded.
+browser cases now pass2/2 in11.6seconds against the cumulative local image:
+real capacity rejection, lost retirement ACK, reload, retained destination,
+late original replay rejection and a fresh request identity; accepted native
+START/lost create ACK and offline adoption retain one batch/session and send
+no additional create or physical feed. Desktop1366x768 and phone320x700
+screenshots were inspected without horizontal overflow. Owned users, sessions
+and agents returned to zero; no Inventory copies or originals were added.
+
+The first resumed browser run passed accepted-batch recovery but failed a
+stale fixture assertion expecting Change while the destination editor was
+already open after retirement. Its trace/video/screenshot are retained privately;
+only the fixture assertion changed before the successful rerun. No product
+failure or extra timeout is inferred from that attempt. Typecheck and focused
+fixture lint pass. Exact image/source and final CI remain in WORK_CHECKPOINT.

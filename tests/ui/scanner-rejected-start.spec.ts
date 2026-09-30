@@ -43,7 +43,12 @@ test("rejected scanner Start can retire its original identity before setup chang
     await page.reload();await expect(page.getByRole("button",{name:"Change scanner setup",exact:true})).toBeEnabled();
     expect(requests).toHaveLength(1); // Reload only recovers, never creates.
     await page.getByRole("button",{name:"Change scanner setup",exact:true}).click();
-    await expect(page.getByTestId("storage-destination").getByRole("button",{name:/change/i})).toBeEnabled();
+    // Retiring after reload opens the destination editor; it is already usable.
+    const destination=page.getByTestId("storage-destination");
+    await expect(destination.getByRole("combobox")).toBeEnabled();
+    await destination.getByRole("button",{name:"Keep current destination",exact:true}).click();
+    await expect(destination.getByRole("button",{name:/change/i})).toBeEnabled();
+    await expect(destination).toContainText(tag);
     await expect(page.getByRole("status").filter({hasText:"unfinished empty batch was cancelled"})).toBeVisible();
     expect(retireRequests).toBe(2);
     await page.setViewportSize({width:320,height:700});

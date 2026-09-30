@@ -1,3 +1,23 @@
+## Rejected Start browser acceptance complete, September 30, 2026
+
+- PR541 updated onto approved main0d1d18a, base main. Application matches
+  cumulative0b54ef5 exactly; native TWAIN540 remains independent/unapproved.
+- Build41027 PASS/typecheck/Docker. Local webacbf6db22a271407d72f0e8fd5055e2955ff9976063678399506ef2cfce756f0
+  healthy; source496/digest76ed279253a775c2bb71bb2b89aae7bdf8271f1f9dda31e648dfffe65c51ba54 verified before/after browser.
+- First browser90023 1passed/1failed in25.4s: destination editor already open
+  after retirement, stale fixture expected Change. All failure artifacts preserved
+  in cumulative.local-data/rejected-start-resumed-first-failure. Corrected fixture
+  only; browser59367 PASS2/2/11.6s on unchanged image. Desktop1366/phone320
+  screenshots inspected, no overflow. Owned users/sessions/agents0; no motor,
+  Inventory addition or production action. Type/lint13578 PASS.
+- Original final checks29a6ced all3green; evidence/fixture head needs fresh CI.
+  Next push this evidence, reconcile final CI, mark541 ready and notify user.
+- TWAIN settings inspection93822/runa0f51effd (actual run0f51effd-8f59-4c5a-8d58-6e8328594c78)
+  remains live in separate diagnostic assembly. User confirmed connected/powered/
+  EMPTY; asked fixed2.6x3.6/simplex600/crop+deskewoff then Exit without Scan.
+  Default framework first failed before SDK; rerun uses existing local.NET8.
+  No image on latest log; wait for actual completion, no premature disposal/restart.
+
 ## Draft work resumed, September 30, 2026
 
 User explicitly resumed #540/#541 after the 18-ready-PR release merged at
