@@ -7,15 +7,32 @@ import { SCANNER_CAPTURE_PROVIDER, scannerBatchSchema, scannerRunClaimSchema,
 import { createAcquisitionSession, executeAcquisitionCommand, getAcquisitionProgress,
   readAcquisitionRow, hydrateAcquisitionRow, saveAcquisitionRow,
   beginAcquisitionPhoto, finalizeAcquisitionPhoto, type AcquisitionActor } from "./acquisition-store";
+import { canonicalAcquisitionCreation, type CreateAcquisitionInput } from "./acquisition-store";
 import { inspectAcquisitionPhoto, writeAcquisitionPhotoBytes } from "./acquisition-files";
 import { candidateKey, correctPhysicalCount, confirmPhysicalCountBatch } from "./acquisition-domain";
-import { persistScannerStartMarker, scannerStartMarkerExists, scannerSiteEpoch } from "./scanner-control-files";
+import { persistScannerStartMarker, scannerStartMarkerExists, scannerSiteEpoch,
+  scannerStartRetired, persistScannerStartRetirement } from "./scanner-control-files";
 import { lockAndReadInventoryCapacity } from "./inventory-capacity";
 import { ScannerRunConflict } from "./scanner-errors";
 
 type Tx = Prisma.TransactionClient;
 const denied = () => new ScannerRunConflict();
 const include = { acquisitionRun: { include: { session: true } } } as const;
+async function lockScannerCreation(tx: Tx, requestKey: string) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`scanner-create-v1:${requestKey}`}, 0))`;
+}
+async function guardScannerCreation(tx: Tx, requestKey: string) {
+  await lockScannerCreation(tx, requestKey);
+  if (await scannerStartRetired(requestKey))
+    throw new ScannerRunConflict("Cannot retry this Start: it was cancelled. Change setup and start a new batch.");
+}
+function scannerCaptureInput(input: z.infer<typeof scannerBatchSchema>, ownerPlayerId: string): CreateAcquisitionInput {
+  return { requestKey: input.requestKey, ownerPlayerId, locationId: input.locationId, section: input.section,
+    ...(input.defaults ? { defaults: input.defaults } : {}),
+    policy: input.quantity === null ? { kind: "FILL" } : { kind: "MANUAL", quantity: input.quantity },
+    run: { providerId: SCANNER_CAPTURE_PROVIDER, runId: input.requestKey,
+      enforcement: "LOGICAL_ALLOCATION", controls: ["STOP"] } };
+}
 async function agentRun(tx: Tx, authorization: string | null, input: { runId: string; epoch: string }, epoch: string) {
   const auth = await authenticateScanner(tx, authorization, new Date());
   const run = await tx.scannerRun.findUnique({ where: { id: input.runId }, include });
@@ -35,23 +52,20 @@ function command(run: { id: string; epoch: string; deviceId: string; loadedCount
 export async function createScannerBatch(db: PrismaClient, actor: AcquisitionActor, value: unknown, epoch: string) {
   z.string().uuid().parse(epoch);
   const input = scannerBatchSchema.parse(value), scoped = { userId: actor.userId, adminMode: false };
+  if (await scannerStartRetired(input.requestKey))
+    throw new ScannerRunConflict("Cannot retry this Start: it was cancelled. Change setup and start a new batch.");
   const helper = (await listScannerAgents(db, scoped.userId)).find(a => a.id === input.agentId);
   const device = helper?.devices.find(d => d.id === input.deviceId);
   if (!helper?.online || !device || device.qualification === "Unsupported") throw denied();
   const location = await db.inventoryLocation.findUnique({ where: { id: input.locationId } });
   if (!location) throw denied();
-  const capture = await createAcquisitionSession(db, scoped, {
-    requestKey: input.requestKey, ownerPlayerId: location.ownerPlayerId,
-    locationId: location.id, section: input.section,
-    ...(input.defaults ? { defaults: input.defaults } : {}),
-    policy: input.quantity === null ? { kind: "FILL" } : { kind: "MANUAL", quantity: input.quantity },
-    run: { providerId: SCANNER_CAPTURE_PROVIDER, runId: input.requestKey,
-      enforcement: "LOGICAL_ALLOCATION", controls: ["STOP"] },
-  });
+  const guard = (tx: Tx) => guardScannerCreation(tx, input.requestKey);
+  const capture = await createAcquisitionSession(db, scoped, scannerCaptureInput(input, location.ownerPlayerId), guard);
   if (capture.session.target !== null && input.loadedCount !== null && input.loadedCount > capture.session.target)
     throw new ScannerRunConflict("Choose a loaded batch within the selected remaining capacity");
-  await executeAcquisitionCommand(db, scoped, capture.session.id, { requestKey: "initial-start", revision: 0, command: "START" });
+  await executeAcquisitionCommand(db, scoped, capture.session.id, { requestKey: "initial-start", revision: 0, command: "START" }, guard);
   return scannerTransaction(db, async tx => {
+    await guard(tx);
     const row = await readAcquisitionRow(tx, scoped, capture.session.id);
     const old = await tx.scannerRun.findUnique({ where: { id: input.requestKey }, include });
     if (old) {
@@ -83,6 +97,7 @@ export async function claimScannerRun(db: PrismaClient, authorization: string | 
     const { run, actor } = await agentRun(tx, authorization, input, epoch);
     await tx.$queryRaw`SELECT id FROM "ScannerRun" WHERE id = ${run.id} FOR UPDATE`;
     const current = await tx.scannerRun.findUniqueOrThrow({ where: { id: run.id }, include });
+    if (await scannerStartRetired(run.id)) throw denied();
     if (current.status === "STARTED" && current.executionId === input.executionId) {
       await persistScannerStartMarker(run.id, epoch, input.executionId);
       return { version: 1, runId: run.id, executionId: input.executionId, feedAuthorized: true, replay: true };
@@ -226,6 +241,54 @@ export async function findScannerBatchCreation(db: PrismaClient, actor: Acquisit
   // has changed. Current ownership/roles still apply; this never authorizes START.
   const owned = await getScannerBatch(db, actor.userId, run.id);
   return getAcquisitionProgress(db, { userId: actor.userId, adminMode: false }, owned.sessionId);
+}
+export async function retireScannerBatchCreation(db: PrismaClient, actor: AcquisitionActor, value: unknown) {
+  const input = scannerBatchSchema.parse(value), scoped = { userId: actor.userId, adminMode: false };
+  // Read committed observes a creator that finished while this lock waited.
+  // Each creation phase uses this same lock, not a long outer transaction.
+  return db.$transaction(async tx => {
+    await lockScannerCreation(tx, input.requestKey);
+    const user = await tx.user.findUnique({ where: { id: actor.userId }, include: { player: true } });
+    const agent = await tx.scannerAgent.findUnique({ where: { id: input.agentId } });
+    if (!user?.isActive || !user.player?.active || agent?.userId !== actor.userId) throw denied();
+    const accepted = await tx.scannerRun.findUnique({ where: { id: input.requestKey }, include });
+    if (accepted) {
+      if (accepted.agentId !== input.agentId || accepted.requestPayload !== scannerCanonical(input)) throw denied();
+      await readAcquisitionRow(tx, scoped, accepted.acquisitionRun.sessionId);
+      return { retired: false as const, sessionId: accepted.acquisitionRun.sessionId };
+    }
+    if (await scannerStartMarkerExists(input.requestKey))
+      throw new ScannerRunConflict("Cannot change setup: this Start has saved or uncertain scanner evidence. Keep the cards and retry recovery.");
+    const existing = await tx.acquisitionSession.findUnique({ where: {
+      createdByUserId_requestKey: { createdByUserId: actor.userId, requestKey: input.requestKey },
+    } });
+    let phase = existing?.phase;
+    if (existing) {
+      await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${existing.id} FOR UPDATE`;
+      const row = await readAcquisitionRow(tx, scoped, existing.id);
+      phase = row.phase;
+      if (row.requestPayload !== canonicalAcquisitionCreation(scannerCaptureInput(input, row.ownerPlayerId)) ||
+        !["DRAFT", "CAPTURING", "CANCELLED"].includes(row.phase) || !row.run ||
+        row.run.artifacts.length || row.run.candidates.length || row.run.events.length || row.run.corrections.length ||
+        await tx.acquisitionCaptureSlot.count({ where: { runId: row.run.id } }) ||
+        await tx.acquisitionPhoto.count({ where: { runId: row.run.id } }) ||
+        await tx.acquisitionCommit.count({ where: { runId: row.run.id } }))
+        throw new ScannerRunConflict("Cannot change setup: the unfinished batch contains saved or uncertain evidence. Keep the cards and retry recovery.");
+    }
+    const epoch = await scannerSiteEpoch();
+    // Publish before DB cancellation. A rollback cannot revive the old START.
+    // Retrying this action finishes cancellation without overwriting the marker.
+    await persistScannerStartRetirement(input.requestKey, actor.userId, epoch, input);
+    if (existing) {
+      if (phase !== "CANCELLED") await tx.acquisitionSession.update({ where: { id: existing.id },
+        data: { phase: "CANCELLED", revision: { increment: 1 } } });
+      const run = await tx.acquisitionRun.findUniqueOrThrow({ where: { sessionId: existing.id } });
+      await tx.acquisitionCommand.upsert({ where: { runId_requestKey: { runId: run.id, requestKey: "scanner-creation-retired" } },
+        update: {}, create: { runId: run.id, requestKey: "scanner-creation-retired",
+          payload: scannerCanonical({ action: "RETIRE_SCANNER_CREATION", requestKey: input.requestKey, epoch }) } });
+    }
+    return { retired: true as const, partialBatchId: existing?.id ?? null };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted, maxWait: 10000, timeout: 30000 });
 }
 export async function stopScannerBatch(db: PrismaClient, userId: string, runId: string) {
   return scannerTransaction(db, async tx => {

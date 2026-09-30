@@ -1,6 +1,7 @@
 # Website scanner Start recovery
 
-Issue #527, on the individually unapproved #526 scanner stack. This does not
+Start recovery #527/#528 is merged. Rejected-Start setup recovery #529/#541 is
+based on approved main0d1d18a and is independently unapproved. This does not
 change native acquisition, recognition, review or Inventory commit.
 
 The browser saves one validated, immutable scanner Start request in per-tab,
@@ -46,8 +47,48 @@ and CI heads are recorded in the checkpoint.
 
 Pending intent is per tab, not a cross-computer or cross-tab coordinator. Closing
 the tab can lose that browser intent; existing server unfinished-run checks still
-prevent a second feed through the same agent. A definitely rejected request may
-remain locked to its original setup until it can be retried; replacing a pending
-setup is tracked in #529 and requires a separately qualified safe reset rather
-than assuming a missing
-lookup proves that no older request can finish. No timeout disposes native state.
+prevent a second feed through the same agent. No timeout disposes native state.
+
+## Changing setup after a rejected Start (#529)
+
+Change scanner setup asks the server to retire the exact original request. An
+already accepted batch opens instead, including when the helper is offline.
+The action neither stops that accepted batch nor sends another START.
+
+Without a ScannerRun, the server still checks the owned request, current access,
+the durable native START marker and every partial acquisition artifact, photo,
+capture slot, event, candidate, count correction and Inventory receipt. Saved or
+uncertain evidence prevents retirement. A missing run lookup alone is not proof.
+
+Each creation phase and retirement share a transaction advisory lock. An
+immutable, fsynced appdata marker binds the retired UUID to its owner and
+canonical payload hash. It is published before cancelling an empty partial
+session; rollback, late creation and restored database rows cannot revive that
+request while the marker remains. Retry completes the same cancellation. The
+normal backup/restore requirement to preserve scanner-control appdata remains;
+this is not protection against losing both database and durable control files.
+
+The browser keeps pending intent/settings locked through a lost cancellation
+acknowledgement. Only a confirmed retirement clears that exact stored intent and
+allows a new UUID. Destination, scanner settings and review defaults are retained
+as preferences; capacity and authority are checked again for the new Start.
+Changing setup does not recognize cards, erase images or add Inventory.
+
+File identity/replay/restore/malformed/path checks and disposable database
+phase races, partial cancellation, existing native authorization, foreign and
+inactive owners, saved-slot denial and receipt integrity passed locally. Core
+verification passed744 units and the Windows production build. The updated two
+browser cases now pass2/2 in11.6seconds against the cumulative local image:
+real capacity rejection, lost retirement ACK, reload, retained destination,
+late original replay rejection and a fresh request identity; accepted native
+START/lost create ACK and offline adoption retain one batch/session and send
+no additional create or physical feed. Desktop1366x768 and phone320x700
+screenshots were inspected without horizontal overflow. Owned users, sessions
+and agents returned to zero; no Inventory copies or originals were added.
+
+The first resumed browser run passed accepted-batch recovery but failed a
+stale fixture assertion expecting Change while the destination editor was
+already open after retirement. Its trace/video/screenshot are retained privately;
+only the fixture assertion changed before the successful rerun. No product
+failure or extra timeout is inferred from that attempt. Typecheck and focused
+fixture lint pass. Exact image/source and final CI remain in WORK_CHECKPOINT.

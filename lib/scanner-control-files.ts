@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { mkdir, realpath, lstat, open, link, unlink } from "node:fs/promises";
 import path from "node:path";
@@ -62,4 +62,21 @@ export async function scannerStartMarkerExists(runId: string) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
     throw error;
   }
+}
+
+const retiredStart = z.object({ version: z.literal(1), runId: z.string().uuid(),
+  userId: z.string().min(1).max(200), epoch: z.string().uuid(), requestHash: z.string().regex(/^[a-f0-9]{64}$/) }).strict();
+export async function scannerStartRetired(runId: string) {
+  z.string().uuid().parse(runId);
+  try { retiredStart.parse(await read(path.join(await directory(), `${runId}.retired.json`))); return true; }
+  catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return false; throw error; }
+}
+export async function persistScannerStartRetirement(runId: string, userId: string, epoch: string, request: unknown) {
+  const desired = retiredStart.parse({ version: 1, runId, userId, epoch,
+    requestHash: createHash("sha256").update(scannerCanonical(request)).digest("hex") });
+  const result = await writeOnce(path.join(await directory(), `${runId}.retired.json`), desired);
+  const actual = retiredStart.parse(result.actual);
+  // Retain the original epoch after restore; the identity stays retired forever.
+  if (actual.runId !== runId || actual.userId !== userId || actual.requestHash !== desired.requestHash)
+    throw new Error("Cannot change this scanner setup: the saved cancellation does not match.");
 }

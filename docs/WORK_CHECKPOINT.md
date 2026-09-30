@@ -1,3 +1,125 @@
+## Rejected Start browser acceptance complete, September 30, 2026
+
+- PR541 updated onto approved main0d1d18a, base main. Application matches
+  cumulative0b54ef5 exactly; native TWAIN540 remains independent/unapproved.
+- Build41027 PASS/typecheck/Docker. Local webacbf6db22a271407d72f0e8fd5055e2955ff9976063678399506ef2cfce756f0
+  healthy; source496/digest76ed279253a775c2bb71bb2b89aae7bdf8271f1f9dda31e648dfffe65c51ba54 verified before/after browser.
+- First browser90023 1passed/1failed in25.4s: destination editor already open
+  after retirement, stale fixture expected Change. All failure artifacts preserved
+  in cumulative.local-data/rejected-start-resumed-first-failure. Corrected fixture
+  only; browser59367 PASS2/2/11.6s on unchanged image. Desktop1366/phone320
+  screenshots inspected, no overflow. Owned users/sessions/agents0; no motor,
+  Inventory addition or production action. Type/lint13578 PASS.
+- Original final checks29a6ced all3green; evidence/fixture head needs fresh CI.
+  Next push this evidence, reconcile final CI, mark541 ready and notify user.
+- TWAIN settings inspection93822/runa0f51effd (actual run0f51effd-8f59-4c5a-8d58-6e8328594c78)
+  remains live in separate diagnostic assembly. User confirmed connected/powered/
+  EMPTY; asked fixed2.6x3.6/simplex600/crop+deskewoff then Exit without Scan.
+  Default framework first failed before SDK; rerun uses existing local.NET8.
+  No image on latest log; wait for actual completion, no premature disposal/restart.
+
+## Draft work resumed, September 30, 2026
+
+User explicitly resumed #540/#541 after the 18-ready-PR release merged at
+main0d1d18a. Drafts remain individually unapproved. #541 browser acceptance
+is next; regenerate Prisma from cumulative schema, build cumulative web only,
+then reload after successful build and verify source plus desktop/phone cases.
+User restarted laptop; old native driver-ui process87961 no longer exists.
+Do not infer successful driver completion. User has not changed fixed-frame
+settings. Fresh operator confirmation: Plustek connected, powered on, feeder
+and transport EMPTY. Reopen only the diagnostic settings window; no Scan or
+motor until separate fresh loading authorization. Preserve prior run evidence.
+
+## USER REQUESTED PAUSE, September30,2026
+
+- Stopgoalworkuntilresume. Application/tests/docs committedbf08978, pushed as
+  draftPR541 on528. Thischeckpointuncommittedsavedlocally. AllPRsunapproved.
+- Finalcore744/type/lint/disposable61636pass; updatedtwoUIcasespending. BothCI
+  DBchecks green,corelastpending. Cumulativecherry0b54ef5 source NOTloaded.
+- Cumulative typechecksession57904 terminal2 stale sharedgeneratedPrisma lacking
+  discoveryIssues. Dockerbuildnotstarted. Regeneratefromcumulativeschemaonresume,
+  then type/buildonlycumulative; runningreviewimage6460e4a remainsunchanged.
+- IndependentTWAIN540draft9e55848/on536all4CIgreen. NativeUIexec87961LIVEawaits
+  userfixedsettings/screenshot/Exit, noimage, lastconfirmedemptyfeeder/transport.
+  No kill/timeoutascompletion ormotorwithoutfreshconfirmation. Nohelperupdate,
+  merge/production/Inventorychanges. Goalpausedbyuser, notblocked/completed.
+
+## User scan clipping steering; preserve rejected Start leaf, September30,2026
+
+- Final disposable rerun61636 terminal0: inactive-user and full persisted
+  acquisition34.201s/shared-import41.220s PASS; ownedcontainer/volume cleaned.
+  Browser/cumulative gate still pending; scanner steering takes priority.
+
+- This leaf remains uncommitted and not loaded while the user reviews the stable
+  cumulative app. Final core82134 passed744 units, generation/typecheck/build;
+  finaltype/lint78959 passed. Updated two browser cases (lost retirement ACK and
+  accepted native START adoption) are not yet run. New inactive-user integrity
+  assertion needs final disposable rerun/CI; earlier integrity58035 passed.
+- User's latest5 local TWAIN600 originals already clip the footer. All5 spool
+  hashes equal website original hashes. Issue539, separate leaf
+  MTG-Archives-scanner-twain-footer/fix/scanner-twain-footer on536700ca54.
+  Do not turn that diagnostic work into recognition changes or a529 dependency.
+- Fresh authorized WIA600 test preserved complete footer; user confirmed one
+  undamaged card/no problems/empty transport. Same-card TWAIN native and oldDSM
+  tests still clip; oldDSM physical confirmation pending. Originals private.
+  No app rebuild/reload, helper replacement, Inventory change or production use.
+- Stable cumulative62ae751/appbc7bf74/image6460e4a/495/c0090fc4. Each18 PR remains
+  individually unapproved. Full goal ACTIVE/incomplete;529 remains resumable.
+
+## User returned for review; rejected Start implementation gate, September30,2026
+
+- User is now available and requested the full review rundown. Keep the tested
+  cumulative app62ae751/appbc7bf74 healthy/image6460e4a/495/c0090fc4 ready; do not
+  represent this leaf implementation as already loaded. Every18 PR remains
+  individually unapproved; latest live checks successful (488 also old cancelled).
+- Leaf fix/scanner-rejected-start on528ba0d653 implements request retirement,
+  existing appdata control-file hashed identity marker, per-creation-phase
+  transaction guards/advisory lock, partial-empty cancellation and accepted-batch
+  adoption. No schema/native/image/recognition/Inventory path changes. Uncommitted.
+- Corrected UI baseline14.6s fails missing Change scanner setup. Initial baseline
+  strict alert locator was fixture error; second timed out then cleanup skipped.
+  One exact empty owned fixture account manually cleaned; final baseline cleans.
+  All three retained separately in cumulative .local-data/scanner-rejected-*.
+- File evidence test1/1 passes. Typecheck corrected after shared Prisma generated
+  older UI schema; fixture types fixed. First integrity5877 terminal1: advisory
+  queryRaw couldn't deserialize PostgreSQL void. Now executeRaw; second integrity
+  58035 terminal0: persisted32.3s/shared import41.5s, all scoped cleanup passed.
+- Three creation phase test proxy initially counted helper-list transaction too;
+  corrected offset. New verifier hooked into existing disposable acquisition/CI
+  path. Type/lint48940 terminal0; file36143 terminal0; types5186 terminal2 fixture
+  enums/union before correction. Need rerun finaltype/core after finalsource.
+- Next finish integrity2, resolve concrete failures, broaden actual retired/late/
+  rejected/partial ownership+START/slot proof, UI acceptance only after coherent
+  PR/cumulative sourcebuild. No PR for529 yet. Primary mounts only. No merge,
+  production, helper install or motor. Last feeder EMPTY; new loading unanswered.
+- User can review stable local Scan cards now. Current staged download helper
+  0.3.7; installed0.3.5/stopped, don't resume production connection credentials.
+  Full goal remainsACTIVE/incomplete; give all18PR explanations to returned user.
+
+## Next batch: rejected scanner Start recovery, September30,2026
+
+- PR538 READY fddf3d1, all3 freshCI green. App9837212,cumulative62ae751
+  (appbc7bf74),495inputs/digestc0090fc4a44f76e8129c3cc6a5bdf156872ae78787da87a943017ec755441a98,
+  healthy exact image6460e4a56c13d1a9aeca18fa4b8592018c7161b52eba9fc8ca71dbafb8748b68.
+  All build/reload/core/type/lint/browser handles terminal0;3/3 browsers passed;
+  fixture users/players0,helper/nativeworkers0; no motor/install/production/merge.
+- New isolated MTG-Archives-scanner-start-recovery/fix/scanner-rejected-start
+  on individually unapproved528ba0d653; node_modules junction to cumulative.
+  NO implementation/test yet. No535/536 or UI538 dependency in this leaf.
+- Issue529 code audit: immutable pending Start keeps form locked after definite
+  rejection/partial session without ScannerRun. Missing run is not no-feed proof.
+  createScannerBatch currently helper check -> independent acquisition creation
+  -> independent acquisition START command -> scannerRun transaction. A late
+  original request can race a proposed abandonment; UI-only clear/new UUID unsafe.
+- Next read goal/Foundry/leafAGENTS/CODEX/live529/528, reproduce capacity rejection
+  and owned partial session/late create with fakeagent and no motor. Determine
+  bounded serialized durable request retirement retaining original namespace,
+  payload/epoch/owner/START/artifact proof; no design chosen/implemented yet.
+  Keep drafts/source/recognition stack independent; cumulative local proof only.
+- Full attached scanner audit goal ACTIVE/incomplete. Fresh one-card loading
+  unanswered, last feeder EMPTY; physical600/USB/cleanhost/distribution gates
+  remain. Approval queue488,491,495,513,514,516,517,519,521,523,525,526,528,
+  531,533,535,536,538; every individual PR unapproved. No scheduler claimed.
 ## Bulk preview accepted locally, September30,2026
 
 - PR538 on individually unapproved533; app9837212, cumulativebc7bf74. Corrected
@@ -3079,5 +3201,6 @@ Next safe step: investigate #260 with repeated browser lifecycle runs and creden
 - Compatible private recovery capture: `.local-data/backups/drill-e7b779ba-5758-4b40-aa32-b762d9d46bd3`. Older PG18 capture `drill-e171be3b-98c3-403e-87ce-2f3aa99ca6af` is failed evidence, not a verified backup.
 - Recovery archive excludes separate pricing DB/configuration/master key. Filesystem copy is not atomic with DB replacement. Revoke restored AuthSession records before exposing a restored web server; see AUTH_SESSIONS.md.
 - Read Foundry hub/workflow/relevant notes before batches. Durable knowledge goes there; code/test evidence in repo/GitHub.
+
 
 
