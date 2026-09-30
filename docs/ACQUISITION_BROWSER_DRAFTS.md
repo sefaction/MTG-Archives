@@ -26,7 +26,7 @@ save before leaving. Invalid saved content is not rendered as a recovered draft.
 ## Evidence and limits
 
 The controlled three-photo baseline lost its editor and LP condition on reload;
-the failure trace is kept locally. Focused tests cover exact snapshot/original
+the failure log is kept locally. Focused tests cover exact snapshot/original
 revision recovery, account/batch/photo separation, malformed/oversized content,
 quota failure, explicit removal and preservation of newer writes. Typecheck and
 focused lint pass. Local browser acceptance is pending at initial PR creation.
