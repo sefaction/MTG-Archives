@@ -19,6 +19,10 @@ transfers and inconsistent candidates retain the manual reconciliation path;
 originals remain recoverable. No scanner helper commits Inventory.
 
 New batch review defaults are nonfoil and near mint, with per-card overrides.
+When catalog metadata says a proposed printing supports exactly one finish,
+that sole finish is preselected for the card (for example, foil only). Ambiguous
+multi-finish printings retain the batch default if valid and otherwise need
+individual correction.
 Bulk Confirm Match previews every current proposal selected by default and
 shows source/printing images before saving reviews. It uses the existing
 revision-checked review command for each selected card and reports failures;

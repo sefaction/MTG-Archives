@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { acquisitionProgressDto } from "@/lib/acquisition-api";
 import type { AcquisitionCardReview, AcquisitionDefaults } from "@/lib/acquisition-review";
+import { finishForPrinting } from "@/lib/acquisition-finish";
 import { filterButtonClass as button, filterPrimaryButtonClass as primary, filterPanelClass as panel } from "./filterStyles";
 
 type Slot = ReturnType<typeof acquisitionProgressDto>["slots"][number];
@@ -45,8 +46,8 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh }: {
   const choice = (row: Proposal) => row.record.suggestions[0]?.printing;
   const eligible = (row: Proposal) => {
     const printing = choice(row);
-    return Boolean(printing && !row.record.review && !row.saved && printing.lang && defaults.finish !== "UNKNOWN" && defaults.condition &&
-      (!Array.isArray(printing.finishes) || !printing.finishes.length || printing.finishes.includes(defaults.finish.toLowerCase())));
+    return Boolean(printing && !row.record.review && !row.saved && printing.lang && defaults.condition &&
+      finishForPrinting(defaults.finish, printing));
   };
   const selected = rows.filter(row => row.checked && eligible(row));
   async function confirm() {
@@ -57,11 +58,13 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh }: {
       const row = next[index];
       if (!row.checked || !eligible(row)) continue;
       const printing = choice(row)!;
+      const finish = finishForPrinting(defaults.finish, printing);
+      if (!finish) continue;
       try {
         const response = await fetch(`/api/acquisition/${batchId}/review`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "accept", photoId: row.photoId, revision: row.record.revision,
-            decision: { cardId: printing.id, language: printing.lang, finish: defaults.finish, condition: defaults.condition } }),
+            decision: { cardId: printing.id, language: printing.lang, finish, condition: defaults.condition } }),
         });
         if (!response.ok) throw new Error((await response.json()).error ?? "Review changed; reload this match");
         next[index] = { ...row, checked: false, saved: true, error: "" };
@@ -99,6 +102,7 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh }: {
           {rows.map((row, index) => {
             const printing = choice(row);
             const canSelect = eligible(row);
+            const proposedFinish = printing ? finishForPrinting(defaults.finish, printing) : null;
             return <div key={row.photoId} className="border border-[var(--app-border)] rounded p-3 min-w-0">
               <div className="flex flex-wrap gap-2 items-center justify-between">
                 <label className="font-medium"><input type="checkbox" checked={row.checked && canSelect} disabled={saving || !canSelect}
@@ -107,6 +111,7 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh }: {
                 <a className="underline text-sm" href={`#capture-card-${row.position}`}>Inspect or correct</a>
               </div>
               {printing && <p className="text-sm">{printing.setCode.toUpperCase()} #{printing.collectorNumber} · {printing.lang?.toUpperCase() ?? "language unknown"} · {row.record.recognitionStatus.replaceAll("_", " ").toLowerCase()}</p>}
+              {proposedFinish && proposedFinish !== defaults.finish && <p className="text-sm">This printing supports only {proposedFinish.toLowerCase()}; bulk review will use that finish.</p>}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 max-w-3xl">
                 <img loading="lazy" className="w-full max-h-96 object-contain bg-black/10" src={`/api/acquisition/${batchId}/photos/${row.photoId}`} alt={`Scan of card ${row.position}`} />
                 {printing?.imageUri ? <img loading="lazy" className="w-full max-h-96 object-contain bg-black/10" src={printing.imageUri} alt={`Proposed ${printing.name}`} /> : <span>No printing image</span>}

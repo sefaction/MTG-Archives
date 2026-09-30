@@ -13,6 +13,7 @@ import {
   type ClaimedAcquisitionJob,
 } from "../lib/acquisition-jobs";
 import { enqueueReadyRecognition } from "../lib/acquisition-recognition-worker";
+import { finishForPrinting } from "../lib/acquisition-finish";
 
 export async function verifyAcquisitionReview(
   db: PrismaClient,
@@ -23,6 +24,13 @@ export async function verifyAcquisitionReview(
   catalog: string,
   model: string,
 ) {
+  const printing = { id: "fixture", name: "Review fixture", setCode: "rfx",
+    collectorNumber: "1", lang: "en", imageUri: null, finishes: ["nonfoil", "foil"] };
+  assert.equal(finishForPrinting("NONFOIL", printing), "NONFOIL");
+  assert.equal(finishForPrinting("NONFOIL", { ...printing, finishes: ["foil"] }), "FOIL");
+  assert.equal(finishForPrinting("NONFOIL", { ...printing, finishes: ["etched"] }), "ETCHED");
+  assert.equal(finishForPrinting("NONFOIL", { ...printing, finishes: ["foil", "etched"] }), null);
+  assert.equal(finishForPrinting("NONFOIL", { ...printing, finishes: ["foil", "unknown"] }), null);
   const card = await db.card.create({
     data: {
       scryfallId: randomUUID(),

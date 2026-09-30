@@ -11,11 +11,12 @@ import {
   filterInputClass as input,
   filterPanelClass as panel,
 } from "./filterStyles";
-import type {
-  AcquisitionCardReview,
-  AcquisitionDefaults,
-  AcquisitionPrinting,
+import {
+  type AcquisitionCardReview,
+  type AcquisitionDefaults,
+  type AcquisitionPrinting,
 } from "@/lib/acquisition-review";
+import { finishForPrinting } from "@/lib/acquisition-finish";
 
 const conditions = [
   ["NM", "Near mint"],
@@ -219,7 +220,7 @@ export function AcquisitionPhotoReview({
     setRecord(next);
     const choice = next.printing ?? next.suggestions[0]?.printing ?? null;
     setSelected(choice);
-    setFinish(next.review?.finish ?? next.defaults.finish);
+    setFinish(next.review?.finish ?? finishForPrinting(next.defaults.finish, choice) ?? next.defaults.finish);
     setCondition(next.review?.condition ?? next.defaults.condition ?? "");
     setLanguage(next.review?.language ?? choice?.lang ?? "");
     setError("");
