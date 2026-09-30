@@ -1,3 +1,161 @@
+## Bulk preview accepted locally, September30,2026
+
+- PR538 on individually unapproved533; app9837212, cumulativebc7bf74. Corrected
+  32-photo baseline reproduced overwritten deselection; original offscreen
+  fixture failure kept separately and not product evidence. No recognition code.
+- App keeps per-photo explicit choices, appends groups to current state,
+  invalidates/aborts obsolete reload/close/unmount results, uses snapshot total,
+  and resets on batch identity. Existing draft/revision/explicit Inventory paths.
+- Core88002 terminal0: generation/typecheck,732 units,Windows build/manifests.
+  Final type/lint29115/67905 terminal0. Build22763/reload82266 terminal0/healthy200.
+- Cumulative exact image6460e4a56c13d1a9aeca18fa4b8592018c7161b52eba9fc8ca71dbafb8748b68,
+  495inputs/digestc0090fc4a44f76e8129c3cc6a5bdf156872ae78787da87a943017ec755441a98.
+  Source proof before/after browser exact; primary only mounts/config/installer.
+- Browser97971 terminal0,3/3/1.2m: bulk32photos40.4s,draft14photos21.7s,fast3photos9.6s.
+  Later groups,changed printing,superseded reload/close/reopen and full32 rows;
+  zero preview writes. Draft fixture intentionally commits and cleans local copies.
+  Desktop1366x768/phone320x700 inspected,no overflow. Synthetic images/suggestions,
+  not accuracy/hardware/image-rendering throughput. Exact logs private .local-data.
+- All original9837212 CI3green; updated tests/docs require fresh CI before READY.
+  No motor,installed helper change,production or merge. Fresh one-card loading
+  unanswered; latest feeder EMPTY. Full goal ACTIVE/incomplete. Next529 rejected
+  Start safe recovery; package/clean-host/physical600 gates and463 remain explicit.
+- Approval queue488,491,495,513,514,516,517,519,521,523,525,526,528,531,533,535,536,538.
+  Every PR and dependency individually unapproved. All current handles terminal.
+
+## Bulk preview implementation and local gate, September30,2026
+
+- Issue537 corrected owned32-photo baseline reproduced unchecked -> checked
+  after a later group. Earlier baseline only failed offscreen fixture setup;
+  both retained privately in cumulative .local-data, no product claim from first.
+- Leaf MTG-Archives-bulk-preview-state/fix/bulk-preview-state on53362cf36d.
+  Abort/current-preview identity fencing, functional incremental append,
+  explicit per-photo choices and batch-key reset implemented. Existing draft,
+  revision, finish, explicit review/Inventory paths retained. No recognition code.
+- Typecheck/focused lint pass; core88002 running (732 units passed, Windows build
+  in progress). Controlled32-photo UI covers later groups/full list, superseded
+  reload and close/reopen, desktop/320px; not yet run against changed image.
+- Next finish88002, commit/push draft PR on533, cherry-pick only leaf batch to
+  authoritative cumulative, build/reload/source proof, run new+existing draft
+  and fast-correction browser gates, inspect layouts, update evidence/CI.
+- Cumulative remains9426b8c/appa61bd64/imagef225500f/495inputs/6bd68902.
+  Primary is mounts/config only. Do not build stale primary or install helper.
+  All17 prior unapproved PRs preserved; no merge/production/motor. Scanner last
+  empty, fresh one-card loading unanswered. Full workflow goal ACTIVE/incomplete.
+
+# Resumable work checkpoint
+
+## Next bulk preview baseline, September30,2026
+
+- New isolated MTG-Archives-bulk-preview-state/fix/bulk-preview-state on
+  individually unapproved533 head62cf36d. No scanner/recognition branches in leaf.
+  node_modules junction to cumulative; .local-data ready. No implementation/test.
+- Issue537 is code-audit finding: preview next-array overwrites checkbox state
+  during incremental groups; overlapping reload/close can publish stale results.
+  Must reproduce with controlled owned local >12-photo batch and gated review
+  responses before fixing. Preserve user selections, revision/draft guards,
+  bounded concurrency and explicit Inventory; no recognition algorithm change.
+- Authoritative cumulative local/acquisition-review-footer HEAD9426b8c, appa61bd64;
+  healthy495/6bd68902/imagef225500f includes independently unapproved scanner536.
+  Do not build stale primary or treat cumulative source as leaf dependencies.
+- READY536700ca54 all4green. All prior scanner/typing/integrity/browser/installer
+  handles terminal, fixtureusers0/helperworkers0; source proof exact. No motor,
+  production or merge. Physical600 question fresh one-card loading pending;
+  last transport EMPTY. Full attached scanner workflow goal ACTIVE/incomplete.
+- Read goal attachment, Foundry hub/workflow, AGENTS/CODEX and live537/533 before
+  new batch. See cumulative checkpoint and SCANNER_DISCOVERY_PROGRESS.md for
+  latest scanner evidence/failure/rerun, approval queue and limits. Next537
+  baseline, implement/coherent PR/cumulative local review, then529. No approvals.
+
+## Unsaved batch-action guards accepted locally, September30,2026
+
+- Isolated `MTG-Archives-review-draft-actions`, `fix/review-draft-actions`,
+  PR #533 on individually unapproved #531/#521/#514/#488. Final app1503c78,
+  originalcf22f86; tests b6fcfa4/0097e1f. No merge/deploy/motor. #532 stays open.
+- Corrected baseline22817 proves saved-review Inventory selection remained
+  enabled while dirty. Earlier cleanup relation failed; exact fixture cleaned.
+  Logs and corrected trace retained privately under draft-actions-baseline-artifacts.
+- Six draft/display/navigation tests,typecheck/focused lint pass. Disposable
+  acquisition21767 terminal0 with52.97s persisted/76.47s shared import+cleanup.
+- First browser73664 terminal0,1/1/27.9s. Layout inspection found misleading
+  ready counts for dirty reviews;1503c78 aligns summary/filter/next navigation.
+- Cumulative `MTG-Archives-acquisition-persistence` app1756d4d. Builder20587 and
+  reload58463 terminal0. Healthy source-verified image
+  1af4c3f6a9245a612c2936bf271e2fd61302ab88a10179612e7585ae3df8d9d6,
+  493inputs/digest742a36306c968645b05edadd4c0018e44aae3459b32b3ea29156d1bf54bb920a.
+  Final browser86240 terminal0,2/2/35.8s:14-photo draft actions24.4s and
+  three-photo fast corrections10.2s. Desktop1366/phone320 inspected/no overflow.
+  Actual owned fixture Inventory2copies/2members/2audits, original request retry
+  no duplicate, digest/destination/owner/retention and cleanup pass. These are
+  controlled synthetic UI images/suggestions, not recognition/hardware samples.
+- Cached+live drafts excluded, per-key events/action checks and unchanged server
+  revisions. Fixed unknown-ACK Inventory retry remains possible. Not atomic
+  cross-tab/device locking. Final app1503c78 all3green; final docs need fresh CI.
+- Broad goal ACTIVE/incomplete. Last hardware EMPTY; fresh loading unanswered.
+  Next:511 per-source discovery failure isolation (audit comment saved), larger/
+  out-of-order lists and529 rejected Start; distribution/clean-host/physical600
+  and independent463 recognition/fi-7160 gates stay explicit.
+- Approval queue488,491,495,513,514,516,517,519,521,523,525,526,528,531,533.
+  Every PR needs individual approval. No live builder/browser/helper remains.
+
+## Browser review drafts accepted locally, September 30, 2026
+
+- Isolated `MTG-Archives-scan-review-drafts`, `feat/scan-review-drafts`, PR #531
+  on #521/#514/#488, all individually unapproved. Application0028da0, original
+  appd34f6aa and idempotent clear17c0977. No merge/deploy/motor/Inventory write.
+- Per-account/batch/photo local metadata draft, original revision, explicit
+  Save/Cancel, newer-write protection; no image bytes or secrets. #530 baseline
+  log proves lost editor/LP on reload. Three focused tests/typecheck/lint pass.
+- Initial cumulative UI passes1/1/12.1s after two fixture fixes: restored image
+  group is Possible printings rather than Search results; Cancel finishes its
+  async GET before cache assertion. Logs and those failure traces are retained
+  privately. Reload/navigation/stale rejection/discard/quota + server Save and
+  source digest/destination/zero Inventory pass. No accuracy or physical claim.
+- Authoritative cumulative `MTG-Archives-acquisition-persistence`, current head
+  72d2cef before checkpoint save, healthy preliminary image3ce734295f83d2ca36341528dfecf72b86eb3fceee877c79568d4c49d720a16d,
+  492files/digest617b640b412268710c8660b3808141a4ac4142a296190955ed468284b65f9c09.
+  Final unsaved-status build95459/reload48790 terminal0. Healthy final image
+  3060c5e7faaf22fe8d350c3f37d9f4b7d0b115afcb36dcb1ab899e67eee77034,
+  492files/digestdedc84ee694bf09829ea797cb17d33751b187bde4f169459d872c08a9ba126db.
+  Final UI63772 terminal0 passes1/1/20.1s (19.0s task) including the new label.
+  1366/320 screenshots inspected/no overflow. App0028da0 all3green. Final
+  documentation/readiness/CI needs reconciliation; do not repeat UI for docs.
+- #528 corrected storage prototype injection ba0d653 has all3green and actual
+  scanner cases2/2 pass in mixed run. #532 records dirty/cached bulk/Inventory
+  protection finding for next coherent batch; #529/#511/distribution gates remain.
+  Last hardware EMPTY; fresh loading unanswered. Broad goal ACTIVE/incomplete.
+  Approval queue488,491,495,513,514,516,517,519,521,523,525,526,528,531.
+  Next532 dirty/cached bulk/Inventory protection and larger lists, then511 source
+  isolation and distribution/clean-host/physical600 gates.
+
+## Fast corrections qualified locally, September 29, 2026
+
+- Active `feat/scan-fast-corrections`, PR #521, on individually unapproved
+  #514/#488. Implementation `594412c`, documentation/digest test `87f1d1a`.
+  Direct focused search, desktop editor beside image pair, finish preservation,
+  Save and next, keyboard save/next, stable-order wrap and sticky-header spacing.
+  Existing dirty/revision/ownership/Inventory rules remain authoritative.
+- Final controlled three-photo browser passed1/1 in17.3s on healthy cumulative
+  image `9ad81a8c`,489files,digest
+  `66b6df1a2f4b2ccdf352fe7043528c0e1a0690e80fa08126fc13551be4ceee2a`.
+  Test covers real saved photos/reviews, asynchronous suggestions, condition/
+  sole finish, filters, next past reviewed card, reload, exact original digest,
+  owner/location/section and zero Inventory; all owned fixtures cleaned. Synthetic
+  suggestions/images/search are UI evidence, not recognition accuracy or hardware.
+  Desktop/320 screenshots inspected. Earlier selector/fixture-lease failures
+  remain private. Typecheck/focused lint and display/navigation tests passed.
+- Authoritative cumulative branch `local/acquisition-review-footer` in
+  `MTG-Archives-acquisition-persistence` also includes separately unapproved
+  #491/#495 and scanner #513/#516/#517/#519 for local review. Never build stale
+  primary. Recognition workers were not rebuilt. No merge/production action/motor.
+  Plustek last confirmed empty; fresh one-card loading question remains pending.
+- Broad standard-user scanner audit remains ACTIVE/incomplete. Next: continuous
+  destination/source choices, proven pre-start cancel simplification, discovery
+  failure isolation, #522 active-run denial/drain/retention and dynamic capacity/
+  long-list checks. Installer public distribution and clean-host/physical gates
+  remain explicit. #463 recognition accuracy and fi-7160 are separate.
+- Open review queue: #488,#491,#495,#513,#514,#516,#517,#519,#521. Every PR
+  requires individual approval. #520 stays open until #521 merges.
 ## Approved scanner stack integration, September 30, 2026
 
 The user approved all 18 ready PRs (#488, #491, #495, #513, #514,
@@ -1421,6 +1579,7 @@ Next safe step: investigate #260 with repeated browser lifecycle runs and creden
 ## Preserved merged-main checkpoint history
 
 # Resumable work checkpoint
+
 
 ## Stamp visibility accepted locally; final CI pending, 2026-09-29
 
@@ -2920,3 +3079,5 @@ Next safe step: investigate #260 with repeated browser lifecycle runs and creden
 - Compatible private recovery capture: `.local-data/backups/drill-e7b779ba-5758-4b40-aa32-b762d9d46bd3`. Older PG18 capture `drill-e171be3b-98c3-403e-87ce-2f3aa99ca6af` is failed evidence, not a verified backup.
 - Recovery archive excludes separate pricing DB/configuration/master key. Filesystem copy is not atomic with DB replacement. Revoke restored AuthSession records before exposing a restored web server; see AUTH_SESSIONS.md.
 - Read Foundry hub/workflow/relevant notes before batches. Durable knowledge goes there; code/test evidence in repo/GitHub.
+
+

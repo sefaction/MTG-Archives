@@ -6,6 +6,8 @@ import { readScannerStart, saveScannerStart, clearScannerStart, type PendingScan
 import { AcquisitionCommitControls } from "./AcquisitionCommitControls";
 import { ScannerSourceFields, ScannerRunControls, type ScannerChoice } from "./ScannerBatchControls";
 import { AcquisitionBulkReview } from "./AcquisitionBulkReview";
+import { useAcquisitionDrafts } from "./useAcquisitionDrafts";
+import { acquisitionDraftKey } from "@/lib/acquisition-browser-review-draft";
 import { SCANNER_CAPTURE_PROVIDER } from "@/lib/scanner-run-protocol";
 import { StorageDestinationPicker } from "./StorageDestinationPicker";
 import {
@@ -27,6 +29,7 @@ import type { acquisitionProgressDto } from "@/lib/acquisition-api";
 import {
   acquisitionReviewCounts,
   acquisitionSlotReviewState,
+  nextAwaitingAcquisitionSlot,
   type AcquisitionReviewMode,
   type AcquisitionReviewFilter,
 } from "@/lib/acquisition-review-display";
@@ -140,7 +143,11 @@ export function AcquisitionCapture({
   const [reviewFilter, setReviewFilter] =
     useState<AcquisitionReviewFilter>("all");
   const [dirtyPhotos, setDirtyPhotos] = useState<Set<string>>(() => new Set());
+  const dirtyNow = useRef(new Set<string>());
+  const cachedDrafts = useAcquisitionDrafts(userId, batchId);
+  const blockedPhotos = new Set([...cachedDrafts.ids, ...dirtyPhotos]);
   const markPhotoDirty = useCallback((photoId: string, dirty: boolean) => {
+    if (dirty) dirtyNow.current.add(photoId); else dirtyNow.current.delete(photoId);
     setDirtyPhotos((previous) => {
       if (previous.has(photoId) === dirty) return previous;
       const next = new Set(previous);
@@ -149,11 +156,20 @@ export function AcquisitionCapture({
       return next;
     });
   }, []);
-  const reviewCounts = acquisitionReviewCounts(progress?.slots ?? []);
+  const canUsePhotos = useCallback((ids: string[]) => {
+    // Read only the requested cards again immediately before a write. A storage
+    // notification may not yet have rendered; a failed write still has live edits.
+    try {
+      return ids.every(photoId => !dirtyNow.current.has(photoId) &&
+        localStorage.getItem(acquisitionDraftKey({ userId, batchId, photoId })) === null);
+    } catch { return false; }
+  }, [userId, batchId]);
+  const hasDraft = (slot: Progress["slots"][number]) => slot.photos.some(photo => blockedPhotos.has(photo.id));
+  const reviewCounts = acquisitionReviewCounts(progress?.slots ?? [], hasDraft);
   const filteredSlots = (progress?.slots ?? []).filter(
     (slot) =>
       reviewFilter === "all" ||
-      acquisitionSlotReviewState(slot) === reviewFilter,
+      acquisitionSlotReviewState(slot, hasDraft(slot)) === reviewFilter,
   );
   const visibleIds = new Set(
     filteredSlots.slice(0, visibleCount).map((s) => s.id),
@@ -162,6 +178,18 @@ export function AcquisitionCapture({
     (slot) =>
       visibleIds.has(slot.id) || slot.photos.some((p) => dirtyPhotos.has(p.id)),
   );
+  const [reviewNavigation, setReviewNavigation] = useState("");
+  function nextAwaitingReview(after: number) {
+    const next = nextAwaitingAcquisitionSlot(progress?.slots ?? [], after, hasDraft);
+    if (!next) { setReviewNavigation("No other cards awaiting review."); return; }
+    setReviewNavigation(`Card ${next.position + 1} awaiting review.`);
+    setReviewFilter("all");
+    setVisibleCount(count => Math.max(count, next.position + 1));
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const row = document.getElementById(`capture-card-${next.position + 1}`);
+      row?.scrollIntoView({ block: "start" }); row?.focus({ preventScroll: true });
+    }));
+  }
   useEffect(() => {
     try {
       const saved = localStorage.getItem(
@@ -176,7 +204,9 @@ export function AcquisitionCapture({
     setVisibleCount(12);
   }, [batchId, reviewFilter]);
   useEffect(() => {
+    dirtyNow.current.clear();
     setDirtyPhotos(new Set());
+    setReviewNavigation("");
   }, [batchId]);
   const moreCards = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -191,6 +221,12 @@ export function AcquisitionCapture({
     return () => observer.disconnect();
   }, [visibleCount, filteredSlots.length]);
   const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
+  function showInventory() {
+    setInventoryOpen(true);
+    requestAnimationFrame(() => document.getElementById("scan-inventory")?.scrollIntoView({ block: "start" }));
+  }
   const video = useRef<HTMLVideoElement>(null),
     stream = useRef<MediaStream | null>(null);
   const tasks = useRef(new Set<string>()),
@@ -694,15 +730,19 @@ export function AcquisitionCapture({
               {readyPhotos} {readyPhotos === 1 ? "photo" : "photos"} saved · {prepared} {prepared === 1 ? "photo" : "photos"} prepared
             </p>
             <p className="text-sm">
-              {progress.reviewed} confirmed ·{" "}
-              {Math.max(0, readyPhotos - progress.reviewed)} awaiting
-              confirmation
+              {reviewCounts.ready} ready for Inventory ·{" "}
+              {reviewCounts.awaiting} awaiting review · {reviewCounts.added} added
             </p>
-            {!!readyPhotos && (
-              <a className="text-sm underline" href="#scan-review">
+            <div className="flex flex-wrap items-center gap-2 mt-2" aria-label="Batch actions">
+            {!!readyPhotos && !bulkOpen && (
+              <a className={button + " inline-flex text-sm"} href="#scan-review">
                 Review saved cards
               </a>
             )}
+            {cachedDrafts.ready && reviewCounts.ready > 0 && <a className={primary + " inline-flex max-w-full text-sm whitespace-normal"} href="#scan-inventory" onClick={event => { event.preventDefault(); showInventory(); }}>
+              Add {reviewCounts.ready} confirmed {reviewCounts.ready === 1 ? "card" : "cards"} to Inventory
+            </a>}
+            </div>
             <p className="text-xs text-[var(--app-muted)]">
               {progress.providerId === SCANNER_CAPTURE_PROVIDER ? "Check for missed or doubled cards before adding reviewed matches to Inventory." : progress.availableSlots === 0
                 ? "Batch full. You can still retry or retake a photo."
@@ -888,6 +928,8 @@ export function AcquisitionCapture({
               </ul>
             </section>
           )}
+          <details className="min-w-0" open={reviewMode === "advanced"}>
+          <summary className="cursor-pointer text-sm">Batch defaults: {progress.defaults.finish.toLowerCase()} · {progress.defaults.condition ?? "condition unset"} · Change</summary>
           <AcquisitionBatchDefaults
             key={`defaults:${batchId}`}
             batchId={batchId}
@@ -895,10 +937,22 @@ export function AcquisitionCapture({
             revision={progress.defaultsRevision}
             refresh={() => void refresh()}
           />
-          <AcquisitionBulkReview batchId={batchId} slots={progress.slots} defaults={progress.defaults} refresh={refresh} />
+          </details>
+          <AcquisitionBulkReview key={`bulk:${batchId}`} batchId={batchId} slots={progress.slots} defaults={progress.defaults} refresh={refresh}
+            blockedPhotos={blockedPhotos} draftsReady={cachedDrafts.ready} canUsePhotos={canUsePhotos}
+            onOpenChange={setBulkOpen} onConfirmed={ids => { setSelectedPhotos(previous => [...new Set([...previous, ...ids])]); showInventory(); }}
+            onInspect={position => { setReviewFilter("all"); setVisibleCount(count => Math.max(count, position));
+              requestAnimationFrame(() => document.getElementById(`capture-card-${position}`)?.scrollIntoView({ block: "start" })); }} />
+          <div id="scan-inventory" className="scroll-mt-56" hidden={!inventoryOpen}>
+            <button className={button + " mb-2"} onClick={() => { setInventoryOpen(false); document.getElementById("scan-review")?.scrollIntoView({ block: "start" }); }}>Back to matches</button>
+            <AcquisitionCommitControls key={`commit:${batchId}`} progress={progress} locations={locations}
+              blockedPhotos={blockedPhotos} draftsReady={cachedDrafts.ready} canUsePhotos={canUsePhotos}
+              selected={selectedPhotos} onSelect={setSelectedPhotos} refresh={refresh} />
+          </div>
           <div className="flex flex-col gap-4">
             <section
               id="scan-review"
+              hidden={bulkOpen}
               className={panel + " scroll-mt-56"}
             >
               <h3 className="font-semibold">Saved cards</h3>
@@ -952,7 +1006,7 @@ export function AcquisitionCapture({
                 </label>
               </div>
               {reviewMode === "simple" && (
-                <a className="text-sm underline" href="#scan-inventory">
+                <a className="text-sm underline" href="#scan-inventory" onClick={event => { event.preventDefault(); showInventory(); }}>
                   Go to Inventory confirmation
                 </a>
               )}
@@ -970,6 +1024,7 @@ export function AcquisitionCapture({
                   Unsaved edits stay visible when you change the filter.
                 </p>
               )}
+              {reviewNavigation && <p role="status" className="text-sm mb-3">{reviewNavigation}</p>}
               <div
                 className={reviewMode === "simple" ? "space-y-3" : "space-y-6"}
               >
@@ -984,7 +1039,8 @@ export function AcquisitionCapture({
                       key={slot.id}
                       id={`capture-card-${slot.position + 1}`}
                       data-testid={`capture-card-${slot.position + 1}`}
-                      className={`min-w-0 space-y-2 border-b border-[var(--app-border)] ${reviewMode === "simple" ? "pb-3" : "pb-6"}`}
+                      tabIndex={-1}
+                      className={`min-w-0 scroll-mt-64 lg:scroll-mt-48 space-y-2 border-b border-[var(--app-border)] ${reviewMode === "simple" ? "pb-3" : "pb-6"}`}
                     >
                       <p>
                         Card {slot.position + 1}
@@ -992,6 +1048,7 @@ export function AcquisitionCapture({
                       </p>
                       {photo && !photo.purgedAt ? (
                         <AcquisitionPhotoReview
+                          userId={userId}
                           key={photo.id}
                           batchId={batchId}
                           photoId={photo.id}
@@ -1000,6 +1057,7 @@ export function AcquisitionCapture({
                           refresh={() => void refresh()}
                           mode={reviewMode}
                           onDirtyChange={markPhotoDirty}
+                          onNextAwaiting={() => nextAwaitingReview(slot.position)}
                         />
                       ) : (
                         <p className="text-sm">
@@ -1028,6 +1086,7 @@ export function AcquisitionCapture({
                             type="checkbox"
                             aria-label={`Select card ${slot.position + 1} for Inventory`}
                             checked={selectedPhotos.includes(photo.id)}
+                            disabled={!cachedDrafts.ready || blockedPhotos.has(photo.id)}
                             onChange={(e) =>
                               setSelectedPhotos((ids) =>
                                 e.target.checked
@@ -1036,7 +1095,7 @@ export function AcquisitionCapture({
                               )
                             }
                           />
-                          Add this copy
+                          {blockedPhotos.has(photo.id) ? "Save or cancel this correction before adding" : "Add this copy"}
                         </label>
                       )}
                       {progress.providerId !== SCANNER_CAPTURE_PROVIDER && <button
@@ -1088,16 +1147,6 @@ export function AcquisitionCapture({
                 More cards load as you scroll.
               </p>
             </section>
-            <div id="scan-inventory" className="scroll-mt-56">
-              <AcquisitionCommitControls
-                key={`commit:${batchId}`}
-                progress={progress}
-                locations={locations}
-                selected={selectedPhotos}
-                onSelect={setSelectedPhotos}
-                refresh={refresh}
-              />
-            </div>
           </div>
         </>
       )}

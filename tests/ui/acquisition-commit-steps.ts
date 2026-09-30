@@ -14,6 +14,7 @@ export async function checkAcquisitionCommit(page: Page) {
     .getByRole("checkbox", { name: "Select card 2 for Inventory", exact: true })
     .check();
   await page.getByRole("button", { name: "Stop capture", exact: true }).click();
+  await page.getByRole("link", { name: "Go to Inventory confirmation" }).click();
   const panel = page.getByRole("region", {
     name: "Add reviewed cards to Inventory",
     exact: true,
