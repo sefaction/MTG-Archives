@@ -44,7 +44,9 @@ try {
   & $DotnetPath (Join-Path $published 'Mtg.ScannerAgent.dll') connection-selftest
   if ($LASTEXITCODE -ne 0) { throw 'Scanner credential/origin self-check failed' }
   & $DotnetPath (Join-Path $published 'Mtg.ScannerAgent.dll') native-selftest *> (Join-Path $buildRoot 'native-selftest.log')
-  if ($LASTEXITCODE -ne 0) { throw 'Scanner native transport self-check failed; no scanner used' }
+  if ($LASTEXITCODE -ne 0) { throw 'Scanner native self-check failed' }
+  & $DotnetPath (Join-Path $published 'Mtg.ScannerAgent.dll') discovery-selftest *> (Join-Path $buildRoot 'discovery-selftest.log')
+  if ($LASTEXITCODE -ne 0) { throw 'Scanner discovery self-check failed; no scanner used' }
   $canonicalPublish = (Get-Item -LiteralPath $published).FullName.TrimEnd('\','/')
   $files = @(Get-ChildItem -LiteralPath $published -File -Recurse | Sort-Object FullName | ForEach-Object {
     if (-not $_.FullName.StartsWith($canonicalPublish + [IO.Path]::DirectorySeparatorChar,

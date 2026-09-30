@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { filterButtonClass, filterPanelClass, filterPrimaryButtonClass } from "./filterStyles";
 import type { listScannerAgents } from "@/lib/scanner-store";
+import { ScannerDiscoveryNotice } from "./ScannerDiscoveryNotice";
 type Agent = Awaited<ReturnType<typeof listScannerAgents>>[number];
 export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -114,7 +115,8 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
         <ul>{agent.devices.map(device => <li key={device.id} className="break-words">{device.name} · {device.source}
           {device.qualification === "GenericUnqualified" && " · Not yet qualified"}</li>)}</ul>
         {!agent.online && <p className="text-sm">This computer’s helper is not responding. Open the helper on that computer and check its internet connection. Saved scans are kept.</p>}
-        {agent.online && agent.devices.length === 0 && <p>No scanner detected. Check USB/power and install its manufacturer driver, then wait up to 30 seconds for discovery.</p>}
+        {agent.online && <ScannerDiscoveryNotice issues={agent.discoveryIssues} />}
+        {agent.online && agent.devices.length === 0 && !agent.discoveryIssues?.length && <p>No scanner detected. Check USB/power and install its manufacturer driver, then wait up to 30 seconds for discovery.</p>}
       </li>)}</ul>
       {error && <p role="alert">{error}</p>}
     </div>}

@@ -207,6 +207,7 @@ model ScannerAgent {
   name           String
   agentVersion   String?
   devices        Json     @default("[]")
+  discoveryIssues Json?
   lastSeenAt     DateTime?
   expiresAt      DateTime
   revokedAt      DateTime?
