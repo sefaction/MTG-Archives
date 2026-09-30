@@ -85,7 +85,7 @@ export function ScannerRunControls({ runId, savedImages, refresh }: { runId: str
   return <section className={panel+" min-w-0 space-y-3"} aria-label="Scanner batch">
     <h3 className="font-semibold">Scanner batch</h3>
     <p role="status">{run?.status === "QUEUED" ? scannerPreflightMessage(run.preflightProblem) ?? "Waiting for the Windows helper to start." : run?.status === "STARTED" ? "Scanning and uploading…" :
-      run?.status === "DRAINED" ? "Scanner run ended." : run ? "Scanner run needs reconciliation; originals remain saved." : "Loading scanner status…"}
+      run?.status === "DRAINED" ? "Scanner run ended." : run?.status === "CANCELLED_BEFORE_START" && (run.reconciliation as { mode?: string } | null)?.mode === "CANCELLED_WITHOUT_START" ? "Waiting scan cancelled. The helper was not authorized to feed cards." : run ? "Scanner run needs reconciliation; originals remain saved." : "Loading scanner status…"}
       {" "}{savedImages} {savedImages === 1 ? "image" : "images"} saved.</p>
     <p className="text-sm">A clean feeder run uses one saved front image per card. Check the images for missed cards or double feeds; interrupted runs need manual reconciliation.</p>
     {run && ["QUEUED","STARTED"].includes(run.status) && <button className={button} disabled={busy || run.stopRequested}
@@ -100,7 +100,9 @@ export function ScannerRunControls({ runId, savedImages, refresh }: { runId: str
       <button className={button} disabled={busy || !observed} onClick={()=>void act({action:"reconcile",runId,cardsEmitted:emitted,
         feederEmpty:true,transportEmpty:true,eachImageIsOneCardFront:true,noJamOrDouble:true})}>Confirm physical count</button>
     </fieldset>}
-    {run?.reconciliation && <p>{(run.reconciliation as { mode?: string }).mode === "SCANNER_IMAGE_COUNT" ? "Image count recorded automatically." : "Physical count confirmed."} Review the matches below, then add selected cards to Inventory.</p>}
+    {run?.reconciliation && ((run.reconciliation as { mode?: string }).mode === "CANCELLED_WITHOUT_START" ?
+      <p>No physical count is needed. Your loaded cards were not scanned by this batch.</p> :
+      <p>{(run.reconciliation as { mode?: string }).mode === "SCANNER_IMAGE_COUNT" ? "Image count recorded automatically." : "Physical count confirmed."} Review the matches below, then add selected cards to Inventory.</p>)}
     {run?.reconciliation && <div className="flex flex-wrap gap-2">
       <a className={button} href="/imports/scan?input=scanner#new-scan-batch">New scanner batch</a>
     </div>}

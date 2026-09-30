@@ -9,7 +9,7 @@ import { createAcquisitionSession, executeAcquisitionCommand, getAcquisitionProg
   beginAcquisitionPhoto, finalizeAcquisitionPhoto, type AcquisitionActor } from "./acquisition-store";
 import { inspectAcquisitionPhoto, writeAcquisitionPhotoBytes } from "./acquisition-files";
 import { candidateKey, correctPhysicalCount, confirmPhysicalCountBatch } from "./acquisition-domain";
-import { persistScannerStartMarker, scannerStartMarkerExists } from "./scanner-control-files";
+import { persistScannerStartMarker, scannerStartMarkerExists, scannerSiteEpoch } from "./scanner-control-files";
 import { lockAndReadInventoryCapacity } from "./inventory-capacity";
 import { ScannerRunConflict } from "./scanner-errors";
 
@@ -222,12 +222,28 @@ export async function stopScannerBatch(db: PrismaClient, userId: string, runId: 
     await tx.$queryRaw`SELECT id FROM "ScannerRun" WHERE id = ${runId} FOR UPDATE`;
     const run = await tx.scannerRun.findUniqueOrThrow({ where: { id: runId }, include });
     if (run.acquisitionRun.session.createdByUserId !== userId || !["QUEUED", "STARTED", "CANCELLED_BEFORE_START"].includes(run.status)) throw denied();
-    await readAcquisitionRow(tx, { userId, adminMode: false }, run.acquisitionRun.sessionId);
+    const state = await getStartState(tx, { userId, adminMode: false }, run.acquisitionRun.sessionId);
+    if (run.status === "CANCELLED_BEFORE_START" && run.reconciliation) return {
+      version: 1, runId, stopGuarantee: "Cancellation already recorded", replay: true,
+    };
+    const beforeStart = ["QUEUED", "CANCELLED_BEFORE_START"].includes(run.status);
+    if (beforeStart) {
+      // Database QUEUED alone is insufficient after restore. Serialize with
+      // claim and reject uncertainty before asserting there was no authorized feed.
+      if (run.executionId || run.epoch !== await scannerSiteEpoch() || await scannerStartMarkerExists(runId) ||
+          !["CAPTURING", "CANCELLED"].includes(state.session.phase) || state.session.artifacts.length ||
+          state.session.candidates.length || await tx.acquisitionCaptureSlot.count({ where: { runId: run.acquisitionRunId } }) ||
+          await tx.acquisitionPhoto.count({ where: { runId: run.acquisitionRunId } }))
+        throw new ScannerRunConflict("This batch has saved or uncertain START evidence. Keep the cards and originals; reconcile it before scanning again.");
+    }
     await tx.scannerRun.update({ where: { id: runId }, data: { stopRequestedAt: run.stopRequestedAt ?? new Date(),
-      ...(run.status === "QUEUED" ? { status: "CANCELLED_BEFORE_START" } : {}) } });
-    if (run.status === "QUEUED") await tx.acquisitionSession.update({ where: { id: run.acquisitionRun.sessionId },
+      ...(beforeStart ? { status: "CANCELLED_BEFORE_START", preflightProblem: Prisma.DbNull, reconciliation: {
+        mode: "CANCELLED_WITHOUT_START", actorUserId: userId, recordedAt: new Date().toISOString(),
+        evidence: "No server START marker, execution or acquisition artifacts; not an observed physical count",
+      } } : {}) } });
+    if (beforeStart && state.session.phase !== "CANCELLED") await tx.acquisitionSession.update({ where: { id: run.acquisitionRun.sessionId },
       data: { phase: "CANCELLED", revision: { increment: 1 } } });
-    return { version: 1, runId, stopGuarantee: "UNSUPPORTED; current feeder run drains" };
+    return { version: 1, runId, stopGuarantee: beforeStart ? "No START authorized; no physical count required" : "UNSUPPORTED; current feeder run drains" };
   });
 }
 export async function reconcileScannerBatch(db: PrismaClient, userId: string, value: unknown) {
@@ -238,12 +254,17 @@ export async function reconcileScannerBatch(db: PrismaClient, userId: string, va
     if (!run || run.acquisitionRun.session.createdByUserId !== userId || !["DRAINED", "ERROR", "CANCELLED_BEFORE_START"].includes(run.status)) throw denied();
     if (run.reconciliation) {
       const existing = run.reconciliation as Prisma.JsonObject;
+      if (existing.mode === "CANCELLED_WITHOUT_START" && input.cardsEmitted === 0)
+        return { version: 1, runId: run.id, confirmed: true, replay: true };
       if (scannerCanonical(existing.observation) !== scannerCanonical(input)) throw denied();
       return { version: 1, runId: run.id, confirmed: true, replay: true };
     }
     const state = await getStartState(tx, actor, run.acquisitionRun.sessionId);
     const row = await readAcquisitionRow(tx, actor, run.acquisitionRun.sessionId);
-    const cancelledEmpty = run.status === "CANCELLED_BEFORE_START" && input.cardsEmitted === 0 && state.session.candidates.length === 0;
+    const cancelledEmpty = run.status === "CANCELLED_BEFORE_START" && input.cardsEmitted === 0 &&
+      !run.executionId && run.epoch === await scannerSiteEpoch() && !await scannerStartMarkerExists(run.id) &&
+      state.session.candidates.length === 0 && state.session.artifacts.length === 0 &&
+      !await tx.acquisitionCaptureSlot.count({ where: { runId: run.acquisitionRunId } });
     if (!cancelledEmpty && (state.session.candidates.length !== input.cardsEmitted || run.loadedCount !== null && input.cardsEmitted !== run.loadedCount ||
       (run.outcome as Prisma.JsonObject)?.imageCount !== input.cardsEmitted))
       throw new ScannerRunConflict("Capture scanner physical count differs; retain images for individual reconciliation");

@@ -8,7 +8,7 @@ import { createScannerPairing, claimScannerPairing, recordScannerPulse, revokeSc
 import { scannerSecret } from "../lib/scanner-protocol";
 import { createScannerBatch, claimScannerRun, pollScannerRun, receiveScannerImage,
   finishScannerRun, reconcileScannerBatch, getScannerBatch, stopScannerBatch, reportScannerPreflightProblem } from "../lib/scanner-runs";
-import { scannerSiteEpoch } from "../lib/scanner-control-files";
+import { scannerSiteEpoch, scannerStartMarkerExists } from "../lib/scanner-control-files";
 import { scannerRunError } from "../lib/scanner-errors";
 import { getAcquisitionSession } from "../lib/acquisition-store";
 import { captureSummary } from "../lib/acquisition-domain";
@@ -178,6 +178,8 @@ export async function verifyScannerRuns(db: PrismaClient) {
     const rolledClaim = { ...claim, runId: rolled.runId, executionId: randomUUID() };
     await claimScannerRun(db, otherAgent.token, rolledClaim, epoch);
     await db.scannerRun.update({ where: { id: rolled.runId }, data: { status: "QUEUED", executionId: null } });
+    await assert.rejects(stopScannerBatch(db, tag, rolled.runId), /saved or uncertain START evidence/);
+    assert.equal((await getScannerBatch(db, tag, rolled.runId)).status, "QUEUED");
     await assert.rejects(reportScannerPreflightProblem(db, otherAgent.token, { ...preflight, runId: rolled.runId }, epoch));
     const fenced = await claimScannerRun(db, otherAgent.token, rolledClaim, epoch);
     assert.equal(fenced.feedAuthorized, false); assert.equal(fenced.reconciliationRequired, true);
@@ -201,11 +203,60 @@ export async function verifyScannerRuns(db: PrismaClient) {
     });
     assert.equal((await db.scannerRun.findUniqueOrThrow({ where: { id: guarded.runId } })).executionId, null);
     await stopScannerBatch(db, tag, guarded.runId);
-    assert.equal((await getScannerBatch(db, tag, guarded.runId)).status, "CANCELLED_BEFORE_START");
+    const cancelled = await getScannerBatch(db, tag, guarded.runId);
+    assert.equal(cancelled.status, "CANCELLED_BEFORE_START");
+    assert.equal((cancelled.reconciliation as { mode: string }).mode, "CANCELLED_WITHOUT_START");
+    const cancelledRevision = (await getAcquisitionSession(db, actor, guarded.sessionId)).revision;
+    await stopScannerBatch(db, tag, guarded.runId);
+    assert.equal((await getAcquisitionSession(db, actor, guarded.sessionId)).revision, cancelledRevision);
     assert.equal((await pollScannerRun(db, guardedAgent.token, epoch)).run, null);
     await assert.rejects(claimScannerRun(db, guardedAgent.token, guardedClaim, epoch));
     await assert.rejects(reportScannerPreflightProblem(db, guardedAgent.token, { ...preflight, runId: guarded.runId }, epoch));
     await reconcileScannerBatch(db, tag, { ...observation, runId: guarded.runId, cardsEmitted: 0 });
+    await db.inventoryLocation.update({ where: { id: locationId }, data: { storageLayout: { capacity: null, sections: [] } } });
+    // A settled no-START cancellation permits another batch without count-entry.
+    const next = await createScannerBatch(db, actor, { ...input, loadedCount: null,
+      agentId: guardedAgent.agentId, requestKey: randomUUID() }, epoch);
+    await assert.rejects(stopScannerBatch(db, other, next.runId));
+    await stopScannerBatch(db, tag, next.runId);
+    // Database-only inconsistencies must not assert an unstarted cancellation.
+    for (const uncertainty of ["epoch", "execution", "slot"] as const) {
+      const helper = await enroll();
+      const queued = await createScannerBatch(db, actor, { ...input, loadedCount: null,
+        agentId: helper.agentId, requestKey: randomUUID() }, epoch);
+      if (uncertainty === "slot") {
+        const stored = await db.scannerRun.findUniqueOrThrow({ where: { id: queued.runId } });
+        await db.acquisitionCaptureSlot.create({ data: { runId: stored.acquisitionRunId, requestKey: randomUUID(), position: 0 } });
+      } else await db.scannerRun.update({ where: { id: queued.runId }, data:
+        uncertainty === "epoch" ? { epoch: randomUUID() } : { executionId: randomUUID() } });
+      await assert.rejects(stopScannerBatch(db, tag, queued.runId), /saved or uncertain START evidence/);
+      assert.equal((await getScannerBatch(db, tag, queued.runId)).reconciliation, null);
+      await revokeScannerAgent(db, tag, helper.agentId);
+    }
+    // Both calls contend on the same run lock. A winning claim may request
+    // drain, but can never coexist with CANCELLED_WITHOUT_START reconciliation.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const helper = await enroll();
+      const queued = await createScannerBatch(db, actor, { ...input, loadedCount: null,
+        agentId: helper.agentId, requestKey: randomUUID() }, epoch);
+      const racingClaim = { ...claim, runId: queued.runId, executionId: randomUUID() };
+      const claiming = () => claimScannerRun(db, helper.token, racingClaim, epoch);
+      const stopping = () => stopScannerBatch(db, tag, queued.runId);
+      const results = await Promise.allSettled(attempt % 2 ? [stopping(), claiming()] : [claiming(), stopping()]);
+      const state = await getScannerBatch(db, tag, queued.runId);
+      const claimResult = results[attempt % 2 ? 1 : 0];
+      assert.equal(results[attempt % 2 ? 0 : 1].status, "fulfilled");
+      if (claimResult.status === "fulfilled") {
+        assert.equal("feedAuthorized" in claimResult.value && claimResult.value.feedAuthorized, true);
+        assert.equal(state.status, "STARTED"); assert.equal(state.reconciliation, null);
+        assert.equal(state.stopRequested, true); assert.equal(await scannerStartMarkerExists(queued.runId), true);
+      } else {
+        assert.equal(state.status, "CANCELLED_BEFORE_START"); assert.equal(state.executionId, null);
+        assert.equal((state.reconciliation as { mode: string }).mode, "CANCELLED_WITHOUT_START");
+        assert.equal(await scannerStartMarkerExists(queued.runId), false);
+      }
+      await revokeScannerAgent(db, tag, helper.agentId);
+    }
     assert.equal(await db.inventoryItem.count({ where: { currentOwnerId: tag } }), 1);
     await revokeScannerAgent(db, tag, first.agentId);
     const permanentDenial = (error: unknown) => { assert.equal(scannerRunError(error).status, 403); return true; };

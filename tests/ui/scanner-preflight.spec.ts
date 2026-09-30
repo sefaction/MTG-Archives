@@ -73,8 +73,16 @@ test("queued scanner errors explain recovery and clear after authorized start; c
     expect(nextPoll.ok()).toBe(true); const next = (await nextPoll.json()).run;
     await page.goto(`/imports/scan?batch=${next.sessionId}`);
     await scanner.getByRole("button", { name: "Cancel waiting scan" }).click();
-    await expect(scanner).toContainText("Cancelled before the helper claimed the scan.");
+    await expect(scanner).toContainText("The helper was not authorized to feed cards.");
+    await expect(scanner.getByLabel("Cards physically emitted")).toHaveCount(0);
+    await expect(scanner.getByRole("button", { name: "Confirm physical count" })).toHaveCount(0);
+    await expect(scanner).toContainText("No physical count is needed.");
     expect((await page.request.post("/api/scanner-agent/runs", { headers, data: { action: "preflight", version: 1, runId: next.runId, epoch, code: "SCANNER_BUSY" } })).ok()).toBe(false);
+    const ended = await page.request.get(`/api/scanners/runs?run=${next.runId}`);
+    expect(ended.ok()).toBe(true); expect((await ended.json()).reconciliation.mode).toBe("CANCELLED_WITHOUT_START");
+    await page.reload(); await expect(scanner).toContainText("No physical count is needed.");
+    await scanner.getByRole("link", { name: "New scanner batch" }).click();
+    await expect(page.getByRole("button", { name: "Start scanner batch", exact: true })).toBeVisible();
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
   } finally {
     database(`const n=${JSON.stringify(tag)};const w={run:{session:{createdByUserId:n}}};
