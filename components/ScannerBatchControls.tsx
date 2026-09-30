@@ -16,7 +16,7 @@ async function call<T>(path: string, body?: object): Promise<T> {
   if (!response.ok) throw new Error(value.error ?? "Scanner request failed; originals remain saved.");
   return value;
 }
-export function ScannerSourceFields({ initialEnabled, initialChoice, onChange, remaining, disabled }: { initialEnabled: boolean; initialChoice?: ScannerChoice; onChange: (value: ScannerChoice | null, enabled: boolean) => void; remaining: number | null; disabled: boolean }) {
+export function ScannerSourceFields({ initialEnabled, initialChoice, onChange, remaining, disabled }: { initialEnabled: boolean; initialChoice?: ScannerChoice; onChange: (value: ScannerChoice | null, enabled: boolean, detecting?: boolean) => void; remaining: number | null; disabled: boolean }) {
   const [agents, setAgents] = useState<Agent[]>([]), [selected, setSelected] = useState(initialChoice ? `${initialChoice.agentId}/${initialChoice.deviceId}` : "");
   const [enabled, setEnabled] = useState(initialEnabled);
   const [dpi, setDpi] = useState<300 | 600>(initialChoice?.settings.dpi ?? 600), [error, setError] = useState("");
@@ -31,6 +31,10 @@ export function ScannerSourceFields({ initialEnabled, initialChoice, onChange, r
   const sources = agents.filter(a=>a.online && a.agentVersion === "0.3.0-native").flatMap(a=>a.devices
     .filter(d=>d.qualification!=="Unsupported").map(d=>({ key: `${a.id}/${d.id}`, agentId: a.id, device: d,
       detecting: a.discoveryIssues?.some(issue=>issue.code==="DISCOVERY_IN_PROGRESS") ?? false })));
+  const detecting = agents.some(agent=>agent.online &&
+    (!selected || selected.startsWith(`${agent.id}/`)) &&
+    agent.discoveryIssues?.some(issue=>issue.code==="DISCOVERY_IN_PROGRESS")) &&
+    (!!selected || sources.every(source=>source.detecting));
   useEffect(() => {
     if (selected || !sources.length) return;
     let remembered: string | null = null;
@@ -45,10 +49,10 @@ export function ScannerSourceFields({ initialEnabled, initialChoice, onChange, r
     const source = sources.find(s=>s.key === selected);
     onChange(enabled && source && !source.detecting && remaining!==0 ? { agentId: source.agentId, deviceId: source.device.id, loadedCount: null,
         operatorLoadedSimplexFronts: true, settings: { dpi, widthInches: frame?.widthInches ?? 2.6, heightInches: frame?.heightInches ?? 3.6, horizontalPlacement: frame?.horizontalPlacement ?? "Start",
-          duplex: false, color: "RGB", autoCrop: false, deskew: false, removeBlank: false } } : null, enabled);
+          duplex: false, color: "RGB", autoCrop: false, deskew: false, removeBlank: false } } : null, enabled, enabled && detecting);
   // sources are refreshed by explicit user action; dependencies are the underlying inputs.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agents, selected, enabled, dpi, remaining, onChange, frame]);
+  }, [agents, selected, enabled, dpi, remaining, onChange, frame, detecting]);
   return <fieldset id="scanner-source" className="space-y-3 min-w-0 my-3" disabled={disabled}>
     <legend className="font-semibold">3. Card input</legend>
     <label className="flex gap-2 items-start"><input type="checkbox" checked={enabled}

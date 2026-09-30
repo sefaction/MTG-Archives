@@ -46,6 +46,8 @@ test("pending discovery keeps heartbeat, choices and destination; revocation dra
       await expect.poll(()=>output.includes("controlled call pending"),{timeout:50000}).toBe(true);
       await expect(batch).toContainText("Checking scanner drivers",{timeout:12000});
       await expect(start).toBeDisabled();
+      await expect(batch).toContainText("Waiting for scanner detection to finish");
+      await expect(batch).not.toContainText("Choose an online scanner source");
       await expect(batch).not.toContainText("No scanner source is available yet");
       const before=await status();expect(before.online).toBe(true);
       expect(before.discoveryIssues.some((issue:{code:string})=>issue.code==="DISCOVERY_IN_PROGRESS")).toBe(true);

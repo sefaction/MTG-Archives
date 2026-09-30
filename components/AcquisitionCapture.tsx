@@ -88,12 +88,14 @@ export function AcquisitionCapture({
   const [customLimit, setCustomLimit] = useState(false);
   const [scannerChoice, setScannerChoice] = useState<ScannerChoice | null>(null);
   const [scannerEnabled, setScannerEnabled] = useState(initialScanner);
+  const [scannerDetecting, setScannerDetecting] = useState(false);
   const pendingStart = useRef<PendingScannerStart | null>(null);
   const [pendingScanner, setPendingScanner] = useState<PendingScannerStart | null>(null);
   const [checkingStart, setCheckingStart] = useState(true);
   const [startStorageError, setStartStorageError] = useState(false);
   const sourceIdentity = useRef("");
-  const scannerChanged = useCallback((value: ScannerChoice | null, enabled: boolean) => {
+  const scannerChanged = useCallback((value: ScannerChoice | null, enabled: boolean, detecting = false) => {
+    setScannerDetecting(detecting);
     if (pendingStart.current) return;
     const identity = JSON.stringify({ value, enabled });
     if (sourceIdentity.current !== identity) createKey.current = "";
@@ -595,7 +597,9 @@ export function AcquisitionCapture({
           {pendingScanner && <p className="text-sm mt-2" role="status">Checking the original scanner start keeps its destination and settings. A retry first looks for the accepted batch. Changes are available after that batch is recovered and settled.</p>}
           {!pendingScanner && !locationId && <p className="text-sm mt-2" role="status">Choose a destination to start.</p>}
           {!pendingScanner && locationId && remaining === 0 && <p className="text-sm mt-2" role="status">This destination has no remaining space. Choose another destination.</p>}
-          {!pendingScanner && locationId && scannerEnabled && !scannerChoice && remaining !== 0 && <p className="text-sm mt-2" role="status">Choose an online scanner source to enable Start scanner batch.</p>}
+          {!pendingScanner && locationId && scannerEnabled && !scannerChoice && remaining !== 0 && <p className="text-sm mt-2" role="status">{scannerDetecting
+            ? "Waiting for scanner detection to finish. Your destination and source choice are kept."
+            : "Choose an online scanner source to enable Start scanner batch."}</p>}
           {!!recent.length && (
             <div className="mt-4">
               <h3 className="font-semibold">Recent batches</h3>
