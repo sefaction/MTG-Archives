@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "scope": "REUSED_DEVELOPMENT_NATIVE_PROGRESS_NOT_INDEPENDENT_ACCURACY",
+  "limits": [
+    "Reused development inputs and ground truth",
+    "Unchanged models and 45-second job/32-second fallback limits",
+    "Separate forced interruption demonstrates transport recovery, not a reproduction or performance result"
+  ],
+  "priorLoadedDescriptor": "1ef7bc86ba726db414cb6ba993c70bd5fe8d4915a38161a133591169d7fdefeb",
+  "qualifiedDescriptor": "242bc3ed575edbd1dd210575be7a972b2c8846029ba494295237fed823d368c0",
+  "sameModelsAndRuntime": true,
+  "catalogCards": 109271,
+  "snapshotSha256": "2d9b7816673be3e1c7f17049de7a8775ea52d5816b29b853feb775f37de4b830",
+  "nativeSourceHashes": {
+    "recognize.py": "6a67c97365f64b7f612cfed7e8065b46e585a5c0b78b466aed62c3a46375e01e",
+    "photo_text.py": "fa5b2125b697f129e4e692c0a43084226c1d07b878c2cbfd3e68ff1128fa4a38"
+  },
+  "focusedGuards": {
+    "typescript": 15,
+    "python": 4,
+    "initialTransportRejectionRace": {
+      "pass": 13,
+      "fail": 1,
+      "fixedBy": "Invalidate pending request before killing child; ignore queued final frames"
+    }
+  },
+  "ordinaryResults": [
+    {
+      "case": "Winter, Tormented Loner",
+      "inputKind": "PHOTO",
+      "photoDigest": "05aacb3674fa133858f523abaf313ddff992e76e44d46d3b32b8395effc7175c",
+      "fallback": true,
+      "budgetMilliseconds": 30113,
+      "elapsedMilliseconds": 35087,
+      "firstProgressMilliseconds": 26756,
+      "progressDirections": [
+        0
+      ],
+      "status": "PARTIAL",
+      "reason": "TIME_BUDGET",
+      "expectedNameOffered": true,
+      "primaryNativePreserved": true,
+      "automaticAcceptance": false
+    },
+    {
+      "case": "Cunning Geysermage",
+      "inputKind": "PHOTO",
+      "photoDigest": "6daddc283af0c4e627e7f3f916092824f0ac9516f183dcb1c2aea88703c87743",
+      "fallback": true,
+      "budgetMilliseconds": 27935,
+      "elapsedMilliseconds": 34963,
+      "firstProgressMilliseconds": 18157,
+      "progressDirections": [
+        0,
+        180,
+        90
+      ],
+      "status": "PARTIAL",
+      "reason": null,
+      "expectedNameOffered": true,
+      "primaryNativePreserved": true,
+      "automaticAcceptance": false
+    },
+    {
+      "case": "Krosan Vorine",
+      "inputKind": "PHOTO",
+      "photoDigest": "0a11fa5f489fdf78567321828c75ab073524b035f62e2a1ee9c9e6b0f7898e69",
+      "fallback": false,
+      "budgetMilliseconds": 30323,
+      "elapsedMilliseconds": 4677,
+      "firstProgressMilliseconds": null,
+      "progressDirections": [],
+      "status": null,
+      "reason": null,
+      "expectedNameOffered": true,
+      "primaryNativePreserved": true,
+      "automaticAcceptance": false
+    },
+    {
+      "case": "Steel Wrecking Ball",
+      "inputKind": "CARD_SCAN",
+      "photoDigest": "887d726137ba2ab05563af594c41cb256509ee198538ce93ebca2e469233c5ef",
+      "fallback": false,
+      "budgetMilliseconds": 30024,
+      "elapsedMilliseconds": 4977,
+      "firstProgressMilliseconds": null,
+      "progressDirections": [],
+      "status": null,
+      "reason": null,
+      "expectedNameOffered": true,
+      "primaryNativePreserved": true,
+      "automaticAcceptance": false
+    }
+  ],
+  "controlledInterruption": {
+    "scope": "CONTROLLED_NATIVE_TERMINATION_AFTER_COMPLETED_READING",
+    "completedDirections": 1,
+    "status": "PARTIAL",
+    "reason": "WORKER_ERROR",
+    "reopened": true
+  },
+  "liveAcceptance": "PENDING_CHANGED_SOURCE_BUILD_AND_UNCHANGED_SEVEN_INPUT_GATE"
+}

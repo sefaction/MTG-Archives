@@ -1,0 +1,51 @@
+name: Windows scanner spike
+on:
+  pull_request:
+    paths:
+      - 'tools/scanner-agent/**'
+      - '.github/workflows/scanner.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scanner:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: dotnet restore tools/scanner-agent/ScannerAgent.csproj --locked-mode
+      - run: dotnet build tools/scanner-agent/ScannerAgent.csproj --no-restore --configuration Release
+      - run: dotnet tools/scanner-agent/bin/Release/net8.0-windows/Mtg.ScannerAgent.dll connection-selftest
+      - run: dotnet tools/scanner-agent/bin/Release/net8.0-windows/Mtg.ScannerAgent.dll native-selftest
+      - name: Build and verify local source install without hardware
+        shell: pwsh
+        run: |
+          ./tools/scanner-agent/install-from-source.ps1 -InstallRoot "$env:RUNNER_TEMP\mtg-scanner-source-install"
+          $edition = Get-ChildItem "$env:RUNNER_TEMP\mtg-scanner-source-install" -Directory | Select-Object -First 1
+          if (-not $edition -or -not (Test-Path (Join-Path $edition.FullName 'NAPS2.Worker.exe')) -or
+              -not (Test-Path (Join-Path $edition.FullName 'build-manifest.json'))) {
+            throw 'Validated helper copy is incomplete'
+          }
+      - run: dotnet restore tools/scanner-agent/ScannerAgent.csproj --locked-mode -r win-x64
+      - run: dotnet publish tools/scanner-agent/ScannerAgent.csproj --no-restore --configuration Release -r win-x64 --self-contained true -p:OutputType=WinExe -p:PublishSingleFile=false -p:PublishTrimmed=false -o "${{ runner.temp }}/scanner-publish"
+      - name: Verify self-contained helper without hardware
+        shell: pwsh
+        run: |
+          $helper = Join-Path $env:RUNNER_TEMP 'scanner-publish/Mtg.ScannerAgent.exe'
+          if (-not (Test-Path $helper) -or -not (Test-Path (Join-Path $env:RUNNER_TEMP 'scanner-publish/NAPS2.Worker.exe'))) {
+            throw 'Self-contained helper is incomplete'
+          }
+          foreach ($check in @('connection-selftest', 'native-selftest')) {
+            $process = Start-Process -FilePath $helper -ArgumentList $check -Wait -PassThru -WindowStyle Hidden
+            if ($process.ExitCode -ne 0) { throw "$check failed: $($process.ExitCode)" }
+          }
+      - run: node --test tools/scanner-agent/transport.test.mjs
+      # CI cannot qualify physical hardware. Never run discovery/scan on hosted CI.

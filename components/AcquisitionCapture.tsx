@@ -1,6 +1,9 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AcquisitionCommitControls } from "./AcquisitionCommitControls";
+import { ScannerSourceFields, ScannerRunControls, type ScannerChoice } from "./ScannerBatchControls";
+import { AcquisitionBulkReview } from "./AcquisitionBulkReview";
+import { SCANNER_CAPTURE_PROVIDER } from "@/lib/scanner-run-protocol";
 import { StorageDestinationPicker } from "./StorageDestinationPicker";
 import {
   AcquisitionBatchDefaults,
@@ -62,17 +65,22 @@ export function AcquisitionCapture({
   userId,
   locations,
   initialBatch,
+  initialScanner,
   recent,
 }: {
   userId: string;
   locations: StorageLocation[];
   initialBatch: string;
+  initialScanner: boolean;
   recent: { id: string; batchNumber: number; phase: string }[];
 }) {
   const [locationId, setLocationId] = useState("");
   const [section, setSection] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [customLimit, setCustomLimit] = useState(false);
+  const [scannerChoice, setScannerChoice] = useState<ScannerChoice | null>(null);
+  const [scannerEnabled, setScannerEnabled] = useState(initialScanner);
+  const scannerChanged = useCallback((value: ScannerChoice | null, enabled: boolean) => { setScannerChoice(value); setScannerEnabled(enabled); if (enabled) setCustomLimit(false); createKey.current = ""; }, []);
   const [batchId, setBatchId] = useState(initialBatch);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [error, setError] = useState("");
@@ -236,7 +244,8 @@ export function AcquisitionCapture({
     setError("");
     try {
       if (!createKey.current) createKey.current = captureUuid();
-      const state = await request<Progress>("/api/acquisition", {
+      const state = await request<Progress>(scannerChoice ? "/api/scanners/runs" : "/api/acquisition", {
+        ...(scannerChoice ? { ...scannerChoice, action: "create" } : {}),
         requestKey: createKey.current,
         locationId,
         section,
@@ -426,10 +435,11 @@ export function AcquisitionCapture({
         </div>
       )}
       {!batchId ? (
-        <section className={panel} aria-label="New scan batch">
+        <section id="new-scan-batch" className={panel + " scroll-mt-4"} aria-label="New scan batch">
           <h2 className="text-xl font-semibold mb-3">
-            Choose a batch before taking photos
+            Set up a new scan batch
           </h2>
+          <p className="text-sm mb-3">Choose a destination and card input below. Starting a scanner batch sends the scan command to the connected computer.</p>
           <StorageDestinationPicker
             locations={locations}
             locationId={locationId}
@@ -443,7 +453,7 @@ export function AcquisitionCapture({
               createKey.current = "";
             }}
           />
-          <label className="block my-3">
+          {!scannerEnabled && <label className="block my-3">
             <input
               type="checkbox"
               checked={customLimit}
@@ -453,8 +463,8 @@ export function AcquisitionCapture({
               }}
             />{" "}
             Set a batch limit (optional)
-          </label>
-          {customLimit && (
+          </label>}
+          {!scannerEnabled && customLimit && (
             <label className="block my-3">
               Cards in this batch{" "}
               <input
@@ -472,23 +482,28 @@ export function AcquisitionCapture({
           )}
           <p className="text-sm mb-3">
             {remaining === null
-              ? "This location has no capacity set. Keep scanning and watch the running count, then stop when finished."
-              : `${remaining} spaces remaining in this destination.`}{" "}
-            One card per photo.
+              ? scannerEnabled ? "No capacity set. The scanner runs until the feeder is empty and shows the saved image count." : "This location has no capacity set. Keep scanning and watch the running count, then stop when finished."
+              : scannerEnabled ? `${remaining} spaces remain. Load no more than that; the scanner runs until the feeder is empty.` : `${remaining} spaces remaining in this destination.`}{" "}
+            {!scannerEnabled && "One card per photo."}
           </p>
+          <ScannerSourceFields initialEnabled={initialScanner} onChange={scannerChanged} disabled={busy} remaining={customLimit ? Math.min(quantity,remaining??quantity) : remaining} />
           <button
             className={primary}
             disabled={
               busy ||
               !locationId ||
+              (scannerEnabled && !scannerChoice) ||
               remaining === 0 ||
               (customLimit &&
                 (quantity < 1 || (remaining !== null && quantity > remaining)))
             }
             onClick={() => void start()}
           >
-            Start batch
+            {scannerEnabled ? "Start scanner batch" : "Start batch"}
           </button>
+          {!locationId && <p className="text-sm mt-2" role="status">Choose a destination to start.</p>}
+          {locationId && remaining === 0 && <p className="text-sm mt-2" role="status">This destination has no remaining space. Choose another destination.</p>}
+          {locationId && scannerEnabled && !scannerChoice && remaining !== 0 && <p className="text-sm mt-2" role="status">Choose an online scanner source to enable Start scanner batch.</p>}
           {!!recent.length && (
             <div className="mt-4">
               <h3 className="font-semibold">Recent batches</h3>
@@ -518,13 +533,13 @@ export function AcquisitionCapture({
           >
             <h2 className="text-xl font-semibold">
               Batch {progress.batchNumber} · {progress.reservedSlots}
-              {progress.target === null
+              {progress.providerId === SCANNER_CAPTURE_PROVIDER ? ` ${progress.reservedSlots === 1 ? "image" : "images"}` : progress.target === null
                 ? " cards"
                 : ` of ${progress.target} cards`}
             </h2>
             <p role="status" aria-live="polite">
               {uploads.filter((p) => p.status !== "failed").length} uploading ·{" "}
-              {readyPhotos} photos saved · {prepared} photos prepared
+              {readyPhotos} {readyPhotos === 1 ? "photo" : "photos"} saved · {prepared} {prepared === 1 ? "photo" : "photos"} prepared
             </p>
             <p className="text-sm">
               {progress.reviewed} confirmed ·{" "}
@@ -532,7 +547,7 @@ export function AcquisitionCapture({
               confirmation
             </p>
             <p className="text-xs text-[var(--app-muted)]">
-              {progress.availableSlots === 0
+              {progress.providerId === SCANNER_CAPTURE_PROVIDER ? "Check for missed or doubled cards before adding reviewed matches to Inventory." : progress.availableSlots === 0
                 ? "Batch full. You can still retry or retake a photo."
                 : progress.availableSlots === null
                   ? "No capacity limit set. Stop capture when finished."
@@ -555,7 +570,7 @@ export function AcquisitionCapture({
               batch destination before taking more.
             </p>
           )}
-          <section className={panel} aria-label="Card camera">
+          {progress.providerId === SCANNER_CAPTURE_PROVIDER ? <ScannerRunControls runId={progress.runId} savedImages={readyPhotos} refresh={refresh} /> : <section className={panel} aria-label="Card camera">
             <p className="mb-2">
               Photograph one card at a time, with the whole front visible and as
               little glare as possible.
@@ -675,7 +690,7 @@ export function AcquisitionCapture({
                 Waiting for uploads before taking more photos.
               </p>
             )}
-          </section>
+          </section>}
           {!!uploads.length && (
             <section className={panel} aria-label="Pending uploads">
               <h3 className="font-semibold">Uploads</h3>
@@ -716,14 +731,7 @@ export function AcquisitionCapture({
             revision={progress.defaultsRevision}
             refresh={() => void refresh()}
           />
-          <AcquisitionCommitControls
-            key={`commit:${batchId}`}
-            progress={progress}
-            locations={locations}
-            selected={selectedPhotos}
-            onSelect={setSelectedPhotos}
-            refresh={refresh}
-          />
+          <AcquisitionBulkReview batchId={batchId} slots={progress.slots} defaults={progress.defaults} refresh={refresh} />
           <section className={panel}>
             <h3 className="font-semibold">Saved cards</h3>
             <p className="text-sm mb-3">
@@ -742,6 +750,7 @@ export function AcquisitionCapture({
                 return (
                   <div
                     key={slot.id}
+                    id={`capture-card-${slot.position + 1}`}
                     data-testid={`capture-card-${slot.position + 1}`}
                     className="min-w-0 space-y-2 border-b border-[var(--app-border)] pb-6"
                   >
@@ -793,7 +802,7 @@ export function AcquisitionCapture({
                         Add this copy
                       </label>
                     )}
-                    <button
+                    {progress.providerId !== SCANNER_CAPTURE_PROVIDER && <button
                       className={button + " w-full"}
                       disabled={
                         busy ||
@@ -810,7 +819,7 @@ export function AcquisitionCapture({
                       }}
                     >
                       {photo ? "Retake" : "Add photo"}
-                    </button>
+                    </button>}
                   </div>
                 );
               })}
@@ -830,6 +839,14 @@ export function AcquisitionCapture({
               {progress.slots.length} cards. More cards load as you scroll.
             </p>
           </section>
+          <AcquisitionCommitControls
+            key={`commit:${batchId}`}
+            progress={progress}
+            locations={locations}
+            selected={selectedPhotos}
+            onSelect={setSelectedPhotos}
+            refresh={refresh}
+          />
         </>
       )}
       <p className="text-xs text-[var(--app-muted)]">

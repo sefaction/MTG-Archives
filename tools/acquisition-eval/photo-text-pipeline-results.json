@@ -1,0 +1,346 @@
+{
+  "version": 1,
+  "scope": "SEVEN_REUSED_INPUTS_CUMULATIVE_REAL_NATIVE_PRINTING_AND_REVIEW",
+  "passed": true,
+  "startedAt": "2026-09-29T13:22:21.5470643Z",
+  "finishedAt": "2026-09-29T13:28:22.6627289Z",
+  "elapsedMilliseconds": 361115,
+  "printingGateMilliseconds": 600000,
+  "source": {
+    "recordedAt": "2026-09-29T13:22:21.046Z",
+    "scope": "VERIFIED_LOADED_LOCAL_ONLY",
+    "branch": "local/acquisition-review-footer",
+    "applicationCommit": "74329ae55d19433839205bc720abcf2de9f53460",
+    "applicationPRs": [
+      486,
+      487,
+      488,
+      489,
+      490,
+      492,
+      493,
+      495,
+      497,
+      499
+    ],
+    "qualificationPRs": [
+      491
+    ],
+    "sourceFiles": 462,
+    "digest": "cbe6085105c439e825c85cfda4b47f4f6e71d543cf1b023f37f8fb523d31d189",
+    "webImage": "sha256:c952d6fe5e0661e8893ef24eb0a14a1d66bb7d36061a67725c83f2f6569bb83d",
+    "ocrImage": "sha256:13de736cb432d3e94886e174373cbe7a471defdaf6e442efa691bc6ebcfa10c2",
+    "nativeImage": "sha256:7e233d4a85ffe4898a014d8e899cff33451b66631b415b43d468633bad70ef90",
+    "printingReplicas": 1,
+    "ocrDescriptor": "1104a13a304b9d4c3620cdc6f41ed7aca4bea20ded174bacc2d8b1162788383a",
+    "printingDescriptor": "6bb1e8c9d896c0f6d8d0d629c8a78a01148dcd47a37fea7c631b9d13e57ae819",
+    "qualifiedOcrDescriptor": "242bc3ed575edbd1dd210575be7a972b2c8846029ba494295237fed823d368c0",
+    "formatDifferences": [
+      {
+        "file": "recognize.py",
+        "scope": "CRLF_VERSUS_LF_ONLY",
+        "built": "54a7e84a8ee1441ab1b8eee4dac48786c92dcd4715d95aeebb2b209847e0d854",
+        "qualified": "6a67c97365f64b7f612cfed7e8065b46e585a5c0b78b466aed62c3a46375e01e"
+      },
+      {
+        "file": "model_store.py",
+        "scope": "CRLF_VERSUS_LF_ONLY",
+        "built": "a36b4b31a3c3552216da2fb072a9ed590cccb18a9b4a6c2eb29fbe79a3119977",
+        "qualified": "6458806ab3b50824d93b8076cffd4acebdc994f541f997c0d62ba7b3d495492d"
+      },
+      {
+        "file": "reading_direction.py",
+        "scope": "CRLF_VERSUS_LF_ONLY",
+        "built": "385002b035aff5742976da9fe5fd2fe3f5578c78850dddd8dae9576750106e8e",
+        "qualified": "0b72926741183ed8d109e9d85a42fea6b9a6f8f5a830c1f43f68ba6b728bc87b"
+      },
+      {
+        "file": "photo_input.py",
+        "scope": "CRLF_VERSUS_LF_ONLY",
+        "built": "2da7e9cd51ed63ebf4c8938d262b2f02c68711370f702d7b0597f87d43229b85",
+        "qualified": "9e1cc03aa5b8de33b7c124df5e4fb32303c6f2e1ea6c16c83e3ae543469a53aa"
+      },
+      {
+        "file": "photo_text.py",
+        "scope": "CRLF_VERSUS_LF_ONLY",
+        "built": "f30b55e6e86ed15a259300309e10f861bffaab98a140d3113b83a0eb34aaefff",
+        "qualified": "fa5b2125b697f129e4e692c0a43084226c1d07b878c2cbfd3e68ff1128fa4a38"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "Winter, Team Player",
+      "dependentRotation": false,
+      "first": true,
+      "offered": true,
+      "automaticAcceptance": false,
+      "wholePhotoStatus": "COMPLETE",
+      "wholePhotoReason": null,
+      "wholePhotoDirections": [
+        0,
+        180,
+        90,
+        270
+      ],
+      "nativePreserved": true
+    },
+    {
+      "name": "Winter, Tormented Loner",
+      "dependentRotation": false,
+      "first": true,
+      "offered": true,
+      "automaticAcceptance": false,
+      "wholePhotoStatus": "PARTIAL",
+      "wholePhotoReason": null,
+      "wholePhotoDirections": [
+        0,
+        180,
+        90,
+        270
+      ],
+      "nativePreserved": true
+    },
+    {
+      "name": "Cunning Geysermage",
+      "dependentRotation": false,
+      "first": true,
+      "offered": true,
+      "automaticAcceptance": false,
+      "wholePhotoStatus": "PARTIAL",
+      "wholePhotoReason": null,
+      "wholePhotoDirections": [
+        0,
+        180,
+        90,
+        270
+      ],
+      "nativePreserved": true
+    },
+    {
+      "name": "Krosan Vorine",
+      "dependentRotation": false,
+      "first": true,
+      "offered": true,
+      "automaticAcceptance": false,
+      "wholePhotoStatus": "NOT_ATTEMPTED",
+      "wholePhotoReason": null,
+      "wholePhotoDirections": [],
+      "nativePreserved": true
+    },
+    {
+      "name": "Steel Wrecking Ball",
+      "dependentRotation": false,
+      "first": true,
+      "offered": true,
+      "automaticAcceptance": false,
+      "wholePhotoStatus": "NOT_ATTEMPTED",
+      "wholePhotoReason": null,
+      "wholePhotoDirections": [],
+      "nativePreserved": true
+    },
+    {
+      "name": "Winter, Tormented Loner",
+      "dependentRotation": true,
+      "first": true,
+      "offered": true,
+      "automaticAcceptance": false,
+      "wholePhotoStatus": "PARTIAL",
+      "wholePhotoReason": null,
+      "wholePhotoDirections": [
+        90,
+        270,
+        0,
+        180
+      ],
+      "nativePreserved": true
+    },
+    {
+      "name": "Cunning Geysermage",
+      "dependentRotation": true,
+      "first": true,
+      "offered": true,
+      "automaticAcceptance": false,
+      "wholePhotoStatus": "PARTIAL",
+      "wholePhotoReason": null,
+      "wholePhotoDirections": [
+        90,
+        270,
+        0,
+        180
+      ],
+      "nativePreserved": true
+    }
+  ],
+  "printingDescriptors": [
+    "6bb1e8c9d896c0f6d8d0d629c8a78a01148dcd47a37fea7c631b9d13e57ae819"
+  ],
+  "checks": {
+    "completePrinting": 7,
+    "advancedUnlocalizedEvidence": true,
+    "simpleOriginalAndPrintingImages": true,
+    "viewports": [
+      1366,
+      390,
+      320
+    ],
+    "screenshotsInspected": true,
+    "noPageOverflow": true,
+    "unsavedConditionAcrossModes": true,
+    "savedReviewAcrossReload": true,
+    "locationAndSectionPreserved": true,
+    "inventoryWrites": 0,
+    "fixtureCleanup": {
+      "users": 0,
+      "sessions": 0,
+      "jobs": 0,
+      "inventory": 0
+    }
+  },
+  "observations": {
+    "samples": 16,
+    "errors": [],
+    "sampledMemory": {
+      "acquisition-recognition-worker": {
+        "maxSampledMiB": 1648.6
+      },
+      "acquisition-visual-worker": {
+        "maxSampledMiB": 1294.3
+      },
+      "acquisition-printing-worker": {
+        "maxSampledMiB": 980.6
+      }
+    },
+    "workerLifetime": [
+      {
+        "name": "acquisition-recognition",
+        "scope": "CONTAINER_LIFETIME_INCLUDES_OTHER_OWNERS_AND_OBSERVER",
+        "events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "peakBytes": 2061201408
+      },
+      {
+        "name": "acquisition-visual",
+        "scope": "CONTAINER_LIFETIME_INCLUDES_OTHER_OWNERS_AND_OBSERVER",
+        "events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "peakBytes": 1771270144
+      },
+      {
+        "name": "acquisition-printing",
+        "scope": "CONTAINER_LIFETIME_INCLUDES_OTHER_OWNERS_AND_OBSERVER",
+        "events": {
+          "low": 0,
+          "high": 0,
+          "max": 2079,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "peakBytes": 1073741824
+      }
+    ],
+    "anonymousLoginResponses": [
+      {
+        "status": 200,
+        "milliseconds": 1173
+      },
+      {
+        "status": 200,
+        "milliseconds": 1151
+      },
+      {
+        "status": 200,
+        "milliseconds": 1478
+      },
+      {
+        "status": 200,
+        "milliseconds": 1067
+      },
+      {
+        "status": 200,
+        "milliseconds": 950
+      },
+      {
+        "status": 200,
+        "milliseconds": 999
+      },
+      {
+        "status": 200,
+        "milliseconds": 1036
+      },
+      {
+        "status": 200,
+        "milliseconds": 971
+      },
+      {
+        "status": 200,
+        "milliseconds": 947
+      },
+      {
+        "status": 200,
+        "milliseconds": 1089
+      },
+      {
+        "status": 200,
+        "milliseconds": 941
+      },
+      {
+        "status": 200,
+        "milliseconds": 1046
+      },
+      {
+        "status": 200,
+        "milliseconds": 1104
+      },
+      {
+        "status": 200,
+        "milliseconds": 1023
+      },
+      {
+        "status": 200,
+        "milliseconds": 959
+      },
+      {
+        "status": 200,
+        "milliseconds": 1022
+      }
+    ]
+  },
+  "retainedFailures": [
+    {
+      "scope": "PREVIOUS_CACHE_SEVEN_INPUT_GATE",
+      "printingComplete": 7,
+      "lostWholePhotoNameHints": 2,
+      "reason": "TIME_BUDGET",
+      "uiAssertionsReached": false
+    },
+    {
+      "scope": "100_INPUT_FIXED_20_MINUTE_GATE",
+      "printingComplete": 57,
+      "expected": 100,
+      "allInputsRetained": true,
+      "inventoryWrites": 0,
+      "ownedCleanup": true
+    }
+  ],
+  "limits": [
+    "Reused development inputs and two dependent rotations, not independent exact-printing accuracy",
+    "Different concurrent background load; no controlled elapsed-time speedup claim",
+    "Array cache budget is not total RSS; printing lifetime peak still reaches 1 GiB without OOM kills",
+    "Anonymous login requests are not authenticated task/load evidence",
+    "100-input review and 300-input four-owner stress remain unqualified; hybrid automatic confirmation off"
+  ]
+}

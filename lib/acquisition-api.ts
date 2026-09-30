@@ -39,6 +39,8 @@ export function acquisitionProgressDto(
 ) {
   return {
     id: state.session.id,
+    providerId: state.session.run.providerId,
+    runId: state.session.run.runId,
     batchNumber: state.batchNumber,
     revision: state.revision,
     target: state.session.target,

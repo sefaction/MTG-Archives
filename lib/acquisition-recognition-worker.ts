@@ -11,6 +11,10 @@ import { readAcquisitionPhotoBytes } from "./acquisition-files";
 import { runAcquisitionNativeProcess } from "./acquisition-native-process";
 import type { AcquisitionNativeStream } from "./acquisition-native-stream";
 import type { ClaimedAcquisitionJob } from "./acquisition-jobs";
+import { acquisitionReadingZonesSchema } from "./acquisition-reading-zones";
+import { ACQUISITION_FOOTER_PARSER_VERSION } from "./acquisition-footer";
+import { acquisitionPhotoTextSchema, needsAcquisitionPhotoText, readAcquisitionPhotoText,
+  combineAcquisitionPhotoText } from "./acquisition-photo-text";
 
 export const RECOGNITION_STAGE = "photo-recognition-v1";
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
@@ -33,6 +37,7 @@ export const nativeSchema = z.object({
   descriptorDetails: z.record(z.unknown()),
   photoDigest: digest,
   text: textSchema,
+  readingZones: acquisitionReadingZonesSchema.optional(),
   orientations: z
     .array(
       z.object({
@@ -46,6 +51,7 @@ export const nativeSchema = z.object({
   lines: linesSchema,
   milliseconds: z.number().nonnegative().finite(),
   automaticAcceptance: z.literal(false),
+  photoText: acquisitionPhotoTextSchema.optional(),
 });
 export type RecognitionSnapshot = Awaited<
   ReturnType<typeof loadAcquisitionRecognitionSnapshot>
@@ -207,15 +213,12 @@ export async function recognizeAcquisitionPhoto(
     "raw",
     input.digest,
   );
+  const nativeStarted = Date.now();
+  const requestNative = (frame: Buffer, attemptSignal: AbortSignal, progress?: (value: unknown) => void) => nativeWorker
+    ? nativeWorker.request(frame, attemptSignal, progress)
+    : runAcquisitionNativeProcess("python", ["/app/tools/acquisition-runtime/recognize.py"], frame, attemptSignal);
   const native = nativeSchema.parse(
-    nativeWorker
-      ? await nativeWorker.request(acquisitionNativePhotoInput(bytes, input.inputKind), signal)
-      : await runAcquisitionNativeProcess(
-          "python",
-          ["/app/tools/acquisition-runtime/recognize.py"],
-          acquisitionNativePhotoInput(bytes, input.inputKind),
-          signal,
-        ),
+    await requestNative(acquisitionNativePhotoInput(bytes, input.inputKind), signal),
   );
   if (
     native.photoDigest !== input.digest ||
@@ -223,10 +226,17 @@ export async function recognizeAcquisitionPhoto(
     signal.aborted
   )
     throw new Error("Processing input changed");
-  const proposals = proposeOrientedAcquisitionPrintings(
+  let proposals = proposeOrientedAcquisitionPrintings(
     snapshot.index,
     native.orientations,
   );
+  if (needsAcquisitionPhotoText(proposals)) {
+    native.photoText = await readAcquisitionPhotoText(requestNative, bytes, input.inputKind,
+      { photoDigest: input.digest, descriptor: model }, signal,
+      Math.min(32000, 35000 - (Date.now() - nativeStarted)));
+    proposals = combineAcquisitionPhotoText(snapshot.index, proposals, native.photoText);
+  }
+  signal.throwIfAborted();
   return {
     version: 1,
     photoId: input.photoId,
@@ -234,6 +244,7 @@ export async function recognizeAcquisitionPhoto(
       ...input.versions,
       catalog: snapshot.digest,
       index: snapshot.digest,
+      footerParser: ACQUISITION_FOOTER_PARSER_VERSION,
     },
     execution: "CPU",
     native,

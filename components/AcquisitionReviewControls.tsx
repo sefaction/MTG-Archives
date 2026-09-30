@@ -11,11 +11,12 @@ import {
   filterInputClass as input,
   filterPanelClass as panel,
 } from "./filterStyles";
-import type {
-  AcquisitionCardReview,
-  AcquisitionDefaults,
-  AcquisitionPrinting,
+import {
+  type AcquisitionCardReview,
+  type AcquisitionDefaults,
+  type AcquisitionPrinting,
 } from "@/lib/acquisition-review";
+import { finishForPrinting } from "@/lib/acquisition-finish";
 
 const conditions = [
   ["NM", "Near mint"],
@@ -219,7 +220,7 @@ export function AcquisitionPhotoReview({
     setRecord(next);
     const choice = next.printing ?? next.suggestions[0]?.printing ?? null;
     setSelected(choice);
-    setFinish(next.review?.finish ?? next.defaults.finish);
+    setFinish(next.review?.finish ?? finishForPrinting(next.defaults.finish, choice) ?? next.defaults.finish);
     setCondition(next.review?.condition ?? next.defaults.condition ?? "");
     setLanguage(next.review?.language ?? choice?.lang ?? "");
     setError("");
@@ -446,8 +447,13 @@ export function AcquisitionPhotoReview({
             <figure className="min-w-0">
               <figcaption className="font-semibold mb-2 min-h-12 sm:min-h-0">
                 {record.review ? "Selected printing" : "Proposed printing"}
+                {!record.review && reasons.includes("UNLOCALIZED_NAME_HINT") && (
+                  <span className="block text-xs font-normal mt-1" data-testid="scan-name-only">
+                    Name only · check printing
+                  </span>
+                )}
               </figcaption>
-              <div className="aspect-[1000/1397] max-h-[52vh] flex items-center justify-center bg-black/10 rounded overflow-hidden">
+              <div className="aspect-[1000/1397] max-h-[75vh] flex items-center justify-center bg-black/10 rounded overflow-hidden">
                 {selected?.imageUri && active ? (
                   <PrintingImage
                     src={selected.imageUri}
@@ -477,6 +483,8 @@ export function AcquisitionPhotoReview({
                     ? "Waiting for suggestions; you can search below."
                     : !reasons.length
                       ? "Selected manually; compare this printing with your scan."
+                      : reasons.includes("UNLOCALIZED_NAME_HINT")
+                        ? "Name suggested from whole-photo text; exact printing unverified."
                       : record.evidence?.imageMatches
                         ? reasons.includes("VISUAL_MATCH") ||
                           reasons.includes("SIFT_CANDIDATE")

@@ -15,6 +15,7 @@ import {
 } from "./acquisition-commit";
 import { acquisitionReviewDecisionSchema } from "./acquisition-review";
 import { candidateCommitReadiness, candidateKey } from "./acquisition-domain";
+import { SCANNER_CAPTURE_PROVIDER } from "./scanner-run-protocol";
 import { lockAndReadInventoryCapacity } from "./inventory-capacity";
 import { writeInventoryReceipt } from "./inventory-receipt";
 
@@ -37,7 +38,7 @@ async function prepare(
   row: Row,
   selection: AcquisitionCommitSelection,
 ) {
-  if (row.intent !== "ADD_NEW" || row.run!.providerId !== "phone-photo-v1")
+  if (row.intent !== "ADD_NEW" || !["phone-photo-v1", SCANNER_CAPTURE_PROVIDER].includes(row.run!.providerId))
     throw new Error("Capture provider is not available for this commit method");
   if (!["STOPPING", "COMPLETE", "CANCELLED"].includes(row.phase))
     throw new Error("Capture must be stopped before adding reviewed cards");

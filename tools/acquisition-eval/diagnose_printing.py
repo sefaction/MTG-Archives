@@ -64,11 +64,11 @@ def main():
         if ref is None:
             row.update({'status': 'REFERENCE_UNAVAILABLE'})
         else:
-            warped, alignment = register(decode(path), ref)
+            warped, alignment, visibility = register(decode(path), ref, return_visibility=True)
             reference_id = entry['scryfallId']+':0'
             label = reference_labels.get(reference_id)
             reference_state = label['stamp'] if label and label['sha256'] == refs[reference_id]['sha256'] else 'UNKNOWN'
-            evidence = stamp_evidence(warped, alignment, template, ref, reference_state)
+            evidence = stamp_evidence(warped, alignment, template, ref, reference_state, visibility=visibility)
             row.update({'alignment': alignment, 'stamp': evidence, 'referenceStampState': reference_state})
             if warped is not None:
                 cv2.imwrite(str(args.output / (path.stem+'.aligned.jpg')), warped)
