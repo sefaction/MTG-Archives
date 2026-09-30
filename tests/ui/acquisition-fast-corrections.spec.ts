@@ -116,7 +116,8 @@ test("fast printing correction keeps drafts, metadata and destination while resu
     await expect(card.getByRole("combobox", { name: "Card condition", exact: true })).toHaveCount(0);
     await card.getByRole("button", { name: "Correct", exact: true }).click();
     await expect(card.getByRole("combobox", { name: "Card condition", exact: true })).toHaveValue("HP");
-    await page.evaluate(()=>{localStorage.setItem=()=>{throw new Error("Fixture quota");};});
+    await page.evaluate(()=>{Object.defineProperty(Storage.prototype,"setItem",{configurable:true,value:()=>{throw new Error("Fixture quota");}});});
+    expect(await page.evaluate(()=>{try{localStorage.setItem("fixture-check","x");return false;}catch{return true;}})).toBe(true);
     await card.getByRole("combobox", { name: "Card condition", exact: true }).selectOption("DMG");
     await expect(card).toContainText("Save the review before leaving this page");
     await card.getByRole("button", { name: "Save card review", exact: true }).click();
