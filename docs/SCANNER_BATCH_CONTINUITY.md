@@ -31,7 +31,9 @@ Disposable database checks cover unsettled/foreign denial, preserved settings an
 defaults, fresh identity/empty acquisition state, new target computation and
 changed-default replay rejection. The local browser case covers cancel-to-next,
 source/destination/default retention, refreshed zero/one capacity, explicit new
-START into an isolated fixture agent and owned cleanup. No helper or motor is
+START into an isolated fixture agent and owned cleanup. It seeds one owned
+Inventory card to make capacity full, asserts no new Inventory commit, then
+removes that seed. No helper or motor is
 operated by this case.
 
 The first database run exposed a fixture that accidentally copied its prior

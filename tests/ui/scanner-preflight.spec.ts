@@ -91,11 +91,11 @@ test("queued scanner errors explain recovery and clear after authorized start; c
     await expect(setup).toContainText("5 spaces remain.");
     await expect(setup).toContainText("Batch defaults: foil · LP");
     // Refresh changes capacity, never the user's source/destination or START.
-    database(`await p.inventoryLocation.update({where:{id:${JSON.stringify(tag)}},data:{storageLayout:{capacity:0,sections:[]}}});`);
+    database(`const n=${JSON.stringify(tag)};await p.card.create({data:{id:n+'-capacity',scryfallId:require('crypto').randomUUID(),name:n,typeLine:'Basic Land',setCode:'tst',collectorNumber:'1',rarity:'common'}});await p.inventoryItem.create({data:{cardId:n+'-capacity',currentOwnerId:n,originalOpenerId:n,locationId:n,quantity:1,condition:'NM',sourceType:'MANUAL'}});await p.inventoryLocation.update({where:{id:n},data:{storageLayout:{capacity:1,sections:[]}}});`);
     await setup.getByRole("button", { name: "Refresh capacity", exact: true }).click();
     await expect(setup).toContainText("0 spaces remain."); await expect(start).toBeDisabled();
     await expect(page.locator('input[name="destinationLocationId"]')).toHaveValue(tag);
-    database(`await p.inventoryLocation.update({where:{id:${JSON.stringify(tag)}},data:{storageLayout:{capacity:1,sections:[]}}});`);
+    database(`await p.inventoryLocation.update({where:{id:${JSON.stringify(tag)}},data:{storageLayout:{capacity:2,sections:[]}}});`);
     await setup.getByRole("button", { name: "Refresh capacity", exact: true }).click();
     await expect(setup).toContainText("1 spaces remain."); await expect(start).toBeEnabled();
     await pulse(); await start.click();
@@ -105,7 +105,8 @@ test("queued scanner errors explain recovery and clear after authorized start; c
     expect(continued.target).toBe(1); expect(continued.photos).toBe(0);
     await scanner.getByRole("button", { name: "Cancel waiting scan" }).click();
     await expect(scanner).toContainText("No physical count is needed.");
-    expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
+    expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(1);
+    expect(Number(database(`console.log(await p.acquisitionCommit.count({where:{run:{session:{createdByUserId:${JSON.stringify(tag)}}}}}));`))).toBe(0);
   } finally {
     database(`const n=${JSON.stringify(tag)};const w={run:{session:{createdByUserId:n}}};
       const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;
@@ -116,6 +117,7 @@ test("queued scanner errors explain recovery and clear after authorized start; c
       for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});
       await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});
       await p.scannerPairing.deleteMany({where:{userId:n}});await p.scannerAgent.deleteMany({where:{userId:n}});await p.authSession.deleteMany({where:{userId:n}});
+      await p.inventoryItem.deleteMany({where:{currentOwnerId:n}});await p.card.deleteMany({where:{id:n+'-capacity'}});
       await p.inventoryLocation.deleteMany({where:{id:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});`);
   }
 });
