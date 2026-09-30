@@ -99,7 +99,8 @@ for (const accepted of [true, false]) test(`lost website START ${accepted ? "ack
     expect(requests).toHaveLength(accepted ? 1 : 2); // Settled setup changes do not START.
     if (!accepted) {
       await page.getByRole("checkbox", { name: "Scan from a connected scanner" }).uncheck();
-      await page.evaluate(() => { sessionStorage.setItem = () => { throw new Error("Fixture storage unavailable"); }; });
+      await page.evaluate(() => { Object.defineProperty(Storage.prototype, "setItem", { configurable: true, value: () => { throw new Error("Fixture storage unavailable"); } }); });
+      expect(await page.evaluate(() => { try { sessionStorage.setItem("fixture-check", "x"); return false; } catch { return true; } })).toBe(true);
       await page.getByRole("button", { name: "Start batch", exact: true }).click();
       await expect(page.getByRole("region", { name: "Batch progress" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Photo library", exact: true })).toBeVisible();
