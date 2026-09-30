@@ -181,3 +181,30 @@ further physical comparisons. Native UI remains a useful full-footer comparison
 but not a qualified automatic fallback. No installed helper, recognition,
 Inventory, production or local web change occurred. Rejected-Start PR541 was
 separately individually approved and merged into main; this draft remains open.
+
+## Private intra-worker tracing preparation, September 30
+
+A private diagnostic copy of the exact pinned SDK source now records state4
+capability/frame readback around the existing configuration calls, plus existing
+transfer image information. It introduces no additional setters, enabling,
+cancellation or retry. Opt-in logging uses CreateNew and is outside run exports.
+All original runner operations are mechanically preserved. An initial bad patch
+was caught and retained before any hardware use; the corrected build passed.
+
+Five offline cases passed without a scanner context: disabled flag, synthetic
+metadata, existing-file preservation, relative-path rejection and logging failure
+after enable-start metadata. Cleanup logging cannot suppress original handle
+disposal. Private SDK/compiler/source artifacts are ignored local evidence.
+
+The worker targets net462 on existing x86 .NET Framework; the tested host remains
+unchanged on existing .NET8. This is a runtime variant, not the bundled worker,
+and extra state4 queries can affect timing. Do not treat results as exact original
+binary negotiation or claim a footer fix. No runtime or installed helper changed.
+A separate IPC-only bootstrap initially failed; its unchanged worker passed a
+repeat with startup logging and exited naturally0. Both results are preserved;
+no cause is attributed. Neither bootstrap enumerated, opened or enabled a source.
+
+A fresh default600/simplex2.6x3.6/Center request is prepared but not started.
+Wait for a new operator loading confirmation before any physical acquisition.
+The preceding Center comparison is complete/clipped, not pending. PR541 is merged
+and issue529 closed; PR540 remains an independently unapproved diagnostic draft.

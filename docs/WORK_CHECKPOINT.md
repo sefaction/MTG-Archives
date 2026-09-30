@@ -1,3 +1,38 @@
+## Private TWAIN trace ready; fresh loading confirmation pending, September 30, 2026
+
+Active branch fix/scanner-twain-footer, PR540 draft/unapproved, issue539 open.
+Approved PR541 is merged at main8aad8e43; issue529 closed. Draft540 integrated
+that main at c52fa9e; all four CI checks passed. Current local reviewed Docker
+application already matches main; no rebuild, installed helper or Inventory change.
+
+Center run c8e7afd8 completed exit0, one1365x1996 retained/hash-matched original;
+footer still clipped. Operator confirms one undamaged card, empty feeder/transport,
+no jam, double feed or dialog. No owned native operation is pending.
+
+Private pinned SDK8ae3e822 source-level tracing built successfully on existing
+.NET Framework x86 (net462 target), a runtime variant of bundled worker, not
+shipping code. All original scanner operations are mechanically preserved.
+The first patch omitted calls, was rejected before any hardware launch, and is
+retained unchanged privately. Corrected tracing cleanup cannot suppress original
+handle disposal. Five offline guards passed: opt-in disabled, synthetic metadata,
+CreateNew evidence preservation, relative-path rejection and active log failure.
+No scanner context or source was created by these guard tests.
+
+Separate host preserves tested agent/host SDK hashes; new worker stays under lib.
+First IPC-only bootstrap failed to start; exact log/status preserved, no cause
+claimed. Repeated with startup logging on unchanged worker passed, natural exit0;
+no source enumeration/open/Enable. Four pre-existing helpers/workers untouched.
+
+Fresh request 48ae964f-1197-421a-a235-fdae771b3bbf is prepared, NOT started, under private native-frame-trace.
+Asked for same single expendable card, powered/connected/clear transport.
+Next safe step: only after fresh affirmative loading reply, run private scan once
+with existing .NET8 host and diagnostic worker, default600/simplex2.6x3.6/Center.
+Preserve the same native session until real return; never timeout/cancel/refeed.
+Inspect all original images and trace, then ask physical outcome. Runtime variant
+and extra capability queries limit comparison to original worker; no footer fix
+or complete root cause claimed. Exact private paths/hashes/status are in staging,
+source-preservation, offline-guard, bootstrap and prepared-physical manifests.
+
 ## Draft540 integration of approved main; private trace baseline built
 
 Integrating merged main8aad8e4 into draft540 after user individually approved541.
