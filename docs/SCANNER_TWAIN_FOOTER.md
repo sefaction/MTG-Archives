@@ -73,9 +73,49 @@ project .NET8 runtime and a new private run identity, after renewed confirmation
 that feeder and transport are empty. The global runtime failed before SDK start;
 no diagnostic evidence was overwritten or runtime installed.
 
-The operator saved a profile named Cards and a custom page size named Cards.
-Selection of that profile, fixed2.6x3.6-inch/simplex600 settings, disabled driver
-Auto Crop/Auto Deskew and closing with Exit without Scan remain to be confirmed.
-Saving a profile is not proof of the settings negotiated by a later headless run.
-The new inspection remains pending; its native context is not timed out/disposed
-or replaced. Next physical comparison needs a fresh one-card loading confirmation.
+The operator saved a profile named Cards and a custom page size named Cards,
+then confirmed Cards selected and the settings window closed. The same inspection
+completed normally with zero images and process exit0. Its preserved events record
+SDK enumeration completion; physical exhaustion and negotiated settings remain
+unknown. No timeout, replacement context or physical scan was used to close it.
+
+Active profile selection alone does not prove the fixed dimensions, driver
+automatic options or settings accepted by a later headless run. The following
+two comparisons used separate, freshly confirmed one-card loads.
+
+## Cards-selected headless comparison, September 30
+
+After Cards was selected and the empty-feeder settings inspection completed
+normally, the operator freshly loaded the same Sunblade Samurai. A fresh
+TWAIN/default600/simplex2.6x3.6 run completed in 13.110s with one retained
+1366x1989 PNG (6,443,747 bytes). Its SHA-256 matches its retained manifest.
+The footer remains visibly clipped. The operator confirmed exactly one
+undamaged card, empty feeder/transport and no jam, double feed or driver dialog.
+No automatic retry or Inventory operation occurred.
+
+This result does not establish that the requested frame or saved driver options
+were accepted. The pinned SDK ConfigureSource applies its page frame, resolution
+and other standard settings for headless runs; UseNativeUI returns before those
+settings, leaving their selection to the driver window. Neither path exposes
+negotiated vendor automatic cropping through the public SDK.
+
+## Cards driver-window comparison, September 30
+
+After a fresh one-card loading confirmation, the operator reported verifying
+Cards, fixed2.6x3.6 inches, simplex600 and disabled Auto Crop/Auto Deskew, pressing
+Scan once and closing the window. The same native session completed normally in
+23.782s, process exit 0. It retained two 1560x2160 originals (5,430,645 and 5,785,665
+bytes); both file hashes match their manifests. Visual inspection shows the
+Sunblade Samurai front with a complete footer, plus its card back. Every image
+is retained with UNKNOWN SDK side/boundary metadata; visual interpretation does
+not replace device side evidence.
+
+This establishes a useful difference between operator-controlled driver-window
+and headless acquisition in this comparison. It does not isolate which driver
+option or negotiation causes headless clipping. The reported simplex setting
+and two returned sides disagree; scan-mode recollection and post-feed physical
+observations are pending. Native UI bypasses the SDK's standard configuration,
+including feeder/duplex selection, so it is not a qualified automatic fallback.
+No installed helper, website behavior, recognition or Inventory changed. Keep
+this draft open until headless frame/automatic-option negotiation is understood;
+do not feed again automatically or discard the extra image.
