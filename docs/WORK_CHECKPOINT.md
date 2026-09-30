@@ -1,22 +1,472 @@
-## Rejected Start browser acceptance complete, September 30, 2026
+## Alignment control locally validated — September 30, 2026
 
-- PR541 updated onto approved main0d1d18a, base main. Application matches
-  cumulative0b54ef5 exactly; native TWAIN540 remains independent/unapproved.
-- Build41027 PASS/typecheck/Docker. Local webacbf6db22a271407d72f0e8fd5055e2955ff9976063678399506ef2cfce756f0
-  healthy; source496/digest76ed279253a775c2bb71bb2b89aae7bdf8271f1f9dda31e648dfffe65c51ba54 verified before/after browser.
-- First browser90023 1passed/1failed in25.4s: destination editor already open
-  after retirement, stale fixture expected Change. All failure artifacts preserved
-  in cumulative.local-data/rejected-start-resumed-first-failure. Corrected fixture
-  only; browser59367 PASS2/2/11.6s on unchanged image. Desktop1366/phone320
-  screenshots inspected, no overflow. Owned users/sessions/agents0; no motor,
-  Inventory addition or production action. Type/lint13578 PASS.
-- Original final checks29a6ced all3green; evidence/fixture head needs fresh CI.
-  Next push this evidence, reconcile final CI, mark541 ready and notify user.
-- TWAIN settings inspection93822/runa0f51effd (actual run0f51effd-8f59-4c5a-8d58-6e8328594c78)
-  remains live in separate diagnostic assembly. User confirmed connected/powered/
-  EMPTY; asked fixed2.6x3.6/simplex600/crop+deskewoff then Exit without Scan.
-  Default framework first failed before SDK; rerun uses existing local.NET8.
-  No image on latest log; wait for actual completion, no premature disposal/restart.
+Active draft #540 / fix/scanner-twain-footer. New Card position under Scan settings,
+new unsaved batches defaultCenter; explicit saved Start/Center/End retained through
+queued requests and continuation. Original SDK/worker/runtime and alignment mapping
+unchanged. Private diagnostic logger remains opt-in; public SafeError unchanged.
+Typecheck PASS using cumulative dependencies; production Docker build and client
+manifest verification PASS; owned alignment browser fixture PASS (three positions,
+actual persisted helper-poll payloads/continuation, desktop1366/phone320). Visual
+screenshots inspected. Owned fixture users/agents/acquisition sessions all zero.
+
+Authoritative cumulative review branch local/acquisition-review-footer now8850bfe
+includes the exact component/test from this batch. Loaded WEB image
+d83f1875e5c60a38806dc40ea3921c08beb05aff09b045a7caa30e6ab1189dd5, source
+f444c168b15b97d373f072c0e161b5954bdb69a5987adbd3f04f4330287c2250, all496
+app files verified, webhealthy/login200. Existing primary local mounts retained;
+recognition/other workers and installed helpers unchanged. Primary checkout stale,
+do not rebuild it. Leaf dependencies lack tsc; tests ran in cumulative source.
+
+Actual physical evidence: Center600 cf6ccbf6 returnedone1560x2160 full-footer
+original, hash verified, operatoroneundamaged/empty/no problems. SeparateStart600
+db8fb40c returnedoneblankwhite1560x2160, hash verified; operatorphysical outcome
+question PENDING. All native contexts returned; no new feed authorized. No claim
+full driver recovery or root cause for every earlier clipping. #539/#542 stayopen;
+#541 merged529closed. No Inventory/production action. New scope is concrete website
+alignment selection plus bounded diagnostics, not a qualified universal TWAIN fix.
+
+Next: commit/push coherent draft540 update, verify current-head CI, update PR scope
+for review. Receive latest physical outcome; do not reuse any old loading approval.
+Broader scanner acquisition/clean-host/distribution qualification remains separate.
+Earlier checkpoint sections are preserved historical states superseded here.
+## Active alignment UI batch — September 30, 2026
+
+Active fix/scanner-twain-footer / draft PR #540, unapproved. Completed native
+contexts: empty UI091950f0 exit0/no images; Center scan cf6ccbf6 exit0/one full-
+footer1560x2160/7,278,638-byte original/12.611s, hash verified, operator one
+undamaged card/empty/no problems; Start scan db8fb40c exit0/one blank white
+1560x2160/2,312-byte original/10.504s, hash verified. Latest physical outcome
+question PENDING. No new feed authorized and no owned native context pending.
+All originals/SDK/process logs retained; physical boundaries/SDK sides UNKNOWN.
+No claim every prior clipping or startup failure is explained; #539/#542 remain open.
+
+Changed scope: website Card position selection, new batch default Center (same
+as generic CLI), explicit Start/Center/End preserved through queued requests and
+continuation. Existing helper SDK mapping unchanged. New browser owned-fixture
+test checks all positions/queued payloads/continuation and desktop+phone overflow;
+no helper/motor. Leaf had no local tsc dependencies; cumulative typecheck PASS.
+Component/test copied into authoritative cumulative review source, working branch
+local/acquisition-review-footer (base1db9024). Docker build session14850 RUNNING
+from that exact cumulative worktree. Do not build primary stale checkout.
+
+Next: wait same build14850, recreate local web only with exact existing Compose
+stack/no build, verify health and source provenance, run scanner-alignment browser
+fixture (MTG_LOCAL_PILOT_TEST=1). Fix/inspect any failure, then publish coherent
+batch to existing draft540. Preserve primary local mounts and stable worker config.
+Save durable outcomes after validation; merge only after explicit approval of540.
+Previous checkpoint statuses are historical and superseded here.
+## Current checkpoint: settings inspection completed; fresh loading pending
+
+Active leaf MTG-Archives-scanner-twain-footer / fix/scanner-twain-footer; draft
+#540 unapproved, published de476c8 docs head (a77ec64 four CI green).
+Empty UI session89481/run091950f0 actually returned exit0/COMPLETED/zero images/
+86725ms after operator Exit. No profile selected; Custom card dimensions as
+discussed, ADF front side,600dpi. No Scan was requested. All owned native contexts
+returned. Successful driver-window access does not qualify headless settings,
+physical acquisition or footer. Original SDK/worker and installed helper unchanged.
+
+Next private request cf6ccbf6-97fc-4548-aef5-5e3978b559d9 prepared NOT STARTED, default600/simplex2.6x3.6/
+Center, tested logging CLI. Request/status live under .local-data/footer-comparison.
+Fresh single-card powered/connected/clear-transport loading question PENDING.
+Only after explicit affirmative reply launch once, retain same context through
+actual return, preserve every original/log/manifest and get operator physical
+outcome. No automatic retry/refeed. No Inventory or Docker changes; #539/#542 open,
+#541 merged529closed. Latest note supersedes historical pending native statuses.
+## Active empty-feeder driver inspection — September 30, 2026
+
+Operator removed the test card and explicitly confirmed feeder/transport empty,
+powered on and connected. Fresh driver-ui inspection091950f0-1982-4249-becd-7edece5a486c
+uses the tested private-logging CLI build with original SDK/bundled worker. Tool
+session89481 is STILL RUNNING; acquisition-started event only so far. Preserve
+this SAME session until actual return. No scan/feed is authorized. Do not cancel,
+kill, dispose, replace or retry a native context merely because it is pending.
+
+Operator question pending: selected profile, exact Scan Type/page size/DPI,
+then Exit without changing settings or pressing Scan; report if no window appears.
+Next safe step is receive that report and poll write_stdin session89481. Retain
+all private logs/manifest/status. Completion cannot be inferred from UI closure.
+Draft #540 remains unapproved; a77ec64 had four green CI checks. New motor-free
+evidence/docs pending publication. Local Docker and installed helper unchanged.
+## Current scanner state — motor-free manager comparison, September 30, 2026
+
+Active leaf MTG-Archives-scanner-twain-footer, fix/scanner-twain-footer; PR #540
+is draft/unapproved. Published a77ec648f5451ddb98864835f1f10a0e4177e8bf has all
+four CI checks SUCCESS. #541 merged; #529 closed; #539 and #542 open.
+Operator reports card still in tray, ready to go after failed run2daaa32a;
+precise movement/dialog not stated. Original/SDK/process evidence preserved.
+No new physical acquisition occurred in this turn; installed helper/Docker unchanged.
+
+New private modern-manager readonly attempt4ff6deef failed before session open
+with DllNotFoundException: missing SDK-equivalent preload in probe construction.
+All prior files preserved. Corrected probe865dad1d preloaded the pinned x86 modern
+DSM, then source/session open+closeSuccess, exit0/state2, no setters/Enable/images.
+Readback: feederLoadedTrue, simplex600, centered2.6x3.6, crop/deskewFalse. Probe
+identity retained; NET Framework runtime differs from bundled worker. This narrows
+source access only, not actual SDK startup/configuration/Enable or footer integrity.
+Both native contexts actually returned; none remains pending. New probe files/logs
+remain private. Documentation-only update pending commit/push; no new code tests.
+
+Outstanding question: remove card, leave feeder+transport empty, confirm powered
+and connected for driver-window inspection. Do not open UI until that reply.
+Next safe step: one fresh driver-ui request with tested logging helper and original
+SDK/worker, empty feeder only; operator Exit without Scan; retain SAME context
+until actual return. No timeout/disposal/replacement or automatic retry/feed.
+Earlier checkpoint sections below are preserved historical snapshots.
+## Current checkpoint — restarted one-card diagnostic, September 30, 2026
+
+Active leaf: MTG-Archives-scanner-twain-footer, branch fix/scanner-twain-footer,
+PR #540 draft/unapproved, tested code head022b5cadf81c3083d654ac175d1fed40100f8bc5
+with all four CI checks successful. #541 merged; #529 closed; #539/#542 open.
+Latest scope adds private exception logging without changing public safe journals,
+SDK/worker or normal settings. Documentation now records its first physical use.
+
+Operator explicitly confirmed restarted; one test card loaded; transport clear.
+Read-only ce303a8e source/session open and close succeeded, exit0, no setters or
+Enable/images, feederLoadedTrue, simplex600, centered2.6x3.6 frame. One confirmed
+scan 2daaa32a-a1f6-4231-950e-25f63c2d8ce8 actually returned exit1/ERROR/zero images/
+897ms. Full private log: AlreadyHandledDriverException at TwainScanRunner.Init,
+no specific message/inner exception. Pinned SDK maps OperationError at source
+opening or enabling; host log cannot distinguish. Fatal0x80131506 not present
+in this attempt's process log; no recovery conclusion. No owned scan worker
+remains; no automatic retry, installed-helper replacement or Docker change.
+Original requests, manifests and all private logs preserved. No originals produced.
+
+Physical movement/dialog outcome question PENDING. Next safe step: receive the
+operator outcome; if a card remains, request removal before any new settings
+inspection. Do not infer physical count/exhaustion or reuse this loading approval
+for another scan. Continue offline source diagnosis without a new physical feed.
+All prior histories below are snapshots; this section supersedes pending statuses.
+## Simplex-profile acquisition failed; private error detail added; recovery pending
+
+September30,2026: freshunchangedhelper run02909a3e actually returnedexit1/ERROR/
+image0/1691ms. LogincludesFatalerror0x80131506; emittingchildPID/causeUNKNOWN,
+scopedWindowsworker eventquerymatched0. No owned diagnosticworker remains;
+no forcedstop/retry/refeed. Operatorconfirmscardstayedfeeder/no movement/dialog.
+Newdistinctacquisitionblocker issue542 OPEN, linked539/473/511/540; do not claim
+pre-existing4helper/workerpairs causedit. No footerqualification achieved.
+Read-onlyloadedfeeder probe d87a3a81-8fb5-4f7f-bc53-67d8ec256ec5 endedexit0/source+sessioncloseSuccess,
+noSet/Enable/images: feederEnabledTrue/LoadedTrue,duplexFalse,DPI600/customframe.
+This separateidentitycurrentreadbackisn'tactualacquisitiontrace.
+
+Publicdraft540 code now records exact acquisition exceptions only through the
+existing opt-in diagnostic logger; defaultNullLogger and sanitized journal/export
+remain. Closed/disk-failingprivate sink cannot suppresssafeerrorjournal. Separate
+Releasebuild .local-data/diagnostic-error-detail-check PASS0warnings/errors;
+hardware-freediscovery+diagnosticqualification PASS(default/private/closed/failed
+sink privacyguards). Originaldiagnostic-check andinstalledhelper untouched;
+SDKpackage/worker unchanged. Newbuild notusedonhardware. Tests/sourceuncommitted
+untilscopedreview/push; #540stilldraft/unapproved,541merged529closed.
+
+Askedoperatorremove card, powercycleEMPTY10secs,leaveempty/poweredconnected.
+Recoveryconfirmation PENDING; do notassumecompleted. Nextsafestep afterreplyone
+read-onlyreadinesssession with noEnable; preserve actualcompletion. Any laterfeed
+needsnewfreshsingle-card/transportconfirmation, notthepriorfailedload. Native
+errorloggingcanhelpthen; no automaticretry orSDK/runtime/recognition/Inventory/
+productionchange. StablelocalDockerapplicationunchanged; CLIbuildseparate.
+
+## Cards Simplex saved; motor-free continuity passed; fresh loading pending
+
+September30,2026: operator made profile and closed settings. Original session
+82300/a5d9d453 actually returnedexit0/COMPLETED/0images/825857ms; no activeowned
+native context. Prior screenCARDSduplex is retained; no card fed byinspection.
+Motor-free profile-continuity e632ae4a-d5a4-44db-aa92-8d5621cbef61 completedexit0/noEnable/noimages/
+source+sessioncloseSuccess/state2. It reads600dpi,duplexFalse and centeredcustom
+2.6x3.6 frame. Re-requestingduplexFalse preservedtheframe; customImageLayout.Set
+alsoSuccess and readbackpreserved. Unlikepreviousduplexprofile, noLegalreset.
+Separateprobeidentity/pre-enable evidence only; physicalfooterstillunqualified.
+
+Freshunchangedtestedhelper default600/simplex2.6x3.6/Center request 02909a3e-65a5-46ad-a7d8-fc68cb2de9f6
+is prepared NOTstarted. Originalhelper/SDK/worker hashesrecordedprivately; no
+privateworker/runtimevariant or installedhelperreplacement for thiscomparison.
+Loadingquestionpending: same1card, powered/connected, cleartransport. Onlyafter
+freshaffirmative replylaunchONCE, retainsamecontextuntilactualcompletion, preserve
+alloriginals/manifesthashes, inspectfooter, collectoperatorphysicalcount/outcome.
+Do not replay/auto-refeed or infer cardcount/exhaustionfromimagecount.
+#540draft0cb2038all4green/unapproved;541merged529closed. LocalDockerunchanged,
+noInventory/recognition/productionaction. Profilechangesareuser-operated.
+
+## Driver screenshot confirms Cards is duplex; separate simplex profile pending
+
+September30,2026: operator screenshot DocTwain shows profileCARDS, ScanType
+ADF(Duplex), PageSizeCards, displayed6.60x9.14cm (~2.6x3.6in),600dpi/24-bitColor,
+AutoCropoff, AutoDeskewunchecked/disabled, AutoRotateoff. AutoDensityon,
+brightness15/contrast35. Private screenshot copy+SHA retained. This explains two
+images from nativeUImanualscan, not all headless clipping or exact prior SDKstate.
+
+Original tested driver-ui inspection a5d9d453 remainsLIVE execSession82300.
+Revised operator instruction: with feederempty setADF(Simplex), save separate
+CardsSimplex profile preservingCARDS baseline/other displayedsettings, select it,
+noScan, Exit. Save/selection/windowclosure pending; don't assumecompleted.
+Nextsafe step resume SAMEsession82300 untilactualreturn afteroperatorExit; preserve
+originalmanifest/logs, then one motor-free before-enable readback to test whether
+simplexprofile avoids reset. No physicalfeed withoutnewfreshloadingconfirmation.
+#540draft/unapproved46e2a4f;541merged529closed. No helperinstall/Docker/Inventory/
+recognition/productionchange. Conditionstatussamplinglimitation remains recorded.
+
+## Empty-scanner probe complete; driver settings window inspection pending
+
+September30,2026. Operator reports previous private run's card stayed in feeder;
+motor movement/dialog remain UNKNOWN. Operator then removed card and confirmed
+feeder+transport empty, powered/connected. No new card feed authorized.
+Motor-free configuration run dbad6c14 endedexit0/noEnable/noimages/source+session
+closeSuccess/state2. Setting DPI600 before custom frame and SupportedSizes=None
+still left DAT_IMAGELAYOUT readbackLegal0/0/8.5/14. After None, both alternate
+DAT_IMAGELAYOUT and ICAP_FRAMES Set returnedFailure; ICAP_FRAMES current reported
+centered2.6x3.6 while DAT_IMAGELAYOUT reportedLegal. Original failure condition is
+UNKNOWN: private probe queried GetStatus AFTER successful readbacks, so its
+ConditionCodeSuccess is not authoritative for the preceding failing Set. Preserve
+trace unchanged; fix future status sampling before subsequent calls. No cause or
+compatibility change claimed. Probe is separate app identity, not shippingworker.
+
+Original tested .NET8/helper/SDK driver-ui empty inspection is LIVE in tool
+execSession82300. Request is cards-mode-inspection-request.json; status records
+freshUUID and intent. Operator asked to selectCards, read exact mode/page/DPI,
+no changes/saving or Scan, then Exit. No overlapping native/device operation.
+Next safe step: await operator window-close response and resume SAME session82300
+until actualreturn. Do not timeout/kill/dispose/restart or assume0images completion.
+Then preserve actualoutcome and reconcile settings, especially actualduplexmode.
+#540 head7b6fcda all4CIgreen remainsdraft/unapproved;541merged529closed.
+No installedhelper, Docker, production, recognition or Inventory change.
+
+## Private trace comparison completed with driver error; physical outcome pending
+
+September30,2026: freshly loaded-confirmed run48ae964f-1197-421a-a235-fdae771b3bbf
+executed ONCE in private runtime variant. External exit1, ERROR/image0/1545ms.
+Source open Success; before-configure frame centered2.95/0/5.55/3.6,600dpi,
+duplexTrue,crop/deskewFalse. After existing duplexFalse request, readback became
+Legal0/0/8.5/14 and200dpi. Existing custom-frame Set returnedSuccess but immediate
+readback remainedLegal. AfterConfigure dpi600/duplexFalse/frameLegal. Source.Enable
+returnedFailure/state4; normal unload returnedstate2. No transfer event/image.
+Original trace/events/run/process logs retained, SHA recorded privately.
+No private host/worker remains; no forced stop or automatic retry/refeed.
+
+Physical outcome question pending: whether card stayed in feeder without movement/
+dialog, moved/ejected or dialog appeared. Do not assume motor inactivity or empty
+transport from ERROR/noimages. No next feed authorized. Keep driver untouched until
+operator observation, then choose motor-free recovery/inspection as appropriate.
+This private runtime+state4-query variant is not exact bundled-worker negotiation
+or an isolated footer root cause. #540 stays draft; #541 merged,529closed. No
+installed helper, production, recognition, Inventory or local web change.
+
+## Private TWAIN trace ready; fresh loading confirmation pending, September 30, 2026
+
+Active branch fix/scanner-twain-footer, PR540 draft/unapproved, issue539 open.
+Approved PR541 is merged at main8aad8e43; issue529 closed. Draft540 integrated
+that main at c52fa9e; all four CI checks passed. Current local reviewed Docker
+application already matches main; no rebuild, installed helper or Inventory change.
+
+Center run c8e7afd8 completed exit0, one1365x1996 retained/hash-matched original;
+footer still clipped. Operator confirms one undamaged card, empty feeder/transport,
+no jam, double feed or dialog. No owned native operation is pending.
+
+Private pinned SDK8ae3e822 source-level tracing built successfully on existing
+.NET Framework x86 (net462 target), a runtime variant of bundled worker, not
+shipping code. All original scanner operations are mechanically preserved.
+The first patch omitted calls, was rejected before any hardware launch, and is
+retained unchanged privately. Corrected tracing cleanup cannot suppress original
+handle disposal. Five offline guards passed: opt-in disabled, synthetic metadata,
+CreateNew evidence preservation, relative-path rejection and active log failure.
+No scanner context or source was created by these guard tests.
+
+Separate host preserves tested agent/host SDK hashes; new worker stays under lib.
+First IPC-only bootstrap failed to start; exact log/status preserved, no cause
+claimed. Repeated with startup logging on unchanged worker passed, natural exit0;
+no source enumeration/open/Enable. Four pre-existing helpers/workers untouched.
+
+Fresh request 48ae964f-1197-421a-a235-fdae771b3bbf is prepared, NOT started, under private native-frame-trace.
+Asked for same single expendable card, powered/connected/clear transport.
+Next safe step: only after fresh affirmative loading reply, run private scan once
+with existing .NET8 host and diagnostic worker, default600/simplex2.6x3.6/Center.
+Preserve the same native session until real return; never timeout/cancel/refeed.
+Inspect all original images and trace, then ask physical outcome. Runtime variant
+and extra capability queries limit comparison to original worker; no footer fix
+or complete root cause claimed. Exact private paths/hashes/status are in staging,
+source-preservation, offline-guard, bootstrap and prepared-physical manifests.
+
+## Draft540 integration of approved main; private trace baseline built
+
+Integrating merged main8aad8e4 into draft540 after user individually approved541.
+Only historical WORK_CHECKPOINT conflicted; current preserved recovery checkpoint
+is retained, and incoming main541 checkpoint is also saved privately. All main
+application changes are kept. Center physical comparison remains completed/clipped;
+no native operation is pending and no further feed is authorized without fresh
+loading confirmation. Existing local Docker source proof passed; no web reload.
+Private native-frame-trace baseline SDK worker built with0warnings/errors using
+pinned8ae source, C#14 compiler package5.0.0 and EXISTING.NETFramework, x86.
+Source framework/entry annotation are private compatibility changes; this is a
+runtime variant, not the original bundled.NET10 worker. InitialC#12 attempt failed
+and is preserved. No helper installation/runtime installation or hardware call.
+Next add opt-in private intra-worker tracing and validate metadata/log guards
+without motors before proposing another separately confirmed physical comparison.
+PR540 staysdraft/unapproved; only541merge was approved. All originals preserved.
+## PR541 merged; Center TWAIN comparison completed, September30,2026
+
+User individually approved541 and freshloadedreadyCentercomparison. Verified541
+MERGED main8aad8e43d621e16d654a4043c2ac6d317467f2c8 after3greenCI; issue529 CLOSED
+withPRlink. CumulativeHEAD1db9024 application matches main; onlyscannerREADME
+4lines differs amongruntimepaths. Existinglocalwebacbf6db/source496/digest76ed2792
+verify:local-image PASS; no rebuild/reload/production/Inventory action forrelease.
+TWAINrun c8e7afd8 SAME67523 terminal0/COMPLETED1image11.644s; retainedba5d4e90
+1365x1996/6576091bytes/sha aa5a329e3f5e73524deb16dd42a04fe2409214e25e627ea9fff70df718a868b3
+manifestmatched, footerSTILLCLIPPED. Operator1undamaged/feeder+transportempty/
+nojam,double,dialog. No activeownednativecontext. Center didnotfixthiscomparison.
+PR540 remainsDRAFT eee0911/4green, notesupdateduncommitted. Nextsafe independent
+step investigate privatepinnedSDK-worker negotiation trace BEFOREanotherphysical
+comparison; nofeedwithoutfreshloadingconfirmation. Existing4helpers untouched.
+No installedhelper/recognition/Inventory/productionchange. Userapproval covers541
+only. Preserveall originalspools/privateprobes/checkpoints. Wiki release update next.
+## Draft review checkpoint: recovered driver, Center request pending, September30
+
+PublishedPR540 eee0911 all4CI PASS; latestpowerCyclemotorfree recovery evidence
+f097b52e logged/PRbodycurrent, detailednoteupdate uncommitted. PR541 ready89983ec
+CLEAN/all3green, individuallyunapproved. No pendingdiagnostic process/context.
+FreshactualCenterrequest c8e7afd8-7940-4c2c-83e6-ca4acc315de3 prepared-not-started,
+loadingquestionpending; do not launchwithoutreply. Driverbefore-enable readback
+is privateappidentity, notactualSDKconfiguration proof. NativeUIfullfooter but
+2 sidesof1physicalcard, actualmodeunknown. PriorheadlessStart clipped. Preserve
+allimages/logs; physicalcounter/side/sourceexhaustion unknown. Source settings
+were transiently configured byprivateprobes; installedhelper andweb unchanged.
+Next safe step onefreshCenter runafterloadingconfirmation; ifnativeerrorawait
+actualcompletion andoperatortransportobservations, noautomaticrefeed. Then
+inspectoriginal/footer andcollectphysicaloutcome. No Inventory/production action.
+## Power-cycle motor-free check complete; Center loading pending, September30,2026
+
+User confirmed restarted/powered/connected/empty. Privateprobe f097b52e exited0,
+source/session closeSuccess/noEnable/noimages. Initialframe2.95/0/5.55/3.6 persisted
+throughtransfer/indicator/feeder settings; CapDuplexEnabled=False changedreported
+frame0/0/8.5/14. Both Start2.6x3.6 and Center2.6x3.6 ImageLayout.Set returnedSuccess
+but readbackstayedLegal; resolution600, crop/deskewFalse, duplexFalse. This is
+privateapp state4 evidence, NOTactualpriorSDKscan frame or completecause proof.
+Prepared freshcards-center600 requestdefault600/simplex2.6x3.6/Center; NOTstarted.
+Fresh singlecard loading/power/connection/cleartransport questionpending. After
+replyrun existing.NET8/testedDLL ONCE, preserve/inspect original and actualnative
+completion, thenrequestoperator physicalobservations. No automated refeed,
+installedhelper/recognition/Inventory/production/web changes. Draft540eee0911,
+finaldocCIrefreshrunning;541ready89983ec/unapproved. FullTWAINfix notdelivered.
+## TWAIN driver error; empty-scanner recovery pending, September30,2026
+
+Operator confirmed nativeUI run1 physicalcard/undamaged/empty/nojamdouble;
+actual Simplex/Duplex selection UNKNOWN by operator recollection. All images
+preserved. Private32bitNTwain probe9c0c9148 readcrop+deskewFalse, duplexTrue,
+600dpi, frame2.95/0/5.55/3.6, systemoldDSMpath despitePreferNew. Probeidentity
+DIFFERS from actualSDK; not actualprior-scan config evidence. Configuration-only
+a2fb1c97 returnedSuccess for allstandardsettings, autoCrop/DeskewFalse, duplexFalse,
+600dpi but finalframe0/0/8.5/14; noEnable/noimages, closeSuccess/exit0. Transient
+standard driver settings were changed, installedcode unchanged. Probe trace
+807b7f31/66f98ed8 completedsource-openerrors/exit5 (secondOperationError), sessions
+closed. FirstprivateProbeFinished0 isinstrumentationbug; externalexit5 authoritative.
+ExistingSDKemptyinspection1efb4694 endedERROR/AlreadyHandledDriverException,
+0images850ms/exit1. No pending ownednativeoperation, no forcedkill/refeed.
+User sawnoerrorDialog and confirmspowered/connected. Asked to powercycleempty
+scanner10sec then leaveempty; replypending. Fourpreexistinghelpers/workersstable,
+notchanged; no causalityclaim. Next oncefreshreply: ONE motor-free source check;
+if recoveredtrace standardframe/readback before any newcard-loadconfirmation.
+Docs updates uncommitted beyondpublished4674b76/all4CIgreen. PR540draft;541ready
+unapproved. Local Docker/helper install/recognition/Inventory/production unchanged.
+## TWAIN evidence published; operator reconciliation pending, September30,2026
+
+PR540 draft head4674b76eec8784bd41ece550d01348a5fd7faceb publishes completed
+Cards-selected headless and driver-window comparisons. Documentation only;
+tested diagnostic assembly/code/packages unchanged. Final-head4CI checks running
+at last verification. PR body reconciled. Hub records full-footer driver-window
+result and headless clipping without a fix/fallback claim. No native context is
+pending; both14772 and55750 exited0. Operator physical outcome and actualSimplex/
+Duplex recollection question remains pending for the driver-window2-image run.
+PR541 READY89983ec remains individually unapproved. Localwebacbf6db unchanged.
+Next safe step: receive operator reply, reconcile side-count evidence, and continue
+bounded headless frame/automatic-option diagnosis; no physical refeed without a
+fresh loaded-card/clear-transport confirmation. Preserve all originals/logs.
+## Driver-window TWAIN comparison complete, September30,2026
+
+SAME14772 terminal0; run8f2f27ff-2708-4651-af36-796ae9327111 SDK completed2 images
+in23.782s. Both1560x2160originals retained; front completefooter/back present;
+both SHA256 equal manifests. Operator reports verifiedCards/fixed2.6x3.6/
+simplex600/crop+deskewOFF/Scanonce/Exit. Physical outcome and simplex-vs-two-sides
+recollection question pending. Native UI bypasses SDK standard feeder/frame/DPI
+configuration; this is a useful controlled difference, NOT a qualified automated
+footer fix or safe fallback. Headless prior77e1873f still clips. No further feed
+or pending native context. Preserve originals/extra image; actual SDK side and
+exhaustion UNKNOWN. Next safe step: reconcile operator reply, record evidence in
+PR540/docs/wiki, then inspect bounded headless frame/automatic-option negotiation.
+PR541ready remains individually unapproved. Local Docker/helper unchanged.
+## Live Cards driver-window comparison, September30,2026
+
+User freshly confirmed1 card loaded, connected/powered, transportclear. Opened
+prepared driver-ui run8f2f27ff-2708-4651-af36-796ae9327111 via tested.NET8 DLL,
+exec14772 pending actual native completion. User asked verify Cards/fixed2.6x3.6/
+simplex600/AutoCrop+DeskewOFF, Scan ONCE then Exit; reply pending. Preserve SAME
+14772; no new scan/context/timeout cancellation/disposal or assembly replacement.
+After reply poll SAME14772, inspect retained image/footer and collect operator
+physical observations. Prior headless comparison77e1873f completed1 clipped image,
+operator confirmed1undamaged/empty/noissues. Both drafts remain unapproved;
+541ready/540draft, localweb unchanged. No production or Inventory operation.
+## TWAIN Cards-selected headless comparison completed, September30,2026
+
+Fresh operator-loaded same Sunblade Samurai; run77e1873f-5504-4062-adbf-bd1943535d9b
+SAME55750 terminal0/normal SDK completion1 image in13.110s. Preserved original
+1366x1989/6443747bytes/sha1e7f5a92f5c7fea5d1b76e6ca1231f550ffd46328418dfba897fd1d0579e1153
+still visibly clips footer. Operator confirms1 undamaged/feeder+transport empty/
+no jam,double,dialog. Requested/negotiated config and SDK exhaustion unknown.
+Pinned SDK headless ConfigureSource writes frame/DPI; nativeUI bypasses those
+settings. Next controlled driverUI scan request prepared, NOT launched; fresh
+loading/clear transport question pending. After reply open same tested.NET8 DLL
+with driver-ui mode ONCE, have operator verify Cards/fixed2.6x3.6/simplex600/
+AutoCrop+DeskewOFF before Scan once, then Exit; await actual native completion,
+preserve original/inspect footer and ask physical observations. No auto-refeed,
+helper install/web rebuild/recognition/Inventory/production changes. PR540 stays
+DRAFT, PR541 READY remains individually unapproved. Cumulative web unchanged.
+## Cards profile inspection complete; physical loading pending, September 30, 2026
+
+User confirms Cards selected and settings window closed. SAME93822 terminal0;
+run0f51effd-8f59-4c5a-8d58-6e8328594c78 reports AcquisitionCompleted with0 images,
+no ImageReceived, nativePID3708 absent. Normal SDK completion is proven; physical
+exhaustion/negotiated settings remain unknown. Prior reboot evidence retained.
+New headless TWAIN600/default comparison request prepared under a fresh UUID;
+NOT started. Asked for exactly one expendable card (same Sunblade Samurai ideally),
+connected/powered and clear transport. Must receive fresh loading confirmation
+before this feed. Keep no UI/native/recognition rewrite and retain originals.
+PR540 draft32f04c8 all4green; PR541 READY89983ec/all3green remains unapproved.
+Local webacbf6db/source496/76ed2792 unchanged; no production/Inventory action.
+Next safe step: fresh loading reply, execute this single request once, inspect
+preserved original/footer, then request operator card-count/transport observations.
+
+## Current review handoff, September 30, 2026
+
+PR541 READY89983ec/base main/all3CIgreen, loaded local2/2 browser/1366+320
+inspection/owned cleanup/source proof pass. CumulativeHEAD1db9024, exact healthy
+webacbf6db/source496/digest76ed279253a775c2bb71bb2b89aae7bdf8271f1f9dda31e648dfffe65c51ba54.
+PR540 DRAFT32f04c8/base main/all4CIgreen; profile/frame diagnosis unfinished.
+Live empty-feeder driver-ui run0f51effd-8f59-4c5a-8d58-6e8328594c78,
+exec93822/nativePID3708 remains pending/no image at last check. User saved Cards;
+active profile/exact2.6x3.6/simplex600/crop+deskewoff/Exit confirmation pending.
+Next resume SAME93822 after actual close; no timeout/disposal/restart or physical
+comparison before fresh one-card load/clear-transport confirmation. Both PRs
+remain individually unapproved. No production or Inventory operation. Full
+scanner goal incomplete. User notification:541 ready;540 awaits operator step.
+
+## TWAIN settings inspection active after restart, September 30, 2026
+
+- User resumed both drafts after approved main0d1d18a. PR540 base main,
+  independently unapproved; no #541 dependency. Native diagnostic source
+  unchanged by this main integration. Active assembly is private diagnostic-check;
+  do not rebuild/replace it while inspection is active.
+- User restarted laptop and had not changed fixed settings. Original87961 context
+  unavailable; its runa122fece evidence retained, not treated as graceful completion.
+- Fresh user confirmation: Plustek connected/powered, feeder/transport EMPTY.
+  New diagnostic0f51effd-8f59-4c5a-8d58-6e8328594c78 runs in session93822.
+  Default executable first failed before SDK due absent global.NET8; corrected
+  launch uses existing scanner-backend/.local-data/dotnet runtime. No install.
+- User saved profile Cards and custom page size Cards. Active selection, exact
+  2.6x3.6/simplex600/crop+deskewoff and Exit WITHOUT Scan confirmation are pending.
+  Latest retained log only AcquisitionStarted; no image. Do not timeout, kill,
+  dispose or restart the pending native context as if complete. Poll SAME93822.
+- Once actually closed, inspect retained result and preserve all evidence. A
+  physical comparison requires fresh one-card loading/clear-transport confirmation.
+- Separate PR541 READY89983ec/all3green after local2/2 browser and1366/320 visual
+  checks, exact cumulative webacbf6db/source496/76ed2792 healthy, owned cleanup0.
+  No merge or production approval for either draft. Four installed helper services
+  and workers existed after reboot; diagnostic is separate, no saved credentials
+  are read/printed/resumed by this task. No installed helper replacement.
 
 ## Draft work resumed, September 30, 2026
 
@@ -32,94 +482,56 @@ motor until separate fresh loading authorization. Preserve prior run evidence.
 
 ## USER REQUESTED PAUSE, September30,2026
 
-- Stopgoalworkuntilresume. Application/tests/docs committedbf08978, pushed as
-  draftPR541 on528. Thischeckpointuncommittedsavedlocally. AllPRsunapproved.
-- Finalcore744/type/lint/disposable61636pass; updatedtwoUIcasespending. BothCI
-  DBchecks green,corelastpending. Cumulativecherry0b54ef5 source NOTloaded.
-- Cumulative typechecksession57904 terminal2 stale sharedgeneratedPrisma lacking
-  discoveryIssues. Dockerbuildnotstarted. Regeneratefromcumulativeschemaonresume,
-  then type/buildonlycumulative; runningreviewimage6460e4a remainsunchanged.
-- IndependentTWAIN540draft9e55848/on536all4CIgreen. NativeUIexec87961LIVEawaits
-  userfixedsettings/screenshot/Exit, noimage, lastconfirmedemptyfeeder/transport.
-  No kill/timeoutascompletion ormotorwithoutfreshconfirmation. Nohelperupdate,
-  merge/production/Inventorychanges. Goalpausedbyuser, notblocked/completed.
+- Explicitpause; stopgoalworkuntilresume. DraftPR5409e55848/on536 all4CIgreen;
+  checkpointupdatesremainuncommittedlocally. Nofooterfixclaimed/mergeapproval.
+- NativeUIexec87961/runa122fece stillLIVEonlastpoll, vendorwindowopen/noimage.
+  Lastoperatorconfirmedfeeder/transportEMPTY. UseraskedfixedCustom2.6x3.6,
+  simplex600/crop+deskewoff,screenshotthenExitwithoutScan. Responsepending.
+  Poll SAMEhandleonresume; do notkill/restart/claimtimeoutcompletion. No physical
+  scanuntilfreshloadingconfirmation. ExistingdriverwindowmaycloseviaExit.
+- Normalwebsite/helperbehaviorunchanged. New541draftbf08978 sourcecherriedto
+  cumulative0b54ef5 butNOTloaded. Types57904 terminal2 stalegeneratedPrisma
+  discoveryIssues; Dockerbuildneverstarted. Regenfromcumulativeschemaonresume.
+- Runningwebstilltested6460e4a/appbc7bf74/495/c0090fc4. All18prior+540+541PRs
+  individuallyunapproved. No merge/deploy/helperinstall/Inventorywrite.
 
-## User scan clipping steering; preserve rejected Start leaf, September30,2026
+## TWAIN footer steering and live diagnostic window, September30,2026
 
-- Final disposable rerun61636 terminal0: inactive-user and full persisted
-  acquisition34.201s/shared-import41.220s PASS; ownedcontainer/volume cleaned.
-  Browser/cumulative gate still pending; scanner steering takes priority.
+- Investigation batch9e55848 pushed as draftPR540 on536; all4CI pending. No
+  footer fix claimed. Controlled diagnostics build445f7d passed all3helper
+  selftests plus5transport; invalid CLI/replay preserves log/no run. Help-string
+  update after that build is minor; CI covers final committed source.
+- User screenshot plustek.png shows AutomaticSize/AutoCrop/AutoDeskew enabled,
+  ADFduplex200DPI in nativeUI. NativeUI bypasses headless frame/DPI setup; this
+  is evidence of vendor defaults, not proof of exact headless negotiated state.
+  User asked to selectCustom2.6x3.6/simplex600/crop+deskewoff then screenshot and
+  Exit withoutscan. Answer pending;87961 stillLIVE/windownoimage. No newfeed.
 
-- This leaf remains uncommitted and not loaded while the user reviews the stable
-  cumulative app. Final core82134 passed744 units, generation/typecheck/build;
-  finaltype/lint78959 passed. Updated two browser cases (lost retirement ACK and
-  accepted native START adoption) are not yet run. New inactive-user integrity
-  assertion needs final disposable rerun/CI; earlier integrity58035 passed.
-- User's latest5 local TWAIN600 originals already clip the footer. All5 spool
-  hashes equal website original hashes. Issue539, separate leaf
-  MTG-Archives-scanner-twain-footer/fix/scanner-twain-footer on536700ca54.
-  Do not turn that diagnostic work into recognition changes or a529 dependency.
-- Fresh authorized WIA600 test preserved complete footer; user confirmed one
-  undamaged card/no problems/empty transport. Same-card TWAIN native and oldDSM
-  tests still clip; oldDSM physical confirmation pending. Originals private.
-  No app rebuild/reload, helper replacement, Inventory change or production use.
-- Stable cumulative62ae751/appbc7bf74/image6460e4a/495/c0090fc4. Each18 PR remains
-  individually unapproved. Full goal ACTIVE/incomplete;529 remains resumable.
-
-## User returned for review; rejected Start implementation gate, September30,2026
-
-- User is now available and requested the full review rundown. Keep the tested
-  cumulative app62ae751/appbc7bf74 healthy/image6460e4a/495/c0090fc4 ready; do not
-  represent this leaf implementation as already loaded. Every18 PR remains
-  individually unapproved; latest live checks successful (488 also old cancelled).
-- Leaf fix/scanner-rejected-start on528ba0d653 implements request retirement,
-  existing appdata control-file hashed identity marker, per-creation-phase
-  transaction guards/advisory lock, partial-empty cancellation and accepted-batch
-  adoption. No schema/native/image/recognition/Inventory path changes. Uncommitted.
-- Corrected UI baseline14.6s fails missing Change scanner setup. Initial baseline
-  strict alert locator was fixture error; second timed out then cleanup skipped.
-  One exact empty owned fixture account manually cleaned; final baseline cleans.
-  All three retained separately in cumulative .local-data/scanner-rejected-*.
-- File evidence test1/1 passes. Typecheck corrected after shared Prisma generated
-  older UI schema; fixture types fixed. First integrity5877 terminal1: advisory
-  queryRaw couldn't deserialize PostgreSQL void. Now executeRaw; second integrity
-  58035 terminal0: persisted32.3s/shared import41.5s, all scoped cleanup passed.
-- Three creation phase test proxy initially counted helper-list transaction too;
-  corrected offset. New verifier hooked into existing disposable acquisition/CI
-  path. Type/lint48940 terminal0; file36143 terminal0; types5186 terminal2 fixture
-  enums/union before correction. Need rerun finaltype/core after finalsource.
-- Next finish integrity2, resolve concrete failures, broaden actual retired/late/
-  rejected/partial ownership+START/slot proof, UI acceptance only after coherent
-  PR/cumulative sourcebuild. No PR for529 yet. Primary mounts only. No merge,
-  production, helper install or motor. Last feeder EMPTY; new loading unanswered.
-- User can review stable local Scan cards now. Current staged download helper
-  0.3.7; installed0.3.5/stopped, don't resume production connection credentials.
-  Full goal remainsACTIVE/incomplete; give all18PR explanations to returned user.
-
-## Next batch: rejected scanner Start recovery, September30,2026
-
-- PR538 READY fddf3d1, all3 freshCI green. App9837212,cumulative62ae751
-  (appbc7bf74),495inputs/digestc0090fc4a44f76e8129c3cc6a5bdf156872ae78787da87a943017ec755441a98,
-  healthy exact image6460e4a56c13d1a9aeca18fa4b8592018c7161b52eba9fc8ca71dbafb8748b68.
-  All build/reload/core/type/lint/browser handles terminal0;3/3 browsers passed;
-  fixture users/players0,helper/nativeworkers0; no motor/install/production/merge.
-- New isolated MTG-Archives-scanner-start-recovery/fix/scanner-rejected-start
-  on individually unapproved528ba0d653; node_modules junction to cumulative.
-  NO implementation/test yet. No535/536 or UI538 dependency in this leaf.
-- Issue529 code audit: immutable pending Start keeps form locked after definite
-  rejection/partial session without ScannerRun. Missing run is not no-feed proof.
-  createScannerBatch currently helper check -> independent acquisition creation
-  -> independent acquisition START command -> scannerRun transaction. A late
-  original request can race a proposed abandonment; UI-only clear/new UUID unsafe.
-- Next read goal/Foundry/leafAGENTS/CODEX/live529/528, reproduce capacity rejection
-  and owned partial session/late create with fakeagent and no motor. Determine
-  bounded serialized durable request retirement retaining original namespace,
-  payload/epoch/owner/START/artifact proof; no design chosen/implemented yet.
-  Keep drafts/source/recognition stack independent; cumulative local proof only.
-- Full attached scanner audit goal ACTIVE/incomplete. Fresh one-card loading
-  unanswered, last feeder EMPTY; physical600/USB/cleanhost/distribution gates
-  remain. Approval queue488,491,495,513,514,516,517,519,521,523,525,526,528,
-  531,533,535,536,538; every individual PR unapproved. No scheduler claimed.
+- User reports5 fresh local scans clip footer. Authoritative cumulative remains
+ 62ae751/appbc7bf74/image6460e4a/495/c0090fc4; do not rebuild stale primary.
+ All18 prepared PRs individually unapproved. #529 uncommitted leaf preserved
+ separately; finalcore744/type/lint pass, finalinactiveproof/browser pending.
+- New issue539, isolated fix/scanner-twain-footer on536700ca54. CLI-only SDK
+ modes/private logger added; website/helper installed behavior unchanged.
+ All5 latest spool/server originals hash-match and already clip footer; existing
+ Card scan preview simply scales. Their requestedTWAIN600 frame2.6x3.6/Start
+ cannot be claimed negotiated. No recognition changes or Inventory writes.
+- Authorized fresh WIA600 single0b91a6a6 PASS1560x2031/fullfooter/7.503s.
+ User confirms1undamaged/nojam/double/dialog/empty. Same-card TWAIN Native
+ modern fde55b26 FAIL1367x2000/9.941s and oldDSM7dd8dfe2 FAIL1366x1997/9.840s;
+ each1undamaged/noissues. SDK requested settings do not prove actualtransfermode.
+- User explicitly wantsTWAIN troubleshooting, not simplyignoringit. PinnedSDK
+ exactsource lacks automaticbordercrop control/negotiatedlayout result. Driver
+ templateAutoCrop1 is a clue, NOT proof oflive setting. Originalspreservedprivate.
+- User confirmedemptyfeeder/transport; driver-ui diagnostic a122fece opened.
+ execsession87961 is LIVE awaiting vendorwindow close. Noimage received yet.
+ Screenshotquestion pending; usertoldleaveScanuntouched. Do NOT build thisleaf
+ whileitsassembly/nativewindowactive or assumecompletion. Pollsame87961 after
+ usercloses. No subsequentmotor withoutfreshloadconfirmation.
+- BuildbeforewindowPASSclean; discoveryselftestPASSbeforelastdiagnosticchecks.
+ Latest CreateNew-private-log replayguard/newdiagnosticselftest notyetbuilt.
+ Finishchecks/docs, coherentPR separatefrom529. No merge/production/helperupdate.
+ GoalACTIVE/incomplete; physicalwindowneedsuser, independentworkcancontinue.
 ## Bulk preview accepted locally, September30,2026
 
 - PR538 on individually unapproved533; app9837212, cumulativebc7bf74. Corrected
@@ -3201,6 +3613,5 @@ Next safe step: investigate #260 with repeated browser lifecycle runs and creden
 - Compatible private recovery capture: `.local-data/backups/drill-e7b779ba-5758-4b40-aa32-b762d9d46bd3`. Older PG18 capture `drill-e171be3b-98c3-403e-87ce-2f3aa99ca6af` is failed evidence, not a verified backup.
 - Recovery archive excludes separate pricing DB/configuration/master key. Filesystem copy is not atomic with DB replacement. Revoke restored AuthSession records before exposing a restored web server; see AUTH_SESSIONS.md.
 - Read Foundry hub/workflow/relevant notes before batches. Durable knowledge goes there; code/test evidence in repo/GitHub.
-
 
 

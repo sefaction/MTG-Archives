@@ -60,6 +60,18 @@ node --test tools/scanner-agent/transport.test.mjs
 
 ## Stop and cancel
 
+For a controlled local investigation only, `scan-diagnostic <request.json>
+<private-spool-root> default|memory|native|native-old-dsm|driver-ui` keeps the
+same backend/spool and saves an explicit private SDK log. Normal website runs
+do not inherit these modes. Every physical attempt needs a fresh operator
+loading confirmation and run UUID; no mode automatically retries. Use an empty
+feeder/transport for driver-ui inspection and close without pressing Scan.
+Caught acquisition exceptions, including full message/inner context, are retained
+in that opt-in log. A closed or failing private log does not suppress the safe
+error journal. Default website diagnostics still omit messages and paths.
+Logs may contain native paths/device details and must not be published.
+See [TWAIN footer investigation](../../docs/SCANNER_TWAIN_FOOTER.md).
+
 The tested SDK has no distinct public graceful feeder-stop method. **PS286 WIA cancellation after image 1 emitted two cards and left a third partly transported.** No damaged cards were reported after manual clearance, but one emitted card had no returned image.
 
 - `stop.request` inside the active run directory calls `RequestStop`. By default it records unsupported graceful stop and allows the current feeder run to drain. It does **not** promise a capacity limit.

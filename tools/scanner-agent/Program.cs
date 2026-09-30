@@ -4,21 +4,31 @@ using Mtg.Scanner;
 try
 {
     if (await ScannerConnection.Run(args)) return;
-    if (args.Length == 0 || args[0] is not ("list" or "list-wia" or "caps" or "scan"))
-        throw new ArgumentException("Commands: list | list-wia | caps <device-id> | scan <request.json> <private-spool-root>");
-    using IScannerBackend backend = new Naps2Backend(args[0] == "list-wia" ? "Wia:" : null);
+    if (args.Length == 0 || args[0] is not ("list" or "list-wia" or "caps" or "scan" or "scan-diagnostic"))
+        throw new ArgumentException("Commands: list | list-wia | caps <device-id> | scan <request.json> <private-spool-root> | scan-diagnostic <request.json> <private-spool-root> <mode>");
+    var scan = args[0] is "scan" or "scan-diagnostic";
+    if (scan && args.Length != (args[0] == "scan-diagnostic" ? 4 : 3))
+        throw new ArgumentException("scan-diagnostic <request.json> <private-spool-root> default|memory|native|native-old-dsm|driver-ui");
+    var scanRequest = scan ? JsonSerializer.Deserialize<ScanRequest>(File.ReadAllText(args[1]), RunSpool.Json)
+        ?? throw new ArgumentException("Missing request") : null;
+    using var diagnosticLog = args[0] == "scan-diagnostic"
+        ? new StreamWriter(new FileStream(Path.Combine(Directory.CreateDirectory(args[2]).FullName,
+            $"{scanRequest!.RunId}.private-sdk.log"), FileMode.CreateNew, FileAccess.Write, FileShare.Read)) : null;
+    using var adapter = new Naps2Backend(scanRequest?.DeviceId ?? (args[0] == "list-wia" ? "Wia:" : null));
+    if (diagnosticLog != null) adapter.ConfigureDiagnostic(args[3], diagnosticLog);
+    IScannerBackend backend = adapter;
     var devices = await backend.ListDevices();
     if (args[0] is "list" or "list-wia")
         Console.WriteLine(JsonSerializer.Serialize(new { backend = Naps2Backend.Describe(), devices }, RunSpool.Json));
     else if (args[0] == "caps" && args.Length == 2)
         Console.WriteLine(JsonSerializer.Serialize(new { backend = Naps2Backend.Describe(), device = devices.Single(d => d.Id == args[1]), capabilities = await backend.GetCapabilities(args[1]) }, RunSpool.Json));
-    else if (args[0] == "scan" && args.Length == 3)
+    else if (scan)
     {
-        var request = JsonSerializer.Deserialize<ScanRequest>(File.ReadAllText(args[1]), RunSpool.Json)
-            ?? throw new ArgumentException("Missing request");
+        var request = scanRequest!;
         var caps = await backend.GetCapabilities(request.DeviceId);
         await backend.Prepare(request);
-        using var spool = new RunSpool(args[2], request, new { description = Naps2Backend.Describe(), capabilities = caps });
+        using var spool = new RunSpool(args[2], request, new { description = Naps2Backend.Describe(), capabilities = caps,
+            diagnosticMode = diagnosticLog != null ? args[3] : null });
         using var monitor = new CancellationTokenSource();
         ConsoleCancelEventHandler handler = (_, e) => { e.Cancel = true; backend.Cancel("operator Ctrl+C"); };
         Console.CancelKeyPress += handler;
