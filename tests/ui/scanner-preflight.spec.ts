@@ -90,6 +90,11 @@ test("queued scanner errors explain recovery and clear after authorized start; c
     const setup = page.getByRole("region", { name: "New scan batch" });
     await expect(setup).toContainText("5 spaces remain.");
     await expect(setup).toContainText("Batch defaults: foil · LP");
+    for (const width of [1366, 320]) {
+      await page.setViewportSize({ width, height: 900 }); await setup.scrollIntoViewIfNeeded();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ path: `test-results/scanner-continuation-${width}.png` });
+    }
     // Refresh changes capacity, never the user's source/destination or START.
     database(`const n=${JSON.stringify(tag)};await p.card.create({data:{id:n+'-capacity',scryfallId:require('crypto').randomUUID(),name:n,typeLine:'Basic Land',setCode:'tst',collectorNumber:'1',rarity:'common'}});await p.inventoryItem.create({data:{cardId:n+'-capacity',currentOwnerId:n,originalOpenerId:n,locationId:n,quantity:1,condition:'NM',sourceType:'MANUAL'}});await p.inventoryLocation.update({where:{id:n},data:{storageLayout:{capacity:1,sections:[]}}});`);
     await setup.getByRole("button", { name: "Refresh capacity", exact: true }).click();

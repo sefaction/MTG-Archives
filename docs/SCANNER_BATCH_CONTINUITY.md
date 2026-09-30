@@ -39,7 +39,11 @@ operated by this case.
 The first database run exposed a fixture that accidentally copied its prior
 manual quantity while expecting an unbounded target. The fixture now sends
 quantity=null as the feeder UI does; the failure is retained privately. Test
-definitions alone are not acceptance; results are in the PR/checkpoint.
+definitions alone are not acceptance. The disposable acquisition/import rerun
+passed with owned cleanup. The healthy loaded browser case passed1/1 in24.3s,
+and source verification, typecheck/lint and both focused tests passed. Desktop/
+320px setup images are captured by the fixture; final visual results/hashes are
+in the PR/checkpoint.
 
 Larger-list interaction, physical USB/600DPI task acceptance, source-driver
 isolation and public package/clean-host gates remain separate work. Recognition
