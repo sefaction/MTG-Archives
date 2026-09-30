@@ -20,7 +20,7 @@ export const scannerBatchSchema = z.object({
   deviceId: z.string().min(1).max(256),
   locationId: z.string().min(1).max(200), section: z.string().max(100),
   quantity: z.number().int().min(1).max(5000).nullable(),
-  loadedCount: z.number().int().min(1).max(500),
+  loadedCount: z.number().int().min(1).max(500).nullable(),
   settings: scannerSettingsSchema,
   operatorLoadedSimplexFronts: z.literal(true),
 }).strict();

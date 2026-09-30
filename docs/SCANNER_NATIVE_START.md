@@ -1,5 +1,45 @@
 # Native scanner batch delivery
 
+## September 29 feeder and review revision (local validation)
+
+The next scanner/review batch follows the user's local test of the PS286. New
+runs default to 600 DPI; 300 remains an option. The normal simplex command
+feeds until the source returns naturally. It no longer asks for a loaded-card
+count or a second emitted-card count. The destination's remaining capacity is
+shown before START and checked at claim; any captured overflow remains saved
+but cannot be silently committed. Stop still drains and does not promise
+stop-at-N. Existing counted runs keep their original reconciliation behavior.
+
+On a clean natural end, the site records an explicit **one retained front image
+per card assumption** and marks the associated physical candidates counted.
+This is based on complete, sequenced, ready originals and a matching candidate
+count, not on SDK sheet boundaries or a device counter. A double feed without
+an image or native error could still go undetected. Errors, stops, missing
+transfers and inconsistent candidates retain the manual reconciliation path;
+originals remain recoverable. No scanner helper commits Inventory.
+
+New batch review defaults are nonfoil and near mint, with per-card overrides.
+When catalog metadata says a proposed printing supports exactly one finish,
+that sole finish is preselected for the card (for example, foil only). Ambiguous
+multi-finish printings retain the batch default if valid and otherwise need
+individual correction.
+Bulk Confirm Match previews every current proposal selected by default and
+shows source/printing images before saving reviews. It uses the existing
+revision-checked review command for each selected card and reports failures;
+the separate Inventory confirmation remains mandatory. The side-by-side
+review images are larger on desktop. Recognition accuracy and thresholds are
+unchanged.
+
+The user also reported a Plustek `TWAIN_Proxy.exe` runtime dialog after
+connection. Five local helper services and more than 900 NAPS2 workers were
+observed; after the user confirmed no scan was active, only those helper
+services and their workers were stopped. WIA-only discovery created zero TWAIN
+workers. The revised helper reuses one discovery backend, caches TWAIN sources
+for that backend's lifetime, and avoids TWAIN worker startup for a selected
+WIA run. This reduces repeated driver calls; it does not prove that the
+Plustek TWAIN driver itself is fixed. See #511. The installed helper has not
+been replaced yet.
+
 Current implementation branch: `feat/native-scanner-runs`, based on separately
 unapproved #502 and #474. Tracking #501/#311. Recognition #463 remains
 open/deferred. No production operation.

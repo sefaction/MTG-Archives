@@ -23,6 +23,8 @@ public sealed class Naps2Backend : IScannerBackend
     private string? cancelReason;
     private bool started;
     private bool closed;
+    private readonly string? selectedDeviceId;
+    private List<ScanDevice>? twainDevices;
     public static object Describe() => new
     {
         agentVersion = ScannerConnection.Version, backendVersion = "0.1.0-spike", backend = "naps2-windows",
@@ -36,9 +38,12 @@ public sealed class Naps2Backend : IScannerBackend
         dsmPreference = "modern-32-bit; loaded DSM version not exposed",
         runtime = RuntimeInformation.FrameworkDescription
     };
-    public Naps2Backend()
+    public Naps2Backend(string? selectedDeviceId = null)
     {
-        context.SetUpWin32Worker();
+        // WIA never needs the x86 TWAIN worker. Avoid starting the vendor proxy
+        // merely to prepare a WIA run. Discovery caches TWAIN for this backend
+        // lifetime rather than repeatedly invoking the driver every pulse.
+        this.selectedDeviceId = selectedDeviceId;
         controller = new ScanController(context) { PropagateErrors = true };
     }
     public async Task<IReadOnlyList<Device>> ListDevices()
@@ -48,8 +53,19 @@ public sealed class Naps2Backend : IScannerBackend
         {
             ObjectDisposedException.ThrowIf(closed, this);
             if (started) throw new InvalidOperationException("Acquisition is active or already used");
-            devices = await controller.GetDeviceList(Driver.Twain);
-            devices.AddRange(await controller.GetDeviceList(Driver.Wia));
+            if (selectedDeviceId is not null && !selectedDeviceId.StartsWith("Wia:", StringComparison.Ordinal) &&
+                !selectedDeviceId.StartsWith("Twain:", StringComparison.Ordinal))
+                throw new ArgumentException("Unknown scanner source identity");
+            devices = [];
+            if (selectedDeviceId is null || selectedDeviceId.StartsWith("Twain:", StringComparison.Ordinal)) {
+                if (twainDevices is null) {
+                    context.SetUpWin32Worker();
+                    twainDevices = await controller.GetDeviceList(Driver.Twain);
+                }
+                devices.AddRange(twainDevices);
+            }
+            if (selectedDeviceId is null || selectedDeviceId.StartsWith("Wia:", StringComparison.Ordinal))
+                devices.AddRange(await controller.GetDeviceList(Driver.Wia));
             return devices.Select(d => new Device(Key(d), d.Name, "naps2-windows", d.Driver.ToString())).ToArray();
         }
         finally { lifecycle.Release(); }

@@ -4,11 +4,11 @@ using Mtg.Scanner;
 try
 {
     if (await ScannerConnection.Run(args)) return;
-    if (args.Length == 0 || args[0] is not ("list" or "caps" or "scan"))
-        throw new ArgumentException("Commands: list | caps <device-id> | scan <request.json> <private-spool-root>");
-    using IScannerBackend backend = new Naps2Backend();
+    if (args.Length == 0 || args[0] is not ("list" or "list-wia" or "caps" or "scan"))
+        throw new ArgumentException("Commands: list | list-wia | caps <device-id> | scan <request.json> <private-spool-root>");
+    using IScannerBackend backend = new Naps2Backend(args[0] == "list-wia" ? "Wia:" : null);
     var devices = await backend.ListDevices();
-    if (args[0] == "list")
+    if (args[0] is "list" or "list-wia")
         Console.WriteLine(JsonSerializer.Serialize(new { backend = Naps2Backend.Describe(), devices }, RunSpool.Json));
     else if (args[0] == "caps" && args.Length == 2)
         Console.WriteLine(JsonSerializer.Serialize(new { backend = Naps2Backend.Describe(), device = devices.Single(d => d.Id == args[1]), capabilities = await backend.GetCapabilities(args[1]) }, RunSpool.Json));

@@ -213,6 +213,7 @@ public static class ScannerConnection
             ConsoleCancelEventHandler handler = (_, e) => { e.Cancel = true; stop.Cancel(); };
             Console.CancelKeyPress += handler;
             IReadOnlyList<Device> devices = [];
+            using IScannerBackend discoveryBackend = fixture ? new ScannerFixtureBackend(args[2]) : new Naps2Backend();
             var nextDiscovery = DateTime.MinValue;
             var nextRetention = DateTime.MinValue;
             try {
@@ -220,8 +221,7 @@ public static class ScannerConnection
                 {
                     try {
                         if (DateTime.UtcNow >= nextDiscovery) {
-                            using IScannerBackend backend = fixture ? new ScannerFixtureBackend(args[2]) : new Naps2Backend();
-                            devices = await backend.ListDevices();
+                            devices = await discoveryBackend.ListDevices();
                             nextDiscovery = DateTime.UtcNow.AddSeconds(30);
                         }
                         var pulse = new { version = 1, agentVersion = Version, devices };

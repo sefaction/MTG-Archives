@@ -10,7 +10,7 @@ namespace Mtg.Scanner;
 public record NativeSettings(int Dpi, decimal WidthInches, decimal HeightInches,
     string HorizontalPlacement, bool Duplex, string Color, bool AutoCrop, bool Deskew, bool RemoveBlank);
 public record NativeInstruction(int Version, Guid RunId, Guid Epoch, string SessionId,
-    string DeviceId, int LoadedCount, NativeSettings Settings, int? PhysicalTarget,
+    string DeviceId, int? LoadedCount, NativeSettings Settings, int? PhysicalTarget,
     bool StopRequested, string Status, Guid? ExecutionId);
 public record NativeBinding(int Version, NativeInstruction Instruction, Guid ExecutionId);
 
@@ -74,13 +74,14 @@ public static class ScannerNativeRunner
         if (!devices.Any(d=>d.Id == run.DeviceId)) throw new InvalidOperationException("Selected scanner source unavailable");
         Directory.CreateDirectory(runsRoot);
         var drive = new DriveInfo(Path.GetPathRoot(Path.GetFullPath(runsRoot))!);
-        if (drive.AvailableFreeSpace < 2L * 1024 * 1024 * 1024 + run.LoadedCount * 10L * 1024 * 1024)
+        // Uncounted feeder runs may retain up to 500 full-resolution originals.
+        if (drive.AvailableFreeSpace < 2L * 1024 * 1024 * 1024 + (run.LoadedCount ?? 500) * 10L * 1024 * 1024)
             throw new InvalidOperationException("Private scanner spool needs more free space; no feed started");
         // Shared across this Windows user's pairings/processes, not per run.
         var locks = Path.Combine(root, "devices"); Directory.CreateDirectory(locks);
         var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(run.DeviceId)));
         using var deviceLock = new FileStream(Path.Combine(locks, $"{key}.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-        using IScannerBackend backend = (backendFactory ?? (() => new Naps2Backend()))();
+        using IScannerBackend backend = (backendFactory ?? (() => new Naps2Backend(run.DeviceId)))();
         await backend.ListDevices();
         var caps = await backend.GetCapabilities(run.DeviceId);
         if (caps.Features["feeder"].Support == Support.ReportedUnsupported)
@@ -231,6 +232,6 @@ public static class ScannerNativeRunner
             outcome = new { outcome, imageCount = artifacts.Count, elapsedMs = complete ? evidence.GetProperty("elapsedMs").GetInt64() : 0,
                 knownPhysicalItems = (int?)null, sourceExhausted = complete ? evidence.GetProperty("sourceExhausted").GetString() : "UNKNOWN", nativeError } });
         Identity(ack, run.RunId);
-        Console.WriteLine($"Scanner run settled: {artifacts.Count} image(s) retained/delivered; physical count awaits operator confirmation.");
+        Console.WriteLine($"Scanner run settled: {artifacts.Count} image(s) retained/delivered; site reconciliation determines whether count needs operator attention.");
     }
 }

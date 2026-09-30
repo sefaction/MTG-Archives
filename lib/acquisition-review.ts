@@ -9,8 +9,8 @@ export const acquisitionDefaultsSchema = z
   .strict();
 export type AcquisitionDefaults = z.infer<typeof acquisitionDefaultsSchema>;
 export const emptyAcquisitionDefaults: AcquisitionDefaults = {
-  finish: "UNKNOWN",
-  condition: null,
+  finish: "NONFOIL",
+  condition: "NM",
 };
 export const acquisitionReviewDecisionSchema = z
   .object({

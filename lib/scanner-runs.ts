@@ -7,7 +7,7 @@ import { createAcquisitionSession, executeAcquisitionCommand, getAcquisitionProg
   readAcquisitionRow, hydrateAcquisitionRow, saveAcquisitionRow,
   beginAcquisitionPhoto, finalizeAcquisitionPhoto, type AcquisitionActor } from "./acquisition-store";
 import { inspectAcquisitionPhoto, writeAcquisitionPhotoBytes } from "./acquisition-files";
-import { candidateKey, correctPhysicalCount } from "./acquisition-domain";
+import { candidateKey, correctPhysicalCount, confirmPhysicalCountBatch } from "./acquisition-domain";
 import { persistScannerStartMarker } from "./scanner-control-files";
 import { lockAndReadInventoryCapacity } from "./inventory-capacity";
 
@@ -23,7 +23,7 @@ async function agentRun(tx: Tx, authorization: string | null, input: z.infer<typ
   await readAcquisitionRow(tx, auth.actor, run.acquisitionRun.sessionId);
   return { ...auth, run };
 }
-function command(run: { id: string; epoch: string; deviceId: string; loadedCount: number; settings: Prisma.JsonValue;
+function command(run: { id: string; epoch: string; deviceId: string; loadedCount: number | null; settings: Prisma.JsonValue;
   stopRequestedAt: Date | null; status: string; executionId: string | null; acquisitionRun: { sessionId: string; session: { target: number | null } } }) {
   return { version: 1, runId: run.id, epoch: run.epoch, sessionId: run.acquisitionRun.sessionId,
     deviceId: run.deviceId, loadedCount: run.loadedCount, settings: run.settings,
@@ -45,7 +45,7 @@ export async function createScannerBatch(db: PrismaClient, actor: AcquisitionAct
     run: { providerId: SCANNER_CAPTURE_PROVIDER, runId: input.requestKey,
       enforcement: "LOGICAL_ALLOCATION", controls: ["STOP"] },
   });
-  if (capture.session.target !== null && input.loadedCount > capture.session.target)
+  if (capture.session.target !== null && input.loadedCount !== null && input.loadedCount > capture.session.target)
     throw new Error("Choose a loaded batch within the selected remaining capacity");
   await executeAcquisitionCommand(db, scoped, capture.session.id, { requestKey: "initial-start", revision: 0, command: "START" });
   return scannerTransaction(db, async tx => {
@@ -87,12 +87,12 @@ export async function claimScannerRun(db: PrismaClient, authorization: string | 
     if (current.status !== "QUEUED" || current.stopRequestedAt) throw denied();
     const progress = await getStartState(tx, actor, current.acquisitionRun.sessionId);
     if (!progress.destinationCurrent || progress.session.phase !== "CAPTURING" ||
-      progress.session.target !== null && current.loadedCount > progress.session.target) throw denied();
+      progress.session.target !== null && current.loadedCount !== null && current.loadedCount > progress.session.target) throw denied();
     const capacity = await lockAndReadInventoryCapacity(tx, {
       locationId: progress.session.placement.locationId, ownerPlayerId: progress.session.placement.ownerPlayerId,
       section: progress.session.placement.section,
     });
-    if (capacity.remaining !== null && current.loadedCount > capacity.remaining)
+    if (capacity.remaining !== null && (capacity.remaining === 0 || current.loadedCount !== null && current.loadedCount > capacity.remaining))
       throw new Error("Choose a loaded batch within the current remaining capacity; no feed authorized");
     // File write deliberately occurs under the short serialized claim lock.
     // If DB commit fails, the marker persists and denies automatic refeeding.
@@ -164,10 +164,26 @@ export async function finishScannerRun(db: PrismaClient, authorization: string |
       throw new Error("Capture scanner transfers need reconciliation before completion");
     const row = await readAcquisitionRow(tx, actor, run.acquisitionRun.sessionId);
     const status = ["ERROR", "INTERRUPTED"].includes(input.outcome.outcome) ? "ERROR" : "DRAINED";
-    await tx.scannerRun.update({ where: { id: run.id }, data: { status, outcome: input.outcome } });
+    const natural = run.loadedCount === null && status === "DRAINED" && !run.stopRequestedAt &&
+      ["COMPLETED", "SOURCE_EXHAUSTED"].includes(input.outcome.outcome) && !input.outcome.nativeError;
+    let reconciled = false;
+    if (natural && !run.reconciliation) {
+      const state = await getStartState(tx, actor, run.acquisitionRun.sessionId);
+      if (state.session.candidates.length === input.outcome.imageCount &&
+          state.session.candidates.every(c => !c.excluded && !c.countConfirmed && !c.uncertainty.length && c.observations.length === 1)) {
+        const after = confirmPhysicalCountBatch(state.session, actor.userId,
+          "Natural scanner completion; one retained front image assumed per card; device physical boundaries unknown");
+        await saveAcquisitionRow(tx, row, state.session, after);
+        reconciled = true;
+      }
+    }
+    await tx.scannerRun.update({ where: { id: run.id }, data: { status, outcome: input.outcome,
+      ...(reconciled ? { reconciliation: { mode: "SCANNER_IMAGE_COUNT", actorUserId: actor.userId,
+        observedAt: new Date().toISOString(), imageCount: input.outcome.imageCount,
+        boundarySource: "ONE_RETAINED_IMAGE_PER_CARD_ASSUMED; SDK physical boundaries UNKNOWN" } } : {}) } });
     if (row.phase !== "COMPLETE") await tx.acquisitionSession.update({ where: { id: row.id }, data: {
       phase: status === "ERROR" ? "STOPPING" : "COMPLETE", revision: { increment: 1 } } });
-    return { version: 1, runId: run.id, status, physicalCount: "UNCONFIRMED" };
+    return { version: 1, runId: run.id, status, physicalCount: reconciled || run.reconciliation ? "ASSUMED_FROM_IMAGES" : "UNCONFIRMED" };
   });
 }
 export async function getScannerBatch(db: PrismaClient, userId: string, runId: string) {
@@ -206,7 +222,7 @@ export async function reconcileScannerBatch(db: PrismaClient, userId: string, va
     const state = await getStartState(tx, actor, run.acquisitionRun.sessionId);
     const row = await readAcquisitionRow(tx, actor, run.acquisitionRun.sessionId);
     const cancelledEmpty = run.status === "CANCELLED_BEFORE_START" && input.cardsEmitted === 0 && state.session.candidates.length === 0;
-    if (!cancelledEmpty && (state.session.candidates.length !== input.cardsEmitted || input.cardsEmitted !== run.loadedCount ||
+    if (!cancelledEmpty && (state.session.candidates.length !== input.cardsEmitted || run.loadedCount !== null && input.cardsEmitted !== run.loadedCount ||
       (run.outcome as Prisma.JsonObject)?.imageCount !== input.cardsEmitted))
       throw new Error("Capture scanner physical count differs; retain images for individual reconciliation");
     let after = state.session;
