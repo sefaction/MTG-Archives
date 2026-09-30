@@ -75,7 +75,7 @@ export function scoreAcquisitionRuntime(
         printing.descriptor !== source.nativeVersions.printing)
       throw new Error("Native generation differs from frozen evaluation");
     if (truth.inputKind === "CARD_SCAN" && [observed.native, observed.image]
-      .some(n=>!["declared-card-scan", "scanner-background-trim"].includes(n.geometry.method)))
+      .some(n=>!["declared-card-scan", "scanner-background-trim"].includes(n.geometry.method ?? "")))
       throw new Error("Declared scan did not use conservative card preparation");
     const proposals = observed.output.proposals.proposals;
     const cards = observed.proposedCards;
