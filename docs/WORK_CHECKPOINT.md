@@ -1,5 +1,35 @@
 # Resumable work checkpoint
 
+## Browser review drafts accepted locally, September 30, 2026
+
+- Isolated `MTG-Archives-scan-review-drafts`, `feat/scan-review-drafts`, PR #531
+  on #521/#514/#488, all individually unapproved. Application0028da0, original
+  appd34f6aa and idempotent clear17c0977. No merge/deploy/motor/Inventory write.
+- Per-account/batch/photo local metadata draft, original revision, explicit
+  Save/Cancel, newer-write protection; no image bytes or secrets. #530 baseline
+  log proves lost editor/LP on reload. Three focused tests/typecheck/lint pass.
+- Initial cumulative UI passes1/1/12.1s after two fixture fixes: restored image
+  group is Possible printings rather than Search results; Cancel finishes its
+  async GET before cache assertion. Logs and those failure traces are retained
+  privately. Reload/navigation/stale rejection/discard/quota + server Save and
+  source digest/destination/zero Inventory pass. No accuracy or physical claim.
+- Authoritative cumulative `MTG-Archives-acquisition-persistence`, current head
+  72d2cef before checkpoint save, healthy preliminary image3ce734295f83d2ca36341528dfecf72b86eb3fceee877c79568d4c49d720a16d,
+  492files/digest617b640b412268710c8660b3808141a4ac4142a296190955ed468284b65f9c09.
+  Final unsaved-status build95459/reload48790 terminal0. Healthy final image
+  3060c5e7faaf22fe8d350c3f37d9f4b7d0b115afcb36dcb1ab899e67eee77034,
+  492files/digestdedc84ee694bf09829ea797cb17d33751b187bde4f169459d872c08a9ba126db.
+  Final UI63772 terminal0 passes1/1/20.1s (19.0s task) including the new label.
+  1366/320 screenshots inspected/no overflow. App0028da0 all3green. Final
+  documentation/readiness/CI needs reconciliation; do not repeat UI for docs.
+- #528 corrected storage prototype injection ba0d653 has all3green and actual
+  scanner cases2/2 pass in mixed run. #532 records dirty/cached bulk/Inventory
+  protection finding for next coherent batch; #529/#511/distribution gates remain.
+  Last hardware EMPTY; fresh loading unanswered. Broad goal ACTIVE/incomplete.
+  Approval queue488,491,495,513,514,516,517,519,521,523,525,526,528,531.
+  Next532 dirty/cached bulk/Inventory protection and larger lists, then511 source
+  isolation and distribution/clean-host/physical600 gates.
+
 ## Fast corrections qualified locally, September 29, 2026
 
 - Active `feat/scan-fast-corrections`, PR #521, on individually unapproved
