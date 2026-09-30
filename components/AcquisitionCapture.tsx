@@ -608,14 +608,16 @@ export function AcquisitionCapture({
               {Math.max(0, readyPhotos - progress.reviewed)} awaiting
               confirmation
             </p>
+            <div className="flex flex-wrap items-center gap-2 mt-2" aria-label="Batch actions">
             {!!readyPhotos && !bulkOpen && (
-              <a className="text-sm underline mr-3" href="#scan-review">
+              <a className={button + " inline-flex text-sm"} href="#scan-review">
                 Review saved cards
               </a>
             )}
-            {reviewCounts.ready > 0 && <a className={primary + " mt-2"} href="#scan-inventory" onClick={event => { event.preventDefault(); showInventory(); }}>
+            {reviewCounts.ready > 0 && <a className={primary + " inline-flex max-w-full text-sm whitespace-normal"} href="#scan-inventory" onClick={event => { event.preventDefault(); showInventory(); }}>
               Add {reviewCounts.ready} confirmed {reviewCounts.ready === 1 ? "card" : "cards"} to Inventory
             </a>}
+            </div>
             <p className="text-xs text-[var(--app-muted)]">
               {progress.providerId === SCANNER_CAPTURE_PROVIDER ? "Check for missed or doubled cards before adding reviewed matches to Inventory." : progress.availableSlots === 0
                 ? "Batch full. You can still retry or retake a photo."
