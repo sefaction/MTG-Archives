@@ -8,6 +8,7 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
   const [expanded, setExpanded] = useState(false);
   const [addAnother, setAddAnother] = useState(false);
   const [installerAvailable, setInstallerAvailable] = useState(false);
+  const [installerVersion, setInstallerVersion] = useState<string | null>(null);
   const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -17,6 +18,7 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
       const value = await response.json();
       if (!response.ok) throw new Error("Scanner connections unavailable. Refresh and retry.");
       setAgents(value.agents);
+      setError("");
     } catch (e) { setError((e as Error).message); }
   }, []);
   useEffect(() => {
@@ -24,15 +26,14 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
     return () => clearTimeout(timer);
   }, [refresh]);
   useEffect(() => {
-    if (!expanded) return;
-    const timer = setInterval(() => void refresh(), 5000);
+    const timer = setInterval(() => { if (!document.hidden) void refresh(); }, 5000);
     return () => clearInterval(timer);
-  }, [expanded, refresh]);
+  }, [refresh]);
   useEffect(() => {
     if (!expanded) return;
     void fetch("/api/scanners/installer?info", { cache: "no-store" })
       .then(response => response.ok ? response.json() : { available: false })
-      .then(value => setInstallerAvailable(value.available === true))
+      .then(value => { setInstallerAvailable(value.available === true); setInstallerVersion(value.version ?? null); })
       .catch(() => setInstallerAvailable(false));
   }, [expanded]);
   const showWaiting = waiting && !agents.some(agent => agent.online);
@@ -71,13 +72,19 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
     </div>
     {hasOnline && <p className="mt-2 text-sm">Choose a destination and scanner source below, then start the batch.</p>}
     {expanded && <div className="space-y-3 mt-3 min-w-0">
+      {installerAvailable && <div className="flex flex-wrap gap-2 items-center">
+        <a className={filterButtonClass} href="/api/scanners/installer" download>
+          {hasOnline ? "Update Windows scanner helper" : "Download Windows scanner helper"}
+        </a>
+        {installerVersion && <span className="text-sm">Version {installerVersion}</span>}
+        <p className="text-sm w-full">Open the download to install or update. Finish the current scan before updating; saved scans and connections are kept.</p>
+      </div>}
       {hasOnline && <button type="button" className={filterButtonClass}
         onClick={() => setAddAnother(!addAnother)}>{addAnother ? "Hide setup" : "Add another computer"}</button>}
       {showSetup && <>
       <p>Use the Windows computer connected to your scanner. Install its manufacturer driver first.</p>
       <ol className="list-decimal list-inside space-y-2">
-        <li>{installerAvailable ? <a className={filterButtonClass} href="/api/scanners/installer" download>
-          Download Windows scanner helper</a> : "The Windows scanner helper download is being prepared."}
+        <li>{installerAvailable ? "Install the downloaded Windows scanner helper." : "The Windows scanner helper download is being prepared."}
           <span className="block">Install it once, then allow Windows to open it from this site.</span></li>
         <li><button type="button" className={filterButtonClass} disabled={busy} onClick={() => void connect()}>
           Connect this computer</button>

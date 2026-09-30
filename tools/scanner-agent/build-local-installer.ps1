@@ -32,6 +32,8 @@ try {
   if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) { throw 'Scanner installer is missing' }
   Write-Output "Local scanner installer: $installer"
   Write-Output "SHA256: $((Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant())"
+  $manifest = [ordered]@{ version = '0.3.2'; sha256 = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant(); sourceCommit = (& git -C $repository rev-parse HEAD); builtAt = [DateTime]::UtcNow.ToString('o') }
+  [IO.File]::WriteAllText((Join-Path $output 'MTGArchivesScannerSetup.json'), ($manifest | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
   Write-Output 'This local test artifact is not approved for public distribution.'
 } finally {
   if ($build.StartsWith((Join-Path $repository '.local-data\scanner-installer-build-'),[StringComparison]::OrdinalIgnoreCase)) {

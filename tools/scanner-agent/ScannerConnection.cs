@@ -15,6 +15,7 @@ public record EnrollmentCredential(string Secret, string? PairCode, string Site,
 public static class ScannerConnection
 {
     public const string Version = "0.3.0-native";
+    public const string HelperVersion = "0.3.2";
     private static string Root => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MTGArchives", "ScannerAgent");
     public static Uri Site(string value, bool allowLocal)
     {
@@ -35,11 +36,17 @@ public static class ScannerConnection
     }
     private static HttpClient Client(Uri site) => new(new HttpClientHandler { AllowAutoRedirect = false })
         { BaseAddress = site, Timeout = TimeSpan.FromSeconds(15) };
+    private sealed class RejectionHandler(System.Net.HttpStatusCode status) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(status));
+    }
     private static async Task Send(HttpClient client, string route, object value, Guid agentId, string? token = null)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, route) { Content = JsonContent.Create(value, options: RunSpool.Json) };
         if (token != null) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using var response = await client.SendAsync(request);
+        if (ScannerConnectionRejected.IsPermanent(response.StatusCode)) throw new ScannerConnectionRejected(response.StatusCode);
         if (!response.IsSuccessStatusCode) throw new InvalidOperationException($"Scanner connection rejected ({(int)response.StatusCode})");
         var result = await response.Content.ReadFromJsonAsync<JsonElement>();
         if (result.GetProperty("version").GetInt32() != 1 || result.GetProperty("agentId").GetGuid() != agentId)
@@ -142,7 +149,11 @@ public static class ScannerConnection
                 "MTG Archives Scanner", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return true;
         }
-        if (args[0] is not ("connect" or "pair-uri" or "resume" or "serve" or "report" or "forget" or "connection-selftest" or "native-selftest" or "fixture-server")) return false;
+        if (args[0] is not ("version" or "connect" or "pair-uri" or "resume" or "serve" or "report" or "forget" or "connection-selftest" or "native-selftest" or "fixture-server")) return false;
+        if (args[0] == "version" && args.Length == 1) {
+            Console.WriteLine(JsonSerializer.Serialize(new { helperVersion = HelperVersion, protocolVersion = Version, naps2SdkVersion = "1.3.0" }, RunSpool.Json));
+            return true;
+        }
         if (args[0] == "native-selftest") { await ScannerNativeSelfTest.Run(Path.Combine(Root, "selftests")); return true; }
         if (args[0] == "connection-selftest")
         {
@@ -157,6 +168,19 @@ public static class ScannerConnection
                     catch (ArgumentException) { }
                 }
                 Site("https://example.com/", false); Site("http://127.0.0.1:13001/", true);
+                foreach (var status in new[] { System.Net.HttpStatusCode.Unauthorized, System.Net.HttpStatusCode.Forbidden, System.Net.HttpStatusCode.ServiceUnavailable }) {
+                    using var handler = new RejectionHandler(status);
+                    using var client = new HttpClient(handler) { BaseAddress = new Uri("https://fixture.invalid/") };
+                    try { await Send(client, "api/scanner-agent/pulse", new { version = 1 }, id, "fixture");
+                        throw new InvalidDataException("Rejected response was acknowledged"); }
+                    catch (ScannerConnectionRejected error) when (status != System.Net.HttpStatusCode.ServiceUnavailable && error.Status == status) { }
+                    catch (InvalidOperationException error) when (status == System.Net.HttpStatusCode.ServiceUnavailable && error is not ScannerConnectionRejected) { }
+                }
+                using (var first = AcquireServiceLock(id)) {
+                    try { using var duplicate = AcquireServiceLock(id); throw new InvalidDataException("Duplicate helper service acquired a connection"); }
+                    catch (InvalidOperationException) { }
+                }
+                using (AcquireServiceLock(id)) { } // A closed service can reopen cleanly.
                 var sample = ParsePairUri("mtg-archive-scanner://connect?site=https%3A%2F%2Fexample.com%2F&code=" +
                     Guid.NewGuid().ToString() + "." + new string('A', 43));
                 if (sample.site.AbsoluteUri != "https://example.com/" || sample.local) throw new InvalidOperationException("Pair link changed");
@@ -170,7 +194,7 @@ public static class ScannerConnection
                     catch (ArgumentException) { }
                 }
                 Console.WriteLine("PASS scanner private Windows credential and outbound-origin guards; no device used");
-            } finally { WindowsCredential.Remove(id); }
+            } finally { WindowsCredential.Remove(id); File.Delete(Path.Combine(Root, $"{id}.serve.lock")); }
             return true;
         }
         if (args[0] == "pair-uri" && args.Length == 2)
@@ -250,6 +274,12 @@ public static class ScannerConnection
                                 Console.WriteLine("Scanner original retention check unavailable; local originals retained.");
                             }
                         }
+                    }
+                    catch (ScannerConnectionRejected) when (args[0] != "report") {
+                        // A revoked helper must release its discovery worker, not keep retrying
+                        // forever. Originals and credentials remain private for reconciliation.
+                        Console.WriteLine("Scanner connection disconnected on the website. Background helper stopped; originals retained.");
+                        break;
                     }
                     catch (Exception error) when (args[0] != "report" && error is HttpRequestException or InvalidOperationException or TaskCanceledException) {
                         Console.WriteLine("Scanner connection unavailable; credentials and pending enrollment retained. Retrying.");
