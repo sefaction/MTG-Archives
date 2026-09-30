@@ -2,6 +2,7 @@ import { expect, type Page } from "@playwright/test";
 
 /** Runs inside the owned real-photo intake fixture; never commits Inventory. */
 export async function checkAcquisitionReview(page: Page) {
+  await page.getByRole("button", { name: "Advanced", exact: true }).click();
   await page
     .getByRole("combobox", { name: "Batch finish", exact: true })
     .selectOption("NONFOIL");
