@@ -71,6 +71,11 @@ test("fast printing correction keeps drafts, metadata and destination while resu
     for (const width of [1366, 320]) {
       await page.setViewportSize({ width, height: 900 }); await card.scrollIntoViewIfNeeded();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      if (width === 1366) {
+        const editor = await card.getByRole("group", { name: "Search results", exact: true }).boundingBox();
+        const printing = await card.getByRole("figure", { name: "Proposed printing", exact: true }).boundingBox();
+        expect(editor!.x).toBeGreaterThanOrEqual(printing!.x + printing!.width);
+      }
       await page.screenshot({ path: `test-results/acquisition-fast-corrections-${width}.png` });
     }
     await name.focus(); await name.press("Control+Shift+Enter");

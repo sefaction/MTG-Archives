@@ -411,6 +411,246 @@ export function AcquisitionPhotoReview({
   );
   const stamp = record?.evidence?.printing;
   const stampChoice = stamp?.candidates.find((c) => c.cardId === selected?.id);
+  const correctionEditor = !committed && showEditor ? (
+            <fieldset className="mt-4 min-w-0" disabled={busy}>
+              <legend className="font-semibold">
+                {matches ? "Search results" : "Possible printings"}
+              </legend>
+              <div className="mt-3">
+                <h4 className="font-semibold">
+                  Find another printing
+                </h4>
+                <form
+                  className="mt-2 space-y-2"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    setBusy(true);
+                    setError("");
+                    try {
+                      setMatches(
+                        await call<AcquisitionPrinting[]>(
+                          endpoint +
+                            "?" +
+                            new URLSearchParams({ query, set, number }),
+                        ),
+                      );
+                    } catch (e) {
+                      setError((e as Error).message);
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  <label className="block">
+                    Card name
+                    <input
+                      ref={searchInput}
+                      className={input + " block w-full"}
+                      value={query}
+                      onChange={(e) => {
+                        markDirty();
+                        setQuery(e.target.value);
+                      }}
+                    />
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label>
+                      Set code
+                      <input
+                        className={input + " block w-full"}
+                        value={set}
+                        onChange={(e) => {
+                          markDirty();
+                          setSet(e.target.value);
+                        }}
+                      />
+                    </label>
+                    <label>
+                      Collector number
+                      <input
+                        className={input + " block w-full"}
+                        value={number}
+                        onChange={(e) => {
+                          markDirty();
+                          setNumber(e.target.value);
+                        }}
+                      />
+                    </label>
+                  </div>
+                  <button className={button}>Find printing</button>
+                  <p className="text-xs">
+                    Search this installation’s catalog. Missing matches are
+                    checked against Scryfall using an exact card name or set and
+                    collector number.
+                  </p>
+                  {matches?.length === 50 && (
+                    <p className="text-xs">
+                      Showing 50 results. Add set and collector number to narrow
+                      the search.
+                    </p>
+                  )}
+                </form>
+              </div>
+              <p className="text-xs mb-2">
+                Select an image to compare it above. Save the review to confirm
+                your choice.
+              </p>
+              <div
+                className="flex gap-2 overflow-x-auto pb-2"
+                role="group"
+                aria-label="Printing images"
+              >
+                {options.map((card) => (
+                  <label
+                    key={card.id}
+                    className={`shrink-0 w-28 sm:w-36 rounded border-2 p-2 cursor-pointer ${selected?.id === card.id ? "border-[var(--app-accent)] bg-[var(--app-accent-soft)]" : "border-[var(--app-border)]"}`}
+                  >
+                    <input
+                      type="radio"
+                      name={`review-printing-${photoId}`}
+                      checked={selected?.id === card.id}
+                      onChange={() => {
+                        markDirty();
+                        setSelected(card);
+                        setFinish(finishForPrinting(finish as AcquisitionDefaults["finish"], card) ?? "UNKNOWN");
+                        setLanguage(card.lang ?? "");
+                        setMessage("");
+                      }}
+                      aria-label={`${card.name} · ${card.setCode.toUpperCase()} #${card.collectorNumber} (${card.lang ?? "unknown"})`}
+                    />
+                    {active && card.imageUri ? (
+                      <PrintingImage
+                        thumbnail
+                        src={card.imageUri}
+                        alt={`${card.name}, ${card.setCode.toUpperCase()} ${card.collectorNumber}`}
+                      />
+                    ) : (
+                      <div className="aspect-[1000/1397] text-xs">
+                        {card.name}
+                      </div>
+                    )}
+                    <span className="block text-xs break-words mt-1">
+                      {card.setCode.toUpperCase()} #{card.collectorNumber} ·{" "}
+                      {card.lang?.toUpperCase()}
+                      <span className="block">{card.name}</span>
+                      {selected?.id === card.id && (
+                        <strong className="block">Selected</strong>
+                      )}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {!options.length && (
+                <p className="text-sm">
+                  No printing found. The photo may be unreadable or this
+                  installation’s catalog may be missing the printing.
+                </p>
+              )}
+              {matches && (
+                <button
+                  className={button + " mt-2"}
+                  onClick={() => setMatches(null)}
+                >
+                  Back to suggestions
+                </button>
+              )}
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <label>
+                  Card finish
+                  <select
+                    className={input + " block w-full"}
+                    value={finish}
+                    onChange={(e) => {
+                      markDirty();
+                      setFinish(e.target.value);
+                    }}
+                  >
+                    {finishes.map(([v, text]) => (
+                      <option key={v} value={v}>
+                        {text}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Card condition
+                  <select
+                    className={input + " block w-full"}
+                    value={condition}
+                    onChange={(e) => {
+                      markDirty();
+                      setCondition(e.target.value);
+                    }}
+                  >
+                    <option value="">Choose condition</option>
+                    {conditions.map(([v, text]) => (
+                      <option key={v} value={v}>
+                        {text}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {selected && !selected.lang && (
+                <label>
+                  Card language
+                  <input
+                    className={input + " block"}
+                    value={language}
+                    onChange={(e) => {
+                      markDirty();
+                      setLanguage(e.target.value);
+                    }}
+                  />
+                </label>
+              )}
+              {!supported && (
+                <p role="status">
+                  Choose a finish available for this printing:{" "}
+                  {Array.isArray(selected?.finishes)
+                    ? selected.finishes.join(", ")
+                    : "check printing"}
+                  .
+                </p>
+              )}
+              <div className="flex flex-wrap gap-2 mt-3">
+                <button
+                  className={primary}
+                  disabled={
+                    !selected ||
+                    finish === "UNKNOWN" ||
+                    !condition ||
+                    !supported ||
+                    !(selected?.lang ?? language)
+                  }
+                  onClick={() => void submit("accept")}
+                >
+                  Save card review
+                </button>
+                {onNextAwaiting && <button className={button} disabled={!canConfirm}
+                  onClick={() => void submit("accept", true)}>Save and next</button>}
+                {onNextAwaiting && <button className={button} onClick={onNextAwaiting}>Next awaiting review</button>}
+                <button
+                  className={button}
+                  onClick={() => void submit("pending")}
+                >
+                  Keep pending
+                </button>
+                {simple && (
+                  <button
+                    className={button}
+                    onClick={async () => {
+                      await reload();
+                      setEditing(false);
+                    }}
+                  >
+                    Cancel changes
+                  </button>
+                )}
+              </div>
+              <p className="text-xs mt-2">Ctrl+Enter saves; Ctrl+Shift+Enter saves and moves to the next card awaiting review. Inventory is unchanged.</p>
+            </fieldset>
+  ) : null;
   const proposedImage =
     selected?.imageUri && active ? (
       <PrintingImage
@@ -710,249 +950,11 @@ export function AcquisitionPhotoReview({
                     )}
                   </div>
                 )}
+                {correctionEditor}
               </div>
             )}
           </div>
-          {!committed && showEditor && (
-            <fieldset className="mt-4 min-w-0" disabled={busy}>
-              <legend className="font-semibold">
-                {matches ? "Search results" : "Possible printings"}
-              </legend>
-              <p className="text-xs mb-2">
-                Select an image to compare it above. Save the review to confirm
-                your choice.
-              </p>
-              <div
-                className="flex gap-2 overflow-x-auto pb-2"
-                role="group"
-                aria-label="Printing images"
-              >
-                {options.map((card) => (
-                  <label
-                    key={card.id}
-                    className={`shrink-0 w-28 sm:w-36 rounded border-2 p-2 cursor-pointer ${selected?.id === card.id ? "border-[var(--app-accent)] bg-[var(--app-accent-soft)]" : "border-[var(--app-border)]"}`}
-                  >
-                    <input
-                      type="radio"
-                      name={`review-printing-${photoId}`}
-                      checked={selected?.id === card.id}
-                      onChange={() => {
-                        markDirty();
-                        setSelected(card);
-                        setFinish(finishForPrinting(finish as AcquisitionDefaults["finish"], card) ?? "UNKNOWN");
-                        setLanguage(card.lang ?? "");
-                        setMessage("");
-                      }}
-                      aria-label={`${card.name} · ${card.setCode.toUpperCase()} #${card.collectorNumber} (${card.lang ?? "unknown"})`}
-                    />
-                    {active && card.imageUri ? (
-                      <PrintingImage
-                        thumbnail
-                        src={card.imageUri}
-                        alt={`${card.name}, ${card.setCode.toUpperCase()} ${card.collectorNumber}`}
-                      />
-                    ) : (
-                      <div className="aspect-[1000/1397] text-xs">
-                        {card.name}
-                      </div>
-                    )}
-                    <span className="block text-xs break-words mt-1">
-                      {card.setCode.toUpperCase()} #{card.collectorNumber} ·{" "}
-                      {card.lang?.toUpperCase()}
-                      <span className="block">{card.name}</span>
-                      {selected?.id === card.id && (
-                        <strong className="block">Selected</strong>
-                      )}
-                    </span>
-                  </label>
-                ))}
-              </div>
-              {!options.length && (
-                <p className="text-sm">
-                  No printing found. The photo may be unreadable or this
-                  installation’s catalog may be missing the printing.
-                </p>
-              )}
-              {matches && (
-                <button
-                  className={button + " mt-2"}
-                  onClick={() => setMatches(null)}
-                >
-                  Back to suggestions
-                </button>
-              )}
-              <div className="mt-3">
-                <h4 className="font-semibold">
-                  Find another printing
-                </h4>
-                <form
-                  className="mt-2 space-y-2"
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    setBusy(true);
-                    setError("");
-                    try {
-                      setMatches(
-                        await call<AcquisitionPrinting[]>(
-                          endpoint +
-                            "?" +
-                            new URLSearchParams({ query, set, number }),
-                        ),
-                      );
-                    } catch (e) {
-                      setError((e as Error).message);
-                    } finally {
-                      setBusy(false);
-                    }
-                  }}
-                >
-                  <label className="block">
-                    Card name
-                    <input
-                      ref={searchInput}
-                      className={input + " block w-full"}
-                      value={query}
-                      onChange={(e) => {
-                        markDirty();
-                        setQuery(e.target.value);
-                      }}
-                    />
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <label>
-                      Set code
-                      <input
-                        className={input + " block w-full"}
-                        value={set}
-                        onChange={(e) => {
-                          markDirty();
-                          setSet(e.target.value);
-                        }}
-                      />
-                    </label>
-                    <label>
-                      Collector number
-                      <input
-                        className={input + " block w-full"}
-                        value={number}
-                        onChange={(e) => {
-                          markDirty();
-                          setNumber(e.target.value);
-                        }}
-                      />
-                    </label>
-                  </div>
-                  <button className={button}>Find printing</button>
-                  <p className="text-xs">
-                    Search this installation’s catalog. Missing matches are
-                    checked against Scryfall using an exact card name or set and
-                    collector number.
-                  </p>
-                  {matches?.length === 50 && (
-                    <p className="text-xs">
-                      Showing 50 results. Add set and collector number to narrow
-                      the search.
-                    </p>
-                  )}
-                </form>
-              </div>
-              <div className="grid grid-cols-2 gap-3 mt-3">
-                <label>
-                  Card finish
-                  <select
-                    className={input + " block w-full"}
-                    value={finish}
-                    onChange={(e) => {
-                      markDirty();
-                      setFinish(e.target.value);
-                    }}
-                  >
-                    {finishes.map(([v, text]) => (
-                      <option key={v} value={v}>
-                        {text}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Card condition
-                  <select
-                    className={input + " block w-full"}
-                    value={condition}
-                    onChange={(e) => {
-                      markDirty();
-                      setCondition(e.target.value);
-                    }}
-                  >
-                    <option value="">Choose condition</option>
-                    {conditions.map(([v, text]) => (
-                      <option key={v} value={v}>
-                        {text}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              {selected && !selected.lang && (
-                <label>
-                  Card language
-                  <input
-                    className={input + " block"}
-                    value={language}
-                    onChange={(e) => {
-                      markDirty();
-                      setLanguage(e.target.value);
-                    }}
-                  />
-                </label>
-              )}
-              {!supported && (
-                <p role="status">
-                  Choose a finish available for this printing:{" "}
-                  {Array.isArray(selected?.finishes)
-                    ? selected.finishes.join(", ")
-                    : "check printing"}
-                  .
-                </p>
-              )}
-              <div className="flex flex-wrap gap-2 mt-3">
-                <button
-                  className={primary}
-                  disabled={
-                    !selected ||
-                    finish === "UNKNOWN" ||
-                    !condition ||
-                    !supported ||
-                    !(selected?.lang ?? language)
-                  }
-                  onClick={() => void submit("accept")}
-                >
-                  Save card review
-                </button>
-                {onNextAwaiting && <button className={button} disabled={!canConfirm}
-                  onClick={() => void submit("accept", true)}>Save and next</button>}
-                {onNextAwaiting && <button className={button} onClick={onNextAwaiting}>Next awaiting review</button>}
-                <button
-                  className={button}
-                  onClick={() => void submit("pending")}
-                >
-                  Keep pending
-                </button>
-                {simple && (
-                  <button
-                    className={button}
-                    onClick={async () => {
-                      await reload();
-                      setEditing(false);
-                    }}
-                  >
-                    Cancel changes
-                  </button>
-                )}
-              </div>
-              <p className="text-xs mt-2">Ctrl+Enter saves; Ctrl+Shift+Enter saves and moves to the next card awaiting review. Inventory is unchanged.</p>
-            </fieldset>
-          )}
+          {!simple && correctionEditor}
           {message && (
             <p role="status" className="text-sm mt-2">
               {message}

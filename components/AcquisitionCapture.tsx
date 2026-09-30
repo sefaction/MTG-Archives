@@ -927,7 +927,7 @@ export function AcquisitionCapture({
                       id={`capture-card-${slot.position + 1}`}
                       data-testid={`capture-card-${slot.position + 1}`}
                       tabIndex={-1}
-                      className={`min-w-0 space-y-2 border-b border-[var(--app-border)] ${reviewMode === "simple" ? "pb-3" : "pb-6"}`}
+                      className={`min-w-0 scroll-mt-64 lg:scroll-mt-48 space-y-2 border-b border-[var(--app-border)] ${reviewMode === "simple" ? "pb-3" : "pb-6"}`}
                     >
                       <p>
                         Card {slot.position + 1}
