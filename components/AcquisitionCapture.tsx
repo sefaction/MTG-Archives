@@ -59,11 +59,13 @@ export function AcquisitionCapture({
   userId,
   locations,
   initialBatch,
+  initialScanner,
   recent,
 }: {
   userId: string;
   locations: StorageLocation[];
   initialBatch: string;
+  initialScanner: boolean;
   recent: { id: string; batchNumber: number; phase: string }[];
 }) {
   const [locationId, setLocationId] = useState("");
@@ -71,7 +73,7 @@ export function AcquisitionCapture({
   const [quantity, setQuantity] = useState(1);
   const [customLimit, setCustomLimit] = useState(false);
   const [scannerChoice, setScannerChoice] = useState<ScannerChoice | null>(null);
-  const [scannerEnabled, setScannerEnabled] = useState(false);
+  const [scannerEnabled, setScannerEnabled] = useState(initialScanner);
   const scannerChanged = useCallback((value: ScannerChoice | null, enabled: boolean) => { setScannerChoice(value); setScannerEnabled(enabled); if (enabled) setCustomLimit(false); createKey.current = ""; }, []);
   const [batchId, setBatchId] = useState(initialBatch);
   const [progress, setProgress] = useState<Progress | null>(null);
@@ -427,10 +429,11 @@ export function AcquisitionCapture({
         </div>
       )}
       {!batchId ? (
-        <section className={panel} aria-label="New scan batch">
+        <section id="new-scan-batch" className={panel + " scroll-mt-4"} aria-label="New scan batch">
           <h2 className="text-xl font-semibold mb-3">
-            Choose a batch before taking photos
+            Set up a new scan batch
           </h2>
+          <p className="text-sm mb-3">Choose a destination and card input below. Starting a scanner batch sends the scan command to the connected computer.</p>
           <StorageDestinationPicker
             locations={locations}
             locationId={locationId}
@@ -477,7 +480,7 @@ export function AcquisitionCapture({
               : scannerEnabled ? `${remaining} spaces remain. Load no more than that; the scanner runs until the feeder is empty.` : `${remaining} spaces remaining in this destination.`}{" "}
             {!scannerEnabled && "One card per photo."}
           </p>
-          <ScannerSourceFields onChange={scannerChanged} disabled={busy} remaining={customLimit ? Math.min(quantity,remaining??quantity) : remaining} />
+          <ScannerSourceFields initialEnabled={initialScanner} onChange={scannerChanged} disabled={busy} remaining={customLimit ? Math.min(quantity,remaining??quantity) : remaining} />
           <button
             className={primary}
             disabled={
@@ -492,6 +495,9 @@ export function AcquisitionCapture({
           >
             {scannerEnabled ? "Start scanner batch" : "Start batch"}
           </button>
+          {!locationId && <p className="text-sm mt-2" role="status">Choose a destination to start.</p>}
+          {locationId && remaining === 0 && <p className="text-sm mt-2" role="status">This destination has no remaining space. Choose another destination.</p>}
+          {locationId && scannerEnabled && !scannerChoice && remaining !== 0 && <p className="text-sm mt-2" role="status">Choose an online scanner source to enable Start scanner batch.</p>}
           {!!recent.length && (
             <div className="mt-4">
               <h3 className="font-semibold">Recent batches</h3>

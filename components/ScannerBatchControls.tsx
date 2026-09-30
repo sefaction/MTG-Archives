@@ -14,22 +14,23 @@ async function call<T>(path: string, body?: object): Promise<T> {
   if (!response.ok) throw new Error(value.error ?? "Scanner request failed; originals remain saved.");
   return value;
 }
-export function ScannerSourceFields({ onChange, remaining, disabled }: { onChange: (value: ScannerChoice | null, enabled: boolean) => void; remaining: number | null; disabled: boolean }) {
+export function ScannerSourceFields({ initialEnabled, onChange, remaining, disabled }: { initialEnabled: boolean; onChange: (value: ScannerChoice | null, enabled: boolean) => void; remaining: number | null; disabled: boolean }) {
   const [agents, setAgents] = useState<Agent[]>([]), [selected, setSelected] = useState("");
-  const [enabled, setEnabled] = useState(false);
+  const [enabled, setEnabled] = useState(initialEnabled);
   const [dpi, setDpi] = useState<300 | 600>(600), [error, setError] = useState("");
   const refresh = async () => { try { setAgents((await call<{ agents: Agent[] }>("/api/scanners")).agents); } catch (e) { setError((e as Error).message); } };
   useEffect(() => {
     if (!enabled) return;
+    const immediate = setTimeout(() => void refresh(), 0);
     const timer = setInterval(() => void refresh(), 5000);
-    return () => clearInterval(timer);
+    return () => { clearTimeout(immediate); clearInterval(timer); };
   }, [enabled]);
   const sources = agents.filter(a=>a.online && a.agentVersion === "0.3.0-native").flatMap(a=>a.devices
     .filter(d=>d.qualification!=="Unsupported").map(d=>({ key: `${a.id}/${d.id}`, agentId: a.id, device: d })));
   useEffect(() => {
     if (selected || !sources.length) return;
     let remembered: string | null = null;
-    try { remembered = localStorage.getItem("mtg-scanner-source"); } catch { /* Choosing a source still works. */ }
+    try { remembered = localStorage.getItem("mtg-scanner-source"); } catch { /* Optional preference. */ }
     const preferred = sources.find(s=>s.key===remembered) ?? (sources.length===1 ? sources[0] : null);
     if (preferred) {
       const timer = setTimeout(() => setSelected(preferred.key), 0);
@@ -45,10 +46,11 @@ export function ScannerSourceFields({ onChange, remaining, disabled }: { onChang
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agents, selected, enabled, dpi, remaining, onChange]);
   return <fieldset id="scanner-source" className="space-y-3 min-w-0 my-3" disabled={disabled}>
-    <legend className="font-semibold">Card input</legend>
+    <legend className="font-semibold">3. Card input</legend>
     <label className="flex gap-2 items-start"><input type="checkbox" checked={enabled}
       onChange={e=>{ setEnabled(e.target.checked); if(e.target.checked) void refresh(); else onChange(null,false); }} />Scan from a connected scanner</label>
     {enabled && <>
+      <p className="text-sm">Choose the scanner once. The Start scanner batch button scans everything in the feeder.</p>
       <div className="flex flex-wrap gap-2 items-center"><label className="min-w-0 flex-1">Scanner source
         <select className={input+" block w-full max-w-full mt-1"} value={selected} onChange={e=>{setSelected(e.target.value);try {localStorage.setItem("mtg-scanner-source",e.target.value);} catch { /* Optional preference. */ }}}>
           <option value="">Choose a source</option>{sources.map(s=><option key={s.key} value={s.key}>{s.device.name} · {s.device.source}</option>)}
@@ -98,7 +100,7 @@ export function ScannerRunControls({ runId, savedImages, refresh }: { runId: str
         feederEmpty:true,transportEmpty:true,eachImageIsOneCardFront:true,noJamOrDouble:true})}>Confirm physical count</button>
     </fieldset>}
     {run?.reconciliation && <p>{(run.reconciliation as { mode?: string }).mode === "SCANNER_IMAGE_COUNT" ? "Image count recorded automatically." : "Physical count confirmed."} Review the matches below, then add selected cards to Inventory.</p>}
-    <a className={button} href="/imports/scan">New batch</a>
+    <a className={button} href="/imports/scan?input=scanner#new-scan-batch">New scanner batch</a>
     {error && <p role="alert">{error}</p>}
   </section>;
 }

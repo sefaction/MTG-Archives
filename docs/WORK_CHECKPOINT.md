@@ -1,5 +1,17 @@
 # Resumable work checkpoint
 
+## Approved merge refresh, 2026-09-29
+
+The user individually approved #510, #512 and #492. #510 merged as
+`4b9168e`; #512 now incorporates that main commit. Scanner-page conflicts
+preserve the already reviewed cumulative behavior: scanner-preselected setup,
+600 DPI, no pre-scan count, cleared photo-only limit, and scanner-preselected
+New batch link. Source controls match the loaded cumulative review source;
+typecheck and focused lint passed. Fresh merge CI is required before merging
+#512, followed by #492. #488/#491/#495 remain unapproved. The installed helper
+remains stopped pending an updated installer and physical retest; #511 remains
+open. No scanner motor or production action is part of this merge batch.
+
 ## Scanner feeder/review speed and TWAIN worker issue, 2026-09-29
 
 - Active isolated branch `feat/scanner-review-speed` from merged main `6bbd268`, associated with #501, #506 and new bug #511. Open unapproved #488 Simple review and #510 scanner-start discovery remain separate; no merges, production changes or scanner motor runs this turn. Local cumulative source is `local/acquisition-review-footer` in `MTG-Archives-acquisition-persistence`, not this isolated branch.
@@ -7,6 +19,13 @@
 - New scanner run `loadedCount` is nullable with a migration; old counted runs retain manual reconciliation. Clean natural completion uses complete saved image count as an explicitly labeled assumption and records per-candidate corrections; errors/stops/mismatches remain unresolved until manual reconciliation. WIA runs avoid TWAIN worker startup. One long-lived discovery backend caches TWAIN enumeration while still refreshing WIA.
 - User supplied a Plustek `TWAIN_Proxy.exe` runtime dialog and confirmed no active scan. Five helper services and 938 NAPS2 workers were observed under MTG Archives paths. Stopped only those local helper processes and owned workers; afterward zero remained. WIA-only local enumeration returned the Epson source and spawned zero workers; the Plustek WIA source was not present in that post-cleanup enumeration, so no new physical qualification is claimed. #511 tracks the defect.
 - Completed: disposable PostgreSQL acquisition integrity and shared import/receipt checks passed, including sole-finish foil/etched and ambiguous-finish cases; its fixture was removed. Final isolated/cumulative typechecks and focused ESLint passed. .NET 8 Release build passed with zero warnings/errors; native transport selftest and WIA-only listing passed without hardware. The cumulative web image `sha256:7048c0d1e73408efdcc05767f0d1b1eb6282f510c4e6727b47ecb6dc6be63e60` matched 486 source files and is loaded healthy locally. The guarded website/helper fixture passed again on this exact image: one saved scanner original, all ordinary recognition stages complete, proposed printing saved in Bulk Confirm Match, zero Inventory writes, desktop/320px no page overflow, owned fixture cleanup. Initial browser failures were stale pairing selectors and a below-viewport lazy review assertion; both test steps were corrected, with no app behavior hidden. [PR #512](https://github.com/sefaction/MTG-Archives/pull/512) is open, unapproved, and refreshed exact-head CI is pending. The local Windows helper remains stopped; the installed binary has not been updated. Next: review CI, then separately rebuild/distribute the helper and retest the Plustek after approval. Production remains unchanged.
+
+## Scanner start discoverability, 2026-09-29
+
+- Active isolated branch `fix/scanner-start-discovery` from merged main `6bbd268`; PR #510 is open for user review and issue #509 records the start-path defect. #501 remains the native-scanner umbrella and #506 the broader review/Inventory audit. No physical scan, Inventory write, production change or PR merge in this batch.
+- Isolated code commits `4da9b44` and `1330483` change only the connected-to-start path and its browser check. The connected panel links to a scanner-preselected new batch; the form names destination/section/input steps, states that Start scanner batch sends the command, and explains missing destination/capacity/source/feeder confirmation. A completed scanner run's New scanner batch link preserves scanner input.
+- Cumulative local review commits `d93e0eb` and `56155ca` are loaded in web image `sha256:1bd27256ad0faf3d61e057f940c761ae0cf4500a678c1107633f37d617ee94a5`, built explicitly from `MTG-Archives-acquisition-persistence`; web is healthy, other workers were not reloaded. Isolated and cumulative typechecks, focused lint, Docker build/client-manifest checks and the real-source, no-motor browser case passed. The latter reached an enabled Start scanner batch button without clicking it, revoked the test pairing, left zero acquisition/Inventory writes, and passed desktop/320px screenshots. An initial test used the obsolete global .NET runtime and a second missed the collapsed connection panel after navigation; both were corrected and the final run passed 1/1.
+- Next: inspect exact-head #510 CI and request individual review/merge approval. Preserve recognition workers, existing scanner physical safety rules, and the unapproved cumulative PR boundaries. No production deployment or physical scan is part of this fix.
 
 ## Website-first Windows scanner installer ready for PR, 2026-09-29
 
