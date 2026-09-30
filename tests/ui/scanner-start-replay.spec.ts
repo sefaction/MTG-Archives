@@ -97,6 +97,14 @@ for (const accepted of [true, false]) test(`lost website START ${accepted ? "ack
     await page.locator("#scanner-source details summary").click();
     await page.getByRole("combobox", { name: "Resolution", exact: true }).selectOption("300");
     expect(requests).toHaveLength(accepted ? 1 : 2); // Settled setup changes do not START.
+    if (!accepted) {
+      await page.getByRole("checkbox", { name: "Scan from a connected scanner" }).uncheck();
+      await page.evaluate(() => { sessionStorage.setItem = () => { throw new Error("Fixture storage unavailable"); }; });
+      await page.getByRole("button", { name: "Start batch", exact: true }).click();
+      await expect(page.getByRole("region", { name: "Batch progress" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Photo library", exact: true })).toBeVisible();
+      expect(requests).toHaveLength(2); // Ordinary photo creation requires no scanner-start storage.
+    }
   } finally {
     database(`const n=${JSON.stringify(tag)},w={run:{session:{createdByUserId:n}}};const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;
       if(!root||!paths.isAbsolute(root))throw new Error('Private fixture storage unavailable');

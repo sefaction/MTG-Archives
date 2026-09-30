@@ -43,5 +43,5 @@ Pending intent is per tab, not a cross-computer or cross-tab coordinator. Closin
 the tab can lose that browser intent; existing server unfinished-run checks still
 prevent a second feed through the same agent. A definitely rejected request may
 remain locked to its original setup until it can be retried; replacing a pending
-setup requires a separately qualified safe reset rather than assuming a missing
+setup is tracked in #529 and requires a separately qualified safe reset rather than assuming a missing
 lookup proves that no older request can finish. No timeout disposes native state.
