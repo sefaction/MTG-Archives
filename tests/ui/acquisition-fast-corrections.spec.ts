@@ -60,11 +60,11 @@ test("fast printing correction keeps drafts, metadata and destination while resu
     await expect(name).toBeFocused(); await expect(name).toHaveValue(original.name);
     await name.fill(alternate.name); await name.press("Enter");
     const choice = card.getByRole("radio", { name: /Fixture corrected printing/ }); await choice.check();
-    await expect(card.getByLabel("Card finish", { exact: true })).toHaveValue("FOIL");
-    await card.getByLabel("Card condition", { exact: true }).selectOption("LP");
+    await expect(card.getByRole("combobox", { name: "Card finish", exact: true })).toHaveValue("FOIL");
+    await card.getByRole("combobox", { name: "Card condition", exact: true }).selectOption("LP");
     const beforeRefresh = refreshes; reverse = true;
     await expect.poll(() => refreshes, { timeout: 12000 }).toBeGreaterThan(beforeRefresh);
-    await expect(choice).toBeChecked(); await expect(card.getByLabel("Card condition", { exact: true })).toHaveValue("LP");
+    await expect(choice).toBeChecked(); await expect(card.getByRole("combobox", { name: "Card condition", exact: true })).toHaveValue("LP");
     await page.getByRole("combobox", { name: "Show cards", exact: true }).selectOption("ready");
     await expect(card).toBeVisible(); await expect(name).toHaveValue(alternate.name);
     await page.getByRole("combobox", { name: "Show cards", exact: true }).selectOption("all");
@@ -83,7 +83,7 @@ test("fast printing correction keeps drafts, metadata and destination while resu
     const metadata = JSON.parse(database(`console.log(JSON.stringify(await p.acquisitionPhoto.findUniqueOrThrow({where:{id:${JSON.stringify(photos[0])}},select:{inputKind:true,digest:true}})));`));
     expect(metadata.inputKind).toBe("CARD_SCAN"); expect(metadata.digest).toMatch(/^[a-f0-9]{64}$/);
     await page.reload(); await card.scrollIntoViewIfNeeded(); await expect(card).toContainText("Fixture corrected printing");
-    await card.getByRole("button", { name: "Correct", exact: true }).click(); await expect(card.getByLabel("Card condition", { exact: true })).toHaveValue("LP");
+    await card.getByRole("button", { name: "Correct", exact: true }).click(); await expect(card.getByRole("combobox", { name: "Card condition", exact: true })).toHaveValue("LP");
     await card.getByRole("button", { name: "Next awaiting review", exact: true }).click();
     await expect(page.getByTestId("capture-card-3")).toBeFocused();
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
