@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function ScanPage({
   searchParams,
 }: {
-  searchParams: Promise<{ batch?: string }>;
+  searchParams: Promise<{ batch?: string; input?: string }>;
 }) {
   const user = await requireLogin(),
     scope = await getAccessScope(user);
@@ -28,6 +28,8 @@ export default async function ScanPage({
       select: { id: true, batchNumber: true, phase: true },
     }),
   ]);
+  const params = await searchParams;
+  const initialBatch = params.batch ?? "";
   return (
     <main className="min-w-0 p-3 sm:p-6 space-y-4">
       <Nav />
@@ -37,11 +39,12 @@ export default async function ScanPage({
         </a>
         <h1 className="text-3xl font-bold">Scan cards</h1>
       </div>
-      <ScannerConnections />
+      <ScannerConnections newBatchHref="/imports/scan?input=scanner#new-scan-batch" />
       <AcquisitionCapture
         userId={user.id}
         locations={await getStorageLocations(prisma, locations)}
-        initialBatch={(await searchParams).batch ?? ""}
+        initialBatch={initialBatch}
+        initialScanner={params.input === "scanner"}
         recent={recent}
       />
     </main>

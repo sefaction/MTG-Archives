@@ -1,5 +1,12 @@
 # Resumable work checkpoint
 
+## Scanner start discoverability, 2026-09-29
+
+- Active isolated branch `fix/scanner-start-discovery` from merged main `6bbd268`; PR #510 is open for user review and issue #509 records the start-path defect. #501 remains the native-scanner umbrella and #506 the broader review/Inventory audit. No physical scan, Inventory write, production change or PR merge in this batch.
+- Isolated code commits `4da9b44` and `1330483` change only the connected-to-start path and its browser check. The connected panel links to a scanner-preselected new batch; the form names destination/section/input steps, states that Start scanner batch sends the command, and explains missing destination/capacity/source/feeder confirmation. A completed scanner run's New scanner batch link preserves scanner input.
+- Cumulative local review commits `d93e0eb` and `56155ca` are loaded in web image `sha256:1bd27256ad0faf3d61e057f940c761ae0cf4500a678c1107633f37d617ee94a5`, built explicitly from `MTG-Archives-acquisition-persistence`; web is healthy, other workers were not reloaded. Isolated and cumulative typechecks, focused lint, Docker build/client-manifest checks and the real-source, no-motor browser case passed. The latter reached an enabled Start scanner batch button without clicking it, revoked the test pairing, left zero acquisition/Inventory writes, and passed desktop/320px screenshots. An initial test used the obsolete global .NET runtime and a second missed the collapsed connection panel after navigation; both were corrected and the final run passed 1/1.
+- Next: inspect exact-head #510 CI and request individual review/merge approval. Preserve recognition workers, existing scanner physical safety rules, and the unapproved cumulative PR boundaries. No production deployment or physical scan is part of this fix.
+
 ## Website-first Windows scanner installer ready for PR, 2026-09-29
 
 - Active isolated branch `feat/scanner-website-installer` from merged main `080230d`; #501 remains active. Draft #508 is open for website-first installation; all four initial CI checks passed. Superseded draft #507 was closed without merge. No PR merge, production change or scanner motor run in this batch. The local cumulative review includes isolated commit `762d22c` and compact UI/test commit `6cd7284`; unrelated recognition work remains outside #508.
