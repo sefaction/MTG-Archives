@@ -112,10 +112,48 @@ not replace device side evidence.
 
 This establishes a useful difference between operator-controlled driver-window
 and headless acquisition in this comparison. It does not isolate which driver
-option or negotiation causes headless clipping. The reported simplex setting
-and two returned sides disagree; scan-mode recollection and post-feed physical
-observations are pending. Native UI bypasses the SDK's standard configuration,
+option or negotiation causes headless clipping. The operator confirmed one undamaged physical card and empty feeder/transport
+with no jam or double feed, and is unsure whether Simplex or Duplex was shown.
+Treat the actual selected mode as unknown, rather than two physical cards. Native UI bypasses the SDK's standard configuration,
 including feeder/duplex selection, so it is not a qualified automatic fallback.
 No installed helper, website behavior, recognition or Inventory changed. Keep
 this draft open until headless frame/automatic-option negotiation is understood;
 do not feed again automatically or discard the extra image.
+## Motor-free negotiation leads and completed driver errors
+
+Two private 32-bit probes use the same pinned NAPS2.NTwain1.0.1 dependency but a
+separate probe application identity, so their readback is not a trace of the
+previous actual SDK scan. They never enable acquisition. No package or installed
+helper was changed. The first read-only probe completed normally: border
+detection and deskew false, undefined-image-size false, custom size None, both
+resolution axes600, feeder enabled and duplex enabled. The reported frame was
+approximately2.95,0,5.55,3.6 inches. Automatic length, crop-uses-frame and autosize
+were reported unsupported. Its DSM path was the system twain_32.dll despite
+PreferNewDSM; do not infer the actual SDK-run DSM from its requested preference.
+
+A second state4-only probe applied the helper-equivalent standard settings.
+Every Set returned Success; crop and deskew remained false, duplex read back
+false and both resolutions600. Final ImageLayout nevertheless read0,0,8.5,14
+inches. This is a negotiation lead, not proof of which setter changed the frame
+or of the preceding clipped scan's configuration. Source/session close returned
+Success and the process exited0 with no images. The probe's transient driver
+settings were changed; it did not reset or feed the scanner.
+
+Two bounded follow-ups to trace the frame after individual settings could not
+open the source and exited5 without applying their configurations. The second
+recorded OperationError. Both sessions closed normally. The first private trace
+has an instrumentation inconsistency: its final event says exit0 because of an
+early-return/finally status bug; the external process status is authoritative5.
+The later probe corrects that reporting. Preserve both traces unchanged.
+
+One empty-feeder settings inspection through the existing tested SDK also ended
+with AlreadyHandledDriverException, ERROR, zero images in850ms and process
+exit1. The operator saw no error dialog and confirmed powered/connected. All
+owned diagnostics finished; no timeout, forced termination or refeed occurred.
+Four pre-existing installed helpers and their four workers remained stable;
+none was started, replaced or stopped. Their presence is not a proved cause.
+
+Operator power-cycle recovery with empty feeder/transport is requested before
+another motor-free source check. Do not automatically retry the physical scan,
+claim a footer fix or consider the driver qualified. No Inventory, production,
+recognition or local web changes occurred.
