@@ -170,7 +170,7 @@ public static class ScannerConnection
         var text = Uri.UnescapeDataString(uri.Query[6..]);
         return Site(text, text.StartsWith("http://", StringComparison.OrdinalIgnoreCase));
     }
-    private static int ResumeSaved(Uri? site = null)
+    private static int ResumeSaved(Uri? site = null, Action<Guid>? start = null)
     {
         if (!Directory.Exists(Root)) return 0;
         var resumed = 0;
@@ -182,7 +182,7 @@ public static class ScannerConnection
                 if (connection.Disabled || (site != null && connection.Site != site.AbsoluteUri)) continue;
                 var credential = Credential(connection);
                 if (credential.PairCode != null) continue;
-                StartService(id); resumed++;
+                (start ?? StartService)(id); resumed++;
             } catch (Exception error) when (error is IOException or InvalidOperationException or ArgumentException or JsonException) { }
         }
         return resumed;
@@ -252,9 +252,17 @@ public static class ScannerConnection
                     try { ParseResumeUri(invalid); throw new InvalidDataException("Unsafe resume link accepted"); }
                     catch (ArgumentException) { }
                 }
-                var saved = new HelperConnection(id, "https://example.com/", "fixture", false);
-                SaveConnection(saved); DisableConnection(saved);
-                if (!LoadConnection(id.ToString()).Disabled) throw new InvalidDataException("Revoked connection did not stay disabled");
+                var saved = new HelperConnection(id, $"https://{id}.invalid/", "fixture", false);
+                SaveConnection(saved);
+                SaveCredential(saved, new EnrollmentCredential("fixture", null, saved.Site, false));
+                var opened = new List<Guid>();
+                if (ResumeSaved(new Uri("https://different.invalid/"), opened.Add) != 0 || opened.Count != 0)
+                    throw new InvalidDataException("Reconnect resumed a different site");
+                if (ResumeSaved(new Uri(saved.Site), opened.Add) != 1 || opened.Single() != id)
+                    throw new InvalidDataException("Reconnect did not select the saved site");
+                DisableConnection(saved);
+                if (!LoadConnection(id.ToString()).Disabled || ResumeSaved(new Uri(saved.Site), opened.Add) != 0 || opened.Count != 1)
+                    throw new InvalidDataException("Revoked connection resumed instead of staying disabled");
                 var sample = ParsePairUri("mtg-archive-scanner://connect?site=https%3A%2F%2Fexample.com%2F&code=" +
                     Guid.NewGuid().ToString() + "." + new string('A', 43));
                 if (sample.site.AbsoluteUri != "https://example.com/" || sample.local) throw new InvalidOperationException("Pair link changed");
