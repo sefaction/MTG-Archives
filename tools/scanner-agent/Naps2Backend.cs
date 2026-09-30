@@ -26,6 +26,26 @@ public sealed class Naps2Backend : IScannerBackend
     private bool started;
     private bool closed;
     private readonly string? selectedDeviceId;
+    private TwainTransferMode transferMode = TwainTransferMode.Default;
+    private TwainDsm dsm = TwainDsm.New;
+    private bool useDiagnosticDriverUi;
+    // Explicit, private qualification only. Website runs retain their normal
+    // settings; there is no automatic retry that could feed another card.
+    internal void ConfigureDiagnostic(string mode, TextWriter log)
+    {
+        ObjectDisposedException.ThrowIf(closed, this);
+        if (prepared != null || started) throw new InvalidOperationException("Configure before preparation");
+        (transferMode, dsm) = mode switch {
+            "default" => (TwainTransferMode.Default, TwainDsm.New),
+            "memory" => (TwainTransferMode.Memory, TwainDsm.New),
+            "native" => (TwainTransferMode.Native, TwainDsm.New),
+            "native-old-dsm" => (TwainTransferMode.Native, TwainDsm.Old),
+            "driver-ui" => (TwainTransferMode.Default, TwainDsm.New),
+            _ => throw new ArgumentException("Unknown diagnostic mode")
+        };
+        useDiagnosticDriverUi = mode == "driver-ui";
+        context.Logger = new PrivateScannerLogger(log);
+    }
     public IReadOnlyList<ScannerDiscoveryIssue> DiscoveryIssues =>
         new[] { wiaDiscovery.Issue, twainDiscovery.Issue }.OfType<ScannerDiscoveryIssue>().ToArray();
     public static object Describe() => new
@@ -134,8 +154,8 @@ public sealed class Naps2Backend : IScannerBackend
             PageSize = new PageSize(request.WidthInches, request.HeightInches, PageSizeUnit.Inch),
             PageAlign = request.HorizontalPlacement == "Center" ? HorizontalAlign.Center :
                 request.HorizontalPlacement == "Start" ? HorizontalAlign.Right : HorizontalAlign.Left,
-            UseNativeUI = false,
-            TwainOptions = new TwainOptions { Dsm = TwainDsm.New, ShowProgress = false },
+            UseNativeUI = useDiagnosticDriverUi,
+            TwainOptions = new TwainOptions { Dsm = dsm, TransferMode = transferMode, ShowProgress = false },
             AutoDeskew = false, CropToPageSize = false, StretchToPageSize = false,
             ExcludeBlankPages = false, RotateDegrees = 0, MaxQuality = true
         };

@@ -1,3 +1,31 @@
+## TWAIN footer steering and live diagnostic window, September30,2026
+
+- User reports5 fresh local scans clip footer. Authoritative cumulative remains
+ 62ae751/appbc7bf74/image6460e4a/495/c0090fc4; do not rebuild stale primary.
+ All18 prepared PRs individually unapproved. #529 uncommitted leaf preserved
+ separately; finalcore744/type/lint pass, finalinactiveproof/browser pending.
+- New issue539, isolated fix/scanner-twain-footer on536700ca54. CLI-only SDK
+ modes/private logger added; website/helper installed behavior unchanged.
+ All5 latest spool/server originals hash-match and already clip footer; existing
+ Card scan preview simply scales. Their requestedTWAIN600 frame2.6x3.6/Start
+ cannot be claimed negotiated. No recognition changes or Inventory writes.
+- Authorized fresh WIA600 single0b91a6a6 PASS1560x2031/fullfooter/7.503s.
+ User confirms1undamaged/nojam/double/dialog/empty. Same-card TWAIN Native
+ modern fde55b26 FAIL1367x2000/9.941s and oldDSM7dd8dfe2 FAIL1366x1997/9.840s;
+ each1undamaged/noissues. SDK requested settings do not prove actualtransfermode.
+- User explicitly wantsTWAIN troubleshooting, not simplyignoringit. PinnedSDK
+ exactsource lacks automaticbordercrop control/negotiatedlayout result. Driver
+ templateAutoCrop1 is a clue, NOT proof oflive setting. Originalspreservedprivate.
+- User confirmedemptyfeeder/transport; driver-ui diagnostic a122fece opened.
+ execsession87961 is LIVE awaiting vendorwindow close. Noimage received yet.
+ Screenshotquestion pending; usertoldleaveScanuntouched. Do NOT build thisleaf
+ whileitsassembly/nativewindowactive or assumecompletion. Pollsame87961 after
+ usercloses. No subsequentmotor withoutfreshloadconfirmation.
+- BuildbeforewindowPASSclean; discoveryselftestPASSbeforelastdiagnosticchecks.
+ Latest CreateNew-private-log replayguard/newdiagnosticselftest notyetbuilt.
+ Finishchecks/docs, coherentPR separatefrom529. No merge/production/helperupdate.
+ GoalACTIVE/incomplete; physicalwindowneedsuser, independentworkcancontinue.
+
 # Resumable work checkpoint
 
 ## Pending discovery heartbeat accepted locally, September30,2026

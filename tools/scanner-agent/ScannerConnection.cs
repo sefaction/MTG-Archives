@@ -226,7 +226,7 @@ public static class ScannerConnection
             return true;
         }
         if (args[0] == "native-selftest") { await ScannerNativeSelfTest.Run(Path.Combine(Root, "selftests")); return true; }
-        if (args[0] == "discovery-selftest") { await ScannerDiscoveryProgressSelfTest.Run(); await ScannerDiscoverySelfTest.Run(); return true; }
+        if (args[0] == "discovery-selftest") { await ScannerDiscoveryProgressSelfTest.Run(); await ScannerDiscoverySelfTest.Run(); await ScannerDiagnosticSelfTest.Run(); return true; }
         if (args[0] == "connection-selftest")
         {
             var id = Guid.NewGuid();
