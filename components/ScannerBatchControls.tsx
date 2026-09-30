@@ -29,7 +29,8 @@ export function ScannerSourceFields({ initialEnabled, initialChoice, onChange, r
     return () => { clearTimeout(immediate); clearInterval(timer); };
   }, [enabled]);
   const sources = agents.filter(a=>a.online && a.agentVersion === "0.3.0-native").flatMap(a=>a.devices
-    .filter(d=>d.qualification!=="Unsupported").map(d=>({ key: `${a.id}/${d.id}`, agentId: a.id, device: d })));
+    .filter(d=>d.qualification!=="Unsupported").map(d=>({ key: `${a.id}/${d.id}`, agentId: a.id, device: d,
+      detecting: a.discoveryIssues?.some(issue=>issue.code==="DISCOVERY_IN_PROGRESS") ?? false })));
   useEffect(() => {
     if (selected || !sources.length) return;
     let remembered: string | null = null;
@@ -42,7 +43,7 @@ export function ScannerSourceFields({ initialEnabled, initialChoice, onChange, r
   }, [agents, selected, sources]);
   useEffect(() => {
     const source = sources.find(s=>s.key === selected);
-    onChange(enabled && source && remaining!==0 ? { agentId: source.agentId, deviceId: source.device.id, loadedCount: null,
+    onChange(enabled && source && !source.detecting && remaining!==0 ? { agentId: source.agentId, deviceId: source.device.id, loadedCount: null,
         operatorLoadedSimplexFronts: true, settings: { dpi, widthInches: frame?.widthInches ?? 2.6, heightInches: frame?.heightInches ?? 3.6, horizontalPlacement: frame?.horizontalPlacement ?? "Start",
           duplex: false, color: "RGB", autoCrop: false, deskew: false, removeBlank: false } } : null, enabled);
   // sources are refreshed by explicit user action; dependencies are the underlying inputs.
@@ -58,10 +59,12 @@ export function ScannerSourceFields({ initialEnabled, initialChoice, onChange, r
         <select className={input+" block w-full max-w-full mt-1"} value={selected} onChange={e=>{setSelected(e.target.value);try {localStorage.setItem("mtg-scanner-source",e.target.value);} catch { /* Optional preference. */ }}}>
           <option value="">Choose a source</option>{selected && !sources.some(s=>s.key === selected) && <option value={selected} disabled>Previous scanner source (offline)</option>}{sources.map(s=><option key={s.key} value={s.key}>{s.device.name} · {s.device.source}</option>)}
         </select></label><button className={button} type="button" onClick={()=>void refresh()}>Refresh scanners</button></div>
-      {sources.length===0 && <p className="text-sm">{agents.some(agent=>agent.online)
+      {sources.length===0 && !agents.some(agent=>agent.online && agent.discoveryIssues?.some(issue=>issue.code==="DISCOVERY_IN_PROGRESS")) && <p className="text-sm">{agents.some(agent=>agent.online)
         ? "No scanner source is available yet. Check its USB connection, power and manufacturer driver."
         : "Connect a scanner above; available sources will appear here automatically."}</p>}
-      <ScannerDiscoveryNotice issues={agents.filter(agent=>agent.online).flatMap(agent=>agent.discoveryIssues ?? [])} />
+      <ScannerDiscoveryNotice issues={agents.filter(agent=>agent.online &&
+        (!selected || agent.id===sources.find(source=>source.key===selected)?.agentId))
+        .flatMap(agent=>agent.discoveryIssues ?? [])} />
       <details><summary className="cursor-pointer text-sm">Scan settings · {dpi} DPI</summary>
         <label className="block mt-2">Resolution<select className={input+" block mt-1"} value={dpi} onChange={e=>setDpi(Number(e.target.value) as 300|600)}>
           <option value={600}>600 DPI (default)</option><option value={300}>300 DPI</option></select></label>

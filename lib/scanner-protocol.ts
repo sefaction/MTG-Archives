@@ -9,9 +9,10 @@ export const scannerDeviceSchema = z.object({
 }).strict();
 export const scannerDiscoveryIssueSchema = z.object({
   source: z.string().regex(/^[A-Za-z0-9_-]{1,32}$/),
-  code: z.enum(["DISCOVERY_FAILED", "DISCOVERY_RESTART_REQUIRED"]),
+  code: z.enum(["DISCOVERY_FAILED", "DISCOVERY_RESTART_REQUIRED", "DISCOVERY_IN_PROGRESS"]),
   retryAfterSeconds: z.number().int().min(0).max(300).nullable(),
-}).strict();
+}).strict().refine(issue => issue.code !== "DISCOVERY_IN_PROGRESS" || issue.retryAfterSeconds === null,
+  "An active operation has no retry deadline");
 export const scannerDiscoveryIssuesSchema = z.array(scannerDiscoveryIssueSchema).max(8)
   .refine(issues => new Set(issues.map(issue => issue.source)).size === issues.length, "Duplicate discovery source");
 export type ScannerDiscoveryIssue = z.infer<typeof scannerDiscoveryIssueSchema>;

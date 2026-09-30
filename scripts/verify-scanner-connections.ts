@@ -35,12 +35,20 @@ export async function verifyScannerConnections(db: PrismaClient) {
     const issue = {source:"Twain",code:"DISCOVERY_FAILED",retryAfterSeconds:30};
     const acknowledgement = await recordScannerPulse(db,authorization,{...pulse,discoveryIssues:[issue]},now);
     assert.equal(acknowledgement.discoveryReporting,true);
+    assert.equal(acknowledgement.discoveryProgressReporting,true);
     assert.deepEqual((await listScannerAgents(db,owner,now))[0].discoveryIssues,[issue]);
     // Older helper/native-run pulses keep the last explicit diagnostic snapshot.
     await recordScannerPulse(db,authorization,pulse,now);
     assert.deepEqual((await listScannerAgents(db,owner,now))[0].discoveryIssues,[issue]);
     await assert.rejects(recordScannerPulse(db,`Bearer ${agentId}.${scannerSecret()}`,{...pulse,discoveryIssues:[]},now));
     assert.deepEqual((await listScannerAgents(db,owner,now))[0].discoveryIssues,[issue]);
+    await recordScannerPulse(db,authorization,{...pulse,discoveryIssues:[]},now);
+    assert.deepEqual((await listScannerAgents(db,owner,now))[0].discoveryIssues,[]);
+    const pending = {source:"Windows",code:"DISCOVERY_IN_PROGRESS",retryAfterSeconds:null};
+    await recordScannerPulse(db,authorization,{...pulse,discoveryIssues:[pending]},now);
+    assert.deepEqual((await listScannerAgents(db,owner,now))[0].discoveryIssues,[pending]);
+    await recordScannerPulse(db,authorization,pulse,now);
+    assert.deepEqual((await listScannerAgents(db,owner,now))[0].discoveryIssues,[pending]);
     await recordScannerPulse(db,authorization,{...pulse,discoveryIssues:[]},now);
     assert.deepEqual((await listScannerAgents(db,owner,now))[0].discoveryIssues,[]);
     const visible = await listScannerAgents(db, owner, now);

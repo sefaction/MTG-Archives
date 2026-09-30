@@ -2,6 +2,10 @@ import type { ScannerDiscoveryIssue } from "@/lib/scanner-protocol";
 
 export function ScannerDiscoveryNotice({ issues = [] }: { issues?: ScannerDiscoveryIssue[] }) {
   if (!issues.length) return null;
+  if (issues.some(issue => issue.code === "DISCOVERY_IN_PROGRESS")) return <p role="status" className="text-sm break-words">
+    Checking scanner drivers. You can keep reviewing saved scans. New scans will be available when detection finishes.
+    {" "}If detection stays here, check for a scanner-driver dialog on this computer. Keep one helper running while detection finishes. Saved scans are kept.
+  </p>;
   const restart = issues.some(issue => issue.code === "DISCOVERY_RESTART_REQUIRED");
   return <p role="status" className="text-sm break-words">
     Windows could not check every scanner driver. You can still use any listed source.

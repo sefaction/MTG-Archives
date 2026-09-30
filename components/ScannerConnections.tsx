@@ -75,7 +75,9 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
         {hasOnline ? "Scanner connected" : "Connect a scanner"}</button>
       {hasOnline && <a className={filterPrimaryButtonClass} href={newBatchHref}>Set up a new scanner batch</a>}
     </div>
-    {hasOnline && <p className="mt-2 text-sm">Choose a destination and scanner source below, then start the batch.</p>}
+    {hasOnline && <p className="mt-2 text-sm">{agents.every(agent=>!agent.online || agent.discoveryIssues?.some(issue=>issue.code==="DISCOVERY_IN_PROGRESS"))
+      ? "The helper is connected and checking scanner drivers. You can set up the destination while it finishes."
+      : "Choose a destination and scanner source below, then start the batch."}</p>}
     {expanded && <div className="space-y-3 mt-3 min-w-0">
       {installerAvailable && <div className="flex flex-wrap gap-2 items-center">
         <a className={filterButtonClass} href="/api/scanners/installer" download>
