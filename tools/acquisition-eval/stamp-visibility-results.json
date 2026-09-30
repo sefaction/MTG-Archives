@@ -1,0 +1,382 @@
+{
+  "version": 1,
+  "scope": "REUSED_DEVELOPMENT_STAMP_STAGE_NOT_HELD_OUT_OR_PRINTING_PRECISION",
+  "method": "registered-printing-evidence-dev5",
+  "algorithm": {
+    "stampThresholdUnchanged": 0.78,
+    "registrationUnchanged": true,
+    "modelsUnchanged": true,
+    "reviewRequired": true,
+    "automaticAcceptance": false
+  },
+  "native": {
+    "completed": 31,
+    "total": 31,
+    "registrationComparison": "EXACT_FRESH_BASELINE_FIELDS_EXCEPT_STAMP_VISIBILITY",
+    "inputsSha256": "ed908ca005dc9f1a8c626cc7dd38a13aad8c978687878a2ed039935ceb83d3e5",
+    "snapshotSha256": "2270183b7aedb66e4b0ec5d1dc1b3576d1ad643d1b12e310d0c863ba114ea748",
+    "codeSha256": "e708942216b1a770e375580dc1705c244266c31c7ec6acd21fae2d7b42610b64",
+    "runtimeSha256": "408ba66614e2e33fbe323fdd5512ac88c0d3ab30f5899d0fd6b366cf21b743ed",
+    "baselineRuntimeSha256": "1ee42886fa4aefe0ddf1770d8bfd59ec15af48702bbed0cba3faf5b020ab77c6",
+    "baselinePolicySha256": "9e38b2ee6608dc7141c5f4988b56ecb5e1c8d6b9231ffa69d0f8a43c7ede2aa3",
+    "elapsedMs": 573801,
+    "stamped": 12,
+    "unstamped": 19,
+    "beforePresent": 11,
+    "afterPresent": 12,
+    "beforeAbsent": 4,
+    "afterAbsent": 4,
+    "beforeUnreadable": 16,
+    "afterUnreadable": 15,
+    "wrongExplicit": 0,
+    "samples": [
+      {
+        "sample": "scan-batch-20260928/test-scan.016.jpg",
+        "sha256": "70f457048ef283ff53ab2c675210b1893e4d1cf50fec51f1b71a7b7ddc9f4ca7",
+        "label": "PRESENT",
+        "before": "PRESENT",
+        "after": "PRESENT",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch-20260928/test-scan.017.jpg",
+        "sha256": "cff65a91dd051dae2005f92662aa9fbe1c2b67aae48d2f61b008cd86894e17bb",
+        "label": "PRESENT",
+        "before": "PRESENT",
+        "after": "PRESENT",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch-20260928/test-scan.018.jpg",
+        "sha256": "e9f927acc9aadc2e75e38d404df8a89cd833089ae16cc89950a943bdd69ee5f8",
+        "label": "PRESENT",
+        "before": "PRESENT",
+        "after": "PRESENT",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch-20260928/test-scan.019.jpg",
+        "sha256": "4e56a6bcabe733c9b5247f86a494de19b48a1ec1f5c26891693a5f81d8b92b24",
+        "label": "PRESENT",
+        "before": "PRESENT",
+        "after": "PRESENT",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch-20260928/test-scan.020.jpg",
+        "sha256": "507e93a9a81a03fe2985fe1b14d7aec8c14039488aa1c7a9c8645483bb9a83c9",
+        "label": "PRESENT",
+        "before": "PRESENT",
+        "after": "PRESENT",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch-20260928/test-scan.021.jpg",
+        "sha256": "85e44cc185f4527f4366d7741faafdcff62b276517d63782dca6f62127a296e5",
+        "label": "PRESENT",
+        "before": "PRESENT",
+        "after": "PRESENT",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch-20260928/test-scan.036.jpg",
+        "sha256": "cb2763a55a89e2152508d050ee9e28645160b1aea14be928fb86c6dd848f328a",
+        "label": "PRESENT",
+        "before": "PRESENT",
+        "after": "PRESENT",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch-20260928/test-scan.065.jpg",
+        "sha256": "e98cba27c7a3cee218afde10a368586ba518b29e0969948e1bcb95ea39a0596e",
+        "label": "PRESENT",
+        "before": "UNREADABLE",
+        "after": "PRESENT",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch-20260928/test-scan.013.jpg",
+        "sha256": "517a47831a5686b25c6075786cf8cd275b9ce7881480d4912f654669ebe2d371",
+        "label": "ABSENT",
+        "before": "ABSENT",
+        "after": "ABSENT",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch-20260928/test-scan.015.jpg",
+        "sha256": "03c83d1023d05ec06748096ef230a770990947fbeae8f5b6d77d639c614dbf30",
+        "label": "ABSENT",
+        "before": "ABSENT",
+        "after": "ABSENT",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch-20260928/test-scan.030.jpg",
+        "sha256": "c0d8db1b40010ace90a32bca585cd8f1836acb5144e63bbdbc6a1459826ae1e2",
+        "label": "ABSENT",
+        "before": "ABSENT",
+        "after": "ABSENT",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch-20260928/test-scan.040.jpg",
+        "sha256": "6650ba342d806eee92d5ae1446754931c8fa57012c49fe96ddbc333c7a674024",
+        "label": "ABSENT",
+        "before": "ABSENT",
+        "after": "ABSENT",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch-20260928/test-scan.002.jpg",
+        "sha256": "5d8fc2db4f57fd82fa244ef23c6f5b66466029e671063723d8ebfa549706bb72",
+        "label": "ABSENT",
+        "before": "UNREADABLE",
+        "after": "UNREADABLE",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch-20260928/test-scan.004.jpg",
+        "sha256": "3c8c6a176d5d52f43ce31b1246cf8dc09354883fcae3e3739fcb89c07231bf92",
+        "label": "ABSENT",
+        "before": "UNREADABLE",
+        "after": "UNREADABLE",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch-20260928/test-scan.006.jpg",
+        "sha256": "93e5ec2ca2d16d916eeb1db33db0abe71998676a783c5e0fc132caad3a5567f0",
+        "label": "ABSENT",
+        "before": "UNREADABLE",
+        "after": "UNREADABLE",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch-20260928/test-scan.025.jpg",
+        "sha256": "3246bae6569760e660e90b0e67469087a6d3efdee823b4bf942a91c43dab0ca8",
+        "label": "ABSENT",
+        "before": "UNREADABLE",
+        "after": "UNREADABLE",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch-20260928/test-scan.121.jpg",
+        "sha256": "a748f687aad21054b7ba6a5fbf473328f06094bec87c3ab81e49f877d3ff62ae",
+        "label": "ABSENT",
+        "before": "UNREADABLE",
+        "after": "UNREADABLE",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch-20260928/test-scan.122.jpg",
+        "sha256": "1d834e6c0b3749819364032c3eb8f45d168d931acaa7ac8da97f71e4e1acd0d8",
+        "label": "ABSENT",
+        "before": "UNREADABLE",
+        "after": "UNREADABLE",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch-20260928/test-scan.123.jpg",
+        "sha256": "b1783d133adaffed2be3dc4d01b118157d6ad471aff619bee8ba09a79028463c",
+        "label": "ABSENT",
+        "before": "UNREADABLE",
+        "after": "UNREADABLE",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch-20260928/test-scan.124.jpg",
+        "sha256": "4aecbf0d058304fa75fc7a48cf710efa557f1f9c90ebb912ce3486bbb461f26e",
+        "label": "ABSENT",
+        "before": "UNREADABLE",
+        "after": "UNREADABLE",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch2-20260928/scan-test.21.jpg",
+        "sha256": "87795172376f1b8f9f655bac48c0381e5225da06a2d0318e6fb653d7e73a5852",
+        "label": "PRESENT",
+        "before": "PRESENT",
+        "after": "PRESENT",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch2-20260928/scan-test.22.jpg",
+        "sha256": "d5438c1428add3097c73eded4d0bab5b8c7763e0f2d5df6d2d22fa553dfc77c6",
+        "label": "PRESENT",
+        "before": "PRESENT",
+        "after": "PRESENT",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch2-20260928/scan-test.41.jpg",
+        "sha256": "d0a4ceaea137f69839483db277c305ed4ae9a82d65fd57c08f806e8c48481817",
+        "label": "PRESENT",
+        "before": "PRESENT",
+        "after": "PRESENT",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch2-20260928/scan-test.42.jpg",
+        "sha256": "b6adbeab1b625c8673d840eb7351e16529b922d05beef688930b756a145349e4",
+        "label": "PRESENT",
+        "before": "PRESENT",
+        "after": "PRESENT",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch2-20260928/scan-test.35.jpg",
+        "sha256": "99bad1e028a1b8a589ead6a9539a71de1f1893260f2bcb41cffc96b59b6d8350",
+        "label": "ABSENT",
+        "before": "UNREADABLE",
+        "after": "UNREADABLE",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch2-20260928/scan-test.51.jpg",
+        "sha256": "c612250b17dbb4ef3b4cb45fda99f3d525a6efe4a642bea8c941c893be873ced",
+        "label": "ABSENT",
+        "before": "UNREADABLE",
+        "after": "UNREADABLE",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch2-20260928/scan-test.58.jpg",
+        "sha256": "79a54a68757c3c661039718e9c78bf258e769df2ed90d79b2d737c2a4c354631",
+        "label": "ABSENT",
+        "before": "UNREADABLE",
+        "after": "UNREADABLE",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch2-20260928/scan-test.64.jpg",
+        "sha256": "cacf907582d32c8dd6211f3fde8a5355340adfc3a24c09c8a5fc5c458898cf27",
+        "label": "ABSENT",
+        "before": "UNREADABLE",
+        "after": "UNREADABLE",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch2-20260928/scan-test.65.jpg",
+        "sha256": "d48257cbb85be32f405308d8314bbf9ce78de4e48d14caaa17c9905dea82e593",
+        "label": "ABSENT",
+        "before": "UNREADABLE",
+        "after": "UNREADABLE",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch2-20260928/scan-test.66.jpg",
+        "sha256": "f686cab87ff58ab9b3dd7102b3628b4d7b5ac78b684c999f94f42cc3901433b7",
+        "label": "ABSENT",
+        "before": "UNREADABLE",
+        "after": "UNREADABLE",
+        "conflicting": false,
+        "automaticAcceptance": false
+      },
+      {
+        "sample": "scan-batch2-20260928/scan-test.67.jpg",
+        "sha256": "01798927fb68cded7d0a610e1b1ce20247e24376f323be303044bf7e39a2b380",
+        "label": "ABSENT",
+        "before": "UNREADABLE",
+        "after": "UNREADABLE",
+        "conflicting": false,
+        "automaticAcceptance": false
+      }
+    ]
+  },
+  "browser": {
+    "passed": true,
+    "elapsedMs": 43673,
+    "photoSha256": "e98cba27c7a3cee218afde10a368586ba518b29e0969948e1bcb95ea39a0596e",
+    "printingDescriptor": "71945609a0d5c76b10ef3415bf2679a61856d350ba3c9e370dd87fd62ff8da99",
+    "selectedPrinting": {
+      "name": "Boggart Ram-Gang",
+      "setCode": "plst",
+      "collectorNumber": "SHM-203"
+    },
+    "observedStamp": "PRESENT",
+    "checks": [
+      "ORDINARY_QUEUES_FIXED_600S_GATE",
+      "NATIVE_PRESERVED",
+      "LOCATION_SECTION_PRESERVED",
+      "STAMP_PRESENT_LIST_FIRST",
+      "SIMPLE_ADVANCED_IMAGES",
+      "1366_320_NO_OVERFLOW",
+      "CORRECTION_RELOAD",
+      "ZERO_INVENTORY",
+      "OWNED_FIXTURE_CLEANUP"
+    ],
+    "cumulativePRs": [
+      486,
+      487,
+      488,
+      489,
+      490,
+      492,
+      493,
+      495,
+      497,
+      499,
+      500
+    ],
+    "sourceDigest": "cbe6085105c439e825c85cfda4b47f4f6e71d543cf1b023f37f8fb523d31d189",
+    "printingImage": "sha256:4451d0adf30400b71a905fba98e993586c16eac5efa6106d3caf4af46f97efc9",
+    "descriptorChangedFields": [
+      "registrationSha256",
+      "policySha256"
+    ],
+    "priorInterruptedFixture": "Missing finish before save; retained detection/screenshots, owned cleanup, corrected fixture passed."
+  },
+  "guards": {
+    "pythonPrintingRuntimeCache": 18,
+    "typecheck": true,
+    "eslint": true
+  },
+  "resources": {
+    "scope": "PRINTING_CONTAINER_LIFETIME_INCLUDES_BACKGROUND_AND_NODE_OBSERVER_NOT_ISOLATED_TASK",
+    "memory.current": "718147584",
+    "memory.peak": "1073741824",
+    "memory.max": "1073741824",
+    "memory.events": "low 0\nhigh 0\nmax 1879\noom 0\noom_kill 0\noom_group_kill 0"
+  },
+  "retainedFailures": [
+    "Initial guard command module import/mount error",
+    "Initial replay diagnostic hash path",
+    "Saved JSON final-digit parity stops; replaced with exact fresh baseline comparison",
+    "Initial browser fixture missing finish; interrupted and cleaned"
+  ],
+  "limits": [
+    "12 stamped scans are reused development inputs; physical-copy independence unknown",
+    "15/19 negative controls remain unreadable; unreadable never means absent",
+    "Difficult Android stamp and independent final evaluation remain open",
+    "Prior 100-input throughput gate failed; 300-input stress not run",
+    "Cumulative browser includes separately unapproved UI/upload/admission work; no implicit merge approval"
+  ]
+}

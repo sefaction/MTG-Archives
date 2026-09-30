@@ -7,7 +7,7 @@ not exact printing. Failed matching or unreadable pixels never imply no stamp.
 import cv2
 import numpy as np
 
-VERSION = 'registered-printing-evidence-dev4'
+VERSION = 'registered-printing-evidence-dev5'
 SIZE = (1000, 1397)
 STAMP_SEARCH = (15, 1260, 100, 1375)
 STAMP_CORE = (35, 1303, 74, 1353)
@@ -31,12 +31,14 @@ def registration_features(photo, is_reference=False):
     return image, scale, keypoints, descriptors
 
 
-def register(photo, reference, query_features=None, reference_features=None):
+def register(photo, reference, query_features=None, reference_features=None, *, return_visibility=False):
     """Align the whole printed card using distributed SIFT/RANSAC evidence."""
     cv2.setNumThreads(1)
     reference, _, rk, rd = reference_features if reference_features is not None else registration_features(reference, True)
     query, scale, qk, qd = query_features if query_features is not None else registration_features(photo)
-    failure = lambda reason, **extra: (None, {'status': 'UNREADABLE', 'reason': reason, **extra})
+    def result(warped, alignment, visibility=None):
+        return (warped, alignment, visibility) if return_visibility else (warped, alignment)
+    failure = lambda reason, **extra: result(None, {'status': 'UNREADABLE', 'reason': reason, **extra})
     if rd is None or qd is None or min(len(rd), len(qd)) < 16:
         return failure('INSUFFICIENT_FEATURES')
     pairs = cv2.BFMatcher().knnMatch(rd, qd, k=2)
@@ -71,14 +73,20 @@ def register(photo, reference, query_features=None, reference_features=None):
     inverse = np.linalg.inv(matrix)
     warped = cv2.warpPerspective(query, inverse, SIZE)
     visibility = cv2.warpPerspective(np.full(query.shape[:2], 255, np.uint8), inverse, SIZE)
-    metrics['stampVisible'] = bool(np.min(region(visibility, STAMP_SEARCH)) >= 254)
+    # The search margin may cross a clipped outer edge while the actual mark is
+    # fully observed. Require the physical core here, then check every pixel of
+    # each tested template footprint below. Padding is never symbol evidence.
+    metrics['stampVisible'] = bool(np.min(region(visibility, STAMP_CORE)) >= 254)
     metrics['footerVisible'] = bool(np.min(region(visibility, (100, 1230, 860, 1375))) >= 254)
-    return warped, {'status': 'ALIGNED', **metrics}
+    return result(warped, {'status': 'ALIGNED', **metrics}, visibility)
 
 
-def template_score(image, template):
+def template_score(image, template, visibility=None):
     search = gray(region(image, STAMP_SEARCH))
     best = {'score': -1., 'box': None}
+    integral = None
+    if visibility is not None:
+        integral = cv2.integral((region(visibility, STAMP_SEARCH) >= 254).astype(np.uint8))
     templates = template if isinstance(template, (list, tuple)) else [template]
     for index, item in enumerate(templates):
         for factor in (.75, .875, 1., 1.125, 1.25):
@@ -87,19 +95,27 @@ def template_score(image, template):
             if h > search.shape[0] or w > search.shape[1] or np.std(resized) < 5:
                 continue
             scores = cv2.matchTemplate(search, resized, cv2.TM_CCOEFF_NORMED)
+            if integral is not None:
+                observed = integral[h:, w:] - integral[:-h, w:] - integral[h:, :-w] + integral[:-h, :-w]
+                scores[observed != h*w] = -1.
             _, value, _, point = cv2.minMaxLoc(scores)
             if value > best['score']:
                 best = {'score': float(value), 'templateIndex': index, 'box': [point[0]+STAMP_SEARCH[0], point[1]+STAMP_SEARCH[1], w, h]}
     return best
 
 
-def stamp_evidence(warped, alignment, template, reference, reference_stamp_state='UNKNOWN'):
+def stamp_evidence(warped, alignment, template, reference, reference_stamp_state='UNKNOWN', *, visibility=None):
     result = {'status': 'UNREADABLE', 'reason': 'ALIGNMENT_UNAVAILABLE', 'version': VERSION}
     if warped is None or alignment.get('status') != 'ALIGNED':
         return result
     if not alignment['stampVisible'] or not alignment.get('footerVisible', False) or alignment['sourceCardWidth'] < 500:
         return {**result, 'reason': 'STAMP_CLIPPED_OR_TOO_SMALL'}
-    match = template_score(warped, template)
+    if visibility is not None and (visibility.shape != warped.shape[:2] or
+            np.min(region(visibility, STAMP_CORE)) < 254):
+        return {**result, 'reason': 'STAMP_CLIPPED_OR_TOO_SMALL'}
+    match = template_score(warped, template, visibility)
+    if match['box'] is None:
+        return {**result, 'reason': 'STAMP_CLIPPED_OR_TOO_SMALL'}
     footer = gray(warped)[1240:1360, 110:850]
     sharpness = float(cv2.Laplacian(footer, cv2.CV_32F).var())
     core = gray(region(warped, STAMP_CORE))
@@ -139,6 +155,8 @@ def stamp_evidence(warped, alignment, template, reference, reference_stamp_state
     if not .5 <= gain <= 2.5 or abs(bias) > 100:
         return {**result, 'reason': 'LOCAL_LIGHTING_UNCERTAIN'}
     alignedcore = querygray[1303+dy:1353+dy, 35+dx:74+dx].astype(np.float32)
+    if visibility is not None and np.min(visibility[1303+dy:1353+dy, 35+dx:74+dx]) < 254:
+        return {**result, 'reason': 'STAMP_CLIPPED_OR_TOO_SMALL'}
     difference = np.abs(alignedcore*gain+bias-refcore.astype(np.float32))
     residual = float(np.mean(difference))
     result['referenceResidual'] = residual

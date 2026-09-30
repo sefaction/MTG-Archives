@@ -1,3 +1,6 @@
+import { acquisitionCollectorKey, acquisitionFooterIdentifiers } from "./acquisition-footer";
+export { acquisitionCollectorKey } from "./acquisition-footer";
+
 // OCR similarity is not calibrated confidence. Strong exact metadata can confirm
 // a printing; it never establishes physical count, finish, condition or receipt.
 export type RecognitionCard = {
@@ -24,14 +27,6 @@ const nameKey = (value: string) =>
     .normalize("NFKD")
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
-// Zero padding is typography. Suffixes/prefixes (including List set prefixes)
-// retain identity; 123a must never silently become 123.
-export function acquisitionCollectorKey(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/^0+(?=\d)/, "");
-}
 function distance(a: string, b: string) {
   let previous = Array.from({ length: b.length + 1 }, (_, i) => i);
   for (let i = 1; i <= a.length; i++) {
@@ -110,27 +105,17 @@ function resolveAcquisitionPrintings(
     [...input.title, ...input.footer].some((line) => line.length > 2000)
   )
     throw new Error("OCR evidence exceeds bounds");
-  const footer = input.footer.join("\n").toUpperCase();
+  const footer = acquisitionFooterIdentifiers(input.footer);
   const setCodes = new Set<string>();
   const languages = new Set<string>();
   // A set-like token alone is not enough: look for a printed language marker.
-  for (const match of footer.matchAll(
-    /\b([A-Z0-9]{2,6})[^A-Z0-9\n]{0,6}(EN|FR|DE|IT|ES|PT|JA|KO|RU|ZHS|ZHT)\b/g,
-  )) {
-    if (index.sets.has(match[1])) {
-      setCodes.add(match[1].toLowerCase());
-      languages.add(match[2].toLowerCase());
+  for (const identifier of footer.identifiers) {
+    if (index.sets.has(identifier.set.toUpperCase())) {
+      setCodes.add(identifier.set);
+      languages.add(identifier.language);
     }
   }
-  const collectors = new Set<string>();
-  for (const line of input.footer) {
-    for (const match of line.matchAll(/\b(\d{1,5}[a-z]?)\s*\/\s*\d{2,5}\b/gi))
-      collectors.add(acquisitionCollectorKey(match[1]));
-    for (const match of line.matchAll(
-      /(?:^|\n)\s*[CUMRLT]\s*(\d{1,5}[a-z]?)\b/gim,
-    ))
-      collectors.add(acquisitionCollectorKey(match[1]));
-  }
+  const collectors = new Set(footer.collectors);
   const titleKeys = input.title.map(nameKey).filter((s) => s.length >= 3);
   const exactNames = new Set<string>();
   const exactCards = new Map<string, RecognitionCard>();
@@ -248,6 +233,7 @@ function resolveAcquisitionPrintings(
   );
   const strong =
     !conflict &&
+    !footer.recoveredLayout &&
     setCodes.size === 1 &&
     collectors.size === 1 &&
     languages.size === 1 &&
@@ -263,6 +249,8 @@ function resolveAcquisitionPrintings(
     );
     exactPrintings[0].reasons.push("STRONG_EXACT_PRINTING");
   }
+  if (footer.recoveredLayout) for (const proposal of all)
+    proposal.reasons.push("RECOVERED_FOOTER_LAYOUT", "REVIEW_REQUIRED");
   return {
     version: 4,
     status: conflict

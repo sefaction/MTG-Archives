@@ -1,10 +1,13 @@
 import { verifyAcquisitionCommit } from "./verify-acquisition-commit";
+import { verifyScannerConnections } from "./verify-scanner-connections";
+import { verifyScannerRuns } from "./verify-scanner-runs";
 import assert from "node:assert/strict";
 import { verifyAcquisitionPhotos } from "./verify-acquisition-photos";
 import { verifyAcquisitionCatalog } from "./verify-acquisition-catalog";
 import { verifyAcquisitionCatalogCache } from "./verify-acquisition-catalog-cache";
 import { verifyAcquisitionOrchestration } from "./verify-acquisition-orchestration";
 import { verifyAcquisitionHandoff } from "./verify-acquisition-handoff";
+import { verifyAcquisitionOwnerFairness } from "./verify-acquisition-owner-fairness";
 import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import {
@@ -364,6 +367,7 @@ async function run() {
   const another = await createAcquisitionSession(db, actor, input());
   assert.equal(another.session.placement.otherSessionPending, 3);
   await verifyAcquisitionOrchestration(db, actor, input());
+  await verifyAcquisitionOwnerFairness(db);
   await verifyAcquisitionPhotos(db, actor, stranger, input());
   await verifyAcquisitionCatalog(db, admin, actor, cardId);
   await verifyAcquisitionCatalogCache(db);
@@ -486,6 +490,8 @@ async function run() {
     "PASS: database foreign-run/duplicate/negative-order constraints and zero inventory/audit effects",
   );
   await verifyAcquisitionCommit(db, actor, stranger, input());
+  await verifyScannerConnections(db);
+  await verifyScannerRuns(db);
 }
 
 run()

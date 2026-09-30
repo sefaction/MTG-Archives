@@ -499,7 +499,14 @@ export async function verifyAcquisitionOrchestration(
     ).status,
     "FAILED",
   );
-  await enqueue("timeout");
+  const timeoutJob = await enqueue("timeout");
+  // This case isolates handler abort. Database/default timestamps and the
+  // worker's local clock need not advance together on Docker Desktop; make
+  // this owned fixture eligible explicitly instead of relying on a delay.
+  await db.acquisitionProcessingJob.update({
+    where: { id: timeoutJob.id },
+    data: { availableAt: new Date(0) },
+  });
   let aborted = false;
   const tick = await runAcquisitionJobsOnce(
     db,

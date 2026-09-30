@@ -22,8 +22,10 @@ import {
   type RecognitionSnapshot,
 } from "./acquisition-recognition-worker";
 import { proposeOrientedAcquisitionPrintings } from "./acquisition-recognition";
+import { ACQUISITION_FOOTER_PARSER_VERSION } from "./acquisition-footer";
+import { combineAcquisitionPhotoText, UNLOCALIZED_NAME_HINT } from "./acquisition-photo-text";
+import { AcquisitionJobSupersededError, type ClaimedAcquisitionJob } from "./acquisition-jobs";
 import { acquisitionHandoffQuery } from "./acquisition-handoff";
-import type { ClaimedAcquisitionJob } from "./acquisition-jobs";
 import {
   VISUAL_STAGE,
   visualNativeSchema,
@@ -51,6 +53,7 @@ const inputSchema = z.object({
   visualJobId: z.string().uuid().optional(),
   photoId: z.string().uuid(),
   digest: z.string().regex(/^[a-f0-9]{64}$/),
+  resolverVersion: z.string().max(80).optional(),
 });
 
 export async function enqueueCatalogReconciliation(
@@ -157,6 +160,8 @@ export function createCatalogReconciliationHandler(
     signal: AbortSignal,
   ): Promise<Prisma.InputJsonObject> => {
     const input = inputSchema.parse(job.input);
+    if (input.resolverVersion !== CATALOG_RESOLVER_VERSION)
+      throw new AcquisitionJobSupersededError("Catalog interpretation version superseded");
     const source = await db.acquisitionProcessingJob.findUniqueOrThrow({
       where: { id: input.recognitionJobId },
     });
@@ -207,7 +212,7 @@ export function createCatalogReconciliationHandler(
           visual.visual.photoDigest !== photo.digest))
     )
       throw new Error("Photo input changed");
-    const queries = acquisitionCatalogQueries(observed.native.orientations);
+    const queries = acquisitionCatalogQueries(observed.native.orientations, observed.native.photoText);
     const completed: Exclude<CachedCatalogResult, { status: "PENDING" }>[] = [];
     const attempted = new Set<string>();
     async function run(query: CatalogQuery) {
@@ -229,11 +234,14 @@ export function createCatalogReconciliationHandler(
     const exactNames = [
       ...new Set(
         observed.proposals.proposals
-          .filter((p) => p.reasons.includes("TITLE_EXACT"))
+          .filter((p) => p.reasons.includes("TITLE_EXACT") || p.reasons.includes(UNLOCALIZED_NAME_HINT))
           .map((p) => p.card.name),
       ),
     ].slice(0, 2);
     for (const name of exactNames) await run({ kind: "name", name });
+    // Missing-local names must be tried even when an unrelated image candidate
+    // already exists in Scryfall. A found image is not proof of text coverage.
+    for (const query of queries.photoTextNames ?? []) await run(query);
     if (visual) {
       // The visual catalog can know a printing absent from this installation.
       // Fetch by public identity, retain stable local IDs, then resolve again.
@@ -286,6 +294,9 @@ export function createCatalogReconciliationHandler(
       snapshot!.index,
       observed.native.orientations,
     );
+    proposals = combineAcquisitionPhotoText(snapshot!.index, proposals, observed.native.photoText,
+      visual ? acquisitionVisualCandidates(visual.visual).map(c => snapshot!.byScryfallId.get(c.scryfallId)?.id)
+        .filter((id): id is string => Boolean(id)) : []);
     if (visual)
       proposals = combineAcquisitionCandidates(
         proposals,
@@ -350,6 +361,7 @@ export function createCatalogReconciliationHandler(
         ...observed.versions,
         catalog: snapshot!.digest,
         resolver: CATALOG_RESOLVER_VERSION,
+        footerParser: ACQUISITION_FOOTER_PARSER_VERSION,
       },
       proposals,
       catalog: {

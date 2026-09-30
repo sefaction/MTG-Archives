@@ -429,6 +429,24 @@ export function correctPhysicalCount(
   return next;
 }
 
+// For sources that transfer one complete front per item and finish naturally,
+// record the image-count assumption for every candidate in one domain edit.
+// The reason remains attached to each count correction for later audit.
+export function confirmPhysicalCountBatch(session: CaptureSession, actorId: string, reason: string): CaptureSession {
+  id.parse(actorId);
+  z.string().trim().min(1).max(1000).parse(reason);
+  const next = structuredClone(session);
+  for (const candidate of next.candidates) {
+    if (candidate.excluded || candidate.countConfirmed || candidate.uncertainty.length || candidate.observations.length !== 1)
+      throw new Error("Scanner image count needs individual reconciliation");
+    candidate.countConfirmed = true;
+    candidate.revision++;
+    next.corrections.push({ candidateKey: candidate.key, revision: candidate.revision, actorId,
+      reason, action: "CONFIRM_COUNT" });
+  }
+  return next;
+}
+
 const attributes = z
   .object({
     cardId: id.nullable(),

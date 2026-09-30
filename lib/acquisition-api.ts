@@ -1,4 +1,5 @@
 import { getCurrentUser, isAdminModeEnabled } from "./auth";
+import { isRetryableAcquisitionConflict } from "./acquisition-upload";
 export async function acquisitionActor(request?: Request) {
   if (request && !["GET", "HEAD"].includes(request.method)) {
     const origin = request.headers.get("origin");
@@ -22,6 +23,7 @@ export function acquisitionError(error: unknown) {
       error: safe
         ? message
         : "The scan request could not be completed. Refresh and retry.",
+      ...(isRetryableAcquisitionConflict(error) ? { retryable: true } : {}),
     },
     {
       status: unavailable ? 403 : 409,
@@ -37,6 +39,8 @@ export function acquisitionProgressDto(
 ) {
   return {
     id: state.session.id,
+    providerId: state.session.run.providerId,
+    runId: state.session.run.runId,
     batchNumber: state.batchNumber,
     revision: state.revision,
     target: state.session.target,
