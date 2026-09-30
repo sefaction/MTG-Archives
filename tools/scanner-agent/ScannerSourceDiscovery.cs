@@ -78,6 +78,18 @@ internal sealed class ScannerDiscoveryRefresh(IScannerBackend backend, Func<Date
         // single invocation off the heartbeat loop, without an observation timeout.
         inFlight = Task.Run(Discover);
     }
+    public async Task PulseTurn()
+    {
+        var previous = inFlight;
+        PollRefreshIfDue();
+        var current = inFlight;
+        if (current is null || current == previous) return;
+        // Give a fast enumeration a brief observation window so a routine
+        // refresh does not disable Start for an entire five-second pulse period.
+        // Expiry only returns to heartbeat; the same native task remains tracked.
+        await Task.WhenAny(current, Task.Delay(250));
+        if (current.IsCompleted) PollRefreshIfDue();
+    }
     public async Task Drain()
     {
         stopping = true;

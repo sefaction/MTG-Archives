@@ -79,6 +79,13 @@ internal static class ScannerDiscoveryProgressSelfTest
         await failure.Drain();
         Console.WriteLine("PASS completed errors remain sanitized/bounded without discovery spin");
 
+        using var fast = new Backend(() => Task.FromResult<IReadOnlyList<Device>>([Device]));
+        var fastRefresh = new ScannerDiscoveryRefresh(fast);
+        await fastRefresh.PulseTurn();
+        Check(!fastRefresh.Pending && fastRefresh.Devices.Count == 1 && fast.Calls == 1, "Fast refresh fabricated a five-second busy period");
+        await fastRefresh.Drain();
+        Console.WriteLine("PASS fast discovery settles in the pulse without a routine busy flicker");
+
         var nativeGate = new TaskCompletionSource<List<ScanDevice>>(TaskCreationOptions.RunContinuationsAsynchronously);
         var calls = 0;
         using (var adapter = new Naps2Backend("Wia:", _ => { Interlocked.Increment(ref calls); return nativeGate.Task; },

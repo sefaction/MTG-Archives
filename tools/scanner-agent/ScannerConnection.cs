@@ -338,7 +338,7 @@ public static class ScannerConnection
                 {
                     try {
                         if (args[0] == "report") await discovery.RefreshIfDue();
-                        else discovery.PollRefreshIfDue();
+                        else await discovery.PulseTurn();
                         devices = discovery.Devices;
                         var pulse = DiscoveryPulse(devices, discovery.Issues, discoveryReporting, discoveryProgressReporting);
                         JsonElement acknowledgement;
