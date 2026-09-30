@@ -1,5 +1,33 @@
 # Resumable work checkpoint
 
+## Waiting cancellation ready locally, September30,2026
+
+- Branch fix/scanner-unstarted-cancel, application90ea443; PR525 on523 and its
+  individually unapproved519/517/513 plus516 dependencies. No main merge,
+  production change, Inventory addition or motor operation. Broad goal ACTIVE.
+- Serialized no-START cancellation settles automatically only with current
+  epoch/null execution/no independent START marker/no acquisition artifacts,
+  candidates/slots/photos. Restore/uncertainty fails closed; real started runs
+  retain drain/manual reconciliation. Repeated cancel does not change revision.
+- Disposable acquisition/import passes with ownership, uncertainty and three
+  claim/cancel races, full cleanup. First two fixture failures preserved privately
+  (full capacity; eight-helper limit); fix fixtures, never product gates.
+  Typecheck/focused lint pass. Real local browser passed1/1/19.9s with no count
+  form, reload, next batch and zero Inventory/owned cleanup.
+- Cumulative application659def8, healthy web90a16ce51583ceeabe2eff3b29b08742a428a97a6f643995cfdc232bced54f5b;
+  source489files/digest16ac3f30f3b389fbd9055d743f7137c05e768054172556ad9ace3eb9c2db7950.
+  All7overlays used web-only; recognition workers unchanged. Build/UI terminal0.
+- 523 final9b29381 has all4checks green;525 initial90ea443 all3green. Installed
+  helper0.3.5 already passed full selftests; no helper/NAPS2 services remain.
+- Still unapproved488,491,495,513,514,516,517,519,521,523,525. No approvals
+  requested again while user away. Physical600 needs fresh one-card loading;
+  last user confirmation EMPTY. fi-7160/recognition accuracy remain separate.
+- Next continuous workflow: carry last settled batch's destination/section and
+  scanner/settings into a fresh, explicitly started batch, resolving current
+  owner/source/location/capacity again. Audit dynamic capacity and longer lists.
+  Code-inspection discovery-isolation risk/acceptance is scoped in511 comment;
+  public distribution/clean-host gates remain explicit. No native timeout disposal.
+
 ## Native authorization loss ready locally, September30,2026
 
 - Isolated branch fix/scanner-native-authorization, application321dbfa; PR523

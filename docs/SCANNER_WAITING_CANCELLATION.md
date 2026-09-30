@@ -46,5 +46,8 @@ deliberately full destination from the prior capacity test. The failure remains
 private; subsequent lifecycle cases use an unbounded destination after that
 capacity assertion. A second fixture run reached the existing eight-active-helper
 limit; each isolated uncertainty/race helper now revokes its own connection after
-its assertions. The product limit stays intact. Exact rerun/browser results are recorded in the PR and
-checkpoint, not inferred from the presence of the test.
+its assertions. The product limit stays intact. The final disposable
+acquisition/import rerun passed and cleaned its owned PostgreSQL/data. The
+healthy local browser case passed1/1 in19.9s with reload, no count form,
+next-batch navigation, zero Inventory and owned cleanup. Typecheck/lint and
+source verification passed. Exact hashes are in the PR/checkpoint.
