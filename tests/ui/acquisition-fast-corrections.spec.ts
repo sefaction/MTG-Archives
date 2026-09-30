@@ -78,7 +78,7 @@ test("fast printing correction keeps drafts, metadata and destination while resu
       await page.setViewportSize({ width, height: 900 }); await card.scrollIntoViewIfNeeded();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       if (width === 1366) {
-        const editor = await card.getByRole("group", { name: "Search results", exact: true }).boundingBox();
+        const editor = await card.getByRole("group", { name: /^(Search results|Possible printings)$/ }).boundingBox();
         const printing = await card.getByRole("figure", { name: "Proposed printing", exact: true }).boundingBox();
         expect(editor!.x).toBeGreaterThanOrEqual(printing!.x + printing!.width);
       }
@@ -108,7 +108,7 @@ test("fast printing correction keeps drafts, metadata and destination while resu
     await expect(card.getByRole("combobox", { name: "Card condition", exact: true })).toHaveValue("MP");
     await expect(card).toContainText("The saved review changed");
     await card.getByRole("button", { name: "Save card review", exact: true }).click();
-    await expect(card.getByRole("alert")).toContainText("Stale");
+    await expect(card.getByRole("alert")).toContainText("Capture card changed");
     expect((await (await page.request.get(`${reviewEndpoint}?photoId=${photos[0]}`)).json()).review.condition).toBe("HP");
     await card.getByRole("button", { name: "Cancel changes", exact: true }).click();
     expect(await page.evaluate(key=>localStorage.getItem(key),draftKey)).toBeNull();
