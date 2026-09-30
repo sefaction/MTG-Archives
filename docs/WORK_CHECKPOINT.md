@@ -1,5 +1,33 @@
 # Resumable work checkpoint
 
+## Scanner continuation ready locally, September30,2026
+
+- Isolated feat/scanner-batch-continuity (scanner-continuity worktree), PR526 on
+  525/523/519/517/513 plus independent516; all individually unapproved. Application
+  4cc6b53/compact221c100;221c100 all3green. No main merge, production connection,
+  motor or scan Inventory commit. Broad attached goal ACTIVE/incomplete.
+- Settled account-scoped destination/section/source/settings/default preferences;
+  fresh run/target/empty acquisition state, explicit START. Refresh capacity
+  preserves choices; full/missing destination disables START. Compact desktop
+  setup and acquisition-specific capacity hint; shared picker defaults unchanged.
+- Disposable acquisition/import passes/cleans, two focused tests/typecheck/lint
+  pass. First manual-quantity fixture expectation failure preserved privately.
+  Controlled browser24.3s then22.5s exposed tall setup; finalcompact1/1/23.1s
+  passes defaults/source/destination, refresh0/1 room, newrun/target, cancel/reload,
+ 1366x768 Start-first-viewport,320px/no overflow. Both screenshots inspected.
+  One owned Inventory capacity seed inserted/removed; zero new scan commits.
+- Cumulative compact appa268509, healthy image2f5a4f32c0bcef3152ec0e757b7d95be81804230332e21eff095da9b5757e757;
+  source490files/digest3a42bc9deed7d39db17e3b8092cba22e39a270c56e50954c999b289857b77afb.
+  Build33670/UI39348 terminal0. Web-only/all7overlays; other workers unchanged.
+- Installed local helper0.3.5 already fully selftested, no helper/NAPS2 service
+  remains and no saved production connection resumed. Distribution gate open.
+  Last hardware confirmation EMPTY; fresh one-card loading question unanswered.
+- Exact open approval queue488,491,495,513,514,516,517,519,521,523,525,526.
+  523final9b29381 all4green;525final069ef9b all3green. Next final526CI/checkpoint
+  reconciliation, then large-list/out-of-order/draft-navigation audit and scoped
+  source-driver isolation511. Public package/clean-host/physical600 gates remain;
+  recognition463 and fi-7160 separate. Do not stop the full goal at this milestone.
+
 ## Waiting cancellation ready locally, September30,2026
 
 - Branch fix/scanner-unstarted-cancel, application90ea443; PR525 on523 and its

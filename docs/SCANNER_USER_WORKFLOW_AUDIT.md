@@ -23,7 +23,7 @@ authorized by this audit. Live GitHub and the cumulative checkpoint are authorit
 | Error guidance | Offline/preparation failures were hidden behind Waiting | #517 reconnect guidance; #519 bounded preparation codes, actionable guidance and same-run recovery. Eight generic failure/recovery cases and real browser1/1/18.3s passed. Actual disk exhaustion/native hang remains untested. |
 | Native denial | Active run transport retried revoked credentials indefinitely | #523: typed403/409/400/413/503; permanent denial drains and awaits completion before disposal, keeps late originals, disables connection. Seven generic denial/outage/ACK-loss cases, real HTTP1/1/7.0s and installed0.3.5 selftests pass; no physical mid-feed revocation test.409 conflicts/driver hangs need reconciliation/operator help. |
 | Cancel waiting | Proven unstarted cancellation still required zero count/empty feeder confirmation | #525 on #523: serialized no-START/epoch/execution/artifact proof; automatic no-START reconciliation, idempotency and next batch. Database and local UI1/1/19.9s pass including restore/concurrent races, reload/no count form and next batch. Uncertainty fails closed; no observed physical count is invented. |
-| Continuous batches | New scanner batch preserves input; next-batch destination/source continuity needs task observation | Pending: measure repeated batches and decide whether saved choices safely reduce interactions without changing ownership/capacity authority. |
+| Continuous batches | Destination/source/default choices were repeated | #526 on #525: settled owned preferences, fresh run/target/empty state, explicit Start; unavailable location/section/source stays clear. Refresh capacity preserves choices and full disables Start. Database/controlled browser1/1/23.1s pass;1366x768 Start fits first setup viewport,320px has no overflow. One owned Inventory seed for occupied capacity is removed; no new scan commits. Physical/large-list acceptance remains open. |
 
 ## Completion criteria still open
 
@@ -31,7 +31,8 @@ authorized by this audit. Live GitHub and the cumulative checkpoint are authorit
 - Audit source-driver failures without allowing a broken source to hide useful sources.
 - Fast correction/keyboard/asynchronous metadata checks are verified on controlled
   fixtures; larger lists and physical end-to-end task acceptance remain open.
-- Verify repeated batches feel continuous and dynamic location/capacity errors are understandable.
+- Controlled continuation/capacity refresh is verified; real-task and larger-list
+  continuity remain open. Unsaved correction navigation also needs audit.
 - Document distribution and physical limits, and catalogue any deliberately deferred work.
 - Load completed batches cumulatively locally and report every unapproved PR when the user returns.
 
