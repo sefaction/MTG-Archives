@@ -1,3 +1,77 @@
+## Alignment control locally validated — September 30, 2026
+
+Active draft #540 / fix/scanner-twain-footer. New Card position under Scan settings,
+new unsaved batches defaultCenter; explicit saved Start/Center/End retained through
+queued requests and continuation. Original SDK/worker/runtime and alignment mapping
+unchanged. Private diagnostic logger remains opt-in; public SafeError unchanged.
+Typecheck PASS using cumulative dependencies; production Docker build and client
+manifest verification PASS; owned alignment browser fixture PASS (three positions,
+actual persisted helper-poll payloads/continuation, desktop1366/phone320). Visual
+screenshots inspected. Owned fixture users/agents/acquisition sessions all zero.
+
+Authoritative cumulative review branch local/acquisition-review-footer now8850bfe
+includes the exact component/test from this batch. Loaded WEB image
+d83f1875e5c60a38806dc40ea3921c08beb05aff09b045a7caa30e6ab1189dd5, source
+f444c168b15b97d373f072c0e161b5954bdb69a5987adbd3f04f4330287c2250, all496
+app files verified, webhealthy/login200. Existing primary local mounts retained;
+recognition/other workers and installed helpers unchanged. Primary checkout stale,
+do not rebuild it. Leaf dependencies lack tsc; tests ran in cumulative source.
+
+Actual physical evidence: Center600 cf6ccbf6 returnedone1560x2160 full-footer
+original, hash verified, operatoroneundamaged/empty/no problems. SeparateStart600
+db8fb40c returnedoneblankwhite1560x2160, hash verified; operatorphysical outcome
+question PENDING. All native contexts returned; no new feed authorized. No claim
+full driver recovery or root cause for every earlier clipping. #539/#542 stayopen;
+#541 merged529closed. No Inventory/production action. New scope is concrete website
+alignment selection plus bounded diagnostics, not a qualified universal TWAIN fix.
+
+Next: commit/push coherent draft540 update, verify current-head CI, update PR scope
+for review. Receive latest physical outcome; do not reuse any old loading approval.
+Broader scanner acquisition/clean-host/distribution qualification remains separate.
+Earlier checkpoint sections are preserved historical states superseded here.
+## Active alignment UI batch — September 30, 2026
+
+Active fix/scanner-twain-footer / draft PR #540, unapproved. Completed native
+contexts: empty UI091950f0 exit0/no images; Center scan cf6ccbf6 exit0/one full-
+footer1560x2160/7,278,638-byte original/12.611s, hash verified, operator one
+undamaged card/empty/no problems; Start scan db8fb40c exit0/one blank white
+1560x2160/2,312-byte original/10.504s, hash verified. Latest physical outcome
+question PENDING. No new feed authorized and no owned native context pending.
+All originals/SDK/process logs retained; physical boundaries/SDK sides UNKNOWN.
+No claim every prior clipping or startup failure is explained; #539/#542 remain open.
+
+Changed scope: website Card position selection, new batch default Center (same
+as generic CLI), explicit Start/Center/End preserved through queued requests and
+continuation. Existing helper SDK mapping unchanged. New browser owned-fixture
+test checks all positions/queued payloads/continuation and desktop+phone overflow;
+no helper/motor. Leaf had no local tsc dependencies; cumulative typecheck PASS.
+Component/test copied into authoritative cumulative review source, working branch
+local/acquisition-review-footer (base1db9024). Docker build session14850 RUNNING
+from that exact cumulative worktree. Do not build primary stale checkout.
+
+Next: wait same build14850, recreate local web only with exact existing Compose
+stack/no build, verify health and source provenance, run scanner-alignment browser
+fixture (MTG_LOCAL_PILOT_TEST=1). Fix/inspect any failure, then publish coherent
+batch to existing draft540. Preserve primary local mounts and stable worker config.
+Save durable outcomes after validation; merge only after explicit approval of540.
+Previous checkpoint statuses are historical and superseded here.
+## Current checkpoint: settings inspection completed; fresh loading pending
+
+Active leaf MTG-Archives-scanner-twain-footer / fix/scanner-twain-footer; draft
+#540 unapproved, published de476c8 docs head (a77ec64 four CI green).
+Empty UI session89481/run091950f0 actually returned exit0/COMPLETED/zero images/
+86725ms after operator Exit. No profile selected; Custom card dimensions as
+discussed, ADF front side,600dpi. No Scan was requested. All owned native contexts
+returned. Successful driver-window access does not qualify headless settings,
+physical acquisition or footer. Original SDK/worker and installed helper unchanged.
+
+Next private request cf6ccbf6-97fc-4548-aef5-5e3978b559d9 prepared NOT STARTED, default600/simplex2.6x3.6/
+Center, tested logging CLI. Request/status live under .local-data/footer-comparison.
+Fresh single-card powered/connected/clear-transport loading question PENDING.
+Only after explicit affirmative reply launch once, retain same context through
+actual return, preserve every original/log/manifest and get operator physical
+outcome. No automatic retry/refeed. No Inventory or Docker changes; #539/#542 open,
+#541 merged529closed. Latest note supersedes historical pending native statuses.
 ## Active empty-feeder driver inspection — September 30, 2026
 
 Operator removed the test card and explicitly confirmed feeder/transport empty,

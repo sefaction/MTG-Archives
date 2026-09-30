@@ -1,3 +1,19 @@
+# Scanner card-position review, September 30, 2026
+
+Local review: http://127.0.0.1:13001/imports/scan?input=scanner, PR #540.
+Open Scan settings and check Card position. New unsaved batches default to Center;
+explicit Center/Start edge/End edge choices survive queued requests and continuation.
+Existing saved setups retain their position; select Center explicitly if an old
+setup shows Start edge. The tested Plustek comparison produced a complete footer
+with Center and a blank original with Start; broad driver reliability remains open.
+
+Cumulative image d83f1875e5c60a38806dc40ea3921c08beb05aff09b045a7caa30e6ab1189dd5,
+source digestf444c168b15b97d373f072c0e161b5954bdb69a5987adbd3f04f4330287c2250,
+496 verified application files; web healthy/login200. Typecheck, production build,
+and owned queued-request/continuation browser case passed. Desktop1366/phone320
+layout inspected. Fixture users/agents/sessions cleaned to zero. The CLI diagnostics
+were qualified separately; installed helper and recognition workers are unchanged.
+Merge requires individual approval; issues #539 and #542 retain broader qualification.
 # Local review build — cumulative issue queue
 
 ## Corrected Pricing review source, 2026-09-26

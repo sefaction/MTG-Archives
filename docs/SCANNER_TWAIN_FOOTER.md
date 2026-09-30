@@ -371,3 +371,74 @@ The operator subsequently removed the card and confirmed empty/powered/connected
 One fresh driver-ui inspection using the tested private-logging build is pending;
 wait for the exact displayed settings and Exit report, and retain the same native
 context until actual completion. No Scan is authorized during this inspection.
+## Empty driver-window inspection completed normally
+
+The tested logging helper and original bundled SDK worker opened the driver window
+with the feeder/transport explicitly empty. The operator reports no selected
+profile, a Custom page size with the discussed card dimensions, ADF front side,
+and600dpi, then closed with Exit without Scan. The same native context actually
+returned exit0/COMPLETED/zero images/86725ms. This establishes successful driver-
+window access in that session, not correct subsequent headless negotiation or
+physical acquisition. No native context remains pending. A new headless comparison
+is prepared but not started; fresh single-card loading confirmation remains required.
+## First complete-footer headless Center comparison
+
+After that driver-window inspection completed and a new single-card load was
+explicitly confirmed, the same tested logging helper and unchanged SDK/worker
+completed default600/simplex2.6x3.6/Center, exit0, one image in12.611s. The retained
+original measures1560x2160 and7,278,638 bytes; its SHA-256 matches the image
+manifest. Visual inspection shows the complete Sunblade Samurai footer, including
+039/302 C, NEO EN, artist and copyright. The operator confirms exactly one
+undamaged card, empty feeder/transport, no jam/double feed/dialog.
+
+This is the first successful complete-footer headless comparison in this sequence,
+not a software footer fix or reliable recovery qualification. The normal SDK
+capabilities now report feeder/duplex/color/DPI support rather than the preceding
+empty/unknown results; this is a useful source-access change, not an isolated cause.
+Background edge strips remain. The original, SDK log, process log and manifest are
+preserved; SDK side/physical-boundary/exhaustion metadata remains UNKNOWN.
+
+The next separate comparison uses the website's usual Start alignment instead of
+Center, keeping the same requested600/simplex/card size and original SDK/worker.
+Wait for a fresh single-card powered/connected/clear-transport confirmation. Do not
+retry automatically or close #539/#542 based on this one successful Center scan.
+## Website Start alignment comparison: retained blank original
+
+After a separate fresh loading confirmation, default600/simplex2.6x3.6/Start
+completed exit0 with one1560x2160 PNG in10.504s. The retained2,312-byte original
+matches its manifest hash and is visibly blank white; card/footer pixels are
+absent. An SDK completed result and requested dimensions do not make this a valid
+card image. Physical feed/jam/dialog outcome is awaiting the operator.
+
+The successful Center scan and this failed-content Start comparison used separate
+confirmed loads of the same card and the same helper/SDK/worker. This establishes
+an alignment-sensitive result in these runs, not reliable general acquisition or
+an isolated explanation for every earlier clipped scan/initialization failure.
+The pinned SDK uses zero horizontal offset for the helper's Start mapping and
+half the reported source width minus requested width for Center. Keep returned
+content and negotiated settings distinct; no actual worker-frame trace was added.
+
+The website previously hard-coded Start for new batches and offered no alignment
+control. This draft now adds Card position under Scan settings, defaults new
+batches to Center (matching the generic CLI request default), and retains explicit
+saved Start/Center/End choices in recovery/continuation. The operator can select
+an edge position where appropriate for feeder guides. No device-specific transfer
+mode, retry, SDK/runtime, or installed-helper change is introduced. Typecheck
+passed using the cumulative review dependencies; Docker/browser checks pending.
+## Website alignment control: local acceptance
+
+Typecheck and the cumulative Linux production build/client-manifest checks passed.
+The local web container is healthy, login HTTP200, and verify:local-image confirms
+all496 application-source hashes and digestf444c168b15b97d373f072c0e161b5954bdb69a5987adbd3f04f4330287c2250.
+Image d83f1875e5c60a38806dc40ea3921c08beb05aff09b045a7caa30e6ab1189dd5
+was built from the authoritative cumulative review worktree, not primary.
+
+The owned browser fixture passed defaultCenter, all three explicit positions,
+actual queued server/helper-poll payloads, persisted settings and continuation.
+Desktop1366 and phone320 screenshots were inspected; no horizontal overflow.
+All fixture users, agents and acquisition sessions are cleaned to zero. No native
+helper or motor was run by this browser check; it does not qualify physical startup
+reliability. Existing explicit choices remain intact, including Start in old setups.
+Review Scan settings > Card position > Center before using such a saved setup.
+Only the local web container changed; recognition workers, installed helper and
+production are unchanged. No Inventory action occurred in the physical diagnostics.

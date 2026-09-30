@@ -20,6 +20,7 @@ export function ScannerSourceFields({ initialEnabled, initialChoice, onChange, r
   const [agents, setAgents] = useState<Agent[]>([]), [selected, setSelected] = useState(initialChoice ? `${initialChoice.agentId}/${initialChoice.deviceId}` : "");
   const [enabled, setEnabled] = useState(initialEnabled);
   const [dpi, setDpi] = useState<300 | 600>(initialChoice?.settings.dpi ?? 600), [error, setError] = useState("");
+  const [placement, setPlacement] = useState<ScannerChoice["settings"]["horizontalPlacement"]>(initialChoice?.settings.horizontalPlacement ?? "Center");
   const frame = initialChoice?.settings;
   const refresh = async () => { try { setAgents((await call<{ agents: Agent[] }>("/api/scanners")).agents); setError(""); } catch (e) { setError((e as Error).message); } };
   useEffect(() => {
@@ -48,11 +49,11 @@ export function ScannerSourceFields({ initialEnabled, initialChoice, onChange, r
   useEffect(() => {
     const source = sources.find(s=>s.key === selected);
     onChange(enabled && source && !source.detecting && remaining!==0 ? { agentId: source.agentId, deviceId: source.device.id, loadedCount: null,
-        operatorLoadedSimplexFronts: true, settings: { dpi, widthInches: frame?.widthInches ?? 2.6, heightInches: frame?.heightInches ?? 3.6, horizontalPlacement: frame?.horizontalPlacement ?? "Start",
+        operatorLoadedSimplexFronts: true, settings: { dpi, widthInches: frame?.widthInches ?? 2.6, heightInches: frame?.heightInches ?? 3.6, horizontalPlacement: placement,
           duplex: false, color: "RGB", autoCrop: false, deskew: false, removeBlank: false } } : null, enabled, enabled && detecting);
   // sources are refreshed by explicit user action; dependencies are the underlying inputs.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agents, selected, enabled, dpi, remaining, onChange, frame, detecting]);
+  }, [agents, selected, enabled, dpi, placement, remaining, onChange, frame, detecting]);
   return <fieldset id="scanner-source" className="space-y-3 min-w-0 my-3" disabled={disabled}>
     <legend className="font-semibold">3. Card input</legend>
     <label className="flex gap-2 items-start"><input type="checkbox" checked={enabled}
@@ -69,9 +70,13 @@ export function ScannerSourceFields({ initialEnabled, initialChoice, onChange, r
       <ScannerDiscoveryNotice issues={agents.filter(agent=>agent.online &&
         (!selected || agent.id===sources.find(source=>source.key===selected)?.agentId))
         .flatMap(agent=>agent.discoveryIssues ?? [])} />
-      <details><summary className="cursor-pointer text-sm">Scan settings · {dpi} DPI</summary>
+      <details><summary className="cursor-pointer text-sm">Scan settings · {dpi} DPI · {placement === "Center" ? "Center" : placement === "Start" ? "Start edge" : "End edge"}</summary>
         <label className="block mt-2">Resolution<select className={input+" block mt-1"} value={dpi} onChange={e=>setDpi(Number(e.target.value) as 300|600)}>
           <option value={600}>600 DPI (default)</option><option value={300}>300 DPI</option></select></label>
+        <label className="block mt-2">Card position<select className={input+" block w-full max-w-full mt-1"} value={placement}
+          onChange={e=>setPlacement(e.target.value as ScannerChoice["settings"]["horizontalPlacement"])}>
+          <option value="Center">Center</option><option value="Start">Start edge</option><option value="End">End edge</option></select></label>
+        <p className="text-sm mt-2">Match the position of the cards in the feeder. Use Center when the guides hold cards in the middle.</p>
         <p className="text-sm mt-2">Simplex color, fixed {frame?.widthInches ?? 2.6} × {frame?.heightInches ?? 3.6} inch frame; crop, deskew and blank removal off.</p>
       </details>
       <p className="text-sm">Load card fronts and clear the transport. Start scans everything in the feeder; it does not stop at a chosen count. Keep the loaded cards within the destination&apos;s remaining capacity. Stop requests drain the feeder.</p>
