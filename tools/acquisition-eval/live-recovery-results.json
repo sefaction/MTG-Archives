@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "scope": "REUSED_DEVELOPMENT_SCANS_LOCAL_RESTART_RELIABILITY",
+  "applicationPRs": [486, 487, 488, 489, 490],
+  "sourceDigest": "087a4eabe937984020283c3a21f878cc447cbadd6366c10b77b4c92c2c0f7bbf",
+  "browser": {"passed": 1, "failed": 0, "reportedMinutes": 10.2, "runnerExitCode": 0},
+  "photos": {"selected": 24, "ready": 24, "artifacts": 24, "slots": 24, "candidates": 24},
+  "processingJobs": {"complete": 120, "printingComplete": 24},
+  "reusedDevelopmentScoring": {"firstCorrect": 24, "offered": 24, "automaticDecisions": 0, "independentTrials": false},
+  "preservation": {"savedCorrection": true, "candidateRevision": true, "completedEvidence": true, "reloadedReview": true, "incrementalRows": 24},
+  "inventoryWrites": 0,
+  "crash": {"worker": "OCR", "method": "SIGKILL", "exitCode": 137, "attemptBefore": 1, "attemptAfter": 2, "leaseSeconds": 90, "leaseOverridden": false, "recoveredSecondsAfterKill": 96.669},
+  "lostAcknowledgement": {"injectedAfterRealServerSuccess": 1, "visibleRetryActions": 1, "duplicateCards": 0, "unattendedRecovery": false},
+  "resources": {
+    "sampleCount": 21,
+    "ocr": {"maximumObservedMiB": 952.2, "limitMiB": 2048, "maximumObservedCPUPercent": 99.8, "maximumObservedPIDs": 28},
+    "visual": {"maximumObservedMiB": 1346.56, "limitMiB": 3072, "maximumObservedCPUPercent": 100.07, "maximumObservedPIDs": 39},
+    "printing": {"maximumObservedMiB": 965.9, "limitMiB": 1024, "maximumObservedCPUPercent": 98.81, "maximumObservedPIDs": 40},
+    "exhaustivePeaks": false,
+    "reportedOOMKills": 0
+  },
+  "ownedFixtureCleanup": true,
+  "priorAttempts": [
+    {"outcome": "CHECKER_FAILURE", "photosReady": 24, "printingComplete": 24, "rescoredFirstCorrect": 24, "rescoredOffered": 24, "ocrAttemptAfter": 2, "reason": "Checker used absent DTO Scryfall IDs; now maps labels to local Card IDs after processing"},
+    {"outcome": "STOPPED_AFTER_CONFIRMED_RETAINED_UPLOAD_FAILURE", "photoRecords": 24, "photosReady": 23, "printingComplete": 23, "ocrAttemptAfter": 2, "trackedIssue": 468}
+  ],
+  "limitations": [
+    "Reused development scans and unknown physical grouping are not independent accuracy trials",
+    "Automatic acceptance remained disabled",
+    "One OCR crash with 24 uploads does not qualify full large batches or production throughput",
+    "Visible upload retry was required; unattended recovery issue 468 remains open",
+    "Host, database, browser-storage loss and scanner hardware were not tested",
+    "Docker snapshots do not prove exhaustive memory peaks or host/browser footprint",
+    "Printing memory approached its local cap; scale remains unqualified",
+    "Recognition goal 463 remains incomplete; production and scanner hardware unchanged"
+  ]
+}
