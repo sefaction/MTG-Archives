@@ -1,3 +1,24 @@
+## Cards Simplex saved; motor-free continuity passed; fresh loading pending
+
+September30,2026: operator made profile and closed settings. Original session
+82300/a5d9d453 actually returnedexit0/COMPLETED/0images/825857ms; no activeowned
+native context. Prior screenCARDSduplex is retained; no card fed byinspection.
+Motor-free profile-continuity e632ae4a-d5a4-44db-aa92-8d5621cbef61 completedexit0/noEnable/noimages/
+source+sessioncloseSuccess/state2. It reads600dpi,duplexFalse and centeredcustom
+2.6x3.6 frame. Re-requestingduplexFalse preservedtheframe; customImageLayout.Set
+alsoSuccess and readbackpreserved. Unlikepreviousduplexprofile, noLegalreset.
+Separateprobeidentity/pre-enable evidence only; physicalfooterstillunqualified.
+
+Freshunchangedtestedhelper default600/simplex2.6x3.6/Center request 02909a3e-65a5-46ad-a7d8-fc68cb2de9f6
+is prepared NOTstarted. Originalhelper/SDK/worker hashesrecordedprivately; no
+privateworker/runtimevariant or installedhelperreplacement for thiscomparison.
+Loadingquestionpending: same1card, powered/connected, cleartransport. Onlyafter
+freshaffirmative replylaunchONCE, retainsamecontextuntilactualcompletion, preserve
+alloriginals/manifesthashes, inspectfooter, collectoperatorphysicalcount/outcome.
+Do not replay/auto-refeed or infer cardcount/exhaustionfromimagecount.
+#540draft0cb2038all4green/unapproved;541merged529closed. LocalDockerunchanged,
+noInventory/recognition/productionaction. Profilechangesareuser-operated.
+
 ## Driver screenshot confirms Cards is duplex; separate simplex profile pending
 
 September30,2026: operator screenshot DocTwain shows profileCARDS, ScanType

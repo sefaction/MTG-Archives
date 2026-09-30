@@ -270,3 +270,22 @@ ADF(Simplex), preserving CARDS and the other displayed settings, and Exit withou
 Scan. Profile save/selection and native-window closure are pending. Keep the live
 settings context until actual return, then inspect negotiation without enabling
 acquisition before considering any freshly confirmed physical comparison.
+
+## Cards Simplex profile: motor-free continuity improvement
+
+The operator created the requested separate profile and closed the settings window.
+That original native inspection session actually completed normally, exit0 and
+zero images. No timeout or forced teardown was used.
+
+A fresh minimal configuration-only probe then read duplex disabled/600dpi and the
+centered2.6x3.6 frame. Re-requesting simplex preserved the custom frame, as did a
+subsequent successful custom ImageLayout.Set; source/session closes succeeded,
+exit0, no Enable/images. This differs from the previous duplex-selected profile
+where requesting simplex reset the reported layout to Legal. The probe has a
+separate application identity and is before acquisition, so it is not a full
+shipping-helper configuration trace or proof of preserved footer content.
+
+A fresh one-card comparison using the unchanged tested helper, original SDK and
+bundled worker is prepared but not started. Default600/simplex2.6x3.6/Center;
+wait for a fresh operator loading confirmation. Retain originals and physical
+outcome before claiming the profile or TWAIN acquisition qualified.
