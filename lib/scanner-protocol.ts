@@ -7,10 +7,20 @@ export const scannerDeviceSchema = z.object({
   backend: z.string().min(1).max(64), source: z.string().min(1).max(64),
   qualification: z.enum(["Qualified", "KnownWorking", "GenericUnqualified", "Unsupported"]),
 }).strict();
+export const scannerDiscoveryIssueSchema = z.object({
+  source: z.string().regex(/^[A-Za-z0-9_-]{1,32}$/),
+  code: z.enum(["DISCOVERY_FAILED", "DISCOVERY_RESTART_REQUIRED", "DISCOVERY_IN_PROGRESS"]),
+  retryAfterSeconds: z.number().int().min(0).max(300).nullable(),
+}).strict().refine(issue => issue.code !== "DISCOVERY_IN_PROGRESS" || issue.retryAfterSeconds === null,
+  "An active operation has no retry deadline");
+export const scannerDiscoveryIssuesSchema = z.array(scannerDiscoveryIssueSchema).max(8)
+  .refine(issues => new Set(issues.map(issue => issue.source)).size === issues.length, "Duplicate discovery source");
+export type ScannerDiscoveryIssue = z.infer<typeof scannerDiscoveryIssueSchema>;
 export const scannerPulseSchema = z.object({
   version: z.literal(SCANNER_PROTOCOL),
   agentVersion: z.string().min(1).max(64),
   devices: z.array(scannerDeviceSchema).max(32),
+  discoveryIssues: scannerDiscoveryIssuesSchema.optional(),
 }).strict().refine(p => new Set(p.devices.map(d => d.id)).size === p.devices.length,
   "Duplicate scanner identity");
 const secret = z.string().regex(/^[A-Za-z0-9_-]{43}$/);

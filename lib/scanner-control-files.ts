@@ -55,3 +55,11 @@ export async function persistScannerStartMarker(runId: string, epoch: string, ex
   if (scannerCanonical(result.actual) !== scannerCanonical(desired)) throw new Error("Scanner start evidence needs reconciliation");
   return result.created;
 }
+export async function scannerStartMarkerExists(runId: string) {
+  z.string().uuid().parse(runId);
+  try { await read(path.join(await directory(), `${runId}.start.json`)); return true; }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw error;
+  }
+}

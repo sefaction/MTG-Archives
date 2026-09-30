@@ -1,5 +1,8 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import type { ScannerContinuation } from "@/lib/scanner-continuation";
+import { readScannerStart, saveScannerStart, clearScannerStart, type PendingScannerStart } from "@/lib/scanner-browser-start";
 import { AcquisitionCommitControls } from "./AcquisitionCommitControls";
 import { ScannerSourceFields, ScannerRunControls, type ScannerChoice } from "./ScannerBatchControls";
 import { AcquisitionBulkReview } from "./AcquisitionBulkReview";
@@ -76,20 +79,38 @@ export function AcquisitionCapture({
   initialBatch,
   initialScanner,
   recent,
+  initialSetup = null,
+  setupMessage = "",
 }: {
   userId: string;
   locations: StorageLocation[];
   initialBatch: string;
   initialScanner: boolean;
   recent: { id: string; batchNumber: number; phase: string }[];
+  initialSetup?: ScannerContinuation | null;
+  setupMessage?: string;
 }) {
-  const [locationId, setLocationId] = useState("");
-  const [section, setSection] = useState("");
+  const [locationId, setLocationId] = useState(initialSetup?.locationId ?? "");
+  const [section, setSection] = useState(initialSetup?.section ?? "");
+  const router = useRouter(), [refreshingCapacity, refreshCapacity] = useTransition();
   const [quantity, setQuantity] = useState(1);
   const [customLimit, setCustomLimit] = useState(false);
   const [scannerChoice, setScannerChoice] = useState<ScannerChoice | null>(null);
   const [scannerEnabled, setScannerEnabled] = useState(initialScanner);
-  const scannerChanged = useCallback((value: ScannerChoice | null, enabled: boolean) => { setScannerChoice(value); setScannerEnabled(enabled); if (enabled) setCustomLimit(false); createKey.current = ""; }, []);
+  const [scannerDetecting, setScannerDetecting] = useState(false);
+  const pendingStart = useRef<PendingScannerStart | null>(null);
+  const [pendingScanner, setPendingScanner] = useState<PendingScannerStart | null>(null);
+  const [checkingStart, setCheckingStart] = useState(true);
+  const [startStorageError, setStartStorageError] = useState(false);
+  const sourceIdentity = useRef("");
+  const scannerChanged = useCallback((value: ScannerChoice | null, enabled: boolean, detecting = false) => {
+    setScannerDetecting(detecting);
+    if (pendingStart.current) return;
+    const identity = JSON.stringify({ value, enabled });
+    if (sourceIdentity.current !== identity) createKey.current = "";
+    sourceIdentity.current = identity;
+    setScannerChoice(value); setScannerEnabled(enabled); if (enabled) setCustomLimit(false);
+  }, []);
   const [batchId, setBatchId] = useState(initialBatch);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [error, setError] = useState("");
@@ -178,6 +199,45 @@ export function AcquisitionCapture({
   const fileInput = useRef<HTMLInputElement>(null),
     replacement = useRef<Progress["slots"][number] | null>(null);
   const createKey = useRef("");
+  const adoptScanner = useCallback((state: Progress, intent: PendingScannerStart) => {
+    if (!mounted.current) return;
+    if (state.runId !== intent.requestKey || state.providerId !== SCANNER_CAPTURE_PROVIDER)
+      throw new Error("Scanner batch recovery did not match. Keep this page open and retry.");
+    setProgress(state); setBatchId(state.id); setError("");
+    history.replaceState(null, "", `/imports/scan?batch=${state.id}`);
+    try { clearScannerStart(sessionStorage, userId, intent.requestKey); } catch { /* Same intent can safely recover again. */ }
+    pendingStart.current = null; setPendingScanner(null);
+  }, [userId]);
+  const recoverScanner = useCallback(async (intent: PendingScannerStart) => {
+    const result = await request<{ found: boolean; progress: Progress | null }>(`/api/scanners/runs?request=${intent.requestKey}`);
+    if (result.found && result.progress) { adoptScanner(result.progress, intent); return true; }
+    return false;
+  }, [adoptScanner]);
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        if (initialBatch) return;
+        const intent = readScannerStart(sessionStorage, userId);
+        if (!intent) return;
+        pendingStart.current = intent; createKey.current = intent.requestKey;
+        setPendingScanner(intent); setScannerEnabled(true);
+        setLocationId(intent.locationId); setSection(intent.section);
+        if (!await recoverScanner(intent) && active)
+          setError("The previous Start has not been found yet. Retry the same scanner start to check again and finish that request.");
+      } catch {
+        if (active) {
+          // Photo input does not require scanner-start storage. A scanner start
+          // still refuses to send if its durable intent cannot be saved.
+          if (!initialScanner && !pendingStart.current) return;
+          if (!pendingStart.current) setStartStorageError(true);
+          setError(pendingStart.current ? "Cannot check the previous scanner start. Reconnect, then retry the same scanner start." :
+            "This browser could not read its saved scanner start. Enable browser storage before starting; existing batches are available in Recent batches.");
+        }
+      } finally { if (active) setCheckingStart(false); }
+    })();
+    return () => { active = false; };
+  }, [userId, initialBatch, initialScanner, recoverScanner]);
   const destination = locations.find((l) => l.id === locationId);
   const selectedSection = destination?.sections.find((s) => s.name === section);
   const limits = [
@@ -295,19 +355,37 @@ export function AcquisitionCapture({
     setBusy(true);
     setError("");
     try {
+      if (pendingStart.current) {
+        const intent = pendingStart.current;
+        if (await recoverScanner(intent)) return;
+        const state = await request<Progress>("/api/scanners/runs", { ...intent, action: "create" });
+        adoptScanner(state, intent); return;
+      }
       if (!createKey.current) createKey.current = captureUuid();
-      const state = await request<Progress>(scannerChoice ? "/api/scanners/runs" : "/api/acquisition", {
+      const value = {
         ...(scannerChoice ? { ...scannerChoice, action: "create" } : {}),
+        ...(scannerChoice && initialSetup ? { defaults: initialSetup.defaults } : {}),
         requestKey: createKey.current,
         locationId,
         section,
         quantity: customLimit ? quantity : null,
-      });
+      };
+      if (scannerChoice) {
+        const { action: _action, ...intent } = value;
+        try { saveScannerStart(sessionStorage, userId, intent as PendingScannerStart); }
+        catch { throw new Error("This browser cannot save a scanner start. Enable browser storage and retry; no scan command was sent."); }
+        pendingStart.current = intent as PendingScannerStart; setPendingScanner(pendingStart.current);
+      }
+      const state = await request<Progress>(scannerChoice ? "/api/scanners/runs" : "/api/acquisition", value);
+      if (pendingStart.current) { adoptScanner(state, pendingStart.current); return; }
       setProgress(state);
       setBatchId(state.id);
       history.replaceState(null, "", `/imports/scan?batch=${state.id}`);
     } catch (e) {
-      setError((e as Error).message);
+      if (pendingStart.current) {
+        try { if (await recoverScanner(pendingStart.current)) return; } catch { /* Uncertain result keeps original intent. */ }
+        setError(`${(e as Error).message}. The original Start is saved. Retry the same scanner start; it will recover an accepted batch first.`);
+      } else setError((e as Error).message);
     } finally {
       setBusy(false);
       capturing.current = false;
@@ -495,8 +573,12 @@ export function AcquisitionCapture({
           <h2 className="text-xl font-semibold mb-3">
             Set up a new scan batch
           </h2>
-          <p className="text-sm mb-3">Choose a destination and card input below. Starting a scanner batch sends the scan command to the connected computer.</p>
+          {!setupMessage && <p className="text-sm mb-3">Choose a destination and card input below. Starting a scanner batch sends the scan command to the connected computer.</p>}
+          {setupMessage && <p className="text-sm mb-3" role="status">{setupMessage}</p>}
+          {initialSetup && scannerEnabled && <p className="text-sm mb-3">Batch defaults: {initialSetup.defaults.finish.toLowerCase()} · {initialSetup.defaults.condition ?? "condition not set"}. You can change these during review.</p>}
+          <div className="grid gap-4 lg:grid-cols-2 items-start"><div className="min-w-0">
           <StorageDestinationPicker
+            disabled={busy || checkingStart || !!pendingScanner || startStorageError}
             locations={locations}
             locationId={locationId}
             onLocationChange={(id) => {
@@ -504,6 +586,7 @@ export function AcquisitionCapture({
               createKey.current = "";
             }}
             section={section}
+            capacityHint="Capacity is checked when the batch starts."
             onSectionChange={(value) => {
               setSection(value);
               createKey.current = "";
@@ -512,6 +595,7 @@ export function AcquisitionCapture({
           {!scannerEnabled && <label className="block my-3">
             <input
               type="checkbox"
+              disabled={busy || checkingStart || !!pendingScanner || startStorageError}
               checked={customLimit}
               onChange={(e) => {
                 setCustomLimit(e.target.checked);
@@ -526,6 +610,7 @@ export function AcquisitionCapture({
               <input
                 className={input + " ml-2 w-24"}
                 type="number"
+                disabled={busy || checkingStart || !!pendingScanner || startStorageError}
                 min={1}
                 max={remaining ?? undefined}
                 value={quantity}
@@ -542,24 +627,35 @@ export function AcquisitionCapture({
               : scannerEnabled ? `${remaining} spaces remain. Load no more than that; the scanner runs until the feeder is empty.` : `${remaining} spaces remaining in this destination.`}{" "}
             {!scannerEnabled && "One card per photo."}
           </p>
-          <ScannerSourceFields initialEnabled={initialScanner} onChange={scannerChanged} disabled={busy} remaining={customLimit ? Math.min(quantity,remaining??quantity) : remaining} />
+          <button className={button+" mb-3"} disabled={busy || checkingStart || !!pendingScanner || refreshingCapacity} onClick={()=>refreshCapacity(()=>router.refresh())}>
+            {refreshingCapacity ? "Refreshing capacity…" : "Refresh capacity"}
+          </button>
+          <details className="text-sm mb-3"><summary className="cursor-pointer">About capacity</summary>
+            <p className="mt-2">Capacity shown here includes stored cards. Pending batches and capacity are checked again before the scanner starts and before Inventory addition.</p>
+          </details>
+          </div><div className="min-w-0">
+          <ScannerSourceFields key={pendingScanner?.requestKey ?? "setup"} initialEnabled={pendingScanner ? true : initialScanner} initialChoice={pendingScanner ?? initialSetup?.scanner} onChange={scannerChanged} disabled={busy || checkingStart || !!pendingScanner || startStorageError || refreshingCapacity} remaining={customLimit ? Math.min(quantity,remaining??quantity) : remaining} />
+          </div></div>
           <button
             className={primary}
             disabled={
-              busy ||
-              !locationId ||
+              busy || checkingStart || startStorageError || refreshingCapacity || (!pendingScanner && (
+              !destination ||
               (scannerEnabled && !scannerChoice) ||
               remaining === 0 ||
               (customLimit &&
-                (quantity < 1 || (remaining !== null && quantity > remaining)))
+                (quantity < 1 || (remaining !== null && quantity > remaining)))))
             }
             onClick={() => void start()}
           >
-            {scannerEnabled ? "Start scanner batch" : "Start batch"}
+            {checkingStart ? "Checking previous start…" : pendingScanner ? "Retry same scanner start" : scannerEnabled ? "Start scanner batch" : "Start batch"}
           </button>
-          {!locationId && <p className="text-sm mt-2" role="status">Choose a destination to start.</p>}
-          {locationId && remaining === 0 && <p className="text-sm mt-2" role="status">This destination has no remaining space. Choose another destination.</p>}
-          {locationId && scannerEnabled && !scannerChoice && remaining !== 0 && <p className="text-sm mt-2" role="status">Choose an online scanner source to enable Start scanner batch.</p>}
+          {pendingScanner && <p className="text-sm mt-2" role="status">Checking the original scanner start keeps its destination and settings. A retry first looks for the accepted batch. Changes are available after that batch is recovered and settled.</p>}
+          {!pendingScanner && !locationId && <p className="text-sm mt-2" role="status">Choose a destination to start.</p>}
+          {!pendingScanner && locationId && remaining === 0 && <p className="text-sm mt-2" role="status">This destination has no remaining space. Choose another destination.</p>}
+          {!pendingScanner && locationId && scannerEnabled && !scannerChoice && remaining !== 0 && <p className="text-sm mt-2" role="status">{scannerDetecting
+            ? "Waiting for scanner detection to finish. Your destination and source choice are kept."
+            : "Choose an online scanner source to enable Start scanner batch."}</p>}
           {!!recent.length && (
             <div className="mt-4">
               <h3 className="font-semibold">Recent batches</h3>

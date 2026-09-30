@@ -2,9 +2,10 @@ import { randomUUID } from "node:crypto";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { sessionCredentialHash } from "./auth-sessions";
 import { scannerCredential, scannerHash, scannerHashMatches, scannerPairClaimSchema,
-  scannerPairCode, scannerPulseSchema, scannerSecret } from "./scanner-protocol";
+  scannerPairCode, scannerPulseSchema, scannerSecret, scannerDiscoveryIssuesSchema } from "./scanner-protocol";
 
-const unavailable = () => new Error("Scanner connection unavailable");
+import { ScannerConnectionDenied } from "./scanner-errors";
+const unavailable = () => new ScannerConnectionDenied();
 type Tx = Prisma.TransactionClient;
 export async function scannerTransaction<T>(db: PrismaClient, work: (tx: Tx) => Promise<T>) {
   for (let retry = 0; ; retry++) {
@@ -34,7 +35,10 @@ export async function createScannerPairing(db: PrismaClient, userId: string, now
   });
 }
 export async function claimScannerPairing(db: PrismaClient, value: unknown, now = new Date()) {
-  const input = scannerPairClaimSchema.parse(value), code = scannerPairCode(input.pairCode);
+  const input = scannerPairClaimSchema.parse(value);
+  let code: ReturnType<typeof scannerPairCode>;
+  try { code = scannerPairCode(input.pairCode); }
+  catch { throw unavailable(); }
   return transaction(db, async tx => {
     const pair = await tx.scannerPairing.findUnique({ where: { id: code.id } });
     if (!pair || pair.expiresAt <= now || !scannerHashMatches(code.secret, pair.codeHash)) throw unavailable();
@@ -70,8 +74,11 @@ export async function recordScannerPulse(db: PrismaClient, authorization: string
   return transaction(db, async tx => {
     const { agent } = await authenticateScanner(tx, authorization, now);
     await tx.scannerAgent.update({ where: { id: agent.id }, data: { lastSeenAt: now,
-      agentVersion: pulse.agentVersion, devices: pulse.devices } });
-    return { version: 1, agentId: agent.id, nextPollMs: 5000 };
+      agentVersion: pulse.agentVersion, devices: pulse.devices,
+      // Native-run keepalive pulses and older helpers omit diagnostics. Only an
+      // explicit diagnostic report replaces them; an empty report clears them.
+      discoveryIssues: pulse.discoveryIssues } });
+    return { version: 1, agentId: agent.id, nextPollMs: 5000, discoveryReporting: true, discoveryProgressReporting: true };
   });
 }
 export async function listScannerAgents(db: PrismaClient, userId: string, now = new Date()) {
@@ -82,7 +89,8 @@ export async function listScannerAgents(db: PrismaClient, userId: string, now = 
     return agents.map(agent => ({ id: agent.id, name: agent.name, agentVersion: agent.agentVersion,
       lastSeenAt: agent.lastSeenAt, online: !!agent.lastSeenAt && now.getTime() - agent.lastSeenAt.getTime() < 30000,
       devices: scannerPulseSchema.parse({ version: 1, agentVersion: agent.agentVersion ?? "unknown",
-        devices: agent.devices }).devices }));
+        devices: agent.devices }).devices,
+      discoveryIssues: scannerDiscoveryIssuesSchema.parse(agent.discoveryIssues ?? []) }));
   });
 }
 export async function revokeScannerAgent(db: PrismaClient, userId: string, agentId: string, now = new Date()) {

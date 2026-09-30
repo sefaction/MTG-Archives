@@ -5,7 +5,7 @@
 [Setup]
 AppId=MTGArchives.ScannerAgent
 AppName=MTG Archives Scanner Helper
-AppVersion=0.3.1
+AppVersion=0.3.7
 AppPublisher=MTG Archives
 DefaultDirName={localappdata}\Programs\MTG Archives Scanner Helper
 DefaultGroupName=MTG Archives Scanner Helper
@@ -16,6 +16,8 @@ OutputBaseFilename=MTGArchivesScannerSetup
 Compression=lzma2
 SolidCompression=yes
 UninstallDisplayIcon={app}\Mtg.ScannerAgent.exe
+CloseApplications=yes
+RestartApplications=no
 
 [Tasks]
 Name: autostart; Description: "Keep my scanner available when I sign in"; Flags: checkedonce

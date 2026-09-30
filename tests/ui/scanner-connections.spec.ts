@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 
 function database(body: string) {
@@ -13,9 +13,13 @@ test("paired Windows helper reports real sources in website; revocation blocks i
   test.skip(process.env.MTG_LOCAL_PILOT_TEST !== "1" || !dotnet || !dll,
     "Requires locally built Windows helper; only discovery, no feeder operation");
   expect(baseURL).toBe("http://127.0.0.1:13001");
-  test.setTimeout(150000);
+  test.setTimeout(240000);
   const tag = `ui-scanner-pair-${randomUUID()}`, password = randomUUID();
   let agentId = "";
+  let service: ChildProcess | undefined;
+  const workers = () => Number(execFileSync("powershell.exe", ["-NoProfile", "-Command",
+    `(Get-CimInstance Win32_Process -Filter "Name = 'NAPS2.Worker.exe' AND ParentProcessId = ${service!.pid}").Count`],
+    { encoding: "utf8", windowsHide: true }).trim());
   const helper = (args: string[], input?: string) => execFileSync(dotnet!, [dll!, ...args], {
     input, encoding: "utf8", timeout: 45000, windowsHide: true,
   });
@@ -33,7 +37,9 @@ test("paired Windows helper reports real sources in website; revocation blocks i
     await expect(panel.getByRole("button", { name: "Connect this computer" })).toBeVisible();
     const installer = await page.request.get("/api/scanners/installer?info");
     expect(installer.ok()).toBe(true);
-    expect((await installer.json()).available).toBe(true);
+    const installerInfo = await installer.json();
+    expect(installerInfo.available).toBe(true);
+    expect(installerInfo.version).toBe(JSON.parse(helper(["version"])).helperVersion);
     await expect(panel.getByRole("link", { name: "Download Windows scanner helper" })).toBeVisible();
     const downloadReady = page.waitForEvent("download");
     await panel.getByRole("link", { name: "Download Windows scanner helper" }).click();
@@ -52,6 +58,12 @@ test("paired Windows helper reports real sources in website; revocation blocks i
     agentId = connected.match(/Connection identity: ([a-f0-9-]{36})/)?.[1] ?? "";
     expect(agentId).not.toBe("");
     expect(helper(["report", agentId])).toContain("No scan requested.");
+    database(`await p.scannerAgent.update({where:{id:${JSON.stringify(agentId)}},data:{lastSeenAt:new Date(Date.now()-60000)}});`);
+    await expect(panel.getByText("Offline", { exact: true })).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Open scanner helper" })).toBeVisible();
+    await expect(panel.getByText(/helper is not responding/)).toBeVisible();
+    service = spawn(dotnet!, [dll!, "serve", agentId], { windowsHide: true, stdio: "ignore" });
+    const discoveryBegan = Date.now();
     const state = JSON.parse(database(`console.log(JSON.stringify(await p.scannerAgent.findUniqueOrThrow({where:{id:${JSON.stringify(agentId)}},select:{userId:true,devices:true,lastSeenAt:true}})));`));
     expect(state.userId).toBe(tag);
     expect(state.devices.length).toBeGreaterThan(0);
@@ -63,6 +75,8 @@ test("paired Windows helper reports real sources in website; revocation blocks i
     await panel.getByRole("link", { name: "Set up a new scanner batch" }).click();
     await expect(page).toHaveURL(/\/imports\/scan\?input=scanner#new-scan-batch$/);
     await panel.getByRole("button", { name: "Scanner connected" }).click();
+    await expect(panel.getByRole("link", { name: "Update Windows scanner helper" })).toBeVisible();
+    await expect(panel.getByText(`Version ${installerInfo.version}`, { exact: true })).toBeVisible();
     const batch = page.getByRole("region", { name: "New scan batch" });
     await expect(batch.getByRole("heading", { name: "Set up a new scan batch" })).toBeVisible();
     await expect(batch.getByLabel("Scan from a connected scanner")).toBeChecked();
@@ -74,9 +88,8 @@ test("paired Windows helper reports real sources in website; revocation blocks i
     const source = batch.getByRole("combobox", { name: "Scanner source" });
     await expect(source.locator("option").nth(1)).toBeAttached();
     await source.selectOption({ index: 1 });
-    await expect(start).toBeDisabled();
-    await batch.getByLabel("The scanner is clear and exactly this many expendable cards are loaded for simplex scanning.").check();
     await expect(start).toBeEnabled(); // Do not click: this would start the scanner motor.
+    await expect(batch.getByRole("spinbutton", { name: /cards.*loaded/i })).toHaveCount(0);
     for (const width of [1366, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await expect(panel.getByRole("button", { name: "Disconnect Windows scanner", exact: true })).toBeVisible();
@@ -86,12 +99,23 @@ test("paired Windows helper reports real sources in website; revocation blocks i
       await start.scrollIntoViewIfNeeded();
       await page.screenshot({ path: `test-results/scanner-start-${width}.png` });
     }
+    // Observe three source-refresh intervals, not just one successful listing.
+    await expect.poll(() => {
+      expect(service!.exitCode).toBeNull();
+      expect(workers()).toBeLessThanOrEqual(1);
+      return Date.now() - discoveryBegan;
+    }, { timeout: 115000, intervals: [5000] }).toBeGreaterThanOrEqual(95000);
     await panel.getByRole("button", { name: "Disconnect Windows scanner", exact: true }).click();
+    await expect.poll(() => service!.exitCode, { timeout: 20000 }).toBe(0);
+    const config = JSON.parse(require("node:fs").readFileSync(require("node:path").join(process.env.LOCALAPPDATA!, "MTGArchives", "ScannerAgent", agentId+".json"), "utf8"));
+    expect(config.disabled).toBe(true); // No secrets are printed/exported.
+    await expect.poll(workers, { timeout: 10000 }).toBe(0);
     await expect(panel.getByText("No scanner helpers connected yet.")).toBeVisible();
     expect(() => helper(["report", agentId])).toThrow();
     expect(Number(database(`console.log(await p.acquisitionSession.count({where:{createdByUserId:${JSON.stringify(tag)}}}));`))).toBe(0);
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
   } finally {
+    if (service && service.exitCode === null) service.kill();
     if (agentId) helper(["forget", agentId]);
     database(`const n=${JSON.stringify(tag)};await p.scannerPairing.deleteMany({where:{userId:n}});await p.scannerAgent.deleteMany({where:{userId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.inventoryLocation.deleteMany({where:{id:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});`);
   }

@@ -3,6 +3,7 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { CATALOG_RECONCILIATION_STAGE } from "./acquisition-catalog-status";
 import { readAcquisitionPhotoBytes } from "./acquisition-files";
+import { acquisitionHandoffQuery } from "./acquisition-handoff";
 import { AcquisitionJobSupersededError, type ClaimedAcquisitionJob } from "./acquisition-jobs";
 import type { AcquisitionNativeStream } from "./acquisition-native-stream";
 import {
@@ -32,8 +33,8 @@ const proposalsSchema = z.object({
 });
 
 export async function enqueueReadyPrinting(db: PrismaClient, model: string) {
-  const rows = await db.$queryRaw<{id: string}[]>`
-    SELECT j.id FROM "AcquisitionProcessingJob" j
+  const rows = await db.$queryRaw<{id: string}[]>(acquisitionHandoffQuery(PRINTING_STAGE, Prisma.sql`
+    SELECT j.id, j."runId", j."createdAt" FROM "AcquisitionProcessingJob" j
     JOIN "AcquisitionCandidate" c ON c.id=j."candidateId"
     JOIN "AcquisitionRun" r ON r.id=j."runId"
     JOIN "AcquisitionSession" s ON s.id=r."sessionId"
@@ -51,7 +52,7 @@ export async function enqueueReadyPrinting(db: PrismaClient, model: string) {
           AND v."candidateId"=c.id AND v."candidateRevision"=c.revision
           AND v.input->>'catalogJobId'=j.id AND v.input->>'model'=${model}
           AND v.input->>'policy'=${PRINTING_POLICY_VERSION})
-    ORDER BY j."createdAt",j.id LIMIT 32`;
+  `));
   let added = 0;
   for (const {id} of rows) {
     const source = await db.acquisitionProcessingJob.findUniqueOrThrow({where: {id}});

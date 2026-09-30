@@ -52,6 +52,8 @@ public static class ScannerNativeSelfTest
     }
     public static async Task Run(string fixtureRoot)
     {
+        await ScannerPreflightSelfTest.Run(fixtureRoot);
+        await ScannerAuthorizationSelfTest.Run(fixtureRoot);
         var root = Path.Combine(Path.GetFullPath(fixtureRoot),Guid.NewGuid().ToString());
         Directory.CreateDirectory(root);
         Guid agentId=Guid.NewGuid(),runId=Guid.NewGuid(),execution=Guid.NewGuid();

@@ -7,8 +7,10 @@ import { type PrismaClient } from "@prisma/client";
 import { createScannerPairing, claimScannerPairing, recordScannerPulse, revokeScannerAgent } from "../lib/scanner-store";
 import { scannerSecret } from "../lib/scanner-protocol";
 import { createScannerBatch, claimScannerRun, pollScannerRun, receiveScannerImage,
-  finishScannerRun, reconcileScannerBatch, getScannerBatch, stopScannerBatch } from "../lib/scanner-runs";
-import { scannerSiteEpoch } from "../lib/scanner-control-files";
+  finishScannerRun, reconcileScannerBatch, getScannerBatch, findScannerBatchCreation, stopScannerBatch, reportScannerPreflightProblem } from "../lib/scanner-runs";
+import { scannerSiteEpoch, scannerStartMarkerExists } from "../lib/scanner-control-files";
+import { scannerRunError } from "../lib/scanner-errors";
+import { scannerContinuation, currentScannerContinuation } from "../lib/scanner-continuation";
 import { getAcquisitionSession } from "../lib/acquisition-store";
 import { captureSummary } from "../lib/acquisition-domain";
 import { readAcquisitionPhotoBytes, photoDigest } from "../lib/acquisition-files";
@@ -41,7 +43,7 @@ export async function verifyScannerRuns(db: PrismaClient) {
       await recordScannerPulse(db, token, { version: 1, agentVersion: "fixture", devices: [source] });
       return { agentId, token };
     }
-    const first = await enroll();
+    const first = await enroll(), otherAgent = await enroll();
     const input = { requestKey: randomUUID(), agentId: first.agentId, deviceId: source.id, locationId, section: "",
       quantity: 2, loadedCount: 2, operatorLoadedSimplexFronts: true, settings };
     await assert.rejects(createScannerBatch(db, { userId: other, adminMode: false }, input, epoch));
@@ -52,12 +54,34 @@ export async function verifyScannerRuns(db: PrismaClient) {
     assert.equal((await pollScannerRun(db, first.token, epoch)).run?.runId, run.runId);
     await assert.rejects(createScannerBatch(db, actor, { ...input, requestKey: randomUUID() }, epoch));
     await assert.rejects(getScannerBatch(db, other, run.runId));
+    assert.equal(await findScannerBatchCreation(db, actor, randomUUID()), null);
+    await assert.rejects(findScannerBatchCreation(db, { userId: other, adminMode: true }, run.runId));
+    await db.scannerAgent.update({ where: { id: first.agentId }, data: { lastSeenAt: new Date(0) } });
+    const recovered = await findScannerBatchCreation(db, actor, input.requestKey);
+    assert.equal(recovered?.session.id, run.sessionId);
+    assert.equal(recovered?.session.run.runId, input.requestKey);
+    assert.equal((await db.scannerRun.findUniqueOrThrow({ where: { id: run.runId } })).executionId, null);
+    await recordScannerPulse(db, first.token, { version: 1, agentVersion: "fixture", devices: [source] });
     const executionId = randomUUID(), claim = { version: 1, runId: run.runId, epoch, executionId };
+    const preflight = { version: 1, runId: run.runId, epoch, code: "SCANNER_UNAVAILABLE" };
+    await reportScannerPreflightProblem(db, first.token, preflight, epoch);
+    const waiting = await db.scannerRun.findUniqueOrThrow({ where: { id: run.runId } });
+    assert.equal(waiting.status, "QUEUED"); assert.equal(waiting.executionId, null); assert.equal(waiting.outcome, null);
+    assert.equal(await db.acquisitionPhoto.count({ where: { runId: waiting.acquisitionRunId } }), 0);
+    assert.equal(await db.inventoryItem.count({ where: { currentOwnerId: tag } }), 0);
+    assert.equal((await getScannerBatch(db, tag, run.runId)).preflightProblem &&
+      ((await getScannerBatch(db, tag, run.runId)).preflightProblem as { code: string }).code, preflight.code);
+    await reportScannerPreflightProblem(db, first.token, preflight, epoch);
+    assert.deepEqual((await db.scannerRun.findUniqueOrThrow({ where: { id: run.runId } })).preflightProblem, waiting.preflightProblem);
+    await assert.rejects(reportScannerPreflightProblem(db, otherAgent.token, preflight, epoch));
+    await assert.rejects(reportScannerPreflightProblem(db, first.token, { ...preflight, epoch: randomUUID() }, epoch));
+    await assert.rejects(reportScannerPreflightProblem(db, first.token, { ...preflight, runId: randomUUID() }, epoch));
     assert.equal((await claimScannerRun(db, first.token, claim, epoch)).feedAuthorized, true);
+    assert.equal((await getScannerBatch(db, tag, run.runId)).preflightProblem, null);
+    await assert.rejects(reportScannerPreflightProblem(db, first.token, preflight, epoch));
     assert.equal((await claimScannerRun(db, first.token, claim, epoch)).replay, true);
     await assert.rejects(claimScannerRun(db, first.token, { ...claim, executionId: randomUUID() }, epoch));
     await assert.rejects(claimScannerRun(db, first.token, { ...claim, epoch: randomUUID() }, epoch));
-    const otherAgent = await enroll();
     await assert.rejects(claimScannerRun(db, otherAgent.token, claim, epoch));
     const transfer = (sequence: number) => ({ ...claim, artifactId: randomUUID(), sequence,
       timestamp: new Date().toISOString(), side: "UNKNOWN", physicalBoundary: "UNKNOWN" });
@@ -163,6 +187,9 @@ export async function verifyScannerRuns(db: PrismaClient) {
     const rolledClaim = { ...claim, runId: rolled.runId, executionId: randomUUID() };
     await claimScannerRun(db, otherAgent.token, rolledClaim, epoch);
     await db.scannerRun.update({ where: { id: rolled.runId }, data: { status: "QUEUED", executionId: null } });
+    await assert.rejects(stopScannerBatch(db, tag, rolled.runId), /saved or uncertain START evidence/);
+    assert.equal((await getScannerBatch(db, tag, rolled.runId)).status, "QUEUED");
+    await assert.rejects(reportScannerPreflightProblem(db, otherAgent.token, { ...preflight, runId: rolled.runId }, epoch));
     const fenced = await claimScannerRun(db, otherAgent.token, rolledClaim, epoch);
     assert.equal(fenced.feedAuthorized, false); assert.equal(fenced.reconciliationRequired, true);
     // A destination can change after browser START. Recheck before any motor
@@ -178,16 +205,93 @@ export async function verifyScannerRuns(db: PrismaClient) {
     await db.inventoryItem.create({ data: { cardId: capacityCardId, currentOwnerId: tag,
       originalOpenerId: tag, locationId, quantity: 1, condition: "NM", sourceType: "MANUAL" } });
     const guardedClaim = { ...claim, runId: guarded.runId, executionId: randomUUID() };
-    await assert.rejects(claimScannerRun(db, guardedAgent.token, guardedClaim, epoch), /current remaining capacity/);
+    await assert.rejects(claimScannerRun(db, guardedAgent.token, guardedClaim, epoch), (error: unknown) => {
+      assert.equal(scannerRunError(error).status, 409);
+      assert.match((error as Error).message, /current remaining capacity/);
+      return true;
+    });
     assert.equal((await db.scannerRun.findUniqueOrThrow({ where: { id: guarded.runId } })).executionId, null);
     await stopScannerBatch(db, tag, guarded.runId);
-    assert.equal((await getScannerBatch(db, tag, guarded.runId)).status, "CANCELLED_BEFORE_START");
+    const cancelled = await getScannerBatch(db, tag, guarded.runId);
+    assert.equal(cancelled.status, "CANCELLED_BEFORE_START");
+    assert.equal((cancelled.reconciliation as { mode: string }).mode, "CANCELLED_WITHOUT_START");
+    const cancelledRevision = (await getAcquisitionSession(db, actor, guarded.sessionId)).revision;
+    await stopScannerBatch(db, tag, guarded.runId);
+    assert.equal((await getAcquisitionSession(db, actor, guarded.sessionId)).revision, cancelledRevision);
     assert.equal((await pollScannerRun(db, guardedAgent.token, epoch)).run, null);
     await assert.rejects(claimScannerRun(db, guardedAgent.token, guardedClaim, epoch));
+    await assert.rejects(reportScannerPreflightProblem(db, guardedAgent.token, { ...preflight, runId: guarded.runId }, epoch));
     await reconcileScannerBatch(db, tag, { ...observation, runId: guarded.runId, cardsEmitted: 0 });
+    await db.inventoryLocation.update({ where: { id: locationId }, data: { storageLayout: { capacity: null, sections: [] } } });
+    // A settled no-START cancellation permits another batch without count-entry.
+    const next = await createScannerBatch(db, actor, { ...input, loadedCount: null,
+      agentId: guardedAgent.agentId, requestKey: randomUUID(), defaults: { finish: "FOIL", condition: "LP" },
+      settings: { ...settings, dpi: 600 } }, epoch);
+    await assert.rejects(scannerContinuation(db, tag, next.runId), /settle first/);
+    await assert.rejects(stopScannerBatch(db, other, next.runId));
+    await stopScannerBatch(db, tag, next.runId);
+    const continuation = await scannerContinuation(db, tag, next.runId);
+    assert.equal(continuation.locationId, locationId); assert.equal(continuation.section, input.section);
+    assert.equal(continuation.scanner.agentId, guardedAgent.agentId); assert.equal(continuation.scanner.settings.dpi, 600);
+    assert.deepEqual(continuation.defaults, { finish: "FOIL", condition: "LP" });
+    await assert.rejects(scannerContinuation(db, other, next.runId));
+    assert.equal(currentScannerContinuation(continuation, []).setup, null);
+    const resumedInput = { ...input, ...continuation.scanner, locationId: continuation.locationId,
+      section: continuation.section, defaults: continuation.defaults, quantity: null, requestKey: randomUUID() };
+    const resumed = await createScannerBatch(db, actor, resumedInput, epoch);
+    assert.notEqual(resumed.sessionId, next.sessionId); assert.notEqual(resumed.runId, next.runId);
+    const newSession = await getAcquisitionSession(db, actor, resumed.sessionId);
+    assert.deepEqual(newSession.defaults, continuation.defaults);
+    assert.equal(newSession.session.artifacts.length, 0); assert.equal(newSession.session.candidates.length, 0);
+    assert.equal(newSession.session.target, null);
+    await assert.rejects(createScannerBatch(db, actor, { ...resumedInput, defaults: { finish: "NONFOIL", condition: "NM" } }, epoch));
+    await stopScannerBatch(db, tag, resumed.runId);
+    // Database-only inconsistencies must not assert an unstarted cancellation.
+    for (const uncertainty of ["epoch", "execution", "slot"] as const) {
+      const helper = await enroll();
+      const queued = await createScannerBatch(db, actor, { ...input, loadedCount: null,
+        agentId: helper.agentId, requestKey: randomUUID() }, epoch);
+      if (uncertainty === "slot") {
+        const stored = await db.scannerRun.findUniqueOrThrow({ where: { id: queued.runId } });
+        await db.acquisitionCaptureSlot.create({ data: { runId: stored.acquisitionRunId, requestKey: randomUUID(), position: 0 } });
+      } else await db.scannerRun.update({ where: { id: queued.runId }, data:
+        uncertainty === "epoch" ? { epoch: randomUUID() } : { executionId: randomUUID() } });
+      await assert.rejects(stopScannerBatch(db, tag, queued.runId), /saved or uncertain START evidence/);
+      assert.equal((await getScannerBatch(db, tag, queued.runId)).reconciliation, null);
+      await revokeScannerAgent(db, tag, helper.agentId);
+    }
+    // Both calls contend on the same run lock. A winning claim may request
+    // drain, but can never coexist with CANCELLED_WITHOUT_START reconciliation.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const helper = await enroll();
+      const queued = await createScannerBatch(db, actor, { ...input, loadedCount: null,
+        agentId: helper.agentId, requestKey: randomUUID() }, epoch);
+      const racingClaim = { ...claim, runId: queued.runId, executionId: randomUUID() };
+      const claiming = () => claimScannerRun(db, helper.token, racingClaim, epoch);
+      const stopping = () => stopScannerBatch(db, tag, queued.runId);
+      const results = await Promise.allSettled(attempt % 2 ? [stopping(), claiming()] : [claiming(), stopping()]);
+      const state = await getScannerBatch(db, tag, queued.runId);
+      const claimResult = results[attempt % 2 ? 1 : 0];
+      assert.equal(results[attempt % 2 ? 0 : 1].status, "fulfilled");
+      if (claimResult.status === "fulfilled") {
+        assert.equal("feedAuthorized" in claimResult.value && claimResult.value.feedAuthorized, true);
+        assert.equal(state.status, "STARTED"); assert.equal(state.reconciliation, null);
+        assert.equal(state.stopRequested, true); assert.equal(await scannerStartMarkerExists(queued.runId), true);
+      } else {
+        assert.equal(state.status, "CANCELLED_BEFORE_START"); assert.equal(state.executionId, null);
+        assert.equal((state.reconciliation as { mode: string }).mode, "CANCELLED_WITHOUT_START");
+        assert.equal(await scannerStartMarkerExists(queued.runId), false);
+      }
+      await revokeScannerAgent(db, tag, helper.agentId);
+    }
     assert.equal(await db.inventoryItem.count({ where: { currentOwnerId: tag } }), 1);
     await revokeScannerAgent(db, tag, first.agentId);
-    await assert.rejects(receiveScannerImage(db, first.token, t1, epoch, bytes, "image/png"));
+    const permanentDenial = (error: unknown) => { assert.equal(scannerRunError(error).status, 403); return true; };
+    await assert.rejects(pollScannerRun(db, first.token, epoch), permanentDenial);
+    await assert.rejects(reportScannerPreflightProblem(db, first.token, preflight, epoch), permanentDenial);
+    await assert.rejects(claimScannerRun(db, first.token, claim, epoch), permanentDenial);
+    await assert.rejects(receiveScannerImage(db, first.token, t1, epoch, bytes, "image/png"), permanentDenial);
+    await assert.rejects(finishScannerRun(db, first.token, { ...claim, outcome }, epoch), permanentDenial);
     console.log("PASS: native claim/replay/restore fencing, scoped originals/sequence/ACK replay, retained overflow, operator counts and server-gated original expiry; no motor or Inventory");
   } finally {
     // Include orphan DRAFT sessions from explicitly rejected/retry creation.

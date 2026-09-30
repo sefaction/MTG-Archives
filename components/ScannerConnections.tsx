@@ -2,21 +2,28 @@
 import { useCallback, useEffect, useState } from "react";
 import { filterButtonClass, filterPanelClass, filterPrimaryButtonClass } from "./filterStyles";
 import type { listScannerAgents } from "@/lib/scanner-store";
+import { ScannerDiscoveryNotice } from "./ScannerDiscoveryNotice";
 type Agent = Awaited<ReturnType<typeof listScannerAgents>>[number];
 export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [expanded, setExpanded] = useState(false);
   const [addAnother, setAddAnother] = useState(false);
   const [installerAvailable, setInstallerAvailable] = useState(false);
+  const [installerVersion, setInstallerVersion] = useState<string | null>(null);
   const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  function openHelper() {
+    setWaiting(true);
+    window.location.href = `mtg-archive-scanner://resume?site=${encodeURIComponent(window.location.origin + "/")}`;
+  }
   const refresh = useCallback(async () => {
     try {
       const response = await fetch("/api/scanners", { cache: "no-store" });
       const value = await response.json();
       if (!response.ok) throw new Error("Scanner connections unavailable. Refresh and retry.");
       setAgents(value.agents);
+      setError("");
     } catch (e) { setError((e as Error).message); }
   }, []);
   useEffect(() => {
@@ -24,15 +31,14 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
     return () => clearTimeout(timer);
   }, [refresh]);
   useEffect(() => {
-    if (!expanded) return;
-    const timer = setInterval(() => void refresh(), 5000);
+    const timer = setInterval(() => { if (!document.hidden) void refresh(); }, 5000);
     return () => clearInterval(timer);
-  }, [expanded, refresh]);
+  }, [refresh]);
   useEffect(() => {
     if (!expanded) return;
     void fetch("/api/scanners/installer?info", { cache: "no-store" })
       .then(response => response.ok ? response.json() : { available: false })
-      .then(value => setInstallerAvailable(value.available === true))
+      .then(value => { setInstallerAvailable(value.available === true); setInstallerVersion(value.version ?? null); })
       .catch(() => setInstallerAvailable(false));
   }, [expanded]);
   const showWaiting = waiting && !agents.some(agent => agent.online);
@@ -69,15 +75,27 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
         {hasOnline ? "Scanner connected" : "Connect a scanner"}</button>
       {hasOnline && <a className={filterPrimaryButtonClass} href={newBatchHref}>Set up a new scanner batch</a>}
     </div>
-    {hasOnline && <p className="mt-2 text-sm">Choose a destination and scanner source below, then start the batch.</p>}
+    {hasOnline && <p className="mt-2 text-sm">{agents.every(agent=>!agent.online || agent.discoveryIssues?.some(issue=>issue.code==="DISCOVERY_IN_PROGRESS"))
+      ? "The helper is connected and checking scanner drivers. You can set up the destination while it finishes."
+      : "Choose a destination and scanner source below, then start the batch."}</p>}
     {expanded && <div className="space-y-3 mt-3 min-w-0">
+      {installerAvailable && <div className="flex flex-wrap gap-2 items-center">
+        <a className={filterButtonClass} href="/api/scanners/installer" download>
+          {hasOnline ? "Update Windows scanner helper" : "Download Windows scanner helper"}
+        </a>
+        {installerVersion && <span className="text-sm">Version {installerVersion}</span>}
+        <p className="text-sm w-full">Open the download to install or update. Finish the current scan before updating; saved scans and connections are kept.</p>
+      </div>}
       {hasOnline && <button type="button" className={filterButtonClass}
         onClick={() => setAddAnother(!addAnother)}>{addAnother ? "Hide setup" : "Add another computer"}</button>}
       {showSetup && <>
       <p>Use the Windows computer connected to your scanner. Install its manufacturer driver first.</p>
+      {agents.length > 0 && <div className="space-y-2">
+        <button type="button" className={filterPrimaryButtonClass} onClick={openHelper}>Open scanner helper</button>
+        <p className="text-sm">Already connected this computer before? Open its saved connection instead of pairing again. Check that the scanner is plugged in and powered on.</p>
+      </div>}
       <ol className="list-decimal list-inside space-y-2">
-        <li>{installerAvailable ? <a className={filterButtonClass} href="/api/scanners/installer" download>
-          Download Windows scanner helper</a> : "The Windows scanner helper download is being prepared."}
+        <li>{installerAvailable ? "Install the downloaded Windows scanner helper." : "The Windows scanner helper download is being prepared."}
           <span className="block">Install it once, then allow Windows to open it from this site.</span></li>
         <li><button type="button" className={filterButtonClass} disabled={busy} onClick={() => void connect()}>
           Connect this computer</button>
@@ -98,7 +116,9 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
         </div>
         <ul>{agent.devices.map(device => <li key={device.id} className="break-words">{device.name} · {device.source}
           {device.qualification === "GenericUnqualified" && " · Not yet qualified"}</li>)}</ul>
-        {agent.online && agent.devices.length === 0 && <p>No scanner detected. Check its connection and driver.</p>}
+        {!agent.online && <p className="text-sm">This computer’s helper is not responding. Open the helper on that computer and check its internet connection. Saved scans are kept.</p>}
+        {agent.online && <ScannerDiscoveryNotice issues={agent.discoveryIssues} />}
+        {agent.online && agent.devices.length === 0 && !agent.discoveryIssues?.length && <p>No scanner detected. Check USB/power and install its manufacturer driver, then wait up to 30 seconds for discovery.</p>}
       </li>)}</ul>
       {error && <p role="alert">{error}</p>}
     </div>}

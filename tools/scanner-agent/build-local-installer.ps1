@@ -1,5 +1,6 @@
 param(
   [string]$DotnetPath = 'dotnet',
+  [string]$PythonPath = 'python',
   [string]$IsccPath = (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe')
 )
 
@@ -26,12 +27,18 @@ try {
   if ($connectionCheck.ExitCode -ne 0) { throw 'Scanner connection self-check failed' }
   $transportCheck = Start-Process -FilePath $helper -ArgumentList 'native-selftest' -Wait -PassThru -WindowStyle Hidden
   if ($transportCheck.ExitCode -ne 0) { throw 'Scanner transport self-check failed' }
+  $discoveryCheck = Start-Process -FilePath $helper -ArgumentList 'discovery-selftest' -Wait -PassThru -WindowStyle Hidden
+  if ($discoveryCheck.ExitCode -ne 0) { throw 'Scanner discovery self-check failed' }
+  & (Join-Path $PSScriptRoot 'prepare-local-notices.ps1') -PublishDir $published -PythonPath $PythonPath
   & $IsccPath "/DPublishDir=$published" "/O$output" $script
   if ($LASTEXITCODE -ne 0) { throw 'Scanner installer compile failed' }
   $installer = Join-Path $output 'MTGArchivesScannerSetup.exe'
   if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) { throw 'Scanner installer is missing' }
   Write-Output "Local scanner installer: $installer"
   Write-Output "SHA256: $((Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant())"
+  $helperVersion = ([xml](Get-Content -LiteralPath $project)).Project.PropertyGroup.Version
+  $manifest = [ordered]@{ version = [string]$helperVersion; sha256 = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant(); sourceCommit = (& git -C $repository rev-parse HEAD); builtAt = [DateTime]::UtcNow.ToString('o') }
+  [IO.File]::WriteAllText((Join-Path $output 'MTGArchivesScannerSetup.json'), ($manifest | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
   Write-Output 'This local test artifact is not approved for public distribution.'
 } finally {
   if ($build.StartsWith((Join-Path $repository '.local-data\scanner-installer-build-'),[StringComparison]::OrdinalIgnoreCase)) {

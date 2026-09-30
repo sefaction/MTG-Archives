@@ -13,6 +13,7 @@ public record ScanRequest(Guid RunId, string DeviceId, int Dpi = 300,
     int? ImageStopBudget = null, int? SessionPhysicalTarget = null,
     bool AllowInterruptingStop = false, string HorizontalPlacement = "Center");
 public record ScannerEvent(string Kind, object Evidence);
+public record ScannerDiscoveryIssue(string Source, string Code, int? RetryAfterSeconds);
 public record ScannerArtifact(Guid Id, int Sequence, string FileName, string Sha256,
     long Bytes, int Width, int Height, string Side = "UNKNOWN",
     string PhysicalBoundary = "UNKNOWN", DateTimeOffset? Timestamp = null);
@@ -20,6 +21,7 @@ public record ScannerArtifact(Guid Id, int Sequence, string FileName, string Sha
 public interface IScannerBackend : IDisposable
 {
     Task<IReadOnlyList<Device>> ListDevices();
+    IReadOnlyList<ScannerDiscoveryIssue> DiscoveryIssues => [];
     Task<Capabilities> GetCapabilities(string deviceId);
     Task Prepare(ScanRequest request);
     Task Start(RunSpool spool);

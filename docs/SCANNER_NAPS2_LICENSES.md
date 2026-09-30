@@ -49,6 +49,36 @@ NAPS2 package repository commit is [8ae3e82203115754e804fe9c14f00f6bd86ee192](ht
 - The manufacturer's TWAIN/WIA driver is preinstalled, not copied into this repository or proposed distribution. Driver redistribution terms have not been qualified. Windows WIA/GDI are OS facilities, not bundled manufacturer code.
 - Microsoft's .NET runtime is separately licensed with third-party notices; a self-contained distribution needs its runtime notices too. [Official .NET license information](https://github.com/dotnet/core/blob/main/license-information.md).
 
+## Installed helper inventory update, September 29, 2026
+
+The local 0.3.2 installer now copies available restored-package license and
+notice files, the host runtime texts, and an explicit incomplete-distribution
+inventory into `third-party/`. Build-time Python is used only for reading the
+worker bundle; end users do not need Python. `inspect-worker-bundle.py` reads
+bounded JSON from the actual executable without executing it or extracting code.
+
+The actual Worker.Win32 1.3.0 executable contains 147 bundle entries and 25
+declared libraries, including **Microsoft.NETCore.App.Runtime.win-x86 10.0.10**.
+Its runtime configuration independently agrees on 10.0.10. This differs from
+the host's .NET 8.0.31 x64 runtime. The embedded project identity is
+NAPS2.Worker 8.3.0; the SDK components are 1.3.0. The full runtime configuration,
+library content hashes and executable digest are retained in
+`third-party/worker-inventory.json`, without credentials or local absolute paths.
+
+Reproduce against a restored or installed worker:
+
+```powershell
+python tools/scanner-agent/inspect-worker-bundle.py NAPS2.Worker.exe worker-inventory.json
+```
+
+The corresponding worker rebuild project is **NAPS2.Sdk.Worker.Build**, not
+the application's differently configured NAPS2.App.Worker project. The
+[pinned SDK worker project](https://github.com/cyanfish/naps2/blob/8ae3e82203115754e804fe9c14f00f6bd86ee192/NAPS2.Sdk.Worker.Build/NAPS2.Sdk.Worker.Build.csproj)
+targets net10.0/win-x86 and references SDK, Images.Gdi and the build-time
+LargeAddressAware 1.0.6 package. That build-time package does not appear in the
+worker's declared runtime libraries. These findings identify the needed source
+and runtime notices; they do not close the remaining distribution gate below.
+
 ## Distribution gate
 
 Before publishing an installer/binary: inventory the actual embedded worker/native dependencies, verify DSM prerequisites in a clean environment, assemble component copyright/license/NOTICE texts, and provide applicable corresponding source and library replacement/relink/rebuild mechanisms. Keep any LGPL component modifications documented and available under its applicable license. A dependency license name or project URL alone is not a complete compliance bundle. SimpleBase1.3.1's source-era license gap was resolved September29; the remaining distribution gates still apply.
