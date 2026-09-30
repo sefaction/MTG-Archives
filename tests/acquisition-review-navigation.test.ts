@@ -14,4 +14,5 @@ test("next awaiting review uses physical order, skips current/added/ready/missin
   assert.equal(nextAwaitingAcquisitionSlot(slots, 19)?.position, 0);
   assert.equal(nextAwaitingAcquisitionSlot([pending(0)], 0), null);
   assert.equal(nextAwaitingAcquisitionSlot([], 0), null);
+  assert.equal(nextAwaitingAcquisitionSlot(slots, 0, slot => slot.position === 4)?.position, 4);
 });

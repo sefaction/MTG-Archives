@@ -58,9 +58,11 @@ test("unsaved corrections protect bulk reviews and Inventory while clean cards s
     const other = await page.context().newPage(); await other.goto("/dashboard");
     await expect(page.getByTestId("capture-card-14")).toHaveCount(0);
     await other.evaluate(({ key, draft }) => localStorage.setItem(key,JSON.stringify(draft)), { key: keyFor(photos[13]), draft });
+    await expect(page.getByTestId("scan-review-summary")).toContainText("0 ready for Inventory");
     await page.reload(); await first.scrollIntoViewIfNeeded();
     await expect(first).toContainText("Unsaved correction restored from this browser");
     await expect(page.getByTestId("capture-card-14")).toHaveCount(0);
+    await expect(page.getByTestId("scan-review-summary")).toContainText("0 ready for Inventory");
     const bulk = page.getByRole("region", { name: "Bulk match review", exact: true });
     await expect(bulk).toContainText("1 card has an unsaved correction");
     await bulk.getByRole("button", { name: "Bulk Confirm Match", exact: true }).click();
@@ -156,6 +158,7 @@ test("unsaved corrections protect bulk reviews and Inventory while clean cards s
     for (const photo of evidence.photos) expect(photo).toMatchObject({inputKind:"CARD_SCAN",digest:createHash("sha256").update(bytes).digest("hex")});
     expect(evidence.photos.filter((photo:any)=>photo.purgeAfter)).toHaveLength(2);
     expect(await page.evaluate(key=>localStorage.getItem(key),keyFor(photos[13]))).not.toBeNull();
+    await expect(page.getByTestId("scan-review-summary")).toContainText("0 ready for Inventory");
     for (const width of [1366,320]) {
       await page.setViewportSize({width,height:900}); await inventory.scrollIntoViewIfNeeded();
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

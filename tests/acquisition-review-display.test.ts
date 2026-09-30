@@ -32,6 +32,9 @@ test("review totals distinguish incomplete/pending choices from Inventory-ready 
     review: i % 3 ? null : review,
   }));
   assert.equal(acquisitionReviewCounts(batch).ready, 334);
+  assert.deepEqual(acquisitionReviewCounts(slots, slot => Boolean(slot.review?.cardId)), {
+    all: 7, awaiting: 6, ready: 0, added: 1,
+  });
   assert.equal(
     batch.filter((s) => acquisitionSlotReviewState(s) === "ready").slice(0, 12)
       .length,

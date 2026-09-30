@@ -143,11 +143,12 @@ export function AcquisitionCapture({
         localStorage.getItem(acquisitionDraftKey({ userId, batchId, photoId })) === null);
     } catch { return false; }
   }, [userId, batchId]);
-  const reviewCounts = acquisitionReviewCounts(progress?.slots ?? []);
+  const hasDraft = (slot: Progress["slots"][number]) => slot.photos.some(photo => blockedPhotos.has(photo.id));
+  const reviewCounts = acquisitionReviewCounts(progress?.slots ?? [], hasDraft);
   const filteredSlots = (progress?.slots ?? []).filter(
     (slot) =>
       reviewFilter === "all" ||
-      acquisitionSlotReviewState(slot) === reviewFilter,
+      acquisitionSlotReviewState(slot, hasDraft(slot)) === reviewFilter,
   );
   const visibleIds = new Set(
     filteredSlots.slice(0, visibleCount).map((s) => s.id),
@@ -158,7 +159,7 @@ export function AcquisitionCapture({
   );
   const [reviewNavigation, setReviewNavigation] = useState("");
   function nextAwaitingReview(after: number) {
-    const next = nextAwaitingAcquisitionSlot(progress?.slots ?? [], after);
+    const next = nextAwaitingAcquisitionSlot(progress?.slots ?? [], after, hasDraft);
     if (!next) { setReviewNavigation("No other cards awaiting review."); return; }
     setReviewNavigation(`Card ${next.position + 1} awaiting review.`);
     setReviewFilter("all");
@@ -182,6 +183,7 @@ export function AcquisitionCapture({
     setVisibleCount(12);
   }, [batchId, reviewFilter]);
   useEffect(() => {
+    dirtyNow.current.clear();
     setDirtyPhotos(new Set());
     setReviewNavigation("");
   }, [batchId]);
@@ -632,9 +634,8 @@ export function AcquisitionCapture({
               {readyPhotos} {readyPhotos === 1 ? "photo" : "photos"} saved · {prepared} {prepared === 1 ? "photo" : "photos"} prepared
             </p>
             <p className="text-sm">
-              {progress.reviewed} confirmed ·{" "}
-              {Math.max(0, readyPhotos - progress.reviewed)} awaiting
-              confirmation
+              {reviewCounts.ready} ready for Inventory ·{" "}
+              {reviewCounts.awaiting} awaiting review · {reviewCounts.added} added
             </p>
             <div className="flex flex-wrap items-center gap-2 mt-2" aria-label="Batch actions">
             {!!readyPhotos && !bulkOpen && (
@@ -642,7 +643,7 @@ export function AcquisitionCapture({
                 Review saved cards
               </a>
             )}
-            {reviewCounts.ready > 0 && <a className={primary + " inline-flex max-w-full text-sm whitespace-normal"} href="#scan-inventory" onClick={event => { event.preventDefault(); showInventory(); }}>
+            {cachedDrafts.ready && reviewCounts.ready > 0 && <a className={primary + " inline-flex max-w-full text-sm whitespace-normal"} href="#scan-inventory" onClick={event => { event.preventDefault(); showInventory(); }}>
               Add {reviewCounts.ready} confirmed {reviewCounts.ready === 1 ? "card" : "cards"} to Inventory
             </a>}
             </div>
