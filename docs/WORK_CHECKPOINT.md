@@ -1,5 +1,34 @@
 # Resumable work checkpoint
 
+## Fast corrections qualified locally, September 29, 2026
+
+- Active `feat/scan-fast-corrections`, PR #521, on individually unapproved
+  #514/#488. Implementation `594412c`, documentation/digest test `87f1d1a`.
+  Direct focused search, desktop editor beside image pair, finish preservation,
+  Save and next, keyboard save/next, stable-order wrap and sticky-header spacing.
+  Existing dirty/revision/ownership/Inventory rules remain authoritative.
+- Final controlled three-photo browser passed1/1 in17.3s on healthy cumulative
+  image `9ad81a8c`,489files,digest
+  `66b6df1a2f4b2ccdf352fe7043528c0e1a0690e80fa08126fc13551be4ceee2a`.
+  Test covers real saved photos/reviews, asynchronous suggestions, condition/
+  sole finish, filters, next past reviewed card, reload, exact original digest,
+  owner/location/section and zero Inventory; all owned fixtures cleaned. Synthetic
+  suggestions/images/search are UI evidence, not recognition accuracy or hardware.
+  Desktop/320 screenshots inspected. Earlier selector/fixture-lease failures
+  remain private. Typecheck/focused lint and display/navigation tests passed.
+- Authoritative cumulative branch `local/acquisition-review-footer` in
+  `MTG-Archives-acquisition-persistence` also includes separately unapproved
+  #491/#495 and scanner #513/#516/#517/#519 for local review. Never build stale
+  primary. Recognition workers were not rebuilt. No merge/production action/motor.
+  Plustek last confirmed empty; fresh one-card loading question remains pending.
+- Broad standard-user scanner audit remains ACTIVE/incomplete. Next: continuous
+  destination/source choices, proven pre-start cancel simplification, discovery
+  failure isolation, #522 active-run denial/drain/retention and dynamic capacity/
+  long-list checks. Installer public distribution and clean-host/physical gates
+  remain explicit. #463 recognition accuracy and fi-7160 are separate.
+- Open review queue: #488,#491,#495,#513,#514,#516,#517,#519,#521. Every PR
+  requires individual approval. #520 stays open until #521 merges.
+
 ## Simple/Advanced review ready locally, 2026-09-29
 
 - Active `feat/acquisition-simple-review`, PR [#488](https://github.com/sefaction/MTG-Archives/pull/488), includes UI implementation a2e8827, test correction b866b99 and footer parent f7834de (pre-handoff head 1850010). Dependencies: unapproved basic-land #486 ? unapproved footer #487 ? unapproved Simple/Advanced #488. Each still needs its own approval. Scanner #474 is separate and excluded. Main remains 2ac3eb5; no merge or deployment.

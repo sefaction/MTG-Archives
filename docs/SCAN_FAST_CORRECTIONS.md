@@ -31,8 +31,10 @@ search, sole-finish selection, condition, asynchronous suggestion reordering,
 filter retention, keyboard save-and-next past an already reviewed card, reload,
 destination/metadata preservation and zero Inventory writes. Original failure
 evidence from a selector and fixture lease race is retained privately; both test
-setup problems were corrected. The final desktop-inline layout is separately
-qualified on the loaded cumulative image before readiness is recorded.
+setup problems were corrected. The final desktop-inline layout passed1/1 in
+17.3seconds on the loaded cumulative image `9ad81a8c`, with desktop/320px layout
+checks and inspected screenshots. Four focused display/navigation/preflight
+tests, typecheck and focused lint also passed. Exact-head CI is recorded on GitHub.
 
 The ordinary wrong-name task uses six explicit actions: Correct, replace name,
 submit search, select printing, set condition if needed, save-and-next. The
