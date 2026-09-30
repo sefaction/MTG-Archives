@@ -1,3 +1,27 @@
+## Current checkpoint — restarted one-card diagnostic, September 30, 2026
+
+Active leaf: MTG-Archives-scanner-twain-footer, branch fix/scanner-twain-footer,
+PR #540 draft/unapproved, tested code head022b5cadf81c3083d654ac175d1fed40100f8bc5
+with all four CI checks successful. #541 merged; #529 closed; #539/#542 open.
+Latest scope adds private exception logging without changing public safe journals,
+SDK/worker or normal settings. Documentation now records its first physical use.
+
+Operator explicitly confirmed restarted; one test card loaded; transport clear.
+Read-only ce303a8e source/session open and close succeeded, exit0, no setters or
+Enable/images, feederLoadedTrue, simplex600, centered2.6x3.6 frame. One confirmed
+scan 2daaa32a-a1f6-4231-950e-25f63c2d8ce8 actually returned exit1/ERROR/zero images/
+897ms. Full private log: AlreadyHandledDriverException at TwainScanRunner.Init,
+no specific message/inner exception. Pinned SDK maps OperationError at source
+opening or enabling; host log cannot distinguish. Fatal0x80131506 not present
+in this attempt's process log; no recovery conclusion. No owned scan worker
+remains; no automatic retry, installed-helper replacement or Docker change.
+Original requests, manifests and all private logs preserved. No originals produced.
+
+Physical movement/dialog outcome question PENDING. Next safe step: receive the
+operator outcome; if a card remains, request removal before any new settings
+inspection. Do not infer physical count/exhaustion or reuse this loading approval
+for another scan. Continue offline source diagnosis without a new physical feed.
+All prior histories below are snapshots; this section supersedes pending statuses.
 ## Simplex-profile acquisition failed; private error detail added; recovery pending
 
 September30,2026: freshunchangedhelper run02909a3e actually returnedexit1/ERROR/

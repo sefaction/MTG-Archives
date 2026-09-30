@@ -3,7 +3,7 @@
 Tracking [#539](https://github.com/sefaction/MTG-Archives/issues/539). This is an
 acquisition integrity investigation, separate from recognition #463 and pending
 rejected-Start recovery #529. The scanner parent #536 and its stack are merged. This isolated draft is now
-based on approved main0d1d18a; its own merge remains unapproved.
+based on approved main8aad8e4 (including merged #541); its own merge remains unapproved.
 
 ## Original evidence
 
@@ -318,6 +318,31 @@ website journals/exports still use SafeError without driver messages or paths.
 A closed or failing private sink cannot suppress the sanitized error event.
 Release build and hardware-free discovery/diagnostic qualifications passed;
 default, private, closed-private and disk-failing-private cases preserve the
-public/private boundary. No new build was installed or used for physical scanning,
+public/private boundary. At the initial qualification checkpoint, no new build was installed or used for physical scanning,
 and no SDK/worker/runtime or normal scan setting changed. Exact diagnostics can
 improve the next separately confirmed investigation, not fix acquisition itself.
+
+## Restarted scanner: full exception captured, still zero images
+
+The operator confirmed restarting and loading one test card with a clear transport.
+A preceding read-only probe completed with successful source/session open and
+close, exit0, no setters/Enable/images; it read feederLoadedTrue, simplex600 and
+the centered2.6x3.6 frame. It establishes separate-probe source access and card
+detection, not working physical acquisition.
+
+One newly confirmed attempt used the separately built private-error-detail helper
+from draft head022b5ca, preserving the original SDK and bundled worker hashes.
+It actually returned exit1, ERROR, zero images in897ms. The opt-in private log
+retained the full AlreadyHandledDriverException stack through TwainScanRunner.Init;
+there is no inner exception or specific driver message. The pinned SDK maps
+OperationError to this exception during source opening or enabling, so these
+stages remain indistinguishable in this host log. That mapping does not establish
+that a dialog appeared or isolate the native cause. Unlike the preceding attempt,
+this process log does not contain the fatal0x80131506 message; this is not proof
+that its underlying cause recovered. The owned diagnostic worker is no longer
+running. No automatic retry occurred; the installed helper and Docker are unchanged.
+
+Physical movement/dialog outcome is awaiting the operator. Preserve the request,
+manifest, process/SDK logs and empty image set; footer qualification is unavailable.
+Both #539 and #542 remain open, and #540 remains a draft without merge approval.
+Further scans need a new explicit loading confirmation.
