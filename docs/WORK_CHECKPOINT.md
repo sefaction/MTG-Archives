@@ -1,5 +1,26 @@
 # Resumable work checkpoint
 
+## Native authorization loss ready locally, September30,2026
+
+- Isolated branch fix/scanner-native-authorization, application321dbfa; PR523
+  on519/517/513 with independently required516 merged into this feature branch.
+  All need their own approvals; no main merge/deployment/motor/Inventory.
+- Typed native403/409/400/413/503 and helper drain-before-disposal with retained
+  late transfers. Seven generic denial/outage/ACK-loss cases, full native selftest,
+  Release zero warnings/errors,13focused tests/typecheck/lint and disposable
+  acquisition/import integrity all pass; owned database/container cleaned.
+- Cumulative application64c606b; healthy web imagef4ce407bfd1060096cecfe7c6da23e03051ad277ff14dc2c6dc682363dd16a28;
+  source489files/digestaeed41fa911b429b361668b0b7aac8de8288c17e638e78c49e399bec7ede64af.
+  Real native route browser/API fixture passed1/1/7.0s; zero photos/Inventory;
+  owned START marker/account/location/agent/session cleanup completed.
+- Installed local0.3.5 full native selftest passes; package source321dbfa,
+  SHA2561a88f0c52f9f314e03ccecc384b1576fb95becc484deb5f67f702f75060ed1bb.
+  No saved connection resumed. All build/install/browser sessions terminal0.
+- Broad goal ACTIVE/incomplete. Driver hangs/409reconciliation/public distribution
+  and clean-host limitations documented. Physical600 needs fresh card-loading
+  answer; last confirmation EMPTY. Next524: settle proven unstarted cancellation;
+  isolated scanner-unstarted branch on523. Recognition/fi-7160 remain separate.
+
 ## Preflight guidance ready locally, September 29, 2026
 
 - Active `fix/scanner-preflight-guidance`, PR #519, on individually unapproved

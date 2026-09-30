@@ -37,8 +37,10 @@ in the existing acquisition pipeline.
   revoked credentials mapped403 and changed remaining capacity mapped409.
 - Focused response tests, TypeScript and lint pass. The opt-in local browser/API
   fixture verifies the real native routes, no photos/Inventory, and owned cleanup.
-  Its loaded-image result and installed-helper evidence belong in the checkpoint
-  and PR; creating the fixture alone is not a passing result.
+  It passed1/1 in7.0s against the healthy cumulative local image. Source verification
+  passed for489files; the local-only0.3.5 installer was staged and installed, and
+  its complete native selftest passed without opening saved site connections.
+  Exact image/package hashes are in the checkpoint and PR.
 
 ## Limits
 
