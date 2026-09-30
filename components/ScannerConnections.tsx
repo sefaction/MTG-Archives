@@ -69,7 +69,7 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
         {hasOnline ? "Scanner connected" : "Connect a scanner"}</button>
       {hasOnline && <a className={filterPrimaryButtonClass} href={newBatchHref}>Set up a new scanner batch</a>}
     </div>
-    {hasOnline && <p className="mt-2 text-sm">Choose a destination and scanner source below, enter the number of cards loaded, then start the batch.</p>}
+    {hasOnline && <p className="mt-2 text-sm">Choose a destination and scanner source below, then start the batch.</p>}
     {expanded && <div className="space-y-3 mt-3 min-w-0">
       {hasOnline && <button type="button" className={filterButtonClass}
         onClick={() => setAddAnother(!addAnother)}>{addAnother ? "Hide setup" : "Add another computer"}</button>}
