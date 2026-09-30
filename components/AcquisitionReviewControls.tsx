@@ -247,6 +247,7 @@ export function AcquisitionPhotoReview({
   function markDirty() {
     dirty.current = true;
     setDraftDirty(true);
+    setMessage("Unsaved correction. Save the review when ready.");
     onDirtyChange?.(photoId, true);
   }
   const clearDraft = useCallback(() => {

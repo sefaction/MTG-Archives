@@ -103,6 +103,7 @@ test("fast printing correction keeps drafts, metadata and destination while resu
     await expect(page.getByTestId("capture-card-3")).toBeFocused();
     await card.scrollIntoViewIfNeeded();
     await card.getByRole("combobox", { name: "Card condition", exact: true }).selectOption("MP");
+    await expect(card).toContainText("Unsaved correction. Save the review when ready.");
     const revision = (await (await page.request.get(`${reviewEndpoint}?photoId=${photos[0]}`)).json()).revision;
     expect((await page.request.post(reviewEndpoint, { headers: { origin: baseURL! }, data: { action: "accept", photoId: photos[0], revision,
       decision: { cardId: alternate.id, finish: "FOIL", condition: "HP", language: "en" } } })).ok()).toBe(true);
