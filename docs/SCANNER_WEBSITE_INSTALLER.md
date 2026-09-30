@@ -36,6 +36,25 @@ New feeder runs use 600 DPI and scan until natural completion, with saved-front
 image count as an explicitly labeled assumption on clean runs. Errors and
 interruptions still require reconciliation; the app cannot detect silent doubles.
 
+## Reopening saved connections (0.3.3)
+
+When a previously paired computer is offline, **Open scanner helper** sends a
+site-only Windows link. The helper confirms that origin and resumes only saved,
+fully paired, enabled connections for that site. It creates no new pairing and
+never issues a scanner START. Opening the installed Start menu application also
+resumes enabled saved connections, as sign-in startup already does. A running
+connection is reused rather than spawning a second service.
+
+After a known server authorization rejection, the connection is marked disabled
+atomically in private appdata. Credentials, journals and originals remain intact;
+future sign-in/reopen does not repeatedly recreate its worker. Reconnection after
+revocation needs a new website pairing. Temporary service errors are not treated
+as revocation; deploy with the separate #516 error-classification fix.
+
+Build, credential/origin/lock selftests and native ACK/recovery selftests pass
+without hardware. Windows protocol prompts, site-scoped installed-process
+restart, and local browser recovery checks remain pending for this slice.
+
 ## Verification boundaries
 
 - A protocol link contains only a short-lived one-use pairing code and website origin; it does not contain the ongoing helper credential. The helper displays the origin before claiming it. The one-use link can appear transiently in local process arguments, so never include it in diagnostics, screenshots or logs.

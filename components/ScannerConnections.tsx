@@ -12,6 +12,10 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
   const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  function openHelper() {
+    setWaiting(true);
+    window.location.href = `mtg-archive-scanner://resume?site=${encodeURIComponent(window.location.origin + "/")}`;
+  }
   const refresh = useCallback(async () => {
     try {
       const response = await fetch("/api/scanners", { cache: "no-store" });
@@ -83,6 +87,10 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
         onClick={() => setAddAnother(!addAnother)}>{addAnother ? "Hide setup" : "Add another computer"}</button>}
       {showSetup && <>
       <p>Use the Windows computer connected to your scanner. Install its manufacturer driver first.</p>
+      {agents.length > 0 && <div className="space-y-2">
+        <button type="button" className={filterPrimaryButtonClass} onClick={openHelper}>Open scanner helper</button>
+        <p className="text-sm">Already connected this computer before? Open its saved connection instead of pairing again. Check that the scanner is plugged in and powered on.</p>
+      </div>}
       <ol className="list-decimal list-inside space-y-2">
         <li>{installerAvailable ? "Install the downloaded Windows scanner helper." : "The Windows scanner helper download is being prepared."}
           <span className="block">Install it once, then allow Windows to open it from this site.</span></li>
@@ -105,7 +113,8 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
         </div>
         <ul>{agent.devices.map(device => <li key={device.id} className="break-words">{device.name} · {device.source}
           {device.qualification === "GenericUnqualified" && " · Not yet qualified"}</li>)}</ul>
-        {agent.online && agent.devices.length === 0 && <p>No scanner detected. Check its connection and driver.</p>}
+        {!agent.online && <p className="text-sm">This computer’s helper is not responding. Open the helper on that computer and check its internet connection. Saved scans are kept.</p>}
+        {agent.online && agent.devices.length === 0 && <p>No scanner detected. Check USB/power and install its manufacturer driver, then wait up to 30 seconds for discovery.</p>}
       </li>)}</ul>
       {error && <p role="alert">{error}</p>}
     </div>}

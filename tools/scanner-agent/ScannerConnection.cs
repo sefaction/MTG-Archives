@@ -8,14 +8,14 @@ using System.Windows.Forms;
 
 namespace Mtg.Scanner;
 
-public record HelperConnection(Guid AgentId, string Site, string Name, bool AllowLocal);
+public record HelperConnection(Guid AgentId, string Site, string Name, bool AllowLocal, bool Disabled = false);
 public record EnrollmentCredential(string Secret, string? PairCode, string Site, bool AllowLocal);
 // Outbound HTTP only: no browser loopback API, listener or browser login cookie.
 // Site pairing is a one-use handoff. Only an authenticated START can operate a scanner.
 public static class ScannerConnection
 {
     public const string Version = "0.3.0-native";
-    public const string HelperVersion = "0.3.2";
+    public const string HelperVersion = "0.3.3";
     private static string Root => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MTGArchives", "ScannerAgent");
     public static Uri Site(string value, bool allowLocal)
     {
@@ -33,6 +33,13 @@ public static class ScannerConnection
         try { return new FileStream(Path.Combine(Root, $"{id}.serve.lock"), FileMode.OpenOrCreate,
             FileAccess.ReadWrite, FileShare.None); }
         catch (IOException) { throw new InvalidOperationException("Scanner helper is already running for this connection"); }
+    }
+    private static bool ServiceRunning(Guid id)
+    {
+        Directory.CreateDirectory(Root);
+        try { using var probe = new FileStream(Path.Combine(Root, $"{id}.serve.lock"),
+            FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); return false; }
+        catch (IOException error) when ((error.HResult & 0xffff) is 32 or 33) { return true; }
     }
     private static HttpClient Client(Uri site) => new(new HttpClientHandler { AllowAutoRedirect = false })
         { BaseAddress = site, Timeout = TimeSpan.FromSeconds(15) };
@@ -56,6 +63,14 @@ public static class ScannerConnection
     {
         Directory.CreateDirectory(Root);
         RunSpool.WriteNew(FileFor(connection.AgentId), connection);
+    }
+    private static void DisableConnection(HelperConnection connection)
+    {
+        var temporary = FileFor(connection.AgentId) + "." + Guid.NewGuid().ToString("N") + ".pending";
+        try {
+            RunSpool.WriteNew(temporary, connection with { Disabled = true });
+            File.Move(temporary, FileFor(connection.AgentId), true);
+        } finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
     private static HelperConnection LoadConnection(string value)
     {
@@ -118,6 +133,9 @@ public static class ScannerConnection
     }
     private static async Task PairFromWebsite(string value)
     {
+        if (Uri.TryCreate(value, UriKind.Absolute, out var resume) && resume.Host == "resume") {
+            await ResumeFromWebsite(value); return;
+        }
         var (site, code, local) = ParsePairUri(value);
         if (MessageBox.Show($"Connect this Windows scanner to {site.AbsoluteUri}?", "MTG Archives Scanner",
             MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
@@ -134,6 +152,7 @@ public static class ScannerConnection
     }
     private static void StartService(Guid id)
     {
+        if (ServiceRunning(id)) return;
         var executable = Environment.ProcessPath;
         if (executable == null || !Path.GetFileName(executable).Equals("Mtg.ScannerAgent.exe", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Installed scanner helper executable unavailable");
@@ -142,10 +161,50 @@ public static class ScannerConnection
         using var process = Process.Start(start) ?? throw new InvalidOperationException("Scanner helper could not start");
         if (process.WaitForExit(800)) throw new InvalidOperationException("Scanner helper could not stay online");
     }
+    private static Uri ParseResumeUri(string value)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Scheme != "mtg-archive-scanner" ||
+            uri.Host != "resume" || uri.AbsolutePath != "/" || uri.Fragment.Length != 0 ||
+            !uri.Query.StartsWith("?site=", StringComparison.Ordinal) || uri.Query.Contains('&'))
+            throw new ArgumentException("Invalid scanner reconnect link");
+        var text = Uri.UnescapeDataString(uri.Query[6..]);
+        return Site(text, text.StartsWith("http://", StringComparison.OrdinalIgnoreCase));
+    }
+    private static int ResumeSaved(Uri? site = null)
+    {
+        if (!Directory.Exists(Root)) return 0;
+        var resumed = 0;
+        foreach (var file in Directory.EnumerateFiles(Root, "*.json").Take(512)) {
+            if (resumed >= 8) break;
+            if (!Guid.TryParse(Path.GetFileNameWithoutExtension(file), out var id)) continue;
+            try {
+                var connection = LoadConnection(id.ToString());
+                if (connection.Disabled || (site != null && connection.Site != site.AbsoluteUri)) continue;
+                var credential = Credential(connection);
+                if (credential.PairCode != null) continue;
+                StartService(id); resumed++;
+            } catch (Exception error) when (error is IOException or InvalidOperationException or ArgumentException or JsonException) { }
+        }
+        return resumed;
+    }
+    private static Task ResumeFromWebsite(string value)
+    {
+        var site = ParseResumeUri(value);
+        if (MessageBox.Show($"Open your saved scanner connection for {site.AbsoluteUri}? No scan will start.",
+            "MTG Archives Scanner", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            return Task.CompletedTask;
+        var count = ResumeSaved(site);
+        MessageBox.Show(count > 0 ? "Scanner helper opened. Return to Scan cards; it will show online shortly." :
+            "No saved connection is available for this site. Return to Scan cards and choose Connect this computer.",
+            "MTG Archives Scanner", MessageBoxButtons.OK, count > 0 ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+        return Task.CompletedTask;
+    }
     public static async Task<bool> Run(string[] args)
     {
         if (args.Length == 0) {
-            MessageBox.Show("The scanner helper is installed. Open Imports → Scan cards on your MTG Archives site, then choose Connect a scanner.",
+            var resumed = ResumeSaved();
+            MessageBox.Show(resumed > 0 ? "Your saved scanner helper connections are open. Return to Imports → Scan cards to scan." :
+                "The scanner helper is installed. Open Imports → Scan cards on your MTG Archives site, then choose Connect a scanner.",
                 "MTG Archives Scanner", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return true;
         }
@@ -177,10 +236,25 @@ public static class ScannerConnection
                     catch (InvalidOperationException error) when (status == System.Net.HttpStatusCode.ServiceUnavailable && error is not ScannerConnectionRejected) { }
                 }
                 using (var first = AcquireServiceLock(id)) {
+                    if (!ServiceRunning(id)) throw new InvalidDataException("Running service was not detected");
                     try { using var duplicate = AcquireServiceLock(id); throw new InvalidDataException("Duplicate helper service acquired a connection"); }
                     catch (InvalidOperationException) { }
                 }
+                if (ServiceRunning(id)) throw new InvalidDataException("Closed service still appears active");
                 using (AcquireServiceLock(id)) { } // A closed service can reopen cleanly.
+                ParseResumeUri("mtg-archive-scanner://resume?site=https%3A%2F%2Fexample.com%2F");
+                ParseResumeUri("mtg-archive-scanner://resume?site=http%3A%2F%2F127.0.0.1%3A13001%2F");
+                foreach (var invalid in new[] {
+                    "mtg-archive-scanner://resume?site=http%3A%2F%2Fexample.com%2F",
+                    "mtg-archive-scanner://resume?site=https%3A%2F%2Fexample.com%2F&extra=1",
+                    "mtg-archive-scanner://resume?site=https%3A%2F%2Fexample.com%2Fpath",
+                    "https://resume/?site=https%3A%2F%2Fexample.com%2F" }) {
+                    try { ParseResumeUri(invalid); throw new InvalidDataException("Unsafe resume link accepted"); }
+                    catch (ArgumentException) { }
+                }
+                var saved = new HelperConnection(id, "https://example.com/", "fixture", false);
+                SaveConnection(saved); DisableConnection(saved);
+                if (!LoadConnection(id.ToString()).Disabled) throw new InvalidDataException("Revoked connection did not stay disabled");
                 var sample = ParsePairUri("mtg-archive-scanner://connect?site=https%3A%2F%2Fexample.com%2F&code=" +
                     Guid.NewGuid().ToString() + "." + new string('A', 43));
                 if (sample.site.AbsoluteUri != "https://example.com/" || sample.local) throw new InvalidOperationException("Pair link changed");
@@ -194,7 +268,7 @@ public static class ScannerConnection
                     catch (ArgumentException) { }
                 }
                 Console.WriteLine("PASS scanner private Windows credential and outbound-origin guards; no device used");
-            } finally { WindowsCredential.Remove(id); File.Delete(Path.Combine(Root, $"{id}.serve.lock")); }
+            } finally { WindowsCredential.Remove(id); File.Delete(FileFor(id)); File.Delete(Path.Combine(Root, $"{id}.serve.lock")); }
             return true;
         }
         if (args[0] == "pair-uri" && args.Length == 2)
@@ -204,13 +278,7 @@ public static class ScannerConnection
         }
         if (args[0] == "resume" && args.Length == 1)
         {
-            if (!Directory.Exists(Root)) return true;
-            foreach (var file in Directory.EnumerateFiles(Root, "*.json").Take(8))
-            {
-                if (!Guid.TryParse(Path.GetFileNameWithoutExtension(file), out var id)) continue;
-                try { Credential(LoadConnection(id.ToString())); StartService(id); }
-                catch (Exception error) when (error is IOException or InvalidOperationException or ArgumentException) { }
-            }
+            ResumeSaved();
             return true;
         }
         if (args[0] == "connect" && args.Length is 2 or 3)
@@ -276,6 +344,9 @@ public static class ScannerConnection
                         }
                     }
                     catch (ScannerConnectionRejected) when (args[0] != "report") {
+                        // Retain credentials/originals, but do not restart a revoked
+                        // connection at each sign-in or open. A new pairing is required.
+                        DisableConnection(connection);
                         // A revoked helper must release its discovery worker, not keep retrying
                         // forever. Originals and credentials remain private for reconciliation.
                         Console.WriteLine("Scanner connection disconnected on the website. Background helper stopped; originals retained.");
