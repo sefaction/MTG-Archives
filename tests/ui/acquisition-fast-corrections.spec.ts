@@ -113,7 +113,7 @@ test("fast printing correction keeps drafts, metadata and destination while resu
     await expect(card.getByRole("alert")).toContainText("Capture card changed");
     expect((await (await page.request.get(`${reviewEndpoint}?photoId=${photos[0]}`)).json()).review.condition).toBe("HP");
     await card.getByRole("button", { name: "Cancel changes", exact: true }).click();
-    expect(await page.evaluate(key=>localStorage.getItem(key),draftKey)).toBeNull();
+    await expect.poll(()=>page.evaluate(key=>localStorage.getItem(key),draftKey)).toBeNull();
     await page.reload(); await card.scrollIntoViewIfNeeded();
     await expect(card.getByRole("combobox", { name: "Card condition", exact: true })).toHaveCount(0);
     await card.getByRole("button", { name: "Correct", exact: true }).click();
