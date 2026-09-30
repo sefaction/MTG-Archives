@@ -7,7 +7,7 @@ import { type PrismaClient } from "@prisma/client";
 import { createScannerPairing, claimScannerPairing, recordScannerPulse, revokeScannerAgent } from "../lib/scanner-store";
 import { scannerSecret } from "../lib/scanner-protocol";
 import { createScannerBatch, claimScannerRun, pollScannerRun, receiveScannerImage,
-  finishScannerRun, reconcileScannerBatch, getScannerBatch, stopScannerBatch } from "../lib/scanner-runs";
+  finishScannerRun, reconcileScannerBatch, getScannerBatch, stopScannerBatch, reportScannerPreflightProblem } from "../lib/scanner-runs";
 import { scannerSiteEpoch } from "../lib/scanner-control-files";
 import { getAcquisitionSession } from "../lib/acquisition-store";
 import { captureSummary } from "../lib/acquisition-domain";
@@ -41,7 +41,7 @@ export async function verifyScannerRuns(db: PrismaClient) {
       await recordScannerPulse(db, token, { version: 1, agentVersion: "fixture", devices: [source] });
       return { agentId, token };
     }
-    const first = await enroll();
+    const first = await enroll(), otherAgent = await enroll();
     const input = { requestKey: randomUUID(), agentId: first.agentId, deviceId: source.id, locationId, section: "",
       quantity: 2, loadedCount: 2, operatorLoadedSimplexFronts: true, settings };
     await assert.rejects(createScannerBatch(db, { userId: other, adminMode: false }, input, epoch));
@@ -53,11 +53,25 @@ export async function verifyScannerRuns(db: PrismaClient) {
     await assert.rejects(createScannerBatch(db, actor, { ...input, requestKey: randomUUID() }, epoch));
     await assert.rejects(getScannerBatch(db, other, run.runId));
     const executionId = randomUUID(), claim = { version: 1, runId: run.runId, epoch, executionId };
+    const preflight = { version: 1, runId: run.runId, epoch, code: "SCANNER_UNAVAILABLE" };
+    await reportScannerPreflightProblem(db, first.token, preflight, epoch);
+    const waiting = await db.scannerRun.findUniqueOrThrow({ where: { id: run.runId } });
+    assert.equal(waiting.status, "QUEUED"); assert.equal(waiting.executionId, null); assert.equal(waiting.outcome, null);
+    assert.equal(await db.acquisitionPhoto.count({ where: { runId: waiting.acquisitionRunId } }), 0);
+    assert.equal(await db.inventoryItem.count({ where: { currentOwnerId: tag } }), 0);
+    assert.equal((await getScannerBatch(db, tag, run.runId)).preflightProblem &&
+      ((await getScannerBatch(db, tag, run.runId)).preflightProblem as { code: string }).code, preflight.code);
+    await reportScannerPreflightProblem(db, first.token, preflight, epoch);
+    assert.deepEqual((await db.scannerRun.findUniqueOrThrow({ where: { id: run.runId } })).preflightProblem, waiting.preflightProblem);
+    await assert.rejects(reportScannerPreflightProblem(db, otherAgent.token, preflight, epoch));
+    await assert.rejects(reportScannerPreflightProblem(db, first.token, { ...preflight, epoch: randomUUID() }, epoch));
+    await assert.rejects(reportScannerPreflightProblem(db, first.token, { ...preflight, runId: randomUUID() }, epoch));
     assert.equal((await claimScannerRun(db, first.token, claim, epoch)).feedAuthorized, true);
+    assert.equal((await getScannerBatch(db, tag, run.runId)).preflightProblem, null);
+    await assert.rejects(reportScannerPreflightProblem(db, first.token, preflight, epoch));
     assert.equal((await claimScannerRun(db, first.token, claim, epoch)).replay, true);
     await assert.rejects(claimScannerRun(db, first.token, { ...claim, executionId: randomUUID() }, epoch));
     await assert.rejects(claimScannerRun(db, first.token, { ...claim, epoch: randomUUID() }, epoch));
-    const otherAgent = await enroll();
     await assert.rejects(claimScannerRun(db, otherAgent.token, claim, epoch));
     const transfer = (sequence: number) => ({ ...claim, artifactId: randomUUID(), sequence,
       timestamp: new Date().toISOString(), side: "UNKNOWN", physicalBoundary: "UNKNOWN" });
@@ -163,6 +177,7 @@ export async function verifyScannerRuns(db: PrismaClient) {
     const rolledClaim = { ...claim, runId: rolled.runId, executionId: randomUUID() };
     await claimScannerRun(db, otherAgent.token, rolledClaim, epoch);
     await db.scannerRun.update({ where: { id: rolled.runId }, data: { status: "QUEUED", executionId: null } });
+    await assert.rejects(reportScannerPreflightProblem(db, otherAgent.token, { ...preflight, runId: rolled.runId }, epoch));
     const fenced = await claimScannerRun(db, otherAgent.token, rolledClaim, epoch);
     assert.equal(fenced.feedAuthorized, false); assert.equal(fenced.reconciliationRequired, true);
     // A destination can change after browser START. Recheck before any motor
@@ -184,6 +199,7 @@ export async function verifyScannerRuns(db: PrismaClient) {
     assert.equal((await getScannerBatch(db, tag, guarded.runId)).status, "CANCELLED_BEFORE_START");
     assert.equal((await pollScannerRun(db, guardedAgent.token, epoch)).run, null);
     await assert.rejects(claimScannerRun(db, guardedAgent.token, guardedClaim, epoch));
+    await assert.rejects(reportScannerPreflightProblem(db, guardedAgent.token, { ...preflight, runId: guarded.runId }, epoch));
     await reconcileScannerBatch(db, tag, { ...observation, runId: guarded.runId, cardsEmitted: 0 });
     assert.equal(await db.inventoryItem.count({ where: { currentOwnerId: tag } }), 1);
     await revokeScannerAgent(db, tag, first.agentId);

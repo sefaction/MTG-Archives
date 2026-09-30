@@ -2,19 +2,20 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { scannerTransaction, authenticateScanner, listScannerAgents } from "./scanner-store";
 import { SCANNER_CAPTURE_PROVIDER, scannerBatchSchema, scannerRunClaimSchema,
-  scannerTransferSchema, scannerRunFinishSchema, scannerReconcileSchema, scannerCanonical } from "./scanner-run-protocol";
+  scannerTransferSchema, scannerRunFinishSchema, scannerReconcileSchema, scannerCanonical,
+  scannerPreflightReportSchema, scannerPreflightProblemSchema } from "./scanner-run-protocol";
 import { createAcquisitionSession, executeAcquisitionCommand, getAcquisitionProgress,
   readAcquisitionRow, hydrateAcquisitionRow, saveAcquisitionRow,
   beginAcquisitionPhoto, finalizeAcquisitionPhoto, type AcquisitionActor } from "./acquisition-store";
 import { inspectAcquisitionPhoto, writeAcquisitionPhotoBytes } from "./acquisition-files";
 import { candidateKey, correctPhysicalCount, confirmPhysicalCountBatch } from "./acquisition-domain";
-import { persistScannerStartMarker } from "./scanner-control-files";
+import { persistScannerStartMarker, scannerStartMarkerExists } from "./scanner-control-files";
 import { lockAndReadInventoryCapacity } from "./inventory-capacity";
 
 type Tx = Prisma.TransactionClient;
 const denied = () => new Error("Capture scanner run unavailable");
 const include = { acquisitionRun: { include: { session: true } } } as const;
-async function agentRun(tx: Tx, authorization: string | null, input: z.infer<typeof scannerRunClaimSchema>, epoch: string) {
+async function agentRun(tx: Tx, authorization: string | null, input: { runId: string; epoch: string }, epoch: string) {
   const auth = await authenticateScanner(tx, authorization, new Date());
   const run = await tx.scannerRun.findUnique({ where: { id: input.runId }, include });
   if (!run || run.agentId !== auth.agent.id || run.epoch !== input.epoch || input.epoch !== epoch ||
@@ -100,8 +101,27 @@ export async function claimScannerRun(db: PrismaClient, authorization: string | 
       await tx.scannerRun.update({ where: { id: run.id }, data: { status: "RECONCILIATION", executionId: input.executionId } });
       return { version: 1, runId: run.id, executionId: input.executionId, feedAuthorized: false, reconciliationRequired: true, replay: false };
     }
-    await tx.scannerRun.update({ where: { id: run.id }, data: { status: "STARTED", executionId: input.executionId } });
+    await tx.scannerRun.update({ where: { id: run.id }, data: { status: "STARTED", executionId: input.executionId, preflightProblem: Prisma.DbNull } });
     return { version: 1, runId: run.id, executionId: input.executionId, feedAuthorized: true, replay: false };
+  });
+}
+export async function reportScannerPreflightProblem(db: PrismaClient, authorization: string | null, value: unknown, epoch: string) {
+  const input = scannerPreflightReportSchema.parse(value);
+  return scannerTransaction(db, async tx => {
+    const { run, actor } = await agentRun(tx, authorization, input, epoch);
+    await tx.$queryRaw`SELECT id FROM "ScannerRun" WHERE id = ${run.id} FOR UPDATE`;
+    const current = await tx.scannerRun.findUniqueOrThrow({ where: { id: run.id } });
+    if (current.status !== "QUEUED" || current.executionId || current.stopRequestedAt || current.reconciliation ||
+        await scannerStartMarkerExists(run.id)) throw denied();
+    const row = await readAcquisitionRow(tx, actor, run.acquisitionRun.sessionId);
+    if (row.phase !== "CAPTURING") throw denied();
+    const previous = scannerPreflightProblemSchema.safeParse(current.preflightProblem);
+    // A retry does not need another write every five seconds for the same problem.
+    if (!previous.success || previous.data.code !== input.code)
+      await tx.scannerRun.update({ where: { id: run.id }, data: { preflightProblem: {
+        code: input.code, observedAt: new Date().toISOString(),
+      } } });
+    return { version: 1, runId: run.id, retryable: true };
   });
 }
 async function getStartState(tx: Tx, actor: AcquisitionActor, sessionId: string) {
@@ -191,7 +211,8 @@ export async function getScannerBatch(db: PrismaClient, userId: string, runId: s
     const run = await tx.scannerRun.findUnique({ where: { id: runId }, include });
     if (!run || run.acquisitionRun.session.createdByUserId !== userId) throw denied();
     await readAcquisitionRow(tx, { userId, adminMode: false }, run.acquisitionRun.sessionId);
-    return { ...command(run), device: run.device, outcome: run.outcome, reconciliation: run.reconciliation };
+    return { ...command(run), device: run.device, outcome: run.outcome, reconciliation: run.reconciliation,
+      preflightProblem: scannerPreflightProblemSchema.safeParse(run.preflightProblem).success ? run.preflightProblem : null };
   });
   return state;
 }

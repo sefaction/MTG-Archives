@@ -233,6 +233,7 @@ model ScannerRun {
   executionId     String?
   stopRequestedAt DateTime?
   outcome         Json?
+  preflightProblem Json?
   reconciliation  Json?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

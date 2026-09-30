@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type { listScannerAgents } from "@/lib/scanner-store";
 import type { getScannerBatch } from "@/lib/scanner-runs";
 import { filterButtonClass as button, filterInputClass as input, filterPanelClass as panel } from "./filterStyles";
+import { scannerPreflightMessage } from "@/lib/scanner-preflight-message";
 type Agent = Awaited<ReturnType<typeof listScannerAgents>>[number];
 type Run = Awaited<ReturnType<typeof getScannerBatch>>;
 export type ScannerChoice = { agentId: string; deviceId: string; loadedCount: null;
@@ -18,7 +19,7 @@ export function ScannerSourceFields({ initialEnabled, onChange, remaining, disab
   const [agents, setAgents] = useState<Agent[]>([]), [selected, setSelected] = useState("");
   const [enabled, setEnabled] = useState(initialEnabled);
   const [dpi, setDpi] = useState<300 | 600>(600), [error, setError] = useState("");
-  const refresh = async () => { try { setAgents((await call<{ agents: Agent[] }>("/api/scanners")).agents); } catch (e) { setError((e as Error).message); } };
+  const refresh = async () => { try { setAgents((await call<{ agents: Agent[] }>("/api/scanners")).agents); setError(""); } catch (e) { setError((e as Error).message); } };
   useEffect(() => {
     if (!enabled) return;
     const immediate = setTimeout(() => void refresh(), 0);
@@ -71,7 +72,7 @@ export function ScannerRunControls({ runId, savedImages, refresh }: { runId: str
   const [emitted, setEmitted] = useState(0), [observed, setObserved] = useState(false);
   useEffect(() => {
     let active = true;
-    const load = async () => { try { const result = await call<Run>(`/api/scanners/runs?run=${runId}`); if(active) setRun(result); }
+    const load = async () => { try { const result = await call<Run>(`/api/scanners/runs?run=${runId}`); if(active) { setRun(result); setError(""); } }
       catch(e) { if(active) setError((e as Error).message); } };
     void load(); const timer = setInterval(()=>void load(),2000);
     return ()=>{active=false;clearInterval(timer);};
@@ -83,12 +84,12 @@ export function ScannerRunControls({ runId, savedImages, refresh }: { runId: str
   }
   return <section className={panel+" min-w-0 space-y-3"} aria-label="Scanner batch">
     <h3 className="font-semibold">Scanner batch</h3>
-    <p role="status">{run?.status === "QUEUED" ? "Waiting for the Windows helper to start." : run?.status === "STARTED" ? "Scanning and uploading…" :
+    <p role="status">{run?.status === "QUEUED" ? scannerPreflightMessage(run.preflightProblem) ?? "Waiting for the Windows helper to start." : run?.status === "STARTED" ? "Scanning and uploading…" :
       run?.status === "DRAINED" ? "Scanner run ended." : run ? "Scanner run needs reconciliation; originals remain saved." : "Loading scanner status…"}
       {" "}{savedImages} {savedImages === 1 ? "image" : "images"} saved.</p>
     <p className="text-sm">A clean feeder run uses one saved front image per card. Check the images for missed cards or double feeds; interrupted runs need manual reconciliation.</p>
     {run && ["QUEUED","STARTED"].includes(run.status) && <button className={button} disabled={busy || run.stopRequested}
-      onClick={()=>void act({action:"stop",runId})}>{run.stopRequested ? "Stop requested · feeder will drain" : "Request stop (drain feeder)"}</button>}
+      onClick={()=>void act({action:"stop",runId})}>{run.stopRequested ? "Stop requested · feeder will drain" : run.status === "QUEUED" ? "Cancel waiting scan" : "Request stop (drain feeder)"}</button>}
     {run && ["DRAINED","ERROR","CANCELLED_BEFORE_START"].includes(run.status) && !run.reconciliation && <fieldset className="space-y-3">
       <legend className="font-semibold">Verify the physical batch</legend>
       {run.status === "CANCELLED_BEFORE_START" && <p>Cancelled before the helper claimed the scan. Remove the loaded cards, then confirm zero emitted and an empty feeder/transport.</p>}
