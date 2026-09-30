@@ -6,7 +6,7 @@ import { readAcquisitionPhotoBytes } from "./acquisition-files";
 import { AcquisitionJobSupersededError, type ClaimedAcquisitionJob } from "./acquisition-jobs";
 import type { AcquisitionNativeStream } from "./acquisition-native-stream";
 import {
-  PRINTING_STAGE, printingNativeSchema, applyAcquisitionPrintingEvidence,
+  PRINTING_STAGE, PRINTING_POLICY_VERSION, printingNativeSchema, applyAcquisitionPrintingEvidence,
   acquisitionPrintingSummary,
 } from "./acquisition-printing";
 import type { TextProposals } from "./acquisition-visual";
@@ -15,6 +15,7 @@ const digest = z.string().regex(/^[a-f0-9]{64}$/);
 const inputSchema = z.object({
   catalogJobId: z.string().uuid(), photoId: z.string().uuid(), digest,
   model: digest,
+  policy: z.string().max(80).optional(),
 });
 const proposalsSchema = z.object({
   version: z.literal(4), status: z.string(), automaticAcceptance: z.boolean(),
@@ -48,17 +49,18 @@ export async function enqueueReadyPrinting(db: PrismaClient, model: string) {
       AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" v
         WHERE v.stage=${PRINTING_STAGE} AND v."artifactId"=j."artifactId"
           AND v."candidateId"=c.id AND v."candidateRevision"=c.revision
-          AND v.input->>'catalogJobId'=j.id AND v.input->>'model'=${model})
+          AND v.input->>'catalogJobId'=j.id AND v.input->>'model'=${model}
+          AND v.input->>'policy'=${PRINTING_POLICY_VERSION})
     ORDER BY j."createdAt",j.id LIMIT 32`;
   let added = 0;
   for (const {id} of rows) {
     const source = await db.acquisitionProcessingJob.findUniqueOrThrow({where: {id}});
     const input = z.object({photoId: z.string().uuid(), digest}).parse(source.input);
-    const versionKey = createHash("sha256").update(`${PRINTING_STAGE}:${model}:${source.id}`).digest("hex");
+    const versionKey = createHash("sha256").update(`${PRINTING_STAGE}:${model}:${PRINTING_POLICY_VERSION}:${source.id}`).digest("hex");
     const created = await db.acquisitionProcessingJob.createMany({skipDuplicates: true, data: [{
       runId: source.runId, artifactId: source.artifactId, candidateId: source.candidateId,
       candidateRevision: source.candidateRevision, stage: PRINTING_STAGE, versionKey,
-      input: {...input, catalogJobId: source.id, model},
+      input: {...input, catalogJobId: source.id, model, policy: PRINTING_POLICY_VERSION},
     }]});
     added += created.count;
   }
@@ -71,6 +73,8 @@ export async function observeAcquisitionPrinting(
 ): Promise<Prisma.InputJsonObject> {
   const input = inputSchema.parse(job.input);
   if (input.model !== model) throw new AcquisitionJobSupersededError("Printing reference version superseded");
+  if (input.policy !== PRINTING_POLICY_VERSION)
+    throw new AcquisitionJobSupersededError("Printing interpretation version superseded");
   const source = await db.acquisitionProcessingJob.findUniqueOrThrow({where: {id: input.catalogJobId}});
   if (source.status !== "COMPLETE" || source.stage !== CATALOG_RECONCILIATION_STAGE ||
       source.runId !== job.runId || source.artifactId !== job.artifactId ||
@@ -118,6 +122,6 @@ export async function observeAcquisitionPrinting(
   return {
     ...observed, sourceCatalogJobId: source.id, proposals,
     printingNative: {...native, ...identity}, printing: acquisitionPrintingSummary(native, byScryfall),
-    versions: {...observed.versions, printing: model},
+    versions: {...observed.versions, printing: model, printingPolicy: PRINTING_POLICY_VERSION},
   } as unknown as Prisma.InputJsonObject;
 }

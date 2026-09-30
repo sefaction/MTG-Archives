@@ -1,0 +1,190 @@
+{
+  "version": 1,
+  "scope": "SEVEN_REUSED_INPUTS_LOCAL_PRINTING_AND_REVIEW_UNDER_EXISTING_BACKGROUND_WORK",
+  "recordedAt": "2026-09-29T12:14:04.571Z",
+  "ownerSchedulingPR": 497,
+  "standaloneMainBase": "2ac3eb5073bc00207e7278cb7d0bb77a8c713144",
+  "source": {
+    "recordedAt": "2026-09-29T12:06:55.716Z",
+    "branch": "local/acquisition-review-footer",
+    "commit": "9286ee0a1d0239dc203aab9dcf6cca76ea1599ee",
+    "applicationPRs": [
+      486,
+      487,
+      488,
+      489,
+      490,
+      492,
+      493,
+      495,
+      497
+    ],
+    "applicationCommit": "0d81637d04c57b97f9888af3b09aa0c409c2370f",
+    "photoTextCommits": [
+      "7269f74",
+      "70679e9"
+    ],
+    "handoffCommit": "6e29f30",
+    "browserCheckCommits": [
+      "2496ba4",
+      "99c63b2"
+    ],
+    "reviewEvidenceCommits": [
+      "7c990dc",
+      "d92ebf3"
+    ],
+    "qualificationPRs": [
+      491
+    ],
+    "qualificationCommit": "365456f",
+    "files": 462,
+    "digest": "052e72606b3bec3c5e37d39706a3524b96352137c97ef37417130c80fc1ebf0b",
+    "webImage": "sha256:bd3646d66b26de2459bafc3d82a21aac4ffbd09247c209439ba41bcbc7f5bd02",
+    "nativeImage": "sha256:609246d8137ee5e943c2326fff56488189264be85b971cbdcaab176dcb28a742",
+    "ocrImage": "sha256:fcb2ff9c6b29ccd974d896b17cc4cdbc71a51862f8e4886c8d7ceb7112680816",
+    "printingReplicas": 1
+  },
+  "elapsedMilliseconds": 266759,
+  "printingGateMilliseconds": 600000,
+  "firstObservedAllPrintingMilliseconds": null,
+  "firstRawAdmissionMilliseconds": 9360,
+  "inputs": 7,
+  "cases": [
+    {
+      "name": "Winter, Team Player",
+      "dependentRotation": false,
+      "first": true,
+      "offered": true,
+      "automaticAcceptance": false,
+      "wholePhotoStatus": "PARTIAL",
+      "nativePreserved": true
+    },
+    {
+      "name": "Winter, Tormented Loner",
+      "dependentRotation": false,
+      "first": true,
+      "offered": true,
+      "automaticAcceptance": false,
+      "wholePhotoStatus": "PARTIAL",
+      "nativePreserved": true
+    },
+    {
+      "name": "Cunning Geysermage",
+      "dependentRotation": false,
+      "first": true,
+      "offered": true,
+      "automaticAcceptance": false,
+      "wholePhotoStatus": "PARTIAL",
+      "nativePreserved": true
+    },
+    {
+      "name": "Krosan Vorine",
+      "dependentRotation": false,
+      "first": true,
+      "offered": true,
+      "automaticAcceptance": false,
+      "wholePhotoStatus": "NOT_ATTEMPTED",
+      "nativePreserved": true
+    },
+    {
+      "name": "Steel Wrecking Ball",
+      "dependentRotation": false,
+      "first": true,
+      "offered": true,
+      "automaticAcceptance": false,
+      "wholePhotoStatus": "NOT_ATTEMPTED",
+      "nativePreserved": true
+    },
+    {
+      "name": "Winter, Tormented Loner",
+      "dependentRotation": true,
+      "first": true,
+      "offered": true,
+      "automaticAcceptance": false,
+      "wholePhotoStatus": "PARTIAL",
+      "nativePreserved": true
+    },
+    {
+      "name": "Cunning Geysermage",
+      "dependentRotation": true,
+      "first": true,
+      "offered": true,
+      "automaticAcceptance": false,
+      "wholePhotoStatus": "PARTIAL",
+      "nativePreserved": true
+    }
+  ],
+  "nativeDescriptors": [
+    "1ef7bc86ba726db414cb6ba993c70bd5fe8d4915a38161a133591169d7fdefeb"
+  ],
+  "checks": {
+    "completePrinting": 7,
+    "advancedUnlocalizedEvidence": true,
+    "simpleOriginalAndPrintingImages": true,
+    "viewports": [
+      1366,
+      390,
+      320
+    ],
+    "noPageOverflow": true,
+    "unsavedConditionAcrossModes": true,
+    "savedReviewAcrossReload": true,
+    "locationAndSectionPreserved": true,
+    "inventoryWrites": 0,
+    "fixtureCleanup": {
+      "users": 0,
+      "sessions": 0,
+      "jobs": 0,
+      "inventory": 0
+    }
+  },
+  "observations": {
+    "samples": 13,
+    "nominalIntervalSeconds": 20,
+    "workers": {
+      "acquisition-recognition-worker": {
+        "maxSampledMiB": 1270.8,
+        "maxSampledCpuPercent": 99.37
+      },
+      "acquisition-visual-worker": {
+        "maxSampledMiB": 1197.1,
+        "maxSampledCpuPercent": 99
+      },
+      "acquisition-printing-worker": {
+        "maxSampledMiB": 1020,
+        "maxSampledCpuPercent": 97.66
+      }
+    },
+    "anonymousLogin": {
+      "responses": 13,
+      "statuses": [
+        200
+      ],
+      "maxMilliseconds": 99,
+      "p95Milliseconds": 99
+    },
+    "errors": []
+  },
+  "retainedFailedGates": [
+    {
+      "complete": 1,
+      "expected": 7,
+      "gateMilliseconds": 600000,
+      "phase": "BEFORE_FAIR_ADMISSION"
+    },
+    {
+      "complete": 4,
+      "expected": 7,
+      "gateMilliseconds": 600000,
+      "phase": "AFTER_FAIR_ADMISSION",
+      "activeRawRuns": 13
+    }
+  ],
+  "limits": [
+    "Reused development images; two dependent rotations; not independent exact-printing accuracy",
+    "Concurrent local background load differs from retained failing runs; elapsed improvement is not a controlled causal comparison",
+    "Sampled Docker memory/CPU are not exhaustive peaks; anonymous login is not authenticated task responsiveness",
+    "Four-owner fairness is separately proved with disposable synthetic jobs, not simultaneous four-user native throughput",
+    "100-card normal and 300-card stress completion, independent accuracy and conservative automatic acceptance remain unqualified"
+  ]
+}

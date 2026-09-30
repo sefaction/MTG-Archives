@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "scope": "DEVELOPMENT_PAIRED_INTERPRETATION_REPLAY",
+  "parser": "footer-identifiers-v1",
+  "labelsSha256": {
+    "playable67": "75bc490b70feca3e47ba2823021abf0b9abd909c407fcbdee113b5105a45a78d",
+    "older123": "50e7f0d36a1f37a879f8a079f4badaea7f010278d516a1ac6926ebc514ec7bc6"
+  },
+  "snapshotSha256": "2d9b7816673be3e1c7f17049de7a8775ea52d5816b29b853feb775f37de4b830",
+  "nativeDescriptor": "068e9306ca690ac6070d497bb34aae0e7c820fdecd1eda08270327d21c62ce5e",
+  "playable67": {
+    "count": 67,
+    "beforeFirst": 63,
+    "afterFirst": 67,
+    "beforeOffered": 65,
+    "afterOffered": 67,
+    "changed": [
+      {
+        "file": "scan-test.24.jpg",
+        "before": 4,
+        "after": 1
+      },
+      {
+        "file": "scan-test.25.jpg",
+        "before": null,
+        "after": 1
+      },
+      {
+        "file": "scan-test.26.jpg",
+        "before": null,
+        "after": 1
+      },
+      {
+        "file": "scan-test.67.jpg",
+        "before": 4,
+        "after": 1
+      }
+    ],
+    "automaticAcceptances": 0
+  },
+  "older123": {
+    "count": 123,
+    "first": 120,
+    "offered": 123,
+    "changed": [],
+    "auto": 0
+  },
+  "earlierImageTextOnly": [
+    {
+      "name": "android",
+      "first": 14,
+      "offered": 21,
+      "count": 23,
+      "changed": []
+    },
+    {
+      "name": "scanner",
+      "first": 15,
+      "offered": 17,
+      "count": 17,
+      "changed": []
+    },
+    {
+      "name": "additional",
+      "first": 26,
+      "offered": 27,
+      "count": 28,
+      "changed": []
+    }
+  ],
+  "limits": [
+    "Development material, not held out",
+    "Repeated printings and unknown physical-copy grouping",
+    "No new native or stamp observations",
+    "Unobserved new candidates retain uncertainty",
+    "No automatic confirmation or throughput claim"
+  ]
+}

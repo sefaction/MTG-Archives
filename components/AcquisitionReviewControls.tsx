@@ -11,11 +11,12 @@ import {
   filterInputClass as input,
   filterPanelClass as panel,
 } from "./filterStyles";
-import type {
-  AcquisitionCardReview,
-  AcquisitionDefaults,
-  AcquisitionPrinting,
+import {
+  type AcquisitionCardReview,
+  type AcquisitionDefaults,
+  type AcquisitionPrinting,
 } from "@/lib/acquisition-review";
+import { finishForPrinting } from "@/lib/acquisition-finish";
 import type { AcquisitionReviewMode } from "@/lib/acquisition-review-display";
 
 const conditions = [
@@ -232,7 +233,7 @@ export function AcquisitionPhotoReview({
       setRecord(next);
       const choice = next.printing ?? next.suggestions[0]?.printing ?? null;
       setSelected(choice);
-      setFinish(next.review?.finish ?? next.defaults.finish);
+    setFinish(next.review?.finish ?? finishForPrinting(next.defaults.finish, choice) ?? next.defaults.finish);
       setCondition(next.review?.condition ?? next.defaults.condition ?? "");
       setLanguage(next.review?.language ?? choice?.lang ?? "");
       setError("");
@@ -504,7 +505,7 @@ export function AcquisitionPhotoReview({
           <div
             className={
               simple
-                ? "grid grid-cols-2 sm:grid-cols-[112px_112px_minmax(0,1fr)] gap-3 min-w-0"
+                ? "grid grid-cols-2 lg:grid-cols-[minmax(0,260px)_minmax(0,260px)_minmax(0,1fr)] gap-3 min-w-0"
                 : "grid grid-cols-2 gap-3 sm:gap-6 min-w-0"
             }
           >
@@ -524,9 +525,14 @@ export function AcquisitionPhotoReview({
                 }
               >
                 {record.review ? "Selected printing" : "Proposed printing"}
+                {!record.review && reasons.includes("UNLOCALIZED_NAME_HINT") && (
+                  <span className="block text-xs font-normal mt-1" data-testid="scan-name-only">
+                    Name only · check printing
+                  </span>
+                )}
               </figcaption>
               <div
-                className={`aspect-[1000/1397] flex items-center justify-center bg-black/10 rounded overflow-hidden ${simple ? "max-h-44" : "max-h-[52vh]"}`}
+                className={`aspect-[1000/1397] flex items-center justify-center bg-black/10 rounded overflow-hidden ${simple ? "max-h-[60vh]" : "max-h-[75vh]"}`}
               >
                 {simple && !committed ? (
                   <button
@@ -564,6 +570,8 @@ export function AcquisitionPhotoReview({
                         ? "Waiting for suggestions; you can search below."
                         : !reasons.length
                           ? "Selected manually; compare this printing with your scan."
+                          : reasons.includes("UNLOCALIZED_NAME_HINT")
+                            ? "Name suggested from whole-photo text; exact printing unverified."
                           : record.evidence?.imageMatches
                             ? reasons.includes("VISUAL_MATCH") ||
                               reasons.includes("SIFT_CANDIDATE")
@@ -579,7 +587,7 @@ export function AcquisitionPhotoReview({
               )}
             </figure>
             {simple && (
-              <div className="min-w-0 col-span-2 sm:col-span-1 self-center">
+              <div className="min-w-0 col-span-2 lg:col-span-1 self-center">
                 <p className="font-semibold break-words">
                   {selected?.name ?? "No proposed printing yet"}
                 </p>

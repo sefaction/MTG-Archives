@@ -117,7 +117,7 @@ test("image agreement resolves same-name same-number ties without inventing set 
   const older = {...card, id: "aaa-earlier-local-id", name: "Mountain", setCode: "cm2", collectorNumber: "304"};
   const expected = {...older, id: "zzz-image-supported", setCode: "fin"};
   const observed = proposeOrientedAcquisitionPrintings(createAcquisitionRecognitionIndex([older, expected]),[
-    {rotationDegrees: 0, text: {title: ["Mountain"], footer: ["L0304 FFIV", "FIN• ENRANDY GALLEGOS"]}},
+    {rotationDegrees: 0, text: {title: ["Mountain"], footer: ["L0304 FFIV", "F?N • ?N RANDY GALLEGOS"]}},
     {rotationDegrees: 180, text: {title: [], footer: []}},
   ]);
   assert.equal(observed.proposals[0].card.id, older.id, "reproduces prior local-ID order");

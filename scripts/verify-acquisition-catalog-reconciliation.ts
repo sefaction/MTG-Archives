@@ -10,7 +10,7 @@ import {
   createCatalogReconciliationHandler,
   enqueueCatalogReconciliation,
 } from "../lib/acquisition-catalog-reconciliation";
-import { CATALOG_RECONCILIATION_STAGE } from "../lib/acquisition-catalog-status";
+import { CATALOG_RECONCILIATION_STAGE, CATALOG_RESOLVER_VERSION } from "../lib/acquisition-catalog-status";
 import {
   createAcquisitionRecognitionIndex,
   proposeOrientedAcquisitionPrintings,
@@ -28,6 +28,7 @@ import type { ScryfallCard } from "../lib/scryfall";
 import { enqueueReadyVisual } from "../lib/acquisition-visual-worker";
 import { VISUAL_STAGE } from "../lib/acquisition-visual";
 import { verifyAcquisitionPrinting } from "./verify-acquisition-printing";
+import { verifyAcquisitionPhotoText } from "./verify-acquisition-photo-text";
 
 export async function verifyAcquisitionCatalogReconciliation(
   db: PrismaClient,
@@ -60,7 +61,7 @@ export async function verifyAcquisitionCatalogReconciliation(
   const observations = [
     {
       rotationDegrees: 0,
-      text: { title: [name], footer: ["NEWSET EN", "C 17"] },
+      text: { title: [name], footer: ["00017", "NEWSET • ENARTIST NAME"] },
       lines: [],
     },
     { rotationDegrees: 180, text: { title: [], footer: [] }, lines: [] },
@@ -115,6 +116,7 @@ export async function verifyAcquisitionCatalogReconciliation(
       workerId: "catalog-fixture",
       stages: [CATALOG_RECONCILIATION_STAGE],
     });
+    assert(job, "the initial catalog job must be claimable");
     assert.equal(job.candidateId, rawJob.candidateId);
     const handler = createCatalogReconciliationHandler(
       db,
@@ -131,7 +133,14 @@ export async function verifyAcquisitionCatalogReconciliation(
         });
       },
     );
+    for (const resolverVersion of [undefined,"obsolete-footer-policy"])
+      await assert.rejects(handler({...job,input:{...job.input as Prisma.InputJsonObject,resolverVersion}},
+        AbortSignal.timeout(30000)),/Catalog interpretation version superseded/);
+    assert.equal(providerCalls,0,"obsolete resolver must not spend provider calls or mutate cached metadata");
     const output = await handler(job, AbortSignal.timeout(30000));
+    assert.equal((output.versions as Prisma.InputJsonObject).resolver,CATALOG_RESOLVER_VERSION);
+    assert.deepEqual((output.proposals as {evidence:unknown}).evidence,
+      {setCodes:["newset"],collectors:["17"],languages:["en"]});
     assert.equal((output.catalog as any).status, "RESOLVED");
     assert.equal(
       (output.proposals as any).automaticAcceptance,
@@ -266,6 +275,7 @@ export async function verifyAcquisitionCatalogReconciliation(
       workerId: "hybrid-fixture",
       stages: [CATALOG_RECONCILIATION_STAGE],
     });
+    assert(hybridJob, "the newly queued hybrid catalog job must be claimable");
     let byIdCalls = 0;
     const hybridHandler = createCatalogReconciliationHandler(
       db,
@@ -343,6 +353,7 @@ export async function verifyAcquisitionCatalogReconciliation(
       "same immutable visual/OCR pair does not duplicate reconciliation",
     );
     await verifyAcquisitionPrinting(db, actor, sessionId, photoId, hybridJob);
+    await verifyAcquisitionPhotoText(db, actor, sessionId, photoId, rawJob);
     // Thirty-two older rows whose old visual result completed but whose latest
     // version failed must not occupy the bounded queue ahead of one ready row.
     // Database-only queue fixtures: no recognition or Inventory claim is made.

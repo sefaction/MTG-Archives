@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "scope": "THREE_REUSED_ORIGINALS_STREAMING_REVIEW_NOT_BATCH_THROUGHPUT",
+  "recordedAt": "2026-09-29T11:00:49.080Z",
+  "elapsedMilliseconds": 329345,
+  "firstCatalogMilliseconds": 83265,
+  "nativeDescriptors": [
+    "1ef7bc86ba726db414cb6ba993c70bd5fe8d4915a38161a133591169d7fdefeb"
+  ],
+  "inputs": 3,
+  "cases": [
+    {
+      "name": "Winter, Team Player",
+      "offered": true,
+      "first": true,
+      "automaticAcceptance": false,
+      "wholePhotoStatus": "COMPLETE",
+      "nativePreserved": true
+    },
+    {
+      "name": "Winter, Tormented Loner",
+      "offered": true,
+      "first": true,
+      "automaticAcceptance": false,
+      "wholePhotoStatus": "PARTIAL",
+      "nativePreserved": true
+    },
+    {
+      "name": "Cunning Geysermage",
+      "offered": true,
+      "first": true,
+      "automaticAcceptance": false,
+      "wholePhotoStatus": "PARTIAL",
+      "nativePreserved": true
+    }
+  ],
+  "checks": {
+    "firstReviewWhileOtherCardsQueued": true,
+    "advancedUnlocalizedEvidence": true,
+    "simpleOriginalAndPrintingImages": true,
+    "viewports": [
+      1366,
+      390,
+      320
+    ],
+    "noPageOverflow": true,
+    "unsavedConditionAcrossModes": true,
+    "savedReviewAcrossReloadAndLaterResults": true,
+    "inventoryWrites": 0,
+    "fixtureCleanup": {
+      "users": 0,
+      "sessions": 0,
+      "jobs": 0,
+      "inventory": 0
+    }
+  },
+  "retainedBatchFailures": [
+    {
+      "scope": "SEVEN_INPUTS_PRINTING_COMPLETION",
+      "gateMilliseconds": 600000,
+      "complete": 1,
+      "expected": 7,
+      "phase": "BEFORE_FAIR_HANDOFF"
+    },
+    {
+      "scope": "SEVEN_INPUTS_PRINTING_COMPLETION",
+      "gateMilliseconds": 600000,
+      "complete": 4,
+      "expected": 7,
+      "phase": "AFTER_FAIR_HANDOFF",
+      "activeRawRuns": 13
+    }
+  ],
+  "limits": [
+    "Reused difficult development photos, not independent accuracy",
+    "Name retrieval, not exact-printing qualification",
+    "Review begins at catalog suggestions, not completion of printing checks",
+    "Seven-input printing gate failed and remains unqualified"
+  ]
+}

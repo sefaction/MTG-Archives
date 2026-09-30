@@ -21,8 +21,11 @@ export function AcquisitionScanImage({
   compact?: boolean;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const [view, setView] = useState<"original" | "crop" | "zones">("crop");
-  const displayView = compact ? "crop" : view;
+  const [view, setView] = useState<"original" | "crop" | "zones" | null>(null);
+  // A whole-photo hint may come from outside a bad detected crop. Default to
+  // the actual source while keeping explicit crop/zone inspection available.
+  const defaultView = evidence?.photoText ? "original" : "crop";
+  const displayView = compact ? defaultView : view ?? defaultView;
   const [reverse, setReverse] = useState(false);
   const [error, setError] = useState("");
   const quad =
@@ -48,13 +51,13 @@ export function AcquisitionScanImage({
       if (displayView === "original" || !quad) {
         const scale = Math.min(
           1,
-          (compact ? 320 : 600) /
+          (compact ? 600 : 800) /
             Math.max(image.naturalWidth, image.naturalHeight),
         );
         target.width = Math.round(image.naturalWidth * scale);
         target.height = Math.round(image.naturalHeight * scale);
         ctx.drawImage(image, 0, 0, target.width, target.height);
-        if (quad) {
+        if (quad && !compact) {
           ctx.beginPath();
           quad.forEach(([x, y], i) =>
             i
@@ -73,7 +76,7 @@ export function AcquisitionScanImage({
       const source = document.createElement("canvas");
       const sampleScale = Math.min(
         1,
-        (compact ? 1000 : 2400) /
+        (compact ? 1400 : 2400) /
           Math.max(image.naturalWidth, image.naturalHeight),
       );
       source.width = Math.round(image.naturalWidth * sampleScale);
@@ -86,8 +89,8 @@ export function AcquisitionScanImage({
         source.width,
         source.height,
       ).data;
-      target.width = compact ? 160 : 400;
-      target.height = compact ? 224 : 559;
+      target.width = compact ? 320 : 400;
+      target.height = compact ? 447 : 559;
       const out = ctx.createImageData(target.width, target.height);
       for (let y = 0; y < target.height; y++)
         for (let x = 0; x < target.width; x++) {
@@ -187,7 +190,7 @@ export function AcquisitionScanImage({
         Your scan
       </figcaption>
       <div
-        className={`aspect-[1000/1397] flex items-center justify-center bg-black/10 rounded overflow-hidden ${compact ? "max-h-44" : "max-h-[52vh]"}`}
+        className={`aspect-[1000/1397] flex items-center justify-center bg-black/10 rounded overflow-hidden ${compact ? "max-h-[60vh]" : "max-h-[75vh]"}`}
       >
         {active ? (
           <canvas
@@ -218,7 +221,7 @@ export function AcquisitionScanImage({
               key={key}
               className={button + " text-xs"}
               disabled={key !== "original" && !quad}
-              aria-pressed={view === key}
+              aria-pressed={displayView === key}
               onClick={() => setView(key)}
             >
               {label}
@@ -242,12 +245,12 @@ export function AcquisitionScanImage({
               ? "Card scan: full image retained; border detection skipped."
               : fullFrame
                 ? `Full image retained; no crop. This tightly framed image is resized for reading${evidence?.rotation === null ? "; direction unresolved" : " and oriented using the reading result"}.`
-                : view === "original"
+                : displayView === "original"
                   ? "Cyan outline: corners chosen by the worker."
                   : `Reconstructed from the worker's saved corners${evidence?.rotation === null ? "; reading direction unresolved" : " and reading direction"}.`}
         </p>
       )}
-      {!compact && view === "zones" && (
+      {!compact && displayView === "zones" && (
         <p className="text-xs">
           Cyan: title/footer areas attempted. Yellow: detected text boxes. Boxes
           do not establish a correct reading. Stamp evidence uses a separately
@@ -282,9 +285,13 @@ export function AcquisitionEvidenceFields({
   );
   const ids = evidence?.identifiers;
   const printing = evidence?.printing;
-  const selectedStamp = printing?.candidates.find(
-    (c) => c.cardId === selected?.id,
-  );
+  const selectedStamp = printing?.candidates.find(c=>c.cardId === selected?.id);
+  const expectationLabel = selectedStamp?.expectationSource === "CATALOG_LIST_REPRINT"
+    ? "List reprint catalog identity"
+    : selectedStamp?.expectationSource === "CATALOG_SOURCE_PRINTING"
+      ? "Matching source-printing catalog identity"
+      : selectedStamp?.expectationSource === "VERIFIED_REFERENCE"
+        ? "Verified reference annotation" : "Unqualified";
   const stampStatus = printing?.conflictingObservations
     ? "Conflicting observations; review required"
     : printing?.observedStamp === "PRESENT"
@@ -352,9 +359,11 @@ export function AcquisitionEvidenceFields({
           ? "Observed stamp agrees with this printing. Other printing details still need verification."
           : printing?.observedStamp === "UNREADABLE"
             ? "The lower-left region did not provide enough evidence. Inspect the original photo."
-            : "Inspect the lower-left corner; this selection has no verified stamp comparison.",
-      stampStatus,
-    ],
+            : "Inspect the lower-left corner; this selection has no verified stamp comparison.", stampStatus],
+    ["Printing stamp expectation", expectationLabel,
+      selectedStamp?.expectedStampState ?? "Unknown (older result)"],
+    ["Reference image stamp", "Annotation of the public comparison image; separate from the printing expectation",
+      selectedStamp?.referenceStampState ?? "Not checked"],
     ["Set symbol", "Visual detection not implemented", "Not checked"],
     [
       "Card image",
@@ -383,7 +392,9 @@ export function AcquisitionEvidenceFields({
         <>
           <p className="text-sm mb-2">
             {evidence.geometry.status !== "PROPOSED"
-              ? "Card outline not found. Text recognition could not start."
+              ? evidence.photoText
+                ? "Card outline not found. Whole-photo OCR is separate search evidence; title and footer regions are unverified."
+                : "Card outline not found. Text recognition could not start."
               : evidence.rotation === null
                 ? "Reading direction unresolved. Inspect both directions below; identifiers have not been combined."
                 : "Observed photo text is shown below. A catalog suggestion is not proof that every field was read."}
@@ -438,6 +449,26 @@ export function AcquisitionEvidenceFields({
               </div>
             ))}
           </details>
+          {evidence.photoText && (
+            <details className="mt-2" data-testid="unlocalized-photo-text">
+              <summary className="cursor-pointer text-sm underline">Whole-photo OCR (unlocalized)</summary>
+              <p className="text-sm mt-2">
+                {evidence.photoText.status === "UNAVAILABLE"
+                  ? "Whole-photo reading was unavailable within its bounded attempt. Original crop evidence and suggestions are retained."
+                  : evidence.photoText.status === "PARTIAL"
+                    ? "Only part of the whole-photo reading completed."
+                    : "Whole-photo reading completed."}
+                {" "}These lines can suggest names; they do not verify title, footer, language or stamp regions.
+              </p>
+              {evidence.photoText.readings.map(reading => (
+                <div key={reading.rotationDegrees} className="text-xs mt-2 break-words">
+                  <p className="font-semibold">{reading.rotationDegrees}° relative to the original photo</p>
+                  <p>{reading.text.join(" | ") || "Nothing read"}</p>
+                  {reading.truncated && <p>Reading truncated; review the original photo.</p>}
+                </div>
+              ))}
+            </details>
+          )}
         </>
       )}
     </section>

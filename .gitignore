@@ -19,3 +19,7 @@ docker-compose.override.yml
 # Native recognition test caches
 __pycache__/
 *.pyc
+
+# Windows scanner qualification build output (originals belong in .local-data)
+tools/scanner-agent/bin/
+tools/scanner-agent/obj/
