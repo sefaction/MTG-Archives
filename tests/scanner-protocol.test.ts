@@ -28,6 +28,19 @@ test("device report cannot inject credentials, commands, duplicate IDs or unboun
   assert.equal(scannerPairClaimSchema.safeParse({ version: 1, pairCode: "x", agentId: randomUUID(),
     secret: scannerSecret(), name: "helper", userId: "forged" }).success, false);
 });
+test("optional discovery reports are bounded diagnostics and preserve old helper pulses", () => {
+  const pulse = { version:1,agentVersion:"fixture",devices:[device] };
+  const issue = {source:"Twain",code:"DISCOVERY_FAILED",retryAfterSeconds:30};
+  assert.ok(scannerPulseSchema.safeParse(pulse).success);
+  assert.ok(scannerPulseSchema.safeParse({...pulse,discoveryIssues:[issue]}).success);
+  assert.ok(scannerPulseSchema.safeParse({...pulse,discoveryIssues:[{...issue,code:"DISCOVERY_RESTART_REQUIRED",retryAfterSeconds:null}]}).success);
+  assert.ok(scannerPulseSchema.safeParse({...pulse,discoveryIssues:[{source:"Windows",code:"DISCOVERY_IN_PROGRESS",retryAfterSeconds:null}]}).success);
+  assert.equal(scannerPulseSchema.safeParse({...pulse,discoveryIssues:[{...issue,code:"DISCOVERY_IN_PROGRESS"}]}).success,false);
+  for(const issues of [[issue,issue],[{...issue,source:"private/path"}],[{...issue,token:"private"}],
+    [{...issue,message:"native driver details"}],[{...issue,retryAfterSeconds:301}],
+    [{...issue,code:"START"}],Array.from({length:9},(_,n)=>({...issue,source:`source${n}`}))])
+    assert.equal(scannerPulseSchema.safeParse({...pulse,discoveryIssues:issues}).success,false);
+});
 test("scanner JSON bounds chunked requests before accumulating oversized bodies", async () => {
   let cancelled = false;
   const body = new ReadableStream({ start(controller) {

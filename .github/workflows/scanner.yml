@@ -25,6 +25,7 @@ jobs:
       - run: dotnet build tools/scanner-agent/ScannerAgent.csproj --no-restore --configuration Release
       - run: dotnet tools/scanner-agent/bin/Release/net8.0-windows/Mtg.ScannerAgent.dll connection-selftest
       - run: dotnet tools/scanner-agent/bin/Release/net8.0-windows/Mtg.ScannerAgent.dll native-selftest
+      - run: dotnet tools/scanner-agent/bin/Release/net8.0-windows/Mtg.ScannerAgent.dll discovery-selftest
       - name: Build and verify local source install without hardware
         shell: pwsh
         run: |
@@ -43,7 +44,7 @@ jobs:
           if (-not (Test-Path $helper) -or -not (Test-Path (Join-Path $env:RUNNER_TEMP 'scanner-publish/NAPS2.Worker.exe'))) {
             throw 'Self-contained helper is incomplete'
           }
-          foreach ($check in @('connection-selftest', 'native-selftest')) {
+          foreach ($check in @('connection-selftest', 'native-selftest', 'discovery-selftest')) {
             $process = Start-Process -FilePath $helper -ArgumentList $check -Wait -PassThru -WindowStyle Hidden
             if ($process.ExitCode -ne 0) { throw "$check failed: $($process.ExitCode)" }
           }

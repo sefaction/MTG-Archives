@@ -27,6 +27,8 @@ try {
   if ($connectionCheck.ExitCode -ne 0) { throw 'Scanner connection self-check failed' }
   $transportCheck = Start-Process -FilePath $helper -ArgumentList 'native-selftest' -Wait -PassThru -WindowStyle Hidden
   if ($transportCheck.ExitCode -ne 0) { throw 'Scanner transport self-check failed' }
+  $discoveryCheck = Start-Process -FilePath $helper -ArgumentList 'discovery-selftest' -Wait -PassThru -WindowStyle Hidden
+  if ($discoveryCheck.ExitCode -ne 0) { throw 'Scanner discovery self-check failed' }
   & (Join-Path $PSScriptRoot 'prepare-local-notices.ps1') -PublishDir $published -PythonPath $PythonPath
   & $IsccPath "/DPublishDir=$published" "/O$output" $script
   if ($LASTEXITCODE -ne 0) { throw 'Scanner installer compile failed' }

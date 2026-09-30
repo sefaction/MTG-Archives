@@ -15,7 +15,7 @@ public record EnrollmentCredential(string Secret, string? PairCode, string Site,
 public static class ScannerConnection
 {
     public const string Version = "0.3.0-native";
-    public const string HelperVersion = "0.3.5";
+    public const string HelperVersion = "0.3.7";
     private static string Root => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MTGArchives", "ScannerAgent");
     public static Uri Site(string value, bool allowLocal)
     {
@@ -48,7 +48,7 @@ public static class ScannerConnection
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
             Task.FromResult(new HttpResponseMessage(status));
     }
-    private static async Task Send(HttpClient client, string route, object value, Guid agentId, string? token = null)
+    private static async Task<JsonElement> Send(HttpClient client, string route, object value, Guid agentId, string? token = null)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, route) { Content = JsonContent.Create(value, options: RunSpool.Json) };
         if (token != null) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -58,6 +58,18 @@ public static class ScannerConnection
         var result = await response.Content.ReadFromJsonAsync<JsonElement>();
         if (result.GetProperty("version").GetInt32() != 1 || result.GetProperty("agentId").GetGuid() != agentId)
             throw new InvalidOperationException("Scanner acknowledgement identity changed");
+        return result;
+    }
+    internal static Dictionary<string, object> DiscoveryPulse(IReadOnlyList<Device> devices,
+        IReadOnlyList<ScannerDiscoveryIssue> issues, bool reporting, bool progressReporting = false) {
+        var pending = issues.Any(issue => issue.Code == "DISCOVERY_IN_PROGRESS");
+        // Older sites cannot gate Start on progress. Do not advertise sources
+        // there until discovery settles, or send them an unknown diagnostic code.
+        var pulse = new Dictionary<string, object> { ["version"] = 1, ["agentVersion"] = Version,
+            ["devices"] = pending && !progressReporting ? Array.Empty<Device>() : devices };
+        if (reporting) pulse["discoveryIssues"] = progressReporting ? issues :
+            issues.Where(issue => issue.Code != "DISCOVERY_IN_PROGRESS").ToArray();
+        return pulse;
     }
     private static void SaveConnection(HelperConnection connection)
     {
@@ -208,12 +220,13 @@ public static class ScannerConnection
                 "MTG Archives Scanner", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return true;
         }
-        if (args[0] is not ("version" or "connect" or "pair-uri" or "resume" or "serve" or "report" or "forget" or "connection-selftest" or "native-selftest" or "fixture-server")) return false;
+        if (args[0] is not ("version" or "connect" or "pair-uri" or "resume" or "serve" or "report" or "forget" or "connection-selftest" or "native-selftest" or "discovery-selftest" or "fixture-server" or "discovery-fixture-server")) return false;
         if (args[0] == "version" && args.Length == 1) {
             Console.WriteLine(JsonSerializer.Serialize(new { helperVersion = HelperVersion, protocolVersion = Version, naps2SdkVersion = "1.3.0" }, RunSpool.Json));
             return true;
         }
         if (args[0] == "native-selftest") { await ScannerNativeSelfTest.Run(Path.Combine(Root, "selftests")); return true; }
+        if (args[0] == "discovery-selftest") { await ScannerDiscoveryProgressSelfTest.Run(); await ScannerDiscoverySelfTest.Run(); return true; }
         if (args[0] == "connection-selftest")
         {
             var id = Guid.NewGuid();
@@ -299,13 +312,14 @@ public static class ScannerConnection
             await ConnectWithCode(site, code, local, true);
             Console.WriteLine("Connected. Run serve with this connection identity to report scanners.");
         }
-        else if (args[0] is "serve" or "report" or "fixture-server" && args.Length == (args[0] == "fixture-server" ? 3 : 2))
+        else if (args[0] is "serve" or "report" or "fixture-server" or "discovery-fixture-server" && args.Length == (args[0] is "fixture-server" or "discovery-fixture-server" ? 3 : 2))
         {
             var connection = LoadConnection(args[1]);
             var credential = Credential(connection);
             using var serviceLock = args[0] == "serve" ? AcquireServiceLock(connection.AgentId) : null;
             var fixture = args[0] == "fixture-server";
-            if (fixture && (!connection.AllowLocal || Site(connection.Site, true).Scheme != "http" ||
+            var discoveryFixture = args[0] == "discovery-fixture-server";
+            if ((fixture || discoveryFixture) && (!connection.AllowLocal || Site(connection.Site, true).Scheme != "http" ||
                 Environment.GetEnvironmentVariable("MTG_LOCAL_PILOT_TEST") != "1"))
                 throw new ArgumentException("Fixture acquisition requires opt-in and an explicit local-loopback connection");
             using var client = Client(Site(connection.Site, connection.AllowLocal));
@@ -313,29 +327,41 @@ public static class ScannerConnection
             ConsoleCancelEventHandler handler = (_, e) => { e.Cancel = true; stop.Cancel(); };
             Console.CancelKeyPress += handler;
             IReadOnlyList<Device> devices = [];
-            using IScannerBackend discoveryBackend = fixture ? new ScannerFixtureBackend(args[2]) : new Naps2Backend();
-            var nextDiscovery = DateTime.MinValue;
+            using IScannerBackend discoveryBackend = discoveryFixture ? ScannerDiscoveryFixture.Create(args[2]) :
+                fixture ? new ScannerFixtureBackend(args[2]) : new Naps2Backend();
+            var discovery = new ScannerDiscoveryRefresh(discoveryBackend);
+            var discoveryReporting = false; // Older websites accept the unchanged pulse.
+            var discoveryProgressReporting = false;
             var nextRetention = DateTime.MinValue;
             try {
                 while (!stop.IsCancellationRequested)
                 {
                     try {
-                        if (DateTime.UtcNow >= nextDiscovery) {
-                            devices = await discoveryBackend.ListDevices();
-                            nextDiscovery = DateTime.UtcNow.AddSeconds(30);
-                        }
-                        var pulse = new { version = 1, agentVersion = Version, devices };
-                        try { await Send(client, "api/scanner-agent/pulse", pulse, connection.AgentId, $"{connection.AgentId}.{credential.Secret}"); }
+                        if (args[0] == "report") await discovery.RefreshIfDue();
+                        else await discovery.PulseTurn();
+                        devices = discovery.Devices;
+                        var pulse = DiscoveryPulse(devices, discovery.Issues, discoveryReporting, discoveryProgressReporting);
+                        JsonElement acknowledgement;
+                        try { acknowledgement = await Send(client, "api/scanner-agent/pulse", pulse, connection.AgentId, $"{connection.AgentId}.{credential.Secret}"); }
                         catch (InvalidOperationException) when (credential.PairCode != null) {
                             await Pair(client, connection, credential);
-                            await Send(client, "api/scanner-agent/pulse", pulse, connection.AgentId, $"{connection.AgentId}.{credential.Secret}");
+                            acknowledgement = await Send(client, "api/scanner-agent/pulse", pulse, connection.AgentId, $"{connection.AgentId}.{credential.Secret}");
                         }
+                        discoveryReporting = acknowledgement.TryGetProperty("discoveryReporting", out var reporting) && reporting.ValueKind == JsonValueKind.True;
+                        discoveryProgressReporting = acknowledgement.TryGetProperty("discoveryProgressReporting", out var progressReporting) && progressReporting.ValueKind == JsonValueKind.True;
                         if (credential.PairCode != null) {
                             credential = credential with { PairCode = null }; SaveCredential(connection, credential);
                         }
-                        Console.WriteLine($"Scanner connection online; {devices.Count} source(s). No scan requested.");
-                        if (args[0] == "report") break;
-                        await ScannerNativeRunner.PollAndRun(client, connection.AgentId,
+                        Console.WriteLine(discovery.Pending ? "Scanner connection online; checking scanner drivers. No scan requested." :
+                            $"Scanner connection online; {devices.Count} source(s). No scan requested.");
+                        if (!discovery.Pending && discovery.Issues.Count > 0) Console.WriteLine("Some scanner drivers could not be checked; available sources remain usable. See the website for recovery guidance.");
+                        if (args[0] == "report") {
+                            if (discoveryReporting && !pulse.ContainsKey("discoveryIssues"))
+                                await Send(client, "api/scanner-agent/pulse", DiscoveryPulse(devices, discovery.Issues, true),
+                                    connection.AgentId, $"{connection.AgentId}.{credential.Secret}");
+                            break;
+                        }
+                        if (!discoveryFixture && !discovery.Pending) await ScannerNativeRunner.PollAndRun(client, connection.AgentId,
                             $"{connection.AgentId}.{credential.Secret}", Root, devices, stop.Token,
                             fixture ? () => new ScannerFixtureBackend(args[2]) : null,
                             fixture ? () => new { backend = "fixture", purpose = "LOCAL_PROTOCOL_TEST_ONLY" } : null);
@@ -367,7 +393,13 @@ public static class ScannerConnection
                 }
             }
             catch (OperationCanceledException) when (stop.IsCancellationRequested) { }
-            finally { Console.CancelKeyPress -= handler; }
+            finally {
+                Console.CancelKeyPress -= handler;
+                if (discovery.Pending) Console.WriteLine("Scanner driver detection is still finishing. No new scans will start; saved scans are kept.");
+                // Revocation disables future work immediately. Wait for real native
+                // completion before the using declaration disposes its context.
+                await discovery.Drain();
+            }
         }
         else if (args[0] == "forget" && args.Length == 2)
         {

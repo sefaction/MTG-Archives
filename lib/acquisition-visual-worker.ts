@@ -6,6 +6,7 @@ import { readAcquisitionPhotoBytes } from "./acquisition-files";
 import type { AcquisitionNativeStream } from "./acquisition-native-stream";
 import { AcquisitionJobSupersededError, type ClaimedAcquisitionJob } from "./acquisition-jobs";
 import { VISUAL_STAGE, visualNativeSchema } from "./acquisition-visual";
+import { acquisitionHandoffQuery } from "./acquisition-handoff";
 
 const inputSchema = z.object({
   photoId: z.string().uuid(),
@@ -17,8 +18,8 @@ export async function enqueueReadyVisual(db: PrismaClient, model: string) {
   const versionKey = createHash("sha256")
     .update(`${VISUAL_STAGE}:${model}`)
     .digest("hex");
-  const rows = await db.$queryRaw<{ id: string }[]>`
-    SELECT j.id FROM "AcquisitionProcessingJob" j
+  const rows = await db.$queryRaw<{ id: string }[]>(acquisitionHandoffQuery(VISUAL_STAGE, Prisma.sql`
+    SELECT j.id, j."runId", j."createdAt" FROM "AcquisitionProcessingJob" j
     JOIN "AcquisitionCandidate" c ON c.id=j."candidateId"
     JOIN "AcquisitionRun" r ON r.id=j."runId"
     JOIN "AcquisitionSession" s ON s.id=r."sessionId"
@@ -31,7 +32,7 @@ export async function enqueueReadyVisual(db: PrismaClient, model: string) {
       AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" v
         WHERE v.stage=${VISUAL_STAGE} AND v."artifactId"=j."artifactId"
           AND v."candidateId"=c.id AND v."candidateRevision"=c.revision AND v."versionKey"=${versionKey})
-    ORDER BY j."createdAt",j.id LIMIT 32`;
+  `));
   let added = 0;
   for (const row of rows) {
     const source = await db.acquisitionProcessingJob.findUniqueOrThrow({
