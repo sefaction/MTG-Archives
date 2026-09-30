@@ -43,6 +43,7 @@ test("queued scanner errors explain recovery and clear after authorized start; c
       headers, data: { action: "preflight", version: 1, runId: run.runId, epoch, code },
     })).ok()).toBe(true);
     await report("SCANNER_UNAVAILABLE"); await expect(scanner).toContainText("Check its USB connection and power.");
+    await expect(scanner.getByRole("link", { name: "New scanner batch" })).toHaveCount(0);
     for (const width of [1366, 320]) {
       await page.setViewportSize({ width, height: 900 }); await scanner.scrollIntoViewIfNeeded();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -70,8 +71,9 @@ test("queued scanner errors explain recovery and clear after authorized start; c
     expect(queued.ok()).toBe(true);
     const nextPoll = await page.request.post("/api/scanner-agent/runs", { headers, data: { action: "poll", version: 1 } });
     expect(nextPoll.ok()).toBe(true); const next = (await nextPoll.json()).run;
-    const cancelled = await page.request.post("/api/scanners/runs", { headers: { origin: baseURL! }, data: { action: "stop", runId: next.runId } });
-    expect(cancelled.ok()).toBe(true);
+    await page.goto(`/imports/scan?batch=${next.sessionId}`);
+    await scanner.getByRole("button", { name: "Cancel waiting scan" }).click();
+    await expect(scanner).toContainText("Cancelled before the helper claimed the scan.");
     expect((await page.request.post("/api/scanner-agent/runs", { headers, data: { action: "preflight", version: 1, runId: next.runId, epoch, code: "SCANNER_BUSY" } })).ok()).toBe(false);
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
   } finally {

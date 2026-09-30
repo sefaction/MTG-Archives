@@ -101,7 +101,9 @@ export function ScannerRunControls({ runId, savedImages, refresh }: { runId: str
         feederEmpty:true,transportEmpty:true,eachImageIsOneCardFront:true,noJamOrDouble:true})}>Confirm physical count</button>
     </fieldset>}
     {run?.reconciliation && <p>{(run.reconciliation as { mode?: string }).mode === "SCANNER_IMAGE_COUNT" ? "Image count recorded automatically." : "Physical count confirmed."} Review the matches below, then add selected cards to Inventory.</p>}
-    <a className={button} href="/imports/scan?input=scanner#new-scan-batch">New scanner batch</a>
+    {run?.reconciliation && <div className="flex flex-wrap gap-2">
+      <a className={button} href="/imports/scan?input=scanner#new-scan-batch">New scanner batch</a>
+    </div>}
     {error && <p role="alert">{error}</p>}
   </section>;
 }

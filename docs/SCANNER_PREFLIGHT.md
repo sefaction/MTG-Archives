@@ -10,6 +10,8 @@ A failure reports one bounded code on its owned queued run. Scan cards gives
 USB/power, other-app, storage, feeder-source or driver repair guidance. The helper
 retries using the same run. A successful authorized claim clears that message.
 Cancel waiting scan retains the existing pre-start cancellation behavior.
+New scanner batch is offered after reconciliation; a still-active run cannot
+accidentally lead to another unfinished batch. Its action wraps as a whole button.
 
 The nullable `ScannerRun.preflightProblem` column is separate from a physical
 run outcome. Reports contain no native paths/messages, credentials or images.
@@ -33,7 +35,7 @@ transferred to the existing durable journal/claim/upload lifecycle.
 - Disposable PostgreSQL acquisition and shared import integrity checks pass,
   including safe reports, repeated code, wrong agent/run/epoch, clear on claim,
   rejection after START/cancel and restored-database START-marker fencing.
-- Browser qualification uses a disposable authenticated protocol agent, not a
+- Browser qualification passed with a disposable authenticated protocol agent, not a
   physical scanner: readable statuses, reload, desktop/320px, authorized claim
   clearing, rejected late reports and pre-start cancellation. Run with
   `MTG_LOCAL_PILOT_TEST=1 npm run ui:test -- tests/ui/scanner-preflight.spec.ts`.
