@@ -1,5 +1,33 @@
 # Resumable work checkpoint
 
+## Scanner discovery recovery accepted locally, September30,2026
+
+- Isolated scanner-discovery-recovery, fix/scanner-discovery-recovery, draft535
+  on individually unapproved528. App23e4b11 all4CI green. Cumulative appae91088
+  loaded healthy exact image244225159b37fafc925e1caf825c4c699d52b7ba97bbfa3c4858078c012d09c8,
+  source495/digest3e4d205c067fbfab6391850f0c0c30cc94c22edd7898124def012398b0b43a06.
+- Independent WIA/TWAIN discovery failures, bounded retry, one-time worker setup,
+  negotiated sanitized diagnostics and usable-source website recovery guidance.
+  Failed driver calls that never complete remain separately scoped in534.
+- Baseline11357 failed as expected (old TWAIN-first discarded WIA). Six native
+  selftest groups,11focused TS tests,type/lint, disposable acquisition15108 pass.
+  Self-contained local0.3.6 installer built70604/selftests/hash verified, staged
+  for local website only, NOT installed/publicly distributed. Installed0.3.5 stays
+  stopped. Do not resume saved production credentials.
+- Browser95075 ended FAILED: own fixture lacked required sections:[] and scan
+  page threw strict layout validation. Failure retained .local-data/discovery-first-ui-artifacts;
+  fixture corrected only, second browser75785 PASS1/1/59.3s. Real motor-free
+  source browser19620 PASS1/1/1.9min; at most one owned worker across95s,
+  revoke helper/worker0. Both desktop/320 layouts inspected/no overflow.
+  All handles terminal; zero native/helper processes. Fixture data cleaned.
+- Hardware freshly confirmed connected/powered/EMPTY. Fresh card loading remains
+  required before motor. No production/merge/Inventory action. Active full goal
+  incomplete. Next push evidence/reconcile finalCI/ready535; then pending discovery534
+  and larger/out-of-order review checks. Public package/clean-host,
+  physical600, larger-list/rejectedStart gates remain; recognition/fi-7160 separate.
+- Approval queue488,491,495,513,514,516,517,519,521,523,525,526,528,531,533,535.
+
+
 ## Website Start recovery accepted locally, September 30, 2026
 
 - Isolated `MTG-Archives-scanner-start-replay`, `fix/scanner-start-replay`,

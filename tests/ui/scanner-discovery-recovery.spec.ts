@@ -14,7 +14,7 @@ test("driver faults keep helper online and available sources usable with clear r
   const ids:string[]=[]; let service:ChildProcess|undefined;
   const helper=(args:string[],input?:string)=>execFileSync(dotnet!,[dll!,...args],{windowsHide:true,input,encoding:"utf8",timeout:30000});
   try{
-    database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:10}}});`);
+    database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:10,sections:[]}}});`);
     await page.goto("/login");await page.getByLabel(/username or email/i).fill(tag);await page.getByLabel(/^password$/i).fill(password);
     await page.getByRole("button",{name:/^log in$/i}).click();await page.waitForURL(/\/dashboard/);
     for(const mode of ["partial","all","setup"]){
