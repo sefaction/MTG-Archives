@@ -46,8 +46,35 @@ and CI heads are recorded in the checkpoint.
 
 Pending intent is per tab, not a cross-computer or cross-tab coordinator. Closing
 the tab can lose that browser intent; existing server unfinished-run checks still
-prevent a second feed through the same agent. A definitely rejected request may
-remain locked to its original setup until it can be retried; replacing a pending
-setup is tracked in #529 and requires a separately qualified safe reset rather
-than assuming a missing
-lookup proves that no older request can finish. No timeout disposes native state.
+prevent a second feed through the same agent. No timeout disposes native state.
+
+## Changing setup after a rejected Start (#529)
+
+Change scanner setup asks the server to retire the exact original request. An
+already accepted batch opens instead, including when the helper is offline.
+The action neither stops that accepted batch nor sends another START.
+
+Without a ScannerRun, the server still checks the owned request, current access,
+the durable native START marker and every partial acquisition artifact, photo,
+capture slot, event, candidate, count correction and Inventory receipt. Saved or
+uncertain evidence prevents retirement. A missing run lookup alone is not proof.
+
+Each creation phase and retirement share a transaction advisory lock. An
+immutable, fsynced appdata marker binds the retired UUID to its owner and
+canonical payload hash. It is published before cancelling an empty partial
+session; rollback, late creation and restored database rows cannot revive that
+request while the marker remains. Retry completes the same cancellation. The
+normal backup/restore requirement to preserve scanner-control appdata remains;
+this is not protection against losing both database and durable control files.
+
+The browser keeps pending intent/settings locked through a lost cancellation
+acknowledgement. Only a confirmed retirement clears that exact stored intent and
+allows a new UUID. Destination, scanner settings and review defaults are retained
+as preferences; capacity and authority are checked again for the new Start.
+Changing setup does not recognize cards, erase images or add Inventory.
+
+File identity/replay/restore/malformed/path checks and disposable database
+phase races, partial cancellation, existing native authorization, foreign and
+inactive owners, saved-slot denial and receipt integrity passed locally. Core
+verification passed744 units and the Windows production build. The updated two
+browser cases are pending the cumulative build; this batch is not yet loaded.

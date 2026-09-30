@@ -32,8 +32,11 @@ request through source polling, lost responses and reload. Recovery is owned and
 read-only, including an offline helper; explicit retry keeps the same identity.
 Disposable integrity and focused storage tests pass; grouped browser3/3 and final
 recovery2/2 pass, with settled setup changes and photo-only storage independence,
-zero photos/Inventory and no motor. 320px has no overflow. #529 tracks safe setup
-changes after a rejected/partial creation; missing lookup is not no-feed proof.
+zero photos/Inventory and no motor. 320px has no overflow. #529 adds explicit
+Change scanner setup with durable identity retirement, cancellation of proven
+empty partial sessions and adoption of accepted batches. File/disposable phase
+race and ownership/START evidence checks pass; cumulative browser acceptance is
+pending. Missing lookup is not no-feed proof.
 This PR and each dependency require individual approval.
 
 - Installed reopening is verified; normal physical device reconnect remains open.

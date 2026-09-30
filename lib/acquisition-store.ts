@@ -76,6 +76,9 @@ const createInput = z
   })
   .strict();
 export type CreateAcquisitionInput = z.infer<typeof createInput>;
+export function canonicalAcquisitionCreation(value: CreateAcquisitionInput) {
+  return JSON.stringify(createInput.parse(value));
+}
 const include = {
   location: true,
   run: {
@@ -260,12 +263,14 @@ export async function createAcquisitionSession(
   db: PrismaClient,
   actor: AcquisitionActor,
   value: CreateAcquisitionInput,
+  beforeWrite?: (tx: Prisma.TransactionClient) => Promise<void>,
 ) {
   const input = createInput.parse(value);
   const requestPayload = JSON.stringify(input);
   return transaction(
     db,
     async (tx) => {
+      await beforeWrite?.(tx);
       await authorize(tx, actor, input.ownerPlayerId);
       const existing = await tx.acquisitionSession.findUnique({
         where: {
@@ -604,6 +609,7 @@ export async function executeAcquisitionCommand(
     revision: number;
     command: Parameters<typeof transitionCapture>[1];
   },
+  beforeWrite?: (tx: Prisma.TransactionClient) => Promise<void>,
 ) {
   identity.parse(input.requestKey);
   z.number().int().nonnegative().parse(input.revision);
@@ -612,6 +618,7 @@ export async function executeAcquisitionCommand(
     command: input.command,
   });
   return transaction(db, async (tx) => {
+    await beforeWrite?.(tx);
     await read(tx, actor, sessionId);
     await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${sessionId} FOR UPDATE`;
     const row = await read(tx, actor, sessionId);

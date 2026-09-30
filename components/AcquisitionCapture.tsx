@@ -90,6 +90,9 @@ export function AcquisitionCapture({
   const [scannerEnabled, setScannerEnabled] = useState(initialScanner);
   const pendingStart = useRef<PendingScannerStart | null>(null);
   const [pendingScanner, setPendingScanner] = useState<PendingScannerStart | null>(null);
+  const [retiredSetup, setRetiredSetup] = useState<PendingScannerStart | null>(null);
+  const [setupNotice, setSetupNotice] = useState("");
+  const setupDefaults = retiredSetup?.defaults ?? initialSetup?.defaults;
   const [checkingStart, setCheckingStart] = useState(true);
   const [startStorageError, setStartStorageError] = useState(false);
   const sourceIdentity = useRef("");
@@ -310,7 +313,7 @@ export function AcquisitionCapture({
       if (!createKey.current) createKey.current = captureUuid();
       const value = {
         ...(scannerChoice ? { ...scannerChoice, action: "create" } : {}),
-        ...(scannerChoice && initialSetup ? { defaults: initialSetup.defaults } : {}),
+        ...(scannerChoice && setupDefaults ? { defaults: setupDefaults } : {}),
         requestKey: createKey.current,
         locationId,
         section,
@@ -336,6 +339,31 @@ export function AcquisitionCapture({
       setBusy(false);
       capturing.current = false;
     }
+  }
+  async function changeScannerSetup() {
+    const intent = pendingStart.current;
+    if (!intent || capturing.current) return;
+    capturing.current = true; setBusy(true); setError("");
+    try {
+      const result = await request<{ retired: boolean; partialBatchId?: string | null; progress?: Progress }>(
+        "/api/scanners/runs", { ...intent, action: "retire" });
+      if (!mounted.current || pendingStart.current !== intent) return;
+      if (!result.retired) {
+        if (!result.progress) throw new Error("Cannot recover this Start. Keep the original request and retry.");
+        adoptScanner(result.progress, intent); return;
+      }
+      const saved = readScannerStart(sessionStorage, userId);
+      if (saved && saved.requestKey !== intent.requestKey)
+        throw new Error("Cannot change setup: this tab saved a different Start. Reload to recover it.");
+      clearScannerStart(sessionStorage, userId, intent.requestKey);
+      if (readScannerStart(sessionStorage, userId)) throw new Error("Cannot clear the cancelled Start. Allow browser storage and retry.");
+      pendingStart.current = null; createKey.current = ""; setPendingScanner(null);
+      setRetiredSetup(intent); setSetupNotice(result.partialBatchId
+        ? "The unfinished empty batch was cancelled. Choose your setup, then start a new batch."
+        : "The previous Start was cancelled. Choose your setup, then start a new batch.");
+      refreshCapacity(() => router.refresh());
+    } catch (cause) { if (mounted.current) setError((cause as Error).message); }
+    finally { capturing.current = false; if (mounted.current) setBusy(false); }
   }
   async function openCamera() {
     try {
@@ -517,7 +545,7 @@ export function AcquisitionCapture({
           </h2>
           {!setupMessage && <p className="text-sm mb-3">Choose a destination and card input below. Starting a scanner batch sends the scan command to the connected computer.</p>}
           {setupMessage && <p className="text-sm mb-3" role="status">{setupMessage}</p>}
-          {initialSetup && scannerEnabled && <p className="text-sm mb-3">Batch defaults: {initialSetup.defaults.finish.toLowerCase()} · {initialSetup.defaults.condition ?? "condition not set"}. You can change these during review.</p>}
+          {setupDefaults && scannerEnabled && <p className="text-sm mb-3">Batch defaults: {setupDefaults.finish.toLowerCase()} · {setupDefaults.condition ?? "condition not set"}. You can change these during review.</p>}
           <div className="grid gap-4 lg:grid-cols-2 items-start"><div className="min-w-0">
           <StorageDestinationPicker
             disabled={busy || checkingStart || !!pendingScanner || startStorageError}
@@ -576,7 +604,7 @@ export function AcquisitionCapture({
             <p className="mt-2">Capacity shown here includes stored cards. Pending batches and capacity are checked again before the scanner starts and before Inventory addition.</p>
           </details>
           </div><div className="min-w-0">
-          <ScannerSourceFields key={pendingScanner?.requestKey ?? "setup"} initialEnabled={pendingScanner ? true : initialScanner} initialChoice={pendingScanner ?? initialSetup?.scanner} onChange={scannerChanged} disabled={busy || checkingStart || !!pendingScanner || startStorageError || refreshingCapacity} remaining={customLimit ? Math.min(quantity,remaining??quantity) : remaining} />
+          <ScannerSourceFields key={pendingScanner?.requestKey ?? "setup"} initialEnabled={pendingScanner || retiredSetup ? true : initialScanner} initialChoice={pendingScanner ?? retiredSetup ?? initialSetup?.scanner} onChange={scannerChanged} disabled={busy || checkingStart || !!pendingScanner || startStorageError || refreshingCapacity} remaining={customLimit ? Math.min(quantity,remaining??quantity) : remaining} />
           </div></div>
           <button
             className={primary}
@@ -592,7 +620,11 @@ export function AcquisitionCapture({
           >
             {checkingStart ? "Checking previous start…" : pendingScanner ? "Retry same scanner start" : scannerEnabled ? "Start scanner batch" : "Start batch"}
           </button>
-          {pendingScanner && <p className="text-sm mt-2" role="status">Checking the original scanner start keeps its destination and settings. A retry first looks for the accepted batch. Changes are available after that batch is recovered and settled.</p>}
+          {pendingScanner && <div className="space-y-2 mt-2">
+            <p className="text-sm" role="status">Retry checks the original Start. To change destination or settings, cancel that request first. If it was accepted, its batch opens instead.</p>
+            <button className={button} disabled={busy || checkingStart} onClick={() => void changeScannerSetup()}>Change scanner setup</button>
+          </div>}
+          {setupNotice && <p className="text-sm mt-2" role="status">{setupNotice}</p>}
           {!pendingScanner && !locationId && <p className="text-sm mt-2" role="status">Choose a destination to start.</p>}
           {!pendingScanner && locationId && remaining === 0 && <p className="text-sm mt-2" role="status">This destination has no remaining space. Choose another destination.</p>}
           {!pendingScanner && locationId && scannerEnabled && !scannerChoice && remaining !== 0 && <p className="text-sm mt-2" role="status">Choose an online scanner source to enable Start scanner batch.</p>}
