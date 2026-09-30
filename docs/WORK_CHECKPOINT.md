@@ -1,5 +1,44 @@
 # Resumable work checkpoint
 
+## Pending discovery heartbeat accepted locally, September30,2026
+
+- Isolated scanner-discovery-progress/fix/scanner-discovery-progress, draft536
+  on individually unapproved535/528 and scanner stack. Headf074af7, app0a24326/pulsec0c794f.
+  One Task.Run discovery; heartbeat remains live, snapshot choices preserved,
+  pending status gates new scans; no START poll before actual completion.
+  Revocation disables future work then awaits native completion before disposal.
+  Fast calls get250ms observation grace; expiry is NOT native completion.
+- Expected old awaited-task baseline fails; logs retained privately. Six new
+  mechanical groups plus six prior groups/native/credential/Node and11TS pass.
+  Type/lint pass; disposable integrity16579 terminal0 (37s persisted/46s import).
+  First installer70674 pass lacks final fast-call fix; do NOT stage it. Final
+  installer25009 PASSc0c794f/hash2aa5e56c; staged local only, not installed.
+  Cumulative Docker55843 terminal0 app06b0e90, cherryhelperfix711db93.
+  Reload76507 terminal0/healthy/login200, exact495/f9fe40a1/
+  imaged121c817d1aa03442135e33f448900fe1d7a277ec816c9b4b66860defe83f37f. New helper DLL local
+  build includes fast-call fix; installer must match. Installed0.3.5 stopped.
+- First localhost-only fake-driver UI2443 PASS1/1/2.7min; pending/late/
+  selected refresh/35s-online/revocation-drain pass; no runs/Inventory.
+  Both pending/settled1366/320 inspected/no overflow. Misleading Start hint
+  found and fixedf074af7; final builder8376 terminal0, cumulativea61bd64.
+  Final reload/UI30648 terminal1 (3/4 passed; socket disconnect in route.fetch), healthy/login200/source495/
+  6bd68902108e83fcfbbf7e920fa604cf3cd58023f7b0651c11a4585303240c76/
+  imagef225500fb7b4257094f2224eaece63f8dd0432847c87136988fcbbdf6346c4c0.
+  Real motor-free1.9min/pending2.6min/lostACK12.1s pass. Failed lost-request
+  trace retained privately .local-data/discovery-progress-final-failure-artifacts.
+  Unchanged scoped rerun3407 PASS1/1/14.9s; healthy/no OOM/restart, no root-cause
+  claim. Both final layouts inspected; owned fixtureusers0/helperworker0.
+  All handles terminal; installerstaged0.3.7 remains not installed.
+  Verify35s pending beyond30s stale cutoff, retained source/destination during
+  later refresh, revocation keeps process until actual managed completion.
+  No real driver/motor in fixtures. Real motor-free discovery/95s worker soak/revocation PASS; no motor.
+- No merge/production/Inventory/motor. User last confirmed connected/powered/
+  EMPTY; fresh loading remains needed. Full active goal incomplete. Next publish evidence/reconcile exact finalCI/ready536, then537 bulk
+  preview/larger-list baseline and529 rejectedStart.
+  #537 records bulk incremental/overlapping preview risk; controlled browser
+  baseline needed, next UI branch should start on533, not scanner stack.
+  Approval queue488,491,495,513,514,516,517,519,521,523,525,526,528,531,533,535,536.
+
 ## Scanner discovery recovery accepted locally, September30,2026
 
 - Isolated scanner-discovery-recovery, fix/scanner-discovery-recovery, draft535
