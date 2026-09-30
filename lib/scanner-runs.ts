@@ -218,6 +218,15 @@ export async function getScannerBatch(db: PrismaClient, userId: string, runId: s
   });
   return state;
 }
+export async function findScannerBatchCreation(db: PrismaClient, actor: AcquisitionActor, requestKey: string) {
+  z.string().uuid().parse(requestKey);
+  const run = await db.scannerRun.findUnique({ where: { id: requestKey }, select: { id: true } });
+  if (!run) return null;
+  // Recover already accepted runs even if the helper is now offline or space
+  // has changed. Current ownership/roles still apply; this never authorizes START.
+  const owned = await getScannerBatch(db, actor.userId, run.id);
+  return getAcquisitionProgress(db, { userId: actor.userId, adminMode: false }, owned.sessionId);
+}
 export async function stopScannerBatch(db: PrismaClient, userId: string, runId: string) {
   return scannerTransaction(db, async tx => {
     await tx.$queryRaw`SELECT id FROM "ScannerRun" WHERE id = ${runId} FOR UPDATE`;

@@ -7,7 +7,7 @@ import { type PrismaClient } from "@prisma/client";
 import { createScannerPairing, claimScannerPairing, recordScannerPulse, revokeScannerAgent } from "../lib/scanner-store";
 import { scannerSecret } from "../lib/scanner-protocol";
 import { createScannerBatch, claimScannerRun, pollScannerRun, receiveScannerImage,
-  finishScannerRun, reconcileScannerBatch, getScannerBatch, stopScannerBatch, reportScannerPreflightProblem } from "../lib/scanner-runs";
+  finishScannerRun, reconcileScannerBatch, getScannerBatch, findScannerBatchCreation, stopScannerBatch, reportScannerPreflightProblem } from "../lib/scanner-runs";
 import { scannerSiteEpoch, scannerStartMarkerExists } from "../lib/scanner-control-files";
 import { scannerRunError } from "../lib/scanner-errors";
 import { scannerContinuation, currentScannerContinuation } from "../lib/scanner-continuation";
@@ -54,6 +54,14 @@ export async function verifyScannerRuns(db: PrismaClient) {
     assert.equal((await pollScannerRun(db, first.token, epoch)).run?.runId, run.runId);
     await assert.rejects(createScannerBatch(db, actor, { ...input, requestKey: randomUUID() }, epoch));
     await assert.rejects(getScannerBatch(db, other, run.runId));
+    assert.equal(await findScannerBatchCreation(db, actor, randomUUID()), null);
+    await assert.rejects(findScannerBatchCreation(db, { userId: other, adminMode: true }, run.runId));
+    await db.scannerAgent.update({ where: { id: first.agentId }, data: { lastSeenAt: new Date(0) } });
+    const recovered = await findScannerBatchCreation(db, actor, input.requestKey);
+    assert.equal(recovered?.session.id, run.sessionId);
+    assert.equal(recovered?.session.run.runId, input.requestKey);
+    assert.equal((await db.scannerRun.findUniqueOrThrow({ where: { id: run.runId } })).executionId, null);
+    await recordScannerPulse(db, first.token, { version: 1, agentVersion: "fixture", devices: [source] });
     const executionId = randomUUID(), claim = { version: 1, runId: run.runId, epoch, executionId };
     const preflight = { version: 1, runId: run.runId, epoch, code: "SCANNER_UNAVAILABLE" };
     await reportScannerPreflightProblem(db, first.token, preflight, epoch);
