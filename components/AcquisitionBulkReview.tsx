@@ -9,8 +9,10 @@ import { filterButtonClass as button, filterPrimaryButtonClass as primary, filte
 type Slot = ReturnType<typeof acquisitionProgressDto>["slots"][number];
 type Proposal = { photoId: string; position: number; record: AcquisitionCardReview; checked: boolean; saved: boolean; error: string };
 
-export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpenChange, onInspect, onConfirmed }: {
+export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpenChange, onInspect, onConfirmed,
+  blockedPhotos, draftsReady, canUsePhotos }: {
   batchId: string; slots: Slot[]; defaults: AcquisitionDefaults; refresh: () => Promise<void>;
+  blockedPhotos: Set<string>; draftsReady: boolean; canUsePhotos: (ids: string[]) => boolean;
   onOpenChange?: (open: boolean) => void; onInspect?: (position: number) => void; onConfirmed?: (photoIds: string[]) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -31,11 +33,14 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpe
     return () => observer.disconnect();
   }, [open, visible, rows.length]);
   function close() { setOpen(false); onOpenChange?.(false); }
-  const available = slots.flatMap(slot => {
+  const awaiting = slots.flatMap(slot => {
     const photo = slot.photos.find(p => p.ready && !p.purgedAt);
     return photo && !slot.review && !slot.committed ? [{ photoId: photo.id, position: slot.position + 1 }] : [];
   });
+  const available = awaiting.filter(item => !blockedPhotos.has(item.photoId));
+  const skipped = awaiting.length - available.length;
   async function preview() {
+    if (!draftsReady) return;
     setOpen(true); onOpenChange?.(true); setVisible(12); setLoading(true); setError(""); setLoaded(0); setSaved(0); setRows([]);
     const next: Proposal[] = [];
     try {
@@ -45,7 +50,7 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpe
           const response = await fetch(`/api/acquisition/${batchId}/review?photoId=${item.photoId}`, { cache: "no-store" });
           if (!response.ok) throw new Error("Could not load current match proposals. Retry the preview.");
           const record = await response.json() as AcquisitionCardReview;
-          return { ...item, record, checked: Boolean(record.suggestions[0]) && !record.review, saved: false, error: "" };
+          return { ...item, record, checked: Boolean(record.suggestions[0]) && !record.review && canUsePhotos([item.photoId]), saved: false, error: "" };
         }));
         next.push(...group); setLoaded(next.length); setRows([...next]);
       }
@@ -57,7 +62,7 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpe
   const choice = (row: Proposal) => row.record.suggestions[0]?.printing;
   const eligible = (row: Proposal) => {
     const printing = choice(row);
-    return Boolean(printing && !row.record.review && !row.saved && printing.lang && defaults.condition &&
+    return Boolean(draftsReady && !blockedPhotos.has(row.photoId) && printing && !row.record.review && !row.saved && printing.lang && defaults.condition &&
       finishForPrinting(defaults.finish, printing));
   };
   const selected = rows.filter(row => row.checked && eligible(row));
@@ -68,6 +73,10 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpe
     for (let index = 0; index < next.length; index++) {
       const row = next[index];
       if (!row.checked || !eligible(row)) continue;
+      if (!canUsePhotos([row.photoId])) {
+        next[index] = { ...row, checked: false, error: "Unsaved correction: save or cancel it before bulk confirmation." };
+        setRows([...next]); continue;
+      }
       const printing = choice(row)!;
       const finish = finishForPrinting(defaults.finish, printing);
       if (!finish) continue;
@@ -92,12 +101,14 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpe
   }
   return <section className={panel + " min-w-0 space-y-3"} aria-label="Bulk match review">
     <div className="flex flex-wrap items-center gap-2">
-      <button className={button} disabled={loading || saving || !available.length} onClick={() => void preview()}>
+      <button className={button} disabled={!draftsReady || loading || saving || !available.length} onClick={() => void preview()}>
         Bulk Confirm Match
       </button>
       <span className="text-sm">{available.length} cards awaiting match review</span>
       {!saving && saved > 0 && <span role="status">{saved} {saved === 1 ? "review" : "reviews"} saved. Inventory has not changed.</span>}
     </div>
+    {!draftsReady && <p role="status" className="text-sm">Bulk review is waiting for browser draft access. Allow browser storage and reload; individual reviews can still be saved.</p>}
+    {skipped > 0 && <p role="status" className="text-sm">{skipped} {skipped === 1 ? "card has an unsaved correction" : "cards have unsaved corrections"} and will be skipped. Save or cancel those corrections to include them.</p>}
     {open && <div className="space-y-3">
       <p className="text-sm">Compare each scan with its proposed printing. Every proposal starts selected; clear any that needs individual correction. This saves reviews only. Inventory is a separate step.</p>
       <p className="text-sm">Batch defaults: {defaults.finish.toLowerCase()} · {defaults.condition ?? "condition unset"}. Change batch defaults or correct a card before confirming if these do not apply.</p>
@@ -132,7 +143,7 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpe
                 <img loading="lazy" className="w-full max-h-96 object-contain bg-black/10" src={`/api/acquisition/${batchId}/photos/${row.photoId}`} alt={`Scan of card ${row.position}`} />
                 {printing?.imageUri ? <img loading="lazy" className="w-full max-h-96 object-contain bg-black/10" src={printing.imageUri} alt={`Proposed ${printing.name}`} /> : <span>No printing image</span>}
               </div>
-              {!canSelect && !row.record.review && !row.saved && <p className="text-sm">{printing ? "This printing needs a finish or language correction before confirmation." : "Wait for a proposal or find the printing manually."}</p>}
+              {!canSelect && !row.record.review && !row.saved && <p className="text-sm">{blockedPhotos.has(row.photoId) ? "Unsaved correction: save or cancel it before bulk confirmation." : printing ? "This printing needs a finish or language correction before confirmation." : "Wait for a proposal or find the printing manually."}</p>}
               {row.error && <p role="alert" className="text-sm">{row.error}</p>}
               {(row.record.review || row.saved) && <p className="text-sm">Review saved</p>}
             </div>;

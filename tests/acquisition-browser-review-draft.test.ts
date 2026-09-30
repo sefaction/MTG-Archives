@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { acquisitionDraftKey, clearAcquisitionDraft, readAcquisitionDraft, saveAcquisitionDraft } from "../lib/acquisition-browser-review-draft";
+import { acquisitionDraftKey, clearAcquisitionDraft, listAcquisitionDraftPhotos, readAcquisitionDraft, saveAcquisitionDraft } from "../lib/acquisition-browser-review-draft";
 const scope = { userId: "owner", batchId: "batch", photoId: "photo" };
 const draft = { version: 1, revision: 4, selected: { id: "printing", name: "Chosen card", setCode: "tst",
   collectorNumber: "1", lang: "en", imageUri: null, finishes: ["foil"] }, finish: "FOIL", condition: "LP",
@@ -34,4 +34,14 @@ test("late save or discard cannot erase a newer browser draft", () => {
   assert.equal(readAcquisitionDraft(cache, scope)?.condition, "HP");
   assert.equal(clearAcquisitionDraft(cache, scope, latest), true);
   assert.equal(clearAcquisitionDraft(cache, scope, latest), true);
+});
+test("batch draft inventory protects malformed metadata and isolates encoded identities", () => {
+  const cache = storage();
+  cache.setItem(acquisitionDraftKey(scope), "malformed metadata still represents a correction");
+  cache.setItem(acquisitionDraftKey({ ...scope, photoId: "photo:two" }), "{}");
+  cache.setItem(acquisitionDraftKey({ ...scope, userId: "other" }), "{}");
+  cache.setItem(acquisitionDraftKey({ ...scope, batchId: "batch:other" }), "{}");
+  const index = { get length() { return cache.rows.size; }, key: (i: number) => [...cache.rows.keys()][i] ?? null };
+  assert.deepEqual(listAcquisitionDraftPhotos(index, scope), new Set(["photo", "photo:two"]));
+  assert.throws(() => listAcquisitionDraftPhotos({ get length(): number { throw new Error("denied"); }, key: () => null }, scope), /denied/);
 });

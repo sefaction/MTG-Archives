@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AcquisitionCommitControls } from "./AcquisitionCommitControls";
 import { ScannerSourceFields, ScannerRunControls, type ScannerChoice } from "./ScannerBatchControls";
 import { AcquisitionBulkReview } from "./AcquisitionBulkReview";
+import { useAcquisitionDrafts } from "./useAcquisitionDrafts";
+import { acquisitionDraftKey } from "@/lib/acquisition-browser-review-draft";
 import { SCANNER_CAPTURE_PROVIDER } from "@/lib/scanner-run-protocol";
 import { StorageDestinationPicker } from "./StorageDestinationPicker";
 import {
@@ -120,7 +122,11 @@ export function AcquisitionCapture({
   const [reviewFilter, setReviewFilter] =
     useState<AcquisitionReviewFilter>("all");
   const [dirtyPhotos, setDirtyPhotos] = useState<Set<string>>(() => new Set());
+  const dirtyNow = useRef(new Set<string>());
+  const cachedDrafts = useAcquisitionDrafts(userId, batchId);
+  const blockedPhotos = new Set([...cachedDrafts.ids, ...dirtyPhotos]);
   const markPhotoDirty = useCallback((photoId: string, dirty: boolean) => {
+    if (dirty) dirtyNow.current.add(photoId); else dirtyNow.current.delete(photoId);
     setDirtyPhotos((previous) => {
       if (previous.has(photoId) === dirty) return previous;
       const next = new Set(previous);
@@ -129,6 +135,14 @@ export function AcquisitionCapture({
       return next;
     });
   }, []);
+  const canUsePhotos = useCallback((ids: string[]) => {
+    // Read only the requested cards again immediately before a write. A storage
+    // notification may not yet have rendered; a failed write still has live edits.
+    try {
+      return ids.every(photoId => !dirtyNow.current.has(photoId) &&
+        localStorage.getItem(acquisitionDraftKey({ userId, batchId, photoId })) === null);
+    } catch { return false; }
+  }, [userId, batchId]);
   const reviewCounts = acquisitionReviewCounts(progress?.slots ?? []);
   const filteredSlots = (progress?.slots ?? []).filter(
     (slot) =>
@@ -828,12 +842,14 @@ export function AcquisitionCapture({
           />
           </details>
           <AcquisitionBulkReview batchId={batchId} slots={progress.slots} defaults={progress.defaults} refresh={refresh}
+            blockedPhotos={blockedPhotos} draftsReady={cachedDrafts.ready} canUsePhotos={canUsePhotos}
             onOpenChange={setBulkOpen} onConfirmed={ids => { setSelectedPhotos(previous => [...new Set([...previous, ...ids])]); showInventory(); }}
             onInspect={position => { setReviewFilter("all"); setVisibleCount(count => Math.max(count, position));
               requestAnimationFrame(() => document.getElementById(`capture-card-${position}`)?.scrollIntoView({ block: "start" })); }} />
           <div id="scan-inventory" className="scroll-mt-56" hidden={!inventoryOpen}>
             <button className={button + " mb-2"} onClick={() => { setInventoryOpen(false); document.getElementById("scan-review")?.scrollIntoView({ block: "start" }); }}>Back to matches</button>
             <AcquisitionCommitControls key={`commit:${batchId}`} progress={progress} locations={locations}
+              blockedPhotos={blockedPhotos} draftsReady={cachedDrafts.ready} canUsePhotos={canUsePhotos}
               selected={selectedPhotos} onSelect={setSelectedPhotos} refresh={refresh} />
           </div>
           <div className="flex flex-col gap-4">
@@ -973,6 +989,7 @@ export function AcquisitionCapture({
                             type="checkbox"
                             aria-label={`Select card ${slot.position + 1} for Inventory`}
                             checked={selectedPhotos.includes(photo.id)}
+                            disabled={!cachedDrafts.ready || blockedPhotos.has(photo.id)}
                             onChange={(e) =>
                               setSelectedPhotos((ids) =>
                                 e.target.checked
@@ -981,7 +998,7 @@ export function AcquisitionCapture({
                               )
                             }
                           />
-                          Add this copy
+                          {blockedPhotos.has(photo.id) ? "Save or cancel this correction before adding" : "Add this copy"}
                         </label>
                       )}
                       {progress.providerId !== SCANNER_CAPTURE_PROVIDER && <button

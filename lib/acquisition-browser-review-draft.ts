@@ -11,8 +11,32 @@ export const acquisitionBrowserDraftSchema = z.object({ version: z.literal(1), w
 export type AcquisitionBrowserDraft = z.infer<typeof acquisitionBrowserDraftSchema>;
 export type DraftScope = { userId: string; batchId: string; photoId: string };
 type Storage = Pick<globalThis.Storage, "getItem" | "setItem" | "removeItem">;
+export const ACQUISITION_DRAFT_CHANGED = "mtg-acquisition-draft-changed";
+export const acquisitionDraftPrefix = (scope: Pick<DraftScope, "userId" | "batchId">) =>
+  `mtg-review-draft-v1:${[scope.userId, scope.batchId].map(encodeURIComponent).join(":")}:`;
 export const acquisitionDraftKey = (scope: DraftScope) =>
-  `mtg-review-draft-v1:${[scope.userId, scope.batchId, scope.photoId].map(encodeURIComponent).join(":")}`;
+  `${acquisitionDraftPrefix(scope)}${encodeURIComponent(scope.photoId)}`;
+// Presence protects even an unreadable draft. Parsing belongs to the editor;
+// batch eligibility must never silently treat damaged metadata as no correction.
+export function listAcquisitionDraftPhotos(storage: Pick<globalThis.Storage, "length" | "key">,
+  scope: Pick<DraftScope, "userId" | "batchId">) {
+  const prefix = acquisitionDraftPrefix(scope), ids = new Set<string>();
+  for (let index = 0; index < storage.length; index++) {
+    const key = storage.key(index);
+    if (key?.startsWith(prefix)) {
+      try { ids.add(decodeURIComponent(key.slice(prefix.length))); } catch { /* Invalid key cannot identify a photo. */ }
+    }
+  }
+  return ids;
+}
+function changed(storage: Storage, scope: DraftScope) {
+  if (typeof window === "undefined") return;
+  // Storage events cover other tabs; our own tab needs an explicit notification.
+  try {
+    if (storage === window.localStorage)
+      window.dispatchEvent(new CustomEvent(ACQUISITION_DRAFT_CHANGED, { detail: acquisitionDraftKey(scope) }));
+  } catch { /* The successful storage operation remains successful. */ }
+}
 export function readAcquisitionDraft(storage: Storage, scope: DraftScope) {
   const value = storage.getItem(acquisitionDraftKey(scope));
   if (value === null) return null;
@@ -25,6 +49,7 @@ export function saveAcquisitionDraft(storage: Storage, scope: DraftScope, draft:
   const value = JSON.stringify(parsed);
   if (value.length > 16384) throw new Error("Draft is too large");
   storage.setItem(acquisitionDraftKey(scope), value);
+  changed(storage, scope);
   return writeId;
 }
 export function clearAcquisitionDraft(storage: Storage, scope: DraftScope, writeId?: string) {
@@ -33,5 +58,6 @@ export function clearAcquisitionDraft(storage: Storage, scope: DraftScope, write
     if (current && current.writeId !== writeId) return false;
   }
   storage.removeItem(acquisitionDraftKey(scope));
+  changed(storage, scope);
   return true;
 }
