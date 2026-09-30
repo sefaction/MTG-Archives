@@ -29,3 +29,18 @@ separate issues. Broad or unclear backgrounds deliberately retain the full scan.
 
 Qualification results and local review provenance are recorded in WORK_CHECKPOINT
 and the PR. Private originals, OCR output and browser images remain uncommitted.
+## Validation
+
+- Eight synthetic geometry guards cover quarter-turns, the physical border/footer,
+  thin and white borders, blank images, ambiguous seams, broad padding, source
+  immutability and PHOTO separation. Twelve reading-direction/input guards and
+  eighteen independent printing/runtime/cache guards pass (38 total).
+- Hash-verified corpus: 107 prior scanner originals (17 early + 90 later) × four
+  rotations have identical prepared pixels/evidence to main: 428/428 unchanged.
+  The 28 additional phone originals × four rotations are also unchanged: 112/112.
+- Cumulative TypeScript typecheck and all 753 unit checks pass. Docker production
+  build and client manifests pass. Loaded native workers match the new geometry
+  source SHA-256 `5590b119fbe4acb3a61e56ffcf29b2e9c33c4a3bdf7b10fccad6c6a0b87ebde5`.
+- Real local browser regression uses retained padded and blank originals through
+  ordinary recognition/visual/printing queues; see PR/checkpoint for the final
+  result and desktop/phone review. No model download or physical scan is needed.
