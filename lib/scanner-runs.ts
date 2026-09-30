@@ -43,6 +43,7 @@ export async function createScannerBatch(db: PrismaClient, actor: AcquisitionAct
   const capture = await createAcquisitionSession(db, scoped, {
     requestKey: input.requestKey, ownerPlayerId: location.ownerPlayerId,
     locationId: location.id, section: input.section,
+    ...(input.defaults ? { defaults: input.defaults } : {}),
     policy: input.quantity === null ? { kind: "FILL" } : { kind: "MANUAL", quantity: input.quantity },
     run: { providerId: SCANNER_CAPTURE_PROVIDER, runId: input.requestKey,
       enforcement: "LOGICAL_ALLOCATION", controls: ["STOP"] },
@@ -212,7 +213,7 @@ export async function getScannerBatch(db: PrismaClient, userId: string, runId: s
     const run = await tx.scannerRun.findUnique({ where: { id: runId }, include });
     if (!run || run.acquisitionRun.session.createdByUserId !== userId) throw denied();
     await readAcquisitionRow(tx, { userId, adminMode: false }, run.acquisitionRun.sessionId);
-    return { ...command(run), device: run.device, outcome: run.outcome, reconciliation: run.reconciliation,
+    return { ...command(run), agentId: run.agentId, device: run.device, outcome: run.outcome, reconciliation: run.reconciliation,
       preflightProblem: scannerPreflightProblemSchema.safeParse(run.preflightProblem).success ? run.preflightProblem : null };
   });
   return state;

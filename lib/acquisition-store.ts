@@ -49,6 +49,7 @@ const createInput = z
     ownerPlayerId: identity,
     locationId: identity,
     section: z.string().max(100),
+    defaults: acquisitionDefaultsSchema.optional(),
     policy: z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("FILL") }).strict(),
       z
@@ -364,6 +365,7 @@ export async function createAcquisitionSession(
           placement,
           policy: state.policy,
           target: state.target,
+          ...(input.defaults ? { reviewDefaults: input.defaults } : {}),
           run: {
             create: {
               sourceRunId: input.run.runId,

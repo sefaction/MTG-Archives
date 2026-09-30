@@ -1,5 +1,7 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import type { ScannerContinuation } from "@/lib/scanner-continuation";
 import { AcquisitionCommitControls } from "./AcquisitionCommitControls";
 import { ScannerSourceFields, ScannerRunControls, type ScannerChoice } from "./ScannerBatchControls";
 import { AcquisitionBulkReview } from "./AcquisitionBulkReview";
@@ -67,15 +69,20 @@ export function AcquisitionCapture({
   initialBatch,
   initialScanner,
   recent,
+  initialSetup = null,
+  setupMessage = "",
 }: {
   userId: string;
   locations: StorageLocation[];
   initialBatch: string;
   initialScanner: boolean;
   recent: { id: string; batchNumber: number; phase: string }[];
+  initialSetup?: ScannerContinuation | null;
+  setupMessage?: string;
 }) {
-  const [locationId, setLocationId] = useState("");
-  const [section, setSection] = useState("");
+  const [locationId, setLocationId] = useState(initialSetup?.locationId ?? "");
+  const [section, setSection] = useState(initialSetup?.section ?? "");
+  const router = useRouter(), [refreshingCapacity, refreshCapacity] = useTransition();
   const [quantity, setQuantity] = useState(1);
   const [customLimit, setCustomLimit] = useState(false);
   const [scannerChoice, setScannerChoice] = useState<ScannerChoice | null>(null);
@@ -246,6 +253,7 @@ export function AcquisitionCapture({
       if (!createKey.current) createKey.current = captureUuid();
       const state = await request<Progress>(scannerChoice ? "/api/scanners/runs" : "/api/acquisition", {
         ...(scannerChoice ? { ...scannerChoice, action: "create" } : {}),
+        ...(scannerChoice && initialSetup ? { defaults: initialSetup.defaults } : {}),
         requestKey: createKey.current,
         locationId,
         section,
@@ -440,6 +448,8 @@ export function AcquisitionCapture({
             Set up a new scan batch
           </h2>
           <p className="text-sm mb-3">Choose a destination and card input below. Starting a scanner batch sends the scan command to the connected computer.</p>
+          {setupMessage && <p className="text-sm mb-3" role="status">{setupMessage}</p>}
+          {initialSetup && scannerEnabled && <p className="text-sm mb-3">Batch defaults: {initialSetup.defaults.finish.toLowerCase()} · {initialSetup.defaults.condition ?? "condition not set"}. You can change these during review.</p>}
           <StorageDestinationPicker
             locations={locations}
             locationId={locationId}
@@ -486,12 +496,16 @@ export function AcquisitionCapture({
               : scannerEnabled ? `${remaining} spaces remain. Load no more than that; the scanner runs until the feeder is empty.` : `${remaining} spaces remaining in this destination.`}{" "}
             {!scannerEnabled && "One card per photo."}
           </p>
-          <ScannerSourceFields initialEnabled={initialScanner} onChange={scannerChanged} disabled={busy} remaining={customLimit ? Math.min(quantity,remaining??quantity) : remaining} />
+          <button className={button+" mb-3"} disabled={busy || refreshingCapacity} onClick={()=>refreshCapacity(()=>router.refresh())}>
+            {refreshingCapacity ? "Refreshing capacity…" : "Refresh capacity"}
+          </button>
+          <p className="text-sm mb-3">Capacity shown here includes stored cards. Pending batches and capacity are checked again before the scanner starts and before Inventory addition.</p>
+          <ScannerSourceFields initialEnabled={initialScanner} initialChoice={initialSetup?.scanner} onChange={scannerChanged} disabled={busy || refreshingCapacity} remaining={customLimit ? Math.min(quantity,remaining??quantity) : remaining} />
           <button
             className={primary}
             disabled={
-              busy ||
-              !locationId ||
+              busy || refreshingCapacity ||
+              !destination ||
               (scannerEnabled && !scannerChoice) ||
               remaining === 0 ||
               (customLimit &&

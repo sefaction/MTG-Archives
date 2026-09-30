@@ -10,6 +10,7 @@ import { createScannerBatch, claimScannerRun, pollScannerRun, receiveScannerImag
   finishScannerRun, reconcileScannerBatch, getScannerBatch, stopScannerBatch, reportScannerPreflightProblem } from "../lib/scanner-runs";
 import { scannerSiteEpoch, scannerStartMarkerExists } from "../lib/scanner-control-files";
 import { scannerRunError } from "../lib/scanner-errors";
+import { scannerContinuation, currentScannerContinuation } from "../lib/scanner-continuation";
 import { getAcquisitionSession } from "../lib/acquisition-store";
 import { captureSummary } from "../lib/acquisition-domain";
 import { readAcquisitionPhotoBytes, photoDigest } from "../lib/acquisition-files";
@@ -216,9 +217,27 @@ export async function verifyScannerRuns(db: PrismaClient) {
     await db.inventoryLocation.update({ where: { id: locationId }, data: { storageLayout: { capacity: null, sections: [] } } });
     // A settled no-START cancellation permits another batch without count-entry.
     const next = await createScannerBatch(db, actor, { ...input, loadedCount: null,
-      agentId: guardedAgent.agentId, requestKey: randomUUID() }, epoch);
+      agentId: guardedAgent.agentId, requestKey: randomUUID(), defaults: { finish: "FOIL", condition: "LP" },
+      settings: { ...settings, dpi: 600 } }, epoch);
+    await assert.rejects(scannerContinuation(db, tag, next.runId), /settle first/);
     await assert.rejects(stopScannerBatch(db, other, next.runId));
     await stopScannerBatch(db, tag, next.runId);
+    const continuation = await scannerContinuation(db, tag, next.runId);
+    assert.equal(continuation.locationId, locationId); assert.equal(continuation.section, input.section);
+    assert.equal(continuation.scanner.agentId, guardedAgent.agentId); assert.equal(continuation.scanner.settings.dpi, 600);
+    assert.deepEqual(continuation.defaults, { finish: "FOIL", condition: "LP" });
+    await assert.rejects(scannerContinuation(db, other, next.runId));
+    assert.equal(currentScannerContinuation(continuation, []).setup, null);
+    const resumedInput = { ...input, ...continuation.scanner, locationId: continuation.locationId,
+      section: continuation.section, defaults: continuation.defaults, quantity: null, requestKey: randomUUID() };
+    const resumed = await createScannerBatch(db, actor, resumedInput, epoch);
+    assert.notEqual(resumed.sessionId, next.sessionId); assert.notEqual(resumed.runId, next.runId);
+    const newSession = await getAcquisitionSession(db, actor, resumed.sessionId);
+    assert.deepEqual(newSession.defaults, continuation.defaults);
+    assert.equal(newSession.session.artifacts.length, 0); assert.equal(newSession.session.candidates.length, 0);
+    assert.equal(newSession.session.target, null);
+    await assert.rejects(createScannerBatch(db, actor, { ...resumedInput, defaults: { finish: "NONFOIL", condition: "NM" } }, epoch));
+    await stopScannerBatch(db, tag, resumed.runId);
     // Database-only inconsistencies must not assert an unstarted cancellation.
     for (const uncertainty of ["epoch", "execution", "slot"] as const) {
       const helper = await enroll();

@@ -81,8 +81,30 @@ test("queued scanner errors explain recovery and clear after authorized start; c
     const ended = await page.request.get(`/api/scanners/runs?run=${next.runId}`);
     expect(ended.ok()).toBe(true); expect((await ended.json()).reconciliation.mode).toBe("CANCELLED_WITHOUT_START");
     await page.reload(); await expect(scanner).toContainText("No physical count is needed.");
+    database(`await p.acquisitionSession.update({where:{id:${JSON.stringify(next.sessionId)}},data:{reviewDefaults:{finish:'FOIL',condition:'LP'}}});await p.inventoryLocation.update({where:{id:${JSON.stringify(tag)}},data:{storageLayout:{capacity:5,sections:[]}}});`);
     await scanner.getByRole("link", { name: "New scanner batch" }).click();
-    await expect(page.getByRole("button", { name: "Start scanner batch", exact: true })).toBeVisible();
+    const start = page.getByRole("button", { name: "Start scanner batch", exact: true });
+    await expect(start).toBeEnabled();
+    await expect(page.locator('input[name="destinationLocationId"]')).toHaveValue(tag);
+    await expect(page.getByRole("combobox", { name: "Scanner source", exact: true })).toHaveValue(`${agentId}/${source.id}`);
+    const setup = page.getByRole("region", { name: "New scan batch" });
+    await expect(setup).toContainText("5 spaces remain.");
+    await expect(setup).toContainText("Batch defaults: foil · LP");
+    // Refresh changes capacity, never the user's source/destination or START.
+    database(`await p.inventoryLocation.update({where:{id:${JSON.stringify(tag)}},data:{storageLayout:{capacity:0,sections:[]}}});`);
+    await setup.getByRole("button", { name: "Refresh capacity", exact: true }).click();
+    await expect(setup).toContainText("0 spaces remain."); await expect(start).toBeDisabled();
+    await expect(page.locator('input[name="destinationLocationId"]')).toHaveValue(tag);
+    database(`await p.inventoryLocation.update({where:{id:${JSON.stringify(tag)}},data:{storageLayout:{capacity:1,sections:[]}}});`);
+    await setup.getByRole("button", { name: "Refresh capacity", exact: true }).click();
+    await expect(setup).toContainText("1 spaces remain."); await expect(start).toBeEnabled();
+    await pulse(); await start.click();
+    await expect(scanner).toContainText("Waiting for the Windows helper to start.");
+    const continued = JSON.parse(database(`const r=await p.acquisitionSession.findFirstOrThrow({where:{createdByUserId:${JSON.stringify(tag)},phase:'CAPTURING'},orderBy:{createdAt:'desc'}});console.log(JSON.stringify({id:r.id,defaults:r.reviewDefaults,target:r.target,photos:await p.acquisitionPhoto.count({where:{run:{sessionId:r.id}}})}));`));
+    expect(continued.id).not.toBe(next.sessionId); expect(continued.defaults).toEqual({ finish: "FOIL", condition: "LP" });
+    expect(continued.target).toBe(1); expect(continued.photos).toBe(0);
+    await scanner.getByRole("button", { name: "Cancel waiting scan" }).click();
+    await expect(scanner).toContainText("No physical count is needed.");
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
   } finally {
     database(`const n=${JSON.stringify(tag)};const w={run:{session:{createdByUserId:n}}};
