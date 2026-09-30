@@ -342,7 +342,32 @@ this process log does not contain the fatal0x80131506 message; this is not proof
 that its underlying cause recovered. The owned diagnostic worker is no longer
 running. No automatic retry occurred; the installed helper and Docker are unchanged.
 
-Physical movement/dialog outcome is awaiting the operator. Preserve the request,
+The operator reports the card is still in the tray, ready to go; precise movement/dialog details were not specified. Preserve the request,
 manifest, process/SDK logs and empty image set; footer qualification is unavailable.
 Both #539 and #542 remain open, and #540 remains a draft without merge approval.
 Further scans need a new explicit loading confirmation.
+## Motor-free modern-manager source access
+
+The earlier successful read-only probe selected the system twain_32.dll despite
+PreferNewDSM. A new private probe explicitly selects the pinned SDK archive's
+32-bit modern manager, preserving the prior probe application identity. Its first
+attempt failed with DllNotFoundException before the session opened because the
+probe omitted the explicit LoadLibrary step used by the SDK. Preserve that source
+and trace; it is a probe construction failure, not an acquisition root cause.
+
+The corrected version preloads that same manager successfully, then opens the
+session and Plustek source, reads state4 capabilities/layout, and closes both
+normally, external exit0/state2. It reports feederLoadedTrue, simplex600, crop/
+deskewFalse and the centered2.6x3.6 frame. No setters, Enable or images occurred.
+This existing .NET Framework x86 probe remains a different runtime/application
+path from the original bundled SDK worker. Successful modern-manager source
+access here does not isolate the helper's source-open versus Enable failure.
+No installed library or helper changed. The completed failed scan was not retried.
+
+Next inspect the helper's driver-window path only after the operator confirms
+removing the card and leaving feeder/transport empty. No physical scan is assumed;
+#540 stays a draft and both acquisition issues remain open.
+The operator subsequently removed the card and confirmed empty/powered/connected.
+One fresh driver-ui inspection using the tested private-logging build is pending;
+wait for the exact displayed settings and Exit report, and retain the same native
+context until actual completion. No Scan is authorized during this inspection.

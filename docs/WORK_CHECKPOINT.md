@@ -1,3 +1,43 @@
+## Active empty-feeder driver inspection — September 30, 2026
+
+Operator removed the test card and explicitly confirmed feeder/transport empty,
+powered on and connected. Fresh driver-ui inspection091950f0-1982-4249-becd-7edece5a486c
+uses the tested private-logging CLI build with original SDK/bundled worker. Tool
+session89481 is STILL RUNNING; acquisition-started event only so far. Preserve
+this SAME session until actual return. No scan/feed is authorized. Do not cancel,
+kill, dispose, replace or retry a native context merely because it is pending.
+
+Operator question pending: selected profile, exact Scan Type/page size/DPI,
+then Exit without changing settings or pressing Scan; report if no window appears.
+Next safe step is receive that report and poll write_stdin session89481. Retain
+all private logs/manifest/status. Completion cannot be inferred from UI closure.
+Draft #540 remains unapproved; a77ec64 had four green CI checks. New motor-free
+evidence/docs pending publication. Local Docker and installed helper unchanged.
+## Current scanner state — motor-free manager comparison, September 30, 2026
+
+Active leaf MTG-Archives-scanner-twain-footer, fix/scanner-twain-footer; PR #540
+is draft/unapproved. Published a77ec648f5451ddb98864835f1f10a0e4177e8bf has all
+four CI checks SUCCESS. #541 merged; #529 closed; #539 and #542 open.
+Operator reports card still in tray, ready to go after failed run2daaa32a;
+precise movement/dialog not stated. Original/SDK/process evidence preserved.
+No new physical acquisition occurred in this turn; installed helper/Docker unchanged.
+
+New private modern-manager readonly attempt4ff6deef failed before session open
+with DllNotFoundException: missing SDK-equivalent preload in probe construction.
+All prior files preserved. Corrected probe865dad1d preloaded the pinned x86 modern
+DSM, then source/session open+closeSuccess, exit0/state2, no setters/Enable/images.
+Readback: feederLoadedTrue, simplex600, centered2.6x3.6, crop/deskewFalse. Probe
+identity retained; NET Framework runtime differs from bundled worker. This narrows
+source access only, not actual SDK startup/configuration/Enable or footer integrity.
+Both native contexts actually returned; none remains pending. New probe files/logs
+remain private. Documentation-only update pending commit/push; no new code tests.
+
+Outstanding question: remove card, leave feeder+transport empty, confirm powered
+and connected for driver-window inspection. Do not open UI until that reply.
+Next safe step: one fresh driver-ui request with tested logging helper and original
+SDK/worker, empty feeder only; operator Exit without Scan; retain SAME context
+until actual return. No timeout/disposal/replacement or automatic retry/feed.
+Earlier checkpoint sections below are preserved historical snapshots.
 ## Current checkpoint — restarted one-card diagnostic, September 30, 2026
 
 Active leaf: MTG-Archives-scanner-twain-footer, branch fix/scanner-twain-footer,
