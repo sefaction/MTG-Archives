@@ -1,3 +1,28 @@
+## Bulk preview accepted locally, September30,2026
+
+- PR538 on individually unapproved533; app9837212, cumulativebc7bf74. Corrected
+  32-photo baseline reproduced overwritten deselection; original offscreen
+  fixture failure kept separately and not product evidence. No recognition code.
+- App keeps per-photo explicit choices, appends groups to current state,
+  invalidates/aborts obsolete reload/close/unmount results, uses snapshot total,
+  and resets on batch identity. Existing draft/revision/explicit Inventory paths.
+- Core88002 terminal0: generation/typecheck,732 units,Windows build/manifests.
+  Final type/lint29115/67905 terminal0. Build22763/reload82266 terminal0/healthy200.
+- Cumulative exact image6460e4a56c13d1a9aeca18fa4b8592018c7161b52eba9fc8ca71dbafb8748b68,
+  495inputs/digestc0090fc4a44f76e8129c3cc6a5bdf156872ae78787da87a943017ec755441a98.
+  Source proof before/after browser exact; primary only mounts/config/installer.
+- Browser97971 terminal0,3/3/1.2m: bulk32photos40.4s,draft14photos21.7s,fast3photos9.6s.
+  Later groups,changed printing,superseded reload/close/reopen and full32 rows;
+  zero preview writes. Draft fixture intentionally commits and cleans local copies.
+  Desktop1366x768/phone320x700 inspected,no overflow. Synthetic images/suggestions,
+  not accuracy/hardware/image-rendering throughput. Exact logs private .local-data.
+- All original9837212 CI3green; updated tests/docs require fresh CI before READY.
+  No motor,installed helper change,production or merge. Fresh one-card loading
+  unanswered; latest feeder EMPTY. Full goal ACTIVE/incomplete. Next529 rejected
+  Start safe recovery; package/clean-host/physical600 gates and463 remain explicit.
+- Approval queue488,491,495,513,514,516,517,519,521,523,525,526,528,531,533,535,536,538.
+  Every PR and dependency individually unapproved. All current handles terminal.
+
 ## Bulk preview implementation and local gate, September30,2026
 
 - Issue537 corrected owned32-photo baseline reproduced unchecked -> checked
@@ -2838,4 +2863,5 @@ Next safe step: investigate #260 with repeated browser lifecycle runs and creden
 - Compatible private recovery capture: `.local-data/backups/drill-e7b779ba-5758-4b40-aa32-b762d9d46bd3`. Older PG18 capture `drill-e171be3b-98c3-403e-87ce-2f3aa99ca6af` is failed evidence, not a verified backup.
 - Recovery archive excludes separate pricing DB/configuration/master key. Filesystem copy is not atomic with DB replacement. Revoke restored AuthSession records before exposing a restored web server; see AUTH_SESSIONS.md.
 - Read Foundry hub/workflow/relevant notes before batches. Durable knowledge goes there; code/test evidence in repo/GitHub.
+
 

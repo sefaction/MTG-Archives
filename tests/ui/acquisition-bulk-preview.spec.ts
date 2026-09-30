@@ -11,11 +11,12 @@ function database(body: string) {
 test("bulk deselection survives incremental proposals without a review or Inventory write",async({page,baseURL})=>{
   test.skip(process.env.MTG_LOCAL_PILOT_TEST!=="1","Owned local controlled proposals; no recognition/hardware claim");
   expect(baseURL).toBe("http://127.0.0.1:13001");test.setTimeout(180000);
+  await page.setViewportSize({width:1366,height:768});
   const tag=`ui-bulk-preview-${randomUUID()}`,password=randomUUID();
   const printing={id:`${tag}-card`,name:"Bulk preview fixture",setCode:"tst",collectorNumber:"1",lang:"en",imageUri:null,finishes:["nonfoil","foil"]};
   let batch="",hold=false,held=0,pending=0;
   let release:()=>void=()=>{};let gate=new Promise<void>(resolve=>{release=resolve;});
-  let obsolete=false;
+  let obsolete=false,changeSecond=false;
   try{
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:64,sections:[{name:'A',capacity:64}]}}});await p.card.create({data:{...${JSON.stringify(printing)},scryfallId:require('crypto').randomUUID(),typeLine:'Creature',rarity:'common'}});`);
     await page.goto("/login");await page.getByLabel(/username or email/i).fill(tag);await page.getByLabel(/^password$/i).fill(password);
@@ -33,13 +34,14 @@ test("bulk deselection survives incremental proposals without a review or Invent
     }
     const endpoint=`/api/acquisition/${batch}/review`;
     await page.route(`**${endpoint}?*`,async route=>{
-      const wasObsolete=obsolete,wait=gate,shouldHold=hold;
+      const wasObsolete=obsolete,wasChanged=changeSecond,wait=gate,shouldHold=hold;
       const response=await route.fetch();const record=await response.json();
       const index=photos.indexOf(new URL(route.request().url()).searchParams.get("photoId")!);
       const delayed=shouldHold&&index>=4;
       if(delayed){held++;pending++;await wait;}
       try {
-        await route.fulfill({json:{...record,suggestions:[{printing:wasObsolete?{...printing,name:"Obsolete preview"}:printing,reasons:["Controlled bulk proposal"]}]}});
+        const proposal=wasObsolete?{...printing,name:"Obsolete preview"}:wasChanged&&index===1?{...printing,id:`${tag}-different`,collectorNumber:"2",name:"Changed printing"}:printing;
+        await route.fulfill({json:{...record,suggestions:[{printing:proposal,reasons:["Controlled bulk proposal"]}]}});
       } finally { if(delayed) pending--; }
     });
     await page.goto(`/imports/scan?batch=${batch}`);
@@ -54,6 +56,15 @@ test("bulk deselection survives incremental proposals without a review or Invent
     await expect(bulk.getByText(/Loading proposals:/)).toHaveCount(0);
     await expect(first).not.toBeChecked(); // Old local next-array replaces the user's deselection.
     await expect(bulk.getByRole("button",{name:"Confirm 31 selected matches",exact:true})).toBeEnabled();
+    // Explicit approval cannot silently transfer to a newly proposed printing.
+    const second=bulk.getByRole("checkbox",{name:`Card 2: ${printing.name}`,exact:true});
+    await second.uncheck();await second.check();changeSecond=true;
+    await bulk.getByRole("button",{name:"Reload proposals",exact:true}).click();
+    await expect(bulk.getByText(/Loading proposals:/)).toHaveCount(0);
+    await expect(bulk.getByRole("checkbox",{name:"Card 2: Changed printing",exact:true})).not.toBeChecked();
+    await expect(first).not.toBeChecked();
+    await expect(bulk.getByRole("button",{name:"Confirm 30 selected matches",exact:true})).toBeEnabled();
+    changeSecond=false;
     // Exercise the full incremental list and both layouts without saving it.
     while(await bulk.getByRole("button",{name:"Load more matches",exact:true}).count())
       await bulk.getByRole("button",{name:"Load more matches",exact:true}).click();

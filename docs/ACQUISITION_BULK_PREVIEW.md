@@ -32,3 +32,23 @@ reload supersession, close/reopen, and no preview writes. Synthetic CARD_SCAN
 uploads and supplied proposals test UI behavior, not recognition accuracy or
 scanner hardware. Desktop and 320px screenshots and final local build evidence
 will be recorded after the implementation is loaded and checked.
+
+## Local acceptance, September 30, 2026
+
+PR #538 on individually unapproved #533. App9837212, cumulativebc7bf74.
+Core verification passed: Prisma generation/typecheck,732 units, Windows build
+and all client-manifest guards. Final focused typecheck/lint also passed.
+Linux cumulative build22763 and web-only reload82266 completed0; host login200.
+Exact image6460e4a56c13d1a9aeca18fa4b8592018c7161b52eba9fc8ca71dbafb8748b68,
+495 source inputs, digestc0090fc4a44f76e8129c3cc6a5bdf156872ae78787da87a943017ec755441a98.
+
+Grouped browser97971 passed3/3 in1.2m:32-photo bulk40.4s,14-photo draft actions21.7s,
+three-photo fast corrections9.6s. The bulk case covered delayed incremental groups,
+explicit approval of a changed printing, all32 rendered rows, superseding reload,
+close/reopen and old callbacks draining. Zero review/Inventory writes occurred in
+that preview. The existing draft case intentionally performed its scoped fixture
+Inventory writes and duplicate-safe recovery, then cleanup. Desktop1366x768 and
+320x700 bulk layouts inspected; no phone overflow. Synthetic bulk proposals have
+no printing image; this is not an image-rendering throughput or accuracy benchmark.
+All fixture records/files were scoped and cleaned. No native helper/motor operated.
+All three original-head CI checks passed; refreshed test/docs head needs fresh CI.
