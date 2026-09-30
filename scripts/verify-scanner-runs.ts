@@ -119,6 +119,30 @@ export async function verifyScannerRuns(db: PrismaClient) {
     assert.deepEqual((await eligibleScannerOriginals(db, first.token, { ...retention,
       artifacts: [{ ...retention.artifacts[0], digest: "0".repeat(64) }] }, epoch)).eligible, []);
     assert.deepEqual((await eligibleScannerOriginals(db, first.token, retention, epoch)).eligible, [t1.artifactId]);
+    // Normal uncounted feeder runs settle from complete, retained front images.
+    // No loaded-card or emitted-card number is supplied by the operator.
+    const uncounted = await createScannerBatch(db, actor, { ...input, requestKey: randomUUID(), loadedCount: null }, epoch);
+    assert.equal(uncounted.loadedCount, null);
+    const uncountedClaim = { ...claim, runId: uncounted.runId, executionId: randomUUID() };
+    await claimScannerRun(db, first.token, uncountedClaim, epoch);
+    for (let sequence=1;sequence<=2;sequence++) await receiveScannerImage(db, first.token, {
+      ...uncountedClaim, artifactId: randomUUID(), sequence, timestamp: new Date().toISOString(), side: "UNKNOWN", physicalBoundary: "UNKNOWN",
+    }, epoch, bytes, "image/png");
+    assert.equal((await finishScannerRun(db, first.token, { ...uncountedClaim, outcome: {
+      ...outcome, outcome: "SOURCE_EXHAUSTED", sourceExhausted: "REPORTED_EMPTY",
+    } }, epoch)).physicalCount, "ASSUMED_FROM_IMAGES");
+    assert.equal(((await getScannerBatch(db, tag, uncounted.runId)).reconciliation as { mode: string }).mode, "SCANNER_IMAGE_COUNT");
+    assert.equal(captureSummary((await getAcquisitionSession(db, actor, uncounted.sessionId)).session).confirmedCandidates, 2);
+    assert.equal(await db.inventoryItem.count({ where: { currentOwnerId: tag } }), 0);
+    const interrupted = await createScannerBatch(db, actor, { ...input, requestKey: randomUUID(), loadedCount: null }, epoch);
+    const interruptedClaim = { ...claim, runId: interrupted.runId, executionId: randomUUID() };
+    await claimScannerRun(db, first.token, interruptedClaim, epoch);
+    await receiveScannerImage(db, first.token, { ...interruptedClaim, artifactId: randomUUID(), sequence: 1,
+      timestamp: new Date().toISOString(), side: "UNKNOWN", physicalBoundary: "UNKNOWN" }, epoch, bytes, "image/png");
+    await finishScannerRun(db, first.token, { ...interruptedClaim, outcome: { ...outcome, outcome: "ERROR", imageCount: 1,
+      nativeError: { type: "FixtureInterrupted", nativeStatus: 1 } } }, epoch);
+    assert.equal((await getScannerBatch(db, tag, interrupted.runId)).reconciliation, null);
+    await reconcileScannerBatch(db, tag, { ...observation, runId: interrupted.runId, cardsEmitted: 1 });
     // New batch is allowed only after physical reconciliation. Extra captures
     // remain durable provisional overflow; the software does not truncate them.
     const extraInput = { ...input, requestKey: randomUUID() };

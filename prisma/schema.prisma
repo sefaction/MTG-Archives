@@ -228,7 +228,7 @@ model ScannerRun {
   deviceId        String
   device          Json
   settings        Json
-  loadedCount     Int
+  loadedCount     Int?
   status          String @default("QUEUED")
   executionId     String?
   stopRequestedAt DateTime?

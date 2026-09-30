@@ -452,7 +452,7 @@ export function AcquisitionPhotoReview({
                   </span>
                 )}
               </figcaption>
-              <div className="aspect-[1000/1397] max-h-[52vh] flex items-center justify-center bg-black/10 rounded overflow-hidden">
+              <div className="aspect-[1000/1397] max-h-[75vh] flex items-center justify-center bg-black/10 rounded overflow-hidden">
                 {selected?.imageUri && active ? (
                   <PrintingImage
                     src={selected.imageUri}

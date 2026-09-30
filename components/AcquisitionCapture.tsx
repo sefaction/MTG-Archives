@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AcquisitionCommitControls } from "./AcquisitionCommitControls";
 import { ScannerSourceFields, ScannerRunControls, type ScannerChoice } from "./ScannerBatchControls";
+import { AcquisitionBulkReview } from "./AcquisitionBulkReview";
 import { SCANNER_CAPTURE_PROVIDER } from "@/lib/scanner-run-protocol";
 import { StorageDestinationPicker } from "./StorageDestinationPicker";
 import {
@@ -71,7 +72,7 @@ export function AcquisitionCapture({
   const [customLimit, setCustomLimit] = useState(false);
   const [scannerChoice, setScannerChoice] = useState<ScannerChoice | null>(null);
   const [scannerEnabled, setScannerEnabled] = useState(false);
-  const scannerChanged = useCallback((value: ScannerChoice | null, enabled: boolean) => { setScannerChoice(value); setScannerEnabled(enabled); createKey.current = ""; }, []);
+  const scannerChanged = useCallback((value: ScannerChoice | null, enabled: boolean) => { setScannerChoice(value); setScannerEnabled(enabled); if (enabled) setCustomLimit(false); createKey.current = ""; }, []);
   const [batchId, setBatchId] = useState(initialBatch);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [error, setError] = useState("");
@@ -443,7 +444,7 @@ export function AcquisitionCapture({
               createKey.current = "";
             }}
           />
-          <label className="block my-3">
+          {!scannerEnabled && <label className="block my-3">
             <input
               type="checkbox"
               checked={customLimit}
@@ -453,8 +454,8 @@ export function AcquisitionCapture({
               }}
             />{" "}
             Set a batch limit (optional)
-          </label>
-          {customLimit && (
+          </label>}
+          {!scannerEnabled && customLimit && (
             <label className="block my-3">
               Cards in this batch{" "}
               <input
@@ -472,9 +473,9 @@ export function AcquisitionCapture({
           )}
           <p className="text-sm mb-3">
             {remaining === null
-              ? "This location has no capacity set. Keep scanning and watch the running count, then stop when finished."
-              : `${remaining} spaces remaining in this destination.`}{" "}
-            One card per photo.
+              ? scannerEnabled ? "No capacity set. The scanner runs until the feeder is empty and shows the saved image count." : "This location has no capacity set. Keep scanning and watch the running count, then stop when finished."
+              : scannerEnabled ? `${remaining} spaces remain. Load no more than that; the scanner runs until the feeder is empty.` : `${remaining} spaces remaining in this destination.`}{" "}
+            {!scannerEnabled && "One card per photo."}
           </p>
           <ScannerSourceFields onChange={scannerChanged} disabled={busy} remaining={customLimit ? Math.min(quantity,remaining??quantity) : remaining} />
           <button
@@ -716,14 +717,7 @@ export function AcquisitionCapture({
             revision={progress.defaultsRevision}
             refresh={() => void refresh()}
           />
-          <AcquisitionCommitControls
-            key={`commit:${batchId}`}
-            progress={progress}
-            locations={locations}
-            selected={selectedPhotos}
-            onSelect={setSelectedPhotos}
-            refresh={refresh}
-          />
+          <AcquisitionBulkReview batchId={batchId} slots={progress.slots} defaults={progress.defaults} refresh={refresh} />
           <section className={panel}>
             <h3 className="font-semibold">Saved cards</h3>
             <p className="text-sm mb-3">
@@ -742,6 +736,7 @@ export function AcquisitionCapture({
                 return (
                   <div
                     key={slot.id}
+                    id={`capture-card-${slot.position + 1}`}
                     data-testid={`capture-card-${slot.position + 1}`}
                     className="min-w-0 space-y-2 border-b border-[var(--app-border)] pb-6"
                   >
@@ -830,6 +825,14 @@ export function AcquisitionCapture({
               {progress.slots.length} cards. More cards load as you scroll.
             </p>
           </section>
+          <AcquisitionCommitControls
+            key={`commit:${batchId}`}
+            progress={progress}
+            locations={locations}
+            selected={selectedPhotos}
+            onSelect={setSelectedPhotos}
+            refresh={refresh}
+          />
         </>
       )}
       <p className="text-xs text-[var(--app-muted)]">

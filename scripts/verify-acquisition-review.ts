@@ -42,7 +42,7 @@ export async function verifyAcquisitionReview(
   });
   try {
     let state = await getAcquisitionCardReview(db, actor, sessionId, photoId);
-    assert.deepEqual(state.defaults, { finish: "UNKNOWN", condition: null });
+    assert.deepEqual(state.defaults, { finish: "NONFOIL", condition: "NM" });
     await assert.rejects(
       getAcquisitionCardReview(db, stranger, sessionId, photoId),
       /unavailable/,

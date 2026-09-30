@@ -169,7 +169,7 @@ export function AcquisitionScanImage({
       <figcaption className="font-semibold mb-2 min-h-12 sm:min-h-0">
         Your scan
       </figcaption>
-      <div className="aspect-[1000/1397] max-h-[52vh] flex items-center justify-center bg-black/10 rounded overflow-hidden">
+      <div className="aspect-[1000/1397] max-h-[75vh] flex items-center justify-center bg-black/10 rounded overflow-hidden">
         {active ? (
           <canvas
             ref={canvas}
