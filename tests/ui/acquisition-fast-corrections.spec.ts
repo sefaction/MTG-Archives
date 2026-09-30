@@ -34,7 +34,7 @@ test("fast printing correction keeps drafts, metadata and destination while resu
       }); expect(uploaded.ok()).toBe(true); photos.push((await uploaded.json()).id);
       // Deliberate presentation fixture: skip expensive recognition. Real saved
       // originals, revisions, reviews and destination remain authoritative.
-      database(`await p.acquisitionProcessingJob.updateMany({where:{run:{sessionId:${JSON.stringify(batch)}},status:{in:['PENDING','RUNNING']}},data:{status:'FAILED',error:'Controlled UI fixture; recognition not evaluated'}});`);
+      database(`await p.acquisitionProcessingJob.updateMany({where:{run:{sessionId:${JSON.stringify(batch)}},status:{in:['PENDING','RUNNING']}},data:{status:'FAILED',errorCode:'CONTROLLED_UI_FIXTURE'}});`);
     }
     const reviewEndpoint = `/api/acquisition/${batch}/review`;
     const middle = await (await page.request.get(`${reviewEndpoint}?photoId=${photos[1]}`)).json();
