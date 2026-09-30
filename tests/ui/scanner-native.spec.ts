@@ -85,7 +85,7 @@ test("website START through actual Windows fixture helper reaches ordinary recog
     await expect(inventory).toContainText('Added 1 copy to Inventory.');
     const committed=JSON.parse(database(`console.log(JSON.stringify({rows:await p.inventoryItem.findMany({where:{currentOwnerId:${JSON.stringify(tag)}}}),audits:await p.inventoryAuditLog.count({where:{changedByUserId:${JSON.stringify(tag)},changeType:'acquisition_committed'}})}));`));
     expect(committed.rows).toHaveLength(1);expect(committed.audits).toBe(1);
-    expect(committed.rows[0]).toMatchObject({quantity:1,locationId:tag,section:'A',sourceType:'ACQUISITION',foilStatus:'NONFOIL',condition:'NM'});
+    expect(committed.rows[0]).toMatchObject({quantity:1,locationId:tag,locationSection:'A',sourceType:'ACQUISITION',foilStatus:'NONFOIL',condition:'NM'});
     for(const width of [1366,320]) {await page.setViewportSize({width,height:900});await inventory.scrollIntoViewIfNeeded();
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
       await page.screenshot({path:`test-results/scanner-inventory-${width}.png`});}
