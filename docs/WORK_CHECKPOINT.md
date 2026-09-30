@@ -1,3 +1,21 @@
+## Driver screenshot confirms Cards is duplex; separate simplex profile pending
+
+September30,2026: operator screenshot DocTwain shows profileCARDS, ScanType
+ADF(Duplex), PageSizeCards, displayed6.60x9.14cm (~2.6x3.6in),600dpi/24-bitColor,
+AutoCropoff, AutoDeskewunchecked/disabled, AutoRotateoff. AutoDensityon,
+brightness15/contrast35. Private screenshot copy+SHA retained. This explains two
+images from nativeUImanualscan, not all headless clipping or exact prior SDKstate.
+
+Original tested driver-ui inspection a5d9d453 remainsLIVE execSession82300.
+Revised operator instruction: with feederempty setADF(Simplex), save separate
+CardsSimplex profile preservingCARDS baseline/other displayedsettings, select it,
+noScan, Exit. Save/selection/windowclosure pending; don't assumecompleted.
+Nextsafe step resume SAMEsession82300 untilactualreturn afteroperatorExit; preserve
+originalmanifest/logs, then one motor-free before-enable readback to test whether
+simplexprofile avoids reset. No physicalfeed withoutnewfreshloadingconfirmation.
+#540draft/unapproved46e2a4f;541merged529closed. No helperinstall/Docker/Inventory/
+recognition/productionchange. Conditionstatussamplinglimitation remains recorded.
+
 ## Empty-scanner probe complete; driver settings window inspection pending
 
 September30,2026. Operator reports previous private run's card stayed in feeder;

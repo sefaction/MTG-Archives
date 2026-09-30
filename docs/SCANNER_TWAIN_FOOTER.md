@@ -254,3 +254,19 @@ The probe has a separate application identity and is not the shipping worker.
 An empty-feeder original tested driver-window inspection is pending to obtain the
 exact selected Cards scan mode/page/DPI. Operator instruction is no Scan, no
 changes/save, then Exit. Keep the same native context until actual completion.
+
+## Cards profile screenshot resolves the manual-mode uncertainty
+
+The operator-provided DocTwain screenshot shows profileCARDS with ADF(Duplex),
+PageSizeCards,6.60x9.14cm (approximately2.6x3.6in),600dpi and24-bitColor.
+AutoCrop is off; AutoDeskew is unchecked/disabled; AutoRotate is off.
+AutoDensity is on, brightness15 and contrast35. The original screenshot is
+retained privately with its hash. The observed duplex selection is consistent with the two
+images from the operator-controlled driver-window comparison; it does not prove
+the exact mode of every prior scan or isolate headless clipping.
+
+The operator is asked to create/select a separate CardsSimplex profile with
+ADF(Simplex), preserving CARDS and the other displayed settings, and Exit without
+Scan. Profile save/selection and native-window closure are pending. Keep the live
+settings context until actual return, then inspect negotiation without enabling
+acquisition before considering any freshly confirmed physical comparison.
