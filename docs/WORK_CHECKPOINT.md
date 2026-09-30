@@ -1,3 +1,23 @@
+## Private trace comparison completed with driver error; physical outcome pending
+
+September30,2026: freshly loaded-confirmed run48ae964f-1197-421a-a235-fdae771b3bbf
+executed ONCE in private runtime variant. External exit1, ERROR/image0/1545ms.
+Source open Success; before-configure frame centered2.95/0/5.55/3.6,600dpi,
+duplexTrue,crop/deskewFalse. After existing duplexFalse request, readback became
+Legal0/0/8.5/14 and200dpi. Existing custom-frame Set returnedSuccess but immediate
+readback remainedLegal. AfterConfigure dpi600/duplexFalse/frameLegal. Source.Enable
+returnedFailure/state4; normal unload returnedstate2. No transfer event/image.
+Original trace/events/run/process logs retained, SHA recorded privately.
+No private host/worker remains; no forced stop or automatic retry/refeed.
+
+Physical outcome question pending: whether card stayed in feeder without movement/
+dialog, moved/ejected or dialog appeared. Do not assume motor inactivity or empty
+transport from ERROR/noimages. No next feed authorized. Keep driver untouched until
+operator observation, then choose motor-free recovery/inspection as appropriate.
+This private runtime+state4-query variant is not exact bundled-worker negotiation
+or an isolated footer root cause. #540 stays draft; #541 merged,529closed. No
+installed helper, production, recognition, Inventory or local web change.
+
 ## Private TWAIN trace ready; fresh loading confirmation pending, September 30, 2026
 
 Active branch fix/scanner-twain-footer, PR540 draft/unapproved, issue539 open.

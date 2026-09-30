@@ -208,3 +208,22 @@ A fresh default600/simplex2.6x3.6/Center request is prepared but not started.
 Wait for a new operator loading confirmation before any physical acquisition.
 The preceding Center comparison is complete/clipped, not pending. PR541 is merged
 and issue529 closed; PR540 remains an independently unapproved diagnostic draft.
+
+## First private intra-worker acquisition attempt: completed error
+
+After a fresh single-card loading confirmation, the private runtime variant ran
+once and completed ERROR with zero images in1545ms, external process exit1.
+Source opening succeeded. The source initially reported the centered2.6x3.6
+frame,600dpi,duplexTrue and crop/deskewFalse. After the original simplex request,
+its reported frame became Legal and resolution200. The original custom-frame Set
+returnedSuccess but immediate readback stayedLegal. After standard configuration,
+readback was600dpi/duplexFalse/frameLegal. Acquisition enabling returnedFailure
+instate4; normal unloading returnedstate2. No image-transfer event was recorded.
+
+Every trace/event/run/private SDK/process file is retained. No owned worker or
+native context remains and no automatic retry, forced kill or refeed occurred.
+Operator physical outcome is pending; ERROR/noimages does not prove no motion
+or an empty feeder/transport. Do not start another run from the prior loading
+confirmation. This narrows the private worker's configuration evidence but does
+not isolate the footer cause or qualify a change to the bundled runtime. The
+shipping helper, website, Inventory and recognition behavior remain unchanged.
