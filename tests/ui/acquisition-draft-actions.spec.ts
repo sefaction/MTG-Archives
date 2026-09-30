@@ -95,6 +95,13 @@ test("unsaved corrections protect bulk reviews and Inventory while clean cards s
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
     await page.evaluate(key => localStorage.removeItem(key),keyFor(photos[2]));
     await inventory.getByRole("button", { name: "Preview selected cards", exact: true }).click();
+    const current = await (await page.request.get(`${endpoint}?photoId=${photos[2]}`)).json();
+    expect((await page.request.post(endpoint, { headers: { origin: baseURL! }, data: { action:"accept",photoId:photos[2],revision:current.revision,
+      decision:{cardId:printing.id,finish:"NONFOIL",condition:"NM",language:"en"} } })).ok()).toBe(true);
+    await inventory.getByRole("button", { name: "Add 1 copy to Inventory", exact: true }).click();
+    await expect(inventory.getByRole("alert")).toContainText("Capture preview changed");
+    expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
+    await inventory.getByRole("button", { name: "Preview selected cards", exact: true }).click();
     await inventory.getByRole("button", { name: "Add 1 copy to Inventory", exact: true }).click();
     await expect(inventory).toContainText("Added 1 copy to Inventory.");
     // Neither dirty saved review was committed, nor was its local correction cleared.
