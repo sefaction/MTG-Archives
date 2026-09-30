@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { execFileSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import sharp from "sharp";
 
 function database(body: string) {
@@ -86,7 +86,7 @@ test("fast printing correction keeps drafts, metadata and destination while resu
     expect(firstState).toMatchObject({ locationId: tag, section: "A" });
     expect(database(`console.log((await p.acquisitionSession.findUniqueOrThrow({where:{id:${JSON.stringify(batch)}}})).ownerPlayerId);`).trim()).toBe(tag);
     const metadata = JSON.parse(database(`console.log(JSON.stringify(await p.acquisitionPhoto.findUniqueOrThrow({where:{id:${JSON.stringify(photos[0])}},select:{inputKind:true,digest:true}})));`));
-    expect(metadata.inputKind).toBe("CARD_SCAN"); expect(metadata.digest).toMatch(/^[a-f0-9]{64}$/);
+    expect(metadata.inputKind).toBe("CARD_SCAN"); expect(metadata.digest).toBe(createHash("sha256").update(bytes).digest("hex"));
     await page.reload(); await card.scrollIntoViewIfNeeded(); await expect(card).toContainText("Fixture corrected printing");
     await card.getByRole("button", { name: "Correct", exact: true }).click(); await expect(card.getByRole("combobox", { name: "Card condition", exact: true })).toHaveValue("LP");
     await card.getByRole("button", { name: "Next awaiting review", exact: true }).click();
