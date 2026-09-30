@@ -69,7 +69,7 @@ export function AcquisitionCommitControls({
     pending.current = null;
     setRetrying(false);
   }
-  async function prepare() {
+  async function prepare(photoIds = selected) {
     setBusy(true);
     setError("");
     setReceipt(null);
@@ -77,11 +77,11 @@ export function AcquisitionCommitControls({
     try {
       const result = await post<AcquisitionCommitPreview>(progress.id, {
         action: "preview",
-        photoIds: selected,
+        photoIds,
         locationId,
         section,
       });
-      setPreviewSelection([...selected]);
+      setPreviewSelection([...photoIds]);
       setPreview(result);
     } catch (e) {
       setError((e as Error).message);
@@ -129,8 +129,8 @@ export function AcquisitionCommitControls({
     >
       <h3 className="font-semibold">Add reviewed cards to Inventory</h3>
       <p className="text-sm">
-        Select cards below. Unselected and unfinished cards stay in this batch.
-        Each selected photo adds one physical copy.
+        Review the destination, then add your confirmed matches. Unselected and
+        unfinished cards stay in this batch. Each selected photo adds one copy.
       </p>
       <p role="status">
         {selected.length} selected ·{" "}
@@ -172,6 +172,9 @@ export function AcquisitionCommitControls({
           progress can finish.
         </p>
       )}
+      <p className="text-sm">Destination: <strong>{locations.find(location => location.id === locationId)?.name ?? "Choose a location"}{section ? ` · ${section}` : ""}</strong></p>
+      <details open={!locationId}>
+      <summary className="cursor-pointer text-sm">Change destination</summary>
       <StorageDestinationPicker
         locations={locations}
         locationId={locationId}
@@ -186,6 +189,11 @@ export function AcquisitionCommitControls({
           resetPreview();
         }}
       />
+      </details>
+      {!selected.length && eligible.length > 0 && <button className={primary} disabled={busy || !stopped || !locationId}
+        onClick={() => { const ids = eligible.slice(0, 500); onSelect(ids); void prepare(ids); }}>
+        Review {Math.min(eligible.length, 500)} confirmed {eligible.length === 1 ? "card" : "cards"} for Inventory
+      </button>}
       <button
         className={button}
         disabled={

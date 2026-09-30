@@ -74,7 +74,22 @@ test("website START through actual Windows fixture helper reaches ordinary recog
     expect(log).toContain('"fixture":true');expect(log).toContain('Scanner run settled: 1 image(s) retained/delivered');
     expect(log.match(/"kind":"AcquisitionStarted"/g)?.length).toBe(1);
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
-    writeFileSync('test-results/scanner-native-result.json',JSON.stringify({passed:true,fixture:true,physicalScans:0,inventoryChanges:0,elapsedMs:Date.now()-began,originalDigest:originalHash,sourcePreserved:true,location:true,recognitionName:'Sunblade Samurai'}));
+    await page.getByRole('link',{name:'Add 1 confirmed card to Inventory',exact:true}).click();
+    const inventory=page.getByRole('region',{name:'Add reviewed cards to Inventory'});
+    await expect(inventory).toBeVisible();
+    await inventory.getByRole('button',{name:'Review 1 confirmed card for Inventory',exact:true}).click();
+    const addition=page.getByLabel('Confirm Inventory addition');
+    await expect(addition).toContainText('Add 1 copy');
+    expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
+    await addition.getByRole('button',{name:'Add 1 copy to Inventory',exact:true}).click();
+    await expect(inventory).toContainText('Added 1 copy to Inventory.');
+    const committed=JSON.parse(database(`console.log(JSON.stringify({rows:await p.inventoryItem.findMany({where:{currentOwnerId:${JSON.stringify(tag)}}}),audits:await p.inventoryAuditLog.count({where:{changedByUserId:${JSON.stringify(tag)},changeType:'acquisition_committed'}})}));`));
+    expect(committed.rows).toHaveLength(1);expect(committed.audits).toBe(1);
+    expect(committed.rows[0]).toMatchObject({quantity:1,locationId:tag,section:'A',sourceType:'ACQUISITION',foilStatus:'NONFOIL',condition:'NM'});
+    for(const width of [1366,320]) {await page.setViewportSize({width,height:900});await inventory.scrollIntoViewIfNeeded();
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+      await page.screenshot({path:`test-results/scanner-inventory-${width}.png`});}
+    writeFileSync('test-results/scanner-native-result.json',JSON.stringify({passed:true,fixture:true,physicalScans:0,inventoryChanges:1,explicitFinalConfirmation:true,elapsedMs:Date.now()-began,originalDigest:originalHash,sourcePreserved:true,location:true,recognitionName:'Sunblade Samurai'}));
   } finally {
     if(child && child.exitCode===null && child.signalCode===null){
       child.kill();await new Promise<void>(resolve=>{child!.once('exit',()=>resolve());setTimeout(resolve,5000);});
@@ -103,6 +118,8 @@ test("website START through actual Windows fixture helper reaches ordinary recog
         await fs.unlink(paths.join(root,'scanner-control-v1',run.id+'.start.json')).catch(e=>{if(e.code!=='ENOENT')throw e;});
       }
       await p.scannerRun.deleteMany({where:{agent:{userId:n}}});
+      await p.acquisitionCommitMember.deleteMany({where:w});await p.acquisitionCommit.deleteMany({where:w});
+      await p.inventoryAuditLog.deleteMany({where:{changedByUserId:n}});await p.inventoryItem.deleteMany({where:{currentOwnerId:n}});
       for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});
       await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});
       await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});

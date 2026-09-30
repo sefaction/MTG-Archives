@@ -170,6 +170,12 @@ export function AcquisitionCapture({
     return () => observer.disconnect();
   }, [visibleCount, filteredSlots.length]);
   const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
+  function showInventory() {
+    setInventoryOpen(true);
+    requestAnimationFrame(() => document.getElementById("scan-inventory")?.scrollIntoView({ block: "start" }));
+  }
   const video = useRef<HTMLVideoElement>(null),
     stream = useRef<MediaStream | null>(null);
   const tasks = useRef(new Set<string>()),
@@ -602,11 +608,14 @@ export function AcquisitionCapture({
               {Math.max(0, readyPhotos - progress.reviewed)} awaiting
               confirmation
             </p>
-            {!!readyPhotos && (
-              <a className="text-sm underline" href="#scan-review">
+            {!!readyPhotos && !bulkOpen && (
+              <a className="text-sm underline mr-3" href="#scan-review">
                 Review saved cards
               </a>
             )}
+            {reviewCounts.ready > 0 && <a className={primary + " mt-2"} href="#scan-inventory" onClick={event => { event.preventDefault(); showInventory(); }}>
+              Add {reviewCounts.ready} confirmed {reviewCounts.ready === 1 ? "card" : "cards"} to Inventory
+            </a>}
             <p className="text-xs text-[var(--app-muted)]">
               {progress.providerId === SCANNER_CAPTURE_PROVIDER ? "Check for missed or doubled cards before adding reviewed matches to Inventory." : progress.availableSlots === 0
                 ? "Batch full. You can still retry or retake a photo."
@@ -792,6 +801,8 @@ export function AcquisitionCapture({
               </ul>
             </section>
           )}
+          <details className="min-w-0" open={reviewMode === "advanced"}>
+          <summary className="cursor-pointer text-sm">Batch defaults: {progress.defaults.finish.toLowerCase()} · {progress.defaults.condition ?? "condition unset"} · Change</summary>
           <AcquisitionBatchDefaults
             key={`defaults:${batchId}`}
             batchId={batchId}
@@ -799,10 +810,20 @@ export function AcquisitionCapture({
             revision={progress.defaultsRevision}
             refresh={() => void refresh()}
           />
-          <AcquisitionBulkReview batchId={batchId} slots={progress.slots} defaults={progress.defaults} refresh={refresh} />
+          </details>
+          <AcquisitionBulkReview batchId={batchId} slots={progress.slots} defaults={progress.defaults} refresh={refresh}
+            onOpenChange={setBulkOpen} onConfirmed={ids => { setSelectedPhotos(previous => [...new Set([...previous, ...ids])]); showInventory(); }}
+            onInspect={position => { setReviewFilter("all"); setVisibleCount(count => Math.max(count, position));
+              requestAnimationFrame(() => document.getElementById(`capture-card-${position}`)?.scrollIntoView({ block: "start" })); }} />
+          <div id="scan-inventory" className="scroll-mt-56" hidden={!inventoryOpen}>
+            <button className={button + " mb-2"} onClick={() => { setInventoryOpen(false); document.getElementById("scan-review")?.scrollIntoView({ block: "start" }); }}>Back to matches</button>
+            <AcquisitionCommitControls key={`commit:${batchId}`} progress={progress} locations={locations}
+              selected={selectedPhotos} onSelect={setSelectedPhotos} refresh={refresh} />
+          </div>
           <div className="flex flex-col gap-4">
             <section
               id="scan-review"
+              hidden={bulkOpen}
               className={panel + " scroll-mt-56"}
             >
               <h3 className="font-semibold">Saved cards</h3>
@@ -856,7 +877,7 @@ export function AcquisitionCapture({
                 </label>
               </div>
               {reviewMode === "simple" && (
-                <a className="text-sm underline" href="#scan-inventory">
+                <a className="text-sm underline" href="#scan-inventory" onClick={event => { event.preventDefault(); showInventory(); }}>
                   Go to Inventory confirmation
                 </a>
               )}
@@ -992,16 +1013,6 @@ export function AcquisitionCapture({
                 More cards load as you scroll.
               </p>
             </section>
-            <div id="scan-inventory" className="scroll-mt-56">
-              <AcquisitionCommitControls
-                key={`commit:${batchId}`}
-                progress={progress}
-                locations={locations}
-                selected={selectedPhotos}
-                onSelect={setSelectedPhotos}
-                refresh={refresh}
-              />
-            </div>
           </div>
         </>
       )}

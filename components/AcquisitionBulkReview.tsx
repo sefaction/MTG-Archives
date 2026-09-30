@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { acquisitionProgressDto } from "@/lib/acquisition-api";
 import type { AcquisitionCardReview, AcquisitionDefaults } from "@/lib/acquisition-review";
 import { finishForPrinting } from "@/lib/acquisition-finish";
@@ -9,8 +9,9 @@ import { filterButtonClass as button, filterPrimaryButtonClass as primary, filte
 type Slot = ReturnType<typeof acquisitionProgressDto>["slots"][number];
 type Proposal = { photoId: string; position: number; record: AcquisitionCardReview; checked: boolean; saved: boolean; error: string };
 
-export function AcquisitionBulkReview({ batchId, slots, defaults, refresh }: {
+export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpenChange, onInspect, onConfirmed }: {
   batchId: string; slots: Slot[]; defaults: AcquisitionDefaults; refresh: () => Promise<void>;
+  onOpenChange?: (open: boolean) => void; onInspect?: (position: number) => void; onConfirmed?: (photoIds: string[]) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -20,12 +21,22 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh }: {
   const [target, setTarget] = useState(0);
   const [rows, setRows] = useState<Proposal[]>([]);
   const [error, setError] = useState("");
+  const [visible, setVisible] = useState(12);
+  const more = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) setVisible(count => Math.min(count + 12, rows.length));
+    }, { rootMargin: "300px" });
+    if (more.current) observer.observe(more.current);
+    return () => observer.disconnect();
+  }, [open, visible, rows.length]);
+  function close() { setOpen(false); onOpenChange?.(false); }
   const available = slots.flatMap(slot => {
     const photo = slot.photos.find(p => p.ready && !p.purgedAt);
     return photo && !slot.review && !slot.committed ? [{ photoId: photo.id, position: slot.position + 1 }] : [];
   });
   async function preview() {
-    setOpen(true); setLoading(true); setError(""); setLoaded(0); setSaved(0); setRows([]);
+    setOpen(true); onOpenChange?.(true); setVisible(12); setLoading(true); setError(""); setLoaded(0); setSaved(0); setRows([]);
     const next: Proposal[] = [];
     try {
       // Bounded requests keep large feeder batches from flooding the worker.
@@ -36,7 +47,7 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh }: {
           const record = await response.json() as AcquisitionCardReview;
           return { ...item, record, checked: Boolean(record.suggestions[0]) && !record.review, saved: false, error: "" };
         }));
-        next.push(...group); setLoaded(next.length);
+        next.push(...group); setLoaded(next.length); setRows([...next]);
       }
       setRows(next);
     } catch (cause) {
@@ -74,8 +85,10 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh }: {
       }
       setRows([...next]);
     }
-    await refresh();
-    setSaving(false);
+    try {
+      await refresh();
+      if (done > 0 && !next.some(row => row.error)) { close(); onConfirmed?.(next.filter(row => row.saved).map(row => row.photoId)); }
+    } finally { setSaving(false); }
   }
   return <section className={panel + " min-w-0 space-y-3"} aria-label="Bulk match review">
     <div className="flex flex-wrap items-center gap-2">
@@ -83,23 +96,24 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh }: {
         Bulk Confirm Match
       </button>
       <span className="text-sm">{available.length} cards awaiting match review</span>
+      {!saving && saved > 0 && <span role="status">{saved} {saved === 1 ? "review" : "reviews"} saved. Inventory has not changed.</span>}
     </div>
     {open && <div className="space-y-3">
       <p className="text-sm">Compare each scan with its proposed printing. Every proposal starts selected; clear any that needs individual correction. This saves reviews only. Inventory is a separate step.</p>
       <p className="text-sm">Batch defaults: {defaults.finish.toLowerCase()} · {defaults.condition ?? "condition unset"}. Change batch defaults or correct a card before confirming if these do not apply.</p>
+      <button className={button} disabled={saving} onClick={close}>Back to card list</button>
       {loading && <p role="status">Loading proposals: {loaded} of {available.length}</p>}
       {error && <p role="alert">{error}</p>}
-      {!loading && rows.length > 0 && <>
+      {rows.length > 0 && <>
         <div className="flex flex-wrap gap-2 items-center">
-          <button className={primary} disabled={saving || selected.length === 0} onClick={() => void confirm()}>
+          <button className={primary} disabled={loading || saving || selected.length === 0} onClick={() => void confirm()}>
             Confirm {selected.length} selected {selected.length === 1 ? "match" : "matches"}
           </button>
           <button className={button} disabled={saving} onClick={() => void preview()}>Reload proposals</button>
           {saving && <span role="status">Saved {saved} of {target} selected reviews…</span>}
-          {!saving && saved > 0 && <span role="status">{saved} {saved === 1 ? "review" : "reviews"} saved. Inventory has not changed.</span>}
         </div>
-        <div className="space-y-3 max-h-[70vh] overflow-y-auto">
-          {rows.map((row, index) => {
+        <div className="space-y-3">
+          {rows.slice(0, visible).map((row, index) => {
             const printing = choice(row);
             const canSelect = eligible(row);
             const proposedFinish = printing ? finishForPrinting(defaults.finish, printing) : null;
@@ -108,7 +122,9 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh }: {
                 <label className="font-medium"><input type="checkbox" checked={row.checked && canSelect} disabled={saving || !canSelect}
                   onChange={event => setRows(current => current.map((item, i) => i === index ? { ...item, checked: event.target.checked } : item))} />{" "}
                   Card {row.position}: {printing?.name ?? "No proposal"}</label>
-                <a className="underline text-sm" href={`#capture-card-${row.position}`}>Inspect or correct</a>
+                <a className="underline text-sm" href={`#capture-card-${row.position}`} onClick={event => {
+                  if (onInspect) { event.preventDefault(); close(); onInspect(row.position); }
+                }}>Inspect or correct</a>
               </div>
               {printing && <p className="text-sm">{printing.setCode.toUpperCase()} #{printing.collectorNumber} · {printing.lang?.toUpperCase() ?? "language unknown"} · {row.record.recognitionStatus.replaceAll("_", " ").toLowerCase()}</p>}
               {proposedFinish && proposedFinish !== defaults.finish && <p className="text-sm">This printing supports only {proposedFinish.toLowerCase()}; bulk review will use that finish.</p>}
@@ -121,6 +137,7 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh }: {
               {(row.record.review || row.saved) && <p className="text-sm">Review saved</p>}
             </div>;
           })}
+          {visible < rows.length && <div ref={more}><button className={button} onClick={() => setVisible(count => count + 12)}>Load more matches</button></div>}
         </div>
       </>}
     </div>}
