@@ -289,3 +289,35 @@ A fresh one-card comparison using the unchanged tested helper, original SDK and
 bundled worker is prepared but not started. Default600/simplex2.6x3.6/Center;
 wait for a fresh operator loading confirmation. Retain originals and physical
 outcome before claiming the profile or TWAIN acquisition qualified.
+
+## Unchanged-helper simplex-profile acquisition: completed error
+
+After a fresh one-card loading confirmation, the unchanged tested helper with the
+original SDK/bundled worker completed ERROR/image0/1691ms, external exit1. Its
+process log contains Fatalerror0x80131506 before the safe DeviceException event.
+The exact emitting child PID and native cause are unknown; scoped recent Windows
+worker-event queries found no matching crash record. All evidence is retained.
+The operator confirms the card stayed in the feeder with no movement or dialog.
+No owned diagnostic worker remains and no automatic retry, forced stop or refeed
+occurred. This attempt does not qualify the footer or resolve #539.
+
+New [#542](https://github.com/sefaction/MTG-Archives/issues/542) tracks the fatal/
+zero-image acquisition blocker separately from clipped images. No cause is
+attributed to the four pre-existing installed helper/worker pairs or to #511.
+A separate read-only loaded-feeder probe closed normally, no setters/Enable/
+images, and reports feederLoadedTrue, feederEnabledTrue, simplex,600dpi/custom
+frame. This rules out missing detection in that probe, not every acquisition path.
+The operator is asked to remove the card and power-cycle empty before readiness
+inspection. Do not infer recovery or authorize another feed from the prior load.
+
+## Explicit diagnostic exception detail
+
+The caught acquisition exception now goes to the existing opt-in private SDK log,
+including message/inner exception context. Ordinary contexts retain NullLogger;
+website journals/exports still use SafeError without driver messages or paths.
+A closed or failing private sink cannot suppress the sanitized error event.
+Release build and hardware-free discovery/diagnostic qualifications passed;
+default, private, closed-private and disk-failing-private cases preserve the
+public/private boundary. No new build was installed or used for physical scanning,
+and no SDK/worker/runtime or normal scan setting changed. Exact diagnostics can
+improve the next separately confirmed investigation, not fix acquisition itself.

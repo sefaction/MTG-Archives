@@ -66,6 +66,9 @@ same backend/spool and saves an explicit private SDK log. Normal website runs
 do not inherit these modes. Every physical attempt needs a fresh operator
 loading confirmation and run UUID; no mode automatically retries. Use an empty
 feeder/transport for driver-ui inspection and close without pressing Scan.
+Caught acquisition exceptions, including full message/inner context, are retained
+in that opt-in log. A closed or failing private log does not suppress the safe
+error journal. Default website diagnostics still omit messages and paths.
 Logs may contain native paths/device details and must not be published.
 See [TWAIN footer investigation](../../docs/SCANNER_TWAIN_FOOTER.md).
 

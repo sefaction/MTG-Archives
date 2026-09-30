@@ -1,3 +1,31 @@
+## Simplex-profile acquisition failed; private error detail added; recovery pending
+
+September30,2026: freshunchangedhelper run02909a3e actually returnedexit1/ERROR/
+image0/1691ms. LogincludesFatalerror0x80131506; emittingchildPID/causeUNKNOWN,
+scopedWindowsworker eventquerymatched0. No owned diagnosticworker remains;
+no forcedstop/retry/refeed. Operatorconfirmscardstayedfeeder/no movement/dialog.
+Newdistinctacquisitionblocker issue542 OPEN, linked539/473/511/540; do not claim
+pre-existing4helper/workerpairs causedit. No footerqualification achieved.
+Read-onlyloadedfeeder probe d87a3a81-8fb5-4f7f-bc53-67d8ec256ec5 endedexit0/source+sessioncloseSuccess,
+noSet/Enable/images: feederEnabledTrue/LoadedTrue,duplexFalse,DPI600/customframe.
+This separateidentitycurrentreadbackisn'tactualacquisitiontrace.
+
+Publicdraft540 code now records exact acquisition exceptions only through the
+existing opt-in diagnostic logger; defaultNullLogger and sanitized journal/export
+remain. Closed/disk-failingprivate sink cannot suppresssafeerrorjournal. Separate
+Releasebuild .local-data/diagnostic-error-detail-check PASS0warnings/errors;
+hardware-freediscovery+diagnosticqualification PASS(default/private/closed/failed
+sink privacyguards). Originaldiagnostic-check andinstalledhelper untouched;
+SDKpackage/worker unchanged. Newbuild notusedonhardware. Tests/sourceuncommitted
+untilscopedreview/push; #540stilldraft/unapproved,541merged529closed.
+
+Askedoperatorremove card, powercycleEMPTY10secs,leaveempty/poweredconnected.
+Recoveryconfirmation PENDING; do notassumecompleted. Nextsafestep afterreplyone
+read-onlyreadinesssession with noEnable; preserve actualcompletion. Any laterfeed
+needsnewfreshsingle-card/transportconfirmation, notthepriorfailedload. Native
+errorloggingcanhelpthen; no automaticretry orSDK/runtime/recognition/Inventory/
+productionchange. StablelocalDockerapplicationunchanged; CLIbuildseparate.
+
 ## Cards Simplex saved; motor-free continuity passed; fresh loading pending
 
 September30,2026: operator made profile and closed settings. Original session

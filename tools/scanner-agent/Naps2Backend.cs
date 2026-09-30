@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using NAPS2.Images;
 using NAPS2.Images.Gdi;
 using NAPS2.Scan;
@@ -206,7 +207,7 @@ public sealed class Naps2Backend : IScannerBackend
             catch (Exception error)
             {
                 outcome = "ERROR";
-                output.Event("ScannerError", SafeError(error));
+                RecordScanError(output, error);
             }
             if (cancelReason != null) outcome = "CANCELLED";
             else if (stopReason != null && outcome != "ERROR") outcome = prepared.AllowInterruptingStop
@@ -218,6 +219,15 @@ public sealed class Naps2Backend : IScannerBackend
             if (outcome == "ERROR") throw new InvalidOperationException("Acquisition failed; complete images and error evidence remain in spool");
         }
         finally { spool = null; lifecycle.Release(); }
+    }
+    // ConfigureDiagnostic is the only path that replaces the SDK NullLogger.
+    // Preserve exact driver context privately; the transport event stays sanitized.
+    internal void RecordScanError(RunSpool output, Exception error)
+    {
+        try { context.Logger.LogError(error, "Scanner acquisition failed; private diagnostic context"); }
+        catch (IOException) { /* Diagnostic disk failure must not suppress the journal. */ }
+        catch (ObjectDisposedException) { /* Retain the safe failure even if the private sink closed. */ }
+        output.Event("ScannerError", SafeError(error));
     }
     public static object SafeError(Exception error) => new
     {
