@@ -1,5 +1,6 @@
 param(
   [string]$DotnetPath = 'dotnet',
+  [string]$PythonPath = 'python',
   [string]$IsccPath = (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe')
 )
 
@@ -26,6 +27,7 @@ try {
   if ($connectionCheck.ExitCode -ne 0) { throw 'Scanner connection self-check failed' }
   $transportCheck = Start-Process -FilePath $helper -ArgumentList 'native-selftest' -Wait -PassThru -WindowStyle Hidden
   if ($transportCheck.ExitCode -ne 0) { throw 'Scanner transport self-check failed' }
+  & (Join-Path $PSScriptRoot 'prepare-local-notices.ps1') -PublishDir $published -PythonPath $PythonPath
   & $IsccPath "/DPublishDir=$published" "/O$output" $script
   if ($LASTEXITCODE -ne 0) { throw 'Scanner installer compile failed' }
   $installer = Join-Path $output 'MTGArchivesScannerSetup.exe'

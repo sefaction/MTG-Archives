@@ -14,6 +14,28 @@ The website serves `MTGArchivesScannerSetup.exe` only to a signed-in acquisition
 
 This is a **local test artifact**, not approved public binary distribution. Complete the package/embedded-worker/native DSM inventory, required notices and corresponding source/rebuild/replacement material, and clean-host driver/DSM check in [NAPS2 license qualification](SCANNER_NAPS2_LICENSES.md) before publishing an installer. Inno Setup 6.7.3's current non-commercial terms also need review if MTG Archives distribution becomes commercial. Keep the checksum and exact package/source revision with any reviewed release.
 
+## Updated helper and local acceptance, September 29
+
+The connected page also exposes an update download and the staged 0.3.2
+version. The installer supports replacing program files while retaining private
+connections and originals. Revoked credentials end the helper and dispose its
+discovery worker; temporary network errors keep the recoverable retry behavior.
+An actual installed-helper check ran across three discovery refresh intervals
+without accumulating workers, then website revocation stopped the helper and
+its worker. The fixture scan flow reached ordinary recognition, bulk match
+review, reload and explicit Inventory commit, with owned test cleanup. This
+does not replace fresh physical scanner observation.
+
+Local installer builds require Python in addition to Inno Setup and .NET SDK;
+the installed helper remains self-contained. The build records the actual
+embedded worker dependencies and copies available NuGet/runtime texts into
+`third-party/`. Its report explicitly leaves public distribution unapproved
+until missing notices, source/replacement and clean-host checks are complete.
+
+New feeder runs use 600 DPI and scan until natural completion, with saved-front
+image count as an explicitly labeled assumption on clean runs. Errors and
+interruptions still require reconciliation; the app cannot detect silent doubles.
+
 ## Verification boundaries
 
 - A protocol link contains only a short-lived one-use pairing code and website origin; it does not contain the ongoing helper credential. The helper displays the origin before claiming it. The one-use link can appear transiently in local process arguments, so never include it in diagnostics, screenshots or logs.
