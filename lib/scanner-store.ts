@@ -4,7 +4,8 @@ import { sessionCredentialHash } from "./auth-sessions";
 import { scannerCredential, scannerHash, scannerHashMatches, scannerPairClaimSchema,
   scannerPairCode, scannerPulseSchema, scannerSecret } from "./scanner-protocol";
 
-const unavailable = () => new Error("Scanner connection unavailable");
+import { ScannerConnectionDenied } from "./scanner-errors";
+const unavailable = () => new ScannerConnectionDenied();
 type Tx = Prisma.TransactionClient;
 export async function scannerTransaction<T>(db: PrismaClient, work: (tx: Tx) => Promise<T>) {
   for (let retry = 0; ; retry++) {
@@ -34,7 +35,10 @@ export async function createScannerPairing(db: PrismaClient, userId: string, now
   });
 }
 export async function claimScannerPairing(db: PrismaClient, value: unknown, now = new Date()) {
-  const input = scannerPairClaimSchema.parse(value), code = scannerPairCode(input.pairCode);
+  const input = scannerPairClaimSchema.parse(value);
+  let code: ReturnType<typeof scannerPairCode>;
+  try { code = scannerPairCode(input.pairCode); }
+  catch { throw unavailable(); }
   return transaction(db, async tx => {
     const pair = await tx.scannerPairing.findUnique({ where: { id: code.id } });
     if (!pair || pair.expiresAt <= now || !scannerHashMatches(code.secret, pair.codeHash)) throw unavailable();
