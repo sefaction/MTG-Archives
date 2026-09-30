@@ -87,6 +87,7 @@ public static class ScannerNativeRunner
         using var request = new HttpRequestMessage(HttpMethod.Post, route) { Content = JsonContent.Create(body, options: RunSpool.Json) };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using var response = await client.SendAsync(request);
+        if (ScannerConnectionRejected.IsPermanent(response.StatusCode)) throw new ScannerConnectionRejected(response.StatusCode);
         if (!response.IsSuccessStatusCode) throw new InvalidOperationException("Scanner transport unavailable; originals retained");
         var result = await response.Content.ReadFromJsonAsync<JsonElement>();
         if (result.GetProperty("version").GetInt32() != 1) throw new InvalidOperationException("Scanner protocol changed");
@@ -154,7 +155,8 @@ public static class ScannerNativeRunner
                     throw new InvalidDataException("Start claim requires physical reconciliation; no feed started");
                 break;
             }
-            catch (Exception error) when (error is HttpRequestException or TaskCanceledException or InvalidOperationException) {
+            catch (Exception error) when (error is not ScannerConnectionRejected &&
+                error is HttpRequestException or TaskCanceledException or InvalidOperationException) {
                 Console.WriteLine("Start acknowledgement unavailable. Same journal/claim retained; waiting before feed.");
                 await Task.Delay(1000);
             }
@@ -182,6 +184,16 @@ public static class ScannerNativeRunner
                 var next = artifacts.FirstOrDefault(a=>!delivered.Contains(a.Id));
                 if (next != null) { await Deliver(client, token, directory, saved, next); delivered.Add(next.Id); continue; }
                 if (scan.IsCompleted) break;
+            }
+            catch (ScannerConnectionRejected) {
+                // Stop further network attempts after permanent denial. Drain
+                // through the existing backend policy before releasing native
+                // resources; never cancel cards that are still in transport.
+                try { backend.RequestStop("connection no longer authorized; retain originals and drain"); }
+                catch { Console.WriteLine("Scanner stop request unavailable; waiting for native completion with originals retained."); }
+                try { await scan; } catch { /* Retained native journal is authoritative. */ }
+                Console.WriteLine("Scanner connection ended. Retained scans need reconciliation; scanner will not restart.");
+                throw;
             }
             catch (Exception error) when (error is HttpRequestException or TaskCanceledException or InvalidOperationException or IOException or JsonException) {
                 Console.WriteLine("Upload unavailable. Complete originals stay in the private spool; current feeder run drains.");
@@ -229,6 +241,7 @@ public static class ScannerNativeRunner
             sequence = artifact.Sequence, timestamp = timestamp.ToString("O"),
             side = artifact.Side, physicalBoundary = artifact.PhysicalBoundary }, RunSpool.Json));
         using var response = await client.SendAsync(request);
+        if (ScannerConnectionRejected.IsPermanent(response.StatusCode)) throw new ScannerConnectionRejected(response.StatusCode);
         if (!response.IsSuccessStatusCode) throw new InvalidOperationException("Scanner upload rejected; original retained");
         var ack = await response.Content.ReadFromJsonAsync<JsonElement>();
         Identity(ack, run.RunId);

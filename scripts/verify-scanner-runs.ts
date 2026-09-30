@@ -9,6 +9,7 @@ import { scannerSecret } from "../lib/scanner-protocol";
 import { createScannerBatch, claimScannerRun, pollScannerRun, receiveScannerImage,
   finishScannerRun, reconcileScannerBatch, getScannerBatch, stopScannerBatch, reportScannerPreflightProblem } from "../lib/scanner-runs";
 import { scannerSiteEpoch } from "../lib/scanner-control-files";
+import { scannerRunError } from "../lib/scanner-errors";
 import { getAcquisitionSession } from "../lib/acquisition-store";
 import { captureSummary } from "../lib/acquisition-domain";
 import { readAcquisitionPhotoBytes, photoDigest } from "../lib/acquisition-files";
@@ -193,7 +194,11 @@ export async function verifyScannerRuns(db: PrismaClient) {
     await db.inventoryItem.create({ data: { cardId: capacityCardId, currentOwnerId: tag,
       originalOpenerId: tag, locationId, quantity: 1, condition: "NM", sourceType: "MANUAL" } });
     const guardedClaim = { ...claim, runId: guarded.runId, executionId: randomUUID() };
-    await assert.rejects(claimScannerRun(db, guardedAgent.token, guardedClaim, epoch), /current remaining capacity/);
+    await assert.rejects(claimScannerRun(db, guardedAgent.token, guardedClaim, epoch), (error: unknown) => {
+      assert.equal(scannerRunError(error).status, 409);
+      assert.match((error as Error).message, /current remaining capacity/);
+      return true;
+    });
     assert.equal((await db.scannerRun.findUniqueOrThrow({ where: { id: guarded.runId } })).executionId, null);
     await stopScannerBatch(db, tag, guarded.runId);
     assert.equal((await getScannerBatch(db, tag, guarded.runId)).status, "CANCELLED_BEFORE_START");
@@ -203,7 +208,12 @@ export async function verifyScannerRuns(db: PrismaClient) {
     await reconcileScannerBatch(db, tag, { ...observation, runId: guarded.runId, cardsEmitted: 0 });
     assert.equal(await db.inventoryItem.count({ where: { currentOwnerId: tag } }), 1);
     await revokeScannerAgent(db, tag, first.agentId);
-    await assert.rejects(receiveScannerImage(db, first.token, t1, epoch, bytes, "image/png"));
+    const permanentDenial = (error: unknown) => { assert.equal(scannerRunError(error).status, 403); return true; };
+    await assert.rejects(pollScannerRun(db, first.token, epoch), permanentDenial);
+    await assert.rejects(reportScannerPreflightProblem(db, first.token, preflight, epoch), permanentDenial);
+    await assert.rejects(claimScannerRun(db, first.token, claim, epoch), permanentDenial);
+    await assert.rejects(receiveScannerImage(db, first.token, t1, epoch, bytes, "image/png"), permanentDenial);
+    await assert.rejects(finishScannerRun(db, first.token, { ...claim, outcome }, epoch), permanentDenial);
     console.log("PASS: native claim/replay/restore fencing, scoped originals/sequence/ACK replay, retained overflow, operator counts and server-gated original expiry; no motor or Inventory");
   } finally {
     // Include orphan DRAFT sessions from explicitly rejected/retry creation.

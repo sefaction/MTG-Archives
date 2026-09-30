@@ -6,6 +6,15 @@ export class ScannerConnectionDenied extends Error {
 export class ScannerRequestError extends Error {
   constructor(public readonly status: 400 | 413) { super(status === 413 ? "Scanner request too large" : "Scanner request unavailable"); }
 }
+export class ScannerRunConflict extends Error {
+  constructor(message = "Capture scanner run unavailable") { super(message); }
+}
+
+export function scannerRunError(error: unknown) {
+  if (!(error instanceof ScannerRunConflict)) return scannerConnectionError(error);
+  return Response.json({ error: "This scanner batch needs review or reconciliation. Saved originals are kept." },
+    { status: 409, headers: { "Cache-Control": "no-store" } });
+}
 
 // Only a known credential/ownership rejection is permanent. In particular,
 // never expose a database exception as 403: helpers stop on revoked credentials.

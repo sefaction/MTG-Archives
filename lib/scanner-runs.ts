@@ -11,9 +11,10 @@ import { inspectAcquisitionPhoto, writeAcquisitionPhotoBytes } from "./acquisiti
 import { candidateKey, correctPhysicalCount, confirmPhysicalCountBatch } from "./acquisition-domain";
 import { persistScannerStartMarker, scannerStartMarkerExists } from "./scanner-control-files";
 import { lockAndReadInventoryCapacity } from "./inventory-capacity";
+import { ScannerRunConflict } from "./scanner-errors";
 
 type Tx = Prisma.TransactionClient;
-const denied = () => new Error("Capture scanner run unavailable");
+const denied = () => new ScannerRunConflict();
 const include = { acquisitionRun: { include: { session: true } } } as const;
 async function agentRun(tx: Tx, authorization: string | null, input: { runId: string; epoch: string }, epoch: string) {
   const auth = await authenticateScanner(tx, authorization, new Date());
@@ -47,7 +48,7 @@ export async function createScannerBatch(db: PrismaClient, actor: AcquisitionAct
       enforcement: "LOGICAL_ALLOCATION", controls: ["STOP"] },
   });
   if (capture.session.target !== null && input.loadedCount !== null && input.loadedCount > capture.session.target)
-    throw new Error("Choose a loaded batch within the selected remaining capacity");
+    throw new ScannerRunConflict("Choose a loaded batch within the selected remaining capacity");
   await executeAcquisitionCommand(db, scoped, capture.session.id, { requestKey: "initial-start", revision: 0, command: "START" });
   return scannerTransaction(db, async tx => {
     const row = await readAcquisitionRow(tx, scoped, capture.session.id);
@@ -57,7 +58,7 @@ export async function createScannerBatch(db: PrismaClient, actor: AcquisitionAct
       return command(old);
     }
     if (row.phase !== "CAPTURING" || await tx.scannerRun.count({ where: { agentId: helper.id, reconciliation: { equals: Prisma.DbNull } } }))
-      throw new Error("Capture scanner has an unfinished batch; reconcile it before starting another");
+      throw new ScannerRunConflict("Capture scanner has an unfinished batch; reconcile it before starting another");
     const agent = await tx.scannerAgent.findUniqueOrThrow({ where: { id: helper.id } });
     if (agent.revokedAt || agent.userId !== actor.userId || !agent.lastSeenAt || Date.now() - agent.lastSeenAt.getTime() >= 30000)
       throw denied();
@@ -94,7 +95,7 @@ export async function claimScannerRun(db: PrismaClient, authorization: string | 
       section: progress.session.placement.section,
     });
     if (capacity.remaining !== null && (capacity.remaining === 0 || current.loadedCount !== null && current.loadedCount > capacity.remaining))
-      throw new Error("Choose a loaded batch within the current remaining capacity; no feed authorized");
+      throw new ScannerRunConflict("Choose a loaded batch within the current remaining capacity; no feed authorized");
     // File write deliberately occurs under the short serialized claim lock.
     // If DB commit fails, the marker persists and denies automatic refeeding.
     if (!await persistScannerStartMarker(run.id, epoch, input.executionId)) {
@@ -141,7 +142,7 @@ export async function receiveScannerImage(db: PrismaClient, authorization: strin
     const row = await readAcquisitionRow(tx, auth.actor, run.acquisitionRun.sessionId);
     const old = await tx.acquisitionCaptureSlot.findUnique({ where: { runId_requestKey: {
       runId: row.run!.id, requestKey: input.artifactId } } });
-    if (old && old.position !== input.sequence - 1) throw new Error("Photo scanner sequence identity conflict");
+    if (old && old.position !== input.sequence - 1) throw new ScannerRunConflict("Photo scanner sequence identity conflict");
     if (!old && (!state.destinationCurrent || !["CAPTURING", "STOPPING"].includes(row.phase) || run.status === "DRAINED")) throw denied();
     // No target truncation: overscan becomes provisional overflow in the ordinary
     // acquisition model. Its original remains recoverable on either host.
@@ -181,7 +182,7 @@ export async function finishScannerRun(db: PrismaClient, authorization: string |
     const photos = await tx.acquisitionPhoto.findMany({ where: { runId: run.acquisitionRunId }, include: { slot: true } });
     const positions = photos.map(p=>p.slot.position).sort((a,b)=>a-b);
     if (photos.length !== input.outcome.imageCount || photos.some(p=>!p.ready) || positions.some((p,i)=>p!==i))
-      throw new Error("Capture scanner transfers need reconciliation before completion");
+      throw new ScannerRunConflict("Capture scanner transfers need reconciliation before completion");
     const row = await readAcquisitionRow(tx, actor, run.acquisitionRun.sessionId);
     const status = ["ERROR", "INTERRUPTED"].includes(input.outcome.outcome) ? "ERROR" : "DRAINED";
     const natural = run.loadedCount === null && status === "DRAINED" && !run.stopRequestedAt &&
@@ -245,7 +246,7 @@ export async function reconcileScannerBatch(db: PrismaClient, userId: string, va
     const cancelledEmpty = run.status === "CANCELLED_BEFORE_START" && input.cardsEmitted === 0 && state.session.candidates.length === 0;
     if (!cancelledEmpty && (state.session.candidates.length !== input.cardsEmitted || run.loadedCount !== null && input.cardsEmitted !== run.loadedCount ||
       (run.outcome as Prisma.JsonObject)?.imageCount !== input.cardsEmitted))
-      throw new Error("Capture scanner physical count differs; retain images for individual reconciliation");
+      throw new ScannerRunConflict("Capture scanner physical count differs; retain images for individual reconciliation");
     let after = state.session;
     for (const c of after.candidates) after = correctPhysicalCount(after, {
       candidateKey: candidateKey(after.run.runId, c.input.id), revision: c.revision,

@@ -4,6 +4,7 @@ import { scannerSiteEpoch } from "@/lib/scanner-control-files";
 import { claimScannerRun, finishScannerRun, pollScannerRun, reportScannerPreflightProblem } from "@/lib/scanner-runs";
 import { scannerRunClaimSchema, scannerRunFinishSchema, scannerPreflightReportSchema } from "@/lib/scanner-run-protocol";
 import { z } from "zod";
+import { scannerRunError } from "@/lib/scanner-errors";
 const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("poll"), version: z.literal(1) }).strict(),
   scannerRunClaimSchema.extend({ action: z.literal("claim") }).strict(),
@@ -21,8 +22,5 @@ export async function POST(request: Request) {
       action === "claim" ? await claimScannerRun(prisma, authorization, value, epoch) :
         await finishScannerRun(prisma, authorization, value, epoch);
     return Response.json(result, { headers: { "Cache-Control": "no-store" } });
-  } catch {
-    return Response.json({ error: "Scanner run unavailable; retained originals require review or retry" },
-      { status: 409, headers: { "Cache-Control": "no-store" } });
-  }
+  } catch (error) { return scannerRunError(error); }
 }
