@@ -521,7 +521,7 @@ export function AcquisitionCapture({
           >
             <h2 className="text-xl font-semibold">
               Batch {progress.batchNumber} · {progress.reservedSlots}
-              {progress.providerId === SCANNER_CAPTURE_PROVIDER ? ` ${progress.reservedSlots === 1 ? "image" : "images"}${progress.target===null ? "" : ` · target ${progress.target} ${progress.target === 1 ? "card" : "cards"}`}` : progress.target === null
+              {progress.providerId === SCANNER_CAPTURE_PROVIDER ? ` ${progress.reservedSlots === 1 ? "image" : "images"}` : progress.target === null
                 ? " cards"
                 : ` of ${progress.target} cards`}
             </h2>
@@ -535,7 +535,7 @@ export function AcquisitionCapture({
               confirmation
             </p>
             <p className="text-xs text-[var(--app-muted)]">
-              {progress.providerId === SCANNER_CAPTURE_PROVIDER ? "Scanner images stay provisional until the physical batch is verified." : progress.availableSlots === 0
+              {progress.providerId === SCANNER_CAPTURE_PROVIDER ? "Check for missed or doubled cards before adding reviewed matches to Inventory." : progress.availableSlots === 0
                 ? "Batch full. You can still retry or retake a photo."
                 : progress.availableSlots === null
                   ? "No capacity limit set. Stop capture when finished."

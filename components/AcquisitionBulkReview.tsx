@@ -107,11 +107,11 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh }: {
                 <a className="underline text-sm" href={`#capture-card-${row.position}`}>Inspect or correct</a>
               </div>
               {printing && <p className="text-sm">{printing.setCode.toUpperCase()} #{printing.collectorNumber} · {printing.lang?.toUpperCase() ?? "language unknown"} · {row.record.recognitionStatus.replaceAll("_", " ").toLowerCase()}</p>}
-              <div className="grid grid-cols-2 gap-2 mt-2 max-w-lg">
-                <img loading="lazy" className="w-full max-h-52 object-contain bg-black/10" src={`/api/acquisition/${batchId}/photos/${row.photoId}`} alt={`Scan of card ${row.position}`} />
-                {printing?.imageUri ? <img loading="lazy" className="w-full max-h-52 object-contain bg-black/10" src={printing.imageUri} alt={`Proposed ${printing.name}`} /> : <span>No printing image</span>}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 max-w-3xl">
+                <img loading="lazy" className="w-full max-h-96 object-contain bg-black/10" src={`/api/acquisition/${batchId}/photos/${row.photoId}`} alt={`Scan of card ${row.position}`} />
+                {printing?.imageUri ? <img loading="lazy" className="w-full max-h-96 object-contain bg-black/10" src={printing.imageUri} alt={`Proposed ${printing.name}`} /> : <span>No printing image</span>}
               </div>
-              {!canSelect && !row.record.review && <p className="text-sm">{printing ? "This printing needs a finish or language correction before confirmation." : "Wait for a proposal or find the printing manually."}</p>}
+              {!canSelect && !row.record.review && !row.saved && <p className="text-sm">{printing ? "This printing needs a finish or language correction before confirmation." : "Wait for a proposal or find the printing manually."}</p>}
               {row.error && <p role="alert" className="text-sm">{row.error}</p>}
               {(row.record.review || row.saved) && <p className="text-sm">Review saved</p>}
             </div>;

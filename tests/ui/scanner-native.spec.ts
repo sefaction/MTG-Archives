@@ -24,13 +24,15 @@ test("website START through actual Windows fixture helper reaches ordinary recog
     await page.getByRole('button',{name:/^log in$/i}).click();await page.waitForURL(/\/dashboard/);await page.goto('/imports/scan');
     const connections=page.getByRole('region',{name:'Scanner connections'});
     await connections.getByRole('button',{name:'Connect a scanner',exact:true}).click();
-    await connections.getByRole('button',{name:'Create connection code'}).click();
-    const code=await connections.locator('code').innerText();
+    await expect(connections.getByRole('button',{name:'Connect this computer'})).toBeVisible();
+    const pairing=await page.request.post('/api/scanners',{data:{action:'pair'},headers:{origin:baseURL!}});
+    expect(pairing.ok()).toBe(true);
+    const code=(await pairing.json()).code as string;
     agentId=helper(['connect',baseURL!,'--local'],`${code}\n`).match(/Connection identity: ([a-f0-9-]{36})/)?.[1]??'';expect(agentId).not.toBe('');
     child=spawn(dotnet!,[dll!,'fixture-server',agentId,original!],{windowsHide:true,env:{...process.env,MTG_LOCAL_PILOT_TEST:'1'},stdio:['ignore','pipe','pipe']});
     child.stdout?.on('data',chunk=>{log+=chunk.toString();});child.stderr?.on('data',chunk=>{log+=chunk.toString();});
     await expect(connections.getByText('Online',{exact:true})).toBeVisible({timeout:30000});
-    await connections.getByRole('button',{name:'Connect a scanner',exact:true}).click(); // No pairing secret in screenshots.
+    await connections.getByRole('button',{name:'Scanner connected',exact:true}).click(); // No pairing secret in screenshots.
     await page.getByTestId('storage-destination').getByRole('combobox').fill(tag);await page.getByRole('option').first().click();
     await page.getByRole('button',{name:/^A\s/}).click();
     await page.getByLabel('Scan from a connected scanner',{exact:true}).check();
@@ -60,6 +62,7 @@ test("website START through actual Windows fixture helper reaches ordinary recog
     await expect(bulk.getByRole('checkbox',{name:/Card 1: Sunblade Samurai/})).toBeChecked();
     await bulk.getByRole('button',{name:'Confirm 1 selected match'}).click();
     await expect(bulk).toContainText('1 review saved. Inventory has not changed.');
+    await card.scrollIntoViewIfNeeded(); // Review rows load when they enter the viewport.
     await expect(card).toContainText('Review saved',{timeout:20000});
     for(const width of [1366,320]) {await page.setViewportSize({width,height:900});await scanner.scrollIntoViewIfNeeded();
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
