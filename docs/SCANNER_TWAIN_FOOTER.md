@@ -153,7 +153,31 @@ owned diagnostics finished; no timeout, forced termination or refeed occurred.
 Four pre-existing installed helpers and their four workers remained stable;
 none was started, replaced or stopped. Their presence is not a proved cause.
 
-Operator power-cycle recovery with empty feeder/transport is requested before
-another motor-free source check. Do not automatically retry the physical scan,
-claim a footer fix or consider the driver qualified. No Inventory, production,
-recognition or local web changes occurred.
+The operator power-cycled with empty feeder/transport and confirmed connected.
+One motor-free follow-up recovered source access and completed normally with
+zero acquisition/images. In that private state4 trace, the centered custom frame
+survived transfer/indicator/feeder settings, then CAP_DUPLEXENABLED=False changed
+reported layout to0,0,8.5,14. Subsequent Start and Center custom-frame requests
+both returned Success, but the immediate readback remained Legal. Crop/deskew
+stayed false, resolution600 and duplex false. All source/session closes succeeded.
+
+This identifies a before-enable state change in the private probe, not a complete
+cause of the prior SDK scans. The subsequent default headless600/Center comparison is complete, as recorded
+below; native-state readback alone did not predict a complete returned image. Do not claim a
+footer fix or consider the driver qualified. No Inventory, production, recognition,
+installed helper or local web changes occurred.
+## Center-alignment physical comparison, September 30
+
+With a fresh one-card loading/ready confirmation, the unchanged tested helper
+completed a TWAIN/default600/simplex2.6x3.6/Center run normally in11.644s,
+process exit0. One1365x1996 original (6,576,091 bytes) is retained and its SHA-256
+matches its manifest. Visual inspection still shows the clipped Sunblade Samurai
+footer. The operator confirms exactly one undamaged card, feeder/transport empty
+and no jam, double feed or driver dialog. No automatic refeed occurred.
+
+Center alignment alone did not fix this run. The separate state4 probe is not
+an actual SDK scan negotiation trace; inspect inside the pinned SDK worker before
+further physical comparisons. Native UI remains a useful full-footer comparison
+but not a qualified automatic fallback. No installed helper, recognition,
+Inventory, production or local web change occurred. Rejected-Start PR541 was
+separately individually approved and merged into main; this draft remains open.
