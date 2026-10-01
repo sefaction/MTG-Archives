@@ -1,12 +1,12 @@
 ## Scan preview persistence ready for review — October 1, 2026
 
-- Branch codex/scan-image-persistence, managed worktree C:/Users/brian/.codex/worktrees/scan-image-persistence/MTG-Archives; base main6891f298. Issue #562; PR pending creation. Primary checkout's pre-existing checkpoint changes preserved.
+- Branch codex/scan-image-persistence, managed worktree C:/Users/brian/.codex/worktrees/scan-image-persistence/MTG-Archives; base main6891f298. Issue #562; [PR #563](https://github.com/sefaction/MTG-Archives/pull/563) open and unmerged. Implementation commit de622b9. Primary checkout's pre-existing checkpoint changes preserved.
 - Production-reported Your scan disappearance reproduced locally: viewport exit removed canvas and cleared rendered pixels. Fix keeps lazy first activation and bounded pixels, skips equivalent evidence refreshes, releases decoded originals, and offers explicit image retry.
 - 760/760 units, TypeScript, production Docker build and host full-verification core gates passed. Broad UI:19passed/80explicit skips initially; nine initial failures all passed on the stable-image recheck. Initial run overlapped Docker replacement. No unresolved broad browser failures.
 - Desktop1366/phone390 scrolling, interrupted first load, blocked repeat photo requests, view controls and retry passed. Strengthened full-pixel/Advanced-scroll and existing fast-correction checks passed (3/3); see ignored .local-data/scan-final-verification.log.
 - Local web/acquisition/catalog use sha256:8efa5150456cd7961f7d2c4d7ccb16d33d86f9c15de8016fe1d4ad01dcb6aaec. All506host/running inputs match digest c492bc9e4b750aa6c3b69f3ed41021665596524ced23521f3a798cbb8094040d. LoginHTTP200. Existing verified installer, Compose layers/data mounts and native worker images retained. Overlay primary/.local-data/scan-image-persistence-review.yml appended to previous configuration.
 - No scanner operation, production change or changes to existing user reviews/Inventory. Only fixture reviews were saved and removed; test-owned data cleaned. Exact behavior/provenance: docs/SCAN_PREVIEW_PERSISTENCE.md.
-- Next safe step: push/open PR, await individual merge approval. No outstanding product choice. Production acceptance remains after the operator update.
+- Next safe step: finish GitHub checks and await individual approval of PR #563 before merge. No outstanding product choice. Production acceptance remains after the operator update.
 
 ## Recognition audit individually approved; merge reconciliation — October 1, 2026
 

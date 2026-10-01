@@ -41,6 +41,7 @@ Local HTTP login returned 200. Ignored review overlay:
 primary checkout `.local-data/scan-image-persistence-review.yml`, appended to all
 previous active Compose layers. Screenshots/logs are local test artifacts.
 
-Issue #562 owns this narrow preview bug. No physical scanner operation or production update was performed. Existing user
+[PR #563](https://github.com/sefaction/MTG-Archives/pull/563), implementation commit
+`de622b9`, owns issue #562 for this narrow preview bug. No physical scanner operation or production update was performed. Existing user
 reviews and Inventory were unchanged; only fixture reviews were saved and removed. The PR requires
 individual approval before merge; production acceptance follows the operator update.
