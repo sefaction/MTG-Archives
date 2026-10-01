@@ -34,6 +34,7 @@ export function AcquisitionScanImage({
       : undefined;
   const rotation = evidence?.rotation ?? (reverse ? 180 : 0);
   const declaredScan = evidence?.geometry.method === "declared-card-scan";
+  const trimmedScan = evidence?.geometry.method === "scanner-background-trim";
   const fullFrame = declaredScan || evidence?.geometry.method === "full-frame";
   const observation = evidence?.observations.find(
     (o) => o.rotationDegrees === rotation,
@@ -196,7 +197,7 @@ export function AcquisitionScanImage({
           <canvas
             ref={canvas}
             role="img"
-            aria-label={`${displayView === "original" || !quad ? "Original scan" : fullFrame ? "Full card image" : "Detected card"} ${position}`}
+            aria-label={`${displayView === "original" || !quad ? "Original scan" : trimmedScan ? "Prepared card" : fullFrame ? "Full card image" : "Detected card"} ${position}`}
             className="max-w-full max-h-full object-contain"
           />
         ) : (
@@ -213,7 +214,7 @@ export function AcquisitionScanImage({
           {(
             [
               ["original", "Original"],
-              ["crop", fullFrame ? "Full card image" : "Detected card"],
+              ["crop", trimmedScan ? "Prepared card" : fullFrame ? "Full card image" : "Detected card"],
               ["zones", "Reading zones"],
             ] as const
           ).map(([key, label]) => (
@@ -241,6 +242,8 @@ export function AcquisitionScanImage({
         <p className="text-xs mt-2">
           {!quad
             ? "No detected outline available; showing original."
+            : trimmedScan
+              ? "A small strip of scanner background was trimmed for reading. Your original and the card border are kept."
             : declaredScan
               ? "Card scan: full image retained; border detection skipped."
               : fullFrame

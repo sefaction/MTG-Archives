@@ -69,16 +69,61 @@ def preserve_full_frame(image):
     return False
 
 
+def scanner_background_quad(image):
+    """Remove only a small bright outer band beyond a dark card border.
+
+    CARD_SCAN is already framed: never rank internal contours or infer a card
+    from aspect alone. White borders, blank scans, broad margins and ambiguous
+    seams retain the entire frame. This proposal changes derived pixels only.
+    """
+    h, w = image.shape[:2]
+    # All channels must be bright: colored card content is not background.
+    bright = np.min(image, axis=2) >= 245
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    bounds = [0, 0, w - 1, h - 1]
+    for axis, length in ((0, h), (1, w)):
+        profile = np.mean(bright, axis=1 - axis)
+        dark_profile = np.mean(gray < 70, axis=1 - axis)
+        for reverse in (False, True):
+            light = profile[::-1] if reverse else profile
+            dark = dark_profile[::-1] if reverse else dark_profile
+            # Opposite white edge makes a white card border ambiguous.
+            if light[0] < .98 or light[-1] >= .98:
+                continue
+            non_background = np.flatnonzero(light < .98)
+            if not len(non_background):
+                continue
+            band = int(non_background[0])
+            # A card scan needs little trimming. Reject broad padding rather
+            # than search deeper into a card's printed frame or footer.
+            if not .02 * length <= band <= .08 * length:
+                continue
+            seam = dark[band:band + max(2, round(length * .002))]
+            if not len(seam) or np.min(seam) < .90:
+                continue
+            # Leave one background pixel outside the border; never cut into it.
+            index = (3 if reverse else 1) if axis == 0 else (2 if reverse else 0)
+            bounds[index] = length - band if reverse else band - 1
+    x0, y0, x1, y1 = bounds
+    cw, ch = x1 - x0 + 1, y1 - y0 + 1
+    if bounds == [0, 0, w - 1, h - 1]:
+        return None
+    if cw * ch < .86 * w * h or not .66 <= min(cw, ch) / max(cw, ch) <= .80:
+        return None
+    return order_quad([[x0, y0], [x1, y0], [x1, y1], [x0, y1]])
+
 def geometry(image, input_kind='PHOTO'):
     h, w = image.shape[:2]
     if input_kind not in ('PHOTO', 'CARD_SCAN'):
         raise ValueError('Unknown image input kind')
     if input_kind == 'CARD_SCAN' or preserve_full_frame(image):
-        q = order_quad([[0, 0], [w-1, 0], [w-1, h-1], [0, h-1]])
+        trimmed = scanner_background_quad(image) if input_kind == 'CARD_SCAN' else None
+        q = trimmed if trimmed is not None else order_quad([[0, 0], [w-1, 0], [w-1, h-1], [0, h-1]])
         transform = cv2.getPerspectiveTransform(q.astype(np.float32), np.float32([[0,0],[999,0],[999,1396],[0,1396]]))
         crop = cv2.warpPerspective(image, transform, (1000, 1397))
         return crop, {"status": "PROPOSED", "quad": q.tolist(),
-                      "method": "declared-card-scan" if input_kind == 'CARD_SCAN' else "full-frame", "confidence": None}
+                      "method": ("scanner-background-trim" if trimmed is not None else
+                                 "declared-card-scan" if input_kind == 'CARD_SCAN' else "full-frame"), "confidence": None}
     scale = min(1, 1400 / max(h, w))
     small = cv2.resize(image, None, fx=scale, fy=scale)
     gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
