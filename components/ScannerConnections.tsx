@@ -113,7 +113,7 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
           Install the downloaded Windows scanner helper on this computer.
           <span className="block">Open MTGArchivesScannerSetup.exe from your Downloads folder and finish installation.</span>
         </> : <>
-          {installerState === "loading" && <p role="status">Checking the Windows helper downloadâ€¦</p>}
+          {installerState === "loading" && <p role="status">Checking the Windows helper download…</p>}
           {installerState === "unavailable" && <p role="status">The Windows scanner helper installer is not available on this site. Ask the site administrator to provide it before setting up a new computer.</p>}
           {installerState === "error" && <p role="alert">Could not check the Windows helper download. Try again.</p>}
           {installerState !== "loading" && <button type="button" className={filterButtonClass}
@@ -144,9 +144,9 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
           <button type="button" className={filterButtonClass} disabled={busy}
             onClick={() => void action({ action: "revoke", agentId: agent.id })}>Disconnect {agent.name}</button>
         </div>
-        <ul>{agent.devices.map(device => <li key={device.id} className="break-words">{device.name} Ã‚Â· {device.source}
-          {device.qualification === "GenericUnqualified" && " Ã‚Â· Not yet qualified"}</li>)}</ul>
-        {!agent.online && <p className="text-sm">This computerÃ¢â‚¬â„¢s helper is not responding. Open the helper on that computer and check its internet connection. Saved scans are kept.</p>}
+        <ul>{agent.devices.map(device => <li key={device.id} className="break-words">{device.name} · {device.source}
+          {device.qualification === "GenericUnqualified" && " · Not yet qualified"}</li>)}</ul>
+        {!agent.online && <p className="text-sm">This computer’s helper is not responding. Open the helper on that computer and check its internet connection. Saved scans are kept.</p>}
         {agent.online && <ScannerDiscoveryNotice issues={agent.discoveryIssues} />}
         {agent.online && agent.devices.length === 0 && !agent.discoveryIssues?.length && <p>No scanner detected. Check USB/power and install its manufacturer driver, then wait up to 30 seconds for discovery.</p>}
       </li>)}</ul>
