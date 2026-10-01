@@ -1,3 +1,58 @@
+## Recognition audit individually approved; merge reconciliation — October 1, 2026
+
+The user explicitly approved PR #551. Its original approved head is
+4b05a0da2db53027a108dea79a9fff33a8ff6ce4. Updating onto approved main
+d53272d33db8e26931999a6767ef3455e7fe7c30 required resolving only this checkpoint;
+both historical batch records below are preserved. Audit tools, aggregate metrics,
+report and CI guards retain their approved contents. Application behavior is unchanged.
+
+PR #556 is merged and issue #553 closed. Its exact main publication run36909869475
+completed successfully. PR #551 still awaits current-head checks and merge; this
+record supersedes historical pending-approval statements below. No production or
+scanner operation is included. #463/#307/#552/#554/#555 remain separate open work.
+Next safe step: push the reconciled branch, require all checks, then merge #551
+under the user's individual approval. Keep routing and automatic confirmation separate.
+
+## Recognition audit complete; review delivery — October 1, 2026
+
+Audit measurements, report, issue catalogue and durable Foundry reconciliation
+complete. PR review status/current-head checks are authoritative on GitHub. PR #550 individually approved, merged and main
+publication succeeded; production update remains the user's operator step.
+
+Worktree: MTG-Archives-scanner-twain-footer; codex/recognition-pipeline-audit;
+base e247916f7022f360cedbc05398cba607cbcfb24d. PR #551, initial242b3d4 / final measurement report7342f16; three initial-head
+checks passed. Final report/aggregate metrics are pushed; current-head CI is on
+GitHub. This checkpoint update changes delivery status only.
+Issues #463/#307 remain open; measured findings posted to #463. New #552 tracks
+reproduced Windows encoder-source newline/index portability, not fixed here.
+
+Session72528 completed cleanly. All owned mtg-audit-paired containers removed.
+40 development /41 held-out /12 seeded /9 repeat observations, all three methods,
+306 paired observations. Four inference sources locked before validation and remain
+identical; one descriptor per native role; reference manifest/vectors/records fixed.
+Private reports/provenance under ignored .local-data/recognition-audit.
+
+Development exact-first34/40 current vs38/40 partial; validation all36/41 first and
+41/41 offered. Five held-out failures across three original/List groups. Partial
+validation global searches4 vs41; registrations125 vs501; median7.32 vs18.87sec,
+worst50.49 vs44.17sec. First two routes37/41; no95percent population/auto claim.
+Offline stops6/40 development,0/41 validation,1/12 seeded, none wrong observed;
+limited/biased counts do not establish acceptance safety. Seeded fronts7/8 first;
+all four unobservable targets still receive suggestions. Repeats demonstrate warm
+parallel-search exceptions and serial poor-read delay. Reuse800 identical hits.
+
+Final original/review/Inventory/receipt database fingerprints unchanged;93 original
+manifest entries/90distinct digests verified; reading zones fixed. Typecheck,9TS
+and12Python model-free tests passed, included in CI. Reviewed cumulative30414c7
+runtime remains main-equivalent and HTTP200; web image a74248d9af31… unchanged.
+No app rebuild, saved review/Inventory, physical scanner, production or merge action.
+Primary checkout stale: do not build it.
+
+Next safe step: review #551 after its current-head checks pass. The report and PR
+description contain all measured outcomes/limits; Foundry hub and acquisition wiki
+are reconciled. Implementation priorities are recommendations for separate batches.
+No owned running audit process or unanswered user question remains. #551 needs its own explicit approval
+before any merge; no subsequent runtime implementation is claimed delivered.
 ## Audit batch 1 delivered for review — October 1, 2026
 
 Branch codex/native-printing-observation-reuse; PR #556:

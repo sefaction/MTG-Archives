@@ -1,0 +1,1041 @@
+{
+  "version": 1,
+  "baselineCommit": "e247916f7022f360cedbc05398cba607cbcfb24d",
+  "measuredAt": "2026-10-01",
+  "scope": "Offline fixed full-catalog-cache inference; no app queue, provider or user-interaction latency",
+  "policyLockedAtUTC": "2026-10-01T05:27:41.927432+00:00",
+  "qualifiedLocalSourceSha256": {
+    "benchmark.ts": "3d34177933cb0adbd9b41be6d0784833c9837f895b8d89a63af6ef90cef5e931",
+    "native_probe_progress.py": "ded51e5c3d2d687bd8489a064b3bf5cd60c9969ef990617f8eee5857fbf2d289",
+    "scoped_visual_probe.py": "10910f6e5c9c2ba7ecd23489f31f02503ac78c56b4a37c08fdffb9d9e8996157",
+    "observed_scope.ts": "f5f5f8c7975d44e3c5e28bbcdd9cb4f7b7dfe85e513865021a582d1d99477ef7"
+  },
+  "sourceHashNote": "Measured local file bytes; checkout line-ending changes alter these checksums",
+  "nativeImages": {
+    "ocr": "sha256:33f294308f5090de5217ffed3814c90987a3a2910435094b8cb372985fd161fa",
+    "visualAndPrinting": "sha256:f8100831a9996694fb6a13408e12580566bac646da196b0111236062bd10b246"
+  },
+  "nativeDescriptors": {
+    "ocr": "7a28b8a07f8e1ad8eed2ffeb1840d65b4d16fedceaf70cf4e68591607b2023ec",
+    "visual": "2310469b96e36887e47f0f34cacdd682e5d8983f7b2cfe2cab45c4bb4783450e",
+    "printing": "44cc75bac30a47597fa977820caf47a57b6e7ee772150ca2c47500eb9a4ecab9"
+  },
+  "indexManifestSha256": "a926c02733274181e8f4deea437fa183b08c22a9a27894a5b49698dfe5ee2cf3",
+  "preservation": {
+    "originalFileManifestEntries": 93,
+    "distinctOriginalDigests": 90,
+    "originalMetadata": true,
+    "savedReviews": true,
+    "inventory": true,
+    "commitReceipts": true,
+    "fixedReadingZones": true,
+    "nativeSourcesAndReferenceGeneration": true
+  },
+  "cohorts": {
+    "development40": {
+      "sourceReportSha256": "37f7903819da439da10183966cd0b1f596c3ffdc303d2165b65051b1cc579df2",
+      "manifestSha256": "2f67357387bf12a091045fe5d2b52134b58c4d8f08ded440f52dacb355ec4ba4",
+      "metrics": {
+        "version": 1,
+        "scope": "OFFLINE_FULL_CATALOG_CACHE_PAIRED_INFERENCE_NO_APP_QUEUE_OR_PROVIDER_LATENCY",
+        "pairedImages": 40,
+        "variants": {
+          "BASELINE": {
+            "images": 40,
+            "identifiableFronts": 40,
+            "unobservableTargets": 0,
+            "exactTop1": 34,
+            "exactTop12": 40,
+            "exactTop1Rate": 0.85,
+            "descriptiveImageWilson95": [
+              0.709276756335103,
+              0.9293881228267964
+            ],
+            "wrongFirstSuggestionsNeedingCorrection": 6,
+            "allRequireApplicationReview": 40,
+            "strongSuggestions": 0,
+            "wrongStrongSuggestions": 0,
+            "offlineAutomaticDecisions": 0,
+            "offlineWrongAutomatic": 0,
+            "offlineAutomaticCoverage": 0.0,
+            "offlineAcceptancePrecision": null,
+            "descriptiveAcceptanceWilson95": null,
+            "unobservableTargetsWithSuggestions": 0,
+            "firstTwoCorrectFirstSuggestions": 0,
+            "firstTwoRoutes": 0,
+            "firstTwoRouteCoverage": 0.0,
+            "descriptiveRouteCoverageWilson95": [
+              0.0,
+              0.08762160119728664
+            ],
+            "routeCounts": {
+              "GLOBAL_IMAGE": 40
+            },
+            "stampObservationCounts": {
+              "PRESENT": 2,
+              "UNREADABLE": 31,
+              "ABSENT": 7
+            },
+            "allTimingMs": {
+              "median": 19114.5,
+              "p95": 38177,
+              "max": 41867
+            },
+            "warmTimingMs": {
+              "n": 38,
+              "median": 19054.5,
+              "p95": 38177,
+              "max": 41257
+            },
+            "coldStageCalls": 4,
+            "expensiveCounts": {
+              "geometryCalls": 88,
+              "ocrPredictions": 93,
+              "embeddingImages": 160,
+              "siftFeatureCalls": 1307,
+              "geometricMatches": 1600,
+              "fullIndexSearches": 40,
+              "referenceCacheMisses": 403,
+              "registrationFeatureCalls": 443,
+              "printingRegistrations": 506,
+              "stampChecks": 506,
+              "referenceCacheHits": 105
+            },
+            "operationsPerImage": {
+              "geometryCalls": 2.2,
+              "ocrPredictions": 2.325,
+              "embeddingImages": 4.0,
+              "siftFeatureCalls": 32.675,
+              "geometricMatches": 40.0,
+              "fullIndexSearches": 1.0,
+              "referenceCacheMisses": 10.075,
+              "registrationFeatureCalls": 11.075,
+              "printingRegistrations": 12.65,
+              "stampChecks": 12.65,
+              "referenceCacheHits": 2.625
+            },
+            "interruptedCountLowerBoundImages": 1
+          },
+          "IDENTIFIER_FIRST": {
+            "images": 40,
+            "identifiableFronts": 40,
+            "unobservableTargets": 0,
+            "exactTop1": 34,
+            "exactTop12": 40,
+            "exactTop1Rate": 0.85,
+            "descriptiveImageWilson95": [
+              0.709276756335103,
+              0.9293881228267964
+            ],
+            "wrongFirstSuggestionsNeedingCorrection": 6,
+            "allRequireApplicationReview": 40,
+            "strongSuggestions": 18,
+            "wrongStrongSuggestions": 0,
+            "offlineAutomaticDecisions": 6,
+            "offlineWrongAutomatic": 0,
+            "offlineAutomaticCoverage": 0.15,
+            "offlineAcceptancePrecision": 1.0,
+            "descriptiveAcceptanceWilson95": [
+              0.6096657120978346,
+              1.0
+            ],
+            "unobservableTargetsWithSuggestions": 0,
+            "firstTwoCorrectFirstSuggestions": 22,
+            "firstTwoRoutes": 23,
+            "firstTwoRouteCoverage": 0.575,
+            "descriptiveRouteCoverageWilson95": [
+              0.42195068541991065,
+              0.7149060744004962
+            ],
+            "routeCounts": {
+              "GLOBAL_IMAGE": 17,
+              "EXACT_IDENTIFIER": 23
+            },
+            "stampObservationCounts": {
+              "PRESENT": 2,
+              "UNREADABLE": 31,
+              "ABSENT": 7
+            },
+            "allTimingMs": {
+              "median": 7670.5,
+              "p95": 42400,
+              "max": 46024
+            },
+            "warmTimingMs": {
+              "n": 39,
+              "median": 7377,
+              "p95": 42400,
+              "max": 44827
+            },
+            "coldStageCalls": 1,
+            "expensiveCounts": {
+              "geometryCalls": 65,
+              "ocrPredictions": 93,
+              "embeddingImages": 68,
+              "siftFeatureCalls": 126,
+              "geometricMatches": 680,
+              "fullIndexSearches": 17,
+              "registrationFeatureCalls": 99,
+              "referenceCacheHits": 185,
+              "printingRegistrations": 244,
+              "stampChecks": 244,
+              "referenceCacheMisses": 59
+            },
+            "operationsPerImage": {
+              "geometryCalls": 1.625,
+              "ocrPredictions": 2.325,
+              "embeddingImages": 1.7,
+              "siftFeatureCalls": 3.15,
+              "geometricMatches": 17.0,
+              "fullIndexSearches": 0.425,
+              "registrationFeatureCalls": 2.475,
+              "referenceCacheHits": 4.625,
+              "printingRegistrations": 6.1,
+              "stampChecks": 6.1,
+              "referenceCacheMisses": 1.475
+            },
+            "interruptedCountLowerBoundImages": 1
+          },
+          "IDENTIFIER_PARTIAL": {
+            "images": 40,
+            "identifiableFronts": 40,
+            "unobservableTargets": 0,
+            "exactTop1": 38,
+            "exactTop12": 40,
+            "exactTop1Rate": 0.95,
+            "descriptiveImageWilson95": [
+              0.8349612263085903,
+              0.9861793326138516
+            ],
+            "wrongFirstSuggestionsNeedingCorrection": 2,
+            "allRequireApplicationReview": 40,
+            "strongSuggestions": 18,
+            "wrongStrongSuggestions": 0,
+            "offlineAutomaticDecisions": 6,
+            "offlineWrongAutomatic": 0,
+            "offlineAutomaticCoverage": 0.15,
+            "offlineAcceptancePrecision": 1.0,
+            "descriptiveAcceptanceWilson95": [
+              0.6096657120978346,
+              1.0
+            ],
+            "unobservableTargetsWithSuggestions": 0,
+            "firstTwoCorrectFirstSuggestions": 35,
+            "firstTwoRoutes": 36,
+            "firstTwoRouteCoverage": 0.9,
+            "descriptiveRouteCoverageWilson95": [
+              0.7694822477247771,
+              0.9604204713173936
+            ],
+            "routeCounts": {
+              "PARTIAL_SCOPED_IMAGE": 13,
+              "EXACT_IDENTIFIER": 23,
+              "GLOBAL_IMAGE": 4
+            },
+            "stampObservationCounts": {
+              "PRESENT": 2,
+              "UNREADABLE": 31,
+              "ABSENT": 7
+            },
+            "allTimingMs": {
+              "median": 7010.0,
+              "p95": 44616,
+              "max": 56325
+            },
+            "warmTimingMs": {
+              "n": 40,
+              "median": 7010.0,
+              "p95": 44616,
+              "max": 56325
+            },
+            "coldStageCalls": 0,
+            "expensiveCounts": {
+              "geometryCalls": 65,
+              "ocrPredictions": 94,
+              "embeddingImages": 68,
+              "siftFeatureCalls": 102,
+              "geometricMatches": 178,
+              "scopedIndexSearches": 13,
+              "registrationFeatureCalls": 88,
+              "referenceCacheHits": 62,
+              "printingRegistrations": 110,
+              "stampChecks": 110,
+              "fullIndexSearches": 4,
+              "referenceCacheMisses": 48
+            },
+            "operationsPerImage": {
+              "geometryCalls": 1.625,
+              "ocrPredictions": 2.35,
+              "embeddingImages": 1.7,
+              "siftFeatureCalls": 2.55,
+              "geometricMatches": 4.45,
+              "scopedIndexSearches": 0.325,
+              "registrationFeatureCalls": 2.2,
+              "referenceCacheHits": 1.55,
+              "printingRegistrations": 2.75,
+              "stampChecks": 2.75,
+              "fullIndexSearches": 0.1,
+              "referenceCacheMisses": 1.2
+            },
+            "interruptedCountLowerBoundImages": 0
+          }
+        },
+        "limits": [
+          "Existing local background workers remain active; alternate order and report load limitation",
+          "Catalog uses frozen full local projection; provider/cache-miss and queue latency excluded",
+          "Validation mode must use policy locked after development; physical grouping disclosed separately",
+          "Shared native model/reference caches between variants; rotate order per card; stage-specific cold flags, including after timeout restart",
+          "Wilson intervals describe sampled image outcomes only; correlated copies, printing-group overlap and biased strata prevent population accuracy claims",
+          "Manual correction metric is wrong first suggestion versus verified truth; actual user review actions were not performed",
+          "Offline stop-rule decisions are not saved app confirmations; zero-decision precision is undefined"
+        ]
+      },
+      "comparisons": {
+        "BASELINE": {
+          "printingGroups": 40,
+          "groupsWithEveryImageCorrect": 34,
+          "groupsWithAnyWrongImage": 6,
+          "pairedAccuracyWins": 0,
+          "pairedAccuracyLosses": 0,
+          "pairedTimingWins": 0,
+          "pairedTimingLosses": 0,
+          "medianPairedDeltaMs": 0.0,
+          "routes": {
+            "GLOBAL_IMAGE": {
+              "images": 40,
+              "identifiable": 40,
+              "exactFirst": 34,
+              "medianMs": 19114.5
+            }
+          }
+        },
+        "IDENTIFIER_FIRST": {
+          "printingGroups": 40,
+          "groupsWithEveryImageCorrect": 34,
+          "groupsWithAnyWrongImage": 6,
+          "pairedAccuracyWins": 0,
+          "pairedAccuracyLosses": 0,
+          "pairedTimingWins": 34,
+          "pairedTimingLosses": 6,
+          "medianPairedDeltaMs": -10985.0,
+          "routes": {
+            "EXACT_IDENTIFIER": {
+              "images": 23,
+              "identifiable": 23,
+              "exactFirst": 22,
+              "medianMs": 6334
+            },
+            "GLOBAL_IMAGE": {
+              "images": 17,
+              "identifiable": 17,
+              "exactFirst": 12,
+              "medianMs": 12913
+            }
+          }
+        },
+        "IDENTIFIER_PARTIAL": {
+          "printingGroups": 40,
+          "groupsWithEveryImageCorrect": 38,
+          "groupsWithAnyWrongImage": 2,
+          "pairedAccuracyWins": 4,
+          "pairedAccuracyLosses": 0,
+          "pairedTimingWins": 35,
+          "pairedTimingLosses": 5,
+          "medianPairedDeltaMs": -11730.5,
+          "routes": {
+            "EXACT_IDENTIFIER": {
+              "images": 23,
+              "identifiable": 23,
+              "exactFirst": 22,
+              "medianMs": 6284
+            },
+            "GLOBAL_IMAGE": {
+              "images": 4,
+              "identifiable": 4,
+              "exactFirst": 3,
+              "medianMs": 50040.5
+            },
+            "PARTIAL_SCOPED_IMAGE": {
+              "images": 13,
+              "identifiable": 13,
+              "exactFirst": 13,
+              "medianMs": 8066
+            }
+          }
+        }
+      },
+      "limits": [
+        "Printing-group counts describe dependence; they do not establish random independent sampling",
+        "Paired wall-time differences retain shared-cache order and background-load confounding"
+      ]
+    },
+    "validation41": {
+      "sourceReportSha256": "ea36e1f5ca4f288c5b3c6f4d657d1f5886b2c1d9aea5b5aba8437a9313e3f92c",
+      "manifestSha256": "ed511f0a15420762a2c05c4a0b720416e47bf487af436fe660e753931cc152a2",
+      "metrics": {
+        "version": 1,
+        "scope": "OFFLINE_FULL_CATALOG_CACHE_PAIRED_INFERENCE_NO_APP_QUEUE_OR_PROVIDER_LATENCY",
+        "pairedImages": 41,
+        "variants": {
+          "BASELINE": {
+            "images": 41,
+            "identifiableFronts": 41,
+            "unobservableTargets": 0,
+            "exactTop1": 36,
+            "exactTop12": 41,
+            "exactTop1Rate": 0.8780487804878049,
+            "descriptiveImageWilson95": [
+              0.7445578847902312,
+              0.9467666353142228
+            ],
+            "wrongFirstSuggestionsNeedingCorrection": 5,
+            "allRequireApplicationReview": 41,
+            "strongSuggestions": 0,
+            "wrongStrongSuggestions": 0,
+            "offlineAutomaticDecisions": 0,
+            "offlineWrongAutomatic": 0,
+            "offlineAutomaticCoverage": 0.0,
+            "offlineAcceptancePrecision": null,
+            "descriptiveAcceptanceWilson95": null,
+            "unobservableTargetsWithSuggestions": 0,
+            "firstTwoCorrectFirstSuggestions": 0,
+            "firstTwoRoutes": 0,
+            "firstTwoRouteCoverage": 0.0,
+            "descriptiveRouteCoverageWilson95": [
+              -6.938893903907228e-18,
+              0.08566757018443186
+            ],
+            "routeCounts": {
+              "GLOBAL_IMAGE": 41
+            },
+            "stampObservationCounts": {
+              "UNREADABLE": 39,
+              "PRESENT": 2
+            },
+            "allTimingMs": {
+              "median": 18868,
+              "p95": 41068,
+              "max": 44171
+            },
+            "warmTimingMs": {
+              "n": 40,
+              "median": 18824.5,
+              "p95": 34067,
+              "max": 44171
+            },
+            "coldStageCalls": 3,
+            "expensiveCounts": {
+              "geometryCalls": 82,
+              "ocrPredictions": 93,
+              "embeddingImages": 164,
+              "siftFeatureCalls": 1416,
+              "geometricMatches": 1640,
+              "fullIndexSearches": 41,
+              "referenceCacheMisses": 397,
+              "registrationFeatureCalls": 438,
+              "printingRegistrations": 501,
+              "stampChecks": 501,
+              "referenceCacheHits": 106
+            },
+            "operationsPerImage": {
+              "geometryCalls": 2.0,
+              "ocrPredictions": 2.268292682926829,
+              "embeddingImages": 4.0,
+              "siftFeatureCalls": 34.53658536585366,
+              "geometricMatches": 40.0,
+              "fullIndexSearches": 1.0,
+              "referenceCacheMisses": 9.682926829268293,
+              "registrationFeatureCalls": 10.682926829268293,
+              "printingRegistrations": 12.21951219512195,
+              "stampChecks": 12.21951219512195,
+              "referenceCacheHits": 2.5853658536585367
+            },
+            "interruptedCountLowerBoundImages": 0
+          },
+          "IDENTIFIER_FIRST": {
+            "images": 41,
+            "identifiableFronts": 41,
+            "unobservableTargets": 0,
+            "exactTop1": 36,
+            "exactTop12": 41,
+            "exactTop1Rate": 0.8780487804878049,
+            "descriptiveImageWilson95": [
+              0.7445578847902312,
+              0.9467666353142228
+            ],
+            "wrongFirstSuggestionsNeedingCorrection": 5,
+            "allRequireApplicationReview": 41,
+            "strongSuggestions": 18,
+            "wrongStrongSuggestions": 0,
+            "offlineAutomaticDecisions": 0,
+            "offlineWrongAutomatic": 0,
+            "offlineAutomaticCoverage": 0.0,
+            "offlineAcceptancePrecision": null,
+            "descriptiveAcceptanceWilson95": null,
+            "unobservableTargetsWithSuggestions": 0,
+            "firstTwoCorrectFirstSuggestions": 24,
+            "firstTwoRoutes": 29,
+            "firstTwoRouteCoverage": 0.7073170731707317,
+            "descriptiveRouteCoverageWilson95": [
+              0.5552053227700284,
+              0.8239081237388657
+            ],
+            "routeCounts": {
+              "GLOBAL_IMAGE": 12,
+              "EXACT_IDENTIFIER": 29
+            },
+            "stampObservationCounts": {
+              "UNREADABLE": 39,
+              "PRESENT": 2
+            },
+            "allTimingMs": {
+              "median": 8070,
+              "p95": 39438,
+              "max": 40504
+            },
+            "warmTimingMs": {
+              "n": 40,
+              "median": 7959.0,
+              "p95": 39438,
+              "max": 40504
+            },
+            "coldStageCalls": 1,
+            "expensiveCounts": {
+              "geometryCalls": 53,
+              "ocrPredictions": 94,
+              "embeddingImages": 48,
+              "siftFeatureCalls": 130,
+              "geometricMatches": 480,
+              "fullIndexSearches": 12,
+              "registrationFeatureCalls": 93,
+              "referenceCacheHits": 136,
+              "printingRegistrations": 188,
+              "stampChecks": 188,
+              "referenceCacheMisses": 52
+            },
+            "operationsPerImage": {
+              "geometryCalls": 1.2926829268292683,
+              "ocrPredictions": 2.292682926829268,
+              "embeddingImages": 1.170731707317073,
+              "siftFeatureCalls": 3.1707317073170733,
+              "geometricMatches": 11.707317073170731,
+              "fullIndexSearches": 0.2926829268292683,
+              "registrationFeatureCalls": 2.268292682926829,
+              "referenceCacheHits": 3.317073170731707,
+              "printingRegistrations": 4.585365853658536,
+              "stampChecks": 4.585365853658536,
+              "referenceCacheMisses": 1.2682926829268293
+            },
+            "interruptedCountLowerBoundImages": 0
+          },
+          "IDENTIFIER_PARTIAL": {
+            "images": 41,
+            "identifiableFronts": 41,
+            "unobservableTargets": 0,
+            "exactTop1": 36,
+            "exactTop12": 41,
+            "exactTop1Rate": 0.8780487804878049,
+            "descriptiveImageWilson95": [
+              0.7445578847902312,
+              0.9467666353142228
+            ],
+            "wrongFirstSuggestionsNeedingCorrection": 5,
+            "allRequireApplicationReview": 41,
+            "strongSuggestions": 18,
+            "wrongStrongSuggestions": 0,
+            "offlineAutomaticDecisions": 0,
+            "offlineWrongAutomatic": 0,
+            "offlineAutomaticCoverage": 0.0,
+            "offlineAcceptancePrecision": null,
+            "descriptiveAcceptanceWilson95": null,
+            "unobservableTargetsWithSuggestions": 0,
+            "firstTwoCorrectFirstSuggestions": 32,
+            "firstTwoRoutes": 37,
+            "firstTwoRouteCoverage": 0.9024390243902439,
+            "descriptiveRouteCoverageWilson95": [
+              0.7745231869447662,
+              0.9614029151019106
+            ],
+            "routeCounts": {
+              "PARTIAL_SCOPED_IMAGE": 8,
+              "EXACT_IDENTIFIER": 29,
+              "GLOBAL_IMAGE": 4
+            },
+            "stampObservationCounts": {
+              "UNREADABLE": 39,
+              "PRESENT": 2
+            },
+            "allTimingMs": {
+              "median": 7317,
+              "p95": 37801,
+              "max": 50489
+            },
+            "warmTimingMs": {
+              "n": 41,
+              "median": 7317,
+              "p95": 37801,
+              "max": 50489
+            },
+            "coldStageCalls": 0,
+            "expensiveCounts": {
+              "geometryCalls": 53,
+              "ocrPredictions": 93,
+              "embeddingImages": 48,
+              "siftFeatureCalls": 61,
+              "geometricMatches": 177,
+              "scopedIndexSearches": 8,
+              "registrationFeatureCalls": 82,
+              "referenceCacheHits": 84,
+              "printingRegistrations": 125,
+              "stampChecks": 125,
+              "referenceCacheMisses": 41,
+              "fullIndexSearches": 4
+            },
+            "operationsPerImage": {
+              "geometryCalls": 1.2926829268292683,
+              "ocrPredictions": 2.268292682926829,
+              "embeddingImages": 1.170731707317073,
+              "siftFeatureCalls": 1.4878048780487805,
+              "geometricMatches": 4.317073170731708,
+              "scopedIndexSearches": 0.1951219512195122,
+              "registrationFeatureCalls": 2.0,
+              "referenceCacheHits": 2.048780487804878,
+              "printingRegistrations": 3.048780487804878,
+              "stampChecks": 3.048780487804878,
+              "referenceCacheMisses": 1.0,
+              "fullIndexSearches": 0.0975609756097561
+            },
+            "interruptedCountLowerBoundImages": 1
+          }
+        },
+        "limits": [
+          "Existing local background workers remain active; alternate order and report load limitation",
+          "Catalog uses frozen full local projection; provider/cache-miss and queue latency excluded",
+          "Validation mode must use policy locked after development; physical grouping disclosed separately",
+          "Shared native model/reference caches between variants; rotate order per card; stage-specific cold flags, including after timeout restart",
+          "Wilson intervals describe sampled image outcomes only; correlated copies, printing-group overlap and biased strata prevent population accuracy claims",
+          "Manual correction metric is wrong first suggestion versus verified truth; actual user review actions were not performed",
+          "Offline stop-rule decisions are not saved app confirmations; zero-decision precision is undefined"
+        ]
+      },
+      "comparisons": {
+        "BASELINE": {
+          "printingGroups": 36,
+          "groupsWithEveryImageCorrect": 33,
+          "groupsWithAnyWrongImage": 3,
+          "pairedAccuracyWins": 0,
+          "pairedAccuracyLosses": 0,
+          "pairedTimingWins": 0,
+          "pairedTimingLosses": 0,
+          "medianPairedDeltaMs": 0,
+          "routes": {
+            "GLOBAL_IMAGE": {
+              "images": 41,
+              "identifiable": 41,
+              "exactFirst": 36,
+              "medianMs": 18868
+            }
+          }
+        },
+        "IDENTIFIER_FIRST": {
+          "printingGroups": 36,
+          "groupsWithEveryImageCorrect": 33,
+          "groupsWithAnyWrongImage": 3,
+          "pairedAccuracyWins": 0,
+          "pairedAccuracyLosses": 0,
+          "pairedTimingWins": 36,
+          "pairedTimingLosses": 5,
+          "medianPairedDeltaMs": -11142,
+          "routes": {
+            "EXACT_IDENTIFIER": {
+              "images": 29,
+              "identifiable": 29,
+              "exactFirst": 24,
+              "medianMs": 6713
+            },
+            "GLOBAL_IMAGE": {
+              "images": 12,
+              "identifiable": 12,
+              "exactFirst": 12,
+              "medianMs": 18194.5
+            }
+          }
+        },
+        "IDENTIFIER_PARTIAL": {
+          "printingGroups": 36,
+          "groupsWithEveryImageCorrect": 33,
+          "groupsWithAnyWrongImage": 3,
+          "pairedAccuracyWins": 0,
+          "pairedAccuracyLosses": 0,
+          "pairedTimingWins": 36,
+          "pairedTimingLosses": 5,
+          "medianPairedDeltaMs": -11549,
+          "routes": {
+            "EXACT_IDENTIFIER": {
+              "images": 29,
+              "identifiable": 29,
+              "exactFirst": 24,
+              "medianMs": 6718
+            },
+            "GLOBAL_IMAGE": {
+              "images": 4,
+              "identifiable": 4,
+              "exactFirst": 4,
+              "medianMs": 40173.0
+            },
+            "PARTIAL_SCOPED_IMAGE": {
+              "images": 8,
+              "identifiable": 8,
+              "exactFirst": 8,
+              "medianMs": 9176.5
+            }
+          }
+        }
+      },
+      "limits": [
+        "Printing-group counts describe dependence; they do not establish random independent sampling",
+        "Paired wall-time differences retain shared-cache order and background-load confounding"
+      ]
+    },
+    "random12": {
+      "sourceReportSha256": "c805cd6a653a5f5d1fdfced418699a94a546b1788f2c460cbf8a236de2d656c0",
+      "manifestSha256": "965ee80d4139faa46c5937e1547fda697f45ef03b9e19a8a35bfac22775f6aae",
+      "metrics": {
+        "version": 1,
+        "scope": "OFFLINE_FULL_CATALOG_CACHE_PAIRED_INFERENCE_NO_APP_QUEUE_OR_PROVIDER_LATENCY",
+        "pairedImages": 12,
+        "variants": {
+          "BASELINE": {
+            "images": 12,
+            "identifiableFronts": 8,
+            "unobservableTargets": 4,
+            "exactTop1": 7,
+            "exactTop12": 8,
+            "exactTop1Rate": 0.875,
+            "descriptiveImageWilson95": [
+              0.5291118177871464,
+              0.9775825085499433
+            ],
+            "wrongFirstSuggestionsNeedingCorrection": 1,
+            "allRequireApplicationReview": 12,
+            "strongSuggestions": 0,
+            "wrongStrongSuggestions": 0,
+            "offlineAutomaticDecisions": 0,
+            "offlineWrongAutomatic": 0,
+            "offlineAutomaticCoverage": 0.0,
+            "offlineAcceptancePrecision": null,
+            "descriptiveAcceptanceWilson95": null,
+            "unobservableTargetsWithSuggestions": 4,
+            "firstTwoCorrectFirstSuggestions": 0,
+            "firstTwoRoutes": 0,
+            "firstTwoRouteCoverage": 0.0,
+            "descriptiveRouteCoverageWilson95": [
+              0.0,
+              0.32440756488388023
+            ],
+            "routeCounts": {
+              "GLOBAL_IMAGE": 12
+            },
+            "stampObservationCounts": {
+              "UNREADABLE": 10,
+              "ABSENT": 2
+            },
+            "allTimingMs": {
+              "median": 20540.0,
+              "p95": 51770,
+              "max": 51770
+            },
+            "warmTimingMs": {
+              "n": 11,
+              "median": 20371,
+              "p95": 32565,
+              "max": 32565
+            },
+            "coldStageCalls": 3,
+            "expensiveCounts": {
+              "geometryCalls": 30,
+              "ocrPredictions": 43,
+              "embeddingImages": 48,
+              "siftFeatureCalls": 330,
+              "geometricMatches": 480,
+              "fullIndexSearches": 12,
+              "referenceCacheMisses": 118,
+              "registrationFeatureCalls": 130,
+              "printingRegistrations": 176,
+              "stampChecks": 176,
+              "referenceCacheHits": 60
+            },
+            "operationsPerImage": {
+              "geometryCalls": 2.5,
+              "ocrPredictions": 3.5833333333333335,
+              "embeddingImages": 4.0,
+              "siftFeatureCalls": 27.5,
+              "geometricMatches": 40.0,
+              "fullIndexSearches": 1.0,
+              "referenceCacheMisses": 9.833333333333334,
+              "registrationFeatureCalls": 10.833333333333334,
+              "printingRegistrations": 14.666666666666666,
+              "stampChecks": 14.666666666666666,
+              "referenceCacheHits": 5.0
+            },
+            "interruptedCountLowerBoundImages": 1
+          },
+          "IDENTIFIER_FIRST": {
+            "images": 12,
+            "identifiableFronts": 8,
+            "unobservableTargets": 4,
+            "exactTop1": 7,
+            "exactTop12": 8,
+            "exactTop1Rate": 0.875,
+            "descriptiveImageWilson95": [
+              0.5291118177871464,
+              0.9775825085499433
+            ],
+            "wrongFirstSuggestionsNeedingCorrection": 1,
+            "allRequireApplicationReview": 12,
+            "strongSuggestions": 3,
+            "wrongStrongSuggestions": 0,
+            "offlineAutomaticDecisions": 1,
+            "offlineWrongAutomatic": 0,
+            "offlineAutomaticCoverage": 0.08333333333333333,
+            "offlineAcceptancePrecision": 1.0,
+            "descriptiveAcceptanceWilson95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "unobservableTargetsWithSuggestions": 4,
+            "firstTwoCorrectFirstSuggestions": 5,
+            "firstTwoRoutes": 5,
+            "firstTwoRouteCoverage": 0.625,
+            "descriptiveRouteCoverageWilson95": [
+              0.30574239460262737,
+              0.8631557141764026
+            ],
+            "routeCounts": {
+              "GLOBAL_IMAGE": 7,
+              "EXACT_IDENTIFIER": 5
+            },
+            "stampObservationCounts": {
+              "UNREADABLE": 10,
+              "ABSENT": 2
+            },
+            "allTimingMs": {
+              "median": 21770.5,
+              "p95": 49720,
+              "max": 49720
+            },
+            "warmTimingMs": {
+              "n": 11,
+              "median": 20752,
+              "p95": 49720,
+              "max": 49720
+            },
+            "coldStageCalls": 1,
+            "expensiveCounts": {
+              "geometryCalls": 25,
+              "ocrPredictions": 44,
+              "embeddingImages": 28,
+              "siftFeatureCalls": 121,
+              "geometricMatches": 280,
+              "fullIndexSearches": 7,
+              "registrationFeatureCalls": 80,
+              "referenceCacheHits": 49,
+              "printingRegistrations": 117,
+              "stampChecks": 117,
+              "referenceCacheMisses": 68
+            },
+            "operationsPerImage": {
+              "geometryCalls": 2.0833333333333335,
+              "ocrPredictions": 3.6666666666666665,
+              "embeddingImages": 2.3333333333333335,
+              "siftFeatureCalls": 10.083333333333334,
+              "geometricMatches": 23.333333333333332,
+              "fullIndexSearches": 0.5833333333333334,
+              "registrationFeatureCalls": 6.666666666666667,
+              "referenceCacheHits": 4.083333333333333,
+              "printingRegistrations": 9.75,
+              "stampChecks": 9.75,
+              "referenceCacheMisses": 5.666666666666667
+            },
+            "interruptedCountLowerBoundImages": 0
+          },
+          "IDENTIFIER_PARTIAL": {
+            "images": 12,
+            "identifiableFronts": 8,
+            "unobservableTargets": 4,
+            "exactTop1": 7,
+            "exactTop12": 8,
+            "exactTop1Rate": 0.875,
+            "descriptiveImageWilson95": [
+              0.5291118177871464,
+              0.9775825085499433
+            ],
+            "wrongFirstSuggestionsNeedingCorrection": 1,
+            "allRequireApplicationReview": 12,
+            "strongSuggestions": 3,
+            "wrongStrongSuggestions": 0,
+            "offlineAutomaticDecisions": 1,
+            "offlineWrongAutomatic": 0,
+            "offlineAutomaticCoverage": 0.08333333333333333,
+            "offlineAcceptancePrecision": 1.0,
+            "descriptiveAcceptanceWilson95": [
+              0.20654931437723745,
+              1.0
+            ],
+            "unobservableTargetsWithSuggestions": 4,
+            "firstTwoCorrectFirstSuggestions": 6,
+            "firstTwoRoutes": 6,
+            "firstTwoRouteCoverage": 0.75,
+            "descriptiveRouteCoverageWilson95": [
+              0.40927543031016883,
+              0.9285207872478909
+            ],
+            "routeCounts": {
+              "GLOBAL_IMAGE": 6,
+              "EXACT_IDENTIFIER": 5,
+              "PARTIAL_SCOPED_IMAGE": 1
+            },
+            "stampObservationCounts": {
+              "UNREADABLE": 10,
+              "ABSENT": 2
+            },
+            "allTimingMs": {
+              "median": 14575.0,
+              "p95": 39052,
+              "max": 39052
+            },
+            "warmTimingMs": {
+              "n": 12,
+              "median": 14575.0,
+              "p95": 39052,
+              "max": 39052
+            },
+            "coldStageCalls": 0,
+            "expensiveCounts": {
+              "geometryCalls": 25,
+              "ocrPredictions": 44,
+              "embeddingImages": 28,
+              "siftFeatureCalls": 47,
+              "geometricMatches": 241,
+              "fullIndexSearches": 6,
+              "registrationFeatureCalls": 52,
+              "referenceCacheHits": 66,
+              "printingRegistrations": 106,
+              "stampChecks": 106,
+              "referenceCacheMisses": 40,
+              "scopedIndexSearches": 1
+            },
+            "operationsPerImage": {
+              "geometryCalls": 2.0833333333333335,
+              "ocrPredictions": 3.6666666666666665,
+              "embeddingImages": 2.3333333333333335,
+              "siftFeatureCalls": 3.9166666666666665,
+              "geometricMatches": 20.083333333333332,
+              "fullIndexSearches": 0.5,
+              "registrationFeatureCalls": 4.333333333333333,
+              "referenceCacheHits": 5.5,
+              "printingRegistrations": 8.833333333333334,
+              "stampChecks": 8.833333333333334,
+              "referenceCacheMisses": 3.3333333333333335,
+              "scopedIndexSearches": 0.08333333333333333
+            },
+            "interruptedCountLowerBoundImages": 0
+          }
+        },
+        "limits": [
+          "Existing local background workers remain active; alternate order and report load limitation",
+          "Catalog uses frozen full local projection; provider/cache-miss and queue latency excluded",
+          "Validation mode must use policy locked after development; physical grouping disclosed separately",
+          "Shared native model/reference caches between variants; rotate order per card; stage-specific cold flags, including after timeout restart",
+          "Wilson intervals describe sampled image outcomes only; correlated copies, printing-group overlap and biased strata prevent population accuracy claims",
+          "Manual correction metric is wrong first suggestion versus verified truth; actual user review actions were not performed",
+          "Offline stop-rule decisions are not saved app confirmations; zero-decision precision is undefined"
+        ]
+      },
+      "comparisons": {
+        "BASELINE": {
+          "printingGroups": 8,
+          "groupsWithEveryImageCorrect": 7,
+          "groupsWithAnyWrongImage": 1,
+          "pairedAccuracyWins": 0,
+          "pairedAccuracyLosses": 0,
+          "pairedTimingWins": 0,
+          "pairedTimingLosses": 0,
+          "medianPairedDeltaMs": 0.0,
+          "routes": {
+            "GLOBAL_IMAGE": {
+              "images": 12,
+              "identifiable": 8,
+              "exactFirst": 7,
+              "medianMs": 20540.0
+            }
+          }
+        },
+        "IDENTIFIER_FIRST": {
+          "printingGroups": 8,
+          "groupsWithEveryImageCorrect": 7,
+          "groupsWithAnyWrongImage": 1,
+          "pairedAccuracyWins": 0,
+          "pairedAccuracyLosses": 0,
+          "pairedTimingWins": 7,
+          "pairedTimingLosses": 5,
+          "medianPairedDeltaMs": -6316.5,
+          "routes": {
+            "EXACT_IDENTIFIER": {
+              "images": 5,
+              "identifiable": 5,
+              "exactFirst": 5,
+              "medianMs": 5146
+            },
+            "GLOBAL_IMAGE": {
+              "images": 7,
+              "identifiable": 3,
+              "exactFirst": 2,
+              "medianMs": 31109
+            }
+          }
+        },
+        "IDENTIFIER_PARTIAL": {
+          "printingGroups": 8,
+          "groupsWithEveryImageCorrect": 7,
+          "groupsWithAnyWrongImage": 1,
+          "pairedAccuracyWins": 0,
+          "pairedAccuracyLosses": 0,
+          "pairedTimingWins": 7,
+          "pairedTimingLosses": 5,
+          "medianPairedDeltaMs": -7696.5,
+          "routes": {
+            "EXACT_IDENTIFIER": {
+              "images": 5,
+              "identifiable": 5,
+              "exactFirst": 5,
+              "medianMs": 5644
+            },
+            "GLOBAL_IMAGE": {
+              "images": 6,
+              "identifiable": 2,
+              "exactFirst": 1,
+              "medianMs": 34189.0
+            },
+            "PARTIAL_SCOPED_IMAGE": {
+              "images": 1,
+              "identifiable": 1,
+              "exactFirst": 1,
+              "medianMs": 9349
+            }
+          }
+        }
+      },
+      "limits": [
+        "Printing-group counts describe dependence; they do not establish random independent sampling",
+        "Paired wall-time differences retain shared-cache order and background-load confounding"
+      ]
+    }
+  },
+  "notes": [
+    "Do not pool cohorts: biased strata, previous use, three exact digest overlaps and unknown physical independence",
+    "Actual hybrid application auto-acceptance is disabled; offline stops do not write confirmations",
+    "Repeated timing adds no independent accuracy sample",
+    "Full private reports/manifests/config remain in ignored local storage"
+  ]
+}
