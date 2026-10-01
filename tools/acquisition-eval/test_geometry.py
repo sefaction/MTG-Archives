@@ -32,6 +32,61 @@ class GeometryTest(unittest.TestCase):
             self.assertEqual(crop.shape, (1397, 1000, 3))
             self.assertGreater(max(np.count_nonzero(crop[-110:] > 230), np.count_nonzero(crop[:110] > 230)),100)
 
+    def test_small_scanner_strip_is_removed_without_touching_border_or_footer(self):
+        card = tight_scan()
+        # The footer already exists; padding alone moves it above the fixed zone.
+        source = np.full((945, 630, 3), 255, dtype=np.uint8)
+        source[:880] = card
+        for turns in range(4):
+            image = np.rot90(source, turns).copy()
+            before = image.copy()
+            crop, evidence = geometry(image, 'CARD_SCAN')
+            self.assertEqual(evidence['method'], 'scanner-background-trim')
+            # Every retained corner is outside the physical card, never its
+            # internal printed frame, which ends at row 810.
+            mask = np.zeros(source.shape[:2], np.uint8)
+            mask[:881] = 1
+            ys, xs = np.where(np.rot90(mask, turns))
+            self.assertEqual(set(map(tuple, evidence['quad'])),
+                             {(xs.min(), ys.min()), (xs.max(), ys.min()),
+                              (xs.max(), ys.max()), (xs.min(), ys.max())})
+            np.testing.assert_array_equal(image, before)
+            # Fixed footer zone; direction resolution may turn the card 180.
+            prepared = crop if turns % 2 == 0 else np.rot90(crop, 2)
+            # Choose the direction with the known lower identifier pixels.
+            if np.count_nonzero(prepared[-127:] > 230) < 100:
+                prepared = np.rot90(prepared, 2)
+            self.assertGreater(np.count_nonzero(prepared[1270:] > 230), 100)
+            self.assertLess(np.mean(prepared[-30:] > 230), .15)
+
+    def test_ambiguous_white_borders_and_broad_padding_keep_full_scan(self):
+        card = tight_scan()
+        white_border = cv2.copyMakeBorder(card, 40, 40, 40, 40,
+                                        cv2.BORDER_CONSTANT, value=(255, 255, 255))
+        broad = cv2.copyMakeBorder(card, 0, 140, 0, 0,
+                                  cv2.BORDER_CONSTANT, value=(255, 255, 255))
+        light_border = card.copy()
+        light_border[-10:] = 190  # No clear dark physical border at the seam.
+        uncertain = cv2.copyMakeBorder(light_border, 0, 65, 0, 0,
+                                      cv2.BORDER_CONSTANT, value=(255, 255, 255))
+        for source in (white_border, broad, uncertain,
+                       np.full((945, 630, 3), 255, np.uint8), card):
+            for turns in range(4):
+                image = np.rot90(source, turns).copy()
+                crop, evidence = geometry(image, 'CARD_SCAN')
+                h, w = image.shape[:2]
+                self.assertEqual(evidence['method'], 'declared-card-scan')
+                self.assertEqual(set(map(tuple, evidence['quad'])),
+                                 {(0, 0), (w-1, 0), (w-1, h-1), (0, h-1)})
+
+    def test_photo_never_uses_scanner_background_trim(self):
+        from unittest.mock import patch
+        image = cv2.copyMakeBorder(tight_scan(), 0, 65, 0, 0,
+                                   cv2.BORDER_CONSTANT, value=(255, 255, 255))
+        with patch('baseline.scanner_background_quad', side_effect=AssertionError('scan trim called')):
+            _, evidence = geometry(image, 'PHOTO')
+        self.assertNotEqual(evidence.get('method'), 'scanner-background-trim')
+
     def test_tight_scan_preserves_all_edges_and_footer_in_every_quarter_turn(self):
         image = tight_scan()
         for turns in range(4):

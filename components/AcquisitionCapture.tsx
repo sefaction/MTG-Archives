@@ -829,12 +829,12 @@ export function AcquisitionCapture({
                 }
               >
                 <option value="PHOTO">Photo · detect card border</option>
-                <option value="CARD_SCAN">Card scan · keep full image</option>
+                <option value="CARD_SCAN">Card scan · preserve card edges</option>
               </select>
             </label>
             <p className="text-sm mt-1">
               {imageInputKind === "CARD_SCAN"
-                ? "One already framed card per image. Border detection is skipped; the full card and footer are kept."
+                ? "One already framed card per image. Only a small, clear strip of scanner background is trimmed for reading. Your original is kept."
                 : "Use for camera photos with background around the card. In-app camera captures always use Photo."}
             </p>
             <div className="flex flex-wrap gap-2 mt-3">
