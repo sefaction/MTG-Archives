@@ -5,6 +5,7 @@ import {
   type PrismaClient,
 } from "@prisma/client";
 import { z } from "zod";
+import { acquisitionRefreshPriority } from "./acquisition-processing-priority";
 
 // Queue operations are worker-only: never expose these as user-facing routes.
 // Handlers return versioned evidence; they must not mutate candidates/inventory.
@@ -72,12 +73,14 @@ export async function claimAcquisitionJobs(
   // Share this stage across owners before sharing each owner's runs. A single
   // owner's many unfinished batches must not multiply its share of the worker.
   // Derive owner turns from existing durable run turns; no new queue identity.
-  // Keep availability/FIFO within a run and the second head for lease CAS races.
+  // First results precede refreshes within each owner, then rotate equal-priority
+  // runs. Keep FIFO within that class and the second head for lease CAS races.
+  const priority = acquisitionRefreshPriority(Prisma.sql`j."artifactId"`,
+    Prisma.sql`j."candidateId"`, Prisma.sql`j.stage`);
   const candidates = await db.$queryRaw<{id: string; runId: string; stage: string; candidateRevision: number}[]>`
-    WITH ranked AS (
+    WITH eligible_jobs AS (
       SELECT j.id, j."runId", j.stage, j."candidateRevision", j."availableAt", j."createdAt", s."ownerPlayerId",
-        ROW_NUMBER() OVER (PARTITION BY j."runId", j.stage
-          ORDER BY j."availableAt", j."createdAt", j.id) AS position
+        ${priority} AS "refreshPriority"
       FROM "AcquisitionProcessingJob" j
       JOIN "AcquisitionCandidate" c ON c.id=j."candidateId"
       JOIN "AcquisitionRun" r ON r.id=j."runId"
@@ -92,6 +95,10 @@ export async function claimAcquisitionJobs(
         AND (j.stage='photo-canonical-v1' OR
           (c.revision=j."candidateRevision" AND NOT c.excluded AND c.review IS NULL))
         AND NOT EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=j."candidateId")
+    ), ranked AS (
+      SELECT e.*, ROW_NUMBER() OVER (PARTITION BY e."runId", e.stage
+        ORDER BY e."refreshPriority", e."availableAt", e."createdAt", e.id) AS position
+      FROM eligible_jobs e
     ), owner_turns AS (
       SELECT s."ownerPlayerId", t.stage, MAX(t."lastClaimedAt") AS "lastClaimedAt"
       FROM "AcquisitionProcessingTurn" t
@@ -105,7 +112,7 @@ export async function claimAcquisitionJobs(
         ON t."runId"=q."runId" AND t.stage=q.stage WHERE q.position<=2
     ), shared AS (
       SELECT h.*, ROW_NUMBER() OVER (PARTITION BY h."ownerPlayerId", h.stage
-        ORDER BY h."runTurn", h.position, h."availableAt", h."createdAt", h.id) AS "ownerPosition"
+        ORDER BY h."refreshPriority", h."runTurn", h.position, h."availableAt", h."createdAt", h.id) AS "ownerPosition"
       FROM heads h
     )
     SELECT q.id, q."runId", q.stage, q."candidateRevision" FROM shared q
