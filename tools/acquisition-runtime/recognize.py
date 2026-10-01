@@ -98,7 +98,7 @@ def recognize(data, desc):
               'automaticAcceptance': False}), file=protocol, flush=True)
         return
     crop, geometry_evidence = geometry(image, input_kind)
-    if crop is None:
+    if crop is None and input_kind != 'CARD_SCAN':
         # Contour proposals can change when a near-edge card is sampled after
         # resize. Try bounded quarter turns before asking for a new crop, while
         # keeping any accepted polygon in the original EXIF-normalized frame.

@@ -834,7 +834,7 @@ export function AcquisitionCapture({
             </label>
             <p className="text-sm mt-1">
               {imageInputKind === "CARD_SCAN"
-                ? "One already framed card per image. Only a small, clear strip of scanner background is trimmed for reading. Your original is kept."
+                ? "One card per image. Clear outer edges are aligned for reading; incomplete edges need a new scan. Your original is kept."
                 : "Use for camera photos with background around the card. In-app camera captures always use Photo."}
             </p>
             <div className="flex flex-wrap gap-2 mt-3">

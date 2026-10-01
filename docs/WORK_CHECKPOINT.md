@@ -3713,3 +3713,50 @@ Next safe step: investigate #260 with repeated browser lifecycle runs and creden
 - Read Foundry hub/workflow/relevant notes before batches. Durable knowledge goes there; code/test evidence in repo/GitHub.
 
 
+## Scanner physical-edge framing ready for local review — October 1, 2026
+
+Active branch codex/scanner-card-framing, base main746cb7c; issue559. Focus: fit
+complete dark physical rims on light/shaded backing; preserve original bytes and
+black border; flag clipped declared scans before fixed-region OCR. Routing,
+printing ranking, automatic confirmation and native settings-window work deferred.
+See docs/SCANNER_CARD_FRAMING.md for measurements and qualification limits.
+
+All application acceptance is LOCAL127.0.0.1:13001. Production parity unverified.
+One fresh authorized feed completed:1620x2160 PNG/5046ms; operator confirmed one
+undamaged card, feeder/transport EMPTY. Profile2.7x3.6 RGB600simplex None/White;
+controlled ADFfrontSub=-0.5mm, Main/magnification0 restored leading margin on this
+sample. No further feed authorized without fresh loading/clear-transport evidence.
+Scanner helper remains scoped to the existing local connection; production helper
+stopped. No native setting-window control or production deployment performed.
+
+Prepared image ALIGNED in all four quarter turns; zero observed dark-border pixels
+outside crop; independent straight-edge measurement maximum7.12sourcepixels,
+under5canonicalpixels outward allowance. Complete app reads Blessing/footer8/249;
+actual physical batch236 printing-check complete, BlessingM14#8EN suggested,
+awaiting review/zero added. Set/language not read; stamp unreadable.
+
+Fresh isolated two-original application acceptance PASSED98.342s, including real
+workers, original digest downloads, matching native/visual frames, current candidate
+revisions, null reviews/receipts, false automatic acceptance, zero fixture Inventory,
+1366/320rendering and no horizontal page overflow. Clipped original has no OCR
+zones/readings. Test fixture and private copies cleaned. First attempt aborted after
+native Windows CRLF/index fingerprint mismatch; owned aborted fixture also removed.
+Canonical LF native rebuild restores verified encoder compatibility without
+weakening index guards. Private originals and logs remain ignored locally.
+
+Checks:15geometry,8photo,5projection,759units/zero skips, typecheck, web build/client
+gates passed. Local web image44d270811ff7b146fb425b4ea0cf80884faa6220a08b609787bc205fd2291825;
+OCR ef62d521a1c0340b6c1093542a7c4666b492e4e234109964d39b8585186e6dab;
+visual58ae5cea0088634c856055db5bf622799461bff2d46b3434b5a7b4ff53c2da2f;
+approved printing-reuse d31b9a96c2e257c23a5ba4b2730103fbc323ac93f12e3765444441ee52557196.
+506webfiles match manifest1fb182c76f5d23556dec48f0d2a22872378a9287d341865c1a48f7174c18b63e.
+Final nativebaseline f171e8fcf2bbad251de2c05a46e460068fa60b34c77fb915a92f32ef22799cc0;
+recognize f137f04cfec43c4923530e174956a757026557d2cc20b20a07bbabf1459a3bed.
+Web source predates final Python-only adjustment; both native images rebuilt after it.
+
+Ambiguous white-border/pure-white, borderless/low contrast cases keep legacy
+full-frame/strip behavior and explicit unverified-edge warning. This is bounded
+dark-border framing evidence, not universal perfect-frame qualification. #557/#558
+remain open. Next: focused PR with acceptance report; merge only after this PR's
+individual approval. No unanswered operator question; transport empty.
+

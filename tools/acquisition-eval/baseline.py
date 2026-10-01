@@ -112,18 +112,151 @@ def scanner_background_quad(image):
         return None
     return order_quad([[x0, y0], [x1, y0], [x1, y1], [x0, y1]])
 
+
+def scanner_card_edges(image):
+    """Fit the exterior dark rim on a light scanner background, never artwork.
+
+    Only a large, nearly rectangular, dark-bordered card with light exterior
+    support qualifies. Rounded corners are excluded from line fitting; the four
+    lines are moved outwards to enclose the entire observed rim. Missing exterior
+    support on an image edge is clipping evidence, not a license to infer pixels.
+    Other inputs keep the existing full-frame/strip behavior.
+    """
+    h, w = image.shape[:2]
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    # Use the central portion: rounded card corners alone are not background.
+    edge_samples = (gray[0, w//4:3*w//4], gray[-1, w//4:3*w//4],
+                    gray[h//4:3*h//4, 0], gray[h//4:3*h//4, -1])
+    exterior = [float(np.mean(s >= 100)) >= .95 for s in edge_samples]
+    if sum(exterior) < 3:
+        return None, None
+    # A white card border can be indistinguishable from a pure white backdrop.
+    # Do not promote an inner black rectangle to an observed physical outline.
+    if all(float(np.median(s)) >= 245 for s in edge_samples):
+        return None, None
+    mask = (gray < 70).astype(np.uint8) * 255
+    contour_scale = min(1, 2000/max(h, w))
+    bounded_mask = cv2.resize(mask, None, fx=contour_scale, fy=contour_scale,
+                              interpolation=cv2.INTER_NEAREST) if contour_scale < 1 else mask
+    contours, _ = cv2.findContours(bounded_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if len(contours) > 1000:
+        return None, None
+    if not contours:
+        return None, None
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)
+    contour = contours[0].reshape(-1, 2).astype(np.float64)/contour_scale
+    raw_area = abs(cv2.contourArea(contours[0]))
+    area = raw_area/(contour_scale**2)
+    if area < .60 * w * h or any(abs(cv2.contourArea(c)) > .02 * raw_area for c in contours[1:]):
+        return None, None
+    x0, y0 = contour.min(axis=0)
+    x1, y1 = contour.max(axis=0)
+    _, rectangle_size, _ = cv2.minAreaRect(contour.astype(np.float32))
+    if area / max(1, rectangle_size[0]*rectangle_size[1]) < .97:
+        return None, None
+    # A visible dark rim reaching a boundary amid three light margins is an
+    # incomplete source. Do not crop inward to the inner printed rectangle.
+    if not all(exterior):
+        distances = (y0, h-1-y1, x0, w-1-x1)
+        if any(not light and distance < 2 for light, distance in zip(exterior, distances)):
+            return None, 'CLIPPED'
+        return None, None
+    if min(x0, y0, w-1-x1, h-1-y1) < 2:
+        return None, 'CLIPPED'
+
+    # Samples from the straight middle of each exterior side, with support over
+    # most of its length. The first/last dark point is outside every inner frame.
+    lines = []
+    for axis, low, high, other_low, other_high in (
+            (0, y0, y1, x0, x1), (1, x0, x1, y0, y1)):
+        span = high-low
+        start, stop = int(low+.18*span), int(high-.18*span)
+        positions = np.arange(start, stop+1)
+        profiles = mask[positions, :] if axis == 0 else mask[:, positions].T
+        present = profiles != 0
+        if not np.all(np.any(present, axis=1)):
+            return None, None
+        first = np.argmax(present, axis=1)
+        last = profiles.shape[1]-1-np.argmax(present[:, ::-1], axis=1)
+        for reverse, samples in ((False, first), (True, last)):
+            slope, intercept = np.polyfit(positions, samples, 1)
+            residual = samples-(slope*positions+intercept)
+            # No loose fit to bent, torn or ambiguous exterior edges. Error is
+            # bounded in physical pixels, rather than by an OCR confidence.
+            tolerance = max(1.5, min(w, h)*.003)
+            if np.max(np.abs(residual)) > tolerance or abs(slope) > .15:
+                return None, None
+            # Enclose ALL contour pixels, including rounded-corner extremities,
+            # plus two source pixels for antialiasing at the physical boundary.
+            independent = contour[:, 1-axis]
+            dependent = contour[:, axis]
+            offsets = dependent-slope*independent
+            allowance = 2/contour_scale
+            intercept = (offsets.max()+allowance if reverse else offsets.min()-allowance)
+            lines.append((slope, intercept))
+    left, right, top, bottom = lines
+    def intersection(vertical, horizontal):
+        a, b = vertical
+        c, d = horizontal
+        y = (c*b+d)/(1-c*a)
+        return [a*y+b, y]
+    q = np.asarray([intersection(left, top), intersection(right, top),
+                    intersection(right, bottom), intersection(left, bottom)], np.float32)
+    if (not np.isfinite(q).all() or np.any(q[:, 0] < 0) or np.any(q[:, 0] > w-1)
+            or np.any(q[:, 1] < 0) or np.any(q[:, 1] > h-1)):
+        return None, 'CLIPPED'
+    lengths = [np.linalg.norm(q[(i+1)%4]-q[i]) for i in range(4)]
+    ratio = (lengths[0]+lengths[2])/(lengths[1]+lengths[3])
+    if not .69 <= min(ratio, 1/ratio) <= .74:
+        return None, None
+    # Contrast on both sides of every straight edge independently supports the
+    # physical rim. Dark/white card art or aspect ratio alone cannot qualify.
+    for i in range(4):
+        p, end = q[i], q[(i+1)%4]
+        tangent = (end-p)/np.linalg.norm(end-p)
+        inward = np.array([-tangent[1], tangent[0]])
+        points = p+(end-p)*np.linspace(.20, .80, 80)[:, None]
+        for offset, dark in ((5, True), (-5, False)):
+            sample = np.rint(points+offset*inward).astype(int)
+            if (np.any(sample[:, 0] < 0) or np.any(sample[:, 0] >= w)
+                    or np.any(sample[:, 1] < 0) or np.any(sample[:, 1] >= h)):
+                return None, None
+            values = gray[sample[:, 1], sample[:, 0]]
+            if np.mean(values < 90 if dark else values >= 90) < .95:
+                return None, None
+            if dark:
+                inside_median = float(np.median(values))
+            else:
+                # A scanner shadow can darken the white backing near a side.
+                # Require a strong transition across that side, independently
+                # of the light support already observed at the source boundary.
+                if float(np.median(values))-inside_median < 40:
+                    return None, None
+                # A white border outside an inner printed rectangle is not the
+                # surrounding scanner background. Compare its level with the
+                # corresponding exterior boundary, allowing scanner shading.
+                edge_index = (0, 3, 1, 2)[i]
+                if float(np.median(values))-float(np.median(edge_samples[edge_index])) > 8:
+                    return None, None
+    return order_quad(q), 'ALIGNED'
+
 def geometry(image, input_kind='PHOTO'):
     h, w = image.shape[:2]
     if input_kind not in ('PHOTO', 'CARD_SCAN'):
         raise ValueError('Unknown image input kind')
     if input_kind == 'CARD_SCAN' or preserve_full_frame(image):
+        edges, framing = scanner_card_edges(image) if input_kind == 'CARD_SCAN' else (None, None)
+        if framing == 'CLIPPED':
+            return None, {"status": "NEEDS_CROP", "framing": "CLIPPED"}
         trimmed = scanner_background_quad(image) if input_kind == 'CARD_SCAN' else None
-        q = trimmed if trimmed is not None else order_quad([[0, 0], [w-1, 0], [w-1, h-1], [0, h-1]])
+        q = edges if edges is not None else trimmed if trimmed is not None else order_quad([[0, 0], [w-1, 0], [w-1, h-1], [0, h-1]])
         transform = cv2.getPerspectiveTransform(q.astype(np.float32), np.float32([[0,0],[999,0],[999,1396],[0,1396]]))
         crop = cv2.warpPerspective(image, transform, (1000, 1397))
         return crop, {"status": "PROPOSED", "quad": q.tolist(),
-                      "method": ("scanner-background-trim" if trimmed is not None else
-                                 "declared-card-scan" if input_kind == 'CARD_SCAN' else "full-frame"), "confidence": None}
+                      "method": ("scanner-card-edges" if edges is not None else
+                                 "scanner-background-trim" if trimmed is not None else
+                                 "declared-card-scan" if input_kind == 'CARD_SCAN' else "full-frame"),
+                      "confidence": None, **({"framing": framing} if framing else {})}
     scale = min(1, 1400 / max(h, w))
     small = cv2.resize(image, None, fx=scale, fy=scale)
     gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
