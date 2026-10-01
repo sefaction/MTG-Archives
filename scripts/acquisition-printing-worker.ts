@@ -33,10 +33,17 @@ async function main() {
     }
     const {descriptor, native} = generation.current;
     await enqueueReadyPrinting(db, descriptor.digest);
+    let inferenceRequests = 0, reuseHits = 0;
     const result = await runAcquisitionJobsOnce(db, {
-      [PRINTING_STAGE]: (job, signal)=>observeAcquisitionPrinting(db, job, signal, descriptor.digest, native),
+      [PRINTING_STAGE]: async (job, signal) => {
+        const output = await observeAcquisitionPrinting(db, job, signal, descriptor.digest, {
+          request: (frame, currentSignal) => { inferenceRequests++; return native.request(frame, currentSignal); },
+        });
+        if ((output.printingExecution as {reused: boolean}).reused) reuseHits++;
+        return output;
+      },
     }, workerId, {timeoutMs: 120000, leaseMs: 180000});
-    if (result.claimed) console.log(JSON.stringify({event: "printing-stage", ...result}));
+    if (result.claimed) console.log(JSON.stringify({event: "printing-stage", ...result, inferenceRequests, reuseHits}));
     if (!stopped && !process.argv.includes("--once")) await setTimeout(result.claimed ? 100 : 1000);
   } while (!stopped && !process.argv.includes("--once"));
 }
