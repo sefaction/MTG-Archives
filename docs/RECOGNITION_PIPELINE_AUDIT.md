@@ -1,6 +1,12 @@
-# Recognition pipeline audit — working evidence
+# Recognition pipeline audit — October 1, 2026
 
-Status: active, incomplete. Source baseline: merged main
+Use exact identifiers and observed candidate scopes before universal broad retrieval,
+with a parallel or overlapping broad fallback for weak reads. The tested benefit is
+less image work with unchanged held-out printing accuracy; general accuracy gains
+and high automatic coverage remain unproven. Reuse unchanged observations first,
+then qualify routing and missing distinguishing-reference coverage.
+
+Status: audit complete; proposed application changes are not deployed. Source baseline: merged main
 `e247916f7022f360cedbc05398cba607cbcfb24d`. This is an audit and isolated benchmark;
 no runtime policy is promoted, no reviews/Inventory are changed, and no physical
 scanner or production operation is authorized. Existing reading strips stay fixed:
@@ -48,6 +54,8 @@ flowchart LR
   depends on the new catalog job. Versioned/native input reuse needs evaluation
   before any deduplication fix is proposed.
 
+Machine-readable aggregate counts and provenance: [RECOGNITION_AUDIT_METRICS.json](RECOGNITION_AUDIT_METRICS.json).
+
 Sources: `lib/acquisition-{recognition-worker,visual-worker,catalog-reconciliation,
 printing-worker,visual,printing,auto-confirm}.ts` and
 `tools/acquisition-runtime/{recognize,visual,printing,printing_worker}.py`.
@@ -56,7 +64,7 @@ printing-worker,visual,printing,auto-confirm}.ts` and
 
 Private repeatable-read snapshot: 883 retained originals, 365 distinct byte
 hashes, 76 saved reviews (20 automatic-origin, 56 without an automatic source).
-Neither a saved choice nor a apparently successful suggestion is independent
+Neither a saved choice nor an apparently successful suggestion is independent
 truth. Existing historical corpora include 23 phone photos, 17 scanner images and
 124 batch scans; these have already participated in development and cannot be
 relabelled as unseen validation simply by splitting them now.
@@ -65,7 +73,10 @@ At a separate read-only history capture, 8,105 completed printing jobs map to
 1,717 distinct original-digest / printing-model / policy / candidate-ID-set requests.
 There are 6,388 repeated combinations. These include migrations, repeated uploads,
 revisions and test history; this is an opportunity count, not a benchmark claim
-that every repeat was unnecessary or safely shareable across owners.
+that every repeat was unnecessary or safely shareable across owners. Preserving
+recorded Card-ID order yields 1,727 combinations / 6,378 repeats; even that is a
+proxy, because actual ordered native Scryfall envelopes and all owner/reference
+boundaries are not retained in this historical count.
 
 Latest saved native timing diagnostics: OCR median 4.109 s (p95 5.910 s), global
 visual retrieval median 8.118 s (p95 11.728 s), printing median 8.156 s (p95 11.601 s).
@@ -87,7 +98,10 @@ catalog suggestions was frozen before manual inspection (seed 20260930, eligible
 population 355). Eight show identifiable fronts; four show backs/sleeve artwork
 or a synthetic fixture. Retain all 12 in the random audit; separate the synthetic
 fixture and unobservable printing targets from strict-front-printing accuracy.
-These are apparent suggestions, not independently established successes.
+These are apparent suggestions, not independently established successes. Seven
+images have prior development use; three exact digests overlap the 40-image
+development sample and none overlap the 41 validation images. This random audit
+is not an additional independent validation set.
 
 ## Benchmark protocol — fixed before alternatives
 
@@ -192,7 +206,7 @@ printing median 8.84 s / p95 12.50 s. This measures the cache hit itself, not re
 full-pipeline latency. Warmup, database retrieval, persistence, TTL, cross-process
 invalidation and current job/review publication fences remain implementation work.
 
-## Recommended direction pending locked validation
+## Recommended recognition decision tree
 
 ```mermaid
 flowchart TD
@@ -224,11 +238,128 @@ than family uniqueness and may underestimate future automation; it has not justi
 relaxing acceptance. Preserve original/List equivalents and avoid booster-origin
 claims for physically identical products.
 
-## Validation and repetition still running
+## Locked validation (41 scanner images, 36 printing groups)
 
-The 41-image reserved trial, 12-image seeded audit and nine timing-repeat observations
-are not complete yet. Do not read the development table as an independent validation
-result. Final implementation priorities will be reconciled with those locked trials.
+| Method | Exact first / offered | Wrong first suggestions | Median / p95 / max inference | Global searches | Geometric comparisons | Printing registrations |
+|---|---:|---:|---:|---:|---:|---:|
+| Current parallel OCR + global image | 36/41 / 41/41 | 5 | 18.87 / 41.07 / 44.17 s | 41 | 1,640 | 501 |
+| Exact identifiers first, else global | 36/41 / 41/41 | 5 | 8.07 / 39.44 / 40.50 s | 12 | 480 | 188 |
+| Exact identifiers, partial scope, else global | 36/41 / 41/41 | 5 | 7.32 / 37.80 / 50.49 s | 4 | 177 | 125 |
+
+The separate validation preserves first-suggestion and offered-printing accuracy,
+with no paired accuracy gains or losses. The development accuracy gain therefore
+has not demonstrated a general unseen-printing accuracy improvement. The robust
+held-out benefit is fewer operations: 90.2% fewer global searches, 89.2% fewer
+geometric comparisons and 75.0% fewer printing registrations. Wall-time medians
+are indicative under shared cache/load; they are not portable speedup estimates.
+The partial route is faster in 36 paired cases and slower in five. Its worst case
+is 50.49 s versus 44.17 s current, reinforcing the need to qualify overlap/fallback
+scheduling rather than promoting unconditional serial OCR-first execution.
+
+All three methods miss the same five first suggestions across three printing groups:
+Samut's Sprint WAR142 (three captures), Bloom Hulk WAR154 and Courage in Crisis
+WAR158. They place the List counterpart first despite manually verified unmarked
+originals; all retain the correct original among alternatives and require review.
+The three failure groups are correlated image outcomes, not five independent tests.
+Each method has 33/36 printing groups with every capture correct. The descriptive
+image-level exact-first interval is 74.5–94.7% for each; the biased corpus and unknown
+physical independence prevent treating it as a population estimate.
+
+The partial version uses exact identifiers for 29 images, scoped retrieval for eight
+and global retrieval for four. The first two routes cover 37/41 (90.2%, descriptive
+interval 77.5–96.1%); their first suggestion is correct on 32/41 (78.0% of the entire
+validation sample). All four global cases are correct. Eighteen alternative strong
+suggestions are correct, but the conservative offline stop gate makes zero decisions
+in validation. Automatic coverage is 0%; acceptance precision is undefined. The
+current hybrid application also confirms zero automatically. The 95% routing estimate
+remains unestablished; 95% automatic coverage is especially unsupported.
+
+Additional verification limits: all validation images are scanner captures, mostly
+WAR; there are no natural poor-phone photos held out from this audit's policy. Some
+scanner reads still need whole-photo fallback. Marker/reference absence coverage,
+not arbitrary image similarity, limits these exact-footer families. Unusual frame
+examples and two visible stamps are included, but are too few to establish rare-
+treatment reliability. No validation-driven threshold or label tuning occurred.
+
+## Seeded apparent-success audit (12 images, eight identifiable fronts)
+
+| Method | Exact first / offered (fronts) | Wrong front suggestion | Median / p95 inference (all 12) | Global searches | Printing registrations |
+|---|---:|---:|---:|---:|---:|
+| Current parallel OCR + global image | 7/8 / 8/8 | 1 | 20.54 / 51.77 s | 12 | 176 |
+| Exact identifiers first, else global | 7/8 / 8/8 | 1 | 21.77 / 49.72 s | 7 | 117 |
+| Exact identifiers, partial scope, else global | 7/8 / 8/8 | 1 | 14.58 / 39.05 s | 6 | 106 |
+
+All methods misrank Winter, Tormented Loner FRA240 as FRA307; this printing/frame
+problem is also development-used and does not become independent evidence by being
+randomly selected again. The correct printing remains offered. Its blurred footer
+uses the prior independently verified printing label, with the observability limit
+retained; new distinguishable detail cannot be invented from the blurry image.
+The partial version routes six of eight fronts through its first two paths (75%).
+Its one scoped front and five exact-identifier fronts are correct first suggestions.
+It has one correct offline automatic decision out of all 12 (8.3% coverage), with
+no wrong strong or automatic decision observed; one success cannot establish safety.
+
+The other four are two generic backs, sleeve artwork and one synthetic test fixture.
+All methods return nonempty proposals for every one, and spend broad retrieval plus
+printing verification on them, while their automatic gate abstains. A printing is
+not observable, so these four are reported separately rather than called correct or
+wrong front IDs. This both exposes needless processing and calls for a clear negative/
+unresolved review state. Include such cases when qualifying a cheap front/side gate;
+do not turn every difficult valid front into a rejection. The retained development
+and test-history overlaps prevent treating these 12 as a clean production sample.
+
+## Repeated timing (three images, three cycles, 27 paired runs)
+
+The second sample cycle reverses the image order; method order still rotates. These
+are repeat/stability checks, not nine independent new printing-accuracy observations.
+The first baseline exact-image call starts all three models cold (39.00 s), and is
+separated from the ordinary warm repeats below. Whole-photo timeout restarts and
+reference misses remain tagged; not every reference was warmed equally.
+
+| Stratum | Current baseline times | Exact-first times | Partial-scoped times | Result stability |
+|---|---|---|---|---|
+| Exact scanner, warm cycles 2/3 | 12.91 / 7.99 s | 5.99 / 6.25 s | 8.45 / 6.39 s | All correct; 12 printing registrations versus one per run |
+| Shared-art Graft Surgeon, all cycles | 7.49 / 6.73 / 6.90 s | 23.53 / 18.03 / 15.91 s | 8.47 / 7.67 / 6.66 s | Current/exact-first wrong 3/3; scoped correct 3/3; 13 registrations versus one |
+| Difficult scanner read, all cycles | 38.04 / 38.09 / 36.28 s | 42.89 / 42.68 / 34.68 s | 49.13 / 43.46 / 43.57 s | All correct; global search still required |
+
+Fully warmed parallel broad retrieval can be faster than serial scoping on a shared-
+art card, although it still returns the wrong first printing and performs more
+operations. The difficult-read repeats also show a persistent serial-delay cost.
+Therefore the recommendation is selective routing with overlap for weak evidence,
+not a blanket claim that delaying every visual search until full OCR finishes wins.
+The overlap policy itself remains to be implemented and separately benchmarked.
+
+## Preservation and verification limits
+
+All four trial reports are complete: 40 development images, 41 held-out images,
+12 seeded apparent successes and nine repeat observations, each across three methods.
+Original file checks cover 93 manifest entries / 90 distinct hashes. Every retained
+original checked against its frozen digest. Read-only before/mid/late/final database
+fingerprints match for original metadata, saved reviews, Inventory and commit receipts.
+The current reading zones, runtime sources and published reference generation are
+unchanged; each native role has one consistent descriptor across every trial.
+
+Model-free validation: application typecheck, nine TS scope/cache tests and twelve
+Python timing/paired/group checks passed, with audit guards included in existing CI.
+Only dedicated offline Docker inference containers ran this change; they were cleaned
+up. The reviewed app at the main-equivalent baseline stayed available (HTTP 200).
+No scanner motor/driver, production, merge, saved review or Inventory operation occurred.
+
+Timing includes native calls and in-process catalog combination, but excludes upload,
+preparation, application queue waits, provider/cache-miss latency and user actions.
+Provider requests are zero by construction of the frozen catalog harness, not proof
+that the live application makes zero requests. CPU savings are inferred from measured
+expensive operations; CPU-seconds, energy and portable throughput were not measured.
+Do not add historical stage medians or count inherited OCR time as catalog work.
+
+Validation is held out from this audit's policy selection, not necessarily all previous
+runtime/model development. Unknown physical-copy independence, biased scan/printing
+strata, corpus overlap, small stamp/unusual-layout cohorts, 899 unavailable references
+and the English default-card index limit generalization. Existing reviews and the
+phrase "apparently successful" supplied no truth labels. No whole-photo-only scope,
+new detail classifier, lighter consistency check or overlapping scheduler is counted
+as an evaluated improvement. No 95% coverage or automatic-acceptance safety claim is
+established by this audit.
 
 Representative diagnostic finding: Timberland Ancient's exact MOM210 footer
 retrieves both its original and PLSTMOM-210. The stamp detector reports unknown
@@ -249,6 +380,8 @@ not justify inferring a booster product from identical visible artwork/markers.
    owner, original digest, full native/reference/policy versions and exact ordered
    candidate envelope. Keep input validation and before/after current catalog job,
    candidate revision, review, physical generation and commit checks on cache hits.
+   Prefer reusing already persisted native observations when their complete input
+   identity can be verified; a small LRU alone may miss older whole-batch refreshes.
    Bound storage and retain unknown/conflicting evidence. Record a cache-hit duration
    separately from the original native timing. Start with printing; existing reference
    feature LRUs already exist and are not a substitute for result reuse. Acceptance:
@@ -256,7 +389,9 @@ not justify inferring a booster product from identical visible artwork/markers.
    across every version/input/owner boundary, and stale/reviewed jobs cannot publish.
 2. **Route exact identifiers and observed candidate scopes before broad search.**
    Resolve the full title/set/collector/language family, including retained-source
-   List counterparts. Preserve partial progress and contradiction checks; verify
+   List counterparts and supported promo/treatment aliases. Family completeness
+   must be checked before an automatic stop; the List-specific prototype is not
+   proof that every physically printed identifier alias is represented. Preserve partial progress and contradiction checks; verify
    geometric support and escalate on weak or unsupported scopes. Keep global search
    available for poor localization and unknown layouts. Add bounded speculative
    overlap for slow OCR to protect the tail; qualify that separately. Acceptance:
@@ -265,7 +400,11 @@ not justify inferring a booster product from identical visible artwork/markers.
    under repeated representative load. Actual app queue/provider latency must also
    be measured, because this audit's frozen cache excludes them.
 3. **Verify only unresolved printing differences, with clear uncertainty.**
-   Tighten the printing candidate family after supported scoped evidence rather
+   First qualify verified unmarked public references for ambiguous original/List
+   families: sharp, aligned scans can remain unknown solely because such a reference
+   is missing. Keep the absence rule conservative; do not label a reference unmarked
+   merely because marker detection failed. Then tighten the printing candidate family
+   after supported scoped evidence rather
    than retaining unrelated weak candidates. Compare aligned footer/set symbol/frame
    when shared art leaves multiple printings; verify stamps only for unresolved stamp
    families. Unknown stamp evidence stays unknown, and physically identical product
@@ -274,6 +413,10 @@ not justify inferring a booster product from identical visible artwork/markers.
    rule, not a threshold adjustment to fix Timberland Ancient alone. Keep alternative
    choices easy to review while evidence remains tied or unreadable.
 4. **Qualify acceptance and coverage before enabling automatic decisions.**
+   Include a negative-front/side gate and clear unresolved review state for generic
+   backs, sleeve artwork and fixtures; do not force a physical printing choice when
+   the image cannot expose one. Qualify that gate against difficult real fronts so
+   it cannot discard a valid poor photo.
    Use new printing-group and physical-copy held-out strata: naturally poor phone
    photos, clipped/blurred marker regions, shared-art treatments, rare layouts,
    supported languages and unavailable references. Measure wrong automatic decisions,
@@ -283,3 +426,38 @@ not justify inferring a booster product from identical visible artwork/markers.
 
 Each implementation batch needs its own local Docker acceptance, current-head
 checks and individual PR merge approval. The audit tools do not deploy these changes.
+
+## Reproducibility and operational finding
+
+Qualified inference uses unchanged LF main runtime/evaluation source, pinned native
+image digests and the frozen published index. A Windows CRLF encoder checkout has
+identical code after newline normalization but a different raw source identity,
+which correctly fails the current index compatibility check. That failed startup
+smoke is excluded. [Issue #552](https://github.com/sefaction/MTG-Archives/issues/552)
+tracks reproducible source bytes across supported checkout/build workflows; bypassing
+integrity checks is not the proposed fix. The current reviewed/deployed image is not
+claimed broken by this source-mounted reproduction.
+
+Only private config/manifests/results contain original IDs, local mounts and per-image
+observations. Public source/results use aggregate counts and named catalog examples.
+No private corpus is silently substituted for CI coverage. Model-free CI exercises
+snapshot attribution, paired completeness/denominators, group dependence, conflicting
+scopes and bounded owner/input/version result reuse. Full app/browser/provider/cache-
+miss and production scanner acceptance remain separate from this isolated audit.
+
+A held-out Samut's Sprint WAR142 scan demonstrates this reference gap: both proposed
+faces align with more than 500 inliers, stamp/footer visibility is true, source
+width is about 1,470 pixels and footer sharpness exceeds 645. Native stamp evidence
+is unknown with `NO_VERIFIED_UNSTAMPED_REFERENCE`; the first proposal is PLSTWAR-142,
+while the manually verified original is WAR142. The original remains offered, all
+methods require review, and the offline gate abstains. An expensive global search
+does not repair the missing reference verification. Repeated captures of this
+printing must be reported as one correlated failure group, not independent failures.
+
+The tested scope requires a selected reading orientation. Whole-photo-only titles
+or useful but unoriented partial evidence can still escalate directly to global
+search in this conservative prototype. Production routing should retain that evidence
+for a validated candidate union, with broad fallback when the union is weak or too
+large. Expanding that rule after examining validation would require a new policy
+version and independent validation; this report does not count an untested expansion
+as measured 95% coverage.

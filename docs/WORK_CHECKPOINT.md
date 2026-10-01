@@ -1,42 +1,41 @@
-## Recognition audit continuing — October 1, 2026
+## Recognition audit complete; review delivery — October 1, 2026
 
-Active goal: paired exact-printing audit, validation, measured decision tree and
-implementation plan. Not complete. PR #550 was individually approved, merged and
-published; production update remains the user's operator step.
+Audit measurements/report complete. Goal completion still awaits final PR delivery
+checks and Foundry reconciliation. PR #550 individually approved, merged and main
+publication succeeded; production update remains the user's operator step.
 
-Active worktree: MTG-Archives-scanner-twain-footer; branch
-codex/recognition-pipeline-audit; base e247916f7022f360cedbc05398cba607cbcfb24d.
-No audit PR yet. Relevant issues #463/#307. Primary checkout is stale: do not build
-it. Existing reviewed cumulative Docker app remains healthy; no DB reprocessing.
+Worktree: MTG-Archives-scanner-twain-footer; codex/recognition-pipeline-audit;
+base e247916f7022f360cedbc05398cba607cbcfb24d. Draft PR #551, initial242b3d4;
+three initial-head checks passed. Final report/aggregate-metrics commit pending.
+Issues #463/#307 remain open; measured findings posted to #463. New #552 tracks
+reproduced Windows encoder-source newline/index portability, not fixed here.
 
-Completed exec session 36376: qualified development-threeway-v3.json,
-40 frozen development images, baseline / identifier-first / partial scoped image.
-Development complete: 120 paired observations. Validation/random/timing sequence
-now running in owned exec session 72528 after policy lock on October 1. Only mtg-audit-paired-{ocr,visual,printing} containers;
-network disabled, original/index/source mounts read-only, bounded resources.
-Do not run a second instance with those names. Four qualified harness sources
-are frozen privately. Earlier v1 discarded timeout progress; v2 scoped raw PHOTO
-transport failed. Both are disqualified; v3 qualification passed.
+Session72528 completed cleanly. All owned mtg-audit-paired containers removed.
+40 development /41 held-out /12 seeded /9 repeat observations, all three methods,
+306 paired observations. Four inference sources locked before validation and remain
+identical; one descriptor per native role; reference manifest/vectors/records fixed.
+Private reports/provenance under ignored .local-data/recognition-audit.
 
-41 validation images and seeded 12 apparent successes are manually verified and
-frozen before model results. Validation excludes historical manifest printing
-groups but physical-copy independence is unknown, mostly scanner/WAR, no natural
-poor-photo holdout. Random sample keeps four unobservable targets in denominator.
-Current 9 TS + 9 Python audit checks pass; application typecheck passed. Metrics,
-bounded owner/version/request evidence-cache and reuse experiments are isolated.
+Development exact-first34/40 current vs38/40 partial; validation all36/41 first and
+41/41 offered. Five held-out failures across three original/List groups. Partial
+validation global searches4 vs41; registrations125 vs501; median7.32 vs18.87sec,
+worst50.49 vs44.17sec. First two routes37/41; no95percent population/auto claim.
+Offline stops6/40 development,0/41 validation,1/12 seeded, none wrong observed;
+limited/biased counts do not establish acceptance safety. Seeded fronts7/8 first;
+all four unobservable targets still receive suggestions. Repeats demonstrate warm
+parallel-search exceptions and serial poor-read delay. Reuse800 identical hits.
 
-Preservation mid-run: original/review/Inventory/receipt fingerprints unchanged.
-Reading zones and application runtime are unchanged. No scanner, production,
-merge or saved automatic-confirmation action is authorized by this audit.
+Final original/review/Inventory/receipt database fingerprints unchanged;93 original
+manifest entries/90distinct digests verified; reading zones fixed. Typecheck,9TS
+and12Python model-free tests passed, included in CI. Reviewed cumulative30414c7
+runtime remains main-equivalent and HTTP200; web image a74248d9af31… unchanged.
+No app rebuild, saved review/Inventory, physical scanner, production or merge action.
+Primary checkout stale: do not build it.
 
-Development: baseline34/40, identifier-first34/40, partial38/40 exact first;
-partial global searches4/40. Offline conservative stops6/40, all six correct;
-not population acceptance validation. Reuse:800 equivalent JSON hits measured.
-
-Next: reconcile session72528, finish locked validation/random/timing; recheck
-preservation; publish report/tooling PR, catalogue
-measured bugs and prioritize smallest reliable changes. Current unknown stamp
-results remain unknown. No unanswered user question blocks independent work.
+Next: commit/push finalized docs/metrics, update #551 description, verify current-head
+checks, mark ready, reconcile durable Foundry policy/results, then complete goal.
+No unanswered question or permission required. #551 needs its own explicit approval
+before any merge; no subsequent runtime implementation is claimed delivered.
 
 ## Alignment control locally validated — September 30, 2026
 
