@@ -1,12 +1,13 @@
 ## Recognition audit complete; review delivery — October 1, 2026
 
-Audit measurements/report complete. Goal completion still awaits final PR delivery
-checks and Foundry reconciliation. PR #550 individually approved, merged and main
+Audit measurements, report, issue catalogue and durable Foundry reconciliation
+complete. PR review status/current-head checks are authoritative on GitHub. PR #550 individually approved, merged and main
 publication succeeded; production update remains the user's operator step.
 
 Worktree: MTG-Archives-scanner-twain-footer; codex/recognition-pipeline-audit;
-base e247916f7022f360cedbc05398cba607cbcfb24d. Draft PR #551, initial242b3d4;
-three initial-head checks passed. Final report/aggregate-metrics commit pending.
+base e247916f7022f360cedbc05398cba607cbcfb24d. PR #551, initial242b3d4 / final measurement report7342f16; three initial-head
+checks passed. Final report/aggregate metrics are pushed; current-head CI is on
+GitHub. This checkpoint update changes delivery status only.
 Issues #463/#307 remain open; measured findings posted to #463. New #552 tracks
 reproduced Windows encoder-source newline/index portability, not fixed here.
 
@@ -32,9 +33,10 @@ runtime remains main-equivalent and HTTP200; web image a74248d9af31… unchanged
 No app rebuild, saved review/Inventory, physical scanner, production or merge action.
 Primary checkout stale: do not build it.
 
-Next: commit/push finalized docs/metrics, update #551 description, verify current-head
-checks, mark ready, reconcile durable Foundry policy/results, then complete goal.
-No unanswered question or permission required. #551 needs its own explicit approval
+Next safe step: review #551 after its current-head checks pass. The report and PR
+description contain all measured outcomes/limits; Foundry hub and acquisition wiki
+are reconciled. Implementation priorities are recommendations for separate batches.
+No owned running audit process or unanswered user question remains. #551 needs its own explicit approval
 before any merge; no subsequent runtime implementation is claimed delivered.
 
 ## Alignment control locally validated — September 30, 2026
