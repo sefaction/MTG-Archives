@@ -8,7 +8,9 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [expanded, setExpanded] = useState(false);
   const [addAnother, setAddAnother] = useState(false);
-  const [installerAvailable, setInstallerAvailable] = useState(false);
+  const [installerState, setInstallerState] = useState<"loading" | "available" | "unavailable" | "error">("loading");
+  const [installerCheck, setInstallerCheck] = useState(0);
+  const installerAvailable = installerState === "available";
   const [installerVersion, setInstallerVersion] = useState<string | null>(null);
   const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState("");
@@ -36,11 +38,23 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
   }, [refresh]);
   useEffect(() => {
     if (!expanded) return;
+    let cancelled = false;
+    setInstallerState("loading");
+    setInstallerVersion(null);
     void fetch("/api/scanners/installer?info", { cache: "no-store" })
-      .then(response => response.ok ? response.json() : { available: false })
-      .then(value => { setInstallerAvailable(value.available === true); setInstallerVersion(value.version ?? null); })
-      .catch(() => setInstallerAvailable(false));
-  }, [expanded]);
+      .then(response => {
+        if (!response.ok) throw new Error("Installer check failed");
+        return response.json();
+      })
+      .then(value => {
+        if (typeof value.available !== "boolean") throw new Error("Invalid installer check");
+        if (cancelled) return;
+        setInstallerState(value.available ? "available" : "unavailable");
+        setInstallerVersion(typeof value.version === "string" ? value.version : null);
+      })
+      .catch(() => { if (!cancelled) setInstallerState("error"); });
+    return () => { cancelled = true; };
+  }, [expanded, installerCheck]);
   const showWaiting = waiting && !agents.some(agent => agent.online);
   const hasOnline = agents.some(agent => agent.online);
   const showSetup = !hasOnline || addAnother;
@@ -81,7 +95,7 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
     {expanded && <div className="space-y-3 mt-3 min-w-0">
       {installerAvailable && <div className="flex flex-wrap gap-2 items-center">
         <a className={filterButtonClass} href="/api/scanners/installer" download>
-          {hasOnline ? "Update Windows scanner helper" : "Download Windows scanner helper"}
+          {hasOnline && !addAnother ? "Update Windows scanner helper" : "Download Windows scanner helper"}
         </a>
         {installerVersion && <span className="text-sm">Version {installerVersion}</span>}
         <p className="text-sm w-full">Open the download to install or update. Finish the current scan before updating; saved scans and connections are kept.</p>
@@ -95,16 +109,31 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
         <p className="text-sm">Already connected this computer before? Open its saved connection instead of pairing again. Check that the scanner is plugged in and powered on.</p>
       </div>}
       <ol className="list-decimal list-inside space-y-2">
-        <li>{installerAvailable ? "Install the downloaded Windows scanner helper." : "The Windows scanner helper download is being prepared."}
-          <span className="block">Install it once, then allow Windows to open it from this site.</span></li>
-        <li><button type="button" className={filterButtonClass} disabled={busy} onClick={() => void connect()}>
+        <li>{installerAvailable ? <>
+          Install the downloaded Windows scanner helper on this computer.
+          <span className="block">Open MTGArchivesScannerSetup.exe from your Downloads folder and finish installation.</span>
+        </> : <>
+          {installerState === "loading" && <p role="status">Checking the Windows helper download…</p>}
+          {installerState === "unavailable" && <p role="status">The Windows scanner helper installer is not available on this site. Ask the site administrator to provide it before setting up a new computer.</p>}
+          {installerState === "error" && <p role="alert">Could not check the Windows helper download. Try again.</p>}
+          {installerState !== "loading" && <button type="button" className={filterButtonClass}
+            onClick={() => setInstallerCheck(n => n + 1)}>Check download again</button>}
+        </>}</li>
+        <li><button type="button" className={filterButtonClass} disabled={busy || !installerAvailable} onClick={() => void connect()}>
           Connect this computer</button>
-          <span className="block">Your browser may ask permission to open the MTG Archives scanner helper.</span></li>
+          <span className="block">This opens an installed helper; it does not install one. After installation, allow your browser to open the helper.</span>
+          {!installerAvailable && <details>
+            <summary>Helper already installed on this computer?</summary>
+            <p>You can connect your installed helper while the download is unavailable.</p>
+            <button type="button" className={filterButtonClass} disabled={busy} onClick={() => void connect()}>
+              Connect installed helper</button>
+          </details>}</li>
         <li>When your scanner is online, <a className="underline" href="#scanner-source">choose its source in Card input below</a>.</li>
       </ol>
       {showWaiting && <p role="status">Waiting for the scanner helper to connect. This usually takes a few seconds.</p>}
       {showWaiting && <details><summary>Nothing opened?</summary>
-        <p>Install the helper above, then click Connect this computer again. Keep this page open.</p>
+        {installerAvailable ? <p>Open MTGArchivesScannerSetup.exe from your Downloads folder and finish installation, then click Connect this computer again. If it is installed, allow your browser to open the helper. Keep this page open.</p>
+          : <p>The helper must already be installed on this computer. If it is not, ask the site administrator for the installer. If it is installed, allow your browser to open it, then choose Connect installed helper again.</p>}
       </details>}
       </>}
       {agents.length === 0 && <p>No scanner helpers connected yet.</p>}
@@ -114,9 +143,9 @@ export function ScannerConnections({ newBatchHref }: { newBatchHref: string }) {
           <button type="button" className={filterButtonClass} disabled={busy}
             onClick={() => void action({ action: "revoke", agentId: agent.id })}>Disconnect {agent.name}</button>
         </div>
-        <ul>{agent.devices.map(device => <li key={device.id} className="break-words">{device.name} · {device.source}
-          {device.qualification === "GenericUnqualified" && " · Not yet qualified"}</li>)}</ul>
-        {!agent.online && <p className="text-sm">This computer’s helper is not responding. Open the helper on that computer and check its internet connection. Saved scans are kept.</p>}
+        <ul>{agent.devices.map(device => <li key={device.id} className="break-words">{device.name} Â· {device.source}
+          {device.qualification === "GenericUnqualified" && " Â· Not yet qualified"}</li>)}</ul>
+        {!agent.online && <p className="text-sm">This computerâ€™s helper is not responding. Open the helper on that computer and check its internet connection. Saved scans are kept.</p>}
         {agent.online && <ScannerDiscoveryNotice issues={agent.discoveryIssues} />}
         {agent.online && agent.devices.length === 0 && !agent.discoveryIssues?.length && <p>No scanner detected. Check USB/power and install its manufacturer driver, then wait up to 30 seconds for discovery.</p>}
       </li>)}</ul>
