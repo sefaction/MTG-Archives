@@ -6,6 +6,8 @@ import {
 } from "@prisma/client";
 import { z } from "zod";
 import { acquisitionRefreshPriority } from "./acquisition-processing-priority";
+import { PRINTING_STAGE } from "./acquisition-printing";
+import { CATALOG_RECONCILIATION_STAGE } from "./acquisition-catalog-status";
 
 // Queue operations are worker-only: never expose these as user-facing routes.
 // Handlers return versioned evidence; they must not mutate candidates/inventory.
@@ -199,6 +201,49 @@ export async function completeAcquisitionJob(
     // revision. Recognition evidence still uses the strict fence below.
     let candidateFence: Prisma.AcquisitionCandidateWhereInput = current;
     let canonicalCurrent = true;
+    if (job.stage === PRINTING_STAGE) {
+      const input = z.object({catalogJobId: z.string().uuid(), photoId: z.string().uuid(), digest: z.string()}).parse(job.input);
+      const scope = z.object({ownerPlayerId: z.string()}).safeParse(output.printingReuse);
+      // One publication predicate, including the actual database clock. A
+      // refreshed catalog (or expired lease while waiting for the session lock)
+      // must not turn an earlier handler check into publication authority.
+      const completed = await tx.$executeRaw`
+        UPDATE "AcquisitionProcessingJob" j SET status='COMPLETE', output=${JSON.stringify(output)}::jsonb,
+          "leaseToken"=NULL, "leaseExpiresAt"=NULL, "updatedAt"=clock_timestamp()
+        FROM "AcquisitionCandidate" c
+        JOIN "AcquisitionRun" r ON r.id=c."runId"
+        JOIN "AcquisitionSession" s ON s.id=r."sessionId"
+        JOIN "Player" p ON p.id=s."ownerPlayerId"
+        JOIN "User" u ON u.id=s."createdByUserId"
+        JOIN "AcquisitionPhoto" photo ON photo.id=${input.photoId} AND photo."runId"=r.id
+        JOIN "AcquisitionCaptureSlot" slot ON slot.id=photo."slotId"
+        JOIN "AcquisitionProcessingJob" source ON source.id=${input.catalogJobId}
+        WHERE j.id=${job.id} AND j.status='RUNNING' AND j."leaseToken"=${job.leaseToken}
+          AND j.stage=${PRINTING_STAGE} AND j."candidateRevision"=${job.candidateRevision}
+          AND j."runId"=${job.runId} AND j."candidateId"=${job.candidateId} AND j."artifactId"=${job.artifactId}
+          AND j.input=${JSON.stringify(job.input)}::jsonb
+          AND j."leaseExpiresAt">clock_timestamp() AND j."runId"=r.id AND j."candidateId"=c.id
+          AND c.revision=${job.candidateRevision} AND c.review IS NULL AND NOT c.excluded
+          AND s.phase NOT IN ('DRAFT','CANCELLED') AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
+          AND (${!scope.success} OR s."ownerPlayerId"=${scope.success ? scope.data.ownerPlayerId : ""})
+          AND photo.ready AND photo."purgedAt" IS NULL AND photo.digest=${input.digest}
+          AND photo."slotId"=c."physicalId" AND photo.generation=slot.generation
+          AND source.status='COMPLETE' AND source.stage=${CATALOG_RECONCILIATION_STAGE}
+          AND source."runId"=j."runId" AND source."artifactId"=j."artifactId"
+          AND source."candidateId"=j."candidateId" AND source."candidateRevision"=${job.candidateRevision}
+          AND ${output.sourceCatalogJobId === input.catalogJobId}
+          AND NOT EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=c.id)
+          AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" newer
+            WHERE newer.stage=source.stage AND newer."candidateId"=c.id AND newer."candidateRevision"=c.revision
+              AND (newer."createdAt",newer.id)>(source."createdAt",source.id))`;
+      if (completed) return "COMPLETE" as const;
+      const superseded = await tx.$executeRaw`
+        UPDATE "AcquisitionProcessingJob" SET status='SUPERSEDED', "leaseToken"=NULL,
+          "leaseExpiresAt"=NULL, "errorCode"='INPUT_CHANGED', "updatedAt"=clock_timestamp()
+        WHERE id=${job.id} AND status='RUNNING' AND "leaseToken"=${job.leaseToken}
+          AND "leaseExpiresAt">clock_timestamp()`;
+      return superseded ? "SUPERSEDED" as const : "STALE_LEASE" as const;
+    }
     if (job.stage === "photo-canonical-v1") {
       const input = z
         .object({ photoId: z.string().uuid(), digest: z.string() })
