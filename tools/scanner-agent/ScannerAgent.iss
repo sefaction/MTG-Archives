@@ -5,7 +5,7 @@
 [Setup]
 AppId=MTGArchives.ScannerAgent
 AppName=MTG Archives Scanner Helper
-AppVersion=0.3.7
+AppVersion=0.3.8
 AppPublisher=MTG Archives
 DefaultDirName={localappdata}\Programs\MTG Archives Scanner Helper
 DefaultGroupName=MTG Archives Scanner Helper

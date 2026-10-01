@@ -25,9 +25,15 @@ jobs:
     permissions:
       contents: read
 
+  scanner-installer:
+    needs: verify
+    uses: ./.github/workflows/scanner-installer.yml
+    permissions:
+      contents: read
+
   web:
     name: Build and publish ${{ matrix.component }} image
-    needs: verify
+    needs: [verify, scanner-installer]
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/platform/')
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -49,6 +55,17 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+
+      - name: Download matching Windows installer
+        if: matrix.component == 'web'
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-scanner-installer
+          path: scanner-installer
+
+      - name: Verify Windows installer before image build
+        if: matrix.component == 'web'
+        run: node scripts/verify-scanner-release.mjs scanner-installer true "$GITHUB_SHA"
 
       - name: Check branch head before building
         id: head
@@ -91,6 +108,8 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          build-args: |
+            REQUIRE_SCANNER_INSTALLER=${{ matrix.component == 'web' }}
           file: ${{ matrix.dockerfile }}
           push: false
           load: true

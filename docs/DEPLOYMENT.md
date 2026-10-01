@@ -194,3 +194,15 @@ custom receiver and provide its HMAC signing secret. Public destinations must
 use HTTPS. An administrator may explicitly approve an HTTP or HTTPS private/LAN
 generic destination, but loopback, link-local, metadata, multicast, unsafe
 redirect, oversized-response, and timeout protections remain active.
+
+## Scanner helper installer
+
+Published web images include the Windows scanner installer built and verified
+from the same source revision. Updating the site after its release PR merges
+makes **Download Windows scanner helper** available to signed-in acquisition
+users; no separate file copy, installer volume or environment setting is needed.
+The image's package takes precedence over older staged imports files. The user
+opens the downloaded installer once and then chooses **Connect this computer**.
+The scanner manufacturer's Windows driver remains a separate prerequisite.
+See [installer delivery](SCANNER_WEBSITE_INSTALLER.md#release-delivery-verification)
+for source/notices, build gates and second-computer qualification boundaries.

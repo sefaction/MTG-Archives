@@ -44,7 +44,7 @@
     "verify:acquisition": "tsx scripts/verify-acquisition-local.ts",
     "typecheck": "tsc --noEmit",
     "format": "npx prettier --check .",
-    "test": "tsx --test tests/*.test.ts",
+    "test": "tsx --test tests/*.test.ts tests/*.test.mjs",
     "verify:local-image": "tsx scripts/verify-local-image.ts",
     "worker:acquisition": "tsx scripts/acquisition-worker.ts"
   },
