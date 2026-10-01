@@ -32,6 +32,19 @@ export async function claimAcquisitionJobs(
   now = new Date(),
 ): Promise<ClaimedAcquisitionJob[]> {
   const options = optionsSchema.parse(value);
+  // Count reconciliation, retakes and review can advance the candidate while
+  // inference is queued. Retire obsolete attempts before spending native work.
+  // A live lease still owns its attempt. Canonical preparation uses immutable
+  // photo bytes and deliberately keeps its separate completion fence below.
+  await db.$executeRaw`
+    UPDATE "AcquisitionProcessingJob" j SET status='SUPERSEDED',
+      "leaseToken"=NULL, "leaseExpiresAt"=NULL, "errorCode"='INPUT_CHANGED', "updatedAt"=${now}
+    FROM "AcquisitionCandidate" c
+    WHERE c.id=j."candidateId" AND j.stage IN (${Prisma.join(options.stages)})
+      AND j.stage<>'photo-canonical-v1'
+      AND (j.status='PENDING' OR (j.status='RUNNING' AND j."leaseExpiresAt"<=${now}))
+      AND (c.revision<>j."candidateRevision" OR c.excluded OR c.review IS NOT NULL
+        OR EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=c.id))`;
   // Exhausted crashes become visible failures; no forever-RUNNING rows.
   await db.acquisitionProcessingJob.updateMany({
     where: {
@@ -60,12 +73,13 @@ export async function claimAcquisitionJobs(
   // owner's many unfinished batches must not multiply its share of the worker.
   // Derive owner turns from existing durable run turns; no new queue identity.
   // Keep availability/FIFO within a run and the second head for lease CAS races.
-  const candidates = await db.$queryRaw<{id: string; runId: string; stage: string}[]>`
+  const candidates = await db.$queryRaw<{id: string; runId: string; stage: string; candidateRevision: number}[]>`
     WITH ranked AS (
-      SELECT j.id, j."runId", j.stage, j."availableAt", j."createdAt", s."ownerPlayerId",
+      SELECT j.id, j."runId", j.stage, j."candidateRevision", j."availableAt", j."createdAt", s."ownerPlayerId",
         ROW_NUMBER() OVER (PARTITION BY j."runId", j.stage
           ORDER BY j."availableAt", j."createdAt", j.id) AS position
       FROM "AcquisitionProcessingJob" j
+      JOIN "AcquisitionCandidate" c ON c.id=j."candidateId"
       JOIN "AcquisitionRun" r ON r.id=j."runId"
       JOIN "AcquisitionSession" s ON s.id=r."sessionId"
       JOIN "Player" p ON p.id=s."ownerPlayerId"
@@ -75,6 +89,8 @@ export async function claimAcquisitionJobs(
           OR (j.status='RUNNING' AND j."leaseExpiresAt"<=${now}))
         AND s.phase NOT IN ('DRAFT','CANCELLED')
         AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
+        AND (j.stage='photo-canonical-v1' OR
+          (c.revision=j."candidateRevision" AND NOT c.excluded AND c.review IS NULL))
         AND NOT EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=j."candidateId")
     ), owner_turns AS (
       SELECT s."ownerPlayerId", t.stage, MAX(t."lastClaimedAt") AS "lastClaimedAt"
@@ -92,7 +108,7 @@ export async function claimAcquisitionJobs(
         ORDER BY h."runTurn", h.position, h."availableAt", h."createdAt", h.id) AS "ownerPosition"
       FROM heads h
     )
-    SELECT q.id, q."runId", q.stage FROM shared q
+    SELECT q.id, q."runId", q.stage, q."candidateRevision" FROM shared q
     LEFT JOIN owner_turns t ON t."ownerPlayerId"=q."ownerPlayerId" AND t.stage=q.stage
     ORDER BY COALESCE(t."lastClaimedAt", TIMESTAMP '1970-01-01'), q."ownerPosition",
       q."runTurn", q.position, q."availableAt", q."createdAt", q.id LIMIT 32`;
@@ -102,7 +118,10 @@ export async function claimAcquisitionJobs(
     const leaseToken = `${options.workerId}:${randomUUID()}`;
     const changed = await db.$transaction(async tx => {
       const claimed = await tx.acquisitionProcessingJob.updateMany({
-        where: { ...eligible, id: candidate.id },
+        where: { ...eligible, id: candidate.id, candidateRevision: candidate.candidateRevision,
+          candidate: { receipt: null, ...(candidate.stage === "photo-canonical-v1" ? {} : {
+            revision: candidate.candidateRevision, excluded: false, review: {equals: Prisma.DbNull},
+          }) } },
         data: {
           status: "RUNNING", leaseToken,
           leaseExpiresAt: new Date(now.getTime() + options.leaseMs),
