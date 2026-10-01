@@ -6,13 +6,13 @@ On the Windows computer attached to the scanner, sign in to MTG Archives and ope
 
 The installer adds a Start menu entry and a `mtg-archive-scanner:` URL handler for this Windows user. Its optional sign-in task resumes saved connections without creating a scan. Executable files live under LocalAppData Programs; private credentials, event journals and scan originals remain under LocalAppData MTGArchives ScannerAgent. Uninstalling the program does not silently erase pending originals or connection evidence. The site can revoke a connection.
 
-The website serves `MTGArchivesScannerSetup.exe` only to a signed-in acquisition user from `IMPORTS_DATA_PATH/scanner-installer/`. A missing file displays an unavailable state; no broken external release URL is embedded. Local Docker already mounts `IMPORTS_DATA_PATH` from `.local-data/imports`, so copy the validated local installer into `.local-data/imports/scanner-installer/` in the primary review checkout. The production site would need the separately approved package copied under its own imports appdata path; this document does not authorize publishing or production copying. The installer is not stored in Git or a container image.
+The website serves `MTGArchivesScannerSetup.exe` only to a signed-in acquisition user. Release images carry the verified installer at `/app/scanner-installer/`, so merging the release change and updating the site supplies the download automatically. The bundled release takes priority over older copies in persistent storage. Development images without a bundle can still use `IMPORTS_DATA_PATH/scanner-installer/`. A missing file displays an unavailable state; no broken external release URL is embedded. Local Docker already mounts `IMPORTS_DATA_PATH` from `.local-data/imports`, so copy the validated local installer into `.local-data/imports/scanner-installer/` in the primary review checkout. No separate installer copy or new production volume is required when deploying the release image. The executable stays out of Git; GitHub builds it from the same source revision and injects the artifact into the web image before publication.
 
 ## Local build and distribution gate
 
 `tools/scanner-agent/build-local-installer.ps1` performs a locked win-x64 restore, untrimmed self-contained publish, credential/transport selftests, and an Inno Setup 6 compile. It writes the local-only artifact to `.local-data/imports/scanner-installer/`. The source installer script is `ScannerAgent.iss`. Self-contained output keeps NAPS2 assemblies and its worker as separate files; it is not a single-file or trimmed executable. The Inno build is per-user and registers the custom protocol in HKCU. The default task starts saved connections at Windows sign-in; no scanner feed starts without a site-issued START.
 
-This is a **local test artifact**, not approved public binary distribution. Complete the package/embedded-worker/native DSM inventory, required notices and corresponding source/rebuild/replacement material, and clean-host driver/DSM check in [NAPS2 license qualification](SCANNER_NAPS2_LICENSES.md) before publishing an installer. Inno Setup 6.7.3's current non-commercial terms also need review if MTG Archives distribution becomes commercial. Keep the checksum and exact package/source revision with any reviewed release.
+The default build remains a **local test artifact**. Release builds add `-ReleaseMaterials`: every locked dependency receives its component license text, the actual embedded x86 runtime and host desktop runtime receive notices, and exact LGPL SDK/worker source plus helper source and replacement guidance accompany the installed program. Version-pinned external material hashes are in `release-materials.lock.json`; unknown dependencies, runtimes or mismatched bytes stop the release. See [package qualification](SCANNER_NAPS2_LICENSES.md). The manufacturer driver and system TWAIN DSM are not redistributed. Install that driver separately; second-computer discovery and physical scan acceptance remain separate hardware checks. Inno Setup retains its upstream installer copyright and website notices. Reassess build-tool terms if the project becomes commercial. Keep the checksum and exact package/source revision with any reviewed release.
 
 ## Updated helper and local acceptance, September 29
 
@@ -66,8 +66,8 @@ restart, and local browser recovery checks remain pending for this slice.
 ## New-computer installation and missing downloads (#549)
 
 Connect this computer opens the already-installed Windows protocol handler; it
-cannot install the helper. A website update does not supply the separate installer
-file. On a new PC, download and open MTGArchivesScannerSetup.exe first, then
+cannot install the helper. Release images now include the installer file; older images still need a staged
+copy. On a new PC, download and open MTGArchivesScannerSetup.exe first, then
 connect from that same PC. Install the manufacturer's driver separately.
 
 The setup page distinguishes checking, a missing staged installer, a failed
@@ -76,15 +76,33 @@ until the download is available. Users with an existing installation can explici
 choose Connect installed helper, even if this site's download is unavailable.
 Add another computer offers Download rather than Update for the new computer.
 
-If the installer is unavailable, the site administrator must stage the qualified
-EXE and its matching JSON manifest under that site's existing
+If the installer is unavailable on production, first deploy the released web image
+that includes it. For development or legacy images, the administrator can stage
+the qualified EXE and its matching JSON manifest under the existing
 IMPORTS_DATA_PATH/scanner-installer directory. Keep the pair from the same build;
 verify the EXE's SHA-256 against the manifest before copying it. Retry the download
 check on the page after staging. A web-container restart is not required for this
 file lookup. Download the same authenticated route and verify the returned bytes.
 Do not paste pairing codes into issue reports or logs.
 
-This batch prepares a local test installer for a second-PC acceptance check.
-It does not stage a package on production or clear the existing public-distribution
-gates above. Installing the helper and its manufacturer driver, seeing the helper
+This batch builds and verifies the release package locally and in Windows CI,
+then includes that exact revision in the published web image. The production
+operator still updates the site after individual PR approval and merge; no
+production deployment is performed during local review. Installing the helper and its manufacturer driver, seeing the helper
 connect, and observing an actual physical scan are separate acceptance steps.
+
+## Release delivery verification
+
+`scanner-installer.yml` builds the Windows x64 installer with SDK 8.0.425, runs
+hardware-free self-checks, installs it in an isolated hosted-CI directory, verifies
+the installed self-checks and source/notices, then uninstalls it. It uploads the
+EXE and matching checksum/source manifest as one artifact. `docker-publish.yml`
+waits for that job, verifies the artifact belongs to the same GitHub revision,
+and requires it in the web image. Missing/unqualified/stale/corrupted artifacts
+fail publication. Recognition images do not carry the Windows package.
+
+The authenticated availability and download route reads the image bundle first.
+No persistent copy masks a newer release. Local acceptance verifies the downloaded
+bytes against the built package. Users must open the installer once; a browser
+cannot install it silently. The second scanner computer's manufacturer driver,
+protocol prompts and actual device remain to be accepted on that computer.

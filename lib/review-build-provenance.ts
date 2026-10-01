@@ -9,6 +9,7 @@ const roots = [
   "prisma",
   "scripts",
   "public",
+  "scanner-installer",
   "package.json",
   "package-lock.json",
   "Dockerfile",

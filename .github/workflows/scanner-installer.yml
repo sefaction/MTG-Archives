@@ -1,0 +1,63 @@
+name: Windows scanner installer
+on:
+  workflow_call:
+  pull_request:
+    paths:
+      - 'tools/scanner-agent/**'
+      - 'scripts/verify-scanner-release.mjs'
+      - '.github/workflows/scanner-installer.yml'
+      - '.github/workflows/docker-publish.yml'
+      - 'Dockerfile'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  installer:
+    name: Build Windows installer
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.425'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build installer with pinned notices and source
+        shell: pwsh
+        run: |
+          $compiler = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6/ISCC.exe'
+          ./tools/scanner-agent/build-local-installer.ps1 -ReleaseMaterials -OutputDir scanner-installer -IsccPath $compiler
+          if ($LASTEXITCODE -ne 0) { throw 'Installer build failed' }
+          node scripts/verify-scanner-release.mjs scanner-installer true $env:GITHUB_SHA
+          if ($LASTEXITCODE -ne 0) { throw 'Installer verification failed' }
+      - name: Verify installation on the clean CI host without scanner hardware
+        shell: pwsh
+        run: |
+          $installed = Join-Path $env:RUNNER_TEMP 'mtg-scanner-release-smoke'
+          $setup = Join-Path $env:GITHUB_WORKSPACE 'scanner-installer/MTGArchivesScannerSetup.exe'
+          $process = Start-Process -FilePath $setup -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/TASKS=""', "/DIR=`"$installed`"") -PassThru -Wait -WindowStyle Hidden
+          if ($process.ExitCode -ne 0) { throw 'Installer smoke failed' }
+          foreach ($check in @('connection-selftest', 'native-selftest', 'discovery-selftest')) {
+            $process = Start-Process -FilePath (Join-Path $installed 'Mtg.ScannerAgent.exe') -ArgumentList $check -PassThru -Wait -WindowStyle Hidden
+            if ($process.ExitCode -ne 0) { throw "Installed $check failed" }
+          }
+          $inventory = Get-Content (Join-Path $installed 'third-party/inventory.json') -Raw | ConvertFrom-Json
+          if (-not $inventory.distributionMaterialsComplete -or -not (Test-Path (Join-Path $installed 'third-party/sources/REBUILD.md'))) { throw 'Installed source/notice materials missing' }
+          $process = Start-Process -FilePath (Join-Path $installed 'unins000.exe') -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -PassThru -Wait -WindowStyle Hidden
+          if ($process.ExitCode -ne 0) { throw 'Smoke uninstall failed' }
+      - name: Upload installer for this exact revision
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-scanner-installer
+          path: |
+            scanner-installer/MTGArchivesScannerSetup.exe
+            scanner-installer/MTGArchivesScannerSetup.json
+          if-no-files-found: error
+          retention-days: 7

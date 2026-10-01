@@ -7,6 +7,8 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+ARG REQUIRE_SCANNER_INSTALLER=false
+RUN node scripts/verify-scanner-release.mjs scanner-installer "$REQUIRE_SCANNER_INSTALLER"
 RUN npx tsx scripts/write-review-build-manifest.ts && npx prisma generate && npm run build
 
 FROM node:22-alpine AS runner
@@ -20,6 +22,7 @@ COPY --from=builder /app/build-source-manifest.json ./build-source-manifest.json
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
+COPY --from=builder /app/scanner-installer ./scanner-installer
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/lib ./lib
 COPY --from=builder /app/scripts ./scripts

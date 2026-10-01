@@ -15,7 +15,7 @@ public record EnrollmentCredential(string Secret, string? PairCode, string Site,
 public static class ScannerConnection
 {
     public const string Version = "0.3.0-native";
-    public const string HelperVersion = "0.3.7";
+    public const string HelperVersion = "0.3.8";
     private static string Root => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MTGArchives", "ScannerAgent");
     public static Uri Site(string value, bool allowLocal)
     {

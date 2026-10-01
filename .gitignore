@@ -23,3 +23,7 @@ __pycache__/
 # Windows scanner qualification build output (originals belong in .local-data)
 tools/scanner-agent/bin/
 tools/scanner-agent/obj/
+
+# Windows release artifacts injected by CI, not tracked binaries
+scanner-installer/*
+!scanner-installer/.gitkeep

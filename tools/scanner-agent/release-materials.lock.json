@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "assets": [
+    {
+      "component": "Google.Protobuf",
+      "path": "Google.Protobuf/LICENSE",
+      "url": "https://raw.githubusercontent.com/protocolbuffers/protobuf/b407e8416e3893036aee5af9a12bd9b6a0e2b2e6/LICENSE",
+      "sha256": "6e5e117324afd944dcf67f36cf329843bc1a92229a8cd9bb573d7a83130fea7d"
+    },
+    {
+      "component": "Grpc.Core.Api",
+      "path": "Grpc.Core.Api/LICENSE",
+      "url": "https://raw.githubusercontent.com/grpc/grpc-dotnet/7c43ddb5d68008782dc0dba2d0feaa3ed91a9fb2/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "component": "Makaretu.Dns",
+      "path": "Makaretu.Dns/LICENSE",
+      "url": "https://raw.githubusercontent.com/richardschneider/net-dns/701463d2091e6d98d4cc4490abb0e0ead8ae2985/LICENSE",
+      "sha256": "37920e72b0c28aa74ad0eb9b37814a69d44614eb1991c0f1cd7e6caad735d7ad"
+    },
+    {
+      "component": "Microsoft-10",
+      "path": "Microsoft-10/LICENSE.TXT",
+      "url": "https://raw.githubusercontent.com/dotnet/dotnet/f7d90799ce4ef09a0bb257852a57248d2a8fb8dd/LICENSE.TXT",
+      "sha256": "ae48df11a335dc1a615f4f938b69cba73bcf4485c4f97af49b38efb0f216353b"
+    },
+    {
+      "component": "NAPS2.Mdns",
+      "path": "NAPS2.Mdns/LICENSE",
+      "url": "https://raw.githubusercontent.com/cyanfish/net-mdns/9a1b989ff57738849ceda165de49cc76364e8ace/LICENSE",
+      "sha256": "37920e72b0c28aa74ad0eb9b37814a69d44614eb1991c0f1cd7e6caad735d7ad"
+    },
+    {
+      "component": "NAPS2.NTwain",
+      "path": "NAPS2.NTwain/LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/cyanfish/ntwain/216c8c614d1514638cace41e5aa7e7ce48448d78/LICENSE.txt",
+      "sha256": "a5f16a3ce029b0e86054b018cd8f63a74c2ab4fd1bbf10978a6e51e0386216b6"
+    },
+    {
+      "component": "SharpZipLib",
+      "path": "SharpZipLib/LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/icsharpcode/SharpZipLib/33f64eb0f28cdd2b084cb822fcc224c7c5aba553/LICENSE.txt",
+      "sha256": "d7fbbc16f871bf24fa5624c7eaf945054b778985f32676dcacba41fddca61133"
+    },
+    {
+      "component": "SimpleBase",
+      "path": "SimpleBase/LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/ssg/SimpleBase/72ecb1de90918faade31351ece771e67f52d4d4a/LICENSE.txt",
+      "sha256": "00d7839fe77ff1e115765e6a473ff45a49e7c1607bc5fd9e2dda045ada997bc0"
+    },
+    {
+      "component": "SixLabors.Fonts",
+      "path": "SixLabors.Fonts/LICENSE",
+      "url": "https://raw.githubusercontent.com/SixLabors/Fonts/be8883caf13f364292508274d68c39c2455ec3e2/LICENSE",
+      "sha256": "f38dc2765451fd2b19d7e0f47ed655f3a1cb889b28341ea6266efd75d8425a6f"
+    },
+    {
+      "component": "StandardSocketsHttpHandler",
+      "path": "StandardSocketsHttpHandler/LICENSE.TXT",
+      "url": "https://raw.githubusercontent.com/TalAloni/StandardSocketsHttpHandler/f5fc220a0e0086baf72e027f91420acf6530f88d/LICENSE.TXT",
+      "sha256": "cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310"
+    },
+    {
+      "component": "System.Memory",
+      "path": "System.Memory/LICENSE",
+      "url": "https://raw.githubusercontent.com/dotnet/maintenance-packages/d0c2a5a83211e271826172a6b0510c25a52dbd53/LICENSE",
+      "sha256": "cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310"
+    },
+    {
+      "component": "ZXing.Net",
+      "path": "ZXing.Net/COPYING",
+      "url": "https://raw.githubusercontent.com/micjahn/ZXing.Net/fd58f3c4a5d80ccf45ef1237899a65b0ba5b83a0/COPYING",
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "component": "NAPS2-source",
+      "path": "sources/naps2-8ae3e82203115754e804fe9c14f00f6bd86ee192.zip",
+      "url": "https://codeload.github.com/cyanfish/naps2/zip/8ae3e82203115754e804fe9c14f00f6bd86ee192",
+      "sha256": "6b3c37fc8bf7dd831c74ec971d054ee1323cdaa95b17e157891a7bbe62194d04"
+    },
+    {
+      "component": "worker-runtime",
+      "path": "runtime/microsoft.netcore.app.runtime.win-x86-10.0.10.nupkg",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.netcore.app.runtime.win-x86/10.0.10/microsoft.netcore.app.runtime.win-x86.10.0.10.nupkg",
+      "sha256": "4c3d43619481f5d7efdb1f04f8684cf459505c18af9fa6998f716c7eed5dce11"
+    },
+    {
+      "component": "desktop-winforms",
+      "path": "desktop-winforms/THIRD-PARTY-NOTICES.TXT",
+      "url": "https://raw.githubusercontent.com/dotnet/winforms/f4ddf3475a1269429508fe203cdfc4e21c3599d1/THIRD-PARTY-NOTICES.TXT",
+      "sha256": "d68d386849444fab1012e84beb398aeca4aaa3d50e753e9f218242b3753aa28f"
+    },
+    {
+      "component": "desktop-wpf",
+      "path": "desktop-wpf/THIRD-PARTY-NOTICES.TXT",
+      "url": "https://raw.githubusercontent.com/dotnet/wpf/27c84022a86fcaa600315f4686cde97874615a24/THIRD-PARTY-NOTICES.TXT",
+      "sha256": "d23dba2fee20c6b59d8f7088ee9ed372459c952a319b7ca90f3eec370cc76eb9"
+    }
+  ]
+}

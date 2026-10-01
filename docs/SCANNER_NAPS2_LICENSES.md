@@ -84,3 +84,31 @@ and runtime notices; they do not close the remaining distribution gate below.
 Before publishing an installer/binary: inventory the actual embedded worker/native dependencies, verify DSM prerequisites in a clean environment, assemble component copyright/license/NOTICE texts, and provide applicable corresponding source and library replacement/relink/rebuild mechanisms. Keep any LGPL component modifications documented and available under its applicable license. A dependency license name or project URL alone is not a complete compliance bundle. SimpleBase1.3.1's source-era license gap was resolved September29; the remaining distribution gates still apply.
 
 These obligations follow the component licenses, including [LGPL2.1 distribution provisions](https://github.com/twain/twain-dsm/blob/master/TWAIN_DSM/license.txt). The bounded local experiment may continue while this distribution gate remains open; it does not justify labeling a production package ready.
+
+## Release materials assembled, September 30, 2026
+
+The release build closes the previously missing **package-material** work:
+
+- All 31 locked NuGet packages receive their license/copyright text, retaining
+  package third-party notices. Missing texts are fetched from exact source commits
+  or version tags resolved to commits, with recorded SHA-256 checksums. SimpleBase
+  retains the documented version-era provenance limit above.
+- The actual 25-library worker inventory is checked against those notices. Its
+  .NET 10.0.10 x86 runtime's own LICENSE and THIRD-PARTY-NOTICES come from the
+  checksum-pinned runtime NuGet package; runtime binaries from that package are
+  not separately installed. Host .NET 8.0.31 core notices and exact WinForms/WPF
+  component notices are retained. SDK/runtime changes require renewed inputs.
+- The exact unmodified NAPS2 source archive accompanies the installed program,
+  together with helper source and `REBUILD.md`. LGPL libraries/worker remain
+  separate replaceable files, without a modification/debugging prohibition.
+- No manufacturer driver or system TWAIN DSM DLL is copied into the package.
+  Those installed prerequisites must come from Windows/the scanner manufacturer.
+
+`prepare-release-materials.py` verifies these facts from actual publish output and
+pinned inputs, then records `distributionMaterialsComplete`. This is a technical
+materials check, not a claim that every scanner or clean customer PC is qualified.
+The previous blanket publication gate mixed those package obligations with hardware
+acceptance. The packaged release supports the requested second-PC pilot; that PC's
+driver installation, discovery and physical operation remain open acceptance work
+under #501/#539/#542. No hardware pass or production deployment is inferred from
+a CI installer smoke check. Historical incomplete local-only builds remain so.
