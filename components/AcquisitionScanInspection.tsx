@@ -21,6 +21,11 @@ export function AcquisitionScanImage({
   compact?: boolean;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const [activated, setActivated] = useState(active);
+  const [retry, setRetry] = useState(0);
+  // Visibility starts lazy loading once. Keep the bounded canvas while scrolling;
+  // downloading the private, no-store original again can fail unnecessarily.
+  if (active && !activated) setActivated(true);
   const [view, setView] = useState<"original" | "crop" | "zones" | null>(null);
   // A whole-photo hint may come from outside a bad detected crop. Default to
   // the actual source while keeping explicit crop/zone inspection available.
@@ -42,125 +47,144 @@ export function AcquisitionScanImage({
     (o) => o.rotationDegrees === rotation,
   );
   const readingZones = evidence?.readingZones;
+  // Review refreshes return new objects even when the drawing is unchanged.
+  // Compare the bounded render inputs by value so they do not reload the original.
+  const renderEvidence = JSON.stringify({
+    quad,
+    readingZones,
+    lines: observation?.lines,
+  });
   useEffect(() => {
-    if (!active || !canvas.current) return;
+    if (!activated || !canvas.current) return;
+    const { quad, readingZones, lines } = JSON.parse(renderEvidence) as {
+      quad?: NonNullable<AcquisitionReviewEvidence>["geometry"]["quad"];
+      readingZones?: NonNullable<AcquisitionReviewEvidence>["readingZones"];
+      lines?: NonNullable<AcquisitionReviewEvidence>["observations"][number]["lines"];
+    };
     const target = canvas.current;
     let cancelled = false;
     const image = new Image();
     setError("");
     image.onload = () => {
       if (cancelled || !canvas.current) return;
-      const ctx = target.getContext("2d")!;
-      if (displayView === "original" || !quad) {
-        const scale = Math.min(
+      try {
+        const ctx = target.getContext("2d")!;
+        if (displayView === "original" || !quad) {
+          const scale = Math.min(
+            1,
+            (compact ? 600 : 800) /
+              Math.max(image.naturalWidth, image.naturalHeight),
+          );
+          target.width = Math.round(image.naturalWidth * scale);
+          target.height = Math.round(image.naturalHeight * scale);
+          ctx.drawImage(image, 0, 0, target.width, target.height);
+          if (quad && !compact) {
+            ctx.beginPath();
+            quad.forEach(([x, y], i) =>
+              i
+                ? ctx.lineTo(x * scale, y * scale)
+                : ctx.moveTo(x * scale, y * scale),
+            );
+            ctx.closePath();
+            ctx.strokeStyle = "#00ffff";
+            ctx.lineWidth = 3;
+            ctx.stroke();
+          }
+          return;
+        }
+        // Browser EXIF decoding matches the worker's EXIF-normalized coordinate frame.
+        // Reconstruct at display resolution; do not store another private artifact.
+        const source = document.createElement("canvas");
+        const sampleScale = Math.min(
           1,
-          (compact ? 600 : 800) /
+          (compact ? 1400 : 2400) /
             Math.max(image.naturalWidth, image.naturalHeight),
         );
-        target.width = Math.round(image.naturalWidth * scale);
-        target.height = Math.round(image.naturalHeight * scale);
-        ctx.drawImage(image, 0, 0, target.width, target.height);
-        if (quad && !compact) {
-          ctx.beginPath();
-          quad.forEach(([x, y], i) =>
-            i
-              ? ctx.lineTo(x * scale, y * scale)
-              : ctx.moveTo(x * scale, y * scale),
-          );
-          ctx.closePath();
-          ctx.strokeStyle = "#00ffff";
-          ctx.lineWidth = 3;
-          ctx.stroke();
-        }
-        return;
-      }
-      // Browser EXIF decoding matches the worker's EXIF-normalized coordinate frame.
-      // Reconstruct at display resolution; do not store another private artifact.
-      const source = document.createElement("canvas");
-      const sampleScale = Math.min(
-        1,
-        (compact ? 1400 : 2400) /
-          Math.max(image.naturalWidth, image.naturalHeight),
-      );
-      source.width = Math.round(image.naturalWidth * sampleScale);
-      source.height = Math.round(image.naturalHeight * sampleScale);
-      const sourceCtx = source.getContext("2d", { willReadFrequently: true })!;
-      sourceCtx.drawImage(image, 0, 0, source.width, source.height);
-      const pixels = sourceCtx.getImageData(
-        0,
-        0,
-        source.width,
-        source.height,
-      ).data;
-      target.width = compact ? 320 : 400;
-      target.height = compact ? 447 : 559;
-      const out = ctx.createImageData(target.width, target.height);
-      for (let y = 0; y < target.height; y++)
-        for (let x = 0; x < target.width; x++) {
-          const u = x / (target.width - 1),
-            v = y / (target.height - 1);
-          const [originalX, originalY] = cropPoint(
-            quad,
-            rotation === 180 ? 1 - u : u,
-            rotation === 180 ? 1 - v : v,
-          );
-          const sx = (originalX * source.width) / image.naturalWidth,
-            sy = (originalY * source.height) / image.naturalHeight;
-          const x0 = Math.floor(sx),
-            y0 = Math.floor(sy),
-            fx = sx - x0,
-            fy = sy - y0;
-          const offset = (y * target.width + x) * 4;
-          for (let c = 0; c < 3; c++) {
-            let value = 0;
-            for (let j = 0; j < 2; j++)
-              for (let i = 0; i < 2; i++) {
-                const px = x0 + i,
-                  py = y0 + j;
-                if (
-                  px >= 0 &&
-                  py >= 0 &&
-                  px < source.width &&
-                  py < source.height
-                )
-                  value +=
-                    pixels[(py * source.width + px) * 4 + c] *
-                    (i ? fx : 1 - fx) *
-                    (j ? fy : 1 - fy);
-              }
-            out.data[offset + c] = value;
+        source.width = Math.round(image.naturalWidth * sampleScale);
+        source.height = Math.round(image.naturalHeight * sampleScale);
+        const sourceCtx = source.getContext("2d", { willReadFrequently: true })!;
+        sourceCtx.drawImage(image, 0, 0, source.width, source.height);
+        const pixels = sourceCtx.getImageData(
+          0,
+          0,
+          source.width,
+          source.height,
+        ).data;
+        target.width = compact ? 320 : 400;
+        target.height = compact ? 447 : 559;
+        const out = ctx.createImageData(target.width, target.height);
+        for (let y = 0; y < target.height; y++)
+          for (let x = 0; x < target.width; x++) {
+            const u = x / (target.width - 1),
+              v = y / (target.height - 1);
+            const [originalX, originalY] = cropPoint(
+              quad,
+              rotation === 180 ? 1 - u : u,
+              rotation === 180 ? 1 - v : v,
+            );
+            const sx = (originalX * source.width) / image.naturalWidth,
+              sy = (originalY * source.height) / image.naturalHeight;
+            const x0 = Math.floor(sx),
+              y0 = Math.floor(sy),
+              fx = sx - x0,
+              fy = sy - y0;
+            const offset = (y * target.width + x) * 4;
+            for (let c = 0; c < 3; c++) {
+              let value = 0;
+              for (let j = 0; j < 2; j++)
+                for (let i = 0; i < 2; i++) {
+                  const px = x0 + i,
+                    py = y0 + j;
+                  if (
+                    px >= 0 &&
+                    py >= 0 &&
+                    px < source.width &&
+                    py < source.height
+                  )
+                    value +=
+                      pixels[(py * source.width + px) * 4 + c] *
+                      (i ? fx : 1 - fx) *
+                      (j ? fy : 1 - fy);
+                }
+              out.data[offset + c] = value;
+            }
+            out.data[offset + 3] = 255;
           }
-          out.data[offset + 3] = 255;
+        ctx.putImageData(out, 0, 0);
+        source.width = source.height = 0;
+        if (displayView === "zones" && readingZones) {
+          ctx.fillStyle = "rgba(0,255,255,.18)";
+          for (const zone of Object.values(readingZones))
+            ctx.fillRect(
+              0,
+              (zone.top / 1397) * 559,
+              400,
+              ((zone.bottom - zone.top) / 1397) * 559,
+            );
+          ctx.strokeStyle = "#ffff00";
+          ctx.lineWidth = 1;
+          for (const line of lines ?? []) {
+            ctx.beginPath();
+            line.polygon.forEach(([x, y], i) =>
+              i
+                ? ctx.lineTo(x * 0.4, (y * 559) / 1397)
+                : ctx.moveTo(x * 0.4, (y * 559) / 1397),
+            );
+            ctx.closePath();
+            ctx.stroke();
+          }
         }
-      ctx.putImageData(out, 0, 0);
-      source.width = source.height = 0;
-      if (displayView === "zones" && readingZones) {
-        ctx.fillStyle = "rgba(0,255,255,.18)";
-        for (const zone of Object.values(readingZones))
-          ctx.fillRect(
-            0,
-            (zone.top / 1397) * 559,
-            400,
-            ((zone.bottom - zone.top) / 1397) * 559,
-          );
-        ctx.strokeStyle = "#ffff00";
-        ctx.lineWidth = 1;
-        for (const line of observation?.lines ?? []) {
-          ctx.beginPath();
-          line.polygon.forEach(([x, y], i) =>
-            i
-              ? ctx.lineTo(x * 0.4, (y * 559) / 1397)
-              : ctx.moveTo(x * 0.4, (y * 559) / 1397),
-          );
-          ctx.closePath();
-          ctx.stroke();
-        }
+      } finally {
+        // Retain only display pixels, not every full-resolution decoded scan.
+        image.onload = null;
+        image.onerror = null;
+        image.src = "";
       }
     };
     image.onerror = () => {
       if (!cancelled)
         setError(
-          "Photo could not be loaded. Use Open original or retry this view.",
+          "Photo could not be loaded. Use Open original or retry the scan image.",
         );
     };
     image.src = src;
@@ -173,13 +197,12 @@ export function AcquisitionScanImage({
     };
   }, [
     src,
-    active,
-    quad,
-    observation,
-    readingZones,
+    activated,
+    renderEvidence,
     displayView,
     rotation,
     compact,
+    retry,
   ]);
   return (
     <figure className="min-w-0">
@@ -195,7 +218,7 @@ export function AcquisitionScanImage({
       <div
         className={`aspect-[1000/1397] flex items-center justify-center bg-black/10 rounded overflow-hidden ${compact ? "max-h-[60vh]" : "max-h-[75vh]"}`}
       >
-        {active ? (
+        {activated ? (
           <canvas
             ref={canvas}
             role="img"
@@ -207,9 +230,12 @@ export function AcquisitionScanImage({
         )}
       </div>
       {error && (
-        <p role="alert" className="text-sm">
-          {error}
-        </p>
+        <div role="alert" className="text-sm">
+          <p>{error}</p>
+          <button className={button + " text-xs"} onClick={() => setRetry((n) => n + 1)}>
+            Retry scan image
+          </button>
+        </div>
       )}
       {!compact && (
         <div className="flex flex-wrap gap-1 mt-2" aria-label="Scan view">
