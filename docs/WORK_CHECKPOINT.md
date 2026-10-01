@@ -1,3 +1,46 @@
+## Audit batch 1 delivered for review — October 1, 2026
+
+Branch codex/native-printing-observation-reuse; PR #556:
+https://github.com/sefaction/MTG-Archives/pull/556. Application commit0944587,
+base approved main e247916f7022f360cedbc05398cba607cbcfb24d. Worktree:
+C:/Users/brian/Projects/MTG-Archives/.local-data/native-printing-reuse.
+Issue #553 stays open until merge. Audit #551 is independent; #463/#307 remain
+broader work. No merge approval exists. Recognition routing, automatic confirmation
+and native inference algorithms are unchanged. This supersedes older records below.
+
+Persisted exact native-envelope reuse and atomic current-source publication fences
+are implemented. 759 units/typecheck/production build/10 manifest guards passed;
+isolated PostgreSQL/file boundary acceptance and native descriptor guards passed.
+Final real application replay passed4/4 identical fresh/reused pairs, zero reuse
+requests, actual printing-worker restart, desktop1366/phone320, current-source
+failure fallback and zero fixture Inventory writes. Median handler8430.5ms fresh
+vs28.5ms reused; refresh-to-publication7160.5ms reflects existing queue scheduling.
+Four correlated observations/three originals do not establish population throughput.
+
+Broad browser regression85passed/14prerequisite skips/5failed; all five isolated
+follow-ups passed. Three used ignored test-only stale-assertion corrections (#554),
+one supplied the existing installer fixture; unchanged Inventory focus replay passed
+but the intermittent observation remains #555. Original full run is not green.
+Scale fixture150000copies/15000rows/2200locations/four uneven owners cleaned up.
+
+Final883originals/884photos/76reviews/10280Inventory rows/one commit/five members
+match baseline. All10736pre-existing audit rows match their original fingerprint.
+Seven proven orphaned browser-fixture audit events cleaned; two deliberate account
+theme audit events retained. Interrupted printing fixture cleaned, no test processes
+remain. Private logs/proofs are under ignored .local-data and test-results.
+
+Local web image cedfe224d7ac4b6bdacc66abed4729ff70956bd2479152c4fb1b3809f345bcd2,
+506-file manifest d51f32efcbbce592e6185f345c62f9f24ca56c8eea9199b7a9b194c50817222a.
+Printing image d31b9a96c2e257c23a5ba4b2730103fbc323ac93f12e3765444441ee52557196;
+runtime generation9aefff89f02e7e4b4decd888c4b3bbd4ffdb987a551dbd4f0558cfb0b67d4ee0.
+Original local mounts and approved installer retained; primary checkout is stale,
+do not rebuild it. Recognition/visual workers unchanged. No production/scanner action.
+
+Next: verify current-head CI on GitHub, finish durable Foundry delivery update,
+then await individual approval for #556. No unanswered implementation decision.
+Desktop project assignment remains unverified: app metadata previously reported
+projectId null despite correct repository cwd; no supported reassignment was found.
+
 ## Alignment control locally validated — September 30, 2026
 
 Active draft #540 / fix/scanner-twain-footer. New Card position under Scan settings,
