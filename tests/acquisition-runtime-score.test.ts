@@ -56,7 +56,7 @@ test("rejects changed truth, native generation, photo bytes and lost full-frame 
   const photoChanged = observation(); photoChanged.image.photoDigest = "e".repeat(64);
   assert.throws(()=>scoreAcquisitionRuntime(manifest, provenance, records(photoChanged)), /different photo/);
   const cropped = observation(); cropped.native.geometry.method = "contours";
-  assert.throws(()=>scoreAcquisitionRuntime(manifest, provenance, records(cropped)), /full frame/);
+  assert.throws(()=>scoreAcquisitionRuntime(manifest, provenance, records(cropped)), /conservative card preparation/);
 });
 test("rejects reordered identity mapping and duplicate dependent bytes", ()=>{
   const changed = observation(); changed.proposedCards.reverse();
@@ -65,4 +65,10 @@ test("rejects reordered identity mapping and duplicate dependent bytes", ()=>{
   const duplicate = Buffer.from(JSON.stringify(truth));
   assert.throws(()=>scoreAcquisitionRuntime(duplicate,
     {...provenance, labelHash: createHash("sha256").update(duplicate).digest("hex")}, records()), /Duplicate sample/);
+});
+
+test("scores explicitly bounded scan-background preparation", ()=>{
+  const trimmed = observation(); trimmed.native.geometry.method = "scanner-background-trim";
+  trimmed.image.geometry.method = "scanner-background-trim";
+  assert.equal(scoreAcquisitionRuntime(manifest, provenance, records(trimmed)).complete, true);
 });
