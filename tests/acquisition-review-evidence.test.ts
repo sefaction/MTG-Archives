@@ -5,6 +5,22 @@ import {
   cropPoint,
 } from "../lib/acquisition-review-evidence";
 
+test("scan framing evidence survives review projection without adding acceptance authority", () => {
+  for (const geometry of [
+    {status: "NEEDS_CROP", framing: "CLIPPED"},
+    {status: "PROPOSED", framing: "ALIGNED", method: "scanner-card-edges",
+      quad: [[10, 10], [640, 10], [640, 890], [10, 890]]},
+  ]) {
+    const evidence = acquisitionReviewEvidence({
+      native: {geometry, orientations: []},
+      proposals: {evidence: {setCodes: [], collectors: [], languages: []}},
+    })!;
+    assert.deepEqual(evidence.geometry, geometry);
+    assert.equal(evidence.rotation, null);
+    assert.equal(evidence.printing, null);
+  }
+});
+
 test("review evidence preserves both observations while withholding private runtime metadata", () => {
   const input = {
     native: {

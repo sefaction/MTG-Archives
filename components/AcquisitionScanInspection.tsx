@@ -35,6 +35,8 @@ export function AcquisitionScanImage({
   const rotation = evidence?.rotation ?? (reverse ? 180 : 0);
   const declaredScan = evidence?.geometry.method === "declared-card-scan";
   const trimmedScan = evidence?.geometry.method === "scanner-background-trim";
+  const alignedScan = evidence?.geometry.method === "scanner-card-edges";
+  const clippedScan = evidence?.geometry.framing === "CLIPPED";
   const fullFrame = declaredScan || evidence?.geometry.method === "full-frame";
   const observation = evidence?.observations.find(
     (o) => o.rotationDegrees === rotation,
@@ -197,7 +199,7 @@ export function AcquisitionScanImage({
           <canvas
             ref={canvas}
             role="img"
-            aria-label={`${displayView === "original" || !quad ? "Original scan" : trimmedScan ? "Prepared card" : fullFrame ? "Full card image" : "Detected card"} ${position}`}
+            aria-label={`${displayView === "original" || !quad ? "Original scan" : trimmedScan || alignedScan ? "Prepared card" : fullFrame ? "Full card image" : "Detected card"} ${position}`}
             className="max-w-full max-h-full object-contain"
           />
         ) : (
@@ -214,7 +216,7 @@ export function AcquisitionScanImage({
           {(
             [
               ["original", "Original"],
-              ["crop", trimmedScan ? "Prepared card" : fullFrame ? "Full card image" : "Detected card"],
+              ["crop", trimmedScan || alignedScan ? "Prepared card" : fullFrame ? "Full card image" : "Detected card"],
               ["zones", "Reading zones"],
             ] as const
           ).map(([key, label]) => (
@@ -240,12 +242,16 @@ export function AcquisitionScanImage({
       )}
       {!compact && (
         <p className="text-xs mt-2">
-          {!quad
+          {clippedScan
+            ? "The card reaches the edge of the scan. Adjust the scanner frame and scan again; the missing edge cannot be recovered by trimming. Reading zones were not applied."
+            : !quad
             ? "No detected outline available; showing original."
+            : alignedScan
+              ? "Reading image aligned to the outer card edges, with the black border preserved. Your original is kept."
             : trimmedScan
               ? "A small strip of scanner background was trimmed for reading. Your original and the card border are kept."
             : declaredScan
-              ? "Card scan: full image retained; border detection skipped."
+              ? "Card scan: full image retained. Outer edges were not verified; check the frame before relying on reading zones."
               : fullFrame
                 ? `Full image retained; no crop. This tightly framed image is resized for reading${evidence?.rotation === null ? "; direction unresolved" : " and oriented using the reading result"}.`
                 : displayView === "original"
