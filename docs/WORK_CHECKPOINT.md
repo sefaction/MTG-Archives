@@ -1,3 +1,43 @@
+## Recognition audit continuing — October 1, 2026
+
+Active goal: paired exact-printing audit, validation, measured decision tree and
+implementation plan. Not complete. PR #550 was individually approved, merged and
+published; production update remains the user's operator step.
+
+Active worktree: MTG-Archives-scanner-twain-footer; branch
+codex/recognition-pipeline-audit; base e247916f7022f360cedbc05398cba607cbcfb24d.
+No audit PR yet. Relevant issues #463/#307. Primary checkout is stale: do not build
+it. Existing reviewed cumulative Docker app remains healthy; no DB reprocessing.
+
+Completed exec session 36376: qualified development-threeway-v3.json,
+40 frozen development images, baseline / identifier-first / partial scoped image.
+Development complete: 120 paired observations. Validation/random/timing sequence
+now running in owned exec session 72528 after policy lock on October 1. Only mtg-audit-paired-{ocr,visual,printing} containers;
+network disabled, original/index/source mounts read-only, bounded resources.
+Do not run a second instance with those names. Four qualified harness sources
+are frozen privately. Earlier v1 discarded timeout progress; v2 scoped raw PHOTO
+transport failed. Both are disqualified; v3 qualification passed.
+
+41 validation images and seeded 12 apparent successes are manually verified and
+frozen before model results. Validation excludes historical manifest printing
+groups but physical-copy independence is unknown, mostly scanner/WAR, no natural
+poor-photo holdout. Random sample keeps four unobservable targets in denominator.
+Current 9 TS + 9 Python audit checks pass; application typecheck passed. Metrics,
+bounded owner/version/request evidence-cache and reuse experiments are isolated.
+
+Preservation mid-run: original/review/Inventory/receipt fingerprints unchanged.
+Reading zones and application runtime are unchanged. No scanner, production,
+merge or saved automatic-confirmation action is authorized by this audit.
+
+Development: baseline34/40, identifier-first34/40, partial38/40 exact first;
+partial global searches4/40. Offline conservative stops6/40, all six correct;
+not population acceptance validation. Reuse:800 equivalent JSON hits measured.
+
+Next: reconcile session72528, finish locked validation/random/timing; recheck
+preservation; publish report/tooling PR, catalogue
+measured bugs and prioritize smallest reliable changes. Current unknown stamp
+results remain unknown. No unanswered user question blocks independent work.
+
 ## Alignment control locally validated — September 30, 2026
 
 Active draft #540 / fix/scanner-twain-footer. New Card position under Scan settings,

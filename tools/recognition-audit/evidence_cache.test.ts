@@ -1,0 +1,11 @@
+import assert from "node:assert/strict";
+import {test} from "node:test";
+import {EvidenceCache,evidenceKey,type EvidenceRequest} from "./evidence_cache";
+const h="a".repeat(64),other="b".repeat(64);
+const request:EvidenceRequest={ownerScope:"one-owner",stage:"printing",photoDigest:h,inputKind:"CARD_SCAN",descriptor:h,indexDigest:h,policy:"v1",catalogDigest:h,candidateIds:["one","two"]};
+const evidence={photoDigest:h,descriptor:h,candidates:[{identity:"one",stamp:"UNREADABLE"}]};
+test("reuses an identical request without turning unknown evidence into absence",()=>{const cache=new EvidenceCache();cache.put(request,evidence);assert.deepEqual(cache.get(request),evidence);assert.equal(cache.get(request).candidates[0].stamp,"UNREADABLE")});
+test("owner/model/catalog/input kind/policy/photo changes cannot hit previous evidence",()=>{const cache=new EvidenceCache();cache.put(request,evidence);for(const change of [{ownerScope:"other-owner"},{descriptor:other},{catalogDigest:other},{indexDigest:other},{photoDigest:other},{inputKind:"PHOTO"},{policy:"v2"},{stage:"visual"}])assert.equal(cache.get({...request,...change}),undefined)});
+test("candidate order and membership are part of exact input identity",()=>{assert.notEqual(evidenceKey(request),evidenceKey({...request,candidateIds:["two","one"]}));assert.notEqual(evidenceKey(request),evidenceKey({...request,candidateIds:["one"]}))});
+test("caller mutations cannot corrupt cached evidence",()=>{const cache=new EvidenceCache();cache.put(request,evidence);cache.get(request).candidates[0].stamp="ABSENT";assert.equal(cache.get(request).candidates[0].stamp,"UNREADABLE")});
+test("unproven evidence is rejected and bounded cache evicts",()=>{const cache=new EvidenceCache(1);assert.throws(()=>cache.put(request,{...evidence,photoDigest:other}));cache.put(request,evidence);const second={...request,candidateIds:["three"]};cache.put(second,evidence);assert.equal(cache.get(request),undefined);assert.deepEqual(cache.get(second),evidence)});

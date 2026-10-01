@@ -74,11 +74,15 @@ jobs:
         run: python -m unittest discover -s tools/acquisition-eval -p 'test_catalog*.py'
       - name: Printing evidence uncertainty guards (no models or private photos)
         run: python -m unittest discover -s tools/acquisition-eval -p 'test_printing*.py'
+      - name: Audit attribution and paired-metric guards (no models or private photos)
+        run: python -m unittest discover -s tools/recognition-audit -p 'test_*.py'
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
       - run: npm ci
+      - name: Isolated audit scope and bounded evidence-reuse guards
+        run: npx tsx --test tools/recognition-audit/*.test.ts
       - name: Generate, typecheck, unit tests and production build guards
         run: npm run verify:core
       - name: Flat Unraid acquisition worker storage and isolation
