@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import {randomUUID} from "node:crypto";
-import {PrismaClient} from "@prisma/client";
+import {Prisma, PrismaClient} from "@prisma/client";
 import {createAcquisitionSession, executeAcquisitionCommand, getAcquisitionSession, ingestAcquisitionEvent} from "../lib/acquisition-store";
+import {acquisitionHandoffQuery} from "../lib/acquisition-handoff";
 import {claimAcquisitionJobs, completeAcquisitionJob, runAcquisitionJobsOnce} from "../lib/acquisition-jobs";
 
 // Called only by the guarded disposable acquisition database verifier.
@@ -77,6 +78,69 @@ export async function verifyAcquisitionOwnerFairness(db: PrismaClient) {
     assert.equal(pair.length,2);
     assert.equal(new Set(pair.map(job=>runById.get(job.runId)!.owner)).size,2,
       'bounded two-job selection includes different equally eligible owners');
+    // Same owner: >32 historical runs plus >32 refreshes inside one run.
+    // Retakes use a new immutable artifact, even with the same candidate ID.
+    const freshInputs = await Promise.all([runs[0], runs[39], runs[39]].map(async (run,n)=>{
+      const artifact=await db.acquisitionArtifact.create({data:{runId:run.id,
+        sourceId:`priority-input-${n}`,digest:`priority-original-${n}`}});
+      return {...run,artifactId:artifact.id};
+    }));
+    const historical=runs.filter(run=>run.owner<=1);
+    for(const name of ['recognition','visual','catalog','printing']) {
+      const stage=`${tag}-priority-${name}`, sourceStage=`${stage}-source`;
+      async function job(run:typeof runs[number],status:'PENDING'|'COMPLETE',jobStage=stage,year=2000) {
+        return db.acquisitionProcessingJob.create({data:{runId:run.id,artifactId:run.artifactId,
+          candidateId:run.candidateId,candidateRevision:run.revision,stage:jobStage,
+          versionKey:randomUUID(),input:{},status,availableAt:new Date(0),createdAt:new Date(Date.UTC(year,0,1))}});
+      }
+      for(const run of historical)await job(run,'COMPLETE');
+      const refreshInputs=[...historical.filter(run=>run.owner===0),...Array.from({length:64},()=>runs[0])];
+      const refreshJobs=await Promise.all(refreshInputs.map(run=>job(run,'PENDING')));
+      const backgroundOwner=runs.find(run=>run.owner===1)!;
+      for(let n=0;n<8;n++)await job(backgroundOwner,'PENDING');
+      const newJobs=await Promise.all(freshInputs.map(run=>job(run,'PENDING',stage,2026)));
+      const sources=await Promise.all([...refreshInputs,...freshInputs].map((run,n)=>
+        job(run,'COMPLETE',sourceStage,n<refreshInputs.length?2000:2026)));
+      const rows=await db.$queryRaw<{id:string}[]>(acquisitionHandoffQuery(stage,Prisma.sql`
+        SELECT id, "runId", "createdAt" FROM "AcquisitionProcessingJob"
+        WHERE stage=${sourceStage} AND status='COMPLETE'`));
+      assert.equal(rows.length,32,'admission remains bounded');
+      assert.deepEqual(new Set(rows.slice(0,3).map(row=>row.id)),
+        new Set(sources.slice(-3).map(row=>row.id)),
+        'all new inputs enter before same-owner refreshes, across and within runs');
+      const newIds=new Set(newJobs.map(j=>j.id));
+      const replacement=new PrismaClient();
+      const counts=[0,0];
+      try {
+        for(let n=0;n<6;n++) {
+          const now=new Date(++tick);
+          const [claimed]=await claimAcquisitionJobs(n<2?db:replacement,{workerId:'priority',stages:[stage]},now);
+          assert.ok(claimed);
+          const owner=runById.get(claimed.runId)!.owner;
+          counts[owner]++;
+          if(owner===0)assert.ok(newIds.delete(claimed.id),'new input precedes all104 same-owner refreshes');
+          assert.equal(await completeAcquisitionJob(db,claimed,{fixture:true},now),'COMPLETE');
+        }
+        assert.deepEqual(counts,[3,3],'a background-only owner retains an equal share');
+        assert.equal(newIds.size,0,'all three new artifacts finish, including retakes');
+        assert.equal(await db.acquisitionProcessingJob.count({where:{id:{in:refreshJobs.map(j=>j.id)},status:'PENDING'}}),104,
+          'historical work stays queued while new inputs finish');
+        let resumedOwner=false;
+        for(let n=0;n<2 && !resumedOwner;n++) {
+          const now=new Date(++tick);
+          const [resumed]=await claimAcquisitionJobs(replacement,{workerId:'priority-drained',stages:[stage]},now);
+          assert.ok(resumed);
+          if(runById.get(resumed.runId)!.owner===0) {
+            assert.ok(refreshJobs.some(j=>j.id===resumed.id),'old work resumes after foreground drains');
+            resumedOwner=true;
+          }
+          assert.equal(await completeAcquisitionJob(db,resumed,{fixture:true},now),'COMPLETE');
+        }
+        assert.ok(resumedOwner,'background resumption occurs within the next fair owner round');
+      } finally {await replacement.$disconnect();}
+    }
+    assert.equal(await db.inventoryItem.count({where:{currentOwnerId:{in:owners}}}),0);
+    console.log('PASS: four-stage first-result priority across104 refreshes, bounded admission, new-artifact retakes, fair background owner, reconnect, old-work resumption and zero Inventory');
     const staleStage=`${tag}-stale`;
     const [changed, reviewed, excluded, current, leased, expired]=runs.slice(0,6);
     const jobs=await Promise.all([changed,reviewed,excluded,current,leased,expired].map((run,n)=>
