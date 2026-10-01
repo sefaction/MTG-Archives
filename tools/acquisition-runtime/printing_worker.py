@@ -16,7 +16,7 @@ import uuid
 sys.path.insert(0, '/eval')
 import cv2
 import numpy as np
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, __version__ as pillow_version
 from catalog_references import sha256
 from printing import PrintingRuntime, VERSION, LABELS
 
@@ -50,7 +50,9 @@ def descriptor():
                'runtimeSha256': sha256(Path(__file__)),
                'registrationSha256': sha256(Path(__file__).with_name('printing.py')),
                'policySha256': sha256(Path('/eval/printing_evidence.py')),
-               'annotationsSha256': sha256(LABELS), 'opencv': cv2.__version__}
+               'annotationsSha256': sha256(LABELS), 'opencv': cv2.__version__,
+               'opencvBuildSha256': hashlib.sha256(cv2.getBuildInformation().encode()).hexdigest(),
+               'numpy': np.__version__, 'pillow': pillow_version, 'python': sys.version}
     archive = INDEX.with_name(f'manifest-{before}.json')
     immutable = archive.name if archive.is_file() and sha256(archive) == before else INDEX.name
     return {'digest': hashlib.sha256(json.dumps(details, sort_keys=True).encode()).hexdigest(),

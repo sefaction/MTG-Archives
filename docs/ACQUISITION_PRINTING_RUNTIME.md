@@ -1,5 +1,9 @@
 # Durable printing evidence in scan review
 
+Unchanged versioned native observations can now be reused from completed jobs.
+See [printing observation reuse](ACQUISITION_PRINTING_REUSE.md) for exact-input
+identity, invalidation, current-job/publication fences and measured local acceptance.
+
 This local review batch depends on hybrid runtime PR #476. It adds printing
 evidence after the existing OCR, image retrieval and Scryfall reconciliation.
 It changes no model, retrieval threshold, photo geometry or Inventory rules.

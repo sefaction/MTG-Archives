@@ -6,6 +6,7 @@ import { claimFixtureJobs as claimAcquisitionJobs } from "./acquisition-verifica
 import { enqueueReadyPrinting, observeAcquisitionPrinting } from "../lib/acquisition-printing-worker";
 import { PRINTING_STAGE, PRINTING_POLICY_VERSION } from "../lib/acquisition-printing";
 import { getAcquisitionCardReview, type AcquisitionActor } from "../lib/acquisition-store";
+import { verifyAcquisitionPrintingReuse } from "./verify-acquisition-printing-reuse";
 
 // Real database/file transport and revision fences. Native observations below
 // are synthetic protocol fixtures; algorithm accuracy is measured separately.
@@ -82,6 +83,7 @@ export async function verifyAcquisitionPrinting(
   } finally {
     await db.acquisitionProcessingJob.deleteMany({where:{id:{in:[obsolete.id,legacy.id]}}});
   }
+  await verifyAcquisitionPrintingReuse(db, job, result, model);
   const changed = await db.acquisitionProcessingJob.create({data: {
     runId: source.runId, artifactId: source.artifactId, candidateId: source.candidateId,
     candidateRevision: source.candidateRevision, stage: source.stage, versionKey: randomUUID(),

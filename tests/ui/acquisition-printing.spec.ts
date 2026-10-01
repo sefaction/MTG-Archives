@@ -22,6 +22,7 @@ test(compactOnly ? "compact review replays one native basic-land scan with saved
   // Repeated35 is an explicit source-mode regression, not another independent
   // recognition sample. Its PHOTO geometry fails; CARD_SCAN must keep all edges.
   const entries=[36,35,1,35].map(n=>manifest.entries[n-1]);
+  const reuseResults: unknown[] = [];
   const basicLandPath=process.env.MTG_ACQUISITION_BASIC_LAND_SCAN_PATH;
   if(compactOnly && !basicLandPath) throw new Error('Compact replay requires the fifth native basic-land fixture');
   if(basicLandPath) entries.push({file:path.basename(basicLandPath),
@@ -59,13 +60,40 @@ test(compactOnly ? "compact review replays one native basic-land scan with saved
       await page.getByLabel('Choose card photos').setInputFiles({name:entry.file,mimeType:'image/jpeg',buffer});
       // Use the real shared queue. A new fixture batch must receive worker
       // turns while older unreviewed batches are being reprocessed.
-      await expect.poll(()=>Number(database(`console.log(await p.acquisitionProcessingJob.count({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-printing-evidence-v1',status:'COMPLETE'}}));`)),{timeout:240000}).toBe(compactOnly ? 1 : i+1);
-      const output=JSON.parse(database(`const job=await p.acquisitionProcessingJob.findFirstOrThrow({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},artifact:{digest:${JSON.stringify(entry.sha256)}},stage:'photo-printing-evidence-v1',status:'COMPLETE'},orderBy:{createdAt:'desc'},select:{output:true,candidate:{select:{review:true}}}});const expected=await p.card.findUniqueOrThrow({where:{scryfallId:${JSON.stringify(entry.scryfallId)}},select:{id:true}});console.log(JSON.stringify({output:job.output,review:job.candidate.review,expectedId:expected.id}));`));
+      await expect.poll(()=>Number(database(`console.log(await p.acquisitionProcessingJob.count({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-printing-evidence-v1',status:'COMPLETE'}}));`)),{timeout:240000}).toBe(compactOnly ? 1 : process.env.MTG_PRINTING_REUSE_TEST === '1' ? 2*i+1 : i+1);
+      const output=JSON.parse(database(`const job=await p.acquisitionProcessingJob.findFirstOrThrow({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},artifact:{digest:${JSON.stringify(entry.sha256)}},stage:'photo-printing-evidence-v1',status:'COMPLETE'},orderBy:[{createdAt:'desc'},{id:'desc'}],select:{output:true,createdAt:true,updatedAt:true,candidate:{select:{review:true}}}});const expected=await p.card.findUniqueOrThrow({where:{scryfallId:${JSON.stringify(entry.scryfallId)}},select:{id:true}});console.log(JSON.stringify({output:job.output,createdAt:job.createdAt,updatedAt:job.updatedAt,review:job.candidate.review,expectedId:expected.id}));`));
       expect(output.output.proposals.proposals.some((p:any)=>p.card.id===output.expectedId)).toBe(true);
       expect(output.output.native.photoDigest).toBe(entry.sha256);
       expect(output.output.printingNative.photoDigest).toBe(entry.sha256);
       expect(output.output.proposals.automaticAcceptance).toBe(false);
       expect(output.review).toBe(null);
+      if (process.env.MTG_PRINTING_REUSE_TEST === '1') {
+        expect(output.output.printingExecution.reused).toBe(false);
+        expect(output.output.printingExecution.inferenceRequests).toBe(1);
+        if (i === 0 && process.env.MTG_PRINTING_REUSE_RESTART_TEST === '1')
+          execFileSync('docker', ['restart', 'mtg-archives-acquisition-printing-worker-1'], {encoding:'utf8',timeout:180000});
+        const refresh = JSON.parse(database(`const source=await p.acquisitionProcessingJob.findUniqueOrThrow({where:{id:${JSON.stringify(output.output.sourceCatalogJobId)}}});const newer=await p.acquisitionProcessingJob.create({data:{runId:source.runId,artifactId:source.artifactId,candidateId:source.candidateId,candidateRevision:source.candidateRevision,stage:source.stage,versionKey:require('crypto').randomUUID(),input:source.input,status:'COMPLETE',output:source.output}});console.log(JSON.stringify({id:newer.id,createdAt:newer.createdAt}));`));
+        const start = Date.now();
+        let reused: any;
+        await expect.poll(() => {
+          reused=JSON.parse(database(`const job=await p.acquisitionProcessingJob.findFirst({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-printing-evidence-v1',status:'COMPLETE',output:{path:['sourceCatalogJobId'],equals:${JSON.stringify(refresh.id)}}},select:{output:true,createdAt:true,updatedAt:true}});console.log(JSON.stringify(job));`));
+          return Boolean(reused);
+        }, {timeout:240000}).toBe(true);
+        expect(reused.output.printingExecution.reused).toBe(true);
+        expect(reused.output.printingExecution.inferenceRequests).toBe(0);
+        expect(reused.output.printingNative).toEqual(output.output.printingNative);
+        expect(reused.output.printing).toEqual(output.output.printing);
+        expect(reused.output.proposals).toEqual(output.output.proposals);
+        expect(reused.output.native).toEqual(output.output.native);
+        reuseResults.push({sample:i, nativeMilliseconds:output.output.printingNative.milliseconds,
+          freshHandlerMilliseconds:output.output.printingExecution.milliseconds,
+          freshJobMilliseconds:Date.parse(output.updatedAt)-Date.parse(output.createdAt),
+          reuseHandlerMilliseconds:reused.output.printingExecution.milliseconds,
+          reuseJobMilliseconds:Date.parse(reused.updatedAt)-Date.parse(reused.createdAt),
+          refreshToPublicationMilliseconds:Date.parse(reused.updatedAt)-Date.parse(refresh.createdAt),
+          observedPollMilliseconds:Date.now()-start, inferenceRequests:0, identicalRecognition:true,
+          afterWorkerRestart:i===0 && process.env.MTG_PRINTING_REUSE_RESTART_TEST==='1'});
+      }
       if(output.output.native.geometry.status==='PROPOSED'){
         expect(output.output.native.readingZones).toEqual({
           title:{top:0,bottom:250},footer:{top:1270,bottom:1397},
@@ -141,7 +169,7 @@ test(compactOnly ? "compact review replays one native basic-land scan with saved
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
       await page.screenshot({path:`test-results/printing-review-${width}.png`});
     }
-    database(`const prior=await p.acquisitionProcessingJob.findFirstOrThrow({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},artifact:{digest:${JSON.stringify(entries[0].sha256)}},stage:'photo-printing-evidence-v1',status:'COMPLETE'}});await p.acquisitionProcessingJob.create({data:{runId:prior.runId,artifactId:prior.artifactId,candidateId:prior.candidateId,candidateRevision:prior.candidateRevision,stage:prior.stage,versionKey:require('crypto').randomUUID(),input:prior.input,status:'FAILED',attempts:3,maxAttempts:3,errorCode:'PROCESSING_FAILED'}});`);
+    database(`const prior=await p.acquisitionProcessingJob.findFirstOrThrow({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},artifact:{digest:${JSON.stringify(entries[0].sha256)}},stage:'photo-printing-evidence-v1',status:'COMPLETE'},orderBy:[{createdAt:'desc'},{id:'desc'}]});await p.acquisitionProcessingJob.create({data:{runId:prior.runId,artifactId:prior.artifactId,candidateId:prior.candidateId,candidateRevision:prior.candidateRevision,stage:prior.stage,versionKey:require('crypto').randomUUID(),input:prior.input,status:'FAILED',attempts:3,maxAttempts:3,errorCode:'PROCESSING_FAILED'}});`);
     await page.reload();
     await card.scrollIntoViewIfNeeded();
     await expect(card.getByTestId('scan-printing-status')).toContainText('Printing verification failed',{timeout:20000});
@@ -150,6 +178,11 @@ test(compactOnly ? "compact review replays one native basic-land scan with saved
     await expect(card.getByRole('img',{name:/^Printing: Timberland Ancient /})).toBeVisible();
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
   } finally {
+    if (reuseResults.length) {
+      const fs = require('fs');
+      fs.mkdirSync('test-results', {recursive:true});
+      fs.writeFileSync('test-results/printing-reuse-application.json', JSON.stringify({version:1,samples:reuseResults},null,2));
+    }
     database(`const n=${JSON.stringify(tag)};const sessions=await p.acquisitionSession.findMany({where:{ownerPlayerId:n},select:{id:true}});const runs=await p.acquisitionRun.findMany({where:{sessionId:{in:sessions.map(s=>s.id)}},select:{id:true}});const where={runId:{in:runs.map(r=>r.id)}};const photos=await p.acquisitionPhoto.findMany({where});await p.acquisitionProcessingJob.deleteMany({where});await p.acquisitionPhoto.deleteMany({where});await p.acquisitionCommand.deleteMany({where});await p.acquisitionCaptureSlot.deleteMany({where});await p.acquisitionCountCorrection.deleteMany({where});await p.acquisitionObservation.deleteMany({where});await p.acquisitionEvent.deleteMany({where});await p.acquisitionCandidate.deleteMany({where});await p.acquisitionArtifact.deleteMany({where});await p.acquisitionRun.deleteMany({where:{id:{in:runs.map(r=>r.id)}}});await p.acquisitionSession.deleteMany({where:{id:{in:sessions.map(s=>s.id)}}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});const fs=require('fs/promises'),path=require('path');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw new Error('Invalid fixture path');for(const suffix of ['original','preview.jpg'])await fs.unlink(path.join(process.env.UPLOADS_DATA_PATH,'acquisition-v1',photo.id+'.'+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e})}`);
   }
 });
