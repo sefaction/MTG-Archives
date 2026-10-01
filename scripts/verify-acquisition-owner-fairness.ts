@@ -125,10 +125,18 @@ export async function verifyAcquisitionOwnerFairness(db: PrismaClient) {
         assert.equal(newIds.size,0,'all three new artifacts finish, including retakes');
         assert.equal(await db.acquisitionProcessingJob.count({where:{id:{in:refreshJobs.map(j=>j.id)},status:'PENDING'}}),104,
           'historical work stays queued while new inputs finish');
-        const now=new Date(++tick);
-        const [resumed]=await claimAcquisitionJobs(replacement,{workerId:'priority-drained',stages:[stage]},now);
-        assert.ok(refreshJobs.some(j=>j.id===resumed.id),'old work resumes after foreground drains');
-        assert.equal(await completeAcquisitionJob(db,resumed,{fixture:true},now),'COMPLETE');
+        let resumedOwner=false;
+        for(let n=0;n<2 && !resumedOwner;n++) {
+          const now=new Date(++tick);
+          const [resumed]=await claimAcquisitionJobs(replacement,{workerId:'priority-drained',stages:[stage]},now);
+          assert.ok(resumed);
+          if(runById.get(resumed.runId)!.owner===0) {
+            assert.ok(refreshJobs.some(j=>j.id===resumed.id),'old work resumes after foreground drains');
+            resumedOwner=true;
+          }
+          assert.equal(await completeAcquisitionJob(db,resumed,{fixture:true},now),'COMPLETE');
+        }
+        assert.ok(resumedOwner,'background resumption occurs within the next fair owner round');
       } finally {await replacement.$disconnect();}
     }
     assert.equal(await db.inventoryItem.count({where:{currentOwnerId:{in:owners}}}),0);
