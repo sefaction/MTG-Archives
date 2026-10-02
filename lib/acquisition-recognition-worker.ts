@@ -102,6 +102,34 @@ export function acquisitionRecognitionVersion(_catalog: string, model: string) {
     )
     .digest("hex");
 }
+// A generation change can leave older attempts queued behind their replacement.
+// Require a strictly newer, identical-input current-version attempt. Attempt
+// order protects newer work, and a live lease keeps its authority.
+export async function retireReplacedRecognition(
+  db: PrismaClient,
+  versionKey: string,
+  now = new Date(),
+) {
+  digest.parse(versionKey);
+  return db.$executeRaw`
+    UPDATE "AcquisitionProcessingJob" old SET status='SUPERSEDED',
+      "leaseToken"=NULL, "leaseExpiresAt"=NULL,
+      "errorCode"='GENERATION_REPLACED', "updatedAt"=${now}
+    WHERE old.stage=${RECOGNITION_STAGE} AND old."versionKey"<>${versionKey}
+      AND (old.status='PENDING' OR (old.status='RUNNING' AND old."leaseExpiresAt"<=${now}))
+      AND EXISTS (
+        SELECT 1 FROM "AcquisitionProcessingJob" current
+        WHERE current.stage=old.stage AND current."versionKey"=${versionKey}
+          AND current."runId"=old."runId" AND current."artifactId"=old."artifactId"
+          AND current."candidateId"=old."candidateId"
+          AND current."candidateRevision"=old."candidateRevision"
+          AND current."createdAt">old."createdAt"
+          AND current.status IN ('PENDING','RUNNING','COMPLETE','FAILED')
+          AND current.input->>'photoId'=old.input->>'photoId'
+          AND current.input->>'digest'=old.input->>'digest'
+      )`;
+}
+
 export async function enqueueReadyRecognition(
   db: PrismaClient,
   catalog: string,
@@ -185,6 +213,7 @@ export async function enqueueReadyRecognition(
     });
     added += result.count;
   }
+  await retireReplacedRecognition(db, versionKey);
   return added;
 }
 export async function recognizeAcquisitionPhoto(

@@ -129,15 +129,15 @@ test("library selections stream past ten without exceeding capacity or upload bo
       path: "test-results/acquisition-library-phone.png",
       fullPage: true,
     });
-    await expect(page.locator('[data-testid^="capture-card-"]')).toHaveCount(
-      12,
-    );
-    await page
-      .getByRole("button", { name: "Load more cards", exact: true })
-      .scrollIntoViewIfNeeded();
-    await expect(page.locator('[data-testid^="capture-card-"]')).toHaveCount(
-      14,
-    );
+    // The sentinel may already have appended the final two rows while taking
+    // the full-page screenshot. Both normal paging paths preserve all inputs.
+    const displayed = await page.locator('[data-testid^="capture-card-"]').count();
+    expect(displayed).toBeGreaterThanOrEqual(12);
+    expect(displayed).toBeLessThanOrEqual(14);
+    if (displayed < 14) {
+      await page.getByRole("button", { name: "Load more cards", exact: true }).scrollIntoViewIfNeeded();
+    }
+    await expect(page.locator('[data-testid^="capture-card-"]')).toHaveCount(14);
     await page.getByTestId("capture-card-14").scrollIntoViewIfNeeded();
     await expect(
       page
