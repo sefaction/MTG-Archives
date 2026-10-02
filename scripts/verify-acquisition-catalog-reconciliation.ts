@@ -1,3 +1,4 @@
+import { verifyAcquisitionClaimDiagnostics } from "./verify-acquisition-claim-diagnostics";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
@@ -103,6 +104,7 @@ export async function verifyAcquisitionCatalogReconciliation(
       ),
       "COMPLETE",
     );
+    await verifyAcquisitionClaimDiagnostics(db, rawJob);
     const queued = await Promise.all([
       enqueueCatalogReconciliation(db),
       enqueueCatalogReconciliation(db),
@@ -115,7 +117,7 @@ export async function verifyAcquisitionCatalogReconciliation(
     const [job] = await claimAcquisitionJobs(db, {
       workerId: "catalog-fixture",
       stages: [CATALOG_RECONCILIATION_STAGE],
-    });
+    }, { candidateId: rawJob.candidateId });
     assert(job, "the initial catalog job must be claimable");
     assert.equal(job.candidateId, rawJob.candidateId);
     const handler = createCatalogReconciliationHandler(
