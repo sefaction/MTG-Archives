@@ -1,3 +1,5 @@
+import {verifyAutoConfirmRetirement} from "./verify-acquisition-auto-confirm-retirement";
+import {verifyAcquisitionClaimRetirement} from "./verify-acquisition-claim-retirement";
 import {verifyRetiredHandoffParents} from "./verify-acquisition-retired-parents";
 import {verifyDeletedHandoffSource} from "./verify-acquisition-deleted-handoff";
 import { verifyAcquisitionClaimDiagnostics } from "./verify-acquisition-claim-diagnostics";
@@ -108,6 +110,8 @@ export async function verifyAcquisitionCatalogReconciliation(
       "COMPLETE",
     );
     await verifyAcquisitionClaimDiagnostics(db, rawJob);
+    await verifyAutoConfirmRetirement(db,rawJob);
+    await verifyAcquisitionClaimRetirement(db,rawJob);
     await verifyDeletedHandoffSource(db,rawJob.id,CATALOG_RECONCILIATION_STAGE,
       client=>enqueueCatalogReconciliation(client,new Date(),false));
     await verifyRetiredHandoffParents(db,rawJob.id,CATALOG_RECONCILIATION_STAGE,

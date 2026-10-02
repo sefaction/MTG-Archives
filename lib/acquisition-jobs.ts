@@ -146,10 +146,12 @@ export async function claimAcquisitionJobs(
       return claimed;
     });
     if (!changed.count) continue;
-    const job = await db.acquisitionProcessingJob.findUniqueOrThrow({
+    // The granted attempt can be retired after its transaction commits. A
+    // missing row is no longer work; database failures still propagate.
+    const job = await db.acquisitionProcessingJob.findUnique({
       where: { id: candidate.id },
     });
-    if (job.leaseToken === leaseToken)
+    if (job?.leaseToken === leaseToken)
       result.push(job as ClaimedAcquisitionJob);
   }
   return result;
