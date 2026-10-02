@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'tools/scanner-agent/**'
+      - 'tools/scanner-twain-count/**'
       - '.github/workflows/scanner.yml'
   workflow_dispatch:
 permissions:
@@ -22,6 +23,12 @@ jobs:
         with:
           node-version: '22'
       - run: dotnet restore tools/scanner-agent/ScannerAgent.csproj --locked-mode
+      - name: Verify counted-feed diagnostic policy without hardware
+        shell: pwsh
+        run: |
+          & tools/scanner-twain-count/build-probe.ps1
+          & .local-data/twain-count-probe/CountFeed.exe selftest
+          if ($LASTEXITCODE -ne 0) { throw 'Counted-feed policy selftest failed' }
       - run: dotnet build tools/scanner-agent/ScannerAgent.csproj --no-restore --configuration Release
       - run: dotnet tools/scanner-agent/bin/Release/net8.0-windows/Mtg.ScannerAgent.dll connection-selftest
       - run: dotnet tools/scanner-agent/bin/Release/net8.0-windows/Mtg.ScannerAgent.dll native-selftest
