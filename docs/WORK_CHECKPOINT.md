@@ -1,10 +1,11 @@
-## Restore import input methods — October 2, 2026
+## Restored import methods ready for review — October 2, 2026
 
-- Branch `codex/import-input-methods`, isolated checkout under primary `.local-data/import-input-methods`, based on approved main b57a572. Issue #583; PR pending. Existing primary and managed parent-deletion WIP preserved.
-- Imports now offers Scan cards, Camera and Upload photos, alongside CSV/manual/export/history. Shared task navigation appears on image routes. Explicit photo modes omit scanner setup, keep their URL through batch refresh and New batch, and leave saved scanner-start intent for its scanner route.
-- Typecheck and all 773 unit tests passed. Installer-required local web image build is in progress; browser baseline reproduced absent Camera navigation, initial fixture cleanup handling corrected and evidence retained under ignored `.local-data`.
-- Pending: collect Docker build, load only web over existing cumulative approved runtime, desktop/phone navigation plus actual camera/library and scanner/CSV regression checks, verify loaded source, open PR. No unanswered product decision. No merge approval for this batch.
-- Review URL http://127.0.0.1:13001. Existing acquisition/native workers and data are retained. Next safe step: collect baseline and build sessions, then load and verify the web image.
+- Active branch `codex/import-input-methods`, isolated checkout `.local-data/import-input-methods`, based on approved main b57a572. [PR #584](https://github.com/sefaction/MTG-Archives/pull/584) OPEN; issue #583 remains open until merge. Application commit 709d593; this follow-up changes only the checkpoint. No merge approval.
+- Camera and Upload photos are direct Imports tasks alongside Scan cards. Photo input persists through creation/refresh/New batch; scanner setup/recovery stays separate, preserving pending scanner intent. Private batch review and explicit Inventory addition remain.
+- Complete: TypeScript checks, 773 units, installer-required Docker production build/lint/ten client manifests, six affected browser cases; final-source camera and desktop/390/320px saved-intent checks plus corrected library/New batch check pass. Baseline and intermediate failure evidence retained in docs/IMPORT_INPUT_METHODS_REVIEW.md. GitHub required checks are running; consult live PR for final state.
+- Local web image `mtg-archives-web:import-input-methods`, sha256:99abe0a46f4651824111bd056b96ac2926074a5f898aa4d58d1a83041476d93f; 513 application files, digest d2dc1ae097dec6f301934797cc84eabd429475b7a4b688e4cb985eddce2d56fa. HTTP login 200 and source identity verified. Review http://127.0.0.1:13001/imports; primary compose layer .local-data/import-input-methods-review.yml. Existing workers retained.
+- Inventory 10,280 rows/12,482 copies, 907 photo records and 81 saved reviews preserved; filtered original identity snapshot unchanged. Current-batch fixtures cleaned, prior retained acquisition fixture untouched. Primary/managed unrelated WIP preserved. No unanswered questions; physical-camera/device acceptance remains separately tracked.
+- Next safe step: collect final-head GitHub checks and await individual review of PR584. No production operation or physical scanning occurred.
 
 ## Active checkpoint — October2,2026,03:36 Central
 
