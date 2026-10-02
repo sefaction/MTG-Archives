@@ -56,7 +56,9 @@ export async function enqueueReadyPrinting(db: PrismaClient, model: string) {
   `));
   let added = 0;
   for (const {id} of rows) {
-    const source = await db.acquisitionProcessingJob.findUniqueOrThrow({where: {id}});
+    const source = await db.acquisitionProcessingJob.findUnique({where: {id}});
+    // Admission IDs are a snapshot; cancelled/removed runs can disappear here.
+    if (!source) continue;
     const input = z.object({photoId: z.string().uuid(), digest}).parse(source.input);
     const versionKey = createHash("sha256").update(`${PRINTING_STAGE}:${model}:${PRINTING_POLICY_VERSION}:${source.id}`).digest("hex");
     const created = await db.acquisitionProcessingJob.createMany({skipDuplicates: true, data: [{

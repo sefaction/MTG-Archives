@@ -1,3 +1,4 @@
+import {verifyDeletedHandoffSource} from "./verify-acquisition-deleted-handoff";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
@@ -15,6 +16,8 @@ export async function verifyAcquisitionPrinting(
   source: ClaimedAcquisitionJob,
 ) {
   const model = "c".repeat(64);
+  await verifyDeletedHandoffSource(db,source.id,PRINTING_STAGE,
+    client=>enqueueReadyPrinting(client,model));
   const photo = await db.acquisitionPhoto.findUniqueOrThrow({where: {id: photoId}});
   const legacy = await db.acquisitionProcessingJob.create({data: {
     runId: source.runId, artifactId: source.artifactId, candidateId: source.candidateId,
