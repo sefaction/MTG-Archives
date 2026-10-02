@@ -450,16 +450,17 @@ export function AcquisitionPhotoReview({
       setBusy(false);
     }
   }
-  const supported =
+  const finishAvailable = (value: string) =>
     !Array.isArray(selected?.finishes) ||
     !selected.finishes.length ||
-    selected.finishes.includes(finish.toLowerCase());
+    selected.finishes.includes(value.toLowerCase());
+  const supported = finishAvailable(finish);
   const options = matches ?? record?.suggestions.map((s) => s.printing) ?? [];
   const reasons =
     record?.suggestions.find((s) => s.printing.id === selected?.id)?.reasons ??
     [];
   const simple = mode === "simple";
-  const showEditor = !simple || editing || draftDirty;
+  const showEditor = !simple || editing;
   const canConfirm = Boolean(
     selected &&
     finish !== "UNKNOWN" &&
@@ -467,6 +468,22 @@ export function AcquisitionPhotoReview({
     supported &&
     (selected.lang ?? language),
   );
+  const quickFinish = selected && !committed ? (
+    <fieldset className="mt-3" disabled={busy}>
+      <legend className="text-xs">Card finish choices</legend>
+      <div className="flex flex-wrap gap-2 mt-1">
+        {([["NONFOIL", "Nonfoil"], ["FOIL", "Foil"]] as const).map(([value, label]) => (
+          <button key={value} type="button" className={finish === value ? primary : button}
+            aria-pressed={finish === value} disabled={!finishAvailable(value)}
+            title={!finishAvailable(value) ? `This printing is not available in ${label.toLowerCase()}.` : undefined}
+            onClick={() => {
+              if (finish === value) return;
+              markDirty(); setFinish(value);
+            }}>{label}</button>
+        ))}
+      </div>
+    </fieldset>
+  ) : null;
   const stamp = record?.evidence?.printing;
   const stampChoice = stamp?.candidates.find((c) => c.cardId === selected?.id);
   const correctionEditor = !committed && showEditor ? (
@@ -979,15 +996,16 @@ export function AcquisitionPhotoReview({
                     : finish.toLowerCase()}{" "}
                   · {condition || "Choose condition"}
                 </p>
+                {quickFinish}
                 {!committed && (
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {!record.review && !showEditor && (
+                    {(!record.review || draftDirty) && !showEditor && (
                       <button
                         className={primary}
                         disabled={busy || !canConfirm}
                         onClick={() => void submit("accept")}
                       >
-                        Confirm match
+                        {draftDirty ? "Save card review" : "Confirm match"}
                       </button>
                     )}
                     {!showEditor && (
@@ -997,6 +1015,11 @@ export function AcquisitionPhotoReview({
                         onClick={openCorrection}
                       >
                         Correct
+                      </button>
+                    )}
+                    {draftDirty && !showEditor && (
+                      <button className={button} disabled={busy} onClick={() => void reload()}>
+                        Cancel changes
                       </button>
                     )}
                     {!showEditor && onNextAwaiting && <button className={button} disabled={busy}
@@ -1013,6 +1036,7 @@ export function AcquisitionPhotoReview({
               </div>
             )}
           </div>
+          {!simple && quickFinish}
           {!simple && correctionEditor}
           {message && (
             <p role="status" className="text-sm mt-2">
