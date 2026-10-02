@@ -1,11 +1,13 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { claimAcquisitionJobs } from "../lib/acquisition-jobs";
+import {traceFixtureClaim, type FixtureClaimTrace} from "./acquisition-claim-trace";
 
 export type FixtureClaimDiagnostic = {
   callerStartedAt: Date;
   callerFinishedAt: Date;
   databaseClock: Date;
   effectiveClaimAt: Date;
+  claimTrace: FixtureClaimTrace;
   rows: unknown;
 };
 type ExpectedClaim = {
@@ -54,11 +56,13 @@ export async function claimFixtureJobs(
   const callerStartedAt = new Date();
   const [clock] = await db.$queryRaw<{ now: Date }[]>`SELECT clock_timestamp() AS now`;
   const effectiveClaimAt = new Date(clock.now.getTime() + 1);
-  const result = await claimAcquisitionJobs(db, options, effectiveClaimAt);
+  const observed = expected ? traceFixtureClaim(db) : null;
+  const result = await claimAcquisitionJobs(observed?.client ?? db, options, effectiveClaimAt);
   if (expected && result.length === 0) {
     const diagnostic = {
       callerStartedAt, callerFinishedAt: new Date(), databaseClock: clock.now,
-      effectiveClaimAt, rows: await snapshot(db, expected.candidateId, options.stages),
+      effectiveClaimAt, claimTrace: observed!.trace,
+      rows: await snapshot(db, expected.candidateId, options.stages),
     };
     if (expected.onEmpty) expected.onEmpty(diagnostic);
     else console.error(`ACQUISITION_EXPECTED_CLAIM_EMPTY ${JSON.stringify(diagnostic)}`);

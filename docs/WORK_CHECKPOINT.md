@@ -1,3 +1,14 @@
+## Claim evidence qualified for review — October 2, 2026
+
+- Active codex/claim-evidence-review based594e0a18aa; fixture-only scope, no production app/lib/component changes. Real missing-CAS-evidence baseline failed/cleaned; corrected PG/import, bounded actual selection/CAS/commit/lookup/failure/privacy controls and200 immediate concurrent-admission claims PASS. Historical498cause unknown/open.
+- Core797units/type/build/lint/ten manifests PASS. Cumulative web734d8c46/525inputs/digest1d92078f, both native257file maps MATCH. Desktop/320handoff2cases PASS; all5services running zero restarts/OOM. Original three hashes MATCH at21:30UTC, owned native0; no owned test/build process remains.
+- Open coherent498 PR on594 and collect fresh CI. Final506audit found capture-control navigation disappears after stop; qualify regression and fix as a separate UI follow-up. All newPRs require individual approval; broad463/579/498 issues remain open. No goal automation, physical feeding or production action.
+## Claim-evidence source qualified; final image building — October 2, 2026
+
+- Active codex/claim-evidence-review based594e0a18aa.5923baa446/593f2020fc/594e0a18aa OPEN/READY/all3CIpass; no individual merge approvals. Prior image996fccaa/522inputs remains qualified locally with ordinarynative5+successive3, originalsnapshotconserved at21:12UTC.
+-498 missing actual-CAS-evidence baseline realPG FAILED targeted assertion and CLEANED (verification21-13-01-118Z); it is not historical Sept29 reproduction. Corrected actual selectionempty/CASlost/committed-retiredlookup, snapshotunavailable, malformedcodegetter trueDBerror propagation andprivacy PASS. All200 concurrent-admission immediate initial catalog claims PASS no sleeps/retry; original source/photos/review/Inventory unchanged and turnrestored. Historical498didnotrecur/causeremainsunknown; productionapp/lib/components have zero diff vs594.
+- FullPG/sharedimport PASS/owned cleanup atverification21-15-13-271Z (70641/41290ms), core797units/zero fail/skips/type/build/lint/ten manifests PASS. Final web build session87162 RUNNING .local-data/claim-evidence-web-build.log; both frozen native source layerbuildsPASS. Source changes limitedfixture scripts/docs; no production queue/fairness/eligibility/clock policy change.
+- Next collectfinalDockerbuild, load5services exactapp/nativehashes, run meaningful finalhandOff desktop/320 regression/HTTP/conservation, finalize498docs/openownPR on594, collectallfreshCI and updatewiki/checkpoint. LeaveallnewPRsunmerged; broader463 accuracy,579historicalstop and498cause open. Goal remainsended/no automation/production/hardware.
 ## Worker retirement qualified for review — October 2, 2026
 
 - Active codex/claim-retirement-review on593f2020fc; both unmerged592/593 READY/all3CIpass. Corrected seven claim windows/two successive real handler publications per window, three legacy windows, genuine DB failures, hybrid exclusion and fullPG/import PASS;797units/type/build/lint/ten manifests and all three image builds PASS. Failed unchangedP2025 baselines preserved and cleaned, historical restart cause unresolved.
@@ -4281,3 +4292,4 @@ full-frame/strip behavior and explicit unverified-edge warning. This is bounded
 dark-border framing evidence, not universal perfect-frame qualification. #557/#558
 remain open. Next: focused PR with acceptance report; merge only after this PR's
 individual approval. No unanswered operator question; transport empty.
+

@@ -23,6 +23,8 @@ export async function verifyAcquisitionClaimDiagnostics(db: PrismaClient, source
     const report = reports[0];
     assert.equal(report.effectiveClaimAt.getTime(), report.databaseClock.getTime() + 1);
     assert(report.callerFinishedAt >= report.callerStartedAt);
+    assert.deepEqual(report.claimTrace.events,[{operation:"SELECTION",count:0,heads:[]}]);
+    assert.equal(report.claimTrace.droppedEvents,0);
     for (const rows of [report.rows]) {
       assert(Array.isArray(rows)); assert.equal(rows.length, 1);
       assert.equal(rows[0].id, job.id); assert.equal(rows[0].matchingJobs, 1);
@@ -40,6 +42,38 @@ export async function verifyAcquisitionClaimDiagnostics(db: PrismaClient, source
     assert.equal(preserved.availableAt.toISOString(), availableAt.toISOString());
     assert.equal(preserved.updatedAt.toISOString(), job.updatedAt.toISOString());
     assert.equal(preserved.attempts, 0); assert.equal(preserved.output, null);
+    // Losing the post-claim snapshot must preserve the real empty result and
+    // its already-observed selection, without exposing a failing query/error.
+    let reads=0;
+    const snapshotUnavailable=new Proxy(db,{get(target,property){
+      if(property==="$queryRaw")return async(...args:unknown[])=>{
+        if(++reads===3)throw new Error("DO_NOT_LOG_SNAPSHOT_ERROR");
+        return Reflect.apply(target.$queryRaw,target,args);
+      };
+      const value=Reflect.get(target,property);return typeof value==="function"?value.bind(target):value;
+    }});
+    const unavailableReports:FixtureClaimDiagnostic[]=[];
+    assert.deepEqual(await claimFixtureJobs(snapshotUnavailable,options,{candidateId:source.candidateId,
+      onEmpty:diagnostic=>unavailableReports.push(diagnostic)}),[]);
+    assert.equal(reads,3);assert.equal(unavailableReports.length,1);
+    assert.deepEqual(unavailableReports[0].rows,{unavailable:true});
+    assert.deepEqual(unavailableReports[0].claimTrace.events,[{operation:"SELECTION",count:0,heads:[]}]);
+    assert(!JSON.stringify(unavailableReports).includes("DO_NOT_LOG_SNAPSHOT_ERROR"));
+    // Even a malformed diagnostic code accessor cannot replace a genuine
+    // selection failure with an empty result or a different exception.
+    reads=0;
+    const selectionFailure=Object.defineProperty(new Error("DO_NOT_LOG_SELECTION_ERROR"),"code",{
+      get(){throw new Error("DO_NOT_LOG_CODE_ACCESSOR");},
+    });
+    const selectionUnavailable=new Proxy(db,{get(target,property){
+      if(property==="$queryRaw")return async(...args:unknown[])=>{
+        if(++reads===2)throw selectionFailure;
+        return Reflect.apply(target.$queryRaw,target,args);
+      };
+      const value=Reflect.get(target,property);return typeof value==="function"?value.bind(target):value;
+    }});
+    await assert.rejects(()=>claimFixtureJobs(selectionUnavailable,options,expected),error=>error===selectionFailure);
+    assert.equal(reports.length,1);
     // Once the fixture itself makes the job eligible, the original claim/CAS
     // grants one lease and no empty-claim diagnostic is emitted.
     await db.acquisitionProcessingJob.update({where: {id: job.id}, data: {availableAt: new Date(0)}});
