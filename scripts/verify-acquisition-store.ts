@@ -1,3 +1,4 @@
+import { verifyRecognitionReplacement } from "./verify-acquisition-recognition-replacement";
 import { verifyAcquisitionCommit } from "./verify-acquisition-commit";
 import { verifyScannerConnections } from "./verify-scanner-connections";
 import { verifyScannerRuns } from "./verify-scanner-runs";
@@ -369,6 +370,7 @@ async function run() {
   assert.equal(another.session.placement.otherSessionPending, 3);
   await verifyAcquisitionOrchestration(db, actor, input());
   await verifyAcquisitionOwnerFairness(db);
+  await verifyRecognitionReplacement(db, actor, input());
   await verifyAcquisitionPhotos(db, actor, stranger, input());
   await verifyAcquisitionCatalog(db, admin, actor, cardId);
   await verifyAcquisitionCatalogCache(db);
