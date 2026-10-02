@@ -2,8 +2,14 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { realpathSync } from "node:fs";
+import { captureQuiescentLocalDrill } from "./backup-drill-local-capture";
+
+// Mount guards use the snapshot repository cwd; checked-out verification code
+// belongs to this runner's own worktree, which may be a cumulative review branch.
+const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 
 function docker(args: string[]) {
   try {
@@ -17,7 +23,11 @@ function docker(args: string[]) {
   } catch (error: any) {
     const summary = String(error.stderr || "")
       .split(/\r?\n/)
-      .filter((line) => line.startsWith("Recovery drill "));
+      .filter(
+        (line) =>
+          line.startsWith("Recovery drill ") ||
+          line.startsWith('{"restoreCompatibilityDiagnostics":'),
+      );
     if (summary.length) console.error(summary.join("\n"));
     throw new Error(`Docker drill step failed: ${args[0]}`);
   }
@@ -34,6 +44,21 @@ async function main() {
     "Explicit --run required; see docs/BACKUP_RESTORE_DRILL.md",
   );
   const source = "mtg-archives-web-1";
+  const context = docker(["context", "show"]);
+  const endpoint = JSON.parse(
+    docker([
+      "context",
+      "inspect",
+      context,
+      "--format",
+      "{{json .Endpoints.docker.Host}}",
+    ]),
+  );
+  assert.match(
+    process.env.DOCKER_HOST || endpoint,
+    /^(npipe:|unix:)/,
+    "Requires local Docker engine",
+  );
   const config = JSON.parse(docker(["inspect", source]))[0];
   assert.equal(
     config.Config.Labels["com.docker.compose.project"],
@@ -41,6 +66,8 @@ async function main() {
   );
   assert.equal(config.Config.Labels["com.docker.compose.service"], "web");
   assert.equal(config.State.Health.Status, "healthy");
+  assert.equal(config.State.Running, true);
+  assert.equal(config.State.Paused, false);
   const backupMount = config.Mounts.find(
     (m: any) => m.Destination === "/app/data/backups",
   );
@@ -68,6 +95,11 @@ async function main() {
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
     );
   const archiveId = reuse || id;
+  const quiesce = process.argv.includes("--quiesce");
+  assert.ok(
+    !(quiesce && reuse),
+    "Quiescence is for new capture, not archive reuse",
+  );
   const prefix = `mtg-restore-drill-${id}`;
   const network = `${prefix}-net`;
   const postgres = `${prefix}-db`;
@@ -81,7 +113,9 @@ async function main() {
   const created: string[] = [];
   let networkCreated = false;
   try {
-    if (!reuse) {
+    if (!reuse && quiesce) {
+      await captureQuiescentLocalDrill(docker, config, id, archiveDirectory);
+    } else if (!reuse) {
       console.log(
         "Creating private source backup; source data must stay quiescent during capture.",
       );
@@ -178,13 +212,17 @@ async function main() {
     // Only this disposable container receives the checked-out test helper.
     docker([
       "cp",
-      resolve("scripts/verify-backup-restore-container.ts"),
+      resolve(scriptDirectory, "verify-backup-restore-container.ts"),
       `${runner}:/app/scripts/verify-backup-restore-container.ts`,
     ]);
     if (process.argv.includes("--test-working-library")) {
       // Development-only negative-control iteration; final evidence must be
       // rerun without this option against a rebuilt image.
-      docker(["cp", resolve("lib/backup.ts"), `${runner}:/app/lib/backup.ts`]);
+      docker([
+        "cp",
+        resolve(scriptDirectory, "../lib/backup.ts"),
+        `${runner}:/app/lib/backup.ts`,
+      ]);
       console.log(
         "Development check: restore library copied only into disposable runner; final rebuilt-image verification still required.",
       );

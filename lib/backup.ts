@@ -264,32 +264,35 @@ export async function createBackup() {
 export async function listBackups(
   backupDir?: string,
 ): Promise<BackupListEntry[]> {
-  const directories = backupDir ? [backupDir] :
-    [resolve(getApplicationBackupDir()), resolve(getBackupDir())];
+  const directories = backupDir
+    ? [backupDir]
+    : [resolve(getApplicationBackupDir()), resolve(getBackupDir())];
   const entries: BackupListEntry[] = [];
   const seen = new Set<string>();
   for (const directory of directories) {
     await mkdir(directory, { recursive: true });
     const files = await readdir(directory);
-    for (const filename of files.filter((file) =>
-      file.startsWith(BACKUP_PREFIX) && file.endsWith(BACKUP_SUFFIX))) {
+    for (const filename of files.filter(
+      (file) => file.startsWith(BACKUP_PREFIX) && file.endsWith(BACKUP_SUFFIX),
+    )) {
       if (seen.has(filename)) continue;
       seen.add(filename);
       const path = join(directory, filename);
       const info = await stat(path);
       const manifest = await readManifestFromBackup(path).catch(() => null);
-      entries.push({ path, filename, sizeBytes: info.size,
+      entries.push({
+        path,
+        filename,
+        sizeBytes: info.size,
         createdAt: manifest?.createdAt ?? timestampFromBackupFilename(filename),
-        manifest });
+        manifest,
+      });
     }
   }
   return entries.sort((a, b) => b.filename.localeCompare(a.filename));
 }
 
-export function getBackupPathForFilename(
-  filename: string,
-  backupDir?: string,
-) {
+export function getBackupPathForFilename(filename: string, backupDir?: string) {
   const cleanFilename = filename.trim();
   if (
     !cleanFilename ||
@@ -301,7 +304,9 @@ export function getBackupPathForFilename(
   }
   if (backupDir) return join(backupDir, cleanFilename);
   const current = join(resolve(getApplicationBackupDir()), cleanFilename);
-  return existsSync(current) ? current : join(resolve(getBackupDir()), cleanFilename);
+  return existsSync(current)
+    ? current
+    : join(resolve(getBackupDir()), cleanFilename);
 }
 
 export async function saveUploadedBackupArchive(
@@ -339,8 +344,11 @@ export async function saveUploadedBackupArchive(
 export async function deleteBackupByFilename(filename: string) {
   loadEnvFile();
   const backupPath = getBackupPathForFilename(filename);
-  if (![resolve(getBackupDir()), resolve(getApplicationBackupDir())]
-    .includes(resolve(dirname(backupPath)))) {
+  if (
+    ![resolve(getBackupDir()), resolve(getApplicationBackupDir())].includes(
+      resolve(dirname(backupPath)),
+    )
+  ) {
     throw new Error("Refusing to delete a backup outside BACKUP_DIR.");
   }
   await readManifestFromBackup(backupPath);
@@ -348,7 +356,9 @@ export async function deleteBackupByFilename(filename: string) {
   return backupPath;
 }
 
-export async function applyRetention(backupDir = resolve(getApplicationBackupDir())) {
+export async function applyRetention(
+  backupDir = resolve(getApplicationBackupDir()),
+) {
   const count = Number(process.env.BACKUP_RETENTION_COUNT || 0);
   const days = Number(process.env.BACKUP_RETENTION_DAYS || 0);
   if (!count && !days) return [];
@@ -455,8 +465,9 @@ export async function restoreBackup(
     const prelude = join(workspace, "replace-schema.sql");
     await writeFile(
       prelude,
-      // pg_restore --schema selects contents but omits CREATE SCHEMA itself.
-      `DROP SCHEMA IF EXISTS ${quotePgIdentifier(schema)} CASCADE; CREATE SCHEMA ${quotePgIdentifier(schema)};\n`,
+      // Schema-filtered dumps omit extension definitions. Dropping the schema
+      // also drops its pg_trgm extension, required by the app's catalog indexes.
+      buildRestoreSchemaPrelude(schema),
     );
     await runCommand(
       "psql",
@@ -478,6 +489,11 @@ export async function restoreBackup(
   } finally {
     await rm(workspace, { recursive: true, force: true });
   }
+}
+
+export function buildRestoreSchemaPrelude(schema: string) {
+  const target = quotePgIdentifier(schema);
+  return `DROP SCHEMA IF EXISTS ${target} CASCADE; CREATE SCHEMA ${target}; CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA ${target};\n`;
 }
 
 export async function readManifestFromBackup(backupPath: string) {

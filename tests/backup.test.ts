@@ -16,10 +16,22 @@ import {
   timestampForFilename,
   resolveRestoreAppdataTarget,
   assertSafeRestoreTarget,
+  buildRestoreSchemaPrelude,
   type BackupManifest,
 } from "../lib/backup";
 import { homedir } from "node:os";
 import { resolve, parse } from "node:path";
+
+test("restore provisions the app's trigram dependency after schema reset and safely quotes its namespace", () => {
+  assert.equal(
+    buildRestoreSchemaPrelude("public"),
+    'DROP SCHEMA IF EXISTS "public" CASCADE; CREATE SCHEMA "public"; CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA "public";\n',
+  );
+  assert.equal(
+    buildRestoreSchemaPrelude('odd"schema'),
+    'DROP SCHEMA IF EXISTS "odd""schema" CASCADE; CREATE SCHEMA "odd""schema"; CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA "odd""schema";\n',
+  );
+});
 
 test("restore appdata requires current configuration, never archive-provided source paths", () => {
   const entry = {
@@ -94,7 +106,7 @@ test("restore stages all payloads before using one fail-fast database transactio
   assert.match(restore, /--single-transaction/);
   assert.match(restore, /ON_ERROR_STOP=1/);
   assert.match(restore, /finally/);
-  assert.match(restore, /CREATE SCHEMA/);
+  assert.match(restore, /buildRestoreSchemaPrelude\(schema\)/);
 });
 
 test("package exposes backup CLI scripts", async () => {
@@ -117,8 +129,10 @@ test("backup directory is configurable with safe default", () => {
 });
 
 test("new application archives use a child of the MTG Archives backup root", () => {
-  assert.equal(getApplicationBackupDir({ BACKUP_DIR: "/app/backups" }),
-    join("/app/backups", "application"));
+  assert.equal(
+    getApplicationBackupDir({ BACKUP_DIR: "/app/backups" }),
+    join("/app/backups", "application"),
+  );
 });
 
 test("application backup listing keeps existing root archives available", async () => {
@@ -133,9 +147,14 @@ test("application backup listing keeps existing root archives available", async 
     await writeFile(join(root, legacyName), "legacy fixture");
     await writeFile(join(currentDir, currentName), "current fixture");
     assert.equal(getBackupPathForFilename(legacyName), join(root, legacyName));
-    assert.equal(getBackupPathForFilename(currentName), join(currentDir, currentName));
-    assert.deepEqual((await listBackups()).map((entry) => entry.filename),
-      [currentName, legacyName]);
+    assert.equal(
+      getBackupPathForFilename(currentName),
+      join(currentDir, currentName),
+    );
+    assert.deepEqual(
+      (await listBackups()).map((entry) => entry.filename),
+      [currentName, legacyName],
+    );
   } finally {
     if (previous === undefined) delete process.env.BACKUP_DIR;
     else process.env.BACKUP_DIR = previous;
