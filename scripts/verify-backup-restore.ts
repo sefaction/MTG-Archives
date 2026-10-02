@@ -23,7 +23,11 @@ function docker(args: string[]) {
   } catch (error: any) {
     const summary = String(error.stderr || "")
       .split(/\r?\n/)
-      .filter((line) => line.startsWith("Recovery drill "));
+      .filter(
+        (line) =>
+          line.startsWith("Recovery drill ") ||
+          line.startsWith('{"restoreCompatibilityDiagnostics":'),
+      );
     if (summary.length) console.error(summary.join("\n"));
     throw new Error(`Docker drill step failed: ${args[0]}`);
   }

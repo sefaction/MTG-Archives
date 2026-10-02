@@ -3,10 +3,13 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { mkdir, readdir, readFile, writeFile, lstat } from "node:fs/promises";
-import { basename, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import { PrismaClient } from "@prisma/client";
-import { assertIsolatedDrillDatabase } from "../lib/backup-drill";
+import {
+  assertIsolatedDrillDatabase,
+  isolatedDrillArchivePath,
+} from "../lib/backup-drill";
 import { changedDrillTables } from "../lib/backup-drill-quiescence";
 import {
   createBackup,
@@ -199,7 +202,8 @@ async function restore(db: PrismaClient) {
   const evidence = JSON.parse(
     await readFile("/input/evidence.json", "utf8"),
   ) as Evidence;
-  const archive = join("/input", basename(evidence.path));
+  stage = "locate captured application archive";
+  const archive = isolatedDrillArchivePath(evidence.path);
   process.env.BACKUP_DIR = "/drill/backups";
   await mkdir("/drill/backups", { recursive: true });
   const allowed = new Set([
@@ -243,22 +247,35 @@ async function restore(db: PrismaClient) {
   // A check function is true while seeding but false during a new restore
   // session, producing a real SQL load failure after DROP SCHEMA has executed.
   await db.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe(
+      "CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public",
+    );
     await tx.$executeRawUnsafe("SET LOCAL mtg.restore_drill_allow = 'yes'");
     await tx.$executeRawUnsafe(
       "CREATE FUNCTION public.restore_drill_check() RETURNS boolean LANGUAGE sql AS $$ SELECT coalesce(current_setting('mtg.restore_drill_allow', true) = 'yes', false) $$",
     );
     await tx.$executeRawUnsafe(
-      "CREATE TABLE public.restore_drill_canary (value integer CHECK (public.restore_drill_check()))",
+      "CREATE TABLE public.restore_drill_canary (value integer CHECK (public.restore_drill_check()), probe text)",
     );
     await tx.$executeRawUnsafe(
-      "INSERT INTO public.restore_drill_canary VALUES (1)",
+      "INSERT INTO public.restore_drill_canary VALUES (1, 'synthetic extension rollback fixture')",
+    );
+    await tx.$executeRawUnsafe(
+      "CREATE INDEX restore_drill_canary_trgm ON public.restore_drill_canary USING GIN (probe gin_trgm_ops)",
     );
   });
-  const canary = async () =>
+  const canary = async () => {
     assert.deepEqual(
       await db.$queryRawUnsafe("SELECT value FROM public.restore_drill_canary"),
       [{ value: 1 }],
     );
+    assert.deepEqual(
+      await db.$queryRawUnsafe(
+        "SELECT EXISTS(SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='restore_drill_canary_trgm') AS present",
+      ),
+      [{ present: true }],
+    );
+  };
   const negativeRoot = "/drill/negative";
   await mkdir(negativeRoot, { recursive: true });
   await writeFile(
@@ -331,6 +348,12 @@ async function restore(db: PrismaClient) {
   });
   const restoreMs = Date.now() - started;
   assert.equal(restored.dryRun, false);
+  assert.deepEqual(
+    await db.$queryRawUnsafe(
+      "SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname='pg_trgm') AS present",
+    ),
+    [{ present: true }],
+  );
   assert.deepEqual(await databaseDigest(db), evidence.database);
   assert.equal(
     (await db.inventoryItem.aggregate({ _sum: { quantity: true } }))._sum
@@ -367,6 +390,8 @@ async function restore(db: PrismaClient) {
       migrationsCurrent: true,
       missingAndCorruptDumpPreservedCanary: true,
       sqlFailureRolledBackSchemaAndPreservedCanary: true,
+      sqlFailurePreservedTrigramIndex: true,
+      restoredTrigramExtension: true,
       volatileTablesNotCompared: [...volatileTables],
       countOnlyTables: ["CardPriceSnapshot"],
     }),
@@ -396,6 +421,9 @@ main().catch((error) => {
         publicSchemaAlreadyExists: message.includes(
           'schema "public" already exists',
         ),
+        missingTrigramOperator:
+          message.includes("gin_trgm_ops") &&
+          message.includes("does not exist"),
         restoreErrors:
           message.match(/errors ignored on restore: (\d+)/)?.[1] || null,
       },
