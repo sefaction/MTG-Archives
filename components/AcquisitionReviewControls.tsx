@@ -1,4 +1,5 @@
 "use client";
+import { acquisitionReviewProgress } from "@/lib/acquisition-processing-status";
 import { acquisitionCatalogMessage } from "@/lib/acquisition-catalog-status";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -739,6 +740,7 @@ export function AcquisitionPhotoReview({
           : "No proposed printing yet"}
       </p>
     );
+  const processing = record ? acquisitionReviewProgress(record, Boolean(selected)) : { label: "Loading card", problem: null };
   return (
     <div
       ref={root}
@@ -776,6 +778,8 @@ export function AcquisitionPhotoReview({
                 ? "Automatically confirmed · correct below if needed"
                 : record.review
                   ? "Reviewed · editable until Inventory commit"
+                  : processing.problem
+                    ? processing.label + " · review manually"
                   : record.recognitionStatus === "STRONG_MATCH"
                     ? "Strong match · check batch defaults"
                     : !record.suggestions.length &&
@@ -789,6 +793,14 @@ export function AcquisitionPhotoReview({
                         ? "Queued for identification · results appear here automatically"
                         : "Needs review"}
           </p>
+          {!committed && processing.problem && (
+            <div className="text-sm mt-2 space-y-2" data-testid="scan-processing-recovery">
+              <p role="status">{processing.problem} Your original photo and suggestions are kept.</p>
+              <button type="button" className={button} disabled={busy} onClick={openCorrection}>
+                Find printing manually
+              </button>
+            </div>
+          )}
           {!simple && !record.review && record.visualStatus === "FAILED" && (
             <p className="text-sm mt-2" role="status">
               Image comparison failed. Your photo and text suggestions are
@@ -905,7 +917,7 @@ export function AcquisitionPhotoReview({
                     {record.review
                       ? "Your saved choice may differ from the scanner's evidence."
                       : !selected
-                        ? "Waiting for suggestions; you can search below."
+                        ? processing.problem ? "Choose a printing using the search below." : "Waiting for suggestions; you can search below."
                         : !reasons.length
                           ? "Selected manually; compare this printing with your scan."
                           : reasons.includes("UNLOCALIZED_NAME_HINT")
@@ -940,19 +952,7 @@ export function AcquisitionPhotoReview({
                   role="status"
                   data-testid="scan-compact-status"
                 >
-                  {record.review
-                    ? "Review saved"
-                    : record.printingStatus === "RUNNING"
-                      ? "Checking printing…"
-                      : record.printingStatus === "PENDING"
-                        ? "Printing check queued"
-                        : record.catalog?.status === "CHECKING"
-                          ? "Checking catalog…"
-                          : record.printingStatus === "FAILED"
-                            ? "Printing check failed · review manually"
-                            : selected
-                              ? "Verify this printing"
-                              : "Waiting for identification"}
+                  {processing.label}
                 </p>
                 {!record.review &&
                   (record.visualStatus === "FAILED" ||
