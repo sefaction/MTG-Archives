@@ -70,9 +70,10 @@ test("bulk deselection survives incremental proposals without a review or Invent
     const choices=bulk.getByRole("checkbox");
     for(let step=0;step<Math.ceil(32/12);step++){
       const before=await choices.count();if(before===32)break;
-      // Scrolling already-present rows triggers automatic paging. A count/click
-      // on the disappearing Load more button races that same observer.
-      await choices.last().scrollIntoViewIfNeeded();
+      // Scroll through the last card's image: its checkbox is above the tall
+      // image and can leave the paging trigger below the viewport margin.
+      // Avoid racing a click against the automatically removed Load more button.
+      await bulk.getByRole("img",{name:`Scan of card ${before}`,exact:true}).scrollIntoViewIfNeeded();
       await expect.poll(()=>choices.count()).toBeGreaterThan(before);
     }
     await bulk.getByRole("checkbox",{name:`Card 32: ${printing.name}`,exact:true}).scrollIntoViewIfNeeded();

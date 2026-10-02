@@ -1,3 +1,10 @@
+## Parent handoff local qualification complete — October 2, 2026
+
+- DraftPR586 on codex/handoff-parent-races at applicationa848869; test/docs qualification follow-up being committed. COMPLETE corrected10browser cases PASS/zero skips5.4min, including successive current-source Windows helper batches/native98.9s/one explicit fixtureInventorycommit/audit/both originalbytes/savedfirstreview preservation. Phone screenshots inspected. Earlier failed groups remain retained independently in docs/ACQUISITION_RETIRED_PARENT_ADMISSION.md.
+- Fixture587 corrected by scrolling final image rather than checkbox above it, unchanged180s/15s/10s bounds, typecheckPASS. Core784/PG/installer-requiredbuild facts below preserved. Same local515source/image0440e4f87a0be6aaae2100d61e866b10b3b1f13d3a1246214c12987acefebce3/digest2fa1c925dd488de39af0ef3826c4ffa5dc07998eca8d0f271f3ae88748caa83f; final sourcecomparisonPASS. Catalog/visual/printing0restarts/OOMfalse/no stopdiagnostic since load.
+- Finalconservation matches10280rows/12482copies/81reviews/907photo IDs+digests,all originalhashes;ownednativeusers/agents0. Test/helper processes finished. Native algorithms/model mounts unchanged. No physical or production operation.
+- Next safe: push final test/docs follow-up, collectall3fresh final-headchecks,mark586ready; keep579open and individual mergeapproval required. Then separate585guardedbackup/isolatedrestore on recovered local snapshot with only exact existing worker running states paused/restored. Source is never a restore target.511alreadyclosed;hardware/production/accuracy/throughputgates remain.
+
 ## Retired parent handoff batch — October 2, 2026
 
 - Active branch codex/handoff-parent-races based on approved mainfd0196a, in the existing .local-data/import-input-methods checkout. Original managed parent WIP and primary checkpoint preserved. Related579; distinct PostgreSQL storage/recovery incident585. No merge approval.
