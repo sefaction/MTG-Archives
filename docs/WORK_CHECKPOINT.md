@@ -1,3 +1,25 @@
+## Active checkpoint — October2,2026,02:44 Central
+
+- Branch codex/printing-empty-state, app61130e5, based on580c2da9b7. Opening this
+  PR next; prior569/571/572/574/575/576/577/580 OPEN, all3 GitHub checks PASS each.
+- Empty-state unchanged Docker baseline FAILED4/4. Copy fix core764/zero skips/
+  type/lint/build/ten manifests PASS; installer-required image0a62569cf2578cd72109543c03c495103634ede355ab7f26301fd402c4605e6a
+  loaded in web/acquisition/catalog. Exact510 source digestc0049744895ffeb35ce8b40fd8692700980b375b6c27b054359a93d2ee8f59e7.
+- Final affected FULL browser group PASS19/19 zero skips7minutes. Empty searches
+  keep selected printing and LP draft; paging/refresh/reviews and explicit Inventory
+  preserved. Session19572 done/helper stopped. All baseline/failure reports retained.
+- Conservation MATCH07:43:53UTC:10280 rows/12482 copies,81 saved reviews,907 photo
+  IDs/digests; native owned users/agents0. Existing services and primary dirty file
+  preserved. No production operation, physical feeding, merge or watcher/scheduler.
+-579 reliability: catalog stops07:03:47UTC earlier plus07:37:39/07:39:43 in latest
+  group; new Docker restartCount2/OOMfalse. Real stop cause still unproven. Prepared
+  unit baselines reproduce missing selected-source exceptions:6 FAIL,3 genuine DB
+  errors correctly propagate. Next safe: own branch, real disposable PG boundary
+  reproduction, skip only missing sources, preserve real errors and qualify all3
+  handoffs plus successive batches. Keep579/565 distinct and open as appropriate.
+- Native100 throughput still FAILED50/100; hardware/production88/four-owner150k
+  scale/independent accuracy gates remain. Implementation cutoff05:30 Central,
+  all own operations stopped and complete handoff before06:00.
 ## Active checkpoint — October2,2026,02:23 Central
 
 - Branch codex/audit-response-lifecycle based on PR577; audit source cfe1ba9.
