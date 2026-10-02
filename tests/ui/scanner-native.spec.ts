@@ -9,17 +9,19 @@ function database(body: string) {
     `const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${body}})().catch(e=>{console.error(e.message);process.exitCode=1}).finally(()=>p.$disconnect());`,
     encoding:"utf8",timeout:30000,windowsHide:true});
 }
+test.use({ actionTimeout: 15000 });
 test("website START through actual Windows fixture helper reaches ordinary recognition and review",async({page,baseURL})=>{
   const dotnet=process.env.MTG_SCANNER_DOTNET,dll=process.env.MTG_SCANNER_HELPER_DLL,original=process.env.MTG_SCANNER_NATIVE_PNG;
   test.skip(process.env.MTG_LOCAL_PILOT_TEST!=="1" || !dotnet || !dll || !original,"Opted-in local Windows fixture; no motor/physical accuracy claim");
   expect(baseURL).toBe("http://127.0.0.1:13001");test.setTimeout(900000);
+  const expectedName=process.env.MTG_SCANNER_NATIVE_EXPECTED_NAME || "Sunblade Samurai";
   const tag=`ui-scanner-native-${randomUUID()}`,password=randomUUID();
   const originalHash=createHash("sha256").update(readFileSync(original!)).digest("hex");
   let agentId="",child:ChildProcess|undefined,log="";
   const helper=(args:string[],input?:string)=>execFileSync(dotnet!,[dll!,...args],{input,encoding:"utf8",timeout:45000,windowsHide:true});
   const began=Date.now();
   try {
-    database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:1,sections:[{name:'A',capacity:1}]}}});`);
+    database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:2,sections:[{name:'A',capacity:2}]}}});`);
     await page.goto('/login');await page.getByLabel(/username or email/i).fill(tag);await page.getByLabel(/^password$/i).fill(password);
     await page.getByRole('button',{name:/^log in$/i}).click();await page.waitForURL(/\/dashboard/);await page.goto('/imports/scan');
     const connections=page.getByRole('region',{name:'Scanner connections'});
@@ -54,12 +56,12 @@ test("website START through actual Windows fixture helper reaches ordinary recog
     // Verify full native pipeline as a reused recognition input, not hardware evidence.
     await expect.poll(()=>Number(database(`console.log(await p.acquisitionProcessingJob.count({where:{run:{session:{createdByUserId:${JSON.stringify(tag)}}},stage:'photo-printing-evidence-v1',status:'COMPLETE'}}));`)),{timeout:600000,intervals:[3000,5000]}).toBe(1);
     const result=JSON.parse(database(`const photo=await p.acquisitionPhoto.findUniqueOrThrow({where:{id:${JSON.stringify(photo.id)}}});const raw=await require('fs/promises').readFile(process.env.UPLOADS_DATA_PATH+'/acquisition-v1/'+photo.id+'.original');const job=await p.acquisitionProcessingJob.findFirstOrThrow({where:{run:{session:{createdByUserId:${JSON.stringify(tag)}}},stage:'photo-printing-evidence-v1',status:'COMPLETE'},select:{output:true}});console.log(JSON.stringify({digest:require('crypto').createHash('sha256').update(raw).digest('hex'),output:job.output}));`));
-    expect(result.digest).toBe(originalHash);expect(JSON.stringify(result.output)).toContain('Sunblade Samurai');
-    const card=page.getByTestId('capture-card-1');await expect(card).toContainText('Sunblade Samurai',{timeout:20000});
+    expect(result.digest).toBe(originalHash);expect(JSON.stringify(result.output)).toContain(expectedName);
+    const card=page.getByTestId('capture-card-1');await expect(card).toContainText(expectedName,{timeout:20000});
     await page.getByRole('button',{name:'Bulk Confirm Match'}).click();
     const bulk=page.getByRole('region',{name:'Bulk match review'});
-    await expect(bulk.getByText(/Card 1: Sunblade Samurai/)).toBeVisible({timeout:30000});
-    await expect(bulk.getByRole('checkbox',{name:/Card 1: Sunblade Samurai/})).toBeChecked();
+    await expect(bulk.getByText(`Card 1: ${expectedName}`)).toBeVisible({timeout:30000});
+    await expect(bulk.getByRole('checkbox',{name:`Card 1: ${expectedName}`,exact:true})).toBeChecked();
     await bulk.getByRole('button',{name:'Confirm 1 selected match'}).click();
     await expect(bulk).toContainText('1 review saved. Inventory has not changed.');
     await card.scrollIntoViewIfNeeded(); // Review rows load when they enter the viewport.
@@ -89,7 +91,46 @@ test("website START through actual Windows fixture helper reaches ordinary recog
     for(const width of [1366,320]) {await page.setViewportSize({width,height:900});await inventory.scrollIntoViewIfNeeded();
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
       await page.screenshot({path:`test-results/scanner-inventory-${width}.png`});}
-    writeFileSync('test-results/scanner-native-result.json',JSON.stringify({passed:true,fixture:true,physicalScans:0,inventoryChanges:1,explicitFinalConfirmation:true,elapsedMs:Date.now()-began,originalDigest:originalHash,sourcePreserved:true,location:true,recognitionName:'Sunblade Samurai'}));
+    // Restart only this guarded fixture server. The saved connection, first
+    // original/review and explicit Inventory receipt must survive a later run.
+    const firstSaved=JSON.parse(database(`const c=await p.acquisitionCandidate.findUniqueOrThrow({where:{id:${JSON.stringify(state.acquisitionRun.candidates[0].id)}},select:{review:true,revision:true}});console.log(JSON.stringify(c));`));
+    if(child && child.exitCode===null && child.signalCode===null) {
+      child.kill();
+      await new Promise<void>((resolve,reject)=>{
+        const timer=setTimeout(()=>reject(new Error('Owned fixture helper did not stop')),5000);
+        child!.once('exit',()=>{clearTimeout(timer);resolve();});
+      });
+    }
+    child=spawn(dotnet!,[dll!,'fixture-server',agentId,original!],{windowsHide:true,env:{...process.env,MTG_LOCAL_PILOT_TEST:'1'},stdio:['ignore','pipe','pipe']});
+    child.stdout?.on('data',chunk=>{log+=chunk.toString();});child.stderr?.on('data',chunk=>{log+=chunk.toString();});
+    await page.setViewportSize({width:1366,height:900});
+    await scanner.getByRole('link',{name:'New scanner batch',exact:true}).click();
+    const setup=page.getByRole('region',{name:'New scan batch'});
+    const destination=setup.getByTestId('storage-destination');
+    await expect(destination.getByText(tag,{exact:true})).toBeVisible();
+    await expect(destination.locator('input[name="destinationLocationId"]')).toHaveValue(tag);
+    await expect(destination.getByRole('button',{name:/^A\s/})).toHaveAttribute('aria-pressed','true');
+    await expect(setup.getByRole('combobox',{name:'Scanner source',exact:true})).toHaveValue(/.+/);
+    await expect(setup).toContainText('Batch defaults: nonfoil · NM');
+    await setup.getByRole('button',{name:'Start scanner batch',exact:true}).click();
+    await expect(scanner).toContainText('Scanner run ended.',{timeout:90000});
+    await expect(scanner).toContainText('1 image saved');
+    await expect.poll(()=>Number(database(`console.log(await p.acquisitionProcessingJob.count({where:{run:{session:{createdByUserId:${JSON.stringify(tag)}}},stage:'photo-printing-evidence-v1',status:'COMPLETE'}}));`)),{timeout:600000,intervals:[3000,5000]}).toBe(2);
+    await expect(card).toContainText(expectedName,{timeout:20000});
+    await page.reload();await expect(scanner).toContainText('Image count recorded automatically.');
+    await expect(card).toContainText(expectedName,{timeout:20000});
+    const successive=JSON.parse(database(`const runs=await p.scannerRun.findMany({where:{agentId:${JSON.stringify(agentId)}},orderBy:{createdAt:'asc'},include:{acquisitionRun:{include:{session:true,photos:true}}}});const first=await p.acquisitionCandidate.findUniqueOrThrow({where:{id:${JSON.stringify(state.acquisitionRun.candidates[0].id)}},select:{review:true,revision:true}});const rows=await p.inventoryItem.findMany({where:{currentOwnerId:${JSON.stringify(tag)}}});const audits=await p.inventoryAuditLog.count({where:{changedByUserId:${JSON.stringify(tag)},changeType:'acquisition_committed'}});console.log(JSON.stringify({runs:await Promise.all(runs.map(async r=>({id:r.id,status:r.status,settings:r.settings,location:r.acquisitionRun.session.locationId,section:r.acquisitionRun.session.section,photos:await Promise.all(r.acquisitionRun.photos.map(async photo=>({id:photo.id,digest:photo.digest,storedDigest:require("crypto").createHash("sha256").update(await require("fs/promises").readFile(process.env.UPLOADS_DATA_PATH+"/acquisition-v1/"+photo.id+".original")).digest("hex")})))}))),first,rows,audits}));`));
+    expect(successive.runs).toHaveLength(2);
+    expect(successive.runs[0].id).not.toBe(successive.runs[1].id);
+    for(const run of successive.runs) {
+      expect(run.status).toBe('DRAINED');expect(run.location).toBe(tag);expect(run.section).toBe('A');
+      expect(run.settings).toEqual(state.settings);
+      expect(run.photos).toHaveLength(1);expect(run.photos[0].digest).toBe(originalHash);expect(run.photos[0].storedDigest).toBe(originalHash);
+    }
+    expect(successive.runs[0].photos[0].id).not.toBe(successive.runs[1].photos[0].id);
+    expect(successive.first).toEqual(firstSaved);expect(successive.rows).toEqual(committed.rows);expect(successive.audits).toBe(1);
+    expect(log.match(/"kind":"AcquisitionStarted"/g)?.length).toBe(2);
+    writeFileSync('test-results/scanner-native-result.json',JSON.stringify({passed:true,fixture:true,physicalScans:0,inventoryChanges:1,explicitFinalConfirmation:true,successiveBatches:2,helperRestart:true,firstReviewAndReceiptPreserved:true,elapsedMs:Date.now()-began,originalDigest:originalHash,sourcePreserved:true,location:true,recognitionName:expectedName}));
   } finally {
     if(child && child.exitCode===null && child.signalCode===null){
       child.kill();await new Promise<void>(resolve=>{child!.once('exit',()=>resolve());setTimeout(resolve,5000);});
