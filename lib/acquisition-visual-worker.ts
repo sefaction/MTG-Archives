@@ -1,3 +1,4 @@
+import {admitAcquisitionHandoff} from "./acquisition-handoff-admission";
 import { createHash } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { z } from "zod";
@@ -56,7 +57,7 @@ export async function enqueueReadyVisual(db: PrismaClient, model: string) {
       photo.generation !== photo.slot.generation
     )
       continue;
-    const result = await db.acquisitionProcessingJob.createMany({
+    const result = await admitAcquisitionHandoff(db,source,()=>db.acquisitionProcessingJob.createMany({
       skipDuplicates: true,
       data: [
         {
@@ -69,7 +70,7 @@ export async function enqueueReadyVisual(db: PrismaClient, model: string) {
           input: { ...input, model },
         },
       ],
-    });
+    }));
     added += result.count;
   }
   return added;

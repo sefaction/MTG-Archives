@@ -1,3 +1,18 @@
+## Parent handoff local qualification complete — October 2, 2026
+
+- DraftPR586 on codex/handoff-parent-races at applicationa848869; test/docs qualification follow-up being committed. COMPLETE corrected10browser cases PASS/zero skips5.4min, including successive current-source Windows helper batches/native98.9s/one explicit fixtureInventorycommit/audit/both originalbytes/savedfirstreview preservation. Phone screenshots inspected. Earlier failed groups remain retained independently in docs/ACQUISITION_RETIRED_PARENT_ADMISSION.md.
+- Fixture587 corrected by scrolling final image rather than checkbox above it, unchanged180s/15s/10s bounds, typecheckPASS. Core784/PG/installer-requiredbuild facts below preserved. Same local515source/image0440e4f87a0be6aaae2100d61e866b10b3b1f13d3a1246214c12987acefebce3/digest2fa1c925dd488de39af0ef3826c4ffa5dc07998eca8d0f271f3ae88748caa83f; final sourcecomparisonPASS. Catalog/visual/printing0restarts/OOMfalse/no stopdiagnostic since load.
+- Finalconservation matches10280rows/12482copies/81reviews/907photo IDs+digests,all originalhashes;ownednativeusers/agents0. Test/helper processes finished. Native algorithms/model mounts unchanged. No physical or production operation.
+- Next safe: push final test/docs follow-up, collectall3fresh final-headchecks,mark586ready; keep579open and individual mergeapproval required. Then separate585guardedbackup/isolatedrestore on recovered local snapshot with only exact existing worker running states paused/restored. Source is never a restore target.511alreadyclosed;hardware/production/accuracy/throughputgates remain.
+
+## Retired parent handoff batch — October 2, 2026
+
+- Active branch codex/handoff-parent-races based on approved mainfd0196a, in the existing .local-data/import-input-methods checkout. Original managed parent WIP and primary checkpoint preserved. Related579; distinct PostgreSQL storage/recovery incident585. No merge approval.
+- Unchanged-main realPG baseline FAILED P2003 after source lookup; owned fixture cleaned. Final all3 post-read parent boundaries/acquisition/receipt/import PASS; full core784/zero failures/skips/type/build/lint/ten manifests PASS.
+- Cumulative local web image0440e4f87a0be6aaae2100d61e866b10b3b1f13d3a1246214c12987acefebce3;515inputs/digest2fa1c925dd488de39af0ef3826c4ffa5dc07998eca8d0f271f3ae88748caa83f. Five affected services loaded; native248lib/scripts MATCH/Python unchanged/model mounts retained. Host HTTP200. Inventory10280/12482,81reviews,907photos/digests match before/after load.
+- First browser group FAILED1/10 (9passed; old selected.NET runtime prevented helper startup). Original failed artifacts retained and fixture cleanup conserved originals. Complete corrected-runtime group session30134 running, parent-browser-final.log/artifacts. Correct runtime C:/Users/brian/Projects/MTG-Archives-scanner-backend/.local-data/dotnet/dotnet.exe; existing installed helper, saved Blessing image, no discovery/motor.
+- Next safe step collect group/conservation/restarts, collect draft PR required checks, mark ready only after completion. No product question, no production/hardware operation or new scheduling.
+
 ## Restored import methods ready for review — October 2, 2026
 
 - Active branch `codex/import-input-methods`, isolated checkout `.local-data/import-input-methods`, based on approved main b57a572. [PR #584](https://github.com/sefaction/MTG-Archives/pull/584) OPEN; issue #583 remains open until merge. Application commit 709d593; this follow-up changes only the checkpoint. No merge approval.

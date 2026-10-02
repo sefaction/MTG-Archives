@@ -1,3 +1,4 @@
+import {verifyRetiredHandoffParents} from "./verify-acquisition-retired-parents";
 import {verifyDeletedHandoffSource} from "./verify-acquisition-deleted-handoff";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
@@ -17,6 +18,8 @@ export async function verifyAcquisitionPrinting(
 ) {
   const model = "c".repeat(64);
   await verifyDeletedHandoffSource(db,source.id,PRINTING_STAGE,
+    client=>enqueueReadyPrinting(client,model));
+  await verifyRetiredHandoffParents(db,source.id,PRINTING_STAGE,
     client=>enqueueReadyPrinting(client,model));
   const photo = await db.acquisitionPhoto.findUniqueOrThrow({where: {id: photoId}});
   const legacy = await db.acquisitionProcessingJob.create({data: {

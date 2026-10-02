@@ -1,7 +1,7 @@
 # Windows helper fixture through successive scanner batches and Inventory
 
 This is a local software acceptance gate for #501, #506, #308 and #309. The
-installed Windows helper (0.3.8, protocol 0.3.0-native) uses its existing guarded
+Windows helper (0.3.8, protocol 0.3.0-native) uses its existing guarded
 fixture-server command: MTG_LOCAL_PILOT_TEST=1, explicit loopback connection and
 ScannerFixtureBackend. It never creates NAPS2, discovers hardware, opens a driver
 window or operates a motor. The retained fi-7160 Blessing PNG is copied byte for
@@ -12,6 +12,17 @@ An optional expected-name variable allows a known preserved development scan to
 exercise the same scanner boundary without recapturing or rewriting an image.
 Ordinary UI actions have a15-second bound; native processing remains bounded by
 its original10-minute printing allowance and15-minute total test timeout.
+
+For automated qualification, use an existing.NET8 SDK and build the helper from
+the same checkout as the tested website. Set `MTG_SCANNER_DOTNET` to that SDK's
+dotnet executable, build `tools/scanner-agent/ScannerAgent.csproj` in Release,
+then set `MTG_SCANNER_HELPER_DLL` to that checkout's
+`tools/scanner-agent/bin/Release/net8.0-windows/Mtg.ScannerAgent.dll`.
+Check build success before starting the test. Do not pick an archived app folder
+by modification time: older helper protocols may deserialize the current START
+request incorrectly. The system.NET executable can also be older than the
+project's existing tool cache. This builds a local fixture binary and does not
+replace an installed helper. Keep failed setup attempts separate from acceptance.
 
 The gate now creates two spaces in its owned fixture section. Batch1 follows
 website Start, actual helper delivery, ordinary OCR/visual/catalog/printing,
