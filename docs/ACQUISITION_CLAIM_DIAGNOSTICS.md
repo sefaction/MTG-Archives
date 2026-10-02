@@ -31,5 +31,12 @@ The job is removed in finally. This deterministic diagnostic qualification is
 not a reproduction or resolution of the September29 failure.
 
 Typecheck passed. Full acquisition/import validation and current-head CI are
-recorded in the PR after completion. Test scripts are outside the web build-input
-manifest, so the cumulative local Docker runtime does not need replacement.
+recorded in the PR after completion. These verification scripts are included in the explicit web build-input manifest.
+The next cumulative local image includes them and records its exact source digest;
+their changes do not alter production worker behavior.
+Local qualification PASSED all six acquisition/import runner steps, including the
+new deterministic empty-claim privacy/preservation/lease assertions. Owned fixture
+container and anonymous volume were removed. Result under ignored verification:
+acquisition-2026-10-02T05-29-27-742Z, passed/cleaned true. Both final typechecks passed.
+The original September29 failure remains unresolved and is not reclassified.
+
