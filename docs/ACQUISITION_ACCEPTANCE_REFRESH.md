@@ -16,7 +16,9 @@ Local targeted acceptance passed3/3 with zero skips (1.4minutes):
   no page-wide horizontal overflow, using a disposable Chromium profile.
 
 The zoom run used an owned temporary ADMIN account rather than modifying an
-existing user's authentication. That account/session was removed after the run.
+existing user's authentication. Initial cleanup removed the account/session but hit a foreign-key dependency on
+the player's automatically created location. The owned zero-inventory location
+and player were then removed; no matching fixture accounts/players remain.
 This does not qualify real Android camera or physical scanner behavior; the intake
 case uses its existing software-only media fixture and the private real-photo
 corpus extension was not enabled. Existing hardware/corpus gates remain separate.
@@ -25,3 +27,7 @@ Typecheck passed. The same cumulative local #569/#571 application remains loaded
 test/docs edits are outside its explicit509web build inputs, so no app rebuild or
 service replacement is needed for this batch. Individual review/merge approval is
 still required. #554 is not closed until this batch merges.
+
+After fixture cleanup, all baseline conservation hashes matched: Inventory10,280
+rows/12,482 copies,81 saved reviews, and907 original photo identities. No original
+Inventory, saved review, or photo digest changed.
