@@ -35,10 +35,12 @@ export async function enqueueReadyVisual(db: PrismaClient, model: string) {
   `));
   let added = 0;
   for (const row of rows) {
-    const source = await db.acquisitionProcessingJob.findUniqueOrThrow({
+    const source = await db.acquisitionProcessingJob.findUnique({
       where: { id: row.id },
       include: { candidate: true },
     });
+    // Admission IDs are a snapshot; cancelled/removed runs can disappear here.
+    if (!source) continue;
     const input = z
       .object({ photoId: z.string().uuid(), digest: z.string() })
       .parse(source.input);

@@ -1,3 +1,4 @@
+import {verifyDeletedHandoffSource} from "./verify-acquisition-deleted-handoff";
 import { verifyAcquisitionClaimDiagnostics } from "./verify-acquisition-claim-diagnostics";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -105,6 +106,8 @@ export async function verifyAcquisitionCatalogReconciliation(
       "COMPLETE",
     );
     await verifyAcquisitionClaimDiagnostics(db, rawJob);
+    await verifyDeletedHandoffSource(db,rawJob.id,CATALOG_RECONCILIATION_STAGE,
+      client=>enqueueCatalogReconciliation(client,new Date(),false));
     const queued = await Promise.all([
       enqueueCatalogReconciliation(db),
       enqueueCatalogReconciliation(db),
@@ -216,6 +219,10 @@ export async function verifyAcquisitionCatalogReconciliation(
       0,
       "hybrid reconciliation waits for visual evidence",
     );
+    const canonical=await db.acquisitionProcessingJob.findFirstOrThrow({where:{
+      artifactId:rawJob.artifactId,candidateId:rawJob.candidateId,stage:"photo-canonical-v1",status:"COMPLETE"}});
+    await verifyDeletedHandoffSource(db,canonical.id,VISUAL_STAGE,
+      client=>enqueueReadyVisual(client,"c".repeat(64)));
     await enqueueReadyVisual(db, "c".repeat(64));
     const queuedVisual = await db.acquisitionProcessingJob.findFirstOrThrow({
       where: { stage: VISUAL_STAGE, candidateId: rawJob.candidateId },
