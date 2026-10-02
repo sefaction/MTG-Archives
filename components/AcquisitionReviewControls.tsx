@@ -858,7 +858,7 @@ export function AcquisitionPhotoReview({
           <div
             className={
               simple
-                ? "grid grid-cols-2 lg:grid-cols-[minmax(0,260px)_minmax(0,260px)_minmax(0,1fr)] gap-3 min-w-0"
+                ? "grid grid-cols-2 lg:grid-cols-[minmax(0,232px)_minmax(0,232px)_minmax(0,1fr)] gap-3 min-w-0"
                 : "grid grid-cols-2 gap-3 sm:gap-6 min-w-0"
             }
           >

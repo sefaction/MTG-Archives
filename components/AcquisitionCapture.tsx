@@ -230,7 +230,11 @@ export function AcquisitionCapture({
   const [inventoryOpen, setInventoryOpen] = useState(false);
   function showInventory() {
     setInventoryOpen(true);
-    requestAnimationFrame(() => document.getElementById("scan-inventory")?.scrollIntoView({ block: "start" }));
+    requestAnimationFrame(() => {
+      const panel = document.getElementById("scan-inventory");
+      panel?.scrollIntoView({ block: "start" });
+      panel?.focus({ preventScroll: true });
+    });
   }
   const video = useRef<HTMLVideoElement>(null),
     stream = useRef<MediaStream | null>(null);
@@ -801,6 +805,7 @@ export function AcquisitionCapture({
               batch destination before taking more.
             </p>
           )}
+          <div id="scan-capture" className="scroll-mt-56">
           {progress.providerId === SCANNER_CAPTURE_PROVIDER ? <ScannerRunControls runId={progress.runId} savedImages={readyPhotos} refresh={refresh} /> : <section className={panel} aria-label="Card camera">
             <p className="mb-2">
               Photograph one card at a time, with the whole front visible and as
@@ -929,6 +934,7 @@ export function AcquisitionCapture({
               </p>
             )}
           </section>}
+          </div>
           {!!uploads.length && (
             <section className={panel} aria-label="Pending uploads">
               <h3 className="font-semibold">Uploads</h3>
@@ -977,7 +983,7 @@ export function AcquisitionCapture({
             onOpenChange={setBulkOpen} onConfirmed={ids => { setSelectedPhotos(previous => [...new Set([...previous, ...ids])]); showInventory(); }}
             onInspect={position => { setReviewFilter("all"); setVisibleCount(count => Math.max(count, position));
               requestAnimationFrame(() => document.getElementById(`capture-card-${position}`)?.scrollIntoView({ block: "start" })); }} />
-          <div id="scan-inventory" className="scroll-mt-56" hidden={!inventoryOpen}>
+          <div id="scan-inventory" tabIndex={-1} className="scroll-mt-56" hidden={!inventoryOpen}>
             <button className={button + " mb-2"} onClick={() => { setInventoryOpen(false); document.getElementById("scan-review")?.scrollIntoView({ block: "start" }); }}>Back to matches</button>
             <AcquisitionCommitControls key={`commit:${batchId}`} progress={progress} locations={locations}
               blockedPhotos={blockedPhotos} draftsReady={cachedDrafts.ready} canUsePhotos={canUsePhotos}
@@ -1118,12 +1124,13 @@ export function AcquisitionCapture({
                         </p>
                       )}
                       {photo && slot.review && !slot.committed && (
+                        <div className="flex flex-wrap items-center gap-2">
                         <label className="flex gap-2 text-sm">
                           <input
                             type="checkbox"
                             aria-label={`Select card ${slot.position + 1} for Inventory`}
                             checked={selectedPhotos.includes(photo.id)}
-                            disabled={!cachedDrafts.ready || blockedPhotos.has(photo.id)}
+                            disabled={!cachedDrafts.ready || !!photo.purgedAt || acquisitionSlotReviewState(slot, hasDraft(slot)) !== "ready"}
                             onChange={(e) =>
                               setSelectedPhotos((ids) =>
                                 e.target.checked
@@ -1134,6 +1141,23 @@ export function AcquisitionCapture({
                           />
                           {blockedPhotos.has(photo.id) ? "Save or cancel this correction before adding" : "Add this copy"}
                         </label>
+                        <button
+                          className={primary + " text-sm"}
+                          disabled={!cachedDrafts.ready || !!photo.purgedAt || acquisitionSlotReviewState(slot, hasDraft(slot)) !== "ready"}
+                          onClick={() => {
+                            if (!canUsePhotos([photo.id])) {
+                              setError("Save or cancel this correction before continuing to Inventory.");
+                              return;
+                            }
+                            setError("");
+                            setSelectedPhotos(ids => [...new Set([...ids, photo.id])]);
+                            showInventory();
+                          }}
+                        >Continue to Inventory</button>
+                        {!cachedDrafts.ready && <p className="text-sm">Allow browser draft access before continuing.</p>}
+                        {photo.purgedAt && <p className="text-sm">Photo retention ended; this copy cannot be added.</p>}
+                        {cachedDrafts.ready && !photo.purgedAt && !hasDraft(slot) && acquisitionSlotReviewState(slot) !== "ready" && <p className="text-sm">Complete the printing, finish, condition and language before continuing.</p>}
+                        </div>
                       )}
                       {progress.providerId !== SCANNER_CAPTURE_PROVIDER && <button
                         className={
