@@ -78,7 +78,7 @@ test('large scan-image batches retain every input through ordinary native queues
       await page.getByRole('option').first().click();await page.getByRole('button',{name:/^A\s/}).click();
       await page.getByRole('button',{name:'Start batch',exact:true}).click();
       const advanced=page.getByRole('button',{name:'Advanced',exact:true});
-      if(await advanced.count())await advanced.click();
+      await advanced.click();
       await page.getByRole('combobox',{name:'Batch finish',exact:true}).selectOption('NONFOIL');
       await page.getByRole('combobox',{name:'Batch condition',exact:true}).selectOption('NM');
       await page.getByRole('button',{name:'Save batch defaults',exact:true}).click();

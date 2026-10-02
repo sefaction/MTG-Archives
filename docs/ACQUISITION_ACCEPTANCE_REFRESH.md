@@ -40,3 +40,9 @@ Advanced as the passing live-recovery test does, and bounds ordinary UI actions 
 15 seconds rather than spending its entire 30-minute processing allowance there.
 The 20-minute native printing gate and all input, review, resource and cleanup
 assertions remain unchanged. Its fresh full run is recorded separately.
+
+The first setup correction still failed at the same hidden field (31.5s): the
+optional immediate Advanced count ran before the start request rendered the batch.
+The fixture now waits for the actual Advanced button. Both failed setup runs and
+zero-fixture cleanup results remain retained, separately from native throughput.
+
