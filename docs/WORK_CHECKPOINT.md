@@ -1,3 +1,40 @@
+## Overnight validation checkpoint — October 2, 2026, 00:20 Central
+
+- Main remains4a61c781; no overnight merges/deployment/physical feed. #565 remains
+  open for all88 results, stable saved review after refresh and next production
+  batch; missing catalog service recovery is separate from obsolete queues.
+- PR569 native51fb585, PR571 recovery45de76d, PR572 acceptance39bd01b are OPEN.
+  All3 required current-head checks pass for each. Stack569→571→572.
+- Local Docker has exact509 web sources (processing-recovery image) with native
+  LF/index guard and preserved printing reuse; localhost13001 healthy. Primary
+  branchlocal/cumulative-inventory-review-v4 is stale; do not build from it.
+- Actual24 scan/worker-crash recovery PASS12.2min; unchanged90s lease, attempt1→2,
+  recovered99.196s. Saved LP review/revision/observations and originals preserved;
+  zero Inventory. Native worker restored and owned fixture cleaned.
+- PR572 intake/library/real200%zoom PASS3/3 zero skips. Initial admin cleanup FK
+  failure corrected by removing ONLY its auto-created zero-stock location/player.
+  All baseline Inventory/review/photo hashes match (10280 rows/12482 copies,
+  81saved reviews,907photo identities). Later isolated acquisition/import gates
+  PASS170s with owned disposable container/anonymous volume removed.
+-100 input real-native test currently session43512. Two FAILED setup runs retained
+  (hidden defaults; immediate optional Advanced count before batch rendered).
+  Corrected setup waits for Advanced; all100ready in74.308s, unchanged20mprinting
+  gate. Existing-owner native work shares fair turns. No throughput pass yet.
+- Active branchcodex/catalog-claim-diagnostics; diagnostics implemented/uncommitted,
+  typecheck PASS. They run only AFTER empty expected test claim; retain scoped
+  clocks/availability/lease and eligibility before cleanup, no queue/sleep/retry
+  change. #498 cause remains unexplained. Pending owned PostgreSQL qualification.
+- Untracked tests/ui/acquisition-review-navigation.spec.ts belongs to separate
+  codex/paged-review-navigation branch (both start on572). Proposed reproduction:
+  ready filter→Next awaiting card14, bulkInspect card14, dirty draft/refresh at
+ 1366/390. Baseline not run yet; defer browser/build load until100 gate finishes.
+- Next safe: finish100 and preserve exact failed/passed results+cleanup; qualify
+  diagnostic batch/openPR; reproduce/fix off-page filter reset and reload local
+  Docker in separate PR. By05:30stop new implementation; before06:00stop owned
+  temporary tests/processes, check original conservation and prepare final handoff.
+- No watcher/schedule started. UI project assignment remains unverified despite
+  correct cwd/saved project; no supported reassignment tool. Existing services
+  and unrelated work must remain.
 ## Actual24saved-scan crash/recovery passed — October 1–2, 2026
 
 - PR569native source51fb585 and PR571processing recovery45de76d bothOPEN/all3current-headGitHubchecksPASSED; no individual merge approval. Local processing-recovery image exact509sources validated. No production operation or physical feed.
