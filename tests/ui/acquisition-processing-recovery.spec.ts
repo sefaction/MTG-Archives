@@ -34,8 +34,10 @@ for(const width of [1366,390]) test(`terminal scan states offer safe manual reco
     // A late supplemental failure updates in place, including a dirty correction.
     status={recognitionStatus:"NO_MATCH",visualStatus:"RUNNING",printingStatus:"COMPLETE",catalog:null};await page.reload();await card.scrollIntoViewIfNeeded();await expect(compact).toHaveText("Comparing card image…");
     const before=reads;status={...status,visualStatus:"FAILED"};await expect.poll(()=>reads,{timeout:15000}).toBeGreaterThan(before);await expect(compact).toHaveText("Image comparison failed");
-    status={...status,visualStatus:"RUNNING"};
-    await recovery.getByRole("button",{name:"Find printing manually",exact:true}).click();await expect(card.getByLabel("Card name",{exact:true})).toBeFocused();await card.getByLabel("Card name",{exact:true}).fill(printing.name);await card.getByRole("button",{name:"Find printing",exact:true}).click();
+    // Keep the failure available until its recovery action has opened search.
+    // Resuming first lets valid polling remove this failure-only button.
+    await recovery.getByRole("button",{name:"Find printing manually",exact:true}).click();await expect(card.getByLabel("Card name",{exact:true})).toBeFocused();
+    status={...status,visualStatus:"RUNNING"};await card.getByLabel("Card name",{exact:true}).fill(printing.name);await card.getByRole("button",{name:"Find printing",exact:true}).click();
     await card.getByRole("radio",{name:`${printing.name} · TST #1 (en)`,exact:true}).check();await card.getByRole("combobox",{name:"Card condition",exact:true}).selectOption("LP");await card.getByRole("combobox",{name:"Card finish",exact:true}).selectOption("NONFOIL");
     const afterSearch=reads;status={...status,visualStatus:"FAILED"};await expect.poll(()=>reads,{timeout:15000}).toBeGreaterThan(afterSearch);await expect(card.getByLabel("Card name",{exact:true})).toHaveValue(printing.name);expect(await saved()).toBeNull();expect(inventory()).toBe(0);
     await page.reload();await card.scrollIntoViewIfNeeded();await expect(card).toContainText("Unsaved correction restored");await expect(card.getByRole("combobox",{name:"Card condition",exact:true})).toHaveValue("LP");
