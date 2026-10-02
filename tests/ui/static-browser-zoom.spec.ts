@@ -46,8 +46,8 @@ test("static app routes remain reachable without page overflow at actual 200% br
     await page.getByRole("button", { name: /enter admin mode/i }).click();
     await expect(page.getByRole("button", { name: /exit admin mode/i })).toBeVisible();
     for (const route of admin) await check(route);
-    expect(routes).toHaveLength(24);
     expect(offenders, "Page-wide overflow at actual 200% browser zoom").toEqual([]);
+    expect(routes).toHaveLength(25);
   } finally {
     await context.close();
   }

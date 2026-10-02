@@ -63,3 +63,8 @@ The corrected desktop recovery case now passes (23.5sec); final grouped outcomes
 
 
 Final corrected full affected group:6/6PASS, zero skips,2.5minutes. Desktop1366/phone390 manual-recovery cases pass with original hashes and zero Inventory; existing drafts, fast corrections and quick finishes also pass. Failed runs remain separate evidence.
+Actual saved-scan qualification also passed: 24 of 24 reused development originals
+through an actual local OCR SIGKILL and ordinary lease expiry/recovery; the saved
+LP correction, completed evidence and original bytes survived, with zero Inventory.
+The interrupted job completed on attempt two 99.196sec after kill. This is bounded
+local recovery evidence, not physical scanner safety or independent accuracy.

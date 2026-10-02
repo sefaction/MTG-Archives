@@ -88,7 +88,7 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
     await expect(
       page.getByRole("heading", { name: /1 of 2 cards/ }),
     ).toBeVisible();
-    await expect(page.getByText(/1 photos prepared/)).toBeVisible({
+    await expect(page.getByText(/1 photo prepared/)).toBeVisible({
       timeout: 30000,
     });
     await expect(
@@ -194,7 +194,7 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
     await expect(
       page.getByRole("button", { name: "Photo library", exact: true }),
     ).toBeEnabled();
-    await expect(page.getByText(/1 photos prepared/)).toBeVisible({
+    await expect(page.getByText(/1 photo prepared/)).toBeVisible({
       timeout: 30000,
     });
     await page.screenshot({
