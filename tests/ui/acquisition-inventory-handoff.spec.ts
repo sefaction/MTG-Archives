@@ -78,6 +78,11 @@ for (const width of [1366, 320]) test(`saved card exposes explicit Inventory han
     await inventory.getByRole("link",{name:"Go to capture controls",exact:true}).click();
     await page.getByRole("button",{name:"Stop capture",exact:true}).click();
     await first.scrollIntoViewIfNeeded(); await next.click();
+    // Stopping must keep the route back to count/reconciliation controls available.
+    await expect(inventory.getByRole("link",{name:"Go to capture controls",exact:true})).toBeVisible();
+    await inventory.getByRole("link",{name:"Go to capture controls",exact:true}).click();
+    await expect(page).toHaveURL(/#scan-capture$/);
+    await first.scrollIntoViewIfNeeded(); await next.click();
     await inventory.getByRole("button",{name:"Preview selected cards",exact:true}).click();
     const confirm=inventory.getByLabel("Confirm Inventory addition",{exact:true});
     await expect(confirm).toContainText("Add 2 copies");

@@ -193,10 +193,11 @@ export function AcquisitionCommitControls({
       {!stopped && (
         <p className="text-sm">
           Stop capture when you are ready to add cards. Uploads already in
-          progress can finish.{" "}
-          <a className="underline" href="#scan-capture">Go to capture controls</a>
+          progress can finish.
+
         </p>
       )}
+      <p className="text-sm"><a className="underline" href="#scan-capture">Go to capture controls</a></p>
       <p className="text-sm">Destination: <strong>{locations.find(location => location.id === locationId)?.name ?? "Choose a location"}{section ? ` · ${section}` : ""}</strong></p>
       <details open={!locationId}>
       <summary className="cursor-pointer text-sm">Change destination</summary>
