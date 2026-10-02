@@ -84,3 +84,14 @@ After every owned browser fixture was removed, the original 10,280 Inventory row
 start-of-night hashes exactly. Native 100-input throughput remains FAILED at
 50/100 within 20 minutes; this navigation pass does not supersede that result.
 No physical source, production deployment or merge was performed.
+
+## Phase status reconciliation, October2
+
+GitHub phase status bodies #304–#307 now distinguish merged foundations from their
+remaining gates. Verified merged source: #447 target/job orchestration, #448 private
+photo intake/progress, #449 offline evaluation, #451 resumable local catalog,
+#452 background recognition and #453 explicit photo review. The old queued/not-
+started or awaiting-approval banners are superseded by live merged metadata.
+No parent phase was closed: actual phone acceptance/capture-consistent restore,
+general multi-card/duplex image repair and independent printing release accuracy
+remain distinct. Latest native100 throughput failure is explicitly linked.

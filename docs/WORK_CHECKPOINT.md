@@ -1,3 +1,51 @@
+## Latest checkpoint — October2,2026,01:46 Central
+
+- Active branch codex/large-review-state-gates, based on PR5764ee5223; committing
+  final test/docs next. No active temporary test/helper/watch process remains.
+- Corrected presentation group PASS4/4, zero skips,9.5minutes:14desktop/phone,
+ 100desktop and300phone. Paging/stable preview pixels/off-page navigation/dirty
+  draft refresh/saved review revisions/ordered stored originals/zero Inventory.
+  Initial300 readiness assertion and secondary cleanup route failure retained.
+- Native100 printing throughput is still FAILED50/100 in20minutes; no acceptance
+  gate relaxed. Four-owner/native300/150000-copy scale not qualified by UI fixtures.
+- All baseline Inventory/review/photo hashes MATCH after cleanup. App remains
+  navigation image3c21cf02, exact510 inputs. PR569→571→572→574→575→576 allOPEN,
+  all three current-head checks pass for each. No merges/deploy/physical feeding.
+- Phase304–307 status bodies reconciled to live merged447–453 source with precise
+  remaining phone/storage/geometry/accuracy gates; they remain OPEN.
+-555 old failure screenshot shows Audit Trail reopened after close. Loader awaits
+  fetch then unconditionally sets auditRow. A late response can reopen/steal focus
+  or overwrite later requests. Root-cause candidate recorded; delayed-response
+  baseline test prepared privately but not yet run. No source fix claimed yet.
+- Next safe: open presentation PR; new555 branch, deterministic delayed-response
+  baseline, narrow invalidation fix if reproduced, local build/browser qualification.
+- Stop new implementation05:30 Central; all own temporary operations stopped and
+  handoff ready before06:00. Production565/hardware gates remain blocked/open.
+## Active checkpoint — October 2, 2026, 01:21 Central
+
+- Worktree remains scan-image-persistence/MTG-Archives. Active branch
+  codex/large-review-state-gates, based on PR576 commit4ee5223.
+- PR569→571→572→574→575→576 OPEN, no merges/deployment approval. First five have
+  all three current-head checks passed;576 CI is pending. Main remains4a61c781.
+- Windows0.3.8 guarded fixture helper gate passed1/1, zero skips,2.5minutes:
+  successive runs with helper restart, ordinary native printing, preserved BOTH
+  stored original byte hashes, setup/defaults, first saved review/revision and
+  explicit one-copy Inventory receipt. No motor/discovery. Owned helper/agent/user
+  removed, original conservation hashes MATCH. See SCANNER_NATIVE_INVENTORY_GATE.md.
+- Native100 throughput remains FAILED50/100 within20minutes; full100 review not
+  reached. Original two setup failures and older57-result regression retained.
+- Current test-only change adds independent100-desktop/300-phone presentation
+  cases to the proven14-card navigation/draft fixture. Uses owned originals and
+  explicit saved reviews, controlled proposals; makes NO native throughput claim.
+  Pending typecheck, serial browser run, cleanup and preservation checks. Native
+  large-batch test is unchanged. No test/watch/helper process currently active.
+- Docker still exact510-source navigation image3c21cf02; test-only changes do not
+  alter application inputs. Existing services and primary stale checkout preserved.
+- Next safe: qualify long review paging/scroll/draft/refresh; catalogue actual app
+  failures if found. Then investigate555 focused Inventory return-target race;
+  hardware/production565/accuracy decisions remain blocked and open.
+- Stop new implementation05:30 Central, final cleanup/handoff before06:00. No
+  automation/watcher scheduled; desktop project assignment remains unverified.
 ## Overnight checkpoint — October 2, 2026, 01:00 Central
 
 - Active managed worktree: C:\Users\brian\.codex\worktrees\scan-image-persistence\MTG-Archives,
