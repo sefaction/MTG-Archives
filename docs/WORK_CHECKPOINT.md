@@ -1,3 +1,36 @@
+## Overnight checkpoint — October 2, 2026, 01:00 Central
+
+- Active managed worktree: C:\Users\brian\.codex\worktrees\scan-image-persistence\MTG-Archives,
+  branch codex/paged-review-navigation. Source commit 8f63f86; this checkpoint is
+  committed next. Primary checkout remains stale local/cumulative-inventory-review-v4;
+  preserve its existing dirty checkpoint and do not build it.
+- Main 4a61c781 is unchanged. PRs 569/571/572 are OPEN with all three current-head
+  checks passing. No individual merge/deployment approvals were given.
+- Diagnostics branch codex/catalog-claim-diagnostics at 83d355d is pushed, pending
+  separate PR based on 572. Its six-step disposable PostgreSQL/import gate PASSED
+  161.312 seconds, cleaned=true. Issue 498 remains unexplained, no retry masking.
+- Navigation issue 573 reproduced on unchanged desktop and phone. Narrow filter/
+  extent fix at 8f63f86; 764 units, typecheck, lint, host/Docker build and ten source
+  manifest checks PASS. Affected browser group 19/19 PASS, zero skips, 6.4 minutes.
+- Local web/acquisition/catalog image is mtg-archives-web:paged-review-navigation,
+  sha256:3c21cf0216425d706e111445257f62cf0926c08d5e65161f6d15472c5c74b716,
+  exact 510-source digest 02cc3f3c103678e8f7f66eb0689b54aceeca31b68bad7bfe485b88c3f8ee0006.
+  Native LF/model/index images and printing reuse stay loaded. Localhost13001 healthy.
+- Native 100-input gate FAILED: all100 originals ready in74.308 seconds, only50
+  printing completions in unchanged20-minute gate. Two setup failures remain
+  separate; full100 review/draft phase NOT REACHED. See ACQUISITION_BATCH_GATE_2026-10-02.md.
+- After current browser fixtures, all original Inventory/review/photo hashes MATCH:
+  10280 rows/12482 copies,81 saved reviews,907 original photo identities. No fixture
+  Inventory remains. No temporary test/helper/watch process currently active.
+- Production homepage is reachable but this browser is signed out; temporary
+  read-only tab closed. #565 all88 results/refresh/next batch require authenticated
+  operator evidence. Missing catalog service and queue cleanup remain distinct.
+- Next safe: open separate diagnostics/navigation PRs and record100 failure on
+  related issues; then qualify guarded Windows fixture-helper to explicit Inventory
+  using retained fi7160 original, without discovery or motor. Keep earlier failures.
+- Stop new implementation by05:30 Central and all own temporary operations before
+ 06:00. Existing services/unrelated work remain. Desktop UI project assignment
+  remains unverified; no scheduler/watcher was created.
 ## Overnight validation checkpoint — October 2, 2026, 00:20 Central
 
 - Main remains4a61c781; no overnight merges/deployment/physical feed. #565 remains

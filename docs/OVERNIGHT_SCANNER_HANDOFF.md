@@ -61,3 +61,26 @@ piece was already merged in #567. Issue #498 stays open: a read-only disposable
 the original failure cause. Production #565 and hardware gates remain open exactly
 as described above. Original Inventory/reviews/photo conservation is checked after
 all owned runs; do not compare totals while a fixture is still active.
+
+## Qualified local result
+
+The cumulative image passed all 764 unit tests (zero skips), typecheck, lint,
+host build and ten build-input manifest checks. Docker build required the real
+scanner installer and passed. All 19 affected desktop/phone browser checks passed
+with zero skips in 6.4 minutes, including both new navigation cases and existing
+draft, correction, bulk, recovery, scanner start/retry and installation coverage.
+Phone screenshots were inspected; the target is visible and the layout stays
+within the viewport. The rendering fixtures deliberately use synthetic originals.
+
+Local image: mtg-archives-web:paged-review-navigation,
+sha256:3c21cf0216425d706e111445257f62cf0926c08d5e65161f6d15472c5c74b716.
+All 510 build-input sources match digest
+02cc3f3c103678e8f7f66eb0689b54aceeca31b68bad7bfe485b88c3f8ee0006.
+The application includes the preceding unmerged native-source, recovery and
+claim-diagnostic batches. Documentation/test-only commits do not change this digest.
+
+After every owned browser fixture was removed, the original 10,280 Inventory rows
+(12,482 copies), 81 saved reviews and 907 photo identities/digests matched the
+start-of-night hashes exactly. Native 100-input throughput remains FAILED at
+50/100 within 20 minutes; this navigation pass does not supersede that result.
+No physical source, production deployment or merge was performed.
