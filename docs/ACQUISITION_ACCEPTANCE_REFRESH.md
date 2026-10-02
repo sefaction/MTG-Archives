@@ -31,3 +31,12 @@ still required. #554 is not closed until this batch merges.
 After fixture cleanup, all baseline conservation hashes matched: Inventory10,280
 rows/12,482 copies,81 saved reviews, and907 original photo identities. No original
 Inventory, saved review, or photo digest changed.
+
+The broader 100-input fixture also had stale setup: it tried selecting Batch
+finish while Simple view had defaults collapsed. The first run was deliberately
+stopped after confirming zero photos/jobs and retained as FAILED before throughput;
+owned fixture cleanup was zero users/sessions/Inventory. The fixture now opens
+Advanced as the passing live-recovery test does, and bounds ordinary UI actions to
+15 seconds rather than spending its entire 30-minute processing allowance there.
+The 20-minute native printing gate and all input, review, resource and cleanup
+assertions remain unchanged. Its fresh full run is recorded separately.
