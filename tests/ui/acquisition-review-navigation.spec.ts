@@ -76,7 +76,7 @@ for (const {width,count} of cases) test(`filtered ${count}-card review reaches a
     }
     await first.getByRole("button", {name: "Next awaiting review", exact: true}).click();
     await expect(filter).toHaveValue("all"); await expect(target).toBeFocused();
-    expect(await target.evaluate(element => {const box = element.getBoundingClientRect();return box.top < innerHeight && box.bottom > 0;})).toBe(true);
+    await expect.poll(()=>target.evaluate(element => {const box = element.getBoundingClientRect();return box.top < innerHeight && box.bottom > 0;})).toBe(true);
     await page.screenshot({path: `test-results/review-navigation-target-${count}-${width}.png`});
     // A manual filter change still returns to bounded paging. Inspecting a bulk
     // proposal must independently reveal the same off-page physical card.
@@ -86,7 +86,7 @@ for (const {width,count} of cases) test(`filtered ${count}-card review reaches a
     await bulk.getByRole("button", {name: "Bulk Confirm Match", exact: true}).click();
     await bulk.getByRole("link", {name: "Inspect or correct", exact: true}).click();
     await expect(filter).toHaveValue("all"); await expect(target).toBeVisible();
-    expect(await target.evaluate(element => {const box = element.getBoundingClientRect();return box.top < innerHeight && box.bottom > 0;})).toBe(true);
+    await expect.poll(()=>target.evaluate(element => {const box = element.getBoundingClientRect();return box.top < innerHeight && box.bottom > 0;})).toBe(true);
     await first.scrollIntoViewIfNeeded(); await first.getByRole("button", {name: "Correct", exact: true}).click();
     await expect(first).toContainText("No other suggestions. Your current printing is kept; search to choose a different one.");
     await expect(first).not.toContainText("No printing found.");
