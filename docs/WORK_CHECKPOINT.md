@@ -1,3 +1,100 @@
+## Active checkpoint — October2,2026,03:36 Central
+
+- Branch codex/deleted-handoff-sources at fd2a592, base581062beac. Opening own PR
+  next. Prior569/571/572/574/575/576/577/580/581 all3 required checks PASS, OPEN.
+- RealPG missing-source baseline FAILEDP2025, units6FAIL/3PASS retained. Postfix12
+  focused/realall3PG/fullacquisition+receipts/core776+type/lint/build/manifests PASS.
+  InitialfullUIgroup1FAIL/18PASS retained with proven paging/count-click fixture
+  race and closed-browser cleanup failure; exact32 owned photos cleaned safely.
+  CorrectedFULL19/19PASS zero skips7.1minutes with original180s overall bound.
+- All5 services loaded: app1252a8303cab5cc683c5fcc225a6a147bc90bed2a16f34d2d5fe3745e8e3fa27;
+  exact512sourcesbe098216e672c39c02fff47781acf7ba24fe1d6799dec933c7777cb8470ce391;
+  visualf0bdc5a271acf981fab1cf73fced0d979cc97fd98f15515084c86392848bd01b;
+  printinge470bac36d5d9fd4079ae70e144709fd3aff0c4aa483d0408ca9b2f34e9effaa.
+  Native246sourcefiles eachMATCH, all13/14PythonfilesUNCHANGED. Mounts/caps retained.
+  Catalog/visual/printing0restarts/OOMfalse throughbothgroups+cleanup~34minutes.
+- Conservation MATCH08:36:31UTC10280 rows/12482copies,81reviews,907photo IDs/digests.
+  No active owned browser/test/helper/watcher;36459completed. Existing normal
+  services preserved. No merge, production mutation or physical feeding tonight.
+- Nextsafe commit test/docs/checkpoint, push/open/attach PR based on581, collectCI;
+  independently qualify post-read/FK deletion boundary and scanner software startup/
+  discovery-fixture/authorization recovery. Never run scanner-connections serve
+  against actual sources unattended; those physical/driver gates remain blocked.
+-579 actualstop causes/longerlifetime/post-read window remainunproven.565production
+  full88/refresh/nextbatch remainsopen, distinctobsoletecleanup. Native100FAILED50/100;
+  independentaccuracy/native300/four-owner150k/physical/freshPC gates remain.
+- Stop new implementation05:30 Central, all temporaryownoperations stopped and
+  completehanduff before06:00 Central/11:00UTC. Primary stalebranch/dirtycheckpoint
+  preserved; buildonlymanagedworktree. No automation/scheduler created.
+## Active checkpoint — October2,2026,03:27 Central
+
+- Managed branch codex/deleted-handoff-sources at fd2a592, base581062beac.
+  Primary stale cumulative-v4 remains unchanged except preserved checkpoint edits.
+  Prior open569/571/572/574/575/576/577/580/581 all3 current-head checks PASS.
+- Deleted-source unchanged baseline6unitFAIL/3DBerrorPASS; actual disposable PG
+  FAILED P2025 catalog selection/read boundary. Postfix12 focusedPASS; real all3
+  selection/deletion boundaries and full acquisition/shared receipt-import suites
+  PASS and owned DB/volume removed. Core776/zero skips/type/lint/build/10manifestsPASS.
+- Installer-required web image1252a8303cab5cc683c5fcc225a6a147bc90bed2a16f34d2d5fe3745e8e3fa27,
+  exact512 sources be098216e672c39c02fff47781acf7ba24fe1d6799dec933c7777cb8470ce391.
+  Native visualf0bdc5a271acf981fab1cf73fced0d979cc97fd98f15515084c86392848bd01b;
+  printinge470bac36d5d9fd4079ae70e144709fd3aff0c4aa483d0408ca9b2f34e9effaa.
+  All FIVE intended services loaded. Native lib/scripts246 files each MATCH;
+  all13 visual/14 printing Python files unchanged. Index/model/reference mounts
+  preserved. Two local verifier syntax errors retained; corrected probe PASS.
+- Initial affected FULL group FAILED1/19,18PASS9.9minutes: bulk fixture counted
+  Load more matches then clicked after automatic paging removed it. Last trace
+  call608 confirms selector; cleanup unrouteAll threw after timed browser closure,
+  leaving precisely32 owned photos. Known exact fixture identity validated32 photos/
+  0Inventory/0reviews, safely removed; all original hashes MATCH08:26UTC907photos.
+  Both fixture paging (scroll existing last row, wait row count) and browser-closure
+  cleanup corrected; same180s overall limit,15s action bound. Original artifacts/log
+  remain night-deleted-source-bulk-pagination-race-failed-*; no isolated retry pass.
+- Current full19 session36459 running, outputnight-deleted-source-full-final-*.
+  Collect result BEFORE new code mutation. Catalog/visual/printing restarts0/OOMfalse
+  throughout first9.9minute run and cleanup. No other temporary test/helper watcher.
+  Existing normal services remain; no production/hardware/merge/scheduler operation.
+- Next safe: collect36459, conserve originals, inspect worker diagnostic/restart
+  counts and screenshots, update docs/ACQUISITION_DELETED_SOURCE_ADMISSION.md;
+  commit test/docs/checkpoint, push/open own PR based on581, attach, collect CI.
+ 579 actual earlier3 stop causes and post-read/deletion window remain unqualified;
+  current fix skips only sources absent at admission read, propagates genuine errors.
+- Native100 gate stillFAILED50/100. Production565 full88/refresh/next batch,
+  physical/driver/freshPC, independentaccuracy/four-owner150k/native300 remain open.
+  Further independent work may qualify post-read FK deletion or scanner software
+  gates; do not expand capture methods. Stop new implementation05:30 Central,
+  stop own temporary operations and complete handoff before06:00 Central/11:00UTC.
+## Active checkpoint — October2,2026,02:49 Central
+
+Use managed worktree C:/Users/brian/.codex/worktrees/scan-image-persistence/MTG-Archives.
+Branch codex/deleted-handoff-sources based on printing-empty-state062beac (PR581).
+Primary remains stale local/cumulative-inventory-review-v4 with its existing edits
+preserved; do not build from primary. No merges/deployment/hardware operations.
+
+Open PRs569/571/572/574/575/576/577/580 have all3 checks PASS;581 checks finishing.
+Local app image0a62569cf2578cd72109543c03c495103634ede355ab7f26301fd402c4605e6a
+printing-empty-state at61130e5, exact510 source digestc0049744895ffeb35ce8b40fd8692700980b375b6c27b054359a93d2ee8f59e7.
+Full19 browser checks PASS/zero skips7minutes; prior empty-state baseline4FAIL and
+original audit/recovery/scale/setup failures retained. Last conservation07:43:53UTC
+MATCH all original10280 Inventory rows/12482 copies,81 saved reviews,907 photo IDs/
+digests. No owned native helper/users/agents or browser/test/watch process remains.
+
+579 records3 catalog-worker stops with OOMfalse; actual log causes unproven.
+Unchanged code missing-source unit baseline6FAIL/3 database-error propagationPASS;
+real disposable PostgreSQL baseline FAILED P2025 at catalog selection/read boundary.
+Baseline database/volume cleaned. Current managed uncommitted narrow change skips
+only missing sources at catalog/visual/printing admission and safely logs worker
+phase/public Prisma code. Added realPG boundaries for all3 and12 focused units.
+Session3431 is final type/focused-unit/disposable-PG qualification in progress.
+Next safe: collect3431; correct any fixture failure with original outcome retained;
+core776 units/build; installer-required Docker build/load/sourcecheck; full affected
+browser+successive helper group with restart diagnostics, then own small PR.
+
+565 production full88/refresh/nextbatch, physical/driver/independentaccuracy/native
+100 throughput and four-owner150k remain open. Native100FAILED50/100. No approval
+needed to continue independent local batches; every PR still requires its own merge
+approval. Stop NEW implementation05:30 Central, all own temporary operations and
+final handoff before06:00. Existing services preserved; no automation/scheduler.
 ## Active checkpoint — October2,2026,02:44 Central
 
 - Branch codex/printing-empty-state, app61130e5, based on580c2da9b7. Opening this

@@ -11,6 +11,7 @@ function database(body: string) {
 test("bulk deselection survives incremental proposals without a review or Inventory write",async({page,baseURL})=>{
   test.skip(process.env.MTG_LOCAL_PILOT_TEST!=="1","Owned local controlled proposals; no recognition/hardware claim");
   expect(baseURL).toBe("http://127.0.0.1:13001");test.setTimeout(180000);
+  page.setDefaultTimeout(15000);
   await page.setViewportSize({width:1366,height:768});
   const tag=`ui-bulk-preview-${randomUUID()}`,password=randomUUID();
   const printing={id:`${tag}-card`,name:"Bulk preview fixture",setCode:"tst",collectorNumber:"1",lang:"en",imageUri:null,finishes:["nonfoil","foil"]};
@@ -66,8 +67,14 @@ test("bulk deselection survives incremental proposals without a review or Invent
     await expect(bulk.getByRole("button",{name:"Confirm 30 selected matches",exact:true})).toBeEnabled();
     changeSecond=false;
     // Exercise the full incremental list and both layouts without saving it.
-    while(await bulk.getByRole("button",{name:"Load more matches",exact:true}).count())
-      await bulk.getByRole("button",{name:"Load more matches",exact:true}).click();
+    const choices=bulk.getByRole("checkbox");
+    for(let step=0;step<Math.ceil(32/12);step++){
+      const before=await choices.count();if(before===32)break;
+      // Scrolling already-present rows triggers automatic paging. A count/click
+      // on the disappearing Load more button races that same observer.
+      await choices.last().scrollIntoViewIfNeeded();
+      await expect.poll(()=>choices.count()).toBeGreaterThan(before);
+    }
     await bulk.getByRole("checkbox",{name:`Card 32: ${printing.name}`,exact:true}).scrollIntoViewIfNeeded();
     await expect(bulk.getByRole("checkbox")).toHaveCount(32);
     await first.scrollIntoViewIfNeeded();
@@ -105,7 +112,9 @@ test("bulk deselection survives incremental proposals without a review or Invent
     const counts=JSON.parse(database(`const w={run:{sessionId:${JSON.stringify(batch)}}};console.log(JSON.stringify({reviews:await p.acquisitionCandidate.count({where:{...w,review:{not:require('@prisma/client').Prisma.DbNull}}}),inventory:await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}})}));`));
     expect(counts).toEqual({reviews:0,inventory:0});
   }finally{
-    release();await page.unrouteAll({behavior:"wait"});
+    release();
+    try{if(!page.isClosed())await page.unrouteAll({behavior:"wait"});}
+    catch{console.log("Browser unavailable; owned database cleanup still runs");}
     database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const w={run:{session:{createdByUserId:n}}};const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});
       await p.acquisitionCommitMember.deleteMany({where:{candidate:w}});await p.acquisitionCommit.deleteMany({where:w});await p.inventoryAuditLog.deleteMany({where:{changedByUserId:n}});await p.inventoryItem.deleteMany({where:{currentOwnerId:n}});
       for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});
