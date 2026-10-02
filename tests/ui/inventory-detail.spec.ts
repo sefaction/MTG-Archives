@@ -298,3 +298,60 @@ test("public inventory details retain read-only capabilities and modal keyboard 
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
 });
+
+for (const width of [1366,390]) test(`closed Inventory audit ignores a late response at ${width}px`, async ({page,account})=>{
+  test.skip(!account.disposable,'Owned local fixture required');test.setTimeout(120000);
+  await page.setViewportSize({width,height:900});await openDetails(page,account);
+  let release=()=>{},ready=()=>{};
+  const delivered=new Promise<void>(resolve=>{ready=resolve;});
+  const hold=new Promise<void>(resolve=>{release=resolve;});
+  await page.route('**/api/inventory/audit?*',async route=>{
+    const response=await route.fetch();expect(response.ok()).toBe(true);ready();
+    await hold;await route.fulfill({response});
+  });
+  try {
+    await page.getByRole('button',{name:'Audit Trail',exact:true}).click();
+    await delivered;
+    const audit=page.getByRole('dialog',{name:'Inventory audit trail',exact:true});
+    await expect(audit).toBeVisible();await expect(audit).toContainText('Loading audit trail');
+    await page.keyboard.press('Escape');await expect(audit).toHaveCount(0);
+    await expect(page.getByRole('button',{name:'View details',exact:true})).toBeFocused();
+    const response=page.waitForResponse(url=>url.url().includes('/api/inventory/audit?'));
+    release();await (await response).finished();
+    // Fence browser delivery/render turns rather than guessing a network delay.
+    await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
+    await expect(audit).toHaveCount(0);
+    await expect(page.getByRole('button',{name:'View details',exact:true})).toBeFocused();
+    await page.screenshot({path:`test-results/inventory-audit-late-${width}.png`});
+  } finally {
+    release();await page.unrouteAll({behavior:'wait'});await page.close();
+  }
+});
+for (const width of [1366,390]) test(`new Inventory audit ignores an older failed request at ${width}px`, async ({page,account})=>{
+  test.skip(!account.disposable,'Owned local fixture required');test.setTimeout(120000);
+  await page.setViewportSize({width,height:900});await openDetails(page,account);
+  let release=()=>{},ready=()=>{},calls=0;
+  const firstReady=new Promise<void>(resolve=>{ready=resolve;});
+  const hold=new Promise<void>(resolve=>{release=resolve;});
+  await page.route('**/api/inventory/audit?*',async route=>{
+    const response=await route.fetch();expect(response.ok()).toBe(true);
+    if(++calls===1){ready();await hold;await route.fulfill({status:503,json:{error:'Controlled stale audit failure'}});}
+    else await route.fulfill({response});
+  });
+  try {
+    const audit=page.getByRole('dialog',{name:'Inventory audit trail',exact:true});
+    await page.getByRole('button',{name:'Audit Trail',exact:true}).click();await firstReady;
+    await expect(audit).toBeVisible();await page.keyboard.press('Escape');await expect(audit).toHaveCount(0);
+    await page.getByRole('button',{name:'View details',exact:true}).click();
+    await page.getByRole('button',{name:'Audit Trail',exact:true}).click();
+    await expect(audit).toContainText('No audit history for this inventory item yet.');
+    const stale=page.waitForResponse(response=>response.url().includes('/api/inventory/audit?')&&response.status()===503);
+    release();await (await stale).finished();
+    await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
+    await expect(audit).toContainText('No audit history for this inventory item yet.');
+    await expect(audit).not.toContainText('Audit trail could not be loaded.');
+    await expect(audit).not.toContainText('Loading audit trail');
+    await page.keyboard.press('Escape');await expect(audit).toHaveCount(0);
+    await expect(page.getByRole('button',{name:'View details',exact:true})).toBeFocused();
+  } finally {release();await page.unrouteAll({behavior:'wait'});await page.close();}
+});

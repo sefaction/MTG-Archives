@@ -1635,6 +1635,8 @@ export function InventoryBrowser({
   const [selected, setSelected] = useState<InventoryRow | null>(null);
   const [editing, setEditing] = useState<InventoryRow | null>(null);
   const [auditRow, setAuditRow] = useState<InventoryRow | null>(null);
+  const auditRequest = useRef(0);
+  useEffect(() => () => { auditRequest.current++; }, []);
   const editDialogRef = useInventoryModal(Boolean(editing), editing?.cardName);
   const auditDialogRef = useInventoryModal(Boolean(auditRow), auditRow?.cardName);
   const [auditLoading, setAuditLoading] = useState(false);
@@ -1875,7 +1877,15 @@ export function InventoryBrowser({
     invalidMoveQuantity ||
     plannedCopies === 0;
 
+  function closeAuditTrail() {
+    // Closing also retires the asynchronous loader. Its old response must not
+    // reopen the dialog or replace a later card's audit history/error.
+    auditRequest.current++;
+    setAuditRow(null);
+  }
+
   async function openAuditTrail(row: InventoryRow) {
+    const request = ++auditRequest.current;
     setSelected(null);
     setAuditRow({ ...row, auditHistory: row.auditHistory || [] });
     setAuditLoading(true);
@@ -1889,12 +1899,14 @@ export function InventoryBrowser({
       const data = (await response.json()) as {
         entries?: InventoryAuditEntry[];
       };
+      if (request !== auditRequest.current) return;
       setAuditRow({ ...row, auditHistory: data.entries || [] });
     } catch (error) {
+      if (request !== auditRequest.current) return;
       console.error("[inventory-audit] load failed", error);
       setAuditError("Audit trail could not be loaded.");
     } finally {
-      setAuditLoading(false);
+      if (request === auditRequest.current) setAuditLoading(false);
     }
   }
 
@@ -3422,14 +3434,14 @@ export function InventoryBrowser({
           aria-label="Inventory audit trail"
           onCancel={(event) => {
             event.preventDefault();
-            setAuditRow(null);
+            closeAuditTrail();
           }}
           onClick={(event) => {
             if (event.target !== event.currentTarget) return;
             const rect = event.currentTarget.getBoundingClientRect();
             if (event.clientX < rect.left || event.clientX > rect.right ||
                 event.clientY < rect.top || event.clientY > rect.bottom)
-              setAuditRow(null);
+              closeAuditTrail();
           }}
           style={{ marginTop: 0 }}
           className="fixed inset-y-0 left-auto right-0 m-0 h-full max-h-full w-full max-w-3xl overflow-y-auto border-0 border-l border-zinc-800 bg-zinc-950 p-4 text-zinc-100 backdrop:bg-black/60"
@@ -3440,7 +3452,7 @@ export function InventoryBrowser({
                 <p className="text-sm text-zinc-400">{auditRow.cardName}</p>
               </div>
               <button
-                onClick={() => setAuditRow(null)}
+                onClick={closeAuditTrail}
                 className={cn(filterButtonClass, "px-2 py-1")}
               >
                 Close
