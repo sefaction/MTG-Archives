@@ -1,3 +1,13 @@
+## Five-batch delivery qualification complete — October 2, 2026
+
+- Active codex/stopped-capture-navigation based595e3b09be; final506 regression baseline missing post-stop link FAILED both widths/cleaned, corrected phase-independent existing link and full two-width selection/draft/preview/explicit commit/reload PASS23.3s/zero skips, screenshots inspected. Core797units/type/build/lint/ten manifests + installerDocker PASS. No physical feeding/production.
+- Cumulative Docker web02f53dc24a9e3188bd76d338e470e6d6c3ed56d14c284441812abe5b75511b5b/525inputs/digest2a838bb05796f4f8f5415b6be74865dc8bfaf21ad48e966442d053467ec6744b, both unchanged native257file maps MATCH. All five services running zero restarts/OOM. Original three hashes MATCH at21:37:57UTC;10,280 Inventory rows/12,482 copies/81reviews/907photos. Owned native0; no owned test/build process remains. Local http://127.0.0.1:13001/imports/scan.
+- PR5923baa446/593f2020fc/594e0a18aa/595e3b09be OPEN/READY/all3CIpass, unmerged. Next commit/push/open final506 follow-up on595, capture exact-head CI, update Foundry and final primary checkpoint. No new individual approvals. Broad463 exact-printing accuracy,579historical stop/first retry and498Sept29cause remain OPEN; all200 immediate initial claims passed, historical498didnotrecur.506PRs refs pending individual review, physical counts/hardware gates separate. Goal ended/no automation.
+## Final UI follow-up qualification — October 2, 2026
+
+- PR592/593/594/595 OPEN/READY, all three exact-head CI checks PASS. Active codex/stopped-capture-navigation based595e3b09be. Final506post-stop capture-control link missing baseline FAILED both1366/320, fixtures cleaned; link moved outside phase-dependent instruction, test extends full selection/preview/explicit commit/reload path. Small UI scope only, native algorithms/production queue unchanged.
+- Local core797units/type/build/lint/ten manifests PASS. Installer-required Docker build session18307 RUNNING; next collect/build/load three app services retaining qualified native595257file generation, verify525inputidentity, corrected two-width regression, worker states/conservation. Both active-source docs/primary checkpoint saved. No new merge approvals/goal/schedule/hardware/production authority.
+- All broad463accuracy/579historicalstop/498historicalempty causes remain OPEN;506 split593/nextfollow-up refs, no early close. After final qualification open follow-up PR on595, collect all checks, update Foundry with durable reviewed behavior and pending approval. Preserve original primary/oldmanaged WIP.
 ## Claim evidence qualified for review — October 2, 2026
 
 - Active codex/claim-evidence-review based594e0a18aa; fixture-only scope, no production app/lib/component changes. Real missing-CAS-evidence baseline failed/cleaned; corrected PG/import, bounded actual selection/CAS/commit/lookup/failure/privacy controls and200 immediate concurrent-admission claims PASS. Historical498cause unknown/open.
@@ -4292,4 +4302,3 @@ full-frame/strip behavior and explicit unverified-edge warning. This is bounded
 dark-border framing evidence, not universal perfect-frame qualification. #557/#558
 remain open. Next: focused PR with acceptance report; merge only after this PR's
 individual approval. No unanswered operator question; transport empty.
-
