@@ -1,4 +1,5 @@
 import { Nav } from "@/components/Nav";
+import { ImportTaskNav } from "@/components/ImportTaskNav";
 import { ScannerConnections } from "@/components/ScannerConnections";
 import { AcquisitionCapture } from "@/components/AcquisitionCapture";
 import { requireLogin, getAccessScope } from "@/lib/auth";
@@ -30,10 +31,11 @@ export default async function ScanPage({
     }),
   ]);
   const params = await searchParams;
+  const photoInput = params.input === "camera" || params.input === "photos" ? params.input : undefined;
   const initialBatch = params.batch ?? "";
   const storage = await getStorageLocations(prisma, locations);
   let initialSetup: ScannerContinuation | null = null, setupMessage = "";
-  if (!initialBatch && params.continue) {
+  if (!initialBatch && !photoInput && params.continue) {
     try {
       const current = currentScannerContinuation(await scannerContinuation(prisma, user.id, params.continue), storage);
       initialSetup = current.setup; setupMessage = current.message;
@@ -46,9 +48,10 @@ export default async function ScanPage({
         <a className="underline text-sm" href="/imports">
           Back to Imports
         </a>
-        <h1 className="text-3xl font-bold">Scan cards</h1>
+        <h1 className="text-3xl font-bold">{photoInput === "camera" ? "Camera import" : photoInput === "photos" ? "Upload card photos" : "Scan cards"}</h1>
       </div>
-      <ScannerConnections newBatchHref="/imports/scan?input=scanner#new-scan-batch" />
+      <ImportTaskNav selected={photoInput ?? "scan"} />
+      {!photoInput && <ScannerConnections newBatchHref="/imports/scan?input=scanner#new-scan-batch" />}
       <AcquisitionCapture
         userId={user.id}
         locations={storage}
@@ -56,6 +59,7 @@ export default async function ScanPage({
         setupMessage={setupMessage}
         initialBatch={initialBatch}
         initialScanner={params.input === "scanner" || !!initialSetup}
+        photoInput={photoInput}
         recent={recent}
       />
     </main>

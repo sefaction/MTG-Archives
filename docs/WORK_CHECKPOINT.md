@@ -1,3 +1,11 @@
+## Restore import input methods — October 2, 2026
+
+- Branch `codex/import-input-methods`, isolated checkout under primary `.local-data/import-input-methods`, based on approved main b57a572. Issue #583; PR pending. Existing primary and managed parent-deletion WIP preserved.
+- Imports now offers Scan cards, Camera and Upload photos, alongside CSV/manual/export/history. Shared task navigation appears on image routes. Explicit photo modes omit scanner setup, keep their URL through batch refresh and New batch, and leave saved scanner-start intent for its scanner route.
+- Typecheck and all 773 unit tests passed. Installer-required local web image build is in progress; browser baseline reproduced absent Camera navigation, initial fixture cleanup handling corrected and evidence retained under ignored `.local-data`.
+- Pending: collect Docker build, load only web over existing cumulative approved runtime, desktop/phone navigation plus actual camera/library and scanner/CSV regression checks, verify loaded source, open PR. No unanswered product decision. No merge approval for this batch.
+- Review URL http://127.0.0.1:13001. Existing acquisition/native workers and data are retained. Next safe step: collect baseline and build sessions, then load and verify the web image.
+
 ## Active checkpoint — October2,2026,03:36 Central
 
 - Branch codex/deleted-handoff-sources at fd2a592, base581062beac. Opening own PR

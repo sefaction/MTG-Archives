@@ -81,6 +81,7 @@ export function AcquisitionCapture({
   locations,
   initialBatch,
   initialScanner,
+  photoInput,
   recent,
   initialSetup = null,
   setupMessage = "",
@@ -89,6 +90,7 @@ export function AcquisitionCapture({
   locations: StorageLocation[];
   initialBatch: string;
   initialScanner: boolean;
+  photoInput?: "camera" | "photos";
   recent: { id: string; batchNumber: number; phase: string }[];
   initialSetup?: ScannerContinuation | null;
   setupMessage?: string;
@@ -256,7 +258,7 @@ export function AcquisitionCapture({
     let active = true;
     void (async () => {
       try {
-        if (initialBatch) return;
+        if (initialBatch || photoInput) return;
         const intent = readScannerStart(sessionStorage, userId);
         if (!intent) return;
         pendingStart.current = intent; createKey.current = intent.requestKey;
@@ -276,7 +278,7 @@ export function AcquisitionCapture({
       } finally { if (active) setCheckingStart(false); }
     })();
     return () => { active = false; };
-  }, [userId, initialBatch, initialScanner, recoverScanner]);
+  }, [userId, initialBatch, initialScanner, photoInput, recoverScanner]);
   const destination = locations.find((l) => l.id === locationId);
   const selectedSection = destination?.sections.find((s) => s.name === section);
   const limits = [
@@ -419,7 +421,7 @@ export function AcquisitionCapture({
       if (pendingStart.current) { adoptScanner(state, pendingStart.current); return; }
       setProgress(state);
       setBatchId(state.id);
-      history.replaceState(null, "", `/imports/scan?batch=${state.id}`);
+      history.replaceState(null, "", `/imports/scan?batch=${state.id}${photoInput ? `&input=${photoInput}` : ""}`);
     } catch (e) {
       if (pendingStart.current) {
         try { if (await recoverScanner(pendingStart.current)) return; } catch { /* Uncertain result keeps original intent. */ }
@@ -635,9 +637,9 @@ export function AcquisitionCapture({
       {!batchId ? (
         <section id="new-scan-batch" className={panel + " scroll-mt-4"} aria-label="New scan batch">
           <h2 className="text-xl font-semibold mb-3">
-            Set up a new scan batch
+            {photoInput ? "Set up a new photo batch" : "Set up a new scan batch"}
           </h2>
-          {!setupMessage && <p className="text-sm mb-3">Choose a destination and card input below. Starting a scanner batch sends the scan command to the connected computer.</p>}
+          {!setupMessage && <p className="text-sm mb-3">{photoInput === "camera" ? "Choose a destination and start a batch, then open your camera to photograph cards." : photoInput === "photos" ? "Choose a destination and start a batch, then select card photos from this computer or your phone's photo library." : "Choose a destination and card input below. Starting a scanner batch sends the scan command to the connected computer."}</p>}
           {setupMessage && <p className="text-sm mb-3" role="status">{setupMessage}</p>}
           {setupDefaults && scannerEnabled && <p className="text-sm mb-3">Batch defaults: {setupDefaults.finish.toLowerCase()} · {setupDefaults.condition ?? "condition not set"}. You can change these during review.</p>}
           <div className="grid gap-4 lg:grid-cols-2 items-start"><div className="min-w-0">
@@ -687,7 +689,7 @@ export function AcquisitionCapture({
           )}
           <p className="text-sm mb-3">
             {remaining === null
-              ? scannerEnabled ? "No capacity set. The scanner runs until the feeder is empty and shows the saved image count." : "This location has no capacity set. Keep scanning and watch the running count, then stop when finished."
+              ? scannerEnabled ? "No capacity set. The scanner runs until the feeder is empty and shows the saved image count." : photoInput ? "This location has no capacity set. Keep adding photos and watch the running count, then stop when finished." : "This location has no capacity set. Keep scanning and watch the running count, then stop when finished."
               : scannerEnabled ? `${remaining} spaces remain. Load no more than that; the scanner runs until the feeder is empty.` : `${remaining} spaces remaining in this destination.`}{" "}
             {!scannerEnabled && "One card per photo."}
           </p>
@@ -695,10 +697,10 @@ export function AcquisitionCapture({
             {refreshingCapacity ? "Refreshing capacity…" : "Refresh capacity"}
           </button>
           <details className="text-sm mb-3"><summary className="cursor-pointer">About capacity</summary>
-            <p className="mt-2">Capacity shown here includes stored cards. Pending batches and capacity are checked again before the scanner starts and before Inventory addition.</p>
+            <p className="mt-2">Capacity shown here includes stored cards. Pending batches and capacity are checked again before {photoInput ? "the batch starts" : "the scanner starts"} and before Inventory addition.</p>
           </details>
           </div><div className="min-w-0">
-          <ScannerSourceFields key={pendingScanner?.requestKey ?? "setup"} initialEnabled={pendingScanner || retiredSetup ? true : initialScanner} initialChoice={pendingScanner ?? retiredSetup ?? initialSetup?.scanner} onChange={scannerChanged} disabled={busy || checkingStart || !!pendingScanner || startStorageError || refreshingCapacity} remaining={customLimit ? Math.min(quantity,remaining??quantity) : remaining} />
+          {photoInput ? <p className="text-sm my-3">One card per photo. JPEG, PNG and WebP are supported. Review the saved cards before adding them to Inventory.</p> : <ScannerSourceFields key={pendingScanner?.requestKey ?? "setup"} initialEnabled={pendingScanner || retiredSetup ? true : initialScanner} initialChoice={pendingScanner ?? retiredSetup ?? initialSetup?.scanner} onChange={scannerChanged} disabled={busy || checkingStart || !!pendingScanner || startStorageError || refreshingCapacity} remaining={customLimit ? Math.min(quantity,remaining??quantity) : remaining} />}
           </div></div>
           <button
             className={primary}
@@ -892,7 +894,7 @@ export function AcquisitionCapture({
                   Stop capture
                 </button>
               )}
-              <a className={button} href="/imports/scan">
+              <a className={button} href={photoInput ? `/imports/scan?input=${photoInput}` : "/imports/scan"}>
                 New batch
               </a>
             </div>
