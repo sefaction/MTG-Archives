@@ -14,7 +14,7 @@ class IndexIntegrityTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         (self.root / 'images').mkdir()
         self.source = {'catalogSha256': 'frozen'}
-        self.encoder = {'weightsSha256': 'model', 'transform': 'whole-card'}
+        self.encoder = {'weightsSha256': 'model', 'encoderSha256': 'canonical-source', 'transform': 'whole-card'}
         self.db = open_index(self.root, self.source, self.encoder, 2)
         self.rows = []
         for i in range(3):
@@ -41,6 +41,8 @@ class IndexIntegrityTests(unittest.TestCase):
             open_index(self.root, self.source, {'weightsSha256': 'different'}, 2)
         with self.assertRaisesRegex(ValueError, 'source/model'):
             open_index(self.root, {'catalogSha256': 'new'}, self.encoder, 2)
+        with self.assertRaisesRegex(ValueError, 'source/model'):
+            open_index(self.root, self.source, {**self.encoder, 'encoderSha256': 'changed-source'}, 2)
 
     def test_bad_batch_rolls_back_all_vectors(self):
         with self.assertRaisesRegex(ValueError, 'normalized'):
