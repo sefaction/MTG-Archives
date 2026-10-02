@@ -205,7 +205,7 @@ export function AcquisitionCapture({
   }, [userId]);
   useEffect(() => {
     setVisibleCount(12);
-  }, [batchId, reviewFilter]);
+  }, [batchId]);
   useEffect(() => {
     dirtyNow.current.clear();
     setDirtyPhotos(new Set());
@@ -1020,9 +1020,12 @@ export function AcquisitionCapture({
                   <select
                     className={input + " ml-2"}
                     value={reviewFilter}
-                    onChange={(e) =>
-                      setReviewFilter(e.target.value as AcquisitionReviewFilter)
-                    }
+                    onChange={(e) => {
+                      setReviewFilter(e.target.value as AcquisitionReviewFilter);
+                      // Manual filtering starts a page; target navigation above
+                      // keeps the larger extent it needs to reach its card.
+                      setVisibleCount(12);
+                    }}
                   >
                     <option value="all">All ({reviewCounts.all})</option>
                     <option value="awaiting">
