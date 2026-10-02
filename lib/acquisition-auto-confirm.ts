@@ -47,19 +47,25 @@ export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
   let confirmed = 0;
   for (const { id } of jobs) {
     confirmed += await db.$transaction(async (tx) => {
-      const job = await tx.acquisitionProcessingJob.findUniqueOrThrow({
+      // Selection is a snapshot, including in the supported text-only path.
+      // Retired work cannot authorize a review and must not stop the worker.
+      const job = await tx.acquisitionProcessingJob.findUnique({
         where: { id },
         include: { run: true },
       });
-      await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${job.run.sessionId} FOR UPDATE`;
-      const session = await tx.acquisitionSession.findUniqueOrThrow({
+      if (!job) return 0;
+      const locked = await tx.$queryRaw<{id:string}[]>`SELECT id FROM "AcquisitionSession" WHERE id = ${job.run.sessionId} FOR UPDATE`;
+      if (!locked.length) return 0;
+      const session = await tx.acquisitionSession.findUnique({
         where: { id: job.run.sessionId },
         include: { ownerPlayer: true, createdByUser: true },
       });
-      const candidate = await tx.acquisitionCandidate.findUniqueOrThrow({
+      if (!session) return 0;
+      const candidate = await tx.acquisitionCandidate.findUnique({
         where: { id: job.candidateId },
         include: { receipt: true },
       });
+      if (!candidate) return 0;
       if (
         candidate.review !== null ||
         candidate.receipt ||
