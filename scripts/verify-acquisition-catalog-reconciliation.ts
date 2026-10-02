@@ -30,6 +30,7 @@ import { confirmStrongAcquisitionMatches } from "../lib/acquisition-auto-confirm
 import type { ScryfallCard } from "../lib/scryfall";
 import { enqueueReadyVisual } from "../lib/acquisition-visual-worker";
 import { VISUAL_STAGE } from "../lib/acquisition-visual";
+import { verifyAcquisitionVisualReuse } from "./verify-acquisition-visual-reuse";
 import { verifyAcquisitionPrinting } from "./verify-acquisition-printing";
 import { verifyAcquisitionPhotoText } from "./verify-acquisition-photo-text";
 
@@ -276,6 +277,8 @@ export async function verifyAcquisitionCatalogReconciliation(
         ],
       },
     };
+    await verifyAcquisitionVisualReuse(db, visualClaim as ClaimedAcquisitionJob,
+      visualOutput.visual as unknown as Prisma.InputJsonObject);
     assert.equal(
       await completeAcquisitionJob(
         db,

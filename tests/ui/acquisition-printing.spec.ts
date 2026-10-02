@@ -23,6 +23,10 @@ test(compactOnly ? "compact review replays one native basic-land scan with saved
   // recognition sample. Its PHOTO geometry fails; CARD_SCAN must keep all edges.
   const entries=[36,35,1,35].map(n=>manifest.entries[n-1]);
   const reuseResults: unknown[] = [];
+  const visualReuseResults: unknown[] = [];
+  const visualReuseTest = process.env.MTG_VISUAL_REUSE_TEST === "1";
+  let visualRefreshes = 0;
+  expect(visualReuseTest && process.env.MTG_PRINTING_REUSE_TEST === "1").toBe(false);
   const basicLandPath=process.env.MTG_ACQUISITION_BASIC_LAND_SCAN_PATH;
   if(compactOnly && !basicLandPath) throw new Error('Compact replay requires the fifth native basic-land fixture');
   if(basicLandPath) entries.push({file:path.basename(basicLandPath),
@@ -60,13 +64,44 @@ test(compactOnly ? "compact review replays one native basic-land scan with saved
       await page.getByLabel('Choose card photos').setInputFiles({name:entry.file,mimeType:'image/jpeg',buffer});
       // Use the real shared queue. A new fixture batch must receive worker
       // turns while older unreviewed batches are being reprocessed.
-      await expect.poll(()=>Number(database(`console.log(await p.acquisitionProcessingJob.count({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-printing-evidence-v1',status:'COMPLETE'}}));`)),{timeout:240000}).toBe(compactOnly ? 1 : process.env.MTG_PRINTING_REUSE_TEST === '1' ? 2*i+1 : i+1);
+      await expect.poll(()=>Number(database(`console.log(await p.acquisitionProcessingJob.count({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-printing-evidence-v1',status:'COMPLETE'}}));`)),{timeout:240000}).toBe(compactOnly ? 1 : process.env.MTG_PRINTING_REUSE_TEST === '1' ? 2*i+1 : i+1+visualRefreshes);
       const output=JSON.parse(database(`const job=await p.acquisitionProcessingJob.findFirstOrThrow({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},artifact:{digest:${JSON.stringify(entry.sha256)}},stage:'photo-printing-evidence-v1',status:'COMPLETE'},orderBy:[{createdAt:'desc'},{id:'desc'}],select:{output:true,createdAt:true,updatedAt:true,candidate:{select:{review:true}}}});const expected=await p.card.findUniqueOrThrow({where:{scryfallId:${JSON.stringify(entry.scryfallId)}},select:{id:true}});console.log(JSON.stringify({output:job.output,createdAt:job.createdAt,updatedAt:job.updatedAt,review:job.candidate.review,expectedId:expected.id}));`));
       expect(output.output.proposals.proposals.some((p:any)=>p.card.id===output.expectedId)).toBe(true);
       expect(output.output.native.photoDigest).toBe(entry.sha256);
       expect(output.output.printingNative.photoDigest).toBe(entry.sha256);
       expect(output.output.proposals.automaticAcceptance).toBe(false);
       expect(output.review).toBe(null);
+      if (visualReuseTest) {
+        const prior = JSON.parse(database(`const job=await p.acquisitionProcessingJob.findUniqueOrThrow({where:{id:${JSON.stringify(output.output.sourceVisualJobId)}}});console.log(JSON.stringify({id:job.id,input:job.input,output:job.output,createdAt:job.createdAt,updatedAt:job.updatedAt}));`));
+        expect(prior.output.visualExecution.reused).toBe(false);
+        expect(prior.output.visualExecution.inferenceRequests).toBe(1);
+        if (i === 0) execFileSync('docker', ['restart','mtg-archives-acquisition-visual-worker-1'],
+          {encoding:'utf8',timeout:180000,windowsHide:true});
+        const refresh = JSON.parse(database(`const source=await p.acquisitionProcessingJob.findUniqueOrThrow({where:{id:${JSON.stringify(prior.id)}}});const newer=await p.acquisitionProcessingJob.create({data:{runId:source.runId,artifactId:source.artifactId,candidateId:source.candidateId,candidateRevision:source.candidateRevision,stage:source.stage,versionKey:require('crypto').randomUUID(),input:source.input,availableAt:new Date(0)}});console.log(JSON.stringify({id:newer.id,createdAt:newer.createdAt}));`));
+        let reused: any;
+        await expect.poll(() => {
+          reused=JSON.parse(database(`const job=await p.acquisitionProcessingJob.findUniqueOrThrow({where:{id:${JSON.stringify(refresh.id)}}});console.log(JSON.stringify({status:job.status,output:job.output,updatedAt:job.updatedAt}));`));
+          return reused.status;
+        }, {timeout:240000}).toBe('COMPLETE');
+        expect(reused.output.visualExecution.reused).toBe(true);
+        expect(reused.output.visualExecution.inferenceRequests).toBe(0);
+        expect(reused.output.visual).toEqual(prior.output.visual);
+        expect(reused.output.photoId).toBe(prior.output.photoId);
+        // Let ordinary catalog/printing consume the new visual lineage before
+        // adding the next photo. Do not adjust admission, fairness or deadlines.
+        await expect.poll(() => Number(database(`console.log(await p.acquisitionProcessingJob.count({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-printing-evidence-v1',status:'COMPLETE',output:{path:['sourceVisualJobId'],equals:${JSON.stringify(refresh.id)}}}}));`)),
+          {timeout:240000}).toBe(1);
+        const refreshed = JSON.parse(database(`const job=await p.acquisitionProcessingJob.findFirstOrThrow({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-printing-evidence-v1',status:'COMPLETE',output:{path:['sourceVisualJobId'],equals:${JSON.stringify(refresh.id)}}}});console.log(JSON.stringify(job.output));`));
+        expect(refreshed.proposals).toEqual(output.output.proposals);
+        expect(refreshed.printingNative).toEqual(output.output.printingNative);
+        visualRefreshes++;
+        visualReuseResults.push({sample:i,inputKind:prior.output.visualReuse.inputKind,
+          nativeMilliseconds:prior.output.visual.milliseconds,
+          freshHandlerMilliseconds:prior.output.visualExecution.milliseconds,
+          reuseHandlerMilliseconds:reused.output.visualExecution.milliseconds,
+          refreshToPublicationMilliseconds:Date.parse(reused.updatedAt)-Date.parse(refresh.createdAt),
+          inferenceRequests:0, identicalNativeEvidence:true, identicalFinalProposals:true,afterWorkerRestart:i===0});
+      }
       if (process.env.MTG_PRINTING_REUSE_TEST === '1') {
         expect(output.output.printingExecution.reused).toBe(false);
         expect(output.output.printingExecution.inferenceRequests).toBe(1);
@@ -151,7 +186,10 @@ test(compactOnly ? "compact review replays one native basic-land scan with saved
         await page.screenshot({path:`test-results/footer-zone-review-${width}.png`});
       }
     }
-    if(basicLandPath)await checkAcquisitionCompactReview(page);
+    // The opt-in paired reuse gate keeps its own evidence denominator. The
+    // independent compact-card geometry/draft gate runs in the ordinary test;
+    // it must not be relabelled as recognition/reuse accuracy or throughput.
+    if(basicLandPath && !visualReuseTest)await checkAcquisitionCompactReview(page);
     if(compactOnly){
       expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
       return;
@@ -178,6 +216,11 @@ test(compactOnly ? "compact review replays one native basic-land scan with saved
     await expect(card.getByRole('img',{name:/^Printing: Timberland Ancient /})).toBeVisible();
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
   } finally {
+    if (visualReuseResults.length) {
+      const fs = require('fs');
+      fs.mkdirSync('test-results', {recursive:true});
+      fs.writeFileSync('test-results/visual-reuse-application.json', JSON.stringify({version:1,samples:visualReuseResults},null,2));
+    }
     if (reuseResults.length) {
       const fs = require('fs');
       fs.mkdirSync('test-results', {recursive:true});

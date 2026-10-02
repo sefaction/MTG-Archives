@@ -8,6 +8,7 @@ import { z } from "zod";
 import { acquisitionRefreshPriority } from "./acquisition-processing-priority";
 import { PRINTING_STAGE } from "./acquisition-printing";
 import { CATALOG_RECONCILIATION_STAGE } from "./acquisition-catalog-status";
+import { VISUAL_STAGE, visualNativeSchema } from "./acquisition-visual";
 
 // Queue operations are worker-only: never expose these as user-facing routes.
 // Handlers return versioned evidence; they must not mutate candidates/inventory.
@@ -201,6 +202,45 @@ export async function completeAcquisitionJob(
     // revision. Recognition evidence still uses the strict fence below.
     let candidateFence: Prisma.AcquisitionCandidateWhereInput = current;
     let canonicalCurrent = true;
+    if (job.stage === VISUAL_STAGE) {
+      const input = z.object({photoId: z.string().uuid(), digest: z.string(), model: z.string()}).parse(job.input);
+      const scope = z.object({ownerPlayerId: z.string(), inputKind: z.enum(["PHOTO", "CARD_SCAN"])}).safeParse(output.visualReuse);
+      const visual = visualNativeSchema.safeParse(output.visual);
+      // Legacy synthetic callers omit reuse identity; real new handlers always
+      // provide it. A malformed supplied identity cannot bypass owner guards.
+      const valid = (output.visualReuse === undefined || scope.success) && visual.success &&
+        visual.data.photoDigest === input.digest && visual.data.descriptor === input.model && output.photoId === input.photoId;
+      const completed = await tx.$executeRaw`
+        UPDATE "AcquisitionProcessingJob" j SET status='COMPLETE', output=${JSON.stringify(output)}::jsonb,
+          "leaseToken"=NULL, "leaseExpiresAt"=NULL, "updatedAt"=clock_timestamp()
+        FROM "AcquisitionCandidate" c
+        JOIN "AcquisitionRun" r ON r.id=c."runId"
+        JOIN "AcquisitionSession" s ON s.id=r."sessionId"
+        JOIN "Player" p ON p.id=s."ownerPlayerId"
+        JOIN "User" u ON u.id=s."createdByUserId"
+        JOIN "AcquisitionPhoto" photo ON photo.id=${input.photoId} AND photo."runId"=r.id
+        JOIN "AcquisitionCaptureSlot" slot ON slot.id=photo."slotId"
+        WHERE j.id=${job.id} AND j.status='RUNNING' AND j."leaseToken"=${job.leaseToken}
+          AND j.stage=${VISUAL_STAGE} AND j."candidateRevision"=${job.candidateRevision}
+          AND j."runId"=${job.runId} AND j."candidateId"=${job.candidateId} AND j."artifactId"=${job.artifactId}
+          AND j.input=${JSON.stringify(job.input)}::jsonb
+          AND j."leaseExpiresAt">clock_timestamp() AND j."runId"=r.id AND j."candidateId"=c.id
+          AND c.revision=${job.candidateRevision} AND c.review IS NULL AND NOT c.excluded
+          AND s.phase NOT IN ('DRAFT','CANCELLED') AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
+          AND ${valid}
+          AND (${!scope.success} OR (s."ownerPlayerId"=${scope.success ? scope.data.ownerPlayerId : ""}
+            AND photo."inputKind"::text=${scope.success ? scope.data.inputKind : ""}))
+          AND photo.ready AND photo."purgedAt" IS NULL AND photo.digest=${input.digest}
+          AND photo."slotId"=c."physicalId" AND photo.generation=slot.generation
+          AND NOT EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=c.id)`;
+      if (completed) return "COMPLETE" as const;
+      const superseded = await tx.$executeRaw`
+        UPDATE "AcquisitionProcessingJob" SET status='SUPERSEDED', "leaseToken"=NULL,
+          "leaseExpiresAt"=NULL, "errorCode"='INPUT_CHANGED', "updatedAt"=clock_timestamp()
+        WHERE id=${job.id} AND status='RUNNING' AND "leaseToken"=${job.leaseToken}
+          AND "leaseExpiresAt">clock_timestamp()`;
+      return superseded ? "SUPERSEDED" as const : "STALE_LEASE" as const;
+    }
     if (job.stage === PRINTING_STAGE) {
       const input = z.object({catalogJobId: z.string().uuid(), photoId: z.string().uuid(), digest: z.string()}).parse(job.input);
       const scope = z.object({ownerPlayerId: z.string()}).safeParse(output.printingReuse);

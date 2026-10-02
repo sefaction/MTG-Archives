@@ -6,8 +6,9 @@ import { acquisitionNativePhotoInput } from "./acquisition-image-input";
 import { readAcquisitionPhotoBytes } from "./acquisition-files";
 import type { AcquisitionNativeStream } from "./acquisition-native-stream";
 import { AcquisitionJobSupersededError, type ClaimedAcquisitionJob } from "./acquisition-jobs";
-import { VISUAL_STAGE, visualNativeSchema } from "./acquisition-visual";
+import { VISUAL_STAGE } from "./acquisition-visual";
 import { acquisitionHandoffQuery } from "./acquisition-handoff";
+import { checkedVisualNative, visualReuseIdentity, reusableVisualNative } from "./acquisition-visual-reuse";
 
 const inputSchema = z.object({
   photoId: z.string().uuid(),
@@ -86,6 +87,8 @@ export async function retrieveAcquisitionVisual(
   const input = inputSchema.parse(job.input);
   if (input.model !== model)
     throw new AcquisitionJobSupersededError("Visual index version superseded");
+  const run = await db.acquisitionRun.findUniqueOrThrow({where: {id: job.runId},
+    select: {session: {select: {ownerPlayerId: true}}}});
   const photo = await db.acquisitionPhoto.findUniqueOrThrow({
     where: { id: input.photoId },
     include: { slot: true },
@@ -102,24 +105,62 @@ export async function retrieveAcquisitionVisual(
     photo.slotId !== candidate.physicalId ||
     photo.generation !== photo.slot.generation
   )
-    throw new Error("Visual photo input changed");
+    throw new AcquisitionJobSupersededError("Visual photo input superseded");
+  async function requireCurrentInput() {
+    const [live] = await db.$queryRaw<{id: string}[]>`
+      SELECT j.id FROM "AcquisitionProcessingJob" j
+      JOIN "AcquisitionCandidate" c ON c.id=j."candidateId"
+      JOIN "AcquisitionRun" r ON r.id=j."runId"
+      JOIN "AcquisitionSession" s ON s.id=r."sessionId"
+      JOIN "Player" p ON p.id=s."ownerPlayerId"
+      JOIN "User" u ON u.id=s."createdByUserId"
+      JOIN "AcquisitionPhoto" photo ON photo.id=${input.photoId} AND photo."runId"=j."runId"
+      JOIN "AcquisitionCaptureSlot" slot ON slot.id=photo."slotId"
+      WHERE j.id=${job.id} AND j.status='RUNNING' AND j."leaseToken"=${job.leaseToken}
+        AND j.stage=${VISUAL_STAGE} AND j."candidateRevision"=${job.candidateRevision}
+        AND j."runId"=${job.runId} AND j."candidateId"=${job.candidateId} AND j."artifactId"=${job.artifactId}
+        AND j.input=${JSON.stringify(job.input)}::jsonb AND j."leaseExpiresAt">clock_timestamp()
+        AND c.revision=${job.candidateRevision} AND c.review IS NULL AND NOT c.excluded
+        AND s.phase NOT IN ('DRAFT','CANCELLED') AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
+        AND s."ownerPlayerId"=${run.session.ownerPlayerId}
+        AND photo.ready AND photo."purgedAt" IS NULL AND photo.digest=${input.digest}
+        AND photo."inputKind"::text=${photo.inputKind}
+        AND photo."slotId"=c."physicalId" AND photo.generation=slot.generation
+        AND NOT EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=c.id)`;
+    if (!live || signal.aborted) throw new AcquisitionJobSupersededError("Visual input superseded");
+  }
+  await requireCurrentInput();
+  const started = performance.now();
   const bytes = await readAcquisitionPhotoBytes(
     input.photoId,
     "raw",
     input.digest,
   );
-  const visual = visualNativeSchema.parse(
-    await nativeWorker.request(acquisitionNativePhotoInput(bytes, photo.inputKind), signal),
-  );
-  if (
-    visual.photoDigest !== input.digest ||
-    visual.descriptor !== model ||
-    signal.aborted
-  )
-    throw new Error("Visual processing input changed");
+  signal.throwIfAborted();
+  const reuse = visualReuseIdentity({version: 1, ownerPlayerId: run.session.ownerPlayerId,
+    photoDigest: input.digest, descriptor: model, inputKind: photo.inputKind});
+  // Retained completed jobs are the durable observation store. One indexed
+  // exact-key lookup reads bounded evidence; no duplicate private pixel cache.
+  const [previous] = await db.$queryRaw<{id: string; output: Prisma.JsonValue}[]>`
+    SELECT j.id, j.output FROM "AcquisitionProcessingJob" j
+    JOIN "AcquisitionRun" r ON r.id=j."runId"
+    JOIN "AcquisitionSession" s ON s.id=r."sessionId"
+    WHERE j.stage='photo-visual-retrieval-v1' AND j.status='COMPLETE'
+      AND j.output->'visualReuse'->>'key'=${reuse.key}
+      AND s."ownerPlayerId"=${reuse.ownerPlayerId}
+    ORDER BY j."createdAt" DESC, j.id DESC LIMIT 1`;
+  let visual = previous ? reusableVisualNative(previous.output, reuse) : null;
+  const reused = visual !== null;
+  if (!visual) visual = checkedVisualNative(await nativeWorker.request(
+    acquisitionNativePhotoInput(bytes, photo.inputKind), signal), reuse);
+  signal.throwIfAborted();
+  await requireCurrentInput();
   return {
     version: 1,
     photoId: photo.id,
     visual,
+    visualReuse: reuse,
+    visualExecution: {reused, milliseconds: Math.round(performance.now() - started),
+      inferenceRequests: reused ? 0 : 1, ...(reused ? {observationJobId: previous.id} : {})},
   } as unknown as Prisma.InputJsonObject;
 }

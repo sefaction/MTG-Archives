@@ -47,17 +47,23 @@ async function main() {
     }
     const { descriptor, native } = generation.current;
     await enqueueReadyVisual(db, descriptor.digest);
+    let inferenceRequests = 0, reuseHits = 0;
     const result = await runAcquisitionJobsOnce(
       db,
       {
-        [VISUAL_STAGE]: (job, signal) =>
-          retrieveAcquisitionVisual(db, job, signal, descriptor.digest, native),
+        [VISUAL_STAGE]: async (job, signal) => {
+          const output = await retrieveAcquisitionVisual(db, job, signal, descriptor.digest, {
+            request: (frame, currentSignal) => {inferenceRequests++; return native.request(frame, currentSignal);},
+          });
+          if ((output.visualExecution as {reused: boolean}).reused) reuseHits++;
+          return output;
+        },
       },
       workerId,
       { timeoutMs: 120000, leaseMs: 180000 },
     );
     if (result.claimed)
-      console.log(JSON.stringify({ event: "visual-stage", ...result }));
+      console.log(JSON.stringify({ event: "visual-stage", ...result, inferenceRequests, reuseHits }));
     if (!stopped && !process.argv.includes("--once"))
       await setTimeout(result.claimed ? 100 : 1000);
   } while (!stopped && !process.argv.includes("--once"));
