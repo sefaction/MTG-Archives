@@ -88,7 +88,20 @@ for (const {width,count} of cases) test(`filtered ${count}-card review reaches a
     await expect(filter).toHaveValue("all"); await expect(target).toBeVisible();
     expect(await target.evaluate(element => {const box = element.getBoundingClientRect();return box.top < innerHeight && box.bottom > 0;})).toBe(true);
     await first.scrollIntoViewIfNeeded(); await first.getByRole("button", {name: "Correct", exact: true}).click();
+    await expect(first).toContainText("No other suggestions. Your current printing is kept; search to choose a different one.");
+    await expect(first).not.toContainText("No printing found.");
     await first.getByRole("combobox", {name: "Card condition", exact: true}).selectOption("LP");
+    // An empty alternative search must not erase the selected saved printing or draft.
+    const emptyQuery="Controlled empty alternative search";
+    await page.route(url=>url.pathname===endpoint&&url.searchParams.get("query")===emptyQuery,
+      route=>route.fulfill({json:[]}));
+    await first.getByLabel("Card name",{exact:true}).fill(emptyQuery);
+    await first.getByRole("button",{name:"Find printing",exact:true}).click();
+    await expect(first).toContainText("No printings match this search. Try a different name, set or collector number.");
+    await expect(first).toContainText(printing.name);
+    await expect(first.getByRole("combobox",{name:"Card condition",exact:true})).toHaveValue("LP");
+    await first.getByRole("button",{name:"Back to suggestions",exact:true}).click();
+    await expect(first).toContainText("No other suggestions. Your current printing is kept; search to choose a different one.");
     await filter.selectOption("ready"); await first.scrollIntoViewIfNeeded();
     await first.getByRole("button", {name: "Next awaiting review", exact: true}).click();
     await expect(target).toBeFocused(); await expect(first.getByRole("combobox", {name: "Card condition", exact: true})).toHaveValue("LP");

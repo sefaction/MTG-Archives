@@ -618,8 +618,11 @@ export function AcquisitionPhotoReview({
               </div>
               {!options.length && (
                 <p className="text-sm">
-                  No printing found. The photo may be unreadable or this
-                  installation’s catalog may be missing the printing.
+                  {matches !== null
+                    ? "No printings match this search. Try a different name, set or collector number."
+                    : selected
+                      ? "No other suggestions. Your current printing is kept; search to choose a different one."
+                      : "No suggestions yet. Search by card name, set or collector number."}
                 </p>
               )}
               {matches && (
