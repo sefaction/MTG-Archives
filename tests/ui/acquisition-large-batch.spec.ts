@@ -4,7 +4,7 @@ import {createHash, randomUUID} from 'node:crypto';
 import {copyFileSync, mkdirSync, readFileSync, rmdirSync, unlinkSync, writeFileSync} from 'node:fs';
 import path from 'node:path';
 
-test.use({trace:'off',video:'off'});
+test.use({trace:'off',video:'off',actionTimeout:15000});
 function docker(...args:string[]) {
   return execFileSync('docker',args,{encoding:'utf8',timeout:30000,windowsHide:true}).trim();
 }
@@ -77,6 +77,8 @@ test('large scan-image batches retain every input through ordinary native queues
       await page.getByTestId('storage-destination').getByRole('combobox').fill(owner.tag);
       await page.getByRole('option').first().click();await page.getByRole('button',{name:/^A\s/}).click();
       await page.getByRole('button',{name:'Start batch',exact:true}).click();
+      const advanced=page.getByRole('button',{name:'Advanced',exact:true});
+      await advanced.click();
       await page.getByRole('combobox',{name:'Batch finish',exact:true}).selectOption('NONFOIL');
       await page.getByRole('combobox',{name:'Batch condition',exact:true}).selectOption('NM');
       await page.getByRole('button',{name:'Save batch defaults',exact:true}).click();

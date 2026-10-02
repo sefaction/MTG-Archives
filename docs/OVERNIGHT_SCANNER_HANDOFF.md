@@ -33,3 +33,31 @@ The existing issue records the operator-authorized October 1 recovery: productio
 - #304–#310/#302: phase issues include cross-provider, release/recovery and scale gates beyond foundation PRs. Their old pending-PR prose is historical; keeping them open avoids claiming uncovered gates.
 
 Live GitHub was read at the start of this goal; no open PR existed then. Native portability PR #569 is now open and all three current-head checks passed; it has no merge approval. Primary checkout is stale local/cumulative-inventory-review-v4. Use the recovered managed worktree for builds, preserve primary dirty checkpoint, and append cumulative local Compose layers rather than rebuilding the stale primary tree. Tests and runtime evidence are recorded per batch below or in linked reports.
+
+## Overnight verified results and open reviews
+
+PR #569 (native source checkout) and PR #571 (terminal processing/manual recovery)
+are open; all three current-head GitHub checks pass for each. No merge approval.
+The cumulative local app includes both with existing printing reuse/models/mounts.
+
+Local coverage passed: 762 native-policy units, 764 recovery units, 23 Linux
+catalog/index guards, two actual Git newline-mode tests; ten native-batch affected
+browser checks and the corrected six-case recovery/correction group. The original
+misleading-status baseline and two post-fix test-mock failures are preserved with
+causes and separate outcomes. They are not replaced by a claim of universal pass.
+
+Actual worker interruption: 24 saved development scans passed in 12.2 minutes.
+The SIGKILLed OCR job recovered from attempt 1 to 2 after 99.196 seconds using the
+unchanged 90-second lease. All 24 expected printings were first/offered, original
+artifacts and the saved LP review/revision/completed observations survived refresh,
+and no Inventory was added. Lost successful upload acknowledgement recovered with
+zero manual retries and no duplicate physical card. Cleanup restored the same
+worker image and removed owned fixtures. Reused scans are not new independent
+accuracy samples. Resource maxima and exact private report stay local.
+
+Issue #554 has two remaining test-only assertions in progress; its library paging
+piece was already merged in #567. Issue #498 stays open: a read-only disposable
+100-observation clock probe did not reproduce >1ms server lag and did not establish
+the original failure cause. Production #565 and hardware gates remain open exactly
+as described above. Original Inventory/reviews/photo conservation is checked after
+all owned runs; do not compare totals while a fixture is still active.
