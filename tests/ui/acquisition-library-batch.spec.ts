@@ -54,7 +54,8 @@ test("library selections stream past ten without exceeding capacity or upload bo
     await page.getByLabel(/^password$/i).fill(password);
     await page.getByRole("button", { name: /^log in$/i }).click();
     await page.waitForURL(/\/dashboard/);
-    await page.goto("/imports/scan");
+    await page.goto("/imports");
+    await page.getByRole("navigation", { name: "Import tasks" }).getByRole("link", { name: "Upload photos", exact: true }).click();
     await page
       .getByTestId("storage-destination")
       .getByRole("combobox")
@@ -66,6 +67,9 @@ test("library selections stream past ten without exceeding capacity or upload bo
     await expect(
       page.getByRole("heading", { name: /0 of 14 cards/ }),
     ).toBeVisible();
+    await expect(page).toHaveURL(/input=photos/);
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Upload card photos", exact: true })).toBeVisible();
     await page.route("**/api/acquisition/*/photos?*", async (route) => {
       active++;
       maximum = Math.max(maximum, active);
@@ -144,6 +148,10 @@ test("library selections stream past ten without exceeding capacity or upload bo
         .getByTestId("capture-card-14")
         .getByText("Your scan", { exact: true }),
     ).toBeVisible();
+    await page.getByRole("link", { name: "New batch", exact: true }).click();
+    await expect(page).toHaveURL(/input=photos/);
+    await expect(page.getByRole("heading", { name: "Upload card photos", exact: true })).toBeVisible();
+    await expect(page.getByLabel("Scan from a connected scanner")).toHaveCount(0);
     database(
       `const n=${JSON.stringify(tag)};await p.inventoryLocation.create({data:{id:n+'-open',name:n+'-open',normalizedName:n+'-open',ownerPlayerId:n,type:'Box'}});`,
     );

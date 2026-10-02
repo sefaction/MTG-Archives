@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { FoilStatus, InventoryLocationKind } from "@prisma/client";
 import { Nav } from "@/components/Nav";
+import { ImportTaskNav } from "@/components/ImportTaskNav";
 import { getAccessScope, requireLogin as requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStorageLocations } from "@/lib/storage-summary";
@@ -1323,27 +1324,7 @@ export default async function ImportsPage({
           </a>
         </div>
       </div>
-      <nav aria-label="Import tasks" className="flex flex-wrap gap-2">
-        <a className={filterButtonClass} href="/imports/scan">Scan cards</a>
-        {[
-          ["csv", "Import CSV"],
-          ["add", "Add card"],
-          ["export", "Export"],
-          ["history", "History"],
-        ].map(([view, label]) => (
-          <a
-            key={view}
-            href={`/imports?view=${view}`}
-            aria-current={workspaceView === view ? "page" : undefined}
-            className={cn(
-              filterButtonClass,
-              workspaceView === view &&
-                "border-[var(--app-accent)] bg-[var(--app-accent-soft)]",
-            )}
-          >
-            {label}
-          </a>
-        ))}
+      <ImportTaskNav selected={workspaceView}>
         {selectedBatch && (
           <a
             href={buildImportReviewUrl(selectedBatch.id)}
@@ -1353,7 +1334,7 @@ export default async function ImportsPage({
             Batch review
           </a>
         )}
-      </nav>
+      </ImportTaskNav>
       {workspaceView === "add" && (
         <section
           className={cn(filterPanelClass, "space-y-3")}

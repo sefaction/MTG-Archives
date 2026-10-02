@@ -52,7 +52,8 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
     await page.getByLabel(/^password$/i).fill(password);
     await page.getByRole("button", { name: /^log in$/i }).click();
     await page.waitForURL(/\/dashboard/);
-    await page.goto("/imports/scan");
+    await page.goto("/imports");
+    await page.getByRole("navigation", { name: "Import tasks" }).getByRole("link", { name: "Camera", exact: true }).click();
     await page
       .getByTestId("storage-destination")
       .getByRole("combobox")
@@ -85,6 +86,7 @@ test("photo batches recover lost ACKs, keep the limit and retake the same slot",
       page.getByRole("button", { name: "Retry upload" }),
     ).toBeVisible();
     await page.reload();
+    await expect(page.getByRole("heading", { name: "Camera import", exact: true })).toBeVisible();
     await expect(
       page.getByRole("heading", { name: /1 of 2 cards/ }),
     ).toBeVisible();
