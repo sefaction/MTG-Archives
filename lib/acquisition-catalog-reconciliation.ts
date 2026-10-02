@@ -1,3 +1,4 @@
+import {admitAcquisitionHandoff} from "./acquisition-handoff-admission";
 import { createHash } from "node:crypto";
 import { setTimeout } from "node:timers/promises";
 import { Prisma, type PrismaClient } from "@prisma/client";
@@ -121,7 +122,7 @@ export async function enqueueCatalogReconciliation(
         }),
       )
       .digest("hex");
-    const result = await db.acquisitionProcessingJob.createMany({
+    const result = await admitAcquisitionHandoff(db,source,()=>db.acquisitionProcessingJob.createMany({
       skipDuplicates: true,
       data: [
         {
@@ -139,7 +140,7 @@ export async function enqueueCatalogReconciliation(
           },
         },
       ],
-    });
+    }));
     added += result.count;
   }
   return added;

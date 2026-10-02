@@ -1,3 +1,4 @@
+import {admitAcquisitionHandoff} from "./acquisition-handoff-admission";
 import { createHash } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { z } from "zod";
@@ -61,11 +62,11 @@ export async function enqueueReadyPrinting(db: PrismaClient, model: string) {
     if (!source) continue;
     const input = z.object({photoId: z.string().uuid(), digest}).parse(source.input);
     const versionKey = createHash("sha256").update(`${PRINTING_STAGE}:${model}:${PRINTING_POLICY_VERSION}:${source.id}`).digest("hex");
-    const created = await db.acquisitionProcessingJob.createMany({skipDuplicates: true, data: [{
+    const created = await admitAcquisitionHandoff(db,source,()=>db.acquisitionProcessingJob.createMany({skipDuplicates: true, data: [{
       runId: source.runId, artifactId: source.artifactId, candidateId: source.candidateId,
       candidateRevision: source.candidateRevision, stage: PRINTING_STAGE, versionKey,
       input: {...input, catalogJobId: source.id, model, policy: PRINTING_POLICY_VERSION},
-    }]});
+    }]}));
     added += created.count;
   }
   return added;

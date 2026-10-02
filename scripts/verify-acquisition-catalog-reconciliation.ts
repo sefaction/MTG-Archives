@@ -1,3 +1,4 @@
+import {verifyRetiredHandoffParents} from "./verify-acquisition-retired-parents";
 import {verifyDeletedHandoffSource} from "./verify-acquisition-deleted-handoff";
 import { verifyAcquisitionClaimDiagnostics } from "./verify-acquisition-claim-diagnostics";
 import assert from "node:assert/strict";
@@ -107,6 +108,8 @@ export async function verifyAcquisitionCatalogReconciliation(
     );
     await verifyAcquisitionClaimDiagnostics(db, rawJob);
     await verifyDeletedHandoffSource(db,rawJob.id,CATALOG_RECONCILIATION_STAGE,
+      client=>enqueueCatalogReconciliation(client,new Date(),false));
+    await verifyRetiredHandoffParents(db,rawJob.id,CATALOG_RECONCILIATION_STAGE,
       client=>enqueueCatalogReconciliation(client,new Date(),false));
     const queued = await Promise.all([
       enqueueCatalogReconciliation(db),
@@ -222,6 +225,8 @@ export async function verifyAcquisitionCatalogReconciliation(
     const canonical=await db.acquisitionProcessingJob.findFirstOrThrow({where:{
       artifactId:rawJob.artifactId,candidateId:rawJob.candidateId,stage:"photo-canonical-v1",status:"COMPLETE"}});
     await verifyDeletedHandoffSource(db,canonical.id,VISUAL_STAGE,
+      client=>enqueueReadyVisual(client,"c".repeat(64)));
+    await verifyRetiredHandoffParents(db,canonical.id,VISUAL_STAGE,
       client=>enqueueReadyVisual(client,"c".repeat(64)));
     await enqueueReadyVisual(db, "c".repeat(64));
     const queuedVisual = await db.acquisitionProcessingJob.findFirstOrThrow({
