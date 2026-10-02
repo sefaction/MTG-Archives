@@ -13,6 +13,12 @@ npx.cmd tsx scripts/verify-backup-restore.ts --run
 
 Stop other MTG tests and avoid editing the app during capture. Other projects need not stop, although heavy load affects timing. The source container must be the healthy `mtg-archives-web-1` Compose service with backups bound to this repository's `.local-data/backups`. The runner rejects a different source/mount.
 
+For a local maintenance capture with live scanner heartbeats, use `--run --quiesce`. Finish/drain or cancel all scanner runs first. This optional mode checks terminal runs before mutation and again after pausing web; it stops only the known MTG background worker roles that were running, briefly pauses the website, and captures through a helper using the loaded image. All four source file mounts are read-only; only its new private archive directory is writable. The website is unavailable during capture. The source database stays running and is never a restore target. Host scanner helpers are not stopped and no driver/motor operation is invoked.
+
+Exact original service IDs/states and maintenance phase are journaled in that private directory's `service-state.json` before mutations. Normal success or failure resumes web and attempts every intended worker restoration before the separate isolated restore begins. If the host process/laptop is interrupted, inspect the journal and live Docker identities before resuming those exact MTG services; do not assume cleanup ran or start a replacement container under an old name. A pre-paused service rejects this mode. `--quiesce` cannot be combined with archive reuse.
+
+Capture mismatch diagnostics identify changed table names/counts/content-change flags in `capture-failure.json`, without row data or fingerprints. A failed capture remains unqualified and has no successful `evidence.json`; it must not be reused as passing evidence. No scanner/auth table is excluded to accommodate heartbeats.
+
 If capture completed but a later drill step was interrupted, use `--run --reuse=<UUID>` to restore the explicitly selected private capture again into a **new** isolated target. It never reuses an old database. UUID paths are restricted to the same repository backup root; a complete `evidence.json` is required. The disposable runner receives the current checked-out drill helper, while restoration itself uses the application's image/library. Rebuild before testing changed application restore code.
 
 ## Isolation and evidence

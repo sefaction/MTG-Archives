@@ -7,6 +7,7 @@ import { basename, join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import { PrismaClient } from "@prisma/client";
 import { assertIsolatedDrillDatabase } from "../lib/backup-drill";
+import { changedDrillTables } from "../lib/backup-drill-quiescence";
 import {
   createBackup,
   getDefaultAppdataPaths,
@@ -35,6 +36,17 @@ const volatileTables = new Set([
   "TradeWishlistNotificationActivity",
 ]);
 let stage = "initial guards";
+
+async function assertTerminalScans(db: PrismaClient) {
+  stage = "terminal scanner guard";
+  assert.equal(
+    await db.scannerRun.count({
+      where: { status: { notIn: ["DRAINED", "ERROR", "CANCELLED"] } },
+    }),
+    0,
+    "Drain or cancel scanner runs before maintenance capture",
+  );
+}
 
 async function databaseDigest(db: PrismaClient) {
   const tables = await db.$queryRaw<Array<{ table_name: string }>>`
@@ -105,6 +117,9 @@ async function capture(db: PrismaClient) {
     "Use the standard appdata mapping for this drill",
   );
   const paths = getDefaultAppdataPaths();
+  if (process.env.MTG_DRILL_REQUIRE_TERMINAL_SCANS === "1") {
+    await assertTerminalScans(db);
+  }
   assert.equal(
     paths.length,
     4,
@@ -118,8 +133,20 @@ async function capture(db: PrismaClient) {
   stage = "create application backup";
   const backup = await createBackup();
   const backupMs = Date.now() - started;
+  const after = await databaseDigest(db);
+  stage = "source database equality";
+  const changedTables = changedDrillTables(database, after);
+  if (changedTables.length) {
+    await writeFile(
+      join(backupDir, "capture-failure.json"),
+      JSON.stringify({ stage, changedTables }),
+    );
+    console.error(
+      `Recovery drill capture changed tables: ${changedTables.map((entry) => entry.table).join(", ")}`,
+    );
+  }
   assert.deepEqual(
-    await databaseDigest(db),
+    after,
     database,
     "Source changed during backup; rerun when quiescent",
   );
@@ -350,7 +377,8 @@ async function main() {
   assert.equal(process.env.MTG_LOCAL_PILOT_TEST, "1");
   const db = new PrismaClient();
   try {
-    if (process.argv[2] === "capture") await capture(db);
+    if (process.argv[2] === "check-capture") await assertTerminalScans(db);
+    else if (process.argv[2] === "capture") await capture(db);
     else if (process.argv[2] === "restore") await restore(db);
     else throw new Error("Expected capture or restore mode");
   } finally {

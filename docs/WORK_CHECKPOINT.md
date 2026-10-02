@@ -1,3 +1,10 @@
+## Local recovery capture guard — October 2, 2026
+
+- Active branch codex/local-restart-recovery in .local-data/import-input-methods, based on completed PR586 fd51fc1. PR586 ready, all three final-head checks passed; no merge approval.
+- First recovery drill session47616 FINISHED FAILED at source database equality. No isolated restore was started. Private archive drill-e3140288-7b07-46f0-bad5-a69f8e7c7b31 remains UNQUALIFIED with no evidence.json. Stage named the last table, not the exact changed table.
+- All eight original MTG worker IDs/states RESTORED and original Inventory/review/photo hashes MATCH. Website remains available. Existing four normal host helpers untouched.
+- Read-only twelve-second probe confirmed live ScannerAgent heartbeat metadata changes despite stopped background workers. New issue588 tracks guarded optional web-quiesced capture and privacy-safe mismatch diagnostics; related restart qualification585 remains open.
+- Next safe: implement/test exact local identities, read-only capture mounts, terminal scanner guard, service-state journal and failure restoration; rebuild/load cumulative source and repeat actual isolated recovery. No active drill/test/helper operation, production change or motor operation.
 ## Parent handoff local qualification complete — October 2, 2026
 
 - DraftPR586 on codex/handoff-parent-races at applicationa848869; test/docs qualification follow-up being committed. COMPLETE corrected10browser cases PASS/zero skips5.4min, including successive current-source Windows helper batches/native98.9s/one explicit fixtureInventorycommit/audit/both originalbytes/savedfirstreview preservation. Phone screenshots inspected. Earlier failed groups remain retained independently in docs/ACQUISITION_RETIRED_PARENT_ADMISSION.md.
