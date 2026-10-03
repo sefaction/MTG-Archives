@@ -4,6 +4,8 @@ Counted production feeding remains suspended after the ten-image trial partly
 pulled an eleventh card into the transport ([602](https://github.com/sefaction/MTG-Archives/issues/602)).
 This change prepares a separate supervised small diagnostic. It does not remove
 the helper 0.4.1 block, qualify a physical count, or authorize unattended feeding.
+The native companion also refuses direct `helper-channel-v1` launches before
+reading input or constructing TWAIN; its motor-free fixture route remains usable.
 
 ## Effective worker inspection
 
@@ -83,6 +85,16 @@ without authorization, and cancellation restored all eleven standard settings
 and closed source/DSM successfully. No image, authorization file or scanner owner
 remained. All four initial-head GitHub checks passed. This is preparation and
 cancellation evidence only; no physical count has yet been retested.
+
+The subsequent target-one trial retained one image with no transfer failures.
+The operator confirmed exactly one undamaged exit, both other cards wholly in
+the hopper and clear transport. All standard-setting restores and source/DSM
+closure logged Success, but the process then reported an unhandled WindowsBase
+`Invalid window handle` exception during shutdown. That abnormal process result
+is retained separately from the operator-confirmed physical boundary and tracked
+in [606](https://github.com/sefaction/MTG-Archives/issues/606). No next feed is
+authorized until the lifecycle fault is addressed and fresh readiness is obtained.
+Two cards remain in the hopper at the last operator observation.
 
 After that, each fresh supervised small test needs operator observations of
 undamaged exits, clear transport and every remaining card wholly in the hopper.
