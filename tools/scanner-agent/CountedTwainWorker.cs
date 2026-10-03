@@ -55,6 +55,7 @@ internal static class CountedTwainWorker
         Readback(source.Capabilities.ICapXResolution, (TWFix32)600f);
         Readback(source.Capabilities.ICapYResolution, (TWFix32)600f);
         Readback(source.Capabilities.ICapUnits, Unit.Inches);
+        Readback(source.Capabilities.ICapAutoDiscardBlankPages, BlankPage.Disable);
         TWImageLayout layout; Require(source.DGImage.ImageLayout.Get(out layout));
         if (Math.Abs((double)layout.Frame.Left) > .001 || Math.Abs((double)layout.Frame.Top) > .001 ||
             Math.Abs((double)layout.Frame.Right - 2.7) > .001 || Math.Abs((double)layout.Frame.Bottom - 3.6) > .001)
@@ -119,13 +120,14 @@ internal static class CountedTwainWorker
             Exact(source.Capabilities.ICapXResolution, (TWFix32)600f);
             Exact(source.Capabilities.ICapYResolution, (TWFix32)600f);
             Exact(source.Capabilities.ICapUnits, Unit.Inches);
+            Exact(source.Capabilities.ICapAutoDiscardBlankPages, BlankPage.Disable);
             TWImageLayout layout; Require(source.DGImage.ImageLayout.Get(out layout));
             if (Math.Abs((double)layout.Frame.Left) > .001 || Math.Abs((double)layout.Frame.Top) > .001 ||
                 Math.Abs((double)layout.Frame.Right - 2.7) > .001 || Math.Abs((double)layout.Frame.Bottom - 3.6) > .001)
                 throw new InvalidOperationException("Current driver frame differs from qualified profile");
             CaptureReadback(source, target);
             Send(new { kind = "prepared", target, driver = source.Version.ToString(), protocol = source.ProtocolVersion.ToString(),
-                widthInches = (double)layout.Frame.Right, heightInches = (double)layout.Frame.Bottom, dpi = 600, autoScan = false });
+                widthInches = (double)layout.Frame.Right, heightInches = (double)layout.Frame.Bottom, dpi = 600, autoScan = false, blankDiscard = false });
             var next = Read();
             if ((string)next["action"] == "close") { result = 0; return result; }
             if ((string)next["action"] != "start") throw new InvalidOperationException("No explicit start");
@@ -201,10 +203,12 @@ internal static class CountedTwainWorker
     }
     private static int Fixture(string scenario)
     {
-        if (!new[] { "normal", "early-empty", "overtransfer", "restore-error" }.Contains(scenario)) return 2;
+        if (!new[] { "normal", "early-empty", "overtransfer", "restore-error", "blank-discard-auto", "blank-proof-missing", "blank-proof-malformed" }.Contains(scenario)) return 2;
         var prepare = Read(); int target = Convert.ToInt32(prepare["target"]);
         if ((string)prepare["action"] != "prepare" || target < 1 || target > 3) return 2;
-        Send(new { kind = "prepared", target, dpi = 600, autoScan = false, fixture = true });
+        if (scenario == "blank-proof-missing") Send(new { kind = "prepared", target, dpi = 600, autoScan = false, fixture = true });
+        else Send(new { kind = "prepared", target, dpi = 600, autoScan = false,
+            blankDiscard = scenario == "blank-proof-malformed" ? (object)0 : scenario == "blank-discard-auto", fixture = true });
         var start = Read(); if ((string)start["action"] == "close") return 0;
         if ((string)start["action"] != "start") return 2;
         var directory = (string)start["directory"];

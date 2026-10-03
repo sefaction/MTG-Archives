@@ -89,6 +89,7 @@ internal static class CountFeed
         Readback(source.Capabilities.ICapXResolution, (TWFix32)600f);
         Readback(source.Capabilities.ICapYResolution, (TWFix32)600f);
         Readback(source.Capabilities.ICapUnits, Unit.Inches);
+        Readback(source.Capabilities.ICapAutoDiscardBlankPages, BlankPage.Disable);
         Frame(source); Invariant(source);
     }
     private static string Hash(string path)
@@ -148,6 +149,7 @@ internal static class CountFeed
                 SetExact("ICAP_XRESOLUTION", source.Capabilities.ICapXResolution, (TWFix32)600f);
                 SetExact("ICAP_YRESOLUTION", source.Capabilities.ICapYResolution, (TWFix32)600f);
                 SetExact("ICAP_UNITS", source.Capabilities.ICapUnits, Unit.Inches);
+                SetExact("ICAP_AUTODISCARDBLANKPAGES", source.Capabilities.ICapAutoDiscardBlankPages, BlankPage.Disable);
                 CaptureReadback(source, target);
                 Readback(source.Capabilities.CapEnableDSUIOnly, BoolType.True);
                 var inspecting = true;
