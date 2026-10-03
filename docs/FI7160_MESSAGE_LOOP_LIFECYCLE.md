@@ -16,7 +16,7 @@ The default-loop baseline reproduced the same shutdown stack in **3 of 20 separa
 processes** on this laptop. Original physical evidence and baseline stderr remain
 in private local evidence directories.
 
-Pinned upstream [InternalMessageLoopHook](https://github.com/cyanfish/ntwain/blob/216c8c614d1514638cace41e5aa7e7ce48448d78/NTwain/Internals/InternalMessageLoopHook.cs)
+Pinned upstream [InternalMessageLoopHook](https://github.com/cyanfish/ntwain/blob/216c8c614d1514638cace41e5aa7e7ce48448d78/src/NTwain/Internals/InternalMessageLoopHook.cs)
 requests WPF dispatcher shutdown without joining its background thread. This
 reproduction supports a window/process-shutdown lifetime race; it does not prove
 that every driver or WPF shutdown error has that cause.

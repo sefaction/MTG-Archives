@@ -10,7 +10,7 @@ $destination = Join-Path $OutputPath 'counted-twain'
 New-Item -ItemType Directory -Path $destination -Force | Out-Null
 $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe'
 $arguments = @('/nologo','/target:exe','/platform:x86','/optimize+',"/out:$destination\Mtg.CountedTwain.exe","/reference:$reference",'/reference:System.Drawing.dll','/reference:System.Web.Extensions.dll','/reference:System.Windows.Forms.dll',
-  (Join-Path $PSScriptRoot 'CountedTwainWorker.cs'), (Join-Path $PSScriptRoot '..\scanner-twain-count\CountFeedPolicy.cs'), (Join-Path $PSScriptRoot '..\scanner-twain-count\OwnedTwainLoop.cs'))
+  (Join-Path $PSScriptRoot 'CountedTwainWorker.cs'), (Join-Path $PSScriptRoot '..\scanner-twain-count\CountFeedPolicy.cs'), (Join-Path $PSScriptRoot '..\scanner-twain-count\OwnedTwainLoop.cs'), (Join-Path $PSScriptRoot '..\scanner-twain-count\GuardedFeedPolicy.cs'))
 & $compiler @arguments
 if ($LASTEXITCODE -ne 0) { throw 'Counted TWAIN companion build failed' }
 Copy-Item -LiteralPath $reference -Destination (Join-Path $destination 'NTwain.dll') -Force

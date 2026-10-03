@@ -38,7 +38,7 @@ def helper_source_archive(destination):
         for path in sorted(helper.iterdir()):
             if path.is_file() and path.suffix in ('.cs', '.csproj', '.json', '.ps1', '.py', '.iss', '.md'):
                 archive.write(path, 'tools/scanner-agent/' + path.name)
-        for name in ('CountFeedPolicy.cs', 'OwnedTwainLoop.cs'):
+        for name in ('CountFeedPolicy.cs', 'OwnedTwainLoop.cs', 'GuardedFeedPolicy.cs'):
             relative = 'tools/scanner-twain-count/' + name
             archive.write(ROOT / relative, relative)
 

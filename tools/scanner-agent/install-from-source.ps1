@@ -24,7 +24,7 @@ $sources = @(Get-ChildItem -LiteralPath $PSScriptRoot -File |
   Where-Object { $_.Extension -in @('.cs','.ps1') -or $_.Name -in @('ScannerAgent.csproj','packages.lock.json') } |
   Sort-Object Name)
 $text = ($sources | ForEach-Object { "$($_.Name) $((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash)" }) -join "`n"
-foreach ($sharedSource in @('CountFeedPolicy.cs', 'OwnedTwainLoop.cs')) {
+foreach ($sharedSource in @('CountFeedPolicy.cs', 'OwnedTwainLoop.cs', 'GuardedFeedPolicy.cs')) {
   $text += "`n$sharedSource $((Get-FileHash -LiteralPath (Join-Path $PSScriptRoot ('..\scanner-twain-count\' + $sharedSource)) -Algorithm SHA256).Hash)"
 }
 $bytes = [Text.Encoding]::UTF8.GetBytes($text)

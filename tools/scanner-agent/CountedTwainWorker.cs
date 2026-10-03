@@ -30,6 +30,37 @@ internal static class CountedTwainWorker
         restores.Add(delegate { Require(cap.SetValue(before)); CountFeedPolicy.RequireReadback(true, before, cap.GetCurrent()); });
         Require(cap.SetValue(value)); CountFeedPolicy.RequireReadback(true, value, cap.GetCurrent());
     }
+    private static void Readback<T>(IReadOnlyCapWrapper<T> cap, T expected)
+    {
+        CountFeedPolicy.RequireReadback(cap.CanGetCurrent, expected, cap.CanGetCurrent ? cap.GetCurrent() : default(T));
+    }
+    private static void ObservedInvariant(DataSource source)
+    {
+        // Correlation only: this does not establish Pre-Pick Off or qualify
+        // feeding. The physical route remains suspended before source access.
+        var cap = new CapWrapper<object>(source, (CapabilityId)0x80FD, v => v,
+            (Func<object, ReturnCode>)(v => { throw new InvalidOperationException("Vendor SET forbidden"); }));
+        GuardedFeedPolicy.RequireObservedInvariant(cap.CanGetCurrent, cap.CanGetCurrent ? cap.GetCurrent() : null);
+    }
+    private static void CaptureReadback(DataSource source, int target)
+    {
+        Readback(source.Capabilities.CapFeederEnabled, BoolType.True);
+        Readback(source.Capabilities.CapDuplexEnabled, BoolType.False);
+        Readback(source.Capabilities.CapAutoFeed, BoolType.True);
+        Readback(source.Capabilities.CapAutoScan, BoolType.False);
+        Readback(source.Capabilities.CapXferCount, target);
+        Readback(source.Capabilities.ICapXferMech, XferMech.Native);
+        Readback(source.Capabilities.ICapPixelType, PixelType.RGB);
+        Readback(source.Capabilities.ICapBitDepth, 24);
+        Readback(source.Capabilities.ICapXResolution, (TWFix32)600f);
+        Readback(source.Capabilities.ICapYResolution, (TWFix32)600f);
+        Readback(source.Capabilities.ICapUnits, Unit.Inches);
+        TWImageLayout layout; Require(source.DGImage.ImageLayout.Get(out layout));
+        if (Math.Abs((double)layout.Frame.Left) > .001 || Math.Abs((double)layout.Frame.Top) > .001 ||
+            Math.Abs((double)layout.Frame.Right - 2.7) > .001 || Math.Abs((double)layout.Frame.Bottom - 3.6) > .001)
+            throw new InvalidOperationException("Capture frame changed");
+        ObservedInvariant(source);
+    }
     private static void Owners(int parent)
     {
         // Discovery's idle NAPS2 proxy may belong to the same helper. Other
@@ -48,7 +79,7 @@ internal static class CountedTwainWorker
     }
     private static int Main(string[] args)
     {
-        if (args.Length == 1 && args[0] == "selftest") { CountFeedPolicy.SelfTest(); return 0; }
+        if (args.Length == 1 && args[0] == "selftest") { CountFeedPolicy.SelfTest(); GuardedFeedPolicy.SelfTest(); return 0; }
         if (args.Length == 2 && args[0] == "fixture-channel-v1") return Fixture(args[1]);
         // The helper backend also refuses this route, but a direct companion
         // launch must not reopen the failed physical profile during qualification.
@@ -76,6 +107,7 @@ internal static class CountedTwainWorker
             // profiles need their own acceptance, rather than a silent fallback.
             if (!source.Version.ToString().Contains("3.40.2.1815") || source.ProtocolVersion.ToString() != "2.4")
                 throw new InvalidOperationException("Driver profile needs qualification");
+            ObservedInvariant(source);
             Exact(source.Capabilities.CapFeederEnabled, BoolType.True);
             Exact(source.Capabilities.CapDuplexEnabled, BoolType.False);
             Exact(source.Capabilities.CapAutoFeed, BoolType.True);
@@ -91,6 +123,7 @@ internal static class CountedTwainWorker
             if (Math.Abs((double)layout.Frame.Left) > .001 || Math.Abs((double)layout.Frame.Top) > .001 ||
                 Math.Abs((double)layout.Frame.Right - 2.7) > .001 || Math.Abs((double)layout.Frame.Bottom - 3.6) > .001)
                 throw new InvalidOperationException("Current driver frame differs from qualified profile");
+            CaptureReadback(source, target);
             Send(new { kind = "prepared", target, driver = source.Version.ToString(), protocol = source.ProtocolVersion.ToString(),
                 widthInches = (double)layout.Frame.Right, heightInches = (double)layout.Frame.Bottom, dpi = 600, autoScan = false });
             var next = Read();
@@ -123,8 +156,7 @@ internal static class CountedTwainWorker
             session.TransferCanceled += delegate { failures++; Send(new { kind = "problem", code = "TRANSFER_CANCELLED" }); };
             session.SourceDisabled += delegate { disabled.Set(); };
             Owners(parent);
-            CountFeedPolicy.RequireReadback(true, target, source.Capabilities.CapXferCount.GetCurrent());
-            CountFeedPolicy.RequireReadback(true, BoolType.False, source.Capabilities.CapAutoScan.GetCurrent());
+            CaptureReadback(source, target);
             if (source.Capabilities.CapFeederLoaded.GetCurrent() != BoolType.True) { empty = true; result = 0; }
             else
             {
