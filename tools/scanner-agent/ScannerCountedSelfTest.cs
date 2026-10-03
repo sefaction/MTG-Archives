@@ -8,6 +8,16 @@ internal static class ScannerCountedSelfTest
     {
         var request = new ScanRequest(Guid.NewGuid(), CountedTwainBackend.DeviceId, 600, 2.7m, 3.6m,
             SessionPhysicalTarget: 2);
+        using (var suspended = new CountedTwainBackend())
+        {
+            if ((await suspended.ListDevices()).Single().Qualification != Qualification.Unsupported ||
+                (await suspended.GetCapabilities(CountedTwainBackend.DeviceId)).Features["countControl"].Support != Support.ReportedUnsupported)
+                throw new InvalidDataException("Failed physical count control still advertised as working");
+            var refused = false;
+            try { await suspended.Prepare(request); }
+            catch (InvalidOperationException error) when (error.Message == CountedTwainBackend.SuspendedReason) { refused = true; }
+            if (!refused) throw new InvalidDataException("Suspended counted source reached native preparation");
+        }
         foreach (var invalid in new[] { request with { Dpi = 300 }, request with { Duplex = true },
             request with { SessionPhysicalTarget = null }, request with { ImageStopBudget = 1 },
             request with { WidthInches = 2.6m }, request with { AllowInterruptingStop = true } })
@@ -43,7 +53,7 @@ internal static class ScannerCountedSelfTest
                 try { await backend.Start(spool); } catch (InvalidOperationException) { denied = true; }
                 if (!denied) throw new InvalidDataException("Same counted backend fed twice");
             }
-            Console.WriteLine("PASS counted companion channel, invalid profile refusal, early-empty/restore-error/retained-overtransfer and single Start; no hardware");
+            Console.WriteLine("PASS suspended physical count source refused before native preparation; motor-free counted channel, invalid profile, early-empty/restore-error/retained-overtransfer and single Start");
         }
         finally { Directory.Delete(root, true); }
     }
