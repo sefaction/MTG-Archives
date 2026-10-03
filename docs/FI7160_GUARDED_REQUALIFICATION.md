@@ -77,7 +77,12 @@ Compilation and motor-free policy tests cover revised small targets, legacy
 command refusal, mismatched session/target/incomplete readiness, unavailable or
 mistyped driver invariants and existing-journal refusal. CI runs those tests and
 the settings-only inspector selftest without hardware. A prepared/cancelled
-actual-source session must complete with zero acquisition calls before feeding.
+actual-source session passed with zero acquisition calls before feeding: fresh
+Cards/Pre-Pick Off was observed, Cancel settled in state 4, the program waited
+without authorization, and cancellation restored all eleven standard settings
+and closed source/DSM successfully. No image, authorization file or scanner owner
+remained. All four initial-head GitHub checks passed. This is preparation and
+cancellation evidence only; no physical count has yet been retested.
 
 After that, each fresh supervised small test needs operator observations of
 undamaged exits, clear transport and every remaining card wholly in the hopper.
