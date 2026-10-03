@@ -25,6 +25,8 @@ export const scannerBatchSchema = z.object({
   settings: scannerSettingsSchema,
   operatorLoadedSimplexFronts: z.literal(true),
   defaults: acquisitionDefaultsSchema.optional(),
+  continuous: z.literal(true).optional(),
+  continueFrom: z.string().uuid().optional(),
 }).strict();
 export const scannerRunClaimSchema = z.object({
   version: z.literal(1), runId: z.string().uuid(), epoch: z.string().uuid(),
