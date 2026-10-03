@@ -19,10 +19,20 @@ import { readScannerCapacity } from "./scanner-capacity";
 import { readStorageLayout } from "./storage-layout";
 import { normalizeLocationSection } from "./inventory-locations";
 import { lockScannerSeries, requireRunningScannerSeries } from "./scanner-series";
+import { scannerDeviceSchema } from "./scanner-protocol";
 
 type Tx = Prisma.TransactionClient;
 const denied = () => new ScannerRunConflict();
 const include = { acquisitionRun: { include: { session: true } } } as const;
+function currentCountedSource(agent: { devices: Prisma.JsonValue; lastSeenAt: Date | null }, deviceId: string) {
+  const parsed = scannerDeviceSchema.array().safeParse(agent.devices);
+  const device = parsed.success ? parsed.data.find(d => d.id === deviceId) : undefined;
+  if (!agent.lastSeenAt || Date.now() - agent.lastSeenAt.getTime() >= 30000 ||
+      !device || !isCountedScannerDevice(device) ||
+      !["Qualified", "KnownWorking"].includes(device.qualification))
+    throw new ScannerRunConflict("Count controlled scanner is unavailable or unqualified. Refresh scanner setup before starting or refilling.");
+  return device;
+}
 async function lockScannerCreation(tx: Tx, requestKey: string) {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`scanner-create-v1:${requestKey}`}, 0))`;
 }
@@ -65,6 +75,7 @@ export async function createScannerBatch(db: PrismaClient, actor: AcquisitionAct
   const device = helper?.devices.find(d => d.id === input.deviceId);
   if (!helper?.online || !device || device.qualification === "Unsupported") throw denied();
   const counted = isCountedScannerDevice(device);
+  if (counted) currentCountedSource(helper, device.id);
   if ((input.continuous || input.continueFrom) && (!counted || !input.continuous || input.quantity !== null))
     throw new ScannerRunConflict("Section series requires a count controlled source and automatic section capacity");
   if (counted && scannerCanonical(input.settings) !== scannerCanonical(countedScannerSettings))
@@ -117,9 +128,10 @@ export async function createScannerBatch(db: PrismaClient, actor: AcquisitionAct
     const agent = await tx.scannerAgent.findUniqueOrThrow({ where: { id: helper.id } });
     if (agent.revokedAt || agent.userId !== actor.userId || !agent.lastSeenAt || Date.now() - agent.lastSeenAt.getTime() >= 30000)
       throw denied();
+    const admittedDevice = counted ? currentCountedSource(agent, device.id) : device;
     const run = await tx.scannerRun.create({ data: { id: input.requestKey, agentId: helper.id,
       acquisitionRunId: row.run!.id, epoch, requestPayload: scannerCanonical(input), deviceId: device.id,
-      device, settings: input.settings, loadedCount: input.loadedCount, counted,
+      device: admittedDevice, settings: input.settings, loadedCount: input.loadedCount, counted,
       physicalTarget: row.target, seriesRootId, seriesOrdinal }, include });
     return command(run);
   });
@@ -148,6 +160,7 @@ export async function claimScannerRun(db: PrismaClient, authorization: string | 
       return { version: 1, runId: run.id, executionId: input.executionId, feedAuthorized: true, replay: true };
     }
     if (current.status !== "QUEUED" || current.stopRequestedAt) throw denied();
+    if (current.counted) currentCountedSource(await tx.scannerAgent.findUniqueOrThrow({ where: { id: current.agentId } }), current.deviceId);
     const progress = await getStartState(tx, actor, current.acquisitionRun.sessionId);
     if (!progress.destinationCurrent || progress.session.phase !== "CAPTURING" ||
       !current.counted && progress.session.target !== null && current.loadedCount !== null && current.loadedCount > progress.session.target) throw denied();
@@ -460,6 +473,7 @@ export async function refillScannerBatch(db: PrismaClient, userId: string, value
       throw new ScannerRunConflict("Refill requires a reconciled early-empty segment in this unfinished batch");
     const agent = await tx.scannerAgent.findUniqueOrThrow({ where: { id: prior.agentId } });
     if (agent.revokedAt || agent.userId !== userId || !agent.lastSeenAt || Date.now() - agent.lastSeenAt.getTime() >= 30000) throw denied();
+    const refillDevice = currentCountedSource(agent, prior.deviceId);
     if (await tx.scannerRun.count({ where: { agentId: agent.id, reconciliation: { equals: Prisma.DbNull } } })) throw denied();
     const offset = prior.sequenceOffset + Number(outcome!.imageCount), remaining = state.session.target! - offset;
     if (remaining <= 0 || remaining > 5000) throw denied();
@@ -470,7 +484,7 @@ export async function refillScannerBatch(db: PrismaClient, userId: string, value
       throw new ScannerRunConflict("Reserved capacity changed. End this batch and select available space before feeding again.");
     const next = await tx.scannerRun.create({ data: { id: input.requestKey, agentId: prior.agentId,
       acquisitionRunId: prior.acquisitionRunId, epoch, requestPayload: scannerCanonical(input), deviceId: prior.deviceId,
-      device: prior.device!, settings: prior.settings!, loadedCount: input.loadedCount, physicalTarget: remaining,
+      device: refillDevice, settings: prior.settings!, loadedCount: input.loadedCount, physicalTarget: remaining,
       counted: true, sequenceOffset: offset, segment: prior.segment + 1,
       seriesRootId: prior.seriesRootId, seriesOrdinal: prior.seriesOrdinal }, include });
     await tx.acquisitionSession.update({ where: { id: state.session.id }, data: { phase: "CAPTURING", revision: { increment: 1 } } });
