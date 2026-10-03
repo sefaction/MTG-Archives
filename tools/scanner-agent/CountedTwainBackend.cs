@@ -64,7 +64,8 @@ public sealed class CountedTwainBackend : IScannerBackend
         await Write(new { action = "prepare", parent = Environment.ProcessId, target = request.SessionPhysicalTarget });
         var ack = await Read();
         if (ack.GetProperty("kind").GetString() != "prepared" || ack.GetProperty("target").GetInt32() != request.SessionPhysicalTarget ||
-            ack.GetProperty("dpi").GetInt32() != 600 || ack.GetProperty("autoScan").GetBoolean())
+            ack.GetProperty("dpi").GetInt32() != 600 || ack.GetProperty("autoScan").GetBoolean() ||
+            !ack.TryGetProperty("blankDiscard", out var blankDiscard) || blankDiscard.ValueKind != JsonValueKind.False)
             throw new InvalidOperationException("Counted capability negotiation failed; no feed started");
         prepared = request;
     }
@@ -74,7 +75,7 @@ public sealed class CountedTwainBackend : IScannerBackend
         started = true; spool = output;
         output.Event("AcquisitionStarted", new { requested = prepared, route = BackendId,
             actualConfiguration = fixtureScenario != null ? "Fixture channel; no TWAIN session constructed" :
-                "PaperStream 3.40.2.1815 / legacy x86 DSM / verified simplex native RGB24 600 / current 2.7x3.6 frame / AUTOSCAN=false",
+                "PaperStream 3.40.2.1815 / legacy x86 DSM / verified simplex native RGB24 600 / current 2.7x3.6 frame / AUTOSCAN=false / blank-page discard disabled",
             physicalCount = "UNKNOWN; operator observation required" });
         var retained = 0; var error = false;
         try
