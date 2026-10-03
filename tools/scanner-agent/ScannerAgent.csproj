@@ -8,11 +8,19 @@
     <Nullable>enable</Nullable>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <AssemblyName>Mtg.ScannerAgent</AssemblyName>
-    <Version>0.3.8</Version>
+    <Version>0.4.0</Version>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="CountedTwainWorker.cs" />
     <PackageReference Include="NAPS2.Sdk" Version="1.3.0" />
     <PackageReference Include="NAPS2.Images.Gdi" Version="1.3.0" />
     <PackageReference Include="NAPS2.Sdk.Worker.Win32" Version="1.3.0" />
   </ItemGroup>
+  <Target Name="BuildCountedTwainWorker" BeforeTargets="Build" Condition="'$(OS)' == 'Windows_NT'">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\build-counted-worker.ps1&quot; -OutputPath &quot;$(TargetDir).&quot; -PackageRoot &quot;$(NuGetPackageRoot).&quot;" />
+  </Target>
+  <Target Name="PublishCountedTwainWorker" AfterTargets="Publish" Condition="'$(OS)' == 'Windows_NT'">
+    <ItemGroup><CountedWorkerFiles Include="$(TargetDir)counted-twain\*" /></ItemGroup>
+    <Copy SourceFiles="@(CountedWorkerFiles)" DestinationFolder="$(PublishDir)counted-twain" />
+  </Target>
 </Project>

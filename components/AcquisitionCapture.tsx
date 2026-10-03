@@ -9,6 +9,7 @@ import { AcquisitionBulkReview } from "./AcquisitionBulkReview";
 import { useAcquisitionDrafts } from "./useAcquisitionDrafts";
 import { acquisitionDraftKey } from "@/lib/acquisition-browser-review-draft";
 import { SCANNER_CAPTURE_PROVIDER } from "@/lib/scanner-run-protocol";
+import { COUNTED_SCANNER_DEVICE } from "@/lib/scanner-counted-profile";
 import { StorageDestinationPicker } from "./StorageDestinationPicker";
 import {
   AcquisitionBatchDefaults,
@@ -102,6 +103,9 @@ export function AcquisitionCapture({
   const [customLimit, setCustomLimit] = useState(false);
   const [scannerChoice, setScannerChoice] = useState<ScannerChoice | null>(null);
   const [scannerEnabled, setScannerEnabled] = useState(initialScanner);
+  const countedScanner = scannerChoice?.deviceId === COUNTED_SCANNER_DEVICE;
+  const [scannerCapacity, setScannerCapacity] = useState<{ locationId: string; section: string; remaining: number | null; pendingSection: number; pendingTotal: number } | null>(null);
+  const [capacityError, setCapacityError] = useState("");
   const [scannerDetecting, setScannerDetecting] = useState(false);
   const pendingStart = useRef<PendingScannerStart | null>(null);
   const [pendingScanner, setPendingScanner] = useState<PendingScannerStart | null>(null);
@@ -117,7 +121,7 @@ export function AcquisitionCapture({
     const identity = JSON.stringify({ value, enabled });
     if (sourceIdentity.current !== identity) createKey.current = "";
     sourceIdentity.current = identity;
-    setScannerChoice(value); setScannerEnabled(enabled); if (enabled) setCustomLimit(false);
+    setScannerChoice(value); setScannerEnabled(enabled); if (enabled && value?.deviceId !== COUNTED_SCANNER_DEVICE) setCustomLimit(false);
   }, []);
   const [batchId, setBatchId] = useState(initialBatch);
   const [progress, setProgress] = useState<Progress | null>(null);
@@ -293,10 +297,22 @@ export function AcquisitionCapture({
       ? null
       : Math.max(0, selectedSection.capacity - selectedSection.quantity),
   ].filter((n): n is number => n !== null);
-  const remaining = limits.length ? Math.min(...limits) : null;
+  const capacityReady = !countedScanner || scannerCapacity?.locationId === locationId && scannerCapacity?.section === section && !capacityError;
+  const remaining = countedScanner && capacityReady ? scannerCapacity!.remaining : limits.length ? Math.min(...limits) : null;
+  const needsNextSection = (countedScanner || initialSetup?.nextSectionRequired) && !!destination?.sections.length && !section;
   useEffect(() => {
-    setQuantity(remaining ?? 1);
-  }, [locationId, section, remaining]);
+    if (!countedScanner || batchId || !locationId) return;
+    let active = true;
+    const load = async () => { try {
+      const value = await request<NonNullable<typeof scannerCapacity>>("/api/scanners/capacity?location="+encodeURIComponent(locationId)+"&section="+encodeURIComponent(section));
+      if (active) { setScannerCapacity(value); setCapacityError(""); }
+    } catch (e) { if (active) setCapacityError((e as Error).message); } };
+    void load(); const timer = setInterval(()=>void load(),5000);
+    return ()=>{active=false;clearInterval(timer);};
+  }, [countedScanner, batchId, locationId, section]);
+  useEffect(() => {
+    if (!customLimit) setQuantity(remaining ?? 1);
+  }, [locationId, section, remaining, customLimit]);
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -662,7 +678,7 @@ export function AcquisitionCapture({
               createKey.current = "";
             }}
           />
-          {!scannerEnabled && <label className="block my-3">
+          {(!scannerEnabled || countedScanner) && <label className="block my-3">
             <input
               type="checkbox"
               disabled={busy || checkingStart || !!pendingScanner || startStorageError}
@@ -674,7 +690,7 @@ export function AcquisitionCapture({
             />{" "}
             Set a batch limit (optional)
           </label>}
-          {!scannerEnabled && customLimit && (
+          {(!scannerEnabled || countedScanner) && customLimit && (
             <label className="block my-3">
               Cards in this batch{" "}
               <input
@@ -691,7 +707,12 @@ export function AcquisitionCapture({
               />
             </label>
           )}
-          <p className="text-sm mb-3">
+          {countedScanner && <p className="text-sm mb-3" role="status">{capacityReady
+            ? remaining === null ? "Choose a card count for this batch." : remaining+" spaces available after pending cards and unfinished batch reservations."
+            : "Checking available capacity."} {scannerCapacity?.pendingSection ? scannerCapacity.pendingSection+" spaces are held by other batches in this section." : ""}</p>}
+          {capacityError && <p role="alert">{capacityError}</p>}
+          {needsNextSection && <p role="status">Choose the next section before starting.</p>}
+          <p className="text-sm mb-3" hidden={countedScanner}>
             {remaining === null
               ? scannerEnabled ? "No capacity set. The scanner runs until the feeder is empty and shows the saved image count." : photoInput ? "This location has no capacity set. Keep adding photos and watch the running count, then stop when finished." : "This location has no capacity set. Keep scanning and watch the running count, then stop when finished."
               : scannerEnabled ? `${remaining} spaces remain. Load no more than that; the scanner runs until the feeder is empty.` : `${remaining} spaces remaining in this destination.`}{" "}
@@ -709,7 +730,8 @@ export function AcquisitionCapture({
           <button
             className={primary}
             disabled={
-              busy || checkingStart || startStorageError || refreshingCapacity || (!pendingScanner && (
+                busy || checkingStart || startStorageError || refreshingCapacity || (!pendingScanner && (
+                !capacityReady || !!needsNextSection || (countedScanner && remaining === null && !customLimit) ||
               !destination ||
               (scannerEnabled && !scannerChoice) ||
               remaining === 0 ||

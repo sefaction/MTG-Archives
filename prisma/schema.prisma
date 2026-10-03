@@ -222,7 +222,7 @@ model ScannerRun {
   id              String @id
   agentId         String
   agent           ScannerAgent @relation(fields: [agentId], references: [id], onDelete: Restrict)
-  acquisitionRunId String @unique
+  acquisitionRunId String
   acquisitionRun  AcquisitionRun @relation(fields: [acquisitionRunId], references: [id], onDelete: Restrict)
   epoch           String
   requestPayload  String
@@ -230,6 +230,10 @@ model ScannerRun {
   device          Json
   settings        Json
   loadedCount     Int?
+  physicalTarget  Int?
+  sequenceOffset  Int @default(0)
+  segment         Int @default(0)
+  counted         Boolean @default(false)
   status          String @default("QUEUED")
   executionId     String?
   stopRequestedAt DateTime?
@@ -240,6 +244,7 @@ model ScannerRun {
   updatedAt       DateTime @updatedAt
 
   @@index([agentId, status, createdAt])
+  @@unique([acquisitionRunId, segment])
 }
 
 model AuthSession {
@@ -1310,6 +1315,7 @@ model AcquisitionSession {
   placement       Json
   policy          Json
   target          Int?
+  scannerReserved Int?
   phase           AcquisitionPhase @default(DRAFT)
   revision        Int      @default(0)
   createdAt       DateTime @default(now())
@@ -1340,7 +1346,7 @@ model AcquisitionRun {
   processingTurns AcquisitionProcessingTurn[]
   photos       AcquisitionPhoto[]
   commits      AcquisitionCommit[]
-  scannerRun   ScannerRun?
+  scannerRuns  ScannerRun[]
 }
 
 model AcquisitionEvent {

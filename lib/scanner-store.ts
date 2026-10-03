@@ -11,7 +11,8 @@ export async function scannerTransaction<T>(db: PrismaClient, work: (tx: Tx) => 
   for (let retry = 0; ; retry++) {
     try { return await db.$transaction(work, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 10000, timeout: 30000 }); }
     catch (error) {
-      if (retry >= 2 || !(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2034") throw error;
+      if (retry >= 2 || !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+          !(error.code === "P2034" || error.code === "P2010" && ["40001", "40P01"].includes(String(error.meta?.code)))) throw error;
     }
   }
 }

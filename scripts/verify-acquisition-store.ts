@@ -2,6 +2,7 @@ import { verifyRecognitionReplacement } from "./verify-acquisition-recognition-r
 import { verifyAcquisitionCommit } from "./verify-acquisition-commit";
 import { verifyScannerConnections } from "./verify-scanner-connections";
 import { verifyScannerRuns } from "./verify-scanner-runs";
+import { verifyCountedScanner } from "./verify-counted-scanner";
 import { verifyScannerStartRetirement } from "./verify-scanner-start-retirement";
 import assert from "node:assert/strict";
 import { verifyAcquisitionPhotos } from "./verify-acquisition-photos";
@@ -495,6 +496,7 @@ async function run() {
   await verifyAcquisitionCommit(db, actor, stranger, input());
   await verifyScannerConnections(db);
   await verifyScannerRuns(db);
+  await verifyCountedScanner(db);
   await verifyScannerStartRetirement(db);
 }
 

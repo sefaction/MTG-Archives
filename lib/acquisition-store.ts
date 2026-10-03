@@ -104,10 +104,12 @@ export type StoredCapture = {
 };
 
 async function transaction<T>(
-  db: PrismaClient,
+  db: PrismaClient | Tx,
   work: (tx: Tx) => Promise<T>,
   retryCreate = false,
 ): Promise<T> {
+  // Scanner admission joins session creation and START in its outer transaction.
+  if (!("$transaction" in db)) return work(db);
   for (let attempt = 0; ; attempt++) {
     try {
       return await db.$transaction(work, {
@@ -260,10 +262,11 @@ export async function getAcquisitionSession(
   );
 }
 export async function createAcquisitionSession(
-  db: PrismaClient,
+  db: PrismaClient | Tx,
   actor: AcquisitionActor,
   value: CreateAcquisitionInput,
   beforeWrite?: (tx: Prisma.TransactionClient) => Promise<void>,
+  scannerCapacity?: (tx: Prisma.TransactionClient) => Promise<{ remaining: number | null; pendingSection: number }>,
 ) {
   const input = createInput.parse(value);
   const requestPayload = JSON.stringify(input);
@@ -321,6 +324,7 @@ export async function createAcquisitionSession(
           sum + Math.min(s.target ?? Infinity, s.run?._count.candidates ?? 0),
         0,
       );
+      const scannerSpace = scannerCapacity ? await scannerCapacity(tx) : null;
       const placement = placementSnapshot({
         ownerPlayerId: owner.id,
         locationId: location.id,
@@ -335,6 +339,10 @@ export async function createAcquisitionSession(
         })),
         otherSessionPending,
       });
+      if (scannerSpace) {
+        placement.remaining = scannerSpace.remaining;
+        placement.otherSessionPending = scannerSpace.pendingSection;
+      }
       const policy =
         usesPhotoSlots(input.run.providerId) &&
         input.policy.kind !== "MANUAL"
@@ -370,6 +378,7 @@ export async function createAcquisitionSession(
           placement,
           policy: state.policy,
           target: state.target,
+          ...(scannerSpace ? { scannerReserved: state.target } : {}),
           ...(input.defaults ? { reviewDefaults: input.defaults } : {}),
           run: {
             create: {
@@ -601,7 +610,7 @@ export async function proposeAcquisitionCandidate(
 
 // Commands are replayable even after their original revision has advanced.
 export async function executeAcquisitionCommand(
-  db: PrismaClient,
+  db: PrismaClient | Tx,
   actor: AcquisitionActor,
   sessionId: string,
   input: {

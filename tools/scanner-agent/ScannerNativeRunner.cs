@@ -11,7 +11,7 @@ public record NativeSettings(int Dpi, decimal WidthInches, decimal HeightInches,
     string HorizontalPlacement, bool Duplex, string Color, bool AutoCrop, bool Deskew, bool RemoveBlank);
 public record NativeInstruction(int Version, Guid RunId, Guid Epoch, string SessionId,
     string DeviceId, int? LoadedCount, NativeSettings Settings, int? PhysicalTarget,
-    bool StopRequested, string Status, Guid? ExecutionId);
+    bool StopRequested, string Status, Guid? ExecutionId, bool Counted = false, int SequenceOffset = 0, int Segment = 0);
 public record NativeBinding(int Version, NativeInstruction Instruction, Guid ExecutionId);
 
 // Generic outbound acquisition transport; the existing backend owns all driver
@@ -42,10 +42,13 @@ public static class ScannerNativeRunner
         try {
             Directory.CreateDirectory(Path.Combine(root, "devices"));
             var drive = new DriveInfo(Path.GetPathRoot(Path.GetFullPath(root))!);
-            if (drive.AvailableFreeSpace < 2L * 1024 * 1024 * 1024 + (run.LoadedCount ?? 500) * 10L * 1024 * 1024) {
+            if (drive.AvailableFreeSpace < 2L * 1024 * 1024 * 1024 +
+                (run.Counted ? run.PhysicalTarget ?? 500 : run.LoadedCount ?? 500) * 10L * 1024 * 1024) {
                 await ReportPreflight(client, token, run, "LOW_DISK_SPACE"); return null;
             }
-            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(run.DeviceId)));
+            var physicalKey = devices.Any(d => d.Id == run.DeviceId && d.Name.Contains("fi-7160", StringComparison.OrdinalIgnoreCase))
+                ? "physical:fi-7160" : run.DeviceId;
+            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(physicalKey)));
             deviceLock = new FileStream(Path.Combine(root, "devices", $"{key}.lock"), FileMode.OpenOrCreate,
                 FileAccess.ReadWrite, FileShare.None);
         } catch (IOException error) when ((error.HResult & 0xffff) is 32 or 33) {
@@ -62,7 +65,8 @@ public static class ScannerNativeRunner
                 run.Settings.WidthInches, run.Settings.HeightInches, false, null,
                 run.PhysicalTarget, false, run.Settings.HorizontalPlacement);
             try {
-                backend = (backendFactory ?? (() => new Naps2Backend(run.DeviceId)))();
+                backend = (backendFactory ?? (() => run.DeviceId == CountedTwainBackend.DeviceId
+                    ? new CountedTwainBackend() : new Naps2Backend(run.DeviceId)))();
                 var currentDevices = await backend.ListDevices();
                 if (!currentDevices.Any(d => d.Id == run.DeviceId)) {
                     problem = "SCANNER_UNAVAILABLE";
@@ -101,7 +105,8 @@ public static class ScannerNativeRunner
     {
         var s = run.Settings;
         if (run.Version != 1 || run.RunId == Guid.Empty || run.Epoch == Guid.Empty ||
-            run.LoadedCount is < 1 or > 500 || run.PhysicalTarget is <= 0 ||
+            run.LoadedCount is < 1 or > 500 || run.PhysicalTarget is <= 0 || run.SequenceOffset < 0 || run.Segment < 0 ||
+            run.Counted != (run.DeviceId == CountedTwainBackend.DeviceId) || run.Counted && run.PhysicalTarget is not (>= 1 and <= 5000) ||
             s.Dpi is not (300 or 600) || s.WidthInches is < 2.5m or > 4 ||
             s.HeightInches is < 3.5m or > 6 || s.HorizontalPlacement is not ("Start" or "Center" or "End") ||
             s.Duplex || s.Color != "RGB" || s.AutoCrop || s.Deskew || s.RemoveBlank)
@@ -110,7 +115,8 @@ public static class ScannerNativeRunner
     private static bool SameInstruction(NativeInstruction a, NativeInstruction b) =>
         a.RunId == b.RunId && a.Epoch == b.Epoch && a.SessionId == b.SessionId &&
         a.DeviceId == b.DeviceId && a.LoadedCount == b.LoadedCount &&
-        a.Settings == b.Settings && a.PhysicalTarget == b.PhysicalTarget;
+        a.Settings == b.Settings && a.PhysicalTarget == b.PhysicalTarget && a.Counted == b.Counted &&
+        a.SequenceOffset == b.SequenceOffset && a.Segment == b.Segment;
     public static async Task PollAndRun(HttpClient client, Guid agentId, string token, string root,
         IReadOnlyList<Device> devices, CancellationToken stop, Func<IScannerBackend>? backendFactory = null, Func<object>? backendDescription = null)
     {

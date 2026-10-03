@@ -3,7 +3,7 @@ import { z } from "zod";
 import { scannerTransaction, authenticateScanner, listScannerAgents } from "./scanner-store";
 import { SCANNER_CAPTURE_PROVIDER, scannerBatchSchema, scannerRunClaimSchema,
   scannerTransferSchema, scannerRunFinishSchema, scannerReconcileSchema, scannerCanonical,
-  scannerPreflightReportSchema, scannerPreflightProblemSchema } from "./scanner-run-protocol";
+  scannerPreflightReportSchema, scannerPreflightProblemSchema, scannerRefillSchema } from "./scanner-run-protocol";
 import { createAcquisitionSession, executeAcquisitionCommand, getAcquisitionProgress,
   readAcquisitionRow, hydrateAcquisitionRow, saveAcquisitionRow,
   beginAcquisitionPhoto, finalizeAcquisitionPhoto, type AcquisitionActor } from "./acquisition-store";
@@ -14,6 +14,10 @@ import { persistScannerStartMarker, scannerStartMarkerExists, scannerSiteEpoch,
   scannerStartRetired, persistScannerStartRetirement } from "./scanner-control-files";
 import { lockAndReadInventoryCapacity } from "./inventory-capacity";
 import { ScannerRunConflict } from "./scanner-errors";
+import { isCountedScannerDevice, countedScannerSettings } from "./scanner-counted-profile";
+import { readScannerCapacity } from "./scanner-capacity";
+import { readStorageLayout } from "./storage-layout";
+import { normalizeLocationSection } from "./inventory-locations";
 
 type Tx = Prisma.TransactionClient;
 const denied = () => new ScannerRunConflict();
@@ -43,10 +47,12 @@ async function agentRun(tx: Tx, authorization: string | null, input: { runId: st
   return { ...auth, run };
 }
 function command(run: { id: string; epoch: string; deviceId: string; loadedCount: number | null; settings: Prisma.JsonValue;
+  physicalTarget: number | null; sequenceOffset: number; segment: number; counted: boolean;
   stopRequestedAt: Date | null; status: string; executionId: string | null; acquisitionRun: { sessionId: string; session: { target: number | null } } }) {
   return { version: 1, runId: run.id, epoch: run.epoch, sessionId: run.acquisitionRun.sessionId,
     deviceId: run.deviceId, loadedCount: run.loadedCount, settings: run.settings,
-    physicalTarget: run.acquisitionRun.session.target, stopRequested: !!run.stopRequestedAt,
+    physicalTarget: run.physicalTarget, sequenceOffset: run.sequenceOffset, segment: run.segment,
+    counted: run.counted, logicalTarget: run.acquisitionRun.session.target, stopRequested: !!run.stopRequestedAt,
     status: run.status, executionId: run.executionId };
 }
 export async function createScannerBatch(db: PrismaClient, actor: AcquisitionActor, value: unknown, epoch: string) {
@@ -57,14 +63,24 @@ export async function createScannerBatch(db: PrismaClient, actor: AcquisitionAct
   const helper = (await listScannerAgents(db, scoped.userId)).find(a => a.id === input.agentId);
   const device = helper?.devices.find(d => d.id === input.deviceId);
   if (!helper?.online || !device || device.qualification === "Unsupported") throw denied();
+  const counted = isCountedScannerDevice(device);
+  if (counted && scannerCanonical(input.settings) !== scannerCanonical(countedScannerSettings))
+    throw new ScannerRunConflict("Count controlled fi-7160 requires the qualified 600 DPI centered profile");
   const location = await db.inventoryLocation.findUnique({ where: { id: input.locationId } });
   if (!location) throw denied();
+  const layout = readStorageLayout(location.storageLayout, location.type);
+  if (counted && layout.sections.length && !layout.sections.some(s => s.name === normalizeLocationSection(input.section)))
+    throw new ScannerRunConflict("Choose a section before starting a count controlled scanner batch");
   const guard = (tx: Tx) => guardScannerCreation(tx, input.requestKey);
-  const capture = await createAcquisitionSession(db, scoped, scannerCaptureInput(input, location.ownerPlayerId), guard);
-  if (capture.session.target !== null && input.loadedCount !== null && input.loadedCount > capture.session.target)
-    throw new ScannerRunConflict("Choose a loaded batch within the selected remaining capacity");
-  await executeAcquisitionCommand(db, scoped, capture.session.id, { requestKey: "initial-start", revision: 0, command: "START" }, guard);
   return scannerTransaction(db, async tx => {
+    // Refused or concurrent Starts must not leave an orphan capacity reservation.
+    const capture = await createAcquisitionSession(tx, scoped, scannerCaptureInput(input, location.ownerPlayerId), guard,
+      counted ? inner => readScannerCapacity(inner, { locationId: location.id, ownerPlayerId: location.ownerPlayerId, section: input.section }) : undefined);
+    if (counted && (capture.session.target === null || capture.session.target > 5000))
+      throw new ScannerRunConflict("Choose a count or a section with known remaining capacity");
+    if (!counted && capture.session.target !== null && input.loadedCount !== null && input.loadedCount > capture.session.target)
+      throw new ScannerRunConflict("Choose a loaded batch within the selected remaining capacity");
+    await executeAcquisitionCommand(tx, scoped, capture.session.id, { requestKey: "initial-start", revision: 0, command: "START" }, guard);
     await guard(tx);
     const row = await readAcquisitionRow(tx, scoped, capture.session.id);
     const old = await tx.scannerRun.findUnique({ where: { id: input.requestKey }, include });
@@ -72,6 +88,7 @@ export async function createScannerBatch(db: PrismaClient, actor: AcquisitionAct
       if (old.agentId !== helper.id || old.requestPayload !== scannerCanonical(input) || old.epoch !== epoch) throw denied();
       return command(old);
     }
+    await tx.$queryRaw`SELECT id FROM "ScannerAgent" WHERE id = ${helper.id} FOR UPDATE`;
     if (row.phase !== "CAPTURING" || await tx.scannerRun.count({ where: { agentId: helper.id, reconciliation: { equals: Prisma.DbNull } } }))
       throw new ScannerRunConflict("Capture scanner has an unfinished batch; reconcile it before starting another");
     const agent = await tx.scannerAgent.findUniqueOrThrow({ where: { id: helper.id } });
@@ -79,7 +96,8 @@ export async function createScannerBatch(db: PrismaClient, actor: AcquisitionAct
       throw denied();
     const run = await tx.scannerRun.create({ data: { id: input.requestKey, agentId: helper.id,
       acquisitionRunId: row.run!.id, epoch, requestPayload: scannerCanonical(input), deviceId: device.id,
-      device, settings: input.settings, loadedCount: input.loadedCount }, include });
+      device, settings: input.settings, loadedCount: input.loadedCount, counted,
+      physicalTarget: row.target }, include });
     return command(run);
   });
 }
@@ -105,12 +123,16 @@ export async function claimScannerRun(db: PrismaClient, authorization: string | 
     if (current.status !== "QUEUED" || current.stopRequestedAt) throw denied();
     const progress = await getStartState(tx, actor, current.acquisitionRun.sessionId);
     if (!progress.destinationCurrent || progress.session.phase !== "CAPTURING" ||
-      progress.session.target !== null && current.loadedCount !== null && current.loadedCount > progress.session.target) throw denied();
-    const capacity = await lockAndReadInventoryCapacity(tx, {
+      !current.counted && progress.session.target !== null && current.loadedCount !== null && current.loadedCount > progress.session.target) throw denied();
+    const capacity = await (current.counted ? readScannerCapacity : lockAndReadInventoryCapacity)(tx, {
       locationId: progress.session.placement.locationId, ownerPlayerId: progress.session.placement.ownerPlayerId,
-      section: progress.session.placement.section,
+      section: progress.session.placement.section, excludeSessionId: progress.session.id,
     });
-    if (capacity.remaining !== null && (capacity.remaining === 0 || current.loadedCount !== null && current.loadedCount > capacity.remaining))
+    const pendingOwn = await tx.acquisitionCandidate.count({ where: { runId: run.acquisitionRunId, receipt: null } });
+    if (current.counted && (current.physicalTarget === null || capacity.remaining !== null &&
+        current.physicalTarget + pendingOwn > capacity.remaining))
+      throw new ScannerRunConflict("Reserved capacity changed; no feed authorized. End this batch and choose available space.");
+    if (!current.counted && capacity.remaining !== null && (capacity.remaining === 0 || current.loadedCount !== null && current.loadedCount > capacity.remaining))
       throw new ScannerRunConflict("Choose a loaded batch within the current remaining capacity; no feed authorized");
     // File write deliberately occurs under the short serialized claim lock.
     // If DB commit fails, the marker persists and denies automatic refeeding.
@@ -158,12 +180,12 @@ export async function receiveScannerImage(db: PrismaClient, authorization: strin
     const row = await readAcquisitionRow(tx, auth.actor, run.acquisitionRun.sessionId);
     const old = await tx.acquisitionCaptureSlot.findUnique({ where: { runId_requestKey: {
       runId: row.run!.id, requestKey: input.artifactId } } });
-    if (old && old.position !== input.sequence - 1) throw new ScannerRunConflict("Photo scanner sequence identity conflict");
+    if (old && old.position !== run.sequenceOffset + input.sequence - 1) throw new ScannerRunConflict("Photo scanner sequence identity conflict");
     if (!old && (!state.destinationCurrent || !["CAPTURING", "STOPPING"].includes(row.phase) || run.status === "DRAINED")) throw denied();
     // No target truncation: overscan becomes provisional overflow in the ordinary
     // acquisition model. Its original remains recoverable on either host.
     const slot = old ?? await tx.acquisitionCaptureSlot.create({ data: {
-      runId: row.run!.id, requestKey: input.artifactId, position: input.sequence - 1 } });
+      runId: row.run!.id, requestKey: input.artifactId, position: run.sequenceOffset + input.sequence - 1 } });
     if (!old) await tx.acquisitionSession.update({ where: { id: row.id }, data: { revision: { increment: 1 } } });
     return { ...auth, slot };
   });
@@ -195,13 +217,16 @@ export async function finishScannerRun(db: PrismaClient, authorization: string |
     await tx.$queryRaw`SELECT id FROM "ScannerRun" WHERE id = ${run.id} FOR UPDATE`;
     if (run.executionId !== input.executionId || !["STARTED", "DRAINED", "ERROR"].includes(run.status)) throw denied();
     if (run.outcome && scannerCanonical(run.outcome) !== scannerCanonical(input.outcome)) throw denied();
-    const photos = await tx.acquisitionPhoto.findMany({ where: { runId: run.acquisitionRunId }, include: { slot: true } });
+    const photos = await tx.acquisitionPhoto.findMany({ where: { runId: run.acquisitionRunId,
+      ...(run.counted ? { sourceMetadata: { path: ["runId"], equals: run.id } } : {}) }, include: { slot: true } });
     const positions = photos.map(p=>p.slot.position).sort((a,b)=>a-b);
-    if (photos.length !== input.outcome.imageCount || photos.some(p=>!p.ready) || positions.some((p,i)=>p!==i))
+    if (photos.length !== input.outcome.imageCount || photos.some(p=>!p.ready) || positions.some((p,i)=>p!==i + run.sequenceOffset))
       throw new ScannerRunConflict("Capture scanner transfers need reconciliation before completion");
     const row = await readAcquisitionRow(tx, actor, run.acquisitionRun.sessionId);
-    const status = ["ERROR", "INTERRUPTED"].includes(input.outcome.outcome) ? "ERROR" : "DRAINED";
-    const natural = run.loadedCount === null && status === "DRAINED" && !run.stopRequestedAt &&
+    const unsafeCounted = run.counted && (input.outcome.imageCount > run.physicalTarget! ||
+      input.outcome.imageCount < run.physicalTarget! && input.outcome.sourceExhausted !== "REPORTED_EMPTY");
+    const status = unsafeCounted || ["ERROR", "INTERRUPTED"].includes(input.outcome.outcome) ? "ERROR" : "DRAINED";
+    const natural = !run.counted && run.loadedCount === null && status === "DRAINED" && !run.stopRequestedAt &&
       ["COMPLETED", "SOURCE_EXHAUSTED"].includes(input.outcome.outcome) && !input.outcome.nativeError;
     let reconciled = false;
     if (natural && !run.reconciliation) {
@@ -218,17 +243,25 @@ export async function finishScannerRun(db: PrismaClient, authorization: string |
       ...(reconciled ? { reconciliation: { mode: "SCANNER_IMAGE_COUNT", actorUserId: actor.userId,
         observedAt: new Date().toISOString(), imageCount: input.outcome.imageCount,
         boundarySource: "ONE_RETAINED_IMAGE_PER_CARD_ASSUMED; SDK physical boundaries UNKNOWN" } } : {}) } });
-    if (row.phase !== "COMPLETE") await tx.acquisitionSession.update({ where: { id: row.id }, data: {
-      phase: status === "ERROR" ? "STOPPING" : "COMPLETE", revision: { increment: 1 } } });
+    // A settled earlier segment may be replayed after a refill has begun. Its
+    // idempotent finish cannot pause or complete the newer segment/session.
+    const latest = await tx.scannerRun.findFirstOrThrow({ where: { acquisitionRunId: run.acquisitionRunId }, orderBy: { segment: "desc" } });
+    if (latest.id === run.id && !run.outcome && row.phase !== "COMPLETE") await tx.acquisitionSession.update({ where: { id: row.id }, data: {
+      phase: status === "ERROR" ? "STOPPING" : run.counted && !run.stopRequestedAt &&
+        run.sequenceOffset + input.outcome.imageCount < row.target! ? "PAUSED" : "COMPLETE", revision: { increment: 1 } } });
     return { version: 1, runId: run.id, status, physicalCount: reconciled || run.reconciliation ? "ASSUMED_FROM_IMAGES" : "UNCONFIRMED" };
   });
 }
 export async function getScannerBatch(db: PrismaClient, userId: string, runId: string) {
   const state = await scannerTransaction(db, async tx => {
-    const run = await tx.scannerRun.findUnique({ where: { id: runId }, include });
-    if (!run || run.acquisitionRun.session.createdByUserId !== userId) throw denied();
+    const requested = await tx.scannerRun.findUnique({ where: { id: runId }, include });
+    if (!requested || requested.acquisitionRun.session.createdByUserId !== userId) throw denied();
+    const run = await tx.scannerRun.findFirstOrThrow({ where: { acquisitionRunId: requested.acquisitionRunId }, include, orderBy: { segment: "desc" } });
     await readAcquisitionRow(tx, { userId, adminMode: false }, run.acquisitionRun.sessionId);
     return { ...command(run), agentId: run.agentId, device: run.device, outcome: run.outcome, reconciliation: run.reconciliation,
+      phase: run.acquisitionRun.session.phase,
+      remainingTarget: Math.max(0, (run.acquisitionRun.session.target ?? 0) - run.sequenceOffset -
+        ((run.outcome as Prisma.JsonObject | null)?.imageCount as number ?? 0)),
       preflightProblem: scannerPreflightProblemSchema.safeParse(run.preflightProblem).success ? run.preflightProblem : null };
   });
   return state;
@@ -245,7 +278,7 @@ export async function findScannerBatchCreation(db: PrismaClient, actor: Acquisit
 export async function retireScannerBatchCreation(db: PrismaClient, actor: AcquisitionActor, value: unknown) {
   const input = scannerBatchSchema.parse(value), scoped = { userId: actor.userId, adminMode: false };
   // Read committed observes a creator that finished while this lock waited.
-  // Each creation phase uses this same lock, not a long outer transaction.
+  // Atomic admission and retirement both use this same creation lock.
   return db.$transaction(async tx => {
     await lockScannerCreation(tx, input.requestKey);
     const user = await tx.user.findUnique({ where: { id: actor.userId }, include: { player: true } });
@@ -281,7 +314,7 @@ export async function retireScannerBatchCreation(db: PrismaClient, actor: Acquis
     await persistScannerStartRetirement(input.requestKey, actor.userId, epoch, input);
     if (existing) {
       if (phase !== "CANCELLED") await tx.acquisitionSession.update({ where: { id: existing.id },
-        data: { phase: "CANCELLED", revision: { increment: 1 } } });
+        data: { phase: "CANCELLED", scannerReserved: 0, revision: { increment: 1 } } });
       const run = await tx.acquisitionRun.findUniqueOrThrow({ where: { sessionId: existing.id } });
       await tx.acquisitionCommand.upsert({ where: { runId_requestKey: { runId: run.id, requestKey: "scanner-creation-retired" } },
         update: {}, create: { runId: run.id, requestKey: "scanner-creation-retired",
@@ -304,9 +337,10 @@ export async function stopScannerBatch(db: PrismaClient, userId: string, runId: 
       // Database QUEUED alone is insufficient after restore. Serialize with
       // claim and reject uncertainty before asserting there was no authorized feed.
       if (run.executionId || run.epoch !== await scannerSiteEpoch() || await scannerStartMarkerExists(runId) ||
-          !["CAPTURING", "CANCELLED"].includes(state.session.phase) || state.session.artifacts.length ||
-          state.session.candidates.length || await tx.acquisitionCaptureSlot.count({ where: { runId: run.acquisitionRunId } }) ||
-          await tx.acquisitionPhoto.count({ where: { runId: run.acquisitionRunId } }))
+          !["CAPTURING", "CANCELLED"].includes(state.session.phase) ||
+          (!run.counted && (state.session.artifacts.length || state.session.candidates.length)) ||
+          await tx.acquisitionCaptureSlot.count({ where: { runId: run.acquisitionRunId,
+            ...(run.counted ? { position: { gte: run.sequenceOffset } } : {}) } }))
         throw new ScannerRunConflict("This batch has saved or uncertain START evidence. Keep the cards and originals; reconcile it before scanning again.");
     }
     await tx.scannerRun.update({ where: { id: runId }, data: { stopRequestedAt: run.stopRequestedAt ?? new Date(),
@@ -315,7 +349,8 @@ export async function stopScannerBatch(db: PrismaClient, userId: string, runId: 
         evidence: "No server START marker, execution or acquisition artifacts; not an observed physical count",
       } } : {}) } });
     if (beforeStart && state.session.phase !== "CANCELLED") await tx.acquisitionSession.update({ where: { id: run.acquisitionRun.sessionId },
-      data: { phase: "CANCELLED", revision: { increment: 1 } } });
+      data: { phase: run.counted && run.segment > 0 ? "COMPLETE" : "CANCELLED",
+        ...(run.counted ? { scannerReserved: run.sequenceOffset } : {}), revision: { increment: 1 } } });
     return { version: 1, runId, stopGuarantee: beforeStart ? "No START authorized; no physical count required" : "UNSUPPORTED; current feeder run drains" };
   });
 }
@@ -334,21 +369,90 @@ export async function reconcileScannerBatch(db: PrismaClient, userId: string, va
     }
     const state = await getStartState(tx, actor, run.acquisitionRun.sessionId);
     const row = await readAcquisitionRow(tx, actor, run.acquisitionRun.sessionId);
+    if (run.counted) {
+      if (!input.feederEmpty && (!input.remainingWhollyInHopper || !input.remainingCards) ||
+        input.feederEmpty && (input.remainingCards ?? 0) !== 0 || run.loadedCount !== null &&
+        input.cardsEmitted + (input.remainingCards ?? 0) !== run.loadedCount)
+        throw new ScannerRunConflict("Observe all emitted and remaining cards and a clear transport before continuing");
+    } else if (!input.feederEmpty || (input.remainingCards ?? 0) !== 0)
+      throw new ScannerRunConflict("This scanner route requires an empty hopper and transport");
+    const segmentPhotos = await tx.acquisitionPhoto.findMany({ where: { runId: run.acquisitionRunId,
+      ...(run.counted ? { sourceMetadata: { path: ["runId"], equals: run.id } } : {}) }, select: { slotId: true } });
+    const segmentSlots = new Set(segmentPhotos.map(p => p.slotId));
+    const segmentCandidates = state.session.candidates.filter(c => segmentSlots.has(c.input.id));
     const cancelledEmpty = run.status === "CANCELLED_BEFORE_START" && input.cardsEmitted === 0 &&
       !run.executionId && run.epoch === await scannerSiteEpoch() && !await scannerStartMarkerExists(run.id) &&
       state.session.candidates.length === 0 && state.session.artifacts.length === 0 &&
       !await tx.acquisitionCaptureSlot.count({ where: { runId: run.acquisitionRunId } });
-    if (!cancelledEmpty && (state.session.candidates.length !== input.cardsEmitted || run.loadedCount !== null && input.cardsEmitted !== run.loadedCount ||
+    if (!cancelledEmpty && (segmentCandidates.length !== input.cardsEmitted || !run.counted && run.loadedCount !== null && input.cardsEmitted !== run.loadedCount ||
       (run.outcome as Prisma.JsonObject)?.imageCount !== input.cardsEmitted))
       throw new ScannerRunConflict("Capture scanner physical count differs; retain images for individual reconciliation");
     let after = state.session;
-    for (const c of after.candidates) after = correctPhysicalCount(after, {
+    for (const c of segmentCandidates) if (!c.countConfirmed) after = correctPhysicalCount(after, {
       candidateKey: candidateKey(after.run.runId, c.input.id), revision: c.revision,
-      actorId: userId, reason: "Operator observed one front per emitted physical card, empty feeder/transport and no jam/double",
+      actorId: userId, reason: "Operator observed one front per emitted physical card, clear transport, accounted hopper cards and no jam/double",
       action: "CONFIRM_COUNT" });
     await saveAcquisitionRow(tx, row, state.session, after);
     await tx.scannerRun.update({ where: { id: run.id }, data: { reconciliation: {
       observation: input, actorUserId: userId, observedAt: new Date().toISOString(), boundarySource: "OPERATOR; SDK boundaries remain UNKNOWN" } } });
+    if (run.counted && row.phase === "COMPLETE") await tx.acquisitionSession.update({ where: { id: row.id },
+      data: { scannerReserved: run.sequenceOffset + input.cardsEmitted } });
     return { version: 1, runId: run.id, confirmed: true, replay: false };
+  });
+}
+
+/** Explicit new feed authorization within the same unfinished logical batch.
+ * Recovery of an old segment never enters this function or opens the device. */
+export async function refillScannerBatch(db: PrismaClient, userId: string, value: unknown, epoch: string) {
+  const input = scannerRefillSchema.parse(value), actor = { userId, adminMode: false };
+  return scannerTransaction(db, async tx => {
+    await guardScannerCreation(tx, input.requestKey);
+    const prior = await tx.scannerRun.findUnique({ where: { id: input.runId }, include });
+    if (!prior || !prior.counted || prior.acquisitionRun.session.createdByUserId !== userId || prior.epoch !== epoch) throw denied();
+    await tx.$queryRaw`SELECT id FROM "ScannerAgent" WHERE id = ${prior.agentId} FOR UPDATE`;
+    const state = await getStartState(tx, actor, prior.acquisitionRun.sessionId);
+    const old = await tx.scannerRun.findUnique({ where: { id: input.requestKey }, include });
+    if (old) {
+      if (old.acquisitionRunId !== prior.acquisitionRunId || old.requestPayload !== scannerCanonical(input) || old.epoch !== epoch) throw denied();
+      return command(old);
+    }
+    const latest = await tx.scannerRun.findFirstOrThrow({ where: { acquisitionRunId: prior.acquisitionRunId }, orderBy: { segment: "desc" } });
+    const outcome = prior.outcome as Prisma.JsonObject | null;
+    const observation = (prior.reconciliation as Prisma.JsonObject | null)?.observation as Prisma.JsonObject | undefined;
+    if (latest.id !== prior.id || prior.status !== "DRAINED" || !prior.reconciliation || prior.stopRequestedAt ||
+        state.session.phase !== "PAUSED" || !state.destinationCurrent || !observation?.feederEmpty ||
+        outcome?.sourceExhausted !== "REPORTED_EMPTY" || !["COMPLETED", "SOURCE_EXHAUSTED"].includes(String(outcome?.outcome)) || outcome?.nativeError)
+      throw new ScannerRunConflict("Refill requires a reconciled early-empty segment in this unfinished batch");
+    const agent = await tx.scannerAgent.findUniqueOrThrow({ where: { id: prior.agentId } });
+    if (agent.revokedAt || agent.userId !== userId || !agent.lastSeenAt || Date.now() - agent.lastSeenAt.getTime() >= 30000) throw denied();
+    if (await tx.scannerRun.count({ where: { agentId: agent.id, reconciliation: { equals: Prisma.DbNull } } })) throw denied();
+    const offset = prior.sequenceOffset + Number(outcome!.imageCount), remaining = state.session.target! - offset;
+    if (remaining <= 0 || remaining > 5000) throw denied();
+    const space = await readScannerCapacity(tx, { locationId: state.session.placement.locationId,
+      ownerPlayerId: state.session.placement.ownerPlayerId, section: state.session.placement.section, excludeSessionId: state.session.id });
+    const pending = await tx.acquisitionCandidate.count({ where: { runId: prior.acquisitionRunId, receipt: null } });
+    if (space.remaining !== null && remaining + pending > space.remaining)
+      throw new ScannerRunConflict("Reserved capacity changed. End this batch and select available space before feeding again.");
+    const next = await tx.scannerRun.create({ data: { id: input.requestKey, agentId: prior.agentId,
+      acquisitionRunId: prior.acquisitionRunId, epoch, requestPayload: scannerCanonical(input), deviceId: prior.deviceId,
+      device: prior.device!, settings: prior.settings!, loadedCount: input.loadedCount, physicalTarget: remaining,
+      counted: true, sequenceOffset: offset, segment: prior.segment + 1 }, include });
+    await tx.acquisitionSession.update({ where: { id: state.session.id }, data: { phase: "CAPTURING", revision: { increment: 1 } } });
+    return command(next);
+  });
+}
+
+export async function endScannerBatch(db: PrismaClient, userId: string, runId: string) {
+  return scannerTransaction(db, async tx => {
+    const prior = await tx.scannerRun.findUnique({ where: { id: runId }, include });
+    if (!prior || !prior.counted || prior.acquisitionRun.session.createdByUserId !== userId) throw denied();
+    const state = await getStartState(tx, { userId, adminMode: false }, prior.acquisitionRun.sessionId);
+    const latest = await tx.scannerRun.findFirstOrThrow({ where: { acquisitionRunId: prior.acquisitionRunId }, orderBy: { segment: "desc" } });
+    if (latest.id !== prior.id || !prior.reconciliation || !["DRAINED", "ERROR"].includes(prior.status) ||
+      !["PAUSED", "STOPPING", "COMPLETE"].includes(state.session.phase)) throw denied();
+    const captured = prior.sequenceOffset + Number((prior.outcome as Prisma.JsonObject).imageCount);
+    await tx.acquisitionSession.update({ where: { id: state.session.id }, data: { phase: "COMPLETE", scannerReserved: captured,
+      ...(state.session.phase !== "COMPLETE" ? { revision: { increment: 1 } } : {}) } });
+    return { version: 1, runId, ended: true };
   });
 }
