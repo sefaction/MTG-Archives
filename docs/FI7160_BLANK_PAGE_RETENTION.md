@@ -37,3 +37,19 @@ SET/readback/restore on this driver is not yet qualified. Further physical tests
 still require fresh specific supervised loading/readiness, visible Pre-Pick Off
 and the newly verified blank-retention setting. Larger and integrated hardware
 acceptance remains incomplete.
+
+The cumulative local Docker review includes PRs 601/603/604/605/607/609/611.
+All five PR611 checks passed at `ac597e7`. The complete installer from that
+source has SHA256
+`f36dc5badede4ee1cf0841d1dac4c888fb9319fa859bc620096b740b7c721c39`.
+The healthy local web image is
+`18e32da565c0969787bdad170b9afe46b97a5cf1c0933eeec344f10447cba8a3`;
+all 532 source inputs matched digest
+`46823d52eaa4b2369a3fbedf8ce0afc5b5cf0f690b72f1eb4f7f510570d5e405`.
+Authenticated browser download/hash verification passed (1 test, 8.3 seconds),
+with its temporary user removed. The Inventory full-row hash remains
+`742d2fa870de453d80f151c6368e4f82` (10,280 rows / 12,482 copies), and all five
+background acquisition worker generations remain unchanged. Only the local web
+service was reloaded. The installed laptop helper remains unchanged and stopped;
+this review build does not qualify hardware or authorize a feed, merge, or
+production deployment.
