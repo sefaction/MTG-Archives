@@ -36,3 +36,15 @@ test after fresh empty/clear confirmation. No further feed is queued. Fresh smal
 physical counts must pass before integrated count/refill/section-series testing;
 larger logical targets must respect the hopper's thickness-dependent load limits.
 No production deployment or merge approval is implied.
+
+## Cumulative local review
+
+Source `31ab7a7` passed all five CI checks, including the actual installed
+source-archive rebuild. Its complete source/notices installer is served by the
+local review app. Only the installer executable and metadata differed among the
+532 app inputs; the review image derives from the previously qualified app image
+and verifies the new installer before loading. All 532 inputs matched afterward.
+An authenticated download/checksum test passed (1 case, 13.4 seconds), with the
+temporary user removed. Inventory's full-row hash and all five acquisition worker
+process/image/start/restart/OOM states stayed unchanged. The installed laptop
+helper remains unchanged. No new scanner session or physical feed occurred.
