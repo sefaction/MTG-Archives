@@ -34,3 +34,30 @@ This software gate does not qualify physical counts. The empty-source
 blank-retention/restoration/shutdown check and new supervised small trials
 remain pending. Installed laptop helpers remain stopped; no production
 deployment or merge is authorized.
+
+## Local qualification
+
+The full disposable PostgreSQL acquisition integrity suite passed (94.1 seconds),
+followed by shared receipt/import integrity (44.1 seconds), with owned fixture
+rows, container and anonymous volume cleaned. Typecheck and 29 focused scanner
+unit checks passed. All three CI checks passed at `85b1658`; a subsequent browser
+assertion/documentation-only revision requires fresh final-head CI reconciliation.
+
+The cumulative healthy local web image is
+`ae668b1748528f1c579a33abb5546fe52d69197b7de8d76f908f083aea420667`.
+All 532 source inputs match digest
+`12478241946929a6c962e10f8602a11b0ef82216b6e7530c8962ba7e38c66e3e`.
+The counted browser test passed (18.0 seconds), including actual HTTP409 before
+START and a readable paused-refill refusal followed by successful same-batch
+refill. The helper API intentionally returns its existing generic conflict
+message; the operator refill form shows the setup instruction. The section-series
+browser test also passed. Desktop and 320-pixel phone layouts passed width checks;
+the paused phone screenshot was visually inspected. The first combined run began
+before web startup completed, failed at login with ERR_EMPTY_RESPONSE, and cleaned
+its fixture; the affected test was rerun after healthy status.
+
+Only the local web service was reloaded. All five acquisition worker generations
+remain unchanged. The Inventory full-row hash remains
+`742d2fa870de453d80f151c6368e4f82` (10,280 rows / 12,482 copies), and counted/series
+browser fixture users are absent. The unchanged complete scanner installer from
+PR611 retains its qualified source identity. No physical scanner was opened.

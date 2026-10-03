@@ -51,7 +51,7 @@ test("counted source selects one, preserves hopper remainder, then explicitly re
     const refused=await page.request.post("/api/scanner-agent/runs",{headers,data:{action:"claim",version:1,
       runId:queued.run.runId,epoch:queued.epoch,executionId:randomUUID()}});
     expect(refused.status()).toBe(409);
-    expect(await refused.text()).toContain("supports card counts");
+    expect(await refused.text()).toContain("needs review or reconciliation");
     expect((await polled()).run.status).toBe("QUEUED");
     const first=await begin();expect(first.run.physicalTarget).toBe(1);expect(first.run.settings.widthInches).toBe(2.7);expect(first.run.settings.dpi).toBe(600);
     await transfer(first.claim,1);await finish(first.claim,1,false);
