@@ -9,7 +9,7 @@ New-Item -ItemType Directory -Force -Path $output | Out-Null
 Copy-Item -LiteralPath $library -Destination (Join-Path $output 'NTwain.dll')
 & $compiler /nologo /target:exe /platform:x86 ('/out:' + (Join-Path $output 'CountProbe.exe')) ('/reference:' + $library) (Join-Path $PSScriptRoot 'CountProbe.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Count probe compilation failed' }
-& $compiler /nologo /target:exe /platform:x86 ('/out:' + (Join-Path $output 'CountFeed.exe')) ('/reference:' + $library) /reference:System.Drawing.dll (Join-Path $PSScriptRoot 'CountFeed.cs') (Join-Path $PSScriptRoot 'CountFeedPolicy.cs')
+& $compiler /nologo /target:exe /platform:x86 ('/out:' + (Join-Path $output 'CountFeed.exe')) ('/reference:' + $library) /reference:System.Drawing.dll (Join-Path $PSScriptRoot 'CountFeed.cs') (Join-Path $PSScriptRoot 'CountFeedPolicy.cs') (Join-Path $PSScriptRoot 'GuardedFeedPolicy.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Count feed compilation failed' }
 & $compiler /nologo /target:exe /platform:x86 ('/out:' + (Join-Path $output 'ProfileSettingsInspect.exe')) ('/reference:' + $library) (Join-Path $PSScriptRoot 'ProfileSettingsInspect.cs') (Join-Path $PSScriptRoot 'CountFeedPolicy.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Settings-only profile inspector compilation failed' }

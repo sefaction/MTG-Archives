@@ -8,6 +8,24 @@ internal static class ScannerCountedSelfTest
     {
         var request = new ScanRequest(Guid.NewGuid(), CountedTwainBackend.DeviceId, 600, 2.7m, 3.6m,
             SessionPhysicalTarget: 2);
+        var nativeStart = new System.Diagnostics.ProcessStartInfo(CountedTwainBackend.WorkerPath) {
+            UseShellExecute = false, CreateNoWindow = true,
+            RedirectStandardInput = true, RedirectStandardOutput = true
+        };
+        nativeStart.ArgumentList.Add("helper-channel-v1");
+        using (var native = System.Diagnostics.Process.Start(nativeStart)
+            ?? throw new InvalidDataException("Native suspension check unavailable"))
+        {
+            // EOF makes a missing refusal fail safely before valid preparation;
+            // no physical request or source identity is supplied by this test.
+            native.StandardInput.Close();
+            var refused = await native.StandardOutput.ReadToEndAsync();
+            await native.WaitForExitAsync();
+            using var response = System.Text.Json.JsonDocument.Parse(refused);
+            if (native.ExitCode != 2 || response.RootElement.GetProperty("kind").GetString() != "problem" ||
+                response.RootElement.GetProperty("code").GetString() != "COUNT_CONTROL_SUSPENDED")
+                throw new InvalidDataException("Direct counted companion bypassed feeding suspension");
+        }
         using (var suspended = new CountedTwainBackend())
         {
             if ((await suspended.ListDevices()).Single().Qualification != Qualification.Unsupported ||

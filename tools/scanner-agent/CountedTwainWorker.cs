@@ -50,6 +50,14 @@ internal static class CountedTwainWorker
     {
         if (args.Length == 1 && args[0] == "selftest") { CountFeedPolicy.SelfTest(); return 0; }
         if (args.Length == 2 && args[0] == "fixture-channel-v1") return Fixture(args[1]);
+        // The helper backend also refuses this route, but a direct companion
+        // launch must not reopen the failed physical profile during qualification.
+        // Refuse before input, ownership, a TWAIN session or any driver call.
+        if (args.Length == 1 && args[0] == "helper-channel-v1")
+        {
+            Send(new { kind = "problem", code = "COUNT_CONTROL_SUSPENDED" });
+            return 2;
+        }
         if (args.Length != 1 || args[0] != "helper-channel-v1" || IntPtr.Size != 4) return 2;
         TwainSession session = null; DataSource source = null; bool started = false; int result = 1;
         var elapsed = Stopwatch.StartNew();
