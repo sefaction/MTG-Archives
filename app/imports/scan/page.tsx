@@ -54,6 +54,7 @@ export default async function ScanPage({
       {!photoInput && <p role="note" className="rounded border border-amber-500 p-3 text-sm">fi-7160 counted feeding is suspended: a ten-card test partly pulled the eleventh card into the transport. Helper 0.4.1 blocks this source. Section workflow software can be reviewed with simulations; real use awaits verified pre-pick control and fresh physical qualification.</p>}
       {!photoInput && <ScannerConnections newBatchHref="/imports/scan?input=scanner#new-scan-batch" />}
       <AcquisitionCapture
+        key={initialBatch || initialSetup?.continueFrom || photoInput || "new"}
         userId={user.id}
         locations={storage}
         initialSetup={initialSetup}
