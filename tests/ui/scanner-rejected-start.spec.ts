@@ -49,7 +49,9 @@ test("rejected scanner Start can retire its original identity before setup chang
     await destination.getByRole("button",{name:"Keep current destination",exact:true}).click();
     await expect(destination.getByRole("button",{name:/change/i})).toBeEnabled();
     await expect(destination).toContainText(tag);
-    await expect(page.getByRole("status").filter({hasText:"unfinished empty batch was cancelled"})).toBeVisible();
+    await expect(page.getByRole("status").filter({hasText:"The previous Start was cancelled."})).toBeVisible();
+    // Atomic rejection has no partial batch/reservation to cancel.
+    expect(Number(database(`console.log(await p.acquisitionSession.count({where:{createdByUserId:${JSON.stringify(tag)}}}));`).trim())).toBe(0);
     expect(retireRequests).toBe(2);
     await page.setViewportSize({width:320,height:700});
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

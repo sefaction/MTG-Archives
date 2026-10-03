@@ -1,6 +1,7 @@
 # fi-7160 counted capacity and refill qualification
 
-Implementation branch `codex/fi7160-capacity-refill` builds on diagnostic PR
+Implementation [draft PR599](https://github.com/sefaction/MTG-Archives/pull/599)
+on branch `codex/fi7160-capacity-refill` builds on diagnostic PR
 [598](https://github.com/sefaction/MTG-Archives/pull/598). Both batches require
 individual approval before merging. Tracking issue
 [597](https://github.com/sefaction/MTG-Archives/issues/597) remains open for physical
@@ -46,7 +47,7 @@ remain separate explicit actions.
   passed. Frozen final build and focused lint/type checks passed after the final
   UI wording changes.
 - Disposable PostgreSQL acquisition and shared import qualification passed,
-  including the new counted suite. Acquisition took 109756 ms and import 44948 ms;
+  including the new counted suite. Final acquisition took 105644 ms and import 41045 ms;
   the fixture and anonymous database volume were removed.
 - The real database suite covers synthetic 83-image capacity, pending/committed
   conservation, explicit section choice, concurrent parent reservations,
@@ -58,10 +59,18 @@ remain separate explicit actions.
   and restoration failure. Existing authorization, lost ACK, recovery and retention
   selftests also pass. Helper 0.4.0 source build and self-contained installer pass
   their release-material checks; the installed helper remains 0.3.8.
+- The new companion negotiated the actual driver/profile, read back target one
+  and ahead-scanning disabled, restored settings and closed successfully. No START
+  command or source Enable was sent, and zero images resulted. This verifies
+  preparation/restoration only; it is not an integrated physical feed.
 - Counted desktop/phone browser qualification passes at 1366 and 320 pixels,
   covering one-card selection, pending capacity, explicit next section,
   early-empty pause/reload and Resume under the same batch. Screenshots inspected.
-  Five existing alignment/authorization/preflight/rejected-start cases pass.
+  Seven existing alignment/authorization/preflight/rejected-start/Start-replay
+  cases pass. Final qualification covers eight unique browser cases. One legacy
+  rejected-Start assertion expected a partial batch; it now checks zero sessions
+  after atomic refusal and the existing cancellation/recovery messages. Both
+  affected rejection/lost-ACK cases passed on repeat, with their failure retained.
 
 An initial migration attempted to drop a unique index owned by a constraint and
 was corrected to DROP CONSTRAINT. Concurrent refill exposed a raw serialization
@@ -70,19 +79,39 @@ Prisma P2034. Genuine failures propagate. Initial core invocation/shared-client
 Windows lock/lint failures and a premature browser-fixture poll were corrected;
 their failed logs remain private alongside the passing runs.
 
+Final review reproduced [issue600](https://github.com/sefaction/MTG-Archives/issues/600):
+a rejected Start on a busy helper left an orphan acquisition session/reservation.
+Session creation, logical START and scanner-run admission now share one serializable
+transaction. The regression checks unchanged session count and capacity after
+refusal. Retirement checks now pause before and after atomic admission rather
+than the former three creation commits; legacy partial sessions, restored markers,
+accepted-run adoption and saved-evidence fences remain covered. The targeted
+suite passed in 23032 ms, followed by the full acquisition/import qualification.
+The failed baseline and the obsolete test-boundary failure are retained.
+
 Private evidence: `.local-data/counted-core-qualified.log`, final build/type/lint
 logs, `counted-capacity-postgres-qualified.log`,
 `.local-data/verification/acquisition-2026-10-03T00-28-16-007Z/result.json`,
 `counted-helper-native-corrected.log`, `counted-source-install.log`,
 `counted-installer.log`, `counted-browser.log` and
-`counted-browser-corrected.log`. No private card images or credentials are committed.
+`counted-browser-corrected.log`. Final atomic evidence is in
+`counted-admission-baseline.log`, `counted-admission-qualified.log`,
+`counted-capacity-postgres-atomic-qualified.log`, `counted-core-atomic-qualified.log`,
+`counted-actual-profile-no-enable.log` and
+`.local-data/verification/acquisition-2026-10-03T01-03-23-422Z/result.json`.
+Final browser evidence is `counted-browser-atomic-qualified.log` (seven passes and
+the obsolete assertion failure) plus `counted-browser-rejection-qualified.log`
+(both affected cases pass). Five CI checks passed on implementation commit
+`40d54955dce35e9b79282cc18e59a5b2db8ffef6`; GitHub is authoritative for later
+documentation/test revisions.
+No private card images or credentials are committed.
 
 ## Local review environment
 
-The cumulative local review uses `mtg-archives-web:counted-refill-final`, manifest
-`b5cb2bb00d50a8836b8a425bafa4b3674e9ea91afd76d6d6ac196277553ef0db`, with 530
+The cumulative local review uses `mtg-archives-web:counted-refill-qualified`, manifest
+`a75562eb7d1a931d8ebb2167b08a130461c1618ca6f98c19a61cd29c947441fc`, with 530
 exact source inputs and digest
-`7708a8ca6830ee3b7a7cbdad080e3e161f3c11f18cdcf278e55c2d4fa433c4e8`.
+`db1bc95bf83ecd667923921b4d2e2a09ebc34ea454fa0324232a0e01a6a60e7c`.
 All three native workers match 348 source/Prisma inputs each. Their original model
 and index generations were preserved. Only web and the five acquisition services
 were reloaded using the existing complete Compose stack plus a review overlay.
