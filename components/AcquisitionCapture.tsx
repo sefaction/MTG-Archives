@@ -101,6 +101,8 @@ export function AcquisitionCapture({
   const router = useRouter(), [refreshingCapacity, refreshCapacity] = useTransition();
   const [quantity, setQuantity] = useState(1);
   const [customLimit, setCustomLimit] = useState(false);
+  const [continuousSections, setContinuousSections] = useState(true);
+  const continuingSeries = !!initialSetup?.continueFrom;
   const [scannerChoice, setScannerChoice] = useState<ScannerChoice | null>(null);
   const [scannerEnabled, setScannerEnabled] = useState(initialScanner);
   const countedScanner = scannerChoice?.deviceId === COUNTED_SCANNER_DEVICE;
@@ -430,6 +432,9 @@ export function AcquisitionCapture({
         locationId,
         section,
         quantity: customLimit ? quantity : null,
+        ...(countedScanner && !customLimit && (continuousSections || continuingSeries) ? {
+          continuous: true as const, ...(initialSetup?.continueFrom ? { continueFrom: initialSetup.continueFrom } : {}),
+        } : {}),
       };
       if (scannerChoice) {
         const { action: _action, ...intent } = value;
@@ -678,7 +683,19 @@ export function AcquisitionCapture({
               createKey.current = "";
             }}
           />
-          {(!scannerEnabled || countedScanner) && <label className="block my-3">
+          {countedScanner && !customLimit && <div className="my-3 space-y-2">
+            <label className="flex gap-2 items-start"><input type="checkbox" checked={continuousSections || continuingSeries}
+              disabled={continuingSeries || busy || checkingStart || !!pendingScanner || startStorageError}
+              onChange={e=>{setContinuousSections(e.target.checked);createKey.current="";}} />
+              Fill sections one at a time until I stop</label>
+            <p className="text-sm">After each count, confirm the physical result, then choose the next section and explicitly start it. An early-empty hopper pauses the same batch for refill. Saved cards reserve space until added to Inventory or resolved.</p>
+            {continuingSeries && <button type="button" className={button} disabled={busy || !!pendingScanner} onClick={()=>{
+              setBusy(true); void request("/api/scanners/runs",{action:"stop-series",runId:initialSetup!.continueFrom})
+                .then(()=>router.push(`/imports/scan?batch=${initialSetup!.previousSessionId}`))
+                .catch(e=>setError((e as Error).message)).finally(()=>setBusy(false));
+            }}>Stop section series</button>}
+          </div>}
+          {(!scannerEnabled || countedScanner) && !continuingSeries && <label className="block my-3">
             <input
               type="checkbox"
               disabled={busy || checkingStart || !!pendingScanner || startStorageError}

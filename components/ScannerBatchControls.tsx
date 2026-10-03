@@ -111,6 +111,11 @@ export function ScannerRunControls({ runId, savedImages, refresh }: { runId: str
   const cancelled = (run?.reconciliation as { mode?: string } | null)?.mode === "CANCELLED_WITHOUT_START";
   return <section className={panel+" min-w-0 space-y-3"} aria-label="Scanner batch">
     <h3 className="font-semibold">Scanner batch</h3>
+    {run?.series && <div className="space-y-2">
+      <p role="status">Section series · batch {run.series.ordinal + 1}. {run.series.stopped ? "Series stopped. Saved cards remain available for review and explicit Inventory addition." : "Choose each next section yourself; scanning waits for your Start."}</p>
+      {!run.series.stopped && <button className={button} disabled={busy} onClick={()=>void act({action:"stop-series",runId:run.runId})}>Stop section series</button>}
+      {!run.series.current && <a className={button} href={`/imports/scan?input=scanner&continue=${run.series.latestRunId}`}>Current section series</a>}
+    </div>}
     <p role="status">{run?.status === "QUEUED" ? scannerPreflightMessage(run.preflightProblem) ?? "Waiting for the Windows helper to start." : run?.status === "STARTED" ? "Scanning and uploading." :
       run?.status === "DRAINED" ? paused ? "Hopper emptied early. "+run.remainingTarget+" cards remain in this batch." : run.counted ? run.remainingTarget > 0 ? "Batch ended with saved cards. Choose the next section before feeding more." : "Selected count reached. Choose the next section before feeding more." : "Scanner run ended." : run?.status === "CANCELLED_BEFORE_START" && cancelled ? "Waiting scan cancelled. The helper was not authorized to feed cards." : run ? "Scanner run needs reconciliation; originals remain saved." : "Loading scanner status."}
       {" "}{savedImages} {savedImages === 1 ? "image" : "images"} saved.</p>
@@ -135,18 +140,19 @@ export function ScannerRunControls({ runId, savedImages, refresh }: { runId: str
     {paused && run?.reconciliation && <fieldset className="space-y-3">
       <legend className="font-semibold">Refill this batch</legend>
       <p>{run.remainingTarget} cards remain for this section. Saved images and reviews stay in this batch.</p>
-      <label className="flex gap-2 items-start"><input type="checkbox" checked={refillReady} onChange={e=>setRefillReady(e.target.checked)} />
+      {!run.series?.stopped && <label className="flex gap-2 items-start"><input type="checkbox" checked={refillReady} onChange={e=>setRefillReady(e.target.checked)} />
         I refilled card fronts, checked the guides and clear transport, and no other scan job owns the scanner.</label>
-      <div className="flex flex-wrap gap-2"><button className={button} disabled={busy || !refillReady} onClick={()=>{
+      }
+      <div className="flex flex-wrap gap-2">{!run.series?.stopped && <button className={button} disabled={busy || !refillReady} onClick={()=>{
         refillKey.current ??= crypto.randomUUID(); void act({action:"refill",runId:run.runId,requestKey:refillKey.current,
           loadedCount:null,operatorLoadedSimplexFronts:true});
-      }}>Resume unfinished batch</button><button className={button} disabled={busy} onClick={()=>void act({action:"end",runId:run.runId})}>End batch with saved cards</button></div>
+      }}>Resume unfinished batch</button>}<button className={button} disabled={busy} onClick={()=>void act({action:"end",runId:run.runId})}>End batch with saved cards</button></div>
     </fieldset>}
     {run?.counted && run.status === "ERROR" && run.reconciliation && run.phase === "STOPPING" && <div className="space-y-2">
       <p role="alert">Count mismatch or driver error. Keep cards and originals; inspect the transport and driver before any further feeding.</p>
       <button className={button} disabled={busy} onClick={()=>void act({action:"end",runId:run.runId})}>End reconciled batch</button>
     </div>}
-    {run?.reconciliation && (!run.counted || ["COMPLETE", "CANCELLED"].includes(run.phase)) && <div className="flex flex-wrap gap-2">
+    {run?.reconciliation && !run.series?.stopped && (!run.series || run.series.current) && (!run.counted || ["COMPLETE", "CANCELLED"].includes(run.phase)) && <div className="flex flex-wrap gap-2">
       <a className={button} href={"/imports/scan?input=scanner&continue="+encodeURIComponent(runId)+"#new-scan-batch"}>{run.counted ? "Choose next section" : "New scanner batch"}</a>
     </div>}
     {error && <p role="alert">{error}</p>}

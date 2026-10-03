@@ -9,7 +9,7 @@ import { scannerSecret } from "../lib/scanner-protocol";
 import { scannerSiteEpoch, scannerStartMarkerExists } from "../lib/scanner-control-files";
 import { COUNTED_SCANNER_DEVICE, COUNTED_SCANNER_BACKEND, countedScannerSettings as settings } from "../lib/scanner-counted-profile";
 import { createScannerBatch, claimScannerRun, receiveScannerImage, finishScannerRun, reconcileScannerBatch,
-  refillScannerBatch, endScannerBatch, stopScannerBatch, getScannerBatch, pollScannerRun } from "../lib/scanner-runs";
+  refillScannerBatch, endScannerBatch, stopScannerBatch, stopScannerSeries, getScannerBatch, pollScannerRun } from "../lib/scanner-runs";
 import { readScannerCapacity } from "../lib/scanner-capacity";
 import { scannerContinuation, currentScannerContinuation } from "../lib/scanner-continuation";
 import { getAcquisitionSession, saveAcquisitionReview, getAcquisitionCardReview } from "../lib/acquisition-store";
@@ -184,6 +184,78 @@ export async function verifyCountedScanner(db: PrismaClient) {
     await assert.rejects(refillScannerBatch(db,tag,{runId:overflow.runId,requestKey:randomUUID(),loadedCount:null,operatorLoadedSimplexFronts:true},epoch));
     await endScannerBatch(db,tag,overflow.runId);assert.equal((await capacity(overflowBox)).remaining,1);
     assert.equal(await db.acquisitionPhoto.count({where:{run:{sessionId:overflow.sessionId}}}),2);
+    // An explicit section series has server-persisted succession and Stop.
+    // Simulated events exercise admission, not the scanner's physical behavior.
+    const chainHelper=await enroll(), chainBox=await location(6,[{name:"A",capacity:2},{name:"B",capacity:3},{name:"C",capacity:1}]);
+    const chainInput={...setup(chainHelper,chainBox,"A"),continuous:true};
+    const chainA=await createScannerBatch(db,actor,chainInput,epoch);
+    const chainAClaim=await claim(chainHelper,chainA.runId);await images(chainHelper,chainAClaim,2);await finish(chainHelper,chainAClaim,2,false);
+    await assert.rejects(scannerContinuation(db,tag,chainA.runId),/settle/);
+    await reconcileScannerBatch(db,tag,observe(chainA.runId,2,4));
+    const chainDefaults=await scannerContinuation(db,tag,chainA.runId);
+    assert.equal(chainDefaults.continueFrom,chainA.runId);
+    assert.equal(chainDefaults.seriesRootId,chainA.runId);
+    assert.equal((await getScannerBatch(db,tag,chainA.runId)).series?.ordinal,0);
+    await assert.rejects(createScannerBatch(db,actor,{...setup(chainHelper,chainBox,"A"),continuous:true,continueFrom:chainA.runId},epoch),/different section/);
+    await assert.rejects(createScannerBatch(db,{userId:foreign,adminMode:false},{...setup(chainHelper,chainBox,"B"),continuous:true,continueFrom:chainA.runId},epoch));
+    await chainHelper.pulse();
+    const chainNext={...setup(chainHelper,chainBox,"B"),continuous:true,continueFrom:chainA.runId};
+    const admissions=await Promise.allSettled([createScannerBatch(db,actor,chainNext,epoch),
+      createScannerBatch(db,actor,{...chainNext,requestKey:randomUUID()},epoch)]);
+    assert.equal(admissions.filter(r=>r.status==="fulfilled").length,1);
+    const chainB=(admissions.find(r=>r.status==="fulfilled") as PromiseFulfilledResult<typeof chainA>).value;
+    assert.equal(await db.scannerRun.count({where:{seriesRootId:chainA.runId,seriesOrdinal:1}}),1);
+    assert.equal(await scannerStartMarkerExists(chainB.runId),false);
+    assert.equal((await getScannerBatch(db,tag,chainA.runId)).series?.current,false);
+    await assert.rejects(scannerContinuation(db,tag,chainA.runId),/newer batch/);
+    const chainBClaim=await claim(chainHelper,chainB.runId);await images(chainHelper,chainBClaim,1);await finish(chainHelper,chainBClaim,1,true);
+    await reconcileScannerBatch(db,tag,observe(chainB.runId,1));
+    assert.equal((await getScannerBatch(db,tag,chainB.runId)).remainingTarget,2);
+    await assert.rejects(createScannerBatch(db,actor,{...setup(chainHelper,chainBox,"C"),continuous:true,continueFrom:chainB.runId},epoch),/Finish and reconcile/);
+    const chainRefillRequest={runId:chainB.runId,requestKey:randomUUID(),loadedCount:null,operatorLoadedSimplexFronts:true};
+    const chainRefill=await refillScannerBatch(db,tag,chainRefillRequest,epoch);
+    assert.equal(chainRefill.sessionId,chainB.sessionId);assert.equal(chainRefill.physicalTarget,2);
+    assert.equal((await getScannerBatch(db,tag,chainB.runId)).series?.ordinal,1);
+    const chainTailClaim=await claim(chainHelper,chainRefill.runId);await images(chainHelper,chainTailClaim,2);await finish(chainHelper,chainTailClaim,2,false);
+    await reconcileScannerBatch(db,tag,observe(chainRefill.runId,2,1));
+    const chainTailDefaults=await scannerContinuation(db,tag,chainB.runId);
+    assert.equal(chainTailDefaults.continueFrom,chainRefill.runId);
+    await chainHelper.pulse();
+    const chainCRequest={...setup(chainHelper,chainBox,"C"),continuous:true,continueFrom:chainRefill.runId};
+    const chainC=await createScannerBatch(db,actor,chainCRequest,epoch);
+    assert.equal((await getScannerBatch(db,tag,chainC.runId)).series?.ordinal,2);
+    assert.equal((await capacity(chainBox,"C")).remaining,0);
+    await stopScannerSeries(db,tag,chainA.runId); // Stop from an older page stops the current batch.
+    await stopScannerSeries(db,tag,chainC.runId); // Repeated Stop is safe.
+    assert.equal((await getScannerBatch(db,tag,chainC.runId)).status,"CANCELLED_BEFORE_START");
+    assert.equal((await getScannerBatch(db,tag,chainA.runId)).series?.stopped,true);
+    assert.equal((await capacity(chainBox,"C")).remaining,1);
+    await assert.rejects(claim(chainHelper,chainC.runId));
+    await assert.rejects(scannerContinuation(db,tag,chainC.runId),/stopped/);
+    assert.equal((await createScannerBatch(db,actor,chainCRequest,epoch)).runId,chainC.runId); // recovery never restarts
+    await assert.rejects(createScannerBatch(db,actor,{...setup(chainHelper,chainBox,"C"),continuous:true,continueFrom:chainRefill.runId},epoch),/stopped/);
+    assert.equal(await db.inventoryItem.count({where:{locationId:chainBox}}),0);
+    assert.equal(await db.acquisitionPhoto.count({where:{run:{session:{locationId:chainBox}}}}),5);
+    const stopBox=await location(3,[{name:"A",capacity:3}]);await chainHelper.pulse();
+    const pausedSeries=await createScannerBatch(db,actor,{...setup(chainHelper,stopBox,"A"),continuous:true},epoch);
+    const pausedClaim=await claim(chainHelper,pausedSeries.runId);await images(chainHelper,pausedClaim,1);await finish(chainHelper,pausedClaim,1,true);
+    await reconcileScannerBatch(db,tag,observe(pausedSeries.runId,1));
+    await stopScannerSeries(db,tag,pausedSeries.runId);
+    assert.equal((await getScannerBatch(db,tag,pausedSeries.runId)).phase,"COMPLETE");
+    assert.equal((await capacity(stopBox)).remaining,2);
+    await assert.rejects(refillScannerBatch(db,tag,{runId:pausedSeries.runId,requestKey:randomUUID(),loadedCount:null,operatorLoadedSimplexFronts:true},epoch),/stopped/);
+    const activeBox=await location(2,[{name:"A",capacity:2}]);await chainHelper.pulse();
+    const activeSeries=await createScannerBatch(db,actor,{...setup(chainHelper,activeBox,"A"),continuous:true},epoch);
+    const activeClaim=await claim(chainHelper,activeSeries.runId);
+    await stopScannerSeries(db,tag,activeSeries.runId);
+    assert.equal((await getScannerBatch(db,tag,activeSeries.runId)).status,"STARTED");
+    assert.equal((await getScannerBatch(db,tag,activeSeries.runId)).stopRequested,true);
+    await images(chainHelper,activeClaim,2);await finish(chainHelper,activeClaim,2,false);
+    await reconcileScannerBatch(db,tag,observe(activeSeries.runId,2));
+    assert.equal((await getScannerBatch(db,tag,activeSeries.runId)).series?.stopped,true);
+    assert.equal(await db.acquisitionPhoto.count({where:{run:{sessionId:activeSeries.sessionId}}}),2);
+    await assert.rejects(scannerContinuation(db,tag,activeSeries.runId),/stopped/);
+    console.log("PASS: explicit multi-section series, concurrent next admission, stale-page/refresh recovery, same-batch refill, durable/repeated Stop, released unfed reservations and retained uncommitted cards; physical feeds=0");
     console.log("PASS: counted 83-image allocation, hopper remainder observation, pending/commit capacity conservation, concurrent parent limits, fresh no-START guard, same-batch refill segments and old-segment replay with saved review; physical feeds=0");
   } finally {
     const w={run:{session:{createdByUserId:{in:[tag,foreign]}}}};

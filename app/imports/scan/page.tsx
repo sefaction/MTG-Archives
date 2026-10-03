@@ -51,6 +51,7 @@ export default async function ScanPage({
         <h1 className="text-3xl font-bold">{photoInput === "camera" ? "Camera import" : photoInput === "photos" ? "Upload card photos" : "Scan cards"}</h1>
       </div>
       <ImportTaskNav selected={photoInput ?? "scan"} />
+      {!photoInput && <p role="note" className="rounded border border-amber-500 p-3 text-sm">fi-7160 counted feeding is suspended: a ten-card test partly pulled the eleventh card into the transport. Helper 0.4.1 blocks this source. Section workflow software can be reviewed with simulations; real use awaits verified pre-pick control and fresh physical qualification.</p>}
       {!photoInput && <ScannerConnections newBatchHref="/imports/scan?input=scanner#new-scan-batch" />}
       <AcquisitionCapture
         userId={user.id}

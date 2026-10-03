@@ -234,6 +234,9 @@ model ScannerRun {
   sequenceOffset  Int @default(0)
   segment         Int @default(0)
   counted         Boolean @default(false)
+  seriesRootId    String?
+  seriesOrdinal   Int @default(0)
+  seriesStoppedAt DateTime?
   status          String @default("QUEUED")
   executionId     String?
   stopRequestedAt DateTime?
@@ -245,6 +248,7 @@ model ScannerRun {
 
   @@index([agentId, status, createdAt])
   @@unique([acquisitionRunId, segment])
+  @@index([seriesRootId, seriesOrdinal, segment])
 }
 
 model AuthSession {
