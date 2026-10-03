@@ -32,7 +32,7 @@ internal static class CountFeed
         Log(operation + "=" + result);
         if (result != ReturnCode.Success) throw new InvalidOperationException(operation + " failed");
     }
-    private static void SetExact<T>(string name, ICapWrapper<T> capability, T requested)
+    private static T SetExact<T>(string name, ICapWrapper<T> capability, T requested)
     {
         if (!capability.CanSet || !capability.CanGetCurrent) throw new InvalidOperationException(name + " cannot be verified");
         var before = capability.GetCurrent();
@@ -47,6 +47,7 @@ internal static class CountFeed
         var readback = capability.GetCurrent();
         Log(name + " GETCURRENT=" + readback);
         CountFeedPolicy.RequireReadback(true, requested, readback);
+        return before;
     }
     private static void NoOtherOwner()
     {
@@ -72,25 +73,50 @@ internal static class CountFeed
             Math.Abs((double)layout.Frame.Right - 2.7) > .001 || Math.Abs((double)layout.Frame.Bottom - 3.6) > .001)
             throw new InvalidOperationException("Frame differs from inspected worker profile");
     }
-    private static void Readback<T>(IReadOnlyCapWrapper<T> cap, T requested)
+    private static void Readback<T>(string name, IReadOnlyCapWrapper<T> cap, T requested)
     {
-        CountFeedPolicy.RequireReadback(cap.CanGetCurrent, requested, cap.CanGetCurrent ? cap.GetCurrent() : default(T));
+        var readable = cap.CanGetCurrent;
+        var actual = readable ? cap.GetCurrent() : default(T);
+        Log("READBACK " + name + "; readable=" + readable + "; requested=" + requested + "; actual=" + actual);
+        CountFeedPolicy.RequireReadback(readable, requested, actual);
+    }
+    private static void CoreCaptureReadback(DataSource source, int target)
+    {
+        Readback("CAP_FEEDERENABLED", source.Capabilities.CapFeederEnabled, BoolType.True);
+        Readback("CAP_DUPLEXENABLED", source.Capabilities.CapDuplexEnabled, BoolType.False);
+        Readback("CAP_AUTOFEED", source.Capabilities.CapAutoFeed, BoolType.True);
+        Readback("CAP_AUTOSCAN", source.Capabilities.CapAutoScan, BoolType.False);
+        Readback("CAP_XFERCOUNT", source.Capabilities.CapXferCount, target);
+        Readback("ICAP_XFERMECH", source.Capabilities.ICapXferMech, XferMech.Native);
+        Readback("ICAP_PIXELTYPE", source.Capabilities.ICapPixelType, PixelType.RGB);
+        Readback("ICAP_BITDEPTH", source.Capabilities.ICapBitDepth, 24);
+        Readback("ICAP_XRESOLUTION", source.Capabilities.ICapXResolution, (TWFix32)600f);
+        Readback("ICAP_YRESOLUTION", source.Capabilities.ICapYResolution, (TWFix32)600f);
+        Readback("ICAP_UNITS", source.Capabilities.ICapUnits, Unit.Inches);
+        Frame(source); Invariant(source);
     }
     private static void CaptureReadback(DataSource source, int target)
     {
-        Readback(source.Capabilities.CapFeederEnabled, BoolType.True);
-        Readback(source.Capabilities.CapDuplexEnabled, BoolType.False);
-        Readback(source.Capabilities.CapAutoFeed, BoolType.True);
-        Readback(source.Capabilities.CapAutoScan, BoolType.False);
-        Readback(source.Capabilities.CapXferCount, target);
-        Readback(source.Capabilities.ICapXferMech, XferMech.Native);
-        Readback(source.Capabilities.ICapPixelType, PixelType.RGB);
-        Readback(source.Capabilities.ICapBitDepth, 24);
-        Readback(source.Capabilities.ICapXResolution, (TWFix32)600f);
-        Readback(source.Capabilities.ICapYResolution, (TWFix32)600f);
-        Readback(source.Capabilities.ICapUnits, Unit.Inches);
-        Readback(source.Capabilities.ICapAutoDiscardBlankPages, BlankPage.Disable);
-        Frame(source); Invariant(source);
+        CoreCaptureReadback(source, target);
+        Readback("ICAP_AUTODISCARDBLANKPAGES", source.Capabilities.ICapAutoDiscardBlankPages, BlankPage.Disable);
+    }
+    private static void PostUiCaptureReadback(DataSource source, int target, BlankPage originalBlankPage)
+    {
+        // Verify all other capture settings before changing the one observed reset.
+        CoreCaptureReadback(source, target);
+        var cap = source.Capabilities.ICapAutoDiscardBlankPages;
+        var readable = cap.CanGetCurrent;
+        var actual = readable ? cap.GetCurrent() : default(BlankPage);
+        Log("POST_UI ICAP_AUTODISCARDBLANKPAGES; readable=" + readable + "; original=" + originalBlankPage + "; actual=" + actual);
+        if (CountFeedPolicy.RequiresUiReapplication(readable, originalBlankPage, BlankPage.Disable, actual))
+        {
+            if (!cap.CanSet) throw new InvalidOperationException("Blank removal cannot be reapplied");
+            // Keep the single original restoration recorded by SetExact.
+            // This is one state-4 SET, never a retry or an acquisition Enable.
+            Require(cap.SetValue(BlankPage.Disable), "ICAP_AUTODISCARDBLANKPAGES POST_UI REAPPLY ONCE");
+            Readback("ICAP_AUTODISCARDBLANKPAGES", cap, BlankPage.Disable);
+        }
+        CaptureReadback(source, target);
     }
     private static string Hash(string path)
     {
@@ -136,7 +162,7 @@ internal static class CountFeed
                 Log("source=" + source.Name + "; driver=" + source.Version + "; protocol=" + source.ProtocolVersion);
                 if (!source.Version.ToString().Contains("3.40.2.1815") || source.ProtocolVersion.ToString() != "2.4")
                     throw new InvalidOperationException("Unqualified driver/protocol");
-                Readback(source.Capabilities.CapFeederLoaded, BoolType.False);
+                Readback("CAP_FEEDERLOADED", source.Capabilities.CapFeederLoaded, BoolType.False);
                 Invariant(source);
                 SetExact("CAP_FEEDERENABLED", source.Capabilities.CapFeederEnabled, BoolType.True);
                 SetExact("CAP_DUPLEXENABLED", source.Capabilities.CapDuplexEnabled, BoolType.False);
@@ -149,9 +175,9 @@ internal static class CountFeed
                 SetExact("ICAP_XRESOLUTION", source.Capabilities.ICapXResolution, (TWFix32)600f);
                 SetExact("ICAP_YRESOLUTION", source.Capabilities.ICapYResolution, (TWFix32)600f);
                 SetExact("ICAP_UNITS", source.Capabilities.ICapUnits, Unit.Inches);
-                SetExact("ICAP_AUTODISCARDBLANKPAGES", source.Capabilities.ICapAutoDiscardBlankPages, BlankPage.Disable);
+                var originalBlankPage = SetExact("ICAP_AUTODISCARDBLANKPAGES", source.Capabilities.ICapAutoDiscardBlankPages, BlankPage.Disable);
                 CaptureReadback(source, target);
-                Readback(source.Capabilities.CapEnableDSUIOnly, BoolType.True);
+                Readback("CAP_ENABLEDSUIONLY", source.Capabilities.CapEnableDSUIOnly, BoolType.True);
                 var inspecting = true;
                 session.TransferReady += delegate(object sender, TransferReadyEventArgs e) {
                     if (inspecting) { failures++; e.CancelAll = true; Log("UNEXPECTED transfer request during empty settings inspection refused"); }
@@ -181,8 +207,8 @@ internal static class CountFeed
                 while (!finished.WaitOne(30000)) Log("WAITING for settings close; no acquisition or readiness admission");
                 if (session.State != 4 || failures != 0 || images != 0)
                     throw new InvalidOperationException("Unexpected settings outcome; no feed authorized");
-                Readback(source.Capabilities.CapFeederLoaded, BoolType.False);
-                CaptureReadback(source, target);
+                Readback("CAP_FEEDERLOADED", source.Capabilities.CapFeederLoaded, BoolType.False);
+                PostUiCaptureReadback(source, target, originalBlankPage);
                 finished.Reset();
                 var expected = GuardedFeedPolicy.Authorization(nonce, target);
                 File.WriteAllText(Path.Combine(args[1], "readiness-challenge.txt"), expected);
@@ -200,7 +226,7 @@ internal static class CountFeed
                 File.Move(authorize, Path.Combine(args[1], "authorization-consumed.txt"));
                 Log("Same-session explicit Off/loading/readiness consumed ONCE");
                 CaptureReadback(source, target);
-                Readback(source.Capabilities.CapFeederLoaded, BoolType.True);
+                Readback("CAP_FEEDERLOADED", source.Capabilities.CapFeederLoaded, BoolType.True);
                 NoOtherOwner();
                 if (Process.GetProcessesByName("fjictwsv").Length > 1)
                     throw new InvalidOperationException("Additional native driver owner");

@@ -16,6 +16,15 @@ internal static class CountFeedPolicy
         if (!success || !Object.Equals(requested, actual))
             throw new InvalidOperationException("Counted scan configuration was not accepted exactly");
     }
+    // Only the documented blank-removal reset after Cancel may be reapplied.
+    // Arbitrary profile drift is never repaired or accepted by this rule.
+    internal static bool RequiresUiReapplication<T>(bool readable, T original, T configured, T actual)
+    {
+        if (!readable) throw new InvalidOperationException("Post-UI setting is unreadable");
+        if (Object.Equals(configured, actual)) return false;
+        if (Object.Equals(original, actual)) return true;
+        throw new InvalidOperationException("Unexpected post-UI setting; no feed authorized");
+    }
     internal static void RequireNewDirectory(string directory)
     {
         if (Directory.Exists(directory) || File.Exists(directory))
@@ -37,6 +46,17 @@ internal static class CountFeedPolicy
             if (!refused) throw new InvalidOperationException("Invalid feed authorization accepted");
         }
         RequireReadback(true, 1, 1);
+        if (RequiresUiReapplication(true, -1, -2, -2) ||
+            !RequiresUiReapplication(true, -1, -2, -1) ||
+            RequiresUiReapplication(true, -2, -2, -2))
+            throw new InvalidOperationException("Post-UI original/configured setting policy failed");
+        foreach (var attempt in new[] { new[] { 0, -2 }, new[] { 1, 1024 } })
+        {
+            var refused = false;
+            try { RequiresUiReapplication(attempt[0] == 1, -1, -2, attempt[1]); }
+            catch (InvalidOperationException) { refused = true; }
+            if (!refused) throw new InvalidOperationException("Unreadable/unexpected post-UI setting accepted");
+        }
         foreach (var attempt in new[] { new[] { 0, 1 }, new[] { 1, -1 }, new[] { 1, 2 } })
         {
             var refused = false;
