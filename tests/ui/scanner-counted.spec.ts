@@ -75,7 +75,11 @@ test("counted source selects one, preserves hopper remainder, then explicitly re
     for(const width of [1366,320]) {await page.setViewportSize({width,height:900});await scanner.scrollIntoViewIfNeeded();
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:"test-results/scanner-counted-paused-"+width+".png"});}
     await page.reload();await expect(scanner).toContainText("Refill this batch");
-    await scanner.getByRole("checkbox",{name:/I refilled card fronts/}).check();await pulse();
+    await scanner.getByRole("checkbox",{name:/I refilled card fronts/}).check();await pulse("Unsupported");
+    await scanner.getByRole("button",{name:"Resume unfinished batch",exact:true}).click();
+    await expect(scanner.getByRole("alert")).toContainText("unavailable or unqualified");
+    await expect(scanner).toContainText("1 cards remain in this batch");
+    await pulse();
     await scanner.getByRole("button",{name:"Resume unfinished batch",exact:true}).click();
     await expect(scanner).toContainText("Waiting for the Windows helper to start.");
     const resumed=await begin();expect(resumed.run.runId).not.toBe(early.run.runId);expect(resumed.run.sessionId).toBe(early.run.sessionId);
