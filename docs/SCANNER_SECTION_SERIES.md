@@ -44,3 +44,35 @@ Inventory commits. Tests use simulated events and disposable PostgreSQL. Physica
 qualification must first establish effective Pre-Pick Off and then repeat small
 counts with an extra loaded card before increasing counts within the documented
 hopper thickness limit. No physical trial is planned while the operator is away.
+
+## Verification evidence
+
+- 801 unit tests, type checking, affected lint, production build and ten client
+  manifests passed. Disposable PostgreSQL acquisition integrity passed in
+  92327 ms, shared import integrity in 47504 ms, and full core verification in
+  104461 ms; the owned database container and anonymous volume were removed.
+- Real database simulation covers synthetic 83-image capacity, pending/committed
+  conservation, parent limits, competing next-section requests, stale pages,
+  refill positions and reviews, repeated/queued/paused/active Stop and recovery.
+  No native helper or physical scanner is used by these checks.
+- Six unique browser cases passed across the initial/repeat runs: section series,
+  counted manual/refill, refused Start/retirement, accepted Start after lost ACK,
+  and missing/lost Start recovery. Series screenshots at 1366 and 320 pixels
+  show paused refill and persisted Stop with no horizontal overflow.
+- The initial browser run retained two failures: one test reached the local
+  server before startup finished; the series test exposed retained form state
+  after Stop navigation. The page now remounts the form for the changed batch
+  identity. Both affected cases passed on the healthy updated Docker build.
+- Local Docker bundles helper 0.4.1, source 170caac, with complete distribution
+  materials and SHA256 ca2c13399b1816d26e2e1d6dd1166246255cf8435e261151e9241a7ae4d21431.
+  Authenticated installer metadata and binary/source checksum checks passed.
+  Only the web service was reloaded; existing workers and models were preserved.
+- Original Inventory remains 10280 rows/12482 copies, saved reviews 81 and
+  original photos 907, with unchanged baseline hashes. The retained physical
+  fixture has 24 photos and zero Inventory/audit writes. All eight physical runs
+  remain DRAINED, with no queued/active command; the failed ten-card run remains
+  physically unreconciled. The scanner helper remains stopped.
+
+Draft PR603 is stacked on draft PR601. Both need individual merge approval;
+no production deployment occurred. Exact build manifests and private test logs
+remain in the active worktree's .local-data and resumable checkpoint.
