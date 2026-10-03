@@ -63,7 +63,20 @@ was extracted into a clean private directory and rebuilt successfully, including
 connection, native and discovery selftests without hardware. Installer CI repeats
 that rebuild using the actual installed source archive.
 
-The helper's counted route and native `helper-channel-v1` remain suspended. Docker
-retains PR603's section-series app for review; this source repair has not replaced
-the installed helper or the local download. There is no app runtime reload.
-No production deployment or merge is authorized by these results.
+## Cumulative local review
+
+The installer from source `dc5cd1d` includes the shared-loop repair and corrected
+source archive. All five exact-head CI checks passed, including the installed
+source-archive rebuild. Local Docker now contains PR603's section-series app plus
+PR601/604/605/607 safety/diagnostic source and the updated helper download. Only the
+web service was reloaded; the installed laptop helper and all five acquisition
+worker processes/images/start times/restart/OOM states stayed unchanged.
+
+The installer-required Docker build passed, and all 532 image inputs matched the
+review checkout. An authenticated browser download test passed and matched the
+installer's SHA256. The temporary test user was removed. Inventory's full-row
+hash remained unchanged at 10,280 rows / 12,482 copies.
+
+The helper's counted route and native `helper-channel-v1` remain suspended.
+Actual-source qualification with the repaired loop is still pending. No production
+deployment or merge is authorized by these results.
