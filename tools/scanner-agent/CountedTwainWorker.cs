@@ -59,7 +59,7 @@ internal static class CountedTwainWorker
             return 2;
         }
         if (args.Length != 1 || args[0] != "helper-channel-v1" || IntPtr.Size != 4) return 2;
-        TwainSession session = null; DataSource source = null; bool started = false; int result = 1;
+        TwainSession session = null; OwnedTwainLoop loop = null; DataSource source = null; bool started = false; int result = 1;
         var elapsed = Stopwatch.StartNew();
         try
         {
@@ -69,7 +69,9 @@ internal static class CountedTwainWorker
             Owners(parent);
             PlatformInfo.Current.PreferNewDSM = false;
             session = new TwainSession(TWIdentity.CreateFromAssembly(DataGroups.Image | DataGroups.Control, Assembly.GetExecutingAssembly()));
-            Require(session.Open()); source = session.Single(d => d.Name == "PaperStream IP fi-7160"); Require(source.Open());
+            loop = new OwnedTwainLoop();
+            loop.Invoke(delegate { Require(session.Open(loop.Hook)); });
+            source = session.Single(d => d.Name == "PaperStream IP fi-7160"); Require(source.Open());
             // Scope the route to the actual tested driver/protocol. Future
             // profiles need their own acceptance, rather than a silent fallback.
             if (!source.Version.ToString().Contains("3.40.2.1815") || source.ProtocolVersion.ToString() != "2.4")
@@ -147,6 +149,18 @@ internal static class CountedTwainWorker
                     try { Require(source.Close()); } catch { result = 1; }
                 }
                 if (session.State == 3) try { Require(session.Close()); } catch { result = 1; }
+                if (loop != null)
+                {
+                    // Do not report completion or destroy the native window
+                    // before source/DSM closure has actually succeeded.
+                    while (session.State != 2)
+                    {
+                        result = 1;
+                        Send(new { kind = "waiting", nativeState = session.State });
+                        Thread.Sleep(30000);
+                    }
+                    loop.Dispose();
+                }
             }
             Send(new { kind = "completed", imageCount = images, outcome = result != 0 ? "ERROR" : empty ? "SOURCE_EXHAUSTED" : "COMPLETED",
                 sourceExhausted = empty ? "REPORTED_EMPTY" : "UNKNOWN", elapsedMs = elapsed.ElapsedMilliseconds });
