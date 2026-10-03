@@ -143,6 +143,7 @@ deployed or used for these tests.
 | Explicit refill of section B | Remaining target 2; two images; 9276 ms | Same logical session `76f1dbb5-d52b-4326-b458-2db9082a87d7`, new physical segment 1 and offset 1. Three saved positions 0, 1, 2; batch completed. Operator explicitly confirmed two undamaged exits and empty hopper/transport. |
 | Capacity boundary with a hopper remainder | Automatic section C target 2 with three loaded; two images; 8830 ms | Operator explicitly confirmed two undamaged exits, the third wholly in the hopper and clear transport. After reconciliation, next-section selection was required and Start remained disabled until a section was selected. |
 | Explicit next section for the remainder | Automatic section D target 1; one image; 5862 ms | Fresh readiness and explicit section selection preceded Start. Operator confirmed one undamaged exit and empty hopper/transport. |
+| Five-card capacity stage | Automatic section E target 5 with six loaded; five images; 17984 ms | Operator explicitly confirmed five undamaged exits, one card wholly in the hopper and clear transport. Reconciliation reports E remaining 0, pending 5; no additional feed was queued. |
 
 During final refill inspection the operator initially selected the problem or
 uncertain-transport answer. Further feeding stopped immediately and the physical
@@ -151,7 +152,7 @@ mistake and explicitly reported two undamaged exits with everything empty. Only
 then was reconciliation recorded. This was a corrected answer, not an observed
 transport fault or a scanner retry.
 
-Nine owned fixture photos are retained. Original Inventory (10280 rows, 12482
+Fourteen owned fixture photos are retained. Original Inventory (10280 rows, 12482
 copies), 81 saved reviews and 907 original photos retain their baseline hashes;
 only owned fixture photos are excluded from the original-photo comparison. The
 fixture has zero Inventory items and zero Inventory audit writes. Review and
@@ -160,10 +161,20 @@ explicit Inventory confirmation remain separate from physical scanning.
 Private evidence includes `integrated-capacity-two-run.log`,
 `integrated-start-early.log`, `integrated-resume-two.log`,
 `integrated-boundary-start-two.log`, `integrated-boundary-start-next-one.log`,
+`integrated-stage-five-run.log`, `integrated-stage-five-reconciliation.log`,
 the stage result JSON, screenshots, helper journals and
-`integrated-final-conservation.log`. Card images,
+`integrated-final-conservation.log` and `integrated-five-conservation.log`. Card images,
 browser authentication state and helper credentials remain private and uncommitted.
 
 Actual 83-card feeding remains unqualified. Synthetic 83-image software tests do
 not establish that physical result. Require fresh readiness before each feed and
 stop on overfeed, damage, uncertain transport or conflicting ownership.
+
+Section capacity is a logical target, not a hopper loading instruction. The
+[manufacturer's datasheet](https://www.pfu-ca.ricoh.com/-/media/project/scanners-pci/files/products/datasheets/fujitsu_fi-7160_datasheet_v12107ds7160m.pdf)
+lists an 80-sheet paper feeder and states that actual capacity depends on paper
+thickness. Do not infer that 83 or 84 trading cards fit from that paper rating.
+Keep loads within the chute limit and use explicitly inspected refill segments
+when a logical section target exceeds the permissible hopper load. An 83-card
+logical batch completed across refills must be reported separately from an
+uninterrupted physical 83-count stop.
