@@ -48,7 +48,14 @@ Further physical counts require the existing same-session visible-Off and fresh
 loaded-count/readiness gates in [guarded requalification](FI7160_GUARDED_REQUALIFICATION.md).
 Integrated capacity/refill/section progression remains unfinished.
 
-The repair changes the local diagnostic executable only. The helper's counted
-route and native `helper-channel-v1` remain suspended. Docker retains PR603's
-section-series app for review; there is no web/worker runtime change to reload.
+The native count companion also compiles the same owned-loop implementation and
+uses it in its currently unreachable physical route. Direct `helper-channel-v1`
+still refuses before reading input or creating any loop/session. Its locked build
+and motor-free suspension, transfer/refill/retention, denial, and recovery fixtures
+passed after this build change;
+this does not qualify or enable that physical route.
+
+The helper's counted route and native `helper-channel-v1` remain suspended. Docker
+retains PR603's section-series app for review; this source repair has not replaced
+the installed helper or the local download. There is no app runtime reload.
 No production deployment or merge is authorized by these results.
