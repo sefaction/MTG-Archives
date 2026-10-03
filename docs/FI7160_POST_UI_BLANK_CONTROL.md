@@ -39,10 +39,22 @@ The tested diagnostic SHA256 is
 Private evidence directories retain both refusal baselines and the repaired
 `empty-post-ui-blank-cancel-20261003-205717` journal and actual exit record.
 
-A separate fresh one-of-three session has the same-session visible Off and exact
-disabled blank readback, and waits for new supervised loading/readiness. No feed
-was authorized by the empty check. Further one/two, staged larger counts and
-integrated capacity/refill/section-series acceptance remain unfinished. Ordinary
+A separate fresh one-of-three session then passed with the same-session visible
+Off and exact disabled blank readback, after new supervised three-card readiness.
+One acquisition Enable retained one original PNG (1620x2160), with zero transfer
+failures. All twelve originals restored, source/DSM closed, the owned loop joined,
+and the held process handle recorded exit 0 with empty stderr and no remaining
+owner. The operator reported one undamaged exit, then answered the remaining-card
+and clear-transport follow-up with "they are both in place and ready." This is a
+scoped one-card boundary and clean-transfer-exit pass, not a larger count guarantee.
+Private evidence `repaired-one-of-three-20261003-205935` retains the original,
+consumed single authorization, journal and actual exit record. No Inventory writes
+or retry occurred.
+
+The next two-of-three inspection requires removal of the two remaining cards and
+fresh empty/clear confirmation, followed by separate three-card loading/readiness.
+Two-card, staged larger counts and integrated capacity/refill/section-series
+acceptance remain unfinished. Ordinary
 helper and direct native counted feeding remain suspended; the installed helpers
 remain unchanged and stopped. The diagnostic-only repair does not change the local
 website or require restarting acquisition workers. Current cumulative local Docker
