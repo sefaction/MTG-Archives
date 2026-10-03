@@ -1,9 +1,10 @@
 # fi-7160 counted capacity and refill qualification
 
-Implementation [draft PR599](https://github.com/sefaction/MTG-Archives/pull/599)
-on branch `codex/fi7160-capacity-refill` builds on diagnostic PR
-[598](https://github.com/sefaction/MTG-Archives/pull/598). Both batches require
-individual approval before merging. Tracking issue
+Implementation [PR599](https://github.com/sefaction/MTG-Archives/pull/599)
+and diagnostic [PR598](https://github.com/sefaction/MTG-Archives/pull/598)
+merged after individual user approval on October 3, 2026. Main at
+`77994170eb39963875f6a118fea17807103fb253` exactly matches the qualified local
+source tree. Tracking issue
 [597](https://github.com/sefaction/MTG-Archives/issues/597) remains open for physical
 capacity/refill acceptance. No production deployment has occurred.
 
@@ -124,18 +125,45 @@ and browser fixtures. Unrelated services and worktrees were preserved.
 
 The isolated diagnostic results in [FI7160_COUNTED_FEED.md](FI7160_COUNTED_FEED.md)
 remain valid: one of three twice and two of three once, with undamaged exits,
-remaining cards wholly in the hopper and clear transport. They do not qualify
-the integrated website/helper or a larger count.
+remaining cards wholly in the hopper and clear transport.
 
-The operator has confirmed readiness to use the new local test helper. The old
-idle local helper and its child were stopped after verifying an empty queue and
-their exact identities; older duplicates and the Unraid helper remain stopped.
-The new validated helper reports the explicit counted source. Fresh confirmation
-to load three cards for an integrated target-one test is pending. No new physical
-movement has occurred in this implementation batch yet.
+The integrated local website and validated source helper 0.4.0 then performed
+the following small physical tests with the operator at the fi-7160. Every Start
+and refill was explicit, followed fresh readiness, and was issued once. The
+source helper was verified as sole owner before each movement. All runs reached
+DRAINED without native error; full-target runs completed their logical batch and
+early exhaustion paused it. The installed helper remains 0.3.8; Unraid was not
+deployed or used for these tests.
 
-Next gates: integrated one of three, then a small section-capacity test and an
-early-empty/refill under one batch. Require fresh readiness before each feed,
-observe the emitted cards and untouched hopper remainder, and stop on overfeed,
-damage, uncertain transport or conflicting ownership. Actual 83-card feeding
-remains unqualified until an explicit operator-observed larger test succeeds.
+| Integrated test | Actual request and saved images | Physical observation and application result |
+| --- | --- | --- |
+| One card with three loaded | Manual target 1; one image; 6739 ms | Operator said "yep, it scanned one card", directed continuation, then confirmed the two remaining cards were still loaded and ready. Preserve these replies without treating them as a separate detailed surface inspection. |
+| Section A's remaining capacity | Automatic target 2, no manual quantity; two images; 10044 ms | Operator explicitly confirmed two undamaged exits and empty hopper/transport. A reached zero free spaces with three pending scans and no Inventory write. |
+| Early-empty section B | Automatic target 3 with one card loaded; one image; 6662 ms | Operator confirmed one undamaged exit and empty hopper/transport. Batch paused with two still needed; all three spaces remained reserved. |
+| Explicit refill of section B | Remaining target 2; two images; 9276 ms | Same logical session `76f1dbb5-d52b-4326-b458-2db9082a87d7`, new physical segment 1 and offset 1. Three saved positions 0, 1, 2; batch completed. Operator explicitly confirmed two undamaged exits and empty hopper/transport. |
+| Capacity boundary with a hopper remainder | Automatic section C target 2 with three loaded; two images; 8830 ms | Operator explicitly confirmed two undamaged exits, the third wholly in the hopper and clear transport. After reconciliation, next-section selection was required and Start remained disabled until a section was selected. |
+| Explicit next section for the remainder | Automatic section D target 1; one image; 5862 ms | Fresh readiness and explicit section selection preceded Start. Operator confirmed one undamaged exit and empty hopper/transport. |
+
+During final refill inspection the operator initially selected the problem or
+uncertain-transport answer. Further feeding stopped immediately and the physical
+count remained unconfirmed. The operator clarified that the selection was a
+mistake and explicitly reported two undamaged exits with everything empty. Only
+then was reconciliation recorded. This was a corrected answer, not an observed
+transport fault or a scanner retry.
+
+Nine owned fixture photos are retained. Original Inventory (10280 rows, 12482
+copies), 81 saved reviews and 907 original photos retain their baseline hashes;
+only owned fixture photos are excluded from the original-photo comparison. The
+fixture has zero Inventory items and zero Inventory audit writes. Review and
+explicit Inventory confirmation remain separate from physical scanning.
+
+Private evidence includes `integrated-capacity-two-run.log`,
+`integrated-start-early.log`, `integrated-resume-two.log`,
+`integrated-boundary-start-two.log`, `integrated-boundary-start-next-one.log`,
+the stage result JSON, screenshots, helper journals and
+`integrated-final-conservation.log`. Card images,
+browser authentication state and helper credentials remain private and uncommitted.
+
+Actual 83-card feeding remains unqualified. Synthetic 83-image software tests do
+not establish that physical result. Require fresh readiness before each feed and
+stop on overfeed, damage, uncertain transport or conflicting ownership.
