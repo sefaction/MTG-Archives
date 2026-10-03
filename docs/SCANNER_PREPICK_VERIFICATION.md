@@ -9,8 +9,8 @@ feed/start command and cannot qualify a physical boundary by itself.
 
 The operator read panel Menu 19 Pre-Pick = Yes and driver Pre-Pick = On. After an
 explicitly authorized settings-only change, the operator reports saving Off for
-profile `004: Cards`. A settings-only reopen selected that profile; the explicit
-visual Off readback is still outstanding. Both inspections returned to state 4,
+profile `004: Cards`. The operator subsequently confirmed that the settings-only
+reopen still visibly showed Off in that profile before Cancel. Both inspections returned to state 4,
 closed source/DSM successfully and made zero acquisition Enable calls.
 
 The [official operator guide, page 188](https://origin.pfultd.com/downloads/IMAGE/manual/fi-7x8060/P3PC-4292-05ENZ0.pdf)
@@ -72,7 +72,9 @@ not commit scanner snapshots, cards or credentials.
 
 ## Qualification boundary
 
-Compilation and motor-free selftests passed. The new worker-identity inspection
+Compilation and motor-free selftests passed; the Windows scanner CI workflow
+also runs the settings-only inspector's argument-policy selftest without hardware.
+The new worker-identity inspection
 has not yet run; no effective worker Off state or physical stop is claimed.
 Once effective Off is established, prepare a separately guarded diagnostic that
 verifies its accepted capture/Pre-Pick state before one Enable. Obtain fresh
