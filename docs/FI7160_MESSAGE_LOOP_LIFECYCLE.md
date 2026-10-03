@@ -55,6 +55,14 @@ and motor-free suspension, transfer/refill/retention, denial, and recovery fixtu
 passed after this build change;
 this does not qualify or enable that physical route.
 
+Release source review also found [issue 608](https://github.com/sefaction/MTG-Archives/issues/608):
+the archive omitted the shared native build inputs. Extracting the old archive
+reproduced missing-source compiler errors. Packaging now explicitly includes both
+shared sources, and source-install fingerprints include them. The fixed archive
+was extracted into a clean private directory and rebuilt successfully, including
+connection, native and discovery selftests without hardware. Installer CI repeats
+that rebuild using the actual installed source archive.
+
 The helper's counted route and native `helper-channel-v1` remain suspended. Docker
 retains PR603's section-series app for review; this source repair has not replaced
 the installed helper or the local download. There is no app runtime reload.

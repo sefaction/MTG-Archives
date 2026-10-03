@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'tools/scanner-agent/**'
+      - 'tools/scanner-twain-count/CountFeedPolicy.cs'
+      - 'tools/scanner-twain-count/OwnedTwainLoop.cs'
       - 'scripts/verify-scanner-release.mjs'
       - '.github/workflows/scanner-installer.yml'
       - '.github/workflows/docker-publish.yml'
@@ -50,6 +52,10 @@ jobs:
           }
           $inventory = Get-Content (Join-Path $installed 'third-party/inventory.json') -Raw | ConvertFrom-Json
           if (-not $inventory.distributionMaterialsComplete -or -not (Test-Path (Join-Path $installed 'third-party/sources/REBUILD.md'))) { throw 'Installed source/notice materials missing' }
+          # Rebuild the actual distributed archive, rather than this checkout.
+          $extracted = Join-Path $env:RUNNER_TEMP 'mtg-scanner-corresponding-source'
+          Expand-Archive -LiteralPath (Join-Path $installed 'third-party/sources/mtg-scanner-helper-source.zip') -DestinationPath $extracted
+          & (Join-Path $extracted 'tools/scanner-agent/install-from-source.ps1') -InstallRoot (Join-Path $env:RUNNER_TEMP 'mtg-scanner-rebuilt-source')
           $process = Start-Process -FilePath (Join-Path $installed 'unins000.exe') -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -PassThru -Wait -WindowStyle Hidden
           if ($process.ExitCode -ne 0) { throw 'Smoke uninstall failed' }
       - name: Upload installer for this exact revision

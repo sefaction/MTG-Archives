@@ -24,7 +24,9 @@ $sources = @(Get-ChildItem -LiteralPath $PSScriptRoot -File |
   Where-Object { $_.Extension -in @('.cs','.ps1') -or $_.Name -in @('ScannerAgent.csproj','packages.lock.json') } |
   Sort-Object Name)
 $text = ($sources | ForEach-Object { "$($_.Name) $((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash)" }) -join "`n"
-$text += "`nCountFeedPolicy.cs $((Get-FileHash -LiteralPath (Join-Path $PSScriptRoot '..\scanner-twain-count\CountFeedPolicy.cs') -Algorithm SHA256).Hash)"
+foreach ($sharedSource in @('CountFeedPolicy.cs', 'OwnedTwainLoop.cs')) {
+  $text += "`n$sharedSource $((Get-FileHash -LiteralPath (Join-Path $PSScriptRoot ('..\scanner-twain-count\' + $sharedSource)) -Algorithm SHA256).Hash)"
+}
 $bytes = [Text.Encoding]::UTF8.GetBytes($text)
 $sha = [Security.Cryptography.SHA256]::Create()
 try { $fingerprint = ([BitConverter]::ToString($sha.ComputeHash($bytes)) -replace '-', '').Substring(0,16).ToLowerInvariant() }

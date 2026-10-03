@@ -31,6 +31,9 @@ helper update can overwrite changes, so retain your modified source/output.
 To rebuild the helper itself, extract its source archive, install the .NET 8
 SDK, then from `tools/scanner-agent` run:
 
+Keep the extracted `tools/scanner-twain-count` directory beside `scanner-agent`;
+its shared count-policy and owned-message-loop sources are native build inputs.
+
 ```powershell
 dotnet restore ScannerAgent.csproj --locked-mode -r win-x64
 dotnet publish ScannerAgent.csproj --no-restore -c Release -r win-x64 --self-contained true -p:OutputType=WinExe -p:PublishSingleFile=false -p:PublishTrimmed=false -o publish
