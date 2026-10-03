@@ -30,7 +30,7 @@ function currentCountedSource(agent: { devices: Prisma.JsonValue; lastSeenAt: Da
   if (!agent.lastSeenAt || Date.now() - agent.lastSeenAt.getTime() >= 30000 ||
       !device || !isCountedScannerDevice(device) ||
       !["Qualified", "KnownWorking"].includes(device.qualification))
-    throw new ScannerRunConflict("Count controlled scanner is unavailable or unqualified. Refresh scanner setup before starting or refilling.");
+    throw new ScannerRunConflict("Choose a ready scanner that supports card counts before starting or refilling. Refresh scanner setup.");
   return device;
 }
 async function lockScannerCreation(tx: Tx, requestKey: string) {

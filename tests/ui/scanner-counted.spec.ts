@@ -51,7 +51,7 @@ test("counted source selects one, preserves hopper remainder, then explicitly re
     const refused=await page.request.post("/api/scanner-agent/runs",{headers,data:{action:"claim",version:1,
       runId:queued.run.runId,epoch:queued.epoch,executionId:randomUUID()}});
     expect(refused.status()).toBe(409);
-    expect(await refused.text()).toContain("unavailable or unqualified");
+    expect(await refused.text()).toContain("supports card counts");
     expect((await polled()).run.status).toBe("QUEUED");
     const first=await begin();expect(first.run.physicalTarget).toBe(1);expect(first.run.settings.widthInches).toBe(2.7);expect(first.run.settings.dpi).toBe(600);
     await transfer(first.claim,1);await finish(first.claim,1,false);
@@ -77,7 +77,7 @@ test("counted source selects one, preserves hopper remainder, then explicitly re
     await page.reload();await expect(scanner).toContainText("Refill this batch");
     await scanner.getByRole("checkbox",{name:/I refilled card fronts/}).check();await pulse("Unsupported");
     await scanner.getByRole("button",{name:"Resume unfinished batch",exact:true}).click();
-    await expect(scanner.getByRole("alert")).toContainText("unavailable or unqualified");
+    await expect(scanner.getByRole("alert")).toContainText("supports card counts");
     await expect(scanner).toContainText("1 cards remain in this batch");
     await pulse();
     await scanner.getByRole("button",{name:"Resume unfinished batch",exact:true}).click();
