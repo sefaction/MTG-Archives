@@ -123,12 +123,13 @@ internal static class CountFeed
             Log("workerSHA256=" + Hash(args[2]) + "; diagnosticSHA256=" + Hash(Assembly.GetExecutingAssembly().Location));
             PlatformInfo.Current.PreferNewDSM = false;
             var session = new TwainSession(TWIdentity.CreateFromAssembly(DataGroups.Image | DataGroups.Control, workerIdentity));
+            var loop = new OwnedTwainLoop();
             DataSource source = null;
             var enabled = false;
             var resultCode = 1;
             try
             {
-                Require(session.Open(), "open legacy DSM");
+                loop.Invoke(delegate { Require(session.Open(loop.Hook), "open legacy DSM"); });
                 source = session.Single(d => d.Name == "PaperStream IP fi-7160");
                 Require(source.Open(), "open exact fi-7160 source");
                 Log("source=" + source.Name + "; driver=" + source.Version + "; protocol=" + source.ProtocolVersion);
@@ -231,6 +232,16 @@ internal static class CountFeed
                     try { Require(source.Close(), "close source"); } catch (Exception error) { resultCode = 1; Log("CloseError=" + error); }
                 }
                 if (session.State == 3) try { Require(session.Close(), "close DSM"); } catch (Exception error) { resultCode = 1; Log("CloseError=" + error); }
+                // Keep the owning thread/window alive if closure is uncertain.
+                // Never force disposal while a DSM/source remains open.
+                while (session.State != 2)
+                {
+                    resultCode = 1;
+                    Log("CLOSURE UNCERTAIN; state=" + session.State + "; retaining message loop; no retry/refeed");
+                    Thread.Sleep(30000);
+                }
+                loop.Dispose();
+                Log("Owned message loop disposed and thread joined; state=2");
             }
             return resultCode;
         }
