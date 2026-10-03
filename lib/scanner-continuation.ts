@@ -8,11 +8,13 @@ export async function scannerContinuation(db: PrismaClient, userId: string, runI
   const run = await getScannerBatch(db, userId, runId);
   if (!run.reconciliation || !["DRAINED", "ERROR", "CANCELLED_BEFORE_START"].includes(run.status))
     throw new Error("Previous scanner batch must settle first");
+  if (run.counted && !["COMPLETE", "CANCELLED"].includes(run.phase))
+    throw new Error("Refill or end this unfinished batch before selecting the next section");
   const state = await getAcquisitionSession(db, { userId, adminMode: false }, run.sessionId);
   return { locationId: state.session.placement.locationId, section: state.session.placement.section,
     defaults: state.defaults, scanner: { agentId: run.agentId, deviceId: run.deviceId,
       loadedCount: null, operatorLoadedSimplexFronts: true as const,
-      settings: scannerSettingsSchema.parse(run.settings) } };
+      settings: scannerSettingsSchema.parse(run.settings) }, ...(run.counted ? { nextSectionRequired: true } : {}) };
 }
 export type ScannerContinuation = Awaited<ReturnType<typeof scannerContinuation>>;
 
@@ -21,6 +23,8 @@ export type ScannerContinuation = Awaited<ReturnType<typeof scannerContinuation>
 export function currentScannerContinuation(previous: ScannerContinuation, locations: StorageLocation[]) {
   const location = locations.find(l => l.id === previous.locationId);
   if (!location) return { setup: null, message: "Previous destination is unavailable. Choose a destination and scanner below." };
+  if (previous.nextSectionRequired) return { setup: { ...previous, section: "" },
+    message: "The previous count is complete. Choose the next section, check its available space, then explicitly start a new batch." };
   const section = previous.section;
   if (section && !location.sections.some(s => s.name === section) && !location.defaultSectionNames?.includes(section))
     return { setup: { ...previous, section: "" }, message: "Previous section is unavailable. Check the destination before starting." };

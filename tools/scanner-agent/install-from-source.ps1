@@ -21,9 +21,10 @@ if ($LASTEXITCODE -ne 0 -or -not ($runtimes | Select-String '^Microsoft\.Windows
 # The source and exact NuGet lock identify this local build. No binary is
 # published by this script or added to the repository.
 $sources = @(Get-ChildItem -LiteralPath $PSScriptRoot -File |
-  Where-Object { $_.Extension -eq '.cs' -or $_.Name -in @('ScannerAgent.csproj','packages.lock.json') } |
+  Where-Object { $_.Extension -in @('.cs','.ps1') -or $_.Name -in @('ScannerAgent.csproj','packages.lock.json') } |
   Sort-Object Name)
 $text = ($sources | ForEach-Object { "$($_.Name) $((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash)" }) -join "`n"
+$text += "`nCountFeedPolicy.cs $((Get-FileHash -LiteralPath (Join-Path $PSScriptRoot '..\scanner-twain-count\CountFeedPolicy.cs') -Algorithm SHA256).Hash)"
 $bytes = [Text.Encoding]::UTF8.GetBytes($text)
 $sha = [Security.Cryptography.SHA256]::Create()
 try { $fingerprint = ([BitConverter]::ToString($sha.ComputeHash($bytes)) -replace '-', '').Substring(0,16).ToLowerInvariant() }
@@ -36,7 +37,7 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'Locked scanner restore failed' }
   & $DotnetPath publish $project --no-restore -c Release -f net8.0-windows -p:SelfContained=false -o $published
   if ($LASTEXITCODE -ne 0) { throw 'Scanner publish failed' }
-  foreach ($name in @('Mtg.ScannerAgent.dll','Mtg.ScannerAgent.runtimeconfig.json','NAPS2.Worker.exe')) {
+  foreach ($name in @('Mtg.ScannerAgent.dll','Mtg.ScannerAgent.runtimeconfig.json','NAPS2.Worker.exe','counted-twain\Mtg.CountedTwain.exe','counted-twain\NTwain.dll')) {
     if (-not (Test-Path -LiteralPath (Join-Path $published $name) -PathType Leaf)) {
       throw "Published helper is missing $name"
     }

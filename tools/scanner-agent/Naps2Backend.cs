@@ -97,7 +97,11 @@ public sealed class Naps2Backend : IScannerBackend
             }
             if (selectedDeviceId is not null && devices.Count == 0 && DiscoveryIssues.Count > 0)
                 throw new InvalidOperationException("Scanner device discovery unavailable");
-            return devices.Select(d => new Device(Key(d), d.Name, "naps2-windows", d.Driver.ToString())).ToArray();
+            var result = devices.Select(d => new Device(Key(d), d.Name, "naps2-windows", d.Driver.ToString())).ToList();
+            if (selectedDeviceId is null && File.Exists(CountedTwainBackend.WorkerPath) &&
+                devices.Any(d => d.Driver == Driver.Twain && d.Name == "PaperStream IP fi-7160"))
+                result.Insert(0, CountedTwainBackend.ProfileDevice);
+            return result;
         }
         finally { lifecycle.Release(); }
     }

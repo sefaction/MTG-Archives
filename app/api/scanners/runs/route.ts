@@ -3,14 +3,16 @@ import { acquisitionActor, acquisitionError, acquisitionProgressDto } from "@/li
 import { getAcquisitionProgress } from "@/lib/acquisition-store";
 import { readScannerJson } from "@/lib/scanner-http";
 import { scannerSiteEpoch } from "@/lib/scanner-control-files";
-import { createScannerBatch, getScannerBatch, findScannerBatchCreation, retireScannerBatchCreation, stopScannerBatch, reconcileScannerBatch } from "@/lib/scanner-runs";
-import { scannerBatchSchema, scannerReconcileSchema } from "@/lib/scanner-run-protocol";
+import { createScannerBatch, getScannerBatch, findScannerBatchCreation, retireScannerBatchCreation, stopScannerBatch, reconcileScannerBatch, refillScannerBatch, endScannerBatch } from "@/lib/scanner-runs";
+import { scannerBatchSchema, scannerReconcileSchema, scannerRefillSchema } from "@/lib/scanner-run-protocol";
 import { z } from "zod";
 const schema = z.discriminatedUnion("action", [
   scannerBatchSchema.extend({ action: z.literal("create") }).strict(),
   scannerBatchSchema.extend({ action: z.literal("retire") }).strict(),
   z.object({ action: z.literal("stop"), runId: z.string().uuid() }).strict(),
   scannerReconcileSchema.extend({ action: z.literal("reconcile") }).strict(),
+  scannerRefillSchema.extend({ action: z.literal("refill") }).strict(),
+  z.object({ action: z.literal("end"), runId: z.string().uuid() }).strict(),
 ]);
 export const runtime = "nodejs";
 export async function GET(request: Request) {
@@ -40,7 +42,9 @@ export async function POST(request: Request) {
       return Response.json(acquisitionProgressDto(await getAcquisitionProgress(prisma, actor, run.sessionId)),
         { headers: { "Cache-Control": "no-store" } });
     }
-    const result = action === "stop" ? await stopScannerBatch(prisma, actor.userId, input.runId) :
+    const result = action === "refill" ? await refillScannerBatch(prisma, actor.userId, value, await scannerSiteEpoch()) :
+      action === "end" ? await endScannerBatch(prisma, actor.userId, input.runId) :
+      action === "stop" ? await stopScannerBatch(prisma, actor.userId, input.runId) :
       await reconcileScannerBatch(prisma, actor.userId, value);
     return Response.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return acquisitionError(error); }

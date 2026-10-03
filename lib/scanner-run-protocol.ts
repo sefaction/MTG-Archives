@@ -56,8 +56,14 @@ export const scannerRunOutcomeSchema = z.object({
 export const scannerRunFinishSchema = scannerRunClaimSchema.extend({ outcome: scannerRunOutcomeSchema }).strict();
 export const scannerReconcileSchema = z.object({
   runId: z.string().uuid(), cardsEmitted: z.number().int().min(0).max(5000),
-  feederEmpty: z.literal(true), transportEmpty: z.literal(true),
+  feederEmpty: z.boolean(), transportEmpty: z.literal(true),
   eachImageIsOneCardFront: z.literal(true), noJamOrDouble: z.literal(true),
+  remainingCards: z.number().int().min(0).max(500).optional(),
+  remainingWhollyInHopper: z.literal(true).optional(),
+}).strict();
+export const scannerRefillSchema = z.object({
+  runId: z.string().uuid(), requestKey: z.string().uuid(), loadedCount: z.number().int().min(1).max(500).nullable(),
+  operatorLoadedSimplexFronts: z.literal(true),
 }).strict();
 export const scannerRetentionSchema = z.object({
   version: z.literal(1), runId: z.string().uuid(), epoch: z.string().uuid(),

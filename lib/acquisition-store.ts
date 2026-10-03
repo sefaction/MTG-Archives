@@ -264,6 +264,7 @@ export async function createAcquisitionSession(
   actor: AcquisitionActor,
   value: CreateAcquisitionInput,
   beforeWrite?: (tx: Prisma.TransactionClient) => Promise<void>,
+  scannerCapacity?: (tx: Prisma.TransactionClient) => Promise<{ remaining: number | null; pendingSection: number }>,
 ) {
   const input = createInput.parse(value);
   const requestPayload = JSON.stringify(input);
@@ -321,6 +322,7 @@ export async function createAcquisitionSession(
           sum + Math.min(s.target ?? Infinity, s.run?._count.candidates ?? 0),
         0,
       );
+      const scannerSpace = scannerCapacity ? await scannerCapacity(tx) : null;
       const placement = placementSnapshot({
         ownerPlayerId: owner.id,
         locationId: location.id,
@@ -335,6 +337,10 @@ export async function createAcquisitionSession(
         })),
         otherSessionPending,
       });
+      if (scannerSpace) {
+        placement.remaining = scannerSpace.remaining;
+        placement.otherSessionPending = scannerSpace.pendingSection;
+      }
       const policy =
         usesPhotoSlots(input.run.providerId) &&
         input.policy.kind !== "MANUAL"
@@ -370,6 +376,7 @@ export async function createAcquisitionSession(
           placement,
           policy: state.policy,
           target: state.target,
+          ...(scannerSpace ? { scannerReserved: state.target } : {}),
           ...(input.defaults ? { reviewDefaults: input.defaults } : {}),
           run: {
             create: {
