@@ -59,6 +59,11 @@ export async function verifyCountedScanner(db: PrismaClient) {
     assert.equal((await capacity()).remaining,0);
     await assert.rejects(createScannerBatch(db,actor,setup(second),epoch));
     assert.equal((await capacity(box,"B")).remaining,85);
+    // A busy-helper refusal must roll back the admission reservation/session.
+    const beforeBusy = await db.acquisitionSession.count({where:{createdByUserId:tag}});
+    await assert.rejects(createScannerBatch(db,actor,setup(first,box,"B",1),epoch),/unfinished batch/);
+    assert.equal(await db.acquisitionSession.count({where:{createdByUserId:tag}}),beforeBusy);
+    assert.equal((await capacity(box,"B")).remaining,85);
     const claim=async(helper:typeof first,runId:string)=>{
       await helper.pulse(); const c={version:1,runId,epoch,executionId:randomUUID()};
       assert.equal((await claimScannerRun(db,helper.token,c,epoch)).feedAuthorized,true); return c;

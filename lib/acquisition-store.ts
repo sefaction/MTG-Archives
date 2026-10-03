@@ -104,10 +104,12 @@ export type StoredCapture = {
 };
 
 async function transaction<T>(
-  db: PrismaClient,
+  db: PrismaClient | Tx,
   work: (tx: Tx) => Promise<T>,
   retryCreate = false,
 ): Promise<T> {
+  // Scanner admission joins session creation and START in its outer transaction.
+  if (!("$transaction" in db)) return work(db);
   for (let attempt = 0; ; attempt++) {
     try {
       return await db.$transaction(work, {
@@ -260,7 +262,7 @@ export async function getAcquisitionSession(
   );
 }
 export async function createAcquisitionSession(
-  db: PrismaClient,
+  db: PrismaClient | Tx,
   actor: AcquisitionActor,
   value: CreateAcquisitionInput,
   beforeWrite?: (tx: Prisma.TransactionClient) => Promise<void>,
@@ -608,7 +610,7 @@ export async function proposeAcquisitionCandidate(
 
 // Commands are replayable even after their original revision has advanced.
 export async function executeAcquisitionCommand(
-  db: PrismaClient,
+  db: PrismaClient | Tx,
   actor: AcquisitionActor,
   sessionId: string,
   input: {

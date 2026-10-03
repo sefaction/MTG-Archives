@@ -72,14 +72,15 @@ export async function createScannerBatch(db: PrismaClient, actor: AcquisitionAct
   if (counted && layout.sections.length && !layout.sections.some(s => s.name === normalizeLocationSection(input.section)))
     throw new ScannerRunConflict("Choose a section before starting a count controlled scanner batch");
   const guard = (tx: Tx) => guardScannerCreation(tx, input.requestKey);
-  const capture = await createAcquisitionSession(db, scoped, scannerCaptureInput(input, location.ownerPlayerId), guard,
-    counted ? tx => readScannerCapacity(tx, { locationId: location.id, ownerPlayerId: location.ownerPlayerId, section: input.section }) : undefined);
-  if (counted && (capture.session.target === null || capture.session.target > 5000))
-    throw new ScannerRunConflict("Choose a count or a section with known remaining capacity");
-  if (!counted && capture.session.target !== null && input.loadedCount !== null && input.loadedCount > capture.session.target)
-    throw new ScannerRunConflict("Choose a loaded batch within the selected remaining capacity");
-  await executeAcquisitionCommand(db, scoped, capture.session.id, { requestKey: "initial-start", revision: 0, command: "START" }, guard);
   return scannerTransaction(db, async tx => {
+    // Refused or concurrent Starts must not leave an orphan capacity reservation.
+    const capture = await createAcquisitionSession(tx, scoped, scannerCaptureInput(input, location.ownerPlayerId), guard,
+      counted ? inner => readScannerCapacity(inner, { locationId: location.id, ownerPlayerId: location.ownerPlayerId, section: input.section }) : undefined);
+    if (counted && (capture.session.target === null || capture.session.target > 5000))
+      throw new ScannerRunConflict("Choose a count or a section with known remaining capacity");
+    if (!counted && capture.session.target !== null && input.loadedCount !== null && input.loadedCount > capture.session.target)
+      throw new ScannerRunConflict("Choose a loaded batch within the selected remaining capacity");
+    await executeAcquisitionCommand(tx, scoped, capture.session.id, { requestKey: "initial-start", revision: 0, command: "START" }, guard);
     await guard(tx);
     const row = await readAcquisitionRow(tx, scoped, capture.session.id);
     const old = await tx.scannerRun.findUnique({ where: { id: input.requestKey }, include });
@@ -277,7 +278,7 @@ export async function findScannerBatchCreation(db: PrismaClient, actor: Acquisit
 export async function retireScannerBatchCreation(db: PrismaClient, actor: AcquisitionActor, value: unknown) {
   const input = scannerBatchSchema.parse(value), scoped = { userId: actor.userId, adminMode: false };
   // Read committed observes a creator that finished while this lock waited.
-  // Each creation phase uses this same lock, not a long outer transaction.
+  // Atomic admission and retirement both use this same creation lock.
   return db.$transaction(async tx => {
     await lockScannerCreation(tx, input.requestKey);
     const user = await tx.user.findUnique({ where: { id: actor.userId }, include: { player: true } });

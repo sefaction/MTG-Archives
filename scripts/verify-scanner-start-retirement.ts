@@ -62,9 +62,10 @@ export async function verifyScannerStartRetirement(db:PrismaClient) {
     assert.equal(await scannerStartMarkerExists(marked.requestKey),true);
     await revokeScannerAgent(db,tag,first.agentId);
 
-    // Pause after each real creation transaction commits. Retirement can land
-    // between phases without treating a missing ScannerRun as completed work.
-    for(const afterPhase of [1,2,3]) {
+    // Pause before atomic admission and after it commits. Cancellation must
+    // retire the former and recover the accepted run in the latter. Legacy
+    // partial sessions and restored markers remain covered above and below.
+    for(const afterPhase of [0,1]) {
       const h=await helper(),value={...input,agentId:h.agentId,requestKey:randomUUID(),quantity:1};
       let release!:()=>void,notify!:()=>void,count=0;
       const gate=new Promise<void>(resolve=>{release=resolve;}),paused=new Promise<void>(resolve=>{notify=resolve;});
@@ -81,7 +82,7 @@ export async function verifyScannerStartRetirement(db:PrismaClient) {
       try {
         await Promise.race([paused,outcome.then(result=>{if(result.error)throw result.error;throw Error("Creation did not reach paused phase");})]);
         const settlement=await retireScannerBatchCreation(db,actor,value);
-        if(afterPhase<3){assert.equal(settlement.retired,true);assert.equal(await scannerStartRetired(value.requestKey),true);}
+        if(afterPhase===0){assert.equal(settlement.retired,true);assert.equal(await scannerStartRetired(value.requestKey),true);}
         else {
           assert.equal(settlement.retired,false);assert.equal(await scannerStartRetired(value.requestKey),false);
           const claim=await claimScannerRun(db,h.token,{version:1,runId:value.requestKey,epoch,executionId:randomUUID()},epoch);
@@ -90,7 +91,7 @@ export async function verifyScannerStartRetirement(db:PrismaClient) {
         }
       } finally { release(); }
       const result=await outcome;
-      if(afterPhase<3){assert.match(String(result.error),/cancelled/);assert.equal(await db.scannerRun.count({where:{id:value.requestKey}}),0);}
+      if(afterPhase===0){assert.match(String(result.error),/cancelled/);assert.equal(await db.scannerRun.count({where:{id:value.requestKey}}),0);}
       else {assert.equal(result.error,null);assert.equal(result.value!.runId,value.requestKey);}
       await revokeScannerAgent(db,tag,h.agentId);
     }
@@ -104,7 +105,7 @@ export async function verifyScannerStartRetirement(db:PrismaClient) {
     assert.equal(await scannerStartRetired(value.requestKey),false);assert.equal(await db.acquisitionCaptureSlot.count({where:{runId:run.id}}),1);
     assert.equal(await db.acquisitionPhoto.count({where:{run:{session:{createdByUserId:tag}}}}),0);
     assert.equal(await db.inventoryItem.count({where:{currentOwnerId:tag}}),0);
-    console.log("PASS: retired/replayed creation, partial identity/cancellation/restore, three late-creation phases, accepted+started adoption, foreign actor and saved START/slot evidence; no motor/Inventory");
+    console.log("PASS: retired/replayed creation, partial identity/cancellation/restore, before/after atomic admission, accepted+started adoption, foreign actor and saved START/slot evidence; no motor/Inventory");
   } finally {
     const where={run:{session:{createdByUserId:{in:ids}}}};
     await db.scannerRun.deleteMany({where:{agent:{userId:{in:ids}}}});
