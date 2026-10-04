@@ -1,5 +1,8 @@
 # Operator-directed section series
 
+For everyday fixed-count, refill and dashboard steps, start with the
+[scanner batch quick start](SCANNER_BATCH_QUICK_START.md).
+
 Guarded helper0.4.2 passed repaired one/two/five/ten supervised diagnostic boundaries
 and the small website sequence: A2, B early-empty1, same-B refill2 and persistent
 Stop before C. Operator physical observations and reconciliation are recorded.
