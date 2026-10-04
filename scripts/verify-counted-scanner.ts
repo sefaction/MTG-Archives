@@ -108,7 +108,8 @@ export async function verifyCountedScanner(db: PrismaClient) {
     const largeImages=await images(first,largeClaim,83);
     await finish(first,largeClaim,83,false);
     assert.equal((await getScannerBatch(db,tag,large.runId)).phase,"COMPLETE");
-    assert.equal((await getAcquisitionSession(db,actor,large.sessionId)).session.candidates.filter(c=>c.countConfirmed).length,0);
+    assert.equal((await getAcquisitionSession(db,actor,large.sessionId)).session.candidates.filter(c=>c.countConfirmed).length,83);
+    assert.equal(((await getScannerBatch(db,tag,large.runId)).reconciliation as {mode?:string})?.mode,"SCANNER_IMAGE_COUNT");
     await assert.rejects(reconcileScannerBatch(db,tag,observe(large.runId,82,2)));
     await reconcileScannerBatch(db,tag,observe(large.runId,83,1));
     assert.equal((await capacity()).remaining,0);
@@ -140,7 +141,7 @@ export async function verifyCountedScanner(db: PrismaClient) {
     assert.equal((await getScannerBatch(db,tag,small.runId)).phase,"PAUSED");
     assert.equal((await getScannerBatch(db,tag,small.runId)).remainingTarget,1);
     const refill={runId:small.runId,requestKey:randomUUID(),loadedCount:3,operatorLoadedSimplexFronts:true};
-    await assert.rejects(refillScannerBatch(db,tag,refill,epoch));
+    assert.equal(((await getScannerBatch(db,tag,small.runId)).reconciliation as {mode?:string})?.mode,"SCANNER_IMAGE_COUNT");
     await reconcileScannerBatch(db,tag,observe(small.runId,2));
     await assert.rejects(scannerContinuation(db,tag,small.runId),/unfinished batch/);
     const firstReview=await getAcquisitionCardReview(db,actor,small.sessionId,smallImages[0].ack.photoId);
@@ -180,6 +181,31 @@ export async function verifyCountedScanner(db: PrismaClient) {
     assert.deepEqual(await getAcquisitionCardReview(db,actor,small.sessionId,firstReview.photoId),saved);
     assert.equal(await db.inventoryAuditLog.count({where:{changedByUserId:tag,changeType:"acquisition_committed"}}),1);
 
+    // An empty attempt after saved cards can be confirmed after reloading. It
+    // resumes the same batch at the unchanged offset, without replaying a feed.
+    const reloadBox=await location(3,[{name:"A",capacity:3}]); await first.pulse();
+    const reloadBatch=await createScannerBatch(db,actor,setup(first,reloadBox,"A",3),epoch);
+    const reloadClaim=await claim(first,reloadBatch.runId),reloadImages=await images(first,reloadClaim,1);
+    await finish(first,reloadClaim,1,true); await reconcileScannerBatch(db,tag,observe(reloadBatch.runId,1));
+    await first.pulse();
+    const emptyReload=await refillScannerBatch(db,tag,{runId:reloadBatch.runId,requestKey:randomUUID(),loadedCount:null,operatorLoadedSimplexFronts:true},epoch);
+    const emptyReloadClaim=await claim(first,emptyReload.runId);
+    await finish(first,emptyReloadClaim,0,true);
+    const loadedRefill={runId:emptyReload.runId,requestKey:randomUUID(),loadedCount:3,operatorLoadedSimplexFronts:true};
+    assert.equal(((await getScannerBatch(db,tag,emptyReload.runId)).reconciliation as {mode?:string})?.mode,"SCANNER_IMAGE_COUNT");
+    await first.pulse();
+    const resumedReload=await refillScannerBatch(db,tag,loadedRefill,epoch);
+    assert.equal(resumedReload.sessionId,reloadBatch.sessionId);
+    assert.equal(resumedReload.sequenceOffset,1); assert.equal(resumedReload.physicalTarget,2);
+    assert.equal((await refillScannerBatch(db,tag,loadedRefill,epoch)).runId,resumedReload.runId);
+    const resumedReloadClaim=await claim(first,resumedReload.runId); await images(first,resumedReloadClaim,2);
+    await finish(first,resumedReloadClaim,2,false); await reconcileScannerBatch(db,tag,observe(resumedReload.runId,2,1));
+    const reloadPhotos=await db.acquisitionPhoto.findMany({where:{run:{sessionId:reloadBatch.sessionId}},include:{slot:true},orderBy:{slot:{position:"asc"}}});
+    assert.deepEqual(reloadPhotos.map(p=>p.slot.position),[0,1,2]);
+    assert.equal(reloadPhotos[0].id,reloadImages[0].ack.photoId);
+    assert.equal((await getScannerBatch(db,tag,resumedReload.runId)).phase,"COMPLETE");
+    assert.equal(await db.inventoryItem.count({where:{locationId:reloadBox}}),0);
+
     // Different sections share the parent's total limit, and two concurrent
     // admissions cannot each consume the same free spaces.
     const tight=await location(3,[{name:"A",capacity:3},{name:"B",capacity:3}]);
@@ -218,6 +244,7 @@ export async function verifyCountedScanner(db: PrismaClient) {
     const overflow=await createScannerBatch(db,actor,setup(second,overflowBox,"A",1,3),epoch),overflowClaim=await claim(second,overflow.runId);
     await images(second,overflowClaim,2);await finish(second,overflowClaim,2,false);
     assert.equal((await getScannerBatch(db,tag,overflow.runId)).status,"ERROR");
+    assert.equal((await getScannerBatch(db,tag,overflow.runId)).reconciliation,null);
     await reconcileScannerBatch(db,tag,observe(overflow.runId,2,1));
     await assert.rejects(refillScannerBatch(db,tag,{runId:overflow.runId,requestKey:randomUUID(),loadedCount:null,operatorLoadedSimplexFronts:true},epoch));
     await endScannerBatch(db,tag,overflow.runId);assert.equal((await capacity(overflowBox)).remaining,1);
@@ -228,7 +255,7 @@ export async function verifyCountedScanner(db: PrismaClient) {
     const chainInput={...setup(chainHelper,chainBox,"A"),continuous:true};
     const chainA=await createScannerBatch(db,actor,chainInput,epoch);
     const chainAClaim=await claim(chainHelper,chainA.runId);await images(chainHelper,chainAClaim,2);await finish(chainHelper,chainAClaim,2,false);
-    await assert.rejects(scannerContinuation(db,tag,chainA.runId),/settle/);
+    assert.equal((await scannerContinuation(db,tag,chainA.runId)).continueFrom,chainA.runId);
     await reconcileScannerBatch(db,tag,observe(chainA.runId,2,4));
     const chainDefaults=await scannerContinuation(db,tag,chainA.runId);
     assert.equal(chainDefaults.continueFrom,chainA.runId);

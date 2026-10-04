@@ -3,7 +3,9 @@
 Guarded helper0.4.2 passed repaired one/two/five/ten supervised diagnostic boundaries
 and the small website sequence: A2, B early-empty1, same-B refill2 and persistent
 Stop before C. Operator physical observations and reconciliation are recorded.
-Larger logical-batch and ordinary installed-helper acceptance remain unfinished.
+Installed helper0.4.3 passed empty preparation, chosen startup, idle Close and
+reopening. Larger logical-batch, connection switching and active-run Close
+acceptance remain unfinished.
 See [current programmatic qualification](FI7160_PROGRAMMATIC_COUNT_CONTROL.md).
 The original failed boundary in [602](https://github.com/sefaction/MTG-Archives/issues/602)
 is retained. No simulated result proves a physical count or permits unattended feeding.
@@ -19,10 +21,9 @@ is retained. No simulated result proves a physical count or permits unattended f
    until I stop**. The displayed target is the section's remaining capacity after
    stored cards, pending cards and unfinished reservations.
 4. Load a comfortable small stack and explicitly Start while beside the scanner.
-   If it empties before the target, confirm the physical result, refill and use
+   Clean runs count saved card fronts automatically. If it empties before the target, refill and use
    **Resume**. This continues the same batch; its earlier cards remain saved.
-5. When the target is reached, confirm the exits, remaining hopper cards and clear
-   transport. Use **Choose next section**, select the next section and explicitly
+5. When the target is reached, use **Choose next section**, select the next section and explicitly
    Start its new batch. The next section starts with a fresh capacity check.
 6. Use **Stop section series** when finished. Saved cards remain available for
    review and explicit addition to Inventory; stopping does not add them.
@@ -79,7 +80,11 @@ qualification must first establish effective Pre-Pick Off and then repeat small
 counts with an extra loaded card before increasing counts within the documented
 hopper thickness limit. No physical trial is planned while the operator is away.
 
-## Verification evidence
+## Initial software verification evidence — historical baseline
+
+The figures and helper0.4.1 package below describe the initial PR603 validation.
+They are preserved as historical evidence; current hardware qualification and
+installed-helper status are in the linked programmatic report above.
 
 - 801 unit tests, type checking, affected lint, production build and ten client
   manifests passed. Disposable PostgreSQL acquisition integrity passed in

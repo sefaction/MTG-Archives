@@ -3,7 +3,8 @@ import { z } from "zod";
 import { scannerTransaction, authenticateScanner, listScannerAgents } from "./scanner-store";
 import { SCANNER_CAPTURE_PROVIDER, scannerBatchSchema, scannerRunClaimSchema,
   scannerTransferSchema, scannerRunFinishSchema, scannerReconcileSchema, scannerCanonical,
-  scannerPreflightReportSchema, scannerPreflightProblemSchema, scannerRefillSchema } from "./scanner-run-protocol";
+  scannerPreflightReportSchema, scannerPreflightProblemSchema, scannerRefillSchema,
+  scannerRefillReconciliationIsSafe } from "./scanner-run-protocol";
 import { createAcquisitionSession, executeAcquisitionCommand, getAcquisitionProgress,
   readAcquisitionRow, hydrateAcquisitionRow, saveAcquisitionRow,
   beginAcquisitionPhoto, finalizeAcquisitionPhoto, type AcquisitionActor } from "./acquisition-store";
@@ -269,6 +270,23 @@ export async function finishScannerRun(db: PrismaClient, authorization: string |
     const natural = !run.counted && run.loadedCount === null && status === "DRAINED" && !run.stopRequestedAt &&
       ["COMPLETED", "SOURCE_EXHAUSTED"].includes(input.outcome.outcome) && !input.outcome.nativeError;
     let reconciled = false;
+    const cleanCounted = run.counted && status === "DRAINED" &&
+      ["COMPLETED", "SOURCE_EXHAUSTED"].includes(input.outcome.outcome) && !input.outcome.nativeError;
+    if (cleanCounted && !run.reconciliation) {
+      const state = await getStartState(tx, actor, run.acquisitionRun.sessionId);
+      const segmentSlots = new Set(photos.map(photo => photo.slotId));
+      const candidates = state.session.candidates.filter(candidate => segmentSlots.has(candidate.input.id));
+      if (candidates.length === input.outcome.imageCount && candidates.every(candidate =>
+          !candidate.excluded && !candidate.uncertainty.length && candidate.observations.length === 1)) {
+        let after = state.session;
+        for (const candidate of candidates) if (!candidate.countConfirmed) after = correctPhysicalCount(after, {
+          candidateKey: candidateKey(after.run.runId, candidate.input.id), revision: candidate.revision,
+          actorId: actor.userId, action: "CONFIRM_COUNT",
+          reason: "Qualified counted scanner completed cleanly; one retained front image assumed per card; physical boundaries unknown" });
+        if (after !== state.session) await saveAcquisitionRow(tx, row, state.session, after);
+        reconciled = true;
+      }
+    }
     if (natural && !run.reconciliation) {
       const state = await getStartState(tx, actor, run.acquisitionRun.sessionId);
       if (state.session.candidates.length === input.outcome.imageCount &&
@@ -282,6 +300,7 @@ export async function finishScannerRun(db: PrismaClient, authorization: string |
     await tx.scannerRun.update({ where: { id: run.id }, data: { status, outcome: input.outcome,
       ...(reconciled ? { reconciliation: { mode: "SCANNER_IMAGE_COUNT", actorUserId: actor.userId,
         observedAt: new Date().toISOString(), imageCount: input.outcome.imageCount,
+        ...(cleanCounted ? { basis: "QUALIFIED_COUNTED_FRONT_IMAGES" } : {}),
         boundarySource: "ONE_RETAINED_IMAGE_PER_CARD_ASSUMED; SDK physical boundaries UNKNOWN" } } : {}) } });
     // A settled earlier segment may be replayed after a refill has begun. Its
     // idempotent finish cannot pause or complete the newer segment/session.
@@ -403,7 +422,7 @@ export async function reconcileScannerBatch(db: PrismaClient, userId: string, va
     await tx.$queryRaw`SELECT id FROM "ScannerRun" WHERE id = ${input.runId} FOR UPDATE`;
     const run = await tx.scannerRun.findUnique({ where: { id: input.runId }, include });
     if (!run || run.acquisitionRun.session.createdByUserId !== userId || !["DRAINED", "ERROR", "CANCELLED_BEFORE_START"].includes(run.status)) throw denied();
-    if (run.reconciliation) {
+    if (run.reconciliation && !(run.counted && (run.reconciliation as Prisma.JsonObject).mode === "SCANNER_IMAGE_COUNT")) {
       const existing = run.reconciliation as Prisma.JsonObject;
       if (existing.mode === "CANCELLED_WITHOUT_START" && input.cardsEmitted === 0)
         return { version: 1, runId: run.id, confirmed: true, replay: true };
@@ -466,11 +485,11 @@ export async function refillScannerBatch(db: PrismaClient, userId: string, value
     }
     const latest = await tx.scannerRun.findFirstOrThrow({ where: { acquisitionRunId: prior.acquisitionRunId }, orderBy: { segment: "desc" } });
     const outcome = prior.outcome as Prisma.JsonObject | null;
-    const observation = (prior.reconciliation as Prisma.JsonObject | null)?.observation as Prisma.JsonObject | undefined;
     if (latest.id !== prior.id || prior.status !== "DRAINED" || !prior.reconciliation || prior.stopRequestedAt ||
-        state.session.phase !== "PAUSED" || !state.destinationCurrent || !observation?.feederEmpty ||
+        state.session.phase !== "PAUSED" || !state.destinationCurrent ||
+        !scannerRefillReconciliationIsSafe(prior.reconciliation, prior.id, Number(outcome?.imageCount)) ||
         outcome?.sourceExhausted !== "REPORTED_EMPTY" || !["COMPLETED", "SOURCE_EXHAUSTED"].includes(String(outcome?.outcome)) || outcome?.nativeError)
-      throw new ScannerRunConflict("Refill requires a reconciled early-empty segment in this unfinished batch");
+      throw new ScannerRunConflict("Run cannot resume until the previous scan is complete and its saved count is verified.");
     const agent = await tx.scannerAgent.findUniqueOrThrow({ where: { id: prior.agentId } });
     if (agent.revokedAt || agent.userId !== userId || !agent.lastSeenAt || Date.now() - agent.lastSeenAt.getTime() >= 30000) throw denied();
     const refillDevice = currentCountedSource(agent, prior.deviceId);

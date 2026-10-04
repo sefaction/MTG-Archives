@@ -81,7 +81,7 @@ export function ScannerSourceFields({ initialEnabled, initialChoice, onChange, r
         <p className="text-sm mt-2">Match the position of the cards in the feeder. Use Center when the guides hold cards in the middle.</p>
         <p className="text-sm mt-2">Simplex color, fixed {frame?.widthInches ?? 2.6} × {frame?.heightInches ?? 3.6} inch frame; crop, deskew and blank removal off.</p>
       </details>
-      <p className="text-sm">{counted ? "600 DPI, centered fronts, current 2.7 x 3.6 inch frame. One and two cards with three loaded passed small physical tests; larger counts still need qualification. Clear the transport before Start. After early exhaustion, inspect and confirm the count, refill, then explicitly resume this batch. Stop waits for the current count." : "Load card fronts and clear the transport. Start scans everything in the feeder; it does not stop at a chosen count. Keep the loaded cards within the destination's remaining capacity. Stop requests drain the feeder."}</p>
+      <p className="text-sm">{counted ? "600 DPI card fronts with the Cards profile and Pre-Pick Off. Clean runs count saved fronts automatically. If the hopper empties early, refill and resume the same batch. Clear the transport before Start. Stop waits for the current scan." : "Load card fronts and clear the transport. Start scans everything in the feeder; it does not stop at a chosen count. Keep the loaded cards within the destination's remaining capacity. Stop requests drain the feeder."}</p>
       {error && <p role="alert">{error}</p>}
     </>}
   </fieldset>;
@@ -119,7 +119,7 @@ export function ScannerRunControls({ runId, savedImages, refresh }: { runId: str
     <p role="status">{run?.status === "QUEUED" ? scannerPreflightMessage(run.preflightProblem) ?? "Waiting for the Windows helper to start." : run?.status === "STARTED" ? "Scanning and uploading." :
       run?.status === "DRAINED" ? run.series?.stopped ? "Scanner series ended. Saved cards remain available for review." : paused ? "Hopper emptied early. "+run.remainingTarget+" cards remain in this batch." : run.counted ? run.remainingTarget > 0 ? "Batch ended with saved cards. Choose the next section before feeding more." : "Selected count reached. Choose the next section before feeding more." : "Scanner run ended." : run?.status === "CANCELLED_BEFORE_START" && cancelled ? "Waiting scan cancelled. The helper was not authorized to feed cards." : run ? "Scanner run needs reconciliation; originals remain saved." : "Loading scanner status."}
       {" "}{savedImages} {savedImages === 1 ? "image" : "images"} saved.</p>
-    <p className="text-sm">A clean feeder run uses one saved front image per card. Check the images for missed cards or double feeds; interrupted runs need manual reconciliation.</p>
+    <p className="text-sm">Clean runs count one saved card front per card automatically. Saved images and reviews stay in this batch; interrupted runs need recovery.</p>
     {run && ["QUEUED","STARTED"].includes(run.status) && <button className={button} disabled={busy || run.stopRequested}
       onClick={()=>void act({action:"stop",runId:run.runId})}>{run.stopRequested ? "Stop requested; current run will finish" : run.status === "QUEUED" ? "Cancel waiting scan" : run.counted ? "End after current count" : "Request stop (drain feeder)"}</button>}
     {run && ["DRAINED","ERROR","CANCELLED_BEFORE_START"].includes(run.status) && !run.reconciliation && <fieldset className="space-y-3">

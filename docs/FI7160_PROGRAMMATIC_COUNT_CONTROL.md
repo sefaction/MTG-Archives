@@ -36,6 +36,22 @@ produce reconciliation/error while retaining every original, including overflow.
 
 ## Verification
 
+### Everyday count recording
+
+Clean runs from the qualified counted source use one durable front image per card
+as the count. The operator does not have to count exits or enter an exact total
+before resuming or choosing another section. Each refill confirms only its own
+new images; earlier cards and reviews stay in the same logical batch. A clean
+zero-image empty attempt can be resumed after loading cards.
+
+The stored receipt explicitly records an image-count assumption. It does not
+claim an operator observed the exits, an empty hopper or clear transport, and
+device physical boundaries remain unknown. Source qualification, durable Start,
+contiguous retained originals, target bounds, clean completion and native closure
+still apply. Errors, interrupted outcomes, overflow and uncertain candidates
+retain manual recovery. Explicit refill/next-section Start and persistent Stop
+remain unchanged. A later physical observation can replace an automatic receipt.
+
 Motor-free process fixtures cover stale/wrong driver/source/frame, missing or
 malformed readback/invariant/blank proof, no-feed prepare/close and denied Start,
 early empty, retained overflow, restoration/closure and late process-exit failures.
@@ -93,13 +109,14 @@ The reservation display repair shows A's two and B's three held spaces separatel
 from Inventory counts, with both sections full and C's two spaces available.
 Desktop and phone simulated series/refill/Stop checks and all802 core tests passed;
 see [section series](SCANNER_SECTION_SERIES.md). The cumulative review also includes
-helper0.4.3's [single connection startup](SCANNER_CONNECTION_SELECTION.md), whose
-installer is built but installed startup/switch/active-run-close acceptance remains
-pending. The actual physical sequence used the unchanged tested0.4.2 helper.
+helper0.4.3's [single connection startup](SCANNER_CONNECTION_SELECTION.md). The
+installed helper passed empty preparation, ordinary chosen startup, idle Close
+and reopening. Switching and Close during an active scan remain unverified.
+The small physical sequence above used the unchanged tested0.4.2 helper.
 
 This passes the scoped small website capacity, explicit next-section, early-empty,
 same-batch refill and persistent Stop gates. A larger logical83-card hardware batch,
-ordinary installed-helper operation and broader reliability remain unfinished.
+connection switching, active-run Close and broader reliability remain unfinished.
 Use comfortable small hopper refills; diagnostic eleven-card loading does not
 justify an83/84-card stack of thick cards. Every new feed requires fresh supervised
 loading/readiness and physical result confirmation; software tests do not authorize

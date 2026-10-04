@@ -55,9 +55,9 @@ test("counted source selects one, preserves hopper remainder, then explicitly re
     expect((await polled()).run.status).toBe("QUEUED");
     const first=await begin();expect(first.run.physicalTarget).toBe(1);expect(first.run.settings.widthInches).toBe(2.7);expect(first.run.settings.dpi).toBe(600);
     await transfer(first.claim,1);await finish(first.claim,1,false);
-    await expect(scanner).toContainText("Selected count reached.");await scanner.getByLabel("Cards physically emitted").fill("1");
-    await scanner.getByLabel("Cards still wholly in the hopper").fill("2");await scanner.getByRole("checkbox",{name:/Transport is clear/}).check();
-    await scanner.getByRole("button",{name:"Confirm physical count",exact:true}).click();await expect(scanner).toContainText("Physical count confirmed.");
+    await expect(scanner).toContainText("Selected count reached.");
+    await expect(scanner).toContainText("Image count recorded automatically.");
+    await expect(scanner.getByLabel("Cards physically emitted")).toHaveCount(0);
     const capacity=await page.request.get("/api/scanners/capacity?location="+encodeURIComponent(tag)+"&section=A");
     expect((await capacity.json()).remaining).toBe(82);
     await scanner.getByRole("link",{name:"Choose next section",exact:true}).click();
@@ -68,8 +68,8 @@ test("counted source selects one, preserves hopper remainder, then explicitly re
     await expect(scanner).toContainText("Waiting for the Windows helper to start.");
     const early=await begin();expect(early.run.physicalTarget).toBe(3);await transfer(early.claim,2);await finish(early.claim,2,true);
     await expect(scanner).toContainText("Hopper emptied early. 1 cards remain in this batch.");
-    await scanner.getByLabel("Cards physically emitted").fill("2");await scanner.getByRole("checkbox",{name:/Transport is clear/}).check();
-    await scanner.getByRole("button",{name:"Confirm physical count",exact:true}).click();
+    await expect(scanner).toContainText("Image count recorded automatically.");
+    await expect(scanner.getByRole("button",{name:"Confirm physical count",exact:true})).toHaveCount(0);
     await expect(scanner.getByRole("link",{name:"Choose next section",exact:true})).toHaveCount(0);
     await expect(scanner.getByRole("button",{name:"Resume unfinished batch",exact:true})).toBeDisabled();
     for(const width of [1366,320]) {await page.setViewportSize({width,height:900});await scanner.scrollIntoViewIfNeeded();
@@ -86,9 +86,9 @@ test("counted source selects one, preserves hopper remainder, then explicitly re
     expect(resumed.run.physicalTarget).toBe(1);expect(resumed.run.sequenceOffset).toBe(2);expect(resumed.run.logicalTarget).toBe(3);
     await transfer(resumed.claim,1);await finish(resumed.claim,1,false);
     await expect(scanner).toContainText("Selected count reached.");await expect(scanner).toContainText("3 images saved.");
-    await scanner.getByLabel("Cards physically emitted").fill("1");await scanner.getByLabel("Cards still wholly in the hopper").fill("2");
-    await scanner.getByRole("checkbox",{name:/Transport is clear/}).check();await scanner.getByRole("button",{name:"Confirm physical count",exact:true}).click();
-    await expect(scanner).toContainText("Physical count confirmed.");await expect(scanner.getByRole("link",{name:"Choose next section",exact:true})).toBeVisible();
+    await expect(scanner).toContainText("Image count recorded automatically.");
+    await expect(scanner.getByLabel("Cards physically emitted")).toHaveCount(0);
+    await expect(scanner.getByRole("link",{name:"Choose next section",exact:true})).toBeVisible();
     const state=JSON.parse(database("const sessions=await p.acquisitionSession.findMany({where:{createdByUserId:"+JSON.stringify(tag)+"},orderBy:{createdAt:'asc'},include:{run:{include:{scannerRuns:{orderBy:{segment:'asc'}},photos:{include:{slot:true}}}}}});console.log(JSON.stringify({sessions,quantity:(await p.inventoryItem.aggregate({where:{currentOwnerId:"+JSON.stringify(tag)+"},_sum:{quantity:true}}))._sum.quantity,audits:await p.inventoryAuditLog.count({where:{changedByUserId:"+JSON.stringify(tag)+"}})}));"));
     expect(state.sessions).toHaveLength(2);expect(state.sessions[1].run.scannerRuns).toHaveLength(2);expect(state.quantity).toBe(2);expect(state.audits).toBe(0);
     expect(state.sessions[1].run.photos.map((p:any)=>p.slot.position).sort()).toEqual([0,1,2]);
