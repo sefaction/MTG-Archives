@@ -11,7 +11,7 @@ using System.Threading;
 using NTwain;
 using NTwain.Data;
 
-// Revised small mechanical gate only. No website credential or Inventory access.
+// Explicit supervised qualification stages only. No website credential or Inventory access.
 // CAP_XFERCOUNT is image count; operator observation determines physical success.
 internal static class CountFeed
 {
@@ -131,7 +131,7 @@ internal static class CountFeed
         try { target = GuardedFeedPolicy.Target(args); }
         catch (ArgumentException)
         {
-            Console.Error.WriteLine("Usage: CountFeed.exe qualify-one-of-three|qualify-two-of-three <NEW absolute private directory> <known Mtg.CountedTwain.exe>; legacy feeding suspended");
+            Console.Error.WriteLine("Usage: CountFeed.exe qualify-one-of-three|qualify-two-of-three|qualify-five-of-six|qualify-ten-of-eleven <NEW absolute private directory> <known Mtg.CountedTwain.exe>; production feeding suspended");
             return 2;
         }
         NoOtherOwner();
@@ -212,7 +212,7 @@ internal static class CountFeed
                 finished.Reset();
                 var expected = GuardedFeedPolicy.Authorization(nonce, target);
                 File.WriteAllText(Path.Combine(args[1], "readiness-challenge.txt"), expected);
-                Log("AWAITING fresh visible-Off and three-expendable-card loading/clear-transport readiness; no feed queued");
+                Log("AWAITING fresh visible-Off and exactly " + GuardedFeedPolicy.LoadedCards(target) + " expendable cards loaded/clear-transport/supervised readiness to scan " + target + "; no feed queued");
                 var authorize = Path.Combine(args[1], "authorize-once.txt");
                 while (!File.Exists(authorize))
                 {

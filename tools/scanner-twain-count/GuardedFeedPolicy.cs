@@ -12,12 +12,21 @@ internal static class GuardedFeedPolicy
             throw new ArgumentException("New absolute evidence directory and known worker assembly required");
         if (args[0] == "qualify-one-of-three") return 1;
         if (args[0] == "qualify-two-of-three") return 2;
-        throw new ArgumentException("Only revised one/two-of-three diagnostics are enabled");
+        if (args[0] == "qualify-five-of-six") return 5;
+        if (args[0] == "qualify-ten-of-eleven") return 10;
+        throw new ArgumentException("Only explicit staged qualification targets are enabled");
+    }
+    internal static int LoadedCards(int target)
+    {
+        if (target == 1 || target == 2) return 3;
+        if (target == 5) return 6;
+        if (target == 10) return 11;
+        throw new ArgumentException("Unqualified diagnostic target");
     }
     internal static string Authorization(string nonce, int target)
     {
         return "session=" + nonce + ";target=" + target +
-            ";visible-prepick=off;blank-discard=disabled;loaded=3-expendable;transport=clear;ready=once";
+            ";visible-prepick=off;blank-discard=disabled;loaded=" + LoadedCards(target) + "-expendable;transport=clear;ready=once";
     }
     internal static void RequireAuthorization(string actual, string nonce, int target)
     {
@@ -36,8 +45,11 @@ internal static class GuardedFeedPolicy
         var root = Path.Combine(Path.GetTempPath(), "MtgGuardedFeed-" + Guid.NewGuid().ToString("N"));
         var worker = Path.Combine(root, "Mtg.CountedTwain.exe");
         if (Target(new[] { "qualify-one-of-three", root, worker }) != 1 ||
-            Target(new[] { "qualify-two-of-three", root, worker }) != 2)
-            throw new InvalidOperationException("Small diagnostic target policy failed");
+            Target(new[] { "qualify-two-of-three", root, worker }) != 2 ||
+            Target(new[] { "qualify-five-of-six", root, worker }) != 5 ||
+            Target(new[] { "qualify-ten-of-eleven", root, worker }) != 10 ||
+            LoadedCards(1) != 3 || LoadedCards(2) != 3 || LoadedCards(5) != 6 || LoadedCards(10) != 11)
+            throw new InvalidOperationException("Staged diagnostic target/loading policy failed");
         foreach (var command in new[] { "feed-one-of-three", "feed-two-of-three", "qualify-ten", "helper-channel-v1", "start" })
         {
             var denied = false;
@@ -45,6 +57,25 @@ internal static class GuardedFeedPolicy
             if (!denied) throw new InvalidOperationException("Legacy/unqualified feeding accepted");
         }
         var nonce = Guid.NewGuid().ToString("N");
+        foreach (var target in new[] { 1, 2, 5, 10 })
+        {
+            var expected = Authorization(nonce, target);
+            RequireAuthorization(expected, nonce, target);
+            foreach (var invalid in new[] {
+                expected.Replace("loaded=" + LoadedCards(target), "loaded=" + target),
+                Authorization("old-session", target), Authorization(nonce, target == 10 ? 5 : 10) })
+            {
+                var denied = false;
+                try { RequireAuthorization(invalid, nonce, target); } catch (InvalidOperationException) { denied = true; }
+                if (!denied) throw new InvalidOperationException("Wrong stage/loading/session admitted");
+            }
+        }
+        foreach (var invalidTarget in new[] { 0, 3, 6, 11, 83, -1 })
+        {
+            var denied = false;
+            try { Authorization(nonce, invalidTarget); } catch (ArgumentException) { denied = true; }
+            if (!denied) throw new InvalidOperationException("Arbitrary target admitted");
+        }
         RequireAuthorization(Authorization(nonce, 1), nonce, 1);
         foreach (var token in new[] { "operator-ready", "", Authorization(nonce, 2), Authorization("old-session", 1),
             Authorization(nonce, 1).Replace("visible-prepick=off", "visible-prepick=on"),
@@ -66,6 +97,6 @@ internal static class GuardedFeedPolicy
         var unreadableDenied = false;
         try { RequireObservedInvariant(false, (ushort)0); } catch (InvalidOperationException) { unreadableDenied = true; }
         if (!unreadableDenied) throw new InvalidOperationException("Unavailable driver invariant accepted");
-        Console.WriteLine("PASS revised small targets, legacy refusal, same-session readiness and typed observed drift guard; no hardware");
+        Console.WriteLine("PASS staged targets/loading, arbitrary/legacy refusal, same-session readiness and typed observed drift guard; no hardware");
     }
 }
