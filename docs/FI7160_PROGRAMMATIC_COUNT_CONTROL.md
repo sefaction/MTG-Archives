@@ -115,8 +115,9 @@ and reopening. Switching and Close during an active scan remain unverified.
 The small physical sequence above used the unchanged tested0.4.2 helper.
 
 This passes the scoped small website capacity, explicit next-section, early-empty,
-same-batch refill and persistent Stop gates. A larger logical83-card hardware batch,
-connection switching, active-run Close and broader reliability remain unfinished.
+same-batch refill and persistent Stop gates. The larger logical 83-card hardware
+batch subsequently passed the sequence below. Connection switching, active-run
+Close and broader reliability remain unfinished.
 Use comfortable small hopper refills; diagnostic eleven-card loading does not
 justify an83/84-card stack of thick cards. Every new feed requires fresh supervised
 loading/readiness. Clean runs use the saved-front count automatically, per the
@@ -124,3 +125,86 @@ operator's October 3 decision; routine exact exit-count confirmation is no longe
 required. Errors, jams or uncertain transfers retain physical recovery. Software
 tests do not authorize unattended feeding. See the
 [batch quick start](SCANNER_BATCH_QUICK_START.md).
+
+## Larger supervised refill and section handoff — October 4, 2026
+
+The installed helper 0.4.3 repeated actual empty preparation after fresh operator
+confirmation. It verified the same driver/settings contract, restored twelve
+settings, closed source/DSM and joined its owned loop with zero Enables/images and
+actual exit 0. Ordinary idle Close/reopen retained the chosen local connection and
+the unfinished batch. The reviewed cumulative application is now merged into main;
+these tests used that unchanged qualified local Docker runtime.
+
+Batch 546 resumed its previously saved 30 cards toward section A's 83-card target.
+The operator requested larger comfortable loads and supervised each explicit Resume.
+
+| Segment | Remaining target before feed | Loaded | New images | Outcome / elapsed |
+| --- | ---: | ---: | ---: | --- |
+| First larger refill | 53 | 25 | 25 | SOURCE_EXHAUSTED / 100,867 ms |
+| Second larger refill | 28 | 25 | 25 | SOURCE_EXHAUSTED / 104,533 ms |
+| Finish section A | 3 | 4 | 3 | COMPLETED / 18,426 ms |
+| Explicit next section B, Batch 1187 | 2 | 3 | 2 | COMPLETED |
+
+Both larger loads closed cleanly and the operator reported undamaged cards and
+clear transport. The final A feed reached exactly 83 saved images; the operator
+confirmed the extra card wholly in the hopper, no part in the rollers, clear
+transport and no visible damage. Clean runs recorded their new front-image counts
+automatically; no exact exit-count form was required. The empty attempt from the
+earlier session remains recorded as zero images rather than a fabricated load.
+
+All 83 section A server originals independently matched their stored SHA256/length,
+helper originals and durable upload receipts. Positions 0–82 were contiguous;
+each segment's sequence restarted at 1 with its correct logical offset. Raw section
+A originals total 533,065,872 bytes. No test review was committed to Inventory.
+
+Refreshing the complete A batch retained 83 images and created no feed. Choose next
+section left the choice blank, showed A's 83 held spaces/full state and B's two free
+spaces. Selecting B still created no feed. Only its explicit Start created the new
+two-card logical batch, series ordinal 1 and physical segment 0. Both B originals and
+receipts passed the same integrity/order checks; the operator confirmed its extra
+card wholly in the hopper, undamaged scans and clear transport, then removed it.
+Persistent Stop is stored on the original series root and survived a page refresh.
+Both completed batches keep
+their scans and reserve storage until reviewed or resolved. Existing Inventory
+remained 10,292 rows/12,495 copies with its original full-row checksum.
+
+This qualifies the 83-card logical refill and section handoff on the guarded 600 DPI
+simplex profile. The separate 25-card stopping boundary passed below. This does
+not qualify an 83-card hopper stack, duplex, alternative DPI/settings, roller
+life or damaging fault injection. The wider [H01–H10 matrix](CARD_ACQUISITION_VALIDATION.md#hardware-matrix)
+and [issue 313](https://github.com/sefaction/MTG-Archives/issues/313) remain open.
+The operator previously declined repeating physical active-run Close; no such
+test was performed. Private originals, receipts, segment reports, empty-preparation
+proof and browser evidence stay outside Git history.
+
+Two sampled originals retained readable titles and collector edges. Faint magenta
+vertical lines were also observed in the native originals; a read-only check found
+recurring background columns in ten samples, including earlier ten-card captures.
+Helper/server byte integrity does not establish clean image quality. The cause and
+recognition impact remain unproven; [issue 648](https://github.com/sefaction/MTG-Archives/issues/648)
+tracks investigation. Keep the originals and do not conceal the lines or relax
+the guarded operational profile to make image-quality checks pass.
+
+### Fixed 25-card stopping boundary and next-batch defaults
+
+After fresh operator readiness, Batch 1188 requested 25 cards with 26 expendable
+cards loaded. One explicit Start produced 25 saved fronts, outcome COMPLETED in
+170,209 ms, no native error, source disabled/settings restored/DSM closed and a
+DRAINED server run. The native child was absent after completion. The operator
+confirmed the extra card wholly in the hopper, clear transport and visibly
+undamaged scanned cards, then removed the extra card and left the scanner empty.
+This is an observed physical stopping pass; the SDK still reports physical
+boundaries and source-exhaustion state UNKNOWN.
+
+All 25 server originals matched their stored SHA256/length, retained helper files
+and durable receipt identities/sequences. Positions 0–24 were contiguous and no
+cards were committed to Inventory. The existing full Inventory checksum remained
+unchanged. Private report `server-retention-25.json` and the completion screenshot
+are retained locally.
+
+New scanner batch retained the 25-card limit, destination, section, guarded source
+and nonfoil/NM defaults. Fresh capacity showed 25 spaces held by Batch 1188 and
+25 spaces remaining in its 50-space section. Opening this form created no new
+feed. Another scan requires fresh loading/readiness and an explicit Start.
+This single 25-of-26 pass does not establish long-term reliability or resolve
+the native image-quality finding in issue 648.

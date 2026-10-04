@@ -7,8 +7,12 @@ Guarded helper0.4.2 passed repaired one/two/five/ten supervised diagnostic bound
 and the small website sequence: A2, B early-empty1, same-B refill2 and persistent
 Stop before C. Operator physical observations and reconciliation are recorded.
 Installed helper0.4.3 passed empty preparation, chosen startup, idle Close and
-reopening. Larger logical-batch, connection switching and active-run Close
-acceptance remain unfinished.
+reopening. The larger 83-card logical batch subsequently passed with two 25-card
+refills, a final three-of-four boundary and explicit next-section B handoff.
+A separate fixed 25-of-26 stopping test passed; New scanner batch retained its
+25-card limit and destination with fresh held-space capacity and no automatic feed.
+Connection switching, active-run Close and wider hardware acceptance remain
+unfinished.
 See [current programmatic qualification](FI7160_PROGRAMMATIC_COUNT_CONTROL.md).
 The original failed boundary in [602](https://github.com/sefaction/MTG-Archives/issues/602)
 is retained. No simulated result proves a physical count or permits unattended feeding.
