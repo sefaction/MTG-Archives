@@ -1,3 +1,5 @@
+export const BATCH_TRASH_DAYS = 7;
+
 export function requireVisibleAcquisitionBatch(row: {trashedAt: Date | null; deletedAt: Date | null}) {
   if (row.trashedAt || row.deletedAt) throw new Error("Capture batch unavailable; check the batch dashboard and Trash");
 }

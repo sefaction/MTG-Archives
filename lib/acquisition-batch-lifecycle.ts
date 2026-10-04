@@ -4,8 +4,9 @@ import { acquisitionTransaction, readAcquisitionRow } from "./acquisition-store"
 import type { AcquisitionActor } from "./acquisition-store";
 import { scannerStartMarkerExists, persistScannerStartRetirement } from "./scanner-control-files";
 import {scannerTransferIsSettled} from "./scanner-drain-policy";
+import {BATCH_TRASH_DAYS} from "./acquisition-batch-policy";
 
-export const BATCH_TRASH_DAYS = 7;
+export {BATCH_TRASH_DAYS} from "./acquisition-batch-policy";
 export const batchLifecycleAction = z.enum(["cancel", "trash", "restore", "resume-processing"]);
 
 /** Locks match scanner admission: series, physical runs, then session. A

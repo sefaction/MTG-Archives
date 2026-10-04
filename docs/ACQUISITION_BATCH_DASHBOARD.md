@@ -44,6 +44,11 @@ invents a physical count or treats its images as automatically confirmed.
 Inventory, addition receipts and minimal acquisition provenance are retained;
 expiry does not delete collected cards. Previously expired committed scan files
 cannot be recovered by moving their batch to Trash.
+The existing helper retention check also removes matching laptop recovery
+originals after the server confirms their expired Trash files were purged. It
+verifies run, epoch, original receipt and digest before unlinking; an offline
+helper retains its copy until the next verified online check. No helper binary
+update or scanner operation is required for this server-side attestation.
 
 Processing claims, heartbeats, publication and automatic-match confirmation are
 fenced by cancellation/Trash state and existing owner/lease/generation checks.

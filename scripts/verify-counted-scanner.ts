@@ -17,6 +17,7 @@ import { previewAcquisitionCommit, commitAcquisitionCards } from "../lib/acquisi
 import { manageAcquisitionBatch } from "../lib/acquisition-batch-lifecycle";
 import { purgeTrashedAcquisitionPhotos } from "../lib/acquisition-photo-retention";
 import {Prisma} from "@prisma/client";
+import {eligibleScannerOriginals} from "../lib/scanner-retention";
 
 // Disposable PostgreSQL protocol qualification. All images are synthetic and
 // no native backend is created; an 83-image pass is not an 83-card feed pass.
@@ -354,15 +355,22 @@ export async function verifyCountedScanner(db: PrismaClient) {
     assert.equal((await purgeTrashedAcquisitionPhotos(db, new Date(errorTrashAt.getTime() + 8 * 86400000))).expired, 0);
     await assert.rejects(createScannerBatch(db, actor, setup(errorHelper, await location(1, [{name: "A", capacity: 1}])), epoch), /unfinished batch/);
     assert.equal((await pollScannerRun(db, errorHelper.token, epoch)).run?.runId, errorBatch.runId);
-    await images(errorHelper, errorClaim, 1);
+    const errorOriginals = await images(errorHelper, errorClaim, 1);
     await finishScannerRun(db, errorHelper.token, {...errorClaim, outcome: {outcome: "ERROR", imageCount: 1, elapsedMs: 100,
-      knownPhysicalItems: null, sourceExhausted: "UNKNOWN", nativeError: "fixture source error; transfer already closed"}}, epoch);
+      knownPhysicalItems: null, sourceExhausted: "UNKNOWN", nativeError: {type: "FixtureSourceError", nativeStatus: 1}}}, epoch);
     assert.equal((await pollScannerRun(db, errorHelper.token, epoch)).run, null);
     assert.equal((await capacity(errorBox)).remaining, 2);
     const savedError = await db.scannerRun.findUniqueOrThrow({where: {id: errorBatch.runId}});
     assert.equal(savedError.status, "ERROR"); assert.equal(savedError.reconciliation, null);
-    assert.equal((await purgeTrashedAcquisitionPhotos(db, new Date(errorTrashAt.getTime() + 7 * 86400000))).purged, 1);
+    const errorRetention = {version: 1, runId: errorBatch.runId, epoch,
+      artifacts: errorOriginals.map(original => ({artifactId: original.transfer.artifactId, photoId: original.ack.photoId, digest: original.ack.digest}))};
+    assert.deepEqual((await eligibleScannerOriginals(db, errorHelper.token, errorRetention, epoch)).eligible, []);
+    const errorExpiry = new Date(errorTrashAt.getTime() + 7 * 86400000);
+    assert.equal((await purgeTrashedAcquisitionPhotos(db, errorExpiry)).purged, 1);
     assert.ok((await db.acquisitionSession.findUniqueOrThrow({where: {id: errorBatch.sessionId}})).deletedAt);
+    assert.deepEqual((await eligibleScannerOriginals(db, errorHelper.token, errorRetention, epoch, errorExpiry)).eligible, [errorOriginals[0].transfer.artifactId]);
+    assert.deepEqual((await eligibleScannerOriginals(db, errorHelper.token, {...errorRetention,
+      artifacts: [{...errorRetention.artifacts[0], digest: "0".repeat(64)}]}, epoch, errorExpiry)).eligible, []);
     const afterDiscard = await createScannerBatch(db, actor, setup(errorHelper, await location(1, [{name: "A", capacity: 1}])), epoch);
     assert.equal(await scannerStartMarkerExists(afterDiscard.runId), false);
     await manageAcquisitionBatch(db, actor, afterDiscard.sessionId, "cancel");
