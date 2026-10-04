@@ -94,8 +94,24 @@ this new bounded pass does not retrospectively change its result.
 
 ## Remaining acceptance
 
+The first300-input/four-uneven-owner attempt **FAILED during upload**, before the
+native printing deadline or full review checks. It ran08:27:37–08:32:46UTC using
+160/80/40/20-card batches. All300 photo records were admitted, but only291 became
+ready (157/77/38/19); nine showed a generic request error with Retry upload. The
+unchanged five-minute upload gate failed20expected/19ready. The database recorded
+1,879 serialization conflicts during this interval; these include internally
+retried operations and do not individually prove the cause of each failed HTTP
+request. The web log emitted no detailed upload error. Further diagnosis is needed.
+
+Actual Playwright exit1; owned cleanup users0/sessions0/Inventory0 passed.
+The ordinary native300 completion, four-owner paged reviews and their correction
+reloads were **not reached**. This does not change the passing100-input result.
+Private failed report/log are `.local-data/native300-continuity-report.json` and
+`.local-data/native300-continuity-browser.log`; bounded database diagnostics and
+failure screenshots are retained privately. No timeout or retry gate was relaxed.
+
 The300-input/four-uneven-owner native stress gate and150,000-copy review gate
-remain separate. The dashboard's150,000-card metadata/query fixture is already
+remain incomplete. The dashboard's150,000-card metadata/query fixture is already
 qualified, but it is not native recognition throughput. Independent exact-printing
 accuracy, broad recovery/release gates and the supervised83-card physical refill
 sequence remain unfinished. Clean counted runs use assumed saved-front counts;
