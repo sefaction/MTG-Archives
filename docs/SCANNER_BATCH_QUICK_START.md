@@ -68,6 +68,11 @@ The detailed [section/refill guide](SCANNER_SECTION_SERIES.md) and
 [dashboard/Trash guide](ACQUISITION_BATCH_DASHBOARD.md) describe recovery and
 capacity behavior. Current physical acceptance is recorded separately in the
 [programmatic qualification](FI7160_PROGRAMMATIC_COUNT_CONTROL.md). The small
-counts and section/refill sequence passed; the larger 83-card logical hardware
-batch remains unfinished at 30 saved cards. That target is filled with small
-refills, not an 83-card stack.
+counts and section/refill sequence passed. The larger 83-card logical hardware
+batch also passed, including two supervised 25-card refills, the final three-card
+boundary with an extra loaded card, and explicit handoff to a new section. A
+separate fixed 25-card scan with 26 loaded also passed, leaving the extra card
+wholly in the hopper. New scanner batch retained the limit and destination while
+checking fresh remaining capacity.
+Use comfortable supervised refills; this does not establish an 83-card hopper load
+or other scanner profiles.
