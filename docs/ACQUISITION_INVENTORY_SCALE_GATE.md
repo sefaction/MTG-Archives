@@ -33,6 +33,37 @@ reported individually; no latency target is inferred from the samples.
 
 ## Current result
 
+The third fresh run at `50bb882` **PASSED overall** on October 4, 2026
+(36.1 minutes, actual exit 0, no skipped cases). It ran from 12:17:32.773 to
+12:53:33.987 UTC against the unchanged parent application runtime. All 300
+uploads/digests were ready in 128.977 seconds including 15.993 seconds of seeding;
+native printing finished in 1,938.526 seconds from start. Every ordered
+original/native digest, paged review row, four saved LP corrections through
+reload and eight desktop/phone overflow checks passed. Largest and smallest
+owner screenshots at both widths were also inspected.
+
+The actual fixture contained 150,000 copies / 16,400 rows / 5,000 cached
+printings / 2,501 seeded locations across four uneven owners. All 24 authenticated
+Inventory requests returned 200 (120–6,501 milliseconds). The largest owner's
+six samples were 6,501 / 4,734 / 4,289 / 3,956 / 4,197 / 3,633 milliseconds.
+These sequential samples are not a p95 or an operator-throughput guarantee.
+Nine retryable reservation conflicts recovered; no photo upload or native job
+failed. Worker identities/images/start times/restart/OOM counters stayed stable;
+the printing worker's three historical restarts predated this run.
+
+Owned cleanup removed all 16,400 fixture Inventory rows in bounded 500-row
+pages, then every fixture account/session/location and saved input directory.
+The final report persisted successfully with no report-write failures. The
+existing global 10,292 rows / 12,495 copies and full-record checksum matched
+before and after. All 67 corpus originals and 30 physical qualification originals
+were rechecked, and the physical helper remained idle. The exact 547 loaded
+runtime inputs matched the source manifest. No Inventory addition, physical
+feeding, production change or merge occurred. This qualifies this bounded
+stored-collection review gate; broader recovery and supervised Batch 546 remain
+unfinished under #310 and #313.
+
+### Preserved earlier failures
+
 The first run at `c1bd9b5` **FAILED overall** (33.7 minutes, actual exit 1).
 All 300 uploads/digests were ready in 128.768 seconds including 16.981 seconds
 of fixture creation. Native printing finished in 1,927.795 seconds from start.
@@ -75,4 +106,5 @@ owned Inventory rows in bounded pages (maximum observed operation 5.792 seconds)
 then every fixture account/session/location and its saved files. The original
 global Inventory checksum matches again. Injected transient/permanent failures
 and real staged filesystem replacement passed on this laptop. A fresh complete
-gate is still required; both preceding attempts remain failures.
+gate was subsequently completed by the third run above; both preceding attempts
+remain failures.
