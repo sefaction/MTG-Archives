@@ -6,11 +6,12 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Threading;
 using NTwain;
 using NTwain.Data;
 
-// First mechanical gate only. No website credential, receipt or Inventory access.
+// Revised small mechanical gate only. No website credential or Inventory access.
 // CAP_XFERCOUNT is image count; operator observation determines physical success.
 internal static class CountFeed
 {
@@ -49,30 +50,79 @@ internal static class CountFeed
     }
     private static void NoOtherOwner()
     {
-        if (Process.GetProcessesByName("Mtg.ScannerAgent").Length > 0 || Process.GetProcessesByName("NAPS2.Worker").Length > 0 ||
-            Process.GetProcessesByName("CountProbe").Length > 0 || Process.GetProcessesByName("CountFeed").Length > 1)
-            throw new InvalidOperationException("Conflicting scanner owner; no feed authorized");
+        foreach (var name in new[] { "Mtg.ScannerAgent", "NAPS2.Worker", "Mtg.CountedTwain", "CountProbe",
+            "ProfileSettingsInspect", "PrePickInspect", "PrePickSettings" })
+            if (Process.GetProcessesByName(name).Length > 0)
+                throw new InvalidOperationException("Conflicting scanner owner; no feed authorized");
+        if (Process.GetProcessesByName("CountFeed").Length != 1)
+            throw new InvalidOperationException("Duplicate diagnostic; no feed authorized");
     }
+    private static void Invariant(DataSource source)
+    {
+        var cap = new CapWrapper<object>(source, (CapabilityId)0x80FD, v => v,
+            (Func<object, ReturnCode>)(v => { throw new InvalidOperationException("Vendor SET forbidden"); }));
+        GuardedFeedPolicy.RequireObservedInvariant(cap.CanGetCurrent, cap.CanGetCurrent ? cap.GetCurrent() : null);
+        Log("Observed driver invariant 0x80FD UInt16=0; correlation only, separate visible Off/readiness required");
+    }
+    private static void Frame(DataSource source)
+    {
+        TWImageLayout layout;
+        Require(source.DGImage.ImageLayout.Get(out layout), "get frame");
+        if (Math.Abs((double)layout.Frame.Left) > .001 || Math.Abs((double)layout.Frame.Top) > .001 ||
+            Math.Abs((double)layout.Frame.Right - 2.7) > .001 || Math.Abs((double)layout.Frame.Bottom - 3.6) > .001)
+            throw new InvalidOperationException("Frame differs from inspected worker profile");
+    }
+    private static void Readback<T>(IReadOnlyCapWrapper<T> cap, T requested)
+    {
+        CountFeedPolicy.RequireReadback(cap.CanGetCurrent, requested, cap.CanGetCurrent ? cap.GetCurrent() : default(T));
+    }
+    private static void CaptureReadback(DataSource source, int target)
+    {
+        Readback(source.Capabilities.CapFeederEnabled, BoolType.True);
+        Readback(source.Capabilities.CapDuplexEnabled, BoolType.False);
+        Readback(source.Capabilities.CapAutoFeed, BoolType.True);
+        Readback(source.Capabilities.CapAutoScan, BoolType.False);
+        Readback(source.Capabilities.CapXferCount, target);
+        Readback(source.Capabilities.ICapXferMech, XferMech.Native);
+        Readback(source.Capabilities.ICapPixelType, PixelType.RGB);
+        Readback(source.Capabilities.ICapBitDepth, 24);
+        Readback(source.Capabilities.ICapXResolution, (TWFix32)600f);
+        Readback(source.Capabilities.ICapYResolution, (TWFix32)600f);
+        Readback(source.Capabilities.ICapUnits, Unit.Inches);
+        Frame(source); Invariant(source);
+    }
+    private static string Hash(string path)
+    {
+        using (var sha = SHA256.Create())
+            return BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(path))).Replace("-", "");
+    }
+    [STAThread]
     private static int Main(string[] args)
     {
-        if (args.Length == 1 && args[0] == "selftest") { CountFeedPolicy.SelfTest(); return 0; }
+        if (args.Length == 1 && args[0] == "selftest") { CountFeedPolicy.SelfTest(); GuardedFeedPolicy.SelfTest(); return 0; }
         int target;
-        try { target = CountFeedPolicy.Target(args); }
+        try { target = GuardedFeedPolicy.Target(args); }
         catch (ArgumentException)
         {
-            Console.Error.WriteLine("Usage: CountFeed.exe feed-one-of-three|feed-two-of-three <NEW absolute private directory> operator-ready");
+            Console.Error.WriteLine("Usage: CountFeed.exe qualify-one-of-three|qualify-two-of-three <NEW absolute private directory> <known Mtg.CountedTwain.exe>; legacy feeding suspended");
             return 2;
         }
         NoOtherOwner();
+        if (Process.GetProcessesByName("fjictwsv").Length > 0)
+            throw new InvalidOperationException("Native settings owner already exists");
         if (IntPtr.Size != 4) throw new InvalidOperationException("Use x86");
+        var workerIdentity = Assembly.LoadFile(args[2]);
+        if (workerIdentity.GetName().Name != "Mtg.CountedTwain") return 2;
         CountFeedPolicy.RequireNewDirectory(args[1]);
         Directory.CreateDirectory(args[1]);
         using (var start = new FileStream(Path.Combine(args[1], "feed.lock"), FileMode.CreateNew, FileAccess.Write, FileShare.None))
         using (journal = new StreamWriter(new FileStream(Path.Combine(args[1], "events.log"), FileMode.CreateNew, FileAccess.Write, FileShare.Read)))
         {
-            Log("operator-ready; loaded=3; requestedImages=" + target + "; physicalCount=UNKNOWN; no automatic retry");
+            var nonce = Guid.NewGuid().ToString("N");
+            Log("EMPTY INSPECTION ONLY; requestedImages=" + target + "; physicalCount=UNKNOWN; session=" + nonce);
+            Log("workerSHA256=" + Hash(args[2]) + "; diagnosticSHA256=" + Hash(Assembly.GetExecutingAssembly().Location));
             PlatformInfo.Current.PreferNewDSM = false;
-            var session = new TwainSession(TWIdentity.CreateFromAssembly(DataGroups.Image | DataGroups.Control, Assembly.GetExecutingAssembly()));
+            var session = new TwainSession(TWIdentity.CreateFromAssembly(DataGroups.Image | DataGroups.Control, workerIdentity));
             DataSource source = null;
             var enabled = false;
             var resultCode = 1;
@@ -82,6 +132,10 @@ internal static class CountFeed
                 source = session.Single(d => d.Name == "PaperStream IP fi-7160");
                 Require(source.Open(), "open exact fi-7160 source");
                 Log("source=" + source.Name + "; driver=" + source.Version + "; protocol=" + source.ProtocolVersion);
+                if (!source.Version.ToString().Contains("3.40.2.1815") || source.ProtocolVersion.ToString() != "2.4")
+                    throw new InvalidOperationException("Unqualified driver/protocol");
+                Readback(source.Capabilities.CapFeederLoaded, BoolType.False);
+                Invariant(source);
                 SetExact("CAP_FEEDERENABLED", source.Capabilities.CapFeederEnabled, BoolType.True);
                 SetExact("CAP_DUPLEXENABLED", source.Capabilities.CapDuplexEnabled, BoolType.False);
                 SetExact("CAP_AUTOFEED", source.Capabilities.CapAutoFeed, BoolType.True);
@@ -93,11 +147,12 @@ internal static class CountFeed
                 SetExact("ICAP_XRESOLUTION", source.Capabilities.ICapXResolution, (TWFix32)600f);
                 SetExact("ICAP_YRESOLUTION", source.Capabilities.ICapYResolution, (TWFix32)600f);
                 SetExact("ICAP_UNITS", source.Capabilities.ICapUnits, Unit.Inches);
-                TWImageLayout layout;
-                Require(source.DGImage.ImageLayout.Get(out layout), "get frame");
-                Log("driver current frame retained; left=" + layout.Frame.Left + "; top=" + layout.Frame.Top +
-                    "; right=" + layout.Frame.Right + "; bottom=" + layout.Frame.Bottom + "; no frame/crop/deskew change");
-                if (source.Capabilities.CapFeederLoaded.GetCurrent() != BoolType.True) throw new InvalidOperationException("Hopper is empty; no feed started");
+                CaptureReadback(source, target);
+                Readback(source.Capabilities.CapEnableDSUIOnly, BoolType.True);
+                var inspecting = true;
+                session.TransferReady += delegate(object sender, TransferReadyEventArgs e) {
+                    if (inspecting) { failures++; e.CancelAll = true; Log("UNEXPECTED transfer request during empty settings inspection refused"); }
+                };
                 session.DataTransferred += delegate(object sender, DataTransferredEventArgs e)
                 {
                     try
@@ -118,7 +173,35 @@ internal static class CountFeed
                 session.TransferError += delegate(object sender, TransferErrorEventArgs e) { failures++; Log("TransferError status=" + e.SourceStatus.ConditionCode + "; error=" + e.Exception); };
                 session.TransferCanceled += delegate { failures++; Log("TransferCanceled; physical reconciliation required"); };
                 session.SourceDisabled += delegate { Log("SourceDisabled; state=" + session.State); finished.Set(); };
+                Log("ShowUIOnly ONCE; read initially selected profile and visible Pre-Pick Off, then Cancel unchanged; keep hopper empty");
+                Require(source.Enable(SourceEnableMode.ShowUIOnly, false, IntPtr.Zero), "settings-only UI");
+                while (!finished.WaitOne(30000)) Log("WAITING for settings close; no acquisition or readiness admission");
+                if (session.State != 4 || failures != 0 || images != 0)
+                    throw new InvalidOperationException("Unexpected settings outcome; no feed authorized");
+                Readback(source.Capabilities.CapFeederLoaded, BoolType.False);
+                CaptureReadback(source, target);
+                finished.Reset();
+                var expected = GuardedFeedPolicy.Authorization(nonce, target);
+                File.WriteAllText(Path.Combine(args[1], "readiness-challenge.txt"), expected);
+                Log("AWAITING fresh visible-Off and three-expendable-card loading/clear-transport readiness; no feed queued");
+                var authorize = Path.Combine(args[1], "authorize-once.txt");
+                while (!File.Exists(authorize))
+                {
+                    if (File.Exists(Path.Combine(args[1], "cancel-before-feed.txt")))
+                    { throw new OperationCanceledException("Cancelled before feed; acquisition Enable calls=0"); }
+                    Thread.Sleep(250);
+                }
+                if (File.Exists(Path.Combine(args[1], "cancel-before-feed.txt")))
+                    throw new OperationCanceledException("Cancelled before feed; acquisition Enable calls=0");
+                GuardedFeedPolicy.RequireAuthorization(File.ReadAllText(authorize), nonce, target);
+                File.Move(authorize, Path.Combine(args[1], "authorization-consumed.txt"));
+                Log("Same-session explicit Off/loading/readiness consumed ONCE");
+                CaptureReadback(source, target);
+                Readback(source.Capabilities.CapFeederLoaded, BoolType.True);
                 NoOtherOwner();
+                if (Process.GetProcessesByName("fjictwsv").Length > 1)
+                    throw new InvalidOperationException("Additional native driver owner");
+                inspecting = false;
                 Log("EnableAuthorized; negotiation accepted; physical stop remains UNQUALIFIED");
                 Require(source.Enable(SourceEnableMode.NoUI, false, IntPtr.Zero), "enable source ONCE");
                 enabled = true;
@@ -128,6 +211,7 @@ internal static class CountFeed
                 Log("TransfersComplete images=" + images + "; failures=" + failures + "; physicalCount=UNKNOWN; hopper/transport observation required");
                 resultCode = images == target && failures == 0 ? 0 : 1;
             }
+            catch (OperationCanceledException error) { resultCode = 0; Log(error.Message); }
             catch (Exception error) { Log("FAILED=" + error); }
             finally
             {
@@ -144,9 +228,9 @@ internal static class CountFeed
                 {
                     for (var i = restoreSettings.Count - 1; i >= 0; i--)
                         try { restoreSettings[i](); } catch (Exception error) { resultCode = 1; Log("RestoreError=" + error); }
-                    Log("close source=" + source.Close());
+                    try { Require(source.Close(), "close source"); } catch (Exception error) { resultCode = 1; Log("CloseError=" + error); }
                 }
-                if (session.State == 3) Log("close DSM=" + session.Close());
+                if (session.State == 3) try { Require(session.Close(), "close DSM"); } catch (Exception error) { resultCode = 1; Log("CloseError=" + error); }
             }
             return resultCode;
         }
