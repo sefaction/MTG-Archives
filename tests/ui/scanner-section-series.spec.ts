@@ -34,16 +34,15 @@ test("section series waits for each choice, refills its unfinished batch, and pe
       const r=await page.request.post("/api/scanner-agent/runs",{headers:auth,data:{action:"finish",...claim,outcome:{outcome:empty?"SOURCE_EXHAUSTED":"COMPLETED",imageCount:count,elapsedMs:100,knownPhysicalItems:null,sourceExhausted:empty?"REPORTED_EMPTY":"UNKNOWN",nativeError:null}}});expect(r.ok(),await r.text()).toBe(true);
     };
     const setup=page.getByRole("region",{name:"New scan batch"}), scanner=page.getByRole("region",{name:"Scanner batch"});
-    const reconcile=async(count:number,remaining=0)=>{
-      await scanner.getByLabel("Cards physically emitted").fill(String(count));await scanner.getByLabel("Cards still wholly in the hopper").fill(String(remaining));
-      await scanner.getByRole("checkbox",{name:/Transport is clear/}).check();await scanner.getByRole("button",{name:"Confirm physical count",exact:true}).click();
-      await expect(scanner).toContainText("Physical count confirmed.");
+    const verifyAutomaticCount=async()=>{
+      await expect(scanner).toContainText("Image count recorded automatically.");
+      await expect(scanner.getByLabel("Cards physically emitted")).toHaveCount(0);
     };
     await pulse();await page.goto("/imports/scan?input=scanner");await expect(page.getByRole("note")).toContainText("helper 0.4.2 and the Cards profile with Pre-Pick Off");
     await page.getByTestId("storage-destination").getByRole("combobox").fill(tag);await page.getByRole("option").first().click();await setup.getByRole("button",{name:/^A\s/}).click();
     await expect(setup.getByLabel("Fill sections one at a time until I stop")).toBeChecked();
     await pulse();await setup.getByRole("button",{name:"Start scanner batch",exact:true}).click();await expect(scanner).toContainText("Section series · batch 1");
-    const first=await begin();expect(first.run.physicalTarget).toBe(2);await deliver(first.claim,2);await expect(scanner).toContainText("Selected count reached");await reconcile(2,4);
+    const first=await begin();expect(first.run.physicalTarget).toBe(2);await deliver(first.claim,2);await expect(scanner).toContainText("Selected count reached");await verifyAutomaticCount();
     expect((await poll()).run).toBeNull();await page.reload();await expect(scanner).toContainText("Section series · batch 1");expect((await poll()).run).toBeNull();
     await scanner.getByRole("link",{name:"Choose next section",exact:true}).click();await expect(setup.getByRole("button",{name:"Start scanner batch",exact:true})).toBeDisabled();
     await page.reload();await expect(setup.getByRole("button",{name:"Start scanner batch",exact:true})).toBeDisabled();expect((await poll()).run).toBeNull();
@@ -54,12 +53,12 @@ test("section series waits for each choice, refills its unfinished batch, and pe
     await expect(setup.getByRole("button",{name:/^B\s/})).toContainText("3 spaces left");
     await setup.getByLabel("Only sections with room").uncheck();
     await setup.getByRole("button",{name:/^B\s/}).click();await pulse();await setup.getByRole("button",{name:"Start scanner batch",exact:true}).click();await expect(scanner).toContainText("Section series · batch 2");
-    const second=await begin();expect(second.run.physicalTarget).toBe(3);await deliver(second.claim,1,true);await expect(scanner).toContainText("Hopper emptied early. 2 cards remain");await reconcile(1);
+    const second=await begin();expect(second.run.physicalTarget).toBe(3);await deliver(second.claim,1,true);await expect(scanner).toContainText("Hopper emptied early. 2 cards remain");await verifyAutomaticCount();
     await page.reload();await expect(scanner.getByRole("button",{name:"Resume unfinished batch",exact:true})).toBeDisabled();expect((await poll()).run).toBeNull();
     for(const width of [1366,320]){await page.setViewportSize({width,height:900});await scanner.scrollIntoViewIfNeeded();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:`test-results/scanner-series-paused-${width}.png`});}
     await scanner.getByRole("checkbox",{name:/I refilled card fronts/}).check();await pulse();await scanner.getByRole("button",{name:"Resume unfinished batch",exact:true}).click();await expect(scanner).toContainText("Waiting for the Windows helper");
     const tail=await begin();expect(tail.run.sessionId).toBe(second.run.sessionId);expect(tail.run.physicalTarget).toBe(2);expect(tail.run.sequenceOffset).toBe(1);
-    await deliver(tail.claim,2);await expect(scanner).toContainText("Selected count reached");await reconcile(2,2);expect((await poll()).run).toBeNull();
+    await deliver(tail.claim,2);await expect(scanner).toContainText("Selected count reached");await verifyAutomaticCount();expect((await poll()).run).toBeNull();
     await scanner.getByRole("link",{name:"Choose next section",exact:true}).click();await setup.getByRole("button",{name:/^C\s/}).click();await expect(setup).toContainText("2 spaces available after pending cards");
     await expect(setup.getByRole("button",{name:/^A\s/})).toContainText("2 held by batches · full");
     await expect(setup.getByRole("button",{name:/^B\s/})).toContainText("3 held by batches · full");

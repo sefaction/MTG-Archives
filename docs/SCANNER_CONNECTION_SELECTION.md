@@ -65,3 +65,7 @@ Inventory additions are a new conservation baseline, separate from qualification
 Connection switching and Close during an active supervised run remain acceptance
 gates, along with the larger logical83 hardware batch. No merge or production
 deployment is implied. See [programmatic qualification](FI7160_PROGRAMMATIC_COUNT_CONTROL.md).
+
+A Close attempted during a later refill arrived after the scan had already
+finished, so it provides another idle-close result rather than active-run
+acceptance. The operator chose to continue scanning without repeating that test.

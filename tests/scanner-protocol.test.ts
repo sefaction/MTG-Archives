@@ -3,9 +3,31 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { scannerCredential, scannerHash, scannerHashMatches, scannerPairClaimSchema, scannerPairCode,
   scannerPulseSchema, scannerSecret } from "../lib/scanner-protocol";
-import { scannerRetentionSchema } from "../lib/scanner-run-protocol";
+import { scannerRetentionSchema, scannerRefillObservationIsSafe, scannerRefillReconciliationIsSafe } from "../lib/scanner-run-protocol";
 import { readScannerJson } from "../lib/scanner-http";
 const device = { id: "source", name: "Scanner", backend: "generic", source: "Wia", qualification: "GenericUnqualified" };
+test("refill accepts an empty hopper or accounted reload, never uncertain physical transport", () => {
+  const runId = randomUUID();
+  const empty = { runId, cardsEmitted: 0, feederEmpty: true, remainingCards: 0,
+    transportEmpty: true, eachImageIsOneCardFront: true, noJamOrDouble: true, remainingWhollyInHopper: true };
+  const loaded = { ...empty, feederEmpty: false, remainingCards: 10 };
+  assert.equal(scannerRefillObservationIsSafe(empty, runId), true);
+  assert.equal(scannerRefillObservationIsSafe(loaded, runId), true);
+  for (const value of [null, {}, { ...loaded, runId: randomUUID() }, { ...loaded, transportEmpty: false },
+    { ...loaded, noJamOrDouble: false }, { ...loaded, eachImageIsOneCardFront: false },
+    { ...loaded, remainingWhollyInHopper: false }, { ...loaded, remainingCards: 0 },
+    { ...loaded, remainingCards: 501 }, { ...loaded, feederEmpty: true }])
+    assert.equal(scannerRefillObservationIsSafe(value, runId), false);
+});
+test("automatic counted refill requires the qualified image-count basis and matching saved total", () => {
+  const runId = randomUUID();
+  const receipt = {mode:"SCANNER_IMAGE_COUNT",basis:"QUALIFIED_COUNTED_FRONT_IMAGES",imageCount:10};
+  assert.equal(scannerRefillReconciliationIsSafe(receipt,runId,10),true);
+  assert.equal(scannerRefillReconciliationIsSafe({...receipt,imageCount:0},runId,0),true);
+  for (const value of [null, {}, {...receipt,basis:undefined}, {...receipt,basis:"OPERATOR"},
+    {...receipt,mode:"CANCELLED_WITHOUT_START"}, {...receipt,imageCount:9}])
+    assert.equal(scannerRefillReconciliationIsSafe(value,runId,10),false);
+});
 test("scanner credentials require exact identity/entropy and hashes contain no secret", () => {
   const id = randomUUID(), secret = scannerSecret();
   assert.equal(secret.length, 43);

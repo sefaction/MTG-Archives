@@ -67,6 +67,24 @@ export const scannerRefillSchema = z.object({
   runId: z.string().uuid(), requestKey: z.string().uuid(), loadedCount: z.number().int().min(1).max(500).nullable(),
   operatorLoadedSimplexFronts: z.literal(true),
 }).strict();
+/** A completed empty-feeder attempt can be inspected after the operator reloads.
+ * Accounted cards wholly in the hopper are safe to keep for an explicit refill;
+ * clear transport and the other physical observations remain mandatory. */
+export function scannerRefillObservationIsSafe(value: unknown, runId: string): boolean {
+  const parsed = scannerReconcileSchema.safeParse(value);
+  if (!parsed.success || parsed.data.runId !== runId) return false;
+  const observation = parsed.data;
+  return observation.feederEmpty
+    ? (observation.remainingCards ?? 0) === 0
+    : observation.remainingWhollyInHopper === true && (observation.remainingCards ?? 0) > 0;
+}
+export function scannerRefillReconciliationIsSafe(value: unknown, runId: string, imageCount: number): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const receipt = value as Record<string, unknown>;
+  if (receipt.mode === "SCANNER_IMAGE_COUNT")
+    return receipt.basis === "QUALIFIED_COUNTED_FRONT_IMAGES" && receipt.imageCount === imageCount;
+  return scannerRefillObservationIsSafe(receipt.observation, runId);
+}
 export const scannerRetentionSchema = z.object({
   version: z.literal(1), runId: z.string().uuid(), epoch: z.string().uuid(),
   artifacts: z.array(z.object({ artifactId: z.string().uuid(), photoId: z.string().uuid(),
