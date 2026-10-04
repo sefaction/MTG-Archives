@@ -363,7 +363,8 @@ export async function verifyCountedScanner(db: PrismaClient) {
     await images(trashHelper, trashClaim, 2); await finish(trashHelper, trashClaim, 2, false);
     const trashSession = await db.acquisitionSession.findUniqueOrThrow({where: {id: trashBatch.sessionId}});
     assert.equal(trashSession.phase, "CANCELLED"); assert.equal(trashSession.trashedAt, null);
-    assert.equal((await capacity(trashBox)).remaining, 2);
+    assert.equal(trashSession.scannerReserved, 0);
+    assert.equal((await capacity(trashBox)).remaining, 0); // The two restored saved cards still occupy space.
     assert.equal(await db.acquisitionPhoto.count({where: {run: {sessionId: trashBatch.sessionId}, ready: true}}), 2);
     assert.ok((await db.acquisitionProcessingJob.findMany({where: {run: {sessionId: trashBatch.sessionId}}})).every(job => job.status === "SUPERSEDED"));
     assert.equal((await getScannerBatch(db, tag, trashBatch.runId)).series?.stopped, true);
@@ -397,7 +398,7 @@ export async function verifyCountedScanner(db: PrismaClient) {
     await finishScannerRun(db, errorHelper.token, {...errorClaim, outcome: {outcome: "ERROR", imageCount: 1, elapsedMs: 100,
       knownPhysicalItems: null, sourceExhausted: "UNKNOWN", nativeError: {type: "FixtureSourceError", nativeStatus: 1}}}, epoch);
     assert.equal((await pollScannerRun(db, errorHelper.token, epoch)).run, null);
-    assert.equal((await capacity(errorBox)).remaining, 2);
+    assert.equal((await capacity(errorBox)).remaining, 1); // One retained card; the unused target space is released.
     const savedError = await db.scannerRun.findUniqueOrThrow({where: {id: errorBatch.runId}});
     assert.equal(savedError.status, "ERROR"); assert.equal(savedError.reconciliation, null);
     assert.ok(savedError.admissionReleasedAt);
