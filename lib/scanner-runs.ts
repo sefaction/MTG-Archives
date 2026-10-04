@@ -10,7 +10,7 @@ import { createAcquisitionSession, executeAcquisitionCommand, getAcquisitionProg
   beginAcquisitionPhoto, finalizeAcquisitionPhoto, type AcquisitionActor } from "./acquisition-store";
 import { canonicalAcquisitionCreation, type CreateAcquisitionInput } from "./acquisition-store";
 import { inspectAcquisitionPhoto, writeAcquisitionPhotoBytes } from "./acquisition-files";
-import { candidateKey, correctPhysicalCount, confirmPhysicalCountBatch } from "./acquisition-domain";
+import { candidateKey, correctPhysicalCount, confirmPhysicalCountBatch, type TargetPolicy } from "./acquisition-domain";
 import { persistScannerStartMarker, scannerStartMarkerExists, scannerSiteEpoch,
   scannerStartRetired, persistScannerStartRetirement } from "./scanner-control-files";
 import { lockAndReadInventoryCapacity } from "./inventory-capacity";
@@ -324,7 +324,9 @@ export async function getScannerBatch(db: PrismaClient, userId: string, runId: s
     requireVisibleAcquisitionBatch(run.acquisitionRun.session);
     await readAcquisitionRow(tx, { userId, adminMode: false }, run.acquisitionRun.sessionId);
     const series = run.seriesRootId ? await lockScannerSeries(tx, run.seriesRootId, userId) : null;
+    const policy = run.acquisitionRun.session.policy as unknown as TargetPolicy;
     return { ...command(run), agentId: run.agentId, device: run.device, outcome: run.outcome, reconciliation: run.reconciliation,
+      batchLimit: run.counted && policy.kind === "MANUAL" ? policy.quantity : null,
       series: series ? { rootRunId: series.root.id, ordinal: run.seriesOrdinal, stopped: !!series.root.seriesStoppedAt,
         latestRunId: series.latest.id, current: series.latest.acquisitionRunId === run.acquisitionRunId } : null,
       phase: run.acquisitionRun.session.phase,

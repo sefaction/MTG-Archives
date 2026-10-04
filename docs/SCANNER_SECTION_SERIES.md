@@ -30,6 +30,11 @@ is retained. No simulated result proves a physical count or permits unattended f
 
 For a smaller fixed count, enable **Set a batch limit** and enter the requested
 count. This is a separate bounded batch rather than a section-filling series.
+After it finishes, **New scanner batch** keeps the chosen limit and destination
+as preferences. It shows freshly available space and waits for your Start. If
+the same section has fewer spaces than the preferred count, choose a smaller
+limit or another section; the count is never silently reduced. An unfinished
+batch still uses Resume, retaining its earlier cards and remaining target.
 Review the saved cards before adding them to Inventory. Image totals from a
 standard or duplex source do not establish the number of physical cards.
 

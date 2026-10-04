@@ -19,3 +19,15 @@ test("removed section needs a new choice without losing scanner/default preferen
   assert.equal(result.setup?.section, ""); assert.equal(result.setup?.scanner, previous.scanner);
   assert.equal(result.setup?.defaults, previous.defaults); assert.match(result.message, /section is unavailable/);
 });
+
+test("fixed-count preferences keep the chosen limit without copying target or readiness", () => {
+  const fixed = {...previous, batchLimit: 15};
+  const current = currentScannerContinuation(fixed, [location]);
+  assert.equal(current.setup?.section, "A"); assert.equal(current.setup?.batchLimit, 15);
+  assert.match(current.message, /15-card limit/);
+  assert.equal("target" in current.setup!, false);
+  assert.equal(current.setup?.scanner.loadedCount, null);
+  assert.equal(currentScannerContinuation(fixed, []).setup, null);
+  const removed = currentScannerContinuation(fixed, [{...location, sections: []}]);
+  assert.equal(removed.setup?.section, ""); assert.equal(removed.setup?.batchLimit, 15);
+});

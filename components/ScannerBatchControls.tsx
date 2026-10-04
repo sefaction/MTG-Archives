@@ -61,7 +61,7 @@ export function ScannerSourceFields({ initialEnabled, initialChoice, onChange, r
     <label className="flex gap-2 items-start"><input type="checkbox" checked={enabled}
       onChange={e=>{ setEnabled(e.target.checked); if(e.target.checked) void refresh(); else onChange(null,false); }} />Scan from a connected scanner</label>
     {enabled && <>
-      <p className="text-sm">{counted ? "This fi-7160 source requests the selected count before feeding. Check emitted cards and the hopper after each run." : "Choose the scanner once. The Start scanner batch button scans everything in the feeder."}</p>
+      <p className="text-sm">{counted ? "This fi-7160 source requests the selected count before feeding. Clean runs use saved front images for the assumed card count; watch for feeding problems." : "Choose the scanner once. The Start scanner batch button scans everything in the feeder."}</p>
       <div className="flex flex-wrap gap-2 items-center"><label className="min-w-0 flex-1">Scanner source
         <select className={input+" block w-full max-w-full mt-1"} value={selected} onChange={e=>{setSelected(e.target.value);try {localStorage.setItem("mtg-scanner-source",e.target.value);} catch { /* Optional preference. */ }}}>
           <option value="">Choose a source</option>{selected && !sources.some(s=>s.key === selected) && <option value={selected} disabled>Previous scanner source (offline)</option>}{sources.map(s=><option key={s.key} value={s.key}>{s.device.name} · {s.device.source}</option>)}
@@ -117,7 +117,7 @@ export function ScannerRunControls({ runId, savedImages, refresh }: { runId: str
       {!run.series.current && <a className={button} href={`/imports/scan?input=scanner&continue=${run.series.latestRunId}`}>Current section series</a>}
     </div>}
     <p role="status">{run?.status === "QUEUED" ? scannerPreflightMessage(run.preflightProblem) ?? "Waiting for the Windows helper to start." : run?.status === "STARTED" ? "Scanning and uploading." :
-      run?.status === "DRAINED" ? run.series?.stopped ? "Scanner series ended. Saved cards remain available for review." : paused ? "Hopper emptied early. "+run.remainingTarget+" cards remain in this batch." : run.counted ? run.remainingTarget > 0 ? "Batch ended with saved cards. Choose the next section before feeding more." : "Selected count reached. Choose the next section before feeding more." : "Scanner run ended." : run?.status === "CANCELLED_BEFORE_START" && cancelled ? "Waiting scan cancelled. The helper was not authorized to feed cards." : run ? "Scanner run needs reconciliation; originals remain saved." : "Loading scanner status."}
+      run?.status === "DRAINED" ? run.series?.stopped ? "Scanner series ended. Saved cards remain available for review." : paused ? "Hopper emptied early. "+run.remainingTarget+(run.remainingTarget === 1 ? " card remains" : " cards remain")+" in this batch." : run.counted ? (run.remainingTarget > 0 ? "Batch ended with saved cards. " : "Selected count reached. ")+(run.batchLimit !== null ? "Use New scanner batch for another fixed-count scan." : "Choose the next section before feeding more.") : "Scanner run ended." : run?.status === "CANCELLED_BEFORE_START" && cancelled ? "Waiting scan cancelled. The helper was not authorized to feed cards." : run ? "Scanner run needs reconciliation; originals remain saved." : "Loading scanner status."}
       {" "}{savedImages} {savedImages === 1 ? "image" : "images"} saved.</p>
     <p className="text-sm">Clean runs count one saved card front per card automatically. Saved images and reviews stay in this batch; interrupted runs need recovery.</p>
     {run && ["QUEUED","STARTED"].includes(run.status) && <button className={button} disabled={busy || run.stopRequested}
@@ -139,7 +139,7 @@ export function ScannerRunControls({ runId, savedImages, refresh }: { runId: str
       <p>{(run.reconciliation as { mode?: string }).mode === "SCANNER_IMAGE_COUNT" ? "Image count recorded automatically." : "Physical count confirmed."} Review the matches below, then add selected cards to Inventory.</p>)}
     {paused && run?.reconciliation && <fieldset className="space-y-3">
       <legend className="font-semibold">Refill this batch</legend>
-      <p>{run.remainingTarget} cards remain for this section. Saved images and reviews stay in this batch.</p>
+      <p>{run.remainingTarget} {run.remainingTarget === 1 ? "card remains" : "cards remain"} in this batch. Saved images and reviews stay in this batch.</p>
       {!run.series?.stopped && <label className="flex gap-2 items-start"><input type="checkbox" checked={refillReady} onChange={e=>setRefillReady(e.target.checked)} />
         I refilled card fronts, checked the guides and clear transport, and no other scan job owns the scanner.</label>
       }
@@ -153,7 +153,7 @@ export function ScannerRunControls({ runId, savedImages, refresh }: { runId: str
       <button className={button} disabled={busy} onClick={()=>void act({action:"end",runId:run.runId})}>End reconciled batch</button>
     </div>}
     {run?.reconciliation && !run.series?.stopped && (!run.series || run.series.current) && (!run.counted || ["COMPLETE", "CANCELLED"].includes(run.phase)) && <div className="flex flex-wrap gap-2">
-      <a className={button} href={"/imports/scan?input=scanner&continue="+encodeURIComponent(runId)+"#new-scan-batch"}>{run.counted ? "Choose next section" : "New scanner batch"}</a>
+      <a className={button} href={"/imports/scan?input=scanner&continue="+encodeURIComponent(runId)+"#new-scan-batch"}>{run.counted && run.batchLimit === null ? "Choose next section" : "New scanner batch"}</a>
     </div>}
     {error && <p role="alert">{error}</p>}
   </section>;

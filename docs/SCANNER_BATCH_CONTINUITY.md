@@ -6,6 +6,13 @@ reported source identity, requested settings and batch defaults as a preference
 for the new setup form. No image, candidate, review, receipt, count, capacity or
 run identity is copied. Nothing starts on navigation.
 
+Qualified counted runs with a manually chosen batch limit retain that limit
+and available section as form preferences for New scanner batch. Section-filling
+targets still require an explicit next section. Fresh remaining capacity must
+fit the requested limit; smaller capacity requires an operator adjustment or
+another section, never silent truncation. The limit preference is separate from
+the old computed target, loaded stack, images and physical execution identity.
+
 The page resolves the suggested location against freshly scoped active locations.
 A missing location requires a new choice; a missing section clears that section
 with guidance. A foreign or unsettled run supplies no suggestions. An offline

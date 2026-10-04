@@ -23,6 +23,7 @@ export function StorageDestinationPicker({
   sectionField = "destinationLocationSection",
   disabled = false,
   capacityHint = "Capacity is a guide, not a limit.",
+  showCapacitySummary = true,
 }: {
   locations: StorageLocation[];
   locationId: string;
@@ -36,6 +37,7 @@ export function StorageDestinationPicker({
   sectionField?: string;
   disabled?: boolean;
   capacityHint?: string;
+  showCapacitySummary?: boolean;
 }) {
   const [search, setSearch] = useState("");
   const [choosing, setChoosing] = useState(!locationId);
@@ -342,19 +344,19 @@ export function StorageDestinationPicker({
               />
             </label>
           )}
-          <p className="text-xs text-[var(--app-muted)]">
+          {showCapacitySummary && <p className="text-xs text-[var(--app-muted)]">
             {section
               ? "Selected: " + section + ". "
               : "No section — cards will go directly into this location."}
             {" " + capacityHint}
-          </p>
-          {selectedSection && (
+          </p>}
+          {showCapacitySummary && selectedSection && (
             <p role="status" className="text-sm">
               {spaceLabel(selectedSection, parentRoom)}
               {projected !== undefined ? " → " + projected + " after move" : ""}
             </p>
           )}
-          {destination.capacity != null && (
+          {showCapacitySummary && destination.capacity != null && (
             <p role="status" className="text-sm">
               {incomingQuantity === undefined
                 ? `${destination.quantity ?? 0} / ${destination.capacity} cards overall`
@@ -367,7 +369,7 @@ export function StorageDestinationPicker({
                 : ""}
             </p>
           )}
-          {selectedSection?.capacity != null &&
+          {showCapacitySummary && selectedSection?.capacity != null &&
             (projected ?? selectedSection.quantity) >
               selectedSection.capacity && (
               <p
