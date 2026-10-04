@@ -306,8 +306,9 @@ export function AcquisitionCommitControls({
             </div>
           )}
           <p className="text-sm">
-            Original opener will be unknown. Photos are kept for 7 days after
-            adding; pending cards keep their photos.
+            Original opener will be unknown. Photos normally stay for 7 days after
+            adding. Completed or trashed batches may be permanently removed sooner
+            when scan-photo storage approaches its limit; pending cards keep their photos.
           </p>
           <button
             className={primary}

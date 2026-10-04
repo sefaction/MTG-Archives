@@ -35,7 +35,7 @@ export default async function BatchDashboardPage({searchParams}: {searchParams: 
         <button className={button}>Search</button>{query.q && <a href={href(query.view).replace(/q=[^&]*/, "q=")} className={button}>Clear</a>}
       </form>
       <p className="text-sm text-[var(--app-muted)]">{format(data.total)} {query.view === "trash" ? data.total === 1 ? "batch in Trash" : "batches in Trash" : data.total === 1 ? "matching batch" : "matching batches"}</p>
-      {query.view === "trash" && <p className={`${panel} p-3 text-sm`}>Batches stay recoverable for seven days. After expiry, their saved scans are removed. Inventory additions and their receipts are kept. A scanner load already accepted must finish saving before expiry cleanup can run.</p>}
+      {query.view === "trash" && <p className={`${panel} p-3 text-sm`}>Trash normally keeps batches recoverable for seven days. When scan-photo storage approaches its limit, trashed batches may be permanently removed sooner. Inventory additions and their receipts are kept. A scanner load already accepted must finish saving before cleanup can run.</p>}
       {!data.rows.length && <p className={`${panel} p-5`}>{query.view === "pending" ? "No batches need closing out." : "No batches found."}</p>}
       {data.rows.map(batch => <article key={batch.id} aria-label={`Batch ${batch.batchNumber}`} className={`${panel} p-3 sm:p-4 space-y-3`}>
         <div className="flex flex-wrap gap-2 items-start justify-between"><div className="min-w-0"><h2 className="font-semibold text-lg">Batch {batch.batchNumber}</h2>

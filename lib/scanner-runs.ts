@@ -3,7 +3,7 @@ import { z } from "zod";
 import { scannerTransaction, authenticateScanner, listScannerAgents } from "./scanner-store";
 import { SCANNER_CAPTURE_PROVIDER, scannerBatchSchema, scannerRunClaimSchema,
   scannerTransferSchema, scannerRunFinishSchema, scannerReconcileSchema, scannerCanonical,
-  scannerPreflightReportSchema, scannerPreflightProblemSchema, scannerRefillSchema,
+  scannerPreflightReportSchema, scannerPreflightProblemSchema, scannerUploadProblemSchema, scannerRefillSchema,
   scannerRefillReconciliationIsSafe } from "./scanner-run-protocol";
 import { createAcquisitionSession, executeAcquisitionCommand, getAcquisitionProgress,
   readAcquisitionRow, hydrateAcquisitionRow, saveAcquisitionRow,
@@ -23,6 +23,7 @@ import { lockScannerSeries, requireRunningScannerSeries } from "./scanner-series
 import { scannerDeviceSchema } from "./scanner-protocol";
 import { requireVisibleAcquisitionBatch, requireProcessingAcquisitionBatch } from "./acquisition-batch-policy";
 import {cancelledSettledScannerTransfer} from "./scanner-drain-policy";
+import { AcquisitionPhotoStorageLimitError } from "./acquisition-photo-limits";
 
 type Tx = Prisma.TransactionClient;
 const denied = () => new ScannerRunConflict();
@@ -236,13 +237,28 @@ export async function receiveScannerImage(db: PrismaClient, authorization: strin
   const { run, actor, slot } = assigned;
   const sourceMetadata = { ...input, backend: (run.device as Prisma.JsonObject).backend, device: run.device,
     requestedSettings: run.settings, negotiatedSettings: "UNKNOWN" } as Prisma.InputJsonObject;
-  const photo = await beginAcquisitionPhoto(db, actor, run.acquisitionRun.sessionId, {
-    slotId: slot.id, uploadKey: input.artifactId, generation: 0, metadata, inputKind: "CARD_SCAN", sourceMetadata,
-  });
+  let photo;
+  try {
+    photo = await beginAcquisitionPhoto(db, actor, run.acquisitionRun.sessionId, {
+      slotId: slot.id, uploadKey: input.artifactId, generation: 0, metadata, inputKind: "CARD_SCAN", sourceMetadata,
+    });
+  } catch (error) {
+    if (error instanceof AcquisitionPhotoStorageLimitError) {
+      const existing = scannerUploadProblemSchema.safeParse(run.preflightProblem);
+      if (!existing.success || existing.data.scope !== error.scope || existing.data.limitBytes !== error.limitBytes)
+        await db.scannerRun.updateMany({ where: { id: run.id, executionId: input.executionId, status: "STARTED" },
+          data: { preflightProblem: { code: "PHOTO_STORAGE_LIMIT", scope: error.scope,
+            limitBytes: error.limitBytes, observedAt: new Date().toISOString() } } });
+    }
+    throw error;
+  }
   if (!photo.ready) {
     await writeAcquisitionPhotoBytes(photo.id, bytes, "raw", photo.digest);
     await finalizeAcquisitionPhoto(db, actor, run.acquisitionRun.sessionId, photo.id);
   }
+  await db.scannerRun.updateMany({ where: { id: run.id, executionId: input.executionId,
+    preflightProblem: { path: ["code"], equals: "PHOTO_STORAGE_LIMIT" } },
+    data: { preflightProblem: Prisma.DbNull } });
   return { version: 1, runId: run.id, artifactId: input.artifactId, sequence: input.sequence,
     photoId: photo.id, digest: photo.digest, ready: true };
 }
@@ -332,7 +348,8 @@ export async function getScannerBatch(db: PrismaClient, userId: string, runId: s
       phase: run.acquisitionRun.session.phase,
       remainingTarget: Math.max(0, (run.acquisitionRun.session.target ?? 0) - run.sequenceOffset -
         ((run.outcome as Prisma.JsonObject | null)?.imageCount as number ?? 0)),
-      preflightProblem: scannerPreflightProblemSchema.safeParse(run.preflightProblem).success ? run.preflightProblem : null };
+      preflightProblem: scannerPreflightProblemSchema.safeParse(run.preflightProblem).success ? run.preflightProblem : null,
+      uploadProblem: scannerUploadProblemSchema.safeParse(run.preflightProblem).success ? run.preflightProblem : null };
   });
   return state;
 }

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { SCANNER_CAPTURE_PROVIDER, scannerCanonical } from "./scanner-run-protocol";
 import { acquisitionImageInputKindSchema, type AcquisitionImageInputKind } from "./acquisition-image-input";
 import {acquisitionConflictBackoff} from "./acquisition-upload";
+import { requireAcquisitionPhotoSpace } from "./acquisition-photo-limits";
 import { isAdminUser } from "./auth-policy";
 import { requireVisibleAcquisitionBatch, requireProcessingAcquisitionBatch } from "./acquisition-batch-policy";
 import { getStorageLocations } from "./storage-summary";
@@ -1039,13 +1040,7 @@ export async function beginAcquisitionPhoto(
         _sum: { bytes: true },
       }),
     ]);
-    if (
-      (ownerUsage._sum.bytes ?? 0) + metadata.bytes > 4 * 1024 ** 3 ||
-      (sessionUsage._sum.bytes ?? 0) + metadata.bytes > 1024 ** 3
-    )
-      throw new Error(
-        "Photo storage limit reached; finish or discard older batches",
-      );
+    requireAcquisitionPhotoSpace(ownerUsage._sum.bytes ?? 0, sessionUsage._sum.bytes ?? 0, metadata.bytes);
     const photo = await tx.acquisitionPhoto.create({
       data: {
         runId: run.id,

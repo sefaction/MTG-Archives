@@ -4,6 +4,7 @@ import { authenticateScanner, scannerTransaction } from "./scanner-store";
 import { PHOTO_RETENTION_DAYS_AFTER_COMMIT } from "./acquisition-files";
 import {BATCH_TRASH_DAYS} from "./acquisition-batch-policy";
 import {scannerTransferIsSettled} from "./scanner-drain-policy";
+import {PHOTO_PRESSURE_CLEANUP_KEY} from "./acquisition-photo-pressure";
 
 /** A helper may discard its own verified image after the server byte purge:
  * an aged commit receipt or an explicitly expired Trash tombstone is required.
@@ -23,7 +24,10 @@ export async function eligibleScannerOriginals(db: PrismaClient, authorization: 
     const trashCutoff = new Date(now.getTime() - BATCH_TRASH_DAYS * 86400000);
     const expiredTrash = !!(session.deletedAt && session.deletedAt <= now && session.trashedAt &&
       session.trashedAt <= trashCutoff && session.trashExpiresAt && session.trashExpiresAt <= now);
-    if (!scannerTransferIsSettled(run) || !expiredTrash && !run.reconciliation)
+    const pressureDeleted = !!(session.deletedAt && session.deletedAt <= now &&
+      await tx.acquisitionCommand.findUnique({where: {runId_requestKey: {
+        runId: run.acquisitionRunId, requestKey: PHOTO_PRESSURE_CLEANUP_KEY}}}));
+    if (!scannerTransferIsSettled(run) || !expiredTrash && !pressureDeleted && !run.reconciliation)
       return { version: 1 as const, runId: run.id, epoch, eligible: [] as string[] };
     const ids = input.artifacts.map(a => a.artifactId);
     const photos = await tx.acquisitionPhoto.findMany({
@@ -41,7 +45,7 @@ export async function eligibleScannerOriginals(db: PrismaClient, authorization: 
       const photo = byPhoto.get(a.photoId);
       const member = photo && bySlot.get(photo.slotId)?.receipt;
       return photo?.slot.requestKey === a.artifactId && photo.digest === a.digest && photo.ready &&
-        photo.purgedAt !== null && photo.purgedAt <= now && (expiredTrash ||
+        photo.purgedAt !== null && photo.purgedAt <= now && (expiredTrash || pressureDeleted ||
           photo.purgeAfter !== null && photo.purgeAfter <= now &&
           member?.commit.runId === run.acquisitionRunId && member.commit.createdAt <= cutoff);
     }).map(a => a.artifactId);

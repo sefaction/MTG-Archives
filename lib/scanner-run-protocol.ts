@@ -43,6 +43,13 @@ export const scannerPreflightReportSchema = z.object({
 export const scannerPreflightProblemSchema = z.object({
   code: scannerPreflightCodeSchema, observedAt: z.string().datetime(),
 }).strict();
+// Server-written upload guidance shares the existing diagnostic JSON column;
+// helper preflight reports cannot submit these codes or arbitrary text.
+export const scannerUploadProblemSchema = z.object({
+  code: z.literal("PHOTO_STORAGE_LIMIT"), scope: z.enum(["OWNER", "BATCH"]),
+  limitBytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+  observedAt: z.string().datetime(),
+}).strict();
 export const scannerTransferSchema = scannerRunClaimSchema.extend({
   artifactId: z.string().uuid(), sequence: z.number().int().min(1).max(5000),
   timestamp: z.string().datetime({ offset: true }),

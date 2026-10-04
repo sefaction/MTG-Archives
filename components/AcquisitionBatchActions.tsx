@@ -31,7 +31,7 @@ export function AcquisitionBatchActions({id, batchNumber, cancelled = false, tra
     </div>
     {cancelled && !trashed && draining && <p className="text-sm text-[var(--app-muted)]">Processing stays stopped while the scanner finishes saving or needs recovery. Open saved cards to check its status.</p>}
     {confirm && <div data-batch-action-confirm className="rounded border border-[var(--app-border)] p-3 space-y-2" role="group" aria-label={`Confirm ${confirm} batch ${batchNumber}`}>
-      <p className="text-sm">{confirm === "trash" ? "Hide this batch and stop processing? You can restore it for seven days. After that its saved scans will be deleted. Cards already added to Inventory will stay there." :
+      <p className="text-sm">{confirm === "trash" ? "Hide this batch and stop processing? Trash normally keeps scans for seven days. When scan-photo storage approaches its limit, trashed batches may be permanently removed sooner. Cards already added to Inventory will stay there." :
         "Stop processing this batch? Saved scans and reviews will stay available. An accepted scanner load will finish saving before it stops; no new load will start."}</p>
       <div className="flex flex-wrap gap-2">
         <button className={danger} disabled={busy} onClick={() => run(confirm)}>{busy ? "Saving…" : confirm === "trash" ? "Confirm move to Trash" : "Confirm cancel batch"}</button>

@@ -82,6 +82,35 @@ export async function verifyCountedScanner(db: PrismaClient) {
       const values=[];
       for(let sequence=1;sequence<=count;sequence++) {
         const t={...c,artifactId:randomUUID(),sequence,timestamp:new Date().toISOString(),side:"UNKNOWN",physicalBoundary:"UNKNOWN"};
+        if (count === 83 && sequence === 1) {
+          const acquisitionRun = await db.acquisitionRun.findUniqueOrThrow({where: {sessionId: large.sessionId}});
+          const quotaSlots = Array.from({length: 103}, (_,i) => ({id: randomUUID(),runId: acquisitionRun.id,requestKey: randomUUID(),position: 1000+i}));
+          const oldLimit = process.env.ACQUISITION_PHOTO_OWNER_LIMIT_GIB;
+          const oldBatchLimit = process.env.ACQUISITION_PHOTO_BATCH_LIMIT_GIB;
+          try {
+            // Metadata-only retained originals exercise billing without allocating a GiB.
+            await db.acquisitionCaptureSlot.createMany({data: quotaSlots});
+            await db.acquisitionPhoto.createMany({data: quotaSlots.map(slot => ({id: randomUUID(),runId: slot.runId,slotId: slot.id,
+              uploadKey: slot.requestKey,generation: 1,digest: "0".repeat(64),bytes: 10*1024**2,mediaType: "image/png",width: 75,height: 105,ready: true,readyAt: new Date()}))});
+            process.env.ACQUISITION_PHOTO_OWNER_LIMIT_GIB = "1";
+            process.env.ACQUISITION_PHOTO_BATCH_LIMIT_GIB = "4";
+            await assert.rejects(receiveScannerImage(db,helper.token,t,epoch,bytes,"image/png"),/Photo storage limit reached/);
+            const blocked = await getScannerBatch(db,tag,c.runId);
+            assert.equal(blocked.status,"STARTED"); assert.equal((blocked.uploadProblem as Prisma.JsonObject)?.code,"PHOTO_STORAGE_LIMIT");
+            assert.equal(blocked.preflightProblem,null);
+            process.env.ACQUISITION_PHOTO_OWNER_LIMIT_GIB = "64";
+            const receipt = await receiveScannerImage(db,helper.token,t,epoch,bytes,"image/png");
+            assert.equal(receipt.ready,true);
+            assert.equal((await getScannerBatch(db,tag,c.runId)).uploadProblem,null);
+            const replay = await receiveScannerImage(db,helper.token,t,epoch,bytes,"image/png");
+            assert.equal(replay.photoId,receipt.photoId);
+          } finally {
+            if (oldLimit === undefined) delete process.env.ACQUISITION_PHOTO_OWNER_LIMIT_GIB; else process.env.ACQUISITION_PHOTO_OWNER_LIMIT_GIB = oldLimit;
+            if (oldBatchLimit === undefined) delete process.env.ACQUISITION_PHOTO_BATCH_LIMIT_GIB; else process.env.ACQUISITION_PHOTO_BATCH_LIMIT_GIB = oldBatchLimit;
+            await db.acquisitionPhoto.deleteMany({where: {slotId: {in: quotaSlots.map(s => s.id)}}});
+            await db.acquisitionCaptureSlot.deleteMany({where: {id: {in: quotaSlots.map(s => s.id)}}});
+          }
+        }
         values.push({transfer:t,ack:await receiveScannerImage(db,helper.token,t,epoch,bytes,"image/png")});
       } return values;
     };
