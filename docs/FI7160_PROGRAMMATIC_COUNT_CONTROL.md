@@ -169,8 +169,8 @@ their scans and reserve storage until reviewed or resolved. Existing Inventory
 remained 10,292 rows/12,495 copies with its original full-row checksum.
 
 This qualifies the 83-card logical refill and section handoff on the guarded 600 DPI
-simplex profile. It does not qualify an 83-card hopper stack, a 25-card stopping
-boundary with additional cards loaded, duplex, alternative DPI/settings, roller
+simplex profile. The separate 25-card stopping boundary passed below. This does
+not qualify an 83-card hopper stack, duplex, alternative DPI/settings, roller
 life or damaging fault injection. The wider [H01–H10 matrix](CARD_ACQUISITION_VALIDATION.md#hardware-matrix)
 and [issue 313](https://github.com/sefaction/MTG-Archives/issues/313) remain open.
 The operator previously declined repeating physical active-run Close; no such
@@ -184,3 +184,27 @@ Helper/server byte integrity does not establish clean image quality. The cause a
 recognition impact remain unproven; [issue 648](https://github.com/sefaction/MTG-Archives/issues/648)
 tracks investigation. Keep the originals and do not conceal the lines or relax
 the guarded operational profile to make image-quality checks pass.
+
+### Fixed 25-card stopping boundary and next-batch defaults
+
+After fresh operator readiness, Batch 1188 requested 25 cards with 26 expendable
+cards loaded. One explicit Start produced 25 saved fronts, outcome COMPLETED in
+170,209 ms, no native error, source disabled/settings restored/DSM closed and a
+DRAINED server run. The native child was absent after completion. The operator
+confirmed the extra card wholly in the hopper, clear transport and visibly
+undamaged scanned cards, then removed the extra card and left the scanner empty.
+This is an observed physical stopping pass; the SDK still reports physical
+boundaries and source-exhaustion state UNKNOWN.
+
+All 25 server originals matched their stored SHA256/length, retained helper files
+and durable receipt identities/sequences. Positions 0–24 were contiguous and no
+cards were committed to Inventory. The existing full Inventory checksum remained
+unchanged. Private report `server-retention-25.json` and the completion screenshot
+are retained locally.
+
+New scanner batch retained the 25-card limit, destination, section, guarded source
+and nonfoil/NM defaults. Fresh capacity showed 25 spaces held by Batch 1188 and
+25 spaces remaining in its 50-space section. Opening this form created no new
+feed. Another scan requires fresh loading/readiness and an explicit Start.
+This single 25-of-26 pass does not establish long-term reliability or resolve
+the native image-quality finding in issue 648.

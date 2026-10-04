@@ -84,15 +84,16 @@ Comparison report: raw n, failures/doubles/marks per observed sample, normalized
 
 The [programmatic qualification](FI7160_PROGRAMMATIC_COUNT_CONTROL.md) now includes
 the completed 83-card logical batch, two supervised 25-card loads, final three-of-four
-boundary, explicit next-section B handoff and persistent Stop. Originals, upload
+boundary, explicit next-section B handoff, persistent Stop and a separate fixed
+25-of-26 stopping pass with retained next-batch defaults and fresh capacity. Originals, upload
 receipts and segment order were independently checked; Inventory stayed unchanged.
 The wider hardware matrix is still open:
 
 | IDs | Supported evidence | Remaining characterization |
 | --- | --- | --- |
 | H01 | Exact PaperStream driver/protocol, legacy x86 DSM and twelve guarded capture settings; actual no-feed preparation/restoration/exit | Consumable counters and roller baseline |
-| H02/H04 | Simplex diagnostic 1/2/5/10 boundaries and integrated A2/B3 and A83/B2 series, extra card wholly in hopper at tested boundaries | Independent duplex/order proof and larger fixed-count stopping boundary |
-| H03 | Repeated ten-card and two 25-card refills; operator reported no visible damage or transport trouble | Longer reliability sample; larger hopper stacks are not qualified |
+| H02/H04 | Simplex diagnostic 1/2/5/10 boundaries, integrated A2/B3 and A83/B2 series, and fixed 25-of-26 stop; extra card wholly in hopper at tested boundaries | Independent duplex/order proof and longer stopping-repeatability sample |
+| H03 | Repeated ten-card loads, two 25-card refills and one fixed 25-card stop; operator reported no visible damage or transport trouble | Longer reliability sample; larger hopper stacks are not qualified |
 | H05 | Counted profile refuses duplex; image count is explicitly an assumption about card fronts | Side identity, missing/generic/DFC back characterization |
 | H06/H07 | Exact 600 DPI RGB24 simplex/current frame, AutoScan false and blank removal disabled | Controlled alternative-DPI/crop/rotation/blank comparisons; operational guards must stay intact |
 | H08 | Actual early-empty/zero-image recovery with same-batch refill; software fault/overflow/closure/replay gates | Safe physical fault characterization, without forcing damaging jams |

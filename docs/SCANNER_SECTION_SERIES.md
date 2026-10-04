@@ -9,6 +9,8 @@ Stop before C. Operator physical observations and reconciliation are recorded.
 Installed helper0.4.3 passed empty preparation, chosen startup, idle Close and
 reopening. The larger 83-card logical batch subsequently passed with two 25-card
 refills, a final three-of-four boundary and explicit next-section B handoff.
+A separate fixed 25-of-26 stopping test passed; New scanner batch retained its
+25-card limit and destination with fresh held-space capacity and no automatic feed.
 Connection switching, active-run Close and wider hardware acceptance remain
 unfinished.
 See [current programmatic qualification](FI7160_PROGRAMMATIC_COUNT_CONTROL.md).
