@@ -353,17 +353,25 @@ export async function verifyCountedScanner(db: PrismaClient) {
     const trashClaim = await claim(trashHelper, trashBatch.runId), trashAt = new Date();
     await manageAcquisitionBatch(db, actor, trashBatch.sessionId, "trash", trashAt);
     assert.equal((await capacity(trashBox)).remaining, 0);
-    await assert.rejects(manageAcquisitionBatch(db, actor, trashBatch.sessionId, "restore"), /draining/);
     assert.equal((await purgeTrashedAcquisitionPhotos(db, new Date(trashAt.getTime() + 8 * 86400000))).expired, 0);
+    const restoredActive = await manageAcquisitionBatch(db, actor, trashBatch.sessionId, "restore");
+    assert.equal(restoredActive.phase, "CANCELLED"); assert.equal(restoredActive.draining, true);
+    assert.equal((await getScannerBatch(db, tag, trashBatch.runId)).status, "STARTED");
+    assert.equal((await capacity(trashBox)).remaining, 0);
+    await assert.rejects(manageAcquisitionBatch(db, actor, trashBatch.sessionId, "resume-processing"), /draining/);
+    await assert.rejects(createScannerBatch(db, actor, setup(trashHelper, await location(1, [{name: "A", capacity: 1}])), epoch), /unfinished batch/);
     await images(trashHelper, trashClaim, 2); await finish(trashHelper, trashClaim, 2, false);
     const trashSession = await db.acquisitionSession.findUniqueOrThrow({where: {id: trashBatch.sessionId}});
-    assert.equal(trashSession.phase, "CANCELLED"); assert.ok(trashSession.trashedAt);
-    assert.equal((await capacity(trashBox)).remaining, 2);
+    assert.equal(trashSession.phase, "CANCELLED"); assert.equal(trashSession.trashedAt, null);
+    assert.equal(trashSession.scannerReserved, 0);
+    assert.equal((await capacity(trashBox)).remaining, 0); // The two restored saved cards still occupy space.
     assert.equal(await db.acquisitionPhoto.count({where: {run: {sessionId: trashBatch.sessionId}, ready: true}}), 2);
     assert.ok((await db.acquisitionProcessingJob.findMany({where: {run: {sessionId: trashBatch.sessionId}}})).every(job => job.status === "SUPERSEDED"));
-    await manageAcquisitionBatch(db, actor, trashBatch.sessionId, "restore");
     assert.equal((await getScannerBatch(db, tag, trashBatch.runId)).series?.stopped, true);
     await assert.rejects(scannerContinuation(db, tag, trashBatch.runId), /stopped/);
+    await manageAcquisitionBatch(db, actor, trashBatch.sessionId, "resume-processing");
+    assert.ok((await db.acquisitionProcessingJob.findMany({where: {run: {sessionId: trashBatch.sessionId}}})).every(job => job.status === "PENDING"));
+    assert.equal((await getScannerBatch(db, tag, trashBatch.runId)).series?.stopped, true);
     const neverStarted = await createScannerBatch(db, actor, setup(trashHelper, await location(1, [{name: "A", capacity: 1}])), epoch);
     await manageAcquisitionBatch(db, actor, neverStarted.sessionId, "cancel");
     assert.equal((await db.scannerRun.findUniqueOrThrow({where: {id: neverStarted.runId}})).status, "CANCELLED_BEFORE_START");
@@ -377,13 +385,20 @@ export async function verifyCountedScanner(db: PrismaClient) {
     await manageAcquisitionBatch(db, actor, errorBatch.sessionId, "trash", errorTrashAt);
     assert.equal((await capacity(errorBox)).remaining, 0);
     assert.equal((await purgeTrashedAcquisitionPhotos(db, new Date(errorTrashAt.getTime() + 8 * 86400000))).expired, 0);
+    const restoredError = await manageAcquisitionBatch(db, actor, errorBatch.sessionId, "restore");
+    assert.equal(restoredError.phase, "CANCELLED"); assert.equal(restoredError.draining, true);
+    assert.equal((await getScannerBatch(db, tag, errorBatch.runId)).status, "ERROR");
+    const uncertain = await db.scannerRun.findUniqueOrThrow({where: {id: errorBatch.runId}});
+    assert.equal(uncertain.outcome, null); assert.equal(uncertain.reconciliation, null); assert.equal(uncertain.admissionReleasedAt, null);
+    assert.equal((await capacity(errorBox)).remaining, 0);
+    await assert.rejects(manageAcquisitionBatch(db, actor, errorBatch.sessionId, "resume-processing"), /recovery/);
     await assert.rejects(createScannerBatch(db, actor, setup(errorHelper, await location(1, [{name: "A", capacity: 1}])), epoch), /unfinished batch/);
     assert.equal((await pollScannerRun(db, errorHelper.token, epoch)).run?.runId, errorBatch.runId);
     const errorOriginals = await images(errorHelper, errorClaim, 1);
     await finishScannerRun(db, errorHelper.token, {...errorClaim, outcome: {outcome: "ERROR", imageCount: 1, elapsedMs: 100,
       knownPhysicalItems: null, sourceExhausted: "UNKNOWN", nativeError: {type: "FixtureSourceError", nativeStatus: 1}}}, epoch);
     assert.equal((await pollScannerRun(db, errorHelper.token, epoch)).run, null);
-    assert.equal((await capacity(errorBox)).remaining, 2);
+    assert.equal((await capacity(errorBox)).remaining, 1); // One retained card; the unused target space is released.
     const savedError = await db.scannerRun.findUniqueOrThrow({where: {id: errorBatch.runId}});
     assert.equal(savedError.status, "ERROR"); assert.equal(savedError.reconciliation, null);
     assert.ok(savedError.admissionReleasedAt);
@@ -391,10 +406,16 @@ export async function verifyCountedScanner(db: PrismaClient) {
     await assert.rejects(receiveScannerImage(db, errorHelper.token, {...errorOriginals[0].transfer,
       artifactId: randomUUID(), sequence: 2}, epoch, bytes, "image/png"));
     assert.equal(await db.acquisitionPhoto.count({where: {run: {sessionId: errorBatch.sessionId}}}), 1);
+    assert.ok((await db.acquisitionProcessingJob.findMany({where: {run: {sessionId: errorBatch.sessionId}}})).every(job => job.status === "SUPERSEDED"));
+    await manageAcquisitionBatch(db, actor, errorBatch.sessionId, "resume-processing");
+    assert.ok((await db.acquisitionProcessingJob.findMany({where: {run: {sessionId: errorBatch.sessionId}}})).every(job => job.status === "PENDING"));
     const errorRetention = {version: 1, runId: errorBatch.runId, epoch,
       artifacts: errorOriginals.map(original => ({artifactId: original.transfer.artifactId, photoId: original.ack.photoId, digest: original.ack.digest}))};
     assert.deepEqual((await eligibleScannerOriginals(db, errorHelper.token, errorRetention, epoch)).eligible, []);
-    const errorExpiry = new Date(errorTrashAt.getTime() + 7 * 86400000);
+    const retrashAt = new Date(errorTrashAt.getTime() + 86400000);
+    await manageAcquisitionBatch(db, actor, errorBatch.sessionId, "trash", retrashAt);
+    const errorExpiry = new Date(retrashAt.getTime() + 7 * 86400000);
+    assert.equal((await db.acquisitionSession.findUniqueOrThrow({where: {id: errorBatch.sessionId}})).trashExpiresAt?.getTime(), errorExpiry.getTime());
     assert.equal((await purgeTrashedAcquisitionPhotos(db, errorExpiry)).purged, 1);
     assert.ok((await db.acquisitionSession.findUniqueOrThrow({where: {id: errorBatch.sessionId}})).deletedAt);
     assert.deepEqual((await eligibleScannerOriginals(db, errorHelper.token, errorRetention, epoch, errorExpiry)).eligible, [errorOriginals[0].transfer.artifactId]);
@@ -404,7 +425,7 @@ export async function verifyCountedScanner(db: PrismaClient) {
     assert.equal(await scannerStartMarkerExists(afterDiscard.runId), false);
     await manageAcquisitionBatch(db, actor, afterDiscard.sessionId, "cancel");
     console.log("PASS: finished error outcomes can expire without invented physical counts or blocked helper; missing outcomes retain recovery/capacity and cannot authorize new START");
-    console.log("PASS: cancelled scanner load drains accepted originals without inference; no new START, Trash capacity held until drain, restoration never restarts series; physical feeds=0");
+    console.log("PASS: active and unknown-outcome Trash restores visible cancelled batches with capacity/admission held, originals drain without inference, explicit processing resume waits for settlement and never restarts a scanner series; physical feeds=0");
     console.log("PASS: explicit multi-section series, concurrent next admission, stale-page/refresh recovery, same-batch refill, durable/repeated Stop, released unfed reservations and retained uncommitted cards; physical feeds=0");
     console.log("PASS: counted 83-image allocation, hopper remainder observation, pending/commit capacity conservation, concurrent parent limits, fresh no-START guard, same-batch refill segments and old-segment replay with saved review; physical feeds=0");
   } finally {

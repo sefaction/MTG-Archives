@@ -27,7 +27,8 @@ export async function manageAcquisitionBatch(db: PrismaClient, actor: Acquisitio
     const currentRuns = await tx.scannerRun.findMany({where: {acquisitionRunId: runId}});
     const draining = currentRuns.some(r => !scannerTransferIsSettled(r));
     if (action === "restore" || action === "resume-processing") {
-      if (draining) throw new Error("Capture is still draining or needs scanner recovery; wait before restoring processing");
+      if (action === "resume-processing" && draining)
+        throw new Error("Capture is still draining or needs scanner recovery; wait before resuming processing");
       if (action === "restore") {
         if (!row.trashedAt) return {id: row.id, phase: row.phase, replay: true};
         if (!row.trashExpiresAt || row.trashExpiresAt <= now)
@@ -37,17 +38,19 @@ export async function manageAcquisitionBatch(db: PrismaClient, actor: Acquisitio
         if (!row.cancelledAt && row.phase !== "CANCELLED") return {id: row.id, phase: row.phase, replay: true};
       }
       // Restore never revives physical capture or a stopped section series.
-      // A batch cancelled before Trash remains cancelled until explicitly resumed.
-      const keepCancelled = action === "restore" && row.phaseBeforeTrash === "CANCELLED";
+      // Restoring visibility must not authorize workers while accepted transfers
+      // are unfinished or uncertain. Preserve their capacity and retired leases.
+      const keepCancelled = action === "restore" && (row.phaseBeforeTrash === "CANCELLED" || draining);
       await tx.acquisitionSession.update({where: {id: row.id}, data: {
-        phase: keepCancelled ? "CANCELLED" : "COMPLETE", cancelledAt: keepCancelled ? row.cancelledAt : null,
-        trashedAt: null, trashExpiresAt: null, phaseBeforeTrash: null, scannerReserved: 0,
+        phase: keepCancelled ? "CANCELLED" : "COMPLETE", cancelledAt: keepCancelled ? row.cancelledAt ?? now : null,
+        trashedAt: null, trashExpiresAt: null, phaseBeforeTrash: null,
+        scannerReserved: draining ? row.scannerReserved : 0,
         revision: {increment: 1},
       }});
       if (!keepCancelled) await tx.acquisitionProcessingJob.updateMany({where: {runId,
         status: "SUPERSEDED", errorCode: "BATCH_STOPPED"}, data: {status: "PENDING", attempts: 0,
           availableAt: now, errorCode: null, leaseToken: null, leaseExpiresAt: null}});
-      return {id: row.id, phase: keepCancelled ? "CANCELLED" : "COMPLETE", replay: false};
+      return {id: row.id, phase: keepCancelled ? "CANCELLED" : "COMPLETE", draining, replay: false};
     }
     if (action === "cancel" && row.cancelledAt || action === "trash" && row.trashedAt)
       return {id: row.id, phase: row.phase, replay: true};
