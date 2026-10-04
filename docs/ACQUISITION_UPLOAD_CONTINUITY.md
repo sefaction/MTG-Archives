@@ -128,6 +128,26 @@ This qualifies this bounded upload/native/review case. The67 repeated developmen
 originals do not establish independent exact-printing accuracy, physical counts,
 unattended feeding, or the broader image release/recovery matrix.
 
+## Follow-up actual OCR interruption
+
+The existing24-image local restart test also **PASSED** on this unchanged loaded
+runtime,10:45:41.938–10:51:37.464UTC, actual exit0,6.2minutes and no skips.
+It saved an LP review and froze its completed evidence, dropped one acknowledgement
+after a real successful upload, then deliberately SIGKILLed the OCR container
+during an owned test job and restarted the same image. The genuine lease expiry
+was left unchanged; the interrupted job recovered on attempt2 after attempt1.
+All24 photos/artifacts/slots/candidates and original/native digests passed,
+with no visible upload retry, duplicate candidate or Inventory addition. The LP
+review and frozen evidence survived. All24 development labels were first-offered;
+this reused sample is not independent accuracy evidence.
+
+The intentional OCR restart happened after the completed native300 interval;
+it does not alter that interval's stable before/after result. OCR is running on
+the same image, with new start time10:46:43.003877205UTC, RestartCount0 and
+OOMKilledfalse. Post-test owned users/sessions/Inventory/locations/photos were
+zero, the native queue was empty, and the existing user Inventory checksum was
+unchanged. The broader host/database/server/storage recovery matrix remains open.
+
 No production operation, physical scanner feed or merge has occurred. The
 separately passing100-image gate in draft635 does not qualify this new change or
 erase any preserved failure.
