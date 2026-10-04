@@ -61,7 +61,7 @@ export function ScannerSourceFields({ initialEnabled, initialChoice, onChange, r
     <label className="flex gap-2 items-start"><input type="checkbox" checked={enabled}
       onChange={e=>{ setEnabled(e.target.checked); if(e.target.checked) void refresh(); else onChange(null,false); }} />Scan from a connected scanner</label>
     {enabled && <>
-      <p className="text-sm">{counted ? "This fi-7160 source requests the selected count before feeding. Check emitted cards and the hopper after each run." : "Choose the scanner once. The Start scanner batch button scans everything in the feeder."}</p>
+      <p className="text-sm">{counted ? "This fi-7160 source requests the selected count before feeding. Clean runs use saved front images for the assumed card count; watch for feeding problems." : "Choose the scanner once. The Start scanner batch button scans everything in the feeder."}</p>
       <div className="flex flex-wrap gap-2 items-center"><label className="min-w-0 flex-1">Scanner source
         <select className={input+" block w-full max-w-full mt-1"} value={selected} onChange={e=>{setSelected(e.target.value);try {localStorage.setItem("mtg-scanner-source",e.target.value);} catch { /* Optional preference. */ }}}>
           <option value="">Choose a source</option>{selected && !sources.some(s=>s.key === selected) && <option value={selected} disabled>Previous scanner source (offline)</option>}{sources.map(s=><option key={s.key} value={s.key}>{s.device.name} · {s.device.source}</option>)}

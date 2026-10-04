@@ -71,8 +71,12 @@ test("counted source selects one, preserves hopper remainder, then explicitly re
     await expect(setup).toContainText("82 spaces available after pending cards");
     await expect(setup.getByRole("button",{name:"Start scanner batch",exact:true})).toBeEnabled();
     expect((await polled()).run).toBeNull();
-    for(const width of [1366,320]) {await page.setViewportSize({width,height:900});
+    for(const width of [1366,320]) {await page.setViewportSize({width,height:768});
+      await page.reload();await expect(setup.getByRole("button",{name:"Start scanner batch",exact:true})).toBeEnabled();
+      await expect(setup.getByLabel("Cards in this batch")).toHaveValue("1");
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+      if(width===1366) {const startBounds=await setup.getByRole("button",{name:"Start scanner batch",exact:true}).boundingBox();
+        expect(startBounds).not.toBeNull();expect(startBounds!.y).toBeGreaterThanOrEqual(0);expect(startBounds!.y+startBounds!.height).toBeLessThanOrEqual(768);}
       await page.screenshot({path:"test-results/scanner-fixed-preferences-"+width+".png",fullPage:true});}
     await setup.getByLabel("Cards in this batch").fill("83");
     await expect(setup.getByRole("alert")).toContainText("exceeds the 82 available spaces");

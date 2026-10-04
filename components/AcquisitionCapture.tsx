@@ -681,6 +681,7 @@ export function AcquisitionCapture({
             }}
             section={section}
             capacityHint="Capacity is checked when the batch starts."
+            showCapacitySummary={!countedScanner}
             onSectionChange={(value) => {
               setSection(value);
               createKey.current = "";
@@ -691,7 +692,7 @@ export function AcquisitionCapture({
               disabled={continuingSeries || busy || checkingStart || !!pendingScanner || startStorageError}
               onChange={e=>{setContinuousSections(e.target.checked);createKey.current="";}} />
               Fill sections one at a time until I stop</label>
-            <p className="text-sm">After each count, confirm the physical result, then choose the next section and explicitly start it. An early-empty hopper pauses the same batch for refill. Saved cards reserve space until added to Inventory or resolved.</p>
+            <p className="text-sm">After a clean count, choose the next section and explicitly start its batch. An early-empty hopper pauses the same batch for refill. Saved cards reserve space until added to Inventory or resolved.</p>
             {continuingSeries && <button type="button" className={button} disabled={busy || !!pendingScanner} onClick={()=>{
               setBusy(true); void request("/api/scanners/runs",{action:"stop-series",runId:initialSetup!.continueFrom})
                 .then(()=>router.push(`/imports/scan?batch=${initialSetup!.previousSessionId}`))
@@ -729,7 +730,7 @@ export function AcquisitionCapture({
           )}
           {countedScanner && <p className="text-sm mb-3" role="status">{capacityReady
             ? remaining === null ? "Choose a card count for this batch." : remaining+" spaces available after pending cards and unfinished batch reservations."
-            : "Checking available capacity."} {scannerCapacity?.pendingSection ? scannerCapacity.pendingSection+" spaces are held by other batches in this section." : ""}</p>}
+            : "Checking available capacity."} {scannerCapacity?.pendingSection ? scannerCapacity.pendingSection+(scannerCapacity.pendingSection === 1 ? " space is" : " spaces are")+" held by other batches in this section." : ""}</p>}
           {capacityError && <p role="alert">{capacityError}</p>}
           {countedScanner && customLimit && capacityReady && remaining !== null && quantity > remaining &&
             <p role="alert">The {quantity}-card limit exceeds the {remaining} available {remaining === 1 ? "space" : "spaces"}. Choose a smaller limit or another section before starting.</p>}
