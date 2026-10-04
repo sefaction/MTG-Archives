@@ -22,6 +22,7 @@ export async function verifyScannerConnections(db: PrismaClient) {
     const claim = { version: 1, pairCode: pair.code, agentId, secret, name: "Scanner fixture" };
     const [first, replay] = await Promise.all([claimScannerPairing(db, claim, now), claimScannerPairing(db, claim, now)]);
     assert.deepEqual(replay, first); // Concurrent/lost ACK enrollment is one identity.
+    assert.equal(first.connectionAccount, owner); // Server-bound account label, never the helper-supplied name.
     assert.equal(await db.scannerAgent.count({ where: { userId: owner } }), 1);
     const saved = await db.scannerAgent.findUniqueOrThrow({ where: { id: agentId } });
     assert.equal(saved.tokenHash, scannerHash(secret));
@@ -36,6 +37,7 @@ export async function verifyScannerConnections(db: PrismaClient) {
     const acknowledgement = await recordScannerPulse(db,authorization,{...pulse,discoveryIssues:[issue]},now);
     assert.equal(acknowledgement.discoveryReporting,true);
     assert.equal(acknowledgement.discoveryProgressReporting,true);
+    assert.equal(acknowledgement.connectionAccount, owner);
     assert.deepEqual((await listScannerAgents(db,owner,now))[0].discoveryIssues,[issue]);
     // Older helper/native-run pulses keep the last explicit diagnostic snapshot.
     await recordScannerPulse(db,authorization,pulse,now);

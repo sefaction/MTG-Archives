@@ -50,7 +50,7 @@ export async function claimScannerPairing(db: PrismaClient, value: unknown, now 
       if (pair.claimedAgentId !== input.agentId || !existing || existing.userId !== pair.userId ||
         existing.revokedAt || existing.expiresAt <= now || !scannerHashMatches(input.secret, existing.tokenHash) ||
         existing.credentialHash !== pair.credentialHash) throw unavailable();
-      return { version: 1, agentId: existing.id, expiresAt: existing.expiresAt };
+      return { version: 1, agentId: existing.id, expiresAt: existing.expiresAt, connectionAccount: user.username };
     }
     if (existing || await tx.scannerAgent.count({ where: { userId: pair.userId, revokedAt: null,
       expiresAt: { gt: now } } }) >= 8) throw unavailable();
@@ -58,7 +58,7 @@ export async function claimScannerPairing(db: PrismaClient, value: unknown, now 
       tokenHash: scannerHash(input.secret), credentialHash: pair.credentialHash, name: input.name,
       expiresAt: new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000) } });
     await tx.scannerPairing.update({ where: { id: pair.id }, data: { claimedAgentId: agent.id } });
-    return { version: 1, agentId: agent.id, expiresAt: agent.expiresAt };
+    return { version: 1, agentId: agent.id, expiresAt: agent.expiresAt, connectionAccount: user.username };
   });
 }
 export async function authenticateScanner(tx: Tx, authorization: string | null, now: Date) {
@@ -68,18 +68,18 @@ export async function authenticateScanner(tx: Tx, authorization: string | null, 
   if (!agent || agent.revokedAt || agent.expiresAt <= now || !scannerHashMatches(credential.secret, agent.tokenHash)) throw unavailable();
   const user = await activeUser(tx, agent.userId);
   if (agent.credentialHash !== sessionCredentialHash(user.passwordHash)) throw unavailable();
-  return { agent, actor: { userId: user.id, adminMode: false as const } };
+  return { agent, actor: { userId: user.id, adminMode: false as const }, connectionAccount: user.username };
 }
 export async function recordScannerPulse(db: PrismaClient, authorization: string | null, value: unknown, now = new Date()) {
   const pulse = scannerPulseSchema.parse(value);
   return transaction(db, async tx => {
-    const { agent } = await authenticateScanner(tx, authorization, now);
+    const { agent, connectionAccount } = await authenticateScanner(tx, authorization, now);
     await tx.scannerAgent.update({ where: { id: agent.id }, data: { lastSeenAt: now,
       agentVersion: pulse.agentVersion, devices: pulse.devices,
       // Native-run keepalive pulses and older helpers omit diagnostics. Only an
       // explicit diagnostic report replaces them; an empty report clears them.
       discoveryIssues: pulse.discoveryIssues } });
-    return { version: 1, agentId: agent.id, nextPollMs: 5000, discoveryReporting: true, discoveryProgressReporting: true };
+    return { version: 1, agentId: agent.id, nextPollMs: 5000, discoveryReporting: true, discoveryProgressReporting: true, connectionAccount };
   });
 }
 export async function listScannerAgents(db: PrismaClient, userId: string, now = new Date()) {
