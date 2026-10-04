@@ -59,7 +59,48 @@ This passes actual programmatic no-feed preparation and clean closure; it does
 not establish an integrated transfer result.
 
 The complete helper0.4.2 installer built with source/notices and connection/native/
-discovery selfchecks. Local Docker delivery and fresh supervised website count/
-capacity/refill/next-section physical tests are pending. Existing installed helpers
-remain stopped. No new feed, Inventory write,
-merge approval or production deployment is implied by this implementation.
+discovery selfchecks. The cumulative local Docker review is loaded; a sole vetted
+local source helper ran the supervised website sequence below. Prior installed
+and production helpers remain stopped. No Inventory addition, merge approval or
+production deployment occurred.
+
+## Supervised website section sequence — October 3, 2026
+
+A test-only seven-card box has sections A2, B3 and C2. Count control selected the
+fresh section capacity automatically, without a manual count override.
+
+| Stage | Requested | Loaded | Saved | Operator observation |
+| --- | ---: | ---: | ---: | --- |
+| Section A | 2 | 3 | 2 | Two undamaged exits; one wholly in hopper; clear transport |
+| Next section B, early empty | 3 | 1 | 1 | One undamaged exit; empty, clear hopper and transport |
+| Same B batch, explicit refill | 2 remaining | 3 | 2 new | Two undamaged exits; one wholly in hopper; clear transport |
+
+Each run closed cleanly through the guarded actual-exit/restoration contract.
+Refill created segment1 at sequence offset1 in the same logical B session,
+preserving the first card and bringing its saved total to three. Physical
+reconciliation is saved separately for each segment. All five private originals
+are retained; recognition and downstream processing completed. Test reviews were
+not committed and original Inventory quantities and full-row hash are unchanged.
+
+After B completed, the operator-directed next-section form left the choice blank.
+Selecting C exposed its two spaces but sent no Start. Stop persisted on the series
+root, returned to the saved B batch, survived refresh and removed continuation;
+there are still only two logical batches and three physical segments. No C run or
+native worker was created. The operator subsequently removed the remaining card
+and confirmed both hopper and transport empty and clear.
+
+The reservation display repair shows A's two and B's three held spaces separately
+from Inventory counts, with both sections full and C's two spaces available.
+Desktop and phone simulated series/refill/Stop checks and all802 core tests passed;
+see [section series](SCANNER_SECTION_SERIES.md). The cumulative review also includes
+helper0.4.3's [single connection startup](SCANNER_CONNECTION_SELECTION.md), whose
+installer is built but installed startup/switch/active-run-close acceptance remains
+pending. The actual physical sequence used the unchanged tested0.4.2 helper.
+
+This passes the scoped small website capacity, explicit next-section, early-empty,
+same-batch refill and persistent Stop gates. A larger logical83-card hardware batch,
+ordinary installed-helper operation and broader reliability remain unfinished.
+Use comfortable small hopper refills; diagnostic eleven-card loading does not
+justify an83/84-card stack of thick cards. Every new feed requires fresh supervised
+loading/readiness and physical result confirmation; software tests do not authorize
+unattended feeding.
