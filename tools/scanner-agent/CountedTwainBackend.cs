@@ -12,7 +12,8 @@ public sealed class CountedTwainBackend : IScannerBackend
     public const string DeviceId = "CountedTwain:PaperStream IP fi-7160";
     public const string BackendId = "fi7160-counted-twain-v1";
     public static string WorkerPath => Path.Combine(AppContext.BaseDirectory, "counted-twain", "Mtg.CountedTwain.exe");
-    public static Device ProfileDevice => new(DeviceId, "fi-7160 (count controlled)", BackendId, "Twain", Qualification.KnownWorking);
+    public const string SuspendedReason = "Count-controlled feeding is suspended: the ten-card test partially fed the eleventh card. Effective Pre-Pick control and a new physical qualification are required; retained images remain available.";
+    public static Device ProfileDevice => new(DeviceId, "fi-7160 (count control suspended)", BackendId, "Twain", Qualification.Unsupported);
     private Process? worker;
     private ScanRequest? prepared;
     private RunSpool? spool;
@@ -24,7 +25,7 @@ public sealed class CountedTwainBackend : IScannerBackend
         if (id != DeviceId) throw new ArgumentException("Wrong counted profile");
         return Task.FromResult(new Capabilities(new() {
             ["feeder"] = new(Support.ReportedSupported, "PaperStream fi-7160 scoped profile"),
-            ["countControl"] = new(Support.ReportedSupported, "Verified XFERCOUNT and AUTOSCAN=false before Enable; operator confirmed 1/2 of 3 only"),
+            ["countControl"] = new(Support.ReportedUnsupported, SuspendedReason),
             ["physicalBoundaries"] = new(Support.NotExposed, "Transfer count remains image count; operator reconciliation required")
         }, [600], "PFU", "fi-7160", "2.4"));
     }
@@ -50,6 +51,10 @@ public sealed class CountedTwainBackend : IScannerBackend
     {
         ObjectDisposedException.ThrowIf(closed, this);
         if (worker != null) throw new InvalidOperationException("Use one backend per feed segment");
+        // A retained ten-image completion did not stop physical pre-pick. Refuse
+        // before constructing a worker or opening TWAIN, even if discovery is
+        // stale. Motor-free fixture channels remain available for recovery tests.
+        if (fixtureScenario == null) throw new InvalidOperationException(SuspendedReason);
         Validate(request);
         var start = new ProcessStartInfo(WorkerPath) { UseShellExecute = false, CreateNoWindow = true,
             RedirectStandardInput = true, RedirectStandardOutput = true };
