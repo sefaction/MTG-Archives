@@ -62,6 +62,18 @@ Inventory, actual user batches and all 97 retained originals remained unchanged.
 This is not full restore qualification; preserve the failure and repair bounded
 stage execution/diagnostics before a new isolated attempt.
 
+The follow-up under [issue646](https://github.com/sefaction/MTG-Archives/issues/646)
+splits validation/negative controls and forced restore/content verification into
+two sequential commands in the same UUID-owned target. Each command retains the
+900-second limit. An idle Node process keeps that disposable container's file
+layer between commands; it does not run the website or any worker. Apply requires
+the validation checkpoint for the exact capture evidence, an empty target
+database and unchanged appdata sentinels. It cannot skip the negative controls or
+reuse an earlier restored database. Sanitized Docker diagnostics retain timeout
+codes and the active phase without printing command arguments or credentials.
+The original combined-command failure remains failed. A new complete actual
+attempt and owned cleanup are required for qualification.
+
 ## Isolation and evidence
 
 - Writes a new private backup/evidence directory under `.local-data/backups/drill-<UUID>`, with retention disabled for that capture. Existing backups and the running snapshot are not removed.

@@ -1,6 +1,31 @@
 import { parseDatabaseUrl } from "./backup";
 import { existsSync } from "node:fs";
 import { basename, join } from "node:path";
+import { createHash } from "node:crypto";
+import assert from "node:assert/strict";
+
+/** Only written after actual dry-run/negative controls in the owned target. */
+export function restoreDrillValidationCheckpoint(evidence: string) {
+  return {
+    version: 1,
+    evidenceSha256: createHash("sha256").update(evidence).digest("hex"),
+    dryRunUnchanged: true,
+    missingAndCorruptDumpPreservedCanary: true,
+    sqlFailureRolledBackSchemaAndPreservedCanary: true,
+    sqlFailurePreservedTrigramIndex: true,
+  };
+}
+
+export function assertRestoreDrillValidationCheckpoint(value: unknown, evidence: string) {
+  assert.deepEqual(value, restoreDrillValidationCheckpoint(evidence),
+    "Isolated apply requires completed controls for this exact capture");
+}
+
+export function restoreDrillDockerFailureCode(error: unknown) {
+  const code = (error as { code?: unknown } | null)?.code;
+  return ["ETIMEDOUT", "ENOENT", "EACCES"].includes(String(code))
+    ? String(code) : "DOCKER_FAILURE";
+}
 
 /** Current backups use application/; older qualified captures used the root. */
 export function isolatedDrillArchivePath(
