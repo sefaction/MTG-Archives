@@ -96,6 +96,11 @@ in [606](https://github.com/sefaction/MTG-Archives/issues/606). No next feed is
 authorized until the lifecycle fault is addressed and fresh readiness is obtained.
 Two cards remain in the hopper at the last operator observation.
 
+The [message-loop repair](FI7160_MESSAGE_LOOP_LIFECYCLE.md) reproduces the same
+shutdown fault without hardware and qualifies deterministic window/thread cleanup
+in 30 separate motor-free processes. Actual-source settings/cancel qualification
+with that repair remains pending; this does not authorize another feed.
+
 After that, each fresh supervised small test needs operator observations of
 undamaged exits, clear transport and every remaining card wholly in the hopper.
 Any extra movement, damage or uncertainty stops progression. Only successful

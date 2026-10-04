@@ -31,6 +31,18 @@ def asset_bytes(asset, cache):
     return data
 
 
+def helper_source_archive(destination):
+    helper = ROOT / 'tools/scanner-agent'
+    # Explicit, flat source inputs only: no build output, appdata, logs or credentials.
+    with zipfile.ZipFile(destination, 'w', zipfile.ZIP_DEFLATED) as archive:
+        for path in sorted(helper.iterdir()):
+            if path.is_file() and path.suffix in ('.cs', '.csproj', '.json', '.ps1', '.py', '.iss', '.md'):
+                archive.write(path, 'tools/scanner-agent/' + path.name)
+        for name in ('CountFeedPolicy.cs', 'OwnedTwainLoop.cs'):
+            relative = 'tools/scanner-twain-count/' + name
+            archive.write(ROOT / relative, relative)
+
+
 def prepare(publish, cache):
     notices = publish / 'third-party'
     report_path = notices / 'inventory.json'
@@ -80,11 +92,7 @@ def prepare(publish, cache):
     sources.mkdir(exist_ok=True)
     shutil.copyfile(source, sources / Path(source_asset['path']).name)
     helper = ROOT / 'tools/scanner-agent'
-    # Explicit, flat source inputs only: no build output, appdata, logs or credentials.
-    with zipfile.ZipFile(sources / 'mtg-scanner-helper-source.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
-        for path in sorted(helper.iterdir()):
-            if path.is_file() and path.suffix in ('.cs', '.csproj', '.json', '.ps1', '.py', '.iss', '.md'):
-                archive.write(path, 'tools/scanner-agent/' + path.name)
+    helper_source_archive(sources / 'mtg-scanner-helper-source.zip')
     shutil.copyfile(helper / 'REBUILD.md', sources / 'REBUILD.md')
     identities = {p['id'].lower() + '/' + p['version']: p for p in report['packages']}
     for name in worker['libraries']:
