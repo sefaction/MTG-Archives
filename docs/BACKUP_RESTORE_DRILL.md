@@ -23,6 +23,45 @@ Capture mismatch diagnostics identify changed table names/counts/content-change 
 
 If capture completed but a later drill step was interrupted, use `--run --reuse=<UUID>` to restore the explicitly selected private capture again into a **new** isolated target. It never reuses an old database. UUID paths are restricted to the same repository backup root; a complete `evidence.json` is required. The disposable runner receives the current checked-out drill helper, while restoration itself uses the application's image/library. Rebuild before testing changed application restore code.
 
+Successful application restore clears restored website sessions and scanner
+pairing codes and revokes restored scanner connections inside the database
+replacement transaction. Sign in again and explicitly pair the helper. User
+passwords/roles, Inventory, receipts, reviews, originals and scanner history are
+retained. Dry-run does not change credentials, and database failure rolls the
+credential changes back with schema/data replacement. Application archives that
+predate the authentication/scanner tables remain supported.
+
+Fresh drill evidence records the ScannerAgent rows with every field except the
+intentional revokedAt transformation. After restore, all agents must be revoked
+and that projection must match. Website sessions and pairing codes must be empty;
+all other authoritative table/file comparisons retain their existing rules. A
+drill capture predating this credential-policy evidence requires a fresh qualified
+capture; that qualification restriction does not prevent ordinary application
+restore of its archive. Scanner epoch rotation, stale acquisition lease handling
+and interrupted cross-store recovery remain separate requirements under #310.
+
+The October 4 credential-fence implementation passed the full isolated
+acquisition/import/core checks (815 units), all three implementation-head CI
+checks, and four local dashboard/count/refill/Stop browser cases in 53.9 seconds.
+The rebuilt image matched all 550 runtime inputs. Real PostgreSQL cases verified
+old credentials refused, fresh sign-in/pairing accepted, transaction rollback,
+idempotence, unchanged user/agent metadata, quoted legacy schemas and no physical
+runs or Inventory effects.
+
+A fresh quiescent capture of the actual local snapshot passed source database
+and file conservation: 70 compared tables, 12,495 physical copies and a
+3,303,416,396-byte archive; backup creation took 444.3 seconds. Original service
+identities/images/states were restored before the isolated restore. The combined
+restore command failed at approximately its 15-minute host limit while the last
+observation showed PostgreSQL building indexes. The wrapper retained only a
+generic Docker-step failure, so timeout is inferred from timing rather than a
+preserved error code. Dry-run and negative controls had completed, but the full
+restored-content/authentication/file gate did **not** finish and remains failed.
+All owned containers/network were removed, and source authentication,
+Inventory, actual user batches and all 97 retained originals remained unchanged.
+This is not full restore qualification; preserve the failure and repair bounded
+stage execution/diagnostics before a new isolated attempt.
+
 ## Isolation and evidence
 
 - Writes a new private backup/evidence directory under `.local-data/backups/drill-<UUID>`, with retention disabled for that capture. Existing backups and the running snapshot are not removed.

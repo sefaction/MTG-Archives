@@ -29,6 +29,7 @@ type Evidence = {
   physicalCopies: number;
   files: Record<string, Record<string, string>>;
   appdata: Array<{ envName: string; archivePath: string }>;
+  credentialFence: { version: 1; scannerAgents: Digest };
 };
 
 // These tables change asynchronously under the normal delivery worker. They are
@@ -75,6 +76,22 @@ async function databaseDigest(db: PrismaClient) {
     result[name] = row;
   }
   return result;
+}
+
+async function scannerCredentialDigest(db: PrismaClient): Promise<Digest> {
+  const [present] = await db.$queryRawUnsafe<Array<{ present: boolean }>>(
+    `SELECT to_regclass('public."ScannerAgent"') IS NOT NULL AS present`,
+  );
+  if (!present.present)
+    return { rows: 0, digest: "d41d8cd98f00b204e9800998ecf8427e" };
+  // Only revokedAt is intentionally transformed. Every other agent field and
+  // every row must survive; actual non-null revocation is checked separately.
+  const [digest] = await db.$queryRawUnsafe<
+    Array<Digest>
+  >(`SELECT count(*)::int AS rows,
+    md5(coalesce(string_agg(digest,'' ORDER BY digest),'')) AS digest FROM
+    (SELECT md5((to_jsonb(t)-'revokedAt')::text) AS digest FROM public."ScannerAgent" t) rows`);
+  return digest;
 }
 
 async function fileDigest(root: string) {
@@ -124,6 +141,10 @@ async function capture(db: PrismaClient) {
     "All four local appdata roots must be configured",
   );
   const database = await databaseDigest(db);
+  const credentialFence = {
+    version: 1 as const,
+    scannerAgents: await scannerCredentialDigest(db),
+  };
   const files: Evidence["files"] = {};
   for (const entry of paths)
     files[entry.envName] = await fileDigest(entry.sourcePath);
@@ -162,6 +183,7 @@ async function capture(db: PrismaClient) {
     sizeBytes: backup.sizeBytes,
     backupMs,
     database,
+    credentialFence,
     physicalCopies,
     files,
     appdata: backup.manifest.appdata.map(({ envName, archivePath }) => ({
@@ -197,6 +219,11 @@ async function restore(db: PrismaClient) {
   const evidence = JSON.parse(
     await readFile("/input/evidence.json", "utf8"),
   ) as Evidence;
+  assert.equal(
+    evidence.credentialFence?.version,
+    1,
+    "Capture predates credential-fence evidence; create a fresh qualified capture",
+  );
   stage = "locate captured application archive";
   const archive = isolatedDrillArchivePath(evidence.path);
   process.env.BACKUP_DIR = "/drill/backups";
@@ -349,7 +376,28 @@ async function restore(db: PrismaClient) {
     ),
     [{ present: true }],
   );
-  assert.deepEqual(await databaseDigest(db), evidence.database);
+  const actualDatabase = await databaseDigest(db);
+  const expectedDatabase = { ...evidence.database };
+  const emptyDigest = { rows: 0, digest: "d41d8cd98f00b204e9800998ecf8427e" };
+  for (const name of ["AuthSession", "ScannerPairing"])
+    if (name in expectedDatabase) expectedDatabase[name] = emptyDigest;
+  if ("ScannerAgent" in expectedDatabase) {
+    assert.equal(
+      await db.scannerAgent.count({ where: { revokedAt: null } }),
+      0,
+    );
+    assert.deepEqual(
+      await scannerCredentialDigest(db),
+      evidence.credentialFence.scannerAgents,
+    );
+    // The exact revocation timestamp is assigned by the restore transaction.
+    // Its separate field-complete projection and non-null check replace only
+    // this intentional transformation; all other tables keep full comparison.
+    delete actualDatabase.ScannerAgent;
+    delete expectedDatabase.ScannerAgent;
+  }
+  assert.deepEqual(actualDatabase, expectedDatabase);
+  assert.equal(restored.credentialsRevalidated, true);
   assert.equal(
     (await db.inventoryItem.aggregate({ _sum: { quantity: true } }))._sum
       .quantity || 0,
@@ -387,6 +435,15 @@ async function restore(db: PrismaClient) {
       sqlFailureRolledBackSchemaAndPreservedCanary: true,
       sqlFailurePreservedTrigramIndex: true,
       restoredTrigramExtension: true,
+      restoredCredentialsRevalidated: true,
+      clearedWebsiteSessions: evidence.database.AuthSession?.rows ?? 0,
+      clearedScannerPairings: evidence.database.ScannerPairing?.rows ?? 0,
+      preservedScannerAgents: evidence.credentialFence.scannerAgents.rows,
+      credentialTransformTables: [
+        "AuthSession",
+        "ScannerPairing",
+        "ScannerAgent",
+      ],
       volatileTablesNotCompared: [...volatileTables],
       countOnlyTables: ["CardPriceSnapshot"],
     }),

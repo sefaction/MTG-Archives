@@ -469,6 +469,11 @@ export async function restoreBackup(
       // also drops its pg_trgm extension, required by the app's catalog indexes.
       buildRestoreSchemaPrelude(schema),
     );
+    const credentialFence = join(
+      workspace,
+      "revalidate-restored-credentials.sql",
+    );
+    await writeFile(credentialFence, buildRestoreCredentialFence(schema));
     await runCommand(
       "psql",
       [
@@ -480,12 +485,18 @@ export async function restoreBackup(
         prelude,
         "--file",
         sqlPath,
+        "--file",
+        credentialFence,
       ],
       { env: buildPgEnv(connection) },
     );
 
     await applyRestoreAppdata(appdataPlan);
-    return { dryRun: false as const, manifest };
+    return {
+      dryRun: false as const,
+      manifest,
+      credentialsRevalidated: true as const,
+    };
   } finally {
     await rm(workspace, { recursive: true, force: true });
   }
@@ -494,6 +505,25 @@ export async function restoreBackup(
 export function buildRestoreSchemaPrelude(schema: string) {
   const target = quotePgIdentifier(schema);
   return `DROP SCHEMA IF EXISTS ${target} CASCADE; CREATE SCHEMA ${target}; CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA ${target};\n`;
+}
+
+/** Runs after the dump, inside the same fail-fast replacement transaction.
+ * Legacy archives without authentication/scanner tables remain compatible. */
+export function buildRestoreCredentialFence(schema: string) {
+  const table = (name: string) =>
+    `${quotePgIdentifier(schema)}.${quotePgIdentifier(name)}`;
+  // Escape strings explicitly rather than relying on session string settings or
+  // a dollar-quote delimiter that could occur in a configured schema name.
+  const literal = (value: string) =>
+    `E'${value.replaceAll("\\", "\\\\").replaceAll("'", "''")}'`;
+  const statement = (name: string, action: string) =>
+    `IF to_regclass(${literal(table(name))}) IS NOT NULL THEN ${action}; END IF;`;
+  const body = `BEGIN
+${statement("AuthSession", `DELETE FROM ${table("AuthSession")}`)}
+${statement("ScannerPairing", `DELETE FROM ${table("ScannerPairing")}`)}
+${statement("ScannerAgent", `UPDATE ${table("ScannerAgent")} SET "revokedAt" = CURRENT_TIMESTAMP WHERE "revokedAt" IS NULL`)}
+END;`;
+  return `DO ${literal(body)};\n`;
 }
 
 export async function readManifestFromBackup(backupPath: string) {
@@ -868,6 +898,9 @@ Restore from the application container or a backup utility container:
 The restore command requires typing RESTORE and replaces the configured target
 database schema. Backups may include sensitive user, inventory, deck, import,
 audit, and appdata records. Store them on persistent private storage.
+Successful application restore clears saved website sessions and scanner pairing
+codes and revokes restored scanner connections. Sign in again and explicitly pair
+the helper. Scan history, originals, user passwords and Inventory are retained.
 `;
 }
 
