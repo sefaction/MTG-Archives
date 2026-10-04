@@ -55,3 +55,24 @@ are now zero; the original 10,292 rows / 12,495 copies and full-record checksum
 match. A fresh full unchanged native gate is still required after this repair;
 the first failure remains a failure. The prior parent empty-Inventory native300
 and actual OCR24 recovery passed separately.
+
+The second run at `dfb8974` **FAILED overall** at 5.5 minutes (actual exit 1).
+All 300 uploads/digests were ready in 127.804 seconds including 15.560 seconds
+of seeding; the last saved report contained 40 completed printing checks.
+A periodic report write failed with Windows `UNKNOWN`, and the uncaught timer
+exception bypassed ordinary test cleanup. Native/review acceptance was not reached.
+Issue #641 records this separate harness defect. Its actual file-open cause is
+unproven; the observer now permits concurrent write/replacement as a precaution.
+
+Report writes now stage complete snapshots, retain the prior complete file on
+failure and record only time and fixed error classification. Periodic writes
+cannot throw outside the awaited test. Final qualification requires successful
+bounded report persistence after owned cleanup; permanent failure remains a
+failed gate. Injected sharing and permanent-finalization failures are covered.
+Owned processing is cancelled before failure cleanup. All changes are test-only;
+upload/native/resource limits remain unchanged. Recovery removed all 16,400
+owned Inventory rows in bounded pages (maximum observed operation 5.792 seconds),
+then every fixture account/session/location and its saved files. The original
+global Inventory checksum matches again. Injected transient/permanent failures
+and real staged filesystem replacement passed on this laptop. A fresh complete
+gate is still required; both preceding attempts remain failures.

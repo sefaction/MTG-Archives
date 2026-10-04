@@ -1,10 +1,11 @@
 import {expect, test, type Page} from '@playwright/test';
 import {execFileSync} from 'node:child_process';
 import {createHash, randomUUID} from 'node:crypto';
-import {copyFileSync, mkdirSync, readFileSync, rmdirSync, unlinkSync, writeFileSync} from 'node:fs';
+import {copyFileSync, mkdirSync, readFileSync, rmdirSync, unlinkSync} from 'node:fs';
 import path from 'node:path';
 import {assertNativeWorkerContinuity, type NativeWorkerSnapshot} from '../native-worker-continuity';
 import {cleanupInventoryScalePageBody, inventoryFingerprintBody, inventoryScaleOwners, seedInventoryScaleBody} from '../acquisition-inventory-scale';
+import {finalizeQualificationReport,qualificationReportWriter} from '../qualification-report';
 
 test.use({trace:'off',video:'off',actionTimeout:15000});
 function docker(...args:string[]) {
@@ -88,7 +89,8 @@ test('large scan-image batches retain every input through ordinary native queues
         'Fixture owners have empty Inventory; this is not the 150,000-copy database-load gate',
       'Sampled Docker readings and authenticated page fetches, not exhaustive peaks or operator throughput']};
   const output=process.env.MTG_ACQUISITION_LARGE_BATCH_REPORT_PATH;
-  const save=()=>{if(output)writeFileSync(output,JSON.stringify(report,null,2)+'\n');};
+  const writeReport=qualificationReportWriter(output);
+  const save=()=>writeReport(report);
   const captureBrowserFailures=async()=>{
     const current=await Promise.all(pages.map(page=>page.evaluate(()=>
       (window as any).__qualificationUploadFailures??[]).catch(()=>null)));
@@ -257,6 +259,7 @@ test('large scan-image batches retain every input through ordinary native queues
           restarts:Number(docker('inspect',container,'--format','{{.RestartCount}}'))};
       });save();
     }catch{report.workerLifetimeUnavailable=true;save();}
+    database(`await p.acquisitionSession.updateMany({where:{ownerPlayerId:{in:${JSON.stringify(owners.map(owner=>owner.tag))}}},data:{phase:'CANCELLED'}});console.log('{}');`);
     for(const owner of owners){
       // Bound individual cleanup operations as well as fixture creation. A
       // large DELETE can outlive the Docker client while still running inside
@@ -282,6 +285,6 @@ test('large scan-image batches retain every input through ordinary native queues
     rmdirSync(spool);
     expect(report.cleanup).toEqual({users:0,sessions:0,locations:0,inventory:0});
     if(report.existingInventoryBefore)expect(report.existingInventoryAfter).toEqual(report.existingInventoryBefore);
-    report.finishedAt=new Date().toISOString();report.passed=qualified;save();
+    report.finishedAt=new Date().toISOString();finalizeQualificationReport(writeReport,report,qualified);
   }
 });
