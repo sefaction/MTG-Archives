@@ -47,6 +47,12 @@ test("section series waits for each choice, refills its unfinished batch, and pe
     expect((await poll()).run).toBeNull();await page.reload();await expect(scanner).toContainText("Section series · batch 1");expect((await poll()).run).toBeNull();
     await scanner.getByRole("link",{name:"Choose next section",exact:true}).click();await expect(setup.getByRole("button",{name:"Start scanner batch",exact:true})).toBeDisabled();
     await page.reload();await expect(setup.getByRole("button",{name:"Start scanner batch",exact:true})).toBeDisabled();expect((await poll()).run).toBeNull();
+    await expect(setup.getByRole("button",{name:/^A\s/})).toContainText("0 / 2 cards · 2 held by batches · full");
+    await expect(setup).toContainText("0 / 7 cards overall · 2 held by batches");
+    await setup.getByLabel("Only sections with room").check();
+    await expect(setup.getByRole("button",{name:/^A\s/})).toHaveCount(0);
+    await expect(setup.getByRole("button",{name:/^B\s/})).toContainText("3 spaces left");
+    await setup.getByLabel("Only sections with room").uncheck();
     await setup.getByRole("button",{name:/^B\s/}).click();await pulse();await setup.getByRole("button",{name:"Start scanner batch",exact:true}).click();await expect(scanner).toContainText("Section series · batch 2");
     const second=await begin();expect(second.run.physicalTarget).toBe(3);await deliver(second.claim,1,true);await expect(scanner).toContainText("Hopper emptied early. 2 cards remain");await reconcile(1);
     await page.reload();await expect(scanner.getByRole("button",{name:"Resume unfinished batch",exact:true})).toBeDisabled();expect((await poll()).run).toBeNull();
@@ -55,6 +61,9 @@ test("section series waits for each choice, refills its unfinished batch, and pe
     const tail=await begin();expect(tail.run.sessionId).toBe(second.run.sessionId);expect(tail.run.physicalTarget).toBe(2);expect(tail.run.sequenceOffset).toBe(1);
     await deliver(tail.claim,2);await expect(scanner).toContainText("Selected count reached");await reconcile(2,2);expect((await poll()).run).toBeNull();
     await scanner.getByRole("link",{name:"Choose next section",exact:true}).click();await setup.getByRole("button",{name:/^C\s/}).click();await expect(setup).toContainText("2 spaces available after pending cards");
+    await expect(setup.getByRole("button",{name:/^A\s/})).toContainText("2 held by batches · full");
+    await expect(setup.getByRole("button",{name:/^B\s/})).toContainText("3 held by batches · full");
+    for(const width of [1366,320]){await page.setViewportSize({width,height:900});await setup.scrollIntoViewIfNeeded();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:`test-results/scanner-series-reservations-${width}.png`});}
     await setup.getByRole("button",{name:"Stop section series",exact:true}).click();await expect(scanner).toContainText("Series stopped.");await expect(scanner.getByRole("link",{name:"Choose next section",exact:true})).toHaveCount(0);
     await page.reload();await expect(scanner).toContainText("Series stopped.");await expect(scanner).not.toContainText("Choose the next section before feeding more");expect((await poll()).run).toBeNull();
     const refused=await page.request.post("/api/scanners/runs",{headers:origin,data:{action:"create",requestKey:randomUUID(),agentId,deviceId:source.id,locationId:tag,section:"C",quantity:null,loadedCount:null,settings:first.run.settings,operatorLoadedSimplexFronts:true,continuous:true,continueFrom:tail.run.runId}});expect(refused.ok()).toBe(false);

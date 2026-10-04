@@ -1,16 +1,25 @@
 # Operator-directed section series
 
-The section workflow is software-only qualified. Actual fi-7160 feeding remains
-suspended after the ten-card trial partly fed an eleventh card into the transport
-([602](https://github.com/sefaction/MTG-Archives/issues/602)). Helper 0.4.1 refuses
-counted production preparation before opening TWAIN. No simulated result proves
-a physical count or permits unattended feeding.
+The section workflow is software qualified. Guarded helper0.4.2 has passed repaired
+one/two/five/ten supervised diagnostic boundaries and the website two-card boundary;
+actual section/refill/Stop and larger logical-batch acceptance remain in progress.
+See [current programmatic qualification](FI7160_PROGRAMMATIC_COUNT_CONTROL.md).
+The original failed boundary in [602](https://github.com/sefaction/MTG-Archives/issues/602)
+is retained. No simulated result proves a physical count or permits unattended feeding.
 
 With a qualified counted source, enable **Fill sections one at a time until I
 stop**. Select the first section and explicitly Start. The server selects its
 fresh remaining capacity, including committed copies, scanned but uncommitted
 cards, unfinished reservations and the parent location limit. Manual count
 limits and generic draining sources remain separate workflows.
+
+The counted-source picker refreshes a locked destination snapshot, showing
+committed Inventory quantities and held batch space separately. Section labels,
+occupancy bars and **Only sections with room** include saved uncommitted cards
+and unfinished targets, with the tighter parent limit applied. Custom sections
+with only pending cards remain visible. Refresh capacity updates this snapshot;
+Start still rechecks capacity transactionally. Ordinary storage move displays
+retain their existing Inventory semantics. This addresses [622](https://github.com/sefaction/MTG-Archives/issues/622).
 
 After the target is reached, inspect the physical result and confirm its count.
 Choose next section opens a fresh destination form with the section blank.

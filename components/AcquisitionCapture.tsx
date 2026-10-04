@@ -106,7 +106,8 @@ export function AcquisitionCapture({
   const [scannerChoice, setScannerChoice] = useState<ScannerChoice | null>(null);
   const [scannerEnabled, setScannerEnabled] = useState(initialScanner);
   const countedScanner = scannerChoice?.deviceId === COUNTED_SCANNER_DEVICE;
-  const [scannerCapacity, setScannerCapacity] = useState<{ locationId: string; section: string; remaining: number | null; pendingSection: number; pendingTotal: number } | null>(null);
+  const [scannerCapacity, setScannerCapacity] = useState<{ locationId: string; section: string; remaining: number | null; pendingSection: number; pendingTotal: number; destination?: StorageLocation } | null>(null);
+  const [capacityRevision, setCapacityRevision] = useState(0);
   const [capacityError, setCapacityError] = useState("");
   const [scannerDetecting, setScannerDetecting] = useState(false);
   const pendingStart = useRef<PendingScannerStart | null>(null);
@@ -289,7 +290,9 @@ export function AcquisitionCapture({
     })();
     return () => { active = false; };
   }, [userId, initialBatch, initialScanner, photoInput, recoverScanner]);
-  const destination = locations.find((l) => l.id === locationId);
+  const displayLocations = countedScanner && scannerCapacity?.locationId === locationId && scannerCapacity.destination && !capacityError
+    ? locations.map(location => location.id === locationId ? scannerCapacity.destination! : location) : locations;
+  const destination = displayLocations.find((l) => l.id === locationId);
   const selectedSection = destination?.sections.find((s) => s.name === section);
   const limits = [
     destination?.capacity == null
@@ -311,7 +314,7 @@ export function AcquisitionCapture({
     } catch (e) { if (active) setCapacityError((e as Error).message); } };
     void load(); const timer = setInterval(()=>void load(),5000);
     return ()=>{active=false;clearInterval(timer);};
-  }, [countedScanner, batchId, locationId, section]);
+  }, [countedScanner, batchId, locationId, section, capacityRevision]);
   useEffect(() => {
     if (!customLimit) setQuantity(remaining ?? 1);
   }, [locationId, section, remaining, customLimit]);
@@ -670,7 +673,7 @@ export function AcquisitionCapture({
           <div className="grid gap-4 lg:grid-cols-2 items-start"><div className="min-w-0">
           <StorageDestinationPicker
             disabled={busy || checkingStart || !!pendingScanner || startStorageError}
-            locations={locations}
+            locations={displayLocations}
             locationId={locationId}
             onLocationChange={(id) => {
               setLocationId(id);
@@ -735,11 +738,11 @@ export function AcquisitionCapture({
               : scannerEnabled ? `${remaining} spaces remain. Load no more than that; the scanner runs until the feeder is empty.` : `${remaining} spaces remaining in this destination.`}{" "}
             {!scannerEnabled && "One card per photo."}
           </p>
-          <button className={button+" mb-3"} disabled={busy || checkingStart || !!pendingScanner || refreshingCapacity} onClick={()=>refreshCapacity(()=>router.refresh())}>
+          <button className={button+" mb-3"} disabled={busy || checkingStart || !!pendingScanner || refreshingCapacity} onClick={()=>{setCapacityRevision(value=>value+1);refreshCapacity(()=>router.refresh());}}>
             {refreshingCapacity ? "Refreshing capacity…" : "Refresh capacity"}
           </button>
           <details className="text-sm mb-3"><summary className="cursor-pointer">About capacity</summary>
-            <p className="mt-2">Capacity shown here includes stored cards. Pending batches and capacity are checked again before {photoInput ? "the batch starts" : "the scanner starts"} and before Inventory addition.</p>
+            <p className="mt-2">{countedScanner ? "Capacity includes stored cards, saved cards awaiting Inventory, and unfinished batch targets. It is checked again before Start and Inventory addition." : <>Capacity shown here includes stored cards. Pending batches and capacity are checked again before {photoInput ? "the batch starts" : "the scanner starts"} and before Inventory addition.</>}</p>
           </details>
           </div><div className="min-w-0">
           {photoInput ? <p className="text-sm my-3">One card per photo. JPEG, PNG and WebP are supported. Review the saved cards before adding them to Inventory.</p> : <ScannerSourceFields key={pendingScanner?.requestKey ?? "setup"} initialEnabled={pendingScanner || retiredSetup ? true : initialScanner} initialChoice={pendingScanner ?? retiredSetup ?? initialSetup?.scanner} onChange={scannerChanged} disabled={busy || checkingStart || !!pendingScanner || startStorageError || refreshingCapacity} remaining={customLimit ? Math.min(quantity,remaining??quantity) : remaining} />}
