@@ -74,6 +74,34 @@ codes and the active phase without printing command arguments or credentials.
 The original combined-command failure remains failed. A new complete actual
 attempt and owned cleanup are required for qualification.
 
+The fresh retry in [draft647](https://github.com/sefaction/MTG-Archives/pull/647)
+at implementation `f305e12` subsequently **passed** with actual terminal exit 0,
+using a new isolated target and the qualified read-only capture. Both phases
+completed within their unchanged 900-second limits. Validation exercised the
+actual apply entry point with missing and changed checkpoints, then passed
+dry-run sentinels, missing/corrupt dump preservation and real SQL rollback with
+the trigram index retained. Forced application restore took 510.5 seconds before
+the final comparisons. The final 70-table comparison policy, 12,495-copy total,
+four data roots and all 2,095 file/directory entries matched; migrations were
+current. The three intentional authentication transformations cleared 989
+website sessions and four pairing codes, and revoked all eight retained agents
+while preserving every other agent field. Other authoritative tables retain full
+content checks; four volatile notification tables remain excluded and the legacy
+price cache remains count-only, as documented above.
+
+The unchanged credential-fence library from [draft645](https://github.com/sefaction/MTG-Archives/pull/645)
+was tested through the rebuilt image, with no working-library override. All 550
+runtime inputs matched source. Full isolated acquisition/import/core checks
+(817 units) and all three implementation-head CI checks passed for the harness
+batch. Both owned containers and the internal network were removed. The original
+website's authentication, Inventory, user batches, all 97 retained originals and
+all 13 service identities/images/running states were conserved through the retry;
+the physical helper remained idle. The earlier combined-command run remains
+failed. This qualifies the bounded restored-authentication/content case, not
+scanner epoch rotation, stale acquisition lease retirement, interrupted
+cross-store restoration or a restored-app browser release under #310. Each draft
+still requires individual merge approval; no production operation occurred.
+
 ## Isolation and evidence
 
 - Writes a new private backup/evidence directory under `.local-data/backups/drill-<UUID>`, with retention disabled for that capture. Existing backups and the running snapshot are not removed.
