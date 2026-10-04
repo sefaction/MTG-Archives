@@ -1,6 +1,7 @@
 import { Nav } from "@/components/Nav";
 import { ImportTaskNav } from "@/components/ImportTaskNav";
 import { AcquisitionBatchActions } from "@/components/AcquisitionBatchActions";
+import { AcquisitionBatchRefresh } from "@/components/AcquisitionBatchRefresh";
 import { requireLogin, isAdminModeEnabled } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { batchDashboardQuery, getAcquisitionBatchDashboard } from "@/lib/acquisition-batch-dashboard";
@@ -19,6 +20,7 @@ export default async function BatchDashboardPage({searchParams}: {searchParams: 
       <p className="text-sm text-[var(--app-muted)]">{format(data.totals.pending)} batches need closing out · {format(data.totals.batches)} saved batches</p></div>
       <a className={button} href="/imports/scan?input=scanner#new-scan-batch">New scanner batch</a></div>
     <ImportTaskNav selected="batches" />
+    <AcquisitionBatchRefresh />
     <section aria-label="Card totals" className="grid grid-cols-2 lg:grid-cols-5 gap-3">
       {([ ["Saved cards", data.totals.captured], ["Evaluated", data.totals.evaluated], ["Assigned to storage", data.totals.assigned], ["Confirmed matches", data.totals.confirmed], ["Added to Inventory", data.totals.added] ] as const).map(([label, count]) =>
         <div key={label} className={`${panel} p-3`}><p className="text-xs text-[var(--app-muted)]">{label}</p><p className="text-2xl font-semibold tabular-nums">{format(count)}</p></div>)}

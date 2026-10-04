@@ -1,7 +1,7 @@
 import { runInNewContext } from "node:vm";
 
 export const CLIENT_MANIFEST_CONTRACTS: Record<string, string[]> = {
-  "/imports/batches/page": ["AcquisitionBatchActions"],
+  "/imports/batches/page": ["AcquisitionBatchActions", "AcquisitionBatchRefresh"],
   "/admin/prices/page": [
     "admin/PricingHistoryTotals",
     "admin/PricingDashboardAutoRefresh",

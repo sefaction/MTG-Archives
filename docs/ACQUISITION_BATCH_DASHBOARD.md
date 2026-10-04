@@ -3,6 +3,9 @@
 The batch dashboard is available from **Imports → Batches**. Pending batches are
 shown first. Search by batch number, storage, section or owner; use All batches,
 Closed, Cancelled and Trash to find older work. Lists contain 25 batches per page.
+Counts refresh every 20 seconds while the page is visible. Automatic updates
+wait while search is being edited or a cancellation/Trash confirmation is open;
+they can be switched off. Refresh batches also updates counts on demand.
 Camera, uploaded-photo and scanner batches share this overview. CSV history stays
 in its existing History view.
 

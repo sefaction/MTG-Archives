@@ -26,7 +26,7 @@ export function AcquisitionBatchActions({id, batchNumber, cancelled = false, tra
         <button className={button} disabled={busy} onClick={() => setConfirm("trash")}>Move to Trash</button>
       </>}
     </div>
-    {confirm && <div className="rounded border border-[var(--app-border)] p-3 space-y-2" role="group" aria-label={`Confirm ${confirm} batch ${batchNumber}`}>
+    {confirm && <div data-batch-action-confirm className="rounded border border-[var(--app-border)] p-3 space-y-2" role="group" aria-label={`Confirm ${confirm} batch ${batchNumber}`}>
       <p className="text-sm">{confirm === "trash" ? "Hide this batch and stop processing? You can restore it for seven days. After that its saved scans will be deleted. Cards already added to Inventory will stay there." :
         "Stop processing this batch? Saved scans and reviews will stay available. An accepted scanner load will finish saving before it stops; no new load will start."}</p>
       <div className="flex flex-wrap gap-2">

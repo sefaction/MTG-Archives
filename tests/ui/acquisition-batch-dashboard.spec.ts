@@ -27,7 +27,10 @@ test("batch dashboard keeps card totals distinct and cancels, trashes and restor
     await expect(page.getByRole("navigation", {name: "Batch pages"})).toContainText("Page 1 of 2");
     await page.getByRole("link", {name: "Next", exact: true}).click();
     await expect(page.getByRole("navigation", {name: "Batch pages"})).toContainText("Page 2 of 2");
-    await page.getByLabel("Find a batch").fill(String(batch.batchNumber)); await page.getByRole("button", {name: "Search", exact: true}).click();
+    await page.getByLabel("Find a batch").fill(String(batch.batchNumber));
+    await page.getByRole("button", {name: "Refresh batches", exact: true}).click();
+    await expect(page.getByLabel("Find a batch")).toHaveValue(String(batch.batchNumber));
+    await page.getByRole("button", {name: "Search", exact: true}).click();
     const card = page.getByRole("article", {name: `Batch ${batch.batchNumber}`, exact: true});
     await expect(card.locator("dl")).toContainText("Saved2");
     await expect(card).toContainText("1 matches need confirmation"); await expect(card).toContainText("1 confirmed cards await Inventory addition");
