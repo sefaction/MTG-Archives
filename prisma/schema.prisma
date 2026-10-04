@@ -1321,6 +1321,11 @@ model AcquisitionSession {
   target          Int?
   scannerReserved Int?
   phase           AcquisitionPhase @default(DRAFT)
+  cancelledAt     DateTime?
+  trashedAt       DateTime?
+  trashExpiresAt  DateTime?
+  phaseBeforeTrash AcquisitionPhase?
+  deletedAt       DateTime?
   revision        Int      @default(0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -1329,6 +1334,8 @@ model AcquisitionSession {
   @@unique([createdByUserId, requestKey])
   @@index([ownerPlayerId, updatedAt, id])
   @@index([locationId, phase])
+  @@index([ownerPlayerId, trashedAt, updatedAt, id])
+  @@index([trashExpiresAt, deletedAt])
 }
 
 model AcquisitionRun {

@@ -18,6 +18,7 @@ export async function readScannerCapacity(tx: Prisma.TransactionClient, input: {
 }) {
   const capacity = await lockAndReadInventoryCapacity(tx, input);
   const sessions = await tx.acquisitionSession.findMany({ where: { locationId: input.locationId,
+    OR: [{trashedAt: null, deletedAt: null}, {run: {scannerRuns: {some: {status: {notIn: ["DRAINED", "CANCELLED_BEFORE_START"]}}}}}],
     ...(input.excludeSessionId ? { id: { not: input.excludeSessionId } } : {}) }, select: {
     section: true, scannerReserved: true, run: { select: { _count: { select: {
       candidates: true, slots: true,

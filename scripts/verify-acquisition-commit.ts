@@ -5,7 +5,8 @@ import {
 } from "../lib/acquisition-recognition";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
-import { purgeCommittedAcquisitionPhotos } from "../lib/acquisition-photo-retention";
+import { purgeCommittedAcquisitionPhotos, purgeTrashedAcquisitionPhotos } from "../lib/acquisition-photo-retention";
+import { manageAcquisitionBatch } from "../lib/acquisition-batch-lifecycle";
 import {
   writeAcquisitionPhotoBytes,
   readAcquisitionPhotoBytes,
@@ -496,6 +497,23 @@ export async function verifyAcquisitionCommit(
       await readAcquisitionPhotoBytes(retained.id, "raw", bytesDigest),
       bytes,
     );
+    // Trash can begin after retention selected a committed photo. Recheck the
+    // session under lock before unlink, preserving the full restore window.
+    let racedTrash = false;
+    const retentionRace = new Proxy(db, {get(target, property) {
+      if (property === "$queryRaw") return async (...args: unknown[]) => {
+        const rows = await Reflect.apply(target.$queryRaw, target, args) as {id: string}[];
+        if (!racedTrash && rows.some(row => row.id === retained.id)) {
+          await manageAcquisitionBatch(db, actor, first.id, "trash", expiration); racedTrash = true;
+        }
+        return rows;
+      };
+      const value = Reflect.get(target, property); return typeof value === "function" ? value.bind(target) : value;
+    }});
+    await purgeCommittedAcquisitionPhotos(retentionRace, expiration);
+    assert.ok(racedTrash);
+    assert.deepEqual(await readAcquisitionPhotoBytes(retained.id, "raw", bytesDigest), bytes);
+    await manageAcquisitionBatch(db, actor, first.id, "restore", expiration);
     const failureDb = db.$extends({
       query: {
         acquisitionPhoto: {
@@ -548,6 +566,13 @@ export async function verifyAcquisitionCommit(
       }),
       2,
     );
+    const retainedInventory = await db.inventoryItem.findMany({where: {cardId: card.id}, orderBy: {id: "asc"}});
+    const retainedReceipts = await db.acquisitionCommit.findMany({where: {runId: {in: runs}}, orderBy: {id: "asc"}, include: {members: true}});
+    await manageAcquisitionBatch(db, actor, first.id, "trash", expiration);
+    await purgeTrashedAcquisitionPhotos(db, new Date(expiration.getTime() + 7 * 86400000));
+    assert.deepEqual(await db.inventoryItem.findMany({where: {cardId: card.id}, orderBy: {id: "asc"}}), retainedInventory);
+    assert.deepEqual(await db.acquisitionCommit.findMany({where: {runId: {in: runs}}, orderBy: {id: "asc"}, include: {members: true}}), retainedReceipts);
+    console.log("PASS: Trash fences concurrent committed retention; expiry conserves Inventory and immutable acquisition receipts");
     // Strong-match confirmation is staged, editable and never a receipt.
     const auto = await capture(await location(10), 4);
     async function evidence(photoId: string, strong = true) {

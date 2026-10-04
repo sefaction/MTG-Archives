@@ -14,6 +14,8 @@ import { readScannerCapacity, readScannerCapacitySnapshot } from "../lib/scanner
 import { scannerContinuation, currentScannerContinuation } from "../lib/scanner-continuation";
 import { getAcquisitionSession, saveAcquisitionReview, getAcquisitionCardReview } from "../lib/acquisition-store";
 import { previewAcquisitionCommit, commitAcquisitionCards } from "../lib/acquisition-commit-service";
+import { manageAcquisitionBatch } from "../lib/acquisition-batch-lifecycle";
+import { purgeTrashedAcquisitionPhotos } from "../lib/acquisition-photo-retention";
 
 // Disposable PostgreSQL protocol qualification. All images are synthetic and
 // no native backend is created; an 83-image pass is not an 83-card feed pass.
@@ -320,6 +322,27 @@ export async function verifyCountedScanner(db: PrismaClient) {
     assert.equal((await getScannerBatch(db,tag,activeSeries.runId)).series?.stopped,true);
     assert.equal(await db.acquisitionPhoto.count({where:{run:{sessionId:activeSeries.sessionId}}}),2);
     await assert.rejects(scannerContinuation(db,tag,activeSeries.runId),/stopped/);
+    const trashHelper = await enroll(), trashBox = await location(2, [{name: "A", capacity: 2}]);
+    const trashBatch = await createScannerBatch(db, actor, {...setup(trashHelper, trashBox), continuous: true}, epoch);
+    const trashClaim = await claim(trashHelper, trashBatch.runId), trashAt = new Date();
+    await manageAcquisitionBatch(db, actor, trashBatch.sessionId, "trash", trashAt);
+    assert.equal((await capacity(trashBox)).remaining, 0);
+    await assert.rejects(manageAcquisitionBatch(db, actor, trashBatch.sessionId, "restore"), /draining/);
+    assert.equal((await purgeTrashedAcquisitionPhotos(db, new Date(trashAt.getTime() + 8 * 86400000))).expired, 0);
+    await images(trashHelper, trashClaim, 2); await finish(trashHelper, trashClaim, 2, false);
+    const trashSession = await db.acquisitionSession.findUniqueOrThrow({where: {id: trashBatch.sessionId}});
+    assert.equal(trashSession.phase, "CANCELLED"); assert.ok(trashSession.trashedAt);
+    assert.equal((await capacity(trashBox)).remaining, 2);
+    assert.equal(await db.acquisitionPhoto.count({where: {run: {sessionId: trashBatch.sessionId}, ready: true}}), 2);
+    assert.ok((await db.acquisitionProcessingJob.findMany({where: {run: {sessionId: trashBatch.sessionId}}})).every(job => job.status === "SUPERSEDED"));
+    await manageAcquisitionBatch(db, actor, trashBatch.sessionId, "restore");
+    assert.equal((await getScannerBatch(db, tag, trashBatch.runId)).series?.stopped, true);
+    await assert.rejects(scannerContinuation(db, tag, trashBatch.runId), /stopped/);
+    const neverStarted = await createScannerBatch(db, actor, setup(trashHelper, await location(1, [{name: "A", capacity: 1}])), epoch);
+    await manageAcquisitionBatch(db, actor, neverStarted.sessionId, "cancel");
+    assert.equal((await db.scannerRun.findUniqueOrThrow({where: {id: neverStarted.runId}})).status, "CANCELLED_BEFORE_START");
+    await assert.rejects(claimScannerRun(db, trashHelper.token, {version: 1, runId: neverStarted.runId, epoch, executionId: randomUUID()}, epoch));
+    console.log("PASS: cancelled scanner load drains accepted originals without inference; no new START, Trash capacity held until drain, restoration never restarts series; physical feeds=0");
     console.log("PASS: explicit multi-section series, concurrent next admission, stale-page/refresh recovery, same-batch refill, durable/repeated Stop, released unfed reservations and retained uncommitted cards; physical feeds=0");
     console.log("PASS: counted 83-image allocation, hopper remainder observation, pending/commit capacity conservation, concurrent parent limits, fresh no-START guard, same-batch refill segments and old-segment replay with saved review; physical feeds=0");
   } finally {

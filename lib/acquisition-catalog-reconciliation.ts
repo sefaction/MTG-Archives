@@ -73,7 +73,7 @@ export async function enqueueCatalogReconciliation(
     JOIN "User" u ON u.id=s."createdByUserId"
     WHERE j.stage='photo-recognition-v1' AND j.status='COMPLETE'
       AND j."candidateRevision"=c.revision AND c.review IS NULL AND NOT c.excluded
-      AND s.phase NOT IN ('DRAFT','CANCELLED') AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
+      AND s.phase NOT IN ('DRAFT','CANCELLED') AND s."cancelledAt" IS NULL AND s."trashedAt" IS NULL AND s."deletedAt" IS NULL AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
       AND NOT EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=c.id)
       AND (${!requireVisual} OR (SELECT v.status FROM "AcquisitionProcessingJob" v
         WHERE v.stage=${VISUAL_STAGE} AND v."candidateId"=c.id AND v."artifactId"=j."artifactId"

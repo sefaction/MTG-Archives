@@ -4,6 +4,7 @@ import { z } from "zod";
 import { SCANNER_CAPTURE_PROVIDER, scannerCanonical } from "./scanner-run-protocol";
 import { acquisitionImageInputKindSchema, type AcquisitionImageInputKind } from "./acquisition-image-input";
 import { isAdminUser } from "./auth-policy";
+import { requireVisibleAcquisitionBatch, requireProcessingAcquisitionBatch } from "./acquisition-batch-policy";
 import { getStorageLocations } from "./storage-summary";
 import {
   acquisitionDefaultsSchema,
@@ -257,9 +258,11 @@ export async function getAcquisitionSession(
   actor: AcquisitionActor,
   sessionId: string,
 ) {
-  return transaction(db, async (tx) =>
-    hydrate(await read(tx, actor, sessionId)),
-  );
+  return transaction(db, async (tx) => {
+    const row = await read(tx, actor, sessionId);
+    requireVisibleAcquisitionBatch(row);
+    return hydrate(row);
+  });
 }
 export async function createAcquisitionSession(
   db: PrismaClient | Tx,
@@ -514,6 +517,7 @@ async function mutate(
     let row = await read(tx, actor, sessionId);
     await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${sessionId} FOR UPDATE`;
     row = await read(tx, actor, sessionId);
+    requireVisibleAcquisitionBatch(row);
     if (expectedRevision !== undefined && row.revision !== expectedRevision)
       throw new Error("Stale capture session revision");
     const before = hydrate(row);
@@ -641,6 +645,7 @@ export async function executeAcquisitionCommand(
         throw new Error("Capture command identity conflict");
       return { ...hydrate(row), replay: true };
     }
+    requireProcessingAcquisitionBatch(row);
     if (row.revision !== input.revision)
       throw new Error("Stale capture session revision");
     if (["START", "RESUME"].includes(input.command) && !destinationCurrent(row))
@@ -742,6 +747,7 @@ export async function enqueueAcquisitionProcessing(
       const candidate = run.candidates.find(
         (c) => c.physicalId === input.physicalId,
       );
+      requireProcessingAcquisitionBatch(row);
       const artifact = run.artifacts.find(
         (a) => a.sourceId === input.artifactSourceId,
       );
@@ -783,6 +789,7 @@ export async function getAcquisitionProgress(
 ) {
   return transaction(db, async (tx) => {
     const row = await read(tx, actor, sessionId);
+    requireVisibleAcquisitionBatch(row);
     const slots = await tx.acquisitionCaptureSlot.findMany({
       where: { runId: row.run!.id },
       orderBy: { position: "asc" },
@@ -937,6 +944,7 @@ export async function beginAcquisitionPhoto(
     if (run.providerId === SCANNER_CAPTURE_PROVIDER &&
       (!input.sourceMetadata || inputKind !== "CARD_SCAN"))
       throw new Error("Capture scanner source evidence required");
+    if (row.deletedAt) throw new Error("Capture batch has expired");
     const slot = await tx.acquisitionCaptureSlot.findUnique({
       where: { id: input.slotId },
     });
@@ -966,7 +974,7 @@ export async function beginAcquisitionPhoto(
       return previous;
     }
     if (
-      !["CAPTURING", "STOPPING"].includes(row.phase) ||
+      !(["CAPTURING", "STOPPING"].includes(row.phase) || row.phase === "CANCELLED" && row.cancelledAt && run.providerId === SCANNER_CAPTURE_PROVIDER) ||
       !destinationCurrent(row)
     )
       throw new Error("Capture is not accepting photos");
@@ -1038,6 +1046,7 @@ export async function finalizeAcquisitionPhoto(
       where: { id: photoId },
       include: { slot: true },
     });
+    if (row.deletedAt) throw new Error("Capture batch has expired");
     if (!photo || photo.runId !== row.run!.id)
       throw new Error("Photo unavailable");
     if (photo.ready) return photo;
@@ -1080,6 +1089,9 @@ export async function finalizeAcquisitionPhoto(
     });
     await tx.acquisitionProcessingJob.create({
       data: {
+        ...(row.cancelledAt || row.trashedAt || row.deletedAt || row.phase === "CANCELLED" ? {
+          status: "SUPERSEDED" as const, errorCode: "BATCH_STOPPED",
+        } : {}),
         runId: row.run!.id,
         artifactId: artifact.id,
         candidateId: candidate.id,
@@ -1117,6 +1129,7 @@ export async function getAcquisitionPhoto(
 ) {
   return transaction(db, async (tx) => {
     const row = await read(tx, actor, sessionId);
+    requireVisibleAcquisitionBatch(row);
     const photo = await tx.acquisitionPhoto.findUnique({
       where: { id: photoId },
     });
@@ -1127,6 +1140,7 @@ export async function getAcquisitionPhoto(
 }
 
 async function reviewPhoto(tx: Tx, row: Stored, photoId: string) {
+  requireVisibleAcquisitionBatch(row);
   z.string().uuid().parse(photoId);
   const photo = await tx.acquisitionPhoto.findUnique({
     where: { id: photoId },
@@ -1237,6 +1251,7 @@ export async function saveAcquisitionReview(
     await read(tx, actor, sessionId);
     await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${sessionId} FOR UPDATE`;
     const row = await read(tx, actor, sessionId);
+    requireVisibleAcquisitionBatch(row);
     if (input.action === "defaults") {
       if (row.defaultsRevision !== input.revision)
         throw new Error(

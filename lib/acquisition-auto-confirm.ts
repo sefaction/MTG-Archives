@@ -35,7 +35,7 @@ export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
       AND j.output->'proposals'->>'version' = '4'
       AND j."candidateRevision" = c.revision AND c.review IS NULL AND NOT c.excluded
       AND r."providerId" = 'phone-photo-v1'
-      AND s.phase NOT IN ('DRAFT', 'CANCELLED')
+      AND s.phase NOT IN ('DRAFT', 'CANCELLED') AND s."cancelledAt" IS NULL AND s."trashedAt" IS NULL AND s."deletedAt" IS NULL
       AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
       AND s."reviewDefaults"->>'finish' IN ('NONFOIL', 'FOIL', 'ETCHED')
       AND s."reviewDefaults"->>'condition' IN ('NM', 'LP', 'MP', 'HP', 'DMG')
@@ -73,6 +73,7 @@ export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
         candidate.revision !== job.candidateRevision ||
         job.status !== "COMPLETE" ||
         ["DRAFT", "CANCELLED"].includes(session.phase) ||
+        session.cancelledAt || session.trashedAt || session.deletedAt ||
         !session.ownerPlayer.active ||
         !session.createdByUser.isActive ||
         session.createdByUser.forcePasswordChange
