@@ -6,6 +6,7 @@ on:
       - 'tools/scanner-agent/**'
       - 'tools/scanner-twain-count/CountFeedPolicy.cs'
       - 'tools/scanner-twain-count/OwnedTwainLoop.cs'
+      - 'tools/scanner-twain-count/GuardedFeedPolicy.cs'
       - 'scripts/verify-scanner-release.mjs'
       - '.github/workflows/scanner-installer.yml'
       - '.github/workflows/docker-publish.yml'
