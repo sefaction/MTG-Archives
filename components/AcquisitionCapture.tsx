@@ -124,7 +124,7 @@ export function AcquisitionCapture({
     const identity = JSON.stringify({ value, enabled });
     if (sourceIdentity.current !== identity) createKey.current = "";
     sourceIdentity.current = identity;
-    setScannerChoice(value); setScannerEnabled(enabled); if (enabled && value?.deviceId !== COUNTED_SCANNER_DEVICE) setCustomLimit(false);
+    setScannerChoice(value); setScannerEnabled(enabled); if (enabled && value && value.deviceId !== COUNTED_SCANNER_DEVICE) setCustomLimit(false);
   }, []);
   const [batchId, setBatchId] = useState(initialBatch);
   const [progress, setProgress] = useState<Progress | null>(null);

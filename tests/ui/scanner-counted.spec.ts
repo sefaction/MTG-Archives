@@ -60,7 +60,12 @@ test("counted source selects one, preserves hopper remainder, then explicitly re
     await expect(scanner.getByLabel("Cards physically emitted")).toHaveCount(0);
     const capacity=await page.request.get("/api/scanners/capacity?location="+encodeURIComponent(tag)+"&section=A");
     expect((await capacity.json()).remaining).toBe(82);
+    await pulse("Unsupported");
     await scanner.getByRole("link",{name:"New scanner batch",exact:true}).click();
+    await expect(setup.getByRole("button",{name:"Start scanner batch",exact:true})).toBeDisabled();
+    await expect(setup.getByRole("combobox",{name:"Scanner source",exact:true})).toContainText("Previous scanner source (offline)");
+    expect((await polled()).run).toBeNull();
+    await pulse();
     await expect(setup.getByLabel("Set a batch limit (optional)")).toBeChecked();
     await expect(setup.getByLabel("Cards in this batch")).toHaveValue("1");
     await expect(setup).toContainText("82 spaces available after pending cards");
