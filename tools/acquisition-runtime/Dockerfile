@@ -17,5 +17,8 @@ COPY lib ./lib
 COPY scripts ./scripts
 COPY tools/acquisition-runtime ./tools/acquisition-runtime
 COPY tools/acquisition-eval/baseline.py /eval/baseline.py
-ENV HOME=/tmp/mtg-acquisition-native
+# Prisma runs as the application identity and may create HOME before OCR starts.
+# Keep its caches separate from the restricted child's native scratch home.
+ENV HOME=/tmp/mtg-acquisition-worker
+RUN install -d -m 700 -o 65534 -g 65534 /tmp/mtg-acquisition-native
 ENTRYPOINT ["node", "node_modules/tsx/dist/cli.mjs", "scripts/acquisition-recognition-worker.ts"]
