@@ -105,7 +105,7 @@ test("batch pages remain available after the last row is cancelled or trashed", 
     database("const n=" + JSON.stringify(tag) + ";const hash=await require('bcryptjs').hash(" + JSON.stringify(password) + ",10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:'Page recovery storage',normalizedName:n,ownerPlayerId:n,type:'Box'}});");
     await page.goto("/login"); await page.getByLabel(/username or email/i).fill(tag); await page.getByLabel(/^password$/i).fill(password);
     await page.getByRole("button", {name: /^log in$/i}).click(); await page.waitForURL(/\/dashboard/);
-    const response = await page.request.post("/api/acquisition", {headers: origin, data: {requestKey: randomUUID(), locationId: tag, quantity: 2}});
+    const response = await page.request.post("/api/acquisition", {headers: origin, data: {requestKey: randomUUID(), locationId: tag, section: "", quantity: 2}});
     expect(response.ok(), await response.text()).toBe(true); const batch = await response.json();
     database("const s=await p.acquisitionSession.findUniqueOrThrow({where:{id:" + JSON.stringify(batch.id) + "},include:{run:true}});for(let i=0;i<25;i++){const {id,batchNumber,createdAt,updatedAt,run,...copy}=s;await p.acquisitionSession.create({data:{...copy,requestKey:require('crypto').randomUUID(),run:{create:{sourceRunId:require('crypto').randomUUID(),providerId:run.providerId,enforcement:run.enforcement,controls:run.controls}}}});}");
     await page.goto("/imports/batches?view=pending&page=2");
