@@ -1,16 +1,50 @@
 # Operator-directed section series
 
-The section workflow is software-only qualified. Actual fi-7160 feeding remains
-suspended after the ten-card trial partly fed an eleventh card into the transport
-([602](https://github.com/sefaction/MTG-Archives/issues/602)). Helper 0.4.1 refuses
-counted production preparation before opening TWAIN. No simulated result proves
-a physical count or permits unattended feeding.
+Guarded helper0.4.2 passed repaired one/two/five/ten supervised diagnostic boundaries
+and the small website sequence: A2, B early-empty1, same-B refill2 and persistent
+Stop before C. Operator physical observations and reconciliation are recorded.
+Larger logical-batch and ordinary installed-helper acceptance remain unfinished.
+See [current programmatic qualification](FI7160_PROGRAMMATIC_COUNT_CONTROL.md).
+The original failed boundary in [602](https://github.com/sefaction/MTG-Archives/issues/602)
+is retained. No simulated result proves a physical count or permits unattended feeding.
+
+## Scanning and moving to the next batch
+
+1. Open the updated helper and choose the saved website/account connection you
+   intend to use. Use one connection on this computer.
+2. On **Imports → Scan cards**, select the counted **fi-7160 (Cards, Pre-Pick Off)**
+   source. Select the destination and its first section. The standard PaperStream
+   source runs until the hopper is empty and does not provide this counted workflow.
+3. Leave the optional manual limit off and enable **Fill sections one at a time
+   until I stop**. The displayed target is the section's remaining capacity after
+   stored cards, pending cards and unfinished reservations.
+4. Load a comfortable small stack and explicitly Start while beside the scanner.
+   If it empties before the target, confirm the physical result, refill and use
+   **Resume**. This continues the same batch; its earlier cards remain saved.
+5. When the target is reached, confirm the exits, remaining hopper cards and clear
+   transport. Use **Choose next section**, select the next section and explicitly
+   Start its new batch. The next section starts with a fresh capacity check.
+6. Use **Stop section series** when finished. Saved cards remain available for
+   review and explicit addition to Inventory; stopping does not add them.
+
+For a smaller fixed count, enable **Set a batch limit** and enter the requested
+count. This is a separate bounded batch rather than a section-filling series.
+Review the saved cards before adding them to Inventory. Image totals from a
+standard or duplex source do not establish the number of physical cards.
 
 With a qualified counted source, enable **Fill sections one at a time until I
 stop**. Select the first section and explicitly Start. The server selects its
 fresh remaining capacity, including committed copies, scanned but uncommitted
 cards, unfinished reservations and the parent location limit. Manual count
 limits and generic draining sources remain separate workflows.
+
+The counted-source picker refreshes a locked destination snapshot, showing
+committed Inventory quantities and held batch space separately. Section labels,
+occupancy bars and **Only sections with room** include saved uncommitted cards
+and unfinished targets, with the tighter parent limit applied. Custom sections
+with only pending cards remain visible. Refresh capacity updates this snapshot;
+Start still rechecks capacity transactionally. Ordinary storage move displays
+retain their existing Inventory semantics. This addresses [622](https://github.com/sefaction/MTG-Archives/issues/622).
 
 After the target is reached, inspect the physical result and confirm its count.
 Choose next section opens a fresh destination form with the section blank.

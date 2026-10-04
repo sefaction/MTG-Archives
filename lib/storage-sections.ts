@@ -5,6 +5,7 @@ export type StorageSection = {
   name: string;
   quantity: number;
   capacity: number | null;
+  pendingQuantity?: number;
 };
 export type StorageLocation = {
   id: string;
@@ -13,6 +14,7 @@ export type StorageLocation = {
   ownerPlayerId?: string;
   capacity?: number | null;
   quantity?: number;
+  pendingQuantity?: number;
   defaultSectionNames?: string[];
   sections: StorageSection[];
 };
@@ -45,10 +47,16 @@ export function storageSections(
     }));
 }
 
-export function spaceLabel(section: StorageSection) {
-  if (section.capacity === null) return `${section.quantity} cards`;
-  const room = section.capacity - section.quantity;
-  return `${section.quantity} / ${section.capacity} cards · ${room < 0 ? `${-room} over capacity` : room === 0 ? "full" : `${room} spaces left`}`;
+export function sectionRoom(section: StorageSection, parentRoom?: number | null) {
+  const own = section.capacity === null ? null : section.capacity - section.quantity - (section.pendingQuantity ?? 0);
+  return own === null ? parentRoom ?? null : parentRoom == null ? own : Math.min(own, parentRoom);
+}
+
+export function spaceLabel(section: StorageSection, parentRoom?: number | null) {
+  const held = section.pendingQuantity ? ` · ${section.pendingQuantity} held by batches` : "";
+  const count = section.capacity === null ? `${section.quantity} cards` : `${section.quantity} / ${section.capacity} cards`;
+  const room = sectionRoom(section, parentRoom);
+  return count + held + (room === null ? "" : ` · ${room < 0 ? `${-room} over capacity` : room === 0 ? "full" : `${room} spaces left`}`);
 }
 
 export function projectedSectionQuantity(

@@ -44,10 +44,24 @@ pair/replay/pulse bound-account assertions. Core verification passed all 801 tes
 typecheck, production build and client manifests. Native fixture/recovery and
 discovery checks passed separately; installer checks provide packaging validation.
 
-Visual chooser review is pending: a fixture containing three fake connections
-was exposed, but Windows Computer Use could not bind its uniquely returned window
-after one refreshed attempt. The verified fake preview was stopped; no real saved
-connection was selected, started or closed. Actual installed startup, graceful
-close during an active supervised run and connection switching remain separate
-acceptance gates. The tested helper0.4.2 continues the ongoing physical sequence.
-No merge or production deployment is implied.
+The earlier fake-preview window could not be bound through Windows Computer Use;
+the verified preview was stopped without changing saved connections. This did not
+recur after updating the existing owned installation to0.4.3. Its actual chooser
+was bound and visually inspected: readable site/account selection, Open/Cancel
+and enabled Close only for the open connection. The same authenticated local
+Brian connection was remembered, labelled from its heartbeat and preselected.
+
+Actual idle Close drained discovery and the held service process exited0 without
+stderr. Ordinary reopening remembered Brian, showed Close disabled while offline,
+then Open created exactly one service and one owned discovery worker. The empty
+installed native preparation passed all profile readbacks, twelve restorations,
+source/DSM closure and owned-loop join with actual helper/native exit0, zero Enable
+calls and zero images. No scan was authorized by opening or closing the chooser.
+
+The installer completed without restart. Previous installed code and non-secret
+connection metadata were backed up locally; credentials, original scans and the
+operator's saved32-image batch/reviews/commit remained intact. The operator's own
+Inventory additions are a new conservation baseline, separate from qualification.
+Connection switching and Close during an active supervised run remain acceptance
+gates, along with the larger logical83 hardware batch. No merge or production
+deployment is implied. See [programmatic qualification](FI7160_PROGRAMMATIC_COUNT_CONTROL.md).

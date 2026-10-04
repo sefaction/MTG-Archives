@@ -10,7 +10,7 @@ import { scannerSiteEpoch, scannerStartMarkerExists } from "../lib/scanner-contr
 import { COUNTED_SCANNER_DEVICE, COUNTED_SCANNER_BACKEND, countedScannerSettings as settings } from "../lib/scanner-counted-profile";
 import { createScannerBatch, claimScannerRun, receiveScannerImage, finishScannerRun, reconcileScannerBatch,
   refillScannerBatch, endScannerBatch, stopScannerBatch, stopScannerSeries, getScannerBatch, pollScannerRun } from "../lib/scanner-runs";
-import { readScannerCapacity } from "../lib/scanner-capacity";
+import { readScannerCapacity, readScannerCapacitySnapshot } from "../lib/scanner-capacity";
 import { scannerContinuation, currentScannerContinuation } from "../lib/scanner-continuation";
 import { getAcquisitionSession, saveAcquisitionReview, getAcquisitionCardReview } from "../lib/acquisition-store";
 import { previewAcquisitionCommit, commitAcquisitionCards } from "../lib/acquisition-commit-service";
@@ -125,6 +125,12 @@ export async function verifyCountedScanner(db: PrismaClient) {
     assert.equal((await capacity()).remaining,0);
     await commitAcquisitionCards(db,actor,large.sessionId,{...selection,requestKey:randomUUID(),previewToken:preview.token,overfillReason:null});
     assert.equal((await capacity()).remaining,0); assert.equal((await capacity()).pendingSection,82);
+    const snapshot = await db.$transaction(tx => readScannerCapacitySnapshot(tx, { locationId: box, section: "A", ownerPlayerId: tag }));
+    assert.equal(snapshot.destination.quantity, 3);
+    assert.equal(snapshot.destination.sections.find(section => section.name === "A")?.quantity, 3);
+    assert.equal(snapshot.destination.sections.find(section => section.name === "A")?.pendingQuantity, 82);
+    assert.equal(snapshot.destination.pendingQuantity, snapshot.pendingTotal);
+    assert.equal(snapshot.pendingSections.find(section => section.section === "A")?.quantity, 82);
     assert.equal((await db.inventoryItem.aggregate({where:{locationId:box},_sum:{quantity:true}}))._sum.quantity,3);
 
     await first.pulse();

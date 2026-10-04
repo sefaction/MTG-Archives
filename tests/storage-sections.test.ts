@@ -3,9 +3,31 @@ import test from "node:test";
 import {
   storageSections,
   spaceLabel,
+  sectionRoom,
   projectedSectionQuantity,
 } from "../lib/storage-sections";
 import { planStorageMove } from "../lib/inventory-storage-move";
+import { scannerCapacityDestination } from "../lib/scanner-capacity-display";
+
+test("scanner picker preserves stock counts while held batches consume section and parent room", () => {
+  const original = { id: "box", name: "Box", capacity: 7, quantity: 0, sections: [
+    { name: "A", capacity: 2, quantity: 0 }, { name: "B", capacity: 3, quantity: 0 },
+    { name: "C", capacity: 2, quantity: 0 }, { name: "__proto__", capacity: null, quantity: 0 },
+  ] };
+  const held = scannerCapacityDestination(original, [{ section: "A", quantity: 2 }, { section: "B", quantity: 3 }], 5);
+  assert.equal(held.quantity, 0);
+  assert.equal("pendingQuantity" in original.sections[0], false);
+  assert.equal(spaceLabel(held.sections[0], 2), "0 / 2 cards · 2 held by batches · full");
+  assert.deepEqual(held.sections.filter(section => (sectionRoom(section, 2) ?? 0) > 0).map(section => section.name), ["C", "__proto__"]);
+  assert.equal(sectionRoom(held.sections[2], 0), 0); // A tighter full parent excludes every section.
+  assert.equal(sectionRoom({ name: "B", quantity: 1, capacity: 10, pendingQuantity: 2 }, 1), 1);
+  assert.equal(spaceLabel({ name: "A", quantity: 1, capacity: 2, pendingQuantity: 1 }), "1 / 2 cards · 1 held by batches · full");
+  assert.equal(spaceLabel({ name: "A", quantity: 0, capacity: 2, pendingQuantity: 3 }), "0 / 2 cards · 3 held by batches · 1 over capacity");
+  assert.equal(sectionRoom(original.sections[3]), null); // Ordinary unbounded storage is unchanged.
+  const custom = scannerCapacityDestination(original, [{ section: "New section", quantity: 1 }, { section: null, quantity: 2 }], 3);
+  assert.equal(spaceLabel(custom.sections.find(section => section.name === "New section")!, 4), "0 cards · 1 held by batches · 4 spaces left");
+  assert.equal(custom.sections.length, original.sections.length + 1);
+});
 
 test("vault sections exist even before inventory; physical counts preserve arbitrary labels", () => {
   const sections = storageSections(" Vault ", [

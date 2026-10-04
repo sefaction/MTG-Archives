@@ -4,6 +4,7 @@ import { useId, useRef, useState } from "react";
 import {
   isVault,
   spaceLabel,
+  sectionRoom,
   projectedSectionQuantity,
   type StorageLocation,
 } from "@/lib/storage-sections";
@@ -45,6 +46,8 @@ export function StorageDestinationPicker({
   const sectionHeadingRef = useRef<HTMLHeadingElement>(null);
   const listId = useId();
   const destination = locations.find((l) => l.id === locationId);
+  const parentRoom = destination?.pendingQuantity === undefined || destination.capacity == null ? undefined :
+    Math.max(0, destination.capacity - (destination.quantity ?? 0) - destination.pendingQuantity);
   const matches = locations.filter((l) =>
     (l.name + " " + (l.type ?? ""))
       .toLowerCase()
@@ -67,7 +70,7 @@ export function StorageDestinationPicker({
     destination?.sections.filter(
       (s) =>
         s.name &&
-        (!onlyWithRoom || (s.capacity !== null && s.quantity < s.capacity)),
+        (!onlyWithRoom || (sectionRoom(s, parentRoom) !== null && sectionRoom(s, parentRoom)! > 0)),
     ) ?? [];
   function choose(location: StorageLocation) {
     onLocationChange(location.id);
@@ -205,6 +208,7 @@ export function StorageDestinationPicker({
                 <p className="text-sm">
                   {destination.quantity ?? 0} / {destination.capacity} cards
                   overall
+                  {!!destination.pendingQuantity && ` · ${destination.pendingQuantity} held by batches`}
                 </p>
               )}
             </div>
@@ -269,7 +273,7 @@ export function StorageDestinationPicker({
                   </span>
                 </span>
                 <span className="mt-1 block text-xs text-[var(--app-muted)]">
-                  {spaceLabel(s)}
+                  {spaceLabel(s, parentRoom)}
                 </span>
                 {s.capacity !== null && (
                   <span
@@ -283,7 +287,7 @@ export function StorageDestinationPicker({
                       )}
                       style={{
                         width:
-                          Math.min(100, (s.quantity / s.capacity) * 100) + "%",
+                          Math.min(100, ((s.quantity + (s.pendingQuantity ?? 0)) / s.capacity) * 100) + "%",
                       }}
                     />
                   </span>
@@ -346,7 +350,7 @@ export function StorageDestinationPicker({
           </p>
           {selectedSection && (
             <p role="status" className="text-sm">
-              {spaceLabel(selectedSection)}
+              {spaceLabel(selectedSection, parentRoom)}
               {projected !== undefined ? " → " + projected + " after move" : ""}
             </p>
           )}
@@ -355,6 +359,7 @@ export function StorageDestinationPicker({
               {incomingQuantity === undefined
                 ? `${destination.quantity ?? 0} / ${destination.capacity} cards overall`
                 : `Up to ${(destination.quantity ?? 0) + Math.max(0, incomingQuantity - alreadyInLocation)} / ${destination.capacity} cards overall after move`}
+              {!!destination.pendingQuantity && ` · ${destination.pendingQuantity} held by batches`}
               {(destination.quantity ?? 0) +
                 Math.max(0, (incomingQuantity ?? 0) - alreadyInLocation) >
               destination.capacity
