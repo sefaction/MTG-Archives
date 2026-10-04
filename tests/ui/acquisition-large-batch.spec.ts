@@ -4,7 +4,7 @@ import {createHash, randomUUID} from 'node:crypto';
 import {copyFileSync, mkdirSync, readFileSync, rmdirSync, unlinkSync, writeFileSync} from 'node:fs';
 import path from 'node:path';
 import {assertNativeWorkerContinuity, type NativeWorkerSnapshot} from '../native-worker-continuity';
-import {inventoryFingerprintBody, inventoryScaleOwners, seedInventoryScaleBody} from '../acquisition-inventory-scale';
+import {cleanupInventoryScalePageBody, inventoryFingerprintBody, inventoryScaleOwners, seedInventoryScaleBody} from '../acquisition-inventory-scale';
 
 test.use({trace:'off',video:'off',actionTimeout:15000});
 function docker(...args:string[]) {
@@ -237,7 +237,7 @@ test('large scan-image batches retain every input through ordinary native queues
     for(const [i,worker] of report.workersAfter.entries())assertNativeWorkerContinuity(report.workersBefore[i],worker);
     qualified=true;
   }finally{
-    if(timer)clearInterval(timer);report.finishedAt=new Date().toISOString();save();
+    if(timer)clearInterval(timer);report.checksFinishedAt=new Date().toISOString();save();
     await Promise.allSettled(failedResponses);
     await captureBrowserFailures();
     try{
@@ -258,7 +258,18 @@ test('large scan-image batches retain every input through ordinary native queues
       });save();
     }catch{report.workerLifetimeUnavailable=true;save();}
     for(const owner of owners){
-      database(`const n=${JSON.stringify(owner.tag)};await p.acquisitionSession.updateMany({where:{ownerPlayerId:n},data:{phase:'CANCELLED'}});const sessions=await p.acquisitionSession.findMany({where:{ownerPlayerId:n},select:{id:true}});const runs=await p.acquisitionRun.findMany({where:{sessionId:{in:sessions.map(s=>s.id)}},select:{id:true}});const where={runId:{in:runs.map(r=>r.id)}};const photos=await p.acquisitionPhoto.findMany({where});await p.acquisitionProcessingJob.deleteMany({where});await p.acquisitionPhoto.deleteMany({where});await p.acquisitionCommand.deleteMany({where});await p.acquisitionCaptureSlot.deleteMany({where});await p.acquisitionCountCorrection.deleteMany({where});await p.acquisitionObservation.deleteMany({where});await p.acquisitionEvent.deleteMany({where});await p.acquisitionCandidate.deleteMany({where});await p.acquisitionArtifact.deleteMany({where});await p.acquisitionRun.deleteMany({where:{id:{in:runs.map(r=>r.id)}}});await p.acquisitionSession.deleteMany({where:{id:{in:sessions.map(s=>s.id)}}});await p.inventoryItem.deleteMany({where:{currentOwnerId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n,parentLocationId:{not:null}}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});const fs=require('fs/promises'),path=require('path');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw Error('Invalid owned photo path');for(const suffix of ['original','preview.jpg'])await fs.unlink(path.join(process.env.UPLOADS_DATA_PATH,'acquisition-v1',photo.id+'.'+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e});}console.log('{}');`);
+      // Bound individual cleanup operations as well as fixture creation. A
+      // large DELETE can outlive the Docker client while still running inside
+      // the container; do not abandon later owners after that timeout.
+      let removed=0,exhausted=false;
+      for(let page=0;page<100;page++){
+        const count=database(cleanupInventoryScalePageBody(owner.tag));
+        removed+=count;
+        if(count===0){exhausted=true;break;}
+      }
+      if(!exhausted)throw Error('Owned Inventory cleanup exceeded its bounded pages');
+      report.inventoryCleanup??=[];report.inventoryCleanup.push({removed});save();
+      database(`const n=${JSON.stringify(owner.tag)};await p.acquisitionSession.updateMany({where:{ownerPlayerId:n},data:{phase:'CANCELLED'}});const sessions=await p.acquisitionSession.findMany({where:{ownerPlayerId:n},select:{id:true}});const runs=await p.acquisitionRun.findMany({where:{sessionId:{in:sessions.map(s=>s.id)}},select:{id:true}});const where={runId:{in:runs.map(r=>r.id)}};const photos=await p.acquisitionPhoto.findMany({where});await p.acquisitionProcessingJob.deleteMany({where});await p.acquisitionPhoto.deleteMany({where});await p.acquisitionCommand.deleteMany({where});await p.acquisitionCaptureSlot.deleteMany({where});await p.acquisitionCountCorrection.deleteMany({where});await p.acquisitionObservation.deleteMany({where});await p.acquisitionEvent.deleteMany({where});await p.acquisitionCandidate.deleteMany({where});await p.acquisitionArtifact.deleteMany({where});await p.acquisitionRun.deleteMany({where:{id:{in:runs.map(r=>r.id)}}});await p.acquisitionSession.deleteMany({where:{id:{in:sessions.map(s=>s.id)}}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n,parentLocationId:{not:null}}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});const fs=require('fs/promises'),path=require('path');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw Error('Invalid owned photo path');for(const suffix of ['original','preview.jpg'])await fs.unlink(path.join(process.env.UPLOADS_DATA_PATH,'acquisition-v1',photo.id+'.'+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e});}console.log('{}');`);
     }
     report.cleanup=database(`console.log(JSON.stringify({users:await p.user.count({where:{id:{in:${JSON.stringify(owners.map(o=>o.tag))}}}}),sessions:await p.acquisitionSession.count({where:{ownerPlayerId:{in:${JSON.stringify(owners.map(o=>o.tag))}}}}),locations:await p.inventoryLocation.count({where:{ownerPlayerId:{in:${JSON.stringify(owners.map(o=>o.tag))}}}}),inventory:await p.inventoryItem.count({where:{currentOwnerId:{in:${JSON.stringify(owners.map(o=>o.tag))}}}})}));`);
     report.existingInventoryAfter=database(inventoryFingerprintBody());
@@ -271,6 +282,6 @@ test('large scan-image batches retain every input through ordinary native queues
     rmdirSync(spool);
     expect(report.cleanup).toEqual({users:0,sessions:0,locations:0,inventory:0});
     if(report.existingInventoryBefore)expect(report.existingInventoryAfter).toEqual(report.existingInventoryBefore);
-    report.passed=qualified;save();
+    report.finishedAt=new Date().toISOString();report.passed=qualified;save();
   }
 });

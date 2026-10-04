@@ -21,7 +21,7 @@ fixture owner; reviewing scans must not add or mutate stored cards.
 
 The report records actual seeded counts, separate seed time, authenticated
 Inventory request samples, before/after worker continuity and cleanup. Cleanup
-removes only generated owners' Inventory, then child and parent locations, and
+removes only generated owners' Inventory in bounded 500-row pages, then child and parent locations, and
 their acquisition records/files. The existing global Inventory fingerprint must
 match the pre-fixture snapshot after cleanup. `passed` remains false until
 cleanup and conservation assertions finish.
@@ -33,6 +33,25 @@ reported individually; no latency target is inferred from the samples.
 
 ## Current result
 
-Prepared; not yet run. Preserve the actual terminal result and report before
-claiming qualification. The prior parent 300-image empty-Inventory gate and
-24-image OCR crash/recovery gate passed separately.
+The first run at `c1bd9b5` **FAILED overall** (33.7 minutes, actual exit 1).
+All 300 uploads/digests were ready in 128.768 seconds including 16.981 seconds
+of fixture creation. Native printing finished in 1,927.795 seconds from start.
+Every paged review row, four saved corrections/reloads, desktop/phone overflow
+and stable worker generations passed. All 24 authenticated Inventory requests
+returned 200 (153–7,404 milliseconds); the largest owner samples were
+7,404 / 5,631 / 4,232 / 3,228 / 3,338 / 2,043 milliseconds. These few sequential
+measurements are descriptive, not an operator throughput target.
+
+Cleanup exceeded the existing 30-second Docker-operation limit. Its first
+container operation continued after the host client timed out and eventually
+removed the largest owner, while the three subsequent accounts remained.
+The report correctly stayed `passed=false`. Issue #640 records this harness
+defect. The original failed report/log and all eight review screenshots are
+preserved privately. No limit was increased to accommodate it.
+
+Bounded cleanup subsequently removed only those exact remaining fixture accounts
+and their 1,400 Inventory rows. All fixture accounts/sessions/locations/Inventory
+are now zero; the original 10,292 rows / 12,495 copies and full-record checksum
+match. A fresh full unchanged native gate is still required after this repair;
+the first failure remains a failure. The prior parent empty-Inventory native300
+and actual OCR24 recovery passed separately.

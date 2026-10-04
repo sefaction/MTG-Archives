@@ -49,3 +49,14 @@ export function inventoryFingerprintBody(owner?:string) {
     FROM "InventoryItem" i${filter}`;
   return `const rows=await p.$queryRawUnsafe(${JSON.stringify(sql)}${args});console.log(JSON.stringify(rows[0]));`;
 }
+
+export function cleanupInventoryScalePageBody(owner:string) {
+  if(!/^ui-large-[a-f0-9-]{36}-[0-3]$/.test(owner))
+    throw Error('Cleanup requires an owned large-batch fixture player');
+  return `const owner=${JSON.stringify(owner)};
+    const items=await p.inventoryItem.findMany({where:{currentOwnerId:owner},
+      select:{id:true},orderBy:{id:'asc'},take:500});
+    const removed=items.length?await p.inventoryItem.deleteMany({where:{currentOwnerId:owner,
+      id:{in:items.map(item=>item.id)}}}):{count:0};
+    console.log(JSON.stringify(removed.count));`;
+}
