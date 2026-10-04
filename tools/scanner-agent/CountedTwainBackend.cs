@@ -7,31 +7,36 @@ namespace Mtg.Scanner;
 public sealed class CountedTwainBackend : IScannerBackend
 {
     private readonly string? fixtureScenario;
+    private readonly bool requireEmpty;
     public CountedTwainBackend() { }
-    internal CountedTwainBackend(string fixtureScenario) { this.fixtureScenario = fixtureScenario; }
+    internal CountedTwainBackend(string fixtureScenario, bool requireEmpty = false) { this.fixtureScenario = fixtureScenario; this.requireEmpty = requireEmpty; }
+    internal CountedTwainBackend(bool requireEmpty) { this.requireEmpty = requireEmpty; }
     public const string DeviceId = "CountedTwain:PaperStream IP fi-7160";
     public const string BackendId = "fi7160-counted-twain-v1";
     public static string WorkerPath => Path.Combine(AppContext.BaseDirectory, "counted-twain", "Mtg.CountedTwain.exe");
-    public const string SuspendedReason = "Count-controlled feeding is suspended: the ten-card test partially fed the eleventh card. Effective Pre-Pick control and a new physical qualification are required; retained images remain available.";
-    public static Device ProfileDevice => new(DeviceId, "fi-7160 (count control suspended)", BackendId, "Twain", Qualification.Unsupported);
+    internal const string ProfileDriver = "3.40 3.40.2.1815 Mar 16 2026";
+    internal const int ProfileVersion = 2;
+    public static Device ProfileDevice => new(DeviceId, "fi-7160 (Cards, Pre-Pick Off)", BackendId, "Twain", Qualification.KnownWorking);
     private Process? worker;
     private ScanRequest? prepared;
     private RunSpool? spool;
     private bool started, closed;
     private bool stopped;
+    internal JsonElement? PreparationEvidence { get; private set; }
+    internal JsonElement? CloseEvidence { get; private set; }
     public Task<IReadOnlyList<Device>> ListDevices() => Task.FromResult<IReadOnlyList<Device>>([ProfileDevice]);
     public Task<Capabilities> GetCapabilities(string id)
     {
         if (id != DeviceId) throw new ArgumentException("Wrong counted profile");
         return Task.FromResult(new Capabilities(new() {
             ["feeder"] = new(Support.ReportedSupported, "PaperStream fi-7160 scoped profile"),
-            ["countControl"] = new(Support.ReportedUnsupported, SuspendedReason),
+            ["countControl"] = new(Support.ReportedSupported, "Scoped one/two/five/ten physical tests passed; exact driver, twelve capture settings and observed profile invariant required before Start"),
             ["physicalBoundaries"] = new(Support.NotExposed, "Transfer count remains image count; operator reconciliation required")
         }, [600], "PFU", "fi-7160", "2.4"));
     }
     internal static void Validate(ScanRequest request)
     {
-        if (request.DeviceId != DeviceId || request.SessionPhysicalTarget is not (>= 1 and <= 5000) ||
+        if (request.RunId == Guid.Empty || request.DeviceId != DeviceId || request.SessionPhysicalTarget is not (>= 1 and <= 5000) ||
             request.Dpi != 600 || request.WidthInches != 2.7m || request.HeightInches != 3.6m ||
             request.HorizontalPlacement != "Center" || request.Duplex || request.ImageStopBudget != null || request.AllowInterruptingStop)
             throw new InvalidOperationException("Unsupported counted profile; no feed authorized");
@@ -51,27 +56,41 @@ public sealed class CountedTwainBackend : IScannerBackend
     {
         ObjectDisposedException.ThrowIf(closed, this);
         if (worker != null) throw new InvalidOperationException("Use one backend per feed segment");
-        // A retained ten-image completion did not stop physical pre-pick. Refuse
-        // before constructing a worker or opening TWAIN, even if discovery is
-        // stale. Motor-free fixture channels remain available for recovery tests.
-        if (fixtureScenario == null) throw new InvalidOperationException(SuspendedReason);
         Validate(request);
         var start = new ProcessStartInfo(WorkerPath) { UseShellExecute = false, CreateNoWindow = true,
             RedirectStandardInput = true, RedirectStandardOutput = true };
-        start.ArgumentList.Add(fixtureScenario == null ? "helper-channel-v1" : "fixture-channel-v1");
+        start.ArgumentList.Add(fixtureScenario == null ? "helper-channel-v2" : "fixture-channel-v1");
         if (fixtureScenario != null) start.ArgumentList.Add(fixtureScenario);
         worker = Process.Start(start) ?? throw new InvalidOperationException("Counted worker unavailable");
-        await Write(new { action = "prepare", parent = Environment.ProcessId, target = request.SessionPhysicalTarget });
+        await Write(new { action = "prepare", profileVersion = ProfileVersion, parent = Environment.ProcessId,
+            target = request.SessionPhysicalTarget, requireEmpty });
         var ack = await Read();
-        if (ack.GetProperty("kind").GetString() != "prepared" || ack.GetProperty("target").GetInt32() != request.SessionPhysicalTarget ||
-            ack.GetProperty("dpi").GetInt32() != 600 || ack.GetProperty("autoScan").GetBoolean() ||
-            !ack.TryGetProperty("blankDiscard", out var blankDiscard) || blankDiscard.ValueKind != JsonValueKind.False)
-            throw new InvalidOperationException("Counted capability negotiation failed; no feed started");
+        RequirePrepared(ack, request.SessionPhysicalTarget!.Value, requireEmpty);
+        PreparationEvidence = ack;
         prepared = request;
+    }
+    private static bool True(JsonElement value, string name) => value.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.True;
+    private static bool False(JsonElement value, string name) => value.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.False;
+    private static bool Number(JsonElement value, string name, decimal expected) => value.TryGetProperty(name, out var p) &&
+        p.ValueKind == JsonValueKind.Number && p.TryGetDecimal(out var actual) && actual == expected;
+    private static bool Frame(JsonElement value, string name, decimal expected) => value.TryGetProperty(name, out var p) &&
+        p.ValueKind == JsonValueKind.Number && p.TryGetDecimal(out var actual) && Math.Abs(actual - expected) < .001m;
+    private static bool String(JsonElement value, string name, string expected) => value.TryGetProperty(name, out var p) &&
+        p.ValueKind == JsonValueKind.String && p.GetString() == expected;
+    internal static void RequirePrepared(JsonElement ack, int target, bool requireEmpty = false)
+    {
+        if (!String(ack, "kind", "prepared") || !Number(ack, "target", target) || !Number(ack, "profileVersion", ProfileVersion) ||
+            !String(ack, "driver", ProfileDriver) || !String(ack, "protocol", "2.4") ||
+            !String(ack, "source", "PaperStream IP fi-7160") || !Number(ack, "dpi", 600) ||
+            !Frame(ack, "widthInches", 2.7m) || !Frame(ack, "heightInches", 3.6m) ||
+            !True(ack, "captureReadbacksVerified") || !True(ack, "observedInvariantVerified") ||
+            !False(ack, "autoScan") || !False(ack, "blankDiscard") || requireEmpty && !False(ack, "feederLoaded"))
+            throw new InvalidOperationException("Counted capability negotiation failed; no feed started");
     }
     public async Task Start(RunSpool output)
     {
-        if (started || prepared == null) throw new InvalidOperationException("Prepare once before Start");
+        ObjectDisposedException.ThrowIf(closed, this);
+        if (requireEmpty || started || prepared == null) throw new InvalidOperationException("Prepare once before Start; empty qualification cannot feed");
         started = true; spool = output;
         output.Event("AcquisitionStarted", new { requested = prepared, route = BackendId,
             actualConfiguration = fixtureScenario != null ? "Fixture channel; no TWAIN session constructed" :
@@ -105,6 +124,10 @@ public sealed class CountedTwainBackend : IScannerBackend
                 else if (kind == "waiting") output.Event("TransportNeedsAttention", message);
                 else if (kind == "completed")
                 {
+                    // Completion is authoritative only after the actual child
+                    // exit. A late shutdown fault must not publish success.
+                    await worker!.WaitForExitAsync();
+                    if (worker.ExitCode != 0 || !CleanClosure(message)) error = true;
                     if (message.GetProperty("imageCount").GetInt32() != retained) error = true;
                     var outcome = message.GetProperty("outcome").GetString();
                     if (outcome == "ERROR") error = true;
@@ -116,7 +139,6 @@ public sealed class CountedTwainBackend : IScannerBackend
                 }
                 else throw new InvalidDataException("Unexpected counted worker response");
             }
-            await worker!.WaitForExitAsync();
         }
         catch (Exception exception)
         {
@@ -133,17 +155,40 @@ public sealed class CountedTwainBackend : IScannerBackend
         spool?.Event("StopRequested", new { reason, method = "Await current preconfigured count; no new segment", guarantee = "No immediate interrupt" });
     }
     public void Cancel(string reason) => RequestStop(reason);
+    private static bool CleanClosure(JsonElement message) => Number(message, "restoredSettings", 12) &&
+        True(message, "sourceClosed") && True(message, "dsmClosed") && True(message, "ownedLoopJoined");
     public void Close()
     {
         if (closed) return;
-        if (worker != null && !worker.HasExited)
+        try
         {
-            if (!started) try { Write(new { action = "close" }).GetAwaiter().GetResult(); } catch (IOException) { }
-            // Never terminate an active transport. Drain the pipe so a blocked
-            // writer can finish; its images remain pending in the journal.
-            while (!worker.HasExited) { var line = worker.StandardOutput.ReadLine(); if (line == null) worker.WaitForExit(); }
+            if (worker == null) return;
+            if (!started)
+            {
+                if (!worker.HasExited) try { Write(new { action = "close" }).GetAwaiter().GetResult(); } catch (IOException) { }
+                JsonElement? completion = null;
+                string? line;
+                while ((line = worker.StandardOutput.ReadLine()) != null)
+                {
+                    var message = JsonSerializer.Deserialize<JsonElement>(line);
+                    if (String(message, "kind", "completed")) completion = message;
+                }
+                worker.WaitForExit();
+                if (prepared != null && (worker.ExitCode != 0 || completion == null ||
+                    !CleanClosure(completion.Value) || !Number(completion.Value, "acquisitionEnables", 0) ||
+                    !Number(completion.Value, "imageCount", 0) || !String(completion.Value, "outcome", "COMPLETED")))
+                    throw new InvalidDataException("Counted preparation did not close cleanly; inspect settings before retrying");
+                CloseEvidence = completion;
+            }
+            else
+            {
+                // Never terminate an active transport. Drain any remaining
+                // responses so originals stay recoverable from the same spool.
+                while (worker.StandardOutput.ReadLine() != null) { }
+                worker.WaitForExit();
+            }
         }
-        worker?.Dispose(); closed = true;
+        finally { worker?.Dispose(); closed = true; }
     }
     public void Dispose() => Close();
 }

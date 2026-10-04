@@ -20,7 +20,32 @@ dotnet $agent caps 'Twain:Plustek PS286 Pro-TWAIN'
 
 Select an exact enumerated identity. Enumeration does not imply qualification. WIA and TWAIN sources remain distinct generic routes. The site-connected helper also offers an explicit `CountedTwain:PaperStream IP fi-7160` profile when that exact TWAIN source is detected and the companion is bundled. This route uses the separate x86 .NET Framework companion, the pinned NTwain 1.0.1 library and legacy DSM, with the tested PaperStream 3.40.2.1815/protocol 2.4 profile. It reads back a finite XFERCOUNT and AUTOSCAN=false before a single Enable, retains every image, and never falls back to a generic drain. Its 600 DPI centered current 2.7 x 3.6 inch frame is fixed. See [counted-feed qualification](../../docs/FI7160_COUNTED_FEED.md) for the one/two-of-three physical evidence and larger-count limits.
 
-Helper 0.4.0 includes this companion in source copies and self-contained installers. `native-selftest` exercises the real process channel using an explicit fixture mode that constructs no TWAIN session, including early empty, retained overtransfer and restoration failure. Build output and installed copies verify the locked companion dependency. The generic diagnostic `scan` command remains the NAPS2 route; counted website segments use `ScannerNativeRunner` after its durable claim. Recovery of an existing segment only delivers retained originals. An explicit website refill creates a different segment/journal within the same acquisition session.
+Helper 0.4.2 uses a new `helper-channel-v2` preparation contract after the repaired
+one/two/five/ten diagnostic boundaries passed. The legacy v1 physical entry stays
+refused. Preparation requires the exact tested driver/source/protocol, twelve
+capture readbacks, frame, disabled blank removal and typed observed driver invariant;
+the latter is a correlation, not an official Pre-Pick capability mapping. Keep the
+Cards profile's visible Pre-Pick Off. No vendor setting is written. A separate
+durable website claim still precedes the only acquisition Enable. The helper checks
+the actual companion exit and restoration/closure proof before reporting success.
+See [programmatic count control](../../docs/FI7160_PROGRAMMATIC_COUNT_CONTROL.md)
+for acceptance and remaining hardware gates.
+
+`native-selftest` exercises the real process channel using an explicit fixture mode
+that constructs no TWAIN session, including wrong/stale profile proof, early empty,
+retained overtransfer, restoration failure and a late process-exit failure. Build
+output and installed copies verify the locked companion dependency. The generic
+diagnostic `scan` command remains the NAPS2 route; counted website segments use
+`ScannerNativeRunner` after its durable claim. Recovery of an existing segment only
+delivers retained originals. An explicit website refill creates a different
+segment/journal within the same acquisition session.
+
+With the hopper and transport freshly confirmed empty and clear,
+`counted-prepare <request.json>` exercises actual counted preparation and closes
+without Start, a website connection or images. Use a fresh run UUID, the counted
+device ID, 600 DPI, 2.7-by-3.6 frame, Center, simplex and finite target. Both backend
+and companion refuse Start in this empty-check mode. It prints the verified native
+preparation and closure proofs and fails if restoration or actual process exit fails.
 
 For the separately reviewed site-connected helper, `serve CONNECTION-ID`
 checks retained originals without starting a scanner. Every five minutes while
