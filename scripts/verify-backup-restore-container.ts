@@ -11,6 +11,7 @@ import {
   isolatedDrillArchivePath,
 } from "../lib/backup-drill";
 import { changedDrillTables } from "../lib/backup-drill-quiescence";
+import { assertSettledScannerTransfers } from "../lib/backup-drill-scanner-guard";
 import {
   createBackup,
   getDefaultAppdataPaths,
@@ -42,13 +43,7 @@ let stage = "initial guards";
 
 async function assertTerminalScans(db: PrismaClient) {
   stage = "terminal scanner guard";
-  assert.equal(
-    await db.scannerRun.count({
-      where: { status: { notIn: ["DRAINED", "ERROR", "CANCELLED"] } },
-    }),
-    0,
-    "Drain or cancel scanner runs before maintenance capture",
-  );
+  await assertSettledScannerTransfers(db);
 }
 
 async function databaseDigest(db: PrismaClient) {
