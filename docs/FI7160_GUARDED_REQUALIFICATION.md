@@ -5,7 +5,17 @@
 The repaired one-of-three diagnostic passed with operator-confirmed boundary and
 clean process exit. The two-of-three trial retained two originals, restored all
 twelve settings, closed source/DSM and joined the owned loop, with actual exit0,
-empty stderr and no remaining owner. Its physical boundary confirmation is pending.
+empty stderr and no remaining owner. The operator confirmed two ran and one
+remained wholly in the hopper with clear transport. The subsequent five-of-six
+stage also retained five originals with zero failures, twelve restores, clean
+source/DSM/window/thread closure, actual exit0, empty stderr and no remaining owner.
+The operator confirmed exactly five and the remaining card in place in response
+to the full boundary/transport question. The ten-of-eleven retest then retained ten
+originals with zero failures, twelve restores, source/DSM closure and owned-loop
+cleanup, actual exit0, empty stderr and no remaining owner. The operator confirmed
+ten scanned, one wholly in the hopper and clear transport. These are scoped
+one/two/five/ten boundary and clean-exit passes; the original failed ten-card trial
+and its evidence remain recorded under issue602.
 See [post-UI blank control](FI7160_POST_UI_BLANK_CONTROL.md) for the Cancel reset
 repair; the historical reports below retain earlier failed shutdown evidence.
 
@@ -35,18 +45,21 @@ one acquisition Enable, retains every original and requires operator observation
 of undamaged exits, wholly remaining cards and clear transport. No timeout retry,
 count-by-cancellation, vendor SET or automatic stage progression is added.
 
-The larger stages have not run on hardware. The helper and direct native counted
+The staged five/ten tests passed on hardware with the new staged executable.
+The helper and direct native counted
 routes remain suspended before source access. This tool expansion does not replace
 integrated website capacity/refill/section-series acceptance or authorize its feeds.
 Old one/two physical evidence retains the previously tested executable identity;
-the newly compiled staged binary has its own hash and needs new hardware settings
-qualification. Local app/installer inputs are unchanged; the cumulative qualified
+the staged binary has its own hash and passed fresh hardware settings/readiness
+gates for five and ten. Local app/installer inputs are unchanged; the cumulative qualified
 PR613 app/PR611 installer remain loaded, with installed helpers stopped.
 
 Counted production feeding remains suspended after the ten-image trial partly
 pulled an eleventh card into the transport ([602](https://github.com/sefaction/MTG-Archives/issues/602)).
-This change prepares a separate supervised small diagnostic. It does not remove
-the helper 0.4.1 block, qualify a physical count, or authorize unattended feeding.
+This change provides separately supervised diagnostics. It does not remove
+the helper 0.4.1 block or authorize unattended feeding. Normal helper preparation,
+website-controlled transfer, capacity/refill and section-series hardware acceptance
+remain to be completed.
 The native companion also refuses direct `helper-channel-v1` launches before
 reading input or constructing TWAIN; its motor-free fixture route remains usable.
 
