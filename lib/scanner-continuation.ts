@@ -6,13 +6,14 @@ import type { StorageLocation } from "./storage-sections";
 
 export async function scannerContinuation(db: PrismaClient, userId: string, runId: string) {
   const run = await getScannerBatch(db, userId, runId);
+  if (run.series && (run.series.stopped || !run.series.current)) throw new Error("This section series is stopped or has a newer batch");
   if (!run.reconciliation || !["DRAINED", "ERROR", "CANCELLED_BEFORE_START"].includes(run.status))
     throw new Error("Previous scanner batch must settle first");
   if (run.counted && !["COMPLETE", "CANCELLED"].includes(run.phase))
     throw new Error("Refill or end this unfinished batch before selecting the next section");
   const state = await getAcquisitionSession(db, { userId, adminMode: false }, run.sessionId);
   return { locationId: state.session.placement.locationId, section: state.session.placement.section,
-    defaults: state.defaults, scanner: { agentId: run.agentId, deviceId: run.deviceId,
+    defaults: state.defaults, ...(run.series ? { continueFrom: run.runId, seriesRootId: run.series.rootRunId, previousSessionId: run.sessionId } : {}), scanner: { agentId: run.agentId, deviceId: run.deviceId,
       loadedCount: null, operatorLoadedSimplexFronts: true as const,
       settings: scannerSettingsSchema.parse(run.settings) }, ...(run.counted ? { nextSectionRequired: true } : {}) };
 }
