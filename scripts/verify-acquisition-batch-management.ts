@@ -43,7 +43,13 @@ export async function verifyAcquisitionBatchManagement(db: PrismaClient, actor: 
     assert.ok(accepted);
     await assert.rejects(manageAcquisitionBatch(db, stranger, id, "trash"), /unavailable/);
     assert.equal((await getAcquisitionBatchDashboard(db, stranger, {view: "all", q: String(capture.batchNumber)})).total, 0);
-    assert.equal((await getAcquisitionBatchDashboard(db, admin, {view: "all", q: String(capture.batchNumber)})).rows[0].id, id);
+    // The parent suite deliberately demoted this fixture admin earlier. A
+    // remembered Admin Mode flag must not survive that live role change.
+    assert.equal((await getAcquisitionBatchDashboard(db, admin, {view: "all", q: String(capture.batchNumber)})).total, 0);
+    await db.user.update({where: {id: admin.userId}, data: {role: "ADMIN"}});
+    try {
+      assert.equal((await getAcquisitionBatchDashboard(db, admin, {view: "all", q: String(capture.batchNumber)})).rows[0].id, id);
+    } finally {await db.user.update({where: {id: admin.userId}, data: {role: "PLAYER"}});}
     await manageAcquisitionBatch(db, actor, id, "cancel", start);
     assert.equal((await db.acquisitionSession.findUniqueOrThrow({where: {id}})).phase, "CANCELLED");
     assert.equal((await claimAcquisitionJobs(db, {workerId: "late", stages: ["batch-fixture-stage"]})).length, 0);
