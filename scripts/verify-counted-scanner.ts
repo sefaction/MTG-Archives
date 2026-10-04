@@ -362,6 +362,11 @@ export async function verifyCountedScanner(db: PrismaClient) {
     assert.equal((await capacity(errorBox)).remaining, 2);
     const savedError = await db.scannerRun.findUniqueOrThrow({where: {id: errorBatch.runId}});
     assert.equal(savedError.status, "ERROR"); assert.equal(savedError.reconciliation, null);
+    assert.ok(savedError.admissionReleasedAt);
+    assert.equal((await receiveScannerImage(db, errorHelper.token, errorOriginals[0].transfer, epoch, bytes, "image/png")).photoId, errorOriginals[0].ack.photoId);
+    await assert.rejects(receiveScannerImage(db, errorHelper.token, {...errorOriginals[0].transfer,
+      artifactId: randomUUID(), sequence: 2}, epoch, bytes, "image/png"));
+    assert.equal(await db.acquisitionPhoto.count({where: {run: {sessionId: errorBatch.sessionId}}}), 1);
     const errorRetention = {version: 1, runId: errorBatch.runId, epoch,
       artifacts: errorOriginals.map(original => ({artifactId: original.transfer.artifactId, photoId: original.ack.photoId, digest: original.ack.digest}))};
     assert.deepEqual((await eligibleScannerOriginals(db, errorHelper.token, errorRetention, epoch)).eligible, []);

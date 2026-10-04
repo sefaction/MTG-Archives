@@ -60,7 +60,10 @@ export async function manageAcquisitionBatch(db: PrismaClient, actor: Acquisitio
     }
     let acceptedOrUncertain = false;
     for (const run of currentRuns) {
-      if (scannerTransferIsSettled(run)) continue;
+      if (scannerTransferIsSettled(run)) {
+        await tx.scannerRun.update({where: {id: run.id}, data: {admissionReleasedAt: run.admissionReleasedAt ?? now}});
+        continue;
+      }
       const noStart = run.status === "QUEUED" && !run.executionId && !await scannerStartMarkerExists(run.id);
       if (noStart) await persistScannerStartRetirement(run.id, actor.userId, run.epoch, {action, sessionId});
       else acceptedOrUncertain = true;

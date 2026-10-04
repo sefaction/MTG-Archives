@@ -225,7 +225,7 @@ export async function receiveScannerImage(db: PrismaClient, authorization: strin
     const old = await tx.acquisitionCaptureSlot.findUnique({ where: { runId_requestKey: {
       runId: row.run!.id, requestKey: input.artifactId } } });
     if (old && old.position !== run.sequenceOffset + input.sequence - 1) throw new ScannerRunConflict("Photo scanner sequence identity conflict");
-    if (!old && (!state.destinationCurrent || !(["CAPTURING", "STOPPING"].includes(row.phase) || row.phase === "CANCELLED" && row.cancelledAt) || run.status === "DRAINED")) throw denied();
+    if (!old && (run.outcome || !state.destinationCurrent || !(["CAPTURING", "STOPPING"].includes(row.phase) || row.phase === "CANCELLED" && row.cancelledAt) || run.status === "DRAINED")) throw denied();
     // No target truncation: overscan becomes provisional overflow in the ordinary
     // acquisition model. Its original remains recoverable on either host.
     const slot = old ?? await tx.acquisitionCaptureSlot.create({ data: {
@@ -301,6 +301,7 @@ export async function finishScannerRun(db: PrismaClient, authorization: string |
       }
     }
     await tx.scannerRun.update({ where: { id: run.id }, data: { status, outcome: input.outcome,
+      ...(row.cancelledAt ? {admissionReleasedAt: run.admissionReleasedAt ?? new Date()} : {}),
       ...(reconciled ? { reconciliation: { mode: "SCANNER_IMAGE_COUNT", actorUserId: actor.userId,
         observedAt: new Date().toISOString(), imageCount: input.outcome.imageCount,
         ...(cleanCounted ? { basis: "QUALIFIED_COUNTED_FRONT_IMAGES" } : {}),

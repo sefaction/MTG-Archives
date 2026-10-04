@@ -41,6 +41,8 @@ An error run with a saved finish outcome has completed its durable transfers and
 can expire. An error without that outcome remains uncertain and waits for recovery;
 it cannot release the helper for another scan. Discarding a finished error never
 invents a physical count or treats its images as automatically confirmed.
+An explicit admission-release timestamp keeps the database's single active
+connection constraint without manufacturing a physical reconciliation receipt.
 Inventory, addition receipts and minimal acquisition provenance are retained;
 expiry does not delete collected cards. Previously expired committed scan files
 cannot be recovered by moving their batch to Trash.

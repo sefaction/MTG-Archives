@@ -243,6 +243,7 @@ model ScannerRun {
   outcome         Json?
   preflightProblem Json?
   reconciliation  Json?
+  admissionReleasedAt DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
