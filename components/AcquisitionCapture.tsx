@@ -1261,8 +1261,9 @@ export function AcquisitionCapture({
         </>
       )}
       <p className="text-xs text-[var(--app-muted)]">
-        Original photos stay private. After cards are committed, photos are kept
-        for 7 days. Unfinished batches stay until you finish or discard them.
+        Original photos stay private. Photos normally stay for 7 days after adding
+        cards. Completed or trashed batches may be permanently removed sooner when
+        scan-photo storage approaches its limit. Pending cards keep their photos.
       </p>
     </div>
   );
