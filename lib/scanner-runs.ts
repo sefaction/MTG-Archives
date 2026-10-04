@@ -21,6 +21,8 @@ import { readStorageLayout } from "./storage-layout";
 import { normalizeLocationSection } from "./inventory-locations";
 import { lockScannerSeries, requireRunningScannerSeries } from "./scanner-series";
 import { scannerDeviceSchema } from "./scanner-protocol";
+import { requireVisibleAcquisitionBatch, requireProcessingAcquisitionBatch } from "./acquisition-batch-policy";
+import {cancelledSettledScannerTransfer} from "./scanner-drain-policy";
 
 type Tx = Prisma.TransactionClient;
 const denied = () => new ScannerRunConflict();
@@ -102,6 +104,7 @@ export async function createScannerBatch(db: PrismaClient, actor: AcquisitionAct
       if (prior.acquisitionRun.session.locationId === input.locationId &&
           normalizeLocationSection(prior.acquisitionRun.session.section) === normalizeLocationSection(input.section))
         throw new ScannerRunConflict("Choose a different section for the next batch");
+      requireProcessingAcquisitionBatch(prior.acquisitionRun.session);
       if (latest.id !== prior.id || !prior.reconciliation || !["DRAINED", "CANCELLED_BEFORE_START"].includes(prior.status) ||
           !["COMPLETE", "CANCELLED"].includes(prior.acquisitionRun.session.phase) ||
           prior.agentId !== input.agentId || prior.deviceId !== input.deviceId)
@@ -124,7 +127,7 @@ export async function createScannerBatch(db: PrismaClient, actor: AcquisitionAct
       return command(old);
     }
     await tx.$queryRaw`SELECT id FROM "ScannerAgent" WHERE id = ${helper.id} FOR UPDATE`;
-    if (row.phase !== "CAPTURING" || await tx.scannerRun.count({ where: { agentId: helper.id, reconciliation: { equals: Prisma.DbNull } } }))
+    if (row.phase !== "CAPTURING" || await tx.scannerRun.count({ where: { agentId: helper.id, reconciliation: { equals: Prisma.DbNull }, NOT: cancelledSettledScannerTransfer } }))
       throw new ScannerRunConflict("Capture scanner has an unfinished batch; reconcile it before starting another");
     const agent = await tx.scannerAgent.findUniqueOrThrow({ where: { id: helper.id } });
     if (agent.revokedAt || agent.userId !== actor.userId || !agent.lastSeenAt || Date.now() - agent.lastSeenAt.getTime() >= 30000)
@@ -141,7 +144,7 @@ export async function pollScannerRun(db: PrismaClient, authorization: string | n
   return scannerTransaction(db, async tx => {
     const { agent } = await authenticateScanner(tx, authorization, new Date());
     const run = await tx.scannerRun.findFirst({ where: { agentId: agent.id, status: { in: ["QUEUED", "STARTED", "ERROR"] },
-      reconciliation: { equals: Prisma.DbNull } }, include, orderBy: { createdAt: "asc" } });
+      reconciliation: { equals: Prisma.DbNull }, NOT: cancelledSettledScannerTransfer }, include, orderBy: { createdAt: "asc" } });
     return { version: 1, agentId: agent.id, epoch, run: run ? command(run) : null };
   });
 }
@@ -222,7 +225,7 @@ export async function receiveScannerImage(db: PrismaClient, authorization: strin
     const old = await tx.acquisitionCaptureSlot.findUnique({ where: { runId_requestKey: {
       runId: row.run!.id, requestKey: input.artifactId } } });
     if (old && old.position !== run.sequenceOffset + input.sequence - 1) throw new ScannerRunConflict("Photo scanner sequence identity conflict");
-    if (!old && (!state.destinationCurrent || !["CAPTURING", "STOPPING"].includes(row.phase) || run.status === "DRAINED")) throw denied();
+    if (!old && (run.outcome || !state.destinationCurrent || !(["CAPTURING", "STOPPING"].includes(row.phase) || row.phase === "CANCELLED" && row.cancelledAt) || run.status === "DRAINED")) throw denied();
     // No target truncation: overscan becomes provisional overflow in the ordinary
     // acquisition model. Its original remains recoverable on either host.
     const slot = old ?? await tx.acquisitionCaptureSlot.create({ data: {
@@ -298,6 +301,7 @@ export async function finishScannerRun(db: PrismaClient, authorization: string |
       }
     }
     await tx.scannerRun.update({ where: { id: run.id }, data: { status, outcome: input.outcome,
+      ...(row.cancelledAt ? {admissionReleasedAt: run.admissionReleasedAt ?? new Date()} : {}),
       ...(reconciled ? { reconciliation: { mode: "SCANNER_IMAGE_COUNT", actorUserId: actor.userId,
         observedAt: new Date().toISOString(), imageCount: input.outcome.imageCount,
         ...(cleanCounted ? { basis: "QUALIFIED_COUNTED_FRONT_IMAGES" } : {}),
@@ -306,8 +310,9 @@ export async function finishScannerRun(db: PrismaClient, authorization: string |
     // idempotent finish cannot pause or complete the newer segment/session.
     const latest = await tx.scannerRun.findFirstOrThrow({ where: { acquisitionRunId: run.acquisitionRunId }, orderBy: { segment: "desc" } });
     if (latest.id === run.id && !run.outcome && row.phase !== "COMPLETE") await tx.acquisitionSession.update({ where: { id: row.id }, data: {
-      phase: status === "ERROR" ? "STOPPING" : run.counted && !run.stopRequestedAt &&
-        run.sequenceOffset + input.outcome.imageCount < row.target! ? "PAUSED" : "COMPLETE", revision: { increment: 1 } } });
+      phase: row.cancelledAt ? "CANCELLED" : status === "ERROR" ? "STOPPING" : run.counted && !run.stopRequestedAt &&
+        run.sequenceOffset + input.outcome.imageCount < row.target! ? "PAUSED" : "COMPLETE",
+      ...(row.cancelledAt ? {scannerReserved: 0} : {}), revision: { increment: 1 } } });
     return { version: 1, runId: run.id, status, physicalCount: reconciled || run.reconciliation ? "ASSUMED_FROM_IMAGES" : "UNCONFIRMED" };
   });
 }
@@ -316,6 +321,7 @@ export async function getScannerBatch(db: PrismaClient, userId: string, runId: s
     const requested = await tx.scannerRun.findUnique({ where: { id: runId }, include });
     if (!requested || requested.acquisitionRun.session.createdByUserId !== userId) throw denied();
     const run = await tx.scannerRun.findFirstOrThrow({ where: { acquisitionRunId: requested.acquisitionRunId }, include, orderBy: { segment: "desc" } });
+    requireVisibleAcquisitionBatch(run.acquisitionRun.session);
     await readAcquisitionRow(tx, { userId, adminMode: false }, run.acquisitionRun.sessionId);
     const series = run.seriesRootId ? await lockScannerSeries(tx, run.seriesRootId, userId) : null;
     return { ...command(run), agentId: run.agentId, device: run.device, outcome: run.outcome, reconciliation: run.reconciliation,

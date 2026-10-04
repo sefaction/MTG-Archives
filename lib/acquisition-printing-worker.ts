@@ -44,7 +44,7 @@ export async function enqueueReadyPrinting(db: PrismaClient, model: string) {
     JOIN "User" u ON u.id=s."createdByUserId"
     WHERE j.stage=${CATALOG_RECONCILIATION_STAGE} AND j.status='COMPLETE'
       AND j."candidateRevision"=c.revision AND c.review IS NULL AND NOT c.excluded
-      AND s.phase NOT IN ('DRAFT','CANCELLED') AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
+      AND s.phase NOT IN ('DRAFT','CANCELLED') AND s."cancelledAt" IS NULL AND s."trashedAt" IS NULL AND s."deletedAt" IS NULL AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
       AND NOT EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=c.id)
       AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" newer
         WHERE newer.stage=j.stage AND newer."candidateId"=c.id AND newer."candidateRevision"=c.revision
@@ -110,7 +110,7 @@ export async function observeAcquisitionPrinting(
         AND j.input=${JSON.stringify(job.input)}::jsonb
         AND j."leaseExpiresAt">clock_timestamp()
         AND c.revision=${job.candidateRevision} AND c.review IS NULL AND NOT c.excluded
-        AND s.phase NOT IN ('DRAFT','CANCELLED') AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
+        AND s.phase NOT IN ('DRAFT','CANCELLED') AND s."cancelledAt" IS NULL AND s."trashedAt" IS NULL AND s."deletedAt" IS NULL AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
         AND s."ownerPlayerId"=${run.session.ownerPlayerId}
         AND photo.ready AND photo."purgedAt" IS NULL AND photo.digest=${input.digest}
         AND photo."slotId"=c."physicalId" AND photo.generation=slot.generation

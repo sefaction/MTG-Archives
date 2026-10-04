@@ -18,6 +18,7 @@ import { candidateCommitReadiness, candidateKey } from "./acquisition-domain";
 import { SCANNER_CAPTURE_PROVIDER } from "./scanner-run-protocol";
 import { lockAndReadInventoryCapacity } from "./inventory-capacity";
 import { writeInventoryReceipt } from "./inventory-receipt";
+import { requireVisibleAcquisitionBatch } from "./acquisition-batch-policy";
 
 const digest = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -38,6 +39,7 @@ async function prepare(
   row: Row,
   selection: AcquisitionCommitSelection,
 ) {
+  requireVisibleAcquisitionBatch(row);
   if (row.intent !== "ADD_NEW" || !["phone-photo-v1", SCANNER_CAPTURE_PROVIDER].includes(row.run!.providerId))
     throw new Error("Capture provider is not available for this commit method");
   if (!["STOPPING", "COMPLETE", "CANCELLED"].includes(row.phase))

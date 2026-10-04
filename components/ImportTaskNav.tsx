@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { cn, filterButtonClass } from "./filterStyles";
 
 const tasks = [
+  { id: "batches", label: "Batches", href: "/imports/batches" },
   { id: "scan", label: "Scan cards", href: "/imports/scan?input=scanner" },
   { id: "camera", label: "Camera", href: "/imports/scan?input=camera" },
   { id: "photos", label: "Upload photos", href: "/imports/scan?input=photos" },

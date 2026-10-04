@@ -814,6 +814,7 @@ export function AcquisitionCapture({
               {reviewCounts.awaiting} awaiting review · {reviewCounts.added} added
             </p>
             <div className="flex flex-wrap items-center gap-2 mt-2" aria-label="Batch actions">
+            <a className={button} href={`/imports/batches?q=${progress.batchNumber}&view=all`}>Manage batch</a>
             {!!readyPhotos && !bulkOpen && (
               <a className={button + " inline-flex text-sm"} href="#scan-review">
                 Review saved cards

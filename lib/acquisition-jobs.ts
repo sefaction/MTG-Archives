@@ -24,6 +24,7 @@ export type ClaimedAcquisitionJob = AcquisitionProcessingJob & {
 export class AcquisitionJobSupersededError extends Error {}
 const active = {
   session: {
+    cancelledAt: null, trashedAt: null, deletedAt: null,
     phase: { notIn: ["DRAFT", "CANCELLED"] as ("DRAFT" | "CANCELLED")[] },
     ownerPlayer: { active: true },
     createdByUser: { isActive: true, forcePasswordChange: false },
@@ -93,7 +94,7 @@ export async function claimAcquisitionJobs(
       WHERE j.stage IN (${Prisma.join(options.stages)}) AND j.attempts<j."maxAttempts"
         AND ((j.status='PENDING' AND j."availableAt"<=${now})
           OR (j.status='RUNNING' AND j."leaseExpiresAt"<=${now}))
-        AND s.phase NOT IN ('DRAFT','CANCELLED')
+        AND s.phase NOT IN ('DRAFT','CANCELLED') AND s."cancelledAt" IS NULL AND s."trashedAt" IS NULL AND s."deletedAt" IS NULL
         AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
         AND (j.stage='photo-canonical-v1' OR
           (c.revision=j."candidateRevision" AND NOT c.excluded AND c.review IS NULL))
@@ -228,7 +229,7 @@ export async function completeAcquisitionJob(
           AND j.input=${JSON.stringify(job.input)}::jsonb
           AND j."leaseExpiresAt">clock_timestamp() AND j."runId"=r.id AND j."candidateId"=c.id
           AND c.revision=${job.candidateRevision} AND c.review IS NULL AND NOT c.excluded
-          AND s.phase NOT IN ('DRAFT','CANCELLED') AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
+          AND s.phase NOT IN ('DRAFT','CANCELLED') AND s."cancelledAt" IS NULL AND s."trashedAt" IS NULL AND s."deletedAt" IS NULL AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
           AND ${valid}
           AND (${!scope.success} OR (s."ownerPlayerId"=${scope.success ? scope.data.ownerPlayerId : ""}
             AND photo."inputKind"::text=${scope.success ? scope.data.inputKind : ""}))
@@ -266,7 +267,7 @@ export async function completeAcquisitionJob(
           AND j.input=${JSON.stringify(job.input)}::jsonb
           AND j."leaseExpiresAt">clock_timestamp() AND j."runId"=r.id AND j."candidateId"=c.id
           AND c.revision=${job.candidateRevision} AND c.review IS NULL AND NOT c.excluded
-          AND s.phase NOT IN ('DRAFT','CANCELLED') AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
+          AND s.phase NOT IN ('DRAFT','CANCELLED') AND s."cancelledAt" IS NULL AND s."trashedAt" IS NULL AND s."deletedAt" IS NULL AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
           AND (${!scope.success} OR s."ownerPlayerId"=${scope.success ? scope.data.ownerPlayerId : ""})
           AND photo.ready AND photo."purgedAt" IS NULL AND photo.digest=${input.digest}
           AND photo."slotId"=c."physicalId" AND photo.generation=slot.generation

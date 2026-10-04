@@ -24,7 +24,7 @@ export default async function ScanPage({
       orderBy: { name: "asc" },
     }),
     prisma.acquisitionSession.findMany({
-      where: { ...owner, run: { providerId: { in: ["phone-photo-v1", "windows-scanner-simplex-v1"] } } },
+      where: { ...owner, trashedAt: null, deletedAt: null, run: { providerId: { in: ["phone-photo-v1", "windows-scanner-simplex-v1"] } } },
       orderBy: { updatedAt: "desc" },
       take: 10,
       select: { id: true, batchNumber: true, phase: true },

@@ -47,14 +47,17 @@ with only pending cards remain visible. Refresh capacity updates this snapshot;
 Start still rechecks capacity transactionally. Ordinary storage move displays
 retain their existing Inventory semantics. This addresses [622](https://github.com/sefaction/MTG-Archives/issues/622).
 
-After the target is reached, inspect the physical result and confirm its count.
+After a clean qualified counted run reaches its target, saved front images
+provide the assumed card count; routine exact exit-count entry is unnecessary.
+Failed or uncertain runs retain manual recovery. Confirm refill readiness before
+starting new motion and inspect a jam or partly fed card when one is suspected.
 Choose next section opens a fresh destination form with the section blank.
 Scanner settings and review defaults carry forward. Only explicit selection
 and Start create the next bounded batch. Polling, navigation, refresh and
 reconnect never select a section or authorize a feed.
 
 Early hopper exhaustion keeps the same logical batch and its remaining target.
-After physical reconciliation and refill readiness, explicit Resume creates
+After automatic image counting (or manual recovery) and refill readiness, explicit Resume creates
 a new physical segment in that batch. Earlier images, positions and reviews
 remain intact. Saved-transfer recovery never refeeds cards.
 
@@ -65,6 +68,13 @@ Already authorized motion is not forcibly interrupted. A reconciled paused batch
 ends with its saved cards; uncertain transport still requires reconciliation.
 Saved cards continue reserving space and require explicit Inventory preview and
 final addition. Stop never commits or discards them.
+
+Use **Imports → Batches** to find saved batches, unfinished match confirmation
+and cards still awaiting Inventory addition. **Cancel batch** also stops image
+processing while keeping saved work available. **Move to Trash** hides it and
+keeps it recoverable for seven days before scan deletion. Inventory additions
+stay intact. Restore and Resume processing never start the scanner or restart
+a stopped section series. See [batch dashboard and Trash](ACQUISITION_BATCH_DASHBOARD.md).
 
 Series membership and ordering are persisted in ScannerRun. Refill segments
 retain their batch ordinal. One series lock serializes successors and Stop;

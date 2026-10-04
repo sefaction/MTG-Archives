@@ -1,5 +1,12 @@
 # fi-7160 counted capacity and refill qualification
 
+This report preserves the original failed Pre-Pick-on boundary and its earlier
+suspension. The repaired Pre-Pick-Off route subsequently passed the supervised
+one/two/five/ten boundaries and small website refill/section sequence. Follow
+[current qualification](FI7160_PROGRAMMATIC_COUNT_CONTROL.md) and the
+[current scanning instructions](SCANNER_SECTION_SERIES.md) for present behavior;
+the larger logical83-card acceptance remains unfinished.
+
 **Physical feeding is suspended.** The target-ten test with eleven loaded saved
 ten images but partly pulled the eleventh card into the rollers/transport.
 [Issue602](https://github.com/sefaction/MTG-Archives/issues/602) tracks this failed

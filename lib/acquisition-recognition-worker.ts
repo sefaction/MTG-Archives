@@ -147,7 +147,7 @@ export async function enqueueReadyRecognition(
     JOIN "User" u ON u.id = s."createdByUserId"
     WHERE j.stage = 'photo-canonical-v1' AND j.status = 'COMPLETE'
       AND c.excluded = false AND c.review IS NULL
-      AND s.phase NOT IN ('DRAFT', 'CANCELLED')
+      AND s.phase NOT IN ('DRAFT', 'CANCELLED') AND s."cancelledAt" IS NULL AND s."trashedAt" IS NULL AND s."deletedAt" IS NULL
       AND p.active = true AND u."isActive" = true AND u."forcePasswordChange" = false
       AND NOT EXISTS (
         SELECT 1 FROM "AcquisitionProcessingJob" other

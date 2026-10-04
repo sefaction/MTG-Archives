@@ -3,6 +3,7 @@ import { verifyAcquisitionCommit } from "./verify-acquisition-commit";
 import { verifyScannerConnections } from "./verify-scanner-connections";
 import { verifyScannerRuns } from "./verify-scanner-runs";
 import { verifyCountedScanner } from "./verify-counted-scanner";
+import { verifyAcquisitionBatchManagement } from "./verify-acquisition-batch-management";
 import { verifyScannerStartRetirement } from "./verify-scanner-start-retirement";
 import assert from "node:assert/strict";
 import { verifyAcquisitionPhotos } from "./verify-acquisition-photos";
@@ -498,6 +499,7 @@ async function run() {
   await verifyScannerRuns(db);
   await verifyCountedScanner(db);
   await verifyScannerStartRetirement(db);
+  await verifyAcquisitionBatchManagement(db, actor, stranger, input(), admin);
 }
 
 run()

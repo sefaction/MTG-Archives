@@ -2,10 +2,13 @@ import type { PrismaClient } from "@prisma/client";
 import { scannerRetentionSchema } from "./scanner-run-protocol";
 import { authenticateScanner, scannerTransaction } from "./scanner-store";
 import { PHOTO_RETENTION_DAYS_AFTER_COMMIT } from "./acquisition-files";
+import {BATCH_TRASH_DAYS} from "./acquisition-batch-policy";
+import {scannerTransferIsSettled} from "./scanner-drain-policy";
 
-/** A helper may discard its own image only after the ordinary committed-photo
- * retention worker removed the server bytes. This is an attestation, never a
- * purge command; unresolved, uncommitted and mismatched images remain local. */
+/** A helper may discard its own verified image after the server byte purge:
+ * an aged commit receipt or an explicitly expired Trash tombstone is required.
+ * This is an attestation, never a motor command or physical-count observation.
+ * Unresolved transfers and mismatched image receipts remain local. */
 export async function eligibleScannerOriginals(db: PrismaClient, authorization: string | null,
   value: unknown, epoch: string, now = new Date()) {
   const input = scannerRetentionSchema.parse(value);
@@ -16,7 +19,11 @@ export async function eligibleScannerOriginals(db: PrismaClient, authorization: 
     if (!run || run.agentId !== agent.id || run.epoch !== epoch || input.epoch !== epoch ||
         run.acquisitionRun.session.createdByUserId !== actor.userId)
       throw new Error("Scanner originals are not eligible for retention cleanup");
-    if (!["DRAINED", "ERROR"].includes(run.status) || !run.reconciliation)
+    const session = run.acquisitionRun.session;
+    const trashCutoff = new Date(now.getTime() - BATCH_TRASH_DAYS * 86400000);
+    const expiredTrash = !!(session.deletedAt && session.deletedAt <= now && session.trashedAt &&
+      session.trashedAt <= trashCutoff && session.trashExpiresAt && session.trashExpiresAt <= now);
+    if (!scannerTransferIsSettled(run) || !expiredTrash && !run.reconciliation)
       return { version: 1 as const, runId: run.id, epoch, eligible: [] as string[] };
     const ids = input.artifacts.map(a => a.artifactId);
     const photos = await tx.acquisitionPhoto.findMany({
@@ -34,8 +41,9 @@ export async function eligibleScannerOriginals(db: PrismaClient, authorization: 
       const photo = byPhoto.get(a.photoId);
       const member = photo && bySlot.get(photo.slotId)?.receipt;
       return photo?.slot.requestKey === a.artifactId && photo.digest === a.digest && photo.ready &&
-        photo.purgedAt !== null && photo.purgeAfter !== null && photo.purgeAfter <= now &&
-        member?.commit.runId === run.acquisitionRunId && member.commit.createdAt <= cutoff;
+        photo.purgedAt !== null && photo.purgedAt <= now && (expiredTrash ||
+          photo.purgeAfter !== null && photo.purgeAfter <= now &&
+          member?.commit.runId === run.acquisitionRunId && member.commit.createdAt <= cutoff);
     }).map(a => a.artifactId);
     return { version: 1 as const, runId: run.id, epoch, eligible };
   });

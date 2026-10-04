@@ -1,4 +1,4 @@
-import { purgeCommittedAcquisitionPhotos } from "../lib/acquisition-photo-retention";
+import { purgeCommittedAcquisitionPhotos, purgeTrashedAcquisitionPhotos } from "../lib/acquisition-photo-retention";
 import { PrismaClient } from "@prisma/client";
 import { runAcquisitionJobsOnce } from "../lib/acquisition-jobs";
 import { canonicalizeAcquisitionPhoto } from "../lib/acquisition-files";
@@ -20,6 +20,9 @@ async function main() {
     if (Date.now() >= nextCleanup) {
       nextCleanup = Date.now() + 60000;
       const cleanup = await purgeCommittedAcquisitionPhotos(db);
+      const trash = await purgeTrashedAcquisitionPhotos(db);
+      if (trash.expired || trash.purged || trash.failed)
+        console.log(JSON.stringify({event: "acquisition-trash-expiry", ...trash}));
       if (cleanup.purged || cleanup.failed)
         console.log(
           JSON.stringify({ event: "acquisition-photo-expiry", ...cleanup }),
