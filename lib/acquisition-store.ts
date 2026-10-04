@@ -243,11 +243,28 @@ function hydrate(row: Stored): StoredCapture {
     destinationCurrent: destinationCurrent(row),
   };
 }
-async function read(tx: Tx, actor: AcquisitionActor, sessionId: string) {
+type PhotoReadScope = {slotId?: string; photoId?: string};
+async function read(tx: Tx, actor: AcquisitionActor, sessionId: string, photoScope?: PhotoReadScope) {
   identity.parse(sessionId);
+  const physicalId = {in: photoScope?.slotId ? [photoScope.slotId] : []};
+  // Upload writes affect one reserved physical candidate. Reading every earlier
+  // card here makes unrelated native publications join its serializable read set.
+  // Keep the existing reducer/persistence rules, with that candidate's complete
+  // observation/artifact history; other cards and their receipts remain untouched.
+  const scoped = photoScope ? {...include, run: {include: {
+    ...include.run.include,
+    candidates: {...include.run.include.candidates, where: {physicalId}},
+    artifacts: {where: {OR: [
+      ...(photoScope.photoId ? [{sourceId: photoScope.photoId}] : []),
+      {observations: {some: {candidate: {physicalId}}}},
+    ]}},
+    events: {...include.run.include.events, where: {sourceEventId: {in:
+      photoScope.photoId ? [`photo:${photoScope.photoId}`] : []}}},
+    corrections: {...include.run.include.corrections, where: {candidate: {physicalId}}},
+  }}} : include;
   const row = await tx.acquisitionSession.findUnique({
     where: { id: sessionId },
-    include,
+    include: scoped,
   });
   if (!row) throw new Error("Capture session unavailable");
   await authorize(tx, actor, row.ownerPlayerId);
@@ -937,9 +954,9 @@ export async function beginAcquisitionPhoto(
   const metadata = acquisitionPhotoMetadataSchema.parse(input.metadata);
   const inputKind = acquisitionImageInputKindSchema.parse(input.inputKind ?? "PHOTO");
   return transaction(db, async (tx) => {
-    await read(tx, actor, sessionId);
+    await read(tx, actor, sessionId, {slotId: input.slotId});
     await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${sessionId} FOR UPDATE`;
-    const row = await read(tx, actor, sessionId);
+    const row = await read(tx, actor, sessionId, {slotId: input.slotId});
     const run = row.run!;
     if (run.providerId === SCANNER_CAPTURE_PROVIDER &&
       (!input.sourceMetadata || inputKind !== "CARD_SCAN"))
@@ -1039,13 +1056,13 @@ export async function finalizeAcquisitionPhoto(
   photoId: string,
 ) {
   return transaction(db, async (tx) => {
-    await read(tx, actor, sessionId);
+    await read(tx, actor, sessionId, {});
     await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${sessionId} FOR UPDATE`;
-    const row = await read(tx, actor, sessionId);
     const photo = await tx.acquisitionPhoto.findUnique({
       where: { id: photoId },
       include: { slot: true },
     });
+    const row = await read(tx, actor, sessionId, {slotId: photo?.slotId, photoId});
     if (row.deletedAt) throw new Error("Capture batch has expired");
     if (!photo || photo.runId !== row.run!.id)
       throw new Error("Photo unavailable");
