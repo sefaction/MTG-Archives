@@ -23,6 +23,23 @@ Capture mismatch diagnostics identify changed table names/counts/content-change 
 
 If capture completed but a later drill step was interrupted, use `--run --reuse=<UUID>` to restore the explicitly selected private capture again into a **new** isolated target. It never reuses an old database. UUID paths are restricted to the same repository backup root; a complete `evidence.json` is required. The disposable runner receives the current checked-out drill helper, while restoration itself uses the application's image/library. Rebuild before testing changed application restore code.
 
+Successful application restore clears restored website sessions and scanner
+pairing codes and revokes restored scanner connections inside the database
+replacement transaction. Sign in again and explicitly pair the helper. User
+passwords/roles, Inventory, receipts, reviews, originals and scanner history are
+retained. Dry-run does not change credentials, and database failure rolls the
+credential changes back with schema/data replacement. Application archives that
+predate the authentication/scanner tables remain supported.
+
+Fresh drill evidence records the ScannerAgent rows with every field except the
+intentional revokedAt transformation. After restore, all agents must be revoked
+and that projection must match. Website sessions and pairing codes must be empty;
+all other authoritative table/file comparisons retain their existing rules. A
+drill capture predating this credential-policy evidence requires a fresh qualified
+capture; that qualification restriction does not prevent ordinary application
+restore of its archive. Scanner epoch rotation, stale acquisition lease handling
+and interrupted cross-store recovery remain separate requirements under #310.
+
 ## Isolation and evidence
 
 - Writes a new private backup/evidence directory under `.local-data/backups/drill-<UUID>`, with retention disabled for that capture. Existing backups and the running snapshot are not removed.

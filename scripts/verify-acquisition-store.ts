@@ -3,6 +3,7 @@ import { verifyAcquisitionCommit } from "./verify-acquisition-commit";
 import { verifyScannerConnections } from "./verify-scanner-connections";
 import { verifyScannerRuns } from "./verify-scanner-runs";
 import { verifyBackupScannerSettlement } from "./verify-backup-scanner-settlement";
+import { verifyRestoreCredentials } from "./verify-restore-credentials";
 import { verifyCountedScanner } from "./verify-counted-scanner";
 import { verifyAcquisitionBatchManagement } from "./verify-acquisition-batch-management";
 import { verifyScannerStartRetirement } from "./verify-scanner-start-retirement";
@@ -499,6 +500,7 @@ async function run() {
   await verifyScannerConnections(db);
   await verifyScannerRuns(db);
   await verifyBackupScannerSettlement(db);
+  await verifyRestoreCredentials(db);
   await verifyCountedScanner(db);
   await verifyScannerStartRetirement(db);
   await verifyAcquisitionBatchManagement(db, actor, stranger, input(), admin);
