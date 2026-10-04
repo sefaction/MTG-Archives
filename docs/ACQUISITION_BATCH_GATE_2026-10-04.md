@@ -92,7 +92,40 @@ The [October2 shared-workload gate](ACQUISITION_BATCH_GATE_2026-10-02.md) remain
 FAILED at50/100 within20minutes. Its subsequent100-row review was not reached;
 this new bounded pass does not retrospectively change its result.
 
-## Remaining acceptance
+## Later four-owner upload/native/review acceptance
+
+The final explicitly locked photo-save implementation992da12 in
+[draft637](https://github.com/sefaction/MTG-Archives/pull/637) passed a fresh
+unchanged300-input/four-owner160/80/40/20 test10:05:05.978–10:38:16.823UTC.
+Actual Playwright exit0,33.4minutes, no skips. All300 original inputs were ready
+in99.524seconds; all printing checks completed in1962.422seconds from start,
+within the existing45-minute post-upload limit. All ordered original/native
+digests, physical-candidate counts, review-only results,300 paged review rows
+and each owner's LP correction/reload passed. Worker identities/images/start
+times and restart/OOM counters stayed unchanged; historical printing3 was not
+treated as a new restart.
+
+Five readable reservation409/retryable conflicts recovered; no failed photo
+responses or photo-failure stages were emitted. Owned cleanup users/sessions/
+Inventory and private input directories were zero. User Inventory and saved
+scanner batches remained conserved;67 corpus and30 actual scanner-original
+hashes were checked again. Largest/smallest desktop1366/phone390 screenshots
+were inspected; all four owners passed horizontal-overflow checks. Eight
+authenticated empty-owner Inventory requests returned200 in48–874ms; this is
+not p95 or the150,000-copy view gate.
+
+Earlier300 upload failures at291/290/291ready, scoped-read294ready and bounded-
+jitter293ready remain **FAILED**. Full native/review was not reached in any of
+those attempts. Their reports/logs/screenshots remain preserved. The jitter run
+classified12 exhausted BEGIN and77 FINALIZE serialization conflicts. The final
+repair explicitly changes only photo BEGIN/FINALIZE to fresh Read Committed
+reads under existing session/owner-quota locks; other acquisition/admission
+transactions remain Serializable. Quota/expiry races, rollback, generation,
+owner, replay and accepted drain checks passed. No timeout, retry count, worker
+resources, fairness or physical scanner policy was relaxed. See
+[upload continuity](ACQUISITION_UPLOAD_CONTINUITY.md) for the decision and checks.
+
+## Preserved first300 failure
 
 The first300-input/four-uneven-owner attempt **FAILED during upload**, before the
 native printing deadline or full review checks. It ran08:27:37–08:32:46UTC using
@@ -110,8 +143,11 @@ Private failed report/log are `.local-data/native300-continuity-report.json` and
 `.local-data/native300-continuity-browser.log`; bounded database diagnostics and
 failure screenshots are retained privately. No timeout or retry gate was relaxed.
 
-The300-input/four-uneven-owner native stress gate and150,000-copy review gate
-remain incomplete. The dashboard's150,000-card metadata/query fixture is already
+## Remaining acceptance
+
+The bounded300-input/four-uneven-owner native stress gate passed as recorded
+above. The150,000-copy review gate remains incomplete. The dashboard's
+150,000-card metadata/query fixture is already
 qualified, but it is not native recognition throughput. Independent exact-printing
 accuracy, broad recovery/release gates and the supervised83-card physical refill
 sequence remain unfinished. Clean counted runs use assumed saved-front counts;

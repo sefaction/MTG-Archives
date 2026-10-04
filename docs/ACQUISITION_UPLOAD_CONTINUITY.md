@@ -86,8 +86,47 @@ lock, and race two intakes for the last available bytes within one session and
 across different sessions of one owner. Accepted unready reservations count;
 only one contender may fit. Quota metadata is restored and fixtures cancelled.
 Existing rollback, retake, replay, foreign-owner, cancellation and scanner drain
-cases remain required. Full verification, cumulative Docker/browser checks and a
-fresh unchanged300-input gate for this final refinement are pending.
+cases remain required.
+
+## Final bounded qualification
+
+Implementation992da12 passed full isolated acquisition90639ms/shared import
+54450ms/core95763ms,811 unit tests and owned cleanup; all three GitHub checks
+passed. The first oversized single-photo quota setup was correctly rejected by
+the existing10MiB database bound; its failed verification and successful cleanup
+remain preserved. Corrected quota fixtures use many individually valid records;
+no constraint or production limit was relaxed.
+
+Cumulative local Docker matches all547 build inputs, digest
+`d27cc5908e2194e725b7e96b38281905de93e773f6257569b924c766fbc2aa9b`.
+Only web was reloaded;12 other service identities/images remained unchanged.
+Four affected browser cases passed in1.3minutes, with no skipped cases: library
+capacity/concurrency, transient/lost-ack/reload upload recovery, counted refill
+and section-series Stop.
+
+The fresh unchanged300-input/four-owner160/80/40/20 native test **PASSED**,
+10:05:05.978–10:38:16.823UTC, actual Playwright exit0,33.4minutes and no skips.
+All300 photos/artifacts/slots/candidates and ordered original digests were ready
+in99.524seconds. Five readable reservation409/retryable conflicts recovered;
+there were zero failed photo responses or emitted photo-failure stages.
+All300 printing checks completed in1962.422seconds from test start, within the
+unchanged45-minute post-upload limit. Original/native digests, review-only
+outputs, all300 paged review rows and each owner's LP correction/reload passed.
+There were no new worker restarts/OOM events or worker identity/image/start-time
+changes. Historical printing RestartCount3 remained unchanged.
+
+Owned cleanup left zero fixture users/sessions/Inventory and zero private input
+directories. Existing user Inventory, Batch545, Batch546 and all30 physical scan
+originals remained conserved; all67 source originals were hash-checked again.
+Desktop1366px and phone390px screenshots for the largest/smallest batches were
+inspected; all four owners passed automated horizontal-overflow checks.
+Eight authenticated empty-owner Inventory requests returned200 in48–874ms.
+Those are individual development samples, not p95 or150,000-copy review evidence.
+Private reports/logs/screenshots remain outside Git.
+
+This qualifies this bounded upload/native/review case. The67 repeated development
+originals do not establish independent exact-printing accuracy, physical counts,
+unattended feeding, or the broader image release/recovery matrix.
 
 No production operation, physical scanner feed or merge has occurred. The
 separately passing100-image gate in draft635 does not qualify this new change or
