@@ -27,6 +27,9 @@ test("batch dashboard keeps card totals distinct and cancels, trashes and restor
     await expect(page.getByRole("navigation", {name: "Batch pages"})).toContainText("Page 1 of 2");
     await page.getByRole("link", {name: "Next", exact: true}).click();
     await expect(page.getByRole("navigation", {name: "Batch pages"})).toContainText("Page 2 of 2");
+    await page.goto("/imports/batches?view=pending&page=999");
+    await expect(page.getByRole("navigation", {name: "Batch pages"})).toContainText("Page 2 of 2");
+    await expect(page.getByRole("article")).toHaveCount(2);
     await page.getByLabel("Find a batch").fill(String(batch.batchNumber));
     await page.getByRole("button", {name: "Refresh batches", exact: true}).click();
     await expect(page.getByLabel("Find a batch")).toHaveValue(String(batch.batchNumber));
@@ -90,5 +93,40 @@ test("batch dashboard keeps card totals distinct and cancels, trashes and restor
     expect(conservation()).toBe(before);
   } finally {
     database("const n=" + JSON.stringify(tag) + ";const sessions=await p.acquisitionSession.findMany({where:{createdByUserId:n},include:{run:true}});const w={runId:{in:sessions.map(s=>s.run.id)}};await p.scannerRun.deleteMany({where:{agent:{userId:n}}});await p.scannerAgent.deleteMany({where:{userId:n}});for(const model of ['acquisitionCommitMember','acquisitionCommit','acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});await p.acquisitionRun.deleteMany({where:{id:w.runId}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});");
+  }
+});
+
+test("batch pages remain available after the last row is cancelled or trashed", async ({page, baseURL}) => {
+  test.skip(process.env.MTG_LOCAL_PILOT_TEST !== "1", "Owned local metadata fixture; no physical scanner");
+  expect(baseURL).toBe("http://127.0.0.1:13001"); test.setTimeout(180000);
+  const tag = "ui-batch-pages-" + randomUUID(), password = randomUUID(), origin = {origin: baseURL!};
+  const before = database("console.log(JSON.stringify(await p.inventoryItem.aggregate({_count:{_all:true},_sum:{quantity:true}})));");
+  try {
+    database("const n=" + JSON.stringify(tag) + ";const hash=await require('bcryptjs').hash(" + JSON.stringify(password) + ",10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:'Page recovery storage',normalizedName:n,ownerPlayerId:n,type:'Box'}});");
+    await page.goto("/login"); await page.getByLabel(/username or email/i).fill(tag); await page.getByLabel(/^password$/i).fill(password);
+    await page.getByRole("button", {name: /^log in$/i}).click(); await page.waitForURL(/\/dashboard/);
+    const response = await page.request.post("/api/acquisition", {headers: origin, data: {requestKey: randomUUID(), locationId: tag, quantity: 2}});
+    expect(response.ok(), await response.text()).toBe(true); const batch = await response.json();
+    database("const s=await p.acquisitionSession.findUniqueOrThrow({where:{id:" + JSON.stringify(batch.id) + "},include:{run:true}});for(let i=0;i<25;i++){const {id,batchNumber,createdAt,updatedAt,run,...copy}=s;await p.acquisitionSession.create({data:{...copy,requestKey:require('crypto').randomUUID(),run:{create:{sourceRunId:require('crypto').randomUUID(),providerId:run.providerId,enforcement:run.enforcement,controls:run.controls}}}});}");
+    await page.goto("/imports/batches?view=pending&page=2");
+    const rows = page.getByRole("article"), pages = page.getByRole("navigation", {name: "Batch pages"});
+    await expect(rows).toHaveCount(1); await expect(pages).toContainText("Page 2 of 2");
+    await rows.getByRole("button", {name: "Cancel batch", exact: true}).click();
+    await rows.getByRole("button", {name: "Confirm cancel batch", exact: true}).click();
+    await expect(pages).toContainText("Page 1 of 1"); await expect(rows).toHaveCount(25);
+    await expect(page.getByText("No batches need closing out.", {exact: true})).toHaveCount(0);
+    await page.goto("/imports/batches?view=all&page=2");
+    await expect(rows).toHaveCount(1); await expect(pages).toContainText("Page 2 of 2");
+    await rows.getByRole("button", {name: "Move to Trash", exact: true}).click();
+    await rows.getByRole("button", {name: "Confirm move to Trash", exact: true}).click();
+    await expect(pages).toContainText("Page 1 of 1"); await expect(rows).toHaveCount(25);
+    await page.goto("/imports/batches?view=cancelled&page=999");
+    await expect(pages).toContainText("Page 1 of 1"); await expect(rows).toHaveCount(1);
+    await page.goto("/imports/batches?view=pending&q=nonexistent-fixture-batch&page=999");
+    await expect(pages).toContainText("Page 1 of 1"); await expect(rows).toHaveCount(0);
+    await expect(pages.getByRole("link")).toHaveCount(0);
+    expect(database("console.log(JSON.stringify(await p.inventoryItem.aggregate({_count:{_all:true},_sum:{quantity:true}})));" )).toBe(before);
+  } finally {
+    database("const n=" + JSON.stringify(tag) + ";const w={run:{session:{createdByUserId:n}}};await p.acquisitionCommand.deleteMany({where:w});await p.acquisitionEvent.deleteMany({where:w});await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});");
   }
 });
