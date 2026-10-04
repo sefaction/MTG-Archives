@@ -3,6 +3,7 @@ using Mtg.Scanner;
 
 try
 {
+    if (await ScannerCountedPreparation.Run(args)) return;
     if (await ScannerConnection.Run(args)) return;
     if (args.Length == 0 || args[0] is not ("list" or "list-wia" or "caps" or "scan" or "scan-diagnostic"))
         throw new ArgumentException("Commands: list | list-wia | caps <device-id> | scan <request.json> <private-spool-root> | scan-diagnostic <request.json> <private-spool-root> <mode>");
