@@ -52,6 +52,28 @@ test('large scan-image batches retain every input through ordinary native queues
   mkdirSync(spool,{recursive:true});
   const owners=targets.map((target,i)=>({tag:`ui-large-${run}-${i}`,target}));
   const contexts=await Promise.all(owners.map(()=>browser.newContext({baseURL})));
+  await Promise.all(contexts.map(context=>context.addInitScript(()=>{
+    const original=window.fetch.bind(window);
+    const failures: unknown[]=[];
+    (window as any).__qualificationUploadFailures=failures;
+    window.fetch=async(...args: Parameters<typeof fetch>)=>{
+      const response=await original(...args);
+      const url=new URL(response.url);
+      const photo=/^\/api\/acquisition\/[^/]+\/photos$/.test(url.pathname);
+      const reservation=/^\/api\/acquisition\/[^/]+$/.test(url.pathname);
+      const options=args[1];
+      if(url.origin===location.origin && options?.method==='POST' && response.status>=400 && (photo||reservation)){
+        // Observe a clone in the browser: CDP may discard a response body before
+        // a busy qualification runner can read it. Never delay/mock the request.
+        const entry={operation:photo?'photo':'reservation',status:response.status};
+        void response.clone().json().then(body=>{
+          if(failures.length<2000)failures.push({...entry,bodyAvailable:true,retryable:body?.retryable===true,
+            generic:body?.error==='The scan request could not be completed. Refresh and retry.'});
+        },()=>{if(failures.length<2000)failures.push({...entry,bodyAvailable:false});});
+      }
+      return response;
+    };
+  })));
   const pages=await Promise.all(contexts.map(context=>context.newPage()));
   const started=Date.now();
   const report:any={version:1,scope:count===100?'100_INPUTS_ONE_OWNER_NATIVE_BATCH':'300_INPUTS_FOUR_UNEVEN_OWNERS_NATIVE_STRESS',
@@ -63,6 +85,32 @@ test('large scan-image batches retain every input through ordinary native queues
       'Sampled Docker readings and authenticated page fetches, not exhaustive peaks or operator throughput']};
   const output=process.env.MTG_ACQUISITION_LARGE_BATCH_REPORT_PATH;
   const save=()=>{if(output)writeFileSync(output,JSON.stringify(report,null,2)+'\n');};
+  const captureBrowserFailures=async()=>{
+    const current=await Promise.all(pages.map(page=>page.evaluate(()=>
+      (window as any).__qualificationUploadFailures??[]).catch(()=>null)));
+    report.browserUploadFailures=current.map((rows,i)=>rows?.length ? rows :
+      report.browserUploadFailures?.[i]??rows);
+    save();
+  };
+  const failedResponses: Promise<void>[]=[];
+  report.httpFailures=[];
+  pages.forEach((page,owner)=>page.on('response',response=>{
+    const url=new URL(response.url());
+    const photo=/^\/api\/acquisition\/[^/]+\/photos$/.test(url.pathname);
+    const reservation=/^\/api\/acquisition\/[^/]+$/.test(url.pathname);
+    if(url.origin!==baseURL || response.request().method()!=='POST' ||
+      response.status()<400 || !(photo||reservation))return;
+    // Classifications only: no request bodies, URLs/identities, credentials,
+    // arbitrary server error text or image data in the qualification report.
+    failedResponses.push((async()=>{
+      const body=await response.json().catch(()=>null);
+      report.httpFailures.push({owner,operation:photo?'photo':'reservation',status:response.status(),
+        bodyAvailable:body!==null,
+        retryable:body?.retryable===true,
+        generic:body?.error==='The scan request could not be completed. Refresh and retry.'});
+      save();
+    })());
+  }));
   const sample=()=>{
     try{report.samples.push({at:new Date().toISOString(),workers:docker('stats','--no-stream','--format','{{json .}}',
       'mtg-archives-web-1','mtg-archives-acquisition-recognition-worker-1','mtg-archives-acquisition-visual-worker-1',
@@ -116,6 +164,7 @@ test('large scan-image batches retain every input through ordinary native queues
       expect(inputs.digests).toEqual(Array.from({length:owner.target},(_,n)=>originals[n%originals.length].digest));
     }));
     report.uploadsReadyMilliseconds=Date.now()-started;save();
+    await captureBrowserFailures();
     // No priority, label, provider, native-result or deadline override. This is
     // a new bounded large-batch measurement, not a relaxation of the 7-input gate.
     await expect.poll(async()=>{
@@ -164,6 +213,12 @@ test('large scan-image batches retain every input through ordinary native queues
     report.passed=true;
   }finally{
     if(timer)clearInterval(timer);report.finishedAt=new Date().toISOString();save();
+    await Promise.allSettled(failedResponses);
+    await captureBrowserFailures();
+    try{
+      report.uploadStateBeforeCleanup=owners.map(owner=>database(`const where={run:{session:{ownerPlayerId:${JSON.stringify(owner.tag)}}}};console.log(JSON.stringify({photos:await p.acquisitionPhoto.count({where}),ready:await p.acquisitionPhoto.count({where:{...where,ready:true}}),slots:await p.acquisitionCaptureSlot.count({where}),candidates:await p.acquisitionCandidate.count({where})}));`));
+    }catch{report.uploadStateBeforeCleanupUnavailable=true;}
+    save();
     // Record resource state even when a throughput/UI assertion fails. These
     // counters cover the container lifetime and may include earlier runs.
     try{

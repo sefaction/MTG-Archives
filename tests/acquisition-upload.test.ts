@@ -6,12 +6,36 @@ import {
   isRetryableAcquisitionConflict,
   uploadAcquisitionPhoto,
   reserveAcquisitionPhotoSlot,
+  acquisitionConflictBackoff,
+  acquisitionUploadFailureDiagnostic,
 } from "../lib/acquisition-upload";
 
 const url = "/api/acquisition/session/photos?slot=s&key=k&generation=0&inputKind=CARD_SCAN";
 const blob = new Blob(["retained original"], { type: "image/jpeg" });
 const ready = () => Response.json({ ready: true });
 const wait = async () => {};
+
+test("database retry jitter stays within the pre-existing finite backoff budget", () => {
+  const caps=[15,30,60,120,240];
+  for(const [attempt,cap] of caps.entries()){
+    const early=acquisitionConflictBackoff(attempt,()=>0);
+    const late=acquisitionConflictBackoff(attempt,()=>1);
+    assert.ok(early>0 && early<late);
+    assert.equal(late,cap);
+    assert.ok(Number.isInteger(early));
+  }
+  assert.equal(caps.reduce((sum,n)=>sum+n,0),465);
+});
+
+test("upload stage diagnostics retain only fixed classification and safe database codes", () => {
+  const error={code:"P2010",message:"password and private card path",meta:{code:"40001",query:"secret SQL"}};
+  assert.deepEqual(acquisitionUploadFailureDiagnostic(error,"FINALIZE"),{
+    event:"ACQUISITION_UPLOAD_FAILURE",phase:"FINALIZE",code:"P2010",sqlState:"40001",retryable:true,
+  });
+  const rejected=acquisitionUploadFailureDiagnostic({code:"credential",meta:{code:"private path"}},"WRITE");
+  assert.deepEqual(rejected,{event:"ACQUISITION_UPLOAD_FAILURE",phase:"WRITE",code:"UNCLASSIFIED",retryable:false});
+  assert.equal(JSON.stringify(rejected).includes('private'),false);
+});
 
 test("only known database serialization/deadlock errors carry a safe retry hint", async () => {
   for (const [code, meta] of [

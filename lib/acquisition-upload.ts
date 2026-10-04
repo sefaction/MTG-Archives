@@ -1,5 +1,20 @@
 export const ACQUISITION_UPLOAD_ATTEMPTS = 3;
 
+/** Break synchronized database retry waves without increasing the existing cap. */
+export function acquisitionConflictBackoff(attempt: number, random = Math.random) {
+  return Math.round(15 * 2 ** attempt * (0.5 + 0.5 * random()));
+}
+
+export type AcquisitionUploadPhase = "AUTHORIZE" | "CHECK_SLOT" | "READ_BODY" | "INSPECT" | "BEGIN" | "WRITE" | "FINALIZE";
+export function acquisitionUploadFailureDiagnostic(error: unknown, phase: AcquisitionUploadPhase) {
+  const value=error && typeof error==='object' ? error as {code?:unknown;meta?:{code?:unknown}} : null;
+  const code=typeof value?.code==='string' && /^P\d{4}$/.test(value.code) ? value.code : "UNCLASSIFIED";
+  const state=String(value?.meta?.code??'');
+  return {event:"ACQUISITION_UPLOAD_FAILURE",phase,code,
+    ...(["40001","40P01","23505"].includes(state) ? {sqlState:state} : {}),
+    retryable:isRetryableAcquisitionConflict(error)};
+}
+
 // Only database conflicts already retried by acquisition-store may be marked
 // transient. Do not infer this from error text or ordinary domain conflicts.
 export function isRetryableAcquisitionConflict(error: unknown) {
