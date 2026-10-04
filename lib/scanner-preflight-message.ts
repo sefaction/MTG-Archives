@@ -1,4 +1,11 @@
-import { scannerPreflightProblemSchema } from "./scanner-run-protocol";
+import { scannerPreflightProblemSchema, scannerUploadProblemSchema } from "./scanner-run-protocol";
+
+export function scannerUploadMessage(value: unknown): string | null {
+  const result = scannerUploadProblemSchema.safeParse(value);
+  if (!result.success) return null;
+  const { scope, limitBytes } = result.data;
+  return `Scan-photo storage is full (${limitBytes / 1024 ** 3} GiB ${scope === "OWNER" ? "for this account" : "for this batch"}). Uploads are waiting; originals remain saved on the scanner computer. Cleanup checks completed and trashed batches every minute. If space remains full, ask an administrator to increase the allowance. The helper will retry these uploads without scanning the cards again.`;
+}
 
 export function scannerPreflightMessage(value: unknown): string | null {
   const result = scannerPreflightProblemSchema.safeParse(value);

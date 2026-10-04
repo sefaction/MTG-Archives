@@ -54,7 +54,19 @@ test("counted source selects one, preserves hopper remainder, then explicitly re
     expect(await refused.text()).toContain("needs review or reconciliation");
     expect((await polled()).run.status).toBe("QUEUED");
     const first=await begin();expect(first.run.physicalTarget).toBe(1);expect(first.run.settings.widthInches).toBe(2.7);expect(first.run.settings.dpi).toBe(600);
+    database("await p.scannerRun.update({where:{id:"+JSON.stringify(first.run.runId)+"},data:{preflightProblem:{code:'PHOTO_STORAGE_LIMIT',scope:'OWNER',limitBytes:4294967296,observedAt:new Date().toISOString()}}});");
+    for (const width of [1366,320]) {
+      await page.setViewportSize({width,height:900}); await page.reload();
+      await expect(scanner).toContainText("Scan-photo storage is full (4 GiB for this account)");
+      await expect(scanner).toContainText("originals remain saved on the scanner computer");
+      await expect(scanner).toContainText("without scanning the cards again");
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+      await scanner.scrollIntoViewIfNeeded();
+      await page.screenshot({path:"test-results/scanner-photo-quota-"+width+".png"});
+    }
+    await page.setViewportSize({width:1366,height:900});
     await transfer(first.claim,1);await finish(first.claim,1,false);
+    expect(JSON.parse(database("console.log(JSON.stringify((await p.scannerRun.findUniqueOrThrow({where:{id:"+JSON.stringify(first.run.runId)+"}})).preflightProblem));"))).toBeNull();
     await expect(scanner).toContainText("Selected count reached.");
     await expect(scanner).toContainText("Image count recorded automatically.");
     await expect(scanner.getByLabel("Cards physically emitted")).toHaveCount(0);

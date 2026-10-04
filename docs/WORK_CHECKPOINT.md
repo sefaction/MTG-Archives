@@ -1,3 +1,11 @@
+## Scan-photo storage recovery — October 4, 2026
+
+- Active branch codex/scanner-photo-storage, isolated worktree .local-data/scanner-photo-storage, based on live main f74f5a09. Issue #653. No PR/merge/deploy approval yet.
+- Production batch 31 confirmed stalled at 4 GiB retained-original quota. Initial 48 images acknowledged; refill has 28 laptop originals and zero receipts. No physical feed or production mutation initiated. Production disk has ~812 GB free.
+- User approved preparation of configurable higher limits and pressure deletion for fully completed/trashed batches. Proposed account64 GiB/batch4 GiB; defaults remain4/1. Pressure begins90%, targets80% with bounded oldest-first cleanup; Inventory/receipts preserved, unsettled transfers and current series protected.
+- Implemented quota config, recoverable scanner quota diagnostic/UI, durable pressure tombstone and bounded unlink/retry, helper purge attestation, Compose forwarding and docs. Qualification in progress: typecheck initially found ProcessEnv test typing, corrected to config record. New disposable database cleanup qualification added; not run yet.
+- Next: qualify core/disposable database, build and load cumulative local Docker web/acquisition-worker, desktop/phone regression, commit/push/open coherent PR, verify CI. Ask individual merge and production rollout approval only after concrete review is ready. Do not restart unrelated issue652 recovery worker.
+
 ## fi-7160 counted-feed goal: first mechanical batch - October 2, 2026
 
 - Active worktree `.local-data/fi7160-counted-feed`, branch `codex/fi7160-counted-feed`, based on live main `dbf3f637`. Primary checkout and old managed WIP preserved. GitHub currently no other open PR. Issues #313 physical characterization and newly opened #597 capacity/refill integration remain open; no merge or production approval.
