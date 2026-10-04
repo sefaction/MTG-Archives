@@ -60,6 +60,9 @@ export async function verifyPhotoPressure(db: PrismaClient) {
     const review = await batch("active",1,800);
     await db.acquisitionSession.update({where: {id: review.id},data: {phase: "COMPLETE"}});
     protectedBatches.push(review);
+    const unfinishedTrash = await batch("trash",1,900);
+    await db.acquisitionPhoto.update({where: {id: unfinishedTrash.photos[0].photoId},data: {ready: false,readyAt: null}});
+    protectedBatches.push(unfinishedTrash);
     // Simulate unlink failure AFTER a successful durable deletion commit.
     process.env.UPLOADS_DATA_PATH = "relative-invalid-fixture-path";
     const first = await purgeAcquisitionPhotosUnderPressure(db);

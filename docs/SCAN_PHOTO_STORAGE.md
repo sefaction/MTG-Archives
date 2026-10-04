@@ -34,7 +34,8 @@ when space is available.
 
 Eligible batches are safely in Trash, or capture has ended and every candidate
 has been added to Inventory or explicitly excluded. Completed batches must have
-no pending capture slots or active processing. Unsettled scanner transfers and
+no pending capture slots. All batches must have settled uploads and no active
+processing. Unsettled scanner transfers and
 the current batch of an ongoing section series are protected. Unfinished reviews,
 active batches and cancelled batches outside Trash are preserved.
 

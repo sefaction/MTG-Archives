@@ -15,9 +15,9 @@ const eligible = Prisma.sql`
     AND NOT EXISTS (SELECT 1 FROM "AcquisitionCaptureSlot" slot WHERE slot."runId"=r.id
       AND (NOT EXISTS (SELECT 1 FROM "AcquisitionPhoto" p WHERE p."slotId"=slot.id AND p.ready)
         OR NOT EXISTS (SELECT 1 FROM "AcquisitionCandidate" c WHERE c."runId"=r.id AND c."physicalId"=slot.id)))
-    AND NOT EXISTS (SELECT 1 FROM "AcquisitionPhoto" p WHERE p."runId"=r.id AND NOT p.ready)
-    AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" j WHERE j."runId"=r.id AND j.status IN ('PENDING','RUNNING'))
   ))
+  AND NOT EXISTS (SELECT 1 FROM "AcquisitionPhoto" p WHERE p."runId"=r.id AND NOT p.ready)
+  AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" j WHERE j."runId"=r.id AND j.status IN ('PENDING','RUNNING'))
   AND NOT EXISTS (SELECT 1 FROM "ScannerRun" scan WHERE scan."acquisitionRunId"=r.id AND NOT
     (scan.status IN ('DRAINED','CANCELLED_BEFORE_START') OR scan.status='ERROR' AND scan.outcome IS NOT NULL AND scan.outcome<>'null'::jsonb))
   AND NOT EXISTS (SELECT 1 FROM "ScannerRun" scan JOIN "ScannerRun" root ON root.id=scan."seriesRootId"
