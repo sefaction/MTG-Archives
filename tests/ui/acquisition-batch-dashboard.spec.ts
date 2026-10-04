@@ -33,13 +33,13 @@ test("batch dashboard keeps card totals distinct and cancels, trashes and restor
     await page.getByRole("button", {name: "Search", exact: true}).click();
     const card = page.getByRole("article", {name: `Batch ${batch.batchNumber}`, exact: true});
     await expect(card.locator("dl")).toContainText("Saved2");
-    await expect(card).toContainText("1 matches need confirmation"); await expect(card).toContainText("1 confirmed cards await Inventory addition");
+    await expect(card).toContainText("1 match needs confirmation"); await expect(card).toContainText("1 confirmed card awaits Inventory addition");
     const totals = page.getByRole("region", {name: "Card totals"});
     await expect(totals).toContainText("Saved cards2"); await expect(totals).toContainText("Evaluated1");
     await expect(totals).toContainText("Assigned to storage2"); await expect(totals).toContainText("Confirmed matches1"); await expect(totals).toContainText("Added to Inventory0");
     for (const width of [1366, 320]) {await page.setViewportSize({width, height: 900});
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      await page.screenshot({path: `test-results/batch-dashboard-pending-${width}.png`});}
+      await page.screenshot({path: `test-results/batch-dashboard-pending-${width}.png`, fullPage: true});}
     await card.getByRole("button", {name: "Cancel batch", exact: true}).click();
     await expect(card.getByRole("group", {name: `Confirm cancel batch ${batch.batchNumber}`})).toContainText("accepted scanner load will finish");
     await card.getByRole("button", {name: "Confirm cancel batch", exact: true}).click();
@@ -56,7 +56,7 @@ test("batch dashboard keeps card totals distinct and cancels, trashes and restor
     const hidden = await page.request.get(`/api/acquisition/${batch.id}`); expect(hidden.ok()).toBe(false);
     await page.getByRole("link", {name: "Trash", exact: true}).click();
     await expect(card).toContainText("Restore before");
-    await page.screenshot({path: "test-results/batch-dashboard-trash-320.png"});
+    await page.screenshot({path: "test-results/batch-dashboard-trash-320.png", fullPage: true});
     await card.getByRole("button", {name: "Restore batch", exact: true}).click();
     await expect(card).toHaveCount(0);
     await page.getByRole("link", {name: "Pending", exact: true}).click();

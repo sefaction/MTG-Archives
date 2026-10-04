@@ -3,6 +3,7 @@ import { lockAndReadInventoryCapacity } from "./inventory-capacity";
 import { normalizeLocationSection } from "./inventory-locations";
 import { getStorageLocations } from "./storage-summary";
 import { scannerCapacityDestination } from "./scanner-capacity-display";
+import {settledScannerTransfer} from "./scanner-drain-policy";
 
 export function scannerReservedSpace(input: { reserved: number | null; candidateCount: number;
   slotCount: number; committedCount: number }) {
@@ -18,7 +19,7 @@ export async function readScannerCapacity(tx: Prisma.TransactionClient, input: {
 }) {
   const capacity = await lockAndReadInventoryCapacity(tx, input);
   const sessions = await tx.acquisitionSession.findMany({ where: { locationId: input.locationId,
-    OR: [{trashedAt: null, deletedAt: null}, {run: {scannerRuns: {some: {status: {notIn: ["DRAINED", "CANCELLED_BEFORE_START"]}}}}}],
+    OR: [{trashedAt: null, deletedAt: null}, {run: {scannerRuns: {some: {NOT: settledScannerTransfer}}}}],
     ...(input.excludeSessionId ? { id: { not: input.excludeSessionId } } : {}) }, select: {
     section: true, scannerReserved: true, run: { select: { _count: { select: {
       candidates: true, slots: true,

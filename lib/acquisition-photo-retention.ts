@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import {settledScannerTransfer} from "./scanner-drain-policy";
 import {
   PHOTO_RETENTION_DAYS_AFTER_COMMIT,
   removeAcquisitionPhotoBytes,
@@ -59,7 +60,8 @@ export async function purgeTrashedAcquisitionPhotos(db: PrismaClient, now = new 
     SELECT s.id FROM "AcquisitionSession" s JOIN "AcquisitionRun" r ON r."sessionId"=s.id
     WHERE s."trashedAt" IS NOT NULL AND s."trashExpiresAt"<=${now}
       AND (s."deletedAt" IS NULL OR EXISTS (SELECT 1 FROM "AcquisitionPhoto" p WHERE p."runId"=r.id AND p."purgedAt" IS NULL))
-      AND NOT EXISTS (SELECT 1 FROM "ScannerRun" scan WHERE scan."acquisitionRunId"=r.id AND scan.status NOT IN ('DRAINED','CANCELLED_BEFORE_START'))
+      AND NOT EXISTS (SELECT 1 FROM "ScannerRun" scan WHERE scan."acquisitionRunId"=r.id AND NOT
+        (scan.status IN ('DRAINED','CANCELLED_BEFORE_START') OR scan.status='ERROR' AND scan.outcome IS NOT NULL AND scan.outcome<>'null'::jsonb))
     ORDER BY s."trashExpiresAt",s.id LIMIT 5`;
   let purged = 0, failed = 0, expired = 0;
   for (const batch of batches) {
@@ -67,7 +69,7 @@ export async function purgeTrashedAcquisitionPhotos(db: PrismaClient, now = new 
       await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id=${batch.id} FOR UPDATE`;
       const session = await tx.acquisitionSession.findUniqueOrThrow({where: {id: batch.id}, include: {run: true}});
       if (!session.trashedAt || !session.trashExpiresAt || session.trashExpiresAt > now || !session.run) return;
-      if (await tx.scannerRun.count({where: {acquisitionRunId: session.run.id, status: {notIn: ["DRAINED", "CANCELLED_BEFORE_START"]}}})) return;
+      if (await tx.scannerRun.count({where: {acquisitionRunId: session.run.id, NOT: settledScannerTransfer}})) return;
       if (!session.deletedAt) {
         await tx.acquisitionSession.update({where: {id: session.id}, data: {deletedAt: now, phase: "CANCELLED", scannerReserved: 0}});
         expired++;

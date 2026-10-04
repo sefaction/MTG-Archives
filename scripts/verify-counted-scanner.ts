@@ -16,6 +16,7 @@ import { getAcquisitionSession, saveAcquisitionReview, getAcquisitionCardReview 
 import { previewAcquisitionCommit, commitAcquisitionCards } from "../lib/acquisition-commit-service";
 import { manageAcquisitionBatch } from "../lib/acquisition-batch-lifecycle";
 import { purgeTrashedAcquisitionPhotos } from "../lib/acquisition-photo-retention";
+import {Prisma} from "@prisma/client";
 
 // Disposable PostgreSQL protocol qualification. All images are synthetic and
 // no native backend is created; an 83-image pass is not an 83-card feed pass.
@@ -342,6 +343,30 @@ export async function verifyCountedScanner(db: PrismaClient) {
     await manageAcquisitionBatch(db, actor, neverStarted.sessionId, "cancel");
     assert.equal((await db.scannerRun.findUniqueOrThrow({where: {id: neverStarted.runId}})).status, "CANCELLED_BEFORE_START");
     await assert.rejects(claimScannerRun(db, trashHelper.token, {version: 1, runId: neverStarted.runId, epoch, executionId: randomUUID()}, epoch));
+    const errorHelper = await enroll(), errorBox = await location(2, [{name: "A", capacity: 2}]);
+    const errorBatch = await createScannerBatch(db, actor, setup(errorHelper, errorBox), epoch);
+    const errorClaim = await claim(errorHelper, errorBatch.runId), errorTrashAt = new Date();
+    // A restored error without a finish outcome is still uncertain: it cannot
+    // release helper admission, original retention or capacity just by Trash.
+    await db.scannerRun.update({where: {id: errorBatch.runId}, data: {status: "ERROR", outcome: Prisma.DbNull}});
+    await manageAcquisitionBatch(db, actor, errorBatch.sessionId, "trash", errorTrashAt);
+    assert.equal((await capacity(errorBox)).remaining, 0);
+    assert.equal((await purgeTrashedAcquisitionPhotos(db, new Date(errorTrashAt.getTime() + 8 * 86400000))).expired, 0);
+    await assert.rejects(createScannerBatch(db, actor, setup(errorHelper, await location(1, [{name: "A", capacity: 1}])), epoch), /unfinished batch/);
+    assert.equal((await pollScannerRun(db, errorHelper.token, epoch)).run?.runId, errorBatch.runId);
+    await images(errorHelper, errorClaim, 1);
+    await finishScannerRun(db, errorHelper.token, {...errorClaim, outcome: {outcome: "ERROR", imageCount: 1, elapsedMs: 100,
+      knownPhysicalItems: null, sourceExhausted: "UNKNOWN", nativeError: "fixture source error; transfer already closed"}}, epoch);
+    assert.equal((await pollScannerRun(db, errorHelper.token, epoch)).run, null);
+    assert.equal((await capacity(errorBox)).remaining, 2);
+    const savedError = await db.scannerRun.findUniqueOrThrow({where: {id: errorBatch.runId}});
+    assert.equal(savedError.status, "ERROR"); assert.equal(savedError.reconciliation, null);
+    assert.equal((await purgeTrashedAcquisitionPhotos(db, new Date(errorTrashAt.getTime() + 7 * 86400000))).purged, 1);
+    assert.ok((await db.acquisitionSession.findUniqueOrThrow({where: {id: errorBatch.sessionId}})).deletedAt);
+    const afterDiscard = await createScannerBatch(db, actor, setup(errorHelper, await location(1, [{name: "A", capacity: 1}])), epoch);
+    assert.equal(await scannerStartMarkerExists(afterDiscard.runId), false);
+    await manageAcquisitionBatch(db, actor, afterDiscard.sessionId, "cancel");
+    console.log("PASS: finished error outcomes can expire without invented physical counts or blocked helper; missing outcomes retain recovery/capacity and cannot authorize new START");
     console.log("PASS: cancelled scanner load drains accepted originals without inference; no new START, Trash capacity held until drain, restoration never restarts series; physical feeds=0");
     console.log("PASS: explicit multi-section series, concurrent next admission, stale-page/refresh recovery, same-batch refill, durable/repeated Stop, released unfed reservations and retained uncommitted cards; physical feeds=0");
     console.log("PASS: counted 83-image allocation, hopper remainder observation, pending/commit capacity conservation, concurrent parent limits, fresh no-START guard, same-batch refill segments and old-segment replay with saved review; physical feeds=0");

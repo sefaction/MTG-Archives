@@ -37,6 +37,10 @@ The acquisition photo worker checks expiry every minute while running. Cleanup
 is bounded to five eligible batches and 25 photos per batch per tick. It waits for
 accepted scanner runs to drain and removes original/preview scan files using the
 existing private-file path guards. Failed unlink/mark attempts retry safely.
+An error run with a saved finish outcome has completed its durable transfers and
+can expire. An error without that outcome remains uncertain and waits for recovery;
+it cannot release the helper for another scan. Discarding a finished error never
+invents a physical count or treats its images as automatically confirmed.
 Inventory, addition receipts and minimal acquisition provenance are retained;
 expiry does not delete collected cards. Previously expired committed scan files
 cannot be recovered by moving their batch to Trash.

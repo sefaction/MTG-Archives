@@ -22,6 +22,7 @@ import { normalizeLocationSection } from "./inventory-locations";
 import { lockScannerSeries, requireRunningScannerSeries } from "./scanner-series";
 import { scannerDeviceSchema } from "./scanner-protocol";
 import { requireVisibleAcquisitionBatch, requireProcessingAcquisitionBatch } from "./acquisition-batch-policy";
+import {cancelledSettledScannerTransfer} from "./scanner-drain-policy";
 
 type Tx = Prisma.TransactionClient;
 const denied = () => new ScannerRunConflict();
@@ -126,7 +127,7 @@ export async function createScannerBatch(db: PrismaClient, actor: AcquisitionAct
       return command(old);
     }
     await tx.$queryRaw`SELECT id FROM "ScannerAgent" WHERE id = ${helper.id} FOR UPDATE`;
-    if (row.phase !== "CAPTURING" || await tx.scannerRun.count({ where: { agentId: helper.id, reconciliation: { equals: Prisma.DbNull } } }))
+    if (row.phase !== "CAPTURING" || await tx.scannerRun.count({ where: { agentId: helper.id, reconciliation: { equals: Prisma.DbNull }, NOT: cancelledSettledScannerTransfer } }))
       throw new ScannerRunConflict("Capture scanner has an unfinished batch; reconcile it before starting another");
     const agent = await tx.scannerAgent.findUniqueOrThrow({ where: { id: helper.id } });
     if (agent.revokedAt || agent.userId !== actor.userId || !agent.lastSeenAt || Date.now() - agent.lastSeenAt.getTime() >= 30000)
@@ -143,7 +144,7 @@ export async function pollScannerRun(db: PrismaClient, authorization: string | n
   return scannerTransaction(db, async tx => {
     const { agent } = await authenticateScanner(tx, authorization, new Date());
     const run = await tx.scannerRun.findFirst({ where: { agentId: agent.id, status: { in: ["QUEUED", "STARTED", "ERROR"] },
-      reconciliation: { equals: Prisma.DbNull } }, include, orderBy: { createdAt: "asc" } });
+      reconciliation: { equals: Prisma.DbNull }, NOT: cancelledSettledScannerTransfer }, include, orderBy: { createdAt: "asc" } });
     return { version: 1, agentId: agent.id, epoch, run: run ? command(run) : null };
   });
 }
@@ -310,7 +311,7 @@ export async function finishScannerRun(db: PrismaClient, authorization: string |
     if (latest.id === run.id && !run.outcome && row.phase !== "COMPLETE") await tx.acquisitionSession.update({ where: { id: row.id }, data: {
       phase: row.cancelledAt ? "CANCELLED" : status === "ERROR" ? "STOPPING" : run.counted && !run.stopRequestedAt &&
         run.sequenceOffset + input.outcome.imageCount < row.target! ? "PAUSED" : "COMPLETE",
-      ...(row.cancelledAt && status === "DRAINED" ? {scannerReserved: 0} : {}), revision: { increment: 1 } } });
+      ...(row.cancelledAt ? {scannerReserved: 0} : {}), revision: { increment: 1 } } });
     return { version: 1, runId: run.id, status, physicalCount: reconciled || run.reconciliation ? "ASSUMED_FROM_IMAGES" : "UNCONFIRMED" };
   });
 }

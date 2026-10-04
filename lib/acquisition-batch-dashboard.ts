@@ -39,7 +39,8 @@ export async function getAcquisitionBatchDashboard(db: PrismaClient, actor: Acqu
       SELECT s.*, r.id AS "runId", l.name AS location, p."displayName" AS owner,
         (s."cancelledAt" IS NOT NULL OR s.phase='CANCELLED') AS cancelled,
         (s."trashedAt" IS NOT NULL) AS trashed,
-        EXISTS (SELECT 1 FROM "ScannerRun" scan WHERE scan."acquisitionRunId"=r.id AND scan.status NOT IN ('DRAINED','CANCELLED_BEFORE_START')) AS draining,
+        EXISTS (SELECT 1 FROM "ScannerRun" scan WHERE scan."acquisitionRunId"=r.id AND NOT
+          (scan.status IN ('DRAINED','CANCELLED_BEFORE_START') OR scan.status='ERROR' AND scan.outcome IS NOT NULL AND scan.outcome<>'null'::jsonb)) AS draining,
         (l.id IS NOT NULL AND l.active AND NOT l."systemManaged" AND l.kind='NORMAL' AND l."ownerPlayerId"=s."ownerPlayerId") AS "storageAssigned"
       FROM "AcquisitionSession" s JOIN "AcquisitionRun" r ON r."sessionId"=s.id
       JOIN "Player" p ON p.id=s."ownerPlayerId" LEFT JOIN "InventoryLocation" l ON l.id=s."locationId"

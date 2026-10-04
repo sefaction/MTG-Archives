@@ -3,6 +3,7 @@ import { z } from "zod";
 import { acquisitionTransaction, readAcquisitionRow } from "./acquisition-store";
 import type { AcquisitionActor } from "./acquisition-store";
 import { scannerStartMarkerExists, persistScannerStartRetirement } from "./scanner-control-files";
+import {scannerTransferIsSettled} from "./scanner-drain-policy";
 
 export const BATCH_TRASH_DAYS = 7;
 export const batchLifecycleAction = z.enum(["cancel", "trash", "restore", "resume-processing"]);
@@ -23,7 +24,7 @@ export async function manageAcquisitionBatch(db: PrismaClient, actor: Acquisitio
     const row = await readAcquisitionRow(tx, actor, sessionId);
     if (row.deletedAt) throw new Error("Capture batch has expired and cannot be restored");
     const currentRuns = await tx.scannerRun.findMany({where: {acquisitionRunId: runId}});
-    const draining = currentRuns.some(r => !["DRAINED", "CANCELLED_BEFORE_START"].includes(r.status));
+    const draining = currentRuns.some(r => !scannerTransferIsSettled(r));
     if (action === "restore" || action === "resume-processing") {
       if (draining) throw new Error("Capture is still draining or needs scanner recovery; wait before restoring processing");
       if (action === "restore") {
@@ -58,7 +59,7 @@ export async function manageAcquisitionBatch(db: PrismaClient, actor: Acquisitio
     }
     let acceptedOrUncertain = false;
     for (const run of currentRuns) {
-      if (["DRAINED", "CANCELLED_BEFORE_START"].includes(run.status)) continue;
+      if (scannerTransferIsSettled(run)) continue;
       const noStart = run.status === "QUEUED" && !run.executionId && !await scannerStartMarkerExists(run.id);
       if (noStart) await persistScannerStartRetirement(run.id, actor.userId, run.epoch, {action, sessionId});
       else acceptedOrUncertain = true;
