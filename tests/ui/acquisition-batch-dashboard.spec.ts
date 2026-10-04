@@ -58,13 +58,37 @@ test("batch dashboard keeps card totals distinct and cancels, trashes and restor
     await expect(card).toContainText("Restore before");
     await page.screenshot({path: "test-results/batch-dashboard-trash-320.png", fullPage: true});
     await card.getByRole("button", {name: "Restore batch", exact: true}).click();
-    await expect(card).toHaveCount(0);
-    await page.getByRole("link", {name: "Pending", exact: true}).click();
+    await page.waitForURL(/view=pending/);
+    await expect(page.getByLabel("Find a batch")).toHaveValue(String(batch.batchNumber));
     await expect(card).toContainText("Needs review");
     const state = JSON.parse(database("const s=await p.acquisitionSession.findUniqueOrThrow({where:{id:" + JSON.stringify(batch.id) + "},include:{run:{include:{candidates:true}}}});console.log(JSON.stringify({phase:s.phase,trash:s.trashedAt,candidates:s.run.candidates,scanner:await p.scannerRun.count({where:{acquisitionRunId:s.run.id}})}));"));
     expect(state.phase).toBe("COMPLETE"); expect(state.trash).toBeNull(); expect(state.candidates).toHaveLength(2); expect(state.candidates.filter((candidate: {review: unknown}) => candidate.review)).toHaveLength(1); expect(state.scanner).toBe(0);
+    // An interrupted scanner with no finish receipt must be accessible after
+    // Restore without releasing reservation or creating a physical command.
+    const scannerId = randomUUID();
+    database("const s=await p.acquisitionSession.findUniqueOrThrow({where:{id:" + JSON.stringify(batch.id) + "},include:{run:true}});await p.scannerAgent.create({data:{id:" + JSON.stringify(scannerId) + ",userId:s.createdByUserId,tokenHash:require('crypto').randomUUID(),credentialHash:require('crypto').randomUUID(),name:'Recovery metadata fixture',expiresAt:new Date(Date.now()+86400000)}});await p.scannerRun.create({data:{id:" + JSON.stringify(scannerId) + ",agentId:" + JSON.stringify(scannerId) + ",acquisitionRunId:s.run.id,epoch:'recovery-fixture',requestPayload:'{}',deviceId:'fixture',device:{},settings:{},status:'ERROR',executionId:require('crypto').randomUUID()}});await p.acquisitionSession.update({where:{id:s.id},data:{scannerReserved:2}});");
+    await card.getByRole("button", {name: "Move to Trash", exact: true}).click();
+    await card.getByRole("button", {name: "Confirm move to Trash", exact: true}).click();
+    await expect(card).toHaveCount(0);
+    await page.getByRole("link", {name: "Trash", exact: true}).click();
+    await card.getByRole("button", {name: "Restore batch", exact: true}).click();
+    await page.waitForURL(/view=cancelled/);
+    await expect(page.getByLabel("Find a batch")).toHaveValue(String(batch.batchNumber));
+    await expect(card).toContainText("Cancelled · waiting for scanner");
+    await expect(card).toContainText("needs recovery");
+    await expect(card.getByRole("link", {name: "View saved cards", exact: true})).toBeVisible();
+    await expect(card.getByRole("button", {name: "Resume processing", exact: true})).toBeDisabled();
+    expect((await page.request.get(`/api/acquisition/${batch.id}`)).ok()).toBe(true);
+    const resume = await page.request.post(`/api/acquisition/${batch.id}/lifecycle`, {headers: origin, data: {action: "resume-processing"}});
+    expect(resume.ok()).toBe(false); expect(await resume.text()).toContain("scanner recovery");
+    const held = JSON.parse(database("console.log(JSON.stringify({session:await p.acquisitionSession.findUniqueOrThrow({where:{id:" + JSON.stringify(batch.id) + "},select:{phase:true,trashedAt:true,scannerReserved:true}}),run:await p.scannerRun.findUniqueOrThrow({where:{id:" + JSON.stringify(scannerId) + "},select:{outcome:true,reconciliation:true,admissionReleasedAt:true}},),runs:await p.scannerRun.count({where:{agentId:" + JSON.stringify(scannerId) + "}})}));"));
+    expect(held.session).toEqual({phase: "CANCELLED", trashedAt: null, scannerReserved: 2});
+    expect(held.run).toEqual({outcome: null, reconciliation: null, admissionReleasedAt: null}); expect(held.runs).toBe(1);
+    for (const width of [1366, 320]) {await page.setViewportSize({width, height: 900});
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({path: `test-results/batch-dashboard-restored-recovery-${width}.png`, fullPage: true});}
     expect(conservation()).toBe(before);
   } finally {
-    database("const n=" + JSON.stringify(tag) + ";const sessions=await p.acquisitionSession.findMany({where:{createdByUserId:n},include:{run:true}});const w={runId:{in:sessions.map(s=>s.run.id)}};for(const model of ['acquisitionCommitMember','acquisitionCommit','acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});await p.acquisitionRun.deleteMany({where:{id:w.runId}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});");
+    database("const n=" + JSON.stringify(tag) + ";const sessions=await p.acquisitionSession.findMany({where:{createdByUserId:n},include:{run:true}});const w={runId:{in:sessions.map(s=>s.run.id)}};await p.scannerRun.deleteMany({where:{agent:{userId:n}}});await p.scannerAgent.deleteMany({where:{userId:n}});for(const model of ['acquisitionCommitMember','acquisitionCommit','acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});await p.acquisitionRun.deleteMany({where:{id:w.runId}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});");
   }
 });

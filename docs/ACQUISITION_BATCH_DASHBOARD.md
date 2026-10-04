@@ -30,7 +30,12 @@ be restored for seven days, measured from the first Trash action; repeated click
 do not extend expiry. Restoration preserves saved reviews and returns the batch
 for processing without reopening physical capture. A batch already cancelled
 before entering Trash remains cancelled after restoration until Resume processing
-is explicitly selected. Expired batches cannot be restored even if maintenance
+is explicitly selected. An unfinished or uncertain scanner transfer can also be
+restored before it finishes: its saved cards become visible in Cancelled, while
+processing, scanner admission and reserved capacity remain held for recovery.
+Resume processing stays unavailable until the accepted transfer is settled.
+Restoration opens the matching restored batch in Pending or Cancelled so it can
+be found immediately. Expired batches cannot be restored even if maintenance
 has not run yet.
 
 The acquisition photo worker checks expiry every minute while running. Cleanup
