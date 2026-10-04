@@ -99,8 +99,8 @@ export function AcquisitionCapture({
   const [locationId, setLocationId] = useState(initialSetup?.locationId ?? "");
   const [section, setSection] = useState(initialSetup?.section ?? "");
   const router = useRouter(), [refreshingCapacity, refreshCapacity] = useTransition();
-  const [quantity, setQuantity] = useState(1);
-  const [customLimit, setCustomLimit] = useState(false);
+  const [quantity, setQuantity] = useState(initialSetup?.batchLimit ?? 1);
+  const [customLimit, setCustomLimit] = useState(initialSetup?.batchLimit !== undefined);
   const [continuousSections, setContinuousSections] = useState(true);
   const continuingSeries = !!initialSetup?.continueFrom;
   const [scannerChoice, setScannerChoice] = useState<ScannerChoice | null>(null);
@@ -731,6 +731,8 @@ export function AcquisitionCapture({
             ? remaining === null ? "Choose a card count for this batch." : remaining+" spaces available after pending cards and unfinished batch reservations."
             : "Checking available capacity."} {scannerCapacity?.pendingSection ? scannerCapacity.pendingSection+" spaces are held by other batches in this section." : ""}</p>}
           {capacityError && <p role="alert">{capacityError}</p>}
+          {countedScanner && customLimit && capacityReady && remaining !== null && quantity > remaining &&
+            <p role="alert">The {quantity}-card limit exceeds the {remaining} available {remaining === 1 ? "space" : "spaces"}. Choose a smaller limit or another section before starting.</p>}
           {needsNextSection && <p role="status">Choose the next section before starting.</p>}
           <p className="text-sm mb-3" hidden={countedScanner}>
             {remaining === null

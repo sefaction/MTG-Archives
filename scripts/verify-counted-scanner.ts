@@ -210,6 +210,30 @@ export async function verifyCountedScanner(db: PrismaClient) {
     assert.equal((await getScannerBatch(db,tag,resumedReload.runId)).phase,"COMPLETE");
     assert.equal(await db.inventoryItem.count({where:{locationId:reloadBox}}),0);
 
+    // Fixed-size batches preserve the operator's limit and section preference,
+    // not a target/capacity snapshot, readiness or an execution identity.
+    const fixedHelper = await enroll(), fixedBox = await location(40, [{name:"A",capacity:40}]);
+    const fixedBatch = await createScannerBatch(db, actor, setup(fixedHelper,fixedBox,"A",15),epoch);
+    const fixedClaim = await claim(fixedHelper,fixedBatch.runId); await images(fixedHelper,fixedClaim,15);
+    await finish(fixedHelper,fixedClaim,15,false);
+    const fixedPreferences = await scannerContinuation(db,tag,fixedBatch.runId);
+    assert.equal(fixedPreferences.batchLimit,15); assert.equal(fixedPreferences.nextSectionRequired,undefined);
+    assert.equal(currentScannerContinuation(fixedPreferences,[{id:fixedBox,name:fixedBox,sections:[{name:"A",capacity:40,quantity:0}]}]).setup?.section,"A");
+    await db.inventoryLocation.update({where:{id:fixedBox},data:{storageLayout:{capacity:25,sections:[{name:"A",capacity:25}]}}});
+    await fixedHelper.pulse();
+    const tooLarge = setup(fixedHelper,fixedBox,"A",fixedPreferences.batchLimit);
+    const sessionsBeforeLimit = await db.acquisitionSession.count({where:{createdByUserId:tag}});
+    await assert.rejects(createScannerBatch(db,actor,tooLarge,epoch));
+    assert.equal(await scannerStartMarkerExists(tooLarge.requestKey),false);
+    assert.equal(await db.acquisitionSession.count({where:{createdByUserId:tag}}),sessionsBeforeLimit);
+    const nextFixed = await createScannerBatch(db,actor,setup(fixedHelper,fixedBox,"A",10),epoch);
+    assert.notEqual(nextFixed.sessionId,fixedBatch.sessionId); assert.equal(nextFixed.physicalTarget,10);
+    assert.equal(nextFixed.sequenceOffset,0); assert.equal(await scannerStartMarkerExists(nextFixed.runId),false);
+    assert.equal(await db.acquisitionPhoto.count({where:{run:{sessionId:nextFixed.sessionId}}}),0);
+    assert.equal(await db.acquisitionPhoto.count({where:{run:{sessionId:fixedBatch.sessionId}}}),15);
+    await stopScannerBatch(db,tag,nextFixed.runId);
+    console.log("PASS: fixed15-card continuation retains limit/section, lower current capacity refuses stale preference before START, adjusted count has fresh identity/target and retains previous originals; physical feeds=0");
+
     // Different sections share the parent's total limit, and two concurrent
     // admissions cannot each consume the same free spaces.
     const tight=await location(3,[{name:"A",capacity:3},{name:"B",capacity:3}]);
