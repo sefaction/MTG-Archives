@@ -39,7 +39,7 @@ test("section series waits for each choice, refills its unfinished batch, and pe
       await scanner.getByRole("checkbox",{name:/Transport is clear/}).check();await scanner.getByRole("button",{name:"Confirm physical count",exact:true}).click();
       await expect(scanner).toContainText("Physical count confirmed.");
     };
-    await pulse();await page.goto("/imports/scan?input=scanner");await expect(page.getByRole("note")).toContainText("counted feeding is suspended");
+    await pulse();await page.goto("/imports/scan?input=scanner");await expect(page.getByRole("note")).toContainText("helper 0.4.2 and the Cards profile with Pre-Pick Off");
     await page.getByTestId("storage-destination").getByRole("combobox").fill(tag);await page.getByRole("option").first().click();await setup.getByRole("button",{name:/^A\s/}).click();
     await expect(setup.getByLabel("Fill sections one at a time until I stop")).toBeChecked();
     await pulse();await setup.getByRole("button",{name:"Start scanner batch",exact:true}).click();await expect(scanner).toContainText("Section series · batch 1");

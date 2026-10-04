@@ -40,7 +40,7 @@ Motor-free process fixtures cover stale/wrong driver/source/frame, missing or
 malformed readback/invariant/blank proof, no-feed prepare/close and denied Start,
 early empty, retained overflow, restoration/closure and late process-exit failures.
 The direct legacy route and stale version2 requests refuse before scanner access.
-Build and initial native regression suite passed; final follow-up checks are pending.
+Build and final native regression suite passed, including preparation-close failure.
 
 `counted-prepare <request.json>` uses the actual helper/backend/native pipeline with
 an empty hopper. Both backend and native route prohibit Start in this mode. It
@@ -49,7 +49,17 @@ and exit, printing the native proof. Obtain fresh hopper AND transport empty/cle
 confirmation before running it. It neither connects to a website nor creates a scan
 spool or acquisition authorization.
 
-Actual native empty preparation, new complete installer/local Docker delivery,
-and fresh supervised website count/capacity/refill/next-section physical tests are
-pending. Existing installed helpers remain stopped. No new feed, Inventory write,
+After the desk move, fresh hopper AND transport empty/clear confirmation permitted
+the actual helper `counted-prepare` check. Native version2 acknowledged the exact
+source/driver/protocol, frame, all capture readbacks, blank retention and observed
+invariant, with feeder empty. It restored twelve settings, closed source/DSM and
+joined its loop, reported zero Enable calls/images, and both actual native and held
+helper exits were0. Empty stderr and no remaining scanner owner were verified.
+This passes actual programmatic no-feed preparation and clean closure; it does
+not establish an integrated transfer result.
+
+The complete helper0.4.2 installer built with source/notices and connection/native/
+discovery selfchecks. Local Docker delivery and fresh supervised website count/
+capacity/refill/next-section physical tests are pending. Existing installed helpers
+remain stopped. No new feed, Inventory write,
 merge approval or production deployment is implied by this implementation.
