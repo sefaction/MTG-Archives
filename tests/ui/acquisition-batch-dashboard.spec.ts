@@ -58,7 +58,7 @@ test("batch dashboard keeps card totals distinct and cancels, trashes and restor
     await expect(card).toContainText("Restore before");
     await page.screenshot({path: "test-results/batch-dashboard-trash-320.png", fullPage: true});
     await card.getByRole("button", {name: "Restore batch", exact: true}).click();
-    await page.waitForURL(/view=pending/);
+    await page.waitForURL(/view=all/);
     await expect(page.getByLabel("Find a batch")).toHaveValue(String(batch.batchNumber));
     await expect(card).toContainText("Needs review");
     const state = JSON.parse(database("const s=await p.acquisitionSession.findUniqueOrThrow({where:{id:" + JSON.stringify(batch.id) + "},include:{run:{include:{candidates:true}}}});console.log(JSON.stringify({phase:s.phase,trash:s.trashedAt,candidates:s.run.candidates,scanner:await p.scannerRun.count({where:{acquisitionRunId:s.run.id}})}));"));

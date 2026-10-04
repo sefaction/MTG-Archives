@@ -359,7 +359,7 @@ export async function verifyCountedScanner(db: PrismaClient) {
     assert.equal((await getScannerBatch(db, tag, trashBatch.runId)).status, "STARTED");
     assert.equal((await capacity(trashBox)).remaining, 0);
     await assert.rejects(manageAcquisitionBatch(db, actor, trashBatch.sessionId, "resume-processing"), /draining/);
-    await assert.rejects(createScannerBatch(db, actor, setup(trashHelper, trashBox), epoch), /unfinished batch/);
+    await assert.rejects(createScannerBatch(db, actor, setup(trashHelper, await location(1, [{name: "A", capacity: 1}])), epoch), /unfinished batch/);
     await images(trashHelper, trashClaim, 2); await finish(trashHelper, trashClaim, 2, false);
     const trashSession = await db.acquisitionSession.findUniqueOrThrow({where: {id: trashBatch.sessionId}});
     assert.equal(trashSession.phase, "CANCELLED"); assert.equal(trashSession.trashedAt, null);

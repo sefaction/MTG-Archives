@@ -16,7 +16,7 @@ export function AcquisitionBatchActions({id, batchNumber, cancelled = false, tra
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Batch action failed. Try again.");
       setConfirm(null);
-      if (action === "restore") router.push(`/imports/batches?${new URLSearchParams({view: result.phase === "CANCELLED" ? "cancelled" : "pending", q: String(batchNumber)})}`);
+      if (action === "restore") router.push(`/imports/batches?${new URLSearchParams({view: result.phase === "CANCELLED" ? "cancelled" : "all", q: String(batchNumber)})}`);
       else router.refresh();
       onChanged?.();
     } catch (error) {setError(error instanceof Error ? error.message : "Batch action failed. Try again.");}

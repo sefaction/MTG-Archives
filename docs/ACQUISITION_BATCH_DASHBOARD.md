@@ -34,7 +34,7 @@ is explicitly selected. An unfinished or uncertain scanner transfer can also be
 restored before it finishes: its saved cards become visible in Cancelled, while
 processing, scanner admission and reserved capacity remain held for recovery.
 Resume processing stays unavailable until the accepted transfer is settled.
-Restoration opens the matching restored batch in Pending or Cancelled so it can
+Restoration opens the matching restored batch in All batches or Cancelled so it can
 be found immediately. Expired batches cannot be restored even if maintenance
 has not run yet.
 
