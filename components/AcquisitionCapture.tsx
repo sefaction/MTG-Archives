@@ -728,9 +728,12 @@ export function AcquisitionCapture({
               />
             </label>
           )}
-          {countedScanner && <p className="text-sm mb-3" role="status">{capacityReady
+          {countedScanner && <p className="text-sm mb-3" role="status">{!locationId
+            ? "Choose a destination to check available space."
+            : capacityError ? "Capacity is unavailable. Refresh capacity to try again."
+            : capacityReady
             ? remaining === null ? "Choose a card count for this batch." : remaining+" spaces available after pending cards and unfinished batch reservations."
-            : "Checking available capacity."} {scannerCapacity?.pendingSection ? scannerCapacity.pendingSection+(scannerCapacity.pendingSection === 1 ? " space is" : " spaces are")+" held by other batches in this section." : ""}</p>}
+            : "Checking available capacity."} {capacityReady && scannerCapacity?.pendingSection ? scannerCapacity.pendingSection+(scannerCapacity.pendingSection === 1 ? " space is" : " spaces are")+" held by other batches in this section." : ""}</p>}
           {capacityError && <p role="alert">{capacityError}</p>}
           {countedScanner && customLimit && capacityReady && remaining !== null && quantity > remaining &&
             <p role="alert">The {quantity}-card limit exceeds the {remaining} available {remaining === 1 ? "space" : "spaces"}. Choose a smaller limit or another section before starting.</p>}
