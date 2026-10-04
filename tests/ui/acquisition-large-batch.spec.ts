@@ -4,15 +4,16 @@ import {createHash, randomUUID} from 'node:crypto';
 import {copyFileSync, mkdirSync, readFileSync, rmdirSync, unlinkSync, writeFileSync} from 'node:fs';
 import path from 'node:path';
 import {assertNativeWorkerContinuity, type NativeWorkerSnapshot} from '../native-worker-continuity';
+import {inventoryFingerprintBody, inventoryScaleOwners, seedInventoryScaleBody} from '../acquisition-inventory-scale';
 
 test.use({trace:'off',video:'off',actionTimeout:15000});
 function docker(...args:string[]) {
   return execFileSync('docker',args,{encoding:'utf8',timeout:30000,windowsHide:true}).trim();
 }
-function database(body:string) {
+function database(body:string,timeout=30000) {
   return JSON.parse(execFileSync('docker',['exec','-i','mtg-archives-web-1','node'],{
     input:`const{PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${body}})().catch(e=>{console.error(e.message);process.exitCode=1}).finally(()=>p.$disconnect());`,
-    encoding:'utf8',timeout:30000,windowsHide:true,
+    encoding:'utf8',timeout,windowsHide:true,
   }));
 }
 function workerSnapshots(): NativeWorkerSnapshot[] {
@@ -33,6 +34,8 @@ test('large scan-image batches retain every input through ordinary native queues
   expect(baseURL).toBe('http://127.0.0.1:13001');
   const count=Number(process.env.MTG_ACQUISITION_LARGE_BATCH_COUNT??100);
   expect([100,300]).toContain(count);
+  const inventoryScale=process.env.MTG_ACQUISITION_LARGE_BATCH_INVENTORY_SCALE==='1';
+  if(inventoryScale)expect(count).toBe(300);
   test.setTimeout(count===100?1800000:3600000);
   const endpoint=JSON.parse(docker('context','inspect',docker('context','show'),'--format','{{json .Endpoints.docker.Host}}'));
   expect(endpoint).toMatch(/^(npipe:\/\/|unix:\/\/)/);
@@ -76,12 +79,13 @@ test('large scan-image batches retain every input through ordinary native queues
   })));
   const pages=await Promise.all(contexts.map(context=>context.newPage()));
   const started=Date.now();
-  const report:any={version:1,scope:count===100?'100_INPUTS_ONE_OWNER_NATIVE_BATCH':'300_INPUTS_FOUR_UNEVEN_OWNERS_NATIVE_STRESS',
+  const report:any={version:1,scope:inventoryScale?'300_INPUTS_FOUR_OWNERS_150000_COPY_REVIEW':count===100?'100_INPUTS_ONE_OWNER_NATIVE_BATCH':'300_INPUTS_FOUR_UNEVEN_OWNERS_NATIVE_STRESS',
     startedAt:new Date(started).toISOString(),count,ownerTargets:targets,passed:false,
     corpusSha256:createHash('sha256').update(manifestBytes).digest('hex'),samples:[],progress:[],authenticatedInventory:[],
     limits:['Reused 67 development scans with repetitions, not independent physical/printing accuracy',
       'Logical capture candidates, no physical scanner or Inventory commit',
-      'Fixture owners have empty Inventory; this is not the 150,000-copy database-load gate',
+      inventoryScale?'150,000 physical copies in 16,400 rows across four disposable owners; not 150,000 rows or independent printing accuracy':
+        'Fixture owners have empty Inventory; this is not the 150,000-copy database-load gate',
       'Sampled Docker readings and authenticated page fetches, not exhaustive peaks or operator throughput']};
   const output=process.env.MTG_ACQUISITION_LARGE_BATCH_REPORT_PATH;
   const save=()=>{if(output)writeFileSync(output,JSON.stringify(report,null,2)+'\n');};
@@ -125,10 +129,25 @@ test('large scan-image batches retain every input through ordinary native queues
     expect(response.status()).toBe(200);save();
   };
   let timer:ReturnType<typeof setInterval>|undefined;
+  let qualified=false;
+  const inventoryBaselines: unknown[]=[];
   try{
+    report.existingInventoryBefore=database(inventoryFingerprintBody());save();
     report.workersBefore=workerSnapshots();save();
     for(const worker of report.workersBefore)assertNativeWorkerContinuity(worker,worker);
     database(`for(const owner of ${JSON.stringify(owners)}){const n=owner.tag;const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash,role:'PLAYER'}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:owner.target,sections:[{name:'A',capacity:owner.target}]}}});}console.log('{}');`);
+    if(inventoryScale){
+      const seededAt=Date.now();
+      report.inventoryScale=database(seedInventoryScaleBody(owners.map(owner=>owner.tag)),60000);
+      expect(report.inventoryScale).toMatchObject({rows:16400,copies:150000,locations:2501,printingCount:5000});
+      report.inventoryScale.seedMilliseconds=Date.now()-seededAt;
+    }
+    for(const [i,owner] of owners.entries()){
+      const fingerprint=database(inventoryFingerprintBody(owner.tag));
+      expect(fingerprint).toMatchObject(inventoryScale?{rows:inventoryScaleOwners[i].rows,copies:inventoryScaleOwners[i].copies}:{rows:0,copies:0});
+      inventoryBaselines.push(fingerprint);
+    }
+    report.inventoryBaselines=inventoryBaselines;save();
     sample();timer=setInterval(sample,30000);
     await Promise.all(pages.map(async(page,i)=>{
       const owner=owners[i];
@@ -160,7 +179,8 @@ test('large scan-image batches retain every input through ordinary native queues
       const inputs=database(`const where={run:{session:{ownerPlayerId:${JSON.stringify(owner.tag)}}}};const candidates=await p.acquisitionCandidate.findMany({where,orderBy:{acquisitionOrder:'asc'},select:{observations:{select:{artifact:{select:{digest:true}}}}}});console.log(JSON.stringify({photos:await p.acquisitionPhoto.count({where:{...where,ready:true}}),artifacts:await p.acquisitionArtifact.count({where}),slots:await p.acquisitionCaptureSlot.count({where}),candidates:await p.acquisitionCandidate.count({where}),inventory:await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(owner.tag)}}}),digests:candidates.map(c=>{if(c.observations.length!==1)throw Error('Expected one observation per single-image candidate');return c.observations[0].artifact.digest})}));`);
       report.inputs??=[];report.inputs[i]=inputs;save();
       for(const key of ['photos','artifacts','slots','candidates'])expect(inputs[key]).toBe(owner.target);
-      expect(inputs.inventory).toBe(0);
+      expect(inputs.inventory).toBe(inventoryScale?inventoryScaleOwners[i].rows:0);
+      expect(database(inventoryFingerprintBody(owner.tag))).toEqual(inventoryBaselines[i]);
       expect(inputs.digests).toEqual(Array.from({length:owner.target},(_,n)=>originals[n%originals.length].digest));
     }));
     report.uploadsReadyMilliseconds=Date.now()-started;save();
@@ -179,7 +199,7 @@ test('large scan-image batches retain every input through ordinary native queues
     for(const [i,owner] of owners.entries()){
       const state=database(`const where={run:{session:{ownerPlayerId:${JSON.stringify(owner.tag)}}}};const jobs=await p.acquisitionProcessingJob.findMany({where:{...where,stage:'photo-printing-evidence-v1',status:'COMPLETE'},orderBy:{candidate:{acquisitionOrder:'asc'}},select:{output:true,artifact:{select:{digest:true}}}});console.log(JSON.stringify({photos:await p.acquisitionPhoto.count({where:{...where,ready:true}}),artifacts:await p.acquisitionArtifact.count({where}),slots:await p.acquisitionCaptureSlot.count({where}),candidates:await p.acquisitionCandidate.count({where}),inventory:await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(owner.tag)}}}),rows:jobs.map(j=>({digest:j.artifact.digest,nativeDigest:j.output.printingNative.photoDigest,automatic:j.output.proposals.automaticAcceptance,descriptor:j.output.printingNative.descriptor}))}));`);
       for(const key of ['photos','artifacts','slots','candidates'])expect(state[key]).toBe(owner.target);
-      expect(state.rows).toHaveLength(owner.target);expect(state.inventory).toBe(0);
+      expect(state.rows).toHaveLength(owner.target);expect(state.inventory).toBe(inventoryScale?inventoryScaleOwners[i].rows:0);
       for(const [n,row] of state.rows.entries()){
         expect(row.digest).toBe(originals[n%originals.length].digest);expect(row.nativeDigest).toBe(row.digest);
         expect(row.automatic).toBe(false);
@@ -201,16 +221,21 @@ test('large scan-image batches retain every input through ordinary native queues
       const saved=database(`console.log(JSON.stringify(await p.acquisitionCandidate.findFirstOrThrow({where:{run:{session:{ownerPlayerId:${JSON.stringify(owner.tag)}}},acquisitionOrder:0},select:{review:true,revision:true}})));`);
       await page.reload();await first.scrollIntoViewIfNeeded();await expect(first).toContainText('LP');
       expect(database(`console.log(JSON.stringify(await p.acquisitionCandidate.findFirstOrThrow({where:{run:{session:{ownerPlayerId:${JSON.stringify(owner.tag)}}},acquisitionOrder:0},select:{review:true,revision:true}})));`)).toEqual(saved);
-      expect(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(owner.tag)}}}));`)).toBe(0);
+      expect(database(inventoryFingerprintBody(owner.tag))).toEqual(inventoryBaselines[i]);
+      if(inventoryScale){
+        // Additional bounded authenticated samples; retain each measurement
+        // rather than presenting a small sample as an operator throughput target.
+        for(let sample=0;sample<4;sample++)await measureInventory(page,i);
+      }
       for(const width of [1366,390]){
         await page.setViewportSize({width,height:900});await first.scrollIntoViewIfNeeded();
         expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-        await page.screenshot({path:`test-results/large-batch-${count}-owner-${i}-${width}.png`});
+        await page.screenshot({path:`test-results/large-batch-${count}${inventoryScale?'-inventory-scale':''}-owner-${i}-${width}.png`});
       }
     }
     report.workersAfter=workerSnapshots();
     for(const [i,worker] of report.workersAfter.entries())assertNativeWorkerContinuity(report.workersBefore[i],worker);
-    report.passed=true;
+    qualified=true;
   }finally{
     if(timer)clearInterval(timer);report.finishedAt=new Date().toISOString();save();
     await Promise.allSettled(failedResponses);
@@ -233,14 +258,19 @@ test('large scan-image batches retain every input through ordinary native queues
       });save();
     }catch{report.workerLifetimeUnavailable=true;save();}
     for(const owner of owners){
-      database(`const n=${JSON.stringify(owner.tag)};await p.acquisitionSession.updateMany({where:{ownerPlayerId:n},data:{phase:'CANCELLED'}});const sessions=await p.acquisitionSession.findMany({where:{ownerPlayerId:n},select:{id:true}});const runs=await p.acquisitionRun.findMany({where:{sessionId:{in:sessions.map(s=>s.id)}},select:{id:true}});const where={runId:{in:runs.map(r=>r.id)}};const photos=await p.acquisitionPhoto.findMany({where});await p.acquisitionProcessingJob.deleteMany({where});await p.acquisitionPhoto.deleteMany({where});await p.acquisitionCommand.deleteMany({where});await p.acquisitionCaptureSlot.deleteMany({where});await p.acquisitionCountCorrection.deleteMany({where});await p.acquisitionObservation.deleteMany({where});await p.acquisitionEvent.deleteMany({where});await p.acquisitionCandidate.deleteMany({where});await p.acquisitionArtifact.deleteMany({where});await p.acquisitionRun.deleteMany({where:{id:{in:runs.map(r=>r.id)}}});await p.acquisitionSession.deleteMany({where:{id:{in:sessions.map(s=>s.id)}}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});const fs=require('fs/promises'),path=require('path');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw Error('Invalid owned photo path');for(const suffix of ['original','preview.jpg'])await fs.unlink(path.join(process.env.UPLOADS_DATA_PATH,'acquisition-v1',photo.id+'.'+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e});}console.log('{}');`);
+      database(`const n=${JSON.stringify(owner.tag)};await p.acquisitionSession.updateMany({where:{ownerPlayerId:n},data:{phase:'CANCELLED'}});const sessions=await p.acquisitionSession.findMany({where:{ownerPlayerId:n},select:{id:true}});const runs=await p.acquisitionRun.findMany({where:{sessionId:{in:sessions.map(s=>s.id)}},select:{id:true}});const where={runId:{in:runs.map(r=>r.id)}};const photos=await p.acquisitionPhoto.findMany({where});await p.acquisitionProcessingJob.deleteMany({where});await p.acquisitionPhoto.deleteMany({where});await p.acquisitionCommand.deleteMany({where});await p.acquisitionCaptureSlot.deleteMany({where});await p.acquisitionCountCorrection.deleteMany({where});await p.acquisitionObservation.deleteMany({where});await p.acquisitionEvent.deleteMany({where});await p.acquisitionCandidate.deleteMany({where});await p.acquisitionArtifact.deleteMany({where});await p.acquisitionRun.deleteMany({where:{id:{in:runs.map(r=>r.id)}}});await p.acquisitionSession.deleteMany({where:{id:{in:sessions.map(s=>s.id)}}});await p.inventoryItem.deleteMany({where:{currentOwnerId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n,parentLocationId:{not:null}}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});const fs=require('fs/promises'),path=require('path');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw Error('Invalid owned photo path');for(const suffix of ['original','preview.jpg'])await fs.unlink(path.join(process.env.UPLOADS_DATA_PATH,'acquisition-v1',photo.id+'.'+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e});}console.log('{}');`);
     }
-    report.cleanup=database(`console.log(JSON.stringify({users:await p.user.count({where:{id:{in:${JSON.stringify(owners.map(o=>o.tag))}}}}),sessions:await p.acquisitionSession.count({where:{ownerPlayerId:{in:${JSON.stringify(owners.map(o=>o.tag))}}}}),inventory:await p.inventoryItem.count({where:{currentOwnerId:{in:${JSON.stringify(owners.map(o=>o.tag))}}}})}));`);
-    save();for(const context of contexts)await context.close();
+    report.cleanup=database(`console.log(JSON.stringify({users:await p.user.count({where:{id:{in:${JSON.stringify(owners.map(o=>o.tag))}}}}),sessions:await p.acquisitionSession.count({where:{ownerPlayerId:{in:${JSON.stringify(owners.map(o=>o.tag))}}}}),locations:await p.inventoryLocation.count({where:{ownerPlayerId:{in:${JSON.stringify(owners.map(o=>o.tag))}}}}),inventory:await p.inventoryItem.count({where:{currentOwnerId:{in:${JSON.stringify(owners.map(o=>o.tag))}}}})}));`);
+    report.existingInventoryAfter=database(inventoryFingerprintBody());
+    save();
+    for(const context of contexts)await context.close();
     for(const file of spooled){
       if(!path.resolve(file).startsWith(spool+path.sep))throw Error('Unexpected private fixture path');
       unlinkSync(file);
     }
     rmdirSync(spool);
+    expect(report.cleanup).toEqual({users:0,sessions:0,locations:0,inventory:0});
+    if(report.existingInventoryBefore)expect(report.existingInventoryAfter).toEqual(report.existingInventoryBefore);
+    report.passed=qualified;save();
   }
 });
