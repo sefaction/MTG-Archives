@@ -48,6 +48,14 @@ internal static class ScannerCountedSelfTest
         Directory.CreateDirectory(root);
         try
         {
+            foreach (var scenario in new[] { "blank-discard-auto", "blank-proof-missing", "blank-proof-malformed" })
+            {
+                using var refusedBackend = new CountedTwainBackend(scenario);
+                var refused = false;
+                try { await refusedBackend.Prepare(request); }
+                catch (InvalidOperationException) { refused = true; }
+                if (!refused) throw new InvalidDataException("Unsafe/unknown blank discard proof reached prepared state");
+            }
             foreach (var scenario in new[] { "normal", "early-empty", "overtransfer", "restore-error" })
             {
                 var run = request with { RunId = Guid.NewGuid() };
@@ -71,7 +79,7 @@ internal static class ScannerCountedSelfTest
                 try { await backend.Start(spool); } catch (InvalidOperationException) { denied = true; }
                 if (!denied) throw new InvalidDataException("Same counted backend fed twice");
             }
-            Console.WriteLine("PASS suspended physical count source refused before native preparation; motor-free counted channel, invalid profile, early-empty/restore-error/retained-overtransfer and single Start");
+            Console.WriteLine("PASS suspended physical count source refused before native preparation; automatic/missing/malformed blank-discard proofs refused before Start; motor-free counted channel, invalid profile, early-empty/restore-error/retained-overtransfer and single Start");
         }
         finally { Directory.Delete(root, true); }
     }

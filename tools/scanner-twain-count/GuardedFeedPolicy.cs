@@ -17,7 +17,7 @@ internal static class GuardedFeedPolicy
     internal static string Authorization(string nonce, int target)
     {
         return "session=" + nonce + ";target=" + target +
-            ";visible-prepick=off;loaded=3-expendable;transport=clear;ready=once";
+            ";visible-prepick=off;blank-discard=disabled;loaded=3-expendable;transport=clear;ready=once";
     }
     internal static void RequireAuthorization(string actual, string nonce, int target)
     {
@@ -48,6 +48,8 @@ internal static class GuardedFeedPolicy
         RequireAuthorization(Authorization(nonce, 1), nonce, 1);
         foreach (var token in new[] { "operator-ready", "", Authorization(nonce, 2), Authorization("old-session", 1),
             Authorization(nonce, 1).Replace("visible-prepick=off", "visible-prepick=on"),
+            Authorization(nonce, 1).Replace(";blank-discard=disabled", ""),
+            Authorization(nonce, 1).Replace("blank-discard=disabled", "blank-discard=auto"),
             Authorization(nonce, 1).Replace("loaded=3-expendable", "loaded=83") })
         {
             var denied = false;
