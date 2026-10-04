@@ -21,7 +21,7 @@ test("counted source selects one, preserves hopper remainder, then explicitly re
     await page.getByRole("button",{name:/^log in$/i}).click();await page.waitForURL(/\/dashboard/);
     const pair=await page.request.post("/api/scanners",{headers:origin,data:{action:"pair"}});expect(pair.ok()).toBe(true);
     expect((await page.request.post("/api/scanner-agent/pair",{data:{version:1,pairCode:(await pair.json()).code,agentId,secret,name:"Counted protocol fixture"}})).ok()).toBe(true);
-    const pulse=async()=>expect((await page.request.post("/api/scanner-agent/pulse",{headers,data:{version:1,agentVersion:"0.3.0-native",devices:[source]}})).ok()).toBe(true);
+    const pulse=async(qualification="KnownWorking")=>expect((await page.request.post("/api/scanner-agent/pulse",{headers,data:{version:1,agentVersion:"0.3.0-native",devices:[{...source,qualification}]}})).ok()).toBe(true);
     await pulse();await page.goto("/imports/scan?input=scanner");
     await page.getByTestId("storage-destination").getByRole("combobox").fill(tag);await page.getByRole("option").first().click();
     await page.getByRole("button",{name:/^A\s/}).click();
@@ -46,6 +46,13 @@ test("counted source selects one, preserves hopper remainder, then explicitly re
       const response=await page.request.post("/api/scanner-agent/runs",{headers,data:{action:"finish",...claim,outcome:{outcome:empty?"SOURCE_EXHAUSTED":"COMPLETED",
         imageCount:count,elapsedMs:100,knownPhysicalItems:null,sourceExhausted:empty?"REPORTED_EMPTY":"UNKNOWN",nativeError:null}}});expect(response.ok(),await response.text()).toBe(true);
     };
+    const queued=await polled();
+    await pulse("Unsupported");
+    const refused=await page.request.post("/api/scanner-agent/runs",{headers,data:{action:"claim",version:1,
+      runId:queued.run.runId,epoch:queued.epoch,executionId:randomUUID()}});
+    expect(refused.status()).toBe(409);
+    expect(await refused.text()).toContain("needs review or reconciliation");
+    expect((await polled()).run.status).toBe("QUEUED");
     const first=await begin();expect(first.run.physicalTarget).toBe(1);expect(first.run.settings.widthInches).toBe(2.7);expect(first.run.settings.dpi).toBe(600);
     await transfer(first.claim,1);await finish(first.claim,1,false);
     await expect(scanner).toContainText("Selected count reached.");await scanner.getByLabel("Cards physically emitted").fill("1");
@@ -68,7 +75,11 @@ test("counted source selects one, preserves hopper remainder, then explicitly re
     for(const width of [1366,320]) {await page.setViewportSize({width,height:900});await scanner.scrollIntoViewIfNeeded();
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:"test-results/scanner-counted-paused-"+width+".png"});}
     await page.reload();await expect(scanner).toContainText("Refill this batch");
-    await scanner.getByRole("checkbox",{name:/I refilled card fronts/}).check();await pulse();
+    await scanner.getByRole("checkbox",{name:/I refilled card fronts/}).check();await pulse("Unsupported");
+    await scanner.getByRole("button",{name:"Resume unfinished batch",exact:true}).click();
+    await expect(scanner.getByRole("alert")).toContainText("supports card counts");
+    await expect(scanner).toContainText("1 cards remain in this batch");
+    await pulse();
     await scanner.getByRole("button",{name:"Resume unfinished batch",exact:true}).click();
     await expect(scanner).toContainText("Waiting for the Windows helper to start.");
     const resumed=await begin();expect(resumed.run.runId).not.toBe(early.run.runId);expect(resumed.run.sessionId).toBe(early.run.sessionId);

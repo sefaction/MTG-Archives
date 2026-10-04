@@ -42,7 +42,7 @@ export async function verifyCountedScanner(db: PrismaClient) {
       const pair=await createScannerPairing(db,tag),agentId=randomUUID(),secret=scannerSecret();
       await claimScannerPairing(db,{version:1,pairCode:pair.code,agentId,secret,name:"Counted fixture"});
       const token="Bearer "+agentId+"."+secret;
-      const pulse=()=>recordScannerPulse(db,token,{version:1,agentVersion:"fixture",devices:[source]});
+      const pulse=(devices=[source])=>recordScannerPulse(db,token,{version:1,agentVersion:"fixture",devices});
       await pulse(); return {agentId,token,pulse};
     }
     const first=await enroll(),second=await enroll();
@@ -52,6 +52,12 @@ export async function verifyCountedScanner(db: PrismaClient) {
       requestKey:randomUUID(),agentId:helper.agentId,deviceId:source.id,locationId,section,quantity,loadedCount,settings,operatorLoadedSimplexFronts:true});
     const capacity=(locationId=box,section="A",excludeSessionId?:string)=>db.$transaction(tx=>readScannerCapacity(tx,{locationId,section,ownerPlayerId:tag,excludeSessionId}));
     assert.equal((await capacity()).remaining,83);
+    const beforeQualification = await db.acquisitionSession.count({where:{createdByUserId:tag}});
+    await first.pulse([{...source,qualification:"GenericUnqualified"}]);
+    await assert.rejects(createScannerBatch(db,actor,setup(first),epoch));
+    assert.equal(await db.acquisitionSession.count({where:{createdByUserId:tag}}),beforeQualification);
+    assert.equal((await capacity()).remaining,83);
+    await first.pulse();
     await assert.rejects(createScannerBatch(db,actor,setup(first,box,""),epoch),/Choose a section/);
     await assert.rejects(createScannerBatch(db,actor,setup(first,box,"missing"),epoch),/Choose a section/);
     const large=await createScannerBatch(db,actor,setup(first,box,"A",null,84),epoch);
@@ -82,7 +88,24 @@ export async function verifyCountedScanner(db: PrismaClient) {
     };
     const observe=(runId:string,count:number,remaining=0)=>({runId,cardsEmitted:count,feederEmpty:remaining===0,remainingCards:remaining,
       remainingWhollyInHopper:true,transportEmpty:true,eachImageIsOneCardFront:true,noJamOrDouble:true});
-    const largeClaim=await claim(first,large.runId),largeImages=await images(first,largeClaim,83);
+    // A source can lose qualification after admission, before durable START.
+    // Refusal preserves the queued run and its reservation without a marker.
+    for (const devices of [[{...source,qualification:"Unsupported"}],
+      [{...source,qualification:"GenericUnqualified"}], [], [{...source,backend:"another-backend"}]]) {
+      await first.pulse(devices);
+      await assert.rejects(claimScannerRun(db,first.token,{version:1,runId:large.runId,epoch,executionId:randomUUID()},epoch));
+      assert.equal(await scannerStartMarkerExists(large.runId),false);
+      assert.equal((await getScannerBatch(db,tag,large.runId)).status,"QUEUED");
+      assert.equal((await capacity()).remaining,0);
+    }
+    await db.scannerAgent.update({where:{id:first.agentId},data:{lastSeenAt:new Date(Date.now()-31000)}});
+    await assert.rejects(claimScannerRun(db,first.token,{version:1,runId:large.runId,epoch,executionId:randomUUID()},epoch));
+    assert.equal(await scannerStartMarkerExists(large.runId),false);
+    const largeClaim=await claim(first,large.runId);
+    await first.pulse([{...source,qualification:"Unsupported"}]);
+    // Existing START replay and retained image delivery are still recoverable.
+    assert.equal((await claimScannerRun(db,first.token,largeClaim,epoch)).replay,true);
+    const largeImages=await images(first,largeClaim,83);
     await finish(first,largeClaim,83,false);
     assert.equal((await getScannerBatch(db,tag,large.runId)).phase,"COMPLETE");
     assert.equal((await getAcquisitionSession(db,actor,large.sessionId)).session.candidates.filter(c=>c.countConfirmed).length,0);
@@ -119,6 +142,15 @@ export async function verifyCountedScanner(db: PrismaClient) {
     const saved=await getAcquisitionCardReview(db,actor,small.sessionId,firstReview.photoId);
     await assert.rejects(refillScannerBatch(db,foreign,refill,epoch));
     await assert.rejects(refillScannerBatch(db,tag,refill,randomUUID()));
+    await first.pulse();
+    const beforeRefillRuns=await db.scannerRun.count({where:{agentId:first.agentId}});
+    for (const devices of [[{...source,qualification:"Unsupported"}], [{...source,qualification:"GenericUnqualified"}], []]) {
+      await first.pulse(devices);
+      await assert.rejects(refillScannerBatch(db,tag,refill,epoch));
+      assert.equal(await db.scannerRun.count({where:{agentId:first.agentId}}),beforeRefillRuns);
+      assert.equal((await getAcquisitionSession(db,actor,small.sessionId)).session.phase,"PAUSED");
+      assert.equal(await scannerStartMarkerExists(refill.requestKey),false);
+    }
     await first.pulse();
     const concurrent=await Promise.all([refillScannerBatch(db,tag,refill,epoch),refillScannerBatch(db,tag,refill,epoch)]);
     assert.equal(concurrent[0].runId,concurrent[1].runId);
