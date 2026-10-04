@@ -6,6 +6,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { realpathSync } from "node:fs";
 import { captureQuiescentLocalDrill } from "./backup-drill-local-capture";
+import { restoreDrillDockerFailureCode } from "../lib/backup-drill";
 
 // Mount guards use the snapshot repository cwd; checked-out verification code
 // belongs to this runner's own worktree, which may be a cumulative review branch.
@@ -21,14 +22,18 @@ function docker(args: string[]) {
       stdio: ["ignore", "pipe", "pipe"],
     }).trim();
   } catch (error: any) {
-    const summary = String(error.stderr || "")
+    const summary = `${error.stdout || ""}\n${error.stderr || ""}`
       .split(/\r?\n/)
       .filter(
         (line) =>
           line.startsWith("Recovery drill ") ||
+          line.startsWith('{"restoreDrillStage":') ||
           line.startsWith('{"restoreCompatibilityDiagnostics":'),
       );
     if (summary.length) console.error(summary.join("\n"));
+    console.error(JSON.stringify({ dockerDrillFailure: {
+      operation: args[0], code: restoreDrillDockerFailureCode(error),
+    } }));
     throw new Error(`Docker drill step failed: ${args[0]}`);
   }
 }
@@ -194,7 +199,7 @@ async function main() {
       "--network",
       network,
       "--entrypoint",
-      "/app/node_modules/.bin/tsx",
+      "node",
       "-e",
       "MTG_LOCAL_PILOT_TEST=1",
       "-e",
@@ -204,8 +209,8 @@ async function main() {
       "--mount",
       `type=bind,source=${archiveDirectory},target=/input,readonly`,
       config.Image,
-      "scripts/verify-backup-restore-container.ts",
-      "restore",
+      "-e",
+      "setInterval(() => {}, 1000)",
     ]);
     created.push(runner);
     // The drill helper can evolve without rebuilding/restarting the live app.
@@ -246,12 +251,12 @@ async function main() {
     console.log(
       "Restoring in isolated containers (no host ports or outbound workers).",
     );
-    console.log(docker(["start", "--attach", runner]));
-    assert.equal(
-      JSON.parse(docker(["inspect", runner]))[0].State.ExitCode,
-      0,
-      "Restore verification failed",
-    );
+    docker(["start", runner]);
+    for (const phase of ["restore-validate", "restore-apply"]) {
+      console.log(JSON.stringify({ restoreDrillStage: phase }));
+      console.log(docker(["exec", runner, "/app/node_modules/.bin/tsx",
+        "scripts/verify-backup-restore-container.ts", phase]));
+    }
   } finally {
     for (const name of created.reverse()) {
       const owned = JSON.parse(docker(["inspect", name]))[0];
