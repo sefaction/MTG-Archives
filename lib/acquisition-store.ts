@@ -3,6 +3,7 @@ import { Prisma, PrismaClient, type InventoryLocation } from "@prisma/client";
 import { z } from "zod";
 import { SCANNER_CAPTURE_PROVIDER, scannerCanonical } from "./scanner-run-protocol";
 import { acquisitionImageInputKindSchema, type AcquisitionImageInputKind } from "./acquisition-image-input";
+import {acquisitionConflictBackoff} from "./acquisition-upload";
 import { isAdminUser } from "./auth-policy";
 import { requireVisibleAcquisitionBatch, requireProcessingAcquisitionBatch } from "./acquisition-batch-policy";
 import { getStorageLocations } from "./storage-summary";
@@ -130,7 +131,7 @@ async function transaction<T>(
         )
       )
         throw error;
-      await new Promise((resolve) => setTimeout(resolve, 15 * 2 ** attempt));
+      await new Promise((resolve) => setTimeout(resolve, acquisitionConflictBackoff(attempt)));
     }
   }
 }
