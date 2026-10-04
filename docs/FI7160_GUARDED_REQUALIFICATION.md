@@ -1,9 +1,65 @@
 # Guarded fi-7160 requalification
 
+## Current staged procedure — October 3, 2026
+
+The repaired one-of-three diagnostic passed with operator-confirmed boundary and
+clean process exit. The two-of-three trial retained two originals, restored all
+twelve settings, closed source/DSM and joined the owned loop, with actual exit0,
+empty stderr and no remaining owner. The operator confirmed two ran and one
+remained wholly in the hopper with clear transport. The subsequent five-of-six
+stage also retained five originals with zero failures, twelve restores, clean
+source/DSM/window/thread closure, actual exit0, empty stderr and no remaining owner.
+The operator confirmed exactly five and the remaining card in place in response
+to the full boundary/transport question. The ten-of-eleven retest then retained ten
+originals with zero failures, twelve restores, source/DSM closure and owned-loop
+cleanup, actual exit0, empty stderr and no remaining owner. The operator confirmed
+ten scanned, one wholly in the hopper and clear transport. These are scoped
+one/two/five/ten boundary and clean-exit passes; the original failed ten-card trial
+and its evidence remain recorded under issue602.
+See [post-UI blank control](FI7160_POST_UI_BLANK_CONTROL.md) for the Cancel reset
+repair; the historical reports below retain earlier failed shutdown evidence.
+
+The diagnostic now prepares explicit five-of-six and ten-of-eleven stages as well
+as one/two-of-three. This supplies the subsequent qualification steps, not arbitrary
+or production count control. Advance to five only after the two-card physical gate
+passes; advance to ten only after the five-card gate passes. Any unexpected movement,
+damage, count, restoration or closure result stops progression for reconciliation.
+All stages start with fresh empty/clear confirmation and a new private directory,
+exact known worker identity, visible Cards/Pre-Pick Off inspection, unchanged Cancel
+and full disabled-blank profile readbacks. Then obtain a separate fresh supervised
+loading/transport readiness response for that exact stage:
+
+| Command | Requested images | Loaded expendable cards | Required remainder |
+| --- | ---: | ---: | ---: |
+| `qualify-one-of-three` | 1 | 3 | 2 wholly in hopper |
+| `qualify-two-of-three` | 2 | 3 | 1 wholly in hopper |
+| `qualify-five-of-six` | 5 | 6 | 1 wholly in hopper |
+| `qualify-ten-of-eleven` | 10 | 11 | 1 wholly in hopper |
+
+Arguments remain `<NEW absolute private evidence directory> <known Mtg.CountedTwain.exe>`.
+The fresh nonce/target readiness token now binds the exact stage's loaded count.
+Wrong target, wrong loading, stale session, legacy commands and arbitrary counts
+including83 refuse. One/two tokens retain their existing three-card format. Every
+stage consumes one authorization, rechecks full capture settings immediately before
+one acquisition Enable, retains every original and requires operator observations
+of undamaged exits, wholly remaining cards and clear transport. No timeout retry,
+count-by-cancellation, vendor SET or automatic stage progression is added.
+
+The staged five/ten tests passed on hardware with the new staged executable.
+The helper and direct native counted
+routes remain suspended before source access. This tool expansion does not replace
+integrated website capacity/refill/section-series acceptance or authorize its feeds.
+Old one/two physical evidence retains the previously tested executable identity;
+the staged binary has its own hash and passed fresh hardware settings/readiness
+gates for five and ten. Local app/installer inputs are unchanged; the cumulative qualified
+PR613 app/PR611 installer remain loaded, with installed helpers stopped.
+
 Counted production feeding remains suspended after the ten-image trial partly
 pulled an eleventh card into the transport ([602](https://github.com/sefaction/MTG-Archives/issues/602)).
-This change prepares a separate supervised small diagnostic. It does not remove
-the helper 0.4.1 block, qualify a physical count, or authorize unattended feeding.
+This change provides separately supervised diagnostics. It does not remove
+the helper 0.4.1 block or authorize unattended feeding. Normal helper preparation,
+website-controlled transfer, capacity/refill and section-series hardware acceptance
+remain to be completed.
 The native companion also refuses direct `helper-channel-v1` launches before
 reading input or constructing TWAIN; its motor-free fixture route remains usable.
 
@@ -31,7 +87,7 @@ The correlated `0x80FD` value is **not an official Pre-Pick capability mapping**
 No official mapping was obtained from installed help or the archived official SDK.
 The SDK was downloaded for document research, never installed or executed.
 
-## Revised diagnostic
+## Initial one/two-only diagnostic (historical)
 
 The rebuilt x86 `CountFeed.exe` refuses the legacy `feed-one-of-three` and
 `feed-two-of-three` commands. Its only qualification targets are one and two
@@ -73,7 +129,7 @@ scanner source is intentional while awaiting specific readiness; do not launch
 another owner or kill an uncertain transport. The readiness file is a local
 diagnostic coordinator signal, not a website/helper production authorization.
 
-## Acceptance
+## Initial qualification evidence (historical)
 
 Compilation and motor-free policy tests cover revised small targets, legacy
 command refusal, mismatched session/target/incomplete readiness, unavailable or
