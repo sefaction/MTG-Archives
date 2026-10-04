@@ -80,6 +80,29 @@ Use the same test IDs and privately stored ground-truth corpus for primary fi-71
 
 Comparison report: raw n, failures/doubles/marks per observed sample, normalized rates with sample size, pairing errors, overscan frequency/count, actual cards/time, bytes/card and recognition review rate. Sleeves are outside the confirmed baseline and require separate validation. A virtual source pass qualifies software integration only.
 
+### Current fi-7160 evidence boundary — October 4, 2026
+
+The [programmatic qualification](FI7160_PROGRAMMATIC_COUNT_CONTROL.md) now includes
+the completed 83-card logical batch, two supervised 25-card loads, final three-of-four
+boundary, explicit next-section B handoff and persistent Stop. Originals, upload
+receipts and segment order were independently checked; Inventory stayed unchanged.
+The wider hardware matrix is still open:
+
+| IDs | Supported evidence | Remaining characterization |
+| --- | --- | --- |
+| H01 | Exact PaperStream driver/protocol, legacy x86 DSM and twelve guarded capture settings; actual no-feed preparation/restoration/exit | Consumable counters and roller baseline |
+| H02/H04 | Simplex diagnostic 1/2/5/10 boundaries and integrated A2/B3 and A83/B2 series, extra card wholly in hopper at tested boundaries | Independent duplex/order proof and larger fixed-count stopping boundary |
+| H03 | Repeated ten-card and two 25-card refills; operator reported no visible damage or transport trouble | Longer reliability sample; larger hopper stacks are not qualified |
+| H05 | Counted profile refuses duplex; image count is explicitly an assumption about card fronts | Side identity, missing/generic/DFC back characterization |
+| H06/H07 | Exact 600 DPI RGB24 simplex/current frame, AutoScan false and blank removal disabled | Controlled alternative-DPI/crop/rotation/blank comparisons; operational guards must stay intact |
+| H08 | Actual early-empty/zero-image recovery with same-batch refill; software fault/overflow/closure/replay gates | Safe physical fault characterization, without forcing damaging jams |
+| H09 | Operator no-visible-damage reports after tested loads | Before/after surface, rollers and counter evidence; recurring native magenta lines tracked in [648](https://github.com/sefaction/MTG-Archives/issues/648); no durability claim |
+| H10 | Desk-move reconnection, actual empty checks and idle chosen-helper Close/reopen with retained partial batch | Other connection switching and controlled interruption coverage; physical active-run Close was declined |
+
+This distinguishes the tested operational profile from the broader scanner study.
+Refusal of an unsupported mode is a software safety result, not a physical pass for
+that mode. Recognition proposals remain reviewable and Inventory addition explicit.
+
 ## Kickoff qualification additions
 
 P1 batch 1 must cover every [kickoff acceptance case](reference/card-acquisition/implementation-kickoff.md#required-acceptance-cases) with behavioral tests. Gate A remains incomplete until real PostgreSQL identity/ownership constraints pass; pure replay/stop fixtures are only the pure portion of Gate B.
