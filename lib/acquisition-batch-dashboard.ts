@@ -34,7 +34,7 @@ export async function getAcquisitionBatchDashboard(db: PrismaClient, actor: Acqu
   const filter = query.view === "trash" ? Prisma.sql`trashed` : query.view === "cancelled" ? Prisma.sql`NOT trashed AND cancelled` :
     query.view === "closed" ? Prisma.sql`NOT trashed AND NOT cancelled AND NOT pending` :
     query.view === "pending" ? Prisma.sql`NOT trashed AND pending` : Prisma.sql`NOT trashed`;
-  const [result] = await db.$queryRaw<{rows: BatchDashboardRow[]; total: number; totals: BatchDashboard["totals"]}[]>`
+  const [result] = await db.$queryRaw<{rows: BatchDashboardRow[]; total: number; page: number; totals: BatchDashboard["totals"]}[]>`
     WITH sessions AS (
       SELECT s.*, r.id AS "runId", l.name AS location, p."displayName" AS owner,
         (s."cancelledAt" IS NOT NULL OR s.phase='CANCELLED') AS cancelled,
@@ -73,15 +73,18 @@ export async function getAcquisitionBatchDashboard(db: PrismaClient, actor: Acqu
     ), filtered AS (
       SELECT * FROM metrics WHERE ${filter} AND (${query.q === ""} OR "batchNumber"::text ILIKE ${search}
         OR COALESCE(location,'') ILIKE ${search} OR section ILIKE ${search} OR owner ILIKE ${search})
+    ), pagination AS (
+      SELECT COUNT(*)::int AS total,
+        GREATEST(1, LEAST(${query.page}::int, CEIL(COUNT(*) / 25.0)::int)) AS page FROM filtered
     )
     SELECT COALESCE((SELECT jsonb_agg(to_jsonb(page)) FROM (
       SELECT id,"batchNumber",phase,cancelled,trashed,draining,"updatedAt","trashExpiresAt",location,section,owner,
         captured,evaluated,assigned,confirmed,added,processing,failed,pending FROM filtered
-      ORDER BY "updatedAt" DESC,id DESC LIMIT 25 OFFSET ${(query.page - 1) * 25}) page),'[]'::jsonb) AS rows,
-      (SELECT COUNT(*)::int FROM filtered) AS total,
+      ORDER BY "updatedAt" DESC,id DESC LIMIT 25 OFFSET (SELECT (page - 1) * 25 FROM pagination)) page),'[]'::jsonb) AS rows,
+      (SELECT total FROM pagination) AS total, (SELECT page FROM pagination) AS page,
       (SELECT jsonb_build_object('batches',COUNT(*),'pending',COUNT(*) FILTER (WHERE pending),
         'captured',COALESCE(SUM(captured),0),'evaluated',COALESCE(SUM(evaluated),0),'assigned',COALESCE(SUM(assigned),0),
         'confirmed',COALESCE(SUM(confirmed),0),'added',COALESCE(SUM(added),0)) FROM metrics WHERE NOT trashed) AS totals
   `;
-  return {...result, page: query.page, pages: Math.max(1, Math.ceil(result.total / 25))};
+  return {...result, pages: Math.max(1, Math.ceil(result.total / 25))};
 }

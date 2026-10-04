@@ -6,6 +6,9 @@ Closed, Cancelled and Trash to find older work. Lists contain 25 batches per pag
 Counts refresh every 20 seconds while the page is visible. Automatic updates
 wait while search is being edited or a cancellation/Trash confirmation is open;
 they can be switched off. Refresh batches also updates counts on demand.
+If the last batch on a page leaves the selected view, the refreshed list shows
+the last available page. Older page links also recover to an available page;
+an empty result always shows page one.
 Camera, uploaded-photo and scanner batches share this overview. CSV history stays
 in its existing History view.
 

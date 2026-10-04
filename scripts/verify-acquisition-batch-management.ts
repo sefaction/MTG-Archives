@@ -43,6 +43,8 @@ export async function verifyAcquisitionBatchManagement(db: PrismaClient, actor: 
     assert.ok(accepted);
     await assert.rejects(manageAcquisitionBatch(db, stranger, id, "trash"), /unavailable/);
     assert.equal((await getAcquisitionBatchDashboard(db, stranger, {view: "all", q: String(capture.batchNumber)})).total, 0);
+    const emptyPage = await getAcquisitionBatchDashboard(db, stranger, {view: "all", q: String(capture.batchNumber), page: 999});
+    assert.equal(emptyPage.page, 1); assert.equal(emptyPage.pages, 1); assert.equal(emptyPage.rows.length, 0);
     // The parent suite deliberately demoted this fixture admin earlier. A
     // remembered Admin Mode flag must not survive that live role change.
     assert.equal((await getAcquisitionBatchDashboard(db, admin, {view: "all", q: String(capture.batchNumber)})).total, 0);
@@ -82,6 +84,8 @@ export async function verifyAcquisitionBatchManagement(db: PrismaClient, actor: 
     let dashboard = await getAcquisitionBatchDashboard(db, actor, {view: "all", q: String(capture.batchNumber)});
     assert.equal(dashboard.rows[0].captured, 2); assert.equal(dashboard.rows[0].evaluated, 1);
     assert.equal(dashboard.rows[0].assigned, 2); assert.equal(dashboard.rows[0].confirmed, 0); assert.equal(dashboard.rows[0].added, 0);
+    const stalePage = await getAcquisitionBatchDashboard(db, actor, {view: "all", q: String(capture.batchNumber), page: 999});
+    assert.equal(stalePage.page, 1); assert.equal(stalePage.pages, 1); assert.equal(stalePage.rows[0].id, id);
     // A newer check replaces completion without creating another physical card.
     await db.acquisitionProcessingJob.create({data: {runId: run.id, candidateId: candidate.id, candidateRevision: candidate.revision,
       artifactId: artifact.id, stage: PRINTING_STAGE, versionKey: "batch-newer-evaluation", input: {}, createdAt: new Date(Date.now() + 1000)}});
