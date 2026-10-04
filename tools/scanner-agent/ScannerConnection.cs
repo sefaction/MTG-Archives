@@ -8,14 +8,14 @@ using System.Windows.Forms;
 
 namespace Mtg.Scanner;
 
-public record HelperConnection(Guid AgentId, string Site, string Name, bool AllowLocal, bool Disabled = false);
+public record HelperConnection(Guid AgentId, string Site, string Name, bool AllowLocal, bool Disabled = false, string? Account = null);
 public record EnrollmentCredential(string Secret, string? PairCode, string Site, bool AllowLocal);
 // Outbound HTTP only: no browser loopback API, listener or browser login cookie.
 // Site pairing is a one-use handoff. Only an authenticated START can operate a scanner.
 public static class ScannerConnection
 {
     public const string Version = "0.3.0-native";
-    public const string HelperVersion = "0.4.2";
+    public const string HelperVersion = "0.4.3";
     private static string Root => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MTGArchives", "ScannerAgent");
     public static Uri Site(string value, bool allowLocal)
     {
@@ -40,6 +40,24 @@ public static class ScannerConnection
         try { using var probe = new FileStream(Path.Combine(Root, $"{id}.serve.lock"),
             FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); return false; }
         catch (IOException error) when ((error.HResult & 0xffff) is 32 or 33) { return true; }
+    }
+    private static IEnumerable<Guid> SavedIdentities() => Directory.Exists(Root)
+        ? Directory.EnumerateFiles(Root, "*.json").Take(512)
+            .Select(file => Guid.TryParse(Path.GetFileNameWithoutExtension(file), out var id) ? id : Guid.Empty)
+            .Where(id => id != Guid.Empty) : [];
+    private static void RequireSingleService(Guid id)
+    {
+        if (SavedIdentities().Any(other => other != id && ServiceRunning(other)))
+            throw new InvalidOperationException("Another scanner connection is open. Choose the open connection and close it before switching.");
+    }
+    private static FileStream AcquireSingleService(Guid id)
+    {
+        Directory.CreateDirectory(Root);
+        FileStream lease;
+        try { lease = ScannerConnectionSelection.AcquireLease(Root); }
+        catch (IOException) { throw new InvalidOperationException("Another scanner connection is already open"); }
+        try { RequireSingleService(id); return lease; }
+        catch { lease.Dispose(); throw; }
     }
     private static HttpClient Client(Uri site) => new(new HttpClientHandler { AllowAutoRedirect = false })
         { BaseAddress = site, Timeout = TimeSpan.FromSeconds(15) };
@@ -77,10 +95,12 @@ public static class ScannerConnection
         RunSpool.WriteNew(FileFor(connection.AgentId), connection);
     }
     private static void DisableConnection(HelperConnection connection)
+        => ReplaceConnection(connection with { Disabled = true });
+    private static void ReplaceConnection(HelperConnection connection)
     {
         var temporary = FileFor(connection.AgentId) + "." + Guid.NewGuid().ToString("N") + ".pending";
         try {
-            RunSpool.WriteNew(temporary, connection with { Disabled = true });
+            RunSpool.WriteNew(temporary, connection);
             File.Move(temporary, FileFor(connection.AgentId), true);
         } finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
@@ -103,10 +123,48 @@ public static class ScannerConnection
     }
     private static void SaveCredential(HelperConnection connection, EnrollmentCredential credential) =>
         WindowsCredential.Save(connection.AgentId, JsonSerializer.Serialize(credential, RunSpool.Json));
+    private static HelperConnection RememberAccount(HelperConnection connection, JsonElement acknowledgement)
+    {
+        if (!acknowledgement.TryGetProperty("connectionAccount", out var account) || account.ValueKind != JsonValueKind.String)
+            return connection;
+        var text = account.GetString();
+        if (string.IsNullOrWhiteSpace(text) || text.Length > 160 || text.Any(char.IsControl) || text == connection.Account)
+            return connection;
+        var updated = connection with { Account = text };
+        ReplaceConnection(updated);
+        return updated;
+    }
+    private static string CloseRequest(Guid id) => Path.Combine(Root, $"{id}.close.request");
+    private static string ServiceInfo(Guid id) => Path.Combine(Root, $"{id}.serve-info.json");
+    private static void WriteServiceInfo(Guid id)
+    {
+        var temporary = ServiceInfo(id) + "." + Guid.NewGuid().ToString("N") + ".pending";
+        try {
+            RunSpool.WriteNew(temporary, new { version = 1, agentId = id, processId = Environment.ProcessId, closeAfterBatch = true });
+            File.Move(temporary, ServiceInfo(id), true);
+        } finally { if (File.Exists(temporary)) File.Delete(temporary); }
+    }
+    private static void RequestClose(Guid id)
+    {
+        if (!ServiceRunning(id)) return;
+        try {
+            var info = JsonSerializer.Deserialize<JsonElement>(File.ReadAllText(ServiceInfo(id)));
+            if (info.GetProperty("version").GetInt32() != 1 || info.GetProperty("agentId").GetGuid() != id ||
+                !info.GetProperty("closeAfterBatch").GetBoolean() || Process.GetProcessById(info.GetProperty("processId").GetInt32()).HasExited)
+                throw new InvalidOperationException("Scanner connection close status is unavailable");
+        } catch (Exception error) when (error is IOException or JsonException or KeyNotFoundException or ArgumentException or InvalidOperationException) {
+            throw new InvalidOperationException("This older helper cannot be closed here. Finish its current batch before updating the helper.");
+        }
+        var path = CloseRequest(id);
+        if (!File.Exists(path)) RunSpool.WriteNew(path, new { version = 1, agentId = id });
+    }
+    private static Guid? ChooseConnection(IReadOnlyList<HelperConnection> available, Guid? preferred)
+        => ScannerConnectionSelection.Choose(available, preferred, ServiceRunning, RequestClose);
     private static async Task Pair(HttpClient client, HelperConnection connection, EnrollmentCredential credential)
     {
-        await Send(client, "api/scanner-agent/pair", new { version = 1,
+        var acknowledgement = await Send(client, "api/scanner-agent/pair", new { version = 1,
             pairCode = credential.PairCode, agentId = connection.AgentId, credential.Secret, connection.Name }, connection.AgentId);
+        RememberAccount(connection, acknowledgement);
         SaveCredential(connection, credential with { PairCode = null });
     }
     private static (Uri site, string code, bool local) ParsePairUri(string value)
@@ -154,8 +212,9 @@ public static class ScannerConnection
         try {
             var id = await ConnectWithCode(site, code, local, false);
             StartService(id);
-            MessageBox.Show("Connected. Return to Scan cards and choose your scanner.",
-                "MTG Archives Scanner", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ScannerConnectionSelection.Save(Root, id);
+            // The foreground launcher must leave after startup, so counted
+            // preparation sees only the selected background helper owner.
         } catch {
             MessageBox.Show("Connection failed. Return to Scan cards and try Connect a scanner again.",
                 "MTG Archives Scanner", MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -164,7 +223,12 @@ public static class ScannerConnection
     }
     private static void StartService(Guid id)
     {
-        if (ServiceRunning(id)) return;
+        RequireSingleService(id);
+        if (ServiceRunning(id)) {
+            if (File.Exists(CloseRequest(id))) throw new InvalidOperationException("This connection is closing after its current batch. Wait for it to finish, then open the helper again.");
+            return;
+        }
+        if (File.Exists(CloseRequest(id))) File.Delete(CloseRequest(id));
         var executable = Environment.ProcessPath;
         if (executable == null || !Path.GetFileName(executable).Equals("Mtg.ScannerAgent.exe", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Installed scanner helper executable unavailable");
@@ -182,22 +246,31 @@ public static class ScannerConnection
         var text = Uri.UnescapeDataString(uri.Query[6..]);
         return Site(text, text.StartsWith("http://", StringComparison.OrdinalIgnoreCase));
     }
-    private static int ResumeSaved(Uri? site = null, Action<Guid>? start = null)
+    private static int ResumeSaved(Uri? site = null, Action<Guid>? start = null,
+        Func<IReadOnlyList<HelperConnection>, Guid?, Guid?>? choose = null)
     {
         if (!Directory.Exists(Root)) return 0;
-        var resumed = 0;
-        foreach (var file in Directory.EnumerateFiles(Root, "*.json").Take(512)) {
-            if (resumed >= 8) break;
-            if (!Guid.TryParse(Path.GetFileNameWithoutExtension(file), out var id)) continue;
+        var available = new List<HelperConnection>();
+        foreach (var id in SavedIdentities()) {
             try {
                 var connection = LoadConnection(id.ToString());
                 if (connection.Disabled || (site != null && connection.Site != site.AbsoluteUri)) continue;
                 var credential = Credential(connection);
                 if (credential.PairCode != null) continue;
-                (start ?? StartService)(id); resumed++;
+                available.Add(connection);
             } catch (Exception error) when (error is IOException or InvalidOperationException or ArgumentException or JsonException) { }
         }
-        return resumed;
+        available = available.OrderBy(c => c.Site).ThenBy(c => c.Name).ThenBy(c => c.AgentId).ToList();
+        var preferred = ScannerConnectionSelection.Read(Root);
+        // A website reconnect explicitly requests that site, never another origin.
+        if (site != null && !available.Any(c => c.AgentId == preferred)) preferred = null;
+        var selected = ScannerConnectionSelection.Resolve(available, preferred, choose);
+        if (selected == null) return 0;
+        var current = LoadConnection(selected.Value.ToString());
+        if (current.Disabled || Credential(current).PairCode != null) return 0;
+        (start ?? StartService)(selected.Value);
+        if (start == null) ScannerConnectionSelection.Save(Root, selected.Value);
+        return 1;
     }
     private static Task ResumeFromWebsite(string value)
     {
@@ -205,22 +278,42 @@ public static class ScannerConnection
         if (MessageBox.Show($"Open your saved scanner connection for {site.AbsoluteUri}? No scan will start.",
             "MTG Archives Scanner", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
             return Task.CompletedTask;
-        var count = ResumeSaved(site);
-        MessageBox.Show(count > 0 ? "Scanner helper opened. Return to Scan cards; it will show online shortly." :
-            "No saved connection is available for this site. Return to Scan cards and choose Connect this computer.",
-            "MTG Archives Scanner", MessageBoxButtons.OK, count > 0 ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+        int count;
+        var chooserShown = false;
+        try { count = ResumeSaved(site, choose: (available, preferred) => { chooserShown = true; return ChooseConnection(available, preferred); }); }
+        catch (InvalidOperationException error) {
+            MessageBox.Show(error.Message, "MTG Archives Scanner", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return Task.CompletedTask;
+        }
+        if (count == 0 && !chooserShown) MessageBox.Show("No saved connection is available for this site. Return to Scan cards and choose Connect this computer.",
+            "MTG Archives Scanner", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         return Task.CompletedTask;
     }
     public static async Task<bool> Run(string[] args)
     {
         if (args.Length == 0) {
-            var resumed = ResumeSaved();
-            MessageBox.Show(resumed > 0 ? "Your saved scanner helper connections are open. Return to Imports → Scan cards to scan." :
-                "The scanner helper is installed. Open Imports → Scan cards on your MTG Archives site, then choose Connect a scanner.",
+            int resumed;
+            var chooserShown = false;
+            try { resumed = ResumeSaved(choose: (available, preferred) => { chooserShown = true; return ChooseConnection(available, preferred); }); }
+            catch (InvalidOperationException error) {
+                MessageBox.Show(error.Message, "MTG Archives Scanner", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return true;
+            }
+            if (resumed == 0 && !chooserShown) MessageBox.Show("Open Imports → Scan cards on your MTG Archives website, then choose Connect a scanner.",
                 "MTG Archives Scanner", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return true;
         }
-        if (args[0] is not ("version" or "connect" or "pair-uri" or "resume" or "serve" or "report" or "forget" or "connection-selftest" or "native-selftest" or "discovery-selftest" or "fixture-server" or "discovery-fixture-server")) return false;
+        if (args[0] is not ("version" or "connect" or "pair-uri" or "resume" or "serve" or "report" or "forget" or "connection-selftest" or "connection-picker-fixture" or "native-selftest" or "discovery-selftest" or "fixture-server" or "discovery-fixture-server")) return false;
+        if (args[0] == "connection-picker-fixture" && args.Length == 1) {
+            var choices = new[] {
+                new HelperConnection(Guid.Parse("11111111-1111-4111-8111-111111111111"), "http://127.0.0.1:13001/", "Local scanner", true, Account: "Brian"),
+                new HelperConnection(Guid.Parse("22222222-2222-4222-8222-222222222222"), "https://example.invalid/", "Other website", false, Account: "Brian"),
+                new HelperConnection(Guid.Parse("33333333-3333-4333-8333-333333333333"), "http://127.0.0.1:13001/", "Another account", true, Account: "Sam") };
+            var selected = ScannerConnectionSelection.Choose(choices, choices[0].AgentId, id => id == choices[0].AgentId,
+                _ => Console.WriteLine("Fixture close requested; no service or scanner exists"));
+            Console.WriteLine(selected == null ? "Fixture chooser cancelled; no service started" : $"Fixture selected {selected}; no service started");
+            return true;
+        }
         if (args[0] == "version" && args.Length == 1) {
             Console.WriteLine(JsonSerializer.Serialize(new { helperVersion = HelperVersion, protocolVersion = Version, naps2SdkVersion = "1.3.0" }, RunSpool.Json));
             return true;
@@ -229,6 +322,7 @@ public static class ScannerConnection
         if (args[0] == "discovery-selftest") { await ScannerDiscoveryProgressSelfTest.Run(); await ScannerDiscoverySelfTest.Run(); await ScannerDiagnosticSelfTest.Run(); return true; }
         if (args[0] == "connection-selftest")
         {
+            ScannerConnectionSelection.SelfTest();
             var id = Guid.NewGuid();
             var secret = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
             try {
@@ -268,11 +362,42 @@ public static class ScannerConnection
                 var saved = new HelperConnection(id, $"https://{id}.invalid/", "fixture", false);
                 SaveConnection(saved);
                 SaveCredential(saved, new EnrollmentCredential("fixture", null, saved.Site, false));
+                using (var acknowledgement = JsonDocument.Parse("{\"connectionAccount\":\"Fixture owner\"}"))
+                    saved = RememberAccount(saved, acknowledgement.RootElement);
+                if (LoadConnection(id.ToString()).Account != "Fixture owner" || Credential(saved).Secret != "fixture")
+                    throw new InvalidDataException("Account label changed credential binding");
+                using (var acknowledgement = JsonDocument.Parse("{\"connectionAccount\":{\"name\":\"invalid\"}}"))
+                    if (RememberAccount(saved, acknowledgement.RootElement) != saved)
+                        throw new InvalidDataException("Malformed account label was accepted");
                 var opened = new List<Guid>();
                 if (ResumeSaved(new Uri("https://different.invalid/"), opened.Add) != 0 || opened.Count != 0)
                     throw new InvalidDataException("Reconnect resumed a different site");
                 if (ResumeSaved(new Uri(saved.Site), opened.Add) != 1 || opened.Single() != id)
                     throw new InvalidDataException("Reconnect did not select the saved site");
+                var duplicateId = Guid.NewGuid();
+                try {
+                    var duplicate = saved with { AgentId = duplicateId };
+                    SaveConnection(duplicate); SaveCredential(duplicate, new EnrollmentCredential("fixture", null, duplicate.Site, false));
+                    using (AcquireServiceLock(id)) {
+                        try { RequireSingleService(duplicateId); throw new InvalidDataException("Legacy connection owner was ignored"); }
+                        catch (InvalidOperationException) { }
+                        try { RequestClose(id); throw new InvalidDataException("Legacy service close capability was assumed"); }
+                        catch (InvalidOperationException) { }
+                        WriteServiceInfo(id);
+                        RequestClose(id);
+                        if (!File.Exists(CloseRequest(id)) || !ServiceRunning(id) || Credential(saved).Secret != "fixture")
+                            throw new InvalidDataException("Close request interrupted ownership or lost the saved connection");
+                    }
+                    File.Delete(CloseRequest(id)); File.Delete(ServiceInfo(id));
+                    var selected = new List<Guid>();
+                    if (ResumeSaved(new Uri(saved.Site), selected.Add) != 0 || selected.Count != 0)
+                        throw new InvalidDataException("Ambiguous same-site reconnect opened multiple connections");
+                    if (ResumeSaved(new Uri(saved.Site), selected.Add, (_, _) => duplicateId) != 1 || selected.Single() != duplicateId)
+                        throw new InvalidDataException("Explicit same-site choice did not open exactly one connection");
+                } finally {
+                    WindowsCredential.Remove(duplicateId); File.Delete(FileFor(duplicateId));
+                    File.Delete(Path.Combine(Root, $"{duplicateId}.serve.lock"));
+                }
                 DisableConnection(saved);
                 if (!LoadConnection(id.ToString()).Disabled || ResumeSaved(new Uri(saved.Site), opened.Add) != 0 || opened.Count != 1)
                     throw new InvalidDataException("Revoked connection resumed instead of staying disabled");
@@ -289,7 +414,10 @@ public static class ScannerConnection
                     catch (ArgumentException) { }
                 }
                 Console.WriteLine("PASS scanner private Windows credential and outbound-origin guards; no device used");
-            } finally { WindowsCredential.Remove(id); File.Delete(FileFor(id)); File.Delete(Path.Combine(Root, $"{id}.serve.lock")); }
+            } finally {
+                WindowsCredential.Remove(id); File.Delete(FileFor(id)); File.Delete(Path.Combine(Root, $"{id}.serve.lock"));
+                File.Delete(CloseRequest(id)); File.Delete(ServiceInfo(id));
+            }
             return true;
         }
         if (args[0] == "pair-uri" && args.Length == 2)
@@ -316,7 +444,12 @@ public static class ScannerConnection
         {
             var connection = LoadConnection(args[1]);
             var credential = Credential(connection);
+            using var singleService = args[0] == "serve" ? AcquireSingleService(connection.AgentId) : null;
             using var serviceLock = args[0] == "serve" ? AcquireServiceLock(connection.AgentId) : null;
+            if (args[0] == "serve") {
+                ScannerConnectionSelection.Save(Root, connection.AgentId);
+                WriteServiceInfo(connection.AgentId);
+            }
             var fixture = args[0] == "fixture-server";
             var discoveryFixture = args[0] == "discovery-fixture-server";
             if ((fixture || discoveryFixture) && (!connection.AllowLocal || Site(connection.Site, true).Scheme != "http" ||
@@ -334,7 +467,7 @@ public static class ScannerConnection
             var discoveryProgressReporting = false;
             var nextRetention = DateTime.MinValue;
             try {
-                while (!stop.IsCancellationRequested)
+                while (!stop.IsCancellationRequested && !File.Exists(CloseRequest(connection.AgentId)))
                 {
                     try {
                         if (args[0] == "report") await discovery.RefreshIfDue();
@@ -349,6 +482,7 @@ public static class ScannerConnection
                         }
                         discoveryReporting = acknowledgement.TryGetProperty("discoveryReporting", out var reporting) && reporting.ValueKind == JsonValueKind.True;
                         discoveryProgressReporting = acknowledgement.TryGetProperty("discoveryProgressReporting", out var progressReporting) && progressReporting.ValueKind == JsonValueKind.True;
+                        connection = RememberAccount(connection, acknowledgement);
                         if (credential.PairCode != null) {
                             credential = credential with { PairCode = null }; SaveCredential(connection, credential);
                         }
@@ -361,7 +495,7 @@ public static class ScannerConnection
                                     connection.AgentId, $"{connection.AgentId}.{credential.Secret}");
                             break;
                         }
-                        if (!discoveryFixture && !discovery.Pending) await ScannerNativeRunner.PollAndRun(client, connection.AgentId,
+                        if (!discoveryFixture && !discovery.Pending && !File.Exists(CloseRequest(connection.AgentId))) await ScannerNativeRunner.PollAndRun(client, connection.AgentId,
                             $"{connection.AgentId}.{credential.Secret}", Root, devices, stop.Token,
                             fixture ? () => new ScannerFixtureBackend(args[2]) : null,
                             fixture ? () => new { backend = "fixture", purpose = "LOCAL_PROTOCOL_TEST_ONLY" } : null);
@@ -398,7 +532,8 @@ public static class ScannerConnection
                 if (discovery.Pending) Console.WriteLine("Scanner driver detection is still finishing. No new scans will start; saved scans are kept.");
                 // Revocation disables future work immediately. Wait for real native
                 // completion before the using declaration disposes its context.
-                await discovery.Drain();
+                try { await discovery.Drain(); }
+                finally { if (args[0] == "serve" && File.Exists(ServiceInfo(connection.AgentId))) File.Delete(ServiceInfo(connection.AgentId)); }
             }
         }
         else if (args[0] == "forget" && args.Length == 2)

@@ -4,6 +4,13 @@ Local hardware spike for [#473](https://github.com/sefaction/MTG-Archives/issues
 
 ## Run
 
+Helper 0.4.3 opens one chosen saved website/account connection. Opening the helper
+shows a chooser; sign-in resumes only the remembered choice. Ambiguous, revoked,
+missing or unreadable selections stay idle. Website reconnect is limited to that
+website. See [connection selection](../../docs/SCANNER_CONNECTION_SELECTION.md).
+Close chosen connection waits for its current batch and discovery to finish;
+opening a connection itself does not create a scan request.
+
 Requires Windows, .NET 8 SDK/Desktop runtime, an installed manufacturer driver and Node 22 for the optional transport checks. Restore pinned NuGet packages; do not use the installed NAPS2 GUI/console executable as the backend.
 
 The optional [local source-build setup](../../docs/SCANNER_SOURCE_INSTALL.md)
