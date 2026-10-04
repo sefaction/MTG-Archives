@@ -1,5 +1,7 @@
 # Local100-input native gate — October2,2026
 
+A separate [October4 local qualification](ACQUISITION_BATCH_GATE_2026-10-04.md) passed100inputs on a later application revision with no starting native backlog. This historical shared-workload failure remains failed.
+
 The corrected full run FAILED its unchanged20-minute printing-completion gate:
 expected100, received50. Total test duration21.3minutes. Two earlier setup failures
 (hidden batch defaults and an immediate optional Advanced lookup before rendering)
