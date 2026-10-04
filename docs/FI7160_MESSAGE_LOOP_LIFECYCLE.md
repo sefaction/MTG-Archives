@@ -41,9 +41,17 @@ reproduction only; CI requires the repaired mode to pass.
 & tools/scanner-twain-count/test-loop-lifecycle.ps1
 ```
 
-The actual fi-7160 settings-and-cancel check with this repaired loop remains
-pending a fresh operator confirmation that the two remaining cards have been
-removed and hopper/transport are empty and clear. No additional feed has occurred.
+The actual fi-7160 empty settings-and-cancel check now passes with this repaired
+loop: twelve original settings restored, source/DSM closure Success, state 2,
+owned-loop disposal/thread join, supervised exit 0 and empty stderr, with zero
+acquisition calls/images. Two preceding controlled configuration refusals also
+closed cleanly. See [post-UI blank control](FI7160_POST_UI_BLANK_CONTROL.md) for the
+Cancel reset found during these checks. A subsequent freshly authorized supervised
+one-of-three trial also retained one image and closed with twelve restores,
+source/DSM Success, state 2, joined loop, actual exit 0 and empty stderr. The operator
+confirmed one undamaged exit and the remaining cards in place/ready in response to
+the hopper/transport check. The original abnormal exit remains preserved; this new
+small pass does not qualify larger or integrated counts.
 Further physical counts require the existing same-session visible-Off and fresh
 loaded-count/readiness gates in [guarded requalification](FI7160_GUARDED_REQUALIFICATION.md).
 Integrated capacity/refill/section progression remains unfinished.
@@ -78,5 +86,6 @@ installer's SHA256. The temporary test user was removed. Inventory's full-row
 hash remained unchanged at 10,280 rows / 12,482 copies.
 
 The helper's counted route and native `helper-channel-v1` remain suspended.
-Actual-source qualification with the repaired loop is still pending. No production
+Actual-source empty closure and a new supervised one-card transfer exit with the
+repaired loop are now observed; broader physical count acceptance remains pending. No production
 deployment or merge is authorized by these results.

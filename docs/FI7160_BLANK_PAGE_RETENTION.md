@@ -30,10 +30,11 @@ cases. The ordinary helper and direct native count route remain suspended before
 any source access; this preparation does not enable them.
 
 Diagnostic build/readiness tests and native build/refusal/retention/recovery
-fixtures passed without hardware. The next actual-source settings/cancel check
-requires fresh empty/clear confirmation, exact disabled readback and restoration,
-clean source/DSM/window/thread closure, and zero images/acquisition. Capability
-SET/readback/restore on this driver is not yet qualified. Further physical tests
+fixtures passed without hardware. Actual-source empty settings checks then found
+that Cancel restores blank removal to its original Auto while the other settings
+remain exact. The narrow diagnostic repair and its passing actual-source empty
+SET/readback/restoration/clean-closure check are documented in
+[post-UI blank control](FI7160_POST_UI_BLANK_CONTROL.md). Further physical tests
 still require fresh specific supervised loading/readiness, visible Pre-Pick Off
 and the newly verified blank-retention setting. Larger and integrated hardware
 acceptance remains incomplete.
