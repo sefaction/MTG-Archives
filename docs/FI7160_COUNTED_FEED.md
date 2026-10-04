@@ -5,6 +5,13 @@ October 2, 2026. Main baseline `dbf3f637`. Related: #313 physical characterizati
 implementation. This is a private Windows
 diagnostic batch, separate from the installed scanner helper and website feeding.
 
+This report is the historical October 2 diagnostic baseline. The later
+[programmatic qualification](FI7160_PROGRAMMATIC_COUNT_CONTROL.md) supersedes its
+pending integration/refill statements: small counted boundaries and the website
+section/refill/Stop sequence passed. The larger 83-card logical hardware batch
+remains unfinished at 30 saved cards. For everyday use, see the
+[batch quick start](SCANNER_BATCH_QUICK_START.md).
+
 ## Result
 
 With **three expendable cards loaded**, two separate target-one trials emitted
@@ -130,7 +137,7 @@ during count qualification.
 - Desktop sidebar association was not observed. Repository cwd/worktree identity
   is verified; that alone does not prove desktop project association.
 
-## Application work still required
+## Application work required at the October 2 baseline
 
 The shipped NAPS2 path does not configure a native count, uses a null image-stop
 budget, and deliberately drains after Stop. Its physical target is a logical

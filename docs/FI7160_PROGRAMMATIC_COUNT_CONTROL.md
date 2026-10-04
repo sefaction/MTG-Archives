@@ -119,5 +119,8 @@ same-batch refill and persistent Stop gates. A larger logical83-card hardware ba
 connection switching, active-run Close and broader reliability remain unfinished.
 Use comfortable small hopper refills; diagnostic eleven-card loading does not
 justify an83/84-card stack of thick cards. Every new feed requires fresh supervised
-loading/readiness and physical result confirmation; software tests do not authorize
-unattended feeding.
+loading/readiness. Clean runs use the saved-front count automatically, per the
+operator's October 3 decision; routine exact exit-count confirmation is no longer
+required. Errors, jams or uncertain transfers retain physical recovery. Software
+tests do not authorize unattended feeding. See the
+[batch quick start](SCANNER_BATCH_QUICK_START.md).
