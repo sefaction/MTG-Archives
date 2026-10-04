@@ -1,3 +1,30 @@
+# Scanner setup capacity status review — October 4, 2026
+
+Local review: http://127.0.0.1:13001/imports/scan?input=scanner, branch
+`codex/scanner-capacity-setup-status`, based on main `b5294b15`; resolves #650.
+The counted-source setup now asks for a destination before checking capacity,
+shows a retry instruction after a capacity failure, and displays held-space
+totals only after the selected destination's capacity is ready. Scan admission,
+reservations and physical feeding behavior are unchanged.
+
+Image `dc90b504194e421372f8e6cfa18ef5e68b650ca3beb3ea8d37ab00cb8ca5c3c7`
+matches all 550 runtime inputs, digest
+`fbb0f0d9a492692be424f159119a15ff6497f68df7c72949d2896945f879cd62`.
+The production build, type/lint checks and client-manifest validation passed.
+The two existing counted-source and section-series browser cases passed,
+including fixed-batch preferences, same-batch refill, explicit next-section
+choice, persistent Stop and desktop/phone layouts. An isolated setup inspection
+captured destination-needed, failed-capacity and ready-capacity states: Start
+was disabled for the first two and enabled for the ready destination; no batch
+or scanner run was created. All owned fixtures were removed.
+
+Only the local web container was reloaded, retaining the existing data mounts
+and worker configuration. Installer 0.4.3 was copied from the verified local
+qualification build with matching hashes. Production and the connected physical
+scanner were untouched by this message-fix batch. Individual PR approval is
+required before merging. The separately qualified larger physical workflow is
+recorded in PR #649.
+
 # Scanner card-position review, September 30, 2026
 
 Local review: http://127.0.0.1:13001/imports/scan?input=scanner, PR #540.
