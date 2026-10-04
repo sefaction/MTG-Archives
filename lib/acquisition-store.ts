@@ -109,13 +109,14 @@ async function transaction<T>(
   db: PrismaClient | Tx,
   work: (tx: Tx) => Promise<T>,
   retryCreate = false,
+  isolationLevel: Prisma.TransactionIsolationLevel = Prisma.TransactionIsolationLevel.Serializable,
 ): Promise<T> {
   // Scanner admission joins session creation and START in its outer transaction.
   if (!("$transaction" in db)) return work(db);
   for (let attempt = 0; ; attempt++) {
     try {
       return await db.$transaction(work, {
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        isolationLevel,
         maxWait: 10000,
         timeout: 30000,
       });
@@ -270,6 +271,22 @@ async function read(tx: Tx, actor: AcquisitionActor, sessionId: string, photoSco
   if (!row) throw new Error("Capture session unavailable");
   await authorize(tx, actor, row.ownerPlayerId);
   return row;
+}
+async function lockedPhotoTransaction<T>(db: PrismaClient, actor: AcquisitionActor,
+  sessionId: string, work: (tx: Tx) => Promise<T>) {
+  // Photo writes already serialize with admission, review, publication, commit,
+  // cancellation and expiry through this session row. Read Committed gives the
+  // subsequent reads a fresh view after waiting for that lock (and, for BEGIN,
+  // the owner quota lock). A Serializable snapshot taken before the wait instead
+  // repeatedly aborts under concurrent uploads/native publication. All mutable
+  // candidate/slot predicates are read again while the session lock is held;
+  // every intake holds the owner quota lock through its aggregate and insert.
+  // Ordinary admission and other acquisition transactions stay Serializable.
+  return transaction(db, async tx => {
+    await read(tx, actor, sessionId, {});
+    await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${sessionId} FOR UPDATE`;
+    return work(tx);
+  }, false, Prisma.TransactionIsolationLevel.ReadCommitted);
 }
 export async function getAcquisitionSession(
   db: PrismaClient,
@@ -954,9 +971,7 @@ export async function beginAcquisitionPhoto(
   z.number().int().min(0).max(20).parse(input.generation);
   const metadata = acquisitionPhotoMetadataSchema.parse(input.metadata);
   const inputKind = acquisitionImageInputKindSchema.parse(input.inputKind ?? "PHOTO");
-  return transaction(db, async (tx) => {
-    await read(tx, actor, sessionId, {slotId: input.slotId});
-    await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${sessionId} FOR UPDATE`;
+  return lockedPhotoTransaction(db, actor, sessionId, async (tx) => {
     const row = await read(tx, actor, sessionId, {slotId: input.slotId});
     const run = row.run!;
     if (run.providerId === SCANNER_CAPTURE_PROVIDER &&
@@ -1056,9 +1071,7 @@ export async function finalizeAcquisitionPhoto(
   sessionId: string,
   photoId: string,
 ) {
-  return transaction(db, async (tx) => {
-    await read(tx, actor, sessionId, {});
-    await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${sessionId} FOR UPDATE`;
+  return lockedPhotoTransaction(db, actor, sessionId, async (tx) => {
     const photo = await tx.acquisitionPhoto.findUnique({
       where: { id: photoId },
       include: { slot: true },

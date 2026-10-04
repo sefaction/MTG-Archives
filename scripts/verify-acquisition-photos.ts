@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { verifyAcquisitionReview } from "./verify-acquisition-review";
 import { verifyAcquisitionCatalogReconciliation } from "./verify-acquisition-catalog-reconciliation";
 import {verifyAcquisitionPhotoIsolation} from "./verify-acquisition-photo-isolation";
+import {verifyAcquisitionPhotoLocking} from "./verify-acquisition-photo-locking";
 import { randomUUID } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
@@ -254,6 +255,7 @@ export async function verifyAcquisitionPhotos(
       null,
     );
     await verifyAcquisitionPhotoIsolation(db,actor,stranger,base,bytes);
+    await verifyAcquisitionPhotoLocking(db,actor,base,bytes);
     console.log(
       "PASS: private bytes + transactional finalize recovery, duplicate bytes/separate cards, immediate worker, retake fencing and stop drain",
     );
