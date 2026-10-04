@@ -3,6 +3,7 @@ import {execFileSync} from 'node:child_process';
 import {createHash, randomUUID} from 'node:crypto';
 import {copyFileSync, mkdirSync, readFileSync, rmdirSync, unlinkSync, writeFileSync} from 'node:fs';
 import path from 'node:path';
+import {assertNativeWorkerContinuity, type NativeWorkerSnapshot} from '../native-worker-continuity';
 
 test.use({trace:'off',video:'off',actionTimeout:15000});
 function docker(...args:string[]) {
@@ -13,6 +14,16 @@ function database(body:string) {
     input:`const{PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${body}})().catch(e=>{console.error(e.message);process.exitCode=1}).finally(()=>p.$disconnect());`,
     encoding:'utf8',timeout:30000,windowsHide:true,
   }));
+}
+function workerSnapshots(): NativeWorkerSnapshot[] {
+  return ['acquisition-recognition','acquisition-visual','acquisition-printing'].map(name=>{
+    const container=`mtg-archives-${name}-worker-1`;
+    const worker=JSON.parse(docker('inspect',container,'--format','{"id":{{json .Id}},"image":{{json .Image}},"state":{{json .State}},"restarts":{{.RestartCount}}}'));
+    const events=Object.fromEntries(docker('exec',container,'cat','/sys/fs/cgroup/memory.events').split('\n').map(line=>{
+      const [key,value]=line.trim().split(/\s+/);return [key,Number(value)];
+    }));
+    return {...worker,name,oom:events.oom,oomKills:events.oom_kill};
+  });
 }
 
 test('large scan-image batches retain every input through ordinary native queues and paged review',async({browser,baseURL})=>{
@@ -67,6 +78,8 @@ test('large scan-image batches retain every input through ordinary native queues
   };
   let timer:ReturnType<typeof setInterval>|undefined;
   try{
+    report.workersBefore=workerSnapshots();save();
+    for(const worker of report.workersBefore)assertNativeWorkerContinuity(worker,worker);
     database(`for(const owner of ${JSON.stringify(owners)}){const n=owner.tag;const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash,role:'PLAYER'}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:owner.target,sections:[{name:'A',capacity:owner.target}]}}});}console.log('{}');`);
     sample();timer=setInterval(sample,30000);
     await Promise.all(pages.map(async(page,i)=>{
@@ -146,10 +159,8 @@ test('large scan-image batches retain every input through ordinary native queues
         await page.screenshot({path:`test-results/large-batch-${count}-owner-${i}-${width}.png`});
       }
     }
-    report.workersAfter=['acquisition-recognition','acquisition-visual','acquisition-printing'].map(name=>({name,
-      state:JSON.parse(docker('inspect',`mtg-archives-${name}-worker-1`,'--format','{{json .State}}')),
-      restarts:Number(docker('inspect',`mtg-archives-${name}-worker-1`,'--format','{{.RestartCount}}'))}));
-    for(const worker of report.workersAfter){expect(worker.state.Running).toBe(true);expect(worker.state.OOMKilled).toBe(false);expect(worker.restarts).toBe(0);}
+    report.workersAfter=workerSnapshots();
+    for(const [i,worker] of report.workersAfter.entries())assertNativeWorkerContinuity(report.workersBefore[i],worker);
     report.passed=true;
   }finally{
     if(timer)clearInterval(timer);report.finishedAt=new Date().toISOString();save();
