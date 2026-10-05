@@ -624,6 +624,16 @@ private experiment completed successfully in a bounded container without network
 database or private-photo access; its owned container was removed and full results,
 source/script hashes and terminal evidence were retained.
 
+The two displaced-symbol counterexamples are now a model-free regression in
+`tools/acquisition-eval/test_printing_evidence.py`. Current policy passes all
+twelve evidence tests and the complete twenty-test printing discovery suite used
+by the existing GitHub Core verification job. Replacing only template scoring
+with the rejected center restriction makes the new regression fail for both
+positions while the eleven previous evidence tests still pass. The controlled
+negative result is retained separately from the passing native run; all owned
+containers were removed. This adds executable coverage of an existing uncertainty
+safeguard, without changing recognition policy or implementing the proposed library.
+
 Next: inspect calibrated local stamp-region registration, nuisance lighting and
 printed-footer confusions, retain positive/obscured/clipped controls, and establish
 new independent examples before proposing a policy change. Do not promote the
