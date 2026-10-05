@@ -117,7 +117,7 @@ export function ScannerRunControls({ runId, savedImages, refresh }: { runId: str
       {!run.series.current && <a className={button} href={`/imports/scan?input=scanner&continue=${run.series.latestRunId}`}>Current section series</a>}
     </div>}
     <p role="status">{run?.status === "QUEUED" ? scannerPreflightMessage(run.preflightProblem) ?? "Waiting for the Windows helper to start." : run?.status === "STARTED" ? scannerUploadMessage(run.uploadProblem) ?? "Scanning and uploading." :
-      run?.status === "DRAINED" ? run.series?.stopped ? "Scanner series ended. Saved cards remain available for review." : paused ? "Hopper emptied early. "+run.remainingTarget+(run.remainingTarget === 1 ? " card remains" : " cards remain")+" in this batch." : run.counted ? (run.remainingTarget > 0 ? "Batch ended with saved cards. " : "Selected count reached. ")+(run.batchLimit !== null ? "Use New scanner batch for another fixed-count scan." : "Choose the next section before feeding more.") : "Scanner run ended." : run?.status === "CANCELLED_BEFORE_START" && cancelled ? "Waiting scan cancelled. The helper was not authorized to feed cards." : run ? "Scanner run needs reconciliation; originals remain saved." : "Loading scanner status."}
+      run?.status === "DRAINED" ? run.series?.stopped ? "Scanner series ended. Saved cards remain available for review." : paused ? "Hopper emptied early. "+run.remainingTarget+(run.remainingTarget === 1 ? " card remains" : " cards remain")+" in this batch." : run.counted ? (run.remainingTarget > 0 ? "Batch ended with saved cards. " : "Selected count reached. ")+(run.series ? "Choose the next section before feeding more." : run.batchLimit !== null ? "Use New scanner batch for another fixed-count scan." : "Use New scanner batch for another scan.") : "Scanner run ended." : run?.status === "CANCELLED_BEFORE_START" && cancelled ? "Waiting scan cancelled. The helper was not authorized to feed cards." : run ? "Scanner run needs reconciliation; originals remain saved." : "Loading scanner status."}
       {" "}{savedImages} {savedImages === 1 ? "image" : "images"} saved.</p>
     <p className="text-sm">Clean runs count one saved card front per card automatically. Saved images and reviews stay in this batch; interrupted runs need recovery.</p>
     {run && ["QUEUED","STARTED"].includes(run.status) && <button className={button} disabled={busy || run.stopRequested}
@@ -153,7 +153,7 @@ export function ScannerRunControls({ runId, savedImages, refresh }: { runId: str
       <button className={button} disabled={busy} onClick={()=>void act({action:"end",runId:run.runId})}>End reconciled batch</button>
     </div>}
     {run?.reconciliation && !run.series?.stopped && (!run.series || run.series.current) && (!run.counted || ["COMPLETE", "CANCELLED"].includes(run.phase)) && <div className="flex flex-wrap gap-2">
-      <a className={button} href={"/imports/scan?input=scanner&continue="+encodeURIComponent(runId)+"#new-scan-batch"}>{run.counted && run.batchLimit === null ? "Choose next section" : "New scanner batch"}</a>
+      <a className={button} href={"/imports/scan?input=scanner&continue="+encodeURIComponent(runId)+"#new-scan-batch"}>{run.series ? "Choose next section" : "New scanner batch"}</a>
     </div>}
     {error && <p role="alert">{error}</p>}
   </section>;
