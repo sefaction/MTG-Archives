@@ -516,6 +516,53 @@ Minimum phase 1–2 tests must include:
 
 ## Smallest useful first experiment
 
+### October 5 historical mechanism probe: reference annotations alone were insufficient
+
+Following the user's recognition-accuracy/correction-feedback priority, an isolated
+printing-only probe compared current policy with a six-reference annotation addition.
+Complete public original/List faces for Samut's Sprint, Bloom Hulk and Courage in
+Crisis were inspected independently of scan predictions; their visible lower-left
+stamp regions were bound to verified file hashes. All six had been UNKNOWN in the
+baseline annotation set. Proposed originals were ABSENT and List faces PRESENT.
+The annotations remained staged privately; none was loaded into the application.
+
+The seven-case probe reused one already inspected historical scan from each of
+those three failure groups and four controls (two stamped, two unmarked). Each
+retained original digest and the ordered reference/candidate envelope matched its
+frozen prior baseline. Labels entered scoring only. Both variants ran the same
+current registration/stamp source, fixed reference generation and image bytes,
+with one thread, two CPUs, 2 GiB, no network/database access and read-only inputs.
+RANSAC seed was fixed at zero for the paired mechanism comparison. Native inputs,
+full observations, hashes and progress/terminal records remain private.
+
+| Diagnostic family | Baseline | Verified-reference variant | Remaining observation |
+| --- | --- | --- | --- |
+| Samut's Sprint WAR142 | Unreadable; no verified unmarked reference | Unreadable; local evidence inconclusive | Original-reference correlation 0.9855, mean residual 6.03, p95 28.28; query template response about 0.456 remains above the unchanged absence limit 0.45. |
+| Bloom Hulk WAR154 | Unreadable; no verified unmarked reference | Unreadable; local evidence inconclusive | Correlation 0.9755, mean residual 9.66, p95 39.46; upper-tail residual exceeds the unchanged 35 limit. |
+| Courage in Crisis WAR158 | Unreadable; no verified unmarked reference | Unreadable; local evidence inconclusive | Correlation 0.9827, mean residual 7.85, p95 42.13; upper-tail residual exceeds the unchanged 35 limit. |
+
+All four control observations, reasons and candidate relations were unchanged;
+the two stamped controls remained PRESENT and the two unmarked controls remained
+UNREADABLE. No automatic acceptance occurred in either variant. All seven paired
+cases completed in 109.88 seconds; the named isolated container exited successfully
+and was removed. Source collection/photo/review/receipt projections are unchanged.
+
+This rejects **reference annotations alone are sufficient for these three known
+groups**. It does not establish that annotations lack value, that an unreadable
+scan is stamped, or that loosening a threshold would be safe. No first-suggestion
+accuracy gain is claimed. This is historical development diagnosis, not untouched
+validation or a population accuracy estimate; the old validation examples have
+now been used to design this intervention and remain unsuitable as untouched
+evidence for it.
+
+Next: inspect calibrated local stamp-region registration, nuisance lighting and
+printed-footer confusions, retain positive/obscured/clipped controls, and establish
+new independent examples before proposing a policy change. Do not promote the
+annotation addition or relax the absence/presence guards based on this probe.
+Reliable new feedback preservation still awaits the requested storage/privacy and
+normal-control-sampling choices. The general protocol below remains useful for
+new families and a newly frozen cohort, with this negative result included.
+
 Use a **reference-only, offline original/List comparison**, without training,
 threshold relaxation, routing changes or live recognition writes.
 
