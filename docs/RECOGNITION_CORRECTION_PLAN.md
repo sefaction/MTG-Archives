@@ -577,6 +577,53 @@ validation or a population accuracy estimate; the old validation examples have
 now been used to design this intervention and remain unsuitable as untouched
 evidence for it.
 
+### Public-reference audit: provenance reconciled, template guard remains ambiguous
+
+A subsequent template-only audit completed all 187 staged public reference faces:
+181 baseline annotations plus the six proposed original/List additions. Its frozen
+scope description incorrectly said 66 baseline annotations. Git history reconciles
+64 entries at `88c25b0`, 66 at `37f5ac3`, and 181 at `71de7bb`; the latter added
+115 without removing or changing earlier hash-bound annotations. The approved
+printing-runtime report already documents 181 independently inspected public faces.
+The baseline bindings exactly match that revision, and the six additions preserve
+all baseline bindings. A separate reconciliation record corrects the description;
+the original frozen inputs, hashes and results were retained unchanged.
+
+Of 172 annotated unmarked references, 146 pass the template-only absence guard and
+26 fail it. None reaches the presence-template threshold. All 15 annotated stamped
+references reach that threshold. These are template responses on public references,
+not full stamp classifications, physical scan accuracy or independent validation.
+In particular, a passing template guard does not establish absence by itself.
+
+All 15 stamped maximum-match centers fall inside the existing stamp core, but so
+do 19 of the 26 unmarked references failing the template guard. Restricting centers
+to that core therefore leaves most of these ambiguous reference responses intact.
+This does not identify their cause or justify relaxing a threshold.
+
+### Narrower search rejected by a displaced-symbol safety check
+
+An isolated candidate restricted template-match centers to the existing stamp
+core, retaining numeric thresholds, observed-pixel masks and the native residual
+rules. It changed the effective spatial guard only in a private test process; no
+live source, annotations or models were modified. All eleven existing native
+printing-evidence unit tests passed with this candidate.
+
+A broader synthetic check placed a known visible symbol in 77 positions within
+the original search region. Current policy never called these symbols ABSENT.
+The narrower candidate incorrectly called two ABSENT, both near the upper-right
+search margin. For one, current template response was 1.0; restricting centers
+reduced it to 0.2392. Correlation and sparse core residuals still met the absence
+guards, allowing a visible symbol outside the narrowed region to be overlooked.
+Current policy conservatively returned UNREADABLE for this case.
+
+The candidate was rejected before historical replay. This is a synthetic safety
+counterexample, not a physical-scan error rate or accuracy qualification. It shows
+why passing the existing small unit suite is insufficient and why the wider query
+symbol veto must be preserved when investigating local footer confusion. The
+private experiment completed successfully in a bounded container without network,
+database or private-photo access; its owned container was removed and full results,
+source/script hashes and terminal evidence were retained.
+
 Next: inspect calibrated local stamp-region registration, nuisance lighting and
 printed-footer confusions, retain positive/obscured/clipped controls, and establish
 new independent examples before proposing a policy change. Do not promote the
