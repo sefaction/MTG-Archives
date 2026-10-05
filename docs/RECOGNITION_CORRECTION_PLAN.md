@@ -535,20 +535,39 @@ retained original digest and the ordered reference/candidate envelope matched it
 frozen prior baseline. Labels entered scoring only. Both variants ran the same
 current registration/stamp source, fixed reference generation and image bytes,
 with one thread, two CPUs, 2 GiB, no network/database access and read-only inputs.
-RANSAC seed was fixed at zero for the paired mechanism comparison. Native inputs,
+Registration fixes its internal RANSAC seed at 20260928 for both variants (the
+outer probe's seed of zero is superseded by registration). Native inputs,
 full observations, hashes and progress/terminal records remain private.
 
 | Diagnostic family | Baseline | Verified-reference variant | Remaining observation |
 | --- | --- | --- | --- |
-| Samut's Sprint WAR142 | Unreadable; no verified unmarked reference | Unreadable; local evidence inconclusive | Original-reference correlation 0.9855, mean residual 6.03, p95 28.28; query template response about 0.456 remains above the unchanged absence limit 0.45. |
-| Bloom Hulk WAR154 | Unreadable; no verified unmarked reference | Unreadable; local evidence inconclusive | Correlation 0.9755, mean residual 9.66, p95 39.46; upper-tail residual exceeds the unchanged 35 limit. |
-| Courage in Crisis WAR158 | Unreadable; no verified unmarked reference | Unreadable; local evidence inconclusive | Correlation 0.9827, mean residual 7.85, p95 42.13; upper-tail residual exceeds the unchanged 35 limit. |
+| Samut's Sprint WAR142 | Unreadable; no verified unmarked reference | Unreadable; local evidence inconclusive | Original-reference correlation 0.9855, mean residual 6.03, p95 28.28; both query template response 0.4559 and verified unmarked reference response 0.4598 fail the unchanged absence limit below 0.45. |
+| Bloom Hulk WAR154 | Unreadable; no verified unmarked reference | Unreadable; local evidence inconclusive | Correlation 0.9755, mean residual 9.66, p95 39.46; query response 0.4574 fails the 0.45 limit and upper-tail residual fails the 35 limit. Reference response 0.4494 passes. |
+| Courage in Crisis WAR158 | Unreadable; no verified unmarked reference | Unreadable; local evidence inconclusive | Correlation 0.9827, mean residual 7.85, p95 42.13; verified unmarked reference response 0.4571 fails the 0.45 limit and upper-tail residual fails the 35 limit. Query response 0.4423 passes. |
 
 All four control observations, reasons and candidate relations were unchanged;
 the two stamped controls remained PRESENT and the two unmarked controls remained
 UNREADABLE. No automatic acceptance occurred in either variant. All seven paired
 cases completed in 109.88 seconds; the named isolated container exited successfully
 and was removed. Source collection/photo/review/receipt projections are unchanged.
+
+A follow-up reran the three original-reference observations and exactly reproduced
+the saved inference evidence before explaining each absence guard. An initial
+diagnostic assertion failed because its copied residual calculation differed from
+native inference; it was corrected to the native formula, then all three equality
+assertions passed. The diagnostic did not change inference or thresholds. Two
+verified unmarked references have an intrinsic template response above the absence
+guard, so improving scan residuals alone cannot make those references establish
+absence under current policy. Printed-footer confusion is a hypothesis, not a
+confirmed cause or justification for relaxing that guard.
+
+Six public original/List images were also passed directly through unchanged native
+inference as separate clean-reference controls. All were UNREADABLE with
+STAMP_CLIPPED_OR_TOO_SMALL: the public images are 488 pixels wide, below the native
+500-pixel source-card-width requirement. This completed negative check cannot
+separate scan noise from policy behavior or qualify physical scan accuracy. No
+upsampling was used to claim sufficient observed detail. These controls and the
+diagnostic containers are terminal and removed; their private evidence is retained.
 
 This rejects **reference annotations alone are sufficient for these three known
 groups**. It does not establish that annotations lack value, that an unreadable
