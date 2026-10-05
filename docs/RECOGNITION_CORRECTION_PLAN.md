@@ -8,11 +8,14 @@ GitHub confirms no open PR at the start of this review; recognition issues
 [307](https://github.com/sefaction/MTG-Archives/issues/307), and recovery
 [310](https://github.com/sefaction/MTG-Archives/issues/310) remain open.
 
-This report proposes application work; it does not implement it. The review used
-source inspection and aggregate-only, repeatable-read, read-only queries against
-the local test snapshot. No application, Inventory, scanner, model, production,
-Docker configuration or database data was changed. No new recognition replay was
-run. Current service health is not a source-parity or accuracy certification.
+This report proposes application work; it does not implement it. The initial
+review used source inspection and aggregate-only, repeatable-read, read-only
+queries against the local test snapshot. After the user prioritized recognition
+accuracy/correction feedback, a seven-case isolated printing replay tested the
+reference-only hypothesis; its negative result is recorded below. No live
+application, Inventory, scanner, model, production, Docker configuration or
+database data was changed by this planning/probe work. Current service health is
+not a source-parity or accuracy certification.
 
 ## Recommendation
 
