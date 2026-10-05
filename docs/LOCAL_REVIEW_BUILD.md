@@ -27,6 +27,23 @@ direct pending capacity and an unbounded location's explicit count, plus existin
 fixed/refill and section-series/Stop workflows. Rendered desktop/phone evidence
 was inspected. Tests use owned simulated helpers, not physical hardware.
 
+The extended desktop/phone No section cases also passed (2/2,33.2s) through
+manual fixture reviews, separate Inventory preview and keyboard final confirmation.
+Saving/previewing kept stock at one; final confirmation added two unsectioned
+copies with one receipt/two members/one Inventory audit. Existing section A stock
+and photo digest bindings were preserved, reload retained both committed cards,
+and pending direct-parent reservations changed from two to zero while available
+parent space stayed zero. A further batch remained blocked by actual stock, not
+stale reservations. This is placement/accounting qualification, not recognition
+accuracy. Final typecheck passed and owned users/players/locations/cards returned
+to zero; the original seven full-row projections match the prior baseline.
+
+The first extension attempt incorrectly expected Stop capture after the counted
+target had already completed. Both timeouts remain failed evidence; the corrected
+test explicitly verifies automatic completion and the absence of that action.
+Only browser coverage and this report changed, so the same qualified runtime image
+remains loaded; no application code or other service was changed by this extension.
+
 Earlier fixture version/empty-string expectations, completion-label failure and
 installer-copy failure are retained privately; the final evidence is separate.
 No production operation or physical feed was performed. Individual PR approval
