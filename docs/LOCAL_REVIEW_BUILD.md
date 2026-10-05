@@ -1,3 +1,12 @@
+# Restored worker claim review — October 5, 2026
+
+Local review: http://127.0.0.1:13001/admin/backups (Admin Mode), branch codex/restore-worker-claims. Cumulative source includes approved main bc1b1de / PR654 plus issue652. The source snapshot was never restored by verification; actual restore used an internal-network disposable fixture only.
+
+Loaded web image sha256:66861b3d8f1d56bfd95e1340dc862c018b205b36a1fe8b4ecf46f93bf7628c1e, tag mtg-archives-web:restore-worker-claims;557 app inputs, digest b2e7ba2905f3e4bace22cbe30e3814c5682c2f93b9cc1428239cb6c27157d98f. All existing web Compose layers, mounts and64/4 scan-photo quotas retained. Twelve other services retained container/image/start/restart identities.
+
+Complete acquisition/shared-import verification, core820 units/typecheck/generation/build/manifests, final installer-required Docker build and miniature actual force restore PASS. Final force restore had8 processing and1 catalog claims live, took2174ms, rejected old publications and preserved field-complete projections, retry bounds and human decisions. Its owned containers, anonymous volume and internal network were removed. Desktop1366px/phone320px backup page smoke PASS2/2 with inspected screenshots and owned-account cleanup. Collection/source row projections matched; no source database restore or physical scanner operation.
+
+The broad issue assessment is in docs/OPEN_ISSUE_EVALUATION_20261005.md. Remaining hardware, production, independent accuracy and broader host/storage recovery gates stay explicit; new PR merge needs individual approval.
 # Scanner setup capacity status review — October 4, 2026
 
 Local review: http://127.0.0.1:13001/imports/scan?input=scanner, branch
