@@ -1,0 +1,56 @@
+{
+  "identityAuditComplete": true,
+  "readOnlyInputs": true,
+  "network": false,
+  "privatePhotos": false,
+  "databaseAccess": false,
+  "scope": "Model bytes, source and index encoder bindings; no vector or accuracy qualification",
+  "licenseScope": "Recorded declarations; reference-image rights and release approval excluded",
+  "lockSha256": "ec23fa20628be45a6feba72e1a41c50a2e4721ed50aea358ebaba696e88c436d",
+  "ocrCacheVersion": "337c07ee8aef37bd550fe5978df26ad8bd31d8b9fffbdc3b05536b26f35ba5dd",
+  "ocr": [
+    {
+      "name": "en_PP-OCRv5_mobile_rec",
+      "repository": "PaddlePaddle/en_PP-OCRv5_mobile_rec",
+      "revision": "267c36e24c331595590fe7bd72bde2436fd286f2",
+      "verifiedFiles": 6,
+      "cardSha256": "4c1cfd6e103b0966fe97505b5254cfa35a931d47d7effca97a9db47fb57dd699",
+      "declaredLicense": "apache-2.0"
+    },
+    {
+      "name": "PP-OCRv5_mobile_det",
+      "repository": "PaddlePaddle/PP-OCRv5_mobile_det",
+      "revision": "0d63e78e2b680928f6b1747d76a08db6e645efb7",
+      "verifiedFiles": 6,
+      "cardSha256": "4cc20ad6d41af86b3ce9885ffb0956e152574a2eb14179aeb07fd2d3956161ca",
+      "declaredLicense": "apache-2.0"
+    }
+  ],
+  "visualWeights": [
+    {
+      "name": "vgg16",
+      "weightsSha256": "397923af8e79cdbb6a7127f12361acd7a2f83e06b05044ddf496e83de57a5bf0",
+      "bytes": 553433881
+    },
+    {
+      "name": "dinov2",
+      "weightsSha256": "b938bf1bc15cd2ec0feacfe3a1bb553fe8ea9ca46a7e1d8d00217f29aef60cd9",
+      "bytes": 88283115
+    }
+  ],
+  "dinov2Source": {
+    "gitRevision": "7764ea0f912e53c92e82eb78a2a1631e92725fc8",
+    "gitSourceCardLicenseClean": true,
+    "pythonFiles": 155,
+    "pythonSourceSha256": "c08a6d75280bafd0c32456f8b3e4044ae833c90384bd34545cc9ceeff58e3777",
+    "licenseSha256": "4b63d54afaae8f96b7b3baeb94d902bb50e4f17e3d0fc6cb450bef56cb769616",
+    "readmeSha256": "989755cd1dff5e83be9277de508dd2c8f9fd7b847204ef99104b784530620906"
+  },
+  "activeIndex": {
+    "manifestSha256": "ff2c4acf94273d5b76db0d7c37cac73006a936064f077f3444c1cb58ac3f7c63",
+    "name": "dinov2",
+    "referenceCount": 112656,
+    "downloadComplete": true,
+    "sourceAndWeightBindingsVerified": true
+  }
+}
