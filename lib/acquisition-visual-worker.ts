@@ -1,3 +1,5 @@
+import { acquisitionManualAnalysisSchema } from "./acquisition-manual-region";
+import { acquisitionAnalysisForPhoto, acquisitionAnalysisReadySql, acquisitionAnalysisJobSql } from "./acquisition-analysis-scope";
 import {admitAcquisitionHandoff} from "./acquisition-handoff-admission";
 import { createHash } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
@@ -14,6 +16,7 @@ const inputSchema = z.object({
   photoId: z.string().uuid(),
   digest: z.string().regex(/^[a-f0-9]{64}$/),
   model: z.string().regex(/^[a-f0-9]{64}$/),
+  manualAnalysis: acquisitionManualAnalysisSchema.nullable().optional(),
 });
 
 export async function enqueueReadyVisual(db: PrismaClient, model: string) {
@@ -28,7 +31,7 @@ export async function enqueueReadyVisual(db: PrismaClient, model: string) {
     JOIN "Player" p ON p.id=s."ownerPlayerId"
     JOIN "User" u ON u.id=s."createdByUserId"
     WHERE j.stage='photo-canonical-v1' AND j.status='COMPLETE'
-      AND c.review IS NULL AND NOT c.excluded
+      AND ${acquisitionAnalysisReadySql()}
       AND s.phase NOT IN ('DRAFT','CANCELLED') AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
       AND NOT EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=c.id)
       AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" v
@@ -58,6 +61,8 @@ export async function enqueueReadyVisual(db: PrismaClient, model: string) {
       photo.generation !== photo.slot.generation
     )
       continue;
+    const manualAnalysis = acquisitionAnalysisForPhoto(source.candidate, photo);
+    if (source.candidate.review !== null && manualAnalysis?.candidateRevision !== source.candidate.revision) continue;
     const result = await admitAcquisitionHandoff(db,source,()=>db.acquisitionProcessingJob.createMany({
       skipDuplicates: true,
       data: [
@@ -68,7 +73,7 @@ export async function enqueueReadyVisual(db: PrismaClient, model: string) {
           candidateRevision: source.candidate.revision,
           stage: VISUAL_STAGE,
           versionKey,
-          input: { ...input, model },
+          input: { ...input, model, manualAnalysis },
         },
       ],
     }));
@@ -120,7 +125,7 @@ export async function retrieveAcquisitionVisual(
         AND j.stage=${VISUAL_STAGE} AND j."candidateRevision"=${job.candidateRevision}
         AND j."runId"=${job.runId} AND j."candidateId"=${job.candidateId} AND j."artifactId"=${job.artifactId}
         AND j.input=${JSON.stringify(job.input)}::jsonb AND j."leaseExpiresAt">clock_timestamp()
-        AND c.revision=${job.candidateRevision} AND c.review IS NULL AND NOT c.excluded
+        AND c.revision=${job.candidateRevision} AND ${acquisitionAnalysisJobSql()}
         AND s.phase NOT IN ('DRAFT','CANCELLED') AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
         AND s."ownerPlayerId"=${run.session.ownerPlayerId}
         AND photo.ready AND photo."purgedAt" IS NULL AND photo.digest=${input.digest}
@@ -138,7 +143,8 @@ export async function retrieveAcquisitionVisual(
   );
   signal.throwIfAborted();
   const reuse = visualReuseIdentity({version: 1, ownerPlayerId: run.session.ownerPlayerId,
-    photoDigest: input.digest, descriptor: model, inputKind: photo.inputKind});
+    photoDigest: input.digest, descriptor: model, inputKind: photo.inputKind,
+    manualRegion: input.manualAnalysis?.region ?? undefined});
   // Retained completed jobs are the durable observation store. One indexed
   // exact-key lookup reads bounded evidence; no duplicate private pixel cache.
   const [previous] = await db.$queryRaw<{id: string; output: Prisma.JsonValue}[]>`
@@ -152,13 +158,14 @@ export async function retrieveAcquisitionVisual(
   let visual = previous ? reusableVisualNative(previous.output, reuse) : null;
   const reused = visual !== null;
   if (!visual) visual = checkedVisualNative(await nativeWorker.request(
-    acquisitionNativePhotoInput(bytes, photo.inputKind), signal), reuse);
+    acquisitionNativePhotoInput(bytes, photo.inputKind, undefined, input.manualAnalysis?.region ?? undefined), signal), reuse);
   signal.throwIfAborted();
   await requireCurrentInput();
   return {
     version: 1,
     photoId: photo.id,
     visual,
+    manualAnalysis: input.manualAnalysis ?? null,
     visualReuse: reuse,
     visualExecution: {reused, milliseconds: Math.round(performance.now() - started),
       inferenceRequests: reused ? 0 : 1, ...(reused ? {observationJobId: previous.id} : {})},

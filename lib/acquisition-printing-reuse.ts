@@ -1,12 +1,14 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { printingNativeSchema } from "./acquisition-printing";
+import { acquisitionManualRegionSchema, sameAcquisitionManualRegion } from "./acquisition-manual-region";
 
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
 const requestSchema = z.object({
   version: z.literal(1), ownerPlayerId: z.string().min(1).max(100),
   photoDigest: digest, descriptor: digest, policy: z.string().min(1).max(80),
   scryfallIds: z.array(z.string().uuid()).max(12),
+  manualRegion: acquisitionManualRegionSchema.optional(),
 }).strict();
 export function printingReuseIdentity(value: z.input<typeof requestSchema>) {
   const request = requestSchema.parse(value);
@@ -18,11 +20,13 @@ export type PrintingReuseIdentity = ReturnType<typeof printingReuseIdentity>;
 
 const nativeIdentitySchema = z.object({
   descriptor: digest, photoDigest: digest, milliseconds: z.number().finite().nonnegative(),
+  manualRegion: acquisitionManualRegionSchema.optional(),
 });
 export function checkedPrintingNative(raw: unknown, identity: PrintingReuseIdentity) {
   const native = printingNativeSchema.parse(raw);
   const provenance = nativeIdentitySchema.parse(raw);
   if (provenance.descriptor !== identity.descriptor || provenance.photoDigest !== identity.photoDigest ||
+      !sameAcquisitionManualRegion(provenance.manualRegion, identity.manualRegion) ||
       native.candidates.some(c => !identity.scryfallIds.includes(c.scryfallId)))
     throw new Error("Printing processing identity changed");
   return {...native, ...provenance};

@@ -1,3 +1,5 @@
+import { acquisitionManualAnalysisSchema, sameAcquisitionManualRegion } from "./acquisition-manual-region";
+import { acquisitionAnalysisForPhoto, acquisitionAnalysisReadySql } from "./acquisition-analysis-scope";
 import { createHash } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { z } from "zod";
@@ -146,7 +148,7 @@ export async function enqueueReadyRecognition(
     JOIN "Player" p ON p.id = s."ownerPlayerId"
     JOIN "User" u ON u.id = s."createdByUserId"
     WHERE j.stage = 'photo-canonical-v1' AND j.status = 'COMPLETE'
-      AND c.excluded = false AND c.review IS NULL
+      AND ${acquisitionAnalysisReadySql()}
       AND s.phase NOT IN ('DRAFT', 'CANCELLED') AND s."cancelledAt" IS NULL AND s."trashedAt" IS NULL AND s."deletedAt" IS NULL
       AND p.active = true AND u."isActive" = true AND u."forcePasswordChange" = false
       AND NOT EXISTS (
@@ -164,7 +166,7 @@ export async function enqueueReadyRecognition(
   });
   let added = 0;
   for (const job of ready) {
-    if (job.candidate.review !== null || job.candidate.excluded) continue;
+    if (job.candidate.excluded) continue;
     const input = z
       .object({ photoId: z.string().uuid(), digest })
       .parse(job.input);
@@ -185,6 +187,8 @@ export async function enqueueReadyRecognition(
       });
       continue;
     }
+    const manualAnalysis = acquisitionAnalysisForPhoto(job.candidate, photo);
+    if (job.candidate.review !== null && manualAnalysis?.candidateRevision !== job.candidate.revision) continue;
     const result = await db.acquisitionProcessingJob.createMany({
       skipDuplicates: true,
       data: [
@@ -199,6 +203,7 @@ export async function enqueueReadyRecognition(
             version: 1,
             ...input,
             inputKind: photo.inputKind,
+            manualAnalysis,
             versions: {
               pipeline: RECOGNITION_STAGE,
               runtime: "paddle-cpu-subprocess-v1",
@@ -229,6 +234,7 @@ export async function recognizeAcquisitionPhoto(
       digest,
       inputKind: acquisitionImageInputKindSchema.default("PHOTO"),
       versions: z.object({ catalog: digest, model: digest }),
+      manualAnalysis: acquisitionManualAnalysisSchema.nullable().optional(),
     })
     .parse(job.input);
   // Catalog-only changes are handled by reconciliation of saved OCR. The raw
@@ -247,7 +253,7 @@ export async function recognizeAcquisitionPhoto(
     ? nativeWorker.request(frame, attemptSignal, progress)
     : runAcquisitionNativeProcess("python", ["/app/tools/acquisition-runtime/recognize.py"], frame, attemptSignal);
   const native = nativeSchema.parse(
-    await requestNative(acquisitionNativePhotoInput(bytes, input.inputKind), signal),
+    await requestNative(acquisitionNativePhotoInput(bytes, input.inputKind, undefined, input.manualAnalysis?.region ?? undefined), signal),
   );
   if (
     native.photoDigest !== input.digest ||
@@ -255,15 +261,21 @@ export async function recognizeAcquisitionPhoto(
     signal.aborted
   )
     throw new Error("Processing input changed");
+  if (!sameAcquisitionManualRegion(native.geometry.manualRegion, input.manualAnalysis?.region))
+    throw new Error("Recognition region changed");
   let proposals = proposeOrientedAcquisitionPrintings(
     snapshot.index,
     native.orientations,
   );
-  if (needsAcquisitionPhotoText(proposals)) {
+  if (!input.manualAnalysis?.region && needsAcquisitionPhotoText(proposals)) {
     native.photoText = await readAcquisitionPhotoText(requestNative, bytes, input.inputKind,
       { photoDigest: input.digest, descriptor: model }, signal,
       Math.min(32000, 35000 - (Date.now() - nativeStarted)));
     proposals = combineAcquisitionPhotoText(snapshot.index, proposals, native.photoText);
+  }
+  if (input.manualAnalysis?.region) {
+    proposals.automaticAcceptance = false;
+    if (proposals.status === "STRONG_MATCH") proposals.status = "REVIEW_REQUIRED";
   }
   signal.throwIfAborted();
   return {
@@ -276,6 +288,7 @@ export async function recognizeAcquisitionPhoto(
       footerParser: ACQUISITION_FOOTER_PARSER_VERSION,
     },
     execution: "CPU",
+    manualAnalysis: input.manualAnalysis ?? null,
     native,
     proposals,
     catalog: { status: "CHECKING", printingCoverage: "UNRESOLVED" },
