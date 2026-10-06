@@ -1,3 +1,55 @@
+# No section scanner import review — October 5, 2026
+
+Local review: http://127.0.0.1:13001/imports/scan?input=scanner. Resolves #657:
+single scanner batches may use **No section**, including locations with existing
+named sections. Automatic targets use the parent's remaining capacity; locations
+without a known capacity require an explicit card count. Pending reservations in
+every section still consume parent space. A named section remains required for
+an actual section series; its next-section, refill and Stop controls are preserved.
+Completed single batches offer **New scanner batch** and retain their optional
+section preference instead of being forced into a next-section workflow.
+
+The cumulative local source includes approved main bc1b1de, recovery PR656 at
+5c0cd2c, and this No section batch. Running image
+`2aa2caf20722c11c70acae412802a47224acca2973af2319426b8e0b8e7cc839`
+matches all557 runtime inputs, source digest
+`1b97d45c82656061e45add712f255d0a6cd162576fa305a431a73b01931e5f8c`.
+Only local web was reloaded; twelve other services retained their images,
+lifetimes and restart counts. Original Inventory, scans and receipt projections
+match the pre-review baseline after all owned fixtures were removed.
+
+Unchanged-code PostgreSQL regression reproduced the section rejection. Final
+complete acquisition/shared-import qualification passed (100.97s/46.41s);
+core820 tests and final typecheck passed. Final Docker build includes type/lint,
+client-manifest checks and verified installer0.4.3. Four browser cases passed in
+52.6s: desktop1366/phone320 No section Start, synthetic completion, retained setup,
+direct pending capacity and an unbounded location's explicit count, plus existing
+fixed/refill and section-series/Stop workflows. Rendered desktop/phone evidence
+was inspected. Tests use owned simulated helpers, not physical hardware.
+
+The extended desktop/phone No section cases also passed (2/2,33.2s) through
+manual fixture reviews, separate Inventory preview and keyboard final confirmation.
+Saving/previewing kept stock at one; final confirmation added two unsectioned
+copies with one receipt/two members/one Inventory audit. Existing section A stock
+and photo digest bindings were preserved, reload retained both committed cards,
+and pending direct-parent reservations changed from two to zero while available
+parent space stayed zero. A further batch remained blocked by actual stock, not
+stale reservations. This is placement/accounting qualification, not recognition
+accuracy. Final typecheck passed and owned users/players/locations/cards returned
+to zero; the original seven full-row projections match the prior baseline.
+
+The first extension attempt incorrectly expected Stop capture after the counted
+target had already completed. Both timeouts remain failed evidence; the corrected
+test explicitly verifies automatic completion and the absence of that action.
+Only browser coverage and this report changed, so the same qualified runtime image
+remains loaded; no application code or other service was changed by this extension.
+
+Earlier fixture version/empty-string expectations, completion-label failure and
+installer-copy failure are retained privately; the final evidence is separate.
+No production operation or physical feed was performed. Individual PR approval
+is required before merging; issue657 remains open until its fix merges.
+
+
 # Restored worker claim review — October 5, 2026
 
 Local review: http://127.0.0.1:13001/admin/backups (Admin Mode), branch codex/restore-worker-claims. Cumulative source includes approved main bc1b1de / PR654 plus issue652. The source snapshot was never restored by verification; actual restore used an internal-network disposable fixture only.

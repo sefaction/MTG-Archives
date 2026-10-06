@@ -87,7 +87,10 @@ export async function createScannerBatch(db: PrismaClient, actor: AcquisitionAct
   const location = await db.inventoryLocation.findUnique({ where: { id: input.locationId } });
   if (!location) throw denied();
   const layout = readStorageLayout(location.storageLayout, location.type);
-  if (counted && layout.sections.length && !layout.sections.some(s => s.name === normalizeLocationSection(input.section)))
+  const section = normalizeLocationSection(input.section);
+  if (input.continuous && !section)
+    throw new ScannerRunConflict("Choose a section for a section series, or start a single batch with No section");
+  if (counted && section && layout.sections.length && !layout.sections.some(s => s.name === section))
     throw new ScannerRunConflict("Choose a section before starting a count controlled scanner batch");
   const guard = (tx: Tx) => guardScannerCreation(tx, input.requestKey);
   return scannerTransaction(db, async tx => {
@@ -116,7 +119,7 @@ export async function createScannerBatch(db: PrismaClient, actor: AcquisitionAct
     const capture = await createAcquisitionSession(tx, scoped, scannerCaptureInput(input, location.ownerPlayerId), guard,
       counted ? inner => readScannerCapacity(inner, { locationId: location.id, ownerPlayerId: location.ownerPlayerId, section: input.section }) : undefined);
     if (counted && (capture.session.target === null || capture.session.target > 5000))
-      throw new ScannerRunConflict("Choose a count or a section with known remaining capacity");
+      throw new ScannerRunConflict("Choose a count or a destination with known remaining capacity");
     if (!counted && capture.session.target !== null && input.loadedCount !== null && input.loadedCount > capture.session.target)
       throw new ScannerRunConflict("Choose a loaded batch within the selected remaining capacity");
     await executeAcquisitionCommand(tx, scoped, capture.session.id, { requestKey: "initial-start", revision: 0, command: "START" }, guard);

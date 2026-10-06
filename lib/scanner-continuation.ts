@@ -16,7 +16,7 @@ export async function scannerContinuation(db: PrismaClient, userId: string, runI
     defaults: state.defaults, ...(run.batchLimit !== null ? {batchLimit: run.batchLimit} : {}),
     ...(run.series ? { continueFrom: run.runId, seriesRootId: run.series.rootRunId, previousSessionId: run.sessionId } : {}), scanner: { agentId: run.agentId, deviceId: run.deviceId,
       loadedCount: null, operatorLoadedSimplexFronts: true as const,
-      settings: scannerSettingsSchema.parse(run.settings) }, ...(run.counted && run.batchLimit === null ? { nextSectionRequired: true } : {}) };
+      settings: scannerSettingsSchema.parse(run.settings) }, ...(run.series ? { nextSectionRequired: true } : {}) };
 }
 export type ScannerContinuation = Awaited<ReturnType<typeof scannerContinuation>>;
 
