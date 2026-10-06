@@ -100,13 +100,12 @@ Cancel had closed the form, then used the wrong case for its summary caption.
 Those failed traces are retained. The corrected assertions reopen the form and
 check the saved original/NM choice; no saved-review assertion was removed.
 
-The cumulative source includes PR655, PR656, PR658 and PR659. Its complete
+The cumulative source includes PR655, PR656, PR658 and PR659.
 No section desktop/phone scanner cases also passed again in this loaded build
 (2/2,42.1seconds), including explicit Inventory confirmation and reservation
 conservation. No hardware was exercised.
 
-Its complete
-disposable PostgreSQL/shared-receipt gate passed in160.873seconds at local
+Its complete disposable PostgreSQL/shared-receipt gate passed in160.873seconds at local
 commit7fb6fb2853cdbbaefb735199abcae044cc560f19, source
 79cd5c3e88e97dd907014d7581b56cbae95fa55aaa32ac1470d7f5182ec6efde.
 All825 cumulative unit tests pass. Installer-required web and both native image
