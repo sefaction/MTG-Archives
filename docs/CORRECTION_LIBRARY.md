@@ -101,8 +101,9 @@ Three direct file tests also passed. The new disposable
 PostgreSQL/file fixture passed capture, replay/rollback, display ordering, owner
 isolation/dedup, copy/quota/missing-source pins, backup guard, restored lease,
 withdrawal/removal and older-restore tombstones. Full acquisition and shared-import
-regressions passed in a disposable database (175.622 seconds). A final rerun with
-expanded first-publication, review-history and deletion-resumption coverage is in
-progress. Actual archive/restore, process interruption boundaries, queue fairness
+regressions passed in a disposable database (175.622 seconds). The final rerun with
+expanded first-publication, review-history and deletion-resumption coverage passed
+in 280.684 seconds; all owned fixtures/container/volume were removed. Actual
+archive/restore, process interruption boundaries, queue fairness
 at large uneven owner counts, cumulative images, desktop/phone browser checks and
 current-head CI remain required.
