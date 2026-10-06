@@ -78,9 +78,12 @@ class ManualNativeTest(unittest.TestCase):
                     recognize.recognize(frame(data, {'inputKind': 'PHOTO', 'manualRegion': bad}), {'digest': 'c'*64})
 
     def test_visual_embedding_and_geometric_queries_use_only_selected_pixels(self):
-        # CI does not install or load Torch; the adapter replaces only the model,
-        # retaining the real entry point, decoder, manual geometry and crop.
-        with patch.dict(sys.modules, {'image_encoder': types.SimpleNamespace(Encoder=object)}):
+        # CI has no Torch. Replace model/matching adapters while retaining the
+        # real entry point, decoder, manual geometry and query pixels. Block
+        # Torch explicitly so a fuller local image cannot hide a dependency.
+        with patch.dict(sys.modules, {'torch': None, 'torchvision': None,
+                'image_encoder': types.SimpleNamespace(Encoder=object),
+                'visual_compare': types.SimpleNamespace(features=object, match=object)}):
             visual = importlib.import_module('visual')
         encoded, geometric = [], []
         def embed(images):

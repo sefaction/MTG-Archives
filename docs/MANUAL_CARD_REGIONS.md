@@ -54,6 +54,12 @@ an explicit preview/commit action.
   EXIF frame normalization, selected-region OCR/visual/geometric queries, invalid
   selection without fallback, unchanged byte digests and original printing
   resolution/coordinates. This is mechanics qualification, not model accuracy.
+- GitHub's first Core run exposed a transitive Torch import in the model-free
+  visual test adapter. Reproduced with14 tests/one error in an offline Torch-free
+  image, then corrected by replacing the already-mocked matching adapter and
+  explicitly blocking Torch imports. All14 tests pass there in0.479seconds with
+  the same pixel/geometry assertions. Production code and runtime descriptors
+  are unchanged; actual model inference remains separately qualified above.
 - Full disposable PostgreSQL and shared Inventory/import verification PASS,
  177.598seconds, source digest3f6ef09eff83dd3b076b3fc3b7e835246206094e232d108573c2faaeac2fd186.
   Evidence `.local-data/verification/acquisition-2026-10-06T16-13-25-017Z`.
