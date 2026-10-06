@@ -15,12 +15,24 @@ export const acquisitionManualRegionSchema = z.object({
 });
 export type AcquisitionManualRegion = z.infer<typeof acquisitionManualRegionSchema>;
 
+export function sameAcquisitionManualRegion(left: unknown, right: unknown) {
+  if (left == null || right == null) return left == null && right == null;
+  const a = acquisitionManualRegionSchema.safeParse(left), b = acquisitionManualRegionSchema.safeParse(right);
+  return a.success && b.success && JSON.stringify(a.data) === JSON.stringify(b.data);
+}
+
 export const acquisitionManualAnalysisSchema = z.object({
   version: z.literal(1), requestKey: z.string().uuid(), photoId: z.string().uuid(),
   digest: z.string().regex(/^[a-f0-9]{64}$/), generation: z.number().int().nonnegative(),
   candidateRevision: z.number().int().nonnegative(), region: acquisitionManualRegionSchema.nullable(),
 }).strict();
 export type AcquisitionManualAnalysis = z.infer<typeof acquisitionManualAnalysisSchema>;
+
+export function sameAcquisitionManualAnalysis(left: unknown, right: unknown) {
+  if (left == null || right == null) return left == null && right == null;
+  const a = acquisitionManualAnalysisSchema.safeParse(left), b = acquisitionManualAnalysisSchema.safeParse(right);
+  return a.success && b.success && JSON.stringify(a.data) === JSON.stringify(b.data);
+}
 
 export function validateAcquisitionManualRegionFrame(raw: unknown, width: number, height: number) {
   const region = acquisitionManualRegionSchema.parse(raw);

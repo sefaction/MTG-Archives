@@ -1,89 +1,85 @@
-# Manual card-region repair (in progress)
+# Manual card-region repair
 
-Feature batch for #306 / recognition #463, started October 6, 2026. This is
-implementation work, not delivered local UI or a completed phase gate. The
-existing cumulative Docker review and four pending PRs remain separate.
+Feature batch for #306 and recognition #463. The repair workflow is implemented
+and undergoing browser/build/local Docker qualification. It is not yet delivered.
+General multi-card detection, region-to-candidate expansion and duplex pairing
+remain separate phase requirements. This batch makes no recognition-accuracy or
+correction-library promotion claim.
 
-The manual repair workflow must let an authorized reviewer select a complete
-card boundary in an existing EXIF-normalized original, run updated analysis, and
-reset to automatic geometry. Original bytes, source digests, physical candidate
-identity/count, prior jobs and saved human choices must survive. No Inventory
-addition is implicit. General multi-card detection/region-to-candidate expansion
-and duplex pairing are distinct remaining #306 requirements; a one-card repair
-must not be reported as full phase acceptance.
+An authorized reviewer can select four corners in the EXIF-normalized original,
+apply that boundary and recheck the card, or explicitly restore automatic
+geometry. Original bytes, source digest, physical candidate identity/count/order,
+prior jobs and saved printing decisions remain intact. Inventory addition stays
+an explicit preview/commit action.
 
-## Implemented foundation
+## Integration
 
-- Normalized versioned quadrilateral with cyclic convex boundary, finite bounded
-  coordinates, source pixel/area limits and explicit failure for invalid input.
-- Canonical perspective derivative preserving labelled title/footer/border
-  pixels under all four quarter turns; a manual boundary remains unverified.
-- Printing-query masking/cropping at original resolution, with original-frame
-  offset. A canonical upsample must never satisfy the existing source-resolution
-  stamp guards.
-- Bounded framed input carries the selected region while retaining original
-  bytes. Legacy raw PHOTO and declared CARD_SCAN inputs remain compatible.
-  An old decoder rejects an unsupported manual region; no silent whole-photo
-  fallback may replace a selected card region.
+- The strict versioned quadrilateral must be finite, normalized, cyclic and
+  convex, with at least32 pixels per edge and4096 square pixels in the original.
+  Invalid selections fail without automatic detection or whole-photo fallback.
+- The session-locked repair command binds owner authorization, source photo,
+  digest, generation, request ID and resulting candidate revision. It atomically
+  increments candidate and batch revision and saves before/after history separately from human
+  review. Replayed acknowledgements apply once; changed bodies and stale edits
+  are rejected. Retakes, purged/cancelled/committed cards retain their guards.
+- OCR, visual retrieval, catalog reconciliation and printing carry the same
+  instruction. Reviewed analysis is permitted only for an explicit current
+  repair; later human review closes that permission. Admission, claim and
+  publication preserve source, owner, generation, receipt and lease fences.
+- Crop-specific visual/printing reuse excludes the request nonce, permitting
+  identical selected geometry to reuse bounded evidence. Whole-photo or other
+  region evidence cannot satisfy a selected-region request. Review projection
+  filters by the active instruction so prior geometry cannot appear current.
+- OCR uses the selected perspective derivative. Visual embeddings use that card,
+  and geometric queries use masked original pixels. Printing queries retain
+  original resolution and restore alignment coordinates into the original frame.
+  Upsampled canonical images cannot satisfy printing's500-pixel source guard.
+- Native descriptors include manual geometry/protocol source. Both native Docker
+  images include the helper. The frozen encoder/reference index remains unchanged.
+- Desktop/phone controls support pointer/touch and arrow-key adjustment, explicit
+  apply/reset/cancel, retained failures, stale edits and exact-command retry after
+  lost acknowledgement. An acknowledged repair advances only its own draft
+  revision; a later server edit requires review. Printing drafts are preserved.
+- Selected boundaries remain unverified. Manual analysis cannot automatically
+  confirm a printing, including the supported printing-disabled legacy path.
 
-Initial geometry3, TypeScript protocol/schema3 and Python input5 checks passed
-in isolated fixtures. A first expanded geometry run caught a refactor error in
-the canonical evidence return (out-of-scope variable); the reference was
-corrected and geometry4 passed in0.529seconds. The full existing native photo
-input/text suite10 passed in0.301seconds and TypeScript typecheck completed exit0.
-Final geometry5 passed in0.747seconds, including neighbouring-content masking
-and no original-resolution upsampling. A side-by-side old/new native input
-probe confirms the old decoder rejects this unsupported manual hint and the
-new explicit decoder preserves its exact bytes/digest/region. All owned test
-containers were removed. Synthetic results qualify mechanics, not
-card accuracy. No native call site/UI/storage/admission integration is delivered.
+## Qualification
 
-## Remaining implementation and verification
+- Synthetic geometry5PASS, including perspective/quarter-turn title/footer/border,
+  convexity/size bounds, neighbouring-content masking and no source upsampling.
+- Focused TypeScript protocol/reuse12PASS, including JSON field-order invariance,
+  changed instruction rejection and exact crop/native evidence identity.
+- Full native photo suite14PASS3.982seconds in an offline, read-only disposable
+  container. Real entry points use synthetic pixels and model-free adapters:
+  EXIF frame normalization, selected-region OCR/visual/geometric queries, invalid
+  selection without fallback, unchanged byte digests and original printing
+  resolution/coordinates. This is mechanics qualification, not model accuracy.
+- Full disposable PostgreSQL and shared Inventory/import verification PASS,
+ 177.598seconds, source digest3f6ef09eff83dd3b076b3fc3b7e835246206094e232d108573c2faaeac2fd186.
+  Evidence `.local-data/verification/acquisition-2026-10-06T16-13-25-017Z`.
+  Tests exercise atomic history/rollback, owner/source/cancellation guards,
+  competing edits/replay, reviewed four-stage repair/reset, late-crop rejection,
+  exact crop reuse, evidence projection, later human-review fencing and existing
+  acquisition/scanner/storage/dashboard/import/receipt workflows. Fixtures and
+  owned PostgreSQL container/volume were removed.
+- Complete core verification PASS:825 unit tests, Prisma/typecheck, production
+  build and11 client manifests. Build caught a render-time retry-ref read; retry
+  eligibility now uses React state while the request key remains event-only.
+  Batch progress exposes candidate revision so another client's repair refreshes
+  a reviewed card without changing its saved printing decision. The database
+  gate covers exactly-once batch revision and full session rollback too.
+- Earlier failures are retained: synthetic generation/read-direction omissions;
+  real JSONB property ordering rejected unchanged source intent, corrected by
+  schema-normalized comparison; an owned fixture remained visible to later
+  dashboard text searches, corrected by retiring it after its own cancellation
+  checks. No production guard or acceptance assertion was weakened.
 
-1. Persist an explicit owner-authorized repair intent and append-only command
-   at the session lock, increment candidate revision and preserve existing review.
-   Lost acknowledgement retries must produce one repair intent/event. Retakes,
-   foreign owners, purged/committed candidates and stale revisions remain guarded.
-2. Bind the selected region to all OCR, visual, catalog and printing inputs,
-   native descriptors and exact reuse identities. Scope any reviewed-candidate
-   processing exception to the current explicit repair intent and source;
-   preserve generation, receipt, lease, owner and publication fences. Human
-   review changes retire old work. No general relaxation of reviewed admission.
-3. Carry region geometry through native framing and printed alignment in the
-   original coordinate frame. Keep printing queries at original resolution;
-   suppress whole-photo fallback outside an explicitly selected region. Manual
-   boundary selection is not automatic exact-printing authority.
-4. Provide desktop/phone pointer and keyboard boundary selection, preview,
-   explicit apply/reset/cancel, recoverable failures, stale-edit feedback and
-   current processing status. Preserve unsaved printing correction drafts.
-5. Real disposable PostgreSQL concurrency/replay/source/review/cache/fence checks;
-   actual native requests against controlled pixels; browser workflow and visual
-   review at1366/320; required build/core/import/acquisition checks. Inspect any
-   failed baseline and retain its evidence rather than hiding it with timeouts.
-6. Build/load cumulative local Docker with qualified native source generations,
-   preserving index compatibility, all compose overlays and local quotas.
-   Verify exact manifests and original source conservation. Open one coherent
-   PR only after this complete repair workflow is reviewable. Individual merge
-   approval is still required; keep #306/#463 open for their wider gates.
+Browser baseline on the existing cumulative app reproduced the missing control;
+owned fixture cleanup, seven original row projections and13 service identities
+were conserved. Corrected desktop1366/phone320 workflow and screenshots, actual native descriptors,
+and cumulative Docker source/data conservation remain pending. The running app
+still contains the previous four review batches; this feature has no PR yet.
 
-Library storage/privacy and prospective sampling choices are still unanswered.
-This feature neither creates a correction library nor chooses its retention
-policy. No production action or fresh physical scanner feed is authorized here.
-
-## Integration direction
-
-Keep the repair intent separate from the saved printing decision. Its trusted
-server record must bind the photo ID, generation/digest, selected normalized
-region (or explicit reset), request ID and resulting candidate revision. Append
-the before/after repair command atomically at the session lock. Scope reviewed
-processing to this explicit current intent; normal reviewed candidates remain
-protected. Every stage's admission, claim, publication and reuse checks must
-agree on source/region identity. Changing a printing decision or receipt must
-fence earlier repair work. Historical saved jobs stay immutable.
-
-Use the EXIF-normalized preview for pointer coordinates and the original's
-EXIF-normalized dimensions for source limits. Do not derive source resolution
-from a resized preview or canonical warp. A repair never certifies a physical
-edge or recovers pixels already clipped from the original. Offer recapture
-guidance for missing content. Do not silently discard an existing printing draft
-when applying or cancelling a boundary edit.
+Library privacy/storage and prospective sampling choices remain unanswered.
+This feature does not create that library or select a retention policy. No fresh
+physical feed or production operation has been performed.

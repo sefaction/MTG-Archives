@@ -1,3 +1,5 @@
+import { acquisitionManualAnalysisSchema, sameAcquisitionManualAnalysis } from "./acquisition-manual-region";
+import { acquisitionAnalysisJobSql } from "./acquisition-analysis-scope";
 import {admitAcquisitionHandoff} from "./acquisition-handoff-admission";
 import { createHash } from "node:crypto";
 import { setTimeout } from "node:timers/promises";
@@ -50,6 +52,7 @@ const sourceSchema = z.object({
   }),
 });
 const inputSchema = z.object({
+  manualAnalysis: acquisitionManualAnalysisSchema.nullable().optional(),
   recognitionJobId: z.string().uuid(),
   visualJobId: z.string().uuid().optional(),
   photoId: z.string().uuid(),
@@ -72,7 +75,7 @@ export async function enqueueCatalogReconciliation(
     JOIN "Player" p ON p.id=s."ownerPlayerId"
     JOIN "User" u ON u.id=s."createdByUserId"
     WHERE j.stage='photo-recognition-v1' AND j.status='COMPLETE'
-      AND j."candidateRevision"=c.revision AND c.review IS NULL AND NOT c.excluded
+      AND j."candidateRevision"=c.revision AND ${acquisitionAnalysisJobSql()}
       AND s.phase NOT IN ('DRAFT','CANCELLED') AND s."cancelledAt" IS NULL AND s."trashedAt" IS NULL AND s."deletedAt" IS NULL AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
       AND NOT EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=c.id)
       AND (${!requireVisual} OR (SELECT v.status FROM "AcquisitionProcessingJob" v
@@ -98,7 +101,7 @@ export async function enqueueCatalogReconciliation(
     // Admission IDs are a snapshot; cancelled/removed runs can disappear here.
     if (!source) continue;
     const input = z
-      .object({ photoId: z.string().uuid(), digest: z.string() })
+      .object({ photoId: z.string().uuid(), digest: z.string(), manualAnalysis: acquisitionManualAnalysisSchema.nullable().optional() })
       .parse(source.input);
     const visual = requireVisual
       ? await db.acquisitionProcessingJob.findFirst({
@@ -177,6 +180,8 @@ export function createCatalogReconciliationHandler(
       source.candidateRevision !== job.candidateRevision
     )
       throw new Error("Recognition input changed");
+    if (!sameAcquisitionManualAnalysis((source.input as {manualAnalysis?: unknown}).manualAnalysis, input.manualAnalysis))
+      throw new Error("Recognition region input changed");
     const observed = sourceSchema.parse(source.output);
     const visualJob = input.visualJobId
       ? await db.acquisitionProcessingJob.findUniqueOrThrow({
@@ -193,6 +198,8 @@ export function createCatalogReconciliationHandler(
         visualJob.candidateRevision !== job.candidateRevision)
     )
       throw new Error("Visual recognition input changed");
+    if (visualJob && !sameAcquisitionManualAnalysis((visualJob.input as {manualAnalysis?: unknown}).manualAnalysis, input.manualAnalysis))
+      throw new Error("Visual region input changed");
     const visual = visualJob
       ? z
           .object({ photoId: z.string().uuid(), visual: visualNativeSchema })
@@ -334,7 +341,7 @@ export function createCatalogReconciliationHandler(
         p.reasons.includes("SET_AND_COLLECTOR_TEXT") &&
         stampedNames.has(p.card.name),
     );
-    if (status !== "RESOLVED" || stampUnverified) {
+    if (status !== "RESOLVED" || stampUnverified || input.manualAnalysis?.region) {
       if (proposals.status === "STRONG_MATCH")
         proposals.status = "REVIEW_REQUIRED";
       proposals.automaticAcceptance = false;
@@ -355,6 +362,7 @@ export function createCatalogReconciliationHandler(
     return {
       version: 1,
       photoId: photo.id,
+      manualAnalysis: input.manualAnalysis ?? null,
       sourceRecognitionJobId: source.id,
       ...(visualJob && visual
         ? { sourceVisualJobId: visualJob.id, visual: visual.visual }

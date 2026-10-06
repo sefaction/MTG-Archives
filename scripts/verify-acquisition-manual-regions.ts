@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
 import { createAcquisitionSession, executeAcquisitionCommand, reserveAcquisitionCaptureSlot,
-  beginAcquisitionPhoto, finalizeAcquisitionPhoto, getAcquisitionCardReview, saveAcquisitionReview,
+  beginAcquisitionPhoto, finalizeAcquisitionPhoto, getAcquisitionCardReview, getAcquisitionProgress, saveAcquisitionReview,
   type AcquisitionActor, type CreateAcquisitionInput } from "../lib/acquisition-store";
 import { inspectAcquisitionPhoto, writeAcquisitionPhotoBytes, readAcquisitionPhotoBytes } from "../lib/acquisition-files";
+import {verifyAcquisitionManualPipeline} from "./verify-acquisition-manual-pipeline";
 
 // Called only by the existing disposable PostgreSQL acquisition verification.
 // Private originals live in its owned temporary directory, never in app storage.
@@ -40,22 +41,30 @@ export async function verifyAcquisitionManualRegions(db: PrismaClient, actor: Ac
     const region = {version: 1, quad: [[.1, .1], [.9, .1], [.9, .9], [.1, .9]]};
     const request = {action: "region", photoId: photo.id, revision: state.revision, requestKey: randomUUID(), region};
     await assert.rejects(saveAcquisitionReview(db, stranger, sessionId, request), /unavailable/);
+    const sessionBeforeRepair = await db.acquisitionSession.findUniqueOrThrow({where: {id: sessionId}});
     const concurrent = await Promise.all([1, 2].map(() => saveAcquisitionReview(db, actor, sessionId, request)));
     assert.equal(concurrent.filter(result => result.replay === true).length, 1);
     assert.equal(concurrent.filter(result => result.replay === false).length, 1);
     assert.equal(await db.acquisitionCommand.count({where: {runId: photo.runId, requestKey: `manual-region:${request.requestKey}`}}), 1);
     state = await getAcquisitionCardReview(db, actor, sessionId, photo.id);
     assert.equal(state.revision, request.revision + 1);
+    assert.equal((await db.acquisitionSession.findUniqueOrThrow({where: {id: sessionId}})).revision, sessionBeforeRepair.revision + 1);
+    assert.equal((await getAcquisitionProgress(db, actor, sessionId)).slots.find(s => s.id === slot.id)?.reviewRevision, state.revision);
     assert.deepEqual(state.manualRegion, region);
     assert.deepEqual(state.review, review);
     await assert.rejects(saveAcquisitionReview(db, actor, sessionId, {...request, region: null}), /request changed/);
     await assert.rejects(saveAcquisitionReview(db, actor, sessionId, {...request, requestKey: randomUUID()}), /card changed/);
 
+    await verifyAcquisitionManualPipeline(db,actor,sessionId,photo.id,candidate.id,card,bytes);
+    state = await getAcquisitionCardReview(db,actor,sessionId,photo.id);
+
     const beforeFault = await db.acquisitionCandidate.findUniqueOrThrow({where: {id: candidate.id}});
+    const sessionBeforeFault = await db.acquisitionSession.findUniqueOrThrow({where: {id: sessionId}});
     const fault = db.$extends({query: {acquisitionCommand: {async create() {throw new Error("injected repair history failure");}}}}) as unknown as PrismaClient;
     await assert.rejects(saveAcquisitionReview(fault, actor, sessionId, {...request, revision: state.revision,
       requestKey: randomUUID(), region: null}), /injected repair/);
     assert.deepEqual(await db.acquisitionCandidate.findUniqueOrThrow({where: {id: candidate.id}}), beforeFault);
+    assert.deepEqual(await db.acquisitionSession.findUniqueOrThrow({where: {id: sessionId}}), sessionBeforeFault);
 
     const races = await Promise.allSettled([region, null].map(next => saveAcquisitionReview(db, actor, sessionId,
       {...request, revision: state.revision, requestKey: randomUUID(), region: next})));
@@ -86,7 +95,9 @@ export async function verifyAcquisitionManualRegions(db: PrismaClient, actor: Ac
     assert.deepEqual(await stock(), stockBefore);
     console.log("PASS: manual repair intent owner/source guards, atomic history, replay/races, saved review/physical count/original-byte conservation");
   } finally {
-    await db.acquisitionSession.update({where: {id: sessionId}, data: {phase: "CANCELLED", cancelledAt: new Date()}});
+    // Retire only this owned fixture after its cancellation guard is checked.
+    // Numeric dashboard searches also match text in random fixture names.
+    await db.acquisitionSession.update({where: {id: sessionId}, data: {phase: "CANCELLED", cancelledAt: new Date(), deletedAt: new Date()}});
     await db.card.delete({where: {id: card.id}});
   }
 }

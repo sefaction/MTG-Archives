@@ -16,7 +16,7 @@ RUN node node_modules/prisma/build/index.js generate
 COPY lib ./lib
 COPY scripts ./scripts
 COPY tools/acquisition-runtime ./tools/acquisition-runtime
-COPY tools/acquisition-eval/baseline.py /eval/baseline.py
+COPY tools/acquisition-eval/baseline.py tools/acquisition-eval/manual_card_region.py /eval/
 # Prisma runs as the application identity and may create HOME before OCR starts.
 # Keep its caches separate from the restricted child's native scratch home.
 ENV HOME=/tmp/mtg-acquisition-worker

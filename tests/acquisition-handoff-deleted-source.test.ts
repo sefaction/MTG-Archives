@@ -15,7 +15,7 @@ for(const {name,enqueue} of handoffs){
   test(`${name} skips a deleted selection and still admits the next live source`,async()=>{
     const removed=randomUUID(),live=randomUUID(),photoId=randomUUID();
     const source={id:live,runId:randomUUID(),artifactId:randomUUID(),candidateId:randomUUID(),candidateRevision:3,
-      candidate:{revision:3},input:{photoId,digest:"b".repeat(64)}};
+      candidate:{revision:3,review:null,manualAnalysis:null},input:{photoId,digest:"b".repeat(64)}};
     const admitted:any[]=[];
     const read=async({where}:{where:{id:string}})=>where.id===removed?null:source;
     const db={

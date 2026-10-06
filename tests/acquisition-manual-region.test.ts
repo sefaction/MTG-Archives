@@ -1,10 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { acquisitionNativePhotoInput } from "../lib/acquisition-image-input";
-import { acquisitionManualRegionSchema, validateAcquisitionManualRegionFrame } from "../lib/acquisition-manual-region";
+import { acquisitionManualRegionSchema, validateAcquisitionManualRegionFrame, sameAcquisitionManualAnalysis } from "../lib/acquisition-manual-region";
+import {randomUUID} from "node:crypto";
 
 const region = { version: 1 as const, quad: [[.1, .1], [.9, .1], [.9, .9], [.1, .9]] as
   [[number, number], [number, number], [number, number], [number, number]] };
+
+test("PostgreSQL JSON property order cannot reject the same repair or equate different repairs", () => {
+  const intent = {version: 1, requestKey: randomUUID(), photoId: randomUUID(), digest: "a".repeat(64), generation: 1, candidateRevision: 7, region};
+  const reordered = {...Object.fromEntries(Object.entries(intent).reverse()), region: {quad: region.quad, version: 1}};
+  assert(sameAcquisitionManualAnalysis(intent, reordered));
+  for (const change of [{requestKey:randomUUID()},{photoId:randomUUID()},{digest:"b".repeat(64)},
+    {generation:2},{candidateRevision:8},{region:null},{version:true}])
+    assert(!sameAcquisitionManualAnalysis(intent,{...reordered,...change}));
+});
 
 test("manual hint preserves exact original bytes and normalized source coordinates", () => {
   const bytes = Buffer.from([255, 216, 255, 224, 1, 2, 3]);

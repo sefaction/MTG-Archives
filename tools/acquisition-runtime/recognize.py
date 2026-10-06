@@ -44,6 +44,7 @@ def descriptor():
                'readingCode': hashlib.sha256(Path(__file__).with_name('reading_direction.py').read_bytes()).hexdigest(),
                'inputCode': hashlib.sha256(Path(__file__).with_name('photo_input.py').read_bytes()).hexdigest(),
                'photoTextCode': hashlib.sha256(Path(__file__).with_name('photo_text.py').read_bytes()).hexdigest(),
+               'manualRegionCode': hashlib.sha256(Path('/eval/manual_card_region.py').read_bytes()).hexdigest(),
                'geometry': hashlib.sha256(Path('/eval/baseline.py').read_bytes()).hexdigest()}
     digest = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     return {'version': 1, 'digest': digest, 'execution': 'CPU', **payload}
@@ -64,7 +65,7 @@ def ocr_engine():
 
 
 def recognize(data, desc):
-    data, input_kind, task = decode_photo_input(data, return_task=True)
+    data, input_kind, task, manual_region = decode_photo_input(data, return_task=True, return_region=True)
     if not data or len(data) > 10 * 1024 * 1024:
         raise ValueError('Photo exceeds bounds')
     started = time.monotonic()
@@ -97,8 +98,12 @@ def recognize(data, desc):
               'photoText': photo_text, 'milliseconds': round((time.monotonic()-started)*1000),
               'automaticAcceptance': False}), file=protocol, flush=True)
         return
-    crop, geometry_evidence = geometry(image, input_kind)
-    if crop is None and input_kind != 'CARD_SCAN':
+    if manual_region is not None:
+        from manual_card_region import manual_card_region
+        crop, geometry_evidence = manual_card_region(image, manual_region)
+    else:
+        crop, geometry_evidence = geometry(image, input_kind)
+    if manual_region is None and crop is None and input_kind != 'CARD_SCAN':
         # Contour proposals can change when a near-edge card is sampled after
         # resize. Try bounded quarter turns before asking for a new crop, while
         # keeping any accepted polygon in the original EXIF-normalized frame.

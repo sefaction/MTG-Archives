@@ -1,3 +1,5 @@
+import { acquisitionManualAnalysisSchema, sameAcquisitionManualAnalysis } from "./acquisition-manual-region";
+import { acquisitionAnalysisJobSql } from "./acquisition-analysis-scope";
 import {admitAcquisitionHandoff} from "./acquisition-handoff-admission";
 import { createHash } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
@@ -16,6 +18,7 @@ import { checkedPrintingNative, printingReuseIdentity, reusablePrintingNative } 
 
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
 const inputSchema = z.object({
+  manualAnalysis: acquisitionManualAnalysisSchema.nullable().optional(),
   catalogJobId: z.string().uuid(), photoId: z.string().uuid(), digest,
   model: digest,
   policy: z.string().max(80).optional(),
@@ -43,7 +46,7 @@ export async function enqueueReadyPrinting(db: PrismaClient, model: string) {
     JOIN "Player" p ON p.id=s."ownerPlayerId"
     JOIN "User" u ON u.id=s."createdByUserId"
     WHERE j.stage=${CATALOG_RECONCILIATION_STAGE} AND j.status='COMPLETE'
-      AND j."candidateRevision"=c.revision AND c.review IS NULL AND NOT c.excluded
+      AND j."candidateRevision"=c.revision AND ${acquisitionAnalysisJobSql()}
       AND s.phase NOT IN ('DRAFT','CANCELLED') AND s."cancelledAt" IS NULL AND s."trashedAt" IS NULL AND s."deletedAt" IS NULL AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
       AND NOT EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=c.id)
       AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" newer
@@ -60,7 +63,7 @@ export async function enqueueReadyPrinting(db: PrismaClient, model: string) {
     const source = await db.acquisitionProcessingJob.findUnique({where: {id}});
     // Admission IDs are a snapshot; cancelled/removed runs can disappear here.
     if (!source) continue;
-    const input = z.object({photoId: z.string().uuid(), digest}).parse(source.input);
+    const input = z.object({photoId: z.string().uuid(), digest, manualAnalysis: acquisitionManualAnalysisSchema.nullable().optional()}).parse(source.input);
     const versionKey = createHash("sha256").update(`${PRINTING_STAGE}:${model}:${PRINTING_POLICY_VERSION}:${source.id}`).digest("hex");
     const created = await admitAcquisitionHandoff(db,source,()=>db.acquisitionProcessingJob.createMany({skipDuplicates: true, data: [{
       runId: source.runId, artifactId: source.artifactId, candidateId: source.candidateId,
@@ -85,8 +88,9 @@ export async function observeAcquisitionPrinting(
       source.runId !== job.runId || source.artifactId !== job.artifactId ||
       source.candidateId !== job.candidateId || source.candidateRevision !== job.candidateRevision)
     throw new Error("Printing source changed");
-  const sourceInput = z.object({photoId: z.string().uuid(), digest}).parse(source.input);
-  if (sourceInput.photoId !== input.photoId || sourceInput.digest !== input.digest)
+  const sourceInput = z.object({photoId: z.string().uuid(), digest, manualAnalysis: acquisitionManualAnalysisSchema.nullable().optional()}).parse(source.input);
+  if (sourceInput.photoId !== input.photoId || sourceInput.digest !== input.digest ||
+      !sameAcquisitionManualAnalysis(sourceInput.manualAnalysis, input.manualAnalysis))
     throw new Error("Printing source photo changed");
   const run = await db.acquisitionRun.findUniqueOrThrow({where: {id: job.runId}, select: {session: {select: {ownerPlayerId: true}}}});
   async function requireCurrentSource() {
@@ -109,7 +113,7 @@ export async function observeAcquisitionPrinting(
         AND j."runId"=${job.runId} AND j."candidateId"=${job.candidateId} AND j."artifactId"=${job.artifactId}
         AND j.input=${JSON.stringify(job.input)}::jsonb
         AND j."leaseExpiresAt">clock_timestamp()
-        AND c.revision=${job.candidateRevision} AND c.review IS NULL AND NOT c.excluded
+        AND c.revision=${job.candidateRevision} AND ${acquisitionAnalysisJobSql()}
         AND s.phase NOT IN ('DRAFT','CANCELLED') AND s."cancelledAt" IS NULL AND s."trashedAt" IS NULL AND s."deletedAt" IS NULL AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
         AND s."ownerPlayerId"=${run.session.ownerPlayerId}
         AND photo.ready AND photo."purgedAt" IS NULL AND photo.digest=${input.digest}
@@ -131,7 +135,7 @@ export async function observeAcquisitionPrinting(
   if (!photo.ready || photo.purgedAt || photo.runId !== job.runId || photo.digest !== input.digest ||
       photo.slotId !== candidate.physicalId || photo.generation !== photo.slot.generation ||
       observed.photoId !== photo.id || observed.native.photoDigest !== photo.digest ||
-      candidate.revision !== job.candidateRevision || candidate.review !== null || candidate.excluded)
+      candidate.revision !== job.candidateRevision || candidate.excluded)
     throw new Error("Printing photo input changed");
   const cards = await db.card.findMany({where: {id: {in: observed.proposals.proposals.map(p=>p.card.id)}},
     select: {id: true, scryfallId: true, name: true, setCode: true, collectorNumber: true, lang: true, digital: true}});
@@ -141,7 +145,8 @@ export async function observeAcquisitionPrinting(
   if (bytes.length > 10 * 1024 * 1024) throw new Error("Printing photo exceeds bound");
   signal.throwIfAborted();
   const reuse = printingReuseIdentity({version: 1, ownerPlayerId: run.session.ownerPlayerId,
-    photoDigest: input.digest, descriptor: model, policy: PRINTING_POLICY_VERSION, scryfallIds: ids});
+    photoDigest: input.digest, descriptor: model, policy: PRINTING_POLICY_VERSION, scryfallIds: ids,
+    manualRegion: input.manualAnalysis?.region ?? undefined});
   // Completed jobs are the durable observation store. The exact-key partial
   // index bounds lookup; no original bytes or duplicate evidence cache is saved.
   const [previous] = await db.$queryRaw<{id: string; output: Prisma.JsonValue}[]>`
@@ -154,7 +159,7 @@ export async function observeAcquisitionPrinting(
     ORDER BY j."createdAt" DESC, j.id DESC LIMIT 1`;
   let native = previous ? reusablePrintingNative(previous.output, reuse) : null;
   const reused = native !== null;
-  const metadata = Buffer.from(JSON.stringify({scryfallIds: ids}));
+  const metadata = Buffer.from(JSON.stringify({scryfallIds: ids, ...(input.manualAnalysis?.region ? {manualRegion: input.manualAnalysis.region} : {})}));
   const length = Buffer.alloc(4);
   length.writeUInt32BE(metadata.length);
   if (!native) native = checkedPrintingNative(
@@ -162,6 +167,10 @@ export async function observeAcquisitionPrinting(
   signal.throwIfAborted();
   await requireCurrentSource();
   const proposals = applyAcquisitionPrintingEvidence(observed.proposals as TextProposals, native, byScryfall);
+  if (input.manualAnalysis?.region) {
+    proposals.automaticAcceptance = false;
+    if (proposals.status === "STRONG_MATCH") proposals.status = "REVIEW_REQUIRED";
+  }
   return {
     ...observed, sourceCatalogJobId: source.id, proposals,
     printingNative: native, printing: acquisitionPrintingSummary(native, byScryfall),

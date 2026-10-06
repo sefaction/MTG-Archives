@@ -918,6 +918,7 @@ export async function getAcquisitionProgress(
         generation: slot.generation,
         photos: slot.photos,
         review: reviews.get(slot.id) ?? null,
+        reviewRevision: row.run!.candidates.find((c) => c.physicalId === slot.id)?.revision ?? 0,
         committed: Boolean(
           row.run!.candidates.find((c) => c.physicalId === slot.id)?.receipt,
         ),
@@ -1198,10 +1199,15 @@ export async function getAcquisitionCardReview(
   return transaction(db, async (tx) => {
     const row = await read(tx, actor, sessionId);
     const { photo, candidate } = await reviewPhoto(tx, row, photoId);
+    const analysis = acquisitionManualAnalysisSchema.safeParse(candidate.manualAnalysis);
+    const currentAnalysis = analysis.success && analysis.data.photoId === photo.id &&
+      analysis.data.digest === photo.digest && analysis.data.generation === photo.generation
+      ? analysis.data : null;
     const jobs = await tx.acquisitionProcessingJob.findMany({
       where: {
         runId: row.run!.id,
         artifact: { sourceId: photo.id },
+        ...(currentAnalysis ? {input: {path: ["manualAnalysis"], equals: currentAnalysis}} : {}),
         stage: {
           in: [
             "photo-recognition-v1",
@@ -1220,10 +1226,6 @@ export async function getAcquisitionCardReview(
       jobs, process.env.ACQUISITION_VISUAL_ENABLED === "1", process.env.ACQUISITION_PRINTING_ENABLED === "1",
     );
     const review = candidate.review as AcquisitionCardReview["review"];
-    const analysis = acquisitionManualAnalysisSchema.safeParse(candidate.manualAnalysis);
-    const currentAnalysis = analysis.success && analysis.data.photoId === photo.id &&
-      analysis.data.digest === photo.digest && analysis.data.generation === photo.generation
-      ? analysis.data : null;
     const ids = [
       ...new Set([
         ...(evidence.result?.proposals.map((p) => p.card.id) ?? []),
@@ -1353,6 +1355,11 @@ export async function saveAcquisitionReview(
         data: {revision: {increment: 1}, manualAnalysis: intent},
       });
       if (changed.count !== 1) throw new Error("Capture card changed; reopen its review");
+      // Advance the batch once so other views observe this explicit repair,
+      // including repairs that deliberately retain the saved printing review.
+      await tx.acquisitionSession.update({where: {id: sessionId},
+        data: {revision: {increment: 1}},
+      });
       await tx.acquisitionCommand.create({data: {runId: row.run!.id, requestKey,
         payload: JSON.stringify({version: 1, action: "MANUAL_REGION", actorId: actor.userId,
           fingerprint, before: candidate.manualAnalysis, after: intent}),

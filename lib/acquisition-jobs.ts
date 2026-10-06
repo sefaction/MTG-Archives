@@ -9,6 +9,7 @@ import { acquisitionRefreshPriority } from "./acquisition-processing-priority";
 import { PRINTING_STAGE } from "./acquisition-printing";
 import { CATALOG_RECONCILIATION_STAGE } from "./acquisition-catalog-status";
 import { VISUAL_STAGE, visualNativeSchema } from "./acquisition-visual";
+import { acquisitionAnalysisCandidateFence, acquisitionAnalysisJobSql, acquisitionAnalysisOutputMatches } from "./acquisition-analysis-scope";
 
 // Queue operations are worker-only: never expose these as user-facing routes.
 // Handlers return versioned evidence; they must not mutate candidates/inventory.
@@ -48,7 +49,7 @@ export async function claimAcquisitionJobs(
     WHERE c.id=j."candidateId" AND j.stage IN (${Prisma.join(options.stages)})
       AND j.stage<>'photo-canonical-v1'
       AND (j.status='PENDING' OR (j.status='RUNNING' AND j."leaseExpiresAt"<=${now}))
-      AND (c.revision<>j."candidateRevision" OR c.excluded OR c.review IS NOT NULL
+      AND (c.revision<>j."candidateRevision" OR NOT ${acquisitionAnalysisJobSql()}
         OR EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=c.id))`;
   // Exhausted crashes become visible failures; no forever-RUNNING rows.
   await db.acquisitionProcessingJob.updateMany({
@@ -81,9 +82,9 @@ export async function claimAcquisitionJobs(
   // runs. Keep FIFO within that class and the second head for lease CAS races.
   const priority = acquisitionRefreshPriority(Prisma.sql`j."artifactId"`,
     Prisma.sql`j."candidateId"`, Prisma.sql`j.stage`);
-  const candidates = await db.$queryRaw<{id: string; runId: string; stage: string; candidateRevision: number}[]>`
+  const candidates = await db.$queryRaw<{id: string; runId: string; stage: string; candidateRevision: number; input: Prisma.JsonValue}[]>`
     WITH eligible_jobs AS (
-      SELECT j.id, j."runId", j.stage, j."candidateRevision", j."availableAt", j."createdAt", s."ownerPlayerId",
+      SELECT j.id, j."runId", j.stage, j.input, j."candidateRevision", j."availableAt", j."createdAt", s."ownerPlayerId",
         ${priority} AS "refreshPriority"
       FROM "AcquisitionProcessingJob" j
       JOIN "AcquisitionCandidate" c ON c.id=j."candidateId"
@@ -97,7 +98,7 @@ export async function claimAcquisitionJobs(
         AND s.phase NOT IN ('DRAFT','CANCELLED') AND s."cancelledAt" IS NULL AND s."trashedAt" IS NULL AND s."deletedAt" IS NULL
         AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
         AND (j.stage='photo-canonical-v1' OR
-          (c.revision=j."candidateRevision" AND NOT c.excluded AND c.review IS NULL))
+          (c.revision=j."candidateRevision" AND ${acquisitionAnalysisJobSql()}))
         AND NOT EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=j."candidateId")
     ), ranked AS (
       SELECT e.*, ROW_NUMBER() OVER (PARTITION BY e."runId", e.stage
@@ -119,7 +120,7 @@ export async function claimAcquisitionJobs(
         ORDER BY h."refreshPriority", h."runTurn", h.position, h."availableAt", h."createdAt", h.id) AS "ownerPosition"
       FROM heads h
     )
-    SELECT q.id, q."runId", q.stage, q."candidateRevision" FROM shared q
+    SELECT q.id, q."runId", q.stage, q."candidateRevision", q.input FROM shared q
     LEFT JOIN owner_turns t ON t."ownerPlayerId"=q."ownerPlayerId" AND t.stage=q.stage
     ORDER BY COALESCE(t."lastClaimedAt", TIMESTAMP '1970-01-01'), q."ownerPosition",
       q."runTurn", q.position, q."availableAt", q."createdAt", q.id LIMIT 32`;
@@ -131,7 +132,8 @@ export async function claimAcquisitionJobs(
       const claimed = await tx.acquisitionProcessingJob.updateMany({
         where: { ...eligible, id: candidate.id, candidateRevision: candidate.candidateRevision,
           candidate: { receipt: null, ...(candidate.stage === "photo-canonical-v1" ? {} : {
-            revision: candidate.candidateRevision, excluded: false, review: {equals: Prisma.DbNull},
+            revision: candidate.candidateRevision, excluded: false,
+            ...acquisitionAnalysisCandidateFence(candidate.input),
           }) } },
         data: {
           status: "RUNNING", leaseToken,
@@ -194,7 +196,7 @@ export async function completeAcquisitionJob(
   const current = {
     revision: job.candidateRevision,
     excluded: false,
-    review: { equals: Prisma.DbNull },
+    ...acquisitionAnalysisCandidateFence(job.input),
   };
   return db.$transaction(async (tx) => {
     const run = await tx.acquisitionRun.findUniqueOrThrow({
@@ -212,7 +214,8 @@ export async function completeAcquisitionJob(
       // Legacy synthetic callers omit reuse identity; real new handlers always
       // provide it. A malformed supplied identity cannot bypass owner guards.
       const valid = (output.visualReuse === undefined || scope.success) && visual.success &&
-        visual.data.photoDigest === input.digest && visual.data.descriptor === input.model && output.photoId === input.photoId;
+        visual.data.photoDigest === input.digest && visual.data.descriptor === input.model && output.photoId === input.photoId &&
+        acquisitionAnalysisOutputMatches(job.input, output, job.stage);
       const completed = await tx.$executeRaw`
         UPDATE "AcquisitionProcessingJob" j SET status='COMPLETE', output=${JSON.stringify(output)}::jsonb,
           "leaseToken"=NULL, "leaseExpiresAt"=NULL, "updatedAt"=clock_timestamp()
@@ -228,7 +231,7 @@ export async function completeAcquisitionJob(
           AND j."runId"=${job.runId} AND j."candidateId"=${job.candidateId} AND j."artifactId"=${job.artifactId}
           AND j.input=${JSON.stringify(job.input)}::jsonb
           AND j."leaseExpiresAt">clock_timestamp() AND j."runId"=r.id AND j."candidateId"=c.id
-          AND c.revision=${job.candidateRevision} AND c.review IS NULL AND NOT c.excluded
+          AND c.revision=${job.candidateRevision} AND ${acquisitionAnalysisJobSql()}
           AND s.phase NOT IN ('DRAFT','CANCELLED') AND s."cancelledAt" IS NULL AND s."trashedAt" IS NULL AND s."deletedAt" IS NULL AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
           AND ${valid}
           AND (${!scope.success} OR (s."ownerPlayerId"=${scope.success ? scope.data.ownerPlayerId : ""}
@@ -266,7 +269,7 @@ export async function completeAcquisitionJob(
           AND j."runId"=${job.runId} AND j."candidateId"=${job.candidateId} AND j."artifactId"=${job.artifactId}
           AND j.input=${JSON.stringify(job.input)}::jsonb
           AND j."leaseExpiresAt">clock_timestamp() AND j."runId"=r.id AND j."candidateId"=c.id
-          AND c.revision=${job.candidateRevision} AND c.review IS NULL AND NOT c.excluded
+          AND c.revision=${job.candidateRevision} AND ${acquisitionAnalysisJobSql()}
           AND s.phase NOT IN ('DRAFT','CANCELLED') AND s."cancelledAt" IS NULL AND s."trashedAt" IS NULL AND s."deletedAt" IS NULL AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
           AND (${!scope.success} OR s."ownerPlayerId"=${scope.success ? scope.data.ownerPlayerId : ""})
           AND photo.ready AND photo."purgedAt" IS NULL AND photo.digest=${input.digest}
@@ -275,6 +278,7 @@ export async function completeAcquisitionJob(
           AND source."runId"=j."runId" AND source."artifactId"=j."artifactId"
           AND source."candidateId"=j."candidateId" AND source."candidateRevision"=${job.candidateRevision}
           AND ${output.sourceCatalogJobId === input.catalogJobId}
+          AND ${acquisitionAnalysisOutputMatches(job.input, output, job.stage)}
           AND NOT EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=c.id)
           AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" newer
             WHERE newer.stage=source.stage AND newer."candidateId"=c.id AND newer."candidateRevision"=c.revision
@@ -304,6 +308,14 @@ export async function completeAcquisitionJob(
         photo.generation === photo.slot.generation,
       );
       candidateFence = { excluded: false };
+    }
+    if (job.stage !== "photo-canonical-v1") {
+      const [scoped] = await tx.$queryRaw<{id: string}[]>`
+        SELECT j.id FROM "AcquisitionProcessingJob" j
+        JOIN "AcquisitionCandidate" c ON c.id=j."candidateId"
+        WHERE j.id=${job.id} AND j.input=${JSON.stringify(job.input)}::jsonb
+          AND j."leaseExpiresAt">clock_timestamp() AND ${acquisitionAnalysisJobSql()}`;
+      canonicalCurrent = Boolean(scoped) && acquisitionAnalysisOutputMatches(job.input, output, job.stage);
     }
     const completed = await tx.acquisitionProcessingJob.updateMany({
       where: {

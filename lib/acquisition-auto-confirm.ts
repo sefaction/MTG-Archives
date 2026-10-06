@@ -34,6 +34,7 @@ export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
       AND j.output->'proposals'->>'status' = 'STRONG_MATCH'
       AND j.output->'proposals'->>'version' = '4'
       AND j."candidateRevision" = c.revision AND c.review IS NULL AND NOT c.excluded
+      AND COALESCE(j.input->'manualAnalysis'->'region','null'::jsonb)='null'::jsonb
       AND r."providerId" = 'phone-photo-v1'
       AND s.phase NOT IN ('DRAFT', 'CANCELLED') AND s."cancelledAt" IS NULL AND s."trashedAt" IS NULL AND s."deletedAt" IS NULL
       AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
@@ -67,6 +68,7 @@ export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
       });
       if (!candidate) return 0;
       if (
+        (job.input as {manualAnalysis?: {region?: unknown}}).manualAnalysis?.region ||
         candidate.review !== null ||
         candidate.receipt ||
         candidate.excluded ||
