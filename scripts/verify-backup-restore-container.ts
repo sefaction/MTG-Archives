@@ -6,6 +6,7 @@ import { mkdir, readdir, readFile, writeFile, lstat, unlink } from "node:fs/prom
 import { join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import { PrismaClient } from "@prisma/client";
+import { captureRestoreWorkers, verifyRestoredWorkers, type RestoreWorkerEvidence } from "./restore-worker-projection";
 import {
   assertIsolatedDrillDatabase,
   isolatedDrillArchivePath,
@@ -32,6 +33,7 @@ type Evidence = {
   files: Record<string, Record<string, string>>;
   appdata: Array<{ envName: string; archivePath: string }>;
   credentialFence: { version: 1; scannerAgents: Digest };
+  workerFence: RestoreWorkerEvidence;
 };
 
 // These tables change asynchronously under the normal delivery worker. They are
@@ -147,6 +149,7 @@ async function capture(db: PrismaClient) {
     version: 1 as const,
     scannerAgents: await scannerCredentialDigest(db),
   };
+  const workerFence = await captureRestoreWorkers(db);
   const files: Evidence["files"] = {};
   for (const entry of paths)
     files[entry.envName] = await fileDigest(entry.sourcePath);
@@ -186,6 +189,7 @@ async function capture(db: PrismaClient) {
     backupMs,
     database,
     credentialFence,
+    workerFence,
     physicalCopies,
     files,
     appdata: backup.manifest.appdata.map(({ envName, archivePath }) => ({
@@ -421,8 +425,15 @@ async function restore(db: PrismaClient, phase: "validate" | "apply") {
     delete actualDatabase.ScannerAgent;
     delete expectedDatabase.ScannerAgent;
   }
+  assert.ok(evidence.workerFence, "Capture predates worker-fence evidence; create a fresh qualified capture");
+  await verifyRestoredWorkers(db, evidence.workerFence);
+  for (const name of ["AcquisitionProcessingJob", "AcquisitionCatalogLookup"]) {
+    delete actualDatabase[name];
+    delete expectedDatabase[name];
+  }
   assert.deepEqual(actualDatabase, expectedDatabase);
   assert.equal(restored.credentialsRevalidated, true);
+  assert.equal(restored.workerClaimsInvalidated, true);
   assert.equal(
     (await db.inventoryItem.aggregate({ _sum: { quantity: true } }))._sum
       .quantity || 0,
@@ -462,6 +473,9 @@ async function restore(db: PrismaClient, phase: "validate" | "apply") {
       sqlFailurePreservedTrigramIndex: true,
       restoredTrigramExtension: true,
       restoredCredentialsRevalidated: true,
+      restoredWorkerClaimsInvalidated: true,
+      interruptedProcessingClaims: evidence.workerFence.jobs.runningIds.length,
+      interruptedCatalogClaims: evidence.workerFence.lookups.runningIds.length,
       clearedWebsiteSessions: evidence.database.AuthSession?.rows ?? 0,
       clearedScannerPairings: evidence.database.ScannerPairing?.rows ?? 0,
       preservedScannerAgents: evidence.credentialFence.scannerAgents.rows,

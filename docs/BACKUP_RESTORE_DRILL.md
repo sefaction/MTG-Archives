@@ -1,5 +1,49 @@
 # Isolated backup/restore drill (#237)
 
+## Restored acquisition worker claims (#652)
+
+The forced restore transaction now revokes both restored credentials and all
+RUNNING acquisition-processing/catalog publication claims before committing the
+replacement schema. Processing attempts with remaining retries become PENDING;
+exhausted attempts become FAILED with `RESTORE_INTERRUPTED`. Attempts, limits,
+inputs, outputs, identities, saved reviews and immutable Inventory receipts remain.
+Completed/non-running jobs and catalog results are unchanged. Cancelled, trashed,
+deleted and reviewed sessions retain their ordinary admission restrictions.
+
+Fresh captures include full-field expected projections for this transformation.
+Originally RUNNING row identities are recorded privately; only their intended
+status/lease/error/time fields are normalized, and actual cleared leases and
+statuses are checked independently. Older captures without this evidence must be
+recaptured for the full drill. This does not qualify scanner epochs, cross-store
+atomicity, every host/storage interruption, or automatic physical resumption.
+
+The disposable acquisition suite includes stale heartbeat/completion/failure and
+held catalog-provider publication, retry/exhaustion, fresh work, rollback,
+idempotence, frozen human review, non-running controls and quoted legacy schemas.
+An incompatible present table causes transaction failure rather than partial
+credential revocation. Missing legacy tables are tolerated.
+
+For a prepared local web image, run
+`npx tsx scripts/verify-restore-worker-local.ts mtg-archives-web:restore-worker-claims`.
+This creates UUID-labeled PostgreSQL and app containers on an internal network,
+with no source mounts or host ports, migrates the fixture, and invokes the actual
+backup/dry-run/forced-restore library with eight unexpired processing claims and
+one held catalog claim. It then verifies field projections and publication guards
+and removes the exact owned containers, anonymous volume and network. It never
+restores the primary local snapshot. Its private cleanup journal remains under
+`.local-data/restore-workers-<UUID>.json` for interruption recovery.
+
+October 5 verification: complete acquisition/import suites passed; core
+verification passed all 820 units plus generation/typecheck/build/manifests. The
+final installer-enforced image passed the miniature forced restore in 2,174 ms,
+with all eight processing claims and one catalog claim live immediately before
+restore. Desktop 1366px and phone 320px backup-page checks passed with owned admin
+accounts, then accounts were removed; screenshots were inspected. The initial UI
+harness navigated before Admin Mode submission completed and failed both cases;
+waiting for the resulting Exit Admin Mode control corrected the harness. Earlier
+sandbox ownership/file-lock verification attempts are not counted as passes.
+This batch requires individual PR approval before merge.
+
 This is an opt-in laptop exercise, not production recovery. It uses the real application's `createBackup` / `restoreBackup` functions and current local snapshot, with a separate disposable PostgreSQL 16 target. It never restores into the running web database.
 
 ## Run
