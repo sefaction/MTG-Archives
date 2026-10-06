@@ -20,6 +20,7 @@ import { PRINTING_STAGE } from "./acquisition-printing";
 import { acquisitionRecognitionJobs } from "./acquisition-recognition-jobs";
 import { CATALOG_RECONCILIATION_STAGE } from "./acquisition-catalog-status";
 import { acquisitionReviewEvidence } from "./acquisition-review-evidence";
+import { acquisitionManualAnalysisSchema, validateAcquisitionManualRegionFrame } from "./acquisition-manual-region";
 import { searchLocalCardCatalog } from "./local-card-search";
 import {
   acquisitionEventSchema,
@@ -1219,6 +1220,10 @@ export async function getAcquisitionCardReview(
       jobs, process.env.ACQUISITION_VISUAL_ENABLED === "1", process.env.ACQUISITION_PRINTING_ENABLED === "1",
     );
     const review = candidate.review as AcquisitionCardReview["review"];
+    const analysis = acquisitionManualAnalysisSchema.safeParse(candidate.manualAnalysis);
+    const currentAnalysis = analysis.success && analysis.data.photoId === photo.id &&
+      analysis.data.digest === photo.digest && analysis.data.generation === photo.generation
+      ? analysis.data : null;
     const ids = [
       ...new Set([
         ...(evidence.result?.proposals.map((p) => p.card.id) ?? []),
@@ -1232,6 +1237,8 @@ export async function getAcquisitionCardReview(
     return {
       photoId,
       revision: candidate.revision,
+      manualRegion: currentAnalysis?.region ?? null,
+      ...(currentAnalysis ? {manualRegionRequestedRevision: currentAnalysis.candidateRevision} : {}),
       position: photo.slot.position,
       defaults: acquisitionDefaultsSchema.parse(
         row.reviewDefaults ?? emptyAcquisitionDefaults,
@@ -1307,6 +1314,50 @@ export async function saveAcquisitionReview(
         defaults: input.defaults,
         defaultsRevision: row.defaultsRevision + 1,
       };
+    }
+    if (input.action === "region") {
+      const requestKey = `manual-region:${input.requestKey}`;
+      const fingerprint = createHash("sha256").update(JSON.stringify(input)).digest("hex");
+      const prior = await tx.acquisitionCommand.findUnique({
+        where: {runId_requestKey: {runId: row.run!.id, requestKey}},
+      });
+      if (prior) {
+        const saved = JSON.parse(prior.payload);
+        if (saved.action !== "MANUAL_REGION" || saved.actorId !== actor.userId || saved.fingerprint !== fingerprint)
+          throw new Error("Repair request changed; reopen the latest card");
+        return {replay: true, revision: saved.after.candidateRevision as number};
+      }
+      requireProcessingAcquisitionBatch(row);
+      const {photo, candidate} = await reviewPhoto(tx, row, input.photoId);
+      if (candidate.receipt)
+        throw new Error("Capture card is already committed; its source analysis is kept");
+      if (candidate.revision !== input.revision)
+        throw new Error("Capture card changed; reopen its review before changing the region");
+      if (input.region) {
+        // Preview coordinates are normalized; source limits use real original
+        // pixels after EXIF orientation, never the resized preview dimensions.
+        const {readAcquisitionPhotoBytes} = await import("./acquisition-files");
+        const sharp = (await import("sharp")).default;
+        const metadata = await sharp(await readAcquisitionPhotoBytes(photo.id, "raw", photo.digest)).metadata();
+        const sideways = [5, 6, 7, 8].includes(metadata.orientation ?? 1);
+        validateAcquisitionManualRegionFrame(input.region,
+          (sideways ? metadata.height : metadata.width) ?? 0,
+          (sideways ? metadata.width : metadata.height) ?? 0);
+      }
+      const intent = acquisitionManualAnalysisSchema.parse({
+        version: 1, requestKey: input.requestKey, photoId: photo.id, digest: photo.digest,
+        generation: photo.generation, candidateRevision: candidate.revision + 1, region: input.region,
+      });
+      const changed = await tx.acquisitionCandidate.updateMany({
+        where: {id: candidate.id, revision: input.revision, receipt: null, excluded: false},
+        data: {revision: {increment: 1}, manualAnalysis: intent},
+      });
+      if (changed.count !== 1) throw new Error("Capture card changed; reopen its review");
+      await tx.acquisitionCommand.create({data: {runId: row.run!.id, requestKey,
+        payload: JSON.stringify({version: 1, action: "MANUAL_REGION", actorId: actor.userId,
+          fingerprint, before: candidate.manualAnalysis, after: intent}),
+      }});
+      return {replay: false, revision: intent.candidateRevision};
     }
     const { candidate } = await reviewPhoto(tx, row, input.photoId);
     if (candidate.receipt)

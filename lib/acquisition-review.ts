@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { AcquisitionReviewEvidence } from "./acquisition-review-evidence";
 import type { AcquisitionCatalogStatus } from "./acquisition-catalog-status";
+import { acquisitionManualRegionSchema, type AcquisitionManualRegion } from "./acquisition-manual-region";
 export const acquisitionDefaultsSchema = z
   .object({
     finish: z.enum(["UNKNOWN", "NONFOIL", "FOIL", "ETCHED"]),
@@ -43,6 +44,10 @@ export const acquisitionReviewRequestSchema = z.discriminatedUnion("action", [
       revision: z.number().int().nonnegative(),
     })
     .strict(),
+  z.object({ action: z.literal("region"), photoId: z.string().uuid(),
+    revision: z.number().int().nonnegative(), requestKey: z.string().uuid(),
+    region: acquisitionManualRegionSchema.nullable(),
+  }).strict(),
 ]);
 export type AcquisitionPrinting = {
   id: string;
@@ -80,4 +85,6 @@ export type AcquisitionCardReview = {
   printingStatus?: string;
   catalog?: AcquisitionCatalogStatus | null;
   evidence: AcquisitionReviewEvidence;
+  manualRegion?: AcquisitionManualRegion | null;
+  manualRegionRequestedRevision?: number;
 };

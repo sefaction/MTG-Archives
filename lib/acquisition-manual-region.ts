@@ -15,6 +15,13 @@ export const acquisitionManualRegionSchema = z.object({
 });
 export type AcquisitionManualRegion = z.infer<typeof acquisitionManualRegionSchema>;
 
+export const acquisitionManualAnalysisSchema = z.object({
+  version: z.literal(1), requestKey: z.string().uuid(), photoId: z.string().uuid(),
+  digest: z.string().regex(/^[a-f0-9]{64}$/), generation: z.number().int().nonnegative(),
+  candidateRevision: z.number().int().nonnegative(), region: acquisitionManualRegionSchema.nullable(),
+}).strict();
+export type AcquisitionManualAnalysis = z.infer<typeof acquisitionManualAnalysisSchema>;
+
 export function validateAcquisitionManualRegionFrame(raw: unknown, width: number, height: number) {
   const region = acquisitionManualRegionSchema.parse(raw);
   if (!Number.isInteger(width) || !Number.isInteger(height) || width < 2 || height < 2 || width * height > 36000000)

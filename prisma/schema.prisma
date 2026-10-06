@@ -1403,6 +1403,8 @@ model AcquisitionCandidate {
   countConfirmed   Boolean @default(false)
   proposal         Json?
   review           Json?
+  // Explicit source-bound reanalysis intent, separate from the human decision.
+  manualAnalysis   Json?
   observations     AcquisitionObservation[]
   corrections      AcquisitionCountCorrection[]
   jobs             AcquisitionProcessingJob[]
