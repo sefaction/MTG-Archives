@@ -8,14 +8,16 @@ import { runAcquisitionJobsOnce } from "../lib/acquisition-jobs";
 import { enqueueReadyPrinting, observeAcquisitionPrinting } from "../lib/acquisition-printing-worker";
 import { PRINTING_STAGE } from "../lib/acquisition-printing";
 import { AcquisitionNativeGeneration } from "../lib/acquisition-native-generation";
+import { observeNativeFailure } from "../lib/acquisition-native-failure";
 
 const db = new PrismaClient();
 const program = "/app/tools/acquisition-runtime/printing_worker.py";
+const observeFailure = observeNativeFailure("printing");
 const generation = new AcquisitionNativeGeneration(
   async () => z.object({digest: z.string().regex(/^[a-f0-9]{64}$/),
     manifest: z.string().regex(/^(index|manifest-[a-f0-9]{64})\.json$/)}).parse(
-    await runAcquisitionNativeProcess("python", [program, "--describe"], Buffer.alloc(0), AbortSignal.timeout(30000))),
-  descriptor => new AcquisitionNativeStream("python", [program, "--stream", "--manifest", descriptor.manifest], 10 * 1024 * 1024 + 65536),
+    await runAcquisitionNativeProcess("python", [program, "--describe"], Buffer.alloc(0), AbortSignal.timeout(30000), observeFailure)),
+  descriptor => new AcquisitionNativeStream("python", [program, "--stream", "--manifest", descriptor.manifest], 10 * 1024 * 1024 + 65536, observeFailure),
   (event, descriptor) => console.log(JSON.stringify({event: `printing-generation-${event}`, model: descriptor?.digest})),
 );
 let stopped = false;

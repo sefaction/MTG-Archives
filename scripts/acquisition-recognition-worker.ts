@@ -4,6 +4,7 @@ import { setTimeout } from "node:timers/promises";
 import { z } from "zod";
 import { runAcquisitionNativeProcess } from "../lib/acquisition-native-process";
 import { AcquisitionNativeStream } from "../lib/acquisition-native-stream";
+import { observeNativeFailure } from "../lib/acquisition-native-failure";
 import {
   enqueueReadyRecognition,
   loadAcquisitionRecognitionSnapshot,
@@ -12,10 +13,11 @@ import {
 } from "../lib/acquisition-recognition-worker";
 import { runAcquisitionJobsOnce } from "../lib/acquisition-jobs";
 const db = new PrismaClient();
+const observeFailure = observeNativeFailure("recognition");
 const nativeWorker = new AcquisitionNativeStream("python", [
   "/app/tools/acquisition-runtime/recognize.py",
   "--stream",
-]);
+], undefined, observeFailure);
 let stopped = false;
 process.on("SIGTERM", () => {
   stopped = true;
@@ -36,6 +38,7 @@ async function main() {
         ["/app/tools/acquisition-runtime/recognize.py", "--describe"],
         Buffer.alloc(0),
         AbortSignal.timeout(30000),
+        observeFailure,
       ),
     );
   const snapshot = await loadAcquisitionRecognitionSnapshot(db);
