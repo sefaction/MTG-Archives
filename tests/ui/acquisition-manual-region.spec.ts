@@ -72,6 +72,7 @@ test("manual boundary pointer/keyboard repair, failed and lost acknowledgements,
     const corners=await first.getAttribute("style");
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await page.screenshot({path:"test-results/manual-boundary-desktop.png"});
+    await editor.screenshot({path:"test-results/manual-boundary-desktop-editor.png"});
     const apply=editor.getByRole("button",{name:"Apply boundary and recheck",exact:true});
     await apply.click();await expect(editor).toContainText("Controlled boundary retry");expect(await first.getAttribute("style")).toBe(corners);
     expect((await read()).manualRegion).toBeNull();
@@ -94,6 +95,7 @@ test("manual boundary pointer/keyboard repair, failed and lost acknowledgements,
     await expect.poll(()=>second.getAttribute("style")).not.toBe(beforeTouch);
     expect(touch!.width).toBeGreaterThanOrEqual(44);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await page.screenshot({path:"test-results/manual-boundary-phone.png"});
+    await editor.screenshot({path:"test-results/manual-boundary-phone-editor.png"});
     for(let index=0;index<55;index++)await first.press("Shift+ArrowRight");
     const beforeInvalid=requests.length;await apply.click();await expect(editor).toContainText("without crossing edges");expect(requests.length).toBe(beforeInvalid);
     await editor.getByRole("button",{name:"Cancel boundary changes",exact:true}).click();await expect(condition).toHaveValue("LP");
@@ -103,10 +105,12 @@ test("manual boundary pointer/keyboard repair, failed and lost acknowledgements,
     await expect(editor).toContainText("This card changed while you were editing");await expect(apply).toBeDisabled();
     expect(await first.getAttribute("style")).toBe(beforeStale);
     await editor.getByRole("button",{name:"Cancel boundary changes",exact:true}).click();await expect(condition).toHaveValue("LP");
-    await card.getByRole("button",{name:"Cancel changes",exact:true}).click();await expect(condition).toHaveValue("NM");
+    await card.getByRole("button",{name:"Cancel changes",exact:true}).click();await expect(card).toContainText(/nonfoil · NM/i);
+    await card.getByRole("button",{name:"Correct",exact:true}).click();await expect(condition).toHaveValue("NM");
+    await expect(card.getByRole("radio",{name:/Boundary fixture original/})).toBeChecked();
     await card.getByRole("button",{name:"Edit card boundary",exact:true}).click();await editor.getByRole("button",{name:"Use automatic boundary",exact:true}).click();
     await expect(editor).toBeHidden();expect((await read()).manualRegion).toBeNull();expect((await read()).review).toEqual(savedReview);
-    await card.getByRole("button",{name:"Correct",exact:true}).click();await alternateChoice.check();await condition.selectOption("LP");
+    await alternateChoice.check();await condition.selectOption("LP");
     await card.getByRole("button",{name:"Save card review",exact:true}).click();await expect(card).toContainText("Review saved. Not yet added to Inventory.");
     // A reviewed card stops its analysis poll. Another client's boundary-only
     // correction must still refresh this view through batch progress revision.
@@ -115,7 +119,10 @@ test("manual boundary pointer/keyboard repair, failed and lost acknowledgements,
       revision:reviewed.revision,requestKey:randomUUID(),region:requests[0].region}})).ok()).toBe(true);
     const otherClient=await read();expect(otherClient.review).toEqual(reviewed.review);
     await expect.poll(()=>projectedRevisions.includes(otherClient.revision)).toBe(true);
+    await expect(card).toContainText(/nonfoil · LP/i);
+    await card.getByRole("button",{name:"Correct",exact:true}).click();
     await expect(condition).toHaveValue("LP");await expect(alternateChoice).toBeChecked();
+    await card.getByRole("button",{name:"Cancel changes",exact:true}).click();
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
     const metadata=JSON.parse(database(`console.log(JSON.stringify(await p.acquisitionPhoto.findUniqueOrThrow({where:{id:${JSON.stringify(photoId)}},select:{digest:true,inputKind:true}})));`));
     expect(metadata).toEqual({digest:createHash("sha256").update(bytes).digest("hex"),inputKind:"PHOTO"});
@@ -130,6 +137,7 @@ test("manual boundary pointer/keyboard repair, failed and lost acknowledgements,
     expect(denied.ok()).toBe(false);expect((await denied.json()).error).toMatch(/already committed/);
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(1);
   } finally {
+    await page.unrouteAll({behavior:"wait"});
     database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const w={run:{session:{createdByUserId:n}}};const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});await p.acquisitionCommitMember.deleteMany({where:{candidate:w}});await p.acquisitionCommit.deleteMany({where:w});await p.inventoryAuditLog.deleteMany({where:{changedByUserId:n}});await p.inventoryItem.deleteMany({where:{currentOwnerId:n}});for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});await p.card.deleteMany({where:{id:{in:${JSON.stringify([original.id,alternate.id])}}}});const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;if(!root||!paths.isAbsolute(root))throw Error('Private fixture storage unavailable');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw Error('Invalid owned photo');for(const suffix of ['.original','.preview.jpg'])await fs.unlink(paths.join(root,'acquisition-v1',photo.id+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e;});}`);
   }
 });

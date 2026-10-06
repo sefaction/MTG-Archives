@@ -1,7 +1,7 @@
 # Manual card-region repair
 
 Feature batch for #306 and recognition #463. The repair workflow is implemented
-and undergoing browser/build/local Docker qualification. It is not yet delivered.
+and qualified in cumulative local Docker for individual pull-request review.
 General multi-card detection, region-to-candidate expansion and duplex pairing
 remain separate phase requirements. This batch makes no recognition-accuracy or
 correction-library promotion claim.
@@ -74,11 +74,54 @@ an explicit preview/commit action.
   dashboard text searches, corrected by retiring it after its own cancellation
   checks. No production guard or acceptance assertion was weakened.
 
-Browser baseline on the existing cumulative app reproduced the missing control;
-owned fixture cleanup, seven original row projections and13 service identities
-were conserved. Corrected desktop1366/phone320 workflow and screenshots, actual native descriptors,
-and cumulative Docker source/data conservation remain pending. The running app
-still contains the previous four review batches; this feature has no PR yet.
+The old-app browser baseline reproduced the missing control. The corrected
+desktop1366/phone320 case passes, including pointer/keyboard/real touch controls,
+44-pixel handles, no horizontal overflow, invalid selection, failed save, an
+applied command with a lost acknowledgement, exact replay, printing drafts
+through reload, stale corner retention, explicit automatic reset, another
+client's repair refreshing a saved review, and exactly one explicit Inventory
+copy/receipt. Post-commit repair is rejected. Screenshots were inspected; private
+evidence stays in ignored `test-results` and `.local-data/verification`.
+
+Initial browser expectations incorrectly looked for a condition field after
+Cancel had closed the form, then used the wrong case for its summary caption.
+Those failed traces are retained. The corrected assertions reopen the form and
+check the saved original/NM choice; no saved-review assertion was removed.
+
+The cumulative source includes PR655, PR656, PR658 and PR659. Its complete
+disposable PostgreSQL/shared-receipt gate passed in160.873seconds at local
+commit7fb6fb2853cdbbaefb735199abcae044cc560f19, source
+79cd5c3e88e97dd907014d7581b56cbae95fa55aaa32ac1470d7f5182ec6efde.
+All825 cumulative unit tests pass. Installer-required web and both native image
+recipes built. Actual offline native descriptors and synthetic inference pass
+OCR/visual/printing through the production privilege-separated child wrapper.
+The printing smoke's initial driver omitted its outer stream frame; the native
+parser rejected it, and the properly framed rerun passed. This remains mechanics
+qualification, not held-out printing accuracy.
+
+Loaded web image:
+`sha256:e023185fc704f06cc217e1bed640821d5b17c9571a5912008ec61ce97336d906`.
+The exact563 runtime inputs match digest
+`1d3f501bfcaa8198a595ae88ad38485807f9f8a958bb7b15a1c28d3a26687895`.
+Native OCR image:
+`sha256:7edbd4f0c6895f4215f9605700fbe25564a30e65ffe7108ab2cc2dfcd0ab6e7a`.
+Visual/printing image:
+`sha256:45d79920bd2b6e4c4bafc7c5dbfeeabc858d3abb65424889447a2208708d2783`.
+Their actual descriptors are590b8003/c7ca99b3/6e85d3c1 respectively; the
+captured immutable index contains112,667 public reference faces. Encoder,
+automatic geometry, loader and printing-policy source match the earlier
+runtime. Existing weights/index mounts are reused read-only; no index rebuild
+or model download was initiated.
+
+The nullable migration and six-service reload preserved all seven complete
+original row projections (candidate JSON excludes only the new nullable column).
+Source Inventory remains10,292 rows; candidates1,091, photos1,093, artifacts1,092,
+receipts2/members18 and scanner runs31. All1,092 ready retained originals passed
+their stored SHA-256 checks, totaling2,832,075,218 bytes. Owned browser users are
+zero after cleanup. All13 services retain mounts/resource limits, and the seven
+other services retain exact images/start times/restart counts. Docker's mount
+array order is normalized for comparison; values remain fully checked. Existing
+Compose overlays and64/4 photo quotas are preserved.
 
 Library privacy/storage and prospective sampling choices remain unanswered.
 This feature does not create that library or select a retention policy. No fresh
