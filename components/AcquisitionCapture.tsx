@@ -304,7 +304,7 @@ export function AcquisitionCapture({
   ].filter((n): n is number => n !== null);
   const capacityReady = !countedScanner || scannerCapacity?.locationId === locationId && scannerCapacity?.section === section && !capacityError;
   const remaining = countedScanner && capacityReady ? scannerCapacity!.remaining : limits.length ? Math.min(...limits) : null;
-  const needsNextSection = (countedScanner || initialSetup?.nextSectionRequired) && !!destination?.sections.length && !section;
+  const needsNextSection = !!initialSetup?.nextSectionRequired && !section.trim();
   useEffect(() => {
     if (!countedScanner || batchId || !locationId) return;
     let active = true;
@@ -435,7 +435,7 @@ export function AcquisitionCapture({
         locationId,
         section,
         quantity: customLimit ? quantity : null,
-        ...(countedScanner && !customLimit && (continuousSections || continuingSeries) ? {
+        ...(countedScanner && !customLimit && !!section.trim() && (continuousSections || continuingSeries) ? {
           continuous: true as const, ...(initialSetup?.continueFrom ? { continueFrom: initialSetup.continueFrom } : {}),
         } : {}),
       };
@@ -687,7 +687,7 @@ export function AcquisitionCapture({
               createKey.current = "";
             }}
           />
-          {countedScanner && !customLimit && <div className="my-3 space-y-2">
+          {countedScanner && !customLimit && (!!section.trim() || continuingSeries) && <div className="my-3 space-y-2">
             <label className="flex gap-2 items-start"><input type="checkbox" checked={continuousSections || continuingSeries}
               disabled={continuingSeries || busy || checkingStart || !!pendingScanner || startStorageError}
               onChange={e=>{setContinuousSections(e.target.checked);createKey.current="";}} />
@@ -733,7 +733,7 @@ export function AcquisitionCapture({
             : capacityError ? "Capacity is unavailable. Refresh capacity to try again."
             : capacityReady
             ? remaining === null ? "Choose a card count for this batch." : remaining+" spaces available after pending cards and unfinished batch reservations."
-            : "Checking available capacity."} {capacityReady && scannerCapacity?.pendingSection ? scannerCapacity.pendingSection+(scannerCapacity.pendingSection === 1 ? " space is" : " spaces are")+" held by other batches in this section." : ""}</p>}
+            : "Checking available capacity."} {capacityReady && scannerCapacity?.pendingSection ? scannerCapacity.pendingSection+(scannerCapacity.pendingSection === 1 ? " space is" : " spaces are")+" held by other batches "+(section.trim() ? "in this section." : "directly in this location.") : ""}</p>}
           {capacityError && <p role="alert">{capacityError}</p>}
           {countedScanner && customLimit && capacityReady && remaining !== null && quantity > remaining &&
             <p role="alert">The {quantity}-card limit exceeds the {remaining} available {remaining === 1 ? "space" : "spaces"}. Choose a smaller limit or another section before starting.</p>}

@@ -1,5 +1,9 @@
 # Full-catalog recognition evaluation
 
+The separate [October 5 model/source audit](RECOGNITION_MODEL_SOURCES_20261005.md)
+records installed public model identities, declarations and active local index
+encoder bindings. It does not expand this evaluation's historical coverage.
+
 This is preparation and offline evaluation for #463, not a deployed image matcher
 or an exact-printing confidence claim. The existing app still uses OCR. The full
 requested outcome is in [the recognition goal](ACQUISITION_RECOGNITION_GOAL.md).

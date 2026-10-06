@@ -473,7 +473,7 @@ export async function restoreBackup(
       workspace,
       "revalidate-restored-credentials.sql",
     );
-    await writeFile(credentialFence, buildRestoreCredentialFence(schema));
+    await writeFile(credentialFence, buildRestoreRuntimeFence(schema));
     await runCommand(
       "psql",
       [
@@ -496,6 +496,7 @@ export async function restoreBackup(
       dryRun: false as const,
       manifest,
       credentialsRevalidated: true as const,
+      workerClaimsInvalidated: true as const,
     };
   } finally {
     await rm(workspace, { recursive: true, force: true });
@@ -524,6 +525,40 @@ ${statement("ScannerPairing", `DELETE FROM ${table("ScannerPairing")}`)}
 ${statement("ScannerAgent", `UPDATE ${table("ScannerAgent")} SET "revokedAt" = CURRENT_TIMESTAMP WHERE "revokedAt" IS NULL`)}
 END;`;
   return `DO ${literal(body)};\n`;
+}
+
+/** Invalidates pre-restore publication authority without resetting retries,
+ * saved results, human review or completed cache entries. Runs only inside the
+ * same replacement transaction as the restored schema and credential fence. */
+export function buildRestoreWorkerLeaseFence(schema: string) {
+  const table = (name: string) =>
+    `${quotePgIdentifier(schema)}.${quotePgIdentifier(name)}`;
+  const literal = (value: string) =>
+    `E'${value.replaceAll("\\", "\\\\").replaceAll("'", "''")}'`;
+  const jobs = table("AcquisitionProcessingJob");
+  const lookup = table("AcquisitionCatalogLookup");
+  const body = `BEGIN
+IF to_regclass(${literal(jobs)}) IS NOT NULL THEN
+  UPDATE ${jobs} SET status='PENDING', "leaseToken"=NULL,
+    "leaseExpiresAt"=NULL, "availableAt"=CURRENT_TIMESTAMP,
+    "errorCode"='RESTORE_INTERRUPTED', "updatedAt"=CURRENT_TIMESTAMP
+    WHERE status='RUNNING' AND attempts<"maxAttempts";
+  UPDATE ${jobs} SET status='FAILED', "leaseToken"=NULL,
+    "leaseExpiresAt"=NULL, "availableAt"=CURRENT_TIMESTAMP,
+    "errorCode"='RESTORE_INTERRUPTED', "updatedAt"=CURRENT_TIMESTAMP
+    WHERE status='RUNNING' AND attempts>="maxAttempts";
+END IF;
+IF to_regclass(${literal(lookup)}) IS NOT NULL THEN
+  UPDATE ${lookup} SET status='PENDING', "leaseToken"=NULL,
+    "leaseExpiresAt"=NULL, "expiresAt"=NULL, "updatedAt"=CURRENT_TIMESTAMP
+    WHERE status='RUNNING';
+END IF;
+END;`;
+  return `DO ${literal(body)};\n`;
+}
+
+export function buildRestoreRuntimeFence(schema: string) {
+  return buildRestoreCredentialFence(schema) + buildRestoreWorkerLeaseFence(schema);
 }
 
 export async function readManifestFromBackup(backupPath: string) {
