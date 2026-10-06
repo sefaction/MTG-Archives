@@ -25,9 +25,11 @@ class DescriptorTests(unittest.TestCase):
             original_sha = printing_worker.sha256
 
             def hashes(path):
-                # The evaluated policy's absolute container path is irrelevant
-                # to this model-free descriptor test; its content hash is not.
-                return 'a' * 64 if str(path) in ('/eval/printing_evidence.py', str(printing_worker.LABELS)) else original_sha(path)
+                # Read actual checked-in content for Docker's /eval paths. The
+                # CI checkout has no /eval mount; host paths are not identity.
+                path = Path(path)
+                source = Path(__file__).resolve().parent / path.name if path.parent == Path('/eval') else path
+                return original_sha(source)
 
             with patch.object(printing_worker, 'INDEX', index), patch.object(printing_worker, 'sha256', hashes):
                 baseline = printing_worker.descriptor()['digest']
@@ -43,7 +45,9 @@ class DescriptorTests(unittest.TestCase):
                         self.assertNotEqual(baseline, printing_worker.descriptor()['digest'], name)
                 for target in [printing_worker.LABELS, Path(printing_worker.__file__),
                                Path(printing_worker.__file__).with_name('printing.py'),
-                               Path('/eval/printing_evidence.py')]:
+                               Path(printing_worker.__file__).with_name('photo_input.py'),
+                               Path('/eval/printing_evidence.py'),
+                               Path('/eval/manual_card_region.py'), Path('/eval/baseline.py')]:
                     with patch.object(printing_worker, 'sha256',
                             lambda path, target=target: 'b' * 64 if Path(path) == target else hashes(path)):
                         self.assertNotEqual(baseline, printing_worker.descriptor()['digest'], str(target))

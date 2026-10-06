@@ -60,6 +60,12 @@ an explicit preview/commit action.
   explicitly blocking Torch imports. All14 tests pass there in0.479seconds with
   the same pixel/geometry assertions. Production code and runtime descriptors
   are unchanged; actual model inference remains separately qualified above.
+- The next CI run exposed the existing descriptor fixture's Docker-only /eval
+  assumption. It now hashes actual checkout files and verifies input decoder,
+  manual geometry and baseline geometry hash changes alongside all previous
+  dependencies. A clean Python3.12 image with only CI's NumPy/OpenCV/Pillow,
+  no Torch and no /eval passed all93 native CI tests across seven groups. No
+  production path, descriptor input or prior assertion was removed.
 - Full disposable PostgreSQL and shared Inventory/import verification PASS,
  177.598seconds, source digest3f6ef09eff83dd3b076b3fc3b7e835246206094e232d108573c2faaeac2fd186.
   Evidence `.local-data/verification/acquisition-2026-10-06T16-13-25-017Z`.
@@ -95,6 +101,11 @@ Those failed traces are retained. The corrected assertions reopen the form and
 check the saved original/NM choice; no saved-review assertion was removed.
 
 The cumulative source includes PR655, PR656, PR658 and PR659. Its complete
+No section desktop/phone scanner cases also passed again in this loaded build
+(2/2,42.1seconds), including explicit Inventory confirmation and reservation
+conservation. No hardware was exercised.
+
+Its complete
 disposable PostgreSQL/shared-receipt gate passed in160.873seconds at local
 commit7fb6fb2853cdbbaefb735199abcae044cc560f19, source
 79cd5c3e88e97dd907014d7581b56cbae95fa55aaa32ac1470d7f5182ec6efde.
