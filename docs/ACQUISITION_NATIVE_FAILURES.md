@@ -50,3 +50,24 @@ observation does not establish the cause of the failed attempt. No photo-accurac
 physical scanner, production or historical worker-exit resolution is claimed.
 Issues [579](https://github.com/sefaction/MTG-Archives/issues/579) and
 [463](https://github.com/sefaction/MTG-Archives/issues/463) remain open.
+
+Local qualification on October 6: full core passed 831 tests, type checking,
+production build and client manifests; the isolated Linux child suite passed
+11 tests. Full disposable PostgreSQL acquisition/import checks passed for both
+the independent main-based branch (297.582 seconds, source `f42d4355…`) and its
+cumulative integration with the correction library (320.344 seconds, source
+`99d4cd4d…`). Owned databases and volumes were removed.
+
+Official OCR/visual/printing images processed the synthetic manual-boundary
+input with the existing descriptors and automatic acceptance disabled. A real
+visual stream rejected a deliberately invalid photo with `EXIT`, code 1, then
+processed a valid input on its replacement child; intentional shutdown emitted
+no additional failure. The owned container exited 0 with OOMKilled false and
+the unchanged 3 GiB limit. This tests actual native failure/recovery mechanics.
+
+The first warm real-process qualification also failed on its valid input. That
+private probe initially discarded the failure projection; its cause remains
+unknown. After correcting the probe to retain bounded facts, the same limits
+and application source passed. Failed evidence is retained separately. This is
+not a fix or retrospective explanation of that attempt, the earlier one-shot
+failure, or the historical worker stops.
