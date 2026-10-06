@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { verifyAcquisitionReview } from "./verify-acquisition-review";
+import { verifyAcquisitionManualRegions } from "./verify-acquisition-manual-regions";
 import { verifyAcquisitionCatalogReconciliation } from "./verify-acquisition-catalog-reconciliation";
 import {verifyAcquisitionPhotoIsolation} from "./verify-acquisition-photo-isolation";
 import {verifyAcquisitionPhotoLocking} from "./verify-acquisition-photo-locking";
@@ -256,6 +257,7 @@ export async function verifyAcquisitionPhotos(
     );
     await verifyAcquisitionPhotoIsolation(db,actor,stranger,base,bytes);
     await verifyAcquisitionPhotoLocking(db,actor,base,bytes);
+    await verifyAcquisitionManualRegions(db, actor, stranger, base, bytes);
     console.log(
       "PASS: private bytes + transactional finalize recovery, duplicate bytes/separate cards, immediate worker, retake fencing and stop drain",
     );

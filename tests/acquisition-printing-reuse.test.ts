@@ -15,6 +15,19 @@ const native = {version: "registered-printing-runtime-v1", descriptor: request.d
   }))};
 const saved = {printingReuse: identity, printingNative: native};
 
+test("printing reuse binds the exact selected region and refuses legacy whole-photo output", () => {
+  const manualRegion = {version: 1 as const, quad: [[0,0],[1,0],[1,1],[0,1]] as [[number,number],[number,number],[number,number],[number,number]]};
+  const selected = printingReuseIdentity({...request, manualRegion});
+  assert.notEqual(selected.key, identity.key);
+  assert.equal(reusablePrintingNative(saved, selected), null);
+  assert.throws(() => checkedPrintingNative(native, selected), /identity/);
+  const scoped = {...native, manualRegion};
+  assert.deepEqual(reusablePrintingNative({printingReuse: selected, printingNative: scoped}, selected), scoped);
+  assert.equal(reusablePrintingNative({printingReuse: selected, printingNative: scoped}, identity), null);
+  assert.throws(() => checkedPrintingNative({...scoped, manualRegion: {...manualRegion,
+    quad: [[.1,.1],[.9,.1],[.9,.9],[.1,.9]]}}, selected), /identity/);
+});
+
 test("exact persisted native observations retain uncertainty, conflict and original inference timing", () => {
   assert.deepEqual(reusablePrintingNative(JSON.parse(JSON.stringify(saved)), identity), native);
   assert.deepEqual(checkedPrintingNative(native, identity), native);

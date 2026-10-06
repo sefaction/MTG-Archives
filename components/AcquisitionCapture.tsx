@@ -1145,7 +1145,7 @@ export function AcquisitionCapture({
                           batchId={batchId}
                           photoId={photo.id}
                           committed={slot.committed}
-                          refreshKey={`${progress.defaultsRevision}:${JSON.stringify(slot.review)}:${preparation}`}
+                          refreshKey={`${progress.defaultsRevision}:${slot.reviewRevision}:${JSON.stringify(slot.review)}:${preparation}`}
                           refresh={() => void refresh()}
                           mode={reviewMode}
                           onDirtyChange={markPhotoDirty}

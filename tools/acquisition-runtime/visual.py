@@ -18,6 +18,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageOps
 from baseline import geometry
+from manual_card_region import manual_card_region, manual_card_source
 from photo_input import decode_photo_input
 from catalog_index import load_published_index
 from catalog_references import sha256
@@ -55,6 +56,7 @@ def descriptor():
         'catalogSha256': index['source']['catalogSha256'],
         'codeSha256': sha256(Path(__file__)),
         'geometrySha256': sha256(Path('/eval/baseline.py')),
+        'manualRegionSha256': sha256(Path('/eval/manual_card_region.py')),
         'inputSha256': sha256(Path(__file__).with_name('photo_input.py')),
         'loaderSha256': sha256(Path('/eval/catalog_index.py')),
         'geometricSha256': sha256(Path('/eval/visual_compare.py')),
@@ -88,7 +90,7 @@ def runtime(desc):
 
 
 def recognize(data, desc):
-    data, input_kind = decode_photo_input(data)
+    data, input_kind, manual_region = decode_photo_input(data, return_region=True)
     if not 0 < len(data) <= MAX_BYTES:
         raise ValueError('Invalid photo size')
     started = time.monotonic()
@@ -98,7 +100,8 @@ def recognize(data, desc):
         if getattr(source, 'n_frames', 1) != 1:
             raise ValueError('Single image required')
         original = cv2.cvtColor(np.asarray(ImageOps.exif_transpose(source).convert('RGB')), cv2.COLOR_RGB2BGR)
-    crop, evidence = geometry(original, input_kind)
+    crop, evidence = (manual_card_region(original, manual_region) if manual_region is not None
+                      else geometry(original, input_kind))
     base = crop if crop is not None else original
     encoder, records, matrix = runtime(desc)
     images = [Image.fromarray(cv2.cvtColor(np.ascontiguousarray(
@@ -125,7 +128,8 @@ def recognize(data, desc):
         candidates.append(candidate(i))
         if len(candidates) == 12:
             break
-    query = features(original, 2000)
+    query_source = manual_card_source(original, manual_region)[0] if manual_region is not None else original
+    query = features(query_source, 2000)
     scored = []
     for value in ordered[:40]:
         i = int(value)

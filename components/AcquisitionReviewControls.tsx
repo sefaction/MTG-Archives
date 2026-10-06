@@ -17,6 +17,8 @@ import {
   type AcquisitionDefaults,
   type AcquisitionPrinting,
 } from "@/lib/acquisition-review";
+import { AcquisitionCardRegionEditor } from "./AcquisitionCardRegionEditor";
+import type { AcquisitionManualRegion } from "@/lib/acquisition-manual-region";
 import { finishForPrinting } from "@/lib/acquisition-finish";
 import type { AcquisitionReviewMode } from "@/lib/acquisition-review-display";
 import { readAcquisitionDraft, saveAcquisitionDraft, clearAcquisitionDraft } from "@/lib/acquisition-browser-review-draft";
@@ -226,6 +228,8 @@ export function AcquisitionPhotoReview({
     [number, setNumber] = useState("");
   const [matches, setMatches] = useState<AcquisitionPrinting[] | null>(null);
   const [editing, setEditing] = useState(false);
+  const [regionEditing, setRegionEditing] = useState(false);
+  const [observedRevision, setObservedRevision] = useState<number | null>(null);
   const [draftDirty, setDraftDirty] = useState(false);
   const [draftWarning, setDraftWarning] = useState("");
   const draftChecked = useRef(false);
@@ -327,7 +331,8 @@ export function AcquisitionPhotoReview({
           `${endpoint}?photoId=${photoId}`,
         );
         if (!cancelled && version === requestVersion.current) {
-          if (!dirty.current) {
+          setObservedRevision(next.revision);
+          if (!dirty.current && !regionEditing) {
             apply(next);
             if (!draftChecked.current && !committed) {
               draftChecked.current = true;
@@ -356,6 +361,8 @@ export function AcquisitionPhotoReview({
                     catalog: next.catalog,
                     visualStatus: next.visualStatus,
                     printingStatus: next.printingStatus,
+                    manualRegion: next.manualRegion,
+                    manualRegionRequestedRevision: next.manualRegionRequestedRevision,
                   }
                 : previous,
             );
@@ -368,7 +375,7 @@ export function AcquisitionPhotoReview({
     const timer = setInterval(
       () => {
         if (
-          !reviewed &&
+          (!reviewed || record?.manualRegionRequestedRevision === record?.revision) &&
           (!recognitionStatus ||
             ["WAITING", "RUNNING", "PENDING"].includes(visualStatus ?? "") ||
             ["WAITING", "RUNNING", "PENDING"].includes(printingStatus ?? "") ||
@@ -401,6 +408,8 @@ export function AcquisitionPhotoReview({
     visualStatus,
     printingStatus,
     reviewed,
+    regionEditing,
+    record?.manualRegionRequestedRevision, record?.revision,
     apply,
     userId, batchId, committed, onDirtyChange,
   ]);
@@ -408,13 +417,14 @@ export function AcquisitionPhotoReview({
     ++requestVersion.current;
     try {
       const next = await call<AcquisitionCardReview>(`${endpoint}?photoId=${photoId}`);
+      setObservedRevision(next.revision);
       clearDraft(); apply(next); setMessage("");
     } catch (e) {
       setError((e as Error).message);
     }
   }
   async function submit(action: "accept" | "pending", next = false) {
-    if (!record) return;
+    if (!record || regionEditing) return;
     ++requestVersion.current;
     setBusy(true);
     setError("");
@@ -451,6 +461,24 @@ export function AcquisitionPhotoReview({
       setBusy(false);
     }
   }
+  async function repairRegion(region: AcquisitionManualRegion | null, revision: number, requestKey: string) {
+    ++requestVersion.current;
+    setBusy(true); setError("");
+    try {
+      const saved = await call<{revision: number}>(endpoint, {action: "region", photoId, revision, requestKey, region});
+      const current = await call<AcquisitionCardReview>(`${endpoint}?photoId=${photoId}`);
+      setObservedRevision(current.revision);
+      if (current.revision !== saved.revision)
+        throw new Error("This card changed after the boundary was saved. Your printing edits are kept; reload its latest review before continuing.");
+      // Advance only our acknowledged edit. Keep the user's printing draft and
+      // its fields; subsequent polling cannot overwrite a dirty correction.
+      setRecord(current);
+      setRegionEditing(false);
+      onDirtyChange?.(photoId, dirty.current);
+      setMessage("Boundary saved. Rechecking this card; your printing choice is kept.");
+      refresh();
+    } finally {setBusy(false);}
+  }
   const finishAvailable = (value: string) =>
     !Array.isArray(selected?.finishes) ||
     !selected.finishes.length ||
@@ -470,7 +498,7 @@ export function AcquisitionPhotoReview({
     (selected.lang ?? language),
   );
   const quickFinish = selected && !committed ? (
-    <fieldset className="mt-3" disabled={busy}>
+    <fieldset className="mt-3" disabled={busy || regionEditing}>
       <legend className="text-xs">Card finish choices</legend>
       <div className="flex flex-wrap gap-2 mt-1">
         {([["NONFOIL", "Nonfoil"], ["FOIL", "Foil"]] as const).map(([value, label]) => (
@@ -488,7 +516,7 @@ export function AcquisitionPhotoReview({
   const stamp = record?.evidence?.printing;
   const stampChoice = stamp?.candidates.find((c) => c.cardId === selected?.id);
   const correctionEditor = !committed && showEditor ? (
-            <fieldset className="mt-4 min-w-0" disabled={busy}>
+            <fieldset className="mt-4 min-w-0" disabled={busy || regionEditing}>
               <legend className="font-semibold">
                 {matches ? "Search results" : "Possible printings"}
               </legend>
@@ -752,7 +780,7 @@ export function AcquisitionPhotoReview({
       onKeyDown={event => {
         if (event.key === "Enter" && (event.ctrlKey || event.metaKey) && showEditor && !committed) {
           event.preventDefault();
-          if (!busy && canConfirm) void submit("accept", event.shiftKey);
+          if (!busy && !regionEditing && canConfirm) void submit("accept", event.shiftKey);
         }
       }}
     >
@@ -799,7 +827,7 @@ export function AcquisitionPhotoReview({
           {!committed && processing.problem && (
             <div className="text-sm mt-2 space-y-2" data-testid="scan-processing-recovery">
               <p role="status">{processing.problem} Your original photo and suggestions are kept.</p>
-              <button type="button" className={button} disabled={busy} onClick={openCorrection}>
+              <button type="button" className={button} disabled={busy || regionEditing} onClick={openCorrection}>
                 Find printing manually
               </button>
             </div>
@@ -855,6 +883,11 @@ export function AcquisitionPhotoReview({
                 {acquisitionCatalogMessage(record.catalog)}
               </p>
             )}
+          {!committed && !regionEditing && <button type="button" className={button + " mb-3"} disabled={busy}
+            onClick={() => {setRegionEditing(true); onDirtyChange?.(photoId, true);}}>Edit card boundary</button>}
+          {!committed && regionEditing && <AcquisitionCardRegionEditor
+            src={`/api/acquisition/${batchId}/photos/${photoId}`} record={record} latestRevision={observedRevision ?? record.revision} busy={busy}
+            apply={repairRegion} cancel={() => {setRegionEditing(false); onDirtyChange?.(photoId, dirty.current);}} />}
           <div
             className={
               simple
@@ -891,7 +924,7 @@ export function AcquisitionPhotoReview({
                   <button
                     type="button"
                     className="w-full h-full"
-                    disabled={busy}
+                    disabled={busy || regionEditing}
                     aria-label={`Correct proposed printing for ${selected?.name ?? "this card"}`}
                     onClick={openCorrection}
                   >
@@ -1005,7 +1038,7 @@ export function AcquisitionPhotoReview({
                     {(!record.review || draftDirty) && !showEditor && (
                       <button
                         className={primary}
-                        disabled={busy || !canConfirm}
+                        disabled={busy || regionEditing || !canConfirm}
                         onClick={() => void submit("accept")}
                       >
                         {draftDirty ? "Save card review" : "Confirm match"}
@@ -1014,18 +1047,18 @@ export function AcquisitionPhotoReview({
                     {!showEditor && (
                       <button
                         className={button}
-                        disabled={busy}
+                        disabled={busy || regionEditing}
                         onClick={openCorrection}
                       >
                         Correct
                       </button>
                     )}
                     {draftDirty && !showEditor && (
-                      <button className={button} disabled={busy} onClick={() => void reload()}>
+                      <button className={button} disabled={busy || regionEditing} onClick={() => void reload()}>
                         Cancel changes
                       </button>
                     )}
-                    {!showEditor && onNextAwaiting && <button className={button} disabled={busy}
+                    {!showEditor && onNextAwaiting && <button className={button} disabled={busy || regionEditing}
                       onClick={onNextAwaiting}>Next awaiting review</button>}
                     {!canConfirm && !showEditor && (
                       <p className="text-xs">

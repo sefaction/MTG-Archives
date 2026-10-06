@@ -68,6 +68,7 @@ jobs:
         run: |
           pip install numpy==2.2.6 opencv-contrib-python==4.10.0.84 pillow==11.3.0
           python -m unittest discover -s tools/acquisition-eval -p test_geometry.py
+          python -m unittest discover -s tools/acquisition-eval -p test_manual_card_region.py
       - name: Photo input and bounded whole-photo text guards (no models or private photos)
         run: python -m unittest discover -s tools/acquisition-runtime -p 'test_photo*.py'
       - name: Public reference and resumable index integrity (no models or private photos)
