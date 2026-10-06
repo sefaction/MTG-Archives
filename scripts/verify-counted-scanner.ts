@@ -38,7 +38,7 @@ export async function verifyCountedScanner(db: PrismaClient) {
     }
     const card = await db.card.create({data:{scryfallId:tag,name:tag,setCode:"tst",collectorNumber:"1",typeLine:"Creature",rarity:"common",lang:"en",digital:false,finishes:["nonfoil"]}});
     const decision = { cardId: card.id, language:"en", finish:"NONFOIL", condition:"NM" };
-    async function location(total:number, sections:{name:string;capacity:number}[]) {
+    async function location(total:number|null, sections:{name:string;capacity:number}[]) {
       const id=tag+"-box-"+createdLocations.length; createdLocations.push(id);
       await db.inventoryLocation.create({data:{id,name:id,normalizedName:id,ownerPlayerId:tag,type:"Box",storageLayout:{capacity:total,sections}}}); return id;
     }
@@ -62,7 +62,33 @@ export async function verifyCountedScanner(db: PrismaClient) {
     assert.equal(await db.acquisitionSession.count({where:{createdByUserId:tag}}),beforeQualification);
     assert.equal((await capacity()).remaining,83);
     await first.pulse();
-    await assert.rejects(createScannerBatch(db,actor,setup(first,box,""),epoch),/Choose a section/);
+    // No section is direct placement in the parent, even if named sections exist.
+    const directInput=setup(first,box,"",null);
+    const direct=await createScannerBatch(db,actor,directInput,epoch);
+    assert.equal(direct.physicalTarget,168); assert.equal(direct.logicalTarget,168);
+    assert.equal((await getScannerBatch(db,tag,direct.runId)).series,null);
+    assert.equal((await getAcquisitionSession(db,actor,direct.sessionId)).session.placement.section,"");
+    assert.deepEqual(await createScannerBatch(db,actor,directInput,epoch),direct);
+    assert.equal((await capacity(box,"B")).remaining,0);
+    assert.equal((await capacity(box,"")).pendingSection,168);
+    const beforeDirectRefusal=await db.acquisitionSession.count({where:{createdByUserId:tag}});
+    await assert.rejects(createScannerBatch(db,actor,setup(second,box,"B",1),epoch));
+    assert.equal(await db.acquisitionSession.count({where:{createdByUserId:tag}}),beforeDirectRefusal);
+    await stopScannerBatch(db,tag,direct.runId);
+    assert.equal((await capacity(box,"")).remaining,168);
+    const directFixed=await createScannerBatch(db,actor,setup(first,box,"",3),epoch);
+    assert.equal(directFixed.physicalTarget,3);
+    await stopScannerBatch(db,tag,directFixed.runId);
+    await assert.rejects(createScannerBatch(db,actor,setup(first,box,"",169),epoch),/remaining capacity/);
+    const unbounded=await location(null,[]);
+    const beforeUnbounded=await db.acquisitionSession.count({where:{createdByUserId:tag}});
+    await assert.rejects(createScannerBatch(db,actor,setup(first,unbounded,""),epoch));
+    assert.equal(await db.acquisitionSession.count({where:{createdByUserId:tag}}),beforeUnbounded);
+    const unboundedFixed=await createScannerBatch(db,actor,setup(first,unbounded,"",2),epoch);
+    assert.equal(unboundedFixed.physicalTarget,2);
+    await stopScannerBatch(db,tag,unboundedFixed.runId);
+    await assert.rejects(createScannerBatch(db,actor,{...setup(first,box,""),continuous:true},epoch),/Choose a section/);
+    await assert.rejects(createScannerBatch(db,actor,{...setup(first,unbounded,""),continuous:true},epoch),/Choose a section/);
     await assert.rejects(createScannerBatch(db,actor,setup(first,box,"missing"),epoch),/Choose a section/);
     const large=await createScannerBatch(db,actor,setup(first,box,"A",null,84),epoch);
     assert.equal(large.physicalTarget,83); assert.equal(large.logicalTarget,83); assert.equal(large.counted,true);
@@ -148,8 +174,8 @@ export async function verifyCountedScanner(db: PrismaClient) {
     assert.equal((await capacity()).remaining,0);
     assert.equal((await db.inventoryItem.aggregate({where:{locationId:box},_sum:{quantity:true}}))._sum.quantity,2);
     const nextPreferences=await scannerContinuation(db,tag,large.runId);
-    assert.equal(nextPreferences.nextSectionRequired,true);
-    assert.equal(currentScannerContinuation(nextPreferences,[{id:box,name:box,sections:[{name:"A",capacity:85,quantity:2},{name:"B",capacity:85,quantity:0}]}]).setup?.section,"");
+    assert.equal(nextPreferences.nextSectionRequired,undefined);
+    assert.equal(currentScannerContinuation(nextPreferences,[{id:box,name:box,sections:[{name:"A",capacity:85,quantity:2},{name:"B",capacity:85,quantity:0}]}]).setup?.section,"A");
     // Saving a review and previewing change no Inventory. A committed receipt
     // replaces one pending card with one stored copy, without counting twice.
     const review=await getAcquisitionCardReview(db,actor,large.sessionId,largeImages[0].ack.photoId);
@@ -317,7 +343,9 @@ export async function verifyCountedScanner(db: PrismaClient) {
     const chainDefaults=await scannerContinuation(db,tag,chainA.runId);
     assert.equal(chainDefaults.continueFrom,chainA.runId);
     assert.equal(chainDefaults.seriesRootId,chainA.runId);
+    assert.equal(chainDefaults.nextSectionRequired,true);
     assert.equal((await getScannerBatch(db,tag,chainA.runId)).series?.ordinal,0);
+    await assert.rejects(createScannerBatch(db,actor,{...setup(chainHelper,chainBox,""),continuous:true,continueFrom:chainA.runId},epoch),/Choose a section/);
     await assert.rejects(createScannerBatch(db,actor,{...setup(chainHelper,chainBox,"A"),continuous:true,continueFrom:chainA.runId},epoch),/different section/);
     await assert.rejects(createScannerBatch(db,{userId:foreign,adminMode:false},{...setup(chainHelper,chainBox,"B"),continuous:true,continueFrom:chainA.runId},epoch));
     await chainHelper.pulse();
