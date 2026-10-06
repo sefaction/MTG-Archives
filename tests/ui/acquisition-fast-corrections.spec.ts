@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { cleanupCorrectionFixture } from "./correction-fixture";
@@ -7,6 +7,18 @@ import { cleanupCorrectionFixture } from "./correction-fixture";
 function database(body: string) {
   return execFileSync("docker", ["exec", "-i", "mtg-archives-web-1", "node", "--import", "tsx"], { windowsHide: true, encoding: "utf8", timeout: 30000,
     input: `const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${body}})().catch(e=>{console.error(e.message);process.exitCode=1}).finally(()=>p.$disconnect());` });
+}
+
+// Signing runs inside browser route handlers. Keep the Playwright event loop
+// available for responses, polling and focus assertions while Docker executes.
+function databaseAsync(body: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = execFile("docker", ["exec", "-i", "mtg-archives-web-1", "node", "--import", "tsx"],
+      { windowsHide: true, encoding: "utf8", timeout: 30000, maxBuffer: 1024 * 1024 },
+      (error, stdout) => error ? reject(new Error("Owned fixture signing failed")) : resolve(stdout));
+    child.stdin?.on("error", () => child.kill());
+    child.stdin?.end(`const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${body}})().catch(()=>{process.exitCode=1}).finally(()=>p.$disconnect());`);
+  });
 }
 
 test("correction drafts, lost acknowledgement, private library, original viewing and safe removal", async ({ page, baseURL, browser }) => {
@@ -57,7 +69,7 @@ test("correction drafts, lost acknowledgement, private library, original viewing
       const offers=reverse?[alternate,original]:[original,alternate];
       // Sign exactly this fixture's displayed order using real owner/photo/jobs.
       // Production never accepts machine evidence supplied by a browser.
-      const token=database(`const {correctionDisplayToken}=require('./lib/acquisition-correction-library.ts');const n=${JSON.stringify(tag)};const photo=await p.acquisitionPhoto.findUniqueOrThrow({where:{id:${JSON.stringify(url.searchParams.get("photoId"))}}});const candidate=await p.acquisitionCandidate.findFirstOrThrow({where:{physicalId:photo.slotId}});const jobs=await p.acquisitionProcessingJob.findMany({where:{runId:photo.runId,candidateId:candidate.id,artifact:{sourceId:photo.id}},orderBy:[{createdAt:'desc'},{id:'desc'}],take:32});console.log(await p.$transaction(tx=>correctionDisplayToken(tx,n,{userId:n,adminMode:false},photo,{id:candidate.id,revision:${record.revision}},jobs,${JSON.stringify(offers)},'PENDING')));`).trim();
+      const token=(await databaseAsync(`const {correctionDisplayToken}=require('./lib/acquisition-correction-library.ts');const n=${JSON.stringify(tag)};const photo=await p.acquisitionPhoto.findUniqueOrThrow({where:{id:${JSON.stringify(url.searchParams.get("photoId"))}}});const candidate=await p.acquisitionCandidate.findFirstOrThrow({where:{physicalId:photo.slotId}});const jobs=await p.acquisitionProcessingJob.findMany({where:{runId:photo.runId,candidateId:candidate.id,artifact:{sourceId:photo.id}},orderBy:[{createdAt:'desc'},{id:'desc'}],take:32});console.log(await p.$transaction(tx=>correctionDisplayToken(tx,n,{userId:n,adminMode:false},photo,{id:candidate.id,revision:${record.revision}},jobs,${JSON.stringify(offers)},'PENDING')));`)).trim();
       await route.fulfill({ json: { ...record, evidenceToken:token, recognitionStatus: "PENDING", visualStatus: "RUNNING",
         printingStatus: "RUNNING", suggestions: (reverse ? [alternate, original] : [original, alternate]).map(printing => ({ printing, reasons: ["Controlled UI fixture"] })) } });
     });
