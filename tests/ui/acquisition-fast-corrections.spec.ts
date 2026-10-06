@@ -13,6 +13,7 @@ test("correction drafts, lost acknowledgement, private library, original viewing
   test.skip(process.env.MTG_LOCAL_PILOT_TEST !== "1", "Owned local fixtures; controlled suggestions, no recognition accuracy claim");
   expect(baseURL).toBe("http://127.0.0.1:13001"); test.setTimeout(180000);
   const tag = `ui-fast-corrections-${randomUUID()}`, password = randomUUID();
+  const peer=`ui-correction-peer-${randomUUID()}`;
   const original = { id: `${tag}-original`, name: "Fixture original printing", setCode: "tst", collectorNumber: "1",
     lang: "en", imageUri: "/fixture-card-original.svg", finishes: ["nonfoil", "foil"] };
   const alternate = { ...original, id: `${tag}-alternate`, name: "Fixture corrected printing", collectorNumber: "2",
@@ -20,7 +21,7 @@ test("correction drafts, lost acknowledgement, private library, original viewing
   let batch = "", reverse = false, refreshes = 0;
   try {
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:3,sections:[{name:'A',capacity:3}]}}});for(const card of ${JSON.stringify([original, alternate])})await p.card.create({data:{...card,scryfallId:require('crypto').randomUUID(),typeLine:'Creature',rarity:'common'}});`);
-    const defaults=JSON.parse(database(`const {ensureCorrectionAccount}=require('./lib/acquisition-correction-library.ts');const a=await p.$transaction(tx=>ensureCorrectionAccount(tx,${JSON.stringify(tag)}));console.log(JSON.stringify({limitBytes:String(a.limitBytes),sampleBasisPoints:a.sampleBasisPoints}));await p.correctionLibraryAccount.update({where:{ownerPlayerId:a.ownerPlayerId},data:{sampleBasisPoints:0}});`));
+    const defaults=JSON.parse(database(`const {ensureCorrectionAccount}=require('./lib/acquisition-correction-library.ts');const a=await p.$transaction(tx=>ensureCorrectionAccount(tx,${JSON.stringify(tag)}));console.log(JSON.stringify({limitBytes:String(a.limitBytes),sampleBasisPoints:a.sampleBasisPoints}));await p.correctionLibraryAccount.update({where:{ownerPlayerId:a.ownerPlayerId},data:{sampleBasisPoints:0,limitBytes:1}});`));
     expect(defaults).toEqual({limitBytes:"64000000000",sampleBasisPoints:200});
     await page.goto("/login"); await page.getByLabel(/username or email/i).fill(tag); await page.getByLabel(/^password$/i).fill(password);
     await page.getByRole("button", { name: /^log in$/i }).click(); await page.waitForURL(/\/dashboard/);
@@ -148,13 +149,18 @@ test("correction drafts, lost acknowledgement, private library, original viewing
     await card.getByRole("button", { name: "Save card review", exact: true }).click();
     await expect(card).toContainText("Review saved. Not yet added to Inventory.");
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
+    await expect(page.getByText("The correction library has reached its allowance. Originals will stay protected until space is available or you remove the examples.")).toBeVisible();
     await page.goto("/imports/corrections");await expect(page.getByRole("heading",{name:"Correction photos",exact:true})).toBeVisible();
-    await expect(page.getByText(/of 64 GB/)).toBeVisible();
+    await expect(page.getByText(/The library allowance is full/)).toBeVisible();
+    expect(Number(database(`console.log(await p.correctionRetentionPin.count({where:{ownerPlayerId:${JSON.stringify(tag)},releasedAt:null}}));`))).toBe(2);
+    expect(await page.getByRole("button",{name:"View original",exact:true}).count()).toBe(0);
+    database(`const n=${JSON.stringify(tag)};await p.correctionLibraryAccount.update({where:{ownerPlayerId:n},data:{limitBytes:64000000000n}});await p.correctionCaptureOutbox.updateMany({where:{blob:{ownerPlayerId:n}},data:{availableAt:new Date(0)}});`);
     await expect.poll(async()=>{
       const response=await page.request.get(`/api/acquisition/corrections?owner=${tag}`);
       return (await response.json()).examples[0]?.blob.state;
     },{timeout:45000}).toBe("PRESERVED");
     await page.reload();
+    await expect(page.getByText(/of 64 GB/)).toBeVisible();
     expect(await page.getByRole("img",{name:"Preserved original correction photo",exact:true}).count()).toBe(0);
     let originalReads=0;page.on("request",request=>{if(new URL(request.url()).pathname.match(/\/api\/acquisition\/corrections\/[a-f0-9-]{36}$/)&&request.method()==="GET")originalReads++;});
     const article=page.getByRole("article").filter({has:page.getByRole("heading",{name:/Fixture corrected printing/})}).first();
@@ -166,8 +172,9 @@ test("correction drafts, lost acknowledgement, private library, original viewing
     const example=(await (await page.request.get(`/api/acquisition/corrections?owner=${tag}`)).json()).examples.find((entry:{id:string})=>entry.id===viewedId);
     const download=await page.request.get(`/api/acquisition/corrections/${example.id}?owner=${tag}`);
     expect(download.ok()).toBe(true);expect(download.headers()["cache-control"]).toContain("no-store");expect(await download.body()).toEqual(bytes);
-    for(const request of [page.request.get(`/api/acquisition/corrections?owner=${tag}-other`),page.request.get(`/api/acquisition/corrections/${example.id}?owner=${tag}-other`),
-      page.request.post(`/api/acquisition/corrections/${example.id}`,{headers:{origin:baseURL!},data:{owner:`${tag}-other`,action:"REMOVE"}})])expect((await request).ok()).toBe(false);
+    const peerExample=database(`const n=${JSON.stringify(peer)},library=require('./lib/acquisition-correction-library.ts'),files=require('./lib/acquisition-correction-files.ts');await p.player.create({data:{id:n,name:n,displayName:n}});await p.$transaction(tx=>library.ensureCorrectionAccount(tx,n));const digest=${JSON.stringify(createHash("sha256").update(bytes).digest("hex"))},raw=await files.readCorrectionBlob(${JSON.stringify(tag)},digest,${bytes.length});const staged=await files.prepareCorrectionBlob(n,digest,raw,require('crypto').randomUUID());try{await staged.publish();}finally{await staged.cleanup();}const blob=await p.correctionBlob.create({data:{ownerPlayerId:n,digest,bytes:raw.length,mediaType:'image/jpeg',state:'PRESERVED',preservedAt:new Date()}});await p.correctionLibraryAccount.update({where:{ownerPlayerId:n},data:{preservedBytes:raw.length}});const e=await p.correctionExample.create({data:{ownerPlayerId:n,blobId:blob.id,sourcePhotoId:require('crypto').randomUUID(),sourceCandidateId:require('crypto').randomUUID(),sourceSessionId:require('crypto').randomUUID(),sourceGeneration:1,physicalCopyGroup:require('crypto').randomUUID(),label:{printing:{name:'Other owner private label'}}}});console.log(e.id);`).trim();
+    for(const request of [page.request.get(`/api/acquisition/corrections?owner=${peer}`),page.request.get(`/api/acquisition/corrections/${peerExample}?owner=${peer}`),
+      page.request.post(`/api/acquisition/corrections/${peerExample}`,{headers:{origin:baseURL!},data:{owner:peer,action:"REMOVE"}})])expect((await request).ok()).toBe(false);
     const anonymous=await browser.newContext();try{expect((await anonymous.request.get(`${baseURL}/api/acquisition/corrections?owner=${tag}`)).ok()).toBe(false);}finally{await anonymous.close();}
     for(const width of [1366,320]){
       await page.setViewportSize({width,height:900});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -183,6 +190,7 @@ test("correction drafts, lost acknowledgement, private library, original viewing
     await expect(page.getByText("Label withdrawn",{exact:false})).toHaveCount(0);
     expect(Number(database(`console.log(await p.correctionDeletionTombstone.count({where:{ownerPlayerId:${JSON.stringify(tag)}}}));`))).toBe(1);
     expect((await page.request.get(`/api/acquisition/corrections/${example.id}?owner=${tag}`)).ok()).toBe(false);
+    expect(Number(database(`console.log((await require('./lib/acquisition-correction-files.ts').readCorrectionBlob(${JSON.stringify(peer)},${JSON.stringify(createHash("sha256").update(bytes).digest("hex"))},${bytes.length})).length);`))).toBe(bytes.length);
     // Pagination remains bounded, including a deleted cursor boundary. These
     // independent synthetic memberships intentionally share the preserved blob.
     database(`const n=${JSON.stringify(tag)};const e=await p.correctionExample.findFirstOrThrow({where:{ownerPlayerId:n,deletedAt:null}});await p.correctionExample.createMany({data:Array.from({length:51},(_,i)=>({ownerPlayerId:n,blobId:e.blobId,sourcePhotoId:require('crypto').randomUUID(),sourceCandidateId:require('crypto').randomUUID(),sourceSessionId:require('crypto').randomUUID(),sourceGeneration:1,physicalCopyGroup:require('crypto').randomUUID(),label:{printing:{name:'Pagination fixture '+i}},createdAt:new Date(Date.UTC(2000,0,1)+i)}))});`);
@@ -198,6 +206,7 @@ test("correction drafts, lost acknowledgement, private library, original viewing
     await page.unrouteAll({behavior:"wait"});
     database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const w={run:{session:{createdByUserId:n}}};const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});
       ${cleanupCorrectionFixture}
+      {const n=${JSON.stringify(peer)};${cleanupCorrectionFixture}await p.player.deleteMany({where:{id:n}});}
       for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});
       await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});
       await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});await p.card.deleteMany({where:{id:{in:${JSON.stringify([original.id, alternate.id])}}}});

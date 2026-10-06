@@ -99,7 +99,7 @@ retires archived guards. Capture/review continue while destructive cleanup waits
 
 ## Qualification status
 
-Implementation is in progress and not loaded into the review Docker environment.
+The implementation is loaded cumulatively into the local review Docker app.
 835 unit checks, typecheck, production build and thirteen client manifests passed.
 Three direct file tests also passed. The new disposable
 PostgreSQL/file fixture passed capture, replay/rollback, display ordering, owner
@@ -123,6 +123,25 @@ restore, keys rotate, and older-schema restore plus forward migration retains
 removal tombstones. All original local runtime identities, mounts and limits
 remained unchanged; only UUID-owned disposable resources were removed.
 
-Cumulative images, desktop/phone browser checks and current-head CI remain
-required. Delivery must update the backup service along with the six acquisition
-services so the local backup utility uses the new guard protocol.
+The web image `09354c83` matches all 583 source inputs (digest
+`b9bc8f9ea356fbe032245753b4395476fc1cff8ef92a6a55d7eecbff0ff61efd`).
+OCR image `5e5f119c` and visual/printing image `0a8637bb` each match all 300 shared
+library/script/schema inputs. Existing cached descriptors and runtime Python
+remain unchanged. All three restricted offline synthetic native probes passed;
+an initial visual probe failed and its identical isolated retry passed, without
+an established cause or a claimed runtime fix.
+
+Four browser cases passed at desktop/320px sizes: correction drafts and lost
+acknowledgement, saving with a full library allowance, preservation retry, explicit
+original viewing/download, withdrawal/removal, paginated/deleted-cursor access,
+manual-boundary repair and both No section scanner/Inventory workflows. An
+additional real-other-owner API denial and independent-original survival check
+passed. Screenshots were inspected. These synthetic cases qualify software
+behavior, not recognition accuracy or physical scanner feeds.
+
+All thirteen services retain their mounts/limits, and the seven unrelated
+services retain their original lifecycles. All seven original row projections
+and 1,092 retained original checksums (2,832,075,218 bytes) remain conserved.
+The optional backup utility is inactive; its existing profile resolves to the
+new guarded image without starting an additional service. Current-head CI and
+individual PR approval remain required; no production deployment occurred.
