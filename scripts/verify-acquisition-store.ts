@@ -1,5 +1,6 @@
 import { verifyRecognitionReplacement } from "./verify-acquisition-recognition-replacement";
 import { verifyAcquisitionCorrections } from "./verify-acquisition-corrections";
+import { verifyCorrectionFairness } from "./verify-correction-fairness";
 import { ensureCorrectionAccount } from "../lib/acquisition-correction-library";
 import { verifyAcquisitionCommit } from "./verify-acquisition-commit";
 import { verifyScannerConnections } from "./verify-scanner-connections";
@@ -105,6 +106,7 @@ const known = {
 };
 
 async function run() {
+  await verifyCorrectionFairness(db);
   await verifyAcquisitionCorrections(db);
   for (const playerId of [owner, otherOwner])
     await db.player.create({

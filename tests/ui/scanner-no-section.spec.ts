@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { cleanupCorrectionFixture } from "./correction-fixture";
 import { execFileSync } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
 import sharp from "sharp";
@@ -136,6 +137,7 @@ for (const width of [1366, 320]) test(`No section starts and continues a single 
     await page.close();
     database(`const n=${JSON.stringify(tag)},w={run:{session:{createdByUserId:n}}};
       await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});
+      ${cleanupCorrectionFixture}
       const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;if(!root||!paths.isAbsolute(root))throw Error('Fixture root unavailable');
       for(const photo of await p.acquisitionPhoto.findMany({where:w,select:{id:true}}))for(const suffix of ['.original','.preview.jpg'])await fs.unlink(paths.join(root,'acquisition-v1',photo.id+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e;});
       for(const run of await p.scannerRun.findMany({where:{agent:{userId:n}},select:{id:true}})){if(!/^[a-f0-9-]{36}$/.test(run.id))throw Error('Invalid fixture ID');await fs.unlink(paths.join(root,'scanner-control-v1',run.id+'.start.json')).catch(e=>{if(e.code!=='ENOENT')throw e;});}

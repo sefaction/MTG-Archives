@@ -13,12 +13,20 @@ export const correctionBackupActive = async (tx: Tx) => (await tx.correctionBack
 
 export async function claimCorrectionCapture(db: PrismaClient, now = new Date()) {
   return db.$transaction(async tx => {
+    // Serialize only queue admission. Copies and ordinary recognition run outside
+    // this gate; persisted owner turns survive worker restart and empty claims.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(762882)`;
     const [selected] = await tx.$queryRaw<{ id: string; ownerPlayerId: string }[]>`
-      SELECT o.id,b."ownerPlayerId" FROM "CorrectionCaptureOutbox" o JOIN "CorrectionBlob" b ON b.id=o."blobId"
-      WHERE b.state='PENDING' AND ((o.status IN ('PENDING','WAITING_FOR_SPACE') AND o."availableAt"<=${now})
-        OR (o.status='RUNNING' AND o."leaseExpiresAt"<=${now}))
-        AND EXISTS (SELECT 1 FROM "CorrectionExample" e WHERE e."blobId"=b.id AND e."deletedAt" IS NULL)
-      ORDER BY o."availableAt",o."createdAt",o.id LIMIT 1`;
+      SELECT q.id,a."ownerPlayerId" FROM "CorrectionLibraryAccount" a
+      CROSS JOIN LATERAL (
+        SELECT o.id,o."availableAt",o."createdAt" FROM "CorrectionBlob" b
+        JOIN "CorrectionCaptureOutbox" o ON o."blobId"=b.id
+        WHERE b."ownerPlayerId"=a."ownerPlayerId" AND b.state='PENDING'
+          AND ((o.status IN ('PENDING','WAITING_FOR_SPACE') AND o."availableAt"<=${now})
+            OR (o.status='RUNNING' AND o."leaseExpiresAt"<=${now}))
+          AND EXISTS (SELECT 1 FROM "CorrectionExample" e WHERE e."blobId"=b.id AND e."deletedAt" IS NULL)
+        ORDER BY o."availableAt",o."createdAt",o.id LIMIT 1
+      ) q ORDER BY COALESCE(a."lastCaptureAt",TIMESTAMP '1970-01-01'),q."availableAt",q."createdAt",q.id LIMIT 1`;
     if (!selected) return null;
     await lockCorrectionOwner(tx, selected.ownerPlayerId);
     const job = await tx.correctionCaptureOutbox.findUniqueOrThrow({ where: { id: selected.id }, include: { blob: true } });
@@ -27,6 +35,11 @@ export async function claimCorrectionCapture(db: PrismaClient, now = new Date())
       !await tx.correctionExample.count({ where: { blobId: job.blobId, deletedAt: null } })) return null;
     if (job.blob.state !== "PENDING" || job.status === "RUNNING" && job.leaseExpiresAt && job.leaseExpiresAt > now ||
       job.status !== "RUNNING" && job.availableAt > now) return null;
+    // Millisecond storage cannot collapse distinct turns under concurrent claims.
+    // A blocked owner also consumes its turn so other owners can keep copying.
+    await tx.$executeRaw`UPDATE "CorrectionLibraryAccount" SET "lastCaptureAt"=
+      GREATEST(clock_timestamp(),COALESCE((SELECT MAX("lastCaptureAt") FROM "CorrectionLibraryAccount"),TIMESTAMP '1970-01-01')+INTERVAL '1 millisecond')
+      WHERE "ownerPlayerId"=${selected.ownerPlayerId}`;
     const required = account.preservedBytes + account.reservedBytes + account.evidenceBytes +
       (job.blob.reserved ? 0n : BigInt(job.blob.bytes));
     if (required > account.limitBytes) {

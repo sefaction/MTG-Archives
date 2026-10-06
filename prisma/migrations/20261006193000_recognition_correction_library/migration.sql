@@ -18,6 +18,7 @@ CREATE TABLE "CorrectionLibraryAccount" (
     "sampleCap" INTEGER NOT NULL DEFAULT 200,
     "selectedControls" INTEGER NOT NULL DEFAULT 0,
     "lastCleanupAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastCaptureAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 

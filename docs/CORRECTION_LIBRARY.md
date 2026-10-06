@@ -46,6 +46,10 @@ remain distinct. Temporary files contain new copied bytes, are flushed before
 atomic publication, and are attached only under a current independent copy lease.
 An attachment rollback can reuse a verified immutable destination on retry.
 Cancellation of the acquisition batch does not cancel this queue.
+Admissions rotate between owners using a persisted last-served turn, while
+preserving FIFO order within an owner's eligible queue. A full allowance consumes
+that owner's turn so another owner's smaller queue can continue. Worker restart
+does not reset the rotation.
 
 Normal expiry, expired Trash and pressure cleanup exclude pinned batches and
 repeat that check under the source session lock before unlinking. Missing/corrupt
@@ -103,7 +107,22 @@ isolation/dedup, copy/quota/missing-source pins, backup guard, restored lease,
 withdrawal/removal and older-restore tombstones. Full acquisition and shared-import
 regressions passed in a disposable database (175.622 seconds). The final rerun with
 expanded first-publication, review-history and deletion-resumption coverage passed
-in 280.684 seconds; all owned fixtures/container/volume were removed. Actual
-archive/restore, process interruption boundaries, queue fairness
-at large uneven owner counts, cumulative images, desktop/phone browser checks and
-current-head CI remain required.
+in 280.684 seconds; all owned fixtures/container/volume were removed. A later
+full PostgreSQL/import run passed in 266.386 seconds including four uneven queues
+of 1,500/3/2/2 pending photos, concurrent admissions, reconnects, per-owner FIFO and
+quota-blocked rotation. Eight admissions took 520 ms in that disposable fixture.
+
+`npm run verify:correction-recovery` passed real archive/restore and kernel storage
+failure checks in an isolated empty database and bounded tmpfs. It kills the
+actual worker after prepared bytes and after publication before database commit,
+then verifies retry and stale-lease rejection. Real ENOSPC and unprivileged EACCES
+retain reservations and every source pin; temporary cleanup removes expired parts
+and preserves the live leased part. A post-dump copy hook proves source protection
+through appdata staging. Original bytes and ordered event/evidence records survive
+restore, keys rotate, and older-schema restore plus forward migration retains
+removal tombstones. All original local runtime identities, mounts and limits
+remained unchanged; only UUID-owned disposable resources were removed.
+
+Cumulative images, desktop/phone browser checks and current-head CI remain
+required. Delivery must update the backup service along with the six acquisition
+services so the local backup utility uses the new guard protocol.

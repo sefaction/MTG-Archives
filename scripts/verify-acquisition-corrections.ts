@@ -31,6 +31,12 @@ export async function verifyAcquisitionCorrections(db: PrismaClient) {
   const inventoryBefore = await db.inventoryItem.count();
   let guard: Awaited<ReturnType<typeof beginCorrectionBackup>> | undefined;
   const guardIds: string[] = [];
+  async function prioritizeOwner(index: number) {
+    // Recovery assertions name a particular source. Establish an explicit queue
+    // precondition without bypassing production owner rotation or lease checks.
+    await db.correctionLibraryAccount.updateMany({ where: { ownerPlayerId: { in: owners } }, data: { lastCaptureAt: new Date(1) } });
+    await db.correctionLibraryAccount.update({ where: { ownerPlayerId: owners[index] }, data: { lastCaptureAt: null } });
+  }
   try {
     for (const [i, owner] of owners.entries()) {
       await db.player.create({ data: { id: owner, name: owner, displayName: owner } });
@@ -142,15 +148,18 @@ export async function verifyAcquisitionCorrections(db: PrismaClient) {
     assert.equal((await db.acquisitionPhoto.findUniqueOrThrow({ where: { id: photoIds[1][0] } })).firstMachineEvidence, null);
 
     // Leases are publication authority, including after expiry and restoration.
+    await prioritizeOwner(0);
     const stale = await claimCorrectionCapture(db); assert.ok(stale);
     await db.correctionCaptureOutbox.update({ where: { id: stale.id }, data: { leaseExpiresAt: new Date(0) } });
     let called = false;
     assert.equal(await completeCorrectionCapture(db, stale, async () => { called = true; }), false); assert.equal(called, false);
-    const fresh = await claimCorrectionCapture(db); assert.ok(fresh); assert.notEqual(fresh.leaseToken, stale.leaseToken);
+    await prioritizeOwner(0);
+    const fresh = await claimCorrectionCapture(db); assert.ok(fresh); assert.equal(fresh.id, stale.id); assert.notEqual(fresh.leaseToken, stale.leaseToken);
     await db.$executeRawUnsafe(buildCorrectionRestoreFence("public"));
     assert.equal(await completeCorrectionCapture(db, fresh, async () => { called = true; }), false);
     assert.equal((await db.correctionCaptureOutbox.findUniqueOrThrow({ where: { id: fresh.id } })).errorCode, "RESTORE_INTERRUPTED");
     await db.correctionCaptureOutbox.updateMany({ where: { blob: { ownerPlayerId: owners[0] } }, data: { availableAt: new Date(0) } });
+    await prioritizeOwner(0);
 
     // An active archive window preserves pending source pins even after a copy.
     guard = await beginCorrectionBackup();
@@ -198,6 +207,7 @@ export async function verifyAcquisitionCorrections(db: PrismaClient) {
     const resumed = await db.correctionBlob.findUniqueOrThrow({ where: { id: example.blobId } });
     assert.equal(resumed.state, "PENDING"); assert.equal(resumed.reserved, true);
     await db.correctionCaptureOutbox.update({ where: { blobId: example.blobId }, data: { availableAt: new Date(0) } });
+    await prioritizeOwner(0);
     assert.equal((await runCorrectionCaptureOnce(db)).preserved, 1);
 
     // Keep an older library projection, then remove the live example. Restoring

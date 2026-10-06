@@ -43,6 +43,7 @@
     "verify": "tsx scripts/verify.ts",
     "verify:core": "tsx scripts/verify.ts --core",
     "verify:acquisition": "tsx scripts/verify-acquisition-local.ts",
+    "verify:correction-recovery": "tsx scripts/verify-correction-recovery.ts",
     "typecheck": "tsc --noEmit",
     "format": "npx prettier --check .",
     "test": "tsx --test tests/*.test.ts tests/*.test.mjs",
