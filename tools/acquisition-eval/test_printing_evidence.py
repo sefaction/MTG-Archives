@@ -45,6 +45,17 @@ class PrintingEvidenceTests(unittest.TestCase):
         cv2.rectangle(marked, (38, 1310), (66, 1346), (200,)*3, -1)
         self.assertEqual(self.evidence(marked)['status'], 'UNREADABLE')
 
+    def test_displaced_visible_symbol_never_establishes_absence(self):
+        # A visible symbol near the search margin can leave little residual in
+        # the nominal core. Reference agreement there must not hide that symbol.
+        # UNREADABLE is safe; this does not require recognizing a displaced stamp.
+        for x in (60, 65):
+            with self.subTest(x=x, y=1260):
+                stamped = self.image.copy()
+                h, w = self.template.shape
+                stamped[1260:1260+h, x:x+w] = cv2.cvtColor(self.template, cv2.COLOR_GRAY2BGR)
+                self.assertNotEqual(self.evidence(stamped)['status'], 'ABSENT')
+
     def test_clipped_search_margin_does_not_hide_fully_observed_stamp(self):
         stamped = self.image.copy()
         stamped[1303:1353, 35:70] = cv2.cvtColor(self.template, cv2.COLOR_GRAY2BGR)
