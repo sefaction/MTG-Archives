@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import {settledScannerTransfer} from "./scanner-drain-policy";
 import {BATCH_TRASH_DAYS} from "./acquisition-batch-policy";
+import { hasCorrectionRetentionPins } from "./acquisition-correction-library";
 import {
   PHOTO_RETENTION_DAYS_AFTER_COMMIT,
   removeAcquisitionPhotoBytes,
@@ -26,6 +27,7 @@ export async function purgeCommittedAcquisitionPhotos(
     JOIN "AcquisitionRun" run ON run.id=p."runId"
     JOIN "AcquisitionSession" session ON session.id=run."sessionId"
     WHERE session."trashedAt" IS NULL AND session."deletedAt" IS NULL
+      AND NOT EXISTS (SELECT 1 FROM "CorrectionRetentionPin" pin WHERE pin."sessionId"=session.id AND pin."releasedAt" IS NULL)
       AND p."purgedAt" IS NULL AND p."purgeAfter" <= ${now} AND r."createdAt" <= ${cutoff}
     ORDER BY p."purgeAfter",p.id LIMIT 25
   `;
@@ -37,6 +39,7 @@ export async function purgeCommittedAcquisitionPhotos(
         await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id=${photo.sessionId} FOR UPDATE`;
         const session = await tx.acquisitionSession.findUnique({where: {id: photo.sessionId}});
         if (!session || session.trashedAt || session.deletedAt) return 0;
+        if (await hasCorrectionRetentionPins(tx, photo.sessionId)) return 0;
         const current = await tx.acquisitionPhoto.findUnique({where: {id: photo.id}});
         if (!current || current.purgedAt || !current.purgeAfter || current.purgeAfter > now) return 0;
         await removeAcquisitionPhotoBytes(photo.id);
@@ -61,6 +64,7 @@ export async function purgeTrashedAcquisitionPhotos(db: PrismaClient, now = new 
   const batches = await db.$queryRaw<{id: string}[]>`
     SELECT s.id FROM "AcquisitionSession" s JOIN "AcquisitionRun" r ON r."sessionId"=s.id
     WHERE s."trashedAt"<=${cutoff} AND s."trashExpiresAt"<=${now}
+      AND NOT EXISTS (SELECT 1 FROM "CorrectionRetentionPin" pin WHERE pin."sessionId"=s.id AND pin."releasedAt" IS NULL)
       AND (s."deletedAt" IS NULL OR EXISTS (SELECT 1 FROM "AcquisitionPhoto" p WHERE p."runId"=r.id AND p."purgedAt" IS NULL))
       AND NOT EXISTS (SELECT 1 FROM "ScannerRun" scan WHERE scan."acquisitionRunId"=r.id AND NOT
         (scan.status IN ('DRAINED','CANCELLED_BEFORE_START') OR scan.status='ERROR' AND scan.outcome IS NOT NULL AND scan.outcome<>'null'::jsonb))
@@ -71,6 +75,7 @@ export async function purgeTrashedAcquisitionPhotos(db: PrismaClient, now = new 
       await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id=${batch.id} FOR UPDATE`;
       const session = await tx.acquisitionSession.findUniqueOrThrow({where: {id: batch.id}, include: {run: true}});
       if (!session.trashedAt || session.trashedAt > cutoff || !session.trashExpiresAt || session.trashExpiresAt > now || !session.run) return;
+      if (await hasCorrectionRetentionPins(tx, session.id)) return;
       if (await tx.scannerRun.count({where: {acquisitionRunId: session.run.id, NOT: settledScannerTransfer}})) return;
       if (!session.deletedAt) {
         await tx.acquisitionSession.update({where: {id: session.id}, data: {deletedAt: now, phase: "CANCELLED", scannerReserved: 0}});

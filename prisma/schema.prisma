@@ -1550,11 +1550,177 @@ model AcquisitionPhoto {
   readyAt    DateTime?
   purgeAfter DateTime?
   purgedAt   DateTime?
+  // Decided before recognition; never recomputed from its outcome.
+  correctionControl Boolean @default(false)
+  correctionCohortId String?
+  correctionSamplingBasisPoints Int?
+  correctionSamplingEligible Boolean @default(false)
+  // First published machine identity, not a human or independently verified label.
+  firstMachineEvidence Json?
 
   @@unique([runId, uploadKey])
   @@unique([slotId, generation])
   @@index([runId, ready])
   @@index([purgeAfter, purgedAt])
+}
+
+// Independent owner-scoped records. Source IDs are provenance, not cascading
+// acquisition lifetime relations. Library records survive batch cleanup.
+model CorrectionLibraryAccount {
+  ownerPlayerId String @id
+  displayKey String
+  limitBytes BigInt @default(64000000000)
+  preservedBytes BigInt @default(0)
+  reservedBytes BigInt @default(0)
+  evidenceBytes BigInt @default(0)
+  cohortId String @default(uuid())
+  sampleBasisPoints Int @default(200)
+  sampleCap Int @default(200)
+  selectedControls Int @default(0)
+  lastCleanupAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  blobs CorrectionBlob[]
+  examples CorrectionExample[]
+  events CorrectionReviewEvent[]
+  evidence CorrectionEvidence[]
+  access CorrectionLibraryAccess[]
+}
+
+model CorrectionBlob {
+  id String @id @default(uuid())
+  ownerPlayerId String
+  owner CorrectionLibraryAccount @relation(fields: [ownerPlayerId], references: [ownerPlayerId], onDelete: Restrict)
+  digest String
+  bytes Int
+  mediaType String
+  state String @default("PENDING")
+  reserved Boolean @default(false)
+  preservedAt DateTime?
+  deleteClaimedAt DateTime?
+  createdAt DateTime @default(now())
+  examples CorrectionExample[]
+  pins CorrectionRetentionPin[]
+  outbox CorrectionCaptureOutbox?
+  @@unique([ownerPlayerId, digest])
+  @@unique([id, ownerPlayerId])
+  @@index([state, deleteClaimedAt])
+}
+
+model CorrectionExample {
+  id String @id @default(uuid())
+  ownerPlayerId String
+  owner CorrectionLibraryAccount @relation(fields: [ownerPlayerId], references: [ownerPlayerId], onDelete: Restrict)
+  blobId String
+  blob CorrectionBlob @relation(fields: [blobId, ownerPlayerId], references: [id, ownerPlayerId], onDelete: Restrict)
+  sourcePhotoId String
+  sourceCandidateId String
+  sourceSessionId String
+  sourceGeneration Int
+  physicalCopyGroup String
+  sourceMetadata Json?
+  normalControl Boolean @default(false)
+  cohortId String?
+  label Json?
+  labelState String @default("UNVERIFIED")
+  metadataBytes Int @default(0)
+  firstEvidenceId String?
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([ownerPlayerId, sourcePhotoId])
+  @@index([ownerPlayerId, deletedAt, createdAt, id])
+  @@index([blobId, deletedAt])
+}
+
+model CorrectionReviewEvent {
+  id String @id @default(uuid())
+  ownerPlayerId String
+  owner CorrectionLibraryAccount @relation(fields: [ownerPlayerId], references: [ownerPlayerId], onDelete: Restrict)
+  sourceCandidateId String
+  candidateRevision Int
+  sourcePhotoId String?
+  exampleId String?
+  actorId String
+  origin String
+  classification String
+  payload Json
+  evidenceIds String[]
+  bytes Int
+  createdAt DateTime @default(now())
+  @@unique([ownerPlayerId, sourceCandidateId, candidateRevision])
+  @@index([ownerPlayerId, sourcePhotoId, createdAt, id])
+  @@index([exampleId])
+}
+
+model CorrectionEvidence {
+  id String @id @default(uuid())
+  ownerPlayerId String
+  owner CorrectionLibraryAccount @relation(fields: [ownerPlayerId], references: [ownerPlayerId], onDelete: Restrict)
+  sourcePhotoId String
+  bundleHash String
+  payload Json
+  bytes Int
+  createdAt DateTime @default(now())
+  @@unique([ownerPlayerId, bundleHash])
+  @@index([ownerPlayerId, sourcePhotoId])
+}
+
+model CorrectionRetentionPin {
+  id String @id @default(uuid())
+  blobId String
+  ownerPlayerId String
+  blob CorrectionBlob @relation(fields: [blobId, ownerPlayerId], references: [id, ownerPlayerId], onDelete: Restrict)
+  photoId String
+  sessionId String
+  releasedAt DateTime?
+  createdAt DateTime @default(now())
+  @@unique([blobId, photoId])
+  @@index([sessionId, releasedAt])
+  @@index([photoId, releasedAt])
+}
+
+model CorrectionCaptureOutbox {
+  id String @id @default(uuid())
+  blobId String @unique
+  blob CorrectionBlob @relation(fields: [blobId], references: [id], onDelete: Restrict)
+  status String @default("PENDING")
+  attempts Int @default(0)
+  availableAt DateTime @default(now())
+  leaseToken String?
+  leaseExpiresAt DateTime?
+  errorCode String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([status, availableAt, leaseExpiresAt])
+}
+
+model CorrectionLibraryAccess {
+  id String @id @default(uuid())
+  ownerPlayerId String
+  owner CorrectionLibraryAccount @relation(fields: [ownerPlayerId], references: [ownerPlayerId], onDelete: Restrict)
+  actorId String
+  action String
+  exampleId String?
+  createdAt DateTime @default(now())
+  @@index([ownerPlayerId, createdAt])
+}
+
+// Explicitly released by backup completion or the restore fence. Never expires
+// by age: an interrupted archive must not race evidence-byte deletion.
+model CorrectionBackupGuard {
+  id String @id @default(uuid())
+  createdAt DateTime @default(now())
+  releasedAt DateTime?
+  @@index([releasedAt])
+}
+
+// Retained independently of example contents and re-applied during restore.
+model CorrectionDeletionTombstone {
+  ownerPlayerId String
+  sourcePhotoId String
+  deletedAt DateTime
+  @@id([ownerPlayerId, sourcePhotoId])
 }
 
 // A verified bulk file and transactionally advanced import cursor. Completion

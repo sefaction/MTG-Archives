@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { AcquisitionReviewEvidence } from "./acquisition-review-evidence";
 import type { AcquisitionCatalogStatus } from "./acquisition-catalog-status";
 import { acquisitionManualRegionSchema, type AcquisitionManualRegion } from "./acquisition-manual-region";
+import { correctionDisplayTokensSchema } from "./acquisition-correction-display";
 export const acquisitionDefaultsSchema = z
   .object({
     finish: z.enum(["UNKNOWN", "NONFOIL", "FOIL", "ETCHED"]),
@@ -35,6 +36,7 @@ export const acquisitionReviewRequestSchema = z.discriminatedUnion("action", [
       photoId: z.string().uuid(),
       revision: z.number().int().nonnegative(),
       decision: acquisitionReviewDecisionSchema,
+      evidenceTokens: correctionDisplayTokensSchema.optional(),
     })
     .strict(),
   z
@@ -42,6 +44,7 @@ export const acquisitionReviewRequestSchema = z.discriminatedUnion("action", [
       action: z.literal("pending"),
       photoId: z.string().uuid(),
       revision: z.number().int().nonnegative(),
+      evidenceTokens: correctionDisplayTokensSchema.optional(),
     })
     .strict(),
   z.object({ action: z.literal("region"), photoId: z.string().uuid(),
@@ -69,6 +72,7 @@ export const acquisitionPrintingSelect = {
 } as const;
 export type AcquisitionCardReview = {
   photoId: string;
+  evidenceToken?: string;
   revision: number;
   position: number;
   defaults: AcquisitionDefaults;

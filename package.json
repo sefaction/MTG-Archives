@@ -15,6 +15,7 @@
     "backup:create": "tsx scripts/backup-create.ts",
     "backup:list": "tsx scripts/backup-list.ts",
     "backup:restore": "tsx scripts/backup-restore.ts",
+    "backup:corrections:guards": "tsx scripts/correction-backup-guards.ts",
     "worker:prices": "tsx scripts/pricing-worker.ts",
     "worker:prices:once": "tsx scripts/pricing-worker.ts --once",
     "worker:prices:summaries:rebuild": "tsx scripts/pricing-summary-rebuild.ts",
