@@ -55,11 +55,12 @@ for (const width of [1366, 320]) test(`refresh correction progress preserves pag
     await examples.first().getByRole("button", { name: "View review history", exact: true }).click();
     const history = page.getByRole("region", { name: "Saved review history", exact: true }); await expect(history.locator("ol > li")).toHaveCount(1);
     const before = { originalReads, historyReads, reads };
+    const progressAlert = page.getByRole("alert").filter({ hasText: "Progress could not refresh." });
     failed = true; await page.getByRole("button", { name: "Refresh photos", exact: true }).click();
-    await expect(page.getByRole("alert")).toContainText("Progress could not refresh.");
+    await expect(progressAlert).toBeVisible();
     await expect(image).toBeVisible(); await expect(history).toBeVisible(); await expect(examples).toHaveCount(2);
-    failed = false; await page.getByRole("alert").getByRole("button", { name: "Retry", exact: true }).click();
-    await expect(page.getByRole("alert")).toHaveCount(0); await expect(page.getByRole("button", { name: "Refresh photos", exact: true })).toBeEnabled();
+    failed = false; await progressAlert.getByRole("button", { name: "Retry", exact: true }).click();
+    await expect(progressAlert).toHaveCount(0); await expect(page.getByRole("button", { name: "Refresh photos", exact: true })).toBeEnabled();
     await expect(image).toBeVisible(); await expect(history.locator("ol > li")).toHaveCount(1);
     expect(originalReads).toBe(before.originalReads); expect(historyReads).toBe(before.historyReads); expect(reads).toBe(before.reads + 2);
     pauseNext = true; await page.getByRole("button", { name: "Refresh photos", exact: true }).click();
@@ -79,6 +80,7 @@ for (const width of [1366, 320]) test(`refresh correction progress preserves pag
     await examples.first().getByRole("button", { name: "Confirm removal", exact: true }).click();
     await expect(examples).toHaveCount(1); await expect(history).toHaveCount(0); await expect(page.getByRole("img", { name: "Preserved original correction photo" })).toHaveCount(0);
   } finally {
+    resume?.();
     database(`const n=${JSON.stringify(owner)};${cleanupCorrectionFixture}await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});return true;`);
   }
 });
@@ -111,15 +113,17 @@ test("changing correction owner aborts an obsolete progress read", async ({ page
     await page.getByRole("button", { name: "View review history", exact: true }).click();
     await expect(page.getByRole("region", { name: "Saved review history", exact: true })).toContainText("No recorded scan reviews");
     delay = true; await page.getByRole("button", { name: "Refresh photos", exact: true }).click(); await expect.poll(() => !!release).toBe(true);
-    await page.getByLabel("Owner", { exact: true }).selectOption(owners[1]);
-    await expect(page.getByRole("article")).toContainText("Second owned progress example"); await expect.poll(() => obsoleteAborted).toBe(true);
+    await page.getByRole("combobox", { name: /^Owner/ }).selectOption(owners[1]);
+    await expect(page.getByRole("article")).toContainText("Second owned progress example");
     release!(); await expect.poll(() => finished).toBe(true);
+    await expect.poll(() => obsoleteAborted).toBe(true);
     await expect(page.getByRole("article")).toContainText("Second owned progress example");
     await expect(page.getByRole("heading", { name: "First owned progress example", exact: true })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Saved review history", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Refresh photos", exact: true })).toBeEnabled(); expect(errors).toEqual([]);
   } finally {
-    release?.(); await page.unrouteAll({ behavior: "wait" });
-    for (const n of owners) database(`const n=${JSON.stringify(n)};${cleanupCorrectionFixture}await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});return true;`);
+    release?.();
+    try { if (!page.isClosed()) await page.unrouteAll({ behavior: "wait" }); }
+    finally { for (const n of owners) database(`const n=${JSON.stringify(n)};${cleanupCorrectionFixture}await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});return true;`); }
   }
 });
