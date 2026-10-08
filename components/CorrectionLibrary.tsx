@@ -9,6 +9,20 @@ function title(example: Example) {
   const label = example.label as { printing?: { name?: string; setCode?: string; collectorNumber?: string } } | null;
   return label?.printing?.name ? `${label.printing.name} · ${label.printing.setCode ?? ""} ${label.printing.collectorNumber ?? ""}` : "No current label";
 }
+function CorrectionOriginal({ owner, exampleId }: { owner: string; exampleId: string }) {
+  const [attempt, setAttempt] = useState(0);
+  const [state, setState] = useState<"loading" | "loaded" | "error">("loading");
+  return <div className="mt-3">
+    {state === "loading" && <p role="status">Loading preserved original…</p>}
+    {state === "error" && <div role="alert" className={panel}>
+      The preserved original could not be read. Retry or ask an administrator to check the copy.
+      <button className={button + " ml-2"} onClick={() => { setState("loading"); setAttempt(value => value + 1); }}>Retry original</button>
+    </div>}
+    <img key={attempt} src={`/api/acquisition/corrections/${exampleId}?owner=${encodeURIComponent(owner)}&attempt=${attempt}`}
+      alt="Preserved original correction photo" className="max-w-full max-h-[32rem] object-contain"
+      hidden={state === "error"} onLoad={() => setState("loaded")} onError={() => setState("error")} />
+  </div>;
+}
 export function CorrectionLibrary({ owners, initialOwner }: { owners: { id: string; name: string }[]; initialOwner: string }) {
   const [owner, setOwner] = useState(initialOwner), [cursor, setCursor] = useState<string>(), [history, setHistory] = useState<(string | undefined)[]>([]);
   const [data, setData] = useState<Library>(), [error, setError] = useState(""), [busy, setBusy] = useState(false),
@@ -58,7 +72,7 @@ export function CorrectionLibrary({ owners, initialOwner }: { owners: { id: stri
         <button disabled={busy} className={button} aria-expanded={reviewHistory === example.id} aria-controls={`correction-history-${example.id}`}
           onClick={() => setReviewHistory(reviewHistory === example.id ? undefined : example.id)}>{reviewHistory === example.id ? "Hide review history" : "View review history"}</button>
       </div>
-      {original === example.id && <img src={`/api/acquisition/corrections/${example.id}?owner=${encodeURIComponent(owner)}`} alt="Preserved original correction photo" className="max-w-full max-h-[32rem] object-contain mt-3" onError={() => setError("The preserved original could not be read. Retry or ask an administrator to check the copy.")} />}
+      {original === example.id && <CorrectionOriginal key={`${owner}:${example.id}`} owner={owner} exampleId={example.id} />}
       {reviewHistory === example.id && <CorrectionReviewHistory key={`${owner}:${example.id}`} owner={owner} exampleId={example.id} />}
       {remove === example.id && <div className="mt-3 border rounded p-3 space-y-2">
         <p>Remove this example, its label and saved recognition evidence?</p>
