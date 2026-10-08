@@ -21,7 +21,7 @@ export async function verifyAcquisitionClaimDiagnostics(db: PrismaClient, source
     assert.deepEqual(await claimFixtureJobs(db, options, expected), []);
     assert.equal(reports.length, 1);
     const report = reports[0];
-    assert.equal(report.effectiveClaimAt.getTime(), report.databaseClock.getTime() + 1);
+    assert.equal(report.effectiveClaimAt.getTime(), Math.max(report.callerStartedAt.getTime(), report.databaseClock.getTime() + 1));
     assert(report.callerFinishedAt >= report.callerStartedAt);
     assert.deepEqual(report.claimTrace.events,[{operation:"SELECTION",count:0,heads:[]}]);
     assert.equal(report.claimTrace.droppedEvents,0);
@@ -42,6 +42,23 @@ export async function verifyAcquisitionClaimDiagnostics(db: PrismaClient, source
     assert.equal(preserved.availableAt.toISOString(), availableAt.toISOString());
     assert.equal(preserved.updatedAt.toISOString(), job.updatedAt.toISOString());
     assert.equal(preserved.attempts, 0); assert.equal(preserved.output, null);
+    const behindClock = new Date("2000-01-01T00:00:00Z");
+    const clockBehind = new Proxy(db, {get(target, property) {
+      if(property === "$queryRaw") return async (...args: unknown[]) => {
+        const template = args[0];
+        if(Array.isArray(template) && template[0] === "SELECT clock_timestamp() AS now")
+          return [{now: behindClock}];
+        return Reflect.apply(target.$queryRaw, target, args);
+      };
+      const value = Reflect.get(target, property);
+      return typeof value === "function" ? value.bind(target) : value;
+    }});
+    const behindReports: FixtureClaimDiagnostic[] = [];
+    assert.deepEqual(await claimFixtureJobs(clockBehind, options, {candidateId: source.candidateId,
+      onEmpty: diagnostic => behindReports.push(diagnostic)}), [], "real future availability stays ineligible");
+    assert.equal(behindReports.length, 1);
+    assert.equal(behindReports[0].databaseClock.getTime(), behindClock.getTime());
+    assert.equal(behindReports[0].effectiveClaimAt.getTime(), behindReports[0].callerStartedAt.getTime());
     // Losing the post-claim snapshot must preserve the real empty result and
     // its already-observed selection, without exposing a failing query/error.
     let reads=0;
@@ -76,8 +93,8 @@ export async function verifyAcquisitionClaimDiagnostics(db: PrismaClient, source
     assert.equal(reports.length,1);
     // Once the fixture itself makes the job eligible, the original claim/CAS
     // grants one lease and no empty-claim diagnostic is emitted.
-    await db.acquisitionProcessingJob.update({where: {id: job.id}, data: {availableAt: new Date(0)}});
-    const claims = await claimFixtureJobs(db, options, expected);
+    await db.acquisitionProcessingJob.update({where: {id: job.id}, data: {availableAt: new Date()}});
+    const claims = await claimFixtureJobs(clockBehind, options, expected);
     assert.equal(claims.length, 1); assert.equal(claims[0].id, job.id);
     assert.equal(claims[0].attempts, 1); assert(claims[0].leaseToken);
     assert.equal(reports.length, 1);

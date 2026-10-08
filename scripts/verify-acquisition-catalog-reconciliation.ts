@@ -1,3 +1,4 @@
+import {verifyCatalogReadiness} from "./verify-acquisition-catalog-readiness";
 import {verifyAcquisitionClaimTrace} from "./verify-acquisition-claim-trace";
 import {verifyImmediateCatalogClaims} from "./verify-acquisition-immediate-catalog-claims";
 import {verifyAutoConfirmRetirement} from "./verify-acquisition-auto-confirm-retirement";
@@ -114,6 +115,7 @@ export async function verifyAcquisitionCatalogReconciliation(
     await verifyAcquisitionClaimDiagnostics(db, rawJob);
     await verifyAcquisitionClaimTrace(db,rawJob);
     await verifyImmediateCatalogClaims(db,rawJob);
+    await verifyCatalogReadiness(db,rawJob);
     await verifyAutoConfirmRetirement(db,rawJob);
     await verifyAcquisitionClaimRetirement(db,rawJob);
     await verifyDeletedHandoffSource(db,rawJob.id,CATALOG_RECONCILIATION_STAGE,
