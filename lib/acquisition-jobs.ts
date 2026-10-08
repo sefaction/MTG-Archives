@@ -10,6 +10,7 @@ import { PRINTING_STAGE } from "./acquisition-printing";
 import { CATALOG_RECONCILIATION_STAGE } from "./acquisition-catalog-status";
 import { VISUAL_STAGE, visualNativeSchema } from "./acquisition-visual";
 import { acquisitionAnalysisCandidateFence, acquisitionAnalysisJobSql, acquisitionAnalysisOutputMatches } from "./acquisition-analysis-scope";
+import { captureCorrectionPublication } from "./acquisition-correction-library";
 
 // Queue operations are worker-only: never expose these as user-facing routes.
 // Handlers return versioned evidence; they must not mutate candidates/inventory.
@@ -239,7 +240,7 @@ export async function completeAcquisitionJob(
           AND photo.ready AND photo."purgedAt" IS NULL AND photo.digest=${input.digest}
           AND photo."slotId"=c."physicalId" AND photo.generation=slot.generation
           AND NOT EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=c.id)`;
-      if (completed) return "COMPLETE" as const;
+      if (completed) { await captureCorrectionPublication(tx, job, output); return "COMPLETE" as const; }
       const superseded = await tx.$executeRaw`
         UPDATE "AcquisitionProcessingJob" SET status='SUPERSEDED', "leaseToken"=NULL,
           "leaseExpiresAt"=NULL, "errorCode"='INPUT_CHANGED', "updatedAt"=clock_timestamp()
@@ -283,7 +284,7 @@ export async function completeAcquisitionJob(
           AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" newer
             WHERE newer.stage=source.stage AND newer."candidateId"=c.id AND newer."candidateRevision"=c.revision
               AND (newer."createdAt",newer.id)>(source."createdAt",source.id))`;
-      if (completed) return "COMPLETE" as const;
+      if (completed) { await captureCorrectionPublication(tx, job, output); return "COMPLETE" as const; }
       const superseded = await tx.$executeRaw`
         UPDATE "AcquisitionProcessingJob" SET status='SUPERSEDED', "leaseToken"=NULL,
           "leaseExpiresAt"=NULL, "errorCode"='INPUT_CHANGED', "updatedAt"=clock_timestamp()
@@ -331,7 +332,7 @@ export async function completeAcquisitionJob(
         leaseExpiresAt: null,
       },
     });
-    if (completed.count) return "COMPLETE" as const;
+    if (completed.count) { await captureCorrectionPublication(tx, job, output); return "COMPLETE" as const; }
     const superseded = await tx.acquisitionProcessingJob.updateMany({
       where: lease(job, now),
       data: {

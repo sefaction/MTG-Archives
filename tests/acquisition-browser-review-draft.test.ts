@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { acquisitionDraftKey, clearAcquisitionDraft, listAcquisitionDraftPhotos, readAcquisitionDraft, saveAcquisitionDraft } from "../lib/acquisition-browser-review-draft";
+import { ACQUISITION_DRAFT_MAX_CHARS, acquisitionDraftKey, clearAcquisitionDraft, listAcquisitionDraftPhotos, readAcquisitionDraft, saveAcquisitionDraft } from "../lib/acquisition-browser-review-draft";
 const scope = { userId: "owner", batchId: "batch", photoId: "photo" };
 const draft = { version: 1, revision: 4, selected: { id: "printing", name: "Chosen card", setCode: "tst",
   collectorNumber: "1", lang: "en", imageUri: null, finishes: ["foil"] }, finish: "FOIL", condition: "LP",
@@ -25,7 +25,15 @@ test("untrusted and unavailable browser storage cannot turn a draft into a valid
   assert.throws(() => saveAcquisitionDraft({ ...cache, setItem() { throw new Error("quota"); } }, scope, { ...draft, condition: "HP" }), /quota/);
   assert.deepEqual(readAcquisitionDraft(cache, scope), { ...draft, writeId });
   cache.setItem(acquisitionDraftKey(scope), "invalid"); assert.throws(() => readAcquisitionDraft(cache, scope));
-  cache.setItem(acquisitionDraftKey(scope), "x".repeat(17000)); assert.throws(() => readAcquisitionDraft(cache, scope), /too large/);
+  cache.setItem(acquisitionDraftKey(scope), "x".repeat(ACQUISITION_DRAFT_MAX_CHARS + 1)); assert.throws(() => readAcquisitionDraft(cache, scope), /too large/);
+});
+test("bounded display identities survive draft reload without losing the edit baseline", () => {
+  const cache = storage(), token = "s".repeat(20000);
+  const evidenceTokens = { initial: token, edit: token, current: token,
+    displayed: Array.from({ length: 16 }, (_, i) => token.slice(0, 19998) + String(i).padStart(2, "0")), truncated: true };
+  saveAcquisitionDraft(cache, scope, { ...draft, evidenceTokens });
+  assert.deepEqual(readAcquisitionDraft(cache, scope)?.evidenceTokens, evidenceTokens);
+  assert.throws(() => saveAcquisitionDraft(cache, scope, { ...draft, evidenceTokens: { ...evidenceTokens, displayed: [...evidenceTokens.displayed, token] } }));
 });
 test("late save or discard cannot erase a newer browser draft", () => {
   const cache = storage(), old = saveAcquisitionDraft(cache, scope, draft);

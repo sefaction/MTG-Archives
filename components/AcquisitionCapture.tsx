@@ -657,6 +657,17 @@ export function AcquisitionCapture({
     uploads.length < pendingPhotoLimit;
   return (
     <div className="space-y-4 min-w-0">
+      {progress?.correctionLibrary && progress.correctionLibrary.pendingCount > 0 && (
+        <div role="status" className={panel}>
+          <p className="font-medium">Correction photos waiting to be preserved: {progress.correctionLibrary.pendingCount}</p>
+          <p className="text-sm">{(Number(progress.correctionLibrary.pendingBytes) / 1e6).toFixed(1)} MB pending · {((Number(progress.correctionLibrary.preservedBytes) + Number(progress.correctionLibrary.reservedBytes) + Number(progress.correctionLibrary.evidenceBytes)) / 1e9).toFixed(2)} GB used or reserved of {(Number(progress.correctionLibrary.limitBytes) / 1e9).toFixed(0)} GB.</p>
+          {progress.correctionLibrary.warnings.length > 0 && <p className="text-sm">{progress.correctionLibrary.warnings.some(w => w.code === "WAITING_FOR_SPACE")
+            ? "The correction library has reached its allowance. Originals will stay protected until space is available or you remove the examples."
+            : "Some originals could not be copied. They remain protected for retry; review saves can continue."}</p>}
+          {progress.correctionLibrary.oldestPendingAt && <p className="text-sm">Oldest pending copy: {new Date(progress.correctionLibrary.oldestPendingAt).toLocaleString()}</p>}
+          <a className="underline text-sm" href="/imports/corrections">Manage correction photos</a>
+        </div>
+      )}
       {error && !progress && (
         <div role="alert" className={panel}>
           {error}

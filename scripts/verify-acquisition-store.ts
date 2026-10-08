@@ -1,4 +1,7 @@
 import { verifyRecognitionReplacement } from "./verify-acquisition-recognition-replacement";
+import { verifyAcquisitionCorrections } from "./verify-acquisition-corrections";
+import { verifyCorrectionFairness } from "./verify-correction-fairness";
+import { ensureCorrectionAccount } from "../lib/acquisition-correction-library";
 import { verifyAcquisitionCommit } from "./verify-acquisition-commit";
 import { verifyScannerConnections } from "./verify-scanner-connections";
 import { verifyScannerRuns } from "./verify-scanner-runs";
@@ -103,6 +106,8 @@ const known = {
 };
 
 async function run() {
+  await verifyCorrectionFairness(db);
+  await verifyAcquisitionCorrections(db);
   for (const playerId of [owner, otherOwner])
     await db.player.create({
       data: { id: playerId, name: playerId, displayName: playerId },
@@ -122,6 +127,12 @@ async function run() {
         passwordHash: "not-a-login-hash",
       },
     });
+  // Prospective randomness has its own deterministic threshold/cap coverage.
+  // Legacy cleanup fixtures should not occasionally become normal-scan controls.
+  for (const ownerPlayerId of [owner, otherOwner]) {
+    await db.$transaction(tx => ensureCorrectionAccount(tx, ownerPlayerId));
+    await db.correctionLibraryAccount.update({ where: { ownerPlayerId }, data: { sampleBasisPoints: 0 } });
+  }
   await db.inventoryLocation.create({
     data: {
       id: locationId,
@@ -544,6 +555,16 @@ run()
     });
     await db.inventoryItem.deleteMany({ where: { currentOwnerId: owner } });
     await db.inventoryLocation.deleteMany({ where: { ownerPlayerId: owner } });
+    const correctionOwners = { ownerPlayerId: { in: [owner, otherOwner] } };
+    await db.correctionRetentionPin.deleteMany({ where: correctionOwners });
+    await db.correctionCaptureOutbox.deleteMany({ where: { blob: correctionOwners } });
+    await db.correctionExample.deleteMany({ where: correctionOwners });
+    await db.correctionReviewEvent.deleteMany({ where: correctionOwners });
+    await db.correctionEvidence.deleteMany({ where: correctionOwners });
+    await db.correctionLibraryAccess.deleteMany({ where: correctionOwners });
+    await db.correctionBlob.deleteMany({ where: correctionOwners });
+    await db.correctionDeletionTombstone.deleteMany({ where: correctionOwners });
+    await db.correctionLibraryAccount.deleteMany({ where: correctionOwners });
     await db.user.deleteMany({
       where: { id: { in: [userId, otherUser, adminId] } },
     });

@@ -1,4 +1,5 @@
 import { confirmStrongAcquisitionMatches } from "../lib/acquisition-auto-confirm";
+import { runCorrectionCaptureOnce } from "../lib/acquisition-correction-worker";
 import {
   createAcquisitionRecognitionIndex,
   proposeAcquisitionPrintings,
@@ -67,9 +68,10 @@ export async function verifyAcquisitionCommit(
     finish: "NONFOIL",
     condition: "NM",
   };
+  const retentionBytes = Buffer.from("owned retention fixture");
   const metadata = {
-    digest: "a".repeat(64),
-    bytes: 100,
+    digest: photoDigest(retentionBytes),
+    bytes: retentionBytes.length,
     mediaType: "image/jpeg" as const,
     width: 100,
     height: 140,
@@ -466,7 +468,7 @@ export async function verifyAcquisitionCommit(
       1,
     );
     const retained = first.photos[0],
-      bytes = Buffer.from("owned retention fixture"),
+      bytes = retentionBytes,
       bytesDigest = photoDigest(bytes);
     await writeAcquisitionPhotoBytes(retained.id, bytes, "raw", bytesDigest);
     await writeAcquisitionPhotoBytes(
@@ -479,6 +481,15 @@ export async function verifyAcquisitionCommit(
     const loser = race[0].status === "rejected" ? a : b;
     const pendingId = loser.photos[0].id;
     await writeAcquisitionPhotoBytes(pendingId, bytes, "raw", bytesDigest);
+    // Unknown-display human saves are preserved by the correction library.
+    // Finish that real byte copy before testing ordinary receipt expiry; no
+    // production pin is disabled and all former cleanup assertions remain.
+    const correction = await db.correctionBlob.findUniqueOrThrow({ where: {
+      ownerPlayerId_digest: { ownerPlayerId: base.ownerPlayerId, digest: metadata.digest },
+    } });
+    await db.correctionCaptureOutbox.update({ where: { blobId: correction.id }, data: { availableAt: new Date(0) } });
+    assert.equal((await runCorrectionCaptureOnce(db)).preserved, 1);
+    assert.equal((await db.correctionBlob.findUniqueOrThrow({ where: { id: correction.id } })).state, "PRESERVED");
     const expiration = firstPhoto.purgeAfter!;
     await db.acquisitionPhoto.update({
       where: { id: pendingId },

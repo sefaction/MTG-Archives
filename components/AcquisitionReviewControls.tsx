@@ -22,6 +22,7 @@ import type { AcquisitionManualRegion } from "@/lib/acquisition-manual-region";
 import { finishForPrinting } from "@/lib/acquisition-finish";
 import type { AcquisitionReviewMode } from "@/lib/acquisition-review-display";
 import { readAcquisitionDraft, saveAcquisitionDraft, clearAcquisitionDraft } from "@/lib/acquisition-browser-review-draft";
+import { rememberCorrectionDisplay, type CorrectionDisplayTokens } from "@/lib/acquisition-correction-display";
 
 const conditions = [
   ["NM", "Near mint"],
@@ -234,11 +235,13 @@ export function AcquisitionPhotoReview({
   const [draftWarning, setDraftWarning] = useState("");
   const draftChecked = useRef(false);
   const draftWrite = useRef<string | undefined>(undefined);
+  const evidenceTokens = useRef<CorrectionDisplayTokens>({ displayed: [] });
   const dirty = useRef(false),
     requestVersion = useRef(0);
   const searchInput = useRef<HTMLInputElement>(null);
   const focusSearch = useRef(false);
   function openCorrection() {
+    evidenceTokens.current.edit ??= record?.evidenceToken;
     focusSearch.current = true;
     setEditing(true);
     if (!query) setQuery(selected?.name ?? "");
@@ -250,12 +253,15 @@ export function AcquisitionPhotoReview({
     }
   }, [editing]);
   function markDirty() {
+    evidenceTokens.current.edit ??= record?.evidenceToken;
     dirty.current = true;
     setDraftDirty(true);
     setMessage("Unsaved correction. Save the review when ready.");
     onDirtyChange?.(photoId, true);
   }
   const clearDraft = useCallback(() => {
+    evidenceTokens.current = { initial: evidenceTokens.current.initial, current: evidenceTokens.current.current,
+      displayed: evidenceTokens.current.current ? [evidenceTokens.current.current] : [] };
     try {
       const cleared = clearAcquisitionDraft(localStorage, { userId, batchId, photoId }, draftWrite.current);
       setDraftWarning(cleared ? "" : "A newer draft from another tab was kept in this browser.");
@@ -268,7 +274,7 @@ export function AcquisitionPhotoReview({
     let warning = "";
     try {
       draftWrite.current = saveAcquisitionDraft(localStorage, { userId, batchId, photoId }, { version: 1, revision: draftRevision,
-        selected, finish, condition, language, query, set, number });
+        selected, finish, condition, language, query, set, number, evidenceTokens: evidenceTokens.current });
     } catch {
       warning = "These edits could not be kept in this browser. Save the review before leaving this page.";
     }
@@ -290,6 +296,7 @@ export function AcquisitionPhotoReview({
   }, [committed, userId, batchId, photoId, onDirtyChange]);
   const apply = useCallback(
     (next: AcquisitionCardReview) => {
+      evidenceTokens.current = rememberCorrectionDisplay(evidenceTokens.current, next.evidenceToken);
       setRecord(next);
       const choice = next.printing ?? next.suggestions[0]?.printing ?? null;
       setSelected(choice);
@@ -339,6 +346,8 @@ export function AcquisitionPhotoReview({
               try {
                 const saved = readAcquisitionDraft(localStorage, { userId, batchId, photoId });
                 if (saved) {
+                  evidenceTokens.current = saved.evidenceTokens ?? { displayed: [] };
+                  evidenceTokens.current = rememberCorrectionDisplay(evidenceTokens.current, next.evidenceToken);
                   draftWrite.current = saved.writeId;
                   setRecord({ ...next, revision: saved.revision });
                   setSelected(saved.selected); setFinish(saved.finish); setCondition(saved.condition); setLanguage(saved.language);
@@ -350,7 +359,8 @@ export function AcquisitionPhotoReview({
               } catch { setDraftWarning("The browser could not restore its draft. Check the saved review before correcting this card."); }
             }
           }
-          else
+          else {
+            evidenceTokens.current = rememberCorrectionDisplay(evidenceTokens.current, next.evidenceToken);
             setRecord((previous) =>
               previous
                 ? {
@@ -361,11 +371,13 @@ export function AcquisitionPhotoReview({
                     catalog: next.catalog,
                     visualStatus: next.visualStatus,
                     printingStatus: next.printingStatus,
+                    evidenceToken: next.evidenceToken,
                     manualRegion: next.manualRegion,
                     manualRegionRequestedRevision: next.manualRegionRequestedRevision,
                   }
                 : previous,
             );
+          }
         }
       } catch (e) {
         if (!cancelled) setError((e as Error).message);
@@ -434,6 +446,7 @@ export function AcquisitionPhotoReview({
         action,
         photoId,
         revision: record.revision,
+        evidenceTokens: evidenceTokens.current,
         ...(action === "accept"
           ? {
               decision: {

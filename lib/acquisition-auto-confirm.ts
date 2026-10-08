@@ -1,5 +1,6 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { acquisitionRecognitionDto } from "./acquisition-recognition-dto";
+import { captureCorrectionReview } from "./acquisition-correction-library";
 import {
   CATALOG_RECONCILIATION_STAGE,
   catalogStatusSchema,
@@ -195,6 +196,9 @@ export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
         where: { id: session.id },
         data: { revision: { increment: 1 } },
       });
+      await captureCorrectionReview(tx, { ownerPlayerId: session.ownerPlayerId, sessionId: session.id,
+        candidateId: candidate.id, revision: candidate.revision + 1, actorId: "system:acquisition",
+        origin: "AUTO", photo, before: candidate.review, after: review });
       return 1;
     });
   }

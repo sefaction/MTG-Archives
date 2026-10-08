@@ -1,5 +1,7 @@
 import { purgeCommittedAcquisitionPhotos, purgeTrashedAcquisitionPhotos } from "../lib/acquisition-photo-retention";
 import { purgeAcquisitionPhotosUnderPressure } from "../lib/acquisition-photo-pressure";
+import { runCorrectionCaptureOnce, releasePreservedCorrectionPins, collectDeletedCorrectionBlobs,
+  cleanCorrectionTemporaries } from "../lib/acquisition-correction-worker";
 import { PrismaClient } from "@prisma/client";
 import { runAcquisitionJobsOnce } from "../lib/acquisition-jobs";
 import { canonicalizeAcquisitionPhoto } from "../lib/acquisition-files";
@@ -18,8 +20,21 @@ process.on("SIGINT", () => {
 async function main() {
   let nextCleanup = 0;
   do {
+    try {
+      const capture = await runCorrectionCaptureOnce(db);
+      if (capture.claimed) console.log(JSON.stringify({ event: "correction-original-capture", ...capture }));
+    } catch {
+      console.error("Correction original capture needs attention; sources remain pinned for retry");
+    }
     if (Date.now() >= nextCleanup) {
       nextCleanup = Date.now() + 60000;
+      try {
+        await releasePreservedCorrectionPins(db);
+        await collectDeletedCorrectionBlobs(db);
+        await cleanCorrectionTemporaries(db);
+      } catch {
+        console.error("Correction library maintenance needs attention; ordinary processing will continue");
+      }
       const cleanup = await purgeCommittedAcquisitionPhotos(db);
       const trash = await purgeTrashedAcquisitionPhotos(db);
       const pressure = await purgeAcquisitionPhotosUnderPressure(db);
