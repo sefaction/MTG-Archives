@@ -71,3 +71,15 @@ unknown. After correcting the probe to retain bounded facts, the same limits
 and application source passed. Failed evidence is retained separately. This is
 not a fix or retrospective explanation of that attempt, the earlier one-shot
 failure, or the historical worker stops.
+
+After the approved policy/correction-library merges on October 7, the
+main-synchronized branch passed 841 core checks, type checking, production build
+and all 13 declared client manifests. Its 584 application inputs exactly match
+the loaded cumulative web image; each native worker matches 301 shared inputs.
+The corrected fixture-only browser check passed draft recovery, lost-save retry,
+keyboard focus, private originals and removal at desktop/320px sizes. All seven
+original row projections, 13 service images/mounts/limits and all 1,092 retained
+SHA256s (2,832,075,218 bytes) were conserved after restart and owned fixture cleanup.
+Shutdown/start timestamps are recorded separately from the earlier lifecycle
+baseline. Failed intermediate fixture evidence remains separate; no original
+photo was missing or altered.
