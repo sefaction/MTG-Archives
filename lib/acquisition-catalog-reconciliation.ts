@@ -24,7 +24,7 @@ import {
   nativeSchema,
   type RecognitionSnapshot,
 } from "./acquisition-recognition-worker";
-import { proposeOrientedAcquisitionPrintings } from "./acquisition-recognition";
+import { proposeOrientedAcquisitionPrintings, ACQUISITION_TEXT_RESOLVER_VERSION } from "./acquisition-recognition";
 import { ACQUISITION_FOOTER_PARSER_VERSION } from "./acquisition-footer";
 import { combineAcquisitionPhotoText, UNLOCALIZED_NAME_HINT } from "./acquisition-photo-text";
 import { AcquisitionJobSupersededError, type ClaimedAcquisitionJob } from "./acquisition-jobs";
@@ -373,6 +373,7 @@ export function createCatalogReconciliationHandler(
         catalog: snapshot!.digest,
         resolver: CATALOG_RESOLVER_VERSION,
         footerParser: ACQUISITION_FOOTER_PARSER_VERSION,
+        textResolver: ACQUISITION_TEXT_RESOLVER_VERSION,
       },
       proposals,
       catalog: {

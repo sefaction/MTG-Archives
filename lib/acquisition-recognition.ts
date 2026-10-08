@@ -1,5 +1,6 @@
 import { acquisitionCollectorKey, acquisitionFooterIdentifiers } from "./acquisition-footer";
 export { acquisitionCollectorKey } from "./acquisition-footer";
+export const ACQUISITION_TEXT_RESOLVER_VERSION = "metadata-footer-set-language-pairs-v6";
 
 // OCR similarity is not calibrated confidence. Strong exact metadata can confirm
 // a printing; it never establishes physical count, finish, condition or receipt.
@@ -55,6 +56,10 @@ function names(card: RecognitionCard) {
     ),
   ];
 }
+function printedOrigin(card: RecognitionCard) {
+  return card.setCode.toLowerCase() === "plst"
+    ? /^([a-z0-9]{2,6})-(.+)$/i.exec(card.collectorNumber) : null;
+}
 export function createAcquisitionRecognitionIndex(cards: RecognitionCard[]) {
   const paper = cards.filter((card) => card.digital !== true);
   const bySetNumber = new Map<string, RecognitionCard[]>();
@@ -67,10 +72,7 @@ export function createAcquisitionRecognitionIndex(cards: RecognitionCard[]) {
     // Stamped List reprints keep their source printing's footer. The catalog
     // expresses that source as a composite collector number (e.g. MOM-210).
     // Retrieve both identities; OCR alone cannot establish stamp presence.
-    const origin =
-      card.setCode.toLowerCase() === "plst"
-        ? /^([a-z0-9]{2,6})-(.+)$/i.exec(card.collectorNumber)
-        : null;
+    const origin = printedOrigin(card);
     const printedKey = origin
       ? `${origin[1].toLowerCase()}:${acquisitionCollectorKey(origin[2])}`
       : key;
@@ -108,11 +110,14 @@ function resolveAcquisitionPrintings(
   const footer = acquisitionFooterIdentifiers(input.footer);
   const setCodes = new Set<string>();
   const languages = new Set<string>();
+  const languagesBySet = new Map<string, Set<string>>();
   // A set-like token alone is not enough: look for a printed language marker.
   for (const identifier of footer.identifiers) {
     if (index.sets.has(identifier.set.toUpperCase())) {
       setCodes.add(identifier.set);
       languages.add(identifier.language);
+      const observed = languagesBySet.get(identifier.set) ?? new Set<string>();
+      observed.add(identifier.language); languagesBySet.set(identifier.set, observed);
     }
   }
   const collectors = new Set(footer.collectors);
@@ -137,10 +142,11 @@ function resolveAcquisitionPrintings(
   let conflict = false;
   for (const set of setCodes)
     for (const number of collectors) {
+      const setLanguages = languagesBySet.get(set)!;
       const printingCards =
         index.byPrintedSetNumber.get(`${set}:${number}`) ?? [];
       const languageCards = printingCards.filter(
-        (card) => card.lang && languages.has(card.lang.toLowerCase()),
+        (card) => card.lang && setLanguages.has(card.lang.toLowerCase()),
       );
       // An available matching language is not contradicted merely because the
       // catalog also contains other translations of the same set/number.
@@ -163,8 +169,7 @@ function resolveAcquisitionPrintings(
         if (names(card).some((name) => titleKeys.includes(name)))
           reasons.push("TITLE_EXACT");
         if (
-          languages.size &&
-          (!card.lang || !languages.has(card.lang.toLowerCase()))
+          !card.lang || !setLanguages.has(card.lang.toLowerCase())
         ) {
           conflict = true;
           reasons.push("LANGUAGE_CONTRADICTION");
@@ -174,7 +179,11 @@ function resolveAcquisitionPrintings(
     }
   // Preserve conflicting title candidates for human resolution.
   for (const card of exactCards.values()) {
-    if (languages.size && card.lang && !languages.has(card.lang.toLowerCase()))
+    // A title-only alternative may remain available, but another set's language
+    // must not supply agreement for this card's actual printed footer identity.
+    const printedSet = printedOrigin(card)?.[1].toLowerCase() ?? card.setCode.toLowerCase();
+    const cardLanguages = languagesBySet.get(printedSet) ?? languages;
+    if (cardLanguages.size && card.lang && !cardLanguages.has(card.lang.toLowerCase()))
       continue;
     if (!proposals.has(card.id))
       proposals.set(card.id, {
