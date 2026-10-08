@@ -42,12 +42,11 @@ async function snapshot(db: PrismaClient, candidateId: string, stages: string[])
     return { unavailable: true };
   }
 }
-// Tests run on Windows against Linux PostgreSQL. Use the database's observed
-// clock for immediate fixture claims, avoiding a cross-clock availability race.
-// PostgreSQL rounds timestamp(3) defaults; JS truncates sub-millisecond dates.
-// Allow that one millisecond only in fixtures so an immediately inserted job
-// cannot appear to be in the future because of this precision difference.
-// The real queue, lease CAS and handler remain unchanged.
+// Windows Prisma createMany binds availability defaults from its own clock.
+// Fixture claims observe both clocks: a completed immediate insert must not be
+// delayed by a slightly older Linux database clock. Retain the one millisecond
+// database timestamp precision allowance. Never derive time from job deadlines;
+// genuinely future jobs stay ineligible. Production selection/CAS is unchanged.
 export async function claimFixtureJobs(
   db: PrismaClient,
   options: Parameters<typeof claimAcquisitionJobs>[1],
@@ -55,7 +54,7 @@ export async function claimFixtureJobs(
 ) {
   const callerStartedAt = new Date();
   const [clock] = await db.$queryRaw<{ now: Date }[]>`SELECT clock_timestamp() AS now`;
-  const effectiveClaimAt = new Date(clock.now.getTime() + 1);
+  const effectiveClaimAt = new Date(Math.max(callerStartedAt.getTime(), clock.now.getTime() + 1));
   const observed = expected ? traceFixtureClaim(db) : null;
   const result = await claimAcquisitionJobs(observed?.client ?? db, options, effectiveClaimAt);
   if (expected && result.length === 0) {
