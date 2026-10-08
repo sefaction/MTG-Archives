@@ -415,7 +415,7 @@ export async function runAcquisitionJobsOnce(
         handlers[job.stage](job, controller.signal),
         new Promise<never>((_, reject) => {
           timer = setTimeout(() => {
-            controller.abort();
+            controller.abort(new DOMException("Processing timeout", "TimeoutError"));
             reject(new Error("Processing timeout"));
           }, timeoutMs);
         }),
