@@ -8,6 +8,7 @@ import {
   createAcquisitionRecognitionIndex,
   proposeOrientedAcquisitionPrintings,
   type RecognitionCard,
+  ACQUISITION_TEXT_RESOLVER_VERSION,
 } from "./acquisition-recognition";
 import { readAcquisitionPhotoBytes } from "./acquisition-files";
 import { runAcquisitionNativeProcess } from "./acquisition-native-process";
@@ -286,6 +287,7 @@ export async function recognizeAcquisitionPhoto(
       catalog: snapshot.digest,
       index: snapshot.digest,
       footerParser: ACQUISITION_FOOTER_PARSER_VERSION,
+      textResolver: ACQUISITION_TEXT_RESOLVER_VERSION,
     },
     execution: "CPU",
     manualAnalysis: input.manualAnalysis ?? null,

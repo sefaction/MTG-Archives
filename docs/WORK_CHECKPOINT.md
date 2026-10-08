@@ -1,5 +1,13 @@
 # Work checkpoint
 
+## Recognition footer pairing qualification in progress — October 8, 2026
+
+- Goal ACTIVE; priority recognition accuracy/correction feedback. Focused issue675 OPEN, no PR yet. Isolated codex/recognition-footer-language-pairs in .local-data/recognition-footer-language-20261008, base approved main281b3d3. Local resolver now preserves observed set/language pairs (including PLST source-footer identities), explicit per-set missing-language contradictions and existing orientation/image/automatic acceptance guards. Catalog policyv8 refreshes eligible unreviewed saved metadata; native OCR identity/schema unchanged, textResolverv6 recorded.
+- Unchanged-code synthetic baseline: ABC FR / XYZ EN / C7 gave all4 language translations exact footer support although external lookup only queried2 observed pairs. New4 regression tests plus existing footer/recognition tests19 PASS; typecheck PASS after fixture normalizer/orientation typing corrections. Full core process22101 RUNNING, log feature .local-data/footer-core.log. Disposable PG refresh/cache/version fences, frozen development OCR replay, cumulative Docker/build/browser/data conservation, commit/push/PR/checks still pending. No new recognition accuracy rate established.
+- Cumulative remains16b4cecc with approved main plus separately unapproved671/672/674, healthy verified591inputs/digestd6e41099 web b8e29e39; native305inputs unchanged.674 remains stacked on672. No current batch reload or merge. Primary older WIP and docs/OVERNIGHT_SCANNER_HANDOFF.md preserved. Verifier access/cohort decisions unanswered;64decimalGB/owner and2% controls unchanged; user manages Unraid. No production/hardware operation.
+- Next safe step collect core terminal state, run disposable PG sequentially (shared Prisma junction), fix genuine failures, freeze identical real development observations/full catalog for baseline/current comparison; commit backup, load cumulative web/native images with original data/service baselines, qualify actual saved OCR/UI, deliver independent PR without merge.
+
+
 ## Approved merge synchronization — October 8, 2026
 
 The user approved PRs #665, #667, and #669 individually. PR #665 merged as 71ad205050843e98f77edb91c35388dbdcfece88. This branch incorporates that main revision before refreshing PR #667 checks. The checkpoint histories below are retained for recovery. Application fixes combined without conflicts.
