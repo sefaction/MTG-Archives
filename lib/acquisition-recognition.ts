@@ -1,6 +1,7 @@
 import { acquisitionCollectorKey, acquisitionFooterIdentifiers } from "./acquisition-footer";
+import { acquisitionNameKey } from "./acquisition-name";
 export { acquisitionCollectorKey } from "./acquisition-footer";
-export const ACQUISITION_TEXT_RESOLVER_VERSION = "metadata-footer-set-language-pairs-v6";
+export const ACQUISITION_TEXT_RESOLVER_VERSION = "metadata-unicode-name-evidence-v7";
 
 // OCR similarity is not calibrated confidence. Strong exact metadata can confirm
 // a printing; it never establishes physical count, finish, condition or receipt.
@@ -23,11 +24,7 @@ export type RecognitionProposal = {
   reasons: string[];
   nameDistance: number | null;
 };
-const nameKey = (value: string) =>
-  value
-    .normalize("NFKD")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
+const nameKey = acquisitionNameKey;
 function distance(a: string, b: string) {
   let previous = Array.from({ length: b.length + 1 }, (_, i) => i);
   for (let i = 1; i <= a.length; i++) {
@@ -166,8 +163,11 @@ function resolveAcquisitionPrintings(
           reasons.push("TITLE_CONTRADICTION");
         } else if (exactCards.has(card.id)) reasons.push("TITLE_TEXT_AGREES");
         else reasons.push("TITLE_UNCONFIRMED");
-        if (names(card).some((name) => titleKeys.includes(name)))
+        const strictTitles = names(card).filter((name) => titleKeys.includes(name));
+        if (strictTitles.length)
           reasons.push("TITLE_EXACT");
+        if (strictTitles.length && strictTitles.every((name) => !/^[a-z0-9]+$/.test(name)))
+          reasons.push("NON_LATIN_TITLE_REVIEW_REQUIRED");
         if (
           !card.lang || !setLanguages.has(card.lang.toLowerCase())
         ) {
@@ -248,6 +248,7 @@ function resolveAcquisitionPrintings(
     languages.size === 1 &&
     exactPrintings.length === 1 &&
     exactPrintings[0].reasons.includes("TITLE_EXACT") &&
+    !exactPrintings[0].reasons.includes("NON_LATIN_TITLE_REVIEW_REQUIRED") &&
     !exactPrintings[0].reasons.includes("STAMP_UNVERIFIED") &&
     [...exactNames].every((name) =>
       names(exactPrintings[0].card).includes(name),

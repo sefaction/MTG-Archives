@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { acquisitionNameKey } from "./acquisition-name";
 import { acquisitionNativePhotoInput, type AcquisitionImageInputKind } from "./acquisition-image-input";
 import type { createAcquisitionRecognitionIndex, proposeOrientedAcquisitionPrintings, RecognitionProposal } from "./acquisition-recognition";
 
@@ -21,8 +22,7 @@ export type AcquisitionPhotoText = z.infer<typeof acquisitionPhotoTextSchema>;
 type Proposals = ReturnType<typeof proposeOrientedAcquisitionPrintings>;
 type Index = ReturnType<typeof createAcquisitionRecognitionIndex>;
 export const UNLOCALIZED_NAME_HINT = "UNLOCALIZED_NAME_HINT";
-export const acquisitionPhotoNameKey = (value: string) => value.normalize("NFKD")
-  .toLowerCase().replace(/[^a-z0-9]/g, "");
+export const acquisitionPhotoNameKey = acquisitionNameKey;
 
 export function needsAcquisitionPhotoText(proposals: Proposals) {
   // Catalog-supported short names (e.g. Fog) keep the original fast path.
