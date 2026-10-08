@@ -10,6 +10,7 @@ const orientations=(title:string[],footer:string[]=[])=>[{rotationDegrees:0,text
 
 test("name keys preserve non-Latin letters and marks while retaining Latin folding",()=>{
   assert.equal(acquisitionNameKey("  Éowyn, Shieldmaiden! "),"eowynshieldmaiden");
+  assert.equal(acquisitionNameKey("Æther Beast"),"ætherbeast");
   assert.notEqual(acquisitionNameKey(first.printedName),acquisitionNameKey(other.printedName));
   for(const name of ["Огненный элементаль","火の精霊","Δράκος","𠀋カード"])
     assert.equal(acquisitionPhotoNameKey(name),acquisitionNameKey(name));
@@ -29,14 +30,14 @@ test("different Cyrillic titles sharing digits cannot falsely confirm a footer p
 });
 
 test("non-Latin printed and face aliases retrieve candidates without expanding automatic acceptance",()=>{
-  for(const alias of ["Огненный элементаль","火の精霊","Δράκος"]){
+  for(const alias of ["Огненный элементаль","火の精霊","Δράκος","Æther Beast"]){
     for(const card of [{...first,printedName:alias},{...first,printedName:null,faceNames:[alias]}]){
       const index=createAcquisitionRecognitionIndex([card]);
       const nameOnly=proposeAcquisitionPrintings(index,{title:[alias],footer:[]});
       assert.equal(nameOnly.proposals[0]?.card.id,first.id);assert.equal(nameOnly.automaticAcceptance,false);
       const exact=proposeAcquisitionPrintings(index,{title:[alias],footer:["ABC RU","C 7"]});
       assert.equal(exact.status,"REVIEW_REQUIRED");assert.equal(exact.automaticAcceptance,false);
-      assert(exact.proposals[0].reasons.includes("TITLE_EXACT"));assert(exact.proposals[0].reasons.includes("NON_LATIN_TITLE_REVIEW_REQUIRED"));
+      assert(exact.proposals[0].reasons.includes("TITLE_EXACT"));assert(exact.proposals[0].reasons.includes("TITLE_CHARACTERS_REVIEW_REQUIRED"));
     }
   }
   const latin={...first,printedName:"Éowyn, Shieldmaiden"};

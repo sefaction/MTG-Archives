@@ -1,4 +1,15 @@
 # Work checkpoint
+## Unicode recognition final-source qualification — October 8, 2026
+
+Goal ACTIVE. Issue677 open; no resolving PR yet. Feature codex/recognition-unicode-name-evidence based on unapproved676/8f30ebbb. Implementation1dcce2884b24e41e5571d1e52754cf6c547c80e7 passed849feature/853cumulative core, disposable PG cleaned=true,314 frozen replay unchanged,2 synthetic UI and11 existing workflows,594web/308native source parity,7row projections/13service mounts/limits and1092original SHA conservation. All prior owned runners terminal, including1899 PASS. Final label TITLE_CHARACTERS_REVIEW_REQUIRED covers retained non-ASCII keys including Latin Æther;29focused and4extended tests passed. Commit final sources, integrate into cumulative preserving checkpoints, rebuild/reload/requalify final images, then open stacked PR against676 and collect exact-head checks. No pending PR approved or merged; verifier/cohort decisions remain open. Root older WIP/handoff preserved.
+
+## Unicode title evidence qualification and cumulative builds active — October 8, 2026
+
+- Feature codex/recognition-unicode-name-evidence head1dcce28c (resolve fullSHA withgit) committed/pushed, based on unapproved676/8f30ebbb. Issue677 OPEN, no PRyet. Core24644 terminalPASS849tests/type/build13manifests; initialcore34042 failed newfixture inferred-array typing and was corrected with explicitCard[] (failedlogretained). Focused29PASS; frozen baseline/current localized+whole-photo314observations/118486cards unchanged; replay67378 terminalPASS. Added actualownerAPI/UI syntheticcollision fixture awaitingimagequalification.
+- Cumulative2cfb52c112651d1d9ec7627ccc66c73d900ed715 combinesmain+unapproved671/672/674/676+Unicodeimplementation. Onlycheckpoint textualconflict; resolved by retaining both existing676delivery and newUnicode scopes, no code conflict. Fresh13service/7source-row baseline .local-data/unicode-{services,source}-before.json PASS. Requiredinstaller web+native builder12114 RUNNING, logs unicode-*-build.log/resultsunicode-builds.json. Existing loaded592/306footerimages untouched pendingsuccessfulbuild.
+- Full disposablePG33400 RUNNING in feature .local-data/unicode-pg.log (ownedcontainer/volume). Native/model/reference/index versions unchanged; v9catalog/v7textmetadata refresh only. No currentbatchdeployment, UI/imageverification/cleanup/conservation orPRyet. No nativeOCRaccuracy/languagequalification claim. RootoldWIP/handoffpreserved. Pending671/672/674/676 remainindividuallyunapproved;674stacked672, futureUnicodePRstacked676.
+- Nextsafe step poll exactPG/buildhandles before anyrestart, fixgenuinefailures; describeoffline3nativeimages, loadwebwith5workerspaused, newUnicode+pairedactualAPI/UI, resumeworkers, affectedregressions, source594/native308parity/rows/rawSHA/serviceconservation/cumulativecore, then open/attachstackedPRandfinalCI. GoalACTIVE; verifier/cohort/64GB/2%/noUnraidprobe retained.
+
 
 ## Unicode title collision issue677 implementation in progress — October 8, 2026
 
@@ -8974,3 +8985,4 @@ full-frame/strip behavior and explicit unverified-edge warning. This is bounded
 dark-border framing evidence, not universal perfect-frame qualification. #557/#558
 remain open. Next: focused PR with acceptance report; merge only after this PR's
 individual approval. No unanswered operator question; transport empty.
+

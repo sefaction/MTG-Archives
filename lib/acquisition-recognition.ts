@@ -167,7 +167,7 @@ function resolveAcquisitionPrintings(
         if (strictTitles.length)
           reasons.push("TITLE_EXACT");
         if (strictTitles.length && strictTitles.every((name) => !/^[a-z0-9]+$/.test(name)))
-          reasons.push("NON_LATIN_TITLE_REVIEW_REQUIRED");
+          reasons.push("TITLE_CHARACTERS_REVIEW_REQUIRED");
         if (
           !card.lang || !setLanguages.has(card.lang.toLowerCase())
         ) {
@@ -248,7 +248,7 @@ function resolveAcquisitionPrintings(
     languages.size === 1 &&
     exactPrintings.length === 1 &&
     exactPrintings[0].reasons.includes("TITLE_EXACT") &&
-    !exactPrintings[0].reasons.includes("NON_LATIN_TITLE_REVIEW_REQUIRED") &&
+    !exactPrintings[0].reasons.includes("TITLE_CHARACTERS_REVIEW_REQUIRED") &&
     !exactPrintings[0].reasons.includes("STAMP_UNVERIFIED") &&
     [...exactNames].every((name) =>
       names(exactPrintings[0].card).includes(name),
