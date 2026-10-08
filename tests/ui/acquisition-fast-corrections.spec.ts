@@ -30,7 +30,11 @@ test("correction drafts, lost acknowledgement, private library, original viewing
     lang: "en", imageUri: "/fixture-card-original.svg", finishes: ["nonfoil", "foil"] };
   const alternate = { ...original, id: `${tag}-alternate`, name: "Fixture corrected printing", collectorNumber: "2",
     imageUri: "/fixture-card-alternate.svg", finishes: ["foil"] };
-  let batch = "", reverse = false, refreshes = 0;
+  let batch = "", reverse = false, refreshes = 0, fixtureClosing = false;
+  // Controlled jobs stay fixed between revisions. Reuse each signed fixture
+  // presentation and collapse simultaneous polls instead of repeatedly
+  // launching Docker/Prisma while browser assertions are waiting.
+  const presentations = new Map<string, Promise<string>>();
   try {
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:3,sections:[{name:'A',capacity:3}]}}});for(const card of ${JSON.stringify([original, alternate])})await p.card.create({data:{...card,scryfallId:require('crypto').randomUUID(),typeLine:'Creature',rarity:'common'}});`);
     const defaults=JSON.parse(database(`const {ensureCorrectionAccount}=require('./lib/acquisition-correction-library.ts');const a=await p.$transaction(tx=>ensureCorrectionAccount(tx,${JSON.stringify(tag)}));console.log(JSON.stringify({limitBytes:String(a.limitBytes),sampleBasisPoints:a.sampleBasisPoints}));await p.correctionLibraryAccount.update({where:{ownerPlayerId:a.ownerPlayerId},data:{sampleBasisPoints:0,limitBytes:1}});`));
@@ -65,13 +69,21 @@ test("correction drafts, lost acknowledgement, private library, original viewing
         return route.fulfill({ json: [alternate] });
       }
       const response = await route.fetch(); expect(response.ok()).toBe(true); const record = await response.json();
-      refreshes++;
+
       const offers=reverse?[alternate,original]:[original,alternate];
       // Sign exactly this fixture's displayed order using real owner/photo/jobs.
       // Production never accepts machine evidence supplied by a browser.
-      const token=(await databaseAsync(`const {correctionDisplayToken}=require('./lib/acquisition-correction-library.ts');const n=${JSON.stringify(tag)};const photo=await p.acquisitionPhoto.findUniqueOrThrow({where:{id:${JSON.stringify(url.searchParams.get("photoId"))}}});const candidate=await p.acquisitionCandidate.findFirstOrThrow({where:{physicalId:photo.slotId}});const jobs=await p.acquisitionProcessingJob.findMany({where:{runId:photo.runId,candidateId:candidate.id,artifact:{sourceId:photo.id}},orderBy:[{createdAt:'desc'},{id:'desc'}],take:32});console.log(await p.$transaction(tx=>correctionDisplayToken(tx,n,{userId:n,adminMode:false},photo,{id:candidate.id,revision:${record.revision}},jobs,${JSON.stringify(offers)},'PENDING')));`)).trim();
+      const presentationKey = JSON.stringify([record.photoId, record.revision, offers.map(offer => offer.id)]);
+      let signing = presentations.get(presentationKey);
+      if (!signing) {
+        signing=databaseAsync(`const {correctionDisplayToken}=require('./lib/acquisition-correction-library.ts');const n=${JSON.stringify(tag)};const photo=await p.acquisitionPhoto.findUniqueOrThrow({where:{id:${JSON.stringify(url.searchParams.get("photoId"))}}});const candidate=await p.acquisitionCandidate.findFirstOrThrow({where:{physicalId:photo.slotId}});const jobs=await p.acquisitionProcessingJob.findMany({where:{runId:photo.runId,candidateId:candidate.id,artifact:{sourceId:photo.id}},orderBy:[{createdAt:'desc'},{id:'desc'}],take:32});console.log(await p.$transaction(tx=>correctionDisplayToken(tx,n,{userId:n,adminMode:false},photo,{id:candidate.id,revision:${record.revision}},jobs,${JSON.stringify(offers)},'PENDING')));`).then(value => value.trim());
+        presentations.set(presentationKey, signing);
+      }
+      const token = await signing;
+      if (fixtureClosing) return;
       await route.fulfill({ json: { ...record, evidenceToken:token, recognitionStatus: "PENDING", visualStatus: "RUNNING",
         printingStatus: "RUNNING", suggestions: (reverse ? [alternate, original] : [original, alternate]).map(printing => ({ printing, reasons: ["Controlled UI fixture"] })) } });
+      refreshes++;
     });
     await page.goto(`/imports/scan?batch=${batch}`);
     const card = page.getByTestId("capture-card-1"); await card.scrollIntoViewIfNeeded();
@@ -215,6 +227,7 @@ test("correction drafts, lost acknowledgement, private library, original viewing
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
     expect((await (await page.request.get(`${reviewEndpoint}?photoId=${photos[0]}`)).json()).review.condition).toBe("DMG");
   } finally {
+    fixtureClosing = true;
     await page.unrouteAll({behavior:"wait"});
     database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const w={run:{session:{createdByUserId:n}}};const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});
       ${cleanupCorrectionFixture}
