@@ -11,17 +11,19 @@ import {
 } from "../lib/acquisition-visual-worker";
 import { VISUAL_STAGE } from "../lib/acquisition-visual";
 import { AcquisitionNativeGeneration } from "../lib/acquisition-native-generation";
+import { observeNativeFailure } from "../lib/acquisition-native-failure";
 
 const db = new PrismaClient();
 const program = "/app/tools/acquisition-runtime/visual.py";
+const observeFailure = observeNativeFailure("visual");
 const descriptorSchema = z.object({
   digest: z.string().regex(/^[a-f0-9]{64}$/), referenceCount: z.number(),
   manifest: z.string().regex(/^(index|manifest-[a-f0-9]{64})\.json$/),
 });
 const generation = new AcquisitionNativeGeneration(
   async () => descriptorSchema.parse(await runAcquisitionNativeProcess(
-    "python", [program, "--describe"], Buffer.alloc(0), AbortSignal.timeout(30000))),
-  descriptor => new AcquisitionNativeStream("python", [program, "--stream", "--manifest", descriptor.manifest]),
+    "python", [program, "--describe"], Buffer.alloc(0), AbortSignal.timeout(30000), observeFailure)),
+  descriptor => new AcquisitionNativeStream("python", [program, "--stream", "--manifest", descriptor.manifest], undefined, observeFailure),
   (event, descriptor) => console.log(JSON.stringify({
     event: `visual-generation-${event}`, model: descriptor?.digest, references: descriptor?.referenceCount,
   })),
