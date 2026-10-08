@@ -1,3 +1,4 @@
+import { verifyCorrectionReviewHistory } from "./verify-acquisition-correction-history";
 import { verifyRecognitionReplacement } from "./verify-acquisition-recognition-replacement";
 import { verifyAcquisitionCorrections } from "./verify-acquisition-corrections";
 import { verifyCorrectionFairness } from "./verify-correction-fairness";
@@ -108,6 +109,7 @@ const known = {
 async function run() {
   await verifyCorrectionFairness(db);
   await verifyAcquisitionCorrections(db);
+  await verifyCorrectionReviewHistory(db);
   for (const playerId of [owner, otherOwner])
     await db.player.create({
       data: { id: playerId, name: playerId, displayName: playerId },
