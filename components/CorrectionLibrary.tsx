@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { filterPanelClass as panel, filterButtonClass as button, filterSelectClass as select } from "./filterStyles";
+import { CorrectionReviewHistory } from "./CorrectionReviewHistory";
 import type { getCorrectionLibrary } from "@/lib/acquisition-correction-access";
 type Library = Awaited<ReturnType<typeof getCorrectionLibrary>>;
 type Example = Library["examples"][number];
@@ -25,12 +26,13 @@ function CorrectionOriginal({ owner, exampleId }: { owner: string; exampleId: st
 export function CorrectionLibrary({ owners, initialOwner }: { owners: { id: string; name: string }[]; initialOwner: string }) {
   const [owner, setOwner] = useState(initialOwner), [cursor, setCursor] = useState<string>(), [history, setHistory] = useState<(string | undefined)[]>([]);
   const [data, setData] = useState<Library>(), [error, setError] = useState(""), [busy, setBusy] = useState(false),
-    [reload, setReload] = useState(0), [remove, setRemove] = useState<string>(), [original, setOriginal] = useState<string>();
+    [reload, setReload] = useState(0), [remove, setRemove] = useState<string>(), [original, setOriginal] = useState<string>(),
+    [reviewHistory, setReviewHistory] = useState<string>();
   useEffect(() => {
     if (!owner) return;
     let active = true;
     void Promise.resolve().then(() => {
-      if (active) { setData(undefined); setError(""); setRemove(undefined); setOriginal(undefined); }
+      if (active) { setData(undefined); setError(""); setRemove(undefined); setOriginal(undefined); setReviewHistory(undefined); }
     });
     const query = new URLSearchParams({ owner, ...(cursor ? { cursor } : {}) });
     fetch(`/api/acquisition/corrections?${query}`, { cache: "no-store" }).then(async response => {
@@ -67,8 +69,11 @@ export function CorrectionLibrary({ owners, initialOwner }: { owners: { id: stri
         {example.blob.state === "PRESERVED" && <button className={button} onClick={() => setOriginal(original === example.id ? undefined : example.id)}>{original === example.id ? "Hide original" : "View original"}</button>}
         {example.labelState !== "WITHDRAWN" && <button disabled={busy} className={button} onClick={() => void change(example, "WITHDRAW_LABEL")}>Withdraw label</button>}
         <button disabled={busy} className={button} onClick={() => setRemove(example.id)}>Remove example</button>
+        <button disabled={busy} className={button} aria-expanded={reviewHistory === example.id} aria-controls={`correction-history-${example.id}`}
+          onClick={() => setReviewHistory(reviewHistory === example.id ? undefined : example.id)}>{reviewHistory === example.id ? "Hide review history" : "View review history"}</button>
       </div>
       {original === example.id && <CorrectionOriginal key={`${owner}:${example.id}`} owner={owner} exampleId={example.id} />}
+      {reviewHistory === example.id && <CorrectionReviewHistory key={`${owner}:${example.id}`} owner={owner} exampleId={example.id} />}
       {remove === example.id && <div className="mt-3 border rounded p-3 space-y-2">
         <p>Remove this example, its label and saved recognition evidence?</p>
         <p className="text-sm">{example.blob._count.examples > 1 ? "Its original is shared with another of your examples, so the original will stay preserved." : `${(example.blob.bytes / 1e6).toFixed(2)} MB of original bytes will be released when cleanup finishes.`} Your scan batch and Inventory stay as they are. Existing backups can retain removed bytes until the configured backup retention expires.</p>
