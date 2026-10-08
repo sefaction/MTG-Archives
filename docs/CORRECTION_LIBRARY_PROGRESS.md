@@ -1,0 +1,13 @@
+# Refresh correction-photo progress
+
+Issue673 reproduces a stale library after a pending original becomes preserved: the authenticated API has the new state, but the open page still says waiting and offers no original-view action until a browser reload.
+
+Correction photos now offers Refresh photos. Refreshing retains the owner, current page and existing original/history inspection; only examples no longer present in the returned page lose their open inspection or removal prompt. A failed refresh leaves the current examples visible and offers Retry. Refresh, pagination and mutations cannot overlap while the list read is pending. Changing owner or page aborts obsolete reads and clears the old inspection context.
+
+This is an explicit progress refresh, not background polling. Preservation, private access, recognition, label verification, sampling, allowances and Inventory rules remain unchanged. The branch is stacked on the separately unapproved review-history PR672; cumulative local review also retains separately unapproved original-retry PR671. Each needs individual approval before merge.
+
+The baseline used an owned synthetic example and controlled preservation transition to isolate client refresh behavior. Qualification passed 845 unit tests, typecheck, production build and thirteen client manifests, with a final typecheck after the browser fixture repairs. No backend or database changes were made; the underlying history PostgreSQL integrity verification remains qualified in PR672.
+
+Three real-API browser cases passed: desktop/phone progress and an administrator switching between two owned fixture accounts during a delayed response. They cover second-page retention across 52 synthetic memberships, newly available originals, open original/history inspection through failure/retry and withdrawal, disabled overlapping actions, removal of the inspected example, and cancellation of an obsolete owner request. Photo transport and failed/delayed reads are controlled; successful library/history responses and mutation persistence use the actual API. Screenshots were inspected and phone overflow checks passed. Initial fixture selector failures and their cleanup repair remain recorded privately; they are not passing product results.
+
+The cumulative required-installer web image was rebuilt and loaded locally, with health, HTTP readiness and source parity confirmed. Existing native worker source parity is unchanged. Only the web service was recreated; other service lifecycles, mounts and limits are checked against the pre-reload baseline. Existing correction/history/original-retry workflows and final original-data conservation are qualified before PR delivery; detailed identities and logs belong in the local checkpoint.
