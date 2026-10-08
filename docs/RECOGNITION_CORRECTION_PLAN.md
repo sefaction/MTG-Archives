@@ -1,5 +1,35 @@
 # Recognition correction feedback: evaluation and implementation plan
 
+## User decisions — October 6, 2026
+
+The user selected an initial **64 GB per-owner correction-library limit**,
+configurable independently of the existing scan account/batch allowances, and
+**2% prospective random sampling of ordinary scans**. These supersede the earlier
+4 GiB allowance and 1% sampling proposals. State the byte unit explicitly in the
+implementation and UI; this decision records the user's requested 64 GB rather
+than silently substituting a different unit.
+
+The user manages Unraid capacity and explicitly requested no capacity inspection.
+Do not make checking server free space or backup capacity a prerequisite for this
+work. A bounded library, accurate accounting and visible pending captures still
+apply; the stated server capacity is not a measured application storage budget.
+
+Keep the proposed owner-private library and no automatic expiry. Preserve all
+qualifying correction observations and select normal controls randomly before
+recognition results, without an extra action during ordinary review. Collection
+and a saved printing choice do not establish an independently verified label,
+authorize cross-owner sharing, retraining or automatic Inventory decisions.
+
+Retain the proposed configurable 200-example per-owner cap for an initial normal
+control cohort; it is not a daily allowance. Cohort rotation/reset and independent
+verification roles remain to be defined. Backup deletion lifetime also remains
+to be documented using the applicable backup policy; no new expiry is assumed.
+
+PR655/656/658/659/660 received individual merge approval in this conversation.
+That approval covers those PRs; future implementation PRs need their own approval.
+This amendment records product direction and implements no capture, retention,
+sampling or production configuration.
+
 Planning recommendation, October 5, 2026. Reviewed source: main
 `bc1b1de9946bd228f51d1b7e4e621d2c66d9ed4a`, including merged audit PR551,
 printing reuse PR556, visual reuse PR592 and storage-pressure PR654.
@@ -677,22 +707,24 @@ not automatic deployment or a population accuracy promise. Before doing the pilo
 phase 1 preservation protects new feedback from ordinary cleanup; historical-only
 work can be inspected privately without pretending it substitutes for new capture.
 
-## Decisions needed before implementation
+## Implementation details still to settle
 
-Recommended defaults are proposals; none blocks completion of this planning review.
+The October 6 decisions above settle the initial limit and sampling rate. Preserve
+the distinction between those choices and remaining implementation details.
 
-- **Storage:** choose a separate per-owner library allowance and backup capacity.
-  Recommend no automatic expiry, visible pending capture, source pinning and intake
-  backpressure when finite storage cannot hold more. Exact GiB values require a
-  current host disk/backup budget; don't reuse the 64/4 GiB scan allowances blindly.
+- **Storage:** use the chosen configurable 64 GB per-owner library allowance,
+  separate from the 64/4 GiB scan allowances. Keep no automatic expiry, visible
+  pending capture, source pinning and intake backpressure when finite storage
+  cannot hold more. The user manages Unraid capacity; no server capacity check is
+  required. Define byte units and backup inclusion during implementation.
 - **Scope/privacy:** recommend private examples and within-owner deduplication.
   Cross-owner research/training exports or transfer to another service require a
   separate explicit choice; public reference improvements can use verified public
   assets without sharing private originals.
-- **Normal controls and verification:** recommend a bounded prospective sample
-  (for example 1% selected before outcome, with a configured cohort cap) and optional
-  independent assessment in the library. Confirm the storage budget and who may
-  verify labels. Captured user selections alone remain unverified.
+- **Normal controls and verification:** use the chosen 2% random sample selected
+  before outcome, with the proposed configurable 200-example initial cohort cap
+  and optional independent assessment in the library. Define cohort rotation/reset
+  and who may verify labels. Captured user selections alone remain unverified.
 - **Removal:** recommend distinct withdrawal and full evidence deletion, durable
   deletion tombstones and documented backup expiry. Confirm how long deleted bytes
   may remain in backup archives.
