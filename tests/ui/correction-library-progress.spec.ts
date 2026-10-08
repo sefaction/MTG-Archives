@@ -82,3 +82,44 @@ for (const width of [1366, 320]) test(`refresh correction progress preserves pag
     database(`const n=${JSON.stringify(owner)};${cleanupCorrectionFixture}await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});return true;`);
   }
 });
+
+test("changing correction owner aborts an obsolete progress read", async ({ page, context, baseURL }) => {
+  test.skip(process.env.MTG_LOCAL_PILOT_TEST !== "1", "Owned local administrator and peer fixtures");
+  expect(baseURL).toBe("http://127.0.0.1:13001"); test.setTimeout(90000);
+  const owners = [0, 1].map(() => `ui-library-progress-${randomUUID()}`), password = randomUUID();
+  let delay = false, release: (() => void) | undefined, obsoleteAborted = false, finished = false;
+  const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
+  try {
+    database(`const owners=${JSON.stringify(owners)},hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);
+      for(const [i,n]of owners.entries()){await p.player.create({data:{id:n,name:n,displayName:n}});if(i===0)await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash,role:'ADMIN'}});
+        const {ensureCorrectionAccount}=require('./lib/acquisition-correction-library.ts');await p.$transaction(tx=>ensureCorrectionAccount(tx,n));const blob=await p.correctionBlob.create({data:{ownerPlayerId:n,digest:require('crypto').createHash('sha256').update(n).digest('hex'),bytes:1,mediaType:'image/png'}}),source=require('crypto').randomUUID();
+        await p.correctionExample.create({data:{ownerPlayerId:n,blobId:blob.id,sourcePhotoId:source,sourceCandidateId:n,sourceSessionId:n,sourceGeneration:0,physicalCopyGroup:source,label:{printing:{name:i===0?'First owned progress example':'Second owned progress example'}}}});}return true;`);
+    await page.goto("/login"); await page.getByLabel(/username or email/i).fill(owners[0]); await page.getByLabel(/^password$/i).fill(password);
+    await page.getByRole("button", { name: /^log in$/i }).click(); await page.waitForURL(/dashboard/);
+    await context.addCookies([{ name: "mtg_admin_mode", value: "1", url: baseURL! }]);
+    await page.route("**/api/acquisition/corrections?*", async route => {
+      if (delay && new URL(route.request().url()).searchParams.get("owner") === owners[0]) {
+        const response = await route.fetch(); await new Promise<void>(resolve => { release = resolve; });
+        try { await route.fulfill({ response }); } catch { /* The browser has deliberately aborted this obsolete request. */ }
+        finally { finished = true; }
+      } else await route.continue();
+    });
+    page.on("requestfailed", request => {
+      const url = new URL(request.url()); if (delay && url.pathname === "/api/acquisition/corrections" && url.searchParams.get("owner") === owners[0]) obsoleteAborted = true;
+    });
+    await page.goto("/imports/corrections"); await expect(page.getByRole("article")).toContainText("First owned progress example");
+    await page.getByRole("button", { name: "View review history", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Saved review history", exact: true })).toContainText("No recorded scan reviews");
+    delay = true; await page.getByRole("button", { name: "Refresh photos", exact: true }).click(); await expect.poll(() => !!release).toBe(true);
+    await page.getByLabel("Owner", { exact: true }).selectOption(owners[1]);
+    await expect(page.getByRole("article")).toContainText("Second owned progress example"); await expect.poll(() => obsoleteAborted).toBe(true);
+    release!(); await expect.poll(() => finished).toBe(true);
+    await expect(page.getByRole("article")).toContainText("Second owned progress example");
+    await expect(page.getByRole("heading", { name: "First owned progress example", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Saved review history", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Refresh photos", exact: true })).toBeEnabled(); expect(errors).toEqual([]);
+  } finally {
+    release?.(); await page.unrouteAll({ behavior: "wait" });
+    for (const n of owners) database(`const n=${JSON.stringify(n)};${cleanupCorrectionFixture}await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});return true;`);
+  }
+});
