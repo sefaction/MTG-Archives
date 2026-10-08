@@ -1154,6 +1154,15 @@ function CardDetail({
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  const [wishlistError, setWishlistError] = useState("");
+  async function saveTradeWishlist(formData: FormData) {
+    setWishlistError("");
+    try {
+      await onAddTradeWishlist?.(formData);
+    } catch {
+      setWishlistError("Could not save your wishlist. Please try again.");
+    }
+  }
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
@@ -1220,11 +1229,11 @@ function CardDetail({
       }}
       className="fixed inset-y-0 left-auto right-0 m-0 h-dvh max-h-none w-full max-w-2xl overflow-y-auto border-0 border-l border-zinc-800 bg-zinc-950 p-4 text-zinc-100 backdrop:bg-black/50"
     >
-      <div className="flex items-start justify-between mb-4">
-        <h2 id={titleId} className="text-xl font-bold">
+      <div className="mb-4 flex flex-col items-start gap-3 sm:flex-row sm:justify-between">
+        <h2 id={titleId} className="min-w-0 break-words text-xl font-bold">
           {row.cardName}
         </h2>
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="flex max-w-full flex-wrap justify-end gap-2">
           {onAddToDeck && deckTargets.length ? (
             <InventoryAddToDeckControl
               row={row}
@@ -1234,7 +1243,7 @@ function CardDetail({
           ) : null}
           {onAddTradeWishlist && tradeWishlistTargets.length === 1 ? (
             <form
-              action={onAddTradeWishlist}
+              action={saveTradeWishlist}
               className="flex items-center gap-2 rounded border border-zinc-700 bg-zinc-900/80 p-1"
             >
               <input
@@ -1287,7 +1296,7 @@ function CardDetail({
                 {tradeWishlistTargets.map((target) => (
                   <form
                     key={`${target.inventoryItemId}-${target.ownerName}`}
-                    action={onAddTradeWishlist}
+                    action={saveTradeWishlist}
                     className="flex items-center justify-between gap-3 rounded border border-zinc-700 bg-zinc-950/70 p-2"
                   >
                     <input
@@ -1385,6 +1394,11 @@ function CardDetail({
           </button>
         </div>
       </div>
+      {wishlistError ? (
+        <p role="alert" className="mb-4 rounded border border-red-800 p-3 text-sm text-red-200">
+          {wishlistError}
+        </p>
+      ) : null}
       <div className="grid gap-4 md:grid-cols-[240px_1fr]">
         <aside className="space-y-3 text-sm">
           <CardImageFlipper row={row} />
@@ -1528,9 +1542,13 @@ function CardDetail({
   );
 }
 
+// Public browsing omits private storage. Keep that default stable so the
+// synchronization effect cannot schedule another render on every render.
+const EMPTY_STORAGE_LOCATIONS: StorageLocation[] = [];
+
 export function InventoryBrowser({
   rows,
-  storageLocations = [],
+  storageLocations = EMPTY_STORAGE_LOCATIONS,
   players,
   locations,
   cardLabels,
@@ -3392,7 +3410,7 @@ export function InventoryBrowser({
 
       {selected ? (
         <CardDetail
-          row={selected}
+          row={renderedRows.find((row) => row.id === selected.id) ?? selected}
           onClose={() => setSelected(null)}
           capabilities={capabilities}
           deleting={deletingBulk}
