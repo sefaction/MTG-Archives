@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import sharp from "sharp";
 
 function database(body: string) {
   return execFileSync("docker", ["exec", "-i", "mtg-archives-web-1", "node"], {
@@ -17,7 +18,7 @@ for (const width of [1366, 320]) test(`correction original retries the selected 
   let originalRequests = 0, listRequests = 0, failOriginal = true;
   const pageErrors: string[] = [];
   page.on("pageerror", error => pageErrors.push(error.message));
-  const photo = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jE5cAAAAASUVORK5CYII=", "base64");
+  const photo = await sharp({ create: { width: 64, height: 88, channels: 3, background: "#335577" } }).png().toBuffer();
   try {
     database(`const n=${JSON.stringify(owner)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});`);
     await page.setViewportSize({ width, height: 900 });
