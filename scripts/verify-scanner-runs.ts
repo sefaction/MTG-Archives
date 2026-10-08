@@ -16,6 +16,7 @@ import { captureSummary } from "../lib/acquisition-domain";
 import { readAcquisitionPhotoBytes, photoDigest } from "../lib/acquisition-files";
 import { eligibleScannerOriginals } from "../lib/scanner-retention";
 import { purgeCommittedAcquisitionPhotos } from "../lib/acquisition-photo-retention";
+import { ensureCorrectionAccount } from "../lib/acquisition-correction-library";
 
 // Called only by the opt-in disposable acquisition_* database runner. Transfers
 // are generated fixtures: no scanner hardware or recognition accuracy claim.
@@ -34,6 +35,10 @@ export async function verifyScannerRuns(db: PrismaClient) {
     for (const id of ids) {
       await db.player.create({ data: { id, name: id, displayName: id } });
       await db.user.create({ data: { id, username: id, displayName: id, playerId: id, passwordHash: "fixture-not-login" } });
+      // This fixture qualifies ordinary scanner expiry; random-control pinning
+      // has deterministic threshold/cap and cleanup coverage in its own suite.
+      await db.$transaction(tx => ensureCorrectionAccount(tx, id));
+      await db.correctionLibraryAccount.update({ where: { ownerPlayerId: id }, data: { sampleBasisPoints: 0 } });
     }
     await db.inventoryLocation.create({ data: { id: locationId, name: tag, normalizedName: tag, ownerPlayerId: tag, type: "BOX" } });
     async function enroll() {
@@ -316,6 +321,7 @@ export async function verifyScannerRuns(db: PrismaClient) {
     await db.inventoryItem.deleteMany({ where: { cardId: `${tag}-capacity-card` } });
     await db.card.deleteMany({ where: { id: `${tag}-capacity-card` } });
     await db.inventoryLocation.deleteMany({ where: { id: locationId } });
+    await db.correctionLibraryAccount.deleteMany({ where: { ownerPlayerId: { in: ids } } });
     await db.user.deleteMany({ where: { id: { in: ids } } });
     await db.player.deleteMany({ where: { id: { in: ids } } });
     if (prior === undefined) delete process.env.UPLOADS_DATA_PATH; else process.env.UPLOADS_DATA_PATH = prior;

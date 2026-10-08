@@ -23,14 +23,14 @@ import { homedir } from "node:os";
 import { resolve, parse } from "node:path";
 
 test("restore provisions the app's trigram dependency after schema reset and safely quotes its namespace", () => {
-  assert.equal(
-    buildRestoreSchemaPrelude("public"),
+  assert.ok(
+    buildRestoreSchemaPrelude("public").endsWith(
     'DROP SCHEMA IF EXISTS "public" CASCADE; CREATE SCHEMA "public"; CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA "public";\n',
-  );
-  assert.equal(
-    buildRestoreSchemaPrelude('odd"schema'),
+  ));
+  assert.ok(
+    buildRestoreSchemaPrelude('odd"schema').endsWith(
     'DROP SCHEMA IF EXISTS "odd""schema" CASCADE; CREATE SCHEMA "odd""schema"; CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA "odd""schema";\n',
-  );
+  ));
 });
 
 test("restore appdata requires current configuration, never archive-provided source paths", () => {

@@ -22,6 +22,9 @@ import { CATALOG_RECONCILIATION_STAGE } from "./acquisition-catalog-status";
 import { acquisitionReviewEvidence } from "./acquisition-review-evidence";
 import { acquisitionManualAnalysisSchema, validateAcquisitionManualRegionFrame } from "./acquisition-manual-region";
 import { searchLocalCardCatalog } from "./local-card-search";
+import { captureCorrectionReview, correctionDisplayToken, ensureCorrectionExample,
+  selectCorrectionControl } from "./acquisition-correction-library";
+import { correctionUsage } from "./acquisition-correction-access";
 import {
   acquisitionEventSchema,
   candidateKey,
@@ -549,6 +552,7 @@ async function mutate(
   sessionId: string,
   expectedRevision: number | undefined,
   apply: (s: CaptureSession, destinationCurrent: boolean) => CaptureSession,
+  afterSave?: (tx: Tx, row: Stored, before: CaptureSession, after: CaptureSession) => Promise<void>,
 ) {
   return transaction(db, async (tx) => {
     let row = await read(tx, actor, sessionId);
@@ -571,6 +575,7 @@ async function mutate(
         "Capture staging limit reached; retain source evidence and start a new session",
       );
     await save(tx, row, before.session, after);
+    await afterSave?.(tx, row, before.session, after);
     return { ...hydrate(await read(tx, actor, sessionId)), replay: false };
   });
 }
@@ -632,6 +637,16 @@ export async function reviewAcquisitionCandidate(
   z.number().int().nonnegative().parse(revision);
   return mutate(db, actor, sessionId, revision, (s) =>
     reviewCandidate(s, key, candidateRevision, actor.userId, attributes),
+    async (tx, row, before, after) => {
+      const previous = before.candidates.find(candidate => candidate.key === key)!;
+      const reviewed = after.candidates.find(candidate => candidate.key === key)!;
+      const stored = row.run!.candidates.find(candidate => candidateKey(before.run.runId, candidate.physicalId) === key)!;
+      const photo = await tx.acquisitionPhoto.findFirst({ where: { runId: row.run!.id, slotId: stored.physicalId,
+        ready: true, purgedAt: null }, orderBy: { generation: "desc" } });
+      await captureCorrectionReview(tx, { ownerPlayerId: row.ownerPlayerId, sessionId, candidateId: stored.id,
+        revision: reviewed.revision, actorId: actor.userId, origin: "HUMAN", photo,
+        before: previous.review, after: reviewed.review });
+    },
   );
 }
 export async function proposeAcquisitionCandidate(
@@ -908,6 +923,7 @@ export async function getAcquisitionProgress(
     );
     return {
       ...state,
+      correctionLibrary: await correctionUsage(tx, row.ownerPlayerId),
       photoPreparation: photoJobs.map((j) => ({
         photoId: j.artifact.sourceId,
         status: j.status,
@@ -1051,6 +1067,7 @@ export async function beginAcquisitionPhoto(
         generation: slot.generation + 1,
         ...metadata,
         inputKind,
+        ...await selectCorrectionControl(tx, row.ownerPlayerId),
         ...(input.sourceMetadata ? { sourceMetadata: input.sourceMetadata } : {}),
       },
     });
@@ -1142,10 +1159,13 @@ export async function finalizeAcquisitionPhoto(
         },
       },
     });
-    return tx.acquisitionPhoto.update({
+    const ready = await tx.acquisitionPhoto.update({
       where: { id: photo.id },
       data: { ready: true, readyAt: new Date() },
     });
+    if (ready.correctionControl)
+      await ensureCorrectionExample(tx, row.ownerPlayerId, sessionId, ready, candidate.id);
+    return ready;
   });
 }
 
@@ -1238,6 +1258,10 @@ export async function getAcquisitionCardReview(
     });
     return {
       photoId,
+      evidenceToken: await correctionDisplayToken(tx, row.ownerPlayerId, actor, photo, candidate, jobs,
+        (evidence.result?.proposals ?? []).flatMap(proposal => {
+          const card = cards.find(card => card.id === proposal.card.id); return card ? [card] : [];
+        }), evidence.status),
       revision: candidate.revision,
       manualRegion: currentAnalysis?.region ?? null,
       ...(currentAnalysis ? {manualRegionRequestedRevision: currentAnalysis.candidateRevision} : {}),
@@ -1366,7 +1390,7 @@ export async function saveAcquisitionReview(
       }});
       return {replay: false, revision: intent.candidateRevision};
     }
-    const { candidate } = await reviewPhoto(tx, row, input.photoId);
+    const { candidate, photo } = await reviewPhoto(tx, row, input.photoId);
     if (candidate.receipt)
       throw new Error(
         "Capture card is already committed; use Inventory to change it",
@@ -1434,6 +1458,9 @@ export async function saveAcquisitionReview(
         }),
       },
     });
+    await captureCorrectionReview(tx, { ownerPlayerId: row.ownerPlayerId, sessionId, photo,
+      candidateId: candidate.id, revision: input.revision + 1, actorId: actor.userId, origin: "HUMAN",
+      before: candidate.review, after: input.action === "accept" ? input.decision : null, tokens: input.evidenceTokens });
     return { replay: false };
   });
 }

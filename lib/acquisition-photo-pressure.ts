@@ -1,6 +1,7 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { acquisitionPhotoLimits } from "./acquisition-photo-limits";
 import { removeAcquisitionPhotoBytes } from "./acquisition-files";
+import { hasCorrectionRetentionPins } from "./acquisition-correction-library";
 
 export const PHOTO_PRESSURE_CLEANUP_KEY = "photo-pressure-cleanup";
 
@@ -16,6 +17,7 @@ const eligible = Prisma.sql`
       AND (NOT EXISTS (SELECT 1 FROM "AcquisitionPhoto" p WHERE p."slotId"=slot.id AND p.ready)
         OR NOT EXISTS (SELECT 1 FROM "AcquisitionCandidate" c WHERE c."runId"=r.id AND c."physicalId"=slot.id)))
   ))
+  AND NOT EXISTS (SELECT 1 FROM "CorrectionRetentionPin" pin WHERE pin."sessionId"=s.id AND pin."releasedAt" IS NULL)
   AND NOT EXISTS (SELECT 1 FROM "AcquisitionPhoto" p WHERE p."runId"=r.id AND NOT p.ready)
   AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" j WHERE j."runId"=r.id AND j.status IN ('PENDING','RUNNING'))
   AND NOT EXISTS (SELECT 1 FROM "ScannerRun" scan WHERE scan."acquisitionRunId"=r.id AND NOT
@@ -37,6 +39,7 @@ export async function purgeAcquisitionPhotosUnderPressure(db: PrismaClient, now 
   const retry = await db.$queryRaw<{id: string}[]>`
     SELECT s.id FROM "AcquisitionSession" s JOIN "AcquisitionRun" r ON r."sessionId"=s.id
     WHERE s."deletedAt" IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM "CorrectionRetentionPin" pin WHERE pin."sessionId"=s.id AND pin."releasedAt" IS NULL)
       AND EXISTS (SELECT 1 FROM "AcquisitionCommand" c WHERE c."runId"=r.id AND c."requestKey"=${PHOTO_PRESSURE_CLEANUP_KEY})
       AND EXISTS (SELECT 1 FROM "AcquisitionPhoto" p WHERE p."runId"=r.id AND p."purgedAt" IS NULL)
     ORDER BY s."deletedAt",s.id LIMIT 5`;
@@ -59,6 +62,7 @@ export async function purgeAcquisitionPhotosUnderPressure(db: PrismaClient, now 
         await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id=${batch.id} FOR UPDATE`;
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${initial.ownerPlayerId},314))`;
         const session = await tx.acquisitionSession.findUniqueOrThrow({where: {id: batch.id}});
+        if (await hasCorrectionRetentionPins(tx, session.id)) return null;
         if (session.deletedAt) {
           const marker = await tx.acquisitionCommand.findUnique({where: {runId_requestKey: {runId: initial.run.id, requestKey: PHOTO_PRESSURE_CLEANUP_KEY}}});
           return marker ? initial.run.id : null;
@@ -82,8 +86,16 @@ export async function purgeAcquisitionPhotosUnderPressure(db: PrismaClient, now 
       const photos = await db.acquisitionPhoto.findMany({where: {runId, purgedAt: null}, orderBy: {id: "asc"}, take: 25});
       for (const photo of photos) {
         try {
-          await removeAcquisitionPhotoBytes(photo.id);
-          purged += (await db.acquisitionPhoto.updateMany({where: {id: photo.id, purgedAt: null}, data: {purgedAt: now}})).count;
+          purged += await db.$transaction(async tx => {
+            await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id=${batch.id} FOR UPDATE`;
+            const current = await tx.acquisitionSession.findUnique({where: {id: batch.id}});
+            if (!current?.deletedAt || await hasCorrectionRetentionPins(tx, batch.id)) return 0;
+            const marker = await tx.acquisitionCommand.findUnique({where: {runId_requestKey: {runId, requestKey: PHOTO_PRESSURE_CLEANUP_KEY}}});
+            const source = await tx.acquisitionPhoto.findUnique({where: {id: photo.id}});
+            if (!marker || !source || source.runId !== runId || source.purgedAt) return 0;
+            await removeAcquisitionPhotoBytes(photo.id);
+            return (await tx.acquisitionPhoto.updateMany({where: {id: photo.id, purgedAt: null}, data: {purgedAt: now}})).count;
+          }, {timeout: 30000});
         } catch { failed++; }
       }
     } catch { failed++; }

@@ -54,6 +54,7 @@ export function acquisitionProgressDto(
     photoPreparation: state.photoPreparation,
     defaults: state.defaults,
     defaultsRevision: state.defaultsRevision,
+    ...(state.correctionLibrary ? { correctionLibrary: state.correctionLibrary } : {}),
     reviewed: state.session.candidates.filter(
       (c) =>
         !c.excluded &&

@@ -19,6 +19,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { constants } from "node:fs";
 import { basename, dirname, join, parse, resolve, sep } from "node:path";
 import { tmpdir, homedir } from "node:os";
+import { beginCorrectionBackup, buildCorrectionRemovalPrelude, buildCorrectionRestoreFence } from "./acquisition-correction-backup";
 
 const BACKUP_PREFIX = "mtg-archives-backup-";
 const BACKUP_SUFFIX = ".tar.gz";
@@ -122,7 +123,7 @@ export function getDefaultAppdataPaths(
 ) {
   const configured = env.BACKUP_APPDATA_PATHS;
   if (configured) {
-    return configured
+    const paths = configured
       .split(",")
       .map((value) => value.trim())
       .filter(Boolean)
@@ -131,6 +132,15 @@ export function getDefaultAppdataPaths(
         sourcePath,
         archivePath: `appdata/custom-${index + 1}`,
       }));
+    const uploads = env.UPLOADS_DATA_PATH;
+    if (uploads && !paths.some(entry => isInsidePath(resolve(uploads), resolve(entry.sourcePath)))) {
+      // A custom subdirectory is subsumed by the required uploads root; do not
+      // create overlapping restore targets for the same private files.
+      const covered = paths.filter(entry => !isInsidePath(resolve(entry.sourcePath), resolve(uploads)));
+      covered.push({ envName: "UPLOADS_DATA_PATH", sourcePath: uploads, archivePath: "appdata/uploads" });
+      return covered;
+    }
+    return paths;
   }
 
   return [
@@ -205,7 +215,9 @@ export async function createBackup() {
 
   const timestamp = timestampForFilename();
   const workspace = await mkdtemp(join(tmpdir(), "mtg-archives-backup-"));
+  let protection: Awaited<ReturnType<typeof beginCorrectionBackup>> | undefined;
   try {
+    protection = await beginCorrectionBackup();
     const bundleRoot = join(workspace, "bundle");
     await mkdir(bundleRoot, { recursive: true });
 
@@ -257,7 +269,8 @@ export async function createBackup() {
       manifest,
     };
   } finally {
-    await rm(workspace, { recursive: true, force: true });
+    try { await protection?.release(); }
+    finally { await rm(workspace, { recursive: true, force: true }); }
   }
 }
 
@@ -505,7 +518,7 @@ export async function restoreBackup(
 
 export function buildRestoreSchemaPrelude(schema: string) {
   const target = quotePgIdentifier(schema);
-  return `DROP SCHEMA IF EXISTS ${target} CASCADE; CREATE SCHEMA ${target}; CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA ${target};\n`;
+  return buildCorrectionRemovalPrelude(schema) + `DROP SCHEMA IF EXISTS ${target} CASCADE; CREATE SCHEMA ${target}; CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA ${target};\n`;
 }
 
 /** Runs after the dump, inside the same fail-fast replacement transaction.
@@ -558,7 +571,7 @@ END;`;
 }
 
 export function buildRestoreRuntimeFence(schema: string) {
-  return buildRestoreCredentialFence(schema) + buildRestoreWorkerLeaseFence(schema);
+  return buildRestoreCredentialFence(schema) + buildRestoreWorkerLeaseFence(schema) + buildCorrectionRestoreFence(schema);
 }
 
 export async function readManifestFromBackup(backupPath: string) {
@@ -636,7 +649,8 @@ async function prepareAppdataArchive(bundleRoot: string) {
     await cp(sourcePath, join(bundleRoot, entry.archivePath), {
       recursive: true,
       dereference: false,
-      filter: (source) => !isInsidePath(source, resolve(getBackupDir())),
+      filter: (source) => !isInsidePath(source, resolve(getBackupDir())) &&
+        !(process.env.UPLOADS_DATA_PATH && isInsidePath(source, resolve(process.env.UPLOADS_DATA_PATH, "correction-library-v1")) && basename(source) === "temporary"),
     });
     existing.push({ ...entry, sourcePath });
   }
