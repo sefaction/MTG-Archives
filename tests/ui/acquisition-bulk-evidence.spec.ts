@@ -92,6 +92,12 @@ for (const width of [1366, 320]) test(`bulk review retains the selected preview 
     await expect(changed).not.toBeChecked(); await changed.check();
     await expect(bulk.getByRole("button", { name: "Confirm 3 selected matches", exact: true })).toBeEnabled();
     const selectedTokens = new Map(displayed); expect(selectedTokens.get(photos[0])).not.toBe(oldToken);
+    for (const picture of [bulk.getByRole("img", { name: "Scan of card 1", exact: true }),
+      bulk.getByRole("img", { name: `Proposed ${alternate.name}`, exact: true })]) {
+      await picture.scrollIntoViewIfNeeded();
+      await expect.poll(() => picture.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
+    }
+    await changed.scrollIntoViewIfNeeded();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: `test-results/bulk-evidence-preview-${width}.png` });
     await bulk.getByRole("button", { name: "Confirm 3 selected matches", exact: true }).click();

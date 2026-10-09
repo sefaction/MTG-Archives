@@ -18,7 +18,12 @@ for (const width of [1366, 320]) test(`saved card exposes explicit Inventory han
   const tag = `ui-inventory-handoff-${randomUUID()}`, password = randomUUID();
   const printing = {id: `${tag}-card`, name: "Inventory handoff fixture", setCode: "tst", collectorNumber: "1",
     lang: "en", imageUri: null, finishes: ["nonfoil"]};
-  let batch = "";
+  let batch = "", navigation = 0, closing = false;
+  const cancelled = new WeakSet<object>();
+  page.on("framenavigated", frame => { if (frame === page.mainFrame()) navigation++; });
+  page.on("requestfailed", request => {
+    if (request.failure()?.errorText === "net::ERR_ABORTED") cancelled.add(request);
+  });
   try {
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:20,sections:[{name:'A',capacity:20}]}}});await p.card.create({data:{...${JSON.stringify(printing)},scryfallId:require('crypto').randomUUID(),typeLine:'Creature',rarity:'common'}});console.log('{}');`);
     await page.goto("/login"); await page.getByLabel(/username or email/i).fill(tag);
@@ -45,8 +50,16 @@ for (const width of [1366, 320]) test(`saved card exposes explicit Inventory han
         revision:record.revision,decision:{cardId:printing.id,finish:"NONFOIL",condition:"NM",language:"en"}}})).ok()).toBe(true);
     }
     await page.route(`**${endpoint}?*`,async route=>{
-      const response=await route.fetch(); const record=await response.json();
-      await route.fulfill({json:{...record,suggestions:[{printing,reasons:["Controlled UI fixture"]}]}});
+      const epoch = navigation, request = route.request();
+      try {
+        const response=await route.fetch(); const record=await response.json();
+        if (closing || epoch !== navigation || cancelled.has(request)) return;
+        await route.fulfill({json:{...record,suggestions:[{printing,reasons:["Controlled UI fixture"]}]}});
+      } catch (error) {
+        // Reload aborts old reads. A late controlled reply must not fail the
+        // fixture after that navigation; errors for current reads still fail.
+        if (!closing && epoch === navigation && !cancelled.has(request)) throw error;
+      }
     });
     await page.goto(`/imports/scan?batch=${batch}`);
     await page.getByRole("button",{name:"Simple",exact:true}).click();
@@ -99,7 +112,10 @@ for (const width of [1366, 320]) test(`saved card exposes explicit Inventory han
     await page.reload(); await first.scrollIntoViewIfNeeded(); await expect(first).toContainText("Added to Inventory");
     await expect(first.getByRole("button",{name:"Continue to Inventory",exact:true})).toHaveCount(0);
   } finally {
-    await page.unrouteAll({behavior:"wait"}); await page.close();
+    closing = true;
+    try { await page.unrouteAll({behavior:"ignoreErrors"}); await page.close(); }
+    finally {
     database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const w={run:{session:{createdByUserId:n}}};const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});${cleanupCorrectionFixture}await p.acquisitionCommitMember.deleteMany({where:{candidate:w}});await p.acquisitionCommit.deleteMany({where:w});await p.inventoryAuditLog.deleteMany({where:{changedByUserId:n}});await p.inventoryItem.deleteMany({where:{currentOwnerId:n}});for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});await p.card.deleteMany({where:{id:${JSON.stringify(printing.id)}}});const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;if(!root||!paths.isAbsolute(root))throw Error('Private fixture storage unavailable');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw Error('Unexpected fixture photo');for(const suffix of ['.original','.preview.jpg'])await fs.unlink(paths.join(root,'acquisition-v1',photo.id+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e});}console.log('{}');`);
+    }
   }
 });
