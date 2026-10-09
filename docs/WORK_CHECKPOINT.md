@@ -1,4 +1,13 @@
 # Work checkpoint
+## Bulk feedback issue683 reproduced and fix in qualification — October 8, 2026
+
+Previous goal turn completed explicitly approved680/682 merges; main9dc0e2a and cumulativef4ec480/source23bf712e remain qualified. No open PRs yet in this batch and no new merge approval. GoalACTIVE.
+
+Issue683 OPEN after duplicate checks. Owned real browser/API baseline on unchanged app: valid signed current proposal identities dropped by bulk POST, all3events DISPLAY_IDENTITY_UNKNOWN/all3examples although one valid agreement was unsampled; reviews3/Inventory0/commits0. Corrected baseline49405 terminalFAIL at exact classification assertion with cleanup; first setup failure and second route-teardown timeout17555 separately preserved. Exact interrupted owned residue inspected/recovered; prefix0 confirmed, original7tableprojection matches previous qualification. No real owner data changed.
+
+Feature .local-data/bulk-review-evidence-20261008 oncodex/bulk-review-evidence/main9dc0e2a. UI-only6-line fix submits exactrow.current token with single displayed token; missingtoken conservatism/serverchecks/prospectivesampling/explicitInventory remain. New2-case desktop1366/phone320 actualsignedproposal/reload/firstagreement/noextraoriginal/missingtoken/sampledoriginal/zeroInventory spec and docs/ACQUISITION_BULK_EVIDENCE.md. No app reload/feature PR yet. Prior19703coreLIVE (.local-data/bulk-evidence-core.log), cumulative82944freshoriginalSHA baselineLIVE (.local-data/bulk-evidence-originals-before.log); poll exacthandles before assumptions/restarts. Types60609 terminalPASS before finalfixtureteardown change; fullcore includesfinalfixture. Cumulative bulk-evidence-runtime before captured13services+7tables, allordinaryworkersrunning. PrimaryolderWIP/handoff preserved.
+
+Nextsafe finishcore/SHA, commit/push coherent source, integrate cumulative and build required-installer web only; no sharedlib/script/schema change so native308inputs remain qualified/no workerrestartneeded. Reloadweb through guarded runtime helper preserving existingcompose/mounts/environment/limits, verifyrealHTTP/source/nativeparity; runnew2 +existingbulkpreview/draftactions/fastcorrections/handoff, inspectimages andphonebounds, cleanup/source/SHA/servicegates, thenopen/attach PR/exactheadCI/durablewiki. Keep683 andbroad463/506 open until separately approved merge. Deferred lost-bulk-ACK/finalrefresh recovery is independent nextbatch. Independentverifier/cohort decisions pending,64decimalGB+2% retained/usertracksUnraid; no hardware/production/schedule.
 ## PR682 approved; synchronized after PR680 merge — October 8, 2026
 
 The user explicitly approved both PR680 and PR682. PR680 merged into main at b8eccbef82f21cda1a431a3da850edd51f2d5eed. PR682 is synchronized with that main; the only conflict was historical checkpoint prose, resolved by retaining this branch's qualification history. Scanner verification now includes merged680. Application/test inputs match the already qualified cumulative short-name build; new synchronized-head GitHub checks must pass before the approved682 merge. Primary WIP and private checkpoint backup preserved. Broader recognition goal remains active.
@@ -9027,8 +9036,3 @@ full-frame/strip behavior and explicit unverified-edge warning. This is bounded
 dark-border framing evidence, not universal perfect-frame qualification. #557/#558
 remain open. Next: focused PR with acceptance report; merge only after this PR's
 individual approval. No unanswered operator question; transport empty.
-
-
-
-
-
