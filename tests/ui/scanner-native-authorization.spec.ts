@@ -1,3 +1,4 @@
+import { cancelAndCleanCorrectionFixture } from "./correction-fixture";
 import { expect, test } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -62,6 +63,8 @@ test("native HTTP endpoints separate permanent denial from run conflicts and mal
     const state = JSON.parse(database(`const n=${JSON.stringify(tag)};console.log(JSON.stringify({inventory:await p.inventoryItem.count({where:{currentOwnerId:n}}),photos:await p.acquisitionPhoto.count({where:{run:{session:{createdByUserId:n}}}})}));`));
     expect(state).toEqual({ inventory: 0, photos: 0 });
   } finally {
+    // Independent feedback cleanup must precede browser/report operations.
+    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
     database(`const n=${JSON.stringify(tag)},w={run:{session:{createdByUserId:n}}};
       const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;
       if(!root||!paths.isAbsolute(root))throw new Error('Private fixture storage unavailable');

@@ -1,3 +1,4 @@
+import { cancelAndCleanCorrectionFixture } from "./correction-fixture";
 import { expect, test } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -69,6 +70,8 @@ test("rejected scanner Start can retire its original identity before setup chang
     const counts=JSON.parse(database(`console.log(JSON.stringify({runs:await p.scannerRun.count({where:{agent:{userId:${JSON.stringify(tag)}}}}),photos:await p.acquisitionPhoto.count({where:{run:{session:{createdByUserId:${JSON.stringify(tag)}}}}}),inventory:await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}})}));`));
     expect(counts).toEqual({runs:1,photos:0,inventory:0});
   } finally {
+    // Independent feedback cleanup must precede browser/report operations.
+    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
     try { await page.unrouteAll({behavior:"wait"}); } catch (error) { if(!page.isClosed()) throw error; }
     database(`const n=${JSON.stringify(tag)},w={run:{session:{createdByUserId:n}}};const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;
       if(!root||!paths.isAbsolute(root))throw new Error('Private fixture storage unavailable');
@@ -120,6 +123,8 @@ test("changing setup after a lost Start acknowledgement opens the accepted batch
     expect(state).toEqual({runs:1,status:"STARTED",sessions:1,photos:0,inventory:0});
     expect(await page.evaluate(user=>sessionStorage.getItem(`mtg-scanner-start-v1:${user}`),tag)).toBeNull();
   } finally {
+    // Independent feedback cleanup must precede browser/report operations.
+    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
     try {await page.unrouteAll({behavior:"wait"});} catch(error){if(!page.isClosed())throw error;}
     database(`const n=${JSON.stringify(tag)},w={run:{session:{createdByUserId:n}}};const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;
       if(!root||!paths.isAbsolute(root))throw new Error('Private fixture storage unavailable');

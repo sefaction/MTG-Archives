@@ -1,7 +1,10 @@
 // Embedded only inside local Docker fixtures, after their acquisition workers
 // have been cancelled. n is the fixture's exact owner ID, never a real owner.
+// Only the large-batch fixture uses an indexed owner suffix (four owners max).
+const fixtureOwner = /^ui-(?:[a-z-]+-[a-f0-9-]{36}|large-[a-f0-9-]{36}-[0-3])$/;
+
 export const cleanupCorrectionFixture = `
-  if(!/^ui-[a-z-]+-[a-f0-9-]{36}$/.test(n))throw Error('Invalid owned correction fixture');
+  if(!${fixtureOwner}.test(n))throw Error('Invalid owned correction fixture');
   const own={ownerPlayerId:n};
   await p.correctionRetentionPin.deleteMany({where:own});
   await p.correctionCaptureOutbox.deleteMany({where:{blob:own}});
@@ -14,3 +17,13 @@ export const cleanupCorrectionFixture = `
     await fs.rm(owned,{recursive:true,force:true});
   }
 `;
+
+// Retire ordinary acquisition work before removing independent feedback.
+// A block keeps the caller's existing n declaration and teardown body intact.
+export function cancelAndCleanCorrectionFixture(ownerPlayerId: string) {
+  if (!fixtureOwner.test(ownerPlayerId)) throw new Error("Invalid owned correction fixture");
+  return `{ const n=${JSON.stringify(ownerPlayerId)};
+    await p.acquisitionSession.updateMany({where:{ownerPlayerId:n},data:{phase:'CANCELLED'}});
+    ${cleanupCorrectionFixture}
+  }`;
+}

@@ -1,3 +1,4 @@
+import { cancelAndCleanCorrectionFixture } from "./correction-fixture";
 import {expect, test, type Page} from '@playwright/test';
 import {execFileSync} from 'node:child_process';
 import {createHash, randomUUID} from 'node:crypto';
@@ -239,6 +240,8 @@ test('large scan-image batches retain every input through ordinary native queues
     for(const [i,worker] of report.workersAfter.entries())assertNativeWorkerContinuity(report.workersBefore[i],worker);
     qualified=true;
   }finally{
+    // Independent feedback cleanup must precede browser/report operations.
+    for (const owner of owners) database(cancelAndCleanCorrectionFixture(owner.tag) + "console.log('{}');");
     if(timer)clearInterval(timer);report.checksFinishedAt=new Date().toISOString();save();
     await Promise.allSettled(failedResponses);
     await captureBrowserFailures();

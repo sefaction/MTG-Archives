@@ -1,3 +1,4 @@
+import { cancelAndCleanCorrectionFixture } from "./correction-fixture";
 import {expect, test} from "@playwright/test";
 import {execFileSync} from "node:child_process";
 import {createHash, randomUUID} from "node:crypto";
@@ -216,6 +217,8 @@ test(compactOnly ? "compact review replays one native basic-land scan with saved
     await expect(card.getByRole('img',{name:/^Printing: Timberland Ancient /})).toBeVisible();
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
   } finally {
+    // Independent feedback cleanup must precede browser/report operations.
+    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
     if (visualReuseResults.length) {
       const fs = require('fs');
       fs.mkdirSync('test-results', {recursive:true});

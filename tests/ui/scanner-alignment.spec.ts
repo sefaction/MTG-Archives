@@ -1,3 +1,4 @@
+import { cancelAndCleanCorrectionFixture } from "./correction-fixture";
 import { expect, test } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -63,6 +64,8 @@ test("card position defaults to Center and explicit choices survive queued reque
     }
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
   } finally {
+    // Independent feedback cleanup must precede browser/report operations.
+    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
     database(`const n=${JSON.stringify(tag)},w={run:{session:{createdByUserId:n}}};
       await p.scannerRun.deleteMany({where:{agent:{userId:n}}});
       for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});

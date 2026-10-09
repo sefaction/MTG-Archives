@@ -1,3 +1,4 @@
+import { cancelAndCleanCorrectionFixture } from "./correction-fixture";
 import { expect, test } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -118,6 +119,8 @@ test("queued scanner errors explain recovery and clear after authorized start; c
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(1);
     expect(Number(database(`console.log(await p.acquisitionCommit.count({where:{run:{session:{createdByUserId:${JSON.stringify(tag)}}}}}));`))).toBe(0);
   } finally {
+    // Independent feedback cleanup must precede browser/report operations.
+    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
     database(`const n=${JSON.stringify(tag)};const w={run:{session:{createdByUserId:n}}};
       const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;
       if(!root||!paths.isAbsolute(root))throw new Error('Private fixture storage unavailable');

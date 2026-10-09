@@ -1,3 +1,4 @@
+import { cancelAndCleanCorrectionFixture } from "./correction-fixture";
 import {expect, test} from "@playwright/test";
 import {execFileSync} from "node:child_process";
 import {createHash, randomUUID} from "node:crypto";
@@ -181,6 +182,8 @@ test("24 real scans retain artifacts and a saved correction across an actual OCR
     sample();
     report.passed=true;
   } finally {
+    // Independent feedback cleanup must precede browser/report operations.
+    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
     if(timer)clearInterval(timer);
     if(stopped)docker("start",worker);
     report.finishedAt=new Date().toISOString();

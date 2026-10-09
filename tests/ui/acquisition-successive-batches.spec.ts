@@ -1,3 +1,4 @@
+import { cancelAndCleanCorrectionFixture } from "./correction-fixture";
 import { expect, test } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
@@ -68,6 +69,8 @@ test("three successive saved-scan batches reach recognition and survive refresh"
         data: { action: "control", revision: latest.revision, requestKey: randomUUID(), command: "STOP" } })).ok()).toBe(true);
     }
   } finally {
+    // Independent feedback cleanup must precede browser/report operations.
+    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
     // Cancel only the owned fixtures, then let any visual/printing lease drain
     // before removing their rows and immutable files.
     database(`await p.acquisitionSession.updateMany({where:{createdByUserId:${JSON.stringify(tag)}},data:{phase:'CANCELLED'}});`);

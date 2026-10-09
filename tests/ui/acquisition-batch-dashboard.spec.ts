@@ -1,3 +1,4 @@
+import { cancelAndCleanCorrectionFixture } from "./correction-fixture";
 import {test, expect} from "@playwright/test";
 import {execFileSync} from "node:child_process";
 import {randomUUID} from "node:crypto";
@@ -92,6 +93,8 @@ test("batch dashboard keeps card totals distinct and cancels, trashes and restor
       await page.screenshot({path: `test-results/batch-dashboard-restored-recovery-${width}.png`, fullPage: true});}
     expect(conservation()).toBe(before);
   } finally {
+    // Independent feedback cleanup must precede browser/report operations.
+    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
     database("const n=" + JSON.stringify(tag) + ";const sessions=await p.acquisitionSession.findMany({where:{createdByUserId:n},include:{run:true}});const w={runId:{in:sessions.map(s=>s.run.id)}};await p.scannerRun.deleteMany({where:{agent:{userId:n}}});await p.scannerAgent.deleteMany({where:{userId:n}});for(const model of ['acquisitionCommitMember','acquisitionCommit','acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});await p.acquisitionRun.deleteMany({where:{id:w.runId}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});");
   }
 });
@@ -127,6 +130,8 @@ test("batch pages remain available after the last row is cancelled or trashed", 
     await expect(pages.getByRole("link")).toHaveCount(0);
     expect(database("console.log(JSON.stringify(await p.inventoryItem.aggregate({_count:{_all:true},_sum:{quantity:true}})));" )).toBe(before);
   } finally {
+    // Independent feedback cleanup must precede browser/report operations.
+    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
     database("const n=" + JSON.stringify(tag) + ";const w={run:{session:{createdByUserId:n}}};await p.acquisitionCommand.deleteMany({where:w});await p.acquisitionEvent.deleteMany({where:w});await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});");
   }
 });
