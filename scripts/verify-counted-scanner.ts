@@ -18,6 +18,10 @@ import { manageAcquisitionBatch } from "../lib/acquisition-batch-lifecycle";
 import { purgeTrashedAcquisitionPhotos } from "../lib/acquisition-photo-retention";
 import {Prisma} from "@prisma/client";
 import {eligibleScannerOriginals} from "../lib/scanner-retention";
+import {ensureCorrectionAccount} from "../lib/acquisition-correction-library";
+import {runCorrectionCaptureOnce} from "../lib/acquisition-correction-worker";
+import {readAcquisitionPhotoBytes} from "../lib/acquisition-files";
+import {readCorrectionBlob} from "../lib/acquisition-correction-files";
 
 // Disposable PostgreSQL protocol qualification. All images are synthetic and
 // no native backend is created; an 83-image pass is not an 83-card feed pass.
@@ -35,6 +39,10 @@ export async function verifyCountedScanner(db: PrismaClient) {
     for (const id of [tag,foreign]) {
       await db.player.create({data:{id,name:id,displayName:id}});
       await db.user.create({data:{id,username:id,displayName:id,playerId:id,passwordHash:"fixture-not-login"}});
+      // Ordinary scanner assertions need deterministic inputs. Sampling is
+      // exercised explicitly below, rather than randomly pinning originals.
+      await db.$transaction(tx => ensureCorrectionAccount(tx, id));
+      await db.correctionLibraryAccount.update({where: {ownerPlayerId: id}, data: {sampleBasisPoints: 0}});
     }
     const card = await db.card.create({data:{scryfallId:tag,name:tag,setCode:"tst",collectorNumber:"1",typeLine:"Creature",rarity:"common",lang:"en",digital:false,finishes:["nonfoil"]}});
     const decision = { cardId: card.id, language:"en", finish:"NONFOIL", condition:"NM" };
@@ -451,7 +459,13 @@ export async function verifyCountedScanner(db: PrismaClient) {
     await assert.rejects(manageAcquisitionBatch(db, actor, errorBatch.sessionId, "resume-processing"), /recovery/);
     await assert.rejects(createScannerBatch(db, actor, setup(errorHelper, await location(1, [{name: "A", capacity: 1}])), epoch), /unfinished batch/);
     assert.equal((await pollScannerRun(db, errorHelper.token, epoch)).run?.runId, errorBatch.runId);
-    const errorOriginals = await images(errorHelper, errorClaim, 1);
+    await db.correctionLibraryAccount.update({where: {ownerPlayerId: tag}, data: {sampleBasisPoints: 10000}});
+    let errorOriginals: Awaited<ReturnType<typeof images>>;
+    try { errorOriginals = await images(errorHelper, errorClaim, 1); }
+    finally { await db.correctionLibraryAccount.update({where: {ownerPlayerId: tag}, data: {sampleBasisPoints: 0}}); }
+    const sampledPhoto = await db.acquisitionPhoto.findUniqueOrThrow({where: {id: errorOriginals[0].ack.photoId}});
+    assert.equal(sampledPhoto.correctionControl, true);
+    assert.equal(sampledPhoto.correctionSamplingBasisPoints, 10000);
     await finishScannerRun(db, errorHelper.token, {...errorClaim, outcome: {outcome: "ERROR", imageCount: 1, elapsedMs: 100,
       knownPhysicalItems: null, sourceExhausted: "UNKNOWN", nativeError: {type: "FixtureSourceError", nativeStatus: 1}}}, epoch);
     assert.equal((await pollScannerRun(db, errorHelper.token, epoch)).run, null);
@@ -473,7 +487,27 @@ export async function verifyCountedScanner(db: PrismaClient) {
     await manageAcquisitionBatch(db, actor, errorBatch.sessionId, "trash", retrashAt);
     const errorExpiry = new Date(retrashAt.getTime() + 7 * 86400000);
     assert.equal((await db.acquisitionSession.findUniqueOrThrow({where: {id: errorBatch.sessionId}})).trashExpiresAt?.getTime(), errorExpiry.getTime());
+    const inventoryBeforeExpiry = await db.inventoryItem.aggregate({where: {currentOwnerId: tag}, _count: {_all: true}, _sum: {quantity: true}});
+    assert.equal(await db.correctionRetentionPin.count({where: {sessionId: errorBatch.sessionId, releasedAt: null}}), 1);
+    assert.deepEqual(await purgeTrashedAcquisitionPhotos(db, errorExpiry), {expired: 0, purged: 0, failed: 0});
+    assert.equal((await db.acquisitionSession.findUniqueOrThrow({where: {id: errorBatch.sessionId}})).deletedAt, null);
+    assert.deepEqual(await readAcquisitionPhotoBytes(sampledPhoto.id, "raw", sampledPhoto.digest), bytes);
+    assert.deepEqual((await eligibleScannerOriginals(db, errorHelper.token, errorRetention, epoch, errorExpiry)).eligible, []);
+
+    // Establish the fixture owner's queue turn and availability without
+    // bypassing the real copy worker's admission, lease or publication gates.
+    const otherTurns = await db.correctionLibraryAccount.findMany({where: {ownerPlayerId: {not: tag}}, select: {ownerPlayerId: true, lastCaptureAt: true}});
+    await db.correctionLibraryAccount.updateMany({where: {ownerPlayerId: {not: tag}}, data: {lastCaptureAt: new Date(1)}});
+    await db.correctionLibraryAccount.update({where: {ownerPlayerId: tag}, data: {lastCaptureAt: null}});
+    await db.correctionCaptureOutbox.updateMany({where: {blob: {ownerPlayerId: tag}, status: {not: "COMPLETE"}}, data: {availableAt: new Date(0)}});
+    try { assert.deepEqual(await runCorrectionCaptureOnce(db), {claimed: 1, preserved: 1, failed: 0}); }
+    finally { for (const turn of otherTurns) await db.correctionLibraryAccount.update({where: {ownerPlayerId: turn.ownerPlayerId}, data: {lastCaptureAt: turn.lastCaptureAt}}); }
+    assert.equal(await db.correctionRetentionPin.count({where: {sessionId: errorBatch.sessionId, releasedAt: null}}), 0);
+    assert.deepEqual(await readCorrectionBlob(tag, sampledPhoto.digest, sampledPhoto.bytes), bytes);
     assert.equal((await purgeTrashedAcquisitionPhotos(db, errorExpiry)).purged, 1);
+    await assert.rejects(readAcquisitionPhotoBytes(sampledPhoto.id, "raw"), {code: "ENOENT"});
+    assert.deepEqual(await readCorrectionBlob(tag, sampledPhoto.digest, sampledPhoto.bytes), bytes);
+    assert.deepEqual(await db.inventoryItem.aggregate({where: {currentOwnerId: tag}, _count: {_all: true}, _sum: {quantity: true}}), inventoryBeforeExpiry);
     assert.ok((await db.acquisitionSession.findUniqueOrThrow({where: {id: errorBatch.sessionId}})).deletedAt);
     assert.deepEqual((await eligibleScannerOriginals(db, errorHelper.token, errorRetention, epoch, errorExpiry)).eligible, [errorOriginals[0].transfer.artifactId]);
     assert.deepEqual((await eligibleScannerOriginals(db, errorHelper.token, {...errorRetention,
@@ -482,10 +516,21 @@ export async function verifyCountedScanner(db: PrismaClient) {
     assert.equal(await scannerStartMarkerExists(afterDiscard.runId), false);
     await manageAcquisitionBatch(db, actor, afterDiscard.sessionId, "cancel");
     console.log("PASS: finished error outcomes can expire without invented physical counts or blocked helper; missing outcomes retain recovery/capacity and cannot authorize new START");
+    console.log("PASS: forced sampled scanner original survives expired Trash until real correction copy, then expires with private bytes and Inventory conserved");
     console.log("PASS: active and unknown-outcome Trash restores visible cancelled batches with capacity/admission held, originals drain without inference, explicit processing resume waits for settlement and never restarts a scanner series; physical feeds=0");
     console.log("PASS: explicit multi-section series, concurrent next admission, stale-page/refresh recovery, same-batch refill, durable/repeated Stop, released unfed reservations and retained uncommitted cards; physical feeds=0");
     console.log("PASS: counted 83-image allocation, hopper remainder observation, pending/commit capacity conservation, concurrent parent limits, fresh no-START guard, same-batch refill segments and old-segment replay with saved review; physical feeds=0");
   } finally {
+    const correctionOwners = {ownerPlayerId: {in: [tag,foreign]}};
+    await db.correctionRetentionPin.deleteMany({where: correctionOwners});
+    await db.correctionCaptureOutbox.deleteMany({where: {blob: correctionOwners}});
+    await db.correctionExample.deleteMany({where: correctionOwners});
+    await db.correctionReviewEvent.deleteMany({where: correctionOwners});
+    await db.correctionEvidence.deleteMany({where: correctionOwners});
+    await db.correctionLibraryAccess.deleteMany({where: correctionOwners});
+    await db.correctionBlob.deleteMany({where: correctionOwners});
+    await db.correctionDeletionTombstone.deleteMany({where: correctionOwners});
+    await db.correctionLibraryAccount.deleteMany({where: correctionOwners});
     const w={run:{session:{createdByUserId:{in:[tag,foreign]}}}};
     await db.scannerRun.deleteMany({where:{agent:{userId:{in:[tag,foreign]}}}});
     await db.acquisitionCommitMember.deleteMany({where:{commit:w}}); await db.acquisitionCommit.deleteMany({where:w});
