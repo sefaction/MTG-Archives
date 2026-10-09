@@ -64,12 +64,18 @@ export async function verifyAcquisitionBatchManagement(db: PrismaClient, actor: 
     assert.equal(await failAcquisitionJob(db, accepted), false);
     const cancelled = await db.acquisitionProcessingJob.findMany({where: {runId: run.id}});
     assert.ok(cancelled.every(job => job.status === "SUPERSEDED" && job.errorCode === "BATCH_STOPPED"));
-    // Deliberately keep a legitimate section match after the target enters Trash.
-    const collision = await createAcquisitionSession(db, actor, {...base, requestKey: randomUUID(), section: String(capture.batchNumber), policy: {kind: "MANUAL", quantity: 1},
-      run: {...base.run, providerId: "phone-photo-v1", runId: randomUUID()}});
+    // Put the older target beyond the first25 rows and retain legitimate section
+    // matches after Trash. This exercises identity checks across real pages.
+    const collisionIds: string[] = [];
+    for (let index = 0; index < 26; index++) {
+      const collision = await createAcquisitionSession(db, actor, {...base, requestKey: randomUUID(), section: String(capture.batchNumber), policy: {kind: "MANUAL", quantity: 1},
+        run: {...base.run, providerId: "phone-photo-v1", runId: randomUUID()}});
+      collisionIds.push(collision.session.id);
+    }
     const numericMatches = async () => {
       const query = {view: "all", q: String(capture.batchNumber)};
       const first = await getAcquisitionBatchDashboard(db, actor, query);
+      assert.ok(first.pages >= 2, "Controlled number matches must span multiple pages");
       const ids = first.rows.map(row => row.id);
       for (let page = 2; page <= first.pages; page++) {
         const next = await getAcquisitionBatchDashboard(db, actor, {...query, page});
@@ -81,7 +87,10 @@ export async function verifyAcquisitionBatchManagement(db: PrismaClient, actor: 
       return new Set(ids);
     };
     const beforeTrash = await numericMatches();
-    assert.ok(beforeTrash.has(id)); assert.ok(beforeTrash.has(collision.session.id));
+    const firstPage = await getAcquisitionBatchDashboard(db, actor, {view: "all", q: String(capture.batchNumber)});
+    assert.equal(firstPage.rows.some(row => row.id === id), false, "Target must actually be beyond the first page");
+    assert.ok(beforeTrash.has(id));
+    for (const collisionId of collisionIds) assert.ok(beforeTrash.has(collisionId));
     await manageAcquisitionBatch(db, actor, id, "trash", start);
     const trashed = await db.acquisitionSession.findUniqueOrThrow({where: {id}});
     assert.equal(trashed.trashExpiresAt!.getTime() - start.getTime(), 7 * 86400000);
@@ -89,8 +98,10 @@ export async function verifyAcquisitionBatchManagement(db: PrismaClient, actor: 
     assert.equal((await db.acquisitionSession.findUniqueOrThrow({where: {id}})).trashExpiresAt!.getTime(), trashed.trashExpiresAt!.getTime());
     await assert.rejects(getAcquisitionPhoto(db, actor, id, photoIds[0]), /unavailable/);
     const afterTrash = await numericMatches();
-    assert.equal(afterTrash.has(id), false); assert.ok(afterTrash.has(collision.session.id));
-    assert.equal((await db.acquisitionSession.findUniqueOrThrow({where: {id: collision.session.id}})).phase, "DRAFT");
+    assert.equal(afterTrash.has(id), false);
+    for (const collisionId of collisionIds) assert.ok(afterTrash.has(collisionId));
+    const preserved = await db.acquisitionSession.findMany({where: {id: {in: collisionIds}}, select: {phase: true}});
+    assert.equal(preserved.length, 26); assert.ok(preserved.every(row => row.phase === "DRAFT"));
     assert.equal((await getAcquisitionBatchDashboard(db, actor, {view: "all", q: searchKey})).total, 0);
     const trashDashboard = await getAcquisitionBatchDashboard(db, actor, {view: "trash", q: searchKey});
     assert.equal(trashDashboard.total, 1); assert.deepEqual(trashDashboard.rows.map(row => row.id), [id]);
