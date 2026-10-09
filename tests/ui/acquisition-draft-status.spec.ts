@@ -15,6 +15,20 @@ async function dirtyStatus(card: Locator) {
   await expect(card.getByTestId("scan-review-status")).toContainText("Unsaved correction");
   await expect(card.getByTestId("scan-compact-status")).toHaveText("Unsaved correction");
 }
+async function showChoiceStatus(card: Locator) {
+  const status = card.getByTestId("scan-compact-status");
+  await status.evaluate(element => {
+    const summary = document.querySelector('[aria-label="Batch progress"]');
+    const box = element.getBoundingClientRect(), boundary = summary?.getBoundingClientRect().bottom ?? 0;
+    if (box.top < boundary + 8 || box.bottom >= innerHeight)
+      window.scrollBy({ top: box.top - boundary - 16, behavior: "instant" });
+  });
+  await expect.poll(() => status.evaluate(element => {
+    const summary = document.querySelector('[aria-label="Batch progress"]');
+    const box = element.getBoundingClientRect();
+    return box.top >= (summary?.getBoundingClientRect().bottom ?? 0) + 8 && box.bottom < innerHeight;
+  })).toBe(true);
+}
 
 for (const width of [1366, 320]) for (const lostReply of [false, true])
 test(`draft choice status ${lostReply ? "lost reply" : "normal"} at ${width}px`, async ({ page, baseURL }) => {
@@ -64,7 +78,7 @@ test(`draft choice status ${lostReply ? "lost reply" : "normal"} at ${width}px`,
     expect(await savedState()).toEqual(before); expect(inventoryCount()).toBe(0);
     console.log("Saved vs displayed baseline:", JSON.stringify({ width, saved: "NM", displayed: "LP", revisionUnchanged: true,
       header: await card.getByTestId("scan-review-status").innerText(), choiceStatus: await card.getByTestId("scan-compact-status").innerText() }));
-    await card.getByTestId("scan-compact-status").scrollIntoViewIfNeeded();
+    await showChoiceStatus(card);
     await page.screenshot({ path: test.info().outputPath("condition-edit.png") });
     await dirtyStatus(card);
     await page.reload(); await card.scrollIntoViewIfNeeded();
@@ -91,6 +105,8 @@ test(`draft choice status ${lostReply ? "lost reply" : "normal"} at ${width}px`,
       await expect(card.getByRole("alert")).toBeVisible(); await dirtyStatus(card);
       expect(interruptedSaves).toBe(1);
       expect(await savedState()).toMatchObject({ cardId: alternative.id, finish: "FOIL", condition: "HP", revision: before.revision + 1 });
+      await showChoiceStatus(card);
+      await page.screenshot({ path: test.info().outputPath("interrupted-save-status.png") });
       await card.getByRole("button", { name: "Save card review", exact: true }).click();
     }
     await expect(card.getByTestId("scan-compact-status")).toHaveText("Review saved");
@@ -122,6 +138,7 @@ test(`draft choice status ${lostReply ? "lost reply" : "normal"} at ${width}px`,
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true); expect(errors).toEqual([]);
     const hash = database(`const row=await p.acquisitionPhoto.findUniqueOrThrow({where:{id:${JSON.stringify(photo)}}});const fs=require('fs/promises'),paths=require('path');console.log(JSON.stringify({stored:row.digest,actual:require('crypto').createHash('sha256').update(await fs.readFile(paths.join(process.env.UPLOADS_DATA_PATH,'acquisition-v1',row.id+'.original'))).digest('hex')}));`);
     expect(hash).toEqual({ stored: createHash("sha256").update(bytes).digest("hex"), actual: createHash("sha256").update(bytes).digest("hex") });
+    await showChoiceStatus(card);
     await page.screenshot({ path: test.info().outputPath("final-status.png") });
   } finally {
     try { await page.unrouteAll({ behavior: "wait" }); await page.close(); }
