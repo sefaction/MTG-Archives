@@ -1,0 +1,19 @@
+# Scan review fixture correction cleanup
+
+Issue: https://github.com/sefaction/MTG-Archives/issues/698 (follow-up to audit #692).
+
+Manual processing recovery and quick-finish review fixtures deleted their acquisition records, users and players while leaving independent correction feedback. Four unchanged-app desktop/phone cases passed in 78.5 seconds but left four examples, four blobs/pins, six review events, 34 evidence records and four accounts. All three owned namespaces were empty beforehand.
+
+The ordinary retained Boggart scan fixture initially stopped before upload because it did not open the collapsed Batch defaults panel. A private harness variant changes only that panel action, preserving every native, stamp, printing, correction, reload and Inventory assertion. It passes in 91.2 seconds on the unchanged app, then leaves one review event and one independent account. This establishes five completed residue namespaces across the three fixtures; it does not establish new independent recognition accuracy. Exact new-owner recovery removes only those five namespaces, with original acquisition/Inventory rows conserved.
+
+The three fixtures now invoke the existing guarded exact-owner correction cleanup after cancelling acquisition sessions. Pins, copy outbox, examples, review events, evidence, private blobs and account records are cleaned independently of source deletion. Quick-finish database/file cleanup still runs if the browser is unavailable. Stamp review opens the real defaults panel, cancels before cleanup, removes processing turns and ensures report-writing failures cannot skip owned teardown. Production retention, sampling, permissions, algorithms and explicit Inventory confirmation are unchanged.
+
+## Qualification
+
+Final three-file source types pass. Five corrected actual API/browser workflows pass in the cumulative app (141.2 seconds, zero failures/skips/retries), including desktop1366/phone390 manual recovery and quick-finish review plus the real retained Boggart stamp workflow. Closed-browser teardown qualification is in progress. The required application inputs are unchanged; the existing web image remains loaded without a rebuild or service restart. The cumulative build also includes separately unapproved PRs #684, #687, #688, #690, #693, #695 and #697. This batch is based independently on main.
+
+Original table/service and retained-photo integrity gates are collected before and after actual workflows. Other-owner correction data is compared in all substantive fields; only CorrectionLibraryAccount.lastCleanupAt and updatedAt are excluded, because the ordinary worker updates those during temporary-file maintenance. An initial full-row account digest mismatch is retained separately. Its original row fields were not logged, so the historical difference cannot be localized or attributed solely to timestamps. The final substantive-field guard uses a fresh recorded baseline; no ownership, byte-counter, policy or evidence fields are ignored.
+
+Private baseline logs, failures, native results, actual screenshots, fixture recovery and final JSON remain under cumulative .local-data/processing-cleanup-*. The initial feature type error and initial native helper's unsupported full-bundle parity assertion are retained as harness/setup failures, separate from UI/product results. Existing native workers retain all 308 previous shared inputs; their sole difference from the web bundle remains the unused batch-management verifier from PR #697, with the other 307 files matching. This batch changes only test fixtures and this document.
+
+Issue #698 stays open until its individually approved fix merges. Audit #692 remains open for other source candidates; they are not all proven failures. No production operation or physical scanner feed occurs.
