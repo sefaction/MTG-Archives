@@ -1,0 +1,15 @@
+# Exact short Unicode name retrieval
+
+Issue [681](https://github.com/sefaction/MTG-Archives/issues/681) records a local retrieval gap after the Unicode key repair. Title keys and whole-photo hints still required three UTF-16 units. A card with an indexed printed or face alias such as 山 was consequently unavailable from its exact title; readable footer metadata could retrieve the card while incorrectly leaving that title unconfirmed.
+
+A read-only audit of the identical frozen118486-card development metadata found91 short alias entries representing31 distinct names. Every name had indexed printings, but all31 returned zero title candidates and zero whole-photo hints on unchanged main71356a7. This is an index/retrieval diagnostic, not OCR language qualification or an accuracy estimate.
+
+Exact local retrieval now admits a shorter normalized Unicode key containing a letter. Such a key still needs an exact catalog alias. It never starts fuzzy retrieval; existing longer-name fuzzy limits and ASCII/numeric minimum lengths remain. Marked letters retain their distinctions. Unsupported short readings, body substrings, punctuation and orphan marks do not become exact matches.
+
+Localized exact short aliases expose title contradictions and retain the character review requirement. Whole-photo matches remain unlocalized hints, without title/footer coordinates or printing confirmation. Orientation, language, stamp, physical-count, human-review and Inventory boundaries remain in place. The existing bounded suggestion list and image-supported ordering are retained.
+
+The text interpretation becomes metadata-short-unicode-names-v8 and catalog interpretation becomes catalog-reconciliation-short-unicode-names-v10. Eligible unreviewed saved OCR can refresh its metadata; native descriptors, raw observations and existing human decisions stay authoritative. The external localized-name query filter is unchanged: provider semantics and independent language acceptance require their own evidence. Local exact aliases do not prove external catalog coverage.
+
+Focused30 tests pass, including short printed/face aliases, combining marks, unknown-readings/noise, contradictory printing evidence, whole-photo separation and orientation. Full core passes858 tests with no failures/skips, type validation, production build and13 client manifests. The corrected frozen catalog diagnostic retrieves every indexed printing for all31 names from localized and whole-photo paths. Replaying314 reused development observations against identical metadata changes no proposals; those repeated observations are regression evidence, not independent accuracy.
+
+Full disposable PostgreSQL acquisition and shared-import qualification pass with owned container/volume cleanup, including short-alias saved metadata refresh, obsolete-generation rejection, cache reuse, immutable OCR and Inventory conservation. Final cumulative Docker/API/browser/source/data/service checks are pending. Each resulting PR will require its own individual approval. Broader recognition463/307 remain open.
