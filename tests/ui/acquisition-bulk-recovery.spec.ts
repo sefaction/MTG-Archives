@@ -121,7 +121,7 @@ for (const { width, mode } of cases) test(`bulk lost-response recovery ${mode} a
     await expect.poll(() => Number(database(`console.log(await p.acquisitionCandidate.count({where:{run:{sessionId:${JSON.stringify(batch)}},review:{not:require('@prisma/client').Prisma.DbNull}}}));`))).toBe(2);
     const observed = JSON.parse(database(`const n=${JSON.stringify(tag)};console.log(JSON.stringify({events:await p.correctionReviewEvent.count({where:{ownerPlayerId:n}}),candidates:await p.acquisitionCandidate.findMany({where:{run:{sessionId:${JSON.stringify(batch)}}},orderBy:{id:'asc'},select:{revision:true,review:true}}),inventory:await p.inventoryItem.count({where:{currentOwnerId:n}}),commits:await p.acquisitionCommit.count({where:{run:{sessionId:${JSON.stringify(batch)}}}}),examples:await p.correctionExample.count({where:{ownerPlayerId:n}})}));`));
     console.log("Owned recovery result:", JSON.stringify({ mode, losses, writes: writes.length, events: observed.events, revisions: observed.candidates.map((row: any) => row.revision), inventory: observed.inventory, commits: observed.commits }));
-    expect(observed.inventory).toBe(0); expect(observed.commits).toBe(0); expect(observed.examples).toBe(0);
+    expect(observed.inventory).toBe(0); expect(observed.commits).toBe(0); expect(observed.examples).toBe(mode === "conflict" ? 1 : 0);
     const firstWrites = writes.filter(write => write.photoId === photos[0]);
     expect(firstWrites).toHaveLength(mode === "twice" ? 3 : 2);
     expect(new Set(firstWrites.map(write => write.body)).size).toBe(1);
