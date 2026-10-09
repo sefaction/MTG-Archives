@@ -1,4 +1,7 @@
 # Work checkpoint
+## PR682 approved; synchronized after PR680 merge — October 8, 2026
+
+The user explicitly approved both PR680 and PR682. PR680 merged into main at b8eccbef82f21cda1a431a3da850edd51f2d5eed. PR682 is synchronized with that main; the only conflict was historical checkpoint prose, resolved by retaining this branch's qualification history. Scanner verification now includes merged680. Application/test inputs match the already qualified cumulative short-name build; new synchronized-head GitHub checks must pass before the approved682 merge. Primary WIP and private checkpoint backup preserved. Broader recognition goal remains active.
 ##681 final local qualification passed; coherent PR next — October 8, 2026
 
 Featureb019f57e242d90836f156de66abd8bb4e4897457/codex/recognition-short-unicode-names is implemented/pushed;681 OPEN, noPRyet. Core858, focused30, full disposable PG/cleaned, all31 aliases/every indexed printing, and314 unchanged reused-observation replay PASS. Current cumulative842d1bd contains main71356a7+unapproved680+681.
@@ -9024,6 +9027,7 @@ full-frame/strip behavior and explicit unverified-edge warning. This is bounded
 dark-border framing evidence, not universal perfect-frame qualification. #557/#558
 remain open. Next: focused PR with acceptance report; merge only after this PR's
 individual approval. No unanswered operator question; transport empty.
+
 
 
 
