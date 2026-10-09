@@ -4,10 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import type { acquisitionProgressDto } from "@/lib/acquisition-api";
 import type { AcquisitionCardReview, AcquisitionDefaults } from "@/lib/acquisition-review";
 import { finishForPrinting } from "@/lib/acquisition-finish";
+import { BulkReviewUncertainError, saveBulkReview } from "./acquisition-bulk-save";
 import { filterButtonClass as button, filterPrimaryButtonClass as primary, filterPanelClass as panel } from "./filterStyles";
 
 type Slot = ReturnType<typeof acquisitionProgressDto>["slots"][number];
-type Proposal = { photoId: string; position: number; record: AcquisitionCardReview; checked: boolean; saved: boolean; error: string };
+type Proposal = { photoId: string; position: number; record: AcquisitionCardReview; checked: boolean; saved: boolean; error: string;
+  pendingConfirmation?: { body: string; uncertain: boolean; finish: string; condition: string } };
 
 export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpenChange, onInspect, onConfirmed,
   blockedPhotos, draftsReady, canUsePhotos }: {
@@ -28,7 +30,9 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpe
   const more = useRef<HTMLDivElement>(null);
   const previewRequest = useRef<AbortController | null>(null);
   const selections = useRef(new Map<string, { printingId: string; checked: boolean }>());
-  useEffect(() => () => previewRequest.current?.abort(), []);
+  const confirming = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; previewRequest.current?.abort(); }; }, []);
   useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) setVisible(count => Math.min(count + 12, rows.length));
@@ -84,53 +88,68 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpe
       finishForPrinting(defaults.finish, printing));
   };
   const selected = rows.filter(row => row.checked && eligible(row));
-  async function confirm() {
-    setSaving(true); setError(""); setSaved(0); setTarget(selected.length);
-    let done = 0;
-    const next = [...rows];
-    for (let index = 0; index < next.length; index++) {
-      const row = next[index];
-      if (!row.checked || !eligible(row)) continue;
-      if (!canUsePhotos([row.photoId])) {
-        next[index] = { ...row, checked: false, error: "Unsaved correction: save or cancel it before bulk confirmation." };
-        setRows([...next]); continue;
-      }
+  const pending = rows.filter(row => row.pendingConfirmation);
+  async function confirm(resume = false) {
+    if (confirming.current) return;
+    confirming.current = true;
+    const next = rows.map(row => {
+      if (resume || !row.checked || !eligible(row)) return { ...row };
       const printing = choice(row)!;
-      const finish = finishForPrinting(defaults.finish, printing);
-      if (!finish) continue;
+      const finish = finishForPrinting(defaults.finish, printing)!;
+      const body = JSON.stringify({ action: "accept", photoId: row.photoId, revision: row.record.revision,
+        // Freeze the loaded proposal and defaults before any write. Recovery
+        // must not substitute a later preview, revision or batch default.
+        ...(row.record.evidenceToken ? { evidenceTokens: {
+          current: row.record.evidenceToken, displayed: [row.record.evidenceToken],
+        } } : {}),
+        decision: { cardId: printing.id, language: printing.lang,
+          finish, condition: defaults.condition } });
+      return { ...row, error: "", pendingConfirmation: { body, uncertain: false, finish, condition: defaults.condition! } };
+    });
+    setSaving(true); setError(""); setSaved(0); setTarget(next.filter(row => row.pendingConfirmation).length); setRows(next);
+    let done = 0;
+    try {
+    for (let index = 0; index < next.length; index++) {
+      if (!mounted.current) break;
+      const row = next[index];
+      if (!row.pendingConfirmation) continue;
+      if (!canUsePhotos([row.photoId])) {
+        next[index] = { ...row, checked: false,
+          pendingConfirmation: row.pendingConfirmation.uncertain ? row.pendingConfirmation : undefined,
+          error: row.pendingConfirmation.uncertain ? new BulkReviewUncertainError().message : "Unsaved correction: save or cancel it before bulk confirmation." };
+        setRows([...next]);
+        if (row.pendingConfirmation.uncertain) break;
+        continue;
+      }
       try {
-        const response = await fetch(`/api/acquisition/${batchId}/review`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "accept", photoId: row.photoId, revision: row.record.revision,
-            // Attribute this selection to the loaded preview, never a later
-            // recognition result or another row's proposal. Missing identity
-            // retains the server's conservative unknown-display handling.
-            ...(row.record.evidenceToken ? { evidenceTokens: {
-              current: row.record.evidenceToken, displayed: [row.record.evidenceToken],
-            } } : {}),
-            decision: { cardId: printing.id, language: printing.lang, finish, condition: defaults.condition } }),
-        });
-        if (!response.ok) throw new Error((await response.json()).error ?? "Review changed; reload this match");
-        next[index] = { ...row, checked: false, saved: true, error: "" };
+        await saveBulkReview(`/api/acquisition/${batchId}/review`, row.pendingConfirmation.body, () => mounted.current && canUsePhotos([row.photoId]));
+        next[index] = { ...row, pendingConfirmation: undefined, checked: false, saved: true, error: "" };
         setSaved(++done);
       } catch (cause) {
-        next[index] = { ...row, checked: false, error: (cause as Error).message };
+        const uncertain = cause instanceof BulkReviewUncertainError;
+        next[index] = { ...row, checked: false, error: (cause as Error).message,
+          pendingConfirmation: uncertain ? { ...row.pendingConfirmation, uncertain: true } : undefined };
+        if (uncertain) { setRows([...next]); break; }
       }
       setRows([...next]);
     }
-    try {
+      if (!mounted.current) return;
       await refresh();
-      if (done > 0 && !next.some(row => row.error)) { close(); onConfirmed?.(next.filter(row => row.saved).map(row => row.photoId)); }
-    } finally { setSaving(false); }
+      if (done > 0 && !next.some(row => row.error || row.pendingConfirmation)) { close(); onConfirmed?.(next.filter(row => row.saved).map(row => row.photoId)); }
+    } finally { setSaved(next.filter(row => row.saved).length); confirming.current = false; setSaving(false); }
   }
   return <section className={panel + " min-w-0 space-y-3"} aria-label="Bulk match review">
     <div className="flex flex-wrap items-center gap-2">
-      <button className={button} disabled={!draftsReady || loading || saving || !available.length} onClick={() => void preview()}>
+      <button className={button} disabled={!draftsReady || loading || saving || pending.length > 0 || !available.length} onClick={() => void preview()}>
         Bulk Confirm Match
       </button>
       <span className="text-sm">{available.length} cards awaiting match review</span>
       {!saving && saved > 0 && <span role="status">{saved} {saved === 1 ? "review" : "reviews"} saved. Inventory has not changed.</span>}
     </div>
+    {pending.length > 0 && !saving && <div className="space-y-2">
+      <p role="status" className="text-sm">A confirmation is uncertain; later confirmations are paused. Continue with the original printing, finish and condition. Inventory has not changed.</p>
+      <button className={primary} disabled={!draftsReady || saving} onClick={() => void confirm(true)}>Continue original confirmations</button>
+    </div>}
     {!draftsReady && <p role="status" className="text-sm">Bulk review is waiting for browser draft access. Allow browser storage and reload; individual reviews can still be saved.</p>}
     {skipped > 0 && <p role="status" className="text-sm">{skipped} {skipped === 1 ? "card has an unsaved correction" : "cards have unsaved corrections"} and will be skipped. Save or cancel those corrections to include them.</p>}
     {open && <div className="space-y-3">
@@ -141,10 +160,10 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpe
       {error && <p role="alert">{error}</p>}
       {rows.length > 0 && <>
         <div className="flex flex-wrap gap-2 items-center">
-          <button className={primary} disabled={loading || saving || selected.length === 0} onClick={() => void confirm()}>
+          <button className={primary} disabled={loading || saving || pending.length > 0 || selected.length === 0} onClick={() => void confirm()}>
             Confirm {selected.length} selected {selected.length === 1 ? "match" : "matches"}
           </button>
-          <button className={button} disabled={saving} onClick={() => void preview()}>Reload proposals</button>
+          <button className={button} disabled={saving || pending.length > 0} onClick={() => void preview()}>Reload proposals</button>
           {saving && <span role="status">Saved {saved} of {target} selected reviews…</span>}
         </div>
         <div className="space-y-3">
@@ -154,7 +173,7 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpe
             const proposedFinish = printing ? finishForPrinting(defaults.finish, printing) : null;
             return <div key={row.photoId} className="border border-[var(--app-border)] rounded p-3 min-w-0">
               <div className="flex flex-wrap gap-2 items-center justify-between">
-                <label className="font-medium"><input type="checkbox" checked={row.checked && canSelect} disabled={saving || !canSelect}
+                <label className="font-medium"><input type="checkbox" checked={row.checked && canSelect} disabled={saving || pending.length > 0 || !canSelect}
                   onChange={event => {
                     const checked = event.target.checked;
                     selections.current.set(row.photoId, { printingId: printing!.id, checked });
@@ -166,6 +185,7 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpe
                 }}>Inspect or correct</a>
               </div>
               {printing && <p className="text-sm">{printing.setCode.toUpperCase()} #{printing.collectorNumber} · {printing.lang?.toUpperCase() ?? "language unknown"} · {row.record.recognitionStatus.replaceAll("_", " ").toLowerCase()}</p>}
+              {row.pendingConfirmation && <p className="text-sm">Original confirmation: {row.pendingConfirmation.finish.toLowerCase()} · {row.pendingConfirmation.condition}. Later default changes do not alter this confirmation.</p>}
               {proposedFinish && proposedFinish !== defaults.finish && <p className="text-sm">This printing supports only {proposedFinish.toLowerCase()}; bulk review will use that finish.</p>}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 max-w-3xl">
                 <img loading="lazy" className="w-full max-h-96 object-contain bg-black/10" src={`/api/acquisition/${batchId}/photos/${row.photoId}`} alt={`Scan of card ${row.position}`} />
