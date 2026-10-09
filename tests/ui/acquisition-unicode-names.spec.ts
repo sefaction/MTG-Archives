@@ -1,0 +1,54 @@
+import {expect, test} from "@playwright/test";
+import {execFileSync} from "node:child_process";
+import {randomUUID} from "node:crypto";
+import sharp from "sharp";
+import {cleanupCorrectionFixture} from "./correction-fixture";
+
+const workerNames=["acquisition-worker","acquisition-catalog-worker","acquisition-recognition-worker","acquisition-visual-worker","acquisition-printing-worker"].map(s=>`mtg-archives-${s}-1`);
+function database(body:string){return execFileSync("docker",["exec","-i","mtg-archives-web-1","node","--import","tsx"],{windowsHide:true,encoding:"utf8",timeout:60000,
+  input:`const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${body}})().catch(e=>{console.error(e.message);process.exitCode=1}).finally(()=>p.$disconnect());`});}
+
+test("distinct Unicode titles reach conflicted real review and retain a human correction",async({page,baseURL})=>{
+  test.skip(process.env.MTG_LOCAL_PILOT_TEST!=="1","Owned synthetic saved-OCR fixture, not recognition accuracy");
+  expect(baseURL).toBe("http://127.0.0.1:13001"); test.setTimeout(180000);
+  // The operator pauses exactly the five local acquisition workers and resumes
+  // them after this fixture. This prevents synthetic OCR from entering native
+  // inference or external catalog requests; the real handler/API/UI still run.
+  const workers=JSON.parse(execFileSync("docker",["inspect",...workerNames],{encoding:"utf8",windowsHide:true}));
+  expect(workers.every((s:any)=>s.State.Status==="exited")).toBe(true);
+  const tag=`ui-unicode-names-${randomUUID()}`,password=randomUUID(),name=`Unicode evidence ${randomUUID().slice(0,8)}`;
+  const cards=[0,1].map(i=>({id:`${tag}-${i}`,scryfallId:randomUUID(),name:name+(i?" other":" first"),printedName:(i?"Совсем другая ":"Верная карта ")+name+" 123",setCode:i?"uxyz":"uabc",collectorNumber:i?"8":"7",lang:"ru",finishes:["nonfoil"],imageUri:"/fixture-footer.svg",typeLine:"Creature",rarity:"common"}));
+  let batch="",photo="";
+  try{
+    database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:1,sections:[]}}});for(const c of ${JSON.stringify(cards)})await p.card.create({data:c});const {ensureCorrectionAccount}=require('./lib/acquisition-correction-library.ts');await p.$transaction(tx=>ensureCorrectionAccount(tx,n));await p.correctionLibraryAccount.update({where:{ownerPlayerId:n},data:{sampleBasisPoints:0}});`);
+    await page.goto('/login');await page.getByLabel(/username or email/i).fill(tag);await page.getByLabel(/^password$/i).fill(password);await page.getByRole('button',{name:/^log in$/i}).click();await page.waitForURL(/\/dashboard/);
+    const created=await page.request.post('/api/acquisition',{headers:{origin:baseURL!},data:{requestKey:randomUUID(),locationId:tag,section:"",quantity:1}});expect(created.ok(),await created.text()).toBe(true);batch=(await created.json()).id;
+    const reserve=await page.request.post(`/api/acquisition/${batch}`,{headers:{origin:baseURL!},data:{action:'reserve',requestKey:randomUUID()}});expect(reserve.ok()).toBe(true);const {slot}=await reserve.json();
+    const bytes=await sharp({create:{width:300,height:420,channels:3,background:'#335577'}}).jpeg().toBuffer();
+    const upload=await page.request.post(`/api/acquisition/${batch}/photos?slot=${slot.id}&key=${randomUUID()}&generation=${slot.generation}&inputKind=CARD_SCAN`,{headers:{origin:baseURL!,'content-type':'image/jpeg'},data:bytes});expect(upload.ok(),await upload.text()).toBe(true);photo=(await upload.json()).id;
+    const evidence=JSON.parse(database(`const ph=await p.acquisitionPhoto.findUniqueOrThrow({where:{id:${JSON.stringify(photo)}}});const c=await p.acquisitionCandidate.findFirstOrThrow({where:{physicalId:ph.slotId}});const a=await p.acquisitionArtifact.findFirstOrThrow({where:{sourceId:ph.id}});await p.acquisitionProcessingJob.updateMany({where:{candidateId:c.id},data:{status:'FAILED',leaseToken:null,leaseExpiresAt:null,errorCode:'CONTROLLED_UI_FIXTURE'}});
+      const text={title:[${JSON.stringify(cards[1].printedName)}],footer:['UABC RU','C 7']};const native={version:1,descriptor:'a'.repeat(64),descriptorDetails:{},photoDigest:ph.digest,text,orientations:[{rotationDegrees:0,text,lines:[]},{rotationDegrees:180,text:{title:[],footer:[]},lines:[]}],geometry:{status:'ACCEPTED'},lines:[],milliseconds:1,automaticAcceptance:false};
+      const rawOutput={version:1,photoId:ph.id,native,versions:{model:'a'.repeat(64)},proposals:{proposals:[]}};const common={runId:ph.runId,artifactId:a.id,candidateId:c.id,candidateRevision:c.revision,versionKey:require('crypto').randomUUID(),input:{photoId:ph.id,digest:ph.digest},status:'COMPLETE'};const raw=await p.acquisitionProcessingJob.create({data:{...common,stage:'photo-recognition-v1',output:rawOutput}});
+      const {createCatalogReconciliationHandler}=require('./lib/acquisition-catalog-reconciliation.ts');const {CATALOG_RESOLVER_VERSION,CATALOG_RECONCILIATION_STAGE}=require('./lib/acquisition-catalog-status.ts');const sc=${JSON.stringify(cards)}.map(c=>({object:'card',id:c.scryfallId,name:c.name,printed_name:c.printedName,set:c.setCode,collector_number:c.collectorNumber,lang:c.lang,set_name:'Fixture',rarity:'common',digital:false}));const queries=[];
+      const handler=createCatalogReconciliationHandler(p,async query=>{queries.push(query);return {status:'FOUND',cards:sc.filter(c=>query.kind!=='printing'||(c.set===query.set&&c.lang===query.language)),requestsMade:0,printingCoverage:'CHECKED',cacheHit:true,lookupKey:JSON.stringify(query)}});
+      const job=await p.acquisitionProcessingJob.create({data:{...common,versionKey:require('crypto').randomUUID(),stage:CATALOG_RECONCILIATION_STAGE,input:{...common.input,recognitionJobId:raw.id,resolverVersion:CATALOG_RESOLVER_VERSION}}});const output=await handler(job,AbortSignal.timeout(60000));await p.acquisitionProcessingJob.update({where:{id:job.id},data:{output}});console.log(JSON.stringify({queries,output,rawId:raw.id,rawOutput,candidateId:c.id}));`));
+    expect(evidence.queries.filter((q:any)=>q.kind==='printing')).toEqual([{kind:'printing',set:'uabc',number:'7',language:'ru'}]);
+    expect(evidence.output.proposals.proposals.map((p:any)=>p.card.id)).toEqual(cards.map(c=>c.id));expect(evidence.output.proposals.automaticAcceptance).toBe(false);expect(evidence.output.proposals.status).toBe('CONFLICT');expect(evidence.output.proposals.proposals[0].reasons).toContain('TITLE_CONTRADICTION');expect(evidence.output.proposals.proposals[0].reasons).not.toContain('TITLE_EXACT');
+    await page.route('**/fixture-footer.svg',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="300" height="420"><rect width="300" height="420" fill="#557799"/></svg>'}));
+    const endpoint=`/api/acquisition/${batch}/review?photoId=${photo}`;
+    const review=await (await page.request.get(endpoint)).json();expect(review.review).toBeNull();expect(review.recognitionStatus).toBe('CONFLICT');expect(review.suggestions.map((s:any)=>s.printing.id)).toEqual(cards.map(c=>c.id));
+    await page.goto(`/imports/scan?batch=${batch}`);const card=page.getByTestId('capture-card-1');await card.scrollIntoViewIfNeeded();
+    await expect(card.getByRole('img',{name:new RegExp(`^Printing: ${name}`)}).first()).toBeVisible();
+    await card.getByRole('button',{name:'Correct',exact:true}).click();const choices=card.getByRole('group',{name:'Possible printings',exact:true});await expect(choices.getByRole('radio')).toHaveCount(2);
+    await choices.getByRole('radio').nth(1).check();await card.getByRole('combobox',{name:'Card condition',exact:true}).selectOption('NM');
+    for(const width of [1366,320]){await page.setViewportSize({width,height:900});await choices.scrollIntoViewIfNeeded();await expect(choices.getByRole('radio').nth(1)).toBeChecked();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:`test-results/unicode-name-review-${width}.png`});}
+    await card.getByRole('button',{name:'Save card review',exact:true}).click();await expect.poll(async()=>((await (await page.request.get(endpoint)).json()).review?.cardId)).toBe(cards[1].id);
+    await page.reload();await card.scrollIntoViewIfNeeded();await expect(card.getByRole('img',{name:new RegExp(`^Printing: ${name}`)}).first()).toBeVisible();
+    const saved=JSON.parse(database(`console.log(JSON.stringify({raw:(await p.acquisitionProcessingJob.findUniqueOrThrow({where:{id:${JSON.stringify(evidence.rawId)}}})).output,review:(await p.acquisitionCandidate.findUniqueOrThrow({where:{id:${JSON.stringify(evidence.candidateId)}}})).review,inventory:await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}})}));`));expect(saved.raw).toEqual(evidence.rawOutput);expect(saved.review.cardId).toBe(cards[1].id);expect(saved.inventory).toBe(0);
+  }finally{
+    await page.unrouteAll({behavior:'wait'});
+    database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const w={run:{session:{createdByUserId:n}}};const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});${cleanupCorrectionFixture}
+      for(const m of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[m].deleteMany({where:w});await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});await p.card.deleteMany({where:{id:{in:${JSON.stringify(cards.map(c=>c.id))}}}});
+      const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;if(!root||!paths.isAbsolute(root))throw Error('Private fixture storage unavailable');for(const ph of photos){if(!/^[a-f0-9-]{36}$/.test(ph.id))throw Error('Invalid owned photo');for(const suffix of ['.original','.preview.jpg'])await fs.unlink(paths.join(root,'acquisition-v1',ph.id+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e})}`);
+  }
+});

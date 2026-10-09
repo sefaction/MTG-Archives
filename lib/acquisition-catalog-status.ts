@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const CATALOG_RECONCILIATION_STAGE = "photo-catalog-reconciliation-v1";
-export const CATALOG_RESOLVER_VERSION = "catalog-reconciliation-footer-pairs-v8";
+export const CATALOG_RESOLVER_VERSION = "catalog-reconciliation-unicode-names-v9";
 export const catalogStatusSchema = z.object({
   status: z.enum([
     "CHECKING",

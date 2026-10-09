@@ -39,6 +39,7 @@ import { verifyAcquisitionVisualReuse } from "./verify-acquisition-visual-reuse"
 import { verifyAcquisitionPrinting } from "./verify-acquisition-printing";
 import { verifyAcquisitionPhotoText } from "./verify-acquisition-photo-text";
 import { verifyAcquisitionFooterLanguages } from "./verify-acquisition-footer-languages";
+import { verifyAcquisitionUnicodeNames } from "./verify-acquisition-unicode-names";
 
 export async function verifyAcquisitionCatalogReconciliation(
   db: PrismaClient,
@@ -383,6 +384,7 @@ export async function verifyAcquisitionCatalogReconciliation(
     await verifyAcquisitionPrinting(db, actor, sessionId, photoId, hybridJob);
     await verifyAcquisitionPhotoText(db, actor, sessionId, photoId, rawJob);
     await verifyAcquisitionFooterLanguages(db, actor, sessionId, photoId, rawJob);
+    await verifyAcquisitionUnicodeNames(db, actor, sessionId, photoId, rawJob);
     // Thirty-two older rows whose old visual result completed but whose latest
     // version failed must not occupy the bounded queue ahead of one ready row.
     // Database-only queue fixtures: no recognition or Inventory claim is made.
