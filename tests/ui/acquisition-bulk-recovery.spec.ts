@@ -102,6 +102,12 @@ for (const { width, mode } of cases) test(`bulk lost-response recovery ${mode} a
       await expect(retry).toBeVisible(); await expect(retry).toBeEnabled();
       expect(writes).toHaveLength(mode === "twice" ? 2 : 1);
       expect(writes.every(write => write.photoId === photos[0])).toBe(true);
+      await expect(bulk.getByRole("button", { name: "Reload proposals", exact: true })).toBeDisabled();
+      await expect(bulk.getByRole("button", { name: "Bulk Confirm Match", exact: true })).toBeDisabled();
+      for (const checkbox of await bulk.getByRole("checkbox").all()) await expect(checkbox).toBeDisabled();
+      await expect(bulk).toContainText("Original confirmation: nonfoil · NM.");
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ path: `test-results/bulk-recovery-pending-${mode}-${width}.png` });
       await bulk.getByRole("button", { name: "Back to card list", exact: true }).click();
       await expect(retry).toBeVisible();
       if (mode === "twice") {
@@ -109,7 +115,7 @@ for (const { width, mode } of cases) test(`bulk lost-response recovery ${mode} a
         const defaults = page.getByRole("region", { name: "Batch review defaults", exact: true });
         await defaults.getByLabel("Batch condition", { exact: true }).selectOption("LP");
         await defaults.getByRole("button", { name: "Save batch defaults", exact: true }).click();
-        await expect(defaults).toContainText("Batch defaults saved.");
+        await expect(page.locator("summary").filter({ hasText: "Batch defaults:" })).toContainText("LP");
       } else {
         await retry.click(); // The new draft still prevents a write.
         await expect(bulk.getByRole("status").filter({ hasText: "uncertain" })).toBeVisible();
