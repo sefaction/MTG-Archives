@@ -130,6 +130,7 @@ export function AcquisitionCapture({
   const [progress, setProgress] = useState<Progress | null>(null);
   const captureRoot = useRef<HTMLDivElement>(null);
   const progressPanel = useRef<HTMLElement>(null);
+  const hasProgress = Boolean(progress);
   const measureScrollOffset = useCallback(() => {
     const summary = progressPanel.current;
     if (summary) captureRoot.current?.style.setProperty("--scan-scroll-offset", `${Math.ceil(summary.getBoundingClientRect().height) + 16}px`);
@@ -141,7 +142,7 @@ export function AcquisitionCapture({
     const observer = new ResizeObserver(measureScrollOffset);
     observer.observe(summary);
     return () => observer.disconnect();
-  }, [batchId, Boolean(progress), measureScrollOffset]);
+  }, [batchId, hasProgress, measureScrollOffset]);
   function scrollScanTarget(target: HTMLElement | null) {
     // A state change can grow the summary before ResizeObserver's next turn.
     // Read its current layout immediately before a programmatic jump.

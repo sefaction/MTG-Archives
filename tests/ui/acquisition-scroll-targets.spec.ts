@@ -13,6 +13,13 @@ function database(body: string) {
 }
 async function clearTarget(page: Page, target: Locator, stage: string) {
   await expect(target).toBeVisible();
+  // React updates and deferred jumps settle on animation frames. Keep the
+  // strict geometry requirement while allowing those real frames to finish.
+  await expect.poll(() => target.evaluate(element => {
+    const summary = document.querySelector('[aria-label="Batch progress"]')!;
+    const box = element.getBoundingClientRect();
+    return box.top >= summary.getBoundingClientRect().bottom + 8 && box.top < innerHeight - 40;
+  }), { message: `${stage} must land visibly below the real sticky summary` }).toBe(true);
   const bounds = await target.evaluate(element => {
     const summary = document.querySelector('[aria-label="Batch progress"]')!;
     const targetBox = element.getBoundingClientRect(), summaryBox = summary.getBoundingClientRect();
@@ -20,7 +27,7 @@ async function clearTarget(page: Page, target: Locator, stage: string) {
       margin: getComputedStyle(element).scrollMarginTop, width: innerWidth, height: innerHeight };
   });
   console.log("Owned scan target bounds:", JSON.stringify({ stage, ...bounds }));
-  await page.screenshot({ path: `test-results/scan-scroll-${stage}-${bounds.width}.png` });
+  await page.screenshot({ path: test.info().outputPath(`scan-scroll-${stage}-${bounds.width}.png`) });
   expect(bounds.targetTop, `${stage} must clear the real sticky summary`).toBeGreaterThanOrEqual(bounds.summaryBottom + 8);
   expect(bounds.targetTop, `${stage} must be in the viewport`).toBeLessThan(bounds.height - 40);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -104,6 +111,8 @@ for (const width of [1366, 320]) test(`scan jumps clear changing sticky progress
     }, acquisitionDraftKey({ userId: tag, batchId: batch, photoId: photos[0] }));
     await expect(summary.getByRole("alert")).toContainText("Save or cancel this correction");
     expect(await summary.evaluate(element => element.getBoundingClientRect().height)).toBeGreaterThan(beforeHeight);
+    await summary.getByRole("link", { name: "Review saved cards", exact: true }).click();
+    await clearTarget(page, review, "draft-alert-summary");
     await handoff.focus(); await page.keyboard.press("Enter");
     await clearTarget(page, inventory, "grown-summary");
     await page.reload(); await summary.getByRole("link", { name: "Review saved cards", exact: true }).click();
