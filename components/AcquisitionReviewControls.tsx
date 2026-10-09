@@ -1003,7 +1003,11 @@ export function AcquisitionPhotoReview({
                   role="status"
                   data-testid="scan-compact-status"
                 >
-                  {draftDirty && !committed ? "Unsaved correction" : processing.label}
+                  {committed
+                    ? "Added to Inventory"
+                    : draftDirty
+                      ? "Unsaved correction"
+                      : processing.label}
                 </p>
                 {!record.review &&
                   (record.visualStatus === "FAILED" ||
