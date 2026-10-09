@@ -23,6 +23,7 @@ export const cleanupCorrectionFixture = `
 export function cancelAndCleanCorrectionFixture(ownerPlayerId: string) {
   if (!fixtureOwner.test(ownerPlayerId)) throw new Error("Invalid owned correction fixture");
   return `{ const n=${JSON.stringify(ownerPlayerId)};
+    await p.authSession.deleteMany({where:{user:{playerId:n}}});
     await p.acquisitionSession.updateMany({where:{ownerPlayerId:n},data:{phase:'CANCELLED'}});
     ${cleanupCorrectionFixture}
   }`;

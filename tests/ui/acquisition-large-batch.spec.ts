@@ -240,8 +240,9 @@ test('large scan-image batches retain every input through ordinary native queues
     for(const [i,worker] of report.workersAfter.entries())assertNativeWorkerContinuity(report.workersBefore[i],worker);
     qualified=true;
   }finally{
-    // Independent feedback cleanup must precede browser/report operations.
+    // Block new authenticated polling and retire only this fixture owner.
     for (const owner of owners) database(cancelAndCleanCorrectionFixture(owner.tag) + "console.log('{}');");
+    try {
     if(timer)clearInterval(timer);report.checksFinishedAt=new Date().toISOString();save();
     await Promise.allSettled(failedResponses);
     await captureBrowserFailures();
@@ -289,5 +290,10 @@ test('large scan-image batches retain every input through ordinary native queues
     expect(report.cleanup).toEqual({users:0,sessions:0,locations:0,inventory:0});
     if(report.existingInventoryBefore)expect(report.existingInventoryAfter).toEqual(report.existingInventoryBefore);
     report.finishedAt=new Date().toISOString();finalizeQualificationReport(writeReport,report,qualified);
+
+    } finally {
+      // A final sweep also catches writes completed during legacy teardown.
+      for (const owner of owners) database(cancelAndCleanCorrectionFixture(owner.tag) + "console.log('{}');");
+    }
   }
 });

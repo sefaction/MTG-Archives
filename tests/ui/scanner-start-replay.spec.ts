@@ -108,8 +108,9 @@ for (const accepted of [true, false]) test(`lost website START ${accepted ? "ack
       expect(requests).toHaveLength(2); // Ordinary photo creation requires no scanner-start storage.
     }
   } finally {
-    // Independent feedback cleanup must precede browser/report operations.
+    // Block new authenticated polling and retire only this fixture owner.
     database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
+    try {
     database(`const n=${JSON.stringify(tag)},w={run:{session:{createdByUserId:n}}};const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;
       if(!root||!paths.isAbsolute(root))throw new Error('Private fixture storage unavailable');
       for(const r of await p.scannerRun.findMany({where:{agent:{userId:n}},select:{id:true}})){
@@ -119,5 +120,10 @@ for (const accepted of [true, false]) test(`lost website START ${accepted ? "ack
       await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});
       await p.scannerPairing.deleteMany({where:{userId:n}});await p.scannerAgent.deleteMany({where:{userId:n}});await p.authSession.deleteMany({where:{userId:n}});
       await p.inventoryLocation.deleteMany({where:{id:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});`);
+
+    } finally {
+      // A final sweep also catches writes completed during legacy teardown.
+      database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
+    }
   }
 });

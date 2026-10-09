@@ -69,8 +69,9 @@ test("three successive saved-scan batches reach recognition and survive refresh"
         data: { action: "control", revision: latest.revision, requestKey: randomUUID(), command: "STOP" } })).ok()).toBe(true);
     }
   } finally {
-    // Independent feedback cleanup must precede browser/report operations.
+    // Block new authenticated polling and retire only this fixture owner.
     database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
+    try {
     // Cancel only the owned fixtures, then let any visual/printing lease drain
     // before removing their rows and immutable files.
     database(`await p.acquisitionSession.updateMany({where:{createdByUserId:${JSON.stringify(tag)}},data:{phase:'CANCELLED'}});`);
@@ -80,5 +81,10 @@ test("three successive saved-scan batches reach recognition and survive refresh"
       for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});
       await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});
       const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;if(!root||!paths.isAbsolute(root))throw new Error('Private fixture path unavailable');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw new Error('Invalid owned photo identity');for(const suffix of ['.original','.preview.jpg'])await fs.unlink(paths.join(root,'acquisition-v1',photo.id+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e;});}`);
+
+    } finally {
+      // A final sweep also catches writes completed during legacy teardown.
+      database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
+    }
   }
 });
