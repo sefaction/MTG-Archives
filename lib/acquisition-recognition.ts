@@ -1,7 +1,7 @@
 import { acquisitionCollectorKey, acquisitionFooterIdentifiers } from "./acquisition-footer";
-import { acquisitionNameKey } from "./acquisition-name";
+import { acquisitionNameKey, acquisitionExactNameKeyEligible } from "./acquisition-name";
 export { acquisitionCollectorKey } from "./acquisition-footer";
-export const ACQUISITION_TEXT_RESOLVER_VERSION = "metadata-unicode-name-evidence-v7";
+export const ACQUISITION_TEXT_RESOLVER_VERSION = "metadata-short-unicode-names-v8";
 
 // OCR similarity is not calibrated confidence. Strong exact metadata can confirm
 // a printing; it never establishes physical count, finish, condition or receipt.
@@ -118,7 +118,8 @@ function resolveAcquisitionPrintings(
     }
   }
   const collectors = new Set(footer.collectors);
-  const titleKeys = input.title.map(nameKey).filter((s) => s.length >= 3);
+  const titleKeys = input.title.map(nameKey).filter(acquisitionExactNameKeyEligible);
+  const fuzzyTitleKeys = titleKeys.filter(key => key.length >= 3);
   const exactNames = new Set<string>();
   const exactCards = new Map<string, RecognitionCard>();
   for (const [name, cards] of index.byName) {
@@ -194,12 +195,12 @@ function resolveAcquisitionPrintings(
         nameDistance: 0,
       });
   }
-  if (allowFuzzy && !proposals.size && titleKeys.length) {
+  if (allowFuzzy && !proposals.size && fuzzyTitleKeys.length) {
     const ranked = [...index.byName.keys()]
       .map((name) => ({
         name,
         distance: Math.min(
-          ...titleKeys.map(
+          ...fuzzyTitleKeys.map(
             (line) => distance(name, line) / Math.max(name.length, line.length),
           ),
         ),

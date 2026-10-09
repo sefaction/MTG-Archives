@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { acquisitionNameKey } from "./acquisition-name";
+import { acquisitionNameKey, acquisitionExactNameKeyEligible } from "./acquisition-name";
 import { acquisitionNativePhotoInput, type AcquisitionImageInputKind } from "./acquisition-image-input";
 import type { createAcquisitionRecognitionIndex, proposeOrientedAcquisitionPrintings, RecognitionProposal } from "./acquisition-recognition";
 
@@ -99,7 +99,7 @@ export function combineAcquisitionPhotoText(index: Index, base: Proposals, raw?:
   const hints = new Map<string, RecognitionProposal>();
   for (const reading of photoText.readings) for (const text of reading.text) {
     const key = acquisitionPhotoNameKey(text);
-    if (key.length < 3) continue;
+    if (!acquisitionExactNameKeyEligible(key)) continue;
     // Exact whole-line name retrieval only. Body substrings/fuzzy matches never
     // become a located title, and these lines supply no footer identifiers.
     for (const card of index.byName.get(key) ?? []) hints.set(card.id, {

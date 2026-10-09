@@ -385,6 +385,7 @@ export async function verifyAcquisitionCatalogReconciliation(
     await verifyAcquisitionPhotoText(db, actor, sessionId, photoId, rawJob);
     await verifyAcquisitionFooterLanguages(db, actor, sessionId, photoId, rawJob);
     await verifyAcquisitionUnicodeNames(db, actor, sessionId, photoId, rawJob);
+    await verifyAcquisitionUnicodeNames(db, actor, sessionId, photoId, rawJob, true);
     // Thirty-two older rows whose old visual result completed but whose latest
     // version failed must not occupy the bounded queue ahead of one ready row.
     // Database-only queue fixtures: no recognition or Inventory claim is made.
