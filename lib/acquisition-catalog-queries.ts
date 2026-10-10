@@ -45,7 +45,9 @@ export function catalogQueryKey(raw: CatalogQuery) {
           }
         : query;
   return createHash("sha256")
-    .update(JSON.stringify({ version: 1, query: canonical }))
+    // Refresh name lookups once so older false NOT_FOUND entries cannot mask
+    // paper editions. Explicit printing/ID caches retain their identities.
+    .update(JSON.stringify({ version: query.kind === "name" ? 2 : 1, query: canonical }))
     .digest("hex");
 }
 

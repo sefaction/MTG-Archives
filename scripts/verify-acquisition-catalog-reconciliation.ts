@@ -24,6 +24,7 @@ import {
   proposeOrientedAcquisitionPrintings,
 } from "../lib/acquisition-recognition";
 import { resolveCachedAcquisitionCatalog } from "../lib/acquisition-catalog-cache";
+import { fetchAcquisitionCatalogQuery } from "../lib/acquisition-catalog-provider";
 import { catalogQueryKey } from "../lib/acquisition-catalog-queries";
 import {
   getAcquisitionCardReview,
@@ -184,6 +185,9 @@ export async function verifyAcquisitionCatalogReconciliation(
     );
     assert.equal(review.catalog?.status, "RESOLVED");
     const manual = { ...cards[0], id: ids[2], name: `Manual ${name}` };
+    const manualList = { ...manual, id: randomUUID(), set: "plst", collector_number: "NEWSET-17" };
+    ids.push(manualList.id);
+    let manualProviderCalls = 0;
     const searched = await searchAcquisitionPrintings(
       db,
       actor,
@@ -191,15 +195,28 @@ export async function verifyAcquisitionCatalogReconciliation(
       { query: manual.name, set: "", number: "" },
       async (query, signal) => {
         keys.add(catalogQueryKey(query));
-        return resolveCachedAcquisitionCatalog(db, query, signal, async () => ({
-          status: "FOUND",
-          cards: [manual],
-          requestsMade: 2,
-          printingCoverage: "CHECKED",
-        }));
+        return resolveCachedAcquisitionCatalog(db, query, signal, async (q, s) => {
+          manualProviderCalls++;
+          return fetchAcquisitionCatalogQuery(q, s, {
+            card: async () => ({ ok: true, data: { ...manual, id: randomUUID(), digital: true },
+              correlationId: "manual-digital-first", requestsMade: 1 }),
+            printings: async () => ({ ok: true, data: { object: "list", data: [manual, manualList],
+              has_more: false, total_cards: 2 }, correlationId: "manual-paper-editions", requestsMade: 1 }),
+          });
+        });
       },
     );
     assert.equal(searched[0].name, manual.name);
+    assert.equal(searched.length, 2);
+    assert.ok(searched.some(card => card.setCode === "plst"));
+    assert.equal(manualProviderCalls, 1);
+    assert.equal(await db.card.count({ where: { name: manual.name } }), 2,
+      "digital named identity must not be imported with the paper editions");
+    const cachedManual = await searchAcquisitionPrintings(db, actor, sessionId,
+      { query: manual.name, set: "", number: "" }, async () => {
+        throw new Error("Imported paper metadata should satisfy the repeated manual search");
+      });
+    assert.deepEqual(cachedManual, searched);
     await assert.rejects(
       searchAcquisitionPrintings(
         db,
