@@ -52,7 +52,7 @@ export function AcquisitionScanImage({
   const renderEvidence = JSON.stringify({
     quad,
     readingZones,
-    lines: observation?.lines,
+    lines: observation ? [...observation.lines, ...(observation.footerLines ?? [])] : undefined,
   });
   useEffect(() => {
     if (!activated || !canvas.current) return;
@@ -481,6 +481,7 @@ export function AcquisitionEvidenceFields({
                 </p>
                 <p>Title: {o.text.title.join(" | ") || "Nothing read"}</p>
                 <p>Footer: {o.text.footer.join(" | ") || "Nothing read"}</p>
+                {o.text.footerSupplemental?.length ? <p>Additional footer reading: {o.text.footerSupplemental.join(" | ")}</p> : null}
               </div>
             ))}
           </details>

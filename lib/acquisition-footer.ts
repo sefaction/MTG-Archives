@@ -1,5 +1,5 @@
 // This interprets saved OCR text; it neither changes pixels nor proves printing.
-export const ACQUISITION_FOOTER_PARSER_VERSION = "footer-identifiers-v1";
+export const ACQUISITION_FOOTER_PARSER_VERSION = "footer-observations-v2";
 
 // Zero padding is typography. Identity suffixes/prefixes must remain intact.
 export function acquisitionCollectorKey(value: string) {
@@ -61,4 +61,16 @@ export function acquisitionFooterIdentifiers(lines: string[]) {
     collectors.add(number);
   }
   return {identifiers: [...identifiers.values()], collectors: [...collectors], recoveredLayout};
+}
+
+// Keep the initial and supplemental readings together within one orientation.
+// Additional metadata can help review/lookup but cannot create a strong match.
+export function acquisitionFooterObservations(primary: string[], supplemental: string[] = []) {
+  const initial = acquisitionFooterIdentifiers(primary);
+  if (!supplemental.length) return initial;
+  const combined = acquisitionFooterIdentifiers([...primary, ...supplemental]);
+  const addedIdentifier = combined.identifiers.some(value => !initial.identifiers.some(
+    old => old.set === value.set && old.language === value.language));
+  const addedCollector = combined.collectors.some(value => !initial.collectors.includes(value));
+  return {...combined, recoveredLayout: combined.recoveredLayout || addedIdentifier || addedCollector};
 }

@@ -25,6 +25,7 @@ const digest = z.string().regex(/^[a-f0-9]{64}$/);
 const textSchema = z.object({
   title: z.array(z.string().max(2000)).max(100),
   footer: z.array(z.string().max(2000)).max(100),
+  footerSupplemental: z.array(z.string().max(2000)).max(100).optional(),
 });
 const linesSchema = z
   .array(
@@ -48,6 +49,7 @@ export const nativeSchema = z.object({
         rotationDegrees: z.union([z.literal(0), z.literal(180)]),
         text: textSchema,
         lines: linesSchema,
+        footerLines: linesSchema.optional(),
       }),
     )
     .max(2),

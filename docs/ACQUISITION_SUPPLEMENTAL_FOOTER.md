@@ -1,0 +1,19 @@
+# Additional scanner footer reading
+
+This batch addresses the joined-footer subset of recognition issue #463. The primary stitched title/footer reading of the retained Thousand-Faced Shadow scan reads `NEOENEKATERinA BURMaK`, leaving no supported set/language boundary. The printed original was inspected and still contains the marker and artist; original pixels and framing are preserved.
+
+Recognition now keeps that original reading and adds one full-width reading of the existing footer zone per orientation. Its actual boxes map back to the same card coordinates. No narrow crop, artist-prefix parser guess, source replacement or external model is used. Owner review shows the additional reading and its detected boxes beside the original evidence.
+
+The resolver and external catalog query extraction consume both readings within the same orientation. New set/language pairs or collector numbers from the additional reading carry recovered-layout/review-required reasons and cannot produce a strong automatic match. Duplicate metadata preserves an already supported original match; contradictions are retained. Footer/parser/text/catalog interpretation versions change so the new contract is identified. Finish, condition, stamp uncertainty, saved human corrections and explicit Inventory confirmation retain their existing authority.
+
+## Local evidence and limits
+
+- An initial isolated actual-runtime probe of the preserved original confirms that a separate full-width footer reading separates the marker from the artist. Narrow diagnostic widths were also probed but are not part of the implementation.
+- A paired replay uses all 17 SHA-bound retained scanner development originals, actual offline weights/runtime, the original code from the running image and the candidate source mounted read-only. Both methods keep their full observations. Its longest candidate attempt is 6703ms; the model is warm/shared for this comparative probe, so this is not a cold-start or throughput qualification.
+- Both observation sets are resolved against the complete current local catalog projection: 118491 cards, snapshot SHA-256 `4e26dcfe5b82ebcb80ed5d3cf94f606f2e2b6f5b82e24fd9db88cf74894705a5`. Expected paired-footer support changes from 16 to 17 development scans. None loses expected support or an existing automatic decision; none gains a new automatic decision or has a wrong automatic decision under the retained labels. This recovers evidence on known development scans, not independent accuracy, physical acceptance or general printing correctness.
+- Unit controls preserve rejection of the unpunctuated artist join without the extra observation, review-only recovery, duplicate original strong support, new contradictions, orientation separation, copyright-year guards, source immutability, bounded evidence and owner-safe review projection. Python controls preserve actual footer coordinates and reject boxes outside the attempted region. Initial unit/types/core/build checks pass; later verification additions require their final checks.
+- The PostgreSQL verifier now runs both its original paired-language case and a separate supplemental-reading case. Provider pair correctness, obsolete-version rejection, immutable original OCR, cache behavior and zero Inventory writes remain required; actual updated PostgreSQL execution is pending.
+
+Required-installer cumulative Docker/native builds, actual-image descriptor/source fences, full browser/native crop and footer workflows, final conservation and final-head CI remain pending. The batch is a draft until those gates pass. #463 and draft #706 remain open; no production deployment or physical scanner feeding is performed.
+
+Private raw observations, catalog snapshot, traces and original images remain outside the committed report under `.local-data/footer-*`. No secrets or private runtime paths are included in the owner-facing review or this document.
