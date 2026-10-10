@@ -52,18 +52,30 @@ history while avoiding the stalled client-stream transition.
   ten-second Clear-filters URL assertion (phone, then desktop). The phone group
   overlapped an inadvertently started conservation read; the desktop group ran
   without that read. The phone trace records response headers after 152 ms but
-  no completed streamed body before timeout. Query completion/stream lifecycle
-  caused the visible wait; the internal stop cause is not established. These
+  no completed streamed body before timeout. The client transition did not
+  complete; the internal stop cause is not established. These
   failures justify the ordinary document-navigation repair and remain failures.
 - The existing real-data Public privacy/parity case passed both warm groups,
   with owned fixtures cleaned. A terminal after-snapshot conserves all seven
   original table projections and fifteen other services. An earlier snapshot
   during a browser run is retained separately and is not final qualification.
-- Fresh navigation-source core, required-installer cumulative Docker build,
-  loaded-runtime repeated desktop/phone/history/options browser and final
-  conservation gates are pending. No deadline or assertion was relaxed.
-- Final-head GitHub checks are pending; readiness follows completed
-  qualification, with individual approval/merge handled by the scheduled reviewer.
+- Fresh navigation-source types and all 881 units pass. A duplicate host
+  production build was deliberately interrupted during compilation to reduce
+  contention on the laptop; it is not a full fresh host-core pass. All three
+  required GitHub checks pass on implementation commit `9005a59`, including
+  production build. The required-installer cumulative Docker build also passes
+  compilation, types, static generation and all thirteen client-manifest guards.
+- The new navigation image is built but not loaded. A supervised manual scanner
+  test became active on the shared local environment, so web replacement and
+  browser qualification were deferred to avoid interrupting that work. The
+  last loaded source remains the metadata-only `a7377bcf` build. Repeated
+  desktop/phone/history/options checks and final post-navigation conservation
+  are still pending. No deadline or assertion was relaxed.
+- Resume after the manual test releases the environment. Reconcile its actual
+  data, services and loaded source before capturing a fresh pre-load baseline;
+  preserve intentional manual-test changes. Final-head GitHub checks and all
+  loaded-runtime gates must pass before this draft becomes ready. Individual
+  approval and merge remain the scheduled reviewer's responsibility.
 
 Private evidence is under feature `.local-data/paired-query.*`,
 `repeat-browser.*`, `baseline-browser.*`, `core.log` and cumulative review
@@ -86,6 +98,9 @@ The source digest changes from
 (metadata only), then
 `c4b7c9191cfc4154b9b0d381afea7fc899b6476dd15e32a231b29b8038077440`
 (including document navigation).
+The pending navigation image is
+`sha256:7a9dd2f42c3bfbf6e954bf051e82262e0a8fdc47794b4273c050a0730d10bf9a`;
+it must be reconciled with this exact source manifest before loading.
 The preexisting other-worker layout WIP is copied into this separate review
 checkout; the original worktree is preserved. Application dependency on either
 unmerged PR is not introduced by the name-metadata change.
