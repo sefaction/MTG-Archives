@@ -146,6 +146,7 @@ async function main() {
         .object({
           title: z.array(z.string().max(2000)).max(100),
           footer: z.array(z.string().max(2000)).max(100),
+          footerSupplemental: z.array(z.string().max(2000)).max(100).optional(),
         })
         .parse(observed.text);
     } else if (observed.lines) {

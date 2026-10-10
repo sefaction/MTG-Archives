@@ -60,3 +60,12 @@ def reading_text(lines):
         'title': grouped_text([line for line in lines if max(p[1] for p in line['polygon']) <= TITLE_BOTTOM]),
         'footer': grouped_text([line for line in lines if min(p[1] for p in line['polygon']) >= FOOTER_TOP]),
     }
+
+
+def restore_footer_polygon(polygon):
+    """Map a separate full-width footer reading without invented coordinates."""
+    top = min(p[1] for p in polygon)
+    bottom = max(p[1] for p in polygon)
+    if 0 <= top <= bottom <= CARD_HEIGHT - FOOTER_TOP:
+        return [[p[0], p[1] + FOOTER_TOP] for p in polygon]
+    return None
