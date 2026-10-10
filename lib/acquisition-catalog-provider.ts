@@ -70,14 +70,18 @@ export async function fetchAcquisitionCatalogQuery(
           first.lang !== query.language))
     )
       throw new Error("Printing response does not match request");
-    if (first.digital === true)
+    const digitalName = query.kind === "name" && first.digital === true;
+    if (first.digital === true && !digitalName)
       return {
         status: "NOT_FOUND",
         cards: [],
         requestsMade,
         printingCoverage: "UNRESOLVED",
       };
-    cards.set(first.id, first);
+    // Named lookup may prefer an MTGO edition even when paper editions exist.
+    // Use that result only to identify the name; paper enumeration is authority
+    // for eligible printings, and the digital identity must never be imported.
+    if (!digitalName) cards.set(first.id, first);
     const language = first.lang ?? "en";
     const enumerated = new Set<string>();
     let expectedCount: number | undefined;
@@ -93,7 +97,7 @@ export async function fetchAcquisitionCatalogQuery(
       );
       requestsMade += response.requestsMade;
       signal.throwIfAborted();
-      if (!response.ok) return failure(response.error, false);
+      if (!response.ok) return failure(response.error, digitalName && page === 1);
       const data = z
         .object({
           object: z.literal("list"),
@@ -132,7 +136,7 @@ export async function fetchAcquisitionCatalogQuery(
       }
       if (!data.has_more) {
         if (
-          !enumerated.has(first.id) ||
+          (!digitalName && !enumerated.has(first.id)) ||
           (expectedCount !== undefined && enumerated.size !== expectedCount)
         )
           throw new Error("Incomplete printing enumeration");
