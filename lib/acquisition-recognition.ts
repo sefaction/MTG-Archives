@@ -1,7 +1,7 @@
-import { acquisitionCollectorKey, acquisitionFooterIdentifiers } from "./acquisition-footer";
+import { acquisitionCollectorKey, acquisitionFooterObservations } from "./acquisition-footer";
 import { acquisitionNameKey, acquisitionExactNameKeyEligible } from "./acquisition-name";
 export { acquisitionCollectorKey } from "./acquisition-footer";
-export const ACQUISITION_TEXT_RESOLVER_VERSION = "metadata-short-unicode-names-v8";
+export const ACQUISITION_TEXT_RESOLVER_VERSION = "supplemental-footer-review-v9";
 
 // OCR similarity is not calibrated confidence. Strong exact metadata can confirm
 // a printing; it never establishes physical count, finish, condition or receipt.
@@ -18,6 +18,7 @@ export type RecognitionCard = {
 export type RecognitionText = {
   title: string[];
   footer: string[];
+  footerSupplemental?: string[];
 };
 export type RecognitionProposal = {
   card: RecognitionCard;
@@ -104,7 +105,7 @@ function resolveAcquisitionPrintings(
     [...input.title, ...input.footer].some((line) => line.length > 2000)
   )
     throw new Error("OCR evidence exceeds bounds");
-  const footer = acquisitionFooterIdentifiers(input.footer);
+  const footer = acquisitionFooterObservations(input.footer, input.footerSupplemental);
   const setCodes = new Set<string>();
   const languages = new Set<string>();
   const languagesBySet = new Map<string, Set<string>>();

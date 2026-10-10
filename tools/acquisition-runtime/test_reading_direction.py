@@ -1,5 +1,5 @@
 import unittest
-from reading_direction import reading_text, restore_reading_polygon
+from reading_direction import reading_text, restore_reading_polygon, restore_footer_polygon
 
 
 def word(text, x, y, width, height=30):
@@ -40,6 +40,13 @@ class ReadingDirectionTest(unittest.TestCase):
         self.assertEqual(original, word('DMC EN', 70, 378, 200, 25)['polygon'])
         self.assertIsNone(restore_reading_polygon(word('seam', 70, 240, 200, 40)['polygon']))
         self.assertIsNone(restore_reading_polygon(word('outside', 70, 460, 200, 25)['polygon']))
+
+    def test_separate_footer_boxes_restore_only_actual_footer_pixels(self):
+        original = word('NEOEN', 80, 40, 100, 25)['polygon']
+        self.assertEqual(restore_footer_polygon(original), word('NEOEN', 80, 1310, 100, 25)['polygon'])
+        self.assertEqual(original, word('NEOEN', 80, 40, 100, 25)['polygon'])
+        self.assertIsNone(restore_footer_polygon(word('outside', 80, -1, 100)['polygon']))
+        self.assertIsNone(restore_footer_polygon(word('outside', 80, 120, 100)['polygon']))
 
 
 if __name__ == '__main__':
