@@ -102,6 +102,12 @@ export function AcquisitionBulkReview({ batchId, slots, defaults, refresh, onOpe
         const response = await fetch(`/api/acquisition/${batchId}/review`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "accept", photoId: row.photoId, revision: row.record.revision,
+            // Attribute this selection to the loaded preview, never a later
+            // recognition result or another row's proposal. Missing identity
+            // retains the server's conservative unknown-display handling.
+            ...(row.record.evidenceToken ? { evidenceTokens: {
+              current: row.record.evidenceToken, displayed: [row.record.evidenceToken],
+            } } : {}),
             decision: { cardId: printing.id, language: printing.lang, finish, condition: defaults.condition } }),
         });
         if (!response.ok) throw new Error((await response.json()).error ?? "Review changed; reload this match");
