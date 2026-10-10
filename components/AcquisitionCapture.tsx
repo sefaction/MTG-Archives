@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ScannerContinuation } from "@/lib/scanner-continuation";
 import { readScannerStart, saveScannerStart, clearScannerStart, type PendingScannerStart } from "@/lib/scanner-browser-start";
@@ -128,6 +128,27 @@ export function AcquisitionCapture({
   }, []);
   const [batchId, setBatchId] = useState(initialBatch);
   const [progress, setProgress] = useState<Progress | null>(null);
+  const captureRoot = useRef<HTMLDivElement>(null);
+  const progressPanel = useRef<HTMLElement>(null);
+  const hasProgress = Boolean(progress);
+  const measureScrollOffset = useCallback(() => {
+    const summary = progressPanel.current;
+    if (summary) captureRoot.current?.style.setProperty("--scan-scroll-offset", `${Math.ceil(summary.getBoundingClientRect().height) + 16}px`);
+  }, []);
+  useLayoutEffect(() => {
+    const summary = progressPanel.current;
+    if (!summary) return;
+    measureScrollOffset();
+    const observer = new ResizeObserver(measureScrollOffset);
+    observer.observe(summary);
+    return () => observer.disconnect();
+  }, [batchId, hasProgress, measureScrollOffset]);
+  function scrollScanTarget(target: HTMLElement | null) {
+    // A state change can grow the summary before ResizeObserver's next turn.
+    // Read its current layout immediately before a programmatic jump.
+    measureScrollOffset();
+    target?.scrollIntoView({ block: "start" });
+  }
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [camera, setCamera] = useState(false);
@@ -199,7 +220,7 @@ export function AcquisitionCapture({
     setVisibleCount(count => Math.max(count, next.position + 1));
     requestAnimationFrame(() => requestAnimationFrame(() => {
       const row = document.getElementById(`capture-card-${next.position + 1}`);
-      row?.scrollIntoView({ block: "start" }); row?.focus({ preventScroll: true });
+      scrollScanTarget(row); row?.focus({ preventScroll: true });
     }));
   }
   useEffect(() => {
@@ -239,7 +260,7 @@ export function AcquisitionCapture({
     setInventoryOpen(true);
     requestAnimationFrame(() => {
       const panel = document.getElementById("scan-inventory");
-      panel?.scrollIntoView({ block: "start" });
+      scrollScanTarget(panel);
       panel?.focus({ preventScroll: true });
     });
   }
@@ -656,7 +677,7 @@ export function AcquisitionCapture({
     (progress.availableSlots === null || progress.availableSlots > 0) &&
     uploads.length < pendingPhotoLimit;
   return (
-    <div className="space-y-4 min-w-0">
+    <div ref={captureRoot} className="space-y-4 min-w-0">
       {progress?.correctionLibrary && progress.correctionLibrary.pendingCount > 0 && (
         <div role="status" className={panel}>
           <p className="font-medium">Correction photos waiting to be preserved: {progress.correctionLibrary.pendingCount}</p>
@@ -812,6 +833,7 @@ export function AcquisitionCapture({
       ) : (
         <>
           <section
+            ref={progressPanel}
             className={panel + " sticky top-0 z-10"}
             style={{ background: "var(--app-surface)" }}
             aria-label="Batch progress"
@@ -865,7 +887,7 @@ export function AcquisitionCapture({
               batch destination before taking more.
             </p>
           )}
-          <div id="scan-capture" className="scroll-mt-56">
+          <div id="scan-capture" className="scroll-mt-[var(--scan-scroll-offset,14rem)]">
           {progress.providerId === SCANNER_CAPTURE_PROVIDER ? <ScannerRunControls runId={progress.runId} savedImages={readyPhotos} refresh={refresh} /> : <section className={panel} aria-label="Card camera">
             <p className="mb-2">
               Photograph one card at a time, with the whole front visible and as
@@ -1042,9 +1064,9 @@ export function AcquisitionCapture({
             blockedPhotos={blockedPhotos} draftsReady={cachedDrafts.ready} canUsePhotos={canUsePhotos}
             onOpenChange={setBulkOpen} onConfirmed={ids => { setSelectedPhotos(previous => [...new Set([...previous, ...ids])]); showInventory(); }}
             onInspect={position => { setReviewFilter("all"); setVisibleCount(count => Math.max(count, position));
-              requestAnimationFrame(() => document.getElementById(`capture-card-${position}`)?.scrollIntoView({ block: "start" })); }} />
-          <div id="scan-inventory" tabIndex={-1} className="scroll-mt-56" hidden={!inventoryOpen}>
-            <button className={button + " mb-2"} onClick={() => { setInventoryOpen(false); document.getElementById("scan-review")?.scrollIntoView({ block: "start" }); }}>Back to matches</button>
+              requestAnimationFrame(() => scrollScanTarget(document.getElementById(`capture-card-${position}`))); }} />
+          <div id="scan-inventory" tabIndex={-1} className="scroll-mt-[var(--scan-scroll-offset,14rem)]" hidden={!inventoryOpen}>
+            <button className={button + " mb-2"} onClick={() => { setInventoryOpen(false); requestAnimationFrame(() => scrollScanTarget(document.getElementById("scan-review"))); }}>Back to matches</button>
             <AcquisitionCommitControls key={`commit:${batchId}`} progress={progress} locations={locations}
               blockedPhotos={blockedPhotos} draftsReady={cachedDrafts.ready} canUsePhotos={canUsePhotos}
               selected={selectedPhotos} onSelect={setSelectedPhotos} refresh={refresh} />
@@ -1053,7 +1075,7 @@ export function AcquisitionCapture({
             <section
               id="scan-review"
               hidden={bulkOpen}
-              className={panel + " scroll-mt-56"}
+              className={panel + " scroll-mt-[var(--scan-scroll-offset,14rem)]"}
             >
               <h3 className="font-semibold">Saved cards</h3>
               <div className="flex flex-wrap items-end justify-between gap-3 my-3">
@@ -1143,7 +1165,7 @@ export function AcquisitionCapture({
                       id={`capture-card-${slot.position + 1}`}
                       data-testid={`capture-card-${slot.position + 1}`}
                       tabIndex={-1}
-                      className={`min-w-0 scroll-mt-64 lg:scroll-mt-48 space-y-2 border-b border-[var(--app-border)] ${reviewMode === "simple" ? "pb-3" : "pb-6"}`}
+                      className={`min-w-0 scroll-mt-[var(--scan-scroll-offset,14rem)] space-y-2 border-b border-[var(--app-border)] ${reviewMode === "simple" ? "pb-3" : "pb-6"}`}
                     >
                       <p>
                         Card {slot.position + 1}
