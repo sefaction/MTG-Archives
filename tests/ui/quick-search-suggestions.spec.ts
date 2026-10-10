@@ -2,9 +2,20 @@ import { expect, test } from "@playwright/test";
 
 // Read-only routes and controlled suggestion replies: no collection fixtures or
 // Inventory writes. Delays are released explicitly, not timed against a network.
-for (const viewport of [{ width: 1366, height: 768 }, { width: 320, height: 740 }]) {
-  test(`quick search Enter uses current text while suggestions are pending at ${viewport.width}px`, async ({ page, baseURL }) => {
+const scenarios = ["/public/inventory", "/inventory"].flatMap((actionPath) =>
+  [{ width: 1366, height: 768 }, { width: 320, height: 740 }].map((viewport) => ({ actionPath, viewport })),
+);
+for (const { actionPath, viewport } of scenarios) {
+  test(`${actionPath} quick search Enter uses current text while suggestions are pending at ${viewport.width}px`, async ({ page, baseURL }) => {
     expect(baseURL).toBe("http://127.0.0.1:13001");
+    if (actionPath === "/inventory") {
+      test.skip(process.env.MTG_LOCAL_PILOT_TEST !== "1", "Requires the local admin snapshot login");
+      await page.goto("/login");
+      await page.getByLabel(/username or email/i).fill(process.env.UI_ADMIN_USERNAME || "admin");
+      await page.getByLabel(/^password$/i).fill(process.env.UI_ADMIN_PASSWORD || "admin123");
+      await page.getByRole("button", { name: /^log in$/i }).click();
+      await page.waitForURL(/\/dashboard/);
+    }
     await page.setViewportSize(viewport);
     let release!: () => void;
     let requested!: () => void;
@@ -20,7 +31,7 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 320, height: 740 
       await route.fulfill({ json: { suggestions: [{ value: name, label: name }] } });
     });
     try {
-      await page.goto("/public/inventory?language=EN&displayMode=exact&pageSize=10&sort=setCode&sortDir=desc");
+      await page.goto(`${actionPath}?language=EN&displayMode=exact&pageSize=10&sort=setCode&sortDir=desc`);
       const search = page.getByRole("combobox", { name: "Quick card name search" });
       await search.fill("For");
       await expect(page.getByRole("option", { name: "Forest", exact: true })).toBeVisible();
@@ -36,7 +47,7 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 320, height: 740 
       expect(params.get("sortDir")).toBe("desc");
       expect(params.get("page")).toBe("1");
       await expect(search).toHaveValue("Island");
-      await page.screenshot({ path: `test-results/quick-search-pending-${viewport.width}.png` });
+      await page.screenshot({ path: `test-results/quick-search-pending-${actionPath.startsWith("/public") ? "public" : "private"}-${viewport.width}.png` });
     } finally {
       release();
       await page.unrouteAll({ behavior: "wait" });
@@ -79,7 +90,7 @@ test("quick search drops superseded replies, clears options, and selects current
     await search.fill("For");
     await expect(page.getByRole("option", { name: "Forest", exact: true })).toBeVisible();
     await search.fill("");
-    await expect(page.getByRole("option")).toHaveCount(0);
+    await expect(page.locator('[role="listbox"] [role="option"]')).toHaveCount(0);
     await search.press("Enter");
     await expect(page).not.toHaveURL(/[?&]cardName=/);
     await expect(search).toHaveValue("");
