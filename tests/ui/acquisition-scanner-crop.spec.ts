@@ -1,6 +1,6 @@
 import { scannerVisualFixtureDescriptor } from "./scanner-visual-fixture";
 import { cancelAndCleanCorrectionFixture } from "./correction-fixture";
-import { expect, test } from "@playwright/test";
+import { expect, test as base } from "@playwright/test";
 import type { AcquisitionCardReview } from "../../lib/acquisition-review";
 import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
@@ -14,9 +14,52 @@ function database(body: string) {
     timeout: 30000,
   });
 }
+// Each processing wait retains its existing two-minute limit. The overall
+// body budget covers their serial sum; fixture teardown has its own clock.
+const PROCESSING_STAGE_TIMEOUT_MS = 120000;
+const SETUP_AND_REVIEW_TIMEOUT_MS = 120000;
+const OWNED_CLEANUP_TIMEOUT_MS = 120000;
+type ScannerFixtureOwner = { tag: string; needsCleanup: boolean };
+
+function cleanupScannerOwner(tag: string) {
+  // Block new authenticated polling and retire only this fixture owner.
+  database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
+  try {
+  database(
+    `const n=${JSON.stringify(tag)};const sessions=await p.acquisitionSession.findMany({where:{ownerPlayerId:n},select:{id:true}});const runs=await p.acquisitionRun.findMany({where:{sessionId:{in:sessions.map(s=>s.id)}},select:{id:true}});const where={runId:{in:runs.map(r=>r.id)}};const photos=await p.acquisitionPhoto.findMany({where});await p.acquisitionCommitMember.deleteMany({where});await p.acquisitionCommit.deleteMany({where});await p.inventoryAuditLog.deleteMany({where:{changedByUserId:n}});await p.inventoryItem.deleteMany({where:{currentOwnerId:n}});await p.acquisitionProcessingJob.deleteMany({where});await p.acquisitionPhoto.deleteMany({where});await p.acquisitionCommand.deleteMany({where});await p.acquisitionCaptureSlot.deleteMany({where});await p.acquisitionCountCorrection.deleteMany({where});await p.acquisitionObservation.deleteMany({where});await p.acquisitionEvent.deleteMany({where});await p.acquisitionCandidate.deleteMany({where});await p.acquisitionArtifact.deleteMany({where});await p.acquisitionRun.deleteMany({where:{id:{in:runs.map(r=>r.id)}}});await p.acquisitionSession.deleteMany({where:{id:{in:sessions.map(s=>s.id)}}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});const fs=require('fs/promises'),path=require('path');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw new Error('Invalid fixture path');for(const suffix of ['original','preview.jpg'])await fs.unlink(path.join(process.env.UPLOADS_DATA_PATH,'acquisition-v1',photo.id+'.'+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e})}`,
+  );
+
+  } finally {
+    // A final sweep also catches writes completed during legacy teardown.
+    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
+  }
+}
+
+const test = base.extend<{
+  scannerOwner: ScannerFixtureOwner;
+  scannerVisual: ReturnType<typeof scannerVisualFixtureDescriptor> | null;
+}>({
+  scannerOwner: [async ({}, use) => {
+    const owner = { tag: `ui-scanner-${randomUUID()}`, needsCleanup: false };
+    try {
+      await use(owner);
+    } finally {
+      if (owner.needsCleanup) cleanupScannerOwner(owner.tag);
+    }
+  }, { timeout: OWNED_CLEANUP_TIMEOUT_MS }],
+  scannerVisual: [async ({}, use) => {
+    const enabled = process.env.MTG_LOCAL_PILOT_TEST === "1" &&
+      Boolean(process.env.MTG_ACQUISITION_SCANNER_PATH) &&
+      process.env.MTG_ACQUISITION_VISUAL_TEST === "1";
+    await use(enabled ? scannerVisualFixtureDescriptor() : null);
+  }, { timeout: 3 * PROCESSING_STAGE_TIMEOUT_MS }],
+});
+
 test("tight scanner images retain the footer through recognition and visual review", async ({
   page,
   baseURL,
+  scannerOwner,
+  scannerVisual,
 }) => {
   test.skip(
     process.env.MTG_LOCAL_PILOT_TEST !== "1" ||
@@ -24,11 +67,9 @@ test("tight scanner images retain the footer through recognition and visual revi
     "Requires local snapshot and private scanner corpus",
   );
   expect(baseURL).toBe("http://127.0.0.1:13001");
-  test.setTimeout(240000);
   page.setDefaultTimeout(10000);
-  const visualDescriptor = process.env.MTG_ACQUISITION_VISUAL_TEST === "1"
-    ? scannerVisualFixtureDescriptor() : null;
-  const tag = `ui-scanner-${randomUUID()}`,
+  const visualDescriptor = scannerVisual;
+  const tag = scannerOwner.tag,
     password = randomUUID();
   const manifest = JSON.parse(
     readFileSync("tools/acquisition-eval/scanner-manifest.json", "utf8"),
@@ -38,7 +79,11 @@ test("tight scanner images retain the footer through recognition and visual revi
     manifest.entries[9],
     manifest.entries[16],
   ];
-  try {
+  const stageCount = process.env.MTG_ACQUISITION_VISUAL_TEST === "1" ? 3 : 2;
+  test.setTimeout(SETUP_AND_REVIEW_TIMEOUT_MS + entries.length * stageCount * PROCESSING_STAGE_TIMEOUT_MS);
+  // Register before the first write so partial setup is also cleaned.
+  scannerOwner.needsCleanup = true;
+  await test.step("Scan retained originals and inspect review", async () => {
     database(
       `const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash,role:'PLAYER'}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:3,sections:[]}}});`,
     );
@@ -87,7 +132,7 @@ test("tight scanner images retain the footer through recognition and visual revi
                 `await p.acquisitionProcessingJob.updateMany({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-recognition-v1',status:'PENDING'},data:{availableAt:new Date(0)}});console.log(await p.acquisitionProcessingJob.count({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-recognition-v1',status:'COMPLETE'}}));`,
               ),
             ),
-          { timeout: 120000 },
+          { timeout: PROCESSING_STAGE_TIMEOUT_MS },
         )
         .toBe(i + 1);
       const output = JSON.parse(
@@ -111,7 +156,7 @@ test("tight scanner images retain the footer through recognition and visual revi
                 `await p.acquisitionProcessingJob.updateMany({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:{in:['photo-catalog-reconciliation-v1','photo-visual-retrieval-v1']},status:'PENDING'},data:{availableAt:new Date(0)}});console.log(await p.acquisitionProcessingJob.count({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-catalog-reconciliation-v1',status:'COMPLETE'}}));`,
               ),
             ),
-          { timeout: 120000 },
+          { timeout: PROCESSING_STAGE_TIMEOUT_MS },
         )
         .toBe(i + 1);
       const reconciled = JSON.parse(
@@ -150,7 +195,7 @@ test("tight scanner images retain the footer through recognition and visual revi
           expect(response.ok()).toBe(true);
           review = await response.json() as AcquisitionCardReview;
           return review.printingStatus;
-        }, { timeout: 120000 }).toBe("COMPLETE");
+        }, { timeout: PROCESSING_STAGE_TIMEOUT_MS }).toBe("COMPLETE");
         expect(review!.photoId).toBe(reconciled.photoId);
         expect(review!.visualStatus).toBe("COMPLETE");
         expect(review!.review).toBeNull();
@@ -266,17 +311,5 @@ test("tight scanner images retain the footer through recognition and visual revi
         ),
       ),
     ).toBe(0);
-  } finally {
-    // Block new authenticated polling and retire only this fixture owner.
-    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
-    try {
-    database(
-      `const n=${JSON.stringify(tag)};const sessions=await p.acquisitionSession.findMany({where:{ownerPlayerId:n},select:{id:true}});const runs=await p.acquisitionRun.findMany({where:{sessionId:{in:sessions.map(s=>s.id)}},select:{id:true}});const where={runId:{in:runs.map(r=>r.id)}};const photos=await p.acquisitionPhoto.findMany({where});await p.acquisitionCommitMember.deleteMany({where});await p.acquisitionCommit.deleteMany({where});await p.inventoryAuditLog.deleteMany({where:{changedByUserId:n}});await p.inventoryItem.deleteMany({where:{currentOwnerId:n}});await p.acquisitionProcessingJob.deleteMany({where});await p.acquisitionPhoto.deleteMany({where});await p.acquisitionCommand.deleteMany({where});await p.acquisitionCaptureSlot.deleteMany({where});await p.acquisitionCountCorrection.deleteMany({where});await p.acquisitionObservation.deleteMany({where});await p.acquisitionEvent.deleteMany({where});await p.acquisitionCandidate.deleteMany({where});await p.acquisitionArtifact.deleteMany({where});await p.acquisitionRun.deleteMany({where:{id:{in:runs.map(r=>r.id)}}});await p.acquisitionSession.deleteMany({where:{id:{in:sessions.map(s=>s.id)}}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});const fs=require('fs/promises'),path=require('path');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw new Error('Invalid fixture path');for(const suffix of ['original','preview.jpg'])await fs.unlink(path.join(process.env.UPLOADS_DATA_PATH,'acquisition-v1',photo.id+'.'+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e})}`,
-    );
-
-    } finally {
-      // A final sweep also catches writes completed during legacy teardown.
-      database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
-    }
-  }
+  });
 });
