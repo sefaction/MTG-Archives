@@ -21,8 +21,11 @@ export async function verifyAcquisitionBatchManagement(db: PrismaClient, actor: 
   process.env.UPLOADS_DATA_PATH = root;
   const start = new Date(), bytes = await sharp({create: {width: 100, height: 140, channels: 3, background: "white"}}).png().toBuffer();
   const inventoryBefore = await db.inventoryItem.aggregate({_sum: {quantity: true}});
+  // Dashboard q searches numbers, locations, sections and owners. Isolate the
+  // strict single-batch assertions from unrelated matching fixture metadata.
+  const searchKey = `batch-management-${randomUUID()}`;
   try {
-    const capture = await createAcquisitionSession(db, actor, {...base, requestKey: randomUUID(), policy: {kind: "MANUAL", quantity: 2},
+    const capture = await createAcquisitionSession(db, actor, {...base, requestKey: randomUUID(), section: searchKey, policy: {kind: "MANUAL", quantity: 2},
       run: {...base.run, providerId: "phone-photo-v1", runId: randomUUID()}});
     const id = capture.session.id, run = await db.acquisitionRun.findUniqueOrThrow({where: {sessionId: id}});
     await executeAcquisitionCommand(db, actor, id, {requestKey: "start", revision: 0, command: "START"});
@@ -42,15 +45,16 @@ export async function verifyAcquisitionBatchManagement(db: PrismaClient, actor: 
     const [accepted] = await claimAcquisitionJobs(db, {workerId: "batch-test", stages: ["batch-fixture-stage"]});
     assert.ok(accepted);
     await assert.rejects(manageAcquisitionBatch(db, stranger, id, "trash"), /unavailable/);
-    assert.equal((await getAcquisitionBatchDashboard(db, stranger, {view: "all", q: String(capture.batchNumber)})).total, 0);
-    const emptyPage = await getAcquisitionBatchDashboard(db, stranger, {view: "all", q: String(capture.batchNumber), page: 999});
+    assert.equal((await getAcquisitionBatchDashboard(db, stranger, {view: "all", q: searchKey})).total, 0);
+    const emptyPage = await getAcquisitionBatchDashboard(db, stranger, {view: "all", q: searchKey, page: 999});
     assert.equal(emptyPage.page, 1); assert.equal(emptyPage.pages, 1); assert.equal(emptyPage.rows.length, 0);
     // The parent suite deliberately demoted this fixture admin earlier. A
     // remembered Admin Mode flag must not survive that live role change.
-    assert.equal((await getAcquisitionBatchDashboard(db, admin, {view: "all", q: String(capture.batchNumber)})).total, 0);
+    assert.equal((await getAcquisitionBatchDashboard(db, admin, {view: "all", q: searchKey})).total, 0);
     await db.user.update({where: {id: admin.userId}, data: {role: "ADMIN"}});
     try {
-      assert.equal((await getAcquisitionBatchDashboard(db, admin, {view: "all", q: String(capture.batchNumber)})).rows[0].id, id);
+      const adminDashboard = await getAcquisitionBatchDashboard(db, admin, {view: "all", q: searchKey});
+      assert.equal(adminDashboard.total, 1); assert.deepEqual(adminDashboard.rows.map(row => row.id), [id]);
     } finally {await db.user.update({where: {id: admin.userId}, data: {role: "PLAYER"}});}
     await manageAcquisitionBatch(db, actor, id, "cancel", start);
     assert.equal((await db.acquisitionSession.findUniqueOrThrow({where: {id}})).phase, "CANCELLED");
@@ -60,14 +64,48 @@ export async function verifyAcquisitionBatchManagement(db: PrismaClient, actor: 
     assert.equal(await failAcquisitionJob(db, accepted), false);
     const cancelled = await db.acquisitionProcessingJob.findMany({where: {runId: run.id}});
     assert.ok(cancelled.every(job => job.status === "SUPERSEDED" && job.errorCode === "BATCH_STOPPED"));
+    // Put the older target beyond the first25 rows and retain legitimate section
+    // matches after Trash. This exercises identity checks across real pages.
+    const collisionIds: string[] = [];
+    for (let index = 0; index < 26; index++) {
+      const collision = await createAcquisitionSession(db, actor, {...base, requestKey: randomUUID(), section: String(capture.batchNumber), policy: {kind: "MANUAL", quantity: 1},
+        run: {...base.run, providerId: "phone-photo-v1", runId: randomUUID()}});
+      collisionIds.push(collision.session.id);
+    }
+    const numericMatches = async () => {
+      const query = {view: "all", q: String(capture.batchNumber)};
+      const first = await getAcquisitionBatchDashboard(db, actor, query);
+      assert.ok(first.pages >= 2, "Controlled number matches must span multiple pages");
+      const ids = first.rows.map(row => row.id);
+      for (let page = 2; page <= first.pages; page++) {
+        const next = await getAcquisitionBatchDashboard(db, actor, {...query, page});
+        assert.equal(next.total, first.total); assert.equal(next.page, page);
+        ids.push(...next.rows.map(row => row.id));
+      }
+      assert.equal(ids.length, first.total);
+      assert.equal(new Set(ids).size, first.total);
+      return new Set(ids);
+    };
+    const beforeTrash = await numericMatches();
+    const firstPage = await getAcquisitionBatchDashboard(db, actor, {view: "all", q: String(capture.batchNumber)});
+    assert.equal(firstPage.rows.some(row => row.id === id), false, "Target must actually be beyond the first page");
+    assert.ok(beforeTrash.has(id));
+    for (const collisionId of collisionIds) assert.ok(beforeTrash.has(collisionId));
     await manageAcquisitionBatch(db, actor, id, "trash", start);
     const trashed = await db.acquisitionSession.findUniqueOrThrow({where: {id}});
     assert.equal(trashed.trashExpiresAt!.getTime() - start.getTime(), 7 * 86400000);
     await manageAcquisitionBatch(db, actor, id, "trash", new Date(start.getTime() + 1000));
     assert.equal((await db.acquisitionSession.findUniqueOrThrow({where: {id}})).trashExpiresAt!.getTime(), trashed.trashExpiresAt!.getTime());
     await assert.rejects(getAcquisitionPhoto(db, actor, id, photoIds[0]), /unavailable/);
-    assert.equal((await getAcquisitionBatchDashboard(db, actor, {view: "all", q: String(capture.batchNumber)})).total, 0);
-    assert.equal((await getAcquisitionBatchDashboard(db, actor, {view: "trash", q: String(capture.batchNumber)})).rows[0].captured, 2);
+    const afterTrash = await numericMatches();
+    assert.equal(afterTrash.has(id), false);
+    for (const collisionId of collisionIds) assert.ok(afterTrash.has(collisionId));
+    const preserved = await db.acquisitionSession.findMany({where: {id: {in: collisionIds}}, select: {phase: true}});
+    assert.equal(preserved.length, 26); assert.ok(preserved.every(row => row.phase === "DRAFT"));
+    assert.equal((await getAcquisitionBatchDashboard(db, actor, {view: "all", q: searchKey})).total, 0);
+    const trashDashboard = await getAcquisitionBatchDashboard(db, actor, {view: "trash", q: searchKey});
+    assert.equal(trashDashboard.total, 1); assert.deepEqual(trashDashboard.rows.map(row => row.id), [id]);
+    assert.equal(trashDashboard.rows[0].captured, 2);
     await purgeTrashedAcquisitionPhotos(db, new Date(start.getTime() + 6 * 86400000));
     assert.ok((await readAcquisitionPhotoBytes(photoIds[0], "raw")).equals(bytes));
     await manageAcquisitionBatch(db, actor, id, "restore", new Date(start.getTime() + 6 * 86400000));
@@ -81,15 +119,18 @@ export async function verifyAcquisitionBatchManagement(db: PrismaClient, actor: 
     const artifact = await db.acquisitionArtifact.findFirstOrThrow({where: {runId: run.id, observations: {some: {candidateId: candidate.id}}}});
     await db.acquisitionProcessingJob.create({data: {runId: run.id, candidateId: candidate.id, candidateRevision: candidate.revision,
       artifactId: artifact.id, stage: PRINTING_STAGE, versionKey: "batch-evaluation", input: {}, status: "COMPLETE"}});
-    let dashboard = await getAcquisitionBatchDashboard(db, actor, {view: "all", q: String(capture.batchNumber)});
+    let dashboard = await getAcquisitionBatchDashboard(db, actor, {view: "all", q: searchKey});
+    assert.equal(dashboard.total, 1); assert.deepEqual(dashboard.rows.map(row => row.id), [id]);
     assert.equal(dashboard.rows[0].captured, 2); assert.equal(dashboard.rows[0].evaluated, 1);
     assert.equal(dashboard.rows[0].assigned, 2); assert.equal(dashboard.rows[0].confirmed, 0); assert.equal(dashboard.rows[0].added, 0);
-    const stalePage = await getAcquisitionBatchDashboard(db, actor, {view: "all", q: String(capture.batchNumber), page: 999});
+    const stalePage = await getAcquisitionBatchDashboard(db, actor, {view: "all", q: searchKey, page: 999});
+    assert.equal(stalePage.total, 1); assert.equal(stalePage.rows.length, 1);
     assert.equal(stalePage.page, 1); assert.equal(stalePage.pages, 1); assert.equal(stalePage.rows[0].id, id);
     // A newer check replaces completion without creating another physical card.
     await db.acquisitionProcessingJob.create({data: {runId: run.id, candidateId: candidate.id, candidateRevision: candidate.revision,
       artifactId: artifact.id, stage: PRINTING_STAGE, versionKey: "batch-newer-evaluation", input: {}, createdAt: new Date(Date.now() + 1000)}});
-    dashboard = await getAcquisitionBatchDashboard(db, actor, {view: "all", q: String(capture.batchNumber)});
+    dashboard = await getAcquisitionBatchDashboard(db, actor, {view: "all", q: searchKey});
+    assert.equal(dashboard.total, 1); assert.deepEqual(dashboard.rows.map(row => row.id), [id]);
     assert.equal(dashboard.rows[0].evaluated, 0); assert.equal(dashboard.rows[0].captured, 2);
     await manageAcquisitionBatch(db, actor, id, "trash", start);
     await assert.rejects(manageAcquisitionBatch(db, actor, id, "restore", new Date(start.getTime() + 7 * 86400000)), /expired/);
@@ -103,12 +144,12 @@ export async function verifyAcquisitionBatchManagement(db: PrismaClient, actor: 
     assert.equal(expired.purged, 2);
     await assert.rejects(readAcquisitionPhotoBytes(photoIds[0], "raw"));
     assert.ok((await db.acquisitionSession.findUniqueOrThrow({where: {id}})).deletedAt);
-    assert.equal((await getAcquisitionBatchDashboard(db, actor, {view: "trash", q: String(capture.batchNumber)})).total, 0);
+    assert.equal((await getAcquisitionBatchDashboard(db, actor, {view: "trash", q: searchKey})).total, 0);
     await assert.rejects(manageAcquisitionBatch(db, actor, id, "restore"), /expired/);
     assert.deepEqual(await db.inventoryItem.aggregate({_sum: {quantity: true}}), inventoryBefore);
     assert.equal(await db.acquisitionCandidate.count({where: {runId: run.id}}), 2);
     for (const job of jobs.filter(job => !owned.includes(job))) await failAcquisitionJob(db, job);
-    console.log("PASS: batch cancellation/replayed Trash, private dashboard, current evaluation counts, lease retirement/late results, explicit restoration and seven-day byte expiry; Inventory conserved");
+    console.log("PASS: deterministic numeric-search collision and isolated batch cancellation/replayed Trash, private dashboard, current evaluation counts, lease retirement/late results, explicit restoration and seven-day byte expiry; Inventory conserved");
   } finally {
     if (oldRoot === undefined) delete process.env.UPLOADS_DATA_PATH; else process.env.UPLOADS_DATA_PATH = oldRoot;
     if (path.dirname(root) !== parent || !path.basename(root).startsWith("batch-management-db-")) throw new Error("Fixture root escaped");
