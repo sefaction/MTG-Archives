@@ -1,4 +1,14 @@
 # Work checkpoint
+## Deterministic native progress issue686 in qualification — October 8, 2026
+
+PreviousgoalturnPROGRESS:687ready/finalCIgreen and localreviewqualified;684/687remainOPEN/UNAPPROVED. Main9dc0e2a confirmedunchanged. GoalACTIVE; no newapproval. ReadFoundryhub/workflow/ops/framework/liveGH; issue686OPEN andnotduplicate. Newfeature .local-data/native-progress-verification-20261008 branchcodex/native-progress-verification frommain, source4d74c90aa42fd204e59062296569613514b2d96d pushed; noPRyet. Cumulative4cb9010 integrates686test/doc alongsideunapproved684687.
+
+Controlledunchanged-runtime/timerfixtureprobe: idlechunks[10,23018,23028,23028]/2callbacks/OUTPUT_LIMIT; delayed120msconsumer chunks[10,23018,46070]/1callback/OUTPUT_LIMIT. Thisconfirmscoalescence mechanismbutdoesn'trecover historicalfullcorechunks. PrivateprobeinitialCJS top-level-await formatfailure preservedseparately, correctedprobePASS. Test nowusesone-byteownedtempmarkeracknowledgements toseparatelaterframes, variants0/120ms, exactOUTPUT_LIMIT andsinglechild-closeobservation; firstframewrittenintwopieceswithoutassertingOSreadsegmentation. Productionruntime/outputbounds/nativeidentity unchanged.
+
+Windows6focusedPASS; firstisolatedactualappDocker6group4PASS/2FAIL EXIT becauseLinuxrootworkersdropnativeUIDandnewtempmarker0700 preventedread. Ownedmarker0755directory/0644fileonly corrected, rootread-only/networknone/noDataMounts/CPU1/memory768M finalDocker6PASS. Core47176terminalPASS859/0fail/0skip/types/build13manifests beforefinalmarkerpermissionfix. Finaltypes74131terminalPASS; cumulativefinal867unitrunner33052terminalPASS867/0fail/0skip, logs .local-data/native-progress-cumulative-tests.log. Freshlocalruntime13services+7originaltablebaselinePASS; before82988terminalPASS1092originalSHA/2832075218bytes. Actualappremainsbulk-recoveryimage55162c/source595digest96497d6, native308sourcesunchanged. No reload/rebuild becauseonlytests/docs changed; stillall13runninghealthyworkersunchanged.
+
+Final34787terminalPASS source595/native308each/strictall13serviceidentity+lifecycles/seventableprojections/fresh1092originalSHA/2832075218bytes+ownedtempmarkerabsence0. Nextsafe finalizedoc/checkpointprecisecommit/push/cumulativeintegration, open/attachcoherentPRmainbase andcollectfinalhead3CI/wiki/issueprogress. Keep686OPENuntilindividuallyapprovedmerge; don'tmerge684/687. PreserveprimaryWIP/handoff/cumulativeCP; broader463/307/506/nativehardwarequeuecontinues. Existing64GB2%usertracksUnraid/verifiercohortpending; nohardware/production/schedule/capacityprobe.
+
 ## PR687 bulk response recovery locally qualified — October 8, 2026
 
 PR687 is OPEN/DRAFT/UNAPPROVED, stacked on OPEN/UNAPPROVED684. Feature codex/bulk-review-recovery source5de95c3 with fixture revisions62b84d3/777ed90/38d112d; cumulative1071948. Issue685OPEN; separate flaky native verification686OPEN. Main9dc0e2a unchanged; approved680/682 remain merged. GoalACTIVE.
