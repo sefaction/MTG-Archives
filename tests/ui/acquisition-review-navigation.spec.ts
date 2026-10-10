@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import sharp from "sharp";
+import { cleanupCorrectionFixture } from "./correction-fixture";
 
 test.use({ actionTimeout: 15000 });
 function database(body: string) {
@@ -125,7 +126,15 @@ for (const {width,count} of cases) test(`filtered ${count}-card review reaches a
         await page.close();
       }
     } finally {
-    database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const w={run:{session:{createdByUserId:n}}};const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});await p.card.deleteMany({where:{id:${JSON.stringify(printing.id)}}});const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;if(!root||!paths.isAbsolute(root))throw Error('Fixture root missing');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw Error('Unexpected fixture photo');for(const suffix of ['.original','.preview.jpg'])await fs.unlink(paths.join(root,'acquisition-v1',photo.id+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e;});}console.log('{}');`);
+    database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const w={run:{session:{createdByUserId:n}}};const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});
+      ${cleanupCorrectionFixture}
+      for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});await p.card.deleteMany({where:{id:${JSON.stringify(printing.id)}}});const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;if(!root||!paths.isAbsolute(root))throw Error('Fixture root missing');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw Error('Unexpected fixture photo');for(const suffix of ['.original','.preview.jpg'])await fs.unlink(paths.join(root,'acquisition-v1',photo.id+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e;});}
+      for(const model of ['correctionLibraryAccount','correctionBlob','correctionExample','correctionReviewEvent','correctionEvidence','correctionRetentionPin','correctionLibraryAccess','correctionDeletionTombstone'])if(await p[model].count({where:{ownerPlayerId:n}}))throw Error('Owned correction residue: '+model);
+      if(await p.acquisitionSession.count({where:{createdByUserId:n}})||await p.user.count({where:{id:n}})||await p.player.count({where:{id:n}}))throw Error('Owned acquisition/account residue');
+      const library=paths.resolve(root,'correction-library-v1'),owned=paths.resolve(library,require('crypto').createHash('sha256').update(n).digest('hex'));if(!owned.startsWith(library+paths.sep))throw Error('Invalid owned cleanup path');
+      await fs.access(owned).then(()=>{throw Error('Owned correction files remain')},e=>{if(e.code!=='ENOENT')throw e});
+      console.log('{}');`);
+    console.log(JSON.stringify({ scope: "PRESENTATION_FIXTURE_CLEANUP", width, count, correctionRecordsAbsent: true, ownedCorrectionFilesAbsent: true }));
     }
   }
 });
