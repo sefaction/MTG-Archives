@@ -15,6 +15,9 @@ for (const width of [1366, 320]) {
     await expect(page.locator(".inventory-result-summary")).toBeVisible();
     await expect(results.getByText("No public cards match these filters.")).toHaveCount(0);
     await expect(page.getByRole("columnheader", { name: "Card Name", exact: true })).toBeVisible();
+    await page.goBack();
+    await expect(page).toHaveURL(/cardName=no-matching-public-card-zz$/);
+    await expect(results.getByText("No public cards match these filters.")).toBeVisible();
   });
 }
 
