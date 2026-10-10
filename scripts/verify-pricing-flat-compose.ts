@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 
 type ComposeService = {
+  restart?: string;
   command?: string | string[];
   depends_on?: Record<string, { condition?: string }>;
   environment?: Record<string, string>;
@@ -30,12 +31,11 @@ const env = {
   PRICING_VERIFY_DATABASE_URL: "",
 };
 
-function config(profile = false): ComposeConfig {
+function config(profile = false, files = ["docker-compose.unraid.flat.yml"]): ComposeConfig {
   const args = [
     "compose",
     ...(profile ? ["--profile", "pricing-archive-maintenance"] : []),
-    "-f",
-    "docker-compose.unraid.flat.yml",
+    ...files.flatMap((file) => ["-f", file]),
     "config",
     "--format",
     "json",
@@ -58,6 +58,7 @@ const profiled = config(true);
 const maintenance = profiled.services["pricing-archive-maintenance"];
 const verifier = profiled.services["pricing-verify-postgres"];
 assert.ok(maintenance);
+assert.equal(maintenance.restart, "no", "disabled maintenance must not restart after refusing apply");
 assert.ok(verifier);
 assert.equal(maintenance.environment?.PRICING_ARCHIVE_PRODUCTION_ENABLED, "0");
 assert.equal(maintenance.environment?.PRICING_RAW_ARCHIVE_RETENTION_ENABLED, "0");
@@ -76,4 +77,24 @@ assert.ok(verifierData);
 assert.ok(liveData);
 assert.notEqual(verifierData.source, liveData.source);
 
-process.stdout.write("Flat Unraid Compose archive profile remains disabled by default.\n");
+// Verify inherited restart policy in both supported layered deployments too.
+for (const files of [
+  ["docker-compose.yml", "docker-compose.local.yml"],
+  ["docker-compose.yml", "docker-compose.prod.yml", "docker-compose.unraid.yml"],
+]) {
+  const defaultServices = config(false, files).services;
+  assert.equal(defaultServices["pricing-archive-maintenance"], undefined);
+  assert.equal(defaultServices["pricing-verify-postgres"], undefined);
+  const services = config(true, files).services;
+  const runner = services["pricing-archive-maintenance"];
+  assert.equal(runner.restart, "no", files.join(" + "));
+  assert.equal(runner.environment?.PRICING_ARCHIVE_MAINTENANCE_ENABLED, "false");
+  assert.equal(runner.environment?.PRICING_ARCHIVE_PRODUCTION_ENABLED, "0");
+  assert.equal(runner.environment?.PRICING_RAW_ARCHIVE_RETENTION_ENABLED, "0");
+  assert.equal(runner.environment?.MTG_LOCAL_PILOT_TEST, "0");
+  assert.equal(services["web"].restart, "unless-stopped");
+  assert.equal(services["pricing-worker"].restart, "unless-stopped");
+  assert.equal(services["notification-worker"].restart, "unless-stopped");
+}
+
+process.stdout.write("Flat and layered Compose archive profiles remain default-off and stop on startup failure.\n");
