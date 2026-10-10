@@ -30,7 +30,10 @@ test("correction drafts, lost acknowledgement, private library, original viewing
     lang: "en", imageUri: "/fixture-card-original.svg", finishes: ["nonfoil", "foil"] };
   const alternate = { ...original, id: `${tag}-alternate`, name: "Fixture corrected printing", collectorNumber: "2",
     imageUri: "/fixture-card-alternate.svg", finishes: ["foil"] };
-  let batch = "", reverse = false, refreshes = 0, fixtureClosing = false;
+  let batch = "", reverse = false, refreshes = 0, fixtureClosing = false, navigation = 0;
+  const cancelled = new WeakSet<object>();
+  page.on("framenavigated", frame => { if (frame === page.mainFrame()) navigation++; });
+  page.on("requestfailed", request => { if (request.failure()?.errorText === "net::ERR_ABORTED") cancelled.add(request); });
   // Controlled jobs stay fixed between revisions. Reuse each signed fixture
   // presentation and collapse simultaneous polls instead of repeatedly
   // launching Docker/Prisma while browser assertions are waiting.
@@ -62,13 +65,15 @@ test("correction drafts, lost acknowledgement, private library, original viewing
       decision: { cardId: original.id, finish: "NONFOIL", condition: "NM", language: "en" } } })).ok()).toBe(true);
     await page.route("**/fixture-card-*.svg", route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="420"><rect width="300" height="420" fill="#557799"/></svg>' }));
     await page.route(`**${reviewEndpoint}?*`, async route => {
-      const url = new URL(route.request().url());
+      const epoch = navigation, request = route.request(), url = new URL(request.url());
+      try {
       if (!url.searchParams.has("photoId")) {
         // Search result is controlled; persistence still uses the real catalog.
         expect(url.searchParams.get("query")).toBe(alternate.name);
         return route.fulfill({ json: [alternate] });
       }
       const response = await route.fetch(); expect(response.ok()).toBe(true); const record = await response.json();
+      if (fixtureClosing || epoch !== navigation || cancelled.has(request)) return;
 
       const offers=reverse?[alternate,original]:[original,alternate];
       // Sign exactly this fixture's displayed order using real owner/photo/jobs.
@@ -80,10 +85,15 @@ test("correction drafts, lost acknowledgement, private library, original viewing
         presentations.set(presentationKey, signing);
       }
       const token = await signing;
-      if (fixtureClosing) return;
+      if (fixtureClosing || epoch !== navigation || cancelled.has(request)) return;
       await route.fulfill({ json: { ...record, evidenceToken:token, recognitionStatus: "PENDING", visualStatus: "RUNNING",
         printingStatus: "RUNNING", suggestions: (reverse ? [alternate, original] : [original, alternate]).map(printing => ({ printing, reasons: ["Controlled UI fixture"] })) } });
       refreshes++;
+      } catch (error) {
+        // A reload cancels old controlled reads. Current read failures remain
+        // failures; do not sign or fulfill obsolete navigation responses.
+        if (!fixtureClosing && epoch === navigation && !cancelled.has(request)) throw error;
+      }
     });
     await page.goto(`/imports/scan?batch=${batch}`);
     const card = page.getByTestId("capture-card-1"); await card.scrollIntoViewIfNeeded();
@@ -228,7 +238,8 @@ test("correction drafts, lost acknowledgement, private library, original viewing
     expect((await (await page.request.get(`${reviewEndpoint}?photoId=${photos[0]}`)).json()).review.condition).toBe("DMG");
   } finally {
     fixtureClosing = true;
-    await page.unrouteAll({behavior:"wait"});
+    try { await page.unrouteAll({behavior:"ignoreErrors"}); await page.close(); await Promise.allSettled(presentations.values()); }
+    finally {
     database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const w={run:{session:{createdByUserId:n}}};const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});
       ${cleanupCorrectionFixture}
       {const n=${JSON.stringify(peer)};${cleanupCorrectionFixture}await p.player.deleteMany({where:{id:n}});}
@@ -237,5 +248,6 @@ test("correction drafts, lost acknowledgement, private library, original viewing
       await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});await p.card.deleteMany({where:{id:{in:${JSON.stringify([original.id, alternate.id])}}}});
       const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;if(!root||!paths.isAbsolute(root))throw new Error('Private fixture path unavailable');
       for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw new Error('Invalid owned photo identity');for(const suffix of ['.original','.preview.jpg'])await fs.unlink(paths.join(root,'acquisition-v1',photo.id+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e;});}`);
+    }
   }
 });
