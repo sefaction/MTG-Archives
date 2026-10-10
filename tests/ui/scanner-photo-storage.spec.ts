@@ -1,3 +1,4 @@
+import { cancelAndCleanCorrectionFixture } from "./correction-fixture";
 import { expect, test } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -62,6 +63,14 @@ test("storage-full guidance works on desktop and phone and clears after saved-or
     await expect(scanner).not.toContainText("Scan-photo storage is full");
     await expect(scanner).toContainText("Selected count reached.");
   } finally {
+    // Block new authenticated polling and retire only this fixture owner.
+    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
+    try {
     database("const n="+JSON.stringify(tag)+",w={run:{session:{createdByUserId:n}}};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;if(!root||!paths.isAbsolute(root))throw Error('Private fixture root unavailable');for(const photo of await p.acquisitionPhoto.findMany({where:w,select:{id:true}}))for(const suffix of ['.original','.preview.jpg'])await fs.unlink(paths.join(root,'acquisition-v1',photo.id+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e;});for(const run of await p.scannerRun.findMany({where:{agent:{userId:n}},select:{id:true}})){if(!/^[a-f0-9-]{36}$/.test(run.id))throw Error('Fixture identity invalid');await fs.unlink(paths.join(root,'scanner-control-v1',run.id+'.start.json')).catch(e=>{if(e.code!=='ENOENT')throw e;});}await p.scannerRun.deleteMany({where:{agent:{userId:n}}});for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});await p.scannerPairing.deleteMany({where:{userId:n}});await p.scannerAgent.deleteMany({where:{userId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.inventoryItem.deleteMany({where:{currentOwnerId:n}});await p.inventoryLocation.deleteMany({where:{id:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});");
+
+    } finally {
+      // A final sweep also catches writes completed during legacy teardown.
+      database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
+    }
   }
 });

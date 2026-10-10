@@ -14,8 +14,8 @@ import { claimFixtureJobs } from "./acquisition-verification-queue";
 
 // Synthetic saved OCR in a disposable database: reinterpret metadata without
 // new native work, provider network access, human labels or Inventory writes.
-export async function verifyAcquisitionFooterLanguages(db: PrismaClient, actor: AcquisitionActor,
-  sessionId: string, templatePhotoId: string, templateJob: ClaimedAcquisitionJob) {
+async function verifyFooterLanguageObservation(db: PrismaClient, actor: AcquisitionActor,
+  sessionId: string, templatePhotoId: string, templateJob: ClaimedAcquisitionJob, supplemental: boolean) {
   const name = `Paired footer ${randomUUID().slice(0, 8)}`;
   const ids = [0, 1, 2, 3].map(() => randomUUID()), keys = new Set<string>();
   const cards: ScryfallCard[] = ids.map((id, i) => ({ object: "card", id, name,
@@ -37,7 +37,9 @@ export async function verifyAcquisitionFooterLanguages(db: PrismaClient, actor: 
       identityKind: candidateTemplate.identityKind, acquisitionOrder: 2500, spatialOrder: 0,
       expectedSides: candidateTemplate.expectedSides, provisional: candidateTemplate.provisional,
       uncertainty: candidateTemplate.uncertainty, revision: 0}}); candidateId = candidate.id;
-    const text = {title: [name], footer: ["PAIRA FR", "PAIRB EN", "C 7"]};
+    const text = supplemental
+      ? {title: [name], footer: ["PAIRAFRARTIST", "PAIRB EN", "C 7"], footerSupplemental: ["PAIRA FR ARTIST", "PAIRB EN", "C 7"]}
+      : {title: [name], footer: ["PAIRA FR", "PAIRB EN", "C 7"]};
     const native = {version: 1, descriptor: "a".repeat(64), descriptorDetails: {}, photoDigest: photo.digest,
       text, orientations: [{rotationDegrees: 0, text, lines: []}, {rotationDegrees: 180, text: {title: [], footer: []}, lines: []}],
       geometry: {status: "ACCEPTED"}, lines: [], milliseconds: 1, automaticAcceptance: false};
@@ -82,6 +84,7 @@ export async function verifyAcquisitionFooterLanguages(db: PrismaClient, actor: 
     assert.deepEqual((await db.acquisitionProcessingJob.findUniqueOrThrow({where: {id: raw.id}})).output, source, "saved OCR and its historical proposal remain immutable");
     assert.equal(await db.acquisitionProcessingJob.count({where: {candidateId: candidate.id, stage: "photo-recognition-v1"}}), 1, "metadata policy does not rerun native OCR");
     assert.deepEqual(await db.inventoryItem.aggregate({_count: {_all: true}, _sum: {quantity: true}}), stock);
+    if (supplemental) assert(proposals.proposals.every((p: any) => p.reasons.includes("RECOVERED_FOOTER_LAYOUT")), "newly recovered footer evidence requires review");
     console.log("PASS: paired footer metadata refresh, obsolete-version fence, provider pairing/cache reuse, immutable OCR and explicit Inventory boundary");
   } finally {
     if (candidateId) await db.acquisitionProcessingJob.deleteMany({where: {candidateId}});
@@ -92,4 +95,10 @@ export async function verifyAcquisitionFooterLanguages(db: PrismaClient, actor: 
     await db.acquisitionCatalogLookup.deleteMany({where: {key: {in: [...keys]}}});
     await db.card.deleteMany({where: {scryfallId: {in: ids}}});
   }
+}
+
+export async function verifyAcquisitionFooterLanguages(db: PrismaClient, actor: AcquisitionActor,
+  sessionId: string, templatePhotoId: string, templateJob: ClaimedAcquisitionJob) {
+  await verifyFooterLanguageObservation(db, actor, sessionId, templatePhotoId, templateJob, false);
+  await verifyFooterLanguageObservation(db, actor, sessionId, templatePhotoId, templateJob, true);
 }

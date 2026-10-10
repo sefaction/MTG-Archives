@@ -1,3 +1,4 @@
+import { cancelAndCleanCorrectionFixture } from "./correction-fixture";
 import { expect, test } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -62,6 +63,9 @@ test("native HTTP endpoints separate permanent denial from run conflicts and mal
     const state = JSON.parse(database(`const n=${JSON.stringify(tag)};console.log(JSON.stringify({inventory:await p.inventoryItem.count({where:{currentOwnerId:n}}),photos:await p.acquisitionPhoto.count({where:{run:{session:{createdByUserId:n}}}})}));`));
     expect(state).toEqual({ inventory: 0, photos: 0 });
   } finally {
+    // Block new authenticated polling and retire only this fixture owner.
+    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
+    try {
     database(`const n=${JSON.stringify(tag)},w={run:{session:{createdByUserId:n}}};
       const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;
       if(!root||!paths.isAbsolute(root))throw new Error('Private fixture storage unavailable');
@@ -73,5 +77,10 @@ test("native HTTP endpoints separate permanent denial from run conflicts and mal
       await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});
       await p.scannerPairing.deleteMany({where:{userId:n}});await p.scannerAgent.deleteMany({where:{userId:n}});await p.authSession.deleteMany({where:{userId:n}});
       await p.inventoryLocation.deleteMany({where:{id:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});`);
+
+    } finally {
+      // A final sweep also catches writes completed during legacy teardown.
+      database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
+    }
   }
 });

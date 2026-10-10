@@ -14,7 +14,7 @@ const point = z.tuple([z.number().finite(), z.number().finite()]);
 const words = z.array(z.string().max(2000)).max(100);
 const observation = z.object({
   rotationDegrees: z.union([z.literal(0), z.literal(180)]),
-  text: z.object({ title: words, footer: words }),
+  text: z.object({ title: words, footer: words, footerSupplemental: words.optional() }),
   lines: z
     .array(
       z.object({
@@ -24,6 +24,8 @@ const observation = z.object({
       }),
     )
     .max(100),
+  footerLines: z.array(z.object({text: z.string().max(2000), score: z.number().finite(),
+    polygon: z.array(point).min(3).max(8)})).max(100).optional(),
 });
 const schema = z.object({
   printing: printingSummarySchema.optional(),

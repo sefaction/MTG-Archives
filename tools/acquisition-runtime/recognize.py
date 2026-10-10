@@ -14,7 +14,7 @@ import time
 
 from model_store import model_root
 from reading_direction import (reading_text, reading_zones, restore_reading_polygon,
-                               TITLE_BOTTOM, FOOTER_TOP, STRIP_GAP)
+                               TITLE_BOTTOM, FOOTER_TOP, STRIP_GAP, restore_footer_polygon)
 from photo_input import decode_photo_input
 from photo_text import whole_photo_text
 
@@ -151,7 +151,24 @@ def recognize(data, desc):
                     raise ValueError('OCR evidence exceeds bounds')
                 lines.append({'text': str(text), 'score': float(score), 'polygon': polygon})
         text = reading_text(lines)
-        orientations.append({'rotationDegrees': degrees, 'text': text, 'lines': lines})
+        # Keep the stitched reading intact. A separate full-width footer attempt
+        # can separate a marker from the artist that the stitched canvas joins.
+        footer_lines = []
+        for prediction in ocr.predict(oriented[FOOTER_TOP:]):
+            for value, score, polygon in zip(prediction['rec_texts'], prediction['rec_scores'], prediction['rec_polys']):
+                polygon = restore_footer_polygon(np.asarray(polygon).tolist())
+                if polygon is None:
+                    continue
+                if len(str(value)) > 2000 or len(lines) + len(footer_lines) >= 100:
+                    raise ValueError('OCR evidence exceeds bounds')
+                footer_lines.append({'text': str(value), 'score': float(score), 'polygon': polygon})
+        # Same orientation and actual footer pixels; resolver recovery remains
+        # review-only whenever this contributes new identifiers or collectors.
+        text['footerSupplemental'] = reading_text(footer_lines)['footer']
+        if len(text['footer']) + len(text['footerSupplemental']) > 100:
+            raise ValueError('OCR footer evidence exceeds bounds')
+        orientations.append({'rotationDegrees': degrees, 'text': text,
+                             'lines': lines, 'footerLines': footer_lines})
     print(json.dumps({'version': 1, 'descriptor': desc['digest'], 'descriptorDetails': desc,
           'photoDigest': hashlib.sha256(data).hexdigest(), 'geometry': geometry_evidence,
           'text': orientations[0]['text'], 'lines': orientations[0]['lines'],
