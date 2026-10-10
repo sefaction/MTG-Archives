@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 // Read-only routes and controlled suggestion replies: no collection fixtures or
 // Inventory writes. Delays are released explicitly, not timed against a network.
+const filterScope = "language=EN&set=quick-search-no-matching-set-zz";
 const scenarios = ["/public/inventory", "/inventory"].flatMap((actionPath) =>
   [{ width: 1366, height: 768 }, { width: 320, height: 740 }].map((viewport) => ({ actionPath, viewport })),
 );
@@ -31,7 +32,7 @@ for (const { actionPath, viewport } of scenarios) {
       await route.fulfill({ json: { suggestions: [{ value: name, label: name }] } });
     });
     try {
-      await page.goto(`${actionPath}?language=EN&displayMode=exact&pageSize=10&sort=setCode&sortDir=desc`);
+      await page.goto(`${actionPath}?${filterScope}&displayMode=exact&pageSize=10&sort=setCode&sortDir=desc`);
       const search = page.getByRole("combobox", { name: "Quick card name search" });
       await search.fill("For");
       await expect(page.getByRole("option", { name: "Forest", exact: true })).toBeVisible();
@@ -41,6 +42,7 @@ for (const { actionPath, viewport } of scenarios) {
       await expect(page).toHaveURL(/[?&]cardName=Island(?:&|$)/);
       const params = new URL(page.url()).searchParams;
       expect(params.get("language")).toBe("EN");
+      expect(params.get("set")).toBe("quick-search-no-matching-set-zz");
       expect(params.get("displayMode")).toBe("exact");
       expect(params.get("pageSize")).toBe("10");
       expect(params.get("sort")).toBe("setCode");
@@ -72,7 +74,7 @@ test("quick search drops superseded replies, clears options, and selects current
       : [{ value: "Island", label: "Island" }, { value: "Island Sanctuary", label: "Island Sanctuary" }] } });
   });
   try {
-    await page.goto("/public/inventory?language=EN&pageSize=10");
+    await page.goto(`/public/inventory?${filterScope}&pageSize=10`);
     const search = page.getByRole("combobox", { name: "Quick card name search" });
     await search.fill("For");
     await requestSeen;
@@ -98,6 +100,7 @@ test("quick search drops superseded replies, clears options, and selects current
     await page.getByRole("option", { name: "Forest", exact: true }).click();
     await expect(page).toHaveURL(/[?&]cardName=Forest(?:&|$)/);
     expect(new URL(page.url()).searchParams.get("language")).toBe("EN");
+    expect(new URL(page.url()).searchParams.get("set")).toBe("quick-search-no-matching-set-zz");
   } finally {
     release();
     await page.unrouteAll({ behavior: "wait" });
