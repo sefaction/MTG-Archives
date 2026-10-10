@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
+import { inventorySortHref } from "../components/inventorySortNavigation";
 
 const inventoryPage = fs.readFileSync("app/inventory/page.tsx", "utf8");
 const publicInventoryQueries = fs.readFileSync(
@@ -146,9 +147,11 @@ test("sorted page order is preserved after row hydration", () => {
 });
 
 test("sorting is server-authoritative and resets page state", () => {
-  assert.match(inventoryBrowser, /function updateSortQuery/);
-  assert.match(inventoryBrowser, /params\.set\("sort", primarySort\.id\)/);
-  assert.match(inventoryBrowser, /params\.delete\("page"\)/);
+  const destination = new URL(inventorySortHref("/inventory", "page=4&cardName=Forest", "quantity", "desc"), "https://example.invalid");
+  assert.equal(destination.searchParams.get("sort"), "quantity");
+  assert.equal(destination.searchParams.get("sortDir"), "desc");
+  assert.equal(destination.searchParams.get("cardName"), "Forest");
+  assert.equal(destination.searchParams.has("page"), false);
   assert.doesNotMatch(inventoryBrowser, /getSortedRowModel/);
   assert.match(inventoryPage, /const sortField = p\.sort \|\| "cardName"/);
   assert.match(inventoryPage, /compareInventoryGroups/);

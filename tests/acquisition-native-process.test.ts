@@ -1,8 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { chmodSync, mkdtempSync, rmSync, rmdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { runAcquisitionNativeProcess } from "../lib/acquisition-native-process";
 import { AcquisitionNativeStream } from "../lib/acquisition-native-stream";
 import { acquisitionNativeEnvironment } from "../lib/acquisition-native-environment";
+import { acquisitionNativeFailure, type NativeFailure } from "../lib/acquisition-native-failure";
 
 test("native environment excludes app credentials", () => {
   const prior = process.env.DATABASE_URL;
@@ -106,22 +110,48 @@ test("native stream delivers bounded coalesced progress and waits for an aborted
   }finally{await native.shutdown();}
 });
 
-test("native progress respects the aggregate output limit across separately delivered frames", async () => {
-  const program = `process.stdin.once('data',()=>{
-    const value=JSON.stringify({progress:true,text:'x'.repeat(23000)})+String.fromCharCode(10);
-    process.stdout.write(value.slice(0,10));
-    setTimeout(()=>process.stdout.write(value.slice(10)),10);
-    setTimeout(()=>process.stdout.write(value),40);
-    setTimeout(()=>process.stdout.write(value),70);
-    setTimeout(()=>process.stdout.write(JSON.stringify({done:true})+String.fromCharCode(10)),100);
-  });`;
-  const native = new AcquisitionNativeStream(process.execPath, ["-e", program]);
-  const seen: unknown[] = [];
+for (const delay of [0, 120]) test(`native progress respects the aggregate output limit across acknowledged frames (${delay}ms consumer delay)`, async () => {
+  const directory = mkdtempSync(join(tmpdir(), "mtg-native-progress-handshake-"));
+  const acknowledgement = join(directory, "accepted");
+  // Linux root workers drop the child to nobody. Only this synthetic marker
+  // needs to be readable; do not change native identity or app permissions.
+  chmodSync(directory, 0o755);
+  writeFileSync(acknowledgement, "0", { mode: 0o644 });
+  chmodSync(acknowledgement, 0o644);
+  const program = `const fs=require('fs'),ack=process.argv[1];
+    const frame=index=>JSON.stringify({progress:true,index,text:'x'.repeat(23000)})+String.fromCharCode(10);
+    const accepted=(count,next)=>{
+      let value='';try{value=fs.readFileSync(ack,'utf8');}catch(error){if(error.code!=='ENOENT')throw error;}
+      if(value===String(count))next();else setTimeout(()=>accepted(count,next),5);
+    };
+    process.stdin.once('data',()=>{
+      const first=frame(0);
+      process.stdout.write(first.slice(0,10),()=>process.stdout.write(first.slice(10)));
+      accepted(1,()=>{
+        process.stdout.write(frame(1));
+        accepted(2,()=>process.stdout.write(frame(2)+JSON.stringify({done:true})+String.fromCharCode(10)));
+      });
+    });`;
+  const failures: NativeFailure[] = [];
+  const native = new AcquisitionNativeStream(process.execPath, ["-e", program, acknowledgement], undefined,
+    failure => failures.push(failure));
+  const seen: Array<{ index: number; text: string }> = [];
   try {
-    await assert.rejects(native.request(Buffer.from("photo"), AbortSignal.timeout(5000),
-      value => seen.push(value)), /stopped/);
-    assert.equal(seen.length, 2, "split frames parse, but the third exceeds the aggregate bound");
+    await assert.rejects(native.request(Buffer.from("photo"), AbortSignal.timeout(5000), value => {
+      seen.push(value as { index: number; text: string });
+      // A blocked consumer must not let a timer release unacknowledged frames.
+      if (delay) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delay);
+      writeFileSync(acknowledgement, String(seen.length));
+    }), error => {
+      assert.equal(acquisitionNativeFailure(error)?.reason, "OUTPUT_LIMIT");
+      return true;
+    });
+    assert.deepEqual(seen.map(value => value.index), [0, 1], "two frames parse before the aggregate third-frame rejection");
+    assert.ok(seen.every(value => value.text.length === 23000));
+    assert.equal(failures.length, 1, "failure is observed when the native child closes");
+    assert.equal(failures[0].reason, "OUTPUT_LIMIT");
   } finally {
-    await native.shutdown();
+    try { await native.shutdown(); }
+    finally { rmSync(acknowledgement, { force: true }); rmdirSync(directory); }
   }
 });

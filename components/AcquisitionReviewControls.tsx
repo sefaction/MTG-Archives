@@ -818,6 +818,8 @@ export function AcquisitionPhotoReview({
           >
             {committed
               ? "Added to Inventory"
+              : draftDirty
+                ? "Unsaved correction · save or cancel changes"
               : record.review?.source === "AUTO_STRONG_MATCH"
                 ? "Automatically confirmed · correct below if needed"
                 : record.review
@@ -1001,7 +1003,11 @@ export function AcquisitionPhotoReview({
                   role="status"
                   data-testid="scan-compact-status"
                 >
-                  {processing.label}
+                  {committed
+                    ? "Added to Inventory"
+                    : draftDirty
+                      ? "Unsaved correction"
+                      : processing.label}
                 </p>
                 {!record.review &&
                   (record.visualStatus === "FAILED" ||
