@@ -1,3 +1,4 @@
+import { cancelAndCleanCorrectionFixture } from "./correction-fixture";
 import { expect, test } from "@playwright/test";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { randomUUID, createHash } from "node:crypto";
@@ -132,6 +133,9 @@ test("website START through actual Windows fixture helper reaches ordinary recog
     expect(log.match(/"kind":"AcquisitionStarted"/g)?.length).toBe(2);
     writeFileSync('test-results/scanner-native-result.json',JSON.stringify({passed:true,fixture:true,physicalScans:0,inventoryChanges:1,explicitFinalConfirmation:true,successiveBatches:2,helperRestart:true,firstReviewAndReceiptPreserved:true,elapsedMs:Date.now()-began,originalDigest:originalHash,sourcePreserved:true,location:true,recognitionName:expectedName}));
   } finally {
+    // Block new authenticated polling and retire only this fixture owner.
+    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
+    try {
     if(child && child.exitCode===null && child.signalCode===null){
       child.kill();await new Promise<void>(resolve=>{child!.once('exit',()=>resolve());setTimeout(resolve,5000);});
       if(child.exitCode===null && child.signalCode===null)throw new Error('Owned fixture helper still running; retain its spool for recovery');
@@ -168,5 +172,10 @@ test("website START through actual Windows fixture helper reaches ordinary recog
       await p.authSession.deleteMany({where:{userId:n}});await p.inventoryLocation.deleteMany({where:{id:n}});
       await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});
     `);
+
+    } finally {
+      // A final sweep also catches writes completed during legacy teardown.
+      database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
+    }
   }
 });
