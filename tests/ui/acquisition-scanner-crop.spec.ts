@@ -1,5 +1,7 @@
+import { scannerVisualFixtureDescriptor } from "./scanner-visual-fixture";
 import { cancelAndCleanCorrectionFixture } from "./correction-fixture";
 import { expect, test } from "@playwright/test";
+import type { AcquisitionCardReview } from "../../lib/acquisition-review";
 import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -24,6 +26,8 @@ test("tight scanner images retain the footer through recognition and visual revi
   expect(baseURL).toBe("http://127.0.0.1:13001");
   test.setTimeout(240000);
   page.setDefaultTimeout(10000);
+  const visualDescriptor = process.env.MTG_ACQUISITION_VISUAL_TEST === "1"
+    ? scannerVisualFixtureDescriptor() : null;
   const tag = `ui-scanner-${randomUUID()}`,
     password = randomUUID();
   const manifest = JSON.parse(
@@ -120,7 +124,8 @@ test("tight scanner images retain the footer through recognition and visual revi
       expect(reconciled.native.photoDigest).toBe(entry.sha256);
       if (process.env.MTG_ACQUISITION_VISUAL_TEST === "1") {
         expect(reconciled.visual.photoDigest).toBe(entry.sha256);
-        expect(reconciled.visual.referenceCount).toBe(112472);
+        expect(reconciled.visual.referenceCount).toBe(visualDescriptor!.referenceCount);
+        expect(reconciled.visual.descriptor).toBe(visualDescriptor!.digest);
         expect(reconciled.visual.candidates).toHaveLength(12);
         expect(reconciled.visual.geometricCandidates.length).toBeGreaterThan(0);
         expect(reconciled.proposals.automaticAcceptance).toBe(false);
@@ -137,9 +142,32 @@ test("tight scanner images retain the footer through recognition and visual revi
         await expect(
           card.getByText("Whole card compared with catalog images"),
         ).toBeVisible({ timeout: 20000 });
-        await expect(card.getByTestId("scan-proposal-evidence")).toHaveText(
-          "Suggested from image comparison; verify the exact printing.",
-        );
+        const batchId = new URL(page.url()).searchParams.get("batch");
+        expect(batchId).not.toBeNull();
+        let review: AcquisitionCardReview | null = null;
+        await expect.poll(async () => {
+          const response = await page.request.get(`/api/acquisition/${batchId}/review?photoId=${reconciled.photoId}`);
+          expect(response.ok()).toBe(true);
+          review = await response.json() as AcquisitionCardReview;
+          return review.printingStatus;
+        }, { timeout: 120000 }).toBe("COMPLETE");
+        expect(review!.photoId).toBe(reconciled.photoId);
+        expect(review!.visualStatus).toBe("COMPLETE");
+        expect(review!.review).toBeNull();
+        const suggestion = review!.suggestions[0];
+        expect(suggestion.printing.name).toBe(entry.name);
+        const reasons = suggestion.reasons;
+        let expectedCaption: string;
+        if (reasons.includes("UNLOCALIZED_NAME_HINT")) {
+          expect(reasons).toContain("PRINTING_UNCONFIRMED");
+          expectedCaption = "Name suggested from whole-photo text; exact printing unverified.";
+        } else if (reasons.includes("VISUAL_MATCH") || reasons.includes("SIFT_CANDIDATE")) {
+          expectedCaption = "Suggested from image comparison; verify the exact printing.";
+        } else {
+          expect(reasons.some(reason => ["TITLE_EXACT", "TITLE_FUZZY", "TITLE_AND_COLLECTOR_TEXT", "SET_AND_COLLECTOR_TEXT"].includes(reason))).toBe(true);
+          expectedCaption = "Suggested from text; image comparison offered other candidates.";
+        }
+        await expect(card.getByTestId("scan-proposal-evidence")).toHaveText(expectedCaption);
       }
       await expect(card.getByText(/Full image retained; no crop/)).toBeVisible({
         timeout: 20000,
@@ -147,6 +175,8 @@ test("tight scanner images retain the footer through recognition and visual revi
       await expect(
         card.getByRole("button", { name: "Full card image", exact: true }),
       ).toBeEnabled();
+      // Whole-photo hints default to Original; select the diagnostic explicitly.
+      await card.getByRole("button", { name: "Full card image", exact: true }).click();
       await expect(
         card.getByRole("img", {
           name: `Full card image ${i + 1}`,
@@ -162,6 +192,8 @@ test("tight scanner images retain the footer through recognition and visual revi
     }
     await page.reload();
     const card = page.getByTestId("capture-card-1");
+    // Reload restores the evidence-dependent default view.
+    await card.getByRole("button", { name: "Full card image", exact: true }).click();
     for (const width of [1366, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await card.scrollIntoViewIfNeeded();
@@ -222,6 +254,7 @@ test("tight scanner images retain the footer through recognition and visual revi
           /Image comparison failed\. Your photo and text suggestions are saved/,
         ),
       ).toBeVisible({ timeout: 20000 });
+      await failedCard.getByRole("button", { name: "Full card image", exact: true }).click();
       await expect(
         failedCard.getByRole("img", { name: "Full card image 1", exact: true }),
       ).toBeVisible();
