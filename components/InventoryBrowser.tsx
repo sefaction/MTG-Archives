@@ -9,6 +9,8 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
+import { INVENTORY_SORT_FIELDS } from "@/lib/inventory-sort";
+import { inventorySortHref } from "./inventorySortNavigation";
 import { StorageDestinationPicker } from "./StorageDestinationPicker";
 import { InventoryMoveDialog } from "./InventoryMoveDialog";
 import {
@@ -2093,24 +2095,6 @@ export function InventoryBrowser({
     ],
   );
 
-  function updateSortQuery(nextSorting: SortingState) {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const primarySort = nextSorting[0];
-    if (primarySort) {
-      params.set("sort", primarySort.id);
-      params.set("sortDir", primarySort.desc ? "desc" : "asc");
-    } else {
-      params.delete("sort");
-      params.delete("sortDir");
-    }
-    params.delete("page");
-    rememberScrollPosition();
-    router.replace(`${window.location.pathname}?${params.toString()}`, {
-      scroll: false,
-    });
-  }
-
   function updateBrowseQuery(next: {
     pageSize?: number;
     browse?: string;
@@ -2462,12 +2446,7 @@ export function InventoryBrowser({
     data: renderedRows,
     columns: cols,
     state: { sorting, columnVisibility, pagination: effectivePagination },
-    onSortingChange: (updater) => {
-      const nextSorting =
-        typeof updater === "function" ? updater(sorting) : updater;
-      setSorting(nextSorting);
-      updateSortQuery(nextSorting);
-    },
+    manualSorting: true,
     onPaginationChange: setPagination,
     onColumnVisibilityChange: (v) => {
       const next = typeof v === "function" ? v(columnVisibility) : v;
@@ -3143,10 +3122,28 @@ export function InventoryBrowser({
                     {hg.headers.map((h) => (
                       <th
                         key={h.id}
-                        className="p-2 text-left align-middle border-b border-zinc-800 cursor-pointer"
-                        onClick={h.column.getToggleSortingHandler()}
+                        className="p-2 text-left align-middle border-b border-zinc-800"
+                        aria-sort={h.column.getIsSorted() === "asc" ? "ascending"
+                          : h.column.getIsSorted() === "desc" ? "descending" : undefined}
                       >
-                        {flexRender(h.column.columnDef.header, h.getContext())}
+                        {h.column.getCanSort() && (INVENTORY_SORT_FIELDS as readonly string[]).includes(h.column.id) ? (
+                          <a
+                            className="inline-flex w-full items-center gap-1 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-500"
+                            href={inventorySortHref(uiMode === "public-readonly" ? "/public/inventory" : "/inventory",
+                              pageHrefBase || "", h.column.id, h.column.getNextSortingOrder())}
+                            onClick={(event) => {
+                              if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+                              event.preventDefault();
+                              rememberScrollPosition();
+                              // Load the ordered page directly; a completed component
+                              // response can otherwise leave the previous query applied.
+                              window.location.replace(event.currentTarget.href);
+                            }}
+                          >
+                            {flexRender(h.column.columnDef.header, h.getContext())}
+                            {h.column.getIsSorted() && <span aria-hidden="true">{h.column.getIsSorted() === "asc" ? "↑" : "↓"}</span>}
+                          </a>
+                        ) : flexRender(h.column.columnDef.header, h.getContext())}
                       </th>
                     ))}
                   </tr>
@@ -4345,3 +4342,4 @@ export function InventoryBrowser({
     </div>
   );
 }
+
