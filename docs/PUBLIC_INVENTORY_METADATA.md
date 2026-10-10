@@ -65,17 +65,32 @@ history while avoiding the stalled client-stream transition.
   required GitHub checks pass on implementation commit `9005a59`, including
   production build. The required-installer cumulative Docker build also passes
   compilation, types, static generation and all thirteen client-manifest guards.
-- The new navigation image is built but not loaded. A supervised manual scanner
-  test became active on the shared local environment, so web replacement and
-  browser qualification were deferred to avoid interrupting that work. The
-  last loaded source remains the metadata-only `a7377bcf` build. Repeated
-  desktop/phone/history/options checks and final post-navigation conservation
-  are still pending. No deadline or assertion was relaxed.
-- Resume after the manual test releases the environment. Reconcile its actual
-  data, services and loaded source before capturing a fresh pre-load baseline;
-  preserve intentional manual-test changes. Final-head GitHub checks and all
-  loaded-runtime gates must pass before this draft becomes ready. Individual
-  approval and merge remain the scheduled reviewer's responsibility.
+- The first scheduled run deferred loading while a supervised manual scanner
+  test used the shared environment. The second run resumed after that chat
+  explicitly released its shared-runtime deferral. A fresh baseline retained
+  its intentional two photos/candidates/artifacts, one run, one Inventory row
+  and one commit/member; historical pre-manual snapshots were not reused as
+  the current conservation baseline.
+- The immutable saved navigation image and all 597 source inputs matched the
+  candidate manifest. Its sole delta from the metadata-only predecessor was
+  the Public page. The guarded loader preserved environment/storage and
+  replaced only web. Health and host HTTP 200 passed before browser tests.
+- Actual loaded-runtime qualification passes: all four navigation/privacy
+  cases in 23.4 seconds, then all nine repeated clearing cases in 25.3 seconds,
+  with zero skips, failures or flaky retries. Desktop/320px clearing, browser
+  Back, grouped browsing options, pagination reset and anonymous/authenticated
+  Public privacy qualify. Original ten-second URL assertions are unchanged.
+- After every browser runner terminated, all seven fresh original table
+  projections, including the intentional manual-test rows, and all fifteen
+  other service identities/lifecycles/mounts/limits were conserved. Independent
+  player/user/location/card/deck fixture-namespace counts were all zero. Web
+  remained healthy with zero restarts. No original-file byte audit, private
+  Inventory loading resolution or production latency claim is inferred.
+- Approved main `8f16a495` was integrated into the feature branch. Its quick
+  search component and this batch's runtime bytes exactly match the qualified
+  cumulative image, so the already built application image is reused. Final
+  report-head GitHub checks govern readiness; individual approval and merge
+  remain the scheduled reviewer's responsibility.
 
 Private evidence is under feature `.local-data/paired-query.*`,
 `repeat-browser.*`, `baseline-browser.*`, `core.log` and cumulative review
@@ -98,14 +113,14 @@ The source digest changes from
 (metadata only), then
 `c4b7c9191cfc4154b9b0d381afea7fc899b6476dd15e32a231b29b8038077440`
 (including document navigation).
-The pending navigation image is
+The qualified, currently loaded navigation image is
 `sha256:7a9dd2f42c3bfbf6e954bf051e82262e0a8fdc47794b4273c050a0730d10bf9a`;
 it must be reconciled with this exact source manifest before loading.
 The preexisting other-worker layout WIP is copied into this separate review
 checkout; the original worktree is preserved. Application dependency on either
 unmerged PR is not introduced by the name-metadata change.
 
-Only web may be replaced after exact packaged/current-source and environment
+Only web was replaced after exact packaged/current-source and environment
 checks. The other fifteen ordinary-project service identities, lifecycles,
-mounts/limits and all seven original collection/acquisition projections must be
-conserved. This does not authorize production deployment or a PR merge.
+mounts/limits and all seven fresh original collection/acquisition projections
+were conserved. This does not authorize production deployment or a PR merge.
