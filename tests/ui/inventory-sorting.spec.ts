@@ -75,7 +75,7 @@ for (const displayMode of ["exact", "grouped"] as const) {
 }
 
 
-test("filtered Public sorting preserves three-owner aggregation across pages", async ({ page, baseURL }) => {
+test("filtered Public sorting preserves three-owner aggregation across pages", async ({ page, browser, baseURL }) => {
   test.skip(process.env.MTG_LOCAL_PILOT_TEST !== "1", "Requires disposable local snapshot");
   expect(baseURL).toBe("http://127.0.0.1:13001");
   test.setTimeout(120000);
@@ -95,6 +95,9 @@ test("filtered Public sorting preserves three-owner aggregation across pages", a
         const card=await tx.card.create({data:{id:tag+'-card-'+i,scryfallId:require('crypto').randomUUID(),name:tag+' Card '+String(i).padStart(2,'0'),typeLine:'Artifact — Equipment',setCode:i<6?'zzz':'aaa',collectorNumber:String(i+1),rarity:'common',manaValue:12-i,prices:{}}});
         for(let o=0;o<3;o++){if(o===1&&i%2!==0||o===2&&i%3!==0)continue;await tx.inventoryItem.create({data:{currentOwnerId:owners[o],originalOpenerId:owners[o],cardId:card.id,locationId:owners[o],quantity:o===0?3*i+1:1,condition:'NM',language:'EN',sourceType:'MANUAL',notes:tag}})}
       }
+      await tx.inventoryLocation.create({data:{id:tag+'-private',name:tag+' private',normalizedName:tag+' private',ownerPlayerId:owners[0],type:'League 2026',visibility:'PRIVATE'}});
+      const hidden=await tx.card.create({data:{id:tag+'-card-hidden',scryfallId:require('crypto').randomUUID(),name:tag+' Card Hidden',typeLine:'Artifact — Equipment',setCode:'tst',collectorNumber:'999',rarity:'rare',prices:{}}});
+      await tx.inventoryItem.create({data:{currentOwnerId:owners[0],originalOpenerId:owners[0],cardId:hidden.id,locationId:tag+'-private',quantity:999,condition:'NM',language:'EN',sourceType:'MANUAL',notes:tag}});
       return true;
     });`);
     const query=new URLSearchParams({displayMode:"grouped",pageSize:"10",browse:"paginated",type:"Equipment",locationType:"League 2026",owner:owners.join(","),cardName:tag});
@@ -120,16 +123,46 @@ test("filtered Public sorting preserves three-owner aggregation across pages", a
       await expect.poll(names).toEqual(descending.slice(10));
     sorted.searchParams.set("page","1");
     await page.goto(sorted.toString());
-    await page.setViewportSize({width:390,height:844});
-    await page.getByRole("columnheader",{name:"Total cards",exact:true}).getByRole("link").click();
     await page.waitForLoadState("networkidle");
-      await expect.poll(names).toEqual([...descending].reverse().slice(0,10));
+    await page.setViewportSize({width:390,height:844});
+    const tableTop = await page.locator(".inventory-results table").evaluate(el => el.getBoundingClientRect().top + scrollY);
+    await page.evaluate(y => window.scrollTo(0,y-90), tableTop);
+    const quantityLink = page.getByRole("columnheader",{name:"Total cards",exact:true}).getByRole("link");
+    await quantityLink.focus();
+    const scrollBefore = await page.evaluate(() => scrollY);
+    expect(scrollBefore).toBeGreaterThan(0);
+    const historyBefore = await page.evaluate(() => history.length);
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/sort=quantity&sortDir=asc/);
+    await page.waitForLoadState("networkidle");
+    await expect.poll(names).toEqual([...descending].reverse().slice(0,10));
+    await expect.poll(() => page.evaluate(() => scrollY)).toBe(scrollBefore);
+    expect(await page.evaluate(() => history.length)).toBe(historyBefore);
+    await expect(page.getByRole("columnheader",{name:"Total cards",exact:true})).toHaveAttribute("aria-sort","ascending");
     await page.reload();
     await page.waitForLoadState("networkidle");
       await expect.poll(names).toEqual([...descending].reverse().slice(0,10));
     await page.screenshot({path:"test-results/public-filtered-sorting-390.png"});
+    await page.setViewportSize({width:1366,height:900});
+    const headings = page.locator(".inventory-results table thead th a");
+    const headingCount = await headings.count();
+    expect(headingCount).toBeGreaterThanOrEqual(3);
+    for(let index=0;index<headingCount;index++) {
+      const href = await headings.nth(index).getAttribute("href");
+      expect(href).toBeTruthy();
+      const destination = new URL(href!,baseURL);
+      const sortedApi = await page.request.get("/api/public/inventory/list"+destination.search);
+      expect(sortedApi.ok()).toBe(true);
+      const sortedRows = await sortedApi.json();
+      expect(sortedRows.totalMatchingCount).toBe(12);
+      await headings.nth(index).click();
+      await expect(page).toHaveURL(destination.toString());
+      await page.waitForLoadState("networkidle");
+      await expect.poll(names).toEqual(sortedRows.rows.map((r:{cardName:string})=>r.cardName));
+      expect(new URL(page.url()).searchParams.get("owner")).toBe(owners.join(","));
+    }
   } finally {
-    database(`const owners=${JSON.stringify(owners)},tag=${JSON.stringify(tag)};await p.$transaction(async tx=>{await tx.inventoryItem.deleteMany({where:{currentOwnerId:{in:owners}}});await tx.inventoryLocation.deleteMany({where:{ownerPlayerId:{in:owners}}});await tx.authSession.deleteMany({where:{userId:{in:owners}}});await tx.user.deleteMany({where:{id:{in:owners}}});await tx.player.deleteMany({where:{id:{in:owners}}});await tx.card.deleteMany({where:{id:{in:Array.from({length:12},(_,i)=>tag+'-card-'+i)}}})});return true;`);
+    database(`const owners=${JSON.stringify(owners)},tag=${JSON.stringify(tag)};await p.$transaction(async tx=>{await tx.inventoryItem.deleteMany({where:{currentOwnerId:{in:owners}}});await tx.inventoryLocation.deleteMany({where:{ownerPlayerId:{in:owners}}});await tx.authSession.deleteMany({where:{userId:{in:owners}}});await tx.user.deleteMany({where:{id:{in:owners}}});await tx.player.deleteMany({where:{id:{in:owners}}});await tx.card.deleteMany({where:{id:{in:[...Array.from({length:12},(_,i)=>tag+'-card-'+i),tag+'-card-hidden']}}})});return true;`);
   }
 });
 
