@@ -21,6 +21,7 @@ from photo_text import whole_photo_text
 ROOT = model_root()
 MODEL_NAMES = ('PP-OCRv5_mobile_det', 'en_PP-OCRv5_mobile_rec')
 _ocr = None
+_prepared = False
 
 
 def descriptor():
@@ -62,6 +63,24 @@ def ocr_engine():
                    use_textline_orientation=False, device='cpu', cpu_threads=1,
                    enable_mkldnn=False)
     return _ocr
+
+
+def prepare_ocr():
+    global _prepared
+    if _prepared:
+        return
+    # Disposable startup pixels initialize both detection and recognition.
+    # They are never a photo, catalog proposal, artifact or human decision.
+    import cv2
+    import numpy as np
+    sys.stdout = sys.stderr
+    cv2.setNumThreads(1)
+    canvas = np.full((457, 1000, 3), 255, np.uint8)
+    cv2.putText(canvas, 'OCR startup', (32, 96), cv2.FONT_HERSHEY_SIMPLEX,
+                2, (0, 0, 0), 3, cv2.LINE_AA)
+    for _ in ocr_engine().predict(canvas):
+        pass
+    _prepared = True
 
 
 def recognize(data, desc):
@@ -193,6 +212,11 @@ def main():
         if len(header) != 4:
             raise ValueError('Incomplete photo frame')
         length = int.from_bytes(header, 'big')
+        if length == 0 and '--prepare' in sys.argv:
+            prepare_ocr()
+            print(json.dumps({'prepared': True, 'descriptor': desc['digest']}),
+                  file=sys.__stdout__, flush=True)
+            continue
         if not 0 < length <= 10 * 1024 * 1024 + 1024:
             raise ValueError('Photo frame exceeds bounds')
         data = sys.stdin.buffer.read(length)
