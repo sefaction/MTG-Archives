@@ -558,12 +558,12 @@ export default async function PublicInventoryPage({ searchParams }: PageProps) {
               {result.publicProfiles.length ? (
                 <>
                   <p>No public cards match these filters.</p>
-                  <Link
+                  <a
                     className="mt-2 inline-block underline"
                     href={clearFiltersHref}
                   >
                     Clear filters
-                  </Link>
+                  </a>
                 </>
               ) : (
                 <>
