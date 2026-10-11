@@ -127,6 +127,9 @@ test("whole-photo hints support streaming review while other photos are queued",
       await expect(card).toContainText('Review saved. Not yet added to Inventory.');
       firstSaved=json(`console.log(JSON.stringify(await p.acquisitionCandidate.findFirstOrThrow({where:{...${owner},acquisitionOrder:0},select:{review:true,revision:true}})));`);
       expect(firstSaved.review.condition).toBe('LP');
+      const atFirstSave=json(`console.log(JSON.stringify({catalogCandidates:await p.acquisitionCandidate.count({where:{...${owner},jobs:{some:{stage:'photo-catalog-reconciliation-v1',status:'COMPLETE'}}}})}));`);
+      expect(atFirstSave.catalogCandidates).toBeLessThan(cases.length);
+      report.firstReview={condition:'LP',revision:firstSaved.revision,catalogCandidates:atFirstSave.catalogCandidates,savedBeforeBatchCatalogComplete:true};
       await expect.poll(()=>feedback().examples[0]?.blob.state,{timeout:120000}).toBe('PRESERVED');
       firstFeedback=feedback();
       expect(firstFeedback.examples).toHaveLength(1);
@@ -143,9 +146,28 @@ test("whole-photo hints support streaming review while other photos are queued",
       await expect(card).toContainText('LP');
       save();
     }
-    // Keep the existing per-stage deadline: all actual printing jobs must finish
+    // Keep the existing per-stage deadline: both untouched cards must finish
     // before checking the saved early correction against later background work.
-    await expect.poll(()=>Number(database(`console.log(await p.acquisitionProcessingJob.count({where:{...${owner},stage:'photo-printing-evidence-v1',status:'COMPLETE'}}));`)),{timeout:600000}).toBe(cases.length);
+    await expect.poll(()=>Number(database(`console.log(await p.acquisitionProcessingJob.count({where:{...${owner},candidate:{acquisitionOrder:{gt:0}},stage:'photo-printing-evidence-v1',status:'COMPLETE'}}));`)),{timeout:600000}).toBe(cases.length - 1);
+    // The early human review fences its older analysis. Completing that stale
+    // job is not required; silently failing or retaining a lease is not safe.
+    const firstPrintingJobs=json(`console.log(JSON.stringify(await p.acquisitionProcessingJob.findMany({where:{...${owner},candidate:{acquisitionOrder:0},stage:'photo-printing-evidence-v1'},select:{status:true,errorCode:true,candidateRevision:true,leaseToken:true,leaseExpiresAt:true,output:true}})));`);
+    expect(firstPrintingJobs).toHaveLength(1);
+    const firstPrinting=firstPrintingJobs[0];
+    expect(['COMPLETE','SUPERSEDED']).toContain(firstPrinting.status);
+    expect(firstPrinting.candidateRevision).toBeLessThan(firstSaved.revision);
+    expect(firstPrinting.leaseToken).toBeNull();
+    expect(firstPrinting.leaseExpiresAt).toBeNull();
+    if(firstPrinting.status==='SUPERSEDED') {
+      expect(firstPrinting.errorCode).toBe('INPUT_CHANGED');
+      expect(firstPrinting.output).toBeNull();
+    } else {
+      expect(firstPrinting.errorCode).toBeNull();
+      expect(firstPrinting.output).not.toBeNull();
+    }
+    report.printingLifecycle={untouchedComplete:cases.length-1,
+      firstStatus:firstPrinting.status,firstRevision:firstPrinting.candidateRevision,
+      savedRevision:firstSaved.revision};
     const after=json(`console.log(JSON.stringify(await p.acquisitionCandidate.findFirstOrThrow({where:{...${owner},acquisitionOrder:0},select:{review:true,revision:true}})));`);
     expect(after).toEqual(firstSaved);
     const laterFeedback=feedback();
@@ -158,7 +180,7 @@ test("whole-photo hints support streaming review while other photos are queued",
     const originalAfter=await page.request.get(`/api/acquisition/corrections/${firstFeedback.examples[0].id}?owner=${encodeURIComponent(tag)}`);
     expect(originalAfter.ok()).toBe(true);
     expect(createHash('sha256').update(await originalAfter.body()).digest('hex')).toBe(report.digests[0]);
-    report.feedback={...report.feedback,finalEvidenceBundles:laterFeedback.evidence.length,conserved:true,printingComplete:cases.length};
+    report.feedback={...report.feedback,finalEvidenceBundles:laterFeedback.evidence.length,conserved:true,printingComplete:cases.length-1+(firstPrinting.status==='COMPLETE'?1:0),printingRetired:firstPrinting.status==='SUPERSEDED'?1:0};
     const firstRaw=json(`console.log(JSON.stringify(await p.acquisitionProcessingJob.findFirstOrThrow({where:{...${owner},candidate:{acquisitionOrder:0},stage:'photo-recognition-v1',status:'COMPLETE'},orderBy:{createdAt:'desc'},select:{output:true}})));`);
     expect(firstRaw).toEqual(report.raw[0]);
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
