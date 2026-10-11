@@ -1,0 +1,11 @@
+# Intake fixture cleanup after early failures
+
+Scoped follow-up to [#692](https://github.com/sefaction/MTG-Archives/issues/692): photo intake, upload recovery, library batch and successive batches. Existing PR #733 covers the two stamped fixtures and #735 covers difficult-phone qualification; neither covers these four teardown blocks.
+
+Each unchanged finally block puts its first correction-library sweep before the protected legacy teardown. Injecting an error at that sweep in the actual block leaves the exact disposable Player, User, location, correction account and private directory. Four actual PostgreSQL probes reproduce this residue; exact-owner recovery removes it afterward. These controlled failures are not passing browser workflows or evidence of a historical production failure.
+
+Cleanup now records failures, independently attempts browser/upload shutdown and legacy teardown, and always attempts the final feedback sweep. It throws an aggregate retaining every encountered cause. Successive batches keep cancellation, the original 100-second lease drain and dependent deletion together: failed cancellation or drain prevents row deletion while still attempting the final feedback sweep. No deadline or lease rule is relaxed.
+
+All four corrected actual-block PostgreSQL probes preserve the injected failure and leave zero temporary players, users, locations, accounts or directories. Twenty-seven actual-block sequencing controls cover every cleanup stage, multiple faults and normal completion, including withheld deletion after cancellation/drain failure. The original test bodies, assertions, cleanup database operations, optional recognition cases and budgets are checked separately against main.
+
+Full local browser workflows, terminal data/service conservation and exact-head required CI are pending. This is test-only scope; unchanged application/native images need no rebuild. Private probe owners and raw artifacts remain ignored locally. Broader #692 acceptance, independent recognition accuracy, optional real-image corpus, 100/300-input throughput and hardware remain separate. The established 64 decimal GB per-owner library limit, 2% controls and explicit Inventory authority are preserved.
