@@ -50,6 +50,7 @@ test("24 real scans retain artifacts and a saved correction across an actual OCR
       "Reused scans are not independent accuracy samples","Sampled Docker memory/CPU, not exhaustive peak instrumentation"]};
   mkdirSync(".local-data/recovery-qualification",{recursive:true});
   const saveReport=()=>writeFileSync(`.local-data/recovery-qualification/${tag}.json`,JSON.stringify(report,null,2)+"\n");
+  const feedback=()=>json(`const own={ownerPlayerId:${JSON.stringify(tag)}};console.log(JSON.stringify({examples:await p.correctionExample.findMany({where:own,orderBy:{id:'asc'},include:{blob:true}}),events:await p.correctionReviewEvent.findMany({where:own,orderBy:{id:'asc'}}),evidence:await p.correctionEvidence.findMany({where:own,orderBy:{id:'asc'}})}));`);
   let stopped=false,timer:ReturnType<typeof setInterval>|undefined;
   const sample=()=>{
     try {
@@ -62,7 +63,9 @@ test("24 real scans retain artifacts and a saved correction across an actual OCR
     saveReport();
   };
   try {
-    database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash,role:'PLAYER'}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:24,sections:[]}}});`);
+    database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash,role:'PLAYER'}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:24,sections:[]}}});await p.correctionLibraryAccount.create({data:{ownerPlayerId:n,displayKey:require('crypto').randomBytes(32).toString('hex'),sampleBasisPoints:10000,sampleCap:1}});`);
+    // Only this disposable owner samples its first admission deterministically.
+    // Installation defaults remain 64 decimal GB / 2%; these are development scans.
     await page.goto("/login");
     await page.getByLabel(/username or email/i).fill(tag);
     await page.getByLabel(/^password$/i).fill(password);
@@ -90,6 +93,20 @@ test("24 real scans retain artifacts and a saved correction across an actual OCR
     await expect(card).toContainText("Review saved.");
     const saved=json(`console.log(JSON.stringify(await p.acquisitionCandidate.findFirstOrThrow({where:${owner},orderBy:{acquisitionOrder:'asc'},select:{id:true,revision:true,review:true}})));`);
     expect(saved.review.condition).toBe("LP");
+    await expect.poll(()=>feedback().examples[0]?.blob.state,{timeout:120000}).toBe("PRESERVED");
+    const frozenFeedback=feedback();
+    expect(frozenFeedback.examples).toHaveLength(1);
+    expect(frozenFeedback.examples[0].normalControl).toBe(true);
+    expect(frozenFeedback.examples[0].labelState).toBe("UNVERIFIED");
+    expect(frozenFeedback.examples[0].label.decision.condition).toBe("LP");
+    expect(frozenFeedback.events).toHaveLength(1);
+    expect(frozenFeedback.evidence.length).toBeGreaterThan(0);
+    const originalUrl=`/api/acquisition/corrections/${frozenFeedback.examples[0].id}?owner=${encodeURIComponent(tag)}`;
+    const originalBefore=await page.request.get(originalUrl);
+    expect(originalBefore.ok()).toBe(true);
+    expect(createHash("sha256").update(await originalBefore.body()).digest("hex")).toBe(entries[0].sha256);
+    report.feedback={reviewEvents:frozenFeedback.events.length,evidenceBundles:frozenFeedback.evidence.length,originalDigest:entries[0].sha256,conserved:false};
+    saveReport();
     const frozen=json(`console.log(JSON.stringify(await p.acquisitionProcessingJob.findMany({where:{candidateId:${JSON.stringify(saved.id)},status:'COMPLETE'},orderBy:{id:'asc'},select:{id:true,output:true}})));`);
     // Drop one real successful upload acknowledgement after the server has
     // saved its bytes. Retry must reuse the retained identity, not add a card.
@@ -156,6 +173,11 @@ test("24 real scans retain artifacts and a saved correction across an actual OCR
     report.interrupt.verifiedAt=new Date().toISOString();
     expect(json(`console.log(JSON.stringify(await p.acquisitionCandidate.findUniqueOrThrow({where:{id:${JSON.stringify(saved.id)}},select:{id:true,revision:true,review:true}})));`)).toEqual(saved);
     expect(json(`console.log(JSON.stringify(await p.acquisitionProcessingJob.findMany({where:{candidateId:${JSON.stringify(saved.id)},status:'COMPLETE'},orderBy:{id:'asc'},select:{id:true,output:true}})));`)).toEqual(frozen);
+    expect(feedback()).toEqual(frozenFeedback);
+    const originalAfter=await page.request.get(originalUrl);
+    expect(originalAfter.ok()).toBe(true);
+    expect(createHash("sha256").update(await originalAfter.body()).digest("hex")).toBe(entries[0].sha256);
+    report.feedback.conserved=true;
     const state=json(`const w=${owner};const expected=await p.card.findMany({where:{scryfallId:{in:${JSON.stringify(entries.map(e=>e.scryfallId))}}},select:{id:true,scryfallId:true}});const photos=await p.acquisitionPhoto.findMany({where:w,select:{digest:true,ready:true,generation:true}});const jobs=await p.acquisitionProcessingJob.findMany({where:{...w,stage:'photo-printing-evidence-v1',status:'COMPLETE'},select:{output:true,artifact:{select:{digest:true}}}});console.log(JSON.stringify({expected:Object.fromEntries(expected.map(c=>[c.scryfallId,c.id])),photos,artifacts:await p.acquisitionArtifact.count({where:w}),slots:await p.acquisitionCaptureSlot.count({where:w}),candidates:await p.acquisitionCandidate.count({where:w}),inventory:await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}),rows:jobs.map(j=>({digest:j.artifact.digest,proposals:j.output.proposals.proposals.map(v=>v.card.id),automatic:j.output.proposals.automaticAcceptance,nativeDigest:j.output.printingNative.photoDigest}))}));`);
     expect(state.photos).toHaveLength(24);
     expect(state.artifacts).toBe(24);
@@ -183,20 +205,18 @@ test("24 real scans retain artifacts and a saved correction across an actual OCR
     report.passed=true;
   } finally {
     // Block new authenticated polling and retire only this fixture owner.
-    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
-    try {
-    if(timer)clearInterval(timer);
-    if(stopped)docker("start",worker);
-    report.finishedAt=new Date().toISOString();
-    saveReport();
-    database(`const n=${JSON.stringify(tag)};const sessions=await p.acquisitionSession.findMany({where:{ownerPlayerId:n},select:{id:true}});const runs=await p.acquisitionRun.findMany({where:{sessionId:{in:sessions.map(s=>s.id)}},select:{id:true}});const where={runId:{in:runs.map(r=>r.id)}};const photos=await p.acquisitionPhoto.findMany({where});await p.acquisitionProcessingJob.deleteMany({where});await p.acquisitionPhoto.deleteMany({where});await p.acquisitionCommand.deleteMany({where});await p.acquisitionCaptureSlot.deleteMany({where});await p.acquisitionCountCorrection.deleteMany({where});await p.acquisitionObservation.deleteMany({where});await p.acquisitionEvent.deleteMany({where});await p.acquisitionCandidate.deleteMany({where});await p.acquisitionArtifact.deleteMany({where});await p.acquisitionRun.deleteMany({where:{id:{in:runs.map(r=>r.id)}}});await p.acquisitionSession.deleteMany({where:{id:{in:sessions.map(s=>s.id)}}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});const fs=require('fs/promises'),path=require('path');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw new Error('Invalid fixture path');for(const suffix of ['original','preview.jpg'])await fs.unlink(path.join(process.env.UPLOADS_DATA_PATH,'acquisition-v1',photo.id+'.'+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e})}`);
-
-    } finally {
-      // A final sweep also catches writes completed during legacy teardown.
-      database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
-    }
+    const cleanupFailures: unknown[]=[];
+    const cleanup=(action:()=>void)=>{try{action();}catch(error){cleanupFailures.push(error);}};
+    cleanup(()=>database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');"));
+    cleanup(()=>{if(timer)clearInterval(timer);});
+    cleanup(()=>{if(stopped)docker("start",worker);});
+    cleanup(()=>{report.finishedAt=new Date().toISOString();saveReport();});
+    cleanup(()=>database(`const n=${JSON.stringify(tag)};const sessions=await p.acquisitionSession.findMany({where:{ownerPlayerId:n},select:{id:true}});const runs=await p.acquisitionRun.findMany({where:{sessionId:{in:sessions.map(s=>s.id)}},select:{id:true}});const where={runId:{in:runs.map(r=>r.id)}};const photos=await p.acquisitionPhoto.findMany({where});await p.acquisitionProcessingJob.deleteMany({where});await p.acquisitionPhoto.deleteMany({where});await p.acquisitionCommand.deleteMany({where});await p.acquisitionCaptureSlot.deleteMany({where});await p.acquisitionCountCorrection.deleteMany({where});await p.acquisitionObservation.deleteMany({where});await p.acquisitionEvent.deleteMany({where});await p.acquisitionCandidate.deleteMany({where});await p.acquisitionArtifact.deleteMany({where});await p.acquisitionRun.deleteMany({where:{id:{in:runs.map(r=>r.id)}}});await p.acquisitionSession.deleteMany({where:{id:{in:sessions.map(s=>s.id)}}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});const fs=require('fs/promises'),path=require('path');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw new Error('Invalid fixture path');for(const suffix of ['original','preview.jpg'])await fs.unlink(path.join(process.env.UPLOADS_DATA_PATH,'acquisition-v1',photo.id+'.'+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e})}`));
+    // A final sweep also catches writes completed during legacy teardown.
+    cleanup(()=>database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');"));
+    if(cleanupFailures.length)throw new AggregateError(cleanupFailures,"Live recovery fixture cleanup failed");
   }
   console.log(JSON.stringify({scope:report.scope,count:report.count,firstCorrect:report.firstCorrect,
     offered:report.offered,interrupt:report.interrupt,uploadRetries:report.uploadRetries.length,
-    resourceSamples:report.samples.length,passed:report.passed}));
+    resourceSamples:report.samples.length,feedback:report.feedback,passed:report.passed}));
 });
