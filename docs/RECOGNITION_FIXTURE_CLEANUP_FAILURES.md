@@ -1,0 +1,11 @@
+# Recognition fixture cleanup after early errors
+
+Scoped follow-up to [#692](https://github.com/sefaction/MTG-Archives/issues/692): printing, footer-identifiers and scanner-framing browser fixtures. The completed stamped and intake subsets in PRs #733/#737 and difficult-phone qualification in #735 are separate.
+
+All three unchanged actual finally blocks leave their disposable Player, User, location, correction account and private directory when the initial feedback sweep throws. PostgreSQL probes reproduce each failure and recover only those exact owners afterward. Corrected actual-block probes retain the injected error and remove all five owned namespaces. These are controlled failure-boundary probes rather than passing complete native browser workflows.
+
+The correction collects cleanup errors, attempts the existing cleanup actions independently and always attempts the final feedback sweep. The printing fixture also attempts both optional diagnostic reports independently, so a report write failure cannot prevent its database teardown. It reports all causes through an aggregate error. Original workflow bodies, all 129 assertion calls, legacy database/file cleanup operations and deadlines remain unchanged against main.
+
+Seventeen actual-block controls cover each cleanup action, multiple errors and normal completion. Types and full native browser qualification are tracked on the PR. Nine distinct recorded source originals match their hashes: three printing originals, four footer originals and two framing originals. The printing check retains its fourth repeated source-mode case. No substitute image or physical scanner operation is used.
+
+Pending: complete current cumulative native/browser workflows, exact recorded-owner removal, source/data/service/original conservation and final-head required CI. Test-only changes need no application or native image rebuild. Existing 64 decimal GB per-owner library limit, 2% controls and explicit Inventory authority remain unchanged. Reused development inputs do not establish independent recognition accuracy, hardware acceptance or 100/300-input throughput. Broader #692/#463 remain open. Private source images, namespaces and raw results stay ignored locally.
