@@ -1,4 +1,13 @@
 # Work checkpoint
+
+## Public inventory scripts-disabled fallback #708 — October 10, 2026
+
+Chat 01a12702-db11-7810-82b0-473bbbe10692 claimed GitHub #708 with in-progress; branch codex/public-inventory-noscript, isolated worktree .local-data/worktrees/public-inventory-noscript, main base 5e7adbf. Added a synchronous noscript fallback layout and read-only browser regression. Type validation and all 877 units PASS; required-installer production build and 13 manifests PASS; final focused browser qualification 4/4 PASS (4.4s), including 1366/390/320px, hidden stalled workspace, keyboard reload/filter preservation, normal filtered navigation and desktop filter controls. Narrow screenshot inspected. Baseline regression fails on the missing fallback as expected. See docs/PUBLIC_INVENTORY_NOSCRIPT.md for initial environment/test failures and scope.
+
+Qualified cumulative local web contains main 5e7adbf plus this layout, preserving all 596 prior source inputs and existing installer. Image sha256:1ec9ef474d1ff6daf94d1cac38c1245c0018c5258b72c6cec565bf013c9289e7; 597-input digest 06d27b52b1ee45d277210bd028cd587041343fe73617ffa86ce7b132f6284eec. Web-only load, host login HTTP 200, all 12 other running containers/images/start times unchanged. No database fixtures or original scan changes. Temporary previous-image baseline removed. Separate full-collection clear-filter delay reproduced on old/new images is catalogued as #721, outside this fix.
+
+Next safe step: publish the main-based resolving PR, confirm final-head required CI, leave it open for the scheduled reviewer. Individual approval remains required for merge; #708 stays open and claimed until then. #710/PR715 belongs to another chat. Shared issue-worker lock manual-708-01a12702-db11-7810-82b0-473bbbe10692 must be released when local tests/mutations finish. Root checkpoint and overnight handoff WIP preserved. No outstanding product choice, production action or merge performed.
+
 ## PR693 local presentation cleanup qualification complete — October 9, 2026
 
 GoalACTIVE/progress. PR693 https://github.com/sefaction/MTG-Archives/pull/693 OPEN/UNAPPROVED mainbase9dc, featurecodex/paged-review-correction-cleanup source86a2de97d3de1ea640562217345ed901e52b963d; cumulative6ba516b includes tests/docsonly main+unapproved684687688690+693. Issue691OPEN untilindividualapprovedmerge;692OPEN28sourcecandidatesremainingseparate. Older693implementation-headall3CISUCCESS, finalqualificationdocs/headchecksnext. No othermergeapprovalchanged.

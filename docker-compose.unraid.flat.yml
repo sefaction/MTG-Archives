@@ -216,7 +216,9 @@ services:
     profiles: ["pricing-archive-maintenance"]
     image: ${WEB_IMAGE:-ghcr.io/sefaction/mtg-archives-web:${IMAGE_TAG:-main}}
     pull_policy: always
-    restart: unless-stopped
+    # Startup authorization/configuration failures require operator action.
+    # The enabled runner already handles recurring work and retryable tick errors.
+    restart: "no"
     command: npm run worker:prices:archive:maintenance -- --apply
     environment:
       PRICING_DATABASE_URL: ${PRICING_DATABASE_URL:-postgresql://mtgpricing:mtgpricing@pricing-postgres:5432/mtgpricing?schema=public}

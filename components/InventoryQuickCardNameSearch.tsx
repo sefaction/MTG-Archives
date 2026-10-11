@@ -60,10 +60,25 @@ export function InventoryQuickCardNameSearch({
   const [localValue, setLocalValue] = useState(cardName);
   const value = workspace?.cardName ?? localValue;
   const setValue = workspace?.setCardName ?? setLocalValue;
-  const [suggestions, setSuggestions] = useState<AutocompleteOption[]>([]);
+  // A reply belongs to the query and filter scope that requested it. Hide it
+  // immediately when either changes, including the debounce before a new fetch.
+  const suggestionKey = JSON.stringify([
+    suggestionsEndpoint,
+    params,
+    value.trim(),
+  ]);
+  const [suggestionResult, setSuggestionResult] = useState<{
+    key: string;
+    options: AutocompleteOption[];
+  } | null>(null);
+  const suggestions =
+    value.trim() && suggestionResult?.key === suggestionKey
+      ? suggestionResult.options
+      : [];
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loadingKey, setLoadingKey] = useState<string | null>(null);
+  const loading = Boolean(value.trim()) && loadingKey === suggestionKey;
   const clearParams = new URLSearchParams();
   entries.forEach(([key, entryValue]) => clearParams.append(key, entryValue));
   clearParams.set("page", "1");
@@ -76,16 +91,10 @@ export function InventoryQuickCardNameSearch({
 
   useEffect(() => {
     const query = value.trim();
-    if (query.length < 1) {
-      const timeout = window.setTimeout(() => {
-        setSuggestions([]);
-        setLoading(false);
-      }, 0);
-      return () => window.clearTimeout(timeout);
-    }
+    if (query.length < 1) return;
     const controller = new AbortController();
     const timeout = window.setTimeout(async () => {
-      setLoading(true);
+      setLoadingKey(suggestionKey);
       try {
         const url = new URL(suggestionsEndpoint, window.location.origin);
         const current = new URLSearchParams(window.location.search);
@@ -101,19 +110,24 @@ export function InventoryQuickCardNameSearch({
         const payload = (await response.json()) as {
           suggestions?: AutocompleteOption[];
         };
-        setSuggestions(payload.suggestions || []);
+        if (controller.signal.aborted) return;
+        setSuggestionResult({
+          key: suggestionKey,
+          options: payload.suggestions || [],
+        });
         setHighlighted(0);
       } catch (error) {
-        if (!controller.signal.aborted) setSuggestions([]);
+        if (!controller.signal.aborted)
+          setSuggestionResult({ key: suggestionKey, options: [] });
       } finally {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted) setLoadingKey(null);
       }
     }, 200);
     return () => {
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [suggestionsEndpoint, value]);
+  }, [suggestionsEndpoint, suggestionKey, value]);
 
   function buildUrl(nextCardName: string) {
     const next = new URLSearchParams();
