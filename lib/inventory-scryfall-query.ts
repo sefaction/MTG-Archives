@@ -7,7 +7,13 @@ import {
 const MAX_QUERY_LENGTH = 1_000;
 
 type QueryNode =
-  | { kind: "term"; field: string; operator: string; value: string }
+  | {
+      kind: "term";
+      field: string;
+      operator: string;
+      value: string;
+      expression?: RegExp;
+    }
   | { kind: "and" | "or"; children: QueryNode[] }
   | { kind: "not"; child: QueryNode };
 
@@ -690,18 +696,9 @@ function matchTerm(card: any, term: Extract<QueryNode, { kind: "term" }>) {
     const result = hasField(card, value);
     return result ?? false;
   }
-  if (
-    ["name", "oracle", "fulloracle", "type", "flavor"].includes(field) &&
-    value.startsWith("/") &&
-    value.endsWith("/")
-  ) {
-    try {
-      const expression = new RegExp(value.slice(1, -1), "i");
-      return textValues(card, field).some((text) => expression.test(text));
-    } catch {
-      return false;
-    }
-  }
+  const expression = term.expression;
+  if (expression)
+    return textValues(card, field).some((text) => expression.test(text));
   const normalizedValue =
     field === "rarity"
       ? ((
@@ -740,6 +737,27 @@ function evaluate(card: any, node: QueryNode): boolean {
   return node.children.some((child) => evaluate(card, child));
 }
 
+function compileRegexTerms(node: QueryNode): void {
+  if (node.kind === "not") return compileRegexTerms(node.child);
+  if (node.kind !== "term") {
+    node.children.forEach(compileRegexTerms);
+    return;
+  }
+  if (
+    ["name", "oracle", "fulloracle", "type", "flavor"].includes(node.field) &&
+    node.value.startsWith("/") &&
+    node.value.endsWith("/")
+  ) {
+    try {
+      node.expression = new RegExp(node.value.slice(1, -1), "i");
+    } catch {
+      throw new Error(
+        `Invalid regular expression for “${node.field}”. Check the pattern between / delimiters.`,
+      );
+    }
+  }
+}
+
 export function compileLocalScryfallQuery(
   rawQuery?: string | null,
 ): CompiledQuery {
@@ -760,6 +778,8 @@ export function compileLocalScryfallQuery(
   let result: CompiledQuery;
   try {
     const node = parseQuery(query);
+    // Validate every branch before evaluation can short-circuit or negate it.
+    compileRegexTerms(node);
     const fields = (entry: QueryNode): string[] =>
       entry.kind === "term"
         ? [entry.field]
