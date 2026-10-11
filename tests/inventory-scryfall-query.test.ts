@@ -88,6 +88,86 @@ test("unsupported Scryfall fields produce an explicit local error", () => {
   if (!compiled.ok) assert.match(compiled.error, /does not support “otag”/);
 });
 
+test("invalid regex terms invalidate the complete query, including negation and unused branches", () => {
+  for (const query of [
+    "name:/[/",
+    "-name:/[/",
+    "NOT name:/[/",
+    "n:/[/",
+    "o:/[/",
+    "fulloracle:/[/",
+    "t:/+/",
+    "ft:/[/",
+    "/[/",
+    'name:"/(/"',
+    'name:"/[z-a]/"',
+    "t:artifact OR name:/[/",
+    "t:creature name:/[/",
+    "-(t:artifact OR name:/[/)",
+  ]) {
+    const compiled = compileLocalScryfallQuery(query);
+    assert.equal(compiled.ok, false, query);
+    if (!compiled.ok) assert.match(compiled.error, /Invalid regular expression/);
+    assert.equal(matchesLocalScryfallQuery(krasis, query), false, query);
+    assert.equal(matchesLocalScryfallQuery(endlessOne, query), false, query);
+  }
+});
+
+test("valid regex searches preserve aliases, quotes, face text, negation and cached matching", () => {
+  const card = {
+    ...krasis,
+    rawScryfallJson: { flavor_text: "A boundless life." },
+    cardFaces: [{ name: "Hidden Hydra", oracleText: "Draw a card." }],
+  };
+  // Trailing text keeps the existing ordinary-text behavior.
+  assert.equal(matchesLocalScryfallQuery(card, "n:/^hydroid/i"), false);
+  for (const query of [
+    'n:"/^(hydroid|endless)/"',
+    "o:/draw/",
+    "fulloracle:/draw/",
+    "t:/creature/",
+    "ft:/boundless/",
+    "/krasis$/",
+    "name:/hidden/",
+    "-name:/^endless/",
+  ]) {
+    const compiled = compileLocalScryfallQuery(query);
+    assert.equal(compiled.ok, true, query);
+    if (compiled.ok) {
+      assert.equal(compiled.matches(card), true, query);
+      assert.equal(compiled.matches(card), true, `${query} repeated`);
+    }
+  }
+  assert.equal(matchesLocalScryfallQuery(card, 'name:"[literal"'), false);
+  assert.equal(
+    matchesLocalScryfallQuery({ name: "[literal" }, 'name:"[literal"'),
+    true,
+  );
+  assert.equal(matchesLocalScryfallQuery(endlessOne, "name:/krasis$/"), false);
+});
+
+test("invalid regex inventory constraints fail closed before any database read", async () => {
+  const prisma = {
+    inventoryItem: {
+      findMany: async () => {
+        assert.fail("Invalid queries must not read candidates");
+      },
+    },
+    $queryRaw: async () => {
+      assert.fail("Invalid queries must not read metadata");
+    },
+  };
+  const where = { quantity: { gt: 0 }, currentOwnerId: "owner-1" };
+  for (const query of ["name:/[/", "-name:/[/", "t:artifact OR name:/[/"]) {
+    const result = await constrainInventoryWhereToScryfallQuery(
+      prisma, where, query,
+    );
+    assert.match(result.error!, /Invalid regular expression/);
+    assert.deepEqual(result.where, { ...where, cardId: { in: [] } });
+    assert.deepEqual(where, { quantity: { gt: 0 }, currentOwnerId: "owner-1" });
+  }
+});
+
 test("inventory constraint filters only locally stored candidate cards", async () => {
   let receivedWhere: unknown;
   const prisma = {
