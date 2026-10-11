@@ -1,14 +1,15 @@
-# Private inventory sorting metadata
+# Inventory metadata read costs
 
-Resolves [#729](https://github.com/sefaction/MTG-Archives/issues/729), related to
+Resolves [#729](https://github.com/sefaction/MTG-Archives/issues/729) and
+[#731](https://github.com/sefaction/MTG-Archives/issues/731), related to
 the still-open private loading observation in [#721](https://github.com/sefaction/MTG-Archives/issues/721).
 
 Private name browsing fetched fifteen metadata fields for every matching
 printing even though name sorting and grouping need only id, name and oracleId.
 Reuse the established Public projection decision in a shared selector. All
 other sorts and metadata-dependent color, identity, keyword and price filters
-keep their complete previous projection. Ownership/visibility, SQL constraints,
-Scryfall queries, page hydration and navigation remain unchanged.
+keep their complete previous projection. Ownership/visibility, matching
+constraints, query interpretation, page hydration and navigation remain unchanged.
 
 The actual private page query is extracted without changing its statements or
 selection/ordering logic and evaluated against the existing local snapshot.
@@ -62,10 +63,40 @@ replaced with actual shared-selector behavior while retaining release sorting,
 DTO and default-visibility checks; the corrected implementation passes all three
 required checks. The original failure remains retained.
 
-Current combined qualification is incomplete: the second cumulative Docker
-build/browser run, final conservation and exact final-head CI must complete
-before readiness. Private query, contract, browser and failure evidence stays
-ignored under `.local-data`. Original rendering guards/deadlines are unchanged.
+The combined required-installer Docker build passes compilation, types, static
+generation and client-manifest checks. The guarded loader changes only the web
+container, preserving existing environment, storage and limits. Its packaged
+598-input source manifest matches the qualified cumulative source:
+`6a6445083b93772daf23045e6edceb190f6502f63aacaab6123373280fc0117c`.
+Loaded image:
+`sha256:e896fcc3edd0b52a3d0aeae7286da06abef69d9ca31102008139024b359dc2bc`.
+Compared with the metadata-only candidate, only the shared query reader and its
+read-only verifier change in the runtime source manifest. Existing cumulative
+layout work is preserved. Browser qualification starts after healthy status,
+zero restarts/OOM and an HTTP 200 login response.
+
+All twelve combined private query repetitions pass: six desktop and six
+320-pixel phone runs, 126.8 seconds total, with no skip or flaky result. The
+phone viewport starts after login/admin mode; this checks the phone query flow.
+The original 10-second Query-field, 15-second URL and 60-second body guards
+remain unchanged. Five additional checks pass (31.2 seconds): Private/Public
+invalid regex on desktop/phone, both invalid-regex CSV methods, valid regex
+list parity and anonymous Public creature search. The existing Public ownership,
+visibility and workflow-parity fixture passes (8.4 seconds).
+
+After all browser runners are terminal, seven original full-row table
+projections match the fresh pre-run snapshot exactly. Fifteen other ordinary
+service identities, images, lifecycle states, mounts and resource limits remain
+unchanged. The web is healthy with zero restarts/OOM; its storage/limits and
+actual source are conserved or match the new candidate as appropriate. An
+independent fixture-prefix check finds zero remaining Players, Users, locations,
+Cards, Decks or private fixture AuthSessions. This is a table/service audit,
+not a new image-byte or physical-scanner qualification.
+
+The implementation head `d8bcbcdcf44dcaf605959180ea67ce2288198133` passes
+all three required CI checks. Final report-head checks are tracked on the PR;
+readiness requires them to pass on its exact current head. Private query,
+contract, browser and failure evidence stays ignored under `.local-data`.
 
 No Inventory write, schema, recognition policy, physical feeding, production or
 64 decimal GB / 2% correction-library change is included. The broader loading
