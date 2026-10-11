@@ -32,10 +32,40 @@ temporary account; the corrected selector runs the original six repeats. No
 assertion or deadline is changed. A reduced read cost does not by itself prove
 the cause or resolution of the intermittent loading observation.
 
-Current qualification is incomplete: focused behavior checks, types, required
-CI, the current cumulative Docker build/browser workflow and final original
-data/service/fixture conservation must complete before readiness. Private
-read-only query and browser evidence stays ignored under `.local-data`.
+The initial metadata-only image builds with the required verified installer and
+loads with exact source/environment/storage guards. Its private browser run has
+eleven passes and one phone failure at the same ten-second Query-field guard.
+Public privacy/parity passes; fresh seven original-table projections and fifteen
+other service lifecycles remain conserved. The failed phone's ordinary GET
+returns headers after about 19 ms and a complete 272 KB HTML body near 9,930 ms,
+including Query markup and Suspense completion. This bounds that instance;
+it does not establish every historical streamed-response cause.
+
+A current-source read-only stage profile finds 6,096 ms in Scryfall constraints,
+versus 435 ms in sorting metadata and under 500 ms in each remaining measured
+query stage. The evaluator always prefers normalized face arrays, including
+empty arrays, but the SQL reader unnecessarily decodes legacy faces anyway.
+The combined candidate skips that decode only for a sole card_faces fallback
+and an actual normalized array. Null/non-array primaries retain legacy faces;
+oracle and other multi-key/full projections retain their previous raw handling.
+No admission, compiler, caching or interpretation policy changes.
+
+Real PostgreSQL read-only VALUES controls distinguish unchanged SQL's unused
+fallback from the candidate: eight face-shape fixtures across nine queries keep
+identical matches and omit unused legacy output. Null, SQL NULL, malformed and
+valid arrays/primaries and oracle fallback are covered. All 59 actual snapshot
+query predicates over 7,322 candidates match the complete Card rows under a
+repeatable-read snapshot. Type metadata measured 1,069 ms in that verifier;
+these are bounded local samples. Twenty-five focused behavior checks and types
+pass. The first required Core check's stale inline releasedAt assertion was
+replaced with actual shared-selector behavior while retaining release sorting,
+DTO and default-visibility checks; the corrected implementation passes all three
+required checks. The original failure remains retained.
+
+Current combined qualification is incomplete: the second cumulative Docker
+build/browser run, final conservation and exact final-head CI must complete
+before readiness. Private query, contract, browser and failure evidence stays
+ignored under `.local-data`. Original rendering guards/deadlines are unchanged.
 
 No Inventory write, schema, recognition policy, physical feeding, production or
 64 decimal GB / 2% correction-library change is included. The broader loading

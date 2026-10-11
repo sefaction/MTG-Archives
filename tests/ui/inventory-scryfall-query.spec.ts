@@ -101,12 +101,14 @@ test("valid regex list filters preserve ordinary text-filter results", async ({ 
   }
 });
 
-test("advanced inventory search applies Scryfall syntax to local cards", async ({
+for (const viewport of [null, { width: 320, height: 844 }]) {
+test(`advanced inventory search applies Scryfall syntax to local cards${viewport ? " (phone)" : ""}`, async ({
   page,
 }) => {
   test.setTimeout(60_000);
   await logIn(page);
   await enterAdminMode(page);
+  if (viewport) await page.setViewportSize(viewport);
   await page.goto("/inventory");
 
   await page.getByRole("button", { name: /Advanced Inventory Search/ }).click();
@@ -131,6 +133,7 @@ test("advanced inventory search applies Scryfall syntax to local cards", async (
     page.getByRole("alert").filter({ hasText: /Scryfall/ }),
   ).toHaveCount(0);
 });
+}
 
 test("anonymous public inventory applies Scryfall syntax to public local cards", async ({
   page,
