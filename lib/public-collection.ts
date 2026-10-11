@@ -1,3 +1,5 @@
+import { inventorySortMetadataSelect as publicInventorySortMetadataSelect } from "./inventory-sort-metadata";
+export { publicInventorySortMetadataSelect };
 import {
   DefaultCollectionVisibility,
   Prisma,
@@ -351,40 +353,7 @@ const publicInventoryInclude = {
   },
 } satisfies Prisma.InventoryItemInclude;
 
-export function publicInventorySortMetadataSelect(
-  sortField: string,
-  filters: ReturnType<typeof parseInventoryFilters>,
-): Prisma.CardSelect {
-  // Grouping needs the oracle/name identity. Other display data is hydrated
-  // only for the visible page; name order needs none of the JSON metadata.
-  if (
-    sortField === "cardName" &&
-    !filters.colors.length &&
-    !filters.colorIdentity.length &&
-    !filters.keyword &&
-    filters.priceMin === undefined &&
-    filters.priceMax === undefined
-  ) {
-    return { id: true, oracleId: true, name: true };
-  }
-  return {
-    id: true,
-    oracleId: true,
-    name: true,
-    setCode: true,
-    rarity: true,
-    manaValue: true,
-    prices: true,
-    collectorNumber: true,
-    releasedAt: true,
-    typeLine: true,
-    manaCost: true,
-    colorIdentity: true,
-    colors: true,
-    cardFaces: true,
-    keywords: true,
-  };
-}
+
 
 export async function getGlobalPublicInventory(
   filters: PublicInventoryFilters = {},

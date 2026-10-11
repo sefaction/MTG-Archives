@@ -1,3 +1,4 @@
+import { inventorySortMetadataSelect } from "@/lib/inventory-sort-metadata";
 export const dynamic = "force-dynamic";
 import {
   getAccessScope,
@@ -183,23 +184,7 @@ export default async function InventoryPage({
         in: Array.from(new Set(sortableGroups.map((group) => group.cardId))),
       },
     },
-    select: {
-      id: true,
-      oracleId: true,
-      name: true,
-      setCode: true,
-      rarity: true,
-      manaValue: true,
-      prices: true,
-      collectorNumber: true,
-      releasedAt: true,
-      typeLine: true,
-      manaCost: true,
-      colorIdentity: true,
-      colors: true,
-      cardFaces: true,
-      keywords: true,
-    },
+    select: inventorySortMetadataSelect(String(sortField), filters),
   });
   const cardSortById = new Map(cardSortData.map((card) => [card.id, card]));
   const groupMatchesClientSafeFilters = (group: any) =>
