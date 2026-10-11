@@ -6,7 +6,22 @@ import {
   QUERY_METADATA_BATCH_SIZE,
   queryMetadataForFields,
 } from "../lib/inventory-query-metadata";
-import { constrainInventoryWhereToScryfallQuery } from "../lib/inventory-scryfall-query";
+import { compileLocalScryfallQuery, constrainInventoryWhereToScryfallQuery } from "../lib/inventory-scryfall-query";
+
+test("face queries prefer every normalized array and retain non-array legacy fallback", () => {
+  const legacy = { card_faces: [{ name: "Legacy", type_line: "Creature", mana_cost: "{G}" }] };
+  for (const query of ["t:creature", "n:Legacy", "m:g", "devotion:g"]) {
+    const compiled = compileLocalScryfallQuery(query);
+    assert.equal(compiled.ok, true, query);
+    if (!compiled.ok) continue;
+    for (const cardFaces of [[], [{ name: "Normalized", typeLine: "Land", manaCost: "{U}" }], [null, "malformed", {}]]) {
+      assert.equal(compiled.matches({ cardFaces, rawScryfallJson: legacy }), false, query);
+    }
+    for (const cardFaces of [null, undefined, {}, "malformed"]) {
+      assert.equal(compiled.matches({ cardFaces, rawScryfallJson: legacy }), true, query);
+    }
+  }
+});
 
 test("metadata SQL binds IDs and projects only evaluator fields/fallbacks", () => {
   const id = "x'); DROP TABLE Card; --";

@@ -147,12 +147,22 @@ export function inventoryQueryMetadataSql(
     : Prisma.empty;
   // Iterate the raw document once instead of repeatedly decompressing the same
   // PostgreSQL TOAST value for each fallback key.
-  const raw = projection.raw.length
+  const legacyRaw = projection.raw.length
     ? Prisma.sql`(SELECT jsonb_object_agg(key, value)
     FROM jsonb_each(CASE WHEN jsonb_typeof("rawScryfallJson") = 'object'
       THEN "rawScryfallJson" ELSE '{}'::jsonb END)
     WHERE key IN (${fallback}))`
     : Prisma.sql`NULL::jsonb`;
+  // faceValues uses any normalized array, including [], before legacy faces.
+  // Avoid decoding a large raw document when that is its sole requested key.
+  // Non-array/NULL normalized values still need the exact legacy fallback.
+  const raw =
+    projection.raw.length === 1 &&
+    projection.raw[0] === "card_faces" &&
+    projection.columns.includes("cardFaces")
+      ? Prisma.sql`CASE WHEN jsonb_typeof("cardFaces") = 'array'
+        THEN NULL::jsonb ELSE ${legacyRaw} END`
+      : legacyRaw;
   return Prisma.sql`SELECT ${columns},
     ${raw} AS "rawScryfallJson"
     FROM "Card" WHERE "id" IN (${Prisma.join(ids)})`;

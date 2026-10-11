@@ -12,6 +12,39 @@ if (process.env.MTG_LOCAL_PILOT_TEST !== "1")
   throw new Error("Set MTG_LOCAL_PILOT_TEST=1 only for the local snapshot.");
 
 const db = new PrismaClient();
+
+async function verifyFaceFallback() {
+  const columns = ["id", "name", "printedName", "typeLine", "printedTypeLine", "manaCost", "oracleText", "printedText", "cardFaces", "rawScryfallJson"];
+  const legacy = { card_faces: [{ name: "Legacy", type_line: "Creature", mana_cost: "{G}" }], oracle_text: "legacy text" };
+  const faces = [[], [{ name: "Normalized", typeLine: "Land", manaCost: "{U}" }], [null, "malformed", {}], null, undefined, {}, "malformed", null];
+  const fixtures = faces.map((cardFaces, index) => ({ id: `face-contract-${index}`, name: "Base", printedName: null, typeLine: "Land", printedTypeLine: null, manaCost: "{U}", oracleText: null, printedText: null, cardFaces, rawScryfallJson: index === 7 ? "malformed" : legacy }));
+  const queries = ["t:creature", "-t:creature", "t:/creature|artifact/", "n:Legacy", "-n:Legacy", "m:g", "devotion:g", "o:legacy", "t:land OR n:Legacy"];
+  for (const query of queries) {
+    const compiled = compileLocalScryfallQuery(query);
+    assert.ok(compiled.ok, query);
+    if (!compiled.ok) continue;
+    const sql = inventoryQueryMetadataSql(fixtures.map(row => row.id), compiled.metadata);
+    const values = [...sql.values];
+    const rows = fixtures.map(row => `(${columns.map(column => {
+      const value = (row as any)[column];
+      const json = column === "cardFaces" || column === "rawScryfallJson";
+      values.push(json && value !== undefined ? JSON.stringify(value) : value ?? null);
+      return `$${values.length}::${json ? "jsonb" : "text"}`;
+    }).join(",")})`).join(",");
+    const derived = `(VALUES ${rows}) AS "Card" (${columns.map(column => `"${column}"`).join(",")})`;
+    const text = sql.text.replace('FROM "Card" WHERE', `FROM ${derived} WHERE`);
+    assert.notEqual(text, sql.text, "The read-only fixture must replace the real table.");
+    const actual = await db.$queryRawUnsafe<any[]>(text, ...values);
+    assert.deepEqual(actual.filter(compiled.matches).map(row => row.id).sort(), fixtures.filter(compiled.matches).map(row => row.id).sort(), query);
+    if (compiled.metadata.raw.length === 1 && compiled.metadata.raw[0] === "card_faces") {
+      for (const row of actual) {
+        const original = fixtures.find(fixture => fixture.id === row.id)!;
+        if (Array.isArray(original.cardFaces)) assert.equal(row.rawScryfallJson, null, "Unused legacy face data must not be returned for normalized arrays.");
+      }
+    }
+  }
+  console.log(JSON.stringify({ faceFallbackContract: "passed", fixtures: fixtures.length, queries: queries.length, writes: 0 }));
+}
 const queries = [
   "t:creature",
   "t:land OR -t:artifact",
@@ -75,6 +108,8 @@ const queries = [
 ];
 
 async function main() {
+  await verifyFaceFallback();
+  if (process.env.MTG_QUERY_FACE_CONTRACT_ONLY === "1") return;
   await db.$transaction(
     async (tx) => {
       const candidates = await tx.inventoryItem.findMany({

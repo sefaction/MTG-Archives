@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { inventorySortMetadataSelect } from "../lib/inventory-sort-metadata";
+import { parseInventoryFilters } from "../lib/inventory-filters";
 
 const inventoryBrowser = readFileSync(
   "components/InventoryBrowser.tsx",
@@ -212,6 +214,10 @@ test("inventory table keeps required columns fixed and optional columns default 
 });
 
 test("inventory release date is sortable and hidden by default", () => {
+  assert.equal(
+    inventorySortMetadataSelect("releasedAt", parseInventoryFilters({})).releasedAt,
+    true,
+  );
   assert.match(inventorySort, /"releasedAt"/);
   assert.match(
     inventorySort,
@@ -232,7 +238,11 @@ test("inventory release date is sortable and hidden by default", () => {
     );
   }
   for (const source of [inventoryPage, inventoryListRoute, publicCollection]) {
-    assert.match(source, /releasedAt: true/);
+    if (source === inventoryListRoute) {
+      assert.match(source, /releasedAt: true/);
+    } else {
+      assert.match(source, /(?:publicInventorySortMetadataSelect|inventorySortMetadataSelect)\(/);
+    }
     assert.match(
       source,
       /!.*sortDir[\s\S]*sortField === "releasedAt"[\s\S]*\? "desc"/,
