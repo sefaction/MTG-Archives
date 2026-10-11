@@ -9131,3 +9131,13 @@ full-frame/strip behavior and explicit unverified-edge warning. This is bounded
 dark-border framing evidence, not universal perfect-frame qualification. #557/#558
 remain open. Next: focused PR with acceptance report; merge only after this PR's
 individual approval. No unanswered operator question; transport empty.
+
+## Issue #717 / PR #719 qualified locally — October 10, 2026
+
+Chat 01a12708-5105-7190-9b32-80a6da112422 owns branch codex/inventory-invalid-regex, main-based PR719 and issue717 (in-progress). Invalid supported regex terms are rejected at whole-query compilation, including negation and unused AND/OR branches, before candidate reads. No unresolved scope question. No merge authority.
+
+Owner-context core verification passed types,880 tests,production build and all client manifests. Final focused8 pass. Six query/browser/API/export cases pass57.6s, two ordinaryCSV and four preservedPublic fallback cases pass;12distinct cases across groups. Desktop1366/phone320 screenshots inspected. Initial test-selector/empty-summary failures retained; original expectations preserved. The unchanged privatevalid-query test failedtwice on a loading skeleton, then priorimage and finalcurrentimage comparisons passed. Cause remains unresolved and related evidence is catalogued on721; this PR claims no loading/latency repair.
+
+Qualified cumulative checkout .local-data/worktrees/regex-cumulative-review at336ec4c containsmain5e7adbf +722/4b865eb +719 application7684d39. Healthywebimage sha256:618d252ccdf30c13d9ffdcfb9cd84f407fe147af2cd1e119dfe741d9e2213aac;597inputs,digest8a89e09f0d3a978f07cc0606fe74300481d61943eeb300f84e3fc7eb121a1776. Existinginstaller0.4.3 and all priorapplicationinputs preserved except intendedlib/inventory-scryfall-query.ts. Onlywebrecreated; other12 ordinaryservices/allmounts/limits and sevenoriginalsourceprojections conserved. Private evidence is in .local-data/regex-*. Temporarybaselinecontainers/spec removed. SharedDockerlock released after finalconservation; laterworkers must preserve the loaded717+722 application.
+
+Next safe step: publish final test/report qualification, require allthree exactfinal-head GitHubchecks, mark719ready and leave itOPEN for scheduledreview. Issue717 remainsOPEN/in-progress until its individually approved merge. No further localDocker/browser operation pending.

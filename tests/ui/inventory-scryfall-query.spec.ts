@@ -30,6 +30,77 @@ async function enterAdminMode(page: import("@playwright/test").Page) {
   }
 }
 
+for (const publicInventory of [false, true]) {
+  test(`${publicInventory ? "Public" : "Private"} inventory rejects invalid regex on desktop and phone`, async ({ page }) => {
+    test.setTimeout(60_000);
+    if (publicInventory) await page.context().clearCookies();
+    else {
+      await logIn(page);
+      await enterAdminMode(page);
+    }
+    const route = publicInventory ? "/public/inventory" : "/inventory";
+    const query = "-name:/[/";
+    for (const viewport of [{ width: 1366, height: 900 }, { width: 320, height: 740 }]) {
+      await page.setViewportSize(viewport);
+      await page.goto(`${route}?scryfallQuery=${encodeURIComponent(query)}`);
+      const error = page.getByRole("alert")
+        .filter({ hasText: "Invalid regular expression" }).first();
+      await expect(error).toBeVisible();
+      await expect(page.getByLabel("Query arguments")).toHaveValue(query);
+      if (publicInventory) {
+        await expect(page.getByText("No public cards match these filters.")).toBeVisible();
+        await expect(page.getByText(/Showing 0 public copies on this page/)).toBeVisible();
+      } else {
+        await expect(page.getByText(/^0 matching cards · Page/)).toBeVisible();
+      }
+      await expect(page.getByRole("checkbox", { name: /^Select / })).toHaveCount(0);
+      await expect(page.locator('input[name="selectionMode"]')).toHaveCount(0);
+      await page.screenshot({ path: `test-results/regex-${publicInventory ? "public" : "private"}-${viewport.width}.png`, fullPage: true });
+    }
+    const response = await page.request.get(`/api${route}/list?scryfallQuery=${encodeURIComponent(query)}`);
+    expect(response.status()).toBe(200);
+    const result = await response.json();
+    expect(result.filterError).toContain("Invalid regular expression");
+    expect(result.totalMatchingCount).toBe(0);
+    expect(result.rows).toEqual([]);
+  });
+}
+
+test("invalid negated regex rejects both filtered CSV export methods", async ({ page }) => {
+  await logIn(page);
+  await enterAdminMode(page);
+  const filterQuery = new URLSearchParams({ scryfallQuery: "-name:/[/" }).toString();
+  const get = await page.request.get(`/api/inventory/export?scope=filtered&${filterQuery}`);
+  const post = await page.request.post("/api/inventory/export", {
+    form: { filterQuery, selectionMode: "all", format: "moxfield" },
+  });
+  for (const response of [get, post]) {
+    expect(response.status()).toBe(400);
+    expect((await response.json()).error).toContain("Invalid regular expression");
+    expect(response.headers()["content-disposition"]).toBeUndefined();
+  }
+});
+
+test("valid regex list filters preserve ordinary text-filter results", async ({ page }) => {
+  await logIn(page);
+  await enterAdminMode(page);
+  for (const route of ["/api/inventory/list", "/api/public/inventory/list"]) {
+    const results = [];
+    for (const query of ["t:creature", "t:/creature/"]) {
+      const params = new URLSearchParams({ scryfallQuery: query, pageSize: "10", displayMode: "exact" });
+      const response = await page.request.get(`${route}?${params}`);
+      expect(response.status()).toBe(200);
+      const result = await response.json();
+      expect(result.filterError).toBeUndefined();
+      expect(result.totalMatchingCount).toBeGreaterThan(0);
+      expect(result.rows.length).toBeGreaterThan(0);
+      results.push(result);
+    }
+    expect(results[1].totalMatchingCount).toBe(results[0].totalMatchingCount);
+    expect(results[1].rows).toEqual(results[0].rows);
+  }
+});
+
 test("advanced inventory search applies Scryfall syntax to local cards", async ({
   page,
 }) => {
