@@ -37,10 +37,14 @@ test("whole-photo hints support streaming review while other photos are queued",
       writeFileSync(process.env.MTG_ACQUISITION_PHOTO_TEXT_REPORT_PATH,JSON.stringify(report,null,2)+"\n");
   };
   const owner=`{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}}}`;
-  let firstSaved:any;
+  let firstSaved:any, firstFeedback:any;
+  const feedback=()=>json(`const own={ownerPlayerId:${JSON.stringify(tag)}};console.log(JSON.stringify({examples:await p.correctionExample.findMany({where:own,orderBy:{id:'asc'},include:{blob:true}}),events:await p.correctionReviewEvent.findMany({where:own,orderBy:{id:'asc'}}),evidence:await p.correctionEvidence.findMany({where:own,orderBy:{id:'asc'}})}));`);
   try {
     save();
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash,role:'PLAYER'}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:3,sections:[{name:'A',capacity:3}]}}});`);
+    // Deterministic first-photo control for this disposable owner only. Ordinary
+    // owners retain their configured 64 GB limit and 2% random sampling.
+    database(`await p.correctionLibraryAccount.create({data:{ownerPlayerId:${JSON.stringify(tag)},displayKey:require('crypto').randomBytes(32).toString('hex'),sampleBasisPoints:10000,sampleCap:1}});`);
     await page.goto('/login');
     await page.getByLabel(/username or email/i).fill(tag);
     await page.getByLabel(/^password$/i).fill(password);
@@ -51,6 +55,9 @@ test("whole-photo hints support streaming review while other photos are queued",
     await page.getByRole('option').first().click();
     await page.getByRole('button',{name:/^A\s/}).click();
     await page.getByRole('button',{name:'Start batch',exact:true}).click();
+    if(!await page.getByRole('combobox',{name:'Batch finish',exact:true}).isVisible())
+      await page.locator('summary').filter({hasText:/^Batch defaults:/}).click();
+    await expect(page.getByRole('combobox',{name:'Batch finish',exact:true})).toBeVisible();
     await page.getByRole('combobox',{name:'Batch finish',exact:true}).selectOption('NONFOIL');
     await page.getByRole('combobox',{name:'Batch condition',exact:true}).selectOption('NM');
     await page.getByRole('button',{name:'Save batch defaults',exact:true}).click();
@@ -119,12 +126,39 @@ test("whole-photo hints support streaming review while other photos are queued",
       await card.getByRole('button',{name:'Save card review',exact:true}).click();
       await expect(card).toContainText('Review saved. Not yet added to Inventory.');
       firstSaved=json(`console.log(JSON.stringify(await p.acquisitionCandidate.findFirstOrThrow({where:{...${owner},acquisitionOrder:0},select:{review:true,revision:true}})));`);
+      expect(firstSaved.review.condition).toBe('LP');
+      await expect.poll(()=>feedback().examples[0]?.blob.state,{timeout:120000}).toBe('PRESERVED');
+      firstFeedback=feedback();
+      expect(firstFeedback.examples).toHaveLength(1);
+      expect(firstFeedback.examples[0].normalControl).toBe(true);
+      expect(firstFeedback.examples[0].labelState).toBe('UNVERIFIED');
+      expect(firstFeedback.examples[0].label.decision.condition).toBe('LP');
+      expect(firstFeedback.events).toHaveLength(1);
+      expect(firstFeedback.evidence.length).toBeGreaterThan(0);
+      const original=await page.request.get(`/api/acquisition/corrections/${firstFeedback.examples[0].id}?owner=${encodeURIComponent(tag)}`);
+      expect(original.ok()).toBe(true);
+      expect(createHash('sha256').update(await original.body()).digest('hex')).toBe(report.digests[0]);
+      report.feedback={reviewEvents:1,initialEvidenceBundles:firstFeedback.evidence.length,originalDigest:report.digests[0],conserved:false};
       await page.reload();await card.scrollIntoViewIfNeeded();
       await expect(card).toContainText('LP');
       save();
     }
+    // Keep the existing per-stage deadline: all actual printing jobs must finish
+    // before checking the saved early correction against later background work.
+    await expect.poll(()=>Number(database(`console.log(await p.acquisitionProcessingJob.count({where:{...${owner},stage:'photo-printing-evidence-v1',status:'COMPLETE'}}));`)),{timeout:600000}).toBe(cases.length);
     const after=json(`console.log(JSON.stringify(await p.acquisitionCandidate.findFirstOrThrow({where:{...${owner},acquisitionOrder:0},select:{review:true,revision:true}})));`);
     expect(after).toEqual(firstSaved);
+    const laterFeedback=feedback();
+    expect(laterFeedback.examples).toHaveLength(1);
+    expect(laterFeedback.examples[0].label).toEqual(firstFeedback.examples[0].label);
+    expect(laterFeedback.examples[0].labelState).toBe('UNVERIFIED');
+    expect(laterFeedback.events).toEqual(firstFeedback.events);
+    for(const evidence of firstFeedback.evidence)
+      expect(laterFeedback.evidence.find((entry:any)=>entry.id===evidence.id)).toEqual(evidence);
+    const originalAfter=await page.request.get(`/api/acquisition/corrections/${firstFeedback.examples[0].id}?owner=${encodeURIComponent(tag)}`);
+    expect(originalAfter.ok()).toBe(true);
+    expect(createHash('sha256').update(await originalAfter.body()).digest('hex')).toBe(report.digests[0]);
+    report.feedback={...report.feedback,finalEvidenceBundles:laterFeedback.evidence.length,conserved:true,printingComplete:cases.length};
     const firstRaw=json(`console.log(JSON.stringify(await p.acquisitionProcessingJob.findFirstOrThrow({where:{...${owner},candidate:{acquisitionOrder:0},stage:'photo-recognition-v1',status:'COMPLETE'},orderBy:{createdAt:'desc'},select:{output:true}})));`);
     expect(firstRaw).toEqual(report.raw[0]);
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);

@@ -44,6 +44,9 @@ test("difficult photo names reach existing review without inventing printing evi
     await page.getByRole('option').first().click();
     await page.getByRole('button',{name:/^A\s/}).click();
     await page.getByRole('button',{name:'Start batch',exact:true}).click();
+    if(!await page.getByRole('combobox',{name:'Batch finish',exact:true}).isVisible())
+      await page.locator('summary').filter({hasText:/^Batch defaults:/}).click();
+    await expect(page.getByRole('combobox',{name:'Batch finish',exact:true})).toBeVisible();
     await page.getByRole('combobox',{name:'Batch finish',exact:true}).selectOption('NONFOIL');
     await page.getByRole('combobox',{name:'Batch condition',exact:true}).selectOption('NM');
     await page.getByRole('button',{name:'Save batch defaults',exact:true}).click();
