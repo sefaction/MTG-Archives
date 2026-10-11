@@ -26,9 +26,49 @@ independent original bytes are compared before and after the crash. Original
 native lease/attempt, lost-acknowledgement, printing recall, incremental review,
 Inventory and reload assertions and stage deadlines are retained.
 
-Current qualification is incomplete: types, actual local source/image checks,
-full 24-original native/browser run, cleanup/data/service/photo integrity and
-final-head CI must be recorded before this draft becomes ready. No hardware
-feeding, production operation, accuracy promotion, independent labels, cohort
-rotation or original retention change is included. Broader #692/#463/#310
-acceptance stays open.
+Types and all three required checks pass on the initial implementation head.
+An AST fence preserves all 92 original expectation calls and stage bounds,
+adding 24 feedback expectations. Actual current-build checks verify all 597 web
+inputs and actual native app/Python/reference sources. Native workers retain the
+approved-main inventory-query/public modules while web has the separate #719/#724
+changes; acquisition and recognition inputs match exactly. A fresh baseline
+hashes all 1,094 ready originals, totaling 2,845,198,201 bytes, and records source
+tables, substantive feedback and service states. The initial native-manifest
+path assumption and separate-inventory source-fence rejection were setup
+failures; no fixture or native acceptance was claimed for either attempt.
+
+An actual local SIGKILL/early-feedback-error injection executes this source's
+corrected finally block. It restores the same OCR container/image, attempts
+all later steps, leaves the expected AggregateError visible, and independently
+removes its seeded owner rows and private folder. This adds real restoration
+evidence to the dependency-double controls. Its exact owned fixture is retired;
+no other native job was active before the deliberate interruption.
+
+The actual 24-original browser/native recovery case passes in 750.862 seconds,
+with one expected test, zero skips, retries or failures. The OCR job is interrupted
+while RUNNING with unfinished output and a live lease; exit 137 is recorded. It
+completes on attempt 2 after the unchanged lease expiry. A deliberately lost
+successful upload acknowledgement produces 0 visible retry interventions.
+All 24 retained identities/artifacts and printing checks complete after recovery; zero
+Inventory copies are written. The saved LP review, one unverified normal-control
+example, one review event, 21 evidence bundles and independently downloaded
+original SHA-256 remain unchanged. Reload restores review and all 24 cards.
+Reused development printing recall is 24/24 first-ranked and 24/24 offered;
+these figures are not independent accuracy or automatic-acceptance evidence.
+
+After terminal cleanup, fresh checks conserve all seven source-table projections,
+all nine substantive feedback-table projections (only account cleanup timestamps
+excluded), and all 1,094 original identities, generations and stored SHA-256
+bindings across 2,845,198,201 bytes. All exact-owner rows, the independent feedback
+folder, and all 48 original/preview file bindings are absent. No active native
+fixture work remains. All sixteen container identities/images/environments,
+mounts and limits are conserved; fifteen retain exact start states. Only the OCR
+start timestamp changes for the two documented deliberate kill/start probes.
+The web image/source stays unchanged; test-only files need no application rebuild.
+
+All three required CI checks pass on the implementation head. This final report
+commit also requires current-head CI before readiness. Local private browser,
+baseline/after, source-fence, fault-injection and residue reports retain evidence.
+No hardware feeding, production operation, accuracy promotion, independent
+labels, cohort rotation or original retention change is included. Broader
+#692/#463/#310 acceptance stays open.
