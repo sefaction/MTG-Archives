@@ -4,6 +4,8 @@ The parent supplies proposed public identities and unchanged photo bytes after
 catalog reconciliation. This process only reports observable printing evidence.
 """
 import hashlib
+import ctypes
+import gc
 import io
 import json
 from pathlib import Path
@@ -33,6 +35,31 @@ MAX_PHOTO = 10 * 1024 * 1024
 MAX_ENVELOPE = MAX_PHOTO + 65536
 _runtime = None
 _records = None
+_trim = getattr(ctypes.CDLL(None), 'malloc_trim', None)
+if _trim is not None:
+    _trim.argtypes = [ctypes.c_size_t]
+    _trim.restype = ctypes.c_int
+
+
+def compact_reference_record(value):
+    """Retain only fields used by printing, without changing caller metadata.
+
+    Applied during JSON parsing so a full decoded catalogue does not coexist
+    with the compact one. The immutable full manifest is still SHA-verified.
+    """
+    required = ('referenceId', 'cardId', 'file', 'sha256')
+    if all(key in value for key in required):
+        return {key: value[key] for key in (*required, 'url') if key in value}
+    return value
+
+
+def release_temporary_memory():
+    # OpenCV's released SIFT/warp buffers can remain in glibc's free arenas.
+    # Returning unused pages does not evict live reference arrays or change
+    # pixels, features, templates, candidate identities or detection settings.
+    gc.collect()
+    if _trim is not None:
+        _trim(0)
 
 
 def descriptor():
@@ -88,7 +115,7 @@ def request(envelope, desc):
     if sha256(INDEX) != desc['details']['indexSha256']:
         raise ValueError('Printing index generation changed')
     if _runtime is None:
-        _records = json.loads(desc['file'].read_text())
+        _records = json.loads(desc['file'].read_text(), object_hook=compact_reference_record)
         if len(_records) != desc['details']['referenceCount']:
             raise ValueError('Printing reference count changed')
         _runtime = PrintingRuntime(_records, REFERENCES)
@@ -163,6 +190,7 @@ def main():
         if not 0 < length <= MAX_ENVELOPE:
             raise ValueError('Printing frame exceeds bound')
         output = bounded_detail_response(request(read_exact(length), desc))
+        release_temporary_memory()
         if len(output.encode()) > 65535:
             raise ValueError('Printing evidence exceeds bound')
         print(output, flush=True)
