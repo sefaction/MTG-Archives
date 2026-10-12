@@ -20,8 +20,11 @@ test('actual native generation rollover retires an in-flight old reference linea
   expect(configuration.services['acquisition-recognition-worker'].cpus).toBe(1);
   expect(configuration.services['acquisition-recognition-worker'].environment.ACQUISITION_REFERENCE_REFINEMENT_ENABLED).toBe('1');
   const initialContainerImage=docker(['inspect',worker,'--format','{{.Image}}']).trim();
-  const initialReady=docker(['logs','--tail','300',worker]).split(/\r?\n/).filter(s=>s.startsWith('{')).map(s=>JSON.parse(s)).findLast(s=>s.event==='recognition-ready');
-  expect(initialReady.model).toMatch(/^[a-f0-9]{64}$/);
+  let initialReady:any;
+  await expect.poll(()=>{
+    initialReady=docker(['logs','--tail','300',worker]).split(/\r?\n/).filter(s=>s.startsWith('{')).map(s=>JSON.parse(s)).findLast(s=>s.event==='recognition-ready');
+    return initialReady?.model;
+  },{timeout:60000,intervals:[500,1000,2000]}).toMatch(/^[a-f0-9]{64}$/);
   expect(Number(database(`console.log(await p.acquisitionProcessingJob.count({where:{status:{in:['PENDING','RUNNING']}}}));`))).toBe(0);
   const tag=`ui-reference-scan-${randomUUID()}`,password=randomUUID(),started=Date.now();
   const own=`{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}}}`,bytes=readFileSync(path.join(corpus!,'reference-1.jpg')),digest=sha(bytes);
@@ -54,7 +57,7 @@ test('actual native generation rollover retires an in-flight old reference linea
     expect(docker(['inspect',worker,'--format','{{.Image}}']).trim()).toBe(initialContainerImage);
     await expect.poll(()=>Number(database(`console.log(await p.acquisitionProcessingJob.count({where:{...${own},stage:'photo-reference-refinement-v1',status:'COMPLETE'}}));`)),{timeout:480000,intervals:[1000,3000]}).toBe(1);
     await expect.poll(()=>Number(database(`console.log(await p.acquisitionProcessingJob.count({where:{...${own},status:{in:['PENDING','RUNNING']}}}));`)),{timeout:240000,intervals:[1000,3000]}).toBe(0);
-    const after=json(`console.log(JSON.stringify({jobs:await p.acquisitionProcessingJob.findMany({where:${own},orderBy:{createdAt:'asc'}}),evidence:await p.correctionEvidence.findMany({where:{ownerPlayerId:${JSON.stringify(tag)}}}),photos:await p.acquisitionPhoto.findMany({where:${own}}),candidates:await p.acquisitionCandidate.findMany({where:${own}})}));`);
+    const after=json(`console.log(JSON.stringify({jobs:await p.acquisitionProcessingJob.findMany({where:${own},orderBy:{createdAt:'asc'}}),evidence:await p.correctionEvidence.findMany({where:{ownerPlayerId:${JSON.stringify(tag)}}}),photos:await p.acquisitionPhoto.findMany({where:${own}}),candidates:await p.acquisitionCandidate.findMany({where:${own},include:{receipt:true}})}));`);
     for(const observed of before.jobs.filter((j:any)=>j.status==='COMPLETE'))expect(after.jobs.find((j:any)=>j.id===observed.id).output).toEqual(observed.output);
     for(const evidence of before.evidence)expect(after.evidence.find((e:any)=>e.id===evidence.id)).toEqual(evidence);
     const previous=after.jobs.find((j:any)=>j.id===held.job.id),references=after.jobs.filter((j:any)=>j.stage==='photo-reference-refinement-v1');
