@@ -1,0 +1,127 @@
+{
+  "scope": "review-only registered printing details",
+  "replay": {
+    "complete": true,
+    "samples": 67,
+    "sourceEntries": 90,
+    "developmentOnly": true,
+    "physicalCopyIndependence": "UNKNOWN",
+    "automaticAcceptance": false,
+    "baselineCorrect": 58,
+    "diagnosticCorrect": 58,
+    "pairedGains": 3,
+    "pairedLosses": 3,
+    "expectedOffered": 65,
+    "measuredFaces": 75,
+    "elapsedSeconds": 511.334,
+    "manifestSha256": "75bc490b70feca3e47ba2823021abf0b9abd909c407fcbdee113b5105a45a78d",
+    "indexSha256": "361081e13d88e905f21b40c0e97879c7a10dd45350938ee1a80c9915d770e839",
+    "referencesSha256": "c7ac6929e68c1e146052301b69b001617559c8bb236e005845b259bb47e71950",
+    "detailCodeSha256": "a351e6fd090beef1e18cd11aadfbd2742675db1f5b93aeaa2f2215e44929314d",
+    "registrationCodeSha256": "3a1d4763eb331b3c39b5cdaf17d8b0c462b63ba1c6969a44a73e93aaf7cc7ef1",
+    "allProposalsCompared": 0,
+    "uncomparedProposalChanges": 10,
+    "diagnosticPolicy": "REJECTED_UNCALIBRATED_GLOBAL_RESIDUAL"
+  },
+  "checks": {
+    "nativeGuards": 29,
+    "applicationGuards": 6,
+    "core": {
+      "tests": 981,
+      "failed": 0,
+      "types": "PASS",
+      "productionBuild": "PASS",
+      "clientManifests": "PASS"
+    },
+    "docker": {
+      "passed": true,
+      "cumulativeBase": "c8e678c",
+      "featureApplicationCommit": "44834c659af68f159d74bc0d9de5c5a5d22d9cb6",
+      "preservedPullRequests": [
+        740,
+        742,
+        745,
+        747
+      ],
+      "newPullRequest": 750,
+      "anchorReread748Included": false,
+      "webImage": "sha256:656206822dbcc266e1aa974744336ac2e2d267735c8329d41cba4031d5566c3d",
+      "nativeImage": "sha256:fcb064c1cab7eb305ef8bc02ab4c251030ad11b33a3d7463fbe3eed3aa862645",
+      "webSourceDigest": "8b5a36aaab31d1c4b8b5e2220f5893e3892157a9bbfcd07d03de43c8b8b2c082",
+      "files": 602,
+      "nativeGuardsOnBuiltImage": 29,
+      "cumulativeFocusedApplicationGuards": 25,
+      "cumulativeTypes": "PASS",
+      "installer": "0.4.3 preserved"
+    },
+    "browser": {
+      "passed": true,
+      "inputs": 3,
+      "elapsedMilliseconds": 206904,
+      "ordinaryQueueAndRealNativeWorkers": true,
+      "selectedPrintingMeasuredRegions": true,
+      "verifiedReferencePreviews": true,
+      "corruptReferenceRejected": true,
+      "desktopWidth": 1366,
+      "phoneWidth": 320,
+      "noHorizontalOverflow": true,
+      "screenshotsInspected": true,
+      "originalDigestsPreserved": true,
+      "clippedOutlineWithheld": true,
+      "inventoryAdded": 0,
+      "ownedFixtureCleanup": true
+    },
+    "services": {
+      "passed": true,
+      "managedContainers": 16,
+      "selectedServices": 5,
+      "unchangedServices": 11,
+      "environmentMountsCommandsAndLimitsConserved": true,
+      "unselectedIdentitiesRestartsAndStartTimesConserved": true,
+      "selectedNoRestartOrOOM": true,
+      "images": [
+        {
+          "service": "/mtg-archives-acquisition-visual-worker-1",
+          "image": "sha256:fcb064c1cab7eb305ef8bc02ab4c251030ad11b33a3d7463fbe3eed3aa862645"
+        },
+        {
+          "service": "/mtg-archives-acquisition-printing-worker-1",
+          "image": "sha256:fcb064c1cab7eb305ef8bc02ab4c251030ad11b33a3d7463fbe3eed3aa862645"
+        },
+        {
+          "service": "/mtg-archives-acquisition-worker-1",
+          "image": "sha256:656206822dbcc266e1aa974744336ac2e2d267735c8329d41cba4031d5566c3d"
+        },
+        {
+          "service": "/mtg-archives-acquisition-catalog-worker-1",
+          "image": "sha256:656206822dbcc266e1aa974744336ac2e2d267735c8329d41cba4031d5566c3d"
+        },
+        {
+          "service": "/mtg-archives-web-1",
+          "image": "sha256:656206822dbcc266e1aa974744336ac2e2d267735c8329d41cba4031d5566c3d"
+        }
+      ]
+    },
+    "data": {
+      "passed": true,
+      "unchangedTableProjections": 20,
+      "retainedOriginals": 156,
+      "originalBytes": 898515870,
+      "scope": "post-deploy test baseline excluding sole owned fixture; known account maintenance timestamps excluded"
+    }
+  },
+  "retainedFailures": [
+    "initial production lint rejected synchronous state reset in effect; corrected without disabling rule",
+    "initial new decision-preservation test supplied one OCR direction; corrected fixture to the required two without changing application policy",
+    "first browser workflow passed, but desktop screenshot was obscured by sticky batch controls; corrected scroll assertion and repeated original cases/deadlines successfully",
+    "read-only conservation helper initially used an unsupported Player.createdAt field and had a generated-code quote error; no data writes occurred; errors retained privately and corrected before final baseline"
+  ],
+  "limitations": [
+    "development corpus; physical-copy independence unknown",
+    "no automatic detail ranking or acceptance",
+    "five fixed windows do not cover every layout",
+    "shared candidate geometry cannot prove a physical edge",
+    "independent exact-printing benchmark pending"
+  ],
+  "reviewStatus": "DRAFT_PENDING_SEPARATE_REVIEWER"
+}
