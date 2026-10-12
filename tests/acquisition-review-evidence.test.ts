@@ -10,6 +10,8 @@ test("scan framing evidence survives review projection without adding acceptance
     {status: "NEEDS_CROP", framing: "CLIPPED"},
     {status: "PROPOSED", framing: "ALIGNED", method: "scanner-card-edges",
       quad: [[10, 10], [640, 10], [640, 890], [10, 890]]},
+    {status: "PROPOSED", framing: "ALIGNED", method: "scanner-white-card-edges",
+      quad: [[10, 10], [640, 10], [640, 890], [10, 890]]},
   ]) {
     const evidence = acquisitionReviewEvidence({
       native: {geometry, orientations: []},
@@ -19,6 +21,21 @@ test("scan framing evidence survives review projection without adding acceptance
     assert.equal(evidence.rotation, null);
     assert.equal(evidence.printing, null);
   }
+});
+
+test("observed clipping withholds reference outlines without rewriting archived measurements",()=>{
+  const input={native:{geometry:{status:"NEEDS_CROP",framing:"CLIPPED"},orientations:[]},
+    proposals:{evidence:{setCodes:[],collectors:[],languages:[]}},
+    printing:{observedStamp:"UNREADABLE",conflictingObservations:false,candidates:[{
+      cardId:"local-card",stamp:"UNREADABLE",referenceStampState:"UNKNOWN",relation:"UNRESOLVED",reason:"UNREADABLE",
+      referenceBoundary:{version:1,quad:[[.02,.02],[.98,.02],[.98,.98],[.02,.98]]},
+    }]}};
+  const before=JSON.stringify(input);
+  const clipped=acquisitionReviewEvidence(input)!;
+  assert.equal(clipped.printing!.candidates[0].referenceBoundary,undefined);
+  const visible=acquisitionReviewEvidence({...input,native:{...input.native,geometry:{status:"PROPOSED"}}})!;
+  assert.deepEqual(visible.printing!.candidates[0].referenceBoundary,input.printing.candidates[0].referenceBoundary);
+  assert.equal(JSON.stringify(input),before);
 });
 
 test("review evidence preserves both observations while withholding private runtime metadata", () => {

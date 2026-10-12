@@ -7,13 +7,14 @@ import { filterButtonClass as button, filterPrimaryButtonClass as primary } from
 const initial: AcquisitionManualRegion = {version: 1, quad: [[.02, .02], [.98, .02], [.98, .98], [.02, .98]]};
 const clamp = (value: number) => Math.max(0, Math.min(1, value));
 
-export function AcquisitionCardRegionEditor({src, record, latestRevision, busy, apply, cancel}: {
+export function AcquisitionCardRegionEditor({src, record, latestRevision, busy, apply, cancel, suggestedRegion}: {
   src: string; record: AcquisitionCardReview; latestRevision: number; busy: boolean;
   apply: (region: AcquisitionManualRegion | null, revision: number, requestKey: string) => Promise<void>;
   cancel: () => void;
+  suggestedRegion?: AcquisitionManualRegion | null;
 }) {
   const frame = useRef<HTMLDivElement>(null);
-  const [region, setRegion] = useState<AcquisitionManualRegion>(record.manualRegion ?? initial);
+  const [region, setRegion] = useState<AcquisitionManualRegion>(record.manualRegion ?? suggestedRegion ?? initial);
   const [revision] = useState(record.revision);
   const [loaded, setLoaded] = useState(false), [error, setError] = useState("");
   const [failedBody, setFailedBody] = useState<string | null>(null);
@@ -38,6 +39,10 @@ export function AcquisitionCardRegionEditor({src, record, latestRevision, busy, 
   return <section aria-label="Card boundary editor" className="my-4 rounded border p-3 min-w-0">
     <h4 className="font-semibold">Choose the card boundary</h4>
     <p className="text-sm my-2">Move the four corners around the complete card, including its border and footer. Use the arrow keys for small adjustments; hold Shift for larger steps. Missing edges require another photo.</p>
+    {suggestedRegion && <div className="text-sm my-2" data-testid="reference-boundary-suggestion">
+      <p>An outline is inferred from matching artwork and text on the selected printing. Check the physical border and footer before saving.</p>
+      <button type="button" className={button} disabled={busy} onClick={()=>{setRegion(suggestedRegion); setError("");}}>Use reference outline</button>
+    </div>}
     <div ref={frame} className="relative max-w-lg mx-auto my-7">
       <img src={src} alt="Original photo for choosing the card boundary" className="block w-full h-auto"
         onLoad={() => {setLoaded(true); setError("");}}

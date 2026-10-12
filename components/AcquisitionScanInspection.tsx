@@ -40,7 +40,8 @@ export function AcquisitionScanImage({
   const rotation = evidence?.rotation ?? (reverse ? 180 : 0);
   const declaredScan = evidence?.geometry.method === "declared-card-scan";
   const trimmedScan = evidence?.geometry.method === "scanner-background-trim";
-  const alignedScan = evidence?.geometry.method === "scanner-card-edges";
+  const alignedScan = evidence?.geometry.method === "scanner-card-edges" ||
+    evidence?.geometry.method === "scanner-white-card-edges";
   const clippedScan = evidence?.geometry.framing === "CLIPPED";
   const fullFrame = declaredScan || evidence?.geometry.method === "full-frame";
   const observation = evidence?.observations.find(
