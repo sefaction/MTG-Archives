@@ -48,6 +48,7 @@ def descriptor():
                'inputCode': hashlib.sha256(Path(__file__).with_name('photo_input.py').read_bytes()).hexdigest(),
                'photoTextCode': hashlib.sha256(Path(__file__).with_name('photo_text.py').read_bytes()).hexdigest(),
                'manualRegionCode': hashlib.sha256(Path('/eval/manual_card_region.py').read_bytes()).hexdigest(),
+               'referenceRegionCode': hashlib.sha256(Path('/eval/reference_card_region.py').read_bytes()).hexdigest(),
                'geometry': hashlib.sha256(Path('/eval/baseline.py').read_bytes()).hexdigest()}
     digest = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     return {'version': 1, 'digest': digest, 'execution': 'CPU', **payload}
@@ -86,7 +87,8 @@ def prepare_ocr():
 
 
 def recognize(data, desc):
-    data, input_kind, task, manual_region = decode_photo_input(data, return_task=True, return_region=True)
+    data, input_kind, task, manual_region, reference_region = decode_photo_input(
+        data, return_task=True, return_region=True, return_reference=True)
     if not data or len(data) > 10 * 1024 * 1024:
         raise ValueError('Photo exceeds bounds')
     started = time.monotonic()
@@ -119,7 +121,10 @@ def recognize(data, desc):
               'photoText': photo_text, 'milliseconds': round((time.monotonic()-started)*1000),
               'automaticAcceptance': False}), file=protocol, flush=True)
         return
-    if manual_region is not None:
+    if reference_region is not None:
+        from reference_card_region import reference_card_region
+        crop, geometry_evidence = reference_card_region(image, reference_region)
+    elif manual_region is not None:
         from manual_card_region import manual_card_region
         crop, geometry_evidence = manual_card_region(image, manual_region)
     else:

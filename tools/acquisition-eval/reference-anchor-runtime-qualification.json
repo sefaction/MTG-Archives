@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "date": "2026-10-12",
+  "scope": "LOCAL_REUSED_DEVELOPMENT_SCANNER_INPUTS",
+  "passedCoveredWorkflow": true,
+  "policy": "scanner-rectangle-reference-region-v2",
+  "inputCount": 6,
+  "eligibleRotations": 4,
+  "completeControlSkipped": true,
+  "measuredClippingControlSkipped": true,
+  "oneDurableRefinementPerPhoto": true,
+  "normalSuccessfulInferenceRequestsPerRefinement": 1,
+  "processingDeadlineMilliseconds": 45000,
+  "leaseMilliseconds": 90000,
+  "ordinaryRecovery": [
+    {"mode": "actual native child SIGKILL", "sameJob": true, "finalAttempts": 2, "observedNativeCpu": true},
+    {"mode": "actual OCR container SIGKILL/start", "sameJob": true, "sameImage": true, "finalAttempts": 2, "observedNativeCpu": true, "originalLeaseExpiredBeforeReclaim": true, "elapsedMilliseconds": 209952}
+  ],
+  "originalDigestsAndFirstReadingsPreserved": true,
+  "inferredBoundaryVerified": false,
+  "automaticAcceptance": false,
+  "inventoryWrites": 0,
+  "fixtureCleanupFailures": 0,
+  "desktopWidth": 1366,
+  "phoneWidth": 320,
+  "coreTests": 1044,
+  "coreTestFailures": 0,
+  "liveAuthorityChecks": {
+    "elapsedMilliseconds": 139995,
+    "nativeCpuObservedBeforeChanges": true,
+    "draftFieldsPreservedThroughRereadAndPrinting": true,
+    "savedReviewAndIndependentFeedbackPreserved": true,
+    "retakeAdvancesSlotAndPreservesOlderSource": true,
+    "obsoleteReferencesPublishNoNativeOutputOrDescendants": true,
+    "heldMilliseconds": [606, 1965, 2942],
+    "deadlineOrLeaseOverrides": false
+  },
+  "actualGenerationRollover": {
+    "elapsedMilliseconds": 150014,
+    "oldNativeModel": "d39f3382d47af54abb40ea0800837469344490dd514f58d687fe878e3701ddec",
+    "currentNativeModel": "3599a63b965a56ded6fdc84d074d6de32159418102f847390415c137f5f2d7cc",
+    "oldPolicy": "distributed-reference-region-v1",
+    "currentPolicy": "scanner-rectangle-reference-region-v2",
+    "oldStatus": "SUPERSEDED",
+    "oldAttempts": 2,
+    "currentCompletedLineages": 1,
+    "sameOriginalAndOnePhysicalCandidate": true,
+    "malformedOrUnknownEnvelopesRemainValidationFailures": true,
+    "fixtureCleanupFailures": 0
+  },
+  "liveActions": {
+    "manualBoundaryPrecedenceAndDraftPreservation": true,
+    "cancellationPreventsLatePublication": true,
+    "explicitCommitPreservesReviewReceiptAndFeedback": true,
+    "commitElapsedMilliseconds": 45243,
+    "commitNativeHeldMilliseconds": 3466,
+    "explicitCommitInventoryWrites": 1,
+    "implicitInventoryWrites": 0,
+    "postCommitRetentionDeadlineAssigned": true,
+    "fixtureCleanupFailures": 0
+  },
+  "ordinaryScheduling": {
+    "elapsedMilliseconds": 107723,
+    "owners": 2,
+    "runs": 3,
+    "inputs": 5,
+    "preparedFreshInputsAndEligibleReferenceParentsObservedBeforeRelease": true,
+    "newOwnerGetsNextRawTurn": true,
+    "rawInOtherRunPrecedesWaitingRereads": true,
+    "allFivePrimaryAndFiveReferenceReadsFirstAttempt": true,
+    "inventoryWrites": 0,
+    "fixtureCleanupFailures": 0,
+    "sustainedThroughputOrCollectionScaleAcceptance": false
+  },
+  "limitations": [
+    "Four rotations are one physical card",
+    "Not independent boundary or exact-first-printing accuracy",
+    "Sustained scanner load, hardware and collection-scale acceptance remain separate",
+    "Primary snapshot refinement remains disabled",
+    "Primary worker restart observation is tracked separately in issue 755"
+  ]
+}
