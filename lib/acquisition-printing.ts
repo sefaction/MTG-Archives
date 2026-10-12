@@ -1,4 +1,5 @@
 import { z } from "zod";
+import {setSymbolSchema} from './acquisition-set-symbol';
 import { acquisitionCollectorKey, type RecognitionCard } from "./acquisition-recognition";
 import type { TextProposals } from "./acquisition-visual";
 import { acquisitionManualRegionSchema, validateAcquisitionManualRegionFrame } from "./acquisition-manual-region";
@@ -56,6 +57,7 @@ export const printingNativeSchema = z.object({
     }),
     localRelation: relation.optional(),
     details: printingDetailSchema.optional(),
+    setSymbol:setSymbolSchema.optional(),
     referenceImage: printingReferenceImageSchema.optional(),
     sharedObservationSources: z.array(z.string().min(38).max(100)).max(24).optional(),
   })).max(24),
@@ -75,6 +77,9 @@ export const printingNativeSchema = z.object({
     if(candidate.details?.regions.some(r=>r.status === "MEASURED") &&
       (candidate.alignment.status !== "ALIGNED" || (candidate.alignment.sourceCardWidth ?? 0) < 500))
       ctx.addIssue({code:z.ZodIssueCode.custom,message:"Measured detail requires supported alignment"});
+    if(candidate.setSymbol && [candidate.setSymbol.query,candidate.setSymbol.reference].some(s=>s.status!=='UNREADABLE')&&
+      (candidate.alignment.status!=='ALIGNED'||(candidate.alignment.sourceCardWidth??0)<500))
+      ctx.addIssue({code:z.ZodIssueCode.custom,message:'Symbol observation requires supported alignment'});
     if (value.conflictingObservations && candidate.relation !== "UNRESOLVED")
       ctx.addIssue({code: z.ZodIssueCode.custom, message: "Conflicting observations cannot resolve a printing"});
     if (candidate.referenceStampState === "UNKNOWN" && candidate.relation !== "UNRESOLVED")
@@ -218,6 +223,7 @@ export const printingSummarySchema = z.object({
     relation,
     reason: z.string().max(80),
     referenceBoundary: acquisitionManualRegionSchema.optional(),
+    setSymbol:setSymbolSchema.optional(),
     details: printingDetailSummarySchema.optional(),
     referenceFace: z.union([z.literal(0),z.literal(1)]).optional(),
     referenceImage: printingReferenceImageSchema.optional(),
@@ -268,6 +274,7 @@ export function acquisitionPrintingSummary(
       ...comparison,
       referenceRelation: c.relation,
       reason: c.stamp.reason,
+      ...(c.setSymbol?{setSymbol:c.setSymbol}:{}),
       ...(referenceBoundary(c, printing) ? {referenceBoundary: referenceBoundary(c, printing)} : {}),
       ...(c.details ? {details:printingDetailSummary(c.details),
         ...(c.referenceImage ? {referenceImage:c.referenceImage} : {}),

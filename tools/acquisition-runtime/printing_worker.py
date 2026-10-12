@@ -21,6 +21,7 @@ from catalog_references import sha256
 from printing import PrintingRuntime, VERSION, LABELS, release_temporary_memory
 from manual_card_region import manual_card_source
 from photo_input import validate_manual_region
+from expansion_symbols import ASSETS as SYMBOL_ASSETS, verified_assets as verified_symbol_assets, symbol_asset_root
 
 INDEX = Path('/visual/index/index.json')
 if '--manifest' in sys.argv:
@@ -48,6 +49,7 @@ def compact_reference_record(value):
 
 
 def descriptor():
+    verified_symbol_assets(symbol_asset_root())
     before = sha256(INDEX)
     index = json.loads(INDEX.read_text())
     if index.get('format') != 1 or not index.get('downloadComplete'):
@@ -68,6 +70,8 @@ def descriptor():
                'geometrySha256': sha256(Path('/eval/baseline.py')),
                'policySha256': sha256(Path('/eval/printing_evidence.py')),
                'detailSha256': sha256(Path('/eval/printing_details.py')),
+               'symbolSha256': sha256(Path('/eval/expansion_symbols.py')),
+               'symbolAssets': SYMBOL_ASSETS,
                'annotationsSha256': sha256(LABELS), 'opencv': cv2.__version__,
                'opencvBuildSha256': hashlib.sha256(cv2.getBuildInformation().encode()).hexdigest(),
                'numpy': np.__version__, 'pillow': pillow_version, 'python': sys.version}
@@ -157,6 +161,7 @@ def bounded_detail_response(result):
     for candidate in result['candidates']:
         candidate.pop('details',None)
         candidate.pop('referenceImage',None)
+        candidate.pop('setSymbol',None)
     return json.dumps(result,separators=(',',':'))
 
 

@@ -7,6 +7,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'acquisition-runtime'))
 from printing_evidence import register, registration_features
 from printing import PrintingRuntime
+from expansion_symbols import ExpansionSymbolBank
 from baseline import geometry
 
 
@@ -23,6 +24,7 @@ class RuntimeTests(unittest.TestCase):
         runtime = PrintingRuntime.__new__(PrintingRuntime)
         runtime.records = {identity+':0': {'cardId':identity}}
         runtime.templates = []
+        runtime.symbol_bank = ExpansionSymbolBank()
         runtime.reference = lambda _: (reference,'UNKNOWN',registration_features(reference,True))
         result = runtime.observe(photo,[{'scryfallId':identity,'referenceId':identity+':0'}])
         alignment = result['candidates'][0]['alignment']

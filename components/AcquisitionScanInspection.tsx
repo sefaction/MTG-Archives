@@ -6,6 +6,7 @@ import {
 } from "@/lib/acquisition-review-evidence";
 import type { AcquisitionPrinting } from "@/lib/acquisition-review";
 import { filterButtonClass as button } from "./filterStyles";
+import {consistentSetSymbol,setSymbolMessage} from '@/lib/acquisition-set-symbol';
 
 export function AcquisitionScanImage({
   src,
@@ -300,7 +301,7 @@ export function AcquisitionScanImage({
         <p className="text-xs">
           Cyan: title/footer areas attempted. Yellow: detected text boxes. Boxes
           do not establish a correct reading. Stamp evidence uses a separately
-          aligned lower-left region. Set-symbol detection is not implemented.
+          aligned lower-left region. Set-symbol shapes are an additional cue; shared icons do not identify an exact printing.
         </p>
       )}
       <a
@@ -332,6 +333,11 @@ export function AcquisitionEvidenceFields({
   const ids = evidence?.identifiers;
   const printing = evidence?.printing;
   const selectedStamp = printing?.candidates.find(c=>c.cardId === selected?.id);
+  const selectedSymbols=printing?.candidates.filter(c=>c.cardId===selected?.id).map(c=>c.setSymbol)??[];
+  const consistentSymbol=consistentSetSymbol(selectedSymbols);
+  const symbol=!consistentSymbol&&selectedSymbols.some(s=>s?.query.status==='SIMILAR')
+    ?{observed:'Conflicting observations',comparison:'Reference alignments disagree; inspect the original scan'}
+    :setSymbolMessage(consistentSymbol);
   const expectationLabel = selectedStamp?.expectationSource === "CATALOG_LIST_REPRINT"
     ? "List reprint catalog identity"
     : selectedStamp?.expectationSource === "CATALOG_SOURCE_PRINTING"
@@ -410,7 +416,7 @@ export function AcquisitionEvidenceFields({
       selectedStamp?.expectedStampState ?? "Unknown (older result)"],
     ["Reference image stamp", "Annotation of the public comparison image; separate from the printing expectation",
       selectedStamp?.referenceStampState ?? "Not checked"],
-    ["Set symbol", "Visual detection not implemented", "Not checked"],
+    ["Set symbol",symbol.observed,symbol.comparison],
     [
       "Card image",
       evidence?.imageMatches

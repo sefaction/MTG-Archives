@@ -23,10 +23,10 @@ class DetailRuntimeTests(unittest.TestCase):
     def test_twenty_four_faces_keep_legacy_stamp_evidence_when_details_exceed_budget(self):
         value = {'automaticAcceptance': False, 'observedStamp': 'PRESENT', 'candidates': [
             {'referenceId':str(i), 'stamp': {'status':'PRESENT','reason':'OBSERVED'},
-             'details':{'padding':'d'*3500}, 'referenceImage':{'uri':'public'}} for i in range(24)]}
+             'details':{'padding':'d'*3500}, 'setSymbol':{'padding':'s'*1500}, 'referenceImage':{'uri':'public'}} for i in range(24)]}
         expected = copy.deepcopy(value)
         for row in expected['candidates']:
-            del row['details'], row['referenceImage']
+            del row['details'], row['referenceImage'], row['setSymbol']
         output = bounded_detail_response(value)
         self.assertLessEqual(len(output.encode()), 65535)
         self.assertEqual(json.loads(output), expected)
