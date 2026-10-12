@@ -69,6 +69,9 @@ test('ordinary scanner queue performs one source-bound reference reread and pres
         await card.scrollIntoViewIfNeeded();
         await expect(card.getByRole('button',{name:'Inferred card',exact:true})).toBeEnabled();
         await expect(card.getByText(/Reference landmarks suggest this outline/)).toBeVisible();
+        const inferredImage=card.getByRole('img',{name:`Inferred card ${i+1}`,exact:true});
+        await expect.poll(()=>inferredImage.evaluate((canvas:HTMLCanvasElement)=>canvas.width===400&&
+          canvas.getContext('2d')!.getImageData(0,0,canvas.width,canvas.height).data.some((n,index)=>index%4<3&&n>20))).toBe(true);
         await card.getByText('First readings from your original',{exact:true}).click();
         const originalReadings=card.locator('details').filter({hasText:'First readings from your original'});
         const originalTokens=first.output.native.orientations.flatMap((o:any)=>[...o.text.title,...o.text.footer,...(o.text.footerSupplemental??[])]);
@@ -77,6 +80,8 @@ test('ordinary scanner queue performs one source-bound reference reread and pres
           await page.setViewportSize({width,height:1000});await card.evaluate(el=>el.scrollIntoView({block:'center',behavior:'instant'}));
           expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
           await card.screenshot({path:`test-results/reference-reread-${width}.png`});
+          await inferredImage.evaluate(el=>el.scrollIntoView({block:'center',behavior:'instant'}));
+          await inferredImage.screenshot({path:`test-results/reference-reread-image-${width}.png`});
         }
         results.push({digest:f.digest,turn:f.turn,primary:first.output,reference:reference.output,derived:derived.output});
       }else{

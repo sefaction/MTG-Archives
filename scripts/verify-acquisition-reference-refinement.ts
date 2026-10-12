@@ -13,7 +13,7 @@ import path from "node:path";
 import sharp from "sharp";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { createAcquisitionSession, executeAcquisitionCommand, reserveAcquisitionCaptureSlot,
-  beginAcquisitionPhoto, finalizeAcquisitionPhoto, type AcquisitionActor,
+  beginAcquisitionPhoto, finalizeAcquisitionPhoto, getAcquisitionProgress, type AcquisitionActor,
   type CreateAcquisitionInput, getAcquisitionCardReview, saveAcquisitionReview } from "../lib/acquisition-store";
 import { inspectAcquisitionPhoto, writeAcquisitionPhotoBytes, readAcquisitionPhotoBytes } from "../lib/acquisition-files";
 import { admitAcquisitionReferenceRefinement, type AcquisitionReferenceVersions } from "../lib/acquisition-reference-jobs";
@@ -292,14 +292,36 @@ export async function verifyAcquisitionReferenceRefinement(db: PrismaClient,
       policy:{kind:"MANUAL",quantity:4},run:{...base.run,providerId:"phone-photo-v1",runId:randomUUID()}});
     await executeAcquisitionCommand(db,actor,derived.session.id,{requestKey:"start",revision:derived.revision,command:"START"});
     const f=await fixture(derived.session.id);assert.equal(await admitAcquisitionReferenceRefinement(db,f.ids[2],versions),1);
+    const beforeReference=await getAcquisitionProgress(db,actor,derived.session.id);
+    const firstEvidenceVersion=beforeReference.photoPreparation.find(p=>p.photoId===f.photo.id)?.evidenceVersion;
+    assert(firstEvidenceVersion,"current photo has a bounded processing version");
+    const unaffected=await fixture(derived.session.id);
+    const beforeOther=(await getAcquisitionProgress(db,actor,derived.session.id)).photoPreparation
+      .find(p=>p.photoId===unaffected.photo.id)?.evidenceVersion;
     const primaryIdentity={version:1,jobId:f.ids[0],stage:"photo-recognition-v1",outputHash:correctionHash(f.primaryOutput)};
     await db.acquisitionPhoto.update({where:{id:f.photo.id},data:{firstMachineEvidence:primaryIdentity}});
     const rootJob=await claim(f),fake=result(rootJob).native as Prisma.InputJsonObject;
+    const runningEvidenceVersion=(await getAcquisitionProgress(db,actor,derived.session.id)).photoPreparation
+      .find(p=>p.photoId===f.photo.id)?.evidenceVersion;
     const rootOutput=await recognizeAcquisitionReferenceRefinement(db,rootJob,new AbortController().signal,snapshot,versions,{request:async()=>({...fake,
       text:{title:["Forest"],footer:["001","AAA EN"]},orientations:[
         {rotationDegrees:0,text:{title:["Forest"],footer:["001","AAA EN"]},lines:[]},
         {rotationDegrees:180,text:{title:[],footer:[]},lines:[]}]})});
     assert.equal(await completeAcquisitionJob(db,rootJob,rootOutput),"COMPLETE");
+    const afterReference=await getAcquisitionProgress(db,actor,derived.session.id);
+    assert.notEqual(afterReference.photoPreparation.find(p=>p.photoId===f.photo.id)?.evidenceVersion,firstEvidenceVersion,
+      "late publication wakes a photo after its original processing was already complete");
+    assert.notEqual(afterReference.photoPreparation.find(p=>p.photoId===f.photo.id)?.evidenceVersion,runningEvidenceVersion,
+      "publication changes the processing version beyond admission and claim");
+    assert.equal(afterReference.photoPreparation.find(p=>p.photoId===unaffected.photo.id)?.evidenceVersion,beforeOther,
+      "another photo's processing version stays unchanged");
+    assert.equal((await getAcquisitionProgress(db,actor,derived.session.id)).photoPreparation
+      .find(p=>p.photoId===f.photo.id)?.evidenceVersion,
+      afterReference.photoPreparation.find(p=>p.photoId===f.photo.id)?.evidenceVersion,
+      "unchanged polling does not repeatedly wake completed review");
+    // This extra comparison photo has completed fake parents. Retire it before
+    // the original single-source handoff assertions; do not change their counts.
+    await db.acquisitionCandidate.update({where:{id:unaffected.context.candidateId},data:{excluded:true}});
     const cardIds:string[]=[];
     try{
       for(const card of cards){const id=randomUUID();cardIds.push(id);await db.card.create({data:{id,scryfallId:randomUUID(),name:card.name,

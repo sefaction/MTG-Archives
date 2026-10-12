@@ -884,6 +884,23 @@ export async function getAcquisitionProgress(
         artifact: { select: { sourceId: true } },
       },
     });
+    // Supplemental work can begin after an initial terminal result. The capture
+    // page already refreshes progress; give each current photo an opaque work
+    // version so visible review evidence wakes without resetting user edits.
+    // Scope the aggregation to this page's photos, not the owner's whole history.
+    const evidenceVersions = currentPhotoIds.length
+      ? await tx.$queryRaw<{photoId:string;version:string}[]>`
+        SELECT a."sourceId" AS "photoId",md5(string_agg(
+          j.id||':'||j.stage||':'||j.status::text||':'||j."updatedAt"::text,
+          '|' ORDER BY j.id)) AS version
+        FROM "AcquisitionProcessingJob" j
+        JOIN "AcquisitionArtifact" a ON a.id=j."artifactId" AND a."runId"=j."runId"
+        WHERE j."runId"=${row.run!.id} AND a."sourceId" IN (${Prisma.join(currentPhotoIds)})
+          AND j.stage IN ('photo-recognition-v1','photo-reference-refinement-v1',
+            ${CATALOG_RECONCILIATION_STAGE},${VISUAL_STAGE},${PRINTING_STAGE})
+        GROUP BY a."sourceId"`
+      : [];
+    const evidenceVersionByPhoto=new Map(evidenceVersions.map(row=>[row.photoId,row.version]));
     const state = hydrate(row);
     const reviewedIds = [
       ...new Set(
@@ -927,6 +944,7 @@ export async function getAcquisitionProgress(
       photoPreparation: photoJobs.map((j) => ({
         photoId: j.artifact.sourceId,
         status: j.status,
+        evidenceVersion:evidenceVersionByPhoto.get(j.artifact.sourceId)??null,
       })),
       slots: slots.map((slot) => ({
         id: slot.id,
