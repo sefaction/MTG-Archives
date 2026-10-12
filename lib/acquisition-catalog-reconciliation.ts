@@ -319,7 +319,7 @@ export function createCatalogReconciliationHandler(
       Date.now() - snapshotAt > 30000 ||
       completed.some((r) => !r.cacheHit && r.cards.length);
     if (refresh) {
-      snapshot = await loadAcquisitionRecognitionSnapshot(db);
+      snapshot = await loadAcquisitionRecognitionSnapshot(db,snapshot);
       snapshotAt = Date.now();
     }
     let proposals = proposeOrientedAcquisitionPrintings(

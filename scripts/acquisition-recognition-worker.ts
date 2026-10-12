@@ -65,7 +65,7 @@ async function main() {
     // A killed native process must prepare again before claiming another job.
     await nativeWorker.prepare(descriptor.digest, AbortSignal.timeout(30000));
     if (stopped) break;
-    if(refinementEnabled&&Date.now()-snapshotAt>30000){snapshot=await loadAcquisitionRecognitionSnapshot(db);snapshotAt=Date.now();}
+    if(refinementEnabled&&Date.now()-snapshotAt>30000){snapshot=await loadAcquisitionRecognitionSnapshot(db,snapshot);snapshotAt=Date.now();}
     await enqueueReadyRecognition(db, snapshot.digest, descriptor.digest);
     if(refinementEnabled)await enqueueReadyReferenceRefinement(db,descriptor.digest,snapshot.digest);
     const result = await runAcquisitionJobsOnce(
