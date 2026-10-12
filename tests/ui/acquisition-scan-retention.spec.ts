@@ -123,19 +123,20 @@ for (const width of [1366, 390]) test(`scan preview survives leaving the viewpor
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
   } finally {
     // Block new authenticated polling and retire only this fixture owner.
-    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
-    try {
-    releaseImage();
-    database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const w={run:{session:{createdByUserId:n}}};const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});
+    const cleanupFailures: unknown[] = [];
+    const cleanup = async (action: () => unknown | Promise<unknown>) => {
+      try { await action(); } catch (error) { cleanupFailures.push(error); }
+    };
+    await cleanup(() => { database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');"); });
+    await cleanup(async () => { releaseImage(); });
+    await cleanup(async () => { database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const w={run:{session:{createdByUserId:n}}};const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});
       for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});
       await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});
       await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});
       const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;if(!root||!paths.isAbsolute(root))throw new Error('Private fixture path unavailable');
-      for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw new Error('Invalid owned photo identity');for(const suffix of ['.original','.preview.jpg'])await fs.unlink(paths.join(root,'acquisition-v1',photo.id+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e;});}`);
-
-    } finally {
-      // A final sweep also catches writes completed during legacy teardown.
-      database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
-    }
+      for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw new Error('Invalid owned photo identity');for(const suffix of ['.original','.preview.jpg'])await fs.unlink(paths.join(root,'acquisition-v1',photo.id+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e;});}`); });
+    // A final sweep also catches writes completed during legacy teardown.
+    await cleanup(() => { database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');"); });
+    if (cleanupFailures.length) throw new AggregateError(cleanupFailures, "acquisition-scan-retention.spec.ts cleanup failed");
   }
 });
