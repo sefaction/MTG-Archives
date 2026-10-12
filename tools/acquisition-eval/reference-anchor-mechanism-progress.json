@@ -2,12 +2,12 @@
   "schemaVersion": 1,
   "issue": 744,
   "dependency": 742,
-  "status": "draft-transactions-handler-queue-incomplete",
+  "status": "draft-optional-queue-source-native-browser-incomplete",
   "automaticQueueEnabled": false,
   "independentAccuracyClaim": false,
   "mechanismControls": {
     "typesPassed": true,
-    "targetedTypeScriptGuards": 68,
+    "targetedTypeScriptGuards": 84,
     "nativeControls": 13,
     "actualMeasuredClippingCounterexamples": 16,
     "knownClippingVeto": true,
@@ -101,7 +101,7 @@
     "Reading-count increases do not establish exact first printing, boundary accuracy or99percent independent scanner accuracy",
     "Initial thick-rim control did not expose measured clipping; its failed assumption remains recorded, and unobserved clipping remains uncertain",
     "Cold isolated visual elapsed time includes setup and is not production worker deadline/fairness qualification",
-    "Ordinary worker dispatch/current-version rollover/fairness, downstream catalogue/printing/correction provenance, explicit UI and cumulative queue desktop/phone acceptance remain pending"
+    "Actual ordinary native execution/deadlines/recovery/version-rollover/concurrency and cumulative Docker desktop/phone qualification remain pending; shared runtime has not loaded or enabled optional queue source"
   ],
   "transactionAndHandlerQualification": {
     "fullRequiredAcquisitionSuitePassed": true,
@@ -126,6 +126,38 @@
       "refresh control assumed initial revision instead of deriving current revision",
       "type guards required narrowing and readonly-safe test input",
       "set-code control expected uppercase rather than canonical lowercase"
+    ]
+  },
+  "optionalQueueSourceImplemented": true,
+  "sharedOrdinaryRuntimeLoaded": false,
+  "queueAndFeedbackQualification": {
+    "optionalDispatcherImplemented": true,
+    "ordinaryLimitsUnchanged": true,
+    "sharedRawAndRefinementOwnerRunTurns": true,
+    "boundedCurrentScannerAdmission": true,
+    "durableSkippedDecision": true,
+    "initialRawAheadOf40Refinements": true,
+    "actualPositiveAndSkipEnqueuerTested": true,
+    "originalAndInferredFramesResolvedIndependently": true,
+    "atomicDescendantSourceLeaseReviewFences": true,
+    "inferredGeometryUiSourceImplemented": true,
+    "fullDisposablePostgreSQLSuitePassed": true,
+    "syntheticPhotoChains": 36,
+    "actualOfferedAlternativeHumanFeedback": true,
+    "laterMetadataSnapshots": 40,
+    "exactOriginalAndRefinementAncestorsRetained": true,
+    "canonicalEvidenceHashesConserved": true,
+    "firstIdentityAndOriginalBytesConserved": true,
+    "inventoryWrites": 0,
+    "precisionPrerequisiteIntegrated": 747,
+    "precisionPrerequisiteHead": "242013b30271419ef5657dfece1fdb39a55e2eee",
+    "actualNativeOrdinaryQueueQualified": false,
+    "cumulativeDockerBrowserQualified": false,
+    "retainedFailures": [
+      "printing adapter missing timing/unrelated returned candidate",
+      "first-choice with0%-sample control correctly produced no correction retention",
+      "initial edit literal/duplicate-match and tuple typing mistakes",
+      "dependency import/retention-writer conflicts resolved with both changes preserved"
     ]
   }
 }

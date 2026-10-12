@@ -257,8 +257,24 @@ export async function enqueueReadyReferenceRefinement(db:PrismaClient,model:stri
     JOIN "AcquisitionCandidate" c ON c.id=j."candidateId"
     JOIN "AcquisitionProcessingJob" cat ON cat.id=j.input->>'catalogJobId'
     JOIN "AcquisitionProcessingJob" primary_job ON primary_job.id=cat.input->>'recognitionJobId'
+    JOIN "AcquisitionRun" r ON r.id=j."runId"
+    JOIN "AcquisitionSession" s ON s.id=r."sessionId"
+    JOIN "Player" p ON p.id=s."ownerPlayerId"
+    JOIN "User" u ON u.id=s."createdByUserId"
+    JOIN "AcquisitionPhoto" photo ON photo.id=j.input->>'photoId' AND photo."runId"=r.id
+    JOIN "AcquisitionCaptureSlot" slot ON slot.id=photo."slotId"
     WHERE j.stage=${PRINTING_STAGE} AND j.status='COMPLETE' AND j."candidateRevision"=c.revision
       AND j.input->'referenceSource' IS NULL AND c.review IS NULL AND c."manualAnalysis" IS NULL AND NOT c.excluded
+      AND s.phase NOT IN ('DRAFT','CANCELLED') AND s."cancelledAt" IS NULL AND s."trashedAt" IS NULL AND s."deletedAt" IS NULL
+      AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
+      AND photo.ready AND photo."purgedAt" IS NULL AND photo.digest=j.input->>'digest'
+      AND photo."inputKind"='CARD_SCAN' AND photo."slotId"=c."physicalId" AND photo.generation=slot.generation
+      AND primary_job.input->>'inputKind'='CARD_SCAN' AND primary_job.status='COMPLETE' AND cat.status='COMPLETE'
+      AND NOT EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=c.id)
+      AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" newer WHERE newer."candidateId"=c.id AND newer."candidateRevision"=c.revision
+        AND ((newer.stage=j.stage AND (newer."createdAt",newer.id)>(j."createdAt",j.id))
+          OR (newer.stage=cat.stage AND (newer."createdAt",newer.id)>(cat."createdAt",cat.id))
+          OR (newer.stage=primary_job.stage AND (newer."createdAt",newer.id)>(primary_job."createdAt",primary_job.id))))
       AND primary_job.stage='photo-recognition-v1' AND primary_job.output->'native'->>'descriptor'=${model}
       AND primary_job."versionKey"=${primaryVersion} AND cat.output->'versions'->>'catalog'=${catalog}
       AND cat.input->>'resolverVersion'=${CATALOG_RESOLVER_VERSION}

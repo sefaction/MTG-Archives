@@ -1,3 +1,6 @@
+import { enqueueReadyReferenceRefinement } from "../lib/acquisition-reference-jobs";
+import { acquisitionRecognitionVersion } from "../lib/acquisition-recognition-worker";
+import { CATALOG_RESOLVER_VERSION } from "../lib/acquisition-catalog-status";
 import { enqueueCatalogReconciliation, createCatalogReconciliationHandler } from "../lib/acquisition-catalog-reconciliation";
 import { enqueueReadyPrinting, observeAcquisitionPrinting } from "../lib/acquisition-printing-worker";
 import { acquisitionReviewEvidence } from "../lib/acquisition-review-evidence";
@@ -11,7 +14,7 @@ import sharp from "sharp";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { createAcquisitionSession, executeAcquisitionCommand, reserveAcquisitionCaptureSlot,
   beginAcquisitionPhoto, finalizeAcquisitionPhoto, type AcquisitionActor,
-  type CreateAcquisitionInput } from "../lib/acquisition-store";
+  type CreateAcquisitionInput, getAcquisitionCardReview, saveAcquisitionReview } from "../lib/acquisition-store";
 import { inspectAcquisitionPhoto, writeAcquisitionPhotoBytes, readAcquisitionPhotoBytes } from "../lib/acquisition-files";
 import { admitAcquisitionReferenceRefinement, type AcquisitionReferenceVersions } from "../lib/acquisition-reference-jobs";
 import { REFERENCE_REFINEMENT_STAGE, type AcquisitionReferenceLineageInput } from "../lib/acquisition-reference-lineage";
@@ -289,6 +292,8 @@ export async function verifyAcquisitionReferenceRefinement(db: PrismaClient,
       policy:{kind:"MANUAL",quantity:4},run:{...base.run,providerId:"phone-photo-v1",runId:randomUUID()}});
     await executeAcquisitionCommand(db,actor,derived.session.id,{requestKey:"start",revision:derived.revision,command:"START"});
     const f=await fixture(derived.session.id);assert.equal(await admitAcquisitionReferenceRefinement(db,f.ids[2],versions),1);
+    const primaryIdentity={version:1,jobId:f.ids[0],stage:"photo-recognition-v1",outputHash:correctionHash(f.primaryOutput)};
+    await db.acquisitionPhoto.update({where:{id:f.photo.id},data:{firstMachineEvidence:primaryIdentity}});
     const rootJob=await claim(f),fake=result(rootJob).native as Prisma.InputJsonObject;
     const rootOutput=await recognizeAcquisitionReferenceRefinement(db,rootJob,new AbortController().signal,snapshot,versions,{request:async()=>({...fake,
       text:{title:["Forest"],footer:["001","AAA EN"]},orientations:[
@@ -298,7 +303,7 @@ export async function verifyAcquisitionReferenceRefinement(db: PrismaClient,
     const cardIds:string[]=[];
     try{
       for(const card of cards){const id=randomUUID();cardIds.push(id);await db.card.create({data:{id,scryfallId:randomUUID(),name:card.name,
-        setCode:card.setCode,collectorNumber:card.collectorNumber,lang:"en",digital:false,typeLine:"Basic Land",rarity:"common"}});}
+        setCode:card.setCode,collectorNumber:card.collectorNumber,lang:"en",digital:false,typeLine:"Basic Land",rarity:"common",finishes:["nonfoil"]}});}
       assert.equal(await enqueueCatalogReconciliation(db,new Date(),false),1);
       const [catalogJob]=await claimFixtureJobs(db,{workerId:"reference-catalog",stages:[CATALOG_RECONCILIATION_STAGE]});
       assert.equal(catalogJob.candidateId,f.context.candidateId);
@@ -324,6 +329,25 @@ export async function verifyAcquisitionReferenceRefinement(db: PrismaClient,
       assert.equal(await confirmStrongAcquisitionMatches(db),0);
       assert.equal(await admitAcquisitionReferenceRefinement(db,printingJob.id,versions),0,"descendant cannot start refinement loop");
       assert.equal(await enqueueCatalogReconciliation(db,new Date(),false),0,"completed derived source cannot recreate initial catalog");
+
+      // Forty later complete metadata snapshots push the original observations
+      // past both bounded source windows. Signed current display still retains
+      // exact referenced ancestors, independently from the snapshot's own date.
+      for(let n=0;n<40;n++)await db.$executeRaw`INSERT INTO "AcquisitionProcessingJob"
+        (id,"runId","artifactId","candidateId","candidateRevision",stage,"versionKey",input,status,output,"updatedAt")
+        VALUES (${randomUUID()},${f.context.runId},${f.context.artifactId},${f.context.candidateId},${f.context.candidateRevision},
+          ${CATALOG_RECONCILIATION_STAGE},${randomUUID()},${JSON.stringify(catalogJob.input)}::jsonb,'COMPLETE',${JSON.stringify(catalogResult)}::jsonb,clock_timestamp())`;
+      const review=await getAcquisitionCardReview(db,actor,derived.session.id,f.photo.id);
+      assert.equal(review.evidence!.geometry.method,"reference-anchor-region-v1");
+      assert(review.evidenceToken);
+      await saveAcquisitionReview(db,actor,derived.session.id,{action:"accept",photoId:f.photo.id,revision:review.revision,
+        decision:{cardId:cardIds[1],language:"en",finish:"NONFOIL",condition:"LP"},evidenceTokens:{current:review.evidenceToken}});
+      const retained=await db.correctionEvidence.findMany({where:{ownerPlayerId:base.ownerPlayerId,sourcePhotoId:f.photo.id}});
+      for(const evidence of retained)assert.equal(correctionHash(evidence.payload),evidence.bundleHash,"canonical retained refinement evidence");
+      const savedIds=new Set(retained.map(e=>(e.payload as {job?:{id:string}}).job?.id));
+      for(const id of [...f.ids,rootJob.id])assert(savedIds.has(id),"exact original/refinement ancestor retained past32recent jobs");
+      assert.deepEqual((await db.acquisitionPhoto.findUniqueOrThrow({where:{id:f.photo.id}})).firstMachineEvidence,primaryIdentity);
+      assert.deepEqual(await readAcquisitionPhotoBytes(f.photo.id,"raw",f.photo.digest),bytes);
       // A stale descendant cannot publish after its source changes or review wins.
       const stale=await db.acquisitionProcessingJob.create({data:{...f.context,stage:CATALOG_RECONCILIATION_STAGE,versionKey:randomUUID(),
         input:catalogJob.input as Prisma.InputJsonObject,status:"RUNNING",leaseToken:"descendant-lease",leaseExpiresAt:new Date(Date.now()+90000)}});
@@ -332,6 +356,26 @@ export async function verifyAcquisitionReferenceRefinement(db: PrismaClient,
       assert.equal(await completeAcquisitionJob(db,stale as ClaimedAcquisitionJob,catalogResult),"SUPERSEDED");
       assert.deepEqual(await db.acquisitionCandidate.findUniqueOrThrow({where:{id:f.context.candidateId}}),human);
     }finally{await db.acquisitionSession.update({where:{id:derived.session.id},data:{phase:"CANCELLED"}});await db.card.deleteMany({where:{id:{in:cardIds}}});}
+
+    const admission=await createAcquisitionSession(db,actor,{...base,requestKey:randomUUID(),locationId:location.id,section:"",
+      policy:{kind:"MANUAL",quantity:2},run:{...base.run,providerId:"phone-photo-v1",runId:randomUUID()}});
+    await executeAcquisitionCommand(db,actor,admission.session.id,{requestKey:"start",revision:admission.revision,command:"START"});
+    try{
+      for(const clipped of [false,true]){
+        const fresh=await fixture(admission.session.id),currentVersion=acquisitionRecognitionVersion(versions.catalog,versions.model);
+        await db.acquisitionProcessingJob.update({where:{id:fresh.ids[0]},data:{versionKey:currentVersion}});
+        await db.$executeRaw`UPDATE "AcquisitionProcessingJob" SET input=jsonb_set(input,'{resolverVersion}',to_jsonb(${CATALOG_RESOLVER_VERSION}::text)),
+          output=jsonb_set(output,'{versions,resolver}',to_jsonb(${CATALOG_RESOLVER_VERSION}::text)) WHERE id=${fresh.ids[1]}`;
+        await db.$executeRaw`UPDATE "AcquisitionProcessingJob" SET output=jsonb_set(output,'{versions,resolver}',to_jsonb(${CATALOG_RESOLVER_VERSION}::text)) WHERE id=${fresh.ids[2]}`;
+        if(clipped)await db.$executeRaw`UPDATE "AcquisitionProcessingJob" SET output=jsonb_set(output,'{native,geometry,framing}','"CLIPPED"') WHERE id=${fresh.ids[0]}`;
+        assert.equal(await enqueueReadyReferenceRefinement(db,versions.model,versions.catalog),clipped?0:1);
+        assert.equal(await enqueueReadyReferenceRefinement(db,versions.model,versions.catalog),0,"bounded automatic admission is idempotent");
+        const queued=await db.acquisitionProcessingJob.findFirstOrThrow({where:{...fresh.context,stage:REFERENCE_REFINEMENT_STAGE}});
+        if(clipped)assert.equal((queued.output as {referenceAdmission:{status:string}}).referenceAdmission.status,"SKIPPED");
+        else{const [claimed]=await claimFixtureJobs(db,{workerId:"automatic-refinement",stages:[REFERENCE_REFINEMENT_STAGE]});
+          assert.equal(claimed.id,queued.id);assert.equal(await completeAcquisitionJob(db,claimed,result(claimed)),"COMPLETE");}
+      }
+    }finally{await db.acquisitionSession.update({where:{id:admission.session.id},data:{phase:"CANCELLED"}});}
     assert.equal(await db.acquisitionCandidate.count({where:{runId:{in:[...fixtureRuns]}}}),count,"one copy per original, no refinement copies");
     assert.deepEqual(await db.inventoryItem.aggregate({_sum:{quantity:true},_count:{_all:true}}),inventoryBefore);
     console.log("PASS:reference refinement PostgreSQL one-pass/concurrency/restart, exact coordinate/observation JSON, authority/parent/model fences and database-clock lease expiry; original bytes/primary evidence and zero Inventory conserved");
