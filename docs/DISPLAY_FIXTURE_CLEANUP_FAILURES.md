@@ -1,0 +1,11 @@
+# Dashboard and scan-display fixture cleanup
+
+Scoped follow-up to [#692](https://github.com/sefaction/MTG-Archives/issues/692): two batch-dashboard teardown blocks and the viewport scan-retention teardown block. These source files are distinct from #733/#735/#737 and merged #738.
+
+All three unchanged actual blocks leave disposable Player, User, location, correction account and private directory when the initial feedback sweep fails. Controlled PostgreSQL probes reproduce each failure, then recover only their exact owners. Corrected actual-block probes remove those five namespaces while retaining the injected failure in an aggregate error. These probes qualify that failure boundary; they are not complete browser passes.
+
+The fix independently attempts the existing actions and final feedback sweep and reports all cleanup causes. The scan-retention fixture also independently releases its pending image request, so either an early sweep failure or a release error cannot skip its database cleanup. Both original source files, all 103 assertion calls, original cleanup SQL/file operations and 180-second workflow deadlines are preserved outside the cleanup changes.
+
+Sixteen controls exercise the three actual blocks: every action failing individually, all actions failing together and normal completion. Type qualification and the original four full browser cases are tracked on the PR. Dashboard totals, cancel/Trash/restore, pagination and Inventory conservation remain existing controls. The scan-retention cases use their original controlled image/evidence fixture at desktop 1366 and phone 390 pixels; this establishes UI behavior rather than recognition accuracy.
+
+Pending: complete local browser qualification, exact recorded-owner absence, fresh source/substantive-feedback/service conservation, retained original/correction byte identities and exact final-head CI. Test-only changes require no application/native image rebuild. Keep the 64 decimal GB per-owner limit, 2% random controls and explicit Inventory authority. Independent accuracy, physical scanner operation and 100/300-input throughput remain unqualified; broader #692/#463 remain open. Private raw data and authentication stay ignored locally.
