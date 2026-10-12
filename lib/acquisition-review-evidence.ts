@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { printingSummarySchema } from "./acquisition-printing";
 import { acquisitionPhotoTextSchema } from "./acquisition-photo-text";
+import {sourceFooterSchema} from './acquisition-source-footer';
 import {
   acquisitionReadingZonesSchema,
   legacyAcquisitionReadingZones,
@@ -14,7 +15,7 @@ const point = z.tuple([z.number().finite(), z.number().finite()]);
 const words = z.array(z.string().max(2000)).max(100);
 const observation = z.object({
   rotationDegrees: z.union([z.literal(0), z.literal(180)]),
-  text: z.object({ title: words, footer: words, footerSupplemental: words.optional() }),
+  text: z.object({ title: words, footer: words, footerSupplemental: words.optional(),footerSourceIdentifiers:words.optional() }),
   lines: z
     .array(
       z.object({
@@ -26,6 +27,8 @@ const observation = z.object({
     .max(100),
   footerLines: z.array(z.object({text: z.string().max(2000), score: z.number().finite(),
     polygon: z.array(point).min(3).max(8)})).max(100).optional(),
+  identifierLines:z.array(z.object({text:z.string().max(2000),score:z.number().finite(),polygon:z.array(point).length(4)})).max(100).optional(),
+  identifierSource:sourceFooterSchema.optional(),
 });
 const schema = z.object({
   printing: printingSummarySchema.optional(),
@@ -51,6 +54,16 @@ const schema = z.object({
       languages: words,
     }),
   }),
+}).superRefine((value,ctx)=>{
+  for(const o of value.native.orientations){
+    if(o.identifierSource && o.identifierSource.rotationDegrees!==o.rotationDegrees)
+      ctx.addIssue({code:z.ZodIssueCode.custom,message:'Identifier direction differs'});
+    if(o.text.footerSourceIdentifiers?.length && (o.identifierSource?.status!=='EXTRACTED'||!o.identifierLines?.length))
+      ctx.addIssue({code:z.ZodIssueCode.custom,message:'Identifier reading lacks source provenance'});
+    if(o.identifierSource?.status==='EXTRACTED'&&(value.native.geometry.status!=='PROPOSED'||
+      !value.native.geometry.quad||value.native.geometry.framing==='CLIPPED'))
+      ctx.addIssue({code:z.ZodIssueCode.custom,message:'Identifier region lacks source geometry'});
+  }
 });
 
 // Only bounded, owner-authorized photo observations go to the review UI.

@@ -489,6 +489,7 @@ export function AcquisitionEvidenceFields({
                 <p>Title: {o.text.title.join(" | ") || "Nothing read"}</p>
                 <p>Footer: {o.text.footer.join(" | ") || "Nothing read"}</p>
                 {o.text.footerSupplemental?.length ? <p>Additional footer reading: {o.text.footerSupplemental.join(" | ")}</p> : null}
+                {o.text.footerSourceIdentifiers?.length ? <p>Additional identifier reading: {o.text.footerSourceIdentifiers.join(" | ")}</p> : null}
               </div>
             ))}
           </details>
