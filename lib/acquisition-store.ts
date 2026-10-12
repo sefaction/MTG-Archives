@@ -1228,9 +1228,11 @@ export async function getAcquisitionCardReview(
         runId: row.run!.id,
         artifact: { sourceId: photo.id },
         ...(currentAnalysis ? {input: {path: ["manualAnalysis"], equals: currentAnalysis}} : {}),
+        NOT:{stage:"photo-reference-refinement-v1",status:"SUPERSEDED"},
         stage: {
           in: [
             "photo-recognition-v1",
+            "photo-reference-refinement-v1",
             CATALOG_RECONCILIATION_STAGE,
             VISUAL_STAGE,
             PRINTING_STAGE,

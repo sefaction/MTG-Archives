@@ -1,3 +1,6 @@
+import { acquisitionHandoffQuery } from "./acquisition-handoff";
+import { CATALOG_RESOLVER_VERSION, CATALOG_RECONCILIATION_STAGE } from "./acquisition-catalog-status";
+import { PRINTING_STAGE } from "./acquisition-printing";
 import { randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient, type AcquisitionProcessingJob } from "@prisma/client";
 import { z } from "zod";
@@ -7,7 +10,7 @@ import { acquisitionReferenceLineageInputSchema, acquisitionReferenceLineageKey,
   type AcquisitionReferenceLineageInput, type ReferenceParent } from "./acquisition-reference-lineage";
 import { selectAcquisitionReferenceRegion } from "./acquisition-reference-region";
 import { printingNativeSchema } from "./acquisition-printing";
-import { nativeSchema } from "./acquisition-recognition-worker";
+import { nativeSchema, acquisitionRecognitionVersion } from "./acquisition-recognition-worker";
 import { recognitionResponseSchema } from "./acquisition-recognition-dto";
 
 type Tx = Prisma.TransactionClient;
@@ -20,7 +23,8 @@ export type AcquisitionReferenceVersions = z.infer<typeof versionsSchema>;
 // Fixed aliases shared by admission and publication. JSON is bound as TEXT:
 // coordinates and the exact parent observations must survive PostgreSQL without
 // the Prisma JSON object's finite-number rounding.
-function liveParents(context: Context, input: AcquisitionReferenceLineageInput,
+type ReferenceScope=Omit<AcquisitionReferenceLineageInput,"reference">;
+function liveParents(context: Context, input: ReferenceScope,
   parents: [ReferenceParent, ReferenceParent, ReferenceParent]) {
   const predicates = parents.map((parent, index) => {
     const alias = Prisma.raw(["primary_job", "catalog_job", "printing_job"][index]);
@@ -120,7 +124,26 @@ export async function currentAcquisitionReferenceParents(db: PrismaClient,
   return live ? parents : null;
 }
 
-// Not wired into the ordinary worker until the complete refinement pipeline is
+function referenceIdentityMatches(input:ReferenceScope,parents:[ReferenceParent,ReferenceParent,ReferenceParent]){
+  const [primary,catalog,printing]=parents;
+  const source=primary.input as {photoId?:string;digest?:string;inputKind?:string;manualAnalysis?:unknown};
+  const observed=primary.output as {photoId?:string;native?:{descriptor?:string;photoDigest?:string;geometry?:{referenceRegion?:unknown}}};
+  const catInput=catalog.input as {recognitionJobId?:string;resolverVersion?:string;manualAnalysis?:unknown;referenceSource?:unknown};
+  const catOutput=catalog.output as {photoId?:string;sourceRecognitionJobId?:string;versions?:{catalog?:string;resolver?:string}};
+  const printInput=printing.input as {catalogJobId?:string;model?:string;manualAnalysis?:unknown;referenceSource?:unknown};
+  const printOutput=printing.output as {photoId?:string;sourceCatalogJobId?:string;versions?:{catalog?:string;printing?:string;resolver?:string}};
+  return primary.stage==="photo-recognition-v1"&&catalog.stage===CATALOG_RECONCILIATION_STAGE&&printing.stage===PRINTING_STAGE&&
+    source.photoId===input.photoId&&source.digest===input.digest&&source.inputKind==="CARD_SCAN"&&source.manualAnalysis==null&&
+    observed.photoId===input.photoId&&observed.native?.descriptor===input.model&&observed.native?.photoDigest===input.digest&&
+    observed.native.geometry?.referenceRegion==null&&primary.versionKey===input.primaryVersion&&
+    catInput.recognitionJobId===primary.id&&catInput.resolverVersion===input.catalogResolver&&catInput.manualAnalysis==null&&catInput.referenceSource==null&&
+    catOutput.photoId===input.photoId&&catOutput.sourceRecognitionJobId===primary.id&&catOutput.versions?.catalog===input.catalog&&catOutput.versions.resolver===input.catalogResolver&&
+    printInput.catalogJobId===catalog.id&&printInput.model===input.referenceModel&&printInput.manualAnalysis==null&&printInput.referenceSource==null&&
+    printOutput.photoId===input.photoId&&printOutput.sourceCatalogJobId===catalog.id&&printOutput.versions?.catalog===input.catalog&&
+    printOutput.versions.printing===input.referenceModel&&printOutput.versions.resolver===input.catalogResolver;
+}
+
+// Versioned admission is shared with the ordinary OCR dispatcher; the pipeline is
 // qualified. Same-lineage attempts are durable across revisions and restart;
 // FAILED/SUPERSEDED attempts also consume admission, rather than starting loops.
 export async function admitAcquisitionReferenceRefinement(db: PrismaClient, printingJobId: string,
@@ -144,16 +167,28 @@ export async function admitAcquisitionReferenceRefinement(db: PrismaClient, prin
     if (!primary.success || !observed.success) return 0;
     const reference = selectAcquisitionReferenceRegion({ inputKind: "CARD_SCAN",
       geometry: primary.data.native.geometry, printing: observed.data.printingNative });
-    if (reference.status !== "PROPOSED") return 0;
     const lineage = { photoId: printingInput.data.photoId, digest: printingInput.data.digest,
       generation: photo.generation, ...versions };
-    const input: AcquisitionReferenceLineageInput = { ...lineage, version: 1,
+    const base: ReferenceScope = { ...lineage, version: 1,
       candidateRevision: printing.candidateRevision, lineageKey: acquisitionReferenceLineageKey(lineage),
       parents: { recognitionJobId: parents[0].id, recognitionOutputHash: correctionHash(parents[0].output),
         catalogJobId: parents[1].id, catalogOutputHash: correctionHash(parents[1].output),
         printingJobId: parents[2].id, printingOutputHash: correctionHash(parents[2].output) },
-      reference: { version: 1, region: reference.region, references: reference.references, policy: reference.policy },
     };
+    if(!referenceIdentityMatches(base,parents))return 0;
+    if(reference.status!=="PROPOSED"){
+      await tx.$executeRaw`INSERT INTO "AcquisitionProcessingJob"
+        (id,"runId","artifactId","candidateId","candidateRevision",stage,"versionKey",input,status,output,"updatedAt")
+        SELECT ${randomUUID()},r.id,${printing.artifactId},c.id,c.revision,${REFERENCE_REFINEMENT_STAGE},
+          ${base.lineageKey},${JSON.stringify(base)}::jsonb,'SUPERSEDED',
+          ${JSON.stringify({referenceAdmission:{status:"SKIPPED",reason:reference.reason}})}::jsonb,clock_timestamp()
+        ${liveParents(printing,base,parents)}
+        AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" prior WHERE prior.stage=${REFERENCE_REFINEMENT_STAGE}
+          AND prior.input->>'photoId'=photo.id AND prior."versionKey"=${base.lineageKey}) ON CONFLICT DO NOTHING`;
+      return 0;
+    }
+    const input:AcquisitionReferenceLineageInput={...base,reference:{version:1,region:reference.region,
+      references:reference.references,policy:reference.policy}};
     if (!supportedParents(printing, input, parents)) return 0;
     return tx.$executeRaw`
       INSERT INTO "AcquisitionProcessingJob" (id,"runId","artifactId","candidateId",
@@ -211,4 +246,30 @@ export async function publishAcquisitionReferenceRefinement(tx: Tx,
     WHERE id=${job.id} AND status='RUNNING' AND "leaseToken"=${job.leaseToken}
       AND "leaseExpiresAt">clock_timestamp()`;
   return retired ? "SUPERSEDED" as const : "STALE_LEASE" as const;
+}
+
+// Bounded, owner-shared admission from current completed original-frame printing
+// evidence. Persisted skips prevent unchanged invalid scans hiding later inputs.
+export async function enqueueReadyReferenceRefinement(db:PrismaClient,model:string,catalog:string){
+  const primaryVersion=acquisitionRecognitionVersion(catalog,model);
+  const ids=await db.$queryRaw<{id:string;input:Prisma.JsonValue}[]>(acquisitionHandoffQuery(REFERENCE_REFINEMENT_STAGE,Prisma.sql`
+    SELECT j.id,j."runId",j."createdAt" FROM "AcquisitionProcessingJob" j
+    JOIN "AcquisitionCandidate" c ON c.id=j."candidateId"
+    JOIN "AcquisitionProcessingJob" cat ON cat.id=j.input->>'catalogJobId'
+    JOIN "AcquisitionProcessingJob" primary_job ON primary_job.id=cat.input->>'recognitionJobId'
+    WHERE j.stage=${PRINTING_STAGE} AND j.status='COMPLETE' AND j."candidateRevision"=c.revision
+      AND j.input->'referenceSource' IS NULL AND c.review IS NULL AND c."manualAnalysis" IS NULL AND NOT c.excluded
+      AND primary_job.stage='photo-recognition-v1' AND primary_job.output->'native'->>'descriptor'=${model}
+      AND primary_job."versionKey"=${primaryVersion} AND cat.output->'versions'->>'catalog'=${catalog}
+      AND cat.input->>'resolverVersion'=${CATALOG_RESOLVER_VERSION}
+      AND NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" prior WHERE prior.stage=${REFERENCE_REFINEMENT_STAGE}
+        AND prior.input->>'photoId'=j.input->>'photoId' AND prior.input->>'model'=${model}
+        AND prior.input->>'catalog'=${catalog} AND prior.input->>'referenceModel'=j.input->>'model'
+        AND prior.input->>'primaryVersion'=${primaryVersion} AND prior.input->>'catalogResolver'=${CATALOG_RESOLVER_VERSION})`));
+  let added=0;
+  for(const {id} of ids){const job=await db.acquisitionProcessingJob.findUnique({where:{id},select:{input:true}});
+    const referenceModel=z.object({model:hash}).safeParse(job?.input);
+    if(referenceModel.success)added+=await admitAcquisitionReferenceRefinement(db,id,{model,catalog,primaryVersion,
+      referenceModel:referenceModel.data.model,catalogResolver:CATALOG_RESOLVER_VERSION});}
+  return added;
 }

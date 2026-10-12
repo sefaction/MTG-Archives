@@ -1,3 +1,5 @@
+import { acquisitionReferenceSourceSchema } from "./acquisition-reference-source";
+import { correctionHash } from "./acquisition-correction-policy";
 import { acquisitionManualAnalysisSchema, sameAcquisitionManualAnalysis } from "./acquisition-manual-region";
 import { acquisitionAnalysisJobSql } from "./acquisition-analysis-scope";
 import {admitAcquisitionHandoff} from "./acquisition-handoff-admission";
@@ -19,6 +21,8 @@ import { checkedPrintingNative, printingReuseIdentity, reusablePrintingNative } 
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
 const inputSchema = z.object({
   manualAnalysis: acquisitionManualAnalysisSchema.nullable().optional(),
+  referenceSource: acquisitionReferenceSourceSchema.optional(),
+  sourceOutputHash: digest.optional(),
   catalogJobId: z.string().uuid(), photoId: z.string().uuid(), digest,
   model: digest,
   policy: z.string().max(80).optional(),
@@ -63,12 +67,12 @@ export async function enqueueReadyPrinting(db: PrismaClient, model: string) {
     const source = await db.acquisitionProcessingJob.findUnique({where: {id}});
     // Admission IDs are a snapshot; cancelled/removed runs can disappear here.
     if (!source) continue;
-    const input = z.object({photoId: z.string().uuid(), digest, manualAnalysis: acquisitionManualAnalysisSchema.nullable().optional()}).parse(source.input);
+    const input = z.object({referenceSource:acquisitionReferenceSourceSchema.optional(),photoId: z.string().uuid(), digest, manualAnalysis: acquisitionManualAnalysisSchema.nullable().optional()}).parse(source.input);
     const versionKey = createHash("sha256").update(`${PRINTING_STAGE}:${model}:${PRINTING_POLICY_VERSION}:${source.id}`).digest("hex");
     const created = await admitAcquisitionHandoff(db,source,()=>db.acquisitionProcessingJob.createMany({skipDuplicates: true, data: [{
       runId: source.runId, artifactId: source.artifactId, candidateId: source.candidateId,
       candidateRevision: source.candidateRevision, stage: PRINTING_STAGE, versionKey,
-      input: {...input, catalogJobId: source.id, model, policy: PRINTING_POLICY_VERSION},
+      input: {...input, ...(input.referenceSource?{sourceOutputHash:correctionHash(source.output)}:{}), catalogJobId: source.id, model, policy: PRINTING_POLICY_VERSION},
     }]}));
     added += created.count;
   }
@@ -167,7 +171,7 @@ export async function observeAcquisitionPrinting(
   signal.throwIfAborted();
   await requireCurrentSource();
   const proposals = applyAcquisitionPrintingEvidence(observed.proposals as TextProposals, native, byScryfall);
-  if (input.manualAnalysis?.region) {
+  if (input.manualAnalysis?.region || input.referenceSource) {
     proposals.automaticAcceptance = false;
     if (proposals.status === "STRONG_MATCH") proposals.status = "REVIEW_REQUIRED";
   }

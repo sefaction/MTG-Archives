@@ -39,6 +39,7 @@ export async function recognizeAcquisitionReferenceRefinement(db: PrismaClient,
   const proposals=combineAcquisitionReferenceReadings(snapshot.index,primary,native);
   return { version:1,photoId:input.photoId,manualAnalysis:null,referenceRefinement:input,
     primaryObservation:{jobId:input.parents.recognitionJobId,outputHash:input.parents.recognitionOutputHash},
+    primaryReadings:primary.orientations.map(({rotationDegrees,text})=>({rotationDegrees,text})),
     native,proposals,versions:{model:versions.model,catalog:snapshot.digest,index:snapshot.digest,
       footerParser:ACQUISITION_FOOTER_PARSER_VERSION,textResolver:ACQUISITION_TEXT_RESOLVER_VERSION},
     execution:"CPU",refinementExecution:{inferenceRequests:1,milliseconds:Math.round(performance.now()-started)},

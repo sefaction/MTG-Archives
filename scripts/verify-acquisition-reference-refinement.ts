@@ -1,3 +1,8 @@
+import { enqueueCatalogReconciliation, createCatalogReconciliationHandler } from "../lib/acquisition-catalog-reconciliation";
+import { enqueueReadyPrinting, observeAcquisitionPrinting } from "../lib/acquisition-printing-worker";
+import { acquisitionReviewEvidence } from "../lib/acquisition-review-evidence";
+import { claimFixtureJobs } from "./acquisition-verification-queue";
+import { confirmStrongAcquisitionMatches } from "../lib/acquisition-auto-confirm";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
@@ -45,12 +50,13 @@ export async function verifyAcquisitionReferenceRefinement(db: PrismaClient,
         inliers: 80, matches: 100, sourceCardWidth: 999, supportFraction: .7, medianReprojectionPixels: 1,
         footerVisible: true }, stamp: { status: "UNREADABLE", reason: "NO_TEMPLATES" } }] };
   let count = 0;
-  async function fixture() {
-    const { slot } = await reserveAcquisitionCaptureSlot(db, actor, capture.session.id, `reference-${count++}`);
-    const photo = await beginAcquisitionPhoto(db, actor, capture.session.id, { slotId: slot.id,
+  const fixtureRuns=new Set<string>();
+  async function fixture(sessionId=capture.session.id) {
+    const { slot } = await reserveAcquisitionCaptureSlot(db, actor, sessionId, `reference-${count++}`);
+    const photo = await beginAcquisitionPhoto(db, actor, sessionId, { slotId: slot.id,
       uploadKey: randomUUID(), generation: 0, metadata, inputKind: "CARD_SCAN" });
     await writeAcquisitionPhotoBytes(photo.id, bytes, "raw", photo.digest);
-    await finalizeAcquisitionPhoto(db, actor, capture.session.id, photo.id);
+    await finalizeAcquisitionPhoto(db, actor, sessionId, photo.id);
     const canonical = await db.acquisitionProcessingJob.findFirstOrThrow({ where: {
       runId: photo.runId, artifact: { sourceId: photo.id }, stage: "photo-canonical-v1" } });
     const context = { runId: canonical.runId, artifactId: canonical.artifactId,
@@ -75,6 +81,7 @@ export async function verifyAcquisitionReferenceRefinement(db: PrismaClient,
       (id,"runId","artifactId","candidateId","candidateRevision",stage,"versionKey",input,status,output,"updatedAt")
       VALUES (${ids[n]},${context.runId},${context.artifactId},${context.candidateId},${context.candidateRevision},
         ${stage},${versions.primaryVersion},${JSON.stringify(jobInput)}::jsonb,'COMPLETE',${JSON.stringify(output)}::jsonb,clock_timestamp())`;
+    fixtureRuns.add(photo.runId);
     return { photo, slot, context, ids, primaryOutput, catalogOutput, printingOutput };
   }
   type Fixture = Awaited<ReturnType<typeof fixture>>;
@@ -158,7 +165,14 @@ export async function verifyAcquisitionReferenceRefinement(db: PrismaClient,
       ["source dimensions",f=>db.acquisitionPhoto.update({where:{id:f.photo.id},data:{width:1200}})],
     ];
     for(const [name,mutate] of admissionVetoes){const f=await fixture();await mutate(f);
-      assert.equal(await admitAcquisitionReferenceRefinement(db,f.ids[2],versions),0,name+" admission veto");}
+      assert.equal(await admitAcquisitionReferenceRefinement(db,f.ids[2],versions),0,name+" admission veto");
+      if(["clipped","conflicting references"].includes(name)){
+        const skipped=await db.acquisitionProcessingJob.findFirstOrThrow({where:{...f.context,stage:REFERENCE_REFINEMENT_STAGE}});
+        assert.equal((skipped.output as {referenceAdmission:{status:string}}).referenceAdmission.status,"SKIPPED");
+        assert.equal(await admitAcquisitionReferenceRefinement(db,f.ids[2],versions),0);
+        assert.equal(await db.acquisitionProcessingJob.count({where:{...f.context,stage:REFERENCE_REFINEMENT_STAGE}}),1);
+      }
+    }
     const staleVersions=await fixture();
     for(const key of ["model","catalog","referenceModel","primaryVersion","catalogResolver"] as const)
       assert.equal(await admitAcquisitionReferenceRefinement(db,staleVersions.ids[2],{...versions,
@@ -250,7 +264,75 @@ export async function verifyAcquisitionReferenceRefinement(db: PrismaClient,
     assert.equal(lateRequests,1);const saved=await db.acquisitionCandidate.findUniqueOrThrow({where:{id:late.context.candidateId}});
     assert.equal(await completeAcquisitionJob(db,lateJob,result(lateJob)),"SUPERSEDED");
     assert.deepEqual(await db.acquisitionCandidate.findUniqueOrThrow({where:{id:late.context.candidateId}}),saved);
-    assert.equal(await db.acquisitionCandidate.count({where:{runId:first.context.runId}}),count,"one copy per original, no refinement copies");
+
+    // Real shared queue: first results precede40 old refinement attempts within
+    // the same owner; refinement still resumes after that first result.
+    const backlog=await fixture();assert.equal(await admitAcquisitionReferenceRefinement(db,backlog.ids[2],versions),1);
+    const template=await db.acquisitionProcessingJob.findFirstOrThrow({where:{...backlog.context,stage:REFERENCE_REFINEMENT_STAGE}});
+    const backlogIds:string[]=[];
+    for(let i=0;i<40;i++){const id=randomUUID();backlogIds.push(id);await db.acquisitionProcessingJob.create({data:{...backlog.context,id,
+      stage:REFERENCE_REFINEMENT_STAGE,versionKey:randomUUID(),input:template.input as Prisma.InputJsonObject,createdAt:new Date(0),availableAt:new Date(0)}});}
+    const fresh=await fixture();await db.acquisitionProcessingJob.deleteMany({where:{id:{in:fresh.ids}}});
+    const firstJob=await db.acquisitionProcessingJob.create({data:{...fresh.context,stage:"photo-recognition-v1",versionKey:versions.primaryVersion,
+      input:{photoId:fresh.photo.id,digest:fresh.photo.digest,inputKind:"CARD_SCAN",versions:{model:versions.model,catalog:versions.catalog}}}});
+    const [firstClaim]=await claimFixtureJobs(db,{workerId:"refinement-first-result",stages:["photo-recognition-v1",REFERENCE_REFINEMENT_STAGE]});
+    assert.equal(firstClaim.id,firstJob.id,"fresh original wins despite40 older refinements");
+    await db.acquisitionProcessingJob.update({where:{id:firstClaim.id},data:{status:"SUPERSEDED",leaseToken:null,leaseExpiresAt:null}});
+    const [refClaim]=await claimFixtureJobs(db,{workerId:"refinement-resumes",stages:["photo-recognition-v1",REFERENCE_REFINEMENT_STAGE]});
+    assert(backlogIds.includes(refClaim.id));
+    await db.acquisitionProcessingJob.updateMany({where:{id:{in:[...backlogIds,template.id]}},data:{status:"SUPERSEDED",leaseToken:null,leaseExpiresAt:null}});
+
+    // Complete catalogue/printing source handoffs in a fresh isolated session.
+    // Earlier intentionally malformed/retired fixture chains stay inactive.
+    await db.acquisitionSession.update({where:{id:capture.session.id},data:{phase:"CANCELLED"}});
+    const derived=await createAcquisitionSession(db,actor,{...base,requestKey:randomUUID(),locationId:location.id,section:"",
+      policy:{kind:"MANUAL",quantity:4},run:{...base.run,providerId:"phone-photo-v1",runId:randomUUID()}});
+    await executeAcquisitionCommand(db,actor,derived.session.id,{requestKey:"start",revision:derived.revision,command:"START"});
+    const f=await fixture(derived.session.id);assert.equal(await admitAcquisitionReferenceRefinement(db,f.ids[2],versions),1);
+    const rootJob=await claim(f),fake=result(rootJob).native as Prisma.InputJsonObject;
+    const rootOutput=await recognizeAcquisitionReferenceRefinement(db,rootJob,new AbortController().signal,snapshot,versions,{request:async()=>({...fake,
+      text:{title:["Forest"],footer:["001","AAA EN"]},orientations:[
+        {rotationDegrees:0,text:{title:["Forest"],footer:["001","AAA EN"]},lines:[]},
+        {rotationDegrees:180,text:{title:[],footer:[]},lines:[]}]})});
+    assert.equal(await completeAcquisitionJob(db,rootJob,rootOutput),"COMPLETE");
+    const cardIds:string[]=[];
+    try{
+      for(const card of cards){const id=randomUUID();cardIds.push(id);await db.card.create({data:{id,scryfallId:randomUUID(),name:card.name,
+        setCode:card.setCode,collectorNumber:card.collectorNumber,lang:"en",digital:false,typeLine:"Basic Land",rarity:"common"}});}
+      assert.equal(await enqueueCatalogReconciliation(db,new Date(),false),1);
+      const [catalogJob]=await claimFixtureJobs(db,{workerId:"reference-catalog",stages:[CATALOG_RECONCILIATION_STAGE]});
+      assert.equal(catalogJob.candidateId,f.context.candidateId);
+      const reconcile=createCatalogReconciliationHandler(db,async()=>({status:"NOT_FOUND",cards:[],requestsMade:0,
+        printingCoverage:"UNRESOLVED",cacheHit:true,lookupKey:randomUUID()}));
+      const catalogResult=await reconcile(catalogJob,new AbortController().signal);
+      assert.equal((catalogResult.proposals as {status:string}).status,"CONFLICT");
+      assert.equal(await completeAcquisitionJob(db,catalogJob,catalogResult),"COMPLETE");
+      const savedCatalog=await db.acquisitionProcessingJob.findUniqueOrThrow({where:{id:catalogJob.id}});
+      assert.equal(correctionHash(savedCatalog.output),correctionHash(catalogResult),"exact derived coordinate JSON");
+      const projected=acquisitionReviewEvidence(savedCatalog.output)!;
+      assert.equal(projected.geometry.method,"reference-anchor-region-v1");assert.equal(projected.geometry.boundaryVerified,false);
+      assert.equal(projected.primaryObservations![0].text.title[0],"Island");
+      assert.equal(await enqueueReadyPrinting(db,versions.referenceModel),1);
+      const [printingJob]=await claimFixtureJobs(db,{workerId:"reference-printing",stages:["photo-printing-evidence-v1"]});
+      const printingResult=await observeAcquisitionPrinting(db,printingJob,new AbortController().signal,versions.referenceModel,
+        {request:async(frame)=>{const n=frame.readUInt32BE(0),ids=JSON.parse(frame.subarray(4,4+n).toString()).scryfallIds as string[];
+          return {...printingNative,milliseconds:0,photoDigest:f.photo.digest,descriptor:versions.referenceModel,
+            candidates:ids.map(id=>({...printingNative.candidates[0],scryfallId:id,referenceId:id+":0"}))};}});
+      assert.equal((printingResult.proposals as {automaticAcceptance:boolean}).automaticAcceptance,false);
+      assert.equal((printingResult.proposals as {status:string}).status,"CONFLICT");
+      assert.equal(await completeAcquisitionJob(db,printingJob,printingResult),"COMPLETE");
+      assert.equal(await confirmStrongAcquisitionMatches(db),0);
+      assert.equal(await admitAcquisitionReferenceRefinement(db,printingJob.id,versions),0,"descendant cannot start refinement loop");
+      assert.equal(await enqueueCatalogReconciliation(db,new Date(),false),0,"completed derived source cannot recreate initial catalog");
+      // A stale descendant cannot publish after its source changes or review wins.
+      const stale=await db.acquisitionProcessingJob.create({data:{...f.context,stage:CATALOG_RECONCILIATION_STAGE,versionKey:randomUUID(),
+        input:catalogJob.input as Prisma.InputJsonObject,status:"RUNNING",leaseToken:"descendant-lease",leaseExpiresAt:new Date(Date.now()+90000)}});
+      await db.acquisitionCandidate.update({where:{id:f.context.candidateId},data:{review:{saved:"descendant human"}}});
+      const human=await db.acquisitionCandidate.findUniqueOrThrow({where:{id:f.context.candidateId}});
+      assert.equal(await completeAcquisitionJob(db,stale as ClaimedAcquisitionJob,catalogResult),"SUPERSEDED");
+      assert.deepEqual(await db.acquisitionCandidate.findUniqueOrThrow({where:{id:f.context.candidateId}}),human);
+    }finally{await db.acquisitionSession.update({where:{id:derived.session.id},data:{phase:"CANCELLED"}});await db.card.deleteMany({where:{id:{in:cardIds}}});}
+    assert.equal(await db.acquisitionCandidate.count({where:{runId:{in:[...fixtureRuns]}}}),count,"one copy per original, no refinement copies");
     assert.deepEqual(await db.inventoryItem.aggregate({_sum:{quantity:true},_count:{_all:true}}),inventoryBefore);
     console.log("PASS:reference refinement PostgreSQL one-pass/concurrency/restart, exact coordinate/observation JSON, authority/parent/model fences and database-clock lease expiry; original bytes/primary evidence and zero Inventory conserved");
   } finally {

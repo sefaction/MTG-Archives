@@ -12,6 +12,7 @@ import { VISUAL_STAGE, visualNativeSchema } from "./acquisition-visual";
 import { acquisitionAnalysisCandidateFence, acquisitionAnalysisJobSql, acquisitionAnalysisOutputMatches } from "./acquisition-analysis-scope";
 import { captureCorrectionPublication } from "./acquisition-correction-library";
 import { REFERENCE_REFINEMENT_STAGE } from "./acquisition-reference-lineage";
+import { publishAcquisitionReferenceDescendant } from "./acquisition-reference-publication";
 import { publishAcquisitionReferenceRefinement } from "./acquisition-reference-jobs";
 
 // Queue operations are worker-only: never expose these as user-facing routes.
@@ -41,6 +42,11 @@ export async function claimAcquisitionJobs(
   now = new Date(),
 ): Promise<ClaimedAcquisitionJob[]> {
   const options = optionsSchema.parse(value);
+  const sharedRecognition=options.stages.includes(REFERENCE_REFINEMENT_STAGE)&&options.stages.includes("photo-recognition-v1");
+  const jobQueueStage=Prisma.sql`CASE WHEN ${sharedRecognition} AND j.stage=${REFERENCE_REFINEMENT_STAGE}
+    THEN 'photo-recognition-v1' ELSE j.stage END`;
+  const turnQueueStage=Prisma.sql`CASE WHEN ${sharedRecognition} AND t.stage=${REFERENCE_REFINEMENT_STAGE}
+    THEN 'photo-recognition-v1' ELSE t.stage END`;
   // Count reconciliation, retakes and review can advance the candidate while
   // inference is queued. Retire obsolete attempts before spending native work.
   // A live lease still owns its attempt. Canonical preparation uses immutable
@@ -83,12 +89,12 @@ export async function claimAcquisitionJobs(
   // Derive owner turns from existing durable run turns; no new queue identity.
   // First results precede refreshes within each owner, then rotate equal-priority
   // runs. Keep FIFO within that class and the second head for lease CAS races.
-  const priority = acquisitionRefreshPriority(Prisma.sql`j."artifactId"`,
-    Prisma.sql`j."candidateId"`, Prisma.sql`j.stage`);
+  const ordinaryPriority=acquisitionRefreshPriority(Prisma.sql`j."artifactId"`,Prisma.sql`j."candidateId"`,Prisma.sql`j.stage`);
+  const priority=Prisma.sql`CASE WHEN j.stage=${REFERENCE_REFINEMENT_STAGE} THEN 1 ELSE ${ordinaryPriority} END`;
   const candidates = await db.$queryRaw<{id: string; runId: string; stage: string; candidateRevision: number; input: Prisma.JsonValue}[]>`
     WITH eligible_jobs AS (
       SELECT j.id, j."runId", j.stage, j.input, j."candidateRevision", j."availableAt", j."createdAt", s."ownerPlayerId",
-        ${priority} AS "refreshPriority"
+        ${priority} AS "refreshPriority",${jobQueueStage} AS "schedulingStage"
       FROM "AcquisitionProcessingJob" j
       JOIN "AcquisitionCandidate" c ON c.id=j."candidateId"
       JOIN "AcquisitionRun" r ON r.id=j."runId"
@@ -104,27 +110,28 @@ export async function claimAcquisitionJobs(
           (c.revision=j."candidateRevision" AND ${acquisitionAnalysisJobSql()}))
         AND NOT EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=j."candidateId")
     ), ranked AS (
-      SELECT e.*, ROW_NUMBER() OVER (PARTITION BY e."runId", e.stage
+      SELECT e.*, ROW_NUMBER() OVER (PARTITION BY e."runId", e."schedulingStage"
         ORDER BY e."refreshPriority", e."availableAt", e."createdAt", e.id) AS position
       FROM eligible_jobs e
     ), owner_turns AS (
-      SELECT s."ownerPlayerId", t.stage, MAX(t."lastClaimedAt") AS "lastClaimedAt"
+      SELECT s."ownerPlayerId", ${turnQueueStage} AS stage, MAX(t."lastClaimedAt") AS "lastClaimedAt"
       FROM "AcquisitionProcessingTurn" t
       JOIN "AcquisitionRun" r ON r.id=t."runId"
       JOIN "AcquisitionSession" s ON s.id=r."sessionId"
       WHERE t.stage IN (${Prisma.join(options.stages)})
-      GROUP BY s."ownerPlayerId", t.stage
+      GROUP BY s."ownerPlayerId", 2
     ), heads AS (
       SELECT q.*, COALESCE(t."lastClaimedAt", TIMESTAMP '1970-01-01') AS "runTurn"
-      FROM ranked q LEFT JOIN "AcquisitionProcessingTurn" t
-        ON t."runId"=q."runId" AND t.stage=q.stage WHERE q.position<=2
+      FROM ranked q LEFT JOIN LATERAL (SELECT MAX(t."lastClaimedAt") AS "lastClaimedAt"
+        FROM "AcquisitionProcessingTurn" t WHERE t."runId"=q."runId" AND ${turnQueueStage}=q."schedulingStage") t ON TRUE
+        WHERE q.position<=2
     ), shared AS (
-      SELECT h.*, ROW_NUMBER() OVER (PARTITION BY h."ownerPlayerId", h.stage
+      SELECT h.*, ROW_NUMBER() OVER (PARTITION BY h."ownerPlayerId", h."schedulingStage"
         ORDER BY h."refreshPriority", h."runTurn", h.position, h."availableAt", h."createdAt", h.id) AS "ownerPosition"
       FROM heads h
     )
     SELECT q.id, q."runId", q.stage, q."candidateRevision", q.input FROM shared q
-    LEFT JOIN owner_turns t ON t."ownerPlayerId"=q."ownerPlayerId" AND t.stage=q.stage
+    LEFT JOIN owner_turns t ON t."ownerPlayerId"=q."ownerPlayerId" AND t.stage=q."schedulingStage"
     ORDER BY COALESCE(t."lastClaimedAt", TIMESTAMP '1970-01-01'), q."ownerPosition",
       q."runTurn", q.position, q."availableAt", q."createdAt", q.id LIMIT 32`;
   const result: ClaimedAcquisitionJob[] = [];
@@ -206,6 +213,12 @@ export async function completeAcquisitionJob(
       where: { id: job.runId },
     });
     await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${run.sessionId} FOR UPDATE`;
+    if([CATALOG_RECONCILIATION_STAGE,PRINTING_STAGE].includes(job.stage)&&
+        (job.input as {referenceSource?:unknown})?.referenceSource!=null){
+      const state=await publishAcquisitionReferenceDescendant(tx,job,output);
+      if(state==="COMPLETE")await captureCorrectionPublication(tx,job,output);
+      return state;
+    }
     if (job.stage === REFERENCE_REFINEMENT_STAGE) {
       const state = await publishAcquisitionReferenceRefinement(tx, job, output);
       if (state === "COMPLETE") await captureCorrectionPublication(tx, job, output);

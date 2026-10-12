@@ -38,6 +38,7 @@ export function AcquisitionScanImage({
       ? evidence.geometry.quad
       : undefined;
   const rotation = evidence?.rotation ?? (reverse ? 180 : 0);
+  const inferredScan=evidence?.geometry.method==="reference-anchor-region-v1";
   const declaredScan = evidence?.geometry.method === "declared-card-scan";
   const trimmedScan = evidence?.geometry.method === "scanner-background-trim";
   const alignedScan = evidence?.geometry.method === "scanner-card-edges" ||
@@ -223,7 +224,7 @@ export function AcquisitionScanImage({
           <canvas
             ref={canvas}
             role="img"
-            aria-label={`${displayView === "original" || !quad ? "Original scan" : trimmedScan || alignedScan ? "Prepared card" : fullFrame ? "Full card image" : "Detected card"} ${position}`}
+            aria-label={`${displayView === "original" || !quad ? "Original scan" : inferredScan ? "Inferred card" : trimmedScan || alignedScan ? "Prepared card" : fullFrame ? "Full card image" : "Detected card"} ${position}`}
             className="max-w-full max-h-full object-contain"
           />
         ) : (
@@ -238,12 +239,19 @@ export function AcquisitionScanImage({
           </button>
         </div>
       )}
+      {compact&&inferredScan&&<p className="text-xs mt-2">Inferred outline; physical edges unverified. Review the printing.</p>}
+      {!compact&&inferredScan&&evidence?.primaryObservations&&<details className="text-xs mt-2">
+        <summary>First readings from your original</summary>
+        {evidence.primaryObservations.map((reading,index)=><p key={index} className="mt-1 break-words">
+          {[...reading.text.title,...reading.text.footer,...(reading.text.footerSupplemental??[])].join(" · ")||"No readable title/footer in this direction."}
+        </p>)}
+      </details>}
       {!compact && (
         <div className="flex flex-wrap gap-1 mt-2" aria-label="Scan view">
           {(
             [
               ["original", "Original"],
-              ["crop", trimmedScan || alignedScan ? "Prepared card" : fullFrame ? "Full card image" : "Detected card"],
+              ["crop", inferredScan ? "Inferred card" : trimmedScan || alignedScan ? "Prepared card" : fullFrame ? "Full card image" : "Detected card"],
               ["zones", "Reading zones"],
             ] as const
           ).map(([key, label]) => (
@@ -273,6 +281,8 @@ export function AcquisitionScanImage({
             ? "The card reaches the edge of the scan. Adjust the scanner frame and scan again; the missing edge cannot be recovered by trimming. Reading zones were not applied."
             : !quad
             ? "No detected outline available; showing original."
+            : inferredScan
+              ? "Reference landmarks suggest this outline. Physical edges are unverified. Your original and first readings are kept; review the printing."
             : alignedScan
               ? "Reading image aligned to the outer card edges, with the black border preserved. Your original is kept."
             : trimmedScan

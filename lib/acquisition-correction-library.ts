@@ -1,3 +1,5 @@
+import { acquisitionReferenceLineageInputSchema } from "./acquisition-reference-lineage";
+import { acquisitionReferenceSourceSchema } from "./acquisition-reference-source";
 import { randomBytes, randomInt } from "node:crypto";
 import { Prisma, type AcquisitionPhoto, type AcquisitionProcessingJob } from "@prisma/client";
 import { z } from "zod";
@@ -112,8 +114,25 @@ async function photoJobs(tx: Tx, photo: AcquisitionPhoto, candidateId: string) {
     artifact: { sourceId: photo.id } }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 32 });
 }
 async function retainJobEvidence(tx: Tx, ownerPlayerId: string, photoId: string, jobs: AcquisitionProcessingJob[]) {
+  const retained=new Map(jobs.map(job=>[job.id,job]));
+  for(const job of jobs){
+    const marker=acquisitionReferenceLineageInputSchema.safeParse(
+      (job.output as {referenceRefinement?:unknown}|null)?.referenceRefinement);
+    if(!marker.success||marker.data.photoId!==photoId)continue;
+    const identity=acquisitionReferenceSourceSchema.safeParse((job.output as {referenceSource?:unknown})?.referenceSource);
+    const expected=new Map<string,string>([
+      [marker.data.parents.recognitionJobId,marker.data.parents.recognitionOutputHash],
+      [marker.data.parents.catalogJobId,marker.data.parents.catalogOutputHash],
+      [marker.data.parents.printingJobId,marker.data.parents.printingOutputHash],
+      ...(identity.success?[[identity.data.referenceJobId,identity.data.referenceOutputHash] as [string,string]]:[]),
+    ]);
+    const parents=await tx.acquisitionProcessingJob.findMany({where:{id:{in:[...expected.keys()]}}});
+    for(const parent of parents)if(parent.runId===job.runId&&parent.artifactId===job.artifactId&&
+        parent.candidateId===job.candidateId&&parent.candidateRevision===job.candidateRevision&&
+        correctionHash(parent.output)===expected.get(parent.id))retained.set(parent.id,parent);
+  }
   const ids: string[] = [];
-  for (const job of jobs) ids.push(await saveEvidence(tx, ownerPlayerId, photoId,
+  for (const job of retained.values()) ids.push(await saveEvidence(tx, ownerPlayerId, photoId,
     { version: 1, role: "SOURCE_JOB", sourcePhotoId: photoId, job: correctionJobSnapshot(job) }));
   return ids;
 }
