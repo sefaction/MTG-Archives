@@ -17,6 +17,7 @@ const observeFailure = observeNativeFailure("recognition");
 const nativeWorker = new AcquisitionNativeStream("python", [
   "/app/tools/acquisition-runtime/recognize.py",
   "--stream",
+  "--prepare",
 ], undefined, observeFailure);
 let stopped = false;
 process.on("SIGTERM", () => {
@@ -43,6 +44,7 @@ async function main() {
     );
   const snapshot = await loadAcquisitionRecognitionSnapshot(db);
   const workerId = `recognition-${randomUUID()}`;
+  await nativeWorker.prepare(descriptor.digest, AbortSignal.timeout(30000));
   console.log(
     JSON.stringify({
       event: "recognition-ready",
@@ -52,6 +54,10 @@ async function main() {
     }),
   );
   do {
+    // Initialize models before acquiring a photo's existing processing lease.
+    // A killed native process must prepare again before claiming another job.
+    await nativeWorker.prepare(descriptor.digest, AbortSignal.timeout(30000));
+    if (stopped) break;
     await enqueueReadyRecognition(db, snapshot.digest, descriptor.digest);
     const result = await runAcquisitionJobsOnce(
       db,

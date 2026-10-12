@@ -1,0 +1,156 @@
+{
+  "scope": "FOUR_INTAKE_FIXTURE_CLEANUPS_NOT_RECOGNITION_ACCURACY",
+  "sourceChecks": {
+    "passed": true,
+    "results": [
+      {
+        "file": "acquisition-photo-intake.spec.ts",
+        "originalBodyIdentical": true,
+        "originalAssertionCalls": 53,
+        "originalCleanupOperationsRetained": true
+      },
+      {
+        "file": "acquisition-upload-recovery.spec.ts",
+        "originalBodyIdentical": true,
+        "originalAssertionCalls": 35,
+        "originalCleanupOperationsRetained": true
+      },
+      {
+        "file": "acquisition-library-batch.spec.ts",
+        "originalBodyIdentical": true,
+        "originalAssertionCalls": 31,
+        "originalCleanupOperationsRetained": true
+      },
+      {
+        "file": "acquisition-successive-batches.spec.ts",
+        "originalBodyIdentical": true,
+        "originalAssertionCalls": 21,
+        "originalCleanupOperationsRetained": true
+      }
+    ]
+  },
+  "actualPostgresFailures": {
+    "baselineFixtures": 4,
+    "baselineEachRetained": {
+      "players": 1,
+      "users": 1,
+      "locations": 1,
+      "accounts": 1,
+      "directory": true
+    },
+    "candidateFixtures": 4,
+    "candidateEveryNamespaceRemoved": true,
+    "injectedFailureStillReported": true,
+    "controlledFailuresNotBrowserPasses": true
+  },
+  "sequencingControls": 27,
+  "adjacentRecoveryControls": 6,
+  "typecheckPassed": true,
+  "initialBrowser": {
+    "stats": {
+      "startTime": "2026-10-11T12:14:42.758Z",
+      "duration": 140227.478,
+      "expected": 4,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "cases": [
+      {
+        "title": "library selections stream past ten without exceeding capacity or upload bounds",
+        "status": "passed",
+        "durationMs": 29087,
+        "retry": 0
+      },
+      {
+        "title": "photo batches recover lost ACKs, keep the limit and retake the same slot",
+        "status": "passed",
+        "durationMs": 28436,
+        "retry": 0
+      },
+      {
+        "title": "three successive saved-scan batches reach recognition and survive refresh",
+        "status": "passed",
+        "durationMs": 64764,
+        "retry": 0
+      },
+      {
+        "title": "12 library photos recover transient errors and preserve bounded failure/reload",
+        "status": "passed",
+        "durationMs": 16289,
+        "retry": 0
+      }
+    ]
+  },
+  "qualifiedRepeat": {
+    "stats": {
+      "startTime": "2026-10-11T12:22:21.943Z",
+      "duration": 106818.582,
+      "expected": 4,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "cases": [
+      {
+        "title": "library selections stream past ten without exceeding capacity or upload bounds",
+        "status": "passed",
+        "durationMs": 25890,
+        "retry": 0
+      },
+      {
+        "title": "photo batches recover lost ACKs, keep the limit and retake the same slot",
+        "status": "passed",
+        "durationMs": 17856,
+        "retry": 0
+      },
+      {
+        "title": "three successive saved-scan batches reach recognition and survive refresh",
+        "status": "passed",
+        "durationMs": 44861,
+        "retry": 0
+      },
+      {
+        "title": "12 library photos recover transient errors and preserve bounded failure/reload",
+        "status": "passed",
+        "durationMs": 16970,
+        "retry": 0
+      }
+    ]
+  },
+  "conservation": {
+    "freshSourceTables": 7,
+    "freshFeedbackTables": 9,
+    "accountExcludedMaintenanceFields": [
+      "updatedAt",
+      "lastCleanupAt"
+    ],
+    "ordinaryServices": 16,
+    "sourceDigest": "2efe34ba721c1bda933942f30ac3fb8411d1d9ef6e9c7409331889bb012b5e5e",
+    "sourceInputs": 598,
+    "exactOwners": 4,
+    "modelsPerOwner": 18,
+    "privateDirectoriesAbsent": true,
+    "actualRetainedOriginals": 1094,
+    "actualRetainedOriginalBytes": 2845198201,
+    "actualCorrectionFiles": 1,
+    "allOriginalAndCorrectionShaSizeIdentitiesConserved": true
+  },
+  "retainedLimitations": {
+    "firstStrictAccountProjectionMismatch": true,
+    "comparisonAgainstPriorRunNormalizedAccountDigestAlsoFailed": true,
+    "firstMismatchCause": "not established; no restoration or data rewrite performed",
+    "secondFreshSubstantiveBaselineAndActualWorkflowsConserved": true,
+    "optionalRealImageCorpusEnabled": false,
+    "independentAccuracyQualified": false,
+    "hardwareQualified": false,
+    "largeBatch100Or300Qualified": false,
+    "productionQualified": false
+  },
+  "unchangedPolicy": {
+    "ownerLimitBytes": 64000000000,
+    "randomSampleBasisPoints": 200,
+    "explicitInventoryAuthority": true
+  },
+  "requiredCi": "Final documentation head checked separately on PR737"
+}
