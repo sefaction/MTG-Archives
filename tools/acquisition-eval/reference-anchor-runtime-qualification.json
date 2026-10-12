@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "date": "2026-10-12",
+  "scope": "LOCAL_REUSED_DEVELOPMENT_SCANNER_INPUTS",
+  "passedCoveredWorkflow": true,
+  "policy": "scanner-rectangle-reference-region-v2",
+  "inputCount": 6,
+  "eligibleRotations": 4,
+  "completeControlSkipped": true,
+  "measuredClippingControlSkipped": true,
+  "oneDurableRefinementPerPhoto": true,
+  "normalSuccessfulInferenceRequestsPerRefinement": 1,
+  "processingDeadlineMilliseconds": 45000,
+  "leaseMilliseconds": 90000,
+  "ordinaryRecovery": [
+    {"mode": "actual native child SIGKILL", "sameJob": true, "finalAttempts": 2, "observedNativeCpu": true},
+    {"mode": "actual OCR container SIGKILL/start", "sameJob": true, "sameImage": true, "finalAttempts": 2, "observedNativeCpu": true, "originalLeaseExpiredBeforeReclaim": true, "elapsedMilliseconds": 209952}
+  ],
+  "originalDigestsAndFirstReadingsPreserved": true,
+  "inferredBoundaryVerified": false,
+  "automaticAcceptance": false,
+  "inventoryWrites": 0,
+  "fixtureCleanupFailures": 0,
+  "desktopWidth": 1366,
+  "phoneWidth": 320,
+  "coreTests": 1039,
+  "coreTestFailures": 0,
+  "limitations": [
+    "Four rotations are one physical card",
+    "Not independent boundary or exact-first-printing accuracy",
+    "Native current-version rollover and live human/manual/retake/commit/feedback races remain pending",
+    "Primary snapshot refinement remains disabled",
+    "Primary worker restart observation is tracked separately in issue 755"
+  ]
+}
