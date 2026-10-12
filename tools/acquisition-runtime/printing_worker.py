@@ -55,6 +55,7 @@ def descriptor():
                'manualRegionSha256': sha256(Path('/eval/manual_card_region.py')),
                'geometrySha256': sha256(Path('/eval/baseline.py')),
                'policySha256': sha256(Path('/eval/printing_evidence.py')),
+               'detailSha256': sha256(Path('/eval/printing_details.py')),
                'annotationsSha256': sha256(LABELS), 'opencv': cv2.__version__,
                'opencvBuildSha256': hashlib.sha256(cv2.getBuildInformation().encode()).hexdigest(),
                'numpy': np.__version__, 'pillow': pillow_version, 'python': sys.version}
@@ -135,6 +136,18 @@ def read_exact(length):
     return bytes(chunks)
 
 
+def bounded_detail_response(result):
+    output = json.dumps(result,separators=(',',':'))
+    if len(output.encode()) <= 65535:
+        return output
+    # Keep the exact legacy evidence and normal protocol bound. No detail is
+    # interpreted as a match merely because it was omitted for space.
+    for candidate in result['candidates']:
+        candidate.pop('details',None)
+        candidate.pop('referenceImage',None)
+    return json.dumps(result,separators=(',',':'))
+
+
 def main():
     desc = descriptor()
     if '--describe' in sys.argv:
@@ -149,7 +162,7 @@ def main():
         length = struct.unpack('>I', header)[0]
         if not 0 < length <= MAX_ENVELOPE:
             raise ValueError('Printing frame exceeds bound')
-        output = json.dumps(request(read_exact(length), desc), separators=(',', ':'))
+        output = bounded_detail_response(request(read_exact(length), desc))
         if len(output.encode()) > 65535:
             raise ValueError('Printing evidence exceeds bound')
         print(output, flush=True)
