@@ -21,7 +21,10 @@ VERSION = 'registered-printing-runtime-v1'
 LABELS = Path('/eval/stamp-reference-labels.json')
 TEMPLATES = ('58f0a2f9-5c5e-4477-ae7e-a52cf5778962:0', 'cfe4a22f-c945-42f4-8b3a-ac3a03ffa015:0')
 MAX_REFERENCE_CACHE_ENTRIES = 48
-MAX_REFERENCE_CACHE_ARRAY_BYTES = 128 * 1024 * 1024
+# Repeated scanner batches must leave space for the next registration workspace
+# inside the existing 1 GiB worker. Eviction reloads verified full references;
+# it does not change image resolution or feature extraction.
+MAX_REFERENCE_CACHE_ARRAY_BYTES = 64 * 1024 * 1024
 _trim = getattr(ctypes.CDLL(None), 'malloc_trim', None)
 if _trim is not None:
     _trim.argtypes = [ctypes.c_size_t]
