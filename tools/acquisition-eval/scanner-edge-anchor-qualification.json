@@ -85,7 +85,15 @@
     "desktopAndPhoneInspected": true,
     "completeClippedAndSyntheticInputs": 3,
     "clippedReferenceAidWithheld": true,
-    "fixtureInventoryWrites": 0
+    "nativeFixtureInventoryWrites": 0,
+    "manualFixtureIntentionalCommitCopies": 1,
+    "manualFixtureOwnedInventoryRemoved": true
+  },
+  "cleanup": {
+    "scannerOwnersAbsent": true,
+    "currentManualEmptyAccountRecovered": true,
+    "historicalEmptyManualAccountsPreserved": 3,
+    "separateExistingFixtureBugIssue": 743
   },
   "source": {
     "web": "0822bbc60eeabc1963d573d6b9e4b246f55cd7eeb1bb3b1b0ad6960c8f5ef2b4",
@@ -98,7 +106,8 @@
     "Compose required mount-variable validation before mutation",
     "initial reference aid allowed inside known clipped scan; corrected before delivery",
     "clipping-projection optional-field type inference before tests",
-    "final web startup ERR_EMPTY_RESPONSE at login before uploads; cleaned fixture and retained artifacts"
+    "final web startup ERR_EMPTY_RESPONSE at login before uploads; cleaned fixture and retained artifacts",
+    "manual boundary fixture left one empty account after otherwise successful cleanup; exact current residue recovered, three historical accounts preserved (#743)"
   ],
   "limits": [
     "Reused/synthetic development evidence is not independent scanner accuracy.",
