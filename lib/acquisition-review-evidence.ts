@@ -36,7 +36,7 @@ const schema = z.object({
     geometry: z.object({
       status: z.string().max(60),
       quad: z.array(point).length(4).optional(),
-      method: z.enum(["contours", "full-frame", "declared-card-scan", "scanner-background-trim", "scanner-card-edges", "manual-card-region-v1"]).optional(),
+      method: z.enum(["contours", "full-frame", "declared-card-scan", "scanner-background-trim", "scanner-card-edges", "scanner-white-card-edges", "manual-card-region-v1"]).optional(),
       framing: z.enum(["ALIGNED", "CLIPPED"]).optional(),
     }),
     orientations: z.array(observation).max(2),
@@ -66,7 +66,11 @@ export function acquisitionReviewEvidence(output: unknown) {
     readingZones: native.readingZones ?? legacyAcquisitionReadingZones,
     rotation: proposals.orientation?.rotationDegrees ?? null,
     identifiers: proposals.evidence,
-    printing: printing ?? null,
+    // A reference's public crop can lie inside an already clipped physical
+    // scan. Its projected corners cannot override observed missing pixels.
+    printing: printing && native.geometry.framing === "CLIPPED"
+      ? {...printing, candidates: printing.candidates.map(candidate=>({...candidate, referenceBoundary: undefined}))}
+      : printing ?? null,
     imageMatches: visual
       ? {
           inputRegion: visual.inputRegion,

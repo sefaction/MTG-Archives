@@ -7,9 +7,30 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'acquisition-runtime'))
 from printing_evidence import register, registration_features
 from printing import PrintingRuntime
+from baseline import geometry
 
 
 class RuntimeTests(unittest.TestCase):
+    def test_reference_features_anchor_an_outline_when_white_edges_are_invisible(self):
+        rng = np.random.default_rng(20261011)
+        reference = np.full((1397, 1000, 3), 255, np.uint8)
+        reference[35:-35, 35:-35] = rng.integers(0,256,(1327,930,3),dtype=np.uint8)
+        photo = cv2.copyMakeBorder(reference,60,80,80,100,cv2.BORDER_CONSTANT,value=(255,)*3)
+        # The physical white border and white backing are indistinguishable.
+        # Printed features still locate the reference-coordinate outer rectangle.
+        self.assertEqual(geometry(photo,'CARD_SCAN')[1]['method'],'declared-card-scan')
+        identity = 'cfe4a22f-c945-42f4-8b3a-ac3a03ffa015'
+        runtime = PrintingRuntime.__new__(PrintingRuntime)
+        runtime.records = {identity+':0': {'cardId':identity}}
+        runtime.templates = []
+        runtime.reference = lambda _: (reference,'UNKNOWN',registration_features(reference,True))
+        result = runtime.observe(photo,[{'scryfallId':identity,'referenceId':identity+':0'}])
+        alignment = result['candidates'][0]['alignment']
+        self.assertEqual(alignment['status'],'ALIGNED')
+        np.testing.assert_allclose(alignment['quad'],[[80,60],[1079,60],[1079,1456],[80,1456]],atol=1)
+        self.assertFalse(result['automaticAcceptance'])
+        self.assertEqual(result['observedStamp'],'UNREADABLE')
+
     def test_feature_reuse_preserves_registration(self):
         rng = np.random.default_rng(20260928)
         image = rng.integers(0, 256, (1397, 1000, 3), dtype=np.uint8)
