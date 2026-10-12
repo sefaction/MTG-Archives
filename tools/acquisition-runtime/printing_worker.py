@@ -18,7 +18,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageOps, __version__ as pillow_version
 from catalog_references import sha256
-from printing import PrintingRuntime, VERSION, LABELS
+from printing import PrintingRuntime, VERSION, LABELS, release_temporary_memory
 from manual_card_region import manual_card_source
 from photo_input import validate_manual_region
 
@@ -33,6 +33,18 @@ MAX_PHOTO = 10 * 1024 * 1024
 MAX_ENVELOPE = MAX_PHOTO + 65536
 _runtime = None
 _records = None
+
+
+def compact_reference_record(value):
+    """Retain only fields used by printing, without changing caller metadata.
+
+    Applied during JSON parsing so a full decoded catalogue does not coexist
+    with the compact one. The immutable full manifest is still SHA-verified.
+    """
+    required = ('referenceId', 'cardId', 'file', 'sha256')
+    if all(key in value for key in required):
+        return {key: value[key] for key in (*required, 'url') if key in value}
+    return value
 
 
 def descriptor():
@@ -88,7 +100,7 @@ def request(envelope, desc):
     if sha256(INDEX) != desc['details']['indexSha256']:
         raise ValueError('Printing index generation changed')
     if _runtime is None:
-        _records = json.loads(desc['file'].read_text())
+        _records = json.loads(desc['file'].read_text(), object_hook=compact_reference_record)
         if len(_records) != desc['details']['referenceCount']:
             raise ValueError('Printing reference count changed')
         _runtime = PrintingRuntime(_records, REFERENCES)
@@ -163,6 +175,7 @@ def main():
         if not 0 < length <= MAX_ENVELOPE:
             raise ValueError('Printing frame exceeds bound')
         output = bounded_detail_response(request(read_exact(length), desc))
+        release_temporary_memory()
         if len(output.encode()) > 65535:
             raise ValueError('Printing evidence exceeds bound')
         print(output, flush=True)
