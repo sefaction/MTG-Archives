@@ -48,6 +48,7 @@ class DescriptorTests(unittest.TestCase):
                                Path(printing_worker.__file__).with_name('photo_input.py'),
                                Path('/eval/printing_evidence.py'),
                                Path('/eval/printing_details.py'),
+                               Path('/eval/expansion_symbols.py'),
                                Path('/eval/manual_card_region.py'), Path('/eval/baseline.py')]:
                     with patch.object(printing_worker, 'sha256',
                             lambda path, target=target: 'b' * 64 if Path(path) == target else hashes(path)):

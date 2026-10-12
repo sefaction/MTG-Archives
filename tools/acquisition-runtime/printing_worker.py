@@ -21,7 +21,7 @@ from catalog_references import sha256
 from printing import PrintingRuntime, VERSION, LABELS, release_temporary_memory
 from manual_card_region import manual_card_source
 from photo_input import validate_manual_region
-from expansion_symbols import ASSETS as SYMBOL_ASSETS, verified_assets as verified_symbol_assets
+from expansion_symbols import ASSETS as SYMBOL_ASSETS, verified_assets as verified_symbol_assets, symbol_asset_root
 
 INDEX = Path('/visual/index/index.json')
 if '--manifest' in sys.argv:
@@ -49,7 +49,7 @@ def compact_reference_record(value):
 
 
 def descriptor():
-    verified_symbol_assets('/app/node_modules/keyrune')
+    verified_symbol_assets(symbol_asset_root())
     before = sha256(INDEX)
     index = json.loads(INDEX.read_text())
     if index.get('format') != 1 or not index.get('downloadComplete'):

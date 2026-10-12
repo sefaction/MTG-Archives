@@ -4,7 +4,7 @@ import tempfile
 import unittest
 import cv2
 import numpy as np
-from expansion_symbols import ExpansionSymbolBank, expansion_symbol_evidence, verified_assets
+from expansion_symbols import ExpansionSymbolBank, expansion_symbol_evidence, verified_assets, symbol_asset_root
 
 
 class SymbolTests(unittest.TestCase):
@@ -59,10 +59,14 @@ class SymbolTests(unittest.TestCase):
             self.assertFalse(result['automaticAcceptance'])
 
     def test_missing_and_changed_font_assets_fail_closed(self):
+        originals=verified_assets(symbol_asset_root())
         with tempfile.TemporaryDirectory() as folder:
             with self.assertRaisesRegex(ValueError,'unavailable'):verified_assets(folder)
-            file=Path(folder)/'fonts/keyrune.ttf';file.parent.mkdir();file.write_bytes(b'changed public font')
-            with self.assertRaisesRegex(ValueError,'integrity changed'):verified_assets(folder)
+            for target in originals:
+                for name,data in originals.items():
+                    file=Path(folder)/name;file.parent.mkdir(exist_ok=True);file.write_bytes(data)
+                (Path(folder)/target).write_bytes(b'changed public asset')
+                with self.assertRaisesRegex(ValueError,'integrity changed'):verified_assets(folder)
 
 
 if __name__=='__main__':unittest.main()
