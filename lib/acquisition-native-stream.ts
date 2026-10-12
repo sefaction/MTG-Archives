@@ -19,6 +19,7 @@ export class AcquisitionNativeStream {
   private output = Buffer.alloc(0);
   private failureReason: NativeFailureReason | null = null;
   private systemCode: unknown = null;
+  private preparedDescriptor: string | null = null;
   constructor(
     private executable: string,
     private args: string[],
@@ -36,6 +37,7 @@ export class AcquisitionNativeStream {
   }
   private stop(reason: NativeFailureReason) {
     this.failureReason ??= reason;
+    this.preparedDescriptor = null;
     if (this.pending) this.pending.invalidated = true;
     this.child?.kill("SIGKILL");
   }
@@ -47,10 +49,34 @@ export class AcquisitionNativeStream {
       this.close();
     });
   }
+  async prepare(descriptor: string, signal: AbortSignal): Promise<void> {
+    signal.throwIfAborted();
+    if (!this.args.includes("--prepare") || !/^[a-f0-9]{64}$/.test(descriptor))
+      throw new Error("Processing native preparation invalid");
+    if (this.pending) throw new Error("Processing native worker busy");
+    if (this.child && this.preparedDescriptor === descriptor && !this.failureReason) return;
+    if (this.child && this.preparedDescriptor) await this.shutdown();
+    const value: any = await this.exchange(Buffer.alloc(0), signal, undefined, true);
+    if (signal.aborted || !this.child || this.failureReason || !value ||
+        value.prepared !== true || value.descriptor !== descriptor ||
+        Object.keys(value).length !== 2) {
+      this.stop(signal.aborted ? nativeAbortReason(signal) : "PROTOCOL");
+      await this.shutdown();
+      signal.throwIfAborted();
+      throw nativeFailureError("Processing native evidence invalid", "PROTOCOL", null, null, null, this.observe);
+    }
+    this.preparedDescriptor = descriptor;
+  }
   request(input: Buffer, signal: AbortSignal, progress?: (value: unknown) => void): Promise<unknown> {
+    if (this.args.includes("--prepare") && !this.preparedDescriptor)
+      return Promise.reject(new Error("Processing native worker not prepared"));
+    return this.exchange(input, signal, progress);
+  }
+  private exchange(input: Buffer, signal: AbortSignal, progress?: (value: unknown) => void,
+    preparation = false): Promise<unknown> {
     if (this.pending)
       return Promise.reject(new Error("Processing native worker busy"));
-    if (signal.aborted || !input.length || input.length > this.maxInputBytes)
+    if (signal.aborted || (!input.length && !preparation) || input.length > this.maxInputBytes)
       return Promise.reject(new Error("Processing native input invalid"));
     if (!this.child) {
       const child = spawn(this.executable, this.args, {
@@ -106,6 +132,7 @@ export class AcquisitionNativeStream {
         const request = this.pending;
         this.pending = null;
         this.child = null;
+        this.preparedDescriptor = null;
         this.output = Buffer.alloc(0);
         request?.detach();
         const error = nativeFailureError("Processing native worker stopped", this.failureReason ?? "EXIT",

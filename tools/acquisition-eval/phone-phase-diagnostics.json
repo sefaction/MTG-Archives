@@ -1,0 +1,301 @@
+{
+  "scope": "DEVELOPMENT_INPUT_DIAGNOSTICS_NOT_WORKFLOW_OR_ACCURACY_ACCEPTANCE",
+  "recordedAt": "2026-10-11T08:28:34.931Z",
+  "nativeImage": "sha256:f8563fe0eb4218abcaa9a5f1cdc9fadb98d785c5750baadb8415a0b3ecd53a56",
+  "descriptor": "3c33afbbad9ad174389c94aa07f7a72e0f3a02116e1c0213ebbf278a6220fb4c",
+  "firstObserver": {
+    "passed": false,
+    "incompleteOutputComparison": true,
+    "failureTypes": [
+      "TimeoutError",
+      null,
+      null,
+      null
+    ]
+  },
+  "completedObservers": {
+    "cpuMax": "100000 100000",
+    "opencvThreads": 1,
+    "outputPairsEqualExcludingMilliseconds": true,
+    "phaseAccounting": [
+      {
+        "name": "Winter, Team Player",
+        "observed": true,
+        "elapsed": {
+          "milliseconds": 6592,
+          "processCpuMilliseconds": 6459,
+          "cgroupUsageMilliseconds": 6512,
+          "cgroupThrottledMilliseconds": 45,
+          "throttledPeriods": 16
+        },
+        "reportedMilliseconds": 6578,
+        "geometryStatus": "PROPOSED",
+        "identityMatches": true,
+        "phaseMilliseconds": {
+          "geometry": 732,
+          "engine": 3229,
+          "predict": 1960
+        }
+      },
+      {
+        "name": "Winter, Team Player",
+        "observed": false,
+        "elapsed": {
+          "milliseconds": 4350,
+          "processCpuMilliseconds": 4346,
+          "cgroupUsageMilliseconds": 4345,
+          "cgroupThrottledMilliseconds": 40,
+          "throttledPeriods": 18
+        },
+        "reportedMilliseconds": 4332,
+        "geometryStatus": "PROPOSED",
+        "identityMatches": true,
+        "phaseMilliseconds": {}
+      },
+      {
+        "name": "Cunning Geysermage",
+        "observed": true,
+        "elapsed": {
+          "milliseconds": 17373,
+          "processCpuMilliseconds": 17339,
+          "cgroupUsageMilliseconds": 17337,
+          "cgroupThrottledMilliseconds": 228,
+          "throttledPeriods": 92
+        },
+        "reportedMilliseconds": 17353,
+        "geometryStatus": "PROPOSED",
+        "identityMatches": true,
+        "phaseMilliseconds": {
+          "geometry": 133,
+          "engine": 0,
+          "predict": 17049
+        }
+      },
+      {
+        "name": "Cunning Geysermage",
+        "observed": false,
+        "elapsed": {
+          "milliseconds": 3948,
+          "processCpuMilliseconds": 3948,
+          "cgroupUsageMilliseconds": 3946,
+          "cgroupThrottledMilliseconds": 68,
+          "throttledPeriods": 30
+        },
+        "reportedMilliseconds": 3941,
+        "geometryStatus": "PROPOSED",
+        "identityMatches": true,
+        "phaseMilliseconds": {}
+      }
+    ],
+    "stageAccounting": [
+      {
+        "name": "Winter, Team Player",
+        "observed": true,
+        "elapsed": {
+          "milliseconds": 9963,
+          "processCpuMilliseconds": 9705,
+          "cgroupUsageMilliseconds": 9835,
+          "cgroupThrottledMilliseconds": 131,
+          "throttledPeriods": 23
+        },
+        "reportedMilliseconds": 9883,
+        "geometryStatus": "PROPOSED",
+        "identityMatches": true,
+        "phaseMilliseconds": {
+          "geometry": 765,
+          "engine": 6087,
+          "detection": 2027,
+          "predict": 2030
+        }
+      },
+      {
+        "name": "Winter, Team Player",
+        "observed": false,
+        "elapsed": {
+          "milliseconds": 6506,
+          "processCpuMilliseconds": 6499,
+          "cgroupUsageMilliseconds": 6499,
+          "cgroupThrottledMilliseconds": 27,
+          "throttledPeriods": 10
+        },
+        "reportedMilliseconds": 6477,
+        "geometryStatus": "PROPOSED",
+        "identityMatches": true,
+        "phaseMilliseconds": {
+          "detection": 1448
+        }
+      },
+      {
+        "name": "Cunning Geysermage",
+        "observed": true,
+        "elapsed": {
+          "milliseconds": 5647,
+          "processCpuMilliseconds": 5645,
+          "cgroupUsageMilliseconds": 5644,
+          "cgroupThrottledMilliseconds": 84,
+          "throttledPeriods": 20
+        },
+        "reportedMilliseconds": 5640,
+        "geometryStatus": "PROPOSED",
+        "identityMatches": true,
+        "phaseMilliseconds": {
+          "geometry": 113,
+          "engine": 0,
+          "detection": 3874,
+          "recognition": 1412,
+          "predict": 5299
+        }
+      },
+      {
+        "name": "Cunning Geysermage",
+        "observed": false,
+        "elapsed": {
+          "milliseconds": 5216,
+          "processCpuMilliseconds": 5210,
+          "cgroupUsageMilliseconds": 5209,
+          "cgroupThrottledMilliseconds": 99,
+          "throttledPeriods": 25
+        },
+        "reportedMilliseconds": 5209,
+        "geometryStatus": "PROPOSED",
+        "identityMatches": true,
+        "phaseMilliseconds": {
+          "detection": 2745,
+          "recognition": 2162
+        }
+      }
+    ]
+  },
+  "privilegeSeparatedObservedStream": {
+    "scope": "ISOLATED_CURRENT_IMAGE_TIMING_DIAGNOSTIC_NOT_BROWSER_ACCEPTANCE",
+    "limits": {
+      "requestMilliseconds": 45000,
+      "wholePhotoEnvelopeMilliseconds": 35000,
+      "wholePhotoMaximumMilliseconds": 32000
+    },
+    "allNamesOffered": false,
+    "results": [
+      {
+        "name": "Winter, Team Player",
+        "inputKind": "PHOTO",
+        "progressMilliseconds": [],
+        "primaryMilliseconds": 14090,
+        "reportedPrimaryMilliseconds": 13633,
+        "geometryStatus": "PROPOSED",
+        "fallbackNeeded": true,
+        "fallbackBudgetMilliseconds": 20864,
+        "photoTextStatus": "UNAVAILABLE",
+        "photoTextReason": "TIME_BUDGET",
+        "expectedNameOffered": false,
+        "primaryConserved": true,
+        "automaticAcceptance": false,
+        "elapsedMilliseconds": 36287
+      },
+      {
+        "name": "Winter, Tormented Loner",
+        "inputKind": "PHOTO",
+        "progressMilliseconds": [
+          28208
+        ],
+        "primaryMilliseconds": 7172,
+        "reportedPrimaryMilliseconds": 2748,
+        "geometryStatus": "NEEDS_CROP",
+        "fallbackNeeded": true,
+        "fallbackBudgetMilliseconds": 27822,
+        "photoTextStatus": "PARTIAL",
+        "photoTextReason": "TIME_BUDGET",
+        "expectedNameOffered": true,
+        "primaryConserved": true,
+        "automaticAcceptance": false,
+        "elapsedMilliseconds": 35631
+      },
+      {
+        "name": "Cunning Geysermage",
+        "inputKind": "PHOTO",
+        "progressMilliseconds": [],
+        "primaryMilliseconds": 35795,
+        "reportedPrimaryMilliseconds": 29794,
+        "geometryStatus": "PROPOSED",
+        "fallbackNeeded": true,
+        "fallbackBudgetMilliseconds": -1431,
+        "photoTextStatus": "UNAVAILABLE",
+        "photoTextReason": "TIME_BUDGET",
+        "expectedNameOffered": false,
+        "primaryConserved": true,
+        "automaticAcceptance": false,
+        "elapsedMilliseconds": 36431
+      }
+    ]
+  },
+  "privateDetectorExperiment": {
+    "scope": "PRIVATE_PARAMETER_EXPERIMENT_NOT_DESCRIPTOR_COVERED_NOT_ACCEPTANCE",
+    "changedNativeDescriptorCoversExperiment": false,
+    "deployed": false,
+    "originalRecognitionPixelsPreserved": true,
+    "maxDetectionSide": 960,
+    "allNamesOffered": false,
+    "results": [
+      {
+        "name": "Winter, Team Player",
+        "inputKind": "PHOTO",
+        "progressMilliseconds": [
+          13885,
+          18529,
+          23558,
+          27279
+        ],
+        "primaryMilliseconds": 8924,
+        "reportedPrimaryMilliseconds": 8404,
+        "geometryStatus": "PROPOSED",
+        "fallbackNeeded": true,
+        "fallbackBudgetMilliseconds": 26052,
+        "photoTextStatus": "COMPLETE",
+        "expectedNameOffered": true,
+        "primaryConserved": true,
+        "automaticAcceptance": false,
+        "elapsedMilliseconds": 27301
+      },
+      {
+        "name": "Winter, Tormented Loner",
+        "inputKind": "PHOTO",
+        "progressMilliseconds": [
+          9175,
+          21297
+        ],
+        "primaryMilliseconds": 904,
+        "reportedPrimaryMilliseconds": 885,
+        "geometryStatus": "NEEDS_CROP",
+        "fallbackNeeded": true,
+        "fallbackBudgetMilliseconds": 32000,
+        "photoTextStatus": "PARTIAL",
+        "photoTextReason": "TIME_BUDGET",
+        "expectedNameOffered": true,
+        "primaryConserved": true,
+        "automaticAcceptance": false,
+        "elapsedMilliseconds": 33010
+      },
+      {
+        "name": "Cunning Geysermage",
+        "inputKind": "PHOTO",
+        "progressMilliseconds": [],
+        "primaryMilliseconds": 40749,
+        "reportedPrimaryMilliseconds": 36588,
+        "geometryStatus": "PROPOSED",
+        "fallbackNeeded": true,
+        "fallbackBudgetMilliseconds": -6134,
+        "photoTextStatus": "UNAVAILABLE",
+        "photoTextReason": "TIME_BUDGET",
+        "expectedNameOffered": false,
+        "primaryConserved": true,
+        "automaticAcceptance": false,
+        "elapsedMilliseconds": 41135
+      }
+    ]
+  },
+  "acceptance": {
+    "fullStreamingBrowser": false,
+    "sevenInputBrowser": false,
+    "savedFeedbackGuardsReached": false,
+    "independentHeldOutAccuracy": false
+  }
+}

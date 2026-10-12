@@ -1,0 +1,125 @@
+{
+  "version": 1,
+  "scope": "ISOLATED_CURRENT_SOURCE_OVERLAY_PREPARATION_NOT_BROWSER_ACCEPTANCE",
+  "acceptance": "ISOLATED_SOURCE_OVERLAY_ONLY; browser and saved feedback still pending",
+  "startedAt": "2026-10-11T10:21:21.298Z",
+  "finishedAt": "2026-10-11T10:23:18.979Z",
+  "descriptor": "a679043d0bb0ec7b27c605e3acf1805c6221a9e37c3a909de57c43456a2df202",
+  "sourceSha256": {
+    "lib/acquisition-native-stream.ts": "c7c36b69ae223dd36de5ce4899c62d56f25d7c4dd86f3ff0094646bf26da3315",
+    "tools/acquisition-runtime/recognize.py": "d9f112442f0e9d9604798ada3d71ee002d7aedcb1413391e4aa02b2141bc2992"
+  },
+  "frozenCatalogSha256": "2d9b7816673be3e1c7f17049de7a8775ea52d5816b29b853feb775f37de4b830",
+  "catalogCards": 109271,
+  "resources": {
+    "cpus": 1,
+    "memoryBytes": 2147483648,
+    "network": "none",
+    "modelsReadOnly": true,
+    "originalsReadOnly": true
+  },
+  "limits": {
+    "preparationMs": 30000,
+    "photoMs": 45000,
+    "wholePhotoEnvelopeMs": 35000,
+    "wholePhotoMaxMs": 32000
+  },
+  "allExpectedNamesOffered": true,
+  "results": [
+    {
+      "name": "Winter, Team Player",
+      "inputKind": "PHOTO",
+      "preparationMilliseconds": 6474,
+      "progressMilliseconds": [
+        20814,
+        27873,
+        34023
+      ],
+      "primaryMilliseconds": 9714,
+      "reportedPrimaryMilliseconds": 9695,
+      "geometryStatus": "PROPOSED",
+      "fallbackNeeded": true,
+      "fallbackBudgetMilliseconds": 25258,
+      "photoTextStatus": "PARTIAL",
+      "photoTextReason": "TIME_BUDGET",
+      "expectedNameOffered": true,
+      "primaryConserved": true,
+      "automaticAcceptance": false,
+      "elapsedMilliseconds": 35063,
+      "totalIncludingPreparationMilliseconds": 41537
+    },
+    {
+      "name": "Winter, Tormented Loner",
+      "inputKind": "PHOTO",
+      "preparationMilliseconds": 3278,
+      "progressMilliseconds": [
+        9903,
+        18770,
+        28749
+      ],
+      "primaryMilliseconds": 1300,
+      "reportedPrimaryMilliseconds": 1281,
+      "geometryStatus": "NEEDS_CROP",
+      "fallbackNeeded": true,
+      "fallbackBudgetMilliseconds": 32000,
+      "photoTextStatus": "PARTIAL",
+      "expectedNameOffered": true,
+      "primaryConserved": true,
+      "automaticAcceptance": false,
+      "elapsedMilliseconds": 28752,
+      "totalIncludingPreparationMilliseconds": 32030
+    },
+    {
+      "name": "Cunning Geysermage",
+      "inputKind": "PHOTO",
+      "preparationMilliseconds": 0,
+      "progressMilliseconds": [
+        19427,
+        29364
+      ],
+      "primaryMilliseconds": 3151,
+      "reportedPrimaryMilliseconds": 3129,
+      "geometryStatus": "PROPOSED",
+      "fallbackNeeded": true,
+      "fallbackBudgetMilliseconds": 31295,
+      "photoTextStatus": "PARTIAL",
+      "expectedNameOffered": true,
+      "primaryConserved": true,
+      "automaticAcceptance": false,
+      "elapsedMilliseconds": 29367,
+      "totalIncludingPreparationMilliseconds": 29367
+    },
+    {
+      "name": "Krosan Vorine",
+      "inputKind": "PHOTO",
+      "preparationMilliseconds": 0,
+      "progressMilliseconds": [],
+      "primaryMilliseconds": 6765,
+      "reportedPrimaryMilliseconds": 6745,
+      "geometryStatus": "PROPOSED",
+      "fallbackNeeded": false,
+      "fallbackBudgetMilliseconds": 28209,
+      "expectedNameOffered": true,
+      "primaryConserved": true,
+      "automaticAcceptance": false,
+      "elapsedMilliseconds": 6791,
+      "totalIncludingPreparationMilliseconds": 6791
+    },
+    {
+      "name": "Steel Wrecking Ball",
+      "inputKind": "CARD_SCAN",
+      "preparationMilliseconds": 0,
+      "progressMilliseconds": [],
+      "primaryMilliseconds": 7806,
+      "reportedPrimaryMilliseconds": 7758,
+      "geometryStatus": "PROPOSED",
+      "fallbackNeeded": false,
+      "fallbackBudgetMilliseconds": 27161,
+      "expectedNameOffered": true,
+      "primaryConserved": true,
+      "automaticAcceptance": false,
+      "elapsedMilliseconds": 7839,
+      "totalIncludingPreparationMilliseconds": 7839
+    }
+  ]
+}
