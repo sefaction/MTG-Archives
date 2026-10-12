@@ -2,12 +2,12 @@
   "schemaVersion": 1,
   "issue": 744,
   "dependency": 742,
-  "status": "draft-mechanism-queue-incomplete",
+  "status": "draft-transactions-handler-queue-incomplete",
   "automaticQueueEnabled": false,
   "independentAccuracyClaim": false,
   "mechanismControls": {
     "typesPassed": true,
-    "targetedTypeScriptGuards": 59,
+    "targetedTypeScriptGuards": 68,
     "nativeControls": 13,
     "actualMeasuredClippingCounterexamples": 16,
     "knownClippingVeto": true,
@@ -17,10 +17,11 @@
   "plannedLineage": {
     "versionedInputAndStableKeyImplemented": true,
     "parentHashesIdsStagesPhotoGenerationModelsAndOutlineChecksImplemented": true,
-    "actualTransactionalAdmissionImplemented": false,
-    "actualTransactionalPublicationImplemented": false,
-    "durableRestartAndOnePassQualificationComplete": false,
-    "keysIgnoreParentRefreshRevisionAndOutlineChanges": true
+    "actualTransactionalAdmissionImplemented": true,
+    "actualTransactionalPublicationImplemented": true,
+    "durableRestartAndOnePassQualificationComplete": true,
+    "keysIgnoreParentRefreshRevisionAndOutlineChanges": true,
+    "qualificationScope": "synthetic PostgreSQL admission/lease/client recovery; ordinary native queue restart remains pending"
   },
   "retainedPrototype": {
     "sourceOriginalReadOnly": true,
@@ -100,6 +101,31 @@
     "Reading-count increases do not establish exact first printing, boundary accuracy or99percent independent scanner accuracy",
     "Initial thick-rim control did not expose measured clipping; its failed assumption remains recorded, and unobserved clipping remains uncertain",
     "Cold isolated visual elapsed time includes setup and is not production worker deadline/fairness qualification",
-    "Worker scheduling, lease/clock/newest-parent fences, primary-text/contradiction merging, UI distinction, concurrency/restart and cumulative queue desktop/phone tests remain pending"
-  ]
+    "Ordinary worker dispatch/current-version rollover/fairness, downstream catalogue/printing/correction provenance, explicit UI and cumulative queue desktop/phone acceptance remain pending"
+  ],
+  "transactionAndHandlerQualification": {
+    "fullRequiredAcquisitionSuitePassed": true,
+    "syntheticPhotoParentChains": 31,
+    "competingAdmissions": 4,
+    "onePassAcrossRefreshedIdsAndRevisions": true,
+    "partialDatabaseUniqueIndex": true,
+    "canonicalCoordinateAndOutputRoundTrips": true,
+    "databaseClockAfterSessionLock": true,
+    "originalBytesPrimaryAndFirstIdentityConserved": true,
+    "physicalCopyCountConserved": true,
+    "inventoryWrites": 0,
+    "newestParentAndAuthorityFences": true,
+    "oneNativeAdapterRequest": true,
+    "primaryContradictionsPreserved": true,
+    "reviewSavedDuringInferencePreserved": true,
+    "actualNativeOrdinaryQueueQualified": false,
+    "nativeMechanismUnchangedAndNotRepeated": true,
+    "sharedOrdinaryRuntimeChanged": false,
+    "retainedInitialFailures": [
+      "retake control assigned existing generation instead of incrementing",
+      "refresh control assumed initial revision instead of deriving current revision",
+      "type guards required narrowing and readonly-safe test input",
+      "set-code control expected uppercase rather than canonical lowercase"
+    ]
+  }
 }

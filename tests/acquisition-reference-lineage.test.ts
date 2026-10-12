@@ -21,9 +21,10 @@ const parents: [ReferenceParent,ReferenceParent,ReferenceParent] = [
   {...common,id:ids[0],stage:"photo-recognition-v1",input:{photoId,digest,inputKind:"CARD_SCAN"},
     output:{photoId,native:{photoDigest:digest,descriptor:model,geometry:{status:"PROPOSED",method:"declared-card-scan"}}}},
   {...common,id:ids[1],stage:CATALOG_RECONCILIATION_STAGE,input:{photoId,digest,recognitionJobId:ids[0],
-    resolverVersion:"current-resolver"},output:{observed:"catalog"}},
+    resolverVersion:"current-resolver"},output:{photoId,sourceRecognitionJobId:ids[0],
+      versions:{catalog,resolver:"current-resolver"}}},
   {...common,id:ids[2],stage:"photo-printing-evidence-v1",input:{photoId,digest,catalogJobId:ids[1],model:referenceModel},
-    output:{printingNative:nativePrinting}},
+    output:{photoId,sourceCatalogJobId:ids[1],versions:{catalog,resolver:"current-resolver",printing:referenceModel},printingNative:nativePrinting}},
 ];
 const lineage={photoId,digest,generation:2,model,catalog,referenceModel,primaryVersion,catalogResolver:"current-resolver"};
 const input: AcquisitionReferenceLineageInput={...lineage,version:1,candidateRevision:0,
@@ -92,4 +93,12 @@ test("original photo hints and already framed native corners cannot be hidden by
   const framed={...parents[0],output};
   assert.equal(acquisitionReferenceParentsMatch({...input,parents:{...input.parents,
     recognitionOutputHash:correctionHash(output)}},[framed,parents[1],parents[2]],scope),false);
+});
+for(const [parentIndex,key,value] of [[1,"catalog","f".repeat(64)],[1,"resolver","new-resolver"],
+  [2,"catalog","f".repeat(64)],[2,"printing","f".repeat(64)]] as const)
+test("freshly hashed parent cannot hide mismatched output version "+parentIndex+"/"+key,()=>{
+  const output={...(parents[parentIndex].output as any),versions:{...(parents[parentIndex].output as any).versions,[key]:value}};
+  const replaced=parents.map((p,n)=>n===parentIndex?{...p,output}:p) as typeof parents;
+  const hashes={...input.parents,[parentIndex===1?"catalogOutputHash":"printingOutputHash"]:correctionHash(output)};
+  assert.equal(acquisitionReferenceParentsMatch({...input,parents:hashes},replaced,scope),false);
 });

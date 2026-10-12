@@ -11,6 +11,8 @@ import { CATALOG_RECONCILIATION_STAGE } from "./acquisition-catalog-status";
 import { VISUAL_STAGE, visualNativeSchema } from "./acquisition-visual";
 import { acquisitionAnalysisCandidateFence, acquisitionAnalysisJobSql, acquisitionAnalysisOutputMatches } from "./acquisition-analysis-scope";
 import { captureCorrectionPublication } from "./acquisition-correction-library";
+import { REFERENCE_REFINEMENT_STAGE } from "./acquisition-reference-lineage";
+import { publishAcquisitionReferenceRefinement } from "./acquisition-reference-jobs";
 
 // Queue operations are worker-only: never expose these as user-facing routes.
 // Handlers return versioned evidence; they must not mutate candidates/inventory.
@@ -204,6 +206,11 @@ export async function completeAcquisitionJob(
       where: { id: job.runId },
     });
     await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id = ${run.sessionId} FOR UPDATE`;
+    if (job.stage === REFERENCE_REFINEMENT_STAGE) {
+      const state = await publishAcquisitionReferenceRefinement(tx, job, output);
+      if (state === "COMPLETE") await captureCorrectionPublication(tx, job, output);
+      return state;
+    }
     // Preview bytes belong to an immutable photo, independently of the review
     // revision. Recognition evidence still uses the strict fence below.
     let candidateFence: Prisma.AcquisitionCandidateWhereInput = current;

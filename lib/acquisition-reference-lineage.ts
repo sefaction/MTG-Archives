@@ -104,7 +104,16 @@ export function acquisitionReferenceParentsMatch(
       !printingInput.success || printingInput.data.catalogJobId !== catalog.id ||
       printingInput.data.model !== value.referenceModel) return false;
   const printingOutput = z.object({ printingNative: printingNativeSchema }).safeParse(printing.output);
-  if (!printingOutput.success) return false;
+  const catalogOutput = z.object({ photoId: id, sourceRecognitionJobId: id,
+    versions: z.object({ catalog: hash, resolver: z.string() }) }).safeParse(catalog.output);
+  const referenceOutput = z.object({ photoId: id, sourceCatalogJobId: id,
+    versions: z.object({ catalog: hash, resolver: z.string(), printing: hash }) }).safeParse(printing.output);
+  if (!printingOutput.success || !catalogOutput.success || !referenceOutput.success ||
+      catalogOutput.data.photoId !== value.photoId || catalogOutput.data.sourceRecognitionJobId !== recognition.id ||
+      catalogOutput.data.versions.catalog !== value.catalog || catalogOutput.data.versions.resolver !== value.catalogResolver ||
+      referenceOutput.data.photoId !== value.photoId || referenceOutput.data.sourceCatalogJobId !== catalog.id ||
+      referenceOutput.data.versions.catalog !== value.catalog || referenceOutput.data.versions.resolver !== value.catalogResolver ||
+      referenceOutput.data.versions.printing !== value.referenceModel) return false;
   const proposed = selectAcquisitionReferenceRegion({ inputKind: "CARD_SCAN",
     geometry: observed.data.native.geometry, printing: printingOutput.data.printingNative });
   if (proposed.status !== "PROPOSED" ||

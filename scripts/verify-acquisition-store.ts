@@ -1,5 +1,6 @@
 import { verifyCorrectionReviewHistory } from "./verify-acquisition-correction-history";
 import { verifyRecognitionReplacement } from "./verify-acquisition-recognition-replacement";
+import { verifyAcquisitionReferenceRefinement } from "./verify-acquisition-reference-refinement";
 import { verifyAcquisitionCorrections } from "./verify-acquisition-corrections";
 import { verifyCorrectionFairness } from "./verify-correction-fairness";
 import { ensureCorrectionAccount } from "../lib/acquisition-correction-library";
@@ -390,6 +391,7 @@ async function run() {
   await verifyAcquisitionOrchestration(db, actor, input());
   await verifyAcquisitionOwnerFairness(db);
   await verifyRecognitionReplacement(db, actor, input());
+  await verifyAcquisitionReferenceRefinement(db, actor, input());
   await verifyAcquisitionPhotos(db, actor, stranger, input());
   await verifyAcquisitionCatalog(db, admin, actor, cardId);
   await verifyAcquisitionCatalogCache(db);
