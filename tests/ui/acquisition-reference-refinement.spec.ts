@@ -12,17 +12,55 @@ function database(body:string){
     encoding:'utf8',timeout:30000,windowsHide:true,maxBuffer:16*1024*1024});
 }
 const sha=(bytes:Buffer)=>createHash('sha256').update(bytes).digest('hex');
+const recognitionContainer='mtg-anchor-qualification-acquisition-recognition-worker-1';
+async function interruptOwnedNative(owner:string,mode:'native-kill'|'worker-restart'){
+  const owned=`{run:{session:{ownerPlayerId:${JSON.stringify(owner)}}}}`;
+  let active:any;
+  await expect.poll(()=>{
+    active=JSON.parse(database(`console.log(JSON.stringify(await p.acquisitionProcessingJob.findFirst({where:{...${owned},stage:'photo-reference-refinement-v1',status:'RUNNING'},select:{id:true,attempts:true,leaseToken:true,leaseExpiresAt:true,input:true}})));`));
+    return Boolean(active);
+  },{timeout:300000,intervals:[100,200,300]}).toBe(true);
+  const nativeStat=()=>JSON.parse(execFileSync('docker',['exec',recognitionContainer,'python','-c',
+    "import os,json; rows=[]\nfor d in os.listdir('/proc'):\n if d.isdigit():\n  try:\n   c=open('/proc/'+d+'/cmdline','rb').read().split(b'\\0');s=open('/proc/'+d+'/stat').read().split();\n   if len(c)>2 and c[1]==b'/app/tools/acquisition-runtime/recognize.py' and b'--stream' in c:rows.append({'pid':int(d),'ticks':int(s[13])+int(s[14])})\n  except (FileNotFoundError,ProcessLookupError,PermissionError):pass\nassert len(rows)==1, 'Expected one recognition stream';print(json.dumps(rows[0]))"],
+    {encoding:'utf8',windowsHide:true,timeout:10000}));
+  const before=nativeStat();
+  await expect.poll(()=>{const now=nativeStat();expect(now.pid).toBe(before.pid);return now.ticks-before.ticks},
+    {timeout:3000,intervals:[100,100,200]}).toBeGreaterThan(0);
+  // Recheck the exact owned lease immediately before fault injection. No
+  // manufactured job, changed deadline, lease override or alternate image.
+  const live=JSON.parse(database(`const where={status:'RUNNING',stage:{in:['photo-recognition-v1','photo-reference-refinement-v1']}};const rows=await p.acquisitionProcessingJob.findMany({where,select:{id:true,leaseToken:true}});console.log(JSON.stringify(rows));`));
+  expect(live).toEqual([{id:active.id,leaseToken:active.leaseToken}]);
+  const imageBefore=execFileSync('docker',['inspect',recognitionContainer,'--format','{{.Image}}'],{encoding:'utf8',windowsHide:true,timeout:10000}).trim();
+  if(mode==='native-kill')execFileSync('docker',['exec',recognitionContainer,'python','-c',
+    "import os,signal;pid="+before.pid+";c=open('/proc/'+str(pid)+'/cmdline','rb').read().split(b'\\0');assert c[1]==b'/app/tools/acquisition-runtime/recognize.py' and b'--stream' in c;os.kill(pid,signal.SIGKILL)"],{windowsHide:true,timeout:10000});
+  else{
+    execFileSync('docker',['kill','--signal=KILL',recognitionContainer],{windowsHide:true,timeout:10000});
+    execFileSync('docker',['start',recognitionContainer],{windowsHide:true,timeout:10000});
+  }
+  let reclaimed:any;
+  await expect.poll(()=>{
+    reclaimed=JSON.parse(database(`console.log(JSON.stringify(await p.acquisitionProcessingJob.findUniqueOrThrow({where:{id:${JSON.stringify(active.id)}},select:{status:true,attempts:true,leaseToken:true,updatedAt:true}})));`));
+    return reclaimed.status==='RUNNING'&&reclaimed.attempts===active.attempts+1;
+  },{timeout:180000,intervals:[100,200,300]}).toBe(true);
+  expect(reclaimed.leaseToken).not.toBe(active.leaseToken);
+  if(mode==='worker-restart')expect(Date.parse(reclaimed.updatedAt)).toBeGreaterThanOrEqual(Date.parse(active.leaseExpiresAt));
+  expect(execFileSync('docker',['inspect',recognitionContainer,'--format','{{.Image}}'],{encoding:'utf8',windowsHide:true,timeout:10000}).trim()).toBe(imageBefore);
+  return {mode,jobId:active.id,firstAttempts:active.attempts,leaseExpiresAt:active.leaseExpiresAt,reclaimedAt:reclaimed.updatedAt,observedNativeCpu:true,sameImage:true};
+}
 test('ordinary scanner queue performs one source-bound reference reread and preserves original observations',async({page,baseURL})=>{
   const corpus=process.env.MTG_ANCHOR_FIXTURES_PATH;
   test.skip(process.env.MTG_LOCAL_PILOT_TEST!=='1'||!corpus,'Requires isolated local review and retained development originals; never operates scanner');
   expect(baseURL).toBe('http://127.0.0.1:13011');
   expect(execFileSync('docker',['inspect',container,'--format','{{index .Config.Labels "com.docker.compose.project"}}'],{encoding:'utf8',windowsHide:true}).trim()).toBe('mtg-anchor-qualification');
+  const recoveryMode=process.env.MTG_ANCHOR_RECOVERY_MODE;
+  expect([undefined,'native-kill','worker-restart']).toContain(recoveryMode);
   test.setTimeout(1200000);
   const tag=`ui-reference-scan-${randomUUID()}`,password=randomUUID(),started=Date.now();
   const fixtures=[...Array.from({length:4},(_,turn)=>({name:`reference-${turn}.jpg`,refined:true,turn})),
     {name:'complete.png',refined:false,turn:0},{name:'clipped.png',refined:false,turn:0}]
     .map(f=>({...f,buffer:readFileSync(path.join(corpus!,f.name))})).map(f=>({...f,digest:sha(f.buffer)}));
   const results:any[]=[];
+  let recovery:Awaited<ReturnType<typeof interruptOwnedNative>>|undefined;
   if(process.env.MTG_ANCHOR_PROGRESS_PATH)writeFileSync(process.env.MTG_ANCHOR_PROGRESS_PATH,JSON.stringify({owner:tag,started,phase:'setup'}));
   try{
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash,role:'PLAYER'}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:${fixtures.length},sections:[]}}});`);
@@ -35,6 +73,7 @@ test('ordinary scanner queue performs one source-bound reference reread and pres
     const where=`{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}}}`;
     // Actual admission, native workers and publication. No model stub, source
     // job seeding, priority override, expected printing ID or lease adjustment.
+    if(recoveryMode)recovery=await interruptOwnedNative(tag,recoveryMode as 'native-kill'|'worker-restart');
     await expect.poll(()=>Number(database(`console.log(await p.acquisitionProcessingJob.count({where:{...${where},stage:'photo-reference-refinement-v1',status:{in:['COMPLETE','SUPERSEDED','FAILED']}}}));`)),{timeout:900000,intervals:[1000,3000,5000]}).toBe(fixtures.length);
     for(const [i,f] of fixtures.entries()){
       const scope=`{...${where},artifact:{digest:${JSON.stringify(f.digest)}}}`;
@@ -104,7 +143,12 @@ test('ordinary scanner queue performs one source-bound reference reread and pres
     await expect.poll(()=>Number(database(`console.log(await p.acquisitionProcessingJob.count({where:{...${where},status:{in:['PENDING','RUNNING']}}}));`)),{timeout:180000,intervals:[1000,3000]}).toBe(0);
     expect(Number(database(`console.log(await p.acquisitionProcessingJob.count({where:{...${where},stage:'photo-reference-refinement-v1'}}));`))).toBe(fixtures.length);
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
-    if(process.env.MTG_ANCHOR_REPORT_PATH)writeFileSync(process.env.MTG_ANCHOR_REPORT_PATH,JSON.stringify({elapsedMs:Date.now()-started,results},null,2));
+    if(recovery){
+      const recovered=JSON.parse(database(`console.log(JSON.stringify(await p.acquisitionProcessingJob.findUniqueOrThrow({where:{id:${JSON.stringify(recovery.jobId)}},select:{status:true,attempts:true}})));`));
+      expect(recovered.status).toBe('COMPLETE');expect(recovered.attempts).toBe(recovery.firstAttempts+1);
+      recovery={...recovery,...recovered};
+    }
+    if(process.env.MTG_ANCHOR_REPORT_PATH)writeFileSync(process.env.MTG_ANCHOR_REPORT_PATH,JSON.stringify({elapsedMs:Date.now()-started,recovery,results},null,2));
   }catch(error){
     if(process.env.MTG_ANCHOR_REPORT_PATH){
       try{const jobs=JSON.parse(database(`console.log(JSON.stringify(await p.acquisitionProcessingJob.findMany({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}}},orderBy:[{createdAt:'asc'},{id:'asc'}],select:{id:true,stage:true,status:true,input:true,output:true,artifactId:true,candidateRevision:true,attempts:true,errorCode:true}})));`));

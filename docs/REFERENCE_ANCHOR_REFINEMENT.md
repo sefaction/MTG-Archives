@@ -1,6 +1,6 @@
 # Reference-anchor OCR refinement — draft
 
-Continuation of [#744](https://github.com/sefaction/MTG-Archives/issues/744), based directly on unmerged scanner boundary [PR #742](https://github.com/sefaction/MTG-Archives/pull/742) at e8c6826b098ace00490492510e80696706f11e94. Native mechanism, transactional admission/publication, lineage guards and a separately callable OCR handler are implemented. The optional ordinary dispatcher is implemented behind ACQUISITION_REFERENCE_REFINEMENT_ENABLED=1. Current shared runtime has not loaded this source or enabled that flag; this batch remains draft and #744 is incomplete.
+Continuation of [#744](https://github.com/sefaction/MTG-Archives/issues/744). Main now includes scanner boundary #742, canonical evidence precision #747 and printing detail inspection #750. This branch integrates current main. Native mechanism, transactional admission/publication, lineage guards and the optional ordinary dispatcher behind ACQUISITION_REFERENCE_REFINEMENT_ENABLED=1 are implemented. An isolated cumulative Docker review has loaded and enabled the dispatcher. The primary snapshot review has not enabled it; this batch remains draft while the remaining acceptance below is completed.
 
 The policy uses actual observed distributed reference alignments, without an expected printing ID, saved human choice or proposal score. Supported in-frame outlines must agree; weak/localized/ambiguous references are rejected. Measured physical clipping vetoes an outline even when the public crop projects inside the clipped original. Direct edge measurements and manual analysis remain authoritative. Already framed scans are skipped across cyclic/reversed corner order.
 
@@ -22,11 +22,11 @@ The isolated Docker runs disable network and mount code/models/references/origin
 
 ## Next implementation and acceptance steps
 
-1. Wire bounded admission and the handler into the ordinary worker using current model/catalog/reference descriptors, existing45-second recognition limits and owner fairness. The durable jobs already use ordinary retries/leases, but automatic dispatch is not enabled.
-2. Propagate primary/reference provenance and independently resolved contradictions through catalogue/printing and correction retention. Keep inferred geometry explicit in the owner-authorized UI and force review throughout every downstream stage. Do not choose a printing from the reference ID, override a human decision, duplicate copies or mutate Inventory.
-3. Qualify actual native queue scheduling/recovery, current-version rollover, downstream concurrency/review/retake/commit fences, complete/clipped/ambiguous/padded inputs and all quarter turns. Existing synthetic database controls and earlier isolated native prototypes do not substitute for this workflow.
-4. Load exact cumulative application/native images and run complete ordinary-queue desktop/phone workflows before readiness. Current shared review remains740/742/745/747; the staged748 source has not been loaded into ordinary runtime.
-5. Measure boundary accuracy and exact first printing separately on frozen fresh scanner labels before promotion. Physical feeding and independent accuracy remain separate acceptance.
+1. Ordinary dispatch, shared owner/run turns, downstream catalogue/printing propagation and bounded one-pass admission are implemented. Preserve the 45-second processing/90-second lease limits and review-only inferred geometry.
+2. Six-input actual queue/browser qualification passes: four padded rotations reread once, complete/clipped controls skip, original hashes/first readings stay intact, inferred views refresh at desktop/320px and Inventory remains empty. Native-child interruption and actual OCR worker crash both recover the same job on its second attempt; the worker case reclaims after the original lease expires. See the October 12 qualification below.
+3. Still qualify actual current-version rollover and native-work races with unsaved drafts, saved reviews, manual boundaries, retakes, commit/cancellation and independent feedback. Existing synthetic transaction coverage is useful but does not substitute for these native/browser workflows. Keep #748 draft until these remaining gates and current-head CI are reconciled.
+4. The cumulative isolated review is available at http://127.0.0.1:13011 and preserves printing inspection #750 and canonical JSON #747. The primary snapshot remains at #750 with refinement disabled. Before enabling it there, account for its retained eligible images and conserve decisions, copies, first-machine evidence and independent feedback.
+5. Measure boundary location and exact first printing separately on frozen fresh scanner labels before automatic promotion. Four rotations of one physical card are development coverage, not four independent accuracy samples. Physical feeding and independent accuracy remain separate acceptance.
 
 ## Queue and feedback continuation — October 12, 2026, 12:22 UTC run
 
