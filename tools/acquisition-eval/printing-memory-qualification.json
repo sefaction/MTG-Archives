@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "scope": "LOCAL_REUSED_DEVELOPMENT_SCANS",
+  "date": "2026-10-12",
+  "passed": true,
+  "nativeGuards": 31,
+  "ordinaryBrowserRunsPassed": 2,
+  "finalElapsedMilliseconds": 131643,
+  "inputCount": 6,
+  "primaryReads": 6,
+  "referenceReads": 4,
+  "authoritativeRefinementSkips": 2,
+  "catalogueJobs": 10,
+  "printingJobs": 10,
+  "allExecutedJobsFirstAttempt": true,
+  "memoryLimitBytes": 1073741824,
+  "observedPrintingCgroupPeakBytes": 1036271616,
+  "memoryEvents": {"max": 0, "oom": 0, "oom_kill": 0},
+  "printingImage": "sha256:efd3528d44ac7550d344d3e5c66377be9e9886c1971bb3a57f96a4650e214859",
+  "nativeEvidenceParity": {
+    "jobs": 10,
+    "candidateFaces": 120,
+    "exactlyUnchanged": ["source dimensions", "identities", "geometry", "stamp evidence", "detail measurements", "preview digests"],
+    "excluded": ["generation identity", "elapsed milliseconds"]
+  },
+  "originalDigestsPreserved": true,
+  "inventoryWrites": 0,
+  "fixtureCleanupFailures": 0,
+  "limitations": ["Reused developer scans", "Four rotations of one physical card", "Roughly 36 MiB observed peak headroom", "Larger accepted images and sustained load not qualified", "No independent accuracy claim"]
+}
