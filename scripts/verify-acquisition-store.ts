@@ -1,4 +1,5 @@
 import { verifyCorrectionReviewHistory } from "./verify-acquisition-correction-history";
+import { verifyCorrectionEvidencePrecision } from "./verify-correction-evidence-precision";
 import { verifyRecognitionReplacement } from "./verify-acquisition-recognition-replacement";
 import { verifyAcquisitionReferenceRefinement } from "./verify-acquisition-reference-refinement";
 import { verifyAcquisitionCorrections } from "./verify-acquisition-corrections";
@@ -110,6 +111,7 @@ const known = {
 async function run() {
   await verifyCorrectionFairness(db);
   await verifyAcquisitionCorrections(db);
+  await verifyCorrectionEvidencePrecision(db);
   await verifyCorrectionReviewHistory(db);
   for (const playerId of [owner, otherOwner])
     await db.player.create({

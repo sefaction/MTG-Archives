@@ -1,6 +1,6 @@
 import { acquisitionReferenceLineageInputSchema } from "./acquisition-reference-lineage";
 import { acquisitionReferenceSourceSchema } from "./acquisition-reference-source";
-import { randomBytes, randomInt } from "node:crypto";
+import { randomBytes, randomInt, randomUUID } from "node:crypto";
 import { Prisma, type AcquisitionPhoto, type AcquisitionProcessingJob } from "@prisma/client";
 import { z } from "zod";
 import { acquisitionRecognitionDto } from "./acquisition-recognition-dto";
@@ -59,16 +59,22 @@ export async function correctionDisplayToken(tx: Tx, ownerPlayerId: string, acto
   } catch { return undefined; } // Missing display attribution never hides a valid review.
 }
 
-async function saveEvidence(tx: Tx, ownerPlayerId: string, sourcePhotoId: string, payload: unknown) {
+// Callers hold the correction-owner lock and supply trusted, bounded evidence.
+export async function saveCorrectionEvidence(tx: Tx, ownerPlayerId: string, sourcePhotoId: string, payload: unknown) {
   const encoded = correctionCanonical(payload);
-  if (Buffer.byteLength(encoded) > CORRECTION_EVIDENCE_LIMIT) throw new Error("Capture correction evidence exceeds bounds");
+  const bytes = Buffer.byteLength(encoded);
+  if (bytes > CORRECTION_EVIDENCE_LIMIT) throw new Error("Capture correction evidence exceeds bounds");
   const bundleHash = correctionHash(payload);
   const existing = await tx.correctionEvidence.findUnique({ where: { ownerPlayerId_bundleHash: { ownerPlayerId, bundleHash } } });
   if (existing) return existing.id;
-  const record = await tx.correctionEvidence.create({ data: { ownerPlayerId, sourcePhotoId, bundleHash,
-    payload: json(payload), bytes: Buffer.byteLength(encoded) } });
-  await tx.correctionLibraryAccount.update({ where: { ownerPlayerId }, data: { evidenceBytes: { increment: record.bytes } } });
-  return record.id;
+  const id = randomUUID();
+  // Prisma's JSON-object parameter conversion can round finite doubles before
+  // storage. Bind the already hashed canonical text so JSONB retains its values.
+  await tx.$executeRaw`INSERT INTO "CorrectionEvidence"
+    ("id", "ownerPlayerId", "sourcePhotoId", "bundleHash", "payload", "bytes")
+    VALUES (${id}, ${ownerPlayerId}, ${sourcePhotoId}, ${bundleHash}, ${encoded}::jsonb, ${bytes})`;
+  await tx.correctionLibraryAccount.update({ where: { ownerPlayerId }, data: { evidenceBytes: { increment: bytes } } });
+  return id;
 }
 
 export async function ensureCorrectionExample(tx: Tx, ownerPlayerId: string, sessionId: string,
@@ -132,7 +138,7 @@ async function retainJobEvidence(tx: Tx, ownerPlayerId: string, photoId: string,
         correctionHash(parent.output)===expected.get(parent.id))retained.set(parent.id,parent);
   }
   const ids: string[] = [];
-  for (const job of retained.values()) ids.push(await saveEvidence(tx, ownerPlayerId, photoId,
+  for (const job of retained.values()) ids.push(await saveCorrectionEvidence(tx, ownerPlayerId, photoId,
     { version: 1, role: "SOURCE_JOB", sourcePhotoId: photoId, job: correctionJobSnapshot(job) }));
   return ids;
 }
@@ -196,12 +202,12 @@ export async function captureCorrectionReview(tx: Tx, input: { ownerPlayerId: st
   const cards = !tombstone ? await tx.card.findMany({ where: { id: { in: [beforeId, afterId].filter((id): id is string => !!id) } }, select: acquisitionPrintingSelect }) : [];
   const evidenceIds: string[] = [];
   if (photo && example) {
-    const saveBundle = await saveEvidence(tx, input.ownerPlayerId, photo.id, { version: 1, role: "AT_SAVE",
+    const saveBundle = await saveCorrectionEvidence(tx, input.ownerPlayerId, photo.id, { version: 1, role: "AT_SAVE",
       source: { photoId: photo.id, digest: photo.digest, generation: photo.generation, candidateId: input.candidateId },
       earliestMachine: photo.firstMachineEvidence ?? { missing: "EARLIEST_PUBLISH_IDENTITY_NOT_CAPTURED" },
       jobEvidenceIds: await retainJobEvidence(tx, input.ownerPlayerId, photo.id, jobs), missing: flags });
     evidenceIds.push(saveBundle);
-    for (const bundle of displayed) evidenceIds.push(await saveEvidence(tx, input.ownerPlayerId, photo.id,
+    for (const bundle of displayed) evidenceIds.push(await saveCorrectionEvidence(tx, input.ownerPlayerId, photo.id,
       { version: 1, role: bundle.role, identity: bundle.identity,
         jobEvidenceIds: await retainJobEvidence(tx, input.ownerPlayerId, photo.id, bundle.jobs) }));
     const label = input.after ? { decision: input.after, printing: cards.find(card => card.id === afterId) ?? null } : null;
@@ -250,7 +256,7 @@ export async function captureCorrectionPublication(tx: Tx, job: AcquisitionProce
   } });
   if (!example || example.deletedAt) return;
   await ensureCorrectionAccount(tx, example.ownerPlayerId);
-  if (earliest) await saveEvidence(tx, example.ownerPlayerId, photo.id,
+  if (earliest) await saveCorrectionEvidence(tx, example.ownerPlayerId, photo.id,
     { version: 1, role: "EARLIEST_PUBLISHED", sourcePhotoId: photo.id, identity: earliest });
   const published = await tx.acquisitionProcessingJob.findUniqueOrThrow({ where: { id: job.id } });
   await retainJobEvidence(tx, example.ownerPlayerId, photo.id, [published]);
