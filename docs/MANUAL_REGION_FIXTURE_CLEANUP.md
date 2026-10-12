@@ -1,0 +1,13 @@
+# Manual boundary fixture cleanup
+
+Addresses [#743](https://github.com/sefaction/MTG-Archives/issues/743), a concrete follow-up to [#692](https://github.com/sefaction/MTG-Archives/issues/692). This is independent of scanner runtime PR #742 and photo-feedback fixture PR #740.
+
+The original manual-boundary workflow can pass while an empty independent correction account remains after deleting its user, player and source records. The prior audit observed this residue and recovered only its exact current owner; its live writer was not traced. Three older empty manual accounts remain historical metadata and are excluded from this repair's deletion scope.
+
+Actual PostgreSQL finally-block probes reproduce three boundaries: a controlled late empty-account recreation leaves one account after successful original cleanup; an early inline feedback error abandons later source teardown; and a route-cleanup error skips all database teardown. Controlled recreation establishes the missing final-sweep boundary rather than identifying the historical writer. The corrected actual blocks remove all exact probe namespaces, retaining early feedback and route failures as aggregate errors.
+
+Cleanup independently drains owned routes, revokes authentication and retires work before the feedback sweep, attempts the original source/Inventory/file teardown and always attempts a final feedback sweep. Route draining keeps pending authenticated fixture assertions from being invalidated by cleanup itself. The original complete body, all 59 assertion calls, route operation, SQL/file/Inventory deletion operations and 180-second deadline are preserved; the inline feedback cleanup moves into revoked first/final sweeps.
+
+Six actual-block controls cover each action failing, all causes failing together and normal completion. Types pass. Pending: the complete original desktop/phone boundary workflow, exactly one recorded-owner/card/source/library/private namespace absence, conservation of all three historical accounts and original user/source/feedback/service/actual-byte baselines, and final-head CI.
+
+The full workflow intentionally adds one disposable Inventory copy to test the post-commit edit fence, then removes that owner's Inventory/source records. It must not be described as a zero-write test. Controlled suggestions and generated image bytes establish UI/receipt behavior, not recognition accuracy or physical scanner acceptance. Test-only changes need no rebuild. Current cumulative review preserves #740 and #742; their published branches and existing root/layout/manual/checkpoint changes remain untouched. Keep the 64 decimal GB per-owner allowance, 2% controls and explicit Inventory authority. Broader #692/#463 and anchor refinement #744 remain separate.
