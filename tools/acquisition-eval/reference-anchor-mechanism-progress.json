@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "issue": 744,
+  "dependency": 742,
+  "status": "draft-mechanism-queue-incomplete",
+  "automaticQueueEnabled": false,
+  "independentAccuracyClaim": false,
+  "mechanismControls": {
+    "typesPassed": true,
+    "targetedTypeScriptGuards": 59,
+    "nativeControls": 13,
+    "actualMeasuredClippingCounterexamples": 16,
+    "knownClippingVeto": true,
+    "weakLocalizedWrongOrAmbiguousAnchorsRejected": true,
+    "alreadyFramedManualAndPhotoInputAuthorityPreserved": true
+  },
+  "plannedLineage": {
+    "versionedInputAndStableKeyImplemented": true,
+    "parentHashesIdsStagesPhotoGenerationModelsAndOutlineChecksImplemented": true,
+    "actualTransactionalAdmissionImplemented": false,
+    "actualTransactionalPublicationImplemented": false,
+    "durableRestartAndOnePassQualificationComplete": false,
+    "keysIgnoreParentRefreshRevisionAndOutlineChanges": true
+  },
+  "retainedPrototype": {
+    "sourceOriginalReadOnly": true,
+    "sourceSha": "887d726137ba2ab05563af594c41cb256509ee198538ce93ebca2e469233c5ef",
+    "transformedDeveloperExample": true,
+    "publicCandidatesFreshlyObservedPerTurn": true,
+    "rows": [
+      {
+        "quarterTurn": 0,
+        "sourceOriginalShaPreserved": true,
+        "allObservationDigestsMatch": true,
+        "initialGeometry": "declared-card-scan",
+        "inferredGeometry": "reference-anchor-region-v1",
+        "firstFooterReadings": 0,
+        "secondFooterReadings": 9,
+        "actualVisualCandidates": 12,
+        "actualPrintingReferences": 13,
+        "supportedObservedReferences": 1,
+        "expectedPrintingLabelsUsedForInference": false,
+        "manualGeometryAbsent": true,
+        "automaticAcceptance": false
+      },
+      {
+        "quarterTurn": 1,
+        "sourceOriginalShaPreserved": true,
+        "allObservationDigestsMatch": true,
+        "initialGeometry": "declared-card-scan",
+        "inferredGeometry": "reference-anchor-region-v1",
+        "firstFooterReadings": 0,
+        "secondFooterReadings": 9,
+        "actualVisualCandidates": 12,
+        "actualPrintingReferences": 12,
+        "supportedObservedReferences": 1,
+        "expectedPrintingLabelsUsedForInference": false,
+        "manualGeometryAbsent": true,
+        "automaticAcceptance": false
+      },
+      {
+        "quarterTurn": 2,
+        "sourceOriginalShaPreserved": true,
+        "allObservationDigestsMatch": true,
+        "initialGeometry": "declared-card-scan",
+        "inferredGeometry": "reference-anchor-region-v1",
+        "firstFooterReadings": 0,
+        "secondFooterReadings": 10,
+        "actualVisualCandidates": 12,
+        "actualPrintingReferences": 12,
+        "supportedObservedReferences": 1,
+        "expectedPrintingLabelsUsedForInference": false,
+        "manualGeometryAbsent": true,
+        "automaticAcceptance": false
+      },
+      {
+        "quarterTurn": 3,
+        "sourceOriginalShaPreserved": true,
+        "allObservationDigestsMatch": true,
+        "initialGeometry": "declared-card-scan",
+        "inferredGeometry": "reference-anchor-region-v1",
+        "firstFooterReadings": 0,
+        "secondFooterReadings": 9,
+        "actualVisualCandidates": 12,
+        "actualPrintingReferences": 12,
+        "supportedObservedReferences": 1,
+        "expectedPrintingLabelsUsedForInference": false,
+        "manualGeometryAbsent": true,
+        "automaticAcceptance": false
+      }
+    ],
+    "isolatedDocker": true,
+    "networkDisabled": true,
+    "modelReferenceAndSourceMountsReadOnly": true,
+    "databaseAndSharedServicesMutated": false,
+    "sharedApplicationStillQualified747": true
+  },
+  "limits": [
+    "This is a mechanism implementation, not completed issue744 or ordinary-queue acceptance",
+    "Reading-count increases do not establish exact first printing, boundary accuracy or99percent independent scanner accuracy",
+    "Initial thick-rim control did not expose measured clipping; its failed assumption remains recorded, and unobserved clipping remains uncertain",
+    "Cold isolated visual elapsed time includes setup and is not production worker deadline/fairness qualification",
+    "Worker scheduling, lease/clock/newest-parent fences, primary-text/contradiction merging, UI distinction, concurrency/restart and cumulative queue desktop/phone tests remain pending"
+  ]
+}
