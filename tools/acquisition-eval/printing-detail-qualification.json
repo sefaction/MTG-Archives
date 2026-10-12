@@ -1,0 +1,50 @@
+{
+  "scope": "review-only registered printing details",
+  "replay": {
+    "complete": true,
+    "samples": 67,
+    "sourceEntries": 90,
+    "developmentOnly": true,
+    "physicalCopyIndependence": "UNKNOWN",
+    "automaticAcceptance": false,
+    "baselineCorrect": 58,
+    "diagnosticCorrect": 58,
+    "pairedGains": 3,
+    "pairedLosses": 3,
+    "expectedOffered": 65,
+    "measuredFaces": 75,
+    "elapsedSeconds": 511.334,
+    "manifestSha256": "75bc490b70feca3e47ba2823021abf0b9abd909c407fcbdee113b5105a45a78d",
+    "indexSha256": "361081e13d88e905f21b40c0e97879c7a10dd45350938ee1a80c9915d770e839",
+    "referencesSha256": "c7ac6929e68c1e146052301b69b001617559c8bb236e005845b259bb47e71950",
+    "detailCodeSha256": "a351e6fd090beef1e18cd11aadfbd2742675db1f5b93aeaa2f2215e44929314d",
+    "registrationCodeSha256": "3a1d4763eb331b3c39b5cdaf17d8b0c462b63ba1c6969a44a73e93aaf7cc7ef1",
+    "allProposalsCompared": 0,
+    "uncomparedProposalChanges": 10,
+    "diagnosticPolicy": "REJECTED_UNCALIBRATED_GLOBAL_RESIDUAL"
+  },
+  "checks": {
+    "nativeGuards": 29,
+    "applicationGuards": 6,
+    "core": {
+      "tests": 981,
+      "failed": 0,
+      "types": "PASS",
+      "productionBuild": "PASS",
+      "clientManifests": "PASS"
+    },
+    "docker": "PENDING",
+    "browser": "PENDING"
+  },
+  "retainedFailures": [
+    "initial production lint rejected synchronous state reset in effect; corrected without disabling rule",
+    "initial new decision-preservation test supplied one OCR direction; corrected fixture to the required two without changing application policy"
+  ],
+  "limitations": [
+    "development corpus; physical-copy independence unknown",
+    "no automatic detail ranking or acceptance",
+    "five fixed windows do not cover every layout",
+    "shared candidate geometry cannot prove a physical edge",
+    "independent exact-printing benchmark pending"
+  ]
+}

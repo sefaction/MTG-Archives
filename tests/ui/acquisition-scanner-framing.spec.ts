@@ -78,6 +78,35 @@ test('complete physical scanner edges align reading zones; clipped originals can
           await editor.screenshot({path:`test-results/reference-boundary-${width}.png`});
         }
         await editor.getByRole('button',{name:'Cancel boundary changes',exact:true}).click();
+        const comparison=card.getByTestId('printing-detail-comparison');
+        const selectedDetail=result.output.printing.candidates.find((c:any)=>c.cardId===selectedId && c.details && c.referenceBoundary && c.referenceImage);
+        expect(selectedDetail).toBeTruthy();
+        expect(selectedDetail.details.regions.some((r:any)=>r.status==='MEASURED')).toBe(true);
+        expect(JSON.stringify(selectedDetail.details)).not.toContain('colorResidual');
+        await comparison.getByText('Compare printing details',{exact:true}).click();
+        for(const band of selectedDetail.details.regions.filter((r:any)=>r.status==='MEASURED')) {
+          await comparison.getByRole('combobox',{name:'Detail window'}).selectOption(band.region);
+          const labels:any={TYPE_LINE:'Type-line band',SET_SYMBOL_AREA:'Set-symbol area',FOOTER:'Footer',LEFT_FRAME:'Left frame',RIGHT_FRAME:'Right frame'};
+          const scan=comparison.getByRole('img',{name:`Scan ${labels[band.region]}`,exact:true});
+          await expect.poll(()=>scan.evaluate((c:HTMLCanvasElement)=>c.width>0 && c.getContext('2d')!.getImageData(0,0,c.width,c.height).data.some((p,i)=>i%4<3 && p>20))).toBe(true);
+          await expect(comparison.getByRole('img',{name:`Reference ${labels[band.region]}`,exact:true})).toBeVisible();
+          for(const width of [1366,320]) {
+            await page.setViewportSize({width,height:900});
+            expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+          }
+        }
+        await comparison.getByRole('combobox',{name:'Detail window'}).selectOption('FOOTER');
+        for(const width of [1366,320]) {
+          await page.setViewportSize({width,height:900});
+          await comparison.screenshot({path:`test-results/printing-detail-${width}.png`});
+        }
+        await comparison.getByText('Compare printing details',{exact:true}).click();
+        await page.route(selectedDetail.referenceImage.uri,route=>route.fulfill({status:200,contentType:'image/jpeg',body:Buffer.from('changed-reference')}));
+        await comparison.getByText('Compare printing details',{exact:true}).click();
+        await expect(comparison.getByRole('status')).toContainText('reference image changed');
+        await expect(comparison.getByRole('img',{name:'Reference Footer',exact:true})).toHaveCount(0);
+        await comparison.getByText('Compare printing details',{exact:true}).click();
+        await page.unroute(selectedDetail.referenceImage.uri);
       } else if(i===1) {
         expect(result.output.native.geometry.status).toBe('NEEDS_CROP');
         expect(result.output.native.geometry.quad).toBeUndefined();

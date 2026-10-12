@@ -20,6 +20,7 @@ import {
 import { AcquisitionCardRegionEditor } from "./AcquisitionCardRegionEditor";
 import type { AcquisitionManualRegion } from "@/lib/acquisition-manual-region";
 import { acquisitionReferenceBoundary } from "@/lib/acquisition-printing";
+import {AcquisitionPrintingDetails} from "./AcquisitionPrintingDetails";
 import { finishForPrinting } from "@/lib/acquisition-finish";
 import type { AcquisitionReviewMode } from "@/lib/acquisition-review-display";
 import { readAcquisitionDraft, saveAcquisitionDraft, clearAcquisitionDraft } from "@/lib/acquisition-browser-review-draft";
@@ -1099,6 +1100,9 @@ export function AcquisitionPhotoReview({
             <p role="status" className="text-sm mt-2">
               {message}
             </p>
+          )}
+          {!simple && (
+            <AcquisitionPrintingDetails key={selected?.id} src={`/api/acquisition/${batchId}/photos/${photoId}`} evidence={record.evidence} selected={selected}/>
           )}
           {!simple && (
             <AcquisitionEvidenceFields

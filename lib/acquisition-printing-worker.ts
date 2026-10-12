@@ -15,6 +15,7 @@ import {
 } from "./acquisition-printing";
 import type { TextProposals } from "./acquisition-visual";
 import { checkedPrintingNative, printingReuseIdentity, reusablePrintingNative } from "./acquisition-printing-reuse";
+import { boundedPrintingDetailOutput } from "./acquisition-printing-detail-budget";
 
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
 const inputSchema = z.object({
@@ -171,12 +172,12 @@ export async function observeAcquisitionPrinting(
     proposals.automaticAcceptance = false;
     if (proposals.status === "STRONG_MATCH") proposals.status = "REVIEW_REQUIRED";
   }
-  return {
+  return boundedPrintingDetailOutput({
     ...observed, sourceCatalogJobId: source.id, proposals,
     printingNative: native, printing: acquisitionPrintingSummary(native, byScryfall),
     printingReuse: reuse,
     printingExecution: {reused, milliseconds: Math.round(performance.now() - started),
       inferenceRequests: reused ? 0 : 1, ...(reused ? {observationJobId: previous.id} : {})},
     versions: {...observed.versions, printing: model, printingPolicy: PRINTING_POLICY_VERSION},
-  } as unknown as Prisma.InputJsonObject;
+  }) as unknown as Prisma.InputJsonObject;
 }
