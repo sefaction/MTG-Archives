@@ -1,6 +1,6 @@
-import { REFERENCE_REFINEMENT_STAGE, acquisitionReferenceLineageInputSchema } from "../lib/acquisition-reference-lineage";
+import { REFERENCE_REFINEMENT_STAGE } from "../lib/acquisition-reference-lineage";
 import { enqueueReadyReferenceRefinement } from "../lib/acquisition-reference-jobs";
-import { recognizeAcquisitionReferenceRefinement } from "../lib/acquisition-reference-worker";
+import { currentAcquisitionReferenceInput, recognizeAcquisitionReferenceRefinement } from "../lib/acquisition-reference-worker";
 import { CATALOG_RESOLVER_VERSION } from "../lib/acquisition-catalog-status";
 import { acquisitionRecognitionVersion } from "../lib/acquisition-recognition-worker";
 import { PrismaClient } from "@prisma/client";
@@ -72,7 +72,7 @@ async function main() {
       db,
       {
         ...(refinementEnabled?{[REFERENCE_REFINEMENT_STAGE]:async(job:Parameters<typeof recognizeAcquisitionReferenceRefinement>[1],signal:AbortSignal)=>{
-          const input=acquisitionReferenceLineageInputSchema.parse(job.input);
+          const input=currentAcquisitionReferenceInput(job.input);
           return recognizeAcquisitionReferenceRefinement(db,job,signal,snapshot,{model:descriptor.digest,catalog:snapshot.digest,
             primaryVersion:acquisitionRecognitionVersion(snapshot.digest,descriptor.digest),referenceModel:input.referenceModel,
             catalogResolver:CATALOG_RESOLVER_VERSION},nativeWorker);

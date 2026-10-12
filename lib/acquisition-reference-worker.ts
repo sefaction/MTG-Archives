@@ -10,6 +10,22 @@ import { sameAcquisitionManualRegion } from "./acquisition-manual-region";
 import { combineAcquisitionReferenceReadings } from "./acquisition-reference-text";
 import { ACQUISITION_TEXT_RESOLVER_VERSION } from "./acquisition-recognition";
 import { ACQUISITION_FOOTER_PARSER_VERSION } from "./acquisition-footer";
+import { acquisitionReferenceRegionSchema } from "./acquisition-reference-region";
+import { z } from "zod";
+
+const retiredReferenceInputSchema=acquisitionReferenceLineageInputSchema.extend({
+  reference:acquisitionReferenceRegionSchema.extend({policy:z.literal("distributed-reference-region-v1")}),
+});
+// A complete old-policy envelope is obsolete, not a transient processing
+// failure. Keep malformed/unknown envelopes as validation failures; never
+// coerce an older outline into the current scanner policy.
+export function currentAcquisitionReferenceInput(value:unknown){
+  const parsed=acquisitionReferenceLineageInputSchema.safeParse(value);
+  if(parsed.success)return parsed.data;
+  if(retiredReferenceInputSchema.safeParse(value).success)
+    throw new AcquisitionJobSupersededError("Reference region policy superseded");
+  throw parsed.error;
+}
 
 // One call to the existing prepared native stream, within its caller's ordinary
 // 45s processing/90s lease bounds. No additional whole-photo fallback or label,
@@ -19,7 +35,7 @@ export async function recognizeAcquisitionReferenceRefinement(db: PrismaClient,
   job: ClaimedAcquisitionJob, signal: AbortSignal, snapshot: RecognitionSnapshot,
   versions: AcquisitionReferenceVersions, nativeWorker: Pick<AcquisitionNativeStream,"request">,
 ): Promise<Prisma.InputJsonObject> {
-  const input=acquisitionReferenceLineageInputSchema.parse(job.input);
+  const input=currentAcquisitionReferenceInput(job.input);
   if(snapshot.digest!==versions.catalog)throw new AcquisitionJobSupersededError("Reference catalog snapshot changed");
   const parents=await currentAcquisitionReferenceParents(db,job,versions);
   if(!parents||signal.aborted)throw new AcquisitionJobSupersededError("Reference parents superseded");
