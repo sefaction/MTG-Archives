@@ -27,7 +27,9 @@ const observation = z.object({
   footerLines: z.array(z.object({text: z.string().max(2000), score: z.number().finite(),
     polygon: z.array(point).min(3).max(8)})).max(100).optional(),
 });
+const primaryReading=observation.pick({rotationDegrees:true,text:true});
 const schema = z.object({
+  primaryReadings:z.array(primaryReading).max(2).optional(),
   printing: printingSummarySchema.optional(),
   visual: visualNativeSchema.optional(),
   native: z.object({
@@ -36,8 +38,9 @@ const schema = z.object({
     geometry: z.object({
       status: z.string().max(60),
       quad: z.array(point).length(4).optional(),
-      method: z.enum(["contours", "full-frame", "declared-card-scan", "scanner-background-trim", "scanner-card-edges", "scanner-white-card-edges", "manual-card-region-v1"]).optional(),
+      method: z.enum(["contours", "full-frame", "declared-card-scan", "scanner-background-trim", "scanner-card-edges", "scanner-white-card-edges", "manual-card-region-v1", "reference-anchor-region-v1"]).optional(),
       framing: z.enum(["ALIGNED", "CLIPPED"]).optional(),
+      boundaryVerified:z.literal(false).optional(),
     }),
     orientations: z.array(observation).max(2),
   }),
@@ -61,6 +64,7 @@ export function acquisitionReviewEvidence(output: unknown) {
   const { native, proposals, visual, printing } = parsed.data;
   return {
     geometry: native.geometry,
+    primaryObservations:parsed.data.primaryReadings??null,
     observations: native.orientations,
     photoText: native.photoText ?? null,
     readingZones: native.readingZones ?? legacyAcquisitionReadingZones,

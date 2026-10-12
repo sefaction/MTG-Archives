@@ -66,3 +66,12 @@ test("current completed printing evidence is preferred without changing source e
   assert.equal(view.evidence.result?.status, "REVIEW_REQUIRED");
   assert.equal(catalog.output.proposals.automaticAcceptance, true);
 });
+
+
+test("durable rejected reference admission cannot obscure completed suggestions",()=>{
+  const skipped={id:"skip",stage:"photo-reference-refinement-v1",status:"SUPERSEDED" as const,
+    output:{referenceAdmission:{status:"SKIPPED",reason:"ALREADY_FRAMED"}}};
+  const view=acquisitionRecognitionJobs([skipped,catalog],false,false);
+  assert.equal(view.job?.id,catalog.id);assert.equal(view.evidence.status,"COMPLETE");
+  assert.equal(view.evidence.result?.proposals[0].card.id,"local-print");
+});
