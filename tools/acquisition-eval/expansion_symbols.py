@@ -80,7 +80,10 @@ def hole_fraction(mask):
 
 
 class ExpansionSymbolBank:
-    def __init__(self, root='/app/node_modules/keyrune'):
+    def __init__(self, root=None):
+        if root is None:
+            module=Path(__file__).resolve()
+            root=Path('/app/node_modules/keyrune') if module.parent==Path('/eval') else module.parents[2]/'node_modules/keyrune'
         assets = verified_assets(root)
         font = ImageFont.truetype(str(Path(root)/'fonts/keyrune.ttf'), 160)
         grouped = {}
