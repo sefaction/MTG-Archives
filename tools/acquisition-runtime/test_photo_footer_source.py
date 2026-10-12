@@ -46,7 +46,7 @@ class FooterSourceTests(unittest.TestCase):
         _,metadata=source_footer_view(self.image,self.geometry,0)
         w,h=metadata['width'],metadata['height']
         polygon=restore_identifier_polygon([[0,0],[w-1,0],[w-1,h-1],[0,h-1]],metadata)
-        self.assertEqual(polygon,[[24.,1230.],[630.,1230.],[630.,1396.],[24.,1396.]])
+        self.assertEqual(polygon,[[24.,1270.],[630.,1270.],[630.,1396.],[24.,1396.]])
         for invalid in [[[0,-1],[10,0],[10,10],[0,10]],[[0,0],[w,0],[w,h],[0,h]],
             [[0,0],[10,0],[float('nan'),10],[0,10]]]:self.assertIsNone(restore_identifier_polygon(invalid,metadata))
 

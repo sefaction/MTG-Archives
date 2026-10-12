@@ -1,7 +1,7 @@
 import {z} from 'zod';
 const point=z.tuple([z.number().finite().nonnegative(),z.number().finite().nonnegative()]);
 const base={version:z.literal('source-footer-identifiers-v1'),
-  bounds:z.tuple([z.literal(24),z.literal(1230),z.literal(630),z.literal(1396)]),
+  bounds:z.tuple([z.literal(24),z.literal(1270),z.literal(630),z.literal(1396)]),
   rotationDegrees:z.union([z.literal(0),z.literal(180)])};
 const extracted=z.object({...base,status:z.literal('EXTRACTED'),sourceQuad:z.array(point).length(4),
   width:z.number().int().min(16).max(1280),height:z.number().int().min(16).max(512),

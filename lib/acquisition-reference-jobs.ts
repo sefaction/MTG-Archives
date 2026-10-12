@@ -206,9 +206,9 @@ export async function admitAcquisitionReferenceRefinement(db: PrismaClient, prin
 const outputSchema = z.object({ photoId: z.string().uuid(), manualAnalysis: z.null().optional(),
   referenceRefinement: acquisitionReferenceLineageInputSchema,
   versions: z.object({ model: hash, catalog: hash, index: hash }),
-  native: nativeSchema.extend({
+  native: nativeSchema.and(z.object({
     geometry: z.object({ status: z.literal("PROPOSED"), method: z.literal("reference-anchor-region-v1"),
-      boundaryVerified: z.literal(false), referenceRegion: z.unknown(), manualRegion: z.never().optional() }).passthrough() }),
+      boundaryVerified: z.literal(false), referenceRegion: z.unknown(), manualRegion: z.never().optional() }).passthrough() })),
   proposals: recognitionResponseSchema.shape.result.unwrap().extend({
     automaticAcceptance: z.literal(false), finish: z.literal("UNKNOWN"), condition: z.literal("UNKNOWN") }),
 });

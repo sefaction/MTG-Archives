@@ -74,7 +74,7 @@ export const nativeSchema = z.object({
     if(observation.text.footerSourceIdentifiers?.length&&!observation.identifierLines?.length)
       ctx.addIssue({code:z.ZodIssueCode.custom,message:'Identifier words require detected source lines'});
     for(const line of observation.identifierLines??[]){
-      if(line.polygon.length!==4||line.polygon.some(([x,y])=>x<24||x>630||y<1230||y>1396))
+      if(line.polygon.length!==4||line.polygon.some(([x,y])=>x<24||x>630||y<1270||y>1396))
         ctx.addIssue({code:z.ZodIssueCode.custom,message:'Identifier line exceeds its measured region'});
     }
     if(observation.identifierSource && observation.identifierSource.rotationDegrees!==observation.rotationDegrees)

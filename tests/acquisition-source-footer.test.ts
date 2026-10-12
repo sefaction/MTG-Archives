@@ -7,7 +7,7 @@ import {nativeSchema} from '../lib/acquisition-recognition-worker';
 import {acquisitionReviewEvidence} from '../lib/acquisition-review-evidence';
 const card={id:'sphere',name:"Commander's Sphere",setCode:'dmc',collectorNumber:'181',lang:'en'};
 const index=createAcquisitionRecognitionIndex([card]);
-const source={version:'source-footer-identifiers-v1',bounds:[24,1230,630,1396],rotationDegrees:0,status:'EXTRACTED',
+const source={version:'source-footer-identifiers-v1',bounds:[24,1270,630,1396],rotationDegrees:0,status:'EXTRACTED',
   sourceQuad:[[20,1800],[900,1800],[900,2000],[20,2000]],width:880,height:200,sourceWidth:880,sourceHeight:200,sourceFrame:{width:1500,height:2024}};
 test('source-only identifiers propose an exact printing while requiring review',()=>{
   const text={title:[card.name],footer:[],footerSourceIdentifiers:['DMC EN','U 0181']};

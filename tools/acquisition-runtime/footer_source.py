@@ -8,7 +8,7 @@ import json
 import numpy as np
 
 VERSION = 'source-footer-identifiers-v1'
-BOUNDS = (24, 1230, 630, 1396)
+BOUNDS = (24, 1270, 630, 1396)
 
 
 def unavailable_source(degrees, reason):
