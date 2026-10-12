@@ -1,0 +1,11 @@
+# Difficult-photo and streaming-feedback fixture cleanup
+
+Scoped follow-up to [#692](https://github.com/sefaction/MTG-Archives/issues/692): `acquisition-photo-text.spec.ts` and `acquisition-photo-text-streaming.spec.ts`. Their original native workflows were qualified with merged #735; this change addresses a separate early-error cleanup boundary. Prior #733/#737/#738/#739 cover other fixtures.
+
+Both unchanged actual finally blocks leave their disposable Player, User, location, correction account and private directory when the initial feedback sweep fails. Actual PostgreSQL probes reproduce these leftovers, then recover only their exact owners. Corrected actual-block probes remove all five namespaces while retaining the injected error in an aggregate error. These controlled fault probes qualify that boundary, rather than establishing full browser success.
+
+The fix independently attempts the original actions and final sweep and retains every cleanup cause. The streaming fixture groups its original finished timestamp and diagnostic report save in one independent action; report write failures cannot prevent database/file teardown. Both complete workflow bodies, all 96 assertion calls, original cleanup operations and deadlines remain unchanged outside the finally blocks.
+
+Eleven actual-block controls cover each cleanup/report action failing separately, all actions failing together and normal completion. Types pass. Five distinct retained development originals match their recorded hashes; the original seven-input workflow includes two deliberate quarter-turn variants, and streaming uses the original three difficult photos. No substitute image or physical scanner operation is used.
+
+Pending: both complete original native workflows, exact two recorded-owner absence, fresh per-run source/feedback/service and actual-original/correction byte conservation, and final-head CI. This batch captures its own current actual-byte baseline rather than comparing against an older ready-file list. Test-only changes require no application/native image rebuild. The 64 decimal GB per-owner allowance, 2% random controls, processing limits, human decisions and explicit Inventory authority remain unchanged. Reused development inputs do not establish independent accuracy, hardware, production or 100/300-input throughput; broader #692/#463 remain open.
