@@ -1,0 +1,121 @@
+{
+  "scope": "THREE_DASHBOARD_SCAN_DISPLAY_CLEANUP_PATHS_NOT_RECOGNITION_ACCURACY",
+  "sourceChecks": {
+    "passed": true,
+    "results": [
+      {
+        "file": "acquisition-batch-dashboard.spec.ts",
+        "actualCleanupBlocks": 2,
+        "originalBodyIdentical": true,
+        "originalAssertionCalls": 63,
+        "originalCleanupOperationsRetained": true
+      },
+      {
+        "file": "acquisition-scan-retention.spec.ts",
+        "actualCleanupBlocks": 1,
+        "originalBodyIdentical": true,
+        "originalAssertionCalls": 40,
+        "originalCleanupOperationsRetained": true
+      }
+    ]
+  },
+  "actualPostgresFailures": {
+    "baselineBlocks": 3,
+    "baselineEachRetained": {
+      "players": 1,
+      "users": 1,
+      "locations": 1,
+      "accounts": 1,
+      "directory": true
+    },
+    "correctedBlocks": 3,
+    "candidateEveryNamespaceRemoved": true,
+    "injectedErrorStillReported": true,
+    "controlledFailureProbesNotFullBrowserPasses": true
+  },
+  "sequencingControls": 16,
+  "typecheckPassed": true,
+  "browser": {
+    "stats": {
+      "startTime": "2026-10-12T00:29:08.135Z",
+      "duration": 38096.68,
+      "expected": 4,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "cases": [
+      {
+        "title": "batch dashboard keeps card totals distinct and cancels, trashes and restores owned batches",
+        "status": "passed",
+        "durationMs": 13177,
+        "retry": 0
+      },
+      {
+        "title": "batch pages remain available after the last row is cancelled or trashed",
+        "status": "passed",
+        "durationMs": 7487,
+        "retry": 0
+      },
+      {
+        "title": "scan preview survives leaving the viewport at 1366px",
+        "status": "passed",
+        "durationMs": 8291,
+        "retry": 0
+      },
+      {
+        "title": "scan preview survives leaving the viewport at 390px",
+        "status": "passed",
+        "durationMs": 7411,
+        "retry": 0
+      }
+    ]
+  },
+  "conservation": {
+    "freshSourceTables": 7,
+    "freshFeedbackTables": 9,
+    "accountExcludedMaintenanceFields": [
+      "updatedAt",
+      "lastCleanupAt"
+    ],
+    "ordinaryServices": 16,
+    "sourceDigest": "2efe34ba721c1bda933942f30ac3fb8411d1d9ef6e9c7409331889bb012b5e5e",
+    "sourceInputs": 598,
+    "fullPhotoProjectionRows": 1095,
+    "fullPhotoProjectionConserved": true,
+    "exactOwners": 4,
+    "modelsPerOwner": 18,
+    "privateDirectoriesAbsent": true,
+    "currentReadyOriginals": 156,
+    "currentReadyOriginalBytes": 898515870,
+    "correctionFiles": 1,
+    "allCurrentOriginalShaSizeIdentitiesMatchStoredAndHistoricalSurvivors": true,
+    "correctionShaSizeIdentityMatchesHistorical": true
+  },
+  "historicalReadyListFailure": {
+    "strictHistoricalComparisonPassed": false,
+    "expectedPreviousReadyOriginals": 1094,
+    "actualCurrentReadyOriginals": 156,
+    "historicalMissing": 938,
+    "allHistoricalMissingRowsStillPresentAndMarkedPurgedBeforeRun": true,
+    "earliestPriorPurge": "2026-10-11T14:45:50.539Z",
+    "latestPriorPurge": "2026-10-11T14:56:57.435Z",
+    "currentFullPhotoProjectionUnchanged": true,
+    "changedSurvivorIdentities": 0,
+    "noRestorationOrPolicyChangePerformed": true,
+    "failedComparisonRetainedNotReclassified": true
+  },
+  "retainedLimits": {
+    "controlledUiEvidence": true,
+    "independentAccuracyQualified": false,
+    "hardwareQualified": false,
+    "largeBatch100Or300Qualified": false,
+    "productionQualified": false
+  },
+  "unchangedPolicy": {
+    "ownerLimitBytes": 64000000000,
+    "randomSampleBasisPoints": 200,
+    "explicitInventoryAuthority": true
+  },
+  "requiredCi": "Exact final evidence head verified separately on PR739"
+}
