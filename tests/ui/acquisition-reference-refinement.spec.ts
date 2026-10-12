@@ -46,6 +46,8 @@ test('ordinary scanner queue performs one source-bound reference reread and pres
       expect(first.status).toBe('COMPLETE');expect(first.output.native.photoDigest).toBe(f.digest);
       expect(reference.candidate.review).toBeNull();expect(reference.candidate.receipt).toBeNull();
       const card=page.getByTestId(`capture-card-${i+1}`);
+      await card.scrollIntoViewIfNeeded();
+      await expect(card.getByRole('link',{name:'Open original photo',exact:true})).toBeVisible();
       if(f.refined){
         expect(reference.status).toBe('COMPLETE');
         expect(reference.output.native.geometry.method).toBe('reference-anchor-region-v1');
@@ -90,6 +92,7 @@ test('ordinary scanner queue performs one source-bound reference reread and pres
         if(f.name==='clipped.png')expect(reference.output.referenceAdmission.reason).toBe('PHYSICAL_CLIPPING');
         else expect(['ALREADY_FRAMED','DIRECT_GEOMETRY_AUTHORITATIVE']).toContain(reference.output.referenceAdmission.reason);
         await expect(card.getByRole('button',{name:'Inferred card',exact:true})).toHaveCount(0);
+        await expect(card.getByText(f.name==='clipped.png'?/missing edge cannot be recovered by trimming/:/aligned to the outer card edges/)).toBeVisible();
         results.push({digest:f.digest,primary:first.output,skip:reference.output});
       }
       const original=await card.getByRole('link',{name:'Open original photo',exact:true}).getAttribute('href');
