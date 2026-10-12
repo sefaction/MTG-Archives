@@ -98,6 +98,8 @@ test('complete physical scanner edges align reading zones; clipped originals can
         await comparison.getByRole('combobox',{name:'Detail window'}).selectOption('FOOTER');
         for(const width of [1366,320]) {
           await page.setViewportSize({width,height:900});
+          await comparison.evaluate(el=>el.scrollIntoView({block:'center',behavior:'instant'}));
+          await expect.poll(async()=>Math.round((await comparison.boundingBox())?.y??0)).toBeGreaterThanOrEqual(180);
           await comparison.screenshot({path:`test-results/printing-detail-${width}.png`});
         }
         await comparison.getByText('Compare printing details',{exact:true}).click();
