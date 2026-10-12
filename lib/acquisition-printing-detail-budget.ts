@@ -5,9 +5,9 @@ export function boundedPrintingDetailOutput<T extends Record<string, unknown>>(o
   const native = output.printingNative as {candidates:Record<string,unknown>[]};
   const summary = output.printing as {candidates:Record<string,unknown>[]};
   const stripped = {...output,
-    printingNative:{...native,candidates:native.candidates.map(({details,referenceImage,...candidate})=>candidate)},
+    printingNative:{...native,candidates:native.candidates.map(({details,referenceImage,setSymbol,...candidate})=>candidate)},
     printing:{...summary,detailStatus:"OUTPUT_BUDGET",candidates:summary.candidates.map(
-      ({details,referenceImage,referenceFace,...candidate})=>candidate)},
+      ({details,referenceImage,referenceFace,setSymbol,...candidate})=>candidate)},
   } as T;
   if(Buffer.byteLength(JSON.stringify(stripped)) > 65536){
     // An already-full legacy result retains its original failure semantics.

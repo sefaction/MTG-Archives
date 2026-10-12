@@ -5,6 +5,7 @@ import {boundedPrintingDetailOutput} from "../lib/acquisition-printing-detail-bu
 import {printingNativeSchema,acquisitionPrintingSummary,applyAcquisitionPrintingEvidence} from "../lib/acquisition-printing";
 import {createAcquisitionRecognitionIndex,proposeOrientedAcquisitionPrintings} from "../lib/acquisition-recognition";
 import {combineAcquisitionCandidates} from "../lib/acquisition-visual";
+import {setSymbolSchema} from '../lib/acquisition-set-symbol';
 
 const details=()=>({version:"registered-printing-details-v1",regions:Object.entries(printingDetailBounds).map(([region,bounds])=>({
   region,bounds:[...bounds],status:"MEASURED",reason:"VISIBLE_REFERENCE_COMPARISON",correlation:.97,colorResidual:1.2,
@@ -41,8 +42,8 @@ test("detail envelope budget preserves primary observations, proposals and stamp
   const primary="p".repeat(57000);
   const extra={...details(),padding:"d".repeat(18000)};
   const output={native:{primary},proposals:{automaticAcceptance:false,proposals:[{id:"original",reasons:["STAMP_PRESENT"]}]},
-    printingNative:{observedStamp:"PRESENT",candidates:[{id:"original",stamp:{status:"PRESENT"},details:extra,referenceImage:{uri:"public"}}]},
-    printing:{observedStamp:"PRESENT",candidates:[{cardId:"original",relation:"AGREES_WITH_STAMP_STATE",details:extra,referenceFace:0,referenceImage:{uri:"public"}}]},
+    printingNative:{observedStamp:"PRESENT",candidates:[{id:"original",stamp:{status:"PRESENT"},details:extra,setSymbol:{padding:'s'.repeat(18000)},referenceImage:{uri:"public"}}]},
+    printing:{observedStamp:"PRESENT",candidates:[{cardId:"original",relation:"AGREES_WITH_STAMP_STATE",details:extra,setSymbol:{padding:'s'.repeat(18000)},referenceFace:0,referenceImage:{uri:"public"}}]},
   };
   const before=JSON.stringify(output);
   const result=boundedPrintingDetailOutput(output);
@@ -52,6 +53,8 @@ test("detail envelope budget preserves primary observations, proposals and stamp
   assert.equal((result.printing as any).detailStatus,"OUTPUT_BUDGET");
   assert.deepEqual(result.printingNative.candidates[0].stamp,{status:"PRESENT"});
   assert.equal((result.printingNative.candidates[0] as any).details,undefined);
+  assert.equal((result.printingNative.candidates[0] as any).setSymbol,undefined);
+  assert.equal((result.printing.candidates[0] as any).setSymbol,undefined);
   assert.equal(JSON.stringify(output),before);
 });
 test("already-full legacy output is not truncated to manufacture a passing result",()=>{
@@ -85,4 +88,13 @@ test("new detail observations preserve exact identifier and stamp decisions and 
   assert(!JSON.stringify(summary.details).includes("colorResidual"));
   assert(!printingNativeSchema.safeParse({...observed,candidates:[{...observed.candidates[0],referenceId:id+":1"}]}).success);
   assert(!printingNativeSchema.safeParse({...observed,candidates:[{...observed.candidates[0],alignment:{status:"UNREADABLE"}}]}).success);
+  const icon={status:'SIMILAR',reason:'SHAPE_COMPARISON',matches:[
+    {family:'a'.repeat(16),codes:['AFR','XDND'],similarity:.97},
+    {family:'b'.repeat(16),codes:['SPM'],similarity:.8}],box:[40,30,50,50]};
+  const setSymbol=setSymbolSchema.parse({version:'expansion-symbol-shapes-v1',bounds:[790,745,960,900],automaticAcceptance:false,
+    query:icon,reference:icon,relation:'SIMILAR_SHAPE'});
+  const withIcon=printingNativeSchema.parse({...observed,candidates:[{...observed.candidates[0],setSymbol}]});
+  assert.deepEqual(applyAcquisitionPrintingEvidence(proposals,withIcon,cards),applyAcquisitionPrintingEvidence(proposals,legacy,cards));
+  assert.deepEqual(acquisitionPrintingSummary(withIcon,cards).candidates[0].setSymbol,setSymbol);
+  assert(!printingNativeSchema.safeParse({...observed,candidates:[{...observed.candidates[0],setSymbol,alignment:{status:'UNREADABLE'}}]}).success);
 });

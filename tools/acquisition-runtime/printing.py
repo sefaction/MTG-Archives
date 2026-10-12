@@ -16,6 +16,7 @@ from PIL import Image, ImageOps
 from catalog_references import sha256
 from printing_evidence import SIZE, register, registration_features, stamp_evidence, candidate_relation, shared_stamp_evidence
 from printing_details import printing_detail_evidence
+from expansion_symbols import ExpansionSymbolBank, expansion_symbol_evidence
 
 VERSION = 'registered-printing-runtime-v1'
 LABELS = Path('/eval/stamp-reference-labels.json')
@@ -53,6 +54,7 @@ class PrintingRuntime:
         self.cache = OrderedDict()
         self.cache_array_bytes = 0
         self.templates = []
+        self.symbol_bank = ExpansionSymbolBank()
         for identity in TEMPLATES:
             image, state, _ = self.reference(identity)
             if state != 'PRESENT':
@@ -109,6 +111,7 @@ class PrintingRuntime:
             warped, alignment, visibility = register(photo, image, query_features, ref_features, return_visibility=True)
             stamp = stamp_evidence(warped, alignment, self.templates, image, state, visibility=visibility)
             details = printing_detail_evidence(warped, alignment, image, visibility)
+            symbol = expansion_symbol_evidence(warped, alignment, image, visibility, self.symbol_bank)
             extra = {}
             if any(r['status'] == 'MEASURED' for r in details['regions']):
                 extra['details'] = details
@@ -117,7 +120,7 @@ class PrintingRuntime:
                     extra['referenceImage'] = {'uri':uri,'sha256':self.records[identity]['sha256']}
             rows.append({'scryfallId': candidate['scryfallId'], 'referenceId': identity,
                          'referenceStampState': state, 'alignment': alignment, 'stamp': stamp,
-                         **extra,
+                         **extra, 'setSymbol': symbol,
                          'relation': candidate_relation(stamp['status'], state)})
         observed, conflicting = shared_stamp_evidence(rows)
         return {'version': VERSION, 'observedStamp': observed,

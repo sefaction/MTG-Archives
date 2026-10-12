@@ -165,6 +165,13 @@ class ExpansionSymbolBank:
                         masks.append((union, box))
         results = []
         for mask, bounds in masks:
+            x,y,w,h=bounds
+            # Recognize the complete mark, not an eye/heart/letter enclosed in
+            # another eligible symbol candidate, across either ink polarity.
+            if any(ow*oh > w*h*1.4 and ox <= x and oy <= y and
+                   ox+ow >= x+w and oy+oh >= y+h
+                   for _,(ox,oy,ow,oh) in masks):
+                continue
             ranked = self.match_mask(mask)
             if ranked:
                 results.append((ranked[0]['similarity'], ranked, bounds))
@@ -173,6 +180,38 @@ class ExpansionSymbolBank:
         _, ranked, bounds = max(results, key=lambda row: row[0])
         if ranked[0]['similarity'] < .9:
             return {'status': 'UNREADABLE', 'reason': 'NO_SUPPORTED_TEMPLATE', 'matches': ranked}
+        x,y,w,h=bounds
+        competing=[(other,box) for score,other,box in results if score>=.9 and
+            other[0]['family']!=ranked[0]['family'] and
+            (box[0]+box[2]<=x or x+w<=box[0] or box[1]+box[3]<=y or y+h<=box[1])]
+        if competing:
+            competitor=max(competing,key=lambda row:row[0][0]['similarity'])[0][0]
+            return {'status':'AMBIGUOUS','reason':'MULTIPLE_OBSERVED_SHAPES',
+                    'matches':[ranked[0],competitor],'box':[int(value) for value in bounds]}
         status = 'SIMILAR' if ranked[0]['similarity']-ranked[1]['similarity'] >= .04 else 'AMBIGUOUS'
         return {'status': status, 'reason': 'SHAPE_COMPARISON', 'matches': ranked,
                 'box': [int(value) for value in bounds]}
+
+
+def expansion_symbol_evidence(warped, alignment, reference, visibility, bank):
+    """A visible standard-card region; catalogue set labels never enter matching."""
+    base={'version':VERSION,'bounds':list(BOUNDS),'automaticAcceptance':False}
+    def failure(reason):
+        return {**base,'query':{'status':'UNREADABLE','reason':reason},
+                'reference':{'status':'UNREADABLE','reason':reason},'relation':'UNRESOLVED'}
+    if warped is None or alignment.get('status')!='ALIGNED':
+        return failure('ALIGNMENT_UNAVAILABLE')
+    if warped.shape!=(1397,1000,3) or visibility is None or visibility.shape!=(1397,1000):
+        return failure('VISIBILITY_UNAVAILABLE')
+    if alignment.get('sourceCardWidth',0)<500:
+        return failure('SOURCE_TOO_SMALL')
+    x0,y0,x1,y1=BOUNDS
+    if np.min(visibility[y0:y1,x0:x1])<254:
+        return failure('REGION_CLIPPED')
+    ref=cv2.resize(reference,(1000,1397))
+    query=bank.observe_patch(warped[y0:y1,x0:x1])
+    expected=bank.observe_patch(ref[y0:y1,x0:x1])
+    relation='UNRESOLVED'
+    if query['status']=='SIMILAR' and expected['status']=='SIMILAR':
+        relation='SIMILAR_SHAPE' if query['matches'][0]['family']==expected['matches'][0]['family'] else 'DIFFERENT_SHAPE'
+    return {**base,'query':query,'reference':expected,'relation':relation}
