@@ -199,3 +199,16 @@ test("saved scanner background trim preserves original-space corners and fixed r
   assert.deepEqual(evidence.readingZones.footer, {top: 1270, bottom: 1397});
   assert.deepEqual(cropPoint(evidence.geometry.quad!, 1, 1), [1559, 2041]);
 });
+
+
+test("inferred geometry and first readings survive bounded private review projection",()=>{
+  const primaryReadings=[{rotationDegrees:0,text:{title:["Original contradiction"],footer:["001","AAA EN"]}}];
+  const evidence=acquisitionReviewEvidence({primaryReadings,
+    native:{geometry:{status:"PROPOSED",method:"reference-anchor-region-v1",boundaryVerified:false,
+      quad:[[0,0],[100,0],[100,140],[0,140]]},orientations:[]},
+    proposals:{evidence:{setCodes:["aaa","bbb"],collectors:["1","2"],languages:["en"]}},
+    referenceRefinement:{privateWorkerMetadata:"not exposed"}})!;
+  assert.equal(evidence.geometry.method,"reference-anchor-region-v1");assert.equal(evidence.geometry.boundaryVerified,false);
+  assert.deepEqual(evidence.primaryObservations,primaryReadings);
+  assert(!JSON.stringify(evidence).includes("privateWorkerMetadata"));
+});
