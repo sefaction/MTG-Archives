@@ -48,10 +48,34 @@
     "malformedOrUnknownEnvelopesRemainValidationFailures": true,
     "fixtureCleanupFailures": 0
   },
+  "liveActions": {
+    "manualBoundaryPrecedenceAndDraftPreservation": true,
+    "cancellationPreventsLatePublication": true,
+    "explicitCommitPreservesReviewReceiptAndFeedback": true,
+    "commitElapsedMilliseconds": 45243,
+    "commitNativeHeldMilliseconds": 3466,
+    "explicitCommitInventoryWrites": 1,
+    "implicitInventoryWrites": 0,
+    "postCommitRetentionDeadlineAssigned": true,
+    "fixtureCleanupFailures": 0
+  },
+  "ordinaryScheduling": {
+    "elapsedMilliseconds": 107723,
+    "owners": 2,
+    "runs": 3,
+    "inputs": 5,
+    "preparedFreshInputsAndEligibleReferenceParentsObservedBeforeRelease": true,
+    "newOwnerGetsNextRawTurn": true,
+    "rawInOtherRunPrecedesWaitingRereads": true,
+    "allFivePrimaryAndFiveReferenceReadsFirstAttempt": true,
+    "inventoryWrites": 0,
+    "fixtureCleanupFailures": 0,
+    "sustainedThroughputOrCollectionScaleAcceptance": false
+  },
   "limitations": [
     "Four rotations are one physical card",
     "Not independent boundary or exact-first-printing accuracy",
-    "Native manual-boundary/commit/cancellation races and broader scheduling/load remain pending",
+    "Sustained scanner load, hardware and collection-scale acceptance remain separate",
     "Primary snapshot refinement remains disabled",
     "Primary worker restart observation is tracked separately in issue 755"
   ]
