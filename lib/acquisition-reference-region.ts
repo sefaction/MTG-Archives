@@ -2,7 +2,7 @@ import { z } from "zod";
 import { printingNativeSchema, type PrintingObservation } from "./acquisition-printing";
 import { acquisitionManualRegionSchema, validateAcquisitionManualRegionFrame, type AcquisitionManualRegion } from "./acquisition-manual-region";
 
-export const REFERENCE_REGION_POLICY = "distributed-reference-region-v1";
+export const REFERENCE_REGION_POLICY = "scanner-rectangle-reference-region-v2";
 export const acquisitionReferenceRegionSchema = z.object({
   version: z.literal(1),
   region: acquisitionManualRegionSchema,
@@ -14,6 +14,25 @@ type Geometry = { status: string; method?: string; framing?: string; quad?: numb
 type Selection = { status: "REJECTED"; reason: string } | {
   status: "PROPOSED"; region: AcquisitionManualRegion; references: string[]; policy: typeof REFERENCE_REGION_POLICY;
 };
+
+// A document scanner permits rotation but does not introduce camera perspective.
+// Apply this physical frame prior in source pixels, before reference agreement.
+// The bounds allow small fitting error; they are not calibrated probabilities.
+// Keep the same conditions in native reference_card_region.py.
+export function scannerReferenceRectangle(quad: number[][]) {
+  if (quad.length !== 4 || quad.some(p=>p.length!==2 || !p.every(Number.isFinite))) return false;
+  const edges=quad.map(([x,y],i)=>[quad[(i+1)%4][0]-x,quad[(i+1)%4][1]-y]);
+  const lengths=edges.map(([x,y])=>Math.hypot(x,y));
+  if(lengths.some(n=>!Number.isFinite(n)||n<=0))return false;
+  for(let i=0;i<4;i++){
+    const [x,y]=edges[i],[a,b]=edges[(i+1)%4];
+    if(Math.abs(x*a+y*b)/(lengths[i]*lengths[(i+1)%4])>.05)return false;
+    const [c,d]=edges[(i+2)%4];
+    if(Math.abs(x*d-y*c)/(lengths[i]*lengths[(i+2)%4])>.05)return false;
+    if(Math.abs(lengths[i]-lengths[(i+2)%4])/Math.max(lengths[i],lengths[(i+2)%4])>.05)return false;
+  }
+  return true;
+}
 
 // Only observed native alignments supply an outline. No saved/expected card ID,
 // proposal score or human selection enters this policy.
@@ -36,7 +55,8 @@ export function selectAcquisitionReferenceRegion(input: {
     const a = candidate.alignment;
     if (a.status !== "ALIGNED" || !a.quad || !a.footerVisible ||
         (a.sourceCardWidth ?? 0) < 500 || (a.inliers ?? 0) < 16 ||
-        (a.supportFraction ?? 0) < .25 || (a.medianReprojectionPixels ?? Infinity) > 3) return [];
+        (a.supportFraction ?? 0) < .25 || (a.medianReprojectionPixels ?? Infinity) > 3 ||
+        !scannerReferenceRectangle(a.quad)) return [];
     try {
       const region = validateAcquisitionManualRegionFrame({ version: 1,
         quad: a.quad.map(([x, y]) => [x / (size[0] - 1), y / (size[1] - 1)]) }, ...size);

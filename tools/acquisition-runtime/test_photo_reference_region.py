@@ -15,7 +15,7 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'acquisition-eval'))
 from baseline import geometry
 from photo_input import decode_photo_input
-from reference_card_region import reference_card_region
+from reference_card_region import reference_card_region, scanner_rectangle
 from test_geometry import tight_scan
 import recognize
 
@@ -39,6 +39,19 @@ def framed(data, metadata):
     return struct.pack('>I', len(hint)) + hint + data
 
 class ReferenceRegionTests(unittest.TestCase):
+    def test_scanner_rectangle_prior_preserves_rotation_and_rejects_projective_hint(self):
+        good = np.array([[80, 60], [1079, 60], [1079, 1456], [80, 1456]], float)
+        for scale in (.5, 1, 1.6):
+            for angle in (0, 15, 90, 180, 270):
+                radians = np.deg2rad(angle)
+                rotation = np.array([[np.cos(radians), -np.sin(radians)], [np.sin(radians), np.cos(radians)]])
+                self.assertTrue(scanner_rectangle((good-good.mean(axis=0)) @ rotation.T * scale + 2000))
+        bad = [[220,60],[1079,60],[939,1456],[80,1456]]
+        self.assertFalse(scanner_rectangle(bad))
+        hint = {'version':1,'quad':[[x/1179,y/1536] for x,y in bad]}
+        with self.assertRaisesRegex(ValueError, 'not a scanner rectangle'):
+            reference_card_region(source(), hint)
+
     def test_distinct_scanner_only_hint_and_exact_original_digest(self):
         data = encoded(source())
         packet = framed(data, {'inputKind': 'CARD_SCAN', 'referenceRegion': region()})

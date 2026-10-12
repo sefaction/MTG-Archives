@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { selectAcquisitionReferenceRegion } from "../lib/acquisition-reference-region";
+import { scannerReferenceRectangle,selectAcquisitionReferenceRegion } from "../lib/acquisition-reference-region";
 import { acquisitionNativeReferenceInput } from "../lib/acquisition-image-input";
 import type { PrintingObservation } from "../lib/acquisition-printing";
 const identity = "cfe4a22f-c945-42f4-8b3a-ac3a03ffa015";
@@ -58,4 +58,31 @@ test("manual geometry, photo input and a prior refinement remain authoritative",
     { alreadyRefined: true }, { geometry: { ...input.geometry, method: "scanner-card-edges" } },
     { geometry: { ...input.geometry, method: "reference-anchor-region-v1" } }])
     assert.equal(selectAcquisitionReferenceRegion({ ...input, ...patch }).status, "REJECTED");
+});
+test("scanner prior rejects sheared references independent of their inlier rank or ordering",()=>{
+  const bad={...candidate,referenceId:identity+":1",alignment:{...candidate.alignment,matches:2000,inliers:900,
+    supportFraction:.9,medianReprojectionPixels:.1,quad:[[220,60],[1219,60],[1079,1456],[80,1456]] as [number,number][]}};
+  assert.equal(scannerReferenceRectangle(bad.alignment.quad!),false);
+  for(const candidates of [[candidate,bad],[bad,candidate]]){
+    const result=selectAcquisitionReferenceRegion({...input,printing:{...printing,sourceSize:[1400,1600],candidates}});
+    assert.equal(result.status,"PROPOSED");
+    if(result.status!=="PROPOSED")throw Error("Supported scanner frame expected");
+    assert.deepEqual(result.references,[identity+":0"]);
+  }
+  assert.equal(selectAcquisitionReferenceRegion({...input,printing:{...printing,sourceSize:[1400,1600],candidates:[bad]}}).status,"REJECTED");
+});
+test("scanner rectangle checks accept uniform scale and rotation in source pixels",()=>{
+  for(const scale of [.5,1,1.6])for(const angle of [0,15,90,180,270]){
+    const radians=angle*Math.PI/180;
+    const points=quad.map(([x,y])=>{
+      const px=(x-579.5)*scale,py=(y-758)*scale;
+      return [2000+px*Math.cos(radians)-py*Math.sin(radians),2000+px*Math.sin(radians)+py*Math.cos(radians)] as [number,number];
+    });
+    assert(scannerReferenceRectangle(points));
+    const result=selectAcquisitionReferenceRegion({...input,printing:{...printing,sourceSize:[4000,4000],
+      candidates:[{...candidate,alignment:{...candidate.alignment,sourceCardWidth:999*scale+1,quad:points}}]}});
+    assert.equal(result.status,"PROPOSED");
+  }
+  for(const bad of [[[0,0],[1,0],[1,0],[0,0]],[[0,0],[100,0],[80,100],[20,100]],
+    [[NaN,0],[1,0],[1,1],[0,1]]])assert(!scannerReferenceRectangle(bad));
 });
