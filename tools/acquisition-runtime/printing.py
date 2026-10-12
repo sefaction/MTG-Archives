@@ -4,6 +4,8 @@ Reuses evaluated registration/stamp policy. Never chooses a reference from photo
 ground truth, never infers absence from a failed detector, never confirms stock.
 """
 from collections import OrderedDict
+import ctypes
+import gc
 import json
 import re
 from pathlib import Path
@@ -20,6 +22,17 @@ LABELS = Path('/eval/stamp-reference-labels.json')
 TEMPLATES = ('58f0a2f9-5c5e-4477-ae7e-a52cf5778962:0', 'cfe4a22f-c945-42f4-8b3a-ac3a03ffa015:0')
 MAX_REFERENCE_CACHE_ENTRIES = 48
 MAX_REFERENCE_CACHE_ARRAY_BYTES = 128 * 1024 * 1024
+_trim = getattr(ctypes.CDLL(None), 'malloc_trim', None)
+if _trim is not None:
+    _trim.argtypes = [ctypes.c_size_t]
+    _trim.restype = ctypes.c_int
+
+
+def release_temporary_memory():
+    """Return released feature/warp pages while preserving all live arrays."""
+    gc.collect()
+    if _trim is not None:
+        _trim(0)
 
 
 def reference_array_bytes(entry):
@@ -56,6 +69,7 @@ class PrintingRuntime:
         with Image.open(path) as source:
             image = cv2.cvtColor(np.asarray(ImageOps.exif_transpose(source).convert('RGB')), cv2.COLOR_RGB2BGR)
         entry = image, state, registration_features(image, True)
+        release_temporary_memory()
         self._remember_reference(identity, entry)
         return entry
 
@@ -77,6 +91,7 @@ class PrintingRuntime:
             raise ValueError('Printing candidates exceed bound or repeat')
         rows = []
         query_features = registration_features(photo)
+        release_temporary_memory()
         for candidate in candidates:
             identity = candidate['referenceId']
             if identity not in self.records:

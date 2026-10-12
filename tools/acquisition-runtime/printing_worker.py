@@ -4,8 +4,6 @@ The parent supplies proposed public identities and unchanged photo bytes after
 catalog reconciliation. This process only reports observable printing evidence.
 """
 import hashlib
-import ctypes
-import gc
 import io
 import json
 from pathlib import Path
@@ -20,7 +18,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageOps, __version__ as pillow_version
 from catalog_references import sha256
-from printing import PrintingRuntime, VERSION, LABELS
+from printing import PrintingRuntime, VERSION, LABELS, release_temporary_memory
 from manual_card_region import manual_card_source
 from photo_input import validate_manual_region
 
@@ -35,10 +33,6 @@ MAX_PHOTO = 10 * 1024 * 1024
 MAX_ENVELOPE = MAX_PHOTO + 65536
 _runtime = None
 _records = None
-_trim = getattr(ctypes.CDLL(None), 'malloc_trim', None)
-if _trim is not None:
-    _trim.argtypes = [ctypes.c_size_t]
-    _trim.restype = ctypes.c_int
 
 
 def compact_reference_record(value):
@@ -51,15 +45,6 @@ def compact_reference_record(value):
     if all(key in value for key in required):
         return {key: value[key] for key in (*required, 'url') if key in value}
     return value
-
-
-def release_temporary_memory():
-    # OpenCV's released SIFT/warp buffers can remain in glibc's free arenas.
-    # Returning unused pages does not evict live reference arrays or change
-    # pixels, features, templates, candidate identities or detection settings.
-    gc.collect()
-    if _trim is not None:
-        _trim(0)
 
 
 def descriptor():

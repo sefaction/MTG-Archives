@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'acquisition-runtime'))
 import printing_worker
+import printing
 
 
 class PrintingMemoryTests(unittest.TestCase):
@@ -22,12 +23,12 @@ class PrintingMemoryTests(unittest.TestCase):
 
     def test_allocator_cleanup_collects_first_and_never_alters_live_objects(self):
         events=[];live={'pixels':[1,2,3]}
-        with (patch.object(printing_worker.gc,'collect',side_effect=lambda:events.append('collect')),
-              patch.object(printing_worker,'_trim',side_effect=lambda n:events.append(('trim',n)))):
+        with (patch.object(printing.gc,'collect',side_effect=lambda:events.append('collect')),
+              patch.object(printing,'_trim',side_effect=lambda n:events.append(('trim',n)))):
             printing_worker.release_temporary_memory()
         self.assertEqual(events,['collect',('trim',0)])
         self.assertEqual(live,{'pixels':[1,2,3]})
-        with patch.object(printing_worker,'_trim',None),patch.object(printing_worker.gc,'collect') as collect:
+        with patch.object(printing,'_trim',None),patch.object(printing.gc,'collect') as collect:
             printing_worker.release_temporary_memory();collect.assert_called_once_with()
 
 
