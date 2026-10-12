@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "issue": 736,
+  "scope": "ACTUAL_CUMULATIVE_BROWSER_FAILED_ADDED_EXPECTED_FIRST_PRINTING_ROW",
+  "startedAt": "2026-10-11T10:54:30.985Z",
+  "finishedAt": "2026-10-11T10:57:32.436Z",
+  "stats": {
+    "startTime": "2026-10-11T10:54:29.809Z",
+    "duration": 187947.046,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  },
+  "allThreeNamesAndEstablishedRecognitionChecksPassed": true,
+  "firstReview": {
+    "condition": "LP",
+    "revision": 2,
+    "catalogCandidates": 1,
+    "savedBeforeBatchCatalogComplete": true
+  },
+  "feedback": {
+    "reviewEvents": 1,
+    "initialEvidenceBundles": 16,
+    "privateOriginalDigestPassed": true,
+    "finalConservationQualified": false
+  },
+  "untouchedPrintingComplete": 2,
+  "firstPrintingJobs": 0,
+  "failure": "Early human review arrived before printing admission. Exact-one-first-job guard fails; final feedback conservation not reached. Original recognition assertions and other two real printing completions pass."
+}

@@ -1,0 +1,197 @@
+{
+  "version": 1,
+  "scope": "REUSED_DIFFICULT_PHOTOS_ACTUAL_CUMULATIVE_STREAMING_AND_SAVED_FEEDBACK",
+  "runtimeSource": "2efe34ba721c1bda933942f30ac3fb8411d1d9ef6e9c7409331889bb012b5e5e",
+  "nativeDescriptor": "a679043d0bb0ec7b27c605e3acf1805c6221a9e37c3a909de57c43456a2df202",
+  "streaming": {
+    "passed": true,
+    "startedAt": "2026-10-11T10:59:23.339Z",
+    "finishedAt": "2026-10-11T11:02:26.652Z",
+    "stats": {
+      "startTime": "2026-10-11T10:59:22.275Z",
+      "duration": 188133.351,
+      "expected": 1,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "verifierSha256": "49bb3aa16c13090c947f00054a2f42998c91500ff25bcbfb43863dd8087d891c",
+    "results": [
+      {
+        "name": "Winter, Team Player",
+        "expectedNameOffered": true,
+        "primaryConserved": true,
+        "photoDigestMatched": true,
+        "descriptor": "a679043d0bb0ec7b27c605e3acf1805c6221a9e37c3a909de57c43456a2df202",
+        "primaryMilliseconds": 2444,
+        "wholePhotoStatus": "COMPLETE",
+        "manualDecision": true
+      },
+      {
+        "name": "Winter, Tormented Loner",
+        "expectedNameOffered": true,
+        "primaryConserved": true,
+        "photoDigestMatched": true,
+        "descriptor": "a679043d0bb0ec7b27c605e3acf1805c6221a9e37c3a909de57c43456a2df202",
+        "primaryMilliseconds": 776,
+        "wholePhotoStatus": "PARTIAL",
+        "manualDecision": true
+      },
+      {
+        "name": "Cunning Geysermage",
+        "expectedNameOffered": true,
+        "primaryConserved": true,
+        "photoDigestMatched": true,
+        "descriptor": "a679043d0bb0ec7b27c605e3acf1805c6221a9e37c3a909de57c43456a2df202",
+        "primaryMilliseconds": 3001,
+        "wholePhotoStatus": "PARTIAL",
+        "manualDecision": true
+      }
+    ],
+    "firstReview": {
+      "condition": "LP",
+      "revision": 2,
+      "catalogCandidates": 1,
+      "savedBeforeBatchCatalogComplete": true
+    },
+    "printingLifecycle": {
+      "untouchedComplete": 2,
+      "firstStatus": "SUPERSEDED",
+      "firstRevision": 1,
+      "savedRevision": 2
+    },
+    "feedback": {
+      "reviewEvents": 1,
+      "initialEvidenceBundles": 16,
+      "finalEvidenceBundles": 16,
+      "originalImageDigestConserved": true,
+      "earlyLpReviewConserved": true,
+      "immutableEventsConserved": true,
+      "initialEvidenceRowsConserved": true,
+      "unverifiedLabelConserved": true,
+      "printingComplete": 2,
+      "printingRetired": 1,
+      "printingNotEnqueued": 0
+    }
+  },
+  "sevenInput": {
+    "passed": true,
+    "stats": {
+      "startTime": "2026-10-11T11:03:40.695Z",
+      "duration": 336640.301,
+      "expected": 1,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "verifierSha256": "ca3be5ea17b1387a8e36b2883bb994a8847af98bd05f8f3a82a194134468628d",
+    "allActualPrintingJobsComplete": 7,
+    "allPriorHumanReviewsNull": true,
+    "savedLpSurvivesReload": true,
+    "inventoryWrites": 0,
+    "results": [
+      {
+        "name": "Winter, Team Player",
+        "inputKind": "PHOTO",
+        "rotationDegrees": 0,
+        "expectedNameOffered": true,
+        "primaryConserved": true,
+        "photoDigestMatched": true,
+        "primaryMilliseconds": 3966,
+        "wholePhotoStatus": "COMPLETE",
+        "manualDecision": true
+      },
+      {
+        "name": "Winter, Tormented Loner",
+        "inputKind": "PHOTO",
+        "rotationDegrees": 0,
+        "expectedNameOffered": true,
+        "primaryConserved": true,
+        "photoDigestMatched": true,
+        "primaryMilliseconds": 758,
+        "wholePhotoStatus": "PARTIAL",
+        "manualDecision": true
+      },
+      {
+        "name": "Cunning Geysermage",
+        "inputKind": "PHOTO",
+        "rotationDegrees": 0,
+        "expectedNameOffered": true,
+        "primaryConserved": true,
+        "photoDigestMatched": true,
+        "primaryMilliseconds": 7521,
+        "wholePhotoStatus": "PARTIAL",
+        "manualDecision": true
+      },
+      {
+        "name": "Krosan Vorine",
+        "inputKind": "PHOTO",
+        "rotationDegrees": 0,
+        "expectedNameOffered": true,
+        "primaryConserved": true,
+        "photoDigestMatched": true,
+        "primaryMilliseconds": 7479,
+        "wholePhotoStatus": "NOT_NEEDED",
+        "manualDecision": true
+      },
+      {
+        "name": "Steel Wrecking Ball",
+        "inputKind": "CARD_SCAN",
+        "rotationDegrees": 0,
+        "expectedNameOffered": true,
+        "primaryConserved": true,
+        "photoDigestMatched": true,
+        "primaryMilliseconds": 7405,
+        "wholePhotoStatus": "NOT_NEEDED",
+        "manualDecision": true
+      },
+      {
+        "name": "Winter, Tormented Loner",
+        "inputKind": "PHOTO",
+        "rotationDegrees": 90,
+        "expectedNameOffered": true,
+        "primaryConserved": true,
+        "photoDigestMatched": true,
+        "primaryMilliseconds": 1107,
+        "wholePhotoStatus": "PARTIAL",
+        "manualDecision": true
+      },
+      {
+        "name": "Cunning Geysermage",
+        "inputKind": "PHOTO",
+        "rotationDegrees": 270,
+        "expectedNameOffered": true,
+        "primaryConserved": true,
+        "photoDigestMatched": true,
+        "primaryMilliseconds": 3184,
+        "wholePhotoStatus": "PARTIAL",
+        "manualDecision": true
+      }
+    ]
+  },
+  "limits": [
+    "Reused development inputs, not independent accuracy",
+    "Manual name suggestions, not exact-printing acceptance",
+    "Prepared startup cost is separate from unchanged photo-processing bounds",
+    "No hardware, production throughput or large-batch qualification"
+  ],
+  "conservation": {
+    "originalFiles": 1094,
+    "originalBytes": 2845198201,
+    "allOriginalDigestsAndSizesConserved": true,
+    "preservedCorrectionFiles": 1,
+    "postFirstRunFeedbackTablesConserved": 9,
+    "originalEvidenceRowsConserved": 32,
+    "newOrdinaryEvidenceAppends": 3,
+    "newOrdinaryEvidenceBytes": 46660,
+    "originalAccountFieldsConserved": true,
+    "allSevenSourceInventoryProjectionsConserved": true,
+    "exactFixtureOwnersAbsent": 6,
+    "checkedModelsPerOwner": 14,
+    "privateFixtureDirectoriesAbsent": true,
+    "ordinaryServices": 16,
+    "otherServicesUnchanged": 14,
+    "webAndOcrReplacementsOnly": true,
+    "existingMountsLimitsEnvironmentPreserved": true
+  }
+}

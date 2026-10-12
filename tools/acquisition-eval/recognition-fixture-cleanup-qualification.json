@@ -1,0 +1,158 @@
+{
+  "scope": "THREE_RECOGNITION_FIXTURE_CLEANUPS_NOT_INDEPENDENT_ACCURACY",
+  "sourceChecks": {
+    "passed": true,
+    "results": [
+      {
+        "file": "acquisition-printing.spec.ts",
+        "originalBodyIdentical": true,
+        "originalAssertionCalls": 73,
+        "originalCleanupOperationsRetained": true
+      },
+      {
+        "file": "acquisition-footer-identifiers.spec.ts",
+        "originalBodyIdentical": true,
+        "originalAssertionCalls": 25,
+        "originalCleanupOperationsRetained": true
+      },
+      {
+        "file": "acquisition-scanner-framing.spec.ts",
+        "originalBodyIdentical": true,
+        "originalAssertionCalls": 31,
+        "originalCleanupOperationsRetained": true
+      }
+    ]
+  },
+  "actualPostgresFailures": {
+    "baselineFixtures": 3,
+    "baselineEachRetained": {
+      "players": 1,
+      "users": 1,
+      "locations": 1,
+      "accounts": 1,
+      "directory": true
+    },
+    "candidateFixtures": 3,
+    "candidateEveryNamespaceRemoved": true,
+    "injectedFailureStillReported": true,
+    "controlledFailuresNotBrowserPasses": true
+  },
+  "sequencingControls": 17,
+  "typecheckPassed": true,
+  "initialBrowser": {
+    "stats": {
+      "startTime": "2026-10-11T14:13:48.593Z",
+      "duration": 285665.546,
+      "expected": 2,
+      "skipped": 0,
+      "unexpected": 1,
+      "flaky": 0
+    },
+    "cases": [
+      {
+        "file": "acquisition-footer-identifiers.spec.ts",
+        "title": "real scanner footers reach shared catalog and printing review without automatic confirmation",
+        "status": "passed",
+        "durationMs": 174511,
+        "retry": 0
+      },
+      {
+        "file": "acquisition-printing.spec.ts",
+        "title": "printing checks cover text-led stamped scans and image-led unreadable text without Inventory changes",
+        "status": "failed",
+        "durationMs": 4580,
+        "retry": 0,
+        "errorCategory": "SETUP_INPUT_ROOT_MISSING_FILE"
+      },
+      {
+        "file": "acquisition-scanner-framing.spec.ts",
+        "title": "complete physical scanner edges align reading zones; clipped originals cannot supply them",
+        "status": "passed",
+        "durationMs": 102831,
+        "retry": 0
+      }
+    ]
+  },
+  "printingOnlyCorrectedRootRerun": {
+    "stats": {
+      "startTime": "2026-10-11T14:19:26.593Z",
+      "duration": 301383.011,
+      "expected": 1,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "cases": [
+      {
+        "file": "acquisition-printing.spec.ts",
+        "title": "printing checks cover text-led stamped scans and image-led unreadable text without Inventory changes",
+        "status": "passed",
+        "durationMs": 300547,
+        "retry": 0
+      }
+    ]
+  },
+  "qualifiedCases": [
+    {
+      "file": "acquisition-footer-identifiers.spec.ts",
+      "title": "real scanner footers reach shared catalog and printing review without automatic confirmation",
+      "status": "passed",
+      "durationMs": 174511,
+      "retry": 0
+    },
+    {
+      "file": "acquisition-scanner-framing.spec.ts",
+      "title": "complete physical scanner edges align reading zones; clipped originals cannot supply them",
+      "status": "passed",
+      "durationMs": 102831,
+      "retry": 0
+    },
+    {
+      "file": "acquisition-printing.spec.ts",
+      "title": "printing checks cover text-led stamped scans and image-led unreadable text without Inventory changes",
+      "status": "passed",
+      "durationMs": 300547,
+      "retry": 0
+    }
+  ],
+  "inputs": {
+    "distinctRecordedOriginals": 9,
+    "workflowSourceModeCases": 10,
+    "printingRepeatedOriginalIntentional": true,
+    "allSourceShaSizeVerified": true
+  },
+  "conservation": {
+    "freshSourceTables": 7,
+    "freshFeedbackTables": 9,
+    "accountExcludedMaintenanceFields": [
+      "updatedAt",
+      "lastCleanupAt"
+    ],
+    "ordinaryServices": 16,
+    "sourceDigest": "2efe34ba721c1bda933942f30ac3fb8411d1d9ef6e9c7409331889bb012b5e5e",
+    "sourceInputs": 598,
+    "exactOwnersIncludingFailedSetup": 4,
+    "modelsPerOwner": 18,
+    "privateDirectoriesAbsent": true,
+    "actualRetainedOriginals": 1094,
+    "actualRetainedOriginalBytes": 2845198201,
+    "actualCorrectionFiles": 1,
+    "allOriginalAndCorrectionShaSizeIdentitiesConserved": true
+  },
+  "retainedLimitations": {
+    "initialPrintingSetupInputRootFailure": true,
+    "initialPrintingFailureNotAWorkflowPass": true,
+    "onlyPrintingRerunAfterCorrectingInputRoot": true,
+    "optionalBasicLandAndReuseModesEnabled": false,
+    "independentAccuracyQualified": false,
+    "hardwareQualified": false,
+    "largeBatch100Or300Qualified": false,
+    "productionQualified": false
+  },
+  "unchangedPolicy": {
+    "ownerLimitBytes": 64000000000,
+    "randomSampleBasisPoints": 200,
+    "explicitInventoryAuthority": true
+  },
+  "requiredCi": "All3 source10535f1 CI passed; exact final evidence head checked separately on PR738"
+}

@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "issue": 736,
+  "scope": "ACTUAL_CUMULATIVE_BROWSER_QUALIFICATION_FAILED_DRAFT_PRINTING_COUNT",
+  "runtimeSource": "2efe34ba721c1bda933942f30ac3fb8411d1d9ef6e9c7409331889bb012b5e5e",
+  "nativeDescriptor": "a679043d0bb0ec7b27c605e3acf1805c6221a9e37c3a909de57c43456a2df202",
+  "startedAt": "2026-10-11T10:33:34.106Z",
+  "finishedAt": "2026-10-11T10:48:26.766Z",
+  "durationMilliseconds": 939261.81,
+  "stats": {
+    "startTime": "2026-10-11T10:33:33.060Z",
+    "duration": 939261.81,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  },
+  "results": [
+    {
+      "name": "Winter, Team Player",
+      "primaryMilliseconds": 3985,
+      "photoTextStatus": "PARTIAL",
+      "expectedNameOffered": true,
+      "primaryConserved": true,
+      "manualDecision": true
+    },
+    {
+      "name": "Winter, Tormented Loner",
+      "primaryMilliseconds": 936,
+      "photoTextStatus": "PARTIAL",
+      "expectedNameOffered": true,
+      "primaryConserved": true,
+      "manualDecision": true
+    },
+    {
+      "name": "Cunning Geysermage",
+      "primaryMilliseconds": 3270,
+      "photoTextStatus": "PARTIAL",
+      "expectedNameOffered": true,
+      "primaryConserved": true,
+      "manualDecision": true
+    }
+  ],
+  "feedback": {
+    "firstLpSaved": true,
+    "reviewEvents": 1,
+    "initialEvidenceBundles": 19,
+    "originalDigestPassed": true,
+    "finalConservationQualified": false
+  },
+  "printing": {
+    "untouchedComplete": 2,
+    "firstStatus": "SUPERSEDED",
+    "firstError": "INPUT_CHANGED",
+    "savedRevision": 2,
+    "activeFirstLease": false,
+    "observationSource": "Earlier live read-only per-candidate probe output in this scheduled run; final count failure confirms two COMPLETE. Late probe after finally cleanup returned zero rows."
+  },
+  "failure": "Final draft printing count expected3, received2; first stale job safely retired after human review. Original recognition assertions pass; final feedback assertions not reached."
+}

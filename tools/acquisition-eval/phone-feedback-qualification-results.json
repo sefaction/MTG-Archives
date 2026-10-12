@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "scope": "REUSED_DEVELOPMENT_PHONE_QUALIFICATION_FAILED_NOT_INDEPENDENT_ACCURACY",
+  "recordedAt": "2026-10-11T06:31:23.271Z",
+  "setup": {
+    "interruptedFailure": {
+      "startTime": "2026-10-11T06:03:12.782Z",
+      "duration": 312985.581,
+      "expected": 0,
+      "skipped": 0,
+      "unexpected": 1,
+      "flaky": 0
+    },
+    "pendingHiddenControl": "Batch finish",
+    "failedAttemptRetained": true
+  },
+  "streaming": {
+    "stats": {
+      "startTime": "2026-10-11T06:11:38.146Z",
+      "duration": 695628.637,
+      "expected": 0,
+      "skipped": 0,
+      "unexpected": 1,
+      "flaky": 0
+    },
+    "failedOriginalAssertion": "Winter, Team Player expected name offered",
+    "feedbackAssertionsReached": false,
+    "sevenInputSiblingRun": false
+  },
+  "isolated": {
+    "descriptor": "3c33afbbad9ad174389c94aa07f7a72e0f3a02116e1c0213ebbf278a6220fb4c",
+    "snapshotSha256": "2d9b7816673be3e1c7f17049de7a8775ea52d5816b29b853feb775f37de4b830",
+    "catalogCards": 109271,
+    "cpus": 1,
+    "memoryBytes": 2147483648,
+    "network": "none",
+    "requestDeadlineMilliseconds": 45000,
+    "wholePhotoEnvelopeMilliseconds": 35000,
+    "results": [
+      {
+        "name": "Winter, Team Player",
+        "inputKind": "PHOTO",
+        "progressMilliseconds": [],
+        "primaryMilliseconds": 23684,
+        "reportedPrimaryMilliseconds": 23118,
+        "geometryStatus": "PROPOSED",
+        "fallbackNeeded": true,
+        "fallbackBudgetMilliseconds": 11253,
+        "photoTextStatus": "UNAVAILABLE",
+        "photoTextReason": "TIME_BUDGET",
+        "expectedNameOffered": false,
+        "primaryConserved": true,
+        "automaticAcceptance": false,
+        "elapsedMilliseconds": 36561
+      },
+      {
+        "name": "Winter, Tormented Loner",
+        "inputKind": "PHOTO",
+        "progressMilliseconds": [
+          25520,
+          34831
+        ],
+        "primaryMilliseconds": 6239,
+        "reportedPrimaryMilliseconds": 4641,
+        "geometryStatus": "NEEDS_CROP",
+        "fallbackNeeded": true,
+        "fallbackBudgetMilliseconds": 28757,
+        "photoTextStatus": "PARTIAL",
+        "photoTextReason": "TIME_BUDGET",
+        "expectedNameOffered": true,
+        "primaryConserved": true,
+        "automaticAcceptance": false,
+        "elapsedMilliseconds": 35064
+      },
+      {
+        "name": "Cunning Geysermage",
+        "inputKind": "PHOTO",
+        "progressMilliseconds": [],
+        "primaryMilliseconds": 29555,
+        "reportedPrimaryMilliseconds": 29000,
+        "geometryStatus": "PROPOSED",
+        "fallbackNeeded": true,
+        "fallbackBudgetMilliseconds": 5045,
+        "photoTextStatus": "UNAVAILABLE",
+        "photoTextReason": "TIME_BUDGET",
+        "expectedNameOffered": false,
+        "primaryConserved": true,
+        "automaticAcceptance": false,
+        "elapsedMilliseconds": 35735
+      },
+      {
+        "name": "Krosan Vorine",
+        "inputKind": "PHOTO",
+        "progressMilliseconds": [],
+        "primaryMilliseconds": 24716,
+        "reportedPrimaryMilliseconds": 17400,
+        "geometryStatus": "PROPOSED",
+        "fallbackNeeded": false,
+        "fallbackBudgetMilliseconds": 10217,
+        "expectedNameOffered": true,
+        "primaryConserved": true,
+        "automaticAcceptance": false,
+        "elapsedMilliseconds": 24783
+      },
+      {
+        "name": "Steel Wrecking Ball",
+        "inputKind": "CARD_SCAN",
+        "progressMilliseconds": [],
+        "primaryMilliseconds": 10173,
+        "reportedPrimaryMilliseconds": 10158,
+        "geometryStatus": "PROPOSED",
+        "fallbackNeeded": false,
+        "fallbackBudgetMilliseconds": 24805,
+        "expectedNameOffered": true,
+        "primaryConserved": true,
+        "automaticAcceptance": false,
+        "elapsedMilliseconds": 10195
+      }
+    ],
+    "allExpectedNamesOffered": false
+  },
+  "typesPassed": true,
+  "originalAssertionCallsPreserved": {
+    "streaming": 56,
+    "sevenInput": 54
+  },
+  "limits": [
+    "Two failed actual browser attempts; no full-native acceptance pass",
+    "Saved streaming feedback acceptance unreached",
+    "Reused development inputs; no independent accuracy",
+    "No root cause attribution for primary OCR cost"
+  ]
+}
