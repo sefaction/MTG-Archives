@@ -240,12 +240,64 @@ def scanner_card_edges(image):
                     return None, None
     return order_quad(q), 'ALIGNED'
 
+def scanner_white_card_edges(image):
+    """Propose a visible bright physical rim against uniform shaded backing.
+
+    This is a separate fallback, not an inversion of the card's artwork. Only
+    near-white pixels form its silhouette. Pure-white backing cannot distinguish
+    a white card border and remains unqualified. The existing straight-side,
+    aspect, clipping, multiple-object and full-rim enclosure guards also apply.
+    """
+    h, w = image.shape[:2]
+    samples = (image[0, w//4:3*w//4], image[-1, w//4:3*w//4],
+               image[h//4:3*h//4, 0], image[h//4:3*h//4, -1])
+    supported = []
+    for sample in samples:
+        level = np.median(sample, axis=0)
+        # Require neutral, light/gray backing with a visible brightness gap.
+        # Three supported margins allow the shared fitter to diagnose clipping.
+        supported.append(bool(np.min(level) >= 100 and np.max(level) <= 225
+                              and np.ptp(level) <= 12
+                              and np.mean(np.max(np.abs(sample.astype(float)-level), axis=1) <= 8) >= .95))
+    if sum(supported) < 3:
+        return None, None
+    bright = np.min(image, axis=2) >= 245
+    # Reuse the independently guarded exterior line fitter on a silhouette.
+    # This temporary image is neither saved nor supplied to OCR/retrieval.
+    silhouette = np.repeat(np.where(bright, 0, 180).astype(np.uint8)[:, :, None], 3, axis=2)
+    quad, framing = scanner_card_edges(silhouette)
+    if quad is None:
+        return None, framing
+    if not all(supported):
+        return None, None
+    # The original pixels must support every proposed side. An isolated bright
+    # inner frame beside darker card printing is not scanner backing.
+    for i in range(4):
+        start, end = quad[i], quad[(i+1) % 4]
+        tangent = (end-start)/np.linalg.norm(end-start)
+        inward = np.array([-tangent[1], tangent[0]])
+        points = start+(end-start)*np.linspace(.20, .80, 80)[:, None]
+        outside = np.rint(points-5*inward).astype(int)
+        if (np.any(outside[:, 0] < 0) or np.any(outside[:, 0] >= w)
+                or np.any(outside[:, 1] < 0) or np.any(outside[:, 1] >= h)):
+            return None, None
+        observed = image[outside[:, 1], outside[:, 0]].astype(float)
+        background = np.median(samples[(0, 3, 1, 2)[i]], axis=0)
+        if np.mean(np.max(np.abs(observed-background), axis=1) <= 8) < .95:
+            return None, None
+    return quad, 'ALIGNED'
+
+
 def geometry(image, input_kind='PHOTO'):
     h, w = image.shape[:2]
     if input_kind not in ('PHOTO', 'CARD_SCAN'):
         raise ValueError('Unknown image input kind')
     if input_kind == 'CARD_SCAN' or preserve_full_frame(image):
         edges, framing = scanner_card_edges(image) if input_kind == 'CARD_SCAN' else (None, None)
+        white_edges = False
+        if input_kind == 'CARD_SCAN' and edges is None and framing is None:
+            edges, framing = scanner_white_card_edges(image)
+            white_edges = edges is not None
         if framing == 'CLIPPED':
             return None, {"status": "NEEDS_CROP", "framing": "CLIPPED"}
         trimmed = scanner_background_quad(image) if input_kind == 'CARD_SCAN' else None
@@ -253,7 +305,8 @@ def geometry(image, input_kind='PHOTO'):
         transform = cv2.getPerspectiveTransform(q.astype(np.float32), np.float32([[0,0],[999,0],[999,1396],[0,1396]]))
         crop = cv2.warpPerspective(image, transform, (1000, 1397))
         return crop, {"status": "PROPOSED", "quad": q.tolist(),
-                      "method": ("scanner-card-edges" if edges is not None else
+                      "method": ("scanner-white-card-edges" if white_edges else
+                                 "scanner-card-edges" if edges is not None else
                                  "scanner-background-trim" if trimmed is not None else
                                  "declared-card-scan" if input_kind == 'CARD_SCAN' else "full-frame"),
                       "confidence": None, **({"framing": framing} if framing else {})}

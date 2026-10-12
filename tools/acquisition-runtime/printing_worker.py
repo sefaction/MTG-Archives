@@ -120,7 +120,8 @@ def request(envelope, desc):
         result['manualRegion'] = manual_region
     else:
         result = _runtime.observe(photo, candidates)
-    return {**result, 'descriptor': desc['digest'], 'photoDigest': hashlib.sha256(data).hexdigest(),
+    return {**result, 'sourceSize': [int(photo.shape[1]), int(photo.shape[0])],
+            'descriptor': desc['digest'], 'photoDigest': hashlib.sha256(data).hexdigest(),
             'milliseconds': round((time.monotonic() - started) * 1000)}
 
 

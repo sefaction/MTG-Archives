@@ -18,15 +18,16 @@ test('complete physical scanner edges align reading zones; clipped originals can
   test.setTimeout(900000);
   const tag=`ui-scan-framing-${randomUUID()}`, password=randomUUID(), started=Date.now();
   const fixtures=[{name:'aligned.png',buffer:readFileSync(aligned!),framing:'ALIGNED'},
-    {name:'clipped.png',buffer:readFileSync(clipped!),framing:'CLIPPED'}]
+    {name:'clipped.png',buffer:readFileSync(clipped!),framing:'CLIPPED'},
+    ...(process.env.MTG_WHITE_EDGE_SCAN_PATH ? [{name:'white-rim.png',buffer:readFileSync(process.env.MTG_WHITE_EDGE_SCAN_PATH),framing:'ALIGNED'}] : [])]
     .map(f=>({...f,digest:createHash('sha256').update(f.buffer).digest('hex')}));
-  expect(fixtures.map(f=>f.digest)).toEqual([
+  expect(fixtures.slice(0,2).map(f=>f.digest)).toEqual([
     'db588adc1cddf7e3c711aaa749ed07cd21671fa4b93fc37dd976490cba4ba521',
     'dcda2c55851b2348d13df78c94ae3cf784e3c61f4a7072286f167a6cbaec9b6d',
   ]);
   const results:unknown[]=[];
   try {
-    database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash,role:'PLAYER'}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:2,sections:[]}}});`);
+    database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash,role:'PLAYER'}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:${fixtures.length},sections:[]}}});`);
     await page.goto('/login');
     await page.getByLabel(/username or email/i).fill(tag);
     await page.getByLabel(/^password$/i).fill(password);
@@ -40,7 +41,7 @@ test('complete physical scanner edges align reading zones; clipped originals can
     await page.getByRole('button',{name:'Advanced',exact:true}).click();
     await page.getByLabel('Choose card photos').setInputFiles(fixtures.map(f=>({name:f.name,buffer:f.buffer,mimeType:'image/png'})));
     // Ordinary admission and workers; no queue, priority or publication override.
-    await expect.poll(()=>Number(database(`console.log(await p.acquisitionProcessingJob.count({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-printing-evidence-v1',status:'COMPLETE'}}));`)),{timeout:600000,intervals:[1000,3000,5000]}).toBe(2);
+    await expect.poll(()=>Number(database(`console.log(await p.acquisitionProcessingJob.count({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},stage:'photo-printing-evidence-v1',status:'COMPLETE'}}));`)),{timeout:600000,intervals:[1000,3000,5000]}).toBe(fixtures.length);
     for(const [i,f] of fixtures.entries()) {
       const result=JSON.parse(database(`const job=await p.acquisitionProcessingJob.findFirstOrThrow({where:{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}},artifact:{digest:${JSON.stringify(f.digest)}},stage:'photo-printing-evidence-v1',status:'COMPLETE'},orderBy:{createdAt:'desc'},select:{output:true,candidateRevision:true,candidate:{select:{revision:true,review:true,proposal:true,receipt:true}}}});console.log(JSON.stringify(job));`));
       expect(result.candidateRevision).toBe(result.candidate.revision);
@@ -60,7 +61,24 @@ test('complete physical scanner edges align reading zones; clipped originals can
         expect(result.output.native.text.title.join(' ')).toMatch(/Blessing/i);
         await expect(card.getByRole('button',{name:'Prepared card',exact:true})).toBeEnabled();
         await expect(card.getByText(/Reading image aligned to the outer card edges/)).toBeVisible();
-      } else {
+        expect(result.output.printingNative.sourceSize).toEqual([1620,2160]);
+        const selectedId=result.output.proposals.proposals[0].card.id;
+        const anchored=result.output.printing.candidates.find((c:any)=>c.cardId===selectedId && c.referenceBoundary)?.referenceBoundary;
+        expect(anchored).toBeTruthy();
+        await card.getByRole('button',{name:'Edit card boundary',exact:true}).click();
+        const editor=card.getByRole('region',{name:'Card boundary editor',exact:true});
+        await expect(editor.getByTestId('reference-boundary-suggestion')).toBeVisible();
+        await editor.getByRole('button',{name:'Use reference outline',exact:true}).click();
+        const corner=editor.getByRole('button',{name:'Card corner 1',exact:true});
+        await expect(corner).toHaveAttribute('title',`Corner 1: ${Math.round(anchored.quad[0][0]*100)}% across, ${Math.round(anchored.quad[0][1]*100)}% down`);
+        for(const width of [1366,320]) {
+          await page.setViewportSize({width,height:900});
+          await editor.scrollIntoViewIfNeeded();
+          expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+          await editor.screenshot({path:`test-results/reference-boundary-${width}.png`});
+        }
+        await editor.getByRole('button',{name:'Cancel boundary changes',exact:true}).click();
+      } else if(i===1) {
         expect(result.output.native.geometry.status).toBe('NEEDS_CROP');
         expect(result.output.native.geometry.quad).toBeUndefined();
         expect(result.output.native.readingZones).toBeUndefined();
@@ -68,12 +86,22 @@ test('complete physical scanner edges align reading zones; clipped originals can
         expect(result.output.native.text).toEqual({title:[],footer:[]});
         await expect(card.getByRole('button',{name:'Reading zones',exact:true})).toBeDisabled();
         await expect(card.getByText(/missing edge cannot be recovered by trimming/)).toBeVisible();
+        await card.getByRole('button',{name:'Edit card boundary',exact:true}).click();
+        const editor=card.getByRole('region',{name:'Card boundary editor',exact:true});
+        await expect(editor.getByTestId('reference-boundary-suggestion')).toHaveCount(0);
+        await editor.getByRole('button',{name:'Cancel boundary changes',exact:true}).click();
+      } else {
+        expect(result.output.native.geometry.method).toBe('scanner-white-card-edges');
+        expect(result.output.visual.geometry.quad).toEqual(result.output.native.geometry.quad);
+        expect(result.output.native.readingZones).toEqual({title:{top:0,bottom:250},footer:{top:1270,bottom:1397}});
+        expect(result.output.native.text.footer.join(' ')).toMatch(/039/);
+        await expect(card.getByText(/Reading image aligned to the outer card edges/)).toBeVisible();
       }
       const original=await card.getByRole('link',{name:'Open original photo',exact:true}).getAttribute('href');
       const response=await page.request.get(original!);
       expect(response.ok()).toBe(true);
       expect(createHash('sha256').update(await response.body()).digest('hex')).toBe(f.digest);
-      results.push({digest:f.digest,native:result.output.native,visualGeometry:result.output.visual.geometry,evidence:result.output.proposals.evidence});
+      results.push({digest:f.digest,native:result.output.native,visualGeometry:result.output.visual.geometry,evidence:result.output.proposals.evidence,printing:result.output.printing});
     }
     const card=page.getByTestId('capture-card-1');
     await card.getByRole('button',{name:'Reading zones',exact:true}).click();

@@ -1,0 +1,118 @@
+{
+  "version": 1,
+  "scopeIssue": 741,
+  "pullRequest": 742,
+  "baseMain": "7c9b4de147795c8343056d4fac29de4eb6aedb90",
+  "independentAccuracyClaim": false,
+  "automaticAnchoring": false,
+  "automaticAcceptance": false,
+  "core": {
+    "tests": 975,
+    "failures": 0,
+    "typecheck": true,
+    "productionBuild": true,
+    "clientManifests": 13
+  },
+  "nativeGuards": {
+    "geometry": 21,
+    "printing": 21
+  },
+  "retainedGeometry": {
+    "sourceEntries": 235,
+    "quarterTurns": 940,
+    "changedGeometryOrPixels": 0,
+    "originalsReadOnly": true
+  },
+  "synthetic": {
+    "baseline": {
+      "status": "PROPOSED",
+      "quad": [
+        [
+          0,
+          0
+        ],
+        [
+          769,
+          0
+        ],
+        [
+          769,
+          999
+        ],
+        [
+          0,
+          999
+        ]
+      ],
+      "method": "declared-card-scan",
+      "confidence": null
+    },
+    "candidate": {
+      "status": "PROPOSED",
+      "quad": [
+        [
+          58,
+          48
+        ],
+        [
+          691,
+          48
+        ],
+        [
+          691,
+          931
+        ],
+        [
+          58,
+          931
+        ]
+      ],
+      "method": "scanner-white-card-edges",
+      "confidence": null,
+      "framing": "ALIGNED"
+    },
+    "observedOuterRimEnclosed": true,
+    "unobservableWhiteOnWhiteReferenceTest": true
+  },
+  "browser": {
+    "initialAffectedCases": 2,
+    "initialFailures": 0,
+    "finalNativeCases": 1,
+    "finalFailures": 0,
+    "finalNativeElapsedMs": 317640,
+    "skips": 0,
+    "retries": 0,
+    "desktopAndPhoneInspected": true,
+    "completeClippedAndSyntheticInputs": 3,
+    "clippedReferenceAidWithheld": true,
+    "nativeFixtureInventoryWrites": 0,
+    "manualFixtureIntentionalCommitCopies": 1,
+    "manualFixtureOwnedInventoryRemoved": true
+  },
+  "cleanup": {
+    "scannerOwnersAbsent": true,
+    "currentManualEmptyAccountRecovered": true,
+    "historicalEmptyManualAccountsPreserved": 3,
+    "separateExistingFixtureBugIssue": 743
+  },
+  "source": {
+    "web": "0822bbc60eeabc1963d573d6b9e4b246f55cd7eeb1bb3b1b0ad6960c8f5ef2b4",
+    "webInputs": 598,
+    "geometry": "6f911253ac85ea7ff7798da37bfa04077baf9257dc7dd302110c97d527972fa9",
+    "printingWorker": "088930f5cc387cb285de356d172a165a5046ba7d8bbf698a73f6350e1ad4b5c4"
+  },
+  "retainedFailures": [
+    "isolated printing import-path setup (3 import errors)",
+    "Compose required mount-variable validation before mutation",
+    "initial reference aid allowed inside known clipped scan; corrected before delivery",
+    "clipping-projection optional-field type inference before tests",
+    "final web startup ERR_EMPTY_RESPONSE at login before uploads; cleaned fixture and retained artifacts",
+    "manual boundary fixture left one empty account after otherwise successful cleanup; exact current residue recovered, three historical accounts preserved (#743)"
+  ],
+  "limits": [
+    "Reused/synthetic development evidence is not independent scanner accuracy.",
+    "Reference aid is an editable outline, not an automatic geometry or printing decision.",
+    "White-on-white and unsupported borders/backing remain uncertain; observed clipping vetoes inference.",
+    "No physical feed, production deployment, ranking-policy change or PR merge."
+  ]
+}
