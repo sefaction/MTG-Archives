@@ -1,5 +1,8 @@
+import {verifyRecognitionSnapshot} from "./verify-acquisition-recognition-snapshot";
 import { verifyCorrectionReviewHistory } from "./verify-acquisition-correction-history";
+import { verifyCorrectionEvidencePrecision } from "./verify-correction-evidence-precision";
 import { verifyRecognitionReplacement } from "./verify-acquisition-recognition-replacement";
+import { verifyAcquisitionReferenceRefinement } from "./verify-acquisition-reference-refinement";
 import { verifyAcquisitionCorrections } from "./verify-acquisition-corrections";
 import { verifyCorrectionFairness } from "./verify-correction-fairness";
 import { ensureCorrectionAccount } from "../lib/acquisition-correction-library";
@@ -107,8 +110,10 @@ const known = {
 };
 
 async function run() {
+  await verifyRecognitionSnapshot(db);
   await verifyCorrectionFairness(db);
   await verifyAcquisitionCorrections(db);
+  await verifyCorrectionEvidencePrecision(db);
   await verifyCorrectionReviewHistory(db);
   for (const playerId of [owner, otherOwner])
     await db.player.create({
@@ -390,6 +395,7 @@ async function run() {
   await verifyAcquisitionOrchestration(db, actor, input());
   await verifyAcquisitionOwnerFairness(db);
   await verifyRecognitionReplacement(db, actor, input());
+  await verifyAcquisitionReferenceRefinement(db, actor, input());
   await verifyAcquisitionPhotos(db, actor, stranger, input());
   await verifyAcquisitionCatalog(db, admin, actor, cardId);
   await verifyAcquisitionCatalogCache(db);

@@ -2,7 +2,7 @@
 import unittest
 import cv2
 import numpy as np
-from baseline import geometry, preserve_full_frame, scanner_card_edges
+from baseline import geometry, preserve_full_frame, scanner_card_edges, scanner_white_card_edges
 
 
 def tight_scan():
@@ -69,7 +69,7 @@ class GeometryTest(unittest.TestCase):
                 self.assertIsNone(crop)
                 self.assertEqual(evidence, {'status': 'NEEDS_CROP', 'framing': 'CLIPPED'})
 
-    def test_ambiguous_white_border_does_not_select_the_inner_black_rim(self):
+    def test_white_border_never_selects_the_inner_black_rim(self):
         card = tight_scan()
         card[:22] = card[-22:] = 255
         card[:, :22] = card[:, -22:] = 255
@@ -78,7 +78,114 @@ class GeometryTest(unittest.TestCase):
                                        cv2.BORDER_CONSTANT, value=(background,)*3)
             self.assertEqual(scanner_card_edges(source), (None, None))
             crop, evidence = geometry(source, 'CARD_SCAN')
-            self.assertEqual(evidence['method'], 'declared-card-scan')
+            self.assertEqual(evidence['method'], 'scanner-white-card-edges'
+                             if background <= 225 else 'declared-card-scan')
+
+    def test_white_rim_keeps_physical_edges_and_footer_in_quarter_turns(self):
+        card = tight_scan()
+        card[:22] = card[-22:] = 255
+        card[:, :22] = card[:, -22:] = 255
+        source = cv2.copyMakeBorder(card, 50, 70, 60, 80,
+                                   cv2.BORDER_CONSTANT, value=(180,)*3)
+        physical = np.zeros(source.shape[:2], np.uint8)
+        physical[50:930, 60:690] = 255
+        for turns in range(4):
+            image = np.rot90(source, turns).copy()
+            before = image.copy()
+            crop, evidence = geometry(image, 'CARD_SCAN')
+            self.assertEqual(evidence['method'], 'scanner-white-card-edges')
+            self.assertEqual(evidence['framing'], 'ALIGNED')
+            retained = np.zeros(image.shape[:2], np.uint8)
+            cv2.fillConvexPoly(retained, np.rint(evidence['quad']).astype(np.int32), 255)
+            self.assertEqual(np.count_nonzero((np.rot90(physical, turns) > 0) & (retained == 0)), 0)
+            # All fitted sides are just outside the physical outline, not the
+            # internal printed frame or the full padded scanner source.
+            ys, xs = np.where(np.rot90(physical, turns))
+            q = np.asarray(evidence['quad'])
+            self.assertLessEqual(abs(q[:, 0].min()-xs.min()), 3)
+            self.assertLessEqual(abs(q[:, 0].max()-xs.max()), 3)
+            self.assertLessEqual(abs(q[:, 1].min()-ys.min()), 3)
+            self.assertLessEqual(abs(q[:, 1].max()-ys.max()), 3)
+            np.testing.assert_array_equal(image, before)
+            self.assertEqual(crop.shape, (1397, 1000, 3))
+            self.assertGreater(max(np.count_nonzero(crop[-127:] > 230),
+                                   np.count_nonzero(crop[:127] > 230)), 100)
+
+    def test_clipped_white_rim_is_unresolved_in_all_directions(self):
+        card = tight_scan()
+        card[:22] = card[-22:] = 255
+        card[:, :22] = card[:, -22:] = 255
+        source = cv2.copyMakeBorder(card, 50, 70, 60, 80,
+                                   cv2.BORDER_CONSTANT, value=(180,)*3)
+        for clipped in (source[55:], source[:-75], source[:, 65:], source[:, :-85]):
+            for turns in range(4):
+                crop, evidence = geometry(np.rot90(clipped, turns).copy(), 'CARD_SCAN')
+                self.assertIsNone(crop)
+                self.assertEqual(evidence, {'status': 'NEEDS_CROP', 'framing': 'CLIPPED'})
+
+    def test_white_detector_rejects_ambiguous_backing_and_inner_printed_frame(self):
+        card = tight_scan()
+        card[:22] = card[-22:] = 255
+        card[:, :22] = card[:, -22:] = 255
+        for backing in (0, 80, 226, 240, 255):
+            source = cv2.copyMakeBorder(card, 50, 70, 60, 80,
+                                       cv2.BORDER_CONSTANT, value=(backing,)*3)
+            self.assertEqual(scanner_white_card_edges(source), (None, None))
+        # Near-white internal printing is surrounded by a distinguishable outer
+        # border. It cannot masquerade as the card/background transition.
+        source = cv2.copyMakeBorder(card, 50, 70, 60, 80,
+                                   cv2.BORDER_CONSTANT, value=(180,)*3)
+        source[50:930, 60:690] = 100
+        source[65:915, 75:675] = 255
+        source[90:890, 100:650] = 100
+        self.assertEqual(scanner_white_card_edges(source), (None, None))
+
+    def test_white_detector_does_not_run_on_photos(self):
+        from unittest.mock import patch
+        source = cv2.copyMakeBorder(tight_scan(), 50, 70, 60, 80,
+                                   cv2.BORDER_CONSTANT, value=(180,)*3)
+        with patch('baseline.scanner_white_card_edges', side_effect=AssertionError('scan fallback called')):
+            geometry(source, 'PHOTO')
+
+    def test_white_rim_preserves_rounded_rotated_outline(self):
+        source = np.full((1040, 800, 3), 180, np.uint8)
+        physical = np.zeros(source.shape[:2], np.uint8)
+        cv2.rectangle(physical, (85, 65), (714, 944), 255, -1)
+        for x, y in ((85, 65), (714, 65), (714, 944), (85, 944)):
+            cv2.rectangle(physical, (x-15, y-15), (x+15, y+15), 0, -1)
+            cv2.circle(physical, (x+(15 if x==85 else -15),
+                                 y+(15 if y==65 else -15)), 15, 255, -1)
+        source[physical > 0] = 255
+        source[100:910, 120:680] = 35
+        for degrees in (-4, -1, 0, 1, 4):
+            transform = cv2.getRotationMatrix2D((400, 520), degrees, 1)
+            image = cv2.warpAffine(source, transform, (800, 1040), borderValue=(180,)*3)
+            silhouette = cv2.warpAffine(physical, transform, (800, 1040))
+            _, evidence = geometry(image, 'CARD_SCAN')
+            self.assertEqual(evidence['method'], 'scanner-white-card-edges')
+            retained = np.zeros(image.shape[:2], np.uint8)
+            cv2.fillConvexPoly(retained, np.rint(evidence['quad']).astype(np.int32), 255)
+            self.assertEqual(np.count_nonzero((silhouette > 0) & (retained == 0)), 0)
+
+    def test_white_detector_rejects_multiple_cards_bent_sides_and_noisy_backing(self):
+        card = tight_scan()
+        card[:22] = card[-22:] = 255
+        card[:, :22] = card[:, -22:] = 255
+        multiple = np.full((1100, 1450, 3), 180, np.uint8)
+        multiple[70:950, 40:670] = card
+        multiple[100:980, 740:1370] = card
+        self.assertEqual(scanner_white_card_edges(multiple), (None, None))
+        source = cv2.copyMakeBorder(card, 50, 70, 60, 80,
+                                   cv2.BORDER_CONSTANT, value=(180,)*3)
+        bowed = source.copy()
+        for x in range(60, 690):
+            edge = 929 + round(12*np.sin((x-60)/45))
+            bowed[910:edge+1, x] = 255
+            bowed[edge+1:960, x] = 180
+        self.assertEqual(scanner_white_card_edges(bowed), (None, None))
+        source[0, ::2] = source[-1, ::2] = 120
+        source[::2, 0] = source[::2, -1] = 120
+        self.assertEqual(scanner_white_card_edges(source), (None, None))
 
     def test_rotated_rounded_card_keeps_the_entire_physical_border(self):
         source = np.full((1040, 800, 3), 180, np.uint8)

@@ -1,3 +1,7 @@
+import { REFERENCE_REFINEMENT_STAGE } from "./acquisition-reference-lineage";
+import { acquisitionReferenceSourceSchema, readAcquisitionReferenceSource } from "./acquisition-reference-source";
+import { combineAcquisitionReferenceReadings } from "./acquisition-reference-text";
+import { correctionHash } from "./acquisition-correction-policy";
 import { acquisitionManualAnalysisSchema, sameAcquisitionManualAnalysis } from "./acquisition-manual-region";
 import { acquisitionAnalysisJobSql } from "./acquisition-analysis-scope";
 import {admitAcquisitionHandoff} from "./acquisition-handoff-admission";
@@ -53,6 +57,7 @@ const sourceSchema = z.object({
 });
 const inputSchema = z.object({
   manualAnalysis: acquisitionManualAnalysisSchema.nullable().optional(),
+  referenceSource: acquisitionReferenceSourceSchema.optional(),
   recognitionJobId: z.string().uuid(),
   visualJobId: z.string().uuid().optional(),
   photoId: z.string().uuid(),
@@ -74,7 +79,12 @@ export async function enqueueCatalogReconciliation(
     JOIN "AcquisitionSession" s ON s.id=r."sessionId"
     JOIN "Player" p ON p.id=s."ownerPlayerId"
     JOIN "User" u ON u.id=s."createdByUserId"
-    WHERE j.stage='photo-recognition-v1' AND j.status='COMPLETE'
+    WHERE j.stage IN ('photo-recognition-v1',${REFERENCE_REFINEMENT_STAGE}) AND j.status='COMPLETE'
+      AND (j.stage<>${REFERENCE_REFINEMENT_STAGE} OR j.output->'referenceRefinement' IS NOT NULL)
+      AND (j.stage<>'photo-recognition-v1' OR NOT EXISTS (SELECT 1 FROM "AcquisitionProcessingJob" refined
+        WHERE refined.stage=${REFERENCE_REFINEMENT_STAGE} AND refined.status='COMPLETE'
+          AND refined."candidateId"=c.id AND refined."candidateRevision"=c.revision
+          AND refined.input->>'photoId'=j.input->>'photoId' AND refined.output->'referenceRefinement' IS NOT NULL))
       AND j."candidateRevision"=c.revision AND ${acquisitionAnalysisJobSql()}
       AND s.phase NOT IN ('DRAFT','CANCELLED') AND s."cancelledAt" IS NULL AND s."trashedAt" IS NULL AND s."deletedAt" IS NULL AND p.active AND u."isActive" AND NOT u."forcePasswordChange"
       AND NOT EXISTS (SELECT 1 FROM "AcquisitionCommitMember" m WHERE m."candidateId"=c.id)
@@ -138,6 +148,7 @@ export async function enqueueCatalogReconciliation(
           input: {
             ...input,
             recognitionJobId: id,
+            ...(source.stage===REFERENCE_REFINEMENT_STAGE ? {referenceSource:{referenceJobId:id,referenceOutputHash:correctionHash(source.output)}} : {}),
             ...(visual ? { visualJobId: visual.id } : {}),
             resolverVersion: CATALOG_RESOLVER_VERSION,
           },
@@ -172,7 +183,7 @@ export function createCatalogReconciliationHandler(
       where: { id: input.recognitionJobId },
     });
     if (
-      source.stage !== "photo-recognition-v1" ||
+      !["photo-recognition-v1",REFERENCE_REFINEMENT_STAGE].includes(source.stage) ||
       source.status !== "COMPLETE" ||
       source.runId !== job.runId ||
       source.artifactId !== job.artifactId ||
@@ -183,6 +194,9 @@ export function createCatalogReconciliationHandler(
     if (!sameAcquisitionManualAnalysis((source.input as {manualAnalysis?: unknown}).manualAnalysis, input.manualAnalysis))
       throw new Error("Recognition region input changed");
     const observed = sourceSchema.parse(source.output);
+    const reference=input.referenceSource ? await readAcquisitionReferenceSource(db,job,input.referenceSource) : null;
+    if((source.stage===REFERENCE_REFINEMENT_STAGE)!==Boolean(reference)||
+        (reference&&reference.root.id!==source.id))throw new AcquisitionJobSupersededError("Reference source superseded");
     const visualJob = input.visualJobId
       ? await db.acquisitionProcessingJob.findUniqueOrThrow({
           where: { id: input.visualJobId },
@@ -223,6 +237,14 @@ export function createCatalogReconciliationHandler(
     )
       throw new Error("Photo input changed");
     const queries = acquisitionCatalogQueries(observed.native.orientations, observed.native.photoText);
+    if(reference){
+      const original=acquisitionCatalogQueries(reference.native.orientations,reference.native.photoText);
+      for(const key of ["printings","names","photoTextNames"] as const){
+        const combined=[...(queries[key]??[]),...(original[key]??[])];
+        const unique=[...new Map(combined.map(query=>[catalogQueryKey(query),query])).values()].slice(0,4);
+        if(key==="photoTextNames")queries.photoTextNames=unique;else queries[key]=unique;
+      }
+    }
     const completed: Exclude<CachedCatalogResult, { status: "PENDING" }>[] = [];
     const attempted = new Set<string>();
     async function run(query: CatalogQuery) {
@@ -297,7 +319,7 @@ export function createCatalogReconciliationHandler(
       Date.now() - snapshotAt > 30000 ||
       completed.some((r) => !r.cacheHit && r.cards.length);
     if (refresh) {
-      snapshot = await loadAcquisitionRecognitionSnapshot(db);
+      snapshot = await loadAcquisitionRecognitionSnapshot(db,snapshot);
       snapshotAt = Date.now();
     }
     let proposals = proposeOrientedAcquisitionPrintings(
@@ -307,6 +329,7 @@ export function createCatalogReconciliationHandler(
     proposals = combineAcquisitionPhotoText(snapshot!.index, proposals, observed.native.photoText,
       visual ? acquisitionVisualCandidates(visual.visual).map(c => snapshot!.byScryfallId.get(c.scryfallId)?.id)
         .filter((id): id is string => Boolean(id)) : []);
+    if(reference)proposals=combineAcquisitionReferenceReadings(snapshot!.index,reference.native,observed.native);
     if (visual)
       proposals = combineAcquisitionCandidates(
         proposals,
@@ -341,7 +364,7 @@ export function createCatalogReconciliationHandler(
         p.reasons.includes("SET_AND_COLLECTOR_TEXT") &&
         stampedNames.has(p.card.name),
     );
-    if (status !== "RESOLVED" || stampUnverified || input.manualAnalysis?.region) {
+    if (status !== "RESOLVED" || stampUnverified || input.manualAnalysis?.region || reference) {
       if (proposals.status === "STRONG_MATCH")
         proposals.status = "REVIEW_REQUIRED";
       proposals.automaticAcceptance = false;
@@ -364,6 +387,9 @@ export function createCatalogReconciliationHandler(
       photoId: photo.id,
       manualAnalysis: input.manualAnalysis ?? null,
       sourceRecognitionJobId: source.id,
+      ...(reference?{referenceSource:input.referenceSource,referenceRefinement:reference.input,
+        primaryReadings:reference.native.orientations.map(({rotationDegrees,text})=>({rotationDegrees,text})),
+        primaryObservation:{jobId:reference.primary.id,outputHash:reference.input.parents.recognitionOutputHash}}:{}),
       ...(visualJob && visual
         ? { sourceVisualJobId: visualJob.id, visual: visual.visual }
         : {}),

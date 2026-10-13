@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "date": "2026-10-13",
+  "issue": 773,
+  "broaderIssue": 692,
+  "pullRequest": 774,
+  "scope": "controlled UI fixture failure cleanup; no product/native runtime change",
+  "actualDatabaseProbes": {
+    "baselineFixtures": 2,
+    "baselineOwnedResidues": [
+      "players",
+      "users",
+      "locations",
+      "accounts",
+      "private-directory"
+    ],
+    "candidateFixtures": 2,
+    "candidateResidues": 0,
+    "errorsRetained": true
+  },
+  "guards": 16,
+  "sourceParity": {
+    "passed": true,
+    "report": [
+      {
+        "file": "acquisition-quick-finish.spec.ts",
+        "assertions": 94,
+        "legacySqlBodies": 1,
+        "deadlines": [
+          "test.setTimeout(120000)"
+        ],
+        "assertionsHash": "501dc8bb0c6bd3bf9542ad7d51c4034d263bb9d72f16910b8ccf07fd99f8510c",
+        "note": "Only the exact known local baseURL assertion is parameterized; matching target guard remains strict."
+      },
+      {
+        "file": "acquisition-processing-recovery.spec.ts",
+        "assertions": 64,
+        "legacySqlBodies": 1,
+        "deadlines": [
+          "test.setTimeout(180000)",
+          "page.setDefaultTimeout(15000)"
+        ],
+        "assertionsHash": "315afdd55d36b7023b7074dc5294fe0f8e31fccb66b2f7a57c1536d32378ce0c",
+        "note": "Only the exact known local baseURL assertion is parameterized; matching target guard remains strict."
+      }
+    ]
+  },
+  "completeUiCases": {
+    "passed": 4,
+    "skipped": 0,
+    "retries": 0,
+    "widths": [
+      1366,
+      390
+    ],
+    "seconds": 72,
+    "controlledStatuses": true,
+    "nativeAccuracyClaim": false
+  },
+  "fixtureResidues": 0,
+  "source": {
+    "digest": "240b0aceaca797a5d6c828cb972b6ae59504d9b71bdf7e86b05d60f2bbce580a",
+    "inputs": 620,
+    "unchanged": true,
+    "rebuild": false
+  },
+  "conservation": {
+    "isolatedServices": 7,
+    "primaryServices": 16,
+    "changes": 0,
+    "originalFiles": 156,
+    "originalBytes": 898515870,
+    "correctionOriginalFiles": 1,
+    "unchangedWholeTableFingerprints": 12,
+    "oldFullEvidenceRowsConserved": 120,
+    "newSourceJobEvidence": 4,
+    "addedEvidenceBytes": 85676,
+    "newCanonicalHashesBytesAndSourceLinksMatch": true,
+    "substantiveAccountingReconstructed": true,
+    "initialStrictFailureRetained": true
+  },
+  "finalCI": "Read exact live GitHub head/run and worker checkpoint; do not infer pending CI passes",
+  "limits": [
+    "Full controlled UI success is separate from actual native/hardware/accuracy gates",
+    "Persistent arbitrary database outage is not claimed recovered",
+    "Existing historical malformed evidence is not repaired or deleted",
+    "No production retention/64GB/2percent policy changes"
+  ]
+}

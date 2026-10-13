@@ -22,3 +22,14 @@ export function acquisitionNativePhotoInput(bytes: Buffer, inputKind: Acquisitio
   length.writeUInt32BE(metadata.length);
   return Buffer.concat([length, metadata, bytes]);
 }
+
+// Separate native hint: an inferred outline never masquerades as an operator
+// boundary. Admission/provenance must be checked before constructing this frame.
+export function acquisitionNativeReferenceInput(bytes: Buffer, region: AcquisitionManualRegion) {
+  if (!bytes.length || bytes.length > 10 * 1024 * 1024) throw new Error("Photo exceeds bounds");
+  const checked = acquisitionManualRegionSchema.parse(region);
+  const metadata = Buffer.from(JSON.stringify({ inputKind: "CARD_SCAN", referenceRegion: checked }));
+  if (metadata.length > 1020) throw new Error("Image hint exceeds bounds");
+  const length = Buffer.alloc(4); length.writeUInt32BE(metadata.length);
+  return Buffer.concat([length, metadata, bytes]);
+}

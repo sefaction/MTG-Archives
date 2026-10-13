@@ -65,10 +65,10 @@ export function acquisitionFooterIdentifiers(lines: string[]) {
 
 // Keep the initial and supplemental readings together within one orientation.
 // Additional metadata can help review/lookup but cannot create a strong match.
-export function acquisitionFooterObservations(primary: string[], supplemental: string[] = []) {
+export function acquisitionFooterObservations(primary: string[], supplemental: string[] = [], sourceIdentifiers: string[] = []) {
   const initial = acquisitionFooterIdentifiers(primary);
-  if (!supplemental.length) return initial;
-  const combined = acquisitionFooterIdentifiers([...primary, ...supplemental]);
+  if (!supplemental.length && !sourceIdentifiers.length) return initial;
+  const combined = acquisitionFooterIdentifiers([...primary, ...supplemental, ...sourceIdentifiers]);
   const addedIdentifier = combined.identifiers.some(value => !initial.identifiers.some(
     old => old.set === value.set && old.language === value.language));
   const addedCollector = combined.collectors.some(value => !initial.collectors.includes(value));

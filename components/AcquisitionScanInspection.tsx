@@ -6,6 +6,7 @@ import {
 } from "@/lib/acquisition-review-evidence";
 import type { AcquisitionPrinting } from "@/lib/acquisition-review";
 import { filterButtonClass as button } from "./filterStyles";
+import {consistentSetSymbol,setSymbolMessage} from '@/lib/acquisition-set-symbol';
 
 export function AcquisitionScanImage({
   src,
@@ -38,9 +39,11 @@ export function AcquisitionScanImage({
       ? evidence.geometry.quad
       : undefined;
   const rotation = evidence?.rotation ?? (reverse ? 180 : 0);
+  const inferredScan=evidence?.geometry.method==="reference-anchor-region-v1";
   const declaredScan = evidence?.geometry.method === "declared-card-scan";
   const trimmedScan = evidence?.geometry.method === "scanner-background-trim";
-  const alignedScan = evidence?.geometry.method === "scanner-card-edges";
+  const alignedScan = evidence?.geometry.method === "scanner-card-edges" ||
+    evidence?.geometry.method === "scanner-white-card-edges";
   const clippedScan = evidence?.geometry.framing === "CLIPPED";
   const fullFrame = declaredScan || evidence?.geometry.method === "full-frame";
   const observation = evidence?.observations.find(
@@ -222,7 +225,7 @@ export function AcquisitionScanImage({
           <canvas
             ref={canvas}
             role="img"
-            aria-label={`${displayView === "original" || !quad ? "Original scan" : trimmedScan || alignedScan ? "Prepared card" : fullFrame ? "Full card image" : "Detected card"} ${position}`}
+            aria-label={`${displayView === "original" || !quad ? "Original scan" : inferredScan ? "Inferred card" : trimmedScan || alignedScan ? "Prepared card" : fullFrame ? "Full card image" : "Detected card"} ${position}`}
             className="max-w-full max-h-full object-contain"
           />
         ) : (
@@ -237,12 +240,19 @@ export function AcquisitionScanImage({
           </button>
         </div>
       )}
+      {compact&&inferredScan&&<p className="text-xs mt-2">Inferred outline; physical edges unverified. Review the printing.</p>}
+      {!compact&&inferredScan&&evidence?.primaryObservations&&<details className="text-xs mt-2">
+        <summary>First readings from your original</summary>
+        {evidence.primaryObservations.map((reading,index)=><p key={index} className="mt-1 break-words">
+          {[...reading.text.title,...reading.text.footer,...(reading.text.footerSupplemental??[])].join(" · ")||"No readable title/footer in this direction."}
+        </p>)}
+      </details>}
       {!compact && (
         <div className="flex flex-wrap gap-1 mt-2" aria-label="Scan view">
           {(
             [
               ["original", "Original"],
-              ["crop", trimmedScan || alignedScan ? "Prepared card" : fullFrame ? "Full card image" : "Detected card"],
+              ["crop", inferredScan ? "Inferred card" : trimmedScan || alignedScan ? "Prepared card" : fullFrame ? "Full card image" : "Detected card"],
               ["zones", "Reading zones"],
             ] as const
           ).map(([key, label]) => (
@@ -272,6 +282,8 @@ export function AcquisitionScanImage({
             ? "The card reaches the edge of the scan. Adjust the scanner frame and scan again; the missing edge cannot be recovered by trimming. Reading zones were not applied."
             : !quad
             ? "No detected outline available; showing original."
+            : inferredScan
+              ? "Reference landmarks suggest this outline. Physical edges are unverified. Your original and first readings are kept; review the printing."
             : alignedScan
               ? "Reading image aligned to the outer card edges, with the black border preserved. Your original is kept."
             : trimmedScan
@@ -289,7 +301,7 @@ export function AcquisitionScanImage({
         <p className="text-xs">
           Cyan: title/footer areas attempted. Yellow: detected text boxes. Boxes
           do not establish a correct reading. Stamp evidence uses a separately
-          aligned lower-left region. Set-symbol detection is not implemented.
+          aligned lower-left region. Set-symbol shapes are an additional cue; shared icons do not identify an exact printing.
         </p>
       )}
       <a
@@ -321,6 +333,11 @@ export function AcquisitionEvidenceFields({
   const ids = evidence?.identifiers;
   const printing = evidence?.printing;
   const selectedStamp = printing?.candidates.find(c=>c.cardId === selected?.id);
+  const selectedSymbols=printing?.candidates.filter(c=>c.cardId===selected?.id).map(c=>c.setSymbol)??[];
+  const consistentSymbol=consistentSetSymbol(selectedSymbols);
+  const symbol=!consistentSymbol&&selectedSymbols.some(s=>s?.query.status==='SIMILAR')
+    ?{observed:'Conflicting observations',comparison:'Reference alignments disagree; inspect the original scan'}
+    :setSymbolMessage(consistentSymbol);
   const expectationLabel = selectedStamp?.expectationSource === "CATALOG_LIST_REPRINT"
     ? "List reprint catalog identity"
     : selectedStamp?.expectationSource === "CATALOG_SOURCE_PRINTING"
@@ -399,7 +416,7 @@ export function AcquisitionEvidenceFields({
       selectedStamp?.expectedStampState ?? "Unknown (older result)"],
     ["Reference image stamp", "Annotation of the public comparison image; separate from the printing expectation",
       selectedStamp?.referenceStampState ?? "Not checked"],
-    ["Set symbol", "Visual detection not implemented", "Not checked"],
+    ["Set symbol",symbol.observed,symbol.comparison],
     [
       "Card image",
       evidence?.imageMatches
@@ -482,6 +499,7 @@ export function AcquisitionEvidenceFields({
                 <p>Title: {o.text.title.join(" | ") || "Nothing read"}</p>
                 <p>Footer: {o.text.footer.join(" | ") || "Nothing read"}</p>
                 {o.text.footerSupplemental?.length ? <p>Additional footer reading: {o.text.footerSupplemental.join(" | ")}</p> : null}
+                {o.text.footerSourceIdentifiers?.length ? <p>Additional identifier reading: {o.text.footerSourceIdentifiers.join(" | ")}</p> : null}
               </div>
             ))}
           </details>

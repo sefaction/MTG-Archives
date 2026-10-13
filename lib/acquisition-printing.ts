@@ -1,6 +1,10 @@
 import { z } from "zod";
+import {setSymbolSchema} from './acquisition-set-symbol';
 import { acquisitionCollectorKey, type RecognitionCard } from "./acquisition-recognition";
 import type { TextProposals } from "./acquisition-visual";
+import { acquisitionManualRegionSchema, validateAcquisitionManualRegionFrame } from "./acquisition-manual-region";
+import { printingDetailSchema, printingDetailSummarySchema, printingDetailSummary, printingReferenceImageSchema,
+  validPrintingReferenceImage } from "./acquisition-printing-details";
 
 export const PRINTING_STAGE = "photo-printing-evidence-v1";
 // The native detector and the catalog interpretation have independent versions.
@@ -17,6 +21,8 @@ export const printingNativeSchema = z.object({
   observedStamp: stampState,
   conflictingObservations: z.boolean(),
   automaticAcceptance: z.literal(false),
+  sourceSize: z.tuple([z.number().int().min(2).max(36000000),
+    z.number().int().min(2).max(36000000)]).refine(([w,h])=>w*h<=36000000).optional(),
   candidates: z.array(z.object({
     scryfallId: z.string().uuid(),
     referenceId: z.string().min(38).max(100),
@@ -50,6 +56,9 @@ export const printingNativeSchema = z.object({
       referenceResidual95: z.number().finite().nonnegative().optional(),
     }),
     localRelation: relation.optional(),
+    details: printingDetailSchema.optional(),
+    setSymbol:setSymbolSchema.optional(),
+    referenceImage: printingReferenceImageSchema.optional(),
     sharedObservationSources: z.array(z.string().min(38).max(100)).max(24).optional(),
   })).max(24),
 }).superRefine((value, ctx) => {
@@ -62,6 +71,15 @@ export const printingNativeSchema = z.object({
     if (seen.has(candidate.referenceId) || !candidate.referenceId.startsWith(`${candidate.scryfallId}:`))
       ctx.addIssue({code: z.ZodIssueCode.custom, message: "Printing identity differs or repeats"});
     seen.add(candidate.referenceId);
+    if(candidate.referenceImage && !validPrintingReferenceImage(candidate.referenceImage.uri,
+      candidate.scryfallId,candidate.referenceId.split(":")[1]))
+      ctx.addIssue({code:z.ZodIssueCode.custom,message:"Comparison image differs from reference identity"});
+    if(candidate.details?.regions.some(r=>r.status === "MEASURED") &&
+      (candidate.alignment.status !== "ALIGNED" || (candidate.alignment.sourceCardWidth ?? 0) < 500))
+      ctx.addIssue({code:z.ZodIssueCode.custom,message:"Measured detail requires supported alignment"});
+    if(candidate.setSymbol && [candidate.setSymbol.query,candidate.setSymbol.reference].some(s=>s.status!=='UNREADABLE')&&
+      (candidate.alignment.status!=='ALIGNED'||(candidate.alignment.sourceCardWidth??0)<500))
+      ctx.addIssue({code:z.ZodIssueCode.custom,message:'Symbol observation requires supported alignment'});
     if (value.conflictingObservations && candidate.relation !== "UNRESOLVED")
       ctx.addIssue({code: z.ZodIssueCode.custom, message: "Conflicting observations cannot resolve a printing"});
     if (candidate.referenceStampState === "UNKNOWN" && candidate.relation !== "UNRESOLVED")
@@ -192,6 +210,7 @@ export function applyAcquisitionPrintingEvidence(
 }
 
 export const printingSummarySchema = z.object({
+  detailStatus:z.enum(["OUTPUT_BUDGET"]).optional(),
   observedStamp: stampState,
   conflictingObservations: z.boolean(),
   candidates: z.array(z.object({
@@ -203,8 +222,43 @@ export const printingSummarySchema = z.object({
     referenceRelation: relation.optional(),
     relation,
     reason: z.string().max(80),
+    referenceBoundary: acquisitionManualRegionSchema.optional(),
+    setSymbol:setSymbolSchema.optional(),
+    details: printingDetailSummarySchema.optional(),
+    referenceFace: z.union([z.literal(0),z.literal(1)]).optional(),
+    referenceImage: printingReferenceImageSchema.optional(),
   })).max(24),
 });
+
+// Reference features are anchors for an inferred outline, not observations of
+// the physical edge. Never clamp a projected missing edge into the source.
+function referenceBoundary(candidate: NativeCandidate, printing: PrintingObservation) {
+  const a = candidate.alignment, size = printing.sourceSize;
+  if (!size || a.status !== "ALIGNED" || !a.quad ||
+      (a.sourceCardWidth ?? 0) < 500 || (a.inliers ?? 0) < 16 ||
+      (a.supportFraction ?? 0) < .25 || (a.medianReprojectionPixels ?? Infinity) > 3)
+    return undefined;
+  try {
+    return validateAcquisitionManualRegionFrame({version: 1,
+      quad: a.quad.map(([x,y])=>[x/(size[0]-1), y/(size[1]-1)])}, ...size);
+  } catch { return undefined; }
+}
+
+// A front/back face disagreement must not silently pick whichever ran first.
+// These bounds control whether to offer an editable aid; no recognition rank,
+// automatic crop, saved decision or Inventory authority follows from them.
+export function acquisitionReferenceBoundary(
+  printing: z.infer<typeof printingSummarySchema> | null | undefined, cardId: string | undefined,
+) {
+  if (!printing || !cardId || printing.conflictingObservations) return null;
+  const regions = printing.candidates.filter(c=>c.cardId === cardId)
+    .flatMap(c=>c.referenceBoundary ? [c.referenceBoundary] : []);
+  if (!regions.length) return null;
+  const first = regions[0];
+  if (regions.some(r=>r.quad.some(([x,y],i)=>Math.hypot(x-first.quad[i][0], y-first.quad[i][1]) > .01)))
+    return null;
+  return first;
+}
 
 export function acquisitionPrintingSummary(
   printing: PrintingObservation,
@@ -220,6 +274,11 @@ export function acquisitionPrintingSummary(
       ...comparison,
       referenceRelation: c.relation,
       reason: c.stamp.reason,
+      ...(c.setSymbol?{setSymbol:c.setSymbol}:{}),
+      ...(referenceBoundary(c, printing) ? {referenceBoundary: referenceBoundary(c, printing)} : {}),
+      ...(c.details ? {details:printingDetailSummary(c.details),
+        ...(c.referenceImage ? {referenceImage:c.referenceImage} : {}),
+        ...(/:[01]$/.test(c.referenceId) ? {referenceFace:Number(c.referenceId.slice(-1)) as 0|1} : {})} : {}),
     })),
   };
 }
