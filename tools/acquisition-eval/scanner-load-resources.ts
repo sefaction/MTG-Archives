@@ -32,10 +32,14 @@ export function summarizeLoadResources(samples:LoadSample[]){
     return {role:first.role,image:first.image,limit:first.resources.limit,samples:rows.length,sampledCurrentPeak:Math.max(...rows.map(r=>r!.resources.current)),lifetimePeakBefore:first.resources.lifetimePeak,lifetimePeakAfter:last.resources.lifetimePeak,sampledSwapPeak:Math.max(...rows.map(r=>r!.resources.swapCurrent)),lifetimeSwapPeakBefore:first.resources.swapLifetimePeak,lifetimeSwapPeakAfter:last.resources.swapLifetimePeak,maxEventsDelta:delta('max'),oomEventsDelta:delta('oom'),oomKillsDelta:delta('oom_kill'),cpuUsageUs:delta('usage_usec'),sameIdentityLimitsLifetime:true};
   });
 }
-export async function observeLoad(path:string){
-  const samples:LoadSample[]=[],failures:string[]=[];let pending:Promise<void>|undefined;
-  const take=()=>{if(pending)return pending;pending=sampleLoadResources().then(sample=>{samples.push(sample);writeFileSync(path,JSON.stringify({samples,failures},null,2));}).catch(()=>{failures.push('RESOURCE_OBSERVATION_FAILED');writeFileSync(path,JSON.stringify({samples,failures},null,2));}).finally(()=>{pending=undefined;});return pending;};
-  await take();if(failures.length)throw Error('Initial resource observation failed');
-  const timer=setInterval(()=>void take(),30000);
-  return {stop:async()=>{clearInterval(timer);await pending;await take();if(failures.length)throw Error('Resource observation incomplete');const summary=summarizeLoadResources(samples);writeFileSync(path,JSON.stringify({samples,failures,summary},null,2));return summary;}};
+export async function observeLoad(path:string, dependencies:{sample?:()=>Promise<LoadSample>;write?:(path:string,data:string)=>void;intervalMs?:number}={}) {
+  const samples:LoadSample[]=[],failures:string[]=[],causes:unknown[]=[];let pending:Promise<void>|undefined;
+  const snapshot=dependencies.sample??sampleLoadResources,write=dependencies.write??writeFileSync;
+  // Reporting errors must reach stop/finally; a detached interval must never
+  // reject and kill the fixture before its exact-owned cleanup can run.
+  const flush=(summary?:ReturnType<typeof summarizeLoadResources>)=>{try{write(path,JSON.stringify({samples,failures,summary},null,2));}catch(error){failures.push('RESOURCE_REPORT_WRITE_FAILED');causes.push(error);}};
+  const take=()=>{if(pending)return pending;pending=Promise.resolve().then(snapshot).then(sample=>{samples.push(sample);}).catch(error=>{failures.push('RESOURCE_OBSERVATION_FAILED');causes.push(error);}).then(()=>flush()).finally(()=>{pending=undefined;});return pending;};
+  await take();if(failures.length)throw new AggregateError(causes,'Initial resource observation or report failed');
+  const timer=setInterval(()=>void take(),dependencies.intervalMs??30000);
+  return {stop:async()=>{clearInterval(timer);await pending;await take();let summary:ReturnType<typeof summarizeLoadResources>|undefined;try{summary=summarizeLoadResources(samples);}catch(error){failures.push('RESOURCE_SUMMARY_FAILED');causes.push(error);}flush(summary);if(failures.length)throw new AggregateError(causes,'Resource observation/report incomplete; all causes preserved');return summary!;}};
 }
