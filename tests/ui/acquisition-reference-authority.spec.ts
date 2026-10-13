@@ -83,10 +83,11 @@ test('actual reference rereads conserve draft edits, saved feedback and retake a
         await expect(card.getByRole('radio',{name:decision.choice,exact:true})).toBeChecked();
         await expect(card.getByTestId('scan-review-status')).toContainText('Unsaved correction');
         await card.screenshot({path:'test-results/reference-draft-preserved.png'});
-        await page.getByRole('button',{name:'Simple',exact:true}).click();
+        // Discard directly in Advanced after the actual late native reread.
         await expect(card.getByRole('button',{name:'Cancel changes',exact:true})).toBeVisible();
         await card.getByRole('button',{name:'Cancel changes',exact:true}).click();
-        await page.getByRole('button',{name:'Advanced',exact:true}).click();
+        await expect(card.getByTestId('scan-review-status')).not.toContainText('Unsaved correction');
+        expect(snapshot(photoId).candidate.review).toBeNull();
         await expect(card.getByRole('button',{name:'Inferred card',exact:true})).toBeEnabled();
       }else{
         expect(job.output?.native).toBeUndefined();
