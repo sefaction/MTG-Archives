@@ -5,9 +5,7 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { acquisitionImageInputKindSchema, acquisitionNativePhotoInput } from "./acquisition-image-input";
 import {
-  createAcquisitionRecognitionIndex,
   proposeOrientedAcquisitionPrintings,
-  type RecognitionCard,
   ACQUISITION_TEXT_RESOLVER_VERSION,
 } from "./acquisition-recognition";
 import { readAcquisitionPhotoBytes } from "./acquisition-files";
@@ -85,43 +83,8 @@ export const nativeSchema = z.object({
   if(value.text.footerSourceIdentifiers && JSON.stringify(value.text.footerSourceIdentifiers)!==JSON.stringify(value.orientations[0]?.text.footerSourceIdentifiers))
     ctx.addIssue({code:z.ZodIssueCode.custom,message:'Primary identifier reading differs from its direction'});
 });
-export type RecognitionSnapshot = Awaited<
-  ReturnType<typeof loadAcquisitionRecognitionSnapshot>
->;
-export async function loadAcquisitionRecognitionSnapshot(db: PrismaClient) {
-  // A single SELECT has one PostgreSQL statement snapshot. Hash exactly the
-  // projection used by retrieval, rather than a mutable bulk-refresh job ID.
-  const rows = await db.card.findMany({
-    orderBy: { id: "asc" },
-    select: {
-      id: true,
-      scryfallId: true,
-      name: true,
-      printedName: true,
-      cardFaces: true,
-      setCode: true,
-      collectorNumber: true,
-      lang: true,
-      digital: true,
-    },
-  });
-  const cards: RecognitionCard[] = rows.map(({ cardFaces, ...card }) => ({
-    ...card,
-    faceNames: Array.isArray(cardFaces)
-      ? cardFaces.flatMap((f) => {
-          const face = f as { name?: unknown; printed_name?: unknown };
-          return [face?.name, face?.printed_name].filter(
-            (v): v is string => typeof v === "string",
-          );
-        })
-      : [],
-  }));
-  return {
-    digest: createHash("sha256").update(JSON.stringify(cards)).digest("hex"),
-    index: createAcquisitionRecognitionIndex(cards),
-    byScryfallId: new Map(rows.map((row, i) => [row.scryfallId, cards[i]])),
-  };
-}
+export {loadAcquisitionRecognitionSnapshot,type RecognitionSnapshot} from "./acquisition-recognition-snapshot";
+import type {RecognitionSnapshot} from "./acquisition-recognition-snapshot";
 export function acquisitionRecognitionVersion(_catalog: string, model: string) {
   return createHash("sha256")
     .update(
