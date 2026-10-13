@@ -30,7 +30,7 @@ test('actual numeric set markers preserve scanner observations without adding fa
       expect(primary.output.versions.footerParser).toBe(ACQUISITION_FOOTER_PARSER_VERSION);expect(printing.output.versions.footerParser).toBe(ACQUISITION_FOOTER_PARSER_VERSION);
       const old=JSON.parse(readFileSync(path.join(baseline!,'current-124-report.json.'+entry.file+'.json'),'utf8')).jobs.find((j:any)=>j.stage==='photo-recognition-v1').output.native;
       for(const key of ['geometry','text','lines','orientations','readingZones'])expect(primary.output.native[key]).toEqual(old[key]);
-      expect(primary.output.proposals.evidence.collectors).toContain(entry.collectorNumber);expect(primary.output.proposals.evidence.collectors).not.toContain(i===0?'19':'21');
+      expect(primary.output.proposals.evidence.collectors).toContain(entry.printedCollectorNumber);expect(primary.output.proposals.evidence.collectors).not.toContain(i===0?'19':'21');
       expect(primary.output.proposals.evidence.setCodes).not.toContain('stev');expect(primary.output.proposals.automaticAcceptance).toBe(false);expect(printing.output.proposals.automaticAcceptance).toBe(false);
       const id=database(`console.log((await p.card.findUniqueOrThrow({where:{scryfallId:${JSON.stringify(entry.scryfallId)}},select:{id:true}})).id);`).trim();expect(printing.output.proposals.proposals[0].card.id).toBe(id);
       const card=page.getByTestId(`capture-card-${i+1}`);await card.scrollIntoViewIfNeeded();const details=card.locator('details').filter({has:page.getByText('All OCR text and reading directions',{exact:true})});
