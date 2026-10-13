@@ -438,6 +438,26 @@ export function AcquisitionPhotoReview({
       setError((e as Error).message);
     }
   }
+  async function discardChanges() {
+    if (busy || regionEditing) return;
+    const version = ++requestVersion.current;
+    setBusy(true);
+    setError("");
+    try {
+      const next = await call<AcquisitionCardReview>(`${endpoint}?photoId=${photoId}`);
+      if (version !== requestVersion.current) return;
+      setObservedRevision(next.revision);
+      clearDraft();
+      apply(next);
+      setQuery(""); setSet(""); setNumber(""); setMatches(null);
+      setEditing(false);
+      setMessage("Unsaved changes discarded.");
+    } catch (e) {
+      if (version === requestVersion.current) setError((e as Error).message);
+    } finally {
+      if (version === requestVersion.current) setBusy(false);
+    }
+  }
   async function submit(action: "accept" | "pending", next = false) {
     if (!record || regionEditing) return;
     ++requestVersion.current;
@@ -759,13 +779,11 @@ export function AcquisitionPhotoReview({
                 >
                   Keep pending
                 </button>
-                {simple && (
+                {(simple || draftDirty) && (
                   <button
+                    type="button"
                     className={button}
-                    onClick={async () => {
-                      await reload();
-                      setEditing(false);
-                    }}
+                    onClick={() => void discardChanges()}
                   >
                     Cancel changes
                   </button>
@@ -1079,7 +1097,7 @@ export function AcquisitionPhotoReview({
                       </button>
                     )}
                     {draftDirty && !showEditor && (
-                      <button className={button} disabled={busy || regionEditing} onClick={() => void reload()}>
+                      <button type="button" className={button} disabled={busy || regionEditing} onClick={() => void discardChanges()}>
                         Cancel changes
                       </button>
                     )}
