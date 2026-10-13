@@ -126,6 +126,20 @@ def localized_readings(crop, ocr):
     return orientations
 
 
+def append_source_identifiers(image, source_geometry, orientations, ocr, started):
+    for observation in orientations:
+        degrees=observation['rotationDegrees']
+        remaining=100-len(observation['lines'])-len(observation.get('footerLines',[]))
+        words,identifier_lines,source=read_source_footer(image,source_geometry,degrees,ocr,remaining,time.monotonic()-started)
+        observation['text']['footerSourceIdentifiers']=words
+        if sum(len(observation['text'].get(k,[])) for k in ('footer','footerSupplemental','footerSourceIdentifiers'))>100:
+            observation['text']['footerSourceIdentifiers']=[]
+            identifier_lines=[]
+            source=unavailable_source(degrees,'EVIDENCE_BUDGET')
+        observation['identifierSource']=source
+        observation['identifierLines']=identifier_lines
+
+
 def recognize(data, desc):
     data, input_kind, task, manual_region, reference_region, layout_profile = decode_photo_input(
         data, return_task=True, return_region=True, return_reference=True, return_layout=True)
@@ -205,17 +219,7 @@ def recognize(data, desc):
     orientations = localized_readings(crop, ocr)
     # Preserve both legacy readings before spending time on another bounded
     # source view. The normal parent processing deadline remains unchanged.
-    for observation in orientations:
-        degrees=observation['rotationDegrees']
-        remaining=100-len(observation['lines'])-len(observation.get('footerLines',[]))
-        words,identifier_lines,source=read_source_footer(image,geometry_evidence,degrees,ocr,remaining,time.monotonic()-started)
-        observation['text']['footerSourceIdentifiers']=words
-        if sum(len(observation['text'].get(k,[])) for k in ('footer','footerSupplemental','footerSourceIdentifiers'))>100:
-            observation['text']['footerSourceIdentifiers']=[]
-            identifier_lines=[]
-            source=unavailable_source(degrees,'EVIDENCE_BUDGET')
-        observation['identifierSource']=source
-        observation['identifierLines']=identifier_lines
+    append_source_identifiers(image, geometry_evidence, orientations, ocr, started)
     payload={'version': 1, 'descriptor': desc['digest'], 'descriptorDetails': desc,
           'photoDigest': hashlib.sha256(data).hexdigest(), 'geometry': geometry_evidence,
           'text': orientations[0]['text'], 'lines': orientations[0]['lines'],
@@ -243,7 +247,12 @@ def recognize(data, desc):
                     q = np.asarray(inference['region']['quad'], np.float32)*[image.shape[1]-1,image.shape[0]-1]
                     transform = cv2.getPerspectiveTransform(q.astype(np.float32), np.float32([[0,0],[999,0],[999,1396],[0,1396]]))
                     inferred_crop = cv2.warpPerspective(image, transform, (1000,1397))
-                    payload['scannerLayout']['orientations'] = localized_readings(inferred_crop, ocr)
+                    readings = localized_readings(inferred_crop, ocr)
+                    # Original-resolution footer pixels use this inferred frame,
+                    # never the primary whole-image frame or a candidate label.
+                    append_source_identifiers(image, {'status':'PROPOSED','quad':q.tolist(),
+                        'method':'scanner-layout-anchor-v1','boundaryVerified':False}, readings, ocr, started)
+                    payload['scannerLayout']['orientations'] = readings
                     payload['scannerLayout']['readingStatus'] = 'COMPLETE'
                 except MemoryError:
                     raise

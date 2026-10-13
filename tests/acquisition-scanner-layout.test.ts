@@ -86,3 +86,30 @@ test('review projects inferred observations without exposing the saved source fi
   const later=acquisitionReviewEvidence({native:{...target,scannerLayout:undefined},primaryScannerLayout:target.scannerLayout,proposals});
   assert.deepEqual(later?.scannerLayout,projected?.scannerLayout);
 });
+
+function inferredIdentifiers(degrees:0|180=0){
+  const target=inferredNative(),reading=target.scannerLayout!.orientations[degrees===0?0:1];
+  const point=(x:number,y:number)=>[58+x/999*1600,24+y/1396*2240];
+  const corners=[[24,1270],[630,1270],[630,1396],[24,1396]].map(([x,y])=>point(degrees===180?999-x:x,degrees===180?1396-y:y));
+  const sourceWidth=606/999*1600,sourceHeight=126/1396*2240;
+  reading.identifierSource={version:'source-footer-identifiers-v1',bounds:[24,1270,630,1396],rotationDegrees:degrees,
+    status:'EXTRACTED',sourceQuad:corners as [number,number][],width:Math.floor(sourceWidth),height:Math.floor(sourceHeight),
+    sourceWidth,sourceHeight,sourceFrame:{width:1700,height:2300}};
+  reading.identifierLines=[{text:'U 0042 TST EN',score:.98,polygon:[[40,1290],[300,1290],[300,1320],[40,1320]]}];
+  reading.text.footerSourceIdentifiers=['U 0042 TST EN'];return target;
+}
+test('inferred original-pixel identifiers require their own frame, window, direction and detected lines',()=>{
+  for(const degrees of [0,180] as const){
+    const target=inferredIdentifiers(degrees);assert(nativeSchema.safeParse(target).success);
+    const reading=target.scannerLayout!.orientations[degrees===0?0:1];
+    assert.deepEqual(acquisitionReviewEvidence({native:target,proposals:{evidence:{setCodes:[],collectors:[],languages:[]}}})?.scannerLayout?.observations[degrees===0?0:1].text.footerSourceIdentifiers,reading.text.footerSourceIdentifiers);
+  }
+  const mutations=[(r:any)=>r.identifierSource.sourceQuad[0][0]+=4,
+    (r:any)=>r.identifierSource.sourceFrame.width+=1,(r:any)=>r.identifierSource.sourceWidth+=500,
+    (r:any)=>{r.identifierSource.sourceWidth+=500;r.identifierSource.width+=100;},(r:any)=>r.identifierSource.height-=20,(r:any)=>r.identifierSource.rotationDegrees=180,
+    (r:any)=>r.identifierLines[0].polygon[0][0]=0,(r:any)=>r.identifierLines=[],
+    (r:any)=>r.identifierSource={version:'source-footer-identifiers-v1',bounds:[24,1270,630,1396],rotationDegrees:0,status:'UNAVAILABLE',reason:'TIME_BUDGET'}];
+  for(const change of mutations){const target=inferredIdentifiers();change(target.scannerLayout!.orientations[0]);assert(!nativeSchema.safeParse(target).success);}
+  const substituted=inferredIdentifiers();if(substituted.scannerLayout!.inference.status==='PROPOSED')substituted.scannerLayout!.inference.region.quad[0][0]+=.005;
+  assert(!nativeSchema.safeParse(substituted).success);
+});
