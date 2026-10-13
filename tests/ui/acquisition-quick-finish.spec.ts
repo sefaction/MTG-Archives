@@ -1,11 +1,15 @@
-import { cleanupCorrectionFixture } from "./correction-fixture";
+import { cleanupCorrectionFixture, cancelAndCleanCorrectionFixture } from "./correction-fixture";
+import { controlledReviewTarget, verifyControlledReviewTarget } from "./controlled-review-target";
 import { expect, test } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import sharp from "sharp";
 
+const reviewTarget = controlledReviewTarget();
+let targetVerified = false;
 function database(body: string) {
-  return execFileSync("docker", ["exec", "-i", "mtg-archives-web-1", "node"], {
+  if (!targetVerified) { verifyControlledReviewTarget(reviewTarget); targetVerified = true; }
+  return execFileSync("docker", ["exec", "-i", reviewTarget.container, "node"], {
     input: `const{PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${body}})().catch(e=>{console.error(e.message);process.exitCode=1}).finally(()=>p.$disconnect());`,
     encoding: "utf8", timeout: 30000, windowsHide: true,
   });
@@ -13,7 +17,7 @@ function database(body: string) {
 
 for (const width of [1366, 390]) test(`direct finish buttons preserve review authority at ${width}px`, async ({ page, baseURL }) => {
   test.skip(process.env.MTG_LOCAL_PILOT_TEST !== "1", "Owned local printing fixtures; no recognition accuracy claim");
-  expect(baseURL).toBe("http://127.0.0.1:13001"); test.setTimeout(120000);
+  expect(baseURL).toBe(reviewTarget.baseURL); test.setTimeout(120000);
   await page.setViewportSize({ width, height: 900 });
   const tag = `ui-quick-finish-${randomUUID()}`, password = randomUUID();
   const printings = [
@@ -128,11 +132,23 @@ for (const width of [1366, 390]) test(`direct finish buttons preserve review aut
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: `test-results/quick-finish-${width}.png` });
   } finally {
-    try { if (!page.isClosed()) { await page.unrouteAll({ behavior: "wait" }); await page.goto("/dashboard"); } } catch { console.log("Browser cleanup unavailable; owned database cleanup still runs"); }
+    // Block new authenticated polling and retain every cleanup failure.
+    const failures: unknown[] = [];
+    const cleanup = async (action: () => unknown | Promise<unknown>) => {
+      try { await action(); } catch (error) { failures.push(error); }
+    };
+    await cleanup(() => { database(cancelAndCleanCorrectionFixture(tag)); });
+    await cleanup(async () => { if (!page.isClosed()) await page.unrouteAll({ behavior: "wait" }); });
+    await cleanup(async () => { if (!page.isClosed()) await page.goto("/dashboard"); });
+    await cleanup(() => {
     database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const runs=await p.acquisitionRun.findMany({where:{session:{createdByUserId:n}},select:{id:true}});const w={runId:{in:runs.map(r=>r.id)}};const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});
       ${cleanupCorrectionFixture}
       for(const model of ['acquisitionCommitMember','acquisitionCommit','acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});
       await p.inventoryAuditLog.deleteMany({where:{changedByUserId:n}});await p.inventoryItem.deleteMany({where:{currentOwnerId:n}});await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});await p.card.deleteMany({where:{id:{in:${JSON.stringify(printings.map(p=>p.id))}}}});
       const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;if(!root||!paths.isAbsolute(root))throw new Error('Private fixture path unavailable');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw new Error('Invalid owned photo identity');for(const suffix of ['.original','.preview.jpg'])await fs.unlink(paths.join(root,'acquisition-v1',photo.id+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e;});}`);
+    });
+    // Remove feedback that completed while the original teardown was running.
+    await cleanup(() => { database(cancelAndCleanCorrectionFixture(tag)); });
+    if (failures.length) throw new AggregateError(failures, "acquisition-quick-finish.spec.ts cleanup failed");
   }
 });
