@@ -38,8 +38,8 @@ test('bounded124 scanner software load preserves native observations and human a
     writeFileSync(progress,JSON.stringify({owner:tag,started,phase:'ordinary-native-pipeline'}));
     await expect.poll(()=>Number(database(`console.log(await p.acquisitionPhoto.count({where:${scope}}));`)),{timeout:300000,intervals:[1000,3000]}).toBe(124);
     const saved=new Set<string>();
-    await expect.poll(()=>{const complete=json(`const rows=await p.acquisitionProcessingJob.findMany({where:{...${scope},stage:'photo-printing-evidence-v1',status:'COMPLETE'},select:{candidateId:true,artifact:{select:{digest:true}}}});console.log(JSON.stringify(rows));`);
-      for(const row of complete){const digest=row.artifact.digest;if(saved.has(digest))continue;const entry=entries.find((e:any)=>e.sha256===digest);if(!entry)throw Error('Foreign completed artifact');const observed=json(`console.log(JSON.stringify(await p.acquisitionProcessingJob.findMany({where:{...${scope},artifact:{digest:${JSON.stringify(digest)}}},orderBy:{createdAt:'desc'},select:{id:true,stage:true,status:true,attempts:true,input:true,output:true}})));`);writeFileSync(report+'.partial.'+entry.file+'.json',JSON.stringify(observed,null,2));saved.add(digest);}
+    await expect.poll(async()=>{const complete=json(`const rows=await p.acquisitionProcessingJob.findMany({where:{...${scope},stage:'photo-printing-evidence-v1',status:'COMPLETE'},select:{candidateId:true,artifact:{select:{digest:true}}}});console.log(JSON.stringify(rows));`);
+      for(const row of complete){const digest=row.artifact.digest;if(saved.has(digest))continue;const entry=entries.find((e:any)=>e.sha256===digest);if(!entry)throw Error('Foreign completed artifact');const observed=json(`console.log(JSON.stringify(await p.acquisitionProcessingJob.findMany({where:{...${scope},artifact:{digest:${JSON.stringify(digest)}}},orderBy:{createdAt:'desc'},select:{id:true,stage:true,status:true,attempts:true,input:true,output:true}})));`);writeFileSync(report+'.partial.'+entry.file+'.json',JSON.stringify(observed,null,2));saved.add(digest);await new Promise<void>(resolve=>setImmediate(resolve));}
       const printed=new Set(complete.map((r:any)=>r.candidateId)).size;writeFileSync(progress,JSON.stringify({owner:tag,started,phase:'ordinary-native-pipeline',printed,partialOutputs:saved.size}));return printed;},{timeout:remaining(),intervals:[5000,10000]}).toBe(124);
     await expect.poll(()=>Number(database(`console.log(await p.acquisitionProcessingJob.count({where:{...${scope},status:{in:['PENDING','RUNNING']}}}));`)),{timeout:300000,intervals:[3000,5000]}).toBe(0);
     const refinements=json(`console.log(JSON.stringify(await p.acquisitionProcessingJob.findMany({where:{...${scope},stage:'photo-reference-refinement-v1'},select:{id:true,status:true}})));`);
@@ -67,6 +67,8 @@ test('bounded124 scanner software load preserves native observations and human a
       expect(offered.every((id:any)=>typeof id==='string')).toBe(true);
       // Expected identity enters only this scoring step, after native inference.
       scored.push({file:entry.file,sha256:entry.sha256,labelStatus:entry.labelStatus,firstCorrect:entry.labelStatus==='IDENTIFIED'?offered[0]===entry.scryfallId:null,expectedOffered:entry.labelStatus==='IDENTIFIED'?offered.includes(entry.scryfallId):null,offered,jobs});
+      // Synchronous Docker/database reads must yield so the resource timer can run.
+      await new Promise<void>(resolve=>setImmediate(resolve));
     }
     expect(results.photos).toHaveLength(124);
     for(const photo of results.photos){expect(results.originals.find((r:any)=>r.id===photo.id).sha256).toBe(photo.digest);expect(entries.some((e:any)=>e.sha256===photo.digest)).toBe(true)}
