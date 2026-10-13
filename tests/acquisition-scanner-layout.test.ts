@@ -171,3 +171,15 @@ test('marker-only generation binds current title and unique footer marker withou
   const changed=markerInferredNative();if(changed.scannerLayout!.inference.status==='PROPOSED')changed.scannerLayout!.inference.observedAnchors=['SET_LANGUAGE'];
   assert(!nativeSchema.safeParse(changed).success);
 });
+
+import {scannerLayoutCollectorLines} from '../lib/acquisition-scanner-layout';
+test('collector binding excludes same-observation set tokens even when their OCR score is higher',()=>{
+  const value=inferredNative();const real=value.orientations[0].lines[1];real.text='190/274 U';real.score=.98;
+  const marker={...markerLine,text:'M21 · EN Artist',score:.99,polygon:markerLine.polygon.map(([x,y])=>[(50+x/999*1600+8)/1699*999,(30+y/1396*2240-6)/2299*1396])};
+  value.orientations[0].lines.push(marker,{...marker,text:'M21',score:.9999});
+  assert.equal(scannerLayoutCollectorLines(value.orientations[0]).length,1);
+  assertScannerLayoutInference(profile,value);
+  value.orientations[0].lines.splice(1,1);
+  assert.equal(scannerLayoutCollectorLines(value.orientations[0]).length,0);
+  assert.throws(()=>assertScannerLayoutInference(profile,value));
+});
