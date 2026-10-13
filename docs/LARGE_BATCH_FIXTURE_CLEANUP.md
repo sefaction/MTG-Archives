@@ -1,0 +1,15 @@
+# Large-batch fixture cleanup isolation
+
+Issue: https://github.com/sefaction/MTG-Archives/issues/775. Broader audit: #692.
+
+The existing large-batch verifier now attempts each early/final feedback sweep, each owner's bounded Inventory cleanup and original acquisition teardown, each browser context and each private spool file independently. Report/diagnostic errors cannot prevent those operations. All cleanup errors remain in an AggregateError. Final report qualification happens after the final sweeps and requires no cleanup error.
+
+The unchanged actual finally block reproduces early-slot-0, diagnostic/report, original-slot-0 and final-slot-0 abort boundaries. Real PostgreSQL baseline probes with four disposable owners leave four users/players/locations after early/report failures; the early failure also leaves all four independent correction accounts/directories. These exact probes were recovered. Actual corrected-block PostgreSQL early/report/final/normal probes clear all five namespace classes for sixteen disposable owners and keep the injected errors visible. These probes seed minimal user/location/feedback data; they do not qualify populated acquisition queues or Inventory scale.
+
+All 26 actual-block failure/normal controls and type checks pass. An AST comparison preserves all 66 original assertions, eleven database templates, the complete main workflow and original native/UI deadlines. The initial control harness failed on cross-context object prototypes; normalizing only harness comparison objects fixes that check. Its failed log remains private. No product assertion changed.
+
+Qualification remains incomplete: the original 100/300-input native workflows and 150,000-copy acceptance have not been rerun. The required private playable-manifest.json and its 67-original corpus were not located in the repository or managed worktrees. No substitute, skipped case or minimal PostgreSQL probe is claimed as a full native pass. Keep the PR draft until a bounded current-build qualification plan resolves this requirement. Persistent failures of an owner's database/file operation may still leave that owner's data; the fix preserves its cause and proceeds with later owners.
+
+This is test-only. Cumulative application source/images remain unchanged and require no rebuild. Preserve the existing scanner/Advanced review stack and its current loaded source. During reconciliation the isolated OCR worker was already stopped: exit 1 at 13:04:11 UTC, before this run acquired its lock at 13:34:33, with OOMKilled false and no Docker error. Its last diagnostic is generic; the cause is unknown. After checking the scanner chat idle and no conflicting tests, the same existing container/image/limits/storage was started at 13:50:53. This explicit restoration is not service-lifetime conservation or proof of the cause. Private diagnostics remain local; no primary or production service was changed.
+
+The separate reviewer owns eventual readiness, human approval, merge and issue closure. No product retention, 64 decimal GB per owner, 2% controls, physical scanner or production change is included.
