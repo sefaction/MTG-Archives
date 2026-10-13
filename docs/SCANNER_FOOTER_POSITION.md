@@ -11,7 +11,7 @@ Original OCR strings, polygons, scores, source readings and native output are un
 
 ## Completed verification
 
-- All 298 acquisition regression tests pass, including supported exclusion; absent/conflicting/invalid/out-of-region boxes; duplicate text in different positions; explicit and older-layout identifiers; primary/source conservation; orientation separation; original-input immutability and catalogue-query parity.
+- All 299 acquisition regression tests pass, including supported exclusion; absent/conflicting/invalid/out-of-region boxes; duplicate text in different positions; explicit and older-layout identifiers; primary/source conservation; orientation and independent reference-frame separation; original-input immutability and catalogue-query parity.
 - TypeScript check passes after adding the four-image browser regression.
 - Paired pure resolver replay uses the same frozen public catalogue (`8b0ffaf2acc9312f864118446d318416d3649fb5c060c35cab5df5d7de54cc6e`) and the same 124 saved native outputs for both revisions. First-choice exact printing remains 115/123 in this primary-text-only diagnostic; automatic eligibility stays 51/124. No first-choice wins/losses or newly automatic outcomes occur. This is not the later combined visual/printing result.
 - Only three observations change: 017 removes `47j` while retaining 170; 039 removes `4` while retaining 201; 115 removes `413` while retaining 253. The latter two stop reporting a collector conflict but remain review-required. Inspection of the original 039/115 images confirms right-side power/toughness boxes (2/3 and 4/5).

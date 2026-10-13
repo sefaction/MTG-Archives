@@ -48,3 +48,14 @@ test('explicit fractions and rarity numbers, source and primary readings, and ot
     {rotationDegrees:180,text:{title:[],footer:['C19 EN'],footerSupplemental:['47J']},footerLines:[spatial.footerLines[0]]}];
   assert.deepEqual(acquisitionCatalogQueries(readings).printings,[{kind:'printing',set:'c19',number:'47j',language:'en'}]);
 });
+
+test('reference frames cannot lend collector boxes to an independently read isolated number',async()=>{
+  const {combineAcquisitionReferenceReadings}=await import('../lib/acquisition-reference-text');
+  const card={id:'correct',name:text.title[0],setCode:'c19',collectorNumber:'170',lang:'en'};
+  const empty={rotationDegrees:180,text:{title:[],footer:[]},lines:[]};
+  const primary={orientations:[{rotationDegrees:0,text,...spatial},empty]};
+  const refined={orientations:[{rotationDegrees:0,text:{title:text.title,footer:['C19 EN'],footerSupplemental:['47J']},footerLines:[spatial.footerLines[0]]},empty]};
+  const result=combineAcquisitionReferenceReadings(createAcquisitionRecognitionIndex([card]),primary,refined);
+  assert.deepEqual(result.evidence.collectors,['170','47j']);
+  assert.equal(result.automaticAcceptance,false);
+});
