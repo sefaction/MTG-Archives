@@ -50,3 +50,37 @@ test("copyright years are not rarity-prefixed collectors; actual fractions and i
   assert.throws(()=>acquisitionFooterIdentifiers(Array(101).fill("x")));
   assert.throws(()=>acquisitionFooterIdentifiers(["x".repeat(2001)]));
 });
+
+test('printed numeric set markers are not rarity collectors or glued artist identifiers',()=>{
+  for(const [set,number,footer] of [
+    ['c19','170',['170/302 U','C19· EN Steven Belledin']],
+    ['m21','190',['M21','190/274 U','M21 EN K Randy Vargas']],
+    ['m21','190',['M21 · EN Randy Vargas','M21','190/274 U']],
+  ] as const){
+    const parsed=acquisitionFooterIdentifiers([...footer]);
+    assert.deepEqual(parsed.identifiers,[{set,language:'en'}]);assert.deepEqual(parsed.collectors,[number]);
+    const card={id:'correct',name:'Test Card',setCode:set,collectorNumber:number,lang:'en'};
+    const text={title:[card.name],footer:[...footer]},result=proposeAcquisitionPrintings(createAcquisitionRecognitionIndex([card]),text);
+    assert.equal(result.proposals[0].card.id,card.id);assert.equal(result.status,'REVIEW_REQUIRED');assert.equal(result.automaticAcceptance,false);
+    assert.deepEqual(acquisitionCatalogQueries([{rotationDegrees:0,text}]).printings,[{kind:'printing',set,number,language:'en'}]);
+  }
+  assert.deepEqual(acquisitionFooterIdentifiers(['M21 · EN']).collectors,[]);
+  assert.deepEqual(acquisitionFooterIdentifiers(['R0080','ABC EN']).collectors,['80']);
+  assert.deepEqual(acquisitionFooterIdentifiers(['M 21','M21 · EN']).collectors,['21']);
+  assert.deepEqual(acquisitionFooterIdentifiers(['R 0021','190/274 U','M21 · EN']).collectors,['21','190']);
+  assert.deepEqual(acquisitionFooterIdentifiers(['M21a','M21 · EN']).collectors,['21a']);
+  assert.deepEqual(acquisitionFooterIdentifiers(['DMCEN Ryan Alexander Lee']).identifiers,[{set:'dmc',language:'en'}]);
+  assert.deepEqual(acquisitionFooterIdentifiers(['ABC EN DEF FR']).identifiers,[{set:'abc',language:'en'},{set:'def',language:'fr'}]);
+  const orientations=[{rotationDegrees:0,text:{title:['Test Card'],footer:['M21']}},
+    {rotationDegrees:180,text:{title:[],footer:['M21 · EN']}}];
+  assert.deepEqual(acquisitionCatalogQueries(orientations).printings,[]);
+});
+
+
+test("proper same-orientation markers corroborate joined OCR without changing healthy eligibility",()=>{
+  const card={id:"card",name:"Test Card",setCode:"abc",collectorNumber:"17",lang:"en"};const index=createAcquisitionRecognitionIndex([card]);
+  const corroborated=proposeAcquisitionPrintings(index,{title:[card.name],footer:["R0017","ABCEN","ABC · EN Steven Belledin"]});
+  assert.equal(corroborated.automaticAcceptance,true);
+  const uncertain=proposeAcquisitionPrintings(index,{title:[card.name],footer:["R0017","ABCEN"]});
+  assert.equal(uncertain.automaticAcceptance,false);
+});

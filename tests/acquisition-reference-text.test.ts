@@ -40,3 +40,14 @@ test("matching independent readings retain both origins without duplicate propos
   assert(result.proposals[0].reasons.includes("PRIMARY_OCR_OBSERVATION"));
   assert(result.proposals[0].reasons.includes("REFERENCE_OCR_OBSERVATION"));assert.deepEqual(source,before);
 });
+
+test('later artwork refinement keeps earlier scanner-layout readings and conflicts',()=>{
+  const primary={...reading(['Forest'],['001','AAA EN']),scannerLayout:{readingStatus:'COMPLETE',
+    ...reading(['Island'],['002','BBB EN'])}};
+  const before=structuredClone(primary);
+  const result=combineAcquisitionReferenceReadings(index,primary,reading([],[]));
+  assert.equal(result.status,'CONFLICT');assert.equal(result.automaticAcceptance,false);
+  assert.deepEqual(new Set(result.proposals.map(p=>p.card.id)),new Set(['first','second']));
+  assert(result.proposals.some(p=>p.reasons.includes('SCANNER_LAYOUT_OCR_OBSERVATION')));
+  assert.deepEqual(primary,before);
+});

@@ -47,6 +47,8 @@ export const acquisitionReviewRequestSchema = z.discriminatedUnion("action", [
       evidenceTokens: correctionDisplayTokensSchema.optional(),
     })
     .strict(),
+  z.object({action:z.literal("scanner-layout"),photoId:z.string().uuid(),revision:z.number().int().nonnegative(),
+    requestKey:z.string().uuid(),reset:z.boolean()}).strict(),
   z.object({ action: z.literal("region"), photoId: z.string().uuid(),
     revision: z.number().int().nonnegative(), requestKey: z.string().uuid(),
     region: acquisitionManualRegionSchema.nullable(),
@@ -89,6 +91,7 @@ export type AcquisitionCardReview = {
   printingStatus?: string;
   catalog?: AcquisitionCatalogStatus | null;
   evidence: AcquisitionReviewEvidence;
+  scannerLayout?: {saved:boolean;canSave:boolean;applied:boolean};
   manualRegion?: AcquisitionManualRegion | null;
   manualRegionRequestedRevision?: number;
 };

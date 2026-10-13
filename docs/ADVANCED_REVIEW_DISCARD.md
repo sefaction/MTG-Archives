@@ -1,0 +1,18 @@
+# Advanced scan review discard
+
+Issue #756 is addressed by PR #772. After editing a printing, finish, condition or search field in Advanced, **Cancel changes** reloads the latest saved review and recognition evidence without sending an accept or pending decision. It also clears the local search/results and the matching browser draft. The existing browser write identity keeps newer drafts from another tab.
+
+The read has a request-version fence and disables actions while it runs. A failed read keeps the local edits and allows retry. Active manual-boundary editing disables discard; cancelling the boundary edit restores the action. The same discard operation serves Simple review. Saved human decisions, correction evidence, receipts and Inventory retain their authority.
+
+Qualification on October 13, 2026:
+
+- The unchanged qualified app reproduced the missing Advanced action at its original ten-second expectation. The first fixture used null rather than the API's empty-string No section encoding; that setup failure and the actual missing-action failure are retained separately.
+- Desktop and 320-pixel actual UI/API cases pass, including a saved NM → MP change from another client while the local LP/search draft stays dirty, one controlled failed read, successful retry, search/draft reset, active manual-boundary fencing and unchanged saved review/feedback. Discard sends no decision POST, creates no receipt/Inventory and preserves downloaded original bytes. Both rendered views were inspected. The final two cases pass in 45.6 seconds without skips/retries.
+- The complete existing ordinary native reference-authority workflow passes in 169.2 seconds. Advanced directly discards after a real late reread; current inferred evidence becomes visible without a saved decision. Saved feedback and retake controls still pass, with immutable original/first evidence and zero Inventory.
+- Feature and cumulative types, six existing draft/display guards, and the required installer web build pass. The cumulative host typecheck initially shared an older Prisma client; isolated dependencies generated from the exact cumulative schema repair that environment failure without changing another worker's dependencies.
+- Exact source manifest is `240b0aceaca797a5d6c828cb972b6ae59504d9b71bdf7e86b05d60f2bbce580a` (620 inputs). Only the isolated review web image changed. All six other isolated services and all sixteen primary services retain exact images, configuration, mounts and lifetimes. Cumulative source includes the existing scanner layout, footer, anchor, marker and collector stack through #771.
+- Owned users, players, sessions, cards, independent correction accounts and upload files are absent after qualification. Thirteen primary whole-table fingerprints, 156 retained originals (898,515,870 bytes), and the existing correction original are unchanged.
+
+The first strict primary account fingerprint comparison failed while ordinary correction cleanup remained running. A separate fresh four-account comparison shows only `lastCleanupAt` and `updatedAt` changes, matching the existing cleanup operation; substantive fields remain identical in that observed interval. The initial failure remains retained and is not represented as full-account conservation across the earlier interval. No account or historical evidence was rewritten/deleted.
+
+All three required CI checks pass on the initial source/test head in run38371731039. Final-head CI and live PR readiness remain authoritative in GitHub and the scheduled worker checkpoint. This is a local review usability fix; no physical scanner feeding, accuracy promotion, production action or merge is included.

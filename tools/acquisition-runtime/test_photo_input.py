@@ -42,6 +42,21 @@ class PhotoInputTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             decode_photo_input(struct.pack('>I',len(meta))+meta+raw,return_task=True)
 
+    def test_scanner_layout_is_explicit_scanner_only_and_preserves_original_bytes(self):
+        raw=b'original scanner image'
+        profile=json.dumps({'version':1,'policy':'scanner-layout-anchor-v1'})
+        meta=json.dumps({'inputKind':'CARD_SCAN','scannerLayoutProfile':profile}).encode()
+        frame=struct.pack('>I',len(meta))+meta+raw
+        self.assertEqual(decode_photo_input(frame,return_layout=True),(raw,'CARD_SCAN',json.loads(profile)))
+        with self.assertRaises(ValueError):decode_photo_input(frame)
+        for changed in [{'inputKind':'PHOTO','scannerLayoutProfile':profile},
+                        {'inputKind':'CARD_SCAN','scannerLayoutProfile':profile,'manualRegion':{}},
+                        {'inputKind':'CARD_SCAN','scannerLayoutProfile':{}},
+                        {'inputKind':'CARD_SCAN','scannerLayoutProfile':'null'}]:
+            hint=json.dumps(changed).encode()
+            with self.assertRaises(ValueError):
+                decode_photo_input(struct.pack('>I',len(hint))+hint+raw,return_layout=True)
+
     def test_source_hints_preserve_original_bytes(self):
         raw = bytes.fromhex('ffd8ffe00000')
         self.assertEqual(decode_photo_input(raw), (raw, 'PHOTO'))
@@ -58,6 +73,16 @@ class PhotoInputTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             decode_photo_input(b'x' * (MAX_PHOTO+1))
 
+
+    def test_marker_profile_hint_preserves_original_and_rejects_mixed_generations(self):
+        raw=b'original image'
+        def frame(profile):
+            meta=json.dumps({'inputKind':'CARD_SCAN','scannerLayoutProfile':json.dumps(profile)}).encode()
+            return struct.pack('>I',len(meta))+meta+raw
+        good={'version':2,'policy':'scanner-layout-marker-v2'}
+        self.assertEqual(decode_photo_input(frame(good),return_layout=True),(raw,'CARD_SCAN',good))
+        for bad in [{'version':True,'policy':'scanner-layout-anchor-v1'},{'version':2,'policy':'scanner-layout-anchor-v1'},{'version':1,'policy':'scanner-layout-marker-v2'},{'version':3,'policy':'future'}]:
+            with self.assertRaises(ValueError):decode_photo_input(frame(bad),return_layout=True)
 
 if __name__ == '__main__':
     unittest.main()

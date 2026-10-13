@@ -17,6 +17,7 @@ import {
   type AcquisitionDefaults,
   type AcquisitionPrinting,
 } from "@/lib/acquisition-review";
+import {AcquisitionScannerLayoutControls} from "./AcquisitionScannerLayoutControls";
 import { AcquisitionCardRegionEditor } from "./AcquisitionCardRegionEditor";
 import type { AcquisitionManualRegion } from "@/lib/acquisition-manual-region";
 import { acquisitionReferenceBoundary } from "@/lib/acquisition-printing";
@@ -437,6 +438,26 @@ export function AcquisitionPhotoReview({
       setError((e as Error).message);
     }
   }
+  async function discardChanges() {
+    if (busy || regionEditing) return;
+    const version = ++requestVersion.current;
+    setBusy(true);
+    setError("");
+    try {
+      const next = await call<AcquisitionCardReview>(`${endpoint}?photoId=${photoId}`);
+      if (version !== requestVersion.current) return;
+      setObservedRevision(next.revision);
+      clearDraft();
+      apply(next);
+      setQuery(""); setSet(""); setNumber(""); setMatches(null);
+      setEditing(false);
+      setMessage("Unsaved changes discarded.");
+    } catch (e) {
+      if (version === requestVersion.current) setError((e as Error).message);
+    } finally {
+      if (version === requestVersion.current) setBusy(false);
+    }
+  }
   async function submit(action: "accept" | "pending", next = false) {
     if (!record || regionEditing) return;
     ++requestVersion.current;
@@ -758,13 +779,11 @@ export function AcquisitionPhotoReview({
                 >
                   Keep pending
                 </button>
-                {simple && (
+                {(simple || draftDirty) && (
                   <button
+                    type="button"
                     className={button}
-                    onClick={async () => {
-                      await reload();
-                      setEditing(false);
-                    }}
+                    onClick={() => void discardChanges()}
                   >
                     Cancel changes
                   </button>
@@ -900,11 +919,13 @@ export function AcquisitionPhotoReview({
                 {acquisitionCatalogMessage(record.catalog)}
               </p>
             )}
+          {!simple && <AcquisitionScannerLayoutControls record={record} endpoint={endpoint} disabled={busy||regionEditing} refresh={refresh} onChange={saved=>setRecord(previous=>previous?{...previous,scannerLayout:{...previous.scannerLayout!,saved}}:previous)} />}
           {!committed && !regionEditing && <button type="button" className={button + " mb-3"} disabled={busy}
             onClick={() => {setRegionEditing(true); onDirtyChange?.(photoId, true);}}>Edit card boundary</button>}
           {!committed && regionEditing && <AcquisitionCardRegionEditor
             src={`/api/acquisition/${batchId}/photos/${photoId}`} record={record} latestRevision={observedRevision ?? record.revision} busy={busy}
-            suggestedRegion={acquisitionReferenceBoundary(record.evidence?.printing, selected?.id)}
+            suggestedRegion={record.evidence?.scannerLayout?.region ?? acquisitionReferenceBoundary(record.evidence?.printing, selected?.id)}
+            suggestedSource={record.evidence?.scannerLayout?.region ? "scanner" : "reference"}
             apply={repairRegion} cancel={() => {setRegionEditing(false); onDirtyChange?.(photoId, dirty.current);}} />}
           <div
             className={
@@ -1076,7 +1097,7 @@ export function AcquisitionPhotoReview({
                       </button>
                     )}
                     {draftDirty && !showEditor && (
-                      <button className={button} disabled={busy || regionEditing} onClick={() => void reload()}>
+                      <button type="button" className={button} disabled={busy || regionEditing} onClick={() => void discardChanges()}>
                         Cancel changes
                       </button>
                     )}
