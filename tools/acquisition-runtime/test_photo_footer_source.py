@@ -12,6 +12,14 @@ class FooterSourceTests(unittest.TestCase):
         self.geometry={'status':'PROPOSED','quad':[[50,50],[1549,50],[1549,2143],[50,2143]]}
         cv2.putText(self.image,'DMC EN 0181',(95,2040),cv2.FONT_HERSHEY_SIMPLEX,1.1,(10,)*3,2)
 
+    def test_layout_budget_cannot_displace_previous_footer_observations(self):
+        payload={'text':{'title':['known'],'footer':['R 0177'],'footerSourceIdentifiers':['TST EN']},
+                 'orientations':[], 'scannerLayout':{'padding':'x'*65535},
+                 'scannerLayoutTemplate':{'padding':'y'*1000}}
+        result=json.loads(bounded_source_footer_output(payload))
+        self.assertEqual(result['text'],{'title':['known'],'footer':['R 0177'],'footerSourceIdentifiers':['TST EN']})
+        self.assertNotIn('scannerLayout',result);self.assertNotIn('scannerLayoutTemplate',result)
+
     def test_original_resolution_is_retained_in_a_smaller_footer_view(self):
         before=self.image.copy()
         view,metadata=source_footer_view(self.image,self.geometry,0)

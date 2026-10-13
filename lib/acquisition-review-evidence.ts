@@ -1,3 +1,4 @@
+import {scannerLayoutInferenceSchema} from "./acquisition-scanner-layout";
 import { z } from "zod";
 import { printingSummarySchema } from "./acquisition-printing";
 import { acquisitionPhotoTextSchema } from "./acquisition-photo-text";
@@ -32,10 +33,14 @@ const observation = z.object({
 });
 const primaryReading=observation.pick({rotationDegrees:true,text:true});
 const schema = z.object({
+  primaryScannerLayout:z.object({inference:scannerLayoutInferenceSchema,orientations:z.array(observation).max(2),
+    readingStatus:z.enum(['COMPLETE','TIME_BUDGET','WORKER_ERROR']).optional()}).optional(),
   primaryReadings:z.array(primaryReading).max(2).optional(),
   printing: printingSummarySchema.optional(),
   visual: visualNativeSchema.optional(),
   native: z.object({
+    scannerLayout:z.object({inference:scannerLayoutInferenceSchema,orientations:z.array(observation).max(2),
+      readingStatus:z.enum(['COMPLETE','TIME_BUDGET','WORKER_ERROR']).optional()}).optional(),
     photoText: acquisitionPhotoTextSchema.optional(),
     readingZones: acquisitionReadingZonesSchema.optional(),
     geometry: z.object({
@@ -75,7 +80,11 @@ export function acquisitionReviewEvidence(output: unknown) {
   const parsed = schema.safeParse(output);
   if (!parsed.success) return null;
   const { native, proposals, visual, printing } = parsed.data;
+  const layout=native.scannerLayout??parsed.data.primaryScannerLayout;
   return {
+    scannerLayout: layout?.inference.status==='PROPOSED'
+      ? {region:layout.inference.region,boundaryVerified:false as const,
+        observations:layout.orientations,readingStatus:layout.readingStatus??null} : null,
     geometry: native.geometry,
     primaryObservations:parsed.data.primaryReadings??null,
     observations: native.orientations,

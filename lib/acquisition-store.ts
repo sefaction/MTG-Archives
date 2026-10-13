@@ -1,3 +1,5 @@
+import {parseScannerLayoutProfile, freezeScannerLayoutProfile, scannerLayoutTemplateSchema} from "./acquisition-scanner-layout";
+import {nativeSchema} from "./acquisition-recognition-worker";
 import { createHash, randomUUID } from "node:crypto";
 import { Prisma, PrismaClient, type InventoryLocation } from "@prisma/client";
 import { z } from "zod";
@@ -20,7 +22,7 @@ import { PRINTING_STAGE } from "./acquisition-printing";
 import { acquisitionRecognitionJobs } from "./acquisition-recognition-jobs";
 import { CATALOG_RECONCILIATION_STAGE } from "./acquisition-catalog-status";
 import { acquisitionReviewEvidence } from "./acquisition-review-evidence";
-import { acquisitionManualAnalysisSchema, validateAcquisitionManualRegionFrame } from "./acquisition-manual-region";
+import { acquisitionManualAnalysisSchema, sameAcquisitionManualRegion, validateAcquisitionManualRegionFrame } from "./acquisition-manual-region";
 import { searchLocalCardCatalog } from "./local-card-search";
 import { captureCorrectionReview, correctionDisplayToken, ensureCorrectionExample,
   selectCorrectionControl } from "./acquisition-correction-library";
@@ -1085,6 +1087,8 @@ export async function beginAcquisitionPhoto(
         generation: slot.generation + 1,
         ...metadata,
         inputKind,
+        scannerLayoutProfile: inputKind==='CARD_SCAN'
+          ? freezeScannerLayoutProfile((await tx.player.findUniqueOrThrow({where:{id:row.ownerPlayerId},select:{scannerLayoutProfile:true}})).scannerLayoutProfile) : null,
         ...await selectCorrectionControl(tx, row.ownerPlayerId),
         ...(input.sourceMetadata ? { sourceMetadata: input.sourceMetadata } : {}),
       },
@@ -1276,8 +1280,17 @@ export async function getAcquisitionCardReview(
       where: { id: { in: ids } },
       select: acquisitionPrintingSelect,
     });
+    const layoutJob=jobs.find(j=>j.stage==='photo-recognition-v1'&&j.status==='COMPLETE'&&j.candidateRevision===candidate.revision);
+    const layoutNative=nativeSchema.safeParse((layoutJob?.output as {native?:unknown}|null)?.native);
+    const ownerLayout=await tx.player.findUniqueOrThrow({where:{id:row.ownerPlayerId},select:{scannerLayoutProfile:true}});
     return {
       photoId,
+      scannerLayout: {saved:Boolean(parseScannerLayoutProfile(ownerLayout.scannerLayoutProfile)),
+        canSave:photo.inputKind==='CARD_SCAN'&&layoutNative.success&&Boolean(layoutNative.data.scannerLayoutTemplate)&&
+          layoutNative.data.photoDigest===photo.digest&&
+          (layoutNative.data.scannerLayoutTemplate?.sourceMethod!=='manual-card-region-v1'||
+            Boolean(currentAnalysis?.region&&sameAcquisitionManualRegion(layoutNative.data.geometry.manualRegion,currentAnalysis.region))),
+        applied:acquisitionReviewEvidence(job?.output)?.scannerLayout?.readingStatus==='COMPLETE'},
       evidenceToken: await correctionDisplayToken(tx, row.ownerPlayerId, actor, photo, candidate, jobs,
         (evidence.result?.proposals ?? []).flatMap(proposal => {
           const card = cards.find(card => card.id === proposal.card.id); return card ? [card] : [];
@@ -1360,6 +1373,40 @@ export async function saveAcquisitionReview(
         defaults: input.defaults,
         defaultsRevision: row.defaultsRevision + 1,
       };
+    }
+    if(input.action==='scanner-layout'){
+      const requestKey='scanner-layout:'+input.requestKey;
+      const fingerprint=createHash('sha256').update(JSON.stringify(input)).digest('hex');
+      const prior=await tx.acquisitionCommand.findUnique({where:{runId_requestKey:{runId:row.run!.id,requestKey}}});
+      if(prior){const saved=JSON.parse(prior.payload);
+        if(saved.actorId!==actor.userId||saved.fingerprint!==fingerprint)throw new Error('Capture layout request changed');
+        return {replay:true};
+      }
+      const {photo,candidate}=await reviewPhoto(tx,row,input.photoId);
+      if(candidate.revision!==input.revision)throw new Error('Capture card changed; reopen its review');
+      let profile:string|null=null;
+      if(!input.reset){
+        if(photo.inputKind!=='CARD_SCAN')throw new Error('Choose a scanner image for its layout');
+        const currentAnalysis=acquisitionManualAnalysisSchema.safeParse(candidate.manualAnalysis);
+        const current=currentAnalysis.success&&currentAnalysis.data.photoId===photo.id&&currentAnalysis.data.digest===photo.digest
+          &&currentAnalysis.data.generation===photo.generation?currentAnalysis.data:null;
+        const jobs=await tx.acquisitionProcessingJob.findMany({where:{runId:row.run!.id,stage:'photo-recognition-v1',status:'COMPLETE',
+          candidateId:candidate.id,candidateRevision:candidate.revision,artifact:{sourceId:photo.id},
+          ...(current?{input:{path:['manualAnalysis'],equals:current}}:{})},orderBy:[{createdAt:'desc'},{id:'desc'}],take:1});
+        const observation=nativeSchema.parse((jobs[0]?.output as {native?:unknown}|null)?.native);
+        const template=scannerLayoutTemplateSchema.parse(observation.scannerLayoutTemplate);
+        if(template.sourceMethod==='manual-card-region-v1'&&(!current?.region||!sameAcquisitionManualRegion(observation.geometry.manualRegion,current.region)))
+          throw new Error('Capture manual layout source changed');
+        if(template.sourceDigest!==photo.digest||template.frame.width!==photo.width||template.frame.height!==photo.height)
+          throw new Error('Capture layout source changed');
+        profile=JSON.stringify(template);
+        if(Buffer.byteLength(JSON.stringify({inputKind:'CARD_SCAN',scannerLayoutProfile:profile}))>1020)
+          throw new Error('Capture layout exceeds scanner limits');
+      }
+      await tx.player.update({where:{id:row.ownerPlayerId},data:{scannerLayoutProfile:profile}});
+      await tx.acquisitionCommand.create({data:{runId:row.run!.id,requestKey,payload:JSON.stringify({version:1,action:'SCANNER_LAYOUT',
+        actorId:actor.userId,fingerprint,sourcePhotoId:input.reset?null:photo.id,sourceDigest:input.reset?null:photo.digest,reset:input.reset})}});
+      return {replay:false};
     }
     if (input.action === "region") {
       const requestKey = `manual-region:${input.requestKey}`;

@@ -503,6 +503,17 @@ export function AcquisitionEvidenceFields({
               </div>
             ))}
           </details>
+          {evidence.scannerLayout && <details className="mt-2" data-testid="scanner-layout-readings">
+            <summary className="cursor-pointer text-sm underline">OCR through the inferred scanner outline</summary>
+            <p className="text-sm mt-2">This outline comes from a saved scanner layout and printed anchors. Its physical edges still need checking.</p>
+            {evidence.scannerLayout.readingStatus!=='COMPLETE'&&<p className="text-sm mt-2">The additional reading did not complete. The original readings are kept.</p>}
+            {evidence.scannerLayout.observations.map(o=><div key={o.rotationDegrees} className="text-xs mt-2 break-words">
+              <p className="font-semibold">{o.rotationDegrees}° relative to inferred outline</p>
+              <p>Title: {o.text.title.join(' | ')||'Nothing read'}</p>
+              <p>Footer: {o.text.footer.join(' | ')||'Nothing read'}</p>
+              {o.text.footerSupplemental?.length?<p>Additional footer reading: {o.text.footerSupplemental.join(' | ')}</p>:null}
+            </div>)}
+          </details>}
           {evidence.photoText && (
             <details className="mt-2" data-testid="unlocalized-photo-text">
               <summary className="cursor-pointer text-sm underline">Whole-photo OCR (unlocalized)</summary>

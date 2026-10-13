@@ -44,6 +44,7 @@ def descriptor():
                'code': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                'storeCode': hashlib.sha256(Path(__file__).with_name('model_store.py').read_bytes()).hexdigest(),
                'readingCode': hashlib.sha256(Path(__file__).with_name('reading_direction.py').read_bytes()).hexdigest(),
+               'scannerLayoutCode': hashlib.sha256(Path(__file__).with_name('scanner_layout.py').read_bytes()).hexdigest(),
                'identifierSourceCode': hashlib.sha256(Path(__file__).with_name('footer_source.py').read_bytes()).hexdigest(),
                'inputCode': hashlib.sha256(Path(__file__).with_name('photo_input.py').read_bytes()).hexdigest(),
                'photoTextCode': hashlib.sha256(Path(__file__).with_name('photo_text.py').read_bytes()).hexdigest(),
@@ -86,9 +87,48 @@ def prepare_ocr():
     _prepared = True
 
 
+def localized_readings(crop, ocr):
+    import cv2
+    import numpy as np
+    orientations = []
+    for degrees, oriented in ((0, crop), (180, cv2.rotate(crop, cv2.ROTATE_180))):
+        regions = np.concatenate([oriented[:TITLE_BOTTOM],
+                                  np.full((STRIP_GAP, 1000, 3), 255, np.uint8),
+                                  oriented[FOOTER_TOP:]], axis=0)
+        lines = []
+        for prediction in ocr.predict(regions):
+            for text, score, polygon in zip(prediction['rec_texts'], prediction['rec_scores'], prediction['rec_polys']):
+                polygon = restore_reading_polygon(np.asarray(polygon).tolist())
+                if polygon is None:
+                    continue
+                if len(str(text)) > 2000 or len(lines) >= 100:
+                    raise ValueError('OCR evidence exceeds bounds')
+                lines.append({'text': str(text), 'score': float(score), 'polygon': polygon})
+        text = reading_text(lines)
+        # Keep the stitched reading intact. A separate full-width footer attempt
+        # can separate a marker from the artist that the stitched canvas joins.
+        footer_lines = []
+        for prediction in ocr.predict(oriented[FOOTER_TOP:]):
+            for value, score, polygon in zip(prediction['rec_texts'], prediction['rec_scores'], prediction['rec_polys']):
+                polygon = restore_footer_polygon(np.asarray(polygon).tolist())
+                if polygon is None:
+                    continue
+                if len(str(value)) > 2000 or len(lines) + len(footer_lines) >= 100:
+                    raise ValueError('OCR evidence exceeds bounds')
+                footer_lines.append({'text': str(value), 'score': float(score), 'polygon': polygon})
+        # Same orientation and actual footer pixels; resolver recovery remains
+        # review-only whenever this contributes new identifiers or collectors.
+        text['footerSupplemental'] = reading_text(footer_lines)['footer']
+        if len(text['footer']) + len(text['footerSupplemental']) > 100:
+            raise ValueError('OCR footer evidence exceeds bounds')
+        orientations.append({'rotationDegrees': degrees, 'text': text,
+                             'lines': lines, 'footerLines': footer_lines})
+    return orientations
+
+
 def recognize(data, desc):
-    data, input_kind, task, manual_region, reference_region = decode_photo_input(
-        data, return_task=True, return_region=True, return_reference=True)
+    data, input_kind, task, manual_region, reference_region, layout_profile = decode_photo_input(
+        data, return_task=True, return_region=True, return_reference=True, return_layout=True)
     if not data or len(data) > 10 * 1024 * 1024:
         raise ValueError('Photo exceeds bounds')
     started = time.monotonic()
@@ -162,39 +202,7 @@ def recognize(data, desc):
     # Geometry puts the short edge across the top, leaving two possible reading
     # directions. Keep their evidence separate; the catalog resolver handles
     # agreement/ambiguity. A high OCR score alone does not establish direction.
-    orientations = []
-    for degrees, oriented in ((0, crop), (180, cv2.rotate(crop, cv2.ROTATE_180))):
-        regions = np.concatenate([oriented[:TITLE_BOTTOM],
-                                  np.full((STRIP_GAP, 1000, 3), 255, np.uint8),
-                                  oriented[FOOTER_TOP:]], axis=0)
-        lines = []
-        for prediction in ocr.predict(regions):
-            for text, score, polygon in zip(prediction['rec_texts'], prediction['rec_scores'], prediction['rec_polys']):
-                polygon = restore_reading_polygon(np.asarray(polygon).tolist())
-                if polygon is None:
-                    continue
-                if len(str(text)) > 2000 or len(lines) >= 100:
-                    raise ValueError('OCR evidence exceeds bounds')
-                lines.append({'text': str(text), 'score': float(score), 'polygon': polygon})
-        text = reading_text(lines)
-        # Keep the stitched reading intact. A separate full-width footer attempt
-        # can separate a marker from the artist that the stitched canvas joins.
-        footer_lines = []
-        for prediction in ocr.predict(oriented[FOOTER_TOP:]):
-            for value, score, polygon in zip(prediction['rec_texts'], prediction['rec_scores'], prediction['rec_polys']):
-                polygon = restore_footer_polygon(np.asarray(polygon).tolist())
-                if polygon is None:
-                    continue
-                if len(str(value)) > 2000 or len(lines) + len(footer_lines) >= 100:
-                    raise ValueError('OCR evidence exceeds bounds')
-                footer_lines.append({'text': str(value), 'score': float(score), 'polygon': polygon})
-        # Same orientation and actual footer pixels; resolver recovery remains
-        # review-only whenever this contributes new identifiers or collectors.
-        text['footerSupplemental'] = reading_text(footer_lines)['footer']
-        if len(text['footer']) + len(text['footerSupplemental']) > 100:
-            raise ValueError('OCR footer evidence exceeds bounds')
-        orientations.append({'rotationDegrees': degrees, 'text': text,
-                             'lines': lines, 'footerLines': footer_lines})
+    orientations = localized_readings(crop, ocr)
     # Preserve both legacy readings before spending time on another bounded
     # source view. The normal parent processing deadline remains unchanged.
     for observation in orientations:
@@ -215,6 +223,33 @@ def recognize(data, desc):
           'orientations': orientations,
           'milliseconds': round((time.monotonic()-started)*1000),
           'automaticAcceptance': False}
+    if input_kind == 'CARD_SCAN':
+        from scanner_layout import make_scanner_layout
+        try:
+            template = make_scanner_layout(image, geometry_evidence, orientations, payload['photoDigest'])
+            if template is not None:
+                payload['scannerLayoutTemplate'] = template
+        except (ValueError, TypeError, KeyError, cv2.error):
+            pass  # Optional calibration cannot invalidate successful readings.
+    if layout_profile is not None:
+        from scanner_layout import infer_scanner_layout
+        inference = infer_scanner_layout(image, geometry_evidence, orientations, layout_profile, input_kind)
+        payload['scannerLayout'] = {'inference': inference, 'orientations': []}
+        if inference['status'] == 'PROPOSED':
+            if time.monotonic()-started >= 20:
+                payload['scannerLayout']['readingStatus'] = 'TIME_BUDGET'
+            else:
+                try:
+                    q = np.asarray(inference['region']['quad'], np.float32)*[image.shape[1]-1,image.shape[0]-1]
+                    transform = cv2.getPerspectiveTransform(q.astype(np.float32), np.float32([[0,0],[999,0],[999,1396],[0,1396]]))
+                    inferred_crop = cv2.warpPerspective(image, transform, (1000,1397))
+                    payload['scannerLayout']['orientations'] = localized_readings(inferred_crop, ocr)
+                    payload['scannerLayout']['readingStatus'] = 'COMPLETE'
+                except MemoryError:
+                    raise
+                except Exception:
+                    payload['scannerLayout']['readingStatus'] = 'WORKER_ERROR'
+    payload['milliseconds'] = round((time.monotonic()-started)*1000)
     print(bounded_source_footer_output(payload),file=protocol,flush=True)
 
 

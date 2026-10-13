@@ -291,6 +291,8 @@ model Season {
 
 model Player {
   acquisitionSessions         AcquisitionSession[]
+  // Explicit owner setting; snapshots are frozen when each scan is uploaded.
+  scannerLayoutProfile        String?
   id                          String                              @id @default(cuid())
   name                        String                              @unique
   displayName                 String                              @unique
@@ -1545,6 +1547,7 @@ model AcquisitionPhoto {
   height     Int
   inputKind  AcquisitionImageInputKind @default(PHOTO)
   sourceMetadata Json?
+  scannerLayoutProfile String?
   ready      Boolean @default(false)
   createdAt  DateTime @default(now())
   readyAt    DateTime?
