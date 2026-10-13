@@ -14,6 +14,7 @@ test('actual scanner footer boxes distinguish power/toughness noise and preserve
   const inputs=entries.map((e:any)=>{const file=path.join(root!,e.file);expect(sha(readFileSync(file))).toBe(e.sha256);return file;});
   const tag=`ui-reference-scan-${randomUUID()}`,password=randomUUID(),scope=`{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}}}`;
   const state=()=>json(`console.log(JSON.stringify({photos:await p.acquisitionPhoto.findMany({where:${scope},orderBy:{createdAt:'asc'}}),jobs:await p.acquisitionProcessingJob.findMany({where:${scope},orderBy:{createdAt:'asc'}}),inventory:await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}),candidates:await p.acquisitionCandidate.findMany({where:${scope},include:{receipt:true}})}));`);
+  let primaryFailure:unknown;
   try{
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash,role:'PLAYER'}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:4,sections:[]}}});`);
     await page.goto('/login');await page.getByLabel(/username or email/i).fill(tag);await page.getByLabel(/^password$/i).fill(password);await page.getByRole('button',{name:/^log in$/i}).click();await page.waitForURL(/\/dashboard/);await page.goto('/imports/scan');
@@ -43,5 +44,13 @@ test('actual scanner footer boxes distinguish power/toughness noise and preserve
     }
     expect(final.inventory).toBe(0);expect(final.candidates.every((c:any)=>c.review===null&&c.receipt===null)).toBe(true);
     if(process.env.MTG_SET_TOKEN_REPORT_PATH)writeFileSync(process.env.MTG_SET_TOKEN_REPORT_PATH,JSON.stringify({passed:true,developmentOnly:true,state:final},null,2));
-  }finally{database(`await p.authSession.deleteMany({where:{userId:${JSON.stringify(tag)}}});`+cancelAndCleanCorrectionFixture(tag));cleanupReferenceRows(tag);database(cancelAndCleanCorrectionFixture(tag));}
+  }catch(error){primaryFailure=error;}finally{
+    const failures:unknown[]=primaryFailure===undefined?[]:[primaryFailure];
+    const cleanup=async(action:()=>unknown|Promise<unknown>)=>{try{await action();}catch(error){failures.push(error);}};
+    await cleanup(()=>database(`await p.authSession.deleteMany({where:{userId:${JSON.stringify(tag)}}});`+cancelAndCleanCorrectionFixture(tag)));
+    await cleanup(async()=>{if(!page.isClosed())await page.goto('/login');});
+    await cleanup(()=>cleanupReferenceRows(tag));
+    await cleanup(()=>database(cancelAndCleanCorrectionFixture(tag)));
+    if(failures.length)throw new AggregateError(failures,'Scanner footer position qualification or cleanup failed');
+  }
 });
