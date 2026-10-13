@@ -11,7 +11,8 @@ export function acquisitionRecognitionJobs<T extends EvidenceJob>(
 ) {
   const visual = jobs.find(j=>j.stage === VISUAL_STAGE);
   const visualStatus = visual?.status ?? (visualEnabled ? "WAITING" : undefined);
-  const sources = jobs.filter(j=>j.stage !== VISUAL_STAGE && j.stage !== PRINTING_STAGE);
+  const sources = jobs.filter(j=>j.stage !== VISUAL_STAGE && j.stage !== PRINTING_STAGE&&
+    (j.output as {referenceAdmission?:{status?:string}}|null)?.referenceAdmission?.status!=="SKIPPED");
   const latest = sources[0];
   const completed = sources.find(j=>j.status === "COMPLETE");
   const printing = completed?.stage === CATALOG_RECONCILIATION_STAGE

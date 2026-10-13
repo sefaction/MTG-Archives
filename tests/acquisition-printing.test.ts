@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  printingNativeSchema, printingSummarySchema, applyAcquisitionPrintingEvidence, acquisitionPrintingSummary,
+  printingNativeSchema, printingSummarySchema, applyAcquisitionPrintingEvidence, acquisitionPrintingSummary, acquisitionReferenceBoundary,
 } from "../lib/acquisition-printing";
 import {createAcquisitionRecognitionIndex, proposeOrientedAcquisitionPrintings} from "../lib/acquisition-recognition";
 import {combineAcquisitionCandidates} from "../lib/acquisition-visual";
@@ -33,6 +33,57 @@ test("observed stamp demotes an original while retaining it for human correction
   assert(result.proposals.find(p=>p.card.id===original.id)?.reasons.includes("STAMP_CONTRADICTION"));
   assert.equal(result.automaticAcceptance,false);
   assert.equal(JSON.stringify([union,evidence]),before);
+});
+
+test("reference feature anchors infer an editable outline in the original frame without changing decisions",()=>{
+  const value=printing();
+  value.sourceSize=[1100,1500];
+  const quad: [number,number][]=[[50,40],[1049,40],[1049,1436],[50,1436]];
+  value.candidates[0].alignment={...value.candidates[0].alignment,quad,
+    inliers:30,supportFraction:.5,medianReprojectionPixels:.4};
+  const summary=printingSummarySchema.parse(acquisitionPrintingSummary(value,cards));
+  const inferred=acquisitionReferenceBoundary(summary,original.id)!;
+  assert.equal(inferred.version,1);
+  assert.deepEqual(inferred.quad,quad.map(([x,y])=>[x/1099,y/1499]));
+  assert.equal(acquisitionReferenceBoundary(summary,"other"),null);
+  assert.equal(acquisitionReferenceBoundary(summary,stamped.id),null);
+  assert.deepEqual(applyAcquisitionPrintingEvidence(union,value,cards),
+    applyAcquisitionPrintingEvidence(union,printing(),cards));
+  assert.equal(JSON.stringify(summary).includes("inliers"),false);
+});
+
+test("reference outlines reject clipped projections, weak anchors and missing legacy size",()=>{
+  const value=printing();
+  value.sourceSize=[1100,1500];
+  const alignment={...value.candidates[0].alignment,
+    quad:[[50,40],[1049,40],[1049,1436],[50,1436]] as [number,number][],
+    inliers:30,supportFraction:.5,medianReprojectionPixels:.4};
+  for(const change of [{status:"UNREADABLE" as const},{inliers:15},{sourceCardWidth:499},
+    {supportFraction:.24},{medianReprojectionPixels:3.01},
+    {quad:[[-1,40],[1049,40],[1049,1436],[50,1436]] as [number,number][]},
+    {quad:[[50,40],[1050,1500],[1049,1436],[50,1436]] as [number,number][]}]){
+    const candidate={...value.candidates[0],alignment:{...alignment,...change}};
+    assert.equal(acquisitionReferenceBoundary(acquisitionPrintingSummary({...value,candidates:[candidate]},cards),original.id),null);
+  }
+  value.candidates[0].alignment=alignment;
+  delete value.sourceSize;
+  assert.equal(acquisitionReferenceBoundary(acquisitionPrintingSummary(value,cards),original.id),null);
+  assert.equal(printingNativeSchema.safeParse({...value,sourceSize:[10000,10000]}).success,false);
+});
+
+test("reference face disagreement withholds an outline rather than choosing the first",()=>{
+  const value=printing();
+  value.sourceSize=[1100,1500];
+  value.candidates[0].alignment={...value.candidates[0].alignment,
+    quad:[[50,40],[1049,40],[1049,1436],[50,1436]],inliers:30,
+    supportFraction:.5,medianReprojectionPixels:.4};
+  const second={...value.candidates[0],referenceId:originalId+":1",
+    alignment:{...value.candidates[0].alignment,
+      quad:value.candidates[0].alignment.quad!.map(([x,y])=>[x+20,y] as [number,number])}};
+  value.candidates.push(second);
+  assert.equal(acquisitionReferenceBoundary(acquisitionPrintingSummary(value,cards),original.id),null);
+  second.alignment.quad=value.candidates[0].alignment.quad!;
+  assert(acquisitionReferenceBoundary(acquisitionPrintingSummary(value,cards),original.id));
 });
 
 test("stamp agreement orders only matching printed families and retains unresolved counterparts",()=>{

@@ -28,8 +28,8 @@ def validate_manual_region(region):
     return region
 
 
-def decode_photo_input(frame, *, return_task=False, return_region=False):
-    kind, data, task, region = 'PHOTO', frame, None, None
+def decode_photo_input(frame, *, return_task=False, return_region=False, return_reference=False):
+    kind, data, task, region, reference = 'PHOTO', frame, None, None, None
     if len(frame) >= 4:
         length = struct.unpack('>I', frame[:4])[0]
         if 0 < length <= 1020:
@@ -37,7 +37,8 @@ def decode_photo_input(frame, *, return_task=False, return_region=False):
                 raise ValueError('Incomplete image hint')
             metadata = json.loads(frame[4:4 + length])
             if not isinstance(metadata, dict) or set(metadata) not in (
-                    {'inputKind'}, {'inputKind', 'recognitionTask'}, {'inputKind', 'manualRegion'}):
+                    {'inputKind'}, {'inputKind', 'recognitionTask'}, {'inputKind', 'manualRegion'},
+                    {'inputKind', 'referenceRegion'}):
                 raise ValueError('Invalid image hint')
             task = metadata.get('recognitionTask')
             if ('recognitionTask' in metadata and
@@ -48,6 +49,10 @@ def decode_photo_input(frame, *, return_task=False, return_region=False):
                     raise ValueError('Manual region support required')
                 region = validate_manual_region(metadata['manualRegion'])
             kind, data = metadata['inputKind'], frame[4 + length:]
+            if 'referenceRegion' in metadata:
+                if not return_reference or kind != 'CARD_SCAN':
+                    raise ValueError('Scanner reference region support required')
+                reference = validate_manual_region(metadata['referenceRegion'])
     if kind not in ('PHOTO', 'CARD_SCAN') or not 0 < len(data) <= MAX_PHOTO:
         raise ValueError('Invalid image input')
     result = (data, kind)
@@ -55,4 +60,6 @@ def decode_photo_input(frame, *, return_task=False, return_region=False):
         result += (task,)
     if return_region:
         result += (region,)
+    if return_reference:
+        result += (reference,)
     return result

@@ -74,10 +74,12 @@ function privateEvidenceValue(value: unknown, depth = 0): unknown {
 export function correctionJobSnapshot(job: { id: string; stage: string; versionKey: string;
   candidateRevision: number; input: unknown; output: unknown; status: string; createdAt: Date; updatedAt: Date }) {
   const inputKeys = ["version", "photoId", "digest", "inputKind", "versions", "manualAnalysis", "recognitionJobId",
-    "visualJobId", "catalogJobId", "canonicalJobId", "referenceGeneration", "referenceManifestDigest", "candidates"];
+    "visualJobId", "catalogJobId", "canonicalJobId", "referenceGeneration", "referenceManifestDigest", "candidates",
+    "generation", "model", "primaryVersion", "catalog", "referenceModel", "catalogResolver", "lineageKey", "parents", "reference", "referenceSource"];
   const outputKeys = ["version", "photoId", "native", "proposals", "catalog", "visual", "printing", "versions",
     "timing", "reuse", "visualReuse", "printingReuse", "sourceCatalogJobId", "manualAnalysis", "execution",
-    "previewDigest", "width", "height", "bytes", "pipeline"];
+    "previewDigest", "width", "height", "bytes", "pipeline", "referenceRefinement", "referenceSource",
+    "primaryReadings", "primaryObservation", "sourceRecognitionJobId", "refinementExecution"];
   const pick = (value: unknown, keys: string[]) => value && typeof value === "object" && !Array.isArray(value)
     ? privateEvidenceValue(Object.fromEntries(Object.entries(value).filter(([key]) => keys.includes(key)))) : null;
   return { id: job.id, stage: job.stage, versionKey: job.versionKey, candidateRevision: job.candidateRevision,

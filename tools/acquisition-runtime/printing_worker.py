@@ -18,9 +18,10 @@ import cv2
 import numpy as np
 from PIL import Image, ImageOps, __version__ as pillow_version
 from catalog_references import sha256
-from printing import PrintingRuntime, VERSION, LABELS
+from printing import PrintingRuntime, VERSION, LABELS, release_temporary_memory
 from manual_card_region import manual_card_source
 from photo_input import validate_manual_region
+from expansion_symbols import ASSETS as SYMBOL_ASSETS, verified_assets as verified_symbol_assets, symbol_asset_root
 
 INDEX = Path('/visual/index/index.json')
 if '--manifest' in sys.argv:
@@ -35,7 +36,20 @@ _runtime = None
 _records = None
 
 
+def compact_reference_record(value):
+    """Retain only fields used by printing, without changing caller metadata.
+
+    Applied during JSON parsing so a full decoded catalogue does not coexist
+    with the compact one. The immutable full manifest is still SHA-verified.
+    """
+    required = ('referenceId', 'cardId', 'file', 'sha256')
+    if all(key in value for key in required):
+        return {key: value[key] for key in (*required, 'url') if key in value}
+    return value
+
+
 def descriptor():
+    verified_symbol_assets(symbol_asset_root())
     before = sha256(INDEX)
     index = json.loads(INDEX.read_text())
     if index.get('format') != 1 or not index.get('downloadComplete'):
@@ -55,6 +69,9 @@ def descriptor():
                'manualRegionSha256': sha256(Path('/eval/manual_card_region.py')),
                'geometrySha256': sha256(Path('/eval/baseline.py')),
                'policySha256': sha256(Path('/eval/printing_evidence.py')),
+               'detailSha256': sha256(Path('/eval/printing_details.py')),
+               'symbolSha256': sha256(Path('/eval/expansion_symbols.py')),
+               'symbolAssets': SYMBOL_ASSETS,
                'annotationsSha256': sha256(LABELS), 'opencv': cv2.__version__,
                'opencvBuildSha256': hashlib.sha256(cv2.getBuildInformation().encode()).hexdigest(),
                'numpy': np.__version__, 'pillow': pillow_version, 'python': sys.version}
@@ -87,7 +104,7 @@ def request(envelope, desc):
     if sha256(INDEX) != desc['details']['indexSha256']:
         raise ValueError('Printing index generation changed')
     if _runtime is None:
-        _records = json.loads(desc['file'].read_text())
+        _records = json.loads(desc['file'].read_text(), object_hook=compact_reference_record)
         if len(_records) != desc['details']['referenceCount']:
             raise ValueError('Printing reference count changed')
         _runtime = PrintingRuntime(_records, REFERENCES)
@@ -120,7 +137,8 @@ def request(envelope, desc):
         result['manualRegion'] = manual_region
     else:
         result = _runtime.observe(photo, candidates)
-    return {**result, 'descriptor': desc['digest'], 'photoDigest': hashlib.sha256(data).hexdigest(),
+    return {**result, 'sourceSize': [int(photo.shape[1]), int(photo.shape[0])],
+            'descriptor': desc['digest'], 'photoDigest': hashlib.sha256(data).hexdigest(),
             'milliseconds': round((time.monotonic() - started) * 1000)}
 
 
@@ -132,6 +150,19 @@ def read_exact(length):
             raise ValueError('Printing frame truncated')
         chunks.extend(part)
     return bytes(chunks)
+
+
+def bounded_detail_response(result):
+    output = json.dumps(result,separators=(',',':'))
+    if len(output.encode()) <= 65535:
+        return output
+    # Keep the exact legacy evidence and normal protocol bound. No detail is
+    # interpreted as a match merely because it was omitted for space.
+    for candidate in result['candidates']:
+        candidate.pop('details',None)
+        candidate.pop('referenceImage',None)
+        candidate.pop('setSymbol',None)
+    return json.dumps(result,separators=(',',':'))
 
 
 def main():
@@ -148,7 +179,8 @@ def main():
         length = struct.unpack('>I', header)[0]
         if not 0 < length <= MAX_ENVELOPE:
             raise ValueError('Printing frame exceeds bound')
-        output = json.dumps(request(read_exact(length), desc), separators=(',', ':'))
+        output = bounded_detail_response(request(read_exact(length), desc))
+        release_temporary_memory()
         if len(output.encode()) > 65535:
             raise ValueError('Printing evidence exceeds bound')
         print(output, flush=True)

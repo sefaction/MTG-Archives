@@ -19,6 +19,8 @@ import {
 } from "@/lib/acquisition-review";
 import { AcquisitionCardRegionEditor } from "./AcquisitionCardRegionEditor";
 import type { AcquisitionManualRegion } from "@/lib/acquisition-manual-region";
+import { acquisitionReferenceBoundary } from "@/lib/acquisition-printing";
+import {AcquisitionPrintingDetails} from "./AcquisitionPrintingDetails";
 import { finishForPrinting } from "@/lib/acquisition-finish";
 import type { AcquisitionReviewMode } from "@/lib/acquisition-review-display";
 import { readAcquisitionDraft, saveAcquisitionDraft, clearAcquisitionDraft } from "@/lib/acquisition-browser-review-draft";
@@ -902,6 +904,7 @@ export function AcquisitionPhotoReview({
             onClick={() => {setRegionEditing(true); onDirtyChange?.(photoId, true);}}>Edit card boundary</button>}
           {!committed && regionEditing && <AcquisitionCardRegionEditor
             src={`/api/acquisition/${batchId}/photos/${photoId}`} record={record} latestRevision={observedRevision ?? record.revision} busy={busy}
+            suggestedRegion={acquisitionReferenceBoundary(record.evidence?.printing, selected?.id)}
             apply={repairRegion} cancel={() => {setRegionEditing(false); onDirtyChange?.(photoId, dirty.current);}} />}
           <div
             className={
@@ -1097,6 +1100,9 @@ export function AcquisitionPhotoReview({
             <p role="status" className="text-sm mt-2">
               {message}
             </p>
+          )}
+          {!simple && (
+            <AcquisitionPrintingDetails key={selected?.id} src={`/api/acquisition/${batchId}/photos/${photoId}`} evidence={record.evidence} selected={selected}/>
           )}
           {!simple && (
             <AcquisitionEvidenceFields

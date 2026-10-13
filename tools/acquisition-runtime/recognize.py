@@ -15,6 +15,7 @@ import time
 from model_store import model_root
 from reading_direction import (reading_text, reading_zones, restore_reading_polygon,
                                TITLE_BOTTOM, FOOTER_TOP, STRIP_GAP, restore_footer_polygon)
+from footer_source import read_source_footer, unavailable_source, bounded_source_footer_output
 from photo_input import decode_photo_input
 from photo_text import whole_photo_text
 
@@ -43,9 +44,11 @@ def descriptor():
                'code': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                'storeCode': hashlib.sha256(Path(__file__).with_name('model_store.py').read_bytes()).hexdigest(),
                'readingCode': hashlib.sha256(Path(__file__).with_name('reading_direction.py').read_bytes()).hexdigest(),
+               'identifierSourceCode': hashlib.sha256(Path(__file__).with_name('footer_source.py').read_bytes()).hexdigest(),
                'inputCode': hashlib.sha256(Path(__file__).with_name('photo_input.py').read_bytes()).hexdigest(),
                'photoTextCode': hashlib.sha256(Path(__file__).with_name('photo_text.py').read_bytes()).hexdigest(),
                'manualRegionCode': hashlib.sha256(Path('/eval/manual_card_region.py').read_bytes()).hexdigest(),
+               'referenceRegionCode': hashlib.sha256(Path('/eval/reference_card_region.py').read_bytes()).hexdigest(),
                'geometry': hashlib.sha256(Path('/eval/baseline.py').read_bytes()).hexdigest()}
     digest = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     return {'version': 1, 'digest': digest, 'execution': 'CPU', **payload}
@@ -84,7 +87,8 @@ def prepare_ocr():
 
 
 def recognize(data, desc):
-    data, input_kind, task, manual_region = decode_photo_input(data, return_task=True, return_region=True)
+    data, input_kind, task, manual_region, reference_region = decode_photo_input(
+        data, return_task=True, return_region=True, return_reference=True)
     if not data or len(data) > 10 * 1024 * 1024:
         raise ValueError('Photo exceeds bounds')
     started = time.monotonic()
@@ -117,7 +121,10 @@ def recognize(data, desc):
               'photoText': photo_text, 'milliseconds': round((time.monotonic()-started)*1000),
               'automaticAcceptance': False}), file=protocol, flush=True)
         return
-    if manual_region is not None:
+    if reference_region is not None:
+        from reference_card_region import reference_card_region
+        crop, geometry_evidence = reference_card_region(image, reference_region)
+    elif manual_region is not None:
         from manual_card_region import manual_card_region
         crop, geometry_evidence = manual_card_region(image, manual_region)
     else:
@@ -188,13 +195,27 @@ def recognize(data, desc):
             raise ValueError('OCR footer evidence exceeds bounds')
         orientations.append({'rotationDegrees': degrees, 'text': text,
                              'lines': lines, 'footerLines': footer_lines})
-    print(json.dumps({'version': 1, 'descriptor': desc['digest'], 'descriptorDetails': desc,
+    # Preserve both legacy readings before spending time on another bounded
+    # source view. The normal parent processing deadline remains unchanged.
+    for observation in orientations:
+        degrees=observation['rotationDegrees']
+        remaining=100-len(observation['lines'])-len(observation.get('footerLines',[]))
+        words,identifier_lines,source=read_source_footer(image,geometry_evidence,degrees,ocr,remaining,time.monotonic()-started)
+        observation['text']['footerSourceIdentifiers']=words
+        if sum(len(observation['text'].get(k,[])) for k in ('footer','footerSupplemental','footerSourceIdentifiers'))>100:
+            observation['text']['footerSourceIdentifiers']=[]
+            identifier_lines=[]
+            source=unavailable_source(degrees,'EVIDENCE_BUDGET')
+        observation['identifierSource']=source
+        observation['identifierLines']=identifier_lines
+    payload={'version': 1, 'descriptor': desc['digest'], 'descriptorDetails': desc,
           'photoDigest': hashlib.sha256(data).hexdigest(), 'geometry': geometry_evidence,
           'text': orientations[0]['text'], 'lines': orientations[0]['lines'],
           'readingZones': reading_zones(),
           'orientations': orientations,
           'milliseconds': round((time.monotonic()-started)*1000),
-          'automaticAcceptance': False}), file=protocol, flush=True)
+          'automaticAcceptance': False}
+    print(bounded_source_footer_output(payload),file=protocol,flush=True)
 
 
 def main():

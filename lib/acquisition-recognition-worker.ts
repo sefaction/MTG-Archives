@@ -5,9 +5,7 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { acquisitionImageInputKindSchema, acquisitionNativePhotoInput } from "./acquisition-image-input";
 import {
-  createAcquisitionRecognitionIndex,
   proposeOrientedAcquisitionPrintings,
-  type RecognitionCard,
   ACQUISITION_TEXT_RESOLVER_VERSION,
 } from "./acquisition-recognition";
 import { readAcquisitionPhotoBytes } from "./acquisition-files";
@@ -19,6 +17,7 @@ import { ACQUISITION_FOOTER_PARSER_VERSION } from "./acquisition-footer";
 import { acquisitionPhotoTextSchema, needsAcquisitionPhotoText, readAcquisitionPhotoText,
   combineAcquisitionPhotoText } from "./acquisition-photo-text";
 import { acquisitionHandoffQuery } from "./acquisition-handoff";
+import {sourceFooterSchema} from './acquisition-source-footer';
 
 export const RECOGNITION_STAGE = "photo-recognition-v1";
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
@@ -26,6 +25,7 @@ const textSchema = z.object({
   title: z.array(z.string().max(2000)).max(100),
   footer: z.array(z.string().max(2000)).max(100),
   footerSupplemental: z.array(z.string().max(2000)).max(100).optional(),
+  footerSourceIdentifiers:z.array(z.string().max(2000)).max(100).optional(),
 });
 const linesSchema = z
   .array(
@@ -50,6 +50,8 @@ export const nativeSchema = z.object({
         text: textSchema,
         lines: linesSchema,
         footerLines: linesSchema.optional(),
+        identifierLines:linesSchema.optional(),
+        identifierSource:sourceFooterSchema.optional(),
       }),
     )
     .max(2),
@@ -58,44 +60,31 @@ export const nativeSchema = z.object({
   milliseconds: z.number().nonnegative().finite(),
   automaticAcceptance: z.literal(false),
   photoText: acquisitionPhotoTextSchema.optional(),
+}).superRefine((value,ctx)=>{
+  for(const observation of value.orientations){
+    if(observation.text.footerSourceIdentifiers?.length || observation.identifierLines?.length){
+      if(observation.identifierSource?.status!=='EXTRACTED'||value.geometry.status!=='PROPOSED'||value.geometry.framing==='CLIPPED')
+        ctx.addIssue({code:z.ZodIssueCode.custom,message:'Identifier text requires an observed source region'});
+    }
+    if(observation.identifierSource?.status==='EXTRACTED'&&(value.geometry.status!=='PROPOSED'||
+      !Array.isArray(value.geometry.quad)||value.geometry.quad.length!==4||value.geometry.framing==='CLIPPED'))
+      ctx.addIssue({code:z.ZodIssueCode.custom,message:'Identifier region requires proposed source geometry'});
+    if(observation.text.footerSourceIdentifiers?.length&&!observation.identifierLines?.length)
+      ctx.addIssue({code:z.ZodIssueCode.custom,message:'Identifier words require detected source lines'});
+    for(const line of observation.identifierLines??[]){
+      if(line.polygon.length!==4||line.polygon.some(([x,y])=>x<24||x>630||y<1270||y>1396))
+        ctx.addIssue({code:z.ZodIssueCode.custom,message:'Identifier line exceeds its measured region'});
+    }
+    if(observation.identifierSource && observation.identifierSource.rotationDegrees!==observation.rotationDegrees)
+      ctx.addIssue({code:z.ZodIssueCode.custom,message:'Identifier source direction differs'});
+    if(observation.text.footer.length+(observation.text.footerSupplemental?.length??0)+(observation.text.footerSourceIdentifiers?.length??0)>100)
+      ctx.addIssue({code:z.ZodIssueCode.custom,message:'Combined footer exceeds bounds'});
+  }
+  if(value.text.footerSourceIdentifiers && JSON.stringify(value.text.footerSourceIdentifiers)!==JSON.stringify(value.orientations[0]?.text.footerSourceIdentifiers))
+    ctx.addIssue({code:z.ZodIssueCode.custom,message:'Primary identifier reading differs from its direction'});
 });
-export type RecognitionSnapshot = Awaited<
-  ReturnType<typeof loadAcquisitionRecognitionSnapshot>
->;
-export async function loadAcquisitionRecognitionSnapshot(db: PrismaClient) {
-  // A single SELECT has one PostgreSQL statement snapshot. Hash exactly the
-  // projection used by retrieval, rather than a mutable bulk-refresh job ID.
-  const rows = await db.card.findMany({
-    orderBy: { id: "asc" },
-    select: {
-      id: true,
-      scryfallId: true,
-      name: true,
-      printedName: true,
-      cardFaces: true,
-      setCode: true,
-      collectorNumber: true,
-      lang: true,
-      digital: true,
-    },
-  });
-  const cards: RecognitionCard[] = rows.map(({ cardFaces, ...card }) => ({
-    ...card,
-    faceNames: Array.isArray(cardFaces)
-      ? cardFaces.flatMap((f) => {
-          const face = f as { name?: unknown; printed_name?: unknown };
-          return [face?.name, face?.printed_name].filter(
-            (v): v is string => typeof v === "string",
-          );
-        })
-      : [],
-  }));
-  return {
-    digest: createHash("sha256").update(JSON.stringify(cards)).digest("hex"),
-    index: createAcquisitionRecognitionIndex(cards),
-    byScryfallId: new Map(rows.map((row, i) => [row.scryfallId, cards[i]])),
-  };
-}
+export {loadAcquisitionRecognitionSnapshot,type RecognitionSnapshot} from "./acquisition-recognition-snapshot";
+import type {RecognitionSnapshot} from "./acquisition-recognition-snapshot";
 export function acquisitionRecognitionVersion(_catalog: string, model: string) {
   return createHash("sha256")
     .update(

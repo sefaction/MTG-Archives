@@ -4,19 +4,39 @@ Reuses evaluated registration/stamp policy. Never chooses a reference from photo
 ground truth, never infers absence from a failed detector, never confirms stock.
 """
 from collections import OrderedDict
+import ctypes
+import gc
 import json
+import re
 from pathlib import Path
 import cv2
 import numpy as np
+from urllib.parse import urlsplit
 from PIL import Image, ImageOps
 from catalog_references import sha256
 from printing_evidence import SIZE, register, registration_features, stamp_evidence, candidate_relation, shared_stamp_evidence
+from printing_details import printing_detail_evidence
+from expansion_symbols import ExpansionSymbolBank, expansion_symbol_evidence
 
 VERSION = 'registered-printing-runtime-v1'
 LABELS = Path('/eval/stamp-reference-labels.json')
 TEMPLATES = ('58f0a2f9-5c5e-4477-ae7e-a52cf5778962:0', 'cfe4a22f-c945-42f4-8b3a-ac3a03ffa015:0')
 MAX_REFERENCE_CACHE_ENTRIES = 48
-MAX_REFERENCE_CACHE_ARRAY_BYTES = 128 * 1024 * 1024
+# Repeated scanner batches must leave space for the next registration workspace
+# inside the existing 1 GiB worker. Eviction reloads verified full references;
+# it does not change image resolution or feature extraction.
+MAX_REFERENCE_CACHE_ARRAY_BYTES = 64 * 1024 * 1024
+_trim = getattr(ctypes.CDLL(None), 'malloc_trim', None)
+if _trim is not None:
+    _trim.argtypes = [ctypes.c_size_t]
+    _trim.restype = ctypes.c_int
+
+
+def release_temporary_memory():
+    """Return released feature/warp pages while preserving all live arrays."""
+    gc.collect()
+    if _trim is not None:
+        _trim(0)
 
 
 def reference_array_bytes(entry):
@@ -34,6 +54,7 @@ class PrintingRuntime:
         self.cache = OrderedDict()
         self.cache_array_bytes = 0
         self.templates = []
+        self.symbol_bank = ExpansionSymbolBank()
         for identity in TEMPLATES:
             image, state, _ = self.reference(identity)
             if state != 'PRESENT':
@@ -53,6 +74,7 @@ class PrintingRuntime:
         with Image.open(path) as source:
             image = cv2.cvtColor(np.asarray(ImageOps.exif_transpose(source).convert('RGB')), cv2.COLOR_RGB2BGR)
         entry = image, state, registration_features(image, True)
+        release_temporary_memory()
         self._remember_reference(identity, entry)
         return entry
 
@@ -74,6 +96,7 @@ class PrintingRuntime:
             raise ValueError('Printing candidates exceed bound or repeat')
         rows = []
         query_features = registration_features(photo)
+        release_temporary_memory()
         for candidate in candidates:
             identity = candidate['referenceId']
             if identity not in self.records:
@@ -87,10 +110,33 @@ class PrintingRuntime:
             image, state, ref_features = self.reference(identity)
             warped, alignment, visibility = register(photo, image, query_features, ref_features, return_visibility=True)
             stamp = stamp_evidence(warped, alignment, self.templates, image, state, visibility=visibility)
+            details = printing_detail_evidence(warped, alignment, image, visibility)
+            symbol = expansion_symbol_evidence(warped, alignment, image, visibility, self.symbol_bank)
+            extra = {}
+            if any(r['status'] == 'MEASURED' for r in details['regions']):
+                extra['details'] = details
+                uri = self.records[identity].get('url')
+                if uri and valid_reference_uri(uri,candidate['scryfallId'],identity.split(':')[1]):
+                    extra['referenceImage'] = {'uri':uri,'sha256':self.records[identity]['sha256']}
             rows.append({'scryfallId': candidate['scryfallId'], 'referenceId': identity,
                          'referenceStampState': state, 'alignment': alignment, 'stamp': stamp,
+                         **extra, 'setSymbol': symbol,
                          'relation': candidate_relation(stamp['status'], state)})
         observed, conflicting = shared_stamp_evidence(rows)
         return {'version': VERSION, 'observedStamp': observed,
                 'conflictingObservations': conflicting, 'candidates': rows,
                 'automaticAcceptance': False}
+
+
+def valid_reference_uri(uri, identity, face):
+    if face not in ('0','1'):
+        return False
+    try:
+        parsed = urlsplit(uri)
+        return (parsed.scheme == 'https' and parsed.netloc == 'cards.scryfall.io' and not parsed.fragment
+                and re.fullmatch(r'/(normal|large|png)/(front|back)/[a-f0-9]/[a-f0-9]/[a-f0-9-]{36}\.(jpg|png)',parsed.path) is not None
+                and ('/back/' if face == '1' else '/front/') in parsed.path
+                and parsed.path.endswith(('/'+identity+'.jpg','/'+identity+'.png'))
+                and re.fullmatch(r'[0-9]{0,14}',parsed.query) is not None)
+    except (TypeError,ValueError):
+        return False

@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "issue": 746,
+  "pullRequest": 747,
+  "sourceCommit": "00f4e50698461cbb908ef7099640ccd237d02232",
+  "qualifiedAtUtc": "2026-10-12T06:51:31.287Z",
+  "change": "Bind canonical JSON text as a parameter cast to JSONB for every new correction-evidence role; retain owner locking, dedup, bounds and atomic charging",
+  "actualBoundary": {
+    "report": [
+      {
+        "mode": "ORM_JSON",
+        "ormReadHashMatches": false,
+        "rawTextReadHashMatches": false,
+        "rawTextReadBytesMatch": false
+      },
+      {
+        "mode": "TEXT_JSONB",
+        "ormReadHashMatches": true,
+        "rawTextReadHashMatches": true,
+        "rawTextReadBytesMatch": true
+      }
+    ],
+    "rolledBack": true
+  },
+  "regression": {
+    "typesPassed": true,
+    "existingCorrectionAndHistoryGuardsPassed": 10,
+    "hostPostgresProductionHelperPassed": true,
+    "actualLoadedDockerProductionHelperPassed": true,
+    "requiredAcquisitionCiIncludesRegression": true,
+    "covers": [
+      "exact reported finite geometry",
+      "normal JSON and direct PostgreSQL text readback",
+      "canonical hash and UTF-8 byte counts",
+      "Unicode quotes backslashes ordered arrays null tiny/negative values",
+      "owner isolation concurrent replay and unchanged dedup charging",
+      "transaction rollback and oversized rejection without charging"
+    ],
+    "exactControlledAccountAndEvidenceAbsenceVerified": true
+  },
+  "originalUi": {
+    "passed": 1,
+    "skipped": 0,
+    "retried": 0,
+    "flaky": 0,
+    "durationMs": 40293.034,
+    "desktopAndPhoneWidths": [
+      1366,
+      320
+    ],
+    "bodyIdenticalToMain": true,
+    "originalDeadlineMs": 180000,
+    "workflow": "drafts/lost acknowledgement/private library/original viewing/owner isolation/safe removal",
+    "explicitInventoryCopies": 0,
+    "ownersAbsent": 2,
+    "modelNamespacesPerOwner": 19,
+    "privateDirectoriesAbsent": true
+  },
+  "conservation": {
+    "freshProjections": 20,
+    "unchangedProjections": 18,
+    "originalEvidenceFullRowCount": 64,
+    "originalEvidenceFullRowsConserved": true,
+    "originalSubstantiveAccountFieldsConservedAfterExactCounterAccounting": true,
+    "threeHistoricalEmptyAccountsPreserved": true,
+    "maintenanceTimestampsExcluded": true,
+    "prePatchBackgroundBundles": 2,
+    "prePatchBackgroundBytes": 40702,
+    "backgroundAppendsPredateUiAndPatchedServices": true,
+    "originalStrictProjectionFailureRetained": true,
+    "oldPrintingIntegrityFailureRetained": true,
+    "retainedOriginals": 156,
+    "retainedOriginalBytes": 898515870,
+    "correctionFiles": 1,
+    "actualBeforeAfterShaAndSizeMatch": true,
+    "historicalEvidenceNotRestoredDeletedRehashedOrRewritten": true
+  },
+  "review": {
+    "cumulativePRs": [
+      740,
+      742,
+      745,
+      747
+    ],
+    "image": "sha256:599daf806f907a6d2568558ed8d5ff3a00a3aea188837b50a786e89434cb0c0e",
+    "sourceDigest": "69da230a77c99cc15d05abe15f7e5961438b2ab02a5c7c5f17a326317e8bcb57",
+    "sourceInputs": 599,
+    "selectedNodeServices": 3,
+    "all16EnvironmentsMountsCommandsAndResourceLimitsPreserved": true,
+    "unselectedServiceIdentitiesPreserved": 13,
+    "selectedFreshRestartCountsZero": true,
+    "previousCatalogRestartCount": 1,
+    "initialTimestampCounterComparisonFailureRetained": true,
+    "only3ExpectedApplicationSourceFilesChanged": true,
+    "nativeImagesUnchanged": true,
+    "webLoginHttp": 200
+  },
+  "limits": [
+    "This fixes new evidence persistence; historical malformed bundles remain immutable evidence and are not retroactively repaired",
+    "Controlled suggestions/generated JPEG and finite geometry qualify storage/review behavior, not physical scanner or independent recognition accuracy",
+    "Two old-worker appends account for the retained failed strict comparison; all64 original evidence rows and original substantive account fields are separately conserved",
+    "No schema/migration, sampling/retention change, production operation or human merge approval is included",
+    "Final-head CI is recorded in the worker checkpoint; separate reviewer handles readiness and merge"
+  ]
+}

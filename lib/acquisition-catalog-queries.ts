@@ -66,7 +66,7 @@ export function acquisitionCatalogQueries(
       [...text.title, ...text.footer].some((s) => s.length > 2000)
     )
       throw new Error("OCR lookup evidence exceeds bounds");
-    const {identifiers, collectors} = acquisitionFooterObservations(text.footer, text.footerSupplemental);
+    const {identifiers, collectors} = acquisitionFooterObservations(text.footer, text.footerSupplemental, text.footerSourceIdentifiers);
     // Conflicting footer readings remain evidence, not an API request explosion.
     if (identifiers.length <= 2 && collectors.length <= 2)
       for (const identifier of identifiers)

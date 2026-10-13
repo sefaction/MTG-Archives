@@ -1156,9 +1156,10 @@ export function AcquisitionCapture({
                 {shownSlots.map((slot) => {
                   const photo = slot.photos.find((p) => p.ready),
                     pending = uploads.some((p) => p.slotId === slot.id);
-                  const preparation = progress.photoPreparation.find(
+                  const photoWork = progress.photoPreparation.find(
                     (p) => p.photoId === photo?.id,
-                  )?.status;
+                  );
+                  const preparation=photoWork?.status;
                   return (
                     <div
                       key={slot.id}
@@ -1178,7 +1179,7 @@ export function AcquisitionCapture({
                           batchId={batchId}
                           photoId={photo.id}
                           committed={slot.committed}
-                          refreshKey={`${progress.defaultsRevision}:${slot.reviewRevision}:${JSON.stringify(slot.review)}:${preparation}`}
+                          refreshKey={`${progress.defaultsRevision}:${slot.reviewRevision}:${JSON.stringify(slot.review)}:${preparation}:${photoWork?.evidenceVersion??""}`}
                           refresh={() => void refresh()}
                           mode={reviewMode}
                           onDirtyChange={markPhotoDirty}
