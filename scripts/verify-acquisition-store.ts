@@ -5,6 +5,7 @@ import { verifyRecognitionReplacement } from "./verify-acquisition-recognition-r
 import { verifyAcquisitionReferenceRefinement } from "./verify-acquisition-reference-refinement";
 import { verifyAcquisitionCorrections } from "./verify-acquisition-corrections";
 import { verifyCorrectionFairness } from "./verify-correction-fairness";
+import { verifyCorrectionCaptureClock } from "./verify-correction-capture-clock";
 import { ensureCorrectionAccount } from "../lib/acquisition-correction-library";
 import { verifyAcquisitionCommit } from "./verify-acquisition-commit";
 import { verifyScannerConnections } from "./verify-scanner-connections";
@@ -112,6 +113,7 @@ const known = {
 async function run() {
   await verifyRecognitionSnapshot(db);
   await verifyCorrectionFairness(db);
+    await verifyCorrectionCaptureClock(db);
   await verifyAcquisitionCorrections(db);
   await verifyCorrectionEvidencePrecision(db);
   await verifyCorrectionReviewHistory(db);
