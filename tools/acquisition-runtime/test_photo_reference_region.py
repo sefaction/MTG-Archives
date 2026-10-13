@@ -99,7 +99,10 @@ class ReferenceRegionTests(unittest.TestCase):
         self.assertEqual(value['geometry']['method'], 'reference-anchor-region-v1')
         self.assertNotIn('manualRegion', value['geometry'])
         self.assertFalse(value['automaticAcceptance'])
-        self.assertEqual([x.shape[:2] for x in seen], [(457, 1000), (127, 1000)] * 2)
+        self.assertEqual([x.shape[:2] for x in seen[:4]], [(457, 1000), (127, 1000)] * 2)
+        self.assertEqual([x.shape[:2] for x in seen[4:]], [(126, 606)] * 2)
+        self.assertTrue(all(o['identifierSource']['status']=='EXTRACTED' for o in value['orientations']))
+        self.assertTrue(all(o['text']['footerSourceIdentifiers']==[] for o in value['orientations']))
 
 if __name__ == '__main__':
     unittest.main()
