@@ -44,7 +44,12 @@ for(const width of [1366,320]) test(`Advanced discard restores current saved rev
     expect(decisionPosts).toBe(0);expect(state()).toEqual(current);expect(current.inventory).toBe(0);expect(current.commits).toBe(0);
     const original=await card.getByRole('link',{name:'Open original photo',exact:true}).getAttribute('href');expect(sha(await(await page.request.get(original!)).body())).toBe(sha(bytes));
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-    await card.getByRole('combobox',{name:'Card condition',exact:true}).selectOption('HP');await card.getByRole('button',{name:'Cancel changes',exact:true}).scrollIntoViewIfNeeded();await page.screenshot({path:test.info().outputPath('advanced-discard.png')});
+    await card.getByRole('combobox',{name:'Card condition',exact:true}).selectOption('HP');
+    await card.getByRole('button',{name:'Edit card boundary',exact:true}).click();
+    await expect(card.getByRole('button',{name:'Cancel changes',exact:true})).toBeDisabled();
+    await card.getByRole('button',{name:'Cancel boundary changes',exact:true}).click();
+    await expect(card.getByRole('button',{name:'Cancel changes',exact:true})).toBeEnabled();expect(state()).toEqual(current);
+    await card.getByRole('button',{name:'Cancel changes',exact:true}).scrollIntoViewIfNeeded();await page.screenshot({path:test.info().outputPath('advanced-discard.png')});
   }finally{
     await page.unrouteAll({behavior:'wait'}).catch(()=>{});
     database(`await p.acquisitionSession.updateMany({where:{ownerPlayerId:${JSON.stringify(tag)}},data:{phase:'CANCELLED'}});`);
