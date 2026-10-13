@@ -57,7 +57,8 @@ def decode_photo_input(frame, *, return_task=False, return_region=False, return_
                 if not return_layout or kind != 'CARD_SCAN' or not isinstance(metadata['scannerLayoutProfile'], str):
                     raise ValueError('Scanner layout support required')
                 layout = json.loads(metadata['scannerLayoutProfile'])
-                if not isinstance(layout, dict) or layout.get('version') != 1 or layout.get('policy') != 'scanner-layout-anchor-v1':
+                if (not isinstance(layout, dict) or type(layout.get('version')) is not int
+                        or layout.get('policy') != {1:'scanner-layout-anchor-v1',2:'scanner-layout-marker-v2'}.get(layout.get('version'))):
                     raise ValueError('Invalid scanner layout profile')
     if kind not in ('PHOTO', 'CARD_SCAN') or not 0 < len(data) <= MAX_PHOTO:
         raise ValueError('Invalid image input')

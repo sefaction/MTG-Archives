@@ -74,5 +74,15 @@ class PhotoInputTest(unittest.TestCase):
             decode_photo_input(b'x' * (MAX_PHOTO+1))
 
 
+    def test_marker_profile_hint_preserves_original_and_rejects_mixed_generations(self):
+        raw=b'original image'
+        def frame(profile):
+            meta=json.dumps({'inputKind':'CARD_SCAN','scannerLayoutProfile':json.dumps(profile)}).encode()
+            return struct.pack('>I',len(meta))+meta+raw
+        good={'version':2,'policy':'scanner-layout-marker-v2'}
+        self.assertEqual(decode_photo_input(frame(good),return_layout=True),(raw,'CARD_SCAN',good))
+        for bad in [{'version':True,'policy':'scanner-layout-anchor-v1'},{'version':2,'policy':'scanner-layout-anchor-v1'},{'version':1,'policy':'scanner-layout-marker-v2'},{'version':3,'policy':'future'}]:
+            with self.assertRaises(ValueError):decode_photo_input(frame(bad),return_layout=True)
+
 if __name__ == '__main__':
     unittest.main()

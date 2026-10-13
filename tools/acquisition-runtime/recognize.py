@@ -269,7 +269,7 @@ def recognize(data, desc):
                     # Original-resolution footer pixels use this inferred frame,
                     # never the primary whole-image frame or a candidate label.
                     append_source_identifiers(image, {'status':'PROPOSED','quad':q.tolist(),
-                        'method':'scanner-layout-anchor-v1','boundaryVerified':False}, readings, ocr, started)
+                        'method':inference['policy'],'boundaryVerified':False}, readings, ocr, started)
                     payload['scannerLayout']['orientations'] = readings
                     payload['scannerLayout']['readingStatus'] = 'COMPLETE'
                 except MemoryError:

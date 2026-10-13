@@ -168,6 +168,80 @@ class ScannerLayoutTests(unittest.TestCase):
         self.assertIsNone(make_scanner_layout(self.image,self.manual,[self.source,ambiguous],'a'*64))
 
 
-if __name__ == '__main__':
-    unittest.main()
+class MarkerLayoutTests(unittest.TestCase):
+    setUp = ScannerLayoutTests.setUp
+    observation = ScannerLayoutTests.observation
+    def marker_fixture(self):
+        observation=copy.deepcopy(self.source)
+        observation['footerLines']=[{'text':'TST · EN Artist','score':.98,'polygon':[[40,1330],[220,1330],[220,1350],[40,1350]]}]
+        profile=make_scanner_layout(self.image,{'status':'PROPOSED','method':'scanner-card-edges','quad':self.quad.tolist()},[observation],'b'*64)
+        return observation,profile
 
+    def marker_observation(self,dx=8,dy=-6,degrees=0):
+        source,_=self.marker_fixture();result=copy.deepcopy(source);result['rotationDegrees']=degrees
+        for line in result['lines']+result['footerLines']:
+            p=np.asarray(line['polygon'],np.float64)
+            if degrees==180:p=[999,1396]-p
+            p=(p/[999,1396]*[1600,2240]+[50+dx,30+dy])/[1699,2299]*[999,1396]
+            if degrees==180:p=[999,1396]-p
+            line['polygon']=p.tolist()
+        return result
+
+    def test_marker_only_calibration_and_current_translation_restore_known_rectangle(self):
+        source,profile=self.marker_fixture()
+        self.assertEqual(profile['version'],2);self.assertEqual(profile['policy'],'scanner-layout-marker-v2')
+        self.assertEqual([a['kind'] for a in profile['anchors']],['SET_LANGUAGE','TITLE'])
+        self.assertNotIn('TST',str(profile));self.assertNotIn('Artist',str(profile))
+        for degrees in (0,180):
+            result=infer_scanner_layout(self.image,self.direct,[self.marker_observation(degrees=degrees)],profile)
+            self.assertEqual(result['status'],'PROPOSED');self.assertEqual(result['policy'],profile['policy'])
+            self.assertEqual(result['observedAnchors'],['SET_LANGUAGE','TITLE']);self.assertFalse(result['boundaryVerified'])
+            np.testing.assert_allclose(np.asarray(result['region']['quad'])*[1699,2299],self.quad+[8,-6],atol=.001)
+
+    def test_collector_recipe_keeps_its_generation_and_ignores_optional_marker(self):
+        source=copy.deepcopy(self.source);source['footerLines'].append({'text':'TST EN','score':.99,'polygon':[[40,1330],[200,1330],[200,1350],[40,1350]]})
+        profile=make_scanner_layout(self.image,{'status':'PROPOSED','method':'scanner-card-edges','quad':self.quad.tolist()},[source],'a'*64)
+        self.assertEqual(profile['version'],1);self.assertEqual(profile['policy'],'scanner-layout-anchor-v1')
+        self.assertEqual([a['kind'] for a in profile['anchors']],['COLLECTOR','TITLE'])
+        self.assertEqual(infer_scanner_layout(self.image,self.direct,[self.observation()],profile)['observedAnchors'],['COLLECTOR','TITLE'])
+
+    def test_marker_requires_title_unique_semantics_and_supported_footer_position(self):
+        from scanner_layout import marker_anchors
+        source,profile=self.marker_fixture()
+        for change in ['missing-title','conflicting-marker','wrong-zone','artist-word','low-score']:
+            reading=self.marker_observation()
+            if change=='missing-title':reading['lines']=[]
+            elif change=='conflicting-marker':reading['footerLines'].append({**reading['footerLines'][0],'text':'ABC · EN Other'})
+            elif change=='wrong-zone':reading['footerLines'][0]['polygon']=[[40,800],[200,800],[200,820],[40,820]]
+            elif change=='artist-word':reading['footerLines'][0]['text']='WHEN Artist'
+            else:reading['footerLines'][0]['score']=.74
+            self.assertIsNone(marker_anchors(reading));self.assertEqual(infer_scanner_layout(self.image,self.direct,[reading],profile)['status'],'REJECTED')
+        reading=self.marker_observation(dx=80)
+        self.assertEqual(infer_scanner_layout(self.image,self.direct,[reading],profile)['status'],'REJECTED')
+        reading=self.marker_observation();reading['lines'][0]['polygon']=(np.asarray(reading['lines'][0]['polygon'])+[50,0]).tolist()
+        self.assertEqual(infer_scanner_layout(self.image,self.direct,[reading],profile)['status'],'REJECTED')
+
+    def test_marker_policy_and_required_anchor_shapes_cannot_be_mixed(self):
+        _,profile=self.marker_fixture()
+        for change in [{'version':1},{'policy':'scanner-layout-anchor-v1'},{'anchors':[profile['anchors'][0]]}]:
+            self.assertEqual(infer_scanner_layout(self.image,self.direct,[self.marker_observation()],{**profile,**change})['status'],'REJECTED')
+        for direct in [{**self.direct,'framing':'CLIPPED'},{**self.direct,'method':'manual-card-region-v1'}]:
+            self.assertEqual(infer_scanner_layout(self.image,direct,[self.marker_observation()],profile)['status'],'REJECTED')
+
+    def test_marker_guided_search_keeps_observations_in_the_saved_source_space(self):
+        source,profile=self.marker_fixture()
+        region=scanner_layout_search_region(self.image,self.direct,profile)
+        self.assertEqual(region,profile['region'])
+        np.testing.assert_allclose(np.asarray(region['quad'])*[1699,2299],self.quad,atol=.001)
+        guide=copy.deepcopy(source)
+        for line in guide['lines']+guide['footerLines']:
+            line['polygon']=(np.asarray(line['polygon'])+[8/1600*999,-6/2240*1396]).tolist()
+        result=infer_scanner_layout(self.image,self.direct,[guide],profile,observation_quad=self.quad)
+        self.assertEqual(result['anchorSpace'],'LAYOUT_SEARCH')
+        np.testing.assert_allclose(np.asarray(result['region']['quad'])*[1699,2299],self.quad+[8,-6],atol=.001)
+        guide['lines']=[]
+        self.assertEqual(infer_scanner_layout(self.image,self.direct,[guide],profile,observation_quad=self.quad)['status'],'REJECTED')
+
+
+if __name__ == "__main__":
+    unittest.main()

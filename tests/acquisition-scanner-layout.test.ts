@@ -140,3 +140,34 @@ test('guided search binds actual anchors to frozen placement and keeps its obser
   assert.equal(projection?.anchorSearch?.observations[0].text.title[0],'Different Card');
   assert(!JSON.stringify(projection).includes(profile.sourceDigest));
 });
+
+import {SCANNER_MARKER_LAYOUT_POLICY,scannerLayoutMarkerLines,scannerLayoutAnchorsObserved} from '../lib/acquisition-scanner-layout';
+const markerLine={text:'TST · EN Artist',score:.98,polygon:[[40,1330],[220,1330],[220,1350],[40,1350]]};
+const markerProfile=scannerLayoutTemplateSchema.parse({...template,version:2,policy:SCANNER_MARKER_LAYOUT_POLICY,
+  anchors:[{kind:'SET_LANGUAGE',point:[40/999,1350/1396]},template.anchors.find(a=>a.kind==='TITLE')]});
+function markerInferredNative(){
+  const value=structuredClone(inferredNative());
+  const inference=value.scannerLayout!.inference;if(inference.status!=='PROPOSED')throw Error('Proposed fixture required');
+  inference.policy=SCANNER_MARKER_LAYOUT_POLICY;inference.observedAnchors=['SET_LANGUAGE','TITLE'];
+  value.orientations[0].lines=[value.orientations[0].lines[0],{...markerLine,polygon:markerLine.polygon.map(([x,y])=>[(50+x/999*1600+8)/1699*999,(30+y/1396*2240-6)/2299*1396])}];
+  return nativeSchema.parse(value);
+}
+test('marker-only generation binds current title and unique footer marker without changing collector recipes',()=>{
+  const source={lines:[lines[0]],footerLines:[markerLine]};
+  assert(scannerLayoutAnchorsObserved(markerProfile,[source]));
+  assert.equal(markerProfile.version,2);assert.equal(profile.version,1);
+  assert.equal(scannerLayoutMarkerLines({...source,footerLines:[markerLine,{...markerLine,text:'ABC · EN Other'}]}).length,0);
+  const value=markerInferredNative();assertScannerLayoutInference(markerProfile,value);
+  const raw=JSON.stringify(markerProfile),frame=acquisitionNativePhotoInput(Buffer.from('original'),'CARD_SCAN',undefined,undefined,raw);
+  assert(frame.readUInt32BE()<=1020);assert.equal(JSON.parse(frame.subarray(4,4+frame.readUInt32BE()).toString()).scannerLayoutProfile,raw);
+  for(const change of [(n:typeof value)=>n.orientations[0].lines.splice(0,1),
+    (n:typeof value)=>n.orientations[0].lines.push({...n.orientations[0].lines[1],text:'ABC · EN Other'}),
+    (n:typeof value)=>{if(n.scannerLayout!.inference.status==='PROPOSED')n.scannerLayout!.inference.offsetPixels[0]+=2;}]){
+    const changed=markerInferredNative();change(changed);assert.throws(()=>assertScannerLayoutInference(markerProfile,changed));
+  }
+  assert.throws(()=>assertScannerLayoutInference(profile,value));
+  assert.throws(()=>scannerLayoutTemplateSchema.parse({...markerProfile,version:1}));
+  assert.throws(()=>scannerLayoutTemplateSchema.parse({...markerProfile,anchors:markerProfile.anchors.filter(a=>a.kind==='SET_LANGUAGE')}));
+  const changed=markerInferredNative();if(changed.scannerLayout!.inference.status==='PROPOSED')changed.scannerLayout!.inference.observedAnchors=['SET_LANGUAGE'];
+  assert(!nativeSchema.safeParse(changed).success);
+});
