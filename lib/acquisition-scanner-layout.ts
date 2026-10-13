@@ -54,7 +54,7 @@ export const scannerLayoutInferenceSchema=z.discriminatedUnion('status',[
   z.object({status:z.literal('REJECTED'),policy:z.literal(SCANNER_LAYOUT_POLICY),reason:z.string().min(1).max(80)}).strict(),
   z.object({status:z.literal('PROPOSED'),policy:z.literal(SCANNER_LAYOUT_POLICY),boundaryVerified:z.literal(false),
     region:acquisitionManualRegionSchema,rotationDegrees:z.union([z.literal(0),z.literal(180)]),
-    observedAnchors:z.array(z.enum(['COLLECTOR','TITLE'])).min(1).max(2),
+    observedAnchors:z.array(z.enum(['COLLECTOR','TITLE'])).min(1).max(2),anchorSpace:z.literal('LAYOUT_SEARCH').optional(),
     offsetPixels:z.tuple([z.number().finite(),z.number().finite()]),sourceDigest:z.string().regex(/^[a-f0-9]{64}$/)
   }).strict(),
 ]);

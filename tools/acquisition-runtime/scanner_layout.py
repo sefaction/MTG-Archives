@@ -97,7 +97,7 @@ def make_scanner_layout(image, geometry, observations, photo_digest, input_kind=
             'anchors': [{'kind': kind, 'point': [point[0]/999, point[1]/1396]} for kind, point in anchors.items()]}
 
 
-def infer_scanner_layout(image, direct, observations, profile, input_kind='CARD_SCAN'):
+def infer_scanner_layout(image, direct, observations, profile, input_kind='CARD_SCAN', *, observation_quad=None):
     def reject(reason):
         return {'status': 'REJECTED', 'reason': reason, 'policy': POLICY}
     if input_kind != 'CARD_SCAN':
@@ -131,14 +131,21 @@ def infer_scanner_layout(image, direct, observations, profile, input_kind='CARD_
         if len(expected) != len(profile['anchors']) or not 1 <= len(expected) <= 2 or 'COLLECTOR' not in expected or set(expected)-{'COLLECTOR', 'TITLE'} or any(p.shape != (2,) or not np.isfinite(p).all() or np.any(p < 0) or np.any(p > [999, 1396]) for p in expected.values()):
             raise ValueError('Invalid layout anchors')
         template_map = cv2.getPerspectiveTransform(CANONICAL, base.astype(np.float32))
-        observed_map = cv2.getPerspectiveTransform(CANONICAL, current)
+        if observation_quad is not None:
+            guide = _checked_quad(observation_quad, width, height)
+            if np.max(np.abs(guide-base)) > .001:
+                raise ValueError('Guide differs from calibrated source placement')
+            current_observation = guide
+        else:
+            current_observation = current
+        observed_map = cv2.getPerspectiveTransform(CANONICAL, current_observation.astype(np.float32))
     except (KeyError, TypeError, ValueError, cv2.error):
         return reject('INVALID_PROFILE')
     proposals = []
     for observation in observations:
         degrees = observation.get('rotationDegrees')
         anchors = printed_anchors(observation) if degrees in (0, 180) else None
-        if anchors is None or (changed_frame and ('TITLE' not in anchors or 'TITLE' not in expected)):
+        if anchors is None or ((changed_frame or observation_quad is not None) and ('TITLE' not in anchors or 'TITLE' not in expected)):
             continue
         offsets = []
         for kind in ('COLLECTOR', 'TITLE'):
@@ -165,8 +172,21 @@ def infer_scanner_layout(image, direct, observations, profile, input_kind='CARD_
         proposals.append({'status': 'PROPOSED', 'policy': POLICY, 'boundaryVerified': False,
             'region': {'version': 1, 'quad': (inferred/[width-1, height-1]).tolist()},
             'rotationDegrees': degrees, 'observedAnchors': list(kind for kind in ('COLLECTOR', 'TITLE') if kind in expected and kind in anchors),
-            'offsetPixels': offset.tolist(), 'sourceDigest': profile.get('sourceDigest')})
+            'offsetPixels': offset.tolist(), 'sourceDigest': profile.get('sourceDigest'),
+            **({'anchorSpace':'LAYOUT_SEARCH'} if observation_quad is not None else {})})
     if len(proposals) != 1:
         return reject('ANCHORS_UNAVAILABLE_OR_AMBIGUOUS')
     return proposals[0]
 
+
+
+def scanner_layout_search_region(image, direct, profile, input_kind='CARD_SCAN'):
+    """A search placement, never measured edges or an inferred result by itself."""
+    eligibility = infer_scanner_layout(image, direct, [], profile, input_kind)
+    if eligibility.get('reason') != 'ANCHORS_UNAVAILABLE_OR_AMBIGUOUS':
+        return None
+    if {a['kind'] for a in profile['anchors']} != {'COLLECTOR','TITLE'}:
+        return None
+    height,width = image.shape[:2]
+    points = np.asarray(profile['region']['quad'],np.float64)*[profile['frame']['width']-1,profile['frame']['height']-1]
+    return {'version':1,'quad':(points/[width-1,height-1]).tolist()}
