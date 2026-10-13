@@ -243,5 +243,35 @@ class MarkerLayoutTests(unittest.TestCase):
         self.assertEqual(infer_scanner_layout(self.image,self.direct,[guide],profile,observation_quad=self.quad)['status'],'REJECTED')
 
 
+class SetTokenCollectorTests(unittest.TestCase):
+    setUp = ScannerLayoutTests.setUp
+
+    def test_set_token_cannot_replace_or_conflict_with_a_real_fraction_anchor(self):
+        from scanner_layout import printed_anchors
+        for code,number in [('C19','170'),('M21','190')]:
+            reading=copy.deepcopy(self.source)
+            reading['footerLines']=[{'text':number+'/302 U','score':.98,'polygon':self.polygons['COLLECTOR']},
+                {'text':code+' · EN Artist','score':.99,'polygon':[[40,1330],[220,1330],[220,1350],[40,1350]]},
+                {'text':code,'score':.9999,'polygon':[[40,1330],[120,1330],[120,1350],[40,1350]]}]
+            anchors=printed_anchors(reading)
+            self.assertEqual(anchors['COLLECTOR'],[40,1320])
+            profile=make_scanner_layout(self.image,self.manual,[reading],'a'*64)
+            self.assertEqual(profile['version'],1)
+            reading['footerLines'].pop(0)
+            self.assertIsNone(printed_anchors(reading))
+            self.assertEqual(make_scanner_layout(self.image,self.manual,[reading],'a'*64)['version'],2)
+
+    def test_spaced_rarity_suffixes_and_genuine_conflicts_remain_observed(self):
+        from scanner_layout import printed_anchors
+        reading=copy.deepcopy(self.source)
+        reading['footerLines']=[{'text':'M 21','score':.99,'polygon':self.polygons['COLLECTOR']},
+            {'text':'M21 · EN','score':.99,'polygon':[[40,1330],[220,1330],[220,1350],[40,1350]]}]
+        self.assertIsNotNone(printed_anchors(reading))
+        reading['footerLines'][0]['text']='M21a'
+        self.assertIsNotNone(printed_anchors(reading))
+        reading['footerLines'].append({'text':'R 0022','score':.99,'polygon':self.polygons['COLLECTOR']})
+        self.assertIsNone(printed_anchors(reading))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -47,6 +47,7 @@ def _anchor_point(line):
 def printed_anchors(observation):
     """Positions only: names and collector values are not stored in a layout."""
     collectors = {}
+    marker_codes = {key[0] for key in _printed_markers(observation)}
     lines = observation.get('identifierLines', []) + observation.get('footerLines', []) + observation.get('lines', [])
     for line in lines:
         point = _anchor_point(line)
@@ -54,6 +55,8 @@ def printed_anchors(observation):
         if not point or point[1] < 1270 or point[0] > 400 or not isinstance(text, str):
             continue
         rarity = re.match(r'^\s*[CUMRLT]\s*(\d{1,5}[a-z★†]?)(?![\w★†])', text, re.I)
+        if rarity is not None and rarity[0].strip().upper() in marker_codes:
+            rarity = None  # A printed set token is not rarity plus a number.
         fraction = re.match(r'^\s*(\d{1,5}[a-z★†]?)\s*/\s*\d{2,5}\b', text, re.I)
         match = rarity or fraction
         if not match or re.search(r'wizards|copyright|©|\b(19|20)\d{2}\s*[-–]', text, re.I):
@@ -76,7 +79,7 @@ def printed_anchors(observation):
     return result
 
 
-def marker_anchors(observation):
+def _printed_markers(observation):
     markers = {}
     for line in observation.get('identifierLines', []) + observation.get('footerLines', []) + observation.get('lines', []):
         point = _anchor_point(line)
@@ -89,6 +92,11 @@ def marker_anchors(observation):
         key = (match[1].upper(), (match[2] or match[3]).upper())
         if key not in markers or line['score'] > markers[key][0]:
             markers[key] = (line['score'], point)
+    return markers
+
+
+def marker_anchors(observation):
+    markers = _printed_markers(observation)
     titles = []
     for line in observation.get('lines', []):
         point = _anchor_point(line)

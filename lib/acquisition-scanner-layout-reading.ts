@@ -1,7 +1,7 @@
 import {cropPoint} from './acquisition-review-evidence';
 import {combineAcquisitionReferenceReadings} from './acquisition-reference-text';
 import type {createAcquisitionRecognitionIndex} from './acquisition-recognition';
-import {scannerLayoutLineAnchor,scannerLayoutMarkerLines,type ScannerLayoutTemplate} from './acquisition-scanner-layout';
+import {scannerLayoutLineAnchor,scannerLayoutMarkerLines,scannerLayoutCollectorLines,type ScannerLayoutTemplate} from './acquisition-scanner-layout';
 import type {nativeSchema} from './acquisition-recognition-worker';
 import type {z} from 'zod';
 type Native=z.infer<typeof nativeSchema>;
@@ -34,7 +34,7 @@ export function assertScannerLayoutInference(profile:ScannerLayoutTemplate,nativ
   for(const kind of inference.observedAnchors){
     const anchor=profile.anchors.find(a=>a.kind===kind);
     if(!anchor)throw Error('Scanner layout anchor unavailable');
-    const lines=kind==='TITLE'?observation.lines:kind==='SET_LANGUAGE'?scannerLayoutMarkerLines(observation):[...(observation.identifierLines??[]),...(observation.footerLines??[]),...observation.lines];
+    const lines=kind==='TITLE'?observation.lines:kind==='SET_LANGUAGE'?scannerLayoutMarkerLines(observation):scannerLayoutCollectorLines(observation);
     const matches=lines.filter(line=>scannerLayoutLineAnchor(kind,line))
       .map(line=>({point:[Math.min(...line.polygon.map(p=>p[0]))/999,Math.max(...line.polygon.map(p=>p[1]))/1396],score:line.score}));
     if(!matches.length)throw Error('Scanner layout anchor was not observed');
