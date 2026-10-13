@@ -7,9 +7,9 @@ import {cancelAndCleanCorrectionFixture} from './correction-fixture';
 import {observeLoad} from '../../tools/acquisition-eval/scanner-load-resources';
 
 test('bounded124 scanner software load preserves native observations and human authority',async({page,baseURL})=>{
+  test.skip(process.env.MTG_LOCAL_PILOT_TEST!=='1'||!process.env.MTG_SUSTAINED_SCAN_ROOT||!process.env.MTG_SUSTAINED_REPORT,'Explicit retained development originals and local report required; no hardware feed');
   expect(baseURL).toBe('http://127.0.0.1:13011');
   test.setTimeout(3600000);
-  test.skip(process.env.MTG_LOCAL_PILOT_TEST!=='1'||!process.env.MTG_SUSTAINED_SCAN_ROOT||!process.env.MTG_SUSTAINED_REPORT,'Explicit retained development originals and local report required; no hardware feed');
   expect(database("console.log(process.env.DATABASE_URL?.includes('/acquisition_anchor_review'));").trim()).toBe('true');
   const root=process.env.MTG_SUSTAINED_SCAN_ROOT!;
   const labels=readFileSync('tools/acquisition-eval/scan-batch-manifest.json');
