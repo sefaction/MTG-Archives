@@ -113,3 +113,30 @@ test('inferred original-pixel identifiers require their own frame, window, direc
   const substituted=inferredIdentifiers();if(substituted.scannerLayout!.inference.status==='PROPOSED')substituted.scannerLayout!.inference.region.quad[0][0]+=.005;
   assert(!nativeSchema.safeParse(substituted).success);
 });
+
+function guidedNative(){
+  const target=inferredNative();
+  const observations=[{rotationDegrees:0 as const,text:{title:['Different Card'],footer:['U 0042','TST EN']},
+    lines:lines.map(line=>({...line,text:line.text==='First Card'?'Different Card':'U 0042',
+      polygon:line.polygon.map(([x,y])=>[x+8/1600*999,y-6/2240*1396])}))},
+    {rotationDegrees:180 as const,text:{title:[],footer:[]},lines:[]}];
+  target.scannerLayout!.anchorSearch={status:'COMPLETE',boundaryVerified:false,region:profile.region,orientations:observations};
+  if(target.scannerLayout!.inference.status==='PROPOSED')target.scannerLayout!.inference.anchorSpace='LAYOUT_SEARCH';
+  // Generic current frame can have neither anchor; search observations own them.
+  target.orientations.forEach(o=>{o.lines=[];o.text={title:[],footer:[]};});
+  return target;
+}
+test('guided search binds actual anchors to frozen placement and keeps its observation space distinct',()=>{
+  const target=guidedNative();assert(nativeSchema.safeParse(target).success);assertScannerLayoutInference(profile,target);
+  for(const mutation of [(t:ReturnType<typeof guidedNative>)=>t.scannerLayout!.anchorSearch!.region.quad[0][0]+=.004,
+    (t:ReturnType<typeof guidedNative>)=>t.scannerLayout!.anchorSearch!.orientations[0].lines=[],
+    (t:ReturnType<typeof guidedNative>)=>{if(t.scannerLayout!.inference.status==='PROPOSED')t.scannerLayout!.inference.observedAnchors=['COLLECTOR'];}]){
+    const altered=structuredClone(guidedNative());mutation(altered);
+    assert(!nativeSchema.safeParse(altered).success||(()=>{try{assertScannerLayoutInference(profile,altered);return false;}catch{return true;}})());
+  }
+  const missing=structuredClone(target);missing.scannerLayout!.anchorSearch=undefined;
+  assert(!nativeSchema.safeParse(missing).success);
+  const projection=acquisitionReviewEvidence({native:target,proposals:{evidence:{setCodes:[],collectors:[],languages:[]}}});
+  assert.equal(projection?.anchorSearch?.observations[0].text.title[0],'Different Card');
+  assert(!JSON.stringify(projection).includes(profile.sourceDigest));
+});

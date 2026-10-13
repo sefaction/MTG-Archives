@@ -13,17 +13,23 @@ region={'version':1,'quad':(quad/[width-1,height-1]).tolist()}
 def pixels(name,collector,border,shift=(0,0)):
     image=np.full((height,width,3),235,np.uint8)
     x,y=(quad[0]+shift).astype(int)
+    card_width,card_height=int(quad[1,0]-quad[0,0]),int(quad[3,1]-quad[0,1])
     if border:
-        cv2.rectangle(image,(x,y),(x+1600,y+2240),(10,)*3,12)
-    def point(a,b):return (int(x+a*1600/999),int(y+b*2240/1396))
+        cv2.rectangle(image,(x,y),(x+card_width,y+card_height),(10,)*3,12)
+    def point(a,b):return (int(x+a*card_width/999),int(y+b*card_height/1396))
     cv2.putText(image,name,point(60,115),cv2.FONT_HERSHEY_SIMPLEX,2.0,(20,)*3,3,cv2.LINE_AA)
     cv2.putText(image,collector,point(40,1320),cv2.FONT_HERSHEY_SIMPLEX,1.2,(20,)*3,2,cv2.LINE_AA)
     cv2.putText(image,'TST EN',point(40,1350),cv2.FONT_HERSHEY_SIMPLEX,1.0,(20,)*3,2,cv2.LINE_AA)
     return image
 
 def main():
+    global width,height,quad
     parser=argparse.ArgumentParser();parser.add_argument('--output',type=Path,required=True)
-    output=parser.parse_args().output
+    parser.add_argument('--padded',action='store_true')
+    args=parser.parse_args();output=args.output
+    if args.padded:
+        width,height=1600,2300
+        quad=np.float32([[100,200],[1500,200],[1500,2155],[100,2155]])
     if output.exists() and any(output.iterdir()):
         raise ValueError('Use an empty dedicated control directory')
     output.mkdir(parents=True,exist_ok=True)

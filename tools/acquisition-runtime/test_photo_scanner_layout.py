@@ -1,11 +1,15 @@
 import sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'acquisition-eval'))
+import contextlib,io,json,struct
+from unittest.mock import patch
+from PIL import Image
+import recognize
 import copy
 import unittest
 import cv2
 import numpy as np
-from scanner_layout import make_scanner_layout, infer_scanner_layout, POLICY
+from scanner_layout import make_scanner_layout, infer_scanner_layout, scanner_layout_search_region, POLICY
 
 
 class ScannerLayoutTests(unittest.TestCase):
@@ -97,6 +101,63 @@ class ScannerLayoutTests(unittest.TestCase):
         self.assertEqual(infer_scanner_layout(image,direct,[reading],self.profile)['status'],'REJECTED')
         for bad in [None, {**self.profile,'sourceMethod':'declared-card-scan'}, {**self.profile,'sourceDigest':'bad'}]:
             self.assertEqual(infer_scanner_layout(image,direct,[],bad)['status'],'REJECTED')
+
+    def test_saved_placement_finds_current_anchors_outside_generic_footer(self):
+        image=np.full((2300,1600,3),235,np.uint8)
+        quad=np.float32([[100,200],[1500,200],[1500,2155],[100,2155]])
+        direct={'status':'PROPOSED','method':'declared-card-scan','quad':[[0,0],[1599,0],[1599,2299],[0,2299]]}
+        profile=make_scanner_layout(image,{**self.manual,'quad':quad.tolist()},[self.source],'a'*64)
+        normal={'rotationDegrees':0,'lines':[],'footerLines':[]}
+        guided=copy.deepcopy(normal)
+        for kind,points in self.polygons.items():
+            physical=np.asarray(points)/[999,1396]*[1400,1955]+[108,194]
+            line={'text':'Different Card' if kind=='TITLE' else 'U 0042','score':.99,
+                  'polygon':(physical/[1599,2299]*[999,1396]).tolist()}
+            key='lines' if kind=='TITLE' else 'footerLines';normal[key].append(line)
+            guided[key].append({**line,'polygon':((physical-[100,200])/[1400,1955]*[999,1396]).tolist()})
+        self.assertEqual(infer_scanner_layout(image,direct,[normal],profile)['status'],'REJECTED')
+        search=scanner_layout_search_region(image,direct,profile)
+        self.assertIsNotNone(search);guide_quad=np.asarray(search['quad'])*[1599,2299]
+        result=infer_scanner_layout(image,direct,[guided],profile,observation_quad=guide_quad)
+        self.assertEqual(result['status'],'PROPOSED');self.assertEqual(result['anchorSpace'],'LAYOUT_SEARCH')
+        self.assertEqual(result['observedAnchors'],['COLLECTOR','TITLE']);self.assertFalse(result['boundaryVerified'])
+        np.testing.assert_allclose(np.asarray(result['region']['quad'])*[1599,2299],quad+[8,-6],atol=.001)
+        guided['lines']=[]
+        self.assertEqual(infer_scanner_layout(image,direct,[guided],profile,observation_quad=guide_quad)['status'],'REJECTED')
+        self.assertEqual(infer_scanner_layout(image,direct,[],profile,observation_quad=guide_quad+[1,0])['reason'],'INVALID_PROFILE')
+        for blocked in [{**direct,'framing':'CLIPPED'},{**direct,'method':'scanner-card-edges'},self.manual]:
+            self.assertIsNone(scanner_layout_search_region(image,blocked,profile))
+        self.assertIsNone(scanner_layout_search_region(image,direct,profile,'PHOTO'))
+        bad=copy.deepcopy(profile);bad['anchors']=bad['anchors'][:1]
+        self.assertIsNone(scanner_layout_search_region(image,direct,bad))
+
+    def test_failed_or_late_guide_search_preserves_completed_primary_output(self):
+        buffer=io.BytesIO();Image.new('RGB',(1700,2300),(235,)*3).save(buffer,format='PNG');data=buffer.getvalue()
+        metadata=json.dumps({'inputKind':'CARD_SCAN','scannerLayoutProfile':json.dumps(self.profile,separators=(',',':'))}).encode()
+        frame=len(metadata).to_bytes(4,'big')+metadata+data
+        for late,expected_calls in [(False,7),(True,6)]:
+            class Engine:
+                calls=0
+                def predict(self,view):
+                    self.calls+=1
+                    if self.calls>6:raise RuntimeError('optional guide failure')
+                    return []
+            engine=Engine();clock_calls=0
+            def clock():
+                nonlocal clock_calls
+                clock_calls+=1
+                return 12 if late and clock_calls>1 else 0
+            output=io.StringIO()
+            with patch.object(recognize,'ocr_engine',return_value=engine),patch.object(recognize.time,'monotonic',side_effect=clock),patch.object(sys,'__stdout__',output),contextlib.redirect_stdout(io.StringIO()),contextlib.redirect_stderr(io.StringIO()):
+                recognize.recognize(frame,{'digest':'b'*64})
+            result=json.loads(output.getvalue())
+            self.assertEqual(engine.calls,expected_calls)
+            self.assertEqual(result['geometry']['method'],'declared-card-scan')
+            self.assertEqual([o['text']['title'] for o in result['orientations']],[[],[]])
+            self.assertEqual([o['text']['footer'] for o in result['orientations']],[[],[]])
+            self.assertEqual(result['scannerLayout']['inference']['status'],'REJECTED')
+            self.assertNotIn('anchorSearch',result['scannerLayout'])
+            self.assertFalse(result['automaticAcceptance'])
 
     def test_declared_background_trim_and_clipped_sources_cannot_train_a_layout(self):
         for geometry in [self.direct,{**self.manual,'method':'scanner-background-trim'},

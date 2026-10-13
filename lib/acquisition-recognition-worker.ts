@@ -1,6 +1,6 @@
 import {assertScannerLayoutInference,combineScannerLayoutReadings,assertScannerLayoutFooterSource} from "./acquisition-scanner-layout-reading";
 import {scannerLayoutTemplateSchema,scannerLayoutAnchorsObserved,scannerLayoutInferenceSchema,parseScannerLayoutProfile} from "./acquisition-scanner-layout";
-import { acquisitionManualAnalysisSchema, sameAcquisitionManualRegion } from "./acquisition-manual-region";
+import { acquisitionManualAnalysisSchema, acquisitionManualRegionSchema, sameAcquisitionManualRegion } from "./acquisition-manual-region";
 import { acquisitionAnalysisForPhoto, acquisitionAnalysisReadySql } from "./acquisition-analysis-scope";
 import { createHash } from "node:crypto";
 import { Prisma, type PrismaClient } from "@prisma/client";
@@ -65,7 +65,9 @@ export const nativeSchema = z.object({
   photoText: acquisitionPhotoTextSchema.optional(),
   scannerLayoutTemplate:scannerLayoutTemplateSchema.optional(),
   scannerLayout:z.object({inference:scannerLayoutInferenceSchema,orientations:z.array(nativeObservationSchema).max(2),
-    readingStatus:z.enum(['COMPLETE','TIME_BUDGET','WORKER_ERROR']).optional()}).strict().optional(),
+    readingStatus:z.enum(['COMPLETE','TIME_BUDGET','WORKER_ERROR']).optional(),
+    anchorSearch:z.object({status:z.literal('COMPLETE'),boundaryVerified:z.literal(false),region:acquisitionManualRegionSchema,
+      orientations:z.array(nativeObservationSchema).length(2)}).strict().optional()}).strict().optional(),
 }).superRefine((value,ctx)=>{
   const layout=value.scannerLayout;
   if(layout){
@@ -77,9 +79,17 @@ export const nativeSchema = z.object({
     if(layout.inference.status==='PROPOSED'&&(!layout.inference.observedAnchors.includes('COLLECTOR')||
       new Set(layout.inference.observedAnchors).size!==layout.inference.observedAnchors.length))
       ctx.addIssue({code:z.ZodIssueCode.custom,message:'Scanner layout collector anchor required'});
-    for(const observation of layout.orientations){
+    if(layout.inference.status==='PROPOSED'&&layout.inference.anchorSpace==='LAYOUT_SEARCH'&&
+      (!layout.anchorSearch||!layout.inference.observedAnchors.includes('TITLE')))
+      ctx.addIssue({code:z.ZodIssueCode.custom,message:'Guided inference requires its corroborated current anchor search'});
+    if(layout.anchorSearch&&(value.geometry.status!=='PROPOSED'||value.geometry.method!=='declared-card-scan'||value.geometry.framing==='CLIPPED'))
+      ctx.addIssue({code:z.ZodIssueCode.custom,message:'Guided search cannot replace direct or clipped geometry'});
+    if(layout.anchorSearch&&layout.inference.status==='PROPOSED'&&layout.inference.anchorSpace!=='LAYOUT_SEARCH')
+      ctx.addIssue({code:z.ZodIssueCode.custom,message:'Guided search and primary anchor spaces cannot be combined'});
+    for(const [observation,sourceRegion] of [...layout.orientations.map(o=>[o,layout.inference.status==='PROPOSED'?layout.inference.region:null] as const),
+      ...(layout.anchorSearch?.orientations.map(o=>[o,layout.anchorSearch!.region] as const)??[])]){
       if((observation.text.footerSourceIdentifiers?.length||observation.identifierLines?.length)&&
-          (layout.inference.status!=='PROPOSED'||observation.identifierSource?.status!=='EXTRACTED'))
+          (!sourceRegion||observation.identifierSource?.status!=='EXTRACTED'))
         ctx.addIssue({code:z.ZodIssueCode.custom,message:'Inferred identifier words require their actual source region'});
       if(observation.text.footerSourceIdentifiers?.length&&!observation.identifierLines?.length)
         ctx.addIssue({code:z.ZodIssueCode.custom,message:'Inferred identifier words require detected lines'});
@@ -87,8 +97,8 @@ export const nativeSchema = z.object({
         if(observation.identifierSource.rotationDegrees!==observation.rotationDegrees)
           ctx.addIssue({code:z.ZodIssueCode.custom,message:'Inferred identifier direction differs'});
         try{
-          if(layout.inference.status!=='PROPOSED')throw Error('Inferred source geometry unavailable');
-          assertScannerLayoutFooterSource(observation.identifierSource,layout.inference.region,value.geometry.quad);
+          if(!sourceRegion)throw Error('Inferred source geometry unavailable');
+          assertScannerLayoutFooterSource(observation.identifierSource,sourceRegion,value.geometry.quad);
         }catch{ctx.addIssue({code:z.ZodIssueCode.custom,message:'Inferred identifier source differs from its observed card frame'});}
       }
       for(const line of observation.identifierLines??[])

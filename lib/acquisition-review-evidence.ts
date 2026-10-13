@@ -1,3 +1,4 @@
+import {acquisitionManualRegionSchema} from './acquisition-manual-region';
 import {scannerLayoutInferenceSchema} from "./acquisition-scanner-layout";
 import { z } from "zod";
 import { printingSummarySchema } from "./acquisition-printing";
@@ -34,13 +35,17 @@ const observation = z.object({
 const primaryReading=observation.pick({rotationDegrees:true,text:true});
 const schema = z.object({
   primaryScannerLayout:z.object({inference:scannerLayoutInferenceSchema,orientations:z.array(observation).max(2),
-    readingStatus:z.enum(['COMPLETE','TIME_BUDGET','WORKER_ERROR']).optional()}).optional(),
+    readingStatus:z.enum(['COMPLETE','TIME_BUDGET','WORKER_ERROR']).optional(),
+    anchorSearch:z.object({status:z.literal('COMPLETE'),boundaryVerified:z.literal(false),region:acquisitionManualRegionSchema,
+      orientations:z.array(observation).length(2)}).optional()}).optional(),
   primaryReadings:z.array(primaryReading).max(2).optional(),
   printing: printingSummarySchema.optional(),
   visual: visualNativeSchema.optional(),
   native: z.object({
     scannerLayout:z.object({inference:scannerLayoutInferenceSchema,orientations:z.array(observation).max(2),
-      readingStatus:z.enum(['COMPLETE','TIME_BUDGET','WORKER_ERROR']).optional()}).optional(),
+      readingStatus:z.enum(['COMPLETE','TIME_BUDGET','WORKER_ERROR']).optional(),
+    anchorSearch:z.object({status:z.literal('COMPLETE'),boundaryVerified:z.literal(false),region:acquisitionManualRegionSchema,
+      orientations:z.array(observation).length(2)}).optional()}).optional(),
     photoText: acquisitionPhotoTextSchema.optional(),
     readingZones: acquisitionReadingZonesSchema.optional(),
     geometry: z.object({
@@ -64,9 +69,10 @@ const schema = z.object({
   }),
 }).superRefine((value,ctx)=>{
   for(const layout of [value.native.scannerLayout,value.primaryScannerLayout]){
-    for(const o of layout?.orientations??[]){
+    for(const [o,hasRegion] of [...(layout?.orientations.map(o=>[o,layout.inference.status==='PROPOSED'] as const)??[]),
+      ...(layout?.anchorSearch?.orientations.map(o=>[o,true] as const)??[])]){
       if((o.text.footerSourceIdentifiers?.length||o.identifierLines?.length)&&
-        (layout?.inference.status!=='PROPOSED'||o.identifierSource?.status!=='EXTRACTED'||!o.identifierLines?.length))
+        (!hasRegion||o.identifierSource?.status!=='EXTRACTED'||!o.identifierLines?.length))
         ctx.addIssue({code:z.ZodIssueCode.custom,message:'Inferred identifiers lack their source observation'});
       if(o.identifierSource&&o.identifierSource.rotationDegrees!==o.rotationDegrees)
         ctx.addIssue({code:z.ZodIssueCode.custom,message:'Inferred identifier direction differs'});
@@ -96,6 +102,7 @@ export function acquisitionReviewEvidence(output: unknown) {
     scannerLayout: layout?.inference.status==='PROPOSED'
       ? {region:layout.inference.region,boundaryVerified:false as const,
         observations:layout.orientations,readingStatus:layout.readingStatus??null} : null,
+    anchorSearch:layout?.anchorSearch ? {region:layout.anchorSearch.region,observations:layout.anchorSearch.orientations,boundaryVerified:false as const} : null,
     geometry: native.geometry,
     primaryObservations:parsed.data.primaryReadings??null,
     observations: native.orientations,

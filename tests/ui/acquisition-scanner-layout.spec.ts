@@ -4,8 +4,8 @@ import {readFileSync,writeFileSync} from 'node:fs';
 import {database,json,sha,cleanupReferenceRows,docker,web,worker} from './acquisition-reference-local';
 import {cancelAndCleanCorrectionFixture} from './correction-fixture';
 
-test('actual native scanner layout save/use/reset preserves originals and future snapshots',async({page,baseURL})=>{
-  const folder=process.env.MTG_SCANNER_LAYOUT_FIXTURES_PATH;
+for(const padded of [false,true])test('actual '+(padded?'padded':'tight')+' scanner layout save/use/reset preserves originals and future snapshots',async({page,baseURL})=>{
+  const folder=padded?process.env.MTG_SCANNER_PADDED_FIXTURES_PATH:process.env.MTG_SCANNER_LAYOUT_FIXTURES_PATH;
   test.skip(process.env.MTG_LOCAL_PILOT_TEST!=='1'||!folder,'Isolated local generated scanner controls required; no hardware feed');
   expect(baseURL).toBe('http://127.0.0.1:13011');test.setTimeout(600000);
   const endpoint=JSON.parse(docker(['context','inspect',docker(['context','show']).trim(),'--format','{{json .Endpoints.docker.Host}}']));
@@ -22,7 +22,7 @@ test('actual native scanner layout save/use/reset preserves originals and future
       const s=state();return s.jobs.filter((j:any)=>j.stage==='photo-printing-evidence-v1'&&j.status==='COMPLETE').length;
     },{timeout:240000,intervals:[1000,3000]}).toBeGreaterThanOrEqual(count);
     await expect.poll(()=>state().jobs.filter((j:any)=>['PENDING','RUNNING'].includes(j.status)).length,{timeout:120000,intervals:[1000,3000]}).toBe(0);
-    const s=state();if(process.env.MTG_SCANNER_LAYOUT_REPORT_PATH)writeFileSync(process.env.MTG_SCANNER_LAYOUT_REPORT_PATH+'.phase-'+count+'.json',JSON.stringify(s,null,2));expect(s.jobs.filter((j:any)=>j.status==='FAILED')).toHaveLength(0);return s;
+    const s=state();if(process.env.MTG_SCANNER_LAYOUT_REPORT_PATH)writeFileSync(process.env.MTG_SCANNER_LAYOUT_REPORT_PATH+(padded?'.padded':'.tight')+'.phase-'+count+'.json',JSON.stringify(s,null,2));expect(s.jobs.filter((j:any)=>j.status==='FAILED')).toHaveLength(0);return s;
   };
   try{
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash,role:'PLAYER'}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:3,sections:[]}}});`);
@@ -49,7 +49,14 @@ test('actual native scanner layout save/use/reset preserves originals and future
     expect(identifier.identifierSource.width).toBeGreaterThan(606);expect(identifier.identifierSource.height).toBeGreaterThan(126);
     expect(identifier.identifierSource.width).toBeLessThanOrEqual(identifier.identifierSource.sourceWidth);
     expect(identifier.identifierSource.height).toBeLessThanOrEqual(identifier.identifierSource.sourceHeight);
-    expect(identifier.identifierSource.sourceFrame).toEqual({width:1700,height:2300});
+    expect(identifier.identifierSource.sourceFrame).toEqual({width:padded?1600:1700,height:2300});
+    if(padded){
+      expect(inferred.orientations[0].text.footer).toEqual([]);
+      expect(inferred.scannerLayout.inference.anchorSpace).toBe('LAYOUT_SEARCH');
+      expect(inferred.scannerLayout.inference.observedAnchors).toEqual(['COLLECTOR','TITLE']);
+      expect(inferred.scannerLayout.anchorSearch.status).toBe('COMPLETE');
+      expect(inferred.scannerLayout.anchorSearch.orientations[0].text.title).toEqual(['Another Creature']);
+    }else expect(inferred.scannerLayout.anchorSearch).toBeUndefined();
     expect(identifier.identifierLines.length).toBeGreaterThan(0);
     expect(identifier.text.footerSourceIdentifiers).toEqual(['U 0042','TST EN']);
     const card=page.getByTestId('capture-card-2');
@@ -61,7 +68,13 @@ test('actual native scanner layout save/use/reset preserves originals and future
       await expect(details.getByText('Footer: U 0042 | TST EN',{exact:true})).toBeVisible();
       await expect(details.getByText('Additional identifier reading: U 0042 | TST EN',{exact:true})).toBeVisible();
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-      await details.screenshot({path:`test-results/scanner-layout-${width}.png`});
+      if(padded){
+        const search=card.getByTestId('scanner-anchor-search');await expect(search).toBeVisible();
+        if(!await search.evaluate(e=>(e as HTMLDetailsElement).open))await search.locator('summary').click();
+        await expect(search.getByText('Title: Another Creature',{exact:true})).toBeVisible();
+        await expect(search.getByText('Footer: U 0042 | TST EN',{exact:true})).toBeVisible();
+      }
+      await details.screenshot({path:`test-results/scanner-layout-${padded?'padded':'tight'}-${width}.png`});
     }
     await card.getByRole('button',{name:'Edit card boundary',exact:true}).click();
     await expect(card.getByRole('button',{name:'Use scanner outline',exact:true})).toBeVisible();
@@ -82,7 +95,7 @@ test('actual native scanner layout save/use/reset preserves originals and future
       const download=await page.request.get(link!);expect(download.ok()).toBe(true);expect(sha(await download.body())).toBe(final.photos[i].digest);
     }
     expect(final.inventory).toBe(0);expect(final.candidates.every((c:any)=>c.review===null&&c.receipt===null)).toBe(true);
-    if(process.env.MTG_SCANNER_LAYOUT_REPORT_PATH)writeFileSync(process.env.MTG_SCANNER_LAYOUT_REPORT_PATH,JSON.stringify({syntheticPixels:true,independentScannerAccuracy:false,passed:true,state:final,widths:[1366,320]},null,2));
+    if(process.env.MTG_SCANNER_LAYOUT_REPORT_PATH)writeFileSync(process.env.MTG_SCANNER_LAYOUT_REPORT_PATH+(padded?'.padded':'.tight'),JSON.stringify({syntheticPixels:true,independentScannerAccuracy:false,passed:true,state:final,widths:[1366,320]},null,2));
   }finally{
     database(`await p.authSession.deleteMany({where:{userId:${JSON.stringify(tag)}}});`+cancelAndCleanCorrectionFixture(tag));
     cleanupReferenceRows(tag);database(cancelAndCleanCorrectionFixture(tag));

@@ -236,9 +236,27 @@ def recognize(data, desc):
         except (ValueError, TypeError, KeyError, cv2.error):
             pass  # Optional calibration cannot invalidate successful readings.
     if layout_profile is not None:
-        from scanner_layout import infer_scanner_layout
+        from scanner_layout import infer_scanner_layout, scanner_layout_search_region
         inference = infer_scanner_layout(image, geometry_evidence, orientations, layout_profile, input_kind)
         payload['scannerLayout'] = {'inference': inference, 'orientations': []}
+        if inference.get('reason') == 'ANCHORS_UNAVAILABLE_OR_AMBIGUOUS' and time.monotonic()-started < 12:
+            search_region = scanner_layout_search_region(image,geometry_evidence,layout_profile,input_kind)
+            if search_region is not None:
+                try:
+                    guide_q = np.asarray(search_region['quad'],np.float64)*[image.shape[1]-1,image.shape[0]-1]
+                    guide_transform = cv2.getPerspectiveTransform(guide_q.astype(np.float32),np.float32([[0,0],[999,0],[999,1396],[0,1396]]))
+                    guide_crop = cv2.warpPerspective(image,guide_transform,(1000,1397))
+                    guide_readings = localized_readings(guide_crop,ocr)
+                    append_source_identifiers(image,{'status':'PROPOSED','quad':guide_q.tolist(),
+                        'method':'scanner-layout-search-v1','boundaryVerified':False},guide_readings,ocr,started)
+                    payload['scannerLayout']['anchorSearch'] = {'status':'COMPLETE','region':search_region,
+                        'boundaryVerified':False,'orientations':guide_readings}
+                    inference = infer_scanner_layout(image,geometry_evidence,guide_readings,layout_profile,input_kind,observation_quad=guide_q)
+                    payload['scannerLayout']['inference'] = inference
+                except MemoryError:
+                    raise
+                except Exception:
+                    pass  # A failed optional search keeps the completed primary reading.
         if inference['status'] == 'PROPOSED':
             if time.monotonic()-started >= 20:
                 payload['scannerLayout']['readingStatus'] = 'TIME_BUDGET'
