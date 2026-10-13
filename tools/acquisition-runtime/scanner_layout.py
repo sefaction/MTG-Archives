@@ -10,6 +10,8 @@ import numpy as np
 from reference_card_region import scanner_rectangle
 
 POLICY = 'scanner-layout-anchor-v1'
+MARKER_POLICY = 'scanner-layout-marker-v2'
+MARKER = re.compile(r'^\s*([A-Z0-9]{2,8})(?:\s*[·•*]\s*(ZHS|ZHT|EN|FR|DE|IT|ES|PT|JA|KO|RU)(?=\b|[A-Z])|\s+(ZHS|ZHT|EN|FR|DE|IT|ES|PT|JA|KO|RU)\b)', re.I)
 TRUSTED_METHODS = {'manual-card-region-v1', 'scanner-card-edges', 'scanner-white-card-edges'}
 CANONICAL = np.float32([[0, 0], [999, 0], [999, 1396], [0, 1396]])
 
@@ -74,6 +76,30 @@ def printed_anchors(observation):
     return result
 
 
+def marker_anchors(observation):
+    markers = {}
+    for line in observation.get('identifierLines', []) + observation.get('footerLines', []) + observation.get('lines', []):
+        point = _anchor_point(line)
+        text = line.get('text', '') if isinstance(line, dict) else ''
+        if not point or point[1] < 1270 or point[0] > 400 or not isinstance(text, str) or re.search(r'wizards|copyright|©|\b(19|20)\d{2}\s*[-–]', text, re.I):
+            continue
+        match = MARKER.match(text)
+        if match is None:
+            continue
+        key = (match[1].upper(), (match[2] or match[3]).upper())
+        if key not in markers or line['score'] > markers[key][0]:
+            markers[key] = (line['score'], point)
+    titles = []
+    for line in observation.get('lines', []):
+        point = _anchor_point(line)
+        text = line.get('text', '') if isinstance(line, dict) else ''
+        if point and point[1] <= 250 and point[0] < 800 and isinstance(text, str) and len(text.strip()) >= 3:
+            titles.append(point)
+    if len(markers) != 1 or not titles:
+        return None
+    return {'SET_LANGUAGE': next(iter(markers.values()))[1], 'TITLE': min(titles, key=lambda p: (p[1], p[0]))}
+
+
 def make_scanner_layout(image, geometry, observations, photo_digest, input_kind='CARD_SCAN'):
     if input_kind != 'CARD_SCAN' or geometry.get('status') != 'PROPOSED' or geometry.get('method') not in TRUSTED_METHODS or geometry.get('framing') == 'CLIPPED':
         return None
@@ -88,18 +114,26 @@ def make_scanner_layout(image, geometry, observations, photo_digest, input_kind=
             return None
     candidates = [(o, printed_anchors(o)) for o in observations if o.get('rotationDegrees') in (0, 180)]
     candidates = [(o, anchors) for o, anchors in candidates if anchors is not None]
+    version, policy = 1, POLICY
+    if not candidates:
+        candidates = [(o, marker_anchors(o)) for o in observations if o.get('rotationDegrees') in (0, 180)]
+        candidates = [(o, anchors) for o, anchors in candidates if anchors is not None]
+        version, policy = 2, MARKER_POLICY
     if len(candidates) != 1:
         return None
     _, anchors = candidates[0]
-    return {'version': 1, 'policy': POLICY, 'sourceDigest': photo_digest,
+    return {'version': version, 'policy': policy, 'sourceDigest': photo_digest,
             'sourceMethod': geometry['method'], 'frame': {'width': width, 'height': height},
             'region': {'version': 1, 'quad': (quad/[width-1, height-1]).tolist()},
             'anchors': [{'kind': kind, 'point': [point[0]/999, point[1]/1396]} for kind, point in anchors.items()]}
 
 
 def infer_scanner_layout(image, direct, observations, profile, input_kind='CARD_SCAN', *, observation_quad=None):
+    marker_profile = isinstance(profile, dict) and type(profile.get('version')) is int and profile.get('version') == 2 and profile.get('policy') == MARKER_POLICY
+    policy = MARKER_POLICY if marker_profile else POLICY
+    kinds = ('SET_LANGUAGE', 'TITLE') if marker_profile else ('COLLECTOR', 'TITLE')
     def reject(reason):
-        return {'status': 'REJECTED', 'reason': reason, 'policy': POLICY}
+        return {'status': 'REJECTED', 'reason': reason, 'policy': policy}
     if input_kind != 'CARD_SCAN':
         return reject('SCANNER_ONLY')
     if direct.get('framing') == 'CLIPPED':
@@ -109,7 +143,7 @@ def infer_scanner_layout(image, direct, observations, profile, input_kind='CARD_
     height, width = image.shape[:2]
     if not isinstance(profile, dict):
         return reject('INVALID_PROFILE')
-    if profile.get('policy') != POLICY or type(profile.get('version')) is not int or profile.get('version') != 1:
+    if not marker_profile and (profile.get('policy') != POLICY or type(profile.get('version')) is not int or profile.get('version') != 1):
         return reject('UNSUPPORTED_POLICY')
     source_frame = profile.get('frame', {})
     source_width, source_height = source_frame.get('width'), source_frame.get('height')
@@ -128,8 +162,10 @@ def infer_scanner_layout(image, direct, observations, profile, input_kind='CARD_
         if current.shape != (4, 2) or not np.isfinite(current).all():
             raise ValueError('Invalid current frame')
         expected = {a['kind']: np.asarray(a['point'], np.float64)*[999, 1396] for a in profile['anchors']}
-        if len(expected) != len(profile['anchors']) or not 1 <= len(expected) <= 2 or 'COLLECTOR' not in expected or set(expected)-{'COLLECTOR', 'TITLE'} or any(p.shape != (2,) or not np.isfinite(p).all() or np.any(p < 0) or np.any(p > [999, 1396]) for p in expected.values()):
+        if len(expected) != len(profile['anchors']) or not 1 <= len(expected) <= 2 or (set(expected) != {'SET_LANGUAGE', 'TITLE'} if marker_profile else 'COLLECTOR' not in expected or set(expected)-{'COLLECTOR', 'TITLE'}) or any(p.shape != (2,) or not np.isfinite(p).all() or np.any(p < 0) or np.any(p > [999, 1396]) for p in expected.values()):
             raise ValueError('Invalid layout anchors')
+        if any((p[0] >= 800 or p[1] > 250) if kind == 'TITLE' else (p[0] > 400 or p[1] < 1270) for kind, p in expected.items()):
+            raise ValueError('Calibration anchor outside its printed region')
         template_map = cv2.getPerspectiveTransform(CANONICAL, base.astype(np.float32))
         if observation_quad is not None:
             guide = _checked_quad(observation_quad, width, height)
@@ -144,11 +180,11 @@ def infer_scanner_layout(image, direct, observations, profile, input_kind='CARD_
     proposals = []
     for observation in observations:
         degrees = observation.get('rotationDegrees')
-        anchors = printed_anchors(observation) if degrees in (0, 180) else None
+        anchors = (marker_anchors(observation) if marker_profile else printed_anchors(observation)) if degrees in (0, 180) else None
         if anchors is None or ((changed_frame or observation_quad is not None) and ('TITLE' not in anchors or 'TITLE' not in expected)):
             continue
         offsets = []
-        for kind in ('COLLECTOR', 'TITLE'):
+        for kind in kinds:
             if kind not in expected or kind not in anchors:
                 continue
             pair = np.float32([expected[kind], anchors[kind]])
@@ -169,9 +205,9 @@ def infer_scanner_layout(image, direct, observations, profile, input_kind='CARD_
             continue
         if np.max(np.min(np.linalg.norm(inferred[:, None]-current[None], axis=2), axis=1)) <= 2:
             continue
-        proposals.append({'status': 'PROPOSED', 'policy': POLICY, 'boundaryVerified': False,
+        proposals.append({'status': 'PROPOSED', 'policy': policy, 'boundaryVerified': False,
             'region': {'version': 1, 'quad': (inferred/[width-1, height-1]).tolist()},
-            'rotationDegrees': degrees, 'observedAnchors': list(kind for kind in ('COLLECTOR', 'TITLE') if kind in expected and kind in anchors),
+            'rotationDegrees': degrees, 'observedAnchors': list(kind for kind in kinds if kind in expected and kind in anchors),
             'offsetPixels': offset.tolist(), 'sourceDigest': profile.get('sourceDigest'),
             **({'anchorSpace':'LAYOUT_SEARCH'} if observation_quad is not None else {})})
     if len(proposals) != 1:
@@ -185,7 +221,8 @@ def scanner_layout_search_region(image, direct, profile, input_kind='CARD_SCAN')
     eligibility = infer_scanner_layout(image, direct, [], profile, input_kind)
     if eligibility.get('reason') != 'ANCHORS_UNAVAILABLE_OR_AMBIGUOUS':
         return None
-    if {a['kind'] for a in profile['anchors']} != {'COLLECTOR','TITLE'}:
+    required = {'SET_LANGUAGE','TITLE'} if profile['version'] == 2 else {'COLLECTOR','TITLE'}
+    if {a['kind'] for a in profile['anchors']} != required:
         return None
     height,width = image.shape[:2]
     points = np.asarray(profile['region']['quad'],np.float64)*[profile['frame']['width']-1,profile['frame']['height']-1]

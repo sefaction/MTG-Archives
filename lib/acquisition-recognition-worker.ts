@@ -1,5 +1,5 @@
 import {assertScannerLayoutInference,combineScannerLayoutReadings,assertScannerLayoutFooterSource} from "./acquisition-scanner-layout-reading";
-import {scannerLayoutTemplateSchema,scannerLayoutAnchorsObserved,scannerLayoutInferenceSchema,parseScannerLayoutProfile} from "./acquisition-scanner-layout";
+import {scannerLayoutTemplateSchema,scannerLayoutAnchorsObserved,scannerLayoutInferenceSchema,parseScannerLayoutProfile,SCANNER_MARKER_LAYOUT_POLICY} from "./acquisition-scanner-layout";
 import { acquisitionManualAnalysisSchema, acquisitionManualRegionSchema, sameAcquisitionManualRegion } from "./acquisition-manual-region";
 import { acquisitionAnalysisForPhoto, acquisitionAnalysisReadySql } from "./acquisition-analysis-scope";
 import { createHash } from "node:crypto";
@@ -76,9 +76,11 @@ export const nativeSchema = z.object({
     if((layout.readingStatus==='COMPLETE')!==(layout.orientations.length===2)||
       (layout.inference.status!=='PROPOSED'&&(layout.readingStatus!==undefined||layout.orientations.length)))
       ctx.addIssue({code:z.ZodIssueCode.custom,message:'Scanner layout reading status differs from its observations'});
-    if(layout.inference.status==='PROPOSED'&&(!layout.inference.observedAnchors.includes('COLLECTOR')||
-      new Set(layout.inference.observedAnchors).size!==layout.inference.observedAnchors.length))
-      ctx.addIssue({code:z.ZodIssueCode.custom,message:'Scanner layout collector anchor required'});
+    if(layout.inference.status==='PROPOSED'){
+      const anchors=layout.inference.observedAnchors,marker=layout.inference.policy===SCANNER_MARKER_LAYOUT_POLICY;
+      if(new Set(anchors).size!==anchors.length||(marker?!anchors.includes('SET_LANGUAGE')||!anchors.includes('TITLE')||anchors.includes('COLLECTOR'):!anchors.includes('COLLECTOR')||anchors.includes('SET_LANGUAGE')))
+        ctx.addIssue({code:z.ZodIssueCode.custom,message:'Scanner layout requires its policy-specific observed anchors'});
+    }
     if(layout.inference.status==='PROPOSED'&&layout.inference.anchorSpace==='LAYOUT_SEARCH'&&
       (!layout.anchorSearch||!layout.inference.observedAnchors.includes('TITLE')))
       ctx.addIssue({code:z.ZodIssueCode.custom,message:'Guided inference requires its corroborated current anchor search'});
