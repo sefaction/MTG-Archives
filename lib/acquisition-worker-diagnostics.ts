@@ -1,3 +1,5 @@
+import {acquisitionNativeFailure} from "./acquisition-native-failure";
+
 export type CatalogWorkerPhase = "ADMISSION" | "PROCESSING" | "AUTO_CONFIRM";
 
 // No exception message, stack, query, input, account or provider payload leaves
@@ -16,4 +18,38 @@ export function catalogWorkerFailure(phase: CatalogWorkerPhase, error: unknown) 
     }
   } catch { /* Malformed exceptions still produce a private, bounded record. */ }
   return {event: "catalog-worker-stopped", phase, errorCode};
+}
+
+export type RecognitionWorkerPhase =
+  | "PRIVILEGES" | "DESCRIBE_MODEL" | "LOAD_CATALOG" | "PREPARE_NATIVE"
+  | "REFRESH_CATALOG" | "ADMISSION" | "REFERENCE_ADMISSION" | "PROCESSING"
+  | "IDLE_WAIT" | "SHUTDOWN_NATIVE" | "SHUTDOWN_DATABASE";
+
+const recognitionPhases = new Set<RecognitionWorkerPhase>([
+  "PRIVILEGES", "DESCRIBE_MODEL", "LOAD_CATALOG", "PREPARE_NATIVE", "REFRESH_CATALOG",
+  "ADMISSION", "REFERENCE_ADMISSION", "PROCESSING", "IDLE_WAIT", "SHUTDOWN_NATIVE", "SHUTDOWN_DATABASE",
+]);
+const recognitionSystemCodes = new Set([
+  "ENOENT", "EACCES", "EPERM", "EPIPE", "ENOMEM", "EMFILE", "ENFILE", "EAGAIN", "ECONNREFUSED", "ETIMEDOUT",
+]);
+export function recognitionWorkerFailure(phase: RecognitionWorkerPhase, error: unknown) {
+  const nativeFailure = acquisitionNativeFailure(error) ?? null;
+  const errorCode = catalogWorkerFailure("PROCESSING", error).errorCode;
+  let systemCode: string | null = null;
+  let errorKind: "NATIVE" | "DATABASE" | "SYSTEM" | "VALIDATION" | "PROGRAMMING" | "UNKNOWN" =
+    nativeFailure ? "NATIVE" : errorCode !== "UNKNOWN" ? "DATABASE" : "UNKNOWN";
+  try {
+    if (error && typeof error === "object") {
+      const code = (error as Record<string, unknown>).code;
+      if (typeof code === "string" && recognitionSystemCodes.has(code)) systemCode = code;
+      if (errorKind === "UNKNOWN") {
+        const name = (error as Record<string, unknown>).name;
+        if (systemCode) errorKind = "SYSTEM";
+        else if (name === "ZodError") errorKind = "VALIDATION";
+        else if (["TypeError", "RangeError", "ReferenceError", "SyntaxError"].includes(name as string)) errorKind = "PROGRAMMING";
+      }
+    }
+  } catch { /* Hostile fields cannot disclose private data or suppress the record. */ }
+  return {event: "recognition-worker-stopped", phase: recognitionPhases.has(phase) ? phase : "UNKNOWN",
+    errorKind, errorCode, systemCode, nativeFailure};
 }
