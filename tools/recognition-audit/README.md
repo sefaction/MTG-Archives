@@ -74,3 +74,7 @@ through its database lookup, whose order is unspecified. Candidate-face ordering
 and shared reference-cache warming are additional timing limits. Provider lookups,
 application publication and user-review interactions require separate integration
 qualification before a routing/cache prototype becomes application behavior.
+
+## Physical scanner boundaries
+
+`scanner_boundaries.py prepare` creates byte-bound PENDING labels and an adjacent local original-only HTML annotator. `score` accepts frozen geometry samples or paired native rounds and evaluates physical corner error/overlap independently of final printing identity. Measured, declared and inferred geometry, missing predictions, clipped/uncertain truth and ambiguous printing labels remain separate. Labels never enter inference. See [physical-boundary protocol](../../docs/SCANNER_BOUNDARY_EVALUATION.md) for commands, source/reviewer checks, denominators and actual Docker/browser qualification. Preparation does not turn the retained scanner corpus into independent validation data.
