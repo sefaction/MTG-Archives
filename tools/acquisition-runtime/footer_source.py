@@ -70,6 +70,10 @@ def restore_identifier_polygon(polygon, metadata):
 def bounded_source_footer_output(payload):
     output=json.dumps(payload)
     if len(output.encode())<=65535:return output
+    payload.pop('scannerLayout',None)
+    payload.pop('scannerLayoutTemplate',None)
+    output=json.dumps(payload)
+    if len(output.encode())<=65535:return output
     payload.get('text',{}).pop('footerSourceIdentifiers',None)
     for observation in payload.get('orientations',[]):
         observation['text'].pop('footerSourceIdentifiers',None)

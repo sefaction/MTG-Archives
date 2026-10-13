@@ -1,3 +1,4 @@
+import {combineScannerLayoutReadings} from "./acquisition-scanner-layout-reading";
 import { REFERENCE_REFINEMENT_STAGE } from "./acquisition-reference-lineage";
 import { acquisitionReferenceSourceSchema, readAcquisitionReferenceSource } from "./acquisition-reference-source";
 import { combineAcquisitionReferenceReadings } from "./acquisition-reference-text";
@@ -237,8 +238,18 @@ export function createCatalogReconciliationHandler(
     )
       throw new Error("Photo input changed");
     const queries = acquisitionCatalogQueries(observed.native.orientations, observed.native.photoText);
+    if(observed.native.scannerLayout?.readingStatus==='COMPLETE'){
+      const layout=acquisitionCatalogQueries(observed.native.scannerLayout.orientations);
+      for(const key of ['printings','names'] as const){
+        queries[key]=[...new Map([...queries[key],...layout[key]].map(q=>[catalogQueryKey(q),q])).values()].slice(0,key==='printings'?4:6);
+      }
+    }
     if(reference){
       const original=acquisitionCatalogQueries(reference.native.orientations,reference.native.photoText);
+      if(reference.native.scannerLayout?.readingStatus==='COMPLETE'){
+        const layout=acquisitionCatalogQueries(reference.native.scannerLayout.orientations);
+        for(const key of ['printings','names'] as const)original[key]=[...original[key],...layout[key]];
+      }
       for(const key of ["printings","names","photoTextNames"] as const){
         const combined=[...(queries[key]??[]),...(original[key]??[])];
         const unique=[...new Map(combined.map(query=>[catalogQueryKey(query),query])).values()].slice(0,4);
@@ -329,6 +340,7 @@ export function createCatalogReconciliationHandler(
     proposals = combineAcquisitionPhotoText(snapshot!.index, proposals, observed.native.photoText,
       visual ? acquisitionVisualCandidates(visual.visual).map(c => snapshot!.byScryfallId.get(c.scryfallId)?.id)
         .filter((id): id is string => Boolean(id)) : []);
+    if(observed.native.scannerLayout?.readingStatus==="COMPLETE")proposals=combineScannerLayoutReadings(snapshot!.index,observed.native);
     if(reference)proposals=combineAcquisitionReferenceReadings(snapshot!.index,reference.native,observed.native);
     if (visual)
       proposals = combineAcquisitionCandidates(
@@ -388,6 +400,7 @@ export function createCatalogReconciliationHandler(
       manualAnalysis: input.manualAnalysis ?? null,
       sourceRecognitionJobId: source.id,
       ...(reference?{referenceSource:input.referenceSource,referenceRefinement:reference.input,
+        ...(reference.native.scannerLayout?{primaryScannerLayout:reference.native.scannerLayout}:{}),
         primaryReadings:reference.native.orientations.map(({rotationDegrees,text})=>({rotationDegrees,text})),
         primaryObservation:{jobId:reference.primary.id,outputHash:reference.input.parents.recognitionOutputHash}}:{}),
       ...(visualJob && visual

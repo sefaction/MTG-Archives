@@ -7,10 +7,11 @@ import { filterButtonClass as button, filterPrimaryButtonClass as primary } from
 const initial: AcquisitionManualRegion = {version: 1, quad: [[.02, .02], [.98, .02], [.98, .98], [.02, .98]]};
 const clamp = (value: number) => Math.max(0, Math.min(1, value));
 
-export function AcquisitionCardRegionEditor({src, record, latestRevision, busy, apply, cancel, suggestedRegion}: {
+export function AcquisitionCardRegionEditor({src, record, latestRevision, busy, apply, cancel, suggestedRegion, suggestedSource="reference"}: {
   src: string; record: AcquisitionCardReview; latestRevision: number; busy: boolean;
   apply: (region: AcquisitionManualRegion | null, revision: number, requestKey: string) => Promise<void>;
   cancel: () => void;
+  suggestedSource?: "scanner"|"reference";
   suggestedRegion?: AcquisitionManualRegion | null;
 }) {
   const frame = useRef<HTMLDivElement>(null);
@@ -40,8 +41,8 @@ export function AcquisitionCardRegionEditor({src, record, latestRevision, busy, 
     <h4 className="font-semibold">Choose the card boundary</h4>
     <p className="text-sm my-2">Move the four corners around the complete card, including its border and footer. Use the arrow keys for small adjustments; hold Shift for larger steps. Missing edges require another photo.</p>
     {suggestedRegion && <div className="text-sm my-2" data-testid="reference-boundary-suggestion">
-      <p>An outline is inferred from matching artwork and text on the selected printing. Check the physical border and footer before saving.</p>
-      <button type="button" className={button} disabled={busy} onClick={()=>{setRegion(suggestedRegion); setError("");}}>Use reference outline</button>
+      <p>{suggestedSource==="scanner"?"An outline is inferred from the saved scanner layout and printed anchors.":"An outline is inferred from matching artwork and text on the selected printing."} Check the physical border and footer before saving.</p>
+      <button type="button" className={button} disabled={busy} onClick={()=>{setRegion(suggestedRegion); setError("");}}>{suggestedSource==="scanner"?"Use scanner outline":"Use reference outline"}</button>
     </div>}
     <div ref={frame} className="relative max-w-lg mx-auto my-7">
       <img src={src} alt="Original photo for choosing the card boundary" className="block w-full h-auto"

@@ -1,3 +1,4 @@
+import {verifyAcquisitionScannerLayout} from "./verify-acquisition-scanner-layout";
 import assert from "node:assert/strict";
 import { verifyAcquisitionReview } from "./verify-acquisition-review";
 import { verifyAcquisitionManualRegions } from "./verify-acquisition-manual-regions";
@@ -258,6 +259,7 @@ export async function verifyAcquisitionPhotos(
     await verifyAcquisitionPhotoIsolation(db,actor,stranger,base,bytes);
     await verifyAcquisitionPhotoLocking(db,actor,base,bytes);
     await verifyAcquisitionManualRegions(db, actor, stranger, base, bytes);
+    await verifyAcquisitionScannerLayout(db,actor,stranger,base);
     console.log(
       "PASS: private bytes + transactional finalize recovery, duplicate bytes/separate cards, immediate worker, retake fencing and stop drain",
     );

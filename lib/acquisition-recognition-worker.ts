@@ -1,3 +1,5 @@
+import {assertScannerLayoutInference,combineScannerLayoutReadings} from "./acquisition-scanner-layout-reading";
+import {scannerLayoutTemplateSchema,scannerLayoutAnchorsObserved,scannerLayoutInferenceSchema,parseScannerLayoutProfile} from "./acquisition-scanner-layout";
 import { acquisitionManualAnalysisSchema, sameAcquisitionManualRegion } from "./acquisition-manual-region";
 import { acquisitionAnalysisForPhoto, acquisitionAnalysisReadySql } from "./acquisition-analysis-scope";
 import { createHash } from "node:crypto";
@@ -36,6 +38,14 @@ const linesSchema = z
     }),
   )
   .max(100);
+export const nativeObservationSchema = z.object({
+        rotationDegrees: z.union([z.literal(0), z.literal(180)]),
+        text: textSchema,
+        lines: linesSchema,
+        footerLines: linesSchema.optional(),
+        identifierLines:linesSchema.optional(),
+        identifierSource:sourceFooterSchema.optional(),
+      });
 export const nativeSchema = z.object({
   version: z.literal(1),
   descriptor: digest,
@@ -45,14 +55,7 @@ export const nativeSchema = z.object({
   readingZones: acquisitionReadingZonesSchema.optional(),
   orientations: z
     .array(
-      z.object({
-        rotationDegrees: z.union([z.literal(0), z.literal(180)]),
-        text: textSchema,
-        lines: linesSchema,
-        footerLines: linesSchema.optional(),
-        identifierLines:linesSchema.optional(),
-        identifierSource:sourceFooterSchema.optional(),
-      }),
+      nativeObservationSchema,
     )
     .max(2),
   geometry: z.object({ status: z.string() }).passthrough(),
@@ -60,7 +63,33 @@ export const nativeSchema = z.object({
   milliseconds: z.number().nonnegative().finite(),
   automaticAcceptance: z.literal(false),
   photoText: acquisitionPhotoTextSchema.optional(),
+  scannerLayoutTemplate:scannerLayoutTemplateSchema.optional(),
+  scannerLayout:z.object({inference:scannerLayoutInferenceSchema,orientations:z.array(nativeObservationSchema).max(2),
+    readingStatus:z.enum(['COMPLETE','TIME_BUDGET','WORKER_ERROR']).optional()}).strict().optional(),
 }).superRefine((value,ctx)=>{
+  const layout=value.scannerLayout;
+  if(layout){
+    if(value.geometry.method!=='declared-card-scan'||value.geometry.framing==='CLIPPED'||value.geometry.status!=='PROPOSED')
+      if(layout.inference.status==='PROPOSED')ctx.addIssue({code:z.ZodIssueCode.custom,message:'Scanner layout cannot replace measured or clipped geometry'});
+    if((layout.readingStatus==='COMPLETE')!==(layout.orientations.length===2)||
+      (layout.inference.status!=='PROPOSED'&&(layout.readingStatus!==undefined||layout.orientations.length)))
+      ctx.addIssue({code:z.ZodIssueCode.custom,message:'Scanner layout reading status differs from its observations'});
+    if(layout.inference.status==='PROPOSED'&&(!layout.inference.observedAnchors.includes('COLLECTOR')||
+      new Set(layout.inference.observedAnchors).size!==layout.inference.observedAnchors.length))
+      ctx.addIssue({code:z.ZodIssueCode.custom,message:'Scanner layout collector anchor required'});
+    if(layout.orientations.some(o=>o.identifierSource||o.identifierLines?.length||o.text.footerSourceIdentifiers?.length))
+      ctx.addIssue({code:z.ZodIssueCode.custom,message:'Inferred readings require their own source geometry'});
+  }
+  const template=value.scannerLayoutTemplate;
+  if(template && (template.sourceDigest!==value.photoDigest||template.sourceMethod!==value.geometry.method||value.geometry.status!=="PROPOSED"||value.geometry.framing==="CLIPPED"))
+    ctx.addIssue({code:z.ZodIssueCode.custom,message:"Scanner layout requires its actual source observation"});
+  if(template){
+    if(!scannerLayoutAnchorsObserved(template,value.orientations))
+      ctx.addIssue({code:z.ZodIssueCode.custom,message:"Scanner layout anchors were not observed in its source reading"});
+    const points=value.geometry.quad;
+    if(!Array.isArray(points)||points.length!==4||points.some((p:unknown,i:number)=>!Array.isArray(p)||p.length!==2||p.some((v:unknown)=>typeof v!=="number"||!Number.isFinite(v))||Math.hypot(Number(p[0])-template.region.quad[i][0]*(template.frame.width-1),Number(p[1])-template.region.quad[i][1]*(template.frame.height-1))>1e-6))
+      ctx.addIssue({code:z.ZodIssueCode.custom,message:"Scanner layout differs from its observed source corners"});
+  }
   for(const observation of value.orientations){
     if(observation.text.footerSourceIdentifiers?.length || observation.identifierLines?.length){
       if(observation.identifierSource?.status!=='EXTRACTED'||value.geometry.status!=='PROPOSED'||value.geometry.framing==='CLIPPED')
@@ -196,6 +225,7 @@ export async function enqueueReadyRecognition(
             ...input,
             inputKind: photo.inputKind,
             manualAnalysis,
+            scannerLayoutProfile:photo.scannerLayoutProfile,
             versions: {
               pipeline: RECOGNITION_STAGE,
               runtime: "paddle-cpu-subprocess-v1",
@@ -226,6 +256,7 @@ export async function recognizeAcquisitionPhoto(
       digest,
       inputKind: acquisitionImageInputKindSchema.default("PHOTO"),
       versions: z.object({ catalog: digest, model: digest }),
+      scannerLayoutProfile:z.string().max(950).nullable().optional(),
       manualAnalysis: acquisitionManualAnalysisSchema.nullable().optional(),
     })
     .parse(job.input);
@@ -245,7 +276,7 @@ export async function recognizeAcquisitionPhoto(
     ? nativeWorker.request(frame, attemptSignal, progress)
     : runAcquisitionNativeProcess("python", ["/app/tools/acquisition-runtime/recognize.py"], frame, attemptSignal);
   const native = nativeSchema.parse(
-    await requestNative(acquisitionNativePhotoInput(bytes, input.inputKind, undefined, input.manualAnalysis?.region ?? undefined), signal),
+    await requestNative(acquisitionNativePhotoInput(bytes, input.inputKind, undefined, input.manualAnalysis?.region ?? undefined, !input.manualAnalysis?.region ? input.scannerLayoutProfile ?? undefined : undefined), signal),
   );
   if (
     native.photoDigest !== input.digest ||
@@ -255,10 +286,16 @@ export async function recognizeAcquisitionPhoto(
     throw new Error("Processing input changed");
   if (!sameAcquisitionManualRegion(native.geometry.manualRegion, input.manualAnalysis?.region))
     throw new Error("Recognition region changed");
+  if(native.scannerLayout){
+    const profile=parseScannerLayoutProfile(input.scannerLayoutProfile);
+    if(!profile||input.inputKind!=='CARD_SCAN'||input.manualAnalysis?.region)throw new Error('Scanner layout input changed');
+    assertScannerLayoutInference(profile,native);
+  }
   let proposals = proposeOrientedAcquisitionPrintings(
     snapshot.index,
     native.orientations,
   );
+  if(native.scannerLayout?.readingStatus==="COMPLETE")proposals=combineScannerLayoutReadings(snapshot.index,native);
   if (!input.manualAnalysis?.region && needsAcquisitionPhotoText(proposals)) {
     native.photoText = await readAcquisitionPhotoText(requestNative, bytes, input.inputKind,
       { photoDigest: input.digest, descriptor: model }, signal,
@@ -269,6 +306,7 @@ export async function recognizeAcquisitionPhoto(
     proposals.automaticAcceptance = false;
     if (proposals.status === "STRONG_MATCH") proposals.status = "REVIEW_REQUIRED";
   }
+  if(native.scannerLayout?.readingStatus==="COMPLETE")proposals=combineScannerLayoutReadings(snapshot.index,native);
   signal.throwIfAborted();
   return {
     version: 1,
