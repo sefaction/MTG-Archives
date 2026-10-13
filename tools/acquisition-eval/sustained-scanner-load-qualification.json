@@ -1,0 +1,231 @@
+{
+  "version": 1,
+  "parentIssue": 760,
+  "pullRequest": 784,
+  "status": "INCOMPLETE_MONITORED_QUALIFICATION",
+  "qualifiedRepairSource": "f3cea5179e3e7d60b5d1b5f36bc2c3b5e464292d",
+  "failedOriginalBrowserSource": "dcd33f4",
+  "declared": {
+    "samples": 124,
+    "developmentOnly": true,
+    "independentPhysicalCopies": "UNKNOWN",
+    "manifestSha256": "e4fb66da1db57bd43b84c57be9cdebfeafffed6cedb24b13661d8b0cf851ff81",
+    "processingBudgetMs": 3000000,
+    "totalTestBudgetMs": 3600000,
+    "sampleIntervalMs": 30000,
+    "newHardwareOperations": 0
+  },
+  "originalCase": {
+    "passed": false,
+    "failureCode": "UNKNOWN",
+    "failedFileKind": "background resource JSON report",
+    "observerSamples": 20,
+    "lastObservedAt": "2026-10-13T19:55:12.036Z",
+    "teardownSkippedAfterDetachedFailure": true,
+    "underlyingFilesystemCause": "UNKNOWN",
+    "rawFailureAndSourcePreservedLocally": true
+  },
+  "sameFixtureRecovery": {
+    "originalBrowserCase": "FAILED_BACKGROUND_REPORT_WRITE_UNKNOWN",
+    "samplingCoverage": "INCOMPLETE",
+    "reusedSame124Uploads": true,
+    "newUploads": 0,
+    "physicalFeeds": 0,
+    "collected": 124,
+    "nativeParity": true,
+    "originals": true,
+    "humanAuthority": true,
+    "inventory": 0,
+    "developmentIdentified": 123,
+    "developmentFirst": 123,
+    "developmentOffered": 123,
+    "elapsedMs": 1915362,
+    "primaryFailed": false,
+    "cleanupFailures": 0,
+    "bindingScope": "Original claim input has version bindings rather than model/catalog fields; actual full per-photo inputs/outputs retained, identities require exact version extraction",
+    "rawResourceSamplingCoverage": "FAILED gap after WindowsUNKNOWN background report write; resource before/tail counters do not make original case pass",
+    "versionBindings": {
+      "photos": 124,
+      "allPrimarySourceDigestsExact": true,
+      "missingBindings": 0,
+      "inputOutputBindingMismatches": 0,
+      "unique": {
+        "inputModel": 1,
+        "inputIndex": 1,
+        "inputCatalog": 1,
+        "outputModel": 1,
+        "outputIndex": 1,
+        "outputCatalog": 1,
+        "nativeDescriptor": 1
+      },
+      "nativeDescriptorMatchesSaved1cb": true
+    },
+    "all124FullPrivateOutputsRetained": true,
+    "original23Assertions14QueriesSourceParity": true
+  },
+  "validBoundedResourceEvidence": {
+    "scope": "Original before/tail cgroup counters and lifetime peaks; periodic interval coverage FAILED",
+    "summary": [
+      {
+        "role": "web",
+        "image": "sha256:274e04b4c7b235eda407e54334ab5538c288ffa4213845193d61355c4d8f7963",
+        "limit": 1073741824,
+        "samples": 21,
+        "sampledCurrentPeak": 392503296,
+        "lifetimePeakBefore": 418443264,
+        "lifetimePeakAfter": 418443264,
+        "sampledSwapPeak": 2121728,
+        "lifetimeSwapPeakBefore": 16384,
+        "lifetimeSwapPeakAfter": 2121728,
+        "maxEventsDelta": 0,
+        "oomEventsDelta": 0,
+        "oomKillsDelta": 0,
+        "cpuUsageUs": 236225425,
+        "sameIdentityLimitsLifetime": true
+      },
+      {
+        "role": "acquisition-worker",
+        "image": "sha256:274e04b4c7b235eda407e54334ab5538c288ffa4213845193d61355c4d8f7963",
+        "limit": 536870912,
+        "samples": 21,
+        "sampledCurrentPeak": 102817792,
+        "lifetimePeakBefore": 89563136,
+        "lifetimePeakAfter": 120279040,
+        "sampledSwapPeak": 8192,
+        "lifetimeSwapPeakBefore": 0,
+        "lifetimeSwapPeakAfter": 8192,
+        "maxEventsDelta": 0,
+        "oomEventsDelta": 0,
+        "oomKillsDelta": 0,
+        "cpuUsageUs": 49090627,
+        "sameIdentityLimitsLifetime": true
+      },
+      {
+        "role": "acquisition-catalog-worker",
+        "image": "sha256:274e04b4c7b235eda407e54334ab5538c288ffa4213845193d61355c4d8f7963",
+        "limit": 1073741824,
+        "samples": 21,
+        "sampledCurrentPeak": 355569664,
+        "lifetimePeakBefore": 228724736,
+        "lifetimePeakAfter": 364900352,
+        "sampledSwapPeak": 6512640,
+        "lifetimeSwapPeakBefore": 20480,
+        "lifetimeSwapPeakAfter": 6512640,
+        "maxEventsDelta": 0,
+        "oomEventsDelta": 0,
+        "oomKillsDelta": 0,
+        "cpuUsageUs": 185660031,
+        "sameIdentityLimitsLifetime": true
+      },
+      {
+        "role": "acquisition-recognition-worker",
+        "image": "sha256:10f0b6debc9ffe0fc3ed96ad1d5ccf284659a8e84493ee4e62871c9600a53217",
+        "limit": 2147483648,
+        "samples": 21,
+        "sampledCurrentPeak": 929304576,
+        "lifetimePeakBefore": 1199321088,
+        "lifetimePeakAfter": 1813307392,
+        "sampledSwapPeak": 6389760,
+        "lifetimeSwapPeakBefore": 2977792,
+        "lifetimeSwapPeakAfter": 6430720,
+        "maxEventsDelta": 0,
+        "oomEventsDelta": 0,
+        "oomKillsDelta": 0,
+        "cpuUsageUs": 1276947172,
+        "sameIdentityLimitsLifetime": true
+      },
+      {
+        "role": "acquisition-visual-worker",
+        "image": "sha256:2e2067cce0f7d0c42eab4a6c175f072704c59c0084632579760c8ba4b1b4e29b",
+        "limit": 3221225472,
+        "samples": 21,
+        "sampledCurrentPeak": 1292230656,
+        "lifetimePeakBefore": 1223892992,
+        "lifetimePeakAfter": 1414160384,
+        "sampledSwapPeak": 12156928,
+        "lifetimeSwapPeakBefore": 4075520,
+        "lifetimeSwapPeakAfter": 12156928,
+        "maxEventsDelta": 0,
+        "oomEventsDelta": 0,
+        "oomKillsDelta": 0,
+        "cpuUsageUs": 1080186857,
+        "sameIdentityLimitsLifetime": true
+      },
+      {
+        "role": "acquisition-printing-worker",
+        "image": "sha256:2e2067cce0f7d0c42eab4a6c175f072704c59c0084632579760c8ba4b1b4e29b",
+        "limit": 1073741824,
+        "samples": 21,
+        "sampledCurrentPeak": 757579776,
+        "lifetimePeakBefore": 159346688,
+        "lifetimePeakAfter": 1003958272,
+        "sampledSwapPeak": 1409024,
+        "lifetimeSwapPeakBefore": 0,
+        "lifetimeSwapPeakAfter": 1409024,
+        "maxEventsDelta": 0,
+        "oomEventsDelta": 0,
+        "oomKillsDelta": 0,
+        "cpuUsageUs": 1445766344,
+        "sameIdentityLimitsLifetime": true
+      }
+    ],
+    "periodicSamplingQualified": false,
+    "swapRetained": true,
+    "universalPressureFreedom": false
+  },
+  "conservation": {
+    "primaryServices": 16,
+    "primaryFullConfigurationIdentityLifetimeHashesUnchanged": true,
+    "reviewServices": 7,
+    "reviewResourcesAndMountsUnchanged": true,
+    "reviewRolesRecreated": [],
+    "reviewNativePauseRestored": [],
+    "otherReviewImagesConfigurationsUnchanged": true,
+    "ownedZeroClasses": 29,
+    "originals": {
+      "acquisition-v1": {
+        "files": 156,
+        "bytes": 898515870,
+        "manifestHash": "a0029473b7055527020629181b64b61729e6a77ad85a0e86dc2cc4e27b8a78e0"
+      },
+      "correction-library-v1": {
+        "files": 1,
+        "bytes": 6373366,
+        "manifestHash": "2f200be969ebe0da08e41ef2a8a9a41e3837fef0df7d97f28adc7786ddea8b4f"
+      }
+    },
+    "catalogue": {
+      "records": 118503,
+      "paper": 109290,
+      "projectionFingerprint": "e4cd115ee4df9b018b7d7894895be56e",
+      "beforeAfterUnchanged": true
+    },
+    "loadedApplicationSource": "f200c1a7b42567ae051a64c6324883d08aa4f91fb69f4fb17cc0355ee9191020",
+    "imagesRebuilt": 0,
+    "servicesRestarted": 0,
+    "resourceLimitsChanged": 0
+  },
+  "repair": {
+    "backgroundWriterAndSamplerFailuresPreservedUntilStop": true,
+    "fixtureFinallyRemainsReachable": true,
+    "noDetachedPromiseRejection": true,
+    "negativeControlsAndCounterGuards": 7,
+    "types": true,
+    "sourceHeadRequiredCI": {
+      "head": "f3cea5179e3e7d60b5d1b5f36bc2c3b5e464292d",
+      "run": 38458450030,
+      "allThree": "success"
+    }
+  },
+  "pending": [
+    "One complete monitored native workload using fixed observer; original browser failure cannot be converted into a pass",
+    "Final evidence-only required CI tracked in checkpoint/live PR"
+  ],
+  "limitations": [
+    "Reused development123/123 first/offered is not independent accuracy",
+    "Actual124 originals/native five-field parity/current model-index-catalog bindings/null human receipts/zeroInventory recovered from same uploads; original UI case still FAILED",
+    "Lifetime peaks and event deltas are valid but missing interval samples remain missing",
+    "No underlying filesystem cause, historical worker exit/stall cause, production or hardware acceptance inferred",
+    "Ordinaryfi7160operation alreadyaccepted; no broad physical matrix reinstated"
+  ]
+}
