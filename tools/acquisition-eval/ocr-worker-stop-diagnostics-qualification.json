@@ -7,13 +7,15 @@
   "historicalCauseResolved": false,
   "diagnosticLossFixed": true,
   "controls": {
-    "passed": 20,
+    "passed": 21,
     "skipped": 0,
     "baselineActualEntrypointGenericOnly": true,
     "mainLogicPreserved": true,
     "prepareAndDescribeTimeoutMs": 30000,
     "jobTimeoutMs": 45000,
-    "leaseMs": 90000
+    "leaseMs": 90000,
+    "boundedPublicExceptionTypes": true,
+    "codeLessDatabaseTimeoutAbortClassified": true
   },
   "realRuntimeFailureControls": {
     "baselineGenericOnly": true,
@@ -21,13 +23,15 @@
       "phase": "LOAD_CATALOG",
       "kind": "DATABASE",
       "code": "P1001",
-      "exitCode": 1
+      "exitCode": 1,
+      "errorType": "PrismaClientInitializationError"
     },
     "missingModels": {
       "phase": "DESCRIBE_MODEL",
       "kind": "NATIVE",
       "nativeReason": "EXIT",
-      "exitCode": 1
+      "exitCode": 1,
+      "errorType": "Error"
     },
     "credentialsExcluded": true,
     "temporaryContainersRetired": true
@@ -35,7 +39,7 @@
   "nativeBrowser": {
     "passed": 1,
     "photos": 2,
-    "duration": "2.0 minutes",
+    "duration": "2.2 minutes",
     "skips": 0,
     "retries": 0,
     "frozenGeometryTextLinesOrientationsZonesPreserved": true,
@@ -53,9 +57,9 @@
   },
   "runtime": {
     "inputFiles": 620,
-    "applicationSource": "c05c0867f6373b92df199dfd58436bded83263f7e5e72c93ed7234006fa7c3b0",
-    "webImage": "sha256:f19ee8261279c18701f110e29280c7f2a875c25c3f5ade4676de337dff03dac4",
-    "ocrImage": "sha256:c68e82e70ceb6ade3aee14c28fba4c6951c8eddb3f7478edd3023f8e870d2ba9",
+    "applicationSource": "2b5c3c0d8146647cb16536b58eb853a1aa24e66ebfc1facf2ef81bef62cca7fe",
+    "webImage": "sha256:fe53032a3623214e1aa610aeeb478b89fee42f82cb2f714bfa6bb6484aa2e26a",
+    "ocrImage": "sha256:10f0b6debc9ffe0fc3ed96ad1d5ccf284659a8e84493ee4e62871c9600a53217",
     "modelDescriptor": "1cbcff958eb52b3848bc63e9946fbd37e573216651bbd5fe8f043ba5312aea2e",
     "primaryServicesConserved": 16,
     "reviewServicesRunning": 7,
