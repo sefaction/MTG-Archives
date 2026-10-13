@@ -4,6 +4,8 @@ Live queue snapshot and metadata readback: 2026-10-13T18:21:38.322Z. GitHub rema
 
 Brian authorized direct issue organization and a draft documentation PR following the read-only audit. Scope was GitHub issue metadata and repository documentation. No application/scanner/container/database/host/production operation or PR merge was performed.
 
+Documentation delivery: [draft PR #783](https://github.com/sefaction/MTG-Archives/pull/783). It remains draft for individual merge approval; the exact final-head required-check results are visible on that PR.
+
 Prior local qualification figures below are author/reviewer reports and retained repository evidence, reconciled with live PR merge/draft/readiness metadata and comments. This task independently verified issue metadata and evidence distinctions; it did not repeat runtime qualification. Reported deployment and operator acceptance name only their recorded installation/scope.
 
 ## Before and after

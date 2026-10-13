@@ -2,6 +2,7 @@
 
 ## Issue organization documentation batch - October 13, 2026
 
+- Published draft: [PR #783](https://github.com/sefaction/MTG-Archives/pull/783), documentation only, requires its own explicit merge approval. Final-head check results are authoritative on the PR; no ready/merge/deployment action is inferred.
 - Branch: `codex/issue-organization-20261013`, isolated worktree `.local-data/worktrees/issue-organization-20261013`, base main4a687c6. Parent task authorized direct issue organization and a draft documentation PR; no merge/deployment authority.
 - GitHub issue organization verified:34 audited →33 open,17 unlabelled →0;20 labels added,9 titles clarified, all current summaries/history/comments/assignments read back. #302 stays top roadmap; #506 closed completed only after unresolved review scope visibly transferred to OPEN #308. No new issues.
 - Evidence and complete per-issue before/after table: [ISSUE_ORGANIZATION_AUDIT_20261013.md](ISSUE_ORGANIZATION_AUDIT_20261013.md). Private live snapshots/plans/readbacks: root `.local-data/issue-organization-20261013/`. Own metadata lock released.
