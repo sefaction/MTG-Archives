@@ -2,7 +2,7 @@
   "version": 1,
   "parentIssue": 760,
   "pullRequest": 784,
-  "status": "INCOMPLETE_MONITORED_QUALIFICATION",
+  "status": "AUTHOR_QUALIFIED_DECLARED_124_SOFTWARE_ENVELOPE",
   "qualifiedRepairSource": "eaf6e0eb8be58a643e2946c06379993916da2ea9",
   "failedOriginalBrowserSource": "dcd33f4",
   "declared": {
@@ -220,8 +220,8 @@
     }
   },
   "pending": [
-    "One complete monitored124 native case on interval repair after checking actual ownership/runtime; both earlier missing-period cases and latest interrupted case stay failed/incomplete",
-    "Exact evidence-only final-head CI must be reconciled from live GitHub"
+    "Final evidence-only required CI tracked on live PR and worker checkpoint",
+    "Separate scheduled reviewer readiness and individual approval/merge; broader760/310 remain open"
   ],
   "limitations": [
     "Reused development123/123 first/offered is not independent accuracy",
@@ -229,7 +229,8 @@
     "Lifetime peaks and event deltas are valid but missing interval samples remain missing",
     "No underlying filesystem cause, historical worker exit/stall cause, production or hardware acceptance inferred",
     "Ordinaryfi7160operation alreadyaccepted; no broad physical matrix reinstated",
-    "A code-mode timeout/stale host generation coincided with a1,478,150ms monitoring gap; the latest124case failed processing/observer checks and finalized exact-owned cleanup. No native failure cause or laptop sleep claim is established."
+    "A code-mode timeout/stale host generation coincided with a1,478,150ms monitoring gap; the latest124case failed processing/observer checks and finalized exact-owned cleanup. No native failure cause or laptop sleep claim is established.",
+    "A complete continuous124software case now passes on the repaired verifier; it does not relabel any original failed/incomplete case or prove larger batches, production, independent accuracy or an underlying historical failure cause."
   ],
   "sourceAssertionParity": {
     "originalAssertions": 23,
@@ -296,5 +297,181 @@
     "completeQualification": false,
     "fullOwnedCleanupAndConservation": true,
     "underlyingRuntimeInterruptionCause": "UNKNOWN"
+  },
+  "completeMonitoredCase": {
+    "testedVerifierHead": "2f87420c56f23fb9ebfc0e2ba8409c3c5277492b",
+    "testedIntervalRepair": "eaf6e0eb8be58a643e2946c06379993916da2ea9",
+    "caseAtUtc": "2026-10-13T23:08:03.559Z",
+    "passed": true,
+    "developmentOnly": true,
+    "independentPhysicalCopies": "UNKNOWN",
+    "summary": {
+      "samples": 124,
+      "identifiedSamples": 123,
+      "unresolvedSamples": 1,
+      "first": 123,
+      "offered": 123,
+      "elapsedMs": 1667576,
+      "completedRefinements": 1,
+      "eachCompletedRefinementHasExactlyOneCompletePrinting": true,
+      "printingJobs": 125,
+      "printingAttemptCounts": {
+        "1": 125
+      }
+    },
+    "all124FullPrivateOutputsRetained": true,
+    "nativeFiveFieldParity": true,
+    "sourceOriginalAndHumanAuthorityPassed": true,
+    "inventory": 0,
+    "currentCandidateRevision": true,
+    "automaticAcceptance": false,
+    "reviewAndReceipt": null,
+    "versionBindings": {
+      "photos": 124,
+      "missingBindings": 0,
+      "inputOutputBindingMismatches": 0,
+      "unique": {
+        "inputModel": 1,
+        "inputIndex": 1,
+        "inputCatalog": 1,
+        "outputModel": 1,
+        "outputIndex": 1,
+        "outputCatalog": 1,
+        "nativeDescriptor": 1
+      },
+      "nativeDescriptorMatchesSaved1cb": true
+    },
+    "resources": {
+      "firstAt": "2026-10-13T23:08:04.129Z",
+      "lastAt": "2026-10-13T23:35:51.820Z",
+      "samples": 57,
+      "maxGapMs": 31752,
+      "failures": [],
+      "summary": [
+        {
+          "role": "web",
+          "image": "sha256:274e04b4c7b235eda407e54334ab5538c288ffa4213845193d61355c4d8f7963",
+          "limit": 1073741824,
+          "samples": 57,
+          "sampledCurrentPeak": 296882176,
+          "lifetimePeakBefore": 418443264,
+          "lifetimePeakAfter": 418443264,
+          "sampledSwapPeak": 4763648,
+          "lifetimeSwapPeakBefore": 4456448,
+          "lifetimeSwapPeakAfter": 4763648,
+          "maxEventsDelta": 0,
+          "oomEventsDelta": 0,
+          "oomKillsDelta": 0,
+          "cpuUsageUs": 292908477,
+          "sameIdentityLimitsLifetime": true
+        },
+        {
+          "role": "acquisition-worker",
+          "image": "sha256:274e04b4c7b235eda407e54334ab5538c288ffa4213845193d61355c4d8f7963",
+          "limit": 536870912,
+          "samples": 57,
+          "sampledCurrentPeak": 106455040,
+          "lifetimePeakBefore": 139264000,
+          "lifetimePeakAfter": 139264000,
+          "sampledSwapPeak": 745472,
+          "lifetimeSwapPeakBefore": 663552,
+          "lifetimeSwapPeakAfter": 745472,
+          "maxEventsDelta": 0,
+          "oomEventsDelta": 0,
+          "oomKillsDelta": 0,
+          "cpuUsageUs": 42965486,
+          "sameIdentityLimitsLifetime": true
+        },
+        {
+          "role": "acquisition-catalog-worker",
+          "image": "sha256:274e04b4c7b235eda407e54334ab5538c288ffa4213845193d61355c4d8f7963",
+          "limit": 1073741824,
+          "samples": 57,
+          "sampledCurrentPeak": 342114304,
+          "lifetimePeakBefore": 364900352,
+          "lifetimePeakAfter": 364900352,
+          "sampledSwapPeak": 7163904,
+          "lifetimeSwapPeakBefore": 7065600,
+          "lifetimeSwapPeakAfter": 7163904,
+          "maxEventsDelta": 0,
+          "oomEventsDelta": 0,
+          "oomKillsDelta": 0,
+          "cpuUsageUs": 188249912,
+          "sameIdentityLimitsLifetime": true
+        },
+        {
+          "role": "acquisition-recognition-worker",
+          "image": "sha256:10f0b6debc9ffe0fc3ed96ad1d5ccf284659a8e84493ee4e62871c9600a53217",
+          "limit": 2147483648,
+          "samples": 57,
+          "sampledCurrentPeak": 1286275072,
+          "lifetimePeakBefore": 1813307392,
+          "lifetimePeakAfter": 1813307392,
+          "sampledSwapPeak": 11739136,
+          "lifetimeSwapPeakBefore": 12079104,
+          "lifetimeSwapPeakAfter": 12079104,
+          "maxEventsDelta": 0,
+          "oomEventsDelta": 0,
+          "oomKillsDelta": 0,
+          "cpuUsageUs": 1248330400,
+          "sameIdentityLimitsLifetime": true
+        },
+        {
+          "role": "acquisition-visual-worker",
+          "image": "sha256:2e2067cce0f7d0c42eab4a6c175f072704c59c0084632579760c8ba4b1b4e29b",
+          "limit": 3221225472,
+          "samples": 57,
+          "sampledCurrentPeak": 1185091584,
+          "lifetimePeakBefore": 1414160384,
+          "lifetimePeakAfter": 1414160384,
+          "sampledSwapPeak": 11808768,
+          "lifetimeSwapPeakBefore": 12156928,
+          "lifetimeSwapPeakAfter": 12156928,
+          "maxEventsDelta": 0,
+          "oomEventsDelta": 0,
+          "oomKillsDelta": 0,
+          "cpuUsageUs": 1034326252,
+          "sameIdentityLimitsLifetime": true
+        },
+        {
+          "role": "acquisition-printing-worker",
+          "image": "sha256:2e2067cce0f7d0c42eab4a6c175f072704c59c0084632579760c8ba4b1b4e29b",
+          "limit": 1073741824,
+          "samples": 57,
+          "sampledCurrentPeak": 732528640,
+          "lifetimePeakBefore": 1003958272,
+          "lifetimePeakAfter": 1003958272,
+          "sampledSwapPeak": 6631424,
+          "lifetimeSwapPeakBefore": 5799936,
+          "lifetimeSwapPeakAfter": 6631424,
+          "maxEventsDelta": 0,
+          "oomEventsDelta": 0,
+          "oomKillsDelta": 0,
+          "cpuUsageUs": 1428193923,
+          "sameIdentityLimitsLifetime": true
+        }
+      ],
+      "scope": "Before upload through complete native processing, scoring and before exact-owned cleanup; 30-second sampled current maxima and separate lifetime peaks",
+      "swapRetained": true,
+      "universalPressureFreedom": false
+    },
+    "conservation": {
+      "primaryServices": 16,
+      "primaryFullConfigurationIdentityLifetimeHashesUnchanged": true,
+      "reviewServices": 7,
+      "reviewResourcesAndMountsUnchanged": true,
+      "reviewRolesRecreated": [],
+      "reviewNativePauseRestored": [],
+      "otherReviewImagesConfigurationsUnchanged": true,
+      "ownedZeroClasses": 29
+    },
+    "existingOriginalHashesAndCatalogueProjectionUnchanged": true,
+    "actualLoadedApplicationSource": "f200c1a7b42567ae051a64c6324883d08aa4f91fb69f4fb17cc0355ee9191020",
+    "imagesOrLimitsOrModelsChanged": 0,
+    "requiredTestedVerifierCI": {
+      "head": "2f87420c56f23fb9ebfc0e2ba8409c3c5277492b",
+      "run": 38477785716,
+      "allThree": "success"
+    }
   }
 }

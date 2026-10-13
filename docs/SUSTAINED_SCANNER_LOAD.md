@@ -1,5 +1,26 @@
 # Bounded sustained scanner software load
 
+## Current author qualification — October13 23:36UTC
+
+The complete declared124-original software case PASSes on verifier2f87420 / interval repair eaf6e0e / cumulative6bddf50 against unchanged621f200 local app source. It completed in1,667,576ms (27.79minutes), with57resource observations frombeforeupload throughprocessing/scoring andbeforecleanup; maximumgap31,752ms, noobservation/report/summary failures. Allsix roles retain exact image/identity/limits/lifetimes, with max/OOM/kill deltas0. Current sampled maxima and inherited lifetime peaks are separate; swap remains and this establishes only the measured124 envelope.
+
+All124 private source/native outputs and original byte hashes, exact geometry/text/lines/orientations/readingZones, current model/index/catalogue bindings, current candidate revisions, falseautomaticAcceptance, nullhuman review/receipt andzeroInventory pass. No bindings aremissing or differ input/output; each required family isconstant and native1cb exact. One completed refinement has exactlyone complete printing descendant.123/123first/offered applies only to the123identified reuseddevelopment observations; theunresolved sample andphysical-copy independenceUNKNOWN remain. Expectedlabels entered only post-inference scoring.
+
+29owned fixture/file classes arezero. All16primary and7review configurations/identities/lifetimes,157existingoriginal byte manifests and118503/109290catalogue projection areexact before/after. No rebuild/restart/pause/resource/model/pixel/motor/production changes.8fault/counter/interval controls, feature/cumulative types andall23original assertions/14DBcalls werealreadyqualified andnotrerun. Allthree testedverifier2f87420 checks38477785716 PASS; final evidence-head CI is tracked in checkpoint/livePR. Separate reviewer handles readiness, individual approval, merge andclosure; no mergeauthority iscreated. Parent760/310 remainopen for scope beyondthis envelope.
+
+| Role | Limit MiB | Sampled current max MiB | Lifetime peak before → after MiB | Sampled swap max MiB | max / OOM / kill deltas |
+| --- | ---: | ---: | ---: | ---: | --- |
+| web | 1024 | 283.13 | 399.06 → 399.06 | 4.54 | 0 / 0 / 0 |
+| acquisition-worker | 512 | 101.52 | 132.81 → 132.81 | 0.71 | 0 / 0 / 0 |
+| acquisition-catalog-worker | 1024 | 326.27 | 348.00 → 348.00 | 6.83 | 0 / 0 / 0 |
+| acquisition-recognition-worker | 2048 | 1226.69 | 1729.30 → 1729.30 | 11.20 | 0 / 0 / 0 |
+| acquisition-visual-worker | 3072 | 1130.19 | 1348.65 → 1348.65 | 11.26 | 0 / 0 / 0 |
+| acquisition-printing-worker | 1024 | 698.59 | 957.45 → 957.45 | 6.32 | 0 / 0 / 0 |
+
+All original WindowsUNKNOWN report failure, recovered samplinggap,70,726ms scoring gap and24.6minute interrupted-case evidence below remain failed/incomplete. The current pass does not establish those causes or turn them into passes. Ordinaryfi7160use stays accepted onBrian's approximately1,000-scans report; no physicalmatrix isreinstated.
+
+## Preserved earlier scope and checkpoint evidence
+
 This batch addresses the remaining local software resource evidence in #760/#310. Ordinary fi-7160 operation is already accepted on Brian's roughly1,000-scan report; this does not perform or reinstate a hardware matrix.
 
 Declared workload before execution: the existing124 retained development originals in tools/acquisition-eval/scan-batch-manifest.json, with their exact manifest/source hashes, uploaded as CARD_SCAN in one isolated124-capacity location with no section. Use the existing six application roles on mtg-anchor-qualification/port13011, unmodified pixels/model versions/queues/timeouts/storage/memory limits, ordinary optional reference refinement enabled as already configured. No production or motor operation. Maximum50minutes from fixture setup through processing/scoring; original60minute test budget and independently attempted teardown. Partial per-photo outputs/resource observations are saved incrementally in ignored local data.
