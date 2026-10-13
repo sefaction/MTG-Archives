@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "issue": 781,
+  "pullRequest": 782,
+  "qualifiedCodeCommit": "5d56d7ed336ab6942b61fadc881322af68e55789",
+  "baseline": {
+    "unchangedProductionHelper": "FAIL expected",
+    "hostSkewMs": 3600000,
+    "failedDatabaseLeaseBoundMs": 120000
+  },
+  "changes": {
+    "authority": "PostgreSQL clock_timestamp after owner/maintenance locks",
+    "leaseMs": 120000,
+    "retryMs": 60000,
+    "ownerLimitDecimalBytes": 64000000000,
+    "samplingBasisPoints": 200,
+    "ownerFairnessAndOriginalPinsPreserved": true
+  },
+  "checks": {
+    "featureOwnSchemaTypes": true,
+    "featureFullAcquisitionIntegrity": true,
+    "featureSupportedNameImportIntegrity": true,
+    "cumulativeOwnSchemaTypes": true,
+    "cumulativeSeparateDatabaseClockAnd1507BacklogFairness": true,
+    "actualLoadedDockerClockRegression": true,
+    "requiredInstallerProductionBuildAndClientManifests": true,
+    "existingCorrectionWorkflow": {
+      "passed": true,
+      "totalSeconds": 51.1,
+      "caseSeconds": 48.7,
+      "assertions": 82,
+      "widths": [
+        1366,
+        320
+      ],
+      "skips": 0,
+      "retries": 0,
+      "targetOnlyAdaptation": true,
+      "originalDownloadsAndOwnerBoundaries": true,
+      "savedDraftAndLostAcknowledgement": true,
+      "withdrawalRemovalPaginationAndInventory": true,
+      "renderedScreenshotsInspected": true
+    },
+    "source": {
+      "passed": true,
+      "digest": "f200c1a7b42567ae051a64c6324883d08aa4f91fb69f4fb17cc0355ee9191020",
+      "files": 621,
+      "image": "sha256:274e04b4c7b235eda407e54334ab5538c288ffa4213845193d61355c4d8f7963"
+    },
+    "conservation": {
+      "primaryServices": 16,
+      "primaryFullConfigurationIdentityLifetimeHashesUnchanged": true,
+      "reviewServices": 7,
+      "reviewHostSettingsEquivalentAndActualMountsHashesUnchanged": true,
+      "reviewRolesRecreated": [
+        "/mtg-anchor-qualification-web-1",
+        "/mtg-anchor-qualification-acquisition-worker-1",
+        "/mtg-anchor-qualification-acquisition-catalog-worker-1"
+      ],
+      "reviewNativePauseRestored": [
+        "/mtg-anchor-qualification-acquisition-recognition-worker-1",
+        "/mtg-anchor-qualification-acquisition-visual-worker-1",
+        "/mtg-anchor-qualification-acquisition-printing-worker-1"
+      ],
+      "otherReviewImagesConfigurationsUnchanged": true,
+      "ownedZeroClasses": 29
+    },
+    "originals": {
+      "acquisition-v1": {
+        "files": 156,
+        "bytes": 898515870,
+        "manifestHash": "a0029473b7055527020629181b64b61729e6a77ad85a0e86dc2cc4e27b8a78e0"
+      },
+      "correction-library-v1": {
+        "files": 1,
+        "bytes": 6373366,
+        "manifestHash": "2f200be969ebe0da08e41ef2a8a9a41e3837fef0df7d97f28adc7786ddea8b4f"
+      }
+    },
+    "initialRequiredCI": {
+      "run": 38436789476,
+      "head": "5d56d7ed336ab6942b61fadc881322af68e55789",
+      "allThree": "success"
+    }
+  },
+  "retainedFailures": [
+    "Unchanged production host-clock lease baseline",
+    "Missing disposable opt-in",
+    "Borrowed newer Prisma client with older feature database schema; shared client never regenerated, own dependencies installed",
+    "Shared disposable database checks interfered; isolated fresh feature/cumulative databases used for terminal qualification",
+    "Import verifier rejects acquisition_clean database name; unchanged supported import_integrity passes",
+    "Strict recreated-web HostConfig fingerprint differs only Binds array ordering, proved by exact matching historical HostConfig hash, identical sorted bindings and exact current runtime Mounts hash",
+    "Automatic approval rejected raw secret-bearing inspect persistence; safer irreversible configuration fingerprints accepted, no raw snapshots created"
+  ],
+  "limitations": [
+    "No historical OCR/copy-worker incident cause established",
+    "No retroactive lease rewrite, policy/timeout/resource/driver/model/physical-feeding/production change",
+    "Separate scanner PR780 unfinished qualification remains its owner work; not included",
+    "Final documentation-only CI is tracked in worker checkpoint/live PR, not guessed here"
+  ]
+}
