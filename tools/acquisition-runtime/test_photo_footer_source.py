@@ -1,3 +1,5 @@
+from unittest.mock import patch
+import recognize
 import unittest
 import copy
 import json
@@ -19,6 +21,41 @@ class FooterSourceTests(unittest.TestCase):
         result=json.loads(bounded_source_footer_output(payload))
         self.assertEqual(result['text'],{'title':['known'],'footer':['R 0177'],'footerSourceIdentifiers':['TST EN']})
         self.assertNotIn('scannerLayout',result);self.assertNotIn('scannerLayoutTemplate',result)
+
+    def test_inferred_optional_footer_preserves_both_existing_reads_on_failure_or_exhaustion(self):
+        original=[{'rotationDegrees':degree,'text':{'title':['kept title'],'footer':['kept footer'],'footerSupplemental':['kept extra']},
+                   'lines':[],'footerLines':[]} for degree in (0,180)]
+        class FailedOCR:
+            calls=0
+            def predict(self,image):self.calls+=1;raise RuntimeError('optional source failure')
+        for elapsed,reason,calls in [(0,'WORKER_ERROR',2),(28,'TIME_BUDGET',0)]:
+            readings=copy.deepcopy(original);engine=FailedOCR()
+            with patch.object(recognize.time,'monotonic',return_value=elapsed):
+                recognize.append_source_identifiers(self.image,self.geometry,readings,engine,0)
+            self.assertEqual(engine.calls,calls)
+            for before,after in zip(original,readings):
+                for key in ('title','footer','footerSupplemental'):self.assertEqual(after['text'][key],before['text'][key])
+                self.assertEqual(after['identifierSource']['reason'],reason)
+                self.assertEqual(after['text']['footerSourceIdentifiers'],[]);self.assertEqual(after['identifierLines'],[])
+
+    def test_inferred_footer_views_keep_directions_and_do_not_mutate_source_pixels(self):
+        image=self.image.copy();seen=[]
+        class SourceOCR:
+            def predict(self,view):
+                seen.append(view.copy());h,w=view.shape[:2]
+                return [{'rec_texts':['DMC EN 0181'],'rec_scores':[.99],
+                         'rec_polys':[[[0,0],[w-1,0],[w-1,h-1],[0,h-1]]]}]
+        readings=[{'rotationDegrees':degree,'text':{'title':[],'footer':[]},'lines':[],'footerLines':[]} for degree in (0,180)]
+        with patch.object(recognize.time,'monotonic',return_value=0):
+            recognize.append_source_identifiers(self.image,self.geometry,readings,SourceOCR(),0)
+        self.assertEqual(len(seen),2)
+        self.assertGreater(min(p[1] for p in readings[0]['identifierSource']['sourceQuad']),1900)
+        self.assertLess(max(p[1] for p in readings[1]['identifierSource']['sourceQuad']),500)
+        for reading in readings:
+            self.assertEqual(reading['identifierSource']['rotationDegrees'],reading['rotationDegrees'])
+            self.assertEqual(reading['text']['footerSourceIdentifiers'],['DMC EN 0181'])
+            self.assertEqual(reading['identifierLines'][0]['polygon'],[[24.,1270.],[630.,1270.],[630.,1396.],[24.,1396.]])
+        np.testing.assert_array_equal(self.image,image)
 
     def test_original_resolution_is_retained_in_a_smaller_footer_view(self):
         before=self.image.copy()

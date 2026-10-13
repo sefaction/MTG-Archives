@@ -44,3 +44,33 @@ export function combineScannerLayoutReadings(index:ReturnType<typeof createAcqui
   const combined=combineAcquisitionReferenceReadings(index,{orientations:native.orientations,photoText:native.photoText},{orientations:native.scannerLayout!.orientations});
   return {...combined,proposals:combined.proposals.map(p=>({...p,reasons:p.reasons.map(r=>r==='REFERENCE_ANCHOR_INFERRED'?'SCANNER_LAYOUT_INFERRED':r==='REFERENCE_OCR_OBSERVATION'?'SCANNER_LAYOUT_OCR_OBSERVATION':r)}))};
 }
+
+import type {sourceFooterSchema} from './acquisition-source-footer';
+import type {AcquisitionManualRegion} from './acquisition-manual-region';
+
+// Match the actual original-pixel window to the inferred card transform. The
+// extracted source stays inferred; this check supplies no physical-edge authority.
+export function assertScannerLayoutFooterSource(source:z.infer<typeof sourceFooterSchema>,region:AcquisitionManualRegion,direct:unknown){
+  if(source.status!=='EXTRACTED')return;
+  if(!Array.isArray(direct)||direct.length!==4||direct.some(p=>!Array.isArray(p)||p.length!==2||p.some(v=>typeof v!=='number'||!Number.isFinite(v))))
+    throw Error('Inferred footer source frame unavailable');
+  const points=direct as number[][],width=points[1][0]+1,height=points[2][1]+1;
+  if(JSON.stringify(points)!==JSON.stringify([[0,0],[width-1,0],[width-1,height-1],[0,height-1]])||
+    source.sourceFrame.width!==width||source.sourceFrame.height!==height)throw Error('Inferred footer source frame differs');
+  const quad=region.quad.map(([x,y])=>[x*(width-1),y*(height-1)]);
+  const corners=[[24,1270],[630,1270],[630,1396],[24,1396]];
+  const tolerance=Math.max(.01,Math.hypot(width,height)*1e-6);
+  const distance=(a:number[],b:number[])=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+  const physicalWidth=Math.min(distance(source.sourceQuad[0],source.sourceQuad[1]),distance(source.sourceQuad[2],source.sourceQuad[3]));
+  const physicalHeight=Math.min(distance(source.sourceQuad[0],source.sourceQuad[3]),distance(source.sourceQuad[1],source.sourceQuad[2]));
+  const scale=Math.min(1,1280/physicalWidth,512/physicalHeight);
+  if(Math.abs(source.sourceWidth-physicalWidth)>tolerance||Math.abs(source.sourceHeight-physicalHeight)>tolerance||
+    source.width>physicalWidth+tolerance||source.height>physicalHeight+tolerance||
+    Math.abs(source.width-Math.floor(physicalWidth*scale))>1||Math.abs(source.height-Math.floor(physicalHeight*scale))>1)
+    throw Error('Inferred footer dimensions differ from its source pixels');
+  if(corners.some(([x,y],i)=>{
+    if(source.rotationDegrees===180){x=999-x;y=1396-y;}
+    const expected=cropPoint(quad,x/999,y/1396),observed=source.sourceQuad[i];
+    return Math.hypot(expected[0]-observed[0],expected[1]-observed[1])>tolerance;
+  }))throw Error('Inferred footer polygon differs from its card frame');
+}

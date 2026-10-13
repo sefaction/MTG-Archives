@@ -1,4 +1,4 @@
-import {assertScannerLayoutInference,combineScannerLayoutReadings} from "./acquisition-scanner-layout-reading";
+import {assertScannerLayoutInference,combineScannerLayoutReadings,assertScannerLayoutFooterSource} from "./acquisition-scanner-layout-reading";
 import {scannerLayoutTemplateSchema,scannerLayoutAnchorsObserved,scannerLayoutInferenceSchema,parseScannerLayoutProfile} from "./acquisition-scanner-layout";
 import { acquisitionManualAnalysisSchema, sameAcquisitionManualRegion } from "./acquisition-manual-region";
 import { acquisitionAnalysisForPhoto, acquisitionAnalysisReadySql } from "./acquisition-analysis-scope";
@@ -77,8 +77,26 @@ export const nativeSchema = z.object({
     if(layout.inference.status==='PROPOSED'&&(!layout.inference.observedAnchors.includes('COLLECTOR')||
       new Set(layout.inference.observedAnchors).size!==layout.inference.observedAnchors.length))
       ctx.addIssue({code:z.ZodIssueCode.custom,message:'Scanner layout collector anchor required'});
-    if(layout.orientations.some(o=>o.identifierSource||o.identifierLines?.length||o.text.footerSourceIdentifiers?.length))
-      ctx.addIssue({code:z.ZodIssueCode.custom,message:'Inferred readings require their own source geometry'});
+    for(const observation of layout.orientations){
+      if((observation.text.footerSourceIdentifiers?.length||observation.identifierLines?.length)&&
+          (layout.inference.status!=='PROPOSED'||observation.identifierSource?.status!=='EXTRACTED'))
+        ctx.addIssue({code:z.ZodIssueCode.custom,message:'Inferred identifier words require their actual source region'});
+      if(observation.text.footerSourceIdentifiers?.length&&!observation.identifierLines?.length)
+        ctx.addIssue({code:z.ZodIssueCode.custom,message:'Inferred identifier words require detected lines'});
+      if(observation.identifierSource){
+        if(observation.identifierSource.rotationDegrees!==observation.rotationDegrees)
+          ctx.addIssue({code:z.ZodIssueCode.custom,message:'Inferred identifier direction differs'});
+        try{
+          if(layout.inference.status!=='PROPOSED')throw Error('Inferred source geometry unavailable');
+          assertScannerLayoutFooterSource(observation.identifierSource,layout.inference.region,value.geometry.quad);
+        }catch{ctx.addIssue({code:z.ZodIssueCode.custom,message:'Inferred identifier source differs from its observed card frame'});}
+      }
+      for(const line of observation.identifierLines??[])
+        if(line.polygon.length!==4||line.polygon.some(([x,y])=>x<24||x>630||y<1270||y>1396))
+          ctx.addIssue({code:z.ZodIssueCode.custom,message:'Inferred identifier line exceeds its actual region'});
+      if(observation.text.footer.length+(observation.text.footerSupplemental?.length??0)+(observation.text.footerSourceIdentifiers?.length??0)>100)
+        ctx.addIssue({code:z.ZodIssueCode.custom,message:'Inferred combined footer exceeds bounds'});
+    }
   }
   const template=value.scannerLayoutTemplate;
   if(template && (template.sourceDigest!==value.photoDigest||template.sourceMethod!==value.geometry.method||value.geometry.status!=="PROPOSED"||value.geometry.framing==="CLIPPED"))

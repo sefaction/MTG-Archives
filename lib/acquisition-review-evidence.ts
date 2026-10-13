@@ -63,6 +63,17 @@ const schema = z.object({
     }),
   }),
 }).superRefine((value,ctx)=>{
+  for(const layout of [value.native.scannerLayout,value.primaryScannerLayout]){
+    for(const o of layout?.orientations??[]){
+      if((o.text.footerSourceIdentifiers?.length||o.identifierLines?.length)&&
+        (layout?.inference.status!=='PROPOSED'||o.identifierSource?.status!=='EXTRACTED'||!o.identifierLines?.length))
+        ctx.addIssue({code:z.ZodIssueCode.custom,message:'Inferred identifiers lack their source observation'});
+      if(o.identifierSource&&o.identifierSource.rotationDegrees!==o.rotationDegrees)
+        ctx.addIssue({code:z.ZodIssueCode.custom,message:'Inferred identifier direction differs'});
+      if(o.identifierLines?.some(line=>line.polygon.some(([x,y])=>x<24||x>630||y<1270||y>1396)))
+        ctx.addIssue({code:z.ZodIssueCode.custom,message:'Inferred identifier lines exceed their source window'});
+    }
+  }
   for(const o of value.native.orientations){
     if(o.identifierSource && o.identifierSource.rotationDegrees!==o.rotationDegrees)
       ctx.addIssue({code:z.ZodIssueCode.custom,message:'Identifier direction differs'});

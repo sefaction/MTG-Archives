@@ -44,6 +44,14 @@ test('actual native scanner layout save/use/reset preserves originals and future
     const inferred=second.jobs.find((j:any)=>j.stage==='photo-recognition-v1'&&j.input.photoId===second.photos[1].id).output.native;
     expect(inferred.geometry.method).toBe('declared-card-scan');expect(inferred.scannerLayout.inference.status).toBe('PROPOSED');
     expect(inferred.scannerLayout.inference.boundaryVerified).toBe(false);expect(inferred.scannerLayout.readingStatus).toBe('COMPLETE');
+    const identifier=inferred.scannerLayout.orientations[0];
+    expect(identifier.identifierSource.status).toBe('EXTRACTED');
+    expect(identifier.identifierSource.width).toBeGreaterThan(606);expect(identifier.identifierSource.height).toBeGreaterThan(126);
+    expect(identifier.identifierSource.width).toBeLessThanOrEqual(identifier.identifierSource.sourceWidth);
+    expect(identifier.identifierSource.height).toBeLessThanOrEqual(identifier.identifierSource.sourceHeight);
+    expect(identifier.identifierSource.sourceFrame).toEqual({width:1700,height:2300});
+    expect(identifier.identifierLines.length).toBeGreaterThan(0);
+    expect(identifier.text.footerSourceIdentifiers).toEqual(['U 0042','TST EN']);
     const card=page.getByTestId('capture-card-2');
     for(const width of [1366,320]){
       await page.setViewportSize({width,height:1000});
@@ -51,6 +59,7 @@ test('actual native scanner layout save/use/reset preserves originals and future
       if(!await details.evaluate(e=>(e as HTMLDetailsElement).open))await details.locator('summary').click();
       await expect(details.getByText('Title: Another Creature',{exact:true})).toBeVisible();
       await expect(details.getByText('Footer: U 0042 | TST EN',{exact:true})).toBeVisible();
+      await expect(details.getByText('Additional identifier reading: U 0042 | TST EN',{exact:true})).toBeVisible();
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
       await details.screenshot({path:`test-results/scanner-layout-${width}.png`});
     }
