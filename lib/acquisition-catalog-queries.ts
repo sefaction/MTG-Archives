@@ -4,7 +4,7 @@ import {
   acquisitionCollectorKey,
   type RecognitionText,
 } from "./acquisition-recognition";
-import { acquisitionFooterObservations } from "./acquisition-footer";
+import { acquisitionFooterObservations, type FooterSpatialReading } from "./acquisition-footer";
 import { acquisitionPhotoTextSchema, type AcquisitionPhotoText } from "./acquisition-photo-text";
 
 export const catalogQuerySchema = z.discriminatedUnion("kind", [
@@ -54,19 +54,20 @@ export function catalogQueryKey(raw: CatalogQuery) {
 // Extraction intentionally does not consult local catalog sets. A new set must
 // remain eligible for external lookup. Never combine different orientations.
 export function acquisitionCatalogQueries(
-  orientations: { rotationDegrees: number; text: RecognitionText }[],
+  orientations: ({ rotationDegrees: number; text: RecognitionText } & FooterSpatialReading)[],
   photoText?: AcquisitionPhotoText,
 ) {
   const printing = new Map<string, CatalogQuery>();
   const names = new Map<string, CatalogQuery>();
-  for (const { text } of orientations) {
+  for (const orientation of orientations) {
+    const {text}=orientation;
     if (
       text.title.length > 100 ||
       text.footer.length > 100 ||
       [...text.title, ...text.footer].some((s) => s.length > 2000)
     )
       throw new Error("OCR lookup evidence exceeds bounds");
-    const {identifiers, collectors} = acquisitionFooterObservations(text.footer, text.footerSupplemental, text.footerSourceIdentifiers);
+    const {identifiers, collectors} = acquisitionFooterObservations(text.footer, text.footerSupplemental, text.footerSourceIdentifiers, orientation);
     // Conflicting footer readings remain evidence, not an API request explosion.
     if (identifiers.length <= 2 && collectors.length <= 2)
       for (const identifier of identifiers)
