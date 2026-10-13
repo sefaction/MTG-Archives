@@ -20,10 +20,11 @@
     "failureCode": "UNKNOWN",
     "failedFileKind": "background resource JSON report",
     "observerSamples": 20,
-    "lastObservedAt": "2026-10-13T19:55:12.036Z",
+    "lastObservedAt": "2026-10-13T19:32:49.921Z",
     "teardownSkippedAfterDetachedFailure": true,
     "underlyingFilesystemCause": "UNKNOWN",
-    "rawFailureAndSourcePreservedLocally": true
+    "rawFailureAndSourcePreservedLocally": true,
+    "recoveryTailAt": "2026-10-13T19:55:12.036Z"
   },
   "sameFixtureRecovery": {
     "originalBrowserCase": "FAILED_BACKGROUND_REPORT_WRITE_UNKNOWN",
@@ -61,7 +62,8 @@
       "nativeDescriptorMatchesSaved1cb": true
     },
     "all124FullPrivateOutputsRetained": true,
-    "original23Assertions14QueriesSourceParity": true
+    "completedRefinements": 1,
+    "eachCompletedRefinementHasExactlyOneCompletePrinting": true
   },
   "validBoundedResourceEvidence": {
     "scope": "Original before/tail cgroup counters and lifetime peaks; periodic interval coverage FAILED",
@@ -227,5 +229,10 @@
     "Lifetime peaks and event deltas are valid but missing interval samples remain missing",
     "No underlying filesystem cause, historical worker exit/stall cause, production or hardware acceptance inferred",
     "Ordinaryfi7160operation alreadyaccepted; no broad physical matrix reinstated"
-  ]
+  ],
+  "sourceAssertionParity": {
+    "originalAssertions": 23,
+    "originalDatabaseCalls": 14,
+    "allRetainedInNewVerifier": true
+  }
 }
