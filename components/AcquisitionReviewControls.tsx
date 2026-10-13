@@ -17,6 +17,7 @@ import {
   type AcquisitionDefaults,
   type AcquisitionPrinting,
 } from "@/lib/acquisition-review";
+import {AcquisitionScannerLayoutControls} from "./AcquisitionScannerLayoutControls";
 import { AcquisitionCardRegionEditor } from "./AcquisitionCardRegionEditor";
 import type { AcquisitionManualRegion } from "@/lib/acquisition-manual-region";
 import { acquisitionReferenceBoundary } from "@/lib/acquisition-printing";
@@ -918,11 +919,13 @@ export function AcquisitionPhotoReview({
                 {acquisitionCatalogMessage(record.catalog)}
               </p>
             )}
+          {!simple && <AcquisitionScannerLayoutControls record={record} endpoint={endpoint} disabled={busy||regionEditing} refresh={refresh} onChange={saved=>setRecord(previous=>previous?{...previous,scannerLayout:{...previous.scannerLayout!,saved}}:previous)} />}
           {!committed && !regionEditing && <button type="button" className={button + " mb-3"} disabled={busy}
             onClick={() => {setRegionEditing(true); onDirtyChange?.(photoId, true);}}>Edit card boundary</button>}
           {!committed && regionEditing && <AcquisitionCardRegionEditor
             src={`/api/acquisition/${batchId}/photos/${photoId}`} record={record} latestRevision={observedRevision ?? record.revision} busy={busy}
-            suggestedRegion={acquisitionReferenceBoundary(record.evidence?.printing, selected?.id)}
+            suggestedRegion={record.evidence?.scannerLayout?.region ?? acquisitionReferenceBoundary(record.evidence?.printing, selected?.id)}
+            suggestedSource={record.evidence?.scannerLayout?.region ? "scanner" : "reference"}
             apply={repairRegion} cancel={() => {setRegionEditing(false); onDirtyChange?.(photoId, dirty.current);}} />}
           <div
             className={

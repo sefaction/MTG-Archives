@@ -3,16 +3,23 @@ import { proposeOrientedAcquisitionPrintings, type createAcquisitionRecognitionI
 import { combineAcquisitionPhotoText, type AcquisitionPhotoText } from "./acquisition-photo-text";
 
 type Reading = { orientations: { rotationDegrees: number; text: RecognitionText }[];
-  photoText?: AcquisitionPhotoText };
+  photoText?: AcquisitionPhotoText;
+  scannerLayout?:{readingStatus?:string;orientations:Reading['orientations']} };
 
 // Each native frame/direction resolves independently. A title from the full
 // original must never lend apparent agreement to a different inferred footer.
 // The caller retains the primary job and exact output hash as durable provenance.
 export function combineAcquisitionReferenceReadings(
   index: ReturnType<typeof createAcquisitionRecognitionIndex>, primary: Reading, refined: Reading,
-) {
-  const first = combineAcquisitionPhotoText(index,
+): ReturnType<typeof proposeOrientedAcquisitionPrintings> {
+  let first = combineAcquisitionPhotoText(index,
     proposeOrientedAcquisitionPrintings(index, primary.orientations), primary.photoText);
+  if(primary.scannerLayout?.readingStatus==='COMPLETE'){
+    first=combineAcquisitionReferenceReadings(index,{orientations:primary.orientations,photoText:primary.photoText},
+      {orientations:primary.scannerLayout.orientations});
+    first={...first,proposals:first.proposals.map(p=>({...p,reasons:p.reasons.map(reason=>
+      reason==='REFERENCE_ANCHOR_INFERRED'?'SCANNER_LAYOUT_INFERRED':reason==='REFERENCE_OCR_OBSERVATION'?'SCANNER_LAYOUT_OCR_OBSERVATION':reason)}))};
+  }
   const second = proposeOrientedAcquisitionPrintings(index, refined.orientations);
   const union = new Map<string, RecognitionProposal>();
   for (const [result, origin] of [[second, "REFERENCE_OCR_OBSERVATION"],
