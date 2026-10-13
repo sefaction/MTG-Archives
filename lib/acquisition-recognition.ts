@@ -1,7 +1,7 @@
 import { acquisitionCollectorKey, acquisitionFooterObservations } from "./acquisition-footer";
 import { acquisitionNameKey, acquisitionExactNameKeyEligible } from "./acquisition-name";
 export { acquisitionCollectorKey } from "./acquisition-footer";
-export const ACQUISITION_TEXT_RESOLVER_VERSION = "source-footer-review-v10";
+export const ACQUISITION_TEXT_RESOLVER_VERSION = "set-token-footer-review-v11";
 
 // OCR similarity is not calibrated confidence. Strong exact metadata can confirm
 // a printing; it never establishes physical count, finish, condition or receipt.

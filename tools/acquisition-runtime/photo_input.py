@@ -28,8 +28,8 @@ def validate_manual_region(region):
     return region
 
 
-def decode_photo_input(frame, *, return_task=False, return_region=False, return_reference=False):
-    kind, data, task, region, reference = 'PHOTO', frame, None, None, None
+def decode_photo_input(frame, *, return_task=False, return_region=False, return_reference=False, return_layout=False):
+    kind, data, task, region, reference, layout = 'PHOTO', frame, None, None, None, None
     if len(frame) >= 4:
         length = struct.unpack('>I', frame[:4])[0]
         if 0 < length <= 1020:
@@ -38,7 +38,7 @@ def decode_photo_input(frame, *, return_task=False, return_region=False, return_
             metadata = json.loads(frame[4:4 + length])
             if not isinstance(metadata, dict) or set(metadata) not in (
                     {'inputKind'}, {'inputKind', 'recognitionTask'}, {'inputKind', 'manualRegion'},
-                    {'inputKind', 'referenceRegion'}):
+                    {'inputKind', 'referenceRegion'}, {'inputKind', 'scannerLayoutProfile'}):
                 raise ValueError('Invalid image hint')
             task = metadata.get('recognitionTask')
             if ('recognitionTask' in metadata and
@@ -53,6 +53,13 @@ def decode_photo_input(frame, *, return_task=False, return_region=False, return_
                 if not return_reference or kind != 'CARD_SCAN':
                     raise ValueError('Scanner reference region support required')
                 reference = validate_manual_region(metadata['referenceRegion'])
+            if 'scannerLayoutProfile' in metadata:
+                if not return_layout or kind != 'CARD_SCAN' or not isinstance(metadata['scannerLayoutProfile'], str):
+                    raise ValueError('Scanner layout support required')
+                layout = json.loads(metadata['scannerLayoutProfile'])
+                if (not isinstance(layout, dict) or type(layout.get('version')) is not int
+                        or layout.get('policy') != {1:'scanner-layout-anchor-v1',2:'scanner-layout-marker-v2'}.get(layout.get('version'))):
+                    raise ValueError('Invalid scanner layout profile')
     if kind not in ('PHOTO', 'CARD_SCAN') or not 0 < len(data) <= MAX_PHOTO:
         raise ValueError('Invalid image input')
     result = (data, kind)
@@ -62,4 +69,6 @@ def decode_photo_input(frame, *, return_task=False, return_region=False, return_
         result += (region,)
     if return_reference:
         result += (reference,)
+    if return_layout:
+        result += (layout,)
     return result

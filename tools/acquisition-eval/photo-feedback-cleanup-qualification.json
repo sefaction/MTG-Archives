@@ -1,0 +1,163 @@
+{
+  "scope": "TWO_PHOTO_FEEDBACK_FIXTURE_CLEANUP_PATHS_NOT_INDEPENDENT_ACCURACY",
+  "sourceChecks": {
+    "passed": true,
+    "results": [
+      {
+        "file": "acquisition-photo-text.spec.ts",
+        "actualCleanupBlocks": 1,
+        "originalBodyIdentical": true,
+        "originalAssertionCalls": 32,
+        "originalCleanupOperationsRetained": true
+      },
+      {
+        "file": "acquisition-photo-text-streaming.spec.ts",
+        "actualCleanupBlocks": 1,
+        "originalBodyIdentical": true,
+        "originalAssertionCalls": 64,
+        "originalCleanupOperationsRetained": true
+      }
+    ]
+  },
+  "actualPostgresFailures": {
+    "unchangedBlocks": 2,
+    "baselineEachRetained": {
+      "players": 1,
+      "users": 1,
+      "locations": 1,
+      "accounts": 1,
+      "directory": true
+    },
+    "correctedBlocks": 2,
+    "allExactNamespacesRemoved": true,
+    "injectedErrorStillReported": true,
+    "controlledFailuresNotBrowserPasses": true
+  },
+  "actualBlockControls": 11,
+  "typecheckPassed": true,
+  "streamingBrowser": {
+    "stats": {
+      "startTime": "2026-10-12T02:26:39.144Z",
+      "duration": 204560.971,
+      "expected": 1,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "cases": [
+      {
+        "title": "whole-photo hints support streaming review while other photos are queued",
+        "status": "passed",
+        "durationMs": 203051,
+        "retry": 0
+      }
+    ]
+  },
+  "sevenInputBrowser": {
+    "stats": {
+      "startTime": "2026-10-12T02:31:33.661Z",
+      "duration": 289504.19,
+      "expected": 1,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "cases": [
+      {
+        "title": "difficult photo names reach existing review without inventing printing evidence",
+        "status": "passed",
+        "durationMs": 288354,
+        "retry": 0
+      }
+    ]
+  },
+  "inputs": {
+    "distinctRecordedOriginals": 5,
+    "sourceHashesVerified": true,
+    "totalWorkflowInputCases": 10,
+    "originalQuarterTurnVariants": 2
+  },
+  "nativeFeedback": {
+    "firstSavedCondition": "LP",
+    "catalogCandidatesAtFirstSave": 1,
+    "savedBeforeBatchCatalogComplete": true,
+    "unverifiedLabelAndImmutableReviewEventCheckedByOriginalBody": true,
+    "reviewEvents": 1,
+    "initialEvidenceBundles": 17,
+    "finalEvidenceBundles": 17,
+    "privateOriginalShaAndFirstRawOutputPreserved": true,
+    "feedbackConserved": true,
+    "streamingPrintingComplete": 2,
+    "streamingPrintingRetired": 0,
+    "streamingPrintingNotEnqueuedAfterReview": 1,
+    "sevenInputPrintingComplete": 7,
+    "noInventoryWrites": true
+  },
+  "conservation": {
+    "freshSourceTables": 7,
+    "freshFeedbackTables": 9,
+    "accountExcludedMaintenanceFields": [
+      "updatedAt",
+      "lastCleanupAt"
+    ],
+    "ordinaryServices": 16,
+    "sourceDigest": "2efe34ba721c1bda933942f30ac3fb8411d1d9ef6e9c7409331889bb012b5e5e",
+    "sourceInputs": 598,
+    "fullPhotoProjectionRows": 1095,
+    "fullPhotoProjectionConserved": true,
+    "exactOwners": 2,
+    "modelsPerOwner": 18,
+    "privateDirectoriesAbsent": true,
+    "freshActualByteBaselineUsed": true,
+    "actualReadyOriginals": 156,
+    "actualReadyOriginalBytes": 898515870,
+    "actualCorrectionFiles": 1,
+    "allBeforeAfterOriginalCorrectionShaSizeIdentitiesConserved": true,
+    "unchangedSourceFeedbackProjections": 14,
+    "originalEvidenceRowsConserved": 52,
+    "originalAccountFieldsConservedAfterExactAppendAccounting": true,
+    "strictFullProjectionComparisonFailedAndRetained": true
+  },
+  "limits": {
+    "reusedDevelopmentEvidence": true,
+    "legacyStreamingReportLimitTextHistoricalNotCurrentGateResult": true,
+    "independentAccuracyQualified": false,
+    "hardwareQualified": false,
+    "productionQualified": false,
+    "largeBatch100Or300Qualified": false
+  },
+  "unchangedPolicy": {
+    "ownerLimitBytes": 64000000000,
+    "randomSampleBasisPoints": 200,
+    "photoRequestBudgetSeconds": 45,
+    "wholePhotoEnvelopeSeconds": 35,
+    "wholePhotoCapSeconds": 32,
+    "explicitInventoryAuthority": true
+  },
+  "requiredCi": "Source b1c7003 all3 required checks pass; exact final evidence head checked separately on PR740",
+  "verifiedEvidenceAppends": {
+    "bundles": 2,
+    "bytes": 40225,
+    "details": [
+      {
+        "role": "SOURCE_JOB",
+        "stage": "photo-printing-evidence-v1",
+        "bytes": 22803,
+        "createdAt": "2026-10-12T02:21:57.516Z",
+        "ownerPhotoJobAndExampleMatch": true,
+        "canonicalBundleHashSizeAndJobInputOutputHashesMatch": true
+      },
+      {
+        "role": "SOURCE_JOB",
+        "stage": "photo-catalog-reconciliation-v1",
+        "bytes": 17422,
+        "createdAt": "2026-10-12T02:21:44.485Z",
+        "ownerPhotoJobAndExampleMatch": true,
+        "canonicalBundleHashSizeAndJobInputOutputHashesMatch": true
+      }
+    ],
+    "allPredateNativeWorkflowStart": true,
+    "canonicalHashesSizesJobInputOutputAndOwnerPhotoExampleLinksVerified": true,
+    "noDataRestorationDeletionOrRewritePerformed": true
+  }
+}
