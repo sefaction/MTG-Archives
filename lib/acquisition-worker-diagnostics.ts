@@ -1,3 +1,4 @@
+import {recognitionSnapshotFailure} from "./acquisition-recognition-snapshot-diagnostics";
 import {acquisitionNativeFailure} from "./acquisition-native-failure";
 
 export type CatalogWorkerPhase = "ADMISSION" | "PROCESSING" | "AUTO_CONFIRM";
@@ -39,6 +40,7 @@ const recognitionErrorTypes = new Set([
 ]);
 export function recognitionWorkerFailure(phase: RecognitionWorkerPhase, error: unknown) {
   const nativeFailure = acquisitionNativeFailure(error) ?? null;
+  const catalogSnapshotFailure = recognitionSnapshotFailure(error);
   const errorCode = catalogWorkerFailure("PROCESSING", error).errorCode;
   let systemCode: string | null = null;
   let errorType = "UNKNOWN";
@@ -61,5 +63,6 @@ export function recognitionWorkerFailure(phase: RecognitionWorkerPhase, error: u
     }
   } catch { /* Hostile fields cannot disclose private data or suppress the record. */ }
   return {event: "recognition-worker-stopped", phase: recognitionPhases.has(phase) ? phase : "UNKNOWN",
-    errorKind, errorType, errorCode, systemCode, nativeFailure};
+    errorKind, errorType, errorCode, systemCode, nativeFailure,
+    ...(catalogSnapshotFailure ? {catalogSnapshotFailure} : {})};
 }
