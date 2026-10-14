@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "issue": 800,
+  "pullRequest": 802,
+  "annotations": {
+    "before": 181,
+    "after": 187,
+    "added": 6,
+    "existingPreserved": true,
+    "directPublicPixelInspection": true,
+    "catalogueDerivedObservedState": false
+  },
+  "paired": {
+    "controls": 7,
+    "variants": 2,
+    "originalUnknownBefore": 5,
+    "originalUnknownAfter": 5,
+    "stampedPresentBefore": 2,
+    "stampedPresentAfter": 2,
+    "policyThresholdsChanged": false,
+    "accuracyGainDemonstrated": false
+  },
+  "nativeGuards": 31,
+  "ordinary": {
+    "passed": true,
+    "durationMs": 170503,
+    "skips": 0,
+    "retries": 0,
+    "firstCorrect": 2,
+    "expectedOffered": 7,
+    "processingFailures": 0,
+    "humanReviewWrites": 0,
+    "inventoryWrites": 0,
+    "finalAutomatic": 0,
+    "ownedCleanupResidue": 0
+  },
+  "runtime": {
+    "applicationSource": "0c1b4c42cf5780a54e51e7bd073c4dc0e25d3f38dfc701a987b60403f21f47f2",
+    "printingImage": "sha256:b6bb1e72e7c2ec39019e9a29d78e92e89d35ca39f4f7907338e6edce13a77fc9",
+    "annotationSha": "30ad6df046c2b9f5f07eaad27711b53747e308688e2acbe3ca00116ccf9b2418",
+    "previousModel": "1e4d8b09d80c2b467160857111424577d9348059205ec60105955c752869ae52",
+    "newModel": "ae745dbe02d38284ad816e23d46caf5148f1b19db0188c521e8389ee35bd678d",
+    "unselectedReviewIdentitiesConserved": 6,
+    "reviewSettingsPreserved": true,
+    "printingMemoryPeakBytes": 966889472,
+    "printingMemoryLimitBytes": 1073741824,
+    "isolatedPrintingMaxOOMRestarts": 0
+  },
+  "primaryConservation": {
+    "passed": false,
+    "issue": 803,
+    "delta": "PRINTING_OOM_FLAG_FALSE_TO_TRUE_WITH_UNCHANGED_RUNNING_INIT_PID_LIFETIMES_RESTART_COUNT",
+    "primaryRestartedByThisBatch": false,
+    "primaryLimitsChanged": false,
+    "nativeSigkillTimesUTC": [
+      "17:41:33",
+      "17:45:55",
+      "17:48:37",
+      "17:50:34",
+      "17:52:17",
+      "17:53:58"
+    ],
+    "cgroupOOMKillsCumulative": 6,
+    "cumulativeCounterTimingUnknown": true,
+    "causeUnknown": true,
+    "firstFailureBeforeReferenceRun": true
+  },
+  "independentAccuracy": false,
+  "physicalBoundaryAcceptance": false,
+  "overallAcceptanceComplete": false
+}
