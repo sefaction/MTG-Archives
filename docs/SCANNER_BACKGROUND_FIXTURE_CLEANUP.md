@@ -1,0 +1,11 @@
+# Scanner background fixture cleanup
+
+Issue #805 is a child of #692/#310. The actual scanner-background verifier from main c5b5bd2 skips its legacy source/user/private-file teardown and final correction sweep after the initial correction sweep fails. The repair independently attempts all three existing actions and retains original plus cleanup causes. Exact-owner validation precedes database actions. All 21 original assertions, full main workflow, legacy SQL/file actions, input guards/digest and 900000ms deadline are unchanged.
+
+Eight actual-source node:test controls and type checks pass. The unchanged-source negative control reproduces exactly one early database call and no legacy/final calls. Pending real disposable PostgreSQL/folder baseline/fixed/neighbor/recovery and current runtime/source/catalogue/original conservation. The runtime remains the interrupted manual #801/#804 cumulative source (624 inputs/f12c4b44ff6726ba9afc5601c02eded60f5fb423b1ab433417b27d2af7d42bf0); this test-only change does not rebuild or qualify that feature.
+
+The original optical browser case requires the retained padded original with its fixed existing hash and a retained blank original. Bounded current-project metadata/name discovery has not located those exact inputs. No substitute, assertion relaxation, skipped-to-passed claim or new physical scan is authorized by this qualification. Keep this PR draft for incomplete original-workflow qualification; optional background acceptance is separately deferred under #557, and ordinary fi-7160 use is accepted elsewhere.
+
+The manual owner stopped with a model-capacity error. Lock recovery was recorded only after verifying no owner host process/descendant, no active Docker build or review exec, and no pending/running acquisition/capture or sessions/runs. Its exact lock was archived before fresh issue-worker acquisition. Preserve its branches, current images/data, ordinary-control results and #803 historical OOM failure. This recovery does not claim manual qualification completed.
+
+No application/native changes, image rebuild/recreation, helper/motor, accuracy, throughput, production or historical worker-stop cause is included. Private reports/journals/byte manifests stay in ignored .local-data/scanner-background-qualification. Separate reviewer owns readiness, individual approval, merge and issue closure.
