@@ -144,6 +144,8 @@ export function combineAcquisitionCandidates(
   partialIdentifiers.sort((a,b)=>(imageRank.get(a.card.id) ?? Number.MAX_SAFE_INTEGER) -
     (imageRank.get(b.card.id) ?? Number.MAX_SAFE_INTEGER));
   for (const p of partialIdentifiers) append(p.card.id);
+  for (const p of text.proposals)
+    if (p.reasons.includes("SCANNER_SOURCE_IDENTIFIERS") && !contradicted(p)) append(p.card.id);
   // Whole-line photo text is useful for name retrieval, while supplying no
   // located title/printing agreement. Prefer image-supported printings within
   // that name group, ahead of unrelated weak image or fuzzy-name suggestions.

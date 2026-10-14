@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { scannerSourceTextSchema, observedScannerIdentifiers } from "./acquisition-scanner-source-text";
 import { acquisitionNameKey, acquisitionExactNameKeyEligible } from "./acquisition-name";
 import { acquisitionNativePhotoInput, type AcquisitionImageInputKind } from "./acquisition-image-input";
 import type { createAcquisitionRecognitionIndex, proposeOrientedAcquisitionPrintings, RecognitionProposal } from "./acquisition-recognition";
@@ -12,6 +13,7 @@ export const acquisitionPhotoTextSchema = z.object({
     rotationDegrees: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]),
     text: z.array(z.string().max(200)).max(12),
     truncated: z.boolean(),
+    scannerSource: scannerSourceTextSchema.optional(),
   })).max(4),
 }).superRefine((value, context) => {
   if (new Set(value.readings.map(r => r.rotationDegrees)).size !== value.readings.length ||
@@ -50,7 +52,8 @@ export async function readAcquisitionPhotoText(
     recognitionTask: z.literal("WHOLE_PHOTO_TEXT"), photoText: acquisitionPhotoTextSchema,
   });
   const validateIdentity = (output: z.infer<typeof envelope>) => {
-    if (output.photoDigest !== expected.photoDigest || output.descriptor !== expected.descriptor)
+    if (output.photoDigest !== expected.photoDigest || output.descriptor !== expected.descriptor ||
+        (inputKind !== "CARD_SCAN" && output.photoText.readings.some(r => r.scannerSource)))
       throw new Error("Whole-photo input changed");
   };
   try {
@@ -97,15 +100,24 @@ export function combineAcquisitionPhotoText(index: Index, base: Proposals, raw?:
   if (!raw) return base;
   const photoText = acquisitionPhotoTextSchema.parse(raw);
   const hints = new Map<string, RecognitionProposal>();
+  const supported = new Set<string>();
   for (const reading of photoText.readings) for (const text of reading.text) {
     const key = acquisitionPhotoNameKey(text);
     if (!acquisitionExactNameKeyEligible(key)) continue;
+    const identifiers = reading.text.slice(0, 2).includes(text)
+      ? observedScannerIdentifiers(reading.scannerSource) : null;
+    const matching = new Set(identifiers ? (index.byPrintedSetNumber.get(`${identifiers.set}:${identifiers.number}`) ?? [])
+      .filter(c => (c.lang ?? "en").toLowerCase() === identifiers.language).map(c => c.id) : []);
     // Exact whole-line name retrieval only. Body substrings/fuzzy matches never
-    // become a located title, and these lines supply no footer identifiers.
-    for (const card of index.byName.get(key) ?? []) hints.set(card.id, {
+    // become a located title. A positioned footer only promotes a same-direction name.
+    for (const card of index.byName.get(key) ?? []) {
+      if (matching.has(card.id)) supported.add(card.id);
+      hints.set(card.id, {
       card, nameDistance: 0,
-      reasons: [UNLOCALIZED_NAME_HINT, "PRINTING_UNCONFIRMED", "REVIEW_REQUIRED"],
+      reasons: [UNLOCALIZED_NAME_HINT, "PRINTING_UNCONFIRMED", "REVIEW_REQUIRED",
+        ...(supported.has(card.id) ? ["SCANNER_SOURCE_IDENTIFIERS"] : [])],
     });
+    }
   }
   if (!hints.size) return base;
   const all = new Map<string, RecognitionProposal>();
@@ -120,7 +132,7 @@ export function combineAcquisitionPhotoText(index: Index, base: Proposals, raw?:
   const hinted = [...hints.keys()].sort((a, b) => (rank.get(a) ?? Number.MAX_SAFE_INTEGER) -
     (rank.get(b) ?? Number.MAX_SAFE_INTEGER));
   const order = [...base.proposals.filter(p => p.reasons.includes("SET_AND_COLLECTOR_TEXT")).map(p => p.card.id),
-    ...hinted, ...base.proposals.map(p => p.card.id)];
+    ...hinted.filter(id => supported.has(id)), ...hinted, ...base.proposals.map(p => p.card.id)];
   const proposals = [...new Set(order)].map(id => all.get(id)!);
   return { ...base, status: base.status === "CONFLICT" ? "CONFLICT" : "REVIEW_REQUIRED",
     automaticAcceptance: false, totalProposals: Math.max(base.totalProposals, proposals.length),
