@@ -1,7 +1,7 @@
-import { acquisitionCollectorKey, acquisitionFooterObservations } from "./acquisition-footer";
+import { acquisitionCollectorKey, acquisitionFooterObservations, type FooterSpatialReading } from "./acquisition-footer";
 import { acquisitionNameKey, acquisitionExactNameKeyEligible } from "./acquisition-name";
 export { acquisitionCollectorKey } from "./acquisition-footer";
-export const ACQUISITION_TEXT_RESOLVER_VERSION = "set-token-footer-review-v11";
+export const ACQUISITION_TEXT_RESOLVER_VERSION = "spatial-footer-review-v12";
 
 // OCR similarity is not calibrated confidence. Strong exact metadata can confirm
 // a printing; it never establishes physical count, finish, condition or receipt.
@@ -99,6 +99,7 @@ function resolveAcquisitionPrintings(
   input: RecognitionText,
   limit: number,
   allowFuzzy = true,
+  spatial?: FooterSpatialReading,
 ) {
   if (
     input.title.length > 100 ||
@@ -106,7 +107,7 @@ function resolveAcquisitionPrintings(
     [...input.title, ...input.footer].some((line) => line.length > 2000)
   )
     throw new Error("OCR evidence exceeds bounds");
-  const footer = acquisitionFooterObservations(input.footer, input.footerSupplemental, input.footerSourceIdentifiers);
+  const footer = acquisitionFooterObservations(input.footer, input.footerSupplemental, input.footerSourceIdentifiers, spatial);
   const setCodes = new Set<string>();
   const languages = new Set<string>();
   const languagesBySet = new Map<string, Set<string>>();
@@ -290,7 +291,7 @@ function resolveAcquisitionPrintings(
 
 export function proposeOrientedAcquisitionPrintings(
   index: ReturnType<typeof createAcquisitionRecognitionIndex>,
-  orientations: { rotationDegrees: number; text: RecognitionText }[],
+  orientations: ({ rotationDegrees: number; text: RecognitionText } & FooterSpatialReading)[],
   limit = 12,
 ) {
   if (!Number.isInteger(limit) || limit < 1 || limit > 100)
@@ -306,7 +307,7 @@ export function proposeOrientedAcquisitionPrintings(
   // orientation and a collector number from another to manufacture agreement.
   let observed = orientations.map((orientation) => ({
     rotationDegrees: orientation.rotationDegrees,
-    result: resolveAcquisitionPrintings(index, orientation.text, Math.max(1, index.cards), false),
+    result: resolveAcquisitionPrintings(index, orientation.text, Math.max(1, index.cards), false, orientation),
   }));
   const substantive = observed.filter(({ result }) =>
     result.proposals.some((p) => !p.reasons.includes("SIMILAR_TITLE_ONLY")),
@@ -316,7 +317,7 @@ export function proposeOrientedAcquisitionPrintings(
   if (!substantive.length)
     observed = orientations.map((orientation) => ({
       rotationDegrees: orientation.rotationDegrees,
-      result: resolveAcquisitionPrintings(index, orientation.text, Math.max(1, index.cards)),
+      result: resolveAcquisitionPrintings(index, orientation.text, Math.max(1, index.cards), true, orientation),
     }));
   const candidates = substantive.length ? substantive : observed.filter(
     ({ result }) => result.proposals.length > 0,

@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "issue": 779,
+  "pullRequest": 780,
+  "scope": "SAME_ORIENTATION_SUPPLEMENTAL_FOOTER_POSITION",
+  "parser": "footer-observations-v4",
+  "resolver": "spatial-footer-review-v12",
+  "developmentOnly": true,
+  "independentAccuracy": false,
+  "physicalBoundaryVerified": false,
+  "controls": {
+    "acquisitionTests": 299,
+    "types": true,
+    "independentReferenceFrames": true,
+    "rawEvidenceUnchanged": true,
+    "noExpandedAutomaticEligibility": true
+  },
+  "frozenReplay": {
+    "samples": 124,
+    "identified": 123,
+    "primaryTextFirstBefore": 115,
+    "primaryTextFirstAfter": 115,
+    "automaticBefore": 51,
+    "automaticAfter": 51,
+    "firstWins": 0,
+    "firstLosses": 0,
+    "newAutomatic": 0,
+    "changed": [
+      "test-scan.017.jpg",
+      "test-scan.039.jpg",
+      "test-scan.115.jpg"
+    ],
+    "catalogue": "8b0ffaf2acc9312f864118446d318416d3649fb5c060c35cab5df5d7de54cc6e"
+  },
+  "actualBrowser": {
+    "uniqueSavedImages": 4,
+    "firstPass": "2.1 minutes",
+    "strengthenedPass": "1.9 minutes",
+    "skips": 0,
+    "retries": 0,
+    "viewports": [
+      1366,
+      320
+    ],
+    "expectedPrintingFirst": true,
+    "geometryTextLinesOrientationsZonesPreserved": true,
+    "supplementalNoiseVisible": true,
+    "originalAndDownloadHashesPreserved": true,
+    "automaticAcceptance": false,
+    "humanReviewWrites": 0,
+    "inventoryWrites": 0,
+    "ownedCleanupResidue": 0
+  },
+  "source": {
+    "applicationInputs": 623,
+    "digest": "0c1b4c42cf5780a54e51e7bd073c4dc0e25d3f38dfc701a987b60403f21f47f2",
+    "libAndScriptFilesPerImage": 329,
+    "imageMismatches": 0,
+    "web": "sha256:5058c61099f03ce12a734c381c14c986a961d6f9a75f09111ef43f3c18e7955a",
+    "ocr": "sha256:d83a3fd07ba5081e32cd3cbdaad9a041160fa4794a66fa3f2267da6a72fa3915",
+    "visualPrinting": "sha256:1b3a2e5725f4b45091a2db5f684fa40277234ad498dd9b01814d0accc351c14d",
+    "model": "1cbcff958eb52b3848bc63e9946fbd37e573216651bbd5fe8f043ba5312aea2e",
+    "installer": "0.4.3"
+  },
+  "runtime": {
+    "reviewServicesRunning": 7,
+    "primaryServicesConserved": 16,
+    "primaryPreviouslyStopped": 3,
+    "configValuesAndMountsPreserved": true,
+    "intentionalReviewApplicationRecreations": 6,
+    "postgresIdentityPreserved": true,
+    "memoryPeaksBytes": {
+      "ocr": 1152970752,
+      "visual": 1622519808,
+      "printing": 1011920896
+    },
+    "swapPeaksBytes": {
+      "ocr": 2301952,
+      "visual": 15208448,
+      "printing": 0
+    },
+    "maxEvents": 0,
+    "oomEvents": 0,
+    "restarts": 0
+  },
+  "retainedFailures": [
+    "Missing ignored installer exe/metadata in fresh review checkout; supplied validated existing 0.4.3 files before build",
+    "No-anchor unit fixture incorrectly included supplemental explicit anchor; corrected fixture",
+    "Strict environment/bind array order comparison failed; identical values/mounts/resources verified and only unordered collections normalized"
+  ],
+  "pending": [
+    "Final qualification-head required CI",
+    "Separate reviewer readiness and individual approval",
+    "Independent physical boundary and unseen printing acceptance"
+  ]
+}

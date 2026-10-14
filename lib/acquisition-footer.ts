@@ -1,5 +1,5 @@
 // This interprets saved OCR text; it neither changes pixels nor proves printing.
-export const ACQUISITION_FOOTER_PARSER_VERSION = "footer-observations-v3";
+export const ACQUISITION_FOOTER_PARSER_VERSION = "footer-observations-v4";
 
 // Zero padding is typography. Identity suffixes/prefixes must remain intact.
 export function acquisitionCollectorKey(value: string) {
@@ -80,14 +80,58 @@ export function acquisitionFooterIdentifiers(lines: string[]) {
   return {identifiers: [...identifiers.values()], collectors: [...collectors], recoveredLayout};
 }
 
+export type FooterSpatialReading = {
+  lines?: {text:string;polygon:number[][]}[];
+  footerLines?: {text:string;polygon:number[][]}[];
+  identifierLines?: {text:string;polygon:number[][]}[];
+};
+
+function footerBox(line:{text:string;polygon:number[][]}) {
+  const points=line.polygon;
+  if(points.length!==4||points.some(p=>p.length!==2||!p.every(Number.isFinite)||
+    p[0]<0||p[0]>999||p[1]<1270||p[1]>1396))return null;
+  const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]);
+  const box={left:Math.min(...xs),right:Math.max(...xs),top:Math.min(...ys),bottom:Math.max(...ys)};
+  return box.left<box.right&&box.top<box.bottom?box:null;
+}
+
+// Only an explicit lower-left collector in this same oriented card frame can
+// disqualify isolated supplemental upper-right noise. No score threshold, card
+// identity, calibrated profile or box from another reading frame is used.
+function supplementalOutsideCollector(supplemental:string[], spatial?:FooterSpatialReading) {
+  if(!spatial)return new Set<string>();
+  const all=[...(spatial.lines??[]),...(spatial.footerLines??[]),...(spatial.identifierLines??[])];
+  if(all.length>300)return new Set<string>();
+  const anchors=all.flatMap(line=>{
+    const box=footerBox(line);
+    if(!box||box.right>630)return [];
+    const parsed=acquisitionFooterIdentifiers([line.text]);
+    // Exact numeric set tokens must not independently become rarity anchors.
+    if(parsed.collectors.length!==1||/^\s*[A-Z]\d+\s*$/i.test(line.text))return [];
+    return [{number:parsed.collectors[0],box}];
+  });
+  if(new Set(anchors.map(a=>a.number)).size!==1)return new Set<string>();
+  const excluded=new Set<string>();
+  for(const text of supplemental){
+    if(!new RegExp('^\\s*('+collector+')\\s*$','i').test(text))continue;
+    const matches=(spatial.footerLines??[]).filter(line=>line.text.trim()===text.trim());
+    if(matches.length&&matches.every(line=>{
+      const box=footerBox(line);
+      return box&&box.left>630&&anchors.every(anchor=>box.bottom<anchor.box.top);
+    }))excluded.add(text);
+  }
+  return excluded;
+}
+
 // Keep the initial and supplemental readings together within one orientation.
 // Additional metadata can help review/lookup but cannot create a strong match.
-export function acquisitionFooterObservations(primary: string[], supplemental: string[] = [], sourceIdentifiers: string[] = []) {
+export function acquisitionFooterObservations(primary: string[], supplemental: string[] = [], sourceIdentifiers: string[] = [], spatial?:FooterSpatialReading) {
   const initial = acquisitionFooterIdentifiers(primary);
   if (!supplemental.length && !sourceIdentifiers.length) return initial;
-  const combined = acquisitionFooterIdentifiers([...primary, ...supplemental, ...sourceIdentifiers]);
+  const excluded=supplementalOutsideCollector(supplemental,spatial);
+  const combined = acquisitionFooterIdentifiers([...primary, ...supplemental.filter(line=>!excluded.has(line)), ...sourceIdentifiers]);
   const addedIdentifier = combined.identifiers.some(value => !initial.identifiers.some(
     old => old.set === value.set && old.language === value.language));
   const addedCollector = combined.collectors.some(value => !initial.collectors.includes(value));
-  return {...combined, recoveredLayout: combined.recoveredLayout || addedIdentifier || addedCollector};
+  return {...combined, recoveredLayout: combined.recoveredLayout || excluded.size>0 || addedIdentifier || addedCollector};
 }
