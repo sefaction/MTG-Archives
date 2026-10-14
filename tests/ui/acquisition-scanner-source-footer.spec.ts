@@ -54,7 +54,7 @@ test('visible source footer guides clipped scan review while preserving original
           await page.setViewportSize({width,height:1000});
           await expect(details.getByText('Visible scan identifiers',{exact:true}).first()).toBeVisible();
           await expect(details.getByText('The card edges remain unverified. These readings do not confirm a printing or a stamp.').first()).toBeVisible();
-          await expect(card.getByText(/Part of this card may be outside the image/)).toBeVisible();
+          await expect(card.getByText(/The card reaches the edge of the scan/)).toBeVisible();
           expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
         }
         const link=await card.getByRole('link',{name:'Open original photo',exact:true}).getAttribute('href');
