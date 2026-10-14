@@ -1,0 +1,11 @@
+# Reserved scanner current-pipeline diagnostic
+
+This batch measures the current ordinary scanner pipeline on the historical 41-image audit-reserved set under #463/#307. It adds a reusable opt-in local browser diagnostic; it changes no recognition/ranking/acceptance policy.
+
+The original locked manifest is SHA256 `ed511f0a15420762a2c05c4a0b720416e47bf487af436fe660e753931cc152a2`. All 41 bytes were recovered by digest: 34 retained original-only annotation copies and seven matching desktop development inputs. Frozen input copies retain their exact original PNG/JPEG bytes; names carry only opaque sample IDs. Seven hashes overlap the current 191-image development corpus; the other 34 do not. Physical-copy independence and historical model/system-training exposure remain unknown, and the earlier audit already evaluated this set. It is a current diagnostic and a held-out-from-earlier-policy cohort, not a fresh independent population sample.
+
+The application source/policy is frozen before inference. Only source image bytes and CARD_SCAN declaration reach normal upload/OCR/visual/catalogue/printing; expected identities are read for scoring after all processing ends. Single verified expected identities permit exact-first/offered scoring. Processing failures and missing proposals remain misses in the full eligible denominator. Known overlap and non-overlap cohorts and printing-group counts are separate. No physical boundary labels exist, so printing success cannot establish edge accuracy. Accuracy is measured, never asserted as universally passing.
+
+The test is limited to verified isolated review at127.0.0.1:13011/acquisition_anchor_review. Original hashes, stored bytes, candidate revisions, null review/receipt and zero Inventory are checked. It preserves falsy primary failures and independently attempts authentication/polling retirement, exact owned teardown and final correction cleanup. Private raw outputs/progress/journal/labels remain local. It performs no scanner feeding or production work.
+
+Run `tests/ui/acquisition-reserved-validation.spec.ts` with explicit `MTG_LOCAL_PILOT_TEST=1`, `MTG_RESERVED_SCANNER_ROOT` and `MTG_RESERVED_SCANNER_REPORT`. The source folder contains a frozen manifest plus originals. Runtime and result qualification are pending; types pass. No recognition accuracy result is claimed from preparation alone.
