@@ -19,6 +19,8 @@ for (const width of [1366, 320]) test(`correction original retries the selected 
   const pageErrors: string[] = [];
   page.on("pageerror", error => pageErrors.push(error.message));
   const photo = await sharp({ create: { width: 64, height: 88, channels: 3, background: "#335577" } }).png().toBuffer();
+  let primaryFailed = false;
+  let primaryError: unknown;
   try {
     database(`const n=${JSON.stringify(owner)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});`);
     await page.setViewportSize({ width, height: 900 });
@@ -72,8 +74,25 @@ for (const width of [1366, 320]) test(`correction original retries the selected 
     await expect(image).toHaveCount(0);
     expect(listRequests).toBe(1);
     expect(pageErrors).toEqual([]);
+  } catch (error) {
+    primaryFailed = true;
+    primaryError = error;
+    throw error;
   } finally {
-    await page.unrouteAll({ behavior: "wait" });
-    database(`const n=${JSON.stringify(owner)};if(!/^ui-original-retry-[a-f0-9-]{36}$/.test(n))throw Error('Invalid fixture');await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});`);
+    const failures: unknown[] = primaryFailed ? [primaryError] : [];
+    const cleanup = async (action: () => unknown | Promise<unknown>) => {
+      try { await action(); } catch (error) { failures.push(error); }
+    };
+    const retireOwner = (body: string) => {
+      if (!/^ui-original-retry-[a-f0-9-]{36}$/.test(owner)) throw Error("Invalid fixture");
+      database("const n=" + JSON.stringify(owner) + ";" + body);
+    };
+    // Fence this owner before draining browser routes; each later resource must
+    // still be attempted after a failed earlier operation.
+    await cleanup(() => retireOwner("await p.authSession.deleteMany({where:{userId:n}});"));
+    await cleanup(async () => { if (!page.isClosed()) await page.unrouteAll({ behavior: "wait" }); });
+    await cleanup(() => retireOwner("await p.user.deleteMany({where:{id:n}});"));
+    await cleanup(() => retireOwner("await p.player.deleteMany({where:{id:n}});"));
+    if (failures.length) throw new AggregateError(failures, "Correction original retry workflow or cleanup failed");
   }
 });
