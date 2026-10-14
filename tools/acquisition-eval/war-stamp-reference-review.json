@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "issue": 800,
+  "reviewedAt": "2026-10-14",
+  "method": "DIRECT_VISUAL_INSPECTION_OF_COMPLETE_CACHED_PUBLIC_REFERENCE_IMAGE",
+  "reviewer": "Codex visual inspection",
+  "privatePredictionsUsedAsTruth": false,
+  "catalogueSetUsedAsObservedStamp": false,
+  "annotationsBefore": 181,
+  "annotationsAfter": 187,
+  "entries": [
+    {
+      "referenceId": "003feb09-600a-46ff-90a2-7606636d6c53:0",
+      "sha256": "f45d63a683b466c73a3fd44df1bf9578cb87ca27f974927a6030a07544dfa5e8",
+      "stamp": "PRESENT"
+    },
+    {
+      "referenceId": "060de3c3-8927-4f69-a524-7ae0b3e3620b:0",
+      "sha256": "adcd51dadff87c2fac57752ed03124903512f6a53947d03b20a8e0f48cf2266f",
+      "stamp": "PRESENT"
+    },
+    {
+      "referenceId": "67a22083-9ef9-4ff7-8502-3a77e69299df:0",
+      "sha256": "479e4a53fdac5f34e7e05d67d4b701b29f549044e1622473a17ba955540762f7",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "6a14fc22-2c70-454b-b8ef-0e41f0e21ada:0",
+      "sha256": "6b0adda48747ac7a20e56b7557b3c3979d8f9a25d22a711837b23c7c1364e9e4",
+      "stamp": "PRESENT"
+    },
+    {
+      "referenceId": "94bda699-2b5d-4f5b-bee5-792b99d2b64a:0",
+      "sha256": "afd61dec6fa345ed7d63f4b3f7f477dfa8a559e296c9cf4140c7da0f67d418ee",
+      "stamp": "ABSENT"
+    },
+    {
+      "referenceId": "fd1c9129-254d-4d1d-9d95-112292bd6bcc:0",
+      "sha256": "d90f24640cf6b370c3f491d847be87092d7e533adbc9d59055067415ebd2e4de",
+      "stamp": "ABSENT"
+    }
+  ]
+}
