@@ -11,7 +11,7 @@ export async function correctionMaintenanceGate(tx: Tx) {
 }
 export const correctionBackupActive = async (tx: Tx) => (await tx.correctionBackupGuard.count({ where: { releasedAt: null } })) > 0;
 
-export async function claimCorrectionCapture(db: PrismaClient, now = new Date()) {
+export async function claimCorrectionCapture(db: PrismaClient) {
   return db.$transaction(async tx => {
     // Serialize only queue admission. Copies and ordinary recognition run outside
     // this gate; persisted owner turns survive worker restart and empty claims.
@@ -22,13 +22,16 @@ export async function claimCorrectionCapture(db: PrismaClient, now = new Date())
         SELECT o.id,o."availableAt",o."createdAt" FROM "CorrectionBlob" b
         JOIN "CorrectionCaptureOutbox" o ON o."blobId"=b.id
         WHERE b."ownerPlayerId"=a."ownerPlayerId" AND b.state='PENDING'
-          AND ((o.status IN ('PENDING','WAITING_FOR_SPACE') AND o."availableAt"<=${now})
-            OR (o.status='RUNNING' AND o."leaseExpiresAt"<=${now}))
+          AND ((o.status IN ('PENDING','WAITING_FOR_SPACE') AND o."availableAt"<=clock_timestamp())
+            OR (o.status='RUNNING' AND o."leaseExpiresAt"<=clock_timestamp()))
           AND EXISTS (SELECT 1 FROM "CorrectionExample" e WHERE e."blobId"=b.id AND e."deletedAt" IS NULL)
         ORDER BY o."availableAt",o."createdAt",o.id LIMIT 1
       ) q ORDER BY COALESCE(a."lastCaptureAt",TIMESTAMP '1970-01-01'),q."availableAt",q."createdAt",q.id LIMIT 1`;
     if (!selected) return null;
     await lockCorrectionOwner(tx, selected.ownerPlayerId);
+    // Observe persisted authority after lock waits; worker clocks cannot admit
+    // future retries, steal live leases or issue already expired copy leases.
+    const [{ now }] = await tx.$queryRaw<{ now: Date }[]>`SELECT clock_timestamp() AS now`;
     const job = await tx.correctionCaptureOutbox.findUniqueOrThrow({ where: { id: selected.id }, include: { blob: true } });
     const account = await tx.correctionLibraryAccount.findUniqueOrThrow({ where: { ownerPlayerId: selected.ownerPlayerId } });
     if (!["PENDING", "WAITING_FOR_SPACE", "RUNNING"].includes(job.status) ||
@@ -58,7 +61,7 @@ export async function claimCorrectionCapture(db: PrismaClient, now = new Date())
 export type CorrectionCaptureClaim = NonNullable<Awaited<ReturnType<typeof claimCorrectionCapture>>>;
 
 export async function completeCorrectionCapture(db: PrismaClient, claim: CorrectionCaptureClaim,
-  publish: () => Promise<void>, now = new Date()) {
+  publish: () => Promise<void>) {
   return db.$transaction(async tx => {
     await correctionMaintenanceGate(tx);
     await lockCorrectionOwner(tx, claim.blob.ownerPlayerId);
@@ -68,6 +71,7 @@ export async function completeCorrectionCapture(db: PrismaClient, claim: Correct
         AND o."leaseExpiresAt">clock_timestamp() AND b.state='PENDING'
         AND EXISTS (SELECT 1 FROM "CorrectionExample" e WHERE e."blobId"=b.id AND e."deletedAt" IS NULL)`;
     if (!authority) return false;
+    const [{ now }] = await tx.$queryRaw<{ now: Date }[]>`SELECT clock_timestamp() AS now`;
     const account = await tx.correctionLibraryAccount.findUniqueOrThrow({ where: { ownerPlayerId: claim.blob.ownerPlayerId } });
     if (account.preservedBytes + account.reservedBytes + account.evidenceBytes > account.limitBytes) {
       await tx.correctionCaptureOutbox.update({ where: { id: claim.id }, data: { status: "WAITING_FOR_SPACE",
@@ -92,10 +96,13 @@ export async function completeCorrectionCapture(db: PrismaClient, claim: Correct
   }, { timeout: 30000 });
 }
 
-export async function failCorrectionCapture(db: PrismaClient, claim: CorrectionCaptureClaim, code: string, now = new Date()) {
-  return db.correctionCaptureOutbox.updateMany({ where: { id: claim.id, status: "RUNNING", leaseToken: claim.leaseToken,
-    leaseExpiresAt: { gt: now } }, data: { status: "PENDING", leaseToken: null, leaseExpiresAt: null,
-    availableAt: new Date(now.getTime() + 60000), errorCode: code } });
+export async function failCorrectionCapture(db: PrismaClient, claim: CorrectionCaptureClaim, code: string) {
+  const count = await db.$executeRaw`UPDATE "CorrectionCaptureOutbox"
+    SET status='PENDING', "leaseToken"=NULL, "leaseExpiresAt"=NULL,
+      "availableAt"=clock_timestamp()+INTERVAL '60 seconds', "errorCode"=${code}, "updatedAt"=clock_timestamp()
+    WHERE id=${claim.id} AND status='RUNNING' AND "leaseToken"=${claim.leaseToken}
+      AND "leaseExpiresAt">clock_timestamp()`;
+  return { count };
 }
 export async function runCorrectionCaptureOnce(db: PrismaClient) {
   const claim = await claimCorrectionCapture(db);

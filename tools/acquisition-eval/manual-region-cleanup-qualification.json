@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "issue": 743,
+  "pullRequest": 745,
+  "sourceCommit": "a8ef56c66632e647872b76be300c569354fe3f5b",
+  "qualifiedAtUtc": "2026-10-12T04:47:39.387Z",
+  "scope": "Exact manual-boundary fixture cleanup; recognition/hardware acceptance remains separate",
+  "originalWorkflow": {
+    "passed": 1,
+    "skipped": 0,
+    "retried": 0,
+    "flaky": 0,
+    "durationMs": 20488.053,
+    "originalAssertions": 59,
+    "originalDeadlineMs": 180000,
+    "bodyAndRouteSqlFileInventoryOperationsRetained": true,
+    "intentionalDisposableInventoryCopies": 1
+  },
+  "failureChecks": {
+    "actualBlockControlsPassed": 6,
+    "typesPassed": true,
+    "actualPostgresOriginalScenarios": 3,
+    "actualPostgresCorrectedScenarios": 3,
+    "lateEmptyAccountEarlyFeedbackAndUnrouteReproduced": true,
+    "allExactProbeNamespacesRecovered": true
+  },
+  "cleanup": {
+    "recordedOwners": 1,
+    "modelNamespacesPerOwner": 19,
+    "ownedTwoCardsGone": true,
+    "ownedSourceInventoryFeedbackAndPrivateDirectoryAbsent": true,
+    "historicalEmptyManualAccountsPreserved": 3,
+    "historicalSubstantiveFieldsUnchanged": true,
+    "historicalUpdatedAtAndLastCleanupAtExcluded": true
+  },
+  "conservation": {
+    "freshProjections": 20,
+    "unchangedProjections": 18,
+    "originalEvidenceFullRowCount": 60,
+    "originalEvidenceFullRowsConserved": true,
+    "originalAccountFieldsConservedAfterExactAppendAccounting": true,
+    "verifiedBackgroundAppends": 2,
+    "backgroundAccountCounterBytes": 40702,
+    "appendsPredateBrowser": true,
+    "retainedOriginals": 156,
+    "retainedOriginalBytes": 898515870,
+    "correctionFiles": 1,
+    "actualBeforeAfterShaAndSizeMatch": true,
+    "ordinaryServicesUnchanged": 16,
+    "webSourceInputsUnchanged": 598,
+    "noRestorationDeletionOrRewriteOfRetainedData": true,
+    "strictComparisonFailureRetained": true
+  },
+  "separateIntegrityFailure": {
+    "issue": 746,
+    "persistedPrintingBundleHashAndByteCheckFailed": true,
+    "reconstructedFromCompleteJobHashAndByteMatch": true,
+    "changedFiniteCoordinates": 4,
+    "storedByteCount": 23147,
+    "readbackCanonicalByteCount": 23143,
+    "catalogBundleIntegrityPassed": true,
+    "firstIntegrityFailureRetained": true,
+    "originalDataConservationQualifiedSeparately": true
+  },
+  "runtime": {
+    "cumulativePRs": [
+      740,
+      742,
+      745
+    ],
+    "webImage": "sha256:e83ffcad99f269bb3e9fe2a46dd048a5be7f83555680cdd59c789d54fdabdd2f",
+    "webSource": "0822bbc60eeabc1963d573d6b9e4b246f55cd7eeb1bb3b1b0ad6960c8f5ef2b4",
+    "nativeImage": "sha256:c0d7f3102c95401978b258e465af52231406deb3e2d5c446f63302fd684b0721",
+    "nativeGeometrySha": "6f911253ac85ea7ff7798da37bfa04077baf9257dc7dd302110c97d527972fa9",
+    "testOnlyNoImageRebuild": true
+  },
+  "limits": [
+    "Controlled suggestions and generated JPEG prove UI/receipt/cleanup behavior, not independent recognition accuracy or physical scanning",
+    "The controlled late-account probe does not identify the historical live writer",
+    "Original strict conservation and stored-integrity checks remain failures; provenance and original-data conservation are separate successful checks",
+    "The exact final-head CI outcome is recorded in the issue-worker checkpoint; draft readiness belongs to the separate reviewer"
+  ]
+}

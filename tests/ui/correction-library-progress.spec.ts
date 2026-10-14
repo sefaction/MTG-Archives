@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
-import { cleanupCorrectionFixture } from "./correction-fixture";
+import { cleanupCorrectionProgressFixture } from "./correction-progress-fixture";
 function database<T>(body: string): T {
   return JSON.parse(execFileSync("docker", ["exec", "-i", "mtg-archives-web-1", "node", "--import", "tsx"], {
     encoding: "utf8", windowsHide: true, timeout: 30000,
@@ -17,6 +17,7 @@ for (const width of [1366, 320]) test(`refresh correction progress preserves pag
   const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
   let failed = false, reads = 0, originalReads = 0, historyReads = 0;
   let pauseNext = false, resume: (() => void) | undefined;
+  let primaryFailed = false, primaryError: unknown;
   try {
     const blob = database<string>(`const n=${JSON.stringify(owner)};await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:await require('bcryptjs').hash(${JSON.stringify(password)},10)}});
       const {ensureCorrectionAccount}=require('./lib/acquisition-correction-library.ts');await p.$transaction(tx=>ensureCorrectionAccount(tx,n));
@@ -79,9 +80,12 @@ for (const width of [1366, 320]) test(`refresh correction progress preserves pag
     await examples.first().getByRole("button", { name: "Remove example", exact: true }).click();
     await examples.first().getByRole("button", { name: "Confirm removal", exact: true }).click();
     await expect(examples).toHaveCount(1); await expect(history).toHaveCount(0); await expect(page.getByRole("img", { name: "Preserved original correction photo" })).toHaveCount(0);
+  } catch (error) {
+    primaryFailed = true;
+    primaryError = error;
+    throw error;
   } finally {
-    resume?.();
-    database(`const n=${JSON.stringify(owner)};${cleanupCorrectionFixture}await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});return true;`);
+    await cleanupCorrectionProgressFixture({ owners: [owner], page, database, release: resume, primaryFailed, primaryError });
   }
 });
 
@@ -90,6 +94,7 @@ test("changing correction owner aborts an obsolete progress read", async ({ page
   expect(baseURL).toBe("http://127.0.0.1:13001"); test.setTimeout(90000);
   const owners = [0, 1].map(() => `ui-library-progress-${randomUUID()}`), password = randomUUID();
   let delay = false, release: (() => void) | undefined, obsoleteAborted = false, finished = false;
+  let primaryFailed = false, primaryError: unknown;
   const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
   try {
     database(`const owners=${JSON.stringify(owners)},hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);
@@ -121,9 +126,11 @@ test("changing correction owner aborts an obsolete progress read", async ({ page
     await expect(page.getByRole("heading", { name: "First owned progress example", exact: true })).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Saved review history", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Refresh photos", exact: true })).toBeEnabled(); expect(errors).toEqual([]);
+  } catch (error) {
+    primaryFailed = true;
+    primaryError = error;
+    throw error;
   } finally {
-    release?.();
-    try { if (!page.isClosed()) await page.unrouteAll({ behavior: "wait" }); }
-    finally { for (const n of owners) database(`const n=${JSON.stringify(n)};${cleanupCorrectionFixture}await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});return true;`); }
+    await cleanupCorrectionProgressFixture({ owners: owners, page, database, release: release, primaryFailed, primaryError });
   }
 });
