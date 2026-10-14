@@ -39,7 +39,10 @@ test('actual scanner footer boxes distinguish power/toughness noise and preserve
       const card=page.getByTestId(`capture-card-${i+1}`);await card.scrollIntoViewIfNeeded();const details=card.locator('details').filter({has:page.getByText('All OCR text and reading directions',{exact:true})});
       if(!await details.evaluate(e=>(e as HTMLDetailsElement).open))await details.locator('summary').click();
       const footer=primary.output.native.orientations[0].text.footer.join(' | ');
-      for(const width of [1366,320]){await page.setViewportSize({width,height:1000});await expect(details.getByText('Footer: '+footer,{exact:true})).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
+      for(const width of [1366,320]){await page.setViewportSize({width,height:1000});await expect(details.getByText('Footer: '+footer,{exact:true})).toBeVisible();
+        const additional=primary.output.native.orientations[0].text.footerSupplemental;
+        if(additional?.length)await expect(details.getByText('Additional footer reading: '+additional.join(' | '),{exact:true})).toBeVisible();
+        expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
       const link=await card.getByRole('link',{name:'Open original photo',exact:true}).getAttribute('href');const download=await page.request.get(link!);expect(download.ok()).toBe(true);expect(sha(await download.body())).toBe(entry.sha256);expect(sha(readFileSync(inputs[i]))).toBe(entry.sha256);
     }
     expect(final.inventory).toBe(0);expect(final.candidates.every((c:any)=>c.review===null&&c.receipt===null)).toBe(true);
