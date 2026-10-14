@@ -19,6 +19,7 @@ for (const accepted of [true, false]) test(`lost website START ${accepted ? "ack
   const requests: Record<string, unknown>[] = []; let polls = 0, recoveryAvailable = false;
   let first: { id: string; runId: string; batchNumber: number };
   const executionId = randomUUID();
+  let primaryFailed = false; let primaryError: unknown;
   try {
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box'}});`);
     await page.goto("/login"); await page.getByLabel(/username or email/i).fill(tag);
@@ -107,11 +108,15 @@ for (const accepted of [true, false]) test(`lost website START ${accepted ? "ack
       await expect(page.getByRole("button", { name: "Photo library", exact: true })).toBeVisible();
       expect(requests).toHaveLength(2); // Ordinary photo creation requires no scanner-start storage.
     }
-  } finally {
-    // Block new authenticated polling and retire only this fixture owner.
-    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
+  } catch (error) { primaryFailed = true; primaryError = error; throw error; } finally {
+    const cleanupErrors: unknown[] = [];
+    let cleanupSQL: string;
+    try { cleanupSQL = cancelAndCleanCorrectionFixture(tag); } catch (error) {
+      throw new AggregateError(primaryFailed ? [primaryError,error] : [error], "Owned scanner fixture cleanup failed");
+    }
+    try { database(cleanupSQL + "console.log('{}');"); } catch (error) { cleanupErrors.push(error); }
     try {
-    database(`const n=${JSON.stringify(tag)},w={run:{session:{createdByUserId:n}}};const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;
+      database(`const n=${JSON.stringify(tag)},w={run:{session:{createdByUserId:n}}};const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;
       if(!root||!paths.isAbsolute(root))throw new Error('Private fixture storage unavailable');
       for(const r of await p.scannerRun.findMany({where:{agent:{userId:n}},select:{id:true}})){
         if(!/^[a-f0-9-]{36}$/.test(r.id))throw new Error('Invalid owned fixture identity');await fs.unlink(paths.join(root,'scanner-control-v1',r.id+'.start.json')).catch(e=>{if(e.code!=='ENOENT')throw e;});}
@@ -120,10 +125,8 @@ for (const accepted of [true, false]) test(`lost website START ${accepted ? "ack
       await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});
       await p.scannerPairing.deleteMany({where:{userId:n}});await p.scannerAgent.deleteMany({where:{userId:n}});await p.authSession.deleteMany({where:{userId:n}});
       await p.inventoryLocation.deleteMany({where:{id:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});`);
-
-    } finally {
-      // A final sweep also catches writes completed during legacy teardown.
-      database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
-    }
+    } catch (error) { cleanupErrors.push(error); }
+    try { database(cleanupSQL + "console.log('{}');"); } catch (error) { cleanupErrors.push(error); }
+    if (cleanupErrors.length) throw new AggregateError(primaryFailed ? [primaryError,...cleanupErrors] : cleanupErrors, "Owned scanner fixture cleanup failed");
   }
 });
