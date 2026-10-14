@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "issue": 801,
+  "pullRequest": 804,
+  "scope": "REUSED_SIX_SCANNER_SOURCE_FOOTER_REGRESSION_CONTROLS",
+  "independentAccuracyQualified": false,
+  "physicalBoundaryTruth": "NONE",
+  "historicalTrainingIndependence": "UNKNOWN",
+  "physicalCopyIndependence": "UNKNOWN",
+  "source": {
+    "passed": true,
+    "image": "sha256:8c689ed55df77a3def387a52173aad01d8259fbe472ad81c3e1bc33fdeab9865",
+    "sourceDigest": "f12c4b44ff6726ba9afc5601c02eded60f5fb423b1ab433417b27d2af7d42bf0",
+    "files": 624
+  },
+  "tests": {
+    "acquisition": 304,
+    "nativePhotoText": 7,
+    "typecheck": "PASS",
+    "browser": {
+      "status": "PASS",
+      "elapsedMs": 176190,
+      "samples": 6,
+      "failures": 0,
+      "skips": 0,
+      "retries": 0,
+      "desktopWidth": 1366,
+      "phoneWidth": 320
+    }
+  },
+  "results": {
+    "beforeFirst": 3,
+    "afterFirst": 4,
+    "expectedOffered": 6,
+    "changedFirstSources": [
+      "val34-19"
+    ],
+    "nativePrimaryFieldChanges": [],
+    "catalogueUniversallyFixed": false,
+    "targetCatalogueFixed": true,
+    "originalDigestsPreserved": true,
+    "clippingPreserved": true,
+    "automaticAcceptance": 0,
+    "humanReviewReceipts": 0,
+    "inventoryChanges": 0
+  },
+  "runtime": {
+    "settingsAndMountsPreserved": true,
+    "databaseContainerPreserved": true,
+    "annotationsPreserved": true,
+    "builderRecipe": "private Dockerfile adds builder-only NODE_OPTIONS=--max-old-space-size=1536; application inputs unchanged",
+    "builderRecipeSha256": "6d66fff726f5a90919f8bf6e61404b2628184a0f53c32996f052720b2c94c7f1",
+    "resources": [
+      {
+        "role": "acquisition-recognition-worker",
+        "image": "sha256:5a89a1fb2784c9c21da32c33aaac44b4d53b1fb61d457d130a0ca844e509bcaa",
+        "status": "running",
+        "oomKilled": false,
+        "restarts": 0,
+        "memory": "1462968320\n2147483648\nlow 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\n7122944"
+      },
+      {
+        "role": "acquisition-visual-worker",
+        "image": "sha256:4e1e8cf067a9703c8e41507d940a396afc372b683c4834e4f1816c740d1e4f2e",
+        "status": "running",
+        "oomKilled": false,
+        "restarts": 0,
+        "memory": "1519034368\n3221225472\nlow 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\n38400000"
+      },
+      {
+        "role": "acquisition-printing-worker",
+        "image": "sha256:4e1e8cf067a9703c8e41507d940a396afc372b683c4834e4f1816c740d1e4f2e",
+        "status": "running",
+        "oomKilled": false,
+        "restarts": 0,
+        "memory": "1015246848\n1073741824\nlow 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\n19415040"
+      }
+    ]
+  },
+  "cleanup": {
+    "user": 0,
+    "player": 0,
+    "sessions": 0,
+    "photos": 0,
+    "jobs": 0,
+    "accounts": 0,
+    "inventory": 0,
+    "location": 0,
+    "auth": 0,
+    "queued": 0,
+    "ownedFiles": 0
+  },
+  "failedInterval": {
+    "build": "FAILED_RPC_UNAVAILABLE_EOF",
+    "isolatedWorkersExited": 5,
+    "primaryLifetimeConservation": "FAIL",
+    "primaryChanges": [
+      {
+        "name": "/mtg-archives-acquisition-visual-worker-1",
+        "key": "startedAt",
+        "before": "2026-10-14T05:30:47.222699986Z",
+        "after": "2026-10-14T18:59:01.746937653Z"
+      },
+      {
+        "name": "/mtg-archives-acquisition-visual-worker-1",
+        "key": "restarts",
+        "before": 2,
+        "after": 3
+      },
+      {
+        "name": "/mtg-archives-acquisition-catalog-worker-1",
+        "key": "startedAt",
+        "before": "2026-10-12T20:45:49.585044035Z",
+        "after": "2026-10-14T18:59:01.645816105Z"
+      },
+      {
+        "name": "/mtg-archives-acquisition-catalog-worker-1",
+        "key": "restarts",
+        "before": 1,
+        "after": 3
+      },
+      {
+        "name": "/mtg-archives-pricing-worker-1",
+        "key": "startedAt",
+        "before": "2026-10-14T05:30:47.128060942Z",
+        "after": "2026-10-14T18:59:01.278457135Z"
+      },
+      {
+        "name": "/mtg-archives-pricing-worker-1",
+        "key": "restarts",
+        "before": 7,
+        "after": 9
+      }
+    ],
+    "issue": 755,
+    "comment": "https://github.com/sefaction/MTG-Archives/issues/755#issuecomment-6176035763",
+    "cause": "UNKNOWN",
+    "primaryMutationsByBatch": false,
+    "failedIntervalPreserved": true,
+    "recoveryDoesNotQualifyEarlierInterval": true,
+    "previousPrintingOOMIssue": 803
+  },
+  "overallAcceptance": "INCOMPLETE_PRIMARY_LIFETIME_CONSERVATION",
+  "privateEvidenceLocation": ".local-data/visible-footer-20261014"
+}
