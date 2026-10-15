@@ -23,6 +23,7 @@ const digestOf = bytes => createHash("sha256").update(bytes).digest("hex");
 const fault = code => Object.assign(Error("bounded storage control"), { code });
 
 async function exercise(faults = new Map(), publish = false) {
+  await fsp.mkdir(path.join(process.cwd(), ".local-data"), { recursive: true });
   const root = await fsp.mkdtemp(path.join(process.cwd(), ".local-data/correction-prepare-"));
   const directory = path.join(root, "owner"), temporary = path.join(directory, "temporary");
   await fsp.mkdir(temporary, { recursive: true });
