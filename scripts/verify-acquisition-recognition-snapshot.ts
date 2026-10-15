@@ -1,3 +1,4 @@
+import {recognitionSnapshotFailure} from "../lib/acquisition-recognition-snapshot-diagnostics";
 import assert from 'node:assert/strict';
 import {createHash,randomUUID} from 'node:crypto';
 import {Prisma,type PrismaClient} from '@prisma/client';
@@ -64,7 +65,28 @@ export async function verifyRecognitionSnapshot(db:PrismaClient){
     },options)} as unknown as PrismaClient;
     await assert.rejects(loadAcquisitionRecognitionSnapshot(failed,changed),/snapshot page failed/);
     assert.equal(changed.digest,digestBefore);
-    console.log('Recognition snapshot: exact legacy identity/index, bounded pages, unchanged reuse, concurrent edit/delete/insert and failure preservation pass.');
+    // Short timers exist only in this disposable adapter; the production loader
+    // must still request its unchanged 60-second transaction and 10-second wait.
+    for(const mode of ['READ_PAGE','COMMIT_TRANSACTION'] as const){
+      const expired={$transaction:<T>(fn:(tx:Prisma.TransactionClient)=>Promise<T>,options:{isolationLevel?:Prisma.TransactionIsolationLevel;maxWait?:number;timeout?:number})=>{
+        assert.equal(options.timeout,60000);assert.equal(options.maxWait,10000);
+        return db.$transaction(async tx=>{
+          const result=await fn({card:{findMany:async(args:Prisma.CardFindManyArgs)=>{
+            if(mode==='READ_PAGE')await new Promise(resolve=>setTimeout(resolve,400));
+            return mode==='READ_PAGE'?tx.card.findMany({...args,where:{id:{startsWith:prefix}}}):[];
+          }}} as unknown as Prisma.TransactionClient);
+          if(mode==='COMMIT_TRANSACTION')await new Promise(resolve=>setTimeout(resolve,400));
+          return result;
+        },{...options,timeout:200});
+      }} as unknown as PrismaClient;
+      let caught:unknown;try{await loadAcquisitionRecognitionSnapshot(expired,changed);}catch(error){caught=error;}
+      assert(caught instanceof Prisma.PrismaClientKnownRequestError);assert.equal(caught.code,'P2028');
+      const report=recognitionSnapshotFailure(caught)!;assert.equal(report.phase,mode);
+      assert.equal(report.pagesRead,mode==='READ_PAGE'?0:1);assert.equal(report.transactionCompleted,false);
+      assert.equal(report.transactionTimeoutMs,60000);assert((report.elapsedMs??0)>=200);
+      assert.equal(changed.digest,digestBefore,'a controlled failed refresh cannot mutate previous identity');
+    }
+    console.log('Recognition snapshot: exact legacy identity/index, bounded pages, unchanged reuse, concurrent edit/delete/insert, failure preservation and bounded transaction fault evidence pass.');
   }finally{
     await db.card.deleteMany({where:{id:{startsWith:prefix}}});
     assert.equal(await db.card.count({where:{id:{startsWith:prefix}}}),0);

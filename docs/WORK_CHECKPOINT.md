@@ -1,5 +1,18 @@
 # Work checkpoint
 
+## Issue organization documentation batch - October 13, 2026
+
+- Published draft: [PR #783](https://github.com/sefaction/MTG-Archives/pull/783), documentation only, requires its own explicit merge approval. Final-head check results are authoritative on the PR; no ready/merge/deployment action is inferred.
+- Branch: `codex/issue-organization-20261013`, isolated worktree `.local-data/worktrees/issue-organization-20261013`, base main4a687c6. Parent task authorized direct issue organization and a draft documentation PR; no merge/deployment authority.
+- GitHub issue organization verified:34 audited →33 open,17 unlabelled →0;20 labels added,9 titles clarified, all current summaries/history/comments/assignments read back. #302 stays top roadmap; #506 closed completed only after unresolved review scope visibly transferred to OPEN #308. No new issues.
+- Evidence and complete per-issue before/after table: [ISSUE_ORGANIZATION_AUDIT_20261013.md](ISSUE_ORGANIZATION_AUDIT_20261013.md). Private live snapshots/plans/readbacks: root `.local-data/issue-organization-20261013/`. Own metadata lock released.
+- Scope changed: AGENTS.md adds duplicate/current-parent checks, independent label dimensions, concise current summaries, bounded investigations, qualification/CI/merge/deployment/user-acceptance distinctions, visible transfer/closure criteria and three issue filters. Existing approval/safety/source-data rules remain verbatim.
+- Completed checks:34-issue coverage; open type/status/area consistency; exact old-body/original-comment/assignment preservation; safe closure transfer; original AGENTS text preserved; git diff whitespace check. Pending at publication: exact-head GitHub Verify checks and individual merge approval. Published PR/result details are authoritative in GitHub.
+- Existing owner work: #780 remains draft with shared native/browser qualification pending; #782 ready/unmerged/individually unapproved. Never seize those runtime locks or infer approval from earlier completed-set approval. Primary dirty checkpoint/manual files and application/scanner/container/data/other-branch state were untouched.
+- Outstanding decisions: #714 saved/active optional-profile/autostart; #746 historical malformed-evidence disposition. Other bounded investigations/acceptance remain in their current issue summaries. No question blocks this authorized documentation batch.
+- Next safe step: read current PR metadata and exact-head checks; await explicit approval for this documentation PR. Future workers follow the scheme and re-read live queue/parent/comments before acting. No Docker reload/physical test/host/capacity/production operation belongs to this batch.
+
+
 ## Public inventory scripts-disabled fallback #708 — October 10, 2026
 
 Chat 01a12702-db11-7810-82b0-473bbbe10692 claimed GitHub #708 with in-progress; branch codex/public-inventory-noscript, isolated worktree .local-data/worktrees/public-inventory-noscript, main base 5e7adbf. Added a synchronous noscript fallback layout and read-only browser regression. Type validation and all 877 units PASS; required-installer production build and 13 manifests PASS; final focused browser qualification 4/4 PASS (4.4s), including 1366/390/320px, hidden stalled workspace, keyboard reload/filter preservation, normal filtered navigation and desktop filter controls. Narrow screenshot inspected. Baseline regression fails on the missing fallback as expected. See docs/PUBLIC_INVENTORY_NOSCRIPT.md for initial environment/test failures and scope.
