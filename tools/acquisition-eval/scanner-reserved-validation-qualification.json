@@ -1,0 +1,118 @@
+{
+  "version": 1,
+  "pullRequest": 799,
+  "parents": [
+    463,
+    307,
+    306,
+    749
+  ],
+  "scope": "CURRENT_PIPELINE_DIAGNOSTIC_ON_OLD_RESERVED_AUDIT_POLICY_COHORT; 7 CURRENT_DESKTOP_DEVELOPMENT_OVERLAPS; HISTORICAL_TRAINING_AND_PHYSICAL_COPIES_UNKNOWN",
+  "applicationSource": "0c1b4c42cf5780a54e51e7bd073c4dc0e25d3f38dfc701a987b60403f21f47f2",
+  "manifest": "1b598a2a95a6fa9099b6b2d0781f7c9ccb56109ac3e40b59bd87e6d05c25934c",
+  "originalLockedManifest": "ed511f0a15420762a2c05c4a0b720416e47bf487af436fe660e753931cc152a2",
+  "cohorts": {
+    "all": {
+      "samples": 41,
+      "scorable": 41,
+      "completed": 41,
+      "firstCorrect": 35,
+      "expectedOffered": 41,
+      "failedSamples": 0,
+      "primaryTextEligible": 11,
+      "wrongPrimaryTextEligibility": 0,
+      "finalAutomatic": 0,
+      "groups": 36
+    },
+    "notInDesktopDevelopment": {
+      "samples": 34,
+      "scorable": 34,
+      "completed": 34,
+      "firstCorrect": 28,
+      "expectedOffered": 34,
+      "failedSamples": 0,
+      "primaryTextEligible": 11,
+      "wrongPrimaryTextEligibility": 0,
+      "finalAutomatic": 0,
+      "groups": 29
+    },
+    "knownDesktopDevelopment": {
+      "samples": 7,
+      "scorable": 7,
+      "completed": 7,
+      "firstCorrect": 7,
+      "expectedOffered": 7,
+      "failedSamples": 0,
+      "primaryTextEligible": 0,
+      "wrongPrimaryTextEligibility": 0,
+      "finalAutomatic": 0,
+      "groups": 7
+    }
+  },
+  "independence": {
+    "physicalCopies": "UNKNOWN",
+    "historicalTraining": "UNKNOWN",
+    "previouslyEvaluatedAuditCohort": true,
+    "physicalBoundaryLabels": 0,
+    "captureHardwareOrigin": "UNKNOWN",
+    "freshIndependentAccuracy": false
+  },
+  "ordinaryWorkflow": {
+    "passed": true,
+    "durationMs": 953456,
+    "skips": 0,
+    "retries": 0,
+    "processingFailures": 0,
+    "accuracyIsMeasuredNotAsserted": true,
+    "firstCorrect": 35,
+    "expectedOffered": 41,
+    "finalAutomaticAcceptance": 0,
+    "humanReviewWrites": 0,
+    "inventoryWrites": 0,
+    "ownedCleanupResidue": 0,
+    "primaryServicesConserved": 16,
+    "reviewServicesRunning": 7,
+    "sourceOrPolicyChanged": false
+  },
+  "runtime": {
+    "containerLifetimePeaksIncludePriorControls": true,
+    "memoryPeaksBytes": {
+      "ocr": 1830727680,
+      "visual": 1622519808,
+      "printing": 1028247552
+    },
+    "swapPeaksBytes": {
+      "ocr": 163536896,
+      "visual": 112136192,
+      "printing": 126033920
+    },
+    "maxEvents": 0,
+    "oomEvents": 0,
+    "restarts": 0
+  },
+  "firstFailedBrowserRun": {
+    "duration": "15.5minutes",
+    "cause": "MISTAKEN_INTERMEDIATE_TEXT_ELIGIBILITY_ASSERTION",
+    "completeNativePhotosPreserved": 41,
+    "rawJobsPreserved": 244,
+    "rawSnapshotBytes": 3501180,
+    "scoreFirst": 35,
+    "scoreOffered": 41,
+    "notCountedAsPassingQualification": true
+  },
+  "followups": [
+    {
+      "issue": 800,
+      "wrongFirstSamples": 5,
+      "printingGroups": 3,
+      "reason": "NO_VERIFIED_UNSTAMPED_REFERENCE"
+    },
+    {
+      "issue": 801,
+      "wrongFirstSamples": 1,
+      "printingGroups": 1,
+      "reason": "CLIPPED_FRAMING_VISIBLE_IDENTIFIER_EVIDENCE_ONLY_IN_NAME_HINTS"
+    }
+  ],
+  "finalHeadCI": "INSPECT_AFTER_QUALIFICATION_COMMIT"
+}
