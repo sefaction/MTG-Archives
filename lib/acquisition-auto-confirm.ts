@@ -59,6 +59,19 @@ export async function confirmStrongAcquisitionMatches(db: PrismaClient) {
       if (!job) return 0;
       const locked = await tx.$queryRaw<{id:string}[]>`SELECT id FROM "AcquisitionSession" WHERE id = ${job.run.sessionId} FOR UPDATE`;
       if (!locked.length) return 0;
+      // The bounded selection can become stale before the session lock.
+      // Preserve its freshness rule before recording any automatic decision.
+      const newer = await tx.acquisitionProcessingJob.findFirst({
+        where: {
+          runId: job.runId,
+          candidateId: job.candidateId,
+          candidateRevision: job.candidateRevision,
+          stage: { in: ["photo-recognition-v1", CATALOG_RECONCILIATION_STAGE] },
+          createdAt: { gt: job.createdAt },
+        },
+        select: { id: true },
+      });
+      if (newer) return 0;
       const session = await tx.acquisitionSession.findUnique({
         where: { id: job.run.sessionId },
         include: { ownerPlayer: true, createdByUser: true },
