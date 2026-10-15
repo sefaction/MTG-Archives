@@ -99,7 +99,7 @@ class ManualNativeTest(unittest.TestCase):
             return object()
         data = source_bytes()
         with patch.object(visual, 'runtime', return_value=(types.SimpleNamespace(embed=embed), [row], np.ones((1,2)))), \
-                patch.object(visual, 'features', side_effect=features), patch.object(visual, 'match', return_value=0), \
+                patch.dict(sys.modules, {'torch': None, 'torchvision': None, 'visual_compare': types.SimpleNamespace(features=features, match=lambda *args: 0)}), \
                 patch.dict(visual._reference_features, {0: object()}, clear=True), \
                 patch.object(visual, 'geometry', side_effect=AssertionError('automatic detector attempted')):
             result = visual.recognize(frame(data, {'inputKind': 'PHOTO', 'manualRegion': REGION}),
