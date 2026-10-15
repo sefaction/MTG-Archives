@@ -2,7 +2,7 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const {readFileSync} = require('node:fs');
-const {TYPES, STATUSES, MARKER, validateIssue, feedback, run} = require('./issue-guidelines.cjs');
+const {TYPES, STATUSES, MARKER, sections, validateIssue, feedback, run} = require('./issue-guidelines.cjs');
 
 const body = `### Problem or intended outcome
 Keep parent issue summaries current.
@@ -16,6 +16,45 @@ Implement the validator, then test repeat events.
 Repeated events update one comment and preserve issue history.
 `;
 const issue = (changes = {}) => ({number: 42, state: 'open', labels: ['type: maintenance', 'status: backlog', 'area: infrastructure'], body, ...changes});
+
+// Verbatim retained scope paragraph from issue #822; the label occurs mid-paragraph.
+const inlineCompletionParagraph = 'Implement and qualify the narrow preparation path with actual-function real-file controls, existing correction-file and database compatibility, required exact-head CI and cumulative local review. Completion: close failure cannot bypass unlink; a failed unlink remains explicit; every cause and the primary retry code survive; successful immutable publication and source/neighbor conservation remain intact. Separate reviewer owns readiness, individual approval, merge and closure.';
+const noCompletion = body.replace(/### Acceptance or completion criteria\n[^\n]*\n/, '');
+const longPrefix = 'The next bounded step retains the existing source identities, failure records, cleanup ownership, exact-head checks and independent review requirements. ';
+
+test('issue #822 exact inherited paragraph satisfies completion without rewriting its body', () => {
+  const original = noCompletion + '\n## Preserved initial problem and evidence\n' + inlineCompletionParagraph;
+  const sample = issue({body: original});
+  assert.deepEqual(validateIssue(sample), []);
+  assert.equal(sample.body, original);
+  assert.equal(sections(inlineCompletionParagraph).has('completion'), true);
+});
+
+test('sentence-inline completion supports long prefixes, case, tabs and substantive criteria', () => {
+  for (const label of ['Completion:', 'completion:', 'COMPLETION :\t']) {
+    const paragraph = longPrefix + label + ' The corrected cleanup attempts unlink and preserves each failure.';
+    assert.deepEqual(validateIssue(issue({body: noCompletion + '\n' + paragraph})), []);
+  }
+});
+
+test('inline completion rejects empty values and placeholder first sentences', () => {
+  for (const value of ['', ' ', '.', '!', '…', '---', 'TBD', 'TODO.', '_No response_', 'N/A', 'None yet.', 'Pending', '...', 'TBD. Separate reviewer owns readiness and approval.', '\nUnrelated trailing discussion does not provide criteria.']) {
+    const sample = noCompletion + '\n' + longPrefix + 'Completion: ' + value;
+    assert.deepEqual(validateIssue(issue({body: sample})), ['Add current-summary content for acceptance/completion criteria.'], value);
+  }
+});
+
+test('acceptance disclaimers alone do not become inline completion criteria', () => {
+  for (const disclaimer of ['No production acceptance is claimed.', 'Independent acceptance is not claimed.', 'Completion is not claimed.', 'Completion: No independent acceptance claimed.', 'Completion: No production acceptance is claimed.', 'Completion: Independent acceptance is not claimed.', 'Completion: Not yet accepted.', 'Completion: Not complete.']) {
+    assert.equal(sections(longPrefix + disclaimer).has('completion'), false, disclaimer);
+  }
+});
+
+test('hidden, quoted and code examples cannot supply inline completion criteria', () => {
+  for (const hidden of ['<!-- ' + inlineCompletionParagraph + ' -->', '> ' + inlineCompletionParagraph, '```markdown\n' + inlineCompletionParagraph + '\n```', '~~~markdown\n' + inlineCompletionParagraph + '\n~~~', longPrefix + '`Completion: unlink must preserve source data.`', '`' + inlineCompletionParagraph + '`', '`Code example\n' + inlineCompletionParagraph + '\n`']) {
+    assert.deepEqual(validateIssue(issue({body: noCompletion + '\n' + hidden})), ['Add current-summary content for acceptance/completion criteria.']);
+  }
+});
 
 test('all supported work types and statuses, multi-area and independent flags', () => {
   for (const type of TYPES) for (const status of STATUSES) {
@@ -106,6 +145,18 @@ test('valid issues are silent; stale event body/labels are never used', async ()
   const h = harness();
   await run(h.args);
   assert.equal(h.calls.filter(([kind]) => kind !== 'get').length, 0);
+});
+
+test('recognizing inherited inline completion resolves the old warning once without body edits', async () => {
+  const current = issue({body: noCompletion + '\n## Preserved initial problem and evidence\n' + inlineCompletionParagraph});
+  const original = current.body;
+  const h = harness(current, [{id: 17, body: feedback(['Add current-summary content for acceptance/completion criteria.']), user: {login: 'github-actions[bot]', type: 'Bot'}}]);
+  await run(h.args);
+  await run(h.args);
+  assert.equal(h.calls.filter(([kind]) => kind === 'update').length, 1);
+  assert.equal(h.calls.filter(([kind]) => kind === 'create').length, 0);
+  assert.match(h.comments[0].body, /resolved/);
+  assert.equal(current.body, original);
 });
 
 test('repeated invalid events, changed findings, correction, close and reopen reuse one comment', async () => {

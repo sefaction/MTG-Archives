@@ -48,6 +48,15 @@ function sections(body) {
   for (const [key, pattern] of Object.entries(prosePatterns)) {
     if (pattern.test(prose) && prose.trim().length > 80) found.add(key);
   }
+  // A retained criterion can follow a long scope sentence on the same line (#822).
+  // Inspect only its first sentence, so placeholders cannot borrow later discussion.
+  const inlineProse = current.replace(/(`+)[\s\S]*?\1/g, '');
+  for (const field of inlineProse.matchAll(/[.!?][ \t]+completion[ \t]*:[ \t]*([^\r\n]*)/gi)) {
+    const criterion = field[1].split(/(?<=[.!?])[ \t]+/)[0].trim();
+    if (!/[\p{L}\p{N}]/u.test(criterion) || /^(?:_?No response_?|n\/?a|tbd|todo|none(?: yet)?|pending)[.!]?$/i.test(criterion)) continue;
+    if (/^(?:no (?:independent |production |user )?acceptance (?:is )?claimed|(?:independent|production|user) acceptance is not claimed|not (?:yet )?(?:accepted|complete|qualified))[.!]?$/i.test(criterion)) continue;
+    found.add('completion');
+  }
   return found;
 }
 
