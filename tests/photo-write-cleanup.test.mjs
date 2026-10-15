@@ -85,7 +85,11 @@ async function exercise(faults = new Map(), { existing = false, retry = false, v
       assert.equal((await fsp.readdir(directory)).filter(n => n.endsWith(".part")).length, parts.length);
     }
     return { failed, error, calls, parts, published };
-  } finally { await fsp.rm(root, { recursive: true, force: true }); }
+  } finally {
+    const parent = path.resolve(".local-data");
+    assert.ok(root.startsWith(parent + path.sep) && path.basename(root).startsWith("photo-write-"), "Owned fixture cleanup stays inside its namespace");
+    await fsp.rm(root, { recursive: true, force: true });
+  }
 }
 
 test("original write failure attempts partial unlink even after close fails", async () => {
