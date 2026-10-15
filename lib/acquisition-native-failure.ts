@@ -1,3 +1,4 @@
+import type { NativeMemoryWindow } from "./acquisition-native-memory";
 export type NativeFailureReason =
   | "ABORTED" | "TIMEOUT" | "OUTPUT_LIMIT" | "INPUT_PIPE" | "SPAWN"
   | "EXIT" | "INVALID_JSON" | "PROTOCOL" | "PROGRESS_CALLBACK"
@@ -9,7 +10,8 @@ export type NativeFailure = Readonly<{
   signal: string | null;
   systemCode: string | null;
 }>;
-export type NativeFailureObserver = (failure: NativeFailure) => void;
+export type NativeFailureObservation = NativeFailure & Readonly<{memory?: NativeMemoryWindow}>;
+export type NativeFailureObserver = (failure: NativeFailureObservation) => void;
 const reasons = new Set<NativeFailureReason>([
   "ABORTED", "TIMEOUT", "OUTPUT_LIMIT", "INPUT_PIPE", "SPAWN", "EXIT", "INVALID_JSON",
   "PROTOCOL", "PROGRESS_CALLBACK", "SHUTDOWN", "UNSOLICITED_OUTPUT",
