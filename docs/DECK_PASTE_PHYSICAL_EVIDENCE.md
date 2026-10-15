@@ -1,3 +1,8 @@
+# Current investigation — October 15, 2026
+
+Brian has now identified the Unraid site, a commander deck, a black error page and nothing added afterward. Two controlled local contention defects are repaired in PR #810 under child #818; [current qualification](DECK_PASTE_CONTENTION_QUALIFICATION.md) distinguishes those demonstrated classes from the still-unconfirmed cause of parent #808. The earlier coverage-only evidence below is preserved as October14 history; its unanswered-installation statements describe that earlier stage.
+
+## Preserved earlier evidence
 # Pasted decklist physical-copy investigation
 
 [User report #808](https://github.com/sefaction/MTG-Archives/issues/808) remains unresolved. The installation/revision, failing list, exact visible error and failure boundary were not provided. Two focused asynchronous questions ask for the installation and exact error/list size or small failing list. No answer was available when these controls were recorded.

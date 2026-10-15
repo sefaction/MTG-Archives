@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 function db(body: string): any { return JSON.parse(execFileSync('docker', ['exec', '-i', 'mtg-archives-web-1', 'node'], { input: "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{" + body + "})().then(x=>console.log(JSON.stringify(x))).catch(e=>{console.error(e.code||'Owned commander fixture error');process.exitCode=1}).finally(()=>p.$disconnect());", encoding: 'utf8', windowsHide: true, timeout: 30000, maxBuffer: 4 * 1024 * 1024 })); }
-for (const scenario of [{ name: 'slow', seconds: 7, concurrent: false }, { name: 'concurrent', seconds: 1, concurrent: true }])
+for (const scenario of [{ name: 'slow', seconds: 7, concurrent: false, rollback: false }, { name: 'concurrent', seconds: 1, concurrent: true, rollback: false }, { name: 'expired', seconds: 35, concurrent: false, rollback: true }])
     test('physical commander import preserves rows through ' + scenario.name + ' contention', async ({ page, baseURL }, testInfo) => {
         test.skip(process.env.MTG_LOCAL_PILOT_TEST !== '1', 'Owned local Docker fixture');
         expect(baseURL).toBe('http://127.0.0.1:13001');
@@ -40,25 +40,43 @@ for (const scenario of [{ name: 'slow', seconds: 7, concurrent: false }, { name:
                 expect(payload).toHaveLength(100);
                 expect(payload.filter((l: any) => l.physicalQuantity > 0)).toHaveLength(physical ? 100 : 0);
                 const parseAndReviewMs = Date.now() - parseStart;
-                const seed = db("const d=await p.deck.findUniqueOrThrow({where:{id:" + JSON.stringify(deckId) + "}});const c=await p.card.findUniqueOrThrow({where:{id:" + JSON.stringify(fixture.ids[0]) + "}});const row=await p.deckCard.create({data:{deckId:d.id,cardId:c.id,scryfallId:c.scryfallId,oracleId:c.oracleId,cardName:c.name,section:'COMMANDER',quantity:1,isCommander:true}});return {id:row.id};");
+                const seed = db("const section=" + JSON.stringify(scenario.rollback ? "MAINBOARD" : "COMMANDER") + ";const d=await p.deck.findUniqueOrThrow({where:{id:" + JSON.stringify(deckId) + "}});const c=await p.card.findUniqueOrThrow({where:{id:" + JSON.stringify(fixture.ids[scenario.rollback ? 49 : 0]) + "}});const row=await p.deckCard.create({data:{deckId:d.id,cardId:c.id,scryfallId:c.scryfallId,oracleId:c.oracleId,cardName:c.name,section,quantity:1,isCommander:section==='COMMANDER'}});return {id:row.id};");
                 const child = spawn('docker', ['exec', '-i', 'mtg-archives-web-1', 'node'], { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
                 let readyBuffer = '';
                 release = new Promise<void>((resolve, reject) => { child.on('error', reject); child.on('exit', code => code === 0 ? resolve() : reject(new Error('Owned row-lock process failed'))); });
-                release.catch(() => {});
-                const ready = new Promise<void>((resolve, reject) => { const timer = setTimeout(() => reject(new Error('Owned row-lock readiness timeout')), 10000); child.stdout.on('data', chunk => { readyBuffer += chunk.toString(); if (readyBuffer.includes('OWNED_LOCK_READY')) {
-                    clearTimeout(timer);
-                    resolve();
-                } }); child.on('exit', code => { if (!readyBuffer.includes('OWNED_LOCK_READY')) {
-                    clearTimeout(timer);
-                    reject(new Error('Owned row-lock exited before readiness'));
-                } }); });
-                async function holdOwnedRow(id: string, seconds: number, concurrent: boolean) { const { PrismaClient } = require('@prisma/client'); const p = new PrismaClient(); try {
-                    await p.$transaction(async (tx: any) => { await tx.$queryRawUnsafe('SELECT id FROM "DeckCard" WHERE id=$1 FOR UPDATE', id); console.log('OWNED_LOCK_READY'); await tx.$queryRawUnsafe('SELECT pg_sleep($1::double precision)::text', seconds); if (concurrent)
-                        await tx.deckCard.update({ where: { id }, data: { quantity: { increment: 1 } } }); }, { timeout: 15000 });
+                release.catch(() => { });
+                const ready = new Promise<void>((resolve, reject) => {
+                    const timer = setTimeout(() => reject(new Error('Owned row-lock readiness timeout')), 10000);
+                    child.stdout.on('data', chunk => {
+                        readyBuffer += chunk.toString();
+                        if (readyBuffer.includes('OWNED_LOCK_READY')) {
+                            clearTimeout(timer);
+                            resolve();
+                        }
+                    });
+                    child.on('exit', code => {
+                        if (!readyBuffer.includes('OWNED_LOCK_READY')) {
+                            clearTimeout(timer);
+                            reject(new Error('Owned row-lock exited before readiness'));
+                        }
+                    });
+                });
+                async function holdOwnedRow(id: string, seconds: number, concurrent: boolean) {
+                    const { PrismaClient } = require('@prisma/client');
+                    const p = new PrismaClient();
+                    try {
+                        await p.$transaction(async (tx: any) => {
+                            await tx.$queryRawUnsafe('SELECT id FROM "DeckCard" WHERE id=$1 FOR UPDATE', id);
+                            console.log('OWNED_LOCK_READY');
+                            await tx.$queryRawUnsafe('SELECT pg_sleep($1::double precision)::text', seconds);
+                            if (concurrent)
+                                await tx.deckCard.update({ where: { id }, data: { quantity: { increment: 1 } } });
+                        }, { timeout: 45000 });
+                    }
+                    finally {
+                        await p.$disconnect();
+                    }
                 }
-                finally {
-                    await p.$disconnect();
-                } }
                 child.stdin.end('(' + holdOwnedRow.toString() + ')(' + JSON.stringify(seed.id) + ',' + scenario.seconds + ',' + scenario.concurrent + ').catch(()=>{process.exitCode=1})');
                 await ready;
                 const reply = page.waitForResponse(r => r.request().method() === 'POST' && r.url().includes('/decks/'), { timeout: 90000 });
@@ -66,14 +84,19 @@ for (const scenario of [{ name: 'slow', seconds: 7, concurrent: false }, { name:
                 await form.getByRole('button').click();
                 const response = await reply;
                 await page.waitForTimeout(500);
-                const result = db("const n=" + JSON.stringify(n) + ",deckId=" + JSON.stringify(deckId) + ";return {deck:(await p.deckCard.aggregate({where:{deckId},_sum:{quantity:true}}))._sum.quantity||0,stock:(await p.inventoryItem.aggregate({where:{currentOwnerId:n},_sum:{quantity:true}}))._sum.quantity||0,audits:await p.inventoryAuditLog.count({where:{changedByUserId:n}}),locations:await p.inventoryLocation.count({where:{ownerPlayerId:n}})};");
+                const result = db("const n=" + JSON.stringify(n) + ",deckId=" + JSON.stringify(deckId) + ";return {deck:(await p.deckCard.aggregate({where:{deckId},_sum:{quantity:true}}))._sum.quantity||0,stock:(await p.inventoryItem.aggregate({where:{currentOwnerId:n},_sum:{quantity:true}}))._sum.quantity||0,items:await p.inventoryItem.count({where:{currentOwnerId:n}}),deckRows:await p.deckCard.count({where:{deckId}}),audits:await p.inventoryAuditLog.count({where:{changedByUserId:n}}),locations:await p.inventoryLocation.count({where:{ownerPlayerId:n}})};");
                 const outcome = { physical, status: response.status(), commitMs: Date.now() - start, parseAndReviewMs, lines: payload.length, result, url: page.url(), text: (await page.locator('body').innerText()).slice(-2000) };
                 outcomes.push(outcome);
                 writeFileSync(dir + '/request-outcomes-private.json', JSON.stringify(outcomes, null, 2));
-                expect(outcome.status).toBeLessThan(400);
-                expect(result.deck).toBe(scenario.concurrent ? 102 : 101);
-                expect(result.stock).toBe(physical ? 100 : 0);
-                expect(result.audits).toBe(physical ? 200 : 0);
+                expect(outcome.status).toBe(scenario.rollback ? 500 : 303);
+                expect(result.deck).toBe(scenario.rollback ? 1 : scenario.concurrent ? 102 : 101);
+                expect(result.stock).toBe(scenario.rollback ? 0 : 100);
+                expect(result.audits).toBe(scenario.rollback ? 0 : 200);
+                if (scenario.rollback) {
+                    expect(result.items).toBe(0);
+                    expect(result.deckRows).toBe(1);
+                    expect(result.locations).toBe(0);
+                }
             }
         }
         catch (e) {
