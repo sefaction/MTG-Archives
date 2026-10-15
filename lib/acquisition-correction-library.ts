@@ -251,6 +251,9 @@ export async function captureCorrectionPublication(tx: Tx, job: AcquisitionProce
     }, data: { firstMachineEvidence: identity } });
     if (changed.count) earliest = identity as Prisma.JsonObject;
   }
+  // Explicit removal also holds this owner lock. Read membership after any
+  // wait so a completed removal cannot be followed by resurrected evidence.
+  await lockCorrectionOwner(tx, photo.run.session.ownerPlayerId);
   const example = await tx.correctionExample.findUnique({ where: {
     ownerPlayerId_sourcePhotoId: { ownerPlayerId: photo.run.session.ownerPlayerId, sourcePhotoId: photo.id },
   } });
