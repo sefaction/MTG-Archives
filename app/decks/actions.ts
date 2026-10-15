@@ -1354,6 +1354,8 @@ export async function commitDeckImport(fd: FormData) {
   if (physicalCopyCount > 0 && !deck.ownerUser.playerId) {
     throw new Error("Deck owner is not linked to an inventory owner.");
   }
+  // A full deck creates receipts, movements and audits in one atomic batch.
+  // Allow bounded database contention beyond the default five-second budget.
   await prisma.$transaction(async (tx) => {
     if (mode === "replace") {
       await tx.deckCard.deleteMany({ where: { deckId } });
@@ -1378,7 +1380,7 @@ export async function commitDeckImport(fd: FormData) {
         await tx.deckCard.update({
           where: { id: existing.id },
           data: {
-            quantity: existing.quantity + line.quantity,
+            quantity: { increment: line.quantity },
             notes: line.notes || existing.notes,
           },
         });
@@ -1448,7 +1450,7 @@ export async function commitDeckImport(fd: FormData) {
         });
       }
     }
-  });
+  }, { timeout: 30_000 });
   revalidatePath(`/decks/${deckId}`);
   if (physicalCopyCount > 0) {
     revalidatePath("/inventory");
