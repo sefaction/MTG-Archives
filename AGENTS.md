@@ -59,6 +59,10 @@ Distinguish author-reported local qualification, independent qualification, CI s
 
 Current capture priority is fi-7160 only. Brian's October 13 report of about 1,000 ordinary scans accepts ordinary physical operation; do not reinstate broad hardware qualification as a standing blocker. Independent recognition accuracy, software recovery, privacy and data integrity remain separately open. Other capture methods/scanners, extended virtual-source validation, optional GPU and optional fi-7160 background/framing remain deferred. Respect declined counter rereads and specific settings/test deferrals. This process creates no additional physical-operation, merge or deployment authority; every PR still needs its own explicit user merge approval.
 
+Issue forms and the advisory issue-event check are described in [.github/ISSUE_GUIDELINES.md](.github/ISSUE_GUIDELINES.md). The check never assigns status or rewrites issue bodies; structural success is not proof of fresh summaries or accepted work. API-created issues must follow the same policy, even when created by automation whose events do not trigger another workflow.
+
+Every PR must identify affected issues and parent trackers and use the [PR merge checklist](.github/pull_request_template.md). After each individually approved merge, the merger re-reads affected issues and latest comments, refreshes their current summaries with merged PR/revision links and evidence limits, reconciles the exact remaining next action and acceptance criteria, preserves dated history, and reads back edits. Do not leave merged work described as awaiting review. Merge does not establish named-installation deployment or independent user acceptance; keep broad issues open for their remaining scope. Never overwrite a conflicting concurrent edit.
+
 Useful saved issue filters:
 
 - [Current work](https://github.com/sefaction/MTG-Archives/issues?q=is%3Aissue%20is%3Aopen%20-label%3Adeferred%20-label%3Atracker): non-deferred individual work, including investigations, decisions and review/validation waits.
