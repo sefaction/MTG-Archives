@@ -22,8 +22,6 @@ from manual_card_region import manual_card_region, manual_card_source
 from photo_input import decode_photo_input
 from catalog_index import load_published_index
 from catalog_references import sha256
-from image_encoder import Encoder
-from visual_compare import features, match
 
 INDEX = Path('/visual/index/index.json')
 if '--manifest' in sys.argv:
@@ -82,6 +80,8 @@ def runtime(desc):
         index, records, matrix = load_published_index(INDEX)
         if sha256(INDEX) != desc['indexSha256']:
             raise ValueError('Visual index generation changed; reopen worker')
+        # Model imports are needed for inference, not generation validation.
+        from image_encoder import Encoder
         encoder = Encoder(index['encoder']['name'], MODELS, 'cpu', threads=1)
         if normalized_encoder(index['encoder']) != normalized_encoder(encoder.identity):
             raise ValueError('Query encoder differs from indexed encoder')
@@ -129,6 +129,7 @@ def recognize(data, desc):
         if len(candidates) == 12:
             break
     query_source = manual_card_source(original, manual_region)[0] if manual_region is not None else original
+    from visual_compare import features, match
     query = features(query_source, 2000)
     scored = []
     for value in ordered[:40]:
