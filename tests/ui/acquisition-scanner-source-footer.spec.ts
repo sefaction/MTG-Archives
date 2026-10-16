@@ -12,6 +12,7 @@ test('visible source footer guides clipped scan review while preserving original
   expect(entries.length).toBeGreaterThan(0);expect(entries.length).toBeLessThanOrEqual(100);expect(new Set(entries.map((e:any)=>e.sha256)).size).toBe(entries.length);
   const inputs=entries.map((e:any)=>{expect(e.inputKind).toBe('CARD_SCAN');expect(e.file).toMatch(/^[a-z0-9-]+\.(png|jpg)$/);const file=path.join(root!,'originals',e.file);expect(sha(readFileSync(file))).toBe(e.sha256);return file;});
   const tag=`ui-reference-scan-${randomUUID()}`,password=randomUUID(),started=Date.now(),deadline=started+1800000,scope=`{run:{session:{ownerPlayerId:${JSON.stringify(tag)}}}}`;
+  const serial=process.env.MTG_SCANNER_SOURCE_FOOTER_SERIAL==='1';
   let failed=false,primaryError:unknown;const progress=report!+'.progress.json';
   const state=()=>json(`console.log(JSON.stringify({photos:await p.acquisitionPhoto.findMany({where:${scope},select:{id:true,digest:true}}),jobs:await p.acquisitionProcessingJob.findMany({where:${scope},select:{id:true,stage:true,status:true,attempts:true,input:true,errorCode:true}})}));`);
   writeFileSync(progress,JSON.stringify({owner:tag,started,phase:'SETUP',manifestSha256:sha(manifestBytes)}));
@@ -19,7 +20,18 @@ test('visible source footer guides clipped scan review while preserving original
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash,role:'PLAYER'}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:${entries.length},sections:[]}}});`);
     await page.goto('/login');await page.getByLabel(/username or email/i).fill(tag);await page.getByLabel(/^password$/i).fill(password);await page.getByRole('button',{name:/^log in$/i}).click();await page.waitForURL(/\/dashboard/);await page.goto('/imports/scan');
     await page.getByTestId('storage-destination').getByRole('combobox').fill(tag);await page.getByRole('option').first().click();await page.getByRole('button',{name:'Start batch',exact:true}).click();
-    await page.getByRole('combobox',{name:'Library image type'}).selectOption('CARD_SCAN');await page.getByRole('button',{name:'Advanced',exact:true}).click();await page.getByLabel('Choose card photos').setInputFiles(inputs);
+    await page.getByRole('combobox',{name:'Library image type'}).selectOption('CARD_SCAN');await page.getByRole('button',{name:'Advanced',exact:true}).click();
+    if(serial){
+      for(let count=1;count<=inputs.length;count++){
+        await page.getByLabel('Choose card photos').setInputFiles(inputs[count-1]);let idle=0;
+        await expect.poll(()=>{const s=state(),live=s.jobs.filter((j:any)=>['PENDING','RUNNING'].includes(j.status));
+          const terminal=s.photos.filter((p:any)=>s.jobs.some((j:any)=>j.input.photoId===p.id&&((j.stage==='photo-printing-evidence-v1'&&j.status==='COMPLETE')||j.status==='FAILED'))).length;
+          writeFileSync(progress,JSON.stringify({owner:tag,started,phase:'SERIAL_PROCESSING',submitted:count,photos:s.photos.length,terminal,live:live.length}));
+          idle=s.photos.length===count&&terminal===count&&live.length===0?idle+1:0;return idle>=2;
+        },{timeout:Math.max(1,deadline-Date.now()),intervals:[5000]}).toBe(true);
+        expect(state().jobs.filter((j:any)=>j.status==='FAILED'),`serial input ${count}`).toEqual([]);
+      }
+    }else await page.getByLabel('Choose card photos').setInputFiles(inputs);
     await expect.poll(()=>state().photos.length,{timeout:120000,intervals:[1000,3000]}).toBe(entries.length);
     let stable=0;
     await expect.poll(()=>{const s=state(),live=s.jobs.filter((j:any)=>['PENDING','RUNNING'].includes(j.status));const terminal=s.photos.filter((p:any)=>s.jobs.some((j:any)=>j.input.photoId===p.id&&((j.stage==='photo-printing-evidence-v1'&&j.status==='COMPLETE')||j.status==='FAILED'))).length;
@@ -75,7 +87,7 @@ test('visible source footer guides clipped scan review while preserving original
     }
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
     const cohort=(selected:any[])=>({samples:selected.length,scorable:selected.filter(r=>r.scorable).length,completed:selected.filter(r=>r.completed).length,firstCorrect:selected.filter(r=>r.firstCorrect).length,expectedOffered:selected.filter(r=>r.expectedOffered).length,failedSamples:selected.filter(r=>r.failedStages.length).length,primaryTextEligible:selected.filter(r=>r.primaryTextEligible).length,wrongPrimaryTextEligibility:selected.filter(r=>r.wrongPrimaryTextEligibility).length,finalAutomatic:selected.filter(r=>r.finalAutomaticAcceptance===true).length,groups:new Set(selected.map(r=>r.printingGroup)).size});
-    const summary={scope:manifest.scope,manifestSha256:sha(manifestBytes),currentSourceSha256:manifest.currentSourceSha256,physicalBoundaryLabels:'NONE',historicalTrainingIndependence:'UNKNOWN',physicalCopyIndependence:'UNKNOWN',all:cohort(rows),notInDesktopDevelopment:cohort(rows.filter(r=>!r.knownDesktopDevelopmentOverlap)),knownDesktopDevelopment:cohort(rows.filter(r=>r.knownDesktopDevelopmentOverlap)),elapsedMs:Date.now()-started,accuracyNotAsserted:true};
+    const summary={scope:manifest.scope,submissionMode:serial?'SERIAL_EXISTING_ORIGINALS':'ORIGINAL_BULK_UPLOAD',manifestSha256:sha(manifestBytes),currentSourceSha256:manifest.currentSourceSha256,physicalBoundaryLabels:'NONE',historicalTrainingIndependence:'UNKNOWN',physicalCopyIndependence:'UNKNOWN',all:cohort(rows),notInDesktopDevelopment:cohort(rows.filter(r=>!r.knownDesktopDevelopmentOverlap)),knownDesktopDevelopment:cohort(rows.filter(r=>r.knownDesktopDevelopmentOverlap)),elapsedMs:Date.now()-started,accuracyNotAsserted:true};
     writeFileSync(report!,JSON.stringify({summary,owner:tag,photos:observed.photos,rows},null,2));console.log(JSON.stringify(summary));
   }catch(error){failed=true;primaryError=error;try{writeFileSync(report!+'.failure.json',JSON.stringify({owner:tag,elapsedMs:Date.now()-started,error:String(error),state:state()},null,2));}catch(diagnostic){primaryError=new AggregateError([error,diagnostic],'Validation and failure capture failed');}}
   finally{
