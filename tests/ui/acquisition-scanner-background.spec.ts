@@ -21,6 +21,7 @@ test('small scanner padding is prepared without moving footer zones or changing 
     {name:'blank-scan.png',buffer:readFileSync(blank!),method:'declared-card-scan'}]
     .map(f=>({...f,digest:createHash('sha256').update(f.buffer).digest('hex')}));
   expect(fixtures[0].digest).toBe('0d3c78c4c1d4455cf8d02c57d58881d641bd851e96b7069b0a3ef5edb86df947');
+  let primaryFailed = false; let primaryError: unknown;
   try {
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash,role:'PLAYER'}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:2,sections:[]}}});`);
     await page.goto('/login');
@@ -75,15 +76,18 @@ test('small scanner padding is prepared without moving footer zones or changing 
       await card.screenshot({path:`test-results/scanner-background-${width}.png`});
     }
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
-  } finally {
-    // Block new authenticated polling and retire only this fixture owner.
-    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
+  } catch (error) { primaryFailed = true; primaryError = error; throw error; } finally {
+    const cleanupErrors: unknown[] = [];
+    let cleanupSQL: string;
+    try { cleanupSQL = cancelAndCleanCorrectionFixture(tag); } catch (error) {
+      throw new AggregateError(primaryFailed ? [primaryError,error] : [error], "Owned scanner background fixture cleanup failed");
+    }
+    try { database(cleanupSQL + "console.log('{}');"); } catch (error) { cleanupErrors.push(error); }
     try {
     database(`const n=${JSON.stringify(tag)};const sessions=await p.acquisitionSession.findMany({where:{ownerPlayerId:n},select:{id:true}});const runs=await p.acquisitionRun.findMany({where:{sessionId:{in:sessions.map(s=>s.id)}},select:{id:true}});const where={runId:{in:runs.map(r=>r.id)}};const photos=await p.acquisitionPhoto.findMany({where});await p.acquisitionProcessingJob.deleteMany({where});await p.acquisitionPhoto.deleteMany({where});await p.acquisitionCommand.deleteMany({where});await p.acquisitionCaptureSlot.deleteMany({where});await p.acquisitionCountCorrection.deleteMany({where});await p.acquisitionObservation.deleteMany({where});await p.acquisitionEvent.deleteMany({where});await p.acquisitionCandidate.deleteMany({where});await p.acquisitionArtifact.deleteMany({where});await p.acquisitionRun.deleteMany({where:{id:{in:runs.map(r=>r.id)}}});await p.acquisitionSession.deleteMany({where:{id:{in:sessions.map(s=>s.id)}}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});const fs=require('fs/promises'),path=require('path');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw new Error('Invalid fixture path');for(const suffix of ['original','preview.jpg'])await fs.unlink(path.join(process.env.UPLOADS_DATA_PATH,'acquisition-v1',photo.id+'.'+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e})}`);
 
-    } finally {
-      // A final sweep also catches writes completed during legacy teardown.
-      database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
-    }
+    } catch (error) { cleanupErrors.push(error); }
+    try { database(cleanupSQL + "console.log('{}');"); } catch (error) { cleanupErrors.push(error); }
+    if (cleanupErrors.length) throw new AggregateError(primaryFailed ? [primaryError,...cleanupErrors] : cleanupErrors, "Owned scanner background fixture cleanup failed");
   }
 });
