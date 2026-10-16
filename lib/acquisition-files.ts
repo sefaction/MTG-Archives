@@ -147,6 +147,7 @@ export async function writeAcquisitionPhotoBytes(
     );
   const temporary = path.join(directory, `${id}.${randomUUID()}.part`);
   let handle;
+  const failures: unknown[] = [];
   try {
     handle = await open(temporary, "wx", 0o600);
     await handle.writeFile(bytes);
@@ -168,11 +169,21 @@ export async function writeAcquisitionPhotoBytes(
         await dir.close();
       }
     }
+  } catch (error) {
+    failures.push(error);
   } finally {
-    await handle?.close();
-    await unlink(temporary).catch((error) => {
-      if (error.code !== "ENOENT") throw error;
-    });
+    // Closing an interrupted write must not skip partial-file cleanup or hide
+    // the original storage failure behind a later cleanup error.
+    try { await handle?.close(); } catch (error) { failures.push(error); }
+    try { await unlink(temporary); } catch (error) {
+      if ((error as NodeJS.ErrnoException | null)?.code !== "ENOENT") failures.push(error);
+    }
+  }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1) {
+    const code = (failures[0] as NodeJS.ErrnoException | null)?.code;
+    throw Object.assign(new AggregateError(failures, "Photo write and cleanup failed", { cause: failures[0] }),
+      typeof code === "string" ? { code } : {});
   }
 }
 export async function canonicalizeAcquisitionPhoto(
