@@ -16,6 +16,7 @@ test("native HTTP endpoints separate permanent denial from run conflicts and mal
   const tag = `ui-native-auth-${randomUUID()}`, password = randomUUID(), agentId = randomUUID();
   const secret = randomBytes(32).toString("base64url"), headers = { authorization: `Bearer ${agentId}.${secret}` };
   const source = { id: "fixture-auth", name: "Authorization fixture", backend: "fixture", source: "Fixture", qualification: "GenericUnqualified" };
+  let primaryFailed = false; let primaryError: unknown;
   try {
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box'}});`);
     await page.goto("/login"); await page.getByLabel(/username or email/i).fill(tag);
@@ -62,9 +63,13 @@ test("native HTTP endpoints separate permanent denial from run conflicts and mal
     expect(deniedImage.status()).toBe(403);
     const state = JSON.parse(database(`const n=${JSON.stringify(tag)};console.log(JSON.stringify({inventory:await p.inventoryItem.count({where:{currentOwnerId:n}}),photos:await p.acquisitionPhoto.count({where:{run:{session:{createdByUserId:n}}}})}));`));
     expect(state).toEqual({ inventory: 0, photos: 0 });
-  } finally {
-    // Block new authenticated polling and retire only this fixture owner.
-    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
+  } catch (error) { primaryFailed = true; primaryError = error; throw error; } finally {
+    const cleanupErrors: unknown[] = [];
+    let cleanupSQL: string;
+    try { cleanupSQL = cancelAndCleanCorrectionFixture(tag); } catch (error) {
+      throw new AggregateError(primaryFailed ? [primaryError,error] : [error], "Owned scanner authorization fixture cleanup failed");
+    }
+    try { database(cleanupSQL + "console.log('{}');"); } catch (error) { cleanupErrors.push(error); }
     try {
     database(`const n=${JSON.stringify(tag)},w={run:{session:{createdByUserId:n}}};
       const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;
@@ -78,9 +83,8 @@ test("native HTTP endpoints separate permanent denial from run conflicts and mal
       await p.scannerPairing.deleteMany({where:{userId:n}});await p.scannerAgent.deleteMany({where:{userId:n}});await p.authSession.deleteMany({where:{userId:n}});
       await p.inventoryLocation.deleteMany({where:{id:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});`);
 
-    } finally {
-      // A final sweep also catches writes completed during legacy teardown.
-      database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
-    }
+    } catch (error) { cleanupErrors.push(error); }
+    try { database(cleanupSQL + "console.log('{}');"); } catch (error) { cleanupErrors.push(error); }
+    if (cleanupErrors.length) throw new AggregateError(primaryFailed ? [primaryError,...cleanupErrors] : cleanupErrors, "Owned scanner authorization fixture cleanup failed");
   }
 });

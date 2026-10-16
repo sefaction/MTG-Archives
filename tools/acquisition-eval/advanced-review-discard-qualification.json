@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "issue": 756,
+  "pullRequest": 772,
+  "date": "2026-10-13",
+  "qualification": "local-ui-api-and-ordinary-native",
+  "baseline": {
+    "app": "scanner-set-token-v1",
+    "missingAction": "10-second Advanced Cancel changes click fails;34.2-second full case",
+    "initialSetupFailure": "null No section rejected; corrected to empty string; failure retained"
+  },
+  "source": {
+    "digest": "240b0aceaca797a5d6c828cb972b6ae59504d9b71bdf7e86b05d60f2bbce580a",
+    "inputs": 620
+  },
+  "controls": {
+    "desktop": 1366,
+    "phone": 320,
+    "finalUiMilliseconds": 45600,
+    "nativeAuthorityMilliseconds": 169214,
+    "draftDisplayGuards": 6,
+    "types": "feature and exact cumulative pass",
+    "manualBoundary": "discard disabled while boundary edit is active",
+    "failedReload": "edits and saved-state footprint preserved; successful retry reads latest review",
+    "decisionsPostedByDiscard": 0,
+    "implicitInventoryWrites": 0,
+    "ownedFixtureResidues": 0,
+    "primaryWholeTableFingerprintsConserved": 13,
+    "primaryFullAccountComparison": "initial failed; fresh4account interval only cleanup timestamps change; earlier full-row conservation not claimed",
+    "retainedOriginals": 156,
+    "retainedOriginalBytes": 898515870,
+    "correctionOriginals": 1,
+    "primaryServiceChanges": 0,
+    "unaffectedIsolatedServiceChanges": 0
+  },
+  "initialRequiredCI": {
+    "run": 38371731039,
+    "head": "396cadf",
+    "checks": 3,
+    "conclusion": "success"
+  },
+  "finalRequiredCI": "See exact live GitHub head and worker checkpoint; qualification report does not assume pending checks pass",
+  "limits": [
+    "Development native controls are not independent recognition accuracy",
+    "No hardware feed, production deployment or merge",
+    "Original strict account comparison and setup/dependency failures retained privately"
+  ]
+}

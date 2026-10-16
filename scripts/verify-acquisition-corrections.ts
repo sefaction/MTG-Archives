@@ -217,7 +217,61 @@ export async function verifyAcquisitionCorrections(db: PrismaClient) {
       await db.$executeRawUnsafe(`CREATE TABLE ${quote}."${name}" (LIKE public."${name}" INCLUDING ALL)`);
       await db.$executeRawUnsafe(`INSERT INTO ${quote}."${name}" SELECT * FROM public."${name}"`);
     }
-    await changeCorrectionExample(db, actors[0], owners[0], example.id, "REMOVE");
+    // A removal owns the library lock while publication starts from the still
+    // live source. Real PostgreSQL advisory waits establish the schedule.
+    const publicationPhoto = await db.acquisitionPhoto.findUniqueOrThrow({ where: { id: example.sourcePhotoId } });
+    const publicationJob = await db.acquisitionProcessingJob.findFirstOrThrow({
+      where: { candidateId: example.sourceCandidateId, input: { path: ["photoId"], equals: example.sourcePhotoId } },
+      orderBy: { createdAt: "asc" },
+    });
+    const peerScope = { ownerPlayerId: owners[1] };
+    const peerSnapshot = () => Promise.all([
+      db.correctionExample.findMany({ where: peerScope, orderBy: { id: "asc" } }),
+      db.correctionEvidence.findMany({ where: peerScope, orderBy: { id: "asc" } }),
+      db.correctionLibraryAccount.findUniqueOrThrow({ where: peerScope }),
+    ]);
+    const peerBefore = await peerSnapshot();
+    let entered!: () => void, release!: () => void;
+    const removalEntered = new Promise<void>(resolve => { entered = resolve; });
+    const removalRelease = new Promise<void>(resolve => { release = resolve; });
+    const remover = db.$extends({ query: { correctionExample: {
+      async findFirst({ args, query }) {
+        const result = await query(args);
+        if (args.where?.id === example.id) { entered(); await removalRelease; }
+        return result;
+      },
+    } } }) as unknown as PrismaClient;
+    let removal: Promise<unknown> | undefined, publication: Promise<unknown> | undefined;
+    const applicationName = "correction-publication-" + randomUUID();
+    try {
+      removal = changeCorrectionExample(remover, actors[0], owners[0], example.id, "REMOVE");
+      await Promise.race([removalEntered, removal.then(() => { throw new Error("Removal missed its barrier"); })]);
+      publication = db.$transaction(async tx => {
+        await tx.$queryRaw`SELECT set_config('application_name', ${applicationName}, true)`;
+        await tx.$queryRaw`SELECT id FROM "AcquisitionSession" WHERE id=${sessions[0]} FOR UPDATE`;
+        await captureCorrectionPublication(tx, publicationJob, publicationJob.output as Prisma.InputJsonObject);
+      }, { timeout: 15000 });
+      const deadline = Date.now() + 3000;
+      let waiting = false;
+      while (Date.now() < deadline) {
+        const rows = await db.$queryRaw<{ waiting: boolean }[]>`
+          SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE application_name=${applicationName}
+            AND wait_event_type='Lock' AND wait_event='advisory') AS waiting`;
+        if (rows[0].waiting) { waiting = true; break; }
+        await new Promise(resolve => setTimeout(resolve, 20));
+      }
+      assert.equal(waiting, true, "Publication must really wait for the removal owner lock");
+      release();
+      await Promise.all([removal, publication]);
+    } finally {
+      release();
+      await Promise.allSettled([removal, publication].filter((task): task is Promise<unknown> => !!task));
+    }
+    assert.ok((await db.correctionExample.findUniqueOrThrow({ where: { id: example.id } })).deletedAt);
+    assert.equal(await db.correctionEvidence.count({ where: { ownerPlayerId: owners[0], sourcePhotoId: publicationPhoto.id } }), 0,
+      "A publication that waited behind removal must not recreate removed evidence");
+    assert.deepEqual(await peerSnapshot(), peerBefore);
+    console.log("PASS: correction publication/removal owner-lock wait cannot resurrect evidence; peer unchanged");
     await assert.rejects(readCorrectionExample(db, actors[0], owners[0], example.id), /unavailable/);
     assert.equal(await collectDeletedCorrectionBlobs(db), 0); // Other physical membership keeps shared bytes.
     assert.deepEqual(await readCorrectionBlob(owners[0], metadata.digest, metadata.bytes), bytes);

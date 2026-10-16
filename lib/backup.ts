@@ -216,6 +216,8 @@ export async function createBackup() {
   const timestamp = timestampForFilename();
   const workspace = await mkdtemp(join(tmpdir(), "mtg-archives-backup-"));
   let protection: Awaited<ReturnType<typeof beginCorrectionBackup>> | undefined;
+  const failures: unknown[] = [];
+  let result!: { path: string; sizeBytes: number; manifest: BackupManifest };
   try {
     protection = await beginCorrectionBackup();
     const bundleRoot = join(workspace, "bundle");
@@ -263,15 +265,20 @@ export async function createBackup() {
 
     const sizeBytes = (await stat(finalPath)).size;
     await applyRetention(backupDir);
-    return {
-      path: finalPath,
-      sizeBytes,
-      manifest,
-    };
+    result = { path: finalPath, sizeBytes, manifest };
+  } catch (error) {
+    failures.push(error);
   } finally {
-    try { await protection?.release(); }
-    finally { await rm(workspace, { recursive: true, force: true }); }
+    try { await protection?.release(); } catch (error) { failures.push(error); }
+    try { await rm(workspace, { recursive: true, force: true }); } catch (error) { failures.push(error); }
   }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1) {
+    const first = failures[0];
+    const message = first instanceof Error ? first.message : "Backup failed or cleanup incomplete.";
+    throw new AggregateError(failures, `${message} (${failures.length} failures retained.)`, { cause: first });
+  }
+  return result;
 }
 
 export async function listBackups(

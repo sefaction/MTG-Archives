@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "scope": "PRIVACY_SAFE_OCR_FATAL_DIAGNOSTICS",
+  "issue": 777,
+  "pullRequest": 778,
+  "historicalCause": "UNKNOWN",
+  "historicalCauseResolved": false,
+  "diagnosticLossFixed": true,
+  "controls": {
+    "passed": 21,
+    "skipped": 0,
+    "baselineActualEntrypointGenericOnly": true,
+    "mainLogicPreserved": true,
+    "prepareAndDescribeTimeoutMs": 30000,
+    "jobTimeoutMs": 45000,
+    "leaseMs": 90000,
+    "boundedPublicExceptionTypes": true,
+    "codeLessDatabaseTimeoutAbortClassified": true
+  },
+  "realRuntimeFailureControls": {
+    "baselineGenericOnly": true,
+    "database": {
+      "phase": "LOAD_CATALOG",
+      "kind": "DATABASE",
+      "code": "P1001",
+      "exitCode": 1,
+      "errorType": "PrismaClientInitializationError"
+    },
+    "missingModels": {
+      "phase": "DESCRIBE_MODEL",
+      "kind": "NATIVE",
+      "nativeReason": "EXIT",
+      "exitCode": 1,
+      "errorType": "Error"
+    },
+    "credentialsExcluded": true,
+    "temporaryContainersRetired": true
+  },
+  "nativeBrowser": {
+    "passed": 1,
+    "photos": 2,
+    "duration": "2.2 minutes",
+    "skips": 0,
+    "retries": 0,
+    "frozenGeometryTextLinesOrientationsZonesPreserved": true,
+    "originalAndDownloadedBytesPreserved": true,
+    "expectedPrintingFirst": true,
+    "automaticAcceptance": false,
+    "humanReviewWrites": 0,
+    "inventoryWrites": 0,
+    "viewports": [
+      1366,
+      320
+    ],
+    "reusedDevelopmentControls": true,
+    "independentAccuracy": false
+  },
+  "runtime": {
+    "inputFiles": 620,
+    "applicationSource": "2b5c3c0d8146647cb16536b58eb853a1aa24e66ebfc1facf2ef81bef62cca7fe",
+    "webImage": "sha256:fe53032a3623214e1aa610aeeb478b89fee42f82cb2f714bfa6bb6484aa2e26a",
+    "ocrImage": "sha256:10f0b6debc9ffe0fc3ed96ad1d5ccf284659a8e84493ee4e62871c9600a53217",
+    "modelDescriptor": "1cbcff958eb52b3848bc63e9946fbd37e573216651bbd5fe8f043ba5312aea2e",
+    "primaryServicesConserved": 16,
+    "reviewServicesRunning": 7,
+    "ownedCleanupClasses": 22,
+    "ownedResidue": 0,
+    "existingNonFixtureUsersPreserved": 1,
+    "existingNonFixturePlayersPreserved": 1
+  },
+  "policy": {
+    "newRetries": false,
+    "restartPolicyChanged": false,
+    "modelOrNativeInferenceChanged": false,
+    "automaticAcceptanceChanged": false,
+    "inventoryAuthorityChanged": false,
+    "productionChanged": false
+  },
+  "retainedQualificationFailures": [
+    "Whole-table zero assumption encountered preserved administrator/player; corrected exact fixture scope",
+    "Invalid private read projection requested Player.createdAt; corrected without writes",
+    "Comment retention caused first AST comparison failure; comment-free semantic comparison passed"
+  ]
+}

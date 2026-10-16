@@ -679,6 +679,48 @@ export async function verifyAcquisitionCommit(
       where: { id: legacy.id },
       data: { output: currentEvidence },
     });
+    // Selection is only a snapshot: newer work arriving before the session
+    // lock must keep the older match pending, without consuming its command.
+    for (const status of ["PENDING", "FAILED", "COMPLETE"] as const) {
+      const beforeCandidate = await db.acquisitionCandidate.findUniqueOrThrow({ where: { id: legacy.candidateId } });
+      const beforeSession = await db.acquisitionSession.findUniqueOrThrow({ where: { id: auto.id } });
+      const commands = await db.acquisitionCommand.findMany({ where: { runId: legacy.runId }, orderBy: { id: "asc" } });
+      const events = await db.correctionReviewEvent.findMany({ where: { sourceCandidateId: legacy.candidateId }, orderBy: { id: "asc" } });
+      const failures: unknown[] = [];
+      let newerId: string | undefined, selected = false;
+      const boundary = new Proxy(db, { get(target, property) {
+        if (property === "$transaction") return async (callback: any, ...rest: any[]) => {
+          if (!selected) {
+            selected = true;
+            const newer = await target.acquisitionProcessingJob.create({ data: {
+              runId: legacy.runId, artifactId: legacy.artifactId, candidateId: legacy.candidateId,
+              candidateRevision: legacy.candidateRevision, stage: "photo-recognition-v1",
+              versionKey: randomUUID(), status, input: legacy.input!,
+              createdAt: new Date(legacy.createdAt.getTime() + 1),
+            } });
+            newerId = newer.id;
+          }
+          return Reflect.apply(target.$transaction, target, [callback, ...rest]);
+        };
+        const value = Reflect.get(target, property);
+        return typeof value === "function" ? value.bind(target) : value;
+      } });
+      try {
+        assert.equal(await confirmStrongAcquisitionMatches(boundary), 0,
+          "newer " + status + " analysis admitted after selection must fence an older automatic review");
+        assert(selected, "the actual SQL selection reached the controlled transaction boundary");
+        assert.deepEqual(await db.acquisitionCandidate.findUniqueOrThrow({ where: { id: legacy.candidateId } }), beforeCandidate);
+        assert.deepEqual(await db.acquisitionSession.findUniqueOrThrow({ where: { id: auto.id } }), beforeSession);
+        assert.deepEqual(await db.acquisitionCommand.findMany({ where: { runId: legacy.runId }, orderBy: { id: "asc" } }), commands);
+        assert.deepEqual(await db.correctionReviewEvent.findMany({ where: { sourceCandidateId: legacy.candidateId }, orderBy: { id: "asc" } }), events);
+      } catch (error) { failures.push(error); } finally {
+        try { if (newerId) await db.acquisitionProcessingJob.deleteMany({ where: { id: newerId } }); }
+        catch (error) { failures.push(error); }
+      }
+      if (failures.length === 1) throw failures[0];
+      if (failures.length > 1) throw new AggregateError(failures, "Freshness verification and cleanup failed", { cause: failures[0] });
+    }
+    console.log("PASS: newer analysis at the real SQL selection boundary preserves pending review, command and correction authority");
     const fault = db.$extends({
       query: {
         acquisitionCandidate: {
