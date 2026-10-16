@@ -27,7 +27,16 @@ async function ownerDirectory(ownerPlayerId: string) {
 async function syncDirectory(directory: string) {
   if (process.platform === "win32") return;
   const handle = await open(directory, "r");
-  try { await handle.sync(); } finally { await handle.close(); }
+  // Closing the directory must not replace the storage failure that led here.
+  const failures: unknown[] = [];
+  try { await handle.sync(); } catch (error) { failures.push(error); }
+  try { await handle.close(); } catch (error) { failures.push(error); }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1) {
+    const code = (failures[0] as NodeJS.ErrnoException | null)?.code;
+    throw Object.assign(new AggregateError(failures, "Correction directory sync and close failed", { cause: failures[0] }),
+      typeof code === "string" ? { code } : {});
+  }
 }
 async function temporaryDirectory(ownerPlayerId: string) {
   const directory = path.join(await ownerDirectory(ownerPlayerId), "temporary");
