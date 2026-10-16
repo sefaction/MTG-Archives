@@ -1,3 +1,4 @@
+import { observedScannerIdentifiers } from "./acquisition-scanner-source-text";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
@@ -95,8 +96,12 @@ export function acquisitionCatalogQueries(
   }
   const hintNames = new Map<string, CatalogQuery>();
   if (photoText) for (const reading of acquisitionPhotoTextSchema.parse(photoText).readings) {
-    // Spatially ordered whole-photo lines remain name-search hints. No set,
-    // collector or language tokens are extracted from this unlocalized source.
+    const identifiers = observedScannerIdentifiers(reading.scannerSource);
+    if (identifiers) {
+      const query: CatalogQuery = {kind: "printing", ...identifiers};
+      printing.set(catalogQueryKey(query), query);
+    }
+    // Whole-photo words remain name hints; positioned source rows supply identifiers.
     for (const line of reading.text.slice(0, 2)) {
       const name = line.trim().replace(/\s+/g, " ");
       if (name.length < 3 || name.length > 120 || (name.match(/\p{L}/gu)?.length ?? 0) < 3) continue;
