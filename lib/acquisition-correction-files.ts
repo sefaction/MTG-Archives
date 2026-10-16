@@ -63,7 +63,17 @@ export async function prepareCorrectionBlob(ownerPlayerId: string, digest: strin
     handle = await open(temporary, "wx", 0o600);
     await handle.writeFile(bytes); await handle.sync(); await handle.close(); handle = undefined;
   } catch (error) {
-    await handle?.close(); await unlink(temporary).catch(e => { if (e.code !== "ENOENT") throw e; }); throw error;
+    // A close failure must not skip removal of a partial copy or replace the
+    // storage failure that tells the capture worker why it should retry.
+    const failures: unknown[] = [error];
+    try { await handle?.close(); } catch (failure) { failures.push(failure); }
+    try { await unlink(temporary); } catch (failure) {
+      if ((failure as NodeJS.ErrnoException | null)?.code !== "ENOENT") failures.push(failure);
+    }
+    if (failures.length === 1) throw error;
+    const code = (error as NodeJS.ErrnoException | null)?.code;
+    throw Object.assign(new AggregateError(failures, "Correction preparation and cleanup failed", { cause: error }),
+      typeof code === "string" ? { code } : {});
   }
   return {
     async publish() {

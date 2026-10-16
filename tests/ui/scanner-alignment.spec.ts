@@ -16,6 +16,7 @@ test("card position defaults to Center and explicit choices survive queued reque
   const tag = `ui-scanner-alignment-${randomUUID()}`, password = randomUUID(), agentId = randomUUID();
   const secret = randomBytes(32).toString("base64url"), headers = { authorization: `Bearer ${agentId}.${secret}` };
   const source = { id: "fixture-alignment", name: "Alignment fixture", backend: "fixture", source: "Fixture", qualification: "GenericUnqualified" };
+  let primaryFailed = false; let primaryError: unknown;
   try {
     database(`const n=${JSON.stringify(tag)};const hash=await require('bcryptjs').hash(${JSON.stringify(password)},10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box'}});`);
     await page.goto("/login"); await page.getByLabel(/username or email/i).fill(tag);
@@ -63,20 +64,22 @@ test("card position defaults to Center and explicit choices survive queued reque
       await expect(setup.getByRole("button", { name: "Start scanner batch", exact: true })).toBeEnabled();
     }
     expect(Number(database(`console.log(await p.inventoryItem.count({where:{currentOwnerId:${JSON.stringify(tag)}}}));`))).toBe(0);
-  } finally {
-    // Block new authenticated polling and retire only this fixture owner.
-    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
+  } catch (error) { primaryFailed = true; primaryError = error; throw error; } finally {
+    const cleanupErrors: unknown[] = [];
+    let cleanupSQL: string;
+    try { cleanupSQL = cancelAndCleanCorrectionFixture(tag); } catch (error) {
+      throw new AggregateError(primaryFailed ? [primaryError,error] : [error], "Owned scanner fixture cleanup failed");
+    }
+    try { database(cleanupSQL + "console.log('{}');"); } catch (error) { cleanupErrors.push(error); }
     try {
-    database(`const n=${JSON.stringify(tag)},w={run:{session:{createdByUserId:n}}};
+      database(`const n=${JSON.stringify(tag)},w={run:{session:{createdByUserId:n}}};
       await p.scannerRun.deleteMany({where:{agent:{userId:n}}});
       for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});
       await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});
       await p.scannerPairing.deleteMany({where:{userId:n}});await p.scannerAgent.deleteMany({where:{userId:n}});await p.authSession.deleteMany({where:{userId:n}});
       await p.inventoryLocation.deleteMany({where:{id:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});`);
-
-    } finally {
-      // A final sweep also catches writes completed during legacy teardown.
-      database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
-    }
+    } catch (error) { cleanupErrors.push(error); }
+    try { database(cleanupSQL + "console.log('{}');"); } catch (error) { cleanupErrors.push(error); }
+    if (cleanupErrors.length) throw new AggregateError(primaryFailed ? [primaryError,...cleanupErrors] : cleanupErrors, "Owned scanner fixture cleanup failed");
   }
 });

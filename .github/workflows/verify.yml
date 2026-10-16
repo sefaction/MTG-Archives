@@ -73,6 +73,8 @@ jobs:
         run: python -m unittest discover -s tools/acquisition-runtime -p 'test_photo*.py'
       - name: Public reference and resumable index integrity (no models or private photos)
         run: python -m unittest discover -s tools/acquisition-eval -p 'test_catalog*.py'
+      - name: Visual descriptor validation without inference imports
+        run: python -m unittest discover -s tools/acquisition-runtime -p test_visual_descriptor.py
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -88,6 +90,8 @@ jobs:
         run: npx tsx --test tools/recognition-audit/*.test.ts
       - name: Generate, typecheck, unit tests and production build guards
         run: npm run verify:core
+      - name: Issue guideline validator and feedback lifecycle
+        run: node --test .github/scripts/issue-guidelines.test.cjs
       - name: Flat Unraid acquisition worker storage and isolation
         run: npx tsx scripts/verify-acquisition-flat-compose.ts
       - name: Flat Unraid Compose archive defaults

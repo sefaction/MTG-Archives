@@ -1,3 +1,4 @@
+import { observeNativeMemoryWindow } from "./acquisition-native-memory";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { acquisitionNativeEnvironment } from "./acquisition-native-environment";
 import { nativeAbortReason, nativeFailureError, type NativeFailureObserver, type NativeFailureReason } from "./acquisition-native-failure";
@@ -16,6 +17,7 @@ export class AcquisitionNativeStream {
     signal: AbortSignal;
     invalidated: boolean;
   } | null = null;
+  private observeChild: NativeFailureObserver | undefined;
   private output = Buffer.alloc(0);
   private failureReason: NativeFailureReason | null = null;
   private systemCode: unknown = null;
@@ -60,10 +62,11 @@ export class AcquisitionNativeStream {
     if (signal.aborted || !this.child || this.failureReason || !value ||
         value.prepared !== true || value.descriptor !== descriptor ||
         Object.keys(value).length !== 2) {
+      const observeChild = this.observeChild;
       this.stop(signal.aborted ? nativeAbortReason(signal) : "PROTOCOL");
       await this.shutdown();
       signal.throwIfAborted();
-      throw nativeFailureError("Processing native evidence invalid", "PROTOCOL", null, null, null, this.observe);
+      throw nativeFailureError("Processing native evidence invalid", "PROTOCOL", null, null, null, observeChild);
     }
     this.preparedDescriptor = descriptor;
   }
@@ -79,6 +82,8 @@ export class AcquisitionNativeStream {
     if (signal.aborted || (!input.length && !preparation) || input.length > this.maxInputBytes)
       return Promise.reject(new Error("Processing native input invalid"));
     if (!this.child) {
+      const observeChild = observeNativeMemoryWindow(this.observe);
+      this.observeChild = observeChild;
       const child = spawn(this.executable, this.args, {
         stdio: ["pipe", "pipe", "pipe"],
         windowsHide: true,
@@ -132,11 +137,12 @@ export class AcquisitionNativeStream {
         const request = this.pending;
         this.pending = null;
         this.child = null;
+        this.observeChild = undefined;
         this.preparedDescriptor = null;
         this.output = Buffer.alloc(0);
         request?.detach();
         const error = nativeFailureError("Processing native worker stopped", this.failureReason ?? "EXIT",
-          code, exitSignal, this.systemCode, this.failureReason === "SHUTDOWN" ? undefined : this.observe);
+          code, exitSignal, this.systemCode, this.failureReason === "SHUTDOWN" ? undefined : observeChild);
         request?.reject(error);
       });
     }

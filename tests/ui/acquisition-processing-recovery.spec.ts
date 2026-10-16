@@ -1,12 +1,15 @@
-import { cleanupCorrectionFixture } from "./correction-fixture";
+import { cleanupCorrectionFixture, cancelAndCleanCorrectionFixture } from "./correction-fixture";
+import { controlledReviewTarget, verifyControlledReviewTarget } from "./controlled-review-target";
 import {expect,test} from "@playwright/test";
 import {execFileSync} from "node:child_process";
 import {createHash,randomUUID} from "node:crypto";
 import sharp from "sharp";
-function database(body:string){return execFileSync("docker",["exec","-i","mtg-archives-web-1","node"],{input:`const{PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${body}})().catch(e=>{console.error(e.message);process.exitCode=1}).finally(()=>p.$disconnect());`,encoding:"utf8",timeout:30000,windowsHide:true});}
+const reviewTarget = controlledReviewTarget();
+let targetVerified = false;
+function database(body:string){if(!targetVerified){verifyControlledReviewTarget(reviewTarget);targetVerified=true;}return execFileSync("docker",["exec","-i",reviewTarget.container,"node"],{input:`const{PrismaClient}=require('@prisma/client');const p=new PrismaClient();(async()=>{${body}})().catch(e=>{console.error(e.message);process.exitCode=1}).finally(()=>p.$disconnect());`,encoding:"utf8",timeout:30000,windowsHide:true});}
 for(const width of [1366,390]) test(`terminal scan states offer safe manual recovery at ${width}px`,async({page,baseURL})=>{
   test.skip(process.env.MTG_LOCAL_PILOT_TEST!=="1","Owned local controlled status fixture; no native/hardware claim");
-  expect(baseURL).toBe("http://127.0.0.1:13001");test.setTimeout(180000);page.setDefaultTimeout(15000);await page.setViewportSize({width,height:900});
+  expect(baseURL).toBe(reviewTarget.baseURL);test.setTimeout(180000);page.setDefaultTimeout(15000);await page.setViewportSize({width,height:900});
   const tag=`ui-processing-${randomUUID()}`,password=randomUUID();
   const printing={id:tag,name:`Recovery fixture ${tag}`,setCode:"tst",collectorNumber:"1",lang:"en",finishes:["nonfoil","foil"],imageUri:"/processing-fixture.svg"};
   const bytes=await sharp({create:{width:300,height:420,channels:3,background:"#667788"}}).png().toBuffer();const digest=createHash("sha256").update(bytes).digest("hex");
@@ -45,8 +48,20 @@ for(const width of [1366,390]) test(`terminal scan states offer safe manual reco
     await page.reload();await card.scrollIntoViewIfNeeded();await expect(card).toContainText("Unsaved correction restored");await expect(card.getByRole("combobox",{name:"Card condition",exact:true})).toHaveValue("LP");
     await card.getByRole("button",{name:"Save card review",exact:true}).click();await expect(card).toContainText("Review saved. Not yet added to Inventory.");expect(await saved()).toMatchObject({cardId:printing.id,condition:"LP",finish:"NONFOIL"});expect(inventory()).toBe(0);await expect(recovery).toHaveCount(0);await expect(compact).toHaveText("Review saved");
     await page.reload();await card.scrollIntoViewIfNeeded();await expect(compact).toHaveText("Review saved");await expect(recovery).toHaveCount(0);await original();expect(inventory()).toBe(0);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await card.screenshot({path:`test-results/processing-recovery-${width}.png`});
-  }finally{
-    try { if(!page.isClosed()){await page.unrouteAll({behavior:"wait"});await page.goto("/dashboard");} } catch(error){console.log("Browser cleanup unavailable; owned database cleanup still runs");}
+  } finally {
+    // Block new authenticated polling and retain every cleanup failure.
+    const failures: unknown[] = [];
+    const cleanup = async (action: () => unknown | Promise<unknown>) => {
+      try { await action(); } catch (error) { failures.push(error); }
+    };
+    await cleanup(() => { database(cancelAndCleanCorrectionFixture(tag)); });
+    await cleanup(async () => { if (!page.isClosed()) await page.unrouteAll({ behavior: "wait" }); });
+    await cleanup(async () => { if (!page.isClosed()) await page.goto("/dashboard"); });
+    await cleanup(() => {
     database(`const n=${JSON.stringify(tag)};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const w={run:{session:{createdByUserId:n}}};const photos=await p.acquisitionPhoto.findMany({where:w,select:{id:true}});${cleanupCorrectionFixture}for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});await p.inventoryLocation.deleteMany({where:{ownerPlayerId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});await p.card.deleteMany({where:{id:n}});const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;if(!root||!paths.isAbsolute(root))throw new Error('Private fixture path unavailable');for(const photo of photos){if(!/^[a-f0-9-]{36}$/.test(photo.id))throw new Error('Invalid owned photo identity');for(const suffix of ['.original','.preview.jpg'])await fs.unlink(paths.join(root,'acquisition-v1',photo.id+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e;});}`);
+    });
+    // Remove feedback that completed while the original teardown was running.
+    await cleanup(() => { database(cancelAndCleanCorrectionFixture(tag)); });
+    if (failures.length) throw new AggregateError(failures, "acquisition-processing-recovery.spec.ts cleanup failed");
   }
 });

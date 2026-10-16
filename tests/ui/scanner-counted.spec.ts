@@ -16,6 +16,7 @@ test("counted source selects one, preserves hopper remainder, then explicitly re
   const headers={authorization:"Bearer "+agentId+"."+secret},origin={origin:baseURL!};
   const source={id:COUNTED_SCANNER_DEVICE,name:"Counted protocol fixture",backend:COUNTED_SCANNER_BACKEND,source:"Twain",qualification:"KnownWorking"};
   const bytes=await sharp({create:{width:300,height:420,channels:3,background:"white"}}).png().toBuffer();
+  let primaryFailed = false; let primaryError: unknown;
   try {
     database("const n="+JSON.stringify(tag)+";const hash=await require('bcryptjs').hash("+JSON.stringify(password)+",10);await p.player.create({data:{id:n,name:n,displayName:n}});await p.user.create({data:{id:n,username:n,displayName:n,playerId:n,passwordHash:hash}});await p.inventoryLocation.create({data:{id:n,name:n,normalizedName:n,ownerPlayerId:n,type:'Box',storageLayout:{capacity:170,sections:[{name:'A',capacity:85},{name:'B',capacity:85}]}}});const card=await p.card.findFirstOrThrow();await p.inventoryItem.create({data:{currentOwnerId:n,cardId:card.id,quantity:2,condition:'NM',locationId:n,locationSection:'A'}});");
     await page.goto("/login");await page.getByLabel(/username or email/i).fill(tag);await page.getByLabel(/^password$/i).fill(password);
@@ -117,15 +118,17 @@ test("counted source selects one, preserves hopper remainder, then explicitly re
     expect(state.sessions[1].run.photos.map((p:any)=>p.slot.position).sort()).toEqual([0,1,2]);
     for(const width of [1366,320]) {await page.setViewportSize({width,height:900});await scanner.scrollIntoViewIfNeeded();
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:"test-results/scanner-counted-complete-"+width+".png"});}
-  } finally {
-    // Block new authenticated polling and retire only this fixture owner.
-    database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
-    try {
-    database("const n="+JSON.stringify(tag)+",w={run:{session:{createdByUserId:n}}};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;if(!root||!paths.isAbsolute(root))throw Error('Private fixture root unavailable');for(const photo of await p.acquisitionPhoto.findMany({where:w,select:{id:true}}))for(const suffix of ['.original','.preview.jpg'])await fs.unlink(paths.join(root,'acquisition-v1',photo.id+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e;});for(const run of await p.scannerRun.findMany({where:{agent:{userId:n}},select:{id:true}})){if(!/^[a-f0-9-]{36}$/.test(run.id))throw Error('Fixture identity invalid');await fs.unlink(paths.join(root,'scanner-control-v1',run.id+'.start.json')).catch(e=>{if(e.code!=='ENOENT')throw e;});}await p.scannerRun.deleteMany({where:{agent:{userId:n}}});for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});await p.scannerPairing.deleteMany({where:{userId:n}});await p.scannerAgent.deleteMany({where:{userId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.inventoryItem.deleteMany({where:{currentOwnerId:n}});await p.inventoryLocation.deleteMany({where:{id:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});");
-
-    } finally {
-      // A final sweep also catches writes completed during legacy teardown.
-      database(cancelAndCleanCorrectionFixture(tag) + "console.log('{}');");
+  } catch (error) { primaryFailed = true; primaryError = error; throw error; } finally {
+    const cleanupErrors: unknown[] = [];
+    let cleanupSQL: string;
+    try { cleanupSQL = cancelAndCleanCorrectionFixture(tag); } catch (error) {
+      throw new AggregateError(primaryFailed ? [primaryError,error] : [error], "Owned scanner fixture cleanup failed");
     }
+    try { database(cleanupSQL + "console.log('{}');"); } catch (error) { cleanupErrors.push(error); }
+    try {
+      database("const n="+JSON.stringify(tag)+",w={run:{session:{createdByUserId:n}}};await p.acquisitionSession.updateMany({where:{createdByUserId:n},data:{phase:'CANCELLED'}});const fs=require('fs/promises'),paths=require('path'),root=process.env.UPLOADS_DATA_PATH;if(!root||!paths.isAbsolute(root))throw Error('Private fixture root unavailable');for(const photo of await p.acquisitionPhoto.findMany({where:w,select:{id:true}}))for(const suffix of ['.original','.preview.jpg'])await fs.unlink(paths.join(root,'acquisition-v1',photo.id+suffix)).catch(e=>{if(e.code!=='ENOENT')throw e;});for(const run of await p.scannerRun.findMany({where:{agent:{userId:n}},select:{id:true}})){if(!/^[a-f0-9-]{36}$/.test(run.id))throw Error('Fixture identity invalid');await fs.unlink(paths.join(root,'scanner-control-v1',run.id+'.start.json')).catch(e=>{if(e.code!=='ENOENT')throw e;});}await p.scannerRun.deleteMany({where:{agent:{userId:n}}});for(const model of ['acquisitionProcessingJob','acquisitionProcessingTurn','acquisitionPhoto','acquisitionObservation','acquisitionCountCorrection','acquisitionCandidate','acquisitionArtifact','acquisitionCaptureSlot','acquisitionCommand','acquisitionEvent'])await p[model].deleteMany({where:w});await p.acquisitionRun.deleteMany({where:{session:{createdByUserId:n}}});await p.acquisitionSession.deleteMany({where:{createdByUserId:n}});await p.scannerPairing.deleteMany({where:{userId:n}});await p.scannerAgent.deleteMany({where:{userId:n}});await p.authSession.deleteMany({where:{userId:n}});await p.inventoryItem.deleteMany({where:{currentOwnerId:n}});await p.inventoryLocation.deleteMany({where:{id:n}});await p.user.deleteMany({where:{id:n}});await p.player.deleteMany({where:{id:n}});");
+    } catch (error) { cleanupErrors.push(error); }
+    try { database(cleanupSQL + "console.log('{}');"); } catch (error) { cleanupErrors.push(error); }
+    if (cleanupErrors.length) throw new AggregateError(primaryFailed ? [primaryError,...cleanupErrors] : cleanupErrors, "Owned scanner fixture cleanup failed");
   }
 });
