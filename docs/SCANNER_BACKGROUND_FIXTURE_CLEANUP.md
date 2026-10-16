@@ -1,5 +1,17 @@
 # Scanner background fixture cleanup
 
+## Completion audit - October 16, 2026
+
+This PR qualifies the narrow failure-isolation repair in #805. It does not change the optical workflow, scanner framing, recognition, or application/native source. Fresh actual-source controls pass 8/8 with zero skips and TypeScript passes. The retained real PostgreSQL/filesystem negative/fixed/recovery probe independently demonstrates the defect and repair: an early failure leaves five controlled resources on the old source; the repaired source still attempts all three actions, retains the injected cause, and removes all five. Three owned namespaces finish empty across 32 resource classes; the populated neighbor and marker remain exact. These are labelled cleanup controls, not replacement optical fixtures.
+
+Current main `18c7a94af30b8c9e455f85855ac2254a6efa412f` integrates without a conflict; the two changed test-file blobs remain identical to the qualified `16d1cb858f94f553e5936436c9a1d0f0413a8c20` source. No application/native rebuild is required for this test-only integration. Final-head CI and independent review are recorded on the PR before readiness changes.
+
+Fresh read-only recovery hashes 325 image/original files (1,014,709,519 bytes) in the repository's retained uploads, imports, fi-7160 qualification, black-batch and manual-acceptance sources. None matches required padded SHA256 `0d3c78c4c1d4455cf8d02c57d58881d641bd851e96b7069b0a3ef5edb86df947`; a provenance-linked retained blank input is also unavailable. This bounded search does not prove there is no copy elsewhere. The unchanged original optical/browser case remains **NOT RUN**, with its digest, assertions and deadline intact. It can resume under optional background/framing #557 and broader verification #692 when the exact originals are provided; no new scan or substitute is requested or claimed.
+
+The original optical case is not an acceptance gate for this independently demonstrated cleanup-only defect. Its missing evidence stays visible in #557/#692 rather than requiring an impossible historical replay to accept #805. This scope distinction does not establish independent recognition, throughput, hardware, production acceptance, or the cause of historical #755/#777/#803 incidents. Those failures and the original October 14 draft decision remain preserved below. Individual merge approval remains required.
+
+## Preserved October 14 author report
+
 [Issue #805](https://github.com/sefaction/MTG-Archives/issues/805), a child of #692/#310, is repaired by [draft PR #806](https://github.com/sefaction/MTG-Archives/pull/806). The actual main c5b5bd2 background verifier skips its legacy source/user/private-file teardown and final correction sweep when the initial correction cleanup call fails. Cleanup can also replace the original workflow cause. The repair independently attempts all three existing actions and retains primary plus cleanup causes, including falsy thrown values. Exact-owner validation precedes database actions.
 
 All 21 original assertions, the full main workflow, legacy SQL/file expressions, optical input guards/digest and 900000ms deadline remain exact. Each legacy action keeps its existing statement sequence: a persistently failing statement can leave that action's own residue, while other independent actions and the final sweep are still attempted. Production/application/native code and 64 decimal GB/2% retention policy remain unchanged.
