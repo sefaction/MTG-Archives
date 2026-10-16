@@ -34,10 +34,17 @@ test('visible source footer guides clipped scan review while preserving original
       writeFileSync(report!+'.'+entry.sampleId+'.json',JSON.stringify(result,null,2));
       const printing=result.jobs.find((j:any)=>j.stage==='photo-printing-evidence-v1'&&j.status==='COMPLETE'),lookup=new Map(result.cards.map((c:any)=>[c.id,c.scryfallId]));
       const offered=printing?.output.proposals.proposals.map((p:any)=>lookup.get(p.card.id))??[];
+      // A green qualification must include every input, rather than merely
+      // recording a non-target worker failure in an otherwise passing report.
+      expect(result.jobs.filter((j:any)=>j.status==='FAILED'),entry.sampleId).toEqual([]);
+      expect(printing,entry.sampleId).toBeTruthy();
+      if(entry.expectedScryfallIds?.length===1)expect(offered,entry.sampleId).toContain(entry.expectedScryfallIds[0]);
+      const primary=result.jobs.find((j:any)=>j.stage==='photo-recognition-v1'&&j.status==='COMPLETE');
+      expect(primary,entry.sampleId).toBeTruthy();
+      expect(primary.output.proposals.automaticAcceptance,entry.sampleId).toBe(false);
       for(const job of result.jobs){expect(job.candidate.review).toBeNull();expect(job.candidate.receipt).toBeNull();}
       if(printing){expect(printing.output.proposals.automaticAcceptance).toBe(false);expect(printing.candidateRevision).toBe(printing.candidate.revision);expect(printing.output.printingNative.photoDigest).toBe(entry.sha256);}
       if(entry.sampleId==='val34-19'){
-        const primary=result.jobs.find((j:any)=>j.stage==='photo-recognition-v1'&&j.status==='COMPLETE');
         expect(primary.output.native.geometry).toEqual({status:'NEEDS_CROP',framing:'CLIPPED'});
         expect(primary.output.native.orientations).toEqual([]);
         const source=primary.output.native.photoText.readings.find((r:any)=>r.rotationDegrees===0).scannerSource;
@@ -62,7 +69,6 @@ test('visible source footer guides clipped scan review while preserving original
       }
       // Expected identities enter scoring only after all recognition has ended.
       const scorable=entry.expectedScryfallIds?.length===1;
-      const primary=result.jobs.find((j:any)=>j.stage==='photo-recognition-v1'&&j.status==='COMPLETE');
       const primaryEligible=primary?.output.proposals.automaticAcceptance===true,primaryFirst=lookup.get(primary?.output.proposals.proposals[0]?.card.id);
       rows.push({sampleId:entry.sampleId,sha256:entry.sha256,printingGroup:entry.conservativeGroup,knownDesktopDevelopmentOverlap:entry.knownDesktopDevelopmentOverlap,physicalGroup:entry.physicalGroup??null,scorable,primaryTextEligible:primaryEligible,primaryTextFirst:primaryFirst,wrongPrimaryTextEligibility:scorable&&primaryEligible?primaryFirst!==entry.expectedScryfallIds[0]:null,finalAutomaticAcceptance:printing?.output.proposals.automaticAcceptance??null,completed:Boolean(printing),failedStages:result.jobs.filter((j:any)=>j.status==='FAILED').map((j:any)=>({stage:j.stage,code:j.errorCode})),firstCorrect:scorable?offered[0]===entry.expectedScryfallIds[0]:null,expectedOffered:scorable?offered.includes(entry.expectedScryfallIds[0]):null,offered});
       await new Promise<void>(resolve=>setImmediate(resolve));

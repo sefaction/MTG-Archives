@@ -29,3 +29,37 @@ The first web build compiled, then failed with BuildKit RPC Unavailable/EOF. Fiv
 Overall uninterrupted lifetime/primary conservation acceptance remains failed. Recovery and the later six-image pass do not erase it. Prior printing OOM investigation #803 is separate and remains unresolved. Keep this PR draft with those operational limitations explicit.
 
 These six images are development regressions, with no independent physical-boundary labels and unknown physical-copy/training independence. This is a demonstrated clipped-footer correction, not near99% exact-printing or edge accuracy. Private original images and detailed runtime records remain outside Git under cumulative .local-data/visible-footer-20261014.
+
+## PR #804 completion review — October 16, 2026
+
+Scope: independent completion audit of `2c863ad349715a12c7aec73bad6ce8ff2861ca4d`, stacked on [#802](https://github.com/sefaction/MTG-Archives/pull/802), for [#801](https://github.com/sefaction/MTG-Archives/issues/801). This record supplements the original qualification and retains its failed interval.
+
+### Independent source review
+
+No blocking defect found in the 14-file delta from #802. Reviewed the bounded source-pixel schema/native mapping, same-direction exact whole-line name requirement, explicit neighboring collector/marker rows, legacy PHOTO exclusion, source/model/progress identity binding, catalogue retrieval, proposal ordering and review display. Existing strong identifiers retain precedence; the supplemental channel stays review-only, preserves unknown physical boundaries and does not add automatic acceptance or Inventory authority. Original/List printed identifiers remain ambiguous.
+
+The qualification harness had a separate false-green gap: failed stages or absent printing output on non-target inputs were recorded but did not fail the test. It now requires completed primary/printing stages, no failed stages, expected printing offered for each scorable control and false primary/final automatic acceptance. Only the demonstrated Band Together control requires the expected first result; the known original/List errors remain visible. Expected identities still enter scoring after inference. A second worker independently reviewed the source flow and this harness correction with no blocking finding.
+
+Dependency #802 final source/documentation head `60b574f1359f552677caba56f0fdbddd7d3ef85b`, including current main, integrates cleanly at `25c9cfc4b2147cad56a2a2959b9a3c0d4e48ef44`. All runtime implementation blobs remain identical to the originally qualified #804 source. Type checking passes after integration and the test correction.
+
+Fresh checks on the exact PR head:
+
+- `tsx --test tests/acquisition-scanner-source-text.test.ts tests/acquisition-photo-text.test.ts tests/acquisition-catalog-queries.test.ts`: 14 passed, no failures/skips.
+- `tsx --test tests/acquisition*.test.ts`: 304 passed, no failures/skips.
+- `tsc --noEmit --incremental false`: passed.
+- `git merge-tree --write-tree origin/main origin/codex/scanner-visible-footer`: clean integration, tree `c109cb533a96ff6d73f6c50442c97227a36e2c01` against main `18c7a94af30b8c9e455f85855ac2254a6efa412f`.
+- Fresh GitHub read confirms all three required checks passed on this exact head in run [38646241438](https://github.com/sefaction/MTG-Archives/actions/runs/38646241438). No GitHub review had been recorded at audit start.
+
+### Remaining bounded qualification
+
+The historical six-source native/browser workflow passed, but its preceding build interval failed with RPC EOF and worker restarts under #755. That failure remains evidence with unknown cause. Current acceptance needs a new, independently assessed bounded operational window; it does not require making the historical interval pass retroactively. #803's historical printing OOM remains separate.
+
+The runtime owner investigating #777 retains exclusive control of the shared local stack. No competing build, restart or native qualification was started by this audit. The current cumulative stack already includes #802/#804, so verify its exact input/model provenance before deciding whether any build is necessary.
+
+Prepared test: deduplicate #802's seven originals and #804's six originals by SHA256, then run the existing `acquisition-scanner-source-footer.spec.ts` serially against the verified isolated `mtg-anchor-qualification` project/database at port 13011. The six #804 originals and frozen manifest are retained privately in `.local-data/worktrees/footer-position-cumulative-20261013/.local-data/visible-footer-20261014/ordinary-controls`. Their sample IDs are `val34-19`, `val34-01`, `val34-02`, `val34-13`, `val-extra-36` and `val-extra-65`.
+
+Before the test, recheck host/Docker capacity, active owner release, source/model identity and service/cgroup snapshots. Preserve existing OOM flags as baseline facts; require zero new OOM/kill/restart or adverse peer-lifetime/configuration changes during this test window. Stop at one failing window and preserve diagnostics; do not expand limits or launch competing recovery. Record any swap/reclamation and assess it rather than asserting pressure-free operation.
+
+Require Band Together's observed `153/264` and WAR rows, expected first suggestion, unchanged NEEDS_CROP/CLIPPED geometry and absent localized orientations. Require exact original bytes/download, preserved initial observations, desktop 1366/phone 320 review with clipping guidance, null human review/receipt, false automatic acceptance, zero Inventory changes and exact owned cleanup. Compare all other deduplicated controls with their retained outputs, recording catalogue changes and remaining wrong-first suggestions. These are reused development controls, not independent accuracy or measured physical-boundary labels.
+
+Readiness remains pending that bounded window and #802's disposition. Individual approval and merge are separate; neither merge nor production deployment is authorized by this audit.
