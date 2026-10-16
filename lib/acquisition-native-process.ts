@@ -1,3 +1,4 @@
+import { observeNativeMemoryWindow } from "./acquisition-native-memory";
 import { spawn } from "node:child_process";
 import { acquisitionNativeEnvironment } from "./acquisition-native-environment";
 import { nativeAbortReason, nativeFailureError, type NativeFailureObserver, type NativeFailureReason } from "./acquisition-native-failure";
@@ -13,6 +14,7 @@ export function runAcquisitionNativeProcess(
 ): Promise<unknown> {
   if (signal.aborted) return Promise.reject(nativeFailureError("Processing aborted", nativeAbortReason(signal), null, null, null, observe));
   return new Promise((resolve, reject) => {
+    const observeChild = observeNativeMemoryWindow(observe);
     const child = spawn(executable, args, {
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true,
@@ -49,11 +51,11 @@ export function runAcquisitionNativeProcess(
     child.on("close", (code, exitSignal) => {
       signal.removeEventListener("abort", abort);
       if (failed || signal.aborted || code !== 0)
-        return reject(nativeFailureError("Processing native attempt failed", reason ?? (signal.aborted ? nativeAbortReason(signal) : "EXIT"), code, exitSignal, systemCode, observe));
+        return reject(nativeFailureError("Processing native attempt failed", reason ?? (signal.aborted ? nativeAbortReason(signal) : "EXIT"), code, exitSignal, systemCode, observeChild));
       try {
         resolve(JSON.parse(output.toString("utf8")));
       } catch {
-        reject(nativeFailureError("Processing native evidence invalid", "INVALID_JSON", code, exitSignal, null, observe));
+        reject(nativeFailureError("Processing native evidence invalid", "INVALID_JSON", code, exitSignal, null, observeChild));
       }
     });
     child.stdin.end(input);
