@@ -172,9 +172,8 @@ export async function writeAcquisitionPhotoBytes(
       const dir = await open(directory, "r");
       try {
         await dir.sync();
-      } finally {
-        await dir.close();
-      }
+      } catch (error) { failures.push(error); }
+      try { await dir.close(); } catch (error) { failures.push(error); }
     }
   } catch (error) {
     failures.push(error);

@@ -22,7 +22,7 @@ const actual = names.map(name => {
 const digestOf = data => createHash("sha256").update(data).digest("hex");
 const fault = code => Object.assign(Error("bounded original-write control"), { code });
 
-async function exercise(faults = new Map(), { existing = false, retry = false, variant = "raw" } = {}) {
+async function exercise(faults = new Map(), { existing = false, retry = false, variant = "raw", directoryControl = false, platform = process.platform } = {}) {
   await fsp.mkdir(path.join(process.cwd(), ".local-data"), { recursive: true });
   const root = await fsp.mkdtemp(path.join(process.cwd(), ".local-data/photo-write-"));
   const id = randomUUID(), neighbor = path.join(root, "neighbor.original");
@@ -41,9 +41,19 @@ async function exercise(faults = new Map(), { existing = false, retry = false, v
   const context = {
     AggregateError, Error, Buffer, constants, path, z, randomUUID,
     PHOTO_MAX_BYTES: 10 * 1024 * 1024, photoDigest: digestOf,
-    process: { platform: process.platform, env: { UPLOADS_DATA_PATH: root } },
+    process: { platform, env: { UPLOADS_DATA_PATH: root } },
     mkdir: fsp.mkdir, lstat: fsp.lstat, realpath: fsp.realpath, statfs: fsp.statfs,
     open: async (name, flags, mode) => {
+      if (directoryControl && name === directory && flags === "r") {
+        step("directory-open");
+        // Windows has no directory fsync; this adapter exercises Linux control flow
+        // there. Linux runs use and close a real directory descriptor.
+        const handle = process.platform === "win32" ? null : await fsp.open(name, flags, mode);
+        return {
+          sync: async () => { if (handle) await handle.sync(); step("directory-sync"); },
+          close: async () => { if (handle) await handle.close(); step("directory-close"); },
+        };
+      }
       if (flags !== "wx") return fsp.open(name, flags, mode);
       step("open"); assert.equal(mode, 0o600);
       const handle = await fsp.open(name, flags, mode);
@@ -155,4 +165,48 @@ test("repeated close failures do not skip partial cleanup", async () => {
   assert.deepEqual(r.calls, ["open", "write", "sync", "close", "close", "unlink"]);
   assert.deepEqual(r.error.errors, [close, close]); assert.equal(r.error.cause, close);
   assert.equal(r.error.code, "EIO"); assert.deepEqual(r.parts, []); assert.equal(r.published, false);
+});
+
+for (const variant of ["raw", "preview"]) {
+  test(variant + " directory sync and close faults retain ordered causes and immutable retry", async () => {
+    const sync = fault("ENOSPC"), close = fault("EIO");
+    const r = await exercise(new Map([["directory-sync", sync], ["directory-close", close]]),
+      { variant, directoryControl: true, platform: "linux", retry: true });
+    assert.equal(r.failed, true); assert.ok(r.error instanceof AggregateError);
+    assert.deepEqual(r.error.errors, [sync, close]); assert.equal(r.error.cause, sync);
+    assert.equal(r.error.code, "ENOSPC"); assert.equal(r.published, true); assert.deepEqual(r.parts, []);
+    assert.deepEqual(r.calls, ["open", "write", "sync", "close", "link", "directory-open", "directory-sync", "directory-close", "unlink"]);
+  });
+}
+test("directory sync, close and temporary unlink failures retain all three causes", async () => {
+  const causes = [fault("ENOSPC"), fault("EIO"), fault("EACCES")];
+  const r = await exercise(new Map([["directory-sync", causes[0]], ["directory-close", causes[1]], ["unlink", causes[2]]]),
+    { directoryControl: true, platform: "linux", retry: true });
+  assert.deepEqual(r.error.errors, causes); assert.equal(r.error.cause, causes[0]); assert.equal(r.error.code, "ENOSPC");
+  assert.equal(r.published, true); assert.equal(r.parts.length, 1);
+});
+for (const stage of ["directory-open", "directory-sync", "directory-close"]) {
+  test("lone " + stage + " fault retains exact identity and cleans temporary", async () => {
+    const error = fault("EIO");
+    const r = await exercise(new Map([[stage, error]]), { directoryControl: true, platform: "linux", retry: true });
+    assert.equal(r.failed, true); assert.equal(r.error, error); assert.deepEqual(r.parts, []); assert.equal(r.published, true);
+    if (stage === "directory-sync") assert.ok(r.calls.includes("directory-close"));
+  });
+}
+for (const value of [undefined, null, false, 0]) {
+  test("falsy directory sync cause " + String(value) + " survives a second failure", async () => {
+    const close = fault("EIO");
+    const r = await exercise(new Map([["directory-sync", value], ["directory-close", close]]), { directoryControl: true, platform: "linux" });
+    assert.deepEqual(r.error.errors, [value, close]); assert.equal(r.error.cause, value);
+    assert.equal(Object.hasOwn(r.error, "code"), false); assert.deepEqual(r.parts, []);
+  });
+}
+test("Windows publication skips directory sync while preserving immutable bytes", async () => {
+  const r = await exercise(new Map([["directory-open", fault("EIO")]]), { directoryControl: true, platform: "win32", retry: true });
+  assert.equal(r.failed, false); assert.equal(r.published, true); assert.deepEqual(r.parts, []);
+  assert.equal(r.calls.includes("directory-open"), false);
+});
+test("real Linux directory descriptor publication succeeds", { skip: process.platform === "win32" ? "Real Linux descriptor exercised in Linux image qualification" : false }, async () => {
+  const r = await exercise(new Map(), { directoryControl: true, platform: "linux", retry: true });
+  assert.equal(r.failed, false); assert.deepEqual(r.parts, []); assert.ok(r.calls.includes("directory-close"));
 });
