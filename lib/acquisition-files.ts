@@ -109,14 +109,21 @@ async function readChecked(file: string, digest?: string) {
     file,
     constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
   );
+  const failures: unknown[] = [];
+  let bytes!: Buffer;
   try {
-    const bytes = await handle.readFile();
+    bytes = await handle.readFile();
     if (digest && photoDigest(bytes) !== digest)
       throw new Error("Photo integrity check failed; restore the original");
-    return bytes;
-  } finally {
-    await handle.close();
+  } catch (error) { failures.push(error); }
+  try { await handle.close(); } catch (error) { failures.push(error); }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1) {
+    const code = (failures[0] as NodeJS.ErrnoException | null)?.code;
+    throw Object.assign(new AggregateError(failures, "Photo read and close failed", { cause: failures[0] }),
+      typeof code === "string" ? { code } : {});
   }
+  return bytes;
 }
 export async function readAcquisitionPhotoBytes(
   id: string,
@@ -268,10 +275,14 @@ export async function removeAcquisitionPhotoBytes(id: string) {
   if (process.platform !== "win32") {
     const { directory } = await filePath(id, "raw"),
       handle = await open(directory, "r");
-    try {
-      await handle.sync();
-    } finally {
-      await handle.close();
+    const failures: unknown[] = [];
+    try { await handle.sync(); } catch (error) { failures.push(error); }
+    try { await handle.close(); } catch (error) { failures.push(error); }
+    if (failures.length === 1) throw failures[0];
+    if (failures.length > 1) {
+      const code = (failures[0] as NodeJS.ErrnoException | null)?.code;
+      throw Object.assign(new AggregateError(failures, "Photo removal directory sync and close failed", { cause: failures[0] }),
+        typeof code === "string" ? { code } : {});
     }
   }
 }
