@@ -521,7 +521,7 @@ export async function verifyCountedScanner(db: PrismaClient) {
     console.log("PASS: explicit multi-section series, concurrent next admission, stale-page/refresh recovery, same-batch refill, durable/repeated Stop, released unfed reservations and retained uncommitted cards; physical feeds=0");
     // Review while the helper is still capturing, before automatic count
     // confirmation. Count corrections must not create/replace human decisions.
-    const reviewHelper=await enroll(),reviewBox=await location(6,[{name:"A",capacity:6}]);
+    const reviewHelper=first;await reviewHelper.pulse();const reviewBox=await location(6,[{name:"A",capacity:6}]);
     const chosen=await db.card.create({data:{scryfallId:tag+"-chosen",oracleId:tag+"-same-name",name:tag+" review card",setCode:"alt",collectorNumber:"2",typeLine:"Creature",rarity:"common",lang:"fr",digital:false,finishes:["foil"]}});
     const alternate=await db.card.create({data:{scryfallId:tag+"-alternate",oracleId:tag+"-same-name",name:chosen.name,setCode:"alt",collectorNumber:"3",typeLine:"Creature",rarity:"common",lang:"fr",digital:false,finishes:["etched"]}});
     const chosenDecision={cardId:chosen.id,language:"fr",finish:"FOIL",condition:"LP"};
