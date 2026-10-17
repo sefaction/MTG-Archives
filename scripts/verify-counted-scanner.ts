@@ -524,7 +524,7 @@ export async function verifyCountedScanner(db: PrismaClient) {
     const reviewHelper=await enroll(),reviewBox=await location(6,[{name:"A",capacity:6}]);
     const chosen=await db.card.create({data:{scryfallId:tag+"-chosen",oracleId:tag+"-same-name",name:tag+" review card",setCode:"alt",collectorNumber:"2",typeLine:"Creature",rarity:"common",lang:"fr",digital:false,finishes:["foil"]}});
     const alternate=await db.card.create({data:{scryfallId:tag+"-alternate",oracleId:tag+"-same-name",name:chosen.name,setCode:"alt",collectorNumber:"3",typeLine:"Creature",rarity:"common",lang:"fr",digital:false,finishes:["etched"]}});
-    const chosenDecision={cardId:chosen.id,language:"fr",finish:"FOIL",condition:"SP"};
+    const chosenDecision={cardId:chosen.id,language:"fr",finish:"FOIL",condition:"LP"};
     const laterPrinting={cardId:alternate.id,language:"fr",finish:"ETCHED",condition:"MP"};
     const reviewedBatch=await createScannerBatch(db,actor,setup(reviewHelper,reviewBox,"A",6,2),epoch);
     const reviewClaim=await claim(reviewHelper,reviewedBatch.runId),headPhotos=await images(reviewHelper,reviewClaim,2);
@@ -581,7 +581,7 @@ export async function verifyCountedScanner(db: PrismaClient) {
     await commitAcquisitionCards(db,actor,reviewedBatch.sessionId,request);
     const stock=await db.inventoryItem.findMany({where:{locationId:reviewBox},select:{cardId:true,language:true,foilStatus:true,condition:true,quantity:true}});
     assert.deepEqual(stock.sort((a,b)=>a.cardId.localeCompare(b.cardId)),[
-      {cardId:chosen.id,language:"fr",foilStatus:"FOIL",condition:"SP",quantity:2},
+      {cardId:chosen.id,language:"fr",foilStatus:"FOIL",condition:"LP",quantity:2},
       {cardId:alternate.id,language:"fr",foilStatus:"ETCHED",condition:"MP",quantity:1},
       {cardId:card.id,language:"en",foilStatus:"NONFOIL",condition:"NM",quantity:1},
     ].sort((a,b)=>a.cardId.localeCompare(b.cardId)));

@@ -512,7 +512,7 @@ test("new physical evidence invalidates prior review and count confirmation with
 
 test("count-only confirmation preserves accepted attributes, provenance and later human edits", () => {
   const captured = receiveAcquisitionEvent(session(), event(1));
-  const preferred = {...known,cardId:"deliberate-second-printing",language:"fr",finish:"FOIL" as const,condition:"SP"};
+  const preferred = {...known,cardId:"deliberate-second-printing",language:"fr",finish:"FOIL" as const,condition:"LP"};
   const accepted = reviewCandidate(captured,key(1),1,"human",preferred);
   const confirmed = correctPhysicalCount(accepted,{candidateKey:key(1),revision:2,actorId:"counter",reason:"One retained front",action:"CONFIRM_COUNT"});
   assert.deepEqual(confirmed.candidates[0].review,{...preferred,actorId:"human"});
