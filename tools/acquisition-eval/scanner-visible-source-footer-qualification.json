@@ -1,0 +1,404 @@
+{
+  "version": 1,
+  "issue": 801,
+  "pullRequest": 804,
+  "scope": "REUSED_SIX_SCANNER_SOURCE_FOOTER_REGRESSION_CONTROLS",
+  "independentAccuracyQualified": false,
+  "physicalBoundaryTruth": "NONE",
+  "historicalTrainingIndependence": "UNKNOWN",
+  "physicalCopyIndependence": "UNKNOWN",
+  "source": {
+    "passed": true,
+    "image": "sha256:8c689ed55df77a3def387a52173aad01d8259fbe472ad81c3e1bc33fdeab9865",
+    "sourceDigest": "f12c4b44ff6726ba9afc5601c02eded60f5fb423b1ab433417b27d2af7d42bf0",
+    "files": 624
+  },
+  "tests": {
+    "acquisition": 304,
+    "nativePhotoText": 7,
+    "typecheck": "PASS",
+    "browser": {
+      "status": "PASS",
+      "elapsedMs": 176190,
+      "samples": 6,
+      "failures": 0,
+      "skips": 0,
+      "retries": 0,
+      "desktopWidth": 1366,
+      "phoneWidth": 320
+    }
+  },
+  "results": {
+    "beforeFirst": 3,
+    "afterFirst": 4,
+    "expectedOffered": 6,
+    "changedFirstSources": [
+      "val34-19"
+    ],
+    "nativePrimaryFieldChanges": [],
+    "catalogueUniversallyFixed": false,
+    "targetCatalogueFixed": true,
+    "originalDigestsPreserved": true,
+    "clippingPreserved": true,
+    "automaticAcceptance": 0,
+    "humanReviewReceipts": 0,
+    "inventoryChanges": 0
+  },
+  "runtime": {
+    "settingsAndMountsPreserved": true,
+    "databaseContainerPreserved": true,
+    "annotationsPreserved": true,
+    "builderRecipe": "private Dockerfile adds builder-only NODE_OPTIONS=--max-old-space-size=1536; application inputs unchanged",
+    "builderRecipeSha256": "6d66fff726f5a90919f8bf6e61404b2628184a0f53c32996f052720b2c94c7f1",
+    "resources": [
+      {
+        "role": "acquisition-recognition-worker",
+        "image": "sha256:5a89a1fb2784c9c21da32c33aaac44b4d53b1fb61d457d130a0ca844e509bcaa",
+        "status": "running",
+        "oomKilled": false,
+        "restarts": 0,
+        "memory": "1462968320\n2147483648\nlow 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\n7122944"
+      },
+      {
+        "role": "acquisition-visual-worker",
+        "image": "sha256:4e1e8cf067a9703c8e41507d940a396afc372b683c4834e4f1816c740d1e4f2e",
+        "status": "running",
+        "oomKilled": false,
+        "restarts": 0,
+        "memory": "1519034368\n3221225472\nlow 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\n38400000"
+      },
+      {
+        "role": "acquisition-printing-worker",
+        "image": "sha256:4e1e8cf067a9703c8e41507d940a396afc372b683c4834e4f1816c740d1e4f2e",
+        "status": "running",
+        "oomKilled": false,
+        "restarts": 0,
+        "memory": "1015246848\n1073741824\nlow 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\n19415040"
+      }
+    ]
+  },
+  "cleanup": {
+    "user": 0,
+    "player": 0,
+    "sessions": 0,
+    "photos": 0,
+    "jobs": 0,
+    "accounts": 0,
+    "inventory": 0,
+    "location": 0,
+    "auth": 0,
+    "queued": 0,
+    "ownedFiles": 0
+  },
+  "failedInterval": {
+    "build": "FAILED_RPC_UNAVAILABLE_EOF",
+    "isolatedWorkersExited": 5,
+    "primaryLifetimeConservation": "FAIL",
+    "primaryChanges": [
+      {
+        "name": "/mtg-archives-acquisition-visual-worker-1",
+        "key": "startedAt",
+        "before": "2026-10-14T05:30:47.222699986Z",
+        "after": "2026-10-14T18:59:01.746937653Z"
+      },
+      {
+        "name": "/mtg-archives-acquisition-visual-worker-1",
+        "key": "restarts",
+        "before": 2,
+        "after": 3
+      },
+      {
+        "name": "/mtg-archives-acquisition-catalog-worker-1",
+        "key": "startedAt",
+        "before": "2026-10-12T20:45:49.585044035Z",
+        "after": "2026-10-14T18:59:01.645816105Z"
+      },
+      {
+        "name": "/mtg-archives-acquisition-catalog-worker-1",
+        "key": "restarts",
+        "before": 1,
+        "after": 3
+      },
+      {
+        "name": "/mtg-archives-pricing-worker-1",
+        "key": "startedAt",
+        "before": "2026-10-14T05:30:47.128060942Z",
+        "after": "2026-10-14T18:59:01.278457135Z"
+      },
+      {
+        "name": "/mtg-archives-pricing-worker-1",
+        "key": "restarts",
+        "before": 7,
+        "after": 9
+      }
+    ],
+    "issue": 755,
+    "comment": "https://github.com/sefaction/MTG-Archives/issues/755#issuecomment-6176035763",
+    "cause": "UNKNOWN",
+    "primaryMutationsByBatch": false,
+    "failedIntervalPreserved": true,
+    "recoveryDoesNotQualifyEarlierInterval": true,
+    "previousPrintingOOMIssue": 803
+  },
+  "overallAcceptance": "PASS_BOUNDED_CURRENT_WINDOW_HISTORICAL_FAILED_INTERVAL_RETAINED",
+  "privateEvidenceLocation": ".local-data/visible-footer-20261014",
+  "historicalOverallAcceptance": "INCOMPLETE_PRIMARY_LIFETIME_CONSERVATION",
+  "completionReview20261016": {
+    "scope": "NINE_REUSED_ORIGINALS_COMBINED_802_804_BOUNDED_COMPLETION_CONTROL_NO_INDEPENDENT_ACCURACY_CLAIM",
+    "status": "PASS",
+    "harnessHead": "7ce6894e5f029f47c2b0d81e9405035aec7981a7",
+    "dependencyHead": "40ce1f83288393a184ec77a5deb23b060d197c4e",
+    "submissionMode": "SERIAL_EXISTING_ORIGINALS",
+    "elapsedMs": 500532,
+    "source": {
+      "status": "PASS",
+      "at": "2026-10-16T16:33:19.642Z",
+      "hostSourceDigest": "241e2812a443a99918fc98b74aa64d36a8417f3a78df2384762ccfab62bba030",
+      "hostInputs": 626,
+      "featureRuntimeFilesEqualCumulative": [
+        "components/AcquisitionScanInspection.tsx",
+        "lib/acquisition-catalog-queries.ts",
+        "lib/acquisition-catalog-status.ts",
+        "lib/acquisition-photo-text.ts",
+        "lib/acquisition-recognition.ts",
+        "lib/acquisition-scanner-source-text.ts",
+        "lib/acquisition-visual.ts",
+        "tools/acquisition-runtime/photo_text.py",
+        "tools/acquisition-runtime/recognize.py"
+      ],
+      "roles": [
+        {
+          "role": "web",
+          "digest": "241e2812a443a99918fc98b74aa64d36a8417f3a78df2384762ccfab62bba030",
+          "inputs": 626,
+          "actualLibraryAndScriptFiles": 332,
+          "nativeFiles": []
+        },
+        {
+          "role": "acquisition-worker",
+          "digest": "241e2812a443a99918fc98b74aa64d36a8417f3a78df2384762ccfab62bba030",
+          "inputs": 626,
+          "actualLibraryAndScriptFiles": 332,
+          "nativeFiles": []
+        },
+        {
+          "role": "acquisition-catalog-worker",
+          "digest": "241e2812a443a99918fc98b74aa64d36a8417f3a78df2384762ccfab62bba030",
+          "inputs": 626,
+          "actualLibraryAndScriptFiles": 332,
+          "nativeFiles": []
+        },
+        {
+          "role": "acquisition-recognition-worker",
+          "digest": "699368058f8bd8f8cbd7eb3a173fedbfca9e34fd6a31f5db8e57771968ea20c4",
+          "inputs": 626,
+          "actualLibraryAndScriptFiles": 332,
+          "nativeFiles": [
+            "tools/acquisition-runtime/photo_text.py",
+            "tools/acquisition-runtime/recognize.py"
+          ]
+        },
+        {
+          "role": "acquisition-visual-worker",
+          "digest": "699368058f8bd8f8cbd7eb3a173fedbfca9e34fd6a31f5db8e57771968ea20c4",
+          "inputs": 626,
+          "actualLibraryAndScriptFiles": 332,
+          "nativeFiles": []
+        },
+        {
+          "role": "acquisition-printing-worker",
+          "digest": "699368058f8bd8f8cbd7eb3a173fedbfca9e34fd6a31f5db8e57771968ea20c4",
+          "inputs": 626,
+          "actualLibraryAndScriptFiles": 332,
+          "nativeFiles": []
+        }
+      ],
+      "knownNativeWebDifferences": [
+        "app/decks/actions.ts",
+        "lib/acquisition-auto-confirm.ts",
+        "lib/backup.ts",
+        "scripts/verify-acquisition-commit.ts"
+      ],
+      "annotations": {
+        "annotations": 187,
+        "publicReferenceHashes": 6,
+        "annotationSha256": "30ad6df046c2b9f5f07eaad27711b53747e308688e2acbe3ca00116ccf9b2418"
+      }
+    },
+    "results": {
+      "samples": 9,
+      "scorable": 9,
+      "completed": 9,
+      "firstCorrect": 4,
+      "expectedOffered": 9,
+      "failedSamples": 0,
+      "primaryTextEligible": 0,
+      "wrongPrimaryTextEligibility": 0,
+      "finalAutomatic": 0,
+      "groups": 7
+    },
+    "previousFirstChoicesPreserved": true,
+    "initialNativeFieldsPreserved": true,
+    "controlCatalogueIdentitiesPreserved": true,
+    "peerRecordsConserved": 23,
+    "cgroupEventDeltas": {
+      "mtg-archives-acquisition-recognition-worker-1": {
+        "low": 0,
+        "high": 0,
+        "max": 0,
+        "oom": 0,
+        "oom_kill": 0,
+        "oom_group_kill": 0
+      },
+      "mtg-archives-acquisition-visual-worker-1": {
+        "low": 0,
+        "high": 0,
+        "max": 0,
+        "oom": 0,
+        "oom_kill": 0,
+        "oom_group_kill": 0
+      },
+      "mtg-archives-acquisition-printing-worker-1": {
+        "low": 0,
+        "high": 0,
+        "max": 0,
+        "oom": 0,
+        "oom_kill": 0,
+        "oom_group_kill": 0
+      },
+      "mtg-anchor-qualification-acquisition-recognition-worker-1": {
+        "low": 0,
+        "high": 0,
+        "max": 0,
+        "oom": 0,
+        "oom_kill": 0,
+        "oom_group_kill": 0
+      },
+      "mtg-anchor-qualification-acquisition-visual-worker-1": {
+        "low": 0,
+        "high": 0,
+        "max": 0,
+        "oom": 0,
+        "oom_kill": 0,
+        "oom_group_kill": 0
+      },
+      "mtg-anchor-qualification-acquisition-printing-worker-1": {
+        "low": 0,
+        "high": 0,
+        "max": 0,
+        "oom": 0,
+        "oom_kill": 0,
+        "oom_group_kill": 0
+      }
+    },
+    "reviewDataTablesConserved": 12,
+    "reviewUploadsConserved": true,
+    "primaryOriginals": {
+      "acquisition-v1": {
+        "files": 156,
+        "bytes": 898515870,
+        "manifestHash": "a0029473b7055527020629181b64b61729e6a77ad85a0e86dc2cc4e27b8a78e0"
+      },
+      "correction-library-v1": {
+        "files": 1,
+        "bytes": 6373366,
+        "manifestHash": "2f200be969ebe0da08e41ef2a8a9a41e3837fef0df7d97f28adc7786ddea8b4f"
+      }
+    },
+    "models": {
+      "recognition": "f40093b83e51f813f0fd70e64e65d1eae51234a3a9f89c0397ea34fda4391405",
+      "visual": "814844fa5b63a5e9f7a560edfd602e7c7add30923f376dfa4a9f9b188c360769",
+      "printing": "464156783b23ae7fe8f5e676851fb22465bab32c3c5377373ca701131fd1f283"
+    },
+    "sourceModelsBoundToCurrentGenerations": true,
+    "stamps": [
+      {
+        "sampleId": "val34-19",
+        "observed": "UNREADABLE"
+      },
+      {
+        "sampleId": "val34-01",
+        "observed": "UNREADABLE"
+      },
+      {
+        "sampleId": "val34-02",
+        "observed": "UNREADABLE"
+      },
+      {
+        "sampleId": "val34-13",
+        "observed": "UNREADABLE"
+      },
+      {
+        "sampleId": "val-extra-36",
+        "observed": "PRESENT"
+      },
+      {
+        "sampleId": "val-extra-65",
+        "observed": "PRESENT"
+      },
+      {
+        "sampleId": "val34-06",
+        "observed": "UNREADABLE"
+      },
+      {
+        "sampleId": "val34-12",
+        "observed": "UNREADABLE"
+      },
+      {
+        "sampleId": "val34-15",
+        "observed": "UNREADABLE"
+      }
+    ],
+    "memorySamples": 102,
+    "resourcePeaks": {
+      "recognition": {
+        "sampledPeakBytes": 1238310912,
+        "existingLimitBytes": 2147483648,
+        "cgroupLifetimePeakBeforeBytes": 773287936,
+        "cgroupLifetimePeakAfterBytes": 1324466176,
+        "sampledSwapCurrentPeakBytes": 0,
+        "cgroupLifetimeSwapPeakBeforeBytes": 0,
+        "cgroupLifetimeSwapPeakAfterBytes": 0
+      },
+      "visual": {
+        "sampledPeakBytes": 1331040256,
+        "existingLimitBytes": 3221225472,
+        "cgroupLifetimePeakBeforeBytes": 1402134528,
+        "cgroupLifetimePeakAfterBytes": 1402134528,
+        "sampledSwapCurrentPeakBytes": 1327104,
+        "cgroupLifetimeSwapPeakBeforeBytes": 1327104,
+        "cgroupLifetimeSwapPeakAfterBytes": 1327104
+      },
+      "printing": {
+        "sampledPeakBytes": 866217984,
+        "existingLimitBytes": 1073741824,
+        "cgroupLifetimePeakBeforeBytes": 958550016,
+        "cgroupLifetimePeakAfterBytes": 1017733120,
+        "sampledSwapCurrentPeakBytes": 0,
+        "cgroupLifetimeSwapPeakBeforeBytes": 0,
+        "cgroupLifetimeSwapPeakAfterBytes": 0
+      }
+    },
+    "minDockerMemAvailableBytes": 1353068544,
+    "ownedCleanup": {
+      "counts": {
+        "player": 0,
+        "user": 0,
+        "auth": 0,
+        "location": 0,
+        "session": 0,
+        "photo": 0,
+        "inventory": 0,
+        "audit": 0,
+        "account": 0
+      },
+      "ownedFiles": 0
+    },
+    "sourceSetupFailurePreserved": true,
+    "historicalConservationFailurePreserved": true,
+    "independentAccuracyQualified": false,
+    "productionChanged": false,
+    "privateEvidenceLocation": ".local-data/pr802-804-completion-20261016",
+    "qualifiedDependencyHead": "60b574f1359f552677caba56f0fdbddd7d3ef85b"
+  }
+}

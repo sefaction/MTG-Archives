@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { observedScannerIdentifiers } from "@/lib/acquisition-scanner-source-text";
 import {
   cropPoint,
   type AcquisitionReviewEvidence,
@@ -540,6 +541,14 @@ export function AcquisitionEvidenceFields({
                 <div key={reading.rotationDegrees} className="text-xs mt-2 break-words">
                   <p className="font-semibold">{reading.rotationDegrees}° relative to the original photo</p>
                   <p>{reading.text.join(" | ") || "Nothing read"}</p>
+                  {reading.scannerSource && <div className="mt-2" data-testid="scanner-source-identifiers">
+                    <p className="font-semibold">Visible scan identifiers</p>
+                    <p>{reading.scannerSource.lines.map(line => line.text).join(" | ")}</p>
+                    <p>{observedScannerIdentifiers(reading.scannerSource)
+                      ? "Nearby collector and set rows support printing suggestions. Check the original scan."
+                      : "These visible rows do not form an unambiguous identifier pair."}</p>
+                    <p>The card edges remain unverified. These readings do not confirm a printing or a stamp.</p>
+                  </div>}
                   {reading.truncated && <p>Reading truncated; review the original photo.</p>}
                 </div>
               ))}

@@ -166,7 +166,7 @@ def recognize(data, desc):
                   'photoDigest': hashlib.sha256(data).hexdigest(), 'recognitionTask': task,
                   'photoText': {'version': 1, 'scope': 'WHOLE_PHOTO',
                                 'status': 'PARTIAL', 'readings': [reading]}}), file=protocol, flush=True)
-        photo_text = whole_photo_text(image, ocr_engine(),
+        photo_text = whole_photo_text(image, ocr_engine(), input_kind=input_kind,
                                      on_reading=completed_reading if '--stream' in sys.argv else None)
         print(json.dumps({'version': 1, 'descriptor': desc['digest'], 'descriptorDetails': desc,
               'photoDigest': hashlib.sha256(data).hexdigest(), 'recognitionTask': task,
