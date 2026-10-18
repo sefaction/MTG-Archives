@@ -423,7 +423,8 @@ export function correctPhysicalCount(
     throw new Error("Only a detection can be excluded as a false detection");
   candidate.excluded = input.action === "EXCLUDE_FALSE_DETECTION";
   candidate.countConfirmed = !candidate.excluded;
-  candidate.review = null;
+  // A count-only correction changes no card evidence or accepted attributes.
+  if (candidate.excluded) candidate.review = null;
   candidate.revision++;
   next.corrections.push({ ...input, revision: candidate.revision });
   return next;

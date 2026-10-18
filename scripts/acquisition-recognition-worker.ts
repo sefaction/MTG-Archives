@@ -71,7 +71,8 @@ async function main() {
     phase = "PREPARE_NATIVE";
     await nativeWorker.prepare(descriptor.digest, AbortSignal.timeout(30000));
     if (stopped) break;
-    if(refinementEnabled&&Date.now()-snapshotAt>30000){phase="REFRESH_CATALOG";snapshot=await loadAcquisitionRecognitionSnapshot(db,snapshot);snapshotAt=Date.now();}
+    // Catalog freshness applies to primary OCR independently of optional rereads.
+    if(Date.now()-snapshotAt>30000){phase="REFRESH_CATALOG";snapshot=await loadAcquisitionRecognitionSnapshot(db,snapshot);snapshotAt=Date.now();}
     phase = "ADMISSION";
     await enqueueReadyRecognition(db, snapshot.digest, descriptor.digest);
     if(refinementEnabled){phase="REFERENCE_ADMISSION";await enqueueReadyReferenceRefinement(db,descriptor.digest,snapshot.digest);}
