@@ -654,6 +654,7 @@ export function DeckImportPanel({
           <form
             action={applyDecklist}
             onSubmit={preSubmit}
+            onReset={(event) => event.preventDefault()}
             className="flex flex-wrap items-center gap-3 rounded border border-zinc-800 p-3"
           >
             <input type="hidden" name="deckId" value={deckId} />

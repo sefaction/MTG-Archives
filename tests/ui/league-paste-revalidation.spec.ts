@@ -140,6 +140,7 @@ test("League paste retains review on pool rejection and retries without inventor
     f.cards.map((c: any) => "1 " + c.name).join("\n"),
   );
   await expect(button).toBeEnabled();
+  await expect(page.locator("select[name=mode]")).toHaveValue("replace");
   const rejected = snapshot();
   expect(rejected.deck).toEqual(positive.deck);
   expect(rejected.inventory).toEqual(before.inventory);
@@ -211,6 +212,81 @@ test("League paste retains review on pool rejection and retries without inventor
         onlyIntendedPoolMutation: true,
         desktopAndPhone: [1366, 320],
         actualUnraidCauseUnknown: true,
+      },
+      null,
+      2,
+    ),
+  );
+  const ordinary = database(
+    `const d=await p.deck.create({data:{ownerUserId:${JSON.stringify(tag)},name:'Ordinary compatibility control',format:'STANDARD',visibility:'PRIVATE'}});console.log(JSON.stringify({id:d.id}));`,
+  );
+  async function ordinaryState() {
+    return database(
+      `console.log(JSON.stringify({rows:await p.deckCard.findMany({where:{deckId:${JSON.stringify(ordinary.id)}},orderBy:{cardId:'asc'}}),inventory:await p.inventoryItem.findMany({orderBy:{cardId:'asc'}}),audits:await p.inventoryAuditLog.count(),committed:await p.inventoryItem.findMany({where:{location:{deckId:${JSON.stringify(ordinary.id)}}},orderBy:{cardId:'asc'}})}));`,
+    );
+  }
+  async function prepareOrdinary() {
+    await page.goto("/decks/" + ordinary.id + "/import");
+    await page
+      .getByLabel("Decklist text", { exact: true })
+      .fill("1 " + f.cards[0].name + "\n2 " + f.cards[1].name);
+    await page.getByLabel("Bulk resolve").selectOption("owned-only");
+    await page
+      .getByRole("button", { name: "Parse and review", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", {
+        name: "Import 3 deck-list copies",
+        exact: true,
+      }),
+    ).toBeEnabled();
+  }
+  await prepareOrdinary();
+  await page
+    .getByRole("button", { name: "Import 3 deck-list copies", exact: true })
+    .click();
+  await page.waitForURL("/decks/" + ordinary.id);
+  const listOnly = await ordinaryState();
+  expect(listOnly.rows.map((r: any) => r.quantity)).toEqual([1, 2]);
+  expect(listOnly.inventory).toEqual(before.inventory);
+  expect(listOnly.audits).toBe(before.audits);
+  await prepareOrdinary();
+  const copies = page.getByLabel("Create and commit inventory", {
+    exact: true,
+  });
+  await expect(copies).toHaveCount(2);
+  await copies.nth(0).check();
+  await copies.nth(1).check();
+  await page
+    .getByRole("button", {
+      name: "Import 3 deck-list copies and commit 3 physical",
+      exact: true,
+    })
+    .click();
+  await page.waitForURL("/decks/" + ordinary.id);
+  const physical = await ordinaryState();
+  expect(physical.rows.map((r: any) => r.quantity)).toEqual([2, 4]);
+  expect(
+    physical.inventory.reduce((n: number, r: any) => n + r.quantity, 0),
+  ).toBe(103);
+  for (const original of before.inventory)
+    expect(physical.inventory.find((r: any) => r.id === original.id)).toEqual(
+      original,
+    );
+  expect(physical.committed.map((r: any) => r.quantity)).toEqual([1, 2]);
+  expect(physical.audits - before.audits).toBe(4);
+  fs.writeFileSync(
+    dir + "/ordinary-controls.json",
+    JSON.stringify(
+      {
+        status: "PASS",
+        listOnlyCopies: 3,
+        explicitPhysicalCopies: 3,
+        afterTwoMergeImportsListQuantities: [2, 4],
+        committedQuantities: [1, 2],
+        auditEntriesAdded: 4,
+        originalPoolRowsUnchanged: true,
+        scope: "Synthetic compatibility only; actual808incident not reproduced",
       },
       null,
       2,
