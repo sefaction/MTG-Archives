@@ -22,14 +22,14 @@ for(const [i,input] of readings.entries())test("corroborated title leads conflic
   for(const mode of ["direct","oriented"]){
    const result=mode==="direct"?proposeAcquisitionPrintings(index,input):proposeOrientedAcquisitionPrintings(index,[{rotationDegrees:0,text:input},{rotationDegrees:180,text:{title:[],footer:[]}}]);
    assert.equal(result.proposals[0].card.name,target.name);
-   assert(result.proposals[0].reasons.includes("TITLE_TEXT_AGREES"));
-   assert(result.proposals[1].reasons.includes("TITLE_CONTRADICTION"));
-   assert.equal(result.totalProposals,2);assert.equal(result.status,"CONFLICT");assert.equal(result.automaticAcceptance,false);
+   assert(result.proposals[0].reasons.includes(i===1?"TITLE_FRAGMENT":"TITLE_TEXT_AGREES"));
+   assert(result.proposals[1].reasons.includes(i===1?"TITLE_UNCONFIRMED":"TITLE_CONTRADICTION"));
+   assert.equal(result.totalProposals,2);assert.equal(result.status,i===1?"REVIEW_REQUIRED":"CONFLICT");assert.equal(result.automaticAcceptance,false);
    assert(result.proposals.every(p=>p.reasons.includes("REVIEW_REQUIRED")&&!p.reasons.includes("STRONG_EXACT_PRINTING")));
   }
   assert.equal(JSON.stringify(input),raw);
   const capped=proposeAcquisitionPrintings(index,input,1);
-  assert.equal(capped.proposals[0].card.name,target.name);assert.equal(capped.totalProposals,2);assert.equal(capped.truncated,true);assert.equal(capped.status,"CONFLICT");
+  assert.equal(capped.proposals[0].card.name,target.name);assert.equal(capped.totalProposals,2);assert.equal(capped.truncated,true);assert.equal(capped.status,i===1?"REVIEW_REQUIRED":"CONFLICT");
  }
 });
 

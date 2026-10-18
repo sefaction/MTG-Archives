@@ -1,7 +1,7 @@
 import { acquisitionCollectorKey, acquisitionFooterObservations, type FooterSpatialReading } from "./acquisition-footer";
 import { acquisitionNameKey, acquisitionExactNameKeyEligible } from "./acquisition-name";
 export { acquisitionCollectorKey } from "./acquisition-footer";
-export const ACQUISITION_TEXT_RESOLVER_VERSION = "scanner-source-title-conflict-review-v14";
+export const ACQUISITION_TEXT_RESOLVER_VERSION = "scanner-source-weak-name-review-v15";
 
 // OCR similarity is not calibrated confidence. Strong exact metadata can confirm
 // a printing; it never establishes physical count, finish, condition or receipt.
@@ -26,6 +26,15 @@ export type RecognitionProposal = {
   reasons: string[];
   nameDistance: number | null;
 };
+// Full catalog identity can share located-title support across printings; a
+// shared face alias or unlocated hint cannot supply it to a different identity.
+export function acquisitionLocatedTitleNames(proposals: RecognitionProposal[]) {
+  return new Set(proposals.filter(p =>
+    !p.reasons.includes("TITLE_FRAGMENT") &&
+    !p.reasons.some(reason => reason.endsWith("_CONTRADICTION")) &&
+    p.reasons.some(reason => ["TITLE_EXACT", "TITLE_TEXT", "TITLE_TEXT_AGREES", "TITLE_AND_COLLECTOR_TEXT"].includes(reason)),
+  ).map(p => acquisitionNameKey(p.card.name)));
+}
 const nameKey = acquisitionNameKey;
 function distance(a: string, b: string) {
   let previous = Array.from({ length: b.length + 1 }, (_, i) => i);
@@ -125,6 +134,8 @@ function resolveAcquisitionPrintings(
   const fuzzyTitleKeys = titleKeys.filter(key => key.length >= 3);
   const exactNames = new Set<string>();
   const exactCards = new Map<string, RecognitionCard>();
+  const strictNames = new Set<string>();
+  const strictCards = new Set<string>();
   for (const [name, cards] of index.byName) {
     if (
       titleKeys.some(
@@ -137,6 +148,10 @@ function resolveAcquisitionPrintings(
     ) {
       exactNames.add(name);
       for (const card of cards) exactCards.set(card.id, card);
+      if (titleKeys.includes(name)) {
+        strictNames.add(name);
+        for (const card of cards) strictCards.add(card.id);
+      }
     }
   }
   const proposals = new Map<string, RecognitionProposal>();
@@ -160,12 +175,13 @@ function resolveAcquisitionPrintings(
         )
           reasons.push("STAMP_UNVERIFIED");
         if (
-          exactNames.size &&
-          !names(card).some((name) => exactNames.has(name))
+          strictNames.size &&
+          !names(card).some((name) => strictNames.has(name))
         ) {
           conflict = true;
           reasons.push("TITLE_CONTRADICTION");
-        } else if (exactCards.has(card.id)) reasons.push("TITLE_TEXT_AGREES");
+        } else if (strictCards.has(card.id)) reasons.push("TITLE_TEXT_AGREES");
+        else if (exactCards.has(card.id)) reasons.push("TITLE_FRAGMENT", "TITLE_UNCONFIRMED");
         else reasons.push("TITLE_UNCONFIRMED");
         const strictTitles = names(card).filter((name) => titleKeys.includes(name));
         if (strictTitles.length)
@@ -192,7 +208,9 @@ function resolveAcquisitionPrintings(
     if (!proposals.has(card.id))
       proposals.set(card.id, {
         card,
-        reasons: collectors.has(acquisitionCollectorKey(card.collectorNumber))
+        reasons: !strictCards.has(card.id)
+          ? ["TITLE_FRAGMENT", "SIMILAR_TITLE_ONLY", "PRINTING_UNCONFIRMED", "REVIEW_REQUIRED"]
+          : collectors.has(acquisitionCollectorKey(card.collectorNumber))
           ? ["TITLE_AND_COLLECTOR_TEXT", "SET_UNCONFIRMED", "REVIEW_REQUIRED"]
           : ["TITLE_TEXT", "PRINTING_UNCONFIRMED", "REVIEW_REQUIRED"],
         nameDistance: 0,
@@ -229,6 +247,9 @@ function resolveAcquisitionPrintings(
       // contradiction. Keep the contradictory alternative and conflict veto.
       Number(a.reasons.includes("TITLE_CONTRADICTION")) -
         Number(b.reasons.includes("TITLE_CONTRADICTION")) ||
+      Number(b.reasons.some(r => ["TITLE_EXACT", "TITLE_TEXT", "TITLE_TEXT_AGREES"].includes(r))) -
+        Number(a.reasons.some(r => ["TITLE_EXACT", "TITLE_TEXT", "TITLE_TEXT_AGREES"].includes(r))) ||
+      Number(b.reasons.includes("TITLE_FRAGMENT")) - Number(a.reasons.includes("TITLE_FRAGMENT")) ||
       (a.nameDistance ?? 0) - (b.nameDistance ?? 0) ||
       a.card.id.localeCompare(b.card.id),
   );
@@ -258,6 +279,8 @@ function resolveAcquisitionPrintings(
     exactPrintings[0].reasons.includes("TITLE_EXACT") &&
     !exactPrintings[0].reasons.includes("TITLE_CHARACTERS_REVIEW_REQUIRED") &&
     !exactPrintings[0].reasons.includes("STAMP_UNVERIFIED") &&
+    // Retain the prior broader alias guard: this provenance repair must not
+    // expand automatic acceptance by discarding a contained-name ambiguity.
     [...exactNames].every((name) =>
       names(exactPrintings[0].card).includes(name),
     );
