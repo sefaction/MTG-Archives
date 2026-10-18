@@ -1,3 +1,4 @@
+import {verifyPrimaryCatalogFreshness} from "./verify-primary-catalog-freshness";
 import {verifyRecognitionSnapshot} from "./verify-acquisition-recognition-snapshot";
 import { verifyCorrectionReviewHistory } from "./verify-acquisition-correction-history";
 import { verifyCorrectionEvidencePrecision } from "./verify-correction-evidence-precision";
@@ -112,6 +113,7 @@ const known = {
 
 async function run() {
   await verifyRecognitionSnapshot(db);
+  await verifyPrimaryCatalogFreshness(db);
   await verifyCorrectionFairness(db);
     await verifyCorrectionCaptureClock(db);
   await verifyAcquisitionCorrections(db);
