@@ -17,7 +17,7 @@ import type { ClaimedAcquisitionJob } from "./acquisition-jobs";
 import { acquisitionReadingZonesSchema } from "./acquisition-reading-zones";
 import { ACQUISITION_FOOTER_PARSER_VERSION } from "./acquisition-footer";
 import { acquisitionPhotoTextSchema, needsAcquisitionPhotoText, readAcquisitionPhotoText,
-  combineAcquisitionPhotoText } from "./acquisition-photo-text";
+  combineAcquisitionPhotoText, needsAcquisitionScannerFooter, ACQUISITION_PHOTO_TEXT_POLICY_VERSION } from "./acquisition-photo-text";
 import { acquisitionHandoffQuery } from "./acquisition-handoff";
 import {sourceFooterSchema} from './acquisition-source-footer';
 
@@ -151,6 +151,7 @@ export function acquisitionRecognitionVersion(_catalog: string, model: string) {
         pipeline: RECOGNITION_STAGE,
         model,
         resolver: "metadata-card-orientation-catalog-v5",
+        photoTextPolicy: ACQUISITION_PHOTO_TEXT_POLICY_VERSION,
       }),
     )
     .digest("hex");
@@ -326,7 +327,9 @@ export async function recognizeAcquisitionPhoto(
     native.orientations,
   );
   if(native.scannerLayout?.readingStatus==="COMPLETE")proposals=combineScannerLayoutReadings(snapshot.index,native);
-  if (!input.manualAnalysis?.region && needsAcquisitionPhotoText(proposals)) {
+  if (!input.manualAnalysis?.region && (needsAcquisitionPhotoText(proposals) ||
+      (input.inputKind === "CARD_SCAN" && native.scannerLayout?.readingStatus !== "COMPLETE" &&
+        needsAcquisitionScannerFooter(proposals)))) {
     native.photoText = await readAcquisitionPhotoText(requestNative, bytes, input.inputKind,
       { photoDigest: input.digest, descriptor: model }, signal,
       Math.min(32000, 35000 - (Date.now() - nativeStarted)));
@@ -347,6 +350,7 @@ export async function recognizeAcquisitionPhoto(
       index: snapshot.digest,
       footerParser: ACQUISITION_FOOTER_PARSER_VERSION,
       textResolver: ACQUISITION_TEXT_RESOLVER_VERSION,
+      photoTextPolicy: ACQUISITION_PHOTO_TEXT_POLICY_VERSION,
     },
     execution: "CPU",
     manualAnalysis: input.manualAnalysis ?? null,

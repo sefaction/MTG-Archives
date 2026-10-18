@@ -27,6 +27,22 @@ type Index = ReturnType<typeof createAcquisitionRecognitionIndex>;
 export const UNLOCALIZED_NAME_HINT = "UNLOCALIZED_NAME_HINT";
 export const acquisitionPhotoNameKey = acquisitionNameKey;
 
+// Raw recognition admission changes independently of saved-text interpretation.
+export const ACQUISITION_PHOTO_TEXT_POLICY_VERSION = "capped-scanner-footer-v2";
+
+// A capped, title-supported scan can still lack the printing's collector. The
+// existing positioned whole-photo channel may retrieve it outside the display
+// cap, while remaining review-only. Keep explicit/conflicting identifiers and
+// ambiguous directions on their existing paths.
+export function needsAcquisitionScannerFooter(proposals: Proposals) {
+  return proposals.status === "REVIEW_REQUIRED" &&
+    !proposals.automaticAcceptance && proposals.truncated &&
+    proposals.orientation.status === "SELECTED" &&
+    proposals.evidence.collectors.length === 0 &&
+    proposals.proposals.some(p => !p.reasons.some(r => r.endsWith("_CONTRADICTION")) &&
+      p.reasons.some(r => ["TITLE_EXACT", "TITLE_TEXT_AGREES", "TITLE_TEXT", "TITLE_AND_COLLECTOR_TEXT"].includes(r)));
+}
+
 export function needsAcquisitionPhotoText(proposals: Proposals) {
   // Catalog-supported short names (e.g. Fog) keep the original fast path.
   return !proposals.proposals.some(p => p.reasons.some(reason =>
