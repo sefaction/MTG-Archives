@@ -508,3 +508,42 @@ test("new physical evidence invalidates prior review and count confirmation with
   assert.deepEqual(countReasons(changed.candidates[0]), ["MULTIFEED"]);
   assert.equal(state.candidates[0].review?.cardId, "printing");
 });
+
+
+test("count-only confirmation preserves accepted attributes, provenance and later human edits", () => {
+  const captured = receiveAcquisitionEvent(session(), event(1));
+  const preferred = {...known,cardId:"deliberate-second-printing",language:"fr",finish:"FOIL" as const,condition:"LP"};
+  const accepted = reviewCandidate(captured,key(1),1,"human",preferred);
+  const confirmed = correctPhysicalCount(accepted,{candidateKey:key(1),revision:2,actorId:"counter",reason:"One retained front",action:"CONFIRM_COUNT"});
+  assert.deepEqual(confirmed.candidates[0].review,{...preferred,actorId:"human"});
+  assert.equal(confirmed.candidates[0].revision,3);
+  assert.equal(confirmed.candidates[0].countConfirmed,true);
+  assert.deepEqual(confirmed.corrections,[{candidateKey:key(1),revision:3,actorId:"counter",reason:"One retained front",action:"CONFIRM_COUNT"}]);
+  assert.equal(accepted.candidates[0].countConfirmed,false);
+  assert.throws(()=>reviewCandidate(confirmed,key(1),1,"human",known),/Stale/);
+  const proposed=recordRecognitionProposal(confirmed,key(1),3,known);
+  assert.deepEqual(proposed.candidates[0].review,confirmed.candidates[0].review);
+  const changed=reviewCandidate(proposed,key(1),3,"later-human",known);
+  assert.deepEqual(changed.candidates[0].review,{...known,actorId:"later-human"});
+  assert.equal(changed.candidates[0].countConfirmed,true);
+  assert.equal(changed.candidates[0].revision,4);
+  assert.throws(()=>correctPhysicalCount(changed,{candidateKey:key(1),revision:3,actorId:"counter",reason:"Stale count",action:"CONFIRM_COUNT"}),/Stale/);
+});
+
+test("count confirmation does not invent a review; new evidence and exclusion still invalidate it", () => {
+  const captured=receiveAcquisitionEvent(session(),event(1));
+  const confirmed=correctPhysicalCount(captured,{candidateKey:key(1),revision:1,actorId:"counter",reason:"One front",action:"CONFIRM_COUNT"});
+  assert.equal(confirmed.candidates[0].review,null);
+  const accepted=reviewCandidate(confirmed,key(1),2,"human",known);
+  const additional=event(2); additional.sightings[0].candidate=event(1).sightings[0].candidate;
+  const changed=receiveAcquisitionEvent(accepted,additional);
+  assert.equal(changed.candidates[0].review,null);
+  assert.equal(changed.candidates[0].countConfirmed,false);
+  assert.equal(changed.candidates[0].revision,4);
+  const detection=event(3);detection.sightings[0].candidate.identityKind="DETECTION";
+  const reviewed=reviewCandidate(receiveAcquisitionEvent(session(),detection),key(3),1,"human",known);
+  const excluded=correctPhysicalCount(reviewed,{candidateKey:key(3),revision:2,actorId:"human",reason:"False region",action:"EXCLUDE_FALSE_DETECTION"});
+  assert.equal(excluded.candidates[0].review,null);
+  assert.equal(excluded.candidates[0].excluded,true);
+  assert.equal(excluded.candidates[0].countConfirmed,false);
+});
