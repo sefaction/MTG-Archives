@@ -519,6 +519,79 @@ export async function verifyCountedScanner(db: PrismaClient) {
     console.log("PASS: forced sampled scanner original survives expired Trash until real correction copy, then expires with private bytes and Inventory conserved");
     console.log("PASS: active and unknown-outcome Trash restores visible cancelled batches with capacity/admission held, originals drain without inference, explicit processing resume waits for settlement and never restarts a scanner series; physical feeds=0");
     console.log("PASS: explicit multi-section series, concurrent next admission, stale-page/refresh recovery, same-batch refill, durable/repeated Stop, released unfed reservations and retained uncommitted cards; physical feeds=0");
+    // Review while the helper is still capturing, before automatic count
+    // confirmation. Count corrections must not create/replace human decisions.
+    const reviewHelper=first;await reviewHelper.pulse();const reviewBox=await location(6,[{name:"A",capacity:6}]);
+    const chosen=await db.card.create({data:{scryfallId:tag+"-chosen",oracleId:tag+"-same-name",name:tag+" review card",setCode:"alt",collectorNumber:"2",typeLine:"Creature",rarity:"common",lang:"fr",digital:false,finishes:["foil"]}});
+    const alternate=await db.card.create({data:{scryfallId:tag+"-alternate",oracleId:tag+"-same-name",name:chosen.name,setCode:"alt",collectorNumber:"3",typeLine:"Creature",rarity:"common",lang:"fr",digital:false,finishes:["etched"]}});
+    const chosenDecision={cardId:chosen.id,language:"fr",finish:"FOIL",condition:"LP"};
+    const laterPrinting={cardId:alternate.id,language:"fr",finish:"ETCHED",condition:"MP"};
+    const reviewedBatch=await createScannerBatch(db,actor,setup(reviewHelper,reviewBox,"A",6,2),epoch);
+    const reviewClaim=await claim(reviewHelper,reviewedBatch.runId),headPhotos=await images(reviewHelper,reviewClaim,2);
+    const accepted=[];
+    async function accept(photoId:string,choice:typeof decision) {
+      const before=await getAcquisitionCardReview(db,actor,reviewedBatch.sessionId,photoId);
+      await saveAcquisitionReview(db,actor,reviewedBatch.sessionId,{action:"accept",photoId,revision:before.revision,decision:choice});
+      return getAcquisitionCardReview(db,actor,reviewedBatch.sessionId,photoId);
+    }
+    for(const photo of headPhotos)accepted.push(await accept(photo.ack.photoId,chosenDecision));
+    const originalReviews=accepted.map(r=>structuredClone(r.review));
+    const reviewEventsBefore=await db.correctionReviewEvent.count({where:{ownerPlayerId:tag,sourcePhotoId:{in:headPhotos.map(p=>p.ack.photoId)}}});
+    const early=await finish(reviewHelper,reviewClaim,2,true);
+    for(let i=0;i<2;i++){
+      const reloaded=await getAcquisitionCardReview(db,actor,reviewedBatch.sessionId,headPhotos[i].ack.photoId);
+      assert.deepEqual(reloaded.review,originalReviews[i]);assert.equal(reloaded.revision,accepted[i].revision+1);
+    }
+    assert.equal(await db.correctionReviewEvent.count({where:{ownerPlayerId:tag,sourcePhotoId:{in:headPhotos.map(p=>p.ack.photoId)}}}),reviewEventsBefore);
+    // An old page may harmlessly replay the identical decision, but cannot
+    // replace it with a different choice after the count revision advanced.
+    await assert.rejects(saveAcquisitionReview(db,actor,reviewedBatch.sessionId,{action:"accept",photoId:accepted[0].photoId,revision:accepted[0].revision,decision}),/changed/);
+    const refillReviewed=await refillScannerBatch(db,tag,{runId:reviewedBatch.runId,requestKey:randomUUID(),loadedCount:4,operatorLoadedSimplexFronts:true},epoch);
+    const refillClaim=await claim(reviewHelper,refillReviewed.runId),tailPhotos=await images(reviewHelper,refillClaim,4);
+    for(const photo of tailPhotos.slice(0,3))accepted.push(await accept(photo.ack.photoId,chosenDecision));
+    await finish(reviewHelper,refillClaim,4,false);
+    const allPhotos=[...headPhotos,...tailPhotos];
+    for(let i=0;i<5;i++){
+      const reloaded=await getAcquisitionCardReview(db,actor,reviewedBatch.sessionId,allPhotos[i].ack.photoId);
+      assert.deepEqual(reloaded.review,{...chosenDecision,actorId:tag});
+      assert.equal(reloaded.revision,accepted[i].revision+1);
+    }
+    assert.equal((await getAcquisitionCardReview(db,actor,reviewedBatch.sessionId,allPhotos[5].ack.photoId)).review,null);
+    const savedRun=await db.acquisitionRun.findUniqueOrThrow({where:{sessionId:reviewedBatch.sessionId}});
+    const commandsBefore=await db.acquisitionCommand.count({where:{runId:savedRun.id}});
+    const eventsBefore=await db.correctionReviewEvent.count({where:{ownerPlayerId:tag,sourcePhotoId:{in:allPhotos.map(p=>p.ack.photoId)}}});
+    await finishScannerRun(db,reviewHelper.token,{...reviewClaim,outcome:early},epoch);
+    await reconcileScannerBatch(db,tag,observe(reviewedBatch.runId,2));
+    assert.equal(await db.acquisitionCommand.count({where:{runId:savedRun.id}}),commandsBefore);
+    assert.equal(await db.correctionReviewEvent.count({where:{ownerPlayerId:tag,sourcePhotoId:{in:allPhotos.map(p=>p.ack.photoId)}}}),eventsBefore);
+    const choose=(indices:number[])=>({photoIds:indices.map(i=>allPhotos[i].ack.photoId),locationId:reviewBox,section:"A"});
+    assert.equal(await db.inventoryItem.count({where:{locationId:reviewBox}}),0);
+    await assert.rejects(previewAcquisitionCommit(db,{userId:foreign,adminMode:false},reviewedBatch.sessionId,choose([0])));
+    await assert.rejects(previewAcquisitionCommit(db,actor,reviewedBatch.sessionId,choose([5])),/reviewed/);
+    const stalePreview=await previewAcquisitionCommit(db,actor,reviewedBatch.sessionId,choose([2]));
+    await accept(allPhotos[1].ack.photoId,chosenDecision); // identical reacceptance
+    await accept(allPhotos[2].ack.photoId,laterPrinting); // later printing wins
+    await accept(allPhotos[3].ack.photoId,decision); // later identity wins
+    await assert.rejects(commitAcquisitionCards(db,actor,reviewedBatch.sessionId,{...choose([2]),requestKey:randomUUID(),previewToken:stalePreview.token,overfillReason:null}),/changed/);
+    const selectionReviewed=choose([0,1,2,3]);
+    const reviewedPreview=await previewAcquisitionCommit(db,actor,reviewedBatch.sessionId,selectionReviewed);
+    assert.equal(await db.inventoryItem.count({where:{locationId:reviewBox}}),0);
+    const request={...selectionReviewed,requestKey:randomUUID(),previewToken:reviewedPreview.token,overfillReason:null};
+    await commitAcquisitionCards(db,actor,reviewedBatch.sessionId,request);
+    await commitAcquisitionCards(db,actor,reviewedBatch.sessionId,request);
+    const stock=await db.inventoryItem.findMany({where:{locationId:reviewBox},select:{cardId:true,language:true,foilStatus:true,condition:true,quantity:true}});
+    assert.deepEqual(stock.sort((a,b)=>a.cardId.localeCompare(b.cardId)),[
+      {cardId:chosen.id,language:"fr",foilStatus:"FOIL",condition:"LP",quantity:2},
+      {cardId:alternate.id,language:"fr",foilStatus:"ETCHED",condition:"MP",quantity:1},
+      {cardId:card.id,language:"en",foilStatus:"NONFOIL",condition:"NM",quantity:1},
+    ].sort((a,b)=>a.cardId.localeCompare(b.cardId)));
+    const members=await db.acquisitionCommitMember.findMany({where:{runId:savedRun.id}});
+    assert.equal(members.length,4);
+    assert.deepEqual((await getAcquisitionCardReview(db,actor,reviewedBatch.sessionId,allPhotos[4].ack.photoId)).review,{...chosenDecision,actorId:tag});
+    assert.equal((await capacity(reviewBox,"A")).remaining,0);
+    const countCorrections=await db.acquisitionCountCorrection.findMany({where:{runId:savedRun.id}});
+    assert.equal(countCorrections.length,6);assert(countCorrections.every(c=>c.action==="CONFIRM_COUNT"));
+    console.log("PASS: review-before-finish/refill/reload preserves selected printing and attributes; identical reacceptance, later printing/identity edits, stale edits/previews, explicit commit/replay and uncommitted/pending cards; physical feeds=0");
     console.log("PASS: counted 83-image allocation, hopper remainder observation, pending/commit capacity conservation, concurrent parent limits, fresh no-START guard, same-batch refill segments and old-segment replay with saved review; physical feeds=0");
   } finally {
     const correctionOwners = {ownerPlayerId: {in: [tag,foreign]}};
@@ -539,7 +612,7 @@ export async function verifyCountedScanner(db: PrismaClient) {
     await db.acquisitionSession.deleteMany({where:{createdByUserId:{in:[tag,foreign]}}});
     await db.scannerPairing.deleteMany({where:{userId:{in:[tag,foreign]}}});await db.scannerAgent.deleteMany({where:{userId:{in:[tag,foreign]}}});
     await db.inventoryAuditLog.deleteMany({where:{changedByUserId:tag}});await db.inventoryItem.deleteMany({where:{currentOwnerId:tag}});
-    await db.card.deleteMany({where:{scryfallId:tag}});await db.inventoryLocation.deleteMany({where:{id:{in:createdLocations}}});
+    await db.card.deleteMany({where:{scryfallId:{in:[tag,tag+"-chosen",tag+"-alternate"]}}});await db.inventoryLocation.deleteMany({where:{id:{in:createdLocations}}});
     await db.user.deleteMany({where:{id:{in:[tag,foreign]}}});await db.player.deleteMany({where:{id:{in:[tag,foreign]}}});
     if(oldRoot===undefined)delete process.env.UPLOADS_DATA_PATH;else process.env.UPLOADS_DATA_PATH=oldRoot;
     if(path.dirname(root)!==parent||!path.basename(root).startsWith("counted-scanner-db-"))throw new Error("Fixture root escaped");
