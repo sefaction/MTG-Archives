@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const CATALOG_RECONCILIATION_STAGE = "photo-catalog-reconciliation-v1";
-export const CATALOG_RESOLVER_VERSION = "catalog-reconciliation-title-conflict-v13";
+export const CATALOG_RESOLVER_VERSION = "catalog-reconciliation-weak-name-v14";
 export const catalogStatusSchema = z.object({
   status: z.enum([
     "CHECKING",

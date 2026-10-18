@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { acquisitionLocatedTitleNames } from "./acquisition-recognition";
 import { scannerSourceTextSchema, observedScannerIdentifiers } from "./acquisition-scanner-source-text";
 import { acquisitionNameKey, acquisitionExactNameKeyEligible } from "./acquisition-name";
 import { acquisitionNativePhotoInput, type AcquisitionImageInputKind } from "./acquisition-image-input";
@@ -131,8 +132,15 @@ export function combineAcquisitionPhotoText(index: Index, base: Proposals, raw?:
   const rank = new Map(imageIds.map((id, i) => [id, i]));
   const hinted = [...hints.keys()].sort((a, b) => (rank.get(a) ?? Number.MAX_SAFE_INTEGER) -
     (rank.get(b) ?? Number.MAX_SAFE_INTEGER));
+  const locatedNames = acquisitionLocatedTitleNames(base.proposals);
+  // Preserve the supported full identity ahead of unrelated unlocated body/face
+  // hints. Keep image ordering among its printing alternatives, including hints
+  // that rescue a printing outside the base display cap; confer no new reasons.
+  const located = [...all.values()].filter(p => locatedNames.has(acquisitionPhotoNameKey(p.card.name)) &&
+    !p.reasons.some(r => r.endsWith("_CONTRADICTION"))).sort((a,b) =>
+      (rank.get(a.card.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.card.id) ?? Number.MAX_SAFE_INTEGER));
   const order = [...base.proposals.filter(p => p.reasons.includes("SET_AND_COLLECTOR_TEXT")).map(p => p.card.id),
-    ...hinted.filter(id => supported.has(id)), ...hinted, ...base.proposals.map(p => p.card.id)];
+    ...hinted.filter(id => supported.has(id)), ...located.map(p => p.card.id), ...hinted, ...base.proposals.map(p => p.card.id)];
   const proposals = [...new Set(order)].map(id => all.get(id)!);
   return { ...base, status: base.status === "CONFLICT" ? "CONFLICT" : "REVIEW_REQUIRED",
     automaticAcceptance: false, totalProposals: Math.max(base.totalProposals, proposals.length),
