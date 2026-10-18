@@ -670,13 +670,13 @@ export function DeckImportPanel({
               name="unresolvedIncludedCount"
               value={summary.unresolvedIncluded}
             />
-            <label className={filterFieldClass}>
+            <label className={cn(filterFieldClass, "w-full min-w-0 sm:w-auto")}>
               Commit mode
               <select
                 name="mode"
                 value={mode}
                 onChange={(event) => setMode(event.target.value)}
-                className={cn(filterSelectClass, "ml-2")}
+                className={cn(filterSelectClass, "w-full min-w-0 max-w-full")}
               >
                 <option value="merge">
                   Append / merge with existing cards

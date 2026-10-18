@@ -153,6 +153,9 @@ test("League paste retains review on pool rejection and retries without inventor
   for (const width of [1366, 320]) {
     await page.setViewportSize({ width, height: 900 });
     await feedback.scrollIntoViewIfNeeded();
+    await expect(page.locator("select[name=mode]")).toBeInViewport({
+      ratio: 1,
+    });
     await expect(feedback).toBeInViewport({ ratio: 1 });
     expect(
       await page.evaluate(
