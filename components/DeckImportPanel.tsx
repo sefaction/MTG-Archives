@@ -354,6 +354,12 @@ export function DeckImportPanel({
     );
   }
 
+  async function applyDecklist(formData: FormData) {
+    setCommitError("");
+    const result = await commitDeckImport(formData);
+    if (result?.error) setCommitError(result.error);
+  }
+
   function preSubmit(event: React.FormEvent<HTMLFormElement>) {
     if (reviewStale || loading || resolving) {
       event.preventDefault();
@@ -646,7 +652,7 @@ export function DeckImportPanel({
           ) : null}
 
           <form
-            action={commitDeckImport}
+            action={applyDecklist}
             onSubmit={preSubmit}
             className="flex flex-wrap items-center gap-3 rounded border border-zinc-800 p-3"
           >
@@ -693,7 +699,9 @@ export function DeckImportPanel({
                 : ""}
             </SubmitButton>
             {commitError ? (
-              <span className="text-sm text-red-300">{commitError}</span>
+              <span role="alert" className="text-sm text-red-300">
+                {commitError}
+              </span>
             ) : null}
           </form>
         </fieldset>
