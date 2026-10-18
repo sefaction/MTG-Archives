@@ -50,7 +50,12 @@ export function observedScannerIdentifiers(source?: ScannerSourceText) {
   if (new Set(collectors.map(c => c.number)).size !== 1 ||
       new Set(markers.map(m => `${m.set}:${m.language}`)).size !== 1) return null;
   const pairs = collectors.flatMap(c => markers.filter(m =>
-    m.top >= c.bottom - source.height * .005 && m.top - c.bottom <= source.height * .045 &&
+    // OCR glyph boxes can overlap while the central areas of two rows
+    // remain distinct. Each row's center must lie outside the other box;
+    // same-row, nested and heavily overlapping boxes gain no new support.
+    (m.top >= c.bottom - source.height * .005 ||
+      (m.top > (c.top + c.bottom) / 2 && (m.top + m.bottom) / 2 > c.bottom)) &&
+    m.top - c.bottom <= source.height * .045 &&
     Math.abs(m.left - c.left) <= source.width * .06
   ).map(m => ({set: m.set, language: m.language, number: c.number})));
   return pairs[0] ?? null;
