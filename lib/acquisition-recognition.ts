@@ -337,7 +337,9 @@ export function proposeOrientedAcquisitionPrintings(
     result: resolveAcquisitionPrintings(index, orientation.text, Math.max(1, index.cards), false, orientation),
   }));
   const substantive = observed.filter(({ result }) =>
-    result.proposals.some((p) => !p.reasons.includes("SIMILAR_TITLE_ONLY")),
+    // A literal fragment remains an observation in its own direction. It must
+    // still veto confirmation from the opposite direction, as before.
+    result.proposals.some((p) => p.reasons.includes("TITLE_FRAGMENT") || !p.reasons.includes("SIMILAR_TITLE_ONLY")),
   );
   // Avoid a full fuzzy catalog search for upside-down noise when either
   // direction already has exact name or printed-identifier evidence.

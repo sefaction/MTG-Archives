@@ -11,3 +11,8 @@ Eight frozen synthetic controls produce3passes/5failures on old main, then8passe
 ## Pending qualification
 
 Actual Linux images, a bounded old/new acceptance replay, disposable real catalog/compiled browser checks, cumulative publication/conservation and exact-final required CI remain pending. Keep the PR draft. Synthetic observations are software controls, not native OCR or independent accuracy, and do not prove a historical photograph repaired. No physical feed, production deployment or historical Inventory repair.
+
+
+## Directional acceptance guard
+
+An expanded pre-publication control found that classifying a contained title as similar-only could discard its portrait direction and allow the opposite direction to confirm automatically. The candidate failed this new9th control(8pass/1fail); it was never loaded into shared review. Literal fragments now remain substantive directional observations, preserving the prior opposite-direction veto while still requesting whole-photo fallback. All9weak-name controls pass; the actual old/new matrix is expanded to include opposite-direction empty/fragment/strong readings. Initial candidate image/browser proofs are retained separately and do not qualify the final guarded source.

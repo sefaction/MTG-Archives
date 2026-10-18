@@ -58,3 +58,11 @@ test("exact identity with a contained-name ambiguity does not gain automatic acc
  const {result}=propose([card,short],[card.name],["R173","ABC EN"]);assert.equal(result.automaticAcceptance,false);assert(result.proposals[0].reasons.includes("REVIEW_REQUIRED"));
  const exact=propose([card],[card.name],["R173","ABC EN"]).result;assert.equal(exact.automaticAcceptance,true);
 });
+
+test("a contained title in the opposite direction still vetoes automatic acceptance",()=>{
+ const other={...card,id:"other",name:"Cloud Ranger",collectorNumber:"7"},index=createAcquisitionRecognitionIndex([short,other]);
+ for(const rotation of [0,180]){
+  const result=proposeOrientedAcquisitionPrintings(index,[0,180].map(rotationDegrees=>({rotationDegrees,text:rotationDegrees===rotation?{title:[card.name],footer:[]}:{title:[other.name],footer:["R7","ABC EN"]}})));
+  assert.equal(result.automaticAcceptance,false);assert.equal(result.orientation.status,"UNRESOLVED");assert.deepEqual(new Set(result.proposals.map(p=>p.card.id)),new Set([short.id,other.id]));
+ }
+});
