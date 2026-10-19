@@ -1,3 +1,23 @@
+# Current author qualification — local publication completed
+
+October18,2026 (October19 UTC). Manual run e2055c04-c4d9-4dfa-9eca-644f9a2ee259 completed the remaining [#850](https://github.com/sefaction/MTG-Archives/pull/850) local publication after the targeted pricing startup repair in [#853](https://github.com/sefaction/MTG-Archives/pull/853). Both remain subject to separate reviewer readiness/individual approval/merge gates. No production action occurred.
+
+All six review roles now run the already-qualified #850 images at http://127.0.0.1:13011. Web/acquisition/catalogue image is ba2f5e492d4d826599f0a31b793cde8334092bb20beb2c9c88ac0a730a465a3a; OCR67c441b9dab9a9469d66125f1bd413e87b334e7f1c6f861d0670897a1b893ce6; visual46b3ccdf63d1d9ce878cdeba13a2348bbdeb3ad7d1f9c26606560bfa08bf0771; printing3d2311fceca4561ea552ef27ee994ed934ad8e6654834a2bd36c85ccf57b5624. Actual platform/source/environment/mount/HostConfig and fresh reported-model descriptors pass per role. Each running role verifies333 library/script file hashes and ambiguous-scanner-footer-v3. The web manifest remains ed834f4d5646a69d10da31ad6d63e68ee100163d51ceb830b010c6a06a083687.
+
+The existing six-role settings are conserved, including explicit original130-second worker stop periods and existing logging defaults. The canonical private Compose file now records the six images and those equivalent explicit defaults. No unrelated service, option or data path changed. The fixed primary pricing worker is a separate component source2547386, image03770b334ef3fb44a640818c7b9d859527b6ecbe3852880cf8a5e9fa40faf77d; its source/report and ongoing database limits are recorded in PR853.
+
+Fresh publication evidence passes: seventeen non-target peer identities/settings/lifetimes; all native event counters;155 original files/891766253bytes; one correction file/6373366bytes; catalogue118505total/109292paper/fingerprint15ea2bf28301d311017fd1f432798ea0; twelve review tables; empty review queue/uploads; visual index26f3131765b6165f103b38db6294d15f4d11587eaaa1ec7def3a7c4d7cd70051 with1122bytes and unchanged mtime. A48.185-second idle interval preserves fresh role lifetimes/counters and readiness. The actual shared build's desktop/phone login smoke passes with no page exception or horizontal overflow. Owned full workflow/native/database/browser controls below are reused because the exact tested application/image bytes are unchanged; successful costly checks were not repeated. All owned fixture resources are removed.
+
+The earlier failed pricing restart4->14 interval remains FAILED. It is reconciled by actual database recovery evidence, the separately tested853 readiness repair, and an intentional targeted pricing replacement before the new850 baseline. A new passing window does not restore the old failed window. [#854](https://github.com/sefaction/MTG-Archives/issues/854) explicitly owns the unresolved WAL ENOMEM trigger and audit/reconciliation of interrupted imports. No historical job was reset/replayed, limit raised or memory/disk capacity changed.
+
+Scoped author qualification for850 is complete. This does not complete broad #838/#463/#307, independent accuracy, full historical-generation recovery or sustained resource acceptance. Spaced/ambiguous digits, absent originals, #842 provenance gaps and separate resource investigations remain as below. Final metadata-only report commit and exact-head CI are recorded in the PR/checkpoint.
+
+Current evidence: .local-data/uncapped-footer-publication-e2055c04/qualification.json, runtime-proof.json, actual-runtime-source.json, shared-browser-smoke.json, idle-refresh-proof.json, paired snapshots and models-before.json. The original .local-data/uncapped-footer-qualification directory and failed bridge remain preserved.
+
+---
+
+# Preserved initial qualification and failed publication history
+
 # Uncapped scanner footer admission qualification
 
 Related to [#838](https://github.com/sefaction/MTG-Archives/issues/838) and [draft #850](https://github.com/sefaction/MTG-Archives/pull/850); parents #463/#307. October18/19,2026.
