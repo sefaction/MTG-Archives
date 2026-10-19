@@ -128,6 +128,8 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: npx prisma migrate deploy
+      - name: Scryfall refresh preserves Pricing projections in both writer orders
+        run: npx tsx scripts/verify-card-price-preservation.ts
       - name: Real database concurrency, rollback, retry, audit and undo checks
         run: npx tsx scripts/verify-import-commit.ts
       - name: Install PostgreSQL client for asynchronous pricing checks

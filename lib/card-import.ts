@@ -1,3 +1,4 @@
+import type { Card } from "@prisma/client";
 import crypto from "node:crypto";
 
 import { prisma } from "./prisma";
@@ -198,23 +199,46 @@ export function cardWriteData(cardData: ScryfallCard) {
 
 export async function upsertScryfallCard(cardData: ScryfallCard) {
   const data = cardWriteData(cardData) as any;
-  const existing = await prisma.card.findUnique({
-    where: { scryfallId: cardData.id },
-    select: { scryfallFingerprint: true, firstCachedAt: true },
-  });
-  const changed = existing?.scryfallFingerprint !== data.scryfallFingerprint;
-  return prisma.card.upsert({
-    where: { scryfallId: cardData.id },
-    update: {
-      ...data,
-      lastChangedAt: changed ? data.lastChangedAt : undefined,
-      priceLastFetchedAt: data.priceLastFetchedAt ?? undefined,
-    },
-    create: {
-      scryfallId: cardData.id,
-      ...data,
-      firstCachedAt: new Date(),
-    },
+  const { prices: _prices, ...metadata } = data;
+  const scryfallPrices = cardData.prices ? { ...cardData.prices } : null;
+  // This projection belongs to the Pricing worker, including when a cached
+  // caller supplies an older copy alongside Scryfall's flat price fields.
+  if (scryfallPrices) delete scryfallPrices.mtgjson;
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.card.findUnique({
+      where: { scryfallId: cardData.id },
+      select: { scryfallFingerprint: true, firstCachedAt: true },
+    });
+    const changed = existing?.scryfallFingerprint !== data.scryfallFingerprint;
+    const card = await tx.card.upsert({
+      where: { scryfallId: cardData.id },
+      update: {
+        ...metadata,
+        lastChangedAt: changed ? data.lastChangedAt : undefined,
+        priceLastFetchedAt: data.priceLastFetchedAt ?? undefined,
+      },
+      create: {
+        scryfallId: cardData.id,
+        ...data,
+        prices: scryfallPrices ?? {},
+        firstCachedAt: new Date(),
+      },
+    });
+    if (!scryfallPrices) return card;
+    // The upsert holds this row lock until commit. Read the current subtree in
+    // SQL so a Pricing write committed after our metadata read is preserved.
+    const [updated] = await tx.$queryRaw<Card[]>`
+      UPDATE "Card"
+      SET prices = ${JSON.stringify(scryfallPrices)}::jsonb ||
+        CASE WHEN jsonb_typeof(prices::jsonb) = 'object' AND prices::jsonb ? 'mtgjson'
+          THEN jsonb_build_object('mtgjson', prices::jsonb->'mtgjson')
+          ELSE '{}'::jsonb END
+      WHERE id = ${card.id}
+      RETURNING *
+    `;
+    if (!updated)
+      throw new Error("Card price refresh did not return its updated card.");
+    return updated;
   });
 }
 
