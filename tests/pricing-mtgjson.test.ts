@@ -193,3 +193,35 @@ test("preferred pricing selector uses current MTGJSON projection before Scryfall
   assert.equal(price?.amount, 4.25);
   assert.equal(formatSelectedPrice(price), "$4.25");
 });
+
+test("reads provider currency metadata and mtgo provider names from the published schema", () => {
+  const snapshots = extractMtgjsonPriceSnapshots({ data: { one: { paper: {
+          cardmarket: { retail: { normal: { "2026-10-18": 4.25 } }, currency: "EUR" },
+          tcgplayer: { currency: "USD", retail: { foil: { "2026-10-18": 5 } } },
+        }, mtgo: { cardhoarder: { retail: { normal: { "2026-10-18": 0.06 } }, currency: "USD" } } } } });
+  assert.deepEqual(snapshots.map(({ provider, currency, price }) => ({ provider, currency, price })), [
+    { provider: "cardmarket", currency: "EUR", price: 4.25 },
+    { provider: "tcgplayer", currency: "USD", price: 5 },
+    { provider: "cardhoarder", currency: "USD", price: 0.06 },
+  ]);
+});
+test("currency metadata stays within its branch and explicit currency paths retain priority", () => {
+  const payload = { data: { one: { paper: {
+          declared: { currency: " eur ", retail: { normal: { "2026-10-18": 1 }, USD: { foil: { "2026-10-18": 2 } } } },
+          fallback: { retail: { normal: { "2026-10-18": 3 } } },
+          invalid: { currency: 123, retail: { normal: { "2026-10-18": 4 } } },
+        } } } };
+  const before = structuredClone(payload);
+  const snapshots = extractMtgjsonPriceSnapshots(payload, { defaultCurrency: "GBP" });
+  assert.deepEqual(snapshots.map(v => v.currency), ["EUR", "USD", "GBP", "GBP"]);
+  assert.deepEqual(payload, before);
+  assert.deepEqual(snapshots[0].rawJson, { path: ["paper", "declared", "retail", "normal"], value: 1 });
+});
+test("invalid currency declarations fall back without changing filtering or finite-price rules", () => {
+  const payload = { data: { skip: { paper: { cardmarket: { currency: "EUR", retail: { normal: { "2026-10-18": 1 } } } } }, owned: { online: { cardhoarder: { currency: "EURO", retail: { normal: { "2026-10-18": 0, "2026-10-17": Infinity, "2026-10-16": "3" } } } } } } };
+  const rows = extractMtgjsonPriceSnapshots(payload, { defaultCurrency: "CAD", targetMtgjsonUuids: ["owned"], maxCards: 1 });
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].currency, "CAD");
+  assert.equal(rows[0].provider, "cardhoarder");
+  assert.equal(rows[0].price, 0);
+});

@@ -142,3 +142,6 @@ jobs:
         run: npx tsx scripts/verify-pricing-interrupted-import.ts
       - name: Interrupted app-price publication and explicit catch-up preserve source and history
         run: npx tsx scripts/verify-pricing-interrupted-projection.ts
+
+      - name: MTGJSON provider currency and MTGO pipeline
+        run: npx tsx scripts/verify-pricing-provider-currency.ts
