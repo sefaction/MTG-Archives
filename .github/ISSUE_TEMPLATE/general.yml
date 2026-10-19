@@ -1,0 +1,20 @@
+name: Something else
+description: Ask a question, share feedback, or use this if you are unsure which option fits.
+body:
+  - type: markdown
+    attributes:
+      value: A short description in your own words is enough. You do not need a technical plan.
+  - type: textarea
+    id: description
+    attributes:
+      label: What would you like to share?
+      description: Ask your question or describe what you need in your own words.
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Extra details (optional)
+      description: Add any examples or screenshots you want to share, or leave this empty.
+    validations:
+      required: false
