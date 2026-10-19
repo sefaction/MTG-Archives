@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { DeckSection, FoilStatus } from "@prisma/client";
 import { SubmitButton } from "@/components/feedback/SubmitButton";
 import { SetSymbol } from "@/components/mtg/CardSymbols";
@@ -177,6 +177,8 @@ export function DeckImportPanel({
   const [resolveProgress, setResolveProgress] =
     useState<ResolveProgress>(emptyProgress);
   const [commitError, setCommitError] = useState("");
+  const [committing, startCommit] = useTransition();
+  const commitPending = useRef(false);
 
   async function fetchDecklistResolution(
     mode: "parse" | "resolve" | "resolve-lines",
@@ -355,17 +357,29 @@ export function DeckImportPanel({
   }
 
   function preSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (commitPending.current) return;
     if (reviewStale || loading || resolving) {
-      event.preventDefault();
       setCommitError("Parse and review the current text before importing.");
       return;
     }
     if (summary.unresolvedIncluded > 0) {
-      event.preventDefault();
       setCommitError(
         `Resolve or exclude ${summary.unresolvedIncluded} unresolved card entries before importing.`,
       );
+      return;
     }
+    const formData = new FormData(event.currentTarget);
+    commitPending.current = true;
+    setCommitError("");
+    startCommit(async () => {
+      try {
+        const result = await commitDeckImport(formData);
+        if (result?.error) setCommitError(result.error);
+      } finally {
+        commitPending.current = false;
+      }
+    });
   }
 
   return (
@@ -404,7 +418,7 @@ export function DeckImportPanel({
       <textarea
         id="decklist-text"
         aria-describedby="decklist-help"
-        disabled={loading || resolving}
+        disabled={loading || resolving || committing}
         value={text}
         onChange={(event) => setText(event.target.value)}
         rows={8}
@@ -646,7 +660,6 @@ export function DeckImportPanel({
           ) : null}
 
           <form
-            action={commitDeckImport}
             onSubmit={preSubmit}
             className="flex flex-wrap items-center gap-3 rounded border border-zinc-800 p-3"
           >
@@ -657,13 +670,13 @@ export function DeckImportPanel({
               name="unresolvedIncludedCount"
               value={summary.unresolvedIncluded}
             />
-            <label className={filterFieldClass}>
+            <label className={cn(filterFieldClass, "w-full min-w-0 sm:w-auto")}>
               Commit mode
               <select
                 name="mode"
                 value={mode}
                 onChange={(event) => setMode(event.target.value)}
-                className={cn(filterSelectClass, "ml-2")}
+                className={cn(filterSelectClass, "w-full min-w-0 max-w-full")}
               >
                 <option value="merge">
                   Append / merge with existing cards
@@ -673,7 +686,9 @@ export function DeckImportPanel({
             </label>
             <SubmitButton
               pendingLabel="Committing…"
+              aria-busy={committing}
               disabled={
+                committing ||
                 summary.readyToCommit === 0 ||
                 summary.unresolvedIncluded > 0 ||
                 reviewStale ||
@@ -687,13 +702,21 @@ export function DeckImportPanel({
               }
               className="rounded border border-sky-700 px-3 py-2 text-sky-100"
             >
-              Import {summary.readyToCommitTotalQuantity} deck-list copies
-              {inventoryCommitmentEnabled && summary.physicalCopies
-                ? ` and commit ${summary.physicalCopies} physical`
-                : ""}
+              {committing ? (
+                "Committing…"
+              ) : (
+                <>
+                  Import {summary.readyToCommitTotalQuantity} deck-list copies
+                  {inventoryCommitmentEnabled && summary.physicalCopies
+                    ? ` and commit ${summary.physicalCopies} physical`
+                    : ""}
+                </>
+              )}
             </SubmitButton>
             {commitError ? (
-              <span className="text-sm text-red-300">{commitError}</span>
+              <span role="alert" className="text-sm text-red-300">
+                {commitError}
+              </span>
             ) : null}
           </form>
         </fieldset>

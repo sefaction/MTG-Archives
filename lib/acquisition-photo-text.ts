@@ -28,19 +28,23 @@ export const UNLOCALIZED_NAME_HINT = "UNLOCALIZED_NAME_HINT";
 export const acquisitionPhotoNameKey = acquisitionNameKey;
 
 // Raw recognition admission changes independently of saved-text interpretation.
-export const ACQUISITION_PHOTO_TEXT_POLICY_VERSION = "capped-scanner-footer-v2";
+export const ACQUISITION_PHOTO_TEXT_POLICY_VERSION = "ambiguous-scanner-footer-v3";
 
-// A capped, title-supported scan can still lack the printing's collector. The
-// existing positioned whole-photo channel may retrieve it outside the display
-// cap, while remaining review-only. Keep explicit/conflicting identifiers and
-// ambiguous directions on their existing paths.
+// A title-supported scan can still lack the printing's collector. Preserve
+// capped admission; uncapped admission requires multiple distinct printings of
+// one supported identity. The positioned whole-photo read stays review-only.
 export function needsAcquisitionScannerFooter(proposals: Proposals) {
+  const supported = proposals.proposals.filter(p =>
+    !p.reasons.some(r => r.endsWith("_CONTRADICTION")) &&
+    p.reasons.some(r => ["TITLE_EXACT", "TITLE_TEXT_AGREES", "TITLE_TEXT", "TITLE_AND_COLLECTOR_TEXT"].includes(r)));
+  const ambiguousIdentity = supported.length === proposals.proposals.length &&
+    new Set(supported.map(p => p.card.id)).size > 1 &&
+    new Set(supported.map(p => acquisitionPhotoNameKey(p.card.name))).size === 1;
   return proposals.status === "REVIEW_REQUIRED" &&
-    !proposals.automaticAcceptance && proposals.truncated &&
+    !proposals.automaticAcceptance &&
     proposals.orientation.status === "SELECTED" &&
     proposals.evidence.collectors.length === 0 &&
-    proposals.proposals.some(p => !p.reasons.some(r => r.endsWith("_CONTRADICTION")) &&
-      p.reasons.some(r => ["TITLE_EXACT", "TITLE_TEXT_AGREES", "TITLE_TEXT", "TITLE_AND_COLLECTOR_TEXT"].includes(r)));
+    (proposals.truncated ? supported.length > 0 : ambiguousIdentity);
 }
 
 export function needsAcquisitionPhotoText(proposals: Proposals) {
