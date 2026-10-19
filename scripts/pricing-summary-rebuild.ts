@@ -31,12 +31,25 @@ query(pricingSummarySchemaSql);
 query(`UPDATE price_summary_state
        SET ready = FALSE, rebuild_started_at = now()
        WHERE singleton = TRUE;`);
+// Include current views so derived-only UUIDs/scopes are visited and removed
+// by the existing authoritative raw/archive refresh, rather than left fresh.
+const rebuildSources = [
+  "price_snapshots",
+  "price_archived_scope_summary",
+  "price_daily_summary",
+  "price_scope_summary",
+  "price_weekly_summary",
+  "price_monthly_summary",
+  "price_yearly_summary",
+];
 const uuids = JSON.parse(
   query(`SELECT COALESCE(json_agg(mtgjson_uuid), '[]'::json)
-         FROM (SELECT mtgjson_uuid FROM price_snapshots
-               WHERE mtgjson_uuid IS NOT NULL
-               UNION SELECT mtgjson_uuid FROM price_archived_scope_summary
-               ORDER BY mtgjson_uuid) keys`),
+         FROM (${rebuildSources
+           .map(
+             (table) =>
+               `SELECT mtgjson_uuid FROM ${table} WHERE mtgjson_uuid IS NOT NULL`,
+           )
+           .join("\nUNION\n")} ORDER BY mtgjson_uuid) keys`),
 ) as string[];
 const started = Date.now();
 for (let start = 0; start < uuids.length; start += 50) {
@@ -44,11 +57,13 @@ for (let start = 0; start < uuids.length; start += 50) {
   const values = slice.map((uuid) => `'${uuid.replace(/'/g, "''")}'`).join(",");
   const keys = JSON.parse(
     query(`SELECT COALESCE(json_agg(row_to_json(keys)), '[]'::json)
-           FROM (SELECT mtgjson_uuid, provider, finish, price_type, currency
-                 FROM price_snapshots WHERE mtgjson_uuid IN (${values})
-                 UNION SELECT mtgjson_uuid, provider, finish, price_type, currency
-                 FROM price_archived_scope_summary
-                 WHERE mtgjson_uuid IN (${values})) keys`),
+           FROM (${rebuildSources
+             .map(
+               (table) =>
+                 `SELECT mtgjson_uuid, provider, finish, price_type, currency
+              FROM ${table} WHERE mtgjson_uuid IN (${values})`,
+             )
+             .join("\nUNION\n")}) keys`),
   );
   if (keys.length) query(refreshPricingSummariesSql(JSON.stringify(keys)));
   console.log(
