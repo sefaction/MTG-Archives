@@ -205,6 +205,43 @@ try {
   assert.equal(query("SELECT count(*) FROM price_snapshots"), "203");
   const preserved = conserved();
 
+  // Both a fully absent UUID and an unsupported scope on an active UUID can
+  // survive a partial cleanup. A full rebuild must remove these current views
+  // without deleting raw observations, archive basis or historical jobs.
+  for (const [uuid, provider] of [
+    ["unbacked-fixture", "tcgplayer"],
+    [cards[0], "unbacked-provider"],
+  ]) {
+    for (const table of [
+      "price_daily_summary",
+      "price_scope_summary",
+      "price_weekly_summary",
+      "price_monthly_summary",
+      "price_yearly_summary",
+    ]) {
+      query(
+        "INSERT INTO " +
+          table +
+          " SELECT (jsonb_populate_record(NULL::" +
+          table +
+          ",to_jsonb(t)||jsonb_build_object('mtgjson_uuid','" +
+          uuid +
+          "','provider','" +
+          provider +
+          "'))).* FROM " +
+          table +
+          " t WHERE mtgjson_uuid='" +
+          cards[0] +
+          "' AND provider='tcgplayer'",
+      );
+    }
+  }
+  assert.deepEqual(
+    conserved(),
+    preserved,
+    "Unbacked-view fixture must not change source or history",
+  );
+
   query(
     "CREATE FUNCTION reject_fixture_summary() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'fixture summary refresh interrupted'; END $$; CREATE TRIGGER reject_fixture_summary BEFORE INSERT ON price_daily_summary FOR EACH ROW EXECUTE FUNCTION reject_fixture_summary();",
   );
@@ -393,6 +430,8 @@ try {
       committedRows: 203,
       uncommittedRows: 2,
       existingIdCorrections: 1,
+      unbackedUuidsRemoved: 1,
+      unbackedScopesOnActiveUuidsRemoved: 1,
       daily: 203,
       summarizedScopes: 51,
       tiers: tierCounts,
