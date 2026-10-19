@@ -4,7 +4,7 @@ Related to #854 and parent recovery concerns #851, #755 and #305. This test-only
 
 ## Representative failure and recovery
 
-Source c59d01ed1455edadb0010555fb0307cb2eedd87d adds `scripts/verify-pricing-interrupted-import.ts` and runs it in the required PostgreSQL import-integrity job. The verifier creates a uniquely named disposable database after explicit local/CI opt-in. It never operates on the configured database's existing tables, calls a provider, or reads private card/image data.
+Source c59d01ed1455edadb0010555fb0307cb2eedd87d adds `scripts/verify-pricing-interrupted-import.ts` and runs it in the required PostgreSQL import-integrity job. Follow-up source 41985272109b53c9f09f1341fbcca62c7fcbf32c rejects connection-query endpoint overrides and removes inherited libpq endpoint/service settings from both SQL and rebuild children. The verifier creates a uniquely named disposable database after explicit local/CI opt-in. It never operates on the configured database's existing tables, calls a provider, or reads private card/image data.
 
 The fixture starts with 153 observations across 51 printings, then commits an existing-ID price correction and a 50-observation prefix of another import. Two planned observations remain absent. This represents durable partial writes before summary/job completion; it does not reproduce a real worker crash or PostgreSQL ENOMEM.
 
@@ -20,7 +20,7 @@ A repeated rebuild preserves semantic projection content and exact raw IDs, pric
 
 The final representative fixture passes on PostgreSQL 16 and Node 22.23.1 in owned disposable containers, with the four actual current verifier/rebuild/schema/upsert inputs mounted read-only. The PostgreSQL role is bounded to 256 MiB/one CPU; the check role to 512 MiB/one CPU. Both use 128-PID limits. Configured limits and a short successful run are not peak-memory or sustained-load qualification.
 
-Three preflight controls reject missing opt-in, missing connection and remote hosts. Two private, disposable command mutations are rejected at the intended assertions: deleting a printing's yearly summaries, and rewriting interrupted jobs as successful. Normal and negative checks remove their generated databases, containers, anonymous volumes and networks. All 24 pre-existing primary/review container identities, images, settings and lifetimes and six native event-counter sets are conserved during each fixture interval.
+Eleven preflight controls reject missing opt-in/connection, malformed or non-PostgreSQL URIs, remote hosts and six endpoint-query overrides. The final ordinary fixture also passes with deliberately conflicting PGHOSTADDR/PGSERVICE values, proving that both SQL and rebuild subprocesses use the explicit owned target. Two private, disposable command mutations are rejected at the intended assertions: deleting a printing's yearly summaries, and rewriting interrupted jobs as successful. Normal and negative checks remove their generated databases, containers, anonymous volumes and networks. All 24 pre-existing primary/review container identities, images, settings and lifetimes and six native event-counter sets are conserved during each fixture interval.
 
 Initial fixture quoting/transform and duplicate result-key typecheck failures are retained; both were corrected before the passing final fixture. The previous shared delta/projection query's eight-second timeout remains failed and was not rerun or increased. Private run evidence is `.local-data/issue-worker/runs/acd866c3-80b0-432f-b906-dbeced32173c`.
 
