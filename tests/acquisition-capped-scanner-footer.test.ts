@@ -14,8 +14,8 @@ test("a selected title with capped alternatives and no collector admits scanner 
   assert.equal(result.proposals.some(p=>p.card.id===target.id),false);
   assert.equal(needsAcquisitionPhotoText(result),false);assert.equal(needsAcquisitionScannerFooter(result),true);
 });
-test("supported identifiers, uncapped names, conflicts and ambiguous directions retain existing admission",()=>{
-  const capped=base(),small=proposeOrientedAcquisitionPrintings(createAcquisitionRecognitionIndex(cards.slice(0,2)),reads());
+test("supported identifiers, single printings, conflicts and ambiguous directions retain existing admission",()=>{
+  const capped=base(),small=proposeOrientedAcquisitionPrintings(createAcquisitionRecognitionIndex(cards.slice(0,1)),reads());
   const identified=proposeOrientedAcquisitionPrintings(index,reads(["L 0990","TST EN"]));
   for(const result of [small,identified,{...capped,status:"CONFLICT" as const},{...capped,automaticAcceptance:true},
       {...capped,orientation:{status:"UNRESOLVED" as const,rotationDegrees:null}},
