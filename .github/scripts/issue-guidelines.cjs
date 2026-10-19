@@ -4,6 +4,7 @@
 const TYPES = ['bug', 'feature', 'improvement', 'maintenance', 'validation'];
 const STATUSES = ['backlog', 'in progress', 'investigating', 'awaiting review', 'awaiting validation', 'needs decision'];
 const MARKER = '<!-- mtg-archives:issue-guidelines:v1 -->';
+const INTERNAL_LABEL = 'triage: complete';
 
 function visibleText(body) {
   return String(body ?? '')
@@ -60,9 +61,18 @@ function sections(body) {
   return found;
 }
 
+function labelNames(issue) {
+  return (issue.labels ?? []).map(label => typeof label === 'string' ? label : label.name);
+}
+
+function requiresInternalChecks(issue) {
+  // Readiness opt-in, not origin: sorting/assignment labels do not complete triage.
+  return labelNames(issue).includes(INTERNAL_LABEL);
+}
+
 function validateIssue(issue) {
-  if (issue.state !== 'open' || issue.pull_request) return [];
-  const labels = (issue.labels ?? []).map(label => typeof label === 'string' ? label : label.name);
+  if (issue.state !== 'open' || issue.pull_request || !requiresInternalChecks(issue)) return [];
+  const labels = labelNames(issue);
   const findings = [];
   for (const [prefix, allowed, description] of [['type: ', TYPES, 'work type'], ['status: ', STATUSES, 'workflow status']]) {
     const selected = labels.filter(label => typeof label === 'string' && label.startsWith(prefix.trimEnd()));
@@ -80,7 +90,7 @@ function validateIssue(issue) {
 
 function feedback(findings) {
   if (!findings.length) return `${MARKER}\nIssue guideline findings resolved. Structural checks pass; freshness, evidence quality and acceptance still need human review.`;
-  return `${MARKER}\nPlease check this issue against [the issue policy](https://github.com/sefaction/MTG-Archives/blob/main/AGENTS.md#github-issue-organization-and-upkeep).\n\n${findings.map(finding => `- ${finding}`).join('\n')}\n\nEdit the current summary and have a maintainer adjust labels as needed. Equivalent headings and summary bullets are supported. Preserve history; no status, body or acceptance is assigned by this check. This comment updates after issue edits or label changes.`;
+  return `${MARKER}\nMaintainers and agents: please complete the [internal tracking details](https://github.com/sefaction/MTG-Archives/blob/main/AGENTS.md#github-issue-organization-and-upkeep) for this issue. The reporter does not need to fill out this checklist.\n\n${findings.map(finding => `- ${finding}`).join('\n')}\n\nPreserve the original report and history. Equivalent headings and summary bullets are supported; no status, body or acceptance is assigned by this check. This comment updates after issue edits or label changes.`;
 }
 
 async function run({github, context, core}) {
@@ -94,10 +104,13 @@ async function run({github, context, core}) {
   const findings = validateIssue(issue);
   const comments = await github.paginate(github.rest.issues.listComments, {...target, per_page: 100});
   const existing = comments.find(comment => comment.user?.login === 'github-actions[bot]' && comment.user?.type === 'Bot' && comment.body?.startsWith(MARKER));
-  const body = issue.state === 'closed' ? `${MARKER}\nIssue closed; guideline feedback is inactive. Closure and acceptance remain subject to the issue policy.` : feedback(findings);
+  const internal = requiresInternalChecks(issue);
+  const body = issue.state === 'closed' ? `${MARKER}\nIssue closed; guideline feedback is inactive. Closure and acceptance remain subject to the issue policy.`
+    : !internal ? `${MARKER}\nNo additional fields are required from the reporter. Maintainers handle internal tracking details during triage.`
+    : feedback(findings);
   if (existing && existing.body !== body) await github.rest.issues.updateComment({owner, repo, comment_id: existing.id, body});
   else if (!existing && findings.length) await github.rest.issues.createComment({...target, body});
-  core.info(`Issue guidelines: ${findings.length} structural finding(s).`);
+  core.info(internal ? `Issue guidelines: ${findings.length} structural finding(s).` : 'Public report: internal tracking checks deferred to maintainer triage.');
 }
 
-module.exports = {TYPES, STATUSES, MARKER, sections, validateIssue, feedback, run};
+module.exports = {TYPES, STATUSES, MARKER, INTERNAL_LABEL, sections, requiresInternalChecks, validateIssue, feedback, run};
